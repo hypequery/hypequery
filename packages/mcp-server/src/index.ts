@@ -46,8 +46,13 @@ export type {
 } from './types.js';
 export {
   MCPExecutionBudgetError,
+  MCPToolError,
+  classifyMCPToolError,
   formatMCPToolError,
+  type MCPErrorDetails,
   type MCPExecutionErrorCode,
+  type MCPToolErrorCode,
+  type MCPToolErrorCategory,
 } from './errors.js';
 export {
   MAX_QUERY_LIMIT,

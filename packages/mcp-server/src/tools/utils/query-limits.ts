@@ -1,4 +1,5 @@
 import type { DatasetLimits } from '@hypequery/datasets';
+import { MCPToolError } from '../../errors.js';
 import {
   DEFAULT_QUERY_LIMIT,
   MAX_QUERY_DIMENSIONS,
@@ -110,7 +111,10 @@ function assertCollectionLimit(
   name: string,
 ): void {
   if ((values?.length ?? 0) > maximum) {
-    throw new Error(`Invalid ${name}: maximum ${maximum} items`);
+    throw new MCPToolError(
+      'MCP_INVALID_ARGUMENTS',
+      `Invalid ${name}: maximum ${maximum} items`,
+    );
   }
 }
 
@@ -127,10 +131,16 @@ export function applyQueryLimits(
 
   const limit = query.limit ?? limits.defaultResultSize;
   if (limit > limits.maxResultSize) {
-    throw new Error(`Invalid limit: ${limit}. Max: ${limits.maxResultSize}`);
+    throw new MCPToolError(
+      'MCP_INVALID_ARGUMENTS',
+      `Invalid limit: ${limit}. Max: ${limits.maxResultSize}`,
+    );
   }
   if (query.offset !== undefined && query.offset > limits.maxOffset) {
-    throw new Error(`Invalid offset: ${query.offset}. Max: ${limits.maxOffset}`);
+    throw new MCPToolError(
+      'MCP_INVALID_ARGUMENTS',
+      `Invalid offset: ${query.offset}. Max: ${limits.maxOffset}`,
+    );
   }
   return Object.freeze({ limit, ...(query.offset === undefined ? {} : { offset: query.offset }) });
 }

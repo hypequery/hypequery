@@ -8,17 +8,26 @@ import type {
   CanonicalSemanticQuerySchemas,
   DatasetClient,
 } from '@hypequery/datasets';
-import { formatMCPToolError } from './errors.js';
+import { MCPToolError } from './errors.js';
 import { datasetGuidePrompt } from './prompts/dataset-guide.js';
 import { getDatasetSchemaTool } from './tools/introspect.js';
 import { listDatasetsTool } from './tools/list-datasets.js';
 import { queryDatasetTool } from './tools/query-dataset.js';
 import { queryMetricTool } from './tools/query-metric.js';
+import { buildMCPToolManifest } from './tools/tool-manifest.js';
 import { buildMCPQuerySchemas } from './tools/utils/canonical-query-schemas.js';
-import { resolveExecutionBudget } from './tools/utils/execution-budget.js';
+import {
+  assertWithinBudget,
+  resolveExecutionBudget,
+  type EffectiveExecutionBudget,
+} from './tools/utils/execution-budget.js';
 import { resolveQueryLimits } from './tools/utils/query-limits.js';
 import type { DatasetRegistry, MCPExecutionBudget, MCPQueryLimits } from './types.js';
 import { validateMCPServerTenantConfig } from './utils/tenant-config.js';
+import {
+  createMCPErrorResponse,
+  createMCPResultTooLargeResponse,
+} from './tools/utils/tool-response.js';
 
 export interface MCPExecutorConfig {
   /** Dataset registry - map of dataset names to instances. */
@@ -63,11 +72,12 @@ export interface MCPToolExecutor {
  */
 export class HypequeryMCPExecutor implements MCPToolExecutor {
   private readonly querySchemas: CanonicalSemanticQuerySchemas;
+  private readonly executionBudget: EffectiveExecutionBudget;
 
   constructor(private readonly config: MCPExecutorConfig) {
     validateMCPServerTenantConfig(config);
     resolveQueryLimits(undefined, config.queryLimits);
-    resolveExecutionBudget(config.executionBudget);
+    this.executionBudget = resolveExecutionBudget(config.executionBudget);
     this.querySchemas = buildMCPQuerySchemas(config.datasets ?? {}, config.queryLimits);
   }
 
@@ -76,48 +86,7 @@ export class HypequeryMCPExecutor implements MCPToolExecutor {
   }
 
   async listTools(): Promise<ListToolsResult> {
-    return {
-      tools: [
-        {
-          name: 'list_datasets',
-          description: 'List all available datasets in the semantic layer',
-          inputSchema: {
-            type: 'object',
-            properties: {},
-          },
-        },
-        {
-          name: 'get_dataset_schema',
-          description: 'Get the schema (dimensions, measures, named metrics, filters, relationships) for a specific dataset',
-          inputSchema: {
-            type: 'object',
-            properties: {
-              dataset: {
-                type: 'string',
-                description: 'Name of the dataset to introspect',
-              },
-            },
-            required: ['dataset'],
-          },
-        },
-        {
-          name: 'query_metric',
-          description: 'Execute a metric query with optional dimensions, filters, time grain, and sorting',
-          inputSchema: this.querySchemas.queryMetricJsonSchema as {
-            type: 'object';
-            [key: string]: unknown;
-          },
-        },
-        {
-          name: 'query_dataset',
-          description: 'Execute an ad-hoc dataset query with custom dimensions and measures',
-          inputSchema: this.querySchemas.queryDatasetJsonSchema as {
-            type: 'object';
-            [key: string]: unknown;
-          },
-        },
-      ],
-    };
+    return buildMCPToolManifest(this.querySchemas);
   }
 
   async callTool(
@@ -168,18 +137,16 @@ export class HypequeryMCPExecutor implements MCPToolExecutor {
           );
 
         default:
-          throw new Error(`Unknown tool: ${name}`);
+          throw new MCPToolError('MCP_UNKNOWN_TOOL', `Unknown tool: ${name}`);
       }
     } catch (error) {
-      return {
-        content: [
-          {
-            type: 'text',
-            text: formatMCPToolError(error),
-          },
-        ],
-        isError: true,
-      };
+      const response = createMCPErrorResponse(error);
+      try {
+        assertWithinBudget(response, this.executionBudget);
+        return response;
+      } catch {
+        return createMCPResultTooLargeResponse();
+      }
     }
   }
 

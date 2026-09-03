@@ -56,6 +56,29 @@ Now an agent can ask, “Show revenue by region for the last month,” using the
 - `query_metric` executes named KPIs;
 - `query_dataset` explores the fields you chose to publish.
 
+Every tool declares an output schema and returns the same result twice: MCP
+`structuredContent` for clients that support typed results, and compact JSON in
+the text content block for compatibility. Query metadata includes row count,
+timing when available, pagination state, and cache outcome. Tools also advertise
+human-readable titles and read-only, non-destructive, idempotent annotations.
+
+Tool failures use a stable structured envelope:
+
+```json
+{
+  "error": {
+    "code": "MCP_INVALID_ARGUMENTS",
+    "category": "correctable_input",
+    "message": "Invalid query_dataset arguments: ...",
+    "retryable": false,
+    "correctable": true
+  }
+}
+```
+
+Unclassified backend failures are redacted to `MCP_EXECUTION_FAILED`; database
+error details and physical SQL are not copied into agent-facing errors.
+
 ## Safer than raw SQL access
 
 - Tool schemas come from your TypeScript semantic layer.

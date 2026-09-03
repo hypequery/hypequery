@@ -6,6 +6,7 @@
  */
 
 import { getDatasetCatalog, listQueryableRelationshipFields } from '@hypequery/datasets';
+import { MCPToolError } from '../errors.js';
 import type {
   DatasetRegistry,
   GetDatasetSchemaArgs,
@@ -18,6 +19,7 @@ import type {
   RelationshipSchema,
   SchemaToolOptions,
 } from '../types.js';
+import { createMCPToolResponse } from './utils/tool-response.js';
 
 function isDatasetInstance(value: unknown): value is Parameters<typeof getDatasetCatalog>[0] {
   return !!value && typeof value === 'object' && (value as { __type?: unknown }).__type === 'dataset';
@@ -28,18 +30,18 @@ export async function getDatasetSchemaTool(
   args: unknown,
   options: SchemaToolOptions = {},
 ): Promise<MCPToolResponse> {
-  // Parse and validate args
-  const validatedArgs = args as GetDatasetSchemaArgs;
-  const datasetName = validatedArgs.dataset;
+  const datasetName = args && typeof args === 'object' && !Array.isArray(args)
+    ? (args as Partial<GetDatasetSchemaArgs>).dataset
+    : undefined;
 
-  if (!datasetName) {
-    throw new Error('dataset parameter is required');
+  if (typeof datasetName !== 'string' || datasetName.length === 0) {
+    throw new MCPToolError('MCP_INVALID_ARGUMENTS', 'dataset parameter is required');
   }
 
   const dataset = datasets[datasetName];
 
   if (!dataset) {
-    throw new Error(`Dataset not found: ${datasetName}`);
+    throw new MCPToolError('MCP_NOT_FOUND', `Dataset not found: ${datasetName}`);
   }
 
   const datasetAny = dataset as any;
@@ -202,12 +204,5 @@ export async function getDatasetSchemaTool(
     }
   }
 
-  return {
-    content: [
-      {
-        type: 'text' as const,
-        text: JSON.stringify(schema, null, 2),
-      },
-    ],
-  };
+  return createMCPToolResponse(schema);
 }

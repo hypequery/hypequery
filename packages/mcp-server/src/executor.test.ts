@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { DatasetClient } from '@hypequery/datasets';
 import { HypequeryMCPExecutor } from './executor.js';
+import { MIN_RESPONSE_BYTES } from './tools/utils/execution-budget.js';
 
 describe('HypequeryMCPExecutor', () => {
   const analytics = {
@@ -52,7 +53,52 @@ describe('HypequeryMCPExecutor', () => {
 
     await expect(executor.callTool('unknown')).resolves.toMatchObject({
       isError: true,
-      content: [{ type: 'text', text: 'Error: Unknown tool: unknown' }],
+      content: [{
+        type: 'text',
+        text: 'Error [MCP_UNKNOWN_TOOL]: Unknown tool: unknown',
+      }],
+      structuredContent: {
+        error: {
+          code: 'MCP_UNKNOWN_TOOL',
+          category: 'correctable_input',
+          message: 'Unknown tool: unknown',
+          retryable: false,
+          correctable: true,
+        },
+      },
     });
+  });
+
+  it('maps oversized dual-format results to a structured budget error', async () => {
+    const oversizedAnalytics = {
+      execute: vi.fn(async () => ({
+        data: [{ payload: 'x'.repeat(200) }],
+        meta: {},
+      })),
+    } as unknown as DatasetClient;
+    const executor = new HypequeryMCPExecutor({
+      datasets,
+      analytics: oversizedAnalytics,
+      executionBudget: { maxResponseBytes: MIN_RESPONSE_BYTES },
+    });
+
+    await expect(executor.callTool('query_dataset', {
+      dataset: 'orders',
+      dimensions: ['region'],
+    })).resolves.toMatchObject({
+      isError: true,
+      structuredContent: {
+        error: {
+          code: 'MCP_RESULT_TOO_LARGE',
+          category: 'budget',
+        },
+      },
+    });
+    const response = await executor.callTool('query_dataset', {
+      dataset: 'orders',
+      dimensions: ['region'],
+    });
+    expect(Buffer.byteLength(JSON.stringify(response), 'utf8'))
+      .toBeLessThanOrEqual(MIN_RESPONSE_BYTES);
   });
 });

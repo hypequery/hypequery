@@ -6,6 +6,7 @@
 
 import { getDatasetCatalog } from '@hypequery/datasets';
 import type { DatasetRegistry, MCPToolResponse, DatasetsListResponse, DatasetListItem } from '../types.js';
+import { createMCPToolResponse } from './utils/tool-response.js';
 
 function isDatasetInstance(value: unknown): value is Parameters<typeof getDatasetCatalog>[0] {
   return !!value && typeof value === 'object' && (value as { __type?: unknown }).__type === 'dataset';
@@ -46,12 +47,5 @@ export async function listDatasetsTool(datasets: DatasetRegistry): Promise<MCPTo
     total: datasetList.length,
   };
 
-  return {
-    content: [
-      {
-        type: 'text' as const,
-        text: JSON.stringify(response, null, 2),
-      },
-    ],
-  };
+  return createMCPToolResponse(response);
 }

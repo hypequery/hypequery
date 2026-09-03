@@ -2,11 +2,12 @@
 
 ## Overview
 
-Comprehensive test suite for `@hypequery/mcp` with **115 passing tests** across 12 test files.
+Comprehensive test suite for `@hypequery/mcp` covering tools, prompts,
+transport-neutral execution, protocol integration, and public contracts.
 
 ## Test Coverage
 
-### 1. Tools (81 tests)
+### 1. Tools
 
 #### `list-datasets.test.ts` (8 tests)
 - ✅ Empty dataset list handling
@@ -61,7 +62,7 @@ Comprehensive test suite for `@hypequery/mcp` with **115 passing tests** across 
 - ✅ Per-dataset effective limit advertisement
 - ✅ Metric schemas omit measure limits
 
-#### `execution-budget.test.ts` (7 tests)
+#### `execution-budget.test.ts`
 - ✅ Safe deadline and response-byte defaults
 - ✅ Request cancellation propagation
 - ✅ Pre-cancelled requests skip query invocation
@@ -76,6 +77,7 @@ Comprehensive test suite for `@hypequery/mcp` with **115 passing tests** across 
 - ✅ Malformed Dataset entries fail closed
 - ✅ Deterministic manifest hashing
 - ✅ Canonical MCP and Dataset manifests have identical structure and identity
+- ✅ Complete structured and text-fallback response byte accounting
 
 #### `query-sql.integration.test.ts` (5 tests)
 - ✅ SQL redaction for dataset and metric results
@@ -98,7 +100,7 @@ Comprehensive test suite for `@hypequery/mcp` with **115 passing tests** across 
 - ✅ Example workflow
 - ✅ Message structure validation
 
-### 3. Server (20 tests)
+### 3. Core, protocol, and contracts
 
 #### `server.test.ts` (20 tests)
 - ✅ Server instantiation with default config
@@ -119,10 +121,12 @@ Comprehensive test suite for `@hypequery/mcp` with **115 passing tests** across 
 #### `examples.test.ts` (1 test)
 - ✅ Finite no-setup configuration loads as a valid Dataset
 
+Additional focused suites cover canonical manifests (2), the transport-neutral
+executor (4), real in-memory MCP protocol exchange (2), stable errors (4), and
+tool output schemas/annotations (1).
+
 ## Test Statistics
 
-- **Total Tests:** 115
-- **Test Files:** 12
 - **Pass Rate:** 100%
 
 ## Test Framework
@@ -141,12 +145,13 @@ Comprehensive test suite for `@hypequery/mcp` with **115 passing tests** across 
 - Edge cases (empty data, missing fields, defaults)
 
 ### 🔄 Mocked
-- MCP SDK components (Server, StdioServerTransport)
+- Stdio lifecycle components; protocol conformance uses the real MCP SDK client
+  and linked in-memory transport
 - Semantic runner (query execution)
 - BuilderFactory
 
 ### 📝 Not Tested
-- Integration tests with real MCP clients (Claude Desktop, Cursor)
+- Compatibility tests with external MCP clients (Claude Desktop, Cursor)
 - Integration tests with real ClickHouse databases
 - End-to-end workflow tests
 - Performance/load tests
@@ -205,7 +210,8 @@ it('should execute metric query with dimensions', async () => {
 
 ## Next Steps
 
-1. ✅ **Unit Tests** - Complete (115 tests)
-2. ⏭️ **Integration Tests** - Test with real MCP clients
-3. ⏭️ **E2E Tests** - Full workflow with ClickHouse
-4. ⏭️ **Performance Tests** - Load testing with large datasets
+1. ✅ **Unit Tests** - Complete
+2. ✅ **In-memory MCP protocol tests** - Real SDK client and server transport
+3. ⏭️ **Integration Tests** - Test with external MCP clients
+4. ⏭️ **E2E Tests** - Full workflow with ClickHouse
+5. ⏭️ **Performance Tests** - Load testing with large datasets

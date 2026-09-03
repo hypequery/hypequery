@@ -6,6 +6,12 @@ import {
   MAX_RESPONSE_BYTES,
   type MCPExecutionBudget,
 } from '../../types.js';
+import { createMCPResultTooLargeResponse } from './tool-response.js';
+
+export const MIN_RESPONSE_BYTES = Buffer.byteLength(
+  JSON.stringify(createMCPResultTooLargeResponse()),
+  'utf8',
+);
 
 export interface EffectiveExecutionBudget {
   readonly timeoutMs: number;
@@ -19,8 +25,9 @@ function positiveInteger(
   name: string,
 ): number {
   const resolved = value ?? fallback;
-  if (!Number.isSafeInteger(resolved) || resolved < 1 || resolved > maximum) {
-    throw new Error(`${name} must be an integer between 1 and ${maximum}`);
+  const minimum = name === 'maxResponseBytes' ? MIN_RESPONSE_BYTES : 1;
+  if (!Number.isSafeInteger(resolved) || resolved < minimum || resolved > maximum) {
+    throw new Error(`${name} must be an integer between ${minimum} and ${maximum}`);
   }
   return resolved;
 }
@@ -96,7 +103,22 @@ export function serializeWithinBudget(
   value: unknown,
   budget: EffectiveExecutionBudget,
 ): string {
-  const serialized = JSON.stringify(value, null, 2);
+  const serialized = JSON.stringify(value);
+  assertSerializedWithinBudget(serialized, budget);
+  return serialized;
+}
+
+export function assertWithinBudget(
+  value: unknown,
+  budget: EffectiveExecutionBudget,
+): void {
+  assertSerializedWithinBudget(JSON.stringify(value), budget);
+}
+
+function assertSerializedWithinBudget(
+  serialized: string,
+  budget: EffectiveExecutionBudget,
+): void {
   const size = Buffer.byteLength(serialized, 'utf8');
   if (size > budget.maxResponseBytes) {
     throw new MCPExecutionBudgetError(
@@ -104,5 +126,4 @@ export function serializeWithinBudget(
       `The serialized result is ${size} bytes; maximum is ${budget.maxResponseBytes} bytes`,
     );
   }
-  return serialized;
 }

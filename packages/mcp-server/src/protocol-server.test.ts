@@ -1,7 +1,8 @@
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
+import type { DatasetClient } from '@hypequery/datasets';
 import { describe, expect, it, vi } from 'vitest';
-import type { MCPToolExecutor } from './executor.js';
+import { HypequeryMCPExecutor, type MCPToolExecutor } from './executor.js';
 import { HypequeryMCPProtocolServer } from './protocol-server.js';
 
 describe('HypequeryMCPProtocolServer', () => {
@@ -72,6 +73,74 @@ describe('HypequeryMCPProtocolServer', () => {
         expect.any(AbortSignal),
       );
       expect(executor.getPrompt).toHaveBeenCalledWith('fixture_prompt', { dataset: 'orders' });
+    } finally {
+      await client.close();
+      await server.close();
+    }
+  });
+
+  it('returns schema-valid structured results with compatible text fallback', async () => {
+    const analytics = {
+      execute: vi.fn(async () => ({
+        data: [{ region: 'EU', revenue: 42 }],
+        meta: { timingMs: 5 },
+      })),
+    } as unknown as DatasetClient;
+    const executor = new HypequeryMCPExecutor({
+      datasets: {
+        orders: {
+          dimensions: { region: {} },
+          measures: { revenue: {} },
+          metrics: {},
+        },
+      },
+      analytics,
+    });
+    const server = new HypequeryMCPProtocolServer({ executor });
+    const client = new Client(
+      { name: 'structured-client', version: '1.0.0' },
+      { capabilities: {} },
+    );
+    const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+
+    try {
+      await server.connect(serverTransport);
+      await client.connect(clientTransport);
+      await client.listTools();
+
+      const result = await client.callTool({
+        name: 'query_dataset',
+        arguments: {
+          dataset: 'orders',
+          dimensions: ['region'],
+          measures: ['revenue'],
+        },
+      });
+
+      expect(result.structuredContent).toEqual({
+        data: [{ region: 'EU', revenue: 42 }],
+        meta: {
+          timingMs: 5,
+          rowCount: 1,
+          cache: { status: 'bypass' },
+        },
+      });
+      expect(JSON.parse(result.content[0].type === 'text' ? result.content[0].text : ''))
+        .toEqual(result.structuredContent);
+
+      const error = await client.callTool({
+        name: 'query_dataset',
+        arguments: { dimensions: ['region'] },
+      });
+      expect(error).toMatchObject({
+        isError: true,
+        structuredContent: {
+          error: {
+            code: 'MCP_INVALID_ARGUMENTS',
+            retryable: false,
+          },
+        },
+      });
     } finally {
       await client.close();
       await server.close();
