@@ -40,6 +40,7 @@ export interface DeployOptions extends SubmitDeploymentOptions {
   bundleOutput?: string;
   releaseOutput?: string;
   source?: boolean;
+  allowUnsupportedConfig?: boolean;
 }
 
 export interface SubmitDeploymentDependencies {
@@ -282,7 +283,11 @@ export async function deployCommand(
   await resolveDeploymentCredential(options.endpoint, dependencies);
 
   try {
-    await build(sourcePath, { bundleOutput: bundlePath, source: options.source });
+    await build(sourcePath, {
+      bundleOutput: bundlePath,
+      source: options.source,
+      allowUnsupportedConfig: options.allowUnsupportedConfig,
+    });
   } catch (error) {
     throw withRuntimeFlagHint(error);
   }

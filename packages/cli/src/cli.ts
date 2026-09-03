@@ -209,7 +209,10 @@ program
   .option('--runtime-output <path>', 'Bundled Node runtime path (default: beside deployment JSON)')
   .option('--entrypoint-prefix <prefix>', 'Runtime entrypoint prefix (default: queries)')
   .option('--hash-output <path>', 'Deployment identity sidecar path (default: <output>.sha256)')
-  .option('--no-source', 'Exclude project source files from the deployment bundle')
+  .option(
+    '--allow-unsupported-config',
+    'Deploy even though some Serve config will not be honoured in Cloud',
+  )
   .action(runCommand(async (api: string, options: BuildDeploymentOptions) => {
     await buildDeploymentCommand(api, options);
   }));
@@ -263,6 +266,10 @@ program
   .option(
     '--replace-restored',
     'Intentionally replace a restored live release',
+  )
+  .option(
+    '--allow-unsupported-config',
+    'Deploy even though some Serve config will not be honoured in Cloud',
   )
   .action(runCommand(async (source: string, options: DeployOptions) => {
     await deployCommand(source, options);

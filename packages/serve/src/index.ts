@@ -20,6 +20,15 @@ export { createCacheObservability, detectBuilderCache } from "./cache-observabil
 export type { CacheObservability, CacheLayerStats, BuilderCacheLike } from "./cache-observability.js";
 export { buildProtocolDeploymentContract } from './protocol-adapter.js';
 export type { BuildProtocolDeploymentOptions } from './protocol-adapter.js';
+export {
+  analyzeCloudCompatibility,
+  formatCloudCompatibilityDiagnostics,
+} from './cloud-compatibility.js';
+export type {
+  CloudCompatibilityCode,
+  CloudCompatibilityDiagnostic,
+  CloudCompatibilitySeverity,
+} from './cloud-compatibility.js';
 export { ProtocolSchemaAdapterError, zodToProtocolSchema } from './protocol-schema-adapter.js';
 /** @deprecated Import from `@hypequery/serve/dev` instead. */
 export { serveDev } from "./dev.js";
