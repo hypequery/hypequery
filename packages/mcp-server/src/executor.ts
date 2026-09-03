@@ -103,7 +103,6 @@ export class HypequeryMCPExecutor implements MCPToolExecutor {
           return await getDatasetSchemaTool(
             this.config.datasets,
             args,
-            { includeSql: this.config.includeSql },
           );
 
         case 'query_metric':

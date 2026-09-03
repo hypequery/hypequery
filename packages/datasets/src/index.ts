@@ -45,6 +45,25 @@ export type {
   RelationshipCatalogEntry,
 } from './catalog.js';
 
+// Agent-safe and separately authorized trusted-debug catalog projections.
+export {
+  projectAgentSafeCatalog,
+  projectTrustedDebugCatalog,
+} from './agent-catalog.js';
+export type {
+  AgentCatalogDataset,
+  AgentCatalogDatasetRegistry,
+  AgentCatalogDimension,
+  AgentCatalogFilter,
+  AgentCatalogMeasure,
+  AgentCatalogMetric,
+  AgentCatalogRelationship,
+  AgentCatalogSource,
+  AgentSafeCatalog,
+  TrustedDebugCatalog,
+  TrustedDebugCatalogAuthorization,
+} from './agent-catalog.js';
+
 // Semantic contract (stable, hashable export for snapshots/diffs/validation)
 export {
   serializeSemanticContract,
