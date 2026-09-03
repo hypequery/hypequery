@@ -5,6 +5,7 @@
  */
 
 import type { DatasetClient, MetricQuery } from '@hypequery/datasets';
+import { MCPToolError } from '../errors.js';
 import type { DatasetRegistry, MCPToolResponse, QueryToolOptions } from '../types.js';
 import { parseToolArgs, toMetricFilters } from './args.js';
 import { buildMCPQuerySchemas } from './utils/canonical-query-schemas.js';
@@ -28,24 +29,27 @@ export async function queryMetricTool(
   const { dataset: datasetName, metric: metricName, dimensions, filters, grain, orderBy } = validatedArgs;
 
   if (!datasetName) {
-    throw new Error('dataset parameter is required');
+    throw new MCPToolError('MCP_INVALID_ARGUMENTS', 'dataset parameter is required');
   }
 
   if (!metricName) {
-    throw new Error('metric parameter is required');
+    throw new MCPToolError('MCP_INVALID_ARGUMENTS', 'metric parameter is required');
   }
 
   const dataset = datasets[datasetName];
 
   if (!dataset) {
-    throw new Error(`Dataset not found: ${datasetName}`);
+    throw new MCPToolError('MCP_NOT_FOUND', `Dataset not found: ${datasetName}`);
   }
 
   // Get the metric from the dataset
   const metric = (dataset as any)[metricName] || (dataset as any).metrics?.[metricName];
 
   if (!metric) {
-    throw new Error(`Metric not found: ${metricName} in dataset ${datasetName}`);
+    throw new MCPToolError(
+      'MCP_NOT_FOUND',
+      `Metric not found: ${metricName} in dataset ${datasetName}`,
+    );
   }
 
   const pagination = applyQueryLimits(dataset, validatedArgs, options.limits);

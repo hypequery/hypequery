@@ -87,10 +87,6 @@ export class MCPExecutionBudgetError extends MCPToolError {
   }
 }
 
-function messageOf(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
-}
-
 export function classifyMCPToolError(error: unknown): MCPErrorDetails {
   if (error instanceof MCPToolError) {
     return {
@@ -99,39 +95,6 @@ export function classifyMCPToolError(error: unknown): MCPErrorDetails {
       message: error.message,
       retryable: error.retryable,
       correctable: error.correctable,
-    };
-  }
-
-  const message = messageOf(error);
-  if (message.startsWith('Unknown tool:')) {
-    return {
-      code: 'MCP_UNKNOWN_TOOL',
-      category: 'correctable_input',
-      message,
-      retryable: false,
-      correctable: true,
-    };
-  }
-  if (message.includes('not found:') || message.startsWith('Metric not found:')) {
-    return {
-      code: 'MCP_NOT_FOUND',
-      category: 'correctable_input',
-      message,
-      retryable: false,
-      correctable: true,
-    };
-  }
-  if (
-    message.startsWith('Invalid ')
-    || message.endsWith('parameter is required')
-    || message.startsWith('At least one ')
-  ) {
-    return {
-      code: 'MCP_INVALID_ARGUMENTS',
-      category: 'correctable_input',
-      message,
-      retryable: false,
-      correctable: true,
     };
   }
 

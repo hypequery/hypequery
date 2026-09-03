@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { SEMANTIC_FILTER_OPERATORS, type MetricFilter } from '@hypequery/datasets';
+import { MCPToolError } from '../errors.js';
 import {
   MAX_QUERY_DIMENSIONS,
   MAX_QUERY_FILTERS,
@@ -51,7 +52,10 @@ function formatZodError(error: z.ZodError): string {
 export function parseToolArgs<T>(schema: z.ZodType<T>, toolName: string, args: unknown): T {
   const result = schema.safeParse(args);
   if (!result.success) {
-    throw new Error(`Invalid ${toolName} arguments: ${formatZodError(result.error)}`);
+    throw new MCPToolError(
+      'MCP_INVALID_ARGUMENTS',
+      `Invalid ${toolName} arguments: ${formatZodError(result.error)}`,
+    );
   }
   return result.data;
 }

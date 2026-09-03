@@ -11,6 +11,12 @@ describe('getDatasetSchemaTool', () => {
     await expect(getDatasetSchemaTool({}, {})).rejects.toThrow(
       'dataset parameter is required'
     );
+    await expect(getDatasetSchemaTool({}, undefined)).rejects.toMatchObject({
+      code: 'MCP_INVALID_ARGUMENTS',
+    });
+    await expect(getDatasetSchemaTool({}, { dataset: 42 })).rejects.toMatchObject({
+      code: 'MCP_INVALID_ARGUMENTS',
+    });
   });
 
   it('should throw error when dataset is not found', async () => {

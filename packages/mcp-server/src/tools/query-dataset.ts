@@ -5,6 +5,7 @@
  */
 
 import type { DatasetClient, DatasetQuery } from '@hypequery/datasets';
+import { MCPToolError } from '../errors.js';
 import type { DatasetRegistry, MCPToolResponse, QueryToolOptions } from '../types.js';
 import { parseToolArgs, toMetricFilters } from './args.js';
 import { buildMCPQuerySchemas } from './utils/canonical-query-schemas.js';
@@ -28,17 +29,20 @@ export async function queryDatasetTool(
   const { dataset: datasetName, dimensions, measures, filters, grain, orderBy } = validatedArgs;
 
   if (!datasetName) {
-    throw new Error('dataset parameter is required');
+    throw new MCPToolError('MCP_INVALID_ARGUMENTS', 'dataset parameter is required');
   }
 
   const dataset = datasets[datasetName];
 
   if (!dataset) {
-    throw new Error(`Dataset not found: ${datasetName}`);
+    throw new MCPToolError('MCP_NOT_FOUND', `Dataset not found: ${datasetName}`);
   }
 
   if (!dimensions?.length && !measures?.length) {
-    throw new Error('At least one dimension or measure must be specified');
+    throw new MCPToolError(
+      'MCP_INVALID_ARGUMENTS',
+      'At least one dimension or measure must be specified',
+    );
   }
 
   const pagination = applyQueryLimits(dataset, validatedArgs, options.limits);

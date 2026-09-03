@@ -8,6 +8,7 @@ import type {
   CanonicalSemanticQuerySchemas,
   DatasetClient,
 } from '@hypequery/datasets';
+import { MCPToolError } from './errors.js';
 import { datasetGuidePrompt } from './prompts/dataset-guide.js';
 import { getDatasetSchemaTool } from './tools/introspect.js';
 import { listDatasetsTool } from './tools/list-datasets.js';
@@ -136,7 +137,7 @@ export class HypequeryMCPExecutor implements MCPToolExecutor {
           );
 
         default:
-          throw new Error(`Unknown tool: ${name}`);
+          throw new MCPToolError('MCP_UNKNOWN_TOOL', `Unknown tool: ${name}`);
       }
     } catch (error) {
       const response = createMCPErrorResponse(error);

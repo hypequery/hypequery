@@ -210,7 +210,7 @@ it('should execute metric query with dimensions', async () => {
 
 ## Next Steps
 
-1. ✅ **Unit Tests** - Complete (115 tests)
+1. ✅ **Unit Tests** - Complete
 2. ✅ **In-memory MCP protocol tests** - Real SDK client and server transport
 3. ⏭️ **Integration Tests** - Test with external MCP clients
 4. ⏭️ **E2E Tests** - Full workflow with ClickHouse

@@ -21,14 +21,20 @@ describe('stable MCP tool errors', () => {
   });
 
   it('classifies validation and lookup failures', () => {
-    expect(classifyMCPToolError(new Error('Invalid query_dataset arguments: limit')))
+    expect(classifyMCPToolError(new MCPToolError(
+      'MCP_INVALID_ARGUMENTS',
+      'Invalid query_dataset arguments: limit',
+    )))
       .toMatchObject({
         code: 'MCP_INVALID_ARGUMENTS',
         category: 'correctable_input',
         retryable: false,
         correctable: true,
       });
-    expect(classifyMCPToolError(new Error('Dataset not found: secret')))
+    expect(classifyMCPToolError(new MCPToolError(
+      'MCP_NOT_FOUND',
+      'Dataset not found: secret',
+    )))
       .toMatchObject({ code: 'MCP_NOT_FOUND', retryable: false });
   });
 
@@ -53,5 +59,11 @@ describe('stable MCP tool errors', () => {
     });
     expect(formatMCPToolError(new Error('SELECT password')))
       .toBe('Error [MCP_EXECUTION_FAILED]: Query execution failed');
+    expect(classifyMCPToolError(new Error(
+      'Table not found: private_table; SELECT password FROM users',
+    ))).toMatchObject({
+      code: 'MCP_EXECUTION_FAILED',
+      message: 'Query execution failed',
+    });
   });
 });
