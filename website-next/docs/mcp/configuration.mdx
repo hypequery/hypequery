@@ -49,20 +49,15 @@ The MCP server can query dataset measures through `query_dataset`. If you want a
 
 <CodeBlock>
 ```javascript
+import { createDatasetPublisher } from '@hypequery/datasets';
 import { Orders } from './datasets/orders.js';
 
 const revenue = Orders.metric('revenue', { measure: 'revenue' });
 const orderCount = Orders.metric('orderCount', { measure: 'orderCount' });
 
-export const datasets = {
-  orders: {
-    ...Orders,
-    metrics: {
-      revenue,
-      orderCount,
-    },
-  },
-};
+export const datasets = createDatasetPublisher()
+  .publish(Orders, { metrics: { revenue, orderCount } })
+  .build();
 ```
 </CodeBlock>
 
