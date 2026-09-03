@@ -59,6 +59,8 @@ Now an agent can ask, “Show revenue by region for the last month,” using the
 ## Safer than raw SQL access
 
 - Tool schemas come from your TypeScript semantic layer.
+- Advertised schemas and runtime validation use the same canonical catalog
+  compiler and deterministic manifest hash.
 - Filters, fields, ordering, and limits are validated.
 - ClickHouse credentials remain in the server process.
 - SQL text stays hidden by default.

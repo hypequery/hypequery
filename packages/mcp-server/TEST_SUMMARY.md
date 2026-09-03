@@ -2,11 +2,11 @@
 
 ## Overview
 
-Comprehensive test suite for `@hypequery/mcp` with **109 passing tests** across 11 test files.
+Comprehensive test suite for `@hypequery/mcp` with **115 passing tests** across 12 test files.
 
 ## Test Coverage
 
-### 1. Tools (75 tests)
+### 1. Tools (81 tests)
 
 #### `list-datasets.test.ts` (8 tests)
 - ✅ Empty dataset list handling
@@ -69,6 +69,14 @@ Comprehensive test suite for `@hypequery/mcp` with **109 passing tests** across 
 - ✅ UTF-8 serialized result byte ceilings
 - ✅ Stable classified error formatting
 
+#### `canonical-query-schemas.test.ts` (6 tests)
+- ✅ Shared advertised and runtime query contracts
+- ✅ Legacy registry compatibility remains entry-local
+- ✅ Configured MCP limits and defaults
+- ✅ Malformed Dataset entries fail closed
+- ✅ Deterministic manifest hashing
+- ✅ Canonical MCP and Dataset manifests have identical structure and identity
+
 #### `query-sql.integration.test.ts` (5 tests)
 - ✅ SQL redaction for dataset and metric results
 - ✅ Explicit trusted SQL debugging
@@ -90,9 +98,9 @@ Comprehensive test suite for `@hypequery/mcp` with **109 passing tests** across 
 - ✅ Example workflow
 - ✅ Message structure validation
 
-### 3. Server (19 tests)
+### 3. Server (20 tests)
 
-#### `server.test.ts` (19 tests)
+#### `server.test.ts` (20 tests)
 - ✅ Server instantiation with default config
 - ✅ Custom name and version
 - ✅ Empty datasets support
@@ -113,8 +121,8 @@ Comprehensive test suite for `@hypequery/mcp` with **109 passing tests** across 
 
 ## Test Statistics
 
-- **Total Tests:** 109
-- **Test Files:** 11
+- **Total Tests:** 115
+- **Test Files:** 12
 - **Pass Rate:** 100%
 
 ## Test Framework
@@ -197,7 +205,7 @@ it('should execute metric query with dimensions', async () => {
 
 ## Next Steps
 
-1. ✅ **Unit Tests** - Complete (109 tests)
+1. ✅ **Unit Tests** - Complete (115 tests)
 2. ⏭️ **Integration Tests** - Test with real MCP clients
 3. ⏭️ **E2E Tests** - Full workflow with ClickHouse
 4. ⏭️ **Performance Tests** - Load testing with large datasets

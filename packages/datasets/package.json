@@ -55,7 +55,8 @@
   "dependencies": {
     "@hypequery/protocol": "^0.11.0",
     "@noble/hashes": "^1.8.0",
-    "zod": "^3.22.4"
+    "zod": "^3.22.4",
+    "zod-to-json-schema": "^3.23.5"
   },
   "peerDependencies": {
     "zod": "^3.22.4"

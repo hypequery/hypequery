@@ -655,7 +655,7 @@ describe("Serve integration — metrics", () => {
       );
 
       expect(response.status).toBe(400);
-      expect(semanticBody(response).error.message).toContain('does not allow operator "like"');
+      expect(semanticBody(response).error.message).toBe('Request validation failed');
     });
 
     it("clamps metric limit to maxLimit instead of rejecting", async () => {
@@ -678,6 +678,23 @@ describe("Serve integration — metrics", () => {
 
       expect(response.status).toBe(200);
       expect(semanticBody(response).meta.pagination?.limit).toBe(50);
+    });
+
+    it("accepts metric limits and offsets above canonical agent defaults", async () => {
+      const api = createAPI({
+        metrics: { revenue: { metric: totalRevenue, maxLimit: 20_000 } },
+        queryBuilder: createMockBuilderFactory(),
+      });
+
+      const response = await api.handler(
+        createRequest({
+          path: "/metrics/revenue",
+          method: "POST",
+          body: { dimensions: ["country"], limit: 15_000, offset: 15_000 },
+        })
+      );
+
+      expect(response.status).toBe(200);
     });
 
     it("applies a default limit to unbounded metric queries", async () => {
@@ -785,7 +802,12 @@ describe("Serve integration — metrics", () => {
       );
 
       expect(response.status).toBe(400);
-      expect(semanticBody(response).error.message).toContain('already grained by "month"');
+      expect(semanticBody(response).error.message).toBe('Request validation failed');
+      expect(semanticBody(response).error.details?.issues).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ path: ['by'] }),
+        ]),
+      );
     });
 
     it("works with derived metrics", async () => {
@@ -1554,7 +1576,7 @@ describe("Serve integration — metrics", () => {
       );
 
       expect(response.status).toBe(400);
-      expect(semanticBody(response).error.message).toContain('does not allow operator "like"');
+      expect(semanticBody(response).error.message).toBe('Request validation failed');
       expect(factory._calls['where']).toBeUndefined();
     });
 
@@ -1720,6 +1742,28 @@ describe("Serve integration — metrics", () => {
       expect(factory._calls['groupBy'][0][0]).toContain('country');
     });
 
+    it("preserves omitted measures as the all-measures dataset query", async () => {
+      const factory = createMockBuilderFactory([
+        { revenue: 5000, count: 12 },
+      ]);
+      const api = createAPI({
+        datasets: { orders: Orders },
+        queryBuilder: factory,
+      });
+
+      const response = await api.handler(
+        createRequest({
+          path: "/datasets/orders/query",
+          method: "POST",
+          body: {},
+        })
+      );
+
+      expect(response.status).toBe(200);
+      expect(factory._calls['sum']).toContainEqual(['amount', 'revenue']);
+      expect(factory._calls['count']).toContainEqual(['id', 'count']);
+    });
+
     it("returns request validation errors for invalid dataset fields", async () => {
       const api = createAPI({
         datasets: { orders: Orders },
@@ -1871,6 +1915,28 @@ describe("Serve integration — metrics", () => {
       // Limit is capped to maxLimit (50); the executor over-fetches one extra
       // row (51) for pagination, while returned data stays within the cap.
       expect(factory._calls['limit']).toContainEqual([51]);
+    });
+
+    it("accepts dataset limits and offsets above canonical agent defaults", async () => {
+      const api = createAPI({
+        datasets: { orders: { dataset: Orders, maxLimit: 20_000 } },
+        queryBuilder: createMockBuilderFactory(),
+      });
+
+      const response = await api.handler(
+        createRequest({
+          path: "/datasets/orders/query",
+          method: "POST",
+          body: {
+            dimensions: ["country"],
+            measures: ["revenue"],
+            limit: 15_000,
+            offset: 15_000,
+          },
+        })
+      );
+
+      expect(response.status).toBe(200);
     });
 
     it("includes dataset meta when X-Include-Meta header is set", async () => {
@@ -2092,7 +2158,8 @@ describe("Serve integration — metrics", () => {
       );
 
       expect(response.status).toBe(400);
-      expect(semanticBody(response).error.message).toContain("at least one dimension or measure");
+      expect(semanticBody(response).error.message)
+        .toContain('must select at least one dimension or measure');
     });
 
     it("throws when a dataset route key collides with an existing query key", () => {

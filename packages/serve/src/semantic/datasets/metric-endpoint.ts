@@ -18,13 +18,19 @@ import type {
   ServeMiddleware,
   TenantConfigOverride,
 } from '../../types.js';
-import type { AnyDatasetInstance, DatasetClient, MetricContract, MetricHandle, QueryBuilderFactoryLike } from '@hypequery/datasets';
+import {
+  buildMetricInputSchema,
+  type AnyDatasetInstance,
+  type DatasetClient,
+  type MetricContract,
+  type MetricHandle,
+  type QueryBuilderFactoryLike,
+} from '@hypequery/datasets';
 import { ServeHttpError } from '../../errors.js';
 import {
   resolveSemanticExecutionRuntime,
   resolveSemanticQueryBuilder,
 } from '../query-builder-context.js';
-import { buildMetricInputSchema } from './utils/semantic-input-schema.js';
 import { resolveLocalAuthRequirement } from '../../auth-requirement.js';
 
 // ---------------------------------------------------------------------------
@@ -118,10 +124,18 @@ export function createMetricEndpoint<TAuth extends AuthContext>(
   const ds = (
     metricRef.__type === 'metric_ref' ? metricRef.dataset : metricRef.metric.dataset
   ) as AnyDatasetInstance;
-  const metricQueryInputSchema = buildMetricInputSchema(ds, contract.name);
   // Page-size cap, mirroring datasets: clamp (don't reject) and apply a default
   // so a metric query is never unbounded.
   const effectiveMaxLimit = resolved.maxLimit ?? ds.limits?.maxResultSize ?? 1000;
+  const metricQueryInputSchema = buildMetricInputSchema(ds, contract.name, {
+    includeMeta: true,
+    enforceResultLimit: false,
+    maxOffset: undefined,
+    maxDimensions: undefined,
+    maxMeasures: undefined,
+    maxFilters: undefined,
+    maxOrderBy: undefined,
+  }, contract);
 
   const metadata: EndpointMetadata = {
     path: '', // filled by router.register

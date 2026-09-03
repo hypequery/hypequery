@@ -68,19 +68,22 @@ describe('semantic dataset tools', () => {
     });
 
     expect(tool.name).toBe('query_dataset');
-    expect(tool.parameters.properties?.dataset.enum).toEqual(['orders']);
+    expect(tool.parameters.properties?.dataset.const).toBe('orders');
     expect(tool.parameters.properties?.dimensions.items?.enum).toEqual([
-      'status',
-      'createdAt',
       'amount',
-      'customer.id',
+      'createdAt',
       'customer.country',
+      'customer.id',
+      'status',
     ]);
     expect(tool.parameters.properties?.measures.items?.enum).toEqual([
-      'revenue',
       'orderCount',
+      'revenue',
     ]);
     expect(tool.parameters.properties?.limit.maximum).toBe(500);
+    expect(tool.parameters.allOf).toEqual(expect.arrayContaining([
+      expect.objectContaining({ anyOf: expect.any(Array) }),
+    ]));
 
     const result = await tool.execute({
       dataset: 'orders',
@@ -120,7 +123,7 @@ describe('semantic dataset tools', () => {
         dataset: 'orders',
         dimensions: ['missing'],
       }),
-    ).rejects.toThrow('Invalid dimensions: missing. Available: status, createdAt, amount, customer.id, customer.country.');
+    ).rejects.toThrow('Invalid dataset query: dimensions.0: Invalid enum value');
     expect(execute).not.toHaveBeenCalled();
   });
 
@@ -135,16 +138,18 @@ describe('semantic dataset tools', () => {
     });
 
     expect(tool.parameters.properties?.dimensions.items?.enum).toEqual([
-      'status',
-      'createdAt',
       'amount',
-      'customer.id',
+      'createdAt',
       'customer.country',
-    ]);
-    expect(tool.parameters.properties?.filters.items?.properties?.field.enum).toEqual([
+      'customer.id',
       'status',
-      'customer.id',
+    ]);
+    expect(tool.parameters.properties?.filters.items?.anyOf?.map(
+      variant => variant.properties?.field.const,
+    )).toEqual([
       'customer.country',
+      'customer.id',
+      'status',
     ]);
 
     await tool.execute({
@@ -185,7 +190,8 @@ describe('semantic dataset tools', () => {
     });
 
     expect(datasetTools.map(tool => tool.name)).toEqual(['query_orders']);
-    expect(datasetTools[0].parameters.required).toEqual([]);
+    expect(datasetTools[0].parameters.required).toBeUndefined();
+    expect(datasetTools[0].parameters.allOf).toBeDefined();
     expect(metricTools.map(tool => tool.name)).toEqual(['query_totalRevenue']);
     expect(metricTools[0].parameters.properties?.measures).toBeUndefined();
   });
@@ -207,7 +213,7 @@ describe('semantic dataset tools', () => {
       tool.execute({
         orderBy: [{ field: 'revenue', direction: 'desc' }],
       }),
-    ).rejects.toThrow('Invalid orderBy fields: revenue. Available: status, createdAt, amount, customer.id, customer.country, totalRevenue, period.');
+    ).rejects.toThrow('Invalid totalRevenue metric query: orderBy.0.field: Invalid enum value');
     expect(execute).not.toHaveBeenCalled();
   });
 

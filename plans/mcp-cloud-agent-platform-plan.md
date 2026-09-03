@@ -428,6 +428,14 @@ executors, classified budget errors, focused tests, and release changesets.
 `MCP-102` remains open for the later tool-count and catalog-description byte
 ceilings; its query-execution and query-input portions are complete.
 
+**CORE-03 implementation status:** Implemented independently on top of
+`ARCH-01`. `@hypequery/datasets` now owns the canonical dataset/metric schema
+compiler for local Dataset definitions and normalized hosted catalogs. Serve
+consumes the shared Zod validators; MCP consumes the same validators and JSON
+Schemas, with exact enums, bounds, closed objects, selection validation, and a
+deterministic manifest hash. Legacy metadata-only MCP registries retain a
+generic compatibility validator until `CORE-08` replaces that input shape.
+
 ### Deployment bridge PRs
 
 | PR | Depends on | Deliverable and merge gate |
