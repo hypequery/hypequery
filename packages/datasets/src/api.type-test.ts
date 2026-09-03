@@ -3,6 +3,7 @@ import {
   between,
   buildCanonicalSemanticQuerySchemas,
   createDatasetClient,
+  createDatasetPublisher,
   dataset,
   desc,
   dimension,
@@ -71,6 +72,33 @@ const averageRevenueMetric = Orders.metric('averageRevenueMetric', {
   formula: ({ revenue, completedRevenue }) => add(revenue, completedRevenue),
 });
 const customerCountMetric = Customers.metric('customerCountMetric', { measure: 'customerCount' });
+
+const _publishedDatasets = createDatasetPublisher()
+  .publish(Orders, { metrics: { revenue: revenueMetric } })
+  .publish(Customers, {
+    alias: 'accounts',
+    metrics: { customers: customerCountMetric },
+  })
+  .build();
+
+type _PublishedDatasetAliasesAreLiteral = Assert<
+  Equal<keyof typeof _publishedDatasets, 'orders' | 'accounts'>
+>;
+type _PublishedMetricAliasesAreLiteral = Assert<
+  Equal<keyof typeof _publishedDatasets.orders.metrics, 'revenue'>
+>;
+type _PublishedMetricNameMatchesAlias = Assert<
+  Equal<typeof _publishedDatasets.orders.metrics.revenue.name, 'revenue'>
+>;
+type _PublishedDatasetNameMatchesAlias = Assert<
+  Equal<typeof _publishedDatasets.accounts.name, 'accounts'>
+>;
+type _PublishedMetricDatasetNameMatchesAlias = Assert<
+  Equal<typeof _publishedDatasets.accounts.metrics.customers.datasetName, 'accounts'>
+>;
+
+// @ts-expect-error published metrics must belong to the dataset being published.
+createDatasetPublisher().publish(Orders, { metrics: { customerCountMetric } });
 
 const canonicalSchemas = buildCanonicalSemanticQuerySchemas({
   orders: { ...Orders, metrics: { revenueMetric } },

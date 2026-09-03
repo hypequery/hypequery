@@ -9,7 +9,13 @@
  *   node dist/bin.js --config examples/system-one-config.js
  */
 
-import { createDatasetClient, dataset, dimension, measure } from '@hypequery/datasets';
+import {
+  createDatasetClient,
+  createDatasetPublisher,
+  dataset,
+  dimension,
+  measure,
+} from '@hypequery/datasets';
 import { createQueryBuilder } from '@hypequery/clickhouse';
 
 // Connect to local ClickHouse (defaults)
@@ -37,12 +43,9 @@ const SystemOneDataset = dataset('system_one', {
 const rowCount = SystemOneDataset.metric('rowCount', { measure: 'rowCount' });
 
 // Export for MCP server
-export const datasets = {
-  one: {
-    ...SystemOneDataset,
-    metrics: { rowCount },
-  },
-};
+export const datasets = createDatasetPublisher()
+  .publish(SystemOneDataset, { alias: 'one', metrics: { rowCount } })
+  .build();
 
 export { analytics };
 

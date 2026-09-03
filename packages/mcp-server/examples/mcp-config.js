@@ -5,7 +5,13 @@
  * Copy this file and modify it for your ClickHouse schema.
  */
 
-import { createDatasetClient, dataset, dimension, measure } from '@hypequery/datasets';
+import {
+  createDatasetClient,
+  createDatasetPublisher,
+  dataset,
+  dimension,
+  measure,
+} from '@hypequery/datasets';
 import { createQueryBuilder } from '@hypequery/clickhouse';
 
 // =============================================================================
@@ -48,11 +54,8 @@ const OrdersDataset = dataset('orders', {
 const totalRevenue = OrdersDataset.metric('totalRevenue', { measure: 'revenue' });
 const totalOrders = OrdersDataset.metric('totalOrders', { measure: 'totalOrders' });
 
-export const datasets = {
-  orders: {
-    ...OrdersDataset,
-    metrics: { totalRevenue, totalOrders },
-  },
-};
+export const datasets = createDatasetPublisher()
+  .publish(OrdersDataset, { metrics: { totalRevenue, totalOrders } })
+  .build();
 
 export { analytics };

@@ -38,7 +38,7 @@ Create an ESM config file that exports `datasets` and `analytics`.
 ```javascript
 // mcp-config.mjs
 import { createQueryBuilder } from '@hypequery/clickhouse';
-import { createDatasetClient } from '@hypequery/datasets';
+import { createDatasetClient, createDatasetPublisher } from '@hypequery/datasets';
 import { Orders } from './datasets/orders.js';
 
 const db = createQueryBuilder({
@@ -54,12 +54,9 @@ const revenue = Orders.metric('revenue', {
   description: 'Total order revenue.',
 });
 
-export const datasets = {
-  orders: {
-    ...Orders,
-    metrics: { revenue },
-  },
-};
+export const datasets = createDatasetPublisher()
+  .publish(Orders, { metrics: { revenue } })
+  .build();
 
 export const analytics = createDatasetClient({ queryBuilder: db });
 ```
@@ -72,4 +69,3 @@ Run the MCP server with the config file path:
 npx hypequery-mcp --config ./mcp-config.mjs
 ```
 </CodeBlock>
-

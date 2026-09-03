@@ -46,12 +46,11 @@ The exported `datasets` registry is the main boundary.
 
 <CodeBlock>
 ```javascript
-export const datasets = {
-  orders: {
-    ...Orders,
-    metrics: { revenue },
-  },
-};
+import { createDatasetPublisher } from '@hypequery/datasets';
+
+export const datasets = createDatasetPublisher()
+  .publish(Orders, { metrics: { revenue } })
+  .build();
 ```
 </CodeBlock>
 
