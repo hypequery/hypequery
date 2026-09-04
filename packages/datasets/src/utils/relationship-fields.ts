@@ -24,12 +24,33 @@ export function listQueryableRelationshipFields(
   name: string,
   relationship: RelationshipDefinition,
 ): string[] {
+  return relationshipFields(name, relationship, () => true);
+}
+
+/**
+ * The subset of {@link listQueryableRelationshipFields} that may be used as a
+ * grouping key, honouring `groupable: false` on the target dimension. The rest
+ * stay queryable as filters, which is why this is a separate list rather than a
+ * narrowing of the one above.
+ */
+export function listGroupableRelationshipFields(
+  name: string,
+  relationship: RelationshipDefinition,
+): string[] {
+  return relationshipFields(name, relationship, dimension => dimension.groupable !== false);
+}
+
+function relationshipFields(
+  name: string,
+  relationship: RelationshipDefinition,
+  include: (dimension: DimensionDefinition) => boolean,
+): string[] {
   if (relationship.kind === 'hasMany') {
     return [];
   }
   const target = relationship.target() as Partial<AnyDatasetInstance> | undefined;
   return Object.entries(target?.dimensions ?? {})
-    .filter(([, dimension]) => !dimension.sql)
+    .filter(([, dimension]) => !dimension.sql && include(dimension))
     .map(([field]) => `${name}.${field}`);
 }
 
