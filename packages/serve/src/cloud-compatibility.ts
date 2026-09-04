@@ -20,6 +20,7 @@
 
 import type { AuthContext, MetricEntry, DatasetEntry, ServeConfig } from './types.js';
 import { resolveDatasetEntry } from './semantic/datasets/utils/dataset-entry.js';
+import { resolveLocalAuthRequirement } from './auth-requirement.js';
 import { resolveMetricEntry } from './semantic/datasets/metric-endpoint.js';
 
 export type CloudCompatibilitySeverity = 'error' | 'warning';
@@ -70,6 +71,25 @@ function declaresRolesOrScopes(entry: {
   readonly requiredScopes?: readonly string[];
 }): boolean {
   return (entry.requiredRoles?.length ?? 0) > 0 || (entry.requiredScopes?.length ?? 0) > 0;
+}
+
+/**
+ * True when an endpoint ends up authenticated but declares nothing Cloud can
+ * enforce. Mirrors `accessPolicy` in the protocol adapter, including the local
+ * opt-out: an endpoint with `auth: null` or `requiresAuth: false` resolves to
+ * public and is not a downgrade.
+ */
+function isAuthenticatedWithoutRoles(
+  local: {
+    readonly auth?: unknown | null;
+    readonly requiresAuth?: boolean;
+    readonly requiredRoles?: readonly string[];
+    readonly requiredScopes?: readonly string[];
+  },
+  globalAuth: unknown,
+): boolean {
+  if (declaresRolesOrScopes(local)) return false;
+  return (resolveLocalAuthRequirement(local) ?? hasAuth(globalAuth)) === true;
 }
 
 /**
@@ -186,8 +206,11 @@ export function analyzeCloudCompatibility(
     });
   }
 
-  if (hasAuth(serveConfig.auth)) {
-    const undeclared = [
+  {
+    // Custom queries undergo the same reduction as semantic endpoints: the
+    // adapter calls endpointPolicy for all three, so a query with a strategy
+    // but no declared roles is downgraded exactly the same way.
+    const endpoints = [
       ...Object.entries(serveConfig.datasets ?? {}).map(([name, entry]) => [
         `datasets.${name}`,
         resolveDatasetEntry(entry as DatasetEntry<AuthContext>),
@@ -196,7 +219,14 @@ export function analyzeCloudCompatibility(
         `metrics.${name}`,
         resolveMetricEntry(entry as MetricEntry<AuthContext>),
       ] as const),
-    ].filter(([, resolved]) => !declaresRolesOrScopes(resolved as { requiredRoles?: string[] }));
+      ...Object.entries(serveConfig.queries ?? {}).map(([name, entry]) => [
+        `queries.${name}`,
+        (entry ?? {}) as Record<string, unknown>,
+      ] as const),
+    ];
+    const undeclared = endpoints.filter(
+      ([, resolved]) => isAuthenticatedWithoutRoles(resolved, serveConfig.auth),
+    );
 
     for (const [label] of undeclared) {
       diagnostics.push({

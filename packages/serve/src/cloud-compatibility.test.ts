@@ -110,6 +110,51 @@ describe('analyzeCloudCompatibility', () => {
     expect(severityOf(config, 'HQ_CLOUD_AUTH_WITHOUT_ROLES')).toBe('warning');
   });
 
+  it('warns for a custom query with a strategy but no declared roles', () => {
+    // Queries go through the same endpointPolicy reduction as semantic
+    // endpoints, so they are downgraded in exactly the same way.
+    const diagnostics = analyzeCloudCompatibility({
+      queries: { revenue: { query: async () => [] } },
+      auth: async () => ({ userId: 'u1' }),
+    } as never);
+
+    const found = diagnostics.find(d => d.code === 'HQ_CLOUD_AUTH_WITHOUT_ROLES');
+    expect(found?.severity).toBe('warning');
+    expect(found?.subject).toBe('queries.revenue');
+  });
+
+  it('respects a query that declares its own roles', () => {
+    expect(
+      codes({
+        queries: { revenue: { query: async () => [], requiredRoles: ['finance'] } },
+        auth: async () => ({ userId: 'u1' }),
+      } as never),
+    ).not.toContain('HQ_CLOUD_AUTH_WITHOUT_ROLES');
+  });
+
+  it('does not warn when requiresAuth: false opts the endpoint out', () => {
+    // An explicit false short-circuits the global fallback, so the endpoint is
+    // public and there is no authorization to lose.
+    expect(
+      codes({
+        queries: { revenue: { query: async () => [], requiresAuth: false } },
+        auth: async () => ({ userId: 'u1' }),
+      } as never),
+    ).not.toContain('HQ_CLOUD_AUTH_WITHOUT_ROLES');
+  });
+
+  it('still warns when auth: null leaves global auth in force', () => {
+    // `auth: null` only clears the endpoint's own strategy; resolveLocalAuthRequirement
+    // returns undefined and the global strategy still applies, so the endpoint
+    // stays authenticated with nothing Cloud can enforce.
+    expect(
+      codes({
+        queries: { revenue: { query: async () => [], auth: null } },
+        auth: async () => ({ userId: 'u1' }),
+      } as never),
+    ).toContain('HQ_CLOUD_AUTH_WITHOUT_ROLES');
+  });
+
   it('stays quiet when the endpoint declares roles Cloud can enforce', () => {
     expect(
       codes({
