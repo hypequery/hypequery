@@ -337,7 +337,7 @@ invalidate the security model.
 Durations are directional and assume Core and Cloud can work in parallel after
 the shared interfaces in Milestone 0 are agreed.
 
-The plan contains 31 active delivery PRs and two explicitly deferred
+The plan contains 36 active delivery PRs and two explicitly deferred
 relationship PRs. The count reflects the full local, hosted, agent, and GA
 horizon; the hosted MCP private-beta critical path does not require the agent or
 GA PRs.
@@ -369,12 +369,14 @@ Local MCP:  CORE-05 + CORE-08 -> CORE-09
 
 Deployment: CORE-03 -> CORE-10
             CORE-06 + CORE-10 -> CORE-11
-            CORE-02 + CORE-05 + CORE-11 -> CORE-12
+            CORE-03 + CORE-10 -> CORE-15 -> CORE-16 -> CORE-17
+            CORE-02 + CORE-05 + CORE-11 + CORE-16 -> CORE-12
 
 Hosted MCP: CORE-04 -> CLOUD-01 -> CLOUD-02
             CORE-06 + CORE-07 + CLOUD-02 -> CLOUD-03
             CORE-12 + CLOUD-03 -> CLOUD-04
             CLOUD-04 -> CLOUD-05 + CLOUD-06 -> CLOUD-07
+            CORE-12 -> CLOUD-08 -> CLOUD-09
             CLOUD-04 + CLOUD-06 -> CORE-14
 
 Agent:      ARCH-01 -> AGENT-01
@@ -460,8 +462,11 @@ SQL remains opt-in for trusted debugging.
 | --- | --- | --- |
 | **CORE-10 — Protocol semantic invocation types** | `ARCH-01`, `CORE-03` | Add strict dataset/metric invocation request, result, budget, and error types plus validators. Keep this PR pure: no data-plane or runtime execution. Prefer additive deployment contract v1 projection; if impossible, include an approved v2 migration document before code. |
 | **CORE-11 — Semantic data-plane policy and validation** | `CORE-06`, `CORE-10` | Add semantic invocation beside named-query execution. Resolve dataset/metric endpoint policy from the active contract and reuse authentication, roles/scopes, tenant resolution, input validation, budgets, and error categories with an injected fake executor. No runtime materialization changes. Merge with cross-tenant and forged-tenant tests. |
-| **CORE-12 — Activated runtime semantic execution** | `CORE-02`, `CORE-05`, `CORE-11` | Connect semantic data-plane requests to the activated deployment runtime/portable semantic executor, pin optional activation revision, propagate deadlines/cancellation, validate and byte-limit outputs, and cover activation/rollback races. Merge when a bundle can execute dataset and metric calls without loading a separate MCP config. |
+| **CORE-12 — Activated semantic execution** | `CORE-02`, `CORE-05`, `CORE-11`, `CORE-16` | Connect semantic data-plane requests to the portable native executor chosen in decision 0005: resolve the dataset or metric from the validated active contract, rebuild its catalog via `CORE-15`, and plan the query with the existing semantic planner. No customer module loading and no isolated runtime. Pin optional activation revision, propagate deadlines/cancellation, validate and byte-limit outputs, and cover activation/rollback races. Merge when a bundle can execute dataset and metric calls without loading a separate MCP config. |
 | **CORE-13 — Verified-question contract and local eval runner** | `CORE-07`, `CORE-12` | Define versioned verified questions with expected tool, semantic arguments, result shape, and invariant assertions. Add a local runner that can replay against local or hosted-compatible executors. No model-provider benchmarking yet. Merge with deterministic fixture evaluations. |
+| **CORE-15 — Contract-to-catalog rehydration** | `CORE-03`, `CORE-10` | Add a pure function to `@hypequery/datasets` that rebuilds an executable catalog from a protocol dataset contract: dimensions with column mappings, measures including raw SQL, filters, relationships, limits, tenant key, time key, and grains. No execution and no Cloud awareness. Merge when contract-to-catalog-to-contract is an identity across the vertical-slice fixture. |
+| **CORE-16 — Semantic SQL equality harness** | `CORE-15` | Add a query corpus and assert a rehydrated catalog emits byte-identical SQL to the authored one across dimension subsets, measure combinations, filter operators, time grains, ordering, pagination, joins, and tenant predicates. Test-only. This is the gate for decision 0005: if it cannot pass, that decision is void for the affected surface. Merge when the corpus is byte-identical or every divergence is documented and accepted. |
+| **CORE-17 — Carry the derived-metric expression** | `CORE-16`, `CORE-10` | `MetricCatalogEntry` keeps only metric shape and discards the symbolic `SemanticExpression` that `formulas.ts` produces. Carry the expression through catalog and protocol validation so derived metrics execute declaratively. Additive to deployment contract v1 where derivable without weakening validation. Merge when a derived metric round-trips and stays byte-identical under `CORE-16`. |
 | **CORE-14 — Hosted endpoint CLI UX** | `CLOUD-04`, `CLOUD-06` | Extend deploy/status output with the hosted MCP endpoint, generate supported client configuration, and add a non-destructive remote connection self-test. Authentication material must remain in the credential store and out of generated files/logs. |
 
 ### Cloud gateway PRs
@@ -477,6 +482,8 @@ versions of the Core contracts; they do not duplicate Core source.
 | **CLOUD-04 — Live hosted semantic execution** | `CLOUD-03`, `CORE-12` | Route MCP dataset/metric calls through `DeploymentHost`, preserve credentials, principal, tenant, trace, revision, cancellation, and structured result/error semantics. Merge when the vertical slice produces local/hosted parity and passes tenant-isolation tests. |
 | **CLOUD-05 — Quotas, observability, audit, and redaction** | `CLOUD-04` | Add per-principal/project concurrency and rate limits, plan/query/response budgets, request IDs, traces, metrics, audit events, usage metering, and log/result redaction. No billing UI. Merge with load, slow-backend, large-result, and client-disconnect tests. |
 | **CLOUD-06 — Deployment connection experience** | `CLOUD-04` | Add deployment-page endpoint status, copyable OAuth/token connection instructions, generated configurations for supported clients, and a connection diagnostic. Do not add the first-party agent UI. Merge after a new deployment can connect without an extra MCP config artifact. |
+| **CLOUD-08 — Executable dataset endpoints** | `CORE-12` | Replace the hardcoded `executable: false` on dataset registry entries with a real capability check, and route gateway dataset/metric execution through the deployment host rather than constructing a dataset client in the gateway. Validate input with the existing contract-derived schema, enforce endpoint and dataset limits server-side, and fail closed when a required tenant is absent. Merge when an activated dataset returns rows instead of a runtime-unavailable error. |
+| **CLOUD-09 — Rehydrated catalog cache** | `CLOUD-08` | Cache rehydrated catalogs keyed by release identity. Releases are immutable and content-addressed, so identity is an exact key with no invalidation problem. Add bounded size and eviction; comparable systems report per-tenant compiled models in the tens of megabytes. Merge with cache-hit, eviction, and activation-change tests. |
 | **CLOUD-07 — Compatibility matrix and hosted MCP private beta** | `CLOUD-05`, `CLOUD-06`, `CORE-14` | Run and document compatibility with at least three MCP clients, close beta-operability gaps, add SLO/runbook coverage, and prepare remote registry metadata. Registry submission itself remains conditional on current registry requirements and product readiness. |
 
 ### Agent harness PRs
@@ -587,7 +594,8 @@ identifiers above are the actual PR boundaries.
 
 ### Milestone 2 — Add deployment semantic execution (2–3 weeks)
 
-**Included PRs:** `CORE-10` through `CORE-12`
+**Included PRs:** `CORE-10` through `CORE-12`, plus `CORE-15` through
+`CORE-17`
 
 **Goal:** Execute dynamic dataset/metric requests through the activated Cloud
 deployment with the same guarantees as named queries.
@@ -610,6 +618,13 @@ deployment with the same guarantees as named queries.
 - [ ] **PROTOCOL-201:** Add only the minimum additive contract fields required for
   agent metadata. Preserve deployment contract v1 if this can be derived without
   weakening validation; otherwise design an explicit v2 migration.
+- [ ] **DEPLOY-208:** Rebuild an executable catalog from a protocol dataset
+  contract so execution needs no customer module. Decision 0005.
+- [ ] **DEPLOY-209:** Assert a rehydrated catalog emits byte-identical SQL to the
+  authored catalog across a query corpus. Gate for decision 0005.
+- [ ] **PROTOCOL-202:** Carry the symbolic derived-metric `SemanticExpression`
+  through catalog and protocol validation so derived metrics execute
+  declaratively.
 
 **Exit criteria**
 
@@ -619,6 +634,8 @@ deployment with the same guarantees as named queries.
   cancellation, error, trace, and activation semantics.
 - A tenant cannot be supplied or changed through MCP arguments.
 - Activation races and rollback behavior are integration-tested.
+- A rehydrated catalog emits byte-identical SQL to the authored catalog, so
+  managed execution cannot silently diverge from local development.
 
 ### Milestone 3 — Hosted MCP private beta (3–4 weeks)
 
