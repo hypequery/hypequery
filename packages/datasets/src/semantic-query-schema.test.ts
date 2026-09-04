@@ -59,6 +59,58 @@ describe('canonical semantic query schemas', () => {
     }).success).toBe(false);
   });
 
+  it('refuses non-groupable dimensions in both query tools', () => {
+    // `groupable: false` marks a dimension that exists to back a measure. The
+    // agent-safe catalog hides it, so the generated schema must refuse it —
+    // otherwise get_dataset_schema and query_dataset disagree about the model.
+    const Sales = dataset('sales', {
+      source: 'sales',
+      dimensions: {
+        region: dimension.string(),
+        // Backs `revenue`; never selectable and never filterable.
+        amountCents: dimension.number({ column: 'amount_cents', filterable: false, groupable: false }),
+        // Filterable but not a valid grouping key.
+        notes: dimension.string({ column: 'notes', groupable: false }),
+      },
+      measures: { revenue: measure.sum('amountCents') },
+    });
+    const revenue = Sales.metric('revenue', { measure: 'revenue' });
+    const schemas = buildCanonicalSemanticQuerySchemas(
+      { sales: { ...Sales, metrics: { revenue } } },
+      { grainField: 'grain' },
+    );
+
+    for (const dimensionName of ['amountCents', 'notes']) {
+      expect(schemas.queryDataset.safeParse({
+        dataset: 'sales', dimensions: [dimensionName],
+      }).success).toBe(false);
+      expect(schemas.queryMetric.safeParse({
+        dataset: 'sales', metric: 'revenue', dimensions: [dimensionName],
+      }).success).toBe(false);
+      // Ordering by a dimension that cannot be selected is refused too.
+      expect(schemas.queryDataset.safeParse({
+        dataset: 'sales',
+        dimensions: ['region'],
+        orderBy: [{ field: dimensionName, direction: 'asc' }],
+      }).success).toBe(false);
+    }
+
+    expect(schemas.queryDataset.safeParse({
+      dataset: 'sales', dimensions: ['region'],
+    }).success).toBe(true);
+    // Not groupable does not mean not filterable: `notes` stays a filter field.
+    expect(schemas.queryDataset.safeParse({
+      dataset: 'sales',
+      dimensions: ['region'],
+      filters: [{ field: 'notes', operator: 'eq', value: 'x' }],
+    }).success).toBe(true);
+    expect(schemas.queryDataset.safeParse({
+      dataset: 'sales',
+      dimensions: ['region'],
+      filters: [{ field: 'amountCents', operator: 'eq', value: 1 }],
+    }).success).toBe(false);
+  });
+
   it('closes nested objects and requires a dataset selection', () => {
     const schemas = buildCanonicalSemanticQuerySchemas(registry, { grainField: 'grain' });
 
