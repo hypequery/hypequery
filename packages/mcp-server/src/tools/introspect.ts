@@ -44,7 +44,7 @@ export async function getDatasetSchemaTool(
 
   const schema: AgentCatalogDataset = isDatasetInstance(dataset)
     ? projectAgentSafeCatalog({ [datasetName]: dataset }).datasets[0]
-    : projectLegacyAgentDataset(datasetName, dataset as Record<string, unknown>);
+    : projectLegacyAgentDataset(datasetName, dataset as Record<string, unknown>, datasets);
   return createMCPToolResponse(schema);
 }
 

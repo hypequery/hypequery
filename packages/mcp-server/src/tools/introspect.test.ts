@@ -98,6 +98,112 @@ describe('dataset introspection', () => {
     expect(JSON.stringify(schema)).not.toMatch(/private\.orders|tenant_id|region_code|secret|amount/);
   });
 
+  it('drops legacy references that name something the agent cannot already see', async () => {
+    const response = await getDatasetSchemaTool({
+      orders: {
+        dimensions: { region: { type: 'string', column: 'region_code' } },
+        filters: { region: { field: 'region', operators: ['eq'] } },
+        metrics: {
+          totalRevenue: {
+            // Only `region` is a published dimension and only `region` is a
+            // published filter; the rest are physical or internal names.
+            dimensions: ['region', 'tenant_id', 'internal_cost_centre'],
+            filters: ['region', 'tenant_id'],
+            grains: ['day', 'toStartOfHour(created_at)'],
+          },
+        },
+      },
+    }, { dataset: 'orders' });
+    const schema = JSON.parse(response.content[0].text);
+
+    expect(schema.metrics).toEqual([{
+      name: 'totalRevenue',
+      dimensions: ['region'],
+      filters: ['region'],
+      grains: ['day'],
+    }]);
+    expect(JSON.stringify(schema)).not.toMatch(
+      /tenant_id|internal_cost_centre|toStartOfHour|region_code/,
+    );
+  });
+
+  it('emits only the supported legacy limit keys', async () => {
+    const response = await getDatasetSchemaTool({
+      orders: {
+        dimensions: { region: { type: 'string' } },
+        limits: {
+          maxDimensions: 4,
+          maxResultSize: 500,
+          maxFilters: 0,
+          internalShardKey: 'shard_7',
+          costCentre: 42,
+        },
+      },
+    }, { dataset: 'orders' });
+    const schema = JSON.parse(response.content[0].text);
+
+    expect(schema.limits).toEqual({ maxDimensions: 4, maxResultSize: 500 });
+    expect(JSON.stringify(schema)).not.toMatch(/internalShardKey|shard_7|costCentre/);
+  });
+
+  it('omits legacy relationships that point outside the registry', async () => {
+    const response = await getDatasetSchemaTool({
+      orders: {
+        dimensions: { id: { type: 'number' } },
+        relationships: {
+          customer: { target: 'customers', fields: ['customer.country'] },
+          ledger: { target: 'private.internal_ledger', fields: ['ledger.tenant_id'] },
+        },
+      },
+      customers: {
+        dimensions: {
+          country: { type: 'string', column: 'country_code' },
+          ssn: { type: 'string', filterable: false, groupable: false },
+        },
+      },
+    }, { dataset: 'orders' });
+    const schema = JSON.parse(response.content[0].text);
+
+    expect(schema.relationships).toEqual([
+      { name: 'customer', target: 'customers', fields: ['customer.country'] },
+    ]);
+    expect(JSON.stringify(schema)).not.toMatch(/internal_ledger|tenant_id|ledger/);
+  });
+
+  it('keeps legacy relationship fields to single-hop published target dimensions', async () => {
+    const response = await getDatasetSchemaTool({
+      orders: {
+        dimensions: { id: { type: 'number' } },
+        relationships: {
+          customer: {
+            target: 'customers',
+            fields: [
+              'customer.country',
+              // Not published by the target, wrongly prefixed, multi-hop, and
+              // unqualified respectively — none are queryable.
+              'customer.ssn',
+              'orders.tenant_id',
+              'customer.account.balance',
+              'country',
+            ],
+          },
+        },
+      },
+      customers: {
+        dimensions: {
+          country: { type: 'string' },
+          ssn: { type: 'string', filterable: false, groupable: false },
+        },
+      },
+    }, { dataset: 'orders' });
+    const schema = JSON.parse(response.content[0].text);
+
+    expect(schema.relationships).toEqual([
+      { name: 'customer', target: 'customers', fields: ['customer.country'] },
+    ]);
+    expect(JSON.stringify(schema)).not.toMatch(/ssn|tenant_id|balance/);
+  });
+
   it('requires separate authorization for trusted physical diagnostics', async () => {
     const Orders = dataset('orders', {
       source: 'analytics.orders',
