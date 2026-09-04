@@ -3,9 +3,11 @@ import { fileURLToPath } from 'node:url';
 import { validateProtocolDeploymentContract } from '@hypequery/protocol';
 import { describe, expect, it } from 'vitest';
 import { projectAgentSafeCatalog, projectTrustedDebugCatalog } from './agent-catalog.js';
+import { serializeSemanticContract } from './contract.js';
 import { dataset } from './dataset.js';
 import { dimension } from './field.js';
 import { measure } from './measure.js';
+import { belongsTo } from './relationships.js';
 
 function fixture<T>(name: string): T {
   const path = fileURLToPath(new URL(
@@ -75,6 +77,40 @@ describe('agent-safe catalog projection', () => {
     ]) {
       expect(serialized).not.toContain(forbidden);
     }
+  });
+
+  it('projects a semantic contract identically to its local datasets', () => {
+    // Both sources share one projection because `DatasetCatalog` and
+    // `ContractDataset` carry the same shape. Pin that: a contract round-trip
+    // must not change what an agent is shown.
+    const Customers = dataset('customers', {
+      source: 'analytics.customers',
+      dimensions: {
+        id: dimension.number({ column: 'customer_id' }),
+        country: dimension.string({ column: 'country_code', label: 'Country' }),
+      },
+    });
+    const Orders = dataset('orders', {
+      source: 'analytics.orders',
+      tenantKey: 'tenant_id',
+      timeKey: 'createdAt',
+      dimensions: {
+        createdAt: dimension.timestamp({ column: 'created_at' }),
+        customerId: dimension.number({ column: 'customer_id' }),
+        hidden: dimension.number({ filterable: false, groupable: false }),
+      },
+      measures: { revenue: measure.sum('hidden', { label: 'Revenue' }) },
+      relationships: {
+        customer: belongsTo(() => Customers, { from: 'customerId', to: 'id' }),
+      },
+    });
+    const registry = {
+      customers: Customers,
+      orders: { ...Orders, metrics: { totalRevenue: Orders.metric('totalRevenue', { measure: 'revenue' }) } },
+    };
+
+    expect(projectAgentSafeCatalog(serializeSemanticContract(registry)))
+      .toEqual(projectAgentSafeCatalog(registry));
   });
 
   it('keeps physical metadata behind explicit trusted-debug authorization', () => {
