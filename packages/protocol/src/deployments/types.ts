@@ -174,6 +174,13 @@ export interface ProtocolDeploymentLimits {
   readonly maxQueries: number;
   readonly maxArtifacts: number;
   readonly maxDatasetItems: number;
+  /**
+   * Ceiling on each semantic-metadata collection (`examples`, `synonyms`, and
+   * `defaults.dimensions`). Deliberately tighter than `maxDatasetItems`: these
+   * are authoring aids, and the definition-time validator in
+   * `@hypequery/datasets` applies the same ceiling.
+   */
+  readonly maxSemanticMetadataItems: number;
   readonly maxTextBytes: number;
   readonly maxSourceBytes: number;
   readonly maxPathBytes: number;

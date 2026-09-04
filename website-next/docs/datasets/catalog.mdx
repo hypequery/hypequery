@@ -3,6 +3,7 @@ title: Catalog
 description: Export normalized dataset metadata for tools, docs, and agents.
 ---
 
+import { Callout } from 'fumadocs-ui/components/callout';
 import { CodeBlock } from 'fumadocs-ui/components/codeblock';
 
 The dataset catalog is a normalized metadata view of a dataset definition. Use it when another runtime needs to inspect the semantic model without reaching into dataset internals.
@@ -132,6 +133,15 @@ const Orders = dataset('orders', {
 Metadata is validated and size-bounded when defined, normalized into stable
 ordering, and carried through semantic contracts and portable deployment
 contracts. Verified question/answer fixtures are intentionally a separate API.
+
+<Callout type="warn">
+`sensitivity` is an advisory label, not an access control. A field marked
+`confidential` or `restricted` is still listed in the agent-safe catalog and is
+still queryable: nothing filters a catalog or authorizes a query based on this
+value. Use it to inform reviewers and downstream tooling, and keep deciding what
+to publish — and who may query it — in your dataset registry and endpoint
+policy.
+</Callout>
 
 Relationship entries carry `queryable` and `fields` — the qualified `<relationship>.<dimension>` names a one-hop query may reference. To-one relationships (`belongsTo`, `hasOne`) are queryable; `hasMany` entries report `queryable: false` with an empty field list. See [Relationships](/docs/datasets/relationships) for the query semantics.
 

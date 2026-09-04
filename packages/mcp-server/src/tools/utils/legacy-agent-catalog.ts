@@ -11,6 +11,12 @@ import type {
 
 type UnknownRecord = Record<string, unknown>;
 
+/**
+ * Grains the semantic planner can actually execute. A legacy registry is
+ * untyped, so anything outside this set is dropped rather than advertised.
+ */
+const TIME_GRAINS = new Set(['day', 'week', 'month', 'quarter', 'year']);
+
 function record(value: unknown): UnknownRecord {
   return value !== null && typeof value === 'object' && !Array.isArray(value)
     ? value as UnknownRecord
@@ -70,10 +76,18 @@ function limits(value: unknown): DatasetLimits {
   return result;
 }
 
-/** Safely adapts the pre-catalog, object-shaped MCP registry compatibility input. */
-export function projectLegacyAgentDataset(name: string, input: UnknownRecord): AgentCatalogDataset {
-  const config = record(input.config);
-  const dimensions = namedEntries(input.dimensions)
+/** Keeps only the members of `value` that name something the agent may already see. */
+function declaredNames(value: unknown, declared: ReadonlySet<string>): string[] {
+  return Array.isArray(value)
+    ? [...new Set(value.filter((item): item is string => (
+      typeof item === 'string' && declared.has(item)
+    )))].sort()
+    : [];
+}
+
+/** The dimensions a legacy registry entry exposes, in the shape the agent sees. */
+function legacyDimensions(input: UnknownRecord): AgentCatalogDataset['dimensions'] {
+  return namedEntries(input.dimensions)
     .map(([dimensionName, dimension]) => ({
       name: dimensionName,
       type: fieldType(dimension.fieldType ?? dimension.type),
@@ -85,7 +99,31 @@ export function projectLegacyAgentDataset(name: string, input: UnknownRecord): A
     .filter((dimension): dimension is typeof dimension & { type: FieldType } => (
       dimension.type !== undefined && (dimension.filterable || dimension.groupable)
     ));
+}
+
+/**
+ * Safely adapts the pre-catalog, object-shaped MCP registry compatibility input.
+ *
+ * A legacy entry is arbitrary user data, so every name it carries is checked
+ * against what this projection already publishes before it is emitted:
+ * references that do not resolve to a declared dimension, filter, grain, or
+ * sibling dataset are dropped rather than passed through. Otherwise a physical
+ * column or tenant key sitting in a legacy `metrics`/`relationships` block
+ * would reach the agent through `get_dataset_schema`.
+ *
+ * `registry` is the surrounding dataset map, used to resolve relationship
+ * targets. A relationship whose target is not in it is unreachable, so it is
+ * omitted instead of advertising a name the agent cannot query.
+ */
+export function projectLegacyAgentDataset(
+  name: string,
+  input: UnknownRecord,
+  registry: Readonly<Record<string, unknown>> = {},
+): AgentCatalogDataset {
+  const config = record(input.config);
+  const dimensions = legacyDimensions(input);
   const dimensionTypes = new Map(dimensions.map(dimension => [dimension.name, dimension.type]));
+  const dimensionNames = new Set(dimensionTypes.keys());
   const filters = namedEntries(input.filters)
     .map(([filterName, filter]) => ({
       name: filterName,
@@ -97,6 +135,7 @@ export function projectLegacyAgentDataset(name: string, input: UnknownRecord): A
         : [],
     }))
     .filter((filter): filter is AgentCatalogFilter => filter.type !== undefined);
+  const filterNames = new Set(filters.map(filter => filter.name));
   const timeKey = text(input.timeKey) ?? text(config.timeKey);
   const freshnessInput = record(input.freshness);
   const freshness = Number.isSafeInteger(freshnessInput.maxAgeSeconds)
@@ -105,9 +144,9 @@ export function projectLegacyAgentDataset(name: string, input: UnknownRecord): A
     : undefined;
   const defaultsInput = record(input.defaults);
   const defaultDimensions = Array.isArray(defaultsInput.dimensions)
-    ? defaultsInput.dimensions.filter((item): item is string => typeof item === 'string').sort()
+    ? declaredNames(defaultsInput.dimensions, dimensionNames)
     : undefined;
-  const timeGrain = ['day', 'week', 'month', 'quarter', 'year'].includes(String(defaultsInput.timeGrain))
+  const timeGrain = TIME_GRAINS.has(String(defaultsInput.timeGrain))
     ? defaultsInput.timeGrain as DatasetDefaults['timeGrain']
     : undefined;
   const defaults = defaultDimensions !== undefined || timeGrain !== undefined
@@ -124,7 +163,7 @@ export function projectLegacyAgentDataset(name: string, input: UnknownRecord): A
     ...(freshness !== undefined ? { freshness } : {}),
     ...(text(input.owner) !== undefined ? { owner: text(input.owner) } : {}),
     ...(defaults !== undefined ? { defaults } : {}),
-    timeDimension: timeKey !== undefined && dimensionTypes.has(timeKey) ? timeKey : null,
+    timeDimension: timeKey !== undefined && dimensionNames.has(timeKey) ? timeKey : null,
     dimensions,
     measures: namedEntries(input.measures).map(([measureName, measure]) => ({
       name: measureName,
@@ -135,26 +174,36 @@ export function projectLegacyAgentDataset(name: string, input: UnknownRecord): A
       name: metricName,
       ...optionalDescription(metric),
       ...semanticMetadata(metric),
-      dimensions: Array.isArray(metric.dimensions)
-        ? metric.dimensions.filter((item): item is string => typeof item === 'string').sort()
-        : [],
-      filters: Array.isArray(metric.filters)
-        ? metric.filters.filter((item): item is string => typeof item === 'string').sort()
-        : [],
-      grains: Array.isArray(metric.grains)
-        ? metric.grains.filter((item): item is string => typeof item === 'string').sort()
-        : [],
+      dimensions: declaredNames(metric.dimensions, dimensionNames),
+      filters: declaredNames(metric.filters, filterNames),
+      grains: declaredNames(metric.grains, TIME_GRAINS),
     })),
     filters,
     relationships: namedEntries(input.relationships)
       .filter(([, relationship]) => relationship.queryable !== false && relationship.kind !== 'hasMany')
-      .map(([relationshipName, relationship]) => ({
-        name: relationshipName,
-        target: text(relationship.target) ?? text(record(relationship.dataset).name) ?? '',
-        fields: Array.isArray(relationship.fields)
-          ? relationship.fields.filter((item): item is string => typeof item === 'string').sort()
-          : [],
-      })),
+      .map(([relationshipName, relationship]) => {
+        const target = text(relationship.target) ?? text(record(relationship.dataset).name);
+        if (target === undefined || !Object.prototype.hasOwnProperty.call(registry, target)) {
+          return undefined;
+        }
+        // A queryable relationship field is exactly `<relationship>.<dimension>`
+        // over a single hop, addressing a dimension the target already
+        // publishes. See `listQueryableRelationshipFields`.
+        const targetDimensions = new Set(
+          legacyDimensions(record(registry[target])).map(dimension => dimension.name),
+        );
+        return {
+          name: relationshipName,
+          target,
+          fields: declaredNames(
+            relationship.fields,
+            new Set([...targetDimensions].map(field => `${relationshipName}.${field}`)),
+          ),
+        };
+      })
+      .filter((relationship): relationship is NonNullable<typeof relationship> => (
+        relationship !== undefined
+      )),
     limits: limits(input.limits),
   };
 }

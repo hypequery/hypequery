@@ -1,6 +1,7 @@
 /** Agent-safe dataset discovery and separately authorized trusted debugging. */
 
 import {
+  assertAgentSafeCatalogBudget,
   projectAgentSafeCatalog,
   projectTrustedDebugCatalog,
   type AgentCatalogDataset,
@@ -42,9 +43,22 @@ export async function getDatasetSchemaTool(
     throw new MCPToolError('MCP_NOT_FOUND', `Dataset not found: ${datasetName}`);
   }
 
-  const schema: AgentCatalogDataset = isDatasetInstance(dataset)
-    ? projectAgentSafeCatalog({ [datasetName]: dataset }).datasets[0]
-    : projectLegacyAgentDataset(datasetName, dataset as Record<string, unknown>);
+  let schema: AgentCatalogDataset;
+  if (isDatasetInstance(dataset)) {
+    schema = projectAgentSafeCatalog({ [datasetName]: dataset }).datasets[0];
+  } else {
+    schema = projectLegacyAgentDataset(datasetName, dataset as Record<string, unknown>, datasets);
+    // The legacy fallback builds its projection by hand, so apply the catalog
+    // budget the canonical projection would otherwise have enforced.
+    try {
+      assertAgentSafeCatalogBudget({ datasets: [schema] });
+    } catch {
+      throw new MCPToolError(
+        'MCP_RESULT_TOO_LARGE',
+        `Dataset schema exceeds the agent-safe catalog byte limit: ${datasetName}`,
+      );
+    }
+  }
   return createMCPToolResponse(schema);
 }
 

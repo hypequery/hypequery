@@ -61,6 +61,7 @@ export type {
 // Agent-safe and separately authorized trusted-debug catalog projections.
 export {
   DEFAULT_AGENT_CATALOG_MAX_BYTES,
+  assertAgentSafeCatalogBudget,
   projectAgentSafeCatalog,
   projectTrustedDebugCatalog,
 } from './agent-catalog.js';
