@@ -1,9 +1,11 @@
 import { describe, expect, it, vi } from 'vitest';
+import { projectAgentSafeCatalog } from '../agent-catalog.js';
 import { dataset } from '../dataset.js';
 import { dimension } from '../field.js';
 import { measure } from '../measure.js';
 import { getDatasetCatalog } from '../catalog.js';
 import { buildCanonicalSemanticQuerySchemas } from '../semantic-query-schema.js';
+import { belongsTo } from '../relationships.js';
 import { generateDatasetTools } from '../tools.js';
 import type { MetricHandle } from '../types.js';
 import { createDatasetPublisher } from './publisher.js';
@@ -88,6 +90,87 @@ describe('dataset publisher', () => {
       expect.any(Object),
       undefined,
     );
+  });
+
+  it('points relationships at the alias their target was published under', () => {
+    const Accounts = dataset('account_records', {
+      source: 'accounts',
+      dimensions: { id: dimension.string(), country: dimension.string() },
+    });
+    const Invoices = dataset('invoices', {
+      source: 'invoices',
+      dimensions: { id: dimension.string(), accountId: dimension.string() },
+      relationships: {
+        account: belongsTo(() => Accounts, { from: 'accountId', to: 'id' }),
+      },
+    });
+
+    const registry = createDatasetPublisher()
+      .publish(Accounts, { alias: 'accounts' })
+      .publish(Invoices)
+      .build();
+
+    // Without rewiring, `target()` still returns the original instance, so the
+    // catalog would advertise `account_records` — a dataset the agent cannot
+    // find in this registry.
+    expect(getDatasetCatalog(registry.invoices).relationships.account)
+      .toMatchObject({ target: 'accounts' });
+    expect(projectAgentSafeCatalog(registry).datasets)
+      .toContainEqual(expect.objectContaining({
+        name: 'invoices',
+        relationships: [{
+          name: 'account',
+          target: 'accounts',
+          fields: ['account.country', 'account.id'],
+        }],
+      }));
+    // Every advertised target resolves inside the published registry.
+    for (const published of Object.values(registry)) {
+      for (const relationship of Object.values(published.relationships)) {
+        expect(Object.keys(registry)).toContain(relationship.target().name);
+      }
+    }
+  });
+
+  it('leaves a relationship alone when its target is not published', () => {
+    const Warehouses = dataset('warehouses', {
+      source: 'warehouses',
+      dimensions: { id: dimension.string() },
+    });
+    const Shipments = dataset('shipments', {
+      source: 'shipments',
+      dimensions: { id: dimension.string(), warehouseId: dimension.string() },
+      relationships: {
+        warehouse: belongsTo(() => Warehouses, { from: 'warehouseId', to: 'id' }),
+      },
+    });
+
+    const registry = createDatasetPublisher().publish(Shipments).build();
+
+    expect(getDatasetCatalog(registry.shipments).relationships.warehouse)
+      .toMatchObject({ target: 'warehouses' });
+  });
+
+  it('rewires relationships between two aliased datasets', () => {
+    const Left = dataset('left_source', {
+      source: 'left',
+      dimensions: { id: dimension.string() },
+    });
+    const Right = dataset('right_source', {
+      source: 'right',
+      dimensions: { id: dimension.string(), leftId: dimension.string() },
+      relationships: { left: belongsTo(() => Left, { from: 'leftId', to: 'id' }) },
+    });
+
+    const registry = createDatasetPublisher()
+      .publish(Left, { alias: 'zebra' })
+      .publish(Right, { alias: 'alpha' })
+      .build();
+
+    // `alpha` sorts before `zebra`, so its target is materialized after it —
+    // the lookup must resolve on call rather than at rewiring time.
+    expect(getDatasetCatalog(registry.alpha).relationships.left)
+      .toMatchObject({ target: 'zebra' });
   });
 
   it('rejects invalid names, aliases, duplicate datasets, and foreign metrics', () => {

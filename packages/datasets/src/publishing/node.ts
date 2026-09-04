@@ -1,4 +1,8 @@
 import type { AnyDatasetInstance, MetricHandle } from '../types.js';
+import {
+  publishedAliasesByName,
+  rewirePublishedRelationships,
+} from '../utils/published-relationships.js';
 
 export interface DatasetPublicationEntry {
   readonly alias: string;
@@ -33,15 +37,28 @@ export function materializeDatasetPublisherNode(
 ): Readonly<Record<string, AnyDatasetInstance & {
   readonly metrics: Readonly<Record<string, MetricHandle>>;
 }>> {
+  const aliasesByName = publishedAliasesByName(node.entries);
+  const registry = new Map<string, AnyDatasetInstance>();
+  // Relationships resolve their target through this map rather than capturing
+  // an instance, so datasets that reference each other are rewired without an
+  // ordering constraint.
+  const lookup = (alias: string) => registry.get(alias);
+
   const entries = [...node.entries]
     .sort((left, right) => left.alias < right.alias ? -1 : left.alias > right.alias ? 1 : 0)
-    .map(entry => [
-      entry.alias,
-      Object.freeze({
+    .map(entry => {
+      const published = Object.freeze({
         ...entry.dataset,
         name: entry.alias,
+        relationships: rewirePublishedRelationships(
+          entry.dataset.relationships,
+          aliasesByName,
+          lookup,
+        ),
         metrics: Object.freeze({ ...entry.metrics }),
-      }),
-    ] as const);
+      });
+      registry.set(entry.alias, published);
+      return [entry.alias, published] as const;
+    });
   return Object.freeze(Object.fromEntries(entries));
 }
