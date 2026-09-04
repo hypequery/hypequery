@@ -13,6 +13,11 @@ import {
   type AnyDatasetInstance,
   type MetricHandle,
 } from '@hypequery/datasets';
+import {
+  analyzeCloudCompatibility,
+  formatCloudCompatibilityDiagnostics,
+  type CloudCompatibilityDiagnostic,
+} from './cloud-compatibility.js';
 import type {
   AuthContext,
   AuthStrategy,
@@ -41,6 +46,34 @@ export interface BuildProtocolDeploymentOptions {
     readonly input?: ProtocolSchema;
     readonly output?: ProtocolSchema;
   }>>;
+  /**
+   * Receives every managed-execution diagnostic, including ones that do not
+   * block the build. Without it, warnings are discarded and only errors surface.
+   */
+  readonly onCloudDiagnostic?: (diagnostic: CloudCompatibilityDiagnostic) => void;
+  /**
+   * Downgrades managed-execution errors to warnings. The author is asserting
+   * they know the deployed behaviour differs from local.
+   */
+  readonly allowUnsupportedConfig?: boolean;
+}
+
+function reportCloudCompatibility(
+  config: ServeConfig<any, any, any, any, any>,
+  options: BuildProtocolDeploymentOptions,
+): void {
+  const diagnostics = analyzeCloudCompatibility(config);
+  if (diagnostics.length === 0) return;
+  for (const diagnostic of diagnostics) options.onCloudDiagnostic?.(diagnostic);
+  if (options.allowUnsupportedConfig) return;
+
+  const blocking = diagnostics.filter(diagnostic => diagnostic.severity === 'error');
+  if (blocking.length === 0) return;
+  throw new Error(
+    'This Serve configuration would behave differently under managed execution:\n\n'
+    + `${formatCloudCompatibilityDiagnostics(blocking)}\n\n`
+    + 'Resolve these, or pass allowUnsupportedConfig to deploy anyway.',
+  );
 }
 
 type AnyServeConfig = ServeConfig<
@@ -204,6 +237,7 @@ export function buildProtocolDeploymentContract(
   config: ServeConfig<any, any, any, any, any>,
   options: BuildProtocolDeploymentOptions = {},
 ): ProtocolDeploymentContract {
+  reportCloudCompatibility(config, options);
   const serveConfig = config as unknown as AnyServeConfig;
   const basePath = serveConfig.basePath ?? '/api/analytics';
   const datasetsPath = serveConfig.semanticPaths?.datasets ?? '/datasets';
