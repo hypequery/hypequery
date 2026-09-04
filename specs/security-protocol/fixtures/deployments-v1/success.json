@@ -77,5 +77,63 @@
         }
       ]
     }
+  },
+  {
+    "id": "dataset-with-semantic-metadata",
+    "value": {
+      "kind": "hypequery-deployment",
+      "version": 1,
+      "datasets": [
+        {
+          "name": "orders",
+          "description": "Completed customer orders.",
+          "source": "analytics.orders",
+          "owner": "revenue-team",
+          "freshness": { "maxAgeSeconds": 3600 },
+          "defaults": { "dimensions": ["status"], "timeGrain": "day" },
+          "synonyms": ["purchases", "sales"],
+          "timezone": "UTC",
+          "sensitivity": "internal",
+          "tenant": { "kind": "required", "field": "tenant_id" },
+          "timeField": "created_at",
+          "dimensions": [
+            {
+              "name": "status",
+              "type": "string",
+              "source": { "kind": "column", "column": "status" },
+              "filterable": true,
+              "groupable": true,
+              "examples": ["paid", "refunded"],
+              "synonyms": ["state"],
+              "sensitivity": "public"
+            }
+          ],
+          "measures": [
+            {
+              "name": "revenue",
+              "aggregation": "sum",
+              "field": "amount",
+              "filters": [],
+              "format": "0,0.00",
+              "unit": "currency",
+              "currency": "USD",
+              "sensitivity": "confidential"
+            }
+          ],
+          "filters": [
+            {
+              "name": "status",
+              "field": "status",
+              "operators": ["eq", "neq"],
+              "examples": ["paid"]
+            }
+          ],
+          "metrics": [],
+          "relationships": []
+        }
+      ],
+      "queries": [],
+      "artifacts": []
+    }
   }
 ]

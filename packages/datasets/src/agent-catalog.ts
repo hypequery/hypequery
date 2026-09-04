@@ -400,6 +400,22 @@ export function projectAgentSafeCatalog(
     };
   }
 
+  assertAgentSafeCatalogBudget(catalog, options);
+  return catalog;
+}
+
+/**
+ * Enforce the agent-safe catalog byte budget.
+ *
+ * Exported so an adapter that builds a projection by another route — the MCP
+ * legacy registry fallback is the only one today — gets the same guarantee as
+ * `projectAgentSafeCatalog` rather than serializing an unbounded catalog and
+ * failing later against an unrelated response limit.
+ */
+export function assertAgentSafeCatalogBudget(
+  catalog: AgentSafeCatalog,
+  options: AgentCatalogProjectionOptions = {},
+): void {
   const maxBytes = options.maxCatalogBytes ?? DEFAULT_AGENT_CATALOG_MAX_BYTES;
   if (!Number.isSafeInteger(maxBytes) || maxBytes < 1) {
     throw new RangeError('maxCatalogBytes must be a positive safe integer.');
@@ -408,7 +424,6 @@ export function projectAgentSafeCatalog(
   if (byteLength > maxBytes) {
     throw new RangeError(`Agent-safe catalog exceeds the ${maxBytes}-byte limit.`);
   }
-  return catalog;
 }
 
 /**

@@ -173,7 +173,7 @@ function validateSemanticMetadata(
   for (const key of ['examples', 'synonyms'] as const) {
     if (value[key] !== undefined) {
       result[key] = uniqueStrings(
-        value[key], `${path}.${key}`, limits.maxDatasetItems, parseText,
+        value[key], `${path}.${key}`, limits.maxSemanticMetadataItems, parseText,
       );
     }
   }
@@ -552,7 +552,7 @@ function validateDefaults(
     result.dimensions = uniqueStrings(
       value.dimensions,
       `${path}.dimensions`,
-      limits.maxDatasetItems,
+      limits.maxSemanticMetadataItems,
       (dimension, dimensionPath) => identifier(dimension, dimensionPath),
     );
   }
