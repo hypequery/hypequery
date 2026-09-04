@@ -9,5 +9,8 @@ accepted as a `dimensions` or `orderBy` selection by `query_dataset` or
 agent-safe catalog hid it, so a dataset advertised one set of dimensions and
 accepted another.
 
+This applies across a queryable relationship too: a target dimension marked
+non-groupable is no longer offered as `<relationship>.<dimension>` grouping key.
+
 Filterability is unaffected: a dimension that is filterable but not groupable
-remains usable as a filter field.
+remains usable as a filter field, locally and over a relationship.

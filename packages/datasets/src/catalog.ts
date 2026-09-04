@@ -12,7 +12,10 @@ import type {
   TimeGrain,
 } from './types.js';
 import { SEMANTIC_FILTER_OPERATORS, SUPPORTED_TIME_GRAINS } from './constants.js';
-import { listQueryableRelationshipFields } from './utils/relationship-fields.js';
+import {
+  listGroupableRelationshipFields,
+  listQueryableRelationshipFields,
+} from './utils/relationship-fields.js';
 import { snapshotSemanticMetadata } from './utils/semantic-metadata.js';
 
 export interface DimensionCatalogEntry extends SemanticMetadata {
@@ -67,6 +70,11 @@ export interface RelationshipCatalogEntry {
   to: string;
   queryable: boolean;
   fields: string[];
+  /**
+   * Subset of `fields` usable as a grouping key. Optional so an externally
+   * supplied catalog that predates it still resolves, falling back to `fields`.
+   */
+  groupableFields?: string[];
 }
 
 export interface DatasetCatalog extends SemanticMetadata {
@@ -165,6 +173,7 @@ function relationshipToCatalog(
     to: relationship.to,
     queryable: relationship.kind !== 'hasMany',
     fields: listQueryableRelationshipFields(name, relationship),
+    groupableFields: listGroupableRelationshipFields(name, relationship),
   };
 }
 
@@ -173,6 +182,13 @@ export function getQueryableRelationshipFields(catalog: DatasetCatalog): string[
   return Object.values(catalog.relationships)
     .filter(relationship => relationship.queryable)
     .flatMap(relationship => relationship.fields);
+}
+
+/** The queryable relationship fields a catalog also allows as grouping keys. */
+export function getGroupableRelationshipFields(catalog: DatasetCatalog): string[] {
+  return Object.values(catalog.relationships)
+    .filter(relationship => relationship.queryable)
+    .flatMap(relationship => relationship.groupableFields ?? relationship.fields);
 }
 
 export function getDatasetCatalog(dataset: DatasetCatalogSource): DatasetCatalog {
