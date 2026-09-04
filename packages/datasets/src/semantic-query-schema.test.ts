@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { dataset } from './dataset.js';
 import { dimension } from './field.js';
+import { belongsTo } from './relationships.js';
 import { measure } from './measure.js';
 import {
   buildCanonicalSemanticQuerySchemas,
@@ -109,6 +110,48 @@ describe('canonical semantic query schemas', () => {
       dimensions: ['region'],
       filters: [{ field: 'amountCents', operator: 'eq', value: 1 }],
     }).success).toBe(false);
+  });
+
+  it('applies groupability across a relationship hop', () => {
+    const Customers = dataset('customers', {
+      source: 'customers',
+      dimensions: {
+        id: dimension.string(),
+        country: dimension.string(),
+        // Filterable across the hop, but not a valid grouping key.
+        note: dimension.string({ groupable: false }),
+      },
+    });
+    const Invoices = dataset('invoices', {
+      source: 'invoices',
+      dimensions: { id: dimension.string(), customerId: dimension.string() },
+      measures: { total: measure.count('id') },
+      relationships: {
+        customer: belongsTo(() => Customers, { from: 'customerId', to: 'id' }),
+      },
+    });
+    const schemas = buildCanonicalSemanticQuerySchemas(
+      { invoices: Invoices },
+      { grainField: 'grain' },
+    );
+
+    expect(schemas.queryDataset.safeParse({
+      dataset: 'invoices', dimensions: ['customer.country'],
+    }).success).toBe(true);
+    expect(schemas.queryDataset.safeParse({
+      dataset: 'invoices', dimensions: ['customer.note'],
+    }).success).toBe(false);
+    expect(schemas.queryDataset.safeParse({
+      dataset: 'invoices',
+      dimensions: ['customer.country'],
+      orderBy: [{ field: 'customer.note', direction: 'asc' }],
+    }).success).toBe(false);
+    // Still filterable over the hop.
+    expect(schemas.queryDataset.safeParse({
+      dataset: 'invoices',
+      dimensions: ['customer.country'],
+      filters: [{ field: 'customer.note', operator: 'eq', value: 'x' }],
+    }).success).toBe(true);
   });
 
   it('closes nested objects and requires a dataset selection', () => {
