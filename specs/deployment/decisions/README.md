@@ -15,6 +15,7 @@ canonical fixtures, and compatibility tests before it becomes normative.
 | [0002](./0002-semantic-invocation-and-activation-pinning.md) | Dataset/metric invocation and activation pinning | Proposed |
 | [0003](./0003-agent-safe-catalog-results-and-errors.md) | Safe discovery, tool manifests, results, and errors | Proposed |
 | [0004](./0004-cloud-routing-auth-and-agent-access.md) | Cloud routing, authentication, tenancy, and first-party agent access | Proposed |
+| [0005](./0005-portable-semantic-execution.md) | Portable semantic execution and the rebuilt-catalog equality gate | Proposed |
 
 The shared vertical-slice fixture referenced by these records lives in
 [`../fixtures/mcp-cloud-v1`](../fixtures/mcp-cloud-v1/README.md).

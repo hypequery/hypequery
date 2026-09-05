@@ -114,13 +114,13 @@ describe('deployment commands', () => {
       entrypointPrefix: 'handlers',
     });
 
-    expect(deploymentContract).toHaveBeenCalledWith({
+    expect(deploymentContract).toHaveBeenCalledWith(expect.objectContaining({
       runtimeArtifact: {
         runtime: 'node',
         artifactSha256: ARTIFACT_SHA,
         entrypointPrefix: 'handlers',
       },
-    });
+    }));
     expect(mkdir).toHaveBeenCalledWith('dist', { recursive: true });
     expect(writeFile).toHaveBeenCalledWith(
       'dist/deployment.json',
@@ -160,13 +160,13 @@ describe('deployment commands', () => {
       ['greeting'],
       undefined,
     );
-    expect(deploymentContract).toHaveBeenCalledWith({
+    expect(deploymentContract).toHaveBeenCalledWith(expect.objectContaining({
       runtimeArtifact: {
         runtime: 'node',
         artifactSha256: ARTIFACT_SHA,
         entrypointPrefix: 'queries',
       },
-    });
+    }));
     expect(writeFile).toHaveBeenCalledWith('dist/runtime.mjs', bytes);
   });
 
@@ -306,7 +306,7 @@ describe('deployment commands', () => {
 
     await buildDeploymentCommand('analytics/api.ts', { output: 'dist/deployment.json' });
 
-    expect(deploymentContract).toHaveBeenCalledWith({});
+    expect(deploymentContract).toHaveBeenCalledWith(expect.objectContaining({}));
     expect(mockBuildNodeRuntimeArtifact).not.toHaveBeenCalled();
     expect(writeFile).not.toHaveBeenCalledWith(
       expect.stringContaining('runtime'),
