@@ -13,6 +13,7 @@ import {
   saveCloudCredential,
   type StoredCloudCredential,
 } from '../utils/cloud-credential-store.js';
+import { callbackHtml } from '../utils/callback-page.js';
 import { logger } from '../utils/logger.js';
 
 const DEFAULT_CLOUD_URL = 'https://cloud.hypequery.com';
@@ -48,14 +49,6 @@ export interface LogoutDependencies {
   readonly loadCredential?: typeof loadCloudCredential;
   readonly deleteCredential?: typeof deleteCloudCredential;
   readonly requestTimeoutMs?: number;
-}
-
-function callbackHtml(success: boolean) {
-  const title = success ? 'CLI authorized' : 'Authorization failed';
-  const message = success
-    ? 'You can close this window and return to your terminal.'
-    : 'Return to your terminal and run the login command again.';
-  return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>${title}</title></head><body><main><h1>${title}</h1><p>${message}</p></main></body></html>`;
 }
 
 async function callbackServer(state: string, timeoutMs: number) {
