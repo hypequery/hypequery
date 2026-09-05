@@ -1,5 +1,27 @@
 # @hypequery/serve
 
+## 0.17.0
+
+### Minor Changes
+
+- f71910d: Fail a deployment build when the Serve configuration would behave differently under managed execution. Unenforceable tenant isolation and dropped middleware block the build; dropped hooks, dropped context factories, and endpoints that are authenticated without declared roles or scopes are reported as warnings. Pass `--allow-unsupported-config` to deploy anyway.
+- d347f89: Add a canonical catalog-derived semantic query schema compiler with shared Zod
+  validators, JSON Schemas, exact field and operator constraints, bounded closed
+  objects, and deterministic manifest hashing. Migrate Serve and MCP query schemas
+  to the shared compiler.
+
+### Patch Changes
+
+- Updated dependencies [3689e0f]
+- Updated dependencies [be0a850]
+- Updated dependencies [3a28cf0]
+- Updated dependencies [abd39a9]
+- Updated dependencies [916eef3]
+- Updated dependencies [3a28cf0]
+- Updated dependencies [d347f89]
+  - @hypequery/datasets@0.14.0
+  - @hypequery/protocol@0.12.0
+
 ## 0.16.2
 
 ### Patch Changes

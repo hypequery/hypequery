@@ -1,5 +1,38 @@
 # @hypequery/mcp
 
+## 0.6.0
+
+### Minor Changes
+
+- 737c6ee: Add output schemas, structured content with compact text fallback, tool titles
+  and read-only annotations, query result metadata, and stable structured errors.
+  Backend failure details and SQL remain redacted from agent-facing responses by
+  default.
+- c414fac: Add a public transport-neutral MCP executor and protocol server with injected
+  transport support. Isolate stdio behind an explicit adapter while preserving
+  the existing server, startup APIs, tool names, prompts, and behavior.
+- 6c065c5: Bound MCP dataset and metric queries with effective default and maximum row,
+  offset, and collection limits. Add configurable server query ceilings and use
+  the package version in MCP server metadata.
+- 916eef3: Propagate semantic query cancellation through the datasets client and ClickHouse
+  semantic backend, and enforce MCP query deadlines and serialized-response byte
+  ceilings with stable budget error classifications.
+- 3a28cf0: Make MCP dataset introspection agent-safe by default and expose physical catalog diagnostics only through a separately authorized debug API.
+- d347f89: Add a canonical catalog-derived semantic query schema compiler with shared Zod
+  validators, JSON Schemas, exact field and operator constraints, bounded closed
+  objects, and deterministic manifest hashing. Migrate Serve and MCP query schemas
+  to the shared compiler.
+
+### Patch Changes
+
+- Updated dependencies [3689e0f]
+- Updated dependencies [be0a850]
+- Updated dependencies [3a28cf0]
+- Updated dependencies [916eef3]
+- Updated dependencies [3a28cf0]
+- Updated dependencies [d347f89]
+  - @hypequery/datasets@0.14.0
+
 ## 0.5.5
 
 ### Patch Changes
