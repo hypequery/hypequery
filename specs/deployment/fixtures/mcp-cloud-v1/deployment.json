@@ -152,9 +152,9 @@
           ],
           "grains": [
             "day",
-            "week",
             "month",
             "quarter",
+            "week",
             "year"
           ],
           "label": "Total revenue",
