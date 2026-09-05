@@ -1,5 +1,17 @@
 # @hypequery/cli
 
+## 1.19.0
+
+### Minor Changes
+
+- f71910d: Fail a deployment build when the Serve configuration would behave differently under managed execution. Unenforceable tenant isolation and dropped middleware block the build; dropped hooks, dropped context factories, and endpoints that are authenticated without declared roles or scopes are reported as warnings. Pass `--allow-unsupported-config` to deploy anyway.
+
+### Patch Changes
+
+- Updated dependencies [abd39a9]
+  - @hypequery/protocol@0.12.0
+  - @hypequery/deployment@0.7.5
+
 ## 1.18.3
 
 ### Patch Changes

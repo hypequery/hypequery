@@ -1,5 +1,50 @@
 # @hypequery/datasets
 
+## 0.14.0
+
+### Minor Changes
+
+- 3689e0f: Enforce `limits.maxResultSize` for queries that set no limit of their own. Query validation already rejected a limit _above_ the ceiling, but both validators guard on `query.limit != null`, so an unbounded query skipped the ceiling entirely and streamed whatever the table held. A ceiling that only binds callers who happened to name a limit is not a ceiling. Bounding is reported in `meta.resultLimit`, never applied silently — a caller who asked for everything and received 1,000 rows could not otherwise tell a bounded answer from a complete one.
+
+  Add `cache` to `DatasetConfig`: a declared result-cache policy with `ttlMs` (the default when the caller and client supply none) and `maxTtlMs` (a ceiling on any caller- or client-supplied TTL, and on the stale-while-revalidate window layered on it). Whether a result is still-filling or already final is known by whoever defined the model, not by a caller three packages away. A call may still shorten the window or bypass the cache entirely; it can never extend one past `maxTtlMs`. The precedence rule mirrors `resolveCompiledDeadline` in `@hypequery/clickhouse`. `maxTtlMs` clamps the client-level default as well as call-level values, and bounds the _total_ servable age (`ttlMs + staleWhileRevalidateMs`) rather than each window separately. It is a ceiling, not a default: when no layer supplies a TTL, the result stays uncached.
+
+- be0a850: Validate dataset definitions structurally when `dataset()` is called, instead of letting a malformed model fail on the first query that reaches the broken part of it. Datasets are normally defined at module scope, so an invalid one now fails at import — in the build, in CI, and in the first test that touches the module.
+
+  `source`, `tenantKey`, `timeKey`, dimension columns and measure fields are checked as SQL identifiers, since each is interpolated into generated SQL. `tenantKey` matters most: it becomes a predicate on every query against a tenant-scoped dataset, and a typo previously constructed cleanly.
+
+  Raw `sql` expressions on dimensions and measures are rejected when they carry a statement terminator or comment opener (`;`, `--`, `/*`), because the value is spliced into a larger expression. A declared `dependencies` entry the expression never references is also rejected — the definition would otherwise claim to read a column it does not read.
+
+  Dimension and measure names are checked as identifiers too, since they appear in query inputs, generated tool schemas, and protocol artifacts. Previously a name was only checked indirectly, via the column it defaulted to, so the same bad name passed or failed depending on whether an explicit `column` was set.
+
+  `limits` values must be positive integers.
+
+- 3a28cf0: Enforce `groupable: false` in generated query schemas. A dimension declared
+  non-groupable — typically one that exists only to back a measure — is no longer
+  accepted as a `dimensions` or `orderBy` selection by `query_dataset` or
+  `query_metric`. It previously passed schema validation even though the
+  agent-safe catalog hid it, so a dataset advertised one set of dimensions and
+  accepted another.
+
+  This applies across a queryable relationship too: a target dimension marked
+  non-groupable is no longer offered as `<relationship>.<dimension>` grouping key.
+
+  Filterability is unaffected: a dimension that is filterable but not groupable
+  remains usable as a filter field, locally and over a relationship.
+
+- 916eef3: Propagate semantic query cancellation through the datasets client and ClickHouse
+  semantic backend, and enforce MCP query deadlines and serialized-response byte
+  ceilings with stable budget error classifications.
+- 3a28cf0: Add deterministic agent-safe catalog projections for local datasets and portable deployment contracts, with physical diagnostics isolated behind an explicitly authorized trusted-debug API.
+- d347f89: Add a canonical catalog-derived semantic query schema compiler with shared Zod
+  validators, JSON Schemas, exact field and operator constraints, bounded closed
+  objects, and deterministic manifest hashing. Migrate Serve and MCP query schemas
+  to the shared compiler.
+
+### Patch Changes
+
+- Updated dependencies [abd39a9]
+  - @hypequery/protocol@0.12.0
+
 ## 0.13.6
 
 ### Patch Changes

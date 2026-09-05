@@ -1,6 +1,6 @@
 {
   "name": "@hypequery/mcp",
-  "version": "0.5.5",
+  "version": "0.6.0",
   "description": "Governed ClickHouse MCP server for semantic metrics, datasets, Claude, Cursor, and AI agents",
   "keywords": [
     "mcp",
@@ -42,7 +42,7 @@
     "start": "node dist/bin.js"
   },
   "dependencies": {
-    "@hypequery/datasets": "^0.13.3",
+    "@hypequery/datasets": "^0.14.0",
     "@modelcontextprotocol/sdk": "^1.29.0",
     "zod": "^3.23.8"
   },

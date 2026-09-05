@@ -1,5 +1,18 @@
 # @hypequery/clickhouse Changelog
 
+## 2.10.0
+
+### Minor Changes
+
+- 916eef3: Propagate semantic query cancellation through the datasets client and ClickHouse
+  semantic backend, and enforce MCP query deadlines and serialized-response byte
+  ceilings with stable budget error classifications.
+
+### Patch Changes
+
+- Updated dependencies [abd39a9]
+  - @hypequery/protocol@0.12.0
+
 ## 2.9.1
 
 ### Patch Changes
