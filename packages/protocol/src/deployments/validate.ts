@@ -47,6 +47,10 @@ const OPERATORS = new Set([
   'eq', 'neq', 'gt', 'gte', 'lt', 'lte', 'in', 'notIn', 'between', 'like',
 ]);
 const GRAINS = new Set(['day', 'week', 'month', 'quarter', 'year']);
+const SENSITIVITIES = new Set(['public', 'internal', 'confidential', 'restricted']);
+const SEMANTIC_METADATA_FIELDS = [
+  'examples', 'synonyms', 'format', 'unit', 'currency', 'timezone', 'sensitivity',
+] as const;
 
 function requireRecord(input: unknown, path: string): DataRecord {
   if (typeof input !== 'object' || input === null || Array.isArray(input)) {
@@ -155,6 +159,40 @@ function uniqueStrings(
   const result = requireArray(input, path, maxItems).map((value, index) => parse(value, `${path}[${index}]`));
   if (new Set(result).size !== result.length) deploymentError('HQ_DEPLOYMENT_INVALID_VALUE', path);
   return Object.freeze(result);
+}
+
+function validateSemanticMetadata(
+  value: DataRecord,
+  result: Record<string, unknown>,
+  path: string,
+  limits: Readonly<ProtocolDeploymentLimits>,
+): void {
+  const parseText = (item: unknown, itemPath: string) => (
+    boundedText(item, itemPath, limits.maxTextBytes)
+  );
+  for (const key of ['examples', 'synonyms'] as const) {
+    if (value[key] !== undefined) {
+      result[key] = uniqueStrings(
+        value[key], `${path}.${key}`, limits.maxSemanticMetadataItems, parseText,
+      );
+    }
+  }
+  for (const key of ['format', 'unit', 'timezone'] as const) {
+    optionalText(value[key], key, result, path, limits);
+  }
+  if (value.currency !== undefined) {
+    const currency = boundedText(value.currency, `${path}.currency`, limits.maxTextBytes);
+    if (!/^[A-Z]{3}$/.test(currency)) {
+      deploymentError('HQ_DEPLOYMENT_INVALID_VALUE', `${path}.currency`);
+    }
+    result.currency = currency;
+  }
+  if (value.sensitivity !== undefined) {
+    if (typeof value.sensitivity !== 'string' || !SENSITIVITIES.has(value.sensitivity)) {
+      deploymentError('HQ_DEPLOYMENT_INVALID_VALUE', `${path}.sensitivity`);
+    }
+    result.sensitivity = value.sensitivity;
+  }
 }
 
 function validateAccess(
@@ -297,7 +335,12 @@ function validateDimension(
   limits: Readonly<ProtocolDeploymentLimits>,
 ): ProtocolDatasetDimension {
   const value = requireRecord(input, path);
-  exactFields(value, ['name', 'type', 'source', 'filterable', 'groupable'], ['label', 'description'], path);
+  exactFields(
+    value,
+    ['name', 'type', 'source', 'filterable', 'groupable'],
+    ['label', 'description', ...SEMANTIC_METADATA_FIELDS],
+    path,
+  );
   if (!['string', 'number', 'boolean', 'timestamp'].includes(value.type as string)) {
     deploymentError('HQ_DEPLOYMENT_INVALID_VALUE', `${path}.type`);
   }
@@ -312,6 +355,7 @@ function validateDimension(
   };
   optionalText(value.label, 'label', result, path, limits);
   optionalText(value.description, 'description', result, path, limits);
+  validateSemanticMetadata(value, result, path, limits);
   return freezeRecord(result) as unknown as ProtocolDatasetDimension;
 }
 
@@ -324,7 +368,7 @@ function validateMeasure(
   exactFields(
     value,
     ['name', 'aggregation', 'field', 'filters'],
-    ['argField', 'level', 'sql', 'label', 'description'],
+    ['argField', 'level', 'sql', 'label', 'description', ...SEMANTIC_METADATA_FIELDS],
     path,
   );
   if (typeof value.aggregation !== 'string' || !AGGREGATIONS.has(value.aggregation)) {
@@ -356,6 +400,7 @@ function validateMeasure(
   if (value.sql !== undefined) result.sql = nested(() => validateProtocolSqlExpression(value.sql), `${path}.sql`);
   optionalText(value.label, 'label', result, path, limits);
   optionalText(value.description, 'description', result, path, limits);
+  validateSemanticMetadata(value, result, path, limits);
   return freezeRecord(result) as unknown as ProtocolDatasetMeasure;
 }
 
@@ -365,7 +410,12 @@ function validateFilter(
   limits: Readonly<ProtocolDeploymentLimits>,
 ): ProtocolDatasetFilter {
   const value = requireRecord(input, path);
-  exactFields(value, ['name', 'field', 'operators'], ['label', 'description'], path);
+  exactFields(
+    value,
+    ['name', 'field', 'operators'],
+    ['label', 'description', ...SEMANTIC_METADATA_FIELDS],
+    path,
+  );
   const operators = uniqueStrings(
     value.operators,
     `${path}.operators`,
@@ -385,6 +435,7 @@ function validateFilter(
   };
   optionalText(value.label, 'label', result, path, limits);
   optionalText(value.description, 'description', result, path, limits);
+  validateSemanticMetadata(value, result, path, limits);
   return freezeRecord(result) as unknown as ProtocolDatasetFilter;
 }
 
@@ -420,7 +471,7 @@ function validateMetric(
   exactFields(
     value,
     ['name', 'kind', 'expression', 'dimensions', 'filters', 'grains', 'endpoint'],
-    ['grain', 'label', 'description'],
+    ['grain', 'label', 'description', ...SEMANTIC_METADATA_FIELDS],
     path,
   );
   if (!['metric', 'derived-metric', 'grained-metric'].includes(value.kind as string)) {
@@ -467,6 +518,7 @@ function validateMetric(
   if (grain !== undefined) result.grain = grain;
   optionalText(value.label, 'label', result, path, limits);
   optionalText(value.description, 'description', result, path, limits);
+  validateSemanticMetadata(value, result, path, limits);
   return freezeRecord(result) as unknown as ProtocolDatasetMetric;
 }
 
@@ -478,6 +530,42 @@ function validateLimits(input: unknown, path: string): ProtocolDatasetLimits {
     if (value[key] !== undefined) result[key] = positiveInteger(value[key], `${path}.${key}`);
   }
   return freezeRecord(result) as unknown as ProtocolDatasetLimits;
+}
+
+function validateFreshness(input: unknown, path: string): Record<string, unknown> {
+  const value = requireRecord(input, path);
+  exactFields(value, ['maxAgeSeconds'], [], path);
+  return freezeRecord({
+    maxAgeSeconds: positiveInteger(value.maxAgeSeconds, `${path}.maxAgeSeconds`),
+  });
+}
+
+function validateDefaults(
+  input: unknown,
+  path: string,
+  limits: Readonly<ProtocolDeploymentLimits>,
+): Record<string, unknown> {
+  const value = requireRecord(input, path);
+  exactFields(value, [], ['dimensions', 'timeGrain'], path);
+  const result: Record<string, unknown> = {};
+  if (value.dimensions !== undefined) {
+    result.dimensions = uniqueStrings(
+      value.dimensions,
+      `${path}.dimensions`,
+      limits.maxSemanticMetadataItems,
+      (dimension, dimensionPath) => identifier(dimension, dimensionPath),
+    );
+  }
+  if (value.timeGrain !== undefined) {
+    if (typeof value.timeGrain !== 'string' || !GRAINS.has(value.timeGrain)) {
+      deploymentError('HQ_DEPLOYMENT_INVALID_VALUE', `${path}.timeGrain`);
+    }
+    result.timeGrain = value.timeGrain;
+  }
+  if (Object.keys(result).length === 0) {
+    deploymentError('HQ_DEPLOYMENT_INVALID_VALUE', path);
+  }
+  return freezeRecord(result);
 }
 
 function namedItems<T extends { readonly name: string }>(
@@ -502,7 +590,11 @@ function validateDataset(
   exactFields(
     value,
     ['name', 'source', 'tenant', 'dimensions', 'measures', 'filters', 'metrics', 'relationships'],
-    ['timeField', 'limits', 'endpoint'],
+    [
+      'description', 'freshness', 'owner', 'defaults',
+      ...SEMANTIC_METADATA_FIELDS,
+      'timeField', 'limits', 'endpoint',
+    ],
     path,
   );
   const result: Record<string, unknown> = {
@@ -531,6 +623,15 @@ function validateDataset(
     ),
   };
   if (value.timeField !== undefined) result.timeField = identifier(value.timeField, `${path}.timeField`, true);
+  optionalText(value.description, 'description', result, path, limits);
+  optionalText(value.owner, 'owner', result, path, limits);
+  validateSemanticMetadata(value, result, path, limits);
+  if (value.freshness !== undefined) {
+    result.freshness = validateFreshness(value.freshness, `${path}.freshness`);
+  }
+  if (value.defaults !== undefined) {
+    result.defaults = validateDefaults(value.defaults, `${path}.defaults`, limits);
+  }
   if (value.limits !== undefined) result.limits = validateLimits(value.limits, `${path}.limits`);
   if (value.endpoint !== undefined) result.endpoint = validateEndpoint(value.endpoint, `${path}.endpoint`, limits);
   return freezeRecord(result) as unknown as ProtocolDatasetContract;
@@ -594,6 +695,20 @@ function validateArtifact(input: unknown, path: string): ProtocolRuntimeArtifact
 function validateReferences(contract: ProtocolDeploymentContract): void {
   const datasets = new Map(contract.datasets.map(dataset => [dataset.name, dataset]));
   for (const [datasetIndex, dataset] of contract.datasets.entries()) {
+    if (dataset.defaults?.dimensions?.some(name => (
+      !dataset.dimensions.some(dimension => dimension.name === name && dimension.groupable)
+    ))) {
+      deploymentError(
+        'HQ_DEPLOYMENT_INVALID_REFERENCE',
+        `$.datasets[${datasetIndex}].defaults.dimensions`,
+      );
+    }
+    if (dataset.defaults?.timeGrain !== undefined && dataset.timeField === undefined) {
+      deploymentError(
+        'HQ_DEPLOYMENT_INVALID_REFERENCE',
+        `$.datasets[${datasetIndex}].defaults.timeGrain`,
+      );
+    }
     for (const [relationshipIndex, relationship] of dataset.relationships.entries()) {
       if (!datasets.has(relationship.target)) {
         deploymentError(

@@ -9,6 +9,7 @@ import {
   prepareProtocolDeploymentContract,
   PROTOCOL_DEPLOYMENT_IDENTITY_DOMAIN,
   ProtocolDeploymentError,
+  validateProtocolDatasetContract,
   validateProtocolDeploymentContract,
 } from './index.js';
 
@@ -148,10 +149,43 @@ function materialize(type: string): unknown {
       });
       return { ...value, queries: [namedQuery('first'), namedQuery('second')] };
     }
+    case 'invalid-sensitivity':
+      return { ...value, datasets: [{ ...minimalDataset(), sensitivity: 'secret' }] };
+    case 'invalid-currency':
+      return { ...value, datasets: [{ ...minimalDataset(), currency: 'usd' }] };
+    case 'empty-defaults':
+      return { ...value, datasets: [{ ...minimalDataset(), defaults: {} }] };
+    case 'default-dimension-not-groupable':
+      return {
+        ...value,
+        datasets: [{
+          ...minimalDataset(),
+          dimensions: [{
+            name: 'status',
+            type: 'string',
+            source: { kind: 'column', column: 'status' },
+            filterable: true,
+            groupable: false,
+          }],
+          defaults: { dimensions: ['status'] },
+        }],
+      };
+    case 'default-grain-without-time-field':
+      // `timeGrain` has nothing to apply to unless the dataset declares
+      // `timeField`, so this is reported as a broken reference.
+      return { ...value, datasets: [{ ...minimalDataset(), defaults: { timeGrain: 'day' } }] };
     case 'too-many-datasets':
       return {
         ...value,
         datasets: Array.from({ length: 101 }, (_, index) => minimalDataset(`dataset_${index}`)),
+      };
+    case 'too-many-synonyms':
+      return {
+        ...value,
+        datasets: [{
+          ...minimalDataset(),
+          synonyms: Array.from({ length: 101 }, (_, index) => `synonym_${index}`),
+        }],
       };
     case 'source-too-large':
       return { ...value, datasets: [{ ...minimalDataset(), source: 'a'.repeat(1_025) }] };
@@ -248,6 +282,70 @@ describe('deployment contract v1', () => {
     expect(() => validateProtocolDeploymentContract(baseDeployment(), { limits: { maxDatasets: 101 } }))
       .toThrow('maxDatasets must be a positive safe integer no greater than 100 '
         + '(the deployment contract v1 maximum)');
+  });
+
+  it('validates bounded agent metadata and immutable defaults', () => {
+    const value = {
+      ...minimalDataset(),
+      description: 'Governed orders.',
+      examples: ['Revenue by region'],
+      synonyms: ['purchases'],
+      format: 'table',
+      unit: 'orders',
+      currency: 'USD',
+      timezone: 'UTC',
+      sensitivity: 'internal',
+      freshness: { maxAgeSeconds: 300 },
+      owner: 'analytics@example.com',
+      timeField: 'createdAt',
+      dimensions: [{
+        name: 'createdAt',
+        type: 'timestamp',
+        source: { kind: 'column', column: 'created_at' },
+        filterable: true,
+        groupable: true,
+        synonyms: ['created'],
+      }],
+      defaults: { dimensions: ['createdAt'], timeGrain: 'day' },
+    };
+
+    const contract = validateProtocolDatasetContract(value);
+    expect(contract).toMatchObject(value);
+    expect(Object.isFrozen(contract.examples)).toBe(true);
+    expect(Object.isFrozen(contract.defaults)).toBe(true);
+    expect(Object.isFrozen(contract.defaults?.dimensions)).toBe(true);
+  });
+
+  it('rejects oversized, duplicate, and invalid agent metadata', () => {
+    expectDeploymentError(
+      () => validateProtocolDatasetContract(
+        { ...minimalDataset(), description: '123456' },
+        { limits: { maxTextBytes: 5 } },
+      ),
+      'HQ_DEPLOYMENT_TOO_LARGE',
+      '$.description',
+    );
+    expectDeploymentError(
+      () => validateProtocolDatasetContract({
+        ...minimalDataset(),
+        synonyms: ['orders', 'orders'],
+      }),
+      'HQ_DEPLOYMENT_INVALID_VALUE',
+      '$.synonyms',
+    );
+    expectDeploymentError(
+      () => validateProtocolDatasetContract({ ...minimalDataset(), currency: 'usd' }),
+      'HQ_DEPLOYMENT_INVALID_VALUE',
+      '$.currency',
+    );
+    expectDeploymentError(
+      () => validateProtocolDeploymentContract({
+        ...baseDeployment(),
+        datasets: [{ ...minimalDataset(), defaults: { dimensions: ['missing'] } }],
+      }),
+      'HQ_DEPLOYMENT_INVALID_REFERENCE',
+      '$.datasets[0].defaults.dimensions',
+    );
   });
 
   it('requires a grained metric fixed grain to be supported by the metric', () => {

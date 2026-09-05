@@ -10,16 +10,22 @@ import {
   type FilterCatalogEntry,
   type RelationshipCatalogEntry,
 } from './catalog.js';
-import type { DatasetLimits } from './types.js';
+import type {
+  DatasetDefaults,
+  DatasetFreshness,
+  DatasetLimits,
+  SemanticMetadata,
+} from './types.js';
 import { sortedRecord, uniqueSorted } from './utils/canonical-json.js';
+import { snapshotSemanticMetadata } from './utils/semantic-metadata.js';
 
 /**
  * Version of the semantic contract format. Bump when the serialized shape
  * changes in a way that snapshot consumers must account for.
  */
-export const SEMANTIC_CONTRACT_VERSION = 2;
+export const SEMANTIC_CONTRACT_VERSION = 3;
 
-export interface ContractDimension {
+export interface ContractDimension extends SemanticMetadata {
   type: DimensionCatalogEntry['type'];
   column?: string;
   sql?: string;
@@ -29,7 +35,7 @@ export interface ContractDimension {
   groupable: boolean;
 }
 
-export interface ContractMeasure {
+export interface ContractMeasure extends SemanticMetadata {
   aggregation: MeasureCatalogEntry['aggregation'];
   field: string;
   /** Second column for argMax/argMin. */
@@ -41,7 +47,7 @@ export interface ContractMeasure {
   description?: string;
 }
 
-export interface ContractMetric {
+export interface ContractMetric extends SemanticMetadata {
   kind: MetricCatalogEntry['kind'];
   valueType: MetricCatalogEntry['valueType'];
   label?: string;
@@ -54,7 +60,7 @@ export interface ContractMetric {
   requires?: string[];
 }
 
-export interface ContractFilter {
+export interface ContractFilter extends SemanticMetadata {
   field: string;
   label?: string;
   description?: string;
@@ -71,9 +77,13 @@ export interface ContractRelationship {
   fields: string[];
 }
 
-export interface ContractDataset {
+export interface ContractDataset extends SemanticMetadata {
   name: string;
+  description?: string;
   source: string;
+  freshness?: DatasetFreshness;
+  owner?: string;
+  defaults?: DatasetDefaults;
   tenantKey?: string;
   timeKey?: string;
   requiresTenant: boolean;
@@ -137,7 +147,23 @@ export function serializeSemanticContract(
 function datasetToContract(catalog: DatasetCatalog, includeSql: boolean): ContractDataset {
   return {
     name: catalog.name,
+    ...(catalog.description !== undefined ? { description: catalog.description } : {}),
+    ...snapshotSemanticMetadata(catalog),
     source: catalog.source,
+    ...(catalog.freshness !== undefined ? { freshness: { ...catalog.freshness } } : {}),
+    ...(catalog.owner !== undefined ? { owner: catalog.owner } : {}),
+    ...(catalog.defaults !== undefined
+      ? {
+          defaults: {
+            ...(catalog.defaults.dimensions !== undefined
+              ? { dimensions: uniqueSorted(catalog.defaults.dimensions) }
+              : {}),
+            ...(catalog.defaults.timeGrain !== undefined
+              ? { timeGrain: catalog.defaults.timeGrain }
+              : {}),
+          },
+        }
+      : {}),
     ...(catalog.tenantKey !== undefined ? { tenantKey: catalog.tenantKey } : {}),
     ...(catalog.timeKey !== undefined ? { timeKey: catalog.timeKey } : {}),
     requiresTenant: catalog.requiresTenant,
@@ -182,6 +208,7 @@ function dimensionToContract(entry: DimensionCatalogEntry, includeSql: boolean):
     ...(includeSql && entry.sql !== undefined ? { sql: normalizeSql(entry.sql) } : {}),
     ...(entry.label !== undefined ? { label: entry.label } : {}),
     ...(entry.description !== undefined ? { description: entry.description } : {}),
+    ...snapshotSemanticMetadata(entry),
     filterable: entry.filterable,
     groupable: entry.groupable,
   };
@@ -196,6 +223,7 @@ function measureToContract(entry: MeasureCatalogEntry, includeSql: boolean): Con
     ...(includeSql && entry.sql !== undefined ? { sql: normalizeSql(entry.sql) } : {}),
     ...(entry.label !== undefined ? { label: entry.label } : {}),
     ...(entry.description !== undefined ? { description: entry.description } : {}),
+    ...snapshotSemanticMetadata(entry),
   };
 }
 
@@ -205,6 +233,7 @@ function metricToContract(entry: MetricCatalogEntry): ContractMetric {
     valueType: entry.valueType,
     ...(entry.label !== undefined ? { label: entry.label } : {}),
     ...(entry.description !== undefined ? { description: entry.description } : {}),
+    ...snapshotSemanticMetadata(entry),
     dimensions: uniqueSorted(entry.dimensions),
     ...(entry.measures !== undefined ? { measures: uniqueSorted(entry.measures) } : {}),
     filters: uniqueSorted(entry.filters),
@@ -219,6 +248,7 @@ function filterToContract(entry: FilterCatalogEntry): ContractFilter {
     field: entry.field,
     ...(entry.label !== undefined ? { label: entry.label } : {}),
     ...(entry.description !== undefined ? { description: entry.description } : {}),
+    ...snapshotSemanticMetadata(entry),
     operators: uniqueSorted(entry.operators ?? []),
     ...(entry.valueType !== undefined ? { valueType: entry.valueType } : {}),
   };

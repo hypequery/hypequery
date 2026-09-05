@@ -4,8 +4,9 @@
  * Each function maps one dataset representation onto the logical shape an agent
  * may see. They all apply the same rules — drop dimensions that are neither
  * filterable nor groupable, keep only filters whose field survived that drop,
- * keep only metric references that resolve, and sort every collection by name —
- * so the projection is deterministic regardless of which source produced it.
+ * keep only metric references that resolve, snapshot semantic metadata, and
+ * sort every collection by name — so the projection is deterministic regardless
+ * of which source produced it.
  */
 
 import type { ProtocolDatasetContract } from '@hypequery/protocol';
@@ -14,8 +15,15 @@ import type {
   AgentCatalogDimension,
   AgentCatalogFilter,
 } from '../agent-catalog.js';
-import type { DatasetLimits, FieldType } from '../types.js';
+import type {
+  DatasetDefaults,
+  DatasetFreshness,
+  DatasetLimits,
+  FieldType,
+  SemanticMetadata,
+} from '../types.js';
 import { compareStrings, uniqueSorted } from './canonical-json.js';
+import { snapshotSemanticMetadata } from './semantic-metadata.js';
 
 /**
  * The structural shape shared by `DatasetCatalog` and `ContractDataset`.
@@ -24,21 +32,25 @@ import { compareStrings, uniqueSorted } from './canonical-json.js';
  * fields, so one projection covers the local-catalog and semantic-contract
  * sources. Only what the projection reads is declared here.
  */
-export interface RecordShapedDataset {
+export interface RecordShapedDataset extends SemanticMetadata {
   readonly name: string;
+  readonly description?: string;
+  readonly freshness?: DatasetFreshness;
+  readonly owner?: string;
+  readonly defaults?: DatasetDefaults;
   readonly timeKey?: string;
-  readonly dimensions: Readonly<Record<string, {
+  readonly dimensions: Readonly<Record<string, SemanticMetadata & {
     readonly type: FieldType;
     readonly label?: string;
     readonly description?: string;
     readonly filterable: boolean;
     readonly groupable: boolean;
   }>>;
-  readonly measures: Readonly<Record<string, {
+  readonly measures: Readonly<Record<string, SemanticMetadata & {
     readonly label?: string;
     readonly description?: string;
   }>>;
-  readonly metrics: Readonly<Record<string, {
+  readonly metrics: Readonly<Record<string, SemanticMetadata & {
     readonly label?: string;
     readonly description?: string;
     readonly dimensions: readonly string[];
@@ -46,7 +58,7 @@ export interface RecordShapedDataset {
     readonly grains: readonly string[];
     readonly grain?: string;
   }>>;
-  readonly filters: Readonly<Record<string, {
+  readonly filters: Readonly<Record<string, SemanticMetadata & {
     readonly field: string;
     readonly label?: string;
     readonly description?: string;
@@ -84,6 +96,31 @@ export function datasetDescription(name: string, description?: string): string {
   return description ?? `${name} analytics dataset.`;
 }
 
+function snapshotDefaults(defaults: DatasetDefaults): DatasetDefaults {
+  return {
+    ...(defaults.dimensions !== undefined
+      ? { dimensions: uniqueSorted(defaults.dimensions) }
+      : {}),
+    ...(defaults.timeGrain !== undefined ? { timeGrain: defaults.timeGrain } : {}),
+  };
+}
+
+/** The dataset-level metadata every source projects the same way. */
+function datasetMetadata(
+  dataset: SemanticMetadata & {
+    readonly freshness?: DatasetFreshness;
+    readonly owner?: string;
+    readonly defaults?: DatasetDefaults;
+  },
+): Partial<AgentCatalogDataset> {
+  return {
+    ...snapshotSemanticMetadata(dataset),
+    ...(dataset.freshness !== undefined ? { freshness: { ...dataset.freshness } } : {}),
+    ...(dataset.owner !== undefined ? { owner: dataset.owner } : {}),
+    ...(dataset.defaults !== undefined ? { defaults: snapshotDefaults(dataset.defaults) } : {}),
+  };
+}
+
 function sortedByName<T extends { name: string }>(items: T[]): T[] {
   return items.sort((left, right) => compareStrings(left.name, right.name));
 }
@@ -97,6 +134,7 @@ export function recordDatasetToAgentDataset(dataset: RecordShapedDataset): Agent
         name,
         type: dimension.type,
         ...optionalText(dimension),
+        ...snapshotSemanticMetadata(dimension),
         filterable: dimension.filterable,
         groupable: dimension.groupable,
       })),
@@ -112,18 +150,24 @@ export function recordDatasetToAgentDataset(dataset: RecordShapedDataset): Agent
 
   return {
     name: dataset.name,
-    description: datasetDescription(dataset.name),
+    description: datasetDescription(dataset.name, dataset.description),
+    ...datasetMetadata(dataset),
     timeDimension: dataset.timeKey !== undefined && dimensionNames.has(dataset.timeKey)
       ? dataset.timeKey
       : null,
     dimensions,
     measures: sortedByName(
-      Object.entries(dataset.measures).map(([name, measure]) => ({ name, ...optionalText(measure) })),
+      Object.entries(dataset.measures).map(([name, measure]) => ({
+        name,
+        ...optionalText(measure),
+        ...snapshotSemanticMetadata(measure),
+      })),
     ),
     metrics: sortedByName(
       Object.entries(dataset.metrics).map(([name, metric]) => ({
         name,
         ...optionalText(metric),
+        ...snapshotSemanticMetadata(metric),
         dimensions: uniqueSorted(metric.dimensions.filter(item => dimensionNames.has(item))),
         filters: uniqueSorted(metric.filters.filter(item => filterNames.has(item))),
         grains: uniqueSorted(metric.grains),
@@ -136,6 +180,8 @@ export function recordDatasetToAgentDataset(dataset: RecordShapedDataset): Agent
         .map(([name, filter]): AgentCatalogFilter => ({
           name,
           type: filter.valueType as FieldType,
+          ...optionalText(filter),
+          ...snapshotSemanticMetadata(filter),
           operators: uniqueSorted(filter.operators ?? []),
         })),
     ),
@@ -170,6 +216,7 @@ export function protocolDatasetToAgentDataset(
         name: dimension.name,
         type: dimension.type,
         ...optionalText(dimension),
+        ...snapshotSemanticMetadata(dimension),
         filterable: dimension.filterable,
         groupable: dimension.groupable,
       })),
@@ -186,18 +233,24 @@ export function protocolDatasetToAgentDataset(
 
   return {
     name: dataset.name,
-    description: datasetDescription(dataset.name),
+    description: datasetDescription(dataset.name, dataset.description),
+    ...datasetMetadata(dataset),
     timeDimension: dataset.timeField !== undefined && dimensionNames.has(String(dataset.timeField))
       ? String(dataset.timeField)
       : null,
     dimensions,
     measures: sortedByName(
-      dataset.measures.map(measure => ({ name: measure.name, ...optionalText(measure) })),
+      dataset.measures.map(measure => ({
+        name: measure.name,
+        ...optionalText(measure),
+        ...snapshotSemanticMetadata(measure),
+      })),
     ),
     metrics: sortedByName(
       dataset.metrics.map(metric => ({
         name: metric.name,
         ...optionalText(metric),
+        ...snapshotSemanticMetadata(metric),
         dimensions: uniqueSorted(metric.dimensions.filter(name => dimensionNames.has(String(name)))),
         filters: uniqueSorted(metric.filters.filter(name => filterNames.has(String(name)))),
         grains: uniqueSorted(metric.grains),
@@ -212,6 +265,8 @@ export function protocolDatasetToAgentDataset(
           return type === undefined ? undefined : {
             name: filter.name,
             type,
+            ...optionalText(filter),
+            ...snapshotSemanticMetadata(filter),
             operators: uniqueSorted(filter.operators),
           };
         })
