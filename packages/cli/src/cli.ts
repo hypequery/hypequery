@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { Command } from 'commander';
 import { initCommand } from './commands/init.js';
+import { mcpCommand, type McpOptions } from './commands/mcp.js';
 import { devCommand, type DevOptions } from './commands/dev.js';
 import { generateCommand, type GenerateOptions } from './commands/generate.js';
 import { generateDatasetsCommand, type GenerateDatasetsOptions } from './commands/generate-datasets.js';
@@ -159,6 +160,16 @@ program
   .option('-q, --quiet', 'Suppress startup messages')
   .action(runCommand(async (file: string | undefined, options: DevOptions) => {
     await devCommand(file, options);
+  }));
+
+program
+  .command('mcp [file]')
+  .description('Serve this project\'s datasets to an MCP client over stdio')
+  .option('--path <path>', 'Analytics directory (loads <path>/api.ts or <path>/queries.ts)')
+  .option('--tenant <id>', 'Trusted tenant applied to every tenant-scoped dataset')
+  .option('--self-test', 'Check the entrypoint and exit without speaking MCP')
+  .action(runCommand(async (file: string | undefined, options: McpOptions) => {
+    await mcpCommand(file, options);
   }));
 
 // Generate command
