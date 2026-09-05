@@ -11,7 +11,13 @@
  * 4. Add to Claude Desktop config (see README)
  */
 
-import { dataset, dimension, measure, createDatasetClient } from '@hypequery/datasets';
+import {
+  createDatasetClient,
+  createDatasetPublisher,
+  dataset,
+  dimension,
+  measure,
+} from '@hypequery/datasets';
 import { createQueryBuilder } from '@hypequery/clickhouse';
 
 // =============================================================================
@@ -83,16 +89,10 @@ const totalRevenue = OrdersDataset.metric('totalRevenue', { measure: 'totalReven
 const totalOrders = OrdersDataset.metric('totalOrders', { measure: 'totalOrders' });
 const totalCustomers = CustomersDataset.metric('totalCustomers', { measure: 'totalCustomers' });
 
-export const datasets = {
-  orders: {
-    ...OrdersDataset,
-    metrics: { totalRevenue, totalOrders },
-  },
-  customers: {
-    ...CustomersDataset,
-    metrics: { totalCustomers },
-  },
-};
+export const datasets = createDatasetPublisher()
+  .publish(OrdersDataset, { metrics: { totalRevenue, totalOrders } })
+  .publish(CustomersDataset, { metrics: { totalCustomers } })
+  .build();
 
 /**
  * Export the semantic runner consumed by the MCP server

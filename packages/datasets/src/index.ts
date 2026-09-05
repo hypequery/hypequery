@@ -31,6 +31,19 @@ export {
 // Registry
 export { createDatasetRegistry } from './registry.js';
 
+// First-class publication builder for Serve, MCP, and agent consumers.
+export { createDatasetPublisher } from './publishing/publisher.js';
+export type { DatasetPublisher } from './publishing/publisher.js';
+export type {
+  PublishableMetric,
+  PublishedMetricHandle,
+  PublishedMetricMap,
+  PublishedMetrics,
+  PublishedDataset,
+  PublishedDatasetRegistry,
+  PublishDatasetOptions,
+} from './publishing/types.js';
+
 // Catalog
 export { getDatasetCatalog, getDatasetCatalogs, getQueryableRelationshipFields } from './catalog.js';
 export { listQueryableRelationshipFields } from './utils/relationship-fields.js';

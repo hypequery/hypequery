@@ -36,6 +36,7 @@ export {
   filter,
   order,
   createDatasetRegistry,
+  createDatasetPublisher,
 } from '@hypequery/datasets';
 
 export type {
@@ -79,6 +80,14 @@ export type {
   DerivedMetricConfig,
   DatasetRegistryInstance,
   DatasetFieldNames,
+  DatasetPublisher,
+  PublishableMetric,
+  PublishedMetricHandle,
+  PublishedMetricMap,
+  PublishedMetrics,
+  PublishedDataset,
+  PublishedDatasetRegistry,
+  PublishDatasetOptions,
 } from '@hypequery/datasets';
 
 // Serve-specific endpoint integration

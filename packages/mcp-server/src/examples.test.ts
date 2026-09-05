@@ -5,7 +5,7 @@ describe('example configurations', () => {
     const { datasets } = await import('../examples/system-one-config.js');
 
     expect(datasets.one).toMatchObject({
-      name: 'system_one',
+      name: 'one',
       source: 'system.one',
       limits: { maxResultSize: 1 },
     });

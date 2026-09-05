@@ -176,26 +176,28 @@ const catalogs = getDatasetCatalogs({
 
 Measures are raw aggregations available in dataset queries. Metrics are named KPI handles created with `dataset.metric(...)`.
 
-By default, a dataset instance has measures but does not store every metric ref created from it. If a registry attaches named metric refs, the catalog includes them separately.
+By default, a dataset instance has measures but does not store every metric ref created from it. Publish named metric refs with a dataset to include them in the catalog.
 
 <CodeBlock>
 ```typescript
+import { createDatasetPublisher, getDatasetCatalog } from '@hypequery/datasets';
+
 const revenue = Orders.metric('revenue', {
   measure: 'revenue',
   label: 'Revenue',
 });
 
-const catalog = getDatasetCatalog({
-  ...Orders,
-  metrics: { revenue },
-});
+const datasets = createDatasetPublisher()
+  .publish(Orders, { metrics: { revenue } })
+  .build();
+const catalog = getDatasetCatalog(datasets.orders);
 
 console.log(catalog.measures.revenue);
 console.log(catalog.metrics.revenue);
 ```
 </CodeBlock>
 
-This is the same registry shape used by the MCP server. It lets `get_dataset_schema` show both the exploratory dataset measures and the named metrics that agents should use for stable KPIs.
+`build()` returns the same plain registry shape used by the MCP server. It lets `get_dataset_schema` show both the exploratory dataset measures and the named metrics that agents should use for stable KPIs. Existing hand-built registry objects remain supported for compatibility.
 
 ## Current consumers
 
