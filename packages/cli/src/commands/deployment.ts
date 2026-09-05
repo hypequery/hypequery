@@ -38,6 +38,7 @@ export interface BuildDeploymentOptions {
   entrypointPrefix?: string;
   hashOutput?: string;
   source?: boolean;
+  allowUnsupportedConfig?: boolean;
 }
 
 export interface PrepareDeploymentReleaseOptions {
@@ -57,6 +58,14 @@ export interface PrepareDeploymentReleaseDependencies {
 
 const DEFAULT_BUNDLE_OUTPUT = 'analytics/hypequery-deployment';
 
+interface CloudCompatibilityDiagnosticLike {
+  readonly severity: 'error' | 'warning';
+  readonly code: string;
+  readonly subject: string;
+  readonly message: string;
+  readonly remedy: string;
+}
+
 interface DeploymentContractSource {
   deploymentContract(options?: {
     runtimeArtifact?: {
@@ -64,7 +73,21 @@ interface DeploymentContractSource {
       artifactSha256: string;
       entrypointPrefix?: string;
     };
+    onCloudDiagnostic?: (diagnostic: CloudCompatibilityDiagnosticLike) => void;
+    allowUnsupportedConfig?: boolean;
   }): ProtocolDeploymentContract;
+}
+
+/**
+ * Surfaces a managed-execution difference. Errors already abort the contract
+ * build; warnings would otherwise be discarded, so print them here where the
+ * author can still act before the release is submitted.
+ */
+function reportCloudDiagnostic(diagnostic: CloudCompatibilityDiagnosticLike): void {
+  if (diagnostic.severity === 'error') return;
+  logger.warn(`${diagnostic.code} (${diagnostic.subject})`);
+  logger.indent(diagnostic.message);
+  logger.indent(`→ ${diagnostic.remedy}`);
 }
 
 function runtimeName(options: BuildDeploymentOptions): 'node' | 'python' {
@@ -184,7 +207,11 @@ export async function buildDeploymentCommand(
     }
   }
 
-  const contract = api.deploymentContract(artifact ? { runtimeArtifact: artifact } : {});
+  const contract = api.deploymentContract({
+    ...(artifact ? { runtimeArtifact: artifact } : {}),
+    ...(options.allowUnsupportedConfig ? { allowUnsupportedConfig: true } : {}),
+    onCloudDiagnostic: reportCloudDiagnostic,
+  });
   const prepared = prepareProtocolDeploymentContract(contract);
   const { canonical, contract: validated, identity: digest } = prepared;
   if (bundleOutput !== undefined) {
