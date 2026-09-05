@@ -4,6 +4,7 @@ import { z, type ZodTypeAny } from 'zod';
 import { zodToJsonSchema } from 'zod-to-json-schema';
 import {
   getDatasetCatalog,
+  getGroupableRelationshipFields,
   getQueryableRelationshipFields,
   type DatasetCatalog,
   type DatasetCatalogSource,
@@ -118,9 +119,27 @@ function queryShape(
 ): Record<string, ZodTypeAny> {
   const limits = { ...DEFAULT_SEMANTIC_QUERY_SCHEMA_LIMITS, ...options };
   const relationshipFields = getQueryableRelationshipFields(catalog);
+  // `groupable: false` declares a dimension that exists to back a measure, not
+  // to be selected. The agent-safe catalog already hides those, so the
+  // generated schema must refuse them too — otherwise a dataset advertises one
+  // set of dimensions and accepts another. This holds across a relationship
+  // hop: a non-groupable target dimension stays filterable but is not a
+  // grouping key, so the two lists are tracked separately.
+  const groupableRelationshipFields = new Set(getGroupableRelationshipFields(catalog));
+  const isGroupable = (name: string) => (
+    catalog.dimensions[name] !== undefined
+      ? catalog.dimensions[name].groupable !== false
+      : groupableRelationshipFields.has(name)
+  );
   const dimensions = metric
-    ? uniqueSorted([...metric.dimensions, ...localRelationshipFields])
-    : uniqueSorted([...Object.keys(catalog.dimensions), ...relationshipFields]);
+    ? uniqueSorted([
+        ...metric.dimensions.filter(isGroupable),
+        ...localRelationshipFields.filter(isGroupable),
+      ])
+    : uniqueSorted([
+        ...Object.keys(catalog.dimensions).filter(isGroupable),
+        ...relationshipFields.filter(isGroupable),
+      ]);
   const declaredFilters = Object.keys(catalog.filters);
   const filterFields = metric
     ? uniqueSorted([...metric.filters, ...localRelationshipFields])
