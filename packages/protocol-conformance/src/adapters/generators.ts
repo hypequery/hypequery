@@ -183,6 +183,118 @@ export function materializeImplementation(spec: Spec): unknown {
   }
 }
 
+// --- semantic-invocations-v1 ---
+
+const INVOCATION_REVISION = '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
+const INVOCATION_LIMITS = {
+  maxRows: 10_000,
+  maxColumnsPerRow: 256,
+  maxValueBytes: 65_536,
+  maxDeadlineMs: 3_600_000,
+  maxMessageBytes: 1_024,
+};
+
+function baseInvocation(): Record<string, unknown> {
+  return {
+    kind: 'hypequery-semantic-invocation',
+    version: 1,
+    target: { project: 'acme', environment: 'production' },
+    operation: { kind: 'dataset', dataset: 'orders', measures: ['revenue'] },
+  };
+}
+
+function baseInvocationResult(): Record<string, unknown> {
+  return {
+    kind: 'hypequery-semantic-invocation-result',
+    version: 1,
+    activationRevision: INVOCATION_REVISION,
+    data: [{ status: 'paid' }],
+    meta: { rowCount: 1 },
+  };
+}
+
+function baseInvocationFailure(): Record<string, unknown> {
+  return {
+    kind: 'hypequery-semantic-invocation-failure',
+    version: 1,
+    category: 'input-invalid',
+    code: 'HQ_SEMANTIC_UNKNOWN_DIMENSION',
+    message: 'Unknown dimension.',
+    retryable: false,
+    relist: false,
+  };
+}
+
+export function materializeSemanticInvocation(spec: Spec): unknown {
+  switch (spec.type) {
+    case 'wrong-root-type': return [];
+    case 'unknown-root-field': return { ...baseInvocation(), extra: true };
+    case 'unsupported-version': return { ...baseInvocation(), version: 2 };
+    // A caller can never name a tenant; the field does not exist in the record.
+    case 'caller-supplied-tenant': return { ...baseInvocation(), tenant: 'acme' };
+    // Identifiers are normalized into `operation`; a second copy could disagree.
+    case 'redundant-operation-dataset': return { ...baseInvocation(), dataset: 'orders' };
+    case 'malformed-activation-revision':
+      return { ...baseInvocation(), activationRevision: 'not-a-digest' };
+    case 'empty-budget': return { ...baseInvocation(), budget: {} };
+    case 'zero-deadline': return { ...baseInvocation(), budget: { deadlineMs: 0 } };
+    case 'deadline-too-large':
+      return { ...baseInvocation(), budget: { deadlineMs: INVOCATION_LIMITS.maxDeadlineMs + 1 } };
+    case 'correlation-id-control-character':
+      return { ...baseInvocation(), correlationId: 'req\u0007id' };
+    case 'unsafe-accessor': {
+      const unsafe = baseInvocation();
+      Object.defineProperty(unsafe, 'kind', {
+        enumerable: true,
+        get: () => 'hypequery-semantic-invocation',
+      });
+      return unsafe;
+    }
+    case 'too-many-rows': {
+      const rows = INVOCATION_LIMITS.maxRows + 1;
+      return {
+        ...baseInvocationResult(),
+        data: Array.from({ length: rows }, () => ({ status: 'paid' })),
+        meta: { rowCount: rows },
+      };
+    }
+    case 'too-many-columns':
+      return {
+        ...baseInvocationResult(),
+        data: [Object.fromEntries(
+          Array.from({ length: INVOCATION_LIMITS.maxColumnsPerRow + 1 }, (_, i) => [`c${i}`, i]),
+        )],
+      };
+    case 'non-finite-cell':
+      return { ...baseInvocationResult(), data: [{ revenue: Number.POSITIVE_INFINITY }] };
+    case 'nested-cell':
+      return { ...baseInvocationResult(), data: [{ breakdown: { paid: 1 } }] };
+    case 'cell-too-large':
+      return {
+        ...baseInvocationResult(),
+        data: [{ note: repeat('a', INVOCATION_LIMITS.maxValueBytes + 1) }],
+      };
+    case 'row-count-mismatch':
+      return { ...baseInvocationResult(), meta: { rowCount: 9 } };
+    case 'sparse-data-array': {
+      const data: unknown[] = [{ status: 'paid' }];
+      data.length = 3;
+      return { ...baseInvocationResult(), data, meta: { rowCount: 3 } };
+    }
+    case 'unknown-failure-category':
+      return { ...baseInvocationFailure(), category: 'exploded' };
+    case 'provider-shaped-failure-code':
+      return { ...baseInvocationFailure(), code: 'ClickHouseException: DB::Exception' };
+    case 'failure-message-too-large':
+      return {
+        ...baseInvocationFailure(),
+        message: repeat('a', INVOCATION_LIMITS.maxMessageBytes + 1),
+      };
+    default:
+      throw new Error(`Unknown semantic invocation generator: ${String(spec.type)}`);
+  }
+}
+
 // --- query-events-v1 ---
 
 function baseEvent(): Record<string, unknown> {

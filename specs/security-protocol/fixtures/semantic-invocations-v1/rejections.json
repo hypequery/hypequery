@@ -1,0 +1,23 @@
+[
+  { "id": "wrong-root-type", "record": "invocation", "generator": { "type": "wrong-root-type" }, "error": "HQ_INVOCATION_TYPE" },
+  { "id": "unknown-root-field", "record": "invocation", "generator": { "type": "unknown-root-field" }, "error": "HQ_INVOCATION_UNKNOWN_FIELD" },
+  { "id": "unsupported-version", "record": "invocation", "generator": { "type": "unsupported-version" }, "error": "HQ_INVOCATION_INVALID_VERSION" },
+  { "id": "caller-supplied-tenant", "record": "invocation", "generator": { "type": "caller-supplied-tenant" }, "error": "HQ_INVOCATION_UNKNOWN_FIELD" },
+  { "id": "redundant-operation-dataset", "record": "invocation", "generator": { "type": "redundant-operation-dataset" }, "error": "HQ_INVOCATION_UNKNOWN_FIELD" },
+  { "id": "malformed-activation-revision", "record": "invocation", "generator": { "type": "malformed-activation-revision" }, "error": "HQ_INVOCATION_INVALID_VALUE" },
+  { "id": "empty-budget", "record": "invocation", "generator": { "type": "empty-budget" }, "error": "HQ_INVOCATION_INVALID_VALUE" },
+  { "id": "zero-deadline", "record": "invocation", "generator": { "type": "zero-deadline" }, "error": "HQ_INVOCATION_INVALID_VALUE" },
+  { "id": "deadline-too-large", "record": "invocation", "generator": { "type": "deadline-too-large" }, "error": "HQ_INVOCATION_TOO_LARGE" },
+  { "id": "correlation-id-control-character", "record": "invocation", "generator": { "type": "correlation-id-control-character" }, "error": "HQ_INVOCATION_INVALID_VALUE" },
+  { "id": "unsafe-accessor", "record": "invocation", "generator": { "type": "unsafe-accessor" }, "error": "HQ_INVOCATION_UNSAFE_OBJECT" },
+  { "id": "too-many-rows", "record": "result", "generator": { "type": "too-many-rows" }, "error": "HQ_INVOCATION_TOO_MANY_ITEMS" },
+  { "id": "too-many-columns", "record": "result", "generator": { "type": "too-many-columns" }, "error": "HQ_INVOCATION_TOO_MANY_ITEMS" },
+  { "id": "non-finite-cell", "record": "result", "generator": { "type": "non-finite-cell" }, "error": "HQ_INVOCATION_INVALID_VALUE" },
+  { "id": "nested-cell", "record": "result", "generator": { "type": "nested-cell" }, "error": "HQ_INVOCATION_TYPE" },
+  { "id": "cell-too-large", "record": "result", "generator": { "type": "cell-too-large" }, "error": "HQ_INVOCATION_TOO_LARGE" },
+  { "id": "row-count-mismatch", "record": "result", "generator": { "type": "row-count-mismatch" }, "error": "HQ_INVOCATION_INVALID_VALUE" },
+  { "id": "sparse-data-array", "record": "result", "generator": { "type": "sparse-data-array" }, "error": "HQ_INVOCATION_UNSAFE_OBJECT" },
+  { "id": "unknown-failure-category", "record": "failure", "generator": { "type": "unknown-failure-category" }, "error": "HQ_INVOCATION_INVALID_VALUE" },
+  { "id": "provider-shaped-failure-code", "record": "failure", "generator": { "type": "provider-shaped-failure-code" }, "error": "HQ_INVOCATION_INVALID_VALUE" },
+  { "id": "failure-message-too-large", "record": "failure", "generator": { "type": "failure-message-too-large" }, "error": "HQ_INVOCATION_TOO_LARGE" }
+]

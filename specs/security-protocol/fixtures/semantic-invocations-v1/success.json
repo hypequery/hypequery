@@ -1,0 +1,102 @@
+[
+  {
+    "id": "minimal-dataset-invocation",
+    "record": "invocation",
+    "value": {
+      "kind": "hypequery-semantic-invocation",
+      "version": 1,
+      "target": { "project": "acme", "environment": "production" },
+      "operation": { "kind": "dataset", "dataset": "orders", "measures": ["revenue"] }
+    }
+  },
+  {
+    "id": "pinned-metric-invocation-with-budget",
+    "record": "invocation",
+    "value": {
+      "kind": "hypequery-semantic-invocation",
+      "version": 1,
+      "target": { "project": "acme", "environment": "production" },
+      "activationRevision": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+      "operation": {
+        "kind": "metric",
+        "dataset": "orders",
+        "metric": "total_revenue",
+        "dimensions": ["status"],
+        "by": "day",
+        "limit": 100,
+        "offset": 0
+      },
+      "budget": { "deadlineMs": 30000, "maxRows": 1000, "maxResponseBytes": 1048576 },
+      "correlationId": "req-7f3a"
+    }
+  },
+  {
+    "id": "empty-result",
+    "record": "result",
+    "value": {
+      "kind": "hypequery-semantic-invocation-result",
+      "version": 1,
+      "activationRevision": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+      "data": [],
+      "meta": { "rowCount": 0 }
+    }
+  },
+  {
+    "id": "paginated-result",
+    "record": "result",
+    "value": {
+      "kind": "hypequery-semantic-invocation-result",
+      "version": 1,
+      "activationRevision": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+      "data": [
+        { "status": "paid", "revenue": 1234.5, "refunded": false, "note": null },
+        { "status": "pending", "revenue": 0, "refunded": true, "note": "partial" }
+      ],
+      "meta": {
+        "rowCount": 2,
+        "pagination": { "limit": 2, "offset": 0, "hasMore": true }
+      }
+    }
+  },
+  {
+    "id": "correctable-failure",
+    "record": "failure",
+    "value": {
+      "kind": "hypequery-semantic-invocation-failure",
+      "version": 1,
+      "category": "input-invalid",
+      "code": "HQ_SEMANTIC_UNKNOWN_DIMENSION",
+      "message": "Unknown dimension.",
+      "path": "$.operation.dimensions[0]",
+      "retryable": false,
+      "relist": false
+    }
+  },
+  {
+    "id": "stale-activation-failure",
+    "record": "failure",
+    "value": {
+      "kind": "hypequery-semantic-invocation-failure",
+      "version": 1,
+      "category": "stale-activation",
+      "code": "HQ_SEMANTIC_STALE_ACTIVATION",
+      "message": "The pinned activation is no longer active.",
+      "retryable": true,
+      "relist": true,
+      "activationRevision": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+    }
+  },
+  {
+    "id": "unsupported-capability-failure",
+    "record": "failure",
+    "value": {
+      "kind": "hypequery-semantic-invocation-failure",
+      "version": 1,
+      "category": "unsupported-capability",
+      "code": "HQ_SEMANTIC_DERIVED_METRIC_UNSUPPORTED",
+      "message": "Portable execution cannot reproduce this metric.",
+      "retryable": false,
+      "relist": false
+    }
+  }
+]
