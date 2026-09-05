@@ -151,8 +151,34 @@ function rehydrateRelationships(
   return relationships;
 }
 
+/**
+ * Identity of an aggregation, used to bind a metric back to the measure it was
+ * built from.
+ *
+ * Aggregation and field alone are not enough: two measures may share both and
+ * differ only by their fixed filters — `sum(amount)` and `sum(amount) where
+ * status = 'paid'`. Matching on the looser key binds the metric to whichever
+ * measure happens to sort first and silently changes the SQL it emits.
+ */
+function aggregationKey(value: {
+  readonly aggregation: string;
+  readonly field: unknown;
+  readonly argField?: unknown;
+  readonly level?: number;
+  readonly filters?: readonly unknown[];
+}): string {
+  return JSON.stringify([
+    value.aggregation,
+    String(value.field),
+    value.argField === undefined ? null : String(value.argField),
+    value.level ?? null,
+    value.filters ?? [],
+  ]);
+}
+
 function rehydrateMetric(
   instance: AnyDatasetInstance,
+  contract: ProtocolDatasetContract,
   metric: ProtocolDatasetMetric,
 ): MetricHandle {
   const name = String(metric.name);
@@ -174,21 +200,30 @@ function rehydrateMetric(
     );
   }
   const field = String(expression.field);
-  const measureName = Object.entries(instance.measures).find(([, measure]) => (
-    measure.aggregation === expression.aggregation
-    && measure.field === field
-    && measure.argField === (expression.argField === undefined
-      ? undefined
-      : String(expression.argField))
-    && measure.level === expression.level
-  ))?.[0];
-  if (measureName === undefined) {
+  const candidates = contract.measures.filter(measure => (
+    aggregationKey(measure) === aggregationKey(expression)
+  ));
+  if (candidates.length === 0) {
     throw new UnsupportedContractFeatureError(
       instance.name,
       `metric "${name}"`,
       `no declared measure matches ${expression.aggregation}(${field})`,
     );
   }
+  // A metric expression carries no raw SQL, so two measures that share an
+  // aggregation identity but override SQL differently are indistinguishable in
+  // contract v1. Binding to either would be a guess at which SQL to emit.
+  const distinctSql = new Set(candidates.map(measure => measure.sql?.sql ?? null));
+  if (distinctSql.size > 1) {
+    throw new UnsupportedContractFeatureError(
+      instance.name,
+      `metric "${name}"`,
+      `${candidates.map(measure => `"${String(measure.name)}"`).join(' and ')} share `
+      + `${expression.aggregation}(${field}) but emit different SQL, so the contract cannot `
+      + 'say which one this metric was built from',
+    );
+  }
+  const measureName = candidates[0].name;
 
   const base = instance.metric(name, {
     measure: measureName,
@@ -286,7 +321,7 @@ export function rehydrateProtocolDatasets(
     const instance = instances.get(name) as AnyDatasetInstance;
     const metrics: Record<string, MetricHandle> = {};
     for (const metric of contract.metrics) {
-      metrics[String(metric.name)] = rehydrateMetric(instance, metric);
+      metrics[String(metric.name)] = rehydrateMetric(instance, contract, metric);
     }
     registry[name] = Object.assign(
       Object.create(Object.getPrototypeOf(instance) as object),

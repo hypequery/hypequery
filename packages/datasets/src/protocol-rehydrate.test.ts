@@ -140,6 +140,68 @@ describe('contract-to-catalog rehydration', () => {
     }
   });
 
+  it('binds a metric to the measure it was built from, not a lookalike', () => {
+    // `revenue` and `paidRevenue` are both sum(amount) and differ only by a
+    // fixed filter. Contract measures arrive sorted by name, so matching on
+    // aggregation and field alone binds totalRevenue to `paidRevenue` and
+    // silently changes the SQL the metric emits.
+    const Orders = dataset('orders', {
+      source: 'analytics.orders',
+      dimensions: {
+        status: dimension.string(),
+        amount: dimension.number({ column: 'amount_cents' }),
+      },
+      measures: {
+        revenue: measure.sum('amount'),
+        paidRevenue: measure.sum('amount', { filters: [eq('status', 'paid')] }),
+      },
+    });
+    const totalRevenue = Orders.metric('totalRevenue', { measure: 'revenue' });
+    const contract = buildProtocolDatasetContract(Orders as never, {
+      endpoint: PUBLIC_ENDPOINT as never,
+      metrics: { totalRevenue } as never,
+      metricEndpoints: { totalRevenue: PUBLIC_ENDPOINT } as never,
+    });
+
+    const registry = rehydrateProtocolDatasets([contract]);
+
+    expect(roundTrip(contract, registry as never)).toEqual(contract);
+    // The distinguishing property is the fixed filter, not the field: binding
+    // to `paidRevenue` would carry `status = 'paid'` into every use of the
+    // metric. Both measures share aggregation and field.
+    const spec = (registry.orders.metrics.totalRevenue as unknown as {
+      spec: { field: string; filters?: unknown[] };
+    }).spec;
+    expect(spec.field).toBe('amount');
+    expect(spec.filters ?? []).toEqual([]);
+  });
+
+  it('fails closed when two measures are indistinguishable in the contract', () => {
+    // Both are sum(amount) with no filters, but one overrides the SQL. A metric
+    // expression carries no SQL, so the contract cannot say which one the
+    // metric was built from — guessing would silently pick one of two results.
+    const Orders = dataset('orders', {
+      source: 'analytics.orders',
+      dimensions: { amount: dimension.number({ column: 'amount_cents' }) },
+      measures: {
+        revenue: measure.sum('amount'),
+        rawRevenue: measure.sum('amount', {
+          sql: 'sum(amount_cents) / 100',
+          dependencies: ['amount_cents'],
+        }),
+      },
+    });
+    const totalRevenue = Orders.metric('totalRevenue', { measure: 'revenue' });
+    const contract = buildProtocolDatasetContract(Orders as never, {
+      endpoint: PUBLIC_ENDPOINT as never,
+      metrics: { totalRevenue } as never,
+      metricEndpoints: { totalRevenue: PUBLIC_ENDPOINT } as never,
+    });
+
+    expect(() => rehydrateProtocolDatasets([contract]))
+      .toThrow(/emit different SQL/);
+  });
+
   it('rewires a relationship onto the rebuilt target', () => {
     const Customers = dataset('customers', {
       source: 'customers',
