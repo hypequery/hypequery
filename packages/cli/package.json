@@ -43,9 +43,16 @@
     "@napi-rs/keyring": "1.3.0"
   },
   "peerDependencies": {
+    "@hypequery/mcp": "*",
     "@hypequery/serve": "*"
   },
+  "peerDependenciesMeta": {
+    "@hypequery/mcp": {
+      "optional": true
+    }
+  },
   "devDependencies": {
+    "@hypequery/mcp": "workspace:*",
     "@hypequery/serve": "workspace:*",
     "@types/node": "^20.11.30",
     "@types/prompts": "^2.4.9",

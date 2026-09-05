@@ -34,3 +34,7 @@ export { ProtocolSchemaAdapterError, zodToProtocolSchema } from './protocol-sche
 export { serveDev } from "./dev.js";
 export * from "./serve.js";
 export * from "./semantic/index.js";
+
+// MCP tooling seam: lets `hypequery mcp` reuse this entrypoint's datasets.
+export { readServeMcpSource } from './server/mcp-source.js';
+export type { ServeMcpSource } from './server/mcp-source.js';
