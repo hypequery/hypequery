@@ -130,6 +130,30 @@ export type {
 } from './events/index.js';
 
 export {
+  DEFAULT_PROTOCOL_SEMANTIC_INVOCATION_LIMITS,
+  ProtocolSemanticInvocationError,
+  validateProtocolSemanticInvocation,
+  validateProtocolSemanticInvocationFailure,
+  validateProtocolSemanticInvocationResult,
+} from './invocations/index.js';
+
+export type {
+  ProtocolSemanticInvocation,
+  ProtocolSemanticInvocationBudget,
+  ProtocolSemanticInvocationErrorCode,
+  ProtocolSemanticInvocationFailure,
+  ProtocolSemanticInvocationFailureCategory,
+  ProtocolSemanticInvocationLimits,
+  ProtocolSemanticInvocationMeta,
+  ProtocolSemanticInvocationOptions,
+  ProtocolSemanticInvocationPagination,
+  ProtocolSemanticInvocationResult,
+  ProtocolSemanticInvocationRow,
+  ProtocolSemanticInvocationTarget,
+  ProtocolSemanticInvocationValue,
+} from './invocations/index.js';
+
+export {
   DEFAULT_PROTOCOL_DEPLOYMENT_BUNDLE_LIMITS,
   PROTOCOL_DEPLOYMENT_BUNDLE_IDENTITY_DOMAIN,
   ProtocolDeploymentBundleError,
