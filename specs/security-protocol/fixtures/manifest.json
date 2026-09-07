@@ -221,6 +221,23 @@
           "role": "rejection"
         }
       ]
+    },
+    {
+      "name": "semantic-invocations-v1",
+      "rfc": "0014",
+      "codePrefixes": [
+        "HQ_INVOCATION_"
+      ],
+      "files": [
+        {
+          "path": "semantic-invocations-v1/success.json",
+          "role": "success"
+        },
+        {
+          "path": "semantic-invocations-v1/rejections.json",
+          "role": "rejection"
+        }
+      ]
     }
   ],
   "fuzz": [

@@ -23,6 +23,9 @@ import {
   validateProtocolQueryEvent,
   validateProtocolQueryImplementation,
   validateProtocolSchema,
+  validateProtocolSemanticInvocation,
+  validateProtocolSemanticInvocationFailure,
+  validateProtocolSemanticInvocationResult,
   validateProtocolSemanticQuery,
   validateProtocolSqlExpression,
 } from '@hypequery/protocol';
@@ -32,6 +35,7 @@ import {
   materializeDeployment,
   materializeDiagnostics,
   materializeEvent,
+  materializeSemanticInvocation,
   materializeExpression,
   materializeIdentifier,
   materializeImplementation,
@@ -96,6 +100,7 @@ export const REFERENCE_FAMILIES = [
   'deployments-v1',
   'deployment-bundles-v1',
   'deployment-releases-v1',
+  'semantic-invocations-v1',
 ] as const;
 
 export function referenceHandle(
@@ -134,11 +139,34 @@ export function referenceHandle(
       return handleBundle(role, c);
     case 'deployment-releases-v1':
       return handleRelease(role, c);
+    case 'semantic-invocations-v1':
+      return handleSemanticInvocation(c);
     case 'cache-keys-v1':
       return handleCacheKey(role, c);
     default:
       throw new Error(`reference adapter does not support family ${family}`);
   }
+}
+
+/**
+ * One family covers the invocation, result, and failure records, so each case
+ * names which one it validates against.
+ */
+function handleSemanticInvocation(c: Case): HandlerResult {
+  const validators = {
+    invocation: validateProtocolSemanticInvocation,
+    result: validateProtocolSemanticInvocationResult,
+    failure: validateProtocolSemanticInvocationFailure,
+  } as const;
+  const record = c.record as keyof typeof validators | undefined;
+  const validate = record === undefined ? undefined : validators[record];
+  if (!validate) {
+    throw new Error(`semantic invocation case is missing a known record: ${String(c.record)}`);
+  }
+  return attempt(() => {
+    validate(validationInput(c, materializeSemanticInvocation));
+    return ACCEPT;
+  });
 }
 
 function hexToBytes(hex: string): Uint8Array {
