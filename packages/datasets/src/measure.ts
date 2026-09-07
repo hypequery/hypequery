@@ -1,4 +1,5 @@
 import type { MeasureDefinition, MeasureOptions, MeasureAggregation } from './types.js';
+import { snapshotSemanticMetadata } from './utils/semantic-metadata.js';
 
 function createMeasureHelper(aggregation: MeasureAggregation) {
   return (field: string, opts?: MeasureOptions): MeasureDefinition => ({
@@ -9,6 +10,7 @@ function createMeasureHelper(aggregation: MeasureAggregation) {
     dependencies: opts?.dependencies,
     label: opts?.label,
     description: opts?.description,
+    ...snapshotSemanticMetadata(opts ?? {}),
     filters: opts?.filters,
   });
 }
@@ -33,6 +35,7 @@ function createArgMeasureHelper(aggregation: 'argMax' | 'argMin') {
       dependencies: opts?.dependencies,
       label: opts?.label,
       description: opts?.description,
+      ...snapshotSemanticMetadata(opts ?? {}),
     };
   };
 }
@@ -48,6 +51,7 @@ function createPercentileMeasure(field: string, level: number, opts?: MeasureOpt
     dependencies: opts?.dependencies,
     label: opts?.label,
     description: opts?.description,
+    ...snapshotSemanticMetadata(opts ?? {}),
     filters: opts?.filters,
   };
 }

@@ -7,6 +7,26 @@ import type {
 import type { ProtocolSchema } from '../schemas/index.js';
 
 export type ProtocolDatasetFieldType = 'string' | 'number' | 'boolean' | 'timestamp';
+export type ProtocolSemanticSensitivity = 'public' | 'internal' | 'confidential' | 'restricted';
+
+export interface ProtocolSemanticMetadata {
+  readonly examples?: readonly string[];
+  readonly synonyms?: readonly string[];
+  readonly format?: string;
+  readonly unit?: string;
+  readonly currency?: string;
+  readonly timezone?: string;
+  readonly sensitivity?: ProtocolSemanticSensitivity;
+}
+
+export interface ProtocolDatasetFreshness {
+  readonly maxAgeSeconds: number;
+}
+
+export interface ProtocolDatasetDefaults {
+  readonly dimensions?: readonly ProtocolIdentifier[];
+  readonly timeGrain?: ProtocolTimeGrain;
+}
 
 export type ProtocolAccessPolicy =
   | { readonly kind: 'public' }
@@ -40,7 +60,7 @@ export type ProtocolDatasetFieldSource =
   | { readonly kind: 'column'; readonly column: string }
   | ProtocolSqlExpression;
 
-export interface ProtocolDatasetDimension {
+export interface ProtocolDatasetDimension extends ProtocolSemanticMetadata {
   readonly name: ProtocolIdentifier;
   readonly type: ProtocolDatasetFieldType;
   readonly source: ProtocolDatasetFieldSource;
@@ -50,7 +70,7 @@ export interface ProtocolDatasetDimension {
   readonly description?: string;
 }
 
-export interface ProtocolDatasetMeasure {
+export interface ProtocolDatasetMeasure extends ProtocolSemanticMetadata {
   readonly name: ProtocolIdentifier;
   readonly aggregation:
     | 'sum' | 'count' | 'countDistinct' | 'avg' | 'min' | 'max'
@@ -64,7 +84,7 @@ export interface ProtocolDatasetMeasure {
   readonly description?: string;
 }
 
-export interface ProtocolDatasetFilter {
+export interface ProtocolDatasetFilter extends ProtocolSemanticMetadata {
   readonly name: ProtocolIdentifier;
   readonly field: ProtocolQualifiedIdentifier;
   readonly operators: readonly (
@@ -84,7 +104,7 @@ export interface ProtocolDatasetRelationship {
   readonly queryable: boolean;
 }
 
-export interface ProtocolDatasetMetric {
+export interface ProtocolDatasetMetric extends ProtocolSemanticMetadata {
   readonly name: ProtocolIdentifier;
   readonly kind: 'metric' | 'derived-metric' | 'grained-metric';
   readonly expression: ProtocolExpression;
@@ -104,9 +124,13 @@ export interface ProtocolDatasetLimits {
   readonly maxResultSize?: number;
 }
 
-export interface ProtocolDatasetContract {
+export interface ProtocolDatasetContract extends ProtocolSemanticMetadata {
   readonly name: ProtocolIdentifier;
+  readonly description?: string;
   readonly source: string;
+  readonly freshness?: ProtocolDatasetFreshness;
+  readonly owner?: string;
+  readonly defaults?: ProtocolDatasetDefaults;
   readonly tenant: ProtocolDatasetTenantPolicy;
   readonly timeField?: ProtocolQualifiedIdentifier;
   readonly dimensions: readonly ProtocolDatasetDimension[];
@@ -150,6 +174,13 @@ export interface ProtocolDeploymentLimits {
   readonly maxQueries: number;
   readonly maxArtifacts: number;
   readonly maxDatasetItems: number;
+  /**
+   * Ceiling on each semantic-metadata collection (`examples`, `synonyms`, and
+   * `defaults.dimensions`). Deliberately tighter than `maxDatasetItems`: these
+   * are authoring aids, and the definition-time validator in
+   * `@hypequery/datasets` applies the same ceiling.
+   */
+  readonly maxSemanticMetadataItems: number;
   readonly maxTextBytes: number;
   readonly maxSourceBytes: number;
   readonly maxPathBytes: number;

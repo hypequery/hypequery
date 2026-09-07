@@ -65,6 +65,21 @@ describe('contract-to-catalog rehydration', () => {
       .toEqual(fixture('expected-safe-catalog.json'));
   });
 
+  it('preserves semantic metadata at every contract level', () => {
+    const metadata = { examples: ['example'], synonyms: ['alias'], format: 'currency', unit: 'USD', currency: 'USD', timezone: 'UTC', sensitivity: 'internal' as const };
+    const source = deployment.datasets.find(item => item.name === 'orders')!;
+    const contract = {
+      ...source, ...metadata, description: 'Order analytics', owner: 'Finance',
+      freshness: { maxAgeSeconds: 300 }, defaults: { dimensions: ['status'] as typeof source.dimensions[number]['name'][] },
+      dimensions: source.dimensions.map(item => ({ ...item, ...metadata })),
+      measures: source.measures.map(item => ({ ...item, ...metadata })),
+      filters: source.filters.map(item => ({ ...item, ...metadata })),
+      metrics: source.metrics.map(item => ({ ...item, ...metadata })),
+    };
+    const registry = rehydrateProtocolDatasets([contract, ...deployment.datasets.filter(item => item.name !== source.name)]);
+    expect(roundTrip(contract, registry as never)).toEqual(contract);
+  });
+
   it('restores the physical mappings execution needs', () => {
     const registry = rehydrateProtocolDatasets(deployment.datasets);
     const catalog = getDatasetCatalog(registry.orders);

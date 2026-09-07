@@ -6,7 +6,13 @@
   { "id": "invalid-relationship-queryability", "generator": { "type": "invalid-relationship-queryability" }, "error": "HQ_DEPLOYMENT_INVALID_VALUE" },
   { "id": "missing-runtime-artifact", "generator": { "type": "missing-runtime-artifact" }, "error": "HQ_DEPLOYMENT_INVALID_REFERENCE" },
   { "id": "ambiguous-query-route", "generator": { "type": "ambiguous-query-route" }, "error": "HQ_DEPLOYMENT_INVALID_VALUE" },
+  { "id": "invalid-sensitivity", "generator": { "type": "invalid-sensitivity" }, "error": "HQ_DEPLOYMENT_INVALID_VALUE" },
+  { "id": "invalid-currency", "generator": { "type": "invalid-currency" }, "error": "HQ_DEPLOYMENT_INVALID_VALUE" },
+  { "id": "empty-defaults", "generator": { "type": "empty-defaults" }, "error": "HQ_DEPLOYMENT_INVALID_VALUE" },
+  { "id": "default-dimension-not-groupable", "generator": { "type": "default-dimension-not-groupable" }, "error": "HQ_DEPLOYMENT_INVALID_REFERENCE" },
+  { "id": "default-grain-without-time-field", "generator": { "type": "default-grain-without-time-field" }, "error": "HQ_DEPLOYMENT_INVALID_REFERENCE" },
   { "id": "too-many-datasets", "generator": { "type": "too-many-datasets" }, "error": "HQ_DEPLOYMENT_TOO_MANY_ITEMS" },
+  { "id": "too-many-synonyms", "generator": { "type": "too-many-synonyms" }, "error": "HQ_DEPLOYMENT_TOO_MANY_ITEMS" },
   { "id": "source-too-large", "generator": { "type": "source-too-large" }, "error": "HQ_DEPLOYMENT_TOO_LARGE" },
   { "id": "unsafe-accessor", "generator": { "type": "unsafe-accessor" }, "error": "HQ_DEPLOYMENT_UNSAFE_OBJECT" }
 ]
