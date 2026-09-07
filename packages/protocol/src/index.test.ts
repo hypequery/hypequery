@@ -19,6 +19,7 @@ describe('@hypequery/protocol public surface', () => {
       'PROTOCOL_DEPLOYMENT_IDENTITY_DOMAIN',
       'PROTOCOL_DEPLOYMENT_RELEASE_IDENTITY_DOMAIN',
       'PROTOCOL_IDENTIFIER_LIMITS',
+      'PROTOCOL_SEMANTIC_FAILURE_MESSAGES',
       'ProtocolCacheKeyError',
       'ProtocolDeploymentBundleError',
       'ProtocolDeploymentError',

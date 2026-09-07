@@ -99,6 +99,26 @@ parameter values, tenant identifiers, physical source or column names, stack
 traces, or a provider exception. `code` is restricted to an uppercase
 `[A-Z][A-Z0-9_]*` token so a provider string cannot be passed through as one.
 
+Validators MUST reject `message` unless it exactly matches the fixed message for
+its category below. Producers MUST select from this table and MUST NOT interpolate
+provider text or execution values. Details belong only in private logs.
+
+| Category | Public message |
+| --- | --- |
+| `configuration-invalid` | The execution configuration is invalid. |
+| `not-found` | The requested target was not found. |
+| `unauthenticated` | Authentication is required. |
+| `forbidden` | Access is forbidden. |
+| `tenant-required` | A trusted tenant is required. |
+| `input-invalid` | The semantic query is invalid. |
+| `budget-exceeded` | The invocation budget was exceeded. |
+| `cancelled` | The invocation was cancelled. |
+| `stale-activation` | The pinned activation is no longer active. |
+| `unsupported-capability` | Portable execution cannot reproduce this target. |
+| `executor-unavailable` | The executor is unavailable. |
+| `executor-failed` | The executor failed. |
+| `output-invalid` | The executor returned an invalid result. |
+
 ## Limits
 
 | Limit | Maximum |
