@@ -30,6 +30,7 @@ import {
   createSemanticContractEndpoint,
   buildSemanticContractSource,
 } from "../semantic/datasets/index.js";
+import { attachServeMcpSource } from "./mcp-source.js";
 import { attachSemanticQueryBuilder, extractQueryBuilderFromContext } from "../semantic/query-builder-context.js";
 import { buildProtocolDeploymentContract } from "../protocol-adapter.js";
 
@@ -344,6 +345,24 @@ export const createAPI = <
     TContext,
     TAuth
   >;
+
+  // Expose the registered datasets to `hypequery mcp`, so the CLI serves the
+  // same semantic model as this entrypoint rather than a second MCP config.
+  if (config.datasets) {
+    const mcpDatasets = buildSemanticContractSource(config.datasets, config.metrics);
+    attachServeMcpSource(api, {
+      datasets: mcpDatasets,
+      resolveAnalytics: () => {
+        if (!resolvedQueryBuilder) {
+          throw new Error(
+            'A query builder is required to execute datasets over MCP. Pass `queryBuilder` '
+            + 'to defineServe, or expose it as `context.db`.',
+          );
+        }
+        return getAnalytics(resolvedQueryBuilder);
+      },
+    });
+  }
 
   if (openapiConfig.enabled) {
     const openapiEndpoint = createOpenApiEndpoint(

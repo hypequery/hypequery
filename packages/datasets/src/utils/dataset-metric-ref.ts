@@ -11,9 +11,11 @@ import type {
   MeasureDefinition,
   MetricRef,
   RelationshipDefinition,
+  SemanticMetadata,
   TimeGrain,
 } from '../types.js';
 import { buildMetricContract } from './dataset-contract.js';
+import { snapshotSemanticMetadata } from './semantic-metadata.js';
 
 type AnyDimensions = Record<string, DimensionDefinition>;
 type AnyMeasures = Record<string, MeasureDefinition>;
@@ -39,6 +41,7 @@ export function createMetricRef<
   spec: TSpec,
   label?: string,
   description?: string,
+  metadata: SemanticMetadata = {},
 ): MetricRef<TDatasetName, TMetricName, TSpec, TDataset> {
   const ref: MetricRef<TDatasetName, TMetricName, TSpec, TDataset> = {
     __type: 'metric_ref',
@@ -47,6 +50,7 @@ export function createMetricRef<
     spec,
     label,
     description,
+    ...snapshotSemanticMetadata(metadata),
     dataset: ds,
 
     by(grain: TimeGrain): GrainedMetricRef<TDatasetName, TMetricName, TSpec, TDataset> {
@@ -61,13 +65,13 @@ export function createMetricRef<
         metric: ref,
         grain,
         contract() {
-          return buildMetricContract(name, ds, spec, label, description, grain);
+          return buildMetricContract(name, ds, spec, label, description, metadata, grain);
         },
       };
     },
 
     contract() {
-      return buildMetricContract(name, ds, spec, label, description);
+      return buildMetricContract(name, ds, spec, label, description, metadata);
     },
   };
 

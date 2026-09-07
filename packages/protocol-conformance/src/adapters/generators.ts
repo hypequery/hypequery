@@ -219,7 +219,7 @@ function baseInvocationFailure(): Record<string, unknown> {
     version: 1,
     category: 'input-invalid',
     code: 'HQ_SEMANTIC_UNKNOWN_DIMENSION',
-    message: 'Unknown dimension.',
+    message: 'The semantic query is invalid.',
     retryable: false,
     relist: false,
   };
@@ -285,6 +285,24 @@ export function materializeSemanticInvocation(spec: Spec): unknown {
       return { ...baseInvocationFailure(), category: 'exploded' };
     case 'provider-shaped-failure-code':
       return { ...baseInvocationFailure(), code: 'ClickHouseException: DB::Exception' };
+    case 'cell-control-character': {
+      return { ...baseInvocationResult(), data: [{ status: 'paid\u0007' }] };
+    }
+    case 'provider-shaped-failure-message': {
+      return { ...baseInvocationFailure(), message: 'SELECT * FROM private.orders WHERE tenant = acme' };
+    }
+    case 'custom-prototype-data-array': {
+      return { ...baseInvocationResult(), data: Object.setPrototypeOf([{ status: 'paid' }], {}) };
+    }
+    case 'accessor-data-array': {
+      const data = [{ status: 'paid' }]; Object.defineProperty(data, '0', { enumerable: true, get() { throw new Error('Getter must not execute'); } }); return { ...baseInvocationResult(), data };
+    }
+    case 'hidden-data-array-property': {
+      const data = [{ status: 'paid' }]; Object.defineProperty(data, 'hidden', { value: true }); return { ...baseInvocationResult(), data };
+    }
+    case 'symbol-data-array-property': {
+      const data = [{ status: 'paid' }]; Object.defineProperty(data, Symbol('hidden'), { value: true }); return { ...baseInvocationResult(), data };
+    }
     case 'failure-message-too-large':
       return {
         ...baseInvocationFailure(),
@@ -443,8 +461,41 @@ export function materializeDeployment(spec: Spec): unknown {
       });
       return { ...value, queries: [namedQuery('first'), namedQuery('second')] };
     }
+    case 'invalid-sensitivity':
+      return { ...value, datasets: [{ ...minimalDataset(), sensitivity: 'secret' }] };
+    case 'invalid-currency':
+      return { ...value, datasets: [{ ...minimalDataset(), currency: 'usd' }] };
+    case 'empty-defaults':
+      return { ...value, datasets: [{ ...minimalDataset(), defaults: {} }] };
+    case 'default-dimension-not-groupable':
+      return {
+        ...value,
+        datasets: [{
+          ...minimalDataset(),
+          dimensions: [{
+            name: 'status',
+            type: 'string',
+            source: { kind: 'column', column: 'status' },
+            filterable: true,
+            groupable: false,
+          }],
+          defaults: { dimensions: ['status'] },
+        }],
+      };
+    case 'default-grain-without-time-field':
+      // `timeGrain` has nothing to apply to unless the dataset declares
+      // `timeField`, so the reference reports it as a broken reference.
+      return { ...value, datasets: [{ ...minimalDataset(), defaults: { timeGrain: 'day' } }] };
     case 'too-many-datasets':
       return { ...value, datasets: Array.from({ length: 101 }, (_, i) => minimalDataset(`dataset_${i}`)) };
+    case 'too-many-synonyms':
+      return {
+        ...value,
+        datasets: [{
+          ...minimalDataset(),
+          synonyms: Array.from({ length: 101 }, (_, i) => `synonym_${i}`),
+        }],
+      };
     case 'source-too-large':
       return { ...value, datasets: [{ ...minimalDataset(), source: repeat('a', 1_025) }] };
     case 'unsafe-accessor': {

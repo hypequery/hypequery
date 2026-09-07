@@ -5,6 +5,7 @@ export const DEFAULT_PROTOCOL_DEPLOYMENT_LIMITS: Readonly<ProtocolDeploymentLimi
   maxQueries: 1_000,
   maxArtifacts: 100,
   maxDatasetItems: 1_000,
+  maxSemanticMetadataItems: 100,
   maxTextBytes: 4_096,
   maxSourceBytes: 1_024,
   maxPathBytes: 2_048,

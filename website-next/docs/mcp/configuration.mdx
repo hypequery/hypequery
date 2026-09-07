@@ -49,22 +49,48 @@ The MCP server can query dataset measures through `query_dataset`. If you want a
 
 <CodeBlock>
 ```javascript
+import { publishDatasets } from '@hypequery/datasets';
 import { Orders } from './datasets/orders.js';
 
 const revenue = Orders.metric('revenue', { measure: 'revenue' });
 const orderCount = Orders.metric('orderCount', { measure: 'orderCount' });
 
-export const datasets = {
-  orders: {
-    ...Orders,
-    metrics: {
-      revenue,
-      orderCount,
-    },
-  },
-};
+export const datasets = publishDatasets()
+  .publish(Orders, { metrics: { revenue, orderCount } })
+  .build();
 ```
 </CodeBlock>
+
+## Publish multiple datasets
+
+Chain one `publish` call per dataset. Metrics are scoped to the dataset they are published with, and `alias` sets the public registry name when it should differ from the dataset's own name.
+
+<CodeBlock>
+```javascript
+import { publishDatasets } from '@hypequery/datasets';
+import { Orders } from './datasets/orders.js';
+import { Customers } from './datasets/customers.js';
+
+const revenue = Orders.metric('revenue', { measure: 'revenue' });
+const orderCount = Orders.metric('orderCount', { measure: 'orderCount' });
+const customerCount = Customers.metric('customerCount', { measure: 'customerCount' });
+
+export const datasets = publishDatasets()
+  .publish(Orders, { metrics: { revenue, orderCount } })
+  .publish(Customers, { alias: 'accounts', metrics: { customerCount } })
+  .build();
+```
+</CodeBlock>
+
+Agents see two datasets, `orders` and `accounts`, and three metric tools: `query_revenue`, `query_orderCount`, and `query_customerCount`. Publishing a metric under a dataset that does not own it is rejected at publish time, so `customerCount` cannot be attached to `Orders` by mistake.
+
+### Related datasets
+
+Relationships follow the alias their target was published under. Because `Customers` is published as `accounts`, the `customer` relationship declared on `Orders` targets `accounts`, and agents can select `customer.tier` against a dataset they can also list on its own. See [Relationships](/docs/datasets/relationships).
+
+<Callout type="warn">
+  Publish every dataset that a published dataset relates to. An unpublished target keeps its original name, so the catalog advertises a relationship pointing at a dataset agents cannot list or query.
+</Callout>
 
 ## Metadata for agents
 

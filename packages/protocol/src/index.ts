@@ -212,15 +212,19 @@ export type {
   PreparedProtocolDeploymentContract,
   ProtocolAccessPolicy,
   ProtocolDatasetContract,
+  ProtocolDatasetDefaults,
   ProtocolDatasetDimension,
   ProtocolDatasetFieldSource,
   ProtocolDatasetFieldType,
   ProtocolDatasetFilter,
+  ProtocolDatasetFreshness,
   ProtocolDatasetLimits,
   ProtocolDatasetMeasure,
   ProtocolDatasetMetric,
   ProtocolDatasetRelationship,
   ProtocolDatasetTenantPolicy,
+  ProtocolSemanticMetadata,
+  ProtocolSemanticSensitivity,
   ProtocolDeploymentContract,
   ProtocolDeploymentErrorCode,
   ProtocolDeploymentLimits,
@@ -242,3 +246,5 @@ export type {
   ProtocolSqlParameterSource,
   ProtocolSqlTenantPolicy,
 } from './query-implementations/index.js';
+
+export { PROTOCOL_SEMANTIC_FAILURE_MESSAGES } from './invocations/failure-messages.js';

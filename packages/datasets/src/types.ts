@@ -5,7 +5,30 @@ import type { SemanticExpression } from './semantic-plan.js';
 export type FieldType = 'string' | 'number' | 'boolean' | 'timestamp';
 export type DimensionType = FieldType;
 
-export interface DimensionOptions {
+export type SemanticSensitivity = 'public' | 'internal' | 'confidential' | 'restricted';
+
+/** Descriptive metadata shared by datasets, dimensions, measures, and metrics. */
+export interface SemanticMetadata {
+  examples?: readonly string[];
+  synonyms?: readonly string[];
+  format?: string;
+  unit?: string;
+  currency?: string;
+  timezone?: string;
+  sensitivity?: SemanticSensitivity;
+}
+
+export interface DatasetFreshness {
+  /** Maximum expected age of the underlying data. */
+  maxAgeSeconds: number;
+}
+
+export interface DatasetDefaults {
+  dimensions?: readonly string[];
+  timeGrain?: TimeGrain;
+}
+
+export interface DimensionOptions extends SemanticMetadata {
   label?: string;
   description?: string;
   column?: string;
@@ -16,7 +39,7 @@ export interface DimensionOptions {
   groupable?: boolean;
 }
 
-export interface DimensionDefinition<TType extends DimensionType = DimensionType> {
+export interface DimensionDefinition<TType extends DimensionType = DimensionType> extends SemanticMetadata {
   __type: 'field_definition';
   fieldType: TType;
   label?: string;
@@ -75,7 +98,7 @@ export interface AggregationSpec {
   filters?: MetricFilter[];
 }
 
-export interface MeasureOptions {
+export interface MeasureOptions extends SemanticMetadata {
   sql?: string;
   /** Identifiers referenced by `sql`; required when producing a protocol artifact. */
   dependencies?: readonly string[];
@@ -84,7 +107,7 @@ export interface MeasureOptions {
   filters?: MetricFilter[];
 }
 
-export interface MeasureDefinition {
+export interface MeasureDefinition extends SemanticMetadata {
   __type: 'measure_definition';
   aggregation: MeasureAggregation;
   field: string;
@@ -137,6 +160,13 @@ export interface MetricRef<
   spec: TSpec;
   label?: string;
   description?: string;
+  examples?: readonly string[];
+  synonyms?: readonly string[];
+  format?: string;
+  unit?: string;
+  currency?: string;
+  timezone?: string;
+  sensitivity?: SemanticSensitivity;
   dataset: TDataset;
   by(grain: TimeGrain): GrainedMetricRef<TDatasetName, TMetricName, TSpec, TDataset>;
   contract(): MetricContract;
@@ -182,6 +212,13 @@ export interface MetricContract {
   valueType: 'number';
   label?: string;
   description?: string;
+  examples?: readonly string[];
+  synonyms?: readonly string[];
+  format?: string;
+  unit?: string;
+  currency?: string;
+  timezone?: string;
+  sensitivity?: SemanticSensitivity;
   dimensions: string[];
   measures?: string[];
   filters: string[];
@@ -291,7 +328,7 @@ export interface ExecutionContext {
   cache?: SemanticCacheRuntime | false;
 }
 
-export interface SemanticFilterDefinition {
+export interface SemanticFilterDefinition extends SemanticMetadata {
   __type: 'filter_definition';
   field: string;
   label?: string;
@@ -334,13 +371,13 @@ export interface DatasetCachePolicy {
 
 export interface BaseMetricConfig<
   TMeasures extends Record<string, MeasureDefinition> = Record<string, MeasureDefinition>,
-> {
+> extends SemanticMetadata {
   measure: keyof TMeasures & string;
   label?: string;
   description?: string;
 }
 
-export interface DerivedMetricConfig<TDatasetName extends string = string> {
+export interface DerivedMetricConfig<TDatasetName extends string = string> extends SemanticMetadata {
   uses: Record<string, BaseMetricRef<TDatasetName>>;
   formula: (inputs: Record<string, string>) => FormulaExpr;
   label?: string;
@@ -351,8 +388,12 @@ export interface DatasetConfig<
   TDimensions extends Record<string, DimensionDefinition> = Record<string, DimensionDefinition>,
   TMeasures extends Record<string, MeasureDefinition> = Record<string, MeasureDefinition>,
   TRelationships extends Record<string, RelationshipDefinition> = Record<string, never>,
-> {
+> extends SemanticMetadata {
   source: string;
+  description?: string;
+  freshness?: DatasetFreshness;
+  owner?: string;
+  defaults?: DatasetDefaults;
   tenantKey?: string;
   timeKey?: string;
   dimensions: TDimensions;
@@ -372,6 +413,17 @@ export interface DatasetInstance<
   __type: 'dataset';
   name: TDatasetName;
   source: string;
+  description?: string;
+  examples?: readonly string[];
+  synonyms?: readonly string[];
+  format?: string;
+  unit?: string;
+  currency?: string;
+  timezone?: string;
+  freshness?: DatasetFreshness;
+  owner?: string;
+  sensitivity?: SemanticSensitivity;
+  defaults?: DatasetDefaults;
   tenantKey?: string;
   timeKey?: string;
   dimensions: TDimensions;

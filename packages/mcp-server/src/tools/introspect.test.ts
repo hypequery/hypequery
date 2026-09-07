@@ -3,6 +3,14 @@ import { describe, expect, it } from 'vitest';
 import { getDatasetSchemaTool, getTrustedDatasetSchema } from './introspect.js';
 
 describe('dataset introspection', () => {
+  it('classifies oversized canonical catalogs consistently', async () => {
+    const instance = dataset('large', { source: 'orders', dimensions: Object.fromEntries(
+      Array.from({ length: 1000 }, (_, index) => [`field${index}`, dimension.string({ description: 'x'.repeat(1000) })]),
+    ) });
+    await expect(getDatasetSchemaTool({ large: instance }, { dataset: 'large' }))
+      .rejects.toMatchObject({ code: 'MCP_RESULT_TOO_LARGE' });
+  });
+
   it('validates the requested dataset', async () => {
     await expect(getDatasetSchemaTool({}, {})).rejects.toMatchObject({
       code: 'MCP_INVALID_ARGUMENTS',

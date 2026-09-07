@@ -31,6 +31,19 @@ export {
 // Registry
 export { createDatasetRegistry } from './registry.js';
 
+// First-class publication builder for Serve, MCP, and agent consumers.
+export { publishDatasets } from './publishing/publisher.js';
+export type { DatasetPublisher } from './publishing/publisher.js';
+export type {
+  PublishableMetric,
+  PublishedMetricHandle,
+  PublishedMetricMap,
+  PublishedMetrics,
+  PublishedDataset,
+  PublishedDatasetRegistry,
+  PublishDatasetOptions,
+} from './publishing/types.js';
+
 // Catalog
 export { getDatasetCatalog, getDatasetCatalogs, getQueryableRelationshipFields } from './catalog.js';
 export { listQueryableRelationshipFields } from './utils/relationship-fields.js';
@@ -47,12 +60,15 @@ export type {
 
 // Agent-safe and separately authorized trusted-debug catalog projections.
 export {
+  DEFAULT_AGENT_CATALOG_MAX_BYTES,
+  assertAgentSafeCatalogBudget,
   projectAgentSafeCatalog,
   projectTrustedDebugCatalog,
 } from './agent-catalog.js';
 export type {
   AgentCatalogDataset,
   AgentCatalogDatasetRegistry,
+  AgentCatalogProjectionOptions,
   AgentCatalogDimension,
   AgentCatalogFilter,
   AgentCatalogMeasure,
@@ -73,6 +89,14 @@ export {
 } from './contract.js';
 
 // Portable deployment contract adapter
+export {
+  rehydrateProtocolDatasets,
+  UnsupportedContractFeatureError,
+} from './protocol-rehydrate.js';
+export type {
+  RehydratedDataset,
+  RehydrateProtocolDatasetsOptions,
+} from './protocol-rehydrate.js';
 export { buildProtocolDatasetContract } from './protocol-adapter.js';
 export type { BuildProtocolDatasetContractOptions } from './protocol-adapter.js';
 
@@ -221,8 +245,12 @@ export type {
   SemanticFilterDefinition,
   SemanticFiltersDefinition,
   DatasetConfig,
+  DatasetDefaults,
+  DatasetFreshness,
   DatasetLimits,
   DatasetCachePolicy,
+  SemanticMetadata,
+  SemanticSensitivity,
   DatasetInstance,
   AnyDatasetInstance,
   BaseMetricConfig,

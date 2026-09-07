@@ -1,8 +1,5 @@
 import { ProtocolExpressionError, validateProtocolSemanticQuery } from '../expressions/index.js';
-import {
-  ProtocolDeploymentReleaseError,
-  validateProtocolDeploymentReleaseTarget,
-} from '../releases/index.js';
+import { PROTOCOL_SEMANTIC_FAILURE_MESSAGES } from './failure-messages.js';
 import { invocationError } from './errors.js';
 import { resolveSemanticInvocationLimits } from './limits.js';
 import type {
@@ -61,9 +58,18 @@ function requireRecord(input: unknown, path: string): DataRecord {
 function requireArray(input: unknown, path: string, maximum: number): readonly unknown[] {
   if (!Array.isArray(input)) invocationError('HQ_INVOCATION_TYPE', path);
   if (input.length > maximum) invocationError('HQ_INVOCATION_TOO_MANY_ITEMS', path);
-  // A sparse array or one carrying extra own properties is not portable JSON.
-  if (Object.keys(input).length !== input.length) {
+  if (Object.getPrototypeOf(input) !== Array.prototype || Object.getOwnPropertySymbols(input).length > 0) {
     invocationError('HQ_INVOCATION_UNSAFE_OBJECT', path);
+  }
+  const descriptors = Object.getOwnPropertyDescriptors(input);
+  if (Object.keys(descriptors).length !== input.length + 1) {
+    invocationError('HQ_INVOCATION_UNSAFE_OBJECT', path);
+  }
+  for (let index = 0; index < input.length; index++) {
+    const descriptor = descriptors[String(index)];
+    if (!descriptor || !descriptor.enumerable || !('value' in descriptor)) {
+      invocationError('HQ_INVOCATION_UNSAFE_OBJECT', path);
+    }
   }
   return input;
 }
@@ -144,15 +150,18 @@ function requireVersion(value: DataRecord, kind: string, path: string): void {
   }
 }
 
-function target(input: unknown, path: string): ProtocolSemanticInvocationTarget {
-  try {
-    return validateProtocolDeploymentReleaseTarget(input);
-  } catch (error) {
-    if (error instanceof ProtocolDeploymentReleaseError) {
-      invocationError('HQ_INVOCATION_INVALID_VALUE', path);
+function target(input: unknown, path: string, limits: Limits): ProtocolSemanticInvocationTarget {
+  const value = requireRecord(input, path);
+  exactFields(value, ['project', 'environment'], [], path);
+  const result: Record<string, string> = {};
+  for (const key of ['project', 'environment']) {
+    const text = boundedText(value[key], `${path}.${key}`, limits.maxTextBytes);
+    if (!/^[A-Za-z0-9][A-Za-z0-9._:-]*$/.test(text)) {
+      invocationError('HQ_INVOCATION_INVALID_VALUE', `${path}.${key}`);
     }
-    throw error;
+    result[key] = text;
   }
+  return freezeRecord(result) as unknown as ProtocolSemanticInvocationTarget;
 }
 
 function budget(input: unknown, path: string, limits: Limits): ProtocolSemanticInvocationBudget {
@@ -196,7 +205,7 @@ export function validateProtocolSemanticInvocation(
   const result: Record<string, unknown> = {
     kind: 'hypequery-semantic-invocation',
     version: 1,
-    target: target(value.target, '$.target'),
+    target: target(value.target, '$.target', limits),
     operation: semanticQuery(value.operation, '$.operation'),
   };
   if (value.activationRevision !== undefined) {
@@ -247,6 +256,7 @@ function row(input: unknown, path: string, limits: Limits): ProtocolSemanticInvo
       if (textEncoder.encode(cell).byteLength > limits.maxValueBytes) {
         invocationError('HQ_INVOCATION_TOO_LARGE', cellPath);
       }
+      if (hasControlCharacter(cell)) invocationError('HQ_INVOCATION_INVALID_VALUE', cellPath);
       result[key] = cell;
     } else {
       invocationError('HQ_INVOCATION_TYPE', cellPath);
@@ -328,6 +338,10 @@ export function validateProtocolSemanticInvocationFailure(
   if (!(FAILURE_CATEGORIES as readonly string[]).includes(value.category)) {
     invocationError('HQ_INVOCATION_INVALID_VALUE', '$.category');
   }
+  const message = boundedText(value.message, '$.message', limits.maxMessageBytes);
+  if (message !== PROTOCOL_SEMANTIC_FAILURE_MESSAGES[value.category as keyof typeof PROTOCOL_SEMANTIC_FAILURE_MESSAGES]) {
+    invocationError('HQ_INVOCATION_INVALID_VALUE', '$.message');
+  }
   const code = boundedText(value.code, '$.code', limits.maxTextBytes);
   if (!FAILURE_CODE_PATTERN.test(code)) invocationError('HQ_INVOCATION_INVALID_VALUE', '$.code');
 
@@ -336,7 +350,7 @@ export function validateProtocolSemanticInvocationFailure(
     version: 1,
     category: value.category,
     code,
-    message: boundedText(value.message, '$.message', limits.maxMessageBytes),
+    message,
     retryable: requireBoolean(value.retryable, '$.retryable'),
     relist: requireBoolean(value.relist, '$.relist'),
   };

@@ -69,7 +69,7 @@ function baseFailure() {
     version: 1,
     category: 'input-invalid',
     code: 'HQ_SEMANTIC_UNKNOWN_DIMENSION',
-    message: 'Unknown dimension.',
+    message: 'The semantic query is invalid.',
     retryable: false,
     relist: false,
   };
@@ -153,6 +153,24 @@ function materialize(type: string): unknown {
       return { ...baseFailure(), category: 'exploded' };
     case 'provider-shaped-failure-code':
       return { ...baseFailure(), code: 'ClickHouseException: DB::Exception' };
+    case 'cell-control-character': {
+      return { ...baseResult(), data: [{ status: 'paid\u0007' }] };
+    }
+    case 'provider-shaped-failure-message': {
+      return { ...baseFailure(), message: 'SELECT * FROM private.orders WHERE tenant = acme' };
+    }
+    case 'custom-prototype-data-array': {
+      return { ...baseResult(), data: Object.setPrototypeOf([{ status: 'paid' }], {}) };
+    }
+    case 'accessor-data-array': {
+      const data = [{ status: 'paid' }]; Object.defineProperty(data, '0', { enumerable: true, get() { throw new Error('Getter must not execute'); } }); return { ...baseResult(), data };
+    }
+    case 'hidden-data-array-property': {
+      const data = [{ status: 'paid' }]; Object.defineProperty(data, 'hidden', { value: true }); return { ...baseResult(), data };
+    }
+    case 'symbol-data-array-property': {
+      const data = [{ status: 'paid' }]; Object.defineProperty(data, Symbol('hidden'), { value: true }); return { ...baseResult(), data };
+    }
     case 'failure-message-too-large':
       return {
         ...baseFailure(),
@@ -225,6 +243,17 @@ describe('semantic invocation v1', () => {
     expect(() => validateProtocolSemanticInvocation(baseInvocation(), {
       limits: { maxRows: DEFAULT_PROTOCOL_SEMANTIC_INVOCATION_LIMITS.maxRows + 1 },
     })).toThrow(RangeError);
+  });
+
+  it.each(['project', 'environment'] as const)('applies invocation text limits to %s', key => {
+    const input = baseInvocation();
+    input.target[key] = 'a'.repeat(1024);
+    expect(validateProtocolSemanticInvocation(input).target[key]).toHaveLength(1024);
+    input.target[key] += 'a';
+    expect(() => validateProtocolSemanticInvocation(input)).toThrow(ProtocolSemanticInvocationError);
+    input.target[key] = 'a'.repeat(17);
+    expect(() => validateProtocolSemanticInvocation(input, { limits: { maxTextBytes: 16 } }))
+      .toThrow(ProtocolSemanticInvocationError);
   });
 
   it('accepts both operation kinds and keeps their identifiers in one place', () => {
