@@ -1,35 +1,10 @@
+import { runMcpUntilSignal, type CloseableMcpServer } from '../utils/mcp-lifecycle.js';
+import { routeConsoleOutputToStderr } from '../utils/mcp-console.js';
+import { readServeMcpSource, tenantScopedDatasets, type ServeMcpSource } from '../utils/mcp-source.js';
 import path from 'node:path';
-import { format } from 'node:util';
 import { findApiFileForPath, findQueriesFile } from '../utils/find-files.js';
 import { loadApiModule } from '../utils/load-api.js';
 import { logger } from '../utils/logger.js';
-
-/**
- * Mirrors `@hypequery/serve`'s `ServeMcpSource`. Read through the global symbol
- * registry rather than by importing serve: serve is a peer dependency that
- * lives in the user's project, and a static import here would be resolved by
- * Node before any CLI code runs, breaking even `hypequery --help` on a clean
- * install. Keep the key in step with `server/mcp-source.ts`.
- */
-const MCP_SOURCE_SYMBOL = Symbol.for('hypequery.mcp-source.v1');
-
-interface ServeMcpSource {
-  readonly version: 1;
-  readonly datasets: Readonly<Record<string, unknown>>;
-  readonly resolveAnalytics: () => unknown;
-}
-
-function readServeMcpSource(value: unknown): ServeMcpSource | undefined {
-  if (value === null || (typeof value !== 'object' && typeof value !== 'function')) {
-    return undefined;
-  }
-  const source = (value as Record<symbol, unknown>)[MCP_SOURCE_SYMBOL] as
-    | Partial<ServeMcpSource>
-    | undefined;
-  return source?.version === 1 && typeof source.resolveAnalytics === 'function'
-    ? source as ServeMcpSource
-    : undefined;
-}
 
 export interface McpOptions {
   /** Analytics directory, matching `hypequery dev --path`. */
@@ -46,27 +21,7 @@ export interface McpDependencies {
     datasets: Record<string, unknown>;
     analytics: unknown;
     tenantId?: string;
-  }) => Promise<unknown>;
-}
-
-/**
- * MCP speaks its protocol over stdout, so anything an application logs while
- * loading would corrupt the stream. Route it to stderr before importing the
- * entrypoint, not after.
- */
-function routeConsoleOutputToStderr(): () => void {
-  const original = {
-    log: console.log,
-    info: console.info,
-    debug: console.debug,
-  };
-  const write = (...args: unknown[]) => {
-    process.stderr.write(`${format(...args)}\n`);
-  };
-  console.log = write;
-  console.info = write;
-  console.debug = write;
-  return () => Object.assign(console, original);
+  }) => Promise<CloseableMcpServer>;
 }
 
 function entrypointNotFound(): never {
@@ -95,18 +50,6 @@ function noDatasets(file: string): never {
   process.exit(1);
 }
 
-/** Datasets a caller cannot query unless a trusted tenant is configured. */
-function tenantScopedDatasets(datasets: Record<string, unknown>): string[] {
-  return Object.entries(datasets)
-    .filter(([, dataset]) => {
-      const value = dataset as { tenantKey?: unknown; config?: { tenantKey?: unknown } };
-      const tenantKey = value?.tenantKey ?? value?.config?.tenantKey;
-      return typeof tenantKey === 'string' && tenantKey.length > 0;
-    })
-    .map(([name]) => name)
-    .sort();
-}
-
 async function resolveEntrypoint(file: string | undefined, options: McpOptions): Promise<string> {
   const resolved = file
     ? await findQueriesFile(file)
@@ -132,6 +75,9 @@ export async function mcpCommand(
     const source = resolveSource(await loadApi(entrypoint), entrypoint);
     const datasets = source.datasets as Record<string, unknown>;
 
+    const names = Object.keys(datasets).sort();
+    if (names.length === 0) noDatasets(entrypoint);
+
     const scoped = tenantScopedDatasets(datasets);
     if (scoped.length > 0 && !options.tenant) {
       // Fail closed rather than serving a tenant-scoped dataset unscoped.
@@ -144,7 +90,6 @@ export async function mcpCommand(
     }
 
     const analytics = source.resolveAnalytics();
-    const names = Object.keys(datasets).sort();
 
     if (options.selfTest) {
       logger.success(`Loaded ${path.relative(process.cwd(), entrypoint)}`);
@@ -158,16 +103,14 @@ export async function mcpCommand(
     }
 
     const start = dependencies.start ?? defaultStart;
-    await start({
-      datasets,
-      analytics,
-      ...(options.tenant ? { tenantId: options.tenant } : {}),
-    });
-    // stdout belongs to the MCP transport from here on.
-    process.stderr.write(`hypequery MCP serving ${names.length} dataset(s): ${names.join(', ')}\n`);
-    await new Promise<void>(resolve => {
-      process.on('SIGINT', () => resolve());
-      process.on('SIGTERM', () => resolve());
+    await runMcpUntilSignal(async () => {
+      const server = await start({
+        datasets,
+        analytics,
+        ...(options.tenant ? { tenantId: options.tenant } : {}),
+      });
+      process.stderr.write(`hypequery MCP serving ${names.length} dataset(s): ${names.join(', ')}\n`);
+      return server;
     });
   } finally {
     restoreConsole();
@@ -178,7 +121,7 @@ async function defaultStart(config: {
   datasets: Record<string, unknown>;
   analytics: unknown;
   tenantId?: string;
-}): Promise<unknown> {
+}): Promise<CloseableMcpServer> {
   // Imported lazily so `--self-test` and the argument errors above do not pay
   // for the MCP SDK, and so the CLI still loads when it is not installed.
   const { startStdioMCPServer } = await import('@hypequery/mcp');

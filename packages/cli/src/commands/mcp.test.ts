@@ -55,7 +55,7 @@ describe('hypequery mcp', () => {
   it('serves the datasets the entrypoint already registers', async () => {
     const file = await entrypointFile();
     const analytics = { query: () => [] };
-    const start = vi.fn(async () => undefined);
+    const start = vi.fn(async () => ({ close: vi.fn(async () => undefined) }));
     const datasets = { orders: { name: 'orders' }, customers: { name: 'customers' } };
 
     await mcpCommand(file, { selfTest: true }, {
@@ -72,7 +72,7 @@ describe('hypequery mcp', () => {
     const file = await entrypointFile();
     const analytics = { query: () => [] };
     const datasets = { orders: { name: 'orders' } };
-    const start = vi.fn(async () => undefined);
+    const start = vi.fn(async () => ({ close: vi.fn(async () => undefined) }));
     const command = mcpCommand(file, {}, {
       loadApi: async () => apiWithDatasets(datasets, analytics),
       start,
@@ -87,7 +87,7 @@ describe('hypequery mcp', () => {
 
   it('fails closed when a tenant-scoped dataset has no trusted tenant', async () => {
     const file = await entrypointFile();
-    const start = vi.fn(async () => undefined);
+    const start = vi.fn(async () => ({ close: vi.fn(async () => undefined) }));
 
     await expect(mcpCommand(file, {}, {
       loadApi: async () => apiWithDatasets({
@@ -108,7 +108,7 @@ describe('hypequery mcp', () => {
     const file = await entrypointFile();
     const analytics = { query: () => [] };
     const datasets = { orders: { name: 'orders', tenantKey: 'tenant_id' } };
-    const start = vi.fn(async () => undefined);
+    const start = vi.fn(async () => ({ close: vi.fn(async () => undefined) }));
 
     await mcpCommand(file, { tenant: 'acme', selfTest: true }, {
       loadApi: async () => apiWithDatasets(datasets, analytics),
@@ -128,6 +128,15 @@ describe('hypequery mcp', () => {
     expect(logger.error).toHaveBeenCalledWith(
       expect.stringContaining('does not register any datasets'),
     );
+  });
+
+  it.each([false, true])('rejects an attached empty registry before analytics resolution (selfTest=%s)', async selfTest => {
+    const resolveAnalytics = vi.fn(() => { throw new Error('Must not resolve analytics'); });
+    const api = { [mcpSourceSymbol]: { version: 1, datasets: {}, resolveAnalytics } };
+    await expect(mcpCommand(await entrypointFile(), { selfTest }, {
+      loadApi: async () => api,
+    })).rejects.toThrow('process.exit:1');
+    expect(resolveAnalytics).not.toHaveBeenCalled();
   });
 
   it('keeps application logging off the protocol stream', async () => {
