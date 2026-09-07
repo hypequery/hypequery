@@ -14,12 +14,11 @@ npm install @hypequery/mcp @hypequery/datasets @hypequery/clickhouse
 
 ```ts
 // mcp-config.ts
-export const datasets = {
-  orders: {
-    ...Orders,
-    metrics: { revenue },
-  },
-};
+import { publishDatasets } from '@hypequery/datasets';
+
+export const datasets = publishDatasets()
+  .publish(Orders, { metrics: { revenue } })
+  .build();
 
 export const analytics = createDatasetClient({ queryBuilder: db });
 ```
