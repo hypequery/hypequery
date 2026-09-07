@@ -70,6 +70,6 @@ export class DatasetPublisher<
   }
 }
 
-export function createDatasetPublisher(): DatasetPublisher<DatasetPublisherState> {
+export function publishDatasets(): DatasetPublisher<DatasetPublisherState> {
   return new DatasetPublisher({ registry: {} });
 }

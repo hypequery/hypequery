@@ -8,7 +8,7 @@ import { buildCanonicalSemanticQuerySchemas } from '../semantic-query-schema.js'
 import { belongsTo } from '../relationships.js';
 import { generateDatasetTools } from '../tools.js';
 import type { MetricHandle } from '../types.js';
-import { createDatasetPublisher } from './publisher.js';
+import { publishDatasets } from './publisher.js';
 
 const Orders = dataset('orders', {
   source: 'orders',
@@ -34,7 +34,7 @@ const customerCount = Customers.metric('customerCount', { measure: 'count' });
 
 describe('dataset publisher', () => {
   it('publishes datasets and metrics without mutating their definitions', () => {
-    const registry = createDatasetPublisher()
+    const registry = publishDatasets()
       .publish(Orders, {
         metrics: { revenue: totalRevenue, monthlyRevenue },
       })
@@ -59,7 +59,7 @@ describe('dataset publisher', () => {
     const legacy = {
       orders: { ...Orders, metrics: { totalRevenue } },
     };
-    const published = createDatasetPublisher()
+    const published = publishDatasets()
       .publish(Orders, { metrics: { totalRevenue } })
       .build();
 
@@ -72,7 +72,7 @@ describe('dataset publisher', () => {
   });
 
   it('executes a metric using its published alias', async () => {
-    const registry = createDatasetPublisher()
+    const registry = publishDatasets()
       .publish(Orders, { metrics: { revenue: totalRevenue } })
       .build();
     const execute = vi.fn(async () => ({ data: [{ revenue: 42 }] }));
@@ -105,7 +105,7 @@ describe('dataset publisher', () => {
       },
     });
 
-    const registry = createDatasetPublisher()
+    const registry = publishDatasets()
       .publish(Accounts, { alias: 'accounts' })
       .publish(Invoices)
       .build();
@@ -145,7 +145,7 @@ describe('dataset publisher', () => {
       },
     });
 
-    const registry = createDatasetPublisher().publish(Shipments).build();
+    const registry = publishDatasets().publish(Shipments).build();
 
     expect(getDatasetCatalog(registry.shipments).relationships.warehouse)
       .toMatchObject({ target: 'warehouses' });
@@ -162,7 +162,7 @@ describe('dataset publisher', () => {
       relationships: { left: belongsTo(() => Left, { from: 'leftId', to: 'id' }) },
     });
 
-    const registry = createDatasetPublisher()
+    const registry = publishDatasets()
       .publish(Left, { alias: 'zebra' })
       .publish(Right, { alias: 'alpha' })
       .build();
@@ -174,21 +174,21 @@ describe('dataset publisher', () => {
   });
 
   it('rejects invalid names, aliases, duplicate datasets, and foreign metrics', () => {
-    expect(() => createDatasetPublisher().publish(Orders, { alias: 'sales-orders' })).toThrow(
+    expect(() => publishDatasets().publish(Orders, { alias: 'sales-orders' })).toThrow(
       'Published dataset name "sales-orders"',
     );
-    expect(() => createDatasetPublisher().publish(Orders, {
+    expect(() => publishDatasets().publish(Orders, {
       metrics: { 'total-revenue': totalRevenue },
     })).toThrow('Published metric name "total-revenue"');
-    expect(() => createDatasetPublisher()
+    expect(() => publishDatasets()
       .publish(Orders, { alias: 'analytics' })
       .publish(Customers, { alias: 'analytics' }))
       .toThrow('Dataset alias "analytics" is already published.');
-    expect(() => createDatasetPublisher()
+    expect(() => publishDatasets()
       .publish(Orders)
       .publish(Orders, { alias: 'archived_orders' }))
       .toThrow('Dataset "orders" is already published.');
-    expect(() => createDatasetPublisher().publish(Orders, {
+    expect(() => publishDatasets().publish(Orders, {
       metrics: { customerCount: customerCount as MetricHandle },
     })).toThrow('belongs to dataset "customers", expected "orders"');
   });

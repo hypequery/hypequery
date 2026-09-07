@@ -36,7 +36,7 @@ export {
   filter,
   order,
   createDatasetRegistry,
-  createDatasetPublisher,
+  publishDatasets,
 } from '@hypequery/datasets';
 
 export type {

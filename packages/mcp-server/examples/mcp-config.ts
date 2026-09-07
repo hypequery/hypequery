@@ -13,10 +13,10 @@
 
 import {
   createDatasetClient,
-  createDatasetPublisher,
   dataset,
   dimension,
   measure,
+  publishDatasets,
 } from '@hypequery/datasets';
 import { createQueryBuilder } from '@hypequery/clickhouse';
 
@@ -89,7 +89,7 @@ const totalRevenue = OrdersDataset.metric('totalRevenue', { measure: 'totalReven
 const totalOrders = OrdersDataset.metric('totalOrders', { measure: 'totalOrders' });
 const totalCustomers = CustomersDataset.metric('totalCustomers', { measure: 'totalCustomers' });
 
-export const datasets = createDatasetPublisher()
+export const datasets = publishDatasets()
   .publish(OrdersDataset, { metrics: { totalRevenue, totalOrders } })
   .publish(CustomersDataset, { metrics: { totalCustomers } })
   .build();

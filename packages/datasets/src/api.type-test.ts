@@ -3,12 +3,12 @@ import {
   between,
   buildCanonicalSemanticQuerySchemas,
   createDatasetClient,
-  createDatasetPublisher,
   dataset,
   desc,
   dimension,
   eq,
   measure,
+  publishDatasets,
 } from './index.js';
 import type {
   BaseMetricRef,
@@ -73,7 +73,7 @@ const averageRevenueMetric = Orders.metric('averageRevenueMetric', {
 });
 const customerCountMetric = Customers.metric('customerCountMetric', { measure: 'customerCount' });
 
-const _publishedDatasets = createDatasetPublisher()
+const _publishedDatasets = publishDatasets()
   .publish(Orders, { metrics: { revenue: revenueMetric } })
   .publish(Customers, {
     alias: 'accounts',
@@ -98,7 +98,7 @@ type _PublishedMetricDatasetNameMatchesAlias = Assert<
 >;
 
 // @ts-expect-error published metrics must belong to the dataset being published.
-createDatasetPublisher().publish(Orders, { metrics: { customerCountMetric } });
+publishDatasets().publish(Orders, { metrics: { customerCountMetric } });
 
 const canonicalSchemas = buildCanonicalSemanticQuerySchemas({
   orders: { ...Orders, metrics: { revenueMetric } },

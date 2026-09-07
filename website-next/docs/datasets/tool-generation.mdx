@@ -80,18 +80,18 @@ const tools = generateDatasetTools({
 
 ## Per-Metric Tools
 
-Per-metric mode creates one tool per published named metric. Use the publication builder so the catalog and executor share the same public names.
+Per-metric mode creates one tool per published named metric. Use `publishDatasets` so the catalog and executor share the same public names.
 
 <CodeBlock>
 ```typescript
-import { createDatasetPublisher } from '@hypequery/datasets';
+import { publishDatasets } from '@hypequery/datasets';
 
 const totalRevenue = Orders.metric('totalRevenue', {
   measure: 'revenue',
   label: 'Total Revenue',
 });
 
-const datasets = createDatasetPublisher()
+const datasets = publishDatasets()
   .publish(Orders, { metrics: { totalRevenue } })
   .build();
 

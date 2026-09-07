@@ -180,14 +180,14 @@ By default, a dataset instance has measures but does not store every metric ref 
 
 <CodeBlock>
 ```typescript
-import { createDatasetPublisher, getDatasetCatalog } from '@hypequery/datasets';
+import { getDatasetCatalog, publishDatasets } from '@hypequery/datasets';
 
 const revenue = Orders.metric('revenue', {
   measure: 'revenue',
   label: 'Revenue',
 });
 
-const datasets = createDatasetPublisher()
+const datasets = publishDatasets()
   .publish(Orders, { metrics: { revenue } })
   .build();
 const catalog = getDatasetCatalog(datasets.orders);

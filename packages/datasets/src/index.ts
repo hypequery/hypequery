@@ -32,7 +32,7 @@ export {
 export { createDatasetRegistry } from './registry.js';
 
 // First-class publication builder for Serve, MCP, and agent consumers.
-export { createDatasetPublisher } from './publishing/publisher.js';
+export { publishDatasets } from './publishing/publisher.js';
 export type { DatasetPublisher } from './publishing/publisher.js';
 export type {
   PublishableMetric,

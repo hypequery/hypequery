@@ -11,10 +11,10 @@
 
 import {
   createDatasetClient,
-  createDatasetPublisher,
   dataset,
   dimension,
   measure,
+  publishDatasets,
 } from '@hypequery/datasets';
 import { createQueryBuilder } from '@hypequery/clickhouse';
 
@@ -43,7 +43,7 @@ const SystemOneDataset = dataset('system_one', {
 const rowCount = SystemOneDataset.metric('rowCount', { measure: 'rowCount' });
 
 // Export for MCP server
-export const datasets = createDatasetPublisher()
+export const datasets = publishDatasets()
   .publish(SystemOneDataset, { alias: 'one', metrics: { rowCount } })
   .build();
 

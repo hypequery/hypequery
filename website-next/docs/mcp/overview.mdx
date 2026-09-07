@@ -38,7 +38,7 @@ Create an ESM config file that exports `datasets` and `analytics`.
 ```javascript
 // mcp-config.mjs
 import { createQueryBuilder } from '@hypequery/clickhouse';
-import { createDatasetClient, createDatasetPublisher } from '@hypequery/datasets';
+import { createDatasetClient, publishDatasets } from '@hypequery/datasets';
 import { Orders } from './datasets/orders.js';
 
 const db = createQueryBuilder({
@@ -54,7 +54,7 @@ const revenue = Orders.metric('revenue', {
   description: 'Total order revenue.',
 });
 
-export const datasets = createDatasetPublisher()
+export const datasets = publishDatasets()
   .publish(Orders, { metrics: { revenue } })
   .build();
 
