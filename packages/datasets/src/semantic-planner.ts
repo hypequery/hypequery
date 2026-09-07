@@ -1,3 +1,4 @@
+import { protocolMetricCapabilityErrors } from './utils/protocol-metric-capabilities.js';
 import type {
   AnyDatasetInstance,
   DatasetQuery,
@@ -311,6 +312,8 @@ export function buildMetricPlan(
   query: MetricQuery = {},
   context?: ExecutionContext,
 ): PlanNode {
+  const errors = protocolMetricCapabilityErrors(metric, query);
+  if (errors.length) throw new Error(`Invalid metric query: ${errors.join('; ')}`);
   const ref = getMetricRef(metric as MetricHandle);
   const grain = getMetricGrain(metric as MetricHandle, query);
   const plannedQuery = { ...query, by: grain };
