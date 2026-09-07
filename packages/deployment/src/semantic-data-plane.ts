@@ -240,6 +240,14 @@ function missing(required: readonly string[], held: readonly string[] | undefine
   return required.some(value => !available.has(value));
 }
 
+/** Drops explicitly-undefined properties, so a spread cannot erase a default. */
+function definedLimits<T extends object>(limits: T | undefined): Partial<T> {
+  if (limits === undefined) return {};
+  return Object.fromEntries(
+    Object.entries(limits).filter(([, value]) => value !== undefined),
+  ) as Partial<T>;
+}
+
 /** The lowest of every ceiling that applies. A caller can tighten, never widen. */
 function lowest(...values: readonly (number | undefined)[]): number | undefined {
   const finite = values.filter((value): value is number => value !== undefined);
@@ -265,7 +273,10 @@ export function createDeploymentSemanticDataPlane(
   }
 
   const datasets = new Map(deployment.datasets.map(entry => [String(entry.name), entry]));
-  const configured: SemanticOperationLimits = { ...DEFAULT_LIMITS, ...options.limits };
+  // Spreading `options.limits` directly would let an explicitly `undefined`
+  // property erase a default ceiling, and an undefined bound compares false
+  // against everything. A caller that omits a limit gets the default.
+  const configured: SemanticOperationLimits = { ...DEFAULT_LIMITS, ...definedLimits(options.limits) };
 
   function resolveTarget(operation: ProtocolSemanticQuery): {
     dataset: ProtocolDatasetContract;
@@ -436,8 +447,13 @@ export function createDeploymentSemanticDataPlane(
       });
     }
 
+    // An executor may ignore the signal and resolve anyway. Every other await
+    // in this sequence is followed by this check; so is the last one.
+    throwIfAborted(request.signal);
+
+    let result: ProtocolSemanticInvocationResult;
     try {
-      return validateProtocolSemanticInvocationResult(output);
+      result = validateProtocolSemanticInvocationResult(output);
     } catch (error) {
       // An executor that returned something unexpected is an internal fault,
       // never a correctable caller error.
@@ -445,6 +461,26 @@ export function createDeploymentSemanticDataPlane(
         cause: error,
       });
     }
+
+    // Protocol validation proves the record is well-formed, not that it honored
+    // this invocation. The bounds this layer computed are enforced here, so an
+    // executor cannot widen them by returning more than it was allowed to.
+    if (result.activationRevision !== options.activationRevision) {
+      fail('output-invalid', 'HQ_SEMANTIC_OUTPUT_INVALID',
+        'The executor served a different activation than the one selected.');
+    }
+    if (result.data.length > budget.maxRows) {
+      fail('budget-exceeded', 'HQ_SEMANTIC_BUDGET_EXCEEDED',
+        `The result has ${result.data.length} rows; the effective limit is ${budget.maxRows}.`);
+    }
+    if (budget.maxResponseBytes !== undefined) {
+      const bytes = new TextEncoder().encode(JSON.stringify(result)).byteLength;
+      if (bytes > budget.maxResponseBytes) {
+        fail('budget-exceeded', 'HQ_SEMANTIC_BUDGET_EXCEEDED',
+          `The result is ${bytes} bytes; the effective limit is ${budget.maxResponseBytes}.`);
+      }
+    }
+    return result;
   }
 
   return Object.freeze({ invoke });
