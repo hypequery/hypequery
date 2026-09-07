@@ -33,9 +33,11 @@
     "dist"
   ],
   "scripts": {
+    "prebuild": "node scripts/generate-version.mjs",
     "build": "tsc --project tsconfig.json",
     "dev": "tsc --project tsconfig.json --watch",
     "test": "npm run test:types && npm run test:unit",
+    "pretest:unit": "node scripts/generate-version.mjs",
     "test:unit": "vitest run",
     "test:types": "tsc --project tsconfig.json --noEmit",
     "lint": "eslint --ext .ts \"src/**/*.ts\"",
