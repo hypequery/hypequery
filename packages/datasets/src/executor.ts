@@ -1,3 +1,4 @@
+import { protocolMetricCapabilityErrors } from './utils/protocol-metric-capabilities.js';
 /**
  * Semantic dataset client internals.
  *
@@ -100,7 +101,7 @@ function validateQuery(
   query: MetricQuery,
   context?: ExecutionContext,
 ): ValidationResult {
-  const errors: string[] = [];
+  const errors = protocolMetricCapabilityErrors(metric, query);
   const ref = getMetricRef(metric);
   const ds = ref.dataset;
   const dimensionNames = Object.keys(ds.dimensions);

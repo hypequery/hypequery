@@ -260,6 +260,7 @@ interface Case {
   readonly query: Record<string, unknown>;
   readonly tenant?: unknown;
   readonly metric?: string;
+  readonly expectedRejection?: string;
 }
 
 function subsets<T>(items: readonly T[], size: number): T[][] {
@@ -276,7 +277,7 @@ function corpus(): Case[] {
   const cases: Case[] = [];
 
   // Dimension subsets, every size, against a fixed measure.
-  for (const size of [1, 2, 3]) {
+  for (let size = 1; size <= GROUPABLE.length; size++) {
     for (const dimensions of subsets(GROUPABLE, size)) {
       cases.push({
         name: `dimensions ${dimensions.join('+')}`,
@@ -289,7 +290,7 @@ function corpus(): Case[] {
   for (const name of MEASURES) {
     cases.push({ name: `measure ${name}`, query: { dimensions: ['status'], measures: [name] } });
   }
-  for (const pair of subsets(MEASURES, 2).slice(0, 40)) {
+  for (const pair of subsets(MEASURES, 2)) {
     cases.push({ name: `measures ${pair.join('+')}`, query: { dimensions: ['status'], measures: pair } });
   }
 
@@ -401,6 +402,9 @@ function corpus(): Case[] {
         name: `metric ${metric} by ${grain}`,
         query: { by: grain },
         metric,
+        ...(authoredMetrics[metric].__type === 'grained_metric_ref' && grain !== authoredMetrics[metric].grain
+          ? { expectedRejection: `Invalid metric query: Metric "${metric}" is already grained by "${authoredMetrics[metric].grain}" and cannot be queried with by="${grain}".` }
+          : {}),
       });
     }
     cases.push({
@@ -420,12 +424,7 @@ function corpus(): Case[] {
 
 const CASES = corpus();
 
-/**
- * Compiles a case to the artifact it should be compared on: the SQL, or the
- * refusal. A rebuilt catalog that accepted a query the authored one rejects —
- * or rejected it for a different reason — has diverged just as surely as one
- * that emitted different SQL, so both outcomes are compared.
- */
+/** Compile supported cases to SQL; only explicitly declared refusals may throw. */
 function compile(
   client: ReturnType<typeof createDatasetClient>,
   target: unknown,
@@ -433,15 +432,11 @@ function compile(
 ): string {
   // Both datasets are tenant-scoped and correctly refuse to compile without a
   // tenant, so every case carries one; the tenant axis varies it explicitly.
-  try {
-    return `SQL ${client.toSQL(
-      target as never,
-      testCase.query as never,
-      { runtime: { tenant: (testCase.tenant ?? 'acme') as never } },
-    )}`;
-  } catch (error) {
-    return `REJECTED ${error instanceof Error ? error.message : String(error)}`;
-  }
+  return `SQL ${client.toSQL(
+    target as never,
+    testCase.query as never,
+    { runtime: { tenant: (testCase.tenant ?? 'acme') as never } },
+  )}`;
 }
 
 describe('rehydrated catalogs emit byte-identical SQL', () => {
@@ -452,6 +447,9 @@ describe('rehydrated catalogs emit byte-identical SQL', () => {
     for (const axis of ['dimensions ', 'measure ', 'filter ', 'grain ', 'order ', 'page ', 'join ', 'tenant ', 'metric ']) {
       expect(names.filter(name => name.startsWith(axis)).length).toBeGreaterThan(0);
     }
+    expect(names.filter(name => name.startsWith('dimensions '))).toHaveLength(2 ** GROUPABLE.length - 1);
+    expect(names.filter(name => name.startsWith('measures '))).toHaveLength(MEASURES.length * (MEASURES.length - 1) / 2);
+    expect(CASES.filter(entry => entry.expectedRejection !== undefined)).toHaveLength(4);
     expect(CASES.length).toBeGreaterThan(120);
     expect(new Set(names).size).toBe(names.length);
   });
@@ -464,9 +462,16 @@ describe('rehydrated catalogs emit byte-identical SQL', () => {
       ? rehydrated.orders
       : rehydrated.orders.metrics[testCase.metric];
 
+    if (testCase.expectedRejection !== undefined) {
+      for (const [client, target] of [[authoredClient, authoredTarget], [rehydratedClient, rehydratedTarget]] as const) {
+        expect(() => compile(client, target, testCase)).toThrow(new Error(testCase.expectedRejection));
+      }
+      return;
+    }
     const authoredSql = compile(authoredClient, authoredTarget, testCase);
     const rehydratedSql = compile(rehydratedClient, rehydratedTarget, testCase);
 
+    expect(authoredSql.startsWith('SQL ')).toBe(true);
     expect(rehydratedSql).toBe(authoredSql);
   });
 

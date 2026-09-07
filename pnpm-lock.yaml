@@ -92,6 +92,9 @@ importers:
         specifier: ^2.4.2
         version: 2.4.2
     devDependencies:
+      '@hypequery/mcp':
+        specifier: workspace:*
+        version: link:../mcp-server
       '@hypequery/serve':
         specifier: workspace:*
         version: link:../serve

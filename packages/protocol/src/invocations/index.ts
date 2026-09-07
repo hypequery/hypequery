@@ -1,3 +1,4 @@
+export { PROTOCOL_SEMANTIC_FAILURE_MESSAGES } from './failure-messages.js';
 export { ProtocolSemanticInvocationError } from './errors.js';
 export { DEFAULT_PROTOCOL_SEMANTIC_INVOCATION_LIMITS } from './limits.js';
 export {

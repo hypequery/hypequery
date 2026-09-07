@@ -23,13 +23,14 @@ import type {
   DatasetCachePolicy,
   DimensionDefinition,
   MeasureDefinition,
-  MetricContract,
   MetricFilter,
   MetricHandle,
   RelationshipDefinition,
   SemanticFilterDefinition,
   TimeGrain,
 } from './types.js';
+import { snapshotSemanticMetadata } from './utils/semantic-metadata.js';
+import { withContractCapabilities } from './utils/protocol-metric-capabilities.js';
 import { rehydrateMeasureFilter } from './utils/protocol-rehydrate-filters.js';
 
 /** A rebuilt dataset in the registry shape Serve, MCP, and the planner accept. */
@@ -82,6 +83,7 @@ function rehydrateDimensions(
     const source = dimension.source;
     dimensions[name] = {
       __type: 'field_definition',
+      ...snapshotSemanticMetadata(dimension),
       fieldType: dimension.type,
       label: dimension.label,
       description: dimension.description,
@@ -112,6 +114,7 @@ function rehydrateMeasure(
   ));
   return {
     __type: 'measure_definition',
+    ...snapshotSemanticMetadata(measure),
     aggregation: measure.aggregation,
     field: String(measure.field),
     ...(measure.argField !== undefined ? { argField: String(measure.argField) } : {}),
@@ -132,6 +135,7 @@ function rehydrateFilters(
   for (const filter of contract.filters) {
     filters[String(filter.name)] = {
       __type: 'filter_definition',
+      ...snapshotSemanticMetadata(filter),
       field: String(filter.field),
       operators: [...filter.operators],
       ...(filter.label !== undefined ? { label: filter.label } : {}),
@@ -237,6 +241,7 @@ function rehydrateMetric(
 
   const base = instance.metric(name, {
     measure: measureName,
+    ...snapshotSemanticMetadata(metric),
     ...(metric.label !== undefined ? { label: metric.label } : {}),
     ...(metric.description !== undefined ? { description: metric.description } : {}),
   }) as MetricHandle;
@@ -244,36 +249,6 @@ function rehydrateMetric(
     ? base
     : (base as { by(grain: TimeGrain): MetricHandle }).by(metric.grain as TimeGrain);
   return withContractCapabilities(handle, metric);
-}
-
-/**
- * Pins a rebuilt metric to the capabilities the contract declared.
- *
- * `dataset.metric()` derives queryable dimensions, filters, and grains from the
- * whole dataset, but a deployed metric may expose a narrower set — the contract
- * is authoritative. Without this, rehydration silently widens a metric, and an
- * agent is offered a dimension the deployment never published.
- */
-function withContractCapabilities(
-  handle: MetricHandle,
-  metric: ProtocolDatasetMetric,
-): MetricHandle {
-  const capabilities = {
-    dimensions: metric.dimensions.map(String),
-    filters: metric.filters.map(String),
-    grains: [...metric.grains] as TimeGrain[],
-  };
-  const pin = <T extends { contract(): MetricContract }>(target: T): T => Object.assign(
-    Object.create(Object.getPrototypeOf(target) as object),
-    target,
-    { contract: () => ({ ...target.contract(), ...capabilities }) },
-  ) as T;
-
-  return handle.__type === 'grained_metric_ref'
-    // A grained handle carries the underlying ref, which the catalog and the
-    // forward adapter both read, so pin them together.
-    ? Object.assign(pin(handle), { metric: pin(handle.metric) })
-    : pin(handle);
 }
 
 /**
@@ -311,6 +286,14 @@ export function rehydrateProtocolDatasets(
     const name = String(contract.name);
     const instance = dataset(name, {
       source: contract.source,
+      ...snapshotSemanticMetadata(contract),
+      ...(contract.description !== undefined ? { description: contract.description } : {}),
+      ...(contract.owner !== undefined ? { owner: contract.owner } : {}),
+      ...(contract.freshness !== undefined ? { freshness: { ...contract.freshness } } : {}),
+      ...(contract.defaults !== undefined ? { defaults: {
+        ...contract.defaults,
+        ...(contract.defaults.dimensions !== undefined ? { dimensions: [...contract.defaults.dimensions] } : {}),
+      } } : {}),
       ...(contract.tenant.kind === 'required' ? { tenantKey: contract.tenant.field } : {}),
       ...(contract.timeField !== undefined ? { timeKey: String(contract.timeField) } : {}),
       dimensions: rehydrateDimensions(contract),

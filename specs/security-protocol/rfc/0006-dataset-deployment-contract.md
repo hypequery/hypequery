@@ -35,7 +35,9 @@ implementation MUST agree with endpoint policy. Unknown fields fail closed.
 
 A Dataset declares its logical name, physical source, tenant policy, optional
 time field, dimensions, measures, filters, metrics, relationships, resource
-limits, and optional endpoint policy.
+limits, and optional endpoint policy. It may also carry the semantic metadata
+below, an optional description, owner, freshness expectation, and query
+defaults.
 
 Dimensions declare their logical type and one source:
 
@@ -57,6 +59,36 @@ Metrics carry their fixed RFC 0003 expression, queryable dimensions and
 filters, supported grains, and endpoint policy. A grained metric declares its
 fixed grain. Derived metric formulas use the same expression AST and therefore
 do not carry source-language callbacks.
+
+## Semantic metadata
+
+A Dataset, dimension, measure, filter, or metric MAY carry semantic metadata
+describing it to a human or an agent. Every field is optional:
+
+- `examples` and `synonyms`: unique, non-empty strings;
+- `format`, `unit`, and `timezone`: bounded text;
+- `currency`: exactly three uppercase ASCII letters; and
+- `sensitivity`: one of `public`, `internal`, `confidential`, or `restricted`.
+
+A Dataset additionally MAY declare:
+
+- `description`: bounded text;
+- `owner`: bounded text naming the accountable team or person;
+- `freshness`: an object whose only field is a positive `maxAgeSeconds`; and
+- `defaults`: `dimensions` and/or `timeGrain` suggested when a caller supplies
+  no selection. `defaults` MUST declare at least one of the two. Every default
+  dimension MUST resolve to a groupable dimension on the same Dataset, and
+  `timeGrain` MUST NOT be present unless the Dataset declares `timeField`.
+
+Semantic metadata is descriptive, not enforcement. In particular `sensitivity`
+is an advisory classification: it does not restrict discovery, projection, or
+execution, and a consumer MUST NOT treat it as an authorization decision.
+Publication and authorization remain the responsibility of the deploying
+application and its endpoint policy.
+
+All semantic metadata is deployment-significant in the same sense as labels and
+descriptions: it is preserved so build diffs can distinguish execution changes
+from presentation, and it never affects the SQL a contract produces.
 
 ## Endpoint policy
 
@@ -123,6 +155,7 @@ as raw canonical-value, artifact, or cache hashes.
 | Named queries | 1,000 |
 | Runtime artifacts | 100 |
 | Fields, filters, metrics, relationships, claims, or tags per object | 1,000 |
+| Examples, synonyms, or default dimensions per object | 100 |
 | Label, description, role, scope, or tag UTF-8 bytes | 4,096 |
 | Physical source or column UTF-8 bytes | 1,024 |
 | Endpoint path UTF-8 bytes | 2,048 |
