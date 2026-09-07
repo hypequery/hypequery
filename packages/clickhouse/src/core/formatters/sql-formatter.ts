@@ -1,4 +1,5 @@
 import { FilterOperator, type CompiledQuery, type ExprNode, type SelectQueryNode, type SourceNode, type ValueNode } from '../../types/index.js';
+import { cteFragment } from '../utils/cte-fragments.js';
 import { hasTopLevelLogicalOperator, terminateTrailingLineComment } from '../utils/sql-parens.js';
 
 export class SQLFormatter {
@@ -240,9 +241,19 @@ export class SQLFormatter {
     return this.compileJoins(query).query;
   }
 
+  compileCtes(query: SelectQueryNode<any, any>): CompiledQuery {
+    if (!query.ctes?.length) return { query: '', parameters: [] };
+    return this.combineCompiledWithSeparator(
+      query.ctes.map(item => {
+        const { sql, parameters } = cteFragment(item);
+        return { query: sql, parameters: [...parameters] };
+      }),
+      ', ',
+    );
+  }
+
   formatCtes(query: SelectQueryNode<any, any>): string {
-    if (!query.ctes?.length) return '';
-    return query.ctes.map(item => item.expression).join(', ');
+    return this.compileCtes(query).query;
   }
 
   formatOrderBy(query: SelectQueryNode<any, any>): string {

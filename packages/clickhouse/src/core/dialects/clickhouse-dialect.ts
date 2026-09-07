@@ -12,7 +12,10 @@ export class ClickHouseDialect implements SqlDialect {
     const parameters: unknown[] = [];
 
     if (query.ctes?.length) {
-      parts.push(`WITH ${this.formatter.formatCtes(query)}`);
+      // CTE parameters lead the positional list because WITH renders first.
+      const compiled = this.formatter.compileCtes(query);
+      parts.push(`WITH ${compiled.query}`);
+      parameters.push(...compiled.parameters);
     }
 
     parts.push(`SELECT ${this.formatter.formatSelect(query)}`);

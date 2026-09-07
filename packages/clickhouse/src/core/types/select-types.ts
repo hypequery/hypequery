@@ -6,9 +6,9 @@ import { Simplify, UnionToIntersection } from './type-helpers.js';
 type TableIdentifiers<State extends AnyBuilderState> = State['tables'] & string;
 
 type QualifiedColumnsFor<State extends AnyBuilderState, Table extends string> =
-  ResolveTableSchema<State, Table> extends Record<string, ColumnType>
-  ? `${Table}.${Extract<keyof ResolveTableSchema<State, Table>, string>}`
-  : never;
+  [ResolveTableSchema<State, Table>] extends [never]
+  ? never
+  : `${Table}.${Extract<keyof ResolveTableSchema<State, Table>, string>}`;
 
 export type QualifiedColumnKeys<State extends AnyBuilderState> = {
   [Table in TableIdentifiers<State>]: QualifiedColumnsFor<State, Table>
@@ -38,12 +38,12 @@ export type ColumnSelectionKey<P> = P extends `${string}.${infer C}` ? C : P;
 
 type QualifiedColumnValue<State extends AnyBuilderState, P> =
   P extends `${infer Table}.${infer Column}`
-  ? ResolveTableSchema<State, Table> extends Record<string, ColumnType>
-  ? Column extends keyof ResolveTableSchema<State, Table>
+  ? [ResolveTableSchema<State, Table>] extends [never]
+  ? never
+  : Column extends keyof ResolveTableSchema<State, Table>
   ? ResolveTableSchema<State, Table>[Column] extends ColumnType
   ? InferColumnType<ResolveTableSchema<State, Table>[Column]>
-  : never
-  : never
+  : ResolveTableSchema<State, Table>[Column]
   : never
   : never;
 

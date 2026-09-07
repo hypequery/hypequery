@@ -148,7 +148,21 @@ export interface LimitByNode {
 
 export interface CteNode {
   kind: 'cte';
+  /**
+   * The entry as a single rendered fragment, with any parameter values already
+   * substituted. Kept as the canonical field so consumers reading it keep
+   * working; compilation prefers `name`/`body` when they are present.
+   */
   expression: string;
+  /** CTE alias. Present for named CTEs, absent for `withScalar` entries. */
+  name?: string;
+  /**
+   * The CTE body with `?` placeholders left in place, so its values can stay
+   * bound instead of being escaped into `expression`.
+   */
+  body?: string;
+  /** Values for the placeholders in `body`, in order. */
+  parameters?: unknown[];
 }
 
 export interface SelectQueryNode<T, Schema> extends QueryConfig<T, Schema> {

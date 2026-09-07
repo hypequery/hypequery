@@ -7,6 +7,7 @@ import { rawAs } from '../src/core/utils/sql-expressions.js';
 import type { Equal, Expect } from '@type-challenges/utils';
 
 const builder = setupTestBuilder();
+const builderUsers = setupUsersBuilder();
 type BuilderStateType = typeof builder extends QueryBuilder<any, infer S> ? S : never;
 
 const db = createQueryBuilder<TestSchema>({
@@ -382,3 +383,67 @@ relationships.defineChain('invalidCreatorChain', [
     rightColumn: 'updated_by',
   },
 ] as const);
+
+// --- CTE aliases as typed join targets ---
+
+const activeUsers = builderUsers
+  .select(['id', 'user_name'])
+  .where('is_active', 'eq', true);
+
+// Columns come from the builder passed to withCTE.
+const joinedBuilderCte = builder
+  .withCTE('active_users', activeUsers)
+  .innerJoin('active_users', 'created_by', 'active_users.id')
+  .select(['id', 'active_users.user_name']);
+type JoinedBuilderCteResult = Awaited<ReturnType<typeof joinedBuilderCte.execute>>;
+type JoinedBuilderCteExpected = { id: number; user_name: string }[];
+type AssertJoinedBuilderCte = Expect<
+  Equal<JoinedBuilderCteResult, JoinedBuilderCteExpected>
+>;
+
+// Columns declared alongside a raw SQL body resolve through the schema vocabulary.
+const joinedRawCte = builder
+  .withCTE('recent_orders', 'SELECT user_id, total FROM orders', {
+    user_id: 'Int32',
+    total: 'Float64',
+  })
+  .innerJoin('recent_orders', 'created_by', 'recent_orders.user_id')
+  .select(['id', 'recent_orders.total']);
+type JoinedRawCteResult = Awaited<ReturnType<typeof joinedRawCte.execute>>;
+type JoinedRawCteExpected = { id: number; total: number }[];
+type AssertJoinedRawCte = Expect<Equal<JoinedRawCteResult, JoinedRawCteExpected>>;
+
+// A CTE column can be filtered on once the CTE is joined.
+builder
+  .withCTE('active_users', activeUsers)
+  .innerJoin('active_users', 'created_by', 'active_users.id')
+  .where('active_users.user_name', 'eq', 'ada');
+
+builder
+  .withCTE('active_users', activeUsers)
+  // @ts-expect-error - columns the CTE does not expose are rejected on the join
+  .innerJoin('active_users', 'created_by', 'active_users.missing');
+
+builder
+  .withCTE('untyped_cte', 'SELECT id FROM users')
+  // @ts-expect-error - a raw CTE with no declared columns is not a typed join target
+  .innerJoin('untyped_cte', 'created_by', 'untyped_cte.id');
+
+builder
+  .withCTE('active_users', activeUsers)
+  // @ts-expect-error - a CTE join cannot take a table alias, which resolves through the schema
+  .innerJoin('active_users', 'created_by', 'active_users.id', 'au');
+
+// @ts-expect-error - an undeclared CTE name is not joinable
+builder.innerJoin('never_declared', 'created_by', 'never_declared.id');
+
+// Schema tables keep their existing join behaviour, aliases included.
+const aliasedSchemaJoin = builder
+  .withCTE('active_users', activeUsers)
+  .innerJoin('users', 'created_by', 'users.id', 'creator')
+  .select(['id', 'creator.user_name']);
+type AliasedSchemaJoinResult = Awaited<ReturnType<typeof aliasedSchemaJoin.execute>>;
+type AliasedSchemaJoinExpected = { id: number; user_name: string }[];
+type AssertAliasedSchemaJoin = Expect<
+  Equal<AliasedSchemaJoinResult, AliasedSchemaJoinExpected>
+>;
