@@ -53,6 +53,16 @@ describe('agent-oriented semantic metadata', () => {
   });
   const registry = { orders: { ...Orders, metrics: { totalRevenue } } };
 
+  it('snapshots caller-owned defaults and freshness', () => {
+    const defaults = { dimensions: ['region'] };
+    const freshness = { maxAgeSeconds: 300 };
+    const instance = dataset('snapshot', { source: 'orders', dimensions: { region: dimension.string() }, defaults, freshness });
+    defaults.dimensions.push('invalid');
+    freshness.maxAgeSeconds = 0;
+    expect(instance.defaults).toEqual({ dimensions: ['region'] });
+    expect(instance.freshness).toEqual({ maxAgeSeconds: 300 });
+  });
+
   it('round-trips metadata through catalog, semantic contract, and protocol', () => {
     const semanticContract = serializeSemanticContract(registry);
     const protocolContract = buildProtocolDatasetContract(Orders, {
