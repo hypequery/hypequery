@@ -137,25 +137,29 @@ function semanticQuery(operation: ProtocolSemanticQuery, maxRows: number): Recor
 /**
  * Bounds a result by row count and serialized size before it leaves the
  * deployment, so an oversized answer fails rather than being streamed on.
+ *
+ * The byte budget is measured against the whole record a caller receives, not
+ * only its rows, so this agrees with the data plane's own check rather than
+ * undercounting by the envelope.
  */
-function boundedRows(
-  rows: readonly Record<string, unknown>[],
+function bounded(
+  result: ProtocolSemanticInvocationResult,
   budget: PortableSemanticBudget,
-): readonly Record<string, unknown>[] {
-  if (rows.length > budget.maxRows) {
+): ProtocolSemanticInvocationResult {
+  if (result.data.length > budget.maxRows) {
     throw new PortableExecutionBudgetError(
-      `The result has ${rows.length} rows; the effective limit is ${budget.maxRows}.`,
+      `The result has ${result.data.length} rows; the effective limit is ${budget.maxRows}.`,
     );
   }
   if (budget.maxResponseBytes !== undefined) {
-    const bytes = new TextEncoder().encode(JSON.stringify(rows)).byteLength;
+    const bytes = new TextEncoder().encode(JSON.stringify(result)).byteLength;
     if (bytes > budget.maxResponseBytes) {
       throw new PortableExecutionBudgetError(
         `The result is ${bytes} bytes; the effective limit is ${budget.maxResponseBytes}.`,
       );
     }
   }
-  return rows;
+  return result;
 }
 
 /**
@@ -258,12 +262,12 @@ export function createPortableSemanticExecutor(
       } as never)
     )) as { data?: readonly Record<string, unknown>[]; meta?: { pagination?: unknown } };
 
-    const rows = boundedRows(output.data ?? [], input.budget);
+    const rows = output.data ?? [];
     const pagination = output.meta?.pagination as
       | { limit: number; offset: number; hasMore: boolean }
       | undefined;
 
-    return Object.freeze({
+    return bounded(Object.freeze({
       kind: 'hypequery-semantic-invocation-result',
       version: 1,
       activationRevision: input.activationRevision,
@@ -272,6 +276,6 @@ export function createPortableSemanticExecutor(
         rowCount: rows.length,
         ...(pagination === undefined ? {} : { pagination }),
       },
-    }) as unknown as ProtocolSemanticInvocationResult;
+    }) as unknown as ProtocolSemanticInvocationResult, input.budget);
   };
 }
