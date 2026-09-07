@@ -84,6 +84,18 @@ export type {
 export { buildProtocolDatasetContract } from './protocol-adapter.js';
 export type { BuildProtocolDatasetContractOptions } from './protocol-adapter.js';
 
+// Portable native execution of a semantic invocation (decision 0005).
+export {
+  createPortableSemanticExecutor,
+  PortableExecutionBudgetError,
+  PortableExecutionUnsupportedError,
+} from './portable-executor.js';
+export type {
+  PortableSemanticBudget,
+  PortableSemanticExecutionInput,
+  PortableSemanticExecutorOptions,
+} from './portable-executor.js';
+
 // SQL portability compiler (R1A-07)
 export {
   compilePortableSqlExpression,

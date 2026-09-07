@@ -176,6 +176,59 @@ const DEFAULT_LIMITS: SemanticOperationLimits = Object.freeze({
 
 const REVISION_PATTERN = /^[0-9a-f]{64}$/;
 
+/**
+ * Categories an injected executor may claim for itself.
+ *
+ * Execution is injected, so the executor is the only component that knows the
+ * difference between "this query broke" and "this deployment cannot express
+ * that". An executor opts into the vocabulary by throwing an error carrying a
+ * known `category`; anything else stays `executor-failed`.
+ */
+const EXECUTOR_CATEGORIES: ReadonlySet<string> = new Set([
+  'unsupported-capability',
+  'budget-exceeded',
+  'tenant-required',
+  'not-found',
+  'input-invalid',
+  'output-invalid',
+  'executor-unavailable',
+  'executor-failed',
+]);
+
+interface ExecutorFailureShape {
+  readonly category?: unknown;
+  readonly code?: unknown;
+  readonly message?: unknown;
+  readonly retryable?: unknown;
+  readonly relist?: unknown;
+}
+
+/** The category an executor claimed, when it claimed one this layer accepts. */
+function claimedFailure(error: unknown): {
+  category: ProtocolSemanticInvocationFailureCategory;
+  code: string;
+  message: string;
+  retryable: boolean;
+  relist: boolean;
+} | undefined {
+  if (typeof error !== 'object' || error === null) return undefined;
+  const shape = error as ExecutorFailureShape;
+  if (typeof shape.category !== 'string' || !EXECUTOR_CATEGORIES.has(shape.category)) {
+    return undefined;
+  }
+  return {
+    category: shape.category as ProtocolSemanticInvocationFailureCategory,
+    code: typeof shape.code === 'string' && /^[A-Z][A-Z0-9_]*$/.test(shape.code)
+      ? shape.code
+      : 'HQ_SEMANTIC_EXECUTION_FAILED',
+    // Only an executor that opted into the vocabulary has its message
+    // forwarded; a raw provider exception keeps the generic one.
+    message: typeof shape.message === 'string' ? shape.message : 'Semantic execution failed.',
+    retryable: shape.retryable === true,
+    relist: shape.relist === true,
+  };
+}
+
 function throwIfAborted(signal: AbortSignal | undefined): void {
   if (signal?.aborted) {
     fail('cancelled', 'HQ_SEMANTIC_CANCELLED', 'The invocation was cancelled.');
@@ -369,6 +422,14 @@ export function createDeploymentSemanticDataPlane(
       if (error instanceof DeploymentSemanticInvocationError) throw error;
       if (request.signal?.aborted) {
         fail('cancelled', 'HQ_SEMANTIC_CANCELLED', 'The invocation was cancelled.', { cause: error });
+      }
+      const claimed = claimedFailure(error);
+      if (claimed !== undefined) {
+        fail(claimed.category, claimed.code, claimed.message, {
+          cause: error,
+          retryable: claimed.retryable,
+          relist: claimed.relist,
+        });
       }
       fail('executor-failed', 'HQ_SEMANTIC_EXECUTION_FAILED', 'Semantic execution failed.', {
         cause: error,

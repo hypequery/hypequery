@@ -43,6 +43,16 @@ export interface RehydrateProtocolDatasetsOptions {
    * an operational concern of whoever runs the query, not of the deployment.
    */
   readonly cache?: DatasetCachePolicy;
+  /**
+   * What to do with a metric portable execution cannot rebuild.
+   *
+   * `throw` (the default) refuses the whole contract, which is right when a
+   * caller is checking whether a deployment is fully portable. `skip` omits
+   * just that metric, which is what a runtime wants: one derived metric must
+   * not make every other dataset in the deployment unexecutable. A caller that
+   * skips is responsible for refusing the skipped target at the point of use.
+   */
+  readonly onUnsupportedMetric?: 'throw' | 'skip';
 }
 
 /**
@@ -321,7 +331,14 @@ export function rehydrateProtocolDatasets(
     const instance = instances.get(name) as AnyDatasetInstance;
     const metrics: Record<string, MetricHandle> = {};
     for (const metric of contract.metrics) {
-      metrics[String(metric.name)] = rehydrateMetric(instance, contract, metric);
+      try {
+        metrics[String(metric.name)] = rehydrateMetric(instance, contract, metric);
+      } catch (error) {
+        if (options.onUnsupportedMetric !== 'skip'
+          || !(error instanceof UnsupportedContractFeatureError)) {
+          throw error;
+        }
+      }
     }
     registry[name] = Object.assign(
       Object.create(Object.getPrototypeOf(instance) as object),

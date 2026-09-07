@@ -464,6 +464,44 @@ describe('semantic data plane', () => {
     }
   });
 
+  it('honours a failure category an executor claims for itself', async () => {
+    // Execution is injected, so only the executor knows the difference between
+    // a broken query and a capability the deployment cannot express.
+    const unsupported = Object.assign(new Error('Metric "x" is derived.'), {
+      category: 'unsupported-capability',
+      code: 'HQ_SEMANTIC_UNSUPPORTED_CAPABILITY',
+    });
+    const { plane: dataPlane } = plane({ execute: (async () => { throw unsupported; }) as never });
+
+    expect(await categoryOf(() => dataPlane.invoke({
+      invocation: invocation(DATASET_QUERY), credentials: 'token',
+    }))).toBe('unsupported-capability');
+  });
+
+  it('ignores a category an executor is not allowed to claim', async () => {
+    // A provider exception must not be able to present itself as, say,
+    // `forbidden` and change how a gateway treats the caller.
+    const spoofed = Object.assign(new Error('nope'), { category: 'forbidden' });
+    const { plane: dataPlane } = plane({ execute: (async () => { throw spoofed; }) as never });
+
+    expect(await categoryOf(() => dataPlane.invoke({
+      invocation: invocation(DATASET_QUERY), credentials: 'token',
+    }))).toBe('executor-failed');
+  });
+
+  it('keeps the generic message for an executor that claims nothing', async () => {
+    const { plane: dataPlane } = plane({
+      execute: (async () => { throw new Error('ClickHouseException: analytics.orders'); }) as never,
+    });
+
+    try {
+      await dataPlane.invoke({ invocation: invocation(DATASET_QUERY), credentials: 'token' });
+    } catch (error) {
+      expect((error as Error).message).toBe('Semantic execution failed.');
+    }
+    expect.assertions(1);
+  });
+
   it('rejects an executor result that does not match the portable record', async () => {
     const { plane: dataPlane } = plane({
       execute: (async () => ({ rows: [{ status: 'paid' }] })) as never,
