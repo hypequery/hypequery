@@ -44,20 +44,19 @@ export async function getDatasetSchemaTool(
   }
 
   let schema: AgentCatalogDataset;
-  if (isDatasetInstance(dataset)) {
-    schema = projectAgentSafeCatalog({ [datasetName]: dataset }).datasets[0];
-  } else {
-    schema = projectLegacyAgentDataset(datasetName, dataset as Record<string, unknown>, datasets);
-    // The legacy fallback builds its projection by hand, so apply the catalog
-    // budget the canonical projection would otherwise have enforced.
-    try {
+  try {
+    if (isDatasetInstance(dataset)) {
+      schema = projectAgentSafeCatalog({ [datasetName]: dataset }).datasets[0];
+    } else {
+      schema = projectLegacyAgentDataset(datasetName, dataset as Record<string, unknown>, datasets);
       assertAgentSafeCatalogBudget({ datasets: [schema] });
-    } catch {
-      throw new MCPToolError(
-        'MCP_RESULT_TOO_LARGE',
-        `Dataset schema exceeds the agent-safe catalog byte limit: ${datasetName}`,
-      );
     }
+  } catch (error) {
+    if (!(error instanceof RangeError && error.message.startsWith('Agent-safe catalog exceeds '))) throw error;
+    throw new MCPToolError(
+      'MCP_RESULT_TOO_LARGE',
+      `Dataset schema exceeds the agent-safe catalog byte limit: ${datasetName}`,
+    );
   }
   return createMCPToolResponse(schema);
 }
