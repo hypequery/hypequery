@@ -163,6 +163,10 @@ jobs:
           trap cleanup EXIT
 
           pnpm changeset version --snapshot canary
+          # Rebuild against the snapshot versions. A package that bakes its own
+          # version into dist at build time would otherwise publish the one it
+          # had before `changeset version` rewrote package.json.
+          pnpm turbo run build --filter='@hypequery/*'
           pnpm changeset publish --tag canary
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
