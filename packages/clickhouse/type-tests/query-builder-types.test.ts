@@ -447,3 +447,30 @@ type AliasedSchemaJoinExpected = { id: number; user_name: string }[];
 type AssertAliasedSchemaJoin = Expect<
   Equal<AliasedSchemaJoinResult, AliasedSchemaJoinExpected>
 >;
+
+// Runtime aliases must not introduce a string index signature into CTE state.
+declare const runtimeCteAlias: string;
+const dynamicBuilderCte = builder.withCTE(runtimeCteAlias, activeUsers);
+const dynamicRawCte = builder.withCTE(runtimeCteAlias, 'SELECT id FROM users', { cte_only: 'Int32' });
+const dynamicSchemaJoin = dynamicBuilderCte
+  .innerJoin('users', 'created_by', 'users.id', 'creator')
+  .select(['id', 'creator.user_name']);
+type DynamicSchemaJoinResult = Awaited<ReturnType<typeof dynamicSchemaJoin.execute>>;
+type AssertDynamicSchemaJoin = Expect<Equal<DynamicSchemaJoinResult, { id: number; user_name: string }[]>>;
+const dynamicRawSchemaJoin = dynamicRawCte
+  .innerJoin('users', 'created_by', 'users.id', 'creator')
+  .select(['id', 'creator.user_name']);
+type DynamicRawSchemaJoinResult = Awaited<ReturnType<typeof dynamicRawSchemaJoin.execute>>;
+type AssertDynamicRawSchemaJoin = Expect<Equal<DynamicRawSchemaJoinResult, { id: number; user_name: string }[]>>;
+// @ts-expect-error - runtime aliases do not make arbitrary targets joinable
+dynamicBuilderCte.innerJoin('undeclared', 'created_by', 'undeclared.id');
+// @ts-expect-error - declared raw columns with runtime aliases cannot shadow a real table
+dynamicRawCte.innerJoin('users', 'created_by', 'users.cte_only');
+// @ts-expect-error - arbitrary targets remain invalid for raw CTEs as well
+dynamicRawCte.innerJoin('undeclared', 'created_by', 'undeclared.cte_only');
+const literalAfterDynamic = dynamicRawCte
+  .withCTE('active_users', activeUsers)
+  .innerJoin('active_users', 'created_by', 'active_users.id')
+  .select(['id', 'active_users.user_name']);
+type LiteralAfterDynamicResult = Awaited<ReturnType<typeof literalAfterDynamic.execute>>;
+type AssertLiteralAfterDynamic = Expect<Equal<LiteralAfterDynamicResult, { id: number; user_name: string }[]>>;

@@ -171,7 +171,8 @@ export type JoinResultState<
 
 /**
  * Registers a CTE alias and the columns it exposes. The alias only becomes
- * selectable once the query joins it, which mirrors SQL scoping.
+ * selectable once the query joins it, which mirrors SQL scoping. A broad
+ * string alias remains untyped; registering it would shadow every schema table.
  */
 export type AddCte<
   State extends AnyBuilderState,
@@ -185,7 +186,7 @@ export type AddCte<
   State['aliases'],
   State['scalars'],
   State['base'],
-  StateCtes<State> & Record<Alias, Columns>
+  string extends Alias ? StateCtes<State> : StateCtes<State> & Record<Alias, Columns>
 >;
 
 export type FromSubqueryState<

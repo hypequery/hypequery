@@ -143,7 +143,8 @@ as a generated schema, and it is an assertion: nothing checks it against the SQL
 so a wrong declaration surfaces at runtime rather than at compile time.
 
 Without the third argument the CTE still works and still renders, but its alias
-stays untyped and cannot be used as a join target.
+stays untyped and cannot be used as a join target. A runtime alias typed as
+`string` also stays untyped; use a literal alias when you need typed joins.
 
 ### Multiple CTEs
 
