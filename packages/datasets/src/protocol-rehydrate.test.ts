@@ -70,7 +70,7 @@ describe('contract-to-catalog rehydration', () => {
     const source = deployment.datasets.find(item => item.name === 'orders')!;
     const contract = {
       ...source, ...metadata, description: 'Order analytics', owner: 'Finance',
-      freshness: { maxAgeSeconds: 300 }, defaults: { dimensions: ['status'] as typeof source.dimensions[number]['name'][] },
+      freshness: { maxAgeSeconds: 300 }, defaults: { dimensions: ['status', 'region'] as typeof source.dimensions[number]['name'][] },
       dimensions: source.dimensions.map(item => ({ ...item, ...metadata })),
       measures: source.measures.map(item => ({ ...item, ...metadata })),
       filters: source.filters.map(item => ({ ...item, ...metadata })),

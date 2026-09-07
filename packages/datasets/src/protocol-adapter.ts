@@ -250,7 +250,7 @@ export function buildProtocolDatasetContract(
       ? {
           defaults: {
             ...(dataset.defaults.dimensions !== undefined
-              ? { dimensions: [...dataset.defaults.dimensions].sort().map(parseProtocolIdentifier) }
+              ? { dimensions: [...dataset.defaults.dimensions].map(parseProtocolIdentifier) }
               : {}),
             ...(dataset.defaults.timeGrain !== undefined
               ? { timeGrain: dataset.defaults.timeGrain }
