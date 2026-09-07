@@ -22,4 +22,7 @@ Operation validation is contract-driven, so a gateway can reject a bad
 invocation without loading any of the deploying application's code:
 non-groupable dimensions, undeclared measures, filters outside a field's
 declared operator list, unsupported grains, over-budget limits, and
-relationship paths deeper than one hop are all refused.
+relationship paths deeper than one hop are all refused. A joined field carries
+its target's `groupable` and `filterable` flags separately, so a relationship
+neither hides a filterable field that cannot be grouped nor exposes one the
+target declared unfilterable.

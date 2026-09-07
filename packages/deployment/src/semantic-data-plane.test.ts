@@ -36,6 +36,16 @@ function customers() {
         name: 'country', type: 'string', source: { kind: 'column', column: 'country_code' },
         filterable: true, groupable: true,
       },
+      // High cardinality: worth filtering by, never worth grouping by.
+      {
+        name: 'email', type: 'string', source: { kind: 'column', column: 'email' },
+        filterable: true, groupable: false,
+      },
+      // The reverse: safe to group, deliberately not exposed to filtering.
+      {
+        name: 'segment', type: 'string', source: { kind: 'column', column: 'segment' },
+        filterable: false, groupable: true,
+      },
     ],
     measures: [], filters: [], metrics: [], relationships: [],
     endpoint: PUBLIC,
@@ -399,6 +409,32 @@ describe('semantic data plane', () => {
 
     expect(await call('customer.country')).toBe('accepted');
     expect(await call('customer.missing')).toBe('input-invalid');
+  });
+
+  it('carries groupable and filterable separately across a relationship', async () => {
+    const { plane: dataPlane } = plane();
+    const group = (name: string) => categoryOf(() => dataPlane.invoke({
+      invocation: invocation({ kind: 'dataset', dataset: 'orders', dimensions: [name], measures: ['revenue'] }),
+      credentials: 'token',
+    }));
+    const filter = (name: string) => categoryOf(() => dataPlane.invoke({
+      invocation: invocation({
+        ...DATASET_QUERY,
+        filters: [{
+          kind: 'comparison', operator: 'eq',
+          left: { kind: 'reference', name },
+          right: { kind: 'literal', value: 'x' },
+        }],
+      }),
+      credentials: 'token',
+    }));
+
+    // A joined field is filterable or groupable exactly as its target declared,
+    // not as the other capability implies.
+    expect(await filter('customer.email')).toBe('accepted');
+    expect(await group('customer.email')).toBe('input-invalid');
+    expect(await group('customer.segment')).toBe('accepted');
+    expect(await filter('customer.segment')).toBe('input-invalid');
   });
 
   // -- budgets -------------------------------------------------------------

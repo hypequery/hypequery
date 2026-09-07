@@ -65,14 +65,18 @@ function resolveDataset(
     if (!relationship.queryable) continue;
     const target = datasets.get(String(relationship.target));
     for (const dimension of target?.dimensions ?? []) {
-      if (!dimension.groupable) continue;
       const qualified = `${String(relationship.name)}.${String(dimension.name)}`;
-      groupable.add(qualified);
-      // A joined field has no named filter in the contract, so it accepts the
-      // full operator set the protocol allows rather than a narrowed list.
-      filters.set(qualified, new Set([
-        'eq', 'neq', 'gt', 'gte', 'lt', 'lte', 'in', 'notIn', 'between', 'like',
-      ]));
+      // The two capabilities are declared separately and travel separately
+      // across a join. Coupling them would both hide a filterable field that
+      // cannot be grouped and expose one the target declared unfilterable.
+      if (dimension.groupable) groupable.add(qualified);
+      if (dimension.filterable) {
+        // A joined field has no named filter in the contract, so it accepts the
+        // full operator set the protocol allows rather than a narrowed list.
+        filters.set(qualified, new Set([
+          'eq', 'neq', 'gt', 'gte', 'lt', 'lte', 'in', 'notIn', 'between', 'like',
+        ]));
+      }
     }
   }
 
