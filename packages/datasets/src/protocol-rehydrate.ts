@@ -29,6 +29,7 @@ import type {
   SemanticFilterDefinition,
   TimeGrain,
 } from './types.js';
+import { snapshotSemanticMetadata } from './utils/semantic-metadata.js';
 import { withContractCapabilities } from './utils/protocol-metric-capabilities.js';
 import { rehydrateMeasureFilter } from './utils/protocol-rehydrate-filters.js';
 
@@ -72,6 +73,7 @@ function rehydrateDimensions(
     const source = dimension.source;
     dimensions[name] = {
       __type: 'field_definition',
+      ...snapshotSemanticMetadata(dimension),
       fieldType: dimension.type,
       label: dimension.label,
       description: dimension.description,
@@ -102,6 +104,7 @@ function rehydrateMeasure(
   ));
   return {
     __type: 'measure_definition',
+    ...snapshotSemanticMetadata(measure),
     aggregation: measure.aggregation,
     field: String(measure.field),
     ...(measure.argField !== undefined ? { argField: String(measure.argField) } : {}),
@@ -122,6 +125,7 @@ function rehydrateFilters(
   for (const filter of contract.filters) {
     filters[String(filter.name)] = {
       __type: 'filter_definition',
+      ...snapshotSemanticMetadata(filter),
       field: String(filter.field),
       operators: [...filter.operators],
       ...(filter.label !== undefined ? { label: filter.label } : {}),
@@ -227,6 +231,7 @@ function rehydrateMetric(
 
   const base = instance.metric(name, {
     measure: measureName,
+    ...snapshotSemanticMetadata(metric),
     ...(metric.label !== undefined ? { label: metric.label } : {}),
     ...(metric.description !== undefined ? { description: metric.description } : {}),
   }) as MetricHandle;
@@ -271,6 +276,14 @@ export function rehydrateProtocolDatasets(
     const name = String(contract.name);
     const instance = dataset(name, {
       source: contract.source,
+      ...snapshotSemanticMetadata(contract),
+      ...(contract.description !== undefined ? { description: contract.description } : {}),
+      ...(contract.owner !== undefined ? { owner: contract.owner } : {}),
+      ...(contract.freshness !== undefined ? { freshness: { ...contract.freshness } } : {}),
+      ...(contract.defaults !== undefined ? { defaults: {
+        ...contract.defaults,
+        ...(contract.defaults.dimensions !== undefined ? { dimensions: [...contract.defaults.dimensions] } : {}),
+      } } : {}),
       ...(contract.tenant.kind === 'required' ? { tenantKey: contract.tenant.field } : {}),
       ...(contract.timeField !== undefined ? { timeKey: String(contract.timeField) } : {}),
       dimensions: rehydrateDimensions(contract),
