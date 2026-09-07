@@ -47,12 +47,15 @@ export type {
 
 // Agent-safe and separately authorized trusted-debug catalog projections.
 export {
+  DEFAULT_AGENT_CATALOG_MAX_BYTES,
+  assertAgentSafeCatalogBudget,
   projectAgentSafeCatalog,
   projectTrustedDebugCatalog,
 } from './agent-catalog.js';
 export type {
   AgentCatalogDataset,
   AgentCatalogDatasetRegistry,
+  AgentCatalogProjectionOptions,
   AgentCatalogDimension,
   AgentCatalogFilter,
   AgentCatalogMeasure,
@@ -221,8 +224,12 @@ export type {
   SemanticFilterDefinition,
   SemanticFiltersDefinition,
   DatasetConfig,
+  DatasetDefaults,
+  DatasetFreshness,
   DatasetLimits,
   DatasetCachePolicy,
+  SemanticMetadata,
+  SemanticSensitivity,
   DatasetInstance,
   AnyDatasetInstance,
   BaseMetricConfig,

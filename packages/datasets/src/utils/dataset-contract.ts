@@ -3,8 +3,10 @@ import type {
   AnyDatasetInstance,
   DerivedMetricSpec,
   MetricContract,
+  SemanticMetadata,
   TimeGrain,
 } from '../types.js';
+import { snapshotSemanticMetadata } from './semantic-metadata.js';
 
 const ALL_GRAINS: TimeGrain[] = ['day', 'week', 'month', 'quarter', 'year'];
 
@@ -14,6 +16,7 @@ export function buildMetricContract(
   spec: AggregationSpec | DerivedMetricSpec,
   label?: string,
   description?: string,
+  metadata: SemanticMetadata = {},
   grain?: TimeGrain,
 ): MetricContract {
   const dimensionNames = Object.keys(ds.dimensions);
@@ -34,6 +37,7 @@ export function buildMetricContract(
     valueType: 'number',
     label,
     description,
+    ...snapshotSemanticMetadata(metadata),
     dimensions: dimensionNames,
     measures: measureNames,
     filters: filterNames,

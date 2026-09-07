@@ -1,7 +1,12 @@
 import type {
   AgentCatalogDataset,
   AgentCatalogFilter,
+  DatasetDefaults,
+  DatasetFreshness,
+  DatasetLimits,
   FieldType,
+  SemanticMetadata,
+  SemanticSensitivity,
 } from '@hypequery/datasets';
 
 type UnknownRecord = Record<string, unknown>;
@@ -11,9 +16,6 @@ type UnknownRecord = Record<string, unknown>;
  * untyped, so anything outside this set is dropped rather than advertised.
  */
 const TIME_GRAINS = new Set(['day', 'week', 'month', 'quarter', 'year']);
-
-/** The only limit keys the canonical projection emits. See `normalizedLimits`. */
-const LIMIT_KEYS = ['maxDimensions', 'maxMeasures', 'maxFilters', 'maxResultSize'] as const;
 
 function record(value: unknown): UnknownRecord {
   return value !== null && typeof value === 'object' && !Array.isArray(value)
@@ -46,6 +48,34 @@ function optionalDescription(value: UnknownRecord): { label?: string; descriptio
   };
 }
 
+function semanticMetadata(value: UnknownRecord): SemanticMetadata {
+  const list = (input: unknown): string[] | undefined => Array.isArray(input)
+    ? [...new Set(input.filter((item): item is string => typeof item === 'string'))].sort()
+    : undefined;
+  const sensitivity = ['public', 'internal', 'confidential', 'restricted'].includes(String(value.sensitivity))
+    ? value.sensitivity as SemanticSensitivity
+    : undefined;
+  return {
+    ...(list(value.examples) !== undefined ? { examples: list(value.examples) } : {}),
+    ...(list(value.synonyms) !== undefined ? { synonyms: list(value.synonyms) } : {}),
+    ...(text(value.format) !== undefined ? { format: text(value.format) } : {}),
+    ...(text(value.unit) !== undefined ? { unit: text(value.unit) } : {}),
+    ...(/^[A-Z]{3}$/.test(String(value.currency)) ? { currency: String(value.currency) } : {}),
+    ...(text(value.timezone) !== undefined ? { timezone: text(value.timezone) } : {}),
+    ...(sensitivity !== undefined ? { sensitivity } : {}),
+  };
+}
+
+function limits(value: unknown): DatasetLimits {
+  const input = record(value);
+  const result: DatasetLimits = {};
+  for (const key of ['maxDimensions', 'maxMeasures', 'maxFilters', 'maxResultSize'] as const) {
+    const candidate = input[key];
+    if (Number.isSafeInteger(candidate) && (candidate as number) > 0) result[key] = candidate as number;
+  }
+  return result;
+}
+
 /** Keeps only the members of `value` that name something the agent may already see. */
 function declaredNames(value: unknown, declared: ReadonlySet<string>): string[] {
   return Array.isArray(value)
@@ -55,23 +85,6 @@ function declaredNames(value: unknown, declared: ReadonlySet<string>): string[] 
     : [];
 }
 
-/**
- * Normalizes the untyped `limits` object to the four keys the canonical
- * projection emits, so internal metadata a legacy registry happens to keep
- * alongside them is never serialized into a tool result.
- */
-function legacyLimits(value: unknown): AgentCatalogDataset['limits'] {
-  const limits = record(value);
-  const normalized: Record<string, number> = {};
-  for (const key of LIMIT_KEYS) {
-    const limit = limits[key];
-    if (typeof limit === 'number' && Number.isInteger(limit) && limit > 0) {
-      normalized[key] = limit;
-    }
-  }
-  return normalized as AgentCatalogDataset['limits'];
-}
-
 /** The dimensions a legacy registry entry exposes, in the shape the agent sees. */
 function legacyDimensions(input: UnknownRecord): AgentCatalogDataset['dimensions'] {
   return namedEntries(input.dimensions)
@@ -79,6 +92,7 @@ function legacyDimensions(input: UnknownRecord): AgentCatalogDataset['dimensions
       name: dimensionName,
       type: fieldType(dimension.fieldType ?? dimension.type),
       ...optionalDescription(dimension),
+      ...semanticMetadata(dimension),
       filterable: dimension.filterable !== false,
       groupable: dimension.groupable !== false,
     }))
@@ -114,6 +128,8 @@ export function projectLegacyAgentDataset(
     .map(([filterName, filter]) => ({
       name: filterName,
       type: dimensionTypes.get(text(filter.field) ?? filterName),
+      ...optionalDescription(filter),
+      ...semanticMetadata(filter),
       operators: Array.isArray(filter.operators)
         ? [...new Set(filter.operators.filter((operator): operator is string => typeof operator === 'string'))].sort()
         : [],
@@ -121,19 +137,43 @@ export function projectLegacyAgentDataset(
     .filter((filter): filter is AgentCatalogFilter => filter.type !== undefined);
   const filterNames = new Set(filters.map(filter => filter.name));
   const timeKey = text(input.timeKey) ?? text(config.timeKey);
+  const freshnessInput = record(input.freshness);
+  const freshness = Number.isSafeInteger(freshnessInput.maxAgeSeconds)
+    && (freshnessInput.maxAgeSeconds as number) > 0
+    ? { maxAgeSeconds: freshnessInput.maxAgeSeconds as number } satisfies DatasetFreshness
+    : undefined;
+  const defaultsInput = record(input.defaults);
+  const defaultDimensions = Array.isArray(defaultsInput.dimensions)
+    ? declaredNames(defaultsInput.dimensions, dimensionNames)
+    : undefined;
+  const timeGrain = TIME_GRAINS.has(String(defaultsInput.timeGrain))
+    ? defaultsInput.timeGrain as DatasetDefaults['timeGrain']
+    : undefined;
+  const defaults = defaultDimensions !== undefined || timeGrain !== undefined
+    ? {
+        ...(defaultDimensions !== undefined ? { dimensions: defaultDimensions } : {}),
+        ...(timeGrain !== undefined ? { timeGrain } : {}),
+      }
+    : undefined;
 
   return {
     name,
     description: text(input.description) ?? text(config.description) ?? `${name} analytics dataset.`,
+    ...semanticMetadata(input),
+    ...(freshness !== undefined ? { freshness } : {}),
+    ...(text(input.owner) !== undefined ? { owner: text(input.owner) } : {}),
+    ...(defaults !== undefined ? { defaults } : {}),
     timeDimension: timeKey !== undefined && dimensionNames.has(timeKey) ? timeKey : null,
     dimensions,
     measures: namedEntries(input.measures).map(([measureName, measure]) => ({
       name: measureName,
       ...optionalDescription(measure),
+      ...semanticMetadata(measure),
     })),
     metrics: namedEntries(input.metrics).map(([metricName, metric]) => ({
       name: metricName,
       ...optionalDescription(metric),
+      ...semanticMetadata(metric),
       dimensions: declaredNames(metric.dimensions, dimensionNames),
       filters: declaredNames(metric.filters, filterNames),
       grains: declaredNames(metric.grains, TIME_GRAINS),
@@ -164,6 +204,6 @@ export function projectLegacyAgentDataset(
       .filter((relationship): relationship is NonNullable<typeof relationship> => (
         relationship !== undefined
       )),
-    limits: legacyLimits(input.limits),
+    limits: limits(input.limits),
   };
 }
