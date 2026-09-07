@@ -348,6 +348,52 @@ describe('deployment contract v1', () => {
     );
   });
 
+  it('requires endpoint and dataset tenancy to agree in both directions', () => {
+    const TENANTED = {
+      access: { kind: 'public' },
+      tenant: { kind: 'required', mode: 'auto-inject', column: 'tenant_id' },
+    };
+
+    // An endpoint requiring a tenant over a dataset that declares no field to
+    // scope by resolves one and then has nothing to filter on, so the query
+    // reads every tenant while the endpoint reports tenancy as enforced.
+    expectDeploymentError(
+      () => validateProtocolDeploymentContract({
+        ...baseDeployment(),
+        datasets: [{ ...minimalDataset(), endpoint: TENANTED }],
+      }),
+      'HQ_DEPLOYMENT_INVALID_REFERENCE',
+      '$.datasets[0].endpoint.tenant',
+    );
+
+    expectDeploymentError(
+      () => validateProtocolDeploymentContract({
+        ...baseDeployment(),
+        datasets: [{
+          ...minimalDataset(),
+          metrics: [minimalMetric({ kind: 'metric', grains: [], grain: undefined, endpoint: TENANTED })],
+        }],
+      }),
+      'HQ_DEPLOYMENT_INVALID_REFERENCE',
+      '$.datasets[0].metrics[0].endpoint.tenant',
+    );
+
+    // The direction that already held: a tenant-scoped dataset cannot be
+    // published through an endpoint that does not require one.
+    expectDeploymentError(
+      () => validateProtocolDeploymentContract({
+        ...baseDeployment(),
+        datasets: [{
+          ...minimalDataset(),
+          tenant: { kind: 'required', field: 'tenant_id' },
+          endpoint: { access: { kind: 'public' }, tenant: { kind: 'not-required' } },
+        }],
+      }),
+      'HQ_DEPLOYMENT_INVALID_REFERENCE',
+      '$.datasets[0].endpoint.tenant',
+    );
+  });
+
   it('requires a grained metric fixed grain to be supported by the metric', () => {
     const deployment = {
       ...baseDeployment(),

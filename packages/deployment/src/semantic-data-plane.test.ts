@@ -3,6 +3,7 @@ import {
   createDeploymentSemanticDataPlane,
   DeploymentSemanticInvocationError,
   toProtocolSemanticInvocationFailure,
+  type DeploymentSemanticBudget,
   type DeploymentSemanticDataPlaneOptions,
   type DeploymentSemanticExecutionInput,
 } from './semantic-data-plane.js';
@@ -499,7 +500,88 @@ describe('semantic data plane', () => {
     expect(execute).not.toHaveBeenCalled();
   });
 
+  it('reports cancellation even when the executor ignores the signal and succeeds', async () => {
+    const controller = new AbortController();
+    const { plane: dataPlane } = plane({
+      // An executor is free to ignore the signal; the caller still asked to stop.
+      execute: (async () => {
+        controller.abort();
+        return result();
+      }) as never,
+    });
+
+    expect(await categoryOf(() => dataPlane.invoke({
+      invocation: invocation(DATASET_QUERY), credentials: 'token', signal: controller.signal,
+    }))).toBe('cancelled');
+  });
+
+  // -- output bounding -----------------------------------------------------
+
+  it('rejects a result with more rows than the effective budget allowed', async () => {
+    const rows = Array.from({ length: 6 }, () => ({ status: 'paid' }));
+    const { plane: dataPlane } = plane({ execute: (async () => result(rows)) as never });
+
+    expect(await categoryOf(() => dataPlane.invoke({
+      invocation: invocation(DATASET_QUERY, { budget: { maxRows: 5 } }), credentials: 'token',
+    }))).toBe('budget-exceeded');
+  });
+
+  it('rejects a result larger than the effective response byte budget', async () => {
+    const rows = Array.from({ length: 20 }, () => ({ status: 'paid'.repeat(20) }));
+    const { plane: dataPlane } = plane({ execute: (async () => result(rows)) as never });
+
+    expect(await categoryOf(() => dataPlane.invoke({
+      invocation: invocation(DATASET_QUERY, { budget: { maxResponseBytes: 64 } }),
+      credentials: 'token',
+    }))).toBe('budget-exceeded');
+  });
+
+  it('rejects a result served from a different activation than the one selected', async () => {
+    const { plane: dataPlane } = plane({
+      execute: (async () => ({ ...result(), activationRevision: OTHER_REVISION })) as never,
+    });
+
+    expect(await categoryOf(() => dataPlane.invoke({
+      invocation: invocation(DATASET_QUERY), credentials: 'token',
+    }))).toBe('output-invalid');
+  });
+
   // -- configuration -------------------------------------------------------
+
+  it('refuses to serve a contract requiring a tenant it has no field to scope by', () => {
+    // Resolving a tenant scopes nothing unless the dataset declares the field to
+    // scope by: this shape would read every tenant's rows while both layers
+    // believed tenancy was enforced. The protocol validator rejects it, and the
+    // plane validates its contract before it can answer anything, so an already
+    // activated generation of this shape fails closed at construction.
+    const unscopable = { ...customers(), endpoint: AUTHENTICATED };
+
+    expect(() => createDeploymentSemanticDataPlane({
+      deployment: deployment({ datasets: [unscopable, orders()] }) as never,
+      activationRevision: REVISION,
+      execute: async () => result(),
+    })).toThrow(DeploymentSemanticInvocationError);
+  });
+
+  it('keeps a default ceiling when a limit is passed explicitly undefined', async () => {
+    let budget: DeploymentSemanticBudget | undefined;
+    const { plane: dataPlane } = plane({
+      // `{ maxRows: undefined }` must not erase the default: an undefined bound
+      // compares false against every limit, so nothing would be enforced.
+      limits: { maxRows: undefined } as never,
+      execute: (async (input: DeploymentSemanticExecutionInput) => {
+        budget = input.budget;
+        return result();
+      }) as never,
+    });
+
+    // `customers` publishes no endpoint ceiling and no dataset limit, so the
+    // server default is the only thing standing between a caller and a scan.
+    await dataPlane.invoke({
+      invocation: invocation({ kind: 'dataset', dataset: 'customers', dimensions: ['country'] }),
+    });
+    expect(budget?.maxRows).toBe(10_000);
+  });
 
   it('rejects an invalid contract or activation revision at construction', () => {
     expect(() => createDeploymentSemanticDataPlane({
