@@ -35,6 +35,8 @@ vi.mock('../utils/deployment-source-snapshot.js', () => ({
 
 vi.mock('../utils/logger.js', () => ({
   logger: {
+    warn: vi.fn(),
+    indent: vi.fn(),
     success: vi.fn(),
     info: vi.fn(),
   },
@@ -53,6 +55,7 @@ vi.mock('node:fs/promises', async () => {
   };
 });
 
+import { logger } from '../utils/logger.js';
 import { lstat, mkdir, readFile, realpath, stat, writeFile } from 'node:fs/promises';
 import {
   buildDeploymentCommand,
@@ -136,6 +139,36 @@ describe('deployment commands', () => {
       'utf8',
     );
     expect(mockBuildNodeRuntimeArtifact).not.toHaveBeenCalled();
+  });
+
+  it.each([false, true])('reports overridden configuration errors only with override=%s', async allowUnsupportedConfig => {
+    const diagnostic = {
+      severity: 'error' as const,
+      code: 'HQ_CLOUD_UNSUPPORTED_CONFIG',
+      subject: 'middleware',
+      message: 'Managed execution cannot run this middleware.',
+      remedy: 'Move the policy into the supported execution context.',
+    };
+    mockLoadApiModule.mockResolvedValue({
+      deploymentContract(options: { onCloudDiagnostic: (value: typeof diagnostic) => void }) {
+        options.onCloudDiagnostic(diagnostic);
+        if (!allowUnsupportedConfig) throw new Error('Unsupported configuration');
+        return contract;
+      },
+    });
+    const build = buildDeploymentCommand('analytics/api.ts', {
+      output: 'dist/deployment.json', allowUnsupportedConfig,
+    });
+    if (allowUnsupportedConfig) {
+      await build;
+      expect(logger.warn).toHaveBeenCalledWith('HQ_CLOUD_UNSUPPORTED_CONFIG (middleware)');
+      expect(logger.indent).toHaveBeenCalledWith(diagnostic.message);
+      expect(logger.indent).toHaveBeenCalledWith(`→ ${diagnostic.remedy}`);
+    } else {
+      await expect(build).rejects.toThrow('Unsupported configuration');
+      expect(logger.warn).not.toHaveBeenCalled();
+      expect(writeFile).not.toHaveBeenCalled();
+    }
   });
 
   it('bundles Node handlers and wires their digest into the deployment contract', async () => {
