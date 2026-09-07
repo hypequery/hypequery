@@ -242,3 +242,5 @@ export type {
   ProtocolSqlParameterSource,
   ProtocolSqlTenantPolicy,
 } from './query-implementations/index.js';
+
+export { PROTOCOL_SEMANTIC_FAILURE_MESSAGES } from './invocations/failure-messages.js';

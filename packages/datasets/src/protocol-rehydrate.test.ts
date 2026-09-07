@@ -1,3 +1,6 @@
+import { buildMetricPlan } from './semantic-planner.js';
+import { createDatasetClient } from './executor.js';
+import type { MetricRef, MetricQuery } from './types.js';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { validateProtocolDeploymentContract } from '@hypequery/protocol';
@@ -87,6 +90,34 @@ describe('contract-to-catalog rehydration', () => {
     // deployment never exposed.
     expect(contract.dimensions).toEqual(['createdAt', 'region', 'status']);
     expect(contract.filters).toEqual(['createdAt', 'region', 'status']);
+  });
+
+  it('enforces published capabilities before planning or executing, including after by()', async () => {
+    const contract = deployment.datasets.find(item => item.name === 'orders')!;
+    const original = contract.metrics.find(item => item.name === 'totalRevenue')!;
+    const narrowed = { ...original, grain: undefined, kind: 'metric' as const, dimensions: ['status'], filters: ['status'], grains: ['day'] as const };
+    const registry = rehydrateProtocolDatasets([{ ...contract, metrics: [narrowed] }]);
+    const metric = registry.orders.metrics.totalRevenue as MetricRef;
+    const client = createDatasetClient({ queryBuilder: { from() { throw new Error('Must reject before builder'); } } as never });
+    expect(metric.by('day').metric).toBe(metric);
+    expect(metric.by('day').contract().dimensions).toEqual(['status']);
+    expect(() => metric.by('month')).toThrow('not published');
+    const queries: MetricQuery[] = [
+      { dimensions: ['region'] },
+      { filters: [eq('region', 'EU')] },
+      { by: 'month' },
+    ];
+    for (const query of queries) {
+      expect(client.validate(metric, query).errors.join('; ')).toContain('not published');
+      expect(() => client.toSQL(metric, query)).toThrow('not published');
+      await expect(client.execute(metric, query)).rejects.toThrow('not published');
+      expect(() => buildMetricPlan(metric, query)).toThrow('not published');
+    }
+    expect(() => client.toSQL(metric.by('day'), { dimensions: ['region'] })).toThrow('not published');
+    const catalog = metric.contract();
+    catalog.dimensions.push('region');
+    expect(() => buildMetricPlan(metric, { dimensions: ['region'] })).toThrow('not published');
+    expect(buildMetricPlan(metric, { dimensions: ['status'] }, { runtime: { tenant: 'acme' } })).toMatchObject({ kind: 'aggregate' });
   });
 
   it('round-trips an authored dataset through the contract unchanged', () => {
