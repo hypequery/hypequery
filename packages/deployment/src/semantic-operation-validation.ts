@@ -107,10 +107,20 @@ function narrowToMetric(base: Resolved, metric: ProtocolDatasetMetric): Resolved
   };
 }
 
-/** The field a filter expression addresses, or null when it is not a plain comparison. */
+/**
+ * The field a filter expression addresses, or null when it is not a plain
+ * comparison.
+ *
+ * Both operands are checked. A right-hand side that is anything but a literal —
+ * another reference, an aggregate, a nested comparison — addresses something
+ * this validator never matched against the contract's allowlist, so accepting
+ * it would leave a published-surface check to whichever executor happens to be
+ * injected. It is also a caller mistake rather than a deployment capability
+ * gap, and only a violation raised here reports it as one.
+ */
 function comparisonField(expression: ProtocolExpression): { field: string; operator: string } | null {
   if (expression.kind !== 'comparison') return null;
-  if (expression.left.kind !== 'reference') return null;
+  if (expression.left.kind !== 'reference' || expression.right.kind !== 'literal') return null;
   return { field: String(expression.left.name), operator: expression.operator };
 }
 

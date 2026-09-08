@@ -400,6 +400,30 @@ describe('semantic data plane', () => {
     expect(await filter('like')).toBe('input-invalid');
   });
 
+  it('rejects a filter whose compared value is not a literal', async () => {
+    const { plane: dataPlane } = plane();
+    const filter = (right: unknown) => categoryOf(() => dataPlane.invoke({
+      invocation: invocation({
+        ...DATASET_QUERY,
+        filters: [{
+          kind: 'comparison', operator: 'eq',
+          left: { kind: 'reference', name: 'status' },
+          right,
+        }],
+      }),
+      credentials: 'token',
+    }));
+
+    expect(await filter({ kind: 'literal', value: 'paid' })).toBe('accepted');
+    // A second reference addresses a field this validator never matched against
+    // the contract, so it is a caller error here rather than a capability gap
+    // discovered by whichever executor is injected.
+    expect(await filter({ kind: 'reference', name: 'customerId' })).toBe('input-invalid');
+    expect(await filter({
+      kind: 'aggregate', aggregation: 'sum', field: 'amount',
+    })).toBe('input-invalid');
+  });
+
   it('accepts a one-hop relationship dimension and rejects a deeper path', async () => {
     const { plane: dataPlane } = plane();
     const call = (name: string) => categoryOf(() => dataPlane.invoke({
@@ -560,6 +584,19 @@ describe('semantic data plane', () => {
     expect(await categoryOf(() => dataPlane.invoke({
       invocation: invocation(DATASET_QUERY, { budget: { maxRows: 5 } }), credentials: 'token',
     }))).toBe('budget-exceeded');
+  });
+
+  it('rejects a result with more rows than the caller asked for', async () => {
+    const rows = Array.from({ length: 6 }, () => ({ status: 'paid' }));
+    const { plane: dataPlane } = plane({ execute: (async () => result(rows)) as never });
+
+    // Well under every budget; the caller still only asked for three.
+    expect(await categoryOf(() => dataPlane.invoke({
+      invocation: invocation({ ...DATASET_QUERY, limit: 3 }), credentials: 'token',
+    }))).toBe('budget-exceeded');
+    expect(await categoryOf(() => dataPlane.invoke({
+      invocation: invocation({ ...DATASET_QUERY, limit: 6 }), credentials: 'token',
+    }))).toBe('accepted');
   });
 
   it('rejects a result larger than the effective response byte budget', async () => {
