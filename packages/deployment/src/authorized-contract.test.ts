@@ -171,9 +171,11 @@ describe('authorized contract projection', () => {
     expect(orders.defaults).toBeUndefined();
   });
 
-  it('leaves a join target unnarrowed even when it also carries a metric', () => {
-    // Something published declares a dimension across it, so reducing it to its
-    // own metrics' surface would invalidate that declaration.
+  it('keeps a join target\'s dimensions but not its measures or filters', () => {
+    // A join carries the target's dimensions and nothing else, so those are
+    // genuinely reachable and dropping one would invalidate the metric that
+    // declares it across the join. Its measures and declared filters were never
+    // reachable through the join, so they narrow like anything else.
     const source = contract({
       datasets: [
         dataset('orders', {
@@ -184,14 +186,27 @@ describe('authorized contract projection', () => {
           }],
           metrics: [metric('joined', ANALYST, { dimensions: ['customer.id'] })],
         }),
-        dataset('customers', { endpoint: FINANCE, metrics: [metric('spend', ANALYST)] }),
+        dataset('customers', {
+          endpoint: FINANCE,
+          dimensions: [
+            { name: 'id', type: 'number', source: { kind: 'column', column: 'id' }, filterable: true, groupable: true },
+            { name: 'tier', type: 'string', source: { kind: 'column', column: 'tier' }, filterable: true, groupable: true },
+          ],
+          measures: [{ name: 'lifetimeValue', aggregation: 'sum', field: 'id', filters: [] }],
+          filters: [{ name: 'tier', field: 'tier', operators: ['eq'] }],
+          metrics: [metric('spend', ANALYST)],
+        }),
       ],
     });
 
     const projected = projectAuthorizedDeploymentContract(source, analyst);
     const customers = projected.contract.datasets.find(entry => entry.name === 'customers')!;
 
-    expect(customers.dimensions.map(entry => String(entry.name))).toEqual(['id']);
+    // Reachable as `customer.id` / `customer.tier` from `orders`, so kept.
+    expect(customers.dimensions.map(entry => String(entry.name))).toEqual(['id', 'tier']);
+    // Never reachable through the join, and its own metric binds to neither.
+    expect(customers.measures).toEqual([]);
+    expect(customers.filters).toEqual([]);
     expect(projected.advertised).toEqual(['orders', 'customers']);
     expect(projected.queryable).toEqual(['orders']);
   });
@@ -219,6 +234,8 @@ describe('authorized contract projection', () => {
     // Not addressable, and carrying nothing of its own.
     expect(customers.endpoint).toBeUndefined();
     expect(customers.metrics).toEqual([]);
+    // Its dimensions stay reachable across the join; nothing else does.
+    expect(customers.measures).toEqual([]);
     expect(projected.contract.datasets[0].relationships).toHaveLength(1);
     // The join is traversable; the target is neither advertised nor a target.
     expect(projected.advertised).toEqual(['orders']);
