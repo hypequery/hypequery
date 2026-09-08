@@ -80,28 +80,45 @@ export interface AuthorizedDeploymentProjection {
    */
   readonly contract: ProtocolDeploymentContract;
   /**
-   * The datasets the principal may address directly, in contract order.
+   * Datasets to advertise at all, in contract order.
    *
-   * Always read this before advertising anything. `contract` is deliberately
-   * wider: catalog projection and rehydration enumerate every dataset they are
-   * given and neither consults an endpoint, so handing them the whole contract
-   * would advertise a supporting dataset as queryable and disclose its
-   * dimensions and measures to a principal with no access to it.
+   * Wider than `queryable`: a dataset the principal cannot address may still
+   * carry a metric it can, and hiding the dataset would hide that metric.
+   * Narrower than `contract.datasets`, which also holds datasets retained only
+   * to support a join.
+   *
+   * Always read this before advertising anything. Catalog projection and
+   * rehydration enumerate every dataset they are given and neither consults an
+   * endpoint, so handing them the whole contract would advertise a supporting
+   * dataset and disclose its dimensions and measures to a principal with no
+   * access to it.
+   */
+  readonly advertised: readonly string[];
+  /**
+   * Datasets addressable as a `query_dataset` target. A subset of `advertised`.
+   *
+   * The two differ because a deployment authorizes a dataset and each of its
+   * metrics through separate endpoint policies. Collapsing them would either
+   * offer a target execution refuses or withhold a metric it would run.
    *
    * The intended composition rehydrates the whole contract, so relationship
-   * targets still resolve, and advertises only this subset:
+   * targets still resolve, and advertises the two sets separately:
    *
    * ```ts
-   * const { contract, published } = projectAuthorizedDeploymentContract(active, principal);
+   * const { contract, advertised, queryable } =
+   *   projectAuthorizedDeploymentContract(active, principal);
    * const registry = rehydrateProtocolDatasets(contract.datasets, { onUnsupportedMetric: 'skip' });
-   * const datasets = Object.fromEntries(published.map(name => [name, registry[name]]));
+   * createMCPDiscoveryExecutor({
+   *   datasets: Object.fromEntries(advertised.map(name => [name, registry[name]])),
+   *   queryableDatasets: queryable,
+   * });
    * ```
    *
    * A joined dimension such as `orders.employee.id` still resolves through the
    * full registry, which is correct: that join is governed by the endpoint of
    * the dataset being queried, not by the target's.
    */
-  readonly published: readonly string[];
+  readonly queryable: readonly string[];
 }
 
 /**
@@ -177,9 +194,16 @@ export function projectAuthorizedDeploymentContract(
       };
     });
 
+  // A dataset earns a place in the catalog by carrying anything the principal
+  // can reach — its own endpoint, or a metric of its own. It earns a place as a
+  // `query_dataset` target only through the former.
+  const advertised = datasets.filter(dataset => (
+    dataset.endpoint !== undefined || dataset.metrics.length > 0
+  ));
   return Object.freeze({
     contract: validateProtocolDeploymentContract({ ...contract, datasets, queries }),
-    published: Object.freeze(datasets
+    advertised: Object.freeze(advertised.map(dataset => String(dataset.name))),
+    queryable: Object.freeze(advertised
       .filter(dataset => dataset.endpoint !== undefined)
       .map(dataset => String(dataset.name))),
   });

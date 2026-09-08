@@ -26,6 +26,13 @@ refuse, rather than being hidden: the manifest a client caches should be the one
 it keeps seeing once execution is wired in behind it. The refusal is not
 `MCP_UNKNOWN_TOOL`, which would invite a client to stop asking for good.
 
+`queryableDatasets` narrows which datasets are offered as a `query_dataset`
+target without removing them from the catalog, so a dataset a caller may not
+query directly still contributes its metrics and its joins. `query_metric` and
+`list_datasets` are unaffected. It threads through `buildCanonicalSemanticQuerySchemas`
+in `@hypequery/datasets` rather than being applied afterwards, so the manifest
+hash stays derived from one place.
+
 `meta` attaches `activationRevision`, `deploymentIdentity`, and `toolMode` to
 `listTools` under the `com.hypequery/` namespace the MCP spec requires of
 implementation-defined `_meta`, so a client can cache a manifest and tell when

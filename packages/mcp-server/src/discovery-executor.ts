@@ -56,6 +56,16 @@ export interface MCPToolManifestMeta {
 export interface MCPDiscoveryExecutorConfig {
   /** Datasets to advertise. Already narrowed to what the caller may see. */
   datasets: DatasetRegistry;
+  /**
+   * Datasets offered as a `query_dataset` target. Defaults to all of them.
+   *
+   * A deployment authorizes a dataset and each of its metrics through separate
+   * endpoint policies, so a caller can be entitled to a metric on a dataset it
+   * may not query directly. Such a dataset still belongs in `datasets` — its
+   * metrics are reachable, and it may be joined to — but naming it here would
+   * advertise a target execution refuses.
+   */
+  queryableDatasets?: readonly string[];
   /** Server-side query ceilings, so advertised schemas match what will run. */
   queryLimits?: MCPQueryLimits;
   /** Attached to `listTools`, so a client can pin what it listed. */
@@ -89,7 +99,11 @@ export class HypequeryMCPDiscoveryExecutor implements MCPToolExecutor {
   constructor(private readonly config: MCPDiscoveryExecutorConfig) {
     // Deliberately no tenant assertion. A gateway has no fixed tenant to
     // declare, and none is needed: nothing here reaches a table.
-    this.querySchemas = buildMCPQuerySchemas(config.datasets ?? {}, config.queryLimits);
+    this.querySchemas = buildMCPQuerySchemas(
+      config.datasets ?? {},
+      config.queryLimits,
+      config.queryableDatasets,
+    );
     this.meta = metaEntries(config.meta);
   }
 

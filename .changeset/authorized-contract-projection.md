@@ -6,14 +6,24 @@ Add `projectAuthorizedDeploymentContract()`, which narrows a deployment contract
 to what one principal may see, plus the `satisfiesDeploymentAccess()` and
 `isDeploymentEndpointAuthorized()` predicates it is built from.
 
-It returns `{ contract, published }`. `contract` is the narrowed contract, which
-still holds any dataset retained only to support a join or a named query;
-`published` is the datasets the principal may address directly. Both are needed:
+It returns `{ contract, advertised, queryable }`, which are three different
+things and all three are needed. `contract` is the narrowed contract, still
+holding any dataset retained only to support a join or a named query.
+`advertised` is what belongs in the catalog. `queryable` is what may be named as
+a `query_dataset` target.
+
+`advertised` is narrower than `contract.datasets` because
 `projectAgentSafeCatalog` and `rehydrateProtocolDatasets` enumerate every
-dataset they are handed and neither consults an endpoint, so advertising
-`contract.datasets` would offer a supporting dataset as queryable and disclose
-its dimensions and measures to a principal with no access to it. Rehydrate the
-contract so relationship targets resolve, then advertise only `published`.
+dataset they are handed and neither consults an endpoint, so advertising the
+whole contract would disclose a supporting dataset's dimensions and measures to
+a principal with no access to it. `queryable` is narrower than `advertised`
+because a deployment authorizes a dataset and each of its metrics through
+separate endpoint policies: a principal can hold a metric on a dataset it may
+not query directly, and collapsing the two would either offer a target execution
+refuses or hide a metric it would run.
+
+Rehydrate `contract` so relationship targets still resolve, then pass
+`advertised` as the registry and `queryable` as `queryableDatasets`.
 
 Discovery and execution have to agree about who may reach what. The semantic
 data plane already decides that per call from the endpoint policy on the target;

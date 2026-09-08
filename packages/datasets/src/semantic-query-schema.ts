@@ -33,6 +33,18 @@ export interface SemanticQuerySchemaOptions extends SemanticQuerySchemaLimits {
   requireSelection?: boolean;
   /** Validate result limits in the schema. Disable when a consumer clamps them. */
   enforceResultLimit?: boolean;
+  /**
+   * Datasets that may be queried directly. Defaults to all of them.
+   *
+   * A dataset outside this list still contributes its metrics and can still be
+   * joined to, but is not offered as a `query_dataset` target. That split is not
+   * hypothetical: a deployment contract authorizes a dataset and each of its
+   * metrics through separate endpoint policies, so a caller can be entitled to
+   * a metric on a dataset it may not query directly. Compiling one schema for
+   * both would either advertise a target the caller cannot use or hide a metric
+   * it can.
+   */
+  queryableDatasets?: readonly string[];
 }
 
 /** Metric-specific query capabilities used when they are not embedded in the Dataset source. */
@@ -293,13 +305,19 @@ export function buildCanonicalSemanticQuerySchemas(
   const datasetSchemas: ZodTypeAny[] = [];
   const metricSchemas: ZodTypeAny[] = [];
 
+  const queryable = options.queryableDatasets === undefined
+    ? undefined
+    : new Set(options.queryableDatasets);
+
   for (const [datasetName, dataset] of Object.entries(datasets)
     .sort(([left], [right]) => compareStrings(left, right))) {
-    datasetSchemas.push(withSelectors(
-      buildDatasetInputSchema(dataset, { ...options, requireSelection: false }),
-      { dataset: z.literal(datasetName) },
-      options.requireSelection !== false,
-    ));
+    if (queryable === undefined || queryable.has(datasetName)) {
+      datasetSchemas.push(withSelectors(
+        buildDatasetInputSchema(dataset, { ...options, requireSelection: false }),
+        { dataset: z.literal(datasetName) },
+        options.requireSelection !== false,
+      ));
+    }
     const catalog = resolveCatalog(dataset);
     for (const metricName of Object.keys(catalog.metrics).sort(compareStrings)) {
       metricSchemas.push(withSelectors(

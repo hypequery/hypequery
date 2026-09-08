@@ -119,10 +119,15 @@ describe('authorized contract projection', () => {
       datasets: [dataset('orders', { endpoint: FINANCE, metrics: [metric('open', ANALYST)] })],
     });
 
-    const [orders] = projectAuthorizedDeploymentContract(source, analyst).contract.datasets;
+    const projected = projectAuthorizedDeploymentContract(source, analyst);
+    const [orders] = projected.contract.datasets;
 
     expect(orders.endpoint).toBeUndefined();
     expect(orders.metrics.map(entry => String(entry.name))).toEqual(['open']);
+    // Advertised, or the metric it carries would be undiscoverable; not a
+    // `query_dataset` target, which execution would refuse.
+    expect(projected.advertised).toEqual(['orders']);
+    expect(projected.queryable).toEqual([]);
   });
 
   it('retains a relationship target without publishing it', () => {
@@ -149,8 +154,9 @@ describe('authorized contract projection', () => {
     expect(customers.endpoint).toBeUndefined();
     expect(customers.metrics).toEqual([]);
     expect(projected.contract.datasets[0].relationships).toHaveLength(1);
-    // The join is traversable; the target is not a target.
-    expect(projected.published).toEqual(['orders']);
+    // The join is traversable; the target is neither advertised nor a target.
+    expect(projected.advertised).toEqual(['orders']);
+    expect(projected.queryable).toEqual(['orders']);
   });
 
   it('does not publish a supporting dataset, whatever the contract still contains', () => {
@@ -181,8 +187,8 @@ describe('authorized contract projection', () => {
     const projected = projectAuthorizedDeploymentContract(source, analyst);
 
     expect(names(projected)).toContain('payroll');
-    expect(projected.published).toEqual(['orders']);
-    expect(projected.published).not.toContain('payroll');
+    expect(projected.advertised).toEqual(['orders']);
+    expect(projected.queryable).toEqual(['orders']);
   });
 
   it('keeps a metric that groups across a relationship it retained', () => {
@@ -255,7 +261,7 @@ describe('authorized contract projection', () => {
     // retained query plans over it — and it must, or the result cannot validate.
     expect(names(projected)).toEqual(['orders']);
     expect(projected.contract.datasets[0].endpoint).toBeUndefined();
-    expect(projected.published).toEqual([]);
+    expect(projected.queryable).toEqual([]);
   });
 
   it('narrows and never widens', () => {
