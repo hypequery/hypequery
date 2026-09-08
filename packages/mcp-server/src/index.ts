@@ -13,6 +13,12 @@ export {
   type MCPToolExecutor,
 } from './executor.js';
 export {
+  HypequeryMCPDiscoveryExecutor,
+  createMCPDiscoveryExecutor,
+  type MCPDiscoveryExecutorConfig,
+  type MCPToolManifestMeta,
+} from './discovery-executor.js';
+export {
   HypequeryMCPProtocolServer,
   createMCPProtocolServer,
   type MCPProtocolServerOptions,

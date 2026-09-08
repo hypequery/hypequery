@@ -174,3 +174,11 @@ export type {
   DeploymentHostErrorCode,
   DeploymentHostOptions,
 } from './host.js';
+
+// What one principal may see of a contract, for a gateway listing targets
+// before any call exists (decision 0002, CLOUD-03).
+export {
+  isDeploymentEndpointAuthorized,
+  projectAuthorizedDeploymentContract,
+  satisfiesDeploymentAccess,
+} from './authorized-contract.js';
