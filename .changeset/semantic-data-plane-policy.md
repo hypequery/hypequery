@@ -19,6 +19,11 @@ is refused rather than returned. Failures carry the portable
 `toProtocolSemanticInvocationFailure()` projects one onto the closed record
 without unwrapping a cause into it.
 
+Every ceiling a dataset declared binds, not only the `maxResultSize` that
+reaches the row budget: `maxDimensions`, `maxMeasures`, and `maxFilters` are
+published in the contract so a gateway can apply them, and each now tightens the
+corresponding server default rather than being dropped.
+
 Operation validation is contract-driven, so a gateway can reject a bad
 invocation without loading any of the deploying application's code:
 non-groupable dimensions, undeclared measures, filters outside a field's

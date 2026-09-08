@@ -473,6 +473,34 @@ describe('semantic data plane', () => {
     expect(input.budget.maxRows).toBe(500);
   });
 
+  it('applies every ceiling the dataset declared, not only its result size', async () => {
+    const contract = deployment();
+    // Published in the contract so a gateway can apply them without the
+    // authoring package; they must actually bind.
+    (contract.datasets[1] as { limits: unknown }).limits = {
+      maxResultSize: 1_000, maxDimensions: 1, maxMeasures: 1, maxFilters: 1,
+    };
+    const { plane: dataPlane, execute } = plane({ deployment: contract as never });
+    const call = (operation: Record<string, unknown>) => categoryOf(() => dataPlane.invoke({
+      invocation: invocation({ kind: 'dataset', dataset: 'orders', ...operation }),
+      credentials: 'token',
+    }));
+    const statusIs = (value: string) => ({
+      kind: 'comparison', operator: 'eq',
+      left: { kind: 'reference', name: 'status' },
+      right: { kind: 'literal', value },
+    });
+
+    expect(await call({ dimensions: ['status'], measures: ['revenue'] })).toBe('accepted');
+    expect(await call({ dimensions: ['status', 'customerId'] })).toBe('input-invalid');
+    expect(await call({ measures: ['revenue', 'orderCount'] })).toBe('input-invalid');
+    expect(await call({
+      measures: ['revenue'], filters: [statusIs('paid'), statusIs('open')],
+    })).toBe('input-invalid');
+    // The server default (50) still applies to a dataset declaring nothing.
+    expect(execute).toHaveBeenCalledTimes(1);
+  });
+
   it('lets a caller tighten a budget but never widen one', async () => {
     const { plane: dataPlane, execute } = plane();
 

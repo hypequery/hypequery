@@ -201,6 +201,11 @@ function lowest(...values: readonly (number | undefined)[]): number | undefined 
   return finite.length === 0 ? undefined : Math.min(...finite);
 }
 
+/** A declared ceiling under a server one; declaring nothing leaves the server's. */
+function tighten(declared: number | undefined, ceiling: number): number {
+  return declared === undefined ? ceiling : Math.min(declared, ceiling);
+}
+
 export function createDeploymentSemanticDataPlane(
   options: DeploymentSemanticDataPlaneOptions,
 ): DeploymentSemanticDataPlane {
@@ -353,9 +358,17 @@ export function createDeploymentSemanticDataPlane(
           }),
     });
 
+    // Every ceiling the dataset declared binds here, not just the one that
+    // reaches the row budget. `maxDimensions`, `maxMeasures`, and `maxFilters`
+    // are published in the contract precisely so a gateway can apply them
+    // without loading the authoring package, and a set of ceilings where only
+    // one of the four binds is not a set of ceilings.
     const violations = validateSemanticOperation(operation, dataset, datasets, {
-      ...configured,
       maxRows: budget.maxRows,
+      maxOffset: configured.maxOffset,
+      maxDimensions: tighten(dataset.limits?.maxDimensions, configured.maxDimensions),
+      maxMeasures: tighten(dataset.limits?.maxMeasures, configured.maxMeasures),
+      maxFilters: tighten(dataset.limits?.maxFilters, configured.maxFilters),
     });
     if (violations.length > 0) {
       const [first] = violations;
