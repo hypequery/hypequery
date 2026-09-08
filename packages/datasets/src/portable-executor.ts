@@ -1,3 +1,9 @@
+import { PortableExecutionUnsupportedError, PortableExecutionTenantError } from './portable-execution-errors.js';
+export { PortableExecutionUnsupportedError, PortableExecutionBudgetError, PortableExecutionTenantError } from './portable-execution-errors.js';
+import { tenantRuntime, semanticQuery } from './utils/portable-semantic-query.js';
+import { bounded } from './utils/portable-result-budget.js';
+import { withDeadline } from './utils/portable-execution-deadline.js';
+
 /**
  * Portable native execution of a semantic invocation.
  *
@@ -27,14 +33,6 @@ import {
   type RehydratedDataset,
 } from './protocol-rehydrate.js';
 import type { QueryBuilderFactoryInput } from './query-builder-protocol.js';
-import type {
-  MetricFilter,
-  MetricOrderBy,
-  SemanticTenantRuntime,
-  TimeGrain,
-} from './types.js';
-import { rehydrateMeasureFilter } from './utils/protocol-rehydrate-filters.js';
-
 /** Ceilings the data plane already reduced to the most restrictive value. */
 export interface PortableSemanticBudget {
   readonly maxRows: number;
@@ -60,67 +58,6 @@ export interface PortableSemanticExecutionInput {
   readonly signal?: AbortSignal;
 }
 
-/**
- * An error that deliberately claims a portable failure category.
- *
- * A data plane forwards the category and message of an error carrying this
- * marker instead of reporting a generic executor failure, so the marker — not
- * the shape of the error — is what grants that. A provider exception cannot
- * acquire one by accident, which is the point: the two packages are siblings
- * and cannot share a class, but a raw driver error must never be able to pass
- * itself off as a deliberate claim and put its own message in front of a
- * caller.
- *
- * Deliberately not exported. The three errors below are, because this package's
- * own executor throws them; this base is only how they share the marker. A
- * supported way for someone else's executor to claim a category belongs beside
- * the data plane that honours it, not beside one implementation of the slot it
- * fills.
- */
-abstract class PortableExecutionError extends Error {
-  /** The opt-in a data plane checks before trusting anything below it. */
-  readonly hypequerySemanticFailure = true as const;
-  abstract readonly code: string;
-  abstract readonly category: string;
-}
-
-/** Signalled when portable execution cannot faithfully serve a target. */
-export class PortableExecutionUnsupportedError extends PortableExecutionError {
-  readonly code = 'HQ_SEMANTIC_UNSUPPORTED_CAPABILITY';
-  readonly category = 'unsupported-capability';
-
-  constructor(message: string, options: { cause?: unknown } = {}) {
-    super(message, options);
-    this.name = 'PortableExecutionUnsupportedError';
-  }
-}
-
-export class PortableExecutionBudgetError extends PortableExecutionError {
-  readonly code = 'HQ_SEMANTIC_BUDGET_EXCEEDED';
-  readonly category = 'budget-exceeded';
-
-  constructor(message: string) {
-    super(message);
-    this.name = 'PortableExecutionBudgetError';
-  }
-}
-
-/**
- * Signalled when tenancy cannot be enforced for a call that resolved a tenant.
- *
- * `configuration-invalid` rather than a caller-facing category: nothing the
- * caller sent is wrong, and nothing it can send would make the call succeed.
- */
-export class PortableExecutionTenantError extends PortableExecutionError {
-  readonly code = 'HQ_SEMANTIC_TENANT_UNENFORCEABLE';
-  readonly category = 'configuration-invalid';
-
-  constructor(message: string) {
-    super(message);
-    this.name = 'PortableExecutionTenantError';
-  }
-}
-
 export interface PortableSemanticExecutorOptions {
   readonly queryBuilder: QueryBuilderFactoryInput;
   /**
@@ -133,117 +70,6 @@ export interface PortableSemanticExecutorOptions {
 }
 
 type Registry = Readonly<Record<string, RehydratedDataset>>;
-
-function tenantRuntime(tenant: unknown): SemanticTenantRuntime | undefined {
-  if (tenant === undefined || tenant === null) return undefined;
-  if (typeof tenant === 'string') return tenant;
-  if (Array.isArray(tenant)) return { in: tenant.map(String) };
-  return tenant as SemanticTenantRuntime;
-}
-
-function operationFilters(operation: ProtocolSemanticQuery): MetricFilter[] {
-  return (operation.filters ?? []).map((expression, index) => rehydrateMeasureFilter(
-    expression,
-    () => new PortableExecutionUnsupportedError(
-      `Filter ${index} is not a field/operator/value comparison, so it cannot be planned.`,
-    ),
-  ));
-}
-
-function semanticQuery(operation: ProtocolSemanticQuery, maxRows: number): Record<string, unknown> {
-  const filters = operationFilters(operation);
-  const orderBy: MetricOrderBy[] = (operation.orderBy ?? []).map(entry => ({
-    field: String(entry.field),
-    direction: entry.direction,
-  }));
-  return {
-    ...(operation.dimensions === undefined
-      ? {}
-      : { dimensions: operation.dimensions.map(String) }),
-    ...(operation.kind === 'dataset' && operation.measures !== undefined
-      ? { measures: operation.measures.map(String) }
-      : {}),
-    ...(filters.length > 0 ? { filters } : {}),
-    ...(orderBy.length > 0 ? { orderBy } : {}),
-    // An omitted limit becomes the budget, so a caller cannot ask for an
-    // unbounded scan by leaving it out.
-    limit: operation.limit ?? maxRows,
-    ...(operation.offset === undefined ? {} : { offset: operation.offset }),
-    ...(operation.by === undefined ? {} : { by: operation.by as TimeGrain }),
-  };
-}
-
-/**
- * Bounds a result by row count and serialized size before it leaves the
- * deployment, so an oversized answer fails rather than being streamed on.
- *
- * The byte budget is measured against the whole record a caller receives, not
- * only its rows, so this agrees with the data plane's own check rather than
- * undercounting by the envelope.
- */
-function bounded(
-  result: ProtocolSemanticInvocationResult,
-  budget: PortableSemanticBudget,
-): ProtocolSemanticInvocationResult {
-  if (result.data.length > budget.maxRows) {
-    throw new PortableExecutionBudgetError(
-      `The result has ${result.data.length} rows; the effective limit is ${budget.maxRows}.`,
-    );
-  }
-  if (budget.maxResponseBytes !== undefined) {
-    const bytes = new TextEncoder().encode(JSON.stringify(result)).byteLength;
-    if (bytes > budget.maxResponseBytes) {
-      throw new PortableExecutionBudgetError(
-        `The result is ${bytes} bytes; the effective limit is ${budget.maxResponseBytes}.`,
-      );
-    }
-  }
-  return result;
-}
-
-/**
- * Runs `execute` under the caller's signal and the budget's deadline.
- *
- * The deadline is enforced with its own controller chained to the caller's, so
- * a timeout aborts the underlying database request rather than only abandoning
- * the promise.
- */
-async function withDeadline<T>(
-  budget: PortableSemanticBudget,
-  signal: AbortSignal | undefined,
-  execute: (signal: AbortSignal) => Promise<T>,
-): Promise<T> {
-  const controller = new AbortController();
-  let elapsed = false;
-  const abort = () => controller.abort(signal?.reason);
-  signal?.addEventListener('abort', abort, { once: true });
-  const timer = budget.deadlineMs === undefined
-    ? undefined
-    : setTimeout(() => {
-      elapsed = true;
-      controller.abort(new Error('The semantic invocation deadline elapsed.'));
-    }, budget.deadlineMs);
-  try {
-    if (signal?.aborted) abort();
-    return await execute(controller.signal);
-  } catch (error) {
-    // The request rejects with whatever the driver raises on abort, and only
-    // this function knows the deadline is why. Left untranslated it reaches a
-    // caller as a generic execution failure, which cannot be told apart from a
-    // broken query or an unreachable database — the one distinction that
-    // decides whether asking for less is worth trying. A caller abort still
-    // wins: that is cancellation, not a budget the query overran.
-    if (elapsed && signal?.aborted !== true) {
-      throw new PortableExecutionBudgetError(
-        `The invocation exceeded its ${String(budget.deadlineMs)}ms deadline.`,
-      );
-    }
-    throw error;
-  } finally {
-    if (timer !== undefined) clearTimeout(timer);
-    signal?.removeEventListener('abort', abort);
-  }
-}
 
 /**
  * Build the executor the deployment data plane injects.
