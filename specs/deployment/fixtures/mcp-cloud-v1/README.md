@@ -12,7 +12,7 @@ protocol RFC and conformance process.
 
 | File | Purpose |
 | --- | --- |
-| [`deployment.json`](./deployment.json) | Valid deployment contract v1 with one tenant-scoped orders dataset and one named metric |
+| [`deployment.json`](./deployment.json) | Valid deployment contract v1 with one tenant-scoped orders dataset, one named metric, and one derived metric |
 | [`context.json`](./context.json) | Fixed target, generation, authorized principal, and server-resolved tenant used by hosted tests |
 | [`expected-safe-catalog.json`](./expected-safe-catalog.json) | Logical agent-safe projection expected from the deployment |
 | [`expected-tools.json`](./expected-tools.json) | Deterministic MCP `tools/list` result for compatibility-tool mode |
@@ -24,7 +24,7 @@ protocol RFC and conformance process.
 The canonical deployment contract identity is:
 
 ```text
-2d71d44577daffdc952ef55d640ece588a74fc6493f0857c5851325745af890a
+94ff668005c4a9496ad27dd9faddb896261001d1607278dfe8d713f7008af51e
 ```
 
 It is SHA-256 over the deployment v1 identity domain followed by the RFC 8785
@@ -44,7 +44,8 @@ compatibility tools, sorted by name:
 
 The generated schemas must:
 
-- advertise only the `orders` dataset and `totalRevenue` metric;
+- advertise only the `orders` dataset and the `averageOrderValue` and
+  `totalRevenue` metrics;
 - advertise exact logical dimensions, measures, filters, operators, grains,
   order fields, and limits;
 - require at least one dimension or measure for `query_dataset`;
@@ -59,7 +60,10 @@ The safe catalog and tool manifest must not expose:
 - mappings to physical columns such as `created_at`, `order_id`, or the internal
   non-queryable `amount` field;
 - measure input fields or aggregation implementation details;
-- runtime artifacts, SQL, credentials, roles, or scopes.
+- runtime artifacts, SQL, credentials, roles, or scopes; or
+- a derived metric's `derivation` — its inputs and formula are physical detail,
+  and the safe catalog publishes only that the metric exists and what it can be
+  grouped, filtered, and grained by.
 
 The generic dataset description in the expected safe catalog is a deterministic
 fallback because deployment contract v1 does not yet carry dataset-level
@@ -83,7 +87,10 @@ the fixture never executes the SQL.
    produce `expected-tools.json` from one catalog generator.
 2. `CORE-06` validates the safe catalog and forbidden physical fields.
 3. `CORE-12` activates the contract and executes dataset/metric calls with the
-   pinned principal, tenant, and activation revision.
+   pinned principal, tenant, and activation revision. `CORE-17` adds
+   `averageOrderValue`, whose `derivation` carries the formula under the aliases
+   it was authored with, so a rebuilt catalog emits the same SQL rather than
+   merely the same number.
 4. `CLOUD-04` runs the same calls through Streamable HTTP.
 5. `CORE-13` and `AGENT-04` replay `questions.json` through local, hosted, and
    agent paths.
