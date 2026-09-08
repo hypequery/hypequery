@@ -33,6 +33,7 @@
     "dist"
   ],
   "scripts": {
+    "prepack": "npm run build",
     "prebuild": "node scripts/generate-version.mjs",
     "build": "tsc --project tsconfig.json",
     "predev": "node scripts/generate-version.mjs",

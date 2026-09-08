@@ -10,6 +10,10 @@
  *
  * Generating the constant keeps the version honest — it cannot drift from the
  * manifest a release bumps — without any runtime lookup.
+ *
+ * `prepack` reruns the build for the same reason: CI builds before Changesets
+ * rewrites `package.json`, so a publish that skipped this hook would ship a
+ * `dist` still reporting the previous version.
  */
 import { readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
