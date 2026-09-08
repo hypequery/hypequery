@@ -1,5 +1,46 @@
 # @hypequery/serve
 
+## 0.17.0
+
+### Minor Changes
+
+- 9289c14: Add a typed dataset publishing builder for attaching and aliasing named metrics without object spreading, and re-export it from Serve's dataset API.
+- f71910d: Fail a deployment build when the Serve configuration would behave differently under managed execution. Unenforceable tenant isolation and dropped middleware block the build; dropped hooks, dropped context factories, and endpoints that are authenticated without declared roles or scopes are reported as warnings. Pass `--allow-unsupported-config` to deploy anyway.
+- 6b4f7b4: Add `hypequery mcp`, which serves a project's datasets to an MCP client over
+  stdio from the same entrypoint `hypequery dev` uses, instead of a second MCP
+  config that can drift from it.
+
+  `--tenant` supplies the trusted tenant; the command fails closed when a
+  tenant-scoped dataset is registered without one, since MCP has no request to
+  resolve a tenant from. `--self-test` checks the entrypoint and exits without
+  speaking the protocol. Application logging is routed to stderr before the
+  entrypoint is imported, because MCP owns stdout.
+
+  `@hypequery/serve` attaches the registered datasets and shared semantic client
+  to the built API under a registered symbol, readable with
+  `readServeMcpSource()`.
+
+- d347f89: Add a canonical catalog-derived semantic query schema compiler with shared Zod
+  validators, JSON Schemas, exact field and operator constraints, bounded closed
+  objects, and deterministic manifest hashing. Migrate Serve and MCP query schemas
+  to the shared compiler.
+
+### Patch Changes
+
+- Updated dependencies [9289c14]
+- Updated dependencies [a061a60]
+- Updated dependencies [3689e0f]
+- Updated dependencies [be0a850]
+- Updated dependencies [3a28cf0]
+- Updated dependencies [abd39a9]
+- Updated dependencies [916eef3]
+- Updated dependencies [969bea6]
+- Updated dependencies [3a28cf0]
+- Updated dependencies [7a1a5c6]
+- Updated dependencies [d347f89]
+  - @hypequery/datasets@0.14.0
+  - @hypequery/protocol@0.12.0
+
 ## 0.16.2
 
 ### Patch Changes

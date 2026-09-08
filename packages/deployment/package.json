@@ -1,6 +1,6 @@
 {
   "name": "@hypequery/deployment",
-  "version": "0.7.4",
+  "version": "0.7.5",
   "description": "Verified deployment intake, activation, and runtime hosting for Hypequery analytics",
   "keywords": [
     "hypequery",
