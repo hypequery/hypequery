@@ -130,6 +130,72 @@ describe('authorized contract projection', () => {
     expect(projected.queryable).toEqual([]);
   });
 
+  it('narrows a metric-only dataset to what its metrics expose', () => {
+    // Execution confines a metric call to the dimensions and filters that
+    // metric declares, so advertising the containing dataset whole would
+    // describe a surface the caller was never granted.
+    const source = contract({
+      datasets: [dataset('orders', {
+        endpoint: FINANCE,
+        dimensions: [
+          { name: 'id', type: 'number', source: { kind: 'column', column: 'id' }, filterable: true, groupable: true },
+          { name: 'status', type: 'string', source: { kind: 'column', column: 'status' }, filterable: true, groupable: true },
+          { name: 'salary', type: 'number', source: { kind: 'column', column: 'salary_cents' }, filterable: true, groupable: true },
+        ],
+        measures: [
+          { name: 'amount', aggregation: 'sum', field: 'id', filters: [] },
+          { name: 'payroll', aggregation: 'sum', field: 'salary', filters: [] },
+        ],
+        filters: [
+          { name: 'status', field: 'status', operators: ['eq'] },
+          { name: 'salary', field: 'salary', operators: ['gt'] },
+        ],
+        defaults: { dimensions: ['salary'] },
+        metrics: [metric('open', ANALYST, {
+          dimensions: ['status'],
+          filters: ['status'],
+          // Binds to the `amount` measure, whose field is `id`.
+          expression: { kind: 'aggregate', aggregation: 'sum', field: 'id' },
+        })],
+      })],
+    });
+
+    const [orders] = projectAuthorizedDeploymentContract(source, analyst).contract.datasets;
+
+    expect(orders.dimensions.map(entry => String(entry.name))).toEqual(['status']);
+    expect(orders.filters.map(entry => String(entry.name))).toEqual(['status']);
+    // Only the measure the authorized metric's expression can bind to.
+    expect(orders.measures.map(entry => String(entry.name))).toEqual(['amount']);
+    // `defaults` describes querying the dataset directly, which is what this
+    // principal may not do.
+    expect(orders.defaults).toBeUndefined();
+  });
+
+  it('leaves a join target unnarrowed even when it also carries a metric', () => {
+    // Something published declares a dimension across it, so reducing it to its
+    // own metrics' surface would invalidate that declaration.
+    const source = contract({
+      datasets: [
+        dataset('orders', {
+          endpoint: ANALYST,
+          relationships: [{
+            name: 'customer', kind: 'belongsTo', target: 'customers',
+            from: 'id', to: 'id', queryable: true,
+          }],
+          metrics: [metric('joined', ANALYST, { dimensions: ['customer.id'] })],
+        }),
+        dataset('customers', { endpoint: FINANCE, metrics: [metric('spend', ANALYST)] }),
+      ],
+    });
+
+    const projected = projectAuthorizedDeploymentContract(source, analyst);
+    const customers = projected.contract.datasets.find(entry => entry.name === 'customers')!;
+
+    expect(customers.dimensions.map(entry => String(entry.name))).toEqual(['id']);
+    expect(projected.advertised).toEqual(['orders', 'customers']);
+    expect(projected.queryable).toEqual(['orders']);
+  });
+
   it('retains a relationship target without publishing it', () => {
     const source = contract({
       datasets: [

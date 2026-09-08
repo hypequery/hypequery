@@ -22,6 +22,14 @@ separate endpoint policies: a principal can hold a metric on a dataset it may
 not query directly, and collapsing the two would either offer a target execution
 refuses or hide a metric it would run.
 
+A dataset reached only through its own metrics is also narrowed to what those
+metrics expose — their declared dimensions and filters, the measures their
+expressions can bind to, and the time field the planner needs. Execution already
+confines a metric call to that surface, so advertising the containing dataset
+whole would describe fields the caller was never granted. A dataset something
+published joins to keeps its shape, because narrowing it would invalidate the
+dimension declared across the join.
+
 Rehydrate `contract` so relationship targets still resolve, then pass
 `advertised` as the registry and `queryable` as `queryableDatasets`.
 
