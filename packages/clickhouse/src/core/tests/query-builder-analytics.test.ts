@@ -212,6 +212,91 @@ describe('QueryBuilder Analytics Features', () => {
         queryBuilder.withCTE('safe AS (SELECT 1) --', 'SELECT id FROM users')
       ).toThrow('Unsafe CTE alias identifier');
     });
+
+    it('should reject unsafe CTE column names', () => {
+      expect(() =>
+        queryBuilder.withCTE('summary', 'SELECT 1 AS id', { 'id, x --': 'UInt32' })
+      ).toThrow('Unsafe CTE column identifier');
+    });
+
+    it('keeps subquery values bound instead of inlining them', () => {
+      const subquery = builderUsers
+        .select(['id'])
+        .where('user_name', 'eq', "O'Brien");
+
+      const { sql, parameters } = queryBuilder
+        .withCTE('filtered_users', subquery)
+        .select(['id'])
+        .toSQLWithParams();
+
+      expect(sql).toBe(
+        'WITH filtered_users AS (SELECT id FROM users WHERE user_name = ?) SELECT id FROM test_table'
+      );
+      expect(parameters).toEqual(["O'Brien"]);
+    });
+
+    it('orders CTE parameters ahead of the outer query parameters', () => {
+      const subquery = builderUsers
+        .select(['id'])
+        .where('user_name', 'eq', 'inside');
+
+      const { sql, parameters } = queryBuilder
+        .withCTE('filtered_users', subquery)
+        .select(['id'])
+        .where('status', 'eq', 'outside')
+        .toSQLWithParams();
+
+      expect(sql).toBe(
+        'WITH filtered_users AS (SELECT id FROM users WHERE user_name = ?) ' +
+        'SELECT id FROM test_table WHERE status = ?'
+      );
+      expect(parameters).toEqual(['inside', 'outside']);
+    });
+
+    it('renders the same SQL as before once parameters are substituted', () => {
+      const subquery = builderUsers
+        .select(['id'])
+        .where('user_name', 'eq', "O'Brien");
+
+      const sql = queryBuilder
+        .withCTE('filtered_users', subquery)
+        .select(['id'])
+        .toSQL();
+
+      expect(sql).toBe(
+        "WITH filtered_users AS (SELECT id FROM users WHERE user_name = 'O''Brien') " +
+        'SELECT id FROM test_table'
+      );
+    });
+
+    it('keeps the rendered CTE string on the deprecated config surface', () => {
+      const subquery = builderUsers
+        .select(['id'])
+        .where('user_name', 'eq', "O'Brien");
+
+      const config = queryBuilder.withCTE('filtered_users', subquery).getConfig();
+
+      expect(config.ctes).toEqual([
+        "filtered_users AS (SELECT id FROM users WHERE user_name = 'O''Brien')"
+      ]);
+    });
+
+    it('joins a CTE alias declared with columns', () => {
+      const sql = queryBuilder
+        .withCTE('active_users', 'SELECT id, user_name FROM users', {
+          id: 'UInt32',
+          user_name: 'String',
+        })
+        .innerJoin('active_users', 'id', 'active_users.id')
+        .select(['test_table.id', 'active_users.user_name'])
+        .toSQL();
+
+      expect(sql).toBe(
+        'WITH active_users AS (SELECT id, user_name FROM users) ' +
+        'SELECT test_table.id, active_users.user_name FROM test_table ' +
+        'INNER JOIN active_users ON id = active_users.id'
+      );
+    });
   })
 
   describe('withScalar', () => {

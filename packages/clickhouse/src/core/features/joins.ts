@@ -50,18 +50,22 @@ export class JoinFeature<
 > {
   constructor(private builder: QueryBuilder<Schema, State>) { }
 
-  addJoin<TableName extends keyof Schema>(
+  /**
+   * Join targets are plain identifiers here: the caller has already checked the
+   * table against the schema, or the CTEs declared on the query.
+   */
+  addJoin(
     type: JoinType,
-    table: TableName,
+    table: string,
     leftColumn: string,
-    rightColumn: `${TableName & string}.${keyof Schema[TableName] & string}`,
+    rightColumn: string,
     alias?: string,
     leftSource?: string,
     on?: JoinConditionInput | JoinConditionInput[],
   ): SelectQueryNode<State['output'], Schema> {
     const query = this.builder.getQueryNode();
     const renderedRightColumn = alias
-      ? rightColumn.replace(`${String(table)}.`, `${alias}.`) as typeof rightColumn
+      ? rightColumn.replace(`${table}.`, `${alias}.`)
       : rightColumn;
     const newConfig = {
       ...query,

@@ -28,7 +28,7 @@ This page records the shipped surface of hypequery as of **21 August 2026**. It 
 | `ReplacingMergeTree` `FINAL` | Native | `final()` |
 | Array expansion | Native | `arrayJoin()`, `leftArrayJoin()` |
 | Totals and distinct results | Native | `withTotals()`, `distinct()` |
-| CTEs | Native | `withCTE()` with a builder or SQL body |
+| CTEs | Native | `withCTE()` with a builder or SQL body; the alias is a typed join target when its columns are known |
 | Subqueries in `FROM` | Native | `from(queryBuilder)` with the nested output as the outer typed column scope |
 | ClickHouse settings | Native | `settings()` |
 | Streaming | Native | `stream()`, `streamForEach()` |

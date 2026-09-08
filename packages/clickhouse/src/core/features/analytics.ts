@@ -4,6 +4,7 @@ import { QueryBuilder } from '../query-builder.js';
 import type { SqlDialect } from '../dialects/sql-dialect.js';
 import type { PredicateExpression } from '../utils/predicate-builder.js';
 import { substituteParameters } from '../utils.js';
+import { renderCteBody } from '../utils/cte-fragments.js';
 import { terminateTrailingLineComment } from '../utils/sql-parens.js';
 import type { SelectQueryNode } from '../../types/index.js';
 
@@ -15,10 +16,26 @@ export class AnalyticsFeature<
 
   addCTE(alias: string, subquery: QueryBuilder<any, AnyBuilderState> | string): SelectQueryNode<State['output'], Schema> {
     const query = this.builder.getQueryNode();
-    const cte = typeof subquery === 'string' ? subquery : subquery.toSQL();
+    // A builder subquery is compiled with its placeholders intact so its values
+    // stay bound. `expression` keeps the rendered form the node carried before,
+    // using the same rendering path `toSQL()` takes.
+    const compiled = typeof subquery === 'string' ? undefined : subquery.toSQLWithParams();
+    const body = compiled ? compiled.sql : subquery as string;
+    const parameters = compiled ? compiled.parameters : [];
+    const rendered = compiled ? renderCteBody(body, parameters, this.builder.getAdapter()) : body;
+
     return {
       ...query,
-      ctes: [...(query.ctes || []), { kind: 'cte' as const, expression: `${alias} AS (${cte})` }]
+      ctes: [
+        ...(query.ctes || []),
+        {
+          kind: 'cte' as const,
+          name: alias,
+          body,
+          parameters,
+          expression: `${alias} AS (${rendered})`,
+        }
+      ]
     };
   }
 

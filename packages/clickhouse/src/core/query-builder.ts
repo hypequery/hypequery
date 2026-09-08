@@ -58,7 +58,12 @@ import type {
   BaseRow,
   AddAlias,
   AddScalar,
+  AddCte,
   FromSubqueryState,
+  JoinableTable,
+  JoinRightColumn,
+  JoinAliasArg,
+  JoinResultState,
 } from './types/builder-state.js';
 import {
   SelectableItem,
@@ -402,13 +407,60 @@ export class QueryBuilder<
     return next;
   }
 
-  // --- Analytics Helper: Add a CTE.
+  /**
+   * Adds a CTE to the query. The alias becomes a typed join target when its
+   * columns are known — derived from the builder passed in, or declared
+   * alongside a raw SQL body.
+   *
+   * @example
+   * ```ts
+   * const activeUsers = db.table('users').select(['id', 'user_name']).where('status', 'eq', 'active');
+   *
+   * db.table('orders')
+   *   .withCTE('active_users', activeUsers)
+   *   .innerJoin('active_users', 'user_id', 'active_users.id')
+   *   .select(['orders.id', 'active_users.user_name']);
+   * ```
+   */
+  withCTE<Alias extends string, SubqueryState extends AnyBuilderState>(
+    alias: Alias,
+    subquery: QueryBuilder<any, SubqueryState>
+  ): QueryBuilder<Schema, AddCte<State, Alias, SubqueryState['output']>>;
+  withCTE<Alias extends string, Columns extends Record<string, ColumnType>>(
+    alias: Alias,
+    sql: string,
+    columns: Columns
+  ): QueryBuilder<Schema, AddCte<State, Alias, Columns>>;
+  withCTE(alias: string, sql: string): this;
+  // Preserve callers whose body is chosen dynamically from SQL or a builder.
+  withCTE(alias: string, subquery: QueryBuilder<any, AnyBuilderState> | string): this;
   withCTE(
     alias: string,
-    subquery: QueryBuilder<any, AnyBuilderState> | string
-  ): this {
+    subquery: QueryBuilder<any, AnyBuilderState> | string,
+    columns?: Record<string, ColumnType>
+  ): any {
     assertSafeIdentifier(alias, 'CTE alias');
-    return this.updateQuery(() => this.analytics.addCTE(alias, subquery));
+    for (const column of Object.keys(columns ?? {})) {
+      assertSafeIdentifier(column, 'CTE column');
+    }
+
+    const nextConfig = this.analytics.addCTE(alias, subquery);
+
+    // A raw body with no declared columns exposes nothing to type against, so
+    // the alias stays unregistered rather than registering an empty shape.
+    if (typeof subquery === 'string' && !columns) {
+      return this.assignQuery(this.cloneMutable(), nextConfig);
+    }
+
+    // Columns are carried by the state's type; a builder CTE takes its shape
+    // from the subquery's output type, so the runtime value stays empty.
+    const shape = columns ?? {};
+
+    const nextState = {
+      ...this.state,
+      ctes: { ...this.state.ctes, [alias]: shape },
+    };
+    return this.transition(nextState as any, nextConfig);
   }
 
   // --- Analytics Helper: Add a scalar WITH alias.
@@ -1075,32 +1127,22 @@ export class QueryBuilder<
     );
   }
 
-  innerJoin<TableName extends Extract<keyof Schema, string>, Alias extends string | undefined = undefined>(
+  innerJoin<TableName extends JoinableTable<State>, Alias extends string | undefined = undefined>(
     table: TableName,
     leftColumn: keyof BaseRow<State>,
-    rightColumn: `${TableName & string}.${keyof Schema[TableName] & string}`,
-    alias?: Alias
-  ): QueryBuilder<
-    Schema,
-    Alias extends string
-    ? AddAlias<WidenTables<State, TableName>, Alias, TableName>
-    : WidenTables<State, TableName>
-  > {
+    rightColumn: JoinRightColumn<State, TableName>,
+    alias?: JoinAliasArg<State, TableName, Alias>
+  ): QueryBuilder<Schema, JoinResultState<State, TableName, Alias>> {
     return this.applyJoin('INNER', table, leftColumn, rightColumn, alias);
   }
 
-  leftJoin<TableName extends Extract<keyof Schema, string>, Alias extends string | undefined = undefined>(
+  leftJoin<TableName extends JoinableTable<State>, Alias extends string | undefined = undefined>(
     table: TableName,
     leftColumn: keyof BaseRow<State>,
-    rightColumn: `${TableName & string}.${keyof Schema[TableName] & string}`,
-    alias?: Alias,
+    rightColumn: JoinRightColumn<State, TableName>,
+    alias?: JoinAliasArg<State, TableName, Alias>,
     on?: JoinConditionInput | JoinConditionInput[],
-  ): QueryBuilder<
-    Schema,
-    Alias extends string
-    ? AddAlias<WidenTables<State, TableName>, Alias, TableName>
-    : WidenTables<State, TableName>
-  > {
+  ): QueryBuilder<Schema, JoinResultState<State, TableName, Alias>> {
     return this.applyJoin('LEFT', table, leftColumn, rightColumn, alias, on);
   }
 
@@ -1109,64 +1151,43 @@ export class QueryBuilder<
    * right-side row per left row, so duplicate join keys never fan out the
    * result. Used by the semantic layer for to-one relationship traversal.
    */
-  leftAnyJoin<TableName extends Extract<keyof Schema, string>, Alias extends string | undefined = undefined>(
+  leftAnyJoin<TableName extends JoinableTable<State>, Alias extends string | undefined = undefined>(
     table: TableName,
     leftColumn: keyof BaseRow<State>,
-    rightColumn: `${TableName & string}.${keyof Schema[TableName] & string}`,
-    alias?: Alias,
+    rightColumn: JoinRightColumn<State, TableName>,
+    alias?: JoinAliasArg<State, TableName, Alias>,
     on?: JoinConditionInput | JoinConditionInput[],
-  ): QueryBuilder<
-    Schema,
-    Alias extends string
-    ? AddAlias<WidenTables<State, TableName>, Alias, TableName>
-    : WidenTables<State, TableName>
-  > {
+  ): QueryBuilder<Schema, JoinResultState<State, TableName, Alias>> {
     return this.applyJoin('LEFT ANY', table, leftColumn, rightColumn, alias, on);
   }
 
-  rightJoin<TableName extends Extract<keyof Schema, string>, Alias extends string | undefined = undefined>(
+  rightJoin<TableName extends JoinableTable<State>, Alias extends string | undefined = undefined>(
     table: TableName,
     leftColumn: keyof BaseRow<State>,
-    rightColumn: `${TableName & string}.${keyof Schema[TableName] & string}`,
-    alias?: Alias
-  ): QueryBuilder<
-    Schema,
-    Alias extends string
-    ? AddAlias<WidenTables<State, TableName>, Alias, TableName>
-    : WidenTables<State, TableName>
-  > {
+    rightColumn: JoinRightColumn<State, TableName>,
+    alias?: JoinAliasArg<State, TableName, Alias>
+  ): QueryBuilder<Schema, JoinResultState<State, TableName, Alias>> {
     return this.applyJoin('RIGHT', table, leftColumn, rightColumn, alias);
   }
 
-  fullJoin<TableName extends Extract<keyof Schema, string>, Alias extends string | undefined = undefined>(
+  fullJoin<TableName extends JoinableTable<State>, Alias extends string | undefined = undefined>(
     table: TableName,
     leftColumn: keyof BaseRow<State>,
-    rightColumn: `${TableName & string}.${keyof Schema[TableName] & string}`,
-    alias?: Alias
-  ): QueryBuilder<
-    Schema,
-    Alias extends string
-    ? AddAlias<WidenTables<State, TableName>, Alias, TableName>
-    : WidenTables<State, TableName>
-  > {
+    rightColumn: JoinRightColumn<State, TableName>,
+    alias?: JoinAliasArg<State, TableName, Alias>
+  ): QueryBuilder<Schema, JoinResultState<State, TableName, Alias>> {
     return this.applyJoin('FULL', table, leftColumn, rightColumn, alias);
   }
 
-  private applyJoin<TableName extends Extract<keyof Schema, string>, Alias extends string | undefined = undefined>(
+  private applyJoin<TableName extends JoinableTable<State>, Alias extends string | undefined = undefined>(
     type: JoinType,
     table: TableName,
     leftColumn: keyof BaseRow<State>,
-    rightColumn: `${TableName & string}.${keyof Schema[TableName] & string}`,
-    alias?: Alias,
+    rightColumn: JoinRightColumn<State, TableName>,
+    alias?: JoinAliasArg<State, TableName, Alias>,
     on?: JoinConditionInput | JoinConditionInput[],
-  ): QueryBuilder<
-    Schema,
-    Alias extends string
-    ? AddAlias<WidenTables<State, TableName>, Alias, TableName>
-    : WidenTables<State, TableName>
-  > {
-    type JoinedState = WidenTables<State, TableName>;
-    type NextState = Alias extends string ? AddAlias<JoinedState, Alias, TableName> : JoinedState;
+  ): QueryBuilder<Schema, JoinResultState<State, TableName, Alias>> {
+    type NextState = JoinResultState<State, TableName, Alias>;
 
     const nextAliases = (
       alias
@@ -1176,7 +1197,7 @@ export class QueryBuilder<
 
     const nextState = this.withAliasesState<NextState>(nextAliases);
 
-    const nextConfig = this.joins.addJoin(type, table, String(leftColumn), rightColumn, alias, undefined, on);
+    const nextConfig = this.joins.addJoin(type, String(table), String(leftColumn), String(rightColumn), alias, undefined, on);
     return this.transition<NextState>(nextState, nextConfig);
   }
 
@@ -1382,6 +1403,7 @@ export function createQueryBuilder<Schema extends SchemaDefinition<Schema>>(
         base: {} as SubqueryState['output'],
         aliases: {},
         scalars: {},
+        ctes: {},
       };
 
       const builder = new QueryBuilder<Schema, NextState>(

@@ -96,7 +96,12 @@ export function createSelectQueryNode<TOutput, TSchema>(
     joins: config.joins
       ? config.joins.map(item => ({ ...item, on: cloneExprNode(item.on) }))
       : undefined,
-    ctes: config.ctes ? config.ctes.map(item => ({ ...item })) : undefined,
+    ctes: config.ctes
+      ? config.ctes.map(item => ({
+        ...item,
+        parameters: item.parameters ? [...item.parameters] : undefined,
+      }))
+      : undefined,
     unionQueries: config.unionQueries ? [...config.unionQueries] : undefined,
     settings: config.settings ? { ...config.settings } : undefined,
   };

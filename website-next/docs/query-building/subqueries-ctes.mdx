@@ -97,6 +97,20 @@ FROM orders
 INNER JOIN active_users ON orders.user_id = active_users.id
 ```
 
+Because the CTE was built from a query builder, hypequery knows which columns it
+exposes. The alias becomes a typed join target: `active_users.id` and
+`active_users.user_name` are checked, and `active_users.user_name` carries the
+inner query's type through to the result row.
+
+Values inside a builder CTE stay bound as query parameters rather than being
+escaped into the SQL string, exactly as they are in the outer query.
+
+<Callout type="info" title="Aliasing a CTE join">
+  A CTE join does not take the trailing table-alias argument that a schema-table
+  join accepts — aliases are resolved through the schema, and a CTE has no schema
+  entry. Reference the CTE by its own name instead.
+</Callout>
+
 ### Using Raw SQL as a CTE
 
 For more complex subqueries, you can use raw SQL strings:
@@ -108,20 +122,29 @@ const results = await db
   .table('orders')
   .withCTE(
     'monthly_totals',
-    'SELECT user_id, toStartOfMonth(created_at) as month, SUM(total) as monthly_sum FROM orders GROUP BY user_id, month'
+    'SELECT user_id, toStartOfMonth(created_at) as month, SUM(total) as monthly_sum FROM orders GROUP BY user_id, month',
+    { user_id: 'UInt64', month: 'Date', monthly_sum: 'Float64' }
   )
+  .innerJoin('monthly_totals', 'user_id', 'monthly_totals.user_id')
   .select([
     'orders.id',
     'orders.created_at',
     'monthly_totals.monthly_sum'
   ])
-  .innerJoin('monthly_totals', 'user_id', 'monthly_totals.user_id')
-  .where('orders.created_at', 'gte', 'monthly_totals.month')
   .execute();
 
 ```
 
 </CodeBlock>
+
+A raw SQL body is opaque to hypequery, so declare the columns it produces to get
+the same typing a builder CTE gets. The declaration uses the same column types
+as a generated schema, and it is an assertion: nothing checks it against the SQL,
+so a wrong declaration surfaces at runtime rather than at compile time.
+
+Without the third argument the CTE still works and still renders, but its alias
+stays untyped and cannot be used as a join target. A runtime alias typed as
+`string` also stays untyped; use a literal alias when you need typed joins.
 
 ### Multiple CTEs
 
@@ -138,10 +161,11 @@ const results = await db
   )
   .withCTE(
     'active_users',
-    'SELECT user_id, COUNT(DISTINCT day) as active_days FROM daily_users GROUP BY user_id HAVING active_days > 7'
+    'SELECT user_id, COUNT(DISTINCT day) as active_days FROM daily_users GROUP BY user_id HAVING active_days > 7',
+    { user_id: 'UInt64', active_days: 'UInt64' }
   )
-  .select(['events.*'])
   .innerJoin('active_users', 'user_id', 'active_users.user_id')
+  .select(['events.*'])
   .execute();
 
 ```
