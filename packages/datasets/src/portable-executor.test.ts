@@ -128,6 +128,44 @@ function untenantedDeployment() {
   });
 }
 
+/** The same contract publishing `revenue / nullIfZero(orders)` as a derived metric. */
+function derivedDeployment() {
+  const base = deployment();
+  const [dataset] = base.datasets;
+  const revenue = { kind: 'aggregate', aggregation: 'sum', field: 'amount' } as const;
+  const orders = { kind: 'aggregate', aggregation: 'count', field: 'status' } as const;
+  const guard = (operand: unknown) => ({ kind: 'call', function: 'nullIfZero', args: [operand] });
+  return validateProtocolDeploymentContract({
+    ...base,
+    datasets: [{
+      ...dataset,
+      measures: [
+        ...dataset.measures,
+        { name: 'orderCount', aggregation: 'count', field: 'status', filters: [] },
+      ],
+      metrics: [{
+        ...dataset.metrics[0],
+        name: 'aov',
+        kind: 'derived-metric',
+        grains: [],
+        grain: undefined,
+        expression: { kind: 'binary', operator: 'divide', left: revenue, right: guard(orders) },
+        derivation: {
+          inputs: [
+            { alias: 'revenue', expression: revenue },
+            { alias: 'orders', expression: orders },
+          ],
+          expression: {
+            kind: 'binary', operator: 'divide',
+            left: { kind: 'reference', name: 'revenue' },
+            right: guard({ kind: 'reference', name: 'orders' }),
+          },
+        },
+      }],
+    }],
+  });
+}
+
 function input(
   overrides: Partial<PortableSemanticExecutionInput> = {},
   contract = deployment(),
@@ -178,6 +216,26 @@ describe('portable semantic execution', () => {
     expect(result.meta.rowCount).toBe(1);
   });
 
+  it('executes a derived metric from the formula the contract carries', async () => {
+    const rawSql: string[] = [];
+    const factory: QueryBuilderFactoryLike = {
+      ...recordingFactory().factory,
+      rawQuery: async (sql: string) => { rawSql.push(sql); return [{ status: 'paid', aov: 4 }]; },
+    } as QueryBuilderFactoryLike;
+    const execute = createPortableSemanticExecutor({ queryBuilder: factory });
+    const contract = derivedDeployment();
+
+    const result = await execute(input({
+      metric: contract.datasets[0].metrics[0],
+      operation: { kind: 'metric', dataset: 'orders', metric: 'aov', dimensions: ['status'] } as never,
+    }, contract));
+
+    expect(result.meta.rowCount).toBe(1);
+    // The aliases the contract declared are the ones the SQL is written in.
+    expect(rawSql[0]).toContain('(revenue) / (NULLIF(orders, 0)) AS aov');
+    expect(rawSql[0]).toContain('analytics.orders');
+  });
+
   it('applies the resolved tenant to the plan', async () => {
     const { factory, sql } = recordingFactory();
     const execute = createPortableSemanticExecutor({ queryBuilder: factory });
@@ -207,12 +265,20 @@ describe('portable semantic execution', () => {
 
   // -- fail closed ---------------------------------------------------------
 
-  it('refuses a derived metric until its expression is carried', async () => {
+  it('refuses a derived metric whose authored formula the contract omits', async () => {
     const { factory } = recordingFactory();
     const execute = createPortableSemanticExecutor({ queryBuilder: factory });
-    // Contract v1 carries no symbolic expression, so planning it would be a
-    // guess. Decision 0005 requires an explicit refusal instead.
-    const contract = deployment({ kind: 'derived-metric' });
+    // A contract written before `derivation` existed states what the metric
+    // means but not the aliases its SQL is written in terms of, so planning it
+    // would be a guess. Decision 0005 requires an explicit refusal instead.
+    const contract = deployment({
+      kind: 'derived-metric',
+      expression: {
+        kind: 'binary', operator: 'divide',
+        left: { kind: 'aggregate', aggregation: 'sum', field: 'amount' },
+        right: { kind: 'aggregate', aggregation: 'count', field: 'status' },
+      },
+    });
 
     await expect(execute(input({
       metric: contract.datasets[0].metrics[0],
@@ -223,7 +289,14 @@ describe('portable semantic execution', () => {
   it('reports the unsupported-capability code a caller maps to a failure category', async () => {
     const { factory } = recordingFactory();
     const execute = createPortableSemanticExecutor({ queryBuilder: factory });
-    const contract = deployment({ kind: 'derived-metric' });
+    const contract = deployment({
+      kind: 'derived-metric',
+      expression: {
+        kind: 'binary', operator: 'divide',
+        left: { kind: 'aggregate', aggregation: 'sum', field: 'amount' },
+        right: { kind: 'aggregate', aggregation: 'count', field: 'status' },
+      },
+    });
 
     await execute(input({
       metric: contract.datasets[0].metrics[0],

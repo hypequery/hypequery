@@ -9,6 +9,7 @@ import { projectAgentSafeCatalog } from './agent-catalog.js';
 import { getDatasetCatalog } from './catalog.js';
 import { dataset } from './dataset.js';
 import { dimension } from './field.js';
+import { divide, nullIfZero, round } from './formulas.js';
 import { measure } from './measure.js';
 import { buildProtocolDatasetContract } from './protocol-adapter.js';
 import {
@@ -45,6 +46,75 @@ function roundTrip(
   });
 }
 
+/** Renders each builder call into readable SQL so a plan can be asserted on. */
+function renderingBuilder() {
+  const build = (table: string) => {
+    const select: string[] = [];
+    const where: string[] = [];
+    const groupBy: string[] = [];
+    const agg = (fn: string) => (column: string, alias?: string) => {
+      select.push(`${fn}(${column}) AS ${alias ?? column}`);
+      return builder;
+    };
+    const builder: Record<string, unknown> = {
+      select: (columns: string | string[]) => {
+        select.push(...(Array.isArray(columns) ? columns : [columns]));
+        return builder;
+      },
+      sum: agg('SUM'),
+      count: agg('COUNT'),
+      groupBy: (columns: string | string[]) => {
+        groupBy.push(...(Array.isArray(columns) ? columns : [columns]));
+        return builder;
+      },
+      where: (column: string, operator: string, value: unknown) => {
+        where.push(`${column} ${operator} ${JSON.stringify(value)}`);
+        return builder;
+      },
+      toSQLWithParams: () => ({
+        sql: `SELECT ${select.join(', ')} FROM ${table}`
+          + (where.length > 0 ? ` WHERE ${where.join(' AND ')}` : '')
+          + (groupBy.length > 0 ? ` GROUP BY ${groupBy.join(', ')}` : ''),
+        parameters: [],
+      }),
+    };
+    return new Proxy(builder, {
+      get: (target, property: string) => target[property] ?? (() => builder),
+    });
+  };
+  return { table: build, rawQuery: async () => [] };
+}
+
+/**
+ * A dataset carrying a derived metric, authored rather than hand-written, so
+ * the contract under test is the one the adapter actually emits.
+ */
+function derivedContract() {
+  const Orders = dataset('orders', {
+    source: 'analytics.orders',
+    dimensions: {
+      status: dimension.string(),
+      amount: dimension.number({ column: 'amount_cents', groupable: false }),
+    },
+    measures: {
+      revenue: measure.sum('amount'),
+      orders: measure.count('status'),
+    },
+  });
+  const averageOrderValue = Orders.metric('averageOrderValue', {
+    uses: {
+      revenue: Orders.metric('revenue', { measure: 'revenue' }),
+      orders: Orders.metric('orders', { measure: 'orders' }),
+    },
+    formula: ({ revenue, orders }) => round(divide(revenue, nullIfZero(orders)), 2),
+  });
+  return buildProtocolDatasetContract(Orders as never, {
+    endpoint: PUBLIC_ENDPOINT as never,
+    metrics: { averageOrderValue } as never,
+    metricEndpoints: { averageOrderValue: PUBLIC_ENDPOINT as never },
+  });
+}
+
 describe('contract-to-catalog rehydration', () => {
   const deployment = validateProtocolDeploymentContract(fixture('deployment.json'));
 
@@ -78,6 +148,39 @@ describe('contract-to-catalog rehydration', () => {
     };
     const registry = rehydrateProtocolDatasets([contract, ...deployment.datasets.filter(item => item.name !== source.name)]);
     expect(roundTrip(contract, registry as never)).toEqual(contract);
+  });
+
+  it('plans the fixture\'s derived metric under the aliases it declared', () => {
+    const registry = rehydrateProtocolDatasets(deployment.datasets);
+    const client = createDatasetClient({ queryBuilder: renderingBuilder() });
+
+    const sql = client.toSQL(
+      registry.orders.metrics.averageOrderValue as never,
+      { dimensions: ['region'] } as never,
+      { runtime: { tenant: 'tenant_acme' } } as never,
+    );
+
+    // The formula, written in the aliases the contract carried, over an
+    // intermediate aggregate whose columns are those same aliases. Nothing here
+    // came from a customer module.
+    expect(sql).toContain('(revenue) / (NULLIF(orders, 0)) AS averageOrderValue');
+    expect(sql).toContain('SUM(amount) AS revenue');
+    expect(sql).toContain('COUNT(order_id) AS orders');
+    expect(sql).toContain('analytics.orders');
+    expect(sql).toContain('tenant_acme');
+  });
+
+  it('keeps a derived metric\'s formula out of the agent-safe catalog', () => {
+    const [orders] = projectAgentSafeCatalog(deployment).datasets;
+    const metric = orders.metrics.find(entry => entry.name === 'averageOrderValue');
+
+    // The formula names measure input fields and aggregations, which the safe
+    // projection exists to withhold. An agent is told the metric exists and
+    // what it can be grouped, filtered, and grained by — not how it is computed.
+    expect(metric).toBeDefined();
+    expect(JSON.stringify(metric)).not.toContain('derivation');
+    expect(JSON.stringify(metric)).not.toContain('amount');
+    expect(JSON.stringify(metric)).not.toContain('aggregate');
   });
 
   it('restores the physical mappings execution needs', () => {
@@ -275,23 +378,38 @@ describe('contract-to-catalog rehydration', () => {
       .toEqual(['customer.country', 'customer.id']);
   });
 
-  it('fails closed on a derived metric until its expression is carried', () => {
-    const derived = {
-      ...deployment.datasets[0],
-      metrics: [{ ...deployment.datasets[0].metrics[0], kind: 'derived-metric' as const }],
-    };
+  it('round-trips a derived metric through its authored formula', () => {
+    const contract = derivedContract();
 
-    expect(() => rehydrateProtocolDatasets([derived]))
+    const registry = rehydrateProtocolDatasets([contract]);
+
+    expect(roundTrip(contract, registry as never)).toEqual(contract);
+  });
+
+  it('fails closed on a derived metric whose formula the contract does not carry', () => {
+    // A contract written before `derivation` existed. Its inlined expression
+    // states what the metric means but not the aliases its SQL is written in
+    // terms of, so a rebuild would compute the same number through different
+    // SQL — which decision 0005 excludes rather than accepts.
+    const { derivation, ...metric } = derivedContract().metrics[0];
+    const stripped = { ...derivedContract(), metrics: [metric] };
+
+    expect(derivation).toBeDefined();
+    expect(() => rehydrateProtocolDatasets([stripped as never]))
       .toThrow(UnsupportedContractFeatureError);
-    expect(() => rehydrateProtocolDatasets([derived]))
-      .toThrow(/does not carry/);
+    expect(() => rehydrateProtocolDatasets([stripped as never]))
+      .toThrow(/requires its authored formula/);
   });
 
   it('fails closed on a metric with no matching measure', () => {
+    // Selected by name, not position: the fixture's metric list is ordered and
+    // may grow, and an index would quietly retarget this at another metric.
+    const source = deployment.datasets.find(item => item.name === 'orders')!;
+    const base = source.metrics.find(item => item.name === 'totalRevenue')!;
     const orphaned = {
-      ...deployment.datasets[0],
+      ...source,
       metrics: [{
-        ...deployment.datasets[0].metrics[0],
+        ...base,
         expression: { kind: 'aggregate' as const, aggregation: 'avg' as const, field: 'amount' },
       }],
     };

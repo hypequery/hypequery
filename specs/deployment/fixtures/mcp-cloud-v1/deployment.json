@@ -133,6 +133,105 @@
       ],
       "metrics": [
         {
+          "name": "averageOrderValue",
+          "kind": "derived-metric",
+          "expression": {
+            "kind": "binary",
+            "operator": "divide",
+            "left": {
+              "kind": "aggregate",
+              "aggregation": "sum",
+              "field": "amount"
+            },
+            "right": {
+              "kind": "call",
+              "function": "nullIfZero",
+              "args": [
+                {
+                  "kind": "aggregate",
+                  "aggregation": "count",
+                  "field": "orderId"
+                }
+              ]
+            }
+          },
+          "derivation": {
+            "inputs": [
+              {
+                "alias": "revenue",
+                "expression": {
+                  "kind": "aggregate",
+                  "aggregation": "sum",
+                  "field": "amount"
+                }
+              },
+              {
+                "alias": "orders",
+                "expression": {
+                  "kind": "aggregate",
+                  "aggregation": "count",
+                  "field": "orderId"
+                }
+              }
+            ],
+            "expression": {
+              "kind": "binary",
+              "operator": "divide",
+              "left": {
+                "kind": "reference",
+                "name": "revenue"
+              },
+              "right": {
+                "kind": "call",
+                "function": "nullIfZero",
+                "args": [
+                  {
+                    "kind": "reference",
+                    "name": "orders"
+                  }
+                ]
+              }
+            }
+          },
+          "dimensions": [
+            "createdAt",
+            "region",
+            "status"
+          ],
+          "filters": [
+            "createdAt",
+            "region",
+            "status"
+          ],
+          "grains": [
+            "day",
+            "month",
+            "quarter",
+            "week",
+            "year"
+          ],
+          "label": "Average order value",
+          "description": "Revenue divided by order count, in USD.",
+          "endpoint": {
+            "access": {
+              "kind": "authenticated",
+              "roles": [
+                "analytics_reader"
+              ],
+              "scopes": [
+                "datasets:query"
+              ]
+            },
+            "tenant": {
+              "kind": "required",
+              "mode": "auto-inject",
+              "column": "tenant_id"
+            },
+            "maxLimit": 100,
+            "path": "/api/analytics/metrics/averageOrderValue"
+          }
+        },
+        {
           "name": "totalRevenue",
           "kind": "metric",
           "expression": {

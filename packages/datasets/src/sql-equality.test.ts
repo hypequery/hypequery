@@ -32,6 +32,7 @@ import { dimension } from './field.js';
 import { measure } from './measure.js';
 import { buildProtocolDatasetContract } from './protocol-adapter.js';
 import { rehydrateProtocolDatasets } from './protocol-rehydrate.js';
+import { add, ceil, coalesce, divide, floor, multiply, nullIfZero, round, subtract } from './formulas.js';
 import { eq } from './query-helpers.js';
 import type { QueryBuilderFactoryLike, QueryBuilderLike } from './query-builder-protocol.js';
 import { belongsTo } from './relationships.js';
@@ -217,12 +218,51 @@ const Orders = dataset('orders', {
 
 const PUBLIC_ENDPOINT = { access: { kind: 'public' }, tenant: { kind: 'not-required' } } as const;
 
+// The inputs a derived metric combines. These are refs, not published metrics:
+// their aliases in `uses` become the column names of the intermediate
+// aggregate, which is exactly what the contract has to carry to rebuild the
+// same SQL rather than merely the same number.
+const revenueInput = Orders.metric('revenue', { measure: 'revenue' });
+const ordersInput = Orders.metric('orders', { measure: 'orderCount' });
+const avgInput = Orders.metric('avgAmount', { measure: 'avgAmount' });
+
 const authoredMetrics: Record<string, MetricHandle> = {
   totalRevenue: Orders.metric('totalRevenue', { measure: 'revenue' }) as MetricHandle,
   monthlyRevenue: (Orders.metric('monthlyRevenue', { measure: 'revenue' }) as unknown as {
     by(grain: TimeGrain): MetricHandle;
   }).by('month'),
   paidRevenue: Orders.metric('paidRevenue', { measure: 'paidRevenue' }) as MetricHandle,
+  // Every formula helper, so no rendering rule is covered only by inspection:
+  // division guarded against zero, rounding to a literal precision, a coalesce
+  // fallback, the three remaining arithmetic operators, and both truncations.
+  averageOrderValue: Orders.metric('averageOrderValue', {
+    uses: { revenue: revenueInput, orders: ordersInput },
+    formula: ({ revenue, orders }) => divide(revenue, nullIfZero(orders)),
+  }) as MetricHandle,
+  roundedAov: Orders.metric('roundedAov', {
+    uses: { revenue: revenueInput, orders: ordersInput },
+    formula: ({ revenue, orders }) => round(divide(revenue, nullIfZero(orders)), 2),
+  }) as MetricHandle,
+  safeAov: Orders.metric('safeAov', {
+    uses: { revenue: revenueInput, orders: ordersInput },
+    formula: ({ revenue, orders }) => coalesce(divide(revenue, nullIfZero(orders)), 0),
+  }) as MetricHandle,
+  revenuePerUnit: Orders.metric('revenuePerUnit', {
+    uses: { revenue: revenueInput, avgAmount: avgInput, orders: ordersInput },
+    formula: ({ revenue, avgAmount, orders }) => floor(
+      multiply(add(revenue, subtract(avgAmount, orders)), divide(revenue, nullIfZero(avgAmount))),
+    ),
+  }) as MetricHandle,
+  ceilingAov: Orders.metric('ceilingAov', {
+    uses: { revenue: revenueInput, orders: ordersInput },
+    formula: ({ revenue, orders }) => ceil(divide(revenue, nullIfZero(orders))),
+  }) as MetricHandle,
+  // A derived metric pinned to a grain: `kind` reports `grained-metric`, so
+  // this covers the case where derivedness is not visible in the kind alone.
+  monthlyAov: (Orders.metric('monthlyAov', {
+    uses: { revenue: revenueInput, orders: ordersInput },
+    formula: ({ revenue, orders }) => divide(revenue, nullIfZero(orders)),
+  }) as unknown as { by(grain: TimeGrain): MetricHandle }).by('month'),
 };
 
 const contracts = [
@@ -449,7 +489,24 @@ describe('rehydrated catalogs emit byte-identical SQL', () => {
     }
     expect(names.filter(name => name.startsWith('dimensions '))).toHaveLength(2 ** GROUPABLE.length - 1);
     expect(names.filter(name => name.startsWith('measures '))).toHaveLength(MEASURES.length * (MEASURES.length - 1) / 2);
-    expect(CASES.filter(entry => entry.expectedRejection !== undefined)).toHaveLength(4);
+    // One refusal per grained metric per grain it is not pinned to. Derived
+    // from the metric set so adding a metric cannot silently change the shape
+    // of what this suite covers.
+    const grained = Object.values(authoredMetrics)
+      .filter(metric => metric.__type === 'grained_metric_ref');
+    expect(grained.length).toBeGreaterThan(1);
+    expect(CASES.filter(entry => entry.expectedRejection !== undefined))
+      .toHaveLength(grained.length * (GRAINS.length - 1));
+    // Derived metrics are the surface CORE-17 made portable; a corpus that
+    // dropped them would pass while proving nothing about it.
+    const derivedNames = Object.entries(authoredMetrics)
+      .filter(([, metric]) => (metric.__type === 'grained_metric_ref' ? metric.metric : metric)
+        .spec.__type === 'derived_metric_spec')
+      .map(([name]) => name);
+    expect(derivedNames.length).toBeGreaterThanOrEqual(6);
+    for (const name of derivedNames) {
+      expect(names.filter(entry => entry.startsWith(`metric ${name} `)).length).toBeGreaterThan(0);
+    }
     expect(CASES.length).toBeGreaterThan(120);
     expect(new Set(names).size).toBe(names.length);
   });
@@ -489,6 +546,50 @@ describe('rehydrated catalogs emit byte-identical SQL', () => {
     expect(sql).toContain('JOIN');
     expect(sql).toContain('tenant_id');
     expect(sql).toContain('LIMIT 10');
+  });
+
+  it('shows a derived metric\'s aliases are load-bearing, not cosmetic', () => {
+    // The reason the contract carries the authored formula at all. Renaming the
+    // aliases leaves the metric computing the same number from the same
+    // measures, and every validation still passes — but they are emitted as the
+    // columns of the intermediate aggregate, so the SQL is not the same SQL.
+    const orders = contracts[1];
+    const renamed = {
+      ...orders,
+      metrics: orders.metrics.map(metric => (metric.name !== 'averageOrderValue' ? metric : {
+        ...metric,
+        derivation: {
+          inputs: metric.derivation!.inputs.map((input, index) => ({
+            ...input, alias: `input${index}`,
+          })),
+          expression: {
+            kind: 'binary' as const,
+            operator: 'divide' as const,
+            left: { kind: 'reference' as const, name: 'input0' },
+            right: {
+              kind: 'call' as const,
+              function: 'nullIfZero' as const,
+              args: [{ kind: 'reference' as const, name: 'input1' }],
+            },
+          },
+        },
+      })),
+    };
+    const drifted = rehydrateProtocolDatasets([contracts[0], renamed as never]);
+    const testCase = { name: 'aliases', query: { dimensions: ['status'] }, metric: 'averageOrderValue' };
+
+    const authoredSql = compile(authoredClient, authoredMetrics.averageOrderValue, testCase);
+    const driftedSql = compile(
+      rehydratedClient, drifted.orders.metrics.averageOrderValue, testCase,
+    );
+
+    expect(authoredSql).toContain('revenue');
+    expect(driftedSql).toContain('input0');
+    expect(driftedSql).not.toBe(authoredSql);
+    // And the aliases the contract does carry reproduce it exactly.
+    expect(compile(
+      rehydratedClient, rehydrated.orders.metrics.averageOrderValue, testCase,
+    )).toBe(authoredSql);
   });
 
   it('detects a divergence the corpus is meant to catch', () => {

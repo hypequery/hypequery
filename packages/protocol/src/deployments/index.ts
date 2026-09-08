@@ -35,6 +35,8 @@ export type {
   ProtocolDeploymentOptions,
   ProtocolEndpointPolicy,
   ProtocolEndpointTenantPolicy,
+  ProtocolMetricDerivation,
+  ProtocolMetricInput,
   ProtocolNamedQueryContract,
   ProtocolRuntimeArtifact,
 } from './types.js';

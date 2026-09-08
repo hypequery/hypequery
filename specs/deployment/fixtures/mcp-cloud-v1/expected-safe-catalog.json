@@ -52,6 +52,28 @@
       ],
       "metrics": [
         {
+          "name": "averageOrderValue",
+          "label": "Average order value",
+          "description": "Revenue divided by order count, in USD.",
+          "dimensions": [
+            "createdAt",
+            "region",
+            "status"
+          ],
+          "filters": [
+            "createdAt",
+            "region",
+            "status"
+          ],
+          "grains": [
+            "day",
+            "month",
+            "quarter",
+            "week",
+            "year"
+          ]
+        },
+        {
           "name": "totalRevenue",
           "label": "Total revenue",
           "description": "Total order revenue in USD.",
