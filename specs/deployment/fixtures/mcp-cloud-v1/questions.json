@@ -44,6 +44,35 @@
     ]
   },
   {
+    "id": "average-order-value-by-region",
+    "question": "What is our average order value by region?",
+    "expectedTool": "query_metric",
+    "expectedArguments": {
+      "dataset": "orders",
+      "metric": "averageOrderValue",
+      "dimensions": [
+        "region"
+      ],
+      "orderBy": [
+        {
+          "field": "region",
+          "direction": "asc"
+        }
+      ],
+      "limit": 100
+    },
+    "expectedRows": [
+      {
+        "region": "eu",
+        "averageOrderValue": 62.5
+      },
+      {
+        "region": "us",
+        "averageOrderValue": 50
+      }
+    ]
+  },
+  {
     "id": "orders-by-status",
     "question": "How many orders are in each status?",
     "expectedTool": "query_dataset",

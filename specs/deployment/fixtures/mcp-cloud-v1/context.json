@@ -6,7 +6,7 @@
   "activationRevision": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
   "releaseIdentity": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
   "bundleIdentity": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
-  "deploymentIdentity": "2d71d44577daffdc952ef55d640ece588a74fc6493f0857c5851325745af890a",
+  "deploymentIdentity": "94ff668005c4a9496ad27dd9faddb896261001d1607278dfe8d713f7008af51e",
   "principal": {
     "subject": "user_ada",
     "roles": [
