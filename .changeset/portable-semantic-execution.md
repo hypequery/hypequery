@@ -37,6 +37,5 @@ to carry a generic `category` — a `not-found` from an HTTP client, say — can
 put its own message in front of a caller or decide whether the call is retried.
 An executor that claims nothing, that claims a category it may not (such as
 `forbidden`), or that never opted in, still reports `executor-failed` with the
-generic message. `PortableExecutionError` is the exported base class that opts
-in; `PortableExecutionTenantError` joins the unsupported and budget errors
-under it.
+generic message. `PortableExecutionTenantError` joins the exported unsupported
+and budget errors that carry the marker.

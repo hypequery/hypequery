@@ -104,7 +104,6 @@ export type { BuildProtocolDatasetContractOptions } from './protocol-adapter.js'
 export {
   createPortableSemanticExecutor,
   PortableExecutionBudgetError,
-  PortableExecutionError,
   PortableExecutionTenantError,
   PortableExecutionUnsupportedError,
 } from './portable-executor.js';

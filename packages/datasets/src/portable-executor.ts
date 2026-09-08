@@ -70,8 +70,14 @@ export interface PortableSemanticExecutionInput {
  * and cannot share a class, but a raw driver error must never be able to pass
  * itself off as a deliberate claim and put its own message in front of a
  * caller.
+ *
+ * Deliberately not exported. The three errors below are, because this package's
+ * own executor throws them; this base is only how they share the marker. A
+ * supported way for someone else's executor to claim a category belongs beside
+ * the data plane that honours it, not beside one implementation of the slot it
+ * fills.
  */
-export abstract class PortableExecutionError extends Error {
+abstract class PortableExecutionError extends Error {
   /** The opt-in a data plane checks before trusting anything below it. */
   readonly hypequerySemanticFailure = true as const;
   abstract readonly code: string;
