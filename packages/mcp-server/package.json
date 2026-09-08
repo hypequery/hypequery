@@ -35,6 +35,7 @@
   "scripts": {
     "prebuild": "node scripts/generate-version.mjs",
     "build": "tsc --project tsconfig.json",
+    "predev": "node scripts/generate-version.mjs",
     "dev": "tsc --project tsconfig.json --watch",
     "test": "npm run test:types && npm run test:unit",
     "pretest:unit": "node scripts/generate-version.mjs",
