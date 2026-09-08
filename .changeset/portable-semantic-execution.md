@@ -39,3 +39,8 @@ An executor that claims nothing, that claims a category it may not (such as
 `forbidden`), or that never opted in, still reports `executor-failed` with the
 generic message. `PortableExecutionTenantError` joins the exported unsupported
 and budget errors that carry the marker.
+
+Deadline expiry and caller cancellation now settle execution independently of
+adapter cooperation while also aborting the underlying request. An adapter
+that ignores cancellation cannot return a successful response after the deadline
+or keep the invocation pending indefinitely.
