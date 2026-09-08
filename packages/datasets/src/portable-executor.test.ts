@@ -349,7 +349,9 @@ describe('portable semantic execution', () => {
       };
       const execute = createPortableSemanticExecutor({ queryBuilder: factory });
       const pending = execute(input({ budget: { maxRows: 10, deadlineMs: 1_000 } }));
-      const assertion = expect(pending).rejects.toThrow();
+      // A driver abort rejection is reported as the budget it overran, not as
+      // the generic execution failure it arrives as.
+      const assertion = expect(pending).rejects.toThrow(PortableExecutionBudgetError);
 
       await vi.advanceTimersByTimeAsync(1_100);
       await assertion;
@@ -366,6 +368,24 @@ describe('portable semantic execution', () => {
     controller.abort();
 
     await expect(execute(input({ signal: controller.signal }))).rejects.toThrow();
+  });
+
+  it('reports a caller abort as cancellation rather than as a spent deadline', async () => {
+    const controller = new AbortController();
+    const factory: QueryBuilderFactoryLike = {
+      table: () => chainingBuilder(async options => await new Promise((_resolve, reject) => {
+        options?.abortSignal?.addEventListener('abort', () => reject(new Error('aborted')));
+      })),
+      rawQuery: async () => [],
+    };
+    const execute = createPortableSemanticExecutor({ queryBuilder: factory });
+    const pending = execute(input({
+      budget: { maxRows: 10, deadlineMs: 60_000 }, signal: controller.signal,
+    }));
+    const assertion = expect(pending).rejects.not.toThrow(PortableExecutionBudgetError);
+
+    controller.abort();
+    await assertion;
   });
 
   // -- activation ----------------------------------------------------------

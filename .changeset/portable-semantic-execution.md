@@ -11,7 +11,9 @@ the query with the existing semantic planner. No customer module is loaded and
 no isolated runtime is required, so a bundle answers dataset and metric calls
 without a separately loaded MCP config. It applies the resolved tenant,
 propagates deadlines and cancellation to the database request, and byte-limits
-the result.
+the result. A request the deadline aborts is reported as the budget it overran
+rather than as the driver's generic failure, so a caller can tell a query that
+ran out of time — worth retrying with less — from a broken or unreachable one.
 
 A resolved tenant that the rebuilt dataset has no field to scope by is refused
 before a query is built. That is the one failure that is otherwise silent: the

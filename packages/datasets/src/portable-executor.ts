@@ -208,15 +208,31 @@ async function withDeadline<T>(
   execute: (signal: AbortSignal) => Promise<T>,
 ): Promise<T> {
   const controller = new AbortController();
+  let elapsed = false;
   const abort = () => controller.abort(signal?.reason);
   signal?.addEventListener('abort', abort, { once: true });
   const timer = budget.deadlineMs === undefined
     ? undefined
-    : setTimeout(() => controller.abort(new Error('The semantic invocation deadline elapsed.')),
-      budget.deadlineMs);
+    : setTimeout(() => {
+      elapsed = true;
+      controller.abort(new Error('The semantic invocation deadline elapsed.'));
+    }, budget.deadlineMs);
   try {
     if (signal?.aborted) abort();
     return await execute(controller.signal);
+  } catch (error) {
+    // The request rejects with whatever the driver raises on abort, and only
+    // this function knows the deadline is why. Left untranslated it reaches a
+    // caller as a generic execution failure, which cannot be told apart from a
+    // broken query or an unreachable database — the one distinction that
+    // decides whether asking for less is worth trying. A caller abort still
+    // wins: that is cancellation, not a budget the query overran.
+    if (elapsed && signal?.aborted !== true) {
+      throw new PortableExecutionBudgetError(
+        `The invocation exceeded its ${String(budget.deadlineMs)}ms deadline.`,
+      );
+    }
+    throw error;
   } finally {
     if (timer !== undefined) clearTimeout(timer);
     signal?.removeEventListener('abort', abort);
