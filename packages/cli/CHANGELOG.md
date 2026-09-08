@@ -1,5 +1,33 @@
 # @hypequery/cli
 
+## 1.19.0
+
+### Minor Changes
+
+- f71910d: Fail a deployment build when the Serve configuration would behave differently under managed execution. Unenforceable tenant isolation and dropped middleware block the build; dropped hooks, dropped context factories, and endpoints that are authenticated without declared roles or scopes are reported as warnings. Pass `--allow-unsupported-config` to deploy anyway.
+- 6b4f7b4: Add `hypequery mcp`, which serves a project's datasets to an MCP client over
+  stdio from the same entrypoint `hypequery dev` uses, instead of a second MCP
+  config that can drift from it.
+
+  `--tenant` supplies the trusted tenant; the command fails closed when a
+  tenant-scoped dataset is registered without one, since MCP has no request to
+  resolve a tenant from. `--self-test` checks the entrypoint and exits without
+  speaking the protocol. Application logging is routed to stderr before the
+  entrypoint is imported, because MCP owns stdout.
+
+  `@hypequery/serve` attaches the registered datasets and shared semantic client
+  to the built API under a registered symbol, readable with
+  `readServeMcpSource()`.
+
+### Patch Changes
+
+- 969bea6: Display unsupported configuration diagnostics when deployment explicitly allows them, including the behavior difference and remedy.
+- Updated dependencies [abd39a9]
+- Updated dependencies [969bea6]
+- Updated dependencies [7a1a5c6]
+  - @hypequery/protocol@0.12.0
+  - @hypequery/deployment@0.7.5
+
 ## 1.18.3
 
 ### Patch Changes

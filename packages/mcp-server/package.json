@@ -1,6 +1,6 @@
 {
   "name": "@hypequery/mcp",
-  "version": "0.5.5",
+  "version": "0.6.0",
   "description": "Governed ClickHouse MCP server for semantic metrics, datasets, Claude, Cursor, and AI agents",
   "keywords": [
     "mcp",
@@ -33,16 +33,20 @@
     "dist"
   ],
   "scripts": {
+    "prepack": "npm run build",
+    "prebuild": "node scripts/generate-version.mjs",
     "build": "tsc --project tsconfig.json",
+    "predev": "node scripts/generate-version.mjs",
     "dev": "tsc --project tsconfig.json --watch",
     "test": "npm run test:types && npm run test:unit",
+    "pretest:unit": "node scripts/generate-version.mjs",
     "test:unit": "vitest run",
     "test:types": "tsc --project tsconfig.json --noEmit",
     "lint": "eslint --ext .ts \"src/**/*.ts\"",
     "start": "node dist/bin.js"
   },
   "dependencies": {
-    "@hypequery/datasets": "^0.13.3",
+    "@hypequery/datasets": "^0.14.0",
     "@modelcontextprotocol/sdk": "^1.29.0",
     "zod": "^3.23.8"
   },

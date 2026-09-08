@@ -1,5 +1,46 @@
 # @hypequery/protocol-conformance
 
+## 0.11.0
+
+### Minor Changes
+
+- abd39a9: Accept RFC 0003 and freeze portable dataset expression extension version 1.
+
+  The accepted text specifies expression depth and node accounting, independent
+  collection limits, predicate-only aggregate and query filters, exact query
+  identifier shapes, safe-integer pagination, deterministic validation order,
+  and immutable detached validation results.
+
+  The shared `expressions-v1` corpus now pins both sides of every protocol limit:
+  depth 16/17, 1,000/1,001 expression nodes, and 100/101 collection items. It
+  also covers both valid `round` arities, empty aggregate filters, the safe
+  integer maximum, invalid aggregate option combinations, non-predicate filters,
+  metric-query field exclusion, and invalid pagination and ordering values.
+
+  The conformance reference adapter now materializes deterministic generators for
+  success cases as well as rejection cases, allowing large exact-boundary inputs
+  to remain compact in the portable corpus.
+
+### Patch Changes
+
+- 7a1a5c6: Add portable semantic invocation records (RFC 0014): the dataset/metric
+  invocation request, its result, and a closed failure record, with validators,
+  limits, and stable `HQ_INVOCATION_*` codes.
+
+  Identifiers are normalized into `operation` rather than duplicated beside it, so
+  a request cannot name two different datasets. There is no tenant field: a caller
+  cannot supply or change a tenant. The failure record has no field that accepts
+  SQL, parameter values, tenant identifiers, physical source details, or a
+  provider exception, and adds the `unsupported-capability` category decision 0005
+  requires.
+
+  These are types and validation only — no data-plane or runtime execution.
+
+- Updated dependencies [abd39a9]
+- Updated dependencies [969bea6]
+- Updated dependencies [7a1a5c6]
+  - @hypequery/protocol@0.12.0
+
 ## 0.10.4
 
 ### Patch Changes
