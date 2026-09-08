@@ -22,6 +22,14 @@ substituting the inputs back into the authored form must reproduce the inlined
 one exactly — so they cannot disagree silently. Inputs are ordered, not sorted,
 because each becomes a column of the intermediate result in that order.
 
+A derivation is also held to the grammar a formula can be rebuilt from, which is
+narrower than RFC 0003: arithmetic over references and the five formula
+functions, with a literal only as a `round` precision or a `coalesce` fallback.
+Accepting a comparison, or a one-argument `round`, would publish a contract that
+validates and then fails at the point of use. Eligibility follows the metric's
+expression rather than its `kind`, because `kind` reports `grained-metric` for
+both a base metric pinned to a grain and a derived one.
+
 `rehydrateProtocolDatasets` rebuilds the formula by calling the same helpers in
 `formulas.ts` that authored it, rather than compiling the expression to SQL a
 second time. Those helpers carry the `toSQL` closures that decide spacing,

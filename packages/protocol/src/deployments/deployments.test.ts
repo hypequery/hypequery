@@ -472,9 +472,20 @@ describe('deployment contract v1', () => {
         datasets: [{ ...minimalDataset(), metrics: [{ ...metric, ...overrides }] }],
       });
 
-    // A plain metric is a bare aggregate and has no formula to carry.
+    // A metric whose expression is a bare aggregate has no formula, whatever
+    // its kind says. `kind` cannot decide this: a base metric pinned to a grain
+    // and a derived metric pinned to one both report `grained-metric`. The
+    // one-input derivation here substitutes back to the aggregate, so only the
+    // eligibility check stands between it and a contract nothing can rebuild.
+    const aggregate = { kind: 'aggregate', aggregation: 'sum', field: 'amount' };
     expectDeploymentError(
-      withDerivation({ kind: 'metric', expression: { kind: 'literal', value: 1 } }),
+      withDerivation({
+        kind: 'grained-metric', grains: ['day'], grain: 'day', expression: aggregate,
+        derivation: {
+          inputs: [{ alias: 'revenue', expression: aggregate }],
+          expression: { kind: 'reference', name: 'revenue' },
+        },
+      }),
       'HQ_DEPLOYMENT_INVALID_VALUE',
       '$.datasets[0].metrics[0].derivation',
     );
@@ -508,6 +519,66 @@ describe('deployment contract v1', () => {
       'HQ_DEPLOYMENT_INVALID_VALUE',
       '$.datasets[0].metrics[0].derivation.inputs[0].expression',
     );
+  });
+
+  it('holds a derivation to the grammar a formula can be rebuilt from', () => {
+    // RFC 0003 is wider than anything a formula can be written in. A derivation
+    // exists to be rebuilt, so a form nothing can rebuild must not validate
+    // here and fail later at the point of use.
+    const metric = derivedMetric();
+    const revenue = metric.derivation.inputs[0].expression;
+    const orders = metric.derivation.inputs[1].expression;
+    const withFormula = (expression: unknown, inlined: unknown) => () =>
+      validateProtocolDeploymentContract({
+        ...baseDeployment(),
+        datasets: [{
+          ...minimalDataset(),
+          metrics: [{
+            ...metric,
+            expression: inlined,
+            derivation: { inputs: metric.derivation.inputs, expression },
+          }],
+        }],
+      });
+    const ref = (name: string) => ({ kind: 'reference', name });
+    const call = (fn: string, args: unknown[]) => ({ kind: 'call', function: fn, args });
+
+    // `round` validates at one or two arguments as a protocol expression, but
+    // the authoring helper always emits a precision, so a one-argument form has
+    // no counterpart to rebuild it from.
+    expectDeploymentError(
+      withFormula(call('round', [ref('revenue')]), call('round', [revenue])),
+      'HQ_DEPLOYMENT_INVALID_VALUE',
+      '$.datasets[0].metrics[0].derivation.expression.args',
+    );
+    // A comparison is a valid expression and not a formula.
+    expectDeploymentError(
+      withFormula(
+        { kind: 'comparison', operator: 'gt', left: ref('revenue'), right: ref('orders') },
+        { kind: 'comparison', operator: 'gt', left: revenue, right: orders },
+      ),
+      'HQ_DEPLOYMENT_INVALID_VALUE',
+      '$.datasets[0].metrics[0].derivation.expression',
+    );
+    // A literal is only expressible as a `round` precision or `coalesce`
+    // fallback, never as an operand of arithmetic.
+    expectDeploymentError(
+      withFormula(
+        { kind: 'binary', operator: 'divide', left: ref('revenue'), right: { kind: 'literal', value: 2 } },
+        { kind: 'binary', operator: 'divide', left: revenue, right: { kind: 'literal', value: 2 } },
+      ),
+      'HQ_DEPLOYMENT_INVALID_VALUE',
+      '$.datasets[0].metrics[0].derivation.expression.right',
+    );
+    // Both positions that do accept one stay accepted.
+    expect(withFormula(
+      call('round', [ref('revenue'), { kind: 'literal', value: 2 }]),
+      call('round', [revenue, { kind: 'literal', value: 2 }]),
+    )()).toBeDefined();
+    expect(withFormula(
+      call('coalesce', [ref('revenue'), { kind: 'literal', value: 0 }]),
+      call('coalesce', [revenue, { kind: 'literal', value: 0 }]),
+    )()).toBeDefined();
   });
 
   it('requires a grained metric fixed grain to be supported by the metric', () => {

@@ -463,6 +463,62 @@ function validateRelationship(
   }) as unknown as ProtocolDatasetRelationship;
 }
 
+/**
+ * The subset of the expression grammar a derived metric's formula may use.
+ *
+ * `validateProtocolExpression` accepts the whole of RFC 0003, which is wider
+ * than anything a formula can be written in: it permits comparisons, logical
+ * operators, a bare aggregate, and a one-argument `round`. A `derivation` exists
+ * to be rebuilt and executed, so accepting a form nothing can rebuild would
+ * publish a contract that validates and then fails at the point of use. The
+ * grammar is pinned here, in the artifact that defines the field, rather than
+ * left to whichever runtime happens to read it.
+ */
+function validateFormulaGrammar(expression: unknown, path: string): void {
+  const node = expression as DataRecord;
+  const operand = (child: unknown, childPath: string) => validateFormulaGrammar(child, childPath);
+  const numericLiteral = (child: unknown, childPath: string) => {
+    const candidate = child as DataRecord;
+    if (candidate?.kind !== 'literal' || typeof candidate.value !== 'number') {
+      deploymentError('HQ_DEPLOYMENT_INVALID_VALUE', childPath);
+    }
+  };
+  switch (node.kind) {
+    case 'reference':
+      return;
+    case 'binary':
+      // Arithmetic only, and never over a bare value: the authoring helpers
+      // take a name or another expression, never a literal.
+      if (!['add', 'subtract', 'multiply', 'divide'].includes(node.operator as string)) {
+        deploymentError('HQ_DEPLOYMENT_INVALID_VALUE', `${path}.operator`);
+      }
+      operand(node.left, `${path}.left`);
+      operand(node.right, `${path}.right`);
+      return;
+    case 'call': {
+      const args = node.args as readonly unknown[];
+      const expected = node.function === 'round' || node.function === 'coalesce' ? 2 : 1;
+      if (!['nullIfZero', 'coalesce', 'round', 'floor', 'ceil'].includes(node.function as string)) {
+        deploymentError('HQ_DEPLOYMENT_INVALID_VALUE', `${path}.function`);
+      }
+      if (args.length !== expected) {
+        deploymentError('HQ_DEPLOYMENT_INVALID_VALUE', `${path}.args`);
+      }
+      operand(args[0], `${path}.args[0]`);
+      if (node.function === 'round') numericLiteral(args[1], `${path}.args[1]`);
+      // A `coalesce` fallback is the one position accepting a bare value.
+      if (node.function === 'coalesce' && (args[1] as DataRecord)?.kind === 'literal') {
+        numericLiteral(args[1], `${path}.args[1]`);
+      } else if (node.function === 'coalesce') {
+        operand(args[1], `${path}.args[1]`);
+      }
+      return;
+    }
+    default:
+      deploymentError('HQ_DEPLOYMENT_INVALID_VALUE', path);
+  }
+}
+
 /** Structural equality over two already-validated expressions. */
 function sameExpression(left: unknown, right: unknown): boolean {
   if (left === right) return true;
@@ -542,6 +598,13 @@ function validateDerivation(
     () => validateProtocolExpression(value.expression),
     `${path}.expression`,
   );
+  validateFormulaGrammar(expression, `${path}.expression`);
+  // A formula that is a bare reference names one of its inputs instead of
+  // combining them. The authoring API cannot produce it — a formula must return
+  // a composed expression — so nothing could rebuild it.
+  if ((expression as DataRecord).kind === 'reference') {
+    deploymentError('HQ_DEPLOYMENT_INVALID_VALUE', `${path}.expression`);
+  }
   // The two forms must describe one formula. Substituting the inputs back into
   // the authored form has to reproduce the inlined one exactly, or the contract
   // advertises a meaning its aliases do not compute.
@@ -613,10 +676,13 @@ function validateMetric(
   };
   if (grain !== undefined) result.grain = grain;
   if (value.derivation !== undefined) {
-    // `kind` conflates grain with derivation: a derived metric pinned to a
-    // grain is reported as `grained-metric`, so both kinds may carry a formula.
-    // A plain `metric` is a bare aggregate and has none.
-    if (value.kind !== 'derived-metric' && value.kind !== 'grained-metric') {
+    // Eligibility follows the expression, not `kind`. `kind` conflates grain
+    // with derivation — a derived metric pinned to a grain reports
+    // `grained-metric` — so it can neither confirm nor deny that a formula
+    // exists. A metric whose expression is a bare aggregate has none, whatever
+    // its kind says, and a derivation attached to one describes something the
+    // metric does not do.
+    if ((result.expression as DataRecord).kind === 'aggregate') {
       deploymentError('HQ_DEPLOYMENT_INVALID_VALUE', `${path}.derivation`);
     }
     result.derivation = validateDerivation(
