@@ -174,3 +174,24 @@ export type {
   DeploymentHostErrorCode,
   DeploymentHostOptions,
 } from './host.js';
+
+// Semantic invocation beside named-query execution (decision 0002).
+export {
+  createDeploymentSemanticDataPlane,
+  DeploymentSemanticInvocationError,
+  toProtocolSemanticInvocationFailure,
+} from './semantic-data-plane.js';
+export type {
+  DeploymentSemanticAuthenticationInput,
+  DeploymentSemanticBudget,
+  DeploymentSemanticDataPlane,
+  DeploymentSemanticDataPlaneOptions,
+  DeploymentSemanticExecutionInput,
+  DeploymentSemanticInvocationRequest,
+  DeploymentSemanticTenantInput,
+} from './semantic-data-plane.js';
+export { validateSemanticOperation } from './semantic-operation-validation.js';
+export type {
+  SemanticOperationLimits,
+  SemanticOperationViolation,
+} from './semantic-operation-validation.js';

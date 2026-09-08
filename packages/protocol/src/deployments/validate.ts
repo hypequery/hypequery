@@ -740,16 +740,19 @@ function validateReferences(contract: ProtocolDeploymentContract): void {
           `$.datasets[${datasetIndex}].metrics[${metricIndex}].grains`,
         );
       }
-      if (dataset.tenant.kind === 'required' && metric.endpoint.tenant.kind !== 'required') {
+      // Biconditional, as for a compiled-SQL query below. An endpoint that
+      // requires a tenant over a dataset carrying no tenant field resolves one
+      // and then has no column to scope by, so the query reads every tenant
+      // while both layers believe tenancy was enforced.
+      if ((dataset.tenant.kind === 'required') !== (metric.endpoint.tenant.kind === 'required')) {
         deploymentError(
           'HQ_DEPLOYMENT_INVALID_REFERENCE',
           `$.datasets[${datasetIndex}].metrics[${metricIndex}].endpoint.tenant`,
         );
       }
     }
-    if (dataset.tenant.kind === 'required'
-      && dataset.endpoint !== undefined
-      && dataset.endpoint.tenant.kind !== 'required') {
+    if (dataset.endpoint !== undefined
+      && (dataset.tenant.kind === 'required') !== (dataset.endpoint.tenant.kind === 'required')) {
       deploymentError(
         'HQ_DEPLOYMENT_INVALID_REFERENCE',
         `$.datasets[${datasetIndex}].endpoint.tenant`,
