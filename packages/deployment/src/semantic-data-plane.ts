@@ -1,3 +1,8 @@
+import { DeploymentSemanticInvocationError, fail, throwIfAborted } from './semantic-invocation-errors.js';
+export { DeploymentSemanticInvocationError, toProtocolSemanticInvocationFailure } from './semantic-invocation-errors.js';
+import { definedLimits, lowest, tighten } from './utils/semantic-budget-limits.js';
+import { missing } from './utils/required-access.js';
+
 /**
  * Semantic invocation beside named-query execution.
  *
@@ -18,8 +23,6 @@ import type {
   ProtocolDeploymentContract,
   ProtocolEndpointPolicy,
   ProtocolSemanticInvocation,
-  ProtocolSemanticInvocationFailure,
-  ProtocolSemanticInvocationFailureCategory,
   ProtocolSemanticInvocationResult,
   ProtocolSemanticQuery,
 } from '@hypequery/protocol';
@@ -34,73 +37,6 @@ import {
   validateSemanticOperation,
   type SemanticOperationLimits,
 } from './semantic-operation-validation.js';
-
-/** A failure that already carries the public category a caller should see. */
-export class DeploymentSemanticInvocationError extends Error {
-  readonly category: ProtocolSemanticInvocationFailureCategory;
-  readonly code: string;
-  readonly path?: string;
-  readonly retryable: boolean;
-  readonly relist: boolean;
-
-  constructor(
-    category: ProtocolSemanticInvocationFailureCategory,
-    code: string,
-    message: string,
-    options: {
-      readonly path?: string;
-      readonly cause?: unknown;
-      readonly retryable?: boolean;
-      readonly relist?: boolean;
-    } = {},
-  ) {
-    super(message, options.cause === undefined ? undefined : { cause: options.cause });
-    this.name = 'DeploymentSemanticInvocationError';
-    this.category = category;
-    this.code = code;
-    this.path = options.path;
-    this.retryable = options.retryable ?? false;
-    this.relist = options.relist ?? false;
-  }
-}
-
-function fail(
-  category: ProtocolSemanticInvocationFailureCategory,
-  code: string,
-  message: string,
-  options: {
-    readonly path?: string;
-    readonly cause?: unknown;
-    readonly retryable?: boolean;
-    readonly relist?: boolean;
-  } = {},
-): never {
-  throw new DeploymentSemanticInvocationError(category, code, message, options);
-}
-
-/**
- * Projects a failure onto the portable record.
- *
- * The message is deliberately the one this module produced. A cause is never
- * unwrapped into it, so a provider exception cannot reach a caller.
- */
-export function toProtocolSemanticInvocationFailure(
-  error: unknown,
-  activationRevision?: string,
-): ProtocolSemanticInvocationFailure {
-  const known = error instanceof DeploymentSemanticInvocationError;
-  return Object.freeze({
-    kind: 'hypequery-semantic-invocation-failure',
-    version: 1,
-    category: known ? error.category : 'executor-failed',
-    code: known ? error.code : 'HQ_SEMANTIC_EXECUTION_FAILED',
-    message: known ? error.message : 'Semantic invocation failed.',
-    ...(known && error.path !== undefined ? { path: error.path } : {}),
-    retryable: known ? error.retryable : false,
-    relist: known ? error.relist : false,
-    ...(activationRevision === undefined ? {} : { activationRevision }),
-  }) as ProtocolSemanticInvocationFailure;
-}
 
 /** The ceilings that survived after every source was applied. */
 export interface DeploymentSemanticBudget {
@@ -175,36 +111,6 @@ const DEFAULT_LIMITS: SemanticOperationLimits = Object.freeze({
 });
 
 const REVISION_PATTERN = /^[0-9a-f]{64}$/;
-
-function throwIfAborted(signal: AbortSignal | undefined): void {
-  if (signal?.aborted) {
-    fail('cancelled', 'HQ_SEMANTIC_CANCELLED', 'The invocation was cancelled.');
-  }
-}
-
-function missing(required: readonly string[], held: readonly string[] | undefined): boolean {
-  const available = new Set(held ?? []);
-  return required.some(value => !available.has(value));
-}
-
-/** Drops explicitly-undefined properties, so a spread cannot erase a default. */
-function definedLimits<T extends object>(limits: T | undefined): Partial<T> {
-  if (limits === undefined) return {};
-  return Object.fromEntries(
-    Object.entries(limits).filter(([, value]) => value !== undefined),
-  ) as Partial<T>;
-}
-
-/** The lowest of every ceiling that applies. A caller can tighten, never widen. */
-function lowest(...values: readonly (number | undefined)[]): number | undefined {
-  const finite = values.filter((value): value is number => value !== undefined);
-  return finite.length === 0 ? undefined : Math.min(...finite);
-}
-
-/** A declared ceiling under a server one; declaring nothing leaves the server's. */
-function tighten(declared: number | undefined, ceiling: number): number {
-  return declared === undefined ? ceiling : Math.min(declared, ceiling);
-}
 
 export function createDeploymentSemanticDataPlane(
   options: DeploymentSemanticDataPlaneOptions,
