@@ -31,9 +31,12 @@ hop, keeps its *dimensions*, because a join carries exactly those — each group
 filterable one under the full operator set — so they are genuinely reachable and
 dropping one would both invalidate a metric declaring it across the join and
 advertise less than execution accepts. Its measures and declared filters narrow
-like any other, because a join never made them reachable. Reach does not
-compound: `resolveDataset` does not recurse, so a second-hop dataset stays in
-the contract for the chain to validate and is stripped like any other
+like any other, because a join never made them reachable. How much reach depends on the route: a directly
+queryable dataset grants all of a target's dimensions, while a dataset the
+principal holds only a metric on grants only the qualified dimensions that
+metric declares, because `narrowToMetric` confines the call to those. Reach does
+not compound either — `resolveDataset` does not recurse, so a second-hop dataset
+stays in the contract for the chain to validate and is stripped like any other
 unreachable one, and a relationship that is not queryable carries no reach at
 all.
 

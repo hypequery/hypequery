@@ -296,6 +296,39 @@ describe('authorized contract projection', () => {
     expect(projected.contract.datasets[0].metrics[0].dimensions).toEqual(['customer.id']);
   });
 
+  it('grants a metric-only route only the dimensions its metrics name', () => {
+    // A dataset query may group by any of a target's groupable dimensions, so a
+    // queryable route grants all of them. A metric call is confined by
+    // `narrowToMetric` to the dimensions that metric declares, so a route held
+    // only through a metric grants exactly those and nothing beside them.
+    const source = contract({
+      datasets: [
+        dataset('orders', {
+          endpoint: FINANCE,
+          relationships: [{
+            name: 'customer', kind: 'belongsTo', target: 'customers', from: 'id', to: 'id', queryable: true,
+          }],
+          metrics: [metric('open', ANALYST, { dimensions: ['customer.tier'] })],
+        }),
+        dataset('customers', {
+          endpoint: FINANCE,
+          dimensions: [
+            { name: 'id', type: 'number', source: { kind: 'column', column: 'id' }, filterable: true, groupable: true },
+            { name: 'tier', type: 'string', source: { kind: 'column', column: 'tier' }, filterable: true, groupable: true },
+            { name: 'creditLimit', type: 'number', source: { kind: 'column', column: 'credit' }, filterable: true, groupable: true },
+          ],
+        }),
+      ],
+    });
+
+    const customers = projectAuthorizedDeploymentContract(source, analyst)
+      .contract.datasets.find(entry => entry.name === 'customers')!;
+
+    // `customer.tier` is declared by the authorized metric; the rest is not
+    // reachable through it, and `orders` itself cannot be queried directly.
+    expect(customers.dimensions.map(entry => String(entry.name))).toEqual(['tier']);
+  });
+
   it('does not carry reach a second hop, which execution does not either', () => {
     // `resolveDataset` offers `<relationship>.<dimension>` for a relationship's
     // own target and does not recurse, so nothing published can reach a
