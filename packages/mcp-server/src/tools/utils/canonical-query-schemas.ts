@@ -40,8 +40,17 @@ function withLegacyDirectMetrics(
 export function buildMCPQuerySchemas(
   datasets: DatasetRegistry,
   configured?: MCPQueryLimits,
+  /**
+   * Datasets offered as a `query_dataset` target. Defaults to all of them.
+   *
+   * A dataset outside this list keeps its metrics and its joins; it is only
+   * withheld as a direct target, which a hosted gateway needs when a caller is
+   * entitled to a metric on a dataset it may not query itself.
+   */
+  queryableDatasets?: readonly string[],
 ): CanonicalSemanticQuerySchemas {
   const limits = resolveQueryLimits(undefined, configured);
+  const queryable = queryableDatasets === undefined ? undefined : new Set(queryableDatasets);
   const entries = Object.entries(datasets).sort(([left], [right]) => (
     left < right ? -1 : left > right ? 1 : 0
   ));
@@ -65,7 +74,11 @@ export function buildMCPQuerySchemas(
   if (entries.every(([, dataset]) => isCanonicalSchemaSource(dataset))) {
     return buildCanonicalSemanticQuerySchemas(
       withLegacyDirectMetrics(datasets),
-      { grainField: 'grain', ...limits },
+      {
+        grainField: 'grain',
+        ...limits,
+        ...(queryableDatasets === undefined ? {} : { queryableDatasets }),
+      },
     );
   }
 
@@ -80,9 +93,11 @@ export function buildMCPQuerySchemas(
         withLegacyDirectMetrics({ [name]: dataset }),
         { grainField: 'grain', ...limits },
       );
-      datasetSchemas.push(exact.queryDataset);
+      if (queryable === undefined || queryable.has(name)) {
+        datasetSchemas.push(exact.queryDataset);
+        datasetJsonSchemas.push(exact.queryDatasetJsonSchema);
+      }
       metricSchemas.push(exact.queryMetric);
-      datasetJsonSchemas.push(exact.queryDatasetJsonSchema);
       metricJsonSchemas.push(exact.queryMetricJsonSchema);
     } else {
       // Keep compatibility local to the legacy entry. A registry-wide fallback
@@ -92,14 +107,16 @@ export function buildMCPQuerySchemas(
         dataset: z.literal(name),
         metric: z.string().min(1),
       });
-      datasetSchemas.push(queryDataset);
+      if (queryable === undefined || queryable.has(name)) {
+        datasetSchemas.push(queryDataset);
+        datasetJsonSchemas.push(advertiseDatasetQueryLimits(
+          toSemanticJsonSchema(queryDataset),
+          { [name]: dataset },
+          configured,
+          true,
+        ));
+      }
       metricSchemas.push(queryMetric);
-      datasetJsonSchemas.push(advertiseDatasetQueryLimits(
-        toSemanticJsonSchema(queryDataset),
-        { [name]: dataset },
-        configured,
-        true,
-      ));
       metricJsonSchemas.push(advertiseDatasetQueryLimits(
         toSemanticJsonSchema(queryMetric),
         { [name]: dataset },
@@ -109,10 +126,17 @@ export function buildMCPQuerySchemas(
     }
   }
 
-  const queryDataset = unionSchemas(datasetSchemas);
-  const queryMetric = unionSchemas(metricSchemas);
-  const queryDatasetJsonSchema = unionJsonSchemas(datasetJsonSchemas);
-  const queryMetricJsonSchema = unionJsonSchemas(metricJsonSchemas);
+  const queryDataset = unionSchemas(datasetSchemas, z.object({ dataset: z.never() }).strict());
+  const queryMetric = unionSchemas(
+    metricSchemas,
+    z.object({ dataset: z.never(), metric: z.never() }).strict(),
+  );
+  const queryDatasetJsonSchema = unionJsonSchemas(
+    datasetJsonSchemas, toSemanticJsonSchema(queryDataset),
+  );
+  const queryMetricJsonSchema = unionJsonSchemas(
+    metricJsonSchemas, toSemanticJsonSchema(queryMetric),
+  );
   const manifestHash = createHash('sha256').update(JSON.stringify({
     query_dataset: queryDatasetJsonSchema,
     query_metric: queryMetricJsonSchema,
@@ -134,7 +158,10 @@ function isCanonicalSchemaSource(dataset: unknown): dataset is DatasetCatalogSou
     || ('requiresTenant' in source && 'supportedGrains' in source && 'orderableFields' in source);
 }
 
-function unionSchemas(schemas: ZodTypeAny[]): ZodTypeAny {
+function unionSchemas(schemas: ZodTypeAny[], empty: ZodTypeAny): ZodTypeAny {
+  // No variants means nothing is offered under this tool. `z.union([])` throws,
+  // and a permissive fallback would advertise every dataset instead of none.
+  if (schemas.length === 0) return empty;
   return schemas.length === 1
     ? schemas[0]
     : z.union(schemas as [ZodTypeAny, ZodTypeAny, ...ZodTypeAny[]]);
@@ -142,7 +169,9 @@ function unionSchemas(schemas: ZodTypeAny[]): ZodTypeAny {
 
 function unionJsonSchemas(
   schemas: CanonicalSemanticQuerySchemas['queryDatasetJsonSchema'][],
+  empty: CanonicalSemanticQuerySchemas['queryDatasetJsonSchema'],
 ): CanonicalSemanticQuerySchemas['queryDatasetJsonSchema'] {
+  if (schemas.length === 0) return empty;
   return schemas.length === 1
     ? schemas[0]
     : { type: 'object', anyOf: schemas };
