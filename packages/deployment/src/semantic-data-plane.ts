@@ -469,9 +469,14 @@ export function createDeploymentSemanticDataPlane(
       fail('output-invalid', 'HQ_SEMANTIC_OUTPUT_INVALID',
         'The executor served a different activation than the one selected.');
     }
-    if (result.data.length > budget.maxRows) {
+    // The caller's own `limit` is part of what it was allowed to ask for, and
+    // validation already proved it is no larger than the budget. An executor
+    // that returns more rows than were requested widened the request just as
+    // surely as one that exceeded the budget.
+    const maxRows = Math.min(budget.maxRows, operation.limit ?? budget.maxRows);
+    if (result.data.length > maxRows) {
       fail('budget-exceeded', 'HQ_SEMANTIC_BUDGET_EXCEEDED',
-        `The result has ${result.data.length} rows; the effective limit is ${budget.maxRows}.`);
+        `The result has ${result.data.length} rows; the effective limit is ${maxRows}.`);
     }
     if (budget.maxResponseBytes !== undefined) {
       const bytes = new TextEncoder().encode(JSON.stringify(result)).byteLength;
