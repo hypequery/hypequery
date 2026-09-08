@@ -21,17 +21,14 @@ import type {
 } from '@hypequery/protocol';
 import { validateProtocolDeploymentContract } from '@hypequery/protocol';
 import type { DeploymentDataPlanePrincipal } from './data-plane.js';
-
-function holdsAll(required: readonly string[], held: readonly string[] | undefined): boolean {
-  const available = new Set(held ?? []);
-  return required.every(value => available.has(value));
-}
+import { missing } from './utils/required-access.js';
 
 /**
  * Whether a principal satisfies an access policy.
  *
- * The same test the semantic data plane makes before it will execute: every
- * declared role and every declared scope, not any of them.
+ * Shares `missing` with the semantic data plane rather than restating it, which
+ * is the whole point of this module existing in Core: one predicate, so
+ * discovery cannot come to answer differently than execution.
  */
 export function satisfiesDeploymentAccess(
   access: ProtocolAccessPolicy,
@@ -39,7 +36,7 @@ export function satisfiesDeploymentAccess(
 ): boolean {
   if (access.kind === 'public') return true;
   if (!principal) return false;
-  return holdsAll(access.roles, principal.roles) && holdsAll(access.scopes, principal.scopes);
+  return !missing(access.roles, principal.roles) && !missing(access.scopes, principal.scopes);
 }
 
 /** Whether a principal may reach a target published under this endpoint policy. */
