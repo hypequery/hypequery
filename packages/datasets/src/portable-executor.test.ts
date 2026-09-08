@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import {
   createPortableSemanticExecutor,
   PortableExecutionBudgetError,
+  PortableExecutionTenantError,
   PortableExecutionUnsupportedError,
   type PortableSemanticExecutionInput,
 } from './portable-executor.js';
@@ -111,6 +112,22 @@ function recordingFactory(rows: Record<string, unknown>[] = [{ status: 'paid', r
   return { factory, sql, signals };
 }
 
+/** The same contract with no tenant field, published through a public endpoint. */
+function untenantedDeployment() {
+  const base = deployment();
+  const [dataset] = base.datasets;
+  const open = { access: { kind: 'public' }, tenant: { kind: 'not-required' } } as const;
+  return validateProtocolDeploymentContract({
+    ...base,
+    datasets: [{
+      ...dataset,
+      tenant: { kind: 'not-required' },
+      metrics: dataset.metrics.map(metric => ({ ...metric, endpoint: open })),
+      endpoint: open,
+    }],
+  });
+}
+
 function input(
   overrides: Partial<PortableSemanticExecutionInput> = {},
   contract = deployment(),
@@ -169,6 +186,23 @@ describe('portable semantic execution', () => {
 
     expect(sql[0]).toContain('tenant_id');
     expect(sql[0]).toContain('acme');
+  });
+
+  it('refuses a resolved tenant it has no field to scope by', async () => {
+    const { factory, sql } = recordingFactory();
+    const execute = createPortableSemanticExecutor({ queryBuilder: factory });
+    // The contract validator refuses to pair a tenant-requiring endpoint with
+    // this dataset, but the executor is exported on its own and typed
+    // structurally, so it cannot assume a caller went through that validator.
+    const contract = untenantedDeployment();
+
+    await expect(execute(input({ tenant: 'acme' }, contract)))
+      .rejects.toThrow(PortableExecutionTenantError);
+    // Refused before the query was built, not filtered out of the results.
+    expect(sql).toHaveLength(0);
+    // A dataset with no tenant field is still served when no tenant is resolved.
+    await execute(input({ tenant: undefined }, contract));
+    expect(sql).toHaveLength(1);
   });
 
   // -- fail closed ---------------------------------------------------------

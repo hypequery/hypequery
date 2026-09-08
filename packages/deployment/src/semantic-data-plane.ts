@@ -180,14 +180,17 @@ const REVISION_PATTERN = /^[0-9a-f]{64}$/;
  * Categories an injected executor may claim for itself.
  *
  * Execution is injected, so the executor is the only component that knows the
- * difference between "this query broke" and "this deployment cannot express
- * that". An executor opts into the vocabulary by throwing an error carrying a
- * known `category`; anything else stays `executor-failed`.
+ * difference between "this query broke", "this deployment cannot express that",
+ * and "this deployment is incoherent". Every category here is one only the
+ * executor can determine; the ones it must never claim — `unauthenticated`,
+ * `forbidden`, `cancelled`, `stale-activation` — are decided by this module and
+ * are deliberately absent.
  */
 const EXECUTOR_CATEGORIES: ReadonlySet<string> = new Set([
   'unsupported-capability',
   'budget-exceeded',
   'tenant-required',
+  'configuration-invalid',
   'not-found',
   'input-invalid',
   'output-invalid',
@@ -196,6 +199,7 @@ const EXECUTOR_CATEGORIES: ReadonlySet<string> = new Set([
 ]);
 
 interface ExecutorFailureShape {
+  readonly hypequerySemanticFailure?: unknown;
   readonly category?: unknown;
   readonly code?: unknown;
   readonly message?: unknown;
@@ -203,7 +207,18 @@ interface ExecutorFailureShape {
   readonly relist?: unknown;
 }
 
-/** The category an executor claimed, when it claimed one this layer accepts. */
+/**
+ * The category an executor claimed, when it deliberately claimed one.
+ *
+ * The `hypequerySemanticFailure` marker, not the shape of the error, is what
+ * grants the claim. Allow-listing a `category` string alone would let a
+ * provider or library exception that happens to carry a generic one — a
+ * `not-found` from an HTTP client, say — put its own message in front of a
+ * caller and decide whether the call is retried. This module refuses to unwrap
+ * a cause for exactly that reason, and duck-typing would have reopened the door
+ * beside it. An error without the marker stays `executor-failed` with the
+ * generic message.
+ */
 function claimedFailure(error: unknown): {
   category: ProtocolSemanticInvocationFailureCategory;
   code: string;
@@ -213,6 +228,7 @@ function claimedFailure(error: unknown): {
 } | undefined {
   if (typeof error !== 'object' || error === null) return undefined;
   const shape = error as ExecutorFailureShape;
+  if (shape.hypequerySemanticFailure !== true) return undefined;
   if (typeof shape.category !== 'string' || !EXECUTOR_CATEGORIES.has(shape.category)) {
     return undefined;
   }
@@ -221,8 +237,6 @@ function claimedFailure(error: unknown): {
     code: typeof shape.code === 'string' && /^[A-Z][A-Z0-9_]*$/.test(shape.code)
       ? shape.code
       : 'HQ_SEMANTIC_EXECUTION_FAILED',
-    // Only an executor that opted into the vocabulary has its message
-    // forwarded; a raw provider exception keeps the generic one.
     message: typeof shape.message === 'string' ? shape.message : 'Semantic execution failed.',
     retryable: shape.retryable === true,
     relist: shape.relist === true,
