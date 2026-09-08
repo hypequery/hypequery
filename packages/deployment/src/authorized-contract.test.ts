@@ -296,6 +296,72 @@ describe('authorized contract projection', () => {
     expect(projected.contract.datasets[0].metrics[0].dimensions).toEqual(['customer.id']);
   });
 
+  it('does not carry reach a second hop, which execution does not either', () => {
+    // `resolveDataset` offers `<relationship>.<dimension>` for a relationship's
+    // own target and does not recurse, so nothing published can reach a
+    // second-hop dataset's fields. It has to stay in the contract for the chain
+    // to validate; it must not be advertised with a schema it never exposed.
+    const source = contract({
+      datasets: [
+        dataset('orders', {
+          endpoint: ANALYST,
+          relationships: [{
+            name: 'customer', kind: 'belongsTo', target: 'customers', from: 'id', to: 'id', queryable: true,
+          }],
+        }),
+        dataset('customers', {
+          endpoint: FINANCE,
+          relationships: [{
+            name: 'region', kind: 'belongsTo', target: 'regions', from: 'id', to: 'id', queryable: true,
+          }],
+        }),
+        dataset('regions', {
+          endpoint: FINANCE,
+          dimensions: [
+            { name: 'id', type: 'number', source: { kind: 'column', column: 'id' }, filterable: true, groupable: true },
+            { name: 'costCentre', type: 'string', source: { kind: 'column', column: 'cc' }, filterable: true, groupable: true },
+          ],
+        }),
+      ],
+    });
+
+    const projected = projectAuthorizedDeploymentContract(source, analyst);
+    const at = (name: string) => projected.contract.datasets.find(entry => entry.name === name)!;
+
+    // One hop from a dataset the principal can query: reachable, so kept.
+    expect(at('customers').dimensions.map(entry => String(entry.name))).toEqual(['id']);
+    // Two hops: present so the chain validates, and stripped.
+    expect(at('regions').dimensions).toEqual([]);
+    expect(projected.advertised).toEqual(['orders']);
+  });
+
+  it('does not treat a non-queryable relationship as carrying reach', () => {
+    // `resolveDataset` skips a relationship that is not queryable, so its target
+    // is no more reachable than a dataset nothing points at.
+    const source = contract({
+      datasets: [
+        dataset('orders', {
+          endpoint: ANALYST,
+          relationships: [{
+            name: 'audit', kind: 'hasMany', target: 'audits', from: 'id', to: 'id', queryable: false,
+          }],
+        }),
+        dataset('audits', {
+          endpoint: FINANCE,
+          dimensions: [{
+            name: 'actor', type: 'string', source: { kind: 'column', column: 'actor' },
+            filterable: true, groupable: true,
+          }],
+        }),
+      ],
+    });
+
+    const projected = projectAuthorizedDeploymentContract(source, analyst);
+
+    expect(projected.contract.datasets.find(entry => entry.name === 'audits')!.dimensions)
+      .toEqual([]);
+  });
+
   it('follows a relationship chain so the projection still validates', () => {
     const source = contract({
       datasets: [

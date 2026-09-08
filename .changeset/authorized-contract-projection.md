@@ -26,12 +26,16 @@ A dataset reached only through its own metrics is also narrowed to what those
 metrics expose — their declared dimensions and filters, the measures their
 expressions can bind to, and the time field the planner needs. Execution already
 confines a metric call to that surface, so advertising the containing dataset
-whole would describe fields the caller was never granted. A dataset something published joins to keeps its *dimensions*, because a join
-carries exactly those — each groupable one as `<relationship>.<name>`, each
+whole would describe fields the caller was never granted. A dataset that something the principal can query joins to, across one queryable
+hop, keeps its *dimensions*, because a join carries exactly those — each groupable one as `<relationship>.<name>`, each
 filterable one under the full operator set — so they are genuinely reachable and
 dropping one would both invalidate a metric declaring it across the join and
 advertise less than execution accepts. Its measures and declared filters narrow
-like any other, because a join never made them reachable.
+like any other, because a join never made them reachable. Reach does not
+compound: `resolveDataset` does not recurse, so a second-hop dataset stays in
+the contract for the chain to validate and is stripped like any other
+unreachable one, and a relationship that is not queryable carries no reach at
+all.
 
 Rehydrate `contract` so relationship targets still resolve, then pass
 `advertised` as the registry and `queryable` as `queryableDatasets`.
