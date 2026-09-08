@@ -432,6 +432,8 @@ export class QueryBuilder<
     columns: Columns
   ): QueryBuilder<Schema, AddCte<State, Alias, Columns>>;
   withCTE(alias: string, sql: string): this;
+  // Preserve callers whose body is chosen dynamically from SQL or a builder.
+  withCTE(alias: string, subquery: QueryBuilder<any, AnyBuilderState> | string): this;
   withCTE(
     alias: string,
     subquery: QueryBuilder<any, AnyBuilderState> | string,

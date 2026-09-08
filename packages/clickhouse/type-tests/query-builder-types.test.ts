@@ -474,3 +474,7 @@ const literalAfterDynamic = dynamicRawCte
   .select(['id', 'active_users.user_name']);
 type LiteralAfterDynamicResult = Awaited<ReturnType<typeof literalAfterDynamic.execute>>;
 type AssertLiteralAfterDynamic = Expect<Equal<LiteralAfterDynamicResult, { id: number; user_name: string }[]>>;
+
+// The original API accepts a body selected dynamically between SQL and a builder.
+const unionCteBody = Math.random() > 0.5 ? 'SELECT id FROM users' : activeUsers;
+builder.withCTE('dynamic_body', unionCteBody).select(['id']);
