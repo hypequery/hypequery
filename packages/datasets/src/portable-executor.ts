@@ -284,10 +284,14 @@ export function createPortableSemanticExecutor(
   return async function execute(
     input: PortableSemanticExecutionInput,
   ): Promise<ProtocolSemanticInvocationResult> {
-    if (input.metric?.kind === 'derived-metric') {
+    if (input.metric?.kind === 'derived-metric' && input.metric.derivation === undefined) {
+      // A derived metric is executable once the contract carries the formula in
+      // the shape it was authored in. One written before that field existed
+      // still states only what the metric means, not the aliases its SQL is
+      // written in terms of, so it stays excluded rather than approximated.
       throw new PortableExecutionUnsupportedError(
-        `Metric "${String(input.metric.name)}" is derived, and deployment contract v1 does not `
-        + 'carry the symbolic expression portable execution needs to plan it.',
+        `Metric "${String(input.metric.name)}" is derived, and this deployment contract does not `
+        + 'carry the authored formula portable execution needs to plan it.',
       );
     }
 

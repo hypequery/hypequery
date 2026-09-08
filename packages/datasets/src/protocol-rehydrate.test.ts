@@ -9,6 +9,7 @@ import { projectAgentSafeCatalog } from './agent-catalog.js';
 import { getDatasetCatalog } from './catalog.js';
 import { dataset } from './dataset.js';
 import { dimension } from './field.js';
+import { divide, nullIfZero, round } from './formulas.js';
 import { measure } from './measure.js';
 import { buildProtocolDatasetContract } from './protocol-adapter.js';
 import {
@@ -42,6 +43,36 @@ function roundTrip(
     metricEndpoints: Object.fromEntries(
       contract.metrics.map(metric => [metric.name, metric.endpoint]),
     ),
+  });
+}
+
+/**
+ * A dataset carrying a derived metric, authored rather than hand-written, so
+ * the contract under test is the one the adapter actually emits.
+ */
+function derivedContract() {
+  const Orders = dataset('orders', {
+    source: 'analytics.orders',
+    dimensions: {
+      status: dimension.string(),
+      amount: dimension.number({ column: 'amount_cents', groupable: false }),
+    },
+    measures: {
+      revenue: measure.sum('amount'),
+      orders: measure.count('status'),
+    },
+  });
+  const averageOrderValue = Orders.metric('averageOrderValue', {
+    uses: {
+      revenue: Orders.metric('revenue', { measure: 'revenue' }),
+      orders: Orders.metric('orders', { measure: 'orders' }),
+    },
+    formula: ({ revenue, orders }) => round(divide(revenue, nullIfZero(orders)), 2),
+  });
+  return buildProtocolDatasetContract(Orders as never, {
+    endpoint: PUBLIC_ENDPOINT as never,
+    metrics: { averageOrderValue } as never,
+    metricEndpoints: { averageOrderValue: PUBLIC_ENDPOINT as never },
   });
 }
 
@@ -275,16 +306,27 @@ describe('contract-to-catalog rehydration', () => {
       .toEqual(['customer.country', 'customer.id']);
   });
 
-  it('fails closed on a derived metric until its expression is carried', () => {
-    const derived = {
-      ...deployment.datasets[0],
-      metrics: [{ ...deployment.datasets[0].metrics[0], kind: 'derived-metric' as const }],
-    };
+  it('round-trips a derived metric through its authored formula', () => {
+    const contract = derivedContract();
 
-    expect(() => rehydrateProtocolDatasets([derived]))
+    const registry = rehydrateProtocolDatasets([contract]);
+
+    expect(roundTrip(contract, registry as never)).toEqual(contract);
+  });
+
+  it('fails closed on a derived metric whose formula the contract does not carry', () => {
+    // A contract written before `derivation` existed. Its inlined expression
+    // states what the metric means but not the aliases its SQL is written in
+    // terms of, so a rebuild would compute the same number through different
+    // SQL — which decision 0005 excludes rather than accepts.
+    const { derivation, ...metric } = derivedContract().metrics[0];
+    const stripped = { ...derivedContract(), metrics: [metric] };
+
+    expect(derivation).toBeDefined();
+    expect(() => rehydrateProtocolDatasets([stripped as never]))
       .toThrow(UnsupportedContractFeatureError);
-    expect(() => rehydrateProtocolDatasets([derived]))
-      .toThrow(/does not carry/);
+    expect(() => rehydrateProtocolDatasets([stripped as never]))
+      .toThrow(/requires its authored formula/);
   });
 
   it('fails closed on a metric with no matching measure', () => {

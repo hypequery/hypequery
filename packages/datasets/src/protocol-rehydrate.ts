@@ -16,11 +16,14 @@ import type {
   ProtocolDatasetContract,
   ProtocolDatasetMeasure,
   ProtocolDatasetMetric,
+  ProtocolExpression,
+  ProtocolMetricDerivation,
 } from '@hypequery/protocol';
 import { dataset } from './dataset.js';
 import type {
   AnyDatasetInstance,
   DatasetCachePolicy,
+  DerivedMetricConfig,
   DimensionDefinition,
   MeasureDefinition,
   MetricFilter,
@@ -31,6 +34,7 @@ import type {
 } from './types.js';
 import { snapshotSemanticMetadata } from './utils/semantic-metadata.js';
 import { withContractCapabilities } from './utils/protocol-metric-capabilities.js';
+import { rehydrateDerivedFormula } from './utils/protocol-rehydrate-derivation.js';
 import { rehydrateMeasureFilter } from './utils/protocol-rehydrate-filters.js';
 
 /** A rebuilt dataset in the registry shape Serve, MCP, and the planner accept. */
@@ -190,26 +194,22 @@ function aggregationKey(value: {
   ]);
 }
 
-function rehydrateMetric(
+/**
+ * The declared measure an aggregate expression was built from.
+ *
+ * A metric's expression names an aggregation and a field, not the measure that
+ * produced it, so the measure is recovered by matching aggregation identity.
+ */
+function measureForAggregate(
   instance: AnyDatasetInstance,
   contract: ProtocolDatasetContract,
-  metric: ProtocolDatasetMetric,
-): MetricHandle {
-  const name = String(metric.name);
-  if (metric.kind === 'derived-metric') {
-    // The symbolic expression a derived metric needs is not carried by contract
-    // v1; CORE-17 adds it. Until then this fails closed rather than guessing.
-    throw new UnsupportedContractFeatureError(
-      instance.name,
-      `metric "${name}"`,
-      'a derived metric requires its symbolic expression, which deployment contract v1 does not carry',
-    );
-  }
-  const expression = metric.expression;
+  subject: string,
+  expression: ProtocolExpression,
+): string {
   if (expression.kind !== 'aggregate') {
     throw new UnsupportedContractFeatureError(
       instance.name,
-      `metric "${name}"`,
+      subject,
       `expected an aggregate expression, received "${expression.kind}"`,
     );
   }
@@ -220,7 +220,7 @@ function rehydrateMetric(
   if (candidates.length === 0) {
     throw new UnsupportedContractFeatureError(
       instance.name,
-      `metric "${name}"`,
+      subject,
       `no declared measure matches ${expression.aggregation}(${field})`,
     );
   }
@@ -231,20 +231,77 @@ function rehydrateMetric(
   if (distinctSql.size > 1) {
     throw new UnsupportedContractFeatureError(
       instance.name,
-      `metric "${name}"`,
+      subject,
       `${candidates.map(measure => `"${String(measure.name)}"`).join(' and ')} share `
       + `${expression.aggregation}(${field}) but emit different SQL, so the contract cannot `
       + 'say which one this metric was built from',
     );
   }
-  const measureName = candidates[0].name;
+  return String(candidates[0].name);
+}
 
-  const base = instance.metric(name, {
-    measure: measureName,
+/**
+ * Rebuilds the `uses` map and formula of a derived metric.
+ *
+ * Each input becomes a base metric named by its alias, because that alias is
+ * what both plan builders emit as the column of the intermediate aggregate.
+ */
+function derivedMetricConfig(
+  instance: AnyDatasetInstance,
+  contract: ProtocolDatasetContract,
+  subject: string,
+  derivation: ProtocolMetricDerivation,
+): DerivedMetricConfig {
+  const unsupported = (reason: string) => new UnsupportedContractFeatureError(
+    instance.name,
+    subject,
+    reason,
+  );
+  const uses = Object.fromEntries(derivation.inputs.map(input => {
+    const alias = String(input.alias);
+    return [
+      alias,
+      instance.metric(alias, {
+        measure: measureForAggregate(instance, contract, `${subject} input "${alias}"`, input.expression),
+      }),
+    ];
+  })) as DerivedMetricConfig['uses'];
+  return { uses, formula: rehydrateDerivedFormula(derivation, unsupported) };
+}
+
+function rehydrateMetric(
+  instance: AnyDatasetInstance,
+  contract: ProtocolDatasetContract,
+  metric: ProtocolDatasetMetric,
+): MetricHandle {
+  const name = String(metric.name);
+  const subject = `metric "${name}"`;
+  const derived = metric.expression.kind !== 'aggregate';
+  if (derived && metric.derivation === undefined) {
+    // The inlined expression states what a derived metric means but drops the
+    // aliases its SQL is written in terms of. Without them a rebuild computes
+    // the same number through different SQL, which decision 0005 excludes.
+    throw new UnsupportedContractFeatureError(
+      instance.name,
+      subject,
+      'a derived metric requires its authored formula, which this contract does not carry',
+    );
+  }
+
+  const metadata = {
     ...snapshotSemanticMetadata(metric),
     ...(metric.label !== undefined ? { label: metric.label } : {}),
     ...(metric.description !== undefined ? { description: metric.description } : {}),
-  }) as MetricHandle;
+  };
+  const base = (metric.derivation === undefined
+    ? instance.metric(name, {
+      measure: measureForAggregate(instance, contract, subject, metric.expression),
+      ...metadata,
+    })
+    : instance.metric(name, {
+      ...derivedMetricConfig(instance, contract, subject, metric.derivation),
+      ...metadata,
+    })) as MetricHandle;
   const handle = metric.grain === undefined
     ? base
     : (base as { by(grain: TimeGrain): MetricHandle }).by(metric.grain as TimeGrain);

@@ -104,10 +104,39 @@ export interface ProtocolDatasetRelationship {
   readonly queryable: boolean;
 }
 
+/** One aggregate a derived metric's formula names, under the alias it named it by. */
+export interface ProtocolMetricInput {
+  readonly alias: ProtocolIdentifier;
+  readonly expression: ProtocolExpression;
+}
+
+/**
+ * A derived metric's formula in the shape it was authored in.
+ *
+ * `ProtocolDatasetMetric.expression` inlines each input aggregate where the
+ * formula referenced it, which says what the metric means but loses the aliases
+ * the author chose. Those aliases are not cosmetic: they are emitted as the
+ * column names of the intermediate aggregate and referenced by the outer
+ * select, so a catalog rebuilt without them computes the same number through
+ * different SQL. `expression` here references the aliases instead, and
+ * validation proves that substituting the inputs back into it reproduces the
+ * inlined form exactly — the two can describe the same formula or the contract
+ * is invalid, never disagree silently.
+ */
+export interface ProtocolMetricDerivation {
+  readonly inputs: readonly ProtocolMetricInput[];
+  readonly expression: ProtocolExpression;
+}
+
 export interface ProtocolDatasetMetric extends ProtocolSemanticMetadata {
   readonly name: ProtocolIdentifier;
   readonly kind: 'metric' | 'derived-metric' | 'grained-metric';
   readonly expression: ProtocolExpression;
+  /**
+   * Present only on a derived metric, and optional: a contract written before
+   * this field existed stays valid and simply is not portably executable.
+   */
+  readonly derivation?: ProtocolMetricDerivation;
   readonly dimensions: readonly ProtocolQualifiedIdentifier[];
   readonly filters: readonly ProtocolIdentifier[];
   readonly grains: readonly ProtocolTimeGrain[];

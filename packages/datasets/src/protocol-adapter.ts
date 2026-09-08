@@ -8,6 +8,7 @@ import {
   type ProtocolDatasetMetric,
   type ProtocolEndpointPolicy,
   type ProtocolExpression,
+  type ProtocolMetricDerivation,
   type ProtocolSchema,
   type ProtocolSqlExpression,
 } from '@hypequery/protocol';
@@ -166,6 +167,28 @@ function metricExpression(spec: AggregationSpec | DerivedMetricSpec): ProtocolEx
   return semanticExpression(spec.formula(aliases).expression, references);
 }
 
+/**
+ * The formula in the shape it was authored in, beside the inlined form.
+ *
+ * `metricExpression` above substitutes each input's aggregate where the formula
+ * named it, which states what the metric means but drops the aliases. Those
+ * aliases are the column names of the intermediate aggregate, so a catalog
+ * rebuilt without them computes the same number through different SQL.
+ *
+ * Input order follows `uses` and is not sorted: each entry becomes a column of
+ * that intermediate result in this order.
+ */
+function metricDerivation(spec: DerivedMetricSpec): ProtocolMetricDerivation {
+  const aliases = Object.fromEntries(Object.keys(spec.uses).map(alias => [alias, alias]));
+  return {
+    inputs: Object.entries(spec.uses).map(([alias, metric]) => ({
+      alias: parseProtocolIdentifier(alias),
+      expression: aggregationExpression(metric.spec),
+    })),
+    expression: semanticExpression(spec.formula(aliases).expression),
+  };
+}
+
 function metricContract(
   exposedName: string,
   metric: MetricHandle,
@@ -181,6 +204,9 @@ function metricContract(
         ? 'derived-metric'
         : 'metric',
     expression: metricExpression(ref.spec),
+    ...(ref.spec.__type === 'derived_metric_spec'
+      ? { derivation: metricDerivation(ref.spec) }
+      : {}),
     dimensions: [...contract.dimensions].sort().map(parseProtocolQualifiedIdentifier),
     filters: [...contract.filters].sort().map(parseProtocolIdentifier),
     grains: [...contract.grains].sort(),

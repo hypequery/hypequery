@@ -231,6 +231,8 @@ export type {
   ProtocolDeploymentOptions,
   ProtocolEndpointPolicy,
   ProtocolEndpointTenantPolicy,
+  ProtocolMetricDerivation,
+  ProtocolMetricInput,
   ProtocolNamedQueryContract,
   ProtocolRuntimeArtifact,
 } from './deployments/index.js';

@@ -26,6 +26,7 @@ import type {
   ProtocolDatasetMeasure,
   ProtocolDatasetMetric,
   ProtocolDatasetRelationship,
+  ProtocolMetricDerivation,
   ProtocolDatasetTenantPolicy,
   ProtocolDeploymentContract,
   ProtocolDeploymentLimits,
@@ -462,6 +463,101 @@ function validateRelationship(
   }) as unknown as ProtocolDatasetRelationship;
 }
 
+/** Structural equality over two already-validated expressions. */
+function sameExpression(left: unknown, right: unknown): boolean {
+  if (left === right) return true;
+  if (Array.isArray(left) || Array.isArray(right)) {
+    return Array.isArray(left) && Array.isArray(right)
+      && left.length === right.length
+      && left.every((item, index) => sameExpression(item, right[index]));
+  }
+  if (typeof left !== 'object' || typeof right !== 'object' || left === null || right === null) {
+    return false;
+  }
+  const leftKeys = Object.keys(left);
+  const rightKeys = Object.keys(right);
+  return leftKeys.length === rightKeys.length
+    && leftKeys.every(key => Object.hasOwn(right, key)
+      && sameExpression((left as DataRecord)[key], (right as DataRecord)[key]));
+}
+
+/** Replaces each aliased reference with the aggregate the alias stands for. */
+function substituteInputs(
+  expression: unknown,
+  inputs: ReadonlyMap<string, unknown>,
+): unknown {
+  if (Array.isArray(expression)) {
+    return expression.map(item => substituteInputs(item, inputs));
+  }
+  if (typeof expression !== 'object' || expression === null) return expression;
+  const record = expression as DataRecord;
+  if (record.kind === 'reference' && typeof record.name === 'string' && inputs.has(record.name)) {
+    return inputs.get(record.name);
+  }
+  return Object.fromEntries(
+    Object.entries(record).map(([key, value]) => [key, substituteInputs(value, inputs)]),
+  );
+}
+
+/**
+ * Validates the authored form of a derived metric's formula.
+ *
+ * Input order is significant and deliberately not sorted: each input becomes a
+ * column of the intermediate aggregate in this order, so reordering them
+ * reorders the emitted SQL. Two datasets that differ only in input order are
+ * genuinely different contracts.
+ */
+function validateDerivation(
+  input: unknown,
+  path: string,
+  limits: Readonly<ProtocolDeploymentLimits>,
+  inlined: unknown,
+): ProtocolMetricDerivation {
+  const value = requireRecord(input, path);
+  exactFields(value, ['inputs', 'expression'], [], path);
+  const items = requireArray(value.inputs, `${path}.inputs`, limits.maxDatasetItems);
+  if (items.length === 0) deploymentError('HQ_DEPLOYMENT_INVALID_VALUE', `${path}.inputs`);
+
+  const seen = new Set<string>();
+  const inputs = items.map((item, index) => {
+    const itemPath = `${path}.inputs[${index}]`;
+    const record = requireRecord(item, itemPath);
+    exactFields(record, ['alias', 'expression'], [], itemPath);
+    const alias = identifier(record.alias, `${itemPath}.alias`);
+    if (seen.has(alias)) deploymentError('HQ_DEPLOYMENT_INVALID_VALUE', `${itemPath}.alias`);
+    seen.add(alias);
+    const expression = nested(
+      () => validateProtocolExpression(record.expression),
+      `${itemPath}.expression`,
+    );
+    // Only an aggregate can become a column of the intermediate result. A
+    // formula that named something else has no faithful rebuild.
+    if ((expression as DataRecord).kind !== 'aggregate') {
+      deploymentError('HQ_DEPLOYMENT_INVALID_VALUE', `${itemPath}.expression`);
+    }
+    return freezeRecord({ alias, expression });
+  });
+
+  const expression = nested(
+    () => validateProtocolExpression(value.expression),
+    `${path}.expression`,
+  );
+  // The two forms must describe one formula. Substituting the inputs back into
+  // the authored form has to reproduce the inlined one exactly, or the contract
+  // advertises a meaning its aliases do not compute.
+  const substituted = substituteInputs(
+    expression,
+    new Map(inputs.map(entry => [entry.alias as string, entry.expression])),
+  );
+  if (!sameExpression(substituted, inlined)) {
+    deploymentError('HQ_DEPLOYMENT_INVALID_REFERENCE', `${path}.expression`);
+  }
+  return freezeRecord({
+    inputs: Object.freeze(inputs),
+    expression,
+  }) as unknown as ProtocolMetricDerivation;
+}
+
 function validateMetric(
   input: unknown,
   path: string,
@@ -471,7 +567,7 @@ function validateMetric(
   exactFields(
     value,
     ['name', 'kind', 'expression', 'dimensions', 'filters', 'grains', 'endpoint'],
-    ['grain', 'label', 'description', ...SEMANTIC_METADATA_FIELDS],
+    ['grain', 'derivation', 'label', 'description', ...SEMANTIC_METADATA_FIELDS],
     path,
   );
   if (!['metric', 'derived-metric', 'grained-metric'].includes(value.kind as string)) {
@@ -516,6 +612,20 @@ function validateMetric(
     endpoint: validateEndpoint(value.endpoint, `${path}.endpoint`, limits),
   };
   if (grain !== undefined) result.grain = grain;
+  if (value.derivation !== undefined) {
+    // `kind` conflates grain with derivation: a derived metric pinned to a
+    // grain is reported as `grained-metric`, so both kinds may carry a formula.
+    // A plain `metric` is a bare aggregate and has none.
+    if (value.kind !== 'derived-metric' && value.kind !== 'grained-metric') {
+      deploymentError('HQ_DEPLOYMENT_INVALID_VALUE', `${path}.derivation`);
+    }
+    result.derivation = validateDerivation(
+      value.derivation,
+      `${path}.derivation`,
+      limits,
+      result.expression,
+    );
+  }
   optionalText(value.label, 'label', result, path, limits);
   optionalText(value.description, 'description', result, path, limits);
   validateSemanticMetadata(value, result, path, limits);

@@ -85,6 +85,35 @@ function minimalMetric(overrides: Record<string, unknown> = {}) {
   };
 }
 
+/** `revenue / nullIfZero(orders)`, carried in both the inlined and authored forms. */
+function derivedMetric(overrides: Record<string, unknown> = {}) {
+  const revenue = { kind: 'aggregate', aggregation: 'sum', field: 'amount' };
+  const orders = { kind: 'aggregate', aggregation: 'count', field: 'id' };
+  const guard = (operand: unknown) => ({ kind: 'call', function: 'nullIfZero', args: [operand] });
+  return {
+    ...minimalMetric({
+      kind: 'derived-metric',
+      grains: [],
+      grain: undefined,
+      expression: {
+        kind: 'binary', operator: 'divide', left: revenue, right: guard(orders),
+      },
+      derivation: {
+        inputs: [
+          { alias: 'revenue', expression: revenue },
+          { alias: 'orders', expression: orders },
+        ],
+        expression: {
+          kind: 'binary', operator: 'divide',
+          left: { kind: 'reference', name: 'revenue' },
+          right: guard({ kind: 'reference', name: 'orders' }),
+        },
+      },
+    }),
+    ...overrides,
+  };
+}
+
 function materialize(type: string): unknown {
   const value = baseDeployment();
   switch (type) {
@@ -391,6 +420,93 @@ describe('deployment contract v1', () => {
       }),
       'HQ_DEPLOYMENT_INVALID_REFERENCE',
       '$.datasets[0].endpoint.tenant',
+    );
+  });
+
+  it('accepts a derived metric that carries its authored formula', () => {
+    const contract = validateProtocolDeploymentContract({
+      ...baseDeployment(),
+      datasets: [{ ...minimalDataset(), metrics: [derivedMetric()] }],
+    });
+
+    const [metric] = contract.datasets[0].metrics;
+    expect(metric.derivation?.inputs.map(input => input.alias)).toEqual(['revenue', 'orders']);
+    // Input order is preserved rather than sorted: each becomes a column of the
+    // intermediate aggregate in this order, so reordering changes the SQL.
+    expect(metric.derivation?.expression).toMatchObject({ kind: 'binary', operator: 'divide' });
+  });
+
+  it('rejects a derivation that does not reproduce the metric expression', () => {
+    // The two forms must describe one formula. Here the authored form divides
+    // by the wrong input, so substituting the aliases back yields a different
+    // expression than the metric advertises.
+    const metric = derivedMetric();
+    expectDeploymentError(
+      () => validateProtocolDeploymentContract({
+        ...baseDeployment(),
+        datasets: [{
+          ...minimalDataset(),
+          metrics: [{
+            ...metric,
+            derivation: {
+              ...metric.derivation,
+              expression: {
+                kind: 'binary', operator: 'divide',
+                left: { kind: 'reference', name: 'orders' },
+                right: { kind: 'reference', name: 'revenue' },
+              },
+            },
+          }],
+        }],
+      }),
+      'HQ_DEPLOYMENT_INVALID_REFERENCE',
+      '$.datasets[0].metrics[0].derivation.expression',
+    );
+  });
+
+  it('rejects a malformed or misplaced derivation', () => {
+    const metric = derivedMetric();
+    const withDerivation = (overrides: Record<string, unknown>) => () =>
+      validateProtocolDeploymentContract({
+        ...baseDeployment(),
+        datasets: [{ ...minimalDataset(), metrics: [{ ...metric, ...overrides }] }],
+      });
+
+    // A plain metric is a bare aggregate and has no formula to carry.
+    expectDeploymentError(
+      withDerivation({ kind: 'metric', expression: { kind: 'literal', value: 1 } }),
+      'HQ_DEPLOYMENT_INVALID_VALUE',
+      '$.datasets[0].metrics[0].derivation',
+    );
+    expectDeploymentError(
+      withDerivation({ derivation: { ...metric.derivation, inputs: [] } }),
+      'HQ_DEPLOYMENT_INVALID_VALUE',
+      '$.datasets[0].metrics[0].derivation.inputs',
+    );
+    // Two inputs under one alias: the second would silently shadow the first.
+    expectDeploymentError(
+      withDerivation({
+        derivation: {
+          ...metric.derivation,
+          inputs: metric.derivation.inputs.map(input => ({ ...input, alias: 'revenue' })),
+        },
+      }),
+      'HQ_DEPLOYMENT_INVALID_VALUE',
+      '$.datasets[0].metrics[0].derivation.inputs[1].alias',
+    );
+    // Only an aggregate can become a column of the intermediate result.
+    expectDeploymentError(
+      withDerivation({
+        derivation: {
+          ...metric.derivation,
+          inputs: [
+            { alias: 'revenue', expression: { kind: 'literal', value: 1 } },
+            metric.derivation.inputs[1],
+          ],
+        },
+      }),
+      'HQ_DEPLOYMENT_INVALID_VALUE',
+      '$.datasets[0].metrics[0].derivation.inputs[0].expression',
     );
   });
 
