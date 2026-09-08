@@ -73,15 +73,46 @@ function retain(
   };
 }
 
+export interface AuthorizedDeploymentProjection {
+  /**
+   * A valid contract narrowed to what the principal may see, including any
+   * dataset retained only to support a join or a named query.
+   */
+  readonly contract: ProtocolDeploymentContract;
+  /**
+   * The datasets the principal may address directly, in contract order.
+   *
+   * Always read this before advertising anything. `contract` is deliberately
+   * wider: catalog projection and rehydration enumerate every dataset they are
+   * given and neither consults an endpoint, so handing them the whole contract
+   * would advertise a supporting dataset as queryable and disclose its
+   * dimensions and measures to a principal with no access to it.
+   *
+   * The intended composition rehydrates the whole contract, so relationship
+   * targets still resolve, and advertises only this subset:
+   *
+   * ```ts
+   * const { contract, published } = projectAuthorizedDeploymentContract(active, principal);
+   * const registry = rehydrateProtocolDatasets(contract.datasets, { onUnsupportedMetric: 'skip' });
+   * const datasets = Object.fromEntries(published.map(name => [name, registry[name]]));
+   * ```
+   *
+   * A joined dimension such as `orders.employee.id` still resolves through the
+   * full registry, which is correct: that join is governed by the endpoint of
+   * the dataset being queried, not by the target's.
+   */
+  readonly published: readonly string[];
+}
+
 /**
  * Projects the contract down to what `principal` may see.
  *
  * A dataset is *published* when the principal may address it directly, and
- * *retained* when something published still needs it to stay coherent — the
- * target of a relationship, or the dataset a named query plans over. A retained
- * dataset keeps its shape and loses its endpoint and metrics, so a relationship
- * can still be traversed exactly as execution would traverse it while the
- * dataset itself is not offered as a target.
+ * *supporting* when something published still needs it to stay coherent — the
+ * target of a relationship, or the dataset a named query plans over. A
+ * supporting dataset keeps its shape and loses its endpoint and metrics, so a
+ * relationship can still be traversed exactly as execution would traverse it
+ * while the dataset itself is not offered as a target.
  *
  * Dropping a relationship target instead would be the tempting alternative and
  * is wrong twice: it would invalidate any metric declaring a dimension across
@@ -89,7 +120,12 @@ function retain(
  * since a one-hop join is governed by the endpoint of the dataset being
  * queried, not by the target's.
  *
- * The result is revalidated. Callers hand it to catalog projection, schema
+ * The two are returned separately rather than as one contract because nothing
+ * downstream reads an endpoint. `projectAgentSafeCatalog` and
+ * `rehydrateProtocolDatasets` enumerate whatever they are handed, so an
+ * unpublished dataset left in the contract they see is an advertised one.
+ *
+ * The contract is revalidated. Callers hand it to catalog projection, schema
  * compilation, and rehydration, all of which assume a valid contract; a
  * projection that could emit an invalid one would move that failure to whatever
  * read it next.
@@ -97,7 +133,7 @@ function retain(
 export function projectAuthorizedDeploymentContract(
   contract: ProtocolDeploymentContract,
   principal: DeploymentDataPlanePrincipal | null,
-): ProtocolDeploymentContract {
+): AuthorizedDeploymentProjection {
   const byName = new Map(contract.datasets.map(dataset => [String(dataset.name), dataset]));
   const retained = new Map(contract.datasets.map(dataset => [
     String(dataset.name),
@@ -141,5 +177,10 @@ export function projectAuthorizedDeploymentContract(
       };
     });
 
-  return validateProtocolDeploymentContract({ ...contract, datasets, queries });
+  return Object.freeze({
+    contract: validateProtocolDeploymentContract({ ...contract, datasets, queries }),
+    published: Object.freeze(datasets
+      .filter(dataset => dataset.endpoint !== undefined)
+      .map(dataset => String(dataset.name))),
+  });
 }

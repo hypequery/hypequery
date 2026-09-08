@@ -67,8 +67,8 @@ function contract(overrides: Record<string, unknown> = {}) {
   });
 }
 
-const names = (result: { datasets: readonly { name: string }[] }) =>
-  result.datasets.map(entry => String(entry.name));
+const names = (result: { contract: { datasets: readonly { name: string }[] } }) =>
+  result.contract.datasets.map(entry => String(entry.name));
 
 describe('authorized contract projection', () => {
   it('reads every declared role and scope, not any of them', () => {
@@ -107,7 +107,7 @@ describe('authorized contract projection', () => {
       })],
     });
 
-    const projected = projectAuthorizedDeploymentContract(source, analyst);
+    const { contract: projected } = projectAuthorizedDeploymentContract(source, analyst);
 
     expect(projected.datasets[0].metrics.map(entry => String(entry.name))).toEqual(['open']);
   });
@@ -119,7 +119,7 @@ describe('authorized contract projection', () => {
       datasets: [dataset('orders', { endpoint: FINANCE, metrics: [metric('open', ANALYST)] })],
     });
 
-    const [orders] = projectAuthorizedDeploymentContract(source, analyst).datasets;
+    const [orders] = projectAuthorizedDeploymentContract(source, analyst).contract.datasets;
 
     expect(orders.endpoint).toBeUndefined();
     expect(orders.metrics.map(entry => String(entry.name))).toEqual(['open']);
@@ -140,7 +140,7 @@ describe('authorized contract projection', () => {
     });
 
     const projected = projectAuthorizedDeploymentContract(source, analyst);
-    const customers = projected.datasets.find(entry => entry.name === 'customers')!;
+    const customers = projected.contract.datasets.find(entry => entry.name === 'customers')!;
 
     // Present, so the relationship still resolves and a one-hop dimension still
     // plans exactly as the data plane would plan it.
@@ -148,7 +148,41 @@ describe('authorized contract projection', () => {
     // Not addressable, and carrying nothing of its own.
     expect(customers.endpoint).toBeUndefined();
     expect(customers.metrics).toEqual([]);
-    expect(projected.datasets[0].relationships).toHaveLength(1);
+    expect(projected.contract.datasets[0].relationships).toHaveLength(1);
+    // The join is traversable; the target is not a target.
+    expect(projected.published).toEqual(['orders']);
+  });
+
+  it('does not publish a supporting dataset, whatever the contract still contains', () => {
+    // The distinction has to leave this function, not just exist inside it.
+    // `projectAgentSafeCatalog` and `rehydrateProtocolDatasets` enumerate every
+    // dataset they are handed and neither consults an endpoint, so a caller
+    // that advertised `contract.datasets` would disclose the dimensions and
+    // measures of a dataset this principal has no access to at all.
+    const source = contract({
+      datasets: [
+        dataset('orders', {
+          endpoint: ANALYST,
+          relationships: [{
+            name: 'employee', kind: 'belongsTo', target: 'payroll',
+            from: 'id', to: 'id', queryable: true,
+          }],
+        }),
+        dataset('payroll', {
+          endpoint: FINANCE,
+          dimensions: [{
+            name: 'salary', type: 'number', source: { kind: 'column', column: 'salary_cents' },
+            filterable: true, groupable: true,
+          }],
+        }),
+      ],
+    });
+
+    const projected = projectAuthorizedDeploymentContract(source, analyst);
+
+    expect(names(projected)).toContain('payroll');
+    expect(projected.published).toEqual(['orders']);
+    expect(projected.published).not.toContain('payroll');
   });
 
   it('keeps a metric that groups across a relationship it retained', () => {
@@ -170,7 +204,7 @@ describe('authorized contract projection', () => {
 
     const projected = projectAuthorizedDeploymentContract(source, analyst);
 
-    expect(projected.datasets[0].metrics[0].dimensions).toEqual(['customer.id']);
+    expect(projected.contract.datasets[0].metrics[0].dimensions).toEqual(['customer.id']);
   });
 
   it('follows a relationship chain so the projection still validates', () => {
@@ -216,11 +250,12 @@ describe('authorized contract projection', () => {
 
     const projected = projectAuthorizedDeploymentContract(source, analyst);
 
-    expect(projected.queries.map(entry => String(entry.name))).toEqual(['open']);
+    expect(projected.contract.queries.map(entry => String(entry.name))).toEqual(['open']);
     // `orders` publishes no endpoint of its own, so it survives only because a
     // retained query plans over it — and it must, or the result cannot validate.
     expect(names(projected)).toEqual(['orders']);
-    expect(projected.datasets[0].endpoint).toBeUndefined();
+    expect(projected.contract.datasets[0].endpoint).toBeUndefined();
+    expect(projected.published).toEqual([]);
   });
 
   it('narrows and never widens', () => {
@@ -234,13 +269,13 @@ describe('authorized contract projection', () => {
     const projected = projectAuthorizedDeploymentContract(source, analyst);
 
     // Everything the projection kept is present in the original, unchanged.
-    expect(projected.datasets[0].endpoint).toEqual(source.datasets[0].endpoint);
-    expect(projected.datasets[0].dimensions).toEqual(source.datasets[0].dimensions);
-    expect(projected.datasets[0].metrics.length)
+    expect(projected.contract.datasets[0].endpoint).toEqual(source.datasets[0].endpoint);
+    expect(projected.contract.datasets[0].dimensions).toEqual(source.datasets[0].dimensions);
+    expect(projected.contract.datasets[0].metrics.length)
       .toBeLessThan(source.datasets[0].metrics.length);
     // And a principal holding everything sees exactly the contract it started
     // from, so the projection is an identity when nothing is withheld.
     const superuser = { subject: 'root', roles: ['analyst', 'finance'], scopes: ['datasets:query'] };
-    expect(projectAuthorizedDeploymentContract(source, superuser)).toEqual(source);
+    expect(projectAuthorizedDeploymentContract(source, superuser).contract).toEqual(source);
   });
 });
