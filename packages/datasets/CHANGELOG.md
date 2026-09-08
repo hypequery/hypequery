@@ -1,5 +1,107 @@
 # @hypequery/datasets
 
+## 0.15.0
+
+### Minor Changes
+
+- f639bd4: Carry a derived metric's authored formula in the deployment contract, so derived
+  metrics execute portably instead of failing closed.
+
+  A derived metric's contract expression already stated what the metric means: it
+  inlines each input's aggregate where the formula named it. What it dropped were
+  the aliases. Those are not cosmetic — they become the column names of the
+  intermediate aggregate and are referenced by the outer select, so a catalog
+  rebuilt without them computes the same number through different SQL. Decision
+  0005 excludes a surface that cannot be made byte-identical, which is why
+  `CORE-12` refused derived metrics rather than approximating them.
+
+  `ProtocolDatasetMetric` gains an optional `derivation` carrying the inputs under
+  their aliases and the formula written in terms of them. It is additive: a
+  contract produced before this field stays valid, and simply remains
+  non-portable. Validation proves the two forms describe one formula —
+  substituting the inputs back into the authored form must reproduce the inlined
+  one exactly — so they cannot disagree silently. Inputs are ordered, not sorted,
+  because each becomes a column of the intermediate result in that order.
+
+  A derivation is also held to the grammar a formula can be rebuilt from, which is
+  narrower than RFC 0003: arithmetic over references and the five formula
+  functions, with a literal only as a `round` precision or a `coalesce` fallback.
+  Accepting a comparison, or a one-argument `round`, would publish a contract that
+  validates and then fails at the point of use. Eligibility follows the metric's
+  expression rather than its `kind`, because `kind` reports `grained-metric` for
+  both a base metric pinned to a grain and a derived one.
+
+  `rehydrateProtocolDatasets` rebuilds the formula by calling the same helpers in
+  `formulas.ts` that authored it, rather than compiling the expression to SQL a
+  second time. Those helpers carry the `toSQL` closures that decide spacing,
+  parenthesisation, and function spelling, so byte-identity is structural rather
+  than reimplemented and cannot drift.
+
+  The `CORE-16` equality harness now covers derived metrics across every axis it
+  already generated — grouping, all five grains, filters, ordering, pagination,
+  joins, and tenant predicates — over every formula helper, including a derived
+  metric pinned to a grain, whose `kind` reports `grained-metric` rather than
+  `derived-metric`. A metric whose contract omits the formula still fails closed
+  with `unsupported-capability`, in both rehydration and the portable executor.
+
+- b0911ce: Add portable native execution of a semantic invocation (decision 0005).
+
+  `createPortableSemanticExecutor()` in `@hypequery/datasets` resolves a dataset
+  or metric from the validated active contract, rebuilds its catalog, and plans
+  the query with the existing semantic planner. No customer module is loaded and
+  no isolated runtime is required, so a bundle answers dataset and metric calls
+  without a separately loaded MCP config. It applies the resolved tenant,
+  propagates deadlines and cancellation to the database request, and byte-limits
+  the result. A request the deadline aborts is reported as the budget it overran
+  rather than as the driver's generic failure, so a caller can tell a query that
+  ran out of time — worth retrying with less — from a broken or unreachable one.
+
+  A resolved tenant that the rebuilt dataset has no field to scope by is refused
+  before a query is built. That is the one failure that is otherwise silent: the
+  runtime accepts the tenant, the planner emits no predicate, and the query reads
+  every tenant while each layer believes tenancy was enforced. Contract validation
+  already refuses to publish that shape, but the executor is exported on its own
+  and typed structurally, so it cannot assume a caller went through the validator.
+
+  A target portable execution cannot reproduce fails closed with
+  `unsupported-capability` rather than being approximated — a derived metric,
+  whose symbolic expression contract v1 does not carry until `CORE-17`. A single
+  such metric no longer makes the rest of a deployment unexecutable:
+  `rehydrateProtocolDatasets` gains `onUnsupportedMetric: 'skip'`, and the
+  requested target is refused at the point of use instead.
+
+  The deployment data plane now honours a failure category an injected executor
+  claims for itself, from a fixed allow-list, so a capability gap is reported as
+  one rather than as a broken query. A claim is granted by an explicit marker on
+  the error rather than by its shape: a provider or library exception that happens
+  to carry a generic `category` — a `not-found` from an HTTP client, say — cannot
+  put its own message in front of a caller or decide whether the call is retried.
+  An executor that claims nothing, that claims a category it may not (such as
+  `forbidden`), or that never opted in, still reports `executor-failed` with the
+  generic message. `PortableExecutionTenantError` joins the exported unsupported
+  and budget errors that carry the marker.
+
+  Deadline expiry and caller cancellation now settle execution independently of
+  adapter cooperation while also aborting the underlying request. An adapter
+  that ignores cancellation cannot return a successful response after the deadline
+  or keep the invocation pending indefinitely.
+
+- f72bba8: Add `queryableDatasets` to `buildCanonicalSemanticQuerySchemas` options: the
+  datasets that may be named as a direct query target, defaulting to all of them.
+
+  A dataset left out still contributes its metrics and can still be joined to; it
+  is only withheld from the `query_dataset` schema. That split exists because a
+  deployment contract authorizes a dataset and each of its metrics through
+  separate endpoint policies, so a caller can be entitled to a metric on a dataset
+  it may not query directly. Compiling one schema for both cases would either
+  advertise a target the caller cannot use or hide a metric it can.
+
+### Patch Changes
+
+- Updated dependencies [f639bd4]
+- Updated dependencies [0ba2fa6]
+  - @hypequery/protocol@0.13.0
+
 ## 0.14.0
 
 ### Minor Changes
