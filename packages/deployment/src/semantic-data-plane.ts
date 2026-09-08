@@ -1,3 +1,4 @@
+import { claimedFailure } from './utils/semantic-executor-failure.js';
 import { DeploymentSemanticInvocationError, fail, throwIfAborted } from './semantic-invocation-errors.js';
 export { DeploymentSemanticInvocationError, toProtocolSemanticInvocationFailure } from './semantic-invocation-errors.js';
 import { definedLimits, lowest, tighten } from './utils/semantic-budget-limits.js';
@@ -299,6 +300,14 @@ export function createDeploymentSemanticDataPlane(
       if (error instanceof DeploymentSemanticInvocationError) throw error;
       if (request.signal?.aborted) {
         fail('cancelled', 'HQ_SEMANTIC_CANCELLED', 'The invocation was cancelled.', { cause: error });
+      }
+      const claimed = claimedFailure(error);
+      if (claimed !== undefined) {
+        fail(claimed.category, claimed.code, claimed.message, {
+          cause: error,
+          retryable: claimed.retryable,
+          relist: claimed.relist,
+        });
       }
       fail('executor-failed', 'HQ_SEMANTIC_EXECUTION_FAILED', 'Semantic execution failed.', {
         cause: error,

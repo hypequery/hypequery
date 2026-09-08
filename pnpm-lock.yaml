@@ -201,6 +201,9 @@ importers:
         specifier: workspace:*
         version: link:../protocol
     devDependencies:
+      '@hypequery/datasets':
+        specifier: workspace:*
+        version: link:../datasets
       '@types/node':
         specifier: ^22.5.0
         version: 22.20.1
