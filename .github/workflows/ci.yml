@@ -151,6 +151,7 @@ jobs:
               packages/cli/CHANGELOG.md \
               packages/mcp-server/package.json \
               packages/mcp-server/CHANGELOG.md \
+              packages/mcp-server/src/version.ts \
               packages/protocol/package.json \
               packages/protocol/CHANGELOG.md \
               packages/protocol-conformance/package.json \
@@ -163,6 +164,10 @@ jobs:
           trap cleanup EXIT
 
           pnpm changeset version --snapshot canary
+          # No rebuild here: a package that bakes its own version into dist
+          # regenerates it in `prepack`, which runs per package at publish time.
+          # The stable release job has no equivalent step, so the hook has to
+          # live in the package rather than in one workflow.
           pnpm changeset publish --tag canary
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
