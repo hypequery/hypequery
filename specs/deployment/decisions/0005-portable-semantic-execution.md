@@ -1,8 +1,11 @@
 # Decision 0005: Portable semantic execution
 
-- Status: Proposed
+- Status: Accepted
 - Date: 2026-09-03
 - Owners: Hypequery Core and Cloud maintainers
+- Accepted: 2026-09-11
+
+**Acceptance note.** Accepted 2026-09-11. Its stated gate has been met: CORE-16 (#459) asserts a rehydrated catalog emits byte-identical SQL to the authored one across the query corpus, and CORE-17 (#465) carried the derived-metric expression so those metrics are executable rather than refused. The decision is therefore live rather than void for every surface in the corpus.
 
 ## Context
 

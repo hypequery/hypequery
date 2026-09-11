@@ -1,8 +1,11 @@
 # Decision 0001: MCP transport and ownership boundaries
 
-- Status: Proposed
+- Status: Accepted
 - Date: 2026-08-31
 - Owners: Hypequery Core and Cloud maintainers
+- Accepted: 2026-09-11
+
+**Acceptance note.** Accepted 2026-09-11. Implemented by CORE-04 (#448) and delivered to a real transport by Cloud #64, which uses the SDK's `WebStandardStreamableHTTPServerTransport` behind the transport-neutral executor. The ownership split held: no second MCP server exists in Cloud.
 
 ## Context
 

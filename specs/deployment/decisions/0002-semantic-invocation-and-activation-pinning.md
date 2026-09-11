@@ -1,8 +1,11 @@
 # Decision 0002: Semantic invocation and activation pinning
 
-- Status: Proposed
+- Status: Accepted
 - Date: 2026-08-31
 - Owners: Hypequery Core and Cloud maintainers
+- Accepted: 2026-09-11
+
+**Acceptance note.** Accepted 2026-09-11. Implemented by CORE-10 (#456), CORE-11 (#462), and CORE-12 (#463). The generation-pinning section below was amended before acceptance: the tool-list-changed notification is now explicitly an optimisation rather than the primary mechanism, because the gateway is stateless.
 
 ## Context
 
@@ -72,10 +75,27 @@ Discovery and execution must refer to a coherent generation:
   session/request context, not as a model-controlled tool argument.
 - The deployment host rejects the call with a stable stale-generation category
   if that revision is no longer active.
-- A capable client receives a tool-list-changed notification. Other clients get
-  a correctable stale-contract error and must relist before retrying.
+- **Every client learns of a changed tool list the same way: a correctable
+  stale-contract error on its next call, after which it relists.** A
+  server-initiated `notifications/tools/list_changed` is an optimisation a
+  transport may add, never the mechanism correctness depends on.
 - A rollback creates a new activation revision even when it selects an older
   release, so an ABA transition cannot satisfy a stale caller.
+
+The notification rule is narrower than this decision first stated, which assumed
+"a capable client receives a tool-list-changed notification" and left the error
+path for everyone else. Implementation showed that assumption does not hold: the
+Cloud gateway constructs a server per request with `sessionIdGenerator:
+undefined` (Cloud #64), so there is no session to notify and nothing that
+outlives a request to notify from. Making notification the primary path would
+have required session state whose only purpose is delivering it.
+
+The error path is also the one that cannot be removed. A client can hold a stale
+revision across a disconnect, a gateway restart, or a rollback it was never
+connected for, so the stale-contract response has to be correct regardless.
+Requiring it of everyone removes a second mechanism without removing any
+capability. A future session-bearing transport may notify in addition, which
+shortens the window but does not change what a client must handle.
 
 Calls already admitted to a generation follow the existing drain rules. New
 calls never cross from schemas/policy in one generation to execution in

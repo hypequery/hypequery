@@ -1,8 +1,11 @@
 # Decision 0003: Agent-safe catalog, results, and errors
 
-- Status: Proposed
+- Status: Accepted
 - Date: 2026-08-31
 - Owners: Hypequery Core and Cloud maintainers
+- Accepted: 2026-09-11
+
+**Acceptance note.** Accepted 2026-09-11. Implemented by CORE-05 (#449), CORE-06 (#453), and CORE-07 (#454), with the catalog's own ceilings added by MCP-102 (#470). `getTrustedDatasetSchema` is the separately authorised debug projection.
 
 ## Context
 

@@ -1,8 +1,11 @@
 # Decision 0004: Cloud routing, authentication, and agent access
 
-- Status: Proposed
+- Status: Accepted
 - Date: 2026-08-31
 - Owners: Hypequery Cloud and Core maintainers
+- Accepted: 2026-09-11
+
+**Acceptance note.** Accepted 2026-09-11, with one part unimplemented and knowingly so. Cloud #64 and #66 deliver routing, scoped API tokens, the `mcp:invoke` scope, server-resolved tenancy, and RFC 9728 metadata. Interactive OAuth does not exist: Cloud has no authorization server, so `authorization_servers` is absent from the published metadata and the endpoint is token-only. That gap is a prerequisite for CLOUD-07's client compatibility matrix, not a change to this decision.
 
 ## Context
 

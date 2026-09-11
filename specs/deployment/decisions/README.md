@@ -11,11 +11,11 @@ canonical fixtures, and compatibility tests before it becomes normative.
 
 | Decision | Subject | Status |
 | --- | --- | --- |
-| [0001](./0001-mcp-transport-and-ownership.md) | MCP transport and package ownership | Proposed |
-| [0002](./0002-semantic-invocation-and-activation-pinning.md) | Dataset/metric invocation and activation pinning | Proposed |
-| [0003](./0003-agent-safe-catalog-results-and-errors.md) | Safe discovery, tool manifests, results, and errors | Proposed |
-| [0004](./0004-cloud-routing-auth-and-agent-access.md) | Cloud routing, authentication, tenancy, and first-party agent access | Proposed |
-| [0005](./0005-portable-semantic-execution.md) | Portable semantic execution and the rebuilt-catalog equality gate | Proposed |
+| [0001](./0001-mcp-transport-and-ownership.md) | MCP transport and package ownership | Accepted |
+| [0002](./0002-semantic-invocation-and-activation-pinning.md) | Dataset/metric invocation and activation pinning | Accepted |
+| [0003](./0003-agent-safe-catalog-results-and-errors.md) | Safe discovery, tool manifests, results, and errors | Accepted |
+| [0004](./0004-cloud-routing-auth-and-agent-access.md) | Cloud routing, authentication, tenancy, and first-party agent access | Accepted |
+| [0005](./0005-portable-semantic-execution.md) | Portable semantic execution and the rebuilt-catalog equality gate | Accepted |
 
 The shared vertical-slice fixture referenced by these records lives in
 [`../fixtures/mcp-cloud-v1`](../fixtures/mcp-cloud-v1/README.md).
