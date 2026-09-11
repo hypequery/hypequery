@@ -67,6 +67,35 @@ export interface MCPExecutionBudget {
   maxResponseBytes?: number;
 }
 
+/**
+ * Ceilings on the tool manifest itself, rather than on any one call.
+ *
+ * Every other budget here bounds a query. This one bounds what a client is
+ * handed before it makes one: `query_dataset` and `query_metric` carry exact
+ * enums of every published dataset, dimension, measure, and filter field, so a
+ * large catalog produces a large manifest — paid by every client on every
+ * connection, and spent out of the model's context before a question is asked.
+ *
+ * A breach raises `MCPCatalogBudgetError`. It is not truncated: an agent shown
+ * fewer targets than the validators accept would be misled, and the manifest
+ * hash would no longer identify the catalog behind it.
+ */
+export interface MCPCatalogBudget {
+  /**
+   * Maximum tools a manifest may advertise. Defaults to 64, ceiling 256.
+   *
+   * The local server publishes a fixed four. This exists for the hosted tool
+   * modes that publish one tool per dataset or per verified metric, where the
+   * count follows the catalog and needs a stop.
+   */
+  maxTools?: number;
+  /**
+   * Maximum UTF-8 bytes in the serialized manifest. Defaults to 256 KiB,
+   * ceiling 1 MiB.
+   */
+  maxManifestBytes?: number;
+}
+
 /** Server-side ceilings applied in addition to Dataset limits. */
 export interface MCPQueryLimits {
   /** Rows used when a tool call omits `limit`. Defaults to 100. */
@@ -206,3 +235,7 @@ export const DEFAULT_QUERY_TIMEOUT_MS = 30_000;
 export const MAX_QUERY_TIMEOUT_MS = 120_000;
 export const DEFAULT_RESPONSE_BYTES = 1_048_576;
 export const MAX_RESPONSE_BYTES = 10_485_760;
+export const DEFAULT_MANIFEST_TOOLS = 64;
+export const MAX_MANIFEST_TOOLS = 256;
+export const DEFAULT_MANIFEST_BYTES = 262_144;
+export const MAX_MANIFEST_BYTES = 1_048_576;
