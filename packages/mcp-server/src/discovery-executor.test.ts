@@ -164,6 +164,38 @@ describe('HypequeryMCPDiscoveryExecutor', () => {
       .toEqual({ 'com.hypequery/toolMode': 'catalog' });
   });
 
+  it('refuses to advertise a manifest past its byte ceiling', async () => {
+    const executor = createMCPDiscoveryExecutor({
+      datasets: datasets(),
+      catalogBudget: { maxManifestBytes: 512 },
+    });
+
+    // A gateway is expected to catch this and pick a narrower tool mode, so it
+    // must be a typed budget failure rather than an opaque throw.
+    await expect(executor.listTools()).rejects.toMatchObject({
+      code: 'MCP_CATALOG_TOO_LARGE',
+      category: 'budget',
+      retryable: false,
+    });
+  });
+
+  it('measures the catalog, not the provenance stamped on it', async () => {
+    // `_meta` is attached after the budget runs. A gateway adding a revision
+    // and a deployment identity must not be what pushes a manifest over.
+    // Comfortably above this catalog's real manifest, which is ~13.7 KiB for
+    // two datasets — nearly all of it the field enums in the two query tools.
+    const budget = { maxManifestBytes: 32_768 } as const;
+    const bare = createMCPDiscoveryExecutor({ datasets: datasets(), catalogBudget: budget });
+    const stamped = createMCPDiscoveryExecutor({
+      datasets: datasets(),
+      catalogBudget: budget,
+      meta: { activationRevision: REVISION, deploymentIdentity: 'b'.repeat(64) },
+    });
+
+    const [withoutMeta, withMeta] = await Promise.all([bare.listTools(), stamped.listTools()]);
+    expect(withMeta.tools).toEqual(withoutMeta.tools);
+  });
+
   it('advertises only the datasets it was given', async () => {
     // The narrowing a gateway applies for one principal happens before this,
     // on the contract. Whatever reaches here is what gets advertised.
