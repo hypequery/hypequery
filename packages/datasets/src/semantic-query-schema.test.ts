@@ -6,7 +6,9 @@ import { belongsTo } from './relationships.js';
 import { measure } from './measure.js';
 import {
   buildCanonicalSemanticQuerySchemas,
+  buildDatasetInputProtocolSchema,
   buildDatasetInputSchema,
+  buildMetricInputProtocolSchema,
   toSemanticJsonSchema,
 } from './semantic-query-schema.js';
 import { getDatasetCatalog, type DatasetCatalog } from './catalog.js';
@@ -366,5 +368,69 @@ describe('canonical semantic query schemas', () => {
       metric: 'totalRevenue',
       grain: 'month',
     }).success).toBe(false);
+  });
+});
+
+describe('protocol input schemas', () => {
+  it('derives from the same shape as the Zod validator', () => {
+    const Orders = dataset('orders', {
+      source: 'analytics.orders',
+      timeKey: 'createdAt',
+      dimensions: {
+        createdAt: dimension.timestamp({ column: 'created_at' }),
+        status: dimension.string(),
+        internalId: dimension.string({ groupable: false }),
+      },
+      measures: { revenue: measure.sum('amount') },
+      limits: { maxDimensions: 2, maxResultSize: 500 },
+    });
+
+    const protocolSchema = buildDatasetInputProtocolSchema(Orders as never);
+
+    // The point of this export: a registry advertising these fields and a data
+    // plane validating them read one catalog. A hand-built copy is how an
+    // advertised field becomes one the validator rejects.
+    const properties = (protocolSchema as { properties: Record<string, unknown> }).properties;
+    expect(Object.keys(properties).sort()).toEqual(
+      ['by', 'dimensions', 'filters', 'limit', 'measures', 'offset', 'orderBy'],
+    );
+  });
+
+  it('excludes a non-groupable dimension, as the validator does', () => {
+    const Orders = dataset('orders', {
+      source: 'analytics.orders',
+      dimensions: {
+        status: dimension.string(),
+        internalId: dimension.string({ groupable: false }),
+      },
+      measures: { revenue: measure.sum('amount') },
+    });
+
+    const schema = buildDatasetInputProtocolSchema(Orders as never) as {
+      properties: { dimensions: { items: { values: readonly string[] } } };
+    };
+
+    // Excluded from `dimensions` only. A non-groupable dimension can still be
+    // filtered and ordered on, so asserting over the whole document would
+    // assert something false.
+    expect(schema.properties.dimensions.items.values).toEqual(['status']);
+  });
+
+  it('omits measures from a metric schema', () => {
+    const Orders = dataset('orders', {
+      source: 'analytics.orders',
+      dimensions: { status: dimension.string() },
+      measures: { revenue: measure.sum('amount') },
+    });
+    const withMetric = Object.assign(Orders, {
+      metrics: { totalRevenue: Orders.metric('totalRevenue', { measure: 'revenue' }) },
+    });
+
+    const schema = buildMetricInputProtocolSchema(withMetric as never, 'totalRevenue');
+
+    // A metric fixes its own aggregate, so offering `measures` would advertise
+    // a choice the data plane rejects.
+    expect((schema as { properties: Record<string, unknown> }).properties)
+      .not.toHaveProperty('measures');
   });
 });

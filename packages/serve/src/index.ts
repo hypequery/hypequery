@@ -29,7 +29,12 @@ export type {
   CloudCompatibilityDiagnostic,
   CloudCompatibilitySeverity,
 } from './cloud-compatibility.js';
-export { ProtocolSchemaAdapterError, zodToProtocolSchema } from './protocol-schema-adapter.js';
+/**
+ * Re-exported from `@hypequery/datasets`, where it now lives beside the schema
+ * builders it converts. Kept here because it is a shipped export of this
+ * package and removing it would break importers for no benefit.
+ */
+export { ProtocolSchemaAdapterError, zodToProtocolSchema } from '@hypequery/datasets';
 /** @deprecated Import from `@hypequery/serve/dev` instead. */
 export { serveDev } from "./dev.js";
 export * from "./serve.js";

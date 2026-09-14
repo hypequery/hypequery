@@ -31,7 +31,7 @@ import type {
 } from './types.js';
 import { resolveDatasetEntry } from './semantic/datasets/utils/dataset-entry.js';
 import { resolveMetricEntry } from './semantic/datasets/metric-endpoint.js';
-import { zodToProtocolSchema } from './protocol-schema-adapter.js';
+import { zodToProtocolSchema } from '@hypequery/datasets';
 import { resolveLocalAuthRequirement } from './auth-requirement.js';
 
 export interface BuildProtocolDeploymentOptions {

@@ -243,6 +243,18 @@ function convert(schema: ZodTypeAny, path: string): Record<string, unknown> {
       return annotate(schema, convert(definition.type, path));
     case 'ZodReadonly':
       return annotate(schema, convert(definition.innerType, path));
+    case 'ZodEffects':
+      // `.refine()` and `.transform()` wrap a schema in an effect. The wrapped
+      // shape converts; the effect itself cannot, because a protocol schema
+      // describes a value's structure and has no way to express a cross-field
+      // rule such as "at least one dimension or measure".
+      //
+      // Dropping it is deliberate and is why it is safe: the effect is still
+      // enforced by the Zod validator the data plane runs, so a query that
+      // breaks the rule is still rejected. What is lost is only the ability to
+      // *advertise* the rule, and refusing to convert at all would instead lose
+      // the whole schema.
+      return annotate(schema, convert(definition.schema, path));
     default:
       throw new ProtocolSchemaAdapterError(`Unsupported Zod type "${typeName(schema)}"`, path);
   }
