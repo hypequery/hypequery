@@ -21,11 +21,9 @@ makes that class of bug impossible instead of merely unlikely.
 `@hypequery/serve` to `@hypequery/datasets`, beside the builders they convert.
 `@hypequery/serve` re-exports both, so nothing importing them changes.
 
-The adapter also learns `ZodEffects`, which `.refine()` and `.transform()`
-produce. The wrapped shape converts; the effect itself does not, because a
-protocol schema describes a value's structure and cannot express a cross-field
-rule such as "at least one dimension or measure". Dropping it is safe rather
-than lossy in the way that matters: the effect is still enforced by the Zod
-validator the data plane runs, so a query breaking the rule is still rejected.
-What is lost is only the ability to *advertise* the rule — and refusing to
-convert at all, which is what happened before, lost the entire schema instead.
+The adapter also learns shape-preserving Zod refinements. A protocol schema
+cannot express a cross-field rule such as "at least one dimension or measure",
+but the rule remains enforced by the Zod validator the data plane runs.
+Transforms and preprocessors remain unsupported because they can change the
+output or accepted input shape and would make the advertised contract
+inaccurate.
