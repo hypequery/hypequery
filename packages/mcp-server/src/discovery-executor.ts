@@ -35,8 +35,13 @@ import { getDatasetSchemaTool } from './tools/introspect.js';
 import { listDatasetsTool } from './tools/list-datasets.js';
 import { buildMCPToolManifest } from './tools/tool-manifest.js';
 import { buildMCPQuerySchemas } from './tools/utils/canonical-query-schemas.js';
+import {
+  assertManifestWithinBudget,
+  resolveCatalogBudget,
+  type EffectiveCatalogBudget,
+} from './tools/utils/catalog-budget.js';
 import { createMCPErrorResponse } from './tools/utils/tool-response.js';
-import type { DatasetRegistry, MCPQueryLimits } from './types.js';
+import type { DatasetRegistry, MCPCatalogBudget, MCPQueryLimits } from './types.js';
 
 /**
  * Provenance a client needs to cache a manifest and know when it went stale.
@@ -68,6 +73,16 @@ export interface MCPDiscoveryExecutorConfig {
   queryableDatasets?: readonly string[];
   /** Server-side query ceilings, so advertised schemas match what will run. */
   queryLimits?: MCPQueryLimits;
+  /**
+   * Tool-count and manifest-byte ceilings.
+   *
+   * This is where they bite. A gateway lists one manifest per authorized
+   * catalog, and a large deployment's `query_dataset` schema names every
+   * dataset, dimension, measure, and filter field it published. Exceeding the
+   * budget raises `MCPCatalogBudgetError`, which a caller is expected to catch
+   * and answer by choosing a narrower tool mode.
+   */
+  catalogBudget?: MCPCatalogBudget;
   /** Attached to `listTools`, so a client can pin what it listed. */
   meta?: MCPToolManifestMeta;
 }
@@ -94,6 +109,7 @@ function metaEntries(meta: MCPToolManifestMeta | undefined): Record<string, stri
  */
 export class HypequeryMCPDiscoveryExecutor implements MCPToolExecutor {
   private readonly querySchemas: CanonicalSemanticQuerySchemas;
+  private readonly catalogBudget: EffectiveCatalogBudget;
   private readonly meta: Record<string, string> | undefined;
 
   constructor(private readonly config: MCPDiscoveryExecutorConfig) {
@@ -104,6 +120,7 @@ export class HypequeryMCPDiscoveryExecutor implements MCPToolExecutor {
       config.queryLimits,
       config.queryableDatasets,
     );
+    this.catalogBudget = resolveCatalogBudget(config.catalogBudget);
     this.meta = metaEntries(config.meta);
   }
 
@@ -113,7 +130,12 @@ export class HypequeryMCPDiscoveryExecutor implements MCPToolExecutor {
   }
 
   async listTools(): Promise<ListToolsResult> {
-    const manifest = buildMCPToolManifest(this.querySchemas);
+    // Budgeted before `_meta` is attached, so the ceiling measures the catalog
+    // rather than the provenance a gateway chose to stamp on it.
+    const manifest = assertManifestWithinBudget(
+      buildMCPToolManifest(this.querySchemas),
+      this.catalogBudget,
+    );
     return this.meta === undefined ? manifest : { ...manifest, _meta: this.meta };
   }
 

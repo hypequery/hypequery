@@ -17,12 +17,22 @@ import { queryMetricTool } from './tools/query-metric.js';
 import { buildMCPToolManifest } from './tools/tool-manifest.js';
 import { buildMCPQuerySchemas } from './tools/utils/canonical-query-schemas.js';
 import {
+  assertManifestWithinBudget,
+  resolveCatalogBudget,
+  type EffectiveCatalogBudget,
+} from './tools/utils/catalog-budget.js';
+import {
   assertWithinBudget,
   resolveExecutionBudget,
   type EffectiveExecutionBudget,
 } from './tools/utils/execution-budget.js';
 import { resolveQueryLimits } from './tools/utils/query-limits.js';
-import type { DatasetRegistry, MCPExecutionBudget, MCPQueryLimits } from './types.js';
+import type {
+  DatasetRegistry,
+  MCPCatalogBudget,
+  MCPExecutionBudget,
+  MCPQueryLimits,
+} from './types.js';
 import { validateMCPServerTenantConfig } from './utils/tenant-config.js';
 import {
   createMCPErrorResponse,
@@ -42,6 +52,8 @@ export interface MCPExecutorConfig {
   queryLimits?: MCPQueryLimits;
   /** Query deadline and serialized-result byte ceilings. */
   executionBudget?: MCPExecutionBudget;
+  /** Tool-count and manifest-byte ceilings applied when listing tools. */
+  catalogBudget?: MCPCatalogBudget;
 }
 
 export interface MCPServerConfig extends MCPExecutorConfig {
@@ -73,11 +85,13 @@ export interface MCPToolExecutor {
 export class HypequeryMCPExecutor implements MCPToolExecutor {
   private readonly querySchemas: CanonicalSemanticQuerySchemas;
   private readonly executionBudget: EffectiveExecutionBudget;
+  private readonly catalogBudget: EffectiveCatalogBudget;
 
   constructor(private readonly config: MCPExecutorConfig) {
     validateMCPServerTenantConfig(config);
     resolveQueryLimits(undefined, config.queryLimits);
     this.executionBudget = resolveExecutionBudget(config.executionBudget);
+    this.catalogBudget = resolveCatalogBudget(config.catalogBudget);
     this.querySchemas = buildMCPQuerySchemas(config.datasets ?? {}, config.queryLimits);
   }
 
@@ -86,7 +100,7 @@ export class HypequeryMCPExecutor implements MCPToolExecutor {
   }
 
   async listTools(): Promise<ListToolsResult> {
-    return buildMCPToolManifest(this.querySchemas);
+    return assertManifestWithinBudget(buildMCPToolManifest(this.querySchemas), this.catalogBudget);
   }
 
   async callTool(

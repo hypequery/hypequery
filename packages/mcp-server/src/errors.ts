@@ -7,6 +7,7 @@ export type MCPToolErrorCode =
   | 'MCP_REQUEST_CANCELLED'
   | 'MCP_QUERY_TIMEOUT'
   | 'MCP_RESULT_TOO_LARGE'
+  | 'MCP_CATALOG_TOO_LARGE'
   | 'MCP_EXECUTION_FAILED';
 
 export type MCPToolErrorCategory =
@@ -40,8 +41,12 @@ function defaultErrorMetadata(code: MCPToolErrorCode): Omit<MCPErrorDetails, 'co
       return { category: 'unauthorized', retryable: false, correctable: false };
     case 'MCP_STALE_CONTRACT':
       return { category: 'stale_contract', retryable: true, correctable: false };
+    // `MCP_CATALOG_TOO_LARGE` is not retryable: the same catalog produces the
+    // same manifest every time. A caller fixes it by publishing fewer targets
+    // or choosing a tool mode that does not name every one of them.
     case 'MCP_REQUEST_CANCELLED':
     case 'MCP_RESULT_TOO_LARGE':
+    case 'MCP_CATALOG_TOO_LARGE':
       return { category: 'budget', retryable: false, correctable: false };
     case 'MCP_QUERY_TIMEOUT':
       return { category: 'budget', retryable: true, correctable: false };
@@ -84,6 +89,25 @@ export class MCPExecutionBudgetError extends MCPToolError {
       retryable: code === 'MCP_QUERY_TIMEOUT',
     });
     this.name = 'MCPExecutionBudgetError';
+  }
+}
+
+/**
+ * A catalog too large to advertise.
+ *
+ * Separate from `MCPExecutionBudgetError` because it is not raised by a query:
+ * it is raised while listing, before any call exists, and a hosted gateway is
+ * expected to catch it and choose a smaller tool mode rather than surface it to
+ * a client. Truncating instead would be worse — an agent would be shown fewer
+ * targets than the validators behind it accept, and the manifest hash would
+ * stop identifying the catalog it was built from.
+ */
+export class MCPCatalogBudgetError extends MCPToolError {
+  declare readonly code: 'MCP_CATALOG_TOO_LARGE';
+
+  constructor(message: string) {
+    super('MCP_CATALOG_TOO_LARGE', message, { category: 'budget', retryable: false });
+    this.name = 'MCPCatalogBudgetError';
   }
 }
 
