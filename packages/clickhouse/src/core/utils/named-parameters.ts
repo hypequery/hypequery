@@ -69,6 +69,10 @@ function matchPlaceholder(sql: string, start: number): PlaceholderMatch | undefi
  * Rewrites ClickHouse-style `{name:Type}` placeholders to the positional `?`
  * markers the builder binds against, pairing each with its value.
  *
+ * TODO: Remove this client-side rewrite and its CAST/compound serialization
+ * once native server-side query_params binding replaces positional parameters.
+ * The public {name:Type} placeholder API can stay unchanged.
+ *
  * Each marker is wrapped in a `CAST` to the declared type, which is what the
  * server's own `{name:Type}` substitution does. Without it the value arrives as
  * a String and any expression that depends on the real type fails to compile.

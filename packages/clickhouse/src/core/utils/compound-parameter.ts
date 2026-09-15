@@ -1,10 +1,6 @@
 import { escapeValue } from '../utils.js';
 import { parseParameterType, parseTupleField } from './parameter-type.js';
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return value !== null && typeof value === 'object'
-    && (Object.getPrototypeOf(value) === Object.prototype || Object.getPrototypeOf(value) === null);
-}
+import { isPlainRecord } from './record-guards.js';
 
 function invalidValue(type: string): never {
   throw new Error(`Cannot serialize parameter value as ${type}. Use a matching JavaScript value or pass ClickHouse text for the whole parameter.`);
@@ -30,7 +26,7 @@ function serializeValue(value: unknown, type: string): string {
     let items: unknown[];
     if (Array.isArray(value) && value.length === fields.length) {
       items = value;
-    } else if (isRecord(value) && fields.every(field => field.name !== undefined && Object.hasOwn(value, field.name))) {
+    } else if (isPlainRecord(value) && fields.every(field => field.name !== undefined && Object.hasOwn(value, field.name))) {
       items = fields.map(field => value[field.name!]);
     } else {
       return invalidValue(type);
@@ -38,7 +34,7 @@ function serializeValue(value: unknown, type: string): string {
     return `(${fields.map((field, i) => serializeValue(items[i], field.type)).join(',')})`;
   }
   if (name === 'Map' && args.length === 2) {
-    const entries = value instanceof Map ? [...value.entries()] : isRecord(value) ? Object.entries(value) : undefined;
+    const entries = value instanceof Map ? [...value.entries()] : isPlainRecord(value) ? Object.entries(value) : undefined;
     if (!entries) return invalidValue(type);
     return `{${entries.map(([key, item]) => `${serializeValue(key, args[0]!)}:${serializeValue(item, args[1]!)}`).join(',')}}`;
   }
@@ -57,7 +53,7 @@ function serializeValue(value: unknown, type: string): string {
  * resulting text again; tuple and map delimiters come only from the type.
  */
 export function serializeCompoundParameter(value: unknown, type: string): unknown {
-  if (Array.isArray(value) || value instanceof Map || isRecord(value)) {
+  if (Array.isArray(value) || value instanceof Map || isPlainRecord(value)) {
     // A top-level JSON value is already handled by the adapter's normal
     // JSON.stringify + SQL escaping path. Quoting it here would double-wrap it.
     if (parseParameterType(type).name === 'JSON') return value;
