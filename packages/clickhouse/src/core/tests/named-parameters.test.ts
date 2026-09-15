@@ -1,4 +1,5 @@
 import { bindNamedParameters } from '../utils/named-parameters.js';
+import { substituteParameters } from '../utils.js';
 
 describe('bindNamedParameters', () => {
   it('rewrites placeholders to positional markers in order', () => {
@@ -71,6 +72,29 @@ describe('bindNamedParameters', () => {
   it('keeps pre-serialized compound parameters bound as strings', () => {
     const text = "[(1,'x')]";
     expect(bindNamedParameters('SELECT {value:Array(Tuple(UInt8, String))}', { value: text }).parameters).toEqual([text]);
+  });
+
+  it.each(['JSON', 'JSON(max_dynamic_paths=0)'])('keeps %s objects on the normal parameter escaping path', type => {
+    const payload = { label: "O'Brien", path: 'a\\b', nested: { values: [1, true, null] } };
+    const bound = bindNamedParameters(`SELECT {payload:${type}}, {next:UInt8}`, { payload, next: 2 });
+
+    expect(bound.parameters).toEqual([payload, 2]);
+    const rendered = substituteParameters(bound.sql, bound.parameters);
+    expect(rendered).toContain("O''Brien");
+    expect(rendered).toContain('"nested":{"values":[1,true,null]}');
+    expect(rendered).toContain("CAST(2, 'UInt8')");
+  });
+
+  it('quotes JSON elements inside compound parameter text', () => {
+    const payload = { label: "O'Brien", path: 'a\\b' };
+    const bound = bindNamedParameters(
+      'SELECT {values:Array(JSON)}, {tuple:Tuple(UInt8, JSON)}',
+      { values: [payload], tuple: [1, payload] },
+    );
+    expect(bound.parameters).toEqual([
+      "['{\"label\":\"O''Brien\",\"path\":\"a\\\\\\\\b\"}']",
+      "(1,'{\"label\":\"O''Brien\",\"path\":\"a\\\\\\\\b\"}')",
+    ]);
   });
 
   it.each([

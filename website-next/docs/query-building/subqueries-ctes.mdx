@@ -196,6 +196,9 @@ shapes and mismatched tuple lengths throw before execution. For compound types
 outside this supported set, pass the entire parameter as a string in ClickHouse's
 text format; it will still be escaped and bound.
 
+`JSON` parameters accept plain JavaScript objects and use JSON encoding before
+SQL escaping. JSON objects can also appear inside arrays and tuples.
+
 <Callout type="info" title="Where the value is substituted today">
   Values are escaped into the SQL text client-side rather than sent as
   ClickHouse `query_params`. Native server-side binding is planned; it changes

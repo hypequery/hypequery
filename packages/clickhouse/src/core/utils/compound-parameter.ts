@@ -18,6 +18,9 @@ function serializeValue(value: unknown, type: string): string {
     return serializeValue(value, args[0]!);
   }
   if (value === null || value === undefined) return invalidValue(type);
+  // JSON is read as a quoted string inside compound text, unlike the tuple
+  // and map syntax around it. Reuse the existing JSON escaping path.
+  if (name === 'JSON') return escapeValue(value);
   if (name === 'Array' && args.length === 1) {
     if (!Array.isArray(value)) return invalidValue(type);
     return `[${Array.from(value, item => serializeValue(item, args[0]!)).join(',')}]`;
@@ -55,6 +58,9 @@ function serializeValue(value: unknown, type: string): string {
  */
 export function serializeCompoundParameter(value: unknown, type: string): unknown {
   if (Array.isArray(value) || value instanceof Map || isRecord(value)) {
+    // A top-level JSON value is already handled by the adapter's normal
+    // JSON.stringify + SQL escaping path. Quoting it here would double-wrap it.
+    if (parseParameterType(type).name === 'JSON') return value;
     return serializeValue(value, type);
   }
   return value;

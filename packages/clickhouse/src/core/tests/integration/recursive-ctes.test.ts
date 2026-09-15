@@ -13,6 +13,30 @@ describe('Integration Tests - Recursive CTEs', () => {
       }
     }, SETUP_TIMEOUT);
 
+    test('executes JSON objects at the top level and inside compound parameters', async () => {
+      const payload = { label: "O'Brien", path: 'a\\b', quote: '"quoted"', nested: { values: ['x', 'y'] } };
+      const rows = await db.withCTE('json_values', {
+        sql: `SELECT {payload:JSON} AS payload, {values:Array(JSON)} AS values,
+          {tuple:Tuple(UInt8, JSON)} AS tuple`,
+        parameters: { payload, values: [payload], tuple: [1, payload] },
+      }, { payload: 'JSON', values: 'Array(JSON)', tuple: 'Tuple(UInt8, JSON)' })
+        .table('json_values').execute();
+
+      expect(rows).toEqual([{ payload, values: [payload], tuple: [1, payload] }]);
+    });
+
+    test('preserves a JSON object through a recursive CTE', async () => {
+      const payload = { foo: 'bar' };
+      const rows = await db.withRecursiveCTE('recursive_json', {
+        sql: `SELECT {payload:JSON} AS payload, toUInt8(1) AS n
+          UNION ALL SELECT payload, toUInt8(n + 1) FROM recursive_json WHERE n < 2`,
+        parameters: { payload },
+      }, { payload: 'JSON', n: 'UInt8' })
+        .table('recursive_json').select(['payload']).execute();
+
+      expect(rows).toEqual([{ payload }, { payload }]);
+    });
+
     test('executes bound arrays with quoted strings, nested nulls, and UInt64 precision', async () => {
       const names = ['foo', "O'Brien", 'a\\b', '"quoted"', "x'); SELECT 2 --"];
       const rows = await db

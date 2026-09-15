@@ -588,3 +588,16 @@ const compoundRecursive = db.withRecursiveCTE('recursive_pairs', {
 }, { pairs: 'Array(Tuple(UInt32, String))', n: 'UInt8' })
   .table('recursive_pairs').select(['pairs']);
 type AssertRecursiveCompoundCte = Expect<Equal<Awaited<ReturnType<typeof compoundRecursive.execute>>, { pairs: [number, string][] }[]>>;
+
+const jsonCte = db.withCTE('json_values', {
+  sql: 'SELECT {payload:JSON} AS payload, {values:Array(JSON)} AS values',
+  parameters: { payload: { foo: 'bar' }, values: [{ foo: 'bar' }] },
+}, { payload: 'JSON', values: 'Array(JSON)' })
+  .table('json_values').select(['payload', 'values']);
+type AssertJsonCte = Expect<Equal<Awaited<ReturnType<typeof jsonCte.execute>>, { payload: unknown; values: unknown[] }[]>>;
+const recursiveJsonCte = db.withRecursiveCTE('recursive_json', {
+  sql: 'SELECT {payload:JSON} AS payload, toUInt8(1) AS n UNION ALL SELECT payload, toUInt8(n + 1) FROM recursive_json WHERE n < 2',
+  parameters: { payload: { foo: 'bar' } },
+}, { payload: 'JSON', n: 'UInt8' })
+  .table('recursive_json').select(['payload']);
+type AssertRecursiveJsonCte = Expect<Equal<Awaited<ReturnType<typeof recursiveJsonCte.execute>>, { payload: unknown }[]>>;
