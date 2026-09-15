@@ -1,4 +1,4 @@
-import { QueryBuilder, SelectQB } from '../query-builder.js';
+import { createQueryBuilder, QueryBuilder, SelectQB } from '../query-builder.js';
 import { ClickHouseDialect } from '../dialects/clickhouse-dialect.js';
 import type { DatabaseAdapter } from '../adapters/database-adapter.js';
 import type { BuilderState } from '../types/builder-state.js';
@@ -112,6 +112,14 @@ type TestTableState = BuilderState<
   TableRecord<TestSchema['test_table']>,
   'test_table'
 >;
+
+/** A client over the test schema, for the entry points that start from `db`. */
+export function setupTestClient() {
+  return createQueryBuilder<TestSchema>({
+    adapter: testAdapter,
+    dialect: testDialect,
+  });
+}
 
 export function setupUsersBuilder(): SelectQB<TestSchema, 'users', TableRecord<TestSchema['users']>, 'users'> {
   const state: UsersState = {

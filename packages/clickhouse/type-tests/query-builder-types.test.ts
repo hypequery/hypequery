@@ -478,3 +478,142 @@ type AssertLiteralAfterDynamic = Expect<Equal<LiteralAfterDynamicResult, { id: n
 // The original API accepts a body selected dynamically between SQL and a builder.
 const unionCteBody = Math.random() > 0.5 ? 'SELECT id FROM users' : activeUsers;
 builder.withCTE('dynamic_body', unionCteBody).select(['id']);
+
+// A CTE declared before the source becomes a typed query source of its own.
+const descendantsScope = db.withRecursiveCTE(
+  'descendants',
+  {
+    sql: `
+      SELECT {rootId:UUID} AS id
+      UNION ALL
+      SELECT link.child_id AS id
+      FROM asset_link AS link
+      INNER JOIN descendants AS walked ON link.parent_id = walked.id
+    `,
+    parameters: { rootId: 'b4f7…' },
+  },
+  { id: 'UUID' },
+);
+const descendantIds = descendantsScope.table('descendants').select(['id']).distinct();
+type DescendantIdsResult = Awaited<ReturnType<typeof descendantIds.execute>>;
+type AssertDescendantIds = Expect<Equal<DescendantIdsResult, { id: string }[]>>;
+
+descendantsScope.table('descendants').where('id', 'eq', 'b4f7…');
+descendantsScope.table('descendants').select(['descendants.id']);
+// @ts-expect-error - columns the CTE does not declare are not selectable
+descendantsScope.table('descendants').select(['missing']);
+// @ts-expect-error - columns the CTE does not declare are not filterable
+descendantsScope.table('descendants').where('missing', 'eq', 1);
+// @ts-expect-error - FINAL is only valid for table sources
+descendantsScope.table('descendants').final();
+// @ts-expect-error - an undeclared name is neither a CTE nor a schema table
+descendantsScope.table('not_declared');
+
+// Starting from a schema table keeps schema typing and the CTE stays joinable.
+const scopedTableQuery = descendantsScope
+  .table('test_table')
+  .innerJoin('descendants', 'id', 'descendants.id')
+  .select(['name', 'descendants.id']);
+type ScopedTableQueryResult = Awaited<ReturnType<typeof scopedTableQuery.execute>>;
+type AssertScopedTableQuery = Expect<Equal<ScopedTableQueryResult, { name: string; id: string }[]>>;
+
+// A builder body carries its output type through to the CTE source.
+const scopedBuilderCte = db
+  .withCTE('active_users', activeUsers)
+  .table('active_users')
+  .select(['id', 'user_name']);
+type ScopedBuilderCteResult = Awaited<ReturnType<typeof scopedBuilderCte.execute>>;
+type AssertScopedBuilderCte = Expect<Equal<ScopedBuilderCteResult, { id: number; user_name: string }[]>>;
+
+// A raw body with no declared columns is not a typed source.
+// @ts-expect-error - the alias exposes no columns to read from
+db.withCTE('untyped_scope', 'SELECT id FROM users').table('untyped_scope');
+
+// The recursive marker is available on the builder too, for a joined CTE.
+const recursiveJoin = builder
+  .withRecursiveCTE('lineage', 'SELECT 1 AS id UNION ALL SELECT id FROM lineage', { id: 'Int32' })
+  .innerJoin('lineage', 'created_by', 'lineage.id')
+  .select(['id', 'lineage.id']);
+type RecursiveJoinResult = Awaited<ReturnType<typeof recursiveJoin.execute>>;
+type AssertRecursiveJoin = Expect<Equal<RecursiveJoinResult, { id: number }[]>>;
+
+// Broad aliases stay untyped on scopes, just as they do on inline builders.
+const runtimeScopeAlias: string = 'runtime_cte';
+const dynamicBuilderScope = db.withCTE(runtimeScopeAlias, activeUsers);
+const dynamicRawScope = db.withCTE(runtimeScopeAlias, 'SELECT 1 AS cte_only', { cte_only: 'UInt32' });
+const dynamicRecursiveScope = db.withRecursiveCTE(runtimeScopeAlias, 'SELECT 1 AS cte_only', { cte_only: 'UInt32' });
+dynamicBuilderScope.table('users').select(['email']).final();
+dynamicRawScope.table('users').select(['email']).final();
+dynamicRecursiveScope.table('users').select(['email']).prewhere('id', 'eq', 1).final();
+// @ts-expect-error - broad builder aliases do not register arbitrary sources
+dynamicBuilderScope.table('undeclared');
+// @ts-expect-error - broad raw aliases do not register arbitrary sources
+dynamicRawScope.table('undeclared');
+// @ts-expect-error - broad recursive aliases do not register arbitrary sources
+dynamicRecursiveScope.table('undeclared');
+// @ts-expect-error - schema tables must not gain the dynamic CTE's columns
+dynamicRawScope.table('users').select(['cte_only']);
+const scopeAfterDynamic = descendantsScope
+  .withCTE(runtimeScopeAlias, 'SELECT 1 AS cte_only', { cte_only: 'UInt32' })
+  .withCTE('active_users', activeUsers);
+const existingScopedSource = scopeAfterDynamic.table('descendants').select(['id']);
+type AssertExistingScopedSource = Expect<Equal<Awaited<ReturnType<typeof existingScopedSource.execute>>, { id: string }[]>>;
+const laterScopedSource = scopeAfterDynamic.table('active_users').select(['user_name']);
+type AssertLaterScopedSource = Expect<Equal<Awaited<ReturnType<typeof laterScopedSource.execute>>, { user_name: string }[]>>;
+// @ts-expect-error - PREWHERE is only valid for table sources
+descendantsScope.table('descendants').prewhere('id', 'eq', 'root');
+
+// Compound raw parameters retain their declared CTE output types.
+const compoundScope = db.withCTE('compound', {
+  sql: `SELECT {pairs:Array(Tuple(UInt32, String))} AS pairs,
+    {records:Array(Tuple(id UInt32, label String))} AS records,
+    {maps:Array(Map(String, UInt32))} AS maps`,
+  parameters: { pairs: [[1, 'x']], records: [{ id: 1, label: 'x' }], maps: [{ x: 1 }] },
+}, {
+  pairs: 'Array(Tuple(UInt32, String))',
+  records: 'Array(Tuple(id UInt32, label String))',
+  maps: 'Array(Map(String, UInt32))',
+});
+const compoundQuery = compoundScope.table('compound').select(['pairs', 'records', 'maps']);
+type AssertCompoundCte = Expect<Equal<Awaited<ReturnType<typeof compoundQuery.execute>>, {
+  pairs: [number, string][];
+  records: { id: number; label: string }[];
+  maps: Record<string, number>[];
+}[]>>;
+// @ts-expect-error - unknown compound-source columns remain invalid
+compoundScope.table('compound').select(['missing']);
+const compoundRecursive = db.withRecursiveCTE('recursive_pairs', {
+  sql: 'SELECT {pairs:Array(Tuple(UInt32, String))} AS pairs, toUInt8(1) AS n UNION ALL SELECT pairs, toUInt8(n + 1) FROM recursive_pairs WHERE n < 2',
+  parameters: { pairs: [[1, 'x']] },
+}, { pairs: 'Array(Tuple(UInt32, String))', n: 'UInt8' })
+  .table('recursive_pairs').select(['pairs']);
+type AssertRecursiveCompoundCte = Expect<Equal<Awaited<ReturnType<typeof compoundRecursive.execute>>, { pairs: [number, string][] }[]>>;
+
+const jsonCte = db.withCTE('json_values', {
+  sql: 'SELECT {payload:JSON} AS payload, {values:Array(JSON)} AS values',
+  parameters: { payload: { foo: 'bar' }, values: [{ foo: 'bar' }] },
+}, { payload: 'JSON', values: 'Array(JSON)' })
+  .table('json_values').select(['payload', 'values']);
+type AssertJsonCte = Expect<Equal<Awaited<ReturnType<typeof jsonCte.execute>>, { payload: unknown; values: unknown[] }[]>>;
+const recursiveJsonCte = db.withRecursiveCTE('recursive_json', {
+  sql: 'SELECT {payload:JSON} AS payload, toUInt8(1) AS n UNION ALL SELECT payload, toUInt8(n + 1) FROM recursive_json WHERE n < 2',
+  parameters: { payload: { foo: 'bar' } },
+}, { payload: 'JSON', n: 'UInt8' })
+  .table('recursive_json').select(['payload']);
+type AssertRecursiveJsonCte = Expect<Equal<Awaited<ReturnType<typeof recursiveJsonCte.execute>>, { payload: unknown }[]>>;
+
+// Bound client methods retain all overloads without casting their signatures.
+const { withCTE: declareCte, withRecursiveCTE: declareRecursiveCte } = db;
+const detachedBuilderCte = declareCte('active', activeUsers).table('active').select(['user_name']);
+type AssertDetachedBuilderCte = Expect<Equal<Awaited<ReturnType<typeof detachedBuilderCte.execute>>, { user_name: string }[]>>;
+const detachedRawCte = declareCte('raw_ids', 'SELECT 1 AS id', { id: 'UInt32' }).table('raw_ids').select(['id']);
+type AssertDetachedRawCte = Expect<Equal<Awaited<ReturnType<typeof detachedRawCte.execute>>, { id: number }[]>>;
+const detachedRecursiveCte = declareRecursiveCte('uuid_ids', 'SELECT toUUID(\'00000000-0000-0000-0000-000000000001\') AS id', { id: 'UUID' })
+  .table('uuid_ids').select(['id']);
+type AssertDetachedRecursiveCte = Expect<Equal<Awaited<ReturnType<typeof detachedRecursiveCte.execute>>, { id: string }[]>>;
+// @ts-expect-error - a detached untyped declaration does not register a source
+declareCte('untyped', 'SELECT 1 AS id').table('untyped');
+// @ts-expect-error - the detached recursive method retains column checking
+detachedRecursiveCte.select(['missing']);
+// @ts-expect-error - state transitions keep the non-table marker
+detachedRecursiveCte.where('id', 'eq', 'root').final();

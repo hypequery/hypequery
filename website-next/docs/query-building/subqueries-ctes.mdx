@@ -8,10 +8,10 @@ import { CodeBlock } from 'fumadocs-ui/components/codeblock';
 
 # Subqueries & CTEs
 
-hypequery supports typed subqueries in the `FROM` clause, Common Table Expressions (CTEs), and raw SQL escape hatches for complex queries.
+Use subqueries and Common Table Expressions (CTEs) to build a query from other queries.
 
 <Callout type="info" title="Query builder syntax">
-  These examples use a typed standalone `db` client so the query builder stays the focus.
+  These examples use a typed `db` query builder.
 </Callout>
 
 ## Subqueries in `FROM`
@@ -49,17 +49,17 @@ const totalsByAccount = await db
 
 </CodeBlock>
 
-The generated SQL nests the inner builder directly in the `FROM` clause. Parameters remain bound rather than being interpolated, and their order is preserved across the inner and outer queries.
-
-Typed methods on the outer builder reject source-table columns that the inner query did not select. SQL inside `rawAs()` remains an explicit trusted expression; provide its result type when you want the alias reflected precisely in the returned row type.
+The outer query can use only the columns selected by the inner query. Parameters
+stay bound until rendering or execution. Use `rawAs()` for trusted SQL expressions
+and specify their result types.
 
 ## Common Table Expressions (CTEs)
 
-CTEs are temporary result sets that you can reference within a query. They help make complex queries more readable and maintainable.
+A CTE gives a query a name so you can read from it or join it elsewhere in the same query.
 
 ### Using QueryBuilder as a CTE
 
-You can use another QueryBuilder instance as a CTE:
+Pass a query builder to `withCTE()`. The CTE inherits its selected columns and their types:
 
 <CodeBlock>
 
@@ -72,19 +72,19 @@ const activeUsersSubquery = db
 const results = await db
   .table('orders')
   .withCTE('active_users', activeUsersSubquery)
+  .innerJoin('active_users', 'user_id', 'active_users.id')
   .select([
     'orders.id',
     'orders.total',
     'active_users.user_name'
   ])
-  .innerJoin('active_users', 'user_id', 'active_users.id')
   .execute();
 
 ```
 
 </CodeBlock>
 
-This will generate SQL similar to:
+This generates:
 
 ```sql
 WITH active_users AS (
@@ -97,23 +97,16 @@ FROM orders
 INNER JOIN active_users ON orders.user_id = active_users.id
 ```
 
-Because the CTE was built from a query builder, hypequery knows which columns it
-exposes. The alias becomes a typed join target: `active_users.id` and
-`active_users.user_name` are checked, and `active_users.user_name` carries the
-inner query's type through to the result row.
+Join the CTE before selecting its columns. The selected columns keep their types
+in the result.
 
-Values inside a builder CTE stay bound as query parameters rather than being
-escaped into the SQL string, exactly as they are in the outer query.
-
-<Callout type="info" title="Aliasing a CTE join">
-  A CTE join does not take the trailing table-alias argument that a schema-table
-  join accepts — aliases are resolved through the schema, and a CTE has no schema
-  entry. Reference the CTE by its own name instead.
+<Callout type="info" title="CTE names in joins">
+  Reference a CTE by its declared name. CTE joins do not accept an additional table alias.
 </Callout>
 
 ### Using Raw SQL as a CTE
 
-For more complex subqueries, you can use raw SQL strings:
+Pass a SQL string and declare its output columns:
 
 <CodeBlock>
 
@@ -122,7 +115,9 @@ const results = await db
   .table('orders')
   .withCTE(
     'monthly_totals',
-    'SELECT user_id, toStartOfMonth(created_at) as month, SUM(total) as monthly_sum FROM orders GROUP BY user_id, month',
+    `SELECT user_id, toStartOfMonth(created_at) AS month, SUM(total) AS monthly_sum
+     FROM orders
+     GROUP BY user_id, month`,
     { user_id: 'UInt64', month: 'Date', monthly_sum: 'Float64' }
   )
   .innerJoin('monthly_totals', 'user_id', 'monthly_totals.user_id')
@@ -137,14 +132,163 @@ const results = await db
 
 </CodeBlock>
 
-A raw SQL body is opaque to hypequery, so declare the columns it produces to get
-the same typing a builder CTE gets. The declaration uses the same column types
-as a generated schema, and it is an assertion: nothing checks it against the SQL,
-so a wrong declaration surfaces at runtime rather than at compile time.
+The column declaration uses the same types as a generated schema. Keep it in
+sync with the SQL: hypequery does not check that they match.
 
-Without the third argument the CTE still works and still renders, but its alias
-stays untyped and cannot be used as a join target. A runtime alias typed as
-`string` also stays untyped; use a literal alias when you need typed joins.
+Without declared columns, a raw CTE cannot be used as a typed source or join
+target. Use a literal alias such as `'monthly_totals'`; an alias typed as `string`
+stays untyped.
+
+### Binding Values in a Raw CTE
+
+Use `{ sql, parameters }` to pass values separately from SQL. Match each
+`{name:Type}` placeholder to a key in `parameters`:
+
+<CodeBlock>
+
+```typescript
+const results = await db
+  .table('orders')
+  .withCTE(
+    'recent_users',
+    {
+      sql: `
+        SELECT id
+        FROM users
+        WHERE organization_id = {organizationId:UUID}
+          AND created_at >= {since:DateTime}
+      `,
+      parameters: { organizationId, since },
+    },
+    { id: 'UInt64' },
+  )
+  .innerJoin('recent_users', 'user_id', 'recent_users.id')
+  .select(['orders.id'])
+  .execute();
+```
+
+</CodeBlock>
+
+Each placeholder needs a type and a matching value. Extra values are ignored.
+Placeholders inside strings, comments, and heredocs are left unchanged.
+
+hypequery preserves the declared type with a `CAST`. For example, `{rootId:UUID}`
+stays a UUID when used in a join.
+
+Use these JavaScript values for compound types:
+
+| ClickHouse type | JavaScript value |
+| --- | --- |
+| `Array(T)` | An array, including nested arrays |
+| `Tuple(...)` | An array in field order |
+| Named `Tuple(...)` | An array in field order or an object keyed by field name |
+| `Map(K, V)` | A plain object or a JavaScript `Map` |
+| `JSON` | A plain object |
+| `Nullable(T)` | A value of type `T` or `null` |
+
+These types can be nested. For example, `Array(Tuple(UInt32, String))` accepts
+`[[1, 'x']]`. Unsupported object shapes and incorrect tuple lengths throw before
+execution. You can also pass a whole compound parameter as a string in
+ClickHouse's text format.
+
+<Callout type="info" title="Parameter handling">
+  Values are escaped into SQL client-side at rendering or execution time.
+  They are not sent as ClickHouse `query_params`.
+</Callout>
+
+### Reading From a CTE
+
+Declare a CTE on `db`, then use `.table(alias)` to read from it:
+
+<CodeBlock>
+
+```typescript
+const rows = await db
+  .withCTE('active_users', activeUsersSubquery)
+  .table('active_users')
+  .select(['id', 'user_name'])
+  .execute();
+```
+
+</CodeBlock>
+
+Selections, filters, ordering, and result rows use the CTE's declared columns.
+The CTE is available only to queries built from that declaration. It does not
+change your database schema.
+
+You can also start from a schema table and join the CTE:
+
+<CodeBlock>
+
+```typescript
+const rows = await db
+  .withCTE('active_users', activeUsersSubquery)
+  .table('orders')
+  .innerJoin('active_users', 'user_id', 'active_users.id')
+  .select(['orders.id', 'active_users.user_name'])
+  .execute();
+```
+
+</CodeBlock>
+
+`FINAL` and `PREWHERE` apply only to table sources, so they are rejected on CTEs.
+
+### Recursive CTEs
+
+Use `withRecursiveCTE()` with raw SQL to walk a hierarchy. This example follows
+parent–child links within one organization and returns the starting node and all
+reachable descendants:
+
+<CodeBlock>
+
+```typescript
+const descendants = await db
+  .withRecursiveCTE(
+    'descendants',
+    {
+      sql: `
+        SELECT {rootId:UUID} AS id
+        UNION ALL
+        SELECT link.child_id AS id
+        FROM asset_link AS link
+        INNER JOIN descendants AS walked
+          ON link.parent_id = walked.id
+        WHERE link.organization_id = {organizationId:UUID}
+      `,
+      parameters: { rootId, organizationId },
+    },
+    { id: 'UUID' },
+  )
+  .table('descendants')
+  .select(['id'])
+  .distinct()
+  .execute();
+// Array<{ id: string }>
+```
+
+</CodeBlock>
+
+The query uses `WITH RECURSIVE` for the whole clause. Ordinary CTEs and
+`withScalar()` aliases can share that clause.
+
+To join a recursive CTE from a schema table, declare it on the query builder:
+
+<CodeBlock>
+
+```typescript
+db.table('asset')
+  .withRecursiveCTE('descendants', lineageSql, { id: 'UUID' })
+  .innerJoin('descendants', 'id', 'descendants.id');
+```
+
+</CodeBlock>
+
+<Callout type="warn" title="ClickHouse requirements">
+  Enable the analyzer (`enable_analyzer`, on by default from ClickHouse 24.8)
+  and separate the starting query and recursive step with `UNION ALL`.
+  ClickHouse limits recursion with `max_recursive_cte_evaluation_depth`
+  (1000 by default). ClickHouse reports errors if these requirements are not met.
+</Callout>
 
 ### Multiple CTEs
 
@@ -165,7 +309,7 @@ const results = await db
     { user_id: 'UInt64', active_days: 'UInt64' }
   )
   .innerJoin('active_users', 'user_id', 'active_users.user_id')
-  .select(['events.*'])
+  .select(['events.user_id', 'events.timestamp'])
   .execute();
 
 ```
@@ -182,7 +326,7 @@ ClickHouse also supports scalar expressions in the `WITH` clause. Use `withScala
 const results = await db
   .table('orders')
   .withScalar('user_name', expr =>
-    expr.ch.dictGet('users_dict', 'name', expr.col('user_id'))
+    expr.ch.dictGet<string>('users_dict', 'name', expr.col('user_id'))
   )
   .select(['order_id', 'amount', 'user_name'])
   .where('user_name', 'like', '%Alice%')
@@ -208,11 +352,11 @@ LIMIT 50
 
 ## Raw SQL Expressions
 
-For complex conditions that can't be expressed using the fluent API, you can use raw SQL expressions:
+Use raw SQL for expressions the query builder does not cover.
 
 ### HAVING Clauses
 
-The `raw()` method allows you to add custom conditions to the HAVING clause:
+Use `raw()` to add a `HAVING` condition:
 
 <CodeBlock>
 
@@ -230,7 +374,7 @@ const results = await db
 
 </CodeBlock>
 
-This will generate:
+This generates:
 
 ```sql
 SELECT user_id, SUM(total) AS total_spent
@@ -239,35 +383,20 @@ GROUP BY user_id
 HAVING SUM(total) > 1000 AND COUNT(DISTINCT product_id) >= 3
 ```
 
-## Limitations and Workarounds
+## Subqueries in `WHERE`
 
-hypequery doesn't directly support nested subqueries in WHERE clauses, but you can work around this with CTEs or raw SQL expressions:
-
-### Example: IN Subqueries
-
-To achieve a query like:
-
-```sql
-SELECT * FROM products
-WHERE category_id IN (SELECT id FROM categories WHERE active = 1)
-```
-
-Use a CTE approach:
+Use `inSubquery` with a SQL string to filter by another query's results:
 
 <CodeBlock>
 
 ```typescript
-// Create a CTE for active categories
 const results = await db
   .table('products')
-  .withCTE(
-    'active_categories',
-    'SELECT id FROM categories WHERE active = 1'
-  )
-  .select(['products.*'])
-  .innerJoin('active_categories', 'category_id', 'active_categories.id')
+  .select('*')
+  .where('category_id', 'inSubquery', 'SELECT id FROM categories WHERE active = 1')
   .execute();
-
 ```
 
 </CodeBlock>
+
+See [Subquery IN](/docs/query-building/where#subquery-in) for more examples.

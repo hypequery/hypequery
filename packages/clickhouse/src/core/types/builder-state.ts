@@ -7,6 +7,13 @@ export type SchemaDefinition<Schema extends Record<string, any> = Record<string,
 };
 
 export const SUBQUERY_SOURCE_TABLE = '__hypequery_internal_subquery_source__' as const;
+export const CTE_SOURCE_TABLE = '__hypequery_internal_cte_source__' as const;
+
+/**
+ * Markers for sources that are not schema tables. They resolve to no columns,
+ * so they only ever gate the modifiers that need a real table.
+ */
+export type NonTableSource = typeof SUBQUERY_SOURCE_TABLE | typeof CTE_SOURCE_TABLE;
 
 /**
  * The columns a source exposes. Either schema-style `ColumnType` strings
@@ -16,6 +23,10 @@ export const SUBQUERY_SOURCE_TABLE = '__hypequery_internal_subquery_source__' as
 export type ColumnShape = Record<string, unknown>;
 
 export type CteShapes = Record<string, ColumnShape>;
+
+/** A broad string alias must not shadow every schema table. */
+export type RegisterCte<Ctes extends CteShapes, Alias extends string, Columns extends ColumnShape> =
+  string extends Alias ? Ctes : Ctes & Record<Alias, Columns>;
 
 export type BuilderState<
   Schema extends SchemaDefinition<Schema>,
@@ -186,8 +197,48 @@ export type AddCte<
   State['aliases'],
   State['scalars'],
   State['base'],
-  string extends Alias ? StateCtes<State> : StateCtes<State> & Record<Alias, Columns>
+  RegisterCte<StateCtes<State>, Alias, Columns>
 >;
+
+/**
+ * Declares CTEs on a state that is otherwise unchanged — used when a query is
+ * started from a scope that already carries them.
+ */
+export type WithCtes<
+  State extends AnyBuilderState,
+  Ctes extends CteShapes
+> = BuilderState<
+  State['schema'],
+  State['tables'],
+  State['output'],
+  State['baseTable'],
+  State['aliases'],
+  State['scalars'],
+  State['base'],
+  StateCtes<State> & Ctes
+>;
+
+/**
+ * The state of a query whose source is a declared CTE rather than a schema
+ * table. The CTE's declared columns stand in for a schema entry, so selects,
+ * filters, and the result row are typed from them.
+ */
+export type CteSourceState<
+  Schema extends SchemaDefinition<Schema>,
+  Alias extends string,
+  Ctes extends CteShapes
+> = Alias extends keyof Ctes
+  ? BuilderState<
+    Schema,
+    Alias | typeof CTE_SOURCE_TABLE,
+    RowFromShape<Ctes[Alias]>,
+    keyof Schema,
+    {},
+    {},
+    Ctes[Alias],
+    Ctes
+  >
+  : never;
 
 export type FromSubqueryState<
   Schema extends SchemaDefinition<Schema>,

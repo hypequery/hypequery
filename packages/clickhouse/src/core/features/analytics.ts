@@ -6,7 +6,18 @@ import type { PredicateExpression } from '../utils/predicate-builder.js';
 import { substituteParameters } from '../utils.js';
 import { renderCteBody } from '../utils/cte-fragments.js';
 import { terminateTrailingLineComment } from '../utils/sql-parens.js';
-import type { SelectQueryNode } from '../../types/index.js';
+import { bindNamedParameters } from '../utils/named-parameters.js';
+import type { RawCteBody, SelectQueryNode } from '../../types/index.js';
+
+/** Every form a CTE body can take. */
+export type CteBody = QueryBuilder<any, AnyBuilderState> | string | RawCteBody;
+
+/** A CTE body compiled to a bindable fragment plus its already-rendered form. */
+interface CompiledCteBody {
+  body: string;
+  parameters: unknown[];
+  rendered: string;
+}
 
 export class AnalyticsFeature<
   Schema extends SchemaDefinition<Schema>,
@@ -14,18 +25,19 @@ export class AnalyticsFeature<
 > {
   constructor(private builder: QueryBuilder<Schema, State>) { }
 
-  addCTE(alias: string, subquery: QueryBuilder<any, AnyBuilderState> | string): SelectQueryNode<State['output'], Schema> {
+  addCTE(
+    alias: string,
+    subquery: CteBody,
+    options: { recursive?: boolean } = {},
+  ): SelectQueryNode<State['output'], Schema> {
     const query = this.builder.getQueryNode();
-    // A builder subquery is compiled with its placeholders intact so its values
-    // stay bound. `expression` keeps the rendered form the node carried before,
-    // using the same rendering path `toSQL()` takes.
-    const compiled = typeof subquery === 'string' ? undefined : subquery.toSQLWithParams();
-    const body = compiled ? compiled.sql : subquery as string;
-    const parameters = compiled ? compiled.parameters : [];
-    const rendered = compiled ? renderCteBody(body, parameters, this.builder.getAdapter()) : body;
+    const { body, parameters, rendered } = this.compileCteBody(subquery);
 
     return {
       ...query,
+      // RECURSIVE belongs to the WITH clause, so one recursive entry marks the
+      // whole list and a later plain entry never clears it.
+      recursiveCtes: options.recursive ? true : query.recursiveCtes,
       ctes: [
         ...(query.ctes || []),
         {
@@ -36,6 +48,40 @@ export class AnalyticsFeature<
           expression: `${alias} AS (${rendered})`,
         }
       ]
+    };
+  }
+
+  /**
+   * A builder subquery is compiled with its placeholders intact so its values
+   * stay bound, and a raw body's `{name:Type}` placeholders are rewritten to the
+   * same positional markers. `rendered` keeps the inlined form the node has
+   * always carried, using the path `toSQL()` takes.
+   */
+  private compileCteBody(subquery: CteBody): CompiledCteBody {
+    if (typeof subquery === 'string') {
+      const body = terminateTrailingLineComment(subquery);
+      return { body, parameters: [], rendered: body };
+    }
+
+    if (subquery instanceof QueryBuilder) {
+      const compiled = subquery.toSQLWithParams();
+      return {
+        body: compiled.sql,
+        parameters: compiled.parameters,
+        rendered: renderCteBody(compiled.sql, compiled.parameters, this.builder.getAdapter()),
+      };
+    }
+
+    const bound = bindNamedParameters(subquery.sql.trim(), subquery.parameters, 'CTE body');
+    const body = terminateTrailingLineComment(bound.sql);
+    return {
+      body,
+      parameters: bound.parameters,
+      // With nothing bound there is nothing to substitute, and a stray `?` in
+      // the body would be mistaken for a placeholder.
+      rendered: bound.parameters.length
+        ? renderCteBody(body, bound.parameters, this.builder.getAdapter())
+        : body,
     };
   }
 

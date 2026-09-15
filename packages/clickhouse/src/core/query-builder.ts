@@ -9,6 +9,7 @@ import {
   OrderDirection,
   JoinType,
   type JoinConditionInput,
+  type RawCteBody,
   type SelectQueryNode,
   type SourceNode,
 } from '../types/index.js';
@@ -16,7 +17,7 @@ import { AnySchema, ColumnType } from '../types/schema.js';
 import { AggregationFeature } from './features/aggregations.js';
 import { JoinFeature } from './features/joins.js';
 import { FilteringFeature } from './features/filtering.js';
-import { AnalyticsFeature } from './features/analytics.js';
+import { AnalyticsFeature, type CteBody } from './features/analytics.js';
 import { ExecutorFeature } from './features/executor.js';
 import { QueryModifiersFeature } from './features/query-modifiers.js';
 import { FilterValidator } from './validators/filter-validator.js';
@@ -28,6 +29,7 @@ import {
   createPredicateBuilder,
 } from './utils/predicate-builder.js';
 import { CrossFilteringFeature } from './features/cross-filtering.js';
+import { CteScope } from './cte-scope.js';
 import {
   cloneSelectQueryNode,
   createSelectQueryNode,
@@ -64,6 +66,7 @@ import type {
   JoinRightColumn,
   JoinAliasArg,
   JoinResultState,
+  NonTableSource,
 } from './types/builder-state.js';
 import {
   SelectableItem,
@@ -83,7 +86,7 @@ type ColumnOperatorValue<
 > = OperatorValueMap<ColumnSelectionValue<State, Column>, Schema>[Op];
 
 type TableSourceMethodThis<State extends AnyBuilderState, Builder> =
-  Extract<State['tables'], typeof SUBQUERY_SOURCE_TABLE> extends never ? Builder : never;
+  Extract<State['tables'], NonTableSource> extends never ? Builder : never;
 
 // Union type that accepts either client type
 type ClickHouseClient = NodeClickHouseClient | WebClickHouseClient;
@@ -310,6 +313,11 @@ export class QueryBuilder<
         `${feature} can only be applied to a table source. Apply ${innerMethod} to the inner query before passing it to db.from().`
       );
     }
+    if (this.query.from?.kind === 'table' && this.query.from.cte) {
+      throw new Error(
+        `${feature} can only be applied to a table source, and "${this.query.from.name}" is a CTE.`
+      );
+    }
   }
 
   private withAliasesState<
@@ -428,27 +436,81 @@ export class QueryBuilder<
   ): QueryBuilder<Schema, AddCte<State, Alias, SubqueryState['output']>>;
   withCTE<Alias extends string, Columns extends Record<string, ColumnType>>(
     alias: Alias,
-    sql: string,
+    sql: string | RawCteBody,
     columns: Columns
   ): QueryBuilder<Schema, AddCte<State, Alias, Columns>>;
-  withCTE(alias: string, sql: string): this;
+  withCTE(alias: string, sql: string | RawCteBody): this;
   // Preserve callers whose body is chosen dynamically from SQL or a builder.
-  withCTE(alias: string, subquery: QueryBuilder<any, AnyBuilderState> | string): this;
+  withCTE(alias: string, subquery: CteBody): this;
+  // Overloads expose the precise state. The implementation erases only State
+  // because QueryBuilder instances with different states are not assignable.
   withCTE(
     alias: string,
-    subquery: QueryBuilder<any, AnyBuilderState> | string,
+    subquery: CteBody,
     columns?: Record<string, ColumnType>
-  ): any {
+  ): QueryBuilder<Schema, any> {
+    return this.addCte(alias, subquery, columns, false);
+  }
+
+  /**
+   * Adds a recursive CTE, rendering the clause as `WITH RECURSIVE`. The body
+   * must be raw SQL: its recursive term references the CTE's own alias, which
+   * no builder can express.
+   *
+   * ClickHouse requires `enable_analyzer` (on by default from 24.8), a
+   * `UNION ALL` between the seed and the recursive term, and stops at
+   * `max_recursive_cte_evaluation_depth` (1000 by default).
+   *
+   * @example
+   * ```ts
+   * db.table('asset')
+   *   .withRecursiveCTE(
+   *     'descendants',
+   *     {
+   *       sql: `
+   *         SELECT {rootId:UUID} AS id
+   *         UNION ALL
+   *         SELECT link.child_id AS id
+   *         FROM asset_link AS link
+   *         INNER JOIN descendants AS walked ON link.parent_id = walked.id
+   *       `,
+   *       parameters: { rootId },
+   *     },
+   *     { id: 'UUID' },
+   *   )
+   *   .innerJoin('descendants', 'id', 'descendants.id');
+   * ```
+   */
+  withRecursiveCTE<Alias extends string, Columns extends Record<string, ColumnType>>(
+    alias: Alias,
+    body: string | RawCteBody,
+    columns: Columns
+  ): QueryBuilder<Schema, AddCte<State, Alias, Columns>>;
+  withRecursiveCTE(alias: string, body: string | RawCteBody): this;
+  withRecursiveCTE(
+    alias: string,
+    body: string | RawCteBody,
+    columns?: Record<string, ColumnType>
+  ): QueryBuilder<Schema, any> {
+    return this.addCte(alias, body, columns, true);
+  }
+
+  private addCte(
+    alias: string,
+    subquery: CteBody,
+    columns: Record<string, ColumnType> | undefined,
+    recursive: boolean
+  ) {
     assertSafeIdentifier(alias, 'CTE alias');
     for (const column of Object.keys(columns ?? {})) {
       assertSafeIdentifier(column, 'CTE column');
     }
 
-    const nextConfig = this.analytics.addCTE(alias, subquery);
+    const nextConfig = this.analytics.addCTE(alias, subquery, { recursive });
 
     // A raw body with no declared columns exposes nothing to type against, so
     // the alias stays unregistered rather than registering an empty shape.
-    if (typeof subquery === 'string' && !columns) {
+    if (!(subquery instanceof QueryBuilder) && !columns) {
       return this.assignQuery(this.cloneMutable(), nextConfig);
     }
 
@@ -460,7 +522,7 @@ export class QueryBuilder<
       ...this.state,
       ctes: { ...this.state.ctes, [alias]: shape },
     };
-    return this.transition(nextState as any, nextConfig);
+    return this.transition(nextState, nextConfig);
   }
 
   // --- Analytics Helper: Add a scalar WITH alias.
@@ -525,6 +587,7 @@ export class QueryBuilder<
     return this.updateQuery(() => this.analytics.addSettings(opts));
   }
 
+  final(this: TableSourceMethodThis<State, this>): this;
   final(): this {
     this.assertTableSource('FINAL', 'final()');
 
@@ -1303,11 +1366,35 @@ export function createQueryBuilder<Schema extends SchemaDefinition<Schema>>(
   const resolvedDialect = dialect ?? new ClickHouseDialect();
   const namespace = cacheConfig?.namespace || resolvedAdapter.namespace || resolvedAdapter.name;
   const { runtime, cacheController } = initializeCacheRuntime(cacheConfig, namespace);
+  const rootScope = new CteScope<Schema>({
+    runtime,
+    adapter: resolvedAdapter,
+    dialect: resolvedDialect,
+  });
 
   return {
     cache: cacheController,
     adapter: resolvedAdapter,
     dialect: resolvedDialect,
+    /**
+     * Declares a CTE before the query has a source, so the query can read from
+     * it. Use `db.table('x').withCTE(...)` when the CTE is only joined in.
+     *
+     * @example
+     * ```ts
+     * const rows = await db
+     *   .withCTE('active_users', db.table('users').select(['id']).where('status', 'eq', 'active'))
+     *   .table('active_users')
+     *   .select(['id'])
+     *   .execute();
+     * ```
+     */
+    withCTE: rootScope.withCTE.bind(rootScope),
+    /**
+     * Declares a recursive CTE and renders the clause as `WITH RECURSIVE`.
+     * See {@link CteScope.withRecursiveCTE}.
+     */
+    withRecursiveCTE: rootScope.withRecursiveCTE.bind(rootScope),
     async rawQuery<TResult = any>(
       sql: string,
       params: unknown[] = [],
