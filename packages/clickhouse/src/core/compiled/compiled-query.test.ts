@@ -1,4 +1,4 @@
-import type { ProtocolIdentifier, TaggedValue } from '@hypequery/protocol';
+import type { ProtocolIdentifier, TaggedValue } from '@hypequery/protocol-primitives';
 import {
   COMPILED_QUERY_VERSION,
   COMPILED_SETTING_BOUNDS,

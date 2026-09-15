@@ -9,6 +9,7 @@
     "packages/deployment",
     "packages/mcp-server",
     "packages/protocol",
+    "packages/protocol-primitives",
     "packages/protocol-conformance",
     "packages/react",
     "packages/serve",

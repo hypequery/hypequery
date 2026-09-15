@@ -2,8 +2,8 @@
  * Public execution-failure envelope from RFC 0010 §Error envelope.
  *
  * The category set is closed and stable within version 1. It matches the frozen set in
- * `@hypequery/protocol` (`events` module) so runtime failures and emitted diagnostics
- * speak the same vocabulary. New categories require a new contract version.
+ * the wire event contract so runtime failures and emitted diagnostics speak the same
+ * vocabulary. New categories require a new contract version.
  */
 export const COMPILED_ERROR_CATEGORIES = [
   'input-invalid',

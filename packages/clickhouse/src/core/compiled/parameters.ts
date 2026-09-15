@@ -2,7 +2,7 @@ import {
   ProtocolValueError,
   isProtocolIdentifier,
   validateCanonicalValue,
-} from '@hypequery/protocol';
+} from '@hypequery/protocol-primitives';
 import { CompiledQueryError } from './errors.js';
 import type {
   CompiledParameterBindings,

@@ -1,5 +1,4 @@
 export {
-  PROTOCOL_IDENTIFIER_LIMITS,
   ProtocolIdentifierError,
   isProtocolIdentifier,
   isProtocolQualifiedIdentifier,
@@ -7,10 +6,10 @@ export {
   parseProtocolIdentifier,
   parseProtocolQualifiedIdentifier,
   splitProtocolQualifiedIdentifier,
-} from '@hypequery/protocol-primitives';
-
+} from './identifiers.js';
+export { PROTOCOL_IDENTIFIER_LIMITS } from './types.js';
 export type {
   ProtocolIdentifier,
   ProtocolIdentifierErrorCode,
   ProtocolQualifiedIdentifier,
-} from '@hypequery/protocol-primitives';
+} from './types.js';

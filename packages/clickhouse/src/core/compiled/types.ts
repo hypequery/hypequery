@@ -1,4 +1,4 @@
-import type { ProtocolIdentifier, TaggedValue } from '@hypequery/protocol';
+import type { ProtocolIdentifier, TaggedValue } from '@hypequery/protocol-primitives';
 
 /**
  * Execution-request contract from RFC 0010 (compiled query, error, cancellation),

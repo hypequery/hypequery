@@ -1,14 +1,13 @@
 {
-  "name": "@hypequery/protocol",
-  "version": "0.13.0",
-  "description": "Portable analytics contracts and TypeScript reference implementation for Hypequery",
+  "name": "@hypequery/protocol-primitives",
+  "version": "0.0.0",
+  "description": "Shared canonical value and identifier primitives for Hypequery packages",
   "keywords": [
     "hypequery",
     "protocol",
-    "analytics",
-    "semantic-layer",
-    "typescript",
-    "canonical-json"
+    "canonical-json",
+    "identifiers",
+    "typescript"
   ],
   "license": "Apache-2.0",
   "type": "module",
@@ -20,6 +19,11 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js",
       "default": "./dist/index.js"
+    },
+    "./internal": {
+      "types": "./dist/internal.d.ts",
+      "import": "./dist/internal.js",
+      "default": "./dist/internal.js"
     }
   },
   "files": [
@@ -27,7 +31,6 @@
     "README.md"
   ],
   "dependencies": {
-    "@hypequery/protocol-primitives": "workspace:*",
     "@noble/hashes": "^1.8.0"
   },
   "scripts": {
@@ -44,7 +47,7 @@
   "repository": {
     "type": "git",
     "url": "git+https://github.com/hypequery/hypequery.git",
-    "directory": "packages/protocol"
+    "directory": "packages/protocol-primitives"
   },
   "homepage": "https://hypequery.com",
   "bugs": {

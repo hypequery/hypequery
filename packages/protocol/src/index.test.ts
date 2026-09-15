@@ -1,4 +1,8 @@
 import { describe, expect, it } from 'vitest';
+import {
+  ProtocolIdentifierError as PrimitiveIdentifierError,
+  ProtocolValueError as PrimitiveValueError,
+} from '@hypequery/protocol-primitives';
 import * as protocol from './index.js';
 
 describe('@hypequery/protocol public surface', () => {
@@ -77,5 +81,10 @@ describe('@hypequery/protocol public surface', () => {
       'validateProtocolSemanticQuery',
       'validateProtocolSqlExpression',
     ]);
+  });
+
+  it('preserves the shared primitive runtime identities', () => {
+    expect(protocol.ProtocolIdentifierError).toBe(PrimitiveIdentifierError);
+    expect(protocol.ProtocolValueError).toBe(PrimitiveValueError);
   });
 });

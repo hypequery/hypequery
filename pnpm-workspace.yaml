@@ -7,5 +7,6 @@ packages:
   - 'packages/serve'
   - 'packages/mcp-server'
   - 'packages/protocol'
+  - 'packages/protocol-primitives'
   - 'packages/protocol-conformance'
   - 'packages/tsconfig'
