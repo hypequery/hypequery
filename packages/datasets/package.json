@@ -1,6 +1,6 @@
 {
   "name": "@hypequery/datasets",
-  "version": "0.15.0",
+  "version": "0.16.0",
   "description": "Code-first TypeScript semantic layer for ClickHouse datasets, metrics, multi-tenancy, and AI agents",
   "keywords": [
     "semantic-layer",
