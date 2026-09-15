@@ -243,6 +243,16 @@ function convert(schema: ZodTypeAny, path: string): Record<string, unknown> {
       return annotate(schema, convert(definition.type, path));
     case 'ZodReadonly':
       return annotate(schema, convert(definition.innerType, path));
+    case 'ZodEffects': {
+      const effectType = String(definition.effect?.type ?? 'unknown');
+      if (effectType !== 'refinement') {
+        throw new ProtocolSchemaAdapterError(`Unsupported Zod effect "${effectType}"`, path);
+      }
+      // A refinement preserves the wrapped schema's input and output shape.
+      // The rule itself remains enforced by Zod, but cannot be advertised by
+      // ProtocolSchema (for example, a cross-field selection requirement).
+      return annotate(schema, convert(definition.schema, path));
+    }
     default:
       throw new ProtocolSchemaAdapterError(`Unsupported Zod type "${typeName(schema)}"`, path);
   }

@@ -12,6 +12,8 @@ import {
 } from './catalog.js';
 import { SEMANTIC_FILTER_OPERATORS } from './constants.js';
 import type { JsonSchema } from './tools.js';
+import type { ProtocolSchema } from '@hypequery/protocol';
+import { zodToProtocolSchema } from './protocol-schema-adapter.js';
 import { compareStrings, stableStringify, uniqueSorted } from './utils/canonical-json.js';
 
 export interface SemanticQuerySchemaLimits {
@@ -349,4 +351,41 @@ export function buildCanonicalSemanticQuerySchemas(
     queryMetricJsonSchema,
     manifestHash,
   });
+}
+
+/**
+ * The same input schema, as a `ProtocolSchema`.
+ *
+ * A hosted registry advertises one endpoint per dataset and per metric, and it
+ * advertises them in the protocol's own schema format rather than Zod or JSON
+ * Schema. Without this it has to rebuild the shape by hand — which is a second
+ * generator of the knowledge `CORE-03` exists to keep in one place, and it
+ * drifts silently: an advertised field the validator rejects, or a ceiling the
+ * data plane does not apply.
+ *
+ * Derived from `buildDatasetInputSchema`, so there is one source for which
+ * dimensions are groupable, which measures exist, what the filter operators
+ * are, what the orderable fields are, which grains are supported, and what the
+ * row ceiling is.
+ */
+export function buildDatasetInputProtocolSchema(
+  dataset: SemanticQuerySchemaSource,
+  options: SemanticQuerySchemaOptions = {},
+  path = 'dataset.input',
+): ProtocolSchema {
+  return zodToProtocolSchema(buildDatasetInputSchema(dataset, options), path);
+}
+
+/** The metric form of {@link buildDatasetInputProtocolSchema}. */
+export function buildMetricInputProtocolSchema(
+  dataset: SemanticQuerySchemaSource,
+  metricName: string,
+  options: SemanticQuerySchemaOptions = {},
+  metricContract?: SemanticMetricQueryContract,
+  path = 'metric.input',
+): ProtocolSchema {
+  return zodToProtocolSchema(
+    buildMetricInputSchema(dataset, metricName, options, metricContract),
+    path,
+  );
 }

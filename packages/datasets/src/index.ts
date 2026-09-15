@@ -151,6 +151,8 @@ export {
   buildCanonicalSemanticQuerySchemas,
   toSemanticJsonSchema,
   DEFAULT_SEMANTIC_QUERY_SCHEMA_LIMITS,
+  buildDatasetInputProtocolSchema,
+  buildMetricInputProtocolSchema,
 } from './semantic-query-schema.js';
 export type {
   CanonicalSemanticQuerySchemas,
@@ -284,3 +286,4 @@ export type {
   MetricResultFor,
   KnownStringKeys,
 } from './types.js';
+export { ProtocolSchemaAdapterError, zodToProtocolSchema } from './protocol-schema-adapter.js';
