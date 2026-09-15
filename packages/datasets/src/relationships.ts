@@ -11,12 +11,14 @@
  * metrics.
  *
  * Note that the `kind` passed here is a declaration, not something checked
- * against the data — there is no uniqueness concept in the model. A `belongsTo`
- * over a non-unique target column is nonetheless safe: relationship joins use
- * a single-match join where the builder offers one (`leftAnyJoin`, ClickHouse
- * `LEFT ANY JOIN`), so at most one target row is taken per base row and the
- * aggregate cannot inflate. It will pick an arbitrary one of the matches, which
- * is why the declaration still needs to be right.
+ * against the data — there is no uniqueness concept in the model, so nothing
+ * verifies that a `belongsTo` target column really is unique. What a
+ * mis-declaration costs depends on the builder. One that implements the
+ * optional `leftAnyJoin` (ClickHouse `LEFT ANY JOIN`) takes at most one target
+ * row per base row, so the aggregate cannot inflate — it just silently picks an
+ * arbitrary one of the matches. A builder without it falls back to `leftJoin`,
+ * where duplicate target keys fan out and do inflate the aggregate. Either way
+ * the declaration has to be right.
  *
  * @example
  * ```ts
@@ -31,7 +33,7 @@
  *   },
  * });
  *
- * // Groups by a dimension on Customers, via a LEFT ANY JOIN.
+ * // Groups by a dimension on Customers, joining through the relationship.
  * await client.execute(Orders, { dimensions: ["customer.country"] });
  * ```
  */
