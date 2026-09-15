@@ -17,6 +17,12 @@ export interface QueryConfig<_T, _Schema> {
   orderBy?: OrderByItemNode[];
   joins?: JoinNode[];
   ctes?: CteNode[];
+  /**
+   * Renders the `WITH` clause as `WITH RECURSIVE`. `RECURSIVE` is a property of
+   * the clause rather than of a single entry, so one recursive CTE marks the
+   * whole list — the same rule SQL itself uses.
+   */
+  recursiveCtes?: boolean;
   unionQueries?: string[];
   settings?: ClickHouseSettings;
 }
@@ -89,6 +95,12 @@ export interface TableSourceNode {
   kind: 'table';
   name: string;
   final?: boolean;
+  /**
+   * The name resolves to a CTE declared on this query rather than to a table.
+   * It renders identically, but table-only modifiers (`FINAL`, `PREWHERE`) do
+   * not apply to it.
+   */
+  cte?: boolean;
 }
 
 export interface SubquerySourceNode {
@@ -163,6 +175,20 @@ export interface CteNode {
   body?: string;
   /** Values for the placeholders in `body`, in order. */
   parameters?: unknown[];
+}
+
+/**
+ * A raw CTE body with its values kept out of the SQL text. Placeholders use
+ * ClickHouse's `{name:Type}` form and are matched by name against `parameters`.
+ *
+ * Required for a recursive CTE, whose recursive term references an alias that
+ * no builder can express; ordinary CTEs are better written as a builder.
+ */
+export interface RawCteBody {
+  /** The CTE body, with `{name:Type}` placeholders for its values. */
+  sql: string;
+  /** Values for those placeholders, keyed by placeholder name. */
+  parameters?: Record<string, unknown>;
 }
 
 export interface SelectQueryNode<T, Schema> extends QueryConfig<T, Schema> {

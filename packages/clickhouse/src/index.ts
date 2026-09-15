@@ -67,8 +67,12 @@ export type {
 export type {
   OrderDirection,
   QueryConfig,
-  AggregationType
+  AggregationType,
+  RawCteBody
 } from './types/base.js';
+export { CteScope } from './core/cte-scope.js';
+export type { CteScopeDeps } from './core/cte-scope.js';
+export type { CteBody } from './core/features/analytics.js';
 
 // Re-export filter types
 export type {

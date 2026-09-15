@@ -299,6 +299,145 @@ describe('QueryBuilder Analytics Features', () => {
     });
   })
 
+  describe('withCTE with a parameterized raw body', () => {
+    it('binds named placeholders instead of inlining their values', () => {
+      const { sql, parameters } = queryBuilder
+        .withCTE(
+          'recent',
+          {
+            sql: 'SELECT id FROM users WHERE user_name = {name:String}',
+            parameters: { name: "O'Brien" },
+          },
+          { id: 'UInt32' },
+        )
+        .select(['id'])
+        .toSQLWithParams();
+
+      expect(sql).toBe(
+        "WITH recent AS (SELECT id FROM users WHERE user_name = CAST(?, 'String')) " +
+        'SELECT id FROM test_table'
+      );
+      expect(parameters).toEqual(["O'Brien"]);
+    });
+
+    it('escapes bound values when the query is rendered as a string', () => {
+      const sql = queryBuilder
+        .withCTE('recent', {
+          sql: 'SELECT id FROM users WHERE user_name = {name:String}',
+          parameters: { name: "O'Brien" },
+        })
+        .select(['id'])
+        .toSQL();
+
+      expect(sql).toBe(
+        "WITH recent AS (SELECT id FROM users WHERE user_name = CAST('O''Brien', 'String')) " +
+        'SELECT id FROM test_table'
+      );
+    });
+
+    it('orders CTE parameters ahead of the outer query parameters', () => {
+      const { parameters } = queryBuilder
+        .withCTE('recent', {
+          sql: 'SELECT id FROM users WHERE user_name = {name:String} AND email = {email:String}',
+          parameters: { email: 'inside@example.com', name: 'inside' },
+        })
+        .select(['id'])
+        .where('status', 'eq', 'outside')
+        .toSQLWithParams();
+
+      expect(parameters).toEqual(['inside', 'inside@example.com', 'outside']);
+    });
+
+    it('throws when a placeholder has no value', () => {
+      expect(() =>
+        queryBuilder.withCTE('recent', {
+          sql: 'SELECT id FROM users WHERE user_name = {name:String}',
+          parameters: {},
+        })
+      ).toThrow('CTE body references parameter "name", but no value was provided for it.');
+    });
+  });
+
+  describe('withRecursiveCTE', () => {
+    const descendants = {
+      sql: `
+        SELECT {rootId:UInt32} AS id
+        UNION ALL
+        SELECT link.child_id AS id
+        FROM asset_link AS link
+        INNER JOIN descendants AS walked ON link.parent_id = walked.id
+      `,
+      parameters: { rootId: 7 },
+    };
+
+    it('renders the clause as WITH RECURSIVE', () => {
+      const sql = queryBuilder
+        .withRecursiveCTE('descendants', 'SELECT 1 AS id UNION ALL SELECT id + 1 FROM descendants WHERE id < 10', {
+          id: 'UInt32',
+        })
+        .select(['id'])
+        .toSQL();
+
+      expect(sql).toBe(
+        'WITH RECURSIVE descendants AS (' +
+        'SELECT 1 AS id UNION ALL SELECT id + 1 FROM descendants WHERE id < 10' +
+        ') SELECT id FROM test_table'
+      );
+    });
+
+    it('keeps the seed values bound', () => {
+      const { sql, parameters } = queryBuilder
+        .withRecursiveCTE('descendants', descendants, { id: 'UInt32' })
+        .select(['id'])
+        .toSQLWithParams();
+
+      expect(sql).toContain("WITH RECURSIVE descendants AS (SELECT CAST(?, 'UInt32') AS id");
+      expect(parameters).toEqual([7]);
+    });
+
+    it('marks the whole clause when only one entry is recursive', () => {
+      const sql = queryBuilder
+        .withCTE('roots', 'SELECT id FROM test_table WHERE created_by = 1')
+        .withRecursiveCTE('descendants', 'SELECT id FROM roots UNION ALL SELECT id FROM descendants', {
+          id: 'UInt32',
+        })
+        .withScalar('owner', expr =>
+          expr.ch.dictGet('users_dict', 'name', expr.col('created_by'))
+        )
+        .select(['id'])
+        .toSQL();
+
+      expect(sql).toBe(
+        'WITH RECURSIVE roots AS (SELECT id FROM test_table WHERE created_by = 1), ' +
+        'descendants AS (SELECT id FROM roots UNION ALL SELECT id FROM descendants), ' +
+        "dictGet('users_dict', 'name', created_by) AS owner " +
+        'SELECT id FROM test_table'
+      );
+    });
+
+    it('makes the alias a typed join target', () => {
+      const sql = queryBuilder
+        .withRecursiveCTE('descendants', 'SELECT 1 AS id UNION ALL SELECT id FROM descendants', {
+          id: 'UInt32',
+        })
+        .innerJoin('descendants', 'id', 'descendants.id')
+        .select(['test_table.id'])
+        .toSQL();
+
+      expect(sql).toBe(
+        'WITH RECURSIVE descendants AS (SELECT 1 AS id UNION ALL SELECT id FROM descendants) ' +
+        'SELECT test_table.id FROM test_table ' +
+        'INNER JOIN descendants ON id = descendants.id'
+      );
+    });
+
+    it('rejects unsafe aliases', () => {
+      expect(() =>
+        queryBuilder.withRecursiveCTE('safe AS (SELECT 1) --', 'SELECT 1 AS id')
+      ).toThrow('Unsafe CTE alias identifier');
+    });
+  });
+
   describe('withScalar', () => {
     it('should add scalar WITH aliases without wrapping the expression in parentheses', () => {
       const sql = queryBuilder

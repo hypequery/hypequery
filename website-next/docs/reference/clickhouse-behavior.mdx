@@ -21,6 +21,7 @@ These are the ClickHouse features that show up clearly in the builder:
 | `IN` table references | Exposed through `inTable` and `globalInTable` |
 | Tuple membership | Exposed through `inTuple` and `globalInTuple` |
 | `WITH` clause CTEs | Exposed through `withCTE(...)` |
+| `WITH RECURSIVE` CTEs | Exposed through `withRecursiveCTE(...)`; requires `enable_analyzer` and a `UNION ALL` term |
 | `WITH` scalar expressions | Exposed through `withScalar(...)` |
 | `ARRAY JOIN` / `LEFT ARRAY JOIN` | Exposed through `arrayJoin(...)` and `leftArrayJoin(...)` |
 | `LIMIT ... BY ...` | Exposed through `limitBy(...)` |

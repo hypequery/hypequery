@@ -69,7 +69,12 @@ function isLineCommentStart(sql: string, start: number): boolean {
   return sql[start] === '#' && (sql[start + 1] === ' ' || sql[start + 1] === '!');
 }
 
-function skipNonCode(sql: string, start: number): number | undefined {
+/**
+ * When `start` opens a region that is not SQL code — a literal, a quoted
+ * identifier, a heredoc, or a comment — returns the index just past it.
+ * Scanners use it so markers inside such a region stay data.
+ */
+export function skipNonCode(sql: string, start: number): number | undefined {
   const ch = sql[start]!;
   if (ch === "'" || ch === '"' || ch === '`') {
     return skipQuoted(sql, start, ch);

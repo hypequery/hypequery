@@ -14,7 +14,7 @@ export class ClickHouseDialect implements SqlDialect {
     if (query.ctes?.length) {
       // CTE parameters lead the positional list because WITH renders first.
       const compiled = this.formatter.compileCtes(query);
-      parts.push(`WITH ${compiled.query}`);
+      parts.push(`WITH ${query.recursiveCtes ? 'RECURSIVE ' : ''}${compiled.query}`);
       parameters.push(...compiled.parameters);
     }
 

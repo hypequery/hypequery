@@ -102,6 +102,7 @@ export function createSelectQueryNode<TOutput, TSchema>(
         parameters: item.parameters ? [...item.parameters] : undefined,
       }))
       : undefined,
+    recursiveCtes: config.recursiveCtes,
     unionQueries: config.unionQueries ? [...config.unionQueries] : undefined,
     settings: config.settings ? { ...config.settings } : undefined,
   };

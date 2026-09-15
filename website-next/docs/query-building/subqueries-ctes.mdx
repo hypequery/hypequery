@@ -146,6 +146,183 @@ Without the third argument the CTE still works and still renders, but its alias
 stays untyped and cannot be used as a join target. A runtime alias typed as
 `string` also stays untyped; use a literal alias when you need typed joins.
 
+### Binding Values in a Raw CTE
+
+Pass `{ sql, parameters }` instead of a bare string to keep a raw body's values
+out of the SQL text. Placeholders use ClickHouse's `{name:Type}` form and are
+matched by name:
+
+<CodeBlock>
+
+```typescript
+const results = await db
+  .table('orders')
+  .withCTE(
+    'recent_users',
+    {
+      sql: `
+        SELECT id
+        FROM users
+        WHERE organization_id = {organizationId:UUID}
+          AND created_at >= {since:DateTime}
+      `,
+      parameters: { organizationId, since },
+    },
+    { id: 'UInt64' },
+  )
+  .innerJoin('recent_users', 'user_id', 'recent_users.id')
+  .select(['orders.id'])
+  .execute();
+```
+
+</CodeBlock>
+
+Each placeholder becomes a bound parameter, in the order it appears, ahead of
+the outer query's own parameters. Values a placeholder never references are
+ignored, so one context object can serve several fragments. A placeholder with
+no matching value is an error, as is one written without a type (`{id}`).
+
+The declared type is preserved with a `CAST`, so a UUID seed stays a UUID when
+joined in a recursive term. Array placeholders such as `{ids:Array(UUID)}`
+accept JavaScript arrays, including nested arrays and nullable elements. Arrays
+are serialized in ClickHouse's text format and remain bound until rendering.
+
+<Callout type="info" title="Where the value is substituted today">
+  Values are escaped into the SQL text client-side rather than sent as
+  ClickHouse `query_params`. Native server-side binding is planned; it changes
+  the transport, not this API.
+</Callout>
+
+Braces inside string literals, comments, and heredocs are left alone, so a body
+can mention `'{shard}'` without it being treated as a placeholder.
+
+### Reading From a CTE
+
+`db.table('orders').withCTE(...)` adds a CTE to a query that already has a
+source. When the CTE *is* the source, declare it on the client first and then
+pick the source:
+
+<CodeBlock>
+
+```typescript
+const rows = await db
+  .withCTE('monthly_totals', monthlyTotalsQuery)
+  .table('monthly_totals')
+  .select(['user_id', 'monthly_sum'])
+  .orderBy('monthly_sum', 'DESC')
+  .execute();
+```
+
+</CodeBlock>
+
+```sql
+WITH monthly_totals AS (...)
+SELECT user_id, monthly_sum
+FROM monthly_totals
+ORDER BY monthly_sum DESC
+```
+
+The alias is typed from the same declaration a join uses — the builder's output
+type, or the columns declared beside a raw body — so selects, filters, ordering,
+and the result row are all checked against it. A raw CTE with no declared
+columns exposes nothing to read from, so it is not accepted as a source.
+A runtime alias typed as `string` also stays untyped; use a literal alias for a
+typed CTE source. Schema tables keep their types when a runtime alias is added.
+
+Declarations belong to the queries started from that scope; nothing is added to
+the schema. `.table()` also accepts a schema table, in which case the query is
+typed from the schema as usual and the CTEs stay available as join targets:
+
+<CodeBlock>
+
+```typescript
+const rows = await db
+  .withCTE('monthly_totals', monthlyTotalsQuery)
+  .table('orders')
+  .innerJoin('monthly_totals', 'user_id', 'monthly_totals.user_id')
+  .select(['orders.id', 'monthly_totals.monthly_sum'])
+  .execute();
+```
+
+</CodeBlock>
+
+`FINAL` and `PREWHERE` need a real table and are rejected on a CTE source.
+
+### Recursive CTEs
+
+`withRecursiveCTE()` renders the clause as `WITH RECURSIVE`. Its body has to be
+raw SQL: the recursive term references the CTE's own alias, which no builder can
+express. Walking an adjacency table is the canonical case:
+
+<CodeBlock>
+
+```typescript
+const descendants = await db
+  .withRecursiveCTE(
+    'descendants',
+    {
+      sql: `
+        SELECT {rootId:UUID} AS id
+        UNION ALL
+        SELECT link.child_id AS id
+        FROM asset_link AS link
+        INNER JOIN descendants AS walked
+          ON link.parent_id = walked.id
+        WHERE link.organization_id = {organizationId:UUID}
+      `,
+      parameters: { rootId, organizationId },
+    },
+    { id: 'UUID' },
+  )
+  .table('descendants')
+  .select(['id'])
+  .distinct()
+  .execute();
+// Array<{ id: string }>
+```
+
+</CodeBlock>
+
+```sql
+WITH RECURSIVE descendants AS (
+  SELECT {rootId:UUID} AS id
+  UNION ALL
+  SELECT link.child_id AS id
+  FROM asset_link AS link
+  INNER JOIN descendants AS walked ON link.parent_id = walked.id
+  WHERE link.organization_id = {organizationId:UUID}
+)
+SELECT DISTINCT id FROM descendants
+```
+
+`RECURSIVE` is a property of the `WITH` clause, not of a single entry, so one
+recursive CTE marks the whole list. Ordinary CTEs and scalar aliases can share
+the clause; they render unchanged.
+
+`withRecursiveCTE()` is available on a query builder too, for the case where the
+recursive CTE is joined into a query over a table rather than being its source:
+
+<CodeBlock>
+
+```typescript
+db.table('asset')
+  .withRecursiveCTE('descendants', lineageSql, { id: 'UUID' })
+  .innerJoin('descendants', 'id', 'descendants.id');
+```
+
+</CodeBlock>
+
+<Callout type="warn" title="ClickHouse requirements">
+  Recursive CTEs need the analyzer (`enable_analyzer`, on by default from 24.8),
+  require `UNION ALL` between the seed and the recursive term, and stop at
+  `max_recursive_cte_evaluation_depth` (1000 by default). hypequery renders the
+  SQL; it does not check these, so a violation surfaces as a ClickHouse error.
+</Callout>
+
+As with any raw body, the declared columns are an assertion: nothing checks them
+against the SQL, so a wrong declaration surfaces at runtime rather than at
+compile time.
+
 ### Multiple CTEs
 
 You can chain multiple CTEs for complex analytics:
