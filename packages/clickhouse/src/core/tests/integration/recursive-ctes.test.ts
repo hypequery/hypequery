@@ -39,6 +39,43 @@ describe('Integration Tests - Recursive CTEs', () => {
       expect(rows).toEqual([{ label: ')' }, { label: '{' }]);
     });
 
+    test('executes arrays of tuples, named tuples, and maps with nested compound values', async () => {
+      const labels = ["O'Brien", 'a\\b', 'x), (2); --'];
+      const parameters = {
+        pairs: labels.map((label, i) => [i, label]),
+        records: labels.map((label, i) => ({ label, id: i })),
+        maps: labels.map(label => ({ [label]: [1, 2] })),
+        nested: [new Map([[9007199254740993n, ['x', null]]])],
+        empty: [],
+      };
+      const rows = await db.withCTE('compound', {
+        sql: `SELECT {pairs:Array(Tuple(UInt32, String))} AS pairs,
+          {records:Array(Tuple(id UInt32, label String))} AS records,
+          {maps:Array(Map(String, Array(UInt32)))} AS maps,
+          {nested:Array(Map(UInt64, Tuple(String, Nullable(UInt8))))} AS nested,
+          {empty:Array(Tuple(UInt8, String))} AS empty`,
+        parameters,
+      }, {
+        pairs: 'Array(Tuple(UInt32, String))', records: 'Array(Tuple(id UInt32, label String))',
+        maps: 'Array(Map(String, Array(UInt32)))', nested: 'Array(Map(UInt64, Tuple(String, Nullable(UInt8))))',
+        empty: 'Array(Tuple(UInt8, String))',
+      }).table('compound').execute();
+
+      expect(rows).toEqual([{ ...parameters, nested: [{ '9007199254740993': ['x', null] }] }]);
+    });
+
+    test('carries a bound array of tuples through a recursive term', async () => {
+      const pairs = [[1, 'x']];
+      const rows = await db.withRecursiveCTE('recursive_pairs', {
+        sql: `SELECT {pairs:Array(Tuple(UInt32, String))} AS pairs, toUInt8(1) AS n
+          UNION ALL SELECT pairs, toUInt8(n + 1) FROM recursive_pairs WHERE n < 2`,
+        parameters: { pairs },
+      }, { pairs: 'Array(Tuple(UInt32, String))', n: 'UInt8' })
+        .table('recursive_pairs').select(['pairs', 'n']).orderBy('n', 'ASC').execute();
+
+      expect(rows).toEqual([{ pairs, n: 1 }, { pairs, n: 2 }]);
+    });
+
     test('walks a series declared as a recursive CTE source', async () => {
       const rows = await db
         .withRecursiveCTE(

@@ -37,6 +37,43 @@ describe('bindNamedParameters', () => {
   });
 
   it.each([
+    ['Array(Tuple(UInt32, String))', [[1, 'x']], "[(1,'x')]"],
+    ['Array(Array(UInt32))', [[1, 2]], '[[1,2]]'],
+    ['Tuple(UInt32, Array(String))', [1, ['x']], "(1,['x'])"],
+    ['Array(Map(String, UInt32))', [{ x: 1 }], "[{'x':1}]"],
+    ['Array(Map(UInt64, Tuple(String, Nullable(UInt8))))', [new Map([[9007199254740993n, ['x', null]]])], "[{9007199254740993:('x',NULL)}]"],
+    ['Array(Map(UInt32, UInt8))', [{ '1': 2 }], '[{1:2}]'],
+    ['Array(Tuple(id UInt32, label String))', [{ label: 'x', id: 1 }], "[(1,'x')]"],
+    ['Array(Tuple(`label,)` String, `id` UInt32))', [{ 'label,)': "O'Brien", id: 1 }], "[('O''Brien',1)]"],
+    ["Array(Tuple(Enum8('a,b)' = 1), UInt8))", [['a,b)', 2]], "[('a,b)',2)]"],
+    ['Array(Tuple(UInt64, Array(Nullable(String))))', [['9007199254740993', [null, 'x']]], "[(9007199254740993,[NULL,'x'])]"],
+    ['Array(LowCardinality(String))', ['x'], "['x']"],
+    ['Array(Tuple(UInt8))', [], '[]'],
+  ])('serializes %s using its declared element types', (type, value, expected) => {
+    const bound = bindNamedParameters(`SELECT {value:${type}}, {next:UInt8}`, { value, next: 2 });
+    expect(bound.parameters).toEqual([expected, 2]);
+  });
+
+  it.each([
+    ['Array(Tuple(UInt8, String))', [[1]]],
+    ['Array(Tuple(UInt8, String))', [[1, 'x', 2]]],
+    ['Array(Tuple(id UInt8, label String))', [{ id: 1 }]],
+    ['Array(Map(String, UInt8))', [['x', 1]]],
+    ['Array(Point)', [[1, 2]]],
+    ['Array(UInt8)', [null]],
+    ['Array(String)', [undefined]],
+    ['Array(UInt8)', new Array(1)],
+    ['Array(UInt64)', ["1); SELECT 2 --"]],
+  ])('rejects unsupported or mismatched values for %s before execution', (type, value) => {
+    expect(() => bindNamedParameters(`SELECT {value:${type}}`, { value })).toThrow('Cannot serialize parameter value as');
+  });
+
+  it('keeps pre-serialized compound parameters bound as strings', () => {
+    const text = "[(1,'x')]";
+    expect(bindNamedParameters('SELECT {value:Array(Tuple(UInt8, String))}', { value: text }).parameters).toEqual([text]);
+  });
+
+  it.each([
     "Enum8(')' = 1)",
     "Enum8('{' = 1)",
     "Enum8('}' = 1)",

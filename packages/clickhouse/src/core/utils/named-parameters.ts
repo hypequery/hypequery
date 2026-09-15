@@ -1,6 +1,6 @@
 import { escapeValue } from '../utils.js';
 import { skipNonCode } from './sql-parens.js';
-import { serializeArrayParameter } from './array-parameter.js';
+import { serializeCompoundParameter } from './compound-parameter.js';
 
 const IDENTIFIER_START = /[A-Za-z_]/;
 const IDENTIFIER_CHAR = /[A-Za-z0-9_]/;
@@ -126,7 +126,7 @@ export function bindNamedParameters(
     // the real type — a UUID join key, for instance.
     bound += `${sql.slice(copiedTo, i)}CAST(?, ${escapeValue(placeholder.type)})`;
     const value = values[placeholder.name];
-    parameters.push(Array.isArray(value) ? serializeArrayParameter(value) : value);
+    parameters.push(serializeCompoundParameter(value, placeholder.type));
     copiedTo = placeholder.end;
     i = placeholder.end;
   }

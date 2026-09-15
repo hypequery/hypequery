@@ -562,3 +562,29 @@ const laterScopedSource = scopeAfterDynamic.table('active_users').select(['user_
 type AssertLaterScopedSource = Expect<Equal<Awaited<ReturnType<typeof laterScopedSource.execute>>, { user_name: string }[]>>;
 // @ts-expect-error - PREWHERE is only valid for table sources
 descendantsScope.table('descendants').prewhere('id', 'eq', 'root');
+
+// Compound raw parameters retain their declared CTE output types.
+const compoundScope = db.withCTE('compound', {
+  sql: `SELECT {pairs:Array(Tuple(UInt32, String))} AS pairs,
+    {records:Array(Tuple(id UInt32, label String))} AS records,
+    {maps:Array(Map(String, UInt32))} AS maps`,
+  parameters: { pairs: [[1, 'x']], records: [{ id: 1, label: 'x' }], maps: [{ x: 1 }] },
+}, {
+  pairs: 'Array(Tuple(UInt32, String))',
+  records: 'Array(Tuple(id UInt32, label String))',
+  maps: 'Array(Map(String, UInt32))',
+});
+const compoundQuery = compoundScope.table('compound').select(['pairs', 'records', 'maps']);
+type AssertCompoundCte = Expect<Equal<Awaited<ReturnType<typeof compoundQuery.execute>>, {
+  pairs: [number, string][];
+  records: { id: number; label: string }[];
+  maps: Record<string, number>[];
+}[]>>;
+// @ts-expect-error - unknown compound-source columns remain invalid
+compoundScope.table('compound').select(['missing']);
+const compoundRecursive = db.withRecursiveCTE('recursive_pairs', {
+  sql: 'SELECT {pairs:Array(Tuple(UInt32, String))} AS pairs, toUInt8(1) AS n UNION ALL SELECT pairs, toUInt8(n + 1) FROM recursive_pairs WHERE n < 2',
+  parameters: { pairs: [[1, 'x']] },
+}, { pairs: 'Array(Tuple(UInt32, String))', n: 'UInt8' })
+  .table('recursive_pairs').select(['pairs']);
+type AssertRecursiveCompoundCte = Expect<Equal<Awaited<ReturnType<typeof compoundRecursive.execute>>, { pairs: [number, string][] }[]>>;
