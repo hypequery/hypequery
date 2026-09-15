@@ -1,19 +1,40 @@
 /**
  * Relationship helpers for dataset definitions.
  *
- * These helpers currently define semantic model metadata only. The shipped
- * semantic client does not yet resolve relationship paths into joined dataset queries
- * or cross-dataset metrics.
+ * To-one relationships (`belongsTo`, `hasOne`) are queryable one hop deep as
+ * `<relationship>.<dimension>` and execute as LEFT JOINs. `hasMany` is metadata
+ * only: joining it would fan out and corrupt aggregates, so it is refused at
+ * query time.
+ *
+ * Only the target's *dimensions* are reachable. A measure on the target dataset
+ * is not addressable through a relationship, so there are no cross-dataset
+ * metrics.
+ *
+ * Note that the `kind` passed here is a declaration, not something checked
+ * against the data — there is no uniqueness concept in the model, so nothing
+ * verifies that a `belongsTo` target column really is unique. What a
+ * mis-declaration costs depends on the builder. One that implements the
+ * optional `leftAnyJoin` (ClickHouse `LEFT ANY JOIN`) takes at most one target
+ * row per base row, so the aggregate cannot inflate — it just silently picks an
+ * arbitrary one of the matches. A builder without it falls back to `leftJoin`,
+ * where duplicate target keys fan out and do inflate the aggregate. Either way
+ * the declaration has to be right.
  *
  * @example
  * ```ts
  * const Orders = dataset("orders", {
  *   source: "orders",
- *   fields: { ... },
+ *   dimensions: {
+ *     id: dimension.string(),
+ *     customerId: dimension.string({ column: "customer_id" }),
+ *   },
  *   relationships: {
  *     customer: belongsTo(() => Customers, { from: "customerId", to: "id" }),
  *   },
  * });
+ *
+ * // Groups by a dimension on Customers, joining through the relationship.
+ * await client.execute(Orders, { dimensions: ["customer.country"] });
  * ```
  */
 
