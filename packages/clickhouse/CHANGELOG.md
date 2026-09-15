@@ -1,5 +1,33 @@
 # @hypequery/clickhouse Changelog
 
+## 2.11.0
+
+### Minor Changes
+
+- dd8acd3: Add recursive CTEs, typed CTE sources, and raw CTE parameters.
+
+  - Use `withRecursiveCTE()` to write recursive queries. Ordinary CTEs and scalar aliases can share the `WITH RECURSIVE` clause.
+  - Use `db.withCTE(...).table(alias)` or `db.withRecursiveCTE(...).table(alias)` to read from a CTE with typed columns. `FINAL` and `PREWHERE` are rejected on CTE sources.
+  - Pass `{ sql, parameters }` to either method to bind `{name:Type}` placeholders. Values retain their declared types, including UUIDs, arrays, tuples, maps, and JSON objects. Values are escaped client-side at rendering or execution time.
+
+  Existing `withCTE()` calls remain supported.
+
+- 89e0619: Fix two long-standing CTE gaps in the query builder.
+
+  CTE aliases are now typed join targets. `withCTE('alias', builder)` derives the
+  alias's columns from the builder passed in, and `withCTE('alias', sql, columns)`
+  takes a column declaration for a raw SQL body. Joining the alias, selecting
+  `alias.column`, and filtering on it are all checked, and the column types flow
+  through to the result row. A raw CTE with no declared columns behaves as before:
+  it renders, but its alias is not a typed join target. Joining a CTE does not
+  accept the trailing table-alias argument, which resolves through the schema.
+
+  CTE values also stay bound. `withCTE` previously rendered a builder subquery with
+  `toSQL()`, escaping its values into the CTE string while the rest of the query
+  used bound parameters. The CTE body now keeps its placeholders and contributes
+  its parameters ahead of the outer query's. Rendered SQL is unchanged, as is the
+  `ctes` array on the deprecated `getConfig()`.
+
 ## 2.10.1
 
 ### Patch Changes
