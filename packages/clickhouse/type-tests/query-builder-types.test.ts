@@ -601,3 +601,19 @@ const recursiveJsonCte = db.withRecursiveCTE('recursive_json', {
 }, { payload: 'JSON', n: 'UInt8' })
   .table('recursive_json').select(['payload']);
 type AssertRecursiveJsonCte = Expect<Equal<Awaited<ReturnType<typeof recursiveJsonCte.execute>>, { payload: unknown }[]>>;
+
+// Bound client methods retain all overloads without casting their signatures.
+const { withCTE: declareCte, withRecursiveCTE: declareRecursiveCte } = db;
+const detachedBuilderCte = declareCte('active', activeUsers).table('active').select(['user_name']);
+type AssertDetachedBuilderCte = Expect<Equal<Awaited<ReturnType<typeof detachedBuilderCte.execute>>, { user_name: string }[]>>;
+const detachedRawCte = declareCte('raw_ids', 'SELECT 1 AS id', { id: 'UInt32' }).table('raw_ids').select(['id']);
+type AssertDetachedRawCte = Expect<Equal<Awaited<ReturnType<typeof detachedRawCte.execute>>, { id: number }[]>>;
+const detachedRecursiveCte = declareRecursiveCte('uuid_ids', 'SELECT toUUID(\'00000000-0000-0000-0000-000000000001\') AS id', { id: 'UUID' })
+  .table('uuid_ids').select(['id']);
+type AssertDetachedRecursiveCte = Expect<Equal<Awaited<ReturnType<typeof detachedRecursiveCte.execute>>, { id: string }[]>>;
+// @ts-expect-error - a detached untyped declaration does not register a source
+declareCte('untyped', 'SELECT 1 AS id').table('untyped');
+// @ts-expect-error - the detached recursive method retains column checking
+detachedRecursiveCte.select(['missing']);
+// @ts-expect-error - state transitions keep the non-table marker
+detachedRecursiveCte.where('id', 'eq', 'root').final();

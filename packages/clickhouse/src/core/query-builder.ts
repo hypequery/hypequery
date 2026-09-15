@@ -442,11 +442,13 @@ export class QueryBuilder<
   withCTE(alias: string, sql: string | RawCteBody): this;
   // Preserve callers whose body is chosen dynamically from SQL or a builder.
   withCTE(alias: string, subquery: CteBody): this;
+  // Overloads expose the precise state. The implementation erases only State
+  // because QueryBuilder instances with different states are not assignable.
   withCTE(
     alias: string,
     subquery: CteBody,
     columns?: Record<string, ColumnType>
-  ): any {
+  ): QueryBuilder<Schema, any> {
     return this.addCte(alias, subquery, columns, false);
   }
 
@@ -489,7 +491,7 @@ export class QueryBuilder<
     alias: string,
     body: string | RawCteBody,
     columns?: Record<string, ColumnType>
-  ): any {
+  ): QueryBuilder<Schema, any> {
     return this.addCte(alias, body, columns, true);
   }
 
@@ -498,7 +500,7 @@ export class QueryBuilder<
     subquery: CteBody,
     columns: Record<string, ColumnType> | undefined,
     recursive: boolean
-  ): any {
+  ) {
     assertSafeIdentifier(alias, 'CTE alias');
     for (const column of Object.keys(columns ?? {})) {
       assertSafeIdentifier(column, 'CTE column');
@@ -520,7 +522,7 @@ export class QueryBuilder<
       ...this.state,
       ctes: { ...this.state.ctes, [alias]: shape },
     };
-    return this.transition(nextState as any, nextConfig);
+    return this.transition(nextState, nextConfig);
   }
 
   // --- Analytics Helper: Add a scalar WITH alias.
@@ -1387,12 +1389,12 @@ export function createQueryBuilder<Schema extends SchemaDefinition<Schema>>(
      *   .execute();
      * ```
      */
-    withCTE: rootScope.withCTE.bind(rootScope) as CteScope<Schema>['withCTE'],
+    withCTE: rootScope.withCTE.bind(rootScope),
     /**
      * Declares a recursive CTE and renders the clause as `WITH RECURSIVE`.
      * See {@link CteScope.withRecursiveCTE}.
      */
-    withRecursiveCTE: rootScope.withRecursiveCTE.bind(rootScope) as CteScope<Schema>['withRecursiveCTE'],
+    withRecursiveCTE: rootScope.withRecursiveCTE.bind(rootScope),
     async rawQuery<TResult = any>(
       sql: string,
       params: unknown[] = [],

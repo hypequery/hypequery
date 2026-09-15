@@ -14,14 +14,24 @@ import type {
 } from './types/builder-state.js';
 import type { ColumnType } from '../types/schema.js';
 import type { RawCteBody } from '../types/index.js';
+import { createCteScopeState, type CteScopeRuntimeState } from './utils/cte-scope-state.js';
 
 /** One CTE declared on a scope, replayed onto every query the scope starts. */
-interface CteDeclaration {
+type CteDeclaration = {
   alias: string;
-  body: CteBody;
   columns?: Record<string, ColumnType>;
-  recursive: boolean;
-}
+} & (
+  | { recursive: true; body: string | RawCteBody }
+  | { recursive: false; body: CteBody }
+);
+
+/** Derive the next registry from the declaration itself, including builder output. */
+type DeclaredCtes<Ctes extends CteShapes, Declaration extends CteDeclaration> =
+  Declaration['body'] extends QueryBuilder<any, infer BodyState>
+    ? RegisterCte<Ctes, Declaration['alias'], BodyState['output']>
+    : [NonNullable<Declaration['columns']>] extends [never]
+      ? Ctes
+      : RegisterCte<Ctes, Declaration['alias'], NonNullable<Declaration['columns']>>;
 
 /** What a scope needs to build a query, mirroring `createQueryBuilder`. */
 export interface CteScopeDeps {
@@ -59,11 +69,15 @@ export class CteScope<Schema extends SchemaDefinition<Schema>, Ctes extends CteS
     columns: Columns
   ): CteScope<Schema, RegisterCte<Ctes, Alias, Columns>>;
   withCTE(alias: string, sql: string | RawCteBody): CteScope<Schema, Ctes>;
-  withCTE(
-    alias: string,
-    body: CteBody,
-    columns?: Record<string, ColumnType>
-  ): any {
+  withCTE<
+    Alias extends string,
+    Body extends CteBody,
+    Columns extends Record<string, ColumnType> | undefined = undefined
+  >(
+    alias: Alias,
+    body: Body,
+    columns?: Columns
+  ) {
     return this.declare({ alias, body, columns, recursive: false });
   }
 
@@ -106,11 +120,15 @@ export class CteScope<Schema extends SchemaDefinition<Schema>, Ctes extends CteS
     columns: Columns
   ): CteScope<Schema, RegisterCte<Ctes, Alias, Columns>>;
   withRecursiveCTE(alias: string, body: string | RawCteBody): CteScope<Schema, Ctes>;
-  withRecursiveCTE(
-    alias: string,
-    body: string | RawCteBody,
-    columns?: Record<string, ColumnType>
-  ): any {
+  withRecursiveCTE<
+    Alias extends string,
+    Body extends string | RawCteBody,
+    Columns extends Record<string, ColumnType> | undefined = undefined
+  >(
+    alias: Alias,
+    body: Body,
+    columns?: Columns
+  ) {
     return this.declare({ alias, body, columns, recursive: true });
   }
 
@@ -125,65 +143,38 @@ export class CteScope<Schema extends SchemaDefinition<Schema>, Ctes extends CteS
   table<TableName extends Extract<keyof Schema, string>>(
     tableName: TableName
   ): QueryBuilder<Schema, WithCtes<InitialState<Schema, TableName>, Ctes>>;
-  table(name: string): any {
-    const declaration = this.declarations.find(entry => entry.alias === name);
-    const seed = declaration
-      ? new QueryBuilder<Schema, AnyBuilderState>(
-        name,
-        this.cteSourceState(declaration),
-        this.deps.runtime,
-        this.deps.adapter,
-        this.deps.dialect,
-        { kind: 'table', name, cte: true },
-      )
-      : new QueryBuilder<Schema, AnyBuilderState>(
-        name,
-        this.tableState(name),
-        this.deps.runtime,
-        this.deps.adapter,
-        this.deps.dialect,
-      );
-
-    // Declarations are replayed through the builder's own methods so a scoped
-    // CTE compiles and registers exactly as an inline one does.
-    return this.declarations.reduce<any>(
-      (builder, entry) => entry.recursive
-        ? builder.withRecursiveCTE(entry.alias, entry.body, entry.columns)
-        : builder.withCTE(entry.alias, entry.body, entry.columns),
-      seed,
+  // QueryBuilder is invariant in State. Only this overload boundary erases it;
+  // the replay loop below uses a concrete state, and callers see the overloads.
+  table(name: string): QueryBuilder<Schema, any> {
+    const cte = this.declarations.some(entry => entry.alias === name);
+    let builder = new QueryBuilder<Schema, CteScopeRuntimeState<Schema>>(
+      name,
+      createCteScopeState<Schema>(name),
+      this.deps.runtime,
+      this.deps.adapter,
+      this.deps.dialect,
+      cte ? { kind: 'table', name, cte: true } : undefined,
     );
+
+    // Keep replay on the builder's own paths. Narrow raw vs builder bodies so
+    // each call satisfies the public overloads without erasing the builder.
+    for (const entry of this.declarations) {
+      if (entry.recursive) {
+        builder = entry.columns
+          ? builder.withRecursiveCTE(entry.alias, entry.body, entry.columns)
+          : builder.withRecursiveCTE(entry.alias, entry.body);
+      } else if (entry.body instanceof QueryBuilder) {
+        builder = builder.withCTE(entry.alias, entry.body);
+      } else {
+        builder = entry.columns
+          ? builder.withCTE(entry.alias, entry.body, entry.columns)
+          : builder.withCTE(entry.alias, entry.body);
+      }
+    }
+    return builder;
   }
 
-  private declare(declaration: CteDeclaration): any {
-    return new CteScope<Schema, CteShapes>(this.deps, [...this.declarations, declaration]);
-  }
-
-  private cteSourceState(declaration: CteDeclaration): AnyBuilderState {
-    return {
-      schema: {} as Schema,
-      tables: declaration.alias,
-      // The alias has no schema entry; its declared columns stand in for one at
-      // the type level. The runtime shape stays empty, as it is for a table, so
-      // a CTE source is not filter-validated more strictly than a table is.
-      baseTable: declaration.alias,
-      base: {},
-      output: {},
-      aliases: {},
-      scalars: {},
-      ctes: {},
-    } as unknown as AnyBuilderState;
-  }
-
-  private tableState(tableName: string): AnyBuilderState {
-    return {
-      schema: {} as Schema,
-      tables: tableName,
-      baseTable: tableName,
-      base: {},
-      output: {},
-      aliases: {},
-      scalars: {},
-      ctes: {},
-    } as unknown as AnyBuilderState;
+  private declare<Declaration extends CteDeclaration>(declaration: Declaration): CteScope<Schema, DeclaredCtes<Ctes, Declaration>> {
+    return new CteScope<Schema, DeclaredCtes<Ctes, Declaration>>(this.deps, [...this.declarations, declaration]);
   }
 }

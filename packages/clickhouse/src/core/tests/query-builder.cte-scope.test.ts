@@ -126,4 +126,35 @@ describe('CTE scopes', () => {
       'PREWHERE can only be applied to a table source, and "roots" is a CTE.'
     );
   });
+
+  it('replays mixed declaration forms exactly as an inline builder does', () => {
+    const untyped = { sql: 'SELECT {seed:UInt32} AS id', parameters: { seed: 1 } };
+    const users = db.table('users').select(['id']).where('user_name', 'eq', 'Ada');
+    const counter = 'SELECT id FROM untyped UNION ALL SELECT id + 1 FROM counter WHERE id < 3';
+    const { withCTE } = db;
+    const scoped = withCTE('untyped', untyped)
+      .withCTE('active', users)
+      .withRecursiveCTE('counter', counter)
+      .withCTE('last', 'SELECT id FROM counter', { id: 'UInt32' })
+      .table('test_table').select(['id']).where('id', 'gt', 2);
+    const inline = db.table('test_table')
+      .withCTE('untyped', untyped)
+      .withCTE('active', users)
+      .withRecursiveCTE('counter', counter)
+      .withCTE('last', 'SELECT id FROM counter', { id: 'UInt32' })
+      .select(['id']).where('id', 'gt', 2);
+
+    expect(scoped.toSQLWithParams()).toEqual(inline.toSQLWithParams());
+    expect(scoped.toSQLWithParams().parameters).toEqual([1, 'Ada', 2]);
+  });
+
+  it('keeps a detached recursive factory bound and source guards across transitions', () => {
+    const { withRecursiveCTE } = db;
+    const query = withRecursiveCTE('counter', 'SELECT 1 AS id', { id: 'UInt32' })
+      .table('counter').select(['id']).where('id', 'eq', 1);
+
+    expect(query.toSQL()).toBe('WITH RECURSIVE counter AS (SELECT 1 AS id) SELECT id FROM counter WHERE id = 1');
+    expect(() => query.final()).toThrow('"counter" is a CTE');
+    expect(() => query.prewhere('id', 'eq', 1)).toThrow('"counter" is a CTE');
+  });
 });
