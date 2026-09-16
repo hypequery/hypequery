@@ -16,8 +16,8 @@ function defineOrders(derivedMeasures: Record<string, DerivedMeasureDefinition>)
     measures: {
       revenue: measure.sum('amount'),
       orders: measure.count('orderId'),
+      ...derivedMeasures,
     },
-    derivedMeasures: derivedMeasures as never,
   });
 }
 
@@ -51,14 +51,14 @@ describe('dataset-owned derived measures', () => {
       .toThrow(/references derived measure "first"/);
   });
 
-  it('rejects cycles, collisions, and unsafe aliases at definition time', () => {
+  it('rejects cycles and unsafe aliases at definition time', () => {
     const derived = measure.derived({
       uses: { value: 'revenue' },
       formula: ({ value }) => divide(value, nullIfZero(value)),
     });
     expect(() => defineOrders({ first: { ...derived, uses: { second: 'second' } }, second: { ...derived, uses: { first: 'first' } } }))
       .toThrow(/dependency cycle/);
-    expect(() => defineOrders({ revenue: derived })).toThrow(/collides with a base measure/);
+    expect(() => defineOrders({ revenue: derived })).toThrow(/dependency cycle/);
     expect(() => defineOrders({ bad: { ...derived, uses: { 'bad-name': 'revenue' } } }))
       .toThrow(/invalid input alias/);
   });
@@ -88,8 +88,7 @@ describe('dataset-owned derived measures', () => {
     const orders = dataset('orders', {
       source: 'orders',
       dimensions: { amount: dimension.number() },
-      measures: { constructor: measure.sum('amount') },
-      derivedMeasures: { ratio: constructorInput },
+      measures: { constructor: measure.sum('amount'), ratio: constructorInput },
     });
     expect(orders.derivedMeasures.ratio.uses.value).toBe('constructor');
 

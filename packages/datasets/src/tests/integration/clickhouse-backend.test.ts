@@ -38,8 +38,6 @@ const Orders = dataset('orders', {
     highValueRevenue: measure.sum('total', {
       filters: [gt('total', 20)],
     }),
-  },
-  derivedMeasures: {
     revenuePerOrder: measure.derived({
       uses: { revenue: 'revenue', orders: 'orderCount' },
       formula: ({ revenue, orders }) => divide(revenue, nullIfZero(orders)),

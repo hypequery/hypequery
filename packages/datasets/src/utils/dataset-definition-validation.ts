@@ -23,16 +23,17 @@
 
 import type {
   DatasetConfig,
+  DatasetMeasureDefinition,
   DimensionDefinition,
-  MeasureDefinition,
   RelationshipDefinition,
 } from '../types.js';
 import { escapeRegExp, isSafeSQLIdentifier, stripSqlLiterals } from '../sql-utils.js';
 import { validateDerivedMeasures } from './derived-measure-validation.js';
+import { isDerivedMeasure } from './dataset-measures.js';
 import { validateDatasetAgentMetadata } from './semantic-metadata-validation.js';
 
 type AnyDimensions = Record<string, DimensionDefinition>;
-type AnyMeasures = Record<string, MeasureDefinition>;
+type AnyMeasures = Record<string, DatasetMeasureDefinition>;
 type AnyRelationships = Record<string, RelationshipDefinition>;
 
 /**
@@ -194,6 +195,14 @@ function validateMeasures(
   for (const [name, definition] of Object.entries(measures)) {
     assertSafeName(datasetName, 'measure', name);
 
+    if (typeof definition !== 'object' || definition === null) {
+      fail(datasetName, `measure "${name}" must be created with measure.*().`);
+    }
+    if (isDerivedMeasure(definition)) continue;
+    if (definition.__type !== 'measure_definition') {
+      fail(datasetName, `measure "${name}" must be created with measure.*().`);
+    }
+
     if (definition.sql !== undefined) {
       validateRawSql(datasetName, 'measure', name, definition.sql, definition.dependencies);
     }
@@ -293,7 +302,7 @@ export function validateDatasetDefinition(
 
   validateDimensions(name, dimensions);
   const measures = config.measures ?? {};
-  validateDerivedMeasures(name, measures, config.derivedMeasures ?? {});
+  validateDerivedMeasures(name, measures);
   validateMeasures(name, measures, dimensions);
   validateLimits(name, config.limits);
   validateDatasetAgentMetadata(name, config);

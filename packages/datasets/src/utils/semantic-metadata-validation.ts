@@ -1,7 +1,7 @@
 import type {
   DatasetConfig,
+  DatasetMeasureDefinition,
   DimensionDefinition,
-  MeasureDefinition,
   RelationshipDefinition,
   SemanticMetadata,
 } from '../types.js';
@@ -62,7 +62,7 @@ export function validateSemanticMetadata(
 
 export function validateDatasetAgentMetadata<
   TDimensions extends Record<string, DimensionDefinition>,
-  TMeasures extends Record<string, MeasureDefinition>,
+  TMeasures extends Record<string, DatasetMeasureDefinition>,
   TRelationships extends Record<string, RelationshipDefinition>,
 >(
   datasetName: string,
@@ -118,9 +118,6 @@ export function validateDatasetAgentMetadata<
   }
   for (const [name, measure] of Object.entries(config.measures ?? {})) {
     validateSemanticMetadata(datasetName, `measures.${name}`, measure);
-  }
-  for (const [name, measure] of Object.entries(config.derivedMeasures ?? {})) {
-    validateSemanticMetadata(datasetName, `derivedMeasures.${name}`, measure);
   }
   for (const [name, filter] of Object.entries(config.filters ?? {})) {
     validateSemanticMetadata(datasetName, `filters.${name}`, filter);

@@ -232,6 +232,7 @@ export type {
   DimensionDefinition,
   MeasureOptions,
   MeasureDefinition,
+  DatasetMeasureDefinition,
   DerivedMeasureDefinition,
   DerivedMeasureOptions,
   DerivedMeasureUses,

@@ -1,10 +1,12 @@
 import type {
+  DatasetMeasureDefinition,
   DerivedMeasureDefinition,
   FormulaExpr,
   MeasureDefinition,
 } from '../types.js';
 import type { SemanticExpression } from '../semantic-plan.js';
 import { isSafeSQLIdentifier } from '../sql-utils.js';
+import { isBaseMeasure, isDerivedMeasure } from './dataset-measures.js';
 
 function fail(datasetName: string, measureName: string, detail: string): never {
   throw new Error(`Invalid dataset "${datasetName}": derived measure "${measureName}" ${detail}`);
@@ -118,14 +120,18 @@ function assertAcyclic(
 
 export function validateDerivedMeasures(
   datasetName: string,
-  measures: Record<string, MeasureDefinition>,
-  derivedMeasures: Record<string, DerivedMeasureDefinition>,
+  measures: Record<string, DatasetMeasureDefinition>,
 ): void {
+  const baseMeasures = Object.fromEntries(
+    Object.entries(measures).filter(([, definition]) => definition && isBaseMeasure(definition)),
+  ) as Record<string, MeasureDefinition>;
+  const derivedMeasures = Object.fromEntries(
+    Object.entries(measures).filter(([, definition]) => definition && isDerivedMeasure(definition)),
+  ) as Record<string, DerivedMeasureDefinition>;
   for (const [measureName, definition] of Object.entries(derivedMeasures)) {
     if (!isSafeSQLIdentifier(measureName)) {
       fail(datasetName, measureName, 'name is not a safe identifier.');
     }
-    if (Object.hasOwn(measures, measureName)) fail(datasetName, measureName, 'collides with a base measure.');
     if (typeof definition !== 'object' || definition === null || definition.__type !== 'derived_measure_definition') {
       fail(datasetName, measureName, 'must be created with measure.derived().');
     }
@@ -148,7 +154,7 @@ export function validateDerivedMeasures(
       if (Object.hasOwn(derivedMeasures, dependencyName)) {
         fail(datasetName, measureName, `references derived measure "${dependencyName}"; v1 inputs must be base measures.`);
       }
-      if (!Object.hasOwn(measures, dependencyName)) fail(datasetName, measureName, `references missing measure "${dependencyName}".`);
+      if (!Object.hasOwn(baseMeasures, dependencyName)) fail(datasetName, measureName, `references missing measure "${dependencyName}".`);
     }
 
     const references = new Set<string>();

@@ -33,9 +33,10 @@
 import type {
   DatasetConfig,
   DatasetInstance,
-  DerivedMeasureDefinition,
+  DatasetMeasureDefinition,
+  BaseMeasures,
+  DerivedMeasures,
   DimensionDefinition,
-  MeasureDefinition,
   RelationshipDefinition,
   BaseMetricRef,
   DerivedMetricRef,
@@ -51,7 +52,6 @@ import {
   measureToAggregationSpec,
   normalizeDimensions,
   normalizeFilters,
-  normalizeMeasures,
   normalizeRelationships,
 } from './utils/dataset-normalization.js';
 import {
@@ -61,29 +61,29 @@ import {
 import { validateDatasetDefinition } from './utils/dataset-definition-validation.js';
 import { snapshotSemanticMetadata } from './utils/semantic-metadata.js';
 import { validateSemanticMetadata } from './utils/semantic-metadata-validation.js';
+import { splitDatasetMeasures } from './utils/dataset-measures.js';
 
 export function dataset<
   TDatasetName extends string,
   TDimensions extends Record<string, DimensionDefinition>,
-  TMeasures extends Record<string, MeasureDefinition> = {},
+  TDefinitions extends Record<string, DatasetMeasureDefinition> = {},
   TRelationships extends Record<string, RelationshipDefinition> = Record<string, never>,
-  TDerivedMeasures extends Record<string, DerivedMeasureDefinition<Readonly<Record<string, Extract<keyof TMeasures, string>>>>> =
-    Record<string, never>,
 >(
   name: TDatasetName,
-  config: DatasetConfig<TDimensions, TMeasures, TRelationships, TDerivedMeasures>,
-): DatasetInstance<TDimensions, TMeasures, TRelationships, TDatasetName, TDerivedMeasures> {
+  config: DatasetConfig<TDimensions, TDefinitions, TRelationships>,
+): DatasetInstance<TDimensions, BaseMeasures<TDefinitions>, TRelationships, TDatasetName, DerivedMeasures<TDefinitions>> {
   // Structural validation runs before anything is normalized, so an invalid
   // model fails at definition time rather than on the first query that reaches
   // the broken part of it.
   validateDatasetDefinition(name, config);
 
   const dimensions = normalizeDimensions(config);
-  const measures = normalizeMeasures(config.measures);
+  const { base: measures, derived: derivedMeasures } = splitDatasetMeasures<TDefinitions>(config.measures);
   const filters = normalizeFilters(dimensions, config.filters);
   const relationships = normalizeRelationships(config.relationships, config.source);
 
-  type ThisDataset = DatasetInstance<TDimensions, TMeasures, TRelationships, TDatasetName, TDerivedMeasures>;
+  type TMeasures = BaseMeasures<TDefinitions>;
+  type ThisDataset = DatasetInstance<TDimensions, TMeasures, TRelationships, TDatasetName, DerivedMeasures<TDefinitions>>;
   function metric<TName extends string>(
     metricName: TName,
     metricConfig: BaseMetricConfig<TMeasures>,
@@ -139,7 +139,7 @@ export function dataset<
     timeKey: config.timeKey,
     dimensions,
     measures,
-    derivedMeasures: { ...(config.derivedMeasures ?? {}) } as TDerivedMeasures,
+    derivedMeasures,
     filters,
     relationships,
     limits: config.limits,
