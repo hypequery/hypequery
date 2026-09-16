@@ -4,14 +4,12 @@ import {
   parseProtocolIdentifier,
   parseProtocolQualifiedIdentifier,
 } from '../identifiers/index.js';
-import { ProtocolSchemaError, validateProtocolSchema } from '../schemas/index.js';
 import { queryImplementationError } from './errors.js';
 import { resolveQueryImplementationLimits } from './limits.js';
 import type {
   ProtocolQueryImplementation,
   ProtocolQueryImplementationLimits,
   ProtocolQueryImplementationOptions,
-  ProtocolSqlExpression,
   ProtocolSqlParameter,
   ProtocolSqlParameterSource,
   ProtocolSqlTenantPolicy,
@@ -194,40 +192,6 @@ function validateReadSources(
     queryImplementationError('HQ_QUERY_IMPLEMENTATION_INVALID_VALUE', path);
   }
   return Object.freeze(result);
-}
-
-export function validateProtocolSqlExpression(
-  input: unknown,
-  options: ProtocolQueryImplementationOptions = {},
-): ProtocolSqlExpression {
-  const limits = resolveQueryImplementationLimits(options);
-  const value = requireRecord(input, '$');
-  exactFields(value, ['kind', 'dialect', 'sql', 'output', 'dependencies'], [], '$');
-  if (value.kind !== 'sql-expression') {
-    if (typeof value.kind !== 'string') queryImplementationError('HQ_QUERY_IMPLEMENTATION_TYPE', '$.kind');
-    queryImplementationError('HQ_QUERY_IMPLEMENTATION_UNKNOWN_KIND', '$.kind');
-  }
-  const dependencies = requireArray(value.dependencies, '$.dependencies', limits.maxCollectionItems)
-    .map((dependency, index) => identifier(dependency, `$.dependencies[${index}]`, true));
-  if (new Set(dependencies).size !== dependencies.length) {
-    queryImplementationError('HQ_QUERY_IMPLEMENTATION_INVALID_VALUE', '$.dependencies');
-  }
-  let output;
-  try {
-    output = validateProtocolSchema(value.output);
-  } catch (error) {
-    if (error instanceof ProtocolSchemaError) {
-      queryImplementationError('HQ_QUERY_IMPLEMENTATION_INVALID_VALUE', '$.output');
-    }
-    throw error;
-  }
-  return freezeRecord({
-    kind: 'sql-expression',
-    dialect: dialect(value.dialect, '$.dialect'),
-    sql: boundedText(value.sql, '$.sql', limits.maxExpressionBytes, true),
-    output,
-    dependencies: Object.freeze(dependencies),
-  }) as unknown as ProtocolSqlExpression;
 }
 
 export function validateProtocolQueryImplementation(

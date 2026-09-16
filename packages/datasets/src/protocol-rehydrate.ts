@@ -14,16 +14,21 @@
 
 import type {
   ProtocolDatasetContract,
+  ProtocolDatasetOnlyContract,
+  ProtocolDatasetOnlyDataset,
+  ProtocolDatasetDerivedMeasure,
   ProtocolDatasetMeasure,
   ProtocolDatasetMetric,
   ProtocolExpression,
   ProtocolMetricDerivation,
 } from '@hypequery/protocol';
+import { validateProtocolDatasetOnlyContract } from '@hypequery/protocol';
 import { dataset } from './dataset.js';
 import type {
   AnyDatasetInstance,
   DatasetCachePolicy,
   DerivedMetricConfig,
+  DerivedMeasureDefinition,
   DimensionDefinition,
   MeasureDefinition,
   MetricFilter,
@@ -129,6 +134,23 @@ function rehydrateMeasure(
     ...(measure.label !== undefined ? { label: measure.label } : {}),
     ...(measure.description !== undefined ? { description: measure.description } : {}),
     ...(filters.length > 0 ? { filters: filters as MetricFilter[] } : {}),
+  };
+}
+
+function rehydrateDerivedMeasure(
+  datasetName: string,
+  measure: ProtocolDatasetDerivedMeasure,
+): DerivedMeasureDefinition {
+  return {
+    __type: 'derived_measure_definition',
+    ...snapshotSemanticMetadata(measure),
+    uses: Object.fromEntries(measure.uses.map(input => [String(input.alias), String(input.measure)])),
+    formula: rehydrateDerivedFormula(
+      { inputs: [], expression: measure.expression },
+      reason => new UnsupportedContractFeatureError(datasetName, `measure "${measure.name}"`, reason),
+    ),
+    ...(measure.label !== undefined ? { label: measure.label } : {}),
+    ...(measure.description !== undefined ? { description: measure.description } : {}),
   };
 }
 
@@ -316,9 +338,21 @@ function rehydrateMetric(
  * `projectAgentSafeCatalog`, and `DatasetClient` already accept.
  */
 export function rehydrateProtocolDatasets(
-  contracts: readonly ProtocolDatasetContract[],
+  contracts: readonly (ProtocolDatasetContract | ProtocolDatasetOnlyDataset)[],
   options: RehydrateProtocolDatasetsOptions = {},
 ): Readonly<Record<string, RehydratedDataset>> {
+  const normalized = contracts.map(contract => {
+    const measures = contract.measures as readonly (ProtocolDatasetMeasure | ProtocolDatasetDerivedMeasure)[];
+    const derived = measures.filter(
+      (measure): measure is ProtocolDatasetDerivedMeasure => 'kind' in measure,
+    );
+    const base = {
+      ...contract,
+      measures: measures.filter((measure): measure is ProtocolDatasetMeasure => !('kind' in measure)),
+      metrics: contract.metrics ?? [],
+    } as ProtocolDatasetContract;
+    return { base, derived };
+  });
   const instances = new Map<string, AnyDatasetInstance>();
   const registry: Record<string, RehydratedDataset> = {};
   // Relationship targets resolve to the published entry, not the bare instance
@@ -339,7 +373,7 @@ export function rehydrateProtocolDatasets(
     return instance;
   };
 
-  for (const contract of contracts) {
+  for (const { base: contract, derived } of normalized) {
     const name = String(contract.name);
     const instance = dataset(name, {
       source: contract.source,
@@ -354,10 +388,14 @@ export function rehydrateProtocolDatasets(
       ...(contract.tenant.kind === 'required' ? { tenantKey: contract.tenant.field } : {}),
       ...(contract.timeField !== undefined ? { timeKey: String(contract.timeField) } : {}),
       dimensions: rehydrateDimensions(contract),
-      measures: Object.fromEntries(contract.measures.map(measure => [
-        String(measure.name),
-        rehydrateMeasure(name, measure),
-      ])),
+      measures: Object.fromEntries([
+        ...contract.measures.map(measure => [
+          String(measure.name), rehydrateMeasure(name, measure),
+        ] as const),
+        ...derived.map(measure => [
+          String(measure.name), rehydrateDerivedMeasure(name, measure),
+        ] as const),
+      ]),
       filters: rehydrateFilters(contract),
       relationships: rehydrateRelationships(contract, resolve),
       ...(contract.limits !== undefined ? { limits: { ...contract.limits } } : {}),
@@ -366,11 +404,11 @@ export function rehydrateProtocolDatasets(
     instances.set(name, instance);
   }
 
-  for (const contract of contracts) {
+  for (const { base: contract } of normalized) {
     const name = String(contract.name);
     const instance = instances.get(name) as AnyDatasetInstance;
     const metrics: Record<string, MetricHandle> = {};
-    for (const metric of contract.metrics) {
+    for (const metric of contract.metrics ?? []) {
       try {
         metrics[String(metric.name)] = rehydrateMetric(instance, contract, metric);
       } catch (error) {
@@ -387,4 +425,13 @@ export function rehydrateProtocolDatasets(
     ) as RehydratedDataset;
   }
   return registry;
+}
+
+/** Strict v2 reader that returns executable datasets without metric handles. */
+export function rehydrateProtocolDatasetOnlyContract(
+  input: unknown,
+  options: RehydrateProtocolDatasetsOptions = {},
+): Readonly<Record<string, RehydratedDataset>> {
+  const contract: ProtocolDatasetOnlyContract = validateProtocolDatasetOnlyContract(input);
+  return rehydrateProtocolDatasets(contract.datasets, options);
 }

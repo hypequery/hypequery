@@ -98,6 +98,9 @@ export type {
   RehydrateProtocolDatasetsOptions,
 } from './protocol-rehydrate.js';
 export { buildProtocolDatasetContract } from './protocol-adapter.js';
+export { buildProtocolDatasetOnlyContract } from './dataset-only-adapter.js';
+export type { BuildDatasetOnlyContractOptions } from './dataset-only-adapter.js';
+export { rehydrateProtocolDatasetOnlyContract } from './protocol-rehydrate.js';
 export type { BuildProtocolDatasetContractOptions } from './protocol-adapter.js';
 
 // Portable native execution of a semantic invocation (decision 0005).

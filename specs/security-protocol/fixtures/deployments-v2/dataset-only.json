@@ -1,0 +1,36 @@
+{
+  "kind": "hypequery-deployment",
+  "version": 2,
+  "datasets": [
+    {
+      "name": "orders",
+      "source": "orders",
+      "tenant": { "kind": "not-required" },
+      "dimensions": [],
+      "measures": [
+        { "name": "revenue", "aggregation": "sum", "field": "amount", "filters": [] },
+        { "name": "orders", "aggregation": "count", "field": "id", "filters": [] },
+        {
+          "kind": "derived",
+          "name": "averageOrderValue",
+          "uses": [
+            { "alias": "revenue", "measure": "revenue" },
+            { "alias": "orders", "measure": "orders" }
+          ],
+          "expression": {
+            "kind": "binary",
+            "operator": "divide",
+            "left": { "kind": "reference", "name": "revenue" },
+            "right": {
+              "kind": "call",
+              "function": "nullIfZero",
+              "args": [{ "kind": "reference", "name": "orders" }]
+            }
+          }
+        }
+      ],
+      "filters": [],
+      "relationships": []
+    }
+  ]
+}

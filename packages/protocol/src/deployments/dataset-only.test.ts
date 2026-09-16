@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { readFileSync } from 'node:fs';
 import {
   PROTOCOL_DATASET_ONLY_IDENTITY_DOMAIN,
   ProtocolDeploymentError,
@@ -126,6 +127,14 @@ describe('dataset-only deployment contract v2', () => {
         { ...derivedMeasure(), expression: { kind: 'aggregate', aggregation: 'sum', field: 'amount' } },
       ] }],
     })).toThrow(/HQ_DEPLOYMENT_INVALID_VALUE/);
+    expect(() => validateProtocolDatasetOnlyContract({
+      ...value,
+      datasets: [{ ...dataset, measures: [
+        ...dataset.measures.slice(0, 2),
+        { ...derivedMeasure(), uses: [{ alias: 'revenue', measure: 'revenue' }],
+          expression: { kind: 'reference', name: 'revenue' } },
+      ] }],
+    })).toThrow(/HQ_DEPLOYMENT_INVALID_VALUE/);
   });
 
   it('projects stored v1 releases to datasets without accepting them as new uploads', () => {
@@ -149,5 +158,16 @@ describe('dataset-only deployment contract v2', () => {
     expect(first.identity).toBe(hashProtocolDatasetOnlyContract(datasetOnly()));
     expect(first.identity).toMatch(/^[a-f0-9]{64}$/);
     expect(PROTOCOL_DATASET_ONLY_IDENTITY_DOMAIN).toBe('hypequery:deployment:v2\0');
+    const fixture = JSON.parse(readFileSync(new URL(
+      '../../../../specs/security-protocol/fixtures/deployments-v2/dataset-only.json',
+      import.meta.url,
+    ), 'utf8')) as unknown;
+    const identity = JSON.parse(readFileSync(new URL(
+      '../../../../specs/security-protocol/fixtures/deployments-v2/identity.json',
+      import.meta.url,
+    ), 'utf8')) as [{ canonical: string; sha256: string }];
+    const prepared = prepareProtocolDatasetOnlyContract(fixture);
+    expect(prepared.canonical).toBe(identity[0].canonical);
+    expect(prepared.identity).toBe(identity[0].sha256);
   });
 });

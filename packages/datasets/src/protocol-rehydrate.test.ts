@@ -12,12 +12,15 @@ import { dimension } from './field.js';
 import { divide, nullIfZero, round } from './formulas.js';
 import { measure } from './measure.js';
 import { buildProtocolDatasetContract } from './protocol-adapter.js';
+import { buildProtocolDatasetOnlyContract } from './dataset-only-adapter.js';
 import {
   rehydrateProtocolDatasets,
+  rehydrateProtocolDatasetOnlyContract,
   UnsupportedContractFeatureError,
 } from './protocol-rehydrate.js';
 import { belongsTo } from './relationships.js';
 import { eq } from './query-helpers.js';
+import { buildDatasetInputSchema } from './semantic-query-schema.js';
 
 function fixture<T>(name: string): T {
   const path = fileURLToPath(new URL(
@@ -47,7 +50,7 @@ function roundTrip(
 }
 
 /** Renders each builder call into readable SQL so a plan can be asserted on. */
-function renderingBuilder() {
+function renderingBuilder(rows: Record<string, unknown>[] = []) {
   const build = (table: string) => {
     const select: string[] = [];
     const where: string[] = [];
@@ -82,8 +85,80 @@ function renderingBuilder() {
       get: (target, property: string) => target[property] ?? (() => builder),
     });
   };
-  return { table: build, rawQuery: async () => [] };
+  return { table: build, rawQuery: async () => rows };
 }
+
+describe('dataset-only authored and rehydrated parity', () => {
+  const Orders = dataset('orders', {
+    source: 'analytics.orders',
+    tenantKey: 'tenant_id',
+    timeKey: 'created_at',
+    dimensions: {
+      status: dimension.string(),
+      amount: dimension.number({ column: 'amount_cents', groupable: false }),
+      id: dimension.string(),
+    },
+    measures: {
+      revenue: measure.sum('amount', { filters: [eq('status', 'paid')] }),
+      orders: measure.count('id'),
+      averageOrderValue: measure.derived({
+        uses: { revenue: 'revenue', orders: 'orders' },
+        formula: ({ revenue, orders }) => divide(revenue, nullIfZero(orders)),
+        label: 'Average order value',
+      }),
+    },
+  });
+  const endpoint = {
+    access: { kind: 'public' },
+    tenant: { kind: 'required', mode: 'auto-inject', column: 'tenant_id' },
+  } as const;
+  const query = {
+    dimensions: ['status'],
+    measures: ['revenue', 'averageOrderValue'],
+    by: 'month',
+    orderBy: [{ field: 'averageOrderValue', direction: 'desc' }],
+    limit: 5,
+    offset: 1,
+  } as const;
+  const context = { runtime: { tenant: 'tenant_acme' } } as const;
+
+  it('round-trips base and derived definitions without metrics or queries', () => {
+    const contract = buildProtocolDatasetOnlyContract([Orders], { endpoints: { orders: endpoint } });
+    const rebuilt = rehydrateProtocolDatasetOnlyContract(contract);
+    const second = buildProtocolDatasetOnlyContract([rebuilt.orders], { endpoints: { orders: endpoint } });
+
+    expect(second).toEqual(contract);
+    expect(contract.datasets[0]).not.toHaveProperty('metrics');
+    expect(contract).not.toHaveProperty('queries');
+    expect(rebuilt.orders.metrics).toEqual({});
+    expect(Object.keys(rebuilt.orders.derivedMeasures)).toEqual(['averageOrderValue']);
+    expect(getDatasetCatalog(rebuilt.orders).derivedMeasures?.averageOrderValue.label)
+      .toBe('Average order value');
+    expect(buildDatasetInputSchema(rebuilt.orders).safeParse({
+      measures: ['averageOrderValue'],
+      orderBy: [{ field: 'averageOrderValue', direction: 'desc' }],
+    }).success).toBe(true);
+  });
+
+  it('emits identical SQL and results for mixed selections, filtered aggregates and zero denominators', async () => {
+    const contract = buildProtocolDatasetOnlyContract([Orders], { endpoints: { orders: endpoint } });
+    const rebuilt = rehydrateProtocolDatasetOnlyContract(contract).orders;
+    const rows = [{ period: '2026-01-01', status: 'paid', revenue: 100, averageOrderValue: null }];
+    const authored = createDatasetClient({ queryBuilder: renderingBuilder(rows) });
+    const portable = createDatasetClient({ queryBuilder: renderingBuilder(rows) });
+    const localSql = authored.toSQL(Orders, query, context);
+    const portableSql = portable.toSQL(rebuilt, query, context);
+
+    expect(portableSql).toBe(localSql);
+    expect(localSql).toContain('GROUP BY period, status');
+    expect(localSql).toContain('tenant_id');
+    expect(localSql).toContain('NULLIF(`orders`, 0)');
+    expect(localSql).toContain('ORDER BY `averageOrderValue` DESC LIMIT 5 OFFSET 1');
+    expect(() => portable.toSQL(rebuilt, query)).toThrow(/tenant/i);
+    expect(await portable.execute(rebuilt, query, context))
+      .toEqual(await authored.execute(Orders, query, context));
+  });
+});
 
 /**
  * A dataset carrying a derived metric, authored rather than hand-written, so
