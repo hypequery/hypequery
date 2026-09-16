@@ -69,46 +69,6 @@ export {
   resolveDeploymentIntakeLimits,
 } from './limits.js';
 export type { DeploymentIntakeLimits } from './limits.js';
-export {
-  createNodeWorkerDeploymentRuntimeFactory,
-  NodeDeploymentRuntimeError,
-} from './node-runtime-factory.js';
-export type {
-  NodeDeploymentRuntimeEnvironment,
-  NodeDeploymentRuntimeEnvironmentResolver,
-  NodeDeploymentRuntimeErrorCode,
-  NodeDeploymentRuntimeFactoryOptions,
-} from './node-runtime-factory.js';
-export {
-  createDeploymentRuntimeMaterializer,
-  DeploymentRuntimeMaterializationError,
-} from './runtime-materialization.js';
-export type {
-  DeploymentRuntimeArtifactSnapshot,
-  DeploymentRuntimeMaterializationErrorCode,
-  DeploymentRuntimeMaterializer,
-  DeploymentRuntimeMaterializerOptions,
-  DeploymentRuntimeQueryBinding,
-  DeploymentRuntimeRelease,
-  DeploymentRuntimeReleaseReader,
-  DeploymentRuntimeSnapshot,
-} from './runtime-materialization.js';
-export {
-  createDeploymentRuntimeSupervisor,
-  DeploymentRuntimeSupervisorError,
-} from './runtime-supervisor.js';
-export type {
-  DeploymentRuntimeFactory,
-  DeploymentRuntimeGeneration,
-  DeploymentRuntimeInstance,
-  DeploymentRuntimeInstanceInvocation,
-  DeploymentRuntimeInvocation,
-  DeploymentRuntimeReconcileResult,
-  DeploymentRuntimeStatus,
-  DeploymentRuntimeSupervisor,
-  DeploymentRuntimeSupervisorErrorCode,
-  DeploymentRuntimeSupervisorOptions,
-} from './runtime-supervisor.js';
 export type {
   DeploymentAuthenticationInput,
   DeploymentAuthenticator,
@@ -122,58 +82,7 @@ export type {
   DeploymentSubmissionStore,
   VerifiedDeploymentSubmission,
 } from './types.js';
-export {
-  createDeploymentDataPlane,
-  DeploymentDataPlaneError,
-} from './data-plane.js';
-export type {
-  DeploymentCompiledSqlExecutionInput,
-  DeploymentDataPlane,
-  DeploymentDataPlaneAuthenticationInput,
-  DeploymentDataPlaneErrorCode,
-  DeploymentDataPlaneExecutionInput,
-  DeploymentDataPlaneJsonRequest,
-  DeploymentDataPlaneOptions,
-  DeploymentDataPlanePrincipal,
-  DeploymentDataPlaneRequest,
-  DeploymentDataPlaneResult,
-  DeploymentDataPlaneTenantInput,
-  DeploymentRuntimeReferenceExecutionInput,
-  DeploymentSemanticPlanExecutionInput,
-} from './data-plane.js';
-export {
-  DEFAULT_DEPLOYMENT_DATA_PLANE_LIMITS,
-  resolveDeploymentDataPlaneLimits,
-} from './data-plane-limits.js';
-export type { DeploymentDataPlaneLimits } from './data-plane-limits.js';
-export { createDeploymentRuntimeSupervisorExecutor } from './data-plane-runtime.js';
-export type { DeploymentRuntimeSupervisorExecutorOptions } from './data-plane-runtime.js';
-export {
-  createDeploymentDataPlaneFetchHandler,
-  createDeploymentDataPlaneNodeHandler,
-} from './data-plane-adapters.js';
-export type {
-  DeploymentDataPlaneAdapterOptions,
-  DeploymentDataPlaneAdapterRequest,
-  DeploymentDataPlaneFetchHandler,
-  DeploymentDataPlaneNodeHandler,
-} from './data-plane-adapters.js';
-export {
-  createDeploymentHost,
-  DeploymentHostError,
-} from './host.js';
-export { createFileSystemDeploymentHost } from './filesystem-host.js';
-export type {
-  FileSystemDeploymentHost,
-  FileSystemDeploymentHostOptions,
-} from './filesystem-host.js';
-export type {
-  DeploymentHost,
-  DeploymentHostDataPlaneConfiguration,
-  DeploymentHostDataPlaneInput,
-  DeploymentHostErrorCode,
-  DeploymentHostOptions,
-} from './host.js';
+export type { DeploymentDataPlanePrincipal } from './principal.js';
 
 // Semantic invocation beside named-query execution (decision 0002).
 export {

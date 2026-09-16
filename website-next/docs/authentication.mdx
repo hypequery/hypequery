@@ -431,10 +431,10 @@ await api.execute('revenue', {
 ```
 </CodeBlock>
 
-Deployment runtime artifacts built by `hypequery deployment` forward
-`trustedAuth` through to `api.execute()`, so a worker hosting a bundle enforces
-the API's declared permissions and tenancy without reinterpreting its own
-gateway credential as customer auth.
+`trustedAuth` is for in-process hosts of your own. A deployment bundle carries
+dataset definitions rather than query handlers, so a deployed dataset call is
+authorized against the access and tenant policy its contract declares, not by
+re-entering `api.execute()`.
 
 ## See Also
 

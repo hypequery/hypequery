@@ -33,7 +33,7 @@ import {
   validateProtocolSemanticInvocation,
   validateProtocolSemanticInvocationResult,
 } from '@hypequery/protocol';
-import type { DeploymentDataPlanePrincipal } from './data-plane.js';
+import type { DeploymentDataPlanePrincipal } from './principal.js';
 import {
   validateSemanticOperation,
   type SemanticOperationLimits,

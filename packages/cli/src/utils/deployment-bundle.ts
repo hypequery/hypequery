@@ -1,10 +1,8 @@
 import { createHash, randomUUID } from 'node:crypto';
 import {
-  constants,
   lstat,
   mkdir,
   mkdtemp,
-  open,
   rename,
   rm,
   writeFile,
@@ -13,9 +11,9 @@ import path from 'node:path';
 import {
   DEFAULT_PROTOCOL_DEPLOYMENT_BUNDLE_LIMITS,
   prepareProtocolDeploymentBundleManifest,
-  type PreparedProtocolDeploymentContract,
+  type PreparedProtocolDatasetOnlyContract,
+  type ProtocolDatasetOnlyContract,
   type ProtocolDeploymentBundleManifest,
-  type ProtocolDeploymentContract,
 } from '@hypequery/protocol';
 import {
   DEPLOYMENT_BUNDLE_CONTRACT,
@@ -31,12 +29,6 @@ export {
   verifyDeploymentBundle,
 };
 export type { VerifiedDeploymentBundle };
-
-export interface DeploymentBundleRuntimeFile {
-  readonly runtime: 'node' | 'python';
-  readonly sha256: string;
-  readonly bytes: Uint8Array;
-}
 
 export interface DeploymentBundleSourceFile {
   readonly path: string;
@@ -58,17 +50,13 @@ export interface WrittenDeploymentBundle {
   readonly directory: string;
   readonly manifest: ProtocolDeploymentBundleManifest;
   readonly identity: string;
-  readonly contract: ProtocolDeploymentContract;
+  readonly contract: ProtocolDatasetOnlyContract;
 }
 
 const utf8Encoder = new TextEncoder();
 
 function sha256(bytes: Uint8Array): string {
   return createHash('sha256').update(bytes).digest('hex');
-}
-
-function runtimeArtifactPath(runtime: 'node' | 'python', digest: string): string {
-  return `artifacts/${digest}.${runtime === 'node' ? 'mjs' : 'pyz'}`;
 }
 
 const SOURCE_ROOT = 'source';
@@ -96,64 +84,6 @@ async function existingVerifiedBundle(outputDirectory: string): Promise<boolean>
     );
   }
   return true;
-}
-
-function validateRuntimeFiles(
-  prepared: PreparedProtocolDeploymentContract,
-  files: readonly DeploymentBundleRuntimeFile[],
-): readonly DeploymentBundleRuntimeFile[] {
-  requireClosedContractArtifactSet(prepared.contract);
-  const declared = new Map(
-    prepared.contract.artifacts.map(artifact => [artifact.artifactSha256, artifact.runtime]),
-  );
-  const supplied = new Map<string, 'node' | 'python'>();
-  for (const file of files) {
-    if (sha256(file.bytes) !== file.sha256) {
-      throw new Error(`Runtime artifact bytes do not match SHA-256 ${file.sha256}.`);
-    }
-    if (declared.get(file.sha256) !== file.runtime) {
-      throw new Error(
-        `Runtime artifact ${file.sha256} is not declared by the deployment contract as ${file.runtime}.`,
-      );
-    }
-    if (supplied.has(file.sha256)) {
-      throw new Error(`Duplicate runtime artifact bytes supplied for ${file.sha256}.`);
-    }
-    if (file.bytes.byteLength < 1
-      || file.bytes.byteLength > DEFAULT_PROTOCOL_DEPLOYMENT_BUNDLE_LIMITS.maxArtifactBytes) {
-      throw new Error(`Runtime artifact ${file.sha256} exceeds the bundle byte limits.`);
-    }
-    supplied.set(file.sha256, file.runtime);
-  }
-  for (const [digest, runtime] of declared) {
-    if (supplied.get(digest) !== runtime) {
-      throw new Error(`Deployment bundle is missing ${runtime} runtime artifact ${digest}.`);
-    }
-  }
-  return Object.freeze([...files].sort((left, right) => {
-    const leftPath = runtimeArtifactPath(left.runtime, left.sha256);
-    const rightPath = runtimeArtifactPath(right.runtime, right.sha256);
-    return leftPath < rightPath ? -1 : leftPath > rightPath ? 1 : 0;
-  }));
-}
-
-function requireClosedContractArtifactSet(contract: ProtocolDeploymentContract): void {
-  const referenced = new Map<string, 'node' | 'python'>();
-  for (const query of contract.queries) {
-    if (query.implementation.kind === 'runtime-reference') {
-      referenced.set(query.implementation.artifactSha256, query.implementation.runtime);
-    }
-  }
-  if (referenced.size !== contract.artifacts.length) {
-    throw new Error('Deployment contract contains missing or unreferenced runtime artifacts.');
-  }
-  for (const artifact of contract.artifacts) {
-    if (referenced.get(artifact.artifactSha256) !== artifact.runtime) {
-      throw new Error(
-        `Deployment runtime artifact ${artifact.artifactSha256} is not referenced by a named query.`,
-      );
-    }
-  }
 }
 
 function validateSourceSnapshot(
@@ -199,15 +129,13 @@ function validateSourceSnapshot(
 
 export async function writeDeploymentBundle(
   outputDirectory: string,
-  prepared: PreparedProtocolDeploymentContract,
-  runtimeFiles: readonly DeploymentBundleRuntimeFile[],
+  prepared: PreparedProtocolDatasetOnlyContract,
   sourceSnapshot?: DeploymentBundleSourceSnapshot,
 ): Promise<WrittenDeploymentBundle> {
   const destination = path.resolve(outputDirectory);
   if (destination === path.parse(destination).root) {
     throw new Error('The deployment bundle output cannot be a filesystem root.');
   }
-  const files = validateRuntimeFiles(prepared, runtimeFiles);
   const source = validateSourceSnapshot(sourceSnapshot);
   const deploymentBytes = utf8Encoder.encode(`${prepared.canonical}\n`);
   const manifestInput = {
@@ -219,12 +147,8 @@ export async function writeDeploymentBundle(
       sha256: sha256(deploymentBytes),
       byteLength: deploymentBytes.byteLength,
     },
-    artifacts: files.map(file => ({
-      runtime: file.runtime,
-      path: runtimeArtifactPath(file.runtime, file.sha256),
-      sha256: file.sha256,
-      byteLength: file.bytes.byteLength,
-    })),
+    // A deployment carries datasets: there is nothing else to put here.
+    artifacts: [],
     ...(source ? {
       source: {
         root: SOURCE_ROOT,
@@ -244,15 +168,7 @@ export async function writeDeploymentBundle(
   await mkdir(parent, { recursive: true });
   const staging = await mkdtemp(path.join(parent, `.${path.basename(destination)}.tmp-`));
   try {
-    if (files.length > 0) await mkdir(path.join(staging, 'artifacts'));
     await writeFile(path.join(staging, DEPLOYMENT_BUNDLE_CONTRACT), deploymentBytes, { flag: 'wx' });
-    for (const file of files) {
-      await writeFile(
-        path.join(staging, runtimeArtifactPath(file.runtime, file.sha256)),
-        file.bytes,
-        { flag: 'wx' },
-      );
-    }
     for (const file of source?.files ?? []) {
       const outputPath = path.join(staging, SOURCE_ROOT, ...file.path.split('/'));
       await mkdir(path.dirname(outputPath), { recursive: true });
@@ -297,46 +213,4 @@ export async function writeDeploymentBundle(
     identity: preparedManifest.identity,
     contract: prepared.contract,
   });
-}
-
-async function readBoundedAbsoluteRegularFile(
-  absolutePath: string,
-  displayPath: string,
-  maximum: number,
-): Promise<Uint8Array> {
-  let handle;
-  try {
-    const initialStat = await lstat(absolutePath);
-    if (initialStat.isSymbolicLink()) {
-      throw new Error(`Bundle entry must not be a symbolic link: ${displayPath}`);
-    }
-    if (!initialStat.isFile()) {
-      throw new Error(`Bundle entry is not a regular file: ${displayPath}`);
-    }
-    if (initialStat.size < 1 || initialStat.size > maximum) {
-      throw new Error(`Bundle entry exceeds its byte limit: ${displayPath}`);
-    }
-    handle = await open(absolutePath, constants.O_RDONLY | constants.O_NOFOLLOW);
-    const stat = await handle.stat();
-    if (!stat.isFile()) throw new Error(`Bundle entry is not a regular file: ${displayPath}`);
-    if (stat.size < 1 || stat.size > maximum) {
-      throw new Error(`Bundle entry exceeds its byte limit: ${displayPath}`);
-    }
-    return await handle.readFile();
-  } catch (error) {
-    if (errorCode(error) === 'ELOOP') {
-      throw new Error(`Bundle entry must not be a symbolic link: ${displayPath}`);
-    }
-    throw error;
-  } finally {
-    await handle?.close();
-  }
-}
-
-export async function readDeploymentRuntimeFile(filePath: string): Promise<Uint8Array> {
-  return readBoundedAbsoluteRegularFile(
-    path.resolve(filePath),
-    filePath,
-    DEFAULT_PROTOCOL_DEPLOYMENT_BUNDLE_LIMITS.maxArtifactBytes,
-  );
 }

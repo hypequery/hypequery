@@ -291,16 +291,13 @@ describe('deploy command', () => {
     expect(submitDeployment).not.toHaveBeenCalled();
   });
 
-  it('points runtime build failures at deployment:build', async () => {
+  it('surfaces build failures without rewriting them', async () => {
     await expect(deployCommand('analytics/api.ts', {}, {
       env: CI_ENVIRONMENT,
       buildDeployment: vi.fn(async () => {
-        throw new Error(
-          'Automatic runtime artifact builds currently support Node only. '
-          + 'Provide --runtime-artifact for Python deployments.',
-        );
+        throw new Error('The exported API must provide datasetOnlyContract().');
       }),
-    })).rejects.toThrow(/hypequery deployment:build/);
+    })).rejects.toThrow(/must provide datasetOnlyContract/);
   });
 
   it('rejects a prebuilt bundle directory as the deploy source', async () => {

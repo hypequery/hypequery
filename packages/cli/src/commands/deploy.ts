@@ -214,20 +214,6 @@ async function rejectBundleDirectorySource(sourcePath: string): Promise<void> {
   );
 }
 
-/**
- * `deploy` exposes no runtime flags, so a runtime error from the shared build
- * command would otherwise point at flags this command does not accept.
- */
-function withRuntimeFlagHint(error: unknown): unknown {
-  if (!(error instanceof Error) || !error.message.includes('--runtime')) return error;
-  return new Error(
-    `${error.message}\n\n`
-    + 'Runtime overrides are not available on `hypequery deploy`. Build with '
-    + '`hypequery deployment:build` (which accepts --runtime, --runtime-artifact, '
-    + 'and --runtime-file), then upload with `hypequery deployment:submit`.',
-  );
-}
-
 function rejectLegacyOrchestrationOptions(options: DeployOptions) {
   if (
     options.project !== undefined
@@ -282,15 +268,11 @@ export async function deployCommand(
   // a missing or expired login only surfaces after a full bundle build.
   await resolveDeploymentCredential(options.endpoint, dependencies);
 
-  try {
-    await build(sourcePath, {
-      bundleOutput: bundlePath,
-      source: options.source,
-      allowUnsupportedConfig: options.allowUnsupportedConfig,
-    });
-  } catch (error) {
-    throw withRuntimeFlagHint(error);
-  }
+  await build(sourcePath, {
+    bundleOutput: bundlePath,
+    source: options.source,
+    allowUnsupportedConfig: options.allowUnsupportedConfig,
+  });
   await prepareRelease(bundlePath, {
     project: options.project,
     environment: options.environment,

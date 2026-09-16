@@ -14,13 +14,12 @@ import type {
 } from "../types.js";
 import type { ServeRouter } from "../router.js";
 import type { CacheObservability } from "../cache-observability.js";
-import type { ProtocolDeploymentContract } from "@hypequery/protocol";
+import type { ProtocolDatasetOnlyContract } from "@hypequery/protocol";
 import type { BuildProtocolDeploymentOptions } from "../protocol-adapter.js";
 import { ServeQueryLogger } from "../query-logger.js";
 import { mergeTags } from "../utils.js";
 import { applyBasePath, normalizeRoutePath } from "../router.js";
 import { mapEndpointToToolkit } from "./mapper.js";
-import { attachDeploymentBuildSource } from "./deployment-build-source.js";
 
 export const createAPImethods = <
   TQueries extends ServeQueriesMap<TContext, TAuth>,
@@ -40,10 +39,9 @@ export const createAPImethods = <
   handler: ServeHandler,
   basePath: string,
   cacheObservability: CacheObservability,
-  buildDeploymentContract: (
+  buildDatasetOnlyContract: (
     options?: BuildProtocolDeploymentOptions,
-  ) => ProtocolDeploymentContract,
-  runtimeEntrypoints: readonly string[],
+  ) => ProtocolDatasetOnlyContract,
 ): HypeQueryAPI<ServeEndpointMap<TQueries, TContext, TAuth>, TContext, TAuth> => {
   /**
    * Routes registered through `api.route()`, keyed by endpoint identity.
@@ -65,7 +63,7 @@ export const createAPImethods = <
     queries: queryEntries,
     queryLogger,
     cacheObservability,
-    deploymentContract: buildDeploymentContract,
+    datasetOnlyContract: buildDatasetOnlyContract,
 
     manifest: (): RouteManifest => {
       const manifest: RouteManifest = {};
@@ -158,8 +156,6 @@ export const createAPImethods = <
 
     handler,
   };
-
-  attachDeploymentBuildSource(api, runtimeEntrypoints);
 
   return api;
 };
