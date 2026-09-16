@@ -28,6 +28,7 @@ import type {
   RelationshipDefinition,
 } from '../types.js';
 import { escapeRegExp, isSafeSQLIdentifier, stripSqlLiterals } from '../sql-utils.js';
+import { validateDerivedMeasures } from './derived-measure-validation.js';
 import { validateDatasetAgentMetadata } from './semantic-metadata-validation.js';
 
 type AnyDimensions = Record<string, DimensionDefinition>;
@@ -291,7 +292,9 @@ export function validateDatasetDefinition(
   const dimensions = config.dimensions ?? {};
 
   validateDimensions(name, dimensions);
-  validateMeasures(name, config.measures ?? {}, dimensions);
+  const measures = config.measures ?? {};
+  validateDerivedMeasures(name, measures, config.derivedMeasures ?? {});
+  validateMeasures(name, measures, dimensions);
   validateLimits(name, config.limits);
   validateDatasetAgentMetadata(name, config);
 }

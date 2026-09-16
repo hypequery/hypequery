@@ -52,7 +52,20 @@ const Orders = dataset('orders', {
       filters: [eq('status', 'completed')],
     }),
   },
+  derivedMeasures: {
+    doubledRevenue: measure.derived({
+      uses: { revenue: 'revenue' },
+      formula: ({ revenue }) => add(revenue, revenue),
+    }),
+  },
 });
+
+type _DerivedFormulaInputAliasesAreTyped = Assert<
+  Equal<keyof Parameters<typeof Orders.derivedMeasures.doubledRevenue.formula>[0], 'revenue'>
+>;
+type _BaseMeasureNamesRemainTyped = Assert<
+  Equal<keyof typeof Orders.measures, 'revenue' | 'completedRevenue'>
+>;
 
 const Customers = dataset('customers', {
   source: 'customers',

@@ -33,6 +33,7 @@
 import type {
   DatasetConfig,
   DatasetInstance,
+  DerivedMeasureDefinition,
   DimensionDefinition,
   MeasureDefinition,
   RelationshipDefinition,
@@ -66,10 +67,11 @@ export function dataset<
   TDimensions extends Record<string, DimensionDefinition>,
   TMeasures extends Record<string, MeasureDefinition> = Record<string, never>,
   TRelationships extends Record<string, RelationshipDefinition> = Record<string, never>,
+  TDerivedMeasures extends Record<string, DerivedMeasureDefinition> = Record<string, never>,
 >(
   name: TDatasetName,
-  config: DatasetConfig<TDimensions, TMeasures, TRelationships>,
-): DatasetInstance<TDimensions, TMeasures, TRelationships, TDatasetName> {
+  config: DatasetConfig<TDimensions, TMeasures, TRelationships, TDerivedMeasures>,
+): DatasetInstance<TDimensions, TMeasures, TRelationships, TDatasetName, TDerivedMeasures> {
   // Structural validation runs before anything is normalized, so an invalid
   // model fails at definition time rather than on the first query that reaches
   // the broken part of it.
@@ -80,7 +82,7 @@ export function dataset<
   const filters = normalizeFilters(dimensions, config.filters);
   const relationships = normalizeRelationships(config.relationships, config.source);
 
-  type ThisDataset = DatasetInstance<TDimensions, TMeasures, TRelationships, TDatasetName>;
+  type ThisDataset = DatasetInstance<TDimensions, TMeasures, TRelationships, TDatasetName, TDerivedMeasures>;
   function metric<TName extends string>(
     metricName: TName,
     metricConfig: BaseMetricConfig<TMeasures>,
@@ -120,7 +122,7 @@ export function dataset<
     );
   }
 
-  const ds: DatasetInstance<TDimensions, TMeasures, TRelationships, TDatasetName> = {
+  const ds: ThisDataset = {
     __type: 'dataset',
     name,
     source: config.source,
@@ -136,6 +138,7 @@ export function dataset<
     timeKey: config.timeKey,
     dimensions,
     measures,
+    derivedMeasures: { ...(config.derivedMeasures ?? {}) } as TDerivedMeasures,
     filters,
     relationships,
     limits: config.limits,

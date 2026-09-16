@@ -123,6 +123,29 @@ export interface MeasureDefinition extends SemanticMetadata {
   filters?: MetricFilter[];
 }
 
+export type DerivedMeasureUses = Readonly<Record<string, string>>;
+
+export interface DerivedMeasureOptions<
+  TUses extends DerivedMeasureUses = DerivedMeasureUses,
+> extends SemanticMetadata {
+  uses: TUses;
+  formula: (inputs: { readonly [Alias in keyof TUses]: string }) => FormulaExpr;
+  label?: string;
+  description?: string;
+}
+
+export interface DerivedMeasureDefinition<
+  TUses extends DerivedMeasureUses = DerivedMeasureUses,
+> extends SemanticMetadata {
+  __type: 'derived_measure_definition';
+  uses: TUses;
+  formula: {
+    invoke(inputs: { readonly [Alias in keyof TUses]: string }): FormulaExpr;
+  }['invoke'];
+  label?: string;
+  description?: string;
+}
+
 export type FormulaExpr = {
   __type: 'formula_expr';
   expression: SemanticExpression;
@@ -388,6 +411,7 @@ export interface DatasetConfig<
   TDimensions extends Record<string, DimensionDefinition> = Record<string, DimensionDefinition>,
   TMeasures extends Record<string, MeasureDefinition> = Record<string, MeasureDefinition>,
   TRelationships extends Record<string, RelationshipDefinition> = Record<string, never>,
+  TDerivedMeasures extends Record<string, DerivedMeasureDefinition> = Record<string, DerivedMeasureDefinition>,
 > extends SemanticMetadata {
   source: string;
   description?: string;
@@ -398,6 +422,8 @@ export interface DatasetConfig<
   timeKey?: string;
   dimensions: TDimensions;
   measures?: TMeasures;
+  /** Dataset-owned formulas over base measures; not standalone metrics. */
+  derivedMeasures?: TDerivedMeasures;
   filters?: SemanticFiltersDefinition;
   relationships?: TRelationships;
   limits?: DatasetLimits;
@@ -409,6 +435,7 @@ export interface DatasetInstance<
   TMeasures extends Record<string, MeasureDefinition> = Record<string, MeasureDefinition>,
   TRelationships extends Record<string, RelationshipDefinition> = Record<string, never>,
   TDatasetName extends string = string,
+  TDerivedMeasures extends Record<string, DerivedMeasureDefinition> = Record<string, DerivedMeasureDefinition>,
 > {
   __type: 'dataset';
   name: TDatasetName;
@@ -428,6 +455,7 @@ export interface DatasetInstance<
   timeKey?: string;
   dimensions: TDimensions;
   measures: TMeasures;
+  derivedMeasures: TDerivedMeasures;
   filters: SemanticFiltersDefinition;
   relationships: TRelationships;
   limits?: DatasetLimits;
@@ -435,11 +463,11 @@ export interface DatasetInstance<
   metric<TName extends string>(
     metricName: TName,
     metricConfig: BaseMetricConfig<TMeasures>,
-  ): BaseMetricRef<TDatasetName, TName, DatasetInstance<TDimensions, TMeasures, TRelationships, TDatasetName>>;
+  ): BaseMetricRef<TDatasetName, TName, DatasetInstance<TDimensions, TMeasures, TRelationships, TDatasetName, TDerivedMeasures>>;
   metric<TName extends string>(
     metricName: TName,
     metricConfig: DerivedMetricConfig<TDatasetName>,
-  ): DerivedMetricRef<TDatasetName, TName, DatasetInstance<TDimensions, TMeasures, TRelationships, TDatasetName>>;
+  ): DerivedMetricRef<TDatasetName, TName, DatasetInstance<TDimensions, TMeasures, TRelationships, TDatasetName, TDerivedMeasures>>;
 }
 
 export interface DatasetRegistryInstance {
