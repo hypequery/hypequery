@@ -27,7 +27,6 @@
     "README.md"
   ],
   "dependencies": {
-    "@hypequery/protocol-primitives": "workspace:*",
     "@noble/hashes": "^1.8.0"
   },
   "scripts": {

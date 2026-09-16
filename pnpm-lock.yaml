@@ -123,9 +123,6 @@ importers:
       '@clickhouse/client':
         specifier: ^1.18.3
         version: 1.18.3
-      '@hypequery/protocol-primitives':
-        specifier: workspace:*
-        version: link:../protocol-primitives
       dotenv:
         specifier: ^16.0.0
         version: 16.6.1
@@ -241,9 +238,6 @@ importers:
 
   packages/protocol:
     dependencies:
-      '@hypequery/protocol-primitives':
-        specifier: workspace:*
-        version: link:../protocol-primitives
       '@noble/hashes':
         specifier: ^1.8.0
         version: 1.8.0
@@ -264,19 +258,6 @@ importers:
       '@types/node':
         specifier: ^22.5.0
         version: 22.20.1
-      typescript:
-        specifier: ^5.7.3
-        version: 5.9.3
-      vitest:
-        specifier: ^3.2.6
-        version: 3.2.6(@edge-runtime/vm@3.2.0)(@types/node@22.20.1)(jiti@2.7.0)(jsdom@27.4.0(@noble/hashes@1.8.0))(lightningcss@1.32.0)(tsx@4.21.0)(yaml@2.8.3)
-
-  packages/protocol-primitives:
-    dependencies:
-      '@noble/hashes':
-        specifier: ^1.8.0
-        version: 1.8.0
-    devDependencies:
       typescript:
         specifier: ^5.7.3
         version: 5.9.3

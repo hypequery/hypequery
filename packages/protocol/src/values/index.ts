@@ -1,13 +1,13 @@
 export {
-  DEFAULT_CANONICAL_VALUE_LIMITS,
-  ProtocolValueError,
   decodeCanonicalValue,
   encodeCanonicalValue,
   encodeCanonicalValueToString,
   hashCanonicalValue,
-  validateCanonicalValue,
-} from '@hypequery/protocol-primitives';
-
+} from './codec.js';
+export { ProtocolValueError } from './errors.js';
+export type { ProtocolValueErrorCode } from './errors.js';
+export { DEFAULT_CANONICAL_VALUE_LIMITS } from './limits.js';
+export { validateCanonicalValue } from './validate.js';
 export type {
   ArrayTaggedValue,
   BytesTaggedValue,
@@ -20,8 +20,7 @@ export type {
   EnumTaggedValue,
   IntegerTaggedValue,
   MapTaggedValue,
-  ProtocolValueErrorCode,
   TaggedValue,
   TupleTaggedValue,
   UuidTaggedValue,
-} from '@hypequery/protocol-primitives';
+} from './types.js';

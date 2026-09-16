@@ -130,7 +130,6 @@ jobs:
           "@hypequery/cli": patch
           "@hypequery/mcp": patch
           "@hypequery/protocol": patch
-          "@hypequery/protocol-primitives": patch
           "@hypequery/protocol-conformance": patch
           "@hypequery/react": patch
           ---
@@ -155,8 +154,6 @@ jobs:
               packages/mcp-server/src/version.ts \
               packages/protocol/package.json \
               packages/protocol/CHANGELOG.md \
-              packages/protocol-primitives/package.json \
-              packages/protocol-primitives/CHANGELOG.md \
               packages/protocol-conformance/package.json \
               packages/protocol-conformance/CHANGELOG.md \
               packages/react/package.json \
