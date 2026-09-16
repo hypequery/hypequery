@@ -8,8 +8,7 @@
  */
 
 import type {
-  ProtocolDatasetContract,
-  ProtocolDatasetMetric,
+  ProtocolDatasetOnlyDataset,
   ProtocolExpression,
   ProtocolSemanticQuery,
   ProtocolTimeGrain,
@@ -41,7 +40,7 @@ interface Resolved {
 }
 
 /**
- * What a dataset exposes, before any metric narrows it.
+ * What a dataset exposes.
  *
  * A relationship contributes `<name>.<dimension>` for its target's groupable
  * dimensions, matching the one-hop rule the authoring layer enforces. Filters
@@ -49,8 +48,8 @@ interface Resolved {
  * contract has no separate filter declaration for a joined field.
  */
 function resolveDataset(
-  dataset: ProtocolDatasetContract,
-  datasets: ReadonlyMap<string, ProtocolDatasetContract>,
+  dataset: ProtocolDatasetOnlyDataset,
+  datasets: ReadonlyMap<string, ProtocolDatasetOnlyDataset>,
 ): Resolved {
   const groupable = new Set<string>();
   const filters = new Map<string, ReadonlySet<string>>();
@@ -88,25 +87,6 @@ function resolveDataset(
   };
 }
 
-/** A metric may only narrow what its dataset exposes, never widen it. */
-function narrowToMetric(base: Resolved, metric: ProtocolDatasetMetric): Resolved {
-  const declaredDimensions = new Set(metric.dimensions.map(String));
-  const declaredFilters = new Set(metric.filters.map(String));
-  return {
-    groupable: new Set([...base.groupable].filter(name => declaredDimensions.has(name))),
-    filters: new Map(
-      [...base.filters].filter(([name]) => declaredFilters.has(name)),
-    ),
-    // A metric selects itself; a caller cannot add measures to it.
-    measures: new Set<string>(),
-    grains: new Set(
-      metric.grain === undefined
-        ? metric.grains.filter(grain => base.grains.has(grain))
-        : [metric.grain],
-    ),
-  };
-}
-
 /**
  * The field a filter expression addresses, or null when it is not a plain
  * comparison.
@@ -132,24 +112,21 @@ function comparisonField(expression: ProtocolExpression): { field: string; opera
  */
 export function validateSemanticOperation(
   operation: ProtocolSemanticQuery,
-  dataset: ProtocolDatasetContract,
-  datasets: ReadonlyMap<string, ProtocolDatasetContract>,
+  dataset: ProtocolDatasetOnlyDataset,
+  datasets: ReadonlyMap<string, ProtocolDatasetOnlyDataset>,
   limits: SemanticOperationLimits,
 ): readonly SemanticOperationViolation[] {
   const violations: SemanticOperationViolation[] = [];
   const fail = (message: string, path: string) => violations.push({ message, path });
 
-  let metric: ProtocolDatasetMetric | undefined;
+  // A deployment carries no metric, so a metric operation addresses nothing the
+  // contract published, whatever else it selects.
   if (operation.kind === 'metric') {
-    metric = dataset.metrics.find(entry => String(entry.name) === String(operation.metric));
-    if (metric === undefined) {
-      fail(`Unknown metric "${String(operation.metric)}".`, '$.operation.metric');
-      return violations;
-    }
+    fail(`Unknown metric "${String(operation.metric)}".`, '$.operation.metric');
+    return violations;
   }
 
-  const base = resolveDataset(dataset, datasets);
-  const allowed = metric === undefined ? base : narrowToMetric(base, metric);
+  const allowed = resolveDataset(dataset, datasets);
 
   const dimensions = operation.dimensions ?? [];
   if (dimensions.length > limits.maxDimensions) {
@@ -210,7 +187,6 @@ export function validateSemanticOperation(
   const orderable = new Set<string>([
     ...allowed.groupable,
     ...allowed.measures,
-    ...(metric === undefined ? [] : [String(metric.name)]),
     ...(operation.by === undefined ? [] : ['period']),
   ]);
   orderBy.forEach((entry, index) => {

@@ -8,7 +8,7 @@ import { withDeadline } from './utils/portable-execution-deadline.js';
  * Portable native execution of a semantic invocation.
  *
  * Decision 0005 chose this over a supervised runtime binding: resolve the
- * dataset or metric from the validated active contract, rebuild its catalog
+ * dataset from the validated active contract, rebuild its catalog
  * with `rehydrateProtocolDatasets`, and plan the query with the existing
  * semantic planner. No customer module is loaded and no isolated runtime is
  * required, so customer code only ever runs on the author's machine at deploy
@@ -21,8 +21,7 @@ import { withDeadline } from './utils/portable-execution-deadline.js';
  */
 
 import type {
-  ProtocolDatasetContract,
-  ProtocolDatasetMetric,
+  ProtocolDatasetOnlyDataset,
   ProtocolSemanticInvocationResult,
   ProtocolSemanticQuery,
 } from '@hypequery/protocol';
@@ -46,9 +45,8 @@ export interface PortableSemanticBudget {
  * stay independent.
  */
 export interface PortableSemanticExecutionInput {
-  readonly deployment: { readonly datasets: readonly ProtocolDatasetContract[] };
-  readonly dataset: ProtocolDatasetContract;
-  readonly metric?: ProtocolDatasetMetric;
+  readonly deployment: { readonly datasets: readonly ProtocolDatasetOnlyDataset[] };
+  readonly dataset: ProtocolDatasetOnlyDataset;
   readonly operation: ProtocolSemanticQuery;
   /** Resolved by the provider callback; never caller-supplied. */
   readonly tenant: unknown;
@@ -89,12 +87,7 @@ export function createPortableSemanticExecutor(
     }
     let registry: Registry;
     try {
-      // Skip rather than throw: a single derived metric anywhere in the
-      // contract must not make every other dataset unexecutable. The requested
-      // target is still refused below when it is one of the skipped ones.
-      registry = rehydrateProtocolDatasets(input.deployment.datasets, {
-        onUnsupportedMetric: 'skip',
-      });
+      registry = rehydrateProtocolDatasets(input.deployment.datasets);
     } catch (error) {
       if (error instanceof UnsupportedContractFeatureError) {
         // Decision 0005: a surface portable execution cannot reproduce is
@@ -110,17 +103,6 @@ export function createPortableSemanticExecutor(
   return async function execute(
     input: PortableSemanticExecutionInput,
   ): Promise<ProtocolSemanticInvocationResult> {
-    if (input.metric?.kind === 'derived-metric' && input.metric.derivation === undefined) {
-      // A derived metric is executable once the contract carries the formula in
-      // the shape it was authored in. One written before that field existed
-      // still states only what the metric means, not the aliases its SQL is
-      // written in terms of, so it stays excluded rather than approximated.
-      throw new PortableExecutionUnsupportedError(
-        `Metric "${String(input.metric.name)}" is derived, and this deployment contract does not `
-        + 'carry the authored formula portable execution needs to plan it.',
-      );
-    }
-
     const registry = registryFor(input);
     const rebuilt = registry[String(input.dataset.name)];
     if (rebuilt === undefined) {
@@ -128,15 +110,7 @@ export function createPortableSemanticExecutor(
         `Dataset "${String(input.dataset.name)}" is not part of the activated contract.`,
       );
     }
-    const target = input.metric === undefined
-      ? rebuilt
-      : rebuilt.metrics[String(input.metric.name)];
-    if (target === undefined) {
-      throw new PortableExecutionUnsupportedError(
-        `Metric "${String(input.metric?.name)}" could not be rebuilt from the contract.`,
-      );
-    }
-
+    const target = rebuilt;
     const tenant = tenantRuntime(input.tenant);
     // A tenant with nothing to scope by is the one failure that is silent
     // everywhere else: the runtime accepts it, the planner emits no predicate,
