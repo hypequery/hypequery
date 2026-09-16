@@ -11,11 +11,13 @@ import {
   parseProtocolIdentifier,
   parseProtocolQualifiedIdentifier,
   prepareProtocolDeploymentBundleManifest,
+  prepareProtocolDatasetOnlyContract,
   prepareProtocolDeploymentContract,
   prepareProtocolDeploymentReleaseEnvelope,
   splitProtocolQualifiedIdentifier,
   validateCanonicalValue,
   validateProtocolDeploymentBundleManifest,
+  validateProtocolDatasetOnlyContract,
   validateProtocolDeploymentContract,
   validateProtocolDeploymentReleaseEnvelope,
   validateProtocolExpression,
@@ -98,6 +100,7 @@ export const REFERENCE_FAMILIES = [
   'query-events-v1',
   'query-diagnostics-v1',
   'deployments-v1',
+  'deployments-v2',
   'deployment-bundles-v1',
   'deployment-releases-v1',
   'semantic-invocations-v1',
@@ -135,6 +138,8 @@ export function referenceHandle(
       });
     case 'deployments-v1':
       return handleDeployment(role, c);
+    case 'deployments-v2':
+      return handleDatasetOnlyDeployment(role, c);
     case 'deployment-bundles-v1':
       return handleBundle(role, c);
     case 'deployment-releases-v1':
@@ -280,6 +285,19 @@ function handleDeployment(role: FixtureRole, c: Case): HandlerResult {
   }
   return attempt(() => {
     validateProtocolDeploymentContract(validationInput(c, materializeDeployment));
+    return ACCEPT;
+  });
+}
+
+function handleDatasetOnlyDeployment(role: FixtureRole, c: Case): HandlerResult {
+  if (role === 'identity') {
+    return attempt(() => {
+      const prepared = prepareProtocolDatasetOnlyContract(c.value);
+      return { ok: true, output: { canonical: prepared.canonical, sha256: prepared.identity } };
+    });
+  }
+  return attempt(() => {
+    validateProtocolDatasetOnlyContract(c.value);
     return ACCEPT;
   });
 }

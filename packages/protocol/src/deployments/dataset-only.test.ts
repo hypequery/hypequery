@@ -73,6 +73,14 @@ describe('dataset-only deployment contract v2', () => {
       .toThrow(/HQ_DEPLOYMENT_UNKNOWN_FIELD/);
   });
 
+  it('reports the index of a malformed measure', () => {
+    const value = datasetOnly();
+    expect(() => validateProtocolDatasetOnlyContract({
+      ...value,
+      datasets: [{ ...value.datasets[0], measures: [baseMeasure('revenue', 'amount'), null] }],
+    })).toThrow(/\$\.datasets\[0\]\.measures\[1\]/);
+  });
+
   it('rejects missing dependencies, undeclared aliases, duplicate names, and nested derivation', () => {
     const value = datasetOnly();
     const dataset = value.datasets[0];

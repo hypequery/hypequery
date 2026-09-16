@@ -1127,8 +1127,8 @@ function validateDatasetOnly(
       ...SEMANTIC_METADATA_FIELDS, 'timeField', 'limits', 'endpoint',
     ], path);
   const measures = requireArray(value.measures, `${path}.measures`, limits.maxDatasetItems);
-  const base = measures.filter(measure => (
-    requireRecord(measure, `${path}.measures`).kind !== 'derived'
+  const base = measures.filter((measure, index) => (
+    requireRecord(measure, `${path}.measures[${index}]`).kind !== 'derived'
   ));
   const legacy = validateDataset({ ...value, measures: base, metrics: [] }, path, limits);
   const derived = measures.map((measure, index) => (
