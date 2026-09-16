@@ -1332,6 +1332,25 @@ describe("MetricQueryEngine", () => {
 });
 
 describe("dataset SQL generation matrix", () => {
+  const DerivedOrders = dataset('derived_orders', {
+    source: 'orders',
+    tenantKey: 'tenant_id',
+    timeKey: 'created_at',
+    dimensions: {
+      status: dimension.string(),
+      amount: dimension.number(),
+      id: dimension.string(),
+    },
+    measures: {
+      revenue: measure.sum('amount'),
+      orderCount: measure.count('id'),
+      averageOrderValue: measure.derived({
+        uses: { revenue: 'revenue', orders: 'orderCount' },
+        formula: ({ revenue, orders }) => divide(revenue, nullIfZero(orders)),
+        label: 'Average order value',
+      }),
+    },
+  });
   type BuilderColumnsInput = string[] | string;
 
   const MatrixOrders = dataset("matrixOrders", {
@@ -1628,6 +1647,94 @@ describe("dataset SQL generation matrix", () => {
     await expect((async () => analytics.execute(taxedRevenue, {}, TENANT_CONTEXT))()).rejects.toThrow(
       'Semantic backend plans do not support SQL-backed metric "taxedRevenue".',
     );
+  });
+
+  it('projects derived measures after grouping, before ordering and pagination', () => {
+    const analytics = createDatasetClient({ queryBuilder: createSqlBuilderFactory() });
+    const sql = analytics.toSQL(DerivedOrders, {
+      dimensions: ['status'],
+      measures: ['averageOrderValue', 'revenue'],
+      by: 'month',
+      orderBy: [desc('averageOrderValue')],
+      limit: 10,
+      offset: 5,
+    }, TENANT_CONTEXT);
+
+    expect(sql).toContain('WITH base AS (SELECT');
+    expect(sql).toContain('SUM(amount) AS revenue');
+    expect(sql).toContain('COUNT(id) AS orderCount');
+    expect(sql).toContain('WHERE tenant_id = ? GROUP BY period, status)');
+    expect(sql).toContain('SELECT `period`, `status`, (`revenue` / NULLIF(`orderCount`, 0)) AS `averageOrderValue`, `revenue` FROM base');
+    expect(sql).toContain('ORDER BY `averageOrderValue` DESC LIMIT 10 OFFSET 5');
+    expect(sql.indexOf('LIMIT 10')).toBeGreaterThan(sql.indexOf('FROM base'));
+  });
+
+  it('does not expose hidden base dependencies and overfetches only after the formula', async () => {
+    const builderFactory = createSqlBuilderFactory();
+    const rawQuery = vi.fn().mockResolvedValue([
+      { status: 'paid', averageOrderValue: 5 },
+      { status: 'pending', averageOrderValue: 4 },
+    ]);
+    builderFactory.rawQuery = rawQuery;
+    const analytics = createDatasetClient({ queryBuilder: builderFactory });
+    const result = await analytics.execute(DerivedOrders, {
+      dimensions: ['status'], measures: ['averageOrderValue'], limit: 1,
+    }, TENANT_CONTEXT);
+
+    expect(rawQuery).toHaveBeenCalledOnce();
+    const sql = rawQuery.mock.calls[0][0] as string;
+    expect(sql).toContain('SELECT `status`, (`revenue` / NULLIF(`orderCount`, 0)) AS `averageOrderValue` FROM base LIMIT 2');
+    expect(sql).not.toContain('LIMIT 2)');
+    expect(result.data).toEqual([{ status: 'paid', averageOrderValue: '5' }]);
+    expect(result.meta.pagination).toEqual({ limit: 1, offset: 0, hasMore: true });
+  });
+
+  it('rejects derived measures on the backend plan path', async () => {
+    const analytics = createDatasetClient({ backend: createInMemoryBackend({ orders: [] }) });
+    expect(() => analytics.execute(DerivedOrders, {
+      measures: ['averageOrderValue'],
+    }, TENANT_CONTEXT)).toThrow(/Derived dataset measures require the queryBuilder execution path/);
+  });
+
+  it('does not mistake a base measure named constructor for a derived measure', () => {
+    const ConstructorOrders = dataset('constructor_orders', {
+      source: 'orders',
+      dimensions: { amount: dimension.number() },
+      measures: {
+        constructor: measure.sum('amount'),
+        twice: measure.derived({
+          uses: { amount: 'constructor' },
+          formula: ({ amount }) => add(amount, amount),
+        }),
+      },
+    });
+    const analytics = createDatasetClient({ queryBuilder: createSqlBuilderFactory() });
+    expect(analytics.toSQL(ConstructorOrders, { measures: ['constructor'] }))
+      .toBe('SELECT SUM(amount) AS constructor FROM orders');
+  });
+
+  it('escapes backslashes in derived formula string literals', () => {
+    const StringOrders = dataset('string_orders', {
+      source: 'orders',
+      dimensions: { amount: dimension.number() },
+      measures: {
+        revenue: measure.sum('amount'),
+        fallback: measure.derived({
+          uses: { revenue: 'revenue' },
+          formula: ({ revenue }) => ({
+            __type: 'formula_expr',
+            expression: {
+              kind: 'function', name: 'coalesce',
+              args: [{ kind: 'ref', name: revenue }, { kind: 'literal', value: 'a\\nb' }],
+            },
+            toSQL: () => '',
+          }),
+        }),
+      },
+    });
+    const analytics = createDatasetClient({ queryBuilder: createSqlBuilderFactory() });
+    expect(analytics.toSQL(StringOrders, { measures: ['fallback'] }))
+      .toContain("COALESCE(`revenue`, 'a\\\\nb')");
   });
 });
 

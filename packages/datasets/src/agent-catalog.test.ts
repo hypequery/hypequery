@@ -7,6 +7,7 @@ import { serializeSemanticContract } from './contract.js';
 import { dataset } from './dataset.js';
 import { dimension } from './field.js';
 import { measure } from './measure.js';
+import { add } from './formulas.js';
 import { belongsTo } from './relationships.js';
 
 function fixture<T>(name: string): T {
@@ -48,6 +49,11 @@ describe('agent-safe catalog projection', () => {
           dependencies: ['internalAmount'],
           label: 'Revenue',
         }),
+        doubledRevenue: measure.derived({
+          uses: { revenue: 'revenue' },
+          formula: ({ revenue }) => add(revenue, revenue),
+          label: 'Double revenue',
+        }),
       },
     });
     const totalRevenue = Orders.metric('totalRevenue', { measure: 'revenue' });
@@ -64,7 +70,7 @@ describe('agent-safe catalog projection', () => {
         { name: 'createdAt' },
         { name: 'region' },
       ],
-      measures: [{ name: 'revenue', label: 'Revenue' }],
+      measures: [{ name: 'doubledRevenue', label: 'Double revenue' }, { name: 'revenue', label: 'Revenue' }],
       metrics: [{ name: 'totalRevenue' }],
     });
     for (const forbidden of [

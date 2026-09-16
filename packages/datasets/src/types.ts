@@ -590,7 +590,8 @@ export type DatasetFieldNames<TDataset extends DatasetInstance<any, any, any, an
 
 /** Measure names declared by a dataset. */
 export type DatasetMeasureNames<TDataset extends DatasetInstance<any, any, any, any>> =
-  KnownStringKeysOrFallback<TDataset['measures']>;
+  | KnownStringKeysOrFallback<TDataset['measures']>
+  | KnownStringKeys<TDataset['derivedMeasures']>;
 
 /**
  * Fields a result can be ordered by. This is the selection-independent superset
@@ -626,7 +627,7 @@ type SelectedDatasetMeasures<
   TQuery,
 > = TQuery extends { measures: readonly (infer TName)[] }
   ? Extract<TName, DatasetMeasureNames<TDataset>>
-  : DatasetMeasureNames<TDataset>;
+  : KnownStringKeysOrFallback<TDataset['measures']>;
 
 type PeriodSelection<TQuery> = TQuery extends { by: TimeGrain }
   ? { period?: string }

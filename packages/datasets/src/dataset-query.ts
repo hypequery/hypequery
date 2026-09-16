@@ -25,6 +25,10 @@ import {
   qualifyBaseColumn,
 } from './utils/relationship-builder-plan.js';
 import { serializeSemanticMeasureValues } from './utils/semantic-result-serialization.js';
+import {
+  buildDerivedDatasetSql,
+  hasSelectedDerivedMeasure,
+} from './utils/dataset-derived-query.js';
 
 function toResultMeta(
   qb: QueryBuilderLike,
@@ -46,6 +50,8 @@ export interface DatasetQueryExecutionOptions {
    * `query.limit`). Used to over-fetch one row for pagination's `hasMore`.
    */
   executionLimit?: number;
+  /** Internal: the grouped subquery is unordered; the derived outer query orders results. */
+  skipDefaultOrderBy?: boolean;
 }
 
 export function validateDatasetQuery(
@@ -61,6 +67,9 @@ export function buildDatasetQueryBuilder(
   query: DatasetQuery,
   options: DatasetQueryExecutionOptions,
 ): QueryBuilderLike {
+  if (hasSelectedDerivedMeasure(ds, query)) {
+    throw new Error('A derived dataset query needs the outer SQL projection; use createDatasetClient().toSQL().');
+  }
   const validation = validateDatasetQuery(ds, query, options.context);
   if (!validation.valid) {
     throw new Error(`Invalid dataset query: ${validation.errors.join('; ')}`);
@@ -99,7 +108,7 @@ export function buildDatasetQueryBuilder(
   return appendOrderLimitOffset(
     qb,
     query.orderBy,
-    query.by,
+    options.skipDefaultOrderBy ? undefined : query.by,
     options.executionLimit ?? query.limit,
     query.offset,
     joinCtx,
@@ -112,6 +121,28 @@ export async function runDatasetQuery(
   options: DatasetQueryExecutionOptions,
 ): Promise<DatasetQueryResult> {
   const start = Date.now();
+  const selectedMeasures = query.measures ?? Object.keys(ds.measures);
+  if (hasSelectedDerivedMeasure(ds, query)) {
+    const { sql, parameters } = buildDerivedDatasetSql(ds, query, {
+      ...options,
+      executionLimit: overfetchLimit(query.limit),
+    }, buildDatasetQueryBuilder);
+    const rows = await options.builderFactory.rawQuery<Record<string, unknown>>(
+      sql, parameters, { abortSignal: options.context?.abortSignal },
+    );
+    const { data, pagination } = applyPagination(rows, query.limit, query.offset);
+    const serializedData = serializeSemanticMeasureValues(data, selectedMeasures);
+    return {
+      data: serializedData,
+      meta: {
+        sql,
+        timingMs: Date.now() - start,
+        tenant: getRuntimeTenantId(options.context),
+        rowCount: serializedData.length,
+        pagination,
+      },
+    };
+  }
   // Over-fetch one row so we can report `hasMore` without a count query.
   const qb = buildDatasetQueryBuilder(ds, query, {
     ...options,
@@ -121,7 +152,7 @@ export async function runDatasetQuery(
   const { data, pagination } = applyPagination(rows, query.limit, query.offset);
   const serializedData = serializeSemanticMeasureValues(
     data,
-    query.measures ?? Object.keys(ds.measures),
+    selectedMeasures,
   );
   return {
     data: serializedData,

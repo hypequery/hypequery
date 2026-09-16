@@ -25,9 +25,9 @@ export function validateDatasetQueryInput(
 ): ValidationResult {
   const errors: string[] = [];
   const dimensionNames = Object.keys(ds.dimensions);
-  const measureNames = Object.keys(ds.measures);
+  const measureNames = [...Object.keys(ds.measures), ...Object.keys(ds.derivedMeasures ?? {})];
   const selectedDimensions = query.dimensions ?? [];
-  const selectedMeasures = query.measures ?? measureNames;
+  const selectedMeasures = query.measures ?? Object.keys(ds.measures);
   const filterNames = Object.keys(ds.filters);
   const orderableFields = new Set<string>([
     ...selectedDimensions,

@@ -171,6 +171,7 @@ function queryShape(
     : uniqueSorted([
         ...dimensions,
         ...Object.keys(catalog.measures),
+        ...Object.keys(catalog.derivedMeasures ?? {}),
         ...(catalog.supportedGrains.length > 0 ? ['period'] : []),
       ]);
   const maxResultSize = options.enforceResultLimit === false
@@ -191,7 +192,7 @@ function queryShape(
     ),
     ...(metricName ? {} : {
       measures: boundedArray(
-        fieldEnum(Object.keys(catalog.measures)),
+        fieldEnum([...Object.keys(catalog.measures), ...Object.keys(catalog.derivedMeasures ?? {})]),
         lowerLimit(catalog.limits?.maxMeasures, limits.maxMeasures),
       ),
     }),

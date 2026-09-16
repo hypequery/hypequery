@@ -204,6 +204,9 @@ export function buildDatasetPlan(
   query: DatasetQuery = {},
   context?: ExecutionContext,
 ): PlanNode {
+  if ((query.measures ?? []).some(name => Object.hasOwn(ds.derivedMeasures, name))) {
+    throw new Error('Derived dataset measures require the queryBuilder execution path.');
+  }
   const validation = validateDatasetQuery(ds, query, context);
   if (!validation.valid) {
     throw new Error(`Invalid dataset query: ${validation.errors.join('; ')}`);

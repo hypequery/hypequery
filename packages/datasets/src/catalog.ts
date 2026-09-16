@@ -41,6 +41,11 @@ export interface MeasureCatalogEntry extends SemanticMetadata {
   filterCount: number;
 }
 
+export interface DerivedMeasureCatalogEntry extends SemanticMetadata {
+  label?: string;
+  description?: string;
+}
+
 export interface FilterCatalogEntry extends SemanticMetadata {
   field: string;
   label?: string;
@@ -88,6 +93,8 @@ export interface DatasetCatalog extends SemanticMetadata {
   timeKey?: string;
   dimensions: Record<string, DimensionCatalogEntry>;
   measures: Record<string, MeasureCatalogEntry>;
+  /** Dataset-owned post-aggregation measures; absent in older hosted catalogs. */
+  derivedMeasures?: Record<string, DerivedMeasureCatalogEntry>;
   metrics: Record<string, MetricCatalogEntry>;
   filters: Record<string, FilterCatalogEntry>;
   relationships: Record<string, RelationshipCatalogEntry>;
@@ -194,6 +201,7 @@ export function getGroupableRelationshipFields(catalog: DatasetCatalog): string[
 export function getDatasetCatalog(dataset: DatasetCatalogSource): DatasetCatalog {
   const dimensionNames = Object.keys(dataset.dimensions);
   const measureNames = Object.keys(dataset.measures);
+  const derivedMeasureNames = Object.keys(dataset.derivedMeasures ?? {});
   const metricNames = Object.keys(dataset.metrics ?? {});
   const supportedGrains = dataset.timeKey ? [...SUPPORTED_TIME_GRAINS] : [];
   const maxLimit = dataset.limits?.maxResultSize;
@@ -226,6 +234,18 @@ export function getDatasetCatalog(dataset: DatasetCatalogSource): DatasetCatalog
         measureToCatalog(measure),
       ]),
     ),
+    ...(dataset.derivedMeasures && Object.keys(dataset.derivedMeasures).length > 0 ? {
+      derivedMeasures: Object.fromEntries(
+        Object.entries(dataset.derivedMeasures).map(([name, definition]) => [
+          name,
+          {
+            ...snapshotSemanticMetadata(definition),
+            label: definition.label,
+            description: definition.description,
+          },
+        ]),
+      ),
+    } : {}),
     metrics: Object.fromEntries(
       Object.entries(dataset.metrics ?? {}).map(([name, metric]) => [
         name,
@@ -245,6 +265,7 @@ export function getDatasetCatalog(dataset: DatasetCatalogSource): DatasetCatalog
     orderableFields: [
       ...dimensionNames,
       ...measureNames,
+      ...derivedMeasureNames,
       ...metricNames,
       ...Object.values(relationships).flatMap(relationship => relationship.fields),
       ...(dataset.timeKey ? ['period'] : []),

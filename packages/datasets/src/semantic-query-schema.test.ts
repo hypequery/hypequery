@@ -4,6 +4,7 @@ import { dataset } from './dataset.js';
 import { dimension } from './field.js';
 import { belongsTo } from './relationships.js';
 import { measure } from './measure.js';
+import { add } from './formulas.js';
 import {
   buildCanonicalSemanticQuerySchemas,
   buildDatasetInputProtocolSchema,
@@ -23,6 +24,10 @@ const Orders = dataset('orders', {
   },
   measures: {
     revenue: measure.sum('amount'),
+    doubledRevenue: measure.derived({
+      uses: { revenue: 'revenue' },
+      formula: ({ revenue }) => add(revenue, revenue),
+    }),
   },
   filters: {
     status: {
@@ -42,6 +47,14 @@ const totalRevenue = Orders.metric('totalRevenue', { measure: 'revenue' });
 const registry = { orders: { ...Orders, metrics: { totalRevenue } } };
 
 describe('canonical semantic query schemas', () => {
+  it('offers dataset-owned derived measures as selectable and orderable fields', () => {
+    const schema = buildDatasetInputSchema(Orders);
+    expect(schema.safeParse({
+      measures: ['doubledRevenue'],
+      orderBy: [{ field: 'doubledRevenue', direction: 'desc' }],
+    }).success).toBe(true);
+    expect(getDatasetCatalog(Orders).orderableFields).toContain('doubledRevenue');
+  });
   it('uses exact catalog fields and field-specific operators at runtime', () => {
     const schemas = buildCanonicalSemanticQuerySchemas(registry, { grainField: 'grain' });
 
