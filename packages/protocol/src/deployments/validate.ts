@@ -1,4 +1,5 @@
 import { ProtocolExpressionError, validateProtocolExpression } from '../expressions/index.js';
+import type { ProtocolExpression } from '../expressions/index.js';
 import {
   ProtocolIdentifierError,
   parseProtocolIdentifier,
@@ -19,6 +20,10 @@ import { resolveDeploymentLimits } from './limits.js';
 import type {
   ProtocolAccessPolicy,
   ProtocolDatasetContract,
+  ProtocolDatasetDerivedMeasure,
+  ProtocolDatasetOnlyContract,
+  ProtocolDatasetOnlyDataset,
+  ProtocolDatasetOnlyMeasure,
   ProtocolDatasetDimension,
   ProtocolDatasetFieldSource,
   ProtocolDatasetFilter,
@@ -1045,4 +1050,143 @@ export function validateProtocolDeploymentContract(
   }
   validateReferences(result);
   return result;
+}
+
+function formulaReferences(expression: ProtocolExpression, names: Set<string>): void {
+  switch (expression.kind) {
+    case 'reference':
+      names.add(expression.name);
+      return;
+    case 'binary':
+      formulaReferences(expression.left, names);
+      formulaReferences(expression.right, names);
+      return;
+    case 'call':
+      expression.args.forEach(argument => formulaReferences(argument, names));
+      return;
+    default:
+      // validateFormulaGrammar has already rejected every other node.
+      return;
+  }
+}
+
+function validateDatasetDerivedMeasure(
+  input: unknown,
+  path: string,
+  limits: Readonly<ProtocolDeploymentLimits>,
+): ProtocolDatasetDerivedMeasure {
+  const value = requireRecord(input, path);
+  exactFields(value, ['kind', 'name', 'uses', 'expression'], [
+    'label', 'description', ...SEMANTIC_METADATA_FIELDS,
+  ], path);
+  if (value.kind !== 'derived') deploymentError('HQ_DEPLOYMENT_INVALID_VALUE', `${path}.kind`);
+  const uses = requireArray(value.uses, `${path}.uses`, limits.maxDatasetItems)
+    .map((inputUse, index) => {
+      const usePath = `${path}.uses[${index}]`;
+      const use = requireRecord(inputUse, usePath);
+      exactFields(use, ['alias', 'measure'], [], usePath);
+      return freezeRecord({
+        alias: identifier(use.alias, `${usePath}.alias`),
+        measure: identifier(use.measure, `${usePath}.measure`),
+      });
+    });
+  if (uses.length === 0 || new Set(uses.map(use => use.alias)).size !== uses.length) {
+    deploymentError('HQ_DEPLOYMENT_INVALID_REFERENCE', `${path}.uses`);
+  }
+  const expression = nested(
+    () => validateProtocolExpression(value.expression), `${path}.expression`,
+  );
+  validateFormulaGrammar(expression, `${path}.expression`);
+  const references = new Set<string>();
+  formulaReferences(expression, references);
+  if (references.size !== uses.length || uses.some(use => !references.has(use.alias as string))) {
+    deploymentError('HQ_DEPLOYMENT_INVALID_REFERENCE', `${path}.expression`);
+  }
+  const result: Record<string, unknown> = {
+    kind: 'derived',
+    name: identifier(value.name, `${path}.name`),
+    uses: Object.freeze(uses),
+    expression,
+  };
+  optionalText(value.label, 'label', result, path, limits);
+  optionalText(value.description, 'description', result, path, limits);
+  validateSemanticMetadata(value, result, path, limits);
+  return freezeRecord(result) as unknown as ProtocolDatasetDerivedMeasure;
+}
+
+function validateDatasetOnly(
+  input: unknown,
+  path: string,
+  limits: Readonly<ProtocolDeploymentLimits>,
+): ProtocolDatasetOnlyDataset {
+  const value = requireRecord(input, path);
+  exactFields(value,
+    ['name', 'source', 'tenant', 'dimensions', 'measures', 'filters', 'relationships'],
+    [
+      'description', 'freshness', 'owner', 'defaults',
+      ...SEMANTIC_METADATA_FIELDS, 'timeField', 'limits', 'endpoint',
+    ], path);
+  const measures = requireArray(value.measures, `${path}.measures`, limits.maxDatasetItems);
+  const base = measures.filter(measure => (
+    requireRecord(measure, `${path}.measures`).kind !== 'derived'
+  ));
+  const legacy = validateDataset({ ...value, measures: base, metrics: [] }, path, limits);
+  const derived = measures.map((measure, index) => (
+    requireRecord(measure, `${path}.measures[${index}]`).kind === 'derived'
+      ? validateDatasetDerivedMeasure(measure, `${path}.measures[${index}]`, limits)
+      : undefined
+  ));
+  const baseByName = new Map<string, ProtocolDatasetMeasure>(legacy.measures.map(measure => [measure.name, measure]));
+  const derivedByName = new Map(derived.filter(item => item !== undefined).map(item => [item.name, item]));
+  if (new Set([...baseByName.keys(), ...derivedByName.keys()]).size !== measures.length) {
+    deploymentError('HQ_DEPLOYMENT_INVALID_REFERENCE', `${path}.measures`);
+  }
+  for (const [index, item] of derived.entries()) {
+    if (!item) continue;
+    for (const [useIndex, use] of item.uses.entries()) {
+      if (!baseByName.has(use.measure)) {
+        deploymentError('HQ_DEPLOYMENT_INVALID_REFERENCE', `${path}.measures[${index}].uses[${useIndex}].measure`);
+      }
+    }
+  }
+  const ordered: ProtocolDatasetOnlyMeasure[] = measures.map((item, index) => {
+    const name = (item as DataRecord).name as string;
+    return derived[index] ?? baseByName.get(name)!;
+  });
+  const { metrics: _metrics, ...dataset } = legacy;
+  return freezeRecord({ ...dataset, measures: Object.freeze(ordered) }) as unknown as ProtocolDatasetOnlyDataset;
+}
+
+/** Validate a new upload: v1-only fields are forbidden, even when empty. */
+export function validateProtocolDatasetOnlyContract(
+  input: unknown,
+  options: ProtocolDeploymentOptions = {},
+): ProtocolDatasetOnlyContract {
+  const limits = resolveDeploymentLimits(options);
+  const value = requireRecord(input, '$');
+  exactFields(value, ['kind', 'version', 'datasets'], [], '$');
+  if (value.kind !== 'hypequery-deployment') deploymentError('HQ_DEPLOYMENT_INVALID_VALUE', '$.kind');
+  if (value.version !== 2) deploymentError('HQ_DEPLOYMENT_INVALID_VERSION', '$.version');
+  const datasets = namedItems(value.datasets, '$.datasets', limits.maxDatasets,
+    (item, path) => validateDatasetOnly(item, path, limits));
+  // Reuse v1's relationship, defaults, and tenant-endpoint reference checks.
+  validateReferences({ kind: 'hypequery-deployment', version: 1, datasets: datasets.map(dataset => ({
+    ...dataset,
+    measures: dataset.measures.filter((measure): measure is ProtocolDatasetMeasure => !('kind' in measure)),
+    metrics: [],
+  })), queries: [], artifacts: [] });
+  return freezeRecord({ kind: 'hypequery-deployment', version: 2, datasets }) as unknown as ProtocolDatasetOnlyContract;
+}
+
+/** Read a stored v1 release as datasets only; never accept v1 as a new v2 upload. */
+export function projectLegacyProtocolDeploymentContract(
+  input: unknown,
+  options: ProtocolDeploymentOptions = {},
+): ProtocolDatasetOnlyContract {
+  const legacy = validateProtocolDeploymentContract(input, options);
+  return validateProtocolDatasetOnlyContract({
+    kind: 'hypequery-deployment',
+    version: 2,
+    datasets: legacy.datasets.map(({ metrics: _metrics, ...dataset }) => dataset),
+  }, options);
 }

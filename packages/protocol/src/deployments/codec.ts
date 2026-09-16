@@ -1,19 +1,55 @@
 import { sha256 } from '@noble/hashes/sha2';
 import { bytesToHex } from '@noble/hashes/utils';
 import { serializeJcs } from '../values/jcs.js';
-import type { ProtocolDeploymentContract, ProtocolDeploymentOptions } from './types.js';
-import { validateProtocolDeploymentContract } from './validate.js';
+import type { ProtocolDatasetOnlyContract, ProtocolDeploymentContract, ProtocolDeploymentOptions } from './types.js';
+import { validateProtocolDatasetOnlyContract, validateProtocolDeploymentContract } from './validate.js';
 
 const textEncoder = new TextEncoder();
 
 /** Domain prefix for deployment contract v1 identities. */
 export const PROTOCOL_DEPLOYMENT_IDENTITY_DOMAIN = 'hypequery:deployment:v1\0';
+export const PROTOCOL_DATASET_ONLY_IDENTITY_DOMAIN = 'hypequery:deployment:v2\0';
 
 export interface PreparedProtocolDeploymentContract {
   readonly contract: ProtocolDeploymentContract;
   readonly canonical: string;
   readonly bytes: Uint8Array;
   readonly identity: string;
+}
+
+export interface PreparedProtocolDatasetOnlyContract {
+  readonly contract: ProtocolDatasetOnlyContract;
+  readonly canonical: string;
+  readonly bytes: Uint8Array;
+  readonly identity: string;
+}
+
+export function prepareProtocolDatasetOnlyContract(
+  input: unknown,
+  options: ProtocolDeploymentOptions = {},
+): PreparedProtocolDatasetOnlyContract {
+  const contract = validateProtocolDatasetOnlyContract(input, options);
+  const canonical = serializeJcs(contract);
+  const bytes = textEncoder.encode(canonical);
+  const identity = bytesToHex(sha256.create()
+    .update(textEncoder.encode(PROTOCOL_DATASET_ONLY_IDENTITY_DOMAIN))
+    .update(bytes)
+    .digest());
+  return Object.freeze({ contract, canonical, bytes, identity });
+}
+
+export function encodeProtocolDatasetOnlyContract(
+  input: unknown,
+  options: ProtocolDeploymentOptions = {},
+): Uint8Array {
+  return prepareProtocolDatasetOnlyContract(input, options).bytes;
+}
+
+export function hashProtocolDatasetOnlyContract(
+  input: unknown,
+  options: ProtocolDeploymentOptions = {},
+): string {
+  return prepareProtocolDatasetOnlyContract(input, options).identity;
 }
 
 /** Validates and serializes once, returning every deployment artifact representation. */
