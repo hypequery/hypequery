@@ -63,7 +63,7 @@ function createPercentileMeasure(field: string, level: number, opts?: MeasureOpt
   };
 }
 
-function createDerivedMeasure<TUses extends DerivedMeasureUses>(
+function createDerivedMeasure<const TUses extends DerivedMeasureUses>(
   options: DerivedMeasureOptions<TUses>,
 ): DerivedMeasureDefinition<TUses> {
   return {

@@ -3,8 +3,10 @@ import { dataset } from './dataset.js';
 import { dimension } from './field.js';
 import { divide, nullIfZero } from './formulas.js';
 import { measure } from './measure.js';
+import type { DerivedMeasureDefinition } from './types.js';
 
-function defineOrders(derivedMeasures: Record<string, ReturnType<typeof measure.derived>>) {
+// Malformed inputs deliberately bypass the authoring constraint to test runtime validation.
+function defineOrders(derivedMeasures: Record<string, DerivedMeasureDefinition>) {
   return dataset('orders', {
     source: 'orders',
     dimensions: {
@@ -15,7 +17,7 @@ function defineOrders(derivedMeasures: Record<string, ReturnType<typeof measure.
       revenue: measure.sum('amount'),
       orders: measure.count('orderId'),
     },
-    derivedMeasures,
+    derivedMeasures: derivedMeasures as never,
   });
 }
 
@@ -76,5 +78,46 @@ describe('dataset-owned derived measures', () => {
         formula: ({ revenue }) => divide(revenue, nullIfZero(revenue)),
       }),
     })).toThrow(/unused input alias "unused"/);
+  });
+
+  it('checks only own keys for base measures, derived measures, and formula aliases', () => {
+    const constructorInput = measure.derived({
+      uses: { value: 'constructor' },
+      formula: ({ value }) => divide(value, nullIfZero(value)),
+    });
+    const orders = dataset('orders', {
+      source: 'orders',
+      dimensions: { amount: dimension.number() },
+      measures: { constructor: measure.sum('amount') },
+      derivedMeasures: { ratio: constructorInput },
+    });
+    expect(orders.derivedMeasures.ratio.uses.value).toBe('constructor');
+
+    const namedConstructor = defineOrders({
+      constructor: measure.derived({
+        uses: { revenue: 'revenue' },
+        formula: ({ revenue }) => divide(revenue, nullIfZero(revenue)),
+      }),
+    });
+    expect(Object.hasOwn(namedConstructor.derivedMeasures, 'constructor')).toBe(true);
+
+    const constructorAlias = defineOrders({
+      ratio: measure.derived({
+        uses: { constructor: 'revenue' },
+        formula: ({ constructor: value }) => divide(value, nullIfZero(value)),
+      }),
+    });
+    expect(constructorAlias.derivedMeasures.ratio.uses.constructor).toBe('revenue');
+
+    expect(() => defineOrders({
+      ratio: { ...constructorInput, uses: { value: 'toString' } },
+    })).toThrow(/missing measure "toString"/);
+
+    expect(() => defineOrders({
+      ratio: measure.derived({
+        uses: { revenue: 'revenue' },
+        formula: ({ revenue }) => divide(revenue, nullIfZero('constructor')),
+      }),
+    })).toThrow(/undeclared input alias "constructor"/);
   });
 });

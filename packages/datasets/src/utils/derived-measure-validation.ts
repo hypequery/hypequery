@@ -105,8 +105,8 @@ function assertAcyclic(
   const visit = (name: string): void => {
     if (visiting.has(name)) fail(datasetName, name, 'contains a dependency cycle.');
     if (visited.has(name)) return;
+    if (!Object.hasOwn(derivedMeasures, name)) return;
     const definition = derivedMeasures[name];
-    if (!definition) return;
     visiting.add(name);
     Object.values(definition.uses).forEach(dependency => visit(dependency));
     visiting.delete(name);
@@ -125,7 +125,7 @@ export function validateDerivedMeasures(
     if (!isSafeSQLIdentifier(measureName)) {
       fail(datasetName, measureName, 'name is not a safe identifier.');
     }
-    if (measureName in measures) fail(datasetName, measureName, 'collides with a base measure.');
+    if (Object.hasOwn(measures, measureName)) fail(datasetName, measureName, 'collides with a base measure.');
     if (typeof definition !== 'object' || definition === null || definition.__type !== 'derived_measure_definition') {
       fail(datasetName, measureName, 'must be created with measure.derived().');
     }
@@ -145,10 +145,10 @@ export function validateDerivedMeasures(
       if (typeof dependencyName !== 'string' || dependencyName.includes('.')) {
         fail(datasetName, measureName, `references cross-dataset measure "${String(dependencyName)}".`);
       }
-      if (dependencyName in derivedMeasures) {
+      if (Object.hasOwn(derivedMeasures, dependencyName)) {
         fail(datasetName, measureName, `references derived measure "${dependencyName}"; v1 inputs must be base measures.`);
       }
-      if (!(dependencyName in measures)) fail(datasetName, measureName, `references missing measure "${dependencyName}".`);
+      if (!Object.hasOwn(measures, dependencyName)) fail(datasetName, measureName, `references missing measure "${dependencyName}".`);
     }
 
     const references = new Set<string>();
@@ -158,7 +158,7 @@ export function validateDerivedMeasures(
       references, { nodes: 0 },
     );
     for (const reference of references) {
-      if (!(reference in definition.uses)) {
+      if (!Object.hasOwn(definition.uses, reference)) {
         fail(datasetName, measureName, `formula references undeclared input alias "${reference}".`);
       }
     }

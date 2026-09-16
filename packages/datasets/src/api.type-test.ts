@@ -67,6 +67,35 @@ type _BaseMeasureNamesRemainTyped = Assert<
   Equal<keyof typeof Orders.measures, 'revenue' | 'completedRevenue'>
 >;
 
+dataset('invalidDependency', {
+  source: 'orders',
+  dimensions: { amount: dimension.number() },
+  measures: { revenue: measure.sum('amount') },
+  derivedMeasures: {
+    // @ts-expect-error derived inputs must name a base measure on this dataset.
+    typo: measure.derived({ uses: { value: 'reveneu' }, formula: ({ value }) => add(value, value) }),
+  },
+});
+
+dataset('crossDatasetDependency', {
+  source: 'orders',
+  dimensions: { amount: dimension.number() },
+  measures: { revenue: measure.sum('amount') },
+  derivedMeasures: {
+    // @ts-expect-error qualified references cannot name measures from another dataset.
+    foreign: measure.derived({ uses: { value: 'other.revenue' }, formula: ({ value }) => add(value, value) }),
+  },
+});
+
+dataset('missingBaseMeasures', {
+  source: 'orders',
+  dimensions: { amount: dimension.number() },
+  derivedMeasures: {
+    // @ts-expect-error a dataset without base measures cannot define a derived input.
+    invalid: measure.derived({ uses: { value: 'revenue' }, formula: ({ value }) => add(value, value) }),
+  },
+});
+
 const Customers = dataset('customers', {
   source: 'customers',
   dimensions: {

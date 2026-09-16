@@ -123,7 +123,8 @@ export interface MeasureDefinition extends SemanticMetadata {
   filters?: MetricFilter[];
 }
 
-export type DerivedMeasureUses = Readonly<Record<string, string>>;
+export type DerivedMeasureUses<TMeasureName extends string = string> =
+  Readonly<Record<string, TMeasureName>>;
 
 export interface DerivedMeasureOptions<
   TUses extends DerivedMeasureUses = DerivedMeasureUses,
@@ -411,7 +412,8 @@ export interface DatasetConfig<
   TDimensions extends Record<string, DimensionDefinition> = Record<string, DimensionDefinition>,
   TMeasures extends Record<string, MeasureDefinition> = Record<string, MeasureDefinition>,
   TRelationships extends Record<string, RelationshipDefinition> = Record<string, never>,
-  TDerivedMeasures extends Record<string, DerivedMeasureDefinition> = Record<string, DerivedMeasureDefinition>,
+  TDerivedMeasures extends Record<string, DerivedMeasureDefinition<DerivedMeasureUses<Extract<keyof TMeasures, string>>>> =
+    Record<string, DerivedMeasureDefinition<DerivedMeasureUses<Extract<keyof TMeasures, string>>>>,
 > extends SemanticMetadata {
   source: string;
   description?: string;
@@ -435,7 +437,8 @@ export interface DatasetInstance<
   TMeasures extends Record<string, MeasureDefinition> = Record<string, MeasureDefinition>,
   TRelationships extends Record<string, RelationshipDefinition> = Record<string, never>,
   TDatasetName extends string = string,
-  TDerivedMeasures extends Record<string, DerivedMeasureDefinition> = Record<string, DerivedMeasureDefinition>,
+  TDerivedMeasures extends Record<string, DerivedMeasureDefinition<DerivedMeasureUses<Extract<keyof TMeasures, string>>>> =
+    Record<string, DerivedMeasureDefinition<DerivedMeasureUses<Extract<keyof TMeasures, string>>>>,
 > {
   __type: 'dataset';
   name: TDatasetName;

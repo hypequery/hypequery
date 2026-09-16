@@ -65,9 +65,10 @@ import { validateSemanticMetadata } from './utils/semantic-metadata-validation.j
 export function dataset<
   TDatasetName extends string,
   TDimensions extends Record<string, DimensionDefinition>,
-  TMeasures extends Record<string, MeasureDefinition> = Record<string, never>,
+  TMeasures extends Record<string, MeasureDefinition> = {},
   TRelationships extends Record<string, RelationshipDefinition> = Record<string, never>,
-  TDerivedMeasures extends Record<string, DerivedMeasureDefinition> = Record<string, never>,
+  TDerivedMeasures extends Record<string, DerivedMeasureDefinition<Readonly<Record<string, Extract<keyof TMeasures, string>>>>> =
+    Record<string, never>,
 >(
   name: TDatasetName,
   config: DatasetConfig<TDimensions, TMeasures, TRelationships, TDerivedMeasures>,
