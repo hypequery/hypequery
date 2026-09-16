@@ -155,8 +155,11 @@ describe('dataset-only authored and rehydrated parity', () => {
     expect(localSql).toContain('NULLIF(`orders`, 0)');
     expect(localSql).toContain('ORDER BY `averageOrderValue` DESC LIMIT 5 OFFSET 1');
     expect(() => portable.toSQL(rebuilt, query)).toThrow(/tenant/i);
-    expect(await portable.execute(rebuilt, query, context))
-      .toEqual(await authored.execute(Orders, query, context));
+    const portableResult = await portable.execute(rebuilt, query, context);
+    const authoredResult = await authored.execute(Orders, query, context);
+    expect(portableResult.data).toEqual(authoredResult.data);
+    expect({ ...portableResult.meta, timingMs: undefined })
+      .toEqual({ ...authoredResult.meta, timingMs: undefined });
   });
 });
 
