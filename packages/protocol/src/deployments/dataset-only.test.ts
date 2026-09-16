@@ -159,14 +159,14 @@ describe('dataset-only deployment contract v2', () => {
     expect(first.identity).toMatch(/^[a-f0-9]{64}$/);
     expect(PROTOCOL_DATASET_ONLY_IDENTITY_DOMAIN).toBe('hypequery:deployment:v2\0');
     const fixture = JSON.parse(readFileSync(new URL(
-      '../../../../specs/security-protocol/fixtures/deployments-v2/dataset-only.json',
+      '../../../../specs/security-protocol/fixtures/deployments-v2/success.json',
       import.meta.url,
-    ), 'utf8')) as unknown;
+    ), 'utf8')) as [{ value: unknown }];
     const identity = JSON.parse(readFileSync(new URL(
       '../../../../specs/security-protocol/fixtures/deployments-v2/identity.json',
       import.meta.url,
     ), 'utf8')) as [{ canonical: string; sha256: string }];
-    const prepared = prepareProtocolDatasetOnlyContract(fixture);
+    const prepared = prepareProtocolDatasetOnlyContract(fixture[0].value);
     expect(prepared.canonical).toBe(identity[0].canonical);
     expect(prepared.identity).toBe(identity[0].sha256);
   });
