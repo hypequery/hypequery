@@ -3,4 +3,5 @@
 ---
 
 Remove the unused internal `CompiledQueryV1` execution contract and its exports.
-ClickHouse continues to use the legacy positional parameter path with `?` placeholders.
+There is no change to ClickHouse query construction or execution; existing queries
+still use positional `?` placeholders and the established escaping path.
