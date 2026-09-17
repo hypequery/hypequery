@@ -1,8 +1,10 @@
 import type { SemanticExpression } from '../semantic-plan.js';
-import type { AnyDatasetInstance, DatasetQuery, DerivedMeasureDefinition } from '../types.js';
+import type { AnyDatasetInstance, DatasetQuery, DatasetQueryResult, DerivedMeasureDefinition } from '../types.js';
 import type { QueryBuilderLike } from '../query-builder-protocol.js';
 import { quoteSQLIdentifier } from '../sql-utils.js';
 import { validateDatasetQueryInput } from './dataset-query-validation.js';
+import { overfetchLimit } from './pagination.js';
+import { toDatasetQueryResult } from './dataset-query-result.js';
 import type { DatasetQueryExecutionOptions } from '../dataset-query.js';
 
 type BuildBaseQuery = (
@@ -106,4 +108,27 @@ export function buildDerivedDatasetSql(
   if (limit !== undefined) sql += ` LIMIT ${limit}`;
   if (query.offset !== undefined) sql += ` OFFSET ${query.offset}`;
   return { sql, parameters };
+}
+
+export async function runDerivedDatasetQuery(
+  ds: AnyDatasetInstance,
+  query: DatasetQuery,
+  options: DatasetQueryExecutionOptions,
+  buildBaseQuery: BuildBaseQuery,
+): Promise<DatasetQueryResult> {
+  const start = Date.now();
+  const { sql, parameters } = buildDerivedDatasetSql(ds, query, {
+    ...options,
+    executionLimit: overfetchLimit(query.limit),
+  }, buildBaseQuery);
+  const rows = await options.builderFactory.rawQuery<Record<string, unknown>>(
+    sql, parameters, { abortSignal: options.context?.abortSignal },
+  );
+  return toDatasetQueryResult(rows, {
+    dataset: ds,
+    query,
+    sql,
+    timingMs: Date.now() - start,
+    context: options.context,
+  });
 }
