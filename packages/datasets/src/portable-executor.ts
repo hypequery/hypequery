@@ -21,7 +21,7 @@ import { withDeadline } from './utils/portable-execution-deadline.js';
  */
 
 import type {
-  ProtocolDatasetOnlyDataset,
+  ProtocolDeploymentDataset,
   ProtocolSemanticInvocationResult,
   ProtocolSemanticQuery,
 } from '@hypequery/protocol';
@@ -45,8 +45,8 @@ export interface PortableSemanticBudget {
  * stay independent.
  */
 export interface PortableSemanticExecutionInput {
-  readonly deployment: { readonly datasets: readonly ProtocolDatasetOnlyDataset[] };
-  readonly dataset: ProtocolDatasetOnlyDataset;
+  readonly deployment: { readonly datasets: readonly ProtocolDeploymentDataset[] };
+  readonly dataset: ProtocolDeploymentDataset;
   readonly operation: ProtocolSemanticQuery;
   /** Resolved by the provider callback; never caller-supplied. */
   readonly tenant: unknown;

@@ -3,4 +3,4 @@
 "@hypequery/protocol": patch
 ---
 
-Build and rehydrate dataset-only v2 deployment contracts, including derived measures, while preserving the existing v1 adapter and metric APIs. Use one shared SQL-expression validator for dataset fields and legacy query implementations.
+Build and rehydrate deployment contracts, including derived measures. Local dataset adapters and metrics remain available. Use one shared SQL-expression validator for dataset fields and query implementations.

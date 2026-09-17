@@ -1,6 +1,6 @@
 import { beforeAll, describe, expect, it } from 'vitest';
 import {
-  buildProtocolDatasetOnlyContract,
+  buildProtocolDeploymentContract,
   createDatasetClient,
   dataset,
   dimension,
@@ -8,7 +8,7 @@ import {
   eq,
   measure,
   nullIfZero,
-  rehydrateProtocolDatasetOnlyContract,
+  rehydrateProtocolDeploymentContract,
 } from '@hypequery/datasets';
 import { initializeTestConnection, setupTestDatabase } from './setup.js';
 import { SETUP_TIMEOUT, SKIP_INTEGRATION_TESTS } from './test-config.js';
@@ -32,7 +32,7 @@ const Orders = dataset('orders', {
   },
 });
 
-(SKIP_INTEGRATION_TESTS ? describe.skip : describe)('dataset-only wire ClickHouse parity', () => {
+(SKIP_INTEGRATION_TESTS ? describe.skip : describe)('deployment wire ClickHouse parity', () => {
   let builder: Awaited<ReturnType<typeof initializeTestConnection>>;
 
   beforeAll(async () => {
@@ -41,8 +41,8 @@ const Orders = dataset('orders', {
   }, SETUP_TIMEOUT);
 
   it('matches authored, rehydrated, and ground-truth grouped results', async () => {
-    const contract = buildProtocolDatasetOnlyContract([Orders]);
-    const rebuilt = rehydrateProtocolDatasetOnlyContract(contract).orders;
+    const contract = buildProtocolDeploymentContract([Orders]);
+    const rebuilt = rehydrateProtocolDeploymentContract(contract).orders;
     const client = createDatasetClient({ queryBuilder: builder });
     const query = {
       dimensions: ['status'],

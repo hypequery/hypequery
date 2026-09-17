@@ -1,4 +1,4 @@
-import { validateProtocolDatasetOnlyContract } from '@hypequery/protocol';
+import { validateProtocolDeploymentContract } from '@hypequery/protocol';
 import { describe, expect, it, vi } from 'vitest';
 import {
   createPortableSemanticExecutor,
@@ -17,7 +17,7 @@ const AUTHENTICATED = {
 } as const;
 
 function deployment() {
-  return validateProtocolDatasetOnlyContract({
+  return validateProtocolDeploymentContract({
     kind: 'hypequery-deployment',
     version: 2,
     datasets: [{
@@ -105,7 +105,7 @@ function untenantedDeployment() {
   const base = deployment();
   const [dataset] = base.datasets;
   const open = { access: { kind: 'public' }, tenant: { kind: 'not-required' } } as const;
-  return validateProtocolDatasetOnlyContract({
+  return validateProtocolDeploymentContract({
     ...base,
     datasets: [{
       ...dataset,
@@ -120,7 +120,7 @@ function derivedDeployment() {
   const base = deployment();
   const [dataset] = base.datasets;
   const guard = (operand: unknown) => ({ kind: 'call', function: 'nullIfZero', args: [operand] });
-  return validateProtocolDatasetOnlyContract({
+  return validateProtocolDeploymentContract({
     ...base,
     datasets: [{
       ...dataset,
@@ -394,7 +394,7 @@ describe('portable semantic execution', () => {
     const execute = createPortableSemanticExecutor({ queryBuilder: factory });
 
     await execute(input({}, deployment()));
-    const rolledBack = validateProtocolDatasetOnlyContract(
+    const rolledBack = validateProtocolDeploymentContract(
       JSON.parse(JSON.stringify(deployment()).replace('analytics.orders', 'analytics.orders_v1')),
     );
     await execute(input({ activationRevision: 'c'.repeat(64) }, rolledBack));

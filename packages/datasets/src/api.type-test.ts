@@ -2,7 +2,7 @@ import {
   add,
   between,
   buildCanonicalSemanticQuerySchemas,
-  buildProtocolDatasetOnlyContract,
+  buildProtocolDeploymentContract,
   createDatasetClient,
   dataset,
   desc,
@@ -10,7 +10,7 @@ import {
   eq,
   measure,
   publishDatasets,
-  rehydrateProtocolDatasetOnlyContract,
+  rehydrateProtocolDeploymentContract,
 } from './index.js';
 import type {
   BaseMetricRef,
@@ -87,9 +87,9 @@ type _DerivedMeasureIsQueryable = Assert<
 type _UnselectedDerivedMeasureIsNotInDefaultResult = Assert<
   Equal<HasKey<DatasetRowFor<typeof Orders, {}>, 'doubledRevenue'>, false>
 >;
-const datasetOnlyWire = buildProtocolDatasetOnlyContract([Orders]);
-type _DatasetOnlyWireVersion = Assert<Equal<typeof datasetOnlyWire.version, 2>>;
-rehydrateProtocolDatasetOnlyContract(datasetOnlyWire);
+const deploymentContract = buildProtocolDeploymentContract([Orders]);
+type _DeploymentContractVersion = Assert<Equal<typeof deploymentContract.version, 2>>;
+rehydrateProtocolDeploymentContract(deploymentContract);
 
 dataset('invalidDependency', {
   source: 'orders',

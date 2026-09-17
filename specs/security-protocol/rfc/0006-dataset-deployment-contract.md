@@ -1,185 +1,65 @@
-# RFC 0006: Dataset deployment contract
+# RFC 0006: Deployment contract
 
 - Status: Proposed
-- Version: deployment contract 1
+- Version: deployment contract 2
 
 ## Summary
 
-This RFC defines the deterministic envelope produced when Hypequery Dataset,
-metric, and Serve definitions cross a deployment boundary. It binds the
-portable values, identifiers, expressions, schemas, and query implementations
-from RFCs 0001 through 0005 into one inspectable contract.
+A deployment contract is the validated, deterministic description of datasets
+that managed execution can serve. It carries dataset definitions, base and
+derived measures, relationships, and endpoint policy. Named queries, standalone
+metrics, runtime artifacts, executable callbacks, credentials, and connection
+configuration are outside this contract.
 
-The contract is trusted build output. It contains no credentials, connection
-configuration, tenant values, auth callbacks, middleware, source code, or
-runtime artifact bytes. Self-hosted Serve does not need to build this envelope.
+The sole supported envelope is a closed object with
+`kind: "hypequery-deployment"`, `version: 2`, and a `datasets` array.
+`queries`, `artifacts`, and dataset `metrics` are invalid even when empty.
+Unknown fields fail validation.
 
-## Envelope
+## Datasets
 
-A deployment has `kind: "hypequery-deployment"`, `version: 1`, and three
-closed collections:
+Each dataset declares a unique logical name, physical source, tenant policy,
+dimensions, measures, filters, and relationships. Optional fields include a
+time field, defaults, freshness, limits, endpoint policy, description, owner,
+and semantic metadata. Dimensions may name a physical column or carry a
+bounded trusted SQL expression. Relationships must name a dataset in the same
+contract; `belongsTo` and `hasOne` are queryable, while `hasMany` remains
+metadata only.
 
-- `datasets`: executable semantic Dataset contracts;
-- `queries`: named Serve queries with portable schemas and one RFC 0005
-  implementation; and
-- `artifacts`: the runtime and SHA-256 identity of every runtime artifact
-  referenced by a named query.
+A base measure declares its aggregation, input field, fixed filters, and
+applicable aggregation options. A derived measure lives in the same `measures`
+array with `kind: "derived"`. Its `uses` entries map distinct aliases to base
+measures in that dataset, and its formula references exactly those aliases.
+Derived measures cannot depend on another derived measure. Validation retains
+the authored order of measures and aliases so rehydration produces the same
+query plan.
 
-Names within each collection are unique. Runtime references MUST resolve to an
-artifact in the same envelope with the same runtime. Dataset relationships MUST
-resolve to another Dataset in the envelope. Compiled SQL input bindings MUST
-resolve against the named query input schema, and tenant requirements in an
-implementation MUST agree with endpoint policy. Unknown fields fail closed.
+Dataset defaults must refer to groupable dimensions; a default time grain
+requires a time field. If an endpoint is present, its required tenant policy
+must agree with the dataset tenant policy. Endpoint access can be public or
+authenticated with declared roles and scopes. Tenant extraction and
+authentication implementations remain runtime concerns.
 
-## Dataset contract
+## Metadata and limits
 
-A Dataset declares its logical name, physical source, tenant policy, optional
-time field, dimensions, measures, filters, metrics, relationships, resource
-limits, and optional endpoint policy. It may also carry the semantic metadata
-below, an optional description, owner, freshness expectation, and query
-defaults.
+Datasets, dimensions, measures, and filters may carry bounded examples,
+synonyms, format, unit, currency, timezone, and sensitivity metadata.
+Sensitivity describes data; it does not enforce authorization.
 
-Dimensions declare their logical type and one source:
-
-- `column` names a trusted physical column; or
-- `sql-expression` embeds the bounded RFC 0005 trusted expression artifact,
-  output schema, and compatibility dependencies.
-
-Measures declare their aggregation, input field, optional arg field or
-percentile level, optional trusted SQL input expression, and fixed filters as
-RFC 0003 expressions. `argMax` and `argMin` require exactly one arg field.
-`percentile` requires a finite level in `[0, 1]`. Other aggregations reject
-those fields.
-
-Filters declare the logical field and closed operator allow-list. Relationships
-declare target Dataset and join fields. `belongsTo` and `hasOne` are queryable;
-`hasMany` is metadata-only in version 1 to prevent aggregate fan-out.
-
-Metrics carry their fixed RFC 0003 expression, queryable dimensions and
-filters, supported grains, and endpoint policy. A grained metric declares its
-fixed grain. Derived metric formulas use the same expression AST and therefore
-do not carry source-language callbacks.
-
-## Semantic metadata
-
-A Dataset, dimension, measure, filter, or metric MAY carry semantic metadata
-describing it to a human or an agent. Every field is optional:
-
-- `examples` and `synonyms`: unique, non-empty strings;
-- `format`, `unit`, and `timezone`: bounded text;
-- `currency`: exactly three uppercase ASCII letters; and
-- `sensitivity`: one of `public`, `internal`, `confidential`, or `restricted`.
-
-A Dataset additionally MAY declare:
-
-- `description`: bounded text;
-- `owner`: bounded text naming the accountable team or person;
-- `freshness`: an object whose only field is a positive `maxAgeSeconds`; and
-- `defaults`: `dimensions` and/or `timeGrain` suggested when a caller supplies
-  no selection. `defaults` MUST declare at least one of the two. Every default
-  dimension MUST resolve to a groupable dimension on the same Dataset, and
-  `timeGrain` MUST NOT be present unless the Dataset declares `timeField`.
-
-Semantic metadata is descriptive, not enforcement. In particular `sensitivity`
-is an advisory classification: it does not restrict discovery, projection, or
-execution, and a consumer MUST NOT treat it as an authorization decision.
-Publication and authorization remain the responsibility of the deploying
-application and its endpoint policy.
-
-All semantic metadata is deployment-significant in the same sense as labels and
-descriptions: it is preserved so build diffs can distinguish execution changes
-from presentation, and it never affects the SQL a contract produces.
-
-## Endpoint policy
-
-Dataset, metric, and named-query endpoints declare whether access is public or
-authenticated. Authenticated policies carry exact role and scope requirements.
-Every endpoint separately declares tenant context as required, optional, or
-not required. Tenant-aware endpoints preserve `auto-inject` or `manual` mode
-and the auto-injected column, while tenant extraction remains runtime code.
-Endpoints may also declare a positive cache TTL, positive page-size cap, and
-route path. Named queries additionally declare their HTTP method.
-
-These fields describe enforcement requirements; authentication strategies,
-tenant extraction callbacks, middleware, and HTTP server behavior remain
-runtime concerns.
-
-The reference Serve adapter preserves the runtime distinction for explicit
-`auth: null`: Dataset and metric entries use it to opt out of a global auth
-strategy, while named queries use it only to omit a local strategy and continue
-to inherit global auth. Role or scope requirements still make either endpoint
-authenticated. Named queries use `requiresAuth: false` for an explicit public
-override.
-
-## Serve query adapter
-
-An adapter may convert the portable subset of Zod or Pydantic into RFC 0004
-schemas. It MUST reject refinements, transformations, or schema features it
-cannot represent without semantic loss. A caller may provide an explicit
-portable schema override.
-
-Arbitrary Serve callbacks lower to `runtime-reference`. The build supplies the
-runtime artifact digest and stable entrypoint. Fixed semantic plans and safely
-compiled SQL may be supplied as explicit implementation overrides. Function
-source text, ambient paths, and inferred hashes are prohibited.
-
-## Determinism and compatibility
-
-Reference adapters sort unordered definitions by logical name and return
-detached, deeply immutable snapshots. Contract consumers MUST validate the
-entire envelope before accepting any contained Dataset or query.
-
-Changes to physical sources, tenant policy, SQL expressions, fields,
-aggregations, fixed filters, formulas, relationships, schemas, endpoint access,
-implementations, or artifact hashes are deployment-significant. Labels,
-descriptions, tags, cache TTLs, limits, and routes are also preserved so build
-diffs can distinguish execution changes from presentation and operations.
+The reference limits are 100 datasets; 1,000 items per dataset collection;
+100 examples, synonyms, or default dimensions; 4,096 UTF-8 bytes per text
+field; 1,024 bytes for physical source names; and 2,048 bytes for endpoint
+paths. Consumers may tighten but not raise these validation limits.
 
 ## Canonical bytes and identity
 
-A deployment contract is validated in full before encoding. Its canonical
-bytes are the UTF-8 encoding of its RFC 8785 JSON serialization. Implementations
-MUST NOT hash unvalidated input or a presentation-formatted JSON file.
+Validate the complete envelope before encoding. Its canonical bytes are the
+UTF-8 encoding of its RFC 8785 JSON serialization. The deployment identity is
+lowercase hexadecimal SHA-256 of the UTF-8 domain prefix
+`hypequery:deployment:v2\0` followed by the canonical bytes. `\0` is one
+zero byte. The newline in a presentation JSON file is not hashed.
 
-The deployment contract v1 identity is lowercase hexadecimal SHA-256 over the
-UTF-8 bytes of the domain prefix `hypequery:deployment:v1\0` followed by the
-canonical contract bytes. `\0` denotes one zero byte. The domain prefix is
-part of the digest input and prevents deployment identities from being reused
-as raw canonical-value, artifact, or cache hashes.
-
-## Limits
-
-| Limit | Maximum |
-| --- | ---: |
-| Datasets | 100 |
-| Named queries | 1,000 |
-| Runtime artifacts | 100 |
-| Fields, filters, metrics, relationships, claims, or tags per object | 1,000 |
-| Examples, synonyms, or default dimensions per object | 100 |
-| Label, description, role, scope, or tag UTF-8 bytes | 4,096 |
-| Physical source or column UTF-8 bytes | 1,024 |
-| Endpoint path UTF-8 bytes | 2,048 |
-
-Products may lower but not raise these limits while claiming deployment
-contract version 1 conformance.
-
-## Stable failure codes
-
-- `HQ_DEPLOYMENT_TYPE`
-- `HQ_DEPLOYMENT_UNKNOWN_FIELD`
-- `HQ_DEPLOYMENT_INVALID_VERSION`
-- `HQ_DEPLOYMENT_INVALID_IDENTIFIER`
-- `HQ_DEPLOYMENT_INVALID_VALUE`
-- `HQ_DEPLOYMENT_INVALID_REFERENCE`
-- `HQ_DEPLOYMENT_TOO_MANY_ITEMS`
-- `HQ_DEPLOYMENT_TOO_LARGE`
-- `HQ_DEPLOYMENT_UNSAFE_OBJECT`
-
-## Security
-
-Objects with custom prototypes, accessors, symbols, hidden properties, cycles,
-sparse arrays, or extra array properties are rejected. SQL remains trusted
-build output and is never accepted from caller input. Runtime references can
-resolve only inside the containing deployment by digest. The validator returns
-a detached, deeply immutable snapshot and performs all cross-reference checks
-before the contract is executable.
+Validation rejects custom prototypes, accessors, symbols, hidden properties,
+cycles, sparse arrays, and extra array properties. It returns a detached,
+deeply immutable snapshot. Failures use the `HQ_DEPLOYMENT_*` codes defined
+by the protocol package.

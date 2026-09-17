@@ -15,11 +15,11 @@
 
 import type {
   ProtocolAccessPolicy,
-  ProtocolDatasetOnlyContract,
-  ProtocolDatasetOnlyDataset,
+  ProtocolDeploymentContract,
+  ProtocolDeploymentDataset,
   ProtocolEndpointPolicy,
 } from '@hypequery/protocol';
-import { validateProtocolDatasetOnlyContract } from '@hypequery/protocol';
+import { validateProtocolDeploymentContract } from '@hypequery/protocol';
 import type { DeploymentDataPlanePrincipal } from './principal.js';
 import { missing } from './utils/required-access.js';
 
@@ -65,9 +65,9 @@ export function isDeploymentEndpointAuthorized(
  * it.
  */
 function narrowToJoin(
-  dataset: ProtocolDatasetOnlyDataset,
+  dataset: ProtocolDeploymentDataset,
   reachable: boolean,
-): ProtocolDatasetOnlyDataset {
+): ProtocolDeploymentDataset {
   // `defaults` describes how to query the dataset directly, which is exactly
   // what this principal may not do.
   const { defaults: _defaults, endpoint: _endpoint, ...rest } = dataset;
@@ -79,7 +79,7 @@ function narrowToJoin(
       : dataset.dimensions.filter(dimension => String(dimension.name) === timeField),
     measures: [],
     filters: [],
-  } as ProtocolDatasetOnlyDataset;
+  } as ProtocolDeploymentDataset;
 }
 
 export interface AuthorizedDeploymentProjection {
@@ -87,7 +87,7 @@ export interface AuthorizedDeploymentProjection {
    * A valid contract narrowed to what the principal may see, including any
    * dataset retained only to support a join.
    */
-  readonly contract: ProtocolDatasetOnlyContract;
+  readonly contract: ProtocolDeploymentContract;
   /**
    * Datasets addressable as a `query_dataset` target, in contract order.
    *
@@ -128,7 +128,7 @@ export interface AuthorizedDeploymentProjection {
  * read it next.
  */
 export function projectAuthorizedDeploymentContract(
-  contract: ProtocolDatasetOnlyContract,
+  contract: ProtocolDeploymentContract,
   principal: DeploymentDataPlanePrincipal | null,
 ): AuthorizedDeploymentProjection {
   const byName = new Map(contract.datasets.map(dataset => [String(dataset.name), dataset]));
@@ -168,7 +168,7 @@ export function projectAuthorizedDeploymentContract(
     ));
 
   return Object.freeze({
-    contract: validateProtocolDatasetOnlyContract({ ...contract, datasets }),
+    contract: validateProtocolDeploymentContract({ ...contract, datasets }),
     queryable: Object.freeze(datasets
       .filter(dataset => published.has(String(dataset.name)))
       .map(dataset => String(dataset.name))),

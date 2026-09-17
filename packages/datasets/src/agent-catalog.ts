@@ -107,7 +107,9 @@ export type TrustedDebugCatalog =
   | { readonly kind: 'semantic-contract'; readonly contract: SemanticContract }
   | { readonly kind: 'deployment-contract'; readonly contract: ProtocolDeploymentContract };
 
-function isProtocolDeploymentContract(source: AgentCatalogSource): source is ProtocolDeploymentContract {
+function isProtocolDeploymentContract(
+  source: AgentCatalogSource,
+): source is ProtocolDeploymentContract {
   return 'kind' in source && source.kind === 'hypequery-deployment';
 }
 

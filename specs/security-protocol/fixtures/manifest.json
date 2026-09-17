@@ -92,27 +92,6 @@
       ]
     },
     {
-      "name": "deployments-v1",
-      "rfc": "0006",
-      "codePrefixes": [
-        "HQ_DEPLOYMENT_"
-      ],
-      "files": [
-        {
-          "path": "deployments-v1/success.json",
-          "role": "success"
-        },
-        {
-          "path": "deployments-v1/rejections.json",
-          "role": "rejection"
-        },
-        {
-          "path": "deployments-v1/identity.json",
-          "role": "identity"
-        }
-      ]
-    },
-    {
       "name": "deployments-v2",
       "rfc": "0006",
       "codePrefixes": [

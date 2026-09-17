@@ -11,8 +11,8 @@ import path from 'node:path';
 import {
   DEFAULT_PROTOCOL_DEPLOYMENT_BUNDLE_LIMITS,
   prepareProtocolDeploymentBundleManifest,
-  type PreparedProtocolDatasetOnlyContract,
-  type ProtocolDatasetOnlyContract,
+  type PreparedProtocolDeploymentContract,
+  type ProtocolDeploymentContract,
   type ProtocolDeploymentBundleManifest,
 } from '@hypequery/protocol';
 import {
@@ -50,7 +50,7 @@ export interface WrittenDeploymentBundle {
   readonly directory: string;
   readonly manifest: ProtocolDeploymentBundleManifest;
   readonly identity: string;
-  readonly contract: ProtocolDatasetOnlyContract;
+  readonly contract: ProtocolDeploymentContract;
 }
 
 const utf8Encoder = new TextEncoder();
@@ -129,7 +129,7 @@ function validateSourceSnapshot(
 
 export async function writeDeploymentBundle(
   outputDirectory: string,
-  prepared: PreparedProtocolDatasetOnlyContract,
+  prepared: PreparedProtocolDeploymentContract,
   sourceSnapshot?: DeploymentBundleSourceSnapshot,
 ): Promise<WrittenDeploymentBundle> {
   const destination = path.resolve(outputDirectory);

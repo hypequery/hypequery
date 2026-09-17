@@ -1,11 +1,11 @@
 import type {
   ProtocolAccessPolicy,
-  ProtocolDatasetOnlyContract,
+  ProtocolDeploymentContract,
   ProtocolEndpointPolicy,
   ProtocolEndpointTenantPolicy,
 } from '@hypequery/protocol';
 import {
-  buildProtocolDatasetOnlyContract,
+  buildProtocolDeploymentContract as buildDatasetContract,
   type AnyDatasetInstance,
 } from '@hypequery/datasets';
 import {
@@ -189,17 +189,17 @@ function collectPublishedDatasets(serveConfig: AnyServeConfig, basePath: string)
 
 /**
  * Converts an existing Serve configuration and its Dataset definitions into the
- * dataset-only Cloud contract.
+ * deployment contract.
  *
  * Named queries and standalone metrics are deliberately never copied: there is
  * no field on this wire that could carry them, so a build cannot leak one by
  * omission. They are reported instead, through the same diagnostic channel as
  * every other local/deployed difference.
  */
-export function buildProtocolDatasetOnlyDeploymentContract(
+export function buildProtocolDeploymentContract(
   config: ServeConfig<any, any, any, any, any>,
   options: BuildProtocolDeploymentOptions = {},
-): ProtocolDatasetOnlyContract {
+): ProtocolDeploymentContract {
   const serveConfig = config as unknown as AnyServeConfig;
   const basePath = serveConfig.basePath ?? '/api/analytics';
   const { datasets, endpoints } = collectPublishedDatasets(serveConfig, basePath);
@@ -209,7 +209,7 @@ export function buildProtocolDatasetOnlyDeploymentContract(
     analyzeLocalOnlyDeclarations(config, new Set(datasets.keys())),
     'datasets',
   );
-  return buildProtocolDatasetOnlyContract(
+  return buildDatasetContract(
     [...datasets.values()].sort((left, right) => left.name.localeCompare(right.name)),
     { endpoints: Object.fromEntries(endpoints) },
   );

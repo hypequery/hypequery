@@ -53,10 +53,8 @@ async function submissionFixture(): Promise<{
   const deploymentPath = 'contract/deployment.json';
   const deployment = prepareProtocolDeploymentContract({
     kind: 'hypequery-deployment',
-    version: 1,
+    version: 2,
     datasets: [],
-    queries: [],
-    artifacts: [],
   });
   const deploymentBytes = Buffer.from(`${deployment.canonical}\n`);
   const manifest = prepareProtocolDeploymentBundleManifest({

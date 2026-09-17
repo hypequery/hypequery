@@ -8,7 +8,7 @@
  */
 
 import type {
-  ProtocolDatasetOnlyDataset,
+  ProtocolDeploymentDataset,
   ProtocolExpression,
   ProtocolSemanticQuery,
   ProtocolTimeGrain,
@@ -48,8 +48,8 @@ interface Resolved {
  * contract has no separate filter declaration for a joined field.
  */
 function resolveDataset(
-  dataset: ProtocolDatasetOnlyDataset,
-  datasets: ReadonlyMap<string, ProtocolDatasetOnlyDataset>,
+  dataset: ProtocolDeploymentDataset,
+  datasets: ReadonlyMap<string, ProtocolDeploymentDataset>,
 ): Resolved {
   const groupable = new Set<string>();
   const filters = new Map<string, ReadonlySet<string>>();
@@ -112,8 +112,8 @@ function comparisonField(expression: ProtocolExpression): { field: string; opera
  */
 export function validateSemanticOperation(
   operation: ProtocolSemanticQuery,
-  dataset: ProtocolDatasetOnlyDataset,
-  datasets: ReadonlyMap<string, ProtocolDatasetOnlyDataset>,
+  dataset: ProtocolDeploymentDataset,
+  datasets: ReadonlyMap<string, ProtocolDeploymentDataset>,
   limits: SemanticOperationLimits,
 ): readonly SemanticOperationViolation[] {
   const violations: SemanticOperationViolation[] = [];

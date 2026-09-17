@@ -1,7 +1,7 @@
 [
-  { "id": "empty-object", "value": {}, "targets": ["expressions-v1", "query-schemas-v1", "query-events-v1", "query-diagnostics-v1", "query-implementations-v1", "deployments-v1"] },
+  { "id": "empty-object", "value": {}, "targets": ["expressions-v1", "query-schemas-v1", "query-events-v1", "query-diagnostics-v1", "query-implementations-v1", "deployments-v2"] },
   { "id": "null-root", "value": null, "targets": ["expressions-v1", "query-schemas-v1", "query-events-v1", "query-diagnostics-v1"] },
-  { "id": "array-root", "value": [], "targets": ["expressions-v1", "query-schemas-v1", "query-events-v1", "query-diagnostics-v1", "deployments-v1"] },
+  { "id": "array-root", "value": [], "targets": ["expressions-v1", "query-schemas-v1", "query-events-v1", "query-diagnostics-v1", "deployments-v2"] },
   { "id": "string-root", "value": "hello", "targets": ["expressions-v1", "query-schemas-v1", "query-events-v1"] },
   { "id": "number-root", "value": 42, "targets": ["expressions-v1", "query-schemas-v1", "query-events-v1"] },
   { "id": "unknown-kind", "value": { "kind": "no-such-kind" }, "targets": ["expressions-v1", "query-schemas-v1", "query-implementations-v1"] },
@@ -25,7 +25,7 @@
   { "id": "unicode-identifier-confusable", "value": { "kind": "reference", "name": "аdmin" }, "targets": ["expressions-v1"] },
   { "id": "event-kind-only", "value": { "kind": "hypequery-query-event" }, "targets": ["query-events-v1"] },
   { "id": "diagnostics-kind-only", "value": { "kind": "hypequery-query-diagnostics" }, "targets": ["query-diagnostics-v1"] },
-  { "id": "deployment-kind-only", "value": { "kind": "hypequery-deployment" }, "targets": ["deployments-v1"] },
+  { "id": "deployment-kind-only", "value": { "kind": "hypequery-deployment" }, "targets": ["deployments-v2"] },
   { "id": "implementation-kind-only", "value": { "kind": "compiled-sql" }, "targets": ["query-implementations-v1"] },
   { "id": "negative-version", "value": { "kind": "hypequery-query-event", "version": -1 }, "targets": ["query-events-v1"] },
   { "id": "float-version", "value": { "kind": "hypequery-query-event", "version": 1.5 }, "targets": ["query-events-v1"] }

@@ -3,7 +3,7 @@ import { createDatasetClient } from './executor.js';
 import type { MetricRef, MetricQuery } from './types.js';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { validateProtocolDeploymentContract } from '@hypequery/protocol';
+import { validateProtocolDatasetContract, type ProtocolDatasetContract } from '@hypequery/protocol';
 import { describe, expect, it } from 'vitest';
 import { projectAgentSafeCatalog } from './agent-catalog.js';
 import { getDatasetCatalog } from './catalog.js';
@@ -12,10 +12,10 @@ import { dimension } from './field.js';
 import { divide, nullIfZero, round } from './formulas.js';
 import { measure } from './measure.js';
 import { buildProtocolDatasetContract } from './protocol-adapter.js';
-import { buildProtocolDatasetOnlyContract } from './dataset-only-adapter.js';
+import { buildProtocolDeploymentContract } from './protocol-deployment-adapter.js';
 import {
   rehydrateProtocolDatasets,
-  rehydrateProtocolDatasetOnlyContract,
+  rehydrateProtocolDeploymentContract,
   UnsupportedContractFeatureError,
 } from './protocol-rehydrate.js';
 import { belongsTo } from './relationships.js';
@@ -37,7 +37,7 @@ const PUBLIC_ENDPOINT = {
 
 /** contract -> catalog -> contract, the identity CORE-15 must preserve. */
 function roundTrip(
-  contract: ReturnType<typeof validateProtocolDeploymentContract>['datasets'][number],
+  contract: ProtocolDatasetContract,
   registry: Record<string, { metrics: Record<string, unknown> }>,
 ) {
   return buildProtocolDatasetContract(registry[contract.name] as never, {
@@ -88,15 +88,15 @@ function renderingBuilder(rows: Record<string, unknown>[] = []) {
   return { table: build, rawQuery: async () => rows };
 }
 
-describe('dataset-only authored and rehydrated parity', () => {
+describe('deployment authored and rehydrated parity', () => {
   it('keeps prototype-shaped dataset names as own registry entries', () => {
     const named = dataset('__proto__', {
       source: 'orders',
       dimensions: { id: dimension.number() },
       measures: { orderCount: measure.count('id') },
     });
-    const contract = buildProtocolDatasetOnlyContract([named]);
-    const registry = rehydrateProtocolDatasetOnlyContract(contract);
+    const contract = buildProtocolDeploymentContract([named]);
+    const registry = rehydrateProtocolDeploymentContract(contract);
 
     expect(Object.keys(registry)).toEqual(['__proto__']);
     expect(Object.hasOwn(registry, '__proto__')).toBe(true);
@@ -137,9 +137,9 @@ describe('dataset-only authored and rehydrated parity', () => {
   const context = { runtime: { tenant: 'tenant_acme' } } as const;
 
   it('round-trips base and derived definitions without metrics or queries', () => {
-    const contract = buildProtocolDatasetOnlyContract([Orders], { endpoints: { orders: endpoint } });
-    const rebuilt = rehydrateProtocolDatasetOnlyContract(contract);
-    const second = buildProtocolDatasetOnlyContract([rebuilt.orders], { endpoints: { orders: endpoint } });
+    const contract = buildProtocolDeploymentContract([Orders], { endpoints: { orders: endpoint } });
+    const rebuilt = rehydrateProtocolDeploymentContract(contract);
+    const second = buildProtocolDeploymentContract([rebuilt.orders], { endpoints: { orders: endpoint } });
 
     expect(second).toEqual(contract);
     expect(contract.datasets[0]).not.toHaveProperty('metrics');
@@ -155,8 +155,8 @@ describe('dataset-only authored and rehydrated parity', () => {
   });
 
   it('emits identical SQL and results for mixed selections, filtered aggregates and zero denominators', async () => {
-    const contract = buildProtocolDatasetOnlyContract([Orders], { endpoints: { orders: endpoint } });
-    const rebuilt = rehydrateProtocolDatasetOnlyContract(contract).orders;
+    const contract = buildProtocolDeploymentContract([Orders], { endpoints: { orders: endpoint } });
+    const rebuilt = rehydrateProtocolDeploymentContract(contract).orders;
     const rows = [{ period: '2026-01-01', status: 'paid', revenue: 100, averageOrderValue: null }];
     const authored = createDatasetClient({ queryBuilder: renderingBuilder(rows) });
     const portable = createDatasetClient({ queryBuilder: renderingBuilder(rows) });
@@ -208,7 +208,10 @@ function derivedContract() {
 }
 
 describe('contract-to-catalog rehydration', () => {
-  const deployment = validateProtocolDeploymentContract(fixture('deployment.json'));
+  const deployment = {
+    datasets: fixture<{ datasets: unknown[] }>('deployment.json').datasets
+      .map(item => validateProtocolDatasetContract(item)),
+  };
 
   it('round-trips the vertical-slice fixture to an identical contract', () => {
     const registry = rehydrateProtocolDatasets(deployment.datasets);
@@ -221,8 +224,6 @@ describe('contract-to-catalog rehydration', () => {
   it('projects the same agent-safe catalog as the contract it was rebuilt from', () => {
     const registry = rehydrateProtocolDatasets(deployment.datasets);
 
-    expect(projectAgentSafeCatalog(registry))
-      .toEqual(projectAgentSafeCatalog(deployment));
     expect(projectAgentSafeCatalog(registry))
       .toEqual(fixture('expected-safe-catalog.json'));
   });
@@ -263,7 +264,7 @@ describe('contract-to-catalog rehydration', () => {
   });
 
   it('keeps a derived metric\'s formula out of the agent-safe catalog', () => {
-    const [orders] = projectAgentSafeCatalog(deployment).datasets;
+    const [orders] = projectAgentSafeCatalog(rehydrateProtocolDatasets(deployment.datasets)).datasets;
     const metric = orders.metrics.find(entry => entry.name === 'averageOrderValue');
 
     // The formula names measure input fields and aggregations, which the safe

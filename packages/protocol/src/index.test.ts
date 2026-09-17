@@ -15,7 +15,6 @@ describe('@hypequery/protocol public surface', () => {
       'DEFAULT_PROTOCOL_SCHEMA_VALUE_LIMITS',
       'DEFAULT_PROTOCOL_SEMANTIC_INVOCATION_LIMITS',
       'PROTOCOL_CACHE_KEY_LIMITS',
-      'PROTOCOL_DATASET_ONLY_IDENTITY_DOMAIN',
       'PROTOCOL_DEPLOYMENT_BUNDLE_IDENTITY_DOMAIN',
       'PROTOCOL_DEPLOYMENT_IDENTITY_DOMAIN',
       'PROTOCOL_DEPLOYMENT_RELEASE_IDENTITY_DOMAIN',
@@ -41,7 +40,6 @@ describe('@hypequery/protocol public surface', () => {
       'deriveProtocolCacheNamespaceToken',
       'encodeCanonicalValue',
       'encodeCanonicalValueToString',
-      'encodeProtocolDatasetOnlyContract',
       'encodeProtocolDeploymentBundleManifest',
       'encodeProtocolDeploymentBundleManifestToString',
       'encodeProtocolDeploymentContract',
@@ -49,7 +47,6 @@ describe('@hypequery/protocol public surface', () => {
       'encodeProtocolDeploymentReleaseEnvelope',
       'encodeProtocolDeploymentReleaseEnvelopeToString',
       'hashCanonicalValue',
-      'hashProtocolDatasetOnlyContract',
       'hashProtocolDeploymentBundleManifest',
       'hashProtocolDeploymentContract',
       'hashProtocolDeploymentReleaseEnvelope',
@@ -58,16 +55,13 @@ describe('@hypequery/protocol public surface', () => {
       'joinProtocolQualifiedIdentifier',
       'parseProtocolIdentifier',
       'parseProtocolQualifiedIdentifier',
-      'prepareProtocolDatasetOnlyContract',
       'prepareProtocolDeploymentBundleManifest',
       'prepareProtocolDeploymentContract',
       'prepareProtocolDeploymentReleaseEnvelope',
-      'projectLegacyProtocolDeploymentContract',
       'resolveProtocolSchemaValueLimits',
       'splitProtocolQualifiedIdentifier',
       'validateCanonicalValue',
       'validateProtocolDatasetContract',
-      'validateProtocolDatasetOnlyContract',
       'validateProtocolDeploymentBundleManifest',
       'validateProtocolDeploymentContract',
       'validateProtocolDeploymentReleaseEnvelope',
@@ -82,6 +76,6 @@ describe('@hypequery/protocol public surface', () => {
       'validateProtocolSemanticInvocationResult',
       'validateProtocolSemanticQuery',
       'validateProtocolSqlExpression',
-    ]);
+    ].sort());
   });
 });

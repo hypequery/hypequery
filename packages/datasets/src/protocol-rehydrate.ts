@@ -14,15 +14,15 @@
 
 import type {
   ProtocolDatasetContract,
-  ProtocolDatasetOnlyContract,
-  ProtocolDatasetOnlyDataset,
+  ProtocolDeploymentContract,
+  ProtocolDeploymentDataset,
   ProtocolDatasetDerivedMeasure,
   ProtocolDatasetMeasure,
   ProtocolDatasetMetric,
   ProtocolExpression,
   ProtocolMetricDerivation,
 } from '@hypequery/protocol';
-import { validateProtocolDatasetOnlyContract } from '@hypequery/protocol';
+import { validateProtocolDeploymentContract } from '@hypequery/protocol';
 import { dataset } from './dataset.js';
 import type {
   AnyDatasetInstance,
@@ -248,7 +248,7 @@ function measureForAggregate(
   }
   // A metric expression carries no raw SQL, so two measures that share an
   // aggregation identity but override SQL differently are indistinguishable in
-  // contract v1. Binding to either would be a guess at which SQL to emit.
+  // this dataset snapshot. Binding to either would guess which SQL to emit.
   const distinctSql = new Set(candidates.map(measure => measure.sql?.sql ?? null));
   if (distinctSql.size > 1) {
     throw new UnsupportedContractFeatureError(
@@ -338,7 +338,7 @@ function rehydrateMetric(
  * `projectAgentSafeCatalog`, and `DatasetClient` already accept.
  */
 export function rehydrateProtocolDatasets(
-  contracts: readonly (ProtocolDatasetContract | ProtocolDatasetOnlyDataset)[],
+  contracts: readonly (ProtocolDatasetContract | ProtocolDeploymentDataset)[],
   options: RehydrateProtocolDatasetsOptions = {},
 ): Readonly<Record<string, RehydratedDataset>> {
   const normalized = contracts.map(contract => {
@@ -426,10 +426,10 @@ export function rehydrateProtocolDatasets(
 }
 
 /** Strict v2 reader that returns executable datasets without metric handles. */
-export function rehydrateProtocolDatasetOnlyContract(
+export function rehydrateProtocolDeploymentContract(
   input: unknown,
   options: RehydrateProtocolDatasetsOptions = {},
 ): Readonly<Record<string, RehydratedDataset>> {
-  const contract: ProtocolDatasetOnlyContract = validateProtocolDatasetOnlyContract(input);
+  const contract: ProtocolDeploymentContract = validateProtocolDeploymentContract(input);
   return rehydrateProtocolDatasets(contract.datasets, options);
 }

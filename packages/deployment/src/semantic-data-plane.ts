@@ -19,8 +19,8 @@ import { missing } from './utils/required-access.js';
  */
 
 import type {
-  ProtocolDatasetOnlyContract,
-  ProtocolDatasetOnlyDataset,
+  ProtocolDeploymentContract,
+  ProtocolDeploymentDataset,
   ProtocolEndpointPolicy,
   ProtocolSemanticInvocation,
   ProtocolSemanticInvocationResult,
@@ -28,7 +28,7 @@ import type {
 } from '@hypequery/protocol';
 import {
   ProtocolSemanticInvocationError,
-  validateProtocolDatasetOnlyContract,
+  validateProtocolDeploymentContract,
   validateProtocolSemanticInvocation,
   validateProtocolSemanticInvocationResult,
 } from '@hypequery/protocol';
@@ -48,18 +48,18 @@ export interface DeploymentSemanticBudget {
 export interface DeploymentSemanticAuthenticationInput {
   readonly credentials: unknown;
   readonly invocation: ProtocolSemanticInvocation;
-  readonly dataset: ProtocolDatasetOnlyDataset;
+  readonly dataset: ProtocolDeploymentDataset;
 }
 
 export interface DeploymentSemanticTenantInput {
   readonly principal: DeploymentDataPlanePrincipal | null;
   readonly invocation: ProtocolSemanticInvocation;
-  readonly dataset: ProtocolDatasetOnlyDataset;
+  readonly dataset: ProtocolDeploymentDataset;
 }
 
 export interface DeploymentSemanticExecutionInput {
-  readonly deployment: ProtocolDatasetOnlyContract;
-  readonly dataset: ProtocolDatasetOnlyDataset;
+  readonly deployment: ProtocolDeploymentContract;
+  readonly dataset: ProtocolDeploymentDataset;
   readonly operation: ProtocolSemanticQuery;
   readonly principal: DeploymentDataPlanePrincipal | null;
   /**
@@ -80,7 +80,7 @@ export interface DeploymentSemanticInvocationRequest {
 }
 
 export interface DeploymentSemanticDataPlaneOptions {
-  readonly deployment: ProtocolDatasetOnlyContract;
+  readonly deployment: ProtocolDeploymentContract;
   /** The immutable generation this data plane serves. */
   readonly activationRevision: string;
   readonly authenticate?: (
@@ -112,9 +112,9 @@ const REVISION_PATTERN = /^[0-9a-f]{64}$/;
 export function createDeploymentSemanticDataPlane(
   options: DeploymentSemanticDataPlaneOptions,
 ): DeploymentSemanticDataPlane {
-  let deployment: ProtocolDatasetOnlyContract;
+  let deployment: ProtocolDeploymentContract;
   try {
-    deployment = validateProtocolDatasetOnlyContract(options.deployment);
+    deployment = validateProtocolDeploymentContract(options.deployment);
   } catch (error) {
     throw new DeploymentSemanticInvocationError(
       'configuration-invalid',
@@ -134,7 +134,7 @@ export function createDeploymentSemanticDataPlane(
   const configured: SemanticOperationLimits = { ...DEFAULT_LIMITS, ...definedLimits(options.limits) };
 
   function resolveTarget(operation: ProtocolSemanticQuery): {
-    dataset: ProtocolDatasetOnlyDataset;
+    dataset: ProtocolDeploymentDataset;
     endpoint: ProtocolEndpointPolicy;
   } {
     // A metric target cannot be served: the contract has no field that could

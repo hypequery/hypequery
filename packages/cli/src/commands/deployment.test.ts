@@ -1,7 +1,6 @@
 import path from 'node:path';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
-  prepareProtocolDatasetOnlyContract,
   prepareProtocolDeploymentReleaseEnvelope,
 } from '@hypequery/protocol';
 
@@ -59,13 +58,6 @@ const contract = {
   version: 2 as const,
   datasets: [],
 };
-const legacyContract = {
-  kind: 'hypequery-deployment' as const,
-  version: 1 as const,
-  datasets: [],
-  queries: [],
-  artifacts: [],
-};
 const sourceSnapshot = {
   entrypoint: 'analytics/api.ts',
   files: [{
@@ -99,28 +91,6 @@ describe('deployment commands', () => {
     }));
   });
 
-  it('builds canonical dataset-only JSON and a domain-separated identity sidecar', async () => {
-    const datasetOnlyContract = vi.fn(() => contract);
-    mockLoadApiModule.mockResolvedValue({ datasetOnlyContract });
-    const prepared = prepareProtocolDatasetOnlyContract(contract);
-
-    await buildDeploymentCommand('analytics/api.ts', { output: 'dist/deployment.json' });
-
-    expect(mkdir).toHaveBeenCalledWith('dist', { recursive: true });
-    expect(writeFile).toHaveBeenCalledWith(
-      'dist/deployment.json',
-      `${prepared.canonical}\n`,
-      'utf8',
-    );
-    expect(writeFile).toHaveBeenCalledWith(
-      'dist/deployment.json.sha256',
-      '# Hypequery deployment identity v2; not a file checksum or sha256sum input.\n'
-      + '# SHA-256(UTF-8("hypequery:deployment:v2") || 0x00 || RFC 8785 canonical bytes); '
-      + 'the output newline is excluded.\n'
-      + `${prepared.identity}  deployment.json\n`,
-      'utf8',
-    );
-  });
 
   it.each([false, true])('reports overridden configuration errors only with override=%s', async allowUnsupportedConfig => {
     const diagnostic = {
@@ -131,15 +101,13 @@ describe('deployment commands', () => {
       remedy: 'Move the policy into the supported execution context.',
     };
     mockLoadApiModule.mockResolvedValue({
-      datasetOnlyContract(options: { onCloudDiagnostic: (value: typeof diagnostic) => void }) {
+      deploymentContract(options: { onCloudDiagnostic: (value: typeof diagnostic) => void }) {
         options.onCloudDiagnostic(diagnostic);
         if (!allowUnsupportedConfig) throw new Error('Unsupported configuration');
         return contract;
       },
     });
-    const build = buildDeploymentCommand('analytics/api.ts', {
-      output: 'dist/deployment.json', allowUnsupportedConfig,
-    });
+    const build = buildDeploymentCommand('analytics/api.ts', { allowUnsupportedConfig });
     if (allowUnsupportedConfig) {
       await build;
       expect(logger.warn).toHaveBeenCalledWith('HQ_CLOUD_UNSUPPORTED_CONFIG (middleware)');
@@ -161,7 +129,7 @@ describe('deployment commands', () => {
       remedy: 'Express it as a dataset query.',
     };
     mockLoadApiModule.mockResolvedValue({
-      datasetOnlyContract(options: { onCloudDiagnostic: (value: typeof diagnostic) => void }) {
+      deploymentContract(options: { onCloudDiagnostic: (value: typeof diagnostic) => void }) {
         options.onCloudDiagnostic(diagnostic);
         return contract;
       },
@@ -173,9 +141,9 @@ describe('deployment commands', () => {
     expect(logger.indent).toHaveBeenCalledWith(diagnostic.message);
   });
 
-  it('writes a dataset-only bundle with no runtime artifacts by default', async () => {
-    const datasetOnlyContract = vi.fn(() => contract);
-    mockLoadApiModule.mockResolvedValue({ datasetOnlyContract });
+  it('writes a deployment bundle with no runtime artifacts by default', async () => {
+    const deploymentContract = vi.fn(() => contract);
+    mockLoadApiModule.mockResolvedValue({ deploymentContract });
 
     await buildDeploymentCommand('analytics/api.ts');
 
@@ -188,7 +156,7 @@ describe('deployment commands', () => {
   });
 
   it('can explicitly omit project source from a bundle', async () => {
-    mockLoadApiModule.mockResolvedValue({ datasetOnlyContract: vi.fn(() => contract) });
+    mockLoadApiModule.mockResolvedValue({ deploymentContract: vi.fn(() => contract) });
 
     await buildDeploymentCommand('analytics/api.ts', { source: false });
 
@@ -200,22 +168,11 @@ describe('deployment commands', () => {
     );
   });
 
-  it.each([
-    ['runtime', 'node'],
-    ['runtimeArtifact', '0'.repeat(64)],
-    ['runtimeFile', 'dist/runtime.mjs'],
-    ['runtimeOutput', 'dist/runtime.mjs'],
-    ['entrypointPrefix', 'handlers'],
-  ])('refuses the removed %s option before loading the API', async (option, value) => {
-    await expect(buildDeploymentCommand('analytics/api.ts', { [option]: value }))
-      .rejects.toThrow(/no longer supported[\s\S]*carries dataset definitions only/);
-    expect(mockLoadApiModule).not.toHaveBeenCalled();
-  });
 
-  it('requires an API with dataset-only contract support', async () => {
+  it('requires an API with deployment contract support', async () => {
     mockLoadApiModule.mockResolvedValue({ handler: vi.fn() });
     await expect(buildDeploymentCommand('analytics/api.ts')).rejects.toThrow(
-      /must provide datasetOnlyContract\(\)/,
+      /must provide deploymentContract\(\)/,
     );
   });
 
@@ -228,15 +185,15 @@ describe('deployment commands', () => {
     expect(Object.isFrozen(result)).toBe(true);
   });
 
-  it('validates a legacy v1 JSON artifact reached through a symbolic link', async () => {
-    vi.mocked(stat).mockResolvedValue({ isDirectory: () => false, isFile: () => true } as never);
-    vi.mocked(readFile).mockResolvedValue(JSON.stringify(legacyContract));
+  it('rejects deployment JSON from the unsupported contract version', async () => {
+    vi.mocked(readFile).mockResolvedValue(JSON.stringify({
+      kind: 'hypequery-deployment', version: 1, datasets: [], queries: [], artifacts: [],
+    }));
 
-    const result = await validateDeploymentCommand('dist/deployment-link.json');
-
-    expect(result).toEqual(legacyContract);
-    expect(readFile).toHaveBeenCalledWith('dist/deployment-link.json', 'utf8');
+    await expect(validateDeploymentCommand('dist/deployment.json'))
+      .rejects.toThrow(/HQ_DEPLOYMENT_UNKNOWN_FIELD|HQ_DEPLOYMENT_INVALID_VERSION/);
   });
+
 
   it('verifies a deployment bundle directory', async () => {
     vi.mocked(stat).mockResolvedValue({ isDirectory: () => true } as never);

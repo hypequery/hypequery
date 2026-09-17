@@ -5,7 +5,9 @@ import {
   toProtocolSemanticInvocationFailure,
   type DeploymentSemanticBudget,
   type DeploymentSemanticDataPlaneOptions,
+  type DeploymentSemanticAuthenticationInput,
   type DeploymentSemanticExecutionInput,
+  type DeploymentSemanticTenantInput,
 } from './semantic-data-plane.js';
 
 const REVISION = 'a'.repeat(64);
@@ -129,13 +131,13 @@ function result(rows: Record<string, unknown>[] = [{ status: 'paid' }]) {
 }
 
 function plane(overrides: Partial<DeploymentSemanticDataPlaneOptions> = {}) {
-  const execute = vi.fn(async () => result());
+  const execute = vi.fn(async (_input: DeploymentSemanticExecutionInput) => result());
   const options: DeploymentSemanticDataPlaneOptions = {
     deployment: deployment() as never,
     activationRevision: REVISION,
     authenticate: async () => ({ subject: 'u1', roles: ['analyst'], scopes: ['datasets:query'] }),
     resolveTenant: async () => 'acme',
-    execute: execute as never,
+    execute,
     ...overrides,
   };
   return { plane: createDeploymentSemanticDataPlane(options), execute };
@@ -160,7 +162,7 @@ describe('semantic data plane', () => {
     const output = await dataPlane.invoke({ invocation: invocation(DATASET_QUERY), credentials: 'token' });
 
     expect(output).toEqual(result());
-    const input = execute.mock.calls[0][0] as unknown as DeploymentSemanticExecutionInput;
+    const input = execute.mock.calls[0][0];
     expect(input.dataset.name).toBe('orders');
     expect(input.principal?.subject).toBe('u1');
     expect(input.tenant).toBe('acme');
@@ -210,18 +212,18 @@ describe('semantic data plane', () => {
       credentials: 'token',
     });
 
-    const input = execute.mock.calls[0][0] as unknown as DeploymentSemanticExecutionInput;
+    const input = execute.mock.calls[0][0];
     expect(input.tenant).toBe('acme');
   });
 
   it('gives each principal only its own resolved tenant', async () => {
-    const resolveTenant = vi.fn(async ({ principal }) => (
+    const resolveTenant = vi.fn(async ({ principal }: DeploymentSemanticTenantInput) => (
       principal?.subject === 'u1' ? 'acme' : 'globex'
     ));
     const tenants: unknown[] = [];
     const { plane: dataPlane } = plane({
       resolveTenant: resolveTenant as never,
-      authenticate: (async ({ credentials }) => ({
+      authenticate: (async ({ credentials }: DeploymentSemanticAuthenticationInput) => ({
         subject: credentials === 'token-a' ? 'u1' : 'u2',
         roles: ['analyst'],
         scopes: ['datasets:query'],
@@ -443,7 +445,7 @@ describe('semantic data plane', () => {
     await dataPlane.invoke({ invocation: invocation(DATASET_QUERY), credentials: 'token' });
 
     // endpoint.maxLimit is 500, below the dataset's 1000 and the server's 2000.
-    const input = execute.mock.calls[0][0] as unknown as DeploymentSemanticExecutionInput;
+    const input = execute.mock.calls[0][0];
     expect(input.budget.maxRows).toBe(500);
   });
 
@@ -482,7 +484,7 @@ describe('semantic data plane', () => {
       invocation: invocation(DATASET_QUERY, { budget: { maxRows: 10 } }),
       credentials: 'token',
     });
-    expect((execute.mock.calls[0][0] as unknown as DeploymentSemanticExecutionInput).budget.maxRows)
+    expect(execute.mock.calls[0][0].budget.maxRows)
       .toBe(10);
 
     const { plane: widened, execute: widenedExecute } = plane();

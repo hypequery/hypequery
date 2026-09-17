@@ -72,10 +72,8 @@ async function* chunks(bytes: Uint8Array, size = 17): AsyncGenerator<Uint8Array>
 function deployment() {
   return {
     kind: 'hypequery-deployment' as const,
-    version: 1 as const,
+    version: 2 as const,
     datasets: [],
-    queries: [],
-    artifacts: [],
   };
 }
 

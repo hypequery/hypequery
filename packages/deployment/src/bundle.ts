@@ -8,12 +8,8 @@ import {
 import path from 'node:path';
 import {
   DEFAULT_PROTOCOL_DEPLOYMENT_BUNDLE_LIMITS,
-  prepareProtocolDatasetOnlyContract,
   prepareProtocolDeploymentBundleManifest,
   prepareProtocolDeploymentContract,
-  projectLegacyProtocolDeploymentContract,
-  type ProtocolDatasetOnlyContract,
-  type ProtocolDeploymentBundleArtifact,
   type ProtocolDeploymentBundleManifest,
   type ProtocolDeploymentContract,
 } from '@hypequery/protocol';
@@ -25,19 +21,7 @@ export interface VerifiedDeploymentBundle {
   readonly directory: string;
   readonly manifest: ProtocolDeploymentBundleManifest;
   readonly identity: string;
-  /**
-   * The contract exactly as the bundle stores it. A bundle built before the
-   * dataset-only wire is still a v1 contract and still verifies; reading it as
-   * one is what keeps its identity reproducible.
-   */
-  readonly contract: ProtocolDeploymentContract | ProtocolDatasetOnlyContract;
-  /**
-   * The same deployment as datasets alone, projected once here so no consumer
-   * has to decide per call site what a stored v1 release means. Named queries,
-   * standalone metrics, and runtime artifacts are dropped by the projection and
-   * are never executable from this value.
-   */
-  readonly datasets: ProtocolDatasetOnlyContract;
+  readonly contract: ProtocolDeploymentContract;
 }
 
 const utf8Decoder = new TextDecoder('utf-8', { fatal: true });
@@ -165,86 +149,6 @@ function verifyFile(
   }
 }
 
-function requireClosedContractArtifactSet(contract: ProtocolDeploymentContract): void {
-  const referenced = new Map<string, 'node' | 'python'>();
-  for (const query of contract.queries) {
-    if (query.implementation.kind === 'runtime-reference') {
-      referenced.set(query.implementation.artifactSha256, query.implementation.runtime);
-    }
-  }
-  if (referenced.size !== contract.artifacts.length) {
-    throw new Error('Deployment contract contains missing or unreferenced runtime artifacts.');
-  }
-  for (const artifact of contract.artifacts) {
-    if (referenced.get(artifact.artifactSha256) !== artifact.runtime) {
-      throw new Error(
-        `Deployment runtime artifact ${artifact.artifactSha256} is not referenced by a named query.`,
-      );
-    }
-  }
-}
-
-interface PreparedBundleContract {
-  readonly contract: ProtocolDeploymentContract | ProtocolDatasetOnlyContract;
-  readonly identity: string;
-  readonly datasets: ProtocolDatasetOnlyContract;
-}
-
-/**
- * Reads the bundle's contract at the version it was written at.
- *
- * Anything other than a well-formed v2 falls through to the v1 validator, so an
- * unknown version is reported by the protocol's own version error rather than
- * being silently treated as dataset-only.
- */
-function prepareBundleContract(input: unknown): PreparedBundleContract {
-  const version = typeof input === 'object' && input !== null
-    ? (input as { readonly version?: unknown }).version
-    : undefined;
-  if (version === 2) {
-    const prepared = prepareProtocolDatasetOnlyContract(input);
-    return {
-      contract: prepared.contract,
-      identity: prepared.identity,
-      datasets: prepared.contract,
-    };
-  }
-  const prepared = prepareProtocolDeploymentContract(input);
-  return {
-    contract: prepared.contract,
-    identity: prepared.identity,
-    datasets: projectLegacyProtocolDeploymentContract(prepared.contract),
-  };
-}
-
-function verifyRuntimeReferences(
-  contract: ProtocolDeploymentContract | ProtocolDatasetOnlyContract,
-  artifacts: readonly ProtocolDeploymentBundleArtifact[],
-): void {
-  if (contract.version === 2) {
-    // The v2 contract has no field that could reference an artifact, so bytes in
-    // the bundle would be unreachable code shipped to Cloud.
-    if (artifacts.length > 0) {
-      throw new Error('A dataset-only deployment bundle cannot contain runtime artifacts.');
-    }
-    return;
-  }
-  requireClosedContractArtifactSet(contract);
-  const declared = new Map(
-    contract.artifacts.map(artifact => [artifact.artifactSha256, artifact.runtime]),
-  );
-  if (declared.size !== artifacts.length) {
-    throw new Error('Bundle runtime artifacts do not match the deployment contract.');
-  }
-  for (const artifact of artifacts) {
-    if (declared.get(artifact.sha256) !== artifact.runtime) {
-      throw new Error(
-        `Bundle artifact ${artifact.sha256} does not match a deployment runtime reference.`,
-      );
-    }
-  }
-}
-
 export async function verifyDeploymentBundle(
   bundleDirectory: string,
 ): Promise<VerifiedDeploymentBundle> {
@@ -264,6 +168,9 @@ export async function verifyDeploymentBundle(
     );
   }
   const preparedManifest = prepareProtocolDeploymentBundleManifest(input);
+  if (preparedManifest.manifest.artifacts.length > 0) {
+    throw new Error('A deployment bundle cannot contain runtime artifacts.');
+  }
   const expectedManifestBytes = utf8Encoder.encode(`${preparedManifest.canonical}\n`);
   if (!Buffer.from(manifestBytes).equals(Buffer.from(expectedManifestBytes))) {
     throw new Error('Deployment bundle manifest must contain canonical JSON followed by one newline.');
@@ -286,19 +193,11 @@ export async function verifyDeploymentBundle(
       + (error instanceof Error ? error.message : String(error)),
     );
   }
-  const preparedContract = prepareBundleContract(contractInput);
+  const preparedContract = prepareProtocolDeploymentContract(contractInput);
   if (preparedContract.identity !== deployment.identity) {
     throw new Error('Deployment identity does not match the bundle manifest.');
   }
 
-  for (const artifact of preparedManifest.manifest.artifacts) {
-    const bytes = await readBoundedRegularFile(
-      root,
-      artifact.path,
-      DEFAULT_PROTOCOL_DEPLOYMENT_BUNDLE_LIMITS.maxArtifactBytes,
-    );
-    verifyFile(bytes, artifact);
-  }
   const source = preparedManifest.manifest.source;
   if (source) {
     for (const file of source.files) {
@@ -312,12 +211,10 @@ export async function verifyDeploymentBundle(
       verifyFile(bytes, { ...file, path: bundlePath });
     }
   }
-  verifyRuntimeReferences(preparedContract.contract, preparedManifest.manifest.artifacts);
   return Object.freeze({
     directory: root,
     manifest: preparedManifest.manifest,
     identity: preparedManifest.identity,
     contract: preparedContract.contract,
-    datasets: preparedContract.datasets,
   });
 }

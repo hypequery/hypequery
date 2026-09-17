@@ -38,7 +38,7 @@ export type CloudCompatibilityCode =
 /**
  * Which endpoints the deployment being analyzed will actually carry.
  *
- * `datasets` is the dataset-only wire. Restricting the analysis is not cosmetic:
+ * `datasets` is the deployment wire. Restricting the analysis is not cosmetic:
  * most findings here are blocking errors, and a named query or standalone metric
  * that never leaves the developer's machine cannot misbehave in Cloud. Analyzing
  * one anyway would refuse a deployment over an endpoint that is not in it.
@@ -274,7 +274,7 @@ export function analyzeCloudCompatibility(
 }
 
 /**
- * Reports the declarations a dataset-only deployment leaves behind.
+ * Reports declarations that stay local when building a deployment.
  *
  * Named queries and standalone metrics keep working locally and under Serve;
  * the Cloud wire simply has no route that carries them, so a deployed app

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
 import { dataset, dimension, measure } from '@hypequery/datasets';
 import {
-  buildProtocolDatasetOnlyDeploymentContract,
+  buildProtocolDeploymentContract,
   createAPI,
   ProtocolSchemaAdapterError,
   zodToProtocolSchema,
@@ -14,7 +14,7 @@ import type { CloudCompatibilityDiagnostic } from './cloud-compatibility.js';
 const stubQueryBuilder = (() => ({})) as unknown as QueryBuilderFactoryInput;
 
 describe('Serve protocol adapter', () => {
-  it('exposes dataset-only contract generation on created APIs', () => {
+  it('exposes deployment contract generation on created APIs', () => {
     const Orders = dataset('orders', {
       source: 'orders',
       dimensions: { id: dimension.string() },
@@ -31,7 +31,7 @@ describe('Serve protocol adapter', () => {
       },
     });
 
-    const contract = api.datasetOnlyContract();
+    const contract = api.deploymentContract();
 
     expect(contract.version).toBe(2);
     expect(contract.datasets.map(entry => entry.name)).toEqual(['orders']);
@@ -45,7 +45,7 @@ describe('Serve protocol adapter', () => {
       tenantKey: 'tenant_id',
       dimensions: { id: dimension.string() },
     });
-    const contract = buildProtocolDatasetOnlyDeploymentContract({
+    const contract = buildProtocolDeploymentContract({
       basePath: '/analytics',
       tenant: {
         extract: auth => auth.tenantId,
@@ -89,7 +89,7 @@ describe('Serve protocol adapter', () => {
       measures: { count: measure.count('id') },
     });
     const diagnostics: CloudCompatibilityDiagnostic[] = [];
-    buildProtocolDatasetOnlyDeploymentContract({
+    buildProtocolDeploymentContract({
       datasets: { orders: Orders },
       metrics: { shipped: { metric: Shipments.metric('shipped', { measure: 'count' }) } },
       queries: {
@@ -124,7 +124,7 @@ describe('Serve protocol adapter', () => {
       measures: { count: measure.count('id') },
     });
 
-    expect(() => buildProtocolDatasetOnlyDeploymentContract({
+    expect(() => buildProtocolDeploymentContract({
       tenant: { extract: auth => auth.tenantId, required: true, column: 'tenant_id' },
       datasets: { orders: Orders },
       metrics: { legacy: { metric: Legacy.metric('legacy', { measure: 'count' }) } },
@@ -141,7 +141,7 @@ describe('Serve protocol adapter', () => {
       source: 'orders',
       dimensions: { id: dimension.string() },
     });
-    const contract = buildProtocolDatasetOnlyDeploymentContract({
+    const contract = buildProtocolDeploymentContract({
       datasets: {
         orders: { dataset: Orders, auth: null, requiredRoles: ['admin'] },
       },
@@ -159,7 +159,7 @@ describe('Serve protocol adapter', () => {
       source: 'orders',
       dimensions: { id: dimension.string() },
     });
-    const contract = buildProtocolDatasetOnlyDeploymentContract({
+    const contract = buildProtocolDeploymentContract({
       auth: async () => ({ userId: 'user_1' }),
       datasets: {
         orders: { dataset: Orders, auth: null },
@@ -179,7 +179,7 @@ describe('Serve protocol adapter', () => {
       dimensions: { id: dimension.string() },
       measures: { count: measure.count('id') },
     });
-    const contract = buildProtocolDatasetOnlyDeploymentContract({
+    const contract = buildProtocolDeploymentContract({
       auth: async () => ({ userId: 'user_1' }),
       datasets: {
         orders: { dataset: Orders, requiresAuth: false },

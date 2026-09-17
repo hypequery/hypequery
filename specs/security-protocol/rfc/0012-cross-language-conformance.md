@@ -180,7 +180,7 @@ name crosses the wire.
 | query-implementations-v1 | `surface: "sql-expression"` → SQL expression validation; otherwise query implementation validation | none |
 | query-events-v1 | query event validation | none |
 | query-diagnostics-v1 | query diagnostics validation | none |
-| deployments-v1 | validation; `identity` role → canonical encode and identity hash | identity: `canonical`, `sha256` |
+| deployments-v2 | validation; `identity` role → canonical encode and identity hash | identity: `canonical`, `sha256` |
 | deployment-bundles-v1 | validation; `identity` role → canonical encode and identity hash | identity: `canonical`, `sha256` |
 | deployment-releases-v1 | validation; `identity` role → canonical encode and identity hash | identity: `canonical`, `sha256` |
 | sql-portability-v1 | compile the `sql` source | `expression`, `dependencies` |
