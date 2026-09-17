@@ -50,6 +50,10 @@ export interface RecordShapedDataset extends SemanticMetadata {
     readonly label?: string;
     readonly description?: string;
   }>>;
+  readonly derivedMeasures?: Readonly<Record<string, SemanticMetadata & {
+    readonly label?: string;
+    readonly description?: string;
+  }>>;
   readonly metrics: Readonly<Record<string, SemanticMetadata & {
     readonly label?: string;
     readonly description?: string;
@@ -157,7 +161,7 @@ export function recordDatasetToAgentDataset(dataset: RecordShapedDataset): Agent
       : null,
     dimensions,
     measures: sortedByName(
-      Object.entries(dataset.measures).map(([name, measure]) => ({
+      [...Object.entries(dataset.measures), ...Object.entries(dataset.derivedMeasures ?? {})].map(([name, measure]) => ({
         name,
         ...optionalText(measure),
         ...snapshotSemanticMetadata(measure),

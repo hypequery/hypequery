@@ -14,29 +14,18 @@ import {
 } from './query-planner.js';
 import { type ValidationResult } from './validation.js';
 import { validateDatasetQueryInput } from './utils/dataset-query-validation.js';
-import {
-  getRuntimeTenantId,
-  getRuntimeTenantPredicate,
-} from './utils/tenant-runtime.js';
-import { applyPagination, overfetchLimit } from './utils/pagination.js';
+import { getRuntimeTenantPredicate } from './utils/tenant-runtime.js';
+import { overfetchLimit } from './utils/pagination.js';
 import {
   applyRelationshipJoins,
   buildRelationshipBuilderContext,
   qualifyBaseColumn,
 } from './utils/relationship-builder-plan.js';
-import { serializeSemanticMeasureValues } from './utils/semantic-result-serialization.js';
-
-function toResultMeta(
-  qb: QueryBuilderLike,
-  timingMs: number,
-  context?: ExecutionContext,
-) {
-  return {
-    sql: qb.toSQLWithParams().sql,
-    timingMs,
-    tenant: getRuntimeTenantId(context),
-  };
-}
+import {
+  hasSelectedDerivedMeasure,
+  runDerivedDatasetQuery,
+} from './utils/dataset-derived-query.js';
+import { toDatasetQueryResult } from './utils/dataset-query-result.js';
 
 export interface DatasetQueryExecutionOptions {
   builderFactory: QueryBuilderFactoryLike;
@@ -46,6 +35,8 @@ export interface DatasetQueryExecutionOptions {
    * `query.limit`). Used to over-fetch one row for pagination's `hasMore`.
    */
   executionLimit?: number;
+  /** Internal: the grouped subquery is unordered; the derived outer query orders results. */
+  skipDefaultOrderBy?: boolean;
 }
 
 export function validateDatasetQuery(
@@ -61,6 +52,9 @@ export function buildDatasetQueryBuilder(
   query: DatasetQuery,
   options: DatasetQueryExecutionOptions,
 ): QueryBuilderLike {
+  if (hasSelectedDerivedMeasure(ds, query)) {
+    throw new Error('A derived dataset query needs the outer SQL projection; use createDatasetClient().toSQL().');
+  }
   const validation = validateDatasetQuery(ds, query, options.context);
   if (!validation.valid) {
     throw new Error(`Invalid dataset query: ${validation.errors.join('; ')}`);
@@ -99,7 +93,7 @@ export function buildDatasetQueryBuilder(
   return appendOrderLimitOffset(
     qb,
     query.orderBy,
-    query.by,
+    options.skipDefaultOrderBy ? undefined : query.by,
     options.executionLimit ?? query.limit,
     query.offset,
     joinCtx,
@@ -111,6 +105,10 @@ export async function runDatasetQuery(
   query: DatasetQuery,
   options: DatasetQueryExecutionOptions,
 ): Promise<DatasetQueryResult> {
+  if (hasSelectedDerivedMeasure(ds, query)) {
+    return runDerivedDatasetQuery(ds, query, options, buildDatasetQueryBuilder);
+  }
+
   const start = Date.now();
   // Over-fetch one row so we can report `hasMore` without a count query.
   const qb = buildDatasetQueryBuilder(ds, query, {
@@ -118,17 +116,11 @@ export async function runDatasetQuery(
     executionLimit: overfetchLimit(query.limit),
   });
   const rows = await qb.execute({ abortSignal: options.context?.abortSignal });
-  const { data, pagination } = applyPagination(rows, query.limit, query.offset);
-  const serializedData = serializeSemanticMeasureValues(
-    data,
-    query.measures ?? Object.keys(ds.measures),
-  );
-  return {
-    data: serializedData,
-    meta: {
-      ...toResultMeta(qb, Date.now() - start, options.context),
-      rowCount: serializedData.length,
-      pagination,
-    },
-  };
+  return toDatasetQueryResult(rows, {
+    dataset: ds,
+    query,
+    sql: qb.toSQLWithParams().sql,
+    timingMs: Date.now() - start,
+    context: options.context,
+  });
 }

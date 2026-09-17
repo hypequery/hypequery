@@ -15,6 +15,8 @@ import type {
   DatasetClient,
   DatasetQuery,
   DatasetQueryResult,
+  DatasetMeasureNames,
+  DatasetRowFor,
   DerivedMetricConfig,
   DerivedMetricRef,
   ExecutionContext,
@@ -77,6 +79,12 @@ dataset('derivedDependency', {
     quadrupled: measure.derived({ uses: { value: 'doubled' }, formula: ({ value }) => add(value, value) }),
   },
 });
+type _DerivedMeasureIsQueryable = Assert<
+  Equal<DatasetMeasureNames<typeof Orders>, 'revenue' | 'completedRevenue' | 'doubledRevenue'>
+>;
+type _UnselectedDerivedMeasureIsNotInDefaultResult = Assert<
+  Equal<HasKey<DatasetRowFor<typeof Orders, {}>, 'doubledRevenue'>, false>
+>;
 
 dataset('invalidDependency', {
   source: 'orders',

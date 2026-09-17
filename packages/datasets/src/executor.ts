@@ -61,6 +61,10 @@ import {
   type DatasetQueryExecutionOptions,
 } from './dataset-query.js';
 import {
+  buildDerivedDatasetSql,
+  hasSelectedDerivedMeasure,
+} from './utils/dataset-derived-query.js';
+import {
   buildDatasetPlan,
   buildMetricPlan,
 } from './semantic-planner.js';
@@ -924,6 +928,9 @@ export class DatasetClientImpl extends MetricQueryEngine implements DatasetClien
 
     const run = (): Promise<DatasetQueryResult<TRow>> => {
       if (this.backend) {
+        if (hasSelectedDerivedMeasure(ds, boundedQuery)) {
+          throw new Error('Derived dataset measures require the queryBuilder execution path.');
+        }
         return (this.backend.execute<TRow>(
           this.planDataset(ds, boundedQuery, context),
           { abortSignal: context?.abortSignal },
@@ -978,8 +985,14 @@ export class DatasetClientImpl extends MetricQueryEngine implements DatasetClien
     query: DatasetQuery,
     context?: ExecutionContext,
   ): string {
+    const builderFactory = resolveBuilderFactory(context, this.getBuilderFactory());
+    if (hasSelectedDerivedMeasure(ds, query)) {
+      return buildDerivedDatasetSql(
+        ds, query, { builderFactory, context }, buildDatasetQueryBuilder,
+      ).sql;
+    }
     const builder = buildDatasetQueryBuilder(ds, query, {
-      builderFactory: resolveBuilderFactory(context, this.getBuilderFactory()),
+      builderFactory,
       context,
     });
     return builder.toSQLWithParams().sql;
