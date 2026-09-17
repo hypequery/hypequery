@@ -123,6 +123,53 @@ export interface MeasureDefinition extends SemanticMetadata {
   filters?: MetricFilter[];
 }
 
+export type DerivedMeasureUses<TMeasureName extends string = string> =
+  Readonly<Record<string, TMeasureName>>;
+
+export interface DerivedMeasureOptions<
+  TUses extends DerivedMeasureUses = DerivedMeasureUses,
+> extends SemanticMetadata {
+  uses: TUses;
+  formula: (inputs: { readonly [Alias in keyof TUses]: string }) => FormulaExpr;
+  label?: string;
+  description?: string;
+}
+
+export interface DerivedMeasureDefinition<
+  TUses extends DerivedMeasureUses = DerivedMeasureUses,
+> extends SemanticMetadata {
+  __type: 'derived_measure_definition';
+  uses: TUses;
+  formula: {
+    invoke(inputs: { readonly [Alias in keyof TUses]: string }): FormulaExpr;
+  }['invoke'];
+  label?: string;
+  description?: string;
+}
+
+export type DatasetMeasureDefinition = MeasureDefinition | DerivedMeasureDefinition;
+
+/** Only aggregate measures may be inputs to derived measures and standalone metrics. */
+export type BaseMeasureNames<TMeasures> = {
+  [Name in keyof TMeasures]: Extract<TMeasures[Name], MeasureDefinition> extends never ? never : Name;
+}[keyof TMeasures] & string;
+
+export type BaseMeasures<TMeasures> = {
+  [Name in keyof TMeasures as TMeasures[Name] extends MeasureDefinition ? Name : never]:
+    Extract<TMeasures[Name], MeasureDefinition>;
+};
+
+export type DerivedMeasures<TMeasures> = {
+  [Name in keyof TMeasures as TMeasures[Name] extends DerivedMeasureDefinition ? Name : never]:
+    Extract<TMeasures[Name], DerivedMeasureDefinition>;
+};
+
+type CheckedDatasetMeasures<TMeasures> = {
+  [Name in keyof TMeasures]: TMeasures[Name] extends DerivedMeasureDefinition<infer TUses>
+    ? TMeasures[Name] & { readonly uses: { readonly [Alias in keyof TUses]: BaseMeasureNames<TMeasures> } }
+    : TMeasures[Name];
+};
+
 export type FormulaExpr = {
   __type: 'formula_expr';
   expression: SemanticExpression;
@@ -386,7 +433,7 @@ export interface DerivedMetricConfig<TDatasetName extends string = string> exten
 
 export interface DatasetConfig<
   TDimensions extends Record<string, DimensionDefinition> = Record<string, DimensionDefinition>,
-  TMeasures extends Record<string, MeasureDefinition> = Record<string, MeasureDefinition>,
+  TMeasures extends Record<string, DatasetMeasureDefinition> = Record<string, MeasureDefinition>,
   TRelationships extends Record<string, RelationshipDefinition> = Record<string, never>,
 > extends SemanticMetadata {
   source: string;
@@ -397,7 +444,7 @@ export interface DatasetConfig<
   tenantKey?: string;
   timeKey?: string;
   dimensions: TDimensions;
-  measures?: TMeasures;
+  measures?: TMeasures & CheckedDatasetMeasures<TMeasures>;
   filters?: SemanticFiltersDefinition;
   relationships?: TRelationships;
   limits?: DatasetLimits;
@@ -409,6 +456,7 @@ export interface DatasetInstance<
   TMeasures extends Record<string, MeasureDefinition> = Record<string, MeasureDefinition>,
   TRelationships extends Record<string, RelationshipDefinition> = Record<string, never>,
   TDatasetName extends string = string,
+  TDerivedMeasures extends Record<string, DerivedMeasureDefinition> = Record<string, DerivedMeasureDefinition>,
 > {
   __type: 'dataset';
   name: TDatasetName;
@@ -428,6 +476,7 @@ export interface DatasetInstance<
   timeKey?: string;
   dimensions: TDimensions;
   measures: TMeasures;
+  derivedMeasures: TDerivedMeasures;
   filters: SemanticFiltersDefinition;
   relationships: TRelationships;
   limits?: DatasetLimits;
@@ -435,11 +484,11 @@ export interface DatasetInstance<
   metric<TName extends string>(
     metricName: TName,
     metricConfig: BaseMetricConfig<TMeasures>,
-  ): BaseMetricRef<TDatasetName, TName, DatasetInstance<TDimensions, TMeasures, TRelationships, TDatasetName>>;
+  ): BaseMetricRef<TDatasetName, TName, DatasetInstance<TDimensions, TMeasures, TRelationships, TDatasetName, TDerivedMeasures>>;
   metric<TName extends string>(
     metricName: TName,
     metricConfig: DerivedMetricConfig<TDatasetName>,
-  ): DerivedMetricRef<TDatasetName, TName, DatasetInstance<TDimensions, TMeasures, TRelationships, TDatasetName>>;
+  ): DerivedMetricRef<TDatasetName, TName, DatasetInstance<TDimensions, TMeasures, TRelationships, TDatasetName, TDerivedMeasures>>;
 }
 
 export interface DatasetRegistryInstance {

@@ -38,6 +38,10 @@ const Orders = dataset('orders', {
     highValueRevenue: measure.sum('total', {
       filters: [gt('total', 20)],
     }),
+    revenuePerOrder: measure.derived({
+      uses: { revenue: 'revenue', orders: 'orderCount' },
+      formula: ({ revenue, orders }) => divide(revenue, nullIfZero(orders)),
+    }),
   },
 });
 
@@ -138,6 +142,16 @@ function joinedUserNames(rows: Array<Record<string, unknown>>): Set<unknown> {
 }
 
 describe('datasets ClickHouse integration', () => {
+  it('retains dataset-owned derived definitions while base measures execute against ClickHouse', async () => {
+    expect(Orders.derivedMeasures.revenuePerOrder.uses).toEqual({
+      revenue: 'revenue', orders: 'orderCount',
+    });
+    const result = await createClient().execute(Orders, {
+      measures: ['revenue', 'orderCount'],
+    });
+    expect(result.data).toEqual([{ revenue: '144.75', orderCount: '5' }]);
+  });
+
   it('executes a dataset query with dimensions, filters, measures, ordering, and pagination', async () => {
     const analytics = createClient();
 

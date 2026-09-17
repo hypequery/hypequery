@@ -1,4 +1,11 @@
-import type { MeasureDefinition, MeasureOptions, MeasureAggregation } from './types.js';
+import type {
+  DerivedMeasureDefinition,
+  DerivedMeasureOptions,
+  DerivedMeasureUses,
+  MeasureDefinition,
+  MeasureOptions,
+  MeasureAggregation,
+} from './types.js';
 import { snapshotSemanticMetadata } from './utils/semantic-metadata.js';
 
 function createMeasureHelper(aggregation: MeasureAggregation) {
@@ -56,6 +63,19 @@ function createPercentileMeasure(field: string, level: number, opts?: MeasureOpt
   };
 }
 
+function createDerivedMeasure<const TUses extends DerivedMeasureUses>(
+  options: DerivedMeasureOptions<TUses>,
+): DerivedMeasureDefinition<TUses> {
+  return {
+    __type: 'derived_measure_definition',
+    uses: { ...options.uses },
+    formula: options.formula,
+    label: options.label,
+    description: options.description,
+    ...snapshotSemanticMetadata(options),
+  };
+}
+
 export const measure = {
   sum: createMeasureHelper('sum'),
   count: createMeasureHelper('count'),
@@ -81,4 +101,6 @@ export const measure = {
   stddev: createMeasureHelper('stddev'),
   /** Sample variance (ClickHouse `varSamp`). */
   variance: createMeasureHelper('variance'),
+  /** A formula over base measures owned by this dataset. */
+  derived: createDerivedMeasure,
 } as const;

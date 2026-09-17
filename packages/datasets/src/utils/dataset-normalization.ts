@@ -1,13 +1,14 @@
 import type {
   AggregationSpec,
   DatasetConfig,
+  DatasetMeasureDefinition,
   DimensionDefinition,
   MeasureDefinition,
   RelationshipDefinition,
   SemanticFiltersDefinition,
 } from '../types.js';
 
-type AnyMeasures = Record<string, MeasureDefinition>;
+type AnyMeasures = Record<string, DatasetMeasureDefinition>;
 type AnyRelationships = Record<string, RelationshipDefinition>;
 
 export function normalizeDimensions<TDimensions extends Record<string, DimensionDefinition>>(
@@ -37,7 +38,7 @@ export function normalizeFilters(
   );
 }
 
-export function normalizeMeasures<TMeasures extends Record<string, MeasureDefinition>>(
+export function normalizeMeasures<TMeasures extends Record<string, DatasetMeasureDefinition>>(
   measures: TMeasures | undefined,
 ): TMeasures {
   return (measures ?? {}) as TMeasures;

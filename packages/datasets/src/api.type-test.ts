@@ -51,6 +51,59 @@ const Orders = dataset('orders', {
     completedRevenue: measure.sum('amount', {
       filters: [eq('status', 'completed')],
     }),
+    doubledRevenue: measure.derived({
+      uses: { revenue: 'revenue' },
+      formula: ({ revenue }) => add(revenue, revenue),
+    }),
+  },
+});
+
+type _DerivedFormulaInputAliasesAreTyped = Assert<
+  Equal<keyof Parameters<typeof Orders.derivedMeasures.doubledRevenue.formula>[0], 'revenue'>
+>;
+type _BaseMeasureNamesRemainTyped = Assert<
+  Equal<keyof typeof Orders.measures, 'revenue' | 'completedRevenue'>
+>;
+// @ts-expect-error standalone metrics may only target base measures.
+Orders.metric('invalidDerivedMetric', { measure: 'doubledRevenue' });
+
+dataset('derivedDependency', {
+  source: 'orders',
+  dimensions: { amount: dimension.number() },
+  measures: {
+    revenue: measure.sum('amount'),
+    doubled: measure.derived({ uses: { value: 'revenue' }, formula: ({ value }) => add(value, value) }),
+    // @ts-expect-error v1 derived inputs cannot depend on another derived measure.
+    quadrupled: measure.derived({ uses: { value: 'doubled' }, formula: ({ value }) => add(value, value) }),
+  },
+});
+
+dataset('invalidDependency', {
+  source: 'orders',
+  dimensions: { amount: dimension.number() },
+  measures: {
+    revenue: measure.sum('amount'),
+    // @ts-expect-error derived inputs must name a base measure on this dataset.
+    typo: measure.derived({ uses: { value: 'reveneu' }, formula: ({ value }) => add(value, value) }),
+  },
+});
+
+dataset('crossDatasetDependency', {
+  source: 'orders',
+  dimensions: { amount: dimension.number() },
+  measures: {
+    revenue: measure.sum('amount'),
+    // @ts-expect-error qualified references cannot name measures from another dataset.
+    foreign: measure.derived({ uses: { value: 'other.revenue' }, formula: ({ value }) => add(value, value) }),
+  },
+});
+
+dataset('missingBaseMeasures', {
+  source: 'orders',
+  dimensions: { amount: dimension.number() },
+  measures: {
+    // @ts-expect-error a dataset without base measures cannot define a derived input.
+    invalid: measure.derived({ uses: { value: 'revenue' }, formula: ({ value }) => add(value, value) }),
   },
 });
 
