@@ -30,18 +30,6 @@ import {
   hasSelectedDerivedMeasure,
 } from './utils/dataset-derived-query.js';
 
-function toResultMeta(
-  qb: QueryBuilderLike,
-  timingMs: number,
-  context?: ExecutionContext,
-) {
-  return {
-    sql: qb.toSQLWithParams().sql,
-    timingMs,
-    tenant: getRuntimeTenantId(context),
-  };
-}
-
 export interface DatasetQueryExecutionOptions {
   builderFactory: QueryBuilderFactoryLike;
   context?: ExecutionContext;
@@ -122,42 +110,31 @@ export async function runDatasetQuery(
 ): Promise<DatasetQueryResult> {
   const start = Date.now();
   const selectedMeasures = query.measures ?? Object.keys(ds.measures);
+  const executionOptions = { ...options, executionLimit: overfetchLimit(query.limit) };
+  let rows: Record<string, unknown>[];
+  let sql: string;
+
   if (hasSelectedDerivedMeasure(ds, query)) {
-    const { sql, parameters } = buildDerivedDatasetSql(ds, query, {
-      ...options,
-      executionLimit: overfetchLimit(query.limit),
-    }, buildDatasetQueryBuilder);
-    const rows = await options.builderFactory.rawQuery<Record<string, unknown>>(
-      sql, parameters, { abortSignal: options.context?.abortSignal },
+    const derivedQuery = buildDerivedDatasetSql(ds, query, executionOptions, buildDatasetQueryBuilder);
+    sql = derivedQuery.sql;
+    rows = await options.builderFactory.rawQuery<Record<string, unknown>>(
+      sql, derivedQuery.parameters, { abortSignal: options.context?.abortSignal },
     );
-    const { data, pagination } = applyPagination(rows, query.limit, query.offset);
-    const serializedData = serializeSemanticMeasureValues(data, selectedMeasures);
-    return {
-      data: serializedData,
-      meta: {
-        sql,
-        timingMs: Date.now() - start,
-        tenant: getRuntimeTenantId(options.context),
-        rowCount: serializedData.length,
-        pagination,
-      },
-    };
+  } else {
+    // Over-fetch one row so we can report `hasMore` without a count query.
+    const qb = buildDatasetQueryBuilder(ds, query, executionOptions);
+    rows = await qb.execute({ abortSignal: options.context?.abortSignal });
+    sql = qb.toSQLWithParams().sql;
   }
-  // Over-fetch one row so we can report `hasMore` without a count query.
-  const qb = buildDatasetQueryBuilder(ds, query, {
-    ...options,
-    executionLimit: overfetchLimit(query.limit),
-  });
-  const rows = await qb.execute({ abortSignal: options.context?.abortSignal });
+
   const { data, pagination } = applyPagination(rows, query.limit, query.offset);
-  const serializedData = serializeSemanticMeasureValues(
-    data,
-    selectedMeasures,
-  );
+  const serializedData = serializeSemanticMeasureValues(data, selectedMeasures);
   return {
     data: serializedData,
     meta: {
-      ...toResultMeta(qb, Date.now() - start, options.context),
+      sql,
+      timingMs: Date.now() - start,
+      tenant: getRuntimeTenantId(options.context),
       rowCount: serializedData.length,
       pagination,
     },
