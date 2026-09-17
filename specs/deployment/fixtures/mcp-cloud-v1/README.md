@@ -4,15 +4,15 @@ This directory pins the shared input and expected discovery surface for local
 MCP, hosted MCP, and the first-party Cloud agent. It is the integration fixture
 for deployment decisions 0001 through 0004.
 
-The fixture is intentionally **non-normative**. It does not define a new public
-artifact version. A portable shape becomes normative only through the security
-protocol RFC and conformance process.
+The fixture is intentionally **non-normative** and remains for local dataset
+and metric rehydration tests. Its old envelope is not an accepted deployment
+contract. The live deployment contract is defined by security protocol RFC 0006.
 
 ## Files
 
 | File | Purpose |
 | --- | --- |
-| [`deployment.json`](./deployment.json) | Valid deployment contract v1 with one tenant-scoped orders dataset, one named metric, and one derived metric |
+| [`deployment.json`](./deployment.json) | Historical dataset and metric snapshot used by local rehydration tests; not a deployable contract |
 | [`context.json`](./context.json) | Fixed target, generation, authorized principal, and server-resolved tenant used by hosted tests |
 | [`expected-safe-catalog.json`](./expected-safe-catalog.json) | Logical agent-safe projection expected from the deployment |
 | [`expected-tools.json`](./expected-tools.json) | Deterministic MCP `tools/list` result for compatibility-tool mode |
@@ -21,16 +21,15 @@ protocol RFC and conformance process.
 
 ## Pinned identities
 
-The canonical deployment contract identity is:
+The historical fixture identity was:
 
 ```text
 94ff668005c4a9496ad27dd9faddb896261001d1607278dfe8d713f7008af51e
 ```
 
-It is SHA-256 over the deployment v1 identity domain followed by the RFC 8785
-canonical bytes, as defined by security protocol RFC 0006. The activation,
-release, and bundle identities in `context.json` are recognizable fixed fixture
-values rather than identities of a complete release bundle.
+It was calculated using the retired envelope. The activation, release, and
+bundle identities in `context.json` are fixed fixture values rather than
+identities of a current release bundle.
 
 ## Expected behavior
 
@@ -66,8 +65,8 @@ The safe catalog and tool manifest must not expose:
   grouped, filtered, and grained by.
 
 The generic dataset description in the expected safe catalog is a deterministic
-fallback because deployment contract v1 does not yet carry dataset-level
-description. Later additive agent metadata may replace the fallback only through
+fallback because this historical snapshot lacks dataset-level description.
+Later additive agent metadata may replace the fallback only through
 an explicit fixture update and compatibility review.
 
 ## Data and tenant invariant
