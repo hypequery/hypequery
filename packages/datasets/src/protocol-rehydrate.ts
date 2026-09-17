@@ -354,14 +354,13 @@ export function rehydrateProtocolDatasets(
     return { base, derived };
   });
   const instances = new Map<string, AnyDatasetInstance>();
-  // Valid protocol names include "__proto__"; a plain object would lose that entry.
-  const registry: Record<string, RehydratedDataset> = Object.create(null) as Record<string, RehydratedDataset>;
+  const registry = new Map<string, RehydratedDataset>();
   // Relationship targets resolve to the published entry, not the bare instance
   // built below, so a caller that follows a relationship lands on the same
   // object the registry exposes. Safe because `target()` is only called after
   // the registry is complete.
   const resolve = (target: string): AnyDatasetInstance => {
-    const instance = registry[target] ?? instances.get(target);
+    const instance = registry.get(target) ?? instances.get(target);
     if (!instance) {
       // The deployment validator already rejects a dangling relationship, so
       // reaching this means the caller passed a partial contract.
@@ -419,13 +418,11 @@ export function rehydrateProtocolDatasets(
         }
       }
     }
-    registry[name] = Object.assign(
-      Object.create(Object.getPrototypeOf(instance) as object),
-      instance,
-      { metrics },
-    ) as RehydratedDataset;
+    const published: RehydratedDataset = { ...instance, metrics };
+    registry.set(name, published);
   }
-  return registry;
+  // Object.fromEntries defines "__proto__" as an own property, unlike assignment to {}.
+  return Object.fromEntries(registry);
 }
 
 /** Strict v2 reader that returns executable datasets without metric handles. */
