@@ -2,8 +2,8 @@ export { ProtocolQueryImplementationError } from './errors.js';
 export { DEFAULT_PROTOCOL_QUERY_IMPLEMENTATION_LIMITS } from './limits.js';
 export {
   validateProtocolQueryImplementation,
-  validateProtocolSqlExpression,
 } from './validate.js';
+export { validateProtocolSqlExpression } from '../sql-expressions/validate.js';
 export type {
   ProtocolQueryImplementation,
   ProtocolQueryImplementationErrorCode,

@@ -8,8 +8,8 @@ import {
 import {
   ProtocolQueryImplementationError,
   validateProtocolQueryImplementation,
-  validateProtocolSqlExpression,
 } from '../query-implementations/index.js';
+import { validateProtocolSqlExpression } from '../sql-expressions/validate.js';
 import {
   ProtocolSchemaError,
   validateProtocolSchema,
@@ -1102,6 +1102,9 @@ function validateDatasetDerivedMeasure(
     () => validateProtocolExpression(value.expression), `${path}.expression`,
   );
   validateFormulaGrammar(expression, `${path}.expression`);
+  if (expression.kind === 'reference') {
+    deploymentError('HQ_DEPLOYMENT_INVALID_VALUE', `${path}.expression`);
+  }
   const references = new Set<string>();
   formulaReferences(expression, references);
   if (references.size !== uses.length || uses.some(use => !references.has(use.alias as string))) {

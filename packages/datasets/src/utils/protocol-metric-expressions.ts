@@ -3,7 +3,7 @@ import {
   type CanonicalValue, type ProtocolExpression, type ProtocolMetricDerivation,
 } from '@hypequery/protocol';
 import type { SemanticExpression } from '../semantic-plan.js';
-import type { AggregationSpec, DerivedMetricSpec, MetricFilter } from '../types.js';
+import type { AggregationSpec, DerivedMeasureDefinition, DerivedMetricSpec, MetricFilter } from '../types.js';
 
 type ProtocolReferenceExpression = Extract<ProtocolExpression, { readonly kind: 'reference' }>;
 type ProtocolLiteralExpression = Extract<ProtocolExpression, { readonly kind: 'literal' }>;
@@ -104,6 +104,11 @@ function semanticExpression(
   }
 }
 
+export function derivedMeasureExpression(definition: DerivedMeasureDefinition): ProtocolExpression {
+  const aliases = Object.fromEntries(Object.keys(definition.uses).map(alias => [alias, alias]));
+  return semanticExpression(definition.formula(aliases).expression);
+}
+
 export function metricExpression(spec: AggregationSpec | DerivedMetricSpec): ProtocolExpression {
   if (spec.__type === 'aggregation_spec') return aggregationExpression(spec);
   const aliases = Object.fromEntries(Object.keys(spec.uses).map(alias => [alias, alias]));
@@ -135,4 +140,3 @@ export function metricDerivation(spec: DerivedMetricSpec): ProtocolMetricDerivat
     expression: semanticExpression(spec.formula(aliases).expression),
   };
 }
-

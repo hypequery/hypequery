@@ -26,6 +26,54 @@ measures: {
 ```
 </CodeBlock>
 
+## Derived measures
+
+Use `measure.derived` in the same `measures` object to calculate a value from
+base aggregations. Each `uses` entry maps a formula input alias to the name of
+a base measure in this dataset. The formula is symbolic, not a SQL string.
+
+<CodeBlock>
+```typescript
+import {
+  dataset, dimension, divide, measure, nullIfZero,
+} from '@hypequery/datasets';
+
+const Orders = dataset('orders', {
+  source: 'orders',
+  dimensions: { country: dimension.string() },
+  measures: {
+    revenue: measure.sum('amount'),
+    orderCount: measure.count('id'),
+    averageOrderValue: measure.derived({
+      uses: { revenue: 'revenue', orders: 'orderCount' },
+      formula: ({ revenue, orders }) =>
+        divide(revenue, nullIfZero(orders)),
+      label: 'Average Order Value',
+    }),
+  },
+});
+
+await analytics.execute(Orders, {
+  dimensions: ['country'],
+  measures: ['averageOrderValue'],
+  orderBy: [{ field: 'averageOrderValue', direction: 'desc' }],
+});
+```
+</CodeBlock>
+
+The dataset definition type-checks dependency names against its base-measure
+keys: a typo, a measure from another dataset, or a derived measure used as an
+input is rejected. Formula inputs are typed from the `uses` aliases. At
+runtime, definition validation also checks references, aliases, and cycles.
+The query aggregates `revenue` and `orderCount` first, computes
+`averageOrderValue`, then orders the result; dependencies are not returned
+unless explicitly selected. A zero order count produces `null`.
+
+Derived measures are included in dataset contracts and survive deployment
+rehydration. Existing standalone metrics remain available for local and
+self-hosted use; for new dataset-owned calculations, prefer this API. See
+[Metrics](/docs/datasets/metrics) for the older named-metric API.
+
 With that definition, callers use the semantic measure names:
 
 <CodeBlock>
