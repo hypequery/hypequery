@@ -211,14 +211,16 @@ program
 
 program
   .command('deployment:build <api>')
-  .description('Build a verified deployment bundle')
+  .description('Build a verified dataset deployment bundle')
   .option('--bundle-output <directory>', 'Bundle directory (default: analytics/hypequery-deployment)')
   .option('-o, --output <path>', 'Output JSON file (default: analytics/hypequery-deployment.json)')
-  .option('--runtime <runtime>', 'Runtime for non-portable handlers: node or python (default: node)')
-  .option('--runtime-artifact <sha256>', 'Use a prebuilt runtime artifact with this SHA-256 identity')
-  .option('--runtime-file <path>', 'Include the bytes for a prebuilt runtime artifact')
-  .option('--runtime-output <path>', 'Bundled Node runtime path (default: beside deployment JSON)')
-  .option('--entrypoint-prefix <prefix>', 'Runtime entrypoint prefix (default: queries)')
+  // Still parsed so an existing script is told what replaced these, rather than
+  // failing on an unknown option.
+  .option('--runtime <runtime>', 'No longer supported; deployments carry datasets only')
+  .option('--runtime-artifact <sha256>', 'No longer supported; deployments carry datasets only')
+  .option('--runtime-file <path>', 'No longer supported; deployments carry datasets only')
+  .option('--runtime-output <path>', 'No longer supported; deployments carry datasets only')
+  .option('--entrypoint-prefix <prefix>', 'No longer supported; deployments carry datasets only')
   .option('--hash-output <path>', 'Deployment identity sidecar path (default: <output>.sha256)')
   .option('--no-source', 'Exclude project source files from the deployment bundle')
   .option(

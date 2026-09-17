@@ -30,7 +30,24 @@ export type CloudCompatibilityCode =
   | 'HQ_CLOUD_MIDDLEWARE_DROPPED'
   | 'HQ_CLOUD_HOOKS_DROPPED'
   | 'HQ_CLOUD_CONTEXT_DROPPED'
-  | 'HQ_CLOUD_AUTH_WITHOUT_ROLES';
+  | 'HQ_CLOUD_AUTH_WITHOUT_ROLES'
+  | 'HQ_CLOUD_LOCAL_ONLY_QUERY'
+  | 'HQ_CLOUD_LOCAL_ONLY_METRIC'
+  | 'HQ_CLOUD_LOCAL_ONLY_DATASET';
+
+/**
+ * Which endpoints the deployment being analyzed will actually carry.
+ *
+ * `datasets` is the dataset-only wire. Restricting the analysis is not cosmetic:
+ * most findings here are blocking errors, and a named query or standalone metric
+ * that never leaves the developer's machine cannot misbehave in Cloud. Analyzing
+ * one anyway would refuse a deployment over an endpoint that is not in it.
+ */
+export type CloudCompatibilitySurface = 'all' | 'datasets';
+
+export interface CloudCompatibilityOptions {
+  readonly surface?: CloudCompatibilitySurface;
+}
 
 export interface CloudCompatibilityDiagnostic {
   readonly severity: CloudCompatibilitySeverity;
@@ -100,9 +117,12 @@ function isAuthenticatedWithoutRoles(
  */
 export function analyzeCloudCompatibility(
   config: ServeConfig<any, any, any, any, any>,
+  options: CloudCompatibilityOptions = {},
 ): readonly CloudCompatibilityDiagnostic[] {
   const serveConfig = config as unknown as AnyConfig;
   const diagnostics: CloudCompatibilityDiagnostic[] = [];
+  const deployed = options.surface ?? 'all';
+  const localOnlyEndpoints = deployed === 'datasets';
 
   // Semantic endpoints have no customer code in Cloud, so an unenforceable
   // tenant requirement silently becomes no isolation at all.
@@ -111,10 +131,12 @@ export function analyzeCloudCompatibility(
       label: `datasets.${name}`,
       entry,
     })),
-    ...Object.entries(serveConfig.metrics ?? {}).map(([name, entry]) => ({
-      label: `metrics.${name}`,
-      entry,
-    })),
+    ...(localOnlyEndpoints
+      ? []
+      : Object.entries(serveConfig.metrics ?? {}).map(([name, entry]) => ({
+        label: `metrics.${name}`,
+        entry,
+      }))),
   ];
 
   for (const { label, entry } of semanticTargets) {
@@ -162,7 +184,9 @@ export function analyzeCloudCompatibility(
     });
   }
 
-  const queryEntries = Object.entries(serveConfig.queries ?? {}) as [
+  const queryEntries = (localOnlyEndpoints
+    ? []
+    : Object.entries(serveConfig.queries ?? {})) as [
     string,
     { readonly middlewares?: readonly unknown[] } | undefined,
   ][];
@@ -215,14 +239,16 @@ export function analyzeCloudCompatibility(
         `datasets.${name}`,
         resolveDatasetEntry(entry as DatasetEntry<AuthContext>),
       ] as const),
-      ...Object.entries(serveConfig.metrics ?? {}).map(([name, entry]) => [
-        `metrics.${name}`,
-        resolveMetricEntry(entry as MetricEntry<AuthContext>),
-      ] as const),
-      ...Object.entries(serveConfig.queries ?? {}).map(([name, entry]) => [
-        `queries.${name}`,
-        (entry ?? {}) as Record<string, unknown>,
-      ] as const),
+      ...(localOnlyEndpoints ? [] : [
+        ...Object.entries(serveConfig.metrics ?? {}).map(([name, entry]) => [
+          `metrics.${name}`,
+          resolveMetricEntry(entry as MetricEntry<AuthContext>),
+        ] as const),
+        ...Object.entries(serveConfig.queries ?? {}).map(([name, entry]) => [
+          `queries.${name}`,
+          (entry ?? {}) as Record<string, unknown>,
+        ] as const),
+      ]),
     ];
     const undeclared = endpoints.filter(
       ([, resolved]) => isAuthenticatedWithoutRoles(resolved, serveConfig.auth),
@@ -242,6 +268,76 @@ export function analyzeCloudCompatibility(
           + 'restriction.',
       });
     }
+  }
+
+  return diagnostics;
+}
+
+/**
+ * Reports the declarations a dataset-only deployment leaves behind.
+ *
+ * Named queries and standalone metrics keep working locally and under Serve;
+ * the Cloud wire simply has no route that carries them, so a deployed app
+ * answers 404 where the local one answers rows. That difference is invisible
+ * in a successful upload, which is why it is reported at build time.
+ *
+ * `deployedDatasets` is what the contract actually carries, so a dataset that
+ * only a standalone metric reaches is named here rather than assumed present.
+ */
+export function analyzeLocalOnlyDeclarations(
+  config: ServeConfig<any, any, any, any, any>,
+  deployedDatasets: ReadonlySet<string>,
+): readonly CloudCompatibilityDiagnostic[] {
+  const serveConfig = config as unknown as AnyConfig;
+  const diagnostics: CloudCompatibilityDiagnostic[] = [];
+
+  for (const name of Object.keys(serveConfig.queries ?? {}).sort()) {
+    diagnostics.push({
+      severity: 'warning',
+      code: 'HQ_CLOUD_LOCAL_ONLY_QUERY',
+      subject: `queries.${name}`,
+      message:
+        `Named query "${name}" is not carried by a Cloud deployment. It keeps `
+        + 'working locally and under self-hosted Serve, but the deployed app has no '
+        + 'route for it and answers 404.',
+      remedy:
+        'Express it as a dataset query, or keep calling it from a self-hosted Serve '
+        + 'instance.',
+    });
+  }
+
+  const missingDatasets = new Set<string>();
+  for (const [name, entry] of Object.entries(serveConfig.metrics ?? {}).sort(
+    ([left], [right]) => left.localeCompare(right),
+  )) {
+    diagnostics.push({
+      severity: 'warning',
+      code: 'HQ_CLOUD_LOCAL_ONLY_METRIC',
+      subject: `metrics.${name}`,
+      message:
+        `Standalone metric "${name}" is not carried by a Cloud deployment. It keeps `
+        + 'working locally and under self-hosted Serve, but the deployed app has no '
+        + 'route for it and answers 404.',
+      remedy:
+        'Author it as a derived measure on its dataset and select it through a '
+        + 'dataset query.',
+    });
+    const dataset = datasetOfMetric(resolveMetricEntry(entry as MetricEntry<AuthContext>));
+    if (dataset && !deployedDatasets.has(dataset.name)) missingDatasets.add(dataset.name);
+  }
+
+  for (const name of [...missingDatasets].sort()) {
+    diagnostics.push({
+      severity: 'warning',
+      code: 'HQ_CLOUD_LOCAL_ONLY_DATASET',
+      subject: `datasets.${name}`,
+      message:
+        `Dataset "${name}" is reachable only through a standalone metric, so the `
+        + 'deployment carries no definition of it at all.',
+      remedy:
+        `Expose "${name}" under datasets to deploy it, or drop the metric that `
+        + 'depends on it.',
+    });
   }
 
   return diagnostics;

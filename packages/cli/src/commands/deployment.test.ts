@@ -1,32 +1,22 @@
-import { createHash } from 'node:crypto';
 import path from 'node:path';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
-  prepareProtocolDeploymentContract,
+  prepareProtocolDatasetOnlyContract,
   prepareProtocolDeploymentReleaseEnvelope,
 } from '@hypequery/protocol';
 
 const mockLoadApiModule = vi.hoisted(() => vi.fn());
-const mockBuildNodeRuntimeArtifact = vi.hoisted(() => vi.fn());
-const mockGetDeploymentRuntimeEntrypoints = vi.hoisted(() => vi.fn());
 const mockWriteDeploymentBundle = vi.hoisted(() => vi.fn());
 const mockVerifyDeploymentBundle = vi.hoisted(() => vi.fn());
-const mockReadDeploymentRuntimeFile = vi.hoisted(() => vi.fn());
 const mockCaptureDeploymentSourceSnapshot = vi.hoisted(() => vi.fn());
 
 vi.mock('../utils/load-api.js', () => ({
   loadApiModule: mockLoadApiModule,
 }));
 
-vi.mock('../utils/deployment-runtime-artifact.js', () => ({
-  buildNodeRuntimeArtifact: mockBuildNodeRuntimeArtifact,
-  getDeploymentRuntimeEntrypoints: mockGetDeploymentRuntimeEntrypoints,
-}));
-
 vi.mock('../utils/deployment-bundle.js', () => ({
   writeDeploymentBundle: mockWriteDeploymentBundle,
   verifyDeploymentBundle: mockVerifyDeploymentBundle,
-  readDeploymentRuntimeFile: mockReadDeploymentRuntimeFile,
 }));
 
 vi.mock('../utils/deployment-source-snapshot.js', () => ({
@@ -63,9 +53,13 @@ import {
   validateDeploymentCommand,
 } from './deployment.js';
 
-const ARTIFACT_SHA = '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
 const BUNDLE_IDENTITY = 'abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789';
 const contract = {
+  kind: 'hypequery-deployment' as const,
+  version: 2 as const,
+  datasets: [],
+};
+const legacyContract = {
   kind: 'hypequery-deployment' as const,
   version: 1 as const,
   datasets: [],
@@ -83,7 +77,6 @@ const sourceSnapshot = {
 describe('deployment commands', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockGetDeploymentRuntimeEntrypoints.mockReturnValue([]);
     mockCaptureDeploymentSourceSnapshot.mockResolvedValue(sourceSnapshot);
     vi.mocked(stat).mockRejectedValue(Object.assign(new Error('missing'), { code: 'ENOENT' }));
     vi.mocked(lstat).mockRejectedValue(Object.assign(new Error('missing'), { code: 'ENOENT' }));
@@ -106,24 +99,13 @@ describe('deployment commands', () => {
     }));
   });
 
-  it('builds canonical deployment JSON and a domain-separated identity sidecar', async () => {
-    const deploymentContract = vi.fn(() => contract);
-    mockLoadApiModule.mockResolvedValue({ deploymentContract });
-    const prepared = prepareProtocolDeploymentContract(contract);
+  it('builds canonical dataset-only JSON and a domain-separated identity sidecar', async () => {
+    const datasetOnlyContract = vi.fn(() => contract);
+    mockLoadApiModule.mockResolvedValue({ datasetOnlyContract });
+    const prepared = prepareProtocolDatasetOnlyContract(contract);
 
-    await buildDeploymentCommand('analytics/api.ts', {
-      output: 'dist/deployment.json',
-      runtimeArtifact: ARTIFACT_SHA,
-      entrypointPrefix: 'handlers',
-    });
+    await buildDeploymentCommand('analytics/api.ts', { output: 'dist/deployment.json' });
 
-    expect(deploymentContract).toHaveBeenCalledWith(expect.objectContaining({
-      runtimeArtifact: {
-        runtime: 'node',
-        artifactSha256: ARTIFACT_SHA,
-        entrypointPrefix: 'handlers',
-      },
-    }));
     expect(mkdir).toHaveBeenCalledWith('dist', { recursive: true });
     expect(writeFile).toHaveBeenCalledWith(
       'dist/deployment.json',
@@ -132,13 +114,12 @@ describe('deployment commands', () => {
     );
     expect(writeFile).toHaveBeenCalledWith(
       'dist/deployment.json.sha256',
-      '# Hypequery deployment identity v1; not a file checksum or sha256sum input.\n'
-      + '# SHA-256(UTF-8("hypequery:deployment:v1") || 0x00 || RFC 8785 canonical bytes); '
+      '# Hypequery deployment identity v2; not a file checksum or sha256sum input.\n'
+      + '# SHA-256(UTF-8("hypequery:deployment:v2") || 0x00 || RFC 8785 canonical bytes); '
       + 'the output newline is excluded.\n'
       + `${prepared.identity}  deployment.json\n`,
       'utf8',
     );
-    expect(mockBuildNodeRuntimeArtifact).not.toHaveBeenCalled();
   });
 
   it.each([false, true])('reports overridden configuration errors only with override=%s', async allowUnsupportedConfig => {
@@ -150,7 +131,7 @@ describe('deployment commands', () => {
       remedy: 'Move the policy into the supported execution context.',
     };
     mockLoadApiModule.mockResolvedValue({
-      deploymentContract(options: { onCloudDiagnostic: (value: typeof diagnostic) => void }) {
+      datasetOnlyContract(options: { onCloudDiagnostic: (value: typeof diagnostic) => void }) {
         options.onCloudDiagnostic(diagnostic);
         if (!allowUnsupportedConfig) throw new Error('Unsupported configuration');
         return contract;
@@ -171,114 +152,43 @@ describe('deployment commands', () => {
     }
   });
 
-  it('bundles Node handlers and wires their digest into the deployment contract', async () => {
-    const deploymentContract = vi.fn(() => contract);
-    const bytes = new TextEncoder().encode('export const queries = {};\n');
-    mockLoadApiModule.mockResolvedValue({ deploymentContract });
-    mockGetDeploymentRuntimeEntrypoints.mockReturnValue(['greeting']);
-    mockBuildNodeRuntimeArtifact.mockResolvedValue({
-      bytes,
-      artifactSha256: ARTIFACT_SHA,
-      entrypointPrefix: 'queries',
-      runtimeEntrypoints: ['greeting'],
-    });
-
-    await buildDeploymentCommand('analytics/api.ts', {
-      output: 'dist/deployment.json',
-      runtimeOutput: 'dist/runtime.mjs',
-    });
-
-    expect(mockBuildNodeRuntimeArtifact).toHaveBeenCalledWith(
-      'analytics/api.ts',
-      ['greeting'],
-      undefined,
-    );
-    expect(deploymentContract).toHaveBeenCalledWith(expect.objectContaining({
-      runtimeArtifact: {
-        runtime: 'node',
-        artifactSha256: ARTIFACT_SHA,
-        entrypointPrefix: 'queries',
+  it('reports local-only declarations before the upload succeeds', async () => {
+    const diagnostic = {
+      severity: 'warning' as const,
+      code: 'HQ_CLOUD_LOCAL_ONLY_QUERY',
+      subject: 'queries.greeting',
+      message: 'Named query "greeting" is not carried by a Cloud deployment.',
+      remedy: 'Express it as a dataset query.',
+    };
+    mockLoadApiModule.mockResolvedValue({
+      datasetOnlyContract(options: { onCloudDiagnostic: (value: typeof diagnostic) => void }) {
+        options.onCloudDiagnostic(diagnostic);
+        return contract;
       },
-    }));
-    expect(writeFile).toHaveBeenCalledWith('dist/runtime.mjs', bytes);
+    });
+
+    await buildDeploymentCommand('analytics/api.ts');
+
+    expect(logger.warn).toHaveBeenCalledWith('HQ_CLOUD_LOCAL_ONLY_QUERY (queries.greeting)');
+    expect(logger.indent).toHaveBeenCalledWith(diagnostic.message);
   });
 
-  it('writes a complete deployment bundle by default', async () => {
-    const deploymentContract = vi.fn(() => contract);
-    mockLoadApiModule.mockResolvedValue({ deploymentContract });
+  it('writes a dataset-only bundle with no runtime artifacts by default', async () => {
+    const datasetOnlyContract = vi.fn(() => contract);
+    mockLoadApiModule.mockResolvedValue({ datasetOnlyContract });
 
     await buildDeploymentCommand('analytics/api.ts');
 
     expect(mockWriteDeploymentBundle).toHaveBeenCalledWith(
       'analytics/hypequery-deployment',
       expect.objectContaining({ contract }),
-      [],
       sourceSnapshot,
     );
     expect(writeFile).not.toHaveBeenCalled();
   });
 
-  it('includes automatically built runtime bytes in the bundle', async () => {
-    const runtimeContract = {
-      ...contract,
-      artifacts: [{ runtime: 'node' as const, artifactSha256: ARTIFACT_SHA }],
-    };
-    const bytes = new TextEncoder().encode('export const queries = {};\n');
-    mockLoadApiModule.mockResolvedValue({ deploymentContract: vi.fn(() => runtimeContract) });
-    mockGetDeploymentRuntimeEntrypoints.mockReturnValue(['greeting']);
-    mockBuildNodeRuntimeArtifact.mockResolvedValue({
-      bytes,
-      artifactSha256: ARTIFACT_SHA,
-      entrypointPrefix: 'queries',
-      runtimeEntrypoints: ['greeting'],
-    });
-
-    await buildDeploymentCommand('analytics/api.ts', { bundleOutput: 'dist/bundle' });
-
-    expect(mockWriteDeploymentBundle).toHaveBeenCalledWith(
-      'dist/bundle',
-      expect.objectContaining({ contract: runtimeContract }),
-      [{ runtime: 'node', sha256: ARTIFACT_SHA, bytes }],
-      sourceSnapshot,
-    );
-  });
-
-  it('requires prebuilt runtime bytes for a complete bundle', async () => {
-    await expect(buildDeploymentCommand('analytics/api.ts', {
-      runtimeArtifact: ARTIFACT_SHA,
-    })).rejects.toThrow(/requires --runtime-file/);
-    expect(mockLoadApiModule).not.toHaveBeenCalled();
-  });
-
-  it('verifies and includes prebuilt runtime bytes', async () => {
-    const bytes = new TextEncoder().encode('python-runtime');
-    const digest = createHash('sha256').update(bytes).digest('hex');
-    const runtimeContract = {
-      ...contract,
-      artifacts: [{ runtime: 'python' as const, artifactSha256: digest }],
-    };
-    mockReadDeploymentRuntimeFile.mockResolvedValue(bytes);
-    mockLoadApiModule.mockResolvedValue({
-      deploymentContract: vi.fn(() => runtimeContract),
-    });
-
-    await buildDeploymentCommand('analytics/api.ts', {
-      runtime: 'python',
-      runtimeArtifact: digest,
-      runtimeFile: 'dist/runtime.pyz',
-    });
-
-    expect(mockReadDeploymentRuntimeFile).toHaveBeenCalledWith('dist/runtime.pyz');
-    expect(mockWriteDeploymentBundle).toHaveBeenCalledWith(
-      'analytics/hypequery-deployment',
-      expect.objectContaining({ contract: runtimeContract }),
-      [{ runtime: 'python', sha256: digest, bytes }],
-      sourceSnapshot,
-    );
-  });
-
   it('can explicitly omit project source from a bundle', async () => {
-    mockLoadApiModule.mockResolvedValue({ deploymentContract: vi.fn(() => contract) });
+    mockLoadApiModule.mockResolvedValue({ datasetOnlyContract: vi.fn(() => contract) });
 
     await buildDeploymentCommand('analytics/api.ts', { source: false });
 
@@ -286,64 +196,26 @@ describe('deployment commands', () => {
     expect(mockWriteDeploymentBundle).toHaveBeenCalledWith(
       'analytics/hypequery-deployment',
       expect.objectContaining({ contract }),
-      [],
       undefined,
     );
   });
 
-  it('rejects malformed runtime artifact identities before loading the API', async () => {
-    await expect(buildDeploymentCommand('analytics/api.ts', {
-      runtimeArtifact: 'not-a-sha',
-    })).rejects.toThrow(/64-character SHA-256/);
+  it.each([
+    ['runtime', 'node'],
+    ['runtimeArtifact', '0'.repeat(64)],
+    ['runtimeFile', 'dist/runtime.mjs'],
+    ['runtimeOutput', 'dist/runtime.mjs'],
+    ['entrypointPrefix', 'handlers'],
+  ])('refuses the removed %s option before loading the API', async (option, value) => {
+    await expect(buildDeploymentCommand('analytics/api.ts', { [option]: value }))
+      .rejects.toThrow(/no longer supported[\s\S]*carries dataset definitions only/);
     expect(mockLoadApiModule).not.toHaveBeenCalled();
   });
 
-  it('requires an API with deployment contract support', async () => {
+  it('requires an API with dataset-only contract support', async () => {
     mockLoadApiModule.mockResolvedValue({ handler: vi.fn() });
     await expect(buildDeploymentCommand('analytics/api.ts')).rejects.toThrow(
-      /must provide deploymentContract\(\)/,
-    );
-  });
-
-  it('requires a prebuilt artifact for Python handlers', async () => {
-    mockLoadApiModule.mockResolvedValue({ deploymentContract: vi.fn() });
-    mockGetDeploymentRuntimeEntrypoints.mockReturnValue(['greeting']);
-
-    await expect(buildDeploymentCommand('analytics/api.ts', { runtime: 'python' }))
-      .rejects.toThrow(/support Node only[\s\S]*--runtime-artifact/);
-    expect(mockBuildNodeRuntimeArtifact).not.toHaveBeenCalled();
-  });
-
-  it('rejects runtime output paths that overwrite deployment metadata', async () => {
-    mockLoadApiModule.mockResolvedValue({ deploymentContract: vi.fn(() => contract) });
-    mockGetDeploymentRuntimeEntrypoints.mockReturnValue(['greeting']);
-    mockBuildNodeRuntimeArtifact.mockResolvedValue({
-      bytes: new Uint8Array(),
-      artifactSha256: ARTIFACT_SHA,
-      entrypointPrefix: 'queries',
-      runtimeEntrypoints: ['greeting'],
-    });
-
-    await expect(buildDeploymentCommand('analytics/api.ts', {
-      output: 'dist/deployment.json',
-      runtimeOutput: 'dist/deployment.json',
-    })).rejects.toThrow(/--runtime-output must use a different path from --output/);
-    expect(mockLoadApiModule).not.toHaveBeenCalled();
-    expect(mockBuildNodeRuntimeArtifact).not.toHaveBeenCalled();
-    expect(writeFile).not.toHaveBeenCalled();
-  });
-
-  it('does not emit a runtime artifact for Dataset-only APIs', async () => {
-    const deploymentContract = vi.fn(() => contract);
-    mockLoadApiModule.mockResolvedValue({ deploymentContract });
-
-    await buildDeploymentCommand('analytics/api.ts', { output: 'dist/deployment.json' });
-
-    expect(deploymentContract).toHaveBeenCalledWith(expect.objectContaining({}));
-    expect(mockBuildNodeRuntimeArtifact).not.toHaveBeenCalled();
-    expect(writeFile).not.toHaveBeenCalledWith(
-      expect.stringContaining('runtime'),
-      expect.anything(),
+      /must provide datasetOnlyContract\(\)/,
     );
   });
 
@@ -356,13 +228,13 @@ describe('deployment commands', () => {
     expect(Object.isFrozen(result)).toBe(true);
   });
 
-  it('validates a legacy JSON artifact reached through a symbolic link', async () => {
+  it('validates a legacy v1 JSON artifact reached through a symbolic link', async () => {
     vi.mocked(stat).mockResolvedValue({ isDirectory: () => false, isFile: () => true } as never);
-    vi.mocked(readFile).mockResolvedValue(JSON.stringify(contract));
+    vi.mocked(readFile).mockResolvedValue(JSON.stringify(legacyContract));
 
     const result = await validateDeploymentCommand('dist/deployment-link.json');
 
-    expect(result).toEqual(contract);
+    expect(result).toEqual(legacyContract);
     expect(readFile).toHaveBeenCalledWith('dist/deployment-link.json', 'utf8');
   });
 

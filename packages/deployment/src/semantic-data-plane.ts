@@ -5,13 +5,13 @@ import { definedLimits, lowest, tighten } from './utils/semantic-budget-limits.j
 import { missing } from './utils/required-access.js';
 
 /**
- * Semantic invocation beside named-query execution.
+ * Dataset invocation against an activated deployment.
  *
- * Decision 0002 requires a dataset or metric call to run the same enforcement
- * sequence a named query does — select the active generation, resolve the
- * target from its validated contract, authenticate, enforce roles and scopes,
- * resolve tenant, apply the most restrictive budget, validate input, execute,
- * then validate and bound the output.
+ * Decision 0002 requires a dataset call to run a fixed enforcement sequence:
+ * select the active generation, resolve the target from its validated
+ * contract, authenticate, enforce roles and scopes, resolve tenant, apply the
+ * most restrictive budget, validate input, execute, then validate and bound
+ * the output.
  *
  * Execution itself is injected. This module decides whether a call is allowed
  * and what it is allowed to ask for; `CORE-12` supplies the executor that
@@ -19,9 +19,8 @@ import { missing } from './utils/required-access.js';
  */
 
 import type {
-  ProtocolDatasetContract,
-  ProtocolDatasetMetric,
-  ProtocolDeploymentContract,
+  ProtocolDatasetOnlyContract,
+  ProtocolDatasetOnlyDataset,
   ProtocolEndpointPolicy,
   ProtocolSemanticInvocation,
   ProtocolSemanticInvocationResult,
@@ -29,11 +28,11 @@ import type {
 } from '@hypequery/protocol';
 import {
   ProtocolSemanticInvocationError,
-  validateProtocolDeploymentContract,
+  validateProtocolDatasetOnlyContract,
   validateProtocolSemanticInvocation,
   validateProtocolSemanticInvocationResult,
 } from '@hypequery/protocol';
-import type { DeploymentDataPlanePrincipal } from './data-plane.js';
+import type { DeploymentDataPlanePrincipal } from './principal.js';
 import {
   validateSemanticOperation,
   type SemanticOperationLimits,
@@ -49,21 +48,18 @@ export interface DeploymentSemanticBudget {
 export interface DeploymentSemanticAuthenticationInput {
   readonly credentials: unknown;
   readonly invocation: ProtocolSemanticInvocation;
-  readonly dataset: ProtocolDatasetContract;
-  readonly metric?: ProtocolDatasetMetric;
+  readonly dataset: ProtocolDatasetOnlyDataset;
 }
 
 export interface DeploymentSemanticTenantInput {
   readonly principal: DeploymentDataPlanePrincipal | null;
   readonly invocation: ProtocolSemanticInvocation;
-  readonly dataset: ProtocolDatasetContract;
-  readonly metric?: ProtocolDatasetMetric;
+  readonly dataset: ProtocolDatasetOnlyDataset;
 }
 
 export interface DeploymentSemanticExecutionInput {
-  readonly deployment: ProtocolDeploymentContract;
-  readonly dataset: ProtocolDatasetContract;
-  readonly metric?: ProtocolDatasetMetric;
+  readonly deployment: ProtocolDatasetOnlyContract;
+  readonly dataset: ProtocolDatasetOnlyDataset;
   readonly operation: ProtocolSemanticQuery;
   readonly principal: DeploymentDataPlanePrincipal | null;
   /**
@@ -84,7 +80,7 @@ export interface DeploymentSemanticInvocationRequest {
 }
 
 export interface DeploymentSemanticDataPlaneOptions {
-  readonly deployment: ProtocolDeploymentContract;
+  readonly deployment: ProtocolDatasetOnlyContract;
   /** The immutable generation this data plane serves. */
   readonly activationRevision: string;
   readonly authenticate?: (
@@ -116,9 +112,9 @@ const REVISION_PATTERN = /^[0-9a-f]{64}$/;
 export function createDeploymentSemanticDataPlane(
   options: DeploymentSemanticDataPlaneOptions,
 ): DeploymentSemanticDataPlane {
-  let deployment: ProtocolDeploymentContract;
+  let deployment: ProtocolDatasetOnlyContract;
   try {
-    deployment = validateProtocolDeploymentContract(options.deployment);
+    deployment = validateProtocolDatasetOnlyContract(options.deployment);
   } catch (error) {
     throw new DeploymentSemanticInvocationError(
       'configuration-invalid',
@@ -138,10 +134,17 @@ export function createDeploymentSemanticDataPlane(
   const configured: SemanticOperationLimits = { ...DEFAULT_LIMITS, ...definedLimits(options.limits) };
 
   function resolveTarget(operation: ProtocolSemanticQuery): {
-    dataset: ProtocolDatasetContract;
-    metric?: ProtocolDatasetMetric;
+    dataset: ProtocolDatasetOnlyDataset;
     endpoint: ProtocolEndpointPolicy;
   } {
+    // A metric target cannot be served: the contract has no field that could
+    // carry one, so there is nothing to look up and nothing to authorize.
+    if (operation.kind === 'metric') {
+      fail('not-found', 'HQ_SEMANTIC_METRIC_NOT_FOUND', 'The metric was not found.', {
+        path: '$.operation.metric',
+        relist: true,
+      });
+    }
     const dataset = datasets.get(String(operation.dataset));
     if (dataset === undefined) {
       fail('not-found', 'HQ_SEMANTIC_DATASET_NOT_FOUND', 'The dataset was not found.', {
@@ -149,25 +152,16 @@ export function createDeploymentSemanticDataPlane(
         relist: true,
       });
     }
-    const metric = operation.kind === 'metric'
-      ? dataset.metrics.find(entry => String(entry.name) === String(operation.metric))
-      : undefined;
-    if (operation.kind === 'metric' && metric === undefined) {
-      fail('not-found', 'HQ_SEMANTIC_METRIC_NOT_FOUND', 'The metric was not found.', {
-        path: '$.operation.metric',
-        relist: true,
-      });
-    }
     // An endpoint policy is what publishes a target. Without one the contract
     // describes the dataset but never exposed it, so it is not addressable.
-    const endpoint = metric?.endpoint ?? dataset.endpoint;
+    const endpoint = dataset.endpoint;
     if (endpoint === undefined) {
       fail('not-found', 'HQ_SEMANTIC_NOT_PUBLISHED', 'The target is not published.', {
         path: '$.operation',
         relist: true,
       });
     }
-    return { dataset, ...(metric === undefined ? {} : { metric }), endpoint };
+    return { dataset, endpoint };
   }
 
   async function invoke(
@@ -194,7 +188,7 @@ export function createDeploymentSemanticDataPlane(
     }
 
     const operation = invocation.operation;
-    const { dataset, metric, endpoint } = resolveTarget(operation);
+    const { dataset, endpoint } = resolveTarget(operation);
 
     let principal: DeploymentDataPlanePrincipal | null = null;
     if (endpoint.access.kind === 'authenticated' && !options.authenticate) {
@@ -205,7 +199,7 @@ export function createDeploymentSemanticDataPlane(
       && (endpoint.access.kind === 'authenticated' || request.credentials !== undefined)) {
       try {
         principal = await options.authenticate({
-          credentials: request.credentials, invocation, dataset, ...(metric ? { metric } : {}),
+          credentials: request.credentials, invocation, dataset,
         });
       } catch (error) {
         fail('unauthenticated', 'HQ_SEMANTIC_UNAUTHENTICATED', 'Authentication failed.', { cause: error });
@@ -233,7 +227,7 @@ export function createDeploymentSemanticDataPlane(
       } else {
         try {
           tenant = await options.resolveTenant({
-            principal, invocation, dataset, ...(metric ? { metric } : {}),
+            principal, invocation, dataset,
           });
         } catch (error) {
           fail('forbidden', 'HQ_SEMANTIC_FORBIDDEN', 'Tenant resolution failed.', { cause: error });
@@ -288,7 +282,6 @@ export function createDeploymentSemanticDataPlane(
       output = await options.execute({
         deployment,
         dataset,
-        ...(metric === undefined ? {} : { metric }),
         operation,
         principal,
         tenant,

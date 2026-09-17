@@ -1,51 +1,34 @@
-import {
-  validateProtocolDeploymentContract,
-  type ProtocolAccessPolicy,
-  type ProtocolDeploymentContract,
-  type ProtocolEndpointPolicy,
-  type ProtocolEndpointTenantPolicy,
-  type ProtocolQueryImplementation,
-  type ProtocolRuntimeArtifact,
-  type ProtocolSchema,
+import type {
+  ProtocolAccessPolicy,
+  ProtocolDatasetOnlyContract,
+  ProtocolEndpointPolicy,
+  ProtocolEndpointTenantPolicy,
 } from '@hypequery/protocol';
 import {
-  buildProtocolDatasetContract,
+  buildProtocolDatasetOnlyContract,
   type AnyDatasetInstance,
-  type MetricHandle,
 } from '@hypequery/datasets';
 import {
   analyzeCloudCompatibility,
+  analyzeLocalOnlyDeclarations,
   formatCloudCompatibilityDiagnostics,
   type CloudCompatibilityDiagnostic,
+  type CloudCompatibilitySurface,
 } from './cloud-compatibility.js';
 import type {
   AuthContext,
   AuthStrategy,
   DatasetEntry,
   DatasetsConfig,
-  MetricEntry,
   MetricsConfig,
   ServeConfig,
   ServeQueriesMap,
   TenantConfigOverride,
 } from './types.js';
 import { resolveDatasetEntry } from './semantic/datasets/utils/dataset-entry.js';
-import { resolveMetricEntry } from './semantic/datasets/metric-endpoint.js';
-import { zodToProtocolSchema } from '@hypequery/datasets';
 import { resolveLocalAuthRequirement } from './auth-requirement.js';
 
 export interface BuildProtocolDeploymentOptions {
-  /** Runtime artifact used for Serve callbacks without an explicit implementation override. */
-  readonly runtimeArtifact?: ProtocolRuntimeArtifact & {
-    readonly entrypointPrefix?: string;
-  };
-  /** Per-query implementation overrides for fixed semantic plans or compiled SQL. */
-  readonly queryImplementations?: Readonly<Record<string, ProtocolQueryImplementation>>;
-  /** Schema overrides for Zod constructs outside the portable RFC 0004 subset. */
-  readonly querySchemas?: Readonly<Record<string, {
-    readonly input?: ProtocolSchema;
-    readonly output?: ProtocolSchema;
-  }>>;
   /**
    * Receives every managed-execution diagnostic, including ones that do not
    * block the build. Without it, warnings are discarded and only errors surface.
@@ -61,8 +44,10 @@ export interface BuildProtocolDeploymentOptions {
 function reportCloudCompatibility(
   config: ServeConfig<any, any, any, any, any>,
   options: BuildProtocolDeploymentOptions,
+  extra: readonly CloudCompatibilityDiagnostic[] = [],
+  surface: CloudCompatibilitySurface = 'all',
 ): void {
-  const diagnostics = analyzeCloudCompatibility(config);
+  const diagnostics = [...analyzeCloudCompatibility(config, { surface }), ...extra];
   if (diagnostics.length === 0) return;
   for (const diagnostic of diagnostics) options.onCloudDiagnostic?.(diagnostic);
   if (options.allowUnsupportedConfig) return;
@@ -160,14 +145,6 @@ function endpointTenantPolicy(
   };
 }
 
-function metricHandle(entry: MetricEntry<AuthContext>): MetricHandle {
-  return resolveMetricEntry(entry).metric;
-}
-
-function metricDataset(metric: MetricHandle): AnyDatasetInstance {
-  return metric.__type === 'grained_metric_ref' ? metric.metric.dataset : metric.dataset;
-}
-
 function collectDataset(
   datasets: Map<string, AnyDatasetInstance>,
   dataset: AnyDatasetInstance,
@@ -183,77 +160,23 @@ function collectDataset(
   }
 }
 
-function queryImplementation(
-  name: string,
-  options: BuildProtocolDeploymentOptions,
-): ProtocolQueryImplementation {
-  const override = options.queryImplementations?.[name];
-  if (override) return override;
-  if (!options.runtimeArtifact) {
-    throw new Error(
-      `Serve query "${name}" needs runtimeArtifact or an explicit queryImplementations override.`,
-    );
-  }
-  const prefix = options.runtimeArtifact.entrypointPrefix ?? 'queries';
-  return {
-    kind: 'runtime-reference',
-    runtime: options.runtimeArtifact.runtime,
-    artifactSha256: options.runtimeArtifact.artifactSha256,
-    entrypoint: `${prefix}.${name}`,
-  } as unknown as ProtocolQueryImplementation;
+interface PublishedDatasets {
+  readonly datasets: Map<string, AnyDatasetInstance>;
+  readonly endpoints: Map<string, ProtocolEndpointPolicy>;
 }
 
-function runtimeArtifacts(
-  implementations: readonly ProtocolQueryImplementation[],
-  configured?: ProtocolRuntimeArtifact,
-): readonly ProtocolRuntimeArtifact[] {
-  const artifacts = new Map<string, ProtocolRuntimeArtifact>();
-  if (configured) {
-    artifacts.set(configured.artifactSha256, {
-      runtime: configured.runtime,
-      artifactSha256: configured.artifactSha256,
-    });
-  }
-  for (const implementation of implementations) {
-    if (implementation.kind !== 'runtime-reference') continue;
-    const existing = artifacts.get(implementation.artifactSha256);
-    if (existing && existing.runtime !== implementation.runtime) {
-      throw new Error(`Runtime artifact ${implementation.artifactSha256} has conflicting runtimes.`);
-    }
-    artifacts.set(implementation.artifactSha256, {
-      runtime: implementation.runtime,
-      artifactSha256: implementation.artifactSha256,
-    });
-  }
-  return [...artifacts.values()].sort((left, right) =>
-    left.artifactSha256.localeCompare(right.artifactSha256));
-}
-
-/**
- * Converts an existing Serve configuration and its Dataset/metric definitions
- * into the strict, immutable protocol deployment contract.
- */
-export function buildProtocolDeploymentContract(
-  config: ServeConfig<any, any, any, any, any>,
-  options: BuildProtocolDeploymentOptions = {},
-): ProtocolDeploymentContract {
-  reportCloudCompatibility(config, options);
-  const serveConfig = config as unknown as AnyServeConfig;
-  const basePath = serveConfig.basePath ?? '/api/analytics';
+/** Datasets exposed under `datasets`, plus every dataset they reach by relationship. */
+function collectPublishedDatasets(serveConfig: AnyServeConfig, basePath: string): PublishedDatasets {
   const datasetsPath = serveConfig.semanticPaths?.datasets ?? '/datasets';
-  const metricsPath = serveConfig.semanticPaths?.metrics ?? '/metrics';
   const datasets = new Map<string, AnyDatasetInstance>();
-  const datasetEndpoints = new Map<string, ProtocolEndpointPolicy>();
-  const metricHandles: Record<string, MetricHandle> = {};
-  const metricEndpoints: Record<string, ProtocolEndpointPolicy> = {};
-
+  const endpoints = new Map<string, ProtocolEndpointPolicy>();
   for (const [exposedName, entry] of Object.entries(serveConfig.datasets ?? {})) {
     const resolved = resolveDatasetEntry(entry as DatasetEntry<AuthContext>);
     collectDataset(datasets, resolved.dataset);
-    if (datasetEndpoints.has(resolved.dataset.name)) {
+    if (endpoints.has(resolved.dataset.name)) {
       throw new Error(`Dataset "${resolved.dataset.name}" is exposed more than once.`);
     }
-    datasetEndpoints.set(resolved.dataset.name, endpointPolicy(
+    endpoints.set(resolved.dataset.name, endpointPolicy(
       resolved,
       serveConfig.auth,
       serveConfig.tenant,
@@ -261,62 +184,33 @@ export function buildProtocolDeploymentContract(
       resolved.dataset.limits?.maxResultSize ?? 1_000,
     ));
   }
+  return { datasets, endpoints };
+}
 
-  for (const [exposedName, entry] of Object.entries(serveConfig.metrics ?? {})) {
-    const resolved = resolveMetricEntry(entry as MetricEntry<AuthContext>);
-    const metric = metricHandle(entry as MetricEntry<AuthContext>);
-    const dataset = metricDataset(metric);
-    collectDataset(datasets, dataset);
-    metricHandles[exposedName] = metric;
-    metricEndpoints[exposedName] = endpointPolicy(
-      resolved,
-      serveConfig.auth,
-      serveConfig.tenant,
-      normalizePath(basePath, metricsPath, exposedName),
-      resolved.maxLimit ?? dataset.limits?.maxResultSize ?? 1_000,
-    );
-  }
-
-  const datasetContracts = [...datasets.values()]
-    .map(dataset => buildProtocolDatasetContract(dataset, {
-      metrics: metricHandles,
-      metricEndpoints,
-      ...(datasetEndpoints.get(dataset.name) !== undefined
-        ? { endpoint: datasetEndpoints.get(dataset.name) }
-        : {}),
-    }))
-    .sort((left, right) => left.name.localeCompare(right.name));
-
-  const implementations: ProtocolQueryImplementation[] = [];
-  const queries = Object.entries(serveConfig.queries ?? {}).map(([name, query]) => {
-    const implementation = queryImplementation(name, options);
-    implementations.push(implementation);
-    const schemaOverride = options.querySchemas?.[name];
-    return {
-      name,
-      input: schemaOverride?.input ?? zodToProtocolSchema(query.inputSchema, `queries.${name}.input`),
-      output: schemaOverride?.output ?? zodToProtocolSchema(query.outputSchema, `queries.${name}.output`),
-      implementation,
-      endpoint: {
-        ...endpointPolicy(
-          query,
-          serveConfig.auth,
-          serveConfig.tenant,
-          normalizePath(basePath, 'queries', name),
-        ),
-        method: query.method ?? 'GET',
-      },
-      ...(query.summary !== undefined ? { summary: query.summary } : {}),
-      ...(query.description !== undefined ? { description: query.description } : {}),
-      tags: [...new Set(query.tags ?? [])].sort(),
-    };
-  }).sort((left, right) => left.name.localeCompare(right.name));
-
-  return validateProtocolDeploymentContract({
-    kind: 'hypequery-deployment',
-    version: 1,
-    datasets: datasetContracts,
-    queries,
-    artifacts: runtimeArtifacts(implementations, options.runtimeArtifact),
-  });
+/**
+ * Converts an existing Serve configuration and its Dataset definitions into the
+ * dataset-only Cloud contract.
+ *
+ * Named queries and standalone metrics are deliberately never copied: there is
+ * no field on this wire that could carry them, so a build cannot leak one by
+ * omission. They are reported instead, through the same diagnostic channel as
+ * every other local/deployed difference.
+ */
+export function buildProtocolDatasetOnlyDeploymentContract(
+  config: ServeConfig<any, any, any, any, any>,
+  options: BuildProtocolDeploymentOptions = {},
+): ProtocolDatasetOnlyContract {
+  const serveConfig = config as unknown as AnyServeConfig;
+  const basePath = serveConfig.basePath ?? '/api/analytics';
+  const { datasets, endpoints } = collectPublishedDatasets(serveConfig, basePath);
+  reportCloudCompatibility(
+    config,
+    options,
+    analyzeLocalOnlyDeclarations(config, new Set(datasets.keys())),
+    'datasets',
+  );
+  return buildProtocolDatasetOnlyContract(
+    [...datasets.values()].sort((left, right) => left.name.localeCompare(right.name)),
+    { endpoints: Object.fromEntries(endpoints) },
+  );
 }

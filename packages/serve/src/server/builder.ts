@@ -15,14 +15,13 @@ import type {
 } from "../types.js";
 import type { ServeRouter } from "../router.js";
 import type { CacheObservability } from "../cache-observability.js";
-import type { ProtocolDeploymentContract } from "@hypequery/protocol";
+import type { ProtocolDatasetOnlyContract } from "@hypequery/protocol";
 import type { BuildProtocolDeploymentOptions } from "../protocol-adapter.js";
 import { createCacheObservability } from "../cache-observability.js";
 import { ServeQueryLogger } from "../query-logger.js";
 import { mergeTags } from "../utils.js";
 import { applyBasePath, normalizeRoutePath } from "../router.js";
 import { mapEndpointToToolkit } from "./mapper.js";
-import { attachDeploymentBuildSource } from "./deployment-build-source.js";
 
 const loadNodeAdapter = async () => {
   if (typeof require !== "undefined") {
@@ -50,20 +49,20 @@ export const createBuilderMethods = <
   handler: ServeHandler,
   basePath: string,
   cacheObservability: CacheObservability = createCacheObservability({}),
-  buildDeploymentContract?: (
+  buildDatasetOnlyContract?: (
     options?: BuildProtocolDeploymentOptions,
-  ) => ProtocolDeploymentContract,
+  ) => ProtocolDatasetOnlyContract,
 ): ServeBuilder<ServeEndpointMap<TQueries, TContext, TAuth>, TContext, TAuth> => {
   const builder: ServeBuilder<ServeEndpointMap<TQueries, TContext, TAuth>, TContext, TAuth> = {
     queries: queryEntries,
     basePath: basePath || undefined,
     queryLogger,
     cacheObservability,
-    deploymentContract: options => {
-      if (!buildDeploymentContract) {
+    datasetOnlyContract: options => {
+      if (!buildDatasetOnlyContract) {
         throw new Error('This Serve builder was created without a deployment contract source.');
       }
-      return buildDeploymentContract(options);
+      return buildDatasetOnlyContract(options);
     },
     _routeConfig: routeConfig,
 
@@ -158,8 +157,6 @@ export const createBuilderMethods = <
       return startNodeServer(handler, options);
     },
   };
-
-  attachDeploymentBuildSource(builder, Object.keys(queryEntries));
 
   return builder;
 };

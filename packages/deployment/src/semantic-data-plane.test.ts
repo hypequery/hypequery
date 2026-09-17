@@ -47,7 +47,7 @@ function customers() {
         filterable: false, groupable: true,
       },
     ],
-    measures: [], filters: [], metrics: [], relationships: [],
+    measures: [], filters: [], relationships: [],
     endpoint: PUBLIC,
   };
 }
@@ -90,15 +90,6 @@ function orders() {
       { name: 'status', field: 'status', operators: ['eq', 'in'] },
       { name: 'tenantId', field: 'tenantId', operators: ['eq'] },
     ],
-    metrics: [{
-      name: 'totalRevenue',
-      kind: 'metric',
-      expression: { kind: 'aggregate', aggregation: 'sum', field: 'amount' },
-      dimensions: ['status'],
-      filters: ['status'],
-      grains: ['day', 'month'],
-      endpoint: AUTHENTICATED,
-    }],
     relationships: [{
       name: 'customer', kind: 'belongsTo', target: 'customers',
       from: 'customerId', to: 'id', queryable: true,
@@ -111,10 +102,8 @@ function orders() {
 function deployment(overrides: Record<string, unknown> = {}) {
   return {
     kind: 'hypequery-deployment',
-    version: 1,
+    version: 2,
     datasets: [customers(), orders()],
-    queries: [],
-    artifacts: [],
     ...overrides,
   };
 }
@@ -178,16 +167,16 @@ describe('semantic data plane', () => {
     expect(input.activationRevision).toBe(REVISION);
   });
 
-  it('resolves a metric target and its own endpoint policy', async () => {
+  it('refuses a metric target, which the contract has no field to carry', async () => {
+    // Not an authorization decision: there is nothing to look up. The deployment
+    // carries datasets, so the target cannot exist however the caller names it.
     const { plane: dataPlane, execute } = plane();
 
-    await dataPlane.invoke({
+    expect(await categoryOf(() => dataPlane.invoke({
       invocation: invocation({ kind: 'metric', dataset: 'orders', metric: 'totalRevenue' }),
       credentials: 'token',
-    });
-
-    const input = execute.mock.calls[0][0] as unknown as DeploymentSemanticExecutionInput;
-    expect(input.metric?.name).toBe('totalRevenue');
+    }))).toBe('not-found');
+    expect(execute).not.toHaveBeenCalled();
   });
 
   // -- tenancy ------------------------------------------------------------
@@ -325,7 +314,7 @@ describe('semantic data plane', () => {
 
   // -- targeting -----------------------------------------------------------
 
-  it('reports an unknown dataset, metric, or unpublished target as not found', async () => {
+  it('reports an unknown dataset or unpublished target as not found', async () => {
     const { plane: dataPlane } = plane();
 
     expect(await categoryOf(() => dataPlane.invoke({
@@ -338,7 +327,7 @@ describe('semantic data plane', () => {
     }))).toBe('not-found');
 
     const unpublished = deployment({
-      datasets: [customers(), { ...orders(), endpoint: undefined, metrics: [] }],
+      datasets: [customers(), { ...orders(), endpoint: undefined }],
     });
     const bare = createDeploymentSemanticDataPlane({
       deployment: JSON.parse(JSON.stringify(unpublished)) as never,
@@ -365,21 +354,6 @@ describe('semantic data plane', () => {
     expect(await reject({ measures: [] })).toBe('input-invalid');
     expect(await reject({ dimensions: ['status'], measures: ['revenue'], by: 'century' }))
       .toBe('input-invalid');
-  });
-
-  it('narrows a metric to the dimensions and grains it declared', async () => {
-    const { plane: dataPlane } = plane();
-    const call = async (operation: Record<string, unknown>) => categoryOf(() => dataPlane.invoke({
-      invocation: invocation({ kind: 'metric', dataset: 'orders', metric: 'totalRevenue', ...operation }),
-      credentials: 'token',
-    }));
-
-    expect(await call({ dimensions: ['status'] })).toBe('accepted');
-    expect(await call({ by: 'month' })).toBe('accepted');
-    // The dataset groups by customerId, but this metric did not publish it.
-    expect(await call({ dimensions: ['customerId'] })).toBe('input-invalid');
-    // The dataset supports every grain; the metric published two.
-    expect(await call({ by: 'year' })).toBe('input-invalid');
   });
 
   it('enforces the declared operator list on a filter', async () => {

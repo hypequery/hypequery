@@ -5,8 +5,8 @@
  * so the portable executor lives in `@hypequery/datasets` and is injected. That
  * keeps the two packages siblings, but it also means nothing type-checks the
  * join at build time — this test is what proves the halves actually compose,
- * and that a bundle can answer a dataset or metric call without a separate MCP
- * config.
+ * and that a bundle can answer a dataset call, including a derived measure,
+ * without a separate MCP config.
  *
  * `@hypequery/datasets` is a devDependency only; nothing here ships.
  */
@@ -16,7 +16,6 @@ import { describe, expect, it } from 'vitest';
 import {
   createDeploymentSemanticDataPlane,
   DeploymentSemanticInvocationError,
-  toProtocolSemanticInvocationFailure,
 } from './semantic-data-plane.js';
 import type { QueryBuilderFactoryLike, QueryBuilderLike } from '@hypequery/datasets';
 
@@ -28,10 +27,10 @@ const ENDPOINT = {
   maxLimit: 200,
 } as const;
 
-function contract(metricKind: 'metric' | 'derived-metric' = 'metric') {
+function contract() {
   return {
     kind: 'hypequery-deployment',
-    version: 1,
+    version: 2,
     datasets: [{
       name: 'orders',
       source: 'analytics.orders',
@@ -51,23 +50,30 @@ function contract(metricKind: 'metric' | 'derived-metric' = 'metric') {
           filterable: false, groupable: false,
         },
       ],
-      measures: [{ name: 'revenue', aggregation: 'sum', field: 'amount', filters: [] }],
+      measures: [
+        { name: 'revenue', aggregation: 'sum', field: 'amount', filters: [] },
+        { name: 'orderCount', aggregation: 'count', field: 'status', filters: [] },
+        {
+          kind: 'derived',
+          name: 'averageOrderValue',
+          uses: [{ alias: 'revenue', measure: 'revenue' }, { alias: 'orders', measure: 'orderCount' }],
+          expression: {
+            kind: 'binary',
+            operator: 'divide',
+            left: { kind: 'reference', name: 'revenue' },
+            right: {
+              kind: 'call',
+              function: 'nullIfZero',
+              args: [{ kind: 'reference', name: 'orders' }],
+            },
+          },
+        },
+      ],
       filters: [{ name: 'status', field: 'status', operators: ['eq'] }],
-      metrics: [{
-        name: 'totalRevenue',
-        kind: metricKind,
-        expression: { kind: 'aggregate', aggregation: 'sum', field: 'amount' },
-        dimensions: ['status'],
-        filters: ['status'],
-        grains: ['day', 'month'],
-        endpoint: ENDPOINT,
-      }],
       relationships: [],
       limits: { maxResultSize: 1_000 },
       endpoint: ENDPOINT,
     }],
-    queries: [],
-    artifacts: [],
   };
 }
 
@@ -95,7 +101,12 @@ function builderFactory(rows: Record<string, unknown>[]) {
       });
       return chain;
     },
-    rawQuery: async () => [],
+    // A selection that includes a derived measure is planned as a CTE and run
+    // through `rawQuery`, not the table chain.
+    rawQuery: async (query: string) => {
+      sql.push(query);
+      return rows;
+    },
   };
   return { factory, sql };
 }
@@ -109,10 +120,10 @@ function invocation(operation: unknown) {
   };
 }
 
-function wire(rows: Record<string, unknown>[], metricKind?: 'metric' | 'derived-metric') {
+function wire(rows: Record<string, unknown>[]) {
   const { factory, sql } = builderFactory(rows);
   const plane = createDeploymentSemanticDataPlane({
-    deployment: contract(metricKind) as never,
+    deployment: contract() as never,
     activationRevision: REVISION,
     authenticate: async () => ({ subject: 'u1', roles: ['analyst'], scopes: [] }),
     resolveTenant: async () => 'acme',
@@ -142,17 +153,36 @@ describe('semantic invocation end to end', () => {
     expect(sql[0]).toContain('tenant_id');
   });
 
-  it('answers a metric call', async () => {
-    const { plane } = wire([{ status: 'paid', totalRevenue: 10 }]);
+  it('answers a call selecting a base and a derived measure together', async () => {
+    // The derived measure exists only inside the contract's measure collection;
+    // nothing rebuilt it from the authoring package.
+    const { plane, sql } = wire([{ status: 'paid', revenue: 10, averageOrderValue: 5 }]);
 
     const result = await plane.invoke({
       invocation: invocation({
-        kind: 'metric', dataset: 'orders', metric: 'totalRevenue', dimensions: ['status'],
+        kind: 'dataset',
+        dataset: 'orders',
+        dimensions: ['status'],
+        measures: ['revenue', 'averageOrderValue'],
       }),
       credentials: 'token',
     });
 
     expect(result.meta.rowCount).toBe(1);
+    expect(Object.keys(result.data[0] as object)).toContain('averageOrderValue');
+    // Planned from the contract's own measure collection: the ratio and its
+    // zero-denominator guard are in the SQL, not supplied by the caller.
+    expect(sql[0]).toContain('NULLIF');
+  });
+
+  it('refuses a metric target rather than planning one', async () => {
+    const { plane, sql } = wire([{ status: 'paid' }]);
+
+    await expect(plane.invoke({
+      invocation: invocation({ kind: 'metric', dataset: 'orders', metric: 'totalRevenue' }),
+      credentials: 'token',
+    })).rejects.toThrow(DeploymentSemanticInvocationError);
+    expect(sql).toHaveLength(0);
   });
 
   it('applies the endpoint ceiling to an omitted limit', async () => {
@@ -165,37 +195,6 @@ describe('semantic invocation end to end', () => {
 
     // endpoint.maxLimit is 200; the planner over-fetches one row for hasMore.
     expect(sql[0]).toContain('limit(201)');
-  });
-
-  it('fails a derived metric closed, as unsupported rather than as an error', async () => {
-    const { plane } = wire([{ status: 'paid' }], 'derived-metric');
-
-    try {
-      await plane.invoke({
-        invocation: invocation({ kind: 'metric', dataset: 'orders', metric: 'totalRevenue' }),
-        credentials: 'token',
-      });
-      throw new Error('expected the invocation to fail');
-    } catch (error) {
-      // The data plane maps an executor throw to executor-failed by default.
-      // CORE-17 carries the expression that makes this executable; until then
-      // the caller must be told the capability is missing, not that a query
-      // broke.
-      expect(error).toBeInstanceOf(DeploymentSemanticInvocationError);
-      const failure = toProtocolSemanticInvocationFailure(error, REVISION);
-      expect(failure.category).toBe('unsupported-capability');
-    }
-  });
-
-  it('still serves other targets when the contract holds a derived metric', async () => {
-    const { plane } = wire([{ status: 'paid' }], 'derived-metric');
-
-    const result = await plane.invoke({
-      invocation: invocation({ kind: 'dataset', dataset: 'orders', measures: ['revenue'] }),
-      credentials: 'token',
-    });
-
-    expect(result.meta.rowCount).toBe(1);
   });
 
   it('rejects a forged tenant before it reaches the executor', async () => {

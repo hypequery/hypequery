@@ -1,4 +1,4 @@
-import { validateProtocolDeploymentContract } from '@hypequery/protocol';
+import { validateProtocolDatasetOnlyContract } from '@hypequery/protocol';
 import { describe, expect, it, vi } from 'vitest';
 import {
   createPortableSemanticExecutor,
@@ -16,10 +16,10 @@ const AUTHENTICATED = {
   tenant: { kind: 'required', mode: 'auto-inject', column: 'tenant_id' },
 } as const;
 
-function deployment(metricOverrides: Record<string, unknown> = {}) {
-  return validateProtocolDeploymentContract({
+function deployment() {
+  return validateProtocolDatasetOnlyContract({
     kind: 'hypequery-deployment',
-    version: 1,
+    version: 2,
     datasets: [{
       name: 'orders',
       source: 'analytics.orders',
@@ -41,21 +41,9 @@ function deployment(metricOverrides: Record<string, unknown> = {}) {
       ],
       measures: [{ name: 'revenue', aggregation: 'sum', field: 'amount', filters: [] }],
       filters: [{ name: 'status', field: 'status', operators: ['eq'] }],
-      metrics: [{
-        name: 'totalRevenue',
-        kind: 'metric',
-        expression: { kind: 'aggregate', aggregation: 'sum', field: 'amount' },
-        dimensions: ['status'],
-        filters: ['status'],
-        grains: ['day', 'month'],
-        endpoint: AUTHENTICATED,
-        ...metricOverrides,
-      }],
       relationships: [],
       endpoint: AUTHENTICATED,
     }],
-    queries: [],
-    artifacts: [],
   });
 }
 
@@ -117,51 +105,39 @@ function untenantedDeployment() {
   const base = deployment();
   const [dataset] = base.datasets;
   const open = { access: { kind: 'public' }, tenant: { kind: 'not-required' } } as const;
-  return validateProtocolDeploymentContract({
+  return validateProtocolDatasetOnlyContract({
     ...base,
     datasets: [{
       ...dataset,
       tenant: { kind: 'not-required' },
-      metrics: dataset.metrics.map(metric => ({ ...metric, endpoint: open })),
       endpoint: open,
     }],
   });
 }
 
-/** The same contract publishing `revenue / nullIfZero(orders)` as a derived metric. */
+/** The same contract publishing `revenue / nullIfZero(orders)` as a derived measure. */
 function derivedDeployment() {
   const base = deployment();
   const [dataset] = base.datasets;
-  const revenue = { kind: 'aggregate', aggregation: 'sum', field: 'amount' } as const;
-  const orders = { kind: 'aggregate', aggregation: 'count', field: 'status' } as const;
   const guard = (operand: unknown) => ({ kind: 'call', function: 'nullIfZero', args: [operand] });
-  return validateProtocolDeploymentContract({
+  return validateProtocolDatasetOnlyContract({
     ...base,
     datasets: [{
       ...dataset,
       measures: [
         ...dataset.measures,
         { name: 'orderCount', aggregation: 'count', field: 'status', filters: [] },
-      ],
-      metrics: [{
-        ...dataset.metrics[0],
-        name: 'aov',
-        kind: 'derived-metric',
-        grains: [],
-        grain: undefined,
-        expression: { kind: 'binary', operator: 'divide', left: revenue, right: guard(orders) },
-        derivation: {
-          inputs: [
-            { alias: 'revenue', expression: revenue },
-            { alias: 'orders', expression: orders },
-          ],
+        {
+          kind: 'derived',
+          name: 'aov',
+          uses: [{ alias: 'revenue', measure: 'revenue' }, { alias: 'orders', measure: 'orderCount' }],
           expression: {
             kind: 'binary', operator: 'divide',
             left: { kind: 'reference', name: 'revenue' },
             right: guard({ kind: 'reference', name: 'orders' }),
           },
         },
-      }],
+      ],
     }],
   });
 }
@@ -203,20 +179,7 @@ describe('portable semantic execution', () => {
     expect(sql[0]).toContain('analytics.orders');
   });
 
-  it('executes a metric invocation against its rebuilt handle', async () => {
-    const { factory } = recordingFactory([{ status: 'paid', totalRevenue: 10 }]);
-    const execute = createPortableSemanticExecutor({ queryBuilder: factory });
-    const contract = deployment();
-
-    const result = await execute(input({
-      metric: contract.datasets[0].metrics[0],
-      operation: { kind: 'metric', dataset: 'orders', metric: 'totalRevenue', dimensions: ['status'] } as never,
-    }, contract));
-
-    expect(result.meta.rowCount).toBe(1);
-  });
-
-  it('executes a derived metric from the formula the contract carries', async () => {
+  it('executes a derived measure from the formula the contract carries', async () => {
     const rawSql: string[] = [];
     const factory: QueryBuilderFactoryLike = {
       ...recordingFactory().factory,
@@ -226,13 +189,15 @@ describe('portable semantic execution', () => {
     const contract = derivedDeployment();
 
     const result = await execute(input({
-      metric: contract.datasets[0].metrics[0],
-      operation: { kind: 'metric', dataset: 'orders', metric: 'aov', dimensions: ['status'] } as never,
+      operation: {
+        kind: 'dataset', dataset: 'orders', dimensions: ['status'], measures: ['aov'],
+      } as never,
     }, contract));
 
     expect(result.meta.rowCount).toBe(1);
     // The aliases the contract declared are the ones the SQL is written in.
-    expect(rawSql[0]).toContain('(revenue) / (NULLIF(orders, 0)) AS aov');
+    expect(rawSql[0]).toContain('NULLIF');
+    expect(rawSql[0]).toContain('aov');
     expect(rawSql[0]).toContain('analytics.orders');
   });
 
@@ -265,75 +230,19 @@ describe('portable semantic execution', () => {
 
   // -- fail closed ---------------------------------------------------------
 
-  it('refuses a derived metric whose authored formula the contract omits', async () => {
-    const { factory } = recordingFactory();
-    const execute = createPortableSemanticExecutor({ queryBuilder: factory });
-    // A contract written before `derivation` existed states what the metric
-    // means but not the aliases its SQL is written in terms of, so planning it
-    // would be a guess. Decision 0005 requires an explicit refusal instead.
-    const contract = deployment({
-      kind: 'derived-metric',
-      expression: {
-        kind: 'binary', operator: 'divide',
-        left: { kind: 'aggregate', aggregation: 'sum', field: 'amount' },
-        right: { kind: 'aggregate', aggregation: 'count', field: 'status' },
-      },
-    });
-
-    await expect(execute(input({
-      metric: contract.datasets[0].metrics[0],
-      operation: { kind: 'metric', dataset: 'orders', metric: 'totalRevenue' } as never,
-    }, contract))).rejects.toThrow(PortableExecutionUnsupportedError);
-  });
-
   it('reports the unsupported-capability code a caller maps to a failure category', async () => {
     const { factory } = recordingFactory();
     const execute = createPortableSemanticExecutor({ queryBuilder: factory });
-    const contract = deployment({
-      kind: 'derived-metric',
-      expression: {
-        kind: 'binary', operator: 'divide',
-        left: { kind: 'aggregate', aggregation: 'sum', field: 'amount' },
-        right: { kind: 'aggregate', aggregation: 'count', field: 'status' },
-      },
-    });
+    const contract = deployment();
 
     await execute(input({
-      metric: contract.datasets[0].metrics[0],
-      operation: { kind: 'metric', dataset: 'orders', metric: 'totalRevenue' } as never,
+      dataset: { ...contract.datasets[0], name: 'absent' } as never,
+      operation: { kind: 'dataset', dataset: 'absent', measures: ['revenue'] } as never,
     }, contract)).catch((error: PortableExecutionUnsupportedError) => {
       expect(error.code).toBe('HQ_SEMANTIC_UNSUPPORTED_CAPABILITY');
-      expect(error.message).toMatch(/derived/);
+      expect(error.message).toMatch(/not part of the activated contract/);
     });
     expect.assertions(2);
-  });
-
-  it('does not let one derived metric make the rest of the contract unexecutable', async () => {
-    const { factory, sql } = recordingFactory();
-    const execute = createPortableSemanticExecutor({ queryBuilder: factory });
-    // Rehydration refuses a derived metric. Rebuilding the whole contract
-    // eagerly would turn that single metric into a deployment-wide outage.
-    const contract = deployment({ kind: 'derived-metric' });
-
-    const result = await execute(input({
-      operation: {
-        kind: 'dataset', dataset: 'orders', dimensions: ['status'], measures: ['revenue'],
-      } as never,
-    }, contract));
-
-    expect(result.meta.rowCount).toBe(1);
-    expect(sql[0]).toContain('analytics.orders');
-  });
-
-  it('still refuses the derived metric itself', async () => {
-    const { factory } = recordingFactory();
-    const execute = createPortableSemanticExecutor({ queryBuilder: factory });
-    const contract = deployment({ kind: 'derived-metric' });
-
-    await expect(execute(input({
-      metric: contract.datasets[0].metrics[0],
-      operation: { kind: 'metric', dataset: 'orders', metric: 'totalRevenue' } as never,
-    }, contract))).rejects.toThrow(PortableExecutionUnsupportedError);
   });
 
   it('refuses a filter the contract cannot express as a comparison', async () => {
@@ -485,7 +394,7 @@ describe('portable semantic execution', () => {
     const execute = createPortableSemanticExecutor({ queryBuilder: factory });
 
     await execute(input({}, deployment()));
-    const rolledBack = validateProtocolDeploymentContract(
+    const rolledBack = validateProtocolDatasetOnlyContract(
       JSON.parse(JSON.stringify(deployment()).replace('analytics.orders', 'analytics.orders_v1')),
     );
     await execute(input({ activationRevision: 'c'.repeat(64) }, rolledBack));

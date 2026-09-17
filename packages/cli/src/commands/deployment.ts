@@ -1,23 +1,17 @@
-import { createHash } from 'node:crypto';
 import { lstat, mkdir, readFile, realpath, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import {
   prepareProtocolDeploymentReleaseEnvelope,
+  prepareProtocolDatasetOnlyContract,
   prepareProtocolDeploymentContract,
+  type ProtocolDatasetOnlyContract,
   type ProtocolDeploymentContract,
   type ProtocolDeploymentReleaseEnvelope,
 } from '@hypequery/protocol';
 import {
   writeDeploymentBundle,
   verifyDeploymentBundle,
-  readDeploymentRuntimeFile,
-  type DeploymentBundleRuntimeFile,
 } from '../utils/deployment-bundle.js';
-import {
-  buildNodeRuntimeArtifact,
-  getDeploymentRuntimeEntrypoints,
-  type NodeRuntimeArtifact,
-} from '../utils/deployment-runtime-artifact.js';
 import { captureDeploymentSourceSnapshot } from '../utils/deployment-source-snapshot.js';
 import { loadApiModule } from '../utils/load-api.js';
 import { logger } from '../utils/logger.js';
@@ -26,8 +20,6 @@ import {
   loadCloudCredential,
   type StoredCloudCredential,
 } from '../utils/cloud-credential-store.js';
-
-const SHA256_PATTERN = /^[0-9a-f]{64}$/;
 
 export interface BuildDeploymentOptions {
   bundleOutput?: string;
@@ -60,40 +52,32 @@ export interface PrepareDeploymentReleaseDependencies {
 const DEFAULT_BUNDLE_OUTPUT = 'analytics/hypequery-deployment';
 
 interface DeploymentContractSource {
-  deploymentContract(options?: {
-    runtimeArtifact?: {
-      runtime: 'node' | 'python';
-      artifactSha256: string;
-      entrypointPrefix?: string;
-    };
+  datasetOnlyContract(options?: {
     onCloudDiagnostic?: (diagnostic: CloudCompatibilityDiagnosticLike) => void;
     allowUnsupportedConfig?: boolean;
-  }): ProtocolDeploymentContract;
+  }): ProtocolDatasetOnlyContract;
 }
 
-function runtimeName(options: BuildDeploymentOptions): 'node' | 'python' {
-  const runtime = options.runtime ?? 'node';
-  if (runtime !== 'node' && runtime !== 'python') {
-    throw new Error('--runtime must be either node or python.');
-  }
-  return runtime;
-}
-
-function configuredRuntimeArtifact(
-  options: BuildDeploymentOptions,
-  runtime: 'node' | 'python',
-) {
-  if (options.runtimeArtifact === undefined) return undefined;
-  if (!SHA256_PATTERN.test(options.runtimeArtifact)) {
-    throw new Error('--runtime-artifact must be a lowercase 64-character SHA-256 digest.');
-  }
-  return {
-    runtime,
-    artifactSha256: options.runtimeArtifact,
-    ...(options.entrypointPrefix !== undefined
-      ? { entrypointPrefix: options.entrypointPrefix }
-      : {}),
-  };
+/**
+ * A deployment carries datasets, so there is no artifact for these flags to
+ * name. They are still accepted by the parser: an existing script that passes
+ * one has to be told what replaced it, not handed an unknown-option error.
+ */
+function rejectRuntimeOptions(options: BuildDeploymentOptions): void {
+  const used = [
+    ['--runtime', options.runtime],
+    ['--runtime-artifact', options.runtimeArtifact],
+    ['--runtime-file', options.runtimeFile],
+    ['--runtime-output', options.runtimeOutput],
+    ['--entrypoint-prefix', options.entrypointPrefix],
+  ].filter(([, value]) => value !== undefined).map(([flag]) => flag);
+  if (used.length === 0) return;
+  throw new Error(
+    `${used.join(', ')} ${used.length === 1 ? 'is' : 'are'} no longer supported.\n\n`
+    + 'A deployment carries dataset definitions only. Query handlers are no longer '
+    + 'bundled into a runtime artifact and no longer run in Cloud; they keep working '
+    + 'locally and under self-hosted Serve.',
+  );
 }
 
 function assertDistinctOutputPaths(paths: Readonly<Record<string, string | undefined>>): void {
@@ -112,7 +96,7 @@ function assertDistinctOutputPaths(paths: Readonly<Record<string, string | undef
 export async function buildDeploymentCommand(
   apiPath: string | undefined,
   options: BuildDeploymentOptions = {},
-): Promise<ProtocolDeploymentContract> {
+): Promise<ProtocolDatasetOnlyContract> {
   if (!apiPath) {
     throw new Error(
       'Missing API module path.\n\n'
@@ -120,109 +104,38 @@ export async function buildDeploymentCommand(
     );
   }
 
-  const runtime = runtimeName(options);
-  const configuredArtifact = configuredRuntimeArtifact(options, runtime);
+  rejectRuntimeOptions(options);
   const legacyOutputRequested = options.output !== undefined
-    || options.hashOutput !== undefined
-    || options.runtimeOutput !== undefined;
+    || options.hashOutput !== undefined;
   if (options.bundleOutput !== undefined && legacyOutputRequested) {
     throw new Error(
-      '--bundle-output cannot be combined with --output, --hash-output, or --runtime-output.',
+      '--bundle-output cannot be combined with --output or --hash-output.',
     );
   }
   const bundleOutput = options.bundleOutput
     ?? (legacyOutputRequested ? undefined : DEFAULT_BUNDLE_OUTPUT);
-  if (options.runtimeFile !== undefined && configuredArtifact === undefined) {
-    throw new Error('--runtime-file requires --runtime-artifact.');
-  }
-  if (options.runtimeFile !== undefined && bundleOutput === undefined) {
-    throw new Error('--runtime-file is only supported when building a deployment bundle.');
-  }
-  if (configuredArtifact && bundleOutput !== undefined && options.runtimeFile === undefined) {
-    throw new Error(
-      'A complete deployment bundle requires --runtime-file with a prebuilt --runtime-artifact.',
-    );
-  }
-  if (configuredArtifact && options.runtimeOutput !== undefined) {
-    throw new Error('--runtime-output cannot be used with a prebuilt --runtime-artifact.');
-  }
   const outputPath = options.output ?? 'analytics/hypequery-deployment.json';
   const hashOutputPath = options.hashOutput ?? `${outputPath}.sha256`;
-  if (options.runtimeOutput !== undefined) {
-    assertDistinctOutputPaths({
-      '--output': outputPath,
-      '--hash-output': hashOutputPath,
-      '--runtime-output': options.runtimeOutput,
-    });
-  }
   const api = await loadApiModule(apiPath) as DeploymentContractSource;
-  if (typeof api.deploymentContract !== 'function') {
+  if (typeof api.datasetOnlyContract !== 'function') {
     throw new Error(
       `Invalid API module: ${apiPath}\n\n`
-      + 'The exported API must provide deploymentContract(). '
+      + 'The exported API must provide datasetOnlyContract(). '
       + 'Upgrade @hypequery/serve and export the value returned by createAPI() or serve().',
     );
   }
 
-  let builtArtifact: NodeRuntimeArtifact | undefined;
-  let artifact = configuredArtifact;
-  if (!artifact) {
-    const runtimeEntrypoints = getDeploymentRuntimeEntrypoints(api);
-    if (runtimeEntrypoints.length > 0) {
-      if (runtime !== 'node') {
-        throw new Error(
-          'Automatic runtime artifact builds currently support Node only. '
-          + 'Provide --runtime-artifact for Python deployments.',
-        );
-      }
-      builtArtifact = await buildNodeRuntimeArtifact(
-        apiPath,
-        runtimeEntrypoints,
-        options.entrypointPrefix,
-      );
-      artifact = {
-        runtime: 'node',
-        artifactSha256: builtArtifact.artifactSha256,
-        entrypointPrefix: builtArtifact.entrypointPrefix,
-      };
-    }
-  }
-
-  const contract = api.deploymentContract({
-    ...(artifact ? { runtimeArtifact: artifact } : {}),
+  const contract = api.datasetOnlyContract({
     ...(options.allowUnsupportedConfig ? { allowUnsupportedConfig: true } : {}),
     onCloudDiagnostic: diagnostic => reportCloudDiagnostic(diagnostic, options.allowUnsupportedConfig === true),
   });
-  const prepared = prepareProtocolDeploymentContract(contract);
+  const prepared = prepareProtocolDatasetOnlyContract(contract);
   const { canonical, contract: validated, identity: digest } = prepared;
   if (bundleOutput !== undefined) {
-    const runtimeFiles: DeploymentBundleRuntimeFile[] = [];
-    if (builtArtifact) {
-      runtimeFiles.push({
-        runtime: 'node',
-        sha256: builtArtifact.artifactSha256,
-        bytes: builtArtifact.bytes,
-      });
-    } else if (configuredArtifact && options.runtimeFile) {
-      const bytes = await readDeploymentRuntimeFile(options.runtimeFile);
-      const actualSha256 = createHash('sha256').update(bytes).digest('hex');
-      if (actualSha256 !== configuredArtifact.artifactSha256) {
-        throw new Error(
-          `Prebuilt runtime artifact SHA-256 mismatch: ${options.runtimeFile}\n\n`
-          + `Expected: ${configuredArtifact.artifactSha256}\nActual: ${actualSha256}`,
-        );
-      }
-      runtimeFiles.push({ runtime, sha256: actualSha256, bytes });
-    }
     const sourceSnapshot = options.source === false
       ? undefined
       : await captureDeploymentSourceSnapshot(apiPath);
-    const bundle = await writeDeploymentBundle(
-      bundleOutput,
-      prepared,
-      runtimeFiles,
-      sourceSnapshot,
-    );
+    const bundle = await writeDeploymentBundle(bundleOutput, prepared, sourceSnapshot);
     logger.success(`Deployment bundle written to ${bundle.directory}`);
     if (bundle.manifest.source) {
       logger.info(
@@ -230,21 +143,21 @@ export async function buildDeploymentCommand(
         + `${bundle.manifest.source.files.length === 1 ? 'file' : 'files'}`,
       );
     }
+    logger.info(
+      `${validated.datasets.length} `
+      + `${validated.datasets.length === 1 ? 'dataset' : 'datasets'}, 0 runtime artifacts`,
+    );
     logger.info(`Bundle identity: ${bundle.identity}`);
     logger.info(`Deployment identity: ${digest}`);
     return validated;
   }
-  const runtimeOutputPath = builtArtifact
-    ? options.runtimeOutput ?? path.join(path.dirname(outputPath), 'hypequery-runtime.mjs')
-    : undefined;
   assertDistinctOutputPaths({
     '--output': outputPath,
     '--hash-output': hashOutputPath,
-    '--runtime-output': runtimeOutputPath,
   });
   const identitySidecar = [
-    '# Hypequery deployment identity v1; not a file checksum or sha256sum input.',
-    '# SHA-256(UTF-8("hypequery:deployment:v1") || 0x00 || RFC 8785 canonical bytes); '
+    '# Hypequery deployment identity v2; not a file checksum or sha256sum input.',
+    '# SHA-256(UTF-8("hypequery:deployment:v2") || 0x00 || RFC 8785 canonical bytes); '
       + 'the output newline is excluded.',
     `${digest}  ${path.basename(outputPath)}`,
     '',
@@ -252,25 +165,35 @@ export async function buildDeploymentCommand(
 
   await mkdir(path.dirname(outputPath), { recursive: true });
   await mkdir(path.dirname(hashOutputPath), { recursive: true });
-  if (runtimeOutputPath && builtArtifact) {
-    await mkdir(path.dirname(runtimeOutputPath), { recursive: true });
-    await writeFile(runtimeOutputPath, builtArtifact.bytes);
-  }
   await writeFile(outputPath, `${canonical}\n`, 'utf8');
   await writeFile(hashOutputPath, identitySidecar, 'utf8');
 
-  if (runtimeOutputPath && builtArtifact) {
-    logger.success(`Runtime artifact written to ${runtimeOutputPath}`);
-    logger.info(`Runtime artifact SHA-256: ${builtArtifact.artifactSha256}`);
-  }
   logger.success(`Deployment contract written to ${outputPath}`);
   logger.info(`Identity: ${digest}`);
   return validated;
 }
 
+/**
+ * Summarizes a contract at the version it was written at.
+ *
+ * A stored v1 release keeps its counts here rather than being reported through
+ * its dataset-only projection: `deployment:validate` answers what is in the
+ * file, and a v1 bundle that still carries queries is exactly what an author
+ * needs to see before rebuilding it.
+ */
+function describeContract(
+  contract: ProtocolDeploymentContract | ProtocolDatasetOnlyContract,
+): string {
+  const datasets = `${contract.datasets.length} `
+    + `${contract.datasets.length === 1 ? 'dataset' : 'datasets'}`;
+  if (contract.version === 2) return `${datasets} (dataset-only contract v2)`;
+  return `${datasets}, ${contract.queries.length} queries, `
+    + `${contract.artifacts.length} runtime artifacts (legacy contract v1)`;
+}
+
 export async function validateDeploymentCommand(
   artifactPath: string | undefined,
-): Promise<ProtocolDeploymentContract> {
+): Promise<ProtocolDeploymentContract | ProtocolDatasetOnlyContract> {
   if (!artifactPath) {
     throw new Error(
       'Missing deployment artifact path.\n\n'
@@ -296,10 +219,7 @@ export async function validateDeploymentCommand(
       const bundle = await verifyDeploymentBundle(artifactPath);
       const contract = bundle.contract;
       logger.success(`Valid deployment bundle: ${artifactPath}`);
-      logger.info(
-        `${contract.datasets.length} datasets, ${contract.queries.length} queries, `
-        + `${contract.artifacts.length} runtime artifacts`,
-      );
+      logger.info(describeContract(contract));
       logger.info(`Bundle identity: ${bundle.identity}`);
       logger.info(`Deployment identity: ${bundle.manifest.deployment.identity}`);
       return contract;
@@ -327,9 +247,16 @@ export async function validateDeploymentCommand(
     );
   }
 
-  let prepared: ReturnType<typeof prepareProtocolDeploymentContract>;
+  const datasetOnly = typeof input === 'object' && input !== null
+    && (input as { readonly version?: unknown }).version === 2;
+  let prepared: {
+    readonly contract: ProtocolDeploymentContract | ProtocolDatasetOnlyContract;
+    readonly identity: string;
+  };
   try {
-    prepared = prepareProtocolDeploymentContract(input);
+    prepared = datasetOnly
+      ? prepareProtocolDatasetOnlyContract(input)
+      : prepareProtocolDeploymentContract(input);
   } catch (error) {
     throw new Error(
       `Invalid deployment contract: ${artifactPath}\n\n`
@@ -339,10 +266,7 @@ export async function validateDeploymentCommand(
 
   const { contract, identity: digest } = prepared;
   logger.success(`Valid deployment contract: ${artifactPath}`);
-  logger.info(
-    `${contract.datasets.length} datasets, ${contract.queries.length} queries, `
-    + `${contract.artifacts.length} runtime artifacts`,
-  );
+  logger.info(describeContract(contract));
   logger.info(`Identity: ${digest}`);
   return contract;
 }
