@@ -198,6 +198,12 @@ export type {
 
 export {
   DEFAULT_PROTOCOL_DEPLOYMENT_LIMITS,
+  PROTOCOL_DATASET_ONLY_IDENTITY_DOMAIN,
+  encodeProtocolDatasetOnlyContract,
+  hashProtocolDatasetOnlyContract,
+  prepareProtocolDatasetOnlyContract,
+  projectLegacyProtocolDeploymentContract,
+  validateProtocolDatasetOnlyContract,
   PROTOCOL_DEPLOYMENT_IDENTITY_DOMAIN,
   ProtocolDeploymentError,
   encodeProtocolDeploymentContract,
@@ -209,6 +215,11 @@ export {
 } from './deployments/index.js';
 
 export type {
+  PreparedProtocolDatasetOnlyContract,
+  ProtocolDatasetDerivedMeasure,
+  ProtocolDatasetOnlyContract,
+  ProtocolDatasetOnlyDataset,
+  ProtocolDatasetOnlyMeasure,
   PreparedProtocolDeploymentContract,
   ProtocolAccessPolicy,
   ProtocolDatasetContract,

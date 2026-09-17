@@ -198,6 +198,37 @@ export interface ProtocolDeploymentContract {
   readonly artifacts: readonly ProtocolRuntimeArtifact[];
 }
 
+/** A post-aggregation formula over base measures in the same dataset. */
+export interface ProtocolDatasetDerivedMeasure extends ProtocolSemanticMetadata {
+  readonly kind: 'derived';
+  readonly name: ProtocolIdentifier;
+  /** Authored alias order is retained for deterministic reconstruction. */
+  readonly uses: readonly {
+    readonly alias: ProtocolIdentifier;
+    readonly measure: ProtocolIdentifier;
+  }[];
+  readonly expression: ProtocolExpression;
+  readonly label?: string;
+  readonly description?: string;
+}
+
+/** The v2 wire folds authored base and derived measures into one collection. */
+export type ProtocolDatasetOnlyMeasure = ProtocolDatasetMeasure | ProtocolDatasetDerivedMeasure;
+
+export interface ProtocolDatasetOnlyDataset extends Omit<ProtocolDatasetContract, 'measures' | 'metrics'> {
+  readonly measures: readonly ProtocolDatasetOnlyMeasure[];
+  readonly metrics?: never;
+}
+
+/** The new Cloud wire contains datasets only; no named queries or artifacts. */
+export interface ProtocolDatasetOnlyContract {
+  readonly kind: 'hypequery-deployment';
+  readonly version: 2;
+  readonly datasets: readonly ProtocolDatasetOnlyDataset[];
+  readonly queries?: never;
+  readonly artifacts?: never;
+}
+
 export interface ProtocolDeploymentLimits {
   readonly maxDatasets: number;
   readonly maxQueries: number;
