@@ -89,6 +89,20 @@ function renderingBuilder(rows: Record<string, unknown>[] = []) {
 }
 
 describe('dataset-only authored and rehydrated parity', () => {
+  it('keeps prototype-shaped dataset names as own registry entries', () => {
+    const named = dataset('__proto__', {
+      source: 'orders',
+      dimensions: { id: dimension.number() },
+      measures: { orderCount: measure.count('id') },
+    });
+    const contract = buildProtocolDatasetOnlyContract([named]);
+    const registry = rehydrateProtocolDatasetOnlyContract(contract);
+
+    expect(Object.keys(registry)).toEqual(['__proto__']);
+    expect(Object.hasOwn(registry, '__proto__')).toBe(true);
+    expect(registry.__proto__.name).toBe('__proto__');
+  });
+
   const Orders = dataset('orders', {
     source: 'analytics.orders',
     tenantKey: 'tenant_id',

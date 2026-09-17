@@ -354,7 +354,8 @@ export function rehydrateProtocolDatasets(
     return { base, derived };
   });
   const instances = new Map<string, AnyDatasetInstance>();
-  const registry: Record<string, RehydratedDataset> = {};
+  // Valid protocol names include "__proto__"; a plain object would lose that entry.
+  const registry: Record<string, RehydratedDataset> = Object.create(null) as Record<string, RehydratedDataset>;
   // Relationship targets resolve to the published entry, not the bare instance
   // built below, so a caller that follows a relationship lands on the same
   // object the registry exposes. Safe because `target()` is only called after
