@@ -81,6 +81,19 @@ describe('dataset-only deployment contract v2', () => {
     })).toThrow(/\$\.datasets\[0\]\.measures\[1\]/);
   });
 
+  it('keeps a base measure index when derived measures precede it', () => {
+    const value = datasetOnly();
+    const dataset = value.datasets[0];
+    expect(() => validateProtocolDatasetOnlyContract({
+      ...value,
+      datasets: [{ ...dataset, measures: [
+        baseMeasure('revenue', 'amount'),
+        derivedMeasure(),
+        { ...baseMeasure('orders', 'id'), field: 42 },
+      ] }],
+    })).toThrow(/\$\.datasets\[0\]\.measures\[2\]\.field/);
+  });
+
   it('rejects missing dependencies, undeclared aliases, duplicate names, and nested derivation', () => {
     const value = datasetOnly();
     const dataset = value.datasets[0];

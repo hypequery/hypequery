@@ -753,9 +753,9 @@ function namedItems<T extends { readonly name: string }>(
   input: unknown,
   path: string,
   maxItems: number,
-  validate: (value: unknown, path: string) => T,
+  validate: (value: unknown, path: string, index: number) => T,
 ): readonly T[] {
-  const items = requireArray(input, path, maxItems).map((value, index) => validate(value, `${path}[${index}]`));
+  const items = requireArray(input, path, maxItems).map((value, index) => validate(value, `${path}[${index}]`, index));
   if (new Set(items.map(item => item.name)).size !== items.length) {
     deploymentError('HQ_DEPLOYMENT_INVALID_REFERENCE', path);
   }
@@ -766,6 +766,7 @@ function validateDataset(
   input: unknown,
   path: string,
   limits: Readonly<ProtocolDeploymentLimits>,
+  measureIndices?: readonly number[],
 ): ProtocolDatasetContract {
   const value = requireRecord(input, path);
   exactFields(
@@ -788,7 +789,11 @@ function validateDataset(
     ),
     measures: namedItems(
       value.measures, `${path}.measures`, limits.maxDatasetItems,
-      (item, itemPath) => validateMeasure(item, itemPath, limits),
+      (item, itemPath, index) => validateMeasure(
+        item,
+        measureIndices === undefined ? itemPath : `${path}.measures[${measureIndices[index]}]`,
+        limits,
+      ),
     ),
     filters: namedItems(
       value.filters, `${path}.filters`, limits.maxDatasetItems,
@@ -1127,10 +1132,17 @@ function validateDatasetOnly(
       ...SEMANTIC_METADATA_FIELDS, 'timeField', 'limits', 'endpoint',
     ], path);
   const measures = requireArray(value.measures, `${path}.measures`, limits.maxDatasetItems);
-  const base = measures.filter((measure, index) => (
-    requireRecord(measure, `${path}.measures[${index}]`).kind !== 'derived'
+  // Keep source indices when validating the base-only view through the v1 validator.
+  const baseEntries = measures.flatMap((measure, index) => (
+    requireRecord(measure, `${path}.measures[${index}]`).kind === 'derived'
+      ? [] : [{ measure, index }]
   ));
-  const legacy = validateDataset({ ...value, measures: base, metrics: [] }, path, limits);
+  const legacy = validateDataset(
+    { ...value, measures: baseEntries.map(entry => entry.measure), metrics: [] },
+    path,
+    limits,
+    baseEntries.map(entry => entry.index),
+  );
   const derived = measures.map((measure, index) => (
     requireRecord(measure, `${path}.measures[${index}]`).kind === 'derived'
       ? validateDatasetDerivedMeasure(measure, `${path}.measures[${index}]`, limits)
