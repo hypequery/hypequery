@@ -32,6 +32,13 @@ function derivedMetric() {
 }
 
 describe('local dataset contract validation', () => {
+  it('rejects hidden properties on local metric arrays', () => {
+    const contract = dataset();
+    Object.defineProperty(contract.metrics, 'hidden', { value: true });
+    expect(() => validateProtocolDatasetContract(contract))
+      .toThrow(/HQ_DEPLOYMENT_UNSAFE_OBJECT at \$\.metrics/);
+  });
+
   it('preserves and freezes bounded semantic metadata', () => {
     const contract = validateProtocolDatasetContract({
       ...dataset(), description: 'Governed orders', examples: ['Revenue by region'],

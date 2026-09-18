@@ -61,6 +61,18 @@ describe('deployment contract v2', () => {
       .toThrowError(ProtocolDeploymentError);
   });
 
+  it('rejects hidden properties on contract arrays', () => {
+    const root = deployment();
+    Object.defineProperty(root.datasets, 'hidden', { value: true });
+    expect(() => validateProtocolDeploymentContract(root))
+      .toThrow(/HQ_DEPLOYMENT_UNSAFE_OBJECT at \$\.datasets/);
+
+    const nested = deployment();
+    Object.defineProperty(nested.datasets[0].measures, 'hidden', { value: true });
+    expect(() => validateProtocolDeploymentContract(nested))
+      .toThrow(/HQ_DEPLOYMENT_UNSAFE_OBJECT at \$\.datasets\[0\]\.measures/);
+  });
+
   it('rejects dataset metrics, v1 uploads, and unknown fields', () => {
     const value = deployment();
     expect(() => validateProtocolDeploymentContract({

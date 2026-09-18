@@ -77,7 +77,10 @@ function requireArray(input: unknown, path: string, maxItems: number): readonly 
       deploymentError('HQ_DEPLOYMENT_UNSAFE_OBJECT', `${path}[${index}]`);
     }
   }
-  if (Object.keys(input).length !== input.length) deploymentError('HQ_DEPLOYMENT_UNSAFE_OBJECT', path);
+  if (Object.keys(input).length !== input.length
+    || Object.getOwnPropertyNames(input).length !== input.length + 1) {
+    deploymentError('HQ_DEPLOYMENT_UNSAFE_OBJECT', path);
+  }
   return input;
 }
 
