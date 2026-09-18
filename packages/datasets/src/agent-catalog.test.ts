@@ -1,5 +1,3 @@
-import { readFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
 import { validateProtocolDeploymentContract } from '@hypequery/protocol';
 import { describe, expect, it } from 'vitest';
 import { projectAgentSafeCatalog, projectTrustedDebugCatalog } from './agent-catalog.js';
@@ -10,20 +8,20 @@ import { measure } from './measure.js';
 import { add } from './formulas.js';
 import { belongsTo } from './relationships.js';
 
-function fixture<T>(name: string): T {
-  const path = fileURLToPath(new URL(
-    `../../../specs/deployment/fixtures/mcp-cloud-v1/${name}`,
-    import.meta.url,
-  ));
-  return JSON.parse(readFileSync(path, 'utf8')) as T;
-}
-
 describe('agent-safe catalog projection', () => {
-  it('matches the shared deployment fixture', () => {
-    const deployment = validateProtocolDeploymentContract(fixture('deployment.json'));
+  it('projects a deployment contract without local metrics', () => {
+    const deployment = validateProtocolDeploymentContract({
+      kind: 'hypequery-deployment', version: 2,
+      datasets: [{
+        name: 'orders', source: 'analytics.orders', tenant: { kind: 'not-required' },
+        dimensions: [], measures: [{ name: 'revenue', aggregation: 'sum', field: 'amount', filters: [] }],
+        filters: [], relationships: [],
+      }],
+    });
 
-    expect(projectAgentSafeCatalog(deployment))
-      .toEqual(fixture('expected-safe-catalog.json'));
+    expect(projectAgentSafeCatalog(deployment).datasets[0]).toMatchObject({
+      name: 'orders', measures: [{ name: 'revenue' }], metrics: [],
+    });
   });
 
   it('excludes physical and tenant metadata from local datasets', () => {

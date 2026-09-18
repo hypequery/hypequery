@@ -84,7 +84,6 @@ export type {
 } from './types.js';
 export type { DeploymentDataPlanePrincipal } from './principal.js';
 
-// Semantic invocation beside named-query execution (decision 0002).
 export {
   createDeploymentSemanticDataPlane,
   DeploymentSemanticInvocationError,

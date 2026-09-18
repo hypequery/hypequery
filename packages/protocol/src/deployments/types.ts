@@ -1,10 +1,6 @@
 import type { ProtocolExpression, ProtocolTimeGrain } from '../expressions/index.js';
 import type { ProtocolIdentifier, ProtocolQualifiedIdentifier } from '../identifiers/index.js';
-import type {
-  ProtocolQueryImplementation,
-  ProtocolSqlExpression,
-} from '../query-implementations/index.js';
-import type { ProtocolSchema } from '../schemas/index.js';
+import type { ProtocolSqlExpression } from '../query-implementations/index.js';
 
 export type ProtocolDatasetFieldType = 'string' | 'number' | 'boolean' | 'timestamp';
 export type ProtocolSemanticSensitivity = 'public' | 'internal' | 'confidential' | 'restricted';
@@ -171,33 +167,6 @@ export interface ProtocolDatasetContract extends ProtocolSemanticMetadata {
   readonly endpoint?: ProtocolEndpointPolicy;
 }
 
-export interface ProtocolNamedQueryContract {
-  readonly name: ProtocolIdentifier;
-  readonly input: ProtocolSchema;
-  readonly output: ProtocolSchema;
-  readonly implementation: ProtocolQueryImplementation;
-  readonly endpoint: ProtocolEndpointPolicy & {
-    readonly method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE' | 'OPTIONS';
-    readonly path: string;
-  };
-  readonly summary?: string;
-  readonly description?: string;
-  readonly tags: readonly string[];
-}
-
-export interface ProtocolRuntimeArtifact {
-  readonly runtime: 'node' | 'python';
-  readonly artifactSha256: string;
-}
-
-export interface ProtocolDeploymentContract {
-  readonly kind: 'hypequery-deployment';
-  readonly version: 1;
-  readonly datasets: readonly ProtocolDatasetContract[];
-  readonly queries: readonly ProtocolNamedQueryContract[];
-  readonly artifacts: readonly ProtocolRuntimeArtifact[];
-}
-
 /** A post-aggregation formula over base measures in the same dataset. */
 export interface ProtocolDatasetDerivedMeasure extends ProtocolSemanticMetadata {
   readonly kind: 'derived';
@@ -213,26 +182,24 @@ export interface ProtocolDatasetDerivedMeasure extends ProtocolSemanticMetadata 
 }
 
 /** The v2 wire folds authored base and derived measures into one collection. */
-export type ProtocolDatasetOnlyMeasure = ProtocolDatasetMeasure | ProtocolDatasetDerivedMeasure;
+export type ProtocolDeploymentMeasure = ProtocolDatasetMeasure | ProtocolDatasetDerivedMeasure;
 
-export interface ProtocolDatasetOnlyDataset extends Omit<ProtocolDatasetContract, 'measures' | 'metrics'> {
-  readonly measures: readonly ProtocolDatasetOnlyMeasure[];
+export interface ProtocolDeploymentDataset extends Omit<ProtocolDatasetContract, 'measures' | 'metrics'> {
+  readonly measures: readonly ProtocolDeploymentMeasure[];
   readonly metrics?: never;
 }
 
-/** The new Cloud wire contains datasets only; no named queries or artifacts. */
-export interface ProtocolDatasetOnlyContract {
+/** The deployment contract contains executable datasets and derived measures. */
+export interface ProtocolDeploymentContract {
   readonly kind: 'hypequery-deployment';
   readonly version: 2;
-  readonly datasets: readonly ProtocolDatasetOnlyDataset[];
+  readonly datasets: readonly ProtocolDeploymentDataset[];
   readonly queries?: never;
   readonly artifacts?: never;
 }
 
 export interface ProtocolDeploymentLimits {
   readonly maxDatasets: number;
-  readonly maxQueries: number;
-  readonly maxArtifacts: number;
   readonly maxDatasetItems: number;
   /**
    * Ceiling on each semantic-metadata collection (`examples`, `synonyms`, and
@@ -251,7 +218,7 @@ export interface ProtocolDeploymentLimits {
  *
  * Each configured value must be a positive safe integer no greater than the
  * corresponding value in `DEFAULT_PROTOCOL_DEPLOYMENT_LIMITS`. These options
- * may tighten the deployment-contract v1 conformance limits, but cannot raise
+ * may tighten the deployment contract limits, but cannot raise
  * them; they are not deployment capacity settings.
  */
 export interface ProtocolDeploymentOptions {

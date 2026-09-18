@@ -19,7 +19,7 @@ export function resolveDeploymentControlPlaneLimits(
     if (!Number.isSafeInteger(value) || value < 1
       || value > DEFAULT_DEPLOYMENT_CONTROL_PLANE_LIMITS[key]) {
       throw new RangeError(
-        `${key} must be a positive safe integer no greater than the control-plane v1 maximum`,
+        `${key} must be a positive safe integer no greater than the control-plane safety ceiling`,
       );
     }
     limits[key] = value;

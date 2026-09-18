@@ -109,8 +109,8 @@ function requiredSqlDependencies(
 }
 
 /**
- * Converts one existing Dataset instance into the versioned deployment
- * contract consumed by protocol-aware build and runtime tooling.
+ * Converts one Dataset instance into a validated local dataset snapshot.
+ * Deployment assembly selects the fields supported by the deployment contract.
  */
 export function buildProtocolDatasetContract(
   dataset: AnyDatasetInstance,

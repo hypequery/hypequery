@@ -53,12 +53,11 @@ async function submissionFixture(): Promise<{
   const deploymentPath = 'contract/deployment.json';
   const deployment = prepareProtocolDeploymentContract({
     kind: 'hypequery-deployment',
-    version: 1,
+    version: 2,
     datasets: [],
-    queries: [],
-    artifacts: [],
   });
   const deploymentBytes = Buffer.from(`${deployment.canonical}\n`);
+  const sourceBytes = Buffer.from('export const orders = {};\n');
   const manifest = prepareProtocolDeploymentBundleManifest({
     kind: 'hypequery-deployment-bundle',
     version: 1,
@@ -69,10 +68,21 @@ async function submissionFixture(): Promise<{
       byteLength: deploymentBytes.byteLength,
     },
     artifacts: [],
+    source: {
+      root: 'source',
+      entrypoint: 'analytics/orders.ts',
+      files: [{
+        path: 'analytics/orders.ts',
+        sha256: sha256(sourceBytes),
+        byteLength: sourceBytes.byteLength,
+      }],
+    },
   });
   await mkdir(path.join(source, 'contract'), { recursive: true });
+  await mkdir(path.join(source, 'source/analytics'), { recursive: true });
   await writeFile(path.join(source, 'bundle.json'), `${manifest.canonical}\n`);
   await writeFile(path.join(source, deploymentPath), deploymentBytes);
+  await writeFile(path.join(source, 'source/analytics/orders.ts'), sourceBytes);
   const bundle = await verifyDeploymentBundle(source);
   const release = prepareProtocolDeploymentReleaseEnvelope({
     kind: 'hypequery-deployment-release',
@@ -119,6 +129,8 @@ describe('filesystem deployment submission store', () => {
       stored!.bundle.directory,
       ...fixture.deploymentPath.split('/'),
     ), 'utf8')).toBe(`${prepareProtocolDeploymentContract(stored!.bundle.contract).canonical}\n`);
+    expect(await readFile(path.join(stored!.bundle.directory, 'source/analytics/orders.ts'), 'utf8'))
+      .toBe('export const orders = {};\n');
     expect(await readdir(root)).toEqual(['bundles', 'releases']);
     expect(await readdir(path.join(root, 'releases', fixture.submission.releaseIdentity)))
       .toEqual(['release.json']);

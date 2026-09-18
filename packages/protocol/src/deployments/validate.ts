@@ -5,25 +5,16 @@ import {
   parseProtocolIdentifier,
   parseProtocolQualifiedIdentifier,
 } from '../identifiers/index.js';
-import {
-  ProtocolQueryImplementationError,
-  validateProtocolQueryImplementation,
-} from '../query-implementations/index.js';
 import { validateProtocolSqlExpression } from '../sql-expressions/validate.js';
-import {
-  ProtocolSchemaError,
-  validateProtocolSchema,
-  type ProtocolSchema,
-} from '../schemas/index.js';
 import { deploymentError } from './errors.js';
 import { resolveDeploymentLimits } from './limits.js';
 import type {
   ProtocolAccessPolicy,
   ProtocolDatasetContract,
   ProtocolDatasetDerivedMeasure,
-  ProtocolDatasetOnlyContract,
-  ProtocolDatasetOnlyDataset,
-  ProtocolDatasetOnlyMeasure,
+  ProtocolDeploymentContract,
+  ProtocolDeploymentDataset,
+  ProtocolDeploymentMeasure,
   ProtocolDatasetDimension,
   ProtocolDatasetFieldSource,
   ProtocolDatasetFilter,
@@ -33,18 +24,14 @@ import type {
   ProtocolDatasetRelationship,
   ProtocolMetricDerivation,
   ProtocolDatasetTenantPolicy,
-  ProtocolDeploymentContract,
   ProtocolDeploymentLimits,
   ProtocolDeploymentOptions,
   ProtocolEndpointPolicy,
   ProtocolEndpointTenantPolicy,
-  ProtocolNamedQueryContract,
-  ProtocolRuntimeArtifact,
 } from './types.js';
 
 type DataRecord = Record<string, unknown>;
 const textEncoder = new TextEncoder();
-const SHA256_PATTERN = /^[0-9a-f]{64}$/;
 const AGGREGATIONS = new Set([
   'sum', 'count', 'countDistinct', 'avg', 'min', 'max',
   'argMax', 'argMin', 'percentile', 'stddev', 'variance',
@@ -90,7 +77,10 @@ function requireArray(input: unknown, path: string, maxItems: number): readonly 
       deploymentError('HQ_DEPLOYMENT_UNSAFE_OBJECT', `${path}[${index}]`);
     }
   }
-  if (Object.keys(input).length !== input.length) deploymentError('HQ_DEPLOYMENT_UNSAFE_OBJECT', path);
+  if (Object.keys(input).length !== input.length
+    || Object.getOwnPropertyNames(input).length !== input.length + 1) {
+    deploymentError('HQ_DEPLOYMENT_UNSAFE_OBJECT', path);
+  }
   return input;
 }
 
@@ -257,13 +247,12 @@ function validateEndpoint(
   input: unknown,
   path: string,
   limits: Readonly<ProtocolDeploymentLimits>,
-  transport = false,
-): ProtocolEndpointPolicy & { method?: string; path?: string } {
+): ProtocolEndpointPolicy {
   const value = requireRecord(input, path);
   exactFields(
     value,
-    transport ? ['access', 'tenant', 'method', 'path'] : ['access', 'tenant'],
-    transport ? ['cacheTtlMs', 'maxLimit'] : ['cacheTtlMs', 'maxLimit', 'path'],
+    ['access', 'tenant'],
+    ['cacheTtlMs', 'maxLimit', 'path'],
     path,
   );
   const result: Record<string, unknown> = {
@@ -272,21 +261,12 @@ function validateEndpoint(
   };
   if (value.cacheTtlMs !== undefined) result.cacheTtlMs = positiveInteger(value.cacheTtlMs, `${path}.cacheTtlMs`);
   if (value.maxLimit !== undefined) result.maxLimit = positiveInteger(value.maxLimit, `${path}.maxLimit`);
-  if (!transport && value.path !== undefined) {
+  if (value.path !== undefined) {
     const endpointPath = boundedText(value.path, `${path}.path`, limits.maxPathBytes);
     if (!endpointPath.startsWith('/')) deploymentError('HQ_DEPLOYMENT_INVALID_VALUE', `${path}.path`);
     result.path = endpointPath;
   }
-  if (transport) {
-    if (!['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'].includes(value.method as string)) {
-      deploymentError('HQ_DEPLOYMENT_INVALID_VALUE', `${path}.method`);
-    }
-    const endpointPath = boundedText(value.path, `${path}.path`, limits.maxPathBytes);
-    if (!endpointPath.startsWith('/')) deploymentError('HQ_DEPLOYMENT_INVALID_VALUE', `${path}.path`);
-    result.method = value.method;
-    result.path = endpointPath;
-  }
-  return freezeRecord(result) as unknown as ProtocolEndpointPolicy & { method?: string; path?: string };
+  return freezeRecord(result) as unknown as ProtocolEndpointPolicy;
 }
 
 function validateTenant(input: unknown, path: string, limits: Readonly<ProtocolDeploymentLimits>): ProtocolDatasetTenantPolicy {
@@ -310,9 +290,7 @@ function nested<T>(action: () => T, path: string): T {
   try {
     return action();
   } catch (error) {
-    if (error instanceof ProtocolExpressionError
-      || error instanceof ProtocolQueryImplementationError
-      || error instanceof ProtocolSchemaError) {
+    if (error instanceof ProtocolExpressionError) {
       deploymentError('HQ_DEPLOYMENT_INVALID_VALUE', path);
     }
     throw error;
@@ -830,233 +808,31 @@ export function validateProtocolDatasetContract(
   return validateDataset(input, '$', resolveDeploymentLimits(options));
 }
 
-function validateQuery(
-  input: unknown,
-  path: string,
-  limits: Readonly<ProtocolDeploymentLimits>,
-): ProtocolNamedQueryContract {
-  const value = requireRecord(input, path);
-  exactFields(
-    value,
-    ['name', 'input', 'output', 'implementation', 'endpoint', 'tags'],
-    ['summary', 'description'],
-    path,
-  );
-  const result: Record<string, unknown> = {
-    name: identifier(value.name, `${path}.name`),
-    input: nested(() => validateProtocolSchema(value.input), `${path}.input`),
-    output: nested(() => validateProtocolSchema(value.output), `${path}.output`),
-    implementation: nested(
-      () => validateProtocolQueryImplementation(value.implementation),
-      `${path}.implementation`,
-    ),
-    endpoint: validateEndpoint(value.endpoint, `${path}.endpoint`, limits, true),
-    tags: uniqueStrings(
-      value.tags,
-      `${path}.tags`,
-      limits.maxDatasetItems,
-      (tag, tagPath) => boundedText(tag, tagPath, limits.maxTextBytes),
-    ),
-  };
-  optionalText(value.summary, 'summary', result, path, limits);
-  optionalText(value.description, 'description', result, path, limits);
-  return freezeRecord(result) as unknown as ProtocolNamedQueryContract;
-}
-
-function validateArtifact(input: unknown, path: string): ProtocolRuntimeArtifact {
-  const value = requireRecord(input, path);
-  exactFields(value, ['runtime', 'artifactSha256'], [], path);
-  if (value.runtime !== 'node' && value.runtime !== 'python') {
-    deploymentError('HQ_DEPLOYMENT_INVALID_VALUE', `${path}.runtime`);
-  }
-  if (typeof value.artifactSha256 !== 'string' || !SHA256_PATTERN.test(value.artifactSha256)) {
-    deploymentError('HQ_DEPLOYMENT_INVALID_VALUE', `${path}.artifactSha256`);
-  }
-  return freezeRecord({
-    runtime: value.runtime,
-    artifactSha256: value.artifactSha256,
-  }) as unknown as ProtocolRuntimeArtifact;
-}
-
-function validateReferences(contract: ProtocolDeploymentContract): void {
-  const datasets = new Map(contract.datasets.map(dataset => [dataset.name, dataset]));
-  for (const [datasetIndex, dataset] of contract.datasets.entries()) {
+function validateDatasetReferences(datasets: readonly ProtocolDeploymentDataset[]): void {
+  const names = new Set(datasets.map(dataset => dataset.name));
+  for (const [index, dataset] of datasets.entries()) {
     if (dataset.defaults?.dimensions?.some(name => (
       !dataset.dimensions.some(dimension => dimension.name === name && dimension.groupable)
     ))) {
-      deploymentError(
-        'HQ_DEPLOYMENT_INVALID_REFERENCE',
-        `$.datasets[${datasetIndex}].defaults.dimensions`,
-      );
+      deploymentError('HQ_DEPLOYMENT_INVALID_REFERENCE', `$.datasets[${index}].defaults.dimensions`);
     }
     if (dataset.defaults?.timeGrain !== undefined && dataset.timeField === undefined) {
-      deploymentError(
-        'HQ_DEPLOYMENT_INVALID_REFERENCE',
-        `$.datasets[${datasetIndex}].defaults.timeGrain`,
-      );
+      deploymentError('HQ_DEPLOYMENT_INVALID_REFERENCE', `$.datasets[${index}].defaults.timeGrain`);
     }
     for (const [relationshipIndex, relationship] of dataset.relationships.entries()) {
-      if (!datasets.has(relationship.target)) {
+      if (!names.has(relationship.target)) {
         deploymentError(
           'HQ_DEPLOYMENT_INVALID_REFERENCE',
-          `$.datasets[${datasetIndex}].relationships[${relationshipIndex}].target`,
-        );
-      }
-    }
-    const filters = new Set(dataset.filters.map(filter => filter.name));
-    const hasDimension = (name: string): boolean => {
-      const [head, ...tail] = name.split('.');
-      if (tail.length === 0) return dataset.dimensions.some(dimension => dimension.name === head);
-      const relationship = dataset.relationships.find(candidate => candidate.name === head && candidate.queryable);
-      const target = relationship ? datasets.get(relationship.target) : undefined;
-      return target?.dimensions.some(dimension => dimension.name === tail.join('.')) ?? false;
-    };
-    for (const [metricIndex, metric] of dataset.metrics.entries()) {
-      if (metric.dimensions.some(dimension => !hasDimension(dimension))
-        || metric.filters.some(filter => !filters.has(filter))) {
-        deploymentError(
-          'HQ_DEPLOYMENT_INVALID_REFERENCE',
-          `$.datasets[${datasetIndex}].metrics[${metricIndex}]`,
-        );
-      }
-      if ((metric.kind === 'grained-metric' || metric.grains.length > 0)
-        && dataset.timeField === undefined) {
-        deploymentError(
-          'HQ_DEPLOYMENT_INVALID_REFERENCE',
-          `$.datasets[${datasetIndex}].metrics[${metricIndex}].grains`,
-        );
-      }
-      // Biconditional, as for a compiled-SQL query below. An endpoint that
-      // requires a tenant over a dataset carrying no tenant field resolves one
-      // and then has no column to scope by, so the query reads every tenant
-      // while both layers believe tenancy was enforced.
-      if ((dataset.tenant.kind === 'required') !== (metric.endpoint.tenant.kind === 'required')) {
-        deploymentError(
-          'HQ_DEPLOYMENT_INVALID_REFERENCE',
-          `$.datasets[${datasetIndex}].metrics[${metricIndex}].endpoint.tenant`,
+          `$.datasets[${index}].relationships[${relationshipIndex}].target`,
         );
       }
     }
     if (dataset.endpoint !== undefined
       && (dataset.tenant.kind === 'required') !== (dataset.endpoint.tenant.kind === 'required')) {
-      deploymentError(
-        'HQ_DEPLOYMENT_INVALID_REFERENCE',
-        `$.datasets[${datasetIndex}].endpoint.tenant`,
-      );
-    }
-  }
-  const artifacts = new Map(contract.artifacts.map(artifact => [artifact.artifactSha256, artifact.runtime]));
-  for (const [queryIndex, query] of contract.queries.entries()) {
-    if (query.implementation.kind === 'runtime-reference'
-      && artifacts.get(query.implementation.artifactSha256) !== query.implementation.runtime) {
-      deploymentError(
-        'HQ_DEPLOYMENT_INVALID_REFERENCE',
-        `$.queries[${queryIndex}].implementation.artifactSha256`,
-      );
-    }
-    if (query.implementation.kind === 'compiled-sql') {
-      const implementationRequiresTenant = query.implementation.tenant.kind === 'required';
-      const endpointRequiresTenant = query.endpoint.tenant.kind === 'required';
-      if (implementationRequiresTenant !== endpointRequiresTenant) {
-        deploymentError(
-          'HQ_DEPLOYMENT_INVALID_REFERENCE',
-          `$.queries[${queryIndex}].endpoint.tenant`,
-        );
-      }
-      for (const [parameterIndex, parameter] of query.implementation.parameters.entries()) {
-        if (parameter.source.kind === 'input'
-          && !schemaContainsPath(query.input, parameter.source.path.split('.'))) {
-          deploymentError(
-            'HQ_DEPLOYMENT_INVALID_REFERENCE',
-            `$.queries[${queryIndex}].implementation.parameters[${parameterIndex}].source.path`,
-          );
-        }
-      }
-    }
-    if (query.implementation.kind === 'semantic-plan') {
-      const dataset = datasets.get(query.implementation.query.dataset);
-      if (!dataset) {
-        deploymentError(
-          'HQ_DEPLOYMENT_INVALID_REFERENCE',
-          `$.queries[${queryIndex}].implementation.query.dataset`,
-        );
-      }
-      if (dataset.tenant.kind === 'required' && query.endpoint.tenant.kind !== 'required') {
-        deploymentError(
-          'HQ_DEPLOYMENT_INVALID_REFERENCE',
-          `$.queries[${queryIndex}].endpoint.tenant`,
-        );
-      }
+      deploymentError('HQ_DEPLOYMENT_INVALID_REFERENCE', `$.datasets[${index}].endpoint.tenant`);
     }
   }
 }
-
-function schemaContainsPath(
-  schema: ProtocolSchema,
-  segments: readonly string[],
-): boolean {
-  if (segments.length === 0) return true;
-  if (schema.kind === 'any') return true;
-  if (schema.kind === 'union') {
-    return schema.variants.every(variant => schemaContainsPath(variant, segments));
-  }
-  if (schema.kind === 'record') {
-    return schemaContainsPath(schema.values, segments.slice(1));
-  }
-  if (schema.kind !== 'object') return false;
-  const [head, ...tail] = segments;
-  const property = schema.properties[head as keyof typeof schema.properties];
-  return property !== undefined && schemaContainsPath(property, tail);
-}
-
-export function validateProtocolDeploymentContract(
-  input: unknown,
-  options: ProtocolDeploymentOptions = {},
-): ProtocolDeploymentContract {
-  const limits = resolveDeploymentLimits(options);
-  const value = requireRecord(input, '$');
-  exactFields(value, ['kind', 'version', 'datasets', 'queries', 'artifacts'], [], '$');
-  if (value.kind !== 'hypequery-deployment') deploymentError('HQ_DEPLOYMENT_INVALID_VALUE', '$.kind');
-  if (value.version !== 1) deploymentError('HQ_DEPLOYMENT_INVALID_VERSION', '$.version');
-  const datasets = namedItems(
-    value.datasets,
-    '$.datasets',
-    limits.maxDatasets,
-    (dataset, path) => validateDataset(dataset, path, limits),
-  );
-  const queries = namedItems(
-    value.queries,
-    '$.queries',
-    limits.maxQueries,
-    (query, path) => validateQuery(query, path, limits),
-  );
-  const artifacts = Object.freeze(requireArray(value.artifacts, '$.artifacts', limits.maxArtifacts)
-    .map((artifact, index) => validateArtifact(artifact, `$.artifacts[${index}]`)));
-  if (new Set(artifacts.map(artifact => artifact.artifactSha256)).size !== artifacts.length) {
-    deploymentError('HQ_DEPLOYMENT_INVALID_REFERENCE', '$.artifacts');
-  }
-  const result = freezeRecord({
-    kind: 'hypequery-deployment',
-    version: 1,
-    datasets,
-    queries,
-    artifacts,
-  }) as unknown as ProtocolDeploymentContract;
-  const routes = new Set<string>();
-  for (const [queryIndex, query] of queries.entries()) {
-    const route = `${query.endpoint.method}\0${query.endpoint.path}`;
-    if (routes.has(route)) {
-      deploymentError(
-        'HQ_DEPLOYMENT_INVALID_VALUE',
-        `$.queries[${queryIndex}].endpoint`,
-      );
-    }
-    routes.add(route);
-  }
-  validateReferences(result);
-  return result;
-}
-
 function formulaReferences(expression: ProtocolExpression, names: Set<string>): void {
   switch (expression.kind) {
     case 'reference':
@@ -1122,11 +898,11 @@ function validateDatasetDerivedMeasure(
   return freezeRecord(result) as unknown as ProtocolDatasetDerivedMeasure;
 }
 
-function validateDatasetOnly(
+function validateDeploymentDataset(
   input: unknown,
   path: string,
   limits: Readonly<ProtocolDeploymentLimits>,
-): ProtocolDatasetOnlyDataset {
+): ProtocolDeploymentDataset {
   const value = requireRecord(input, path);
   exactFields(value,
     ['name', 'source', 'tenant', 'dimensions', 'measures', 'filters', 'relationships'],
@@ -1134,26 +910,30 @@ function validateDatasetOnly(
       'description', 'freshness', 'owner', 'defaults',
       ...SEMANTIC_METADATA_FIELDS, 'timeField', 'limits', 'endpoint',
     ], path);
-  const measures = requireArray(value.measures, `${path}.measures`, limits.maxDatasetItems);
-  // Keep source indices when validating the base-only view through the v1 validator.
+  const measures = requireArray(value.measures, `${path}.measures`, limits.maxDatasetItems)
+    .map((measure, index) => requireRecord(measure, `${path}.measures[${index}]`));
+  // Preserve original indices when validating base measures separately.
   const baseEntries = measures.flatMap((measure, index) => (
-    requireRecord(measure, `${path}.measures[${index}]`).kind === 'derived'
+    measure.kind === 'derived'
       ? [] : [{ measure, index }]
   ));
-  const legacy = validateDataset(
+  const validated = validateDataset(
     { ...value, measures: baseEntries.map(entry => entry.measure), metrics: [] },
     path,
     limits,
     baseEntries.map(entry => entry.index),
   );
   const derived = measures.map((measure, index) => (
-    requireRecord(measure, `${path}.measures[${index}]`).kind === 'derived'
+    measure.kind === 'derived'
       ? validateDatasetDerivedMeasure(measure, `${path}.measures[${index}]`, limits)
       : undefined
   ));
-  const baseByName = new Map<string, ProtocolDatasetMeasure>(legacy.measures.map(measure => [measure.name, measure]));
-  const derivedByName = new Map(derived.filter(item => item !== undefined).map(item => [item.name, item]));
-  if (new Set([...baseByName.keys(), ...derivedByName.keys()]).size !== measures.length) {
+  const baseByName = new Map<string, ProtocolDatasetMeasure>(validated.measures.map(measure => [measure.name, measure]));
+  let baseIndex = 0;
+  const ordered: ProtocolDeploymentMeasure[] = measures.map((_, index) => (
+    derived[index] ?? validated.measures[baseIndex++]!
+  ));
+  if (new Set(ordered.map(measure => measure.name)).size !== measures.length) {
     deploymentError('HQ_DEPLOYMENT_INVALID_REFERENCE', `${path}.measures`);
   }
   for (const [index, item] of derived.entries()) {
@@ -1164,44 +944,22 @@ function validateDatasetOnly(
       }
     }
   }
-  const ordered: ProtocolDatasetOnlyMeasure[] = measures.map((item, index) => {
-    const name = (item as DataRecord).name as string;
-    return derived[index] ?? baseByName.get(name)!;
-  });
-  const { metrics: _metrics, ...dataset } = legacy;
-  return freezeRecord({ ...dataset, measures: Object.freeze(ordered) }) as unknown as ProtocolDatasetOnlyDataset;
+  const { metrics: _metrics, ...dataset } = validated;
+  return freezeRecord({ ...dataset, measures: Object.freeze(ordered) }) as unknown as ProtocolDeploymentDataset;
 }
 
-/** Validate a new upload: v1-only fields are forbidden, even when empty. */
-export function validateProtocolDatasetOnlyContract(
+/** Validate the deployment contract. Unsupported fields are forbidden, even when empty. */
+export function validateProtocolDeploymentContract(
   input: unknown,
   options: ProtocolDeploymentOptions = {},
-): ProtocolDatasetOnlyContract {
+): ProtocolDeploymentContract {
   const limits = resolveDeploymentLimits(options);
   const value = requireRecord(input, '$');
   exactFields(value, ['kind', 'version', 'datasets'], [], '$');
   if (value.kind !== 'hypequery-deployment') deploymentError('HQ_DEPLOYMENT_INVALID_VALUE', '$.kind');
   if (value.version !== 2) deploymentError('HQ_DEPLOYMENT_INVALID_VERSION', '$.version');
   const datasets = namedItems(value.datasets, '$.datasets', limits.maxDatasets,
-    (item, path) => validateDatasetOnly(item, path, limits));
-  // Reuse v1's relationship, defaults, and tenant-endpoint reference checks.
-  validateReferences({ kind: 'hypequery-deployment', version: 1, datasets: datasets.map(dataset => ({
-    ...dataset,
-    measures: dataset.measures.filter((measure): measure is ProtocolDatasetMeasure => !('kind' in measure)),
-    metrics: [],
-  })), queries: [], artifacts: [] });
-  return freezeRecord({ kind: 'hypequery-deployment', version: 2, datasets }) as unknown as ProtocolDatasetOnlyContract;
-}
-
-/** Read a stored v1 release as datasets only; never accept v1 as a new v2 upload. */
-export function projectLegacyProtocolDeploymentContract(
-  input: unknown,
-  options: ProtocolDeploymentOptions = {},
-): ProtocolDatasetOnlyContract {
-  const legacy = validateProtocolDeploymentContract(input, options);
-  return validateProtocolDatasetOnlyContract({
-    kind: 'hypequery-deployment',
-    version: 2,
-    datasets: legacy.datasets.map(({ metrics: _metrics, ...dataset }) => dataset),
-  }, options);
+    (item, path) => validateDeploymentDataset(item, path, limits));
+  validateDatasetReferences(datasets);
+  return freezeRecord({ kind: 'hypequery-deployment', version: 2, datasets }) as unknown as ProtocolDeploymentContract;
 }

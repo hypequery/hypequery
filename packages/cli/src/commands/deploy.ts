@@ -34,7 +34,9 @@ export interface SubmitDeploymentOptions {
   replaceRestored?: boolean;
 }
 
-export interface DeployOptions extends SubmitDeploymentOptions {
+export interface DeployOptions {
+  endpoint?: string;
+  replaceRestored?: boolean;
   project?: string;
   environment?: string;
   bundleOutput?: string;
@@ -214,21 +216,6 @@ async function rejectBundleDirectorySource(sourcePath: string): Promise<void> {
   );
 }
 
-function rejectLegacyOrchestrationOptions(options: DeployOptions) {
-  if (
-    options.project !== undefined
-    || options.environment !== undefined
-    || options.bundleOutput !== undefined
-    || options.releaseOutput !== undefined
-  ) {
-    throw new Error(
-      '--release selects prebuilt submission mode and cannot be combined with '
-      + '--project, --environment, --bundle-output, or --release-output. '
-      + 'Use `hypequery deployment:submit` for explicit prebuilt uploads.',
-    );
-  }
-}
-
 export async function deployCommand(
   sourcePath: string | undefined,
   options: DeployOptions = {},
@@ -239,19 +226,6 @@ export async function deployCommand(
       'Missing API module path.\n\n'
       + 'Usage: hypequery deploy analytics/api.ts',
     );
-  }
-
-  if (options.release !== undefined) {
-    rejectLegacyOrchestrationOptions(options);
-    logger.warn(
-      '`hypequery deploy <bundle> --release <file>` is deprecated. '
-      + 'Use `hypequery deployment:submit <bundle> --release <file>` instead.',
-    );
-    return submitDeploymentCommand(sourcePath, {
-      release: options.release,
-      endpoint: options.endpoint,
-      replaceRestored: options.replaceRestored,
-    }, dependencies);
   }
 
   await rejectBundleDirectorySource(sourcePath);

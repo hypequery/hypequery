@@ -1,13 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import {
-  PROTOCOL_DATASET_ONLY_IDENTITY_DOMAIN,
+  PROTOCOL_DEPLOYMENT_IDENTITY_DOMAIN,
   ProtocolDeploymentError,
-  hashProtocolDatasetOnlyContract,
-  prepareProtocolDatasetOnlyContract,
-  projectLegacyProtocolDeploymentContract,
-  validateProtocolDatasetOnlyContract,
+  hashProtocolDeploymentContract,
   validateProtocolDeploymentContract,
+  prepareProtocolDeploymentContract,
 } from './index.js';
 
 function baseMeasure(name: string, field: string) {
@@ -33,7 +31,7 @@ function derivedMeasure() {
   };
 }
 
-function datasetOnly() {
+function deployment() {
   return {
     kind: 'hypequery-deployment', version: 2,
     datasets: [{
@@ -45,9 +43,9 @@ function datasetOnly() {
   };
 }
 
-describe('dataset-only deployment contract v2', () => {
+describe('deployment contract v2', () => {
   it('validates and freezes base plus derived measures without metrics, queries, or artifacts', () => {
-    const contract = validateProtocolDatasetOnlyContract(datasetOnly());
+    const contract = validateProtocolDeploymentContract(deployment());
     expect(contract.version).toBe(2);
     expect(contract.datasets[0].measures.map(measure => measure.name))
       .toEqual(['revenue', 'orders', 'averageOrderValue']);
@@ -59,33 +57,73 @@ describe('dataset-only deployment contract v2', () => {
   });
 
   it.each(['queries', 'artifacts'])('rejects %s even when empty', field => {
-    expect(() => validateProtocolDatasetOnlyContract({ ...datasetOnly(), [field]: [] }))
+    expect(() => validateProtocolDeploymentContract({ ...deployment(), [field]: [] }))
       .toThrowError(ProtocolDeploymentError);
   });
 
+  it('rejects hidden properties on contract arrays', () => {
+    const root = deployment();
+    Object.defineProperty(root.datasets, 'hidden', { value: true });
+    expect(() => validateProtocolDeploymentContract(root))
+      .toThrow(/HQ_DEPLOYMENT_UNSAFE_OBJECT at \$\.datasets/);
+
+    const nested = deployment();
+    Object.defineProperty(nested.datasets[0].measures, 'hidden', { value: true });
+    expect(() => validateProtocolDeploymentContract(nested))
+      .toThrow(/HQ_DEPLOYMENT_UNSAFE_OBJECT at \$\.datasets\[0\]\.measures/);
+  });
+
   it('rejects dataset metrics, v1 uploads, and unknown fields', () => {
-    const value = datasetOnly();
-    expect(() => validateProtocolDatasetOnlyContract({
+    const value = deployment();
+    expect(() => validateProtocolDeploymentContract({
       ...value, datasets: [{ ...value.datasets[0], metrics: [] }],
     })).toThrow(/HQ_DEPLOYMENT_UNKNOWN_FIELD/);
-    expect(() => validateProtocolDatasetOnlyContract({ ...value, version: 1 }))
+    expect(() => validateProtocolDeploymentContract({ ...value, version: 1 }))
       .toThrow(/HQ_DEPLOYMENT_INVALID_VERSION/);
-    expect(() => validateProtocolDatasetOnlyContract({ ...value, extra: true }))
+    expect(() => validateProtocolDeploymentContract({ ...value, extra: true }))
       .toThrow(/HQ_DEPLOYMENT_UNKNOWN_FIELD/);
   });
 
+  it('checks dataset references and defaults across the complete contract', () => {
+    const value = deployment();
+    const orders = value.datasets[0];
+    expect(() => validateProtocolDeploymentContract({
+      ...value,
+      datasets: [{ ...orders, relationships: [{
+        name: 'customer', kind: 'belongsTo', target: 'missing',
+        from: 'customerId', to: 'id', queryable: true,
+      }] }],
+    })).toThrow(/HQ_DEPLOYMENT_INVALID_REFERENCE.*relationships\[0\]\.target/);
+    expect(() => validateProtocolDeploymentContract({
+      ...value, datasets: [{ ...orders, defaults: { dimensions: ['missing'] } }],
+    })).toThrow(/HQ_DEPLOYMENT_INVALID_REFERENCE.*defaults\.dimensions/);
+    expect(() => validateProtocolDeploymentContract({
+      ...value, datasets: [{ ...orders, defaults: { timeGrain: 'month' } }],
+    })).toThrow(/HQ_DEPLOYMENT_INVALID_REFERENCE.*defaults\.timeGrain/);
+  });
+
+  it('requires endpoint and dataset tenant policies to agree', () => {
+    const value = deployment();
+    expect(() => validateProtocolDeploymentContract({
+      ...value,
+      datasets: [{ ...value.datasets[0], endpoint: {
+        access: { kind: 'public' }, tenant: { kind: 'required', mode: 'auto-inject', column: 'tenant_id' },
+      } }],
+    })).toThrow(/HQ_DEPLOYMENT_INVALID_REFERENCE.*endpoint\.tenant/);
+  });
+
   it('reports the index of a malformed measure', () => {
-    const value = datasetOnly();
-    expect(() => validateProtocolDatasetOnlyContract({
+    const value = deployment();
+    expect(() => validateProtocolDeploymentContract({
       ...value,
       datasets: [{ ...value.datasets[0], measures: [baseMeasure('revenue', 'amount'), null] }],
     })).toThrow(/\$\.datasets\[0\]\.measures\[1\]/);
   });
 
   it('keeps a base measure index when derived measures precede it', () => {
-    const value = datasetOnly();
+    const value = deployment();
     const dataset = value.datasets[0];
-    expect(() => validateProtocolDatasetOnlyContract({
+    expect(() => validateProtocolDeploymentContract({
       ...value,
       datasets: [{ ...dataset, measures: [
         baseMeasure('revenue', 'amount'),
@@ -95,39 +133,52 @@ describe('dataset-only deployment contract v2', () => {
     })).toThrow(/\$\.datasets\[0\]\.measures\[2\]\.field/);
   });
 
+  it('preserves interleaved base and derived measure order', () => {
+    const value = deployment();
+    const dataset = value.datasets[0];
+    const contract = validateProtocolDeploymentContract({
+      ...value,
+      datasets: [{ ...dataset, measures: [
+        baseMeasure('revenue', 'amount'), derivedMeasure(), baseMeasure('orders', 'id'),
+      ] }],
+    });
+    expect(contract.datasets[0].measures.map(measure => measure.name))
+      .toEqual(['revenue', 'averageOrderValue', 'orders']);
+  });
+
   it('rejects missing dependencies, undeclared aliases, duplicate names, and nested derivation', () => {
-    const value = datasetOnly();
+    const value = deployment();
     const dataset = value.datasets[0];
     const derived = derivedMeasure();
     const replace = (measures: unknown[]) => ({ ...value, datasets: [{ ...dataset, measures }] });
-    expect(() => validateProtocolDatasetOnlyContract(replace([
+    expect(() => validateProtocolDeploymentContract(replace([
       baseMeasure('revenue', 'amount'), { ...derived, uses: [{ alias: 'revenue', measure: 'missing' }] },
     ]))).toThrow(/HQ_DEPLOYMENT_INVALID_REFERENCE/);
-    expect(() => validateProtocolDatasetOnlyContract(replace([
+    expect(() => validateProtocolDeploymentContract(replace([
       baseMeasure('revenue', 'amount'), baseMeasure('orders', 'id'),
       { ...derived, uses: [{ alias: 'wrong', measure: 'revenue' }] },
     ]))).toThrow(/HQ_DEPLOYMENT_INVALID_REFERENCE/);
-    expect(() => validateProtocolDatasetOnlyContract(replace([
+    expect(() => validateProtocolDeploymentContract(replace([
       baseMeasure('revenue', 'amount'), baseMeasure('orders', 'id'),
       { ...derived, name: 'revenue' },
     ]))).toThrow(/HQ_DEPLOYMENT_INVALID_REFERENCE/);
-    expect(() => validateProtocolDatasetOnlyContract(replace([
+    expect(() => validateProtocolDeploymentContract(replace([
       baseMeasure('revenue', 'amount'), baseMeasure('orders', 'id'), derived,
       { ...derived, name: 'second', uses: [{ alias: 'revenue', measure: 'averageOrderValue' }] },
     ]))).toThrow(/HQ_DEPLOYMENT_INVALID_REFERENCE/);
   });
 
   it('rejects expression kinds that cannot be rebuilt as a derived formula', () => {
-    const value = datasetOnly();
+    const value = deployment();
     const dataset = value.datasets[0];
-    expect(() => validateProtocolDatasetOnlyContract({
+    expect(() => validateProtocolDeploymentContract({
       ...value,
       datasets: [{ ...dataset, measures: [
         ...dataset.measures.slice(0, 2),
         { ...derivedMeasure(), expression: { kind: 'aggregate', aggregation: 'sum', field: 'amount' } },
       ] }],
     })).toThrow(/HQ_DEPLOYMENT_INVALID_VALUE/);
-    expect(() => validateProtocolDatasetOnlyContract({
+    expect(() => validateProtocolDeploymentContract({
       ...value,
       datasets: [{ ...dataset, measures: [
         ...dataset.measures.slice(0, 2),
@@ -137,27 +188,18 @@ describe('dataset-only deployment contract v2', () => {
     })).toThrow(/HQ_DEPLOYMENT_INVALID_VALUE/);
   });
 
-  it('projects stored v1 releases to datasets without accepting them as new uploads', () => {
-    const v1 = validateProtocolDeploymentContract({
-      kind: 'hypequery-deployment', version: 1,
-      datasets: [{ ...datasetOnly().datasets[0], measures: [baseMeasure('revenue', 'amount')], metrics: [] }],
-      queries: [], artifacts: [],
-    });
-    const projected = projectLegacyProtocolDeploymentContract(v1);
-    expect(projected.version).toBe(2);
-    expect(projected.datasets[0].measures).toHaveLength(1);
-    expect(projected).not.toHaveProperty('queries');
-    expect(projected.datasets[0]).not.toHaveProperty('metrics');
-    expect(() => validateProtocolDatasetOnlyContract(v1)).toThrow(/HQ_DEPLOYMENT_UNKNOWN_FIELD|HQ_DEPLOYMENT_INVALID_VERSION/);
+  it('rejects unsupported version 1 input', () => {
+    expect(() => validateProtocolDeploymentContract({ ...deployment(), version: 1 }))
+      .toThrow(/HQ_DEPLOYMENT_INVALID_VERSION/);
   });
 
   it('has deterministic v2 canonical bytes and a separate identity domain', () => {
-    const first = prepareProtocolDatasetOnlyContract(datasetOnly());
-    const second = prepareProtocolDatasetOnlyContract(JSON.parse(JSON.stringify(datasetOnly())));
+    const first = prepareProtocolDeploymentContract(deployment());
+    const second = prepareProtocolDeploymentContract(JSON.parse(JSON.stringify(deployment())));
     expect(first.canonical).toBe(second.canonical);
-    expect(first.identity).toBe(hashProtocolDatasetOnlyContract(datasetOnly()));
+    expect(first.identity).toBe(hashProtocolDeploymentContract(deployment()));
     expect(first.identity).toMatch(/^[a-f0-9]{64}$/);
-    expect(PROTOCOL_DATASET_ONLY_IDENTITY_DOMAIN).toBe('hypequery:deployment:v2\0');
+    expect(PROTOCOL_DEPLOYMENT_IDENTITY_DOMAIN).toBe('hypequery:deployment:v2\0');
     const fixture = JSON.parse(readFileSync(new URL(
       '../../../../specs/security-protocol/fixtures/deployments-v2/success.json',
       import.meta.url,
@@ -166,7 +208,7 @@ describe('dataset-only deployment contract v2', () => {
       '../../../../specs/security-protocol/fixtures/deployments-v2/identity.json',
       import.meta.url,
     ), 'utf8')) as [{ canonical: string; sha256: string }];
-    const prepared = prepareProtocolDatasetOnlyContract(fixture[0].value);
+    const prepared = prepareProtocolDeploymentContract(fixture[0].value);
     expect(prepared.canonical).toBe(identity[0].canonical);
     expect(prepared.identity).toBe(identity[0].sha256);
   });

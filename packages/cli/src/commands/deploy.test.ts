@@ -22,6 +22,7 @@ vi.mock('../utils/logger.js', () => ({
 
 import {
   deployCommand,
+  submitDeploymentCommand,
   type DeployDependencies,
 } from './deploy.js';
 import type { StoredCloudCredential } from '../utils/cloud-credential-store.js';
@@ -77,10 +78,8 @@ const bundle = {
   identity: BUNDLE_IDENTITY,
   contract: {
     kind: 'hypequery-deployment' as const,
-    version: 1 as const,
+    version: 2 as const,
     datasets: [],
-    queries: [],
-    artifacts: [],
   },
 };
 
@@ -295,9 +294,9 @@ describe('deploy command', () => {
     await expect(deployCommand('analytics/api.ts', {}, {
       env: CI_ENVIRONMENT,
       buildDeployment: vi.fn(async () => {
-        throw new Error('The exported API must provide datasetOnlyContract().');
+        throw new Error('The exported API must provide deploymentContract().');
       }),
-    })).rejects.toThrow(/must provide datasetOnlyContract/);
+    })).rejects.toThrow(/must provide deploymentContract/);
   });
 
   it('rejects a prebuilt bundle directory as the deploy source', async () => {
@@ -315,61 +314,6 @@ describe('deploy command', () => {
     expect(buildDeployment).not.toHaveBeenCalled();
   });
 
-  it('does not build in legacy prebuilt submission mode', async () => {
-    const release = await releaseFile();
-    const buildDeployment: NonNullable<DeployDependencies['buildDeployment']> =
-      vi.fn(async () => bundle.contract);
-
-    await deployCommand('/project/dist/bundle', {
-      release: release.path,
-      endpoint: 'https://deploy.example.test/v1/releases',
-    }, {
-      env: { HYPEQUERY_API_TOKEN: 'secret-token' },
-      buildDeployment,
-      createTransport: () => ({
-        submit: vi.fn().mockResolvedValue({
-          kind: 'hypequery-deployment-submission',
-          version: 1,
-          status: 'accepted',
-          releaseIdentity: release.identity,
-          bundleIdentity: BUNDLE_IDENTITY,
-        }),
-      }),
-    });
-
-    expect(buildDeployment).not.toHaveBeenCalled();
-  });
-
-  it('does not mix legacy prebuilt submission with orchestration options', async () => {
-    await expect(deployCommand('dist/bundle', {
-      release: 'dist/release.json',
-      project: 'project-1',
-    })).rejects.toThrow(/--release selects prebuilt submission mode/);
-    expect(mockVerifyDeploymentBundle).not.toHaveBeenCalled();
-  });
-
-  it('warns when using the legacy prebuilt deploy syntax', async () => {
-    const release = await releaseFile();
-    const submit = vi.fn().mockResolvedValue({
-      kind: 'hypequery-deployment-submission',
-      version: 1,
-      status: 'accepted',
-      releaseIdentity: release.identity,
-      bundleIdentity: BUNDLE_IDENTITY,
-    });
-
-    await deployCommand('/project/dist/bundle', {
-      release: release.path,
-      endpoint: 'https://deploy.example.test/v1/releases',
-    }, {
-      env: { HYPEQUERY_API_TOKEN: 'secret-token' },
-      createTransport: () => ({ submit }),
-    });
-
-    expect(mockLoggerWarn).toHaveBeenCalledWith(
-      expect.stringContaining('deployment:submit'),
-    );
-  });
 
   it('verifies and submits an explicit release using environment credentials', async () => {
     const release = await releaseFile();
@@ -382,7 +326,7 @@ describe('deploy command', () => {
     });
     const createTransport = vi.fn(() => ({ submit }));
 
-    const result = await deployCommand('dist/bundle', {
+    const result = await submitDeploymentCommand('dist/bundle', {
       release: release.path,
       endpoint: 'https://deploy.example.test/v1/releases',
     }, {
@@ -413,7 +357,7 @@ describe('deploy command', () => {
     });
     const createTransport = vi.fn(() => ({ submit }));
 
-    await deployCommand('dist/bundle', { release: release.path }, {
+    await submitDeploymentCommand('dist/bundle', { release: release.path }, {
       env: {
         HYPEQUERY_API_TOKEN: 'secret-token',
         HYPEQUERY_DEPLOYMENT_ENDPOINT: 'https://deploy.example.test/v1/releases',
@@ -438,7 +382,7 @@ describe('deploy command', () => {
     const createTransport = vi.fn(() => ({ submit }));
     const currentRevision = 'c'.repeat(64);
 
-    await deployCommand('dist/bundle', {
+    await submitDeploymentCommand('dist/bundle', {
       release: release.path,
     }, {
       env: {},
@@ -484,7 +428,7 @@ describe('deploy command', () => {
     }));
     const createTransport = vi.fn();
 
-    await expect(deployCommand('dist/bundle', {
+    await expect(submitDeploymentCommand('dist/bundle', {
       release: release.path,
       endpoint: 'https://cloud.example.test/v1/deployments/submissions',
     }, {
@@ -508,7 +452,7 @@ describe('deploy command', () => {
     const createTransport = vi.fn(() => ({ submit }));
     const currentRevision = 'c'.repeat(64);
 
-    await deployCommand('dist/bundle', {
+    await submitDeploymentCommand('dist/bundle', {
       release: release.path,
       endpoint: 'https://cloud.example.test/v1/deployments/submissions',
       replaceRestored: true,
@@ -544,7 +488,7 @@ describe('deploy command', () => {
     });
     const createTransport = vi.fn(() => ({ submit }));
 
-    await deployCommand('dist/bundle', { release: release.path }, {
+    await submitDeploymentCommand('dist/bundle', { release: release.path }, {
       env: {},
       loadCredential: async () => ({
         cloudUrl: 'https://cloud.example.test',
@@ -575,7 +519,7 @@ describe('deploy command', () => {
       token: `hqdp_v1_${'f'.repeat(43)}`,
     }));
 
-    await expect(deployCommand('dist/bundle', {
+    await expect(submitDeploymentCommand('dist/bundle', {
       release: release.path,
       endpoint: 'https://deploy.example.test/v1/releases',
     }, {
@@ -598,7 +542,7 @@ describe('deploy command', () => {
       token: `hqdp_v1_${'f'.repeat(43)}`,
     }));
 
-    await expect(deployCommand('dist/bundle', { release: release.path }, {
+    await expect(submitDeploymentCommand('dist/bundle', { release: release.path }, {
       env: { HYPEQUERY_API_TOKEN: 'explicit-token' },
       loadCredential,
     })).rejects.toThrow(
@@ -611,7 +555,7 @@ describe('deploy command', () => {
 
   it('requires a new login when the stored credential expired', async () => {
     const release = await releaseFile();
-    await expect(deployCommand('dist/bundle', { release: release.path }, {
+    await expect(submitDeploymentCommand('dist/bundle', { release: release.path }, {
       env: {},
       loadCredential: async () => ({
         cloudUrl: 'https://cloud.example.test',
@@ -627,11 +571,11 @@ describe('deploy command', () => {
 
   it('requires endpoint and token configuration before bundle verification', async () => {
     const release = await releaseFile();
-    await expect(deployCommand('dist/bundle', { release: release.path }, {
+    await expect(submitDeploymentCommand('dist/bundle', { release: release.path }, {
       env: {},
       loadCredential: async () => null,
     })).rejects.toThrow(/Missing deployment endpoint/);
-    await expect(deployCommand('dist/bundle', {
+    await expect(submitDeploymentCommand('dist/bundle', {
       release: release.path,
       endpoint: 'https://deploy.example.test/v1/releases',
     }, { env: {} })).rejects.toThrow(/HYPEQUERY_API_TOKEN/);
@@ -642,7 +586,7 @@ describe('deploy command', () => {
     const release = await releaseFile('0'.repeat(64));
     const createTransport = vi.fn();
 
-    await expect(deployCommand('dist/bundle', {
+    await expect(submitDeploymentCommand('dist/bundle', {
       release: release.path,
       endpoint: 'https://deploy.example.test/v1/releases',
     }, {
@@ -658,7 +602,7 @@ describe('deploy command', () => {
     const releasePath = path.join(directory, 'broken.json');
     await writeFile(releasePath, '{', 'utf8');
 
-    await expect(deployCommand('dist/bundle', {
+    await expect(submitDeploymentCommand('dist/bundle', {
       release: releasePath,
       endpoint: 'https://deploy.example.test/v1/releases',
     }, {
@@ -669,7 +613,7 @@ describe('deploy command', () => {
   it('reports release filesystem failures separately from invalid JSON', async () => {
     const releasePath = path.join(tmpdir(), 'missing-hypequery-release.json');
 
-    const action = deployCommand('dist/bundle', {
+    const action = submitDeploymentCommand('dist/bundle', {
       release: releasePath,
       endpoint: 'https://deploy.example.test/v1/releases',
     }, {
@@ -684,7 +628,7 @@ describe('deploy command', () => {
   it('reports bundle verification failure before opening the release', async () => {
     mockVerifyDeploymentBundle.mockRejectedValue(new Error('manifest mismatch'));
 
-    await expect(deployCommand('dist/bundle', {
+    await expect(submitDeploymentCommand('dist/bundle', {
       release: '/missing/release.json',
       endpoint: 'https://deploy.example.test/v1/releases',
     }, {

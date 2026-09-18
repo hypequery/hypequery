@@ -11,13 +11,11 @@ import {
   parseProtocolIdentifier,
   parseProtocolQualifiedIdentifier,
   prepareProtocolDeploymentBundleManifest,
-  prepareProtocolDatasetOnlyContract,
   prepareProtocolDeploymentContract,
   prepareProtocolDeploymentReleaseEnvelope,
   splitProtocolQualifiedIdentifier,
   validateCanonicalValue,
   validateProtocolDeploymentBundleManifest,
-  validateProtocolDatasetOnlyContract,
   validateProtocolDeploymentContract,
   validateProtocolDeploymentReleaseEnvelope,
   validateProtocolExpression,
@@ -34,7 +32,6 @@ import {
 import type { FixtureRole, HandlerResult } from '../types.js';
 import {
   materializeBundle,
-  materializeDeployment,
   materializeDiagnostics,
   materializeEvent,
   materializeSemanticInvocation,
@@ -99,7 +96,6 @@ export const REFERENCE_FAMILIES = [
   'query-implementations-v1',
   'query-events-v1',
   'query-diagnostics-v1',
-  'deployments-v1',
   'deployments-v2',
   'deployment-bundles-v1',
   'deployment-releases-v1',
@@ -136,10 +132,8 @@ export function referenceHandle(
         validateProtocolQueryDiagnostics(validationInput(c, materializeDiagnostics));
         return ACCEPT;
       });
-    case 'deployments-v1':
-      return handleDeployment(role, c);
     case 'deployments-v2':
-      return handleDatasetOnlyDeployment(role, c);
+      return handleDeploymentV2(role, c);
     case 'deployment-bundles-v1':
       return handleBundle(role, c);
     case 'deployment-releases-v1':
@@ -276,7 +270,7 @@ function handleImplementation(c: Case): HandlerResult {
   });
 }
 
-function handleDeployment(role: FixtureRole, c: Case): HandlerResult {
+function handleDeploymentV2(role: FixtureRole, c: Case): HandlerResult {
   if (role === 'identity') {
     return attempt(() => {
       const prepared = prepareProtocolDeploymentContract(c.value);
@@ -284,20 +278,7 @@ function handleDeployment(role: FixtureRole, c: Case): HandlerResult {
     });
   }
   return attempt(() => {
-    validateProtocolDeploymentContract(validationInput(c, materializeDeployment));
-    return ACCEPT;
-  });
-}
-
-function handleDatasetOnlyDeployment(role: FixtureRole, c: Case): HandlerResult {
-  if (role === 'identity') {
-    return attempt(() => {
-      const prepared = prepareProtocolDatasetOnlyContract(c.value);
-      return { ok: true, output: { canonical: prepared.canonical, sha256: prepared.identity } };
-    });
-  }
-  return attempt(() => {
-    validateProtocolDatasetOnlyContract(c.value);
+    validateProtocolDeploymentContract(c.value);
     return ACCEPT;
   });
 }

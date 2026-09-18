@@ -1,4 +1,4 @@
-import { validateProtocolDatasetOnlyContract } from '@hypequery/protocol';
+import { validateProtocolDeploymentContract } from '@hypequery/protocol';
 import { describe, expect, it } from 'vitest';
 import {
   isDeploymentEndpointAuthorized,
@@ -43,7 +43,7 @@ function dataset(name: string, overrides: Record<string, unknown> = {}) {
 }
 
 function contract(overrides: Record<string, unknown> = {}) {
-  return validateProtocolDatasetOnlyContract({
+  return validateProtocolDeploymentContract({
     kind: 'hypequery-deployment',
     version: 2,
     datasets: [dataset('orders', { endpoint: ANALYST })],

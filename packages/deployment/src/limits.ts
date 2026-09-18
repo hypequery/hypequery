@@ -8,7 +8,10 @@ export interface DeploymentIntakeLimits {
 }
 
 export const DEFAULT_DEPLOYMENT_INTAKE_LIMITS: Readonly<DeploymentIntakeLimits> = Object.freeze({
-  maxRequestBytes: DEFAULT_PROTOCOL_DEPLOYMENT_BUNDLE_LIMITS.maxTotalBytes + (2 * 1024 * 1024),
+  // Source and deployment bytes, plus the manifest and headers for up to 1,000 files.
+  maxRequestBytes: DEFAULT_PROTOCOL_DEPLOYMENT_BUNDLE_LIMITS.maxDeploymentBytes
+    + DEFAULT_PROTOCOL_DEPLOYMENT_BUNDLE_LIMITS.maxSourceBytes
+    + (10 * 1024 * 1024),
   maxReleaseBytes: 16 * 1024,
   maxManifestBytes: 1024 * 1024,
   maxPartHeaderBytes: 8 * 1024,
@@ -25,7 +28,7 @@ export function resolveDeploymentIntakeLimits(
       || value > DEFAULT_DEPLOYMENT_INTAKE_LIMITS[key]) {
       throw new RangeError(
         `${key} must be a positive safe integer no greater than `
-        + `${DEFAULT_DEPLOYMENT_INTAKE_LIMITS[key]} (the deployment intake v1 maximum)`,
+        + `${DEFAULT_DEPLOYMENT_INTAKE_LIMITS[key]} (the deployment intake safety ceiling)`,
       );
     }
     result[key] = value;

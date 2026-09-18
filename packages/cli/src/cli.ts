@@ -211,17 +211,8 @@ program
 
 program
   .command('deployment:build <api>')
-  .description('Build a verified dataset deployment bundle')
+  .description('Build a verified deployment bundle')
   .option('--bundle-output <directory>', 'Bundle directory (default: analytics/hypequery-deployment)')
-  .option('-o, --output <path>', 'Output JSON file (default: analytics/hypequery-deployment.json)')
-  // Still parsed so an existing script is told what replaced these, rather than
-  // failing on an unknown option.
-  .option('--runtime <runtime>', 'No longer supported; deployments carry datasets only')
-  .option('--runtime-artifact <sha256>', 'No longer supported; deployments carry datasets only')
-  .option('--runtime-file <path>', 'No longer supported; deployments carry datasets only')
-  .option('--runtime-output <path>', 'No longer supported; deployments carry datasets only')
-  .option('--entrypoint-prefix <prefix>', 'No longer supported; deployments carry datasets only')
-  .option('--hash-output <path>', 'Deployment identity sidecar path (default: <output>.sha256)')
   .option('--no-source', 'Exclude project source files from the deployment bundle')
   .option(
     '--allow-unsupported-config',
@@ -233,7 +224,7 @@ program
 
 program
   .command('deployment:validate <artifact>')
-  .description('Verify a deployment bundle or validate a legacy deployment JSON file')
+  .description('Verify a deployment bundle or validate a deployment contract JSON file')
   .action(runCommand(async (artifact: string) => {
     await validateDeploymentCommand(artifact);
   }));
@@ -271,7 +262,6 @@ program
   .option('--release-output <path>', 'Release JSON path (default: beside the bundle)')
   .option('--project <project>', 'Target project identifier (advanced override)')
   .option('--environment <environment>', 'Target environment identifier (advanced override)')
-  .option('--release <path>', 'Submit a prebuilt bundle with this release (legacy)')
   .option('--no-source', 'Exclude project source files from the deployment bundle')
   .option(
     '--endpoint <url>',

@@ -57,7 +57,7 @@ describe('compareCase', () => {
   });
 
   it('checks canonical and hash for identity', () => {
-    const ec = makeCase('identity', 'deployments-v1', { canonical: '{}', sha256: 'aa' });
+    const ec = makeCase('identity', 'deployments-v2', { canonical: '{}', sha256: 'aa' });
     expect(compareCase(ec, { ok: true, output: { canonical: '{}', sha256: 'aa' } }).status).toBe('pass');
     expect(compareCase(ec, { ok: true, output: { canonical: '{}', sha256: 'bb' } }).status).toBe('fail');
   });

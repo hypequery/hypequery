@@ -8,7 +8,7 @@ import {
 } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { prepareProtocolDatasetOnlyContract } from '@hypequery/protocol';
+import { prepareProtocolDeploymentContract } from '@hypequery/protocol';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { logger } from './logger.js';
 
@@ -65,17 +65,16 @@ afterEach(async () => {
 });
 
 describe('deployment bundle filesystem', () => {
-  it('writes and verifies a deterministic Dataset-only bundle', async () => {
+  it('writes and verifies a deterministic deployment bundle', async () => {
     const parent = await temporaryDirectory();
     const output = path.join(parent, 'bundle');
-    const prepared = prepareProtocolDatasetOnlyContract(deployment());
+    const prepared = prepareProtocolDeploymentContract(deployment());
 
     const written = await writeDeploymentBundle(output, prepared);
     const verified = await verifyDeploymentBundle(output);
 
     expect(written.directory).toBe(output);
     expect(verified.contract).toEqual(prepared.contract);
-    expect(verified.datasets).toEqual(prepared.contract);
     expect(written.manifest.artifacts).toEqual([]);
     expect(verified.identity).toBe(written.identity);
     expect(Object.isFrozen(verified.manifest)).toBe(true);
@@ -86,7 +85,7 @@ describe('deployment bundle filesystem', () => {
   it('writes and verifies a multi-file source snapshot', async () => {
     const parent = await temporaryDirectory();
     const output = path.join(parent, 'bundle');
-    const prepared = prepareProtocolDatasetOnlyContract(deployment());
+    const prepared = prepareProtocolDeploymentContract(deployment());
     const apiBytes = new TextEncoder().encode('export { Orders } from "./orders.js";\n');
     const datasetBytes = new TextEncoder().encode('export const Orders = {};\n');
 
@@ -121,7 +120,7 @@ describe('deployment bundle filesystem', () => {
   it('rejects undeclared files', async () => {
     const parent = await temporaryDirectory();
     const output = path.join(parent, 'bundle');
-    await writeDeploymentBundle(output, prepareProtocolDatasetOnlyContract(deployment()));
+    await writeDeploymentBundle(output, prepareProtocolDeploymentContract(deployment()));
     await writeFile(path.join(output, 'extra.txt'), 'undeclared');
 
     await expect(verifyDeploymentBundle(output)).rejects.toThrow(/undeclared file/);
@@ -130,7 +129,7 @@ describe('deployment bundle filesystem', () => {
   it('rejects symbolic links without following them', async () => {
     const parent = await temporaryDirectory();
     const output = path.join(parent, 'bundle');
-    await writeDeploymentBundle(output, prepareProtocolDatasetOnlyContract(deployment()));
+    await writeDeploymentBundle(output, prepareProtocolDeploymentContract(deployment()));
     await symlink(path.join(output, 'deployment.json'), path.join(output, 'linked.json'));
 
     await expect(verifyDeploymentBundle(output)).rejects.toThrow(/must not be symbolic links/);
@@ -139,7 +138,7 @@ describe('deployment bundle filesystem', () => {
   it('writes no field a named query or runtime artifact could travel in', async () => {
     const parent = await temporaryDirectory();
     const output = path.join(parent, 'bundle');
-    const prepared = prepareProtocolDatasetOnlyContract(deployment());
+    const prepared = prepareProtocolDeploymentContract(deployment());
 
     const written = await writeDeploymentBundle(output, prepared);
     const contractJson = JSON.parse(await readFile(path.join(output, 'deployment.json'), 'utf8'));
@@ -160,7 +159,7 @@ describe('deployment bundle filesystem', () => {
   it('refuses a bundle directory that carries leftover artifact bytes', async () => {
     const parent = await temporaryDirectory();
     const output = path.join(parent, 'bundle');
-    await writeDeploymentBundle(output, prepareProtocolDatasetOnlyContract(deployment()));
+    await writeDeploymentBundle(output, prepareProtocolDeploymentContract(deployment()));
     await mkdir(path.join(output, 'artifacts'));
     await writeFile(path.join(output, 'artifacts/runtime.mjs'), 'export const queries = {};\n');
 
@@ -170,7 +169,7 @@ describe('deployment bundle filesystem', () => {
   it('replaces only an existing verified bundle', async () => {
     const parent = await temporaryDirectory();
     const output = path.join(parent, 'bundle');
-    const prepared = prepareProtocolDatasetOnlyContract(deployment());
+    const prepared = prepareProtocolDeploymentContract(deployment());
     await writeDeploymentBundle(output, prepared);
 
     const replaced = await writeDeploymentBundle(output, prepared);
@@ -181,7 +180,7 @@ describe('deployment bundle filesystem', () => {
   it('warns without failing when an obsolete backup cannot be removed', async () => {
     const parent = await temporaryDirectory();
     const output = path.join(parent, 'bundle');
-    const prepared = prepareProtocolDatasetOnlyContract(deployment());
+    const prepared = prepareProtocolDeploymentContract(deployment());
     await writeDeploymentBundle(output, prepared);
     const actual = await vi.importActual<typeof import('node:fs/promises')>('node:fs/promises');
     mockRm.mockImplementation(async (target, options) => {
@@ -206,7 +205,7 @@ describe('deployment bundle filesystem', () => {
     const output = path.join(parent, 'bundle');
     await writeFile(output, 'unrelated');
 
-    await expect(writeDeploymentBundle(output, prepareProtocolDatasetOnlyContract(deployment())))
+    await expect(writeDeploymentBundle(output, prepareProtocolDeploymentContract(deployment())))
       .rejects.toThrow(/Refusing to replace/);
     expect(await readFile(output, 'utf8')).toBe('unrelated');
   });

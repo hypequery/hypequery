@@ -103,9 +103,9 @@ function builderFactory(rows: Record<string, unknown>[]) {
     },
     // A selection that includes a derived measure is planned as a CTE and run
     // through `rawQuery`, not the table chain.
-    rawQuery: async (query: string) => {
+    rawQuery: async <T = Record<string, unknown>>(query: string): Promise<T[]> => {
       sql.push(query);
-      return rows;
+      return rows as T[];
     },
   };
   return { factory, sql };

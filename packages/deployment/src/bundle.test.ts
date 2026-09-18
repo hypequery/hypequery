@@ -3,7 +3,6 @@ import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import {
-  prepareProtocolDatasetOnlyContract,
   prepareProtocolDeploymentBundleManifest,
   prepareProtocolDeploymentContract,
 } from '@hypequery/protocol';
@@ -42,47 +41,24 @@ const orders = {
   relationships: [],
 };
 
-const datasetOnly = {
+const deployment = {
   kind: 'hypequery-deployment' as const,
   version: 2 as const,
   datasets: [orders],
 };
 
-/** A stored release from before the dataset-only wire. */
-const legacy = {
-  kind: 'hypequery-deployment' as const,
-  version: 1 as const,
-  datasets: [{
-    ...orders,
-    metrics: [{
-      name: 'orderCount',
-      kind: 'metric' as const,
-      expression: { kind: 'aggregate' as const, aggregation: 'count' as const, field: 'id' },
-      dimensions: [],
-      filters: [],
-      grains: [],
-      endpoint: {
-        access: { kind: 'public' as const },
-        tenant: { kind: 'not-required' as const },
-      },
-    }],
-  }],
-  queries: [],
-  artifacts: [],
-};
-
 async function writeBundle(
   contract: unknown,
-  options: { readonly datasetOnly: boolean; readonly extraArtifactBytes?: Uint8Array },
+  options: { readonly extraArtifactBytes?: Uint8Array; readonly nonCanonicalDeployment?: boolean } = {},
 ): Promise<string> {
   const parent = await mkdtemp(path.join(tmpdir(), 'hypequery-bundle-verify-'));
   temporaryDirectories.push(parent);
   const directory = path.join(parent, 'bundle');
   await mkdir(directory);
-  const prepared = options.datasetOnly
-    ? prepareProtocolDatasetOnlyContract(contract)
-    : prepareProtocolDeploymentContract(contract);
-  const deploymentBytes = new TextEncoder().encode(`${prepared.canonical}\n`);
+  const prepared = prepareProtocolDeploymentContract(contract);
+  const deploymentBytes = new TextEncoder().encode(options.nonCanonicalDeployment
+    ? `${JSON.stringify(prepared.contract, null, 2)}\n`
+    : `${prepared.canonical}\n`);
   await writeFile(path.join(directory, DEPLOYMENT_BUNDLE_CONTRACT), deploymentBytes);
   const artifacts: { runtime: 'node'; path: string; sha256: string; byteLength: number }[] = [];
   if (options.extraArtifactBytes) {
@@ -113,39 +89,30 @@ async function writeBundle(
 }
 
 describe('deployment bundle verification', () => {
-  it('reads a dataset-only bundle at the version it was written at', async () => {
-    const directory = await writeBundle(datasetOnly, { datasetOnly: true });
+  it('reads a deployment bundle at the canonical version', async () => {
+    const directory = await writeBundle(deployment);
 
     const verified = await verifyDeploymentBundle(directory);
 
     expect(verified.contract.version).toBe(2);
-    expect(verified.datasets).toBe(verified.contract);
-    expect(verified.datasets.datasets.map(entry => entry.name)).toEqual(['orders']);
+    expect(verified.contract.datasets.map(entry => entry.name)).toEqual(['orders']);
   });
 
-  it('projects a stored v1 release to datasets before downstream use', async () => {
-    const directory = await writeBundle(legacy, { datasetOnly: false });
-
-    const verified = await verifyDeploymentBundle(directory);
-
-    // The stored contract is unchanged, so its identity still reproduces.
-    expect(verified.contract.version).toBe(1);
-    expect((verified.contract as typeof legacy).datasets[0]?.metrics).toHaveLength(1);
-    // What downstream reads carries no metric, and no field to carry one.
-    expect(verified.datasets.version).toBe(2);
-    expect(verified.datasets.datasets[0]?.metrics).toBeUndefined();
-    expect(verified.datasets.queries).toBeUndefined();
-    expect(verified.datasets.artifacts).toBeUndefined();
-  });
-
-  it('refuses runtime artifacts in a dataset-only bundle', async () => {
-    const directory = await writeBundle(datasetOnly, {
-      datasetOnly: true,
+  it('refuses runtime artifacts in a deployment bundle', async () => {
+    const directory = await writeBundle(deployment, {
       extraArtifactBytes: new TextEncoder().encode('export const queries = {};\n'),
     });
 
     await expect(verifyDeploymentBundle(directory)).rejects.toThrow(
-      /dataset-only deployment bundle cannot contain runtime artifacts/,
+      /deployment bundle cannot contain runtime artifacts/,
+    );
+  });
+
+  it('refuses non-canonical deployment JSON even when its digest matches the manifest', async () => {
+    const directory = await writeBundle(deployment, { nonCanonicalDeployment: true });
+
+    await expect(verifyDeploymentBundle(directory)).rejects.toThrow(
+      /Deployment JSON must contain canonical JSON/,
     );
   });
 });

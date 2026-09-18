@@ -1,6 +1,6 @@
 [
   {
-    "id": "dataset-only-derived-measures",
+    "id": "derived-measures",
     "canonical": "{\"datasets\":[{\"dimensions\":[],\"filters\":[],\"measures\":[{\"aggregation\":\"sum\",\"field\":\"amount\",\"filters\":[],\"name\":\"revenue\"},{\"aggregation\":\"count\",\"field\":\"id\",\"filters\":[],\"name\":\"orders\"},{\"expression\":{\"kind\":\"binary\",\"left\":{\"kind\":\"reference\",\"name\":\"revenue\"},\"operator\":\"divide\",\"right\":{\"args\":[{\"kind\":\"reference\",\"name\":\"orders\"}],\"function\":\"nullIfZero\",\"kind\":\"call\"}},\"kind\":\"derived\",\"name\":\"averageOrderValue\",\"uses\":[{\"alias\":\"revenue\",\"measure\":\"revenue\"},{\"alias\":\"orders\",\"measure\":\"orders\"}]}],\"name\":\"orders\",\"relationships\":[],\"source\":\"orders\",\"tenant\":{\"kind\":\"not-required\"}}],\"kind\":\"hypequery-deployment\",\"version\":2}",
     "sha256": "bd7b6818e8028e609923324455c3842425dcaa447dfd7d792b50de288769f379"
   }

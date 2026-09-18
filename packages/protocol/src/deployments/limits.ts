@@ -2,8 +2,6 @@ import type { ProtocolDeploymentLimits, ProtocolDeploymentOptions } from './type
 
 export const DEFAULT_PROTOCOL_DEPLOYMENT_LIMITS: Readonly<ProtocolDeploymentLimits> = Object.freeze({
   maxDatasets: 100,
-  maxQueries: 1_000,
-  maxArtifacts: 100,
   maxDatasetItems: 1_000,
   maxSemanticMetadataItems: 100,
   maxTextBytes: 4_096,
@@ -21,7 +19,7 @@ export function resolveDeploymentLimits(
     const maximum = DEFAULT_PROTOCOL_DEPLOYMENT_LIMITS[key];
     if (!Number.isSafeInteger(value) || value < 1 || value > maximum) {
       throw new RangeError(
-        `${key} must be a positive safe integer no greater than ${maximum} (the deployment contract v1 maximum)`,
+        `${key} must be a positive safe integer no greater than ${maximum} (the deployment contract maximum)`,
       );
     }
     result[key] = value;

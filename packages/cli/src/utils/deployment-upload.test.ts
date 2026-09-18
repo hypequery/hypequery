@@ -2,7 +2,7 @@ import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import {
-  prepareProtocolDatasetOnlyContract,
+  prepareProtocolDeploymentContract,
   prepareProtocolDeploymentReleaseEnvelope,
 } from '@hypequery/protocol';
 import { createDeploymentIntake } from '@hypequery/deployment';
@@ -44,7 +44,7 @@ async function verifiedBundle() {
   const directory = path.join(parent, 'bundle');
   await writeDeploymentBundle(
     directory,
-    prepareProtocolDatasetOnlyContract(deployment),
+    prepareProtocolDeploymentContract(deployment),
     {
       entrypoint: 'analytics/api.ts',
       files: [

@@ -9,7 +9,7 @@
  * of which source produced it.
  */
 
-import type { ProtocolDatasetContract } from '@hypequery/protocol';
+import type { ProtocolDatasetContract, ProtocolDeploymentDataset } from '@hypequery/protocol';
 import type {
   AgentCatalogDataset,
   AgentCatalogDimension,
@@ -210,8 +210,8 @@ export function recordDatasetToAgentDataset(dataset: RecordShapedDataset): Agent
  * stored — they are derived from the target dataset's publishable dimensions.
  */
 export function protocolDatasetToAgentDataset(
-  dataset: ProtocolDatasetContract,
-  datasets: ReadonlyMap<string, ProtocolDatasetContract>,
+  dataset: ProtocolDatasetContract | ProtocolDeploymentDataset,
+  datasets: ReadonlyMap<string, ProtocolDatasetContract | ProtocolDeploymentDataset>,
 ): AgentCatalogDataset {
   const dimensions: AgentCatalogDimension[] = sortedByName(
     dataset.dimensions
@@ -251,7 +251,7 @@ export function protocolDatasetToAgentDataset(
       })),
     ),
     metrics: sortedByName(
-      dataset.metrics.map(metric => ({
+      (dataset.metrics ?? []).map(metric => ({
         name: metric.name,
         ...optionalText(metric),
         ...snapshotSemanticMetadata(metric),
