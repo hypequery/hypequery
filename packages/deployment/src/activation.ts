@@ -16,6 +16,7 @@ import {
   type ProtocolDeploymentReleaseEnvelope,
   type ProtocolDeploymentReleaseTarget,
 } from '@hypequery/protocol';
+import { readBoundedFile } from './utils/read-bounded-file.js';
 
 const ACTIVATION_FILE = 'activation.json';
 const CLAIMS_DIRECTORY = 'claims';
@@ -411,7 +412,9 @@ async function readRegularFile(filePath: string, maximumBytes: number): Promise<
     if (!stat.isFile() || stat.size < 1 || stat.size > maximumBytes) {
       throw new Error(`Stored entry is not a bounded regular file: ${filePath}`);
     }
-    return await handle.readFile();
+    return await readBoundedFile(
+      handle, maximumBytes, 1, `Stored entry is not a bounded regular file: ${filePath}`,
+    );
   } finally {
     await handle.close();
   }

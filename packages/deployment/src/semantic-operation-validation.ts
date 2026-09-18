@@ -141,19 +141,17 @@ export function validateSemanticOperation(
     fail('Dimensions must be unique.', '$.operation.dimensions');
   }
 
-  if (operation.kind === 'dataset') {
-    const measures = operation.measures ?? [];
-    if (measures.length > limits.maxMeasures) {
-      fail(`At most ${limits.maxMeasures} measures may be selected.`, '$.operation.measures');
+  const measures = operation.measures ?? [];
+  if (measures.length > limits.maxMeasures) {
+    fail(`At most ${limits.maxMeasures} measures may be selected.`, '$.operation.measures');
+  }
+  measures.forEach((name, index) => {
+    if (!allowed.measures.has(String(name))) {
+      fail(`Unknown measure "${String(name)}".`, `$.operation.measures[${index}]`);
     }
-    measures.forEach((name, index) => {
-      if (!allowed.measures.has(String(name))) {
-        fail(`Unknown measure "${String(name)}".`, `$.operation.measures[${index}]`);
-      }
-    });
-    if (dimensions.length === 0 && measures.length === 0) {
-      fail('At least one dimension or measure must be selected.', '$.operation');
-    }
+  });
+  if (dimensions.length === 0 && measures.length === 0) {
+    fail('At least one dimension or measure must be selected.', '$.operation');
   }
 
   const filters = operation.filters ?? [];

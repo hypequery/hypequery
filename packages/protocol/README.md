@@ -22,7 +22,7 @@ This package implements those rules in TypeScript. Python and other implementati
 - closed semantic expression and query envelopes
 - portable input and output schemas
 - trusted query implementation artifacts
-- dataset and named-query deployment contracts
+- dataset deployment contracts with base and derived measures
 - closed deployment bundle manifests
 - project/environment release envelopes
 - compiled query settings, cancellation, events, and diagnostics
@@ -53,7 +53,7 @@ Schema validators cover the declarative Serve/Zod features that can travel betwe
 
 ## Deployment artifacts
 
-A deployment combines dataset definitions, named Serve queries, endpoint policy, and runtime artifact identities in one strict versioned envelope. Bundle manifests bind that deployment and every runtime file by path, byte length, and hash. Release envelopes bind a verified bundle to one explicit project and environment.
+A deployment combines dataset definitions and endpoint policies in one strict versioned envelope. Derived measures live alongside base measures in each dataset; queries and standalone metrics are not deployment targets. Bundle manifests bind declared files by path, byte length, and hash; the deployment verifier accepts only bundles with no runtime artifacts. Release envelopes bind a verified bundle to one explicit project and environment.
 
 Canonical encoders and domain-separated SHA-256 identities make these artifacts reproducible across language implementations. Filesystem-safe construction and verification live in `@hypequery/deployment` and the CLI.
 

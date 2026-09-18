@@ -1,9 +1,3 @@
-import { claimedFailure } from './utils/semantic-executor-failure.js';
-import { DeploymentSemanticInvocationError, fail, throwIfAborted } from './semantic-invocation-errors.js';
-export { DeploymentSemanticInvocationError, toProtocolSemanticInvocationFailure } from './semantic-invocation-errors.js';
-import { definedLimits, lowest, tighten } from './utils/semantic-budget-limits.js';
-import { missing } from './utils/required-access.js';
-
 /**
  * Dataset invocation against an activated deployment.
  *
@@ -14,8 +8,7 @@ import { missing } from './utils/required-access.js';
  * the output.
  *
  * Execution itself is injected. This module decides whether a call is allowed
- * and what it is allowed to ask for; `CORE-12` supplies the executor that
- * answers it.
+ * and what it is allowed to ask for.
  */
 
 import type {
@@ -37,6 +30,12 @@ import {
   validateSemanticOperation,
   type SemanticOperationLimits,
 } from './semantic-operation-validation.js';
+import { DeploymentSemanticInvocationError, fail, throwIfAborted } from './semantic-invocation-errors.js';
+import { missing } from './utils/required-access.js';
+import { definedLimits, lowest, tighten } from './utils/semantic-budget-limits.js';
+import { claimedFailure } from './utils/semantic-executor-failure.js';
+
+export { DeploymentSemanticInvocationError, toProtocolSemanticInvocationFailure } from './semantic-invocation-errors.js';
 
 /** The ceilings that survived after every source was applied. */
 export interface DeploymentSemanticBudget {

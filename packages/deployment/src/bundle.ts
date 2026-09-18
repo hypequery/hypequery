@@ -13,6 +13,7 @@ import {
   type ProtocolDeploymentBundleManifest,
   type ProtocolDeploymentContract,
 } from '@hypequery/protocol';
+import { readBoundedFile } from './utils/read-bounded-file.js';
 
 export const DEPLOYMENT_BUNDLE_MANIFEST = 'bundle.json';
 export const DEPLOYMENT_BUNDLE_CONTRACT = 'deployment.json';
@@ -62,7 +63,10 @@ async function readBoundedRegularFile(
     if (stat.size < (allowEmpty ? 0 : 1) || stat.size > maximum) {
       throw new Error(`Bundle entry exceeds its byte limit: ${relativePath}`);
     }
-    return await handle.readFile();
+    return await readBoundedFile(
+      handle, maximum, allowEmpty ? 0 : 1,
+      `Bundle entry exceeds its byte limit: ${relativePath}`,
+    );
   } catch (error) {
     if (errorCode(error) === 'ELOOP') {
       throw new Error(`Bundle entry must not be a symbolic link: ${relativePath}`);
@@ -88,11 +92,11 @@ async function verifyExactEntries(
   root: string,
   manifest: ProtocolDeploymentBundleManifest,
 ): Promise<void> {
+  const source = manifest.source;
   const expectedFiles = new Set([
     DEPLOYMENT_BUNDLE_MANIFEST,
     manifest.deployment.path,
-    ...manifest.artifacts.map(artifact => artifact.path),
-    ...(manifest.source?.files.map(file => `${manifest.source!.root}/${file.path}`) ?? []),
+    ...(source?.files.map(file => `${source.root}/${file.path}`) ?? []),
   ]);
   const expectedDirectoryPaths = expectedDirectories([...expectedFiles]);
   const seenFiles = new Set<string>();
@@ -194,6 +198,9 @@ export async function verifyDeploymentBundle(
     );
   }
   const preparedContract = prepareProtocolDeploymentContract(contractInput);
+  if (!Buffer.from(deploymentBytes).equals(Buffer.from(`${preparedContract.canonical}\n`))) {
+    throw new Error('Deployment JSON must contain canonical JSON followed by one newline.');
+  }
   if (preparedContract.identity !== deployment.identity) {
     throw new Error('Deployment identity does not match the bundle manifest.');
   }

@@ -121,6 +121,19 @@ describe('deployment contract v2', () => {
     })).toThrow(/\$\.datasets\[0\]\.measures\[2\]\.field/);
   });
 
+  it('preserves interleaved base and derived measure order', () => {
+    const value = deployment();
+    const dataset = value.datasets[0];
+    const contract = validateProtocolDeploymentContract({
+      ...value,
+      datasets: [{ ...dataset, measures: [
+        baseMeasure('revenue', 'amount'), derivedMeasure(), baseMeasure('orders', 'id'),
+      ] }],
+    });
+    expect(contract.datasets[0].measures.map(measure => measure.name))
+      .toEqual(['revenue', 'averageOrderValue', 'orders']);
+  });
+
   it('rejects missing dependencies, undeclared aliases, duplicate names, and nested derivation', () => {
     const value = deployment();
     const dataset = value.datasets[0];

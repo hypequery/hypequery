@@ -12,9 +12,11 @@ import {
   prepareProtocolDeploymentBundleManifest,
   prepareProtocolDeploymentContract,
   prepareProtocolDeploymentReleaseEnvelope,
+  type ProtocolDeploymentBundleArtifact,
 } from '@hypequery/protocol';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createDeploymentIntake } from './intake.js';
+import { DEFAULT_DEPLOYMENT_INTAKE_LIMITS } from './limits.js';
 import type {
   DeploymentIntakeRequest,
   DeploymentSubmissionStore,
@@ -80,6 +82,7 @@ function deployment() {
 function submissionFixture(
   extraParts: readonly Part[] = [],
   deploymentPath = 'deployment.json',
+  artifacts: readonly ProtocolDeploymentBundleArtifact[] = [],
 ) {
   const preparedDeployment = prepareProtocolDeploymentContract(deployment());
   const deploymentBytes = Buffer.from(`${preparedDeployment.canonical}\n`);
@@ -102,7 +105,7 @@ function submissionFixture(
       sha256: sha256(deploymentBytes),
       byteLength: deploymentBytes.byteLength,
     },
-    artifacts: [],
+    artifacts,
     source: {
       root: 'source',
       entrypoint: 'analytics/api.ts',
@@ -170,6 +173,29 @@ function responseBody(response: { readonly body: string }): unknown {
 }
 
 describe('deployment intake', () => {
+  it('rejects artifact-bearing manifests before creating a temporary bundle', async () => {
+    const bytes = Buffer.from('export const query = {};\n');
+    const fixture = submissionFixture([], 'deployment.json', [{
+      runtime: 'node', path: 'artifacts/query.mjs',
+      sha256: sha256(bytes), byteLength: bytes.byteLength,
+    }]);
+    const temporary = await temporaryDirectory();
+    const accept = vi.fn<DeploymentSubmissionStore<string>['accept']>();
+    const intake = createDeploymentIntake({
+      authenticator: { authenticate: async () => 'principal' },
+      authorizer: { authorize: async () => true },
+      store: { accept },
+      temporaryDirectory: temporary,
+    });
+
+    const response = await intake.handle(fixture.request());
+
+    expect(response.status).toBe(400);
+    expect(response.body).toContain('cannot contain runtime artifacts');
+    expect(accept).not.toHaveBeenCalled();
+    expect(await readdir(temporary)).toEqual([]);
+  });
+
   it('authenticates, authorizes, fully verifies, persists, and cleans the upload', async () => {
     const fixture = submissionFixture();
     const temporary = await temporaryDirectory();
@@ -423,8 +449,8 @@ describe('deployment intake', () => {
     })).not.toThrow();
     expect(() => createDeploymentIntake({
       ...options,
-      limits: { maxRequestBytes: (258 * 1024 * 1024) + 1 },
-    })).toThrow(/deployment intake v1 maximum/);
+      limits: { maxRequestBytes: DEFAULT_DEPLOYMENT_INTAKE_LIMITS.maxRequestBytes + 1 },
+    })).toThrow(/deployment intake safety ceiling/);
   });
 
   it('cleans temporary bytes when persistence fails without exposing the error', async () => {

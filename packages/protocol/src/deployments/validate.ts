@@ -907,10 +907,11 @@ function validateDeploymentDataset(
       'description', 'freshness', 'owner', 'defaults',
       ...SEMANTIC_METADATA_FIELDS, 'timeField', 'limits', 'endpoint',
     ], path);
-  const measures = requireArray(value.measures, `${path}.measures`, limits.maxDatasetItems);
+  const measures = requireArray(value.measures, `${path}.measures`, limits.maxDatasetItems)
+    .map((measure, index) => requireRecord(measure, `${path}.measures[${index}]`));
   // Preserve original indices when validating base measures separately.
   const baseEntries = measures.flatMap((measure, index) => (
-    requireRecord(measure, `${path}.measures[${index}]`).kind === 'derived'
+    measure.kind === 'derived'
       ? [] : [{ measure, index }]
   ));
   const validated = validateDataset(
@@ -920,13 +921,16 @@ function validateDeploymentDataset(
     baseEntries.map(entry => entry.index),
   );
   const derived = measures.map((measure, index) => (
-    requireRecord(measure, `${path}.measures[${index}]`).kind === 'derived'
+    measure.kind === 'derived'
       ? validateDatasetDerivedMeasure(measure, `${path}.measures[${index}]`, limits)
       : undefined
   ));
   const baseByName = new Map<string, ProtocolDatasetMeasure>(validated.measures.map(measure => [measure.name, measure]));
-  const derivedByName = new Map(derived.filter(item => item !== undefined).map(item => [item.name, item]));
-  if (new Set([...baseByName.keys(), ...derivedByName.keys()]).size !== measures.length) {
+  let baseIndex = 0;
+  const ordered: ProtocolDeploymentMeasure[] = measures.map((_, index) => (
+    derived[index] ?? validated.measures[baseIndex++]!
+  ));
+  if (new Set(ordered.map(measure => measure.name)).size !== measures.length) {
     deploymentError('HQ_DEPLOYMENT_INVALID_REFERENCE', `${path}.measures`);
   }
   for (const [index, item] of derived.entries()) {
@@ -937,10 +941,6 @@ function validateDeploymentDataset(
       }
     }
   }
-  const ordered: ProtocolDeploymentMeasure[] = measures.map((item, index) => {
-    const name = (item as DataRecord).name as string;
-    return derived[index] ?? baseByName.get(name)!;
-  });
   const { metrics: _metrics, ...dataset } = validated;
   return freezeRecord({ ...dataset, measures: Object.freeze(ordered) }) as unknown as ProtocolDeploymentDataset;
 }

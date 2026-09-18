@@ -49,14 +49,16 @@ const deployment = {
 
 async function writeBundle(
   contract: unknown,
-  options: { readonly extraArtifactBytes?: Uint8Array } = {},
+  options: { readonly extraArtifactBytes?: Uint8Array; readonly nonCanonicalDeployment?: boolean } = {},
 ): Promise<string> {
   const parent = await mkdtemp(path.join(tmpdir(), 'hypequery-bundle-verify-'));
   temporaryDirectories.push(parent);
   const directory = path.join(parent, 'bundle');
   await mkdir(directory);
   const prepared = prepareProtocolDeploymentContract(contract);
-  const deploymentBytes = new TextEncoder().encode(`${prepared.canonical}\n`);
+  const deploymentBytes = new TextEncoder().encode(options.nonCanonicalDeployment
+    ? `${JSON.stringify(prepared.contract, null, 2)}\n`
+    : `${prepared.canonical}\n`);
   await writeFile(path.join(directory, DEPLOYMENT_BUNDLE_CONTRACT), deploymentBytes);
   const artifacts: { runtime: 'node'; path: string; sha256: string; byteLength: number }[] = [];
   if (options.extraArtifactBytes) {
@@ -103,6 +105,14 @@ describe('deployment bundle verification', () => {
 
     await expect(verifyDeploymentBundle(directory)).rejects.toThrow(
       /deployment bundle cannot contain runtime artifacts/,
+    );
+  });
+
+  it('refuses non-canonical deployment JSON even when its digest matches the manifest', async () => {
+    const directory = await writeBundle(deployment, { nonCanonicalDeployment: true });
+
+    await expect(verifyDeploymentBundle(directory)).rejects.toThrow(
+      /Deployment JSON must contain canonical JSON/,
     );
   });
 });

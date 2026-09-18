@@ -143,12 +143,10 @@ function decodeJson(bytes: Uint8Array, description: string): unknown {
 }
 
 function requireReconstructablePaths(manifest: PreparedProtocolDeploymentBundleManifest): void {
+  const source = manifest.manifest.source;
   const files = [
     manifest.manifest.deployment.path,
-    ...manifest.manifest.artifacts.map(artifact => artifact.path),
-    ...(manifest.manifest.source?.files.map(
-      file => `${manifest.manifest.source!.root}/${file.path}`,
-    ) ?? []),
+    ...(source?.files.map(file => `${source.root}/${file.path}`) ?? []),
   ];
   const fileSet = new Set(files);
   if (fileSet.has(DEPLOYMENT_BUNDLE_MANIFEST)) {
@@ -217,6 +215,9 @@ async function readManifest(
   } catch (error) {
     if (error instanceof DeploymentIntakeError) throw error;
     throw badRequest('The deployment bundle manifest is invalid.', error);
+  }
+  if (prepared.manifest.artifacts.length > 0) {
+    throw badRequest('A deployment bundle cannot contain runtime artifacts.');
   }
   const canonical = Buffer.from(`${prepared.canonical}\n`);
   if (!part.bytes.equals(canonical)) {
@@ -393,12 +394,12 @@ export function createDeploymentIntake<Principal>(
       const bundleRoot = path.join(temporaryRoot, 'bundle');
       await mkdir(bundleRoot);
       await writeFile(path.join(bundleRoot, DEPLOYMENT_BUNDLE_MANIFEST), manifest.bytes, { flag: 'wx' });
+      const source = manifest.prepared.manifest.source;
       const files = [
         manifest.prepared.manifest.deployment,
-        ...manifest.prepared.manifest.artifacts,
-        ...(manifest.prepared.manifest.source?.files.map(file => ({
+        ...(source?.files.map(file => ({
           ...file,
-          path: `${manifest.prepared.manifest.source!.root}/${file.path}`,
+          path: `${source.root}/${file.path}`,
         })) ?? []),
       ];
       for (let index = 0; index < files.length; index += 1) {

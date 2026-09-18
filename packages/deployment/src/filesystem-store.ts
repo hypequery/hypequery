@@ -22,6 +22,7 @@ import type {
   DeploymentSubmissionStore,
   VerifiedDeploymentSubmission,
 } from './types.js';
+import { readBoundedFile } from './utils/read-bounded-file.js';
 
 const RELEASE_FILE = 'release.json';
 const MAX_MANIFEST_BYTES = 1024 * 1024;
@@ -242,16 +243,17 @@ function bundleFilePaths(bundle: VerifiedDeploymentBundle): readonly {
   readonly path: string;
   readonly byteLength?: number;
 }[] {
+  const source = bundle.manifest.source;
   return Object.freeze([
     { path: DEPLOYMENT_BUNDLE_MANIFEST },
     {
       path: bundle.manifest.deployment.path,
       byteLength: bundle.manifest.deployment.byteLength,
     },
-    ...bundle.manifest.artifacts.map(artifact => ({
-      path: artifact.path,
-      byteLength: artifact.byteLength,
-    })),
+    ...(source?.files.map(file => ({
+      path: `${source.root}/${file.path}`,
+      byteLength: file.byteLength,
+    })) ?? []),
   ]);
 }
 
@@ -324,28 +326,9 @@ async function readRegularFile(filePath: string, maximumBytes: number): Promise<
     if (!stat.isFile() || stat.size < 1 || stat.size > maximumBytes) {
       throw new Error(`Stored entry is not a bounded regular file: ${filePath}`);
     }
-    const buffer = Buffer.allocUnsafe(Math.min(COPY_BUFFER_BYTES, maximumBytes + 1));
-    const chunks: Buffer[] = [];
-    let total = 0;
-    while (total <= maximumBytes) {
-      const remaining = maximumBytes + 1 - total;
-      const { bytesRead } = await handle.read(
-        buffer,
-        0,
-        Math.min(buffer.byteLength, remaining),
-        null,
-      );
-      if (bytesRead === 0) break;
-      total += bytesRead;
-      if (total > maximumBytes) {
-        throw new Error(`Stored entry is not a bounded regular file: ${filePath}`);
-      }
-      chunks.push(Buffer.from(buffer.subarray(0, bytesRead)));
-    }
-    if (total < 1) {
-      throw new Error(`Stored entry is not a bounded regular file: ${filePath}`);
-    }
-    return Buffer.concat(chunks, total);
+    return await readBoundedFile(
+      handle, maximumBytes, 1, `Stored entry is not a bounded regular file: ${filePath}`,
+    );
   } finally {
     await handle.close();
   }
