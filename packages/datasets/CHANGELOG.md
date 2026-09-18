@@ -1,5 +1,22 @@
 # @hypequery/datasets
 
+## 0.17.0
+
+### Minor Changes
+
+- 18a59de: Allow dataset queries to select dataset-owned derived measures alongside base measures. Derived values are computed after aggregation and before ordering and pagination, and are included in local dataset catalogs and query schemas.
+- f4b30e1: Serve datasets from the deployment contract. The semantic data plane, operation validation, authorization projection, and portable executor all consume this contract. Standalone metric targets are not deployed. `AuthorizedDeploymentProjection.advertised` is removed; `queryable` now determines whether a dataset appears in the catalog.
+- 623136a: Build and rehydrate deployment contracts, including derived measures. Local dataset adapters and metrics remain available. Use one shared SQL-expression validator for dataset fields and query implementations.
+- ec62f1d: Add dataset-owned derived measure definitions alongside base measures in the
+  `measures` authoring object, with definition-time validation while preserving
+  standalone metric APIs.
+
+### Patch Changes
+
+- Updated dependencies [3eeebb2]
+- Updated dependencies [623136a]
+  - @hypequery/protocol@0.14.0
+
 ## 0.16.0
 
 ### Minor Changes
