@@ -1,5 +1,13 @@
 # @hypequery/clickhouse Changelog
 
+## 2.11.1
+
+### Patch Changes
+
+- 2910bf0: Remove the unused internal `CompiledQueryV1` execution contract and its exports.
+  There is no change to ClickHouse query construction or execution; existing queries
+  still use positional `?` placeholders and the established escaping path.
+
 ## 2.11.0
 
 ### Minor Changes

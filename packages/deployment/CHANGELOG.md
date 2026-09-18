@@ -1,5 +1,18 @@
 # @hypequery/deployment
 
+## 0.9.0
+
+### Minor Changes
+
+- f4b30e1: Build deployment bundles from the canonical deployment contract. `hypequery deployment:build` writes dataset definitions and derived measures without query entrypoints or runtime artifacts. Named queries and standalone metrics remain local. `api.deploymentContract()` is the sole contract source, and bundle verification accepts that contract directly. Remove obsolete build flags, JSON output mode, prebuilt `deploy --release` mode, and customer-handler runtime machinery. Bundle verification requires canonical deployment JSON, and the filesystem store preserves declared source snapshots when persisting a bundle.
+- f4b30e1: Serve datasets from the deployment contract. The semantic data plane, operation validation, authorization projection, and portable executor all consume this contract. Standalone metric targets are not deployed. `AuthorizedDeploymentProjection.advertised` is removed; `queryable` now determines whether a dataset appears in the catalog.
+
+### Patch Changes
+
+- Updated dependencies [3eeebb2]
+- Updated dependencies [623136a]
+  - @hypequery/protocol@0.14.0
+
 ## 0.8.0
 
 ### Minor Changes

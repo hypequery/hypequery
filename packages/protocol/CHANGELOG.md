@@ -1,5 +1,15 @@
 # @hypequery/protocol
 
+## 0.14.0
+
+### Minor Changes
+
+- 3eeebb2: Make the v2 deployment contract the sole supported deployment format, with dataset-owned derived measures, canonical encoding, and domain-separated identity. Reject hidden properties on deployment and local dataset contract arrays.
+
+### Patch Changes
+
+- 623136a: Build and rehydrate deployment contracts, including derived measures. Local dataset adapters and metrics remain available. Use one shared SQL-expression validator for dataset fields and query implementations.
+
 ## 0.13.0
 
 ### Minor Changes
