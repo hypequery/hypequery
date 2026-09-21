@@ -19,7 +19,7 @@ from .errors import (
     query_implementation_error,
 )
 from .identifiers import ProtocolQualifiedIdentifier, parse_protocol_qualified_identifier
-from .schema_models import ProtocolSchema
+from .schema_models import ProtocolSchema, schema_to_data
 from .schemas import validate_protocol_schema
 from .utf8 import exceeds_utf8_byte_limit
 
@@ -162,3 +162,15 @@ def validate_protocol_sql_expression(
         output=output,
         dependencies=dependencies,
     )
+
+
+def sql_expression_to_data(expression: ProtocolSqlExpression) -> dict[str, object]:
+    """Serialize a validated SQL expression back into detached protocol data."""
+
+    return {
+        "kind": expression.kind,
+        "dialect": expression.dialect,
+        "sql": expression.sql,
+        "output": schema_to_data(expression.output),
+        "dependencies": list(expression.dependencies),
+    }

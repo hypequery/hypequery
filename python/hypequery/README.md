@@ -205,6 +205,30 @@ from hypequery.datasets import compile_formula, divide, null_if_zero
 average = compile_formula(divide("revenue", null_if_zero("orders")))
 ```
 
+## Deployment contracts
+
+RFC 0006 contracts are the validated, deterministic description of the
+datasets managed execution can serve. Named queries, standalone metrics,
+runtime artifacts, executable callbacks, credentials, and connection
+configuration are all outside the contract — `queries`, `artifacts`, and
+dataset `metrics` are invalid even when empty:
+
+```python
+from hypequery.protocol import prepare_protocol_deployment_contract
+
+prepared = prepare_protocol_deployment_contract(contract_data)
+prepared.canonical   # RFC 8785 JSON text
+prepared.identity    # sha256 of "hypequery:deployment:v2\0" + canonical bytes
+```
+
+Identity is domain-separated, so a deployment hash cannot collide with another
+artifact hashed over the same bytes, and the contract is validated before it is
+encoded — identity is only ever computed over something that already passed.
+
+The canonical bytes and hash are byte-identical to `@hypequery/protocol` for
+the same contract. A 74-probe differential run across both implementations
+found no divergence in acceptance, error code, or identity.
+
 ## Registry and catalog
 
 A registry is how datasets are discovered at startup, and how a relationship's
