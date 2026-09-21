@@ -1,7 +1,12 @@
 # RFC 0008: Deployment release envelope
 
-- Status: Proposed
+- Status: Accepted
+- Accepted: 2026-09-21
 - Version: deployment release 1
+
+Acceptance freezes deployment release version 1. Changing the envelope shape,
+the target token grammar, the limits, or failure-code precedence now requires a
+new release version, not an edit.
 
 ## Summary
 
@@ -25,6 +30,9 @@ Project and environment tokens are case-sensitive opaque ASCII values. Each
 begins with an ASCII letter or digit and may then contain ASCII letters, digits,
 `.`, `_`, `:`, or `-`. They are identifiers within the receiving product; this
 RFC does not assign project ownership or environment policy.
+
+`bundleIdentity` is lowercase hexadecimal, matching the RFC 0007 identity it
+names; an uppercase spelling is rejected rather than folded.
 
 Before constructing a release, a producer MUST completely verify the referenced
 bundle under RFC 0007 and use the resulting bundle identity. A consumer MUST

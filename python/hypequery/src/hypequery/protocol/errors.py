@@ -95,6 +95,28 @@ ProtocolDeploymentErrorCode: TypeAlias = Literal[
 ]
 
 
+ProtocolDeploymentBundleErrorCode: TypeAlias = Literal[
+    "HQ_BUNDLE_TYPE",
+    "HQ_BUNDLE_UNKNOWN_FIELD",
+    "HQ_BUNDLE_INVALID_VERSION",
+    "HQ_BUNDLE_INVALID_VALUE",
+    "HQ_BUNDLE_INVALID_PATH",
+    "HQ_BUNDLE_INVALID_REFERENCE",
+    "HQ_BUNDLE_TOO_MANY_ITEMS",
+    "HQ_BUNDLE_TOO_LARGE",
+    "HQ_BUNDLE_UNSAFE_OBJECT",
+]
+
+ProtocolDeploymentReleaseErrorCode: TypeAlias = Literal[
+    "HQ_RELEASE_TYPE",
+    "HQ_RELEASE_UNKNOWN_FIELD",
+    "HQ_RELEASE_INVALID_VERSION",
+    "HQ_RELEASE_INVALID_VALUE",
+    "HQ_RELEASE_TOO_LARGE",
+    "HQ_RELEASE_UNSAFE_OBJECT",
+]
+
+
 class ProtocolValueError(TypeError):
     """A safe, stable RFC 0001 validation failure."""
 
@@ -201,3 +223,39 @@ def deployment_error(code: ProtocolDeploymentErrorCode, path: str = "$") -> NoRe
     """Raise a deployment error without attaching input data to its message."""
 
     raise ProtocolDeploymentError(code, path)
+
+
+class ProtocolDeploymentBundleError(TypeError):
+    """A safe, stable RFC 0007 validation failure."""
+
+    code: ProtocolDeploymentBundleErrorCode
+    path: str
+
+    def __init__(self, code: ProtocolDeploymentBundleErrorCode, path: str = "$") -> None:
+        super().__init__(f"{code} at {path}")
+        self.code = code
+        self.path = path
+
+
+def bundle_error(code: ProtocolDeploymentBundleErrorCode, path: str = "$") -> NoReturn:
+    """Raise a bundle error without attaching input data to its message."""
+
+    raise ProtocolDeploymentBundleError(code, path)
+
+
+class ProtocolDeploymentReleaseError(TypeError):
+    """A safe, stable RFC 0008 validation failure."""
+
+    code: ProtocolDeploymentReleaseErrorCode
+    path: str
+
+    def __init__(self, code: ProtocolDeploymentReleaseErrorCode, path: str = "$") -> None:
+        super().__init__(f"{code} at {path}")
+        self.code = code
+        self.path = path
+
+
+def release_error(code: ProtocolDeploymentReleaseErrorCode, path: str = "$") -> NoReturn:
+    """Raise a release error without attaching input data to its message."""
+
+    raise ProtocolDeploymentReleaseError(code, path)
