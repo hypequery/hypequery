@@ -66,6 +66,11 @@ jobs:
         with:
           enable-cache: true
           cache-dependency-glob: python/hypequery/uv.lock
+      # Install the Python environment before the conformance runner starts
+      # timing cases. `uv run` would otherwise resolve and download it lazily
+      # inside the per-case timeout, which races on a cold uv cache.
+      - name: Sync the Python conformance environment
+        run: uv sync --project python/hypequery --dev
       - name: Run protocol conformance suite
         run: pnpm conformance
       - name: Run ClickHouse integration tests
