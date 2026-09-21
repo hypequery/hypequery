@@ -34,6 +34,13 @@ from .constants import (
     SUPPORTED_TIME_GRAINS,
     is_supported_time_grain,
 )
+from .contract import (
+    SEMANTIC_CONTRACT_VERSION,
+    contract_to_stable_json,
+    hash_contract,
+    normalize_sql,
+    serialize_semantic_contract,
+)
 from .dataset import Dataset, DatasetLimits, FilterDefinition
 from .dimensions import Dimension, DimensionType, dimension
 from .formulas import (
@@ -88,6 +95,7 @@ from .sql_portability import (
 
 __all__ = [
     "DEFAULT_SQL_PORTABILITY_LIMITS",
+    "SEMANTIC_CONTRACT_VERSION",
     "SEMANTIC_FILTER_OPERATORS",
     "SUPPORTED_TIME_GRAINS",
     "Aggregation",
@@ -133,6 +141,7 @@ __all__ = [
     "coalesce",
     "compile_formula",
     "compile_portable_sql_expression",
+    "contract_to_stable_json",
     "count",
     "count_distinct",
     "create_dataset_registry",
@@ -149,6 +158,7 @@ __all__ = [
     "gte",
     "has_many",
     "has_one",
+    "hash_contract",
     "in_list",
     "is_supported_time_grain",
     "like",
@@ -160,10 +170,12 @@ __all__ = [
     "min",
     "multiply",
     "neq",
+    "normalize_sql",
     "not_in_list",
     "null_if_zero",
     "percentile",
     "round",
+    "serialize_semantic_contract",
     "stddev",
     "subtract",
     "sum",

@@ -1,0 +1,235 @@
+{
+  "version": 3,
+  "datasets": {
+    "customers": {
+      "name": "customers",
+      "source": "customers",
+      "requiresTenant": false,
+      "supportedGrains": [],
+      "dimensions": {
+        "country": {
+          "type": "string",
+          "label": "Country",
+          "description": "ISO country code",
+          "filterable": true,
+          "groupable": true
+        },
+        "fullName": {
+          "type": "string",
+          "sql": "concat(first_name, ' ', last_name)",
+          "filterable": true,
+          "groupable": true
+        },
+        "id": {
+          "type": "string",
+          "filterable": true,
+          "groupable": true
+        },
+        "tier": {
+          "type": "string",
+          "column": "customer_tier",
+          "filterable": true,
+          "groupable": false
+        }
+      },
+      "measures": {
+        "customerCount": {
+          "aggregation": "count",
+          "field": "id"
+        }
+      },
+      "metrics": {},
+      "filters": {
+        "country": {
+          "field": "country",
+          "operators": [
+            "between",
+            "eq",
+            "gt",
+            "gte",
+            "in",
+            "like",
+            "lt",
+            "lte",
+            "neq",
+            "notIn"
+          ],
+          "valueType": "string"
+        },
+        "fullName": {
+          "field": "fullName",
+          "operators": [
+            "between",
+            "eq",
+            "gt",
+            "gte",
+            "in",
+            "like",
+            "lt",
+            "lte",
+            "neq",
+            "notIn"
+          ],
+          "valueType": "string"
+        },
+        "id": {
+          "field": "id",
+          "operators": [
+            "between",
+            "eq",
+            "gt",
+            "gte",
+            "in",
+            "like",
+            "lt",
+            "lte",
+            "neq",
+            "notIn"
+          ],
+          "valueType": "string"
+        },
+        "tier": {
+          "field": "tier",
+          "operators": [
+            "between",
+            "eq",
+            "gt",
+            "gte",
+            "in",
+            "like",
+            "lt",
+            "lte",
+            "neq",
+            "notIn"
+          ],
+          "valueType": "string"
+        }
+      },
+      "relationships": {}
+    },
+    "orders": {
+      "name": "orders",
+      "source": "orders",
+      "tenantKey": "tenant_id",
+      "timeKey": "created_at",
+      "requiresTenant": true,
+      "supportedGrains": [
+        "day",
+        "month",
+        "quarter",
+        "week",
+        "year"
+      ],
+      "dimensions": {
+        "amount": {
+          "type": "number",
+          "filterable": true,
+          "groupable": true
+        },
+        "createdAt": {
+          "type": "timestamp",
+          "column": "created_at",
+          "filterable": true,
+          "groupable": true
+        },
+        "customerId": {
+          "type": "string",
+          "column": "customer_id",
+          "filterable": true,
+          "groupable": true
+        },
+        "id": {
+          "type": "string",
+          "filterable": true,
+          "groupable": true
+        },
+        "status": {
+          "type": "string",
+          "label": "Status",
+          "filterable": false,
+          "groupable": true
+        }
+      },
+      "measures": {
+        "orderCount": {
+          "aggregation": "count",
+          "field": "id"
+        },
+        "p95Amount": {
+          "aggregation": "percentile",
+          "field": "amount",
+          "level": 0.95
+        },
+        "paidRevenue": {
+          "aggregation": "sum",
+          "field": "amount"
+        },
+        "revenue": {
+          "aggregation": "sum",
+          "field": "amount",
+          "label": "Revenue"
+        },
+        "topStatus": {
+          "aggregation": "argMax",
+          "field": "status",
+          "argField": "amount"
+        },
+        "uniqueCustomers": {
+          "aggregation": "countDistinct",
+          "field": "customerId"
+        }
+      },
+      "metrics": {},
+      "filters": {
+        "status": {
+          "field": "status",
+          "operators": [
+            "eq",
+            "in"
+          ],
+          "valueType": "string"
+        }
+      },
+      "relationships": {
+        "customer": {
+          "kind": "belongsTo",
+          "target": "customers",
+          "from": "customerId",
+          "to": "id",
+          "queryable": true,
+          "fields": [
+            "customer.country",
+            "customer.id",
+            "customer.tier"
+          ]
+        },
+        "primaryContact": {
+          "kind": "hasOne",
+          "target": "customers",
+          "from": "id",
+          "to": "id",
+          "queryable": true,
+          "fields": [
+            "primaryContact.country",
+            "primaryContact.id",
+            "primaryContact.tier"
+          ]
+        },
+        "relatedCustomers": {
+          "kind": "hasMany",
+          "target": "customers",
+          "from": "id",
+          "to": "id",
+          "queryable": false,
+          "fields": []
+        }
+      },
+      "limits": {
+        "maxDimensions": 5,
+        "maxFilters": 10,
+        "maxResultSize": 1000
+      }
+    }
+  },
+  "contentHash": "f7cb95623008230e4979aebbdec41895d68dbaffb4c1f782e722130d8ff5a1b8"
+}

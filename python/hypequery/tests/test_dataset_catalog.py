@@ -16,6 +16,7 @@ from typing import cast
 import pytest
 
 from hypequery.datasets import (
+    SEMANTIC_CONTRACT_VERSION,
     Dataset,
     DatasetLimits,
     DatasetRegistry,
@@ -35,12 +36,13 @@ from hypequery.datasets import (
     has_one,
     measure,
     percentile,
+    serialize_semantic_contract,
     sum,  # noqa: A004
 )
+from hypequery.datasets.contract import contract_to_stable_json, hash_contract, normalize_sql
 
-CATALOG_FIXTURE = (
-    Path(__file__).resolve().parents[3] / "specs" / "semantic-catalog" / "catalog.json"
-)
+FIXTURES = Path(__file__).resolve().parents[3] / "specs" / "semantic-catalog"
+CATALOG_FIXTURE = FIXTURES / "catalog.json"
 
 Customers = Dataset(
     name="customers",
@@ -209,3 +211,73 @@ def test_default_filters_mirror_filterable_dimensions(registry: DatasetRegistry)
     # Orders declares filters explicitly, so only those appear.
     assert list(orders["filters"]) == ["status"]
     assert orders["filters"]["status"]["operators"] == ["eq", "in"]
+
+
+def test_semantic_contract_matches_the_shared_fixture(registry: DatasetRegistry) -> None:
+    """The contract hash is the cross-language artifact; it must agree exactly."""
+
+    expected = json.loads((FIXTURES / "contract.json").read_text())
+
+    assert serialize_semantic_contract(registry) == expected
+    assert expected["version"] == SEMANTIC_CONTRACT_VERSION
+
+
+def test_public_projection_matches_the_shared_fixture(registry: DatasetRegistry) -> None:
+    expected = json.loads((FIXTURES / "contract-public.json").read_text())
+
+    assert serialize_semantic_contract(registry, include_sql=False) == expected
+
+
+def test_the_public_projection_withholds_internal_sql(registry: DatasetRegistry) -> None:
+    trusted = serialize_semantic_contract(registry)
+    published = serialize_semantic_contract(registry, include_sql=False)
+
+    def full_name(contract: dict[str, object]) -> dict[str, object]:
+        datasets = cast(dict[str, dict[str, object]], contract["datasets"])
+        dimensions = cast(dict[str, dict[str, object]], datasets["customers"]["dimensions"])
+        return dimensions["fullName"]
+
+    assert "sql" in full_name(trusted)
+    assert "sql" not in full_name(published)
+    # A different projection is a different contract.
+    assert trusted["contentHash"] != published["contentHash"]
+
+
+def test_the_content_hash_covers_the_contract_without_itself(
+    registry: DatasetRegistry,
+) -> None:
+    contract = serialize_semantic_contract(registry)
+    unhashed = {key: value for key, value in contract.items() if key != "contentHash"}
+
+    assert contract["contentHash"] == hash_contract(unhashed)
+    assert list(contract) == ["version", "datasets", "contentHash"]
+    assert contract_to_stable_json(unhashed).startswith('{\n  "version": 3,')
+
+
+def test_the_hash_is_stable_across_authored_ordering() -> None:
+    """Logically equal models must hash identically however they were authored."""
+
+    def build(reverse: bool) -> dict[str, object]:
+        names = ["b", "a"] if reverse else ["a", "b"]
+        model = Dataset(
+            name="t",
+            source="t",
+            dimensions={name: dimension("string") for name in names},
+        )
+        return serialize_semantic_contract(create_dataset_registry(model))
+
+    assert build(False)["contentHash"] == build(True)["contentHash"]
+
+
+@pytest.mark.parametrize(
+    ("raw", "expected"),
+    [
+        ("  sum(x)  ", "sum(x)"),
+        ("\n\n  a\n  b\n\n", "a\nb"),
+        ("    a\n      b", "a\n  b"),
+        ("a  \nb\t", "a\nb"),
+        ("a\r\nb", "a\nb"),
+    ],
+)
+def test_sql_whitespace_is_normalized_before_hashing(raw: str, expected: str) -> None:
+    assert normalize_sql(raw) == expected

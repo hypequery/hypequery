@@ -254,6 +254,30 @@ nothing, SQL-backed target dimensions are not joinable, and a `groupable: False`
 target dimension stays queryable as a filter while dropping out of
 `groupableFields`.
 
+## Semantic contract
+
+The semantic contract is the hashable projection of a registry's catalogs: a
+normalized, sorted snapshot with a version marker and a SHA-256 `contentHash`
+over its own stable JSON. Two logically equal models hash identically however
+they were authored, which is what makes it usable for snapshots, diffs, and CI
+drift checks.
+
+```python
+from hypequery.datasets import serialize_semantic_contract
+
+trusted = serialize_semantic_contract(registry)
+published = serialize_semantic_contract(registry, include_sql=False)
+```
+
+`include_sql=False` is the public discovery projection: a SQL-backed dimension
+keeps its `sql` in the trusted contract and loses it in the published one, so
+serving the contract to untrusted consumers cannot leak internal SQL. The two
+projections are deliberately different contracts and hash differently.
+
+Both projections are byte-identical to `@hypequery/datasets` for the same
+model. `specs/semantic-catalog/contract.json` and `contract-public.json` pin
+that, and both test suites check themselves against them.
+
 ## Development
 
 ```bash
