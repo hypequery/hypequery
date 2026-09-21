@@ -205,6 +205,31 @@ from hypequery.datasets import compile_formula, divide, null_if_zero
 average = compile_formula(divide("revenue", null_if_zero("orders")))
 ```
 
+## Registry and catalog
+
+A registry is how datasets are discovered at startup, and how a relationship's
+target is resolved — a Python relationship stores only its target's *name*, so
+nothing executable is ever held in a definition:
+
+```python
+from hypequery.datasets import create_dataset_registry, get_dataset_catalogs
+
+registry = create_dataset_registry(Customers, Orders)
+catalogs = get_dataset_catalogs(registry)
+```
+
+The catalog is the public, serializable description of a dataset: what can be
+grouped, filtered, aggregated, and ordered. It emits the protocol's camelCase
+keys and omits absent optionals rather than writing nulls, so the Python
+catalog for a model is deep-equal to the `@hypequery/datasets` catalog for the
+same model. `specs/semantic-catalog/catalog.json` pins that contract and both
+test suites check themselves against it.
+
+Relationship fields follow the query-time rules exactly: `hasMany` contributes
+nothing, SQL-backed target dimensions are not joinable, and a `groupable: False`
+target dimension stays queryable as a filter while dropping out of
+`groupableFields`.
+
 ## Development
 
 ```bash

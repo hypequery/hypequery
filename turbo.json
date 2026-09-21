@@ -26,7 +26,8 @@
         "type-tests/**/*.ts",
         "type-tests/**/*.tsx",
         "type-tests/**/*.d.ts",
-        "$TURBO_ROOT$/specs/security-protocol/**"
+        "$TURBO_ROOT$/specs/security-protocol/**",
+        "$TURBO_ROOT$/specs/semantic-catalog/**"
       ]
     },
     "lint": {},
