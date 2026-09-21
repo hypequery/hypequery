@@ -154,7 +154,7 @@ def dimension(value: object, path: str, limits: ProtocolDeploymentLimits) -> dic
         ("label", "description", *SEMANTIC_METADATA_FIELDS),
         path,
     )
-    if node["type"] not in FIELD_TYPES:
+    if type(node["type"]) is not str or node["type"] not in FIELD_TYPES:
         deployment_error("HQ_DEPLOYMENT_INVALID_VALUE", f"{path}.type")
     for key in ("filterable", "groupable"):
         if type(node[key]) is not bool:

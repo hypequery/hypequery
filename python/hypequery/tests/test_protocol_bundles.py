@@ -428,3 +428,13 @@ def test_release_limits_may_be_lowered_but_not_raised() -> None:
 
     with pytest.raises(ValueError, match="no greater than"):
         ProtocolDeploymentReleaseLimits(max_target_bytes=129)
+
+
+@pytest.mark.parametrize("version", [True, False])
+def test_boolean_versions_are_not_numeric_versions(version: bool) -> None:
+    with pytest.raises(ProtocolDeploymentBundleError) as bundle:
+        validate_protocol_deployment_bundle_manifest(_manifest(version=version))
+    assert bundle.value.code == "HQ_BUNDLE_TYPE"
+    with pytest.raises(ProtocolDeploymentReleaseError) as release:
+        validate_protocol_deployment_release_envelope(_release(version=version))
+    assert release.value.code == "HQ_RELEASE_TYPE"

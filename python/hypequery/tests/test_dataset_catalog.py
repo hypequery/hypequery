@@ -281,3 +281,28 @@ def test_the_hash_is_stable_across_authored_ordering() -> None:
 )
 def test_sql_whitespace_is_normalized_before_hashing(raw: str, expected: str) -> None:
     assert normalize_sql(raw) == expected
+
+
+@pytest.mark.parametrize(
+    ("level", "spelling", "expected_hash"),
+    [
+        (1e-7, "1e-7", "749d2185f800ce778969017a8dbc7a2d8ee5876f9e05413d8b1de71763a3e6c7"),
+        (1e-6, "0.000001", "cd655fa62d61de02c865fda6a05ee955d0432f0e51b0b06faa3ee3f0a1741b72"),
+    ],
+)
+def test_contract_numbers_match_ecmascript_json(
+    level: float, spelling: str, expected_hash: str
+) -> None:
+    contract = serialize_semantic_contract(
+        create_dataset_registry(
+            Dataset(
+                name="orders",
+                source="orders",
+                dimensions={"amount": dimension("number")},
+                measures={"quantile": measure(percentile("amount", level))},
+            )
+        )
+    )
+    assert f'"level": {spelling}' in contract_to_stable_json(contract)
+    # Generated from the equivalent model with TypeScript's serializeSemanticContract.
+    assert contract["contentHash"] == expected_hash

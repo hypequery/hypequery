@@ -415,3 +415,16 @@ def test_limits_may_be_lowered_but_not_raised() -> None:
 
     with pytest.raises(ValueError, match="no greater than"):
         ProtocolDeploymentLimits(max_datasets=101)
+
+
+@pytest.mark.parametrize("field_type", [[], {}])
+def test_unhashable_dimension_types_produce_protocol_errors(field_type: object) -> None:
+    with pytest.raises(ProtocolDeploymentError) as raised:
+        validate_protocol_deployment_contract(
+            _contract(
+                _dataset(
+                    dimensions=[{**_DIMENSION, "type": field_type}],
+                )
+            )
+        )
+    assert raised.value.code == "HQ_DEPLOYMENT_INVALID_VALUE"

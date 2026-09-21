@@ -147,7 +147,7 @@ def _metric(value: object, path: str, limits: ProtocolDeploymentLimits) -> dict[
         path,
     )
     kind = node["kind"]
-    if kind not in _METRIC_KINDS:
+    if type(kind) is not str or kind not in _METRIC_KINDS:
         deployment_error("HQ_DEPLOYMENT_INVALID_VALUE", f"{path}.kind")
 
     def parse_grain(item: object, item_path: str) -> str:

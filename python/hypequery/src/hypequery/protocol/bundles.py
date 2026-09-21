@@ -309,7 +309,7 @@ def validate_protocol_deployment_bundle_manifest(
             bundle_error("HQ_BUNDLE_TYPE", "$.kind")
         bundle_error("HQ_BUNDLE_INVALID_VALUE", "$.kind")
     version = node["version"]
-    if version != 1:
+    if type(version) is bool or version != 1:
         if type(version) is bool or type(version) not in (int, float):
             bundle_error("HQ_BUNDLE_TYPE", "$.version")
         bundle_error("HQ_BUNDLE_INVALID_VERSION", "$.version")

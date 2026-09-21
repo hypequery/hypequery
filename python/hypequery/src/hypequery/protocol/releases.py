@@ -126,7 +126,7 @@ def validate_protocol_deployment_release_envelope(
             release_error("HQ_RELEASE_TYPE", "$.kind")
         release_error("HQ_RELEASE_INVALID_VALUE", "$.kind")
     version = node["version"]
-    if version != 1:
+    if type(version) is bool or version != 1:
         if type(version) is bool or type(version) not in (int, float):
             release_error("HQ_RELEASE_TYPE", "$.version")
         release_error("HQ_RELEASE_INVALID_VERSION", "$.version")
