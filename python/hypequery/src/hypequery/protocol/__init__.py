@@ -20,6 +20,8 @@ from .errors import (
     ProtocolExpressionErrorCode,
     ProtocolIdentifierError,
     ProtocolIdentifierErrorCode,
+    ProtocolQueryImplementationError,
+    ProtocolQueryImplementationErrorCode,
     ProtocolSchemaError,
     ProtocolSchemaErrorCode,
     ProtocolValueError,
@@ -82,8 +84,15 @@ from .schema_models import (
     ProtocolUnknownProperties,
     ProtocolVoidSchema,
     SchemaDefault,
+    schema_to_data,
 )
 from .schemas import validate_protocol_schema
+from .sql_expressions import (
+    DEFAULT_PROTOCOL_QUERY_IMPLEMENTATION_LIMITS,
+    ProtocolQueryImplementationLimits,
+    ProtocolSqlExpression,
+    validate_protocol_sql_expression,
+)
 from .values import (
     CanonicalValue,
     decode_canonical_value,
@@ -96,6 +105,7 @@ from .values import (
 __all__ = [
     "DEFAULT_CANONICAL_VALUE_LIMITS",
     "DEFAULT_PROTOCOL_EXPRESSION_LIMITS",
+    "DEFAULT_PROTOCOL_QUERY_IMPLEMENTATION_LIMITS",
     "DEFAULT_PROTOCOL_SCHEMA_LIMITS",
     "PROTOCOL_IDENTIFIER_LIMITS",
     "UNSET",
@@ -131,6 +141,9 @@ __all__ = [
     "ProtocolObjectSchema",
     "ProtocolOrderBy",
     "ProtocolQualifiedIdentifier",
+    "ProtocolQueryImplementationError",
+    "ProtocolQueryImplementationErrorCode",
+    "ProtocolQueryImplementationLimits",
     "ProtocolRecordSchema",
     "ProtocolReferenceExpression",
     "ProtocolSchema",
@@ -139,6 +152,7 @@ __all__ = [
     "ProtocolSchemaKind",
     "ProtocolSchemaLimits",
     "ProtocolSemanticQuery",
+    "ProtocolSqlExpression",
     "ProtocolStringSchema",
     "ProtocolTimeGrain",
     "ProtocolUnionSchema",
@@ -166,6 +180,7 @@ __all__ = [
     "map_value",
     "parse_protocol_identifier",
     "parse_protocol_qualified_identifier",
+    "schema_to_data",
     "semantic_query_to_data",
     "split_protocol_qualified_identifier",
     "tuple_value",
@@ -174,4 +189,5 @@ __all__ = [
     "validate_protocol_expression",
     "validate_protocol_schema",
     "validate_protocol_semantic_query",
+    "validate_protocol_sql_expression",
 ]

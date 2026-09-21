@@ -69,6 +69,19 @@ ProtocolSchemaErrorCode: TypeAlias = Literal[
 ]
 
 
+ProtocolQueryImplementationErrorCode: TypeAlias = Literal[
+    "HQ_QUERY_IMPLEMENTATION_TYPE",
+    "HQ_QUERY_IMPLEMENTATION_UNKNOWN_FIELD",
+    "HQ_QUERY_IMPLEMENTATION_UNKNOWN_KIND",
+    "HQ_QUERY_IMPLEMENTATION_INVALID_IDENTIFIER",
+    "HQ_QUERY_IMPLEMENTATION_INVALID_VALUE",
+    "HQ_QUERY_IMPLEMENTATION_INVALID_REFERENCE",
+    "HQ_QUERY_IMPLEMENTATION_TOO_MANY_ITEMS",
+    "HQ_QUERY_IMPLEMENTATION_TOO_LARGE",
+    "HQ_QUERY_IMPLEMENTATION_UNSAFE_OBJECT",
+]
+
+
 class ProtocolValueError(TypeError):
     """A safe, stable RFC 0001 validation failure."""
 
@@ -137,3 +150,23 @@ def schema_error(code: ProtocolSchemaErrorCode, path: str = "$") -> NoReturn:
     """Raise a schema error without attaching input data to its message."""
 
     raise ProtocolSchemaError(code, path)
+
+
+class ProtocolQueryImplementationError(TypeError):
+    """A safe, stable RFC 0005 validation failure."""
+
+    code: ProtocolQueryImplementationErrorCode
+    path: str
+
+    def __init__(self, code: ProtocolQueryImplementationErrorCode, path: str = "$") -> None:
+        super().__init__(f"{code} at {path}")
+        self.code = code
+        self.path = path
+
+
+def query_implementation_error(
+    code: ProtocolQueryImplementationErrorCode, path: str = "$"
+) -> NoReturn:
+    """Raise a query-implementation error without attaching input data."""
+
+    raise ProtocolQueryImplementationError(code, path)
