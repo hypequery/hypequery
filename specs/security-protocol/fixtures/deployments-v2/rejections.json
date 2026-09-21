@@ -1,0 +1,874 @@
+[
+  {
+    "id": "unsupported-queries-field",
+    "value": {
+      "kind": "hypequery-deployment",
+      "version": 2,
+      "datasets": [
+        {
+          "name": "orders",
+          "source": "orders",
+          "tenant": {
+            "kind": "not-required"
+          },
+          "dimensions": [],
+          "measures": [],
+          "filters": [],
+          "relationships": []
+        }
+      ],
+      "queries": []
+    },
+    "error": "HQ_DEPLOYMENT_UNKNOWN_FIELD"
+  },
+  {
+    "id": "unsupported-artifacts-field",
+    "value": {
+      "kind": "hypequery-deployment",
+      "version": 2,
+      "datasets": [
+        {
+          "name": "orders",
+          "source": "orders",
+          "tenant": {
+            "kind": "not-required"
+          },
+          "dimensions": [],
+          "measures": [],
+          "filters": [],
+          "relationships": []
+        }
+      ],
+      "artifacts": []
+    },
+    "error": "HQ_DEPLOYMENT_UNKNOWN_FIELD"
+  },
+  {
+    "id": "dataset-metrics-field",
+    "value": {
+      "kind": "hypequery-deployment",
+      "version": 2,
+      "datasets": [
+        {
+          "name": "orders",
+          "source": "orders",
+          "tenant": {
+            "kind": "not-required"
+          },
+          "dimensions": [],
+          "measures": [],
+          "filters": [],
+          "relationships": [],
+          "metrics": []
+        }
+      ]
+    },
+    "error": "HQ_DEPLOYMENT_UNKNOWN_FIELD"
+  },
+  {
+    "id": "wrong-version",
+    "value": {
+      "kind": "hypequery-deployment",
+      "version": 1,
+      "datasets": [
+        {
+          "name": "orders",
+          "source": "orders",
+          "tenant": {
+            "kind": "not-required"
+          },
+          "dimensions": [],
+          "measures": [],
+          "filters": [],
+          "relationships": []
+        }
+      ]
+    },
+    "error": "HQ_DEPLOYMENT_INVALID_VERSION"
+  },
+  {
+    "id": "duplicate-dataset-name",
+    "value": {
+      "kind": "hypequery-deployment",
+      "version": 2,
+      "datasets": [
+        {
+          "name": "orders",
+          "source": "orders",
+          "tenant": {
+            "kind": "not-required"
+          },
+          "dimensions": [],
+          "measures": [],
+          "filters": [],
+          "relationships": []
+        },
+        {
+          "name": "orders",
+          "source": "orders",
+          "tenant": {
+            "kind": "not-required"
+          },
+          "dimensions": [],
+          "measures": [],
+          "filters": [],
+          "relationships": []
+        }
+      ]
+    },
+    "error": "HQ_DEPLOYMENT_INVALID_REFERENCE"
+  },
+  {
+    "id": "explicit-null-optional",
+    "value": {
+      "kind": "hypequery-deployment",
+      "version": 2,
+      "datasets": [
+        {
+          "name": "orders",
+          "source": "orders",
+          "tenant": {
+            "kind": "not-required"
+          },
+          "dimensions": [
+            {
+              "name": "status",
+              "type": "string",
+              "source": {
+                "kind": "column",
+                "column": "status"
+              },
+              "filterable": true,
+              "groupable": true,
+              "description": null
+            }
+          ],
+          "measures": [],
+          "filters": [],
+          "relationships": []
+        }
+      ]
+    },
+    "error": "HQ_DEPLOYMENT_TYPE"
+  },
+  {
+    "id": "blank-source",
+    "value": {
+      "kind": "hypequery-deployment",
+      "version": 2,
+      "datasets": [
+        {
+          "name": "orders",
+          "source": "   ",
+          "tenant": {
+            "kind": "not-required"
+          },
+          "dimensions": [],
+          "measures": [],
+          "filters": [],
+          "relationships": []
+        }
+      ]
+    },
+    "error": "HQ_DEPLOYMENT_INVALID_VALUE"
+  },
+  {
+    "id": "control-character-label",
+    "value": {
+      "kind": "hypequery-deployment",
+      "version": 2,
+      "datasets": [
+        {
+          "name": "orders",
+          "source": "orders",
+          "tenant": {
+            "kind": "not-required"
+          },
+          "dimensions": [
+            {
+              "name": "status",
+              "type": "string",
+              "source": {
+                "kind": "column",
+                "column": "status"
+              },
+              "filterable": true,
+              "groupable": true,
+              "label": "a\u0001b"
+            }
+          ],
+          "measures": [],
+          "filters": [],
+          "relationships": []
+        }
+      ]
+    },
+    "error": "HQ_DEPLOYMENT_INVALID_VALUE"
+  },
+  {
+    "id": "has-many-queryable",
+    "value": {
+      "kind": "hypequery-deployment",
+      "version": 2,
+      "datasets": [
+        {
+          "name": "orders",
+          "source": "orders",
+          "tenant": {
+            "kind": "not-required"
+          },
+          "dimensions": [],
+          "measures": [],
+          "filters": [],
+          "relationships": [
+            {
+              "name": "c",
+              "kind": "hasMany",
+              "target": "orders",
+              "from": "a",
+              "to": "b",
+              "queryable": true
+            }
+          ]
+        }
+      ]
+    },
+    "error": "HQ_DEPLOYMENT_INVALID_VALUE"
+  },
+  {
+    "id": "relationship-target-absent",
+    "value": {
+      "kind": "hypequery-deployment",
+      "version": 2,
+      "datasets": [
+        {
+          "name": "orders",
+          "source": "orders",
+          "tenant": {
+            "kind": "not-required"
+          },
+          "dimensions": [],
+          "measures": [],
+          "filters": [],
+          "relationships": [
+            {
+              "name": "c",
+              "kind": "belongsTo",
+              "target": "missing",
+              "from": "a",
+              "to": "b",
+              "queryable": true
+            }
+          ]
+        }
+      ]
+    },
+    "error": "HQ_DEPLOYMENT_INVALID_REFERENCE"
+  },
+  {
+    "id": "arg-field-on-non-arg-aggregation",
+    "value": {
+      "kind": "hypequery-deployment",
+      "version": 2,
+      "datasets": [
+        {
+          "name": "orders",
+          "source": "orders",
+          "tenant": {
+            "kind": "not-required"
+          },
+          "dimensions": [],
+          "measures": [
+            {
+              "name": "revenue",
+              "aggregation": "sum",
+              "field": "amount",
+              "filters": [],
+              "argField": "x"
+            }
+          ],
+          "filters": [],
+          "relationships": []
+        }
+      ]
+    },
+    "error": "HQ_DEPLOYMENT_INVALID_VALUE"
+  },
+  {
+    "id": "percentile-without-level",
+    "value": {
+      "kind": "hypequery-deployment",
+      "version": 2,
+      "datasets": [
+        {
+          "name": "orders",
+          "source": "orders",
+          "tenant": {
+            "kind": "not-required"
+          },
+          "dimensions": [],
+          "measures": [
+            {
+              "name": "revenue",
+              "aggregation": "percentile",
+              "field": "amount",
+              "filters": []
+            }
+          ],
+          "filters": [],
+          "relationships": []
+        }
+      ]
+    },
+    "error": "HQ_DEPLOYMENT_INVALID_VALUE"
+  },
+  {
+    "id": "empty-filter-operators",
+    "value": {
+      "kind": "hypequery-deployment",
+      "version": 2,
+      "datasets": [
+        {
+          "name": "orders",
+          "source": "orders",
+          "tenant": {
+            "kind": "not-required"
+          },
+          "dimensions": [],
+          "measures": [],
+          "filters": [
+            {
+              "name": "s",
+              "field": "status",
+              "operators": []
+            }
+          ],
+          "relationships": []
+        }
+      ]
+    },
+    "error": "HQ_DEPLOYMENT_INVALID_VALUE"
+  },
+  {
+    "id": "currency-not-alpha-3",
+    "value": {
+      "kind": "hypequery-deployment",
+      "version": 2,
+      "datasets": [
+        {
+          "name": "orders",
+          "source": "orders",
+          "tenant": {
+            "kind": "not-required"
+          },
+          "dimensions": [],
+          "measures": [],
+          "filters": [],
+          "relationships": [],
+          "currency": "usd"
+        }
+      ]
+    },
+    "error": "HQ_DEPLOYMENT_INVALID_VALUE"
+  },
+  {
+    "id": "unknown-sensitivity",
+    "value": {
+      "kind": "hypequery-deployment",
+      "version": 2,
+      "datasets": [
+        {
+          "name": "orders",
+          "source": "orders",
+          "tenant": {
+            "kind": "not-required"
+          },
+          "dimensions": [],
+          "measures": [],
+          "filters": [],
+          "relationships": [],
+          "sensitivity": "secret"
+        }
+      ]
+    },
+    "error": "HQ_DEPLOYMENT_INVALID_VALUE"
+  },
+  {
+    "id": "empty-defaults",
+    "value": {
+      "kind": "hypequery-deployment",
+      "version": 2,
+      "datasets": [
+        {
+          "name": "orders",
+          "source": "orders",
+          "tenant": {
+            "kind": "not-required"
+          },
+          "dimensions": [],
+          "measures": [],
+          "filters": [],
+          "relationships": [],
+          "defaults": {}
+        }
+      ]
+    },
+    "error": "HQ_DEPLOYMENT_INVALID_VALUE"
+  },
+  {
+    "id": "default-grain-without-time-field",
+    "value": {
+      "kind": "hypequery-deployment",
+      "version": 2,
+      "datasets": [
+        {
+          "name": "orders",
+          "source": "orders",
+          "tenant": {
+            "kind": "not-required"
+          },
+          "dimensions": [],
+          "measures": [],
+          "filters": [],
+          "relationships": [],
+          "defaults": {
+            "timeGrain": "day"
+          }
+        }
+      ]
+    },
+    "error": "HQ_DEPLOYMENT_INVALID_REFERENCE"
+  },
+  {
+    "id": "default-dimension-not-groupable",
+    "value": {
+      "kind": "hypequery-deployment",
+      "version": 2,
+      "datasets": [
+        {
+          "name": "orders",
+          "source": "orders",
+          "tenant": {
+            "kind": "not-required"
+          },
+          "dimensions": [
+            {
+              "name": "status",
+              "type": "string",
+              "source": {
+                "kind": "column",
+                "column": "status"
+              },
+              "filterable": true,
+              "groupable": false
+            }
+          ],
+          "measures": [],
+          "filters": [],
+          "relationships": [],
+          "defaults": {
+            "dimensions": [
+              "status"
+            ]
+          }
+        }
+      ]
+    },
+    "error": "HQ_DEPLOYMENT_INVALID_REFERENCE"
+  },
+  {
+    "id": "auto-inject-without-column",
+    "value": {
+      "kind": "hypequery-deployment",
+      "version": 2,
+      "datasets": [
+        {
+          "name": "orders",
+          "source": "orders",
+          "tenant": {
+            "kind": "required",
+            "field": "t"
+          },
+          "dimensions": [],
+          "measures": [],
+          "filters": [],
+          "relationships": [],
+          "endpoint": {
+            "access": {
+              "kind": "public"
+            },
+            "tenant": {
+              "kind": "required",
+              "mode": "auto-inject"
+            }
+          }
+        }
+      ]
+    },
+    "error": "HQ_DEPLOYMENT_INVALID_VALUE"
+  },
+  {
+    "id": "endpoint-tenant-disagrees",
+    "value": {
+      "kind": "hypequery-deployment",
+      "version": 2,
+      "datasets": [
+        {
+          "name": "orders",
+          "source": "orders",
+          "tenant": {
+            "kind": "required",
+            "field": "t"
+          },
+          "dimensions": [],
+          "measures": [],
+          "filters": [],
+          "relationships": [],
+          "endpoint": {
+            "access": {
+              "kind": "public"
+            },
+            "tenant": {
+              "kind": "not-required"
+            }
+          }
+        }
+      ]
+    },
+    "error": "HQ_DEPLOYMENT_INVALID_REFERENCE"
+  },
+  {
+    "id": "relative-endpoint-path",
+    "value": {
+      "kind": "hypequery-deployment",
+      "version": 2,
+      "datasets": [
+        {
+          "name": "orders",
+          "source": "orders",
+          "tenant": {
+            "kind": "not-required"
+          },
+          "dimensions": [],
+          "measures": [],
+          "filters": [],
+          "relationships": [],
+          "endpoint": {
+            "access": {
+              "kind": "public"
+            },
+            "tenant": {
+              "kind": "not-required"
+            },
+            "path": "orders"
+          }
+        }
+      ]
+    },
+    "error": "HQ_DEPLOYMENT_INVALID_VALUE"
+  },
+  {
+    "id": "derived-measure-unknown-base",
+    "value": {
+      "kind": "hypequery-deployment",
+      "version": 2,
+      "datasets": [
+        {
+          "name": "orders",
+          "source": "orders",
+          "tenant": {
+            "kind": "not-required"
+          },
+          "dimensions": [],
+          "measures": [
+            {
+              "name": "revenue",
+              "aggregation": "sum",
+              "field": "amount",
+              "filters": []
+            },
+            {
+              "name": "orders",
+              "aggregation": "count",
+              "field": "id",
+              "filters": []
+            },
+            {
+              "kind": "derived",
+              "name": "aov",
+              "uses": [
+                {
+                  "alias": "r",
+                  "measure": "missing"
+                },
+                {
+                  "alias": "o",
+                  "measure": "orders"
+                }
+              ],
+              "expression": {
+                "kind": "binary",
+                "operator": "divide",
+                "left": {
+                  "kind": "reference",
+                  "name": "r"
+                },
+                "right": {
+                  "kind": "call",
+                  "function": "nullIfZero",
+                  "args": [
+                    {
+                      "kind": "reference",
+                      "name": "o"
+                    }
+                  ]
+                }
+              }
+            }
+          ],
+          "filters": [],
+          "relationships": []
+        }
+      ]
+    },
+    "error": "HQ_DEPLOYMENT_INVALID_REFERENCE"
+  },
+  {
+    "id": "derived-measure-bare-reference",
+    "value": {
+      "kind": "hypequery-deployment",
+      "version": 2,
+      "datasets": [
+        {
+          "name": "orders",
+          "source": "orders",
+          "tenant": {
+            "kind": "not-required"
+          },
+          "dimensions": [],
+          "measures": [
+            {
+              "name": "revenue",
+              "aggregation": "sum",
+              "field": "amount",
+              "filters": []
+            },
+            {
+              "name": "orders",
+              "aggregation": "count",
+              "field": "id",
+              "filters": []
+            },
+            {
+              "kind": "derived",
+              "name": "aov",
+              "uses": [
+                {
+                  "alias": "r",
+                  "measure": "revenue"
+                },
+                {
+                  "alias": "o",
+                  "measure": "orders"
+                }
+              ],
+              "expression": {
+                "kind": "reference",
+                "name": "r"
+              }
+            }
+          ],
+          "filters": [],
+          "relationships": []
+        }
+      ]
+    },
+    "error": "HQ_DEPLOYMENT_INVALID_VALUE"
+  },
+  {
+    "id": "derived-measure-unused-alias",
+    "value": {
+      "kind": "hypequery-deployment",
+      "version": 2,
+      "datasets": [
+        {
+          "name": "orders",
+          "source": "orders",
+          "tenant": {
+            "kind": "not-required"
+          },
+          "dimensions": [],
+          "measures": [
+            {
+              "name": "revenue",
+              "aggregation": "sum",
+              "field": "amount",
+              "filters": []
+            },
+            {
+              "name": "orders",
+              "aggregation": "count",
+              "field": "id",
+              "filters": []
+            },
+            {
+              "kind": "derived",
+              "name": "aov",
+              "uses": [
+                {
+                  "alias": "r",
+                  "measure": "revenue"
+                },
+                {
+                  "alias": "o",
+                  "measure": "orders"
+                }
+              ],
+              "expression": {
+                "kind": "binary",
+                "operator": "add",
+                "left": {
+                  "kind": "reference",
+                  "name": "r"
+                },
+                "right": {
+                  "kind": "reference",
+                  "name": "r"
+                }
+              }
+            }
+          ],
+          "filters": [],
+          "relationships": []
+        }
+      ]
+    },
+    "error": "HQ_DEPLOYMENT_INVALID_REFERENCE"
+  },
+  {
+    "id": "derived-measure-outside-formula-grammar",
+    "value": {
+      "kind": "hypequery-deployment",
+      "version": 2,
+      "datasets": [
+        {
+          "name": "orders",
+          "source": "orders",
+          "tenant": {
+            "kind": "not-required"
+          },
+          "dimensions": [],
+          "measures": [
+            {
+              "name": "revenue",
+              "aggregation": "sum",
+              "field": "amount",
+              "filters": []
+            },
+            {
+              "name": "orders",
+              "aggregation": "count",
+              "field": "id",
+              "filters": []
+            },
+            {
+              "kind": "derived",
+              "name": "aov",
+              "uses": [
+                {
+                  "alias": "r",
+                  "measure": "revenue"
+                },
+                {
+                  "alias": "o",
+                  "measure": "orders"
+                }
+              ],
+              "expression": {
+                "kind": "comparison",
+                "operator": "eq",
+                "left": {
+                  "kind": "reference",
+                  "name": "r"
+                },
+                "right": {
+                  "kind": "reference",
+                  "name": "o"
+                }
+              }
+            }
+          ],
+          "filters": [],
+          "relationships": []
+        }
+      ]
+    },
+    "error": "HQ_DEPLOYMENT_INVALID_VALUE"
+  },
+  {
+    "id": "measure-name-collides-with-derived",
+    "value": {
+      "kind": "hypequery-deployment",
+      "version": 2,
+      "datasets": [
+        {
+          "name": "orders",
+          "source": "orders",
+          "tenant": {
+            "kind": "not-required"
+          },
+          "dimensions": [],
+          "measures": [
+            {
+              "name": "revenue",
+              "aggregation": "sum",
+              "field": "amount",
+              "filters": []
+            },
+            {
+              "name": "orders",
+              "aggregation": "count",
+              "field": "id",
+              "filters": []
+            },
+            {
+              "kind": "derived",
+              "name": "revenue",
+              "uses": [
+                {
+                  "alias": "r",
+                  "measure": "revenue"
+                },
+                {
+                  "alias": "o",
+                  "measure": "orders"
+                }
+              ],
+              "expression": {
+                "kind": "binary",
+                "operator": "divide",
+                "left": {
+                  "kind": "reference",
+                  "name": "r"
+                },
+                "right": {
+                  "kind": "call",
+                  "function": "nullIfZero",
+                  "args": [
+                    {
+                      "kind": "reference",
+                      "name": "o"
+                    }
+                  ]
+                }
+              }
+            }
+          ],
+          "filters": [],
+          "relationships": []
+        }
+      ]
+    },
+    "error": "HQ_DEPLOYMENT_INVALID_REFERENCE"
+  }
+]
