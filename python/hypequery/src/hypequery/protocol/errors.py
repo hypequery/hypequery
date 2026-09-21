@@ -52,6 +52,23 @@ ProtocolExpressionErrorCode: TypeAlias = Literal[
 ]
 
 
+ProtocolSchemaErrorCode: TypeAlias = Literal[
+    "HQ_SCHEMA_TYPE",
+    "HQ_SCHEMA_UNKNOWN_FIELD",
+    "HQ_SCHEMA_UNKNOWN_KIND",
+    "HQ_SCHEMA_INVALID_IDENTIFIER",
+    "HQ_SCHEMA_INVALID_VALUE",
+    "HQ_SCHEMA_INVALID_CONSTRAINT",
+    "HQ_SCHEMA_INVALID_REQUIRED",
+    "HQ_SCHEMA_DUPLICATE_VALUE",
+    "HQ_SCHEMA_TOO_DEEP",
+    "HQ_SCHEMA_TOO_MANY_NODES",
+    "HQ_SCHEMA_TOO_MANY_ITEMS",
+    "HQ_SCHEMA_TOO_LARGE",
+    "HQ_SCHEMA_UNSAFE_OBJECT",
+]
+
+
 class ProtocolValueError(TypeError):
     """A safe, stable RFC 0001 validation failure."""
 
@@ -102,3 +119,21 @@ def expression_error(code: ProtocolExpressionErrorCode, path: str = "$") -> NoRe
     """Raise an expression error without attaching input data to its message."""
 
     raise ProtocolExpressionError(code, path)
+
+
+class ProtocolSchemaError(TypeError):
+    """A safe, stable RFC 0004 validation failure."""
+
+    code: ProtocolSchemaErrorCode
+    path: str
+
+    def __init__(self, code: ProtocolSchemaErrorCode, path: str = "$") -> None:
+        super().__init__(f"{code} at {path}")
+        self.code = code
+        self.path = path
+
+
+def schema_error(code: ProtocolSchemaErrorCode, path: str = "$") -> NoReturn:
+    """Raise a schema error without attaching input data to its message."""
+
+    raise ProtocolSchemaError(code, path)

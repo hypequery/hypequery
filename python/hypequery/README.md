@@ -111,6 +111,36 @@ unapproved functions are non-portable by construction. Issue codes and source
 offsets match `@hypequery/datasets` case for case, enforced by the shared
 `sql-portability-v1` fixtures.
 
+## Portable query schemas
+
+RFC 0004 schemas describe the wire values a named query accepts and returns.
+They are a closed node vocabulary — no regular expressions, format names,
+validators, or callbacks — so a schema survives the trip between runtimes
+without carrying executable behaviour:
+
+```python
+from hypequery.protocol import validate_protocol_schema
+
+schema = validate_protocol_schema(
+    {
+        "kind": "object",
+        "properties": {
+            "limit": {"kind": "integer", "minimum": 1.0, "maximum": 100.0, "default": 10.0},
+            "status": {"kind": "enum", "values": ["new", "paid", "shipped"]},
+        },
+        "required": ["status"],
+        "unknownProperties": "reject",
+    }
+)
+```
+
+Validation returns a detached, deeply immutable model. Numbers are binary64
+throughout, matching the reference implementation, so bounds and defaults are
+written as `1.0` rather than `1`; a width-tagged integer is a *result value*
+concept, not an API-schema one. A declared `default` is checked against its own
+schema at validation time, and `UNSET` distinguishes an absent default from a
+default of `null`.
+
 ## Dataset definitions
 
 Definitions use strict, frozen Pydantic models. Helper spellings are Pythonic,
