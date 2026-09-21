@@ -217,8 +217,8 @@ dataset `metrics` are invalid even when empty:
 from hypequery.protocol import prepare_protocol_deployment_contract
 
 prepared = prepare_protocol_deployment_contract(contract_data)
-prepared.canonical   # RFC 8785 JSON text
-prepared.identity    # sha256 of "hypequery:deployment:v2\0" + canonical bytes
+prepared.canonical  # RFC 8785 JSON text
+prepared.identity  # sha256 of "hypequery:deployment:v2\0" + canonical bytes
 ```
 
 Identity is domain-separated, so a deployment hash cannot collide with another
