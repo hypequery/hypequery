@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import json
 import math
-import sys
 from collections.abc import Iterator, Mapping
 
 from hypequery import __version__
@@ -20,6 +19,7 @@ from .identifiers import (
     parse_protocol_qualified_identifier,
     split_protocol_qualified_identifier,
 )
+from .stdio_adapter import run_stdio_adapter
 from .values import (
     decode_canonical_value,
     encode_canonical_value,
@@ -201,57 +201,14 @@ def _handle(family: str, role: str, case: dict[str, object], section: object) ->
 def main() -> int:
     """Run the adapter loop until the conformance runner sends ``end``."""
 
-    for line in sys.stdin:
-        if not line.strip():
-            continue
-        try:
-            message = json.loads(line)
-        except json.JSONDecodeError:
-            sys.stderr.write("adapter: unparseable line\n")
-            return 2
-        if type(message) is not dict:
-            sys.stderr.write("adapter: message must be an object\n")
-            return 2
-
-        message_type = message.get("type")
-        if message_type == "hello":
-            if message.get("protocol") != 1:
-                sys.stderr.write("adapter: unsupported protocol\n")
-                return 2
-            response: dict[str, object] = {
-                "type": "hello",
-                "protocol": 1,
-                "implementation": "hypequery",
-                "version": __version__,
-                "language": "python",
-                "families": list(FAMILIES),
-                "hostileObjectSuite": HOSTILE_OBJECT_SUITE,
-            }
-        elif message_type == "case":
-            family = message.get("family")
-            if family not in FAMILIES:
-                raise RuntimeError(f"unsupported fixture family: {family!r}")
-            fixture_case = message.get("case")
-            if type(fixture_case) is not dict:
-                raise RuntimeError("fixture case must be an object")
-            response = {
-                "type": "result",
-                "seq": message.get("seq"),
-                **_handle(
-                    family,
-                    str(message.get("role")),
-                    fixture_case,
-                    message.get("section"),
-                ),
-            }
-        elif message_type == "end":
-            return 0
-        else:
-            sys.stderr.write(f"adapter: unknown message type {message_type!r}\n")
-            return 2
-        sys.stdout.write(json.dumps(response, separators=(",", ":"), allow_nan=False) + "\n")
-        sys.stdout.flush()
-    return 0
+    return run_stdio_adapter(
+        implementation="hypequery",
+        version=__version__,
+        language="python",
+        families=FAMILIES,
+        handle=_handle,
+        hostile_object_suite=HOSTILE_OBJECT_SUITE,
+    )
 
 
 if __name__ == "__main__":

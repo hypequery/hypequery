@@ -13,6 +13,7 @@ from dataclasses import dataclass
 from typing import NewType
 
 from .errors import ProtocolIdentifierError, ProtocolIdentifierErrorCode, identifier_error
+from .utf8 import exceeds_utf8_byte_limit
 
 ProtocolIdentifier = NewType("ProtocolIdentifier", str)
 ProtocolQualifiedIdentifier = NewType("ProtocolQualifiedIdentifier", str)
@@ -33,42 +34,6 @@ _IDENTIFIER_PATTERN = re.compile(r"[A-Za-z_][A-Za-z0-9_]*", re.ASCII)
 _RESERVED_PREFIX = "__hypequery"
 
 
-def _exceeds_utf8_byte_limit(value: str, maximum: int) -> bool:
-    """Check a UTF-8 limit using the USV-string semantics of TextEncoder.
-
-    Python can hold unpaired UTF-16 surrogates even though JSON and UTF-8
-    cannot. Treating each unpaired surrogate as U+FFFD matches the JavaScript
-    reference implementation and keeps validation precedence deterministic.
-    The scan stops as soon as the limit is exceeded, bounding work on hostile
-    in-memory inputs.
-    """
-
-    length = 0
-    index = 0
-    while index < len(value):
-        code_point = ord(value[index])
-        if code_point <= 0x7F:
-            length += 1
-        elif code_point <= 0x7FF:
-            length += 2
-        elif 0xD800 <= code_point <= 0xDBFF:
-            if index + 1 < len(value) and 0xDC00 <= ord(value[index + 1]) <= 0xDFFF:
-                length += 4
-                index += 1
-            else:
-                length += 3
-        elif 0xDC00 <= code_point <= 0xDFFF:
-            length += 3
-        elif code_point <= 0xFFFF:
-            length += 3
-        else:
-            length += 4
-        if length > maximum:
-            return True
-        index += 1
-    return False
-
-
 def _parse_segment(
     value: object,
     *,
@@ -79,7 +44,7 @@ def _parse_segment(
     text = value
     if not text:
         identifier_error(empty_code)
-    if _exceeds_utf8_byte_limit(text, PROTOCOL_IDENTIFIER_LIMITS.max_segment_bytes):
+    if exceeds_utf8_byte_limit(text, PROTOCOL_IDENTIFIER_LIMITS.max_segment_bytes):
         identifier_error("HQ_IDENTIFIER_TOO_LONG")
     if _IDENTIFIER_PATTERN.fullmatch(text) is None:
         identifier_error("HQ_IDENTIFIER_INVALID_FORMAT")
@@ -104,7 +69,7 @@ def parse_protocol_qualified_identifier(value: object) -> ProtocolQualifiedIdent
     text = value
     if not text:
         identifier_error("HQ_IDENTIFIER_EMPTY")
-    if _exceeds_utf8_byte_limit(text, PROTOCOL_IDENTIFIER_LIMITS.max_qualified_bytes):
+    if exceeds_utf8_byte_limit(text, PROTOCOL_IDENTIFIER_LIMITS.max_qualified_bytes):
         identifier_error("HQ_IDENTIFIER_TOO_LONG")
 
     # Count before splitting so an attacker cannot force an unbounded derived
@@ -146,7 +111,7 @@ def join_protocol_qualified_identifier(
         _parse_segment(segment, empty_code="HQ_IDENTIFIER_INVALID_FORMAT") for segment in snapshot
     )
     value = ".".join(parsed)
-    if _exceeds_utf8_byte_limit(value, PROTOCOL_IDENTIFIER_LIMITS.max_qualified_bytes):
+    if exceeds_utf8_byte_limit(value, PROTOCOL_IDENTIFIER_LIMITS.max_qualified_bytes):
         identifier_error("HQ_IDENTIFIER_TOO_LONG")
     return ProtocolQualifiedIdentifier(value)
 
