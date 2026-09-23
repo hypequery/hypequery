@@ -192,6 +192,28 @@ export function hasTopLevelLogicalOperator(sql: string): boolean {
 }
 
 /**
+ * Groups a condition's column so it cannot reach past its own operand.
+ *
+ * A condition's column slot does not always hold an identifier. A dataset
+ * dimension may be backed by a trusted SQL expression, and that expression is
+ * passed here verbatim. Rendered bare next to other conditions it rebinds
+ * against them: with a dimension of `active OR is_public`, the WHERE becomes
+ * `tenant_id = ? AND active OR is_public = ?`, and because AND binds tighter
+ * than OR the second branch returns rows for every tenant. Grouping the
+ * expression keeps the tenant predicate independent of it.
+ *
+ * A trailing line comment is terminated for the same reason it is on raw
+ * fragments: unterminated, it swallows the rest of the statement.
+ */
+export function groupConditionColumn(column: string): string {
+  const terminated = terminateTrailingLineComment(column);
+  if (!hasTopLevelLogicalOperator(terminated) || isFullyParenthesized(terminated)) {
+    return terminated;
+  }
+  return `(${terminated})`;
+}
+
+/**
  * True when the fragment is a single parenthesized group, so wrapping it again
  * would only add redundant parentheses.
  */
