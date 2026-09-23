@@ -5,6 +5,7 @@ import { zodToJsonSchema } from 'zod-to-json-schema';
 import {
   getDatasetCatalog,
   getGroupableRelationshipFields,
+  getFilterableRelationshipFields,
   getQueryableRelationshipFields,
   type DatasetCatalog,
   type DatasetCatalogSource,
@@ -12,6 +13,7 @@ import {
 } from './catalog.js';
 import { SEMANTIC_FILTER_OPERATORS } from './constants.js';
 import type { JsonSchema } from './tools.js';
+import type { SemanticFilterDefinition } from './types.js';
 import type { ProtocolSchema } from '@hypequery/protocol';
 import { zodToProtocolSchema } from './protocol-schema-adapter.js';
 import { compareStrings, stableStringify, uniqueSorted } from './utils/canonical-json.js';
@@ -104,11 +106,14 @@ function boundedArray(item: ZodTypeAny, maximum?: number): ZodTypeAny {
 
 function filterSchema(catalog: DatasetCatalog, fields: string[]): ZodTypeAny {
   const filterValue = z.unknown().refine(value => value !== undefined, 'Required');
-  const relationshipFields = new Set(getQueryableRelationshipFields(catalog));
+  const relationshipOperators = new Map<string, SemanticFilterDefinition['operators']>(
+    Object.values(catalog.relationships)
+      .flatMap(relationship => Object.entries(relationship.filterOperators ?? {})),
+  );
   const variants: ZodTypeAny[] = uniqueSorted(fields).map((field) => z.object({
     field: z.literal(field),
-    operator: relationshipFields.has(field)
-      ? z.enum(SEMANTIC_FILTER_OPERATORS)
+    operator: relationshipOperators.has(field)
+      ? fieldEnum(relationshipOperators.get(field) ?? [])
       : fieldEnum(catalog.filters[field]?.operators ?? [...SEMANTIC_FILTER_OPERATORS]),
     value: filterValue,
   }).strict());
@@ -133,6 +138,8 @@ function queryShape(
 ): Record<string, ZodTypeAny> {
   const limits = { ...DEFAULT_SEMANTIC_QUERY_SCHEMA_LIMITS, ...options };
   const relationshipFields = getQueryableRelationshipFields(catalog);
+  const filterableRelationshipFields = getFilterableRelationshipFields(catalog);
+  const filterableRelationshipSet = new Set(filterableRelationshipFields);
   // `groupable: false` declares a dimension that exists to back a measure, not
   // to be selected. The agent-safe catalog already hides those, so the
   // generated schema must refuse them too — otherwise a dataset advertises one
@@ -156,13 +163,16 @@ function queryShape(
       ]);
   const declaredFilters = Object.keys(catalog.filters);
   const filterFields = metric
-    ? uniqueSorted([...metric.filters, ...localRelationshipFields])
+    ? uniqueSorted([
+        ...metric.filters.filter(field => !field.includes('.') || filterableRelationshipSet.has(field)),
+        ...localRelationshipFields.filter(field => filterableRelationshipSet.has(field)),
+      ])
     : metricName
       ? uniqueSorted([
           ...(declaredFilters.length > 0 ? declaredFilters : Object.keys(catalog.dimensions)),
-          ...relationshipFields,
+          ...filterableRelationshipFields,
         ])
-      : uniqueSorted([...declaredFilters, ...relationshipFields]);
+      : uniqueSorted([...declaredFilters, ...filterableRelationshipFields]);
   const grains = metric
     ? metric.grain ? [metric.grain] : metric.grains
     : catalog.supportedGrains;

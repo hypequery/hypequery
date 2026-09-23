@@ -300,6 +300,70 @@ describe('relationship-qualified validation', () => {
     expect(result.valid).toBe(true);
   });
 
+  it('rejects a qualified filter hidden by the target dataset', () => {
+    const PrivateCustomers = dataset('privateCustomers', {
+      source: 'customers',
+      dimensions: {
+        id: dimension.number(),
+        secret: dimension.string({ filterable: false }),
+      },
+      filters: { secret: { __type: 'filter_definition', field: 'secret' } },
+    });
+    const PrivateOrders = dataset('privateOrders', {
+      source: 'orders',
+      dimensions: { id: dimension.number() },
+      measures: { count: measure.count('id') },
+      relationships: {
+        customer: belongsTo(() => PrivateCustomers, { from: 'customer_id', to: 'id' }),
+      },
+    });
+
+    const result = validateDatasetQuery(PrivateOrders, {
+      measures: ['count'],
+      filters: [{ field: 'customer.secret', operator: 'eq', value: 'known' }],
+    });
+
+    expect(result.valid).toBe(false);
+    expect(result.errors.join(' ')).toMatch(/not exposed/);
+  });
+
+  it('enforces a joined target filter allowlist and operator set', () => {
+    const RestrictedCustomers = dataset('restrictedCustomers', {
+      source: 'customers',
+      dimensions: {
+        id: dimension.number(),
+        tier: dimension.string(),
+        secret: dimension.string(),
+      },
+      filters: { tier: { __type: 'filter_definition', field: 'tier', operators: ['eq'] } },
+    });
+    const RestrictedOrders = dataset('restrictedOrders', {
+      source: 'orders',
+      dimensions: { id: dimension.number() },
+      measures: { count: measure.count('id') },
+      relationships: {
+        customer: belongsTo(() => RestrictedCustomers, { from: 'customer_id', to: 'id' }),
+      },
+    });
+
+    const hidden = validateDatasetQuery(RestrictedOrders, {
+      measures: ['count'],
+      filters: [{ field: 'customer.secret', operator: 'eq', value: 'known' }],
+    });
+    const disallowed = validateDatasetQuery(RestrictedOrders, {
+      measures: ['count'],
+      filters: [{ field: 'customer.tier', operator: 'like', value: '%' }],
+    });
+    const allowed = validateDatasetQuery(RestrictedOrders, {
+      measures: ['count'],
+      filters: [{ field: 'customer.tier', operator: 'eq', value: 'gold' }],
+    });
+
+    expect(hidden.valid).toBe(false);
+    expect(disallowed.valid).toBe(false);
+    expect(allowed.valid).toBe(true);
+  });
+
   it('rejects explicit filters on a joined target tenant column under runtime tenancy', () => {
     const context: ExecutionContext = { runtime: { tenant: { id: 't1' } } };
     const result = validateDatasetQuery(

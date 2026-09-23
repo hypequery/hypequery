@@ -169,6 +169,38 @@ describe('canonical semantic query schemas', () => {
     }).success).toBe(true);
   });
 
+  it('does not advertise hidden or disallowed relationship filters', () => {
+    const Customers = dataset('filteredCustomers', {
+      source: 'customers',
+      dimensions: {
+        id: dimension.string(),
+        tier: dimension.string(),
+        secret: dimension.string({ filterable: false }),
+      },
+      filters: { tier: { __type: 'filter_definition', field: 'tier', operators: ['eq'] } },
+    });
+    const Invoices = dataset('filteredInvoices', {
+      source: 'invoices',
+      dimensions: { id: dimension.string() },
+      measures: { total: measure.count('id') },
+      relationships: {
+        customer: belongsTo(() => Customers, { from: 'customer_id', to: 'id' }),
+      },
+    });
+    const schemas = buildCanonicalSemanticQuerySchemas({ filteredInvoices: Invoices });
+    const query = { dataset: 'filteredInvoices', measures: ['total'] };
+
+    expect(schemas.queryDataset.safeParse({
+      ...query, filters: [{ field: 'customer.secret', operator: 'eq', value: 'known' }],
+    }).success).toBe(false);
+    expect(schemas.queryDataset.safeParse({
+      ...query, filters: [{ field: 'customer.tier', operator: 'like', value: '%' }],
+    }).success).toBe(false);
+    expect(schemas.queryDataset.safeParse({
+      ...query, filters: [{ field: 'customer.tier', operator: 'eq', value: 'gold' }],
+    }).success).toBe(true);
+  });
+
   it('closes nested objects and requires a dataset selection', () => {
     const schemas = buildCanonicalSemanticQuerySchemas(registry, { grainField: 'grain' });
 
