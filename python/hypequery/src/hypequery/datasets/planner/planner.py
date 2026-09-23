@@ -300,10 +300,6 @@ def _filter_predicate(plan: _Plan, filter_value: Filter, *, request_filter: bool
         definition = plan.dataset.filters.get(filter_value.field)
         exposed = definition is not None
     if request_filter:
-        if dimension.filterable is False:
-            raise CompiledQueryError(
-                "input-invalid", f'Filter "{filter_value.field}" is not filterable.'
-            )
         if not exposed:
             raise CompiledQueryError(
                 "input-invalid", f'Filter "{filter_value.field}" is not exposed by its dataset.'

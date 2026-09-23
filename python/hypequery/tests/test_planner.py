@@ -317,15 +317,15 @@ def test_a_request_cannot_filter_on_an_unexposed_dimension() -> None:
     )
 
 
-def test_a_request_cannot_filter_on_a_non_filterable_dimension() -> None:
+def test_an_explicit_filter_overrides_a_non_filterable_default() -> None:
     dataset = _trips(
         dimensions={"secret": dimension("string", filterable=False)},
         filters={"secret": FilterDefinition(field="secret")},
     )
-    assert (
-        _category(dataset, DatasetQuery(measures=("trips",), filters=(eq("secret", "x"),)))
-        == "input-invalid"
+    result = plan_dataset_query(
+        dataset, DatasetQuery(measures=("trips",), filters=(eq("secret", "x"),))
     )
+    assert result.parameters["p0"].value == "x"
 
 
 def test_a_request_cannot_use_an_undeclared_filter_operator() -> None:
@@ -457,6 +457,25 @@ def test_a_non_filterable_related_dimension_is_refused() -> None:
         )
         == "input-invalid"
     )
+
+
+def test_an_explicit_related_filter_overrides_a_non_filterable_default() -> None:
+    customers = Dataset(
+        name="customers",
+        source="analytics.customers",
+        dimensions={"secret": dimension("string", filterable=False)},
+        filters={"secret": FilterDefinition(field="secret", operators=("eq",))},
+    )
+    trips = _trips(
+        dimensions={"customer_id": dimension("string")},
+        relationships={"customer": belongs_to(customers, from_field="customer_id", to_field="id")},
+    )
+    result = plan_dataset_query(
+        trips,
+        DatasetQuery(measures=("trips",), filters=(eq("customer.secret", "x"),)),
+        registry=create_dataset_registry(trips, customers),
+    )
+    assert result.parameters["p0"].value == "x"
 
 
 def test_a_related_filter_must_be_exposed_by_the_target_dataset() -> None:
