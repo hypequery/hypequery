@@ -1,20 +1,30 @@
 # RFC 0010: Compiled query, error, and cancellation contract
 
-- Status: Proposed
+- Status: Accepted
+- Accepted: 2026-09-23
 - Version: compiled query 1
 
-## Implementation status
+Acceptance freezes compiled query 1. Changing the closed operation set, the
+parameter contract, the settings model, deadline and cancellation precedence,
+the debug-form rules, or the error category set now requires a new contract
+version, not an edit.
 
-Deliberately still Proposed. `hypequery.datasets.planner` implements the
-parts of this contract that can be checked without an executor — named typed
-parameters, the closed settings allow-list, deadline precedence, the debug
-form, and the error envelope — but TypeScript does not: `@hypequery/clickhouse`
-still binds positional parameters and has no compiled-query type of this shape.
+## Implementation status at acceptance
 
-Accepting an RFC is meant to freeze a contract two implementations agree on.
-Freezing this one now would freeze one implementation's reading of it, which is
-the accidental freeze the acceptance process exists to prevent. Acceptance
-waits for the TypeScript side.
+Accepted on one implementation plus a recorded obligation on the other, rather
+than on an agreement between two. `hypequery.datasets.planner` implements the
+contract's plannable surface: named typed parameters, the closed settings
+allow-list with inclusive ranges, deadline precedence with caller cancellation
+outranking expiry, the non-executable debug form, and the closed error
+envelope.
+
+`@hypequery/clickhouse` does not yet satisfy the parameter rule. It accepts
+`{name:Type}` placeholders at its public API but rewrites them client-side into
+positional markers and substitutes escaped literals into the statement before
+sending it, so a value does reach the database inside SQL text. Acceptance
+makes that a defect against a frozen contract rather than an open design
+question: the package must bind through ClickHouse's native server-parameter
+mechanism. The public placeholder API does not have to change.
 
 ## Summary
 
