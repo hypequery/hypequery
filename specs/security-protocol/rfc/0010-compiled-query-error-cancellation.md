@@ -3,6 +3,19 @@
 - Status: Proposed
 - Version: compiled query 1
 
+## Implementation status
+
+Deliberately still Proposed. `hypequery.datasets.planner` implements the
+parts of this contract that can be checked without an executor — named typed
+parameters, the closed settings allow-list, deadline precedence, the debug
+form, and the error envelope — but TypeScript does not: `@hypequery/clickhouse`
+still binds positional parameters and has no compiled-query type of this shape.
+
+Accepting an RFC is meant to freeze a contract two implementations agree on.
+Freezing this one now would freeze one implementation's reading of it, which is
+the accidental freeze the acceptance process exists to prevent. Acceptance
+waits for the TypeScript side.
+
 ## Summary
 
 This RFC defines the execution request contract between Hypequery runtimes

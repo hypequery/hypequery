@@ -1,7 +1,13 @@
 # RFC 0005: Portable query implementations
 
-- Status: Proposed
+- Status: Accepted
+- Accepted: 2026-09-23
 - Version: query implementation extension 1
+
+Acceptance freezes query implementation extension 1. Changing the closed kind
+vocabulary, a kind's field set, the tenant policy rules, the trusted-text
+rules, the limits, or failure-code precedence now requires a new extension
+version, not an edit.
 
 ## Summary
 
@@ -102,6 +108,56 @@ extension.
 This extension therefore does not promise that arbitrary application code is
 language-neutral. It makes the choice between a portable plan, portable
 compiled SQL, and a language runtime explicit and inspectable.
+
+## Validation rules fixed by acceptance
+
+Both implementations already behaved this way; acceptance records the rules so
+a third cannot reasonably differ. Each is pinned by a case in
+`specs/security-protocol/fixtures/query-implementations-v1/`.
+
+**Field sets are exact and every field is required.** No kind has an optional
+field. An unknown field is reported before any value on a known field is
+examined, so adding a field to a kind is always a rejection and never a
+silently ignored extension. An absent required field reports
+`HQ_QUERY_IMPLEMENTATION_TYPE`.
+
+**`kind` decides the code.** A non-string `kind` is `HQ_QUERY_IMPLEMENTATION_TYPE`;
+a string that names no member of the union is `HQ_QUERY_IMPLEMENTATION_UNKNOWN_KIND`.
+The same split applies to a parameter source's `kind` and a tenant policy's
+`kind`. `sql-expression` is not a member of the implementation union: the two
+surfaces share an error domain and a limit set but are separate validators, so
+an implementation declaring `kind: "sql-expression"` is an unknown kind.
+
+**Trusted text is non-blank.** Every bounded string — SQL text, a ClickHouse
+type, a physical source — is rejected as `HQ_QUERY_IMPLEMENTATION_INVALID_VALUE`
+when it contains only whitespace. "Whitespace" is the set ECMAScript
+`String.prototype.trim` removes, which includes U+FEFF; a byte-order mark alone
+is blank, not content.
+
+**Collections reject duplicates.** Two parameters with one name is
+`HQ_QUERY_IMPLEMENTATION_INVALID_REFERENCE`; a repeated physical source or a
+repeated expression dependency is `HQ_QUERY_IMPLEMENTATION_INVALID_VALUE`.
+
+**Tenant policy is checked against the declared parameters.** A `not-required`
+policy alongside any tenant-sourced parameter is
+`HQ_QUERY_IMPLEMENTATION_INVALID_REFERENCE`: a statement scoped by trusted
+context while asserting it needs no tenant is contradicting itself, and only
+one of the two can be true. A `required` policy must name a parameter that
+exists *and* is tenant-sourced, and there must be exactly one tenant-sourced
+parameter in the whole implementation — a second would take its value from
+trusted context without the policy naming it.
+
+**An embedded artifact keeps its validation and loses its error domain.** A
+`semantic-plan` whose query fails RFC 0003 validation reports
+`HQ_QUERY_IMPLEMENTATION_INVALID_VALUE` at `$.query`, not an expression code, so
+a caller of this surface handles one error type. The same applies to the output
+schema of an SQL expression.
+
+**Entrypoints and dependencies are RFC 0002 identifiers.** A runtime
+reference's `entrypoint` and an SQL expression's dependencies are qualified
+identifiers, so a path-shaped or otherwise invalid name is
+`HQ_QUERY_IMPLEMENTATION_INVALID_IDENTIFIER` rather than an invalid value. A
+dotted entrypoint of any depth is valid.
 
 ## Limits
 

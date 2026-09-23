@@ -6,8 +6,12 @@
       "kind": "sql-expression",
       "dialect": "clickhouse",
       "sql": "toDate(pickup_datetime)",
-      "output": { "kind": "string" },
-      "dependencies": ["pickup_datetime"]
+      "output": {
+        "kind": "string"
+      },
+      "dependencies": [
+        "pickup_datetime"
+      ]
     }
   },
   {
@@ -17,8 +21,12 @@
       "kind": "sql-expression",
       "dialect": "clickhouse",
       "sql": "quantileExact(0.95)(trip_distance)",
-      "output": { "kind": "number" },
-      "dependencies": ["trip_distance"]
+      "output": {
+        "kind": "number"
+      },
+      "dependencies": [
+        "trip_distance"
+      ]
     }
   },
   {
@@ -29,8 +37,13 @@
       "query": {
         "kind": "dataset",
         "dataset": "trips",
-        "dimensions": ["pickup_date"],
-        "measures": ["count", "total_revenue"],
+        "dimensions": [
+          "pickup_date"
+        ],
+        "measures": [
+          "count",
+          "total_revenue"
+        ],
         "limit": 100
       }
     }
@@ -46,12 +59,19 @@
       "parameters": [
         {
           "name": "from",
-          "source": { "kind": "input", "path": "range.from" },
+          "source": {
+            "kind": "input",
+            "path": "range.from"
+          },
           "clickHouseType": "Date"
         }
       ],
-      "readSources": ["analytics.trips"],
-      "tenant": { "kind": "not-required" }
+      "readSources": [
+        "analytics.trips"
+      ],
+      "tenant": {
+        "kind": "not-required"
+      }
     }
   },
   {
@@ -65,12 +85,19 @@
       "parameters": [
         {
           "name": "tenantId",
-          "source": { "kind": "tenant" },
+          "source": {
+            "kind": "tenant"
+          },
           "clickHouseType": "UUID"
         }
       ],
-      "readSources": ["trips"],
-      "tenant": { "kind": "required", "parameter": "tenantId" }
+      "readSources": [
+        "trips"
+      ],
+      "tenant": {
+        "kind": "required",
+        "parameter": "tenantId"
+      }
     }
   },
   {
@@ -91,6 +118,55 @@
       "runtime": "python",
       "artifactSha256": "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789",
       "entrypoint": "queries.customer_revenue"
+    }
+  },
+  {
+    "id": "compiled-sql-formatted-statement",
+    "surface": "query-implementation",
+    "value": {
+      "kind": "compiled-sql",
+      "dialect": "clickhouse",
+      "operation": "select",
+      "statement": "SELECT 1\n  FROM trips\n\tWHERE a = 1",
+      "parameters": [],
+      "readSources": [],
+      "tenant": {
+        "kind": "not-required"
+      }
+    }
+  },
+  {
+    "id": "compiled-sql-tenant-required",
+    "surface": "query-implementation",
+    "value": {
+      "kind": "compiled-sql",
+      "dialect": "clickhouse",
+      "operation": "select",
+      "statement": "SELECT 1",
+      "parameters": [
+        {
+          "name": "tenantId",
+          "source": {
+            "kind": "tenant"
+          },
+          "clickHouseType": "UUID"
+        }
+      ],
+      "readSources": [],
+      "tenant": {
+        "kind": "required",
+        "parameter": "tenantId"
+      }
+    }
+  },
+  {
+    "id": "runtime-reference-dotted-entrypoint",
+    "surface": "query-implementation",
+    "value": {
+      "kind": "runtime-reference",
+      "runtime": "node",
+      "artifactSha256": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+      "entrypoint": "queries.reports.customer_revenue"
     }
   }
 ]

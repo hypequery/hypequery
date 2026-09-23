@@ -339,6 +339,11 @@ PYC-01 are merged.
 
 ### PYB-08 — Planner and CompiledQuery (RFC 0005/0010)
 - **Dependencies:** PYB-07, RFCs 0005/0010 accepted.
+- **Status (2026-09-23):** Delivered. RFC 0005 is accepted; RFC 0010 stays
+  Proposed on purpose — TypeScript has no compiled-query implementation of
+  that shape (`@hypequery/clickhouse` binds positional parameters), so
+  accepting it would freeze one implementation's reading rather than an
+  agreement. Metrics are out of scope by the decision recorded on PYB-07.
 - **Scope:** Semantic planner (grouping, time grain, relationships, joins
   with tenant-predicate propagation, metrics, order/limit/offset) emitting
   the `CompiledQuery` protocol shape: named typed placeholders, safe
