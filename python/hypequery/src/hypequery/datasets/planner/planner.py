@@ -22,6 +22,7 @@ from ..registry import DatasetRegistry, create_dataset_registry
 from .compiled_query import CompiledQuery, validate_correlation_id
 from .context import ExecutionContext, TenantScope, effective_deadline
 from .errors import CompiledQueryError
+from .filter_validation import validate_filter_value
 from .identifiers import SafeIdentifier, safe_identifier, safe_qualified_identifier
 from .parameters import (
     ParameterBinder,
@@ -173,10 +174,15 @@ def _add_dimensions(plan: _Plan, query: DatasetQuery) -> None:
 
     for name in query.dimensions:
         if is_qualified(name):
+            dimension = resolve_qualified_field(
+                plan.dataset, name, registry=plan.registry
+            ).dimension
             expression = _field_sql(plan, name)
         else:
-            require_dimension(plan.dataset, name)
+            dimension = require_dimension(plan.dataset, name)
             expression = _field_sql(plan, name)
+        if dimension.groupable is False:
+            raise CompiledQueryError("input-invalid", f'Dimension "{name}" is not groupable.')
         # Every selection is aliased to the name the caller used, so grouping
         # and ordering reference one stable label whatever the expression is.
         alias = SafeIdentifier(name)
@@ -279,13 +285,36 @@ def _filter_type(plan: _Plan, field: str) -> str:
     return "String" if dimension is None else clickhouse_type_for(dimension.field_type)
 
 
-def _filter_predicate(plan: _Plan, filter_value: Filter) -> str:
+def _filter_predicate(plan: _Plan, filter_value: Filter, *, request_filter: bool = False) -> str:
     """One predicate, with every value bound rather than written."""
 
     field = resolve_filter_field(plan.dataset, filter_value.field)
-    if not is_qualified(field):
-        require_dimension(plan.dataset, field)
+    if is_qualified(field):
+        dimension = resolve_qualified_field(plan.dataset, field, registry=plan.registry).dimension
+    else:
+        dimension = require_dimension(plan.dataset, field)
+    if request_filter:
+        definition = plan.dataset.filters.get(filter_value.field)
+        if definition is None and not is_qualified(filter_value.field):
+            raise CompiledQueryError(
+                "input-invalid", f'Filter "{filter_value.field}" is not exposed by this dataset.'
+            )
+        if dimension.filterable is False:
+            raise CompiledQueryError(
+                "input-invalid", f'Filter "{filter_value.field}" is not filterable.'
+            )
+        if definition is not None and definition.operators is not None:
+            if filter_value.operator not in definition.operators:
+                raise CompiledQueryError(
+                    "input-invalid",
+                    f'Filter "{filter_value.field}" does not allow {filter_value.operator}.',
+                )
+    validate_filter_value(filter_value, dimension.field_type)
     column = _field_sql(plan, field)
+    if dimension.sql is not None:
+        # A trusted SQL expression can contain OR. Keep it inside one operand so
+        # it cannot rebind the independent, server-proven tenant predicate.
+        column = f"({column}\n)"
     clickhouse_type = _filter_type(plan, field)
     operator = filter_value.operator
     what = f'filter "{filter_value.field}"'
@@ -334,10 +363,14 @@ def _add_filters(plan: _Plan, query: DatasetQuery, scope: TenantScope | None) ->
                     f'Cannot filter on tenant field "{filter_value.field}" while runtime '
                     "tenant scoping is active.",
                 )
-        plan.predicates.append(_filter_predicate(plan, filter_value))
+        plan.predicates.append(_filter_predicate(plan, filter_value, request_filter=True))
 
     if scope is not None and tenant_key is not None:
-        column = _base_column(plan, plan.dataset.dimensions.get(tenant_key), tenant_key)
+        # tenant_key names a physical source column. A dimension of the same
+        # name may have a different column or SQL expression; never use it as
+        # the authorization predicate.
+        tenant_column = safe_identifier(tenant_key, what="tenant key").sql
+        column = f"{BASE_ALIAS.sql}.{tenant_column}" if plan.joins_active else tenant_column
         plan.predicates.append(_tenant_predicate(plan, column, scope))
 
 
@@ -366,7 +399,7 @@ def _check_limits(dataset: Dataset, query: DatasetQuery) -> None:
             "too-large",
             f"Too many dimensions: {len(query.dimensions)} (max {limits.max_dimensions})",
         )
-    measures = query.measures if query.measures is not None else ()
+    measures = query.measures if query.measures is not None else tuple(dataset.measures)
     if limits.max_measures is not None and len(measures) > limits.max_measures:
         raise CompiledQueryError(
             "too-large", f"Too many measures: {len(measures)} (max {limits.max_measures})"
@@ -474,6 +507,9 @@ def plan_dataset_query(
     from_clause = f" FROM {source.sql}"
     if plan.joins_active:
         from_clause += f" AS {BASE_ALIAS.sql}"
+    result_limit = query.limit
+    if result_limit is None and dataset.limits is not None:
+        result_limit = dataset.limits.max_result_size
     sql = (
         select_clause(plan.selections)
         + from_clause
@@ -481,7 +517,7 @@ def plan_dataset_query(
         + where_clause(plan.predicates)
         + group_by_clause(plan.group_by)
         + order_by_clause(order_by)
-        + pagination_clause(query.limit, query.offset)
+        + pagination_clause(result_limit, query.offset)
     )
     return CompiledQuery(
         sql=sql,

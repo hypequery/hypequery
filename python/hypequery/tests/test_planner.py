@@ -74,7 +74,13 @@ def _trips(
         measures=measures
         if measures is not None
         else {"trips": measure(count("id")), "revenue": measure(sum_("total_amount"))},
-        filters=filters if filters is not None else {"vendor": FilterDefinition(field="vendor")},
+        filters=filters
+        if filters is not None
+        else {
+            "vendor": FilterDefinition(field="vendor"),
+            "fare": FilterDefinition(field="fare"),
+            "pickup": FilterDefinition(field="pickup"),
+        },
         relationships=relationships or {},
         limits=limits,
     )
@@ -249,6 +255,47 @@ def test_a_value_of_the_wrong_shape_is_refused(operator: str, value: object) -> 
     assert _category(_trips(), query) == "input-invalid"
 
 
+@pytest.mark.parametrize(
+    "filter_value",
+    [eq("fare", "not-a-number"), Filter(field="fare", operator="like", value="1%")],
+)
+def test_filter_values_must_match_the_declared_dimension_type(filter_value: Filter) -> None:
+    assert (
+        _category(_trips(), DatasetQuery(measures=("trips",), filters=(filter_value,)))
+        == "input-invalid"
+    )
+
+
+def test_a_request_cannot_filter_on_an_unexposed_dimension() -> None:
+    dataset = _trips(filters={"vendor": FilterDefinition(field="vendor")})
+    assert (
+        _category(dataset, DatasetQuery(measures=("trips",), filters=(eq("fare", 1),)))
+        == "input-invalid"
+    )
+
+
+def test_a_request_cannot_filter_on_a_non_filterable_dimension() -> None:
+    dataset = _trips(
+        dimensions={"secret": dimension("string", filterable=False)},
+        filters={"secret": FilterDefinition(field="secret")},
+    )
+    assert (
+        _category(dataset, DatasetQuery(measures=("trips",), filters=(eq("secret", "x"),)))
+        == "input-invalid"
+    )
+
+
+def test_a_request_cannot_use_an_undeclared_filter_operator() -> None:
+    dataset = _trips(filters={"fare": FilterDefinition(field="fare", operators=("eq",))})
+    assert (
+        _category(
+            dataset,
+            DatasetQuery(measures=("trips",), filters=(gte("fare", 1),)),
+        )
+        == "input-invalid"
+    )
+
+
 # --- relationships --------------------------------------------------------
 
 
@@ -324,6 +371,51 @@ def test_a_sql_backed_field_cannot_be_combined_with_a_join() -> None:
     )
 
 
+def test_a_non_groupable_base_dimension_is_refused() -> None:
+    dataset = _trips(dimensions={"secret": dimension("string", groupable=False)})
+    assert _category(dataset, DatasetQuery(dimensions=("secret",), measures=())) == "input-invalid"
+
+
+def test_a_non_groupable_related_dimension_is_refused() -> None:
+    customers = Dataset(
+        name="customers",
+        source="analytics.customers",
+        dimensions={"secret": dimension("string", groupable=False)},
+    )
+    trips = _trips(
+        dimensions={"customer_id": dimension("string")},
+        relationships={"customer": belongs_to(customers, from_field="customer_id", to_field="id")},
+    )
+    assert (
+        _category(
+            trips,
+            DatasetQuery(dimensions=("customer.secret",), measures=()),
+            registry=create_dataset_registry(trips, customers),
+        )
+        == "input-invalid"
+    )
+
+
+def test_a_non_filterable_related_dimension_is_refused() -> None:
+    customers = Dataset(
+        name="customers",
+        source="analytics.customers",
+        dimensions={"secret": dimension("string", filterable=False)},
+    )
+    trips = _trips(
+        dimensions={"customer_id": dimension("string")},
+        relationships={"customer": belongs_to(customers, from_field="customer_id", to_field="id")},
+    )
+    assert (
+        _category(
+            trips,
+            DatasetQuery(measures=("trips",), filters=(eq("customer.secret", "x"),)),
+            registry=create_dataset_registry(trips, customers),
+        )
+        == "input-invalid"
+    )
+
+
 # --- tenancy --------------------------------------------------------------
 
 
@@ -341,6 +433,41 @@ def test_a_proven_tenant_becomes_a_bound_predicate() -> None:
     )
     assert "WHERE `tenant_id` = {p0:String}" in compiled.sql
     assert compiled.parameter_values() == {"p0": "acme"}
+
+
+@pytest.mark.parametrize(
+    "tenant_dimension",
+    [dimension("string", column="public_tag"), dimension("string", sql="'acme'")],
+)
+def test_tenant_predicate_always_uses_the_physical_key(tenant_dimension: Dimension) -> None:
+    dataset = _trips(
+        tenant_key="tenant_id",
+        dimensions={"tenant_id": tenant_dimension, "vendor": dimension("string")},
+    )
+    compiled = plan_dataset_query(
+        dataset,
+        DatasetQuery(measures=("trips",)),
+        context=ExecutionContext(tenant=tenant("acme")),
+    )
+    assert "WHERE `tenant_id` = {p0:String}" in compiled.sql
+    assert "public_tag" not in compiled.sql
+    assert "'acme'" not in compiled.sql
+
+
+def test_sql_backed_filter_cannot_widen_the_tenant_scope() -> None:
+    dataset = _trips(
+        tenant_key="tenant_id",
+        dimensions={"active_or_public": dimension("boolean", sql="active OR is_public")},
+        filters={"active_or_public": FilterDefinition(field="active_or_public")},
+    )
+    compiled = plan_dataset_query(
+        dataset,
+        DatasetQuery(measures=("trips",), filters=(eq("active_or_public", True),)),
+        context=ExecutionContext(tenant=tenant("acme")),
+    )
+    assert "WHERE (active OR is_public\n) = {p0:Bool} AND `tenant_id` = {p1:String}" in (
+        compiled.sql
+    )
 
 
 def test_a_tenant_set_binds_as_an_array() -> None:
@@ -421,6 +548,18 @@ def test_a_tenant_scope_is_not_a_pydantic_model() -> None:
 )
 def test_dataset_limits_report_too_large(limits: DatasetLimits, query: DatasetQuery) -> None:
     assert _category(_trips(limits=limits), query) == "too-large"
+
+
+def test_implicit_measures_still_count_against_the_dataset_limit() -> None:
+    assert _category(_trips(limits=DatasetLimits(max_measures=1)), DatasetQuery()) == "too-large"
+
+
+def test_missing_limit_is_bounded_by_the_dataset_result_ceiling() -> None:
+    compiled = plan_dataset_query(
+        _trips(limits=DatasetLimits(max_result_size=10)),
+        DatasetQuery(measures=("trips",)),
+    )
+    assert compiled.sql.endswith("LIMIT 10")
 
 
 def test_settings_default_to_the_conservative_end() -> None:
