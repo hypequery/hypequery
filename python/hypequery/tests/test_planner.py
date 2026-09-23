@@ -592,6 +592,68 @@ def test_a_caller_cannot_filter_the_tenant_field() -> None:
     )
 
 
+def test_a_caller_cannot_filter_a_joined_target_tenant_field() -> None:
+    """A relationship hop is not a way around the tenant-filter rule.
+
+    The predicates would merely contradict and return nothing, which is a worse
+    answer than refusing: the caller cannot tell an empty result from a request
+    they were never allowed to make. The reference implementation refuses it,
+    so this does too.
+    """
+
+    customers = Dataset(
+        name="customers",
+        source="analytics.customers",
+        tenant_key="tenant_id",
+        dimensions={
+            "country": dimension("string"),
+            "tenantId": dimension("string", column="tenant_id"),
+        },
+        measures={},
+        filters={"tenantId": FilterDefinition(field="tenantId")},
+    )
+    trips = _trips(
+        tenant_key="tenant_id",
+        dimensions={"vendor": dimension("string"), "customer_id": dimension("string")},
+        relationships={"customer": belongs_to(customers, from_field="customer_id", to_field="id")},
+        filters={},
+    )
+    assert (
+        _category(
+            trips,
+            DatasetQuery(measures=("trips",), filters=(eq("customer.tenantId", "other"),)),
+            registry=create_dataset_registry(trips, customers),
+            context=ExecutionContext(tenant=tenant("acme")),
+        )
+        == "input-invalid"
+    )
+
+
+def test_a_joined_target_without_tenancy_is_filterable() -> None:
+    """The guard asks about the owning dataset, not about qualification itself."""
+
+    customers = Dataset(
+        name="customers",
+        source="analytics.customers",
+        dimensions={"tier": dimension("string")},
+        measures={},
+        filters={"tier": FilterDefinition(field="tier")},
+    )
+    trips = _trips(
+        tenant_key="tenant_id",
+        dimensions={"vendor": dimension("string"), "customer_id": dimension("string")},
+        relationships={"customer": belongs_to(customers, from_field="customer_id", to_field="id")},
+        filters={},
+    )
+    compiled = plan_dataset_query(
+        trips,
+        DatasetQuery(measures=("trips",), filters=(eq("customer.tier", "gold"),)),
+        registry=create_dataset_registry(trips, customers),
+        context=ExecutionContext(tenant=tenant("acme")),
+    )
+    assert "`customer`.`tier` = " in compiled.sql
+
+
 def test_a_join_propagates_the_tenant_predicate_into_its_condition() -> None:
     customers = _customers(tenant_key="tenant_id")
     trips = _trips(

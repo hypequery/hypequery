@@ -349,21 +349,42 @@ def _filter_predicate(plan: _Plan, filter_value: Filter, *, request_filter: bool
     return f"{column} {comparison} {placeholder}"
 
 
+def _filters_a_tenant_column(plan: _Plan, field: str) -> bool:
+    """Whether *field* addresses the tenant column of the dataset that owns it.
+
+    A relationship hop reaches another dataset's tenant column just as a base
+    field reaches this one's, so the question is asked of whichever dataset the
+    field resolves to rather than only of the base.
+    """
+
+    if is_qualified(field):
+        resolved = resolve_qualified_field(plan.dataset, field, registry=plan.registry)
+        if resolved.target.tenant_key is None:
+            return False
+        column = resolved.dimension.column or resolved.dimension_name
+        return column == resolved.target.tenant_key
+    if plan.dataset.tenant_key is None:
+        return False
+    dimension = plan.dataset.dimensions.get(field)
+    column = dimension.column if dimension and dimension.column else field
+    return column == plan.dataset.tenant_key
+
+
 def _add_filters(plan: _Plan, query: DatasetQuery, scope: TenantScope | None) -> None:
     tenant_key = plan.dataset.tenant_key
     for filter_value in query.filters:
         field = resolve_filter_field(plan.dataset, filter_value.field)
-        if scope is not None and tenant_key is not None and not is_qualified(field):
-            dimension = plan.dataset.dimensions.get(field)
-            column = dimension.column if dimension and dimension.column else field
-            if column == tenant_key:
-                # Allowing this would let a caller narrow — or, with the wrong
-                # operator, widen — the scope the server proved.
-                raise CompiledQueryError(
-                    "input-invalid",
-                    f'Cannot filter on tenant field "{filter_value.field}" while runtime '
-                    "tenant scoping is active.",
-                )
+        if scope is not None and _filters_a_tenant_column(plan, field):
+            # Allowing this would let a caller narrow — or, with the wrong
+            # operator, widen — the scope the server proved. On a joined target
+            # the two predicates merely contradict and return nothing, which is
+            # a worse answer than refusing: the caller cannot tell an empty
+            # result from a request they were never allowed to make.
+            raise CompiledQueryError(
+                "input-invalid",
+                f'Cannot filter on tenant field "{filter_value.field}" while runtime '
+                "tenant scoping is active.",
+            )
         plan.predicates.append(_filter_predicate(plan, filter_value, request_filter=True))
 
     if scope is not None and tenant_key is not None:
