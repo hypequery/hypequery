@@ -99,6 +99,30 @@ def test_semantic_query_model_preserves_absent_and_empty_collections() -> None:
     }
 
 
+@pytest.mark.parametrize(("spelling", "expected"), [(100, 100), (100.0, 100), (0.0, 0), (-0.0, 0)])
+def test_pagination_accepts_an_integer_spelled_as_a_float(
+    spelling: int | float, expected: int
+) -> None:
+    # One number type in JavaScript means `100` and `100.0` reach the reference
+    # implementation as the same value. Rejecting the float spelling would make
+    # a document Python writes one that Python cannot read back.
+    query = validate_protocol_semantic_query(
+        {"kind": "dataset", "dataset": "orders", "limit": spelling, "offset": spelling}
+    )
+    assert isinstance(query, ProtocolDatasetQuery)
+    assert query.limit == expected
+    assert query.offset == expected
+
+
+@pytest.mark.parametrize(
+    "value", [100.5, float("inf"), float("nan"), 2**53, float(2**53), -1, -1.0]
+)
+def test_pagination_rejects_what_is_not_a_safe_non_negative_integer(value: int | float) -> None:
+    with pytest.raises(ProtocolExpressionError) as caught:
+        validate_protocol_semantic_query({"kind": "dataset", "dataset": "orders", "limit": value})
+    assert caught.value.code == "HQ_EXPRESSION_INVALID_QUERY"
+
+
 @pytest.mark.parametrize("level", [0, 1, 0.0, 1.0])
 def test_percentile_level_preserves_numeric_representation(level: int | float) -> None:
     source = {

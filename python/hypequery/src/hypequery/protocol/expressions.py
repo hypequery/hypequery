@@ -468,6 +468,12 @@ def _query_integer(source: dict[str, object], key: str) -> int | None:
     if key not in source:
         return None
     value = source[key]
+    # JavaScript has one number type, so a document spelling `100.0` and one
+    # spelling `100` carry the same value to the reference implementation. Take
+    # an integral float and coerce it rather than rejecting a query it accepts;
+    # a non-integral float still fails, as `Number.isSafeInteger` makes it.
+    if type(value) is float and value.is_integer():
+        value = int(value)
     if type(value) is not int or value < 0 or value > _SAFE_INTEGER:
         expression_error("HQ_EXPRESSION_INVALID_QUERY", f"$.{key}")
     return value

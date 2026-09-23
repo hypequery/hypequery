@@ -15,6 +15,7 @@ from typing import cast
 
 from .errors import ProtocolIdentifierError, deployment_error
 from .identifiers import parse_protocol_identifier, parse_protocol_qualified_identifier
+from .js_strings import is_js_blank
 from .utf8 import exceeds_utf8_byte_limit
 
 _DEPLOYMENT_MAXIMUMS = {
@@ -150,7 +151,7 @@ def bounded_text(value: object, path: str, max_bytes: int) -> str:
 
     if type(value) is not str:
         deployment_error("HQ_DEPLOYMENT_TYPE", path)
-    if not value.strip():
+    if is_js_blank(value):
         deployment_error("HQ_DEPLOYMENT_INVALID_VALUE", path)
     for character in value:
         code = ord(character)

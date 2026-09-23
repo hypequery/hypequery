@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 import math
-from collections.abc import Callable, Iterator, Mapping
+from collections.abc import Callable
 
 from hypequery import __version__
 
@@ -19,6 +19,7 @@ from .errors import (
     ProtocolDeploymentReleaseError,
     ProtocolExpressionError,
     ProtocolIdentifierError,
+    ProtocolQueryImplementationError,
     ProtocolSchemaError,
     ProtocolValueError,
 )
@@ -27,11 +28,14 @@ from .expression_fixtures import (
     normalize_expression_wire_numbers,
 )
 from .expressions import validate_protocol_expression, validate_protocol_semantic_query
+from .fixture_primitives import UnsafeAccessor, generator_integer
 from .identifiers import (
     parse_protocol_identifier,
     parse_protocol_qualified_identifier,
     split_protocol_qualified_identifier,
 )
+from .query_implementation_fixtures import materialize_implementation_fixture
+from .query_implementations import validate_protocol_query_implementation
 from .releases import (
     prepare_protocol_deployment_release_envelope,
     validate_protocol_deployment_release_envelope,
@@ -41,6 +45,7 @@ from .schema_fixtures import (
     normalize_schema_wire_numbers,
 )
 from .schemas import validate_protocol_schema
+from .sql_expressions import validate_protocol_sql_expression
 from .stdio_adapter import run_stdio_adapter
 from .values import (
     decode_canonical_value,
@@ -55,6 +60,7 @@ FAMILIES = (
     "identifiers-v1",
     "expressions-v1",
     "query-schemas-v1",
+    "query-implementations-v1",
     "deployments-v2",
     "deployment-bundles-v1",
     "deployment-releases-v1",
@@ -73,50 +79,33 @@ HOSTILE_OBJECT_SUITE = {
 }
 
 
-class _UnsafeAccessor(Mapping[str, object]):
-    def __getitem__(self, key: str) -> object:
-        raise AssertionError(f"unsafe accessor invoked for {key!r}")
-
-    def __iter__(self) -> Iterator[str]:
-        raise AssertionError("unsafe iterator invoked")
-
-    def __len__(self) -> int:
-        raise AssertionError("unsafe length invoked")
-
-
 def _array(values: list[object]) -> dict[str, object]:
     return {"$hypequery": {"type": "array", "version": 1, "values": values}}
-
-
-def _integer(generator: dict[str, object], key: str) -> int:
-    value = generator.get(key, 0)
-    if type(value) is not int:
-        raise RuntimeError(f"generator field {key!r} must be an integer")
-    return value
 
 
 def _materialize_tagged_value(generator: dict[str, object]) -> object:
     kind = generator.get("type")
     if kind == "nested-array":
         value = generator.get("leaf")
-        for _ in range(_integer(generator, "depth")):
+        for _ in range(generator_integer(generator, "depth")):
             value = _array([value])
         return value
     if kind == "array":
-        return _array([generator.get("value")] * _integer(generator, "items"))
+        return _array([generator.get("value")] * generator_integer(generator, "items"))
     if kind == "array-tree":
-        branch = [generator.get("value")] * _integer(generator, "itemsPerBranch")
-        return _array([_array(list(branch)) for _ in range(_integer(generator, "branches"))])
+        branch = [generator.get("value")] * generator_integer(generator, "itemsPerBranch")
+        branches = generator_integer(generator, "branches")
+        return _array([_array(list(branch)) for _ in range(branches)])
     if kind == "repeat-string":
         text = generator.get("utf8", "")
         if type(text) is not str:
             raise RuntimeError("generator field 'utf8' must be a string")
-        return text * _integer(generator, "count")
+        return text * generator_integer(generator, "count")
     if kind == "non-finite-float":
         values = {"NaN": math.nan, "Infinity": math.inf, "-Infinity": -math.inf}
         return values[str(generator.get("value"))]
     if kind == "unsafe-accessor":
-        return _UnsafeAccessor()
+        return UnsafeAccessor()
     raise RuntimeError(f"unknown tagged-value generator: {kind!r}")
 
 
@@ -126,12 +115,12 @@ def _materialize_identifier(generator: dict[str, object]) -> str:
         value = generator.get("value")
         if type(value) is not str:
             raise RuntimeError("generator field 'value' must be a string")
-        return value * _integer(generator, "count")
+        return value * generator_integer(generator, "count")
     if kind == "qualified-segments":
         segment = generator.get("segment")
         if type(segment) is not str:
             raise RuntimeError("generator field 'segment' must be a string")
-        return ".".join([segment] * _integer(generator, "count"))
+        return ".".join([segment] * generator_integer(generator, "count"))
     raise RuntimeError(f"unknown identifier generator: {kind!r}")
 
 
@@ -229,6 +218,27 @@ def _handle_schema(case: dict[str, object]) -> dict[str, object]:
         return {"ok": False, "code": error.code}
 
 
+def _handle_implementation(case: dict[str, object]) -> dict[str, object]:
+    """Route a case to the surface it names: a SQL fragment or an implementation."""
+
+    generator = case.get("generator")
+    value = (
+        materialize_implementation_fixture(generator)
+        if type(generator) is dict
+        else case.get("value")
+    )
+    validate = (
+        validate_protocol_sql_expression
+        if case.get("surface") == "sql-expression"
+        else validate_protocol_query_implementation
+    )
+    try:
+        validate(value)
+        return {"ok": True}
+    except ProtocolQueryImplementationError as error:
+        return {"ok": False, "code": error.code}
+
+
 def _handle_deployment(role: str, case: dict[str, object]) -> dict[str, object]:
     # Every number in a contract is binary64 in the reference implementation,
     # so the whole tree is re-read that way before validation.
@@ -295,6 +305,8 @@ def _handle(family: str, role: str, case: dict[str, object], section: object) ->
         return _handle_expression(case, section)
     if family == "query-schemas-v1":
         return _handle_schema(case)
+    if family == "query-implementations-v1":
+        return _handle_implementation(case)
     if family == "deployments-v2":
         return _handle_deployment(role, case)
     if family == "deployment-bundles-v1":

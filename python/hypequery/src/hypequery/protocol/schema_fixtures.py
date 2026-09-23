@@ -2,27 +2,8 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterator, Mapping
-
+from .fixture_primitives import UnsafeAccessor, generator_integer
 from .wire_numbers import to_binary64_tree
-
-
-class _UnsafeSchemaAccessor(Mapping[str, object]):
-    def __getitem__(self, key: str) -> object:
-        raise AssertionError(f"unsafe accessor invoked for {key!r}")
-
-    def __iter__(self) -> Iterator[str]:
-        raise AssertionError("unsafe iterator invoked")
-
-    def __len__(self) -> int:
-        raise AssertionError("unsafe length invoked")
-
-
-def _integer(generator: dict[str, object], key: str) -> int:
-    value = generator.get(key, 0)
-    if type(value) is not int:
-        raise RuntimeError(f"generator field {key!r} must be an integer")
-    return value
 
 
 def materialize_schema_fixture(generator: dict[str, object]) -> object:
@@ -31,7 +12,7 @@ def materialize_schema_fixture(generator: dict[str, object]) -> object:
     kind = generator.get("type")
     if kind == "nested-array":
         value: object = {"kind": "any"}
-        for _ in range(_integer(generator, "depth")):
+        for _ in range(generator_integer(generator, "depth")):
             value = {"kind": "array", "items": value}
         return value
     if kind == "union-tree":
@@ -45,12 +26,12 @@ def materialize_schema_fixture(generator: dict[str, object]) -> object:
     if kind == "enum-values":
         return {
             "kind": "enum",
-            "values": [f"v{index}" for index in range(_integer(generator, "count"))],
+            "values": [f"v{index}" for index in range(generator_integer(generator, "count"))],
         }
     if kind == "description":
-        return {"kind": "string", "description": "a" * _integer(generator, "bytes")}
+        return {"kind": "string", "description": "a" * generator_integer(generator, "bytes")}
     if kind == "unsafe-accessor":
-        return _UnsafeSchemaAccessor()
+        return UnsafeAccessor()
     raise RuntimeError(f"unknown schema generator: {kind!r}")
 
 
