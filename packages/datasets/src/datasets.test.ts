@@ -11,6 +11,7 @@ import { buildDatasetQueryBuilder, runDatasetQuery, validateDatasetQuery } from 
 import { createDatasetClient, MetricQueryEngine } from './executor.js';
 import { createInMemoryBackend } from './in-memory-backend.js';
 import { quoteSQLIdentifier } from './sql-utils.js';
+import { applyFilteredAggregationExpression } from './utils/filtered-aggregation-sql.js';
 import type { QueryBuilderFactoryLike, QueryBuilderLike } from './query-builder-protocol.js';
 
 // =============================================================================
@@ -917,6 +918,15 @@ describe("MetricQueryEngine", () => {
 
       expect(sql).toContain("SUM(if((status = 'completed'), amount, 0)) AS completedRevenue");
       expect(sql).toContain("GROUP BY country");
+    });
+
+    it("keeps backslashes and quotes inside filtered measure literals", () => {
+      const expression = applyFilteredAggregationExpression(Orders, {
+        ...sum('amount'),
+        filters: [eq('status', "x\\' OR 1=1 --")],
+      }, 'amount');
+
+      expect(expression).toBe("if((status = 'x\\\\'' OR 1=1 --'), amount, 0)");
     });
 
     it("resolves column aliases for countDistinct metrics", () => {

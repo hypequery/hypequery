@@ -10,7 +10,10 @@ function renderMeasureFilterLiteral(value: unknown): string {
   }
 
   if (typeof value === 'string') {
-    return `'${value.replace(/'/g, "''")}'`;
+    // ClickHouse also treats backslash as a string escape. Doubling quotes
+    // without escaping backslashes lets a value ending in \\ before a quote
+    // break out of the literal and change the predicate.
+    return `'${value.replace(/\\/g, '\\\\').replace(/'/g, "''")}'`;
   }
 
   if (typeof value === 'number') {
