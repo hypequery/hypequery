@@ -300,14 +300,13 @@ describe('relationship-qualified validation', () => {
     expect(result.valid).toBe(true);
   });
 
-  it('rejects a qualified filter hidden by the target dataset', () => {
+  it('rejects a qualified filter omitted by the target dataset', () => {
     const PrivateCustomers = dataset('privateCustomers', {
       source: 'customers',
       dimensions: {
         id: dimension.number(),
         secret: dimension.string({ filterable: false }),
       },
-      filters: { secret: { __type: 'filter_definition', field: 'secret' } },
     });
     const PrivateOrders = dataset('privateOrders', {
       source: 'orders',
@@ -325,6 +324,29 @@ describe('relationship-qualified validation', () => {
 
     expect(result.valid).toBe(false);
     expect(result.errors.join(' ')).toMatch(/not exposed/);
+  });
+
+  it('allows a qualified filter explicitly declared by the target dataset', () => {
+    const Customers = dataset('explicitCustomers', {
+      source: 'customers',
+      dimensions: { id: dimension.number(), secret: dimension.string({ filterable: false }) },
+      filters: { secret: { __type: 'filter_definition', field: 'secret', operators: ['eq'] } },
+    });
+    const Orders = dataset('explicitOrders', {
+      source: 'orders',
+      dimensions: { id: dimension.number() },
+      measures: { count: measure.count('id') },
+      relationships: { customer: belongsTo(() => Customers, { from: 'customer_id', to: 'id' }) },
+    });
+
+    expect(validateDatasetQuery(Orders, {
+      measures: ['count'],
+      filters: [{ field: 'customer.secret', operator: 'eq', value: 'known' }],
+    }).valid).toBe(true);
+    expect(validateDatasetQuery(Orders, {
+      measures: ['count'],
+      filters: [{ field: 'customer.secret', operator: 'like', value: '%' }],
+    }).valid).toBe(false);
   });
 
   it('enforces a joined target filter allowlist and operator set', () => {

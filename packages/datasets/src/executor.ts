@@ -109,9 +109,7 @@ function validateQuery(
   const ref = getMetricRef(metric);
   const ds = ref.dataset;
   const dimensionNames = Object.keys(ds.dimensions);
-  const filterNames = Object.keys(ds.filters).length > 0
-    ? Object.keys(ds.filters)
-    : dimensionNames;
+  const filterNames = Object.keys(ds.filters);
   const grain = getMetricGrain(metric, query);
   const orderableFields = new Set<string>([
     ...(query.dimensions ?? []),

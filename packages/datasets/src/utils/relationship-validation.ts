@@ -83,10 +83,10 @@ export function validateQualifiedFilter(
   }
 
   // A relationship does not turn every target dimension into an exposed
-  // filter. Apply the target's filter allowlist and operator policy here too.
+  // filter. Apply the target's explicit or generated filter allowlist and
+  // operator policy. An explicit filter can override filterable: false.
   const definition = target.filters[targetDimensionName];
-  if (targetDimension.filterable === false
-    || !definition
+  if (!definition
     || definition.field !== targetDimensionName) {
     return `Filter "${filter.field}" is not exposed by target dataset "${target.name}".`;
   }

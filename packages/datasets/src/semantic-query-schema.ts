@@ -96,8 +96,7 @@ function relationshipFilterPolicy(source: SemanticQuerySchemaSource): ReadonlyMa
     const target = relationship.target() as AnyDatasetInstance;
     for (const [field, dimension] of Object.entries(target.dimensions)) {
       const definition = target.filters[field];
-      if (!dimension.sql && dimension.filterable !== false
-        && definition?.field === field) {
+      if (!dimension.sql && definition?.field === field) {
         fields.set(`${name}.${field}`, definition.operators
           ? [...definition.operators]
           : [...SEMANTIC_FILTER_OPERATORS]);
@@ -183,17 +182,15 @@ function queryShape(
         ...relationshipFields.filter(isGroupable),
       ]);
   const declaredFilters = Object.keys(catalog.filters);
+  const declaredFilterSet = new Set(declaredFilters);
   const filterFields = metric
     ? uniqueSorted([
-        ...metric.filters.filter(field => !field.includes('.') || filterableRelationshipSet.has(field)),
+        ...metric.filters.filter(field => field.includes('.')
+          ? filterableRelationshipSet.has(field)
+          : declaredFilterSet.has(field)),
         ...localRelationshipFields.filter(field => filterableRelationshipSet.has(field)),
       ])
-    : metricName
-      ? uniqueSorted([
-          ...(declaredFilters.length > 0 ? declaredFilters : Object.keys(catalog.dimensions)),
-          ...filterableRelationshipFields,
-        ])
-      : uniqueSorted([...declaredFilters, ...filterableRelationshipFields]);
+    : uniqueSorted([...declaredFilters, ...filterableRelationshipFields]);
   const grains = metric
     ? metric.grain ? [metric.grain] : metric.grains
     : catalog.supportedGrains;

@@ -47,6 +47,25 @@ const totalRevenue = Orders.metric('totalRevenue', { measure: 'revenue' });
 const registry = { orders: { ...Orders, metrics: { totalRevenue } } };
 
 describe('canonical semantic query schemas', () => {
+  it('exposes a base filter only when it is declared or automatically enabled', () => {
+    for (const explicit of [false, true]) {
+      const Hidden = dataset('hidden', {
+        source: 'orders',
+        dimensions: { secret: dimension.string({ filterable: false }) },
+        measures: { rows: measure.count('secret') },
+        ...(explicit ? { filters: { secret: { __type: 'filter_definition' as const, field: 'secret' } } } : {}),
+      });
+      const rows = Hidden.metric('rows', { measure: 'rows' });
+      const schemas = buildCanonicalSemanticQuerySchemas({ hidden: { ...Hidden, metrics: { rows } } });
+      const filter = [{ field: 'secret', operator: 'eq', value: 'known' }];
+
+      expect(schemas.queryDataset.safeParse({ dataset: 'hidden', measures: ['rows'], filters: filter }).success).toBe(explicit);
+      expect(schemas.queryMetric.safeParse({ dataset: 'hidden', metric: 'rows', filters: filter }).success).toBe(explicit);
+      expect(rows.contract().filters.includes('secret')).toBe(explicit);
+      expect(Object.hasOwn(getDatasetCatalog(Hidden).filters, 'secret')).toBe(explicit);
+    }
+  });
+
   it('offers dataset-owned derived measures as selectable and orderable fields', () => {
     const schema = buildDatasetInputSchema(Orders);
     expect(schema.safeParse({

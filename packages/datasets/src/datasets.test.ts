@@ -1235,6 +1235,27 @@ describe("MetricQueryEngine", () => {
   });
 
   describe("validate()", () => {
+    it("rejects hidden base filters for dataset and metric queries", () => {
+      const Hidden = dataset('hiddenFilters', {
+        source: 'orders',
+        dimensions: { secret: dimension.string({ filterable: false }) },
+        measures: { rows: measure.count('secret') },
+      });
+      const ExposedExplicitly = dataset('explicitHiddenFilter', {
+        source: 'orders',
+        dimensions: { secret: dimension.string({ filterable: false }) },
+        measures: { rows: measure.count('secret') },
+        filters: { secret: { __type: 'filter_definition', field: 'secret' } },
+      });
+      const filter = [eq('secret', 'known')];
+      const analytics = new MetricQueryEngine({ builderFactory: createMockBuilderFactory() });
+
+      expect(validateDatasetQuery(Hidden, { measures: ['rows'], filters: filter }).valid).toBe(false);
+      expect(analytics.validate(Hidden.metric('rows', { measure: 'rows' }), { filters: filter }).valid).toBe(false);
+      expect(validateDatasetQuery(ExposedExplicitly, { measures: ['rows'], filters: filter }).valid).toBe(true);
+      expect(analytics.validate(ExposedExplicitly.metric('rows', { measure: 'rows' }), { filters: filter }).valid).toBe(true);
+    });
+
     it("rejects tenant-keyed metric queries without runtime tenant scoping", () => {
       const analytics = new MetricQueryEngine({ builderFactory: createMockBuilderFactory() });
       const result = analytics.validate(totalRevenue, {
