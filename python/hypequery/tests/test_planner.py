@@ -149,9 +149,52 @@ def test_an_unsupported_time_grain_is_refused() -> None:
     assert _category(_trips(), DatasetQuery(by="fortnight")) == "input-invalid"
 
 
-def test_a_sql_backed_dimension_is_emitted_verbatim() -> None:
+def test_a_sql_backed_dimension_keeps_its_expression_inside_one_operand() -> None:
     compiled = plan_dataset_query(_trips(), DatasetQuery(dimensions=("surge",)))
-    assert "fare * 1.5 AS `surge`" in compiled.sql
+    assert "(fare * 1.5\n) AS `surge`" in compiled.sql
+
+
+@pytest.mark.parametrize(
+    "expression",
+    [
+        # A trailing line comment would otherwise swallow every clause after it
+        # on the one line the statement is built on — alias, FROM, and WHERE.
+        "fare -- note",
+        # A top-level OR would otherwise rebind across the AND joining predicates.
+        "fare = 1 OR 1 = 1",
+    ],
+)
+def test_a_trusted_expression_cannot_reach_past_its_own_operand(expression: str) -> None:
+    dataset = _trips(
+        dimensions={"vendor": dimension("string"), "surge": dimension("number", sql=expression)},
+        tenant_key="tenant_id",
+        filters={},
+    )
+    compiled = plan_dataset_query(
+        dataset,
+        DatasetQuery(dimensions=("surge",), measures=("trips",)),
+        context=ExecutionContext(tenant=tenant("acme")),
+    )
+    assert f"({expression}\n)" in compiled.sql
+    # The clauses after the expression, the tenant predicate above all, survive.
+    assert "FROM `analytics`.`trips`" in compiled.sql
+    assert "WHERE `tenant_id` = {p0:String}" in compiled.sql
+
+
+def test_a_trusted_measure_expression_is_contained_too() -> None:
+    dataset = _trips(
+        dimensions={"vendor": dimension("string")},
+        measures={"revenue": measure(sum_("total_amount"), sql="amount -- note")},
+        tenant_key="tenant_id",
+        filters={},
+    )
+    compiled = plan_dataset_query(
+        dataset,
+        DatasetQuery(measures=("revenue",)),
+        context=ExecutionContext(tenant=tenant("acme")),
+    )
+    assert "sum((amount -- note\n))" in compiled.sql
+    assert "WHERE `tenant_id` = {p0:String}" in compiled.sql
 
 
 def test_pagination_renders_from_bounded_integers() -> None:

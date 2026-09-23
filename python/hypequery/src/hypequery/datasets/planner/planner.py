@@ -45,6 +45,7 @@ from .sql_fragments import (
     order_by_clause,
     pagination_clause,
     select_clause,
+    trusted_expression,
     where_clause,
 )
 
@@ -120,7 +121,7 @@ def _base_column(plan: _Plan, dimension: Dimension | None, name: str) -> str:
                 "input-invalid",
                 f'SQL-backed field "{name}" cannot be combined with relationship joins.',
             )
-        return dimension.sql
+        return trusted_expression(dimension.sql)
     column = dimension.column if dimension is not None and dimension.column else name
     column_sql = safe_identifier(column, what="column").sql
     return f"{BASE_ALIAS.sql}.{column_sql}" if plan.joins_active else column_sql
@@ -200,7 +201,7 @@ def _aggregation_sql(plan: _Plan, name: str, measure: Measure) -> str:
                 "input-invalid",
                 f'SQL-backed measure "{name}" cannot be combined with relationship joins.',
             )
-        target = measure.sql
+        target = trusted_expression(measure.sql)
     else:
         target = _base_column(plan, plan.dataset.dimensions.get(measure.field), measure.field)
 
@@ -311,10 +312,6 @@ def _filter_predicate(plan: _Plan, filter_value: Filter, *, request_filter: bool
                 )
     validate_filter_value(filter_value, dimension.field_type)
     column = _field_sql(plan, field)
-    if dimension.sql is not None:
-        # A trusted SQL expression can contain OR. Keep it inside one operand so
-        # it cannot rebind the independent, server-proven tenant predicate.
-        column = f"({column}\n)"
     clickhouse_type = _filter_type(plan, field)
     operator = filter_value.operator
     what = f'filter "{filter_value.field}"'

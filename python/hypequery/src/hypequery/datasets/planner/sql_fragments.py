@@ -26,6 +26,25 @@ def grain_expression(grain: str, column_sql: str) -> str:
     return f"{function}({column_sql})"
 
 
+def trusted_expression(sql: str) -> str:
+    """Enclose a trusted SQL expression so it cannot reach past its own operand.
+
+    Two hazards, both from text an author wrote during a build rather than
+    anything a caller sent, and both fixed by the same wrapping:
+
+    A top-level `OR` rebinds across the `AND` that joins predicates, so an
+    expression used as one operand of a `WHERE` could neutralise the
+    server-proven tenant predicate beside it. The parentheses keep it contained.
+
+    A trailing `--` comments out the rest of the line, which — because the
+    statement is built on one line — is every clause that follows, including
+    `FROM` and `WHERE`. The newline before the closing parenthesis ends the
+    comment, so the expression cannot delete the statement around it.
+    """
+
+    return f"({sql}\n)"
+
+
 def aliased(expression: str, alias: SafeIdentifier) -> str:
     """`<expression> AS <alias>`, with the alias quoted."""
 
