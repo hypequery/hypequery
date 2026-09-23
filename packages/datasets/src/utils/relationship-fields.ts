@@ -40,28 +40,17 @@ export function listGroupableRelationshipFields(
   return relationshipFields(name, relationship, dimension => dimension.groupable !== false);
 }
 
-/** Target dimensions that the target dataset actually exposes as filters. */
-export function listFilterableRelationshipFields(
-  name: string,
-  relationship: RelationshipDefinition,
-): string[] {
-  return relationshipFields(name, relationship, (dimension, field, target) => (
-    dimension.filterable !== false
-    && target.filters[field]?.field === field
-  ));
-}
-
 function relationshipFields(
   name: string,
   relationship: RelationshipDefinition,
-  include: (dimension: DimensionDefinition, field: string, target: AnyDatasetInstance) => boolean,
+  include: (dimension: DimensionDefinition) => boolean,
 ): string[] {
   if (relationship.kind === 'hasMany') {
     return [];
   }
   const target = relationship.target() as Partial<AnyDatasetInstance> | undefined;
   return Object.entries(target?.dimensions ?? {})
-    .filter(([field, dimension]) => !dimension.sql && include(dimension, field, target as AnyDatasetInstance))
+    .filter(([, dimension]) => !dimension.sql && include(dimension))
     .map(([field]) => `${name}.${field}`);
 }
 

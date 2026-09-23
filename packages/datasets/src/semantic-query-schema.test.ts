@@ -199,6 +199,12 @@ describe('canonical semantic query schemas', () => {
     expect(schemas.queryDataset.safeParse({
       ...query, filters: [{ field: 'customer.tier', operator: 'eq', value: 'gold' }],
     }).success).toBe(true);
+    // A serialized catalog does not carry the target's filter policy. The
+    // generated schema must not guess that every related field is filterable.
+    expect(buildDatasetInputSchema(getDatasetCatalog(Invoices)).safeParse({
+      measures: ['total'],
+      filters: [{ field: 'customer.tier', operator: 'eq', value: 'gold' }],
+    }).success).toBe(false);
   });
 
   it('closes nested objects and requires a dataset selection', () => {

@@ -13,7 +13,6 @@ import type {
 } from './types.js';
 import { SEMANTIC_FILTER_OPERATORS, SUPPORTED_TIME_GRAINS } from './constants.js';
 import {
-  listFilterableRelationshipFields,
   listGroupableRelationshipFields,
   listQueryableRelationshipFields,
 } from './utils/relationship-fields.js';
@@ -81,10 +80,6 @@ export interface RelationshipCatalogEntry {
    * supplied catalog that predates it still resolves, falling back to `fields`.
    */
   groupableFields?: string[];
-  /** Target dimensions exposed for filtering across this relationship. */
-  filterableFields?: string[];
-  /** Allowed operators for each qualified filter field. */
-  filterOperators?: Record<string, SemanticFilterDefinition['operators']>;
 }
 
 export interface DatasetCatalog extends SemanticMetadata {
@@ -178,8 +173,6 @@ function relationshipToCatalog(
   name: string,
   relationship: RelationshipDefinition,
 ): RelationshipCatalogEntry {
-  const filterableFields = listFilterableRelationshipFields(name, relationship);
-  const target = relationship.target() as AnyDatasetInstance;
   return {
     kind: relationship.kind,
     target: relationship.target().name,
@@ -188,12 +181,6 @@ function relationshipToCatalog(
     queryable: relationship.kind !== 'hasMany',
     fields: listQueryableRelationshipFields(name, relationship),
     groupableFields: listGroupableRelationshipFields(name, relationship),
-    filterableFields,
-    filterOperators: Object.fromEntries(filterableFields.map(qualifiedField => {
-      const field = qualifiedField.slice(name.length + 1);
-      const operators = target.filters[field]?.operators;
-      return [qualifiedField, operators ? [...operators] : [...SEMANTIC_FILTER_OPERATORS]];
-    })),
   };
 }
 
@@ -209,13 +196,6 @@ export function getGroupableRelationshipFields(catalog: DatasetCatalog): string[
   return Object.values(catalog.relationships)
     .filter(relationship => relationship.queryable)
     .flatMap(relationship => relationship.groupableFields ?? relationship.fields);
-}
-
-/** Relationship fields the target dataset permits request filters on. */
-export function getFilterableRelationshipFields(catalog: DatasetCatalog): string[] {
-  return Object.values(catalog.relationships)
-    .filter(relationship => relationship.queryable)
-    .flatMap(relationship => relationship.filterableFields ?? []);
 }
 
 export function getDatasetCatalog(dataset: DatasetCatalogSource): DatasetCatalog {

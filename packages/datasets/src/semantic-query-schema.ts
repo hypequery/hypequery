@@ -5,7 +5,6 @@ import { zodToJsonSchema } from 'zod-to-json-schema';
 import {
   getDatasetCatalog,
   getGroupableRelationshipFields,
-  getFilterableRelationshipFields,
   getQueryableRelationshipFields,
   type DatasetCatalog,
   type DatasetCatalogSource,
@@ -13,7 +12,7 @@ import {
 } from './catalog.js';
 import { SEMANTIC_FILTER_OPERATORS } from './constants.js';
 import type { JsonSchema } from './tools.js';
-import type { SemanticFilterDefinition } from './types.js';
+import type { AnyDatasetInstance } from './types.js';
 import type { ProtocolSchema } from '@hypequery/protocol';
 import { zodToProtocolSchema } from './protocol-schema-adapter.js';
 import { compareStrings, stableStringify, uniqueSorted } from './utils/canonical-json.js';
@@ -87,6 +86,27 @@ function resolveCatalog(source: SemanticQuerySchemaSource): DatasetCatalog {
     : getDatasetCatalog(source);
 }
 
+function relationshipFilterPolicy(source: SemanticQuerySchemaSource): ReadonlyMap<string, string[]> {
+  const fields = new Map<string, string[]>();
+  // A serialized catalog has no target filter allowlist. Do not infer one
+  // from its queryable fields: a field may be selectable but not filterable.
+  if (isDatasetCatalog(source)) return fields;
+  for (const [name, relationship] of Object.entries(source.relationships)) {
+    if (relationship.kind === 'hasMany') continue;
+    const target = relationship.target() as AnyDatasetInstance;
+    for (const [field, dimension] of Object.entries(target.dimensions)) {
+      const definition = target.filters[field];
+      if (!dimension.sql && dimension.filterable !== false
+        && definition?.field === field) {
+        fields.set(`${name}.${field}`, definition.operators
+          ? [...definition.operators]
+          : [...SEMANTIC_FILTER_OPERATORS]);
+      }
+    }
+  }
+  return fields;
+}
+
 function lowerLimit(...values: Array<number | undefined>): number | undefined {
   const finite = values.filter((value): value is number => value !== undefined);
   return finite.length > 0 ? Math.min(...finite) : undefined;
@@ -104,12 +124,12 @@ function boundedArray(item: ZodTypeAny, maximum?: number): ZodTypeAny {
   return (maximum === undefined ? array : array.max(maximum)).optional();
 }
 
-function filterSchema(catalog: DatasetCatalog, fields: string[]): ZodTypeAny {
+function filterSchema(
+  catalog: DatasetCatalog,
+  fields: string[],
+  relationshipOperators: ReadonlyMap<string, string[]>,
+): ZodTypeAny {
   const filterValue = z.unknown().refine(value => value !== undefined, 'Required');
-  const relationshipOperators = new Map<string, SemanticFilterDefinition['operators']>(
-    Object.values(catalog.relationships)
-      .flatMap(relationship => Object.entries(relationship.filterOperators ?? {})),
-  );
   const variants: ZodTypeAny[] = uniqueSorted(fields).map((field) => z.object({
     field: z.literal(field),
     operator: relationshipOperators.has(field)
@@ -133,12 +153,13 @@ function queryShape(
   catalog: DatasetCatalog,
   metricName: string | undefined,
   options: SemanticQuerySchemaOptions,
+  relationshipOperators: ReadonlyMap<string, string[]>,
   metric?: SemanticMetricQueryContract,
   localRelationshipFields: string[] = [],
 ): Record<string, ZodTypeAny> {
   const limits = { ...DEFAULT_SEMANTIC_QUERY_SCHEMA_LIMITS, ...options };
   const relationshipFields = getQueryableRelationshipFields(catalog);
-  const filterableRelationshipFields = getFilterableRelationshipFields(catalog);
+  const filterableRelationshipFields = [...relationshipOperators.keys()];
   const filterableRelationshipSet = new Set(filterableRelationshipFields);
   // `groupable: false` declares a dimension that exists to back a measure, not
   // to be selected. The agent-safe catalog already hides those, so the
@@ -207,7 +228,7 @@ function queryShape(
       ),
     }),
     filters: boundedArray(
-      filterSchema(catalog, filterFields),
+      filterSchema(catalog, filterFields, relationshipOperators),
       lowerLimit(catalog.limits?.maxFilters, limits.maxFilters),
     ),
     orderBy: boundedArray(z.object({
@@ -229,7 +250,9 @@ export function buildDatasetInputSchema(
   dataset: SemanticQuerySchemaSource,
   options: SemanticQuerySchemaOptions = {},
 ): ZodTypeAny {
-  const schema = z.object(queryShape(resolveCatalog(dataset), undefined, options)).strict();
+  const schema = z.object(queryShape(
+    resolveCatalog(dataset), undefined, options, relationshipFilterPolicy(dataset),
+  )).strict();
   if (options.requireSelection === false) return schema;
   return schema.refine(
     input => (input.dimensions?.length ?? 0) > 0 || (input.measures?.length ?? 0) > 0,
@@ -252,6 +275,7 @@ export function buildMetricInputSchema(
     catalog,
     metricName,
     options,
+    relationshipFilterPolicy(dataset),
     metric,
     localRelationshipFields,
   )).strict();
