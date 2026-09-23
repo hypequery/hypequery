@@ -226,6 +226,30 @@ describe('canonical semantic query schemas', () => {
     }).success).toBe(false);
   });
 
+  it('advertises an explicitly declared relationship filter even when its dimension disables automatic filters', () => {
+    const Customers = dataset('explicitCustomers', {
+      source: 'customers',
+      dimensions: { id: dimension.string(), tier: dimension.string({ filterable: false }) },
+      filters: { tier: { __type: 'filter_definition', field: 'tier', operators: ['eq'] } },
+    });
+    const Invoices = dataset('explicitInvoices', {
+      source: 'invoices',
+      dimensions: { id: dimension.string() },
+      measures: { total: measure.count('id') },
+      relationships: { customer: belongsTo(() => Customers, { from: 'customer_id', to: 'id' }) },
+    });
+    const schema = buildDatasetInputSchema(Invoices);
+
+    expect(schema.safeParse({
+      measures: ['total'],
+      filters: [{ field: 'customer.tier', operator: 'eq', value: 'gold' }],
+    }).success).toBe(true);
+    expect(schema.safeParse({
+      measures: ['total'],
+      filters: [{ field: 'customer.tier', operator: 'like', value: '%' }],
+    }).success).toBe(false);
+  });
+
   it('closes nested objects and requires a dataset selection', () => {
     const schemas = buildCanonicalSemanticQuerySchemas(registry, { grainField: 'grain' });
 
