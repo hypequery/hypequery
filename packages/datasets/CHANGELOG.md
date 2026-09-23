@@ -1,5 +1,11 @@
 # @hypequery/datasets
 
+## 0.17.1
+
+### Patch Changes
+
+- 7b5ccd7: Enforce the joined dataset's filter exposure and allowed operators for relationship-qualified filters, including generated query schemas.
+
 ## 0.17.0
 
 ### Minor Changes
