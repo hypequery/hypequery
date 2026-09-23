@@ -12,8 +12,37 @@
  * than on rows, because the defect is entirely one of operator precedence.
  */
 import { setupUsersBuilder } from './test-utils.js';
+import { createDatasetClient, dataset, dimension, eq, measure } from '@hypequery/datasets';
+import { createQueryBuilder } from '../query-builder.js';
 
 describe('a trusted expression cannot widen a tenant predicate', () => {
+  it('keeps a SQL-backed dataset filter inside runtime tenant scoping', () => {
+    const TenantOrders = dataset('tenantOrders', {
+      source: 'orders',
+      tenantKey: 'tenant_id',
+      dimensions: {
+        id: dimension.number(),
+        tenantId: dimension.string({ column: 'tenant_id' }),
+        visible: dimension.boolean({
+          sql: 'is_active OR is_public',
+          dependencies: ['is_active', 'is_public'],
+        }),
+      },
+      measures: { orderCount: measure.count('id') },
+    });
+    const client = createDatasetClient({
+      queryBuilder: createQueryBuilder({ adapter: { name: 'test', query: async () => [] } }),
+    });
+
+    const sql = client.toSQL(
+      TenantOrders,
+      { measures: ['orderCount'], filters: [eq('visible', true)] },
+      { runtime: { tenant: { id: 'tenant_123' } } },
+    );
+
+    expect(sql).toContain('WHERE tenant_id = ? AND (is_active OR is_public) = ?');
+  });
+
   it('groups an OR-bearing filter column so the tenant predicate still binds', () => {
     const { sql } = setupUsersBuilder()
       .select(['id'])
