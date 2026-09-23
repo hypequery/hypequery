@@ -140,7 +140,14 @@ def _filter_entry(
 ) -> FilterCatalogEntry:
     entry: dict[str, object] = {"field": definition.field}
     entry.update(_present(label=definition.label, description=definition.description))
-    entry["operators"] = list(definition.operators or SEMANTIC_FILTER_OPERATORS)
+    # `is not None`, not truthiness: an empty tuple is a declared decision that
+    # this filter accepts no operator, and widening it to every operator would
+    # publish a capability the planner refuses. An empty array is truthy in
+    # JavaScript, so the reference catalog keeps it and this must too.
+    declared_operators = definition.operators
+    entry["operators"] = list(
+        SEMANTIC_FILTER_OPERATORS if declared_operators is None else declared_operators
+    )
     declared = dimensions.get(definition.field)
     if declared is not None:
         entry["valueType"] = declared.field_type

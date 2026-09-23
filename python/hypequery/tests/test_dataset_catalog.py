@@ -17,6 +17,7 @@ import pytest
 
 from hypequery.datasets import (
     SEMANTIC_CONTRACT_VERSION,
+    SEMANTIC_FILTER_OPERATORS,
     Dataset,
     DatasetLimits,
     DatasetRegistry,
@@ -306,3 +307,34 @@ def test_contract_numbers_match_ecmascript_json(
     assert f'"level": {spelling}' in contract_to_stable_json(contract)
     # Generated from the equivalent model with TypeScript's serializeSemanticContract.
     assert contract["contentHash"] == expected_hash
+
+
+def test_an_explicitly_empty_operator_set_is_published_as_empty() -> None:
+    """An empty tuple says "no operator is allowed", and the catalog must say so.
+
+    Truthiness would widen it to every operator, publishing a capability the
+    planner refuses. JavaScript's empty array is truthy, so the reference
+    catalog keeps it; Python has to check for absence explicitly.
+    """
+
+    dataset = Dataset(
+        name="trips",
+        source="trips",
+        dimensions={"fare": dimension("number")},
+        measures={"trips": measure(count("id"))},
+        filters={"fare": FilterDefinition(field="fare", operators=())},
+    )
+    catalog = get_dataset_catalog(dataset, registry=create_dataset_registry(dataset))
+    assert catalog["filters"]["fare"]["operators"] == []
+
+
+def test_an_absent_operator_set_still_publishes_every_operator() -> None:
+    dataset = Dataset(
+        name="trips",
+        source="trips",
+        dimensions={"fare": dimension("number")},
+        measures={"trips": measure(count("id"))},
+        filters={"fare": FilterDefinition(field="fare")},
+    )
+    catalog = get_dataset_catalog(dataset, registry=create_dataset_registry(dataset))
+    assert catalog["filters"]["fare"]["operators"] == list(SEMANTIC_FILTER_OPERATORS)
