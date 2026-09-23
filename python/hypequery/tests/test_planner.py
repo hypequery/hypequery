@@ -33,7 +33,7 @@ from hypequery.datasets.planner import (
     tenants,
 )
 from hypequery.datasets.planner.planner import BASE_ALIAS
-from hypequery.datasets.query_helpers import Filter, asc, desc, eq, gte, in_list
+from hypequery.datasets.query_helpers import Filter, asc, desc, eq, gte, in_list, like
 from hypequery.datasets.registry import DatasetRegistry, create_dataset_registry
 from hypequery.datasets.relationships import Relationship, belongs_to, has_many
 
@@ -453,6 +453,56 @@ def test_a_non_filterable_related_dimension_is_refused() -> None:
         _category(
             trips,
             DatasetQuery(measures=("trips",), filters=(eq("customer.secret", "x"),)),
+            registry=create_dataset_registry(trips, customers),
+        )
+        == "input-invalid"
+    )
+
+
+def test_a_related_filter_must_be_exposed_by_the_target_dataset() -> None:
+    customers = Dataset(
+        name="customers",
+        source="analytics.customers",
+        dimensions={"secret": dimension("string"), "tier": dimension("string")},
+        filters={"tier": FilterDefinition(field="tier")},
+    )
+    trips = _trips(
+        dimensions={"customer_id": dimension("string")},
+        relationships={"customer": belongs_to(customers, from_field="customer_id", to_field="id")},
+    )
+    registry = create_dataset_registry(trips, customers)
+
+    assert (
+        _category(
+            trips,
+            DatasetQuery(measures=("trips",), filters=(eq("customer.secret", "known"),)),
+            registry=registry,
+        )
+        == "input-invalid"
+    )
+    plan_dataset_query(
+        trips,
+        DatasetQuery(measures=("trips",), filters=(eq("customer.tier", "gold"),)),
+        registry=registry,
+    )
+
+
+def test_a_related_filter_honors_the_target_operator_set() -> None:
+    customers = Dataset(
+        name="customers",
+        source="analytics.customers",
+        dimensions={"tier": dimension("string")},
+        filters={"tier": FilterDefinition(field="tier", operators=("eq",))},
+    )
+    trips = _trips(
+        dimensions={"customer_id": dimension("string")},
+        relationships={"customer": belongs_to(customers, from_field="customer_id", to_field="id")},
+    )
+
+    assert (
+        _category(
+            trips,
+            DatasetQuery(measures=("trips",), filters=(like("customer.tier", "%"),)),
             registry=create_dataset_registry(trips, customers),
         )
         == "input-invalid"

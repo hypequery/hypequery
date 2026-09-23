@@ -291,18 +291,22 @@ def _filter_predicate(plan: _Plan, filter_value: Filter, *, request_filter: bool
 
     field = resolve_filter_field(plan.dataset, filter_value.field)
     if is_qualified(field):
-        dimension = resolve_qualified_field(plan.dataset, field, registry=plan.registry).dimension
+        resolved = resolve_qualified_field(plan.dataset, field, registry=plan.registry)
+        dimension = resolved.dimension
+        definition = resolved.target.filters.get(resolved.dimension_name)
+        exposed = definition is not None and definition.field == resolved.dimension_name
     else:
         dimension = require_dimension(plan.dataset, field)
-    if request_filter:
         definition = plan.dataset.filters.get(filter_value.field)
-        if definition is None and not is_qualified(filter_value.field):
-            raise CompiledQueryError(
-                "input-invalid", f'Filter "{filter_value.field}" is not exposed by this dataset.'
-            )
+        exposed = definition is not None
+    if request_filter:
         if dimension.filterable is False:
             raise CompiledQueryError(
                 "input-invalid", f'Filter "{filter_value.field}" is not filterable.'
+            )
+        if not exposed:
+            raise CompiledQueryError(
+                "input-invalid", f'Filter "{filter_value.field}" is not exposed by its dataset.'
             )
         if definition is not None and definition.operators is not None:
             if filter_value.operator not in definition.operators:
