@@ -300,6 +300,106 @@ describe('relationship-qualified validation', () => {
     expect(result.valid).toBe(true);
   });
 
+  it('does not resolve inherited relationship or target dimension names', () => {
+    const inheritedRelationship = validateDatasetQuery(Orders, {
+      dimensions: ['constructor.id'], measures: ['revenue'],
+    });
+    const inheritedDimension = validateDatasetQuery(Orders, {
+      dimensions: ['customer.toString'], measures: ['revenue'],
+    });
+
+    expect(inheritedRelationship.valid).toBe(false);
+    expect(inheritedRelationship.errors.join(' ')).toMatch(/Unknown relationship/);
+    expect(inheritedDimension.valid).toBe(false);
+    expect(inheritedDimension.errors.join(' ')).toMatch(/Unknown dimension/);
+  });
+
+  it('rejects a qualified filter omitted by the target dataset', () => {
+    const PrivateCustomers = dataset('privateCustomers', {
+      source: 'customers',
+      dimensions: {
+        id: dimension.number(),
+        secret: dimension.string({ filterable: false }),
+      },
+    });
+    const PrivateOrders = dataset('privateOrders', {
+      source: 'orders',
+      dimensions: { id: dimension.number() },
+      measures: { count: measure.count('id') },
+      relationships: {
+        customer: belongsTo(() => PrivateCustomers, { from: 'customer_id', to: 'id' }),
+      },
+    });
+
+    const result = validateDatasetQuery(PrivateOrders, {
+      measures: ['count'],
+      filters: [{ field: 'customer.secret', operator: 'eq', value: 'known' }],
+    });
+
+    expect(result.valid).toBe(false);
+    expect(result.errors.join(' ')).toMatch(/not exposed/);
+  });
+
+  it('allows a qualified filter explicitly declared by the target dataset', () => {
+    const Customers = dataset('explicitCustomers', {
+      source: 'customers',
+      dimensions: { id: dimension.number(), secret: dimension.string({ filterable: false }) },
+      filters: { secret: { __type: 'filter_definition', field: 'secret', operators: ['eq'] } },
+    });
+    const Orders = dataset('explicitOrders', {
+      source: 'orders',
+      dimensions: { id: dimension.number() },
+      measures: { count: measure.count('id') },
+      relationships: { customer: belongsTo(() => Customers, { from: 'customer_id', to: 'id' }) },
+    });
+
+    expect(validateDatasetQuery(Orders, {
+      measures: ['count'],
+      filters: [{ field: 'customer.secret', operator: 'eq', value: 'known' }],
+    }).valid).toBe(true);
+    expect(validateDatasetQuery(Orders, {
+      measures: ['count'],
+      filters: [{ field: 'customer.secret', operator: 'like', value: '%' }],
+    }).valid).toBe(false);
+  });
+
+  it('enforces a joined target filter allowlist and operator set', () => {
+    const RestrictedCustomers = dataset('restrictedCustomers', {
+      source: 'customers',
+      dimensions: {
+        id: dimension.number(),
+        tier: dimension.string(),
+        secret: dimension.string(),
+      },
+      filters: { tier: { __type: 'filter_definition', field: 'tier', operators: ['eq'] } },
+    });
+    const RestrictedOrders = dataset('restrictedOrders', {
+      source: 'orders',
+      dimensions: { id: dimension.number() },
+      measures: { count: measure.count('id') },
+      relationships: {
+        customer: belongsTo(() => RestrictedCustomers, { from: 'customer_id', to: 'id' }),
+      },
+    });
+
+    const hidden = validateDatasetQuery(RestrictedOrders, {
+      measures: ['count'],
+      filters: [{ field: 'customer.secret', operator: 'eq', value: 'known' }],
+    });
+    const disallowed = validateDatasetQuery(RestrictedOrders, {
+      measures: ['count'],
+      filters: [{ field: 'customer.tier', operator: 'like', value: '%' }],
+    });
+    const allowed = validateDatasetQuery(RestrictedOrders, {
+      measures: ['count'],
+      filters: [{ field: 'customer.tier', operator: 'eq', value: 'gold' }],
+    });
+
+    expect(hidden.valid).toBe(false);
+    expect(disallowed.valid).toBe(false);
+    expect(allowed.valid).toBe(true);
+  });
+
   it('rejects explicit filters on a joined target tenant column under runtime tenancy', () => {
     const context: ExecutionContext = { runtime: { tenant: { id: 't1' } } };
     const result = validateDatasetQuery(

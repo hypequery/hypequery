@@ -116,7 +116,9 @@ export function resolveQualifiedField(
   }
 
   const { relationship: relationshipName, field } = parsed;
-  const relationship = ds.relationships[relationshipName];
+  const relationship = Object.hasOwn(ds.relationships, relationshipName)
+    ? ds.relationships[relationshipName]
+    : undefined;
   if (!relationship) {
     const available = Object.keys(ds.relationships);
     return {
@@ -139,7 +141,9 @@ export function resolveQualifiedField(
   }
 
   const target = relationship.target() as AnyDatasetInstance;
-  const targetDimension = target.dimensions[field];
+  const targetDimension = Object.hasOwn(target.dimensions, field)
+    ? target.dimensions[field]
+    : undefined;
   if (!targetDimension) {
     const available = Object.keys(target.dimensions);
     return {

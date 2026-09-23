@@ -47,6 +47,25 @@ const totalRevenue = Orders.metric('totalRevenue', { measure: 'revenue' });
 const registry = { orders: { ...Orders, metrics: { totalRevenue } } };
 
 describe('canonical semantic query schemas', () => {
+  it('exposes a base filter only when it is declared or automatically enabled', () => {
+    for (const explicit of [false, true]) {
+      const Hidden = dataset('hidden', {
+        source: 'orders',
+        dimensions: { secret: dimension.string({ filterable: false }) },
+        measures: { rows: measure.count('secret') },
+        ...(explicit ? { filters: { secret: { __type: 'filter_definition' as const, field: 'secret' } } } : {}),
+      });
+      const rows = Hidden.metric('rows', { measure: 'rows' });
+      const schemas = buildCanonicalSemanticQuerySchemas({ hidden: { ...Hidden, metrics: { rows } } });
+      const filter = [{ field: 'secret', operator: 'eq', value: 'known' }];
+
+      expect(schemas.queryDataset.safeParse({ dataset: 'hidden', measures: ['rows'], filters: filter }).success).toBe(explicit);
+      expect(schemas.queryMetric.safeParse({ dataset: 'hidden', metric: 'rows', filters: filter }).success).toBe(explicit);
+      expect(rows.contract().filters.includes('secret')).toBe(explicit);
+      expect(Object.hasOwn(getDatasetCatalog(Hidden).filters, 'secret')).toBe(explicit);
+    }
+  });
+
   it('offers dataset-owned derived measures as selectable and orderable fields', () => {
     const schema = buildDatasetInputSchema(Orders);
     expect(schema.safeParse({
@@ -167,6 +186,68 @@ describe('canonical semantic query schemas', () => {
       dimensions: ['customer.country'],
       filters: [{ field: 'customer.note', operator: 'eq', value: 'x' }],
     }).success).toBe(true);
+  });
+
+  it('does not advertise hidden or disallowed relationship filters', () => {
+    const Customers = dataset('filteredCustomers', {
+      source: 'customers',
+      dimensions: {
+        id: dimension.string(),
+        tier: dimension.string(),
+        secret: dimension.string({ filterable: false }),
+      },
+      filters: { tier: { __type: 'filter_definition', field: 'tier', operators: ['eq'] } },
+    });
+    const Invoices = dataset('filteredInvoices', {
+      source: 'invoices',
+      dimensions: { id: dimension.string() },
+      measures: { total: measure.count('id') },
+      relationships: {
+        customer: belongsTo(() => Customers, { from: 'customer_id', to: 'id' }),
+      },
+    });
+    const schemas = buildCanonicalSemanticQuerySchemas({ filteredInvoices: Invoices });
+    const query = { dataset: 'filteredInvoices', measures: ['total'] };
+
+    expect(schemas.queryDataset.safeParse({
+      ...query, filters: [{ field: 'customer.secret', operator: 'eq', value: 'known' }],
+    }).success).toBe(false);
+    expect(schemas.queryDataset.safeParse({
+      ...query, filters: [{ field: 'customer.tier', operator: 'like', value: '%' }],
+    }).success).toBe(false);
+    expect(schemas.queryDataset.safeParse({
+      ...query, filters: [{ field: 'customer.tier', operator: 'eq', value: 'gold' }],
+    }).success).toBe(true);
+    // A serialized catalog does not carry the target's filter policy. The
+    // generated schema must not guess that every related field is filterable.
+    expect(buildDatasetInputSchema(getDatasetCatalog(Invoices)).safeParse({
+      measures: ['total'],
+      filters: [{ field: 'customer.tier', operator: 'eq', value: 'gold' }],
+    }).success).toBe(false);
+  });
+
+  it('advertises an explicitly declared relationship filter even when its dimension disables automatic filters', () => {
+    const Customers = dataset('explicitCustomers', {
+      source: 'customers',
+      dimensions: { id: dimension.string(), tier: dimension.string({ filterable: false }) },
+      filters: { tier: { __type: 'filter_definition', field: 'tier', operators: ['eq'] } },
+    });
+    const Invoices = dataset('explicitInvoices', {
+      source: 'invoices',
+      dimensions: { id: dimension.string() },
+      measures: { total: measure.count('id') },
+      relationships: { customer: belongsTo(() => Customers, { from: 'customer_id', to: 'id' }) },
+    });
+    const schema = buildDatasetInputSchema(Invoices);
+
+    expect(schema.safeParse({
+      measures: ['total'],
+      filters: [{ field: 'customer.tier', operator: 'eq', value: 'gold' }],
+    }).success).toBe(true);
+    expect(schema.safeParse({
+      measures: ['total'],
+      filters: [{ field: 'customer.tier', operator: 'like', value: '%' }],
+    }).success).toBe(false);
   });
 
   it('closes nested objects and requires a dataset selection', () => {

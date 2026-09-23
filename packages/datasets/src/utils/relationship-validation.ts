@@ -76,10 +76,22 @@ export function validateQualifiedFilter(
     return resolution.error;
   }
 
-  const { target, targetColumn, targetDimension } = resolution.resolved;
+  const { target, targetColumn, targetDimension, targetDimensionName } = resolution.resolved;
 
   if (getRuntimeTenantPredicate(context) && target.tenantKey && targetColumn === target.tenantKey) {
     return `Cannot filter on tenant field "${filter.field}" when runtime tenancy enforcement is active.`;
+  }
+
+  // A relationship does not turn every target dimension into an exposed
+  // filter. Apply the target's explicit or generated filter allowlist and
+  // operator policy. An explicit filter can override filterable: false.
+  const definition = target.filters[targetDimensionName];
+  if (!definition
+    || definition.field !== targetDimensionName) {
+    return `Filter "${filter.field}" is not exposed by target dataset "${target.name}".`;
+  }
+  if (definition.operators && !definition.operators.includes(filter.operator)) {
+    return `Filter "${filter.field}" does not allow operator "${filter.operator}".`;
   }
 
   return validateFilterValue(filter, targetDimension.fieldType);

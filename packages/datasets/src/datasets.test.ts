@@ -11,6 +11,7 @@ import { buildDatasetQueryBuilder, runDatasetQuery, validateDatasetQuery } from 
 import { createDatasetClient, MetricQueryEngine } from './executor.js';
 import { createInMemoryBackend } from './in-memory-backend.js';
 import { quoteSQLIdentifier } from './sql-utils.js';
+import { applyFilteredAggregationExpression } from './utils/filtered-aggregation-sql.js';
 import type { QueryBuilderFactoryLike, QueryBuilderLike } from './query-builder-protocol.js';
 
 // =============================================================================
@@ -919,6 +920,15 @@ describe("MetricQueryEngine", () => {
       expect(sql).toContain("GROUP BY country");
     });
 
+    it("keeps backslashes and quotes inside filtered measure literals", () => {
+      const expression = applyFilteredAggregationExpression(Orders, {
+        ...sum('amount'),
+        filters: [eq('status', "x\\' OR 1=1 --")],
+      }, 'amount');
+
+      expect(expression).toBe("if((status = 'x\\\\'' OR 1=1 --'), amount, 0)");
+    });
+
     it("resolves column aliases for countDistinct metrics", () => {
       const analytics = new MetricQueryEngine({ builderFactory: createMockBuilderFactory() });
       const sql = analytics.toSQL(uniqueCustomers, {
@@ -1225,6 +1235,27 @@ describe("MetricQueryEngine", () => {
   });
 
   describe("validate()", () => {
+    it("rejects hidden base filters for dataset and metric queries", () => {
+      const Hidden = dataset('hiddenFilters', {
+        source: 'orders',
+        dimensions: { secret: dimension.string({ filterable: false }) },
+        measures: { rows: measure.count('secret') },
+      });
+      const ExposedExplicitly = dataset('explicitHiddenFilter', {
+        source: 'orders',
+        dimensions: { secret: dimension.string({ filterable: false }) },
+        measures: { rows: measure.count('secret') },
+        filters: { secret: { __type: 'filter_definition', field: 'secret' } },
+      });
+      const filter = [eq('secret', 'known')];
+      const analytics = new MetricQueryEngine({ builderFactory: createMockBuilderFactory() });
+
+      expect(validateDatasetQuery(Hidden, { measures: ['rows'], filters: filter }).valid).toBe(false);
+      expect(analytics.validate(Hidden.metric('rows', { measure: 'rows' }), { filters: filter }).valid).toBe(false);
+      expect(validateDatasetQuery(ExposedExplicitly, { measures: ['rows'], filters: filter }).valid).toBe(true);
+      expect(analytics.validate(ExposedExplicitly.metric('rows', { measure: 'rows' }), { filters: filter }).valid).toBe(true);
+    });
+
     it("rejects tenant-keyed metric queries without runtime tenant scoping", () => {
       const analytics = new MetricQueryEngine({ builderFactory: createMockBuilderFactory() });
       const result = analytics.validate(totalRevenue, {
