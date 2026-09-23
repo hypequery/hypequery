@@ -300,6 +300,20 @@ describe('relationship-qualified validation', () => {
     expect(result.valid).toBe(true);
   });
 
+  it('does not resolve inherited relationship or target dimension names', () => {
+    const inheritedRelationship = validateDatasetQuery(Orders, {
+      dimensions: ['constructor.id'], measures: ['revenue'],
+    });
+    const inheritedDimension = validateDatasetQuery(Orders, {
+      dimensions: ['customer.toString'], measures: ['revenue'],
+    });
+
+    expect(inheritedRelationship.valid).toBe(false);
+    expect(inheritedRelationship.errors.join(' ')).toMatch(/Unknown relationship/);
+    expect(inheritedDimension.valid).toBe(false);
+    expect(inheritedDimension.errors.join(' ')).toMatch(/Unknown dimension/);
+  });
+
   it('rejects a qualified filter omitted by the target dataset', () => {
     const PrivateCustomers = dataset('privateCustomers', {
       source: 'customers',
