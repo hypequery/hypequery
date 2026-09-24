@@ -332,6 +332,24 @@
     "error": "HQ_VALUE_CONTROL_CHARACTER"
   },
   {
+    "id": "model-trailing-lone-high-surrogate",
+    "phase": "model",
+    "value": "\ud800",
+    "error": "HQ_VALUE_INVALID_UNICODE"
+  },
+  {
+    "id": "model-suffix-lone-high-surrogate",
+    "phase": "model",
+    "value": "before\ud800",
+    "error": "HQ_VALUE_INVALID_UNICODE"
+  },
+  {
+    "id": "model-lone-low-surrogate",
+    "phase": "model",
+    "value": "\udc00after",
+    "error": "HQ_VALUE_INVALID_UNICODE"
+  },
+  {
     "id": "value-unsafe-accessor",
     "phase": "model",
     "generator": {
