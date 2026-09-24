@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass
+from typing import cast
 
 from hypequery.protocol import ProtocolIdentifierError, parse_protocol_qualified_identifier
 
@@ -47,6 +48,23 @@ _COMPARISON_OPERATORS = {
 _CHAINABLE_KEYWORDS = frozenset(("like", "between", "in"))
 _SAFE_INTEGER = 2**53 - 1
 
+#: RFC 0003 caps the operands of one AND/OR node at the expression validator's
+#: collection limit.
+_MAX_LOGICAL_OPERANDS = 100
+
+
+def _child_expressions(expression: dict[str, object]) -> list[object]:
+    kind = expression["kind"]
+    if kind in ("binary", "comparison"):
+        return [expression["left"], expression["right"]]
+    if kind == "logical":
+        if "operands" in expression:
+            return cast(list[object], expression["operands"])
+        return [expression["operand"]]
+    if kind == "call":
+        return cast(list[object], expression["args"])
+    return []
+
 
 @dataclass(frozen=True, slots=True)
 class ParsedSql:
@@ -69,6 +87,9 @@ class _Parser:
         self._position = 0
         self._nodes = 0
         self._dependencies: set[str] = set()
+        # Tree levels beneath each composite node, counting it; leaves are 1.
+        # Keyed by id(): every node stays referenced by the tree being built.
+        self._levels: dict[int, int] = {}
 
     def parse(self) -> ParsedSql:
         if not self._tokens:
@@ -122,38 +143,78 @@ class _Parser:
                 token.end,
             )
 
+    def _build(self, expression: dict[str, object], token: Token) -> dict[str, object]:
+        """Record a composite node, rejecting it once its tree is too deep.
+
+        RFC 0003 counts the root as depth 1. Parse depth alone undercounts
+        left-associative chains such as ``a + b + c``, whose left spine grows
+        with every operator.
+        """
+
+        levels = 1
+        for child in _child_expressions(expression):
+            levels = max(levels, self._levels.get(id(child), 1) + 1)
+        if levels > self._limits.max_depth:
+            fail(
+                "HQ_SQL_PORT_TOO_COMPLEX",
+                "The expression exceeds its depth limit.",
+                token.start,
+                token.end,
+            )
+        self._levels[id(expression)] = levels
+        return expression
+
+    def _reject_extra_operand(self, operands: list[dict[str, object]]) -> None:
+        """Called after consuming AND/OR, before parsing the operand it introduces."""
+
+        if len(operands) >= _MAX_LOGICAL_OPERANDS:
+            token = self._previous()
+            fail(
+                "HQ_SQL_PORT_TOO_COMPLEX",
+                "The expression exceeds its operand limit.",
+                token.start,
+                token.end,
+            )
+
     # -- grammar ------------------------------------------------------------
 
     def _parse_or(self, depth: int) -> dict[str, object]:
         operands = [self._parse_and(depth)]
         while self._at_keyword("or"):
             self._next()
+            self._reject_extra_operand(operands)
             operands.append(self._parse_and(depth))
         if len(operands) == 1:
             return operands[0]
-        self._enter(depth, self._previous())
-        return {"kind": "logical", "operator": "or", "operands": operands}
+        token = self._previous()
+        self._enter(depth, token)
+        return self._build({"kind": "logical", "operator": "or", "operands": operands}, token)
 
     def _parse_and(self, depth: int) -> dict[str, object]:
         operands = [self._parse_not(depth)]
         while self._at_keyword("and"):
             self._next()
+            self._reject_extra_operand(operands)
             operands.append(self._parse_not(depth))
         if len(operands) == 1:
             return operands[0]
-        self._enter(depth, self._previous())
-        return {"kind": "logical", "operator": "and", "operands": operands}
+        token = self._previous()
+        self._enter(depth, token)
+        return self._build({"kind": "logical", "operator": "and", "operands": operands}, token)
 
     def _parse_not(self, depth: int) -> dict[str, object]:
         token = self._peek()
         if token is not None and token.type == "keyword" and token.value == "not":
             self._next()
             self._enter(depth + 1, token)
-            return {
-                "kind": "logical",
-                "operator": "not",
-                "operand": self._parse_not(depth + 1),
-            }
+            return self._build(
+                {
+                    "kind": "logical",
+                    "operator": "not",
+                    "operand": self._parse_not(depth + 1),
+                },
+                token,
+            )
         return self._parse_comparison(depth)
 
     def _parse_comparison(self, depth: int) -> dict[str, object]:
@@ -168,13 +229,24 @@ class _Parser:
             right = self._parse_additive(depth)
             self._enter(depth + 1, token)
             self._reject_chained()
-            return {"kind": "comparison", "operator": operator, "left": left, "right": right}
+            return self._build(
+                {"kind": "comparison", "operator": operator, "left": left, "right": right}, token
+            )
         if token.type == "keyword" and token.value == "like":
             self._next()
             right = self._parse_additive(depth)
             self._enter(depth + 1, token)
             self._reject_chained()
-            return {"kind": "comparison", "operator": "like", "left": left, "right": right}
+            if right.get("kind") != "literal" or type(right.get("value")) is not str:
+                fail(
+                    "HQ_SQL_PORT_UNSUPPORTED_SYNTAX",
+                    "LIKE patterns must be string literals.",
+                    token.start,
+                    token.end,
+                )
+            return self._build(
+                {"kind": "comparison", "operator": "like", "left": left, "right": right}, token
+            )
         if token.type == "keyword" and token.value == "between":
             return self._parse_between(left, token, depth)
         if token.type == "keyword" and token.value in ("in", "not"):
@@ -239,12 +311,15 @@ class _Parser:
                     token.end,
                 )
             bounds.append(bound["value"])
-        return {
-            "kind": "comparison",
-            "operator": "between",
-            "left": left,
-            "right": {"kind": "literal", "value": _tagged("tuple", bounds)},
-        }
+        return self._build(
+            {
+                "kind": "comparison",
+                "operator": "between",
+                "left": left,
+                "right": {"kind": "literal", "value": _tagged("tuple", bounds)},
+            },
+            token,
+        )
 
     def _parse_in_list(
         self, left: dict[str, object], operator: str, token: Token, depth: int
@@ -303,12 +378,15 @@ class _Parser:
             )
         self._enter(depth + 1, token)
         self._reject_chained()
-        return {
-            "kind": "comparison",
-            "operator": operator,
-            "left": left,
-            "right": {"kind": "literal", "value": _tagged("array", values)},
-        }
+        return self._build(
+            {
+                "kind": "comparison",
+                "operator": operator,
+                "left": left,
+                "right": {"kind": "literal", "value": _tagged("array", values)},
+            },
+            token,
+        )
 
     def _parse_additive(self, depth: int) -> dict[str, object]:
         left = self._parse_multiplicative(depth)
@@ -316,12 +394,15 @@ class _Parser:
             token = self._next()
             right = self._parse_multiplicative(depth + 1)
             self._enter(depth + 1, token)
-            left = {
-                "kind": "binary",
-                "operator": _BINARY_OPERATORS[token.value],
-                "left": left,
-                "right": right,
-            }
+            left = self._build(
+                {
+                    "kind": "binary",
+                    "operator": _BINARY_OPERATORS[token.value],
+                    "left": left,
+                    "right": right,
+                },
+                token,
+            )
         return left
 
     def _parse_multiplicative(self, depth: int) -> dict[str, object]:
@@ -330,12 +411,15 @@ class _Parser:
             token = self._next()
             right = self._parse_unary(depth + 1)
             self._enter(depth + 1, token)
-            left = {
-                "kind": "binary",
-                "operator": _BINARY_OPERATORS[token.value],
-                "left": left,
-                "right": right,
-            }
+            left = self._build(
+                {
+                    "kind": "binary",
+                    "operator": _BINARY_OPERATORS[token.value],
+                    "left": left,
+                    "right": right,
+                },
+                token,
+            )
         return left
 
     def _parse_unary(self, depth: int) -> dict[str, object]:
@@ -352,6 +436,7 @@ class _Parser:
                     token.end,
                 )
             self._next()
+            self._enter(depth, operand)
             return self._numeric_literal(operand, negated=True)
         return self._parse_primary(depth)
 
@@ -438,7 +523,7 @@ class _Parser:
                 name.start,
                 close.end,
             )
-        return {"kind": "call", "function": canonical, "args": args}
+        return self._build({"kind": "call", "function": canonical, "args": args}, name)
 
     def _numeric_literal(self, token: Token, *, negated: bool) -> dict[str, object]:
         value = float(token.value) * (-1.0 if negated else 1.0)

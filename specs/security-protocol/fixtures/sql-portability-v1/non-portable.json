@@ -142,5 +142,102 @@
     "sql": "x IN (1, 2, )",
     "code": "HQ_SQL_PORT_SYNTAX",
     "start": 10
+  },
+  {
+    "id": "like-column-pattern",
+    "sql": "name LIKE pattern",
+    "code": "HQ_SQL_PORT_UNSUPPORTED_SYNTAX",
+    "start": 5
+  },
+  {
+    "id": "like-numeric-pattern",
+    "sql": "name LIKE 1",
+    "code": "HQ_SQL_PORT_UNSUPPORTED_SYNTAX",
+    "start": 5
+  },
+  {
+    "id": "additive-chain-too-deep",
+    "sqlRepeat": {
+      "prefix": "a",
+      "value": " + a",
+      "suffix": "",
+      "count": 16
+    },
+    "code": "HQ_SQL_PORT_TOO_COMPLEX",
+    "start": 62
+  },
+  {
+    "id": "multiplicative-chain-too-deep",
+    "sqlRepeat": {
+      "prefix": "a",
+      "value": " * a",
+      "suffix": "",
+      "count": 16
+    },
+    "code": "HQ_SQL_PORT_TOO_COMPLEX",
+    "start": 62
+  },
+  {
+    "id": "or-operands-over-limit",
+    "sqlRepeat": {
+      "prefix": "a",
+      "value": " OR a",
+      "suffix": "",
+      "count": 100
+    },
+    "code": "HQ_SQL_PORT_TOO_COMPLEX",
+    "start": 497
+  },
+  {
+    "id": "and-operands-over-limit",
+    "sqlRepeat": {
+      "prefix": "a = 1",
+      "value": " AND a = 1",
+      "suffix": "",
+      "count": 100
+    },
+    "code": "HQ_SQL_PORT_TOO_COMPLEX",
+    "start": 996
+  },
+  {
+    "id": "negative-in-list-over-node-limit",
+    "sqlRepeat": {
+      "prefix": "a IN (-1",
+      "value": ", -1",
+      "suffix": ")",
+      "count": 1000
+    },
+    "code": "HQ_SQL_PORT_TOO_COMPLEX",
+    "start": 4003
+  },
+  {
+    "id": "string-control-character",
+    "sql": "name = 'a\u0001b'",
+    "code": "HQ_SQL_PORT_UNSUPPORTED_LITERAL",
+    "start": 9
+  },
+  {
+    "id": "string-delete-character",
+    "sql": "name = 'a\u007fb'",
+    "code": "HQ_SQL_PORT_UNSUPPORTED_LITERAL",
+    "start": 9
+  },
+  {
+    "id": "string-c1-control-character",
+    "sql": "name = '\u0085'",
+    "code": "HQ_SQL_PORT_UNSUPPORTED_LITERAL",
+    "start": 8
+  },
+  {
+    "id": "string-lone-high-surrogate",
+    "sql": "name = '\ud800'",
+    "code": "HQ_SQL_PORT_UNSUPPORTED_LITERAL",
+    "start": 8
+  },
+  {
+    "id": "string-lone-low-surrogate",
+    "sql": "name = 'a\udc00'",
+    "code": "HQ_SQL_PORT_UNSUPPORTED_LITERAL",
+    "start": 9
   }
 ]

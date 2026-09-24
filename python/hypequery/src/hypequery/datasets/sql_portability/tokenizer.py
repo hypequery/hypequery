@@ -124,6 +124,23 @@ def _tokenize_string(sql: str, start: int) -> Token:
                 index,
                 index + 1,
             )
+        code = ord(current)
+        if (code <= 0x1F and current not in "\t\n\r") or 0x7F <= code <= 0x9F:
+            fail(
+                "HQ_SQL_PORT_UNSUPPORTED_LITERAL",
+                "String literals cannot contain control characters.",
+                index,
+                index + 1,
+            )
+        if 0xD800 <= code <= 0xDFFF:
+            # A Python str holds a surrogate pair as one astral code point, so
+            # any surrogate code point here is unpaired.
+            fail(
+                "HQ_SQL_PORT_UNSUPPORTED_LITERAL",
+                "String literals must be well-formed Unicode.",
+                index,
+                index + 1,
+            )
         value += current
         index += 1
     if not closed:

@@ -239,6 +239,30 @@ function tokenize(sql: string): Token[] {
             index + 1,
           );
         }
+        const code = current.charCodeAt(0);
+        if ((code <= 0x1f && code !== 0x09 && code !== 0x0a && code !== 0x0d)
+          || (code >= 0x7f && code <= 0x9f)) {
+          fail(
+            'HQ_SQL_PORT_UNSUPPORTED_LITERAL',
+            'String literals cannot contain control characters.',
+            index,
+            index + 1,
+          );
+        }
+        if (code >= 0xd800 && code <= 0xdfff) {
+          const low = sql.charCodeAt(index + 1);
+          if (code > 0xdbff || !(low >= 0xdc00 && low <= 0xdfff)) {
+            fail(
+              'HQ_SQL_PORT_UNSUPPORTED_LITERAL',
+              'String literals must be well-formed Unicode.',
+              index,
+              index + 1,
+            );
+          }
+          value += current + sql[index + 1]!;
+          index += 2;
+          continue;
+        }
         value += current;
         index += 1;
       }
@@ -369,10 +393,32 @@ function node(expression: ProtocolExpression): ProtocolExpression {
   return Object.freeze(expression);
 }
 
+/**
+ * RFC 0003 caps the operands of one AND/OR node at the expression validator's
+ * collection limit.
+ */
+const MAX_LOGICAL_OPERANDS = 100;
+
+function childExpressions(expression: ProtocolExpression): readonly ProtocolExpression[] {
+  switch (expression.kind) {
+    case 'binary':
+    case 'comparison':
+      return [expression.left, expression.right];
+    case 'logical':
+      return 'operands' in expression ? expression.operands : [expression.operand];
+    case 'call':
+      return expression.args;
+    default:
+      return [];
+  }
+}
+
 class Parser {
   private position = 0;
   private nodes = 0;
   private readonly dependencies = new Set<string>();
+  /** Tree levels beneath each composite node, counting it; leaves are 1. */
+  private readonly levels = new WeakMap<ProtocolExpression, number>();
 
   constructor(
     private readonly tokens: readonly Token[],
@@ -414,26 +460,57 @@ class Parser {
     }
   }
 
+  /**
+   * Freeze a composite node, rejecting it once its tree has more levels than
+   * the depth limit (RFC 0003 counts the root as depth 1). Parse depth alone
+   * undercounts left-associative chains such as `a + b + c`, whose left spine
+   * grows with every operator.
+   */
+  private build(expression: ProtocolExpression, token: Token): ProtocolExpression {
+    let levels = 1;
+    for (const child of childExpressions(expression)) {
+      levels = Math.max(levels, (this.levels.get(child) ?? 1) + 1);
+    }
+    if (levels > this.limits.maxDepth) {
+      fail('HQ_SQL_PORT_TOO_COMPLEX', 'The expression exceeds its depth limit.', token.start, token.end);
+    }
+    const frozen = node(expression);
+    this.levels.set(frozen, levels);
+    return frozen;
+  }
+
+  /** Called after consuming AND/OR, before parsing the operand it introduces. */
+  private rejectExtraOperand(operands: readonly ProtocolExpression[]): void {
+    if (operands.length >= MAX_LOGICAL_OPERANDS) {
+      const token = this.tokens[this.position - 1]!;
+      fail('HQ_SQL_PORT_TOO_COMPLEX', 'The expression exceeds its operand limit.', token.start, token.end);
+    }
+  }
+
   private parseOr(depth: number): ProtocolExpression {
     const operands = [this.parseAnd(depth)];
     while (this.peek()?.type === 'keyword' && this.peek()!.value === 'or') {
       this.next();
+      this.rejectExtraOperand(operands);
       operands.push(this.parseAnd(depth));
     }
     if (operands.length === 1) return operands[0]!;
-    this.enter(depth, this.tokens[this.position - 1]!);
-    return node({ kind: 'logical', operator: 'or', operands: Object.freeze(operands) });
+    const token = this.tokens[this.position - 1]!;
+    this.enter(depth, token);
+    return this.build({ kind: 'logical', operator: 'or', operands: Object.freeze(operands) }, token);
   }
 
   private parseAnd(depth: number): ProtocolExpression {
     const operands = [this.parseNot(depth)];
     while (this.peek()?.type === 'keyword' && this.peek()!.value === 'and') {
       this.next();
+      this.rejectExtraOperand(operands);
       operands.push(this.parseNot(depth));
     }
     if (operands.length === 1) return operands[0]!;
-    this.enter(depth, this.tokens[this.position - 1]!);
-    return node({ kind: 'logical', operator: 'and', operands: Object.freeze(operands) });
+    const token = this.tokens[this.position - 1]!;
+    this.enter(depth, token);
+    return this.build({ kind: 'logical', operator: 'and', operands: Object.freeze(operands) }, token);
   }
 
   private parseNot(depth: number): ProtocolExpression {
@@ -441,11 +518,11 @@ class Parser {
     if (token?.type === 'keyword' && token.value === 'not') {
       this.next();
       this.enter(depth + 1, token);
-      return node({
+      return this.build({
         kind: 'logical',
         operator: 'not',
         operand: this.parseNot(depth + 1),
-      });
+      }, token);
     }
     return this.parseComparison(depth);
   }
@@ -461,14 +538,22 @@ class Parser {
       const right = this.parseAdditive(depth);
       this.enter(depth + 1, token);
       this.rejectChained();
-      return node({ kind: 'comparison', operator, left, right });
+      return this.build({ kind: 'comparison', operator, left, right }, token);
     }
     if (token.type === 'keyword' && token.value === 'like') {
       this.next();
       const right = this.parseAdditive(depth);
       this.enter(depth + 1, token);
       this.rejectChained();
-      return node({ kind: 'comparison', operator: 'like', left, right });
+      if (right.kind !== 'literal' || typeof right.value !== 'string') {
+        fail(
+          'HQ_SQL_PORT_UNSUPPORTED_SYNTAX',
+          'LIKE patterns must be string literals.',
+          token.start,
+          token.end,
+        );
+      }
+      return this.build({ kind: 'comparison', operator: 'like', left, right }, token);
     }
     if (token.type === 'keyword' && token.value === 'between') {
       this.next();
@@ -486,12 +571,12 @@ class Parser {
       const upper = this.parseAdditive(depth);
       this.enter(depth + 1, token);
       this.rejectChained();
-      return node({
+      return this.build({
         kind: 'comparison',
         operator: 'between',
         left,
         right: this.tupleLiteral(lower, upper, token),
-      });
+      }, token);
     }
     if (token.type === 'keyword' && (token.value === 'in' || token.value === 'not')) {
       this.next();
@@ -611,7 +696,7 @@ class Parser {
     }
     this.enter(depth + 1, token);
     this.rejectChained();
-    return node({
+    return this.build({
       kind: 'comparison',
       operator,
       left,
@@ -625,7 +710,7 @@ class Parser {
           },
         },
       } as ProtocolExpression,
-    });
+    }, token);
   }
 
   private parseAdditive(depth: number): ProtocolExpression {
@@ -636,12 +721,12 @@ class Parser {
       this.next();
       const right = this.parseMultiplicative(depth + 1);
       this.enter(depth + 1, token);
-      left = node({
+      left = this.build({
         kind: 'binary',
         operator: BINARY_OPERATORS[token.value]!,
         left,
         right,
-      });
+      }, token);
     }
     return left;
   }
@@ -654,12 +739,12 @@ class Parser {
       this.next();
       const right = this.parseUnary(depth + 1);
       this.enter(depth + 1, token);
-      left = node({
+      left = this.build({
         kind: 'binary',
         operator: BINARY_OPERATORS[token.value]!,
         left,
         right,
-      });
+      }, token);
     }
     return left;
   }
@@ -682,6 +767,7 @@ class Parser {
         );
       }
       this.next();
+      this.enter(depth, operand);
       return this.numericLiteral(operand, true);
     }
     return this.parsePrimary(depth);
@@ -776,11 +862,11 @@ class Parser {
         close.end,
       );
     }
-    return node({
+    return this.build({
       kind: 'call',
       function: canonical,
       args: Object.freeze(args),
-    });
+    }, name);
   }
 
   private numericLiteral(token: Token, negated: boolean): ProtocolExpression {
