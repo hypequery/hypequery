@@ -267,6 +267,24 @@ describe('canonical value codec', () => {
     );
   });
 
+  it('rejects an unpaired surrogate wherever it sits in the string', () => {
+    // A trailing high surrogate is the case a negative bounds check misses:
+    // `charCodeAt` past the end is NaN, which compares false against both
+    // ends of the low-surrogate range. The decoder rejects these at parse
+    // time, so only values handed in as JavaScript strings reach the check.
+    for (const value of ['\ud800', 'a\ud800', '\ud800\ud800', '\udc00', '\udfffa']) {
+      expectProtocolError(() => validateCanonicalValue(value), 'HQ_VALUE_INVALID_UNICODE');
+      expectProtocolError(() => encodeCanonicalValue(value), 'HQ_VALUE_INVALID_UNICODE');
+      expectProtocolError(
+        () => validateCanonicalValue({
+          $hypequery: { type: 'tuple', version: 1, values: [value] },
+        }),
+        'HQ_VALUE_INVALID_UNICODE',
+      );
+    }
+    expect(() => validateCanonicalValue('😀')).not.toThrow();
+  });
+
   it('enforces input byte limits for obvious and multibyte string overflows', () => {
     expectProtocolError(
       () => decodeCanonicalValue('"aa"', { limits: { maxInputBytes: 3 } }),

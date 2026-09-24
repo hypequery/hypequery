@@ -75,8 +75,12 @@ function validateUnicode(value: string, path: string, maxBytes: number): void {
       valueError('HQ_VALUE_CONTROL_CHARACTER', path);
     }
     if (code >= 0xd800 && code <= 0xdbff) {
+      // Ask whether a low surrogate follows rather than whether the next unit
+      // falls outside the low range: past the last unit `charCodeAt` yields
+      // NaN, which compares false against both bounds, so the negative form
+      // lets a string ending in a high surrogate through.
       const low = value.charCodeAt(index + 1);
-      if (low < 0xdc00 || low > 0xdfff) {
+      if (!(low >= 0xdc00 && low <= 0xdfff)) {
         valueError('HQ_VALUE_INVALID_UNICODE', path);
       }
       index += 1;
