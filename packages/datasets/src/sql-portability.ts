@@ -324,7 +324,14 @@ function tokenize(sql: string): Token[] {
       }
       continue;
     }
-    fail('HQ_SQL_PORT_UNSUPPORTED_SYNTAX', `Unexpected character "${char}".`, start, start + 1);
+    // Report a whole code point: an astral character is two UTF-16 code units.
+    const unexpected = String.fromCodePoint(sql.codePointAt(index)!);
+    fail(
+      'HQ_SQL_PORT_UNSUPPORTED_SYNTAX',
+      `Unexpected character "${unexpected}".`,
+      start,
+      start + unexpected.length,
+    );
   }
   return tokens;
 }

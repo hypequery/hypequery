@@ -20,9 +20,12 @@ SqlPortabilityIssueCode: TypeAlias = Literal[
 class SqlPortabilityIssue:
     """One reason an expression is not portable, located in its source text.
 
-    ``start`` and ``end`` are offsets into the original string, so a caller can
-    underline the offending span. Messages describe the *shape* that was
-    rejected and never quote a literal value.
+    ``start`` and ``end`` locate the offending span in the original string as
+    zero-based UTF-16 code-unit offsets, the unit the shared fixtures pin and
+    ``@hypequery/datasets`` reports. They equal ``str`` indices unless the text
+    before them contains a character outside the Basic Multilingual Plane
+    (such as an emoji), which counts as two units. Messages describe the
+    *shape* that was rejected and never quote a literal value.
     """
 
     code: SqlPortabilityIssueCode

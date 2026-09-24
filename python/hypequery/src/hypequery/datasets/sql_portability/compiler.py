@@ -8,7 +8,7 @@ executed with engine-specific meaning.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Literal, TypeAlias
 
 from hypequery.protocol import ProtocolExpression, validate_protocol_expression
@@ -40,6 +40,28 @@ class SqlPortabilityFailure:
 SqlPortabilityResult: TypeAlias = SqlPortabilitySuccess | SqlPortabilityFailure
 
 
+def _utf16_offset(sql: str, index: int) -> int:
+    """Convert a ``str`` index into the UTF-16 code-unit offset the spec pins."""
+
+    return index + sum(1 for char in sql[:index] if ord(char) > 0xFFFF)
+
+
+def _with_utf16_offsets(sql: object, issue: SqlPortabilityIssue) -> SqlPortabilityIssue:
+    """Re-express an issue span in UTF-16 code units, as ``@hypequery/datasets`` does.
+
+    The parser works in code points; the two only differ after an astral
+    character such as an emoji, which is one code point but two code units.
+    """
+
+    if type(sql) is not str or all(ord(char) <= 0xFFFF for char in sql):
+        return issue
+    return replace(
+        issue,
+        start=_utf16_offset(sql, issue.start),
+        end=_utf16_offset(sql, issue.end),
+    )
+
+
 def compile_portable_sql_expression(
     sql: str,
     *,
@@ -65,7 +87,7 @@ def compile_portable_sql_expression(
             )
         parsed = parse_portable_sql(tokenize(sql), limits)
     except SqlPortabilityError as error:
-        return SqlPortabilityFailure(issues=(error.issue,))
+        return SqlPortabilityFailure(issues=(_with_utf16_offsets(sql, error.issue),))
     return SqlPortabilitySuccess(
         expression=validate_protocol_expression(parsed.expression),
         dependencies=parsed.dependencies,
