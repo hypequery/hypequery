@@ -8,7 +8,12 @@ from collections.abc import Iterator, Mapping
 
 from hypequery import __version__
 
-from .errors import ProtocolExpressionError, ProtocolIdentifierError, ProtocolValueError
+from .errors import (
+    ProtocolExpressionError,
+    ProtocolIdentifierError,
+    ProtocolSchemaError,
+    ProtocolValueError,
+)
 from .expression_fixtures import (
     materialize_expression_fixture,
     normalize_expression_wire_numbers,
@@ -19,6 +24,11 @@ from .identifiers import (
     parse_protocol_qualified_identifier,
     split_protocol_qualified_identifier,
 )
+from .schema_fixtures import (
+    materialize_schema_fixture,
+    normalize_schema_wire_numbers,
+)
+from .schemas import validate_protocol_schema
 from .stdio_adapter import run_stdio_adapter
 from .values import (
     decode_canonical_value,
@@ -27,7 +37,7 @@ from .values import (
     validate_canonical_value,
 )
 
-FAMILIES = ("tagged-values-v1", "identifiers-v1", "expressions-v1")
+FAMILIES = ("tagged-values-v1", "identifiers-v1", "expressions-v1", "query-schemas-v1")
 HOSTILE_OBJECT_SUITE = {
     "count": 7,
     "mechanisms": [
@@ -188,6 +198,16 @@ def _handle_expression(case: dict[str, object], section: object) -> dict[str, ob
         return {"ok": False, "code": error.code}
 
 
+def _handle_schema(case: dict[str, object]) -> dict[str, object]:
+    generator = case.get("generator")
+    value = materialize_schema_fixture(generator) if type(generator) is dict else case.get("value")
+    try:
+        validate_protocol_schema(normalize_schema_wire_numbers(value))
+        return {"ok": True}
+    except ProtocolSchemaError as error:
+        return {"ok": False, "code": error.code}
+
+
 def _handle(family: str, role: str, case: dict[str, object], section: object) -> dict[str, object]:
     if family == "tagged-values-v1":
         return _handle_tagged_value(role, case)
@@ -195,6 +215,8 @@ def _handle(family: str, role: str, case: dict[str, object], section: object) ->
         return _handle_identifier(role, case)
     if family == "expressions-v1":
         return _handle_expression(case, section)
+    if family == "query-schemas-v1":
+        return _handle_schema(case)
     raise RuntimeError(f"unsupported fixture family: {family!r}")
 
 

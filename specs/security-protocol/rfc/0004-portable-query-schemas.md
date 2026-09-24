@@ -1,7 +1,13 @@
 # RFC 0004: Portable query schemas
 
-- Status: Proposed
+- Status: Accepted
+- Accepted: 2026-09-21
 - Version: schema extension 1
+
+Acceptance freezes schema extension version 1. Changing a node's meaning, the
+closed kind vocabulary, the constraint rules, the limits, validation
+accounting, or failure-code precedence now requires a new extension version,
+not an edit.
 
 ## Summary
 
@@ -41,9 +47,32 @@ are non-negative safe integers. Integer bounds must themselves be safe
 integers.
 
 Object property names are portable simple identifiers. Required names must
-refer to declared properties and cannot repeat. Optionality is represented by
-omission from `required`, not by an `optional` wrapper node. Nullability is a
-union containing `null`.
+refer to declared properties and cannot repeat; either failure is
+`HQ_SCHEMA_INVALID_REQUIRED`. Optionality is represented by omission from
+`required`, not by an `optional` wrapper node. Nullability is a union
+containing `null`.
+
+An `object` node declares all three of `properties`, `required`, and
+`unknownProperties`; a missing one is `HQ_SCHEMA_TYPE`. `enum.values` must be
+non-empty, `union.variants` must hold at least two schemas, and a numeric node
+must not carry both the inclusive and the exclusive bound on the same side,
+reversed bounds, or a range no value can satisfy. Each of those is
+`HQ_SCHEMA_INVALID_CONSTRAINT`.
+
+### Defaults
+
+`default`, `literal.value`, and `enum.values` are canonical values. Composites
+are therefore tagged: a raw JSON array or object is not a default, and
+supplying one is `HQ_SCHEMA_INVALID_VALUE`.
+
+A declared `default` MUST be a value its own schema accepts, checked when the
+schema is validated rather than when a request arrives. A default the schema
+would reject is a contract no caller can satisfy, and it fails with
+`HQ_SCHEMA_INVALID_VALUE`.
+
+`void` declares no `default` field at all, so supplying one is an unknown
+field (`HQ_SCHEMA_UNKNOWN_FIELD`) rather than an invalid value. Precedence
+follows from the field list, not from a separate rule.
 
 ## Authoring-language lowering
 

@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from collections.abc import Iterator, Mapping
 
+from .wire_numbers import to_binary64_tree
+
 
 class _UnsafeExpressionAccessor(Mapping[str, object]):
     def __getitem__(self, key: str) -> object:
@@ -56,16 +58,6 @@ def materialize_expression_fixture(generator: dict[str, object]) -> object:
     raise RuntimeError(f"unknown expression generator: {kind!r}")
 
 
-def _binary64_tree(value: object) -> object:
-    if type(value) is int:
-        return float(value)
-    if type(value) is list:
-        return [_binary64_tree(item) for item in value]
-    if type(value) is dict:
-        return {key: _binary64_tree(item) for key, item in value.items()}
-    return value
-
-
 def normalize_expression_wire_numbers(value: object) -> object:
     """Restore binary64 semantics for JSON numbers inside literal nodes."""
 
@@ -76,7 +68,7 @@ def normalize_expression_wire_numbers(value: object) -> object:
     literal = value.get("kind") == "literal"
     return {
         key: (
-            _binary64_tree(item)
+            to_binary64_tree(item)
             if literal and key == "value"
             else normalize_expression_wire_numbers(item)
         )

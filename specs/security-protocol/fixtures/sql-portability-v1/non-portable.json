@@ -144,6 +144,30 @@
     "start": 10
   },
   {
+    "id": "astral-offset-after-string-literal",
+    "sql": "name = '\ud83d\ude00' AND ;",
+    "code": "HQ_SQL_PORT_UNSUPPORTED_SYNTAX",
+    "start": 16
+  },
+  {
+    "id": "astral-offset-unterminated-string",
+    "sql": "'\ud83d\ude00' = 'x",
+    "code": "HQ_SQL_PORT_SYNTAX",
+    "start": 7
+  },
+  {
+    "id": "astral-unexpected-character",
+    "sql": "a + \ud83d\ude00",
+    "code": "HQ_SQL_PORT_UNSUPPORTED_SYNTAX",
+    "start": 4
+  },
+  {
+    "id": "astral-offset-unsupported-function",
+    "sql": "coalesce(name, '\ud83d\ude00\ud83d\ude00') = lower(name)",
+    "code": "HQ_SQL_PORT_UNSUPPORTED_FUNCTION",
+    "start": 25
+  },
+  {
     "id": "like-column-pattern",
     "sql": "name LIKE pattern",
     "code": "HQ_SQL_PORT_UNSUPPORTED_SYNTAX",

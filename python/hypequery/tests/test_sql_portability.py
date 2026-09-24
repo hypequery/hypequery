@@ -220,3 +220,19 @@ def test_operand_and_string_limits_admit_their_boundaries() -> None:
     assert compile_portable_sql_expression(" OR ".join(["a"] * 100)).portable
     assert compile_portable_sql_expression("name = 'tab\there'").portable
     assert compile_portable_sql_expression("name = '\U0001f600'").portable
+
+
+def test_issue_offsets_count_utf16_code_units() -> None:
+    """An emoji is one ``str`` character but two UTF-16 units, as in TypeScript."""
+
+    sql = "name = '\U0001f600' AND ;"
+    result = compile_portable_sql_expression(sql)
+
+    assert not result.portable
+    issue = result.issues[0]
+    assert (issue.start, issue.end) == (sql.index(";") + 1, sql.index(";") + 2)
+
+    unexpected = compile_portable_sql_expression("a + \U0001f600")
+    assert not unexpected.portable
+    assert (unexpected.issues[0].start, unexpected.issues[0].end) == (4, 6)
+    assert unexpected.issues[0].message == 'Unexpected character "\U0001f600".'
