@@ -86,6 +86,31 @@ Validation accepts strict plain data only. It never invokes mapping hooks,
 serializers, callbacks, or arbitrary functions, and raw SQL is not an
 expression node.
 
+## SQL portability
+
+SQL-backed dimensions and measures are portable only when their expression
+fits the RFC 0003 subset. `compile_portable_sql_expression()` parses that
+subset into the validated AST and reports everything else as a located
+incompatibility, so a non-portable definition is surfaced rather than executed
+with engine-specific meaning:
+
+```python
+from hypequery.datasets import compile_portable_sql_expression
+
+result = compile_portable_sql_expression("revenue / nullIfZero(orders)")
+if result.portable:
+    expression, dependencies = result.expression, result.dependencies
+else:
+    issue = result.issues[0]  # code, message, and a start/end source span
+```
+
+The subset covers identifiers, literals, arithmetic, comparisons, literal `IN`
+lists, literal `BETWEEN`, `LIKE`, boolean logic, parentheses, and the approved
+formula functions. Statements, subqueries, casts, lambdas, comments, and
+unapproved functions are non-portable by construction. Issue codes and source
+offsets match `@hypequery/datasets` case for case, enforced by the shared
+`sql-portability-v1` fixtures.
+
 ## Dataset definitions
 
 Definitions use strict, frozen Pydantic models. Helper spellings are Pythonic,
@@ -166,8 +191,10 @@ From the repository root, run the Python shared-fixture gate with:
 pnpm conformance:python
 ```
 
-This command asserts the adapter's exact expected family list before running
-the cases. `pnpm conformance` runs this Python gate together with the
-TypeScript reference and SQL-portability adapters.
+This runs both Python adapters — `hypequery.protocol.adapter` for the
+protocol families and `hypequery.datasets.adapter` for `sql-portability-v1` —
+and asserts each one's exact expected family list before running its cases.
+`pnpm conformance` runs this Python gate together with the TypeScript
+reference and SQL-portability adapters.
 
 See the [implementation plan](../../plans/python-datasets-serve-pr-level-plan.md) and [security protocol](../../specs/security-protocol/README.md).
