@@ -18,20 +18,6 @@ export { startServer, toNodeHandler, toFetchHandler } from "./adapters/standalon
 export type { DevIntegrationApi, ServeDevOptions } from "./dev.js";
 export { createCacheObservability, detectBuilderCache } from "./cache-observability.js";
 export type { CacheObservability, CacheLayerStats, BuilderCacheLike } from "./cache-observability.js";
-export { buildProtocolDeploymentContract } from './protocol-adapter.js';
-export type { BuildProtocolDeploymentOptions } from './protocol-adapter.js';
-export {
-  analyzeCloudCompatibility,
-  analyzeLocalOnlyDeclarations,
-  formatCloudCompatibilityDiagnostics,
-} from './cloud-compatibility.js';
-export type {
-  CloudCompatibilityCode,
-  CloudCompatibilityDiagnostic,
-  CloudCompatibilityOptions,
-  CloudCompatibilitySeverity,
-  CloudCompatibilitySurface,
-} from './cloud-compatibility.js';
 /**
  * Re-exported from `@hypequery/datasets`, where it now lives beside the schema
  * builders it converts. Kept here because it is a shipped export of this

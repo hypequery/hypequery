@@ -7,7 +7,7 @@ import type { DatasetCatalogSource, DatasetClient } from '@hypequery/datasets';
  *
  * Attached under a registered symbol rather than a public property: it is a
  * build/tooling seam, not part of the API surface an application calls. The
- * same approach as `attachDeploymentBuildSource`.
+ * This keeps the local MCP source out of the public API surface.
  */
 const mcpSourceSymbol = Symbol.for('hypequery.mcp-source.v1');
 

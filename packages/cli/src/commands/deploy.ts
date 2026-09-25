@@ -42,7 +42,6 @@ export interface DeployOptions {
   bundleOutput?: string;
   releaseOutput?: string;
   source?: boolean;
-  allowUnsupportedConfig?: boolean;
 }
 
 export interface SubmitDeploymentDependencies {
@@ -197,7 +196,7 @@ export async function submitDeploymentCommand(
 }
 
 /**
- * `deploy` takes an API module, but the deprecated form took a bundle
+ * `deploy` takes a Cloud publication module, but the deprecated form took a bundle
  * directory. Dropping `--release` from an existing script would otherwise hand
  * a bundle to the module loader and fail inside esbuild.
  */
@@ -209,8 +208,8 @@ async function rejectBundleDirectorySource(sourcePath: string): Promise<void> {
   }
   throw new Error(
     `Cannot deploy a prebuilt bundle directory: ${sourcePath}\n\n`
-    + '`hypequery deploy` takes the API module to build, for example '
-    + '`hypequery deploy analytics/api.ts`.\n'
+    + '`hypequery deploy` takes a Cloud publication module, for example '
+    + '`hypequery deploy analytics/cloud.ts`.\n'
     + 'To upload this bundle, use `hypequery deployment:submit '
     + `${sourcePath} --release <file>\`.`,
   );
@@ -223,8 +222,8 @@ export async function deployCommand(
 ): Promise<DeploymentSubmissionResponse> {
   if (!sourcePath) {
     throw new Error(
-      'Missing API module path.\n\n'
-      + 'Usage: hypequery deploy analytics/api.ts',
+      'Missing Cloud publication module path.\n\n'
+      + 'Usage: hypequery deploy analytics/cloud.ts',
     );
   }
 
@@ -245,7 +244,6 @@ export async function deployCommand(
   await build(sourcePath, {
     bundleOutput: bundlePath,
     source: options.source,
-    allowUnsupportedConfig: options.allowUnsupportedConfig,
   });
   await prepareRelease(bundlePath, {
     project: options.project,

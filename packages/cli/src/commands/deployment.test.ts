@@ -4,13 +4,13 @@ import {
   prepareProtocolDeploymentReleaseEnvelope,
 } from '@hypequery/protocol';
 
-const mockLoadApiModule = vi.hoisted(() => vi.fn());
+const mockLoadCloudPublication = vi.hoisted(() => vi.fn());
 const mockWriteDeploymentBundle = vi.hoisted(() => vi.fn());
 const mockVerifyDeploymentBundle = vi.hoisted(() => vi.fn());
 const mockCaptureDeploymentSourceSnapshot = vi.hoisted(() => vi.fn());
 
-vi.mock('../utils/load-api.js', () => ({
-  loadApiModule: mockLoadApiModule,
+vi.mock('../utils/load-cloud-publication.js', () => ({
+  loadCloudPublication: mockLoadCloudPublication,
 }));
 
 vi.mock('../utils/deployment-bundle.js', () => ({
@@ -44,7 +44,6 @@ vi.mock('node:fs/promises', async () => {
   };
 });
 
-import { logger } from '../utils/logger.js';
 import { lstat, mkdir, readFile, realpath, stat, writeFile } from 'node:fs/promises';
 import {
   buildDeploymentCommand,
@@ -59,10 +58,10 @@ const contract = {
   datasets: [],
 };
 const sourceSnapshot = {
-  entrypoint: 'analytics/api.ts',
+  entrypoint: 'analytics/cloud.ts',
   files: [{
-    path: 'analytics/api.ts',
-    bytes: new TextEncoder().encode('export const api = {};\n'),
+    path: 'analytics/cloud.ts',
+    bytes: new TextEncoder().encode('export const cloud = {};\n'),
   }],
 };
 
@@ -92,60 +91,10 @@ describe('deployment commands', () => {
   });
 
 
-  it.each([false, true])('reports overridden configuration errors only with override=%s', async allowUnsupportedConfig => {
-    const diagnostic = {
-      severity: 'error' as const,
-      code: 'HQ_CLOUD_UNSUPPORTED_CONFIG',
-      subject: 'middleware',
-      message: 'Managed execution cannot run this middleware.',
-      remedy: 'Move the policy into the supported execution context.',
-    };
-    mockLoadApiModule.mockResolvedValue({
-      deploymentContract(options: { onCloudDiagnostic: (value: typeof diagnostic) => void }) {
-        options.onCloudDiagnostic(diagnostic);
-        if (!allowUnsupportedConfig) throw new Error('Unsupported configuration');
-        return contract;
-      },
-    });
-    const build = buildDeploymentCommand('analytics/api.ts', { allowUnsupportedConfig });
-    if (allowUnsupportedConfig) {
-      await build;
-      expect(logger.warn).toHaveBeenCalledWith('HQ_CLOUD_UNSUPPORTED_CONFIG (middleware)');
-      expect(logger.indent).toHaveBeenCalledWith(diagnostic.message);
-      expect(logger.indent).toHaveBeenCalledWith(`→ ${diagnostic.remedy}`);
-    } else {
-      await expect(build).rejects.toThrow('Unsupported configuration');
-      expect(logger.warn).not.toHaveBeenCalled();
-      expect(writeFile).not.toHaveBeenCalled();
-    }
-  });
-
-  it('reports local-only declarations before the upload succeeds', async () => {
-    const diagnostic = {
-      severity: 'warning' as const,
-      code: 'HQ_CLOUD_LOCAL_ONLY_QUERY',
-      subject: 'queries.greeting',
-      message: 'Named query "greeting" is not carried by a Cloud deployment.',
-      remedy: 'Express it as a dataset query.',
-    };
-    mockLoadApiModule.mockResolvedValue({
-      deploymentContract(options: { onCloudDiagnostic: (value: typeof diagnostic) => void }) {
-        options.onCloudDiagnostic(diagnostic);
-        return contract;
-      },
-    });
-
-    await buildDeploymentCommand('analytics/api.ts');
-
-    expect(logger.warn).toHaveBeenCalledWith('HQ_CLOUD_LOCAL_ONLY_QUERY (queries.greeting)');
-    expect(logger.indent).toHaveBeenCalledWith(diagnostic.message);
-  });
-
   it('writes a deployment bundle with no runtime artifacts by default', async () => {
-    const deploymentContract = vi.fn(() => contract);
-    mockLoadApiModule.mockResolvedValue({ deploymentContract });
+    mockLoadCloudPublication.mockResolvedValue(contract);
 
-    await buildDeploymentCommand('analytics/api.ts');
+    await buildDeploymentCommand('analytics/cloud.ts');
 
     expect(mockWriteDeploymentBundle).toHaveBeenCalledWith(
       'analytics/hypequery-deployment',
@@ -156,9 +105,9 @@ describe('deployment commands', () => {
   });
 
   it('can explicitly omit project source from a bundle', async () => {
-    mockLoadApiModule.mockResolvedValue({ deploymentContract: vi.fn(() => contract) });
+    mockLoadCloudPublication.mockResolvedValue(contract);
 
-    await buildDeploymentCommand('analytics/api.ts', { source: false });
+    await buildDeploymentCommand('analytics/cloud.ts', { source: false });
 
     expect(mockCaptureDeploymentSourceSnapshot).not.toHaveBeenCalled();
     expect(mockWriteDeploymentBundle).toHaveBeenCalledWith(
@@ -169,11 +118,9 @@ describe('deployment commands', () => {
   });
 
 
-  it('requires an API with deployment contract support', async () => {
-    mockLoadApiModule.mockResolvedValue({ handler: vi.fn() });
-    await expect(buildDeploymentCommand('analytics/api.ts')).rejects.toThrow(
-      /must provide deploymentContract\(\)/,
-    );
+  it('rejects non-dataset Cloud contracts', async () => {
+    mockLoadCloudPublication.mockResolvedValue({ ...contract, queries: [{ name: 'legacy' }] });
+    await expect(buildDeploymentCommand('analytics/cloud.ts')).rejects.toThrow('datasets only');
   });
 
   it('validates an artifact and returns its immutable contract', async () => {

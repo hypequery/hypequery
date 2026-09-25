@@ -95,7 +95,7 @@ describe('deploy command', () => {
     mockVerifyDeploymentBundle.mockResolvedValue(bundle);
   });
 
-  it('builds, prepares, and submits an API module with one command', async () => {
+  it('builds, prepares, and submits a Cloud publication module with one command', async () => {
     const loadCredential = vi.fn(async () => storedCredential());
     const buildDeployment: NonNullable<DeployDependencies['buildDeployment']> =
       vi.fn(async () => bundle.contract);
@@ -116,7 +116,7 @@ describe('deploy command', () => {
         bundleIdentity: BUNDLE_IDENTITY,
       }));
 
-    const result = await deployCommand('analytics/api.ts', {}, {
+    const result = await deployCommand('analytics/cloud.ts', {}, {
       env: {},
       loadCredential,
       buildDeployment,
@@ -124,7 +124,7 @@ describe('deploy command', () => {
       submitDeployment,
     });
 
-    expect(buildDeployment).toHaveBeenCalledWith('analytics/api.ts', {
+    expect(buildDeployment).toHaveBeenCalledWith('analytics/cloud.ts', {
       bundleOutput: 'analytics/hypequery-deployment',
       source: undefined,
     });
@@ -246,7 +246,7 @@ describe('deploy command', () => {
       vi.fn(async () => bundle.contract);
     const loadCredential = vi.fn(async () => null);
 
-    await expect(deployCommand('analytics/api.ts', {}, {
+    await expect(deployCommand('analytics/cloud.ts', {}, {
       env: {},
       loadCredential,
       buildDeployment,
@@ -260,7 +260,7 @@ describe('deploy command', () => {
     const buildDeployment: NonNullable<DeployDependencies['buildDeployment']> =
       vi.fn(async () => bundle.contract);
 
-    await expect(deployCommand('analytics/api.ts', {}, {
+    await expect(deployCommand('analytics/cloud.ts', {}, {
       env: {},
       loadCredential: async () => ({
         ...storedCredential(),
@@ -277,26 +277,26 @@ describe('deploy command', () => {
       NonNullable<DeployDependencies['prepareDeploymentRelease']> = vi.fn();
     const submitDeployment: NonNullable<DeployDependencies['submitDeployment']> = vi.fn();
 
-    await expect(deployCommand('analytics/api.ts', {}, {
+    await expect(deployCommand('analytics/cloud.ts', {}, {
       env: CI_ENVIRONMENT,
       buildDeployment: vi.fn(async () => {
-        throw new Error('Invalid API module: analytics/api.ts');
+        throw new Error('Invalid Cloud publication: analytics/cloud.ts');
       }),
       prepareDeploymentRelease,
       submitDeployment,
-    })).rejects.toThrow(/Invalid API module/);
+    })).rejects.toThrow(/Invalid Cloud publication/);
 
     expect(prepareDeploymentRelease).not.toHaveBeenCalled();
     expect(submitDeployment).not.toHaveBeenCalled();
   });
 
   it('surfaces build failures without rewriting them', async () => {
-    await expect(deployCommand('analytics/api.ts', {}, {
+    await expect(deployCommand('analytics/cloud.ts', {}, {
       env: CI_ENVIRONMENT,
       buildDeployment: vi.fn(async () => {
-        throw new Error('The exported API must provide deploymentContract().');
+        throw new Error('Cloud publication modules may publish datasets only.');
       }),
-    })).rejects.toThrow(/must provide deploymentContract/);
+    })).rejects.toThrow(/datasets only/);
   });
 
   it('rejects a prebuilt bundle directory as the deploy source', async () => {

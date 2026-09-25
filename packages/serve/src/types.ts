@@ -1,8 +1,6 @@
 import type { ZodType, ZodTypeAny } from "zod";
 import type { ServeQueryLogger, ServeQueryEventCallback } from "./query-logger.js";
 import type { CacheObservability } from "./cache-observability.js";
-import type { ProtocolDeploymentContract } from "@hypequery/protocol";
-import type { BuildProtocolDeploymentOptions } from "./protocol-adapter.js";
 import type {
   DatasetInstance,
   DatasetQueryableDimensions,
@@ -1057,12 +1055,6 @@ export interface HypeQueryAPI<
    * route (method + full path). Safe to JSON-serialize and ship to the client.
    */
   manifest(): RouteManifest;
-  /**
-   * Build the deployment contract Cloud carries. Named queries
-   * and standalone metrics stay local; they are reported through
-   * `onCloudDiagnostic` rather than carried.
-   */
-  deploymentContract(options?: BuildProtocolDeploymentOptions): ProtocolDeploymentContract;
   route<Path extends string, TKey extends keyof TQueries>(
     path: Path,
     endpoint: TQueries[TKey],
@@ -1149,12 +1141,6 @@ export interface ServeBuilder<
    * route (method + full path). Safe to JSON-serialize and ship to the client.
    */
   manifest(): RouteManifest;
-  /**
-   * Build the deployment contract Cloud carries. Named queries
-   * and standalone metrics stay local; they are reported through
-   * `onCloudDiagnostic` rather than carried.
-   */
-  deploymentContract(options?: BuildProtocolDeploymentOptions): ProtocolDeploymentContract;
   route<Path extends string, TKey extends keyof TQueries>(
     path: Path,
     endpoint: TQueries[TKey],

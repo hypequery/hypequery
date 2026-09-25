@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { generateClientTemplate } from './client.js';
 import { generateQueriesTemplate } from './queries.js';
 import { generateApiTemplate } from './api.js';
+import { generateCloudTemplate } from './cloud.js';
 import { generateDatasetsPlaceholderTemplate } from './datasets.js';
 import type { AuthTemplateMode } from './auth-scaffold.js';
 
@@ -199,6 +200,10 @@ export type InferApiType<T> = T;
   metric(name: string, config: unknown): unknown;
 };
 export declare function dataset(name: string, config: unknown): DatasetDefinition;
+export declare function publishToCloud(options: {
+  datasets: Record<string, DatasetDefinition>;
+  access: { roles: string[]; scopes: string[] };
+}): unknown;
 export declare const dimension: {
   string(config?: unknown): unknown;
   timestamp(config?: unknown): unknown;
@@ -213,6 +218,7 @@ export declare const measure: {
     await writeFile(path.join(analyticsDir, 'client.ts'), generateClientTemplate());
     await writeFile(path.join(analyticsDir, 'datasets.ts'), generateDatasetsPlaceholderTemplate({ auth }));
     await writeFile(path.join(analyticsDir, 'api.ts'), generateApiTemplate({ auth }));
+    await writeFile(path.join(analyticsDir, 'cloud.ts'), generateCloudTemplate());
 
     const result = await runTypeCheck(projectDir);
     expect(result.code, result.stderr).toBe(0);

@@ -210,16 +210,12 @@ program
   }));
 
 program
-  .command('deployment:build <api>')
-  .description('Build a verified deployment bundle')
+  .command('deployment:build <cloud>')
+  .description('Build a verified dataset-only Cloud deployment bundle')
   .option('--bundle-output <directory>', 'Bundle directory (default: analytics/hypequery-deployment)')
   .option('--no-source', 'Exclude project source files from the deployment bundle')
-  .option(
-    '--allow-unsupported-config',
-    'Deploy even though some Serve config will not be honoured in Cloud',
-  )
-  .action(runCommand(async (api: string, options: BuildDeploymentOptions) => {
-    await buildDeploymentCommand(api, options);
+  .action(runCommand(async (cloud: string, options: BuildDeploymentOptions) => {
+    await buildDeploymentCommand(cloud, options);
   }));
 
 program
@@ -257,7 +253,7 @@ program
 
 program
   .command('deploy <source>')
-  .description('Build, prepare, and deploy a Hypequery API module')
+  .description('Build, prepare, and deploy a dataset-only Cloud publication')
   .option('--bundle-output <directory>', 'Bundle directory (default: analytics/hypequery-deployment)')
   .option('--release-output <path>', 'Release JSON path (default: beside the bundle)')
   .option('--project <project>', 'Target project identifier (advanced override)')
@@ -270,10 +266,6 @@ program
   .option(
     '--replace-restored',
     'Intentionally replace a restored live release',
-  )
-  .option(
-    '--allow-unsupported-config',
-    'Deploy even though some Serve config will not be honoured in Cloud',
   )
   .action(runCommand(async (source: string, options: DeployOptions) => {
     await deployCommand(source, options);
@@ -310,9 +302,9 @@ program.on('--help', () => {
   console.log('  hypequery generate:types --output analytics/schema.ts');
   console.log('  hypequery generate:datasets');
   console.log('  hypequery generate:manifest analytics/api.ts --output analytics/hypequery-manifest.json');
-  console.log('  hypequery deploy analytics/api.ts');
-  console.log('  hypequery deploy analytics/api.ts --project my-project --environment production');
-  console.log('  hypequery deployment:build analytics/api.ts');
+  console.log('  hypequery deploy analytics/cloud.ts');
+  console.log('  hypequery deploy analytics/cloud.ts --project my-project --environment production');
+  console.log('  hypequery deployment:build analytics/cloud.ts');
   console.log('  hypequery deployment:validate analytics/hypequery-deployment');
   console.log('  hypequery deployment:release analytics/hypequery-deployment --project my-project --environment production');
   console.log('  hypequery deployment:submit analytics/hypequery-deployment --release analytics/hypequery-deployment.release.json');
