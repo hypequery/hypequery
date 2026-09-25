@@ -43,6 +43,36 @@ jobs:
       - run: uv run python scripts/check_sql_interpolation.py
       - run: uv run pytest
 
+  clickhouse-integration:
+    name: clickhouse integration
+    runs-on: ubuntu-latest
+    services:
+      clickhouse:
+        image: clickhouse/clickhouse-server:25.8
+        ports:
+          - 8123:8123
+        env:
+          CLICKHOUSE_USER: default
+          CLICKHOUSE_PASSWORD: hypequery_test
+          CLICKHOUSE_DB: test_db
+          CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: 1
+        options: >-
+          --health-cmd "wget --no-verbose --tries=1 --spider http://localhost:8123/ping || exit 1"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: python/hypequery/uv.lock
+      - run: uv sync --all-extras --dev
+      - run: uv run pytest tests/test_clickhouse_live.py
+        env:
+          HYPEQUERY_TEST_CLICKHOUSE_HOST: localhost
+          HYPEQUERY_TEST_CLICKHOUSE_PASSWORD: hypequery_test
+
   minimal-install:
     # The framework-free promise is only meaningful when tested WITHOUT the
     # extras installed. This job is what proves `pip install hypequery` does

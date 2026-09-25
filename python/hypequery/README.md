@@ -11,6 +11,7 @@ A Python semantic layer for ClickHouse datasets, metrics, multi-tenant analytics
 ```bash
 pip install hypequery
 pip install "hypequery[clickhouse]"
+pip install "hypequery[clickhouse-async]"
 pip install "hypequery[fastapi]"
 ```
 
@@ -18,9 +19,30 @@ The SDK is organised as:
 
 - `hypequery.protocol` for the language-neutral artifact contracts;
 - `hypequery.datasets` for dimensions, measures, metrics, and relationships;
+- `hypequery.execution` for sync and async ClickHouse execution;
 - `hypequery.serve` for a strict FastAPI router.
 
 Python and TypeScript implement the same specifications and run against the same conformance fixtures. The goal is identical semantic and deployment artifacts across both languages, not a line-for-line port of the TypeScript runtime.
+
+## ClickHouse execution
+
+The execution extra accepts `CompiledQuery` objects emitted by the planner.
+Values travel through ClickHouse's named server parameters; the SQL statement
+retains its typed placeholders. The result codec returns a `QueryRows` object
+with stable column order and strict scalar values. Decimal values are strings
+so callers do not lose precision.
+
+```python
+from hypequery.execution import ClickHouseConnection, create_clickhouse_executor
+
+executor = create_clickhouse_executor(ClickHouseConnection(host="localhost", database="analytics"))
+rows = executor.execute(compiled_query).named_rows()
+```
+
+For async code, install `hypequery[clickhouse-async]` and await
+`create_async_clickhouse_executor(connection)` and `executor.execute(compiled_query)`.
+Driver errors are mapped to the canonical safe error categories. Live parameter
+tests run in CI against ClickHouse; local execution needs a ClickHouse service.
 
 ## Canonical protocol values
 
