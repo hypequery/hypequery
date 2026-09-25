@@ -34,6 +34,7 @@ import { generateEnvTemplate, appendToEnv } from '../templates/env.js';
 import { generateClientTemplate } from '../templates/client.js';
 import { generateQueriesTemplate, type AuthTemplateMode } from '../templates/queries.js';
 import { generateApiTemplate } from '../templates/api.js';
+import { generateCloudTemplate } from '../templates/cloud.js';
 import { CONTEXT_AUTH_TENANT_COLUMN } from '../templates/auth-scaffold.js';
 import { generateDatasetsPlaceholderTemplate } from '../templates/datasets.js';
 import { appendToGitignore } from '../templates/gitignore.js';
@@ -326,6 +327,7 @@ export async function initCommand(options: InitOptions = {}) {
       ? [
           path.join(resolvedOutputDir, 'datasets.ts'),
           path.join(resolvedOutputDir, 'api.ts'),
+          path.join(resolvedOutputDir, 'cloud.ts'),
         ]
       : [
           path.join(resolvedOutputDir, 'queries.ts'),
@@ -545,6 +547,9 @@ export interface IntrospectedSchema {
     apiPath = path.join(resolvedOutputDir, 'api.ts');
     await writeFile(apiPath, generateApiTemplate({ auth }));
     logger.success(`Created API file (${path.relative(process.cwd(), apiPath)})`);
+    const cloudPath = path.join(resolvedOutputDir, 'cloud.ts');
+    await writeFile(cloudPath, generateCloudTemplate());
+    logger.success(`Created Cloud publication (${path.relative(process.cwd(), cloudPath)})`);
   } else {
     apiPath = path.join(resolvedOutputDir, 'queries.ts');
     await writeFile(

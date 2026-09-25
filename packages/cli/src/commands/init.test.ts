@@ -507,6 +507,10 @@ describe('init command - graceful failure handling', () => {
         expect.stringContaining('custom/api.ts'),
         expect.stringContaining('createAPI'),
       );
+      expect(writeFile).toHaveBeenCalledWith(
+        expect.stringContaining('custom/cloud.ts'),
+        expect.stringContaining('publishToCloud'),
+      );
       expect(writeFile).not.toHaveBeenCalledWith(
         expect.stringContaining('custom/queries.ts'),
         expect.any(String),

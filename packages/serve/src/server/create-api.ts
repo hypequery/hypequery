@@ -32,7 +32,6 @@ import {
 } from "../semantic/datasets/index.js";
 import { attachServeMcpSource } from "./mcp-source.js";
 import { attachSemanticQueryBuilder, extractQueryBuilderFromContext } from "../semantic/query-builder-context.js";
-import { buildProtocolDeploymentContract } from "../protocol-adapter.js";
 
 const assertSemanticKeyAvailable = (
   queryEntries: Record<string, unknown>,
@@ -337,7 +336,6 @@ export const createAPI = <
     handler,
     basePath,
     cacheObservability,
-    options => buildProtocolDeploymentContract(config, options),
   ) as HypeQueryAPI<
     ServeEndpointMap<TQueries, TContext, TAuth>
       & ServeSemanticEndpointMap<TMetrics, TDatasets, TContext, TAuth>,

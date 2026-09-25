@@ -10,6 +10,7 @@ import {
   eq,
   measure,
   publishDatasets,
+  publishToCloud,
   rehydrateProtocolDeploymentContract,
 } from './index.js';
 import type {
@@ -146,6 +147,14 @@ const _publishedDatasets = publishDatasets()
     metrics: { customers: customerCountMetric },
   })
   .build();
+
+const _cloudPublication = publishToCloud({
+  datasets: { Orders, Customers },
+  access: { roles: [], scopes: [] },
+});
+type _CloudPublicationHasDatasets = Assert<
+  Equal<typeof _cloudPublication['kind'], 'hypequery-deployment'>
+>;
 
 type _PublishedDatasetAliasesAreLiteral = Assert<
   Equal<keyof typeof _publishedDatasets, 'orders' | 'accounts'>

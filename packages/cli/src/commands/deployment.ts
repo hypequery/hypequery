@@ -11,9 +11,8 @@ import {
   verifyDeploymentBundle,
 } from '../utils/deployment-bundle.js';
 import { captureDeploymentSourceSnapshot } from '../utils/deployment-source-snapshot.js';
-import { loadApiModule } from '../utils/load-api.js';
+import { loadCloudPublication } from '../utils/load-cloud-publication.js';
 import { logger } from '../utils/logger.js';
-import { reportCloudDiagnostic, type CloudCompatibilityDiagnosticLike } from '../utils/cloud-diagnostic.js';
 import {
   loadCloudCredential,
   type StoredCloudCredential,
@@ -22,7 +21,6 @@ import {
 export interface BuildDeploymentOptions {
   bundleOutput?: string;
   source?: boolean;
-  allowUnsupportedConfig?: boolean;
 }
 
 export interface PrepareDeploymentReleaseOptions {
@@ -42,43 +40,28 @@ export interface PrepareDeploymentReleaseDependencies {
 
 const DEFAULT_BUNDLE_OUTPUT = 'analytics/hypequery-deployment';
 
-interface DeploymentContractSource {
-  deploymentContract(options?: {
-    onCloudDiagnostic?: (diagnostic: CloudCompatibilityDiagnosticLike) => void;
-    allowUnsupportedConfig?: boolean;
-  }): ProtocolDeploymentContract;
-}
-
-
 export async function buildDeploymentCommand(
-  apiPath: string | undefined,
+  sourcePath: string | undefined,
   options: BuildDeploymentOptions = {},
 ): Promise<ProtocolDeploymentContract> {
-  if (!apiPath) {
+  if (!sourcePath) {
     throw new Error(
-      'Missing API module path.\n\n'
-      + 'Usage: hypequery deployment:build analytics/api.ts',
+      'Missing Cloud publication module path.\n\n'
+      + 'Usage: hypequery deployment:build analytics/cloud.ts',
     );
   }
 
   const bundleOutput = options.bundleOutput ?? DEFAULT_BUNDLE_OUTPUT;
-  const api = await loadApiModule(apiPath) as DeploymentContractSource;
-  if (typeof api.deploymentContract !== 'function') {
-    throw new Error(
-      `Invalid API module: ${apiPath}\n\n`
-      + 'The exported API must provide deploymentContract(). '
-      + 'Upgrade @hypequery/serve and export the value returned by createAPI() or serve().',
-    );
+  const contract = await loadCloudPublication(sourcePath);
+  const candidate = contract as unknown as { queries?: unknown[]; artifacts?: unknown[] };
+  if ((Array.isArray(candidate.queries) && candidate.queries.length > 0)
+    || (Array.isArray(candidate.artifacts) && candidate.artifacts.length > 0)) {
+    throw new Error('Cloud publication modules may publish datasets only.');
   }
-
-  const contract = api.deploymentContract({
-    ...(options.allowUnsupportedConfig ? { allowUnsupportedConfig: true } : {}),
-    onCloudDiagnostic: diagnostic => reportCloudDiagnostic(diagnostic, options.allowUnsupportedConfig === true),
-  });
   const prepared = prepareProtocolDeploymentContract(contract);
   const sourceSnapshot = options.source === false
     ? undefined
-    : await captureDeploymentSourceSnapshot(apiPath);
+    : await captureDeploymentSourceSnapshot(sourcePath);
   const bundle = await writeDeploymentBundle(bundleOutput, prepared, sourceSnapshot);
   logger.success(`Deployment bundle written to ${bundle.directory}`);
   if (bundle.manifest.source) {
