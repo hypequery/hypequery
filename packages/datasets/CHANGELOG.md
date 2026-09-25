@@ -1,5 +1,34 @@
 # @hypequery/datasets
 
+## 0.18.0
+
+### Minor Changes
+
+- cf9e556: Add `publishToCloud({ datasets, access })` to declare a validated, dataset-only Cloud
+  deployment without a Serve API. Dataset init now creates `analytics/cloud.ts`.
+  Named metrics are rejected until Cloud supports their publication explicitly.
+  An authenticated access policy is required, with optional per-dataset overrides,
+  so a migration cannot silently discard Serve role and scope requirements.
+
+  The CLI `deploy` and `deployment:build` commands now consume that explicit
+  Cloud publication. They no longer compile a Serve API module or bundle Serve
+  runtime handlers. The unused Serve-to-Cloud contract compiler and its
+  compatibility diagnostics are removed. Local Serve and MCP development remain.
+  Existing prebuilt bundles can still be verified and submitted with
+  `deployment:validate` and `deployment:submit`.
+
+### Patch Changes
+
+- bcedb68: `compilePortableSqlExpression` now reports every non-portable input as an issue instead of throwing `ProtocolExpressionError`. The inputs that previously threw were LIKE patterns that aren't string literals, arithmetic chains deeper than 16 levels, AND/OR chains with more than 100 operands, IN lists of negative numbers past the node limit, and string literals with control characters or unpaired surrogates.
+- 343377b: An "Unexpected character" issue for an emoji or other astral character now names the whole character and spans both of its UTF-16 code units. Previously it quoted half a surrogate pair.
+- Updated dependencies [827d32c]
+- Updated dependencies [8dcaf88]
+- Updated dependencies [9c5275b]
+- Updated dependencies [384b808]
+- Updated dependencies [83d601f]
+- Updated dependencies [39ef77a]
+  - @hypequery/protocol@0.15.0
+
 ## 0.17.1
 
 ### Patch Changes

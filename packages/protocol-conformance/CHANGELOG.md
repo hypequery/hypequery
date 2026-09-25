@@ -1,5 +1,127 @@
 # @hypequery/protocol-conformance
 
+## 0.12.0
+
+### Minor Changes
+
+- 827d32c: Accept RFC 0007 and RFC 0008, freezing deployment bundle manifest version 1
+  and deployment release version 1.
+
+  Both accepted texts record rules the implementations already enforce and the
+  Proposed texts left implicit. For bundles: the `node`/`python` runtime set, a
+  manifest with no artifacts being valid for a dataset-only deployment, digests
+  being lowercase hexadecimal rather than case-folded, and the optional `source`
+  block — its root, entrypoint, sorted and case-unique files, and git revision
+  with a 40- or 64-character commit and a valid reference name for a branch.
+  Path uniqueness is stated as applying under ASCII case folding across the
+  deployment file, artifacts, and source files together, and a path whose
+  ancestor directory is itself a declared file is rejected because the two
+  cannot coexist on a real filesystem.
+
+  For releases: `bundleIdentity` is lowercase hexadecimal, matching the bundle
+  identity it names.
+
+  Every rule was checked against both implementations before being recorded, in
+  an 83-probe differential run covering the envelope, path grammar, ordering and
+  uniqueness, the source block, git reference rules, target tokens, and both
+  identity hashes. Neither implementation changed.
+
+- 8dcaf88: Accept RFC 0010 and freeze compiled query 1.
+
+  The contract fixes the closed operation set, named typed parameters carrying
+  their own declarations, a closed settings allow-list applied only by trusted
+  components, deadline precedence in which a caller may shorten but never extend
+  the window and caller cancellation outranks expiry, a redacted debug form that
+  is deliberately invalid as database SQL, and a closed public error category
+  set.
+
+  Accepted on one implementation plus a recorded obligation on the other, rather
+  than on an agreement between two, and the RFC says so. The Python planner
+  implements the plannable surface. `@hypequery/clickhouse` does not yet satisfy
+  the parameter rule: it accepts `{name:Type}` placeholders but rewrites them
+  client-side into positional markers and substitutes escaped literals into the
+  statement, so a value reaches the database inside SQL text. Acceptance turns
+  that into a defect against a frozen contract — the package must bind through
+  ClickHouse's native server-parameter mechanism, with its public placeholder API
+  unchanged. Tracked as TSP-04.
+
+- 9c5275b: Accept RFC 0006 and freeze deployment contract version 2.
+
+  The accepted text states the rules both implementations already enforce but
+  the Proposed text left implicit: relationship `queryable` must agree with the
+  relationship kind, targets must resolve within the contract, sensitivity comes
+  from a closed set, a currency is three uppercase ASCII letters, an endpoint
+  path is absolute, and tenant `auto-inject` declares its column.
+
+  It adds three sections. Absent, empty, and null: an optional field is absent or
+  valid, never `null` — stated because the distinction is invisible in languages
+  without `undefined`. Derived measures: aliases map to base measures in the same
+  dataset and the formula references exactly those aliases, over a closed
+  arithmetic grammar, with names unique across base and derived together.
+  Embedded SQL expressions: a malformed RFC 0005 envelope keeps its own
+  `HQ_QUERY_IMPLEMENTATION_*` codes rather than being flattened into a deployment
+  code.
+
+  The shared `deployments-v2` corpus gains a rejection file — 26 cases covering
+  each of those rules. The family previously had one success and one identity
+  case, which cannot distinguish a faithful validator from one that accepts
+  contracts another implementation rejects.
+
+- 384b808: Accept RFC 0004 and freeze portable query schema extension version 1.
+
+  The accepted text pins the constraint rules both implementations already
+  enforce: an `object` declaring all three of `properties`, `required`, and
+  `unknownProperties`; non-empty `enum.values`; at least two `union.variants`;
+  and the numeric bound rules covering inclusive-with-exclusive, reversed, and
+  unsatisfiable ranges.
+
+  It also specifies defaults. `default`, `literal.value`, and `enum.values` are
+  canonical values, so composites are tagged and a raw JSON array or object is
+  not a default. A declared `default` must be a value its own schema accepts,
+  checked when the schema is validated rather than when a request arrives, so a
+  contract no caller could satisfy fails at build time. `void` declares no
+  `default` field at all, making a supplied one an unknown field rather than an
+  invalid value.
+
+  The shared `query-schemas-v1` corpus grows from 13 to 24 rejection cases,
+  pinning each of those rules across languages.
+
+- 39ef77a: Accept RFC 0005 and freeze query implementation extension 1.
+
+  The accepted text records rules both implementations already enforce and the
+  Proposed text left implicit. Field sets are exact and every field is required,
+  with an unknown field reported before any value on a known one. A non-string
+  `kind` is a type error and an unrecognised string is an unknown kind, on the
+  implementation, on a parameter source, and on a tenant policy alike;
+  `sql-expression` is not a member of the implementation union, because the two
+  surfaces share an error domain and a limit set but are separate validators.
+
+  Trusted text is non-blank, where "blank" is the set `String.prototype.trim`
+  removes — which includes U+FEFF, so a byte-order mark alone is blank rather
+  than content. Parameter names, physical sources, and expression dependencies
+  reject duplicates. A `not-required` tenant policy alongside a tenant-sourced
+  parameter is a contradiction and is refused, and a `required` policy must name
+  the one tenant-sourced parameter, of which there must be exactly one. An
+  embedded semantic query or output schema keeps its own validation but reports
+  in this surface's error domain, so a caller handles one error type.
+  Entrypoints and dependencies are RFC 0002 qualified identifiers.
+
+  Every rule was checked against both implementations before being recorded, in
+  a 24-case run in which all 24 agreed. Neither implementation changed.
+
+  The shared `query-implementations-v1` corpus grows from 9 rejections and 7
+  successes to 32 and 10, pinning each recorded rule.
+
+### Patch Changes
+
+- Updated dependencies [827d32c]
+- Updated dependencies [8dcaf88]
+- Updated dependencies [9c5275b]
+- Updated dependencies [384b808]
+- Updated dependencies [83d601f]
+- Updated dependencies [39ef77a]
+  - @hypequery/protocol@0.15.0
+
 ## 0.11.2
 
 ### Patch Changes

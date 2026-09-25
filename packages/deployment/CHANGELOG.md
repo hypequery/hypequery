@@ -1,5 +1,17 @@
 # @hypequery/deployment
 
+## 0.9.1
+
+### Patch Changes
+
+- Updated dependencies [827d32c]
+- Updated dependencies [8dcaf88]
+- Updated dependencies [9c5275b]
+- Updated dependencies [384b808]
+- Updated dependencies [83d601f]
+- Updated dependencies [39ef77a]
+  - @hypequery/protocol@0.15.0
+
 ## 0.9.0
 
 ### Minor Changes
