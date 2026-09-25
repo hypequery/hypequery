@@ -44,11 +44,15 @@ jobs:
       - run: uv run pytest
 
   clickhouse-integration:
-    name: clickhouse integration
+    name: clickhouse integration (${{ matrix.clickhouse-version }})
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        clickhouse-version: ['25.8', '26.3']
     services:
       clickhouse:
-        image: clickhouse/clickhouse-server:25.8
+        image: clickhouse/clickhouse-server:${{ matrix.clickhouse-version }}
         ports:
           - 8123:8123
         env:
