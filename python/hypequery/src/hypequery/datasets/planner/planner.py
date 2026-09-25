@@ -128,7 +128,7 @@ def _base_column(plan: _Plan, dimension: Dimension | None, name: str) -> str:
 
 
 def _ensure_join(plan: _Plan, name: str) -> tuple[str, SafeIdentifier]:
-    """Add the LEFT JOIN a qualified field needs, once per relationship."""
+    """Add the single-match LEFT ANY JOIN a qualified field needs, once."""
 
     resolved = resolve_qualified_field(plan.dataset, name, registry=plan.registry)
     alias = safe_identifier(resolved.relationship_name, what="relationship name")
@@ -139,7 +139,7 @@ def _ensure_join(plan: _Plan, name: str) -> tuple[str, SafeIdentifier]:
         right = safe_identifier(resolved.relationship.to_field, what="relationship to field")
         condition = f"{BASE_ALIAS.sql}.{left.sql} = {alias.sql}.{right.sql}"
         # The joined dataset carries its own tenancy, so the predicate goes into
-        # the join condition rather than WHERE: in a LEFT JOIN a WHERE predicate
+        # the join condition rather than WHERE: in a LEFT ANY JOIN a WHERE predicate
         # on the right side would silently turn it into an inner join.
         target_scope = _tenant_scope(resolved.target, plan.context)
         if target_scope is not None and resolved.target.tenant_key is not None:
@@ -147,7 +147,7 @@ def _ensure_join(plan: _Plan, name: str) -> tuple[str, SafeIdentifier]:
             condition += " AND " + _tenant_predicate(
                 plan, f"{alias.sql}.{tenant_column.sql}", target_scope
             )
-        plan.joins.append(f" LEFT JOIN {target_source.sql} AS {alias.sql} ON {condition}")
+        plan.joins.append(f" LEFT ANY JOIN {target_source.sql} AS {alias.sql} ON {condition}")
     column = resolved.dimension.column or resolved.dimension_name
     return f"{alias.sql}.{safe_identifier(column, what='column').sql}", alias
 
