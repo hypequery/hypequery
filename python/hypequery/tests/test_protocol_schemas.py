@@ -268,3 +268,12 @@ def test_string_bounds_count_code_points() -> None:
     schema = validate_protocol_schema({"kind": "string", "maxLength": 2.0, "default": "é" * 2})
     assert isinstance(schema, ProtocolStringSchema)
     assert schema.max_length == 2
+
+
+@pytest.mark.parametrize("value", [array_value(["a"]), map_value([("a", "b")])])
+def test_composite_enum_values_validate_and_detect_duplicates(value: object) -> None:
+    schema = validate_protocol_schema({"kind": "enum", "values": [value], "default": value})
+    assert schema.kind == "enum"
+    with pytest.raises(ProtocolSchemaError) as raised:
+        validate_protocol_schema({"kind": "enum", "values": [value, value]})
+    assert raised.value.code == "HQ_SCHEMA_DUPLICATE_VALUE"

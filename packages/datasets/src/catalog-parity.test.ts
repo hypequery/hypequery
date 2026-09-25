@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { getDatasetCatalogs } from './catalog.js';
+import { serializeSemanticContract } from './contract.js';
 import { dataset } from './dataset.js';
 import { dimension } from './field.js';
 import { measure } from './measure.js';
@@ -15,6 +16,10 @@ import { belongsTo, hasMany, hasOne } from './relationships.js';
  *
  * See `specs/semantic-catalog/README.md` for what the model exercises.
  */
+const fixture = (name: string): string => join(
+  import.meta.dirname, '..', '..', '..', 'specs', 'semantic-catalog', name,
+);
+
 const CATALOG_FIXTURE = join(
   import.meta.dirname,
   '..',
@@ -79,5 +84,25 @@ describe('catalog cross-language parity', () => {
     // Compare through JSON so `undefined` optionals drop exactly as they do on
     // the wire, which is the form the Python catalog is built to match.
     expect(JSON.parse(JSON.stringify(catalogs))).toEqual(expected);
+  });
+
+  it('matches the shared semantic contract in both projections', () => {
+    const sources = { customers: Customers, orders: Orders };
+
+    expect(serializeSemanticContract(sources))
+      .toEqual(JSON.parse(readFileSync(fixture('contract.json'), 'utf8')));
+    expect(serializeSemanticContract(sources, { includeSql: false }))
+      .toEqual(JSON.parse(readFileSync(fixture('contract-public.json'), 'utf8')));
+  });
+
+  it('drops SQL from the public projection but keeps it in the trusted one', () => {
+    const sources = { customers: Customers, orders: Orders };
+    const trusted = serializeSemanticContract(sources);
+    const published = serializeSemanticContract(sources, { includeSql: false });
+
+    expect(trusted.datasets.customers.dimensions.fullName.sql).toBeDefined();
+    expect(published.datasets.customers.dimensions.fullName.sql).toBeUndefined();
+    // A different projection is a different contract.
+    expect(trusted.contentHash).not.toEqual(published.contentHash);
   });
 });

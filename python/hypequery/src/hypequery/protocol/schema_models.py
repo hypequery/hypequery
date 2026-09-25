@@ -13,7 +13,7 @@ from dataclasses import field as dataclass_field
 from enum import Enum
 from typing import Literal, TypeAlias
 
-from .expression_models import FrozenCanonicalValue
+from .expression_models import FrozenCanonicalValue, thaw_canonical_value
 from .identifiers import ProtocolIdentifier
 
 
@@ -206,3 +206,50 @@ class ProtocolSchemaLimits:
 
 
 DEFAULT_PROTOCOL_SCHEMA_LIMITS = ProtocolSchemaLimits()
+
+
+def schema_to_data(schema: ProtocolSchema) -> dict[str, object]:
+    """Serialize a validated schema back into detached protocol data.
+
+    Field spellings are the protocol's, not Python's, so the result is what
+    canonical encoding and the wire both expect.
+    """
+
+    data: dict[str, object] = {"kind": schema.kind}
+    if schema.description is not None:
+        data["description"] = schema.description
+    if not isinstance(schema, ProtocolVoidSchema) and schema.default is not UNSET:
+        data["default"] = thaw_canonical_value(schema.default)
+
+    if isinstance(schema, ProtocolStringSchema):
+        _put(data, minLength=schema.min_length, maxLength=schema.max_length)
+    elif isinstance(schema, ProtocolNumberSchema):
+        _put(
+            data,
+            minimum=schema.minimum,
+            exclusiveMinimum=schema.exclusive_minimum,
+            maximum=schema.maximum,
+            exclusiveMaximum=schema.exclusive_maximum,
+        )
+    elif isinstance(schema, ProtocolLiteralSchema):
+        data["value"] = thaw_canonical_value(schema.value)
+    elif isinstance(schema, ProtocolEnumSchema):
+        data["values"] = [thaw_canonical_value(item) for item in schema.values]
+    elif isinstance(schema, ProtocolArraySchema):
+        data["items"] = schema_to_data(schema.items)
+        _put(data, minItems=schema.min_items, maxItems=schema.max_items)
+    elif isinstance(schema, ProtocolObjectSchema):
+        data["properties"] = {name: schema_to_data(item) for name, item in schema.properties}
+        data["required"] = list(schema.required)
+        data["unknownProperties"] = schema.unknown_properties
+    elif isinstance(schema, ProtocolRecordSchema):
+        data["values"] = schema_to_data(schema.values)
+    elif isinstance(schema, ProtocolUnionSchema):
+        data["variants"] = [schema_to_data(variant) for variant in schema.variants]
+    return data
+
+
+def _put(data: dict[str, object], **values: object) -> None:
+    """Add only the constraints the schema actually declared."""
+
+    data.update({key: value for key, value in values.items() if value is not None})

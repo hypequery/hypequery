@@ -35,6 +35,20 @@ that has an edge:
 Absent optional values are omitted rather than emitted as null, matching what
 `JSON.stringify` does with `undefined`.
 
+## The semantic contract
+
+`contract.json` and `contract-public.json` are the semantic contract for the
+same model, in its trusted and public projections. The contract is a
+normalized, sorted projection of the catalog carrying a version marker and a
+SHA-256 `contentHash` over its own stable JSON, so two logically equal models
+hash identically and a drifted one does not.
+
+The difference between the two files is the point of the public projection: a
+SQL-backed dimension keeps its `sql` in the trusted contract and loses it in
+the public one, so serving a contract to untrusted consumers cannot leak
+internal SQL. Both files' `contentHash` values are produced identically by
+both implementations.
+
 ## Known gap
 
 `metrics` is empty for both datasets. The Python definition surface has no

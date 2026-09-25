@@ -205,6 +205,30 @@ from hypequery.datasets import compile_formula, divide, null_if_zero
 average = compile_formula(divide("revenue", null_if_zero("orders")))
 ```
 
+## Deployment contracts
+
+RFC 0006 contracts are the validated, deterministic description of the
+datasets managed execution can serve. Named queries, standalone metrics,
+runtime artifacts, executable callbacks, credentials, and connection
+configuration are all outside the contract — `queries`, `artifacts`, and
+dataset `metrics` are invalid even when empty:
+
+```python
+from hypequery.protocol import prepare_protocol_deployment_contract
+
+prepared = prepare_protocol_deployment_contract(contract_data)
+prepared.canonical  # RFC 8785 JSON text
+prepared.identity  # sha256 of "hypequery:deployment:v2\0" + canonical bytes
+```
+
+Identity is domain-separated, so a deployment hash cannot collide with another
+artifact hashed over the same bytes, and the contract is validated before it is
+encoded — identity is only ever computed over something that already passed.
+
+The canonical bytes and hash are byte-identical to `@hypequery/protocol` for
+the same contract. A 74-probe differential run across both implementations
+found no divergence in acceptance, error code, or identity.
+
 ## Registry and catalog
 
 A registry is how datasets are discovered at startup, and how a relationship's
@@ -229,6 +253,30 @@ Relationship fields follow the query-time rules exactly: `hasMany` contributes
 nothing, SQL-backed target dimensions are not joinable, and a `groupable: False`
 target dimension stays queryable as a filter while dropping out of
 `groupableFields`.
+
+## Semantic contract
+
+The semantic contract is the hashable projection of a registry's catalogs: a
+normalized, sorted snapshot with a version marker and a SHA-256 `contentHash`
+over its own stable JSON. Two logically equal models hash identically however
+they were authored, which is what makes it usable for snapshots, diffs, and CI
+drift checks.
+
+```python
+from hypequery.datasets import serialize_semantic_contract
+
+trusted = serialize_semantic_contract(registry)
+published = serialize_semantic_contract(registry, include_sql=False)
+```
+
+`include_sql=False` is the public discovery projection: a SQL-backed dimension
+keeps its `sql` in the trusted contract and loses it in the published one, so
+serving the contract to untrusted consumers cannot leak internal SQL. The two
+projections are deliberately different contracts and hash differently.
+
+Both projections are byte-identical to `@hypequery/datasets` for the same
+model. `specs/semantic-catalog/contract.json` and `contract-public.json` pin
+that, and both test suites check themselves against them.
 
 ## Development
 

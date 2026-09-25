@@ -103,6 +103,10 @@
           "role": "success"
         },
         {
+          "path": "deployments-v2/rejections.json",
+          "role": "rejection"
+        },
+        {
           "path": "deployments-v2/identity.json",
           "role": "identity"
         }

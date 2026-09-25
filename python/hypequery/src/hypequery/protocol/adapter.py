@@ -8,7 +8,10 @@ from collections.abc import Iterator, Mapping
 
 from hypequery import __version__
 
+from .deployment_codec import prepare_protocol_deployment_contract
+from .deployments import validate_protocol_deployment_contract
 from .errors import (
+    ProtocolDeploymentError,
     ProtocolExpressionError,
     ProtocolIdentifierError,
     ProtocolSchemaError,
@@ -36,8 +39,15 @@ from .values import (
     hash_canonical_value,
     validate_canonical_value,
 )
+from .wire_numbers import to_binary64_tree
 
-FAMILIES = ("tagged-values-v1", "identifiers-v1", "expressions-v1", "query-schemas-v1")
+FAMILIES = (
+    "tagged-values-v1",
+    "identifiers-v1",
+    "expressions-v1",
+    "query-schemas-v1",
+    "deployments-v2",
+)
 HOSTILE_OBJECT_SUITE = {
     "count": 7,
     "mechanisms": [
@@ -208,6 +218,23 @@ def _handle_schema(case: dict[str, object]) -> dict[str, object]:
         return {"ok": False, "code": error.code}
 
 
+def _handle_deployment(role: str, case: dict[str, object]) -> dict[str, object]:
+    # Every number in a contract is binary64 in the reference implementation,
+    # so the whole tree is re-read that way before validation.
+    value = to_binary64_tree(case.get("value"))
+    try:
+        if role == "identity":
+            prepared = prepare_protocol_deployment_contract(value)
+            return {
+                "ok": True,
+                "output": {"canonical": prepared.canonical, "sha256": prepared.identity},
+            }
+        validate_protocol_deployment_contract(value)
+        return {"ok": True}
+    except ProtocolDeploymentError as error:
+        return {"ok": False, "code": error.code}
+
+
 def _handle(family: str, role: str, case: dict[str, object], section: object) -> dict[str, object]:
     if family == "tagged-values-v1":
         return _handle_tagged_value(role, case)
@@ -217,6 +244,8 @@ def _handle(family: str, role: str, case: dict[str, object], section: object) ->
         return _handle_expression(case, section)
     if family == "query-schemas-v1":
         return _handle_schema(case)
+    if family == "deployments-v2":
+        return _handle_deployment(role, case)
     raise RuntimeError(f"unsupported fixture family: {family!r}")
 
 
