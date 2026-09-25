@@ -14,7 +14,11 @@ from dataclasses import dataclass
 from typing import Literal, cast
 
 from .errors import ProtocolIdentifierError, ProtocolValueError, schema_error
-from .expression_models import FrozenCanonicalValue, freeze_canonical_value
+from .expression_models import (
+    FrozenCanonicalValue,
+    freeze_canonical_value,
+    thaw_canonical_value,
+)
 from .identifiers import ProtocolIdentifier, parse_protocol_identifier
 from .schema_defaults import schema_accepts_default
 from .schema_models import (
@@ -207,7 +211,7 @@ def _enum_values(value: object, path: str, state: _State) -> tuple[FrozenCanonic
     if not items:
         schema_error("HQ_SCHEMA_INVALID_CONSTRAINT", path)
     validated = tuple(_canonical(item, f"{path}[{index}]") for index, item in enumerate(items))
-    encoded = {encode_canonical_value_to_string(item) for item in validated}
+    encoded = {encode_canonical_value_to_string(thaw_canonical_value(item)) for item in validated}
     if len(encoded) != len(validated):
         schema_error("HQ_SCHEMA_DUPLICATE_VALUE", path)
     return validated

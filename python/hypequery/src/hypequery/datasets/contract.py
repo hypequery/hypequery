@@ -10,7 +10,6 @@ and codegen all read this one shape.
 from __future__ import annotations
 
 import hashlib
-import json
 import re
 from typing import Final, cast
 
@@ -24,6 +23,7 @@ from .catalog import (
 )
 from .registry import DatasetRegistry
 from .utils.canonical_json import sorted_record, unique_sorted
+from .utils.stable_json import stable_json
 
 #: Version of the semantic contract format. Bump when the serialized shape
 #: changes in a way snapshot consumers must account for.
@@ -181,7 +181,7 @@ def serialize_semantic_contract(
 def contract_to_stable_json(contract: dict[str, object]) -> str:
     """Serialize a contract with stable formatting, for writing and hashing."""
 
-    return json.dumps(contract, indent=2, ensure_ascii=False, allow_nan=False)
+    return stable_json(contract)
 
 
 def hash_contract(contract: dict[str, object]) -> str:
