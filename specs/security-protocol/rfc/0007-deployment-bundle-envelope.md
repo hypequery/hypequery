@@ -1,7 +1,12 @@
 # RFC 0007: Deployment bundle envelope
 
-- Status: Proposed
+- Status: Accepted
+- Accepted: 2026-09-21
 - Version: deployment bundle manifest 1
+
+Acceptance freezes deployment bundle manifest version 1. Changing the manifest
+shape, the path grammar, the ordering and uniqueness rules, the limits, or
+failure-code precedence now requires a new manifest version, not an edit.
 
 ## Summary
 
@@ -25,10 +30,22 @@ The deployment file records:
 - the raw SHA-256 of the exact file bytes as lowercase hexadecimal; and
 - the exact positive `byteLength`.
 
-Each runtime artifact records its `runtime`, portable relative `path`, raw
-SHA-256, and exact positive byte length. Artifact entries MUST be sorted by
-path. Paths and artifact digests are unique, and the deployment path cannot be
-reused by an artifact.
+Each runtime artifact records its `runtime` — `node` or `python` — portable
+relative `path`, raw SHA-256, and exact positive byte length. Artifact entries
+MUST be sorted by path. Paths and artifact digests are unique, and the
+deployment path cannot be reused by an artifact. A manifest with no runtime
+artifacts is valid: a dataset-only deployment references none.
+
+Digests are lowercase hexadecimal, so an uppercase spelling of the same bytes
+is a different string and is rejected rather than folded.
+
+A manifest MAY carry a `source` block recording the project-relative files the
+deployment was built from: a `root` directory within the bundle, an
+`entrypoint` that must be one of the declared files, those `files` sorted by
+path and unique under case folding, and an optional git `revision`. A
+revision's `commit` is a 40- or 64-character lowercase hex object name, and a
+`branch`, when present, must be a valid git reference name. Source file entries
+may be empty; the deployment file may not.
 
 ## Portable paths
 
@@ -39,6 +56,11 @@ segments, URI forms, control characters, and percent-decoded alternatives are
 invalid. Windows reserved device names, trailing-dot segments, and paths that
 collide under ASCII case folding are also invalid. A consumer MUST NOT resolve
 a manifest path outside the bundle root.
+
+Uniqueness is checked under ASCII case folding across the deployment file,
+every artifact, and every source file taken together. A path whose ancestor
+directory is itself declared as a file is also rejected: the two cannot both
+exist on a real filesystem.
 
 Filesystem implementations MUST reject symbolic links and non-regular files.
 They MUST also reject files not declared by the manifest. These checks apply to

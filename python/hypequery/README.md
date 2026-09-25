@@ -229,6 +229,45 @@ The canonical bytes and hash are byte-identical to `@hypequery/protocol` for
 the same contract. A 74-probe differential run across both implementations
 found no divergence in acceptance, error code, or identity.
 
+## Bundles and releases
+
+An RFC 0007 bundle manifest describes the content-addressed directory that
+transports a deployment contract and any runtime artifacts, binding the
+semantic deployment identity to exact file bytes. An RFC 0008 release envelope
+assigns one verified bundle to a project and environment:
+
+```python
+from hypequery.protocol import (
+    prepare_protocol_deployment_bundle_manifest,
+    prepare_protocol_deployment_release_envelope,
+)
+
+bundle = prepare_protocol_deployment_bundle_manifest(manifest_data)
+release = prepare_protocol_deployment_release_envelope(
+    {
+        "kind": "hypequery-deployment-release",
+        "version": 1,
+        "bundleIdentity": bundle.identity,
+        "target": {"project": "acme", "environment": "production"},
+    }
+)
+```
+
+Each identity is domain-separated, so a bundle hash, a release hash, and a
+deployment hash cannot collide even over identical bytes. A release carries no
+timestamp or requester: retrying an unchanged envelope produces the same
+identity, which is what makes it usable as an idempotency key.
+
+Validation covers the manifest, not the filesystem. Portable paths are checked
+for traversal, absolute forms, Windows device names, case-folding collisions,
+and ancestors that are themselves declared files — but walking a real
+directory, rejecting symlinks and undeclared files, and verifying hashes is a
+consumer's job, and those failures are product errors rather than part of this
+stable code set.
+
+A manifest with no runtime artifacts is valid: a dataset-only deployment
+references none.
+
 ## Registry and catalog
 
 A registry is how datasets are discovered at startup, and how a relationship's

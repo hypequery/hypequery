@@ -4,14 +4,19 @@ from __future__ import annotations
 
 import json
 import math
-from collections.abc import Iterator, Mapping
+from collections.abc import Callable, Iterator, Mapping
 
 from hypequery import __version__
 
+from .bundle_codec import prepare_protocol_deployment_bundle_manifest
+from .bundles import validate_protocol_deployment_bundle_manifest
 from .deployment_codec import prepare_protocol_deployment_contract
+from .deployment_fixtures import materialize_bundle_fixture, materialize_release_fixture
 from .deployments import validate_protocol_deployment_contract
 from .errors import (
+    ProtocolDeploymentBundleError,
     ProtocolDeploymentError,
+    ProtocolDeploymentReleaseError,
     ProtocolExpressionError,
     ProtocolIdentifierError,
     ProtocolSchemaError,
@@ -26,6 +31,10 @@ from .identifiers import (
     parse_protocol_identifier,
     parse_protocol_qualified_identifier,
     split_protocol_qualified_identifier,
+)
+from .releases import (
+    prepare_protocol_deployment_release_envelope,
+    validate_protocol_deployment_release_envelope,
 )
 from .schema_fixtures import (
     materialize_schema_fixture,
@@ -47,6 +56,8 @@ FAMILIES = (
     "expressions-v1",
     "query-schemas-v1",
     "deployments-v2",
+    "deployment-bundles-v1",
+    "deployment-releases-v1",
 )
 HOSTILE_OBJECT_SUITE = {
     "count": 7,
@@ -235,6 +246,46 @@ def _handle_deployment(role: str, case: dict[str, object]) -> dict[str, object]:
         return {"ok": False, "code": error.code}
 
 
+def _fixture_value(
+    case: dict[str, object],
+    materialize: Callable[[dict[str, object]], object],
+) -> object:
+    generator = case.get("generator")
+    if type(generator) is dict:
+        return materialize(generator)
+    return to_binary64_tree(case.get("value"))
+
+
+def _handle_bundle(role: str, case: dict[str, object]) -> dict[str, object]:
+    value = _fixture_value(case, materialize_bundle_fixture)
+    try:
+        if role == "identity":
+            prepared = prepare_protocol_deployment_bundle_manifest(value)
+            return {
+                "ok": True,
+                "output": {"canonical": prepared.canonical, "sha256": prepared.identity},
+            }
+        validate_protocol_deployment_bundle_manifest(value)
+        return {"ok": True}
+    except ProtocolDeploymentBundleError as error:
+        return {"ok": False, "code": error.code}
+
+
+def _handle_release(role: str, case: dict[str, object]) -> dict[str, object]:
+    value = _fixture_value(case, materialize_release_fixture)
+    try:
+        if role == "identity":
+            prepared = prepare_protocol_deployment_release_envelope(value)
+            return {
+                "ok": True,
+                "output": {"canonical": prepared.canonical, "sha256": prepared.identity},
+            }
+        validate_protocol_deployment_release_envelope(value)
+        return {"ok": True}
+    except ProtocolDeploymentReleaseError as error:
+        return {"ok": False, "code": error.code}
+
+
 def _handle(family: str, role: str, case: dict[str, object], section: object) -> dict[str, object]:
     if family == "tagged-values-v1":
         return _handle_tagged_value(role, case)
@@ -246,6 +297,10 @@ def _handle(family: str, role: str, case: dict[str, object], section: object) ->
         return _handle_schema(case)
     if family == "deployments-v2":
         return _handle_deployment(role, case)
+    if family == "deployment-bundles-v1":
+        return _handle_bundle(role, case)
+    if family == "deployment-releases-v1":
+        return _handle_release(role, case)
     raise RuntimeError(f"unsupported fixture family: {family!r}")
 
 
