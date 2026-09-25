@@ -358,8 +358,10 @@ closed with `tenant-required` rather than at whatever consumes the result. A
 scope is created by `tenant()`, `tenants()`, or `all_tenants()` and is
 deliberately **not** a Pydantic model, so no request body can be coerced into
 one. Joined datasets carry their own tenancy into the join condition rather
-than into `WHERE`, where it would silently turn a `LEFT JOIN` into an inner
-join. Filtering the tenant field yourself is refused while a scope is active.
+than into `WHERE`, where it would silently turn a `LEFT ANY JOIN` into an inner
+join. The single-match join also prevents duplicate target keys from
+multiplying base rows before aggregation. Filtering the tenant field yourself
+is refused while a scope is active.
 
 `to_sql()` is for logs and diagnostics. It shows the same structure with the
 same declared types and no values, and its placeholders are `<name:Type>` —

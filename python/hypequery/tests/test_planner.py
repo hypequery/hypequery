@@ -35,7 +35,7 @@ from hypequery.datasets.planner import (
 from hypequery.datasets.planner.planner import BASE_ALIAS
 from hypequery.datasets.query_helpers import Filter, asc, desc, eq, gte, in_list, like
 from hypequery.datasets.registry import DatasetRegistry, create_dataset_registry
-from hypequery.datasets.relationships import Relationship, belongs_to, has_many
+from hypequery.datasets.relationships import Relationship, belongs_to, has_many, has_one
 
 
 def _customers(*, tenant_key: str | None = None) -> Dataset:
@@ -342,16 +342,23 @@ def test_a_request_cannot_use_an_undeclared_filter_operator() -> None:
 # --- relationships --------------------------------------------------------
 
 
-def test_a_qualified_field_adds_one_left_join() -> None:
+@pytest.mark.parametrize("relationship_kind", ["belongs_to", "has_one"])
+def test_a_qualified_field_adds_one_single_match_join(relationship_kind: str) -> None:
     trips, customers = _related()
+    if relationship_kind == "has_one":
+        trips = _trips(
+            dimensions={"vendor": dimension("string"), "customer_id": dimension("string")},
+            relationships={"customer": has_one(customers, from_field="customer_id", to_field="id")},
+        )
     compiled = plan_dataset_query(
         trips,
         DatasetQuery(dimensions=("customer.country", "customer.tier"), measures=("trips",)),
         registry=create_dataset_registry(trips, customers),
     )
-    assert compiled.sql.count("LEFT JOIN") == 1
+    # A duplicate target key must not multiply the base row before aggregation.
+    assert compiled.sql.count("LEFT ANY JOIN") == 1
     assert (
-        "LEFT JOIN `analytics`.`customers` AS `customer` "
+        "LEFT ANY JOIN `analytics`.`customers` AS `customer` "
         f"ON {BASE_ALIAS.sql}.`customer_id` = `customer`.`id`" in compiled.sql
     )
     assert "`customer`.`country` AS `customer.country`" in compiled.sql
@@ -377,7 +384,7 @@ def test_a_measure_filter_alone_activates_its_relationship_join(
 
     assert "FROM `analytics`.`trips` AS `__hq_base`" in compiled.sql
     assert (
-        "LEFT JOIN `analytics`.`customers` AS `customer` "
+        "LEFT ANY JOIN `analytics`.`customers` AS `customer` "
         "ON `__hq_base`.`customer_id` = `customer`.`id`" in compiled.sql
     )
     assert "sumIf(`__hq_base`.`fare`, `customer`.`country` = {p0:String})" in compiled.sql
@@ -714,7 +721,8 @@ def test_a_join_propagates_the_tenant_predicate_into_its_condition() -> None:
         context=ExecutionContext(tenant=tenant("acme")),
     )
     # In the join condition, not in WHERE: a WHERE predicate on the right side
-    # of a LEFT JOIN quietly turns it into an inner join.
+    # of a LEFT ANY JOIN quietly turns it into an inner join.
+    assert "LEFT ANY JOIN `analytics`.`customers` AS `customer`" in compiled.sql
     assert "ON `__hq_base`.`customer_id` = `customer`.`id` AND `customer`.`tenant_id` = " in (
         compiled.sql
     )
