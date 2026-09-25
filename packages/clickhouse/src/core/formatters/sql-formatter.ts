@@ -1,6 +1,6 @@
 import { FilterOperator, type CompiledQuery, type ExprNode, type SelectQueryNode, type SourceNode, type ValueNode } from '../../types/index.js';
 import { cteFragment } from '../utils/cte-fragments.js';
-import { hasTopLevelLogicalOperator, terminateTrailingLineComment } from '../utils/sql-parens.js';
+import { groupConditionColumn, hasTopLevelLogicalOperator, terminateTrailingLineComment } from '../utils/sql-parens.js';
 
 export class SQLFormatter {
   formatSelect(query: SelectQueryNode<any, any>): string {
@@ -100,7 +100,12 @@ export class SQLFormatter {
     }
   }
 
-  private compileCondition({ column, operator, value }: Extract<ExprNode, { kind: 'condition' }>): CompiledQuery {
+  private compileCondition(
+    { column: rawColumn, operator, value }: Extract<ExprNode, { kind: 'condition' }>,
+  ): CompiledQuery {
+    // The column may be a dataset's trusted SQL expression rather than an
+    // identifier, so it is grouped before it meets the conditions beside it.
+    const column = groupConditionColumn(rawColumn);
     if (operator === 'isNull' || operator === 'isNotNull') {
       return {
         query: `${column} IS ${operator === 'isNull' ? '' : 'NOT '}NULL`.trim(),

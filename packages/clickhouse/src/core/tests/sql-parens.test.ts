@@ -1,4 +1,5 @@
 import {
+  groupConditionColumn,
   hasTopLevelLogicalOperator,
   isFullyParenthesized,
   terminateTrailingLineComment
@@ -108,5 +109,35 @@ describe('isFullyParenthesized', () => {
     expect(isFullyParenthesized('(a) OR (b) AND (c)')).toBe(false);
     expect(isFullyParenthesized('f(a)')).toBe(false);
     expect(isFullyParenthesized('(a]')).toBe(false);
+  });
+});
+
+describe('groupConditionColumn', () => {
+  it('leaves an ordinary column alone', () => {
+    expect(groupConditionColumn('status')).toBe('status');
+    expect(groupConditionColumn('`created at`')).toBe('`created at`');
+    expect(groupConditionColumn('toDate(created_at)')).toBe('toDate(created_at)');
+  });
+
+  it('groups an expression carrying a top-level AND/OR', () => {
+    // Ungrouped, this is what lets `tenant_id = ? AND active OR is_public = ?`
+    // return rows for every tenant: AND binds tighter, so the OR branch is
+    // evaluated without the tenant predicate.
+    expect(groupConditionColumn('active OR is_public')).toBe('(active OR is_public)');
+    expect(groupConditionColumn('a = 1 AND b = 2')).toBe('(a = 1 AND b = 2)');
+  });
+
+  it('does not add a second layer of parentheses', () => {
+    expect(groupConditionColumn('(active OR is_public)')).toBe('(active OR is_public)');
+  });
+
+  it('terminates a trailing line comment so it cannot swallow the statement', () => {
+    expect(groupConditionColumn('status -- note')).toBe('status -- note\n');
+    expect(groupConditionColumn('a OR b -- note')).toBe('(a OR b -- note\n)');
+  });
+
+  it('ignores AND/OR that is data rather than syntax', () => {
+    expect(groupConditionColumn("status = 'a OR b'")).toBe("status = 'a OR b'");
+    expect(groupConditionColumn('if(a OR b, 1, 0)')).toBe('if(a OR b, 1, 0)');
   });
 });
