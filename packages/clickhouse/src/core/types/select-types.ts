@@ -26,13 +26,25 @@ export type SelectableColumn<State extends AnyBuilderState> =
 
 type StringSelectableColumn<State extends AnyBuilderState> = Extract<SelectableColumn<State>, string>;
 type AsKeyword = 'as' | 'AS' | 'As' | 'aS';
-type AliasedColumnString<State extends AnyBuilderState> = `${StringSelectableColumn<State>} ${AsKeyword} ${string}`;
+type AliasPattern = `${string} ${AsKeyword} ${string}`;
 
 export type SelectableItem<State extends AnyBuilderState> =
   | SelectableColumn<State>
-  | AliasedColumnString<State>
+  | AliasPattern
   | AliasedExpression<any, string>
   | SqlExpression<any>;
+
+export type CheckedSelections<State extends AnyBuilderState, Selections> = {
+  [Index in keyof Selections]: Selections[Index] extends StringSelectableColumn<State>
+    ? Selections[Index]
+    : Selections[Index] extends `${infer Column} ${infer Keyword} ${string}`
+      ? Lowercase<Keyword> extends 'as'
+        ? Column extends StringSelectableColumn<State>
+          ? Selections[Index]
+          : never
+        : never
+      : Selections[Index];
+};
 
 export type ColumnSelectionKey<P> = P extends `${string}.${infer C}` ? C : P;
 
