@@ -18,7 +18,6 @@ from hypequery.datasets import (
     compile_portable_sql_expression,
 )
 from hypequery.protocol import (
-    ProtocolExpressionError,
     ProtocolLiteralExpression,
     ProtocolReferenceExpression,
     expression_to_data,
@@ -47,6 +46,16 @@ def _fixtures(name: str) -> list[dict[str, object]]:
     return cast(list[dict[str, object]], json.loads((FIXTURES / name).read_text()))
 
 
+def _fixture_sql(fixture: dict[str, object]) -> str:
+    """Materialize a fixture's SQL, expanding the compact ``sqlRepeat`` form."""
+
+    if "sql" in fixture:
+        return cast(str, fixture["sql"])
+    spec = cast(dict[str, object], fixture["sqlRepeat"])
+    prefix, value, suffix = (cast(str, spec[key]) for key in ("prefix", "value", "suffix"))
+    return prefix + value * cast(int, spec["count"]) + suffix
+
+
 @pytest.mark.parametrize("fixture", _fixtures("portable.json"), ids=lambda item: str(item["id"]))
 def test_shared_portable_fixtures(fixture: dict[str, object]) -> None:
     result = compile_portable_sql_expression(cast(str, fixture["sql"]))
@@ -64,7 +73,7 @@ def test_shared_portable_fixtures(fixture: dict[str, object]) -> None:
     "fixture", _fixtures("non-portable.json"), ids=lambda item: str(item["id"])
 )
 def test_shared_non_portable_fixtures(fixture: dict[str, object]) -> None:
-    result = compile_portable_sql_expression(cast(str, fixture["sql"]))
+    result = compile_portable_sql_expression(_fixture_sql(fixture))
 
     assert not result.portable
     issue = result.issues[0]
@@ -79,7 +88,7 @@ def test_shared_non_portable_fixtures(fixture: dict[str, object]) -> None:
 def test_issue_messages_never_echo_the_rejected_value(fixture: dict[str, object]) -> None:
     """Messages describe the rejected shape; they are not an input mirror."""
 
-    result = compile_portable_sql_expression(cast(str, fixture["sql"]))
+    result = compile_portable_sql_expression(_fixture_sql(fixture))
 
     assert not result.portable
     issue = result.issues[0]
@@ -167,22 +176,50 @@ def test_multibyte_input_is_measured_in_utf8_bytes() -> None:
     assert oversized.issues[0].code == "HQ_SQL_PORT_TOO_LARGE"
 
 
-def test_depth_beyond_rfc_0003_raises_rather_than_reporting_an_issue() -> None:
-    """Pinned parity with ``@hypequery/datasets``, which also raises here.
-
-    A long left-leaning chain stays inside the compiler's own depth limit —
-    parsing it never recurses — but the tree it builds is deeper than RFC 0003
-    allows, so the protocol validator rejects it after the compiler has
-    succeeded. Both implementations surface that as a protocol error rather
-    than a portability issue; changing it is a spec-level decision that has to
-    move both languages at once.
+def test_depth_beyond_rfc_0003_is_reported_as_an_issue() -> None:
+    """A left-leaning chain never recurses while parsing, but the tree it
+    builds deepens with every operator. The compiler reports that as a
+    located portability issue instead of letting the protocol validator raise.
     """
 
-    sql = " + ".join(f"a{index}" for index in range(20))
+    at_limit = " + ".join(f"a{index}" for index in range(16))
+    assert compile_portable_sql_expression(at_limit).portable
 
-    with pytest.raises(ProtocolExpressionError) as raised:
-        compile_portable_sql_expression(sql)
-    assert raised.value.code == "HQ_EXPRESSION_TOO_DEEP"
+    sql = " + ".join(f"a{index}" for index in range(20))
+    result = compile_portable_sql_expression(sql)
+
+    assert not result.portable
+    issue = result.issues[0]
+    assert issue.code == "HQ_SQL_PORT_TOO_COMPLEX"
+    assert sql[issue.start : issue.end] == "+"
+
+
+@pytest.mark.parametrize(
+    "sql",
+    [
+        "name LIKE pattern",
+        " + ".join(["a"] * 17),
+        " * ".join(["a"] * 17),
+        " OR ".join(["a"] * 101),
+        " AND ".join(["a = 1"] * 101),
+        "a IN (" + ", ".join(["-1"] * 1001) + ")",
+        "name = 'a\x00b'",
+        "name = '\ud800'",
+    ],
+)
+def test_shapes_the_validator_rejects_become_issues(sql: str) -> None:
+    """No input escapes as a ``ProtocolExpressionError``."""
+
+    result = compile_portable_sql_expression(sql)
+
+    assert not result.portable
+    assert result.issues[0].code in ISSUE_CODES
+
+
+def test_operand_and_string_limits_admit_their_boundaries() -> None:
+    assert compile_portable_sql_expression(" OR ".join(["a"] * 100)).portable
+    assert compile_portable_sql_expression("name = 'tab\there'").portable
+    assert compile_portable_sql_expression("name = '\U0001f600'").portable
 
 
 def test_issue_offsets_count_utf16_code_units() -> None:

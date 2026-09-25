@@ -16,9 +16,17 @@ interface PortableFixture {
 
 interface NonPortableFixture {
   id: string;
-  sql: string;
+  sql?: string;
+  sqlRepeat?: { prefix: string; value: string; suffix: string; count: number };
   code: string;
   start: number;
+}
+
+/** Materialize a fixture's SQL, expanding the compact `sqlRepeat` form. */
+function fixtureSql(fixture: NonPortableFixture): string {
+  if (fixture.sql !== undefined) return fixture.sql;
+  const { prefix, value, suffix, count } = fixture.sqlRepeat!;
+  return `${prefix}${value.repeat(count)}${suffix}`;
 }
 
 const ISSUE_CODES = [
@@ -82,7 +90,7 @@ describe('SQL portability compiler v1', () => {
   });
 
   it.each(nonPortable)('rejects $id with its stable code', fixture => {
-    const result = compilePortableSqlExpression(fixture.sql);
+    const result = compilePortableSqlExpression(fixtureSql(fixture));
     expect(result.portable).toBe(false);
     if (result.portable) return;
     expect(result.issues.length).toBeGreaterThan(0);
@@ -129,6 +137,36 @@ describe('SQL portability compiler v1', () => {
       portable: true,
       expression: { kind: 'literal', value: 1 },
     });
+  });
+
+  it('reports shapes the protocol validator rejects as issues, never throws', () => {
+    for (const sql of [
+      'name LIKE pattern',
+      Array(17).fill('a').join(' + '),
+      Array(17).fill('a').join(' * '),
+      Array(101).fill('a').join(' OR '),
+      Array(101).fill('a = 1').join(' AND '),
+      `a IN (${Array(1001).fill('-1').join(', ')})`,
+      "name = 'a\u0000b'",
+      "name = '\ud800'",
+    ]) {
+      let result: ReturnType<typeof compilePortableSqlExpression> | undefined;
+      expect(() => {
+        result = compilePortableSqlExpression(sql);
+      }, sql.slice(0, 40)).not.toThrow();
+      expect(result!.portable, sql.slice(0, 40)).toBe(false);
+    }
+    const chain = Array(20).fill('a').join(' + ');
+    const deep = compilePortableSqlExpression(chain);
+    expect(deep).toMatchObject({ portable: false, issues: [{ code: 'HQ_SQL_PORT_TOO_COMPLEX' }] });
+    if (!deep.portable) expect(chain.slice(deep.issues[0]!.start, deep.issues[0]!.end)).toBe('+');
+  });
+
+  it('admits the depth, operand, and string boundaries', () => {
+    expect(compilePortableSqlExpression(Array(16).fill('a').join(' + ')).portable).toBe(true);
+    expect(compilePortableSqlExpression(Array(100).fill('a').join(' OR ')).portable).toBe(true);
+    expect(compilePortableSqlExpression("name = 'tab\there'").portable).toBe(true);
+    expect(compilePortableSqlExpression("name = '\u{1F600}'").portable).toBe(true);
   });
 
   it('fuzzes the corpus within bounded time without throwing', () => {
