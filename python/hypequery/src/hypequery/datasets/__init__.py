@@ -18,6 +18,22 @@ from .aggregations import (
     sum,  # noqa: A004
     variance,
 )
+from .catalog import (
+    DatasetCatalog,
+    DimensionCatalogEntry,
+    FilterCatalogEntry,
+    MeasureCatalogEntry,
+    RelationshipCatalogEntry,
+    get_dataset_catalog,
+    get_dataset_catalogs,
+    get_groupable_relationship_fields,
+    get_queryable_relationship_fields,
+)
+from .constants import (
+    SEMANTIC_FILTER_OPERATORS,
+    SUPPORTED_TIME_GRAINS,
+    is_supported_time_grain,
+)
 from .dataset import Dataset, DatasetLimits, FilterDefinition
 from .dimensions import Dimension, DimensionType, dimension
 from .formulas import (
@@ -57,6 +73,7 @@ from .query_helpers import (
     neq,
     not_in_list,
 )
+from .registry import DatasetRegistry, create_dataset_registry
 from .relationships import Relationship, RelationshipKind, belongs_to, has_many, has_one
 from .sql_portability import (
     DEFAULT_SQL_PORTABILITY_LIMITS,
@@ -71,13 +88,19 @@ from .sql_portability import (
 
 __all__ = [
     "DEFAULT_SQL_PORTABILITY_LIMITS",
+    "SEMANTIC_FILTER_OPERATORS",
+    "SUPPORTED_TIME_GRAINS",
     "Aggregation",
     "AggregationType",
     "Dataset",
+    "DatasetCatalog",
     "DatasetLimits",
+    "DatasetRegistry",
     "Dimension",
+    "DimensionCatalogEntry",
     "DimensionType",
     "Filter",
+    "FilterCatalogEntry",
     "FilterDefinition",
     "FilterOperator",
     "Formula",
@@ -87,9 +110,11 @@ __all__ = [
     "FormulaLiteral",
     "FormulaReference",
     "Measure",
+    "MeasureCatalogEntry",
     "Order",
     "OrderDirection",
     "Relationship",
+    "RelationshipCatalogEntry",
     "RelationshipKind",
     "SqlPortabilityFailure",
     "SqlPortabilityIssue",
@@ -110,16 +135,22 @@ __all__ = [
     "compile_portable_sql_expression",
     "count",
     "count_distinct",
+    "create_dataset_registry",
     "desc",
     "dimension",
     "divide",
     "eq",
     "floor",
+    "get_dataset_catalog",
+    "get_dataset_catalogs",
+    "get_groupable_relationship_fields",
+    "get_queryable_relationship_fields",
     "gt",
     "gte",
     "has_many",
     "has_one",
     "in_list",
+    "is_supported_time_grain",
     "like",
     "lt",
     "lte",
