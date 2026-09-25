@@ -44,6 +44,16 @@ For async code, install `hypequery[clickhouse-async]` and await
 Driver errors are mapped to the canonical safe error categories. Live parameter
 tests run in CI against ClickHouse; local execution needs a ClickHouse service.
 
+The async executor limits concurrent queries per client to eight by default.
+`ExecutionContext.cancellation` may be a `threading.Event` or `asyncio.Event`;
+the planner carries it into the compiled query. Caller cancellation and deadline
+expiry issue a separate `KILL QUERY` command using the server query ID. A
+cancelled ASGI task is treated as caller cancellation. For a synchronous driver
+used inside an async application, `AsyncFromSyncClickHouseExecutor` runs query
+work in a bounded worker pool with a separate control worker and supports the
+same cancellation contract. Call its `close()` method during application
+shutdown.
+
 ## Canonical protocol values
 
 RFC 0001 tagged values and exact RFC 8785 canonical JSON are available from

@@ -6,6 +6,7 @@ Install ``hypequery[clickhouse]`` or ``hypequery[clickhouse-async]`` to use it.
 
 from .clickhouse import (
     AsyncClickHouseExecutor,
+    AsyncFromSyncClickHouseExecutor,
     ClickHouseConnection,
     ClickHouseExecutor,
     create_async_clickhouse_executor,
@@ -15,6 +16,7 @@ from .results import QueryRows
 
 __all__ = [
     "AsyncClickHouseExecutor",
+    "AsyncFromSyncClickHouseExecutor",
     "ClickHouseConnection",
     "ClickHouseExecutor",
     "QueryRows",

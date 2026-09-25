@@ -550,5 +550,6 @@ def plan_dataset_query(
         operation="query",
         settings=settings,
         deadline=effective_deadline(context.deadline, settings.max_execution_time),
+        cancellation=context.cancellation,
         correlation_id=validate_correlation_id(context.correlation_id),
     )

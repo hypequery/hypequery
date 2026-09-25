@@ -13,7 +13,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field
 from typing import Literal, TypeAlias
 
-from .context import Deadline
+from .context import Cancellation, Deadline
 from .errors import CompiledQueryError
 from .parameters import TypedParameter
 from .settings import DEFAULT_QUERY_SETTINGS, QuerySettings
@@ -67,6 +67,7 @@ class CompiledQuery:
     operation: CompiledQueryOperation = "query"
     settings: QuerySettings = DEFAULT_QUERY_SETTINGS
     deadline: Deadline | None = None
+    cancellation: Cancellation | None = None
     correlation_id: str | None = None
     #: Server-generated and authoritative. A caller's correlation identifier is
     #: a separate field precisely so the two can never be confused.
