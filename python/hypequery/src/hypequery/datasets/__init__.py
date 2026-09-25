@@ -42,6 +42,8 @@ from .contract import (
     serialize_semantic_contract,
 )
 from .dataset import Dataset, DatasetLimits, FilterDefinition
+from .deployment import build_protocol_dataset_contract, build_protocol_deployment_contract
+from .deployment_bundle import PreparedDatasetBundle, prepare_dataset_bundle, write_dataset_bundle
 from .dimensions import Dimension, DimensionType, dimension
 from .formulas import (
     Formula,
@@ -135,6 +137,7 @@ __all__ = [
     "MeasureCatalogEntry",
     "Order",
     "OrderDirection",
+    "PreparedDatasetBundle",
     "Relationship",
     "RelationshipCatalogEntry",
     "RelationshipKind",
@@ -152,6 +155,8 @@ __all__ = [
     "avg",
     "belongs_to",
     "between",
+    "build_protocol_dataset_contract",
+    "build_protocol_deployment_contract",
     "ceil",
     "coalesce",
     "compile_formula",
@@ -190,6 +195,7 @@ __all__ = [
     "null_if_zero",
     "percentile",
     "plan_dataset_query",
+    "prepare_dataset_bundle",
     "round",
     "serialize_semantic_contract",
     "stddev",
@@ -198,4 +204,5 @@ __all__ = [
     "tenant",
     "tenants",
     "variance",
+    "write_dataset_bundle",
 ]

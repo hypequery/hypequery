@@ -268,6 +268,38 @@ stable code set.
 A manifest with no runtime artifacts is valid: a dataset-only deployment
 references none.
 
+Python definitions can now produce that dataset-only bundle directly. Register
+every dataset a relationship can reach, and give an endpoint policy only to
+datasets that Cloud should expose:
+
+```python
+from hypequery.datasets import create_dataset_registry, write_dataset_bundle
+
+registry = create_dataset_registry(Customers, Orders)
+bundle = write_dataset_bundle(
+    "analytics/hypequery-deployment",
+    registry,
+    endpoints={
+        "orders": {
+            "access": {"kind": "authenticated", "roles": ["analyst"], "scopes": []},
+            "tenant": {"kind": "required", "mode": "auto-inject", "column": "tenant_id"},
+            "path": "/api/analytics/datasets/orders/query",
+        }
+    },
+)
+bundle.deployment_identity  # the RFC 0006 identity
+bundle.bundle_identity  # the RFC 0007 identity
+```
+
+`write_dataset_bundle()` creates `deployment.json` and `bundle.json` in a new
+directory and refuses to replace an existing path. `prepare_dataset_bundle()`
+returns the same bytes without filesystem I/O. The output carries no Python
+source or executable runtime artifact. The definition adapter requires declared
+dependencies on SQL-backed fields and validates the full contract before any
+file is written. Object-valued measure filter literals are currently rejected
+because their map-entry collation is not yet proven byte-identical to the
+TypeScript adapter; scalar and array filter values are supported.
+
 ## Registry and catalog
 
 A registry is how datasets are discovered at startup, and how a relationship's
