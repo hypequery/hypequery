@@ -1,5 +1,33 @@
 # @hypequery/cli
 
+## 1.21.0
+
+### Minor Changes
+
+- cf9e556: Add `publishToCloud({ datasets, access })` to declare a validated, dataset-only Cloud
+  deployment without a Serve API. Dataset init now creates `analytics/cloud.ts`.
+  Named metrics are rejected until Cloud supports their publication explicitly.
+  An authenticated access policy is required, with optional per-dataset overrides,
+  so a migration cannot silently discard Serve role and scope requirements.
+
+  The CLI `deploy` and `deployment:build` commands now consume that explicit
+  Cloud publication. They no longer compile a Serve API module or bundle Serve
+  runtime handlers. The unused Serve-to-Cloud contract compiler and its
+  compatibility diagnostics are removed. Local Serve and MCP development remain.
+  Existing prebuilt bundles can still be verified and submitted with
+  `deployment:validate` and `deployment:submit`.
+
+### Patch Changes
+
+- Updated dependencies [827d32c]
+- Updated dependencies [8dcaf88]
+- Updated dependencies [9c5275b]
+- Updated dependencies [384b808]
+- Updated dependencies [83d601f]
+- Updated dependencies [39ef77a]
+  - @hypequery/protocol@0.15.0
+  - @hypequery/deployment@0.9.1
+
 ## 1.20.0
 
 ### Minor Changes
