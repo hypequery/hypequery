@@ -219,6 +219,14 @@ class AsyncFromSyncClickHouseExecutor:
         except Exception as exc:
             raise safe_driver_error(exc, query_id) from None
 
+    def _release_slot_from_worker(self, loop: asyncio.AbstractEventLoop) -> None:
+        try:
+            loop.call_soon_threadsafe(self._semaphore.release)
+        except RuntimeError:
+            # Application shutdown closed the loop before a blocked driver
+            # worker returned. No further admission is possible in that loop.
+            pass
+
     async def execute(self, compiled: CompiledQuery) -> QueryRows:
         if self._closed:
             raise CompiledQueryError("unavailable", "", query_id=compiled.query_id)
@@ -234,9 +242,7 @@ class AsyncFromSyncClickHouseExecutor:
             return await run_with_policy(work, compiled, self._cancel_on_server)
         finally:
             if submitted and not future.done():
-                future.add_done_callback(
-                    lambda _: loop.call_soon_threadsafe(self._semaphore.release)
-                )
+                future.add_done_callback(lambda _: self._release_slot_from_worker(loop))
             else:
                 self._semaphore.release()
 
