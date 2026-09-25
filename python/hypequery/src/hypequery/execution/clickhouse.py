@@ -29,7 +29,7 @@ class _SyncClient(Protocol):
         self,
         query: str,
         parameters: dict[str, object],
-        settings: dict[str, int],
+        settings: dict[str, int | str],
         *,
         use_none: bool,
         tz_mode: str,
@@ -42,7 +42,7 @@ class _AsyncClient(Protocol):
         self,
         query: str,
         parameters: dict[str, object],
-        settings: dict[str, int],
+        settings: dict[str, int | str],
         *,
         use_none: bool,
         tz_mode: str,
@@ -78,14 +78,17 @@ class ClickHouseExecutor:
 
     def execute(self, compiled: CompiledQuery) -> QueryRows:
         parameters, settings = _query_arguments(compiled)
+        # The driver's settings path puts query_id in HTTP parameters.
+        # transport_settings becomes headers, which ClickHouse ignores here.
+        wire_settings: dict[str, int | str] = {**settings, "query_id": compiled.query_id}
         try:
             result = self._client.query(
                 compiled.sql,
                 parameters,
-                settings,
+                wire_settings,
                 use_none=True,
                 tz_mode="aware",
-                transport_settings={"query_id": compiled.query_id},
+                transport_settings={},
             )
         except Exception as exc:
             raise safe_driver_error(exc, compiled.query_id) from None
@@ -100,14 +103,15 @@ class AsyncClickHouseExecutor:
 
     async def execute(self, compiled: CompiledQuery) -> QueryRows:
         parameters, settings = _query_arguments(compiled)
+        wire_settings: dict[str, int | str] = {**settings, "query_id": compiled.query_id}
         try:
             result = await self._client.query(
                 compiled.sql,
                 parameters,
-                settings,
+                wire_settings,
                 use_none=True,
                 tz_mode="aware",
-                transport_settings={"query_id": compiled.query_id},
+                transport_settings={},
             )
         except Exception as exc:
             raise safe_driver_error(exc, compiled.query_id) from None

@@ -72,7 +72,8 @@ def test_driver_uses_server_parameter_binding(value: object, kind: str) -> None:
     args, kwargs = cast(tuple[tuple[object, ...], dict[str, object]], client.calls[0])
     assert args[0] == query.sql
     assert args[1] == {"p0": value}
-    assert kwargs["transport_settings"] == {"query_id": query.query_id}
+    assert kwargs["transport_settings"] == {}
+    assert cast(dict[str, object], args[2])["query_id"] == query.query_id
     assert kwargs["use_none"] is True
     assert kwargs["tz_mode"] == "aware"
     wire_sql, bound = bind_query(query.sql, cast(dict[str, object], args[1]))
