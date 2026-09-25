@@ -75,8 +75,10 @@ function validateUnicode(value: string, path: string, maxBytes: number): void {
       valueError('HQ_VALUE_CONTROL_CHARACTER', path);
     }
     if (code >= 0xd800 && code <= 0xdbff) {
+      // charCodeAt past the end is NaN, which fails every range comparison,
+      // so an unpaired high surrogate at the end must be rejected explicitly.
       const low = value.charCodeAt(index + 1);
-      if (low < 0xdc00 || low > 0xdfff) {
+      if (!(low >= 0xdc00 && low <= 0xdfff)) {
         valueError('HQ_VALUE_INVALID_UNICODE', path);
       }
       index += 1;
