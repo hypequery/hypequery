@@ -357,6 +357,32 @@ def test_a_qualified_field_adds_one_left_join() -> None:
     assert "`customer`.`country` AS `customer.country`" in compiled.sql
 
 
+@pytest.mark.parametrize("measures", [("matched_revenue",), None])
+def test_a_measure_filter_alone_activates_its_relationship_join(
+    measures: tuple[str, ...] | None,
+) -> None:
+    customers = _customers()
+    trips = _trips(
+        dimensions={"customer_id": dimension("string"), "fare": dimension("number")},
+        measures={
+            "matched_revenue": measure(sum_("fare"), filters=(eq("customer.country", "US"),))
+        },
+        relationships={"customer": belongs_to(customers, from_field="customer_id", to_field="id")},
+    )
+    compiled = plan_dataset_query(
+        trips,
+        DatasetQuery(measures=measures),
+        registry=create_dataset_registry(trips, customers),
+    )
+
+    assert "FROM `analytics`.`trips` AS `__hq_base`" in compiled.sql
+    assert (
+        "LEFT JOIN `analytics`.`customers` AS `customer` "
+        "ON `__hq_base`.`customer_id` = `customer`.`id`" in compiled.sql
+    )
+    assert "sumIf(`__hq_base`.`fare`, `customer`.`country` = {p0:String})" in compiled.sql
+
+
 def test_base_columns_are_qualified_only_when_a_join_is_present() -> None:
     trips, customers = _related()
     registry = create_dataset_registry(trips, customers)

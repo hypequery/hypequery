@@ -445,6 +445,13 @@ def _references_a_relationship(dataset: Dataset, query: DatasetQuery) -> bool:
         *(resolve_filter_field(dataset, item.field) for item in query.filters),
         *(order.field for order in query.order_by),
     ]
+    selected_measures = query.measures if query.measures is not None else dataset.measures
+    for measure_name in selected_measures:
+        measure = dataset.measures.get(measure_name)
+        if measure is not None:
+            names.extend(
+                resolve_filter_field(dataset, item.field) for item in measure.filters or ()
+            )
     return any(is_qualified(name) for name in names)
 
 
