@@ -99,6 +99,25 @@ from .identifiers import (
     split_protocol_qualified_identifier,
 )
 from .limits import DEFAULT_CANONICAL_VALUE_LIMITS, CanonicalValueLimits
+from .query_implementation_primitives import (
+    DEFAULT_PROTOCOL_QUERY_IMPLEMENTATION_LIMITS,
+    ProtocolQueryImplementationLimits,
+)
+from .query_implementations import (
+    ProtocolCompiledSqlImplementation,
+    ProtocolQueryImplementation,
+    ProtocolRuntimeReferenceImplementation,
+    ProtocolSemanticPlanImplementation,
+    ProtocolSqlInputSource,
+    ProtocolSqlNotRequiredTenant,
+    ProtocolSqlParameter,
+    ProtocolSqlParameterSource,
+    ProtocolSqlRequiredTenant,
+    ProtocolSqlTenantPolicy,
+    ProtocolSqlTenantSource,
+    query_implementation_to_data,
+    validate_protocol_query_implementation,
+)
 from .releases import (
     DEFAULT_PROTOCOL_DEPLOYMENT_RELEASE_LIMITS,
     PROTOCOL_DEPLOYMENT_RELEASE_IDENTITY_DOMAIN,
@@ -135,9 +154,8 @@ from .schema_models import (
 )
 from .schemas import validate_protocol_schema
 from .sql_expressions import (
-    DEFAULT_PROTOCOL_QUERY_IMPLEMENTATION_LIMITS,
-    ProtocolQueryImplementationLimits,
     ProtocolSqlExpression,
+    sql_expression_to_data,
     validate_protocol_sql_expression,
 )
 from .values import (
@@ -178,6 +196,7 @@ __all__ = [
     "ProtocolCallExpression",
     "ProtocolComparisonExpression",
     "ProtocolComparisonOperator",
+    "ProtocolCompiledSqlImplementation",
     "ProtocolDatasetQuery",
     "ProtocolDeploymentBundleError",
     "ProtocolDeploymentBundleErrorCode",
@@ -206,18 +225,28 @@ __all__ = [
     "ProtocolObjectSchema",
     "ProtocolOrderBy",
     "ProtocolQualifiedIdentifier",
+    "ProtocolQueryImplementation",
     "ProtocolQueryImplementationError",
     "ProtocolQueryImplementationErrorCode",
     "ProtocolQueryImplementationLimits",
     "ProtocolRecordSchema",
     "ProtocolReferenceExpression",
+    "ProtocolRuntimeReferenceImplementation",
     "ProtocolSchema",
     "ProtocolSchemaError",
     "ProtocolSchemaErrorCode",
     "ProtocolSchemaKind",
     "ProtocolSchemaLimits",
+    "ProtocolSemanticPlanImplementation",
     "ProtocolSemanticQuery",
     "ProtocolSqlExpression",
+    "ProtocolSqlInputSource",
+    "ProtocolSqlNotRequiredTenant",
+    "ProtocolSqlParameter",
+    "ProtocolSqlParameterSource",
+    "ProtocolSqlRequiredTenant",
+    "ProtocolSqlTenantPolicy",
+    "ProtocolSqlTenantSource",
     "ProtocolStringSchema",
     "ProtocolTimeGrain",
     "ProtocolUnionSchema",
@@ -257,9 +286,11 @@ __all__ = [
     "prepare_protocol_deployment_bundle_manifest",
     "prepare_protocol_deployment_contract",
     "prepare_protocol_deployment_release_envelope",
+    "query_implementation_to_data",
     "schema_to_data",
     "semantic_query_to_data",
     "split_protocol_qualified_identifier",
+    "sql_expression_to_data",
     "tuple_value",
     "uuid_value",
     "validate_canonical_value",
@@ -269,6 +300,7 @@ __all__ = [
     "validate_protocol_deployment_release_envelope",
     "validate_protocol_deployment_release_target",
     "validate_protocol_expression",
+    "validate_protocol_query_implementation",
     "validate_protocol_schema",
     "validate_protocol_semantic_query",
     "validate_protocol_sql_expression",

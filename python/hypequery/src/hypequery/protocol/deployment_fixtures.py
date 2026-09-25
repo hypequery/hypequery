@@ -2,21 +2,11 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterator, Mapping
 from typing import cast
 
+from .fixture_primitives import UnsafeAccessor
+
 _MEBIBYTE = 1_024 * 1_024
-
-
-class _UnsafeAccessor(Mapping[str, object]):
-    def __getitem__(self, key: str) -> object:
-        raise AssertionError(f"unsafe accessor invoked for {key!r}")
-
-    def __iter__(self) -> Iterator[str]:
-        raise AssertionError("unsafe iterator invoked")
-
-    def __len__(self) -> int:
-        raise AssertionError("unsafe length invoked")
 
 
 def _artifact(index: int = 0) -> dict[str, object]:
@@ -70,7 +60,7 @@ def materialize_bundle_fixture(generator: dict[str, object]) -> object:
     if kind == "deployment-too-large":
         return {**value, "deployment": {**deployment, "byteLength": 16 * _MEBIBYTE + 1}}
     if kind == "unsafe-accessor":
-        return _UnsafeAccessor()
+        return UnsafeAccessor()
     raise RuntimeError(f"unknown bundle generator: {kind!r}")
 
 
@@ -91,5 +81,5 @@ def materialize_release_fixture(generator: dict[str, object]) -> object:
     if kind == "target-too-large":
         return {**value, "target": {**target, "project": "p" + "a" * 128}}
     if kind == "unsafe-accessor":
-        return _UnsafeAccessor()
+        return UnsafeAccessor()
     raise RuntimeError(f"unknown release generator: {kind!r}")

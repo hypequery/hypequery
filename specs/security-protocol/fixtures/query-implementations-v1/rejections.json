@@ -20,7 +20,9 @@
   {
     "id": "implementation-unknown-kind",
     "surface": "query-implementation",
-    "value": { "kind": "raw-sql" },
+    "value": {
+      "kind": "raw-sql"
+    },
     "error": "HQ_QUERY_IMPLEMENTATION_UNKNOWN_KIND"
   },
   {
@@ -54,27 +56,464 @@
       "operation": "select",
       "statement": "SELECT * FROM trips WHERE tenant_id = {tenantId:UUID}",
       "parameters": [],
-      "readSources": ["trips"],
-      "tenant": { "kind": "required", "parameter": "tenantId" }
+      "readSources": [
+        "trips"
+      ],
+      "tenant": {
+        "kind": "required",
+        "parameter": "tenantId"
+      }
     },
     "error": "HQ_QUERY_IMPLEMENTATION_INVALID_REFERENCE"
   },
   {
     "id": "compiled-sql-too-many-parameters",
     "surface": "query-implementation",
-    "generator": { "type": "parameters", "count": 101 },
+    "generator": {
+      "type": "parameters",
+      "count": 101
+    },
     "error": "HQ_QUERY_IMPLEMENTATION_TOO_MANY_ITEMS"
   },
   {
     "id": "sql-expression-too-large",
     "surface": "sql-expression",
-    "generator": { "type": "sql-expression", "bytes": 65537 },
+    "generator": {
+      "type": "sql-expression",
+      "bytes": 65537
+    },
     "error": "HQ_QUERY_IMPLEMENTATION_TOO_LARGE"
   },
   {
     "id": "implementation-accessor",
     "surface": "query-implementation",
-    "generator": { "type": "unsafe-accessor" },
+    "generator": {
+      "type": "unsafe-accessor"
+    },
     "error": "HQ_QUERY_IMPLEMENTATION_UNSAFE_OBJECT"
+  },
+  {
+    "id": "implementation-missing-field",
+    "surface": "query-implementation",
+    "value": {
+      "kind": "compiled-sql",
+      "dialect": "clickhouse",
+      "operation": "select",
+      "parameters": [],
+      "readSources": [],
+      "tenant": {
+        "kind": "not-required"
+      }
+    },
+    "error": "HQ_QUERY_IMPLEMENTATION_TYPE"
+  },
+  {
+    "id": "implementation-unknown-field-precedes-invalid-value",
+    "surface": "query-implementation",
+    "value": {
+      "kind": "compiled-sql",
+      "dialect": "clickhouse",
+      "operation": "insert",
+      "statement": "SELECT 1",
+      "parameters": [],
+      "readSources": [],
+      "tenant": {
+        "kind": "not-required"
+      },
+      "bogus": 1
+    },
+    "error": "HQ_QUERY_IMPLEMENTATION_UNKNOWN_FIELD"
+  },
+  {
+    "id": "implementation-non-string-kind",
+    "surface": "query-implementation",
+    "value": {
+      "kind": 1
+    },
+    "error": "HQ_QUERY_IMPLEMENTATION_TYPE"
+  },
+  {
+    "id": "implementation-sql-expression-is-not-in-the-union",
+    "surface": "query-implementation",
+    "value": {
+      "kind": "sql-expression"
+    },
+    "error": "HQ_QUERY_IMPLEMENTATION_UNKNOWN_KIND"
+  },
+  {
+    "id": "compiled-sql-invalid-operation",
+    "surface": "query-implementation",
+    "value": {
+      "kind": "compiled-sql",
+      "dialect": "clickhouse",
+      "operation": "insert",
+      "statement": "SELECT 1",
+      "parameters": [],
+      "readSources": [],
+      "tenant": {
+        "kind": "not-required"
+      }
+    },
+    "error": "HQ_QUERY_IMPLEMENTATION_INVALID_VALUE"
+  },
+  {
+    "id": "compiled-sql-invalid-dialect",
+    "surface": "query-implementation",
+    "value": {
+      "kind": "compiled-sql",
+      "dialect": "postgres",
+      "operation": "select",
+      "statement": "SELECT 1",
+      "parameters": [],
+      "readSources": [],
+      "tenant": {
+        "kind": "not-required"
+      }
+    },
+    "error": "HQ_QUERY_IMPLEMENTATION_INVALID_VALUE"
+  },
+  {
+    "id": "compiled-sql-blank-statement",
+    "surface": "query-implementation",
+    "value": {
+      "kind": "compiled-sql",
+      "dialect": "clickhouse",
+      "operation": "select",
+      "statement": "   ",
+      "parameters": [],
+      "readSources": [],
+      "tenant": {
+        "kind": "not-required"
+      }
+    },
+    "error": "HQ_QUERY_IMPLEMENTATION_INVALID_VALUE"
+  },
+  {
+    "id": "compiled-sql-byte-order-mark-statement",
+    "surface": "query-implementation",
+    "value": {
+      "kind": "compiled-sql",
+      "dialect": "clickhouse",
+      "operation": "select",
+      "statement": "﻿",
+      "parameters": [],
+      "readSources": [],
+      "tenant": {
+        "kind": "not-required"
+      }
+    },
+    "error": "HQ_QUERY_IMPLEMENTATION_INVALID_VALUE"
+  },
+  {
+    "id": "compiled-sql-control-in-clickhouse-type",
+    "surface": "query-implementation",
+    "value": {
+      "kind": "compiled-sql",
+      "dialect": "clickhouse",
+      "operation": "select",
+      "statement": "SELECT 1",
+      "parameters": [
+        {
+          "name": "a",
+          "source": {
+            "kind": "input",
+            "path": "a"
+          },
+          "clickHouseType": "Str\ting"
+        }
+      ],
+      "readSources": [],
+      "tenant": {
+        "kind": "not-required"
+      }
+    },
+    "error": "HQ_QUERY_IMPLEMENTATION_INVALID_VALUE"
+  },
+  {
+    "id": "compiled-sql-control-in-read-source",
+    "surface": "query-implementation",
+    "value": {
+      "kind": "compiled-sql",
+      "dialect": "clickhouse",
+      "operation": "select",
+      "statement": "SELECT 1",
+      "parameters": [],
+      "readSources": [
+        "analytics\ttrips"
+      ],
+      "tenant": {
+        "kind": "not-required"
+      }
+    },
+    "error": "HQ_QUERY_IMPLEMENTATION_INVALID_VALUE"
+  },
+  {
+    "id": "compiled-sql-duplicate-read-sources",
+    "surface": "query-implementation",
+    "value": {
+      "kind": "compiled-sql",
+      "dialect": "clickhouse",
+      "operation": "select",
+      "statement": "SELECT 1",
+      "parameters": [],
+      "readSources": [
+        "analytics.trips",
+        "analytics.trips"
+      ],
+      "tenant": {
+        "kind": "not-required"
+      }
+    },
+    "error": "HQ_QUERY_IMPLEMENTATION_INVALID_VALUE"
+  },
+  {
+    "id": "compiled-sql-duplicate-parameter-names",
+    "surface": "query-implementation",
+    "value": {
+      "kind": "compiled-sql",
+      "dialect": "clickhouse",
+      "operation": "select",
+      "statement": "SELECT 1",
+      "parameters": [
+        {
+          "name": "a",
+          "source": {
+            "kind": "input",
+            "path": "a"
+          },
+          "clickHouseType": "String"
+        },
+        {
+          "name": "a",
+          "source": {
+            "kind": "input",
+            "path": "a"
+          },
+          "clickHouseType": "String"
+        }
+      ],
+      "readSources": [],
+      "tenant": {
+        "kind": "not-required"
+      }
+    },
+    "error": "HQ_QUERY_IMPLEMENTATION_INVALID_REFERENCE"
+  },
+  {
+    "id": "compiled-sql-not-required-with-tenant-parameter",
+    "surface": "query-implementation",
+    "value": {
+      "kind": "compiled-sql",
+      "dialect": "clickhouse",
+      "operation": "select",
+      "statement": "SELECT 1",
+      "parameters": [
+        {
+          "name": "a",
+          "source": {
+            "kind": "tenant"
+          },
+          "clickHouseType": "String"
+        }
+      ],
+      "readSources": [],
+      "tenant": {
+        "kind": "not-required"
+      }
+    },
+    "error": "HQ_QUERY_IMPLEMENTATION_INVALID_REFERENCE"
+  },
+  {
+    "id": "compiled-sql-two-tenant-parameters",
+    "surface": "query-implementation",
+    "value": {
+      "kind": "compiled-sql",
+      "dialect": "clickhouse",
+      "operation": "select",
+      "statement": "SELECT 1",
+      "parameters": [
+        {
+          "name": "a",
+          "source": {
+            "kind": "tenant"
+          },
+          "clickHouseType": "String"
+        },
+        {
+          "name": "b",
+          "source": {
+            "kind": "tenant"
+          },
+          "clickHouseType": "String"
+        }
+      ],
+      "readSources": [],
+      "tenant": {
+        "kind": "required",
+        "parameter": "a"
+      }
+    },
+    "error": "HQ_QUERY_IMPLEMENTATION_INVALID_REFERENCE"
+  },
+  {
+    "id": "compiled-sql-required-tenant-names-an-input-parameter",
+    "surface": "query-implementation",
+    "value": {
+      "kind": "compiled-sql",
+      "dialect": "clickhouse",
+      "operation": "select",
+      "statement": "SELECT 1",
+      "parameters": [
+        {
+          "name": "a",
+          "source": {
+            "kind": "input",
+            "path": "a"
+          },
+          "clickHouseType": "String"
+        }
+      ],
+      "readSources": [],
+      "tenant": {
+        "kind": "required",
+        "parameter": "a"
+      }
+    },
+    "error": "HQ_QUERY_IMPLEMENTATION_INVALID_REFERENCE"
+  },
+  {
+    "id": "parameter-source-non-string-kind",
+    "surface": "query-implementation",
+    "value": {
+      "kind": "compiled-sql",
+      "dialect": "clickhouse",
+      "operation": "select",
+      "statement": "SELECT 1",
+      "parameters": [
+        {
+          "name": "a",
+          "source": {
+            "kind": 1
+          },
+          "clickHouseType": "String"
+        }
+      ],
+      "readSources": [],
+      "tenant": {
+        "kind": "not-required"
+      }
+    },
+    "error": "HQ_QUERY_IMPLEMENTATION_TYPE"
+  },
+  {
+    "id": "parameter-source-unknown-kind",
+    "surface": "query-implementation",
+    "value": {
+      "kind": "compiled-sql",
+      "dialect": "clickhouse",
+      "operation": "select",
+      "statement": "SELECT 1",
+      "parameters": [
+        {
+          "name": "a",
+          "source": {
+            "kind": "environment"
+          },
+          "clickHouseType": "String"
+        }
+      ],
+      "readSources": [],
+      "tenant": {
+        "kind": "not-required"
+      }
+    },
+    "error": "HQ_QUERY_IMPLEMENTATION_UNKNOWN_KIND"
+  },
+  {
+    "id": "semantic-plan-invalid-query",
+    "surface": "query-implementation",
+    "value": {
+      "kind": "semantic-plan",
+      "query": {
+        "kind": "nope"
+      }
+    },
+    "error": "HQ_QUERY_IMPLEMENTATION_INVALID_VALUE"
+  },
+  {
+    "id": "runtime-invalid-runtime",
+    "surface": "query-implementation",
+    "value": {
+      "kind": "runtime-reference",
+      "runtime": "deno",
+      "artifactSha256": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+      "entrypoint": "queries.run"
+    },
+    "error": "HQ_QUERY_IMPLEMENTATION_INVALID_VALUE"
+  },
+  {
+    "id": "sql-expression-blank",
+    "surface": "sql-expression",
+    "value": {
+      "kind": "sql-expression",
+      "dialect": "clickhouse",
+      "sql": " ",
+      "output": {
+        "kind": "string"
+      },
+      "dependencies": [
+        "x"
+      ]
+    },
+    "error": "HQ_QUERY_IMPLEMENTATION_INVALID_VALUE"
+  },
+  {
+    "id": "sql-expression-byte-order-mark",
+    "surface": "sql-expression",
+    "value": {
+      "kind": "sql-expression",
+      "dialect": "clickhouse",
+      "sql": "﻿",
+      "output": {
+        "kind": "string"
+      },
+      "dependencies": [
+        "x"
+      ]
+    },
+    "error": "HQ_QUERY_IMPLEMENTATION_INVALID_VALUE"
+  },
+  {
+    "id": "sql-expression-duplicate-dependencies",
+    "surface": "sql-expression",
+    "value": {
+      "kind": "sql-expression",
+      "dialect": "clickhouse",
+      "sql": "toDate(x)",
+      "output": {
+        "kind": "string"
+      },
+      "dependencies": [
+        "x",
+        "x"
+      ]
+    },
+    "error": "HQ_QUERY_IMPLEMENTATION_INVALID_VALUE"
+  },
+  {
+    "id": "sql-expression-invalid-dependency",
+    "surface": "sql-expression",
+    "value": {
+      "kind": "sql-expression",
+      "dialect": "clickhouse",
+      "sql": "toDate(x)",
+      "output": {
+        "kind": "string"
+      },
+      "dependencies": [
+        "a/b"
+      ]
+    },
+    "error": "HQ_QUERY_IMPLEMENTATION_INVALID_IDENTIFIER"
   }
 ]

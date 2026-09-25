@@ -183,6 +183,19 @@ PYC-01 are merged.
 - **Review:** Security review required.
 - **Blocks:** PYC-04.
 
+### TSP-04 — Server-side parameter binding in `@hypequery/clickhouse`
+- **Scope:** Replace the client-side `{name:Type}` → `CAST(?, 'Type')` rewrite
+  and literal substitution in `@hypequery/clickhouse` with ClickHouse's native
+  `query_params` binding, so no parameter value is rendered into SQL text on a
+  network path. The public placeholder API stays as it is.
+- **Why:** RFC 0010 is accepted and requires it. The package's own
+  `named-parameters.ts` already carries a TODO for this change.
+- **Acceptance:** No value appears in the statement sent to the server;
+  integration tests cover quotes, null bytes, boundary integers, decimals, and
+  DST datetimes; `substituteParameters` remains only for the non-executing
+  debug/render path.
+- **Review:** Security review required.
+
 ### TSP-03 — Public/privileged metadata split parity tracking
 - **Scope:** Tracking issue + serve implementation of the RFC 0009 metadata
   split (public operational metadata vs privileged diagnostics) so
@@ -339,6 +352,13 @@ PYC-01 are merged.
 
 ### PYB-08 — Planner and CompiledQuery (RFC 0005/0010)
 - **Dependencies:** PYB-07, RFCs 0005/0010 accepted.
+- **Status (2026-09-23):** Delivered. RFCs 0005 and 0010 are both accepted.
+  0010 was accepted on the Python implementation plus a recorded obligation on
+  TypeScript: `@hypequery/clickhouse` substitutes escaped literals into SQL
+  client-side, which the frozen contract forbids, so moving it to ClickHouse's
+  native server-parameter binding is now a defect to fix rather than an open
+  design question. Tracked as TSP-04. Metrics are out of scope by the decision
+  recorded on PYB-07.
 - **Scope:** Semantic planner (grouping, time grain, relationships, joins
   with tenant-predicate propagation, metrics, order/limit/offset) emitting
   the `CompiledQuery` protocol shape: named typed placeholders, safe

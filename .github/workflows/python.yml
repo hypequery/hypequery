@@ -39,6 +39,8 @@ jobs:
       - run: uv run ruff format --check .
       - run: uv run mypy
       - run: uv run lint-imports
+      # RFC 0010: a value moves as a typed parameter, never as SQL text.
+      - run: uv run python scripts/check_sql_interpolation.py
       - run: uv run pytest
 
   minimal-install:

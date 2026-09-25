@@ -317,6 +317,68 @@ Both projections are byte-identical to `@hypequery/datasets` for the same
 model. `specs/semantic-catalog/contract.json` and `contract-public.json` pin
 that, and both test suites check themselves against them.
 
+## Planning and compiled queries
+
+The planner turns a semantic query into a `CompiledQuery`: the only shape the
+package asks a database to execute. SQL text is planner output, values are
+named typed parameters, and policy is a closed settings allow-list — so a
+request can influence *what* is selected but never *how* it is executed.
+
+```python
+from hypequery.datasets.planner import (
+    DatasetQuery,
+    ExecutionContext,
+    plan_dataset_query,
+    tenant,
+)
+from hypequery.datasets.query_helpers import asc, gte
+
+compiled = plan_dataset_query(
+    Trips,
+    DatasetQuery(
+        dimensions=("vendor", "customer.country"),
+        measures=("revenue",),
+        filters=(gte("pickup", "2026-01-01"),),
+        by="day",
+        order_by=(asc("period"),),
+        limit=100,
+    ),
+    registry=registry,
+    context=ExecutionContext(tenant=tenant("acme")),
+)
+
+compiled.sql  # SELECT ... WHERE `pickup_datetime` >= {p0:DateTime64(3)} ...
+compiled.parameter_values()  # {"p0": "2026-01-01", "p1": "acme"}
+compiled.to_sql()  # the redacted debug form — never executable
+```
+
+A dataset that declares a `tenant_key` is not served without a tenant scope:
+reading it unscoped returns every tenant's rows, so an absent scope fails
+closed with `tenant-required` rather than at whatever consumes the result. A
+scope is created by `tenant()`, `tenants()`, or `all_tenants()` and is
+deliberately **not** a Pydantic model, so no request body can be coerced into
+one. Joined datasets carry their own tenancy into the join condition rather
+than into `WHERE`, where it would silently turn a `LEFT JOIN` into an inner
+join. Filtering the tenant field yourself is refused while a scope is active.
+
+`to_sql()` is for logs and diagnostics. It shows the same structure with the
+same declared types and no values, and its placeholders are `<name:Type>` —
+deliberately invalid as ClickHouse SQL, so debug output cannot be pasted into a
+client and run.
+
+Two independent checks keep values out of SQL text, and they catch different
+things. Ruff's `S608` bans the classic interpolated-statement shape.
+`scripts/check_sql_interpolation.py` — which CI runs — catches what `S608`
+cannot see, because the planner assembles SQL from fragments that contain no
+SQL keyword: it rejects any f-string in the planner that reads caller data, and
+then plans the same query twice with different values and asserts the statement
+is byte-identical. A deliberately reintroduced interpolation fails the second
+check on every axis while `S608` stays green, which is why both are wired up.
+
+Metrics and named queries are deliberately absent from the planner: the Python
+definition surface has no metric handles and does not author named queries, so
+a branch for either would be unreachable code.
+
 ## Development
 
 ```bash

@@ -121,7 +121,9 @@ describe('portable query implementations', () => {
       .map(fixture => fixture.value as { kind: string; runtime?: string });
     expect([...new Set(implementations.map(value => value.kind))].sort())
       .toEqual(['compiled-sql', 'runtime-reference', 'semantic-plan']);
-    expect(implementations.flatMap(value => value.runtime ? [value.runtime] : []).sort())
+    // A set, like the kinds above: this asserts the corpus covers both
+    // runtimes, not how many cases happen to use each.
+    expect([...new Set(implementations.flatMap(value => value.runtime ? [value.runtime] : []))].sort())
       .toEqual(['node', 'python']);
   });
 
