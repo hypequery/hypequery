@@ -85,6 +85,27 @@ describe('approxCountDistinct', () => {
     expect(data).toEqual([{ visitors: '2', events: '3' }]);
   });
 
+  it('skips NULL values like ClickHouse uniq and countDistinct', async () => {
+    const NullableEvents = dataset('nullableEvents', {
+      source: 'nullable_events',
+      dimensions: { userId: dimension.string({ column: 'user_id' }) },
+      measures: {
+        estimated: measure.approxCountDistinct('user_id'),
+        exact: measure.countDistinct('user_id'),
+      },
+    });
+    const client = createDatasetClient({
+      backend: createInMemoryBackend({
+        nullable_events: [
+          { user_id: 'a' }, { user_id: 'a' }, { user_id: 'b' },
+          { user_id: null }, { user_id: null },
+        ],
+      }),
+    });
+    expect((await client.execute(NullableEvents, { measures: ['estimated', 'exact'] })).data)
+      .toEqual([{ estimated: '2', exact: '2' }]);
+  });
+
   it('is exported as an aggregation helper', () => {
     expect(approxCountDistinct('user_id')).toMatchObject({ aggregation: 'approxCountDistinct', field: 'user_id' });
   });

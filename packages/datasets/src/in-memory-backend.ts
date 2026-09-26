@@ -250,7 +250,7 @@ function aggregateRows(rows: InMemoryTable, aggregation: SemanticAggregationPlan
     // Exact computation is a faithful approxCountDistinct (RFC 0015).
     case 'countDistinct':
     case 'approxCountDistinct':
-      return new Set(values).size;
+      return new Set(values.filter(value => value != null)).size;
     case 'avg':
       return values.length === 0
         ? 0
