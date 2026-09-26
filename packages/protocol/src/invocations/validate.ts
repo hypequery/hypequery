@@ -1,9 +1,11 @@
 import { ProtocolExpressionError, validateProtocolSemanticQuery } from '../expressions/index.js';
+import type { ProtocolSemanticQuery } from '../expressions/index.js';
 import { PROTOCOL_SEMANTIC_FAILURE_MESSAGES } from './failure-messages.js';
 import { invocationError } from './errors.js';
 import { resolveSemanticInvocationLimits } from './limits.js';
 import type {
   ProtocolSemanticInvocation,
+  ProtocolSemanticInvocationV2,
   ProtocolSemanticInvocationBudget,
   ProtocolSemanticInvocationFailure,
   ProtocolSemanticInvocationLimits,
@@ -139,12 +141,12 @@ function activationRevision(value: unknown, path: string): string {
   return value;
 }
 
-function requireVersion(value: DataRecord, kind: string, path: string): void {
+function requireVersion(value: DataRecord, kind: string, path: string, version: 1 | 2 = 1): void {
   if (value.kind !== kind) {
     if (typeof value.kind !== 'string') invocationError('HQ_INVOCATION_TYPE', `${path}.kind`);
     invocationError('HQ_INVOCATION_INVALID_VALUE', `${path}.kind`);
   }
-  if (value.version !== 1) {
+  if (value.version !== version) {
     if (typeof value.version !== 'number') invocationError('HQ_INVOCATION_TYPE', `${path}.version`);
     invocationError('HQ_INVOCATION_INVALID_VERSION', `${path}.version`);
   }
@@ -192,6 +194,40 @@ export function validateProtocolSemanticInvocation(
   input: unknown,
   options: ProtocolSemanticInvocationOptions = {},
 ): ProtocolSemanticInvocation {
+  return validateInvocation(input, options, 1) as ProtocolSemanticInvocation;
+}
+
+/**
+ * Validate a semantic invocation 2 request (RFC 0015): identical to version 1
+ * except that `operation` is validated under expression extension 2.
+ *
+ * Under the lowest-version rule, a request whose operation uses no extension 2
+ * feature (a segment, a sub-day grain, or a relationship measure) must be sent
+ * as version 1, and is rejected here.
+ */
+export function validateProtocolSemanticInvocationV2(
+  input: unknown,
+  options: ProtocolSemanticInvocationOptions = {},
+): ProtocolSemanticInvocationV2 {
+  const invocation = validateInvocation(input, options, 2) as ProtocolSemanticInvocationV2;
+  if (!usesExtension2(invocation.operation)) {
+    invocationError('HQ_INVOCATION_INVALID_VERSION', '$.version');
+  }
+  return invocation;
+}
+
+function usesExtension2(operation: ProtocolSemanticQuery): boolean {
+  return (operation.segments?.length ?? 0) > 0
+    || operation.by === 'minute'
+    || operation.by === 'hour'
+    || (operation.kind === 'dataset' && (operation.measures ?? []).some(measure => measure.includes('.')));
+}
+
+function validateInvocation(
+  input: unknown,
+  options: ProtocolSemanticInvocationOptions,
+  version: 1 | 2,
+): ProtocolSemanticInvocation | ProtocolSemanticInvocationV2 {
   const limits = resolveSemanticInvocationLimits(options);
   const value = requireRecord(input, '$');
   exactFields(
@@ -200,13 +236,13 @@ export function validateProtocolSemanticInvocation(
     ['activationRevision', 'budget', 'correlationId'],
     '$',
   );
-  requireVersion(value, 'hypequery-semantic-invocation', '$');
+  requireVersion(value, 'hypequery-semantic-invocation', '$', version);
 
   const result: Record<string, unknown> = {
     kind: 'hypequery-semantic-invocation',
-    version: 1,
+    version,
     target: target(value.target, '$.target', limits),
-    operation: semanticQuery(value.operation, '$.operation'),
+    operation: semanticQuery(value.operation, '$.operation', version),
   };
   if (value.activationRevision !== undefined) {
     result.activationRevision = activationRevision(
@@ -225,9 +261,10 @@ export function validateProtocolSemanticInvocation(
   return freezeRecord(result) as unknown as ProtocolSemanticInvocation;
 }
 
-function semanticQuery(input: unknown, path: string) {
+function semanticQuery(input: unknown, path: string, version: 1 | 2) {
   try {
-    return validateProtocolSemanticQuery(input);
+    // Invocation 2 carries expression extension 2 (RFC 0015).
+    return validateProtocolSemanticQuery(input, { extension: version });
   } catch (error) {
     if (error instanceof ProtocolExpressionError) {
       invocationError('HQ_INVOCATION_INVALID_VALUE', path);

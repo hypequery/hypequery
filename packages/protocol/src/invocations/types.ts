@@ -41,6 +41,15 @@ export interface ProtocolSemanticInvocation {
 }
 
 /**
+ * A semantic invocation 2 request (RFC 0015). Identical to version 1, except
+ * that `operation` is validated under expression extension 2, so it may name
+ * segments, sub-day grains, and relationship measures.
+ */
+export interface ProtocolSemanticInvocationV2 extends Omit<ProtocolSemanticInvocation, 'version'> {
+  readonly version: 2;
+}
+
+/**
  * A result cell. Portable execution returns scalars; anything richer would need
  * the RFC 0001 tagged value model, which this envelope deliberately does not
  * pull into result rows.

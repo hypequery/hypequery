@@ -137,10 +137,12 @@ export {
   validateProtocolSemanticInvocation,
   validateProtocolSemanticInvocationFailure,
   validateProtocolSemanticInvocationResult,
+  validateProtocolSemanticInvocationV2,
 } from './invocations/index.js';
 
 export type {
   ProtocolSemanticInvocation,
+  ProtocolSemanticInvocationV2,
   ProtocolSemanticInvocationBudget,
   ProtocolSemanticInvocationErrorCode,
   ProtocolSemanticInvocationFailure,

@@ -5,9 +5,11 @@ export {
   validateProtocolSemanticInvocation,
   validateProtocolSemanticInvocationFailure,
   validateProtocolSemanticInvocationResult,
+  validateProtocolSemanticInvocationV2,
 } from './validate.js';
 export type {
   ProtocolSemanticInvocation,
+  ProtocolSemanticInvocationV2,
   ProtocolSemanticInvocationBudget,
   ProtocolSemanticInvocationErrorCode,
   ProtocolSemanticInvocationFailure,
