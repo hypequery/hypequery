@@ -76,6 +76,7 @@ def test_import_performs_no_io() -> None:
         importing = True
         import hypequery  # noqa: F401
         import hypequery.datasets  # noqa: F401
+        import hypequery.execution  # noqa: F401
         import hypequery.protocol  # noqa: F401
         importing = False
 
