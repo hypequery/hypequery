@@ -8,11 +8,13 @@ export type {
   ProtocolDatasetQuery,
   ProtocolExpression,
   ProtocolExpressionErrorCode,
+  ProtocolExpressionExtension,
   ProtocolExpressionLimits,
   ProtocolExpressionOptions,
   ProtocolFunctionName,
   ProtocolMetricQuery,
   ProtocolOrderBy,
   ProtocolSemanticQuery,
+  ProtocolQueryTimeGrain,
   ProtocolTimeGrain,
 } from './types.js';

@@ -103,6 +103,12 @@ export function materializeExpression(spec: Spec): unknown {
           ),
         })),
       };
+    case 'segments':
+      return {
+        kind: 'dataset',
+        dataset: 'orders',
+        segments: Array.from({ length: spec.count as number }, (_, index) => `s${index}`),
+      };
     case 'unsafe-accessor': {
       const value: Record<string, unknown> = { kind: 'reference' };
       Object.defineProperty(value, 'name', { enumerable: true, get: () => 'orders' });

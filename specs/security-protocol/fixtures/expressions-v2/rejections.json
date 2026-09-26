@@ -1,0 +1,13 @@
+[
+  { "id": "approxCountDistinct-with-arg-field", "mode": "expression", "value": { "kind": "aggregate", "aggregation": "approxCountDistinct", "field": "user_id", "argField": "created_at" }, "error": "HQ_EXPRESSION_INVALID_AGGREGATION" },
+  { "id": "approxCountDistinct-with-level", "mode": "expression", "value": { "kind": "aggregate", "aggregation": "approxCountDistinct", "field": "user_id", "level": 0.5 }, "error": "HQ_EXPRESSION_INVALID_AGGREGATION" },
+  { "id": "approxCountDistinct-filter-not-predicate", "mode": "expression", "value": { "kind": "aggregate", "aggregation": "approxCountDistinct", "field": "user_id", "filters": [{ "kind": "literal", "value": true }] }, "error": "HQ_EXPRESSION_INVALID_AGGREGATION" },
+  { "id": "aggregation-still-closed", "mode": "expression", "value": { "kind": "aggregate", "aggregation": "uniq", "field": "user_id" }, "error": "HQ_EXPRESSION_INVALID_AGGREGATION" },
+  { "id": "grain-still-closed", "mode": "query", "value": { "kind": "dataset", "dataset": "orders", "by": "second" }, "error": "HQ_EXPRESSION_INVALID_QUERY" },
+  { "id": "segments-duplicate", "mode": "query", "value": { "kind": "dataset", "dataset": "orders", "segments": ["enterprise", "enterprise"] }, "error": "HQ_EXPRESSION_INVALID_QUERY" },
+  { "id": "segments-qualified", "mode": "query", "value": { "kind": "dataset", "dataset": "orders", "segments": ["customer.enterprise"] }, "error": "HQ_EXPRESSION_INVALID_IDENTIFIER" },
+  { "id": "segments-not-array", "mode": "query", "value": { "kind": "dataset", "dataset": "orders", "segments": "enterprise" }, "error": "HQ_EXPRESSION_TYPE" },
+  { "id": "segments-too-many-items", "mode": "query", "generator": { "type": "segments", "count": 101 }, "error": "HQ_EXPRESSION_TOO_MANY_ITEMS" },
+  { "id": "segments-validated-before-order-by", "mode": "query", "value": { "kind": "dataset", "dataset": "orders", "segments": ["a", "a"], "orderBy": [{ "field": "revenue", "direction": "sideways" }] }, "error": "HQ_EXPRESSION_INVALID_QUERY" },
+  { "id": "measure-invalid-qualified", "mode": "query", "value": { "kind": "dataset", "dataset": "orders", "measures": ["customer..count"] }, "error": "HQ_EXPRESSION_INVALID_IDENTIFIER" }
+]

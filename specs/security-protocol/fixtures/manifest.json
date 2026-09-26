@@ -58,6 +58,27 @@
       ]
     },
     {
+      "name": "expressions-v2",
+      "rfc": "0015",
+      "codePrefixes": [
+        "HQ_EXPRESSION_"
+      ],
+      "files": [
+        {
+          "path": "expressions-v2/success.json",
+          "role": "success",
+          "sections": [
+            "/expressions",
+            "/queries"
+          ]
+        },
+        {
+          "path": "expressions-v2/rejections.json",
+          "role": "rejection"
+        }
+      ]
+    },
+    {
       "name": "query-schemas-v1",
       "rfc": "0004",
       "codePrefixes": [

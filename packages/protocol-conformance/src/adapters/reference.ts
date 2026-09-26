@@ -29,6 +29,7 @@ import {
   validateProtocolSemanticQuery,
   validateProtocolSqlExpression,
 } from '@hypequery/protocol';
+import type { ProtocolExpressionExtension } from '@hypequery/protocol';
 import type { FixtureRole, HandlerResult } from '../types.js';
 import {
   materializeBundle,
@@ -92,6 +93,7 @@ export const REFERENCE_FAMILIES = [
   'tagged-values-v1',
   'identifiers-v1',
   'expressions-v1',
+  'expressions-v2',
   'query-schemas-v1',
   'query-implementations-v1',
   'query-events-v1',
@@ -114,7 +116,9 @@ export function referenceHandle(
     case 'identifiers-v1':
       return handleIdentifier(role, c);
     case 'expressions-v1':
-      return handleExpression(role, c, section);
+      return handleExpression(role, c, section, 1);
+    case 'expressions-v2':
+      return handleExpression(role, c, section, 2);
     case 'query-schemas-v1':
       return attempt(() => {
         validateProtocolSchema(validationInput(c, materializeSchema));
@@ -245,17 +249,22 @@ function handleIdentifier(role: FixtureRole, c: Case): HandlerResult {
   });
 }
 
-function handleExpression(role: FixtureRole, c: Case, section?: string): HandlerResult {
+function handleExpression(
+  role: FixtureRole,
+  c: Case,
+  section: string | undefined,
+  extension: ProtocolExpressionExtension,
+): HandlerResult {
   const isQuery = section === '/queries' || c.mode === 'query';
   const validate = isQuery ? validateProtocolSemanticQuery : validateProtocolExpression;
   if (role === 'success') {
     return attempt(() => {
-      validate(validationInput(c, materializeExpression));
+      validate(validationInput(c, materializeExpression), { extension });
       return ACCEPT;
     });
   }
   return attempt(() => {
-    validate(validationInput(c, materializeExpression));
+    validate(validationInput(c, materializeExpression), { extension });
     return ACCEPT;
   });
 }

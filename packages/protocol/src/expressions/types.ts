@@ -5,9 +5,15 @@ export type ProtocolBinaryOperator = 'add' | 'subtract' | 'multiply' | 'divide';
 export type ProtocolFunctionName = 'nullIfZero' | 'coalesce' | 'round' | 'floor' | 'ceil';
 export type ProtocolComparisonOperator =
   | 'eq' | 'neq' | 'gt' | 'gte' | 'lt' | 'lte' | 'in' | 'notIn' | 'between' | 'like';
+/**
+ * Every aggregation any supported expression extension accepts.
+ * `approxCountDistinct` is extension 2 (RFC 0015); the validator rejects it
+ * under extension 1.
+ */
 export type ProtocolAggregation =
   | 'sum' | 'count' | 'countDistinct' | 'avg' | 'min' | 'max'
-  | 'argMax' | 'argMin' | 'percentile' | 'stddev' | 'variance';
+  | 'argMax' | 'argMin' | 'percentile' | 'stddev' | 'variance'
+  | 'approxCountDistinct';
 
 export type ProtocolExpression =
   | { readonly kind: 'reference'; readonly name: ProtocolQualifiedIdentifier }
@@ -48,7 +54,18 @@ export type ProtocolExpression =
       readonly filters?: readonly ProtocolExpression[];
     };
 
+/** Expression extension 1 grains, also the deployment contract 2 grain set. */
 export type ProtocolTimeGrain = 'day' | 'week' | 'month' | 'quarter' | 'year';
+
+/**
+ * Every grain a semantic query may carry under any supported extension.
+ * `minute` and `hour` are extension 2 (RFC 0015); the validator rejects them
+ * under extension 1.
+ */
+export type ProtocolQueryTimeGrain = 'minute' | 'hour' | ProtocolTimeGrain;
+
+/** Expression extension versions this implementation validates. */
+export type ProtocolExpressionExtension = 1 | 2;
 
 export interface ProtocolOrderBy {
   readonly field: ProtocolQualifiedIdentifier;
@@ -59,16 +76,22 @@ interface ProtocolQueryCommon {
   readonly dataset: ProtocolIdentifier;
   readonly dimensions?: readonly ProtocolQualifiedIdentifier[];
   readonly filters?: readonly ProtocolExpression[];
+  /** Named segments, AND-combined with `filters`. Extension 2 only. */
+  readonly segments?: readonly ProtocolIdentifier[];
   readonly orderBy?: readonly ProtocolOrderBy[];
   readonly limit?: number;
   readonly offset?: number;
-  readonly by?: ProtocolTimeGrain;
+  readonly by?: ProtocolQueryTimeGrain;
   readonly includeMeta?: boolean;
 }
 
 export interface ProtocolDatasetQuery extends ProtocolQueryCommon {
   readonly kind: 'dataset';
-  readonly measures?: readonly ProtocolIdentifier[];
+  /**
+   * Simple measure names. Extension 2 also accepts one-hop relationship
+   * measures such as `customer.customerCount`.
+   */
+  readonly measures?: readonly ProtocolQualifiedIdentifier[];
 }
 
 export interface ProtocolMetricQuery extends ProtocolQueryCommon {
@@ -86,6 +109,12 @@ export interface ProtocolExpressionLimits {
 
 export interface ProtocolExpressionOptions {
   readonly limits?: Partial<ProtocolExpressionLimits>;
+  /**
+   * Expression extension to validate against. Defaults to 1. The containing
+   * artifact selects it (RFC 0015): deployment contract 3 and semantic
+   * invocation 2 use extension 2.
+   */
+  readonly extension?: ProtocolExpressionExtension;
 }
 
 export type ProtocolExpressionErrorCode =

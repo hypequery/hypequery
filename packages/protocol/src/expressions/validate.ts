@@ -9,6 +9,7 @@ import { resolveExpressionLimits } from './limits.js';
 import type {
   ProtocolAggregation,
   ProtocolExpression,
+  ProtocolExpressionExtension,
   ProtocolExpressionLimits,
   ProtocolExpressionOptions,
   ProtocolSemanticQuery,
@@ -18,17 +19,22 @@ type DataRecord = Record<string, unknown>;
 
 interface State {
   readonly limits: Readonly<ProtocolExpressionLimits>;
+  readonly extension: ProtocolExpressionExtension;
   readonly active: WeakSet<object>;
   nodes: number;
 }
 
 const BINARY = new Set(['add', 'subtract', 'multiply', 'divide']);
 const COMPARISONS = new Set(['eq', 'neq', 'gt', 'gte', 'lt', 'lte', 'in', 'notIn', 'between', 'like']);
-const AGGREGATIONS = new Set<ProtocolAggregation>([
+const AGGREGATIONS_V1: ReadonlySet<ProtocolAggregation> = new Set<ProtocolAggregation>([
   'sum', 'count', 'countDistinct', 'avg', 'min', 'max',
   'argMax', 'argMin', 'percentile', 'stddev', 'variance',
 ]);
-const GRAINS = new Set(['day', 'week', 'month', 'quarter', 'year']);
+const AGGREGATIONS_V2: ReadonlySet<ProtocolAggregation> = new Set<ProtocolAggregation>([
+  ...AGGREGATIONS_V1, 'approxCountDistinct',
+]);
+const GRAINS_V1: ReadonlySet<string> = new Set(['day', 'week', 'month', 'quarter', 'year']);
+const GRAINS_V2: ReadonlySet<string> = new Set(['minute', 'hour', ...GRAINS_V1]);
 const CALL_ARITY: Readonly<Record<string, readonly [number, number]>> = Object.freeze({
   nullIfZero: [1, 1],
   coalesce: [2, 2],
@@ -230,7 +236,8 @@ function validateComparisonOperands(operator: string, right: ProtocolExpression,
 function validateAggregate(value: DataRecord, path: string, depth: number, state: State): ProtocolExpression {
   exactFields(value, ['kind', 'aggregation', 'field'], ['argField', 'level', 'filters'], path);
   const aggregation = stringValue(value.aggregation, `${path}.aggregation`) as ProtocolAggregation;
-  if (!AGGREGATIONS.has(aggregation)) expressionError('HQ_EXPRESSION_INVALID_AGGREGATION', `${path}.aggregation`);
+  const aggregations = state.extension === 2 ? AGGREGATIONS_V2 : AGGREGATIONS_V1;
+  if (!aggregations.has(aggregation)) expressionError('HQ_EXPRESSION_INVALID_AGGREGATION', `${path}.aggregation`);
   const isArg = aggregation === 'argMax' || aggregation === 'argMin';
   const isPercentile = aggregation === 'percentile';
   if (isArg !== Object.hasOwn(value, 'argField') || isPercentile !== Object.hasOwn(value, 'level')) {
@@ -261,7 +268,11 @@ function validateAggregate(value: DataRecord, path: string, depth: number, state
 }
 
 function newState(options: ProtocolExpressionOptions): State {
-  return { limits: resolveExpressionLimits(options), active: new WeakSet(), nodes: 0 };
+  const extension = options.extension ?? 1;
+  if (extension !== 1 && extension !== 2) {
+    throw new RangeError('extension must be 1 or 2');
+  }
+  return { limits: resolveExpressionLimits(options), extension, active: new WeakSet(), nodes: 0 };
 }
 
 export function validateProtocolExpression(
@@ -281,13 +292,18 @@ export function validateProtocolSemanticQuery(
   try {
     const kind = stringValue(value.kind, '$.kind');
     const metric = kind === 'metric';
+    const v2 = state.extension === 2;
     if (!metric && kind !== 'dataset') expressionError('HQ_EXPRESSION_INVALID_QUERY', '$.kind');
     exactFields(
       value,
       metric ? ['kind', 'dataset', 'metric'] : ['kind', 'dataset'],
-      metric
-        ? ['dimensions', 'filters', 'orderBy', 'limit', 'offset', 'by', 'includeMeta']
-        : ['dimensions', 'measures', 'filters', 'orderBy', 'limit', 'offset', 'by', 'includeMeta'],
+      [
+        'dimensions',
+        ...(metric ? [] : ['measures']),
+        'filters',
+        ...(v2 ? ['segments'] : []),
+        'orderBy', 'limit', 'offset', 'by', 'includeMeta',
+      ],
       '$',
     );
     const result: Record<string, unknown> = {
@@ -296,7 +312,8 @@ export function validateProtocolSemanticQuery(
       ...(metric ? { metric: identifier(value.metric, '$.metric', false) } : {}),
     };
     copyIdentifierArray(value, result, 'dimensions', true, state);
-    if (!metric) copyIdentifierArray(value, result, 'measures', false, state);
+    // Extension 2 admits one-hop relationship measures (`customer.count`).
+    if (!metric) copyIdentifierArray(value, result, 'measures', v2, state);
     if (value.filters !== undefined) {
       const filters = arrayValue(value.filters, '$.filters', state);
       result.filters = Object.freeze(filters.map((filter, index) => validatePredicate(
@@ -307,12 +324,13 @@ export function validateProtocolSemanticQuery(
         'HQ_EXPRESSION_INVALID_QUERY',
       )));
     }
+    if (value.segments !== undefined) result.segments = validateSegments(value.segments, state);
     if (value.orderBy !== undefined) result.orderBy = validateOrderBy(value.orderBy, state);
     copyInteger(value, result, 'limit', 0);
     copyInteger(value, result, 'offset', 0);
     if (value.by !== undefined) {
       const grain = stringValue(value.by, '$.by');
-      if (!GRAINS.has(grain)) expressionError('HQ_EXPRESSION_INVALID_QUERY', '$.by');
+      if (!(v2 ? GRAINS_V2 : GRAINS_V1).has(grain)) expressionError('HQ_EXPRESSION_INVALID_QUERY', '$.by');
       result.by = grain;
     }
     if (value.includeMeta !== undefined) {
@@ -375,5 +393,17 @@ function validateOrderBy(input: unknown, state: State): readonly DataRecord[] {
     const direction = stringValue(value.direction, `${path}.direction`);
     if (direction !== 'asc' && direction !== 'desc') expressionError('HQ_EXPRESSION_INVALID_QUERY', `${path}.direction`);
     return freezeRecord({ field: identifier(value.field, `${path}.field`), direction });
+  }));
+}
+
+function validateSegments(input: unknown, state: State): readonly string[] {
+  const values = arrayValue(input, '$.segments', state);
+  const seen = new Set<string>();
+  return Object.freeze(values.map((item, index) => {
+    const path = `$.segments[${index}]`;
+    const name = identifier(item, path, false);
+    if (seen.has(name)) expressionError('HQ_EXPRESSION_INVALID_QUERY', path);
+    seen.add(name);
+    return name;
   }));
 }
