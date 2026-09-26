@@ -228,6 +228,8 @@ interface ProtocolTimeMeasureCommon extends ProtocolSemanticMetadata {
   readonly name: ProtocolIdentifier;
   /** The base measure of the same dataset this measure wraps. */
   readonly measure: ProtocolIdentifier;
+  /** Signals that selecting this measure requires a grain and bounded time range. */
+  readonly requiresTimeRange: true;
   /** Present, and `true`, exactly when the wrapped measure is approximate. */
   readonly approximate?: true;
   readonly label?: string;
