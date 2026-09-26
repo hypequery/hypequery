@@ -3,7 +3,7 @@
 This family accompanies accepted RFC 0015. It covers what deployment contract 3 adds to contract 2:
 
 - The dataset filter allow-list is renamed `allowedFilters`, and `filters` is an unknown field.
-- Datasets carry `segments`. Each predicate compares the dataset's own dimensions with literals, never relationship paths, aggregates, arithmetic, or the tenant field.
+- Datasets may carry `segments`. Each predicate compares the dataset's own dimensions with literals, never relationship paths, aggregates, arithmetic, or the tenant field.
 - The `approxCountDistinct` aggregation, with its required `approximate: true` marker. A derived measure carries the marker exactly when a measure it uses is approximate.
 - `minute` and `hour` default grains.
 - The lowest-version rule. A contract 3 envelope that uses none of these features is rejected with `HQ_DEPLOYMENT_INVALID_VERSION`, because it must be published as contract 2.

@@ -222,13 +222,13 @@ export type ProtocolDeploymentMeasureV3 = ProtocolDatasetMeasureV3 | ProtocolDat
 
 /**
  * A contract 3 dataset. The filter allow-list is renamed `allowedFilters`, and
- * datasets carry `segments`.
+ * datasets may carry `segments`.
  */
 export interface ProtocolDeploymentDatasetV3
   extends Omit<ProtocolDeploymentDataset, 'measures' | 'filters' | 'defaults'> {
   readonly measures: readonly ProtocolDeploymentMeasureV3[];
   readonly allowedFilters: readonly ProtocolDatasetFilter[];
-  readonly segments: readonly ProtocolDatasetSegment[];
+  readonly segments?: readonly ProtocolDatasetSegment[];
   readonly defaults?: {
     readonly dimensions?: readonly ProtocolIdentifier[];
     readonly timeGrain?: ProtocolQueryTimeGrain;

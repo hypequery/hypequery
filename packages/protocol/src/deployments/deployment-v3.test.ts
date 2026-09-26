@@ -73,4 +73,11 @@ describe('deployment contract 3', () => {
     expect(Object.isFrozen(dataset!.segments)).toBe(true);
     expect('filters' in dataset!).toBe(false);
   });
+
+  it('accepts a contract 3 dataset with no segments field', () => {
+    const withoutSegments = success.find(entry => entry.id === 'approx-count-distinct-without-segments')!;
+    const [dataset] = validateProtocolDeploymentContractV3(withoutSegments.value).datasets;
+    expect('segments' in dataset!).toBe(false);
+    expect(dataset!.measures[0]).toMatchObject({ aggregation: 'approxCountDistinct', approximate: true });
+  });
 });
