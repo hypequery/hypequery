@@ -90,6 +90,7 @@ await analytics.execute(Orders, {
 - `measure.sum(field, opts?)`
 - `measure.count(field, opts?)`
 - `measure.countDistinct(field, opts?)`
+- `measure.approxCountDistinct(field, opts?)`
 - `measure.avg(field, opts?)`
 - `measure.min(field, opts?)`
 - `measure.max(field, opts?)`
@@ -106,6 +107,15 @@ The helper determines the aggregation. The field should be the semantic field na
 `level` is between `0` and `1`. `median` is shorthand for `percentile(field,
 0.5)`. `stddev` and `variance` use sample statistics (`stddevSamp` and
 `varSamp`).
+
+`approxCountDistinct` estimates the number of distinct values with ClickHouse
+`uniq`. It uses bounded memory, so it stays fast on high-cardinality columns such
+as user or session IDs. Use `countDistinct` when the number has to be exact.
+Catalogs, the semantic contract and the agent-safe catalog mark these measures,
+and any derived measure that uses one, with `approximate: true`. That lets
+agents and UIs present the value as an estimate. Hypequery Cloud cannot publish
+approximate measures yet: they need deployment contract 3 (RFC 0015), so
+publishing refuses them with an error naming the measure.
 
 `argMax` and `argMin` return the value of `field` from the row where `by` is
 greatest or smallest. The `by` field can use a semantic dimension name, so

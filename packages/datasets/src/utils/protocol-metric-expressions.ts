@@ -4,6 +4,7 @@ import {
 } from '@hypequery/protocol';
 import type { SemanticExpression } from '../semantic-plan.js';
 import type { AggregationSpec, DerivedMeasureDefinition, DerivedMetricSpec, MetricFilter } from '../types.js';
+import { requirePortableAggregation } from './portable-aggregations.js';
 
 type ProtocolReferenceExpression = Extract<ProtocolExpression, { readonly kind: 'reference' }>;
 type ProtocolLiteralExpression = Extract<ProtocolExpression, { readonly kind: 'literal' }>;
@@ -62,7 +63,7 @@ export function filterExpression(filter: MetricFilter): ProtocolExpression {
 function aggregationExpression(spec: AggregationSpec): ProtocolExpression {
   const result: ProtocolAggregateExpression = {
     kind: 'aggregate',
-    aggregation: spec.aggregation,
+    aggregation: requirePortableAggregation(spec.aggregation, `An aggregate over "${spec.field}"`),
     field: parseProtocolQualifiedIdentifier(spec.field),
     ...(spec.argField !== undefined
       ? { argField: parseProtocolQualifiedIdentifier(spec.argField) }

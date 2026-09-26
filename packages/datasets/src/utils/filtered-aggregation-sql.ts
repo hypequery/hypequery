@@ -99,6 +99,7 @@ export function applyFilteredAggregationExpression(
     case 'percentile':
     case 'stddev':
     case 'variance':
+    case 'approxCountDistinct':
       return `if(${combinedCondition}, ${fieldOrExpr}, NULL)`;
     case 'argMax':
     case 'argMin':

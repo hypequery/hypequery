@@ -13,6 +13,7 @@ import type {
 } from './types.js';
 import { SEMANTIC_FILTER_OPERATORS } from './constants.js';
 import { datasetTimeGrains } from './utils/dataset-time-grains.js';
+import { isApproximateAggregation, isApproximateDerivedMeasure } from './utils/approximate-measures.js';
 import {
   listGroupableRelationshipFields,
   listQueryableRelationshipFields,
@@ -40,11 +41,15 @@ export interface MeasureCatalogEntry extends SemanticMetadata {
   label?: string;
   description?: string;
   filterCount: number;
+  /** Present, as `true`, when the measure returns an estimate. */
+  approximate?: true;
 }
 
 export interface DerivedMeasureCatalogEntry extends SemanticMetadata {
   label?: string;
   description?: string;
+  /** Present, as `true`, when any measure the formula uses is approximate. */
+  approximate?: true;
 }
 
 export interface FilterCatalogEntry extends SemanticMetadata {
@@ -135,6 +140,7 @@ function measureToCatalog(measure: MeasureDefinition): MeasureCatalogEntry {
     description: measure.description,
     ...snapshotSemanticMetadata(measure),
     filterCount: measure.filters?.length ?? 0,
+    ...(isApproximateAggregation(measure.aggregation) ? { approximate: true as const } : {}),
   };
 }
 
@@ -243,6 +249,7 @@ export function getDatasetCatalog(dataset: DatasetCatalogSource): DatasetCatalog
             ...snapshotSemanticMetadata(definition),
             label: definition.label,
             description: definition.description,
+            ...(isApproximateDerivedMeasure(dataset.measures, definition) ? { approximate: true as const } : {}),
           },
         ]),
       ),

@@ -32,6 +32,8 @@ export interface AgentCatalogMeasure extends SemanticMetadata {
   name: string;
   label?: string;
   description?: string;
+  /** Present, as `true`, when the value is an estimate; say so when reporting it. */
+  approximate?: true;
 }
 
 export interface AgentCatalogMetric extends SemanticMetadata {

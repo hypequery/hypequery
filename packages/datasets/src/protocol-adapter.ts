@@ -19,6 +19,7 @@ import type {
 } from './types.js';
 import { toProtocolSemanticMetadata } from './utils/protocol-semantic-metadata.js';
 import { isPortableTimeGrain, requirePortableTimeGrain } from './utils/portable-grains.js';
+import { requirePortableAggregation } from './utils/portable-aggregations.js';
 
 export interface BuildProtocolDatasetContractOptions {
   readonly metrics?: Readonly<Record<string, MetricHandle>>;
@@ -178,7 +179,7 @@ export function buildProtocolDatasetContract(
     })).sort(byName),
     measures: Object.entries(dataset.measures).map(([name, measure]) => ({
       name,
-      aggregation: measure.aggregation,
+      aggregation: requirePortableAggregation(measure.aggregation, `Measure "${dataset.name}.${name}"`),
       field: measure.field,
       ...(measure.argField !== undefined ? { argField: measure.argField } : {}),
       ...(measure.level !== undefined ? { level: measure.level } : {}),

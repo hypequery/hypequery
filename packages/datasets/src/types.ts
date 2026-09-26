@@ -83,7 +83,9 @@ export type AggregationType =
   | 'argMin'
   | 'percentile'
   | 'stddev'
-  | 'variance';
+  | 'variance'
+  /** Estimated distinct count (ClickHouse `uniq`); results carry `approximate`. */
+  | 'approxCountDistinct';
 export type MeasureAggregation = AggregationType;
 
 export interface AggregationSpec {

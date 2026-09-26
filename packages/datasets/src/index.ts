@@ -17,7 +17,10 @@ export type {
 } from './relationship-check.js';
 
 // Aggregation helpers
-export { sum, count, countDistinct, avg, min, max, percentile, median, argMax, argMin, stddev, variance } from './aggregations.js';
+export {
+  sum, count, countDistinct, approxCountDistinct, avg, min, max,
+  percentile, median, argMax, argMin, stddev, variance,
+} from './aggregations.js';
 
 // Formula helpers
 export {

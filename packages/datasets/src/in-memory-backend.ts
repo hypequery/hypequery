@@ -239,7 +239,9 @@ function aggregateRows(rows: InMemoryTable, aggregation: SemanticAggregationPlan
       return values.reduce<number>((total, value) => total + Number(value ?? 0), 0);
     case 'count':
       return filteredRows.length;
+    // Exact computation is a faithful approxCountDistinct (RFC 0015).
     case 'countDistinct':
+    case 'approxCountDistinct':
       return new Set(values).size;
     case 'avg':
       return values.length === 0

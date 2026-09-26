@@ -913,6 +913,7 @@ const AnalyticalOrders = dataset('analyticalOrders', {
     firstAmount: measure.argMin('amount', 'createdAt'),
     amountStddev: measure.stddev('amount'),
     amountVariance: measure.variance('amount'),
+    distinctStatuses: measure.approxCountDistinct('status'),
     completedP95: measure.percentile('amount', 0.95, {
       filters: [eq('status', 'completed')],
     }),
@@ -958,6 +959,18 @@ describe('ClickHouse Backend - Analytical Aggregations', () => {
 
     expect(queries[0]).toContain('stddevSamp(amount) AS amountStddev');
     expect(queries[0]).toContain('varSamp(amount) AS amountVariance');
+  });
+
+  it('generates uniq for approxCountDistinct', async () => {
+    const { backend, queries } = createTestBackend([]);
+    const analytics = createDatasetClient({ backend });
+
+    await analytics.execute(AnalyticalOrders, {
+      dimensions: ['country'],
+      measures: ['distinctStatuses'],
+    });
+
+    expect(queries[0]).toContain('uniq(status) AS distinctStatuses');
   });
 
   it('wraps filtered percentile measures with a NULL fallback', async () => {
