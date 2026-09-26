@@ -83,6 +83,25 @@ describe('sub-day grains', () => {
     ]));
   });
 
+  it('keeps offset-free ClickHouse timestamps in their wall-clock buckets', async () => {
+    const previousTimeZone = process.env.TZ;
+    process.env.TZ = 'Europe/Madrid';
+    try {
+      const client = createDatasetClient({
+        backend: createInMemoryBackend({
+          events: [{ id: 1, kind: 'a', created_at: '2024-07-01 10:05:30' }],
+        }),
+      });
+      const hourly = await client.execute(Events, { measures: ['events'], by: 'hour' });
+      const minutely = await client.execute(Events, { measures: ['events'], by: 'minute' });
+      expect(hourly.data[0]?.period).toBe('2024-07-01 10:00:00');
+      expect(minutely.data[0]?.period).toBe('2024-07-01 10:05:00');
+    } finally {
+      if (previousTimeZone === undefined) delete process.env.TZ;
+      else process.env.TZ = previousTimeZone;
+    }
+  });
+
   it('advertises every grain by default', () => {
     expect(getDatasetCatalog(Events).supportedGrains)
       .toEqual(['minute', 'hour', 'day', 'week', 'month', 'quarter', 'year']);
@@ -119,6 +138,26 @@ describe('dataset timeGrains', () => {
 });
 
 describe('publishing sub-day grains', () => {
+  it('refuses restrictions contract 2 cannot preserve across publication', () => {
+    expect(() => buildProtocolDeploymentContract([DailyOnly]))
+      .toThrow(/Dataset "daily" timeGrains excludes week, quarter, year.*cannot preserve dataset-level grain restrictions/);
+  });
+
+  it('publishes an explicit grain list when it includes every portable grain', () => {
+    const PortableEvents = dataset('portableEvents', {
+      source: 'events',
+      timeKey: 'created_at',
+      timeGrains: ['minute', 'hour', 'day', 'week', 'month', 'quarter', 'year'],
+      dimensions: { createdAt: dimension.timestamp({ column: 'created_at' }) },
+      measures: { events: measure.count('id') },
+    });
+    const [published] = Object.values(rehydrateProtocolDeploymentContract(
+      buildProtocolDeploymentContract([PortableEvents]),
+    ));
+    expect(getDatasetCatalog(published!).supportedGrains)
+      .toEqual(['day', 'week', 'month', 'quarter', 'year']);
+  });
+
   it('refuses a sub-day default grain with an actionable error', () => {
     const HourlyDefault = dataset('hourly', {
       source: 'events',
