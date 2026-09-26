@@ -3,12 +3,15 @@
 from __future__ import annotations
 
 import math
-from typing import cast
+from typing import Literal, cast
 
 from .deployment_primitives import (
     AGGREGATIONS,
+    AGGREGATIONS_V3,
+    APPROXIMATE_AGGREGATIONS,
     FIELD_TYPES,
     GRAINS,
+    GRAINS_V3,
     OPERATORS,
     SEMANTIC_METADATA_FIELDS,
     ProtocolDeploymentLimits,
@@ -31,11 +34,11 @@ _FORMULA_FUNCTIONS = frozenset(("nullIfZero", "coalesce", "round", "floor", "cei
 _FORMULA_OPERATORS = frozenset(("add", "subtract", "multiply", "divide"))
 
 
-def expression_data(value: object, path: str) -> dict[str, object]:
+def expression_data(value: object, path: str, *, extension: Literal[1, 2] = 1) -> dict[str, object]:
     """Validate a portable expression and return it as contract data."""
 
     try:
-        return expression_to_data(validate_protocol_expression(value))
+        return expression_to_data(validate_protocol_expression(value, extension=extension))
     except ProtocolExpressionError:
         deployment_error("HQ_DEPLOYMENT_INVALID_VALUE", path)
 
@@ -172,17 +175,35 @@ def dimension(value: object, path: str, limits: ProtocolDeploymentLimits) -> dic
     return result
 
 
-def measure(value: object, path: str, limits: ProtocolDeploymentLimits) -> dict[str, object]:
+def measure(
+    value: object, path: str, limits: ProtocolDeploymentLimits, version: Literal[2, 3] = 2
+) -> dict[str, object]:
     node = record(value, path)
     exact_fields(
         node,
         ("name", "aggregation", "field", "filters"),
-        ("argField", "level", "sql", "label", "description", *SEMANTIC_METADATA_FIELDS),
+        (
+            "argField",
+            "level",
+            "sql",
+            "label",
+            "description",
+            *SEMANTIC_METADATA_FIELDS,
+            *(("approximate",) if version == 3 else ()),
+        ),
         path,
     )
     aggregation = node["aggregation"]
-    if type(aggregation) is not str or aggregation not in AGGREGATIONS:
+    if type(aggregation) is not str or aggregation not in (
+        AGGREGATIONS_V3 if version == 3 else AGGREGATIONS
+    ):
         deployment_error("HQ_DEPLOYMENT_INVALID_VALUE", f"{path}.aggregation")
+    # The marker is not free: present, as `true`, exactly for an approximate aggregation.
+    approximate = aggregation in APPROXIMATE_AGGREGATIONS
+    if "approximate" in node and node["approximate"] is not True:
+        deployment_error("HQ_DEPLOYMENT_TYPE", f"{path}.approximate")
+    if approximate != ("approximate" in node):
+        deployment_error("HQ_DEPLOYMENT_INVALID_VALUE", f"{path}.approximate")
     if (aggregation in ("argMax", "argMin")) != ("argField" in node):
         deployment_error("HQ_DEPLOYMENT_INVALID_VALUE", f"{path}.argField")
     if aggregation == "percentile":
@@ -200,12 +221,14 @@ def measure(value: object, path: str, limits: ProtocolDeploymentLimits) -> dict[
         "aggregation": aggregation,
         "field": identifier(node["field"], f"{path}.field", qualified=True),
         "filters": [
-            expression_data(item, f"{path}.filters[{index}]")
+            expression_data(item, f"{path}.filters[{index}]", extension=2 if version == 3 else 1)
             for index, item in enumerate(
                 array(node["filters"], f"{path}.filters", limits.max_dataset_items)
             )
         ],
     }
+    if approximate:
+        result["approximate"] = True
     if "argField" in node:
         result["argField"] = identifier(node["argField"], f"{path}.argField", qualified=True)
     if "level" in node:
@@ -282,7 +305,9 @@ def freshness(value: object, path: str) -> dict[str, object]:
     return {"maxAgeSeconds": positive_integer(node["maxAgeSeconds"], f"{path}.maxAgeSeconds")}
 
 
-def defaults(value: object, path: str, limits: ProtocolDeploymentLimits) -> dict[str, object]:
+def defaults(
+    value: object, path: str, limits: ProtocolDeploymentLimits, version: Literal[2, 3] = 2
+) -> dict[str, object]:
     node = record(value, path)
     exact_fields(node, (), ("dimensions", "timeGrain"), path)
     result: dict[str, object] = {}
@@ -295,7 +320,7 @@ def defaults(value: object, path: str, limits: ProtocolDeploymentLimits) -> dict
         )
     if "timeGrain" in node:
         grain = node["timeGrain"]
-        if type(grain) is not str or grain not in GRAINS:
+        if type(grain) is not str or grain not in (GRAINS_V3 if version == 3 else GRAINS):
             deployment_error("HQ_DEPLOYMENT_INVALID_VALUE", f"{path}.timeGrain")
         result["timeGrain"] = grain
     if not result:

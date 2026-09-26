@@ -30,6 +30,7 @@ def test_adapter_announces_pinned_families_and_hostile_suite() -> None:
         "query-schemas-v1",
         "query-implementations-v1",
         "deployments-v2",
+        "deployments-v3",
         "deployment-bundles-v1",
         "deployment-releases-v1",
     ]

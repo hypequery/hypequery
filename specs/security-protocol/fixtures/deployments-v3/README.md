@@ -13,4 +13,4 @@ This family accompanies accepted RFC 0015. It covers what deployment contract 3 
 
 The rules that depend on the query grain are consumer checks at query time, not contract rules, so this family does not cover them. These are whole-bucket intervals, `toDate` coarser than the grain, the 1,000-bucket bound, and the required time range.
 
-Every case was generated and checked against the TypeScript reference implementation. The Python implementation does not announce this family yet.
+Every case was generated with, and checked against, the TypeScript reference implementation. The Python implementation also passes every case.

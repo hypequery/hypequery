@@ -44,6 +44,12 @@ AGGREGATIONS = frozenset(
 )
 OPERATORS = frozenset(("eq", "neq", "gt", "gte", "lt", "lte", "in", "notIn", "between", "like"))
 GRAINS = frozenset(("day", "week", "month", "quarter", "year"))
+# Deployment contract 3 (RFC 0015).
+AGGREGATIONS_V3 = AGGREGATIONS | {"approxCountDistinct"}
+APPROXIMATE_AGGREGATIONS = frozenset(("approxCountDistinct",))
+CUMULATIVE_AGGREGATIONS = frozenset(("sum", "count", "min", "max"))
+GRAINS_V3 = GRAINS | {"minute", "hour"}
+SUB_DAY_GRAINS = frozenset(("minute", "hour"))
 SENSITIVITIES = frozenset(("public", "internal", "confidential", "restricted"))
 FIELD_TYPES = frozenset(("string", "number", "boolean", "timestamp"))
 SEMANTIC_METADATA_FIELDS = (
