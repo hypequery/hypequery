@@ -5,7 +5,7 @@ This family accompanies accepted RFC 0015. It covers what deployment contract 3 
 - The dataset filter allow-list is renamed `allowedFilters`, and `filters` is an unknown field.
 - Datasets may carry `segments`. Each predicate compares the dataset's own dimensions with literals, never relationship paths, aggregates, arithmetic, or the tenant field.
 - The `approxCountDistinct` aggregation, with its required `approximate: true` marker. A derived measure carries the marker exactly when a measure it uses is approximate.
-- `window` measures (exactly one of `trailing`, `toDate`, and `cumulative`) and `shift` measures. Each wraps one base measure, needs a dataset `timeField`, and inherits `approximate`. `cumulative` wraps only `sum`, `count`, `min`, or `max`. Derived measures may use them.
+- `window` measures (exactly one of `trailing`, `toDate`, and `cumulative`) and `shift` measures. Each carries `requiresTimeRange: true`, wraps one base measure, needs a dataset `timeField`, and inherits `approximate`. `cumulative` wraps only `sum`, `count`, `min`, or `max`. Derived measures may use them.
 - `minute` and `hour` default grains.
 - The lowest-version rule. A contract 3 envelope that uses none of these features is rejected with `HQ_DEPLOYMENT_INVALID_VERSION`, because it must be published as contract 2.
 
