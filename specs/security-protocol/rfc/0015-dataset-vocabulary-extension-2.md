@@ -3,7 +3,7 @@
 - Status: Draft
 - Version: expression extension 2, deployment contract 3
 - Amends: RFC 0003 (expression extension 1), RFC 0006 (deployment contract 2)
-- Tracking: HQ-77 (this RFC's implementation), HQ-78 and HQ-79 (reserved below)
+- Tracking: HQ-77 and HQ-83 (this RFC's implementation), HQ-78 and HQ-79 (reserved below)
 
 This is a draft. Nothing in it is frozen, and no implementation may claim
 expression extension 2 or deployment contract 3 conformance until it is
@@ -12,15 +12,18 @@ accepted with fixtures.
 ## Summary
 
 Expression extension 1 and deployment contract 2 have closed registries: five
-time grains, eleven aggregations, and no reusable named predicates. Three gaps
-from the datasets roadmap cannot cross the portable boundary without changing
-those registries:
+time grains, eleven aggregations, no reusable named predicates, and measures
+addressed only by simple identifier. Four gaps from the datasets roadmap cannot
+cross the portable boundary without changing them:
 
 1. **Sub-day grains.** `hour` and `minute` time buckets.
 2. **Approximate distinct counts.** An `approxCountDistinct` aggregation that
    trades exactness for bounded memory on high-cardinality columns.
 3. **Segments.** Named, author-defined predicates on a dataset that a query
    selects by name, such as `enterprise` or `activeLast30Days`.
+4. **Relationship measures.** Selecting a measure declared on a to-one
+   relationship target, such as `customer.customerCount`, from the base
+   dataset.
 
 This RFC defines them as expression extension 2 and deployment contract 3.
 Both are strict supersets: every valid extension 1 document and contract 2
@@ -41,6 +44,8 @@ envelope is valid under the new versions and keeps its meaning.
   configuration. Buckets follow the same timezone rule as extension 1 grains.
 - Relationship-qualified segment predicates and segments that reference other
   segments.
+- Multi-hop relationship measures, measures across `hasMany`, and derived
+  measures whose inputs span datasets.
 - Measure `filters` that reference segments.
 - Rolling, cumulative, and period-over-period calculations. See
   [Reserved for successor work](#reserved-for-successor-work).
@@ -194,6 +199,63 @@ The query envelope carries segment names, and the deployment identity covers
 their definitions. RFC 0013 cache keys therefore change when either changes,
 with no new cache-key rule.
 
+## Relationship measures
+
+Extension 1 lets a query reach a to-one target's dimensions but not its
+measures. Extension 2 allows query `measures` entries of the form
+`<relationship>.<measure>`, under the same one-hop, to-one rules as qualified
+dimensions. The measure is computed over the target rows reached from the
+queried base rows. Base rows are selected by the tenant predicate, segments,
+and filters. They are joined as in extension 1 and grouped by the query's
+dimensions. The target measure's own `filters` apply to the joined target
+columns.
+
+This is the target population *as seen through the base*. `customer.customerCount`
+grouped by order status counts the customers with orders in each status, not
+every customer. Customers with no orders never appear. A consumer that wants
+the target's own population queries the target dataset.
+
+### Duplicate sensitivity
+
+A `belongsTo` join repeats one target row for every base row that references
+it. An aggregate that is sensitive to duplicate inputs would count that target
+row once per base row. `sum` of a customer's credit limit over their five
+orders reports five times the limit. The protocol therefore constrains which
+aggregations may be selected through each relationship kind:
+
+| Target aggregation | Through `belongsTo` | Through `hasOne` |
+| --- | --- | --- |
+| `countDistinct`, `approxCountDistinct`, `min`, `max`, `argMax`, `argMin` | allowed | allowed |
+| `sum`, `count`, `avg`, `percentile`, `stddev`, `variance` | rejected | allowed |
+| Derived measure | rejected | rejected |
+
+`hasOne` places the key on the target and is declared one-to-one, so each
+target row joins at most one base row and no aggregation is inflated. As with
+every relationship, the declaration is trusted. Implementations SHOULD offer
+a data check equivalent to `@hypequery/datasets`' `checkRelationships`.
+
+Envelope validation only checks that each entry is a qualified identifier.
+The rule is applied by the consumer when it resolves references against the
+contract, where an unknown measure is already rejected, and its message names
+the relationship kind and the aggregation.
+Symmetric-aggregate lowering, which would make `sum` safe across `belongsTo`,
+is HQ-81's subject and is out of scope here.
+
+Derived relationship measures are rejected in extension 2 because their inputs
+may mix duplicate-sensitive and duplicate-insensitive aggregations.
+
+### Contract and catalog
+
+The deployment contract needs no new field. A qualified measure is resolvable
+from the base dataset's relationships and the target's measures, and the
+queryability rule above is a pure function of the relationship kind and the
+target aggregation. Catalogs SHOULD list the resulting selectable qualified
+measure names beside the qualified dimension names they already list, so an
+agent does not need to derive the rule.
+
+A target measure whose `approximate` marker is set remains approximate when
+selected through a relationship.
+
 ## Failure codes
 
 No new codes are needed. `HQ_EXPRESSION_INVALID_AGGREGATION` covers a malformed
@@ -210,6 +272,7 @@ is checked in document position after `filters` and before `orderBy`.
 | `measure.approxCountDistinct` | `aggregate` node with `approxCountDistinct` |
 | Approximate-result marker | Contract and catalog `approximate` |
 | Named segments | Contract `segments`; query `segments` |
+| Relationship measures | Qualified `measures` entries; kind/aggregation rule |
 
 ## Reserved for successor work
 
@@ -237,12 +300,14 @@ Acceptance requires, in addition to this document:
 
 - `expressions-v2` fixtures: every extension 1 case replayed unchanged, the new
   grains, `approxCountDistinct` with and without filters, the forbidden
-  `argField`/`level` cases, and `segments` item-limit and duplicate boundaries.
+  `argField`/`level` cases, `segments` item-limit and duplicate boundaries, and
+  qualified `measures` identifiers.
 - `deployments-v3` fixtures: canonical bytes and identities, segment predicate
   shape failures, references to unknown and tenant dimensions, the
   `approximate` marker on base and derived measures, and a contract 2 case
   showing that the lowest-version rule leaves its identity unchanged.
-- `semantic-invocations-v2` fixtures for `segments` and sub-day `by`.
+- `semantic-invocations-v2` fixtures for `segments`, sub-day `by`, and
+  qualified measures.
 - The TypeScript reference implementation in `@hypequery/protocol` and the
   Python implementation passing the same fixtures.
 - `@hypequery/datasets` authoring, catalog, and execution support, including
