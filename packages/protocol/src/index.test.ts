@@ -77,6 +77,7 @@ describe('@hypequery/protocol public surface', () => {
       'validateProtocolSemanticInvocation',
       'validateProtocolSemanticInvocationFailure',
       'validateProtocolSemanticInvocationResult',
+      'validateProtocolSemanticInvocationV2',
       'validateProtocolSemanticQuery',
       'validateProtocolSqlExpression',
     ].sort());

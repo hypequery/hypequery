@@ -28,6 +28,7 @@ import {
   validateProtocolSemanticInvocation,
   validateProtocolSemanticInvocationFailure,
   validateProtocolSemanticInvocationResult,
+  validateProtocolSemanticInvocationV2,
   validateProtocolSemanticQuery,
   validateProtocolSqlExpression,
 } from '@hypequery/protocol';
@@ -105,6 +106,7 @@ export const REFERENCE_FAMILIES = [
   'deployment-bundles-v1',
   'deployment-releases-v1',
   'semantic-invocations-v1',
+  'semantic-invocations-v2',
 ] as const;
 
 export function referenceHandle(
@@ -148,7 +150,9 @@ export function referenceHandle(
     case 'deployment-releases-v1':
       return handleRelease(role, c);
     case 'semantic-invocations-v1':
-      return handleSemanticInvocation(c);
+      return handleSemanticInvocation(c, 1);
+    case 'semantic-invocations-v2':
+      return handleSemanticInvocation(c, 2);
     case 'cache-keys-v1':
       return handleCacheKey(role, c);
     default:
@@ -160,9 +164,9 @@ export function referenceHandle(
  * One family covers the invocation, result, and failure records, so each case
  * names which one it validates against.
  */
-function handleSemanticInvocation(c: Case): HandlerResult {
+function handleSemanticInvocation(c: Case, version: 1 | 2): HandlerResult {
   const validators = {
-    invocation: validateProtocolSemanticInvocation,
+    invocation: version === 2 ? validateProtocolSemanticInvocationV2 : validateProtocolSemanticInvocation,
     result: validateProtocolSemanticInvocationResult,
     failure: validateProtocolSemanticInvocationFailure,
   } as const;

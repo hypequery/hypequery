@@ -1,0 +1,5 @@
+[
+  {"id": "segments", "record": "invocation", "value": {"kind": "hypequery-semantic-invocation", "version": 2, "target": {"project": "acme", "environment": "production"}, "operation": {"kind": "dataset", "dataset": "orders", "measures": ["revenue"], "segments": ["enterprise"]}}},
+  {"id": "sub-day-grain-metric", "record": "invocation", "value": {"kind": "hypequery-semantic-invocation", "version": 2, "target": {"project": "acme", "environment": "production"}, "operation": {"kind": "metric", "dataset": "events", "metric": "sessions", "by": "hour", "limit": 24}}},
+  {"id": "relationship-measure", "record": "invocation", "value": {"kind": "hypequery-semantic-invocation", "version": 2, "target": {"project": "acme", "environment": "production"}, "operation": {"kind": "dataset", "dataset": "orders", "dimensions": ["status"], "measures": ["customer.customerCount"]}, "budget": {"maxRows": 100}}}
+]
