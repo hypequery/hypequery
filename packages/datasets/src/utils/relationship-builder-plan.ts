@@ -116,10 +116,13 @@ export function resolveQualifiedColumn(
 }
 
 /**
- * Applies each relationship LEFT JOIN to the builder and, when runtime tenancy
+ * Applies each relationship join to the builder as a single-match LEFT JOIN
+ * (`leftAnyJoin`, e.g. ClickHouse `LEFT ANY JOIN`) and, when runtime tenancy
  * is active on a target, scopes the joined rows with the tenant predicate.
- * Builders that support single-match joins (`leftAnyJoin`, e.g. ClickHouse
- * `LEFT ANY JOIN`) get them so duplicate target keys cannot fan out aggregates.
+ *
+ * A builder without `leftAnyJoin` is refused rather than downgraded to a plain
+ * `leftJoin`: duplicate target keys would fan out base rows and silently
+ * inflate every aggregate in the query.
  */
 export function applyRelationshipJoins(
   qb: QueryBuilderLike,
@@ -129,8 +132,15 @@ export function applyRelationshipJoins(
     return qb;
   }
   for (const join of ctx.joins) {
-    const applyJoin = qb.leftAnyJoin?.bind(qb) ?? qb.leftJoin.bind(qb);
-    qb = applyJoin(
+    if (!qb.leftAnyJoin) {
+      throw new Error(
+        `Relationship "${join.relationship}" cannot be joined: the query builder does not implement ` +
+        'leftAnyJoin (a single-match LEFT JOIN such as ClickHouse "LEFT ANY JOIN"). A plain leftJoin ' +
+        'would fan out duplicate target keys and inflate aggregates, so relationship-qualified fields ' +
+        'are unavailable with this builder.',
+      );
+    }
+    qb = qb.leftAnyJoin(
       join.source,
       `${ctx.baseSource}.${join.from}`,
       `${join.relationship}.${join.to}`,

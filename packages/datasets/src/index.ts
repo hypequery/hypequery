@@ -9,6 +9,12 @@ export { measure } from './measure.js';
 
 // Relationship helpers
 export { belongsTo, hasMany, hasOne } from './relationships.js';
+export { checkRelationships } from './relationship-check.js';
+export type {
+  CheckRelationshipsOptions,
+  CheckRelationshipsResult,
+  RelationshipKeyIssue,
+} from './relationship-check.js';
 
 // Aggregation helpers
 export { sum, count, countDistinct, avg, min, max, percentile, median, argMax, argMin, stddev, variance } from './aggregations.js';

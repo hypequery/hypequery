@@ -5,7 +5,30 @@ description: Roadmap and task tracking for semantic dataset catalog, governance,
 
 # Semantic Dataset Roadmap
 
-Status: proposed feature roadmap.
+Status: **archived (2026-09-26).** Linear is the roadmap of record. The
+Datasets core enhancements project (P-HQ-7) and the projects named below track
+this work. This file is kept as design background and is not updated. HQ-92
+did the reconciliation.
+
+| § | Area | Where it stands |
+|---|---|---|
+| 1 | Catalog and introspection unification | Shipped (catalog, contract, agent catalog) |
+| 2 | Safe semantic expression system | Shipped as RFC 0003 and `@hypequery/protocol` (HQ-75) |
+| 3 | Governance and field policies | HQ-87, HQ-166 |
+| 4 | Contract lifecycle | Contract export shipped; CI validation and ClickHouse schema drift: HQ-181 |
+| 5 | Observability and audit events | Logging & observability project (HQ-49, HQ-51, HQ-52) |
+| 6 | Relationship-aware queries | One-hop to-one shipped; HQ-81, HQ-82, HQ-83, HQ-84 |
+| 7 | Rich metric vocabulary | Percentiles, argMax/argMin, and derived measures shipped; HQ-77, HQ-78, HQ-79; funnel, retention, and semi-additive: HQ-182 |
+| 8 | Advanced time semantics | HQ-77 (sub-day), HQ-80 (time axes); timezone bucketing, relative ranges, and fill: HQ-183 |
+| 9 | Query-dependent result types | Shipped for dataset and metric execution; typed filters: HQ-85 |
+| 10 | AI tool generation | Shipped; hosted follow-ups in the Hosted MCP project |
+| 11 | BI and explore query API | HQ-184 (decide scope or record as a non-goal) |
+| 12 | Semantic caching | Shipped (semantic query cache, RFC 0013) |
+| 13 | Rollup planner | HQ-89 |
+| 14 | Package and codegen ecosystem | HQ-67, HQ-71 |
+| 15 | Tenant-specific dynamic registries | HQ-91 (views); per-tenant registries: HQ-185 |
+
+The "Status", "Complete in this PR", and "Next" markers below are historical.
 
 Goal: make Hypequery a TypeScript-native semantic layer for ClickHouse, robust enough for enterprise SaaS, embedded analytics, governed internal analytics, BI/explore workflows, and AI/agent access.
 

@@ -36,7 +36,8 @@ export interface QueryBuilderLike {
   // Filtering
   where(column: string, operator: string, value: unknown): QueryBuilderLike;
 
-  // Joins (to-one relationship traversal)
+  // Joins. Relationship traversal uses `leftAnyJoin`; `leftJoin` stays part
+  // of the protocol for builder compatibility.
   leftJoin(
     table: string,
     leftColumn: string,
@@ -46,9 +47,11 @@ export interface QueryBuilderLike {
   ): QueryBuilderLike;
 
   /**
-   * Optional single-match LEFT JOIN (ClickHouse `LEFT ANY JOIN`). When a
-   * builder provides it, relationship joins use it so duplicate target join
-   * keys cannot fan out aggregates; otherwise `leftJoin` is used.
+   * Single-match LEFT JOIN (ClickHouse `LEFT ANY JOIN`). Required to query
+   * relationship-qualified fields: duplicate target join keys cannot fan out
+   * aggregates. A builder without it can still run every query that does not
+   * traverse a relationship; one that does is rejected with a clear error
+   * instead of falling back to `leftJoin`.
    */
   leftAnyJoin?(
     table: string,
