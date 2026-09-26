@@ -74,6 +74,23 @@ describe('deployment contract 3', () => {
     expect('filters' in dataset!).toBe(false);
   });
 
+  it('keeps window and shift measures in authored order beside the measures they wrap', () => {
+    const timed = success.find(entry => entry.id === 'window-and-shift-measures')!;
+    const [dataset] = validateProtocolDeploymentContractV3(timed.value).datasets;
+    expect(dataset!.measures.map(measure => ('kind' in measure ? measure.kind : 'base')))
+      .toEqual(['base', 'window', 'window', 'window', 'shift', 'derived']);
+    expect(dataset!.measures[1]).toMatchObject({
+      trailing: { amount: 7, unit: 'day' }, requiresTimeRange: true,
+    });
+    expect(dataset!.measures.filter(measure => 'kind' in measure
+      && (measure.kind === 'window' || measure.kind === 'shift'))
+      .every(measure => 'requiresTimeRange' in measure && measure.requiresTimeRange === true)).toBe(true);
+    expect(code(() => validateProtocolDeploymentContract({
+      ...timed.value,
+      version: 2,
+    }))).toBe('HQ_DEPLOYMENT_UNKNOWN_FIELD');
+  });
+
   it('accepts a contract 3 dataset with no segments field', () => {
     const withoutSegments = success.find(entry => entry.id === 'approx-count-distinct-without-segments')!;
     const [dataset] = validateProtocolDeploymentContractV3(withoutSegments.value).datasets;
