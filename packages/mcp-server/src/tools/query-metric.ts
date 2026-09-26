@@ -26,7 +26,7 @@ export async function queryMetricTool(
 ): Promise<MCPToolResponse> {
   const inputSchema = options.inputSchema ?? buildMCPQuerySchemas(datasets, options.limits).queryMetric;
   const validatedArgs = parseToolArgs(inputSchema, 'query_metric', args);
-  const { dataset: datasetName, metric: metricName, dimensions, filters, grain, orderBy } = validatedArgs;
+  const { dataset: datasetName, metric: metricName, dimensions, filters, segments, grain, orderBy } = validatedArgs;
 
   if (!datasetName) {
     throw new MCPToolError('MCP_INVALID_ARGUMENTS', 'dataset parameter is required');
@@ -65,6 +65,10 @@ export async function queryMetricTool(
 
   if (grain) {
     query.by = grain;
+  }
+
+  if (segments?.length) {
+    query.segments = segments;
   }
 
   if (pagination.offset !== undefined) {

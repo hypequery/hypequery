@@ -114,6 +114,7 @@ export function createDatasetEndpoint<TAuth extends AuthContext>(
       dimensions: input.dimensions,
       measures: input.measures,
       filters: input.filters,
+      segments: input.segments,
       orderBy: input.orderBy,
       limit: Math.min(input.limit ?? effectiveMaxLimit, effectiveMaxLimit),
       offset: input.offset,

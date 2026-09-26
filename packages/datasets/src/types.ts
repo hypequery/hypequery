@@ -636,6 +636,8 @@ export interface DatasetQueryFor<TDataset extends DatasetInstance<any, any, any,
   dimensions?: readonly DatasetDimensionNames<TDataset>[];
   measures?: readonly DatasetMeasureNames<TDataset>[];
   filters?: readonly MetricFilter[];
+  /** Segment names declared on the dataset. */
+  segments?: readonly string[];
   orderBy?: readonly MetricOrderBy<DatasetOrderableNames<TDataset>>[];
   limit?: number;
   offset?: number;
@@ -691,6 +693,8 @@ export interface MetricQueryFor<
 > {
   dimensions?: readonly DatasetDimensionNames<TDataset>[];
   filters?: readonly MetricFilter[];
+  /** Segment names declared on the dataset. */
+  segments?: readonly string[];
   orderBy?: readonly MetricOrderBy<DatasetDimensionNames<TDataset> | TMetricName | 'period'>[];
   limit?: number;
   offset?: number;
