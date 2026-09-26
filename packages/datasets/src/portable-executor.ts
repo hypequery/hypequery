@@ -28,6 +28,7 @@ import type {
 import { createDatasetClient } from './executor.js';
 import {
   rehydrateProtocolDatasets,
+  UNSUPPORTED_CONTRACT_REASONS,
   UnsupportedContractFeatureError,
   type RehydratedDataset,
 } from './protocol-rehydrate.js';
@@ -92,7 +93,10 @@ export function createPortableSemanticExecutor(
       if (error instanceof UnsupportedContractFeatureError) {
         // Decision 0005: a surface portable execution cannot reproduce is
         // excluded from it, never approximated.
-        throw new PortableExecutionUnsupportedError(error.message, { cause: error });
+        throw new PortableExecutionUnsupportedError(error.message, {
+          cause: error,
+          ...(error.reason === undefined ? {} : { reason: error.reason }),
+        });
       }
       throw error;
     }
@@ -108,6 +112,7 @@ export function createPortableSemanticExecutor(
     if (rebuilt === undefined) {
       throw new PortableExecutionUnsupportedError(
         `Dataset "${String(input.dataset.name)}" is not part of the activated contract.`,
+        { reason: UNSUPPORTED_CONTRACT_REASONS.datasetNotActivated },
       );
     }
     const target = rebuilt;

@@ -2,6 +2,7 @@ import type { ProtocolSemanticQuery } from '@hypequery/protocol';
 import type { MetricFilter, MetricOrderBy, SemanticTenantRuntime, TimeGrain } from '../types.js';
 import { PortableExecutionUnsupportedError } from '../portable-execution-errors.js';
 import { rehydrateMeasureFilter } from './protocol-rehydrate-filters.js';
+import { UNSUPPORTED_CONTRACT_REASONS } from './unsupported-contract-reasons.js';
 
 export function tenantRuntime(tenant: unknown): SemanticTenantRuntime | undefined {
   if (tenant === undefined || tenant === null) return undefined;
@@ -15,6 +16,7 @@ function operationFilters(operation: ProtocolSemanticQuery): MetricFilter[] {
     expression,
     () => new PortableExecutionUnsupportedError(
       `Filter ${index} is not a field/operator/value comparison, so it cannot be planned.`,
+      { reason: UNSUPPORTED_CONTRACT_REASONS.queryFilterNotComparison },
     ),
   ));
 }

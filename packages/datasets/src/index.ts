@@ -97,11 +97,13 @@ export {
 // Portable deployment contract adapter
 export {
   rehydrateProtocolDatasets,
+  UNSUPPORTED_CONTRACT_REASONS,
   UnsupportedContractFeatureError,
 } from './protocol-rehydrate.js';
 export type {
   RehydratedDataset,
   RehydrateProtocolDatasetsOptions,
+  UnsupportedContractReason,
 } from './protocol-rehydrate.js';
 export { buildProtocolDatasetContract } from './protocol-adapter.js';
 export { buildProtocolDeploymentContract } from './protocol-deployment-adapter.js';
