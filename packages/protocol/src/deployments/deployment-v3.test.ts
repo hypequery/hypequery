@@ -79,7 +79,12 @@ describe('deployment contract 3', () => {
     const [dataset] = validateProtocolDeploymentContractV3(timed.value).datasets;
     expect(dataset!.measures.map(measure => ('kind' in measure ? measure.kind : 'base')))
       .toEqual(['base', 'window', 'window', 'window', 'shift', 'derived']);
-    expect(dataset!.measures[1]).toMatchObject({ trailing: { amount: 7, unit: 'day' } });
+    expect(dataset!.measures[1]).toMatchObject({
+      trailing: { amount: 7, unit: 'day' }, requiresTimeRange: true,
+    });
+    expect(dataset!.measures.filter(measure => 'kind' in measure
+      && (measure.kind === 'window' || measure.kind === 'shift'))
+      .every(measure => 'requiresTimeRange' in measure && measure.requiresTimeRange === true)).toBe(true);
     expect(code(() => validateProtocolDeploymentContract({
       ...timed.value,
       version: 2,

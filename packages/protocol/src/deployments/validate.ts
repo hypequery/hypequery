@@ -1000,7 +1000,9 @@ function validateTimeMeasure(
   const window = value.kind === 'window';
   exactFields(
     value,
-    window ? ['kind', 'name', 'measure'] : ['kind', 'name', 'measure', 'interval'],
+    window
+      ? ['kind', 'name', 'measure', 'requiresTimeRange']
+      : ['kind', 'name', 'measure', 'interval', 'requiresTimeRange'],
     [
       ...(window ? ['trailing', 'toDate', 'cumulative'] : []),
       'approximate', 'label', 'description', ...SEMANTIC_METADATA_FIELDS,
@@ -1010,10 +1012,14 @@ function validateTimeMeasure(
   if (value.approximate !== undefined && value.approximate !== true) {
     deploymentError('HQ_DEPLOYMENT_TYPE', `${path}.approximate`);
   }
+  if (value.requiresTimeRange !== true) {
+    deploymentError('HQ_DEPLOYMENT_INVALID_VALUE', `${path}.requiresTimeRange`);
+  }
   const result: Record<string, unknown> = {
     kind: value.kind,
     name: identifier(value.name, `${path}.name`),
     measure: identifier(value.measure, `${path}.measure`),
+    requiresTimeRange: true,
   };
   if (window) {
     const frames = ['trailing', 'toDate', 'cumulative'].filter(key => value[key] !== undefined);
