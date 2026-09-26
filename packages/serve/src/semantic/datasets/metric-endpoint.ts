@@ -166,6 +166,7 @@ export function createMetricEndpoint<TAuth extends AuthContext>(
     const query = {
       dimensions: input.dimensions,
       filters: input.filters,
+      segments: input.segments,
       orderBy: input.orderBy,
       limit: Math.min(input.limit ?? effectiveMaxLimit, effectiveMaxLimit),
       offset: input.offset,

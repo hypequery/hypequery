@@ -228,6 +228,11 @@ function queryShape(
       filterSchema(catalog, filterFields, relationshipOperators),
       lowerLimit(catalog.limits?.maxFilters, limits.maxFilters),
     ),
+    // Only datasets that declare segments accept the field, so every other
+    // schema, including hosted catalogs, is unchanged.
+    ...(Object.keys(catalog.segments ?? {}).length > 0 ? {
+      segments: boundedArray(fieldEnum(uniqueSorted(Object.keys(catalog.segments ?? {})))),
+    } : {}),
     orderBy: boundedArray(z.object({
       field: fieldEnum(orderable),
       direction: z.enum(['asc', 'desc']),
