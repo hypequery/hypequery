@@ -80,10 +80,27 @@ Result rows key joined columns by their qualified name (`'customer.country'`), a
 Relationship traversal executes as a ClickHouse `LEFT ANY JOIN` (first match), aliased by the relationship name:
 
 - Base rows always survive. An order with no matching customer keeps its measures; its joined columns are `NULL`.
-- At most one target row matches per base row, so duplicate join keys on the target can never fan out and inflate aggregates. The in-memory backend applies the same first-match rule.
+- At most one target row matches per base row, so duplicate join keys on the target can never fan out and inflate aggregates. `NULL` keys never match.
 - Filtering on a joined column excludes base rows without a match (the standard SQL behavior: `NULL` fails the comparison).
 
 Queries that reference no relationship fields generate exactly the same SQL as before relationships existed — there is no cost until you traverse.
+
+A custom query builder must implement `leftAnyJoin` to traverse relationships. Without it, a query that references a relationship field fails with an error naming the relationship, rather than falling back to a plain `LEFT JOIN` that would fan out duplicate keys. Queries without relationship fields are unaffected.
+
+### Checking that to-one keys are unique
+
+`belongsTo` and `hasOne` are declarations. A single-match join keeps a duplicate target key from inflating totals, but it silently picks one of the matching rows, so grouped values can still be wrong. `checkRelationships` counts rows and distinct keys on each to-one target so you can catch a mis-declared relationship in CI or before deploying:
+
+```ts
+import { checkRelationships } from '@hypequery/datasets';
+
+const result = await checkRelationships(Orders, { queryBuilder: db });
+if (!result.ok) {
+  throw new Error(result.issues.map((issue) => issue.message).join('\n'));
+}
+```
+
+`hasMany` relationships are skipped. A tenant-scoped target is checked within the runtime tenant (pass `context: { runtime: { tenant } }`), the same scope its join uses. Pass `relationships: ['customer']` to check a subset. The in-memory backend enforces the rule directly: a duplicate to-one key makes the query fail.
 
 ## Rules and limits
 

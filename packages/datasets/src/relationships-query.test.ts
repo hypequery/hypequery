@@ -97,10 +97,11 @@ const TenantOrders = dataset('tenant_orders', {
 });
 
 // ---------------------------------------------------------------------------
-// Mock builder factory that supports leftJoin and records SQL faithfully.
+// Mock builder factory that supports leftAnyJoin (unless disabled) and records
+// SQL faithfully.
 // ---------------------------------------------------------------------------
 
-function createJoinMockBuilderFactory(): QueryBuilderFactoryLike {
+function createJoinMockBuilderFactory(options: { anyJoin?: boolean } = {}): QueryBuilderFactoryLike {
   function createBuilder(table: string): QueryBuilderLike {
     const state = {
       select: [] as string[],
@@ -110,6 +111,16 @@ function createJoinMockBuilderFactory(): QueryBuilderFactoryLike {
       orderBy: [] as string[],
       limit: undefined as number | undefined,
       offset: undefined as number | undefined,
+    };
+
+    const join = (kind: string): QueryBuilderLike['leftJoin'] => (joinTable, leftColumn, rightColumn, alias, on) => {
+      const tableClause = alias ? `${joinTable} AS ${alias}` : joinTable;
+      const conditions = on ? (Array.isArray(on) ? on : [on]) : [];
+      const extra = conditions
+        .map(condition => ` AND ${condition.column} ${condition.operator === 'eq' ? '=' : condition.operator} ?`)
+        .join('');
+      state.joins.push(`${kind} ${tableClause} ON ${leftColumn} = ${rightColumn}${extra}`);
+      return builder;
     };
 
     const agg = (fn: string) => (column: string, alias?: string) => {
@@ -147,15 +158,8 @@ function createJoinMockBuilderFactory(): QueryBuilderFactoryLike {
         state.where.push(`${column} ${op} ?`);
         return builder;
       },
-      leftJoin: (joinTable, leftColumn, rightColumn, alias, on) => {
-        const tableClause = alias ? `${joinTable} AS ${alias}` : joinTable;
-        const conditions = on ? (Array.isArray(on) ? on : [on]) : [];
-        const extra = conditions
-          .map(condition => ` AND ${condition.column} ${condition.operator === 'eq' ? '=' : condition.operator} ?`)
-          .join('');
-        state.joins.push(`LEFT JOIN ${tableClause} ON ${leftColumn} = ${rightColumn}${extra}`);
-        return builder;
-      },
+      leftJoin: join('LEFT JOIN'),
+      ...(options.anyJoin === false ? {} : { leftAnyJoin: join('LEFT ANY JOIN') }),
       groupBy: (args) => {
         state.groupBy.push(...(Array.isArray(args) ? args : [args]));
         return builder;
@@ -524,6 +528,34 @@ describe('relationship joins on the semantic backend', () => {
     expect(matched).toEqual(['US', 'DE']);
   });
 
+  it('refuses a to-one join whose target key is not unique', async () => {
+    const client = backendClient({
+      ...tables,
+      customers: [...tables.customers!, { id: 10, country_code: 'FR', tier: 'free' }],
+    });
+    await expect(client.execute(Orders, {
+      dimensions: ['customer.country'],
+      measures: ['revenue'],
+    })).rejects.toThrow(
+      /Relationship "customer" is declared to-one, but "customers.id" has more than one row with key "10"/,
+    );
+  });
+
+  it('never matches NULL join keys', async () => {
+    const client = backendClient({
+      orders: [{ id: 1, status: 'paid', amount: 100, customer_id: null, created_at: '2024-01-01' }],
+      customers: [
+        { id: null, country_code: 'US', tier: 'free' },
+        { id: null, country_code: 'DE', tier: 'free' },
+      ],
+    });
+    const { data } = await client.execute(Orders, {
+      dimensions: ['customer.country'],
+      measures: ['revenue'],
+    });
+    expect(data).toEqual([{ 'customer.country': undefined, revenue: '100' }]);
+  });
+
   it('scopes joined targets by tenant (defense in depth)', async () => {
     const tenantTables: InMemoryTables = {
       tenant_orders: [
@@ -554,13 +586,13 @@ describe('relationship joins on the semantic backend', () => {
 // ---------------------------------------------------------------------------
 
 describe('relationship joins on the query-builder path', () => {
-  it('emits a LEFT JOIN and qualified, aliased columns', () => {
+  it('emits a LEFT ANY JOIN and qualified, aliased columns', () => {
     const sql = builderClient().toSQL(Orders, {
       dimensions: ['status', 'customer.country'],
       measures: ['revenue'],
       orderBy: [{ field: 'customer.country', direction: 'asc' }],
     });
-    expect(sql).toContain('LEFT JOIN customers AS customer ON orders.customer_id = customer.id');
+    expect(sql).toContain('LEFT ANY JOIN customers AS customer ON orders.customer_id = customer.id');
     expect(sql).toContain('orders.status AS status');
     expect(sql).toContain('customer.country_code AS `customer.country`');
     expect(sql).toContain('SUM(orders.amount) AS revenue');
@@ -574,7 +606,7 @@ describe('relationship joins on the query-builder path', () => {
       measures: ['revenue'],
       filters: [{ field: 'customer.tier', operator: 'eq', value: 'enterprise' }],
     });
-    const joinCount = (sql.match(/LEFT JOIN customers AS customer/g) ?? []).length;
+    const joinCount = (sql.match(/LEFT ANY JOIN customers AS customer/g) ?? []).length;
     expect(joinCount).toBe(1);
     expect(sql).toContain('customer.tier = ?');
   });
@@ -587,10 +619,30 @@ describe('relationship joins on the query-builder path', () => {
       context,
     );
     expect(sql).toContain(
-      'LEFT JOIN tenant_customers AS customer ON tenant_orders.customer_id = customer.id AND customer.tenant_id = ?',
+      'LEFT ANY JOIN tenant_customers AS customer ON tenant_orders.customer_id = customer.id AND customer.tenant_id = ?',
     );
     expect(sql).toContain('tenant_orders.tenant_id = ?');
     expect(sql).not.toContain('WHERE customer.tenant_id = ?');
+  });
+
+  it('refuses a relationship join on a builder without leftAnyJoin', async () => {
+    const client = createDatasetClient({ queryBuilder: createJoinMockBuilderFactory({ anyJoin: false }) });
+    const query = { dimensions: ['customer.country'], measures: ['revenue'] };
+    expect(() => client.toSQL(Orders, query)).toThrow(
+      /Relationship "customer" cannot be joined: the query builder does not implement leftAnyJoin/,
+    );
+    await expect(client.execute(Orders, query)).rejects.toThrow(/would fan out duplicate target keys/);
+
+    // Metric validation dry-builds SQL, so the refusal is reported there too.
+    const validation = client.validate(revenueMetric, { dimensions: ['customer.country'] });
+    expect(validation.valid).toBe(false);
+    expect(validation.errors.join(' ')).toMatch(/does not implement leftAnyJoin/);
+  });
+
+  it('still runs non-relationship queries on a builder without leftAnyJoin', () => {
+    const client = createDatasetClient({ queryBuilder: createJoinMockBuilderFactory({ anyJoin: false }) });
+    expect(client.toSQL(Orders, { dimensions: ['status'], measures: ['revenue'] }))
+      .toBe('SELECT status, SUM(amount) AS revenue FROM orders GROUP BY status');
   });
 
   it('leaves non-join queries unqualified (no regression)', () => {

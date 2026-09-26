@@ -10,15 +10,14 @@
  * is not addressable through a relationship, so there are no cross-dataset
  * metrics.
  *
- * Note that the `kind` passed here is a declaration, not something checked
- * against the data — there is no uniqueness concept in the model, so nothing
- * verifies that a `belongsTo` target column really is unique. What a
- * mis-declaration costs depends on the builder. One that implements the
- * optional `leftAnyJoin` (ClickHouse `LEFT ANY JOIN`) takes at most one target
- * row per base row, so the aggregate cannot inflate — it just silently picks an
- * arbitrary one of the matches. A builder without it falls back to `leftJoin`,
- * where duplicate target keys fan out and do inflate the aggregate. Either way
- * the declaration has to be right.
+ * Note that the `kind` passed here is a declaration, not something checked at
+ * query time. Joins are single-match (`leftAnyJoin`, ClickHouse
+ * `LEFT ANY JOIN`), so a mis-declared to-one relationship cannot inflate an
+ * aggregate, but it does make the join pick an arbitrary one of the matching
+ * target rows. Builders without `leftAnyJoin` are refused rather than
+ * downgraded to a fan-out `leftJoin`. The in-memory backend refuses duplicate
+ * target keys outright, and `checkRelationships()` reports them against a live
+ * database, so a wrong declaration can be caught before it skews results.
  *
  * @example
  * ```ts

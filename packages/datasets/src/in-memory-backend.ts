@@ -72,7 +72,12 @@ function applyTenant(
 /**
  * Enriches base rows with columns from to-one joined targets, keyed by the
  * qualified name `<relationship>.<column>`. Mirrors a query-time LEFT JOIN:
- * base rows without a matching target keep the joined columns undefined.
+ * base rows without a matching target keep the joined columns undefined, and
+ * NULL keys never match.
+ *
+ * A duplicate target key means the relationship is not really to-one. Rather
+ * than silently picking one of the matches, the join is refused so the
+ * mis-declaration surfaces in tests.
  */
 function applyJoins(
   rows: InMemoryTable,
@@ -87,11 +92,18 @@ function applyJoins(
     const targetRows = applyTenant(tables[join.source] ?? [], join.tenant);
     const index = new Map<string, Record<string, unknown>>();
     for (const row of targetRows) {
-      const key = String(row[join.to]);
-      // To-one: first matching target wins; a mis-declared to-many still won't fan out.
-      if (!index.has(key)) {
-        index.set(key, row);
+      const value = row[join.to];
+      if (value == null) {
+        continue;
       }
+      const key = String(value);
+      if (index.has(key)) {
+        throw new Error(
+          `Relationship "${join.relationship}" is declared to-one, but "${join.source}.${join.to}" ` +
+          `has more than one row with key ${JSON.stringify(key)}. Declare it as hasMany or make the key unique.`,
+        );
+      }
+      index.set(key, row);
     }
     return { join, index };
   });
@@ -99,7 +111,8 @@ function applyJoins(
   return rows.map((row) => {
     const enriched: Record<string, unknown> = { ...row };
     for (const { join, index } of indexes) {
-      const match = index.get(String(row[join.from]));
+      const key = row[join.from];
+      const match = key == null ? undefined : index.get(String(key));
       if (match) {
         for (const [column, value] of Object.entries(match)) {
           enriched[`${join.relationship}.${column}`] = value;
