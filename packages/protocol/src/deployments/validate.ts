@@ -806,12 +806,12 @@ function validateDataset(
     value,
     [
       'name', 'source', 'tenant', 'dimensions', 'measures', filtersKey, 'metrics', 'relationships',
-      ...(version === 3 ? ['segments'] : []),
     ],
     [
       'description', 'freshness', 'owner', 'defaults',
       ...SEMANTIC_METADATA_FIELDS,
       'timeField', 'limits', 'endpoint',
+      ...(version === 3 ? ['segments'] : []),
     ],
     path,
   );
@@ -845,7 +845,7 @@ function validateDataset(
       (item, itemPath) => validateRelationship(item, itemPath),
     ),
   };
-  if (version === 3) {
+  if (version === 3 && value.segments !== undefined) {
     result.segments = namedItems(
       value.segments, `${path}.segments`, limits.maxDatasetItems,
       (item, itemPath) => validateSegment(
@@ -1051,11 +1051,11 @@ function validateDeploymentDataset(
     [
       'name', 'source', 'tenant', 'dimensions', 'measures',
       version === 3 ? 'allowedFilters' : 'filters', 'relationships',
-      ...(version === 3 ? ['segments'] : []),
     ],
     [
       'description', 'freshness', 'owner', 'defaults',
       ...SEMANTIC_METADATA_FIELDS, 'timeField', 'limits', 'endpoint',
+      ...(version === 3 ? ['segments'] : []),
     ], path);
   const measures = requireArray(value.measures, `${path}.measures`, limits.maxDatasetItems)
     .map((measure, index) => requireRecord(measure, `${path}.measures[${index}]`));
@@ -1146,7 +1146,7 @@ export function validateProtocolDeploymentContract(
 
 /** True when a contract 3 dataset uses anything contract 2 cannot express. */
 function usesContract3Feature(dataset: ProtocolDeploymentDatasetV3): boolean {
-  return dataset.segments.length > 0
+  return (dataset.segments?.length ?? 0) > 0
     || dataset.measures.some(measure => (
       ('aggregation' in measure && APPROXIMATE_AGGREGATIONS.has(measure.aggregation))
       || ('kind' in measure && (measure.kind === 'window' || measure.kind === 'shift'))
