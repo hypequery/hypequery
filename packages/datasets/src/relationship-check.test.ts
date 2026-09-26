@@ -104,6 +104,27 @@ describe('checkRelationships', () => {
     expect(result.issues[0]!.message).toMatch(/declared belongsTo, but "customers.id" has 5 rows for 4 distinct keys/);
   });
 
+  it('compares large driver counts exactly and preserves them in findings', async () => {
+    const { factory } = countingFactory({
+      customers: { rows: '9007199254740993', keys: '9007199254740992' },
+    });
+    const result = await checkRelationships(Orders, { queryBuilder: factory, relationships: ['customer'] });
+    expect(result.ok).toBe(false);
+    expect(result.issues[0]).toMatchObject({
+      rows: '9007199254740993',
+      distinctKeys: '9007199254740992',
+    });
+    expect(result.issues[0]!.message).toContain('9007199254740993 rows for 9007199254740992 distinct keys');
+  });
+
+  it('rejects unsafe numeric counts that have already lost precision', async () => {
+    const { factory } = countingFactory({
+      customers: { rows: Number('9007199254740993'), keys: Number('9007199254740992') },
+    });
+    await expect(checkRelationships(Orders, { queryBuilder: factory, relationships: ['customer'] }))
+      .rejects.toThrow(/Expected a non-negative integer row count/);
+  });
+
   it('checks a tenant-scoped target within the runtime tenant', async () => {
     const { factory, queries } = countingFactory({ profiles: { rows: 1, keys: 1 } });
     await checkRelationships(Orders, {

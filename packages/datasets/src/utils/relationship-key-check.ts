@@ -58,20 +58,32 @@ export interface RelationshipKeyIssue {
   source: string;
   /** Target join column. */
   column: string;
-  /** Target rows with a non-NULL key, within the checked tenant scope. */
-  rows: number;
-  /** Distinct non-NULL keys, within the checked tenant scope. */
-  distinctKeys: number;
+  /** Target rows with a non-NULL key, within the checked tenant scope. Large counts are decimal strings. */
+  rows: number | string;
+  /** Distinct non-NULL keys, within the checked tenant scope. Large counts are decimal strings. */
+  distinctKeys: number | string;
   message: string;
 }
 
-/** Reads a count that a driver may return as a number, bigint or string. */
-export function readCount(value: unknown): number {
-  const count = typeof value === 'bigint' ? Number(value) : Number(value ?? 0);
-  if (!Number.isFinite(count)) {
-    throw new Error(`Expected a row count, received ${JSON.stringify(String(value))}.`);
+/** Reads a count without losing precision when a driver returns UInt64 as a string. */
+export function readCount(value: unknown): bigint {
+  if (value == null) {
+    return 0n;
   }
-  return count;
+  if (typeof value === 'bigint' && value >= 0n) {
+    return value;
+  }
+  if (typeof value === 'number' && Number.isSafeInteger(value) && value >= 0) {
+    return BigInt(value);
+  }
+  if (typeof value === 'string' && /^\d+$/.test(value)) {
+    return BigInt(value);
+  }
+  throw new Error(`Expected a non-negative integer row count, received ${JSON.stringify(String(value))}.`);
+}
+
+function displayCount(count: bigint): number | string {
+  return count <= BigInt(Number.MAX_SAFE_INTEGER) ? Number(count) : count.toString();
 }
 
 /**
@@ -80,8 +92,8 @@ export function readCount(value: unknown): number {
  */
 export function relationshipKeyIssue(
   entry: ToOneRelationshipTarget,
-  rows: number,
-  distinctKeys: number,
+  rows: bigint,
+  distinctKeys: bigint,
 ): RelationshipKeyIssue | undefined {
   if (rows <= distinctKeys) {
     return undefined;
@@ -93,8 +105,8 @@ export function relationshipKeyIssue(
     target: entry.target.name,
     source,
     column: entry.column,
-    rows,
-    distinctKeys,
+    rows: displayCount(rows),
+    distinctKeys: displayCount(distinctKeys),
     message:
       `Relationship "${entry.relationship}" is declared ${entry.kind}, but "${source}.${entry.column}" ` +
       `has ${rows} rows for ${distinctKeys} distinct keys. Joins pick an arbitrary matching row; ` +

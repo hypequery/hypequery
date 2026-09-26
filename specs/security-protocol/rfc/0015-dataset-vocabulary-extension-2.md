@@ -35,8 +35,11 @@ Contract 3 also renames the dataset `filters` allow-list to `allowedFilters`
 filters, and only one of them is a permission list.
 
 This RFC defines them as expression extension 2 and deployment contract 3.
-Both are strict supersets: every valid extension 1 document and contract 2
-envelope is valid under the new versions and keeps its meaning.
+Expression extension 2 is a strict superset of extension 1. Contract 3 changes
+the dataset allow-list field from `filters` to `allowedFilters`, so a contract 2
+envelope is not valid merely by changing its version to 3. Consumers of
+contract 3 MUST continue accepting version 2 envelopes with their original
+meaning; producers retain version 2 for deployments that use no new feature.
 
 ## Goals
 
@@ -342,9 +345,13 @@ A window measure has `kind: "window"`, `measure`, and exactly one of:
 
 | Field | Value at bucket *b* aggregates base rows with time in |
 | --- | --- |
-| `trailing: <interval>` | (end(*b*) − interval, end(*b*)] |
-| `toDate: <grain>` | [start of the `toDate` period containing *b*, end(*b*)] |
-| `cumulative: true` | (−∞, end(*b*)] |
+| `trailing: <interval>` | [end(*b*) − interval, end(*b*)) |
+| `toDate: <grain>` | [start of the `toDate` period containing *b*, end(*b*)) |
+| `cumulative: true` | (−∞, end(*b*)) |
+
+Bucket ends are exclusive. For example, a daily bucket ending at midnight
+includes rows at the preceding midnight and excludes rows at its ending
+midnight, which belong to the next bucket.
 
 The value is a **re-aggregation of base rows**, not a combination of bucket
 values. A 7-day trailing `countDistinct` of users counts each user once across

@@ -102,6 +102,8 @@ if (!result.ok) {
 
 `hasMany` relationships are skipped. A tenant-scoped target is checked within the runtime tenant (pass `context: { runtime: { tenant } }`), the same scope its join uses. Pass `relationships: ['customer']` to check a subset. The in-memory backend enforces the rule directly: a duplicate to-one key makes the query fail.
 
+Issue counts are numbers when safely representable in JavaScript. Larger counts are decimal strings so the reported values remain exact.
+
 ## Rules and limits
 
 Validation rejects, with a specific error message:
