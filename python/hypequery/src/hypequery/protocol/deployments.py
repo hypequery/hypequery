@@ -287,9 +287,8 @@ def _dataset(
             filters_key,
             "metrics",
             "relationships",
-            *(("segments",) if version == 3 else ()),
         ),
-        _DATASET_OPTIONAL,
+        (*_DATASET_OPTIONAL, *(("segments",) if version == 3 else ())),
         path,
     )
     result: dict[str, object] = {
@@ -336,7 +335,7 @@ def _dataset(
             lambda item, item_path, _index: relationship(item, item_path),
         ),
     }
-    if version == 3:
+    if version == 3 and "segments" in node:
         result["segments"] = _named_items(
             node["segments"],
             f"{path}.segments",
@@ -391,9 +390,8 @@ def _deployment_dataset(
             "measures",
             "allowedFilters" if version == 3 else "filters",
             "relationships",
-            *(("segments",) if version == 3 else ()),
         ),
-        _DATASET_OPTIONAL,
+        (*_DATASET_OPTIONAL, *(("segments",) if version == 3 else ())),
         path,
     )
     measures = [
@@ -555,7 +553,7 @@ def _uses_contract_3_feature(dataset: dict[str, object]) -> bool:
     measures = cast(list[dict[str, object]], dataset["measures"])
     grain = cast(dict[str, object], dataset.get("defaults") or {}).get("timeGrain")
     return (
-        bool(dataset["segments"])
+        bool(dataset.get("segments"))
         or any(
             item.get("aggregation") in APPROXIMATE_AGGREGATIONS
             or item.get("kind") in ("window", "shift")
