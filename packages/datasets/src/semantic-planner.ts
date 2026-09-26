@@ -24,6 +24,7 @@ import { validateDatasetQuery } from './dataset-query.js';
 import { isSupportedTimeGrain } from './constants.js';
 import { getRuntimeTenantPredicate } from './utils/tenant-runtime.js';
 import { isQualifiedField, resolveQualifiedField } from './utils/relationship-fields.js';
+import { segmentFilters } from './utils/segments.js';
 
 function resolveField(ds: AnyDatasetInstance, field: string): string {
   const dimension = ds.dimensions[field];
@@ -189,7 +190,10 @@ function aggregatePlan(
     source: ds.source,
     dimensions: dimensionsForQuery(ds, query.dimensions),
     aggregations,
-    filters: normalizeFilters(ds, query.filters),
+    filters: [
+      ...normalizeFilters(ds, query.filters),
+      ...segmentFilters(ds, query.segments).map(filter => ({ ...filter, field: resolveField(ds, filter.field) })),
+    ],
     grain: grainForQuery(ds, query.by),
     orderBy: query.orderBy,
     limit: query.limit,

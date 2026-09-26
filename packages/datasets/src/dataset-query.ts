@@ -9,6 +9,7 @@ import {
   appendOrderLimitOffset,
   applyMeasureDefinition,
   buildDimensionSelectionPlan,
+  resolveDimensionExpression,
   resolveFilterField,
   resolveTenantFilterColumn,
 } from './query-planner.js';
@@ -26,6 +27,7 @@ import {
   runDerivedDatasetQuery,
 } from './utils/dataset-derived-query.js';
 import { toDatasetQueryResult } from './utils/dataset-query-result.js';
+import { segmentFilters } from './utils/segments.js';
 
 export interface DatasetQueryExecutionOptions {
   builderFactory: QueryBuilderFactoryLike;
@@ -88,6 +90,11 @@ export function buildDatasetQueryBuilder(
   for (const filter of query.filters ?? []) {
     const resolvedField = resolveFilterField(ds, filter.field, joinCtx);
     qb = qb.where(resolvedField, filter.operator, filter.value);
+  }
+
+  // Segments are author-defined, so they bypass the caller filter allow-list.
+  for (const filter of segmentFilters(ds, query.segments)) {
+    qb = qb.where(resolveDimensionExpression(ds, filter.field, joinCtx), filter.operator, filter.value);
   }
 
   return appendOrderLimitOffset(
