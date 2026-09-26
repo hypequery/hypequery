@@ -146,4 +146,36 @@ def test_driver_error_is_redacted(failure: Exception, category: str) -> None:
 def test_connection_repr_redacts_password() -> None:
     marker = "private-token"
     connection = ClickHouseConnection(password=marker)
-    assert "secret" not in repr(connection)
+    assert marker not in repr(connection)
+
+
+def test_executors_close_owned_driver_clients() -> None:
+    class ClosableSyncClient(SyncClient):
+        closed = False
+
+        def close(self) -> None:
+            self.closed = True
+
+    class ClosableAsyncClient(AsyncClient):
+        closed = False
+
+        async def close(self) -> None:
+            self.closed = True
+
+    class ClosableControl:
+        closed = False
+
+        async def command(self, _cmd: str, _parameters: dict[str, str]) -> object:
+            return "finished"
+
+        async def close(self) -> None:
+            self.closed = True
+
+    sync_client = ClosableSyncClient(Result((), []))
+    async_client = ClosableAsyncClient(Result((), []))
+    control_client = ClosableControl()
+    ClickHouseExecutor(sync_client).close()
+    asyncio.run(AsyncClickHouseExecutor(async_client, control_client).aclose())
+    assert sync_client.closed
+    assert async_client.closed
+    assert control_client.closed

@@ -118,6 +118,13 @@ class ClickHouseExecutor:
             raise safe_driver_error(exc, compiled.query_id) from None
         return decode_result(result, compiled.query_id)
 
+    def close(self) -> None:
+        """Release the driver's connection pool when execution is complete."""
+
+        closer = getattr(self._client, "close", None)
+        if callable(closer):
+            closer()
+
 
 class AsyncClickHouseExecutor:
     """Native async driver path with bounded admission and server cancellation."""
@@ -263,7 +270,6 @@ class AsyncFromSyncClickHouseExecutor:
         self._closed = True
         self._workers.shutdown(wait=False, cancel_futures=True)
         self._control_worker.shutdown(wait=False, cancel_futures=True)
-
 
 def create_clickhouse_executor(connection: ClickHouseConnection) -> ClickHouseExecutor:
     """Connect on demand. Install ``hypequery[clickhouse]`` first."""
