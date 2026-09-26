@@ -271,6 +271,19 @@ class AsyncFromSyncClickHouseExecutor:
         self._workers.shutdown(wait=False, cancel_futures=True)
         self._control_worker.shutdown(wait=False, cancel_futures=True)
 
+    async def aclose(self) -> None:
+        """Wait for workers, then close the supplied driver clients."""
+
+        self.close()
+        await asyncio.to_thread(self._workers.shutdown, wait=True)
+        await asyncio.to_thread(self._control_worker.shutdown, wait=True)
+        closer = getattr(self._control, "close", None)
+        try:
+            await asyncio.to_thread(self._sync.close)
+        finally:
+            if callable(closer):
+                await asyncio.to_thread(closer)
+
 
 def create_clickhouse_executor(connection: ClickHouseConnection) -> ClickHouseExecutor:
     """Connect on demand. Install ``hypequery[clickhouse]`` first."""

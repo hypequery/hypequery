@@ -53,8 +53,9 @@ expiry issue a separate `KILL QUERY` command using the server query ID. A
 cancelled ASGI task is treated as caller cancellation. For a synchronous driver
 used inside an async application, `AsyncFromSyncClickHouseExecutor` runs query
 work in a bounded worker pool with a separate control worker and supports the
-same cancellation contract. Call its `close()` method during application
-shutdown.
+same cancellation contract. During application shutdown, call
+`await executor.aclose()` to wait for workers and close both supplied driver
+clients. `close()` stops admission immediately without waiting for workers.
 
 ## Canonical protocol values
 

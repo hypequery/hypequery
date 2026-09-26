@@ -288,6 +288,41 @@ def test_sync_worker_keeps_its_slot_until_thread_exits() -> None:
     asyncio.run(run())
 
 
+def test_sync_bridge_aclose_waits_and_closes_driver_clients() -> None:
+    class ClosableClient(SyncClient):
+        closed = False
+
+        def close(self) -> None:
+            self.closed = True
+
+    class ClosableControl(SyncControl):
+        closed = False
+
+        def close(self) -> None:
+            self.closed = True
+
+    async def run() -> None:
+        client = ClosableClient()
+        control = ClosableControl(client)
+        executor = AsyncFromSyncClickHouseExecutor(client, control, max_concurrent=1)
+        pending = asyncio.create_task(executor.execute(query()))
+        while not client.started.is_set():
+            await asyncio.sleep(0.005)
+        closing = asyncio.create_task(executor.aclose())
+        await asyncio.sleep(0)
+        assert not closing.done()
+        client.released.set()
+        await pending
+        await closing
+        assert client.closed
+        assert control.closed
+        with pytest.raises(CompiledQueryError) as exc:
+            await executor.execute(query())
+        assert category(exc) == "unavailable"
+
+    asyncio.run(run())
+
+
 def test_preflight_signal_outranks_expired_deadline() -> None:
     async def run() -> None:
         signal = threading.Event()
