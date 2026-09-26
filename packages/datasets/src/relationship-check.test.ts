@@ -117,6 +117,14 @@ describe('checkRelationships', () => {
     expect(result.issues[0]!.message).toContain('9007199254740993 rows for 9007199254740992 distinct keys');
   });
 
+  it('accepts equal large bigint counts from a driver', async () => {
+    const { factory } = countingFactory({
+      customers: { rows: 9007199254740993n, keys: 9007199254740993n },
+    });
+    const result = await checkRelationships(Orders, { queryBuilder: factory, relationships: ['customer'] });
+    expect(result).toEqual({ ok: true, checked: ['customer'], issues: [] });
+  });
+
   it('rejects unsafe numeric counts that have already lost precision', async () => {
     const { factory } = countingFactory({
       customers: { rows: Number('9007199254740993'), keys: Number('9007199254740992') },
