@@ -450,12 +450,13 @@ Conformance claims require, in addition to this document:
 - `deployments-v3` fixtures: canonical bytes and identities, segment predicate
   shape failures, references to unknown and tenant dimensions, the
   `approximate` marker on base and derived measures, window and shift measure
-  shapes (each interval-conversion boundary, the 1,000-bucket bound, and
-  `cumulative` over a disallowed aggregation), `allowedFilters` accepted and
+  shapes (including `cumulative` over a disallowed aggregation), `allowedFilters` accepted and
   `filters` rejected, and a contract 2 case showing that the lowest-version
   rule leaves its identity unchanged.
 - An execution corpus against ClickHouse for windows, to-date, cumulative, and
-  shifts on sparse series. It must include filled buckets, lookback before the
+  shifts on sparse series. It also covers the query-time rules: each
+  interval-conversion boundary, the 1,000-bucket bound, and the time-range
+  requirement. It must include filled buckets, lookback before the
   range, and end-of-month clamping.
 - `semantic-invocations-v2` fixtures for `segments`, sub-day `by`, and
   qualified measures.

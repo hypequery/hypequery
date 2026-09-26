@@ -50,6 +50,8 @@ const OPERATORS = new Set([
 const GRAINS = new Set(['day', 'week', 'month', 'quarter', 'year']);
 const GRAINS_V3 = new Set(['minute', 'hour', ...GRAINS]);
 const SUB_DAY_GRAINS = new Set(['minute', 'hour']);
+/** Aggregations a `cumulative` window may wrap: a running total of bucket partials. */
+const CUMULATIVE_AGGREGATIONS = new Set(['sum', 'count', 'min', 'max']);
 const SENSITIVITIES = new Set(['public', 'internal', 'confidential', 'restricted']);
 const SEMANTIC_METADATA_FIELDS = [
   'examples', 'synonyms', 'format', 'unit', 'currency', 'timezone', 'sensitivity',
@@ -974,6 +976,70 @@ function validateDatasetDerivedMeasure(
   return freezeRecord(result) as unknown as ProtocolDatasetDerivedMeasure;
 }
 
+function validateInterval(input: unknown, path: string): DataRecord {
+  const value = requireRecord(input, path);
+  exactFields(value, ['amount', 'unit'], [], path);
+  const amount = positiveInteger(value.amount, `${path}.amount`);
+  if (typeof value.unit !== 'string' || !GRAINS_V3.has(value.unit)) {
+    deploymentError('HQ_DEPLOYMENT_INVALID_VALUE', `${path}.unit`);
+  }
+  return freezeRecord({ amount, unit: value.unit });
+}
+
+/**
+ * Validates the shape of a contract 3 `window` or `shift` measure. Rules that
+ * need the rest of the dataset (the wrapped base measure, the time field, and
+ * approximation) are checked by the dataset. Rules that need the query grain
+ * (whole-bucket intervals, the bucket bound) are enforced at query time.
+ */
+function validateTimeMeasure(
+  value: DataRecord,
+  path: string,
+  limits: Readonly<ProtocolDeploymentLimits>,
+): DataRecord {
+  const window = value.kind === 'window';
+  exactFields(
+    value,
+    window ? ['kind', 'name', 'measure'] : ['kind', 'name', 'measure', 'interval'],
+    [
+      ...(window ? ['trailing', 'toDate', 'cumulative'] : []),
+      'approximate', 'label', 'description', ...SEMANTIC_METADATA_FIELDS,
+    ],
+    path,
+  );
+  if (value.approximate !== undefined && value.approximate !== true) {
+    deploymentError('HQ_DEPLOYMENT_TYPE', `${path}.approximate`);
+  }
+  const result: Record<string, unknown> = {
+    kind: value.kind,
+    name: identifier(value.name, `${path}.name`),
+    measure: identifier(value.measure, `${path}.measure`),
+  };
+  if (window) {
+    const frames = ['trailing', 'toDate', 'cumulative'].filter(key => value[key] !== undefined);
+    if (frames.length !== 1) deploymentError('HQ_DEPLOYMENT_INVALID_VALUE', path);
+    if (value.trailing !== undefined) result.trailing = validateInterval(value.trailing, `${path}.trailing`);
+    if (value.toDate !== undefined) {
+      // A to-date period must be coarser than some bucket, so `minute` has none.
+      if (typeof value.toDate !== 'string' || !GRAINS_V3.has(value.toDate) || value.toDate === 'minute') {
+        deploymentError('HQ_DEPLOYMENT_INVALID_VALUE', `${path}.toDate`);
+      }
+      result.toDate = value.toDate;
+    }
+    if (value.cumulative !== undefined) {
+      if (value.cumulative !== true) deploymentError('HQ_DEPLOYMENT_INVALID_VALUE', `${path}.cumulative`);
+      result.cumulative = true;
+    }
+  } else {
+    result.interval = validateInterval(value.interval, `${path}.interval`);
+  }
+  if (value.approximate === true) result.approximate = true;
+  optionalText(value.label, 'label', result, path, limits);
+  optionalText(value.description, 'description', result, path, limits);
+  validateSemanticMetadata(value, result, path, limits);
+  return freezeRecord(result);
+}
+
 function validateDeploymentDataset(
   input: unknown,
   path: string,
@@ -993,10 +1059,13 @@ function validateDeploymentDataset(
     ], path);
   const measures = requireArray(value.measures, `${path}.measures`, limits.maxDatasetItems)
     .map((measure, index) => requireRecord(measure, `${path}.measures[${index}]`));
+  // Base measures are validated by the dataset; composite ones (derived, and in
+  // contract 3 window and shift) reference them and are validated here.
+  const isComposite = (measure: DataRecord) => measure.kind === 'derived'
+    || (version === 3 && (measure.kind === 'window' || measure.kind === 'shift'));
   // Preserve original indices when validating base measures separately.
   const baseEntries = measures.flatMap((measure, index) => (
-    measure.kind === 'derived'
-      ? [] : [{ measure, index }]
+    isComposite(measure) ? [] : [{ measure, index }]
   ));
   const validated = validateDataset(
     { ...value, measures: baseEntries.map(entry => entry.measure), metrics: [] },
@@ -1005,30 +1074,53 @@ function validateDeploymentDataset(
     baseEntries.map(entry => entry.index),
     version,
   );
-  const derived = measures.map((measure, index) => (
-    measure.kind === 'derived'
-      ? validateDatasetDerivedMeasure(measure, `${path}.measures[${index}]`, limits, version)
-      : undefined
+  const composite: (DataRecord | undefined)[] = measures.map((measure, index) => {
+    const measurePath = `${path}.measures[${index}]`;
+    if (measure.kind === 'derived') {
+      return validateDatasetDerivedMeasure(measure, measurePath, limits, version) as unknown as DataRecord;
+    }
+    return isComposite(measure) ? validateTimeMeasure(measure, measurePath, limits) : undefined;
+  });
+  const derived = composite.map(item => (
+    item?.kind === 'derived' ? item as unknown as ProtocolDatasetDerivedMeasure : undefined
   ));
   const baseByName = new Map<string, ProtocolDatasetMeasure>(validated.measures.map(measure => [measure.name, measure]));
   let baseIndex = 0;
-  const ordered: ProtocolDeploymentMeasure[] = measures.map((_, index) => (
-    derived[index] ?? validated.measures[baseIndex++]!
-  ));
+  const ordered = measures.map((_, index) => (
+    composite[index] ?? validated.measures[baseIndex++]!
+  )) as unknown as ProtocolDeploymentMeasure[];
   if (new Set(ordered.map(measure => measure.name)).size !== measures.length) {
     deploymentError('HQ_DEPLOYMENT_INVALID_REFERENCE', `${path}.measures`);
+  }
+  const isApproximate = (measure: unknown) => (measure as { approximate?: true } | undefined)?.approximate === true;
+  // A time measure wraps exactly one base measure and needs the dataset's time axis.
+  const timeByName = new Map<string, DataRecord>();
+  for (const [index, item] of composite.entries()) {
+    if (!item || item.kind === 'derived') continue;
+    const timeMeasure = item;
+    const measurePath = `${path}.measures[${index}]`;
+    const wrapped = baseByName.get(timeMeasure.measure as string);
+    if (!wrapped) deploymentError('HQ_DEPLOYMENT_INVALID_REFERENCE', `${measurePath}.measure`);
+    if (validated.timeField === undefined) deploymentError('HQ_DEPLOYMENT_INVALID_REFERENCE', `${measurePath}.kind`);
+    if (timeMeasure.cumulative === true && !CUMULATIVE_AGGREGATIONS.has(wrapped.aggregation)) {
+      deploymentError('HQ_DEPLOYMENT_INVALID_VALUE', `${measurePath}.cumulative`);
+    }
+    if (isApproximate(wrapped) !== isApproximate(timeMeasure)) {
+      deploymentError('HQ_DEPLOYMENT_INVALID_VALUE', `${measurePath}.approximate`);
+    }
+    timeByName.set(timeMeasure.name as string, timeMeasure);
   }
   for (const [index, item] of derived.entries()) {
     if (!item) continue;
     for (const [useIndex, use] of item.uses.entries()) {
-      if (!baseByName.has(use.measure)) {
+      if (!baseByName.has(use.measure) && !timeByName.has(use.measure)) {
         deploymentError('HQ_DEPLOYMENT_INVALID_REFERENCE', `${path}.measures[${index}].uses[${useIndex}].measure`);
       }
     }
     const approximate = item.uses.some(use => (
-      (baseByName.get(use.measure) as { approximate?: true }).approximate === true
+      isApproximate(baseByName.get(use.measure) ?? timeByName.get(use.measure))
     ));
-    if (approximate !== ((item as { approximate?: true }).approximate === true)) {
+    if (approximate !== isApproximate(item)) {
       deploymentError('HQ_DEPLOYMENT_INVALID_VALUE', `${path}.measures[${index}].approximate`);
     }
   }
@@ -1055,14 +1147,17 @@ export function validateProtocolDeploymentContract(
 /** True when a contract 3 dataset uses anything contract 2 cannot express. */
 function usesContract3Feature(dataset: ProtocolDeploymentDatasetV3): boolean {
   return dataset.segments.length > 0
-    || dataset.measures.some(measure => 'aggregation' in measure && APPROXIMATE_AGGREGATIONS.has(measure.aggregation))
+    || dataset.measures.some(measure => (
+      ('aggregation' in measure && APPROXIMATE_AGGREGATIONS.has(measure.aggregation))
+      || ('kind' in measure && (measure.kind === 'window' || measure.kind === 'shift'))
+    ))
     || (dataset.defaults?.timeGrain !== undefined && SUB_DAY_GRAINS.has(dataset.defaults.timeGrain));
 }
 
 /**
  * Validate a deployment contract 3 (RFC 0015). Contract 3 renames the dataset
  * filter allow-list to `allowedFilters` and adds segments, `approxCountDistinct`,
- * and sub-day default grains.
+ * window and shift measures, and sub-day default grains.
  *
  * Under the lowest-version rule, a contract that uses none of those is only
  * valid as contract 2. Rejecting it here keeps a deployment's identity a

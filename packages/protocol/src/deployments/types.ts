@@ -218,7 +218,44 @@ export interface ProtocolDatasetDerivedMeasureV3 extends ProtocolDatasetDerivedM
   readonly approximate?: true;
 }
 
-export type ProtocolDeploymentMeasureV3 = ProtocolDatasetMeasureV3 | ProtocolDatasetDerivedMeasureV3;
+/** A whole number of time units, such as `{ amount: 7, unit: 'day' }`. */
+export interface ProtocolTimeInterval {
+  readonly amount: number;
+  readonly unit: ProtocolQueryTimeGrain;
+}
+
+interface ProtocolTimeMeasureCommon extends ProtocolSemanticMetadata {
+  readonly name: ProtocolIdentifier;
+  /** The base measure of the same dataset this measure wraps. */
+  readonly measure: ProtocolIdentifier;
+  /** Present, and `true`, exactly when the wrapped measure is approximate. */
+  readonly approximate?: true;
+  readonly label?: string;
+  readonly description?: string;
+}
+
+/**
+ * A rolling, to-date, or cumulative window over a base measure (RFC 0015).
+ * Exactly one of `trailing`, `toDate`, and `cumulative` is present.
+ */
+export interface ProtocolDatasetWindowMeasure extends ProtocolTimeMeasureCommon {
+  readonly kind: 'window';
+  readonly trailing?: ProtocolTimeInterval;
+  readonly toDate?: Exclude<ProtocolQueryTimeGrain, 'minute'>;
+  readonly cumulative?: true;
+}
+
+/** A base measure evaluated over the bucket shifted back by `interval` (RFC 0015). */
+export interface ProtocolDatasetShiftMeasure extends ProtocolTimeMeasureCommon {
+  readonly kind: 'shift';
+  readonly interval: ProtocolTimeInterval;
+}
+
+export type ProtocolDeploymentMeasureV3 =
+  | ProtocolDatasetMeasureV3
+  | ProtocolDatasetDerivedMeasureV3
+  | ProtocolDatasetWindowMeasure
+  | ProtocolDatasetShiftMeasure;
 
 /**
  * A contract 3 dataset. The filter allow-list is renamed `allowedFilters`, and
