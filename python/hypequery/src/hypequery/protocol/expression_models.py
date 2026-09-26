@@ -28,8 +28,15 @@ ProtocolAggregation: TypeAlias = Literal[
     "percentile",
     "stddev",
     "variance",
+    # Expression extension 2 (RFC 0015); rejected under extension 1.
+    "approxCountDistinct",
 ]
 ProtocolTimeGrain: TypeAlias = Literal["day", "week", "month", "quarter", "year"]
+# Every grain a query may carry; ``minute`` and ``hour`` are extension 2.
+ProtocolQueryTimeGrain: TypeAlias = Literal[
+    "minute", "hour", "day", "week", "month", "quarter", "year"
+]
+ProtocolExpressionExtension: TypeAlias = Literal[1, 2]
 FrozenCanonicalValue: TypeAlias = (
     bool
     | str
@@ -135,13 +142,15 @@ class ProtocolOrderBy:
 class ProtocolDatasetQuery:
     dataset: ProtocolIdentifier
     dimensions: tuple[ProtocolQualifiedIdentifier, ...] | None = None
-    measures: tuple[ProtocolIdentifier, ...] | None = None
+    # Extension 2 also accepts one-hop relationship measures.
+    measures: tuple[ProtocolQualifiedIdentifier, ...] | None = None
     filters: tuple[ProtocolExpression, ...] | None = None
     order_by: tuple[ProtocolOrderBy, ...] | None = None
     limit: int | None = None
     offset: int | None = None
-    by: ProtocolTimeGrain | None = None
+    by: ProtocolQueryTimeGrain | None = None
     include_meta: bool | None = None
+    segments: tuple[ProtocolIdentifier, ...] | None = None
     kind: Literal["dataset"] = dataclass_field(init=False, default="dataset")
 
 
@@ -154,8 +163,9 @@ class ProtocolMetricQuery:
     order_by: tuple[ProtocolOrderBy, ...] | None = None
     limit: int | None = None
     offset: int | None = None
-    by: ProtocolTimeGrain | None = None
+    by: ProtocolQueryTimeGrain | None = None
     include_meta: bool | None = None
+    segments: tuple[ProtocolIdentifier, ...] | None = None
     kind: Literal["metric"] = dataclass_field(init=False, default="metric")
 
 
@@ -247,6 +257,8 @@ def semantic_query_to_data(query: ProtocolSemanticQuery) -> dict[str, object]:
         result["measures"] = list(query.measures)
     if query.filters is not None:
         result["filters"] = [expression_to_data(item) for item in query.filters]
+    if query.segments is not None:
+        result["segments"] = list(query.segments)
     if query.order_by is not None:
         result["orderBy"] = [
             {"field": item.field, "direction": item.direction} for item in query.order_by

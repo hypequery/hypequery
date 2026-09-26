@@ -7,7 +7,7 @@ from .wire_numbers import to_binary64_tree
 
 
 def materialize_expression_fixture(generator: dict[str, object]) -> object:
-    """Materialize one generator from the expressions-v1 fixture README."""
+    """Materialize one generator from the expressions-v1 or -v2 fixture README."""
 
     kind = generator.get("type")
     literal = {"kind": "literal", "value": False}
@@ -34,6 +34,13 @@ def materialize_expression_fixture(generator: dict[str, object]) -> object:
                 }
             )
         return {"kind": "logical", "operator": "and", "operands": groups}
+    if kind == "segments":
+        count = generator_integer(generator, "count")
+        return {
+            "kind": "dataset",
+            "dataset": "orders",
+            "segments": [f"s{index}" for index in range(count)],
+        }
     if kind == "unsafe-accessor":
         return UnsafeAccessor()
     raise RuntimeError(f"unknown expression generator: {kind!r}")
