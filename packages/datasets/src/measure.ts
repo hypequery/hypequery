@@ -80,6 +80,11 @@ export const measure = {
   sum: createMeasureHelper('sum'),
   count: createMeasureHelper('count'),
   countDistinct: createMeasureHelper('countDistinct'),
+  /**
+   * Estimated number of distinct values (ClickHouse `uniq`). Uses bounded
+   * memory on high-cardinality columns; catalogs mark it `approximate`.
+   */
+  approxCountDistinct: createMeasureHelper('approxCountDistinct'),
   avg: createMeasureHelper('avg'),
   min: createMeasureHelper('min'),
   max: createMeasureHelper('max'),

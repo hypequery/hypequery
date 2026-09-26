@@ -175,6 +175,11 @@ export function applyAggregationSpec(
       }
       return qb.quantile(fieldOrExpr, spec.level, alias);
     }
+    case "approxCountDistinct":
+      if (!qb.approxCountDistinct) {
+        throw new Error('Query builder does not support approxCountDistinct aggregations.');
+      }
+      return qb.approxCountDistinct(fieldOrExpr, alias);
     case "stddev":
       if (!qb.stddev) {
         throw new Error('Query builder does not support stddev aggregations.');

@@ -347,6 +347,9 @@ function applyAggregations(
       case 'variance':
         qb = qb.variance(field, name);
         break;
+      case 'approxCountDistinct':
+        qb = qb.approxCountDistinct(field, name);
+        break;
     }
   }
 

@@ -761,6 +761,23 @@ export class QueryBuilder<
     );
   }
 
+  /**
+   * Approximate number of distinct non-NULL values of `column` (ClickHouse
+   * `uniq`). Uses bounded memory on high-cardinality columns; the result is an
+   * estimate, not an exact count.
+   */
+  approxCountDistinct<
+    Column extends keyof BaseRow<State>,
+    Alias extends string = `${Column & string}_approxCountDistinct`,
+  >(
+    column: Column,
+    alias?: Alias
+  ): QueryBuilder<Schema, AppendToOutput<State, Record<Alias, string>>> {
+    return this.applyAggregation(column, alias, 'approxCountDistinct', (col, finalAlias) =>
+      this.aggregations.approxCountDistinct(col, finalAlias)
+    );
+  }
+
   /** Sample variance of `column` (ClickHouse `varSamp`). */
   variance<Column extends SelectableColumn<State>, Alias extends string = `${Column & string}_variance`>(
     column: Column,

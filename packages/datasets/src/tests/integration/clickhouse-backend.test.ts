@@ -228,6 +228,39 @@ describe('datasets ClickHouse integration', () => {
     }
   });
 
+  it('executes approximate distinct counts and skips NULL values', async () => {
+    const table = 'orders_approx_distinct_integration';
+    await runSql(`CREATE TABLE ${TEST_CONNECTION_CONFIG.database}.${table} (
+      id UInt32, user_id Nullable(String), kind String
+    ) ENGINE = MergeTree() ORDER BY id`);
+    try {
+      await insertRows(table, [
+        { id: 1, user_id: 'a', kind: 'purchase' },
+        { id: 2, user_id: 'a', kind: 'view' },
+        { id: 3, user_id: 'b', kind: 'purchase' },
+        { id: 4, user_id: null, kind: 'purchase' },
+      ]);
+      const Events = dataset('approxEvents', {
+        source: table,
+        dimensions: {
+          userId: dimension.string({ column: 'user_id' }),
+          kind: dimension.string(),
+        },
+        measures: {
+          estimated: measure.approxCountDistinct('user_id'),
+          exact: measure.countDistinct('user_id'),
+          buyers: measure.approxCountDistinct('user_id', { filters: [eq('kind', 'purchase')] }),
+        },
+      });
+      const result = await createClient().execute(Events, {
+        measures: ['estimated', 'exact', 'buyers'],
+      });
+      expect(result.data).toEqual([{ estimated: '2', exact: '2', buyers: '2' }]);
+    } finally {
+      await runSql(`DROP TABLE IF EXISTS ${TEST_CONNECTION_CONFIG.database}.${table}`);
+    }
+  });
+
   it('executes base and derived metric queries through the public client', async () => {
     const analytics = createClient();
     const revenue = Orders.metric('revenue', { measure: 'revenue' });
