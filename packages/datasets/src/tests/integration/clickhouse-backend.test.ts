@@ -191,6 +191,76 @@ describe('datasets ClickHouse integration', () => {
     expect(result.meta?.sql).toContain('toStartOfDay(created_at) AS period');
   });
 
+  it('executes minute and hour grains against a DateTime column', async () => {
+    const table = 'orders_subday_grains_integration';
+    await runSql(`CREATE TABLE ${TEST_CONNECTION_CONFIG.database}.${table} (
+      id UInt32, created_at DateTime('UTC')
+    ) ENGINE = MergeTree() ORDER BY id`);
+    try {
+      await insertRows(table, [
+        { id: 1, created_at: '2024-01-01 10:05:30' },
+        { id: 2, created_at: '2024-01-01 10:05:45' },
+        { id: 3, created_at: '2024-01-01 11:10:00' },
+      ]);
+      const Events = dataset('subdayEvents', {
+        source: table,
+        timeKey: 'created_at',
+        dimensions: { createdAt: dimension.timestamp({ column: 'created_at' }) },
+        measures: { events: measure.count('id') },
+      });
+      const analytics = createClient();
+      const hourly = await analytics.execute(Events, {
+        measures: ['events'], by: 'hour', orderBy: [{ field: 'period', direction: 'asc' }],
+      });
+      const minutely = await analytics.execute(Events, {
+        measures: ['events'], by: 'minute', orderBy: [{ field: 'period', direction: 'asc' }],
+      });
+      expect(hourly.data).toEqual([
+        { period: '2024-01-01 10:00:00', events: '2' },
+        { period: '2024-01-01 11:00:00', events: '1' },
+      ]);
+      expect(minutely.data).toEqual([
+        { period: '2024-01-01 10:05:00', events: '2' },
+        { period: '2024-01-01 11:10:00', events: '1' },
+      ]);
+    } finally {
+      await runSql(`DROP TABLE IF EXISTS ${TEST_CONNECTION_CONFIG.database}.${table}`);
+    }
+  });
+
+  it('executes approximate distinct counts and skips NULL values', async () => {
+    const table = 'orders_approx_distinct_integration';
+    await runSql(`CREATE TABLE ${TEST_CONNECTION_CONFIG.database}.${table} (
+      id UInt32, user_id Nullable(String), kind String
+    ) ENGINE = MergeTree() ORDER BY id`);
+    try {
+      await insertRows(table, [
+        { id: 1, user_id: 'a', kind: 'purchase' },
+        { id: 2, user_id: 'a', kind: 'view' },
+        { id: 3, user_id: 'b', kind: 'purchase' },
+        { id: 4, user_id: null, kind: 'purchase' },
+      ]);
+      const Events = dataset('approxEvents', {
+        source: table,
+        dimensions: {
+          userId: dimension.string({ column: 'user_id' }),
+          kind: dimension.string(),
+        },
+        measures: {
+          estimated: measure.approxCountDistinct('user_id'),
+          exact: measure.countDistinct('user_id'),
+          buyers: measure.approxCountDistinct('user_id', { filters: [eq('kind', 'purchase')] }),
+        },
+      });
+      const result = await createClient().execute(Events, {
+        measures: ['estimated', 'exact', 'buyers'],
+      });
+      expect(result.data).toEqual([{ estimated: '2', exact: '2', buyers: '2' }]);
+    } finally {
+      await runSql(`DROP TABLE IF EXISTS ${TEST_CONNECTION_CONFIG.database}.${table}`);
+    }
+  });
+
   it('executes base and derived metric queries through the public client', async () => {
     const analytics = createClient();
     const revenue = Orders.metric('revenue', { measure: 'revenue' });

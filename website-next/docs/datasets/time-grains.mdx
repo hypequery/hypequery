@@ -51,6 +51,7 @@ const DailySales = dataset('daily_sales', {
 Sub-day grains work in local queries, Serve endpoints, and the local MCP server. Hypequery Cloud does not support them yet, because they need deployment contract 3 (RFC 0015), which publishing does not emit yet:
 
 - publishing refuses a dataset whose `defaults.timeGrain`, or a metric pinned with `.by()`, uses `minute` or `hour`;
+- publishing also refuses `timeGrains` restrictions that exclude any day-through-year grain, because contract 2 cannot preserve those dataset-level restrictions;
 - published datasets advertise and accept only `day` through `year`.
 
 ## Time key and timestamp dimensions

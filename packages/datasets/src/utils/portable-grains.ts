@@ -32,3 +32,17 @@ export function requirePortableTimeGrain(grain: TimeGrain, owner: string): Proto
   }
   return grain;
 }
+
+/** Contract 2 cannot represent a dataset-level restriction on portable grains. */
+export function assertPublishableTimeGrains(
+  dataset: { readonly name: string; readonly timeGrains?: readonly TimeGrain[] },
+): void {
+  if (dataset.timeGrains === undefined) return;
+  const missing = PORTABLE_TIME_GRAINS.filter(grain => !dataset.timeGrains?.includes(grain));
+  if (missing.length > 0) {
+    throw new Error(
+      `Dataset "${dataset.name}" timeGrains excludes ${missing.join(', ')}, but deployment contract 2 ` +
+      'cannot preserve dataset-level grain restrictions. Use all day-through-year grains or keep this dataset local.',
+    );
+  }
+}

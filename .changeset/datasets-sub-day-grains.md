@@ -10,4 +10,5 @@ A new `timeGrains` dataset option restricts the grains a dataset supports, for e
 
 Publishing to Cloud still emits deployment contract 2:
 - it refuses a sub-day `defaults.timeGrain` or pinned metric grain with an actionable error;
+- it refuses dataset-level `timeGrains` restrictions it cannot preserve;
 - published metric grain lists and rehydrated datasets stay at `day` through `year`.
