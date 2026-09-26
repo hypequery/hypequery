@@ -1,4 +1,4 @@
-import type { ProtocolExpression, ProtocolTimeGrain } from '../expressions/index.js';
+import type { ProtocolExpression, ProtocolQueryTimeGrain, ProtocolTimeGrain } from '../expressions/index.js';
 import type { ProtocolIdentifier, ProtocolQualifiedIdentifier } from '../identifiers/index.js';
 import type { ProtocolSqlExpression } from '../query-implementations/index.js';
 
@@ -196,6 +196,51 @@ export interface ProtocolDeploymentContract {
   readonly datasets: readonly ProtocolDeploymentDataset[];
   readonly queries?: never;
   readonly artifacts?: never;
+}
+
+/** A named, author-defined predicate over a dataset's own dimensions (RFC 0015). */
+export interface ProtocolDatasetSegment extends ProtocolSemanticMetadata {
+  readonly name: ProtocolIdentifier;
+  readonly predicate: ProtocolExpression;
+  readonly label?: string;
+  readonly description?: string;
+}
+
+/** A contract 3 base measure: adds `approxCountDistinct` and its `approximate` marker. */
+export interface ProtocolDatasetMeasureV3 extends Omit<ProtocolDatasetMeasure, 'aggregation'> {
+  readonly aggregation: ProtocolDatasetMeasure['aggregation'] | 'approxCountDistinct';
+  /** Present, and `true`, exactly when the aggregation is approximate. */
+  readonly approximate?: true;
+}
+
+/** A contract 3 derived measure: approximate when any measure it uses is. */
+export interface ProtocolDatasetDerivedMeasureV3 extends ProtocolDatasetDerivedMeasure {
+  readonly approximate?: true;
+}
+
+export type ProtocolDeploymentMeasureV3 = ProtocolDatasetMeasureV3 | ProtocolDatasetDerivedMeasureV3;
+
+/**
+ * A contract 3 dataset. The filter allow-list is renamed `allowedFilters`, and
+ * datasets carry `segments`.
+ */
+export interface ProtocolDeploymentDatasetV3
+  extends Omit<ProtocolDeploymentDataset, 'measures' | 'filters' | 'defaults'> {
+  readonly measures: readonly ProtocolDeploymentMeasureV3[];
+  readonly allowedFilters: readonly ProtocolDatasetFilter[];
+  readonly segments: readonly ProtocolDatasetSegment[];
+  readonly defaults?: {
+    readonly dimensions?: readonly ProtocolIdentifier[];
+    readonly timeGrain?: ProtocolQueryTimeGrain;
+  };
+  readonly filters?: never;
+}
+
+/** Deployment contract 3 (RFC 0015). */
+export interface ProtocolDeploymentContractV3 {
+  readonly kind: 'hypequery-deployment';
+  readonly version: 3;
+  readonly datasets: readonly ProtocolDeploymentDatasetV3[];
 }
 
 export interface ProtocolDeploymentLimits {
