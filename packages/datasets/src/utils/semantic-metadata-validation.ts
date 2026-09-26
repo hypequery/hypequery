@@ -5,11 +5,13 @@ import type {
   RelationshipDefinition,
   SemanticMetadata,
 } from '../types.js';
+import { SUPPORTED_TIME_GRAINS } from '../constants.js';
 
 const MAX_METADATA_ITEMS = 100;
 const MAX_METADATA_TEXT_BYTES = 4_096;
 const SENSITIVITIES = new Set(['public', 'internal', 'confidential', 'restricted']);
-const TIME_GRAINS = new Set(['day', 'week', 'month', 'quarter', 'year']);
+
+const TIME_GRAINS: ReadonlySet<string> = new Set(SUPPORTED_TIME_GRAINS);
 const textEncoder = new TextEncoder();
 
 function fail(datasetName: string, location: string, message: string): never {
@@ -110,6 +112,27 @@ export function validateDatasetAgentMetadata<
     }
     if (dimensions.length === 0 && config.defaults.timeGrain === undefined) {
       fail(datasetName, 'defaults', 'must define dimensions or timeGrain.');
+    }
+    if (config.defaults.timeGrain !== undefined && config.timeGrains !== undefined
+      && !config.timeGrains.includes(config.defaults.timeGrain)) {
+      fail(datasetName, 'defaults.timeGrain', 'is not one of the dataset timeGrains.');
+    }
+  }
+
+  if (config.timeGrains !== undefined) {
+    if (!Array.isArray(config.timeGrains) || config.timeGrains.length === 0) {
+      fail(datasetName, 'timeGrains', 'must be a non-empty array.');
+    }
+    if (config.timeKey === undefined) {
+      fail(datasetName, 'timeGrains', 'requires the dataset to define timeKey.');
+    }
+    if (new Set(config.timeGrains).size !== config.timeGrains.length) {
+      fail(datasetName, 'timeGrains', 'must not contain duplicates.');
+    }
+    for (const grain of config.timeGrains) {
+      if (!TIME_GRAINS.has(grain)) {
+        fail(datasetName, 'timeGrains', `contains unsupported time grain "${String(grain)}".`);
+      }
     }
   }
 

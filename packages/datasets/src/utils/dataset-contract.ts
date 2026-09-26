@@ -6,9 +6,8 @@ import type {
   SemanticMetadata,
   TimeGrain,
 } from '../types.js';
+import { datasetTimeGrains } from './dataset-time-grains.js';
 import { snapshotSemanticMetadata } from './semantic-metadata.js';
-
-const ALL_GRAINS: TimeGrain[] = ['day', 'week', 'month', 'quarter', 'year'];
 
 export function buildMetricContract(
   metricName: string,
@@ -41,7 +40,7 @@ export function buildMetricContract(
     dimensions: dimensionNames,
     measures: measureNames,
     filters: filterNames,
-    grains: ds.timeKey ? ALL_GRAINS : [],
+    grains: [...datasetTimeGrains(ds)],
     grain,
     requires: spec.__type === 'derived_metric_spec'
       ? Object.keys(spec.uses)

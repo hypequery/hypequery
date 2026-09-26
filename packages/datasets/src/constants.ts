@@ -8,6 +8,8 @@ import type { MetricFilter, TimeGrain } from './types.js';
  * Maps time grain to ClickHouse date truncation functions.
  */
 export const GRAIN_FUNCTIONS: Record<TimeGrain, string> = {
+  minute: 'toStartOfMinute',
+  hour: 'toStartOfHour',
   day: 'toStartOfDay',
   week: 'toStartOfWeek',
   month: 'toStartOfMonth',

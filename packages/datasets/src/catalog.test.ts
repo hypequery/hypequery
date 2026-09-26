@@ -61,7 +61,7 @@ describe('dataset catalog', () => {
       timeKey: 'created_at',
       limits: { maxMeasures: 2 },
       requiresTenant: true,
-      supportedGrains: ['day', 'week', 'month', 'quarter', 'year'],
+      supportedGrains: ['minute', 'hour', 'day', 'week', 'month', 'quarter', 'year'],
       orderableFields: [
         'id',
         'customerId',
@@ -121,7 +121,7 @@ describe('dataset catalog', () => {
       dimensions: ['id', 'customerId', 'status', 'createdAt', 'amount'],
       measures: ['revenue', 'orderCount'],
       filters: ['status'],
-      grains: ['day', 'week', 'month', 'quarter', 'year'],
+      grains: ['minute', 'hour', 'day', 'week', 'month', 'quarter', 'year'],
     });
   });
 

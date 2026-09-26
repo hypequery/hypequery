@@ -250,7 +250,7 @@ export type MetricHandle<
   TDataset extends DatasetInstance<any, any, any, TDatasetName> = DefaultMetricDataset<TDatasetName>,
 > = MetricRef<TDatasetName, TMetricName, TSpec, TDataset> | GrainedMetricRef<TDatasetName, TMetricName, TSpec, TDataset>;
 
-export type TimeGrain = 'day' | 'week' | 'month' | 'quarter' | 'year';
+export type TimeGrain = 'minute' | 'hour' | 'day' | 'week' | 'month' | 'quarter' | 'year';
 
 export interface MetricContract {
   kind: 'metric' | 'derived_metric' | 'grained_metric';
@@ -443,6 +443,12 @@ export interface DatasetConfig<
   defaults?: DatasetDefaults;
   tenantKey?: string;
   timeKey?: string;
+  /**
+   * Restricts the time grains this dataset supports. Defaults to every grain
+   * the planner can bucket on. Use it, for example, to refuse `minute` and
+   * `hour` when `timeKey` is a `Date` column without a time of day.
+   */
+  timeGrains?: readonly TimeGrain[];
   dimensions: TDimensions;
   measures?: TMeasures & CheckedDatasetMeasures<TMeasures>;
   filters?: SemanticFiltersDefinition;
@@ -474,6 +480,7 @@ export interface DatasetInstance<
   defaults?: DatasetDefaults;
   tenantKey?: string;
   timeKey?: string;
+  timeGrains?: readonly TimeGrain[];
   dimensions: TDimensions;
   measures: TMeasures;
   derivedMeasures: TDerivedMeasures;

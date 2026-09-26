@@ -137,6 +137,7 @@ export function dataset<
     },
     tenantKey: config.tenantKey,
     timeKey: config.timeKey,
+    ...(config.timeGrains === undefined ? {} : { timeGrains: Object.freeze([...config.timeGrains]) }),
     dimensions,
     measures,
     derivedMeasures,

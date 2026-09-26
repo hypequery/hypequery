@@ -88,7 +88,7 @@ describe('semantic contract — shape', () => {
       tenantKey: 'tenant_id',
       timeKey: 'created_at',
       requiresTenant: true,
-      supportedGrains: ['day', 'month', 'quarter', 'week', 'year'],
+      supportedGrains: ['day', 'hour', 'minute', 'month', 'quarter', 'week', 'year'],
       limits: { maxDimensions: 4, maxMeasures: 2 },
     });
     expect(contract.datasets.orders.dimensions.customerId).toEqual({

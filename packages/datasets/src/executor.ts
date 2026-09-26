@@ -37,7 +37,7 @@ import type {
 } from './semantic-plan.js';
 
 import { quoteSQLIdentifier, validateSQLIdentifier } from './sql-utils.js';
-import { SUPPORTED_TIME_GRAINS, isSupportedTimeGrain } from './constants.js';
+import { unsupportedTimeGrainError } from './utils/dataset-time-grains.js';
 import { validateFilterValue, type ValidationResult } from './validation.js';
 import {
   applyAggregationSpec,
@@ -200,8 +200,9 @@ function validateQuery(
   }
 
   // Validate grain is one the planner can bucket on
-  if (query.by && !isSupportedTimeGrain(query.by)) {
-    errors.push(`Unsupported time grain "${query.by}". Supported: ${SUPPORTED_TIME_GRAINS.join(', ')}`);
+  const grainError = query.by && ds.timeKey ? unsupportedTimeGrainError(ds, query.by) : undefined;
+  if (grainError) {
+    errors.push(grainError);
   }
 
   if (query.limit != null && (!Number.isInteger(query.limit) || query.limit < 0)) {
