@@ -1,5 +1,19 @@
 # @hypequery/datasets
 
+## 0.19.0
+
+### Minor Changes
+
+- 9239794: Relationship joins no longer fall back silently. A query builder without `leftAnyJoin` now rejects relationship-qualified queries with a clear error instead of downgrading to a fan-out `leftJoin`. The in-memory backend refuses duplicate to-one target keys and never matches `NULL` keys. The new `checkRelationships(dataset, { queryBuilder })` reports `belongsTo`/`hasOne` targets whose join key is not unique.
+
+### Patch Changes
+
+- Updated dependencies [74f4843]
+- Updated dependencies [5d798f4]
+- Updated dependencies [1ddd78b]
+- Updated dependencies [2ddef5b]
+  - @hypequery/protocol@0.16.0
+
 ## 0.18.0
 
 ### Minor Changes
