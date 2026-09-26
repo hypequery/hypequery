@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 from collections.abc import Awaitable, Callable
 from contextlib import suppress
 from typing import TypeVar
@@ -12,6 +13,7 @@ from hypequery.datasets.planner import CompiledQuery, CompiledQueryError
 _T = TypeVar("_T")
 _POLL_SECONDS = 0.025
 _DRAIN_SECONDS = 2.0
+_LOGGER = logging.getLogger(__name__)
 
 
 def _terminal_error(compiled: CompiledQuery) -> CompiledQueryError | None:
@@ -32,8 +34,20 @@ def _wait_interval(compiled: CompiledQuery) -> float:
 
 async def _drain(task: asyncio.Future[_T]) -> None:
     task.cancel()
+    done, _ = await asyncio.wait((task,), timeout=_DRAIN_SECONDS)
     with suppress(asyncio.CancelledError, TimeoutError, Exception):
-        await asyncio.wait_for(task, timeout=_DRAIN_SECONDS)
+        if done:
+            task.result()
+
+
+async def _cancel_on_server_preserving_reason(
+    query_id: str, cancel_on_server: Callable[[str], Awaitable[object]]
+) -> None:
+    try:
+        await cancel_on_server(query_id)
+    except Exception:
+        # The caller's terminal reason still wins if the control connection fails.
+        _LOGGER.warning("Server cancellation failed for query %s", query_id)
 
 
 async def acquire_slot(semaphore: asyncio.Semaphore, compiled: CompiledQuery) -> None:
@@ -76,15 +90,13 @@ async def run_with_policy(
         while True:
             reason = _terminal_error(compiled)
             if reason is not None:
-                await cancel_on_server(compiled.query_id)
-                await _drain(task)
+                await _cancel_on_server_preserving_reason(compiled.query_id, cancel_on_server)
                 raise reason
             done, _ = await asyncio.wait((task,), timeout=_wait_interval(compiled))
             if done:
                 reason = _terminal_error(compiled)
                 if reason is not None:
-                    await cancel_on_server(compiled.query_id)
-                    await _drain(task)
+                    await _cancel_on_server_preserving_reason(compiled.query_id, cancel_on_server)
                     raise reason
                 return await task
     except asyncio.CancelledError:
@@ -92,8 +104,9 @@ async def run_with_policy(
         caller_task = asyncio.current_task()
         if reason is None and (caller_task is None or caller_task.cancelling() == 0):
             raise CompiledQueryError("internal", "", query_id=compiled.query_id) from None
-        await asyncio.shield(cancel_on_server(compiled.query_id))
-        await _drain(task)
+        await asyncio.shield(
+            _cancel_on_server_preserving_reason(compiled.query_id, cancel_on_server)
+        )
         raise (
             reason
             or CompiledQueryError("aborted", "The query was cancelled.", query_id=compiled.query_id)

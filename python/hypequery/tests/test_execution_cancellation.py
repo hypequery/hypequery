@@ -10,6 +10,7 @@ import pytest
 
 from hypequery.datasets.planner import CompiledQuery, CompiledQueryError, Deadline
 from hypequery.execution import AsyncClickHouseExecutor, AsyncFromSyncClickHouseExecutor
+from hypequery.execution import cancellation as cancellation_module
 from hypequery.execution.results import DriverResult
 
 
@@ -87,6 +88,68 @@ def test_deadline_cancels_driver() -> None:
         assert category(exc) == "deadline-exceeded"
         assert client.cancelled.is_set()
         assert len(control.calls) == 1
+
+    asyncio.run(run())
+
+
+def test_caller_cancellation_wins_when_control_connection_fails() -> None:
+    class BrokenControl:
+        async def command(self, _cmd: str, _parameters: dict[str, str]) -> object:
+            raise OSError("control connection unavailable")
+
+    async def run() -> None:
+        signal = threading.Event()
+        client = AsyncClient()
+        task = asyncio.create_task(
+            AsyncClickHouseExecutor(client, BrokenControl()).execute(query(cancellation=signal))
+        )
+        await client.started.wait()
+        signal.set()
+        with pytest.raises(CompiledQueryError) as exc:
+            await task
+        assert category(exc) == "aborted"
+        assert client.cancelled.is_set()
+
+    asyncio.run(run())
+
+
+def test_native_async_slot_waits_for_uncooperative_driver(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class SlowCancelClient:
+        def __init__(self) -> None:
+            self.started = asyncio.Event()
+            self.released = asyncio.Event()
+            self.calls = 0
+
+        async def query(self, *_args: object, **_kwargs: object) -> DriverResult:
+            self.calls += 1
+            self.started.set()
+            while not self.released.is_set():
+                try:
+                    await self.released.wait()
+                except asyncio.CancelledError:
+                    continue
+            return cast(DriverResult, Result())
+
+    async def run() -> None:
+        monkeypatch.setattr(cancellation_module, "_DRAIN_SECONDS", 0.05)
+        signal = threading.Event()
+        client = SlowCancelClient()
+        executor = AsyncClickHouseExecutor(client, Control(), max_concurrent=1)
+        first = asyncio.create_task(executor.execute(query(cancellation=signal)))
+        await client.started.wait()
+        signal.set()
+        with pytest.raises(CompiledQueryError) as exc:
+            await asyncio.wait_for(first, timeout=1)
+        assert category(exc) == "aborted"
+        with pytest.raises(CompiledQueryError) as queued:
+            await executor.execute(query(deadline=Deadline.after(0.05)))
+        assert category(queued) == "deadline-exceeded"
+        assert client.calls == 1
+        client.released.set()
+        await asyncio.wait_for(executor.execute(query()), timeout=1)
+        assert client.calls == 2
 
     asyncio.run(run())
 

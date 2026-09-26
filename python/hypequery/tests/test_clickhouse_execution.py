@@ -85,7 +85,12 @@ def test_driver_uses_server_parameter_binding(value: object, kind: str) -> None:
 def test_async_query_uses_same_boundary() -> None:
     query = compiled()
     client = AsyncClient(Result(("value",), [("ok",)]))
-    result = asyncio.run(AsyncClickHouseExecutor(client).execute(query))
+
+    class Control:
+        async def command(self, _cmd: str, _parameters: dict[str, str]) -> object:
+            return "finished"
+
+    result = asyncio.run(AsyncClickHouseExecutor(client, Control()).execute(query))
     assert result.named_rows() == ({"value": "ok"},)
     assert client.calls
 

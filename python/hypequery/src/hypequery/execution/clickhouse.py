@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 from collections.abc import Awaitable
 from concurrent.futures import ThreadPoolExecutor
+from contextlib import suppress
 from dataclasses import dataclass, field
 from typing import Protocol, cast
 
@@ -124,7 +125,7 @@ class AsyncClickHouseExecutor:
     def __init__(
         self,
         client: _AsyncClient,
-        control_client: _AsyncControlClient | None = None,
+        control_client: _AsyncControlClient,
         *,
         max_concurrent: int = 8,
     ) -> None:
@@ -134,8 +135,6 @@ class AsyncClickHouseExecutor:
         self._closed = False
 
     async def _cancel_on_server(self, query_id: str) -> object:
-        if self._control_client is None:
-            raise CompiledQueryError("unavailable", "", query_id=query_id)
         try:
             return await asyncio.wait_for(
                 self._control_client.command(_KILL_QUERY, {"id": query_id}), timeout=2.0
@@ -143,10 +142,16 @@ class AsyncClickHouseExecutor:
         except Exception as exc:
             raise safe_driver_error(exc, query_id) from None
 
+    def _release_slot_when_done(self, task: asyncio.Task[QueryRows]) -> None:
+        self._semaphore.release()
+        with suppress(asyncio.CancelledError, Exception):
+            task.result()
+
     async def execute(self, compiled: CompiledQuery) -> QueryRows:
         if self._closed:
             raise CompiledQueryError("unavailable", "", query_id=compiled.query_id)
         await acquire_slot(self._semaphore, compiled)
+        query_task: asyncio.Task[QueryRows] | None = None
         try:
             if self._closed:
                 raise CompiledQueryError("unavailable", "", query_id=compiled.query_id)
@@ -167,9 +172,15 @@ class AsyncClickHouseExecutor:
                     raise safe_driver_error(exc, compiled.query_id) from None
                 return decode_result(result, compiled.query_id)
 
-            return await run_with_policy(query(), compiled, self._cancel_on_server)
+            query_task = asyncio.create_task(query())
+            return await run_with_policy(query_task, compiled, self._cancel_on_server)
         finally:
-            self._semaphore.release()
+            if query_task is None:
+                self._semaphore.release()
+            elif query_task.done():
+                self._release_slot_when_done(query_task)
+            else:
+                query_task.add_done_callback(self._release_slot_when_done)
 
     async def aclose(self) -> None:
         """Close the driver and dedicated control connection."""
