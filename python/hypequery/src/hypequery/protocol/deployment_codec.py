@@ -12,11 +12,16 @@ from dataclasses import dataclass
 
 from ._jcs import serialize_jcs
 from .deployment_primitives import DEFAULT_PROTOCOL_DEPLOYMENT_LIMITS, ProtocolDeploymentLimits
-from .deployments import validate_protocol_deployment_contract
+from .deployments import (
+    validate_protocol_deployment_contract,
+    validate_protocol_deployment_contract_v3,
+)
 from .limits import DEFAULT_CANONICAL_VALUE_LIMITS
 
 #: The trailing `\0` is one zero byte, not the two characters.
 PROTOCOL_DEPLOYMENT_IDENTITY_DOMAIN = "hypequery:deployment:v2\0"
+#: Identity domain for deployment contract 3 (RFC 0015).
+PROTOCOL_DEPLOYMENT_V3_IDENTITY_DOMAIN = "hypequery:deployment:v3\0"
 
 
 @dataclass(frozen=True, slots=True)
@@ -37,12 +42,27 @@ def prepare_protocol_deployment_contract(
     """Validate a contract, then derive its canonical bytes and identity."""
 
     contract = validate_protocol_deployment_contract(value, limits=limits)
+    return _identify(contract, PROTOCOL_DEPLOYMENT_IDENTITY_DOMAIN)
+
+
+def prepare_protocol_deployment_contract_v3(
+    value: object,
+    *,
+    limits: ProtocolDeploymentLimits = DEFAULT_PROTOCOL_DEPLOYMENT_LIMITS,
+) -> PreparedProtocolDeploymentContract:
+    """Validate a deployment contract 3, then derive its canonical bytes and identity."""
+
+    contract = validate_protocol_deployment_contract_v3(value, limits=limits)
+    return _identify(contract, PROTOCOL_DEPLOYMENT_V3_IDENTITY_DOMAIN)
+
+
+def _identify(contract: dict[str, object], domain: str) -> PreparedProtocolDeploymentContract:
     canonical = serialize_jcs(
         contract, max_bytes=DEFAULT_CANONICAL_VALUE_LIMITS.max_canonical_bytes
     )
     contract_bytes = canonical.encode("utf-8")
     digest = hashlib.sha256()
-    digest.update(PROTOCOL_DEPLOYMENT_IDENTITY_DOMAIN.encode("utf-8"))
+    digest.update(domain.encode("utf-8"))
     digest.update(contract_bytes)
     return PreparedProtocolDeploymentContract(
         contract=contract,

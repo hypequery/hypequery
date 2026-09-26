@@ -14,7 +14,7 @@ hashed.
 from __future__ import annotations
 
 from collections.abc import Callable
-from typing import cast
+from typing import Literal, cast
 
 from .deployment_nodes import (
     dataset_filter,
@@ -31,9 +31,12 @@ from .deployment_nodes import (
     tenant,
 )
 from .deployment_primitives import (
+    APPROXIMATE_AGGREGATIONS,
+    CUMULATIVE_AGGREGATIONS,
     DEFAULT_PROTOCOL_DEPLOYMENT_LIMITS,
     GRAINS,
     SEMANTIC_METADATA_FIELDS,
+    SUB_DAY_GRAINS,
     ProtocolDeploymentLimits,
     array,
     bounded_text,
@@ -44,7 +47,10 @@ from .deployment_primitives import (
     semantic_metadata,
     unique_strings,
 )
+from .deployment_v3_nodes import segment, time_measure
 from .errors import deployment_error
+
+_ContractVersion = Literal[2, 3]
 
 _METRIC_KINDS = frozenset(("metric", "derived-metric", "grained-metric"))
 _DATASET_OPTIONAL = (
@@ -201,15 +207,22 @@ def _metric(value: object, path: str, limits: ProtocolDeploymentLimits) -> dict[
 
 
 def _derived_measure(
-    value: object, path: str, limits: ProtocolDeploymentLimits
+    value: object, path: str, limits: ProtocolDeploymentLimits, version: _ContractVersion = 2
 ) -> dict[str, object]:
     node = record(value, path)
     exact_fields(
         node,
         ("kind", "name", "uses", "expression"),
-        ("label", "description", *SEMANTIC_METADATA_FIELDS),
+        (
+            "label",
+            "description",
+            *SEMANTIC_METADATA_FIELDS,
+            *(("approximate",) if version == 3 else ()),
+        ),
         path,
     )
+    if "approximate" in node and node["approximate"] is not True:
+        deployment_error("HQ_DEPLOYMENT_TYPE", f"{path}.approximate")
     if node["kind"] != "derived":
         deployment_error("HQ_DEPLOYMENT_INVALID_VALUE", f"{path}.kind")
 
@@ -244,6 +257,9 @@ def _derived_measure(
         "uses": uses,
         "expression": expression,
     }
+    # Checked against the measures it uses by the dataset, once they are known.
+    if node.get("approximate") is True:
+        result["approximate"] = True
     optional_text(node, "label", result, path, limits)
     optional_text(node, "description", result, path, limits)
     semantic_metadata(node, result, path, limits)
@@ -255,8 +271,11 @@ def _dataset(
     path: str,
     limits: ProtocolDeploymentLimits,
     measure_indices: list[int] | None = None,
+    version: _ContractVersion = 2,
 ) -> dict[str, object]:
     node = record(value, path)
+    # Contract 3 renames the allow-list; the old name is then an unknown field.
+    filters_key = "allowedFilters" if version == 3 else "filters"
     exact_fields(
         node,
         (
@@ -265,11 +284,11 @@ def _dataset(
             "tenant",
             "dimensions",
             "measures",
-            "filters",
+            filters_key,
             "metrics",
             "relationships",
         ),
-        _DATASET_OPTIONAL,
+        (*_DATASET_OPTIONAL, *(("segments",) if version == 3 else ())),
         path,
     )
     result: dict[str, object] = {
@@ -294,11 +313,12 @@ def _dataset(
                 if measure_indices is None
                 else f"{path}.measures[{measure_indices[index]}]",
                 limits,
+                version,
             ),
         ),
-        "filters": _named_items(
-            node["filters"],
-            f"{path}.filters",
+        filters_key: _named_items(
+            node[filters_key],
+            f"{path}.{filters_key}",
             limits.max_dataset_items,
             lambda item, item_path, _index: dataset_filter(item, item_path, limits),
         ),
@@ -315,6 +335,19 @@ def _dataset(
             lambda item, item_path, _index: relationship(item, item_path),
         ),
     }
+    if version == 3 and "segments" in node:
+        result["segments"] = _named_items(
+            node["segments"],
+            f"{path}.segments",
+            limits.max_dataset_items,
+            lambda item, item_path, _index: segment(
+                item,
+                item_path,
+                limits,
+                cast(list[dict[str, object]], result["dimensions"]),
+                cast(dict[str, object], result["tenant"]),
+            ),
+        )
     if "timeField" in node:
         result["timeField"] = identifier(node["timeField"], f"{path}.timeField", qualified=True)
     optional_text(node, "description", result, path, limits)
@@ -323,7 +356,7 @@ def _dataset(
     if "freshness" in node:
         result["freshness"] = freshness(node["freshness"], f"{path}.freshness")
     if "defaults" in node:
-        result["defaults"] = defaults(node["defaults"], f"{path}.defaults", limits)
+        result["defaults"] = defaults(node["defaults"], f"{path}.defaults", limits, version)
     if "limits" in node:
         result["limits"] = dataset_limits(node["limits"], f"{path}.limits")
     if "endpoint" in node:
@@ -342,15 +375,23 @@ def validate_protocol_dataset_contract(
 
 
 def _deployment_dataset(
-    value: object, path: str, limits: ProtocolDeploymentLimits
+    value: object, path: str, limits: ProtocolDeploymentLimits, version: _ContractVersion = 2
 ) -> dict[str, object]:
-    """Validate a dataset whose measures fold base and derived into one array."""
+    """Validate a dataset whose measures fold base and composite kinds into one array."""
 
     node = record(value, path)
     exact_fields(
         node,
-        ("name", "source", "tenant", "dimensions", "measures", "filters", "relationships"),
-        _DATASET_OPTIONAL,
+        (
+            "name",
+            "source",
+            "tenant",
+            "dimensions",
+            "measures",
+            "allowedFilters" if version == 3 else "filters",
+            "relationships",
+        ),
+        (*_DATASET_OPTIONAL, *(("segments",) if version == 3 else ())),
         path,
     )
     measures = [
@@ -359,42 +400,87 @@ def _deployment_dataset(
             array(node["measures"], f"{path}.measures", limits.max_dataset_items)
         )
     ]
-    base = [(index, item) for index, item in enumerate(measures) if item.get("kind") != "derived"]
+
+    # Base measures are validated by the dataset; composite ones (derived, and
+    # in contract 3 window and shift) reference them and are validated here.
+    def composite_kind(item: dict[str, object]) -> bool:
+        kind = item.get("kind")
+        return kind == "derived" or (version == 3 and kind in ("window", "shift"))
+
+    base = [(index, item) for index, item in enumerate(measures) if not composite_kind(item)]
     validated = _dataset(
         {**node, "measures": [item for _index, item in base], "metrics": []},
         path,
         limits,
         [index for index, _item in base],
+        version,
     )
-    derived: list[dict[str, object] | None] = [
-        _derived_measure(item, f"{path}.measures[{index}]", limits)
-        if item.get("kind") == "derived"
-        else None
-        for index, item in enumerate(measures)
-    ]
+    composite: list[dict[str, object] | None] = []
+    for index, item in enumerate(measures):
+        measure_path = f"{path}.measures[{index}]"
+        if item.get("kind") == "derived":
+            composite.append(_derived_measure(item, measure_path, limits, version))
+        elif composite_kind(item):
+            composite.append(time_measure(item, measure_path, limits))
+        else:
+            composite.append(None)
 
     validated_base = cast(list[dict[str, object]], validated["measures"])
-    base_names = {cast(str, item["name"]) for item in validated_base}
+    base_by_name = {cast(str, item["name"]): item for item in validated_base}
     ordered: list[dict[str, object]] = []
     base_index = 0
-    for item in derived:
-        if item is not None:
-            ordered.append(item)
+    for entry in composite:
+        if entry is not None:
+            ordered.append(entry)
         else:
             ordered.append(validated_base[base_index])
             base_index += 1
     if len({cast(str, item["name"]) for item in ordered}) != len(measures):
         deployment_error("HQ_DEPLOYMENT_INVALID_REFERENCE", f"{path}.measures")
 
-    for index, item in enumerate(derived):
-        if item is None:
+    def approximate(item: dict[str, object] | None) -> bool:
+        return item is not None and item.get("approximate") is True
+
+    # A time measure wraps exactly one base measure and needs the time axis.
+    time_by_name: dict[str, dict[str, object]] = {}
+    for index, entry in enumerate(composite):
+        if entry is None or entry["kind"] == "derived":
             continue
-        for use_index, use in enumerate(cast(list[dict[str, object]], item["uses"])):
-            if cast(str, use["measure"]) not in base_names:
+        measure_path = f"{path}.measures[{index}]"
+        wrapped = base_by_name.get(cast(str, entry["measure"]))
+        if wrapped is None:
+            deployment_error("HQ_DEPLOYMENT_INVALID_REFERENCE", f"{measure_path}.measure")
+        if "timeField" not in validated:
+            deployment_error("HQ_DEPLOYMENT_INVALID_REFERENCE", f"{measure_path}.kind")
+        if (
+            entry.get("cumulative") is True
+            and wrapped["aggregation"] not in CUMULATIVE_AGGREGATIONS
+        ):
+            deployment_error("HQ_DEPLOYMENT_INVALID_VALUE", f"{measure_path}.cumulative")
+        if approximate(wrapped) != approximate(entry):
+            deployment_error("HQ_DEPLOYMENT_INVALID_VALUE", f"{measure_path}.approximate")
+        time_by_name[cast(str, entry["name"])] = entry
+
+    for index, entry in enumerate(composite):
+        if entry is None or entry["kind"] != "derived":
+            continue
+        uses = cast(list[dict[str, object]], entry["uses"])
+        for use_index, use in enumerate(uses):
+            name = cast(str, use["measure"])
+            if name not in base_by_name and name not in time_by_name:
                 deployment_error(
                     "HQ_DEPLOYMENT_INVALID_REFERENCE",
                     f"{path}.measures[{index}].uses[{use_index}].measure",
                 )
+        uses_approximate = any(
+            approximate(
+                base_by_name.get(cast(str, use["measure"]))
+                or time_by_name.get(cast(str, use["measure"]))
+            )
+            for use in uses
+        )
+        if uses_approximate != approximate(entry):
+            deployment_error("HQ_DEPLOYMENT_INVALID_VALUE", f"{path}.measures[{index}].approximate")
 
     return {**{k: v for k, v in validated.items() if k != "metrics"}, "measures": ordered}
 
@@ -461,3 +547,49 @@ def validate_protocol_deployment_contract(
     )
     _dataset_references(datasets)
     return {"kind": "hypequery-deployment", "version": 2, "datasets": datasets}
+
+
+def _uses_contract_3_feature(dataset: dict[str, object]) -> bool:
+    measures = cast(list[dict[str, object]], dataset["measures"])
+    grain = cast(dict[str, object], dataset.get("defaults") or {}).get("timeGrain")
+    return (
+        bool(dataset.get("segments"))
+        or any(
+            item.get("aggregation") in APPROXIMATE_AGGREGATIONS
+            or item.get("kind") in ("window", "shift")
+            for item in measures
+        )
+        or grain in SUB_DAY_GRAINS
+    )
+
+
+def validate_protocol_deployment_contract_v3(
+    value: object,
+    *,
+    limits: ProtocolDeploymentLimits = DEFAULT_PROTOCOL_DEPLOYMENT_LIMITS,
+) -> dict[str, object]:
+    """Validate a deployment contract 3 (RFC 0015) and return detached data.
+
+    Contract 3 renames the filter allow-list to ``allowedFilters`` and adds
+    segments, ``approxCountDistinct``, window and shift measures, and sub-day
+    default grains. Under the lowest-version rule, an envelope that uses none of
+    those must be published as contract 2 and is rejected here.
+    """
+
+    node = record(value, "$")
+    exact_fields(node, ("kind", "version", "datasets"), (), "$")
+    if node["kind"] != "hypequery-deployment":
+        deployment_error("HQ_DEPLOYMENT_INVALID_VALUE", "$.kind")
+    version = node["version"]
+    if type(version) is bool or version != 3:
+        deployment_error("HQ_DEPLOYMENT_INVALID_VERSION", "$.version")
+    datasets = _named_items(
+        node["datasets"],
+        "$.datasets",
+        limits.max_datasets,
+        lambda item, path, _index: _deployment_dataset(item, path, limits, 3),
+    )
+    _dataset_references(datasets)
+    if not any(_uses_contract_3_feature(dataset) for dataset in datasets):
+        deployment_error("HQ_DEPLOYMENT_INVALID_VERSION", "$.version")
+    return {"kind": "hypequery-deployment", "version": 3, "datasets": datasets}

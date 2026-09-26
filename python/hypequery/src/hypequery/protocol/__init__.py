@@ -30,11 +30,13 @@ from .constructors import (
 )
 from .deployment_codec import (
     PROTOCOL_DEPLOYMENT_IDENTITY_DOMAIN,
+    PROTOCOL_DEPLOYMENT_V3_IDENTITY_DOMAIN,
     PreparedProtocolDeploymentContract,
     encode_protocol_deployment_contract,
     encode_protocol_deployment_contract_to_string,
     hash_protocol_deployment_contract,
     prepare_protocol_deployment_contract,
+    prepare_protocol_deployment_contract_v3,
 )
 from .deployment_primitives import (
     DEFAULT_PROTOCOL_DEPLOYMENT_LIMITS,
@@ -43,6 +45,7 @@ from .deployment_primitives import (
 from .deployments import (
     validate_protocol_dataset_contract,
     validate_protocol_deployment_contract,
+    validate_protocol_deployment_contract_v3,
 )
 from .errors import (
     ProtocolDeploymentBundleError,
@@ -180,6 +183,7 @@ __all__ = [
     "PROTOCOL_DEPLOYMENT_BUNDLE_IDENTITY_DOMAIN",
     "PROTOCOL_DEPLOYMENT_IDENTITY_DOMAIN",
     "PROTOCOL_DEPLOYMENT_RELEASE_IDENTITY_DOMAIN",
+    "PROTOCOL_DEPLOYMENT_V3_IDENTITY_DOMAIN",
     "PROTOCOL_IDENTIFIER_LIMITS",
     "UNSET",
     "CanonicalValue",
@@ -289,6 +293,7 @@ __all__ = [
     "parse_protocol_qualified_identifier",
     "prepare_protocol_deployment_bundle_manifest",
     "prepare_protocol_deployment_contract",
+    "prepare_protocol_deployment_contract_v3",
     "prepare_protocol_deployment_release_envelope",
     "query_implementation_to_data",
     "schema_to_data",
@@ -301,6 +306,7 @@ __all__ = [
     "validate_protocol_dataset_contract",
     "validate_protocol_deployment_bundle_manifest",
     "validate_protocol_deployment_contract",
+    "validate_protocol_deployment_contract_v3",
     "validate_protocol_deployment_release_envelope",
     "validate_protocol_deployment_release_target",
     "validate_protocol_expression",

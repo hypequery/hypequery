@@ -11,9 +11,15 @@ from hypequery import __version__
 
 from .bundle_codec import prepare_protocol_deployment_bundle_manifest
 from .bundles import validate_protocol_deployment_bundle_manifest
-from .deployment_codec import prepare_protocol_deployment_contract
+from .deployment_codec import (
+    prepare_protocol_deployment_contract,
+    prepare_protocol_deployment_contract_v3,
+)
 from .deployment_fixtures import materialize_bundle_fixture, materialize_release_fixture
-from .deployments import validate_protocol_deployment_contract
+from .deployments import (
+    validate_protocol_deployment_contract,
+    validate_protocol_deployment_contract_v3,
+)
 from .errors import (
     ProtocolDeploymentBundleError,
     ProtocolDeploymentError,
@@ -64,6 +70,7 @@ FAMILIES = (
     "query-schemas-v1",
     "query-implementations-v1",
     "deployments-v2",
+    "deployments-v3",
     "deployment-bundles-v1",
     "deployment-releases-v1",
 )
@@ -243,18 +250,26 @@ def _handle_implementation(case: dict[str, object]) -> dict[str, object]:
         return {"ok": False, "code": error.code}
 
 
-def _handle_deployment(role: str, case: dict[str, object]) -> dict[str, object]:
+def _handle_deployment(role: str, case: dict[str, object], version: int) -> dict[str, object]:
     # Every number in a contract is binary64 in the reference implementation,
     # so the whole tree is re-read that way before validation.
     value = to_binary64_tree(case.get("value"))
     try:
+        v3 = version == 3
         if role == "identity":
-            prepared = prepare_protocol_deployment_contract(value)
+            prepare = (
+                prepare_protocol_deployment_contract_v3
+                if v3
+                else prepare_protocol_deployment_contract
+            )
+            prepared = prepare(value)
             return {
                 "ok": True,
                 "output": {"canonical": prepared.canonical, "sha256": prepared.identity},
             }
-        validate_protocol_deployment_contract(value)
+        (validate_protocol_deployment_contract_v3 if v3 else validate_protocol_deployment_contract)(
+            value
+        )
         return {"ok": True}
     except ProtocolDeploymentError as error:
         return {"ok": False, "code": error.code}
@@ -314,7 +329,9 @@ def _handle(family: str, role: str, case: dict[str, object], section: object) ->
     if family == "query-implementations-v1":
         return _handle_implementation(case)
     if family == "deployments-v2":
-        return _handle_deployment(role, case)
+        return _handle_deployment(role, case, 2)
+    if family == "deployments-v3":
+        return _handle_deployment(role, case, 3)
     if family == "deployment-bundles-v1":
         return _handle_bundle(role, case)
     if family == "deployment-releases-v1":
