@@ -201,13 +201,16 @@ export type {
 export {
   DEFAULT_PROTOCOL_DEPLOYMENT_LIMITS,
   PROTOCOL_DEPLOYMENT_IDENTITY_DOMAIN,
+  PROTOCOL_DEPLOYMENT_V3_IDENTITY_DOMAIN,
   ProtocolDeploymentError,
   encodeProtocolDeploymentContract,
   encodeProtocolDeploymentContractToString,
   hashProtocolDeploymentContract,
   prepareProtocolDeploymentContract,
+  prepareProtocolDeploymentContractV3,
   validateProtocolDatasetContract,
   validateProtocolDeploymentContract,
+  validateProtocolDeploymentContractV3,
 } from './deployments/index.js';
 
 export type {
@@ -215,6 +218,7 @@ export type {
   ProtocolDeploymentDataset,
   ProtocolDeploymentMeasure,
   PreparedProtocolDeploymentContract,
+  PreparedProtocolDeploymentContractV3,
   ProtocolAccessPolicy,
   ProtocolDatasetContract,
   ProtocolDatasetDefaults,
@@ -231,6 +235,12 @@ export type {
   ProtocolSemanticMetadata,
   ProtocolSemanticSensitivity,
   ProtocolDeploymentContract,
+  ProtocolDeploymentContractV3,
+  ProtocolDeploymentDatasetV3,
+  ProtocolDeploymentMeasureV3,
+  ProtocolDatasetDerivedMeasureV3,
+  ProtocolDatasetMeasureV3,
+  ProtocolDatasetSegment,
   ProtocolDeploymentErrorCode,
   ProtocolDeploymentLimits,
   ProtocolDeploymentOptions,

@@ -7,13 +7,17 @@ import {
 } from '../identifiers/index.js';
 import { validateProtocolSqlExpression } from '../sql-expressions/validate.js';
 import { deploymentError } from './errors.js';
+import { expressionReferences, isSegmentPredicate, isSegmentReference } from './segments.js';
 import { resolveDeploymentLimits } from './limits.js';
 import type {
   ProtocolAccessPolicy,
   ProtocolDatasetContract,
   ProtocolDatasetDerivedMeasure,
   ProtocolDeploymentContract,
+  ProtocolDeploymentContractV3,
   ProtocolDeploymentDataset,
+  ProtocolDeploymentDatasetV3,
+  ProtocolDatasetSegment,
   ProtocolDeploymentMeasure,
   ProtocolDatasetDimension,
   ProtocolDatasetFieldSource,
@@ -31,15 +35,21 @@ import type {
 } from './types.js';
 
 type DataRecord = Record<string, unknown>;
+/** Deployment contract version being validated; 3 is RFC 0015. */
+type ContractVersion = 2 | 3;
 const textEncoder = new TextEncoder();
 const AGGREGATIONS = new Set([
   'sum', 'count', 'countDistinct', 'avg', 'min', 'max',
   'argMax', 'argMin', 'percentile', 'stddev', 'variance',
 ]);
+const AGGREGATIONS_V3 = new Set([...AGGREGATIONS, 'approxCountDistinct']);
+const APPROXIMATE_AGGREGATIONS = new Set(['approxCountDistinct']);
 const OPERATORS = new Set([
   'eq', 'neq', 'gt', 'gte', 'lt', 'lte', 'in', 'notIn', 'between', 'like',
 ]);
 const GRAINS = new Set(['day', 'week', 'month', 'quarter', 'year']);
+const GRAINS_V3 = new Set(['minute', 'hour', ...GRAINS]);
+const SUB_DAY_GRAINS = new Set(['minute', 'hour']);
 const SENSITIVITIES = new Set(['public', 'internal', 'confidential', 'restricted']);
 const SEMANTIC_METADATA_FIELDS = [
   'examples', 'synonyms', 'format', 'unit', 'currency', 'timezone', 'sensitivity',
@@ -347,16 +357,29 @@ function validateMeasure(
   input: unknown,
   path: string,
   limits: Readonly<ProtocolDeploymentLimits>,
+  version: ContractVersion = 2,
 ): ProtocolDatasetMeasure {
   const value = requireRecord(input, path);
   exactFields(
     value,
     ['name', 'aggregation', 'field', 'filters'],
-    ['argField', 'level', 'sql', 'label', 'description', ...SEMANTIC_METADATA_FIELDS],
+    [
+      'argField', 'level', 'sql', 'label', 'description', ...SEMANTIC_METADATA_FIELDS,
+      ...(version === 3 ? ['approximate'] : []),
+    ],
     path,
   );
-  if (typeof value.aggregation !== 'string' || !AGGREGATIONS.has(value.aggregation)) {
+  if (typeof value.aggregation !== 'string'
+    || !(version === 3 ? AGGREGATIONS_V3 : AGGREGATIONS).has(value.aggregation)) {
     deploymentError('HQ_DEPLOYMENT_INVALID_VALUE', `${path}.aggregation`);
+  }
+  // The marker is not free: present, as `true`, exactly for an approximate aggregation.
+  const approximate = APPROXIMATE_AGGREGATIONS.has(value.aggregation);
+  if (value.approximate !== undefined && value.approximate !== true) {
+    deploymentError('HQ_DEPLOYMENT_TYPE', `${path}.approximate`);
+  }
+  if (approximate !== (value.approximate === true)) {
+    deploymentError('HQ_DEPLOYMENT_INVALID_VALUE', `${path}.approximate`);
   }
   const needsArg = value.aggregation === 'argMax' || value.aggregation === 'argMin';
   if (needsArg !== (value.argField !== undefined)) {
@@ -375,10 +398,11 @@ function validateMeasure(
     field: identifier(value.field, `${path}.field`, true),
     filters: Object.freeze(requireArray(value.filters, `${path}.filters`, limits.maxDatasetItems)
       .map((filter, index) => nested(
-        () => validateProtocolExpression(filter),
+        () => validateProtocolExpression(filter, { extension: version === 3 ? 2 : 1 }),
         `${path}.filters[${index}]`,
       ))),
   };
+  if (approximate) result.approximate = true;
   if (value.argField !== undefined) result.argField = identifier(value.argField, `${path}.argField`, true);
   if (value.level !== undefined) result.level = value.level;
   if (value.sql !== undefined) result.sql = nested(() => validateProtocolSqlExpression(value.sql), `${path}.sql`);
@@ -703,6 +727,7 @@ function validateDefaults(
   input: unknown,
   path: string,
   limits: Readonly<ProtocolDeploymentLimits>,
+  version: ContractVersion,
 ): Record<string, unknown> {
   const value = requireRecord(input, path);
   exactFields(value, [], ['dimensions', 'timeGrain'], path);
@@ -716,7 +741,7 @@ function validateDefaults(
     );
   }
   if (value.timeGrain !== undefined) {
-    if (typeof value.timeGrain !== 'string' || !GRAINS.has(value.timeGrain)) {
+    if (typeof value.timeGrain !== 'string' || !(version === 3 ? GRAINS_V3 : GRAINS).has(value.timeGrain)) {
       deploymentError('HQ_DEPLOYMENT_INVALID_VALUE', `${path}.timeGrain`);
     }
     result.timeGrain = value.timeGrain;
@@ -740,20 +765,51 @@ function namedItems<T extends { readonly name: string }>(
   return Object.freeze(items);
 }
 
+function validateSegment(
+  input: unknown,
+  path: string,
+  limits: Readonly<ProtocolDeploymentLimits>,
+  dimensions: readonly ProtocolDatasetDimension[],
+  tenant: ProtocolDatasetTenantPolicy,
+): ProtocolDatasetSegment {
+  const value = requireRecord(input, path);
+  exactFields(value, ['name', 'predicate'], ['label', 'description', ...SEMANTIC_METADATA_FIELDS], path);
+  const name = identifier(value.name, `${path}.name`);
+  const predicate = nested(
+    () => validateProtocolExpression(value.predicate, { extension: 2 }),
+    `${path}.predicate`,
+  );
+  if (!isSegmentPredicate(predicate)
+    || expressionReferences(predicate).some(reference => !isSegmentReference(reference, dimensions, tenant))) {
+    deploymentError('HQ_DEPLOYMENT_INVALID_VALUE', `${path}.predicate`);
+  }
+  const result: Record<string, unknown> = { name, predicate };
+  optionalText(value.label, 'label', result, path, limits);
+  optionalText(value.description, 'description', result, path, limits);
+  validateSemanticMetadata(value, result, path, limits);
+  return freezeRecord(result) as unknown as ProtocolDatasetSegment;
+}
+
 function validateDataset(
   input: unknown,
   path: string,
   limits: Readonly<ProtocolDeploymentLimits>,
   measureIndices?: readonly number[],
+  version: ContractVersion = 2,
 ): ProtocolDatasetContract {
   const value = requireRecord(input, path);
+  // Contract 3 renames the allow-list; the old name is then an unknown field.
+  const filtersKey = version === 3 ? 'allowedFilters' : 'filters';
   exactFields(
     value,
-    ['name', 'source', 'tenant', 'dimensions', 'measures', 'filters', 'metrics', 'relationships'],
+    [
+      'name', 'source', 'tenant', 'dimensions', 'measures', filtersKey, 'metrics', 'relationships',
+    ],
     [
       'description', 'freshness', 'owner', 'defaults',
       ...SEMANTIC_METADATA_FIELDS,
       'timeField', 'limits', 'endpoint',
+      ...(version === 3 ? ['segments'] : []),
     ],
     path,
   );
@@ -771,10 +827,11 @@ function validateDataset(
         item,
         measureIndices === undefined ? itemPath : `${path}.measures[${measureIndices[index]}]`,
         limits,
+        version,
       ),
     ),
-    filters: namedItems(
-      value.filters, `${path}.filters`, limits.maxDatasetItems,
+    [filtersKey]: namedItems(
+      value[filtersKey], `${path}.${filtersKey}`, limits.maxDatasetItems,
       (item, itemPath) => validateFilter(item, itemPath, limits),
     ),
     metrics: namedItems(
@@ -786,6 +843,18 @@ function validateDataset(
       (item, itemPath) => validateRelationship(item, itemPath),
     ),
   };
+  if (version === 3 && value.segments !== undefined) {
+    result.segments = namedItems(
+      value.segments, `${path}.segments`, limits.maxDatasetItems,
+      (item, itemPath) => validateSegment(
+        item,
+        itemPath,
+        limits,
+        result.dimensions as readonly ProtocolDatasetDimension[],
+        result.tenant as ProtocolDatasetTenantPolicy,
+      ),
+    );
+  }
   if (value.timeField !== undefined) result.timeField = identifier(value.timeField, `${path}.timeField`, true);
   optionalText(value.description, 'description', result, path, limits);
   optionalText(value.owner, 'owner', result, path, limits);
@@ -794,7 +863,7 @@ function validateDataset(
     result.freshness = validateFreshness(value.freshness, `${path}.freshness`);
   }
   if (value.defaults !== undefined) {
-    result.defaults = validateDefaults(value.defaults, `${path}.defaults`, limits);
+    result.defaults = validateDefaults(value.defaults, `${path}.defaults`, limits, version);
   }
   if (value.limits !== undefined) result.limits = validateLimits(value.limits, `${path}.limits`);
   if (value.endpoint !== undefined) result.endpoint = validateEndpoint(value.endpoint, `${path}.endpoint`, limits);
@@ -855,11 +924,16 @@ function validateDatasetDerivedMeasure(
   input: unknown,
   path: string,
   limits: Readonly<ProtocolDeploymentLimits>,
+  version: ContractVersion,
 ): ProtocolDatasetDerivedMeasure {
   const value = requireRecord(input, path);
   exactFields(value, ['kind', 'name', 'uses', 'expression'], [
     'label', 'description', ...SEMANTIC_METADATA_FIELDS,
+    ...(version === 3 ? ['approximate'] : []),
   ], path);
+  if (value.approximate !== undefined && value.approximate !== true) {
+    deploymentError('HQ_DEPLOYMENT_TYPE', `${path}.approximate`);
+  }
   if (value.kind !== 'derived') deploymentError('HQ_DEPLOYMENT_INVALID_VALUE', `${path}.kind`);
   const uses = requireArray(value.uses, `${path}.uses`, limits.maxDatasetItems)
     .map((inputUse, index) => {
@@ -892,6 +966,8 @@ function validateDatasetDerivedMeasure(
     uses: Object.freeze(uses),
     expression,
   };
+  // Checked against the base measures by the dataset, once they are known.
+  if (value.approximate === true) result.approximate = true;
   optionalText(value.label, 'label', result, path, limits);
   optionalText(value.description, 'description', result, path, limits);
   validateSemanticMetadata(value, result, path, limits);
@@ -902,13 +978,18 @@ function validateDeploymentDataset(
   input: unknown,
   path: string,
   limits: Readonly<ProtocolDeploymentLimits>,
+  version: ContractVersion = 2,
 ): ProtocolDeploymentDataset {
   const value = requireRecord(input, path);
   exactFields(value,
-    ['name', 'source', 'tenant', 'dimensions', 'measures', 'filters', 'relationships'],
+    [
+      'name', 'source', 'tenant', 'dimensions', 'measures',
+      version === 3 ? 'allowedFilters' : 'filters', 'relationships',
+    ],
     [
       'description', 'freshness', 'owner', 'defaults',
       ...SEMANTIC_METADATA_FIELDS, 'timeField', 'limits', 'endpoint',
+      ...(version === 3 ? ['segments'] : []),
     ], path);
   const measures = requireArray(value.measures, `${path}.measures`, limits.maxDatasetItems)
     .map((measure, index) => requireRecord(measure, `${path}.measures[${index}]`));
@@ -922,10 +1003,11 @@ function validateDeploymentDataset(
     path,
     limits,
     baseEntries.map(entry => entry.index),
+    version,
   );
   const derived = measures.map((measure, index) => (
     measure.kind === 'derived'
-      ? validateDatasetDerivedMeasure(measure, `${path}.measures[${index}]`, limits)
+      ? validateDatasetDerivedMeasure(measure, `${path}.measures[${index}]`, limits, version)
       : undefined
   ));
   const baseByName = new Map<string, ProtocolDatasetMeasure>(validated.measures.map(measure => [measure.name, measure]));
@@ -942,6 +1024,12 @@ function validateDeploymentDataset(
       if (!baseByName.has(use.measure)) {
         deploymentError('HQ_DEPLOYMENT_INVALID_REFERENCE', `${path}.measures[${index}].uses[${useIndex}].measure`);
       }
+    }
+    const approximate = item.uses.some(use => (
+      (baseByName.get(use.measure) as { approximate?: true }).approximate === true
+    ));
+    if (approximate !== ((item as { approximate?: true }).approximate === true)) {
+      deploymentError('HQ_DEPLOYMENT_INVALID_VALUE', `${path}.measures[${index}].approximate`);
     }
   }
   const { metrics: _metrics, ...dataset } = validated;
@@ -962,4 +1050,38 @@ export function validateProtocolDeploymentContract(
     (item, path) => validateDeploymentDataset(item, path, limits));
   validateDatasetReferences(datasets);
   return freezeRecord({ kind: 'hypequery-deployment', version: 2, datasets }) as unknown as ProtocolDeploymentContract;
+}
+
+/** True when a contract 3 dataset uses anything contract 2 cannot express. */
+function usesContract3Feature(dataset: ProtocolDeploymentDatasetV3): boolean {
+  return (dataset.segments?.length ?? 0) > 0
+    || dataset.measures.some(measure => 'aggregation' in measure && APPROXIMATE_AGGREGATIONS.has(measure.aggregation))
+    || (dataset.defaults?.timeGrain !== undefined && SUB_DAY_GRAINS.has(dataset.defaults.timeGrain));
+}
+
+/**
+ * Validate a deployment contract 3 (RFC 0015). Contract 3 renames the dataset
+ * filter allow-list to `allowedFilters` and adds segments, `approxCountDistinct`,
+ * and sub-day default grains.
+ *
+ * Under the lowest-version rule, a contract that uses none of those is only
+ * valid as contract 2. Rejecting it here keeps a deployment's identity a
+ * function of its content rather than of which producer emitted it.
+ */
+export function validateProtocolDeploymentContractV3(
+  input: unknown,
+  options: ProtocolDeploymentOptions = {},
+): ProtocolDeploymentContractV3 {
+  const limits = resolveDeploymentLimits(options);
+  const value = requireRecord(input, '$');
+  exactFields(value, ['kind', 'version', 'datasets'], [], '$');
+  if (value.kind !== 'hypequery-deployment') deploymentError('HQ_DEPLOYMENT_INVALID_VALUE', '$.kind');
+  if (value.version !== 3) deploymentError('HQ_DEPLOYMENT_INVALID_VERSION', '$.version');
+  const datasets = namedItems(value.datasets, '$.datasets', limits.maxDatasets,
+    (item, path) => validateDeploymentDataset(item, path, limits, 3)) as unknown as readonly ProtocolDeploymentDatasetV3[];
+  validateDatasetReferences(datasets as unknown as readonly ProtocolDeploymentDataset[]);
+  if (!datasets.some(usesContract3Feature)) {
+    deploymentError('HQ_DEPLOYMENT_INVALID_VERSION', '$.version');
+  }
+  return freezeRecord({ kind: 'hypequery-deployment', version: 3, datasets }) as unknown as ProtocolDeploymentContractV3;
 }

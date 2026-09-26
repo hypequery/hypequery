@@ -12,11 +12,13 @@ import {
   parseProtocolQualifiedIdentifier,
   prepareProtocolDeploymentBundleManifest,
   prepareProtocolDeploymentContract,
+  prepareProtocolDeploymentContractV3,
   prepareProtocolDeploymentReleaseEnvelope,
   splitProtocolQualifiedIdentifier,
   validateCanonicalValue,
   validateProtocolDeploymentBundleManifest,
   validateProtocolDeploymentContract,
+  validateProtocolDeploymentContractV3,
   validateProtocolDeploymentReleaseEnvelope,
   validateProtocolExpression,
   validateProtocolQueryDiagnostics,
@@ -99,6 +101,7 @@ export const REFERENCE_FAMILIES = [
   'query-events-v1',
   'query-diagnostics-v1',
   'deployments-v2',
+  'deployments-v3',
   'deployment-bundles-v1',
   'deployment-releases-v1',
   'semantic-invocations-v1',
@@ -138,6 +141,8 @@ export function referenceHandle(
       });
     case 'deployments-v2':
       return handleDeploymentV2(role, c);
+    case 'deployments-v3':
+      return handleDeploymentV3(role, c);
     case 'deployment-bundles-v1':
       return handleBundle(role, c);
     case 'deployment-releases-v1':
@@ -288,6 +293,19 @@ function handleDeploymentV2(role: FixtureRole, c: Case): HandlerResult {
   }
   return attempt(() => {
     validateProtocolDeploymentContract(c.value);
+    return ACCEPT;
+  });
+}
+
+function handleDeploymentV3(role: FixtureRole, c: Case): HandlerResult {
+  if (role === 'identity') {
+    return attempt(() => {
+      const prepared = prepareProtocolDeploymentContractV3(c.value);
+      return { ok: true, output: { canonical: prepared.canonical, sha256: prepared.identity } };
+    });
+  }
+  return attempt(() => {
+    validateProtocolDeploymentContractV3(c.value);
     return ACCEPT;
   });
 }

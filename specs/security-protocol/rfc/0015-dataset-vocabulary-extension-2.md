@@ -171,7 +171,9 @@ collide with a dimension `status`.
 The predicate:
 
 - MUST be a predicate as defined by RFC 0003: a `comparison` or a `logical`
-  tree whose leaves are all comparisons.
+  tree whose leaves are all comparisons. Each comparison operand MUST be a
+  `reference` or a `literal`. Arithmetic, calls, and aggregates are not
+  allowed.
 - MUST reference only the dataset's own dimensions, by simple identifier. It
   MUST NOT use relationship-qualified references, measures, or aggregates.
 - MUST NOT reference the dataset's tenant field. Tenant scope is applied by
@@ -184,8 +186,9 @@ The predicate:
 
 Validation fails with `HQ_DEPLOYMENT_INVALID_VALUE` at the offending path when
 a predicate reference does not name a dimension on the dataset, or names the
-tenant field. The expression-shape failures keep their `HQ_EXPRESSION_*` codes,
-as embedded expressions already do.
+tenant field. An expression-shape failure also reports
+`HQ_DEPLOYMENT_INVALID_VALUE` at the predicate, just as contract 2 reports a malformed
+measure filter.
 
 ### Query shape
 
