@@ -170,3 +170,25 @@ def test_writer_creates_only_declared_files_and_refuses_existing_output(tmp_path
     assert (destination / "bundle.json").read_bytes() == prepared.manifest_bytes
     with pytest.raises(FileExistsError):
         write_dataset_bundle(destination, registry, endpoints={"orders": _endpoint()})
+
+
+def test_writer_does_not_replace_directory_created_during_publish(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    customers, orders = _model()
+    registry = create_dataset_registry(customers, orders)
+    destination = tmp_path / "bundle"
+    mkdir = Path.mkdir
+
+    def competing_mkdir(
+        path: Path, mode: int = 0o777, parents: bool = False, exist_ok: bool = False
+    ) -> None:
+        if path == destination:
+            mkdir(path)
+        mkdir(path, mode=mode, parents=parents, exist_ok=exist_ok)
+
+    monkeypatch.setattr(Path, "mkdir", competing_mkdir)
+    with pytest.raises(FileExistsError):
+        write_dataset_bundle(destination, registry, endpoints={"orders": _endpoint()})
+    assert destination.is_dir()
+    assert list(destination.iterdir()) == []

@@ -7,6 +7,7 @@ import os
 import shutil
 import tempfile
 from collections.abc import Mapping
+from contextlib import suppress
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -79,11 +80,25 @@ def write_dataset_bundle(
         raise FileExistsError(f"Bundle output already exists: {destination}")
     destination.parent.mkdir(parents=True, exist_ok=True)
     staging = Path(tempfile.mkdtemp(prefix=f".{destination.name}.tmp-", dir=destination.parent))
+    claimed_destination = False
     try:
         (staging / DEPLOYMENT_FILE).write_bytes(bundle.deployment_bytes)
         (staging / BUNDLE_FILE).write_bytes(bundle.manifest_bytes)
-        os.rename(staging, destination)
+        # mkdir is an atomic no-replace claim; rename can replace an empty
+        # directory created after the existence check above.
+        destination.mkdir()
+        claimed_destination = True
+        os.replace(staging / DEPLOYMENT_FILE, destination / DEPLOYMENT_FILE)
+        # Publish the manifest last so readers cannot see a complete bundle
+        # until its deployment file is in place.
+        os.replace(staging / BUNDLE_FILE, destination / BUNDLE_FILE)
     except BaseException:
+        if claimed_destination:
+            (destination / DEPLOYMENT_FILE).unlink(missing_ok=True)
+            (destination / BUNDLE_FILE).unlink(missing_ok=True)
+            with suppress(OSError):
+                destination.rmdir()
         shutil.rmtree(staging, ignore_errors=True)
         raise
+    staging.rmdir()
     return bundle
