@@ -11,7 +11,8 @@ import type {
   SemanticMetadata,
   TimeGrain,
 } from './types.js';
-import { SEMANTIC_FILTER_OPERATORS, SUPPORTED_TIME_GRAINS } from './constants.js';
+import { SEMANTIC_FILTER_OPERATORS } from './constants.js';
+import { datasetTimeGrains } from './utils/dataset-time-grains.js';
 import {
   listGroupableRelationshipFields,
   listQueryableRelationshipFields,
@@ -203,7 +204,7 @@ export function getDatasetCatalog(dataset: DatasetCatalogSource): DatasetCatalog
   const measureNames = Object.keys(dataset.measures);
   const derivedMeasureNames = Object.keys(dataset.derivedMeasures ?? {});
   const metricNames = Object.keys(dataset.metrics ?? {});
-  const supportedGrains = dataset.timeKey ? [...SUPPORTED_TIME_GRAINS] : [];
+  const supportedGrains = [...datasetTimeGrains(dataset)];
   const maxLimit = dataset.limits?.maxResultSize;
   const relationships = Object.fromEntries(
     Object.entries(dataset.relationships).map(([name, relationship]) => [

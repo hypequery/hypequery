@@ -8,6 +8,7 @@ import {
   type ProtocolEndpointPolicy,
   type ProtocolSchema,
   type ProtocolSqlExpression,
+  type ProtocolTimeGrain,
 } from '@hypequery/protocol';
 import { SEMANTIC_FILTER_OPERATORS } from './constants.js';
 import type {
@@ -17,6 +18,7 @@ import type {
   MetricRef,
 } from './types.js';
 import { toProtocolSemanticMetadata } from './utils/protocol-semantic-metadata.js';
+import { isPortableTimeGrain, requirePortableTimeGrain } from './utils/portable-grains.js';
 
 export interface BuildProtocolDatasetContractOptions {
   readonly metrics?: Readonly<Record<string, MetricHandle>>;
@@ -42,12 +44,12 @@ function fieldSchema(type: FieldType | undefined): ProtocolSchema {
   }
 }
 
-function unwrapMetric(metric: MetricHandle): {
+function unwrapMetric(metric: MetricHandle, exposedName: string): {
   readonly ref: MetricRef;
-  readonly grain?: 'day' | 'week' | 'month' | 'quarter' | 'year';
+  readonly grain?: ProtocolTimeGrain;
 } {
   return metric.__type === 'grained_metric_ref'
-    ? { ref: metric.metric, grain: metric.grain }
+    ? { ref: metric.metric, grain: requirePortableTimeGrain(metric.grain, `Metric "${exposedName}"`) }
     : { ref: metric };
 }
 
@@ -56,7 +58,7 @@ function metricContract(
   metric: MetricHandle,
   endpoint: ProtocolEndpointPolicy,
 ): ProtocolDatasetMetric {
-  const { ref, grain } = unwrapMetric(metric);
+  const { ref, grain } = unwrapMetric(metric, exposedName);
   const contract = metric.contract();
   const result: ProtocolDatasetMetric = {
     name: parseProtocolIdentifier(exposedName),
@@ -71,7 +73,8 @@ function metricContract(
       : {}),
     dimensions: [...contract.dimensions].sort().map(parseProtocolQualifiedIdentifier),
     filters: [...contract.filters].sort().map(parseProtocolIdentifier),
-    grains: [...contract.grains].sort(),
+    // Only grains the published contract can carry are advertised there.
+    grains: contract.grains.filter(isPortableTimeGrain).sort(),
     ...(grain !== undefined ? { grain } : {}),
     ...(ref.label !== undefined ? { label: ref.label } : {}),
     ...(ref.description !== undefined ? { description: ref.description } : {}),
@@ -117,7 +120,9 @@ export function buildProtocolDatasetContract(
   options: BuildProtocolDatasetContractOptions = {},
 ): ProtocolDatasetContract {
   const metrics = Object.entries(options.metrics ?? {})
-    .filter(([, metric]) => unwrapMetric(metric).ref.datasetName === dataset.name)
+    .filter(([, metric]) => (
+      metric.__type === 'grained_metric_ref' ? metric.metric : metric
+    ).datasetName === dataset.name)
     .map(([name, metric]) => {
       const endpoint = options.metricEndpoints?.[name];
       if (!endpoint) {
@@ -141,7 +146,12 @@ export function buildProtocolDatasetContract(
               ? { dimensions: [...dataset.defaults.dimensions].map(parseProtocolIdentifier) }
               : {}),
             ...(dataset.defaults.timeGrain !== undefined
-              ? { timeGrain: dataset.defaults.timeGrain }
+              ? {
+                  timeGrain: requirePortableTimeGrain(
+                    dataset.defaults.timeGrain,
+                    `Dataset "${dataset.name}" defaults.timeGrain`,
+                  ),
+                }
               : {}),
           },
         }

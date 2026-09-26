@@ -8,6 +8,7 @@ import type {
   SemanticMetadata,
   SemanticSensitivity,
 } from '@hypequery/datasets';
+import { SUPPORTED_TIME_GRAINS } from '@hypequery/datasets';
 
 type UnknownRecord = Record<string, unknown>;
 
@@ -15,7 +16,7 @@ type UnknownRecord = Record<string, unknown>;
  * Grains the semantic planner can actually execute. A legacy registry is
  * untyped, so anything outside this set is dropped rather than advertised.
  */
-const TIME_GRAINS = new Set(['day', 'week', 'month', 'quarter', 'year']);
+const TIME_GRAINS: ReadonlySet<string> = new Set(SUPPORTED_TIME_GRAINS);
 
 function record(value: unknown): UnknownRecord {
   return value !== null && typeof value === 'object' && !Array.isArray(value)

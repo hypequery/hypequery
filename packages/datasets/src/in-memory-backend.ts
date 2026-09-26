@@ -129,6 +129,12 @@ function periodForValue(value: unknown, grain: SemanticGrainPlan): string {
     return String(value);
   }
 
+  // Sub-day buckets keep their time of day, in the form a ClickHouse DateTime
+  // takes in JSON (RFC 0015).
+  if (grain.unit === 'minute' || grain.unit === 'hour') {
+    const iso = date.toISOString();
+    return `${iso.slice(0, 10)} ${grain.unit === 'hour' ? `${iso.slice(11, 13)}:00` : iso.slice(11, 16)}:00`;
+  }
   if (grain.unit === 'year') {
     return `${date.getUTCFullYear()}-01-01`;
   }

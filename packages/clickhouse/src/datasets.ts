@@ -50,6 +50,8 @@ export type CreateBackendConfig = CreateQueryBuilderConfig;
 // =============================================================================
 
 const GRAIN_FUNCTIONS = {
+  minute: 'toStartOfMinute',
+  hour: 'toStartOfHour',
   day: 'toStartOfDay',
   week: 'toStartOfWeek',
   month: 'toStartOfMonth',

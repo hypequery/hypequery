@@ -13,6 +13,8 @@ from .relationships import RelationshipKind
 
 #: ClickHouse date-truncation function per supported grain.
 GRAIN_FUNCTIONS: Final[dict[str, str]] = {
+    "minute": "toStartOfMinute",
+    "hour": "toStartOfHour",
     "day": "toStartOfDay",
     "week": "toStartOfWeek",
     "month": "toStartOfMonth",
