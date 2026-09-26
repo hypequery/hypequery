@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Awaitable
 from dataclasses import dataclass, field
 from typing import Protocol, cast
 
@@ -94,6 +95,13 @@ class ClickHouseExecutor:
             raise safe_driver_error(exc, compiled.query_id) from None
         return decode_result(result, compiled.query_id)
 
+    def close(self) -> None:
+        """Release the driver's connection pool when execution is complete."""
+
+        closer = getattr(self._client, "close", None)
+        if callable(closer):
+            closer()
+
 
 class AsyncClickHouseExecutor:
     """Async driver path; cancellation propagation is added in PYC-02."""
@@ -116,6 +124,13 @@ class AsyncClickHouseExecutor:
         except Exception as exc:
             raise safe_driver_error(exc, compiled.query_id) from None
         return decode_result(result, compiled.query_id)
+
+    async def aclose(self) -> None:
+        """Release the async driver's connector when execution is complete."""
+
+        closer = getattr(self._client, "close", None)
+        if callable(closer):
+            await cast(Awaitable[object], closer())
 
 
 def create_clickhouse_executor(connection: ClickHouseConnection) -> ClickHouseExecutor:

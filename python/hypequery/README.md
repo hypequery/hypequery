@@ -37,10 +37,12 @@ from hypequery.execution import ClickHouseConnection, create_clickhouse_executor
 
 executor = create_clickhouse_executor(ClickHouseConnection(host="localhost", database="analytics"))
 rows = executor.execute(compiled_query).named_rows()
+executor.close()
 ```
 
 For async code, install `hypequery[clickhouse-async]` and await
 `create_async_clickhouse_executor(connection)` and `executor.execute(compiled_query)`.
+Call `await executor.aclose()` when the async executor is no longer needed.
 Driver errors are mapped to the canonical safe error categories. Live parameter
 tests run in CI against ClickHouse; local execution needs a ClickHouse service.
 
