@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import math
 from collections.abc import Callable
+from typing import Literal
 
 from hypequery import __version__
 
@@ -59,6 +60,7 @@ FAMILIES = (
     "tagged-values-v1",
     "identifiers-v1",
     "expressions-v1",
+    "expressions-v2",
     "query-schemas-v1",
     "query-implementations-v1",
     "deployments-v2",
@@ -192,7 +194,9 @@ def _handle_identifier(role: str, case: dict[str, object]) -> dict[str, object]:
         return {"ok": False, "code": error.code}
 
 
-def _handle_expression(case: dict[str, object], section: object) -> dict[str, object]:
+def _handle_expression(
+    case: dict[str, object], section: object, extension: Literal[1, 2]
+) -> dict[str, object]:
     generator = case.get("generator")
     value = (
         materialize_expression_fixture(generator) if type(generator) is dict else case.get("value")
@@ -200,9 +204,9 @@ def _handle_expression(case: dict[str, object], section: object) -> dict[str, ob
     value = normalize_expression_wire_numbers(value)
     try:
         if section == "/queries" or case.get("mode") == "query":
-            validate_protocol_semantic_query(value)
+            validate_protocol_semantic_query(value, extension=extension)
         else:
-            validate_protocol_expression(value)
+            validate_protocol_expression(value, extension=extension)
         return {"ok": True}
     except ProtocolExpressionError as error:
         return {"ok": False, "code": error.code}
@@ -302,7 +306,9 @@ def _handle(family: str, role: str, case: dict[str, object], section: object) ->
     if family == "identifiers-v1":
         return _handle_identifier(role, case)
     if family == "expressions-v1":
-        return _handle_expression(case, section)
+        return _handle_expression(case, section, 1)
+    if family == "expressions-v2":
+        return _handle_expression(case, section, 2)
     if family == "query-schemas-v1":
         return _handle_schema(case)
     if family == "query-implementations-v1":

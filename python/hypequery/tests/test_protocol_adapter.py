@@ -26,6 +26,7 @@ def test_adapter_announces_pinned_families_and_hostile_suite() -> None:
         "tagged-values-v1",
         "identifiers-v1",
         "expressions-v1",
+        "expressions-v2",
         "query-schemas-v1",
         "query-implementations-v1",
         "deployments-v2",

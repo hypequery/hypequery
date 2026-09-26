@@ -1,4 +1,4 @@
-"""Strict RFC 0003 expression and semantic-query validation."""
+"""Strict RFC 0003 expression and semantic-query validation, with RFC 0015 extension 2."""
 
 from __future__ import annotations
 
@@ -20,15 +20,16 @@ from .expression_models import (
     ProtocolComparisonOperator,
     ProtocolDatasetQuery,
     ProtocolExpression,
+    ProtocolExpressionExtension,
     ProtocolExpressionLimits,
     ProtocolFunctionName,
     ProtocolLiteralExpression,
     ProtocolLogicalExpression,
     ProtocolMetricQuery,
     ProtocolOrderBy,
+    ProtocolQueryTimeGrain,
     ProtocolReferenceExpression,
     ProtocolSemanticQuery,
-    ProtocolTimeGrain,
     freeze_canonical_value,
 )
 from .identifiers import (
@@ -56,7 +57,9 @@ _AGGREGATIONS = frozenset(
         "variance",
     )
 )
+_AGGREGATIONS_V2 = _AGGREGATIONS | {"approxCountDistinct"}
 _GRAINS = frozenset(("day", "week", "month", "quarter", "year"))
+_GRAINS_V2 = _GRAINS | {"minute", "hour"}
 _CALL_ARITY = {
     "nullIfZero": (1, 1),
     "coalesce": (2, 2),
@@ -71,7 +74,15 @@ _SAFE_INTEGER = 2**53 - 1
 class _State:
     limits: ProtocolExpressionLimits
     active: set[int]
+    extension: ProtocolExpressionExtension = 1
     nodes: int = 0
+
+
+def _new_state(limits: ProtocolExpressionLimits, extension: ProtocolExpressionExtension) -> _State:
+    # Typed as a literal, but callers can pass anything at runtime.
+    if type(cast(object, extension)) is not int or cast(object, extension) not in (1, 2):
+        raise ValueError("extension must be 1 or 2")
+    return _State(limits=limits, active=set(), extension=extension)
 
 
 def _record(value: object, path: str) -> dict[str, object]:
@@ -271,7 +282,7 @@ def _validate_aggregate(
         path,
     )
     aggregation = _string(value["aggregation"], f"{path}.aggregation")
-    if aggregation not in _AGGREGATIONS:
+    if aggregation not in (_AGGREGATIONS_V2 if state.extension == 2 else _AGGREGATIONS):
         expression_error("HQ_EXPRESSION_INVALID_AGGREGATION", f"{path}.aggregation")
     is_arg = aggregation in ("argMax", "argMin")
     is_percentile = aggregation == "percentile"
@@ -340,20 +351,29 @@ def validate_protocol_expression(
     value: object,
     *,
     limits: ProtocolExpressionLimits = DEFAULT_PROTOCOL_EXPRESSION_LIMITS,
+    extension: ProtocolExpressionExtension = 1,
 ) -> ProtocolExpression:
-    """Validate plain RFC 0003 data and return an immutable detached AST."""
+    """Validate plain RFC 0003 data and return an immutable detached AST.
 
-    return _validate_expression(value, "$", 1, _State(limits=limits, active=set()))
+    ``extension=2`` validates against RFC 0015 expression extension 2.
+    """
+
+    return _validate_expression(value, "$", 1, _new_state(limits, extension))
 
 
 def validate_protocol_semantic_query(
     source: object,
     *,
     limits: ProtocolExpressionLimits = DEFAULT_PROTOCOL_EXPRESSION_LIMITS,
+    extension: ProtocolExpressionExtension = 1,
 ) -> ProtocolSemanticQuery:
-    """Validate a dataset or metric query and return an immutable snapshot."""
+    """Validate a dataset or metric query and return an immutable snapshot.
 
-    state = _State(limits=limits, active=set())
+    Extension 2 (RFC 0015) adds ``minute``/``hour`` grains, ``segments``, and
+    one-hop relationship-qualified measures.
+    """
+
+    state = _new_state(limits, extension)
     value = _record(source, "$")
     _enter(value, 1, state, "$")
     try:
@@ -361,29 +381,49 @@ def validate_protocol_semantic_query(
         metric = kind == "metric"
         if not metric and kind != "dataset":
             expression_error("HQ_EXPRESSION_INVALID_QUERY", "$.kind")
-        common = ("dimensions", "filters", "orderBy", "limit", "offset", "by", "includeMeta")
+        v2 = state.extension == 2
+        optional = (
+            "dimensions",
+            *(() if metric else ("measures",)),
+            "filters",
+            *(("segments",) if v2 else ()),
+            "orderBy",
+            "limit",
+            "offset",
+            "by",
+            "includeMeta",
+        )
         _exact_fields(
             value,
             ("kind", "dataset", "metric") if metric else ("kind", "dataset"),
-            common if metric else ("dimensions", "measures", *common[1:]),
+            optional,
             "$",
         )
         dataset = _simple_identifier(value["dataset"], "$.dataset")
         metric_name = _simple_identifier(value["metric"], "$.metric") if metric else None
         dimensions = _identifier_array(value, "dimensions", state, _qualified_identifier)
-        measures = (
-            None if metric else _identifier_array(value, "measures", state, _simple_identifier)
-        )
+        measures: tuple[ProtocolQualifiedIdentifier, ...] | None = None
+        if not metric:
+            # A simple identifier is a valid qualified one, so both widen alike.
+            measures = (
+                _identifier_array(value, "measures", state, _qualified_identifier)
+                if v2
+                else cast(
+                    "tuple[ProtocolQualifiedIdentifier, ...] | None",
+                    _identifier_array(value, "measures", state, _simple_identifier),
+                )
+            )
         filters = _predicate_array(value, state)
+        segments = _segment_array(value, state)
         order_by = _order_array(value, state)
         limit = _query_integer(value, "limit")
         offset = _query_integer(value, "offset")
-        grain: ProtocolTimeGrain | None = None
+        grain: ProtocolQueryTimeGrain | None = None
         if "by" in value:
             raw_grain = _string(value["by"], "$.by")
-            if raw_grain not in _GRAINS:
+            if raw_grain not in (_GRAINS_V2 if v2 else _GRAINS):
                 expression_error("HQ_EXPRESSION_INVALID_QUERY", "$.by")
-            grain = cast(ProtocolTimeGrain, raw_grain)
+            grain = cast(ProtocolQueryTimeGrain, raw_grain)
         include_meta: bool | None = None
         if "includeMeta" in value:
             if type(value["includeMeta"]) is not bool:
@@ -400,6 +440,7 @@ def validate_protocol_semantic_query(
                 offset=offset,
                 by=grain,
                 include_meta=include_meta,
+                segments=segments,
             )
         return ProtocolDatasetQuery(
             dataset=dataset,
@@ -411,6 +452,7 @@ def validate_protocol_semantic_query(
             offset=offset,
             by=grain,
             include_meta=include_meta,
+            segments=segments,
         )
     finally:
         state.active.remove(id(value))
@@ -441,6 +483,24 @@ def _predicate_array(
             _validate_predicate(item, f"$.filters[{index}]", 1, state, aggregate=False)
             for index, item in enumerate(items)
         )
+
+
+def _segment_array(
+    source: dict[str, object], state: _State
+) -> tuple[ProtocolIdentifier, ...] | None:
+    if "segments" not in source:
+        return None
+    with _array_items(source["segments"], "$.segments", state) as items:
+        seen: set[str] = set()
+        result: list[ProtocolIdentifier] = []
+        for index, item in enumerate(items):
+            path = f"$.segments[{index}]"
+            name = _simple_identifier(item, path)
+            if name in seen:
+                expression_error("HQ_EXPRESSION_INVALID_QUERY", path)
+            seen.add(name)
+            result.append(name)
+        return tuple(result)
 
 
 def _order_array(source: dict[str, object], state: _State) -> tuple[ProtocolOrderBy, ...] | None:
