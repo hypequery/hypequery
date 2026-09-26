@@ -117,7 +117,9 @@ def time_measure(
     window = node.get("kind") == "window"
     exact_fields(
         node,
-        ("kind", "name", "measure") if window else ("kind", "name", "measure", "interval"),
+        ("kind", "name", "measure", "requiresTimeRange")
+        if window
+        else ("kind", "name", "measure", "interval", "requiresTimeRange"),
         (
             *(_WINDOW_FRAMES if window else ()),
             "approximate",
@@ -129,10 +131,13 @@ def time_measure(
     )
     if "approximate" in node and node["approximate"] is not True:
         deployment_error("HQ_DEPLOYMENT_TYPE", f"{path}.approximate")
+    if node["requiresTimeRange"] is not True:
+        deployment_error("HQ_DEPLOYMENT_INVALID_VALUE", f"{path}.requiresTimeRange")
     result: dict[str, object] = {
         "kind": node["kind"],
         "name": identifier(node["name"], f"{path}.name"),
         "measure": identifier(node["measure"], f"{path}.measure"),
+        "requiresTimeRange": True,
     }
     if window:
         if sum(1 for key in _WINDOW_FRAMES if key in node) != 1:
