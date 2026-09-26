@@ -18,7 +18,7 @@ import type {
   MetricRef,
 } from './types.js';
 import { toProtocolSemanticMetadata } from './utils/protocol-semantic-metadata.js';
-import { isPortableTimeGrain, requirePortableTimeGrain } from './utils/portable-grains.js';
+import { assertPublishableTimeGrains, isPortableTimeGrain, requirePortableTimeGrain } from './utils/portable-grains.js';
 
 export interface BuildProtocolDatasetContractOptions {
   readonly metrics?: Readonly<Record<string, MetricHandle>>;
@@ -119,6 +119,7 @@ export function buildProtocolDatasetContract(
   dataset: AnyDatasetInstance,
   options: BuildProtocolDatasetContractOptions = {},
 ): ProtocolDatasetContract {
+  assertPublishableTimeGrains(dataset);
   const metrics = Object.entries(options.metrics ?? {})
     .filter(([, metric]) => (
       metric.__type === 'grained_metric_ref' ? metric.metric : metric
