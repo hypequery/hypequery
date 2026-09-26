@@ -271,6 +271,7 @@ class AsyncFromSyncClickHouseExecutor:
         self._workers.shutdown(wait=False, cancel_futures=True)
         self._control_worker.shutdown(wait=False, cancel_futures=True)
 
+
 def create_clickhouse_executor(connection: ClickHouseConnection) -> ClickHouseExecutor:
     """Connect on demand. Install ``hypequery[clickhouse]`` first."""
 
