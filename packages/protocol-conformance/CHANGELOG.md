@@ -1,5 +1,30 @@
 # @hypequery/protocol-conformance
 
+## 0.13.0
+
+### Minor Changes
+
+- 74f4843: Deployment contract 3 accepts `window` measures (`trailing`, `toDate`, or `cumulative`) and `shift` measures over a base measure of the same dataset (RFC 0015). They require a dataset `timeField` and inherit `approximate`, and derived measures may use them. `cumulative` is limited to `sum`, `count`, `min` and `max`.
+- 5d798f4: Add deployment contract 3 (RFC 0015) through `validateProtocolDeploymentContractV3` and `prepareProtocolDeploymentContractV3`, with identity domain `hypequery:deployment:v3\0`. Contract 3:
+
+  - renames the dataset filter allow-list to `allowedFilters`;
+  - adds dataset `segments`, whose predicates compare the dataset's own dimensions with literals;
+  - accepts `approxCountDistinct` measures with a required `approximate` marker, which derived measures inherit;
+  - allows `minute`/`hour` default grains.
+
+  A contract 3 envelope that uses none of these is rejected, because it must be published as contract 2 (the lowest-version rule). Contract 2 validation and identities are unchanged. The conformance corpus gains the `deployments-v3` family.
+
+- 1ddd78b: Add expression extension 2 (RFC 0015) validation. Pass `{ extension: 2 }` to `validateProtocolExpression` or `validateProtocolSemanticQuery` to accept `minute`/`hour` grains, the `approxCountDistinct` aggregation, query `segments`, and one-hop relationship-qualified `measures`. Extension 1 remains the default and is unchanged. The conformance corpus gains the `expressions-v2` family, which the reference adapter announces.
+- 2ddef5b: Add semantic invocation 2 (RFC 0015) through `validateProtocolSemanticInvocationV2`. It is identical to version 1, except that the operation is validated under expression extension 2. Under the lowest-version rule, a version 2 request that uses no segment, sub-day grain, or relationship measure is rejected. `validateProtocolSemanticInvocation` remains version 1 only. The conformance corpus gains the `semantic-invocations-v2` family.
+
+### Patch Changes
+
+- Updated dependencies [74f4843]
+- Updated dependencies [5d798f4]
+- Updated dependencies [1ddd78b]
+- Updated dependencies [2ddef5b]
+  - @hypequery/protocol@0.16.0
+
 ## 0.12.0
 
 ### Minor Changes
