@@ -98,6 +98,21 @@ function tenantSignature(
   return { key: ds.tenantKey, operator: predicate.operator, value: predicate.value };
 }
 
+/**
+ * Selected segments keyed by their resolved definitions, not just their names,
+ * so editing a segment cannot serve rows cached under the old one. Absent when
+ * no segment is selected, which keeps existing signatures unchanged.
+ */
+function segmentSignature(ds: AnyDatasetInstance, names: readonly string[] | undefined): Record<string, unknown> {
+  if (!names?.length) return {};
+  return {
+    segments: [...new Set(names)].sort().map(name => ({
+      name,
+      filters: filterSignature(ds.segments?.[name]?.filters),
+    })),
+  };
+}
+
 export function buildDatasetQuerySignature(
   ds: AnyDatasetInstance,
   query: DatasetQuery,
@@ -112,6 +127,7 @@ export function buildDatasetQuerySignature(
     // `null` distinguishes the "all measures" default from an explicit [].
     measures: query.measures ?? null,
     filters: filterSignature(query.filters),
+    ...segmentSignature(ds, query.segments),
     orderBy: orderBySignature(query.orderBy),
     by: query.by ?? null,
     limit: query.limit ?? null,
@@ -136,6 +152,7 @@ export function buildMetricQuerySignature(
     metricKind: ref.spec.__type,
     dimensions: query.dimensions ?? null,
     filters: filterSignature(query.filters),
+    ...segmentSignature(ref.dataset, query.segments),
     orderBy: orderBySignature(query.orderBy),
     by: grain ?? null,
     limit: query.limit ?? null,

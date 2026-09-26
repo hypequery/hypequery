@@ -62,6 +62,7 @@ import { validateDatasetDefinition } from './utils/dataset-definition-validation
 import { snapshotSemanticMetadata } from './utils/semantic-metadata.js';
 import { validateSemanticMetadata } from './utils/semantic-metadata-validation.js';
 import { splitDatasetMeasures } from './utils/dataset-measures.js';
+import { normalizeSegments } from './utils/segments.js';
 
 export function dataset<
   TDatasetName extends string,
@@ -145,6 +146,7 @@ export function dataset<
     relationships,
     limits: config.limits,
     cache: config.cache,
+    segments: normalizeSegments(name, { tenantKey: config.tenantKey, dimensions }, config.segments),
     metric,
   };
 

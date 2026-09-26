@@ -71,8 +71,16 @@ export interface AgentCatalogDataset extends SemanticMetadata {
   measures: AgentCatalogMeasure[];
   metrics: AgentCatalogMetric[];
   filters: AgentCatalogFilter[];
+  /** Named segments an agent can select; their conditions are never shown. */
+  segments?: AgentCatalogSegment[];
   relationships: AgentCatalogRelationship[];
   limits: DatasetLimits;
+}
+
+export interface AgentCatalogSegment {
+  name: string;
+  label?: string;
+  description?: string;
 }
 
 export interface AgentSafeCatalog {

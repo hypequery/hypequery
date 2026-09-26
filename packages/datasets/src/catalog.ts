@@ -52,6 +52,12 @@ export interface DerivedMeasureCatalogEntry extends SemanticMetadata {
   approximate?: true;
 }
 
+/** A named segment. Its filters stay in the definition and are never catalogued. */
+export interface SegmentCatalogEntry {
+  label?: string;
+  description?: string;
+}
+
 export interface FilterCatalogEntry extends SemanticMetadata {
   field: string;
   label?: string;
@@ -103,6 +109,8 @@ export interface DatasetCatalog extends SemanticMetadata {
   derivedMeasures?: Record<string, DerivedMeasureCatalogEntry>;
   metrics: Record<string, MetricCatalogEntry>;
   filters: Record<string, FilterCatalogEntry>;
+  /** Named segments; absent when the dataset declares none. */
+  segments?: Record<string, SegmentCatalogEntry>;
   relationships: Record<string, RelationshipCatalogEntry>;
   limits?: DatasetLimits;
   requiresTenant: boolean;
@@ -260,6 +268,14 @@ export function getDatasetCatalog(dataset: DatasetCatalogSource): DatasetCatalog
         metricToCatalog(metric),
       ]),
     ),
+    ...(Object.keys(dataset.segments ?? {}).length > 0 ? {
+      segments: Object.fromEntries(
+        Object.entries(dataset.segments).map(([name, segment]) => [name, {
+          ...(segment.label !== undefined ? { label: segment.label } : {}),
+          ...(segment.description !== undefined ? { description: segment.description } : {}),
+        }]),
+      ),
+    } : {}),
     filters: Object.fromEntries(
       Object.entries(dataset.filters).map(([name, filter]) => [
         name,
