@@ -41,6 +41,15 @@ import { snapshotSemanticMetadata } from './utils/semantic-metadata.js';
 import { withContractCapabilities } from './utils/protocol-metric-capabilities.js';
 import { rehydrateDerivedFormula } from './utils/protocol-rehydrate-derivation.js';
 import { rehydrateMeasureFilter } from './utils/protocol-rehydrate-filters.js';
+import {
+  UNSUPPORTED_CONTRACT_REASONS,
+  type UnsupportedContractReason,
+} from './utils/unsupported-contract-reasons.js';
+
+export {
+  UNSUPPORTED_CONTRACT_REASONS,
+  type UnsupportedContractReason,
+} from './utils/unsupported-contract-reasons.js';
 
 /** A rebuilt dataset in the registry shape Serve, MCP, and the planner accept. */
 export type RehydratedDataset = AnyDatasetInstance & {
@@ -74,12 +83,20 @@ export interface RehydrateProtocolDatasetsOptions {
 export class UnsupportedContractFeatureError extends Error {
   readonly dataset: string;
   readonly feature: string;
+  /** Which excluded surface this is; see `UNSUPPORTED_CONTRACT_REASONS`. */
+  readonly reason: UnsupportedContractReason | undefined;
 
-  constructor(datasetName: string, feature: string, detail: string) {
+  constructor(
+    datasetName: string,
+    feature: string,
+    detail: string,
+    reason?: UnsupportedContractReason,
+  ) {
     super(`Cannot rebuild ${feature} on dataset "${datasetName}": ${detail}`);
     this.name = 'UnsupportedContractFeatureError';
     this.dataset = datasetName;
     this.feature = feature;
+    this.reason = reason;
   }
 }
 
@@ -119,6 +136,7 @@ function rehydrateMeasure(
       datasetName,
       `measure "${String(measure.name)}"`,
       `fixed filter ${index} is not a field/operator/value comparison`,
+      UNSUPPORTED_CONTRACT_REASONS.measureFilterNotComparison,
     ),
   ));
   return {
@@ -147,7 +165,12 @@ function rehydrateDerivedMeasure(
     uses: Object.fromEntries(measure.uses.map(input => [String(input.alias), String(input.measure)])),
     formula: rehydrateDerivedFormula(
       { inputs: [], expression: measure.expression },
-      reason => new UnsupportedContractFeatureError(datasetName, `measure "${measure.name}"`, reason),
+      reason => new UnsupportedContractFeatureError(
+        datasetName,
+        `measure "${measure.name}"`,
+        reason,
+        UNSUPPORTED_CONTRACT_REASONS.unsupportedFormula,
+      ),
     ),
     ...(measure.label !== undefined ? { label: measure.label } : {}),
     ...(measure.description !== undefined ? { description: measure.description } : {}),
@@ -233,6 +256,7 @@ function measureForAggregate(
       instance.name,
       subject,
       `expected an aggregate expression, received "${expression.kind}"`,
+      UNSUPPORTED_CONTRACT_REASONS.expressionNotAggregate,
     );
   }
   const field = String(expression.field);
@@ -244,6 +268,7 @@ function measureForAggregate(
       instance.name,
       subject,
       `no declared measure matches ${expression.aggregation}(${field})`,
+      UNSUPPORTED_CONTRACT_REASONS.noMatchingMeasure,
     );
   }
   // A metric expression carries no raw SQL, so two measures that share an
@@ -257,6 +282,7 @@ function measureForAggregate(
       `${candidates.map(measure => `"${String(measure.name)}"`).join(' and ')} share `
       + `${expression.aggregation}(${field}) but emit different SQL, so the contract cannot `
       + 'say which one this metric was built from',
+      UNSUPPORTED_CONTRACT_REASONS.ambiguousMeasureSql,
     );
   }
   return String(candidates[0].name);
@@ -278,6 +304,7 @@ function derivedMetricConfig(
     instance.name,
     subject,
     reason,
+    UNSUPPORTED_CONTRACT_REASONS.unsupportedFormula,
   );
   const uses = Object.fromEntries(derivation.inputs.map(input => {
     const alias = String(input.alias);
@@ -307,6 +334,7 @@ function rehydrateMetric(
       instance.name,
       subject,
       'a derived metric requires its authored formula, which this contract does not carry',
+      UNSUPPORTED_CONTRACT_REASONS.derivedMetricWithoutFormula,
     );
   }
 
@@ -368,6 +396,7 @@ export function rehydrateProtocolDatasets(
         target,
         'relationship target',
         `dataset "${target}" is not part of the supplied contract`,
+        UNSUPPORTED_CONTRACT_REASONS.relationshipTargetMissing,
       );
     }
     return instance;

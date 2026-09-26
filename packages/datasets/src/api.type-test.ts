@@ -407,3 +407,28 @@ void typedAccepted;
 void typedClient;
 void typedRuntime;
 void rejectedFactory;
+
+// ---------------------------------------------------------------------------
+// Portable execution exclusions carry a named reason (HQ-45)
+// ---------------------------------------------------------------------------
+
+import {
+  PortableExecutionUnsupportedError as PortableUnsupported,
+  UNSUPPORTED_CONTRACT_REASONS as REASONS,
+  UnsupportedContractFeatureError as ContractFeatureError,
+  type UnsupportedContractReason as ContractReason,
+} from './index.js';
+
+const namedReason: ContractReason = REASONS.ambiguousMeasureSql;
+const literalReason: ContractReason = 'HQ_PORTABLE_DATASET_NOT_ACTIVATED';
+// @ts-expect-error an unnamed reason is not an exclusion
+const unnamedReason: ContractReason = 'HQ_PORTABLE_SOMETHING_ELSE';
+const featureReason: ContractReason | undefined = new ContractFeatureError('orders', 'metric', 'detail', namedReason).reason;
+// The three-argument constructor stays valid for existing callers.
+const legacyFeatureError = new ContractFeatureError('orders', 'metric', 'detail');
+const executionReason: ContractReason | undefined = new PortableUnsupported('message', { reason: literalReason }).reason;
+
+void unnamedReason;
+void featureReason;
+void legacyFeatureError;
+void executionReason;
