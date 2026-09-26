@@ -85,7 +85,12 @@ def test_driver_uses_server_parameter_binding(value: object, kind: str) -> None:
 def test_async_query_uses_same_boundary() -> None:
     query = compiled()
     client = AsyncClient(Result(("value",), [("ok",)]))
-    result = asyncio.run(AsyncClickHouseExecutor(client).execute(query))
+
+    class Control:
+        async def command(self, _cmd: str, _parameters: dict[str, str]) -> object:
+            return "finished"
+
+    result = asyncio.run(AsyncClickHouseExecutor(client, Control()).execute(query))
     assert result.named_rows() == ({"value": "ok"},)
     assert client.calls
 
@@ -157,9 +162,20 @@ def test_executors_close_owned_driver_clients() -> None:
         async def close(self) -> None:
             self.closed = True
 
+    class ClosableControl:
+        closed = False
+
+        async def command(self, _cmd: str, _parameters: dict[str, str]) -> object:
+            return "finished"
+
+        async def close(self) -> None:
+            self.closed = True
+
     sync_client = ClosableSyncClient(Result((), []))
     async_client = ClosableAsyncClient(Result((), []))
+    control_client = ClosableControl()
     ClickHouseExecutor(sync_client).close()
-    asyncio.run(AsyncClickHouseExecutor(async_client).aclose())
+    asyncio.run(AsyncClickHouseExecutor(async_client, control_client).aclose())
     assert sync_client.closed
     assert async_client.closed
+    assert control_client.closed
