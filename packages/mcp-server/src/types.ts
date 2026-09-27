@@ -10,6 +10,7 @@ import type {
   AgentCatalogMetric,
   AgentCatalogRelationship,
   AnyDatasetInstance,
+  DatasetSegmentNames,
   MetricFilter,
   TimeGrain,
   MetricOrderBy,
@@ -22,14 +23,15 @@ import type { ZodTypeAny } from 'zod';
 export type DatasetRegistry = Record<string, AnyDatasetInstance | Record<string, unknown>>;
 
 /**
- * Arguments for query_metric tool
+ * Arguments for query_metric tool. Supply a dataset type to restrict the
+ * dataset and segment names; the default supports dynamic registries.
  */
-export interface QueryMetricArgs {
-  dataset: string;
+export interface QueryMetricArgs<TDataset extends AnyDatasetInstance = AnyDatasetInstance> {
+  dataset: TDataset['name'];
   metric: string;
   dimensions?: string[];
   filters?: MetricFilter[];
-  segments?: string[];
+  segments?: DatasetSegmentNames<TDataset>[];
   grain?: TimeGrain;
   orderBy?: MetricOrderBy[];
   limit?: number;
@@ -37,14 +39,15 @@ export interface QueryMetricArgs {
 }
 
 /**
- * Arguments for query_dataset tool
+ * Arguments for query_dataset tool. Supply a dataset type to restrict the
+ * dataset and segment names; the default supports dynamic registries.
  */
-export interface QueryDatasetArgs {
-  dataset: string;
+export interface QueryDatasetArgs<TDataset extends AnyDatasetInstance = AnyDatasetInstance> {
+  dataset: TDataset['name'];
   dimensions?: string[];
   measures?: string[];
   filters?: MetricFilter[];
-  segments?: string[];
+  segments?: DatasetSegmentNames<TDataset>[];
   grain?: TimeGrain;
   orderBy?: MetricOrderBy[];
   limit?: number;

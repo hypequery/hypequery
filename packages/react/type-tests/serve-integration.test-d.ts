@@ -23,6 +23,9 @@ const Orders = dataset('orders', {
     revenue: measure.sum('amount'),
     orderCount: measure.count('id'),
   },
+  segments: {
+    paid: { filters: [{ field: 'status', operator: 'eq', value: 'paid' }] },
+  },
 });
 
 const totalRevenue = Orders.metric('totalRevenue', { measure: 'revenue' });
@@ -39,6 +42,13 @@ type Api = InferApiType<typeof api>;
 const hooks = createAnalyticsHooks<Api>({
   baseUrl: '/api/analytics',
 });
+
+hooks.useDataset('orders', { measures: ['revenue'], segments: ['paid'] });
+hooks.useMetric('totalRevenue', { segments: ['paid'] });
+// @ts-expect-error dataset queries only accept declared segment names
+hooks.useDataset('orders', { measures: ['revenue'], segments: ['paidd'] });
+// @ts-expect-error metric queries only accept declared segment names
+hooks.useMetric('totalRevenue', { segments: ['paidd'] });
 
 // --- Dataset rows follow the literal projection -------------------------------
 const datasetResult = hooks.useDataset('orders', {

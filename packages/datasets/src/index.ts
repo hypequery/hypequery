@@ -296,6 +296,7 @@ export type {
   DatasetDimensionNames,
   DatasetQueryableDimensions,
   DatasetMeasureNames,
+  DatasetSegmentNames,
   DatasetOrderableNames,
   DatasetQueryFor,
   DatasetRow,

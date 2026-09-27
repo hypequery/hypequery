@@ -1,4 +1,5 @@
 import { expectTypeOf, it } from 'vitest';
+import { dataset, dimension, measure } from '@hypequery/datasets';
 import {
   HypequeryMCPExecutor,
   HypequeryMCPProtocolServer,
@@ -34,4 +35,17 @@ it('exports the transport-neutral and backwards-compatible MCP APIs', () => {
 it('accepts segments in the exported query argument types', () => {
   expectTypeOf<QueryDatasetArgs['segments']>().toEqualTypeOf<string[] | undefined>();
   expectTypeOf<QueryMetricArgs['segments']>().toEqualTypeOf<string[] | undefined>();
+
+  const _orders = dataset('orders', {
+    source: 'orders',
+    dimensions: { status: dimension.string() },
+    measures: { revenue: measure.sum('amount') },
+    segments: { paid: { filters: [{ field: 'status', operator: 'eq', value: 'paid' }] } },
+  });
+  expectTypeOf<QueryDatasetArgs<typeof _orders>['segments']>()
+    .toEqualTypeOf<'paid'[] | undefined>();
+  expectTypeOf<QueryMetricArgs<typeof _orders>['segments']>()
+    .toEqualTypeOf<'paid'[] | undefined>();
+  expectTypeOf<QueryDatasetArgs<typeof _orders>['dataset']>().toEqualTypeOf<'orders'>();
+  expectTypeOf<QueryMetricArgs<typeof _orders>['dataset']>().toEqualTypeOf<'orders'>();
 });

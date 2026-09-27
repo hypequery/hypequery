@@ -42,6 +42,7 @@ import type {
   DerivedMetricRef,
   BaseMetricConfig,
   DerivedMetricConfig,
+  SegmentDefinition,
 } from './types.js';
 import {
   createDerivedMetricSpec,
@@ -69,10 +70,11 @@ export function dataset<
   TDimensions extends Record<string, DimensionDefinition>,
   TDefinitions extends Record<string, DatasetMeasureDefinition> = {},
   TRelationships extends Record<string, RelationshipDefinition> = Record<string, never>,
+  const TSegments extends Record<string, SegmentDefinition> = {},
 >(
   name: TDatasetName,
-  config: DatasetConfig<TDimensions, TDefinitions, TRelationships>,
-): DatasetInstance<TDimensions, BaseMeasures<TDefinitions>, TRelationships, TDatasetName, DerivedMeasures<TDefinitions>> {
+  config: DatasetConfig<TDimensions, TDefinitions, TRelationships, TSegments>,
+): DatasetInstance<TDimensions, BaseMeasures<TDefinitions>, TRelationships, TDatasetName, DerivedMeasures<TDefinitions>, TSegments> {
   // Structural validation runs before anything is normalized, so an invalid
   // model fails at definition time rather than on the first query that reaches
   // the broken part of it.
@@ -84,7 +86,7 @@ export function dataset<
   const relationships = normalizeRelationships(config.relationships, config.source);
 
   type TMeasures = BaseMeasures<TDefinitions>;
-  type ThisDataset = DatasetInstance<TDimensions, TMeasures, TRelationships, TDatasetName, DerivedMeasures<TDefinitions>>;
+  type ThisDataset = DatasetInstance<TDimensions, TMeasures, TRelationships, TDatasetName, DerivedMeasures<TDefinitions>, TSegments>;
   function metric<TName extends string>(
     metricName: TName,
     metricConfig: BaseMetricConfig<TMeasures>,
@@ -146,7 +148,7 @@ export function dataset<
     relationships,
     limits: config.limits,
     cache: config.cache,
-    segments: normalizeSegments(name, { tenantKey: config.tenantKey, dimensions }, config.segments),
+    segments: normalizeSegments(name, { tenantKey: config.tenantKey, dimensions }, config.segments) as TSegments,
     metric,
   };
 

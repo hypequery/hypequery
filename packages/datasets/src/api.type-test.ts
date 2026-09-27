@@ -19,12 +19,15 @@ import type {
   DatasetQuery,
   DatasetQueryResult,
   DatasetMeasureNames,
+  DatasetQueryFor,
   DatasetRowFor,
+  DatasetSegmentNames,
   DerivedMetricConfig,
   DerivedMetricRef,
   ExecutionContext,
   MeasureOptions,
   MetricFilter,
+  MetricQueryFor,
   QueryBuilderFactoryLike,
   SemanticCacheOptions,
   SemanticCacheRuntime,
@@ -69,6 +72,27 @@ type _DerivedFormulaInputAliasesAreTyped = Assert<
 type _BaseMeasureNamesRemainTyped = Assert<
   Equal<keyof typeof Orders.measures, 'revenue' | 'completedRevenue'>
 >;
+
+const _SegmentedOrders = dataset('segmentedOrders', {
+  source: 'orders',
+  dimensions: { status: dimension.string() },
+  measures: { revenue: measure.sum('amount') },
+  segments: { paid: { filters: [eq('status', 'paid')] } },
+});
+type _SegmentNamesRemainTyped = Assert<Equal<DatasetSegmentNames<typeof _SegmentedOrders>, 'paid'>>;
+const validDatasetSegments: DatasetQueryFor<typeof _SegmentedOrders> = { segments: ['paid'] };
+const validMetricSegments: MetricQueryFor<typeof _SegmentedOrders, 'revenue'> = { segments: ['paid'] };
+void validDatasetSegments;
+void validMetricSegments;
+// @ts-expect-error only declared segment names are accepted.
+const invalidDatasetSegments: DatasetQueryFor<typeof _SegmentedOrders> = { segments: ['paidd'] };
+// @ts-expect-error only declared segment names are accepted on metric queries.
+const invalidMetricSegments: MetricQueryFor<typeof _SegmentedOrders, 'revenue'> = { segments: ['paidd'] };
+// @ts-expect-error a dataset without segments has no selectable segment names.
+const invalidPlainSegments: DatasetQueryFor<typeof Orders> = { segments: ['paid'] };
+void invalidDatasetSegments;
+void invalidMetricSegments;
+void invalidPlainSegments;
 // @ts-expect-error standalone metrics may only target base measures.
 Orders.metric('invalidDerivedMetric', { measure: 'doubledRevenue' });
 
