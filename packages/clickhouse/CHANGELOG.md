@@ -1,5 +1,28 @@
 # @hypequery/clickhouse Changelog
 
+## 2.12.0
+
+### Minor Changes
+
+- 091b8a6: Add `approxCountDistinct` (RFC 0015, HQ-77):
+  - `measure.approxCountDistinct(field)` and the `approxCountDistinct` aggregation helper estimate distinct counts with ClickHouse `uniq`, including with measure filters.
+  - The ClickHouse query builder gains `.approxCountDistinct(column, alias?)`.
+  - Catalogs, the semantic contract, and the agent-safe catalog mark approximate measures, and derived measures that use them, with `approximate: true`.
+  - The in-memory backend computes the count exactly.
+  - Publishing to Cloud refuses approximate measures with an actionable error until deployment contract 3 is emitted.
+
+### Patch Changes
+
+- c48b1b0: Add `minute` and `hour` time grains (RFC 0015, HQ-77). They bucket with `toStartOfMinute`/`toStartOfHour` and appear in catalogs, semantic query schemas, and the local MCP tools.
+
+  A new `timeGrains` dataset option restricts the grains a dataset supports, for example to refuse sub-day buckets on a `Date` time key. Queries, `.by()`, and the catalog honor it.
+
+  Publishing to Cloud still emits deployment contract 2:
+
+  - it refuses a sub-day `defaults.timeGrain` or pinned metric grain with an actionable error;
+  - it refuses dataset-level `timeGrains` restrictions it cannot preserve;
+  - published metric grain lists and rehydrated datasets stay at `day` through `year`.
+
 ## 2.11.2
 
 ### Patch Changes
