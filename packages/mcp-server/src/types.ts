@@ -29,6 +29,7 @@ export interface QueryMetricArgs {
   metric: string;
   dimensions?: string[];
   filters?: MetricFilter[];
+  segments?: string[];
   grain?: TimeGrain;
   orderBy?: MetricOrderBy[];
   limit?: number;
@@ -43,6 +44,7 @@ export interface QueryDatasetArgs {
   dimensions?: string[];
   measures?: string[];
   filters?: MetricFilter[];
+  segments?: string[];
   grain?: TimeGrain;
   orderBy?: MetricOrderBy[];
   limit?: number;

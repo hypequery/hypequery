@@ -14,6 +14,8 @@ import {
   type MCPServerConfig,
   type MCPToolExecutor,
   type MCPToolErrorCode,
+  type QueryDatasetArgs,
+  type QueryMetricArgs,
 } from './index.js';
 
 it('exports the transport-neutral and backwards-compatible MCP APIs', () => {
@@ -27,4 +29,9 @@ it('exports the transport-neutral and backwards-compatible MCP APIs', () => {
   expectTypeOf(createMCPServer).returns.toMatchTypeOf<Promise<HypequeryMCPServer>>();
   expectTypeOf(new MCPToolError('MCP_UNAUTHORIZED', 'Forbidden').code)
     .toMatchTypeOf<MCPToolErrorCode>();
+});
+
+it('accepts segments in the exported query argument types', () => {
+  expectTypeOf<QueryDatasetArgs['segments']>().toEqualTypeOf<string[] | undefined>();
+  expectTypeOf<QueryMetricArgs['segments']>().toEqualTypeOf<string[] | undefined>();
 });
