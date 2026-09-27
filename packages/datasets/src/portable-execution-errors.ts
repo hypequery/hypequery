@@ -1,3 +1,5 @@
+import type { UnsupportedContractReason } from './utils/unsupported-contract-reasons.js';
+
 /**
  * An error that deliberately claims a portable failure category.
  *
@@ -26,10 +28,16 @@ abstract class PortableExecutionError extends Error {
 export class PortableExecutionUnsupportedError extends PortableExecutionError {
   readonly code = 'HQ_SEMANTIC_UNSUPPORTED_CAPABILITY';
   readonly category = 'unsupported-capability';
+  /** Which excluded surface this is; see `UNSUPPORTED_CONTRACT_REASONS`. */
+  readonly reason: UnsupportedContractReason | undefined;
 
-  constructor(message: string, options: { cause?: unknown } = {}) {
-    super(message, options);
+  constructor(
+    message: string,
+    options: { cause?: unknown; reason?: UnsupportedContractReason } = {},
+  ) {
+    super(message, options.cause === undefined ? {} : { cause: options.cause });
     this.name = 'PortableExecutionUnsupportedError';
+    this.reason = options.reason;
   }
 }
 

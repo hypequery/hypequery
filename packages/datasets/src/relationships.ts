@@ -28,7 +28,8 @@
  *     customerId: dimension.string({ column: "customer_id" }),
  *   },
  *   relationships: {
- *     customer: belongsTo(() => Customers, { from: "customerId", to: "id" }),
+ *     // Join keys are source columns, not dimension names.
+ *     customer: belongsTo(() => Customers, { from: "customer_id", to: "id" }),
  *   },
  * });
  *
