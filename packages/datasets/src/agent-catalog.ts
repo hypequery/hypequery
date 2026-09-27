@@ -32,6 +32,8 @@ export interface AgentCatalogMeasure extends SemanticMetadata {
   name: string;
   label?: string;
   description?: string;
+  /** Present, as `true`, when the value is an estimate; say so when reporting it. */
+  approximate?: true;
 }
 
 export interface AgentCatalogMetric extends SemanticMetadata {
@@ -69,8 +71,16 @@ export interface AgentCatalogDataset extends SemanticMetadata {
   measures: AgentCatalogMeasure[];
   metrics: AgentCatalogMetric[];
   filters: AgentCatalogFilter[];
+  /** Named segments an agent can select; their conditions are never shown. */
+  segments?: AgentCatalogSegment[];
   relationships: AgentCatalogRelationship[];
   limits: DatasetLimits;
+}
+
+export interface AgentCatalogSegment {
+  name: string;
+  label?: string;
+  description?: string;
 }
 
 export interface AgentSafeCatalog {

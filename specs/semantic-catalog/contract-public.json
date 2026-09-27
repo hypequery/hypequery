@@ -114,6 +114,8 @@
       "requiresTenant": true,
       "supportedGrains": [
         "day",
+        "hour",
+        "minute",
         "month",
         "quarter",
         "week",
@@ -230,5 +232,5 @@
       }
     }
   },
-  "contentHash": "d4b3c48dec0a209a18d8049d781dc622e2cb95f84eb1535a63ef59b1d79e4d91"
+  "contentHash": "0e2d882db072516f4965019031f8a7db56f0a25518fba5a1a15bb32f30fa453d"
 }

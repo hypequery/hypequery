@@ -83,7 +83,9 @@ export type AggregationType =
   | 'argMin'
   | 'percentile'
   | 'stddev'
-  | 'variance';
+  | 'variance'
+  /** Estimated distinct count (ClickHouse `uniq`); results carry `approximate`. */
+  | 'approxCountDistinct';
 export type MeasureAggregation = AggregationType;
 
 export interface AggregationSpec {
@@ -250,7 +252,7 @@ export type MetricHandle<
   TDataset extends DatasetInstance<any, any, any, TDatasetName> = DefaultMetricDataset<TDatasetName>,
 > = MetricRef<TDatasetName, TMetricName, TSpec, TDataset> | GrainedMetricRef<TDatasetName, TMetricName, TSpec, TDataset>;
 
-export type TimeGrain = 'day' | 'week' | 'month' | 'quarter' | 'year';
+export type TimeGrain = 'minute' | 'hour' | 'day' | 'week' | 'month' | 'quarter' | 'year';
 
 export interface MetricContract {
   kind: 'metric' | 'derived_metric' | 'grained_metric';
@@ -289,9 +291,19 @@ export interface MetricOrderBy<TField extends string = string> {
   direction: 'asc' | 'desc';
 }
 
+/** A named row filter declared on a dataset; see `DatasetConfig.segments`. */
+export interface SegmentDefinition {
+  /** Comparisons over the dataset's own dimensions, combined with AND. */
+  filters: MetricFilter[];
+  label?: string;
+  description?: string;
+}
+
 export interface MetricQuery {
   dimensions?: string[];
   filters?: MetricFilter[];
+  /** Segment names declared on the dataset, combined with `filters` by AND. */
+  segments?: string[];
   orderBy?: MetricOrderBy[];
   limit?: number;
   offset?: number;
@@ -302,6 +314,8 @@ export interface DatasetQuery {
   dimensions?: string[];
   measures?: string[];
   filters?: MetricFilter[];
+  /** Segment names declared on the dataset, combined with `filters` by AND. */
+  segments?: string[];
   orderBy?: MetricOrderBy[];
   limit?: number;
   offset?: number;
@@ -443,12 +457,24 @@ export interface DatasetConfig<
   defaults?: DatasetDefaults;
   tenantKey?: string;
   timeKey?: string;
+  /**
+   * Restricts the time grains this dataset supports. Defaults to every grain
+   * the planner can bucket on. Use it, for example, to refuse `minute` and
+   * `hour` when `timeKey` is a `Date` column without a time of day.
+   */
+  timeGrains?: readonly TimeGrain[];
   dimensions: TDimensions;
   measures?: TMeasures & CheckedDatasetMeasures<TMeasures>;
   filters?: SemanticFiltersDefinition;
   relationships?: TRelationships;
   limits?: DatasetLimits;
   cache?: DatasetCachePolicy;
+  /**
+   * Named, author-defined row filters that a query selects by name (RFC 0015).
+   * Each is an AND of comparisons over this dataset's own dimensions, and it
+   * may use dimensions that are not exposed as filters.
+   */
+  segments?: Record<string, SegmentDefinition>;
 }
 
 export interface DatasetInstance<
@@ -474,6 +500,7 @@ export interface DatasetInstance<
   defaults?: DatasetDefaults;
   tenantKey?: string;
   timeKey?: string;
+  timeGrains?: readonly TimeGrain[];
   dimensions: TDimensions;
   measures: TMeasures;
   derivedMeasures: TDerivedMeasures;
@@ -481,6 +508,7 @@ export interface DatasetInstance<
   relationships: TRelationships;
   limits?: DatasetLimits;
   cache?: DatasetCachePolicy;
+  segments: Record<string, SegmentDefinition>;
   metric<TName extends string>(
     metricName: TName,
     metricConfig: BaseMetricConfig<TMeasures>,

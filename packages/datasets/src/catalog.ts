@@ -11,7 +11,9 @@ import type {
   SemanticMetadata,
   TimeGrain,
 } from './types.js';
-import { SEMANTIC_FILTER_OPERATORS, SUPPORTED_TIME_GRAINS } from './constants.js';
+import { SEMANTIC_FILTER_OPERATORS } from './constants.js';
+import { datasetTimeGrains } from './utils/dataset-time-grains.js';
+import { isApproximateAggregation, isApproximateDerivedMeasure } from './utils/approximate-measures.js';
 import {
   listGroupableRelationshipFields,
   listQueryableRelationshipFields,
@@ -39,9 +41,19 @@ export interface MeasureCatalogEntry extends SemanticMetadata {
   label?: string;
   description?: string;
   filterCount: number;
+  /** Present, as `true`, when the measure returns an estimate. */
+  approximate?: true;
 }
 
 export interface DerivedMeasureCatalogEntry extends SemanticMetadata {
+  label?: string;
+  description?: string;
+  /** Present, as `true`, when any measure the formula uses is approximate. */
+  approximate?: true;
+}
+
+/** A named segment. Its filters stay in the definition and are never catalogued. */
+export interface SegmentCatalogEntry {
   label?: string;
   description?: string;
 }
@@ -97,6 +109,8 @@ export interface DatasetCatalog extends SemanticMetadata {
   derivedMeasures?: Record<string, DerivedMeasureCatalogEntry>;
   metrics: Record<string, MetricCatalogEntry>;
   filters: Record<string, FilterCatalogEntry>;
+  /** Named segments; absent when the dataset declares none. */
+  segments?: Record<string, SegmentCatalogEntry>;
   relationships: Record<string, RelationshipCatalogEntry>;
   limits?: DatasetLimits;
   requiresTenant: boolean;
@@ -134,6 +148,7 @@ function measureToCatalog(measure: MeasureDefinition): MeasureCatalogEntry {
     description: measure.description,
     ...snapshotSemanticMetadata(measure),
     filterCount: measure.filters?.length ?? 0,
+    ...(isApproximateAggregation(measure.aggregation) ? { approximate: true as const } : {}),
   };
 }
 
@@ -203,7 +218,7 @@ export function getDatasetCatalog(dataset: DatasetCatalogSource): DatasetCatalog
   const measureNames = Object.keys(dataset.measures);
   const derivedMeasureNames = Object.keys(dataset.derivedMeasures ?? {});
   const metricNames = Object.keys(dataset.metrics ?? {});
-  const supportedGrains = dataset.timeKey ? [...SUPPORTED_TIME_GRAINS] : [];
+  const supportedGrains = [...datasetTimeGrains(dataset)];
   const maxLimit = dataset.limits?.maxResultSize;
   const relationships = Object.fromEntries(
     Object.entries(dataset.relationships).map(([name, relationship]) => [
@@ -242,6 +257,7 @@ export function getDatasetCatalog(dataset: DatasetCatalogSource): DatasetCatalog
             ...snapshotSemanticMetadata(definition),
             label: definition.label,
             description: definition.description,
+            ...(isApproximateDerivedMeasure(dataset.measures, definition) ? { approximate: true as const } : {}),
           },
         ]),
       ),
@@ -252,6 +268,14 @@ export function getDatasetCatalog(dataset: DatasetCatalogSource): DatasetCatalog
         metricToCatalog(metric),
       ]),
     ),
+    ...(Object.keys(dataset.segments ?? {}).length > 0 ? {
+      segments: Object.fromEntries(
+        Object.entries(dataset.segments).map(([name, segment]) => [name, {
+          ...(segment.label !== undefined ? { label: segment.label } : {}),
+          ...(segment.description !== undefined ? { description: segment.description } : {}),
+        }]),
+      ),
+    } : {}),
     filters: Object.fromEntries(
       Object.entries(dataset.filters).map(([name, filter]) => [
         name,

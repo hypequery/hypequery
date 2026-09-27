@@ -129,6 +129,20 @@ function periodForValue(value: unknown, grain: SemanticGrainPlan): string {
     return String(value);
   }
 
+  // Sub-day buckets keep their time of day, in the form a ClickHouse DateTime
+  // takes in JSON (RFC 0015).
+  if (grain.unit === 'minute' || grain.unit === 'hour') {
+    // ClickHouse DateTime strings have no offset. Keep their wall-clock hour
+    // instead of interpreting them in the Node process's local time zone.
+    const naive = typeof value === 'string'
+      ? /^(\d{4}-\d{2}-\d{2})[ T](\d{2}):(\d{2})(?::\d{2}(?:\.\d+)?)?$/.exec(value)
+      : null;
+    if (naive) {
+      return `${naive[1]} ${naive[2]}:${grain.unit === 'hour' ? '00' : naive[3]}:00`;
+    }
+    const iso = date.toISOString();
+    return `${iso.slice(0, 10)} ${grain.unit === 'hour' ? `${iso.slice(11, 13)}:00` : iso.slice(11, 16)}:00`;
+  }
   if (grain.unit === 'year') {
     return `${date.getUTCFullYear()}-01-01`;
   }
@@ -233,8 +247,10 @@ function aggregateRows(rows: InMemoryTable, aggregation: SemanticAggregationPlan
       return values.reduce<number>((total, value) => total + Number(value ?? 0), 0);
     case 'count':
       return filteredRows.length;
+    // Exact computation is a faithful approxCountDistinct (RFC 0015).
     case 'countDistinct':
-      return new Set(values).size;
+    case 'approxCountDistinct':
+      return new Set(values.filter(value => value != null)).size;
     case 'avg':
       return values.length === 0
         ? 0

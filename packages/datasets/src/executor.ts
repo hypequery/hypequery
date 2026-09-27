@@ -37,12 +37,13 @@ import type {
 } from './semantic-plan.js';
 
 import { quoteSQLIdentifier, validateSQLIdentifier } from './sql-utils.js';
-import { SUPPORTED_TIME_GRAINS, isSupportedTimeGrain } from './constants.js';
+import { unsupportedTimeGrainError } from './utils/dataset-time-grains.js';
 import { validateFilterValue, type ValidationResult } from './validation.js';
 import {
   applyAggregationSpec,
   appendOrderLimitOffset,
   buildDimensionSelectionPlan,
+  resolveDimensionExpression,
   resolveFilterField,
   resolveTenantFilterColumn,
 } from './query-planner.js';
@@ -99,6 +100,7 @@ import {
   buildRelationshipBuilderContext,
   qualifyBaseColumn,
 } from './utils/relationship-builder-plan.js';
+import { segmentFilters, segmentSelectionErrors } from './utils/segments.js';
 
 function validateQuery(
   metric: MetricHandle,
@@ -200,8 +202,11 @@ function validateQuery(
   }
 
   // Validate grain is one the planner can bucket on
-  if (query.by && !isSupportedTimeGrain(query.by)) {
-    errors.push(`Unsupported time grain "${query.by}". Supported: ${SUPPORTED_TIME_GRAINS.join(', ')}`);
+  errors.push(...segmentSelectionErrors(ds, query.segments));
+
+  const grainError = query.by && ds.timeKey ? unsupportedTimeGrainError(ds, query.by) : undefined;
+  if (grainError) {
+    errors.push(grainError);
   }
 
   if (query.limit != null && (!Number.isInteger(query.limit) || query.limit < 0)) {
@@ -550,6 +555,12 @@ export class MetricQueryEngine {
       qb = qb.where(resolvedField, filter.operator, filter.value);
     }
 
+    // Segments: author-defined, so they resolve dimensions directly rather
+    // than through the caller-facing filter allow-list.
+    for (const filter of segmentFilters(ds, query.segments)) {
+      qb = qb.where(resolveDimensionExpression(ds, filter.field, joinCtx), filter.operator, filter.value);
+    }
+
     // Order, limit, offset
     qb = appendOrderLimitOffset(qb, query.orderBy, grain, query.limit, query.offset, joinCtx);
 
@@ -612,6 +623,11 @@ export class MetricQueryEngine {
       }
       const resolvedField = resolveFilterField(ds, filter.field, joinCtx);
       cteBuilder = cteBuilder.where(resolvedField, filter.operator, filter.value);
+    }
+    for (const filter of segmentFilters(ds, query.segments)) {
+      cteBuilder = cteBuilder.where(
+        resolveDimensionExpression(ds, filter.field, joinCtx), filter.operator, filter.value,
+      );
     }
 
     const { sql: cteSql, parameters: cteParams } = cteBuilder.toSQLWithParams();

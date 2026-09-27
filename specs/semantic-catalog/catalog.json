@@ -244,6 +244,8 @@
     },
     "requiresTenant": true,
     "supportedGrains": [
+      "minute",
+      "hour",
       "day",
       "week",
       "month",

@@ -41,6 +41,7 @@ import { snapshotSemanticMetadata } from './utils/semantic-metadata.js';
 import { withContractCapabilities } from './utils/protocol-metric-capabilities.js';
 import { rehydrateDerivedFormula } from './utils/protocol-rehydrate-derivation.js';
 import { rehydrateMeasureFilter } from './utils/protocol-rehydrate-filters.js';
+import { PORTABLE_TIME_GRAINS } from './utils/portable-grains.js';
 import {
   UNSUPPORTED_CONTRACT_REASONS,
   type UnsupportedContractReason,
@@ -415,7 +416,11 @@ export function rehydrateProtocolDatasets(
         ...(contract.defaults.dimensions !== undefined ? { dimensions: [...contract.defaults.dimensions] } : {}),
       } } : {}),
       ...(contract.tenant.kind === 'required' ? { tenantKey: contract.tenant.field } : {}),
-      ...(contract.timeField !== undefined ? { timeKey: String(contract.timeField) } : {}),
+      // A published dataset supports only the grains its contract can carry,
+      // so its catalog never advertises a grain the portable path would refuse.
+      ...(contract.timeField !== undefined
+        ? { timeKey: String(contract.timeField), timeGrains: PORTABLE_TIME_GRAINS }
+        : {}),
       dimensions: rehydrateDimensions(contract),
       measures: Object.fromEntries([
         ...contract.measures.map(measure => [

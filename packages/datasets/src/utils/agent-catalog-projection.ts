@@ -49,10 +49,12 @@ export interface RecordShapedDataset extends SemanticMetadata {
   readonly measures: Readonly<Record<string, SemanticMetadata & {
     readonly label?: string;
     readonly description?: string;
+    readonly approximate?: true;
   }>>;
   readonly derivedMeasures?: Readonly<Record<string, SemanticMetadata & {
     readonly label?: string;
     readonly description?: string;
+    readonly approximate?: true;
   }>>;
   readonly metrics: Readonly<Record<string, SemanticMetadata & {
     readonly label?: string;
@@ -74,6 +76,7 @@ export interface RecordShapedDataset extends SemanticMetadata {
     readonly queryable: boolean;
     readonly fields: readonly string[];
   }>>;
+  readonly segments?: Readonly<Record<string, { readonly label?: string; readonly description?: string }>>;
   readonly limits?: DatasetLimits;
 }
 
@@ -165,6 +168,7 @@ export function recordDatasetToAgentDataset(dataset: RecordShapedDataset): Agent
         name,
         ...optionalText(measure),
         ...snapshotSemanticMetadata(measure),
+        ...(measure.approximate ? { approximate: true as const } : {}),
       })),
     ),
     metrics: sortedByName(
@@ -198,6 +202,11 @@ export function recordDatasetToAgentDataset(dataset: RecordShapedDataset): Agent
           fields: uniqueSorted(relationship.fields),
         })),
     ),
+    ...(dataset.segments !== undefined && Object.keys(dataset.segments).length > 0 ? {
+      segments: sortedByName(
+        Object.entries(dataset.segments).map(([name, segment]) => ({ name, ...optionalText(segment) })),
+      ),
+    } : {}),
     limits: normalizedLimits(dataset.limits),
   };
 }

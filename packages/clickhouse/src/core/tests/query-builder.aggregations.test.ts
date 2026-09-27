@@ -175,6 +175,14 @@ describe('QueryBuilder - Aggregations', () => {
       expect(sql).toBe('SELECT stddevSamp(price) AS price_sd, varSamp(price) AS price_var FROM test_table');
     });
 
+    it('should build an approximate distinct count with uniq and keep it out of GROUP BY', () => {
+      const sql = builder
+        .select(['category'])
+        .approxCountDistinct('id', 'distinct_ids')
+        .toSQL();
+      expect(sql).toBe('SELECT category, uniq(id) AS distinct_ids FROM test_table GROUP BY category');
+    });
+
     it('should infer GROUP BY from plain selections but never from analytical aggregates', () => {
       const sql = builder
         .select(['category'])

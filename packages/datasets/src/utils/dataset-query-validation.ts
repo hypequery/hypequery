@@ -4,7 +4,7 @@ import type {
   ExecutionContext,
 } from '../types.js';
 import { validateFilterValue, type ValidationResult } from '../validation.js';
-import { SUPPORTED_TIME_GRAINS, isSupportedTimeGrain } from '../constants.js';
+import { unsupportedTimeGrainError } from './dataset-time-grains.js';
 import {
   getRuntimeTenantPredicate,
   validateTenantRuntime,
@@ -17,6 +17,7 @@ import {
   validateQualifiedFilter,
   validateRelationshipTenantRuntime,
 } from './relationship-validation.js';
+import { segmentSelectionErrors } from './segments.js';
 
 export function validateDatasetQueryInput(
   ds: AnyDatasetInstance,
@@ -151,8 +152,11 @@ export function validateDatasetQueryInput(
     errors.push(`Cannot use "by" grain — dataset "${ds.name}" has no timeKey.`);
   }
 
-  if (query.by && !isSupportedTimeGrain(query.by)) {
-    errors.push(`Unsupported time grain "${query.by}". Supported: ${SUPPORTED_TIME_GRAINS.join(', ')}`);
+  errors.push(...segmentSelectionErrors(ds, query.segments));
+
+  const grainError = query.by && ds.timeKey ? unsupportedTimeGrainError(ds, query.by) : undefined;
+  if (grainError) {
+    errors.push(grainError);
   }
 
   if (query.limit != null && (!Number.isInteger(query.limit) || query.limit < 0)) {

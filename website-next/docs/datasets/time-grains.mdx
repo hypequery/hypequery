@@ -1,6 +1,6 @@
 ---
 title: Time grains
-description: Aggregate metrics by day, week, month, quarter, and year.
+description: Aggregate metrics by minute, hour, day, week, month, quarter, and year.
 ---
 
 import { CodeBlock } from 'fumadocs-ui/components/codeblock';
@@ -20,11 +20,39 @@ await analytics.execute(monthlyRevenue, {
 
 Supported grains:
 
+- `minute`
+- `hour`
 - `day`
 - `week`
 - `month`
 - `quarter`
 - `year`
+
+`minute` and `hour` buckets keep their time of day, so a period reads like `2024-01-01 10:00:00`.
+
+## Restricting grains
+
+By default a dataset with a `timeKey` supports every grain. Pass `timeGrains` to narrow the list. Queries, pinned metrics (`.by()`), and the catalog's `supportedGrains` then use only those grains. This is how you refuse sub-day buckets when `timeKey` is a `Date` column with no time of day:
+
+<CodeBlock>
+```typescript
+const DailySales = dataset('daily_sales', {
+  source: 'daily_sales',
+  timeKey: 'day',
+  timeGrains: ['day', 'week', 'month', 'quarter', 'year'],
+  dimensions: { day: dimension.timestamp() },
+  measures: { revenue: measure.sum('amount') },
+});
+```
+</CodeBlock>
+
+## Publishing to Cloud
+
+Sub-day grains work in local queries, Serve endpoints, and the local MCP server. Hypequery Cloud does not support them yet, because they need deployment contract 3 (RFC 0015), which publishing does not emit yet:
+
+- publishing refuses a dataset whose `defaults.timeGrain`, or a metric pinned with `.by()`, uses `minute` or `hour`;
+- publishing also refuses `timeGrains` restrictions that exclude any day-through-year grain, because contract 2 cannot preserve those dataset-level restrictions;
+- published datasets advertise and accept only `day` through `year`.
 
 ## Time key and timestamp dimensions
 

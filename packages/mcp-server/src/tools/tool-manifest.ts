@@ -1,4 +1,4 @@
-import type { CanonicalSemanticQuerySchemas } from '@hypequery/datasets';
+import { SUPPORTED_TIME_GRAINS, type CanonicalSemanticQuerySchemas } from '@hypequery/datasets';
 import type { ListToolsResult, Tool } from '@modelcontextprotocol/sdk/types.js';
 
 type ObjectSchema = Tool['outputSchema'] & Record<string, unknown>;
@@ -108,7 +108,7 @@ export const DATASET_SCHEMA_OUTPUT_SCHEMA = resultSchema({
       additionalProperties: false,
       properties: {
         dimensions: { type: 'array', items: { type: 'string' } },
-        timeGrain: { type: 'string', enum: ['day', 'week', 'month', 'quarter', 'year'] },
+        timeGrain: { type: 'string', enum: [...SUPPORTED_TIME_GRAINS] },
       },
     },
     timeDimension: { type: ['string', 'null'] },
