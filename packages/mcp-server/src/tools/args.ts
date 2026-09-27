@@ -1,5 +1,10 @@
 import { z } from 'zod';
-import { SEMANTIC_FILTER_OPERATORS, type MetricFilter } from '@hypequery/datasets';
+import {
+  SEMANTIC_FILTER_OPERATORS,
+  SUPPORTED_TIME_GRAINS,
+  type MetricFilter,
+  type TimeGrain,
+} from '@hypequery/datasets';
 import { MCPToolError } from '../errors.js';
 import {
   MAX_QUERY_DIMENSIONS,
@@ -24,7 +29,8 @@ const orderBySchema = z.object({
 const baseQuerySchema = z.object({
   dimensions: z.array(z.string().min(1)).max(MAX_QUERY_DIMENSIONS).optional(),
   filters: z.array(filterSchema).max(MAX_QUERY_FILTERS).optional(),
-  grain: z.enum(['day', 'week', 'month', 'quarter', 'year']).optional(),
+  // Each dataset narrows this further through its catalog `supportedGrains`.
+  grain: z.enum(SUPPORTED_TIME_GRAINS as [TimeGrain, ...TimeGrain[]]).optional(),
   orderBy: z.array(orderBySchema).max(MAX_QUERY_ORDER_BY).optional(),
   limit: z.number().int().positive().max(MAX_QUERY_LIMIT).optional(),
   offset: z.number().int().nonnegative().max(MAX_QUERY_OFFSET).optional(),

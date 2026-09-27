@@ -38,6 +38,11 @@ export function countDistinct(field: string): AggregationSpec {
   return createAggregation('countDistinct', field);
 }
 
+/** Estimated distinct count (ClickHouse `uniq`). */
+export function approxCountDistinct(field: string): AggregationSpec {
+  return createAggregation('approxCountDistinct', field);
+}
+
 export function avg(field: string): AggregationSpec {
   return createAggregation('avg', field);
 }

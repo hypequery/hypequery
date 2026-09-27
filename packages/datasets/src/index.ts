@@ -17,7 +17,10 @@ export type {
 } from './relationship-check.js';
 
 // Aggregation helpers
-export { sum, count, countDistinct, avg, min, max, percentile, median, argMax, argMin, stddev, variance } from './aggregations.js';
+export {
+  sum, count, countDistinct, approxCountDistinct, avg, min, max,
+  percentile, median, argMax, argMin, stddev, variance,
+} from './aggregations.js';
 
 // Formula helpers
 export {
@@ -59,6 +62,7 @@ export type {
   DatasetCatalogSource,
   DimensionCatalogEntry,
   MeasureCatalogEntry,
+  SegmentCatalogEntry,
   MetricCatalogEntry,
   FilterCatalogEntry,
   RelationshipCatalogEntry,
@@ -78,6 +82,7 @@ export type {
   AgentCatalogDimension,
   AgentCatalogFilter,
   AgentCatalogMeasure,
+  AgentCatalogSegment,
   AgentCatalogMetric,
   AgentCatalogRelationship,
   AgentCatalogSource,
@@ -273,6 +278,7 @@ export type {
   SemanticExecutionRuntime,
   SemanticTenantRuntime,
   SemanticFilterDefinition,
+  SegmentDefinition,
   SemanticFiltersDefinition,
   DatasetConfig,
   DatasetDefaults,

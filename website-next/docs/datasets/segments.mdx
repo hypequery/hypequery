@@ -1,0 +1,52 @@
+---
+title: Segments
+description: Name a population once on the dataset and select it by name in queries.
+---
+
+import { CodeBlock } from 'fumadocs-ui/components/codeblock';
+
+A segment is a named row filter you declare on a dataset, such as `enterprise` or `large`. A query selects it by name, and it combines with the query's other filters by AND.
+
+<CodeBlock>
+```typescript
+const Accounts = dataset('accounts', {
+  source: 'accounts',
+  tenantKey: 'tenant_id',
+  dimensions: {
+    tier: dimension.string({ column: 'account_tier', filterable: false }),
+    seats: dimension.number(),
+  },
+  measures: { revenue: measure.sum('amount') },
+  segments: {
+    enterprise: {
+      label: 'Enterprise',
+      description: 'Enterprise-tier accounts',
+      filters: [{ field: 'tier', operator: 'eq', value: 'enterprise' }],
+    },
+    large: { filters: [{ field: 'seats', operator: 'gte', value: 100 }] },
+  },
+});
+
+await analytics.execute(Accounts, {
+  measures: ['revenue'],
+  segments: ['enterprise', 'large'],
+});
+```
+</CodeBlock>
+
+## Rules
+
+- A segment is one or more comparisons over the dataset's **own** dimensions, combined with AND. It cannot use relationship paths (`customer.region`).
+- A segment can use a dimension that callers cannot filter on, like `tier` above. This is what segments are for. You can publish a business-defined population without giving callers an open filter on the column behind it.
+- A segment cannot constrain the tenant column. Tenant scope always comes from runtime context.
+- Definitions are checked when the dataset is defined, including the operator and the value type. A query that names an unknown segment, or names the same segment twice, is rejected.
+
+## Catalogs and agents
+
+The catalog, the semantic contract, and the agent-safe catalog list each segment's name, label, and description. They never include its conditions: the values in a segment can be thresholds or identifiers that you chose not to expose, and an agent only needs the name and description to pick one.
+
+The result cache key includes each selected segment's resolved definition, so changing a segment's filters never serves rows cached under the old definition.
+
+## Publishing to Cloud
+
+Hypequery Cloud does not support segments yet, because they need deployment contract 3 (RFC 0015). Publishing refuses a dataset that declares segments, with an error that names them.

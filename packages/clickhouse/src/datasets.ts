@@ -50,6 +50,8 @@ export type CreateBackendConfig = CreateQueryBuilderConfig;
 // =============================================================================
 
 const GRAIN_FUNCTIONS = {
+  minute: 'toStartOfMinute',
+  hour: 'toStartOfHour',
   day: 'toStartOfDay',
   week: 'toStartOfWeek',
   month: 'toStartOfMonth',
@@ -344,6 +346,9 @@ function applyAggregations(
         break;
       case 'variance':
         qb = qb.variance(field, name);
+        break;
+      case 'approxCountDistinct':
+        qb = qb.approxCountDistinct(field, name);
         break;
     }
   }

@@ -16,6 +16,7 @@ import type {
 } from '../types.js';
 import { buildMetricContract } from './dataset-contract.js';
 import { snapshotSemanticMetadata } from './semantic-metadata.js';
+import { unsupportedTimeGrainError } from './dataset-time-grains.js';
 
 type AnyDimensions = Record<string, DimensionDefinition>;
 type AnyMeasures = Record<string, MeasureDefinition>;
@@ -58,6 +59,10 @@ export function createMetricRef<
         throw new Error(
           `Cannot apply .by("${grain}") to metric "${name}" — dataset "${ds.name}" has no timeKey defined.`,
         );
+      }
+      const grainError = unsupportedTimeGrainError(ds, grain);
+      if (grainError) {
+        throw new Error(`Cannot apply .by("${grain}") to metric "${name}": ${grainError}.`);
       }
 
       return {

@@ -555,7 +555,7 @@ describe("metric.contract()", () => {
     expect(contract.valueType).toBe("number");
     expect(contract.tenantScoped).toBe(true);
     expect(contract.dimensions).toContain("country");
-    expect(contract.grains).toEqual(["day", "week", "month", "quarter", "year"]);
+    expect(contract.grains).toEqual(["minute", "hour", "day", "week", "month", "quarter", "year"]);
   });
 
   it("returns contract for a derived metric", () => {
@@ -1634,12 +1634,12 @@ describe("dataset SQL generation matrix", () => {
 
     const result = analytics.validate(MatrixOrders, {
       measures: ["revenue"],
-      by: "hour" as never,
+      by: "second" as never,
     }, TENANT_CONTEXT);
 
     expect(result.valid).toBe(false);
     expect(result.errors).toContain(
-      "Unsupported time grain \"hour\". Supported: day, week, month, quarter, year",
+      "Unsupported time grain \"second\". Supported: minute, hour, day, week, month, quarter, year",
     );
   });
 
@@ -1653,7 +1653,7 @@ describe("dataset SQL generation matrix", () => {
 
     expect(result.valid).toBe(false);
     expect(result.errors).toContain(
-      "Unsupported time grain \"toString\". Supported: day, week, month, quarter, year",
+      "Unsupported time grain \"toString\". Supported: minute, hour, day, week, month, quarter, year",
     );
   });
 
