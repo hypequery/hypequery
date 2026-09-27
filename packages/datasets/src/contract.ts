@@ -45,6 +45,8 @@ export interface ContractMeasure extends SemanticMetadata {
   sql?: string;
   label?: string;
   description?: string;
+  /** Present, as `true`, when the measure returns an estimate. */
+  approximate?: true;
 }
 
 export interface ContractMetric extends SemanticMetadata {
@@ -224,6 +226,7 @@ function measureToContract(entry: MeasureCatalogEntry, includeSql: boolean): Con
     ...(entry.label !== undefined ? { label: entry.label } : {}),
     ...(entry.description !== undefined ? { description: entry.description } : {}),
     ...snapshotSemanticMetadata(entry),
+    ...(entry.approximate ? { approximate: true as const } : {}),
   };
 }
 

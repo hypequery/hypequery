@@ -49,10 +49,12 @@ export interface RecordShapedDataset extends SemanticMetadata {
   readonly measures: Readonly<Record<string, SemanticMetadata & {
     readonly label?: string;
     readonly description?: string;
+    readonly approximate?: true;
   }>>;
   readonly derivedMeasures?: Readonly<Record<string, SemanticMetadata & {
     readonly label?: string;
     readonly description?: string;
+    readonly approximate?: true;
   }>>;
   readonly metrics: Readonly<Record<string, SemanticMetadata & {
     readonly label?: string;
@@ -165,6 +167,7 @@ export function recordDatasetToAgentDataset(dataset: RecordShapedDataset): Agent
         name,
         ...optionalText(measure),
         ...snapshotSemanticMetadata(measure),
+        ...(measure.approximate ? { approximate: true as const } : {}),
       })),
     ),
     metrics: sortedByName(

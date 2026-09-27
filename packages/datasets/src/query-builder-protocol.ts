@@ -32,6 +32,8 @@ export interface QueryBuilderLike {
   stddev?(column: string, alias?: string): QueryBuilderLike;
   /** Sample variance of `column`. */
   variance?(column: string, alias?: string): QueryBuilderLike;
+  /** Estimated number of distinct non-NULL values of `column`. */
+  approxCountDistinct?(column: string, alias?: string): QueryBuilderLike;
 
   // Filtering
   where(column: string, operator: string, value: unknown): QueryBuilderLike;
