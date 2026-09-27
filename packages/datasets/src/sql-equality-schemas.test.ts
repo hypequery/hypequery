@@ -9,19 +9,21 @@
  * so the corpus covers the combinations those shapes produce: SQL dimensions
  * feeding measures, filtered distinct counts, derived measures, two
  * relationships off one dataset, and tenant predicates through each join.
+ * These are dataset-only Cloud deployment contracts; named metrics are not
+ * published to Cloud.
  *
- * The second half pins down exclusions. Every surface portable execution
- * refuses must name a reason from `UNSUPPORTED_CONTRACT_REASONS`, and every
- * reason must be reachable from a contract a customer could deploy.
+ * The second half pins down dataset-only exclusions with named reasons.
+ * Contract shapes rejected by deployment validation remain defensive
+ * rehydration tests rather than examples of deployable customer contracts.
  */
 
 import { describe, expect, it } from 'vitest';
+import { validateProtocolDeploymentContract } from '@hypequery/protocol';
 import { createDatasetClient } from './executor.js';
 import {
   createPortableSemanticExecutor,
   PortableExecutionUnsupportedError,
 } from './portable-executor.js';
-import { buildProtocolDatasetContract } from './protocol-adapter.js';
 import { buildProtocolDeploymentContract } from './protocol-deployment-adapter.js';
 import {
   rehydrateProtocolDatasets,
@@ -29,10 +31,10 @@ import {
   UnsupportedContractFeatureError,
   type UnsupportedContractReason,
 } from './protocol-rehydrate.js';
-import type { AnyDatasetInstance, MetricHandle, TimeGrain } from './types.js';
+import type { AnyDatasetInstance, TimeGrain } from './types.js';
 import { createRenderingBuilderFactory, subsets } from './tests/support/sql-equality-harness.js';
-import { LineItems, Buyers, Products, marketplaceMetrics } from './tests/support/corpus-schemas/marketplace.js';
-import { Accounts, Events, productMetrics } from './tests/support/corpus-schemas/product-analytics.js';
+import { LineItems, Buyers, Products } from './tests/support/corpus-schemas/marketplace.js';
+import { Accounts, Events } from './tests/support/corpus-schemas/product-analytics.js';
 
 const PUBLIC_ENDPOINT = { access: { kind: 'public' }, tenant: { kind: 'not-required' } } as const;
 const GRAINS: TimeGrain[] = ['day', 'week', 'month', 'quarter', 'year'];
@@ -42,15 +44,12 @@ interface SchemaSpec {
   /** Supporting datasets first, the queried dataset last. */
   readonly supporting: readonly AnyDatasetInstance[];
   readonly target: AnyDatasetInstance;
-  readonly metrics: Record<string, MetricHandle>;
   readonly groupable: readonly string[];
   readonly joined: readonly string[];
   /** A measure the joins can carry: SQL-backed dimensions cannot be joined. */
   readonly joinMeasure: string;
   /** A groupable or measured SQL-backed dimension, which joins must refuse. */
   readonly sqlBacked: { readonly dimensions?: string[]; readonly measures?: string[] };
-  /** Set when the authored metrics refuse joins too, because of `sqlBacked`. */
-  readonly metricsRefuseJoins?: boolean;
   readonly filterValues: Record<string, Record<string, unknown>>;
   /** Absent for a schema with no tenant column: nothing to scope by. */
   readonly tenants?: readonly { readonly label: string; readonly runtime: unknown }[];
@@ -61,7 +60,6 @@ const SCHEMAS: readonly SchemaSpec[] = [
     label: 'product analytics (per-customer)',
     supporting: [Accounts],
     target: Events,
-    metrics: productMetrics,
     groupable: ['eventTime', 'accountId', 'userId', 'eventName', 'platform', 'country', 'isMobile'],
     joined: ['account.plan', 'account.industry'],
     joinMeasure: 'events',
@@ -77,13 +75,10 @@ const SCHEMAS: readonly SchemaSpec[] = [
     label: 'marketplace (multi-tenant)',
     supporting: [Buyers, Products],
     target: LineItems,
-    metrics: marketplaceMetrics,
     groupable: ['orderedAt', 'buyerId', 'sku', 'currency', 'fulfilment', 'channel'],
     joined: ['buyer.segment', 'buyer.country', 'product.brand', 'product.category'],
     joinMeasure: 'units',
     sqlBacked: { measures: ['gmv'] },
-    // Every marketplace metric is built on GMV, which is SQL-backed.
-    metricsRefuseJoins: true,
     filterValues: {
       fulfilment: { eq: 'shipped', neq: 'refunded', in: ['shipped', 'delivered'] },
       channel: { eq: 'web', notIn: ['pos'] },
@@ -103,11 +98,8 @@ interface Case {
   readonly name: string;
   readonly query: Record<string, unknown>;
   readonly tenant?: unknown;
-  readonly metric?: string;
   /** Both catalogs must refuse, with the same error; SQL is not compared. */
   readonly expectedRejection?: string | RegExp;
-  /** The authored catalog compiles; the rebuilt one must refuse with this. */
-  readonly knownDivergence?: RegExp;
 }
 
 function corpus(spec: SchemaSpec): Case[] {
@@ -211,47 +203,20 @@ function corpus(spec: SchemaSpec): Case[] {
     });
   }
 
-  for (const [metric, handle] of Object.entries(spec.metrics)) {
-    cases.push({ name: `metric ${metric}`, query: {}, metric });
-    cases.push({ name: `metric ${metric} grouped`, query: { dimensions: [anchor] }, metric });
-    // Known divergence, found by this corpus: an authored metric accepts a
-    // joined dimension, but the contract publishes only a metric's local
-    // dimensions, so the rebuilt metric refuses it. The rebuild fails closed
-    // (never different SQL); the case is pinned so either side changing is
-    // caught.
-    cases.push({
-      name: `metric ${metric} over a join (known divergence)`,
-      query: { dimensions: [spec.joined[0]] },
-      metric,
-      knownDivergence: /is not published for this metric/,
-    });
-    for (const grain of GRAINS) {
-      cases.push({
-        name: `metric ${metric} by ${grain}`,
-        query: { by: grain },
-        metric,
-        ...(handle.__type === 'grained_metric_ref' && grain !== handle.grain
-          ? { expectedRejection: `Invalid metric query: Metric "${metric}" is already grained by "${handle.grain}" and cannot be queried with by="${grain}".` }
-          : {}),
-      });
-    }
-    for (const tenant of spec.tenants ?? []) {
-      cases.push({ name: `metric ${metric} for ${tenant.label}`, query: { dimensions: [anchor] }, metric, tenant: tenant.runtime });
-    }
-  }
-
   return cases;
 }
 
 function contractsFor(spec: SchemaSpec) {
-  return [
-    ...spec.supporting.map(item => buildProtocolDatasetContract(item as never, { endpoint: PUBLIC_ENDPOINT as never })),
-    buildProtocolDatasetContract(spec.target as never, {
-      endpoint: PUBLIC_ENDPOINT as never,
-      metrics: spec.metrics as never,
-      metricEndpoints: Object.fromEntries(Object.keys(spec.metrics).map(name => [name, PUBLIC_ENDPOINT])) as never,
-    }),
-  ];
+  return buildProtocolDeploymentContract([...spec.supporting, spec.target], {
+    endpoints: {
+      [spec.target.name]: spec.tenants === undefined
+        ? PUBLIC_ENDPOINT
+        : {
+            access: { kind: 'authenticated', roles: [], scopes: [] },
+            tenant: { kind: 'required', mode: 'auto-inject', column: 'merchant_id' },
+          },
+    },
+  }).datasets;
 }
 
 function compile(client: ReturnType<typeof createDatasetClient>, target: unknown, testCase: Case, tenanted: boolean) {
@@ -271,38 +236,21 @@ describe.each(SCHEMAS)('rehydrated $label emits byte-identical SQL', spec => {
   const tenanted = spec.tenants !== undefined;
   const cases = corpus(spec);
 
-  it('covers every axis, every metric, and every relationship', () => {
+  it('covers every dataset axis and every relationship', () => {
+    expect(contractsFor(spec).every(contract => !('metrics' in contract))).toBe(true);
     const names = cases.map(entry => entry.name);
-    for (const axis of ['dimensions ', 'measure ', 'measures ', 'filter ', 'grain ', 'order ', 'page ', 'join ', 'metric ']) {
+    for (const axis of ['dimensions ', 'measure ', 'measures ', 'filter ', 'grain ', 'order ', 'page ', 'join ']) {
       expect(names.filter(name => name.startsWith(axis)).length).toBeGreaterThan(0);
     }
     if (tenanted) expect(names.filter(name => name.startsWith('tenant ')).length).toBeGreaterThan(spec.joined.length);
-    for (const metric of Object.keys(spec.metrics)) {
-      expect(names.filter(name => name.startsWith(`metric ${metric} `)).length).toBeGreaterThan(GRAINS.length);
-    }
-    const grained = Object.values(spec.metrics).filter(metric => metric.__type === 'grained_metric_ref');
-    expect(grained.length).toBeGreaterThan(0);
-    expect(cases.filter(entry => typeof entry.expectedRejection === 'string')).toHaveLength(grained.length * (GRAINS.length - 1));
-    // Divergences are only ever the one pinned below, never a new silent one.
-    expect(cases.filter(entry => entry.knownDivergence !== undefined)).toHaveLength(Object.keys(spec.metrics).length);
+    expect(cases.filter(entry => entry.expectedRejection !== undefined)).toHaveLength(1);
     expect(new Set(names).size).toBe(names.length);
     expect(cases.length).toBeGreaterThan(150);
   });
 
   it.each(cases)('$name', testCase => {
-    const authoredTarget = testCase.metric === undefined ? spec.target : spec.metrics[testCase.metric];
-    const rehydratedTarget = testCase.metric === undefined ? rebuiltTarget : rebuiltTarget.metrics[testCase.metric];
-
-    if (testCase.knownDivergence !== undefined) {
-      if (spec.metricsRefuseJoins) {
-        expect(() => compile(authoredClient, authoredTarget, testCase, tenanted))
-          .toThrow(/SQL-backed dimension ".+" cannot be combined with relationship joins/);
-      } else {
-        expect(compile(authoredClient, authoredTarget, testCase, tenanted)).toContain('JOIN');
-      }
-      expect(() => compile(rehydratedClient, rehydratedTarget, testCase, tenanted)).toThrow(testCase.knownDivergence);
-      return;
-    }
+    const authoredTarget = spec.target;
+    const rehydratedTarget = rebuiltTarget;
     if (testCase.expectedRejection !== undefined) {
       for (const [client, target] of [[authoredClient, authoredTarget], [rehydratedClient, rehydratedTarget]] as const) {
         expect(() => compile(client, target, testCase, tenanted)).toThrow(
@@ -347,10 +295,6 @@ function withLineItems(patch: (contract: typeof lineItems) => unknown) {
   return [...marketplace.slice(0, -1), patch(structuredClone(lineItems))] as never;
 }
 
-function metricNamed(contract: typeof lineItems, name: string) {
-  return contract.metrics.find(metric => String(metric.name) === name)!;
-}
-
 const REHYDRATION_EXCLUSIONS: ReadonlyArray<{
   readonly reason: UnsupportedContractReason;
   readonly scenario: string;
@@ -365,56 +309,6 @@ const REHYDRATION_EXCLUSIONS: ReadonlyArray<{
         { kind: 'logical', operator: 'not', operand: refunded.filters[0] },
       ];
       return contract;
-    }),
-  },
-  {
-    reason: UNSUPPORTED_CONTRACT_REASONS.expressionNotAggregate,
-    scenario: 'a derived metric input that is a reference rather than an aggregate',
-    contracts: () => withLineItems(contract => {
-      const aov = metricNamed(contract, 'averageOrderValue');
-      (aov.derivation!.inputs[0] as { expression: unknown }).expression = { kind: 'reference', name: 'gmv' };
-      return contract;
-    }),
-  },
-  {
-    reason: UNSUPPORTED_CONTRACT_REASONS.noMatchingMeasure,
-    scenario: 'a GMV metric whose measure was removed from the dataset',
-    contracts: () => withLineItems(contract => ({
-      ...contract,
-      measures: contract.measures.filter(item => String(item.name) !== 'gmv'),
-      derivedMeasures: [],
-      metrics: contract.metrics.filter(metric => String(metric.name) === 'gmv'),
-    })),
-  },
-  {
-    reason: UNSUPPORTED_CONTRACT_REASONS.ambiguousMeasureSql,
-    scenario: 'two units measures with the same aggregation but different SQL',
-    contracts: () => withLineItems(contract => {
-      const units = contract.measures.find(item => String(item.name) === 'units')!;
-      return {
-        ...contract,
-        measures: [...contract.measures, { ...units, name: 'unitsNet', sql: { sql: 'sum(quantity) - 1', dependencies: ['quantity'] } }],
-        metrics: [{ ...metricNamed(contract, 'gmv'), name: 'units', expression: { kind: 'aggregate', aggregation: 'sum', field: 'quantity' } }],
-      };
-    }),
-  },
-  {
-    reason: UNSUPPORTED_CONTRACT_REASONS.derivedMetricWithoutFormula,
-    scenario: 'average order value published by a writer that predates derivations',
-    contracts: () => withLineItems(contract => {
-      const { derivation: _derivation, ...aov } = metricNamed(contract, 'averageOrderValue');
-      return { ...contract, metrics: [aov] };
-    }),
-  },
-  {
-    reason: UNSUPPORTED_CONTRACT_REASONS.unsupportedFormula,
-    scenario: 'a discount rate formula calling a function portable execution has no builder for',
-    contracts: () => withLineItems(contract => {
-      const rate = metricNamed(contract, 'discountRate');
-      (rate.derivation as { expression: unknown }).expression = {
-        kind: 'call', function: 'log', args: [{ kind: 'reference', name: 'gmv' }],
-      };
-      return { ...contract, metrics: [rate] };
     }),
   },
   {
@@ -438,9 +332,19 @@ function reasonOf(run: () => unknown): UnsupportedContractReason | undefined {
   return undefined;
 }
 
-describe('portable execution names every exclusion', () => {
+describe('dataset-only portable execution exclusions', () => {
   it.each(REHYDRATION_EXCLUSIONS)('$reason: $scenario', ({ reason, contracts }) => {
-    expect(reasonOf(() => rehydrateProtocolDatasets(contracts()))).toBe(reason);
+    const datasets = contracts();
+    if (reason === UNSUPPORTED_CONTRACT_REASONS.measureFilterNotComparison) {
+      expect(() => validateProtocolDeploymentContract({
+        kind: 'hypequery-deployment', version: 2, datasets,
+      })).not.toThrow();
+    } else {
+      expect(() => validateProtocolDeploymentContract({
+        kind: 'hypequery-deployment', version: 2, datasets,
+      })).toThrow();
+    }
+    expect(reasonOf(() => rehydrateProtocolDatasets(datasets))).toBe(reason);
   });
 
   it('accepts the unmodified customer-shaped contracts', () => {
@@ -505,12 +409,17 @@ describe('portable execution names every exclusion', () => {
     });
   });
 
-  it('exercises every named reason', () => {
+  it('covers dataset and invocation refusal reasons', () => {
     const covered = new Set<string>([
       ...REHYDRATION_EXCLUSIONS.map(entry => entry.reason),
       UNSUPPORTED_CONTRACT_REASONS.queryFilterNotComparison,
       UNSUPPORTED_CONTRACT_REASONS.datasetNotActivated,
     ]);
-    expect([...covered].sort()).toEqual(Object.values(UNSUPPORTED_CONTRACT_REASONS).sort());
+    expect([...covered].sort()).toEqual([
+      UNSUPPORTED_CONTRACT_REASONS.measureFilterNotComparison,
+      UNSUPPORTED_CONTRACT_REASONS.relationshipTargetMissing,
+      UNSUPPORTED_CONTRACT_REASONS.queryFilterNotComparison,
+      UNSUPPORTED_CONTRACT_REASONS.datasetNotActivated,
+    ].sort());
   });
 });
