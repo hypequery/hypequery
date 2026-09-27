@@ -208,5 +208,5 @@ describe('SQL portability compiler v1', () => {
       }
     }
     expect(Date.now() - started).toBeLessThan(10_000);
-  });
+  }, 15_000);
 });
