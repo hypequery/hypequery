@@ -399,3 +399,33 @@ describe('queryDatasetTool', () => {
     )).rejects.toThrow('Invalid limit: 26. Max: 25');
   });
 });
+
+describe('queryDatasetTool segments', () => {
+  it('validates segment names against the dataset and forwards them', async () => {
+    const { dataset, dimension, measure } = await import('@hypequery/datasets');
+    const Orders = dataset('orders', {
+      source: 'orders',
+      dimensions: { status: dimension.string() },
+      measures: { revenue: measure.sum('amount') },
+      segments: { paid: { filters: [{ field: 'status', operator: 'eq', value: 'paid' }] } },
+    });
+    const analytics = { execute: vi.fn().mockResolvedValue({ data: [], meta: {} }) } as unknown as DatasetClient;
+
+    await queryDatasetTool({ orders: Orders }, analytics, {
+      dataset: 'orders',
+      measures: ['revenue'],
+      segments: ['paid'],
+    });
+    expect(analytics.execute).toHaveBeenCalledWith(
+      Orders,
+      expect.objectContaining({ segments: ['paid'] }),
+      expect.anything(),
+    );
+
+    await expect(queryDatasetTool({ orders: Orders }, analytics, {
+      dataset: 'orders',
+      measures: ['revenue'],
+      segments: ['refunded'],
+    })).rejects.toThrow();
+  });
+});

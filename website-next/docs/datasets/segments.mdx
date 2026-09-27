@@ -41,6 +41,10 @@ await analytics.execute(Accounts, {
 - A segment cannot constrain the tenant column. Tenant scope always comes from runtime context.
 - Definitions are checked when the dataset is defined, including the operator and the value type. A query that names an unknown segment, or names the same segment twice, is rejected.
 
+## Serve, MCP, and React
+
+A dataset that declares segments accepts `segments` in its Serve endpoint, its OpenAPI schema, the MCP `query_dataset` and `query_metric` tools, and the React hooks. The input schema lists the segment names as an enum, so an unknown name is rejected before the query runs. Datasets without segments do not accept the field, so their schemas are unchanged.
+
 ## Catalogs and agents
 
 The catalog, the semantic contract, and the agent-safe catalog list each segment's name, label, and description. They never include its conditions: the values in a segment can be thresholds or identifiers that you chose not to expose, and an agent only needs the name and description to pick one.

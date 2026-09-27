@@ -449,6 +449,7 @@ export interface DatasetConfig<
   TDimensions extends Record<string, DimensionDefinition> = Record<string, DimensionDefinition>,
   TMeasures extends Record<string, DatasetMeasureDefinition> = Record<string, MeasureDefinition>,
   TRelationships extends Record<string, RelationshipDefinition> = Record<string, never>,
+  TSegments extends Record<string, SegmentDefinition> = Record<string, SegmentDefinition>,
 > extends SemanticMetadata {
   source: string;
   description?: string;
@@ -474,7 +475,7 @@ export interface DatasetConfig<
    * Each is an AND of comparisons over this dataset's own dimensions, and it
    * may use dimensions that are not exposed as filters.
    */
-  segments?: Record<string, SegmentDefinition>;
+  segments?: TSegments;
 }
 
 export interface DatasetInstance<
@@ -483,6 +484,7 @@ export interface DatasetInstance<
   TRelationships extends Record<string, RelationshipDefinition> = Record<string, never>,
   TDatasetName extends string = string,
   TDerivedMeasures extends Record<string, DerivedMeasureDefinition> = Record<string, DerivedMeasureDefinition>,
+  TSegments extends Record<string, SegmentDefinition> = Record<string, SegmentDefinition>,
 > {
   __type: 'dataset';
   name: TDatasetName;
@@ -508,15 +510,15 @@ export interface DatasetInstance<
   relationships: TRelationships;
   limits?: DatasetLimits;
   cache?: DatasetCachePolicy;
-  segments: Record<string, SegmentDefinition>;
+  segments: TSegments;
   metric<TName extends string>(
     metricName: TName,
     metricConfig: BaseMetricConfig<TMeasures>,
-  ): BaseMetricRef<TDatasetName, TName, DatasetInstance<TDimensions, TMeasures, TRelationships, TDatasetName, TDerivedMeasures>>;
+  ): BaseMetricRef<TDatasetName, TName, DatasetInstance<TDimensions, TMeasures, TRelationships, TDatasetName, TDerivedMeasures, TSegments>>;
   metric<TName extends string>(
     metricName: TName,
     metricConfig: DerivedMetricConfig<TDatasetName>,
-  ): DerivedMetricRef<TDatasetName, TName, DatasetInstance<TDimensions, TMeasures, TRelationships, TDatasetName, TDerivedMeasures>>;
+  ): DerivedMetricRef<TDatasetName, TName, DatasetInstance<TDimensions, TMeasures, TRelationships, TDatasetName, TDerivedMeasures, TSegments>>;
 }
 
 export interface DatasetRegistryInstance {
@@ -621,6 +623,10 @@ export type DatasetMeasureNames<TDataset extends DatasetInstance<any, any, any, 
   | KnownStringKeysOrFallback<TDataset['measures']>
   | KnownStringKeys<TDataset['derivedMeasures']>;
 
+/** Segment names declared by a dataset. */
+export type DatasetSegmentNames<TDataset extends DatasetInstance<any, any, any, any>> =
+  keyof TDataset['segments'] & string;
+
 /**
  * Fields a result can be ordered by. This is the selection-independent superset
  * (every dimension + measure, plus the synthetic `period` column for grained
@@ -636,6 +642,8 @@ export interface DatasetQueryFor<TDataset extends DatasetInstance<any, any, any,
   dimensions?: readonly DatasetDimensionNames<TDataset>[];
   measures?: readonly DatasetMeasureNames<TDataset>[];
   filters?: readonly MetricFilter[];
+  /** Segment names declared on the dataset. */
+  segments?: readonly DatasetSegmentNames<TDataset>[];
   orderBy?: readonly MetricOrderBy<DatasetOrderableNames<TDataset>>[];
   limit?: number;
   offset?: number;
@@ -691,6 +699,8 @@ export interface MetricQueryFor<
 > {
   dimensions?: readonly DatasetDimensionNames<TDataset>[];
   filters?: readonly MetricFilter[];
+  /** Segment names declared on the dataset. */
+  segments?: readonly DatasetSegmentNames<TDataset>[];
   orderBy?: readonly MetricOrderBy<DatasetDimensionNames<TDataset> | TMetricName | 'period'>[];
   limit?: number;
   offset?: number;

@@ -29,6 +29,8 @@ const orderBySchema = z.object({
 const baseQuerySchema = z.object({
   dimensions: z.array(z.string().min(1)).max(MAX_QUERY_DIMENSIONS).optional(),
   filters: z.array(filterSchema).max(MAX_QUERY_FILTERS).optional(),
+  // Each dataset narrows this to the segment names it declares.
+  segments: z.array(z.string().min(1)).max(MAX_QUERY_FILTERS).optional(),
   // Each dataset narrows this further through its catalog `supportedGrains`.
   grain: z.enum(SUPPORTED_TIME_GRAINS as [TimeGrain, ...TimeGrain[]]).optional(),
   orderBy: z.array(orderBySchema).max(MAX_QUERY_ORDER_BY).optional(),
