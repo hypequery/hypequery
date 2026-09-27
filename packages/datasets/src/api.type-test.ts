@@ -109,6 +109,30 @@ dataset('derivedDependency', {
 type _DerivedMeasureIsQueryable = Assert<
   Equal<DatasetMeasureNames<typeof Orders>, 'revenue' | 'completedRevenue' | 'doubledRevenue'>
 >;
+
+const _WindowOrders = dataset('windowOrders', {
+  source: 'orders', timeKey: 'createdAt',
+  dimensions: { createdAt: dimension.timestamp(), amount: dimension.number() },
+  measures: {
+    revenue: measure.sum('amount'),
+    trailingRevenue: measure.trailing('revenue', { amount: 7, unit: 'day' }),
+    runningRevenue: measure.cumulative('revenue'),
+    growth: measure.derived({ uses: { running: 'runningRevenue' }, formula: ({ running }) => add(running, running) }),
+  },
+});
+type _WindowMeasureNamesRemainTyped = Assert<
+  Equal<DatasetMeasureNames<typeof _WindowOrders>, 'revenue' | 'trailingRevenue' | 'runningRevenue' | 'growth'>
+>;
+dataset('invalidWindowInput', {
+  source: 'orders', timeKey: 'createdAt',
+  dimensions: { createdAt: dimension.timestamp(), amount: dimension.number() },
+  measures: {
+    revenue: measure.sum('amount'),
+    growth: measure.derived({ uses: { value: 'revenue' }, formula: ({ value }) => add(value, value) }),
+    // @ts-expect-error a window must wrap a base measure.
+    invalid: measure.cumulative('growth'),
+  },
+});
 type _UnselectedDerivedMeasureIsNotInDefaultResult = Assert<
   Equal<HasKey<DatasetRowFor<typeof Orders, {}>, 'doubledRevenue'>, false>
 >;

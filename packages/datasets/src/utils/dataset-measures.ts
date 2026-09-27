@@ -4,6 +4,8 @@ import type {
   DerivedMeasureDefinition,
   DerivedMeasures,
   MeasureDefinition,
+  WindowMeasureDefinition,
+  WindowMeasures,
 } from '../types.js';
 
 export function isDerivedMeasure(
@@ -18,6 +20,12 @@ export function isBaseMeasure(
   return definition.__type === 'measure_definition';
 }
 
+export function isWindowMeasure(
+  definition: DatasetMeasureDefinition,
+): definition is WindowMeasureDefinition {
+  return definition.__type === 'window_measure_definition';
+}
+
 export function baseMeasureNames(measures: Record<string, DatasetMeasureDefinition>): string[] {
   return Object.entries(measures)
     .filter(([, definition]) => isBaseMeasure(definition))
@@ -26,11 +34,12 @@ export function baseMeasureNames(measures: Record<string, DatasetMeasureDefiniti
 
 export function splitDatasetMeasures<TMeasures extends Record<string, DatasetMeasureDefinition>>(
   measures: TMeasures | undefined,
-): { base: BaseMeasures<TMeasures>; derived: DerivedMeasures<TMeasures> } {
+): { base: BaseMeasures<TMeasures>; derived: DerivedMeasures<TMeasures>; windows: WindowMeasures<TMeasures> } {
   const entries = Object.entries(measures ?? {});
   return {
     base: Object.fromEntries(entries.filter(([, definition]) => isBaseMeasure(definition))) as BaseMeasures<TMeasures>,
     derived: Object.fromEntries(entries.filter(([, definition]) => isDerivedMeasure(definition))) as DerivedMeasures<TMeasures>,
+    windows: Object.fromEntries(entries.filter(([, definition]) => isWindowMeasure(definition))) as WindowMeasures<TMeasures>,
   };
 }
 

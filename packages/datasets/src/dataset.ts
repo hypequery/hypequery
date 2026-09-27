@@ -36,6 +36,7 @@ import type {
   DatasetMeasureDefinition,
   BaseMeasures,
   DerivedMeasures,
+  WindowMeasures,
   DimensionDefinition,
   RelationshipDefinition,
   BaseMetricRef,
@@ -74,19 +75,19 @@ export function dataset<
 >(
   name: TDatasetName,
   config: DatasetConfig<TDimensions, TDefinitions, TRelationships, TSegments>,
-): DatasetInstance<TDimensions, BaseMeasures<TDefinitions>, TRelationships, TDatasetName, DerivedMeasures<TDefinitions>, TSegments> {
+): DatasetInstance<TDimensions, BaseMeasures<TDefinitions>, TRelationships, TDatasetName, DerivedMeasures<TDefinitions>, TSegments, WindowMeasures<TDefinitions>> {
   // Structural validation runs before anything is normalized, so an invalid
   // model fails at definition time rather than on the first query that reaches
   // the broken part of it.
   validateDatasetDefinition(name, config);
 
   const dimensions = normalizeDimensions(config);
-  const { base: measures, derived: derivedMeasures } = splitDatasetMeasures<TDefinitions>(config.measures);
+  const { base: measures, derived: derivedMeasures, windows: windowMeasures } = splitDatasetMeasures<TDefinitions>(config.measures);
   const filters = normalizeFilters(dimensions, config.filters);
   const relationships = normalizeRelationships(config.relationships, config.source);
 
   type TMeasures = BaseMeasures<TDefinitions>;
-  type ThisDataset = DatasetInstance<TDimensions, TMeasures, TRelationships, TDatasetName, DerivedMeasures<TDefinitions>, TSegments>;
+  type ThisDataset = DatasetInstance<TDimensions, TMeasures, TRelationships, TDatasetName, DerivedMeasures<TDefinitions>, TSegments, WindowMeasures<TDefinitions>>;
   function metric<TName extends string>(
     metricName: TName,
     metricConfig: BaseMetricConfig<TMeasures>,
@@ -144,6 +145,7 @@ export function dataset<
     dimensions,
     measures,
     derivedMeasures,
+    windowMeasures,
     filters,
     relationships,
     limits: config.limits,

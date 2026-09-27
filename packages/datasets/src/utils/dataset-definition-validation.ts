@@ -29,7 +29,8 @@ import type {
 } from '../types.js';
 import { escapeRegExp, isSafeSQLIdentifier, stripSqlLiterals } from '../sql-utils.js';
 import { validateDerivedMeasures } from './derived-measure-validation.js';
-import { isDerivedMeasure } from './dataset-measures.js';
+import { isDerivedMeasure, isWindowMeasure } from './dataset-measures.js';
+import { validateWindowMeasures } from './window-measure-validation.js';
 import { validateDatasetAgentMetadata } from './semantic-metadata-validation.js';
 
 type AnyDimensions = Record<string, DimensionDefinition>;
@@ -198,7 +199,7 @@ function validateMeasures(
     if (typeof definition !== 'object' || definition === null) {
       fail(datasetName, `measure "${name}" must be created with measure.*().`);
     }
-    if (isDerivedMeasure(definition)) continue;
+    if (isDerivedMeasure(definition) || isWindowMeasure(definition)) continue;
     if (definition.__type !== 'measure_definition') {
       fail(datasetName, `measure "${name}" must be created with measure.*().`);
     }
@@ -302,6 +303,7 @@ export function validateDatasetDefinition(
 
   validateDimensions(name, dimensions);
   const measures = config.measures ?? {};
+  validateWindowMeasures(name, config.timeKey, measures);
   validateDerivedMeasures(name, measures);
   validateMeasures(name, measures, dimensions);
   validateLimits(name, config.limits);

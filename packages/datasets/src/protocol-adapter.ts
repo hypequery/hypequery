@@ -121,6 +121,12 @@ export function buildProtocolDatasetContract(
   dataset: AnyDatasetInstance,
   options: BuildProtocolDatasetContractOptions = {},
 ): ProtocolDatasetContract {
+  const windowMeasureNames = Object.keys(dataset.windowMeasures ?? {});
+  if (windowMeasureNames.length > 0) {
+    throw new Error(
+      `Dataset "${dataset.name}" window measures (${windowMeasureNames.join(', ')}) need deployment contract 3 (RFC 0015).`,
+    );
+  }
   assertNoPublishedSegments(dataset);
   assertPublishableTimeGrains(dataset);
   const metrics = Object.entries(options.metrics ?? {})

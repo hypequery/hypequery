@@ -26,7 +26,11 @@ export function validateDatasetQueryInput(
 ): ValidationResult {
   const errors: string[] = [];
   const dimensionNames = Object.keys(ds.dimensions);
-  const measureNames = [...Object.keys(ds.measures), ...Object.keys(ds.derivedMeasures ?? {})];
+  const measureNames = [
+    ...Object.keys(ds.measures),
+    ...Object.keys(ds.derivedMeasures ?? {}),
+    ...Object.keys(ds.windowMeasures ?? {}),
+  ];
   const selectedDimensions = query.dimensions ?? [];
   const selectedMeasures = query.measures ?? Object.keys(ds.measures);
   const filterNames = Object.keys(ds.filters);
@@ -66,6 +70,15 @@ export function validateDatasetQueryInput(
 
   if (query.measures) {
     for (const measure of query.measures) {
+      if (Object.hasOwn(ds.windowMeasures ?? {}, measure)) {
+        errors.push(`Window measure "${measure}" is not executable until RFC 0015 window planning is available.`);
+        continue;
+      }
+      const derived = Object.hasOwn(ds.derivedMeasures, measure) ? ds.derivedMeasures[measure] : undefined;
+      if (derived && Object.values(derived.uses).some(name => Object.hasOwn(ds.windowMeasures ?? {}, name))) {
+        errors.push(`Derived measure "${measure}" uses a window measure and is not executable until RFC 0015 window planning is available.`);
+        continue;
+      }
       if (isQualifiedField(measure)) {
         errors.push(
           `Measure "${measure}" is relationship-qualified. Measures can only be defined on the base dataset "${ds.name}", not traversed through relationships.`,
