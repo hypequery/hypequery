@@ -17,6 +17,7 @@ import {
   validateQualifiedFilter,
   validateRelationshipTenantRuntime,
 } from './relationship-validation.js';
+import { segmentSelectionErrors } from './segments.js';
 
 export function validateDatasetQueryInput(
   ds: AnyDatasetInstance,
@@ -150,6 +151,8 @@ export function validateDatasetQueryInput(
   if (query.by && !ds.timeKey) {
     errors.push(`Cannot use "by" grain — dataset "${ds.name}" has no timeKey.`);
   }
+
+  errors.push(...segmentSelectionErrors(ds, query.segments));
 
   const grainError = query.by && ds.timeKey ? unsupportedTimeGrainError(ds, query.by) : undefined;
   if (grainError) {

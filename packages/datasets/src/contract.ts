@@ -6,6 +6,7 @@ import {
   type DatasetCatalogSource,
   type DimensionCatalogEntry,
   type MeasureCatalogEntry,
+  type SegmentCatalogEntry,
   type MetricCatalogEntry,
   type FilterCatalogEntry,
   type RelationshipCatalogEntry,
@@ -94,6 +95,8 @@ export interface ContractDataset extends SemanticMetadata {
   measures: Record<string, ContractMeasure>;
   metrics: Record<string, ContractMetric>;
   filters: Record<string, ContractFilter>;
+  /** Named segments (label and description only); absent when none are declared. */
+  segments?: Record<string, SegmentCatalogEntry>;
   relationships: Record<string, ContractRelationship>;
   limits?: DatasetLimits;
 }
@@ -182,6 +185,14 @@ function datasetToContract(catalog: DatasetCatalog, includeSql: boolean): Contra
     filters: sortedRecord(
       Object.entries(catalog.filters).map(([name, entry]) => [name, filterToContract(entry)]),
     ),
+    ...(catalog.segments !== undefined ? {
+      segments: sortedRecord(
+        Object.entries(catalog.segments).map(([name, entry]) => [name, {
+          ...(entry.label !== undefined ? { label: entry.label } : {}),
+          ...(entry.description !== undefined ? { description: entry.description } : {}),
+        }]),
+      ),
+    } : {}),
     relationships: sortedRecord(
       Object.entries(catalog.relationships).map(([name, entry]) => [name, relationshipToContract(entry)]),
     ),

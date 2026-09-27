@@ -291,9 +291,19 @@ export interface MetricOrderBy<TField extends string = string> {
   direction: 'asc' | 'desc';
 }
 
+/** A named row filter declared on a dataset; see `DatasetConfig.segments`. */
+export interface SegmentDefinition {
+  /** Comparisons over the dataset's own dimensions, combined with AND. */
+  filters: MetricFilter[];
+  label?: string;
+  description?: string;
+}
+
 export interface MetricQuery {
   dimensions?: string[];
   filters?: MetricFilter[];
+  /** Segment names declared on the dataset, combined with `filters` by AND. */
+  segments?: string[];
   orderBy?: MetricOrderBy[];
   limit?: number;
   offset?: number;
@@ -304,6 +314,8 @@ export interface DatasetQuery {
   dimensions?: string[];
   measures?: string[];
   filters?: MetricFilter[];
+  /** Segment names declared on the dataset, combined with `filters` by AND. */
+  segments?: string[];
   orderBy?: MetricOrderBy[];
   limit?: number;
   offset?: number;
@@ -457,6 +469,12 @@ export interface DatasetConfig<
   relationships?: TRelationships;
   limits?: DatasetLimits;
   cache?: DatasetCachePolicy;
+  /**
+   * Named, author-defined row filters that a query selects by name (RFC 0015).
+   * Each is an AND of comparisons over this dataset's own dimensions, and it
+   * may use dimensions that are not exposed as filters.
+   */
+  segments?: Record<string, SegmentDefinition>;
 }
 
 export interface DatasetInstance<
@@ -490,6 +508,7 @@ export interface DatasetInstance<
   relationships: TRelationships;
   limits?: DatasetLimits;
   cache?: DatasetCachePolicy;
+  segments: Record<string, SegmentDefinition>;
   metric<TName extends string>(
     metricName: TName,
     metricConfig: BaseMetricConfig<TMeasures>,

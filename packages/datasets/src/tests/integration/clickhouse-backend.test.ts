@@ -261,6 +261,24 @@ describe('datasets ClickHouse integration', () => {
     }
   });
 
+  it('applies named dataset segments to ClickHouse queries', async () => {
+    const SegmentedOrders = dataset('segmentedOrders', {
+      source: 'orders',
+      dimensions: { status: dimension.string() },
+      measures: { revenue: measure.sum('total'), orderCount: measure.count('id') },
+      segments: { completed: { filters: [eq('status', 'completed')] } },
+    });
+    const analytics = createClient();
+    const datasetResult = await analytics.execute(SegmentedOrders, {
+      measures: ['revenue', 'orderCount'], segments: ['completed'],
+    });
+    const metric = SegmentedOrders.metric('completedRevenue', { measure: 'revenue' });
+    const metricResult = await analytics.execute(metric, { segments: ['completed'] });
+    expect(datasetResult.data).toEqual([{ revenue: '66', orderCount: '3' }]);
+    expect(metricResult.data).toEqual([{ completedRevenue: '66' }]);
+    expect(datasetResult.meta?.sql).toContain('WHERE status = ?');
+  });
+
   it('executes base and derived metric queries through the public client', async () => {
     const analytics = createClient();
     const revenue = Orders.metric('revenue', { measure: 'revenue' });

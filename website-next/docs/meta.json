@@ -29,6 +29,7 @@
     "datasets/measures",
     "datasets/metrics",
     "datasets/filters",
+    "datasets/segments",
     "datasets/time-grains",
     "datasets/relationships",
     "datasets/execution",
