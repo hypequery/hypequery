@@ -30,7 +30,7 @@ export function normalizeSegments(
   const fail = (name: string, message: string): never => {
     throw new Error(`Invalid segment "${name}" on dataset "${datasetName}": ${message}`);
   };
-  const result: Record<string, SegmentDefinition> = {};
+  const result: Array<[string, SegmentDefinition]> = [];
   for (const [name, segment] of Object.entries(segments ?? {})) {
     if (!SEGMENT_NAME.test(name)) fail(name, 'names must be identifiers (letters, digits, underscores).');
     if (!Array.isArray(segment?.filters) || segment.filters.length === 0) {
@@ -49,13 +49,17 @@ export function normalizeSegments(
       const valueError = validateFilterValue(filter, dimension!.fieldType);
       if (valueError) fail(name, valueError);
     }
-    result[name] = Object.freeze({
-      filters: Object.freeze(segment.filters.map(filter => Object.freeze({ ...filter }))) as MetricFilter[],
+    result.push([name, Object.freeze({
+      filters: Object.freeze(segment.filters.map(filter => Object.freeze({
+        ...filter,
+        value: Array.isArray(filter.value) ? Object.freeze([...filter.value]) : filter.value,
+      }))) as MetricFilter[],
       ...(segment.label !== undefined ? { label: segment.label } : {}),
       ...(segment.description !== undefined ? { description: segment.description } : {}),
-    });
+    })]);
   }
-  return Object.freeze(result);
+  // Object.fromEntries preserves names such as "__proto__" as own properties.
+  return Object.freeze(Object.fromEntries(result));
 }
 
 /**

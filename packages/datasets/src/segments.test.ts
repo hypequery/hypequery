@@ -98,6 +98,35 @@ describe('segment definitions', () => {
     expect(define([{ field: 'seats', operator: 'gt', value: 'many' }])).toThrow(/Invalid segment "seg"/);
     expect(define([{ field: 'tier', operator: 'eq', value: 'x' }], 'not-an-id')).toThrow(/names must be identifiers/);
   });
+
+  it('preserves identifier names that are also Object prototype keys', () => {
+    const segments = Object.fromEntries([
+      ['__proto__', { filters: [{ field: 'tier', operator: 'eq', value: 'enterprise' }] }],
+    ]);
+    const defined = dataset('prototypeNames', { ...base, segments });
+    expect(Object.hasOwn(defined.segments, '__proto__')).toBe(true);
+    expect(Object.hasOwn(getDatasetCatalog(defined).segments!, '__proto__')).toBe(true);
+    const client = createDatasetClient({ queryBuilder: sqlFactory() });
+    expect(client.validate(defined, { dimensions: ['tier'], segments: ['__proto__'] }, tenant).valid).toBe(true);
+  });
+
+  it('snapshots array filter values when a segment is defined', async () => {
+    const tiers = ['enterprise'];
+    const defined = dataset('snapshotSegments', {
+      source: 'accounts',
+      dimensions: { tier: dimension.string() },
+      measures: { accounts: measure.count('id') },
+      segments: { selected: { filters: [{ field: 'tier', operator: 'in', value: tiers }] } },
+    });
+    tiers.push('free');
+    const client = createDatasetClient({
+      backend: createInMemoryBackend({ accounts: [
+        { id: 1, tier: 'enterprise' }, { id: 2, tier: 'free' },
+      ] }),
+    });
+    expect((await client.execute(defined, { measures: ['accounts'], segments: ['selected'] })).data)
+      .toEqual([{ accounts: '1' }]);
+  });
 });
 
 describe('segment queries', () => {
