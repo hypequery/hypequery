@@ -1,5 +1,42 @@
 # @hypequery/datasets
 
+## 0.19.0
+
+### Minor Changes
+
+- 091b8a6: Add `approxCountDistinct` (RFC 0015, HQ-77):
+  - `measure.approxCountDistinct(field)` and the `approxCountDistinct` aggregation helper estimate distinct counts with ClickHouse `uniq`, including with measure filters.
+  - The ClickHouse query builder gains `.approxCountDistinct(column, alias?)`.
+  - Catalogs, the semantic contract, and the agent-safe catalog mark approximate measures, and derived measures that use them, with `approximate: true`.
+  - The in-memory backend computes the count exactly.
+  - Publishing to Cloud refuses approximate measures with an actionable error until deployment contract 3 is emitted.
+- 1740f23: Add dataset segments (RFC 0015, HQ-77). `dataset(..., { segments })` declares named row filters, each an AND of comparisons over the dataset's own dimensions, and queries select them with `segments: [...]`.
+  - Segments may use dimensions that callers cannot filter on. They cannot traverse relationships or constrain the tenant column, and they are validated when the dataset is defined.
+  - They apply on every execution path, and the result cache key includes their resolved definitions.
+  - Catalogs, the semantic contract, and the agent-safe catalog list segment names, labels, and descriptions, never their conditions.
+  - Publishing refuses datasets with segments until deployment contract 3 is emitted.
+- c48b1b0: Add `minute` and `hour` time grains (RFC 0015, HQ-77). They bucket with `toStartOfMinute`/`toStartOfHour` and appear in catalogs, semantic query schemas, and the local MCP tools.
+
+  A new `timeGrains` dataset option restricts the grains a dataset supports, for example to refuse sub-day buckets on a `Date` time key. Queries, `.by()`, and the catalog honor it.
+
+  Publishing to Cloud still emits deployment contract 2:
+
+  - it refuses a sub-day `defaults.timeGrain` or pinned metric grain with an actionable error;
+  - it refuses dataset-level `timeGrains` restrictions it cannot preserve;
+  - published metric grain lists and rehydrated datasets stay at `day` through `year`.
+
+- 9bd5e10: Portable execution now names why it excluded a surface. `UnsupportedContractFeatureError` and `PortableExecutionUnsupportedError` carry a `reason` from the new `UNSUPPORTED_CONTRACT_REASONS` export (for example `HQ_PORTABLE_AMBIGUOUS_MEASURE_SQL` or `HQ_PORTABLE_DERIVED_METRIC_WITHOUT_FORMULA`), alongside the unchanged `HQ_SEMANTIC_UNSUPPORTED_CAPABILITY` code. Existing constructors remain valid.
+- 9239794: Relationship joins no longer fall back silently. A query builder without `leftAnyJoin` now rejects relationship-qualified queries with a clear error instead of downgrading to a fan-out `leftJoin`. The in-memory backend refuses duplicate to-one target keys and never matches `NULL` keys. The new `checkRelationships(dataset, { queryBuilder })` reports `belongsTo`/`hasOne` targets whose join key is not unique.
+
+### Patch Changes
+
+- b085b08: Expose dataset segments on every query surface. Semantic input schemas, and therefore OpenAPI and the MCP tools, accept `segments` as an enum of the dataset's declared names. Serve dataset and metric endpoints, and the MCP `query_dataset`/`query_metric` tools, forward them to the query. Typed dataset and metric inputs infer declared segment names, including through Serve and React; MCP argument types can opt into a dataset-specific type. Datasets without segments keep their existing schemas.
+- Updated dependencies [74f4843]
+- Updated dependencies [5d798f4]
+- Updated dependencies [1ddd78b]
+- Updated dependencies [2ddef5b]
+  - @hypequery/protocol@0.16.0
+
 ## 0.18.0
 
 ### Minor Changes

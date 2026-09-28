@@ -1,5 +1,18 @@
 # @hypequery/serve
 
+## 0.19.1
+
+### Patch Changes
+
+- b085b08: Expose dataset segments on every query surface. Semantic input schemas, and therefore OpenAPI and the MCP tools, accept `segments` as an enum of the dataset's declared names. Serve dataset and metric endpoints, and the MCP `query_dataset`/`query_metric` tools, forward them to the query. Typed dataset and metric inputs infer declared segment names, including through Serve and React; MCP argument types can opt into a dataset-specific type. Datasets without segments keep their existing schemas.
+- Updated dependencies [091b8a6]
+- Updated dependencies [1740f23]
+- Updated dependencies [c48b1b0]
+- Updated dependencies [9bd5e10]
+- Updated dependencies [9239794]
+- Updated dependencies [b085b08]
+  - @hypequery/datasets@0.19.0
+
 ## 0.19.0
 
 ### Minor Changes

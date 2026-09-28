@@ -70,6 +70,7 @@ import type {
 } from './types/builder-state.js';
 import {
   SelectableItem,
+  CheckedSelections,
   SelectableColumn,
   ArraySelectableColumn,
   SelectionResult,
@@ -630,8 +631,8 @@ export class QueryBuilder<
    * ```
    */
   select(columnsOrAsterisk: '*'): QueryBuilder<Schema, UpdateOutput<State, BaseRow<State>>>;
-  select<Selections extends ReadonlyArray<SelectableItem<State>>>(
-    columnsOrAsterisk: Selections
+  select<const Selections extends ReadonlyArray<SelectableItem<State>>>(
+    columnsOrAsterisk: CheckedSelections<State, Selections>
   ): QueryBuilder<Schema, UpdateOutput<State, SelectionResult<State, Selections[number]>>>;
   select<Selections extends ReadonlyArray<SelectableItem<State>>>(columnsOrAsterisk: '*' | Selections) {
     if (columnsOrAsterisk === '*') {
@@ -658,8 +659,8 @@ export class QueryBuilder<
     );
   }
 
-  selectConst<Selections extends ReadonlyArray<SelectableItem<State>>>(
-    ...columns: Selections
+  selectConst<const Selections extends ReadonlyArray<SelectableItem<State>>>(
+    ...columns: CheckedSelections<State, Selections>
   ): QueryBuilder<Schema, UpdateOutput<State, SelectionResult<State, Selections[number]>>> {
     return this.select(columns);
   }
