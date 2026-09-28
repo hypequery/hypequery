@@ -170,6 +170,8 @@ in a derived formula:
 
 <CodeBlock>
 ```typescript
+import { createDatasetClient } from '@hypequery/datasets';
+
 const Orders = dataset('orders', {
   source: 'orders',
   timeKey: 'createdAt',
