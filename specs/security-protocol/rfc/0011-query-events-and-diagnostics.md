@@ -35,7 +35,8 @@ fields:
 - `rowCount`: optional affected or returned row count, at most 10^12;
 - `tenantFingerprint`: optional server-derived tenant fingerprint (64
   lowercase hexadecimal characters). It is derived from the tenant context
-  with a server-held secret; the raw tenant identifier never appears;
+  with a server-held secret, as defined in RFC 0009 § Tenant fingerprint. The
+  raw tenant identifier never appears;
 - `correlationId`: optional caller-supplied external correlation identifier.
   It is never authoritative and never influences routing, caches, or
   authorization (RFC 0010).

@@ -24,6 +24,97 @@ The SDK is organised as:
 
 Python and TypeScript implement the same specifications and run against the same conformance fixtures. The goal is identical semantic and deployment artifacts across both languages, not a line-for-line port of the TypeScript runtime.
 
+## Querying datasets
+
+`create_dataset_client` is the entry point for running semantic queries. It
+plans each query, hands the compiled statement to an executor, and returns
+rows keyed by column name.
+
+```python
+from hypequery.datasets import (
+    DatasetQuery,
+    ExecutionContext,
+    create_dataset_client,
+    create_dataset_registry,
+    eq,
+    tenant,
+)
+from hypequery.execution import ClickHouseConnection, create_clickhouse_executor
+
+executor = create_clickhouse_executor(ClickHouseConnection(host="localhost", database="analytics"))
+client = create_dataset_client(
+    executor=executor, registry=create_dataset_registry(orders, customers)
+)
+
+result = client.execute(
+    "orders",
+    DatasetQuery(
+        dimensions=("customer.country",), measures=("revenue",), filters=(eq("status", "paid"),)
+    ),
+    context=ExecutionContext(tenant=tenant("org_123")),
+)
+result.data  # ({"customer.country": "NZ", "revenue": "1200.50"}, ...)
+result.meta  # query_id, row_count, timing_ms
+executor.close()
+```
+
+A target is a `Dataset` or the name of a registered dataset. The registry also
+resolves relationship targets, so pass one when a query traverses a
+relationship. A query can also be a plain mapping (for example a request body);
+it is validated strictly and unknown keys are rejected. The tenant always comes
+from the trusted `ExecutionContext`, never from the query.
+
+`client.validate(...)` reports whether a query would plan without running it.
+`client.to_sql(...)` returns the redacted debug statement, which has no values
+and cannot be executed. For async code, use `create_async_dataset_client` with
+an async executor and `await client.execute(...)`. The client does not own the
+executor, so close the executor when the application shuts down.
+
+## Result caching
+
+Pass a `ResultCache` to cache results. Keys follow RFC 0009 and RFC 0013: the
+store only ever sees opaque `hq1.…` keys, never queries, tenant ids, or filter
+values.
+
+```python
+from hypequery.datasets import MemoryCacheStore, ResultCache, create_dataset_client
+
+cache = ResultCache(
+    store=MemoryCacheStore(max_entries=1_000),
+    project="acme",
+    environment="production",
+    ttl_seconds=60,
+)
+client = create_dataset_client(executor=executor, registry=registry, cache=cache)
+result = client.execute("orders", query, context=context)
+result.meta.cache  # "miss", then "hit" for the same request
+```
+
+- **Tenant isolation.** Entries are keyed by tenant fingerprint, so two tenants
+  never share an entry. Tenant-free, tenant-scoped, and `all_tenants()`
+  executions never share one either.
+- **Equivalent requests share an entry.** Filter order, `offset: 0`, and empty
+  lists do not create separate entries.
+- **Never fails a query.** A store error, or a query with no portable form,
+  runs uncached and reports `meta.cache == "bypass"`. Pass `use_cache=False`
+  to skip the cache for one call.
+- **The secret is optional.** Without one, the cache generates a random secret
+  for its own lifetime. Keys stay opaque, and entries last as long as the
+  process, which is all an in-memory store needs.
+- **Shared stores need a secret to share entries.** For a store such as Redis,
+  pass `secret=bytes.fromhex(os.environ["HYPEQUERY_CACHE_SECRET"])`: 32+ random
+  bytes, the same on every instance, distinct per environment, and never
+  shipped. Without one, instances stay isolated from each other, and a warning
+  says so. Increment `key_version` when you rotate it.
+- **Sharing across runtimes.** Set `definition_identity` to the deployed bundle
+  identity to share entries with other runtimes serving the same release.
+  Otherwise a digest of the local definitions is used, and any definition
+  change starts fresh.
+
+`CacheStore` is a small protocol (`get`, `set`), so a shared store such as
+Redis can be plugged in. Stores are called synchronously, including from the
+async client.
+
 ## ClickHouse execution
 
 The execution extra accepts `CompiledQuery` objects emitted by the planner.

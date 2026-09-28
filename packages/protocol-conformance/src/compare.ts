@@ -131,6 +131,12 @@ function compareSuccessOutput(ec: EnumeratedCase, o: Record<string, unknown>): C
       return outcome(ec, 'fail', { expected: 'segments', actual: 'mismatch' });
     }
   }
+  if (ec.family === 'cache-preimages-v1') {
+    // By name only: a preimage holds filter values, so a report never prints one.
+    if (o.preimageUtf8 !== ec.case.preimageUtf8) {
+      return outcome(ec, 'fail', { expected: 'preimageUtf8', actual: 'mismatch' });
+    }
+  }
   if (ec.family === 'cache-keys-v1') {
     // Reported as 'mismatch' rather than by value: a run against non-fixture
     // inputs would otherwise print keys derived from a real secret.

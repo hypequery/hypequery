@@ -58,6 +58,23 @@ Consequence: the original PY-PROBE-01 (3–5 day probe) is no longer a
 stop-and-decide gate. It becomes the first two conformance PRs of a continuing
 train.
 
+## Progress (assessed 28 September 2026)
+
+| Train | Delivered | Remaining |
+|---|---|---|
+| PY-A | PYA-01…PYA-05 (workspace, CI, JCS/tagged values, identifiers, conformance gate) | PYA-00/PYA-02 are org-account and release work, not code |
+| PY-B | PYB-01…PYB-08; contract 3 and expression extension 2 (RFC 0015); PYB-09 dataset client | Pagination `hasMore` metadata, which needs a planner over-fetch (pick up with PYD-02) |
+| PY-C | PYC-01 executor; PYC-02 cancellation and concurrency budgets; PYC-04 cache keys, preimage, and result cache (`cache-keys-v1` and `cache-preimages-v1` green in both languages) | PYC-03 is unblocked now that RFC 0009 is accepted; PYC-05 needs RFC 0011 accepted |
+| PY-D | none (`hypequery.serve` is still the extra guard only) | PYD-01 needs PYC-03 |
+| PY-E | none | all |
+
+RFC 0009 was accepted on 28 September 2026. Next steps:
+- PYC-03 (tenant capability), which unblocks all of PY-D;
+- TSP-05, so the TypeScript datasets cache uses the same RFC 0009/0013 keys as
+  Python;
+- TSP-04 (server-side binding in `@hypequery/clickhouse`), which is still
+  open.
+
 ## Non-goals
 
 - No Python query-builder port of `@hypequery/clickhouse`. The Python surface
@@ -195,6 +212,32 @@ PYC-01 are merged.
   DST datetimes; `substituteParameters` remains only for the non-executing
   debug/render path.
 - **Review:** Security review required.
+
+### TSP-05 — Protocol cache keys in `@hypequery/datasets`
+- **Scope:** Move the TypeScript result cache from its readable
+  `query-signature.ts` keys to RFC 0009 preimages and RFC 0013 keys
+  (`buildProtocolCachePreimage` and `deriveProtocolCacheKey`). Match the
+  Python `ResultCache` exactly on the secret:
+  - it stays optional;
+  - when omitted, the cache generates a random 32-byte secret for its
+    lifetime;
+  - a non-memory store without a secret logs a one-time warning that
+    instances will not share entries;
+  - an empty or short secret is a startup error.
+- **Why:** TypeScript and Python runtimes serving the same release cannot
+  share entries until then, and the TypeScript store key space exposes tenant
+  values and filter criteria.
+- **User impact:**
+  - Default in-memory users see no change.
+  - Shared-store users see a one-time cold cache on upgrade, and should set a
+    secret to share entries across instances.
+  - Anything that pattern-matches store keys stops working, because keys
+    are opaque.
+- **Acceptance:** The TypeScript and Python clients derive the same store key
+  for the same release, query, tenant, and secret. `scope` folds into the
+  definition identity, so different backends never collide.
+- **Review:** Security review required. It needs a changeset, a changelog
+  migration note, and updates to both caching docs pages.
 
 ### TSP-03 — Public/privileged metadata split parity tracking
 - **Scope:** Tracking issue + serve implementation of the RFC 0009 metadata
@@ -372,6 +415,16 @@ PYC-01 are merged.
 
 ### PYB-09 — Dataset client
 - **Dependencies:** PYB-08, PYC-01.
+- **Status (2026-09-28):** Delivered as `create_dataset_client` /
+  `create_async_dataset_client` in `hypequery.datasets.client`. Executors are
+  structural protocols, so `hypequery.datasets` still never imports the
+  driver. Result metadata is limited to what RFC 0009 treats as public:
+  query ID, row count, and timing. It deliberately does not report the
+  over-fetched `hasMore` pagination flag, which moves to PYD-02. The in-memory
+  backend was not built: the TypeScript version evaluates semantic plans
+  without SQL. Here the planner's SQL is the thing under test, so unit tests
+  use a recording executor, and a live test in `test_clickhouse_live.py` runs
+  both clients against ClickHouse.
 - **Scope:** `create_dataset_client(...)` — the canonical entry point,
   mirroring the TypeScript decision that `createDatasetClient` leads and
   backend wiring is advanced-only. Sync and async variants.
@@ -418,12 +471,29 @@ PYC-01 are merged.
 
 ### PYC-04 — Cache preimage and opaque keys
 - **Dependencies:** TSP-02, PYB-08.
-- **Scope:** Canonical cache preimage (in-memory only) → versioned
-  HMAC-derived opaque key; memory cache store; pluggable store interface
-  with the key contract enforced at the boundary.
-- **Acceptance:** `cache-keys-v1` fixtures green; no preimage ever reaches
-  a store key, log, or metric label (asserted in tests).
-- **Review:** Security review required.
+- **Status (2026-09-28):** Delivered, in three steps.
+  - *Key derivation.* `hypequery.protocol.cache_keys` is byte-identical to
+    `@hypequery/protocol`. `cache-keys-v1` is a required CI family.
+  - *Preimage.* RFC 0009 was accepted with "Tenant fingerprint" and "Cache
+    preimage" sections. `buildProtocolCachePreimage` and
+    `build_protocol_cache_preimage` are both held to the `cache-preimages-v1`
+    fixtures. The Python adapter announces the family, and CI requires it.
+  - *Result cache.* It lives in `hypequery.datasets.cache`:
+    - `ResultCache` holds the secret, the namespace, the TTL, and an
+      optional deployed definition identity;
+    - `CacheStore` is the store protocol, with `MemoryCacheStore` as a
+      thread-safe LRU with TTL;
+    - it is wired into both dataset clients, and `meta.cache` reports
+      `hit`, `miss`, `bypass` or `off`;
+    - the secret is optional. Without one, a random per-cache secret keeps
+      keys opaque but unshared across instances, and a shared store warns.
+    Planning runs before any cache lookup. Any key or store failure runs the
+    call uncached. Python integer filters map to the binary64 numbers a
+    TypeScript caller would send, so both languages build the same preimage.
+  - *Found along the way.* Python cannot deploy `between` measure filters,
+    because `deployment_values.py` encodes the bounds as an array rather than
+    an RFC 0003 tuple. This is filed separately. The cache encodes them
+    correctly.
 
 ### PYC-05 — Query events and diagnostics (RFC 0011)
 - **Dependencies:** PYB-08, RFC 0011 accepted.

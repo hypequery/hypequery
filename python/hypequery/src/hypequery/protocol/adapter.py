@@ -11,6 +11,12 @@ from hypequery import __version__
 
 from .bundle_codec import prepare_protocol_deployment_bundle_manifest
 from .bundles import validate_protocol_deployment_bundle_manifest
+from .cache_keys import (
+    ProtocolCacheKeyError,
+    derive_protocol_cache_key,
+    derive_protocol_cache_namespace_token,
+)
+from .cache_preimages import ProtocolCachePreimageError, build_protocol_cache_preimage
 from .deployment_codec import (
     prepare_protocol_deployment_contract,
     prepare_protocol_deployment_contract_v3,
@@ -63,6 +69,8 @@ from .values import (
 from .wire_numbers import to_binary64_tree
 
 FAMILIES = (
+    "cache-keys-v1",
+    "cache-preimages-v1",
     "tagged-values-v1",
     "identifiers-v1",
     "expressions-v1",
@@ -315,7 +323,62 @@ def _handle_release(role: str, case: dict[str, object]) -> dict[str, object]:
         return {"ok": False, "code": error.code}
 
 
+def _handle_cache_key(role: str, case: dict[str, object]) -> dict[str, object]:
+    generator = case.get("generator")
+    if type(generator) is dict:
+        if generator.get("type") != "repeat-string" or type(generator.get("utf8")) is not str:
+            raise RuntimeError(f"unknown cache-key generator: {generator.get('type')!r}")
+        preimage = str(generator["utf8"]) * generator_integer(generator, "count")
+    else:
+        preimage = str(case.get("preimageUtf8", ""))
+    namespace = case.get("namespace")
+    if type(namespace) is not dict:
+        raise RuntimeError("cache-key case is missing its namespace")
+    secret = bytes.fromhex(str(case.get("secretHex", "")))
+    project = namespace.get("project")
+    environment = namespace.get("environment")
+    try:
+        key = derive_protocol_cache_key(
+            secret=secret,
+            project=project,  # type: ignore[arg-type] # validated by the deriver
+            environment=environment,  # type: ignore[arg-type]
+            key_version=case.get("keyVersion"),  # type: ignore[arg-type]
+            preimage=preimage,
+        )
+    except ProtocolCacheKeyError as error:
+        return {"ok": False, "code": error.code}
+    if role != "success":
+        return {"ok": True}
+    token = derive_protocol_cache_namespace_token(
+        secret,
+        project,  # type: ignore[arg-type]
+        environment,  # type: ignore[arg-type]
+    )
+    return {"ok": True, "output": {"key": key, "namespaceToken": token}}
+
+
+def _handle_cache_preimage(role: str, case: dict[str, object]) -> dict[str, object]:
+    tenant = case.get("tenant")
+    try:
+        preimage = build_protocol_cache_preimage(
+            secret=bytes.fromhex(str(case.get("secretHex", ""))),
+            definition_identity=case.get("definitionIdentity"),  # type: ignore[arg-type]
+            query=case.get("query"),
+            tenant=tenant if isinstance(tenant, dict) else {},
+            row_limit=case.get("rowLimit"),  # type: ignore[arg-type]
+        )
+    except ProtocolCachePreimageError as error:
+        return {"ok": False, "code": error.code}
+    if role != "success":
+        return {"ok": True}
+    return {"ok": True, "output": {"preimageUtf8": preimage}}
+
+
 def _handle(family: str, role: str, case: dict[str, object], section: object) -> dict[str, object]:
+    if family == "cache-keys-v1":
+        return _handle_cache_key(role, case)
+    if family == "cache-preimages-v1":
+        return _handle_cache_preimage(role, case)
     if family == "tagged-values-v1":
         return _handle_tagged_value(role, case)
     if family == "identifiers-v1":

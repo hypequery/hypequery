@@ -36,6 +36,13 @@ describe('compareCase', () => {
     expect(compareCase(ec, { ok: true, output: {} }).status).toBe('fail');
   });
 
+  it('checks the exact bytes for cache-preimage success', () => {
+    const ec = makeCase('success', 'cache-preimages-v1', { preimageUtf8: '{"v":1}' });
+    expect(compareCase(ec, { ok: true, output: { preimageUtf8: '{"v":1}' } }).status).toBe('pass');
+    expect(compareCase(ec, { ok: true, output: { preimageUtf8: '{"v":2}' } }).status).toBe('fail');
+    expect(compareCase(ec, { ok: true, output: {} }).status).toBe('fail');
+  });
+
   it('requires the exact rejection code', () => {
     const ec = makeCase('rejection', 'tagged-values-v1', { error: 'HQ_VALUE_TOO_LARGE' });
     expect(compareCase(ec, { ok: false, code: 'HQ_VALUE_TOO_LARGE' }).status).toBe('pass');
