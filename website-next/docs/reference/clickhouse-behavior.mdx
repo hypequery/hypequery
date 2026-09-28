@@ -160,6 +160,45 @@ Values beyond `2^53` can then lose precision and may not match the generated
 `string` types. When possible, configuring the read-only user's ClickHouse
 profile to quote wide integers preserves the default precision-safe behavior.
 
+## Cancelling a query stops it on the server only when the connection is read-only
+
+Passing an `abortSignal` stops the request in your process immediately:
+
+```ts
+const controller = new AbortController();
+const rows = await db.rawQuery(sql, [], { abortSignal: controller.signal });
+```
+
+Stopping the query on ClickHouse needs two things. ClickHouse keeps running
+a query after its HTTP client disconnects unless
+`cancel_http_readonly_queries_on_client_close` is enabled **and** the request is
+read-only. The client sends queries as POST requests, which ClickHouse does not
+treat as read-only by default.
+
+When a query or stream can be aborted, hypequery sends
+`cancel_http_readonly_queries_on_client_close = 1` for you. It has the lowest
+precedence, so a value in `clickhouse_settings` wins. You still need to make
+the connection read-only, either with a read-only user or like this:
+
+```ts
+const db = createQueryBuilder<IntrospectedSchema>({
+  url: process.env.CLICKHOUSE_URL!,
+  username: process.env.CLICKHOUSE_USERNAME!,
+  password: process.env.CLICKHOUSE_PASSWORD ?? '',
+  clickhouse_settings: { readonly: '2' },
+});
+```
+
+Use `readonly: '2'`, not `1`. Level `1` also stops the connection changing
+settings, including this one. `readonly: '2'` also rejects `INSERT` and DDL
+statements, so use a separate connection for writes.
+
+A `readonly = 1` user rejects the cancellation setting. hypequery then sends
+the query once more without it and doesn't send the setting on that connection
+again. The query hadn't started, so resending it is safe. Aborting still works
+in your process; to stop queries on the server as well, enable
+`cancel_http_readonly_queries_on_client_close` in that user's profile.
+
 ## Practical guidance
 
 If you are deciding where something belongs, the usual rules are:

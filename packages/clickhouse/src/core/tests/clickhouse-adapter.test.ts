@@ -496,3 +496,157 @@ describe('ClickHouseAdapter abort signals', () => {
     });
   });
 });
+
+describe('ClickHouseAdapter server-side cancellation', () => {
+  const CANCEL = 'cancel_http_readonly_queries_on_client_close';
+
+  /** What @clickhouse/client throws when a `readonly = 1` connection refuses a setting. */
+  const readonlyCancelError = () =>
+    Object.assign(
+      new Error(`Cannot modify '${CANCEL}' setting in readonly mode. `),
+      { code: '164', type: 'READONLY' },
+    );
+
+  const okResult = () => ({ json: vi.fn().mockResolvedValue([]) });
+
+  it('asks ClickHouse to cancel an abortable query when its client goes away', async () => {
+    const clientQueryMock = vi.fn().mockResolvedValue(okResult());
+    const adapter = new ClickHouseAdapter({ client: { query: clientQueryMock } as any });
+
+    await adapter.query('SELECT 1', [], { abortSignal: new AbortController().signal });
+
+    expect(clientQueryMock.mock.calls[0][0].clickhouse_settings).toMatchObject({ [CANCEL]: 1 });
+  });
+
+  it('applies the same setting to abortable streams', async () => {
+    const clientQueryMock = vi.fn().mockResolvedValue({
+      stream: () => Readable.from(['{"id":1}\n']),
+    });
+    const adapter = new ClickHouseAdapter({ client: { query: clientQueryMock } as any });
+
+    await adapter.stream('SELECT 1', [], { abortSignal: new AbortController().signal });
+
+    expect(clientQueryMock.mock.calls[0][0].clickhouse_settings).toMatchObject({ [CANCEL]: 1 });
+  });
+
+  it('sends nothing extra for a query that cannot be aborted', async () => {
+    const clientQueryMock = vi.fn().mockResolvedValue(okResult());
+    const adapter = new ClickHouseAdapter({
+      client: { query: clientQueryMock } as any,
+      integerJsonEncoding: 'server-default',
+    });
+
+    await adapter.query('SELECT 1');
+
+    expect(clientQueryMock.mock.calls[0][0].clickhouse_settings).toEqual({});
+  });
+
+  it('lets connection-level and per-query settings override the default', async () => {
+    const clientQueryMock = vi.fn().mockResolvedValue(okResult());
+    const configured = new ClickHouseAdapter({
+      client: { query: clientQueryMock } as any,
+      clickhouse_settings: { [CANCEL]: 0 },
+    });
+    const perQuery = new ClickHouseAdapter({ client: { query: clientQueryMock } as any });
+    const signal = new AbortController().signal;
+
+    await configured.query('SELECT 1', [], { abortSignal: signal });
+    await perQuery.query('SELECT 1', [], {
+      abortSignal: signal,
+      clickhouseSettings: { [CANCEL]: 0 },
+    });
+
+    expect(clientQueryMock.mock.calls[0][0].clickhouse_settings[CANCEL]).toBe(0);
+    expect(clientQueryMock.mock.calls[1][0].clickhouse_settings[CANCEL]).toBe(0);
+  });
+
+  // Cancellation is best effort: a `readonly = 1` connection that could abort
+  // queries before this default existed must keep working unchanged.
+  it('resends once without the setting when a readonly = 1 connection refuses it', async () => {
+    const clientQueryMock = vi
+      .fn()
+      .mockRejectedValueOnce(readonlyCancelError())
+      .mockResolvedValue({ json: vi.fn().mockResolvedValue([{ id: 1 }]) });
+    const adapter = new ClickHouseAdapter({
+      client: { query: clientQueryMock } as any,
+      integerJsonEncoding: 'server-default',
+    });
+
+    const rows = await adapter.query('SELECT 1', [], {
+      abortSignal: new AbortController().signal,
+    });
+
+    expect(rows).toEqual([{ id: 1 }]);
+    expect(clientQueryMock).toHaveBeenCalledTimes(2);
+    expect(clientQueryMock.mock.calls[1][0].clickhouse_settings).toEqual({});
+  });
+
+  it('stops sending the setting once the connection has refused it', async () => {
+    const clientQueryMock = vi
+      .fn()
+      .mockRejectedValueOnce(readonlyCancelError())
+      .mockResolvedValue(okResult());
+    const adapter = new ClickHouseAdapter({
+      client: { query: clientQueryMock } as any,
+      integerJsonEncoding: 'server-default',
+    });
+    const signal = new AbortController().signal;
+
+    await adapter.query('SELECT 1', [], { abortSignal: signal });
+    await adapter.query('SELECT 2', [], { abortSignal: signal });
+
+    expect(clientQueryMock).toHaveBeenCalledTimes(3);
+    expect(clientQueryMock.mock.calls[2][0].clickhouse_settings).toEqual({});
+  });
+
+  it('does not resend after the caller has aborted', async () => {
+    const controller = new AbortController();
+    const clientQueryMock = vi.fn().mockImplementationOnce(async () => {
+      controller.abort(new Error('caller gave up'));
+      throw readonlyCancelError();
+    });
+    const adapter = new ClickHouseAdapter({
+      client: { query: clientQueryMock } as any,
+      integerJsonEncoding: 'server-default',
+    });
+
+    await expect(
+      adapter.query('SELECT 1', [], { abortSignal: controller.signal }),
+    ).rejects.toThrow('caller gave up');
+    expect(clientQueryMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not resend for a readonly refusal of any other setting', async () => {
+    const error = Object.assign(
+      new Error("Cannot modify 'max_execution_time' setting in readonly mode."),
+      { code: '164', type: 'READONLY' },
+    );
+    const clientQueryMock = vi.fn().mockRejectedValue(error);
+    const adapter = new ClickHouseAdapter({
+      client: { query: clientQueryMock } as any,
+      integerJsonEncoding: 'server-default',
+    });
+
+    await expect(
+      adapter.query('SELECT 1', [], { abortSignal: new AbortController().signal }),
+    ).rejects.toBe(error);
+    expect(clientQueryMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not resend when the caller owns the refused setting', async () => {
+    const error = readonlyCancelError();
+    const clientQueryMock = vi.fn().mockRejectedValue(error);
+    const adapter = new ClickHouseAdapter({
+      client: { query: clientQueryMock } as any,
+      integerJsonEncoding: 'server-default',
+    });
+
+    await expect(
+      adapter.query('SELECT 1', [], {
+        abortSignal: new AbortController().signal,
+        clickhouseSettings: { [CANCEL]: 1 },
+      }),
+    ).rejects.toBe(error);
+    expect(clientQueryMock).toHaveBeenCalledTimes(1);
+  });
+});

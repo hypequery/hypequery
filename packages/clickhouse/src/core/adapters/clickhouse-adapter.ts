@@ -24,6 +24,10 @@ import {
   buildIntegerJsonSettings,
   createReadonlyIntegerJsonError,
 } from '../utils/integer-json-encoding.js';
+import {
+  cancelOnClientCloseDefault,
+  isReadonlyCancelOnClientCloseError,
+} from '../utils/cancel-on-client-close.js';
 import type { ClickHouseSettings } from '@clickhouse/client-common';
 
 /**
@@ -43,6 +47,11 @@ export class ClickHouseAdapter implements DatabaseAdapter {
   /** Connection-level settings, so they can outrank the adapter's own defaults. */
   private readonly configSettings?: ClickHouseSettings;
   private readonly integerJsonEncoding: IntegerJsonEncoding;
+  /**
+   * Set once this connection refuses the cancellation setting (`readonly = 1`),
+   * so later queries skip it rather than paying a rejected round trip each.
+   */
+  private cancelOnClientCloseRejected = false;
 
   constructor(config: ClickHouseAdapterConfig) {
     this.namespace = deriveClickHouseNamespace(config);
@@ -59,6 +68,7 @@ export class ClickHouseAdapter implements DatabaseAdapter {
   private async withReadonlyGuidance<T>(
     optionSettings: ClickHouseSettings | undefined,
     send: (settings: ClickHouseSettings) => Promise<T>,
+    adapterDefaults?: ClickHouseSettings,
   ): Promise<T> {
     const attempt = buildIntegerJsonSettings(
       this.integerJsonEncoding,
@@ -67,7 +77,7 @@ export class ClickHouseAdapter implements DatabaseAdapter {
     );
 
     try {
-      return await send(attempt.settings);
+      return await send({ ...adapterDefaults, ...attempt.settings });
     } catch (error) {
       const guidanceError = createReadonlyIntegerJsonError(
         error,
@@ -77,12 +87,42 @@ export class ClickHouseAdapter implements DatabaseAdapter {
     }
   }
 
+  /**
+   * Sends a read with server-side cancellation enabled when it can be aborted.
+   *
+   * Without `cancel_http_readonly_queries_on_client_close`, an aborted query
+   * keeps running on ClickHouse after the client gives up. The setting is the
+   * lowest-precedence default, so a caller-provided value wins. A `readonly = 1`
+   * connection refuses every setting it is sent; there the query is resent
+   * once without it — it never started — and the setting is not sent again.
+   */
+  private async sendRead<T>(
+    options: QueryExecutionOptions | undefined,
+    send: (settings: ClickHouseSettings) => Promise<T>,
+  ): Promise<T> {
+    const cancelDefault = cancelOnClientCloseDefault({
+      abortSignal: options?.abortSignal,
+      configSettings: this.configSettings,
+      optionSettings: options?.clickhouseSettings,
+      rejected: this.cancelOnClientCloseRejected,
+    });
+
+    try {
+      return await this.withReadonlyGuidance(options?.clickhouseSettings, send, cancelDefault);
+    } catch (error) {
+      if (!cancelDefault || !isReadonlyCancelOnClientCloseError(error)) throw error;
+      this.cancelOnClientCloseRejected = true;
+      throwIfAborted(options?.abortSignal);
+      return this.withReadonlyGuidance(options?.clickhouseSettings, send);
+    }
+  }
+
   async query<T>(sql: string, params: unknown[] = [], options?: QueryExecutionOptions): Promise<T[]> {
     // The ClickHouse clients never check an already-aborted signal, so fail before sending anything.
     throwIfAborted(options?.abortSignal);
     const finalSQL = substituteParameters(sql, params);
-    const result = await this.withReadonlyGuidance<QueryResultSet>(
-      options?.clickhouseSettings,
+    const result = await this.sendRead<QueryResultSet>(
+      options,
       clickhouseSettings =>
         this.client.query({
           query: finalSQL,
@@ -104,8 +144,8 @@ export class ClickHouseAdapter implements DatabaseAdapter {
   async stream<T>(sql: string, params: unknown[] = [], options?: QueryExecutionOptions): Promise<ReadableStream<T[]>> {
     throwIfAborted(options?.abortSignal);
     const finalSQL = substituteParameters(sql, params);
-    const result = await this.withReadonlyGuidance<QueryResultSet>(
-      options?.clickhouseSettings,
+    const result = await this.sendRead<QueryResultSet>(
+      options,
       clickhouseSettings =>
         this.client.query({
           query: finalSQL,
