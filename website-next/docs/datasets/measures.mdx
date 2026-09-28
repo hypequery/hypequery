@@ -159,6 +159,16 @@ bounds use that timezone; explicit offsets represent instants. Catalogs and
 agent projections expose window parameters and `requiresTimeRange: true`.
 Window-dependent formulas are selectable through the same query API.
 
+Use explicit offsets for bounds inside a repeated daylight-saving hour.
+Timezone-free bounds follow ClickHouse's local-time interpretation. Returned
+`period` strings are local labels without offsets, so distinct hourly buckets
+during fall-back can have identical labels; do not use those labels as unique
+row identifiers.
+
+Historical timezone changes that skip an entire local calendar bucket, such as
+Samoa's skipped date in 2011, are rejected in the output series and window
+lookback. Use a time key expressed in UTC to query those ranges.
+
 Cloud publishing still rejects window definitions until deployment contract 3
 support is available. The deprecated semantic backend path does not execute
 windows. There is no separate `windowMeasures` property on a dataset instance.

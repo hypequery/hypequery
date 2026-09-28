@@ -2,6 +2,7 @@ import { GRAIN_FUNCTIONS } from '../constants.js';
 import type { WindowTimeAxis } from './window-time-axis.js';
 import type { TimeMeasureSqlSource } from './time-measure-source-sql.js';
 import { addTimeSql as add, subtractTimeSql as subtract } from './time-arithmetic-sql.js';
+import { calendarBucketGuardSql } from './time-axis-calendar-guard.js';
 
 export interface TimeMeasureSqlAxis {
   ctes: string[];
@@ -27,9 +28,11 @@ export function buildTimeMeasureAxisSql(
   const count = `dateDiff('${axis.grain}', _hq_first, _hq_last) + 1`;
   const emptyRange = axis.lowerInclusive && axis.upperInclusive ? '' : ' OR _hq_lower = _hq_upper';
   const rangeGuard = `throwIf(_hq_lower > _hq_upper${emptyRange}, 'Window measure time range must be non-empty and ordered.')`;
-  const guard = axis.resultLimit === undefined
+  const limitGuard = axis.resultLimit === undefined
     ? '0'
     : `throwIf(${count} > ${axis.resultLimit}, 'Window series exceeds the effective result limit of ${axis.resultLimit} buckets.')`;
+  const calendarGuard = calendarBucketGuardSql('_hq_first', `${count} + ${limitGuard} + ${rangeGuard}`, axis.grain);
+  const guard = `${limitGuard} + ${calendarGuard}`;
 
   // A zero-row scalar retains the physical timestamp type and timezone.
   // Reading any(time) here would scan the entire population just for its type.
