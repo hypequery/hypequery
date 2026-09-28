@@ -1,3 +1,4 @@
+import { baseMeasureNames } from './utils/dataset-measures.js';
 import { protocolMetricCapabilityErrors } from './utils/protocol-metric-capabilities.js';
 /**
  * Semantic dataset client internals.
@@ -953,7 +954,7 @@ export class DatasetClientImpl extends MetricQueryEngine implements DatasetClien
           data: serializeSemanticMeasureValues(
             result.data,
             // Same measures either way; boundedQuery differs only in `limit`.
-            boundedQuery.measures ?? Object.keys(ds.measures),
+            boundedQuery.measures ?? baseMeasureNames(ds.measures),
           ),
         }));
       }

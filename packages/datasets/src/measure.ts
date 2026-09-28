@@ -5,8 +5,12 @@ import type {
   MeasureDefinition,
   MeasureOptions,
   MeasureAggregation,
+  MeasureTimeInterval,
+  TimeGrain,
+  WindowMeasureDefinition,
 } from './types.js';
 import { snapshotSemanticMetadata } from './utils/semantic-metadata.js';
+import { createWindowMeasure, type WindowMeasureOptions } from './utils/window-measure-definition.js';
 
 function createMeasureHelper(aggregation: MeasureAggregation) {
   return (field: string, opts?: MeasureOptions): MeasureDefinition => ({
@@ -108,4 +112,13 @@ export const measure = {
   variance: createMeasureHelper('variance'),
   /** A formula over base measures owned by this dataset. */
   derived: createDerivedMeasure,
+  /** Re-aggregate rows over a trailing interval of whole query buckets. */
+  trailing: <const TMeasureName extends string>(baseMeasure: TMeasureName, interval: MeasureTimeInterval, options?: WindowMeasureOptions): WindowMeasureDefinition<TMeasureName> =>
+    createWindowMeasure(baseMeasure, { trailing: { ...interval } }, options),
+  /** Re-aggregate rows from the enclosing period's start through each bucket. */
+  toDate: <const TMeasureName extends string>(baseMeasure: TMeasureName, grain: Exclude<TimeGrain, 'minute'>, options?: WindowMeasureOptions): WindowMeasureDefinition<TMeasureName> =>
+    createWindowMeasure(baseMeasure, { toDate: grain }, options),
+  /** Running sum/count/minimum/maximum over all rows through each bucket. */
+  cumulative: <const TMeasureName extends string>(baseMeasure: TMeasureName, options?: WindowMeasureOptions): WindowMeasureDefinition<TMeasureName> =>
+    createWindowMeasure(baseMeasure, { cumulative: true }, options),
 } as const;

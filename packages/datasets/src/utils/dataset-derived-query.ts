@@ -1,3 +1,4 @@
+import { baseMeasureNames, getBaseMeasure, getDerivedMeasure } from './dataset-measures.js';
 import type { SemanticExpression } from '../semantic-plan.js';
 import type { AnyDatasetInstance, DatasetQuery, DatasetQueryResult, DerivedMeasureDefinition } from '../types.js';
 import type { QueryBuilderLike } from '../query-builder-protocol.js';
@@ -14,7 +15,7 @@ type BuildBaseQuery = (
 ) => QueryBuilderLike;
 
 export function hasSelectedDerivedMeasure(ds: AnyDatasetInstance, query: DatasetQuery): boolean {
-  return (query.measures ?? []).some(name => Object.hasOwn(ds.derivedMeasures, name));
+  return (query.measures ?? []).some(name => getDerivedMeasure(ds.measures, name) !== undefined);
 }
 
 function expressionSql(expression: SemanticExpression, uses: Readonly<Record<string, string>>): string {
@@ -71,10 +72,10 @@ export function buildDerivedDatasetSql(
     throw new Error(`Invalid dataset query: ${validation.errors.join('; ')}`);
   }
 
-  const selected = query.measures ?? Object.keys(ds.measures);
-  const baseMeasures = new Set(selected.filter(name => Object.hasOwn(ds.measures, name)));
+  const selected = query.measures ?? baseMeasureNames(ds.measures);
+  const baseMeasures = new Set(selected.filter(name => getBaseMeasure(ds.measures, name) !== undefined));
   for (const name of selected) {
-    const derived = Object.hasOwn(ds.derivedMeasures, name) ? ds.derivedMeasures[name] : undefined;
+    const derived = getDerivedMeasure(ds.measures, name);
     if (derived) Object.values(derived.uses).forEach(base => baseMeasures.add(base));
   }
   const inner = buildBaseQuery(ds, {
@@ -90,7 +91,7 @@ export function buildDerivedDatasetSql(
   if (query.by) projections.push(quoteSQLIdentifier('period'));
   for (const dimension of query.dimensions ?? []) projections.push(quoteSQLIdentifier(dimension));
   for (const name of selected) {
-    const derived = Object.hasOwn(ds.derivedMeasures, name) ? ds.derivedMeasures[name] : undefined;
+    const derived = getDerivedMeasure(ds.measures, name);
     projections.push(derived
       ? derivedProjection(name, derived)
       : quoteSQLIdentifier(name));

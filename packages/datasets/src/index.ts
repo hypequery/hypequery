@@ -250,6 +250,8 @@ export type {
   DimensionDefinition,
   MeasureOptions,
   MeasureDefinition,
+  MeasureTimeInterval,
+  WindowMeasureDefinition,
   DatasetMeasureDefinition,
   DerivedMeasureDefinition,
   DerivedMeasureOptions,

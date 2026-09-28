@@ -149,26 +149,59 @@ export interface DerivedMeasureDefinition<
   description?: string;
 }
 
-export type DatasetMeasureDefinition = MeasureDefinition | DerivedMeasureDefinition;
+/** A positive whole-number interval used by a time-window measure. */
+export interface MeasureTimeInterval {
+  readonly amount: number;
+  readonly unit: TimeGrain;
+}
 
-/** Only aggregate measures may be inputs to derived measures and standalone metrics. */
+interface WindowMeasureCommon<TMeasureName extends string = string> extends SemanticMetadata {
+  readonly __type: 'window_measure_definition';
+  /** The base measure on this dataset whose rows are re-aggregated. */
+  readonly measure: TMeasureName;
+  readonly label?: string;
+  readonly description?: string;
+}
+
+export type WindowMeasureMode =
+  | { readonly trailing: MeasureTimeInterval; readonly toDate?: never; readonly cumulative?: never }
+  | { readonly toDate: Exclude<TimeGrain, 'minute'>; readonly trailing?: never; readonly cumulative?: never }
+  | { readonly cumulative: true; readonly trailing?: never; readonly toDate?: never };
+
+export type WindowMeasureDefinition<TMeasureName extends string = string> =
+  WindowMeasureCommon<TMeasureName> & WindowMeasureMode;
+
+export type DatasetMeasureDefinition = MeasureDefinition | DerivedMeasureDefinition | WindowMeasureDefinition;
+
+/** Aggregate measures can back windows and standalone metrics. */
 export type BaseMeasureNames<TMeasures> = {
   [Name in keyof TMeasures]: Extract<TMeasures[Name], MeasureDefinition> extends never ? never : Name;
 }[keyof TMeasures] & string;
 
 export type BaseMeasures<TMeasures> = {
-  [Name in keyof TMeasures as TMeasures[Name] extends MeasureDefinition ? Name : never]:
+  [Name in keyof TMeasures as Extract<TMeasures[Name], MeasureDefinition> extends never ? never : Name]:
     Extract<TMeasures[Name], MeasureDefinition>;
 };
 
 export type DerivedMeasures<TMeasures> = {
-  [Name in keyof TMeasures as TMeasures[Name] extends DerivedMeasureDefinition ? Name : never]:
+  [Name in keyof TMeasures as Extract<TMeasures[Name], DerivedMeasureDefinition> extends never ? never : Name]:
     Extract<TMeasures[Name], DerivedMeasureDefinition>;
 };
 
+export type WindowMeasures<TMeasures> = {
+  [Name in keyof TMeasures as Extract<TMeasures[Name], WindowMeasureDefinition> extends never ? never : Name]:
+    Extract<TMeasures[Name], WindowMeasureDefinition>;
+};
+
+type DerivedInputMeasureNames<TMeasures> = BaseMeasureNames<TMeasures> | {
+  [Name in keyof TMeasures]: Extract<TMeasures[Name], WindowMeasureDefinition> extends never ? never : Name;
+}[keyof TMeasures] & string;
+
 type CheckedDatasetMeasures<TMeasures> = {
   [Name in keyof TMeasures]: TMeasures[Name] extends DerivedMeasureDefinition<infer TUses>
-    ? TMeasures[Name] & { readonly uses: { readonly [Alias in keyof TUses]: BaseMeasureNames<TMeasures> } }
+    ? TMeasures[Name] & { readonly uses: { readonly [Alias in keyof TUses]: DerivedInputMeasureNames<TMeasures> } }
+    : TMeasures[Name] extends WindowMeasureDefinition
+      ? TMeasures[Name] & { readonly measure: BaseMeasureNames<TMeasures> }
     : TMeasures[Name];
 };
 
@@ -192,7 +225,7 @@ export interface DerivedMetricSpec<TDatasetName extends string = string> {
 export type DefaultMetricDataset<TDatasetName extends string = string> =
   DatasetInstance<
     Record<string, DimensionDefinition>,
-    Record<string, MeasureDefinition>,
+    Record<string, DatasetMeasureDefinition>,
     Record<string, RelationshipDefinition>,
     TDatasetName
   >;
@@ -480,7 +513,7 @@ export interface DatasetConfig<
 
 export interface DatasetInstance<
   TDimensions extends Record<string, DimensionDefinition> = Record<string, DimensionDefinition>,
-  TMeasures extends Record<string, MeasureDefinition> = Record<string, MeasureDefinition>,
+  TMeasures extends Record<string, DatasetMeasureDefinition> = Record<string, DatasetMeasureDefinition>,
   TRelationships extends Record<string, RelationshipDefinition> = Record<string, never>,
   TDatasetName extends string = string,
   TDerivedMeasures extends Record<string, DerivedMeasureDefinition> = Record<string, DerivedMeasureDefinition>,
@@ -504,7 +537,9 @@ export interface DatasetInstance<
   timeKey?: string;
   timeGrains?: readonly TimeGrain[];
   dimensions: TDimensions;
+  /** All declared measures: base aggregates, formulas, and time windows. */
   measures: TMeasures;
+  /** @deprecated Use measures; derived definitions have __type: "derived_measure_definition". */
   derivedMeasures: TDerivedMeasures;
   filters: SemanticFiltersDefinition;
   relationships: TRelationships;
@@ -513,7 +548,7 @@ export interface DatasetInstance<
   segments: TSegments;
   metric<TName extends string>(
     metricName: TName,
-    metricConfig: BaseMetricConfig<TMeasures>,
+    metricConfig: BaseMetricConfig<BaseMeasures<TMeasures>>,
   ): BaseMetricRef<TDatasetName, TName, DatasetInstance<TDimensions, TMeasures, TRelationships, TDatasetName, TDerivedMeasures, TSegments>>;
   metric<TName extends string>(
     metricName: TName,
@@ -530,7 +565,7 @@ export interface DatasetRegistryInstance {
 
 export type AnyDatasetInstance = DatasetInstance<
   Record<string, DimensionDefinition>,
-  Record<string, MeasureDefinition>,
+  Record<string, DatasetMeasureDefinition>,
   Record<string, RelationshipDefinition>,
   string
 >;
@@ -663,7 +698,7 @@ type SelectedDatasetMeasures<
   TQuery,
 > = TQuery extends { measures: readonly (infer TName)[] }
   ? Extract<TName, DatasetMeasureNames<TDataset>>
-  : KnownStringKeysOrFallback<TDataset['measures']>;
+  : KnownStringKeysOrFallback<BaseMeasures<TDataset['measures']>>;
 
 type PeriodSelection<TQuery> = TQuery extends { by: TimeGrain }
   ? { period?: string }

@@ -8,6 +8,7 @@ import type {
   DerivedMetricSpec,
   DimensionDefinition,
   GrainedMetricRef,
+  DatasetMeasureDefinition,
   MeasureDefinition,
   MetricRef,
   RelationshipDefinition,
@@ -19,7 +20,7 @@ import { snapshotSemanticMetadata } from './semantic-metadata.js';
 import { unsupportedTimeGrainError } from './dataset-time-grains.js';
 
 type AnyDimensions = Record<string, DimensionDefinition>;
-type AnyMeasures = Record<string, MeasureDefinition>;
+type AnyMeasures = Record<string, DatasetMeasureDefinition>;
 type AnyRelationships = Record<string, RelationshipDefinition>;
 
 export function isDerivedMetricConfig<

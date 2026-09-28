@@ -85,6 +85,46 @@ await analytics.execute(Orders, {
 ```
 </CodeBlock>
 
+All declared measure kinds are available on the returned dataset's `measures`
+registry, including `Orders.measures.averageOrderValue`. The older
+`Orders.derivedMeasures` property remains as a deprecated compatibility alias.
+Queries that omit `measures` still select only base aggregations; select derived
+and window measures explicitly. Standalone `dataset.metric()` definitions can
+only wrap base measures.
+
+## Window measure authoring
+
+Declare time windows in the same `measures` object:
+
+<CodeBlock>
+```typescript
+const Orders = dataset('orders', {
+  source: 'orders',
+  timeKey: 'createdAt',
+  dimensions: { createdAt: dimension.timestamp() },
+  measures: {
+    revenue: measure.sum('amount'),
+    trailingRevenue: measure.trailing('revenue', { amount: 7, unit: 'day' }),
+    monthToDateRevenue: measure.toDate('revenue', 'month'),
+    runningRevenue: measure.cumulative('revenue'),
+  },
+});
+
+Orders.measures.runningRevenue; // The window definition, alongside revenue.
+```
+</CodeBlock>
+
+Each window references a base measure on its dataset and requires `timeKey`.
+`cumulative` supports only `sum`, `count`, `min`, and `max`. A derived formula
+may reference a base or window measure, but cannot reference another derived
+measure.
+
+Window support currently covers authoring and definition validation. Execution
+and Cloud publishing reject window measures until window planning is
+implemented. Executable catalogs and generated query schemas omit windows and
+derived formulas that depend on them. There is no separate `windowMeasures`
+property on the dataset instance.
+
 ## Aggregation helpers
 
 - `measure.sum(field, opts?)`

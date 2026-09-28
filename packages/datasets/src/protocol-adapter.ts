@@ -1,3 +1,4 @@
+import { splitDatasetMeasures } from './utils/dataset-measures.js';
 import { filterExpression, metricExpression, metricDerivation } from './utils/protocol-metric-expressions.js';
 import {
   parseProtocolIdentifier,
@@ -121,6 +122,13 @@ export function buildProtocolDatasetContract(
   dataset: AnyDatasetInstance,
   options: BuildProtocolDatasetContractOptions = {},
 ): ProtocolDatasetContract {
+  const { base: baseMeasures, windows } = splitDatasetMeasures(dataset.measures);
+  const windowMeasureNames = Object.keys(windows);
+  if (windowMeasureNames.length > 0) {
+    throw new Error(
+      `Dataset "${dataset.name}" window measures (${windowMeasureNames.join(', ')}) need deployment contract 3 (RFC 0015).`,
+    );
+  }
   assertNoPublishedSegments(dataset);
   assertPublishableTimeGrains(dataset);
   const metrics = Object.entries(options.metrics ?? {})
@@ -180,7 +188,7 @@ export function buildProtocolDatasetContract(
       ...(dimension.description !== undefined ? { description: dimension.description } : {}),
       ...toProtocolSemanticMetadata(dimension),
     })).sort(byName),
-    measures: Object.entries(dataset.measures).map(([name, measure]) => ({
+    measures: Object.entries(baseMeasures).map(([name, measure]) => ({
       name,
       aggregation: requirePortableAggregation(measure.aggregation, `Measure "${dataset.name}.${name}"`),
       field: measure.field,

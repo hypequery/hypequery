@@ -1,3 +1,4 @@
+import { splitDatasetMeasures } from './utils/dataset-measures.js';
 import {
   parseProtocolIdentifier,
   validateProtocolDeploymentContract,
@@ -24,7 +25,7 @@ export function buildProtocolDeploymentContract(
       endpoint: options.endpoints?.[dataset.name],
     });
     const { metrics: _metrics, ...base } = contract;
-    const derived = Object.entries(dataset.derivedMeasures ?? {}).map(([name, definition]) => ({
+    const derived = Object.entries(splitDatasetMeasures(dataset.measures).derived).map(([name, definition]) => ({
       kind: 'derived' as const,
       name: parseProtocolIdentifier(name),
       uses: Object.entries(definition.uses).map(([alias, measure]) => ({
