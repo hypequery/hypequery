@@ -1,5 +1,40 @@
 # @hypequery/mcp
 
+## 0.8.4
+
+### Patch Changes
+
+- f9205cb: Add `measure.shift` for period comparisons through the query-builder client. Shifted measures share window time-axis validation, gap filling, filters, tenant scope, and derived formulas. Catalogs and agent projections expose their intervals and time-range requirements.
+
+  Reject shifted source ranges that cross a skipped local calendar bucket, including empty populations, rather than duplicating comparison values.
+
+  Comparisons match partial query ranges and preserve endpoint operators. Catalogs and agent projections expose compatible grains for time measures and their formulas.
+
+- e3ef451: Add typed authoring definitions for trailing, to-date, and cumulative dataset measures. Validate base-measure references and cumulative aggregation support, and reject execution and Cloud publishing until RFC 0015 window planning is implemented.
+
+  Exclude window-dependent derived measures from executable catalogs and query schemas until window planning is available.
+
+  Keep base, derived, and window definitions together in the returned dataset's `measures` registry. Retain `derivedMeasures` as a deprecated compatibility alias, while default queries and standalone metrics continue to use only base measures.
+
+- 6e883b5: Execute trailing, to-date, and cumulative dataset measures through the query-builder client, including sparse-series filling, lookback filters, and derived formulas. Expose window parameters and time-range requirements in catalogs and agent projections. MCP dataset guides list these measures with their time-axis requirements.
+
+  Reject ranges that cross a skipped local calendar bucket, including window lookback, instead of generating duplicate buckets and incorrect totals.
+
+- b3a2966: Add an execution `timezone` to dataset and metric queries, with a client default
+  and UTC as the fallback. Buckets, local time-key filters, windows, and period
+  comparisons use the selected IANA timezone. Cache entries are separated by
+  execution timezone, and Serve and MCP accept query overrides.
+
+  Remove the metadata-only `timezone` field from semantic definitions. Set it on
+  `createDatasetClient` or the query instead.
+
+- Updated dependencies [f9205cb]
+- Updated dependencies [0846e87]
+- Updated dependencies [e3ef451]
+- Updated dependencies [6e883b5]
+- Updated dependencies [b3a2966]
+  - @hypequery/datasets@0.20.0
+
 ## 0.8.3
 
 ### Patch Changes

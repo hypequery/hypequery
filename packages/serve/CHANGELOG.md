@@ -1,5 +1,24 @@
 # @hypequery/serve
 
+## 0.19.2
+
+### Patch Changes
+
+- b3a2966: Add an execution `timezone` to dataset and metric queries, with a client default
+  and UTC as the fallback. Buckets, local time-key filters, windows, and period
+  comparisons use the selected IANA timezone. Cache entries are separated by
+  execution timezone, and Serve and MCP accept query overrides.
+
+  Remove the metadata-only `timezone` field from semantic definitions. Set it on
+  `createDatasetClient` or the query instead.
+
+- Updated dependencies [f9205cb]
+- Updated dependencies [0846e87]
+- Updated dependencies [e3ef451]
+- Updated dependencies [6e883b5]
+- Updated dependencies [b3a2966]
+  - @hypequery/datasets@0.20.0
+
 ## 0.19.1
 
 ### Patch Changes
