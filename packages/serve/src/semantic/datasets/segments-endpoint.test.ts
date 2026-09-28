@@ -43,6 +43,29 @@ function request(body: unknown): ServeRequest {
 }
 
 describe('dataset endpoint segments', () => {
+  it('uses a query timezone override for dataset and metric time-key filters', async () => {
+    const factory = capturingFactory();
+    const Events = dataset('orders', {
+      source: 'events', timeKey: 'time',
+      dimensions: { time: dimension.timestamp({ column: 'event_at' }) },
+      measures: { revenue: measure.sum('amount') },
+    });
+    const api = createAPI({
+      datasets: { orders: Events }, metrics: { revenue: Events.metric('revenue', { measure: 'revenue' }) },
+      queryBuilder: factory,
+    });
+    const body = { by: 'day', timezone: 'America/New_York', filters: [{ field: 'time', operator: 'gte', value: '2026-01-02' }] };
+    const datasetResponse = await api.handler(request({ ...body, measures: ['revenue'] }));
+    expect(factory.wheres).toContainEqual(["toDateTime64(event_at, 9, 'America/New_York')", 'gte', '2026-01-02']);
+    factory.wheres.length = 0;
+    const metricResponse = await api.handler({ ...request(body), path: '/api/analytics/metrics/revenue' });
+    expect(datasetResponse.status).toBe(200);
+    expect(metricResponse.status).toBe(200);
+    expect(factory.wheres).toContainEqual(["toDateTime64(event_at, 9, 'America/New_York')", 'gte', '2026-01-02']);
+    const invalid = await api.handler(request({ ...body, measures: ['revenue'], timezone: 'Bad/Zone' }));
+    expect(invalid.status).toBe(400);
+  });
+
   it('forwards selected segments to the dataset query', async () => {
     const factory = capturingFactory();
     const api = createAPI({ datasets: { orders: Orders }, queryBuilder: factory });

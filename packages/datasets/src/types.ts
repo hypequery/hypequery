@@ -14,7 +14,6 @@ export interface SemanticMetadata {
   format?: string;
   unit?: string;
   currency?: string;
-  timezone?: string;
   sensitivity?: SemanticSensitivity;
 }
 
@@ -247,7 +246,6 @@ export interface MetricRef<
   format?: string;
   unit?: string;
   currency?: string;
-  timezone?: string;
   sensitivity?: SemanticSensitivity;
   dataset: TDataset;
   by(grain: TimeGrain): GrainedMetricRef<TDatasetName, TMetricName, TSpec, TDataset>;
@@ -299,7 +297,6 @@ export interface MetricContract {
   format?: string;
   unit?: string;
   currency?: string;
-  timezone?: string;
   sensitivity?: SemanticSensitivity;
   dimensions: string[];
   measures?: string[];
@@ -341,6 +338,8 @@ export interface MetricQuery {
   limit?: number;
   offset?: number;
   by?: TimeGrain;
+  /** IANA timezone for buckets and local time-key bounds; overrides the client default. */
+  timezone?: string;
 }
 
 export interface DatasetQuery {
@@ -353,6 +352,8 @@ export interface DatasetQuery {
   limit?: number;
   offset?: number;
   by?: TimeGrain;
+  /** IANA timezone for buckets and local time-key bounds; overrides the client default. */
+  timezone?: string;
 }
 
 export interface MetricResultMeta {
@@ -528,7 +529,6 @@ export interface DatasetInstance<
   format?: string;
   unit?: string;
   currency?: string;
-  timezone?: string;
   freshness?: DatasetFreshness;
   owner?: string;
   sensitivity?: SemanticSensitivity;
@@ -683,6 +683,8 @@ export interface DatasetQueryFor<TDataset extends DatasetInstance<any, any, any,
   limit?: number;
   offset?: number;
   by?: TimeGrain;
+  /** IANA timezone for buckets and local time-key bounds; overrides the client default. */
+  timezone?: string;
   includeMeta?: boolean;
 }
 
@@ -740,6 +742,8 @@ export interface MetricQueryFor<
   limit?: number;
   offset?: number;
   by?: TimeGrain;
+  /** IANA timezone for buckets and local time-key bounds; overrides the client default. */
+  timezone?: string;
   includeMeta?: boolean;
 }
 

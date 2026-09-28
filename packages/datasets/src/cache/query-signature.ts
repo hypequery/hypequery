@@ -1,3 +1,4 @@
+import { windowQuerySignature } from '../utils/window-query-signature.js';
 /**
  * Canonical cache keys for semantic queries.
  *
@@ -126,10 +127,12 @@ export function buildDatasetQuerySignature(
     dimensions: query.dimensions ?? null,
     // `null` distinguishes the "all measures" default from an explicit [].
     measures: query.measures ?? null,
+    ...windowQuerySignature(ds, query),
     filters: filterSignature(query.filters),
     ...segmentSignature(ds, query.segments),
     orderBy: orderBySignature(query.orderBy),
     by: query.by ?? null,
+    ...(query.timezone === undefined ? {} : { timezone: query.timezone }),
     limit: query.limit ?? null,
     offset: query.offset ?? null,
     tenant: tenantSignature(ds, query, context),
@@ -155,6 +158,7 @@ export function buildMetricQuerySignature(
     ...segmentSignature(ref.dataset, query.segments),
     orderBy: orderBySignature(query.orderBy),
     by: grain ?? null,
+    ...(query.timezone === undefined ? {} : { timezone: query.timezone }),
     limit: query.limit ?? null,
     offset: query.offset ?? null,
     tenant: tenantSignature(ref.dataset, query, context),

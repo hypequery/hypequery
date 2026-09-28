@@ -30,7 +30,10 @@ export function datasetGuidePrompt(datasets: DatasetRegistry, datasetName?: stri
 ${dimensions.map((d) => `- ${d}`).join('\n')}
 
 ## Available Measures
-${measures.map((m) => `- ${m}`).join('\n')}
+${measures.map((m) => {
+  const requiresRange = catalog?.measures[m]?.requiresTimeRange || catalog?.derivedMeasures?.[m]?.requiresTimeRange;
+  return `- ${m}${requiresRange ? ` (requires by and a bounded ISO time range on ${catalog?.timeKey})` : ''}`;
+}).join('\n')}
 
 ## Available Metrics
 ${metrics.map((m) => `- ${m}`).join('\n')}

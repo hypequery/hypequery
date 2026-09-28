@@ -27,8 +27,8 @@ describe('datasetGuidePrompt', () => {
     const text = datasetGuidePrompt({ orders }, 'orders').messages[0].content.text;
     expect(text).toContain('- revenue\n');
     expect(text).toContain('- revenueRatio\n');
-    expect(text).not.toContain('- runningRevenue');
-    expect(text).not.toContain('- growth');
+    expect(text).toContain('- runningRevenue (requires by and a bounded ISO time range on createdAt)');
+    expect(text).toContain('- growth (requires by and a bounded ISO time range on createdAt)');
   });
 
   it('should throw error when specific dataset not found', () => {

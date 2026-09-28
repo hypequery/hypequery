@@ -1,4 +1,5 @@
-import { baseMeasureNames, getDerivedMeasure, isWindowMeasure } from './dataset-measures.js';
+import { queryTimezoneErrors } from './query-timezone.js';
+import { baseMeasureNames } from './dataset-measures.js';
 import type {
   AnyDatasetInstance,
   DatasetQuery,
@@ -19,14 +20,14 @@ import {
   validateRelationshipTenantRuntime,
 } from './relationship-validation.js';
 import { segmentSelectionErrors } from './segments.js';
-import { usesWindowMeasure } from './window-measure-dependencies.js';
+import { analyzeWindowTimeAxis } from './window-time-axis.js';
 
 export function validateDatasetQueryInput(
   ds: AnyDatasetInstance,
   query: DatasetQuery,
   context?: ExecutionContext,
 ): ValidationResult {
-  const errors: string[] = [];
+  const errors: string[] = queryTimezoneErrors(query.timezone);
   const dimensionNames = Object.keys(ds.dimensions);
   const measureNames = Object.keys(ds.measures);
   const selectedDimensions = query.dimensions ?? [];
@@ -68,15 +69,6 @@ export function validateDatasetQueryInput(
 
   if (query.measures) {
     for (const measure of query.measures) {
-      if (Object.hasOwn(ds.measures, measure) && isWindowMeasure(ds.measures[measure])) {
-        errors.push(`Window measure "${measure}" is not executable until RFC 0015 window planning is available.`);
-        continue;
-      }
-      const derived = getDerivedMeasure(ds.measures, measure);
-      if (derived && usesWindowMeasure(derived, ds.measures)) {
-        errors.push(`Derived measure "${measure}" uses a window measure and is not executable until RFC 0015 window planning is available.`);
-        continue;
-      }
       if (isQualifiedField(measure)) {
         errors.push(
           `Measure "${measure}" is relationship-qualified. Measures can only be defined on the base dataset "${ds.name}", not traversed through relationships.`,
@@ -162,6 +154,8 @@ export function validateDatasetQueryInput(
   if (query.by && !ds.timeKey) {
     errors.push(`Cannot use "by" grain — dataset "${ds.name}" has no timeKey.`);
   }
+
+  errors.push(...analyzeWindowTimeAxis(ds, query).errors);
 
   errors.push(...segmentSelectionErrors(ds, query.segments));
 

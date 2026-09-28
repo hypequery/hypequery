@@ -1,3 +1,4 @@
+import { windowCatalogMetadata, type WindowCatalogMetadata } from './window-catalog-metadata.js';
 /**
  * Per-source projections behind `projectAgentSafeCatalog()`.
  *
@@ -46,12 +47,12 @@ export interface RecordShapedDataset extends SemanticMetadata {
     readonly filterable: boolean;
     readonly groupable: boolean;
   }>>;
-  readonly measures: Readonly<Record<string, SemanticMetadata & {
+  readonly measures: Readonly<Record<string, SemanticMetadata & WindowCatalogMetadata & {
     readonly label?: string;
     readonly description?: string;
     readonly approximate?: true;
   }>>;
-  readonly derivedMeasures?: Readonly<Record<string, SemanticMetadata & {
+  readonly derivedMeasures?: Readonly<Record<string, SemanticMetadata & WindowCatalogMetadata & {
     readonly label?: string;
     readonly description?: string;
     readonly approximate?: true;
@@ -167,6 +168,7 @@ export function recordDatasetToAgentDataset(dataset: RecordShapedDataset): Agent
       [...Object.entries(dataset.measures), ...Object.entries(dataset.derivedMeasures ?? {})].map(([name, measure]) => ({
         name,
         ...optionalText(measure),
+        ...windowCatalogMetadata(measure),
         ...snapshotSemanticMetadata(measure),
         ...(measure.approximate ? { approximate: true as const } : {}),
       })),

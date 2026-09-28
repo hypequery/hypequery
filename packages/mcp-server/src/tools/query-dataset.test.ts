@@ -38,6 +38,16 @@ describe('queryDatasetTool', () => {
     ).rejects.toThrow('At least one dimension or measure must be specified');
   });
 
+  it('forwards a query timezone override', async () => {
+    const analytics = createMockAnalytics({ data: [], meta: {} });
+    await queryDatasetTool({ orders: {} }, analytics, {
+      dataset: 'orders', measures: ['revenue'], timezone: 'America/New_York',
+    });
+    expect(analytics.execute).toHaveBeenCalledWith(
+      expect.anything(), expect.objectContaining({ timezone: 'America/New_York' }), expect.anything(),
+    );
+  });
+
   it('should execute query with dimensions only', async () => {
     const mockResult = {
       data: [

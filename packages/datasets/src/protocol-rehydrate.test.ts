@@ -229,7 +229,7 @@ describe('contract-to-catalog rehydration', () => {
   });
 
   it('preserves semantic metadata at every contract level', () => {
-    const metadata = { examples: ['example'], synonyms: ['alias'], format: 'currency', unit: 'USD', currency: 'USD', timezone: 'UTC', sensitivity: 'internal' as const };
+    const metadata = { examples: ['example'], synonyms: ['alias'], format: 'currency', unit: 'USD', currency: 'USD', sensitivity: 'internal' as const };
     const source = deployment.datasets.find(item => item.name === 'orders')!;
     const contract = {
       ...source, ...metadata, description: 'Order analytics', owner: 'Finance',

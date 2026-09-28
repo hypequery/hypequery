@@ -105,7 +105,7 @@ as an agent-facing MCP tool.
 ## Agent metadata
 
 Datasets, dimensions, measures, filters, and metrics accept optional `examples`,
-`synonyms`, `format`, `unit`, `currency`, `timezone`, and `sensitivity` metadata.
+`synonyms`, `format`, `unit`, `currency`, and `sensitivity` metadata.
 Datasets also accept a description, freshness expectation, owner, and safe query
 defaults:
 
@@ -116,14 +116,13 @@ const Orders = dataset('orders', {
   description: 'Governed order analytics.',
   examples: ['Revenue by region', 'Weekly order volume'],
   synonyms: ['purchases'],
-  timezone: 'UTC',
   freshness: { maxAgeSeconds: 300 },
   owner: 'analytics@example.com',
   sensitivity: 'internal',
   defaults: { dimensions: ['region'], timeGrain: 'week' },
   timeKey: 'createdAt',
   dimensions: {
-    createdAt: dimension.timestamp({ format: 'date-time', timezone: 'UTC' }),
+    createdAt: dimension.timestamp({ format: 'date-time' }),
     region: dimension.string({ examples: ['EMEA', 'NA'], synonyms: ['market'] }),
   },
 });

@@ -1,3 +1,5 @@
+import { queryTimeSql } from './utils/query-timezone.js';
+import { assertNoRawSqlUnderJoins } from './utils/sql-under-joins.js';
 import type {
   AggregationSpec,
   AnyDatasetInstance,
@@ -24,29 +26,6 @@ type DatasetShape = AnyDatasetInstance;
 
 function toOrderDirection(direction: MetricOrderBy['direction']): 'ASC' | 'DESC' {
   return direction === 'asc' ? 'ASC' : 'DESC';
-}
-
-/**
- * Raw SQL expressions on the base dataset are emitted verbatim, so their column
- * references are not table-qualified. When relationship joins are active a bare
- * `price` in such an expression is ambiguous if the joined table also has a
- * `price` column. Until the builder rewrites identifiers inside expressions,
- * reject the combination rather than emit ambiguous SQL.
- */
-function assertNoRawSqlUnderJoins(
-  kind: 'dimension' | 'measure',
-  name: string,
-  sql: string,
-  joinCtx?: RelationshipBuilderContext,
-): void {
-  if (!joinCtx) {
-    return;
-  }
-  throw new Error(
-    `SQL-backed ${kind} "${name}" cannot be combined with relationship joins: its expression ` +
-    `("${sql}") is not table-qualified and may collide with joined columns. Query it without ` +
-    `relationship-qualified fields, or redeclare it as a plain column.`,
-  );
 }
 
 export function resolveDimensionExpression(
@@ -82,6 +61,7 @@ export function buildDimensionSelectionPlan(
   dimensions: string[],
   grain: TimeGrain | undefined,
   joinCtx?: RelationshipBuilderContext,
+  timezone?: string,
 ): { selectParts: string[]; groupByParts: string[] } {
   const selectParts: string[] = [];
   const groupByParts = new Set<string>();
@@ -91,7 +71,8 @@ export function buildDimensionSelectionPlan(
     if (!fn) {
       throw new Error(`Unsupported time grain "${grain}".`);
     }
-    selectParts.push(`${fn}(${qualifyBaseColumn(joinCtx, String(ds.timeKey))}) AS period`);
+    const time = resolveDimensionExpression(ds, String(ds.timeKey), joinCtx);
+    selectParts.push(`${fn}(${queryTimeSql(time, timezone)}) AS period`);
     groupByParts.add("period");
   }
 

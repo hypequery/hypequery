@@ -17,7 +17,6 @@ describe('agent-oriented semantic metadata', () => {
     description: 'Governed order analytics.',
     examples: ['Revenue by region', 'Weekly order volume'],
     synonyms: ['purchases', 'sales orders'],
-    timezone: 'Europe/Madrid',
     freshness: { maxAgeSeconds: 300 },
     owner: 'analytics@example.com',
     sensitivity: 'internal',
@@ -27,7 +26,6 @@ describe('agent-oriented semantic metadata', () => {
       createdAt: dimension.timestamp({
         label: 'Created at',
         format: 'date-time',
-        timezone: 'UTC',
       }),
       region: dimension.string({
         examples: ['EMEA', 'NA'],
@@ -86,7 +84,6 @@ describe('agent-oriented semantic metadata', () => {
         description: 'Governed order analytics.',
         examples: ['Revenue by region', 'Weekly order volume'],
         synonyms: ['purchases', 'sales orders'],
-        timezone: 'Europe/Madrid',
         freshness: { maxAgeSeconds: 300 },
         owner: 'analytics@example.com',
         sensitivity: 'internal',

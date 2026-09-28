@@ -57,9 +57,9 @@ describe('sub-day grains', () => {
   it('buckets by hour and minute on the query-builder path', () => {
     const client = createDatasetClient({ queryBuilder: sqlFactory() });
     expect(client.toSQL(Events, { measures: ['events'], by: 'hour' }))
-      .toBe('SELECT toStartOfHour(created_at) AS period, COUNT(id) AS events FROM events GROUP BY period');
+      .toBe("SELECT toStartOfHour(toDateTime64(created_at, 9, 'UTC')) AS period, COUNT(id) AS events FROM events GROUP BY period");
     const perMinute = Events.metric('eventsPerMinute', { measure: 'events' }).by('minute');
-    expect(client.toSQL(perMinute)).toContain('toStartOfMinute(created_at) AS period');
+    expect(client.toSQL(perMinute)).toContain("toStartOfMinute(toDateTime64(created_at, 9, 'UTC')) AS period");
   });
 
   it('buckets sub-day periods with their time of day in the in-memory backend', async () => {

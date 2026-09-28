@@ -47,7 +47,7 @@ export function validateSemanticMetadata(
       validateText(datasetName, `${location}.${key}[${index}]`, value);
     }
   }
-  for (const key of ['format', 'unit', 'timezone'] as const) {
+  for (const key of ['format', 'unit'] as const) {
     const value = metadata[key];
     if (value !== undefined) validateText(datasetName, `${location}.${key}`, value);
   }

@@ -30,6 +30,27 @@ Supported grains:
 
 `minute` and `hour` buckets keep their time of day, so a period reads like `2024-01-01 10:00:00`.
 
+## Timezone
+
+Buckets and timezone-free time filters use the query timezone. Set an IANA
+name on the client, or override it per query. The default is `UTC`; offsets
+in timestamps always identify instants.
+
+<CodeBlock>
+```typescript
+import { createDatasetClient } from '@hypequery/datasets';
+
+const client = createDatasetClient({ queryBuilder: db, timezone: 'UTC' });
+await client.execute(Orders, {
+  by: 'day',
+  timezone: 'America/New_York',
+  measures: ['revenue'],
+});
+```
+</CodeBlock>
+
+The same `timezone` option works for metrics, windows, and period comparisons.
+
 ## Restricting grains
 
 By default a dataset with a `timeKey` supports every grain. Pass `timeGrains` to narrow the list. Queries, pinned metrics (`.by()`), and the catalog's `supportedGrains` then use only those grains. This is how you refuse sub-day buckets when `timeKey` is a `Date` column with no time of day:
@@ -45,14 +66,6 @@ const DailySales = dataset('daily_sales', {
 });
 ```
 </CodeBlock>
-
-## Publishing to Cloud
-
-Sub-day grains work in local queries, Serve endpoints, and the local MCP server. Hypequery Cloud does not support them yet, because they need deployment contract 3 (RFC 0015), which publishing does not emit yet:
-
-- publishing refuses a dataset whose `defaults.timeGrain`, or a metric pinned with `.by()`, uses `minute` or `hour`;
-- publishing also refuses `timeGrains` restrictions that exclude any day-through-year grain, because contract 2 cannot preserve those dataset-level restrictions;
-- published datasets advertise and accept only `day` through `year`.
 
 ## Time key and timestamp dimensions
 
