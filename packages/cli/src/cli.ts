@@ -168,6 +168,7 @@ program
   .option('--path <path>', 'Analytics directory (loads <path>/api.ts or <path>/queries.ts)')
   .option('--tenant <id>', 'Trusted tenant applied to every tenant-scoped dataset')
   .option('--self-test', 'Check the entrypoint and exit without speaking MCP')
+  .option('--url <url>', 'With --self-test: check a hosted MCP endpoint (key from HYPEQUERY_API_KEY)')
   .action(runCommand(async (file: string | undefined, options: McpOptions) => {
     await mcpCommand(file, options);
   }));
@@ -267,6 +268,7 @@ program
     '--replace-restored',
     'Intentionally replace a restored live release',
   )
+  .option('--mcp-config', 'Also print MCP client configuration for the hosted endpoint')
   .action(runCommand(async (source: string, options: DeployOptions) => {
     await deployCommand(source, options);
   }));

@@ -42,10 +42,15 @@ export type LiveDeployment = {
 
 export type LiveDeploymentFetch = typeof fetch;
 
-function liveUrl(
+/**
+ * The Cloud target resource beside a submissions endpoint, or undefined when
+ * the endpoint is not a Cloud submissions URL. Refuses anything but https (or
+ * loopback http) so a credential is never sent in the clear.
+ */
+export function liveUrl(
   endpoint: string,
   target: ProtocolDeploymentReleaseTarget,
-  resource: 'state' | 'source',
+  resource: 'state' | 'source' | 'endpoints',
 ): string | undefined {
   const url = new URL(endpoint);
   if (!/\/v1\/deployments\/submissions\/?$/.test(url.pathname)) {
