@@ -18,6 +18,7 @@ from .aggregations import (
     sum,  # noqa: A004
     variance,
 )
+from .cache import CachedRows, CacheStore, MemoryCacheStore, ResultCache
 from .catalog import (
     DatasetCatalog,
     DimensionCatalogEntry,
@@ -125,6 +126,8 @@ __all__ = [
     "AggregationType",
     "AsyncDatasetClient",
     "AsyncQueryExecutor",
+    "CacheStore",
+    "CachedRows",
     "CompiledQuery",
     "CompiledQueryError",
     "Dataset",
@@ -151,6 +154,7 @@ __all__ = [
     "FormulaReference",
     "Measure",
     "MeasureCatalogEntry",
+    "MemoryCacheStore",
     "Order",
     "OrderDirection",
     "PreparedDatasetBundle",
@@ -158,6 +162,7 @@ __all__ = [
     "Relationship",
     "RelationshipCatalogEntry",
     "RelationshipKind",
+    "ResultCache",
     "SqlPortabilityFailure",
     "SqlPortabilityIssue",
     "SqlPortabilityIssueCode",

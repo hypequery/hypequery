@@ -11,6 +11,7 @@ from .clients import (
 from .inputs import DatasetTarget, QueryInput
 from .results import (
     AsyncQueryExecutor,
+    CacheStatus,
     DatasetQueryMeta,
     DatasetQueryResult,
     QueryExecutor,
@@ -22,6 +23,7 @@ from .results import (
 __all__ = [
     "AsyncDatasetClient",
     "AsyncQueryExecutor",
+    "CacheStatus",
     "DatasetClient",
     "DatasetQueryMeta",
     "DatasetQueryResult",

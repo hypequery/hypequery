@@ -8,13 +8,18 @@ double that returns columns and rows.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Protocol
+from typing import Literal, Protocol, TypeAlias
 
 from ..planner import CompiledQuery
 
 #: A decoded cell. Matches the execution codec: decimals, UUIDs, dates, and
 #: datetimes arrive as strings so no precision is lost on the way out.
 ResultScalar = str | int | float | bool | None
+
+#: What the result cache did for one call. `off`: no cache is configured.
+#: `bypass`: a cache is configured, but this call could not or asked not to use
+#: it. `hit` and `miss` mean what they say.
+CacheStatus: TypeAlias = Literal["hit", "miss", "bypass", "off"]
 
 
 class ResultRows(Protocol):
@@ -50,6 +55,7 @@ class DatasetQueryMeta:
     query_id: str
     row_count: int
     timing_ms: float
+    cache: CacheStatus = "off"
 
 
 @dataclass(frozen=True, slots=True)
@@ -69,13 +75,21 @@ class ValidationResult:
     errors: tuple[str, ...] = ()
 
 
-def build_result(rows: ResultRows, query_id: str, timing_ms: float) -> DatasetQueryResult:
-    """Key positional rows by column name."""
+def build_result(
+    rows: ResultRows, query_id: str, timing_ms: float, cache: CacheStatus = "off"
+) -> DatasetQueryResult:
+    """Key positional rows by column name.
+
+    Every call gets fresh dicts, so a caller mutating its rows can never alter
+    what a cache hands the next caller.
+    """
 
     columns = tuple(rows.columns)
     data = tuple(dict(zip(columns, row, strict=True)) for row in rows.rows)
     return DatasetQueryResult(
         columns=columns,
         data=data,
-        meta=DatasetQueryMeta(query_id=query_id, row_count=len(data), timing_ms=timing_ms),
+        meta=DatasetQueryMeta(
+            query_id=query_id, row_count=len(data), timing_ms=timing_ms, cache=cache
+        ),
     )

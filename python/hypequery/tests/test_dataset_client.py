@@ -89,7 +89,8 @@ def test_execute_keys_rows_by_column_and_reports_safe_meta() -> None:
     assert result.meta.row_count == 2
     assert result.meta.query_id == executor.seen[0].query_id
     assert result.meta.timing_ms >= 0
-    assert set(type(result.meta).__slots__) == {"query_id", "row_count", "timing_ms"}
+    assert result.meta.cache == "off"
+    assert set(type(result.meta).__slots__) == {"query_id", "row_count", "timing_ms", "cache"}
 
 
 def test_the_executor_receives_the_planned_statement_with_bound_values() -> None:

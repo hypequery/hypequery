@@ -64,14 +64,16 @@ train.
 |---|---|---|
 | PY-A | PYA-01…PYA-05 (workspace, CI, JCS/tagged values, identifiers, conformance gate) | PYA-00/PYA-02 are org-account and release work, not code |
 | PY-B | PYB-01…PYB-08; contract 3 and expression extension 2 (RFC 0015); PYB-09 dataset client | Pagination `hasMore` metadata, which needs a planner over-fetch (pick up with PYD-02) |
-| PY-C | PYC-01 executor; PYC-02 cancellation and concurrency budgets; PYC-04 key derivation (`cache-keys-v1` green) | PYC-03 needs RFC 0009 accepted; PYC-04 result cache waits on the RFC 0009 cache preimage section being accepted; PYC-05 needs RFC 0011 accepted |
+| PY-C | PYC-01 executor; PYC-02 cancellation and concurrency budgets; PYC-04 cache keys, preimage, and result cache (`cache-keys-v1` and `cache-preimages-v1` green in both languages) | PYC-03 is unblocked now that RFC 0009 is accepted; PYC-05 needs RFC 0011 accepted |
 | PY-D | none (`hypequery.serve` is still the extra guard only) | PYD-01 needs PYC-03 |
 | PY-E | none | all |
 
-Next steps: accept RFC 0009 (TSP-01) to unblock PYC-03 and then all of PY-D.
-The same acceptance pass should settle the dataset-query cache preimage, which
-unblocks the rest of PYC-04. TSP-04 (server-side binding in
-`@hypequery/clickhouse`) is still open.
+RFC 0009 was accepted on 28 September 2026. Next steps:
+- PYC-03 (tenant capability), which unblocks all of PY-D;
+- TSP-05, so the TypeScript datasets cache uses the same RFC 0009/0013 keys as
+  Python;
+- TSP-04 (server-side binding in `@hypequery/clickhouse`), which is still
+  open.
 
 ## Non-goals
 
@@ -210,6 +212,21 @@ PYC-01 are merged.
   DST datetimes; `substituteParameters` remains only for the non-executing
   debug/render path.
 - **Review:** Security review required.
+
+### TSP-05 — Protocol cache keys in `@hypequery/datasets`
+- **Scope:** Move the TypeScript result cache from its readable
+  `query-signature.ts` keys to RFC 0009 preimages and RFC 0013 keys
+  (`buildProtocolCachePreimage` and `deriveProtocolCacheKey`). This also
+  makes the cache require a secret, as RFC 0013 does. Today it caches without
+  one, which that RFC forbids.
+- **Why:** Until then, TypeScript and Python runtimes serving the same release
+  cannot share cache entries, and the TypeScript store key space exposes
+  tenant values and filter criteria.
+- **Acceptance:** The TypeScript and Python clients derive the same store key
+  for the same release, query, and tenant. A cache configured without a secret
+  runs uncached rather than insecurely.
+- **Review:** Security review required. This is a behavior change for
+  existing cache users, so it needs a changeset.
 
 ### TSP-03 — Public/privileged metadata split parity tracking
 - **Scope:** Tracking issue + serve implementation of the RFC 0009 metadata
@@ -443,23 +460,27 @@ PYC-01 are merged.
 
 ### PYC-04 — Cache preimage and opaque keys
 - **Dependencies:** TSP-02, PYB-08.
-- **Status (2026-09-28):** Split in two.
-  - *Key derivation: delivered.* It lives in `hypequery.protocol.cache_keys`
-    and is byte-identical to `@hypequery/protocol`. The Python adapter
-    announces `cache-keys-v1`, and CI requires that family.
-  - *Result cache: blocked on a spec gap.* RFC 0013 leaves the preimage's
-    fields to "the containing query contract", and no accepted contract
-    defines them for dataset queries. The only normative rule for
-    tenant-scoped cache keys is RFC 0009 § Cache confusion, and RFC 0009 is
-    still `Proposed`. The TypeScript `query-signature.ts` is a readable
-    signature, not a protocol artifact, and does not derive RFC 0013 keys
-    yet.
-  - *Preimage: proposed.* RFC 0009 now has a "Cache preimage" section, and a
-    "Tenant fingerprint" section that defines the RFC 0011 fingerprint. There
-    are 44 draft fixtures in `drafts/cache-preimages-v1/`, cross-checked
-    between the Python and TypeScript validators. Once RFC 0009 is accepted,
-    move the fixtures into the manifest, then build the memory store and client
-    wiring against them.
+- **Status (2026-09-28):** Delivered, in three steps.
+  - *Key derivation.* `hypequery.protocol.cache_keys` is byte-identical to
+    `@hypequery/protocol`. `cache-keys-v1` is a required CI family.
+  - *Preimage.* RFC 0009 was accepted with "Tenant fingerprint" and "Cache
+    preimage" sections. `buildProtocolCachePreimage` and
+    `build_protocol_cache_preimage` are both held to the `cache-preimages-v1`
+    fixtures. The Python adapter announces the family, and CI requires it.
+  - *Result cache.* It lives in `hypequery.datasets.cache`:
+    - `ResultCache` holds the secret, the namespace, the TTL, and an
+      optional deployed definition identity;
+    - `CacheStore` is the store protocol, with `MemoryCacheStore` as a
+      thread-safe LRU with TTL;
+    - it is wired into both dataset clients, and `meta.cache` reports
+      `hit`, `miss`, `bypass` or `off`.
+    Planning runs before any cache lookup. Any key or store failure runs the
+    call uncached. Python integer filters map to the binary64 numbers a
+    TypeScript caller would send, so both languages build the same preimage.
+  - *Found along the way.* Python cannot deploy `between` measure filters,
+    because `deployment_values.py` encodes the bounds as an array rather than
+    an RFC 0003 tuple. This is filed separately. The cache encodes them
+    correctly.
 
 ### PYC-05 — Query events and diagnostics (RFC 0011)
 - **Dependencies:** PYB-08, RFC 0011 accepted.

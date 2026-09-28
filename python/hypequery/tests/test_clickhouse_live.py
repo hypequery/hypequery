@@ -13,6 +13,8 @@ import pytest
 from hypequery.datasets import (
     Dataset,
     DatasetQuery,
+    MemoryCacheStore,
+    ResultCache,
     count,
     create_async_dataset_client,
     create_dataset_client,
@@ -145,6 +147,17 @@ def test_live_dataset_clients_return_the_same_rows() -> None:
     executor = create_clickhouse_executor(_connection())
     try:
         assert create_dataset_client(executor=executor).execute(one, query).data == expected
+        cache = ResultCache(
+            store=MemoryCacheStore(),
+            secret=b"\x42" * 32,
+            project="live",
+            environment="ci",
+            ttl_seconds=60,
+        )
+        cached = create_dataset_client(executor=executor, cache=cache)
+        first, second = cached.execute(one, query), cached.execute(one, query)
+        assert (first.meta.cache, second.meta.cache) == ("miss", "hit")
+        assert first.data == second.data == expected
     finally:
         executor.close()
 

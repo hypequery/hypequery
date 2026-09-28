@@ -70,6 +70,48 @@ and cannot be executed. For async code, use `create_async_dataset_client` with
 an async executor and `await client.execute(...)`. The client does not own the
 executor, so close the executor when the application shuts down.
 
+## Result caching
+
+Pass a `ResultCache` to cache results. Keys follow RFC 0009 and RFC 0013: the
+store only ever sees opaque `hq1.…` keys, never queries, tenant ids, or filter
+values.
+
+```python
+import os
+
+from hypequery.datasets import MemoryCacheStore, ResultCache, create_dataset_client
+
+cache = ResultCache(
+    store=MemoryCacheStore(max_entries=1_000),
+    secret=bytes.fromhex(os.environ["HYPEQUERY_CACHE_SECRET"]),  # 32+ random bytes
+    project="acme",
+    environment="production",
+    ttl_seconds=60,
+)
+client = create_dataset_client(executor=executor, registry=registry, cache=cache)
+result = client.execute("orders", query, context=context)
+result.meta.cache  # "miss", then "hit" for the same request
+```
+
+- **Tenant isolation.** Entries are keyed by tenant fingerprint, so two tenants
+  never share an entry. Tenant-free, tenant-scoped, and `all_tenants()`
+  executions never share one either.
+- **Equivalent requests share an entry.** Filter order, `offset: 0`, and empty
+  lists do not create separate entries.
+- **Never fails a query.** A store error, or a query with no portable form,
+  runs uncached and reports `meta.cache == "bypass"`. Pass `use_cache=False`
+  to skip the cache for one call.
+- **Secret handling.** The secret must be distinct per project and environment
+  and never shipped. Increment `key_version` when you rotate it.
+- **Sharing across runtimes.** Set `definition_identity` to the deployed bundle
+  identity to share entries with other runtimes serving the same release.
+  Otherwise a digest of the local definitions is used, and any definition
+  change starts fresh.
+
+`CacheStore` is a small protocol (`get`, `set`), so a shared store such as
+Redis can be plugged in. Stores are called synchronously, including from the
+async client.
+
 ## ClickHouse execution
 
 The execution extra accepts `CompiledQuery` objects emitted by the planner.
