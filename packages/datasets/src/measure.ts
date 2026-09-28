@@ -1,3 +1,4 @@
+import { createShiftMeasure, type ShiftMeasureOptions } from './utils/shift-measure-definition.js';
 import type {
   DerivedMeasureDefinition,
   DerivedMeasureOptions,
@@ -8,6 +9,7 @@ import type {
   MeasureTimeInterval,
   TimeGrain,
   WindowMeasureDefinition,
+  ShiftMeasureDefinition,
 } from './types.js';
 import { snapshotSemanticMetadata } from './utils/semantic-metadata.js';
 import { createWindowMeasure, type WindowMeasureOptions } from './utils/window-measure-definition.js';
@@ -110,8 +112,11 @@ export const measure = {
   stddev: createMeasureHelper('stddev'),
   /** Sample variance (ClickHouse `varSamp`). */
   variance: createMeasureHelper('variance'),
-  /** A formula over base measures owned by this dataset. */
+  /** A formula over base, window, or shifted measures owned by this dataset. */
   derived: createDerivedMeasure,
+  /** Evaluate a base measure in an earlier aligned period. */
+  shift: <const TMeasureName extends string>(baseMeasure: TMeasureName, interval: MeasureTimeInterval, options?: ShiftMeasureOptions): ShiftMeasureDefinition<TMeasureName> =>
+    createShiftMeasure(baseMeasure, interval, options),
   /** Re-aggregate rows over a trailing interval of whole query buckets. */
   trailing: <const TMeasureName extends string>(baseMeasure: TMeasureName, interval: MeasureTimeInterval, options?: WindowMeasureOptions): WindowMeasureDefinition<TMeasureName> =>
     createWindowMeasure(baseMeasure, { trailing: { ...interval } }, options),

@@ -4,6 +4,7 @@ import type {
   DerivedMeasures,
   MeasureDefinition,
   WindowMeasureDefinition,
+  ShiftMeasureDefinition,
 } from '../types.js';
 
 export function isDerivedMeasure(
@@ -22,6 +23,10 @@ export function isWindowMeasure(
   definition: DatasetMeasureDefinition | null | undefined,
 ): definition is WindowMeasureDefinition {
   return definition?.__type === 'window_measure_definition';
+}
+
+export function isShiftMeasure(definition: DatasetMeasureDefinition | null | undefined): definition is ShiftMeasureDefinition {
+  return definition?.__type === 'shift_measure_definition';
 }
 
 export function baseMeasureNames(measures: Record<string, DatasetMeasureDefinition>): string[] {
@@ -45,11 +50,13 @@ export function splitDatasetMeasures(
   base: Record<string, MeasureDefinition>;
   derived: Record<string, DerivedMeasureDefinition>;
   windows: Record<string, WindowMeasureDefinition>;
+  shifts: Record<string, ShiftMeasureDefinition>;
 } {
   const entries = Object.entries(measures ?? {});
   return {
     base: Object.fromEntries(entries.filter((entry): entry is [string, MeasureDefinition] => isBaseMeasure(entry[1]))),
     derived: Object.fromEntries(entries.filter((entry): entry is [string, DerivedMeasureDefinition] => isDerivedMeasure(entry[1]))),
+    shifts: Object.fromEntries(entries.filter((entry): entry is [string, ShiftMeasureDefinition] => isShiftMeasure(entry[1]))),
     windows: Object.fromEntries(entries.filter((entry): entry is [string, WindowMeasureDefinition] => isWindowMeasure(entry[1]))),
   };
 }

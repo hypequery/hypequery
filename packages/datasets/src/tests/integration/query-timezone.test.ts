@@ -69,6 +69,23 @@ describe('query timezone against ClickHouse', () => {
     expect(hit.meta.cache?.hit).toBe(true);
   });
 
+  it.each([['UTC', '50'], ['Asia/Tokyo', '30'], ['America/New_York', '70']])(
+    'uses the requested %s timezone for shifted source buckets', async (timezone, prior) => {
+      const Comparisons = dataset('timezoneComparisons', {
+        source: table, timeKey: 'time', dimensions: TokyoSource.dimensions,
+        measures: { revenue: measure.sum('value'), prior: measure.shift('revenue', { amount: 1, unit: 'day' }) },
+      });
+      const result = await client.execute(Comparisons, {
+        by: 'day', timezone, measures: ['prior'],
+        filters: [
+          { field: 'time', operator: 'gte', value: '2026-01-03' },
+          { field: 'time', operator: 'lt', value: '2026-01-04' },
+        ],
+      });
+      expect(result.data.map(row => row.prior)).toEqual([prior]);
+    },
+  );
+
   it('treats offset bounds as instants in both base and window queries', async () => {
     const instantFilters = [
       { field: 'range', operator: 'gte' as const, value: '2026-01-02T00:00:00Z' },

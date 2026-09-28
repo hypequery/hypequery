@@ -16,7 +16,8 @@ import type {
 import { SEMANTIC_FILTER_OPERATORS } from './constants.js';
 import { datasetTimeGrains } from './utils/dataset-time-grains.js';
 import { isApproximateAggregation, isApproximateDerivedMeasure } from './utils/approximate-measures.js';
-import { usesWindowMeasure } from './utils/window-measure-dependencies.js';
+import { usesTimeMeasure } from './utils/time-query-measures.js';
+import { measureSupportedGrains } from './utils/measure-time-grains.js';
 import {
   listGroupableRelationshipFields,
   listQueryableRelationshipFields,
@@ -218,8 +219,8 @@ export function getGroupableRelationshipFields(catalog: DatasetCatalog): string[
 
 export function getDatasetCatalog(dataset: DatasetCatalogSource): DatasetCatalog {
   const dimensionNames = Object.keys(dataset.dimensions);
-  const { base: baseMeasures, derived, windows } = splitDatasetMeasures(dataset.measures);
-  const measureNames = [...Object.keys(baseMeasures), ...Object.keys(windows)];
+  const { base: baseMeasures, derived, windows, shifts } = splitDatasetMeasures(dataset.measures);
+  const measureNames = [...Object.keys(baseMeasures), ...Object.keys(windows), ...Object.keys(shifts)];
   const derivedMeasures = Object.entries(derived);
   const derivedMeasureNames = derivedMeasures.map(([name]) => name);
   const metricNames = Object.keys(dataset.metrics ?? {});
@@ -251,12 +252,13 @@ export function getDatasetCatalog(dataset: DatasetCatalogSource): DatasetCatalog
     measures: Object.fromEntries(
       [
         ...Object.entries(baseMeasures).map(([name, measure]) => [name, measureToCatalog(measure)]),
-        ...Object.entries(windows).map(([name, window]) => [name, {
+        ...[...Object.entries(windows), ...Object.entries(shifts)].map(([name, window]) => [name, {
           ...measureToCatalog(baseMeasures[window.measure]),
           ...snapshotSemanticMetadata(window),
           label: window.label,
           description: window.description,
           ...windowCatalogMetadata(window),
+          supportedGrains: measureSupportedGrains(dataset.measures, name, supportedGrains),
         }]),
       ],
     ),
@@ -266,7 +268,10 @@ export function getDatasetCatalog(dataset: DatasetCatalogSource): DatasetCatalog
           name,
           {
             ...snapshotSemanticMetadata(definition),
-            ...(usesWindowMeasure(definition, dataset.measures) ? { requiresTimeRange: true as const } : {}),
+            ...(usesTimeMeasure(definition, dataset.measures) ? {
+              requiresTimeRange: true as const,
+              supportedGrains: measureSupportedGrains(dataset.measures, name, supportedGrains),
+            } : {}),
             label: definition.label,
             description: definition.description,
             ...(isApproximateDerivedMeasure(dataset.measures, definition) ? { approximate: true as const } : {}),

@@ -151,8 +151,8 @@ filters, and measure filters apply throughout lookback.
 
 Trailing intervals must span whole query buckets: weeks can become days,
 but months cannot. To-date periods must be strictly coarser than the query
-grain and span whole buckets. Each row may contribute to at most 1,000 buckets, and the series must
-fit the query or dataset result limit.
+grain and span whole buckets. Each row may contribute to at most 1,000
+buckets, and the series must fit the query or dataset result limit.
 
 Buckets and timezone-free bounds use the query's `timezone`, then the client
 default (`UTC`). Explicit offsets represent instants. Use offsets inside repeated DST hours.
@@ -160,8 +160,67 @@ Their local `period` labels can match, so labels are not unique identifiers.
 Ranges or lookback crossing a skipped calendar bucket are rejected; use a
 `timezone: 'UTC'` for those ranges.
 
+## Period comparisons
+
+Use `measure.shift` to compare a base measure with an earlier period. Positive
+intervals always look backwards. Select it directly or use it in a formula:
+
+<CodeBlock>
+```typescript
+import { createDatasetClient } from '@hypequery/datasets';
+
+const Orders = dataset('orders', {
+  source: 'orders',
+  timeKey: 'createdAt',
+  dimensions: { createdAt: dimension.timestamp() },
+  measures: {
+    revenue: measure.sum('amount'),
+    priorYearRevenue: measure.shift('revenue', { amount: 1, unit: 'year' }),
+    revenueGrowth: measure.derived({
+      uses: { current: 'revenue', prior: 'priorYearRevenue' },
+      formula: ({ current, prior }) =>
+        divide(subtract(current, prior), nullIfZero(prior)),
+    }),
+  },
+});
+
+const client = createDatasetClient({ queryBuilder: db });
+const result = await client.execute(Orders, {
+  by: 'month',
+  timezone: 'America/New_York',
+  measures: ['revenue', 'priorYearRevenue', 'revenueGrowth'],
+  filters: [
+    { field: 'createdAt', operator: 'gte', value: '2026-01-01' },
+    { field: 'createdAt', operator: 'lt', value: '2027-01-01' },
+  ],
+});
+```
+</CodeBlock>
+
+A result such as `{ revenue: '60', priorYearRevenue: '30', revenueGrowth: '1' }`
+means revenue grew by 100%. Missing prior values or a zero denominator produce
+`null` growth with the formula above.
+
+Comparisons preserve the selected part of each bucket and the filter operators:
+January 1–14 compares with January 1–14 last year. Full buckets compare with
+full buckets. Buckets and local bounds use the query timezone (UTC by default).
+
+Intervals must span whole query buckets: one year supports `month`, `quarter`,
+and `year`; one month supports `month`. Calendar months cannot shift daily
+queries yet. Catalogs and agent projections expose each measure's
+`supportedGrains`, including restrictions inherited by formulas.
+
+Shifts share windows' filling, non-time filters, tenant scope, and result limits.
+Missing counts are `'0'`; other missing values are `null`. Calendar subtraction
+uses the query timezone and ClickHouse's clamping; skipped calendar buckets are
+rejected. Minute and hour grains require a timestamp column.
+
+Shifts wrap base measures on the same dataset. Windows, formulas, relationships,
+and standalone comparison metrics are not supported yet.
+
 ## Aggregation helpers
 
+- `measure.shift(baseMeasure, interval, opts?)`
 - `measure.sum(field, opts?)`
 - `measure.count(field, opts?)`
 - `measure.countDistinct(field, opts?)`

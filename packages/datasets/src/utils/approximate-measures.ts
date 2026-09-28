@@ -1,4 +1,4 @@
-import { getBaseMeasure, isWindowMeasure } from './dataset-measures.js';
+import { getBaseMeasure, isWindowMeasure, isShiftMeasure } from './dataset-measures.js';
 /**
  * Which measures return estimates. Catalogs mark them `approximate` so a
  * consumer, and in particular an agent, can say a value is an estimate
@@ -18,7 +18,7 @@ export function isApproximateDerivedMeasure(
 ): boolean {
   return Object.values(definition.uses).some(name => {
     const measure = Object.hasOwn(measures, name) ? measures[name] : undefined;
-    const base = isWindowMeasure(measure) ? getBaseMeasure(measures, measure.measure) : getBaseMeasure(measures, name);
+    const base = (isWindowMeasure(measure) || isShiftMeasure(measure)) ? getBaseMeasure(measures, measure.measure) : getBaseMeasure(measures, name);
     return base !== undefined && isApproximateAggregation(base.aggregation);
   });
 }

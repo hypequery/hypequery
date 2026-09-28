@@ -18,7 +18,7 @@ type WindowResult = Assert<Equal<WindowRow['rolling'], string | null | undefined
 type FormulaResult = Assert<Equal<WindowRow['ratio'], string | null | undefined>>;
 type VisibleColumns = Assert<Equal<keyof WindowRow, 'period' | 'rolling' | 'ratio'>>;
 type AgentRangeRequirement = Assert<Equal<AgentCatalogMeasure['requiresTimeRange'], true | undefined>>;
-type CatalogWindowKind = Assert<Equal<MeasureCatalogEntry['kind'], 'window' | undefined>>;
+type CatalogWindowKind = Assert<Equal<MeasureCatalogEntry['kind'], 'window' | 'shift' | undefined>>;
 
 const catalog = getDatasetCatalog(Events);
 const agent = projectAgentSafeCatalog({ Events });

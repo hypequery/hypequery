@@ -1,12 +1,14 @@
 import type { AnyDatasetInstance, DatasetQuery, MetricFilter, TimeGrain } from '../types.js';
 import { isSupportedTimeGrain } from '../constants.js';
-import { selectedWindowMeasures } from './window-query-measures.js';
+import { selectedTimeMeasures } from './time-query-measures.js';
+import { isShiftMeasure } from './dataset-measures.js';
+
 import { resolveTimeAxisRange, isDefinitelyEmptyTimeRange } from './time-axis-bounds.js';
-import { windowGrainErrors, estimateTimeAxisBuckets, exceedsEstimatedTimeAxisLimit } from './time-axis-intervals.js';
+import { intervalBuckets, windowGrainErrors, estimateTimeAxisBuckets, exceedsEstimatedTimeAxisLimit } from './time-axis-intervals.js';
 
 export { intervalBuckets, utcBucketStart } from './time-axis-intervals.js';
 
-export interface WindowTimeAxis {
+export interface TimeMeasureAxis {
   grain: TimeGrain;
   lower: string;
   upper: string;
@@ -18,20 +20,27 @@ export interface WindowTimeAxis {
   resultLimit?: number;
 }
 
-/** Validate window grains, resolve bounds, then estimate the output series. */
-export function analyzeWindowTimeAxis(
+/** Validate time-measure grains, resolve bounds, then estimate the output series. */
+export function analyzeTimeMeasureAxis(
   dataset: AnyDatasetInstance,
   query: DatasetQuery,
-): { axis?: WindowTimeAxis; errors: string[] } {
-  const windows = selectedWindowMeasures(dataset, query);
-  if (windows.size === 0) return { errors: [] };
-  if (!isSupportedTimeGrain(query.by)) return { errors: ['Window measures require a supported "by" grain.'] };
+): { axis?: TimeMeasureAxis; errors: string[] } {
+  const timeMeasures = selectedTimeMeasures(dataset, query);
+  if (timeMeasures.size === 0) return { errors: [] };
+  const errors: string[] = [];
+  const subjects = [...timeMeasures.values()].some(isShiftMeasure) ? 'Window and shift measures' : 'Window measures';
+  if (!isSupportedTimeGrain(query.by)) return { errors: [`${subjects} require a supported "by" grain.`] };
   const grain = query.by;
-  const errors = [...windows].flatMap(([name, window]) => windowGrainErrors(name, window, grain));
-
+  for (const [name, window] of timeMeasures) {
+    if (isShiftMeasure(window)) {
+      if (intervalBuckets(window.interval.amount, window.interval.unit, grain) === undefined) errors.push(`Shift measure "${name}" must span whole "${grain}" buckets.`);
+      continue;
+    }
+    errors.push(...windowGrainErrors(name, window, grain));
+  }
   const range = resolveTimeAxisRange(dataset, query.filters ?? []);
   if (!range) {
-    return { errors: [...errors, 'Window measures require exactly one bounded time range: between, or gt/gte with lt/lte, using ISO timestamps.'] };
+    return { errors: [...errors, `${subjects} require exactly one bounded time range: between, or gt/gte with lt/lte, using ISO timestamps.`] };
   }
   if (isDefinitelyEmptyTimeRange(range)) {
     return { errors: [...errors, 'Window measure time range must be non-empty and ordered.'] };

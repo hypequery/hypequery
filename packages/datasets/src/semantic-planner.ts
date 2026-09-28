@@ -1,4 +1,4 @@
-import { selectedWindowMeasures } from './utils/window-query-measures.js';
+import { rejectTimeMeasuresOnBackend } from './utils/time-query-measures.js';
 import { baseMeasureNames, getBaseMeasure, getDerivedMeasure } from './utils/dataset-measures.js';
 import { protocolMetricCapabilityErrors } from './utils/protocol-metric-capabilities.js';
 import type {
@@ -211,7 +211,7 @@ export function buildDatasetPlan(
   context?: ExecutionContext,
 ): PlanNode {
   if (query.timezone !== undefined) throw new Error('Execution timezone requires the queryBuilder execution path.');
-  if (selectedWindowMeasures(ds, query).size) throw new Error('Window dataset measures require the queryBuilder execution path.');
+  rejectTimeMeasuresOnBackend(ds, query);
   if ((query.measures ?? []).some(name => getDerivedMeasure(ds.measures, name) !== undefined)) {
     throw new Error('Derived dataset measures require the queryBuilder execution path.');
   }

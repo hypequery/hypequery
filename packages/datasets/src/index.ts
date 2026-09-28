@@ -252,6 +252,7 @@ export type {
   MeasureDefinition,
   MeasureTimeInterval,
   WindowMeasureDefinition,
+  ShiftMeasureDefinition,
   DatasetMeasureDefinition,
   DerivedMeasureDefinition,
   DerivedMeasureOptions,
