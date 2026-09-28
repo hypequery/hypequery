@@ -70,8 +70,6 @@ train.
 
 RFC 0009 was accepted on 28 September 2026. Next steps:
 - PYC-03 (tenant capability), which unblocks all of PY-D;
-- TSP-05, so the TypeScript datasets cache uses the same RFC 0009/0013 keys as
-  Python;
 - TSP-04 (server-side binding in `@hypequery/clickhouse`), which is still
   open.
 
@@ -238,6 +236,16 @@ PYC-01 are merged.
   definition identity, so different backends never collide.
 - **Review:** Security review required. It needs a changeset, a changelog
   migration note, and updates to both caching docs pages.
+- **Status (2026-09-28):** Delivered.
+  - Keys come from `packages/datasets/src/cache/protocol-cache-keys.ts`. The
+    local identity is a digest of every reachable dataset definition, segment
+    predicates, and metric specs. Formulas are evaluated and their resolved
+    expressions hashed, so values they capture count. A definition holding any
+    other unrecognized function runs uncached.
+  - A cross-language golden key is pinned in both test suites, so TypeScript
+    and Python cannot drift apart without CI failing.
+  - Behavior change: a tenant-less dataset queried under a runtime tenant is
+    now partitioned per tenant, as RFC 0009 requires.
 
 ### TSP-03 — Public/privileged metadata split parity tracking
 - **Scope:** Tracking issue + serve implementation of the RFC 0009 metadata

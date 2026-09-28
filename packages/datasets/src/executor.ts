@@ -86,9 +86,11 @@ import {
   type SemanticCacheStats,
 } from './cache/semantic-query-cache.js';
 import {
-  buildDatasetQuerySignature,
-  buildMetricQuerySignature,
-} from './cache/query-signature.js';
+  datasetCacheKey,
+  metricCacheKey,
+  resolveProtocolCacheKeySettings,
+  type ProtocolCacheKeySettings,
+} from './cache/protocol-cache-keys.js';
 import { resolveResultLimit, withResultLimit } from './utils/result-limits.js';
 import {
   resolveDatasetCacheRuntime,
@@ -700,6 +702,7 @@ export class DatasetClientImpl extends MetricQueryEngine implements DatasetClien
   private readonly cacheEnabledByDefault: boolean;
   private readonly cacheDefaults: ClientCacheDefaults;
   private readonly defaultCacheScope?: string;
+  private readonly cacheKeySettings: ProtocolCacheKeySettings;
 
   constructor(options: CreateDatasetClientOptions) {
     if (!options.queryBuilder && !options.backend) {
@@ -723,6 +726,10 @@ export class DatasetClientImpl extends MetricQueryEngine implements DatasetClien
     this.defaultTimezone = options.backend ? undefined : options.timezone ?? 'UTC';
     this.backend = options.backend;
     this.queryCache = new SemanticQueryCache(options.cache);
+    this.cacheKeySettings = resolveProtocolCacheKeySettings(
+      options.cache ?? {},
+      options.cache?.store !== undefined,
+    );
     this.cacheEnabledByDefault = (options.cache?.ttlMs ?? 0) > 0;
     this.defaultCacheScope = options.cache?.scope;
     // Kept so a dataset's declared ceiling can clamp the client default too; the
@@ -782,14 +789,10 @@ export class DatasetClientImpl extends MetricQueryEngine implements DatasetClien
    * `cache.scope` unless the call sets its own, so clients sharing a custom
    * store can be namespaced apart.
    */
-  private signatureContext(context?: ExecutionContext): ExecutionContext | undefined {
-    if (this.defaultCacheScope === undefined) {
-      return context;
-    }
-    if (context?.cache === false || context?.cache?.scope != null) {
-      return context;
-    }
-    return { ...context, cache: { ...context?.cache, scope: this.defaultCacheScope } };
+  /** The call's cache partition: its own `cache.scope`, else the client default. */
+  private cacheScope(context?: ExecutionContext): string | undefined {
+    if (context?.cache === false) return undefined;
+    return context?.cache?.scope ?? this.defaultCacheScope;
   }
 
   planMetric(
@@ -946,12 +949,15 @@ export class DatasetClientImpl extends MetricQueryEngine implements DatasetClien
       throw new Error(`Invalid metric query: ${validation.errors.join('; ')}`);
     }
 
+    const key = metricCacheKey(
+      this.cacheKeySettings, metric, boundedQuery, cacheRuntime, this.cacheScope(cacheRuntime),
+    );
+    if (key === undefined) {
+      // No portable key for this call (see metricCacheKey): run uncached.
+      return withResultLimit(run(), resultLimit.meta);
+    }
     return withResultLimit(
-      this.queryCache.through(
-        buildMetricQuerySignature(metric, boundedQuery, this.signatureContext(cacheRuntime)),
-        run,
-        cacheRuntime?.cache,
-      ),
+      this.queryCache.through(key, run, cacheRuntime?.cache),
       resultLimit.meta,
     );
   }
@@ -1003,12 +1009,15 @@ export class DatasetClientImpl extends MetricQueryEngine implements DatasetClien
 
     // Annotated outside the cache: the ceiling is derived from the query, not
     // from the rows, so it must not be stored in or read back from an entry.
+    const key = datasetCacheKey(
+      this.cacheKeySettings, ds, boundedQuery, cacheRuntime, this.cacheScope(cacheRuntime),
+    );
+    if (key === undefined) {
+      // No portable key for this call (see datasetCacheKey): run uncached.
+      return withResultLimit(run(), resultLimit.meta);
+    }
     return withResultLimit(
-      this.queryCache.through(
-        buildDatasetQuerySignature(ds, boundedQuery, this.signatureContext(cacheRuntime)),
-        run,
-        cacheRuntime?.cache,
-      ),
+      this.queryCache.through(key, run, cacheRuntime?.cache),
       resultLimit.meta,
     );
   }

@@ -114,6 +114,11 @@ function segmentSignature(ds: AnyDatasetInstance, names: readonly string[] | und
   };
 }
 
+/**
+ * @deprecated The result cache no longer keys entries by this readable
+ * signature. It uses opaque RFC 0009/0013 keys, which never contain tenant ids,
+ * filter values, or table names. Kept for callers that used it directly.
+ */
 export function buildDatasetQuerySignature(
   ds: AnyDatasetInstance,
   query: DatasetQuery,
@@ -140,6 +145,7 @@ export function buildDatasetQuerySignature(
   });
 }
 
+/** @deprecated See `buildDatasetQuerySignature`. */
 export function buildMetricQuerySignature(
   metric: MetricRef | GrainedMetricRef,
   query: MetricQuery,
