@@ -124,6 +124,8 @@ and exactly one bounded filter on the dataset's time field:
 
 <CodeBlock>
 ```typescript
+import { createDatasetClient } from '@hypequery/datasets';
+
 const client = createDatasetClient({ queryBuilder: db });
 const result = await client.execute(Orders, {
   by: 'day',
