@@ -58,6 +58,20 @@ Consequence: the original PY-PROBE-01 (3–5 day probe) is no longer a
 stop-and-decide gate. It becomes the first two conformance PRs of a continuing
 train.
 
+## Progress (assessed 28 September 2026)
+
+| Train | Delivered | Remaining |
+|---|---|---|
+| PY-A | PYA-01…PYA-05 (workspace, CI, JCS/tagged values, identifiers, conformance gate) | PYA-00/PYA-02 are org-account and release work, not code |
+| PY-B | PYB-01…PYB-08; contract 3 and expression extension 2 (RFC 0015); PYB-09 dataset client | Pagination `hasMore` metadata, which needs a planner over-fetch (pick up with PYD-02) |
+| PY-C | PYC-01 executor; PYC-02 cancellation and concurrency budgets | PYC-03 needs RFC 0009 accepted; PYC-04 is unblocked (RFC 0013 accepted, `cache-keys-v1` fixtures exist); PYC-05 needs RFC 0011 accepted |
+| PY-D | none (`hypequery.serve` is still the extra guard only) | PYD-01 needs PYC-03 |
+| PY-E | none | all |
+
+Next steps: accept RFC 0009 (TSP-01) to unblock PYC-03 and then all of PY-D.
+PYC-04 can proceed in parallel. TSP-04 (server-side binding in
+`@hypequery/clickhouse`) is still open.
+
 ## Non-goals
 
 - No Python query-builder port of `@hypequery/clickhouse`. The Python surface
@@ -372,6 +386,16 @@ PYC-01 are merged.
 
 ### PYB-09 — Dataset client
 - **Dependencies:** PYB-08, PYC-01.
+- **Status (2026-09-28):** Delivered as `create_dataset_client` /
+  `create_async_dataset_client` in `hypequery.datasets.client`. Executors are
+  structural protocols, so `hypequery.datasets` still never imports the
+  driver. Result metadata is limited to what RFC 0009 treats as public:
+  query ID, row count, and timing. It deliberately does not report the
+  over-fetched `hasMore` pagination flag, which moves to PYD-02. The in-memory
+  backend was not built: the TypeScript version evaluates semantic plans
+  without SQL. Here the planner's SQL is the thing under test, so unit tests
+  use a recording executor, and a live test in `test_clickhouse_live.py` runs
+  both clients against ClickHouse.
 - **Scope:** `create_dataset_client(...)` — the canonical entry point,
   mirroring the TypeScript decision that `createDatasetClient` leads and
   backend wiring is advanced-only. Sync and async variants.

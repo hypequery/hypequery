@@ -24,6 +24,48 @@ The SDK is organised as:
 
 Python and TypeScript implement the same specifications and run against the same conformance fixtures. The goal is identical semantic and deployment artifacts across both languages, not a line-for-line port of the TypeScript runtime.
 
+## Querying datasets
+
+`create_dataset_client` is the entry point for running semantic queries. It
+plans each query, hands the compiled statement to an executor, and returns
+rows keyed by column name.
+
+```python
+from hypequery.datasets import (
+    DatasetQuery,
+    ExecutionContext,
+    create_dataset_client,
+    create_dataset_registry,
+    eq,
+    tenant,
+)
+from hypequery.execution import ClickHouseConnection, create_clickhouse_executor
+
+executor = create_clickhouse_executor(ClickHouseConnection(host="localhost", database="analytics"))
+client = create_dataset_client(executor=executor, registry=create_dataset_registry(orders, customers))
+
+result = client.execute(
+    "orders",
+    DatasetQuery(dimensions=("customer.country",), measures=("revenue",), filters=(eq("status", "paid"),)),
+    context=ExecutionContext(tenant=tenant("org_123")),
+)
+result.data  # ({"customer.country": "NZ", "revenue": "1200.50"}, ...)
+result.meta  # query_id, row_count, timing_ms
+executor.close()
+```
+
+A target is a `Dataset` or the name of a registered dataset. The registry also
+resolves relationship targets, so pass one when a query traverses a
+relationship. A query can also be a plain mapping (for example a request body);
+it is validated strictly and unknown keys are rejected. The tenant always comes
+from the trusted `ExecutionContext`, never from the query.
+
+`client.validate(...)` reports whether a query would plan without running it.
+`client.to_sql(...)` returns the redacted debug statement, which has no values
+and cannot be executed. For async code, use `create_async_dataset_client` with
+an async executor and `await client.execute(...)`. The client does not own the
+executor, so close the executor when the application shuts down.
+
 ## ClickHouse execution
 
 The execution extra accepts `CompiledQuery` objects emitted by the planner.
