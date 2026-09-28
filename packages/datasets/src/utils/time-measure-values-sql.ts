@@ -5,6 +5,7 @@ import type { WindowTimeAxis } from './window-time-axis.js';
 import type { TimeMeasureSqlBase, TimeMeasureSqlDimension } from './time-measure-source-sql.js';
 import { addTimeSql as add, subtractTimeSql as subtract } from './time-arithmetic-sql.js';
 import { isCountAggregation, windowAggregateSql } from './window-aggregation-sql.js';
+import { calendarBucketGuardSql } from './time-axis-calendar-guard.js';
 
 export interface TimeMeasureSqlInput {
   name: string;
@@ -35,7 +36,8 @@ function contributionSql(window: WindowMeasureDefinition | undefined, grain: Tim
     throw new Error('Window measure has no supported mode.');
   }
   const fanoutGuard = `throwIf(${count} > 1000, 'A window row contributes to more than 1000 buckets.')`;
-  const bucketIndices = `arrayJoin(range(toUInt64(${count} + ${fanoutGuard})))`;
+  const calendarGuard = calendarBucketGuardSql(bucket, `${count} + ${fanoutGuard}`, grain);
+  const bucketIndices = `arrayJoin(range(toUInt64(${count} + ${fanoutGuard} + ${calendarGuard})))`;
   return add(bucket, bucketIndices, grain);
 }
 

@@ -53,9 +53,33 @@ describe('window execution against ClickHouse', () => {
     await runSql(`CREATE TABLE ${table}_users (user String, region String, tenant String) ENGINE = MergeTree ORDER BY user`);
     await insertRows(`${table}_users`, [{ user: 'u1', region: 'east', tenant: 'a' }, { user: 'u1', region: 'east', tenant: 'a' }, { user: 'u2', region: 'east', tenant: 'a' }, { user: 'u1', region: 'west', tenant: 'b' }]);
 
+    await runSql(`CREATE TABLE ${table}_fold (event_at DateTime64(9, 'Europe/Madrid'), value Float64) ENGINE = MergeTree ORDER BY event_at`);
+    await runSql(`INSERT INTO ${table}_fold VALUES
+      (parseDateTime64BestEffort('2026-10-25T02:15:00+02:00', 9, 'Europe/Madrid'), 10),
+      (parseDateTime64BestEffort('2026-10-25T02:15:00+01:00', 9, 'Europe/Madrid'), 20)`);
+    await runSql(`CREATE TABLE ${table}_fractional (event_at DateTime64(9, 'Asia/Kathmandu'), value Float64) ENGINE = MergeTree ORDER BY event_at`);
+    await insertRows(`${table}_fractional`, [
+      { event_at: '2025-12-31 23:59:59', value: 5 },
+      { event_at: '2026-01-01 00:00:00', value: 10 },
+      { event_at: '2026-01-02 00:00:00', value: 20 },
+    ]);
+    await runSql(`CREATE TABLE ${table}_half_dst (event_at DateTime64(9, 'Australia/Lord_Howe'), value Float64) ENGINE = MergeTree ORDER BY event_at`);
+    await insertRows(`${table}_half_dst`, [
+      { event_at: '2026-10-03 02:45:00', value: 10 },
+      { event_at: '2026-10-04 02:45:00', value: 20 },
+      { event_at: '2026-10-04 03:45:00', value: 30 },
+    ]);
+    await runSql(`CREATE TABLE ${table}_skipped_date (event_at DateTime64(9, 'Pacific/Apia'), value Float64) ENGINE = MergeTree ORDER BY event_at`);
+    await insertRows(`${table}_skipped_date`, [
+      { event_at: '2011-12-29 12:00:00', value: 10 },
+      { event_at: '2011-12-31 12:00:00', value: 20 },
+    ]);
+
   });
   afterAll(async () => {
-    for (const name of [table, `${table}_timezones`, `${table}_dates`, `${table}_users`]) await runSql(`DROP TABLE IF EXISTS ${name}`);
+    for (const suffix of ['', '_timezones', '_dates', '_users', '_fold', '_fractional', '_half_dst', '_skipped_date']) {
+      await runSql(`DROP TABLE IF EXISTS ${table}${suffix}`);
+    }
   });
 
   it('reaggregates distincts and averages, fills gaps, and looks before the range', async () => {
@@ -152,6 +176,94 @@ describe('window execution against ClickHouse', () => {
     const ds = dataset('relatedWindows', { source: table, timeKey: 'time', tenantKey: 'tenant', dimensions: Events.dimensions, measures: { revenue: measure.sum('value'), rolling: measure.trailing('revenue', { amount: 3, unit: 'day' }) }, relationships: { customer: belongsTo(() => Users, { from: 'user', to: 'user' }) } });
     const result = await client.execute(ds, { by: 'day', dimensions: ['customer.region'], measures: ['rolling'], filters: [...range, { field: 'customer.region', operator: 'eq', value: 'east' }] }, context);
     expect(result.data.map(row => [row['customer.region'], row.rolling])).toEqual([['east', '32'], ['east', '30'], ['east', '60'], ['east', '40']]);
+  });
+
+  it('keeps the two offset-qualified autumn hours distinct despite identical local labels', async () => {
+    const ds = dataset('foldWindows', {
+      source: `${table}_fold`, timeKey: 'time',
+      dimensions: { time: dimension.timestamp({ column: 'event_at' }), value: dimension.number() },
+      measures: { revenue: measure.sum('value'), running: measure.cumulative('revenue') },
+    });
+    const result = await client.execute(ds, {
+      by: 'hour', measures: ['revenue', 'running'], limit: 2,
+      filters: [
+        { field: 'time', operator: 'gte', value: '2026-10-25T02:00:00+02:00' },
+        { field: 'time', operator: 'lt', value: '2026-10-25T03:00:00+01:00' },
+      ],
+    });
+    expect(result.data.map(row => [row.revenue, row.running])).toEqual([['10', '10'], ['20', '30']]);
+    // ClickHouse JSON renders local labels without offsets; the buckets remain separate rows.
+    expect(result.data[0].period).toBe(result.data[1].period);
+  });
+
+  it('uses fractional-offset local midnight and equivalent UTC bounds at the exact limit', async () => {
+    const ds = dataset('fractionalWindows', {
+      source: `${table}_fractional`, timeKey: 'time',
+      dimensions: { time: dimension.timestamp({ column: 'event_at' }), value: dimension.number() },
+      measures: { revenue: measure.sum('value'), running: measure.cumulative('revenue') },
+    });
+    const execute = (lower: string, upper: string) => client.execute(ds, {
+      by: 'day', measures: ['revenue', 'running'], limit: 2,
+      filters: [
+        { field: 'time', operator: 'gte', value: lower },
+        { field: 'time', operator: 'lt', value: upper },
+      ],
+    });
+    const local = await execute('2026-01-01', '2026-01-03');
+    const utc = await execute('2025-12-31T18:15:00Z', '2026-01-02T18:15:00Z');
+    expect(local.data.map(row => [row.revenue, row.running])).toEqual([['10', '15'], ['20', '35']]);
+    expect(utc.data).toEqual(local.data);
+  });
+
+  it('preserves window populations across a thirty-minute DST jump', async () => {
+    const ds = dataset('halfHourDstWindows', {
+      source: `${table}_half_dst`, timeKey: 'time',
+      dimensions: { time: dimension.timestamp({ column: 'event_at' }), value: dimension.number() },
+      measures: {
+        revenue: measure.sum('value'), running: measure.cumulative('revenue'),
+        daily: measure.trailing('revenue', { amount: 1, unit: 'day' }),
+      },
+    });
+    const result = await client.execute(ds, {
+      by: 'hour', measures: ['daily', 'running'], limit: 5,
+      filters: [
+        { field: 'time', operator: 'gte', value: '2026-10-04T00:00:00' },
+        { field: 'time', operator: 'lt', value: '2026-10-04T05:00:00' },
+      ],
+    });
+    expect(result.data.map(row => [row.daily, row.running]))
+      .toEqual([['10', '10'], ['10', '10'], ['20', '30'], ['50', '60'], ['50', '60']]);
+  });
+
+  it('rejects a skipped calendar date in the output axis or trailing lookback', async () => {
+    const ds = dataset('skippedDateWindows', {
+      source: `${table}_skipped_date`, timeKey: 'time',
+      dimensions: { time: dimension.timestamp({ column: 'event_at' }), value: dimension.number() },
+      measures: {
+        revenue: measure.sum('value'), running: measure.cumulative('revenue'),
+        rolling: measure.trailing('revenue', { amount: 3, unit: 'day' }),
+      },
+    });
+    const axisQuery = {
+      by: 'day' as const, measures: ['running'],
+      filters: [{ field: 'time', operator: 'between' as const, value: ['2011-12-29', '2011-12-31'] }],
+    };
+    const precedingDay = await client.execute(ds, {
+      by: 'day', measures: ['running'],
+      filters: [{ field: 'time', operator: 'between', value: ['2011-12-28', '2011-12-28'] }],
+    });
+    expect(precedingDay.data.map(row => row.running)).toEqual([null]);
+    await expect(client.execute(ds, {
+      by: 'day', measures: ['running'],
+      filters: [{ field: 'time', operator: 'between', value: ['2011-12-29', '2011-12-29'] }],
+    })).rejects.toThrow(/skipped local calendar bucket/);
+    await expect(client.execute(ds, axisQuery)).rejects.toThrow(/skipped local calendar bucket/);
+    const { sql, parameters } = buildWindowDatasetSql(ds, axisQuery, { builderFactory: toQueryBuilderFactory(db) });
+    await expect(db.rawQuery(sql, parameters)).rejects.toThrow(/skipped local calendar bucket/);
+    await expect(client.execute(ds, {
+      by: 'day', measures: ['rolling'],
+      filters: [{ field: 'time', operator: 'between', value: ['2011-12-31', '2012-01-01'] }],
+    })).rejects.toThrow(/skipped local calendar bucket/);
   });
 
   it('resolves mixed local and offset bounds using the physical column timezone', async () => {

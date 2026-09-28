@@ -40,6 +40,30 @@ describe('window time axes', () => {
     query.filters[0].value.reverse();
     expect(analyzeWindowTimeAxis(Events, query).errors).toEqual([]);
   });
+  it('orders explicit offsets by instant across the repeated autumn hour', () => {
+    const query = {
+      by: 'hour' as const, measures: ['running'],
+      filters: [{ field: 'range', operator: 'between' as const, value: [
+        '2026-10-25T02:45:00+02:00', '2026-10-25T02:15:00+01:00',
+      ] }],
+    };
+    expect(analyzeWindowTimeAxis(Events, query).errors).toEqual([]);
+    query.filters[0].value.reverse();
+    expect(analyzeWindowTimeAxis(Events, query).errors)
+      .toContain('Window measure time range must be non-empty and ordered.');
+  });
+  it('defers mixed local/offset ordering and local hourly limits to physical-timezone SQL', () => {
+    const mixed = analyzeWindowTimeAxis(Events, {
+      by: 'hour', measures: ['running'], limit: 1,
+      filters: [{ field: 'range', operator: 'between', value: ['2026-03-29', '2026-03-28T23:30:00Z'] }],
+    });
+    expect(mixed.errors).toEqual([]);
+    expect(mixed.axis).toMatchObject({ lower: '2026-03-29', upper: '2026-03-28T23:30:00Z' });
+    expect(analyzeWindowTimeAxis(Events, {
+      by: 'hour', measures: ['running'], limit: 23,
+      filters: [{ field: 'range', operator: 'between', value: ['2026-03-29', '2026-03-30'] }],
+    }).errors).toEqual([]);
+  });
   it('rejects missing grains, unbounded or duplicate ranges, and oversized series', () => {
     for (const query of [
       { measures: ['rolling'], filters },
