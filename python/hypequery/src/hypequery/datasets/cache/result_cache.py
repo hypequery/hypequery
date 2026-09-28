@@ -9,6 +9,8 @@ from __future__ import annotations
 
 import math
 import re
+import secrets
+import warnings
 from dataclasses import dataclass, field
 from typing import Final
 
@@ -26,35 +28,53 @@ from .preimage_inputs import (
     tenant_scope,
     wire_query,
 )
-from .store import CachedRows, CacheStore
+from .store import CachedRows, CacheStore, MemoryCacheStore
 
 _DEFINITION_IDENTITY: Final = re.compile(r"[0-9a-f]{64}\Z")
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(frozen=True, slots=True, kw_only=True)
 class ResultCache:
     """Configuration for caching dataset results in one namespace.
 
-    *secret* is the namespace's RFC 0013 cache-key secret: at least 32 random
-    bytes, distinct per project and environment, and never shipped in an
-    artifact. Increment *key_version* whenever it rotates. Pass the deployed
-    bundle identity as *definition_identity* to share entries with other
-    runtimes serving the same release. Without it, a digest of the local
-    definitions is used.
+    *secret* is optional. When it is omitted, the cache generates a random
+    32-byte secret for its own lifetime. Keys are just as opaque, but entries
+    are shared only through this `ResultCache` object and do not survive a
+    restart. That costs nothing for `MemoryCacheStore`. For a shared store
+    such as Redis, pass a secret so every instance addresses the same
+    entries: at least 32 random bytes, the same on every instance, distinct
+    per project and environment, and never shipped in an artifact. Increment
+    *key_version* whenever it rotates.
+
+    Pass the deployed bundle identity as *definition_identity* to share entries
+    with other runtimes serving the same release. Without it, a digest of the
+    local definitions is used.
 
     Construction validates everything up front, so a misconfigured cache fails
-    at startup rather than silently caching nothing.
+    at startup rather than silently caching nothing. An empty or short secret
+    is an error, never a reason to generate one.
     """
 
     store: CacheStore
-    secret: bytes = field(repr=False)
     project: str
     environment: str
     ttl_seconds: float
+    secret: bytes | None = field(default=None, repr=False)
     key_version: int = 1
     definition_identity: str | None = None
 
     def __post_init__(self) -> None:
+        if self.secret is None:
+            # Random, never shipped, and unique to this cache: RFC 0013's
+            # requirements hold without any configuration.
+            object.__setattr__(self, "secret", secrets.token_bytes(32))
+            if not isinstance(self.store, MemoryCacheStore):
+                warnings.warn(
+                    "ResultCache has no secret, so it generated one for this process. "
+                    "Other instances sharing this store will not reuse its entries. "
+                    "Pass the same secret to every instance to share them.",
+                    stacklevel=3,
+                )
         if type(self.ttl_seconds) not in (int, float) or not (
             math.isfinite(self.ttl_seconds) and self.ttl_seconds > 0
         ):

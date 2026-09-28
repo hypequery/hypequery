@@ -77,13 +77,10 @@ store only ever sees opaque `hq1.…` keys, never queries, tenant ids, or filter
 values.
 
 ```python
-import os
-
 from hypequery.datasets import MemoryCacheStore, ResultCache, create_dataset_client
 
 cache = ResultCache(
     store=MemoryCacheStore(max_entries=1_000),
-    secret=bytes.fromhex(os.environ["HYPEQUERY_CACHE_SECRET"]),  # 32+ random bytes
     project="acme",
     environment="production",
     ttl_seconds=60,
@@ -101,8 +98,14 @@ result.meta.cache  # "miss", then "hit" for the same request
 - **Never fails a query.** A store error, or a query with no portable form,
   runs uncached and reports `meta.cache == "bypass"`. Pass `use_cache=False`
   to skip the cache for one call.
-- **Secret handling.** The secret must be distinct per project and environment
-  and never shipped. Increment `key_version` when you rotate it.
+- **The secret is optional.** Without one, the cache generates a random secret
+  for its own lifetime. Keys stay opaque, and entries last as long as the
+  process, which is all an in-memory store needs.
+- **Shared stores need a secret to share entries.** For a store such as Redis,
+  pass `secret=bytes.fromhex(os.environ["HYPEQUERY_CACHE_SECRET"])`: 32+ random
+  bytes, the same on every instance, distinct per environment, and never
+  shipped. Without one, instances stay isolated from each other, and a warning
+  says so. Increment `key_version` when you rotate it.
 - **Sharing across runtimes.** Set `definition_identity` to the deployed bundle
   identity to share entries with other runtimes serving the same release.
   Otherwise a digest of the local definitions is used, and any definition

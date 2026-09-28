@@ -216,17 +216,28 @@ PYC-01 are merged.
 ### TSP-05 — Protocol cache keys in `@hypequery/datasets`
 - **Scope:** Move the TypeScript result cache from its readable
   `query-signature.ts` keys to RFC 0009 preimages and RFC 0013 keys
-  (`buildProtocolCachePreimage` and `deriveProtocolCacheKey`). This also
-  makes the cache require a secret, as RFC 0013 does. Today it caches without
-  one, which that RFC forbids.
-- **Why:** Until then, TypeScript and Python runtimes serving the same release
-  cannot share cache entries, and the TypeScript store key space exposes
-  tenant values and filter criteria.
+  (`buildProtocolCachePreimage` and `deriveProtocolCacheKey`). Match the
+  Python `ResultCache` exactly on the secret:
+  - it stays optional;
+  - when omitted, the cache generates a random 32-byte secret for its
+    lifetime;
+  - a non-memory store without a secret logs a one-time warning that
+    instances will not share entries;
+  - an empty or short secret is a startup error.
+- **Why:** TypeScript and Python runtimes serving the same release cannot
+  share entries until then, and the TypeScript store key space exposes tenant
+  values and filter criteria.
+- **User impact:**
+  - Default in-memory users see no change.
+  - Shared-store users see a one-time cold cache on upgrade, and should set a
+    secret to share entries across instances.
+  - Anything that pattern-matches store keys stops working, because keys
+    are opaque.
 - **Acceptance:** The TypeScript and Python clients derive the same store key
-  for the same release, query, and tenant. A cache configured without a secret
-  runs uncached rather than insecurely.
-- **Review:** Security review required. This is a behavior change for
-  existing cache users, so it needs a changeset.
+  for the same release, query, tenant, and secret. `scope` folds into the
+  definition identity, so different backends never collide.
+- **Review:** Security review required. It needs a changeset, a changelog
+  migration note, and updates to both caching docs pages.
 
 ### TSP-03 — Public/privileged metadata split parity tracking
 - **Scope:** Tracking issue + serve implementation of the RFC 0009 metadata
@@ -473,7 +484,9 @@ PYC-01 are merged.
     - `CacheStore` is the store protocol, with `MemoryCacheStore` as a
       thread-safe LRU with TTL;
     - it is wired into both dataset clients, and `meta.cache` reports
-      `hit`, `miss`, `bypass` or `off`.
+      `hit`, `miss`, `bypass` or `off`;
+    - the secret is optional. Without one, a random per-cache secret keeps
+      keys opaque but unshared across instances, and a shared store warns.
     Planning runs before any cache lookup. Any key or store failure runs the
     call uncached. Python integer filters map to the binary64 numbers a
     TypeScript caller would send, so both languages build the same preimage.

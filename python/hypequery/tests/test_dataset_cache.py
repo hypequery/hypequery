@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import asyncio
 import re
+import warnings
 from dataclasses import dataclass, field
 
 import pytest
@@ -325,3 +326,36 @@ def test_memory_store_expires_and_evicts(monkeypatch: pytest.MonkeyPatch) -> Non
     now[0] += 11
     assert store.get("k1") is None
     assert len(store) == 1  # k3 is expired too but not yet swept
+
+
+def test_without_a_secret_the_cache_still_works_and_stays_opaque() -> None:
+    store = _RecordingStore()
+    executor = _Executor()
+    with pytest.warns(UserWarning, match="no secret"):
+        cache = _cache(store, secret=None)
+    client = create_dataset_client(executor=executor, cache=cache)
+
+    first = client.execute(_trips(), QUERY, context=AS_ACME)
+    second = client.execute(_trips(), QUERY, context=AS_ACME)
+
+    assert (first.meta.cache, second.meta.cache) == ("miss", "hit")
+    assert all(KEY.match(key) and "acme" not in key for key in store.keys)
+
+
+def test_caches_without_a_secret_never_share_entries() -> None:
+    store = MemoryCacheStore()
+    executor = _Executor()
+    for _ in range(2):
+        create_dataset_client(executor=executor, cache=_cache(store, secret=None)).execute(
+            _trips(), QUERY, context=AS_ACME
+        )
+
+    # Each generated its own secret, so the second could not address the
+    # first's entry: safe, just unshared.
+    assert len(executor.calls) == 2
+
+
+def test_a_memory_store_without_a_secret_does_not_warn() -> None:
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        _cache(secret=None)

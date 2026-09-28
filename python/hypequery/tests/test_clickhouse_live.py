@@ -149,7 +149,6 @@ def test_live_dataset_clients_return_the_same_rows() -> None:
         assert create_dataset_client(executor=executor).execute(one, query).data == expected
         cache = ResultCache(
             store=MemoryCacheStore(),
-            secret=b"\x42" * 32,
             project="live",
             environment="ci",
             ttl_seconds=60,
