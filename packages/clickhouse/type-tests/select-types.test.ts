@@ -30,6 +30,31 @@ type AssertPretypedSelection = Expect<Equal<
   { id: number; name: string }[]
 >>;
 
+const pretypedMixed: ('id' | 'name as label')[] = ['id', 'name as label'];
+const pretypedMixedSelection = builder.select(pretypedMixed);
+type AssertPretypedMixedSelection = Expect<Equal<
+  Awaited<ReturnType<typeof pretypedMixedSelection.execute>>,
+  { id: number; label: string }[]
+>>;
+const pretypedMixedConstSelection = builder.selectConst(...pretypedMixed);
+type AssertPretypedMixedConstSelection = Expect<Equal<
+  Awaited<ReturnType<typeof pretypedMixedConstSelection.execute>>,
+  { id: number; label: string }[]
+>>;
+
+// Each union member must be checked, including when plain columns and aliases mix.
+const invalidPretypedMixed: ('id' | 'nope as x')[] = ['nope as x'];
+// @ts-expect-error - unknown aliased column in a pretyped mixed union
+builder.select(invalidPretypedMixed);
+// @ts-expect-error - unknown aliased column in a pretyped mixed union
+builder.selectConst(...invalidPretypedMixed);
+
+const invalidPretypedQualified: ('id' | 'users.id as x')[] = ['users.id as x'];
+// @ts-expect-error - unknown qualified aliased column in a pretyped mixed union
+builder.select(invalidPretypedQualified);
+// @ts-expect-error - unknown qualified aliased column in a pretyped mixed union
+builder.selectConst(...invalidPretypedQualified);
+
 // @ts-expect-error - unknown column
 builder.select(['id', 'nope']);
 // @ts-expect-error - unknown aliased column

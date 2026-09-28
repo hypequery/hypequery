@@ -34,16 +34,19 @@ export type SelectableItem<State extends AnyBuilderState> =
   | AliasedExpression<any, string>
   | SqlExpression<any>;
 
-export type CheckedSelections<State extends AnyBuilderState, Selections> = {
-  [Index in keyof Selections]: Selections[Index] extends StringSelectableColumn<State>
-    ? Selections[Index]
-    : Selections[Index] extends `${infer Column} ${infer Keyword} ${string}`
+type CheckedSelection<State extends AnyBuilderState, Selection> =
+  Selection extends StringSelectableColumn<State>
+    ? Selection
+    : Selection extends `${infer Column} ${infer Keyword} ${string}`
       ? Lowercase<Keyword> extends 'as'
         ? Column extends StringSelectableColumn<State>
-          ? Selections[Index]
+          ? Selection
           : never
         : never
-      : Selections[Index];
+      : Selection;
+
+export type CheckedSelections<State extends AnyBuilderState, Selections> = {
+  [Index in keyof Selections]: CheckedSelection<State, Selections[Index]>;
 };
 
 export type ColumnSelectionKey<P> = P extends `${string}.${infer C}` ? C : P;
