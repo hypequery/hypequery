@@ -64,12 +64,13 @@ train.
 |---|---|---|
 | PY-A | PYA-01…PYA-05 (workspace, CI, JCS/tagged values, identifiers, conformance gate) | PYA-00/PYA-02 are org-account and release work, not code |
 | PY-B | PYB-01…PYB-08; contract 3 and expression extension 2 (RFC 0015); PYB-09 dataset client | Pagination `hasMore` metadata, which needs a planner over-fetch (pick up with PYD-02) |
-| PY-C | PYC-01 executor; PYC-02 cancellation and concurrency budgets | PYC-03 needs RFC 0009 accepted; PYC-04 is unblocked (RFC 0013 accepted, `cache-keys-v1` fixtures exist); PYC-05 needs RFC 0011 accepted |
+| PY-C | PYC-01 executor; PYC-02 cancellation and concurrency budgets; PYC-04 key derivation (`cache-keys-v1` green) | PYC-03 needs RFC 0009 accepted; PYC-04 result cache needs a defined dataset-query preimage (see PYC-04); PYC-05 needs RFC 0011 accepted |
 | PY-D | none (`hypequery.serve` is still the extra guard only) | PYD-01 needs PYC-03 |
 | PY-E | none | all |
 
 Next steps: accept RFC 0009 (TSP-01) to unblock PYC-03 and then all of PY-D.
-PYC-04 can proceed in parallel. TSP-04 (server-side binding in
+The same acceptance pass should settle the dataset-query cache preimage, which
+unblocks the rest of PYC-04. TSP-04 (server-side binding in
 `@hypequery/clickhouse`) is still open.
 
 ## Non-goals
@@ -442,6 +443,19 @@ PYC-01 are merged.
 
 ### PYC-04 — Cache preimage and opaque keys
 - **Dependencies:** TSP-02, PYB-08.
+- **Status (2026-09-28):** Split in two.
+  - *Key derivation: delivered.* It lives in `hypequery.protocol.cache_keys`
+    and is byte-identical to `@hypequery/protocol`. The Python adapter
+    announces `cache-keys-v1`, and CI requires that family.
+  - *Result cache: blocked on a spec gap.* RFC 0013 leaves the preimage's
+    fields to "the containing query contract", and no accepted contract
+    defines them for dataset queries. The only normative rule for
+    tenant-scoped cache keys is RFC 0009 § Cache confusion, and RFC 0009 is
+    still `Proposed`. The TypeScript `query-signature.ts` is a readable
+    signature, not a protocol artifact, and does not derive RFC 0013 keys
+    yet. Settle the preimage fields and their tenant-capability input as part
+    of accepting RFC 0009 (with fixtures), then build the memory store and
+    client wiring on top of it.
 - **Scope:** Canonical cache preimage (in-memory only) → versioned
   HMAC-derived opaque key; memory cache store; pluggable store interface
   with the key contract enforced at the boundary.
