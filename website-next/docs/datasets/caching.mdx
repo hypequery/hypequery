@@ -5,7 +5,7 @@ description: Cache semantic query results under opaque, tenant-safe keys.
 
 import { CodeBlock } from 'fumadocs-ui/components/codeblock';
 
-The dataset client can cache query results so repeated semantic queries do not hit ClickHouse. Each entry is identified by everything that can change its rows: dimensions, measures, filters, segments, ordering, pagination, time grain, the dataset definitions, the tenant, and any explicit cache scope. Two different queries never share an entry, and two tenants never share one. See [Cache keys and secrets](#cache-keys-and-secrets) for what a store actually sees.
+The dataset client can cache query results so repeated semantic queries do not hit ClickHouse. Each entry is identified by everything that can change its rows: dimensions, measures, filters, segments, ordering, pagination, time grain, timezone, the dataset definitions, the tenant, and any explicit cache scope. Two different queries never share an entry, and two tenants never share one. See [Cache keys and secrets](#cache-keys-and-secrets) for what a store actually sees.
 
 This is the semantic-layer cache in `@hypequery/datasets`, keyed by what a query *means*. It is independent of [query caching](/docs/query-building/caching) in `@hypequery/clickhouse`, which caches raw `execute()` results on the typed query builder.
 

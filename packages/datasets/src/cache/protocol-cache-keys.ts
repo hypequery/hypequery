@@ -182,15 +182,27 @@ function deriveKey(
   });
 }
 
+/**
+ * RFC 0009's normalized query has no timezone, yet it moves bucket boundaries
+ * and local time-key bounds. It is folded into the definition identity, as
+ * `scope` is. UTC, the client default, folds in nothing, so default queries
+ * keep the keys other runtimes derive for the same release.
+ */
+function partitionTimezone(query: DatasetQuery | MetricQuery): string | undefined {
+  return query.timezone === 'UTC' ? undefined : query.timezone;
+}
+
 function definitionFor(
   settings: ProtocolCacheKeySettings,
   root: AnyDatasetInstance,
   scope: string | undefined,
+  query: DatasetQuery | MetricQuery,
   metric?: unknown,
 ): string {
+  const timezone = partitionTimezone(query);
   return settings.definitionIdentity !== undefined
-    ? scopedDefinitionIdentity(settings.definitionIdentity, scope)
-    : localDefinitionIdentity(root, { metric, scope });
+    ? scopedDefinitionIdentity(settings.definitionIdentity, scope, timezone)
+    : localDefinitionIdentity(root, { metric, scope, timezone });
 }
 
 /**
@@ -213,7 +225,7 @@ export function datasetCacheKey(
       ...(query.measures !== undefined ? { measures: [...query.measures] } : {}),
       ...(query.by !== undefined ? { by: query.by } : {}),
     };
-    return deriveKey(settings, wire, definitionFor(settings, ds, scope), context, query.limit);
+    return deriveKey(settings, wire, definitionFor(settings, ds, scope, query), context, query.limit);
   } catch {
     // A cache failure never fails a query: run uncached.
     return undefined;
@@ -238,7 +250,7 @@ export function metricCacheKey(
       ...sharedQueryFields(query),
       ...(grain !== undefined ? { by: grain } : {}),
     };
-    const definition = definitionFor(settings, ref.dataset, scope, ref.spec);
+    const definition = definitionFor(settings, ref.dataset, scope, query, ref.spec);
     return deriveKey(settings, wire, definition, context, query.limit);
   } catch {
     return undefined;

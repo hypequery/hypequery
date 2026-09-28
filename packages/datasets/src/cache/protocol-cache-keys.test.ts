@@ -249,6 +249,29 @@ describe('protocol cache keys', () => {
       .toBeUndefined();
   });
 
+  it('partitions by timezone, and UTC keeps the default key', () => {
+    // RFC 0009's query has no timezone, but it moves bucket boundaries, so it
+    // is folded into the definition identity; the same holds for a deployed
+    // identity, which is shared across runtimes.
+    const Events = dataset('events', {
+      source: 'analytics.events',
+      timeKey: 'at',
+      dimensions: { at: dimension.timestamp() },
+      measures: { revenue: measure.sum('value'), running: measure.cumulative('revenue') },
+    });
+    for (const options of [{ secret: SECRET }, { secret: SECRET, definitionIdentity: 'd'.repeat(64) }]) {
+      const settings = resolveProtocolCacheKeySettings(options, false);
+      const key = (timezone?: string) => datasetCacheKey(
+        settings, Events, { by: 'day', measures: ['revenue', 'running'], timezone }, undefined, undefined,
+      );
+      expect(key('UTC')).toMatch(KEY);
+      expect(key('UTC')).toBe(key(undefined));
+      expect(key('Asia/Tokyo')).toMatch(KEY);
+      expect(key('Asia/Tokyo')).not.toBe(key('UTC'));
+      expect(key('Asia/Tokyo')).not.toBe(key('America/New_York'));
+    }
+  });
+
   it('derives the same key as the Python SDK for the same release, query, and tenant', () => {
     // Pinned in python/hypequery/tests/test_dataset_cache.py as well. If this
     // changes, the two languages no longer share entries.
