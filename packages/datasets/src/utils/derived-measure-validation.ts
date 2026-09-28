@@ -2,11 +2,10 @@ import type {
   DatasetMeasureDefinition,
   DerivedMeasureDefinition,
   FormulaExpr,
-  MeasureDefinition,
 } from '../types.js';
 import type { SemanticExpression } from '../semantic-plan.js';
 import { isSafeSQLIdentifier } from '../sql-utils.js';
-import { isBaseMeasure, isDerivedMeasure, isWindowMeasure } from './dataset-measures.js';
+import { splitDatasetMeasures } from './dataset-measures.js';
 
 function fail(datasetName: string, measureName: string, detail: string): never {
   throw new Error(`Invalid dataset "${datasetName}": derived measure "${measureName}" ${detail}`);
@@ -122,15 +121,8 @@ export function validateDerivedMeasures(
   datasetName: string,
   measures: Record<string, DatasetMeasureDefinition>,
 ): void {
-  const baseMeasures = Object.fromEntries(
-    Object.entries(measures).filter(([, definition]) => definition && isBaseMeasure(definition)),
-  ) as Record<string, MeasureDefinition>;
-  const derivedMeasures = Object.fromEntries(
-    Object.entries(measures).filter(([, definition]) => definition && isDerivedMeasure(definition)),
-  ) as Record<string, DerivedMeasureDefinition>;
-  const windowMeasureNames = new Set(
-    Object.entries(measures).filter(([, definition]) => definition && isWindowMeasure(definition)).map(([name]) => name),
-  );
+  const { base: baseMeasures, derived: derivedMeasures, windows } = splitDatasetMeasures(measures);
+  const windowMeasureNames = new Set(Object.keys(windows));
   for (const [measureName, definition] of Object.entries(derivedMeasures)) {
     if (!isSafeSQLIdentifier(measureName)) {
       fail(datasetName, measureName, 'name is not a safe identifier.');

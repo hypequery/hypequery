@@ -1,4 +1,4 @@
-import type { DatasetMeasureDefinition, MeasureDefinition, TimeGrain, WindowMeasureDefinition } from '../types.js';
+import type { DatasetMeasureDefinition, MeasureDefinition, TimeGrain } from '../types.js';
 import { isSafeSQLIdentifier } from '../sql-utils.js';
 import { isBaseMeasure, isWindowMeasure } from './dataset-measures.js';
 
@@ -22,7 +22,7 @@ export function validateWindowMeasures(
     if (!definition || !isWindowMeasure(definition)) continue;
     if (!isSafeSQLIdentifier(name)) invalid(datasetName, name, 'name is not a safe identifier.');
     if (!timeKey) invalid(datasetName, name, 'requires a timeKey.');
-    const window = definition as WindowMeasureDefinition;
+    const window = definition;
     const base = Object.hasOwn(measures, window.measure) ? measures[window.measure] : undefined;
     if (!base || !isBaseMeasure(base)) {
       invalid(datasetName, name, `must wrap a base measure; "${String(window.measure)}" is not one.`);

@@ -1,3 +1,4 @@
+import { baseMeasureNames } from './dataset-measures.js';
 import type {
   AnyDatasetInstance,
   DatasetQuery,
@@ -20,7 +21,7 @@ export function toDatasetQueryResult(
   },
 ): DatasetQueryResult {
   const { dataset, query, sql, timingMs, context } = options;
-  const selectedMeasures = query.measures ?? Object.keys(dataset.measures);
+  const selectedMeasures = query.measures ?? baseMeasureNames(dataset.measures);
   const { data, pagination } = applyPagination(rows, query.limit, query.offset);
   const serializedData = serializeSemanticMeasureValues(data, selectedMeasures);
 

@@ -5,6 +5,7 @@
  */
 
 import type { DatasetRegistry } from '../types.js';
+import { getDatasetCatalog } from '@hypequery/datasets';
 
 export function datasetGuidePrompt(datasets: DatasetRegistry, datasetName?: string) {
   if (datasetName) {
@@ -17,7 +18,10 @@ export function datasetGuidePrompt(datasets: DatasetRegistry, datasetName?: stri
     const datasetAny = dataset as any;
     // Generate dataset-specific guide
     const dimensions = datasetAny.dimensions ? Object.keys(datasetAny.dimensions) : [];
-    const measures = datasetAny.measures ? Object.keys(datasetAny.measures) : [];
+    const catalog = datasetAny.__type === 'dataset' ? getDatasetCatalog(datasetAny) : undefined;
+    const measures = catalog
+      ? [...Object.keys(catalog.measures), ...Object.keys(catalog.derivedMeasures ?? {})]
+      : datasetAny.measures ? Object.keys(datasetAny.measures) : [];
     const metrics = datasetAny.metrics ? Object.keys(datasetAny.metrics) : [];
 
     const guide = `# Querying the ${datasetName} dataset

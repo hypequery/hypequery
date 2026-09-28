@@ -6,6 +6,10 @@ import { measure } from './measure.js';
 import { divide, nullIfZero } from './formulas.js';
 import { buildProtocolDeploymentContract } from './protocol-deployment-adapter.js';
 import { createRenderingBuilderFactory } from './tests/support/sql-equality-harness.js';
+import { getDatasetCatalog } from './catalog.js';
+import { projectAgentSafeCatalog } from './agent-catalog.js';
+import { buildCanonicalSemanticQuerySchemas, buildDatasetInputSchema } from './semantic-query-schema.js';
+import { createInMemoryBackend } from './in-memory-backend.js';
 
 function orders(measures: Record<string, ReturnType<typeof measure.sum> | ReturnType<typeof measure.cumulative>>) {
   return dataset('orders', {
@@ -17,7 +21,54 @@ function orders(measures: Record<string, ReturnType<typeof measure.sum> | Return
 }
 
 describe('RFC 0015 window measure authoring', () => {
-  it('keeps window definitions separate from base measures', () => {
+  it.each([false, true])('excludes window-dependent formulas from executable catalogs and schemas (base formula: %s)', (includeBaseFormula) => {
+    const ds = dataset('orders', {
+      source: 'orders', timeKey: 'createdAt',
+      dimensions: { createdAt: dimension.timestamp(), amount: dimension.number() },
+      measures: {
+        revenue: measure.sum('amount'),
+        runningRevenue: measure.cumulative('revenue'),
+        growth: measure.derived({
+          uses: { running: 'runningRevenue', current: 'revenue' },
+          formula: ({ running, current }) => divide(current, nullIfZero(running)),
+        }),
+        ...(includeBaseFormula ? {
+          revenueRatio: measure.derived({
+            uses: { current: 'revenue' },
+            formula: ({ current }) => divide(current, nullIfZero(current)),
+          }),
+        } : {}),
+      },
+    });
+    const catalog = getDatasetCatalog(ds);
+    const expectedDerived = includeBaseFormula ? ['revenueRatio'] : [];
+    expect(Object.keys(catalog.derivedMeasures ?? {})).toEqual(expectedDerived);
+    if (!includeBaseFormula) expect(catalog.derivedMeasures).toBeUndefined();
+    expect(catalog.orderableFields).not.toContain('growth');
+    expect(catalog.orderableFields).not.toContain('runningRevenue');
+    expect(projectAgentSafeCatalog({ orders: ds }).datasets[0]!.measures.map(item => item.name))
+      .toEqual(['revenue', ...expectedDerived]);
+
+    const schema = buildDatasetInputSchema(ds);
+    const canonicalSchema = buildCanonicalSemanticQuerySchemas({ orders: ds }).queryDataset;
+    for (const name of ['runningRevenue', 'growth']) {
+      expect(schema.safeParse({ measures: [name], by: 'day' }).success).toBe(false);
+      expect(schema.safeParse({ measures: ['revenue'], orderBy: [{ field: name, direction: 'asc' }] }).success).toBe(false);
+      expect(canonicalSchema.safeParse({ dataset: 'orders', measures: [name], by: 'day' }).success).toBe(false);
+    }
+    for (const name of ['revenue', ...expectedDerived]) {
+      expect(schema.safeParse({ measures: [name], orderBy: [{ field: name, direction: 'asc' }] }).success).toBe(true);
+      expect(canonicalSchema.safeParse({ dataset: 'orders', measures: [name] }).success).toBe(true);
+    }
+    // Catalog filtering leaves the authoring definition and its explicit
+    // execution error available to direct TypeScript callers.
+    expect(ds.measures.growth.uses.running).toBe('runningRevenue');
+    const client = createDatasetClient({ queryBuilder: createRenderingBuilderFactory() });
+    expect(client.validate(ds, { measures: ['growth'], by: 'day' }).errors)
+      .toContain('Derived measure "growth" uses a window measure and is not executable until RFC 0015 window planning is available.');
+  });
+
+  it('keeps every measure kind in the public measures registry', () => {
     const ds = dataset('orders', {
       source: 'orders',
       timeKey: 'createdAt',
@@ -27,11 +78,46 @@ describe('RFC 0015 window measure authoring', () => {
         trailingRevenue: measure.trailing('revenue', { amount: 7, unit: 'day' }),
         monthToDate: measure.toDate('revenue', 'month'),
         runningRevenue: measure.cumulative('revenue'),
+        revenueRatio: measure.derived({
+          uses: { current: 'revenue' },
+          formula: ({ current }) => divide(current, nullIfZero(current)),
+        }),
       },
     });
-    expect(Object.keys(ds.measures)).toEqual(['revenue']);
-    expect(Object.keys(ds.windowMeasures)).toEqual(['trailingRevenue', 'monthToDate', 'runningRevenue']);
-    expect(ds.windowMeasures.trailingRevenue.trailing).toEqual({ amount: 7, unit: 'day' });
+    expect(Object.keys(ds.measures)).toEqual(['revenue', 'trailingRevenue', 'monthToDate', 'runningRevenue', 'revenueRatio']);
+    expect('windowMeasures' in ds).toBe(false);
+    expect(ds.measures.trailingRevenue.trailing).toEqual({ amount: 7, unit: 'day' });
+    expect(Object.keys(ds.derivedMeasures)).toEqual(['revenueRatio']);
+    expect(ds.derivedMeasures.revenueRatio).toBe(ds.measures.revenueRatio);
+    expect(ds.metric('totalRevenue', { measure: 'revenue' }).contract().measures).toEqual(['revenue']);
+    const client = createDatasetClient({ queryBuilder: createRenderingBuilderFactory() });
+    expect(client.toSQL(ds, {})).toBe('SELECT SUM(amount) AS revenue FROM orders');
+    expect(client.toSQL(ds, { measures: ['revenueRatio'] })).toContain('NULLIF');
+    // JavaScript callers cannot turn a non-aggregate definition into a metric.
+    // @ts-expect-error Deliberately invalid input exercises JavaScript runtime validation.
+    expect(() => ds.metric('invalid', { measure: 'runningRevenue' })).toThrow(/must be a base measure/);
+    // @ts-expect-error Deliberately invalid input exercises JavaScript runtime validation.
+    expect(() => ds.metric('invalid', { measure: 'revenueRatio' })).toThrow(/must be a base measure/);
+  });
+
+  it('executes only base measures by default on a semantic backend', async () => {
+    const ds = dataset('orders', {
+      source: 'orders', timeKey: 'createdAt',
+      dimensions: { createdAt: dimension.timestamp(), amount: dimension.number() },
+      measures: {
+        revenue: measure.sum('amount'),
+        runningRevenue: measure.cumulative('revenue'),
+        revenueRatio: measure.derived({
+          uses: { current: 'revenue' },
+          formula: ({ current }) => divide(current, nullIfZero(current)),
+        }),
+      },
+    });
+    const client = createDatasetClient({
+      backend: createInMemoryBackend({ orders: [{ amount: 10 }, { amount: 20 }] }),
+    });
+    expect((await client.execute(ds)).data).toEqual([{ revenue: '30' }]);
+    expect(client.validate(ds, { measures: [] }).valid).toBe(false);
   });
 
   it('rejects invalid references, missing time keys, and unbounded cumulative aggregations', () => {

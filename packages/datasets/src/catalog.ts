@@ -1,3 +1,4 @@
+import { splitDatasetMeasures } from './utils/dataset-measures.js';
 import type {
   AnyDatasetInstance,
   DimensionDefinition,
@@ -14,6 +15,7 @@ import type {
 import { SEMANTIC_FILTER_OPERATORS } from './constants.js';
 import { datasetTimeGrains } from './utils/dataset-time-grains.js';
 import { isApproximateAggregation, isApproximateDerivedMeasure } from './utils/approximate-measures.js';
+import { usesWindowMeasure } from './utils/window-measure-dependencies.js';
 import {
   listGroupableRelationshipFields,
   listQueryableRelationshipFields,
@@ -215,8 +217,13 @@ export function getGroupableRelationshipFields(catalog: DatasetCatalog): string[
 
 export function getDatasetCatalog(dataset: DatasetCatalogSource): DatasetCatalog {
   const dimensionNames = Object.keys(dataset.dimensions);
-  const measureNames = Object.keys(dataset.measures);
-  const derivedMeasureNames = Object.keys(dataset.derivedMeasures ?? {});
+  const { base: baseMeasures, derived } = splitDatasetMeasures(dataset.measures);
+  const measureNames = Object.keys(baseMeasures);
+  // Window-dependent formulas are valid authoring definitions, but cannot
+  // execute yet. All catalog consumers must see only executable measures.
+  const derivedMeasures = Object.entries(derived)
+    .filter(([, definition]) => !usesWindowMeasure(definition, dataset.measures));
+  const derivedMeasureNames = derivedMeasures.map(([name]) => name);
   const metricNames = Object.keys(dataset.metrics ?? {});
   const supportedGrains = [...datasetTimeGrains(dataset)];
   const maxLimit = dataset.limits?.maxResultSize;
@@ -244,20 +251,20 @@ export function getDatasetCatalog(dataset: DatasetCatalogSource): DatasetCatalog
       ]),
     ),
     measures: Object.fromEntries(
-      Object.entries(dataset.measures).map(([name, measure]) => [
+      Object.entries(baseMeasures).map(([name, measure]) => [
         name,
         measureToCatalog(measure),
       ]),
     ),
-    ...(dataset.derivedMeasures && Object.keys(dataset.derivedMeasures).length > 0 ? {
+    ...(derivedMeasures.length > 0 ? {
       derivedMeasures: Object.fromEntries(
-        Object.entries(dataset.derivedMeasures).map(([name, definition]) => [
+        derivedMeasures.map(([name, definition]) => [
           name,
           {
             ...snapshotSemanticMetadata(definition),
             label: definition.label,
             description: definition.description,
-            ...(isApproximateDerivedMeasure(dataset.measures, definition) ? { approximate: true as const } : {}),
+            ...(isApproximateDerivedMeasure(baseMeasures, definition) ? { approximate: true as const } : {}),
           },
         ]),
       ),

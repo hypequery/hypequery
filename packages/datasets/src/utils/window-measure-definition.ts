@@ -1,4 +1,4 @@
-import type { WindowMeasureDefinition } from '../types.js';
+import type { WindowMeasureDefinition, WindowMeasureMode } from '../types.js';
 import { snapshotSemanticMetadata } from './semantic-metadata.js';
 
 export type WindowMeasureOptions = Pick<WindowMeasureDefinition,
@@ -6,7 +6,7 @@ export type WindowMeasureOptions = Pick<WindowMeasureDefinition,
 
 export function createWindowMeasure<const TMeasureName extends string>(
   baseMeasure: TMeasureName,
-  window: Pick<WindowMeasureDefinition, 'trailing' | 'toDate' | 'cumulative'>,
+  window: WindowMeasureMode,
   options?: WindowMeasureOptions,
 ): WindowMeasureDefinition<TMeasureName> {
   return {
@@ -16,5 +16,5 @@ export function createWindowMeasure<const TMeasureName extends string>(
     ...snapshotSemanticMetadata(options ?? {}),
     ...(options?.label === undefined ? {} : { label: options.label }),
     ...(options?.description === undefined ? {} : { description: options.description }),
-  } as WindowMeasureDefinition<TMeasureName>;
+  };
 }

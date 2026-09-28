@@ -1,3 +1,4 @@
+import { baseMeasureNames, getBaseMeasure } from './utils/dataset-measures.js';
 import type {
   AnyDatasetInstance,
   DatasetQuery,
@@ -67,14 +68,16 @@ export function buildDatasetQueryBuilder(
   let qb = options.builderFactory.table(ds.source);
   qb = applyRelationshipJoins(qb, joinCtx);
   const { selectParts, groupByParts } = buildDimensionSelectionPlan(ds, query.dimensions ?? [], query.by, joinCtx);
-  const measureNames = query.measures ?? Object.keys(ds.measures);
+  const measureNames = query.measures ?? baseMeasureNames(ds.measures);
 
   if (selectParts.length > 0) {
     qb = qb.select(selectParts);
   }
 
   for (const measureName of measureNames) {
-    qb = applyMeasureDefinition(qb, ds, measureName, ds.measures[measureName], joinCtx);
+    const definition = getBaseMeasure(ds.measures, measureName);
+    if (!definition) throw new Error(`Measure "${measureName}" is not a base measure.`);
+    qb = applyMeasureDefinition(qb, ds, measureName, definition, joinCtx);
   }
 
   if (groupByParts.length > 0) {

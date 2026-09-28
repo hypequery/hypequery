@@ -4,8 +4,33 @@
 
 import { describe, it, expect } from 'vitest';
 import { datasetGuidePrompt } from './dataset-guide.js';
+import { dataset, dimension, divide, measure, nullIfZero } from '@hypequery/datasets';
 
 describe('datasetGuidePrompt', () => {
+  it('lists executable measures from a unified dataset registry', () => {
+    const orders = dataset('orders', {
+      source: 'orders', timeKey: 'createdAt',
+      dimensions: { createdAt: dimension.timestamp() },
+      measures: {
+        revenue: measure.sum('amount'),
+        runningRevenue: measure.cumulative('revenue'),
+        revenueRatio: measure.derived({
+          uses: { current: 'revenue' },
+          formula: ({ current }) => divide(current, nullIfZero(current)),
+        }),
+        growth: measure.derived({
+          uses: { running: 'runningRevenue', current: 'revenue' },
+          formula: ({ running, current }) => divide(current, nullIfZero(running)),
+        }),
+      },
+    });
+    const text = datasetGuidePrompt({ orders }, 'orders').messages[0].content.text;
+    expect(text).toContain('- revenue\n');
+    expect(text).toContain('- revenueRatio\n');
+    expect(text).not.toContain('- runningRevenue');
+    expect(text).not.toContain('- growth');
+  });
+
   it('should throw error when specific dataset not found', () => {
     expect(() => datasetGuidePrompt({}, 'nonexistent')).toThrow(
       'Dataset not found: nonexistent'
