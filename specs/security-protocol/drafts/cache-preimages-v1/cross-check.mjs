@@ -1,3 +1,4 @@
+import { createHmac } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { validateProtocolSemanticQuery } from '../../../../packages/protocol/dist/index.js';
 const dir = process.argv[2];
@@ -10,6 +11,9 @@ const enc = new TextEncoder();
 const byBytes = (a, b) => Buffer.compare(Buffer.from(enc.encode(a)), Buffer.from(enc.encode(b)));
 class Reject extends Error { constructor(code) { super(code); this.code = code; } }
 function build(c) {
+  const secret = Buffer.from(c.secretHex, 'hex');
+  if (secret.length === 0) throw new Reject('HQ_CACHE_PREIMAGE_SECRET_MISSING');
+  if (secret.length < 32) throw new Reject('HQ_CACHE_PREIMAGE_SECRET_TOO_SHORT');
   if (typeof c.definitionIdentity !== 'string' || !/^[0-9a-f]{64}$/.test(c.definitionIdentity)) throw new Reject('HQ_CACHE_PREIMAGE_INVALID_DEFINITION');
   try { validateProtocolSemanticQuery(c.query, { extension: 2 }); } catch { throw new Reject('HQ_CACHE_PREIMAGE_INVALID_QUERY'); }
   const q = c.query;
@@ -22,8 +26,11 @@ function build(c) {
   if (!t || typeof t !== 'object' || Array.isArray(t)) throw bad;
   const keys = Object.keys(t).sort().join();
   if ((t.mode === 'none' || t.mode === 'all') && keys === 'mode') tenant = { mode: t.mode };
-  else if (t.mode === 'scoped' && keys === 'ids,mode' && Array.isArray(t.ids) && t.ids.length >= 1 && t.ids.length <= 100
-    && t.ids.every((i) => typeof i === 'string' && i.length > 0 && enc.encode(i).length <= 256)) tenant = { mode: 'scoped', ids: [...new Set(t.ids)].sort(byBytes) };
+  else if (t.mode === 'scoped' && keys === 'ids,mode' && Array.isArray(t.ids) && t.ids.length >= 1
+    && t.ids.every((i) => typeof i === 'string' && i.length > 0)) {
+    const fp = (id) => createHmac('sha256', secret).update(Buffer.concat([Buffer.from('hypequery.tenant.fingerprint.v1\0'), Buffer.from(enc.encode(id))])).digest('hex');
+    tenant = { mode: 'scoped', fingerprints: [...new Set(t.ids.map(fp))].sort() };
+  }
   else throw bad;
   const l = c.rowLimit;
   if (!(l === null || (Number.isSafeInteger(l) && l >= 0))) throw new Reject('HQ_CACHE_PREIMAGE_INVALID_LIMIT');

@@ -1,9 +1,9 @@
 # Cache preimage version 1 fixtures (draft)
 
-**Draft.** These fixtures accompany the proposed RFC 0016 and are not yet
-normative. They sit outside `fixtures/` on purpose. Registering a family in
+**Draft.** These fixtures accompany the proposed "Cache preimage" section of
+RFC 0009 and are not yet normative. They sit outside `fixtures/` on purpose. Registering a family in
 `manifest.json` makes it a conformance gate, which would freeze a Proposed
-contract. When RFC 0016 is accepted, move this directory to
+contract. When RFC 0009 is accepted, move this directory to
 `fixtures/cache-preimages-v1/`, register it in the manifest, and delete the two
 scripts.
 
@@ -12,14 +12,18 @@ scripts.
 Each entry in `success.json` contains:
 
 - `id`: stable fixture identifier;
+- `secretHex`: the namespace's RFC 0013 cache-key secret as lowercase hex,
+  used for tenant fingerprints;
 - `definitionIdentity`: 64 lowercase hex characters;
 - `query`: an RFC 0003 semantic query, validated under expression extension 2;
 - `tenant`: the trusted tenant capability, as `{"mode": "none"}`,
-  `{"mode": "scoped", "ids": [...]}`, or `{"mode": "all"}`;
+  `{"mode": "scoped", "ids": [...]}` with raw tenant identifiers, or
+  `{"mode": "all"}`. The preimage replaces each identifier with its tenant
+  fingerprint;
 - `rowLimit`: the effective row limit, or `null`;
 - `preimageUtf8`: the exact canonical preimage.
 
-`tenant` and `rowLimit` describe trusted execution context. They are fixture
+`secretHex`, `tenant` and `rowLimit` describe trusted execution context. They are fixture
 inputs, not request fields.
 
 ## Rejection manifest
@@ -37,8 +41,8 @@ Equivalent requests must build identical bytes:
   the same preimage;
 - `filters-order-a`, `filters-order-b` and `duplicate-filters-collapse` all
   build the same preimage;
-- `tenant-scoped-sorted-deduplicated` shows that tenant sets are sorted and
-  deduplicated.
+- `tenant-scoped-sorted-deduplicated` shows that tenant fingerprints are
+  sorted and deduplicated.
 
 Requests that can return different rows must not:
 
@@ -50,14 +54,22 @@ Requests that can return different rows must not:
   `minimal-dataset`, which is tenant-free. This is the RFC 0009 cache-confusion
   guarantee;
 - `definition-changes-preimage` and `row-limit-zero` differ from
-  `minimal-dataset`.
+  `minimal-dataset`;
+- `tenant-fingerprint-follows-secret`: the same tenant under another secret
+  builds a different preimage.
+
+Raw tenant identifiers never appear in a preimage, and `generate.py` asserts
+this for every scoped case. `tenant-id-has-no-length-cap` and
+`tenant-count-has-no-cap` pin that there is no tenant limit beyond RFC 0013's
+1 MiB bound on the preimage.
 
 ## How these expectations were produced
 
-`generate.py` implements the RFC 0016 rules with the Python validator and RFC
-8785 serializer, and writes both files. `cross-check.mjs` re-derives every case
-independently, with the TypeScript validator and a separate serializer. At the
-time of writing, all 41 cases agree.
+`generate.py` implements the rules with the Python validator, RFC 8785
+serializer and `hmac`, and writes both files. `cross-check.mjs` re-derives
+every case independently, with the TypeScript validator, a separate
+serializer and `node:crypto`. At the
+time of writing, all 44 cases agree.
 
 ```console
 uv run --project python/hypequery python specs/security-protocol/drafts/cache-preimages-v1/generate.py specs/security-protocol/drafts/cache-preimages-v1

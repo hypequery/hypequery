@@ -64,7 +64,7 @@ train.
 |---|---|---|
 | PY-A | PYA-01…PYA-05 (workspace, CI, JCS/tagged values, identifiers, conformance gate) | PYA-00/PYA-02 are org-account and release work, not code |
 | PY-B | PYB-01…PYB-08; contract 3 and expression extension 2 (RFC 0015); PYB-09 dataset client | Pagination `hasMore` metadata, which needs a planner over-fetch (pick up with PYD-02) |
-| PY-C | PYC-01 executor; PYC-02 cancellation and concurrency budgets; PYC-04 key derivation (`cache-keys-v1` green) | PYC-03 needs RFC 0009 accepted; PYC-04 result cache waits on RFC 0016 (proposed) being accepted; PYC-05 needs RFC 0011 accepted |
+| PY-C | PYC-01 executor; PYC-02 cancellation and concurrency budgets; PYC-04 key derivation (`cache-keys-v1` green) | PYC-03 needs RFC 0009 accepted; PYC-04 result cache waits on the RFC 0009 cache preimage section being accepted; PYC-05 needs RFC 0011 accepted |
 | PY-D | none (`hypequery.serve` is still the extra guard only) | PYD-01 needs PYC-03 |
 | PY-E | none | all |
 
@@ -454,18 +454,12 @@ PYC-01 are merged.
     still `Proposed`. The TypeScript `query-signature.ts` is a readable
     signature, not a protocol artifact, and does not derive RFC 0013 keys
     yet.
-  - *Preimage: proposed.* RFC 0016 (`rfc/0016-cache-preimage.md`) defines
-    the preimage, with 41 draft fixtures in
-    `drafts/cache-preimages-v1/`. The fixtures are cross-checked between the
-    Python and TypeScript validators. Once RFC 0016 is accepted, move the
-    fixtures into the manifest, then build the memory store and client wiring
-    against them.
-- **Scope:** Canonical cache preimage (in-memory only) → versioned
-  HMAC-derived opaque key; memory cache store; pluggable store interface
-  with the key contract enforced at the boundary.
-- **Acceptance:** `cache-keys-v1` fixtures green; no preimage ever reaches
-  a store key, log, or metric label (asserted in tests).
-- **Review:** Security review required.
+  - *Preimage: proposed.* RFC 0009 now has a "Cache preimage" section, and a
+    "Tenant fingerprint" section that defines the RFC 0011 fingerprint. There
+    are 44 draft fixtures in `drafts/cache-preimages-v1/`, cross-checked
+    between the Python and TypeScript validators. Once RFC 0009 is accepted,
+    move the fixtures into the manifest, then build the memory store and client
+    wiring against them.
 
 ### PYC-05 — Query events and diagnostics (RFC 0011)
 - **Dependencies:** PYB-08, RFC 0011 accepted.

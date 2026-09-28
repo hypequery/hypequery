@@ -1,4 +1,4 @@
-"""Generate draft cache-preimages-v1 fixtures from the RFC 0016 rules.
+"""Generate draft cache-preimages-v1 fixtures from the RFC 0009 cache preimage rules.
 
 Uses Python's RFC 0003/0015 validator and RFC 8785 serializer. A separate
 Node script re-derives every preimage with the TypeScript validator and its own
@@ -7,6 +7,8 @@ serializer to cross-check.
 
 from __future__ import annotations
 
+import hashlib
+import hmac
 import json
 import re
 import sys
@@ -14,11 +16,14 @@ from pathlib import Path
 
 from hypequery.protocol import ProtocolExpressionError, validate_protocol_semantic_query
 from hypequery.protocol._jcs import serialize_jcs
+from hypequery.protocol.cache_keys import _utf8
 
 OUT = Path(sys.argv[1])
 MAX = 1 << 30
 DEF_A = "a" * 64
 DEF_B = "b" * 64
+SECRET = "11" * 32
+FINGERPRINT_DOMAIN = b"hypequery.tenant.fingerprint.v1"
 HEX = re.compile(r"[0-9a-f]{64}\Z")
 
 
@@ -64,7 +69,11 @@ def normalize_query(source: object) -> dict[str, object]:
     return out
 
 
-def normalize_tenant(tenant: object) -> dict[str, object]:
+def fingerprint(secret: bytes, tenant_id: str) -> str:
+    return hmac.new(secret, FINGERPRINT_DOMAIN + b"\x00" + _utf8(tenant_id), hashlib.sha256).hexdigest()
+
+
+def normalize_tenant(tenant: object, secret: bytes) -> dict[str, object]:
     bad = Reject("HQ_CACHE_PREIMAGE_INVALID_TENANT")
     if type(tenant) is not dict:
         raise bad
@@ -76,13 +85,12 @@ def normalize_tenant(tenant: object) -> dict[str, object]:
     if mode != "scoped" or set(tenant) != {"mode", "ids"}:
         raise bad
     ids = tenant["ids"]
-    if type(ids) is not list or not 1 <= len(ids) <= 100:
+    if type(ids) is not list or not ids:
         raise bad
     for item in ids:
-        if type(item) is not str or not item or len(item.encode()) > 256:
+        if type(item) is not str or not item:
             raise bad
-    unique = sorted(set(ids), key=lambda s: s.encode())
-    return {"mode": "scoped", "ids": unique}
+    return {"mode": "scoped", "fingerprints": sorted({fingerprint(secret, i) for i in ids})}
 
 
 def normalize_limit(value: object) -> int | None:
@@ -94,11 +102,16 @@ def normalize_limit(value: object) -> int | None:
 
 
 def build(case: dict[str, object]) -> str:
+    secret = bytes.fromhex(str(case["secretHex"]))
+    if not secret:
+        raise Reject("HQ_CACHE_PREIMAGE_SECRET_MISSING")
+    if len(secret) < 32:
+        raise Reject("HQ_CACHE_PREIMAGE_SECRET_TOO_SHORT")
     definition = case["definitionIdentity"]
     if type(definition) is not str or HEX.match(definition) is None:
         raise Reject("HQ_CACHE_PREIMAGE_INVALID_DEFINITION")
     query = normalize_query(case["query"])
-    tenant = normalize_tenant(case["tenant"])
+    tenant = normalize_tenant(case["tenant"], secret)
     row_limit = normalize_limit(case["rowLimit"])
     return jcs(
         {
@@ -130,8 +143,9 @@ NZ = eq("customer.country", "NZ")
 
 
 def case(id_: str, query: object, *, tenant: object = NONE, row_limit: object = None,
-         definition: object = DEF_A, **extra: object) -> dict[str, object]:
-    return {"id": id_, "definitionIdentity": definition, "query": query,
+         definition: object = DEF_A, secret: str = SECRET,
+         **extra: object) -> dict[str, object]:
+    return {"id": id_, "secretHex": secret, "definitionIdentity": definition, "query": query,
             "tenant": tenant, "rowLimit": row_limit, **extra}
 
 
@@ -167,9 +181,18 @@ success = [
     case("row-limit-zero", BASE, row_limit=0),
     case("row-limit-max-safe-integer", BASE, row_limit=2**53 - 1),
     case("definition-changes-preimage", BASE, definition=DEF_B),
+    case("tenant-fingerprint-follows-secret", BASE, tenant={"mode": "scoped", "ids": ["acme"]},
+         secret="22" * 32),
+    case("tenant-id-has-no-length-cap", BASE, tenant={"mode": "scoped", "ids": ["x" * 4096]}),
+    case("tenant-count-has-no-cap", BASE,
+         tenant={"mode": "scoped", "ids": [f"t{i:03d}" for i in range(150)]}),
+    case("secret-longer-than-minimum", BASE, tenant={"mode": "scoped", "ids": ["acme"]},
+         secret="33" * 64),
 ]
 
 rejections = [
+    case("secret-missing", BASE, secret=""),
+    case("secret-31-bytes", BASE, secret="11" * 31),
     case("definition-uppercase", BASE, definition="A" * 64),
     case("definition-short", BASE, definition="a" * 63),
     case("definition-not-string", BASE, definition=None),
@@ -183,24 +206,16 @@ rejections = [
     case("tenant-scoped-empty", BASE, tenant={"mode": "scoped", "ids": []}),
     case("tenant-scoped-empty-id", BASE, tenant={"mode": "scoped", "ids": [""]}),
     case("tenant-scoped-non-string-id", BASE, tenant={"mode": "scoped", "ids": [7]}),
-    case("tenant-id-too-long", BASE, tenant={"mode": "scoped", "ids": ["x" * 257]}),
-    case("tenant-too-many-ids", BASE,
-         tenant={"mode": "scoped", "ids": [f"t{i}" for i in range(101)]}),
     case("row-limit-negative", BASE, row_limit=-1),
     case("row-limit-above-safe-integer", BASE, row_limit=2**53),
     case("row-limit-string", BASE, row_limit="100"),
+    case("precedence-secret-before-definition", {**BASE, "sql": "x"},
+         secret="", definition="nope", tenant={"mode": "public"}, row_limit=-1),
     case("precedence-definition-before-query", {**BASE, "sql": "x"},
          definition="nope", tenant={"mode": "public"}, row_limit=-1),
     case("precedence-query-before-tenant", {**BASE, "sql": "x"},
          tenant={"mode": "public"}, row_limit=-1),
     case("precedence-tenant-before-limit", BASE, tenant={"mode": "public"}, row_limit=-1),
-]
-
-# Boundary cases that must still succeed.
-success += [
-    case("tenant-id-256-bytes", BASE, tenant={"mode": "scoped", "ids": ["x" * 256]}),
-    case("tenant-100-ids", BASE,
-         tenant={"mode": "scoped", "ids": [f"t{i:03d}" for i in range(100)]}),
 ]
 
 for item in success:
@@ -233,12 +248,20 @@ differ = [
     ("tenant-scoped", "tenant-all"),
     ("minimal-dataset", "definition-changes-preimage"),
     ("minimal-dataset", "row-limit-zero"),
+    ("tenant-scoped", "tenant-fingerprint-follows-secret"),
 ]
 for a, b in same:
     assert by_id[a] == by_id[b], (a, b)
 for a, b in differ:
     assert by_id[a] != by_id[b], (a, b)
-assert '"ids":["acme","globex"]' in by_id["tenant-scoped-sorted-deduplicated"]
+assert by_id["tenant-scoped-sorted-deduplicated"].count('"fingerprints":[') == 1
+assert len(json.loads(by_id["tenant-scoped-sorted-deduplicated"])["tenant"]["fingerprints"]) == 2
+# Raw tenant identifiers never reach the preimage.
+for item in success:
+    tenant = item["tenant"]
+    if isinstance(tenant, dict) and tenant.get("mode") == "scoped":
+        for raw in tenant["ids"]:
+            assert f'"{raw}"' not in item["preimageUtf8"], (item["id"], raw)
 
 OUT.mkdir(parents=True, exist_ok=True)
 (OUT / "success.json").write_text(json.dumps(success, indent=2, ensure_ascii=False) + "\n")

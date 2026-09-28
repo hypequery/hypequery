@@ -90,7 +90,8 @@ target, and the access time — never a client-writable log line.
 - Capabilities MUST NOT be written to caches, logs, query events, diagnostic
   projections, or error payloads. A cache key derives from capability-relevant
   context (target, tenant, and endpoint policy) through server-side derivation;
-  it never contains a capability, raw tenant value, or credential.
+  it never contains a capability, raw tenant value, or credential. The cache
+  preimage section below defines that derivation.
 
 ## Public metadata contract
 
@@ -182,6 +183,181 @@ and are separate from public metadata and default events. Required behavior:
 public metadata and default events contain no diagnostic content; every
 diagnostic access is authorized and audited; a diagnostic capability alone
 grants no execution or lifecycle access.
+
+## Tenant fingerprint
+
+A tenant fingerprint is how tenant scope appears anywhere outside the tenant
+capability itself. It lets a component tell two tenants apart without learning
+who either one is. It is the `tenantFingerprint` field of RFC 0011, and the
+form tenant scope takes in a cache preimage.
+
+```text
+input       = "hypequery.tenant.fingerprint.v1" || 0x00 || UTF-8(tenantId)
+fingerprint = lowercase-hex(HMAC-SHA-256(secret, input))       // 64 chars
+```
+
+- `secret` is a namespace secret meeting RFC 0013's secret rules: at least 32
+  random bytes, distinct per project and environment, and never shipped in an
+  artifact. For a cache preimage it MUST be the namespace's RFC 0013
+  cache-key secret. The domain string keeps fingerprints independent of cache
+  keys derived from the same secret, and a cache then needs no second secret.
+- Rotating the secret changes every fingerprint. For a cache that is intended:
+  rotation is already a flush under RFC 0013.
+- A tenant identifier is any non-empty string. Encoding follows JavaScript's
+  `TextEncoder`: an unpaired surrogate becomes U+FFFD.
+- An unkeyed digest MUST NOT be used. Tenant identifier spaces are small
+  enough to enumerate, which is the same reason RFC 0013 uses an HMAC.
+
+## Cache preimage
+
+RFC 0013 turns a canonical preimage into an opaque store key, and leaves the
+preimage's contents to the containing query contract. This section is that
+contract for dataset and metric queries, as cache preimage version 1. It fixes
+which facts identify a cached result, so any two runtimes build the same bytes
+for the same request and different bytes whenever the rows could differ.
+
+Getting it wrong has three costs:
+
+- **A missing fact that changes rows serves wrong data.** Leaving out tenant
+  scope is the cache confusion threat above.
+- **An extra fact that does not change rows means the cache never hits.** A
+  per-call `correlationId` is an example.
+- **The same fact encoded two ways splits entries.** Across languages, it also
+  means TypeScript and Python never share an entry.
+
+### Inputs
+
+A runtime builds the preimage from these inputs. All of them come from the
+server side, after authentication and tenant resolution. None comes from a
+request field other than the semantic query itself.
+
+| Input | Source |
+| --- | --- |
+| `query` | The RFC 0003 semantic query, validated under expression extension 2 (RFC 0015) |
+| `definitionIdentity` | Identity of the definitions that execute the query |
+| `tenant` | The tenant capability present on the execution |
+| `secret` | The namespace's RFC 0013 cache-key secret, used for tenant fingerprints |
+| `rowLimit` | The effective maximum row count the runtime will return |
+
+`definitionIdentity` is 64 lowercase hexadecimal characters. It MUST change
+whenever anything that affects result rows changes: dimension and measure SQL,
+sources, joins, segments, tenant keys, and dataset limits. For a released
+deployment it MUST be the RFC 0007 bundle identity. Otherwise it is
+implementation-defined, so local entries are never shared with released
+entries or across implementations. That is safe: an unshared entry only costs
+a miss.
+
+`tenant` records the capability present on the execution, whether or not the
+target dataset applies a tenant predicate:
+
+| Capability | Preimage form |
+| --- | --- |
+| None | `{"mode": "none"}` |
+| One or more tenants | `{"mode": "scoped", "fingerprints": [...]}` |
+| Cross-tenant administrative | `{"mode": "all"}` |
+
+For `scoped`, each tenant identifier is replaced by its tenant fingerprint. The
+fingerprints are then sorted and deduplicated, because a tenant set is a set.
+Raw tenant identifiers never enter the preimage.
+
+`rowLimit` is the smallest of these, or `null` when none applies:
+
+- the query's `limit`;
+- the dataset's maximum result size;
+- any caller budget `maxRows` (RFC 0014);
+- any endpoint policy ceiling.
+
+It is a non-negative integer no larger than 2^53 − 1. It replaces the query's
+own `limit`, so a request for 500 rows capped to 100 shares an entry with a
+request for 100.
+
+### Preimage
+
+The preimage is the RFC 8785 canonical UTF-8 serialization of:
+
+```json
+{
+  "kind": "hypequery-cache-preimage",
+  "version": 1,
+  "definition": "<definitionIdentity>",
+  "query": { "...": "normalized query" },
+  "tenant": { "mode": "..." },
+  "rowLimit": 100
+}
+```
+
+Project and environment are left out: RFC 0013 already binds them into the
+entry MAC.
+
+The normalized query is a closed object. Every field is always present, and
+`null` means "not requested".
+
+| Field | Dataset | Metric | Normalization |
+| --- | --- | --- | --- |
+| `kind`, `dataset` | yes | yes | As given |
+| `metric` | — | yes | As given |
+| `dimensions` | yes | yes | Absent becomes `[]`; order and duplicates kept |
+| `measures` | yes | — | Absent becomes `null`; present keeps order and duplicates |
+| `filters` | yes | yes | Absent becomes `[]`; sorted and deduplicated |
+| `segments` | yes | yes | Absent becomes `[]`; sorted by UTF-8 bytes |
+| `orderBy` | yes | yes | Absent becomes `[]`; order kept |
+| `by` | yes | yes | Absent becomes `null` |
+| `offset` | yes | yes | Absent or `0` becomes `null` |
+
+`includeMeta` and `limit` are removed. The reasons for each rule:
+
+- **Column and row order are part of the result.** So `dimensions`, `measures`
+  and `orderBy` keep their order.
+- **An absent `measures` selects every measure, and `[]` selects none.** So the
+  two stay distinct.
+- **`filters` and `segments` combine with AND, so their order cannot change
+  rows.** Filters are sorted by the UTF-8 bytes of each filter's RFC 8785 form,
+  and identical ones collapse. RFC 0015's rule that canonical encoding
+  "preserves [segments] as authored" governs the query artifact, not this
+  derived one.
+- **`offset` 0 skips no rows.**
+- **`includeMeta` changes response metadata, not rows.** A cache stores rows
+  and rebuilds metadata on every call.
+
+Filters that mean the same thing but are written differently, such as
+`in ["a"]` and `eq "a"`, are not merged. An unrecognized equivalence costs a
+miss, while a wrong one would serve wrong rows.
+
+These never enter the preimage:
+
+- `correlationId`, `queryId`, `activationRevision`, and trace identifiers;
+- deadlines, cancellation, budget `deadlineMs`, and query settings;
+- `includeMeta`;
+- credentials, principals, roles, and the capability objects themselves.
+
+### Validation order
+
+The first failing check determines the code:
+
+1. `HQ_CACHE_PREIMAGE_SECRET_MISSING`, then
+   `HQ_CACHE_PREIMAGE_SECRET_TOO_SHORT`: the RFC 0013 secret rules.
+2. `HQ_CACHE_PREIMAGE_INVALID_DEFINITION`: `definitionIdentity` is not 64
+   lowercase hexadecimal characters.
+3. `HQ_CACHE_PREIMAGE_INVALID_QUERY`: `query` fails expression extension 2
+   validation. The underlying `HQ_EXPRESSION_*` code is not surfaced.
+4. `HQ_CACHE_PREIMAGE_INVALID_TENANT`: any of the following:
+   - an unknown mode or an extra field;
+   - a `scoped` capability with no tenants;
+   - a tenant identifier that is not a non-empty string.
+5. `HQ_CACHE_PREIMAGE_INVALID_LIMIT`: `rowLimit` is neither `null` nor a
+   non-negative safe integer.
+
+There is no separate cap on tenant count or identifier length. Fingerprints
+are a fixed size, and RFC 0013 bounds the whole preimage at 1,048,576 bytes.
+
+**A preimage failure never fails a request.** A runtime that cannot build a
+preimage, or derive a key from it, MUST execute that call without caching and
+MUST NOT substitute any other key. Whether the call is allowed at all is
+decided by the execution path, as usual. Caching is optional, so a request that
+is too large to cache is simply not cached.
+
+The draft fixtures in `drafts/cache-preimages-v1/` pin every rule above. They
+move to `fixtures/` and the conformance manifest when this RFC is accepted.
 
 ## Stable failure codes
 
