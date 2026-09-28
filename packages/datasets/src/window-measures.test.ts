@@ -133,6 +133,31 @@ describe('RFC 0015 window measure authoring', () => {
       .toThrow(/positive safe integer/);
   });
 
+  // Paths the typed helpers prevent but untyped (JS / JSON) definitions can still hit.
+  it.each([
+    ['an unsafe name', { 'bad name': measure.cumulative('revenue') }, /name is not a safe identifier/],
+    ['a window over a window', { run: measure.cumulative('revenue'), bad: measure.cumulative('run') }, /must wrap a base measure; "run"/],
+    ['no mode', { bad: { __type: 'window_measure_definition', measure: 'revenue' } }, /exactly one window mode/],
+    ['two modes', { bad: { ...measure.cumulative('revenue'), toDate: 'month' } }, /exactly one window mode/],
+    ['a null trailing interval', { bad: { __type: 'window_measure_definition', measure: 'revenue', trailing: null } }, /positive safe integer/],
+    ['a fractional trailing amount', { bad: measure.trailing('revenue', { amount: 1.5, unit: 'day' }) }, /positive safe integer/],
+    ['an unknown trailing unit', { bad: measure.trailing('revenue', { amount: 7, unit: 'fortnight' as 'day' }) }, /positive safe integer and supported unit/],
+    ['toDate minute', { bad: measure.toDate('revenue', 'minute' as 'hour') }, /coarser than minute/],
+    ['cumulative false', { bad: { ...measure.cumulative('revenue'), cumulative: false } }, /cumulative must be true/],
+  ])('rejects %s', (_label, windows, error) => {
+    expect(() => orders({ revenue: measure.sum('amount'), ...(windows as Record<string, ReturnType<typeof measure.cumulative>>) }))
+      .toThrow(error);
+  });
+
+  it('accepts each well-formed window mode', () => {
+    expect(() => orders({
+      revenue: measure.sum('amount'),
+      trailing7d: measure.trailing('revenue', { amount: 7, unit: 'day' }),
+      monthToDate: measure.toDate('revenue', 'month'),
+      running: measure.cumulative('revenue'),
+    })).not.toThrow();
+  });
+
   it('refuses execution and contract 2 publishing until window planning is implemented', () => {
     const ds = orders({ revenue: measure.sum('amount'), runningRevenue: measure.cumulative('revenue') });
     const client = createDatasetClient({ queryBuilder: createRenderingBuilderFactory() });
