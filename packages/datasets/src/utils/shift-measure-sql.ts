@@ -1,6 +1,17 @@
 import type { ShiftMeasureDefinition, TimeGrain } from '../types.js';
 import { GRAIN_FUNCTIONS } from '../constants.js';
 import { addTimeSql, subtractTimeSql } from './time-arithmetic-sql.js';
+import { calendarBucketGuardSql } from './time-axis-calendar-guard.js';
+
+/** Check the shifted scan independently of whether it contains source rows. */
+export function shiftCalendarGuardSql(shift: ShiftMeasureDefinition, grain: TimeGrain, axisGuard: string): string {
+  const lower = subtractTimeSql('_hq_first', shift.interval.amount, shift.interval.unit);
+  const upper = subtractTimeSql(addTimeSql('_hq_last', 1, grain), shift.interval.amount, shift.interval.unit);
+  const first = `${GRAIN_FUNCTIONS[grain]}(${lower})`;
+  const last = `${GRAIN_FUNCTIONS[grain]}(${upper})`;
+  const count = `dateDiff('${grain}', ${first}, ${last}) + ${axisGuard}`;
+  return calendarBucketGuardSql(first, count, grain);
+}
 
 /** Map output buckets to their earlier half-open ranges, retaining calendar arithmetic. */
 export function shiftBucketCtes(shift: ShiftMeasureDefinition, grain: TimeGrain, index: number): { ctes: string[]; rowsSql: string } {

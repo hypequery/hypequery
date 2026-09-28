@@ -50,11 +50,13 @@ describe('shift execution against ClickHouse', () => {
     await insertRows(`${table}_timezones`, ['2026-03-28', '2026-10-24'].flatMap(day => Array.from({ length: 5 }, (_, hour) => ({ event_at: `${day} 0${hour}:30:00`, value: hour + 1 }))));
     await runSql(`CREATE TABLE ${table}_calendar (event_at Date, value Float64) ENGINE=MergeTree ORDER BY event_at`);
     await insertRows(`${table}_calendar`, [{ event_at: '2024-02-28', value: 10 }, { event_at: '2024-02-29', value: 20 }, { event_at: '2024-03-31', value: 40 }, { event_at: '2024-04-01', value: 80 }]);
+    await runSql(`CREATE TABLE ${table}_skipped_date (event_at DateTime64(9, 'Pacific/Apia'), value Float64) ENGINE=MergeTree ORDER BY event_at`);
+    await insertRows(`${table}_skipped_date`, [{ event_at: '2011-12-29 12:00:00', value: 10 }, { event_at: '2011-12-31 12:00:00', value: 20 }]);
     await runSql(`CREATE TABLE ${table}_users (user String, region String, tenant String) ENGINE=MergeTree ORDER BY user`);
     await insertRows(`${table}_users`, [{ user: 'u1', region: 'east', tenant: 'a' }, { user: 'u1', region: 'east', tenant: 'a' }, { user: 'u2', region: 'east', tenant: 'a' }, { user: 'u1', region: 'west', tenant: 'b' }]);
 
   });
-  afterAll(async () => { for (const name of [table, `${table}_timezones`, `${table}_calendar`, `${table}_users`]) await runSql(`DROP TABLE IF EXISTS ${name}`); });
+  afterAll(async () => { for (const name of [table, `${table}_timezones`, `${table}_calendar`, `${table}_users`, `${table}_skipped_date`]) await runSql(`DROP TABLE IF EXISTS ${name}`); });
 
   it('compares sparse buckets with exact source aggregation and filled counts', async () => {
     const result = await client.execute(Events, { by: 'month', measures: ['revenue', 'priorRevenue', 'priorCount', 'priorDistinct', 'priorAverage', 'growth'], filters: [...range, { field: 'group', operator: 'eq', value: 'x' }] }, context);
@@ -120,6 +122,31 @@ describe('shift execution against ClickHouse', () => {
     // The shared SQL arithmetic uses ClickHouse's clamping for month ends.
     const clamped = await db.rawQuery<{ prior: string }>(`SELECT ${subtractTimeSql("toDate('2024-03-31')", 1, 'month')} AS prior`);
     expect(clamped[0].prior).toBe('2024-02-29');
+  });
+
+  it('rejects a skipped date in the shifted source range, including empty populations', async () => {
+    const ds = dataset('skippedDateComparisons', {
+      source: `${table}_skipped_date`, timeKey: 'time',
+      dimensions: { time: dimension.timestamp({ column: 'event_at' }), value: dimension.number() },
+      measures: { revenue: measure.sum('value'), priorDay: measure.shift('revenue', { amount: 1, unit: 'day' }) },
+    });
+    const safe = await client.execute(ds, {
+      by: 'day', measures: ['priorDay'],
+      filters: [{ field: 'time', operator: 'between', value: ['2012-01-01', '2012-01-01'] }],
+    });
+    expect(safe.data.map(row => row.priorDay)).toEqual(['20']);
+    for (const empty of [false, true]) {
+      const query = {
+        by: 'day' as const, measures: ['priorDay'],
+        filters: [
+          { field: 'time', operator: 'between' as const, value: ['2011-12-31', '2011-12-31'] },
+          ...(empty ? [{ field: 'value', operator: 'eq' as const, value: -1 }] : []),
+        ],
+      };
+      await expect(client.execute(ds, query)).rejects.toThrow(/skipped local calendar bucket/);
+      const { sql, parameters } = buildTimeMeasureDatasetSql(ds, query, { builderFactory: toQueryBuilderFactory(db) });
+      await expect(db.rawQuery(sql, parameters)).rejects.toThrow(/skipped local calendar bucket/);
+    }
   });
 
   it('preserves LEFT ANY joins and target tenancy on comparison rows', async () => {

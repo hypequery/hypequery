@@ -2,6 +2,9 @@ import { GRAIN_FUNCTIONS } from '../constants.js';
 import type { WindowTimeAxis } from './window-time-axis.js';
 import type { TimeMeasureSqlSource } from './time-measure-source-sql.js';
 import { addTimeSql as add, subtractTimeSql as subtract } from './time-arithmetic-sql.js';
+import { calendarBucketGuardSql } from './time-axis-calendar-guard.js';
+import type { ShiftMeasureDefinition } from '../types.js';
+import { shiftCalendarGuardSql } from './shift-measure-sql.js';
 
 export interface TimeMeasureSqlAxis {
   ctes: string[];
@@ -18,6 +21,7 @@ function literal(value: string): string {
 export function buildTimeMeasureAxisSql(
   source: TimeMeasureSqlSource,
   axis: WindowTimeAxis,
+  shifts: readonly ShiftMeasureDefinition[] = [],
 ): TimeMeasureSqlAxis {
   const first = `${GRAIN_FUNCTIONS[axis.grain]}(_hq_lower)`;
   const upperBucket = `${GRAIN_FUNCTIONS[axis.grain]}(_hq_upper)`;
@@ -30,12 +34,14 @@ export function buildTimeMeasureAxisSql(
   const limitGuard = axis.resultLimit === undefined
     ? '0'
     : `throwIf(${count} > ${axis.resultLimit}, 'Window series exceeds the effective result limit of ${axis.resultLimit} buckets.')`;
+  const calendarGuard = calendarBucketGuardSql('_hq_first', `${count} + ${limitGuard} + ${rangeGuard}`, axis.grain);
 
   const physicalTimeType = `toTypeName(tupleElement((SELECT ${source.rowAlias} FROM _hq_raw LIMIT 0), 1))`;
   const physicalGuard = axis.grain === 'minute' || axis.grain === 'hour'
     ? `throwIf(position(${physicalTimeType}, 'Date') > 0 AND position(${physicalTimeType}, 'DateTime') = 0, 'Sub-day time measures require a time-of-day column; Date and Date32 are not supported.')`
     : '0';
-  const guard = `${limitGuard} + ${physicalGuard}`;
+  const shiftGuards = shifts.map(shift => shiftCalendarGuardSql(shift, axis.grain, `${limitGuard} + ${rangeGuard}`));
+  const guard = [limitGuard, physicalGuard, calendarGuard, ...shiftGuards].join(' + ');
 
   // A zero-row scalar retains the physical timestamp type and timezone.
   // Reading any(time) here would scan the entire population just for its type.

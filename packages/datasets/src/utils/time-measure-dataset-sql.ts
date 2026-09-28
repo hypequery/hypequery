@@ -33,7 +33,7 @@ export function buildTimeMeasureDatasetSql(
   const baseNames = new Set([...needed].map(name => timeMeasures.get(name)?.measure ?? name));
 
   const source = buildTimeMeasureSourceSql(ds, query, baseNames, axis.filters, options);
-  const timeAxis = buildTimeMeasureAxisSql(source, axis);
+  const timeAxis = buildTimeMeasureAxisSql(source, axis, shifts);
 
   // Scan only requested populations: intervening rows must not introduce dimensions.
   const end = add('_hq_last', 1, axis.grain);
