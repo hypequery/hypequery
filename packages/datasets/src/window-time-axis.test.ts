@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { dataset } from './dataset.js';
 import { dimension } from './field.js';
 import { measure } from './measure.js';
-import { analyzeWindowTimeAxis, intervalBuckets } from './utils/window-time-axis.js';
+import { analyzeTimeMeasureAxis, intervalBuckets } from './utils/time-measure-axis.js';
 import { createDatasetClient } from './executor.js';
 import { createInMemoryBackend } from './in-memory-backend.js';
 import { projectAgentSafeCatalog } from './agent-catalog.js';
@@ -27,18 +27,18 @@ describe('window time axes', () => {
     expect(intervalBuckets(amount, unit, grain)).toBe(expected);
   });
   it('recognizes semantic filter aliases and excludes only the output time range', () => {
-    const { axis, errors } = analyzeWindowTimeAxis(Events, { by: 'day', measures: ['rolling'], filters });
+    const { axis, errors } = analyzeTimeMeasureAxis(Events, { by: 'day', measures: ['rolling'], filters });
     expect(errors).toEqual([]);
     expect(axis).toMatchObject({ lower: '2026-01-01', upper: '2026-01-08', upperInclusive: false, bucketCount: 7, filters: [] });
   });
   it.each(['2026-02-30', '2026-01-01T24:00:00Z', 'junk'])('rejects an invalid timestamp %s', value => {
-    expect(analyzeWindowTimeAxis(Events, { by: 'day', measures: ['rolling'], filters: [{ field: 'range', operator: 'between', value: [value, '2026-03-01'] }] }).errors).not.toEqual([]);
+    expect(analyzeTimeMeasureAxis(Events, { by: 'day', measures: ['rolling'], filters: [{ field: 'range', operator: 'between', value: [value, '2026-03-01'] }] }).errors).not.toEqual([]);
   });
   it('compares DateTime64 nanoseconds without truncating endpoints', () => {
     const query = { by: 'day' as const, measures: ['running'], filters: [{ field: 'range', operator: 'between' as const, value: ['2026-01-01T00:00:00.000000002Z', '2026-01-01T00:00:00.000000001Z'] }] };
-    expect(analyzeWindowTimeAxis(Events, query).errors).toContain('Window measure time range must be non-empty and ordered.');
+    expect(analyzeTimeMeasureAxis(Events, query).errors).toContain('Window measure time range must be non-empty and ordered.');
     query.filters[0].value.reverse();
-    expect(analyzeWindowTimeAxis(Events, query).errors).toEqual([]);
+    expect(analyzeTimeMeasureAxis(Events, query).errors).toEqual([]);
   });
   it('orders explicit offsets by instant across the repeated autumn hour', () => {
     const query = {
@@ -47,19 +47,19 @@ describe('window time axes', () => {
         '2026-10-25T02:45:00+02:00', '2026-10-25T02:15:00+01:00',
       ] }],
     };
-    expect(analyzeWindowTimeAxis(Events, query).errors).toEqual([]);
+    expect(analyzeTimeMeasureAxis(Events, query).errors).toEqual([]);
     query.filters[0].value.reverse();
-    expect(analyzeWindowTimeAxis(Events, query).errors)
+    expect(analyzeTimeMeasureAxis(Events, query).errors)
       .toContain('Window measure time range must be non-empty and ordered.');
   });
   it('defers mixed local/offset ordering and local hourly limits to physical-timezone SQL', () => {
-    const mixed = analyzeWindowTimeAxis(Events, {
+    const mixed = analyzeTimeMeasureAxis(Events, {
       by: 'hour', measures: ['running'], limit: 1,
       filters: [{ field: 'range', operator: 'between', value: ['2026-03-29', '2026-03-28T23:30:00Z'] }],
     });
     expect(mixed.errors).toEqual([]);
     expect(mixed.axis).toMatchObject({ lower: '2026-03-29', upper: '2026-03-28T23:30:00Z' });
-    expect(analyzeWindowTimeAxis(Events, {
+    expect(analyzeTimeMeasureAxis(Events, {
       by: 'hour', measures: ['running'], limit: 23,
       filters: [{ field: 'range', operator: 'between', value: ['2026-03-29', '2026-03-30'] }],
     }).errors).toEqual([]);
@@ -70,14 +70,14 @@ describe('window time axes', () => {
       { by: 'day' as const, measures: ['rolling'] },
       { by: 'day' as const, measures: ['rolling'], filters: [...filters, filters[0]] },
       { by: 'day' as const, measures: ['rolling'], filters, limit: 1 },
-    ]) expect(analyzeWindowTimeAxis(Events, query).errors).not.toEqual([]);
+    ]) expect(analyzeTimeMeasureAxis(Events, query).errors).not.toEqual([]);
   });
   it('rejects non-integral windows, incompatible to-date grains and more than 1000 contributions', () => {
     const ds = dataset('badAxes', { source: 'events', timeKey: 'time', dimensions: Events.dimensions, filters: Events.filters,
       measures: { revenue: measure.sum('amount'), month: measure.trailing('revenue', { amount: 1, unit: 'month' }), large: measure.trailing('revenue', { amount: 1001, unit: 'day' }), toMonth: measure.toDate('revenue', 'month') },
     });
-    expect(analyzeWindowTimeAxis(ds, { by: 'day', measures: ['month', 'large'], filters }).errors).toHaveLength(2);
-    expect(analyzeWindowTimeAxis(ds, { by: 'week', measures: ['toMonth'], filters }).errors.join(' ')).toContain('strictly coarser');
+    expect(analyzeTimeMeasureAxis(ds, { by: 'day', measures: ['month', 'large'], filters }).errors).toHaveLength(2);
+    expect(analyzeTimeMeasureAxis(ds, { by: 'week', measures: ['toMonth'], filters }).errors.join(' ')).toContain('strictly coarser');
   });
   it('rejects the frozen backend path explicitly', () => {
     const client = createDatasetClient({ backend: createInMemoryBackend({ events: [] }) });

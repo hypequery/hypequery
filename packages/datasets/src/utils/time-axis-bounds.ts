@@ -1,7 +1,7 @@
 import type { AnyDatasetInstance, MetricFilter } from '../types.js';
 
 export interface ParsedTimeBound {
-  /** Preserve the authored text: SQL interprets local bounds in the column timezone. */
+  /** Preserve the authored text: SQL interprets local bounds in the query timezone. */
   text: string;
   /** UTC instant for offset bounds; a wall-clock estimate for local bounds. */
   milliseconds: number;
@@ -80,7 +80,7 @@ export function resolveTimeAxisRange(dataset: AnyDatasetInstance, filters: Metri
   };
 }
 
-/** Mixed offset/local bounds cannot be ordered until the column timezone is known. */
+/** Mixed offset/local bounds cannot be ordered until the query timezone is known. */
 export function isDefinitelyEmptyTimeRange(range: TimeAxisRange): boolean {
   const { start, end, lowerInclusive, upperInclusive } = range;
   if (start.hasOffset !== end.hasOffset) return false;

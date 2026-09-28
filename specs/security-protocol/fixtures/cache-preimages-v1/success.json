@@ -1,0 +1,678 @@
+[
+  {
+    "id": "minimal-dataset",
+    "secretHex": "1111111111111111111111111111111111111111111111111111111111111111",
+    "definitionIdentity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "query": {
+      "kind": "dataset",
+      "dataset": "orders"
+    },
+    "tenant": {
+      "mode": "none"
+    },
+    "rowLimit": null,
+    "preimageUtf8": "{\"definition\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"kind\":\"hypequery-cache-preimage\",\"query\":{\"by\":null,\"dataset\":\"orders\",\"dimensions\":[],\"filters\":[],\"kind\":\"dataset\",\"measures\":null,\"offset\":null,\"orderBy\":[],\"segments\":[]},\"rowLimit\":null,\"tenant\":{\"mode\":\"none\"},\"version\":1}"
+  },
+  {
+    "id": "all-dataset-features",
+    "secretHex": "1111111111111111111111111111111111111111111111111111111111111111",
+    "definitionIdentity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "query": {
+      "kind": "dataset",
+      "dataset": "orders",
+      "dimensions": [
+        "status",
+        "customer.country"
+      ],
+      "measures": [
+        "revenue",
+        "orders"
+      ],
+      "filters": [
+        {
+          "kind": "comparison",
+          "operator": "eq",
+          "left": {
+            "kind": "reference",
+            "name": "status"
+          },
+          "right": {
+            "kind": "literal",
+            "value": "paid"
+          }
+        }
+      ],
+      "orderBy": [
+        {
+          "field": "revenue",
+          "direction": "desc"
+        }
+      ],
+      "limit": 500,
+      "offset": 20,
+      "by": "quarter",
+      "includeMeta": true
+    },
+    "tenant": {
+      "mode": "scoped",
+      "ids": [
+        "acme"
+      ]
+    },
+    "rowLimit": 100,
+    "preimageUtf8": "{\"definition\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"kind\":\"hypequery-cache-preimage\",\"query\":{\"by\":\"quarter\",\"dataset\":\"orders\",\"dimensions\":[\"status\",\"customer.country\"],\"filters\":[{\"kind\":\"comparison\",\"left\":{\"kind\":\"reference\",\"name\":\"status\"},\"operator\":\"eq\",\"right\":{\"kind\":\"literal\",\"value\":\"paid\"}}],\"kind\":\"dataset\",\"measures\":[\"revenue\",\"orders\"],\"offset\":20,\"orderBy\":[{\"direction\":\"desc\",\"field\":\"revenue\"}],\"segments\":[]},\"rowLimit\":100,\"tenant\":{\"fingerprints\":[\"4a4c227cbf8af9830ea8769544cf993c7f301d7dfaff1095df44e97843c25ece\"],\"mode\":\"scoped\"},\"version\":1}"
+  },
+  {
+    "id": "metric-query",
+    "secretHex": "1111111111111111111111111111111111111111111111111111111111111111",
+    "definitionIdentity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "query": {
+      "kind": "metric",
+      "dataset": "orders",
+      "metric": "average_order_value",
+      "dimensions": [
+        "customer.country"
+      ],
+      "by": "week"
+    },
+    "tenant": {
+      "mode": "none"
+    },
+    "rowLimit": null,
+    "preimageUtf8": "{\"definition\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"kind\":\"hypequery-cache-preimage\",\"query\":{\"by\":\"week\",\"dataset\":\"orders\",\"dimensions\":[\"customer.country\"],\"filters\":[],\"kind\":\"metric\",\"metric\":\"average_order_value\",\"offset\":null,\"orderBy\":[],\"segments\":[]},\"rowLimit\":null,\"tenant\":{\"mode\":\"none\"},\"version\":1}"
+  },
+  {
+    "id": "empty-collections-equal-omitted",
+    "secretHex": "1111111111111111111111111111111111111111111111111111111111111111",
+    "definitionIdentity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "query": {
+      "kind": "dataset",
+      "dataset": "orders",
+      "dimensions": [],
+      "filters": [],
+      "orderBy": [],
+      "segments": []
+    },
+    "tenant": {
+      "mode": "none"
+    },
+    "rowLimit": null,
+    "preimageUtf8": "{\"definition\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"kind\":\"hypequery-cache-preimage\",\"query\":{\"by\":null,\"dataset\":\"orders\",\"dimensions\":[],\"filters\":[],\"kind\":\"dataset\",\"measures\":null,\"offset\":null,\"orderBy\":[],\"segments\":[]},\"rowLimit\":null,\"tenant\":{\"mode\":\"none\"},\"version\":1}"
+  },
+  {
+    "id": "offset-zero-equals-omitted",
+    "secretHex": "1111111111111111111111111111111111111111111111111111111111111111",
+    "definitionIdentity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "query": {
+      "kind": "dataset",
+      "dataset": "orders",
+      "offset": 0
+    },
+    "tenant": {
+      "mode": "none"
+    },
+    "rowLimit": null,
+    "preimageUtf8": "{\"definition\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"kind\":\"hypequery-cache-preimage\",\"query\":{\"by\":null,\"dataset\":\"orders\",\"dimensions\":[],\"filters\":[],\"kind\":\"dataset\",\"measures\":null,\"offset\":null,\"orderBy\":[],\"segments\":[]},\"rowLimit\":null,\"tenant\":{\"mode\":\"none\"},\"version\":1}"
+  },
+  {
+    "id": "include-meta-and-limit-dropped",
+    "secretHex": "1111111111111111111111111111111111111111111111111111111111111111",
+    "definitionIdentity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "query": {
+      "kind": "dataset",
+      "dataset": "orders",
+      "includeMeta": true,
+      "limit": 10
+    },
+    "tenant": {
+      "mode": "none"
+    },
+    "rowLimit": null,
+    "preimageUtf8": "{\"definition\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"kind\":\"hypequery-cache-preimage\",\"query\":{\"by\":null,\"dataset\":\"orders\",\"dimensions\":[],\"filters\":[],\"kind\":\"dataset\",\"measures\":null,\"offset\":null,\"orderBy\":[],\"segments\":[]},\"rowLimit\":null,\"tenant\":{\"mode\":\"none\"},\"version\":1}"
+  },
+  {
+    "id": "measures-empty-differs-from-omitted",
+    "secretHex": "1111111111111111111111111111111111111111111111111111111111111111",
+    "definitionIdentity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "query": {
+      "kind": "dataset",
+      "dataset": "orders",
+      "measures": []
+    },
+    "tenant": {
+      "mode": "none"
+    },
+    "rowLimit": null,
+    "preimageUtf8": "{\"definition\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"kind\":\"hypequery-cache-preimage\",\"query\":{\"by\":null,\"dataset\":\"orders\",\"dimensions\":[],\"filters\":[],\"kind\":\"dataset\",\"measures\":[],\"offset\":null,\"orderBy\":[],\"segments\":[]},\"rowLimit\":null,\"tenant\":{\"mode\":\"none\"},\"version\":1}"
+  },
+  {
+    "id": "filters-order-a",
+    "secretHex": "1111111111111111111111111111111111111111111111111111111111111111",
+    "definitionIdentity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "query": {
+      "kind": "dataset",
+      "dataset": "orders",
+      "filters": [
+        {
+          "kind": "comparison",
+          "operator": "eq",
+          "left": {
+            "kind": "reference",
+            "name": "status"
+          },
+          "right": {
+            "kind": "literal",
+            "value": "paid"
+          }
+        },
+        {
+          "kind": "comparison",
+          "operator": "eq",
+          "left": {
+            "kind": "reference",
+            "name": "customer.country"
+          },
+          "right": {
+            "kind": "literal",
+            "value": "NZ"
+          }
+        }
+      ]
+    },
+    "tenant": {
+      "mode": "none"
+    },
+    "rowLimit": null,
+    "preimageUtf8": "{\"definition\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"kind\":\"hypequery-cache-preimage\",\"query\":{\"by\":null,\"dataset\":\"orders\",\"dimensions\":[],\"filters\":[{\"kind\":\"comparison\",\"left\":{\"kind\":\"reference\",\"name\":\"customer.country\"},\"operator\":\"eq\",\"right\":{\"kind\":\"literal\",\"value\":\"NZ\"}},{\"kind\":\"comparison\",\"left\":{\"kind\":\"reference\",\"name\":\"status\"},\"operator\":\"eq\",\"right\":{\"kind\":\"literal\",\"value\":\"paid\"}}],\"kind\":\"dataset\",\"measures\":null,\"offset\":null,\"orderBy\":[],\"segments\":[]},\"rowLimit\":null,\"tenant\":{\"mode\":\"none\"},\"version\":1}"
+  },
+  {
+    "id": "filters-order-b",
+    "secretHex": "1111111111111111111111111111111111111111111111111111111111111111",
+    "definitionIdentity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "query": {
+      "kind": "dataset",
+      "dataset": "orders",
+      "filters": [
+        {
+          "kind": "comparison",
+          "operator": "eq",
+          "left": {
+            "kind": "reference",
+            "name": "customer.country"
+          },
+          "right": {
+            "kind": "literal",
+            "value": "NZ"
+          }
+        },
+        {
+          "kind": "comparison",
+          "operator": "eq",
+          "left": {
+            "kind": "reference",
+            "name": "status"
+          },
+          "right": {
+            "kind": "literal",
+            "value": "paid"
+          }
+        }
+      ]
+    },
+    "tenant": {
+      "mode": "none"
+    },
+    "rowLimit": null,
+    "preimageUtf8": "{\"definition\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"kind\":\"hypequery-cache-preimage\",\"query\":{\"by\":null,\"dataset\":\"orders\",\"dimensions\":[],\"filters\":[{\"kind\":\"comparison\",\"left\":{\"kind\":\"reference\",\"name\":\"customer.country\"},\"operator\":\"eq\",\"right\":{\"kind\":\"literal\",\"value\":\"NZ\"}},{\"kind\":\"comparison\",\"left\":{\"kind\":\"reference\",\"name\":\"status\"},\"operator\":\"eq\",\"right\":{\"kind\":\"literal\",\"value\":\"paid\"}}],\"kind\":\"dataset\",\"measures\":null,\"offset\":null,\"orderBy\":[],\"segments\":[]},\"rowLimit\":null,\"tenant\":{\"mode\":\"none\"},\"version\":1}"
+  },
+  {
+    "id": "duplicate-filters-collapse",
+    "secretHex": "1111111111111111111111111111111111111111111111111111111111111111",
+    "definitionIdentity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "query": {
+      "kind": "dataset",
+      "dataset": "orders",
+      "filters": [
+        {
+          "kind": "comparison",
+          "operator": "eq",
+          "left": {
+            "kind": "reference",
+            "name": "status"
+          },
+          "right": {
+            "kind": "literal",
+            "value": "paid"
+          }
+        },
+        {
+          "kind": "comparison",
+          "operator": "eq",
+          "left": {
+            "kind": "reference",
+            "name": "customer.country"
+          },
+          "right": {
+            "kind": "literal",
+            "value": "NZ"
+          }
+        },
+        {
+          "kind": "comparison",
+          "operator": "eq",
+          "left": {
+            "kind": "reference",
+            "name": "status"
+          },
+          "right": {
+            "kind": "literal",
+            "value": "paid"
+          }
+        }
+      ]
+    },
+    "tenant": {
+      "mode": "none"
+    },
+    "rowLimit": null,
+    "preimageUtf8": "{\"definition\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"kind\":\"hypequery-cache-preimage\",\"query\":{\"by\":null,\"dataset\":\"orders\",\"dimensions\":[],\"filters\":[{\"kind\":\"comparison\",\"left\":{\"kind\":\"reference\",\"name\":\"customer.country\"},\"operator\":\"eq\",\"right\":{\"kind\":\"literal\",\"value\":\"NZ\"}},{\"kind\":\"comparison\",\"left\":{\"kind\":\"reference\",\"name\":\"status\"},\"operator\":\"eq\",\"right\":{\"kind\":\"literal\",\"value\":\"paid\"}}],\"kind\":\"dataset\",\"measures\":null,\"offset\":null,\"orderBy\":[],\"segments\":[]},\"rowLimit\":null,\"tenant\":{\"mode\":\"none\"},\"version\":1}"
+  },
+  {
+    "id": "dimension-order-a",
+    "secretHex": "1111111111111111111111111111111111111111111111111111111111111111",
+    "definitionIdentity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "query": {
+      "kind": "dataset",
+      "dataset": "orders",
+      "dimensions": [
+        "status",
+        "customer.country"
+      ]
+    },
+    "tenant": {
+      "mode": "none"
+    },
+    "rowLimit": null,
+    "preimageUtf8": "{\"definition\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"kind\":\"hypequery-cache-preimage\",\"query\":{\"by\":null,\"dataset\":\"orders\",\"dimensions\":[\"status\",\"customer.country\"],\"filters\":[],\"kind\":\"dataset\",\"measures\":null,\"offset\":null,\"orderBy\":[],\"segments\":[]},\"rowLimit\":null,\"tenant\":{\"mode\":\"none\"},\"version\":1}"
+  },
+  {
+    "id": "dimension-order-b",
+    "secretHex": "1111111111111111111111111111111111111111111111111111111111111111",
+    "definitionIdentity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "query": {
+      "kind": "dataset",
+      "dataset": "orders",
+      "dimensions": [
+        "customer.country",
+        "status"
+      ]
+    },
+    "tenant": {
+      "mode": "none"
+    },
+    "rowLimit": null,
+    "preimageUtf8": "{\"definition\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"kind\":\"hypequery-cache-preimage\",\"query\":{\"by\":null,\"dataset\":\"orders\",\"dimensions\":[\"customer.country\",\"status\"],\"filters\":[],\"kind\":\"dataset\",\"measures\":null,\"offset\":null,\"orderBy\":[],\"segments\":[]},\"rowLimit\":null,\"tenant\":{\"mode\":\"none\"},\"version\":1}"
+  },
+  {
+    "id": "segments-sorted",
+    "secretHex": "1111111111111111111111111111111111111111111111111111111111111111",
+    "definitionIdentity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "query": {
+      "kind": "dataset",
+      "dataset": "orders",
+      "segments": [
+        "vip",
+        "active",
+        "recent"
+      ],
+      "by": "minute"
+    },
+    "tenant": {
+      "mode": "none"
+    },
+    "rowLimit": null,
+    "preimageUtf8": "{\"definition\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"kind\":\"hypequery-cache-preimage\",\"query\":{\"by\":\"minute\",\"dataset\":\"orders\",\"dimensions\":[],\"filters\":[],\"kind\":\"dataset\",\"measures\":null,\"offset\":null,\"orderBy\":[],\"segments\":[\"active\",\"recent\",\"vip\"]},\"rowLimit\":null,\"tenant\":{\"mode\":\"none\"},\"version\":1}"
+  },
+  {
+    "id": "tenant-scoped",
+    "secretHex": "1111111111111111111111111111111111111111111111111111111111111111",
+    "definitionIdentity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "query": {
+      "kind": "dataset",
+      "dataset": "orders"
+    },
+    "tenant": {
+      "mode": "scoped",
+      "ids": [
+        "acme"
+      ]
+    },
+    "rowLimit": null,
+    "preimageUtf8": "{\"definition\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"kind\":\"hypequery-cache-preimage\",\"query\":{\"by\":null,\"dataset\":\"orders\",\"dimensions\":[],\"filters\":[],\"kind\":\"dataset\",\"measures\":null,\"offset\":null,\"orderBy\":[],\"segments\":[]},\"rowLimit\":null,\"tenant\":{\"fingerprints\":[\"4a4c227cbf8af9830ea8769544cf993c7f301d7dfaff1095df44e97843c25ece\"],\"mode\":\"scoped\"},\"version\":1}"
+  },
+  {
+    "id": "tenant-scoped-sorted-deduplicated",
+    "secretHex": "1111111111111111111111111111111111111111111111111111111111111111",
+    "definitionIdentity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "query": {
+      "kind": "dataset",
+      "dataset": "orders"
+    },
+    "tenant": {
+      "mode": "scoped",
+      "ids": [
+        "globex",
+        "acme",
+        "globex"
+      ]
+    },
+    "rowLimit": null,
+    "preimageUtf8": "{\"definition\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"kind\":\"hypequery-cache-preimage\",\"query\":{\"by\":null,\"dataset\":\"orders\",\"dimensions\":[],\"filters\":[],\"kind\":\"dataset\",\"measures\":null,\"offset\":null,\"orderBy\":[],\"segments\":[]},\"rowLimit\":null,\"tenant\":{\"fingerprints\":[\"4a4c227cbf8af9830ea8769544cf993c7f301d7dfaff1095df44e97843c25ece\",\"6083e08c340655eada5c06ceb8f59978b91e3efcf4cdd178752f9088cbdc633a\"],\"mode\":\"scoped\"},\"version\":1}"
+  },
+  {
+    "id": "tenant-all",
+    "secretHex": "1111111111111111111111111111111111111111111111111111111111111111",
+    "definitionIdentity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "query": {
+      "kind": "dataset",
+      "dataset": "orders"
+    },
+    "tenant": {
+      "mode": "all"
+    },
+    "rowLimit": null,
+    "preimageUtf8": "{\"definition\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"kind\":\"hypequery-cache-preimage\",\"query\":{\"by\":null,\"dataset\":\"orders\",\"dimensions\":[],\"filters\":[],\"kind\":\"dataset\",\"measures\":null,\"offset\":null,\"orderBy\":[],\"segments\":[]},\"rowLimit\":null,\"tenant\":{\"mode\":\"all\"},\"version\":1}"
+  },
+  {
+    "id": "tenant-non-ascii",
+    "secretHex": "1111111111111111111111111111111111111111111111111111111111111111",
+    "definitionIdentity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "query": {
+      "kind": "dataset",
+      "dataset": "orders",
+      "filters": [
+        {
+          "kind": "comparison",
+          "operator": "eq",
+          "left": {
+            "kind": "reference",
+            "name": "city"
+          },
+          "right": {
+            "kind": "literal",
+            "value": "Zürich 🏔"
+          }
+        }
+      ]
+    },
+    "tenant": {
+      "mode": "scoped",
+      "ids": [
+        "café",
+        "Zeta",
+        "alpha"
+      ]
+    },
+    "rowLimit": null,
+    "preimageUtf8": "{\"definition\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"kind\":\"hypequery-cache-preimage\",\"query\":{\"by\":null,\"dataset\":\"orders\",\"dimensions\":[],\"filters\":[{\"kind\":\"comparison\",\"left\":{\"kind\":\"reference\",\"name\":\"city\"},\"operator\":\"eq\",\"right\":{\"kind\":\"literal\",\"value\":\"Zürich 🏔\"}}],\"kind\":\"dataset\",\"measures\":null,\"offset\":null,\"orderBy\":[],\"segments\":[]},\"rowLimit\":null,\"tenant\":{\"fingerprints\":[\"67acf03b10262948ef2f528320f75a709a159af15cadc3f8e9489ca22de12b6d\",\"68e9b46303ccac68022805c8b2897931eeabdddc693b2e2ea2b908c672d0fca0\",\"e0dfafca9663e7e623608399428f8f797b401275dc1231f4e504d7d1df9ec392\"],\"mode\":\"scoped\"},\"version\":1}"
+  },
+  {
+    "id": "row-limit-zero",
+    "secretHex": "1111111111111111111111111111111111111111111111111111111111111111",
+    "definitionIdentity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "query": {
+      "kind": "dataset",
+      "dataset": "orders"
+    },
+    "tenant": {
+      "mode": "none"
+    },
+    "rowLimit": 0,
+    "preimageUtf8": "{\"definition\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"kind\":\"hypequery-cache-preimage\",\"query\":{\"by\":null,\"dataset\":\"orders\",\"dimensions\":[],\"filters\":[],\"kind\":\"dataset\",\"measures\":null,\"offset\":null,\"orderBy\":[],\"segments\":[]},\"rowLimit\":0,\"tenant\":{\"mode\":\"none\"},\"version\":1}"
+  },
+  {
+    "id": "row-limit-max-safe-integer",
+    "secretHex": "1111111111111111111111111111111111111111111111111111111111111111",
+    "definitionIdentity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "query": {
+      "kind": "dataset",
+      "dataset": "orders"
+    },
+    "tenant": {
+      "mode": "none"
+    },
+    "rowLimit": 9007199254740991,
+    "preimageUtf8": "{\"definition\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"kind\":\"hypequery-cache-preimage\",\"query\":{\"by\":null,\"dataset\":\"orders\",\"dimensions\":[],\"filters\":[],\"kind\":\"dataset\",\"measures\":null,\"offset\":null,\"orderBy\":[],\"segments\":[]},\"rowLimit\":9007199254740991,\"tenant\":{\"mode\":\"none\"},\"version\":1}"
+  },
+  {
+    "id": "definition-changes-preimage",
+    "secretHex": "1111111111111111111111111111111111111111111111111111111111111111",
+    "definitionIdentity": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "query": {
+      "kind": "dataset",
+      "dataset": "orders"
+    },
+    "tenant": {
+      "mode": "none"
+    },
+    "rowLimit": null,
+    "preimageUtf8": "{\"definition\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\"kind\":\"hypequery-cache-preimage\",\"query\":{\"by\":null,\"dataset\":\"orders\",\"dimensions\":[],\"filters\":[],\"kind\":\"dataset\",\"measures\":null,\"offset\":null,\"orderBy\":[],\"segments\":[]},\"rowLimit\":null,\"tenant\":{\"mode\":\"none\"},\"version\":1}"
+  },
+  {
+    "id": "tenant-fingerprint-follows-secret",
+    "secretHex": "2222222222222222222222222222222222222222222222222222222222222222",
+    "definitionIdentity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "query": {
+      "kind": "dataset",
+      "dataset": "orders"
+    },
+    "tenant": {
+      "mode": "scoped",
+      "ids": [
+        "acme"
+      ]
+    },
+    "rowLimit": null,
+    "preimageUtf8": "{\"definition\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"kind\":\"hypequery-cache-preimage\",\"query\":{\"by\":null,\"dataset\":\"orders\",\"dimensions\":[],\"filters\":[],\"kind\":\"dataset\",\"measures\":null,\"offset\":null,\"orderBy\":[],\"segments\":[]},\"rowLimit\":null,\"tenant\":{\"fingerprints\":[\"1dc5fffd71468f4bef9efd2fdb947d96f1e055f916b5caecf42910b09d6ceb18\"],\"mode\":\"scoped\"},\"version\":1}"
+  },
+  {
+    "id": "tenant-id-has-no-length-cap",
+    "secretHex": "1111111111111111111111111111111111111111111111111111111111111111",
+    "definitionIdentity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "query": {
+      "kind": "dataset",
+      "dataset": "orders"
+    },
+    "tenant": {
+      "mode": "scoped",
+      "ids": [
+        "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+      ]
+    },
+    "rowLimit": null,
+    "preimageUtf8": "{\"definition\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"kind\":\"hypequery-cache-preimage\",\"query\":{\"by\":null,\"dataset\":\"orders\",\"dimensions\":[],\"filters\":[],\"kind\":\"dataset\",\"measures\":null,\"offset\":null,\"orderBy\":[],\"segments\":[]},\"rowLimit\":null,\"tenant\":{\"fingerprints\":[\"7beb995c42dc293b1299b070a7623189923418d112d2d56479a22c8cbc3e3b40\"],\"mode\":\"scoped\"},\"version\":1}"
+  },
+  {
+    "id": "tenant-count-has-no-cap",
+    "secretHex": "1111111111111111111111111111111111111111111111111111111111111111",
+    "definitionIdentity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "query": {
+      "kind": "dataset",
+      "dataset": "orders"
+    },
+    "tenant": {
+      "mode": "scoped",
+      "ids": [
+        "t000",
+        "t001",
+        "t002",
+        "t003",
+        "t004",
+        "t005",
+        "t006",
+        "t007",
+        "t008",
+        "t009",
+        "t010",
+        "t011",
+        "t012",
+        "t013",
+        "t014",
+        "t015",
+        "t016",
+        "t017",
+        "t018",
+        "t019",
+        "t020",
+        "t021",
+        "t022",
+        "t023",
+        "t024",
+        "t025",
+        "t026",
+        "t027",
+        "t028",
+        "t029",
+        "t030",
+        "t031",
+        "t032",
+        "t033",
+        "t034",
+        "t035",
+        "t036",
+        "t037",
+        "t038",
+        "t039",
+        "t040",
+        "t041",
+        "t042",
+        "t043",
+        "t044",
+        "t045",
+        "t046",
+        "t047",
+        "t048",
+        "t049",
+        "t050",
+        "t051",
+        "t052",
+        "t053",
+        "t054",
+        "t055",
+        "t056",
+        "t057",
+        "t058",
+        "t059",
+        "t060",
+        "t061",
+        "t062",
+        "t063",
+        "t064",
+        "t065",
+        "t066",
+        "t067",
+        "t068",
+        "t069",
+        "t070",
+        "t071",
+        "t072",
+        "t073",
+        "t074",
+        "t075",
+        "t076",
+        "t077",
+        "t078",
+        "t079",
+        "t080",
+        "t081",
+        "t082",
+        "t083",
+        "t084",
+        "t085",
+        "t086",
+        "t087",
+        "t088",
+        "t089",
+        "t090",
+        "t091",
+        "t092",
+        "t093",
+        "t094",
+        "t095",
+        "t096",
+        "t097",
+        "t098",
+        "t099",
+        "t100",
+        "t101",
+        "t102",
+        "t103",
+        "t104",
+        "t105",
+        "t106",
+        "t107",
+        "t108",
+        "t109",
+        "t110",
+        "t111",
+        "t112",
+        "t113",
+        "t114",
+        "t115",
+        "t116",
+        "t117",
+        "t118",
+        "t119",
+        "t120",
+        "t121",
+        "t122",
+        "t123",
+        "t124",
+        "t125",
+        "t126",
+        "t127",
+        "t128",
+        "t129",
+        "t130",
+        "t131",
+        "t132",
+        "t133",
+        "t134",
+        "t135",
+        "t136",
+        "t137",
+        "t138",
+        "t139",
+        "t140",
+        "t141",
+        "t142",
+        "t143",
+        "t144",
+        "t145",
+        "t146",
+        "t147",
+        "t148",
+        "t149"
+      ]
+    },
+    "rowLimit": null,
+    "preimageUtf8": "{\"definition\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"kind\":\"hypequery-cache-preimage\",\"query\":{\"by\":null,\"dataset\":\"orders\",\"dimensions\":[],\"filters\":[],\"kind\":\"dataset\",\"measures\":null,\"offset\":null,\"orderBy\":[],\"segments\":[]},\"rowLimit\":null,\"tenant\":{\"fingerprints\":[\"00643197ad572a0221e8a50b73def7a91bfc4a40bbbfce485bf33af77e050fbc\",\"015736d8acfb01ecdb715ae7c2676edb797b73bea335e205106ef572d7b2412a\",\"04a9046f779ccd811ff79409e6049d5a63ab44e9e870a0eeed62efa3fae352b8\",\"04ffcf98fd514521c8fc9bce48952a8ae6048fd9e4a2a7161f908b08c7e1240c\",\"054695501b7593855126ad68c231fbf99982c155a5bfc442db9b756e91ea817a\",\"098102c8a352f902c02af26f98a1be234abceb6adfedea2f79c0ba936384e0f3\",\"0a0b612a323d95b7e1d01c37ad5f42cb79fe81c20833e814af3be8c3c0a1a314\",\"0cd12d2cdba8f1c67b1061a0c07416ae8944c0dd216abb59a4adbc296d3c096f\",\"0e5c330ef4004f590ce3678db7dda45c8b32887e474c18c1493053297d0f3a99\",\"0efeddc9ef8e648fb7ad96766998615562f3fe3ac5a2964af5d3f6547a395966\",\"116c17cd554b99c6e6e7d4ffdb3c4745e6837004ce03f27405d01a2019c9ab8b\",\"13f08990d1b021b8fc6808c2ca8d18a0a332dfcd57d2adc65b66252e265564ff\",\"141df25fc65f9e2d7177cbc04e46678a60a8d6ddf3291968d4cc0b97d613eeb3\",\"14485d9899bc448ac9e8339ff9ee25f0df8045db4cfb15d47901034c1de48369\",\"184d42a881e77533595dde6abfa93cf904c649294ce51221d22a7a14f01aed7f\",\"1dc6cff93ff01e052cb9efbf0ba9938bef23e438c846b24c07abd081d1bda95f\",\"1dddf555b08af1c35b3b8aed79a71a45098a08a2bba893e2dcfdbe0f071296c6\",\"1f8a08f3ca6305f42588c0ffe33fe0d7392765cabae41e97881251b47dc5332f\",\"2053c7f3e586c0623abb9008112a4b2e2f7490709870ff7df1a98c8eb90ffea6\",\"23d1b13d02cc0308729632a141bf12c092460f343acca2b5bb2f78c92cc8274a\",\"263487f6e24065938396220078c02a9c1c832ed8863881f9f159df98dcbe2cd4\",\"2738f57cdacff73d96817a922ee813dc66d494d367a862f47cec9093525760b4\",\"28b211294c30bd5eccc93a42af885e79ffb7f3b23171cc0a57d3acf1cb68faf0\",\"2d2bc9fc20f7afef9bacdcc7a1da5e0411a4612d36e9ed238a7fcd52e86ae5a1\",\"2d8ee2caaa35f152fbd6cd46265ea4106af2850620cb2d8fd21af38db806a17d\",\"30fefbca894ad52f7fabeef0f838f73dee0ed0ab0c4187ccb152dadcd14fce49\",\"32f4835ed8d4bc1770e5f3bc6825d5e8c17816821e718706f5b96d89dbb3100a\",\"3791ea47c4300cee6f75ffee727d9e853473aa238e71d3a829c513c2ecc63569\",\"389ccc43ffe76d632d5195d9a031edddc6e8f64d1f4f447623608cf77b2aeaa9\",\"3a26463c00a45df99f0a97d37d747cdb3304cff6411e6fe8f5a076c52a1916e6\",\"3f90053690216181bb545813e8d76fd96a1d0ab1b4aba60bf263be23b99c11f0\",\"403657f009869495326ea9a06af36e4ca9a6722f6a71fc4e065f90db6c1d69d4\",\"4345497f9dd7eb05c36a35f6eb7f444a48a49a5c0f6323924304193985193bb4\",\"4436e46284dc968b7ef215171d664a74754d231ab1ca8373ac9e0134a8169e1a\",\"4461671fcd4f3bb85b50aaf4ca4e6212910278d10c0b5c619d3a52b92ad8ec89\",\"45f7a41439f2763a44b9b14ba98bae3bf80df6ec21112ecf386ead1b084a4f8d\",\"47255804896bb3ebbc55d20e205fedc2e911241fbf283e739a5db0f069b8438a\",\"47600257590b375bee4eb29a16d56f92cd2f379495f0bd8944d517bbc551bb7f\",\"4766e9935af291b3eb106ba3d7e234f46f0dec8800ef729ad2e342e07d0e2d8b\",\"4a3984610d2674407a1d1434c042d08dbf10d7bb6ae3d8490f9fd226cb6b1ca3\",\"4c249db1e2a494bd8fa022f7851fa48ffb8f86ab01ae5bad9c94edf6aaf9a187\",\"4c7685364c42a027b5ec560b5c6f702acfbdea4f94833bcd0bcb9b113ca9efa0\",\"4c9898cb18fa43e28061750d9afec6e0b40870be090f2e7562901373424b4be1\",\"4eba54e25b4298997773085c9a7e5c8cb19a731c67ee5a35950b8e1bdb6f0a61\",\"5092907fc398d79d778b8dd53be5a4847903049b029664f3dfe8bc40fc5be4e9\",\"50f550f3345a675bc0181a8e20bfac5a036a9a8fc39b8def8b718d91e5a6d3a8\",\"515031a63b1dad4a2496152510dd2203759dd63455976b84503fd00ea7bdc390\",\"51a8341d1e8d2e57d1fe21059d7f2e5f75bbc99d64d1093910eb8f6199544b7a\",\"54d333b659ba8f274f3c1c3b6dc394000900838534d8bc4f30349c4086b54461\",\"553fd6d2da53e829d21f87948a126fbfeb8156ffceff454c848e024beef5ba27\",\"56fc3d3ecfbdf662024179e89c06031ff6827adfd78f9a7a4fcee2ca9c11f578\",\"5a322e82c2d9ccbb6849af72f6eea1bd7862419645267d24dbdf4969bebc7f22\",\"5aee79ba6de18a7a7b52ffc984c0e217d06901a9c6f90f69d8a1b71e716a924b\",\"5ba0a680e548cdff8c7d41a3a2362ba6ea3da5e226186f77361e175fb4a0c92f\",\"6056d31a8c7185df2992ab74d4042c731db2c313b8e9a9a2bbfcd99bf70c917a\",\"60a25015b6ab674c24d3e0a8898ef9347473c417651a0158aa58652bb018f959\",\"60b45f6fea7edd7a1a6835742f1860c8c136ab9de6024978280904e1e448a6fc\",\"6291b12c766798b1dcc53ecdcd156f78902bd4271e30049b87d2b707d3f84f3e\",\"64a36fb693a819bb3144b710acf100a0b54d47aa382f51a39bdcb00bf84c518f\",\"64b74cbe48b54e42e1320011a6e33bb3962b2b8dcf0a228049f7181a30da4ba8\",\"67fa94f5e8bdd1e244d75eb48d441184f4dfc6513b18a07a171f3385ea08ad23\",\"68164d221e2e008d061c3309d24946bd5c94a3e02ec08a7312b46f7f8e6850bc\",\"6a07f54a7b3ea8f55f423527ddf94c728efcb32289418b361b388852e56b8ed5\",\"6aad4511caf3d6cdffac68ac6f510d895ad734b14704d983ea37dac01cc0b790\",\"6ad8a89c81cda6c453797cd383191a93aa11adce9e127bb83c87b517c34ca9e1\",\"70982cf435f42503aa19ebed9d182ce84bc0e980baae522dfc2787f85fb3bfca\",\"716eb833d8741aa6b5d3037b35a34024f6896333eb16602e325c3377ddcaa434\",\"71dd91f9d90ab1b35b0a546ea6925aa014476e6cfd736e96bfad51b9cad6d580\",\"7250a13b2275a048ba020c1f5dab31a3b265faf4e13c43332989c1c1edad0c9a\",\"734a8f6c00f6594282e12c923f120cca374c7ac64f3b0095277e5e7072904b4a\",\"7677b15b3ce5aa062c54b561595e9b7df3352179f6a6a46f0160a204b22d8d81\",\"784dfc6736ec0ba7d033d35ad87ae08034f48bb123d08f6b6d59c57046db6fb0\",\"799b150e921c5351c69cd0968364cd4a2228a3df79f39c216800865f99698e8b\",\"7a0f38e89438592e1b56c79556fe487bb4935b6e3975b827ca70ad551c650c45\",\"7b6b78534a0c59efa3af5ba3c7e3d60854e8142c23b27ccb5d48692efef26351\",\"7c6aa67f7a0792753f18d30059427f3950599b0a9889333c47bbd6b403af055b\",\"7d98e74934bb443cd4978787875c2348e9c1daba76718f9cfde6d984b17eb5cf\",\"7dc3996dc00c6dcd5c5ca505c10fd57d075e69c86a38a9f584f94e255ac9194d\",\"7eefe0045e53e7f0901a40d31f24b015ceb776abd6b5f3235fba65d33c53bde5\",\"7f15117abdbea8e01f6bbe3aecfa330be2f87079850caade0aea4d397f5706df\",\"7f21634f347b4bf0f474a9ce7bd8e09644e45625544f08e22392196e0358d7cb\",\"814480c2ffcd26844b6f8aab6bf6daa07b7c16aff1a74d882f27bcea34e0170c\",\"83ca9b410f576fbc1782d37d7da310b05c766b8f6bd527d4af3f4a68c9dfe69a\",\"83e7a5ae6ab4437527b7236dc51b12ff10dd09812d426077312081c29992e582\",\"84208640b552b56f6071bd93e1c9cd4a256a2fcea1b75d017c371302c2ae123d\",\"89b8eddcd21ecb647774edf45bc55aff74e32e82a9cc749c602b9bd0bfcf0132\",\"89cfaaa7790f55a1183fb5cf99590492cfb29ed5d357f23e96cb330b0d5a1764\",\"8a8018901ecba49d82a709706cf96a83a68d0fe06922c49cfd104028ad1c7105\",\"8c1147e62f1c14de6f054e1ca3e1119aa5f9f0b9325b22f0df38e87644ae46df\",\"8c95910493de6a7610c4a731860b178db7816fdfacb6d8b1ec387af1b49da714\",\"8cb4fbe2d79bba8201a9bae5a0b39f6721025a1e8af5252b51fc1a5bb6d8fb12\",\"909679205e41e64da1c84a10da85162432670b5508c1212ff63ac2d7e403a4e0\",\"90cebb1665785e694cd2abafc12955ec064de38213a5da35145c367eb6140134\",\"91df84e47e270c8b7b307a8a75f272fc0053b717b03d2019fe51fccb47e3ef4b\",\"926f3e33cd2abd492848c86c4b7329f40a3627bd66dea761c7da2848edf7353c\",\"92f4b796bf6fd2eddcae5df67d377f48ee3172511c0b9750cb44a978a3d7eb4a\",\"959c580a57af72c839168ab7d1c96b54c08138d59d9d6e9ac5951d363e30d14e\",\"981b37bdf192461d282f10f4b4603cc7ce37082eb6f040d93db60468073aa016\",\"9ee91d4a5c45bcfa1743bd607f369a5d626d7f6612381c0ac6f72f34632b8798\",\"9f8c84fc3dff6aae9ed2d4115cae4cba54ea22c728915d1005478f3d803b7578\",\"a18e1546a03ff34ec5d79c3d6167c312e20fb0f165aeb97fdd9f6cc089d1d73c\",\"a21bf55c9a4942ce5864f78df31dce1c6b8d87605c62a8a00f4eb68d0dbf57e3\",\"a3ab4a5698622ca882c720aec028c25de3ac539a06a6fc5745ba85ed5b7e935a\",\"a6c1964c62f9a140e5507101be56d8c2cffc2dcf3392ab16c4e91ae1d5dfd6ff\",\"a7acbdb35285dc158f74870856e1f2df55bcfd2b7855d081806a8d68f33d7865\",\"a9f977277b6b7b5f1bd559f6d47114a99e4c454f4c5683243a487e4ba94f3d6d\",\"aadf31deaaa675dfd868d1c4b9ef081175677d4d4d92872fbb48667f83096bc6\",\"abefd1199344a8d8b67828b6a0591b6cf8f16a98b02e9d00713ea14f1b228d27\",\"aecc4e8126627d4602013f0ede5b94fff838d04ef78f2abc873c5249666f3697\",\"af9bd5c09a65562128bfb9fcefe91f7ed3e8754bf1db78cf99db644f941c0a64\",\"b10669cb1d6630e06dacefc0430a9e21368ae948d6a05aad1432ef3e920c1e64\",\"b1c3f372ee901515dee36a8a81c9cf7cd98371b4ee6a228638fd47123f157a9c\",\"b224d01af5181850e7709d71bcfffabc8a0fe965a7faf2c2563d382d187396c1\",\"b38ab0cdfe28a90baee8eeac9cbb48516e8a4f40e99852b7b278e2038611fb1a\",\"b823401b87d9b0fd211c99e28254c570d8578096be97a246076330304d894575\",\"b94a9eb4a1f8a1b69842ab2d418c7d31ce5a3e558aa4079785e58bb893578694\",\"bd3b02d8d7006f41b17c09f290e3ddad9cd3b0b6c8ef40c173d84975ccde9585\",\"bf4211a5040ba1799be3615bb6f8161cd68e8ebd685f321c62a550b4906445f6\",\"c1e9e03bcd6eea34a557c0fe5e48e98d0b421a40857b406d64f136699781a52e\",\"c9670513918f3ac639a1f7796dd04871771228c29e4e5b1244c0d645c8176df8\",\"c9e310119d3622b02e632973eaa0ecc23565a07f852b606b7ce687ccea5a8ac3\",\"ca26cc0b121f3e458897c75ee4b90bb0ac05067bc5cc4e952dfba66ce3ad733c\",\"cab3bf42e7799986126bb1a06b2129b6930e284f6a080a739b8fe1c6a2b02078\",\"cb66ec1d56221906f1a3fb69dd2fae444dec72e21aa8c72b640f2a50c6499435\",\"cc749ab1eef3c4450948f3897be50d6b533bbf487355815a8149829d595e1510\",\"ce1e006b50198b66be4df49beb8a460b7e2cffa4a1fa103c9b7af282dc2569bb\",\"d1597d84036033c3df94a66c3fab5c420c5124b096931f9d7eb6e8c0ea4ff4f0\",\"d436921297e33442315d59699540ecdd400e3dd07c683f00e3d2a3a6dccdfb53\",\"d44ae1509052325acd3f2a6e0a3fb16f406a0c893d8d124de015f7c51ccb8e57\",\"d9f9f85534350d86ee6ef03094881060469758f4599a458353a914db9633d288\",\"da5c173325d90eed114f921a256c0e86c1863364105454a5da183ae0f9d6a8cb\",\"e10661d81a1069e0350da82c1eb2180c161b12eab5493a6314a9ad3c0d32db09\",\"e319afa0e2c6aec98198677d0ff52746f4301bbf842640e139d49089c58501c0\",\"e3373f8562b50ad42b360a17e7ed1c2123f8c06995df6902b78781864fe5932a\",\"e359eb1cf01d8355f2bd0321afd5d9e20c274e5f97de70aff44c352e5b4529d1\",\"e583a58191ea3db5e967e2b16b1da22967763ffa279c4e5e2532490f419ecf97\",\"e6bd02f3bece069b54f8aaf495d61d8ba28f6f2a43afd0d87da57c8bf02b672d\",\"e84b5e7f26cb6d89ba5e6d5bc20379c15b4c5c95c8e21bbc681f1e9b54071ca8\",\"ed7075aa042c6aad0e42e02c555d30b3300809862b057d6fd18c8d1fd00fbae0\",\"f03e9316f64cd553e492934a0a7bf26c0a0f3f632f09f40e46b997fd3e38d138\",\"f18d1ad618d6d75ae957531e9f01284637d29ee47730ee8e869c3fbbdbd34cb9\",\"f1f7db534c9d40685931bd5d30f514e74c7a56f900c467c558183a7970897455\",\"f6d6449e7cd61b7f4da097d0e47810f055d7e57fa7c4130e43d1a967f29cefee\",\"f78cfb578c29a2a70baade913f0fc34822517fdfe0a06ff690073bafe1ff1c17\",\"f7d2d6f1853c011b3251465b798eeb4df28fae93879f7f0809fdbe18a1f9ab47\",\"f82137347dc6262be1034ac4cbdc65fb7b04f58918c547b048639032188e973f\",\"fa104fcfc0de46f5a65e9ab590c7a4e5b97ea5ec4a02bac1a2c53ac4b72c83ac\",\"fb2319441bb14c9e8d65e72e064c13fc2e921a68fde72ed048fed6895b0ead1d\",\"fd0ffa4fc2ac19818edf2f3c6902e0e2c4a0e3fede4a348b731ac38845928260\",\"fe5dc951cec71bc3e1e9d572155c35ef86d8e55a4ebf604ca57cf4f31cd28066\"],\"mode\":\"scoped\"},\"version\":1}"
+  },
+  {
+    "id": "secret-longer-than-minimum",
+    "secretHex": "33333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333",
+    "definitionIdentity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "query": {
+      "kind": "dataset",
+      "dataset": "orders"
+    },
+    "tenant": {
+      "mode": "scoped",
+      "ids": [
+        "acme"
+      ]
+    },
+    "rowLimit": null,
+    "preimageUtf8": "{\"definition\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"kind\":\"hypequery-cache-preimage\",\"query\":{\"by\":null,\"dataset\":\"orders\",\"dimensions\":[],\"filters\":[],\"kind\":\"dataset\",\"measures\":null,\"offset\":null,\"orderBy\":[],\"segments\":[]},\"rowLimit\":null,\"tenant\":{\"fingerprints\":[\"2d1655369f823def057e32f14afbe23e4a21b3a321aa834e7f51190ddcaf6cb2\"],\"mode\":\"scoped\"},\"version\":1}"
+  }
+]

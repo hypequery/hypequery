@@ -147,7 +147,7 @@ describe('MCP query tools SQL integration', () => {
     });
 
     const response = parseToolResponse(result);
-    expect(response.meta.sql).toContain('toStartOfMonth(created_at) AS period');
+    expect(response.meta.sql).toContain("toStartOfMonth(toDateTime64(created_at, 9, 'UTC')) AS period");
     expect(response.meta.sql).toContain("SUM(if((status = 'completed'), amount, 0)) AS completedRevenue");
     expect(response.meta.sql).toContain('WHERE tenant_id = ? AND status = ?');
     expect(response.meta.sql).toContain('ORDER BY completedRevenue DESC');

@@ -15,7 +15,7 @@ export interface TimeMeasureAxis {
   lowerInclusive: boolean;
   upperInclusive: boolean;
   filters: MetricFilter[];
-  /** UTC estimate; execution enforces the exact physical-timezone count. */
+  /** UTC estimate; execution enforces the exact timezone-aware count. */
   bucketCount: number;
   resultLimit?: number;
 }

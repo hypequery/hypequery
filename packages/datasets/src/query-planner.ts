@@ -1,3 +1,4 @@
+import { queryTimeSql } from './utils/query-timezone.js';
 import { assertNoRawSqlUnderJoins } from './utils/sql-under-joins.js';
 import type {
   AggregationSpec,
@@ -60,6 +61,7 @@ export function buildDimensionSelectionPlan(
   dimensions: string[],
   grain: TimeGrain | undefined,
   joinCtx?: RelationshipBuilderContext,
+  timezone?: string,
 ): { selectParts: string[]; groupByParts: string[] } {
   const selectParts: string[] = [];
   const groupByParts = new Set<string>();
@@ -69,7 +71,8 @@ export function buildDimensionSelectionPlan(
     if (!fn) {
       throw new Error(`Unsupported time grain "${grain}".`);
     }
-    selectParts.push(`${fn}(${qualifyBaseColumn(joinCtx, String(ds.timeKey))}) AS period`);
+    const time = resolveDimensionExpression(ds, String(ds.timeKey), joinCtx);
+    selectParts.push(`${fn}(${queryTimeSql(time, timezone)}) AS period`);
     groupByParts.add("period");
   }
 

@@ -1,0 +1,304 @@
+[
+  {
+    "id": "secret-missing",
+    "secretHex": "",
+    "definitionIdentity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "query": {
+      "kind": "dataset",
+      "dataset": "orders"
+    },
+    "tenant": {
+      "mode": "none"
+    },
+    "rowLimit": null,
+    "error": "HQ_CACHE_PREIMAGE_SECRET_MISSING"
+  },
+  {
+    "id": "secret-31-bytes",
+    "secretHex": "11111111111111111111111111111111111111111111111111111111111111",
+    "definitionIdentity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "query": {
+      "kind": "dataset",
+      "dataset": "orders"
+    },
+    "tenant": {
+      "mode": "none"
+    },
+    "rowLimit": null,
+    "error": "HQ_CACHE_PREIMAGE_SECRET_TOO_SHORT"
+  },
+  {
+    "id": "definition-uppercase",
+    "secretHex": "1111111111111111111111111111111111111111111111111111111111111111",
+    "definitionIdentity": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+    "query": {
+      "kind": "dataset",
+      "dataset": "orders"
+    },
+    "tenant": {
+      "mode": "none"
+    },
+    "rowLimit": null,
+    "error": "HQ_CACHE_PREIMAGE_INVALID_DEFINITION"
+  },
+  {
+    "id": "definition-short",
+    "secretHex": "1111111111111111111111111111111111111111111111111111111111111111",
+    "definitionIdentity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "query": {
+      "kind": "dataset",
+      "dataset": "orders"
+    },
+    "tenant": {
+      "mode": "none"
+    },
+    "rowLimit": null,
+    "error": "HQ_CACHE_PREIMAGE_INVALID_DEFINITION"
+  },
+  {
+    "id": "definition-not-string",
+    "secretHex": "1111111111111111111111111111111111111111111111111111111111111111",
+    "definitionIdentity": null,
+    "query": {
+      "kind": "dataset",
+      "dataset": "orders"
+    },
+    "tenant": {
+      "mode": "none"
+    },
+    "rowLimit": null,
+    "error": "HQ_CACHE_PREIMAGE_INVALID_DEFINITION"
+  },
+  {
+    "id": "query-unknown-field",
+    "secretHex": "1111111111111111111111111111111111111111111111111111111111111111",
+    "definitionIdentity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "query": {
+      "kind": "dataset",
+      "dataset": "orders",
+      "sql": "SELECT 1"
+    },
+    "tenant": {
+      "mode": "none"
+    },
+    "rowLimit": null,
+    "error": "HQ_CACHE_PREIMAGE_INVALID_QUERY"
+  },
+  {
+    "id": "query-measures-on-metric",
+    "secretHex": "1111111111111111111111111111111111111111111111111111111111111111",
+    "definitionIdentity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "query": {
+      "kind": "metric",
+      "dataset": "orders",
+      "metric": "aov",
+      "measures": [
+        "revenue"
+      ]
+    },
+    "tenant": {
+      "mode": "none"
+    },
+    "rowLimit": null,
+    "error": "HQ_CACHE_PREIMAGE_INVALID_QUERY"
+  },
+  {
+    "id": "query-duplicate-segments",
+    "secretHex": "1111111111111111111111111111111111111111111111111111111111111111",
+    "definitionIdentity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "query": {
+      "kind": "dataset",
+      "dataset": "orders",
+      "segments": [
+        "vip",
+        "vip"
+      ]
+    },
+    "tenant": {
+      "mode": "none"
+    },
+    "rowLimit": null,
+    "error": "HQ_CACHE_PREIMAGE_INVALID_QUERY"
+  },
+  {
+    "id": "tenant-unknown-mode",
+    "secretHex": "1111111111111111111111111111111111111111111111111111111111111111",
+    "definitionIdentity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "query": {
+      "kind": "dataset",
+      "dataset": "orders"
+    },
+    "tenant": {
+      "mode": "public"
+    },
+    "rowLimit": null,
+    "error": "HQ_CACHE_PREIMAGE_INVALID_TENANT"
+  },
+  {
+    "id": "tenant-none-with-ids",
+    "secretHex": "1111111111111111111111111111111111111111111111111111111111111111",
+    "definitionIdentity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "query": {
+      "kind": "dataset",
+      "dataset": "orders"
+    },
+    "tenant": {
+      "mode": "none",
+      "ids": [
+        "acme"
+      ]
+    },
+    "rowLimit": null,
+    "error": "HQ_CACHE_PREIMAGE_INVALID_TENANT"
+  },
+  {
+    "id": "tenant-scoped-empty",
+    "secretHex": "1111111111111111111111111111111111111111111111111111111111111111",
+    "definitionIdentity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "query": {
+      "kind": "dataset",
+      "dataset": "orders"
+    },
+    "tenant": {
+      "mode": "scoped",
+      "ids": []
+    },
+    "rowLimit": null,
+    "error": "HQ_CACHE_PREIMAGE_INVALID_TENANT"
+  },
+  {
+    "id": "tenant-scoped-empty-id",
+    "secretHex": "1111111111111111111111111111111111111111111111111111111111111111",
+    "definitionIdentity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "query": {
+      "kind": "dataset",
+      "dataset": "orders"
+    },
+    "tenant": {
+      "mode": "scoped",
+      "ids": [
+        ""
+      ]
+    },
+    "rowLimit": null,
+    "error": "HQ_CACHE_PREIMAGE_INVALID_TENANT"
+  },
+  {
+    "id": "tenant-scoped-non-string-id",
+    "secretHex": "1111111111111111111111111111111111111111111111111111111111111111",
+    "definitionIdentity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "query": {
+      "kind": "dataset",
+      "dataset": "orders"
+    },
+    "tenant": {
+      "mode": "scoped",
+      "ids": [
+        7
+      ]
+    },
+    "rowLimit": null,
+    "error": "HQ_CACHE_PREIMAGE_INVALID_TENANT"
+  },
+  {
+    "id": "row-limit-negative",
+    "secretHex": "1111111111111111111111111111111111111111111111111111111111111111",
+    "definitionIdentity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "query": {
+      "kind": "dataset",
+      "dataset": "orders"
+    },
+    "tenant": {
+      "mode": "none"
+    },
+    "rowLimit": -1,
+    "error": "HQ_CACHE_PREIMAGE_INVALID_LIMIT"
+  },
+  {
+    "id": "row-limit-above-safe-integer",
+    "secretHex": "1111111111111111111111111111111111111111111111111111111111111111",
+    "definitionIdentity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "query": {
+      "kind": "dataset",
+      "dataset": "orders"
+    },
+    "tenant": {
+      "mode": "none"
+    },
+    "rowLimit": 9007199254740992,
+    "error": "HQ_CACHE_PREIMAGE_INVALID_LIMIT"
+  },
+  {
+    "id": "row-limit-string",
+    "secretHex": "1111111111111111111111111111111111111111111111111111111111111111",
+    "definitionIdentity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "query": {
+      "kind": "dataset",
+      "dataset": "orders"
+    },
+    "tenant": {
+      "mode": "none"
+    },
+    "rowLimit": "100",
+    "error": "HQ_CACHE_PREIMAGE_INVALID_LIMIT"
+  },
+  {
+    "id": "precedence-secret-before-definition",
+    "secretHex": "",
+    "definitionIdentity": "nope",
+    "query": {
+      "kind": "dataset",
+      "dataset": "orders",
+      "sql": "x"
+    },
+    "tenant": {
+      "mode": "public"
+    },
+    "rowLimit": -1,
+    "error": "HQ_CACHE_PREIMAGE_SECRET_MISSING"
+  },
+  {
+    "id": "precedence-definition-before-query",
+    "secretHex": "1111111111111111111111111111111111111111111111111111111111111111",
+    "definitionIdentity": "nope",
+    "query": {
+      "kind": "dataset",
+      "dataset": "orders",
+      "sql": "x"
+    },
+    "tenant": {
+      "mode": "public"
+    },
+    "rowLimit": -1,
+    "error": "HQ_CACHE_PREIMAGE_INVALID_DEFINITION"
+  },
+  {
+    "id": "precedence-query-before-tenant",
+    "secretHex": "1111111111111111111111111111111111111111111111111111111111111111",
+    "definitionIdentity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "query": {
+      "kind": "dataset",
+      "dataset": "orders",
+      "sql": "x"
+    },
+    "tenant": {
+      "mode": "public"
+    },
+    "rowLimit": -1,
+    "error": "HQ_CACHE_PREIMAGE_INVALID_QUERY"
+  },
+  {
+    "id": "precedence-tenant-before-limit",
+    "secretHex": "1111111111111111111111111111111111111111111111111111111111111111",
+    "definitionIdentity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "query": {
+      "kind": "dataset",
+      "dataset": "orders"
+    },
+    "tenant": {
+      "mode": "public"
+    },
+    "rowLimit": -1,
+    "error": "HQ_CACHE_PREIMAGE_INVALID_TENANT"
+  }
+]

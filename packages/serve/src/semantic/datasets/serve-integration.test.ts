@@ -763,7 +763,7 @@ describe("Serve integration — metrics", () => {
       );
 
       expect(factory._calls['select']).toBeDefined();
-      expect(factory._calls['select'][0][0]).toContain('toStartOfMonth(created_at) AS period');
+      expect(factory._calls['select'][0][0]).toContain("toStartOfMonth(toDateTime64(created_at, 9, 'UTC')) AS period");
     });
 
     it("supports grained metric refs in createAPI", async () => {
@@ -782,7 +782,7 @@ describe("Serve integration — metrics", () => {
       );
 
       expect(factory._calls['select']).toBeDefined();
-      expect(factory._calls['select'][0][0]).toContain('toStartOfMonth(created_at) AS period');
+      expect(factory._calls['select'][0][0]).toContain("toStartOfMonth(toDateTime64(created_at, 9, 'UTC')) AS period");
       expect(factory._calls['orderBy']).toContainEqual(['period', 'ASC']);
     });
 
@@ -851,7 +851,7 @@ describe("Serve integration — metrics", () => {
 
       expect(response.status).toBe(200);
       expect(factory._calls['select']).toBeDefined();
-      expect(factory._calls['select'][0][0]).toContain('toStartOfMonth(created_at) AS period');
+      expect(factory._calls['select'][0][0]).toContain("toStartOfMonth(toDateTime64(created_at, 9, 'UTC')) AS period");
       expect(factory._calls['select'][0][0]).toContain('country');
       expect(factory._calls['orderBy']).toContainEqual(['period', 'ASC']);
       expect(factory._calls['limit']).toContainEqual([12]);
@@ -879,9 +879,9 @@ describe("Serve integration — metrics", () => {
       expect(response.status).toBe(200);
       expect(factory._calls['select']).toBeDefined();
       const selectArgs = factory._calls['select'].flat(2);
-      expect(selectArgs).toContain('toStartOfMonth(created_at) AS period');
+      expect(selectArgs).toContain("toStartOfMonth(toDateTime64(created_at, 9, 'UTC')) AS period");
       expect(selectArgs).toContain('country_code AS countryCode');
-      expect(factory._calls['where']).toContainEqual(['created_at', 'gte', '2025-01-01']);
+      expect(factory._calls['where']).toContainEqual(["toDateTime64(created_at, 9, 'UTC')", 'gte', '2025-01-01']);
     });
   });
 
@@ -1598,7 +1598,7 @@ describe("Serve integration — metrics", () => {
       // Should select with toStartOfMonth expression
       expect(factory._calls['select']).toBeDefined();
       const selectArgs = factory._calls['select'][0][0];
-      expect(selectArgs).toContain('toStartOfMonth(created_at) AS period');
+      expect(selectArgs).toContain("toStartOfMonth(toDateTime64(created_at, 9, 'UTC')) AS period");
     });
 
     it("applies order/limit/offset via builder methods", async () => {
@@ -1820,7 +1820,7 @@ describe("Serve integration — metrics", () => {
         { period: "2025-01-01", countryCode: "DE", revenue: "3000" },
       ]);
       const selectArgs = factory._calls['select'][0][0];
-      expect(selectArgs).toContain('toStartOfMonth(created_at) AS period');
+      expect(selectArgs).toContain("toStartOfMonth(toDateTime64(created_at, 9, 'UTC')) AS period");
       expect(selectArgs).toContain('country_code AS countryCode');
       expect(factory._calls['sum']).toContainEqual(['amount', 'revenue']);
       expect(factory._calls['groupBy'][0][0]).toContain('period');
@@ -1852,7 +1852,7 @@ describe("Serve integration — metrics", () => {
       expect(semanticBody(response).data).toEqual([
         { countryCode: "US", revenue: "5000" },
       ]);
-      expect(factory._calls['where']).toContainEqual(['created_at', 'gte', '2025-01-01']);
+      expect(factory._calls['where']).toContainEqual(["toDateTime64(created_at, 9, 'UTC')", 'gte', '2025-01-01']);
     });
 
     it("applies dataset order/limit/offset via builder methods", async () => {

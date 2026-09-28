@@ -62,7 +62,6 @@ function semanticMetadata(value: UnknownRecord): SemanticMetadata {
     ...(text(value.format) !== undefined ? { format: text(value.format) } : {}),
     ...(text(value.unit) !== undefined ? { unit: text(value.unit) } : {}),
     ...(/^[A-Z]{3}$/.test(String(value.currency)) ? { currency: String(value.currency) } : {}),
-    ...(text(value.timezone) !== undefined ? { timezone: text(value.timezone) } : {}),
     ...(sensitivity !== undefined ? { sensitivity } : {}),
   };
 }

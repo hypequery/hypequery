@@ -265,6 +265,23 @@
       ]
     },
     {
+      "name": "cache-preimages-v1",
+      "rfc": "0009",
+      "codePrefixes": [
+        "HQ_CACHE_PREIMAGE_"
+      ],
+      "files": [
+        {
+          "path": "cache-preimages-v1/success.json",
+          "role": "success"
+        },
+        {
+          "path": "cache-preimages-v1/rejections.json",
+          "role": "rejection"
+        }
+      ]
+    },
+    {
       "name": "semantic-invocations-v1",
       "rfc": "0014",
       "codePrefixes": [

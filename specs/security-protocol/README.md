@@ -23,6 +23,8 @@ A disagreement between an implementation and an accepted specification is a bug.
 - `rfc/` contains proposals and versioned contract definitions.
 - `fixtures/` contains language-neutral conformance cases and their [update
   runbook](./fixtures/README.md).
+- `drafts/` holds fixtures for Proposed RFCs. They are not conformance gates;
+  on acceptance they move to `fixtures/` and are registered in the manifest.
 - schemas are introduced with the specifications that own them.
 
 ## Boundary

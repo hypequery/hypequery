@@ -1,3 +1,4 @@
+import { queryTimezoneErrors, queryTimeFilterSql } from './utils/query-timezone.js';
 import { selectedTimeMeasures, rejectTimeMeasuresOnBackend } from './utils/time-query-measures.js';
 import { buildTimeMeasureDatasetSql } from './utils/time-measure-dataset-sql.js';
 import { baseMeasureNames } from './utils/dataset-measures.js';
@@ -110,7 +111,7 @@ function validateQuery(
   query: MetricQuery,
   context?: ExecutionContext,
 ): ValidationResult {
-  const errors = protocolMetricCapabilityErrors(metric, query);
+  const errors = [...protocolMetricCapabilityErrors(metric, query), ...queryTimezoneErrors(query.timezone)];
   const ref = getMetricRef(metric);
   const ds = ref.dataset;
   const dimensionNames = Object.keys(ds.dimensions);
@@ -253,6 +254,8 @@ export interface MetricQueryEngineOptions {
 }
 
 export interface CreateDatasetClientOptions {
+  /** Default IANA timezone for buckets and local time-key bounds. Queries can override it. */
+  timezone?: string;
   /** Query builder factory for executing semantic metric and dataset queries. */
   queryBuilder?: QueryBuilderFactoryInput;
   /**
@@ -526,6 +529,7 @@ export class MetricQueryEngine {
       query.dimensions ?? [],
       grain,
       joinCtx,
+      query.timezone,
     );
 
     if (selectParts.length > 0) {
@@ -555,7 +559,7 @@ export class MetricQueryEngine {
         );
       }
       const resolvedField = resolveFilterField(ds, filter.field, joinCtx);
-      qb = qb.where(resolvedField, filter.operator, filter.value);
+      qb = qb.where(queryTimeFilterSql(ds, filter.field, resolvedField, query.timezone), filter.operator, filter.value);
     }
 
     // Segments: author-defined, so they resolve dimensions directly rather
@@ -589,6 +593,7 @@ export class MetricQueryEngine {
       query.dimensions ?? [],
       grain,
       joinCtx,
+      query.timezone,
     );
 
     if (selectParts.length > 0) {
@@ -625,7 +630,7 @@ export class MetricQueryEngine {
         );
       }
       const resolvedField = resolveFilterField(ds, filter.field, joinCtx);
-      cteBuilder = cteBuilder.where(resolvedField, filter.operator, filter.value);
+      cteBuilder = cteBuilder.where(queryTimeFilterSql(ds, filter.field, resolvedField, query.timezone), filter.operator, filter.value);
     }
     for (const filter of segmentFilters(ds, query.segments)) {
       cteBuilder = cteBuilder.where(
@@ -690,6 +695,7 @@ export class MetricQueryEngine {
 
 export class DatasetClientImpl extends MetricQueryEngine implements DatasetClient {
   private backend?: SemanticBackend;
+  private readonly defaultTimezone?: string;
   private readonly queryCache: SemanticQueryCache;
   private readonly cacheEnabledByDefault: boolean;
   private readonly cacheDefaults: ClientCacheDefaults;
@@ -709,6 +715,12 @@ export class DatasetClientImpl extends MetricQueryEngine implements DatasetClien
         },
       },
     });
+    const timezoneErrors = queryTimezoneErrors(options.timezone);
+    if (timezoneErrors.length) throw new Error(timezoneErrors[0]);
+    if (options.backend && options.timezone !== undefined) {
+      throw new Error('Execution timezone requires the queryBuilder execution path.');
+    }
+    this.defaultTimezone = options.backend ? undefined : options.timezone ?? 'UTC';
     this.backend = options.backend;
     this.queryCache = new SemanticQueryCache(options.cache);
     this.cacheEnabledByDefault = (options.cache?.ttlMs ?? 0) > 0;
@@ -719,6 +731,11 @@ export class DatasetClientImpl extends MetricQueryEngine implements DatasetClien
       ttlMs: options.cache?.ttlMs,
       staleWhileRevalidateMs: options.cache?.staleWhileRevalidateMs,
     };
+  }
+
+  private withTimezone<T extends DatasetQuery | MetricQuery>(query: T): T {
+    return query.timezone !== undefined || this.defaultTimezone === undefined
+      ? query : { ...query, timezone: this.defaultTimezone };
   }
 
   getCacheStats(): SemanticCacheStats {
@@ -780,6 +797,7 @@ export class DatasetClientImpl extends MetricQueryEngine implements DatasetClien
     query: MetricQuery = {},
     context?: ExecutionContext,
   ): PlanNode {
+    query = this.withTimezone(query);
     assertMetricHandle(metric);
     const validation = validateQuery(metric, query, context);
     if (!validation.valid) {
@@ -793,7 +811,7 @@ export class DatasetClientImpl extends MetricQueryEngine implements DatasetClien
     query: DatasetQuery = {},
     context?: ExecutionContext,
   ): PlanNode {
-    return buildDatasetPlan(ds, query, context);
+    return buildDatasetPlan(ds, this.withTimezone(query), context);
   }
 
   /**
@@ -832,6 +850,10 @@ export class DatasetClientImpl extends MetricQueryEngine implements DatasetClien
     query: SemanticQuery<TTarget> = {} as SemanticQuery<TTarget>,
     context?: ExecutionContext,
   ): Promise<SemanticResult<TTarget, TRow>> {
+    query = this.withTimezone(query);
+    if (this.backend && query.timezone !== undefined) {
+      throw new Error('Execution timezone requires the queryBuilder execution path.');
+    }
     if (isDatasetInstance(target)) {
       return this.executeDataset<TRow>(
         target,
@@ -852,6 +874,10 @@ export class DatasetClientImpl extends MetricQueryEngine implements DatasetClien
     query: SemanticQuery<TTarget> = {} as SemanticQuery<TTarget>,
     context?: ExecutionContext,
   ): string {
+    query = this.withTimezone(query);
+    if (this.backend && query.timezone !== undefined) {
+      throw new Error('Execution timezone requires the queryBuilder execution path.');
+    }
     if (isDatasetInstance(target)) {
       return this.toDatasetSQL(target, query as DatasetQuery, context);
     }
@@ -864,6 +890,10 @@ export class DatasetClientImpl extends MetricQueryEngine implements DatasetClien
     query: SemanticQuery<TTarget> = {} as SemanticQuery<TTarget>,
     context?: ExecutionContext,
   ): ValidationResult {
+    query = this.withTimezone(query);
+    if (this.backend && query.timezone !== undefined) {
+      return { valid: false, errors: ['Execution timezone requires the queryBuilder execution path.'] };
+    }
     if (isDatasetInstance(target)) {
       return validateDatasetQuery(target, query as DatasetQuery, context);
     }

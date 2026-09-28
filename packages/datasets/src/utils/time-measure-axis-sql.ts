@@ -1,5 +1,5 @@
 import { GRAIN_FUNCTIONS } from '../constants.js';
-import type { WindowTimeAxis } from './window-time-axis.js';
+import type { TimeMeasureAxis } from './time-measure-axis.js';
 import type { TimeMeasureSqlSource } from './time-measure-source-sql.js';
 import { addTimeSql as add, subtractTimeSql as subtract } from './time-arithmetic-sql.js';
 import { calendarBucketGuardSql } from './time-axis-calendar-guard.js';
@@ -17,10 +17,10 @@ function literal(value: string): string {
   return `'${value.replace(/\\/g, '\\\\').replace(/'/g, "''")}'`;
 }
 
-/** Build bounded output buckets using the physical column's timezone. */
+/** Build bounded output buckets using the query timezone. */
 export function buildTimeMeasureAxisSql(
   source: TimeMeasureSqlSource,
-  axis: WindowTimeAxis,
+  axis: TimeMeasureAxis,
   shifts: readonly ShiftMeasureDefinition[] = [],
 ): TimeMeasureSqlAxis {
   const first = `${GRAIN_FUNCTIONS[axis.grain]}(_hq_lower)`;
@@ -43,7 +43,7 @@ export function buildTimeMeasureAxisSql(
   const shiftGuards = shifts.map(shift => shiftCalendarGuardSql(shift, axis.grain, `${limitGuard} + ${rangeGuard}`));
   const guard = [limitGuard, physicalGuard, calendarGuard, ...shiftGuards].join(' + ');
 
-  // A zero-row scalar retains the physical timestamp type and timezone.
+  // A zero-row scalar retains the converted timestamp type and query timezone.
   // Reading any(time) here would scan the entire population just for its type.
   const timezone = 'timezoneOf(assumeNotNull((SELECT _hq_time FROM _hq_source LIMIT 0)))';
   const bounds = [

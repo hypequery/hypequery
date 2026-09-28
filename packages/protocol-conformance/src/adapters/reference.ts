@@ -3,6 +3,7 @@
 // goes through the package's supported surface — this is exactly what a second
 // implementation must reproduce.
 import {
+  buildProtocolCachePreimage,
   decodeCanonicalValue,
   deriveProtocolCacheKey,
   deriveProtocolCacheNamespaceToken,
@@ -93,6 +94,7 @@ export const REFERENCE_HOSTILE_OBJECT_SUITE = {
 
 export const REFERENCE_FAMILIES = [
   'cache-keys-v1',
+  'cache-preimages-v1',
   'tagged-values-v1',
   'identifiers-v1',
   'expressions-v1',
@@ -155,6 +157,8 @@ export function referenceHandle(
       return handleSemanticInvocation(c, 2);
     case 'cache-keys-v1':
       return handleCacheKey(role, c);
+    case 'cache-preimages-v1':
+      return handleCachePreimage(role, c);
     default:
       throw new Error(`reference adapter does not support family ${family}`);
   }
@@ -216,6 +220,19 @@ function handleCacheKey(role: FixtureRole, c: Case): HandlerResult {
         ),
       },
     };
+  });
+}
+
+function handleCachePreimage(role: FixtureRole, c: Case): HandlerResult {
+  return attempt(() => {
+    const preimage = buildProtocolCachePreimage({
+      secret: hexToBytes(c.secretHex as string),
+      definitionIdentity: c.definitionIdentity as string,
+      query: c.query,
+      tenant: c.tenant as Parameters<typeof buildProtocolCachePreimage>[0]['tenant'],
+      rowLimit: c.rowLimit as number | null,
+    });
+    return role === 'success' ? { ok: true, output: { preimageUtf8: preimage } } : { ok: true };
   });
 }
 

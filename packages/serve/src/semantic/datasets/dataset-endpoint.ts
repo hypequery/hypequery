@@ -119,6 +119,7 @@ export function createDatasetEndpoint<TAuth extends AuthContext>(
       limit: Math.min(input.limit ?? effectiveMaxLimit, effectiveMaxLimit),
       offset: input.offset,
       by: input.by,
+      timezone: input.timezone,
     };
     const validationContext = runtime ? { runtime } : undefined;
     const validation = analytics.validate(ds, query, validationContext);

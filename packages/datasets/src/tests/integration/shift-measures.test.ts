@@ -111,7 +111,7 @@ describe('shift execution against ClickHouse', () => {
     ['2026-10-25', ['1', '2', null, '3', '4', '5']],
   ])('preserves exact shifted endpoints over DST on %s', async (day, expected) => {
     const ds = dataset('dstComparisons', { source: `${table}_timezones`, timeKey: 'time', dimensions: { time: dimension.timestamp({ column: 'event_at' }), value: dimension.number() }, measures: { revenue: measure.sum('value'), priorDay: measure.shift('revenue', { amount: 1, unit: 'day' }) } });
-    const result = await client.execute(ds, { by: 'hour', measures: ['priorDay'], filters: [{ field: 'time', operator: 'gte', value: `${day}T00:00:00` }, { field: 'time', operator: 'lt', value: `${day}T05:00:00` }] });
+    const result = await client.execute(ds, { timezone: 'Europe/Madrid', by: 'hour', measures: ['priorDay'], filters: [{ field: 'time', operator: 'gte', value: `${day}T00:00:00` }, { field: 'time', operator: 'lt', value: `${day}T05:00:00` }] });
     expect(result.data.map(row => row.priorDay)).toEqual(expected);
   });
 
@@ -131,13 +131,13 @@ describe('shift execution against ClickHouse', () => {
       measures: { revenue: measure.sum('value'), priorDay: measure.shift('revenue', { amount: 1, unit: 'day' }) },
     });
     const safe = await client.execute(ds, {
-      by: 'day', measures: ['priorDay'],
+      timezone: 'Pacific/Apia', by: 'day', measures: ['priorDay'],
       filters: [{ field: 'time', operator: 'between', value: ['2012-01-01', '2012-01-01'] }],
     });
     expect(safe.data.map(row => row.priorDay)).toEqual(['20']);
     for (const empty of [false, true]) {
       const query = {
-        by: 'day' as const, measures: ['priorDay'],
+        timezone: 'Pacific/Apia', by: 'day' as const, measures: ['priorDay'],
         filters: [
           { field: 'time', operator: 'between' as const, value: ['2011-12-31', '2011-12-31'] },
           ...(empty ? [{ field: 'value', operator: 'eq' as const, value: -1 }] : []),
@@ -174,9 +174,9 @@ describe('shift execution against ClickHouse', () => {
     expect(result.data.map(row => [row.running, row.prior, row.delta])).toEqual([['130', '30', '100'], ['130', '40', '90'], ['220', null, null]]);
   });
 
-  it('keeps non-UTC calendar bucket boundaries in the physical column timezone', async () => {
+  it('keeps non-UTC calendar bucket boundaries in the requested timezone', async () => {
     const ds = dataset('localCalendarComparisons', { source: `${table}_timezones`, timeKey: 'time', dimensions: { time: dimension.timestamp({ column: 'event_at' }), value: dimension.number() }, measures: { revenue: measure.sum('value'), priorMonth: measure.shift('revenue', { amount: 1, unit: 'month' }) } });
-    const result = await client.execute(ds, { by: 'month', measures: ['priorMonth'], filters: [{ field: 'time', operator: 'gte', value: '2026-04-01' }, { field: 'time', operator: 'lt', value: '2026-06-01' }] });
+    const result = await client.execute(ds, { timezone: 'Europe/Madrid', by: 'month', measures: ['priorMonth'], filters: [{ field: 'time', operator: 'gte', value: '2026-04-01' }, { field: 'time', operator: 'lt', value: '2026-06-01' }] });
     expect(result.data.map(row => row.priorMonth)).toEqual(['45', '60']);
   });
 

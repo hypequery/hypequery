@@ -1,7 +1,7 @@
 import type { TimeGrain, WindowMeasureDefinition } from '../types.js';
 import { GRAIN_FUNCTIONS } from '../constants.js';
 import { quoteSQLIdentifier } from '../sql-utils.js';
-import type { WindowTimeAxis } from './window-time-axis.js';
+import type { TimeMeasureAxis } from './time-measure-axis.js';
 import type { TimeMeasureSqlBase, TimeMeasureSqlDimension } from './time-measure-source-sql.js';
 import { addTimeSql as add, subtractTimeSql as subtract } from './time-arithmetic-sql.js';
 import { isCountAggregation, windowAggregateSql } from './window-aggregation-sql.js';
@@ -48,7 +48,7 @@ export function windowScanStartSql(window: WindowMeasureDefinition, grain: TimeG
 }
 
 /** Base measures respect partial endpoints; windows use entire contributing buckets. */
-export function windowMeasureRowsSql(window: WindowMeasureDefinition | undefined, axis: WindowTimeAxis): string {
+export function windowMeasureRowsSql(window: WindowMeasureDefinition | undefined, axis: TimeMeasureAxis): string {
   const range = window ? '' : ` WHERE _hq_time ${axis.lowerInclusive ? '>=' : '>'} _hq_lower AND _hq_time ${axis.upperInclusive ? '<=' : '<'} _hq_upper`;
   return `SELECT *, ${contributionSql(window, axis.grain)} AS _hq_period FROM _hq_scanned${range}`;
 }
@@ -57,7 +57,7 @@ export function windowMeasureRowsSql(window: WindowMeasureDefinition | undefined
 export function buildTimeMeasureValuesSql(
   dims: readonly TimeMeasureSqlDimension[],
   inputs: readonly TimeMeasureSqlInput[],
-  axis: WindowTimeAxis,
+  axis: TimeMeasureAxis,
 ): string[] {
   const ctes: string[] = [];
   const keys = dims.map(dimension => dimension.alias);

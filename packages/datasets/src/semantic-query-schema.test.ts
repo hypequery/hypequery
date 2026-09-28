@@ -486,7 +486,7 @@ describe('protocol input schemas', () => {
     // advertised field becomes one the validator rejects.
     const properties = (protocolSchema as { properties: Record<string, unknown> }).properties;
     expect(Object.keys(properties).sort()).toEqual(
-      ['by', 'dimensions', 'filters', 'limit', 'measures', 'offset', 'orderBy'],
+      ['by', 'dimensions', 'filters', 'limit', 'measures', 'offset', 'orderBy', 'timezone'],
     );
   });
 

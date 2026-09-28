@@ -42,3 +42,17 @@ def exceeds_utf8_byte_limit(value: str, maximum: int) -> bool:
             return True
         index += 1
     return False
+
+
+def encode_utf8(value: str) -> bytes:
+    """Encode *value* exactly as JavaScript's ``TextEncoder`` would.
+
+    A round trip through UTF-16 joins split surrogate pairs and turns each
+    unpaired surrogate into U+FFFD, where ``str.encode`` would raise.
+    """
+
+    try:
+        return value.encode("utf-8")
+    except UnicodeEncodeError:
+        repaired = value.encode("utf-16-le", "surrogatepass").decode("utf-16-le", "replace")
+        return repaired.encode("utf-8")
