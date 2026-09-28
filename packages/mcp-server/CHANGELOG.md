@@ -1,5 +1,28 @@
 # @hypequery/mcp
 
+## 0.8.3
+
+### Patch Changes
+
+- c48b1b0: Add `minute` and `hour` time grains (RFC 0015, HQ-77). They bucket with `toStartOfMinute`/`toStartOfHour` and appear in catalogs, semantic query schemas, and the local MCP tools.
+
+  A new `timeGrains` dataset option restricts the grains a dataset supports, for example to refuse sub-day buckets on a `Date` time key. Queries, `.by()`, and the catalog honor it.
+
+  Publishing to Cloud still emits deployment contract 2:
+
+  - it refuses a sub-day `defaults.timeGrain` or pinned metric grain with an actionable error;
+  - it refuses dataset-level `timeGrains` restrictions it cannot preserve;
+  - published metric grain lists and rehydrated datasets stay at `day` through `year`.
+
+- b085b08: Expose dataset segments on every query surface. Semantic input schemas, and therefore OpenAPI and the MCP tools, accept `segments` as an enum of the dataset's declared names. Serve dataset and metric endpoints, and the MCP `query_dataset`/`query_metric` tools, forward them to the query. Typed dataset and metric inputs infer declared segment names, including through Serve and React; MCP argument types can opt into a dataset-specific type. Datasets without segments keep their existing schemas.
+- Updated dependencies [091b8a6]
+- Updated dependencies [1740f23]
+- Updated dependencies [c48b1b0]
+- Updated dependencies [9bd5e10]
+- Updated dependencies [9239794]
+- Updated dependencies [b085b08]
+  - @hypequery/datasets@0.19.0
+
 ## 0.8.2
 
 ### Patch Changes
