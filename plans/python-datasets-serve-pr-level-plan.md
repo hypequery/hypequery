@@ -64,7 +64,7 @@ train.
 |---|---|---|
 | PY-A | PYA-01…PYA-05 (workspace, CI, JCS/tagged values, identifiers, conformance gate) | PYA-00/PYA-02 are org-account and release work, not code |
 | PY-B | PYB-01…PYB-08; contract 3 and expression extension 2 (RFC 0015); PYB-09 dataset client | Pagination `hasMore` metadata, which needs a planner over-fetch (pick up with PYD-02) |
-| PY-C | PYC-01 executor; PYC-02 cancellation and concurrency budgets; PYC-04 key derivation (`cache-keys-v1` green) | PYC-03 needs RFC 0009 accepted; PYC-04 result cache needs a defined dataset-query preimage (see PYC-04); PYC-05 needs RFC 0011 accepted |
+| PY-C | PYC-01 executor; PYC-02 cancellation and concurrency budgets; PYC-04 key derivation (`cache-keys-v1` green) | PYC-03 needs RFC 0009 accepted; PYC-04 result cache waits on RFC 0016 (proposed) being accepted; PYC-05 needs RFC 0011 accepted |
 | PY-D | none (`hypequery.serve` is still the extra guard only) | PYD-01 needs PYC-03 |
 | PY-E | none | all |
 
@@ -453,9 +453,13 @@ PYC-01 are merged.
     tenant-scoped cache keys is RFC 0009 § Cache confusion, and RFC 0009 is
     still `Proposed`. The TypeScript `query-signature.ts` is a readable
     signature, not a protocol artifact, and does not derive RFC 0013 keys
-    yet. Settle the preimage fields and their tenant-capability input as part
-    of accepting RFC 0009 (with fixtures), then build the memory store and
-    client wiring on top of it.
+    yet.
+  - *Preimage: proposed.* RFC 0016 (`rfc/0016-cache-preimage.md`) defines
+    the preimage, with 41 draft fixtures in
+    `drafts/cache-preimages-v1/`. The fixtures are cross-checked between the
+    Python and TypeScript validators. Once RFC 0016 is accepted, move the
+    fixtures into the manifest, then build the memory store and client wiring
+    against them.
 - **Scope:** Canonical cache preimage (in-memory only) → versioned
   HMAC-derived opaque key; memory cache store; pluggable store interface
   with the key contract enforced at the boundary.
