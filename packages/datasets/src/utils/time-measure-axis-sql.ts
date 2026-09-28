@@ -15,7 +15,7 @@ function literal(value: string): string {
   return `'${value.replace(/\\/g, '\\\\').replace(/'/g, "''")}'`;
 }
 
-/** Build bounded output buckets using the physical column's timezone. */
+/** Build bounded output buckets using the query timezone. */
 export function buildTimeMeasureAxisSql(
   source: TimeMeasureSqlSource,
   axis: WindowTimeAxis,

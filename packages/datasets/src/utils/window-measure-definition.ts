@@ -2,7 +2,7 @@ import type { WindowMeasureDefinition, WindowMeasureMode } from '../types.js';
 import { snapshotSemanticMetadata } from './semantic-metadata.js';
 
 export type WindowMeasureOptions = Pick<WindowMeasureDefinition,
-  'label' | 'description' | 'examples' | 'synonyms' | 'format' | 'unit' | 'currency' | 'timezone' | 'sensitivity'>;
+  'label' | 'description' | 'examples' | 'synonyms' | 'format' | 'unit' | 'currency' | 'sensitivity'>;
 
 export function createWindowMeasure<const TMeasureName extends string>(
   baseMeasure: TMeasureName,

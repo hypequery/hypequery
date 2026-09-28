@@ -23,7 +23,7 @@ export function intervalBuckets(amount: number, unit: TimeGrain, grain: TimeGrai
   return Number.isSafeInteger(count) && count > 0 ? count : undefined;
 }
 
-/** UTC estimate; SQL uses the physical time column's timezone for exact buckets. */
+/** UTC estimate; SQL uses the time expression's timezone for exact buckets. */
 export function utcBucketStart(timestamp: number, grain: TimeGrain): number {
   const date = new Date(timestamp);
   if (grain === 'minute') {
@@ -55,7 +55,7 @@ export function windowGrainErrors(name: string, window: WindowMeasureDefinition,
   return [];
 }
 
-/** Estimate only: SQL determines exact bucket counts in the physical column timezone. */
+/** Estimate only: SQL determines exact bucket counts in the query timezone. */
 export function estimateTimeAxisBuckets(
   start: ParsedTimeBound,
   end: ParsedTimeBound,
@@ -88,6 +88,6 @@ export function exceedsEstimatedTimeAxisLimit(
   if (resultLimit === undefined) return false;
   const canEstimate = start.hasOffset === end.hasOffset
     && (start.hasOffset || (grain !== 'minute' && grain !== 'hour'));
-  // Allow two boundary buckets because the physical column timezone is unknown.
+  // Allow two boundary buckets because the query timezone is unknown.
   return resultLimit === 0 || (canEstimate && bucketCount - 2 > resultLimit);
 }

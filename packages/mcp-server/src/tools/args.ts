@@ -33,6 +33,7 @@ const baseQuerySchema = z.object({
   segments: z.array(z.string().min(1)).max(MAX_QUERY_FILTERS).optional(),
   // Each dataset narrows this further through its catalog `supportedGrains`.
   grain: z.enum(SUPPORTED_TIME_GRAINS as [TimeGrain, ...TimeGrain[]]).optional(),
+  timezone: z.string().min(1).max(100).optional(),
   orderBy: z.array(orderBySchema).max(MAX_QUERY_ORDER_BY).optional(),
   limit: z.number().int().positive().max(MAX_QUERY_LIMIT).optional(),
   offset: z.number().int().nonnegative().max(MAX_QUERY_OFFSET).optional(),

@@ -1,3 +1,4 @@
+import { queryTimeFilterSql } from './utils/query-timezone.js';
 import { selectedWindowMeasures } from './utils/window-query-measures.js';
 import { buildWindowDatasetSql } from './utils/window-dataset-sql.js';
 import { baseMeasureNames, getBaseMeasure } from './utils/dataset-measures.js';
@@ -72,7 +73,7 @@ export function buildDatasetQueryBuilder(
 
   let qb = options.builderFactory.table(ds.source);
   qb = applyRelationshipJoins(qb, joinCtx);
-  const { selectParts, groupByParts } = buildDimensionSelectionPlan(ds, query.dimensions ?? [], query.by, joinCtx);
+  const { selectParts, groupByParts } = buildDimensionSelectionPlan(ds, query.dimensions ?? [], query.by, joinCtx, query.timezone);
   const measureNames = query.measures ?? baseMeasureNames(ds.measures);
 
   if (selectParts.length > 0) {
@@ -97,7 +98,7 @@ export function buildDatasetQueryBuilder(
 
   for (const filter of query.filters ?? []) {
     const resolvedField = resolveFilterField(ds, filter.field, joinCtx);
-    qb = qb.where(resolvedField, filter.operator, filter.value);
+    qb = qb.where(queryTimeFilterSql(ds, filter.field, resolvedField, query.timezone), filter.operator, filter.value);
   }
 
   // Segments are author-defined, so they bypass the caller filter allow-list.

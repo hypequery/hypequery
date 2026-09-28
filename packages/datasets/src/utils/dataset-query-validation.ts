@@ -1,3 +1,4 @@
+import { queryTimezoneErrors } from './query-timezone.js';
 import { baseMeasureNames } from './dataset-measures.js';
 import type {
   AnyDatasetInstance,
@@ -26,7 +27,7 @@ export function validateDatasetQueryInput(
   query: DatasetQuery,
   context?: ExecutionContext,
 ): ValidationResult {
-  const errors: string[] = [];
+  const errors: string[] = queryTimezoneErrors(query.timezone);
   const dimensionNames = Object.keys(ds.dimensions);
   const measureNames = Object.keys(ds.measures);
   const selectedDimensions = query.dimensions ?? [];

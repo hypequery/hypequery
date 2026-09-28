@@ -210,6 +210,7 @@ export function buildDatasetPlan(
   query: DatasetQuery = {},
   context?: ExecutionContext,
 ): PlanNode {
+  if (query.timezone !== undefined) throw new Error('Execution timezone requires the queryBuilder execution path.');
   if (selectedWindowMeasures(ds, query).size) throw new Error('Window dataset measures require the queryBuilder execution path.');
   if ((query.measures ?? []).some(name => getDerivedMeasure(ds.measures, name) !== undefined)) {
     throw new Error('Derived dataset measures require the queryBuilder execution path.');
@@ -322,6 +323,7 @@ export function buildMetricPlan(
   query: MetricQuery = {},
   context?: ExecutionContext,
 ): PlanNode {
+  if (query.timezone !== undefined) throw new Error('Execution timezone requires the queryBuilder execution path.');
   const errors = protocolMetricCapabilityErrors(metric, query);
   if (errors.length) throw new Error(`Invalid metric query: ${errors.join('; ')}`);
   const ref = getMetricRef(metric as MetricHandle);

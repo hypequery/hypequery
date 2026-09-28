@@ -1,3 +1,4 @@
+import { isQueryTimezone } from './utils/query-timezone.js';
 import { sha256 } from '@noble/hashes/sha2';
 import { bytesToHex } from '@noble/hashes/utils';
 import { z, type ZodTypeAny } from 'zod';
@@ -244,6 +245,7 @@ function queryShape(
       ? z.number().int().nonnegative()
       : z.number().int().nonnegative().max(limits.maxOffset)).optional(),
     [grainField]: fieldEnum(grains).optional(),
+    timezone: z.string().max(100).refine(isQueryTimezone, 'Use an IANA timezone such as UTC or America/New_York.').optional(),
     ...(options.includeMeta ? { includeMeta: z.boolean().optional() } : {}),
   };
 }

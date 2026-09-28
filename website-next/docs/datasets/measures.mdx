@@ -126,9 +126,10 @@ and exactly one bounded filter on the dataset's time field:
 ```typescript
 import { createDatasetClient } from '@hypequery/datasets';
 
-const client = createDatasetClient({ queryBuilder: db });
+const client = createDatasetClient({ queryBuilder: db, timezone: 'UTC' });
 const result = await client.execute(Orders, {
   by: 'day',
+  timezone: 'America/New_York',
   measures: ['revenue', 'trailingRevenue', 'monthToDateRevenue', 'runningRevenue'],
   filters: [
     { field: 'createdAt', operator: 'gte', value: '2026-01-01' },
@@ -153,11 +154,11 @@ but months cannot. To-date periods must be strictly coarser than the query
 grain and span whole buckets. Each row may contribute to at most 1,000 buckets, and the series must
 fit the query or dataset result limit.
 
-Buckets and timezone-free bounds use the physical column's timezone;
-explicit offsets represent instants. Use offsets inside repeated DST hours.
+Buckets and timezone-free bounds use the query's `timezone`, then the client
+default (`UTC`). Explicit offsets represent instants. Use offsets inside repeated DST hours.
 Their local `period` labels can match, so labels are not unique identifiers.
 Ranges or lookback crossing a skipped calendar bucket are rejected; use a
-UTC time key for those ranges.
+`timezone: 'UTC'` for those ranges.
 
 ## Aggregation helpers
 

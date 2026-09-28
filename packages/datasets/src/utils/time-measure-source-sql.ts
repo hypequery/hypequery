@@ -1,3 +1,4 @@
+import { queryTimeSql } from './query-timezone.js';
 import type { AnyDatasetInstance, DatasetQuery, MeasureDefinition, MetricFilter } from '../types.js';
 import type { DatasetQueryExecutionOptions } from '../dataset-query.js';
 import { resolveDimensionExpression, resolveFilterField, resolveTenantFilterColumn } from '../query-planner.js';
@@ -78,8 +79,7 @@ export function buildTimeMeasureSourceSql(
     raw = raw.where(resolveDimensionExpression(ds, filter.field, joinCtx), filter.operator, filter.value);
   }
   const { sql: rawSql, parameters } = raw.toSQLWithParams();
-  // Preserve DateTime64 fractional values; Date/Date32 use the server timezone.
-  const sourceColumns = [`toDateTime64(assumeNotNull(tupleElement(${rowAlias}, 1)), 9) AS _hq_time`];
+  const sourceColumns = [`${queryTimeSql(`assumeNotNull(tupleElement(${rowAlias}, 1))`, query.timezone)} AS _hq_time`];
   dims.forEach((dimension, i) => sourceColumns.push(`tupleElement(${rowAlias}, ${i + 2}) AS ${dimension.alias}`));
   bases.forEach((base, i) => {
     const valuePosition = dims.length + 2 + i * 2;

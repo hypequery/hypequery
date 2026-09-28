@@ -164,9 +164,9 @@ describe('window execution against ClickHouse', () => {
   it.each([
     ['2026-03-29', '2026-03-30', 23, '20'],
     ['2026-10-25', '2026-10-26', 25, '40'],
-  ])('preserves the physical timezone across DST from %s to %s', async (lower, upper, buckets, last) => {
+  ])('uses the requested timezone across DST from %s to %s', async (lower, upper, buckets, last) => {
     const ds = dataset('timezoneWindows', { source: `${table}_timezones`, timeKey: 'time', dimensions: { time: dimension.timestamp({ column: 'event_at' }), value: dimension.number() }, measures: { revenue: measure.sum('value'), daily: measure.trailing('revenue', { amount: 1, unit: 'day' }), running: measure.cumulative('revenue') } });
-    const result = await client.execute(ds, { by: 'hour', measures: ['daily'], filters: [{ field: 'time', operator: 'gte', value: lower }, { field: 'time', operator: 'lt', value: upper }] });
+    const result = await client.execute(ds, { timezone: 'Europe/Madrid', by: 'hour', measures: ['daily'], filters: [{ field: 'time', operator: 'gte', value: lower }, { field: 'time', operator: 'lt', value: upper }] });
     expect(result.data).toHaveLength(buckets);
     expect(result.data.at(-1)?.daily).toBe(last);
   });
@@ -185,7 +185,7 @@ describe('window execution against ClickHouse', () => {
       measures: { revenue: measure.sum('value'), running: measure.cumulative('revenue') },
     });
     const result = await client.execute(ds, {
-      by: 'hour', measures: ['revenue', 'running'], limit: 2,
+      timezone: 'Europe/Madrid', by: 'hour', measures: ['revenue', 'running'], limit: 2,
       filters: [
         { field: 'time', operator: 'gte', value: '2026-10-25T02:00:00+02:00' },
         { field: 'time', operator: 'lt', value: '2026-10-25T03:00:00+01:00' },
@@ -203,7 +203,7 @@ describe('window execution against ClickHouse', () => {
       measures: { revenue: measure.sum('value'), running: measure.cumulative('revenue') },
     });
     const execute = (lower: string, upper: string) => client.execute(ds, {
-      by: 'day', measures: ['revenue', 'running'], limit: 2,
+      timezone: 'Asia/Kathmandu', by: 'day', measures: ['revenue', 'running'], limit: 2,
       filters: [
         { field: 'time', operator: 'gte', value: lower },
         { field: 'time', operator: 'lt', value: upper },
@@ -225,7 +225,7 @@ describe('window execution against ClickHouse', () => {
       },
     });
     const result = await client.execute(ds, {
-      by: 'hour', measures: ['daily', 'running'], limit: 5,
+      timezone: 'Australia/Lord_Howe', by: 'hour', measures: ['daily', 'running'], limit: 5,
       filters: [
         { field: 'time', operator: 'gte', value: '2026-10-04T00:00:00' },
         { field: 'time', operator: 'lt', value: '2026-10-04T05:00:00' },
@@ -245,33 +245,35 @@ describe('window execution against ClickHouse', () => {
       },
     });
     const axisQuery = {
-      by: 'day' as const, measures: ['running'],
+      timezone: 'Pacific/Apia', by: 'day' as const, measures: ['running'],
       filters: [{ field: 'time', operator: 'between' as const, value: ['2011-12-29', '2011-12-31'] }],
     };
+    const utc = await client.execute(ds, { ...axisQuery, timezone: 'UTC' });
+    expect(utc.data.map(row => row.running)).toEqual(['10', '30', '30']);
     const precedingDay = await client.execute(ds, {
-      by: 'day', measures: ['running'],
+      timezone: 'Pacific/Apia', by: 'day', measures: ['running'],
       filters: [{ field: 'time', operator: 'between', value: ['2011-12-28', '2011-12-28'] }],
     });
     expect(precedingDay.data.map(row => row.running)).toEqual([null]);
     await expect(client.execute(ds, {
-      by: 'day', measures: ['running'],
+      timezone: 'Pacific/Apia', by: 'day', measures: ['running'],
       filters: [{ field: 'time', operator: 'between', value: ['2011-12-29', '2011-12-29'] }],
     })).rejects.toThrow(/skipped local calendar bucket/);
     await expect(client.execute(ds, axisQuery)).rejects.toThrow(/skipped local calendar bucket/);
     const { sql, parameters } = buildWindowDatasetSql(ds, axisQuery, { builderFactory: toQueryBuilderFactory(db) });
     await expect(db.rawQuery(sql, parameters)).rejects.toThrow(/skipped local calendar bucket/);
     await expect(client.execute(ds, {
-      by: 'day', measures: ['rolling'],
+      timezone: 'Pacific/Apia', by: 'day', measures: ['rolling'],
       filters: [{ field: 'time', operator: 'between', value: ['2011-12-31', '2012-01-01'] }],
     })).rejects.toThrow(/skipped local calendar bucket/);
   });
 
-  it('resolves mixed local and offset bounds using the physical column timezone', async () => {
+  it('resolves mixed local and offset bounds using the requested timezone', async () => {
     const ds = dataset('mixedBounds', { source: `${table}_timezones`, timeKey: 'time', dimensions: { time: dimension.timestamp({ column: 'event_at' }), value: dimension.number() }, measures: { revenue: measure.sum('value'), daily: measure.trailing('revenue', { amount: 1, unit: 'day' }) } });
-    const result = await client.execute(ds, { by: 'hour', measures: ['daily'], filters: [{ field: 'time', operator: 'gte', value: '2026-03-29' }, { field: 'time', operator: 'lt', value: '2026-03-28T23:30:00Z' }] });
+    const result = await client.execute(ds, { timezone: 'Europe/Madrid', by: 'hour', measures: ['daily'], filters: [{ field: 'time', operator: 'gte', value: '2026-03-29' }, { field: 'time', operator: 'lt', value: '2026-03-28T23:30:00Z' }] });
     expect(result.data).toHaveLength(1);
     expect(result.data[0].daily).toBe('10');
-    await expect(client.execute(ds, { by: 'hour', measures: ['daily'], filters: [{ field: 'time', operator: 'gte', value: '2026-03-29' }, { field: 'time', operator: 'lt', value: '2026-03-28T22:30:00Z' }] })).rejects.toThrow('Window measure time range must be non-empty and ordered.');
+    await expect(client.execute(ds, { timezone: 'Europe/Madrid', by: 'hour', measures: ['daily'], filters: [{ field: 'time', operator: 'gte', value: '2026-03-29' }, { field: 'time', operator: 'lt', value: '2026-03-28T22:30:00Z' }] })).rejects.toThrow('Window measure time range must be non-empty and ordered.');
   });
 
   it('fills dimension combinations found only in cumulative lookback history', async () => {
