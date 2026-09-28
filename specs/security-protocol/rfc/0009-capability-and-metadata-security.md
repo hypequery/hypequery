@@ -1,7 +1,13 @@
 # RFC 0009: Capability and metadata security
 
-- Status: Proposed
-- Version: capability contract 1
+- Status: Accepted
+- Accepted: 2026-09-28
+- Version: capability contract 1, cache preimage 1
+
+Acceptance freezes capability contract 1 and cache preimage 1. Changing a
+capability class, a construction rule, the tenant fingerprint derivation, the
+preimage fields or normalization, the validation order, or a stable code now
+requires a new version, not an edit.
 
 ## Summary
 
@@ -254,7 +260,13 @@ target dataset applies a tenant predicate:
 | --- | --- |
 | None | `{"mode": "none"}` |
 | One or more tenants | `{"mode": "scoped", "fingerprints": [...]}` |
-| Cross-tenant administrative | `{"mode": "all"}` |
+| Trusted all-tenant execution | `{"mode": "all"}` |
+
+`all` is an execution the runtime itself scopes to every tenant, such as a
+scheduled server-side job. No request can reach it, and it is not the
+cross-tenant administrative capability above: that capability never touches
+the data plane. The mode exists so that such executions can be cached without
+ever sharing an entry with a tenant-free or tenant-scoped one.
 
 For `scoped`, each tenant identifier is replaced by its tenant fingerprint. The
 fingerprints are then sorted and deduplicated, because a tenant set is a set.
@@ -356,8 +368,7 @@ MUST NOT substitute any other key. Whether the call is allowed at all is
 decided by the execution path, as usual. Caching is optional, so a request that
 is too large to cache is simply not cached.
 
-The draft fixtures in `drafts/cache-preimages-v1/` pin every rule above. They
-move to `fixtures/` and the conformance manifest when this RFC is accepted.
+The `cache-preimages-v1` fixture family pins every rule above.
 
 ## Stable failure codes
 
@@ -376,16 +387,16 @@ observable. Runtimes surface them with these stable codes:
 These codes classify denials only; they carry no tenant values, capability
 material, or policy detail beyond the class of failure.
 
-The public error envelope and its categories are defined by the forthcoming
-RFC 0010. Until it is accepted, denials use an HTTP response carrying an
-error object with a stable `code` and a safe `message`: status 401 when
-authentication is absent or rejected, 403 otherwise. The RFC 0010 mapping is
-then: `HQ_CAPABILITY_MISSING` and `HQ_CAPABILITY_CLASS_MISMATCH` map to
-`unauthenticated` or `forbidden` as the authentication state dictates;
-`HQ_CAPABILITY_TENANT_REQUIRED` maps to `tenant-required`, the
-protocol-specific category for a denial caused solely by an unresolved
-tenant context (surfaced as 403 until RFC 0010 defines the envelope); and
-`HQ_CAPABILITY_TENANT_MISMATCH` maps to `forbidden`.
+The public error envelope and its categories are defined by RFC 0010. Denials
+map onto its categories as follows:
+
+- `HQ_CAPABILITY_MISSING` and `HQ_CAPABILITY_CLASS_MISMATCH` map to
+  `unauthenticated` or `forbidden`, depending on the authentication state.
+- `HQ_CAPABILITY_TENANT_REQUIRED` maps to `tenant-required`, the category for
+  a denial caused only by an unresolved tenant context.
+- `HQ_CAPABILITY_TENANT_MISMATCH` maps to `forbidden`.
+
+Over HTTP, `unauthenticated` is status 401 and every other denial is 403.
 
 ## Security
 

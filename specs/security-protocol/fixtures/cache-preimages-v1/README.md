@@ -1,11 +1,8 @@
-# Cache preimage version 1 fixtures (draft)
+# Cache preimage version 1 fixtures
 
-**Draft.** These fixtures accompany the proposed "Cache preimage" section of
-RFC 0009 and are not yet normative. They sit outside `fixtures/` on purpose. Registering a family in
-`manifest.json` makes it a conformance gate, which would freeze a Proposed
-contract. When RFC 0009 is accepted, move this directory to
-`fixtures/cache-preimages-v1/`, register it in the manifest, and delete the two
-scripts.
+These language-neutral fixtures accompany accepted RFC 0009 ("Tenant
+fingerprint" and "Cache preimage") and are normative for cache preimage
+version 1.
 
 ## Success manifest
 
@@ -58,21 +55,20 @@ Requests that can return different rows must not:
 - `tenant-fingerprint-follows-secret`: the same tenant under another secret
   builds a different preimage.
 
-Raw tenant identifiers never appear in a preimage, and `generate.py` asserts
-this for every scoped case. `tenant-id-has-no-length-cap` and
+Raw tenant identifiers never appear in a preimage, and no scoped case's
+preimage contains its raw identifiers. `tenant-id-has-no-length-cap` and
 `tenant-count-has-no-cap` pin that there is no tenant limit beyond RFC 0013's
 1 MiB bound on the preimage.
 
 ## How these expectations were produced
 
-`generate.py` implements the rules with the Python validator, RFC 8785
-serializer and `hmac`, and writes both files. `cross-check.mjs` re-derives
-every case independently, with the TypeScript validator, a separate
-serializer and `node:crypto`. At the
-time of writing, all 44 cases agree.
+The expectations were generated twice, by independent implementations of the
+rules, before any runtime implemented them:
 
-```console
-uv run --project python/hypequery python specs/security-protocol/drafts/cache-preimages-v1/generate.py specs/security-protocol/drafts/cache-preimages-v1
-pnpm --filter @hypequery/protocol build
-node specs/security-protocol/drafts/cache-preimages-v1/cross-check.mjs specs/security-protocol/drafts/cache-preimages-v1
-```
+- a Python generator built on the Python RFC 0003 validator, the RFC 8785
+  serializer, and `hmac`;
+- a Node generator built on the TypeScript validator, a separate serializer,
+  and `node:crypto`.
+
+Both produced identical output for all 44 cases. The conformance runner now
+holds `@hypequery/protocol` and the Python package to the same bytes.

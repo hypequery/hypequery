@@ -15,7 +15,7 @@ from typing import Final, Literal, NoReturn, TypeAlias
 
 from .errors import ProtocolDeploymentReleaseError
 from .releases import validate_protocol_deployment_release_target
-from .utf8 import exceeds_utf8_byte_limit
+from .utf8 import encode_utf8, exceeds_utf8_byte_limit
 
 ProtocolCacheKeyErrorCode: TypeAlias = Literal[
     "HQ_CACHE_KEY_SECRET_MISSING",
@@ -59,20 +59,6 @@ def _base64url(data: bytes) -> str:
     return base64.urlsafe_b64encode(data).rstrip(b"=").decode("ascii")
 
 
-def _utf8(value: str) -> bytes:
-    """Encode as JavaScript's ``TextEncoder`` would.
-
-    A round trip through UTF-16 joins split surrogate pairs and turns each
-    unpaired surrogate into U+FFFD, where ``str.encode`` would raise.
-    """
-
-    try:
-        return value.encode("utf-8")
-    except UnicodeEncodeError:
-        repaired = value.encode("utf-16-le", "surrogatepass").decode("utf-16-le", "replace")
-        return repaired.encode("utf-8")
-
-
 def _require_secret(secret: bytes | None) -> bytes:
     if secret is None or len(secret) == 0:
         _fail("HQ_CACHE_KEY_SECRET_MISSING")
@@ -92,7 +78,7 @@ def _require_namespace(project: object, environment: object) -> tuple[bytes, byt
         # One code, not the release validator's detail: callers have no reason
         # to branch on why a namespace is invalid.
         _fail("HQ_CACHE_KEY_INVALID_NAMESPACE")
-    return _utf8(str(target["project"])), _utf8(str(target["environment"]))
+    return encode_utf8(str(target["project"])), encode_utf8(str(target["environment"]))
 
 
 def _require_key_version(key_version: object) -> int:
@@ -110,7 +96,7 @@ def _require_preimage(preimage: bytes | str) -> bytes:
         # refused without allocating its UTF-8 form.
         if exceeds_utf8_byte_limit(preimage, MAX_CACHE_KEY_PREIMAGE_BYTES):
             _fail("HQ_CACHE_KEY_PREIMAGE_TOO_LARGE")
-        return _utf8(preimage)
+        return encode_utf8(preimage)
     if type(preimage) is not bytes:
         raise TypeError("a cache-key preimage must be bytes or str")
     if len(preimage) > MAX_CACHE_KEY_PREIMAGE_BYTES:

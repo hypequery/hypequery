@@ -45,6 +45,12 @@ export {
 } from './cache-keys/index.js';
 
 export {
+  ProtocolCachePreimageError,
+  buildProtocolCachePreimage,
+  deriveProtocolTenantFingerprint,
+} from './cache-preimages/index.js';
+
+export {
   DEFAULT_PROTOCOL_EXPRESSION_LIMITS,
   ProtocolExpressionError,
   validateProtocolExpression,
@@ -95,6 +101,12 @@ export type {
   ProtocolCacheKeyErrorCode,
   ProtocolCacheKeyNamespace,
 } from './cache-keys/index.js';
+
+export type {
+  BuildProtocolCachePreimageOptions,
+  ProtocolCachePreimageErrorCode,
+  ProtocolCacheTenantScope,
+} from './cache-preimages/index.js';
 
 export type {
   ProtocolIdentifier,

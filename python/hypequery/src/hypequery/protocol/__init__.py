@@ -26,6 +26,12 @@ from .cache_keys import (
     derive_protocol_cache_key,
     derive_protocol_cache_namespace_token,
 )
+from .cache_preimages import (
+    ProtocolCachePreimageError,
+    ProtocolCachePreimageErrorCode,
+    build_protocol_cache_preimage,
+    derive_protocol_tenant_fingerprint,
+)
 from .constructors import (
     TaggedValue,
     array_value,
@@ -217,6 +223,8 @@ __all__ = [
     "ProtocolBooleanSchema",
     "ProtocolCacheKeyError",
     "ProtocolCacheKeyErrorCode",
+    "ProtocolCachePreimageError",
+    "ProtocolCachePreimageErrorCode",
     "ProtocolCallExpression",
     "ProtocolComparisonExpression",
     "ProtocolComparisonOperator",
@@ -283,6 +291,7 @@ __all__ = [
     "SchemaDefault",
     "TaggedValue",
     "array_value",
+    "build_protocol_cache_preimage",
     "bytes_value",
     "date_value",
     "datetime_value",
@@ -290,6 +299,7 @@ __all__ = [
     "decode_canonical_value",
     "derive_protocol_cache_key",
     "derive_protocol_cache_namespace_token",
+    "derive_protocol_tenant_fingerprint",
     "encode_canonical_value",
     "encode_canonical_value_to_string",
     "encode_protocol_deployment_bundle_manifest",

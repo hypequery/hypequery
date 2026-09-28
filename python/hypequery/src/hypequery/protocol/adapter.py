@@ -16,6 +16,7 @@ from .cache_keys import (
     derive_protocol_cache_key,
     derive_protocol_cache_namespace_token,
 )
+from .cache_preimages import ProtocolCachePreimageError, build_protocol_cache_preimage
 from .deployment_codec import (
     prepare_protocol_deployment_contract,
     prepare_protocol_deployment_contract_v3,
@@ -69,6 +70,7 @@ from .wire_numbers import to_binary64_tree
 
 FAMILIES = (
     "cache-keys-v1",
+    "cache-preimages-v1",
     "tagged-values-v1",
     "identifiers-v1",
     "expressions-v1",
@@ -355,9 +357,28 @@ def _handle_cache_key(role: str, case: dict[str, object]) -> dict[str, object]:
     return {"ok": True, "output": {"key": key, "namespaceToken": token}}
 
 
+def _handle_cache_preimage(role: str, case: dict[str, object]) -> dict[str, object]:
+    tenant = case.get("tenant")
+    try:
+        preimage = build_protocol_cache_preimage(
+            secret=bytes.fromhex(str(case.get("secretHex", ""))),
+            definition_identity=case.get("definitionIdentity"),  # type: ignore[arg-type]
+            query=case.get("query"),
+            tenant=tenant if isinstance(tenant, dict) else {},
+            row_limit=case.get("rowLimit"),  # type: ignore[arg-type]
+        )
+    except ProtocolCachePreimageError as error:
+        return {"ok": False, "code": error.code}
+    if role != "success":
+        return {"ok": True}
+    return {"ok": True, "output": {"preimageUtf8": preimage}}
+
+
 def _handle(family: str, role: str, case: dict[str, object], section: object) -> dict[str, object]:
     if family == "cache-keys-v1":
         return _handle_cache_key(role, case)
+    if family == "cache-preimages-v1":
+        return _handle_cache_preimage(role, case)
     if family == "tagged-values-v1":
         return _handle_tagged_value(role, case)
     if family == "identifiers-v1":
