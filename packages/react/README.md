@@ -48,7 +48,7 @@ import type { AnalyticsApi } from '../server/api.js';
 import manifest from '../generated/hypequery-manifest.json';
 
 const client = createHypequeryClient<AnalyticsApi>({
-  baseUrl: 'https://acme.hypequery.cloud/v1/analytics/production',
+  baseUrl: 'https://analytics.example.com',
   manifest,
   // Resolve a short-lived browser token. Never expose a server API key here.
   token: async () => tokenStore.get(),
