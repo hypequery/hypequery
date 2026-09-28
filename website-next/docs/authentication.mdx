@@ -376,7 +376,7 @@ Metrics use the same shape via `{ metric, auth, requiresAuth, requiredRoles, req
 
 ## Trusted principals for in-process hosts
 
-Some hosts verify the caller before Serve ever sees the request — a Cloud gateway
+Some hosts verify the caller before Serve ever sees the request — an upstream gateway
 that checks its own credential, or a worker running a deployment bundle. Those
 hosts already hold a verified principal and have no auth strategy of their own to
 re-run. `api.execute()` (and its `client()` / `run()` aliases) accept a

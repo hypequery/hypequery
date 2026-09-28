@@ -138,40 +138,26 @@ const result = await client.execute(Orders, {
 ```
 </CodeBlock>
 
-Use ISO timestamps with `between`, or a lower (`gt`/`gte`) and upper
-(`lt`/`lte`) bound. The range selects output buckets. Windows include earlier
-rows and the entire current bucket, whose end is exclusive. Base measure
-columns still respect the original time filter, including partial buckets.
+Use ISO timestamps with `between`, or paired `gt`/`gte` and `lt`/`lte`
+bounds. The range selects output buckets. Windows include lookback rows and
+the whole current bucket, with an exclusive end; base measures respect the
+original filters, including partial buckets.
 
-Every bucket appears for each dimension combination found in the scanned rows.
-Missing base values are `null`; counts are `'0'`. Trailing distinct counts and
-averages reaggregate source rows across the entire window. Segments, tenant
-scope, non-time query filters, and measure filters apply throughout lookback.
+Buckets are filled for each dimension combination in the scanned rows.
+Missing values are `null`; counts are `'0'`. Distinct counts and averages
+reaggregate source rows across the window. Segments, tenant scope, non-time
+filters, and measure filters apply throughout lookback.
 
-Trailing intervals must convert to whole query buckets: for example, one week
-with `by: 'day'`, or one year with `by: 'month'`. Calendar months cannot convert
-to days. To-date periods must be strictly coarser than the query grain and
-contain whole buckets. A row may contribute to at most 1,000 buckets. The
-output series must fit the query's result limit or the dataset ceiling.
+Trailing intervals must span whole query buckets: weeks can become days,
+but months cannot. To-date periods must be strictly coarser than the query
+grain and span whole buckets. Each row may contribute to at most 1,000 buckets, and the series must
+fit the query or dataset result limit.
 
-Buckets follow the physical time column's timezone. Date-only and timezone-free
-bounds use that timezone; explicit offsets represent instants. Catalogs and
-agent projections expose window parameters and `requiresTimeRange: true`.
-Window-dependent formulas are selectable through the same query API.
-
-Use explicit offsets for bounds inside a repeated daylight-saving hour.
-Timezone-free bounds follow ClickHouse's local-time interpretation. Returned
-`period` strings are local labels without offsets, so distinct hourly buckets
-during fall-back can have identical labels; do not use those labels as unique
-row identifiers.
-
-Historical timezone changes that skip an entire local calendar bucket, such as
-Samoa's skipped date in 2011, are rejected in the output series and window
-lookback. Use a time key expressed in UTC to query those ranges.
-
-Cloud publishing still rejects window definitions until deployment contract 3
-support is available. The deprecated semantic backend path does not execute
-windows. There is no separate `windowMeasures` property on a dataset instance.
+Buckets and timezone-free bounds use the physical column's timezone;
+explicit offsets represent instants. Use offsets inside repeated DST hours.
+Their local `period` labels can match, so labels are not unique identifiers.
+Ranges or lookback crossing a skipped calendar bucket are rejected; use a
+UTC time key for those ranges.
 
 ## Aggregation helpers
 
@@ -201,9 +187,7 @@ The helper determines the aggregation. The field should be the semantic field na
 as user or session IDs. Use `countDistinct` when the number has to be exact.
 Catalogs, the semantic contract and the agent-safe catalog mark these measures,
 and any derived measure that uses one, with `approximate: true`. That lets
-agents and UIs present the value as an estimate. Hypequery Cloud cannot publish
-approximate measures yet: they need deployment contract 3 (RFC 0015), so
-publishing refuses them with an error naming the measure.
+agents and UIs present the value as an estimate.
 
 `argMax` and `argMin` return the value of `field` from the row where `by` is
 greatest or smallest. The `by` field can use a semantic dimension name, so
