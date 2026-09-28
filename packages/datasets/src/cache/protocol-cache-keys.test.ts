@@ -7,7 +7,7 @@
  * - TypeScript and Python derive the same key.
  */
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { dataset, dimension, measure } from '../index.js';
+import { dataset, dimension, measure, round } from '../index.js';
 import { createDatasetClient } from '../executor.js';
 import type { QueryBuilderFactoryLike, QueryBuilderLike } from '../query-builder-protocol.js';
 import type { SemanticCacheEntry, SemanticCacheStore } from './semantic-query-cache.js';
@@ -40,7 +40,10 @@ function countingFactory() {
   };
   const factory: QueryBuilderFactoryLike = {
     table: () => builder,
-    rawQuery: async <T,>() => [] as T[],
+    rawQuery: async <T,>() => {
+      executions();
+      return [{ trips: 1 }] as T[];
+    },
   };
   return { factory, executions };
 }
@@ -194,6 +197,56 @@ describe('protocol cache keys', () => {
     expect(() => create({ environment: 'has space' })).toThrow('HQ_CACHE_KEY_INVALID_NAMESPACE');
     expect(() => create({ keyVersion: 0 })).toThrow('HQ_CACHE_KEY_INVALID_VERSION');
     expect(() => create({ definitionIdentity: 'nope' })).toThrow('definitionIdentity');
+  });
+
+  it('separates derived measures whose formulas differ only in captured values', async () => {
+    // Regression: hashing a formula's source text ignored the `digits` it
+    // closes over, so make(2) and make(3) shared an entry.
+    const make = (digits: number) => dataset('rounded', {
+      source: 'analytics.rounded',
+      dimensions: { vendor: dimension.string() },
+      measures: {
+        revenue: measure.sum('amount'),
+        rounded: measure.derived({ uses: { r: 'revenue' }, formula: ({ r }) => round(r, digits) }),
+      },
+    });
+    const { factory, executions } = countingFactory();
+    const client = createDatasetClient({ queryBuilder: factory, cache: { ttlMs: 60_000 } });
+
+    await client.execute(make(2), { measures: ['rounded'] });
+    await client.execute(make(3), { measures: ['rounded'] });
+    await client.execute(make(3), { measures: ['rounded'] });
+
+    expect(executions).toHaveBeenCalledTimes(2);
+  });
+
+  it('separates derived metrics whose formulas differ only in captured values', async () => {
+    const Orders = dataset('orders', {
+      source: 'analytics.orders',
+      dimensions: { vendor: dimension.string() },
+      measures: { revenue: measure.sum('amount') },
+    });
+    const revenue = Orders.metric('revenue', { measure: 'revenue' });
+    const make = (digits: number) => Orders.metric('rounded', {
+      uses: { r: revenue },
+      formula: ({ r }) => round(r, digits),
+    });
+    const { factory, executions } = countingFactory();
+    const client = createDatasetClient({ queryBuilder: factory, cache: { ttlMs: 60_000 } });
+
+    await client.execute(make(2), {});
+    await client.execute(make(3), {});
+    await client.execute(make(3), {});
+
+    expect(executions).toHaveBeenCalledTimes(2);
+  });
+
+  it('has no key for a definition holding a function it cannot describe', () => {
+    const settings = resolveProtocolCacheKeySettings({ secret: SECRET }, false);
+    const withCallback = { ...Trips, custom: () => 'anything' } as unknown as typeof Trips;
+    expect(datasetCacheKey(settings, Trips, { measures: ['trips'] }, undefined, undefined)).toMatch(KEY);
+    expect(datasetCacheKey(settings, withCallback, { measures: ['trips'] }, undefined, undefined))
+      .toBeUndefined();
   });
 
   it('derives the same key as the Python SDK for the same release, query, and tenant', () => {

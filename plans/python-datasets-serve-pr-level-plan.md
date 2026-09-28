@@ -238,8 +238,10 @@ PYC-01 are merged.
   migration note, and updates to both caching docs pages.
 - **Status (2026-09-28):** Delivered.
   - Keys come from `packages/datasets/src/cache/protocol-cache-keys.ts`. The
-    local identity is a digest of every reachable dataset definition, including
-    SQL callbacks, segment predicates, and metric specs.
+    local identity is a digest of every reachable dataset definition, segment
+    predicates, and metric specs. Formulas are evaluated and their resolved
+    expressions hashed, so values they capture count. A definition holding any
+    other unrecognized function runs uncached.
   - A cross-language golden key is pinned in both test suites, so TypeScript
     and Python cannot drift apart without CI failing.
   - Behavior change: a tenant-less dataset queried under a runtime tenant is
