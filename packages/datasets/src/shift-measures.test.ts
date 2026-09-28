@@ -79,6 +79,20 @@ describe('shift measures', () => {
     expect(projectAgentSafeCatalog({ ds }).datasets[0].measures.find(item => item.name === 'prior')).toMatchObject(expected);
     expect(serializeSemanticContract({ ds }).datasets.ds.measures.prior).toMatchObject(expected);
   });
+
+  it('exposes grain intersections for shifts and dependent formulas', () => {
+    const ds = dataset('grainRequirements', { source: 'events', timeKey: 'time', dimensions: Events.dimensions,
+      timeGrains: ['day', 'month', 'quarter'],
+      measures: { ...Events.measures, rolling: measure.trailing('revenue', { amount: 2, unit: 'month' }),
+        difference: measure.derived({ uses: { rolling: 'rolling', prior: 'prior' }, formula: ({ rolling, prior }) => divide(rolling, prior) }) },
+    });
+    const catalog = getDatasetCatalog(ds);
+    expect(catalog.measures.prior.supportedGrains).toEqual(['month', 'quarter']);
+    expect(catalog.derivedMeasures?.difference.supportedGrains).toEqual(['month']);
+    expect(projectAgentSafeCatalog({ ds }).datasets[0].measures.find(item => item.name === 'difference')?.supportedGrains).toEqual(['month']);
+    expect(serializeSemanticContract({ ds }).datasets.ds.measures.prior.supportedGrains).toEqual(['month', 'quarter']);
+  });
+
   it('partitions cache entries by interval, aggregation and formula while preserving ordinary keys', () => {
     const one = withInterval({ amount: 1, unit: 'year' });
     const two = withInterval({ amount: 2, unit: 'year' });

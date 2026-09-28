@@ -55,8 +55,25 @@ describe('shift execution against ClickHouse', () => {
     await runSql(`CREATE TABLE ${table}_users (user String, region String, tenant String) ENGINE=MergeTree ORDER BY user`);
     await insertRows(`${table}_users`, [{ user: 'u1', region: 'east', tenant: 'a' }, { user: 'u1', region: 'east', tenant: 'a' }, { user: 'u2', region: 'east', tenant: 'a' }, { user: 'u1', region: 'west', tenant: 'b' }]);
 
+    await runSql(`CREATE TABLE ${table}_endpoints (event_at DateTime64(9, 'UTC'), value Float64) ENGINE=Memory`);
+    await insertRows(`${table}_endpoints`, [
+      { event_at: '2024-01-05 00:00:00', value: 2 },
+      ...['2025', '2026'].flatMap((year, i) => [
+        { event_at: `${year}-01-01 00:00:00`, value: 3 * (i ? 10 : 1) },
+        { event_at: `${year}-01-01 00:00:00.000000001`, value: 5 * (i ? 10 : 1) },
+        { event_at: `${year}-01-14 23:59:59.999999999`, value: 7 * (i ? 10 : 1) },
+        { event_at: `${year}-01-15 00:00:00`, value: 11 * (i ? 10 : 1) },
+        { event_at: `${year}-02-01 00:00:00`, value: 13 * (i ? 10 : 1) },
+      ]),
+      { event_at: '2025-03-05 00:00:00', value: 0 },
+      { event_at: '2026-03-05 00:00:00', value: 20 },
+    ]);
+    await runSql(`CREATE TABLE ${table}_half (event_at DateTime64(9, 'Australia/Lord_Howe'), value Float64) ENGINE=Memory`);
+    await insertRows(`${table}_half`, ['00:45', '01:45', '02:15', '02:45', '03:15', '03:45', '04:15', '04:45']
+      .map((time, i) => ({ event_at: `2026-10-03 ${time}:00`, value: i + 1 })));
+
   });
-  afterAll(async () => { for (const name of [table, `${table}_timezones`, `${table}_calendar`, `${table}_users`, `${table}_skipped_date`]) await runSql(`DROP TABLE IF EXISTS ${name}`); });
+  afterAll(async () => { for (const name of [table, `${table}_timezones`, `${table}_calendar`, `${table}_users`, `${table}_skipped_date`, `${table}_endpoints`, `${table}_half`]) await runSql(`DROP TABLE IF EXISTS ${name}`); });
 
   it('compares sparse buckets with exact source aggregation and filled counts', async () => {
     const result = await client.execute(Events, { by: 'month', measures: ['revenue', 'priorRevenue', 'priorCount', 'priorDistinct', 'priorAverage', 'growth'], filters: [...range, { field: 'group', operator: 'eq', value: 'x' }] }, context);
@@ -91,9 +108,59 @@ describe('shift execution against ClickHouse', () => {
     expect(result.data.map(row => row.prior)).toEqual(['30', '0', null]);
   });
 
-  it('uses full shifted buckets even when the output range selects partial buckets', async () => {
+  it('matches the selected portion of each shifted bucket', async () => {
     const result = await client.execute(Events, { by: 'month', measures: ['revenue', 'priorRevenue'], filters: [{ field: 'time', operator: 'between', value: ['2026-01-15', '2026-02-15'] }, { field: 'group', operator: 'eq', value: 'x' }] }, context);
-    expect(result.data.map(row => [row.revenue, row.priorRevenue])).toEqual([[null, '30'], [null, '40']]);
+    expect(result.data.map(row => [row.revenue, row.priorRevenue])).toEqual([[null, '20'], [null, '40']]);
+  });
+
+
+  const Endpoints = dataset('endpointComparisons', {
+    source: `${table}_endpoints`, timeKey: 'time', dimensions: Events.dimensions,
+    measures: {
+      revenue: measure.sum('value'), prior: measure.shift('revenue', { amount: 1, unit: 'year' }),
+      twoYears: measure.shift('revenue', { amount: 2, unit: 'year' }),
+      growth: measure.derived({ uses: { now: 'revenue', prior: 'prior' }, formula: ({ now, prior }) => divide(subtract(now, prior), nullIfZero(prior)) }),
+    },
+  });
+
+  it.each([
+    ['gte', 'lt', '15'], ['gt', 'lte', '23'], ['gte', 'lte', '26'], ['gt', 'lt', '12'],
+  ] as const)('preserves %s/%s partial endpoints at nanosecond precision', async (lower, upper, prior) => {
+    const result = await client.execute(Endpoints, {
+      by: 'month', measures: ['revenue', 'prior', 'growth'],
+      filters: [{ field: 'time', operator: lower, value: '2026-01-01' }, { field: 'time', operator: upper, value: '2026-01-15' }],
+    });
+    expect(result.data.map(row => [row.revenue, row.prior, row.growth])).toEqual([[String(Number(prior) * 10), prior, '9']]);
+  });
+
+  it('preserves an inclusive single instant without widening it into a bucket', async () => {
+    const result = await client.execute(Endpoints, { by: 'month', measures: ['revenue', 'prior'], filters: [{ field: 'time', operator: 'between', value: ['2026-01-15', '2026-01-15'] }] });
+    expect(result.data.map(row => [row.revenue, row.prior])).toEqual([['110', '11']]);
+  });
+
+  it('places an inclusive bucket boundary only in the next output bucket', async () => {
+    const result = await client.execute(Endpoints, { by: 'month', measures: ['revenue', 'prior'], filters: [{ field: 'time', operator: 'between', value: ['2026-01-01', '2026-02-01'] }] });
+    expect(result.data.map(row => [row.revenue, row.prior])).toEqual([['260', '26'], ['130', '13']]);
+  });
+
+  it('clips offset bounds in the query timezone and supports multiple shifts', async () => {
+    const result = await client.execute(Endpoints, {
+      timezone: 'America/New_York', by: 'month', measures: ['revenue', 'prior', 'twoYears'],
+      filters: [{ field: 'time', operator: 'gte', value: '2026-01-01T00:00:00Z' }, { field: 'time', operator: 'lt', value: '2026-01-15T00:00:00Z' }],
+    });
+    expect(result.data.map(row => [row.revenue, row.prior, row.twoYears])).toEqual([['80', '8', null], ['70', '7', '2']]);
+  });
+
+  it('returns null growth for a zero prior value', async () => {
+    const result = await client.execute(Endpoints, { by: 'month', measures: ['revenue', 'prior', 'growth'], filters: [{ field: 'time', operator: 'gte', value: '2026-03-01' }, { field: 'time', operator: 'lt', value: '2026-04-01' }] });
+    expect(result.data.map(row => [row.revenue, row.prior, row.growth])).toEqual([['20', '0', null]]);
+  });
+
+  it('matches partial hourly buckets over a half-hour DST transition', async () => {
+    const ds = dataset('halfHourComparisons', { source: `${table}_half`, timeKey: 'time', dimensions: Events.dimensions,
+      measures: { revenue: measure.sum('value'), prior: measure.shift('revenue', { amount: 1, unit: 'day' }) } });
+    const result = await client.execute(ds, { timezone: 'Australia/Lord_Howe', by: 'hour', measures: ['prior'], filters: [{ field: 'time', operator: 'gte', value: '2026-10-04T00:00:00' }, { field: 'time', operator: 'lt', value: '2026-10-04T05:00:00' }] });
+    expect(result.data.map(row => row.prior)).toEqual(['1', '5', '9', '13', '8']);
   });
 
   it('orders and paginates after comparisons and rejects an oversized empty series', async () => {
@@ -132,7 +199,7 @@ describe('shift execution against ClickHouse', () => {
     });
     const safe = await client.execute(ds, {
       timezone: 'Pacific/Apia', by: 'day', measures: ['priorDay'],
-      filters: [{ field: 'time', operator: 'between', value: ['2012-01-01', '2012-01-01'] }],
+      filters: [{ field: 'time', operator: 'gte', value: '2012-01-01' }, { field: 'time', operator: 'lt', value: '2012-01-02' }],
     });
     expect(safe.data.map(row => row.priorDay)).toEqual(['20']);
     for (const empty of [false, true]) {

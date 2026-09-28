@@ -17,6 +17,7 @@ import { SEMANTIC_FILTER_OPERATORS } from './constants.js';
 import { datasetTimeGrains } from './utils/dataset-time-grains.js';
 import { isApproximateAggregation, isApproximateDerivedMeasure } from './utils/approximate-measures.js';
 import { usesTimeMeasure } from './utils/time-query-measures.js';
+import { measureSupportedGrains } from './utils/measure-time-grains.js';
 import {
   listGroupableRelationshipFields,
   listQueryableRelationshipFields,
@@ -257,6 +258,7 @@ export function getDatasetCatalog(dataset: DatasetCatalogSource): DatasetCatalog
           label: window.label,
           description: window.description,
           ...windowCatalogMetadata(window),
+          supportedGrains: measureSupportedGrains(dataset.measures, name, supportedGrains),
         }]),
       ],
     ),
@@ -266,7 +268,10 @@ export function getDatasetCatalog(dataset: DatasetCatalogSource): DatasetCatalog
           name,
           {
             ...snapshotSemanticMetadata(definition),
-            ...(usesTimeMeasure(definition, dataset.measures) ? { requiresTimeRange: true as const } : {}),
+            ...(usesTimeMeasure(definition, dataset.measures) ? {
+              requiresTimeRange: true as const,
+              supportedGrains: measureSupportedGrains(dataset.measures, name, supportedGrains),
+            } : {}),
             label: definition.label,
             description: definition.description,
             ...(isApproximateDerivedMeasure(dataset.measures, definition) ? { approximate: true as const } : {}),

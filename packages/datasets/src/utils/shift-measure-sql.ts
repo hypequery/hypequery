@@ -2,6 +2,23 @@ import type { ShiftMeasureDefinition, TimeGrain } from '../types.js';
 import { GRAIN_FUNCTIONS } from '../constants.js';
 import { addTimeSql, subtractTimeSql } from './time-arithmetic-sql.js';
 import { calendarBucketGuardSql } from './time-axis-calendar-guard.js';
+import type { TimeMeasureAxis } from './time-measure-axis.js';
+
+/** Preserve the selected portion of a bucket and both authored endpoint operators. */
+export function shiftRangeSql(shift: ShiftMeasureDefinition, axis: TimeMeasureAxis, period?: string) {
+  const end = period ? addTimeSql(period, 1, axis.grain) : undefined;
+  return {
+    lower: subtractTimeSql(period ? `greatest(${period}, _hq_lower)` : '_hq_lower', shift.interval.amount, shift.interval.unit),
+    upper: subtractTimeSql(end ? `least(${end}, _hq_upper)` : '_hq_upper', shift.interval.amount, shift.interval.unit),
+    lowerInclusive: period ? `(${period} > _hq_lower OR ${Number(axis.lowerInclusive)})` : String(Number(axis.lowerInclusive)),
+    upperInclusive: end ? `(_hq_upper < ${end} AND ${Number(axis.upperInclusive)})` : String(Number(axis.upperInclusive)),
+  };
+}
+
+export function shiftRangePredicateSql(time: string, range: ReturnType<typeof shiftRangeSql>): string {
+  return `(${time} > ${range.lower} OR (${range.lowerInclusive} AND ${time} = ${range.lower}))`
+    + ` AND (${time} < ${range.upper} OR (${range.upperInclusive} AND ${time} = ${range.upper}))`;
+}
 
 /** Check the shifted scan independently of whether it contains source rows. */
 export function shiftCalendarGuardSql(shift: ShiftMeasureDefinition, grain: TimeGrain, axisGuard: string): string {
@@ -14,22 +31,22 @@ export function shiftCalendarGuardSql(shift: ShiftMeasureDefinition, grain: Time
 }
 
 /** Map output buckets to their earlier half-open ranges, retaining calendar arithmetic. */
-export function shiftBucketCtes(shift: ShiftMeasureDefinition, grain: TimeGrain, index: number): { ctes: string[]; rowsSql: string } {
+export function shiftBucketCtes(shift: ShiftMeasureDefinition, axis: TimeMeasureAxis, index: number): { ctes: string[]; rowsSql: string } {
+  const { grain } = axis;
   const ranges = `_hq_shift_ranges${index}`;
   const keys = `_hq_shift_keys${index}`;
-  const lower = subtractTimeSql('_hq_period', shift.interval.amount, shift.interval.unit);
-  const upper = subtractTimeSql(addTimeSql('_hq_period', 1, grain), shift.interval.amount, shift.interval.unit);
+  const range = shiftRangeSql(shift, axis, '_hq_period');
   const bucket = `${GRAIN_FUNCTIONS[grain]}(_hq_shift_lower)`;
   const upperBucket = `${GRAIN_FUNCTIONS[grain]}(_hq_shift_upper)`;
-  const count = `greatest(0, dateDiff('${grain}', ${bucket}, ${upperBucket}) + if(_hq_shift_upper > ${upperBucket}, 1, 0))`;
+  const count = `greatest(0, dateDiff('${grain}', ${bucket}, ${upperBucket}) + if(_hq_shift_upper > ${upperBucket} OR _hq_shift_upper_inclusive, 1, 0))`;
   return {
     ctes: [
-      `${ranges} AS (SELECT _hq_period, ${lower} AS _hq_shift_lower, ${upper} AS _hq_shift_upper FROM _hq_series)`,
+      `${ranges} AS (SELECT _hq_period, ${range.lower} AS _hq_shift_lower, ${range.upper} AS _hq_shift_upper, ${range.lowerInclusive} AS _hq_shift_lower_inclusive, ${range.upperInclusive} AS _hq_shift_upper_inclusive FROM _hq_series CROSS JOIN _hq_bounds)`,
       // A DST transition can map a one-hour output bucket to zero or two
       // source hours. Enumerate source bucket keys and keep exact endpoints.
       // The equality join avoids a source-rows × output-series Cartesian product.
       `${keys} AS (SELECT *, ${addTimeSql(bucket, `arrayJoin(range(toUInt64(${count})))`, grain)} AS _hq_source_period FROM ${ranges})`,
     ],
-    rowsSql: `SELECT r.*, b._hq_period FROM _hq_scanned AS r INNER JOIN ${keys} AS b ON ${GRAIN_FUNCTIONS[grain]}(r._hq_time) = b._hq_source_period WHERE r._hq_time >= b._hq_shift_lower AND r._hq_time < b._hq_shift_upper`,
+    rowsSql: `SELECT r.*, b._hq_period FROM _hq_scanned AS r INNER JOIN ${keys} AS b ON ${GRAIN_FUNCTIONS[grain]}(r._hq_time) = b._hq_source_period WHERE ${shiftRangePredicateSql('r._hq_time', { lower: 'b._hq_shift_lower', upper: 'b._hq_shift_upper', lowerInclusive: 'b._hq_shift_lower_inclusive', upperInclusive: 'b._hq_shift_upper_inclusive' })}`,
   };
 }

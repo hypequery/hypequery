@@ -162,8 +162,8 @@ Ranges or lookback crossing a skipped calendar bucket are rejected; use a
 
 ## Period comparisons
 
-Declare a shifted base measure in the same registry, then use it directly or
-in a derived formula:
+Use `measure.shift` to compare a base measure with an earlier period. Positive
+intervals always look backwards. Select it directly or use it in a formula:
 
 <CodeBlock>
 ```typescript
@@ -187,6 +187,7 @@ const Orders = dataset('orders', {
 const client = createDatasetClient({ queryBuilder: db });
 const result = await client.execute(Orders, {
   by: 'month',
+  timezone: 'America/New_York',
   measures: ['revenue', 'priorYearRevenue', 'revenueGrowth'],
   filters: [
     { field: 'createdAt', operator: 'gte', value: '2026-01-01' },
@@ -196,21 +197,26 @@ const result = await client.execute(Orders, {
 ```
 </CodeBlock>
 
-Each output bucket aggregates rows in
-`[bucket start − interval, bucket end − interval)`, even for partial output
-buckets. Intervals must be positive safe integers and span whole query buckets:
-a year can shift months; a month cannot shift days. Calendar subtraction
-follows the query timezone, DST, and ClickHouse's month-end clamping.
+A result such as `{ revenue: '60', priorYearRevenue: '30', revenueGrowth: '1' }`
+means revenue grew by 100%. Missing prior values or a zero denominator produce
+`null` growth with the formula above.
 
-Shifts share windows' bounded ranges, filling, filters, tenant scope, and
-result limits. Skipped calendar buckets are rejected in shifted source ranges
-too. Missing counts are `'0'`; other missing values are `null`. Formulas can
-combine base, window, and shifted measures.
+Comparisons preserve the selected part of each bucket and the filter operators:
+January 1–14 compares with January 1–14 last year. Full buckets compare with
+full buckets. Buckets and local bounds use the query timezone (UTC by default).
 
-Shifts wrap only base measures on the same dataset. They cannot wrap windows,
-shifts, or formulas, or be selected through relationships or standalone metrics.
-Minute and hour grains require a timestamp column; `Date` and `Date32` are
-rejected.
+Intervals must span whole query buckets: one year supports `month`, `quarter`,
+and `year`; one month supports `month`. Calendar months cannot shift daily
+queries yet. Catalogs and agent projections expose each measure's
+`supportedGrains`, including restrictions inherited by formulas.
+
+Shifts share windows' filling, non-time filters, tenant scope, and result limits.
+Missing counts are `'0'`; other missing values are `null`. Calendar subtraction
+uses the query timezone and ClickHouse's clamping; skipped calendar buckets are
+rejected. Minute and hour grains require a timestamp column.
+
+Shifts wrap base measures on the same dataset. Windows, formulas, relationships,
+and standalone comparison metrics are not supported yet.
 
 ## Aggregation helpers
 

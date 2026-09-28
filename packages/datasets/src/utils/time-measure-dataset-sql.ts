@@ -4,8 +4,8 @@ import { getBaseMeasure, getDerivedMeasure, isShiftMeasure, isWindowMeasure } fr
 import { selectedTimeMeasures } from './time-query-measures.js';
 import { analyzeTimeMeasureAxis } from './time-measure-axis.js';
 import { validateDatasetQueryInput } from './dataset-query-validation.js';
-import { addTimeSql as add, subtractTimeSql as subtract } from './time-arithmetic-sql.js';
-import { shiftBucketCtes } from './shift-measure-sql.js';
+import { addTimeSql as add } from './time-arithmetic-sql.js';
+import { shiftBucketCtes, shiftRangeSql, shiftRangePredicateSql } from './shift-measure-sql.js';
 import { buildTimeMeasureSourceSql } from './time-measure-source-sql.js';
 import { buildTimeMeasureAxisSql } from './time-measure-axis-sql.js';
 import { buildTimeMeasureValuesSql, windowMeasureRowsSql, windowScanStartSql } from './time-measure-values-sql.js';
@@ -49,9 +49,7 @@ export function buildTimeMeasureDatasetSql(
     populations.push(`(_hq_time < ${end}${lower})`);
   }
   for (const shift of shifts) {
-    const lower = subtract('_hq_first', shift.interval.amount, shift.interval.unit);
-    const upper = subtract(end, shift.interval.amount, shift.interval.unit);
-    populations.push(`(_hq_time >= ${lower} AND _hq_time < ${upper})`);
+    populations.push(`(${shiftRangePredicateSql('_hq_time', shiftRangeSql(shift, axis))})`);
   }
   const scanCte = `_hq_scanned AS (SELECT * FROM _hq_source CROSS JOIN _hq_bounds WHERE ${populations.join(' OR ')})`;
 
@@ -61,7 +59,7 @@ export function buildTimeMeasureDatasetSql(
     const base = source.bases.find(base => base.name === (timeMeasure?.measure ?? name));
     if (!base) throw new Error(`Missing base input for measure "${name}".`);
     if (isShiftMeasure(timeMeasure)) {
-      const shifted = shiftBucketCtes(timeMeasure, axis.grain, index);
+      const shifted = shiftBucketCtes(timeMeasure, axis, index);
       return { name, base, rowsSql: shifted.rowsSql, rowCtes: shifted.ctes, restrictToAxis: false };
     }
     return { name, base, window, rowsSql: windowMeasureRowsSql(window, axis) };
