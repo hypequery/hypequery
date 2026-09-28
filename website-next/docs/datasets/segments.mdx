@@ -50,7 +50,3 @@ A dataset that declares segments accepts `segments` in its Serve endpoint, its O
 The catalog, the semantic contract, and the agent-safe catalog list each segment's name, label, and description. They never include its conditions: the values in a segment can be thresholds or identifiers that you chose not to expose, and an agent only needs the name and description to pick one.
 
 The result cache key includes each selected segment's resolved definition, so changing a segment's filters never serves rows cached under the old definition.
-
-## Publishing to Cloud
-
-Hypequery Cloud does not support segments yet, because they need deployment contract 3 (RFC 0015). Publishing refuses a dataset that declares segments, with an error that names them.

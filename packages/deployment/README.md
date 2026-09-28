@@ -2,7 +2,7 @@
 
 Provider-neutral building blocks for receiving, verifying, activating, and invoking Hypequery deployment bundles.
 
-This package is for Cloud providers and self-hosted control planes. Application teams normally use `hypequery deploy` through `@hypequery/cli` instead.
+This package is for deployment providers and self-hosted control planes.
 
 ## What it protects
 
