@@ -1,6 +1,7 @@
 import type { DatasetMeasureDefinition, TimeGrain } from '../types.js';
 import { getDerivedMeasure, isShiftMeasure, isWindowMeasure } from './dataset-measures.js';
-import { intervalBuckets, windowGrainErrors } from './time-axis-intervals.js';
+import { windowGrainErrors } from './time-axis-intervals.js';
+import { supportsShiftGrain } from './shift-measure-grains.js';
 
 /** Intersect time-measure requirements with the dataset's declared grains. */
 export function measureSupportedGrains(
@@ -8,7 +9,7 @@ export function measureSupportedGrains(
 ): TimeGrain[] {
   const definition = measures[name];
   if (isShiftMeasure(definition)) {
-    return grains.filter(grain => intervalBuckets(definition.interval.amount, definition.interval.unit, grain) !== undefined);
+    return grains.filter(grain => supportsShiftGrain(definition.interval, grain));
   }
   if (isWindowMeasure(definition)) return grains.filter(grain => !windowGrainErrors(name, definition, grain).length);
   const derived = getDerivedMeasure(measures, name);

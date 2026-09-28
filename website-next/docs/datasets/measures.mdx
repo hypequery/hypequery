@@ -205,10 +205,13 @@ Comparisons preserve the selected part of each bucket and the filter operators:
 January 1–14 compares with January 1–14 last year. Full buckets compare with
 full buckets. Buckets and local bounds use the query timezone (UTC by default).
 
-Intervals must span whole query buckets: one year supports `month`, `quarter`,
-and `year`; one month supports `month`. Calendar months cannot shift daily
-queries yet. Catalogs and agent projections expose each measure's
-`supportedGrains`, including restrictions inherited by formulas.
+Calendar intervals (`month`, `quarter`, `year`) also support daily and finer
+comparisons. Missing dates clamp to the target month's last day: February 29
+compares with February 28 in a non-leap year, and March 30–31 both compare with
+February's last day. A full shifted bucket retains its width; partial buckets
+retain their selected local times. Weekly shifts retain seven calendar days.
+Other intervals must span whole query buckets. Catalogs and agent projections
+expose `supportedGrains`, including restrictions inherited by formulas.
 
 Shifts share windows' filling, non-time filters, tenant scope, and result limits.
 Missing counts are `'0'`; other missing values are `null`. Calendar subtraction

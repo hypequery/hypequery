@@ -5,7 +5,7 @@ import { selectedTimeMeasures } from './time-query-measures.js';
 import { analyzeTimeMeasureAxis } from './time-measure-axis.js';
 import { validateDatasetQueryInput } from './dataset-query-validation.js';
 import { addTimeSql as add } from './time-arithmetic-sql.js';
-import { shiftBucketCtes, shiftRangeSql, shiftRangePredicateSql } from './shift-measure-sql.js';
+import { shiftBucketCtes } from './shift-measure-sql.js';
 import { buildTimeMeasureSourceSql } from './time-measure-source-sql.js';
 import { buildTimeMeasureAxisSql } from './time-measure-axis-sql.js';
 import { buildTimeMeasureValuesSql, windowMeasureRowsSql, windowScanStartSql } from './time-measure-values-sql.js';
@@ -34,6 +34,11 @@ export function buildTimeMeasureDatasetSql(
 
   const source = buildTimeMeasureSourceSql(ds, query, baseNames, axis.filters, options);
   const timeAxis = buildTimeMeasureAxisSql(source, axis, shifts);
+  const shiftedInputs = new Map<string, ReturnType<typeof shiftBucketCtes>>();
+  [...needed].forEach((name, index) => {
+    const measure = timeMeasures.get(name);
+    if (isShiftMeasure(measure)) shiftedInputs.set(name, shiftBucketCtes(measure, axis, index));
+  });
 
   // Scan only requested populations: intervening rows must not introduce dimensions.
   const end = add('_hq_last', 1, axis.grain);
@@ -48,26 +53,24 @@ export function buildTimeMeasureDatasetSql(
       ? '' : ` AND _hq_time >= least(${starts.join(', ')})`;
     populations.push(`(_hq_time < ${end}${lower})`);
   }
-  for (const shift of shifts) {
-    populations.push(`(${shiftRangePredicateSql('_hq_time', shiftRangeSql(shift, axis))})`);
-  }
+  for (const shifted of shiftedInputs.values()) populations.push(`(_hq_time IN (${shifted.sourceTimesSql}))`);
   const scanCte = `_hq_scanned AS (SELECT * FROM _hq_source CROSS JOIN _hq_bounds WHERE ${populations.join(' OR ')})`;
 
-  const inputs = [...needed].map((name, index) => {
+  const inputs = [...needed].map(name => {
     const timeMeasure = timeMeasures.get(name);
     const window = isWindowMeasure(timeMeasure) ? timeMeasure : undefined;
     const base = source.bases.find(base => base.name === (timeMeasure?.measure ?? name));
     if (!base) throw new Error(`Missing base input for measure "${name}".`);
     if (isShiftMeasure(timeMeasure)) {
-      const shifted = shiftBucketCtes(timeMeasure, axis, index);
-      return { name, base, rowsSql: shifted.rowsSql, rowCtes: shifted.ctes, restrictToAxis: false };
+      const shifted = shiftedInputs.get(name)!;
+      return { name, base, rowsSql: shifted.rowsSql, restrictToAxis: false };
     }
     return { name, base, window, rowsSql: windowMeasureRowsSql(window, axis) };
   });
   const values = buildTimeMeasureValuesSql(source.dimensions, inputs, axis);
   const sql = buildTimeMeasureResultSql(
     ds, query, options, source.dimensions,
-    [...source.ctes, ...timeAxis.ctes, scanCte, ...values],
+    [...source.ctes, ...timeAxis.ctes, ...[...shiftedInputs.values()].flatMap(input => input.ctes), scanCte, ...values],
     `${timeAxis.guard} + ${timeAxis.rangeGuard}`,
   );
   return { sql, parameters: source.parameters, timeAxisSql: timeAxis.timeAxisSql };

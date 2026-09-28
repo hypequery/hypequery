@@ -4,7 +4,8 @@ import { selectedTimeMeasures } from './time-query-measures.js';
 import { isShiftMeasure } from './dataset-measures.js';
 
 import { resolveTimeAxisRange, isDefinitelyEmptyTimeRange } from './time-axis-bounds.js';
-import { intervalBuckets, windowGrainErrors, estimateTimeAxisBuckets, exceedsEstimatedTimeAxisLimit } from './time-axis-intervals.js';
+import { windowGrainErrors, estimateTimeAxisBuckets, exceedsEstimatedTimeAxisLimit } from './time-axis-intervals.js';
+import { supportsShiftGrain } from './shift-measure-grains.js';
 
 export { intervalBuckets, utcBucketStart } from './time-axis-intervals.js';
 
@@ -33,7 +34,7 @@ export function analyzeTimeMeasureAxis(
   const grain = query.by;
   for (const [name, window] of timeMeasures) {
     if (isShiftMeasure(window)) {
-      if (intervalBuckets(window.interval.amount, window.interval.unit, grain) === undefined) errors.push(`Shift measure "${name}" must span whole "${grain}" buckets.`);
+      if (!supportsShiftGrain(window.interval, grain)) errors.push(`Shift measure "${name}" must span whole "${grain}" buckets.`);
       continue;
     }
     errors.push(...windowGrainErrors(name, window, grain));
