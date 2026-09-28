@@ -1,3 +1,5 @@
+import { selectedWindowMeasures } from './utils/window-query-measures.js';
+import { buildWindowDatasetSql } from './utils/window-dataset-sql.js';
 import { baseMeasureNames, getBaseMeasure } from './utils/dataset-measures.js';
 import type {
   AnyDatasetInstance,
@@ -55,6 +57,9 @@ export function buildDatasetQueryBuilder(
   query: DatasetQuery,
   options: DatasetQueryExecutionOptions,
 ): QueryBuilderLike {
+  if (selectedWindowMeasures(ds, query).size) {
+    throw new Error('A window dataset query needs the window SQL planner; use createDatasetClient().toSQL().');
+  }
   if (hasSelectedDerivedMeasure(ds, query)) {
     throw new Error('A derived dataset query needs the outer SQL projection; use createDatasetClient().toSQL().');
   }
@@ -115,6 +120,13 @@ export async function runDatasetQuery(
   query: DatasetQuery,
   options: DatasetQueryExecutionOptions,
 ): Promise<DatasetQueryResult> {
+  if (selectedWindowMeasures(ds, query).size) {
+    const start = Date.now();
+    const { sql, parameters, timeAxisSql } = buildWindowDatasetSql(ds, query, { ...options, executionLimit: overfetchLimit(query.limit) });
+    await options.builderFactory.rawQuery(timeAxisSql, parameters, { abortSignal: options.context?.abortSignal });
+    const rows = await options.builderFactory.rawQuery<Record<string, unknown>>(sql, parameters, { abortSignal: options.context?.abortSignal });
+    return toDatasetQueryResult(rows, { dataset: ds, query, sql, timingMs: Date.now() - start, context: options.context });
+  }
   if (hasSelectedDerivedMeasure(ds, query)) {
     return runDerivedDatasetQuery(ds, query, options, buildDatasetQueryBuilder);
   }

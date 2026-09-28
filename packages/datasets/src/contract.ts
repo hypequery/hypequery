@@ -1,3 +1,4 @@
+import { windowCatalogMetadata, type WindowCatalogMetadata } from './utils/window-catalog-metadata.js';
 import { sha256 } from '@noble/hashes/sha2';
 import { bytesToHex } from '@noble/hashes/utils';
 import {
@@ -36,7 +37,7 @@ export interface ContractDimension extends SemanticMetadata {
   groupable: boolean;
 }
 
-export interface ContractMeasure extends SemanticMetadata {
+export interface ContractMeasure extends SemanticMetadata, WindowCatalogMetadata {
   aggregation: MeasureCatalogEntry['aggregation'];
   field: string;
   /** Second column for argMax/argMin. */
@@ -229,6 +230,7 @@ function dimensionToContract(entry: DimensionCatalogEntry, includeSql: boolean):
 
 function measureToContract(entry: MeasureCatalogEntry, includeSql: boolean): ContractMeasure {
   return {
+    ...windowCatalogMetadata(entry),
     aggregation: entry.aggregation,
     field: entry.field,
     ...(entry.argField !== undefined ? { argField: entry.argField } : {}),

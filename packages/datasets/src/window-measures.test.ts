@@ -21,7 +21,7 @@ function orders(measures: Record<string, ReturnType<typeof measure.sum> | Return
 }
 
 describe('RFC 0015 window measure authoring', () => {
-  it.each([false, true])('excludes window-dependent formulas from executable catalogs and schemas (base formula: %s)', (includeBaseFormula) => {
+  it.each([false, true])('includes executable windows and window-dependent formulas in catalogs and schemas (base formula: %s)', (includeBaseFormula) => {
     const ds = dataset('orders', {
       source: 'orders', timeKey: 'createdAt',
       dimensions: { createdAt: dimension.timestamp(), amount: dimension.number() },
@@ -41,31 +41,29 @@ describe('RFC 0015 window measure authoring', () => {
       },
     });
     const catalog = getDatasetCatalog(ds);
-    const expectedDerived = includeBaseFormula ? ['revenueRatio'] : [];
+    const expectedDerived = includeBaseFormula ? ['growth', 'revenueRatio'] : ['growth'];
     expect(Object.keys(catalog.derivedMeasures ?? {})).toEqual(expectedDerived);
-    if (!includeBaseFormula) expect(catalog.derivedMeasures).toBeUndefined();
-    expect(catalog.orderableFields).not.toContain('growth');
-    expect(catalog.orderableFields).not.toContain('runningRevenue');
+    expect(catalog.orderableFields).toContain('growth');
+    expect(catalog.orderableFields).toContain('runningRevenue');
+    expect(catalog.measures.runningRevenue).toMatchObject({ kind: 'window', measure: 'revenue', cumulative: true, requiresTimeRange: true });
     expect(projectAgentSafeCatalog({ orders: ds }).datasets[0]!.measures.map(item => item.name))
-      .toEqual(['revenue', ...expectedDerived]);
+      .toEqual([...expectedDerived, 'revenue', 'runningRevenue'].sort());
 
     const schema = buildDatasetInputSchema(ds);
     const canonicalSchema = buildCanonicalSemanticQuerySchemas({ orders: ds }).queryDataset;
     for (const name of ['runningRevenue', 'growth']) {
-      expect(schema.safeParse({ measures: [name], by: 'day' }).success).toBe(false);
-      expect(schema.safeParse({ measures: ['revenue'], orderBy: [{ field: name, direction: 'asc' }] }).success).toBe(false);
-      expect(canonicalSchema.safeParse({ dataset: 'orders', measures: [name], by: 'day' }).success).toBe(false);
+      expect(schema.safeParse({ measures: [name], by: 'day' }).success).toBe(true);
+      expect(schema.safeParse({ measures: ['revenue'], orderBy: [{ field: name, direction: 'asc' }] }).success).toBe(true);
+      expect(canonicalSchema.safeParse({ dataset: 'orders', measures: [name], by: 'day' }).success).toBe(true);
     }
     for (const name of ['revenue', ...expectedDerived]) {
       expect(schema.safeParse({ measures: [name], orderBy: [{ field: name, direction: 'asc' }] }).success).toBe(true);
       expect(canonicalSchema.safeParse({ dataset: 'orders', measures: [name] }).success).toBe(true);
     }
-    // Catalog filtering leaves the authoring definition and its explicit
-    // execution error available to direct TypeScript callers.
     expect(ds.measures.growth.uses.running).toBe('runningRevenue');
     const client = createDatasetClient({ queryBuilder: createRenderingBuilderFactory() });
     expect(client.validate(ds, { measures: ['growth'], by: 'day' }).errors)
-      .toContain('Derived measure "growth" uses a window measure and is not executable until RFC 0015 window planning is available.');
+      .toContain('Window measures require exactly one bounded time range: between, or gt/gte with lt/lte, using ISO timestamps.');
   });
 
   it('keeps every measure kind in the public measures registry', () => {
@@ -133,11 +131,11 @@ describe('RFC 0015 window measure authoring', () => {
       .toThrow(/positive safe integer/);
   });
 
-  it('refuses execution and contract 2 publishing until window planning is implemented', () => {
+  it('requires bounded time ranges and refuses contract 2 publishing', () => {
     const ds = orders({ revenue: measure.sum('amount'), runningRevenue: measure.cumulative('revenue') });
     const client = createDatasetClient({ queryBuilder: createRenderingBuilderFactory() });
     expect(client.validate(ds, { measures: ['runningRevenue'], by: 'day' }).errors)
-      .toContain('Window measure "runningRevenue" is not executable until RFC 0015 window planning is available.');
+      .toContain('Window measures require exactly one bounded time range: between, or gt/gte with lt/lte, using ISO timestamps.');
     expect(() => buildProtocolDeploymentContract([ds])).toThrow(/need deployment contract 3/);
 
     const withGrowth = dataset('orders', {
@@ -153,6 +151,6 @@ describe('RFC 0015 window measure authoring', () => {
       },
     });
     expect(client.validate(withGrowth, { measures: ['growth'], by: 'day' }).errors)
-      .toContain('Derived measure "growth" uses a window measure and is not executable until RFC 0015 window planning is available.');
+      .toContain('Window measures require exactly one bounded time range: between, or gt/gte with lt/lte, using ISO timestamps.');
   });
 });

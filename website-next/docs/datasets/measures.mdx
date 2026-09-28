@@ -92,7 +92,7 @@ Queries that omit `measures` still select only base aggregations; select derived
 and window measures explicitly. Standalone `dataset.metric()` definitions can
 only wrap base measures.
 
-## Window measure authoring
+## Window measures
 
 Declare time windows in the same `measures` object:
 
@@ -119,11 +119,47 @@ Each window references a base measure on its dataset and requires `timeKey`.
 may reference a base or window measure, but cannot reference another derived
 measure.
 
-Window support currently covers authoring and definition validation. Execution
-and Cloud publishing reject window measures until window planning is
-implemented. Executable catalogs and generated query schemas omit windows and
-derived formulas that depend on them. There is no separate `windowMeasures`
-property on the dataset instance.
+Execute windows with `createDatasetClient({ queryBuilder })`. Select a grain
+and exactly one bounded filter on the dataset's time field:
+
+<CodeBlock>
+```typescript
+const client = createDatasetClient({ queryBuilder: db });
+const result = await client.execute(Orders, {
+  by: 'day',
+  measures: ['revenue', 'trailingRevenue', 'monthToDateRevenue', 'runningRevenue'],
+  filters: [
+    { field: 'createdAt', operator: 'gte', value: '2026-01-01' },
+    { field: 'createdAt', operator: 'lt', value: '2026-02-01' },
+  ],
+});
+```
+</CodeBlock>
+
+Use ISO timestamps with `between`, or a lower (`gt`/`gte`) and upper
+(`lt`/`lte`) bound. The range selects output buckets. Windows include earlier
+rows and the entire current bucket, whose end is exclusive. Base measure
+columns still respect the original time filter, including partial buckets.
+
+Every bucket appears for each dimension combination found in the scanned rows.
+Missing base values are `null`; counts are `'0'`. Trailing distinct counts and
+averages reaggregate source rows across the entire window. Segments, tenant
+scope, non-time query filters, and measure filters apply throughout lookback.
+
+Trailing intervals must convert to whole query buckets: for example, one week
+with `by: 'day'`, or one year with `by: 'month'`. Calendar months cannot convert
+to days. To-date periods must be strictly coarser than the query grain and
+contain whole buckets. A row may contribute to at most 1,000 buckets. The
+output series must fit the query's result limit or the dataset ceiling.
+
+Buckets follow the physical time column's timezone. Date-only and timezone-free
+bounds use that timezone; explicit offsets represent instants. Catalogs and
+agent projections expose window parameters and `requiresTimeRange: true`.
+Window-dependent formulas are selectable through the same query API.
+
+Cloud publishing still rejects window definitions until deployment contract 3
+support is available. The deprecated semantic backend path does not execute
+windows. There is no separate `windowMeasures` property on a dataset instance.
 
 ## Aggregation helpers
 

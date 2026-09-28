@@ -1,3 +1,4 @@
+import { selectedWindowMeasures } from './utils/window-query-measures.js';
 import { baseMeasureNames, getBaseMeasure, getDerivedMeasure } from './utils/dataset-measures.js';
 import { protocolMetricCapabilityErrors } from './utils/protocol-metric-capabilities.js';
 import type {
@@ -209,6 +210,7 @@ export function buildDatasetPlan(
   query: DatasetQuery = {},
   context?: ExecutionContext,
 ): PlanNode {
+  if (selectedWindowMeasures(ds, query).size) throw new Error('Window dataset measures require the queryBuilder execution path.');
   if ((query.measures ?? []).some(name => getDerivedMeasure(ds.measures, name) !== undefined)) {
     throw new Error('Derived dataset measures require the queryBuilder execution path.');
   }
