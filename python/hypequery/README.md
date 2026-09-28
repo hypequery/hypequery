@@ -42,11 +42,15 @@ from hypequery.datasets import (
 from hypequery.execution import ClickHouseConnection, create_clickhouse_executor
 
 executor = create_clickhouse_executor(ClickHouseConnection(host="localhost", database="analytics"))
-client = create_dataset_client(executor=executor, registry=create_dataset_registry(orders, customers))
+client = create_dataset_client(
+    executor=executor, registry=create_dataset_registry(orders, customers)
+)
 
 result = client.execute(
     "orders",
-    DatasetQuery(dimensions=("customer.country",), measures=("revenue",), filters=(eq("status", "paid"),)),
+    DatasetQuery(
+        dimensions=("customer.country",), measures=("revenue",), filters=(eq("status", "paid"),)
+    ),
     context=ExecutionContext(tenant=tenant("org_123")),
 )
 result.data  # ({"customer.country": "NZ", "revenue": "1200.50"}, ...)
