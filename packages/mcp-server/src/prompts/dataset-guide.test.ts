@@ -31,6 +31,14 @@ describe('datasetGuidePrompt', () => {
     expect(text).toContain('- growth (requires by and a bounded ISO time range on createdAt)');
   });
 
+  it('lists shifted measures and their bounded time-axis requirement', () => {
+    const orders = dataset('orders', { source: 'orders', timeKey: 'createdAt', dimensions: { createdAt: dimension.timestamp() },
+      measures: { revenue: measure.sum('amount'), priorRevenue: measure.shift('revenue', { amount: 1, unit: 'year' }) },
+    });
+    const text = datasetGuidePrompt({ orders }, 'orders').messages[0].content.text;
+    expect(text).toContain('- priorRevenue (requires by and a bounded ISO time range on createdAt)');
+  });
+
   it('should throw error when specific dataset not found', () => {
     expect(() => datasetGuidePrompt({}, 'nonexistent')).toThrow(
       'Dataset not found: nonexistent'

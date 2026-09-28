@@ -161,8 +161,72 @@ Cloud publishing still rejects window definitions until deployment contract 3
 support is available. The deprecated semantic backend path does not execute
 windows. There is no separate `windowMeasures` property on a dataset instance.
 
+## Period comparisons
+
+Declare a shifted base measure in the same registry, then use it directly or
+in a derived formula:
+
+<CodeBlock>
+```typescript
+const Orders = dataset('orders', {
+  source: 'orders',
+  timeKey: 'createdAt',
+  dimensions: { createdAt: dimension.timestamp() },
+  measures: {
+    revenue: measure.sum('amount'),
+    priorYearRevenue: measure.shift('revenue', { amount: 1, unit: 'year' }),
+    revenueGrowth: measure.derived({
+      uses: { current: 'revenue', prior: 'priorYearRevenue' },
+      formula: ({ current, prior }) =>
+        divide(subtract(current, prior), nullIfZero(prior)),
+    }),
+  },
+});
+
+const client = createDatasetClient({ queryBuilder: db });
+const result = await client.execute(Orders, {
+  by: 'month',
+  measures: ['revenue', 'priorYearRevenue', 'revenueGrowth'],
+  filters: [
+    { field: 'createdAt', operator: 'gte', value: '2026-01-01' },
+    { field: 'createdAt', operator: 'lt', value: '2027-01-01' },
+  ],
+});
+```
+</CodeBlock>
+
+At each bucket, a shift aggregates rows in
+`[bucket start − interval, bucket end − interval)`. The interval must be a
+positive safe integer and convert to whole query buckets under the window
+conversion rules. For example, one year works with monthly, quarterly, or
+yearly buckets; one month cannot shift daily or weekly buckets. Subtraction
+uses calendar arithmetic, with ClickHouse's end-of-month clamping.
+
+Shifted measures require a grain and one bounded time range, and use the same
+filled series as windows. The range selects output buckets; shifted values use
+the entire earlier bucket even when the output range includes partial buckets.
+Tenant scope, segments, non-time query filters, and the wrapped measure's
+filters apply to those earlier rows. Missing shifted counts are `'0'`; other
+missing values are `null`. Derived formulas can combine base, window, and
+shifted measures.
+
+Date and timestamp buckets use the physical time column's timezone. Across
+DST, shifted endpoints can cover a different number of source hours; values
+still follow the exact half-open range. Ordering and pagination happen after
+comparisons and formulas. Minute and hour grains require a time-of-day column;
+physical `Date` and `Date32` columns are rejected during metadata validation.
+Catalogs expose `kind: 'shift'`, the base measure,
+the interval, and `requiresTimeRange: true`.
+
+Shifts can wrap only base measures on their dataset. They cannot wrap a
+window, another shift, or a derived measure, and cannot be selected through a
+relationship or a standalone metric. Cloud publishing requires the separate
+deployment contract 3 implementation; the deprecated backend path does not
+execute shifts.
+
 ## Aggregation helpers
 
+- `measure.shift(baseMeasure, interval, opts?)`
 - `measure.sum(field, opts?)`
 - `measure.count(field, opts?)`
 - `measure.countDistinct(field, opts?)`

@@ -149,7 +149,7 @@ export interface DerivedMeasureDefinition<
   description?: string;
 }
 
-/** A positive whole-number interval used by a time-window measure. */
+/** A positive whole-number interval used by a window or shift measure. */
 export interface MeasureTimeInterval {
   readonly amount: number;
   readonly unit: TimeGrain;
@@ -171,9 +171,18 @@ export type WindowMeasureMode =
 export type WindowMeasureDefinition<TMeasureName extends string = string> =
   WindowMeasureCommon<TMeasureName> & WindowMeasureMode;
 
-export type DatasetMeasureDefinition = MeasureDefinition | DerivedMeasureDefinition | WindowMeasureDefinition;
+/** Evaluate a base measure over an earlier aligned bucket. */
+export interface ShiftMeasureDefinition<TMeasureName extends string = string> extends SemanticMetadata {
+  readonly __type: 'shift_measure_definition';
+  readonly measure: TMeasureName;
+  readonly interval: MeasureTimeInterval;
+  readonly label?: string;
+  readonly description?: string;
+}
 
-/** Aggregate measures can back windows and standalone metrics. */
+export type DatasetMeasureDefinition = MeasureDefinition | DerivedMeasureDefinition | WindowMeasureDefinition | ShiftMeasureDefinition;
+
+/** Aggregate measures can back windows, shifts, and standalone metrics. */
 export type BaseMeasureNames<TMeasures> = {
   [Name in keyof TMeasures]: Extract<TMeasures[Name], MeasureDefinition> extends never ? never : Name;
 }[keyof TMeasures] & string;
@@ -194,13 +203,13 @@ export type WindowMeasures<TMeasures> = {
 };
 
 type DerivedInputMeasureNames<TMeasures> = BaseMeasureNames<TMeasures> | {
-  [Name in keyof TMeasures]: Extract<TMeasures[Name], WindowMeasureDefinition> extends never ? never : Name;
+  [Name in keyof TMeasures]: Extract<TMeasures[Name], WindowMeasureDefinition | ShiftMeasureDefinition> extends never ? never : Name;
 }[keyof TMeasures] & string;
 
 type CheckedDatasetMeasures<TMeasures> = {
   [Name in keyof TMeasures]: TMeasures[Name] extends DerivedMeasureDefinition<infer TUses>
     ? TMeasures[Name] & { readonly uses: { readonly [Alias in keyof TUses]: DerivedInputMeasureNames<TMeasures> } }
-    : TMeasures[Name] extends WindowMeasureDefinition
+    : TMeasures[Name] extends WindowMeasureDefinition | ShiftMeasureDefinition
       ? TMeasures[Name] & { readonly measure: BaseMeasureNames<TMeasures> }
     : TMeasures[Name];
 };

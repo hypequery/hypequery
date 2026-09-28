@@ -121,8 +121,8 @@ export function validateDerivedMeasures(
   datasetName: string,
   measures: Record<string, DatasetMeasureDefinition>,
 ): void {
-  const { base: baseMeasures, derived: derivedMeasures, windows } = splitDatasetMeasures(measures);
-  const windowMeasureNames = new Set(Object.keys(windows));
+  const { base: baseMeasures, derived: derivedMeasures, windows, shifts } = splitDatasetMeasures(measures);
+  const timeMeasureNames = new Set([...Object.keys(windows), ...Object.keys(shifts)]);
   for (const [measureName, definition] of Object.entries(derivedMeasures)) {
     if (!isSafeSQLIdentifier(measureName)) {
       fail(datasetName, measureName, 'name is not a safe identifier.');
@@ -138,7 +138,7 @@ export function validateDerivedMeasures(
 
   for (const [measureName, definition] of Object.entries(derivedMeasures)) {
     const uses = Object.entries(definition.uses);
-    if (uses.length === 0) fail(datasetName, measureName, 'must reference at least one base or window measure.');
+    if (uses.length === 0) fail(datasetName, measureName, 'must reference at least one base, window, or shift measure.');
     if (typeof definition.formula !== 'function') fail(datasetName, measureName, 'must define a formula function.');
 
     for (const [alias, dependencyName] of uses) {
@@ -149,7 +149,7 @@ export function validateDerivedMeasures(
       if (Object.hasOwn(derivedMeasures, dependencyName)) {
         fail(datasetName, measureName, `references derived measure "${dependencyName}"; v1 inputs must be base measures.`);
       }
-      if (!Object.hasOwn(baseMeasures, dependencyName) && !windowMeasureNames.has(dependencyName)) {
+      if (!Object.hasOwn(baseMeasures, dependencyName) && !timeMeasureNames.has(dependencyName)) {
         fail(datasetName, measureName, `references missing measure "${dependencyName}".`);
       }
     }

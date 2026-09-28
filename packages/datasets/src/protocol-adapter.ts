@@ -122,7 +122,9 @@ export function buildProtocolDatasetContract(
   dataset: AnyDatasetInstance,
   options: BuildProtocolDatasetContractOptions = {},
 ): ProtocolDatasetContract {
-  const { base: baseMeasures, windows } = splitDatasetMeasures(dataset.measures);
+  const { base: baseMeasures, windows, shifts } = splitDatasetMeasures(dataset.measures);
+  const shiftMeasureNames = Object.keys(shifts);
+  if (shiftMeasureNames.length) throw new Error(`Dataset "${dataset.name}" shift measures (${shiftMeasureNames.join(', ')}) need deployment contract 3 (RFC 0015).`);
   const windowMeasureNames = Object.keys(windows);
   if (windowMeasureNames.length > 0) {
     throw new Error(

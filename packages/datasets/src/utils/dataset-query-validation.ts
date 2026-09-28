@@ -19,7 +19,7 @@ import {
   validateRelationshipTenantRuntime,
 } from './relationship-validation.js';
 import { segmentSelectionErrors } from './segments.js';
-import { analyzeWindowTimeAxis } from './window-time-axis.js';
+import { analyzeTimeMeasureAxis } from './time-measure-axis.js';
 
 export function validateDatasetQueryInput(
   ds: AnyDatasetInstance,
@@ -154,7 +154,7 @@ export function validateDatasetQueryInput(
     errors.push(`Cannot use "by" grain — dataset "${ds.name}" has no timeKey.`);
   }
 
-  errors.push(...analyzeWindowTimeAxis(ds, query).errors);
+  errors.push(...analyzeTimeMeasureAxis(ds, query).errors);
 
   errors.push(...segmentSelectionErrors(ds, query.segments));
 
