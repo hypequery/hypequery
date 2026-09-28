@@ -1,3 +1,4 @@
+import { windowQuerySignature } from '../utils/window-query-signature.js';
 /**
  * Canonical cache keys for semantic queries.
  *
@@ -126,6 +127,7 @@ export function buildDatasetQuerySignature(
     dimensions: query.dimensions ?? null,
     // `null` distinguishes the "all measures" default from an explicit [].
     measures: query.measures ?? null,
+    ...windowQuerySignature(ds, query),
     filters: filterSignature(query.filters),
     ...segmentSignature(ds, query.segments),
     orderBy: orderBySignature(query.orderBy),

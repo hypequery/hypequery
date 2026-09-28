@@ -1,3 +1,4 @@
+import { type WindowCatalogMetadata } from './utils/window-catalog-metadata.js';
 import type { ProtocolDeploymentContract } from '@hypequery/protocol';
 import {
   getDatasetCatalog,
@@ -28,7 +29,7 @@ export interface AgentCatalogDimension extends SemanticMetadata {
   groupable: boolean;
 }
 
-export interface AgentCatalogMeasure extends SemanticMetadata {
+export interface AgentCatalogMeasure extends SemanticMetadata, WindowCatalogMetadata {
   name: string;
   label?: string;
   description?: string;

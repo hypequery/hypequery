@@ -1,3 +1,5 @@
+import { selectedWindowMeasures } from './utils/window-query-measures.js';
+import { buildWindowDatasetSql } from './utils/window-dataset-sql.js';
 import { baseMeasureNames } from './utils/dataset-measures.js';
 import { protocolMetricCapabilityErrors } from './utils/protocol-metric-capabilities.js';
 /**
@@ -943,6 +945,9 @@ export class DatasetClientImpl extends MetricQueryEngine implements DatasetClien
 
     const run = (): Promise<DatasetQueryResult<TRow>> => {
       if (this.backend) {
+        if (selectedWindowMeasures(ds, boundedQuery).size) {
+          throw new Error('Window dataset measures require the queryBuilder execution path.');
+        }
         if (hasSelectedDerivedMeasure(ds, boundedQuery)) {
           throw new Error('Derived dataset measures require the queryBuilder execution path.');
         }
@@ -1001,6 +1006,9 @@ export class DatasetClientImpl extends MetricQueryEngine implements DatasetClien
     context?: ExecutionContext,
   ): string {
     const builderFactory = resolveBuilderFactory(context, this.getBuilderFactory());
+    if (selectedWindowMeasures(ds, query).size) {
+      return buildWindowDatasetSql(ds, query, { builderFactory, context }).sql;
+    }
     if (hasSelectedDerivedMeasure(ds, query)) {
       return buildDerivedDatasetSql(
         ds, query, { builderFactory, context }, buildDatasetQueryBuilder,
