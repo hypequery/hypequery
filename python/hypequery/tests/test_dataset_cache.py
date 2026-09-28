@@ -359,3 +359,24 @@ def test_a_memory_store_without_a_secret_does_not_warn() -> None:
     with warnings.catch_warnings():
         warnings.simplefilter("error")
         _cache(secret=None)
+
+
+def test_python_derives_the_same_key_as_typescript() -> None:
+    # Pinned in packages/datasets/src/cache/protocol-cache-keys.test.ts as
+    # well. If this changes, the two languages no longer share entries.
+    cache = _cache(definition_identity="d" * 64)
+    query = DatasetQuery(
+        dimensions=("vendor",),
+        measures=("trips",),
+        filters=(eq("vendor", "a"), gt("fare", 10), between("fare", 1, 9)),
+        limit=50,
+    )
+
+    key = cache.key_for(_trips(), query, AS_ACME, None)
+
+    assert key == "hq1.1.CpRDVMs0ppVdzUszvjFisA.2wM9Vqcu8xlBF4mC_Uy_nFoN7_Y_aVgt1OyAjcNUSlE"
+
+
+def test_the_namespace_defaults_match_typescript() -> None:
+    cache = ResultCache(store=MemoryCacheStore(), ttl_seconds=60)
+    assert (cache.project, cache.environment, cache.key_version) == ("hypequery", "default", 1)

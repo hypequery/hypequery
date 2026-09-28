@@ -54,6 +54,29 @@ export interface SemanticCacheOptions {
    * so identical queries against different backends never collide.
    */
   scope?: string;
+  /**
+   * RFC 0013 cache-key secret: at least 32 random bytes, the same on every
+   * instance that shares a store, distinct per environment, never shipped.
+   *
+   * Optional. Without it the client generates a random secret for its
+   * lifetime, so keys stay opaque but entries are not shared with other
+   * instances or across restarts. That is all an in-memory store needs; set
+   * it for a shared store such as Redis. Keys never contain tenant ids,
+   * filter values, or table names either way.
+   */
+  secret?: Uint8Array;
+  /** Namespace project for RFC 0013 keys. Defaults to `'hypequery'`. */
+  project?: string;
+  /** Namespace environment for RFC 0013 keys. Defaults to `'default'`. */
+  environment?: string;
+  /** Increment whenever `secret` rotates; old entries become unreachable. Defaults to 1. */
+  keyVersion?: number;
+  /**
+   * The deployed bundle identity (RFC 0007), to share entries with other
+   * runtimes serving the same release, including Python. Without it, a digest
+   * of the local definitions is used.
+   */
+  definitionIdentity?: string;
 }
 
 /** Per-call cache controls, passed via `ExecutionContext.cache`. */

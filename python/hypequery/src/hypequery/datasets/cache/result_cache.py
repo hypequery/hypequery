@@ -56,9 +56,10 @@ class ResultCache:
     """
 
     store: CacheStore
-    project: str
-    environment: str
     ttl_seconds: float
+    #: RFC 0013 namespace. The defaults match `@hypequery/datasets`.
+    project: str = "hypequery"
+    environment: str = "default"
     secret: bytes | None = field(default=None, repr=False)
     key_version: int = 1
     definition_identity: str | None = None
