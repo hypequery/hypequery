@@ -1,3 +1,5 @@
+import { queryTimezoneErrors } from './query-timezone.js';
+import { baseMeasureNames } from './dataset-measures.js';
 import type {
   AnyDatasetInstance,
   DatasetQuery,
@@ -18,17 +20,18 @@ import {
   validateRelationshipTenantRuntime,
 } from './relationship-validation.js';
 import { segmentSelectionErrors } from './segments.js';
+import { analyzeWindowTimeAxis } from './window-time-axis.js';
 
 export function validateDatasetQueryInput(
   ds: AnyDatasetInstance,
   query: DatasetQuery,
   context?: ExecutionContext,
 ): ValidationResult {
-  const errors: string[] = [];
+  const errors: string[] = queryTimezoneErrors(query.timezone);
   const dimensionNames = Object.keys(ds.dimensions);
-  const measureNames = [...Object.keys(ds.measures), ...Object.keys(ds.derivedMeasures ?? {})];
+  const measureNames = Object.keys(ds.measures);
   const selectedDimensions = query.dimensions ?? [];
-  const selectedMeasures = query.measures ?? Object.keys(ds.measures);
+  const selectedMeasures = query.measures ?? baseMeasureNames(ds.measures);
   const filterNames = Object.keys(ds.filters);
   const orderableFields = new Set<string>([
     ...selectedDimensions,
@@ -151,6 +154,8 @@ export function validateDatasetQueryInput(
   if (query.by && !ds.timeKey) {
     errors.push(`Cannot use "by" grain — dataset "${ds.name}" has no timeKey.`);
   }
+
+  errors.push(...analyzeWindowTimeAxis(ds, query).errors);
 
   errors.push(...segmentSelectionErrors(ds, query.segments));
 

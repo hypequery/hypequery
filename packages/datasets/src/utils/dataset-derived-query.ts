@@ -1,5 +1,6 @@
-import type { SemanticExpression } from '../semantic-plan.js';
-import type { AnyDatasetInstance, DatasetQuery, DatasetQueryResult, DerivedMeasureDefinition } from '../types.js';
+import { derivedProjection } from './derived-measure-sql.js';
+import { baseMeasureNames, getBaseMeasure, getDerivedMeasure } from './dataset-measures.js';
+import type { AnyDatasetInstance, DatasetQuery, DatasetQueryResult } from '../types.js';
 import type { QueryBuilderLike } from '../query-builder-protocol.js';
 import { quoteSQLIdentifier } from '../sql-utils.js';
 import { validateDatasetQueryInput } from './dataset-query-validation.js';
@@ -14,50 +15,7 @@ type BuildBaseQuery = (
 ) => QueryBuilderLike;
 
 export function hasSelectedDerivedMeasure(ds: AnyDatasetInstance, query: DatasetQuery): boolean {
-  return (query.measures ?? []).some(name => Object.hasOwn(ds.derivedMeasures, name));
-}
-
-function expressionSql(expression: SemanticExpression, uses: Readonly<Record<string, string>>): string {
-  switch (expression.kind) {
-    case 'ref': {
-      if (!Object.hasOwn(uses, expression.name)) {
-        throw new Error(`Formula references undeclared input "${expression.name}".`);
-      }
-      const measureName = uses[expression.name];
-      return quoteSQLIdentifier(measureName);
-    }
-    case 'literal': {
-      if (expression.value === null) return 'NULL';
-      if (typeof expression.value === 'number') {
-        if (!Number.isFinite(expression.value)) throw new Error('Formula contains a non-finite number.');
-        return String(expression.value);
-      }
-      if (typeof expression.value === 'boolean') return expression.value ? 'true' : 'false';
-      return `'${expression.value.replace(/\\/g, '\\\\').replace(/'/g, "''")}'`;
-    }
-    case 'binary': {
-      const operators = { add: '+', subtract: '-', multiply: '*', divide: '/' } as const;
-      const operator = operators[expression.operator];
-      if (!operator) throw new Error('Formula contains an unsupported binary operator.');
-      return `(${expressionSql(expression.left, uses)} ${operator} ${expressionSql(expression.right, uses)})`;
-    }
-    case 'function': {
-      const args = expression.args.map(arg => expressionSql(arg, uses));
-      switch (expression.name) {
-        case 'nullIfZero': return `NULLIF(${args[0]}, 0)`;
-        case 'coalesce': return `COALESCE(${args.join(', ')})`;
-        case 'round': return `ROUND(${args.join(', ')})`;
-        case 'floor': return `FLOOR(${args[0]})`;
-        case 'ceil': return `CEIL(${args[0]})`;
-        default: throw new Error('Formula contains an unsupported function.');
-      }
-    }
-  }
-}
-
-function derivedProjection(name: string, definition: DerivedMeasureDefinition): string {
-  const aliases = Object.fromEntries(Object.keys(definition.uses).map(alias => [alias, alias]));
-  return `${expressionSql(definition.formula(aliases).expression, definition.uses)} AS ${quoteSQLIdentifier(name)}`;
+  return (query.measures ?? []).some(name => getDerivedMeasure(ds.measures, name) !== undefined);
 }
 
 export function buildDerivedDatasetSql(
@@ -71,10 +29,10 @@ export function buildDerivedDatasetSql(
     throw new Error(`Invalid dataset query: ${validation.errors.join('; ')}`);
   }
 
-  const selected = query.measures ?? Object.keys(ds.measures);
-  const baseMeasures = new Set(selected.filter(name => Object.hasOwn(ds.measures, name)));
+  const selected = query.measures ?? baseMeasureNames(ds.measures);
+  const baseMeasures = new Set(selected.filter(name => getBaseMeasure(ds.measures, name) !== undefined));
   for (const name of selected) {
-    const derived = Object.hasOwn(ds.derivedMeasures, name) ? ds.derivedMeasures[name] : undefined;
+    const derived = getDerivedMeasure(ds.measures, name);
     if (derived) Object.values(derived.uses).forEach(base => baseMeasures.add(base));
   }
   const inner = buildBaseQuery(ds, {
@@ -90,7 +48,7 @@ export function buildDerivedDatasetSql(
   if (query.by) projections.push(quoteSQLIdentifier('period'));
   for (const dimension of query.dimensions ?? []) projections.push(quoteSQLIdentifier(dimension));
   for (const name of selected) {
-    const derived = Object.hasOwn(ds.derivedMeasures, name) ? ds.derivedMeasures[name] : undefined;
+    const derived = getDerivedMeasure(ds.measures, name);
     projections.push(derived
       ? derivedProjection(name, derived)
       : quoteSQLIdentifier(name));

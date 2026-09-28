@@ -1,3 +1,5 @@
+import { selectedWindowMeasures } from './utils/window-query-measures.js';
+import { baseMeasureNames, getBaseMeasure, getDerivedMeasure } from './utils/dataset-measures.js';
 import { protocolMetricCapabilityErrors } from './utils/protocol-metric-capabilities.js';
 import type {
   AnyDatasetInstance,
@@ -134,7 +136,7 @@ function aggregationForMeasure(
   ds: AnyDatasetInstance,
   name: string,
 ): SemanticAggregationPlan {
-  const measure = ds.measures[name];
+  const measure = getBaseMeasure(ds.measures, name);
   if (!measure) {
     throw new Error(`Unknown measure "${name}" on dataset "${ds.name}".`);
   }
@@ -208,7 +210,9 @@ export function buildDatasetPlan(
   query: DatasetQuery = {},
   context?: ExecutionContext,
 ): PlanNode {
-  if ((query.measures ?? []).some(name => Object.hasOwn(ds.derivedMeasures, name))) {
+  if (query.timezone !== undefined) throw new Error('Execution timezone requires the queryBuilder execution path.');
+  if (selectedWindowMeasures(ds, query).size) throw new Error('Window dataset measures require the queryBuilder execution path.');
+  if ((query.measures ?? []).some(name => getDerivedMeasure(ds.measures, name) !== undefined)) {
     throw new Error('Derived dataset measures require the queryBuilder execution path.');
   }
   const validation = validateDatasetQuery(ds, query, context);
@@ -216,7 +220,7 @@ export function buildDatasetPlan(
     throw new Error(`Invalid dataset query: ${validation.errors.join('; ')}`);
   }
 
-  const measures = query.measures ?? Object.keys(ds.measures);
+  const measures = query.measures ?? baseMeasureNames(ds.measures);
   return aggregatePlan(
     ds,
     query,
@@ -319,6 +323,7 @@ export function buildMetricPlan(
   query: MetricQuery = {},
   context?: ExecutionContext,
 ): PlanNode {
+  if (query.timezone !== undefined) throw new Error('Execution timezone requires the queryBuilder execution path.');
   const errors = protocolMetricCapabilityErrors(metric, query);
   if (errors.length) throw new Error(`Invalid metric query: ${errors.join('; ')}`);
   const ref = getMetricRef(metric as MetricHandle);

@@ -85,6 +85,81 @@ await analytics.execute(Orders, {
 ```
 </CodeBlock>
 
+All declared measure kinds are available on the returned dataset's `measures`
+registry, including `Orders.measures.averageOrderValue`. The older
+`Orders.derivedMeasures` property remains as a deprecated compatibility alias.
+Queries that omit `measures` still select only base aggregations; select derived
+and window measures explicitly. Standalone `dataset.metric()` definitions can
+only wrap base measures.
+
+## Window measures
+
+Declare time windows in the same `measures` object:
+
+<CodeBlock>
+```typescript
+const Orders = dataset('orders', {
+  source: 'orders',
+  timeKey: 'createdAt',
+  dimensions: { createdAt: dimension.timestamp() },
+  measures: {
+    revenue: measure.sum('amount'),
+    trailingRevenue: measure.trailing('revenue', { amount: 7, unit: 'day' }),
+    monthToDateRevenue: measure.toDate('revenue', 'month'),
+    runningRevenue: measure.cumulative('revenue'),
+  },
+});
+
+Orders.measures.runningRevenue; // The window definition, alongside revenue.
+```
+</CodeBlock>
+
+Each window references a base measure on its dataset and requires `timeKey`.
+`cumulative` supports only `sum`, `count`, `min`, and `max`. A derived formula
+may reference a base or window measure, but cannot reference another derived
+measure.
+
+Execute windows with `createDatasetClient({ queryBuilder })`. Select a grain
+and exactly one bounded filter on the dataset's time field:
+
+<CodeBlock>
+```typescript
+import { createDatasetClient } from '@hypequery/datasets';
+
+const client = createDatasetClient({ queryBuilder: db, timezone: 'UTC' });
+const result = await client.execute(Orders, {
+  by: 'day',
+  timezone: 'America/New_York',
+  measures: ['revenue', 'trailingRevenue', 'monthToDateRevenue', 'runningRevenue'],
+  filters: [
+    { field: 'createdAt', operator: 'gte', value: '2026-01-01' },
+    { field: 'createdAt', operator: 'lt', value: '2026-02-01' },
+  ],
+});
+```
+</CodeBlock>
+
+Use ISO timestamps with `between`, or paired `gt`/`gte` and `lt`/`lte`
+bounds. The range selects output buckets. Windows include lookback rows and
+the whole current bucket, with an exclusive end; base measures respect the
+original filters, including partial buckets.
+
+Buckets are filled for each dimension combination in the scanned rows.
+Missing values are `null`; counts are `'0'`. Distinct counts and averages
+reaggregate source rows across the window. Segments, tenant scope, non-time
+filters, and measure filters apply throughout lookback.
+
+Trailing intervals must span whole query buckets: weeks can become days,
+but months cannot. To-date periods must be strictly coarser than the query
+grain and span whole buckets. Each row may contribute to at most 1,000 buckets, and the series must
+fit the query or dataset result limit.
+
+Buckets and timezone-free bounds use the query's `timezone`, then the client
+default (`UTC`). Explicit offsets represent instants. Use offsets inside repeated DST hours.
+Their local `period` labels can match, so labels are not unique identifiers.
+Ranges or lookback crossing a skipped calendar bucket are rejected; use a
+`timezone: 'UTC'` for those ranges.
+
 ## Aggregation helpers
 
 - `measure.sum(field, opts?)`
@@ -113,9 +188,7 @@ The helper determines the aggregation. The field should be the semantic field na
 as user or session IDs. Use `countDistinct` when the number has to be exact.
 Catalogs, the semantic contract and the agent-safe catalog mark these measures,
 and any derived measure that uses one, with `approximate: true`. That lets
-agents and UIs present the value as an estimate. Hypequery Cloud cannot publish
-approximate measures yet: they need deployment contract 3 (RFC 0015), so
-publishing refuses them with an error naming the measure.
+agents and UIs present the value as an estimate.
 
 `argMax` and `argMin` return the value of `field` from the row where `by` is
 greatest or smallest. The `by` field can use a semantic dimension name, so

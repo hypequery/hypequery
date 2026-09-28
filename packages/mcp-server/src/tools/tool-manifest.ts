@@ -9,7 +9,6 @@ const semanticMetadataProperties = {
   format: { type: 'string' },
   unit: { type: 'string' },
   currency: { type: 'string' },
-  timezone: { type: 'string' },
   sensitivity: {
     type: 'string',
     enum: ['public', 'internal', 'confidential', 'restricted'],

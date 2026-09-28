@@ -171,6 +171,7 @@ export function createMetricEndpoint<TAuth extends AuthContext>(
       limit: Math.min(input.limit ?? effectiveMaxLimit, effectiveMaxLimit),
       offset: input.offset,
       by: input.by,
+      timezone: input.timezone,
     };
 
     if (ctx.tenantId && !runtime?.tenant) {

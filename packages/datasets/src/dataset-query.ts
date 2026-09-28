@@ -1,3 +1,7 @@
+import { queryTimeFilterSql } from './utils/query-timezone.js';
+import { selectedWindowMeasures } from './utils/window-query-measures.js';
+import { buildWindowDatasetSql } from './utils/window-dataset-sql.js';
+import { baseMeasureNames, getBaseMeasure } from './utils/dataset-measures.js';
 import type {
   AnyDatasetInstance,
   DatasetQuery,
@@ -54,6 +58,9 @@ export function buildDatasetQueryBuilder(
   query: DatasetQuery,
   options: DatasetQueryExecutionOptions,
 ): QueryBuilderLike {
+  if (selectedWindowMeasures(ds, query).size) {
+    throw new Error('A window dataset query needs the window SQL planner; use createDatasetClient().toSQL().');
+  }
   if (hasSelectedDerivedMeasure(ds, query)) {
     throw new Error('A derived dataset query needs the outer SQL projection; use createDatasetClient().toSQL().');
   }
@@ -66,15 +73,17 @@ export function buildDatasetQueryBuilder(
 
   let qb = options.builderFactory.table(ds.source);
   qb = applyRelationshipJoins(qb, joinCtx);
-  const { selectParts, groupByParts } = buildDimensionSelectionPlan(ds, query.dimensions ?? [], query.by, joinCtx);
-  const measureNames = query.measures ?? Object.keys(ds.measures);
+  const { selectParts, groupByParts } = buildDimensionSelectionPlan(ds, query.dimensions ?? [], query.by, joinCtx, query.timezone);
+  const measureNames = query.measures ?? baseMeasureNames(ds.measures);
 
   if (selectParts.length > 0) {
     qb = qb.select(selectParts);
   }
 
   for (const measureName of measureNames) {
-    qb = applyMeasureDefinition(qb, ds, measureName, ds.measures[measureName], joinCtx);
+    const definition = getBaseMeasure(ds.measures, measureName);
+    if (!definition) throw new Error(`Measure "${measureName}" is not a base measure.`);
+    qb = applyMeasureDefinition(qb, ds, measureName, definition, joinCtx);
   }
 
   if (groupByParts.length > 0) {
@@ -89,7 +98,7 @@ export function buildDatasetQueryBuilder(
 
   for (const filter of query.filters ?? []) {
     const resolvedField = resolveFilterField(ds, filter.field, joinCtx);
-    qb = qb.where(resolvedField, filter.operator, filter.value);
+    qb = qb.where(queryTimeFilterSql(ds, filter.field, resolvedField, query.timezone), filter.operator, filter.value);
   }
 
   // Segments are author-defined, so they bypass the caller filter allow-list.
@@ -112,6 +121,13 @@ export async function runDatasetQuery(
   query: DatasetQuery,
   options: DatasetQueryExecutionOptions,
 ): Promise<DatasetQueryResult> {
+  if (selectedWindowMeasures(ds, query).size) {
+    const start = Date.now();
+    const { sql, parameters, timeAxisSql } = buildWindowDatasetSql(ds, query, { ...options, executionLimit: overfetchLimit(query.limit) });
+    await options.builderFactory.rawQuery(timeAxisSql, parameters, { abortSignal: options.context?.abortSignal });
+    const rows = await options.builderFactory.rawQuery<Record<string, unknown>>(sql, parameters, { abortSignal: options.context?.abortSignal });
+    return toDatasetQueryResult(rows, { dataset: ds, query, sql, timingMs: Date.now() - start, context: options.context });
+  }
   if (hasSelectedDerivedMeasure(ds, query)) {
     return runDerivedDatasetQuery(ds, query, options, buildDatasetQueryBuilder);
   }

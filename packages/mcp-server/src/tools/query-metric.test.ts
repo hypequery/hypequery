@@ -50,6 +50,16 @@ describe('queryMetricTool', () => {
     ).rejects.toThrow('Metric not found: nonexistent in dataset orders');
   });
 
+  it('forwards a query timezone override', async () => {
+    const analytics = createMockAnalytics({ data: [], meta: {} });
+    await queryMetricTool({ orders: { revenue: { type: 'sum' } } }, analytics, {
+      dataset: 'orders', metric: 'revenue', timezone: 'Asia/Tokyo',
+    });
+    expect(analytics.execute).toHaveBeenCalledWith(
+      expect.anything(), expect.objectContaining({ timezone: 'Asia/Tokyo' }), expect.anything(),
+    );
+  });
+
   it('should execute simple metric query', async () => {
     const mockResult = {
       data: [{ revenue: 1000 }],

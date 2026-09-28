@@ -946,7 +946,7 @@ describe("MetricQueryEngine", () => {
       const monthly = totalRevenue.by("month");
       const sql = analytics.toSQL(monthly, {}, TENANT_CONTEXT);
 
-      expect(sql).toContain("toStartOfMonth(created_at) AS period");
+      expect(sql).toContain("toStartOfMonth(toDateTime64(created_at, 9, 'UTC')) AS period");
       expect(sql).toContain("GROUP BY period");
       expect(sql).toContain("ORDER BY period");
     });
@@ -955,7 +955,7 @@ describe("MetricQueryEngine", () => {
       const analytics = new MetricQueryEngine({ builderFactory: createMockBuilderFactory() });
       const sql = analytics.toSQL(totalRevenue, { by: "week" }, TENANT_CONTEXT);
 
-      expect(sql).toContain("toStartOfWeek(created_at) AS period");
+      expect(sql).toContain("toStartOfWeek(toDateTime64(created_at, 9, 'UTC')) AS period");
     });
 
     it("rejects conflicting query.by on grained metrics", () => {
@@ -1563,7 +1563,7 @@ describe("dataset SQL generation matrix", () => {
       },
     });
 
-    expect(sql).toContain("toStartOfMonth(created_at) AS period");
+    expect(sql).toContain("toStartOfMonth(toDateTime64(created_at, 9, 'UTC')) AS period");
     expect(sql).toContain("status");
     expect(sql).toContain("SUM(if((status = 'completed') AND (amount > 10), amount, 0)) AS completedRevenue");
     expect(sql).toContain("WHERE tenant_id = ? AND country_code = ?");
@@ -1597,7 +1597,7 @@ describe("dataset SQL generation matrix", () => {
     expect(sql).toContain("amount <= ?");
     expect(sql).toContain("country_code IN (?)");
     expect(sql).toContain("status NOT IN (?)");
-    expect(sql).toContain("created_at BETWEEN ? AND ?");
+    expect(sql).toContain("toDateTime64(created_at, 9, 'UTC') BETWEEN ? AND ?");
     expect(sql).toContain("status LIKE ?");
   });
 

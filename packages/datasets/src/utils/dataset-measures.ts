@@ -1,21 +1,27 @@
 import type {
-  BaseMeasures,
   DatasetMeasureDefinition,
   DerivedMeasureDefinition,
   DerivedMeasures,
   MeasureDefinition,
+  WindowMeasureDefinition,
 } from '../types.js';
 
 export function isDerivedMeasure(
-  definition: DatasetMeasureDefinition,
+  definition: DatasetMeasureDefinition | null | undefined,
 ): definition is DerivedMeasureDefinition {
-  return definition.__type === 'derived_measure_definition';
+  return definition?.__type === 'derived_measure_definition';
 }
 
 export function isBaseMeasure(
-  definition: DatasetMeasureDefinition,
+  definition: DatasetMeasureDefinition | null | undefined,
 ): definition is MeasureDefinition {
-  return definition.__type === 'measure_definition';
+  return definition?.__type === 'measure_definition';
+}
+
+export function isWindowMeasure(
+  definition: DatasetMeasureDefinition | null | undefined,
+): definition is WindowMeasureDefinition {
+  return definition?.__type === 'window_measure_definition';
 }
 
 export function baseMeasureNames(measures: Record<string, DatasetMeasureDefinition>): string[] {
@@ -24,14 +30,38 @@ export function baseMeasureNames(measures: Record<string, DatasetMeasureDefiniti
     .map(([name]) => name);
 }
 
-export function splitDatasetMeasures<TMeasures extends Record<string, DatasetMeasureDefinition>>(
-  measures: TMeasures | undefined,
-): { base: BaseMeasures<TMeasures>; derived: DerivedMeasures<TMeasures> } {
+export function getBaseMeasure(
+  measures: Record<string, DatasetMeasureDefinition>,
+  name: string,
+): MeasureDefinition | undefined {
+  if (!Object.hasOwn(measures, name)) return undefined;
+  const definition = measures[name];
+  return isBaseMeasure(definition) ? definition : undefined;
+}
+
+export function splitDatasetMeasures(
+  measures: Record<string, DatasetMeasureDefinition> | undefined,
+): {
+  base: Record<string, MeasureDefinition>;
+  derived: Record<string, DerivedMeasureDefinition>;
+  windows: Record<string, WindowMeasureDefinition>;
+} {
   const entries = Object.entries(measures ?? {});
   return {
-    base: Object.fromEntries(entries.filter(([, definition]) => isBaseMeasure(definition))) as BaseMeasures<TMeasures>,
-    derived: Object.fromEntries(entries.filter(([, definition]) => isDerivedMeasure(definition))) as DerivedMeasures<TMeasures>,
+    base: Object.fromEntries(entries.filter((entry): entry is [string, MeasureDefinition] => isBaseMeasure(entry[1]))),
+    derived: Object.fromEntries(entries.filter((entry): entry is [string, DerivedMeasureDefinition] => isDerivedMeasure(entry[1]))),
+    windows: Object.fromEntries(entries.filter((entry): entry is [string, WindowMeasureDefinition] => isWindowMeasure(entry[1]))),
   };
+}
+
+/** Preserve the literal keys and formula aliases of the deprecated typed view. */
+export function derivedMeasuresView<TMeasures extends Record<string, DatasetMeasureDefinition>>(
+  measures: TMeasures,
+): DerivedMeasures<TMeasures> {
+  // TypeScript narrows each entry's value, but cannot reconstruct the mapped
+  // subset of generic keys after Object.fromEntries. The filtering above
+  // establishes that correspondence; preserve it at this single boundary.
+  return splitDatasetMeasures(measures).derived as DerivedMeasures<TMeasures>;
 }
 
 export function getDerivedMeasure(

@@ -69,8 +69,11 @@ const Orders = dataset('orders', {
 type _DerivedFormulaInputAliasesAreTyped = Assert<
   Equal<keyof Parameters<typeof Orders.derivedMeasures.doubledRevenue.formula>[0], 'revenue'>
 >;
-type _BaseMeasureNamesRemainTyped = Assert<
-  Equal<keyof typeof Orders.measures, 'revenue' | 'completedRevenue'>
+type _UnifiedMeasureNamesRemainTyped = Assert<
+  Equal<keyof typeof Orders.measures, 'revenue' | 'completedRevenue' | 'doubledRevenue'>
+>;
+type _UnifiedDerivedFormulaInputsRemainTyped = Assert<
+  Equal<keyof Parameters<typeof Orders.measures.doubledRevenue.formula>[0], 'revenue'>
 >;
 
 const _SegmentedOrders = dataset('segmentedOrders', {
@@ -109,6 +112,48 @@ dataset('derivedDependency', {
 type _DerivedMeasureIsQueryable = Assert<
   Equal<DatasetMeasureNames<typeof Orders>, 'revenue' | 'completedRevenue' | 'doubledRevenue'>
 >;
+
+const _WindowOrders = dataset('windowOrders', {
+  source: 'orders', timeKey: 'createdAt',
+  dimensions: { createdAt: dimension.timestamp(), amount: dimension.number() },
+  measures: {
+    revenue: measure.sum('amount'),
+    trailingRevenue: measure.trailing('revenue', { amount: 7, unit: 'day' }),
+    runningRevenue: measure.cumulative('revenue'),
+    growth: measure.derived({ uses: { running: 'runningRevenue' }, formula: ({ running }) => add(running, running) }),
+  },
+});
+type _WindowMeasureNamesRemainTyped = Assert<
+  Equal<DatasetMeasureNames<typeof _WindowOrders>, 'revenue' | 'trailingRevenue' | 'runningRevenue' | 'growth'>
+>;
+type _UnifiedWindowRegistryNamesRemainTyped = Assert<
+  Equal<keyof typeof _WindowOrders.measures, 'revenue' | 'trailingRevenue' | 'runningRevenue' | 'growth'>
+>;
+type _WindowReferenceRemainsTyped = Assert<
+  Equal<typeof _WindowOrders.measures.runningRevenue.measure, 'revenue'>
+>;
+type _NoSeparateWindowRegistry = Assert<Equal<HasKey<typeof _WindowOrders, 'windowMeasures'>, false>>;
+type _UnselectedWindowIsNotInDefaultResult = Assert<
+  Equal<HasKey<DatasetRowFor<typeof _WindowOrders, {}>, 'runningRevenue'>, false>
+>;
+type _UnselectedWindowFormulaIsNotInDefaultResult = Assert<
+  Equal<HasKey<DatasetRowFor<typeof _WindowOrders, {}>, 'growth'>, false>
+>;
+type _ExplicitlySelectedWindowIsInResult = Assert<
+  Equal<HasKey<DatasetRowFor<typeof _WindowOrders, { measures: readonly ['runningRevenue'] }>, 'runningRevenue'>, true>
+>;
+// @ts-expect-error standalone metrics may only target base measures, even in the unified registry.
+_WindowOrders.metric('invalidWindowMetric', { measure: 'runningRevenue' });
+dataset('invalidWindowInput', {
+  source: 'orders', timeKey: 'createdAt',
+  dimensions: { createdAt: dimension.timestamp(), amount: dimension.number() },
+  measures: {
+    revenue: measure.sum('amount'),
+    growth: measure.derived({ uses: { value: 'revenue' }, formula: ({ value }) => add(value, value) }),
+    // @ts-expect-error a window must wrap a base measure.
+    invalid: measure.cumulative('growth'),
+  },
+});
 type _UnselectedDerivedMeasureIsNotInDefaultResult = Assert<
   Equal<HasKey<DatasetRowFor<typeof Orders, {}>, 'doubledRevenue'>, false>
 >;

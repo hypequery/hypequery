@@ -1,3 +1,4 @@
+import { baseMeasureNames } from './dataset-measures.js';
 import type {
   AggregationSpec,
   AnyDatasetInstance,
@@ -19,7 +20,7 @@ export function buildMetricContract(
   grain?: TimeGrain,
 ): MetricContract {
   const dimensionNames = Object.keys(ds.dimensions);
-  const measureNames = Object.keys(ds.measures);
+  const measureNames = baseMeasureNames(ds.measures);
   const filterNames = Object.keys(ds.filters).length > 0
     ? Object.keys(ds.filters)
     : dimensionNames.filter(name => ds.dimensions[name]?.filterable !== false);

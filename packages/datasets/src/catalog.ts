@@ -1,3 +1,5 @@
+import { windowCatalogMetadata, type WindowCatalogMetadata } from './utils/window-catalog-metadata.js';
+import { splitDatasetMeasures } from './utils/dataset-measures.js';
 import type {
   AnyDatasetInstance,
   DimensionDefinition,
@@ -14,6 +16,7 @@ import type {
 import { SEMANTIC_FILTER_OPERATORS } from './constants.js';
 import { datasetTimeGrains } from './utils/dataset-time-grains.js';
 import { isApproximateAggregation, isApproximateDerivedMeasure } from './utils/approximate-measures.js';
+import { usesWindowMeasure } from './utils/window-measure-dependencies.js';
 import {
   listGroupableRelationshipFields,
   listQueryableRelationshipFields,
@@ -30,7 +33,7 @@ export interface DimensionCatalogEntry extends SemanticMetadata {
   groupable: boolean;
 }
 
-export interface MeasureCatalogEntry extends SemanticMetadata {
+export interface MeasureCatalogEntry extends SemanticMetadata, WindowCatalogMetadata {
   aggregation: MeasureDefinition['aggregation'];
   field: string;
   /** Second column for argMax/argMin. */
@@ -45,7 +48,7 @@ export interface MeasureCatalogEntry extends SemanticMetadata {
   approximate?: true;
 }
 
-export interface DerivedMeasureCatalogEntry extends SemanticMetadata {
+export interface DerivedMeasureCatalogEntry extends SemanticMetadata, WindowCatalogMetadata {
   label?: string;
   description?: string;
   /** Present, as `true`, when any measure the formula uses is approximate. */
@@ -215,8 +218,10 @@ export function getGroupableRelationshipFields(catalog: DatasetCatalog): string[
 
 export function getDatasetCatalog(dataset: DatasetCatalogSource): DatasetCatalog {
   const dimensionNames = Object.keys(dataset.dimensions);
-  const measureNames = Object.keys(dataset.measures);
-  const derivedMeasureNames = Object.keys(dataset.derivedMeasures ?? {});
+  const { base: baseMeasures, derived, windows } = splitDatasetMeasures(dataset.measures);
+  const measureNames = [...Object.keys(baseMeasures), ...Object.keys(windows)];
+  const derivedMeasures = Object.entries(derived);
+  const derivedMeasureNames = derivedMeasures.map(([name]) => name);
   const metricNames = Object.keys(dataset.metrics ?? {});
   const supportedGrains = [...datasetTimeGrains(dataset)];
   const maxLimit = dataset.limits?.maxResultSize;
@@ -244,17 +249,24 @@ export function getDatasetCatalog(dataset: DatasetCatalogSource): DatasetCatalog
       ]),
     ),
     measures: Object.fromEntries(
-      Object.entries(dataset.measures).map(([name, measure]) => [
-        name,
-        measureToCatalog(measure),
-      ]),
+      [
+        ...Object.entries(baseMeasures).map(([name, measure]) => [name, measureToCatalog(measure)]),
+        ...Object.entries(windows).map(([name, window]) => [name, {
+          ...measureToCatalog(baseMeasures[window.measure]),
+          ...snapshotSemanticMetadata(window),
+          label: window.label,
+          description: window.description,
+          ...windowCatalogMetadata(window),
+        }]),
+      ],
     ),
-    ...(dataset.derivedMeasures && Object.keys(dataset.derivedMeasures).length > 0 ? {
+    ...(derivedMeasures.length > 0 ? {
       derivedMeasures: Object.fromEntries(
-        Object.entries(dataset.derivedMeasures).map(([name, definition]) => [
+        derivedMeasures.map(([name, definition]) => [
           name,
           {
             ...snapshotSemanticMetadata(definition),
+            ...(usesWindowMeasure(definition, dataset.measures) ? { requiresTimeRange: true as const } : {}),
             label: definition.label,
             description: definition.description,
             ...(isApproximateDerivedMeasure(dataset.measures, definition) ? { approximate: true as const } : {}),
