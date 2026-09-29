@@ -1,6 +1,9 @@
+import { selectedTimeMeasures } from './time-query-measures.js';
+import { measureSupportedGrains } from './measure-time-grains.js';
 import { baseMeasureNames } from './dataset-measures.js';
 import type {
   AggregationSpec,
+  DatasetMeasureMetricSpec,
   AnyDatasetInstance,
   DerivedMetricSpec,
   MetricContract,
@@ -13,7 +16,7 @@ import { snapshotSemanticMetadata } from './semantic-metadata.js';
 export function buildMetricContract(
   metricName: string,
   ds: AnyDatasetInstance,
-  spec: AggregationSpec | DerivedMetricSpec,
+  spec: AggregationSpec | DatasetMeasureMetricSpec | DerivedMetricSpec,
   label?: string,
   description?: string,
   metadata: SemanticMetadata = {},
@@ -41,7 +44,10 @@ export function buildMetricContract(
     dimensions: dimensionNames,
     measures: measureNames,
     filters: filterNames,
-    grains: [...datasetTimeGrains(ds)],
+    grains: spec.__type === 'dataset_measure_metric_spec'
+      ? measureSupportedGrains(ds.measures, spec.measure, datasetTimeGrains(ds)) : [...datasetTimeGrains(ds)],
+    ...(spec.__type === 'dataset_measure_metric_spec' && selectedTimeMeasures(ds, { measures: [spec.measure] }).size
+      ? { requiresTimeRange: true as const } : {}),
     grain,
     requires: spec.__type === 'derived_metric_spec'
       ? Object.keys(spec.uses)

@@ -252,6 +252,10 @@ function buildDescription(contract: MetricContract, maxLimit: number): string {
     lines.push(`**Time grains:** ${contract.grains.join(', ')}`);
   }
 
+  if (contract.requiresTimeRange) {
+    lines.push('**Requires:** a time grain and bounded ISO time range');
+  }
+
   if (contract.requires && contract.requires.length > 0) {
     lines.push(`**Requires:** ${contract.requires.join(', ')}`);
   }

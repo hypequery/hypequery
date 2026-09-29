@@ -83,6 +83,7 @@ export interface MetricCatalogEntry extends SemanticMetadata {
   grains: string[];
   grain?: string;
   requires?: string[];
+  requiresTimeRange?: true;
 }
 
 export interface RelationshipCatalogEntry {
@@ -186,6 +187,7 @@ function metricToCatalog(metric: MetricHandle): MetricCatalogEntry {
     grains: contract.grains,
     grain: contract.grain,
     requires: contract.requires,
+    ...(contract.requiresTimeRange ? { requiresTimeRange: true as const } : {}),
   };
 }
 

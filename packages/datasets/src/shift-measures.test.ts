@@ -34,7 +34,7 @@ describe('shift measures', () => {
     expect('shiftMeasures' in Events).toBe(false);
     expect(client.toSQL(Events)).toBe('SELECT SUM(value) AS revenue FROM events');
     // @ts-expect-error Standalone metrics remain base-only.
-    expect(() => Events.metric('invalid', { measure: 'prior' })).toThrow(/must be a base measure/);
+    expect(Events.metric('comparison', { measure: 'prior' }).spec.__type).toBe('dataset_measure_metric_spec');
   });
   it.each([0, -1, 1.5, Infinity, Number.MAX_SAFE_INTEGER + 1])('rejects invalid interval amount %s', amount => {
     expect(() => withInterval({ amount, unit: 'day' })).toThrow(/positive safe integer/);

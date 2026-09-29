@@ -41,6 +41,9 @@ import type {
   BaseMetricRef,
   DerivedMetricRef,
   BaseMetricConfig,
+  MeasureMetricConfig,
+  NonBaseMeasures,
+  MeasureMetricRef,
   DerivedMetricConfig,
   SegmentDefinition,
 } from './types.js';
@@ -95,12 +98,16 @@ export function dataset<
   ): BaseMetricRef<TDatasetName, TName, ThisDataset>;
   function metric<TName extends string>(
     metricName: TName,
+    metricConfig: MeasureMetricConfig<NonBaseMeasures<TDefinitions>>,
+  ): MeasureMetricRef<TDatasetName, TName, ThisDataset>;
+  function metric<TName extends string>(
+    metricName: TName,
     metricConfig: DerivedMetricConfig<TDatasetName>,
   ): DerivedMetricRef<TDatasetName, TName, ThisDataset>;
   function metric<TName extends string>(
     metricName: TName,
-    metricConfig: BaseMetricConfig<TMeasures> | DerivedMetricConfig<TDatasetName>,
-  ): BaseMetricRef<TDatasetName, TName, ThisDataset> | DerivedMetricRef<TDatasetName, TName, ThisDataset> {
+    metricConfig: BaseMetricConfig<TMeasures> | MeasureMetricConfig<NonBaseMeasures<TDefinitions>> | DerivedMetricConfig<TDatasetName>,
+  ): BaseMetricRef<TDatasetName, TName, ThisDataset> | MeasureMetricRef<TDatasetName, TName, ThisDataset> | DerivedMetricRef<TDatasetName, TName, ThisDataset> {
     validateSemanticMetadata(ds.name, `metrics.${metricName}`, metricConfig);
     if (isDerivedMetricConfig(metricConfig)) {
       validateDerivedMetric(ds, metricName, metricConfig);
@@ -115,7 +122,10 @@ export function dataset<
     const measure = getBaseMeasure(ds.measures, measureName);
     if (!measure) {
       if (Object.hasOwn(ds.measures, measureName)) {
-        throw new Error(`Invalid metric "${metricName}": measure "${measureName}" must be a base measure.`);
+        const definition = ds.measures[measureName];
+        return createMetricRef(ds, metricName, { __type: 'dataset_measure_metric_spec', measure: measureName },
+          metricConfig.label ?? definition.label, metricConfig.description ?? definition.description,
+          { ...definition, ...metricConfig });
       }
       throw new Error(
         `Invalid metric "${metricName}": measure "${measureName}" does not exist on dataset "${ds.name}".`,

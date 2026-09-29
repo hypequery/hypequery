@@ -1,5 +1,6 @@
 import type {
   AggregationSpec,
+  DatasetMeasureMetricSpec,
   AnyDatasetInstance,
   DerivedMetricSpec,
   GrainedMetricRef,
@@ -11,7 +12,7 @@ import type {
 export type PublishableMetric<TDataset extends AnyDatasetInstance> = MetricHandle<
   TDataset['name'],
   string,
-  AggregationSpec | DerivedMetricSpec<TDataset['name']>,
+  AggregationSpec | DatasetMeasureMetricSpec | DerivedMetricSpec<TDataset['name']>,
   TDataset
 >;
 

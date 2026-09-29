@@ -217,6 +217,18 @@ export type FormulaExpr = {
   toSQL: () => string;
 };
 
+/** A named metric evaluated through the canonical dataset measure planner. */
+export interface DatasetMeasureMetricSpec {
+  __type: 'dataset_measure_metric_spec';
+  measure: string;
+}
+
+export type MeasureMetricRef<
+  TDatasetName extends string = string,
+  TMetricName extends string = string,
+  TDataset extends DatasetInstance<any, any, any, TDatasetName> = DefaultMetricDataset<TDatasetName>,
+> = MetricRef<TDatasetName, TMetricName, DatasetMeasureMetricSpec, TDataset>;
+
 export interface DerivedMetricSpec<TDatasetName extends string = string> {
   __type: 'derived_metric_spec';
   uses: Record<string, BaseMetricRef<TDatasetName>>;
@@ -239,7 +251,7 @@ export type DefaultMetricDataset<TDatasetName extends string = string> =
 export interface MetricRef<
   TDatasetName extends string = string,
   TMetricName extends string = string,
-  TSpec extends AggregationSpec | DerivedMetricSpec<TDatasetName> = AggregationSpec | DerivedMetricSpec<TDatasetName>,
+  TSpec extends AggregationSpec | DatasetMeasureMetricSpec | DerivedMetricSpec<TDatasetName> = AggregationSpec | DatasetMeasureMetricSpec | DerivedMetricSpec<TDatasetName>,
   TDataset extends DatasetInstance<any, any, any, TDatasetName> = DefaultMetricDataset<TDatasetName>,
 > {
   __type: 'metric_ref';
@@ -274,7 +286,7 @@ export type DerivedMetricRef<
 export interface GrainedMetricRef<
   TDatasetName extends string = string,
   TMetricName extends string = string,
-  TSpec extends AggregationSpec | DerivedMetricSpec<TDatasetName> = AggregationSpec | DerivedMetricSpec<TDatasetName>,
+  TSpec extends AggregationSpec | DatasetMeasureMetricSpec | DerivedMetricSpec<TDatasetName> = AggregationSpec | DatasetMeasureMetricSpec | DerivedMetricSpec<TDatasetName>,
   TDataset extends DatasetInstance<any, any, any, TDatasetName> = DefaultMetricDataset<TDatasetName>,
 > {
   __type: 'grained_metric_ref';
@@ -286,7 +298,7 @@ export interface GrainedMetricRef<
 export type MetricHandle<
   TDatasetName extends string = string,
   TMetricName extends string = string,
-  TSpec extends AggregationSpec | DerivedMetricSpec<TDatasetName> = AggregationSpec | DerivedMetricSpec<TDatasetName>,
+  TSpec extends AggregationSpec | DatasetMeasureMetricSpec | DerivedMetricSpec<TDatasetName> = AggregationSpec | DatasetMeasureMetricSpec | DerivedMetricSpec<TDatasetName>,
   TDataset extends DatasetInstance<any, any, any, TDatasetName> = DefaultMetricDataset<TDatasetName>,
 > = MetricRef<TDatasetName, TMetricName, TSpec, TDataset> | GrainedMetricRef<TDatasetName, TMetricName, TSpec, TDataset>;
 
@@ -312,6 +324,7 @@ export interface MetricContract {
   grain?: TimeGrain;
   requires?: string[];
   tenantScoped: boolean;
+  requiresTimeRange?: true;
 }
 
 export interface MetricFilter<
@@ -479,6 +492,17 @@ export interface BaseMetricConfig<
   description?: string;
 }
 
+export type NonBaseMeasures<TMeasures> = {
+  [Name in keyof TMeasures as Exclude<TMeasures[Name], MeasureDefinition> extends never ? never : Name]:
+    Exclude<TMeasures[Name], MeasureDefinition>;
+};
+
+export interface MeasureMetricConfig<TMeasures extends Record<string, DatasetMeasureDefinition> = Record<string, DatasetMeasureDefinition>> extends SemanticMetadata {
+  measure: keyof TMeasures & string;
+  label?: string;
+  description?: string;
+}
+
 export interface DerivedMetricConfig<TDatasetName extends string = string> extends SemanticMetadata {
   uses: Record<string, BaseMetricRef<TDatasetName>>;
   formula: (inputs: Record<string, string>) => FormulaExpr;
@@ -557,6 +581,10 @@ export interface DatasetInstance<
     metricName: TName,
     metricConfig: BaseMetricConfig<BaseMeasures<TMeasures>>,
   ): BaseMetricRef<TDatasetName, TName, DatasetInstance<TDimensions, TMeasures, TRelationships, TDatasetName, TDerivedMeasures, TSegments>>;
+  metric<TName extends string>(
+    metricName: TName,
+    metricConfig: MeasureMetricConfig<NonBaseMeasures<TMeasures>>,
+  ): MeasureMetricRef<TDatasetName, TName, DatasetInstance<TDimensions, TMeasures, TRelationships, TDatasetName, TDerivedMeasures, TSegments>>;
   metric<TName extends string>(
     metricName: TName,
     metricConfig: DerivedMetricConfig<TDatasetName>,

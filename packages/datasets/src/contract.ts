@@ -62,6 +62,7 @@ export interface ContractMetric extends SemanticMetadata {
   grains: string[];
   grain?: string;
   requires?: string[];
+  requiresTimeRange?: true;
 }
 
 export interface ContractFilter extends SemanticMetadata {
@@ -255,6 +256,7 @@ function metricToContract(entry: MetricCatalogEntry): ContractMetric {
     filters: uniqueSorted(entry.filters),
     grains: uniqueSorted(entry.grains),
     ...(entry.grain !== undefined ? { grain: entry.grain } : {}),
+    ...(entry.requiresTimeRange ? { requiresTimeRange: true as const } : {}),
     ...(entry.requires !== undefined ? { requires: uniqueSorted(entry.requires) } : {}),
   };
 }

@@ -164,6 +164,7 @@ export const DATASET_SCHEMA_OUTPUT_SCHEMA = resultSchema({
           dimensions: { type: 'array', items: { type: 'string' } },
           filters: { type: 'array', items: { type: 'string' } },
           grains: { type: 'array', items: { type: 'string' } },
+          requiresTimeRange: { type: 'boolean', const: true },
           grain: { type: 'string' },
         },
         required: ['name', 'dimensions', 'filters', 'grains'],

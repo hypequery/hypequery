@@ -3,7 +3,7 @@ import {
   type CanonicalValue, type ProtocolExpression, type ProtocolMetricDerivation,
 } from '@hypequery/protocol';
 import type { SemanticExpression } from '../semantic-plan.js';
-import type { AggregationSpec, DerivedMeasureDefinition, DerivedMetricSpec, MetricFilter } from '../types.js';
+import type { AggregationSpec, DatasetMeasureMetricSpec, DerivedMeasureDefinition, DerivedMetricSpec, MetricFilter } from '../types.js';
 import { requirePortableAggregation } from './portable-aggregations.js';
 
 type ProtocolReferenceExpression = Extract<ProtocolExpression, { readonly kind: 'reference' }>;
@@ -110,7 +110,8 @@ export function derivedMeasureExpression(definition: DerivedMeasureDefinition): 
   return semanticExpression(definition.formula(aliases).expression);
 }
 
-export function metricExpression(spec: AggregationSpec | DerivedMetricSpec): ProtocolExpression {
+export function metricExpression(spec: AggregationSpec | DatasetMeasureMetricSpec | DerivedMetricSpec): ProtocolExpression {
+  if (spec.__type === 'dataset_measure_metric_spec') throw new Error('Dataset measure metrics are not supported by the deployment contract.');
   if (spec.__type === 'aggregation_spec') return aggregationExpression(spec);
   const aliases = Object.fromEntries(Object.keys(spec.uses).map(alias => [alias, alias]));
   const references = Object.fromEntries(Object.entries(spec.uses).map(([alias, metric]) => [

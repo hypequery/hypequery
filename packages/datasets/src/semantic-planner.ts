@@ -330,6 +330,9 @@ export function buildMetricPlan(
   const grain = getMetricGrain(metric as MetricHandle, query);
   const plannedQuery = { ...query, by: grain };
 
+  if (ref.spec.__type === 'dataset_measure_metric_spec') {
+    throw new Error('Dataset measure metrics require the queryBuilder execution path.');
+  }
   if (ref.spec.__type === 'derived_metric_spec') {
     return buildDerivedMetricPlan(ref, plannedQuery, context);
   }

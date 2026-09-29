@@ -1,6 +1,7 @@
 import type {
   AggregationSpec,
-  BaseMetricConfig,
+  MeasureMetricConfig,
+  DatasetMeasureMetricSpec,
   BaseMetricRef,
   DatasetInstance,
   DerivedMetricConfig,
@@ -9,7 +10,6 @@ import type {
   DimensionDefinition,
   GrainedMetricRef,
   DatasetMeasureDefinition,
-  MeasureDefinition,
   MetricRef,
   RelationshipDefinition,
   SemanticMetadata,
@@ -24,10 +24,10 @@ type AnyMeasures = Record<string, DatasetMeasureDefinition>;
 type AnyRelationships = Record<string, RelationshipDefinition>;
 
 export function isDerivedMetricConfig<
-  TMeasures extends Record<string, MeasureDefinition>,
+  TMeasures extends Record<string, DatasetMeasureDefinition>,
   TDatasetName extends string,
 >(
-  config: BaseMetricConfig<TMeasures> | DerivedMetricConfig<TDatasetName>,
+  config: { measure: string } | MeasureMetricConfig<TMeasures> | DerivedMetricConfig<TDatasetName>,
 ): config is DerivedMetricConfig<TDatasetName> {
   return 'uses' in config && 'formula' in config;
 }
@@ -35,7 +35,7 @@ export function isDerivedMetricConfig<
 export function createMetricRef<
   TDatasetName extends string,
   TMetricName extends string,
-  TSpec extends AggregationSpec | DerivedMetricSpec<TDatasetName>,
+  TSpec extends AggregationSpec | DatasetMeasureMetricSpec | DerivedMetricSpec<TDatasetName>,
   TDataset extends DatasetInstance<AnyDimensions, AnyMeasures, AnyRelationships, TDatasetName>,
 >(
   ds: TDataset,
@@ -61,7 +61,9 @@ export function createMetricRef<
           `Cannot apply .by("${grain}") to metric "${name}" — dataset "${ds.name}" has no timeKey defined.`,
         );
       }
-      const grainError = unsupportedTimeGrainError(ds, grain);
+      const grainError = unsupportedTimeGrainError(ds, grain)
+        ?? (spec.__type === 'dataset_measure_metric_spec' && !buildMetricContract(name, ds, spec).grains.includes(grain)
+          ? `Measure "${spec.measure}" does not support grain "${grain}"` : undefined);
       if (grainError) {
         throw new Error(`Cannot apply .by("${grain}") to metric "${name}": ${grainError}.`);
       }

@@ -96,7 +96,6 @@ const invalidPlainSegments: DatasetQueryFor<typeof Orders> = { segments: ['paid'
 void invalidDatasetSegments;
 void invalidMetricSegments;
 void invalidPlainSegments;
-// @ts-expect-error standalone metrics may only target base measures.
 Orders.metric('invalidDerivedMetric', { measure: 'doubledRevenue' });
 
 dataset('derivedDependency', {
@@ -141,7 +140,6 @@ type _UnselectedWindowFormulaIsNotInDefaultResult = Assert<
 type _ExplicitlySelectedWindowIsInResult = Assert<
   Equal<HasKey<DatasetRowFor<typeof _WindowOrders, { measures: readonly ['runningRevenue'] }>, 'runningRevenue'>, true>
 >;
-// @ts-expect-error standalone metrics may only target base measures, even in the unified registry.
 _WindowOrders.metric('invalidWindowMetric', { measure: 'runningRevenue' });
 dataset('invalidWindowInput', {
   source: 'orders', timeKey: 'createdAt',

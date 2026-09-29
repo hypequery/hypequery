@@ -45,6 +45,7 @@ export interface AgentCatalogMetric extends SemanticMetadata {
   filters: string[];
   grains: string[];
   grain?: string;
+  requiresTimeRange?: true;
 }
 
 export interface AgentCatalogFilter extends SemanticMetadata {

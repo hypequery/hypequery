@@ -1,3 +1,4 @@
+import { datasetMeasureMetricQuery } from '../utils/dataset-measure-metric.js';
 import { windowQuerySignature } from '../utils/window-query-signature.js';
 /**
  * Canonical cache keys for semantic queries.
@@ -159,6 +160,11 @@ export function buildMetricQuerySignature(
     target: `${ref.dataset.name}.${ref.name}`,
     source: ref.dataset.source,
     metricKind: ref.spec.__type,
+    ...(ref.spec.__type === 'dataset_measure_metric_spec' ? {
+      datasetMeasure: ref.spec.measure,
+      measureDefinitions: windowQuerySignature(ref.dataset, datasetMeasureMetricQuery(ref, ref.spec, query, grain), true),
+      measureQuery: buildDatasetQuerySignature(ref.dataset, datasetMeasureMetricQuery(ref, ref.spec, query, grain), context),
+    } : {}),
     dimensions: query.dimensions ?? null,
     filters: filterSignature(query.filters),
     ...segmentSignature(ref.dataset, query.segments),

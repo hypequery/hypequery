@@ -64,6 +64,7 @@ export interface RecordShapedDataset extends SemanticMetadata {
     readonly filters: readonly string[];
     readonly grains: readonly string[];
     readonly grain?: string;
+    readonly requiresTimeRange?: true;
   }>>;
   readonly filters: Readonly<Record<string, SemanticMetadata & {
     readonly field: string;
@@ -181,6 +182,7 @@ export function recordDatasetToAgentDataset(dataset: RecordShapedDataset): Agent
         dimensions: uniqueSorted(metric.dimensions.filter(item => dimensionNames.has(item))),
         filters: uniqueSorted(metric.filters.filter(item => filterNames.has(item))),
         grains: uniqueSorted(metric.grains),
+        ...(metric.requiresTimeRange ? { requiresTimeRange: true as const } : {}),
         ...(metric.grain !== undefined ? { grain: metric.grain } : {}),
       })),
     ),

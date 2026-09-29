@@ -1,3 +1,4 @@
+import { buildDatasetMeasureMetricSql, datasetMeasureMetricQuery } from './utils/dataset-measure-metric.js';
 import { queryTimezoneErrors, queryTimeFilterSql } from './utils/query-timezone.js';
 import { selectedTimeMeasures, rejectTimeMeasuresOnBackend } from './utils/time-query-measures.js';
 import { buildTimeMeasureDatasetSql } from './utils/time-measure-dataset-sql.js';
@@ -116,6 +117,9 @@ function validateQuery(
   const errors = [...protocolMetricCapabilityErrors(metric, query), ...queryTimezoneErrors(query.timezone)];
   const ref = getMetricRef(metric);
   const ds = ref.dataset;
+  if (ref.spec.__type === 'dataset_measure_metric_spec') {
+    errors.push(...validateDatasetQuery(ds, datasetMeasureMetricQuery(ref, ref.spec, query, getMetricGrain(metric, query)), context).errors);
+  }
   const dimensionNames = Object.keys(ds.dimensions);
   const filterNames = Object.keys(ds.filters);
   const grain = getMetricGrain(metric, query);
@@ -414,6 +418,10 @@ export class MetricQueryEngine {
     const grain = getMetricGrain(metric, query);
     const spec = ref.spec;
 
+    if (spec.__type === 'dataset_measure_metric_spec') {
+      return buildDatasetMeasureMetricSql(ref, spec, query, grain, { builderFactory: resolveBuilderFactory(context, this.builderFactory), context }).sql;
+    }
+
     if (spec.__type === 'derived_metric_spec') {
       return this.buildDerivedSQLViaBuilder(ref, spec, query, grain, context).sql;
     }
@@ -441,7 +449,9 @@ export class MetricQueryEngine {
     const grain = getMetricGrain(metric, query);
 
     try {
-      if (ref.spec.__type === 'derived_metric_spec') {
+      if (ref.spec.__type === 'dataset_measure_metric_spec') {
+        buildDatasetMeasureMetricSql(ref, ref.spec, query, grain, { builderFactory: resolveBuilderFactory(context, this.builderFactory), context });
+      } else if (ref.spec.__type === 'derived_metric_spec') {
         this.buildDerivedSQLViaBuilder(ref, ref.spec, query, grain, context);
       } else {
         this.buildBaseQuery(ref, ref.spec, ref.dataset, query, grain, context).toSQLWithParams();
@@ -473,6 +483,18 @@ export class MetricQueryEngine {
 
     // Over-fetch one row so we can report `hasMore` without a count query.
     const buildQuery = { ...query, limit: overfetchLimit(query.limit) };
+
+    if (spec.__type === 'dataset_measure_metric_spec') {
+      const built = buildDatasetMeasureMetricSql(ref, spec, query, grain, {
+        builderFactory: activeBuilderFactory, context, executionLimit: overfetchLimit(query.limit),
+      });
+      if (built.timeAxisSql) await activeBuilderFactory.rawQuery(built.timeAxisSql, built.parameters, { abortSignal: context?.abortSignal });
+      const rows = await activeBuilderFactory.rawQuery<T>(built.sql, built.parameters, { abortSignal: context?.abortSignal });
+      const { data, pagination } = applyPagination(rows, query.limit, query.offset);
+      const serializedData = serializeSemanticMeasureValues(data, [ref.name]);
+      return { data: serializedData, meta: { sql: built.sql, timingMs: Date.now() - start,
+        tenant: getRuntimeTenantId(context), rowCount: serializedData.length, pagination } };
+    }
 
     if (spec.__type === 'derived_metric_spec') {
       // Derived metrics: build CTE via builder, outer query via string, execute via rawQuery
@@ -885,6 +907,9 @@ export class DatasetClientImpl extends MetricQueryEngine implements DatasetClien
       return this.toDatasetSQL(target, query as DatasetQuery, context);
     }
 
+    if (this.backend && getMetricRef(target).spec.__type === 'dataset_measure_metric_spec') {
+      throw new Error('Dataset measure metrics require the queryBuilder execution path.');
+    }
     return super.toSQL(target, query as MetricQuery, context);
   }
 
@@ -901,6 +926,9 @@ export class DatasetClientImpl extends MetricQueryEngine implements DatasetClien
       return validateDatasetQuery(target, query as DatasetQuery, context);
     }
 
+    if (this.backend && getMetricRef(target).spec.__type === 'dataset_measure_metric_spec') {
+      return { valid: false, errors: ['Dataset measure metrics require the queryBuilder execution path.'] };
+    }
     return super.validate(target, query as MetricQuery, context);
   }
 
@@ -909,6 +937,9 @@ export class DatasetClientImpl extends MetricQueryEngine implements DatasetClien
     query: MetricQuery,
     context?: ExecutionContext,
   ): Promise<MetricResult<TRow>> {
+    if (this.backend && getMetricRef(metric).spec.__type === 'dataset_measure_metric_spec') {
+      throw new Error('Dataset measure metrics require the queryBuilder execution path.');
+    }
     const ds = getMetricRef(metric).dataset as AnyDatasetInstance;
 
     // Same ceiling and same cache policy as a dataset query: a metric is a

@@ -1,5 +1,6 @@
 import type {
   AggregationSpec,
+  DatasetMeasureMetricSpec,
   AnyDatasetInstance,
   DerivedMetricSpec,
   GrainedMetricRef,
@@ -7,7 +8,7 @@ import type {
   MetricRef,
 } from '../types.js';
 
-type AnyMetricSpec = AggregationSpec | DerivedMetricSpec<string>;
+type AnyMetricSpec = AggregationSpec | DatasetMeasureMetricSpec | DerivedMetricSpec<string>;
 
 function aliasMetricRef(
   metric: MetricRef<string, string, AnyMetricSpec, AnyDatasetInstance>,

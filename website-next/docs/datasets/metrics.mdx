@@ -3,19 +3,14 @@ title: Metrics
 description: Attach named KPIs and derived calculations to datasets.
 ---
 
-import { Callout } from 'fumadocs-ui/components/callout';
 import { CodeBlock } from 'fumadocs-ui/components/codeblock';
 
 Metrics are named KPI handles attached to a dataset. They are the reusable values you expose to APIs, dashboards, agents, and MCP clients.
 
-<Callout type="warn" title="Soon to be deprecated for new definitions">
-  Prefer [dataset-owned measures](/docs/datasets/measures#derived-measures),
-  including `measure.derived(...)` in the same `measures` object, for new
-  calculations. Standalone metrics still work locally and with self-hosted
-  Serve. This page documents the existing API for applications that still use it.
-</Callout>
+Define calculations in the dataset's `measures` object with `measure.derived`.
+Use a named metric handle when exposing one measure as a KPI.
 
-Measures define raw aggregations inside a dataset. Metrics promote those measures into named business concepts.
+Measures define aggregations, formulas, windows, and comparisons inside a dataset. Metrics promote those measures into named business concepts.
 
 <CodeBlock>
 ```typescript
@@ -29,9 +24,11 @@ await analytics.execute(revenue, {
 ```
 </CodeBlock>
 
-## Base metrics
+## Named metrics
 
-Base metrics point at one measure from the same dataset.
+Named metrics point at any measure from the same dataset. Windows and
+comparisons inherit their measure's supported grains and bounded time-range
+requirement. See [period comparisons](/docs/datasets/measures#period-comparisons).
 
 <CodeBlock>
 ```typescript

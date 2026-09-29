@@ -572,6 +572,22 @@ describe("Serve integration — metrics", () => {
   });
 
   describe("metric endpoints", () => {
+    it('serves a dataset comparison metric and enforces inherited range requirements', async () => {
+      const ds = dataset('comparisonOrders', { source: 'orders', timeKey: 'createdAt', dimensions: { createdAt: dimension.timestamp() }, measures: {
+        revenue: measure.sum('amount'), ytd: measure.toDate('revenue', 'year'), priorYtd: measure.shift('ytd', { amount: 1, unit: 'year' }),
+      } });
+      const previousYtd = ds.metric('previousYtd', { measure: 'priorYtd' });
+      const factory = createMockBuilderFactory([{ previousYtd: 30 }]);
+      const api = createAPI({ metrics: { previousYtd }, queryBuilder: factory });
+      const missingRange = await api.handler(createRequest({ path: '/metrics/previousYtd', body: { by: 'month' } }));
+      expect(missingRange.status).toBe(400);
+      const response = await api.handler(createRequest({ path: '/metrics/previousYtd', body: { by: 'month', filters: [
+        { field: 'createdAt', operator: 'gte', value: '2024-01-01' }, { field: 'createdAt', operator: 'lt', value: '2024-02-01' },
+      ] } }));
+      expect(response.status).toBe(200);
+      expect(semanticBody(response).data).toEqual([{ previousYtd: '30' }]);
+    });
+
     it("responds to POST /metrics/:name", async () => {
       const factory = createMockBuilderFactory();
       const api = createAPI({

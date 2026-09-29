@@ -23,8 +23,12 @@ type AgentKind = Assert<Equal<AgentCatalogMeasure['kind'], 'window' | 'shift' | 
 
 // @ts-expect-error There is one public measure registry.
 void Events.shiftMeasures;
-// @ts-expect-error Standalone metrics remain base-only.
-Events.metric('invalid', { measure: 'prior' });
+const Previous = Events.metric('previous', { measure: 'prior' });
+client.execute(Previous.by('month'), { filters: [{ field: 'time', operator: 'between', value: ['2024-01-01', '2024-02-01'] }] }).then(result => {
+  type NamedMetricValue = Assert<Equal<typeof result.data[number]['previous'], string | null | undefined>>;
+  // @ts-expect-error Named metrics expose their alias, not the underlying measure.
+  void result.data[0].prior;
+});
 // @ts-expect-error Intervals require an amount and a unit.
 measure.shift('revenue', { amount: 1 });
 // @ts-expect-error Interval units come from the supported grain registry.

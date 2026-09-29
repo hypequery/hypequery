@@ -40,6 +40,14 @@ describe('datasetGuidePrompt', () => {
     expect(text).toContain('[grains: minute, hour, day, week, month, quarter, year]');
   });
 
+  it('lists named comparison metric grain and range requirements', () => {
+    const ds = dataset('orders', { source: 'orders', timeKey: 'time', dimensions: { time: dimension.timestamp() }, measures: {
+      revenue: measure.sum('amount'), ytd: measure.toDate('revenue', 'year'), prior: measure.shift('ytd', { amount: 1, unit: 'year' }),
+    } });
+    const text = datasetGuidePrompt({ orders: { ...ds, metrics: { previousYtd: ds.metric('previousYtd', { measure: 'prior' }) } } }, 'orders').messages[0].content.text;
+    expect(text).toContain('- previousYtd (requires by and a bounded ISO time range on time) [grains: day, month, quarter]');
+  });
+
   it('should throw error when specific dataset not found', () => {
     expect(() => datasetGuidePrompt({}, 'nonexistent')).toThrow(
       'Dataset not found: nonexistent'

@@ -91,11 +91,8 @@ describe('RFC 0015 window measure authoring', () => {
     const client = createDatasetClient({ queryBuilder: createRenderingBuilderFactory() });
     expect(client.toSQL(ds, {})).toBe('SELECT SUM(amount) AS revenue FROM orders');
     expect(client.toSQL(ds, { measures: ['revenueRatio'] })).toContain('NULLIF');
-    // JavaScript callers cannot turn a non-aggregate definition into a metric.
-    // @ts-expect-error Deliberately invalid input exercises JavaScript runtime validation.
-    expect(() => ds.metric('invalid', { measure: 'runningRevenue' })).toThrow(/must be a base measure/);
-    // @ts-expect-error Deliberately invalid input exercises JavaScript runtime validation.
-    expect(() => ds.metric('invalid', { measure: 'revenueRatio' })).toThrow(/must be a base measure/);
+    expect(ds.metric('running', { measure: 'runningRevenue' }).spec.__type).toBe('dataset_measure_metric_spec');
+    expect(ds.metric('ratio', { measure: 'revenueRatio' }).spec.__type).toBe('dataset_measure_metric_spec');
   });
 
   it('executes only base measures by default on a semantic backend', async () => {

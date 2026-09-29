@@ -29,8 +29,8 @@ measures: {
 ## Derived measures
 
 Use `measure.derived` in the same `measures` object to calculate a value from
-base aggregations. Each `uses` entry maps a formula input alias to the name of
-a base measure in this dataset. The formula is symbolic, not a SQL string.
+other measures. Each `uses` entry maps a formula input alias to a measure name
+in this dataset. The formula is symbolic, not a SQL string.
 
 <CodeBlock>
 ```typescript
@@ -90,7 +90,7 @@ registry, including `Orders.measures.averageOrderValue`. The older
 `Orders.derivedMeasures` property remains as a deprecated compatibility alias.
 Queries that omit `measures` still select only base aggregations; select derived
 and window measures explicitly. Standalone `dataset.metric()` definitions can
-only wrap base measures.
+wrap any named measure.
 
 ## Window measures
 
@@ -196,6 +196,14 @@ const result = await client.execute(Orders, {
     { field: 'createdAt', operator: 'lt', value: '2027-01-01' },
   ],
 });
+
+const PriorYearYtd = Orders.metric('priorYearYtd', { measure: 'priorYearYtd' });
+await client.execute(PriorYearYtd.by('month'), {
+  filters: [
+    { field: 'createdAt', operator: 'gte', value: '2026-01-01' },
+    { field: 'createdAt', operator: 'lt', value: '2027-01-01' },
+  ],
+});
 ```
 </CodeBlock>
 
@@ -225,7 +233,7 @@ Minute and hour grains require a timestamp column.
 Shifts can wrap base measures, windows, formulas, or other shifts on the same
 dataset. `priorYearYtd` above recalculates YTD in the prior year. Shifted formulas
 recalculate their inputs before applying the formula. Dependencies cannot form
-cycles. Standalone comparison metrics are not supported yet.
+cycles. Named metrics inherit the same grain and time-range requirements.
 
 ## Aggregation helpers
 

@@ -38,7 +38,12 @@ ${measures.map((m) => {
 }).join('\n')}
 
 ## Available Metrics
-${metrics.map((m) => `- ${m}`).join('\n')}
+${metrics.map((m) => {
+  const definition = catalog?.metrics[m];
+  const range = definition?.requiresTimeRange ? ` (requires by and a bounded ISO time range on ${catalog?.timeKey})` : '';
+  const grains = definition?.grains ? ` [grains: ${definition.grains.join(', ')}]` : '';
+  return `- ${m}${range}${grains}`;
+}).join('\n')}
 
 ## Example Queries
 
