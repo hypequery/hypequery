@@ -100,14 +100,15 @@ class ClickHouseExecutor:
 
     def __init__(self, client: _SyncClient) -> None:
         self._client = client
-        self._warned_left_to_profile = False
+        self._warned_left_to_profile: set[str] = set()
 
     def execute(self, compiled: CompiledQuery) -> QueryRows:
         parameters, settings = _query_arguments(compiled)
         access = settings_access(self._client, settings)
-        if not self._warned_left_to_profile and access.left_to_profile:
-            self._warned_left_to_profile = True
-            warn_left_to_profile(access)
+        newly_blocked = set(access.left_to_profile) - self._warned_left_to_profile
+        if newly_blocked:
+            self._warned_left_to_profile.update(newly_blocked)
+            warn_left_to_profile(newly_blocked)
         # The driver's settings path puts query_id in HTTP parameters.
         # transport_settings becomes headers, which ClickHouse ignores here.
         wire_settings: dict[str, int | str] = {**access.sendable, "query_id": compiled.query_id}
@@ -146,7 +147,7 @@ class AsyncClickHouseExecutor:
         self._control_client = control_client
         self._semaphore = asyncio.Semaphore(_capacity(max_concurrent))
         self._closed = False
-        self._warned_left_to_profile = False
+        self._warned_left_to_profile: set[str] = set()
 
     async def _cancel_on_server(self, query_id: str) -> object:
         try:
@@ -171,9 +172,10 @@ class AsyncClickHouseExecutor:
                 raise CompiledQueryError("unavailable", "", query_id=compiled.query_id)
             parameters, settings = _query_arguments(compiled)
             access = settings_access(self._client, settings)
-            if not self._warned_left_to_profile and access.left_to_profile:
-                self._warned_left_to_profile = True
-                warn_left_to_profile(access)
+            newly_blocked = set(access.left_to_profile) - self._warned_left_to_profile
+            if newly_blocked:
+                self._warned_left_to_profile.update(newly_blocked)
+                warn_left_to_profile(newly_blocked)
             wire_settings: dict[str, int | str] = {
                 **access.sendable,
                 "query_id": compiled.query_id,

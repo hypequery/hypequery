@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import UTC, date, datetime
 from decimal import Decimal
 from typing import Any, cast
@@ -267,6 +267,26 @@ def test_executor_warns_once_about_limits_left_to_the_profile(
     assert len(warnings) == 1
     assert "max_execution_time" in warnings[0]
     assert "readonly = 2" in warnings[0]
+
+
+def test_executor_warns_when_a_later_query_adds_a_blocked_limit(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    client = ReadonlyUserClient(1)
+    client.server_settings["max_threads"] = SettingDef("max_threads", "4", 1)
+    executor = ClickHouseExecutor(cast(Any, client))
+    stricter = replace(
+        compiled(),
+        settings=QuerySettings({**DEFAULT_QUERY_SETTINGS.values, "max_threads": 2}),
+    )
+    with caplog.at_level(logging.WARNING, logger="hypequery.execution.settings_access"):
+        executor.execute(compiled())
+        executor.execute(stricter)
+        executor.execute(stricter)
+    warnings = [record.getMessage() for record in caplog.records]
+    assert len(warnings) == 2
+    assert "max_threads" not in warnings[0]
+    assert "max_threads" in warnings[1]
 
 
 def test_async_executor_sends_only_changeable_settings() -> None:
