@@ -1,5 +1,59 @@
 # @hypequery/datasets
 
+## 0.20.0
+
+### Minor Changes
+
+- f9205cb: Add `measure.shift` for period comparisons through the query-builder client. Shifted measures share window time-axis validation, gap filling, filters, tenant scope, and derived formulas. Catalogs and agent projections expose their intervals and time-range requirements.
+
+  Reject shifted source ranges that cross a skipped local calendar bucket, including empty populations, rather than duplicating comparison values.
+
+  Comparisons match partial query ranges and preserve endpoint operators. Catalogs and agent projections expose compatible grains for time measures and their formulas.
+
+- 0846e87: The result cache now stores entries under opaque RFC 0009 / RFC 0013 keys instead of readable query signatures. Tenant ids, filter values, and table names no longer appear in store keys, and keys match the Python SDK's for the same release, query, and tenant.
+
+  New optional `cache` options:
+
+  - `secret`: the RFC 0013 key secret. When omitted, a random secret is generated per client.
+  - `project` and `environment`: the key namespace.
+  - `keyVersion`: increment when rotating the secret.
+  - `definitionIdentity`: the deployed bundle identity, to share entries across runtimes.
+
+  An empty or short secret, or an invalid namespace, now throws when the client is created.
+
+  Migration:
+
+  - **Default in-memory cache:** no action needed.
+  - **Shared stores (e.g. Redis):**
+    - Existing entries become unreachable after upgrading, so the cache starts cold once and old entries expire by TTL.
+    - Set `cache.secret` to the same 32+ random bytes on every instance to share entries across instances. Without it, each client keeps its own entries and logs a one-time warning.
+  - **Tenant-less datasets queried under a runtime tenant:** entries are now partitioned by that tenant, which is stricter than before.
+  - **Tools that read or pattern-match store keys:** keys are now opaque `hq1.…` strings. Use `clearCache()` or a store-level flush instead of key patterns.
+  - `buildDatasetQuerySignature` and `buildMetricQuerySignature` remain exported, but are deprecated and no longer used for keys.
+
+- e3ef451: Add typed authoring definitions for trailing, to-date, and cumulative dataset measures. Validate base-measure references and cumulative aggregation support, and reject execution and Cloud publishing until RFC 0015 window planning is implemented.
+
+  Exclude window-dependent derived measures from executable catalogs and query schemas until window planning is available.
+
+  Keep base, derived, and window definitions together in the returned dataset's `measures` registry. Retain `derivedMeasures` as a deprecated compatibility alias, while default queries and standalone metrics continue to use only base measures.
+
+- 6e883b5: Execute trailing, to-date, and cumulative dataset measures through the query-builder client, including sparse-series filling, lookback filters, and derived formulas. Expose window parameters and time-range requirements in catalogs and agent projections. MCP dataset guides list these measures with their time-axis requirements.
+
+  Reject ranges that cross a skipped local calendar bucket, including window lookback, instead of generating duplicate buckets and incorrect totals.
+
+- b3a2966: Add an execution `timezone` to dataset and metric queries, with a client default
+  and UTC as the fallback. Buckets, local time-key filters, windows, and period
+  comparisons use the selected IANA timezone. Cache entries are separated by
+  execution timezone, and Serve and MCP accept query overrides.
+
+  Remove the metadata-only `timezone` field from semantic definitions. Set it on
+  `createDatasetClient` or the query instead.
+
+### Patch Changes
+
+- Updated dependencies [cc877bc]
+  - @hypequery/protocol@0.17.0
+
 ## 0.19.0
 
 ### Minor Changes
