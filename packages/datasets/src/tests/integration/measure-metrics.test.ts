@@ -84,6 +84,19 @@ describe('metrics backed by dataset measures', () => {
     expect((await client.execute(PriorAverage, query, context)).data[0].previousAverage).toBe('59.5');
     expect((await client.execute(PriorAverage, { ...query, timezone: 'Europe/Madrid' }, context)).data[0].previousAverage).toBe('15');
   });
+  it('rejects a named metric whose year shift lands in a DST gap', async () => {
+    const query = { by: 'hour' as const, timezone: 'Europe/Madrid', filters: [
+      { field: 'time', operator: 'gte' as const, value: '2027-03-29T01:00:00' },
+      { field: 'time', operator: 'lt' as const, value: '2027-03-29T02:00:00' },
+      { field: 'group', operator: 'eq' as const, value: 'dst' },
+    ] };
+    expect((await client.execute(PriorRevenue, query, context)).data[0].previousRevenue).toBe('20');
+    await expect(client.execute(PriorRevenue, { ...query, filters: [
+      { ...query.filters[0], value: '2027-03-29T02:00:00' },
+      { ...query.filters[1], value: '2027-03-29T03:00:00' },
+      query.filters[2],
+    ] }, context)).rejects.toThrow(/nonexistent local time/);
+  });
   it('rejects unsupported grains, missing ranges, missing tenancy and oversized series', async () => {
     expect(client.validate(PriorYtd, { by: 'month' }, context).valid).toBe(false);
     expect(client.validate(PriorYtd, { by: 'year', filters: range }, context).valid).toBe(false);
