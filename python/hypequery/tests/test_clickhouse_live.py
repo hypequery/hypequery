@@ -202,7 +202,7 @@ def test_live_readonly_users_can_query(level: int) -> None:
             replace(connection, username=username, password=password)
         )
         try:
-            assert reader.execute(_query(7, "UInt8")).rows == ((7,),)
+            assert reader.execute(_query(7, "Int64")).rows == ((7,),)
         finally:
             reader.close()
     finally:
