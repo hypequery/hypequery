@@ -198,13 +198,21 @@ def test_live_readonly_users_can_query(level: int) -> None:
             f"CREATE USER {username} IDENTIFIED BY '{password}' SETTINGS readonly = {level}"
         )
         admin.command(f"GRANT SELECT ON {connection.database}.* TO {username}")
-        reader = create_clickhouse_executor(
-            replace(connection, username=username, password=password)
-        )
+        reader_connection = replace(connection, username=username, password=password)
+        reader = create_clickhouse_executor(reader_connection)
         try:
             assert reader.execute(_query(7, "Int64")).rows == ((7,),)
         finally:
             reader.close()
+
+        async def run_async() -> tuple[tuple[object, ...], ...]:
+            async_reader = await create_async_clickhouse_executor(reader_connection)
+            try:
+                return (await async_reader.execute(_query(8, "Int64"))).rows
+            finally:
+                await async_reader.aclose()
+
+        assert asyncio.run(run_async()) == ((8,),)
     finally:
         admin.command(f"DROP USER IF EXISTS {username}")
         admin.close()
