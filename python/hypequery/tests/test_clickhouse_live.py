@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import os
 import threading
+from dataclasses import replace
 from datetime import UTC, datetime
 from decimal import Decimal
 
@@ -169,3 +170,41 @@ def test_live_dataset_clients_return_the_same_rows() -> None:
             await async_executor.aclose()
 
     assert asyncio.run(run()) == expected
+
+
+@pytest.mark.skipif(
+    "HYPEQUERY_TEST_CLICKHOUSE_HOST" not in os.environ,
+    reason="live ClickHouse service is not configured",
+)
+@pytest.mark.parametrize("level", [1, 2])
+def test_live_readonly_users_can_query(level: int) -> None:
+    # Before settings_access, every query failed for both: the planner's
+    # readonly = 1 is refused by a readonly = 2 user, and its limits by a
+    # readonly = 1 user whose profile does not match them exactly.
+    from clickhouse_connect import get_client
+
+    connection = _connection()
+    username = f"hypequery_readonly_{level}"
+    password = f"{connection.password}_readonly_{level}"
+    admin = get_client(
+        host=connection.host,
+        port=connection.port,
+        username=connection.username,
+        password=connection.password,
+    )
+    try:
+        admin.command(f"DROP USER IF EXISTS {username}")
+        admin.command(
+            f"CREATE USER {username} IDENTIFIED BY '{password}' SETTINGS readonly = {level}"
+        )
+        admin.command(f"GRANT SELECT ON {connection.database}.* TO {username}")
+        reader = create_clickhouse_executor(
+            replace(connection, username=username, password=password)
+        )
+        try:
+            assert reader.execute(_query(7, "UInt8")).rows == ((7,),)
+        finally:
+            reader.close()
+    finally:
+        admin.command(f"DROP USER IF EXISTS {username}")
+        admin.close()

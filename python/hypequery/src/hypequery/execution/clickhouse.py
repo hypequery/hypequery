@@ -15,6 +15,7 @@ from .cancellation import acquire_slot, run_with_policy
 from .errors import safe_driver_error
 from .parameters import bound_parameters
 from .results import DriverResult, QueryRows, decode_result
+from .settings_access import settings_access, warn_left_to_profile
 
 
 @dataclass(frozen=True, slots=True)
@@ -99,12 +100,17 @@ class ClickHouseExecutor:
 
     def __init__(self, client: _SyncClient) -> None:
         self._client = client
+        self._warned_left_to_profile = False
 
     def execute(self, compiled: CompiledQuery) -> QueryRows:
         parameters, settings = _query_arguments(compiled)
+        access = settings_access(self._client, settings)
+        if not self._warned_left_to_profile and access.left_to_profile:
+            self._warned_left_to_profile = True
+            warn_left_to_profile(access)
         # The driver's settings path puts query_id in HTTP parameters.
         # transport_settings becomes headers, which ClickHouse ignores here.
-        wire_settings: dict[str, int | str] = {**settings, "query_id": compiled.query_id}
+        wire_settings: dict[str, int | str] = {**access.sendable, "query_id": compiled.query_id}
         try:
             result = self._client.query(
                 compiled.sql,
@@ -140,6 +146,7 @@ class AsyncClickHouseExecutor:
         self._control_client = control_client
         self._semaphore = asyncio.Semaphore(_capacity(max_concurrent))
         self._closed = False
+        self._warned_left_to_profile = False
 
     async def _cancel_on_server(self, query_id: str) -> object:
         try:
@@ -163,7 +170,14 @@ class AsyncClickHouseExecutor:
             if self._closed:
                 raise CompiledQueryError("unavailable", "", query_id=compiled.query_id)
             parameters, settings = _query_arguments(compiled)
-            wire_settings: dict[str, int | str] = {**settings, "query_id": compiled.query_id}
+            access = settings_access(self._client, settings)
+            if not self._warned_left_to_profile and access.left_to_profile:
+                self._warned_left_to_profile = True
+                warn_left_to_profile(access)
+            wire_settings: dict[str, int | str] = {
+                **access.sendable,
+                "query_id": compiled.query_id,
+            }
 
             async def query() -> QueryRows:
                 try:

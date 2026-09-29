@@ -1,0 +1,89 @@
+---
+title: Read-only ClickHouse Users
+description: How hypequery works with ClickHouse users set to readonly = 1 or readonly = 2, and what each level costs you.
+---
+
+Give hypequery a dedicated ClickHouse user that can only read. ClickHouse has two
+ways to make a user read-only, and hypequery accepts both. They differ in one
+thing: whether hypequery can still apply its own query settings.
+
+## The two levels
+
+| | `readonly = 1` | `readonly = 2` |
+| --- | --- | --- |
+| Blocks writes and schema changes | Yes | Yes |
+| Accepts per-query settings | Only when the value matches the user's profile | Yes, except `readonly` itself |
+| Limits hypequery can apply | Only what the profile already sets | All of them |
+
+Both keep your data equally safe. The difference is who controls query limits:
+
+- With `readonly = 1`, only the user's profile does. Nobody, hypequery included,
+  can change a setting for a single query.
+- With `readonly = 2`, hypequery can tighten limits per query. To stop anyone
+  raising a limit past what you allow, add
+  [constraints](https://clickhouse.com/docs/operations/settings/constraints-on-settings)
+  to the profile, for example a `max` on `max_memory_usage`.
+
+Use `readonly = 2` unless you have a reason not to. If you use `readonly = 1`,
+put the limits you want in the user's profile.
+
+## TypeScript query builder
+
+`@hypequery/clickhouse` sends one setting by default,
+`output_format_json_quote_64bit_integers = 1`, so `Int64` and wider values arrive
+as exact strings.
+
+- `readonly = 2` and unrestricted users work without changes.
+- A `readonly = 1` user works without changes if its profile already sets
+  `output_format_json_quote_64bit_integers = 1`.
+- Otherwise, set `integerJsonEncoding: 'server-default'`. Wide integers may then
+  lose precision beyond `2^53`. See
+  [64-bit integer encoding](/docs/reference/clickhouse-behavior#64-bit-integer-encoding-and-strict-read-only-users).
+
+Any setting you pass yourself with `.settings({...})` follows the same rule: a
+`readonly = 1` user rejects it unless the value already matches the profile.
+
+## Python datasets
+
+The Python planner attaches its limits to every query: `readonly = 1`,
+`max_execution_time`, `max_result_rows`, `max_result_bytes`, and `max_threads`.
+The executor sends only the ones the connected user may change:
+
+- **`readonly = 2`:** `readonly` is left out, since the user is already read-only.
+  Every limit still applies.
+- **`readonly = 1`:** the limits are left to the user's profile. The executor logs
+  one warning naming each limit it could not apply.
+
+Cancellation and deadlines still stop queries on the server for both levels,
+because the executor cancels with `KILL QUERY`, which read-only users may run.
+
+## hypequery Cloud
+
+Cloud's executor sends `readonly = 2`, server-side cancellation, per-query
+resource limits, and precision-safe integers on every query. A `readonly = 1` user
+refuses those, so Cloud sends it no settings at all, and your profile is the only
+protection those queries get.
+
+When you connect a `readonly = 1` user, setup lists what your profile leaves out,
+for example "Cancelled queries keep running" or "No per-query memory limit". It
+also generates the profile SQL that fixes it. You must confirm before saving.
+
+This profile gives a `readonly = 1` user every protection Cloud relies on:
+
+```sql
+CREATE SETTINGS PROFILE hypequery_cloud SETTINGS
+    readonly = 1,
+    cancel_http_readonly_queries_on_client_close = 1,
+    output_format_json_quote_64bit_integers = 1,
+    max_execution_time = 25,
+    timeout_overflow_mode = 'throw',
+    max_threads = 8,
+    max_memory_usage = 4294967296,
+    max_result_rows = 20000,
+    max_result_bytes = 67108864,
+    result_overflow_mode = 'throw'
+TO hypequery_user;
+```
+
+Stricter limits are fine. Keep `max_result_rows` at 10,001 or more, or full pages
+of results will be refused.

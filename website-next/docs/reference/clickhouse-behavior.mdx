@@ -160,6 +160,10 @@ Values beyond `2^53` can then lose precision and may not match the generated
 `string` types. When possible, configuring the read-only user's ClickHouse
 profile to quote wide integers preserves the default precision-safe behavior.
 
+For how `readonly = 1` and `readonly = 2` users compare across the query builder,
+Python datasets, and hypequery Cloud, see
+[Read-only ClickHouse users](/docs/reference/readonly-users).
+
 ## Practical guidance
 
 If you are deciding where something belongs, the usual rules are:

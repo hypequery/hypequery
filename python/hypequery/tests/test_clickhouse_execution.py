@@ -1,16 +1,19 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 from dataclasses import dataclass
 from datetime import UTC, date, datetime
 from decimal import Decimal
-from typing import cast
+from typing import Any, cast
 
 import pytest
 from clickhouse_connect.driver.binding import bind_query
 from clickhouse_connect.driver.exceptions import OperationalError, ProgrammingError
+from clickhouse_connect.driver.models import SettingDef
 
 from hypequery.datasets.planner import (
+    DEFAULT_QUERY_SETTINGS,
     CompiledQuery,
     CompiledQueryError,
     QuerySettings,
@@ -22,6 +25,7 @@ from hypequery.execution import (
     ClickHouseExecutor,
 )
 from hypequery.execution.results import DriverResult, decode_result
+from hypequery.execution.settings_access import settings_access
 
 
 @dataclass
@@ -179,3 +183,98 @@ def test_executors_close_owned_driver_clients() -> None:
     assert sync_client.closed
     assert async_client.closed
     assert control_client.closed
+
+
+# system.settings for the connected user, as clickhouse-connect stores it. At
+# readonly = 1 every setting is unchangeable; at readonly = 2 only `readonly`
+# itself is (measured against ClickHouse 26.9).
+def _server_settings(level: int) -> dict[str, SettingDef]:
+    changeable = 1 if level == 1 else 0
+    return {
+        "readonly": SettingDef("readonly", str(level), 1 if level else 0),
+        "max_execution_time": SettingDef("max_execution_time", "0", changeable),
+        "max_result_rows": SettingDef("max_result_rows", "0", changeable),
+        "max_result_bytes": SettingDef("max_result_bytes", "0", changeable),
+        "max_threads": SettingDef("max_threads", "auto(4)", changeable),
+    }
+
+
+class ReadonlyUserClient(SyncClient):
+    def __init__(self, level: int) -> None:
+        super().__init__(Result(("value",), [(1,)]))
+        self.server_settings = _server_settings(level)
+
+
+def _sent_settings(client: SyncClient) -> dict[str, object]:
+    args = cast(tuple[object, ...], client.calls[-1][0])
+    return cast(dict[str, object], args[2])
+
+
+def test_settings_access_sends_everything_to_an_unrestricted_user() -> None:
+    access = settings_access(ReadonlyUserClient(0), DEFAULT_QUERY_SETTINGS.values)
+    assert access.sendable == dict(DEFAULT_QUERY_SETTINGS.values)
+    assert access.left_to_profile == ()
+
+
+def test_settings_access_keeps_limits_for_a_readonly_2_user() -> None:
+    access = settings_access(ReadonlyUserClient(2), DEFAULT_QUERY_SETTINGS.values)
+    assert "readonly" not in access.sendable
+    assert access.sendable["max_execution_time"] == 30
+    assert access.left_to_profile == ()
+
+
+def test_settings_access_leaves_limits_to_a_readonly_1_users_profile() -> None:
+    access = settings_access(ReadonlyUserClient(1), DEFAULT_QUERY_SETTINGS.values)
+    assert access.sendable == {}
+    assert access.left_to_profile == (
+        "max_execution_time",
+        "max_result_rows",
+        "max_result_bytes",
+        "max_threads",
+    )
+
+
+def test_settings_access_does_not_report_a_limit_the_profile_already_sets() -> None:
+    client = ReadonlyUserClient(1)
+    client.server_settings["max_execution_time"] = SettingDef("max_execution_time", "30", 1)
+    access = settings_access(client, DEFAULT_QUERY_SETTINGS.values)
+    assert "max_execution_time" not in access.left_to_profile
+
+
+def test_settings_access_without_server_settings_sends_everything() -> None:
+    access = settings_access(SyncClient(Result(("value",), [])), DEFAULT_QUERY_SETTINGS.values)
+    assert access.sendable == dict(DEFAULT_QUERY_SETTINGS.values)
+
+
+@pytest.mark.parametrize("level", [1, 2])
+def test_executor_sends_only_changeable_settings(level: int) -> None:
+    client = ReadonlyUserClient(level)
+    ClickHouseExecutor(cast(Any, client)).execute(compiled())
+    sent = _sent_settings(client)
+    assert "readonly" not in sent
+    assert "query_id" in sent
+    assert ("max_execution_time" in sent) is (level == 2)
+
+
+def test_executor_warns_once_about_limits_left_to_the_profile(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    executor = ClickHouseExecutor(cast(Any, ReadonlyUserClient(1)))
+    with caplog.at_level(logging.WARNING, logger="hypequery.execution.settings_access"):
+        executor.execute(compiled())
+        executor.execute(compiled())
+    warnings = [record.getMessage() for record in caplog.records]
+    assert len(warnings) == 1
+    assert "max_execution_time" in warnings[0]
+    assert "readonly = 2" in warnings[0]
+
+
+def test_async_executor_sends_only_changeable_settings() -> None:
+    client = ReadonlyUserClient(2)
+    async_client = AsyncClient(Result(("value",), [(1,)]))
+    async_client.server_settings = client.server_settings  # type: ignore[attr-defined]
+    executor = AsyncClickHouseExecutor(cast(Any, async_client), cast(Any, object()))
+    asyncio.run(executor.execute(compiled()))
+    sent = _sent_settings(async_client)
+    assert "readonly" not in sent
+    assert sent["max_execution_time"] == 30
