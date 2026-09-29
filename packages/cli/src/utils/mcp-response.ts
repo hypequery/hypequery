@@ -25,7 +25,7 @@ export async function readMcpResponse(
   let pending = '';
   let data: string[] = [];
   try {
-    while (true) {
+    for (;;) {
       const chunk = await reader.read();
       pending += decoder.decode(chunk.value, { stream: !chunk.done });
       let newline: RegExpExecArray | null;
