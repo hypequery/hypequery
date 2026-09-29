@@ -4,6 +4,7 @@ import { addTimeSql, subtractTimeSql } from './time-arithmetic-sql.js';
 import { calendarBucketGuardSql } from './time-axis-calendar-guard.js';
 import type { TimeMeasureAxis } from './time-measure-axis.js';
 import { calendarShiftAtFineGrain } from './shift-measure-grains.js';
+import { shiftWallTimeGuardSql } from './shift-wall-time-sql.js';
 
 /** Preserve the selected portion of a bucket and both authored endpoint operators. */
 export function shiftRangeSql(shift: ShiftMeasureDefinition, axis: TimeMeasureAxis, period?: string) {
@@ -35,6 +36,15 @@ export function shiftCalendarGuardSql(shift: ShiftMeasureDefinition, axis: TimeM
   const last = `${GRAIN_FUNCTIONS[grain]}(${upper})`;
   const count = `dateDiff('${grain}', ${first}, ${last}) + ${axisGuard}`;
   return calendarBucketGuardSql(first, count, grain);
+}
+
+/** Validate each output bucket after the series exists, including empty source populations. */
+export function shiftWallTimeSeriesGuardSql(shift: ShiftMeasureDefinition, grain: TimeMeasureAxis['grain']): string {
+  const end = addTimeSql('_hq_period', 1, grain);
+  return shiftWallTimeGuardSql(
+    shift.interval, grain, '_hq_series CROSS JOIN _hq_bounds',
+    '_hq_period', 'greatest(_hq_period, _hq_lower)', `least(${end}, _hq_upper)`, end,
+  );
 }
 
 /** Map output buckets to their earlier half-open ranges, retaining calendar arithmetic. */

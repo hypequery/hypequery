@@ -201,15 +201,13 @@ export type WindowMeasures<TMeasures> = {
     Extract<TMeasures[Name], WindowMeasureDefinition>;
 };
 
-type DerivedInputMeasureNames<TMeasures> = BaseMeasureNames<TMeasures> | {
-  [Name in keyof TMeasures]: Extract<TMeasures[Name], WindowMeasureDefinition | ShiftMeasureDefinition> extends never ? never : Name;
-}[keyof TMeasures] & string;
-
 type CheckedDatasetMeasures<TMeasures> = {
   [Name in keyof TMeasures]: TMeasures[Name] extends DerivedMeasureDefinition<infer TUses>
-    ? TMeasures[Name] & { readonly uses: { readonly [Alias in keyof TUses]: DerivedInputMeasureNames<TMeasures> } }
-    : TMeasures[Name] extends WindowMeasureDefinition | ShiftMeasureDefinition
+    ? TMeasures[Name] & { readonly uses: { readonly [Alias in keyof TUses]: Exclude<keyof TMeasures & string, Name> } }
+    : TMeasures[Name] extends WindowMeasureDefinition
       ? TMeasures[Name] & { readonly measure: BaseMeasureNames<TMeasures> }
+    : TMeasures[Name] extends ShiftMeasureDefinition
+      ? TMeasures[Name] & { readonly measure: Exclude<keyof TMeasures & string, Name> }
     : TMeasures[Name];
 };
 

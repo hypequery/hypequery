@@ -1,5 +1,5 @@
 import {
-  dataset, dimension, divide, measure, type DatasetRowFor, type DatasetClient,
+  dataset, dimension, divide, nullIfZero, measure, type DatasetRowFor, type DatasetClient,
   type ShiftMeasureDefinition, type AgentCatalogMeasure,
 } from '../src/index.js';
 
@@ -39,6 +39,14 @@ client.execute(Events, { by: 'month', measures: ['prior', 'growth'], filters: [{
 
 dataset('invalidTarget', { source: 'events', timeKey: 'time', dimensions: { time: dimension.timestamp() }, measures: {
   revenue: measure.sum('amount'), prior: measure.shift('revenue', { amount: 1, unit: 'year' }),
-  // @ts-expect-error A shift must wrap a base aggregation, not another shift.
   twice: measure.shift('prior', { amount: 1, unit: 'year' }),
 } });
+
+const Composed = dataset('composed', { source: 'events', timeKey: 'time', dimensions: { time: dimension.timestamp() }, measures: {
+  revenue: measure.sum('value'), ytd: measure.toDate('revenue', 'year'),
+  priorYtd: measure.shift('ytd', { amount: 1, unit: 'year' }),
+  ratio: measure.derived({ uses: { now: 'ytd', prior: 'priorYtd' }, formula: ({ now, prior }) => divide(now, nullIfZero(prior)) }),
+  priorRatio: measure.shift('ratio', { amount: 1, unit: 'year' }),
+  ratioGrowth: measure.derived({ uses: { now: 'ratio', prior: 'priorRatio' }, formula: ({ now, prior }) => divide(now, nullIfZero(prior)) }),
+} });
+client.execute(Composed, { by: 'month', measures: ['priorYtd', 'ratioGrowth'], filters: [{ field: 'time', operator: 'between', value: ['2024-01-01', '2024-02-01'] }] });

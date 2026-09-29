@@ -1,4 +1,5 @@
-import { derivedProjection } from './derived-measure-sql.js';
+import { measureDependencyNames } from './measure-dependencies.js';
+import { derivedExpressionSql } from './derived-measure-sql.js';
 import { baseMeasureNames, getBaseMeasure, getDerivedMeasure } from './dataset-measures.js';
 import type { AnyDatasetInstance, DatasetQuery, DatasetQueryResult } from '../types.js';
 import type { QueryBuilderLike } from '../query-builder-protocol.js';
@@ -30,11 +31,11 @@ export function buildDerivedDatasetSql(
   }
 
   const selected = query.measures ?? baseMeasureNames(ds.measures);
-  const baseMeasures = new Set(selected.filter(name => getBaseMeasure(ds.measures, name) !== undefined));
-  for (const name of selected) {
+  const baseMeasures = measureDependencyNames(ds.measures, selected).filter(name => getBaseMeasure(ds.measures, name));
+  const resolve = (name: string): string => {
     const derived = getDerivedMeasure(ds.measures, name);
-    if (derived) Object.values(derived.uses).forEach(base => baseMeasures.add(base));
-  }
+    return derived ? `(${derivedExpressionSql(derived, resolve)})` : quoteSQLIdentifier(name);
+  };
   const inner = buildBaseQuery(ds, {
     ...query,
     measures: [...baseMeasures],
@@ -50,7 +51,7 @@ export function buildDerivedDatasetSql(
   for (const name of selected) {
     const derived = getDerivedMeasure(ds.measures, name);
     projections.push(derived
-      ? derivedProjection(name, derived)
+      ? `${derivedExpressionSql(derived, resolve)} AS ${quoteSQLIdentifier(name)}`
       : quoteSQLIdentifier(name));
   }
   let sql = `WITH base AS (${innerSql}) SELECT ${projections.join(', ')} FROM base`;

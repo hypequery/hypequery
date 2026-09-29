@@ -162,7 +162,7 @@ Ranges or lookback crossing a skipped calendar bucket are rejected; use a
 
 ## Period comparisons
 
-Use `measure.shift` to compare a base measure with an earlier period. Positive
+Use `measure.shift` to compare a measure with an earlier period. Positive
 intervals always look backwards. Select it directly or use it in a formula:
 
 <CodeBlock>
@@ -176,6 +176,8 @@ const Orders = dataset('orders', {
   measures: {
     revenue: measure.sum('amount'),
     priorYearRevenue: measure.shift('revenue', { amount: 1, unit: 'year' }),
+    ytdRevenue: measure.toDate('revenue', 'year'),
+    priorYearYtd: measure.shift('ytdRevenue', { amount: 1, unit: 'year' }),
     revenueGrowth: measure.derived({
       uses: { current: 'revenue', prior: 'priorYearRevenue' },
       formula: ({ current, prior }) =>
@@ -216,14 +218,18 @@ expose `supportedGrains`, including restrictions inherited by formulas.
 Shifts share windows' filling, non-time filters, tenant scope, and result limits.
 Missing counts are `'0'`; other missing values are `null`. Calendar subtraction
 uses the query timezone and ClickHouse's clamping; skipped calendar buckets are
-rejected. Minute and hour grains require a timestamp column.
+rejected. Calendar shifts at minute or hour grain also reject a nonexistent
+local time in the earlier period, such as an hour skipped by daylight saving.
+Minute and hour grains require a timestamp column.
 
-Shifts wrap base measures on the same dataset. Windows, formulas, relationships,
-and standalone comparison metrics are not supported yet.
+Shifts can wrap base measures, windows, formulas, or other shifts on the same
+dataset. `priorYearYtd` above recalculates YTD in the prior year. Shifted formulas
+recalculate their inputs before applying the formula. Dependencies cannot form
+cycles. Standalone comparison metrics are not supported yet.
 
 ## Aggregation helpers
 
-- `measure.shift(baseMeasure, interval, opts?)`
+- `measure.shift(measureName, interval, opts?)`
 - `measure.sum(field, opts?)`
 - `measure.count(field, opts?)`
 - `measure.countDistinct(field, opts?)`

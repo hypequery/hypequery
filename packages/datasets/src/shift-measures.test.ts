@@ -43,12 +43,12 @@ describe('shift measures', () => {
     // @ts-expect-error Exercise JavaScript runtime validation.
     expect(() => withInterval({ amount: 1, unit: 'fortnight' })).toThrow(/supported unit/);
   });
-  it('requires a time key and a base measure from the same dataset', () => {
+  it('requires a time key and a measure from the same dataset', () => {
     expect(() => dataset('missingTime', { source: 'events', dimensions: Events.dimensions, measures: { revenue: measure.sum('value'), prior: measure.shift('revenue', { amount: 1, unit: 'year' }) } })).toThrow(/requires a timeKey/);
-    for (const name of ['missing', 'prior', 'ratio', 'customer.revenue']) {
-      expect(() => dataset('invalidInput', { source: 'events', timeKey: 'time', dimensions: Events.dimensions, measures: { ...Events.measures, invalid: measure.shift(name, { amount: 1, unit: 'year' }) } })).toThrow(/must wrap a base measure/);
+    for (const name of ['missing', 'customer.revenue']) {
+      expect(() => dataset('invalidInput', { source: 'events', timeKey: 'time', dimensions: Events.dimensions, measures: { ...Events.measures, invalid: measure.shift(name, { amount: 1, unit: 'year' }) } })).toThrow(/references missing measure/);
     }
-    expect(() => dataset('windowInput', { source: 'events', timeKey: 'time', dimensions: Events.dimensions, measures: { revenue: measure.sum('value'), rolling: measure.cumulative('revenue'), invalid: measure.shift('rolling', { amount: 1, unit: 'year' }) } })).toThrow(/must wrap a base measure/);
+
   });
   it('requires a supported grain and a bounded range, including when selected through a formula', () => {
     expect(client.validate(Events, { measures: ['prior'], filters }).valid).toBe(false);

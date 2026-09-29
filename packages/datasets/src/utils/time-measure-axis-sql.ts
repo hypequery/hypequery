@@ -4,13 +4,14 @@ import type { TimeMeasureSqlSource } from './time-measure-source-sql.js';
 import { addTimeSql as add, subtractTimeSql as subtract } from './time-arithmetic-sql.js';
 import { calendarBucketGuardSql } from './time-axis-calendar-guard.js';
 import type { ShiftMeasureDefinition } from '../types.js';
-import { shiftCalendarGuardSql } from './shift-measure-sql.js';
+import { shiftCalendarGuardSql, shiftWallTimeSeriesGuardSql } from './shift-measure-sql.js';
 
 export interface TimeMeasureSqlAxis {
   ctes: string[];
   timeAxisSql: string;
   guard: string;
   rangeGuard: string;
+  postSeriesGuard: string;
 }
 
 function literal(value: string): string {
@@ -42,6 +43,7 @@ export function buildTimeMeasureAxisSql(
     : '0';
   const shiftGuards = shifts.map(shift => shiftCalendarGuardSql(shift, axis, `${limitGuard} + ${rangeGuard}`));
   const guard = [limitGuard, physicalGuard, calendarGuard, ...shiftGuards].join(' + ');
+  const postSeriesGuard = shifts.map(shift => shiftWallTimeSeriesGuardSql(shift, axis.grain)).join(' + ') || '0';
 
   // A zero-row scalar retains the converted timestamp type and query timezone.
   // Reading any(time) here would scan the entire population just for its type.
@@ -60,6 +62,6 @@ export function buildTimeMeasureAxisSql(
   ];
   // Always check the singleton axis before aggregating. ClickHouse can skip
   // a series guard when a dimensional CROSS JOIN has an empty population.
-  const timeAxisSql = `WITH ${[...source.ctes, ctes[0]].join(',\n')} SELECT ${guard} + ${rangeGuard} AS _hq_validated FROM _hq_bounds`;
-  return { ctes, timeAxisSql, guard, rangeGuard };
+  const timeAxisSql = `WITH ${[...source.ctes, ...ctes].join(',\n')} SELECT ${guard} + ${rangeGuard} + ${postSeriesGuard} AS _hq_validated FROM _hq_bounds`;
+  return { ctes, timeAxisSql, guard, rangeGuard, postSeriesGuard };
 }

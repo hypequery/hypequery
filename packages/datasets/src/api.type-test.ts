@@ -105,7 +105,6 @@ dataset('derivedDependency', {
   measures: {
     revenue: measure.sum('amount'),
     doubled: measure.derived({ uses: { value: 'revenue' }, formula: ({ value }) => add(value, value) }),
-    // @ts-expect-error v1 derived inputs cannot depend on another derived measure.
     quadrupled: measure.derived({ uses: { value: 'doubled' }, formula: ({ value }) => add(value, value) }),
   },
 });
