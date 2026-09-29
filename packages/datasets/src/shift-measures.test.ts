@@ -54,9 +54,9 @@ describe('shift measures', () => {
     expect(client.validate(Events, { measures: ['prior'], filters }).valid).toBe(false);
     expect(client.validate(Events, { by: 'month', measures: ['ratio'] }).errors.join(' ')).toContain('bounded time range');
     expect(client.validate(Events, { by: 'month', measures: ['ratio'], filters }).valid).toBe(true);
-    expect(client.validate(Events, { by: 'day', measures: ['prior'], filters }).errors.join(' ')).toContain('whole "day" buckets');
+    expect(client.validate(Events, { by: 'day', measures: ['prior'], filters }).valid).toBe(true);
   });
-  it.each(['month', 'quarter', 'year'] as const)('allows a year shift at %s grain', by => {
+  it.each(['minute', 'hour', 'day', 'week', 'month', 'quarter', 'year'] as const)('allows a year shift at %s grain', by => {
     expect(client.validate(Events, { by, measures: ['prior'], filters }).valid).toBe(true);
   });
   it('does not apply the rolling fanout limit to large shifts', () => {
@@ -87,10 +87,10 @@ describe('shift measures', () => {
         difference: measure.derived({ uses: { rolling: 'rolling', prior: 'prior' }, formula: ({ rolling, prior }) => divide(rolling, prior) }) },
     });
     const catalog = getDatasetCatalog(ds);
-    expect(catalog.measures.prior.supportedGrains).toEqual(['month', 'quarter']);
+    expect(catalog.measures.prior.supportedGrains).toEqual(['day', 'month', 'quarter']);
     expect(catalog.derivedMeasures?.difference.supportedGrains).toEqual(['month']);
     expect(projectAgentSafeCatalog({ ds }).datasets[0].measures.find(item => item.name === 'difference')?.supportedGrains).toEqual(['month']);
-    expect(serializeSemanticContract({ ds }).datasets.ds.measures.prior.supportedGrains).toEqual(['month', 'quarter']);
+    expect(serializeSemanticContract({ ds }).datasets.ds.measures.prior.supportedGrains).toEqual(['day', 'month', 'quarter']);
   });
 
   it('partitions cache entries by interval, aggregation and formula while preserving ordinary keys', () => {

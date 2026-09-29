@@ -40,7 +40,7 @@ export function buildTimeMeasureAxisSql(
   const physicalGuard = axis.grain === 'minute' || axis.grain === 'hour'
     ? `throwIf(position(${physicalTimeType}, 'Date') > 0 AND position(${physicalTimeType}, 'DateTime') = 0, 'Sub-day time measures require a time-of-day column; Date and Date32 are not supported.')`
     : '0';
-  const shiftGuards = shifts.map(shift => shiftCalendarGuardSql(shift, axis.grain, `${limitGuard} + ${rangeGuard}`));
+  const shiftGuards = shifts.map(shift => shiftCalendarGuardSql(shift, axis, `${limitGuard} + ${rangeGuard}`));
   const guard = [limitGuard, physicalGuard, calendarGuard, ...shiftGuards].join(' + ');
 
   // A zero-row scalar retains the converted timestamp type and query timezone.

@@ -37,7 +37,7 @@ describe('datasetGuidePrompt', () => {
     });
     const text = datasetGuidePrompt({ orders }, 'orders').messages[0].content.text;
     expect(text).toContain('- priorRevenue (requires by and a bounded ISO time range on createdAt)');
-    expect(text).toContain('[grains: month, quarter, year]');
+    expect(text).toContain('[grains: minute, hour, day, week, month, quarter, year]');
   });
 
   it('should throw error when specific dataset not found', () => {
