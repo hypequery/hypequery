@@ -1,0 +1,27 @@
+# HQ-61: routine updates grouped weekly; security updates open as advisories
+# are published. Triage policy: CONTRIBUTING.md ("Dependency advisories").
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      routine:
+        update-types: [minor, patch]
+  - package-ecosystem: npm
+    directory: /website-next
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      website-routine:
+        update-types: [minor, patch]
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: ["*"]

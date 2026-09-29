@@ -7,6 +7,24 @@ on:
     branches: [ main ]
 
 jobs:
+  # HQ-61: a high or critical advisory in a production dependency of the
+  # published packages or the website fails CI. Triage: CONTRIBUTING.md.
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '22'
+      - name: Audit workspace packages
+        run: pnpm audit --prod --audit-level high
+      - name: Audit website
+        working-directory: website-next
+        run: npm audit --omit=dev --audit-level=high
+
   build:
     runs-on: ubuntu-latest
 

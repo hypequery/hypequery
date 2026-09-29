@@ -81,6 +81,24 @@ When a PR is merged, Changesets handles the versioning flow automatically in the
 - [ ] Examples/docs touched if behavior changed
 - [ ] CI-only release job is still disabled (manual publish required until rebrand)
 
+## Dependency advisories
+
+The CI **audit** job runs `pnpm audit --prod --audit-level high` for the
+workspace packages and `npm audit --omit=dev --audit-level=high` for
+`website-next`. A high or critical advisory in a production dependency fails CI.
+Dependabot (`.github/dependabot.yml`) opens grouped weekly updates, and
+security updates as they are published.
+
+- **Critical:** patch the same day, ahead of other work.
+- **High:** patch within 3 working days; CI stays red until then.
+- **Moderate / low, or dev tooling only:** take the next weekly update.
+
+Prefer upgrading the dependent package. When that isn't possible, add a root
+`pnpm.overrides` entry and name the advisory it exists for in the PR. If no fix
+exists yet, record the advisory ID, why it isn't exploitable here, and a review
+date in the PR before relaxing the check for that advisory alone. Don't lower
+`--audit-level` or remove the job to get a build green.
+
 ## Questions?
 
 Open a Discussion or ping the maintainers via GitHub issues.
