@@ -5,6 +5,8 @@ import path from 'node:path';
 import { findApiFileForPath, findQueriesFile } from '../utils/find-files.js';
 import { loadApiModule } from '../utils/load-api.js';
 import { logger } from '../utils/logger.js';
+import { MCP_API_KEY_VARIABLE } from '../utils/hosted-endpoints.js';
+import { checkRemoteMcp, type RemoteMcpCheck } from '../utils/mcp-remote-check.js';
 
 export interface McpOptions {
   /** Analytics directory, matching `hypequery dev --path`. */
@@ -13,6 +15,8 @@ export interface McpOptions {
   tenant?: string;
   /** Check the entrypoint and exit instead of speaking MCP over stdio. */
   selfTest?: boolean;
+  /** With `selfTest`: check this hosted MCP endpoint instead of a local entrypoint. */
+  url?: string;
 }
 
 export interface McpDependencies {
@@ -22,6 +26,37 @@ export interface McpDependencies {
     analytics: unknown;
     tenantId?: string;
   }) => Promise<CloseableMcpServer>;
+  /** Loads the optional `@hypequery/mcp` peer; injected in tests. */
+  loadMcp?: () => Promise<unknown>;
+  checkRemote?: (input: { url: string; key: string }) => Promise<RemoteMcpCheck>;
+  env?: Readonly<Record<string, string | undefined>>;
+}
+
+function fail(message: string, hints: readonly string[] = []): never {
+  logger.error(message);
+  if (hints.length > 0) {
+    logger.newline();
+    for (const hint of hints) logger.indent(hint);
+  }
+  logger.newline();
+  process.exit(1);
+}
+
+/** `--self-test --url`: initialize and list tools against a hosted endpoint. */
+async function remoteSelfTest(url: string, dependencies: McpDependencies): Promise<void> {
+  const key = (dependencies.env ?? process.env)[MCP_API_KEY_VARIABLE]?.trim();
+  if (!key) {
+    fail(`Set ${MCP_API_KEY_VARIABLE} to a runtime API key to check a hosted endpoint.`, [
+      'Create one in Cloud under Keys. It is read from the environment so it never',
+      'appears in your shell history.',
+    ]);
+  }
+  const result = await (dependencies.checkRemote ?? checkRemoteMcp)({ url, key });
+  if (!result.ok) fail(`Hosted MCP check failed: ${result.reason}`);
+  logger.success(`Connected to ${result.server ?? 'the hosted MCP endpoint'}`);
+  logger.info(`Tools: ${result.tools}`);
+  logger.newline();
+  logger.info('The hosted endpoint is ready for MCP clients. No tool was called.');
 }
 
 function entrypointNotFound(): never {
@@ -68,8 +103,17 @@ export async function mcpCommand(
   options: McpOptions = {},
   dependencies: McpDependencies = {},
 ): Promise<void> {
+  if (options.url && !options.selfTest) {
+    fail('--url is only used with --self-test.', [
+      'MCP clients connect to the hosted endpoint directly; this command serves a local project.',
+    ]);
+  }
   const restoreConsole = routeConsoleOutputToStderr();
   try {
+    if (options.url) {
+      await remoteSelfTest(options.url, dependencies);
+      return;
+    }
     const entrypoint = await resolveEntrypoint(file, options);
     const loadApi = dependencies.loadApi ?? loadApiModule;
     const source = resolveSource(await loadApi(entrypoint), entrypoint);
@@ -92,6 +136,15 @@ export async function mcpCommand(
     const analytics = source.resolveAnalytics();
 
     if (options.selfTest) {
+      // Serving needs the optional `@hypequery/mcp` peer. Without this check
+      // the self-test passed and the real command then failed on import.
+      try {
+        await (dependencies.loadMcp ?? (() => import('@hypequery/mcp')))();
+      } catch {
+        fail('@hypequery/mcp is not installed, so this project cannot be served over MCP.', [
+          'npm install @hypequery/mcp',
+        ]);
+      }
       logger.success(`Loaded ${path.relative(process.cwd(), entrypoint)}`);
       logger.info(`Datasets: ${names.join(', ')}`);
       logger.info(options.tenant

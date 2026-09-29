@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockVerifyDeploymentBundle = vi.hoisted(() => vi.fn());
 const mockLoggerWarn = vi.hoisted(() => vi.fn());
+const mockLoggerIndent = vi.hoisted(() => vi.fn());
 
 vi.mock('../utils/deployment-bundle.js', () => ({
   verifyDeploymentBundle: mockVerifyDeploymentBundle,
@@ -17,6 +18,8 @@ vi.mock('../utils/logger.js', () => ({
     success: vi.fn(),
     info: vi.fn(),
     warn: mockLoggerWarn,
+    newline: vi.fn(),
+    indent: mockLoggerIndent,
   },
 }));
 
@@ -634,5 +637,76 @@ describe('deploy command', () => {
     }, {
       env: { HYPEQUERY_API_TOKEN: 'secret-token' },
     })).rejects.toThrow(/Cannot push an invalid deployment bundle[\s\S]*manifest mismatch/);
+  });
+
+  describe('hosted endpoints', () => {
+    const endpoints = {
+      active: true,
+      rest: {
+        baseUrl: 'https://cloud.example.test/api/gateway/project-1/production/execute',
+        datasets: [{
+          name: 'orders',
+          url: 'https://cloud.example.test/api/gateway/project-1/production/execute/api/analytics/datasets/orders/query',
+        }],
+      },
+      mcp: { url: 'https://cloud.example.test/api/gateway/project-1/production/mcp' },
+    };
+
+    async function submitWith(
+      fetchEndpoints: NonNullable<DeployDependencies['fetchEndpoints']>,
+      options: { mcpConfig?: boolean } = {},
+    ) {
+      mockLoggerIndent.mockClear();
+      const release = await releaseFile();
+      const submit = vi.fn().mockResolvedValue({
+        kind: 'hypequery-deployment-submission',
+        version: 1,
+        status: 'accepted',
+        releaseIdentity: release.identity,
+        bundleIdentity: BUNDLE_IDENTITY,
+      });
+      await submitDeploymentCommand('dist/bundle', {
+        release: release.path,
+        endpoint: 'https://deploy.example.test/v1/releases',
+        ...options,
+      }, {
+        env: { HYPEQUERY_API_TOKEN: 'secret-token' },
+        createTransport: vi.fn(() => ({ submit })),
+        fetchEndpoints,
+      });
+      return mockLoggerIndent.mock.calls.map(([line]) => String(line));
+    }
+
+    it('prints where the deployment is served once it is accepted', async () => {
+      const fetchEndpoints = vi.fn(async () => endpoints);
+
+      const printed = await submitWith(fetchEndpoints);
+
+      expect(fetchEndpoints).toHaveBeenCalledWith({
+        endpoint: 'https://deploy.example.test/v1/releases',
+        token: 'secret-token',
+        target: { project: 'project-1', environment: 'production' },
+      });
+      expect(printed).toEqual(expect.arrayContaining([
+        `REST  ${endpoints.rest.baseUrl}`,
+        `  orders  POST ${endpoints.rest.datasets[0]!.url}`,
+        `MCP   ${endpoints.mcp.url}`,
+        `HYPEQUERY_API_KEY=<key> hypequery mcp --self-test --url ${endpoints.mcp.url}`,
+      ]));
+      expect(printed.join('\n')).not.toContain('mcpServers');
+    });
+
+    it('prints MCP client configuration on request, without any credential', async () => {
+      const printed = (await submitWith(async () => endpoints, { mcpConfig: true })).join('\n');
+
+      expect(printed).toContain('"mcpServers"');
+      expect(printed).toContain(endpoints.mcp.url);
+      expect(printed).toContain('Bearer ${HYPEQUERY_API_KEY}');
+      expect(printed).not.toContain('secret-token');
+    });
+
+    it('prints nothing extra when Cloud does not say where', async () => {
+      expect(await submitWith(async () => undefined)).toEqual([]);
+    });
   });
 });

@@ -72,6 +72,8 @@ npx hypequery dev
 | `hypequery generate` | Rebuild `analytics/schema.ts` from your current ClickHouse schema |
 | `hypequery generate:types` | Alias for `hypequery generate` |
 | `hypequery generate:datasets` | Generate dataset (semantic layer) definitions from your ClickHouse schema |
+| `hypequery deploy <cloud>` | Build, release, and deploy a dataset-only Cloud publication, then print where it is served |
+| `hypequery mcp [file]` | Serve this project's datasets to an MCP client over stdio, or check an endpoint with `--self-test` |
 | `hypequery deployment:validate <artifact>` | Verify a deployment bundle or validate contract JSON and report its identity |
 | `hypequery help [command]` | Show help for the CLI or a specific command |
 
@@ -312,6 +314,43 @@ npx @hypequery/cli generate:datasets --path analytics --diff
 npx @hypequery/cli generate:datasets --path analytics --check
 ```
 </CodeBlock>
+
+## `hypequery deploy <cloud>`
+
+Builds the publication module, prepares a release for the logged-in target,
+and submits it. Once Cloud accepts the release, the CLI prints where it's
+served:
+
+```text
+Hosted endpoints
+  REST  https://cloud.hypequery.com/api/gateway/<project>/<environment>/execute
+    orders  POST https://…/execute/api/analytics/datasets/orders/query
+  MCP   https://cloud.hypequery.com/api/gateway/<project>/<environment>/mcp
+```
+
+Cloud provides these URLs, so they're always the ones it actually serves. A
+Cloud release that doesn't provide them leaves the output unchanged.
+
+| Option | Description |
+| --- | --- |
+| `--mcp-config` | Also print MCP client configuration for the hosted endpoint. It reads the key from `${HYPEQUERY_API_KEY}` and never contains a credential |
+| `--project`, `--environment` | Override the target from `hypequery login` |
+| `--replace-restored` | Replace a live release that was restored from history |
+| `--no-source` | Leave project source files out of the bundle |
+
+## `hypequery mcp [file]`
+
+Serves the project's datasets over stdio for a local MCP client.
+
+| Option | Description |
+| --- | --- |
+| `--tenant <id>` | Trusted tenant for tenant-scoped datasets (required when any dataset is tenant-scoped) |
+| `--self-test` | Check the entrypoint and exit. It fails if `@hypequery/mcp` isn't installed |
+| `--self-test --url <mcp-url>` | Check a hosted endpoint instead: initialize and list tools, without calling one. The runtime API key is read from `HYPEQUERY_API_KEY`, so it never appears in shell history |
+
+```bash
+HYPEQUERY_API_KEY=<key> npx hypequery mcp --self-test --url https://cloud.hypequery.com/api/gateway/<project>/<environment>/mcp
+```
 
 ## Environment variables
 

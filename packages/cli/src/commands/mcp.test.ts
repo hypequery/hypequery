@@ -166,4 +166,67 @@ describe('hypequery mcp', () => {
 
     expect(console.log).toBe(original);
   });
+
+  // F7: the self-test used to pass without the optional peer, and the real
+  // command then failed on import.
+  it('fails the self-test when @hypequery/mcp is not installed', async () => {
+    const file = await entrypointFile();
+
+    await expect(mcpCommand(file, { selfTest: true }, {
+      loadApi: async () => apiWithDatasets({ orders: { name: 'orders' } }),
+      loadMcp: async () => {
+        throw Object.assign(new Error("Cannot find package '@hypequery/mcp'"), {
+          code: 'ERR_MODULE_NOT_FOUND',
+        });
+      },
+    })).rejects.toThrow('process.exit:1');
+
+    expect(logger.error).toHaveBeenCalledWith(expect.stringContaining('@hypequery/mcp is not installed'));
+    expect(logger.indent).toHaveBeenCalledWith('npm install @hypequery/mcp');
+    expect(logger.success).not.toHaveBeenCalled();
+  });
+
+  describe('--self-test --url', () => {
+    const url = 'https://cloud.example.test/api/gateway/p/production/mcp';
+
+    it('checks the hosted endpoint with the key from the environment', async () => {
+      const checkRemote = vi.fn(async () => ({ ok: true as const, tools: 3, server: 'hypequery' }));
+      const loadApi = vi.fn();
+
+      await mcpCommand(undefined, { selfTest: true, url }, {
+        env: { HYPEQUERY_API_KEY: 'hq_key' },
+        checkRemote,
+        loadApi,
+      });
+
+      expect(checkRemote).toHaveBeenCalledWith({ url, key: 'hq_key' });
+      expect(loadApi).not.toHaveBeenCalled();
+      expect(logger.info).toHaveBeenCalledWith('Tools: 3');
+    });
+
+    it('fails loudly when the hosted check fails', async () => {
+      await expect(mcpCommand(undefined, { selfTest: true, url }, {
+        env: { HYPEQUERY_API_KEY: 'hq_key' },
+        checkRemote: async () => ({ ok: false as const, reason: 'the API key was refused (401).' }),
+      })).rejects.toThrow('process.exit:1');
+
+      expect(logger.error).toHaveBeenCalledWith(
+        'Hosted MCP check failed: the API key was refused (401).',
+      );
+    });
+
+    it('requires the key in the environment, never on the command line', async () => {
+      const checkRemote = vi.fn();
+
+      await expect(mcpCommand(undefined, { selfTest: true, url }, { env: {}, checkRemote }))
+        .rejects.toThrow('process.exit:1');
+
+      expect(checkRemote).not.toHaveBeenCalled();
+      expect(logger.error).toHaveBeenCalledWith(expect.stringContaining('HYPEQUERY_API_KEY'));
+    });
+
+    it('refuses --url without --self-test', async () => {
+      await expect(mcpCommand(undefined, { url }, {})).rejects.toThrow('process.exit:1');
+    });
+  });
 });
