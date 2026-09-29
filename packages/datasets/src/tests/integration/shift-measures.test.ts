@@ -248,8 +248,9 @@ describe('shift execution against ClickHouse', () => {
   });
 
   it('rejects sub-day grains on a physical Date column using metadata only', async () => {
-    const ds = dataset('dateTimeOfDay', { source: `${table}_calendar`, timeKey: 'time', dimensions: { time: dimension.timestamp({ column: 'event_at' }), value: dimension.number() }, measures: { revenue: measure.sum('value'), priorDay: measure.shift('revenue', { amount: 1, unit: 'day' }) } });
+    const ds = dataset('dateTimeOfDay', { source: `${table}_calendar`, timeKey: 'time', dimensions: { time: dimension.timestamp({ column: 'event_at' }), value: dimension.number() }, measures: { revenue: measure.sum('value'), priorDay: measure.shift('revenue', { amount: 1, unit: 'day' }), priorYear: measure.shift('revenue', { amount: 1, unit: 'year' }) } });
     await expect(client.execute(ds, { by: 'hour', measures: ['priorDay'], filters: [{ field: 'time', operator: 'between', value: ['2024-03-01', '2024-03-02'] }] })).rejects.toThrow(/time-of-day column/);
+    await expect(client.execute(ds, { by: 'hour', measures: ['priorYear'], filters: [{ field: 'time', operator: 'between', value: ['2024-03-01', '2024-03-02'] }] })).rejects.toThrow(/time-of-day column/);
   });
 
 });

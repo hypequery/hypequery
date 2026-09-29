@@ -75,4 +75,27 @@ describe('calendar shifts at fine grains', () => {
       filters: [{ field: 'time', operator: 'gte', value: '2024-03-30T13:00:00' }, { field: 'time', operator: 'lt', value: '2024-03-31T10:00:00' }, { field: 'group', operator: 'eq', value: 'overlap' }] });
     expect(result.data.map(row => row.priorMonth)).toEqual(['14', '2']);
   });
+
+  it('rejects a calendar shift into a nonexistent local hour even with no source rows', async () => {
+    const query = { by: 'hour' as const, timezone: 'Europe/Madrid', measures: ['priorYear'], filters: [
+      { field: 'time', operator: 'gte' as const, value: '2025-03-31T01:00:00' },
+      { field: 'time', operator: 'lt' as const, value: '2025-03-31T04:00:00' },
+    ] };
+    await expect(client.execute(Events, query)).rejects.toThrow(/nonexistent local time/);
+  });
+
+  it('retains an adjacent valid hour when the following prior-year hour is skipped', async () => {
+    const result = await client.execute(Events, { by: 'hour', timezone: 'Europe/Madrid', measures: ['priorYear'], filters: [
+      { field: 'time', operator: 'gte', value: '2025-03-31T01:00:00' },
+      { field: 'time', operator: 'lt', value: '2025-03-31T02:00:00' },
+    ] });
+    expect(result.data).toHaveLength(1);
+  });
+
+  it('rejects a half-hour daylight-saving gap at minute grain', async () => {
+    await expect(client.execute(Events, { by: 'minute', timezone: 'Australia/Lord_Howe', measures: ['priorYear'], filters: [
+      { field: 'time', operator: 'gte', value: '2026-10-05T02:15:00' },
+      { field: 'time', operator: 'lt', value: '2026-10-05T02:16:00' },
+    ] })).rejects.toThrow(/nonexistent local time/);
+  });
 });

@@ -3,6 +3,7 @@ import type { TimeMeasureAxis } from './time-measure-axis.js';
 import { addTimeSql as add, subtractTimeSql as subtract } from './time-arithmetic-sql.js';
 import { calendarShiftAtFineGrain } from './shift-measure-grains.js';
 import { calendarBucketGuardSql } from './time-axis-calendar-guard.js';
+import { shiftWallTimeGuardSql } from './shift-wall-time-sql.js';
 
 /** Keep output coordinates separate from each shifted evaluation interval. */
 export function timeMeasureContextCtes(contexts: readonly MeasureEvaluationContext[], axis: TimeMeasureAxis): string[] {
@@ -19,5 +20,9 @@ export function timeMeasureContextCtes(contexts: readonly MeasureEvaluationConte
 
 export function timeMeasureContextGuard(context: MeasureEvaluationContext, axis: TimeMeasureAxis): string {
   const guard = calendarBucketGuardSql('_hq_eval_period', '1', axis.grain);
-  return `(SELECT coalesce(max(${guard}), 0) FROM _hq_context${context.id})`;
+  const wallTimeGuard = context.interval === undefined ? '0' : shiftWallTimeGuardSql(
+    context.interval, axis.grain, `_hq_context${context.parent} AS p`,
+    'p._hq_eval_period', 'p._hq_eval_lower', 'p._hq_eval_upper', 'p._hq_eval_end',
+  );
+  return `(SELECT coalesce(max(${guard}), 0) FROM _hq_context${context.id}) + ${wallTimeGuard}`;
 }

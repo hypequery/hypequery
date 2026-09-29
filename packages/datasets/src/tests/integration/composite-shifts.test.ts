@@ -77,4 +77,11 @@ describe('shifted windows and formulas', () => {
       prior: measure.shift('current', { amount: 1, unit: 'year' }),
     } })).toThrow(/dependency cycle/);
   });
+
+  it('rejects a shifted formula whose local hour did not exist in the earlier year', async () => {
+    await expect(client.execute(Events, { by: 'hour', timezone: 'Europe/Madrid', measures: ['priorAov'], filters: [
+      { field: 'time', operator: 'gte', value: '2025-03-31T01:00:00' },
+      { field: 'time', operator: 'lt', value: '2025-03-31T04:00:00' },
+    ] })).rejects.toThrow(/nonexistent local time/);
+  });
 });

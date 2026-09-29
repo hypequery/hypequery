@@ -82,7 +82,7 @@ export function buildTimeMeasureDatasetSql(
   const sql = buildTimeMeasureResultSql(
     ds, query, options, source.dimensions,
     [...source.ctes, ...timeAxis.ctes, ...[...shiftedInputs.values()].flatMap(input => input.ctes), scanCte, ...values],
-    `${timeAxis.guard} + ${timeAxis.rangeGuard}`,
+    `${timeAxis.guard} + ${timeAxis.rangeGuard} + ${timeAxis.postSeriesGuard}`,
   );
   return { sql, parameters: source.parameters, timeAxisSql: timeAxis.timeAxisSql };
 }
