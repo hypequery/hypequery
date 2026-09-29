@@ -13,6 +13,7 @@ export function buildTimeMeasureResultSql(
   dims: readonly TimeMeasureSqlDimension[],
   ctes: readonly string[],
   validationGuard: string,
+  formulasEvaluated = false,
 ): string {
   const selected = query.measures ?? [];
   const projections = [
@@ -20,7 +21,7 @@ export function buildTimeMeasureResultSql(
     ...dims.map(dimension => quoteSQLIdentifier(dimension.name)),
     ...selected.map(name => {
       const derived = getDerivedMeasure(ds.measures, name);
-      return derived ? derivedProjection(name, derived) : quoteSQLIdentifier(name);
+      return derived && !formulasEvaluated ? derivedProjection(name, derived) : quoteSQLIdentifier(name);
     }),
   ];
   // Keep toSQL independently guarded too. This branch produces no valid

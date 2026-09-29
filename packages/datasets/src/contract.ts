@@ -39,7 +39,7 @@ export interface ContractDimension extends SemanticMetadata {
 
 export interface ContractMeasure extends SemanticMetadata, WindowCatalogMetadata {
   aggregation: MeasureCatalogEntry['aggregation'];
-  field: string;
+  field?: string;
   /** Second column for argMax/argMin. */
   argField?: string;
   /** Percentile level in [0, 1]. */

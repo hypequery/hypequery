@@ -1,3 +1,4 @@
+import { assertMeasureDependenciesAcyclic } from './measure-dependencies.js';
 import type {
   DatasetMeasureDefinition,
   DerivedMeasureDefinition,
@@ -96,33 +97,11 @@ function evaluateFormula(
   return formula;
 }
 
-function assertAcyclic(
-  datasetName: string,
-  derivedMeasures: Record<string, DerivedMeasureDefinition>,
-): void {
-  const visiting = new Set<string>();
-  const visited = new Set<string>();
-
-  const visit = (name: string): void => {
-    if (visiting.has(name)) fail(datasetName, name, 'contains a dependency cycle.');
-    if (visited.has(name)) return;
-    if (!Object.hasOwn(derivedMeasures, name)) return;
-    const definition = derivedMeasures[name];
-    visiting.add(name);
-    Object.values(definition.uses).forEach(dependency => visit(dependency));
-    visiting.delete(name);
-    visited.add(name);
-  };
-
-  Object.keys(derivedMeasures).forEach(visit);
-}
-
 export function validateDerivedMeasures(
   datasetName: string,
   measures: Record<string, DatasetMeasureDefinition>,
 ): void {
-  const { base: baseMeasures, derived: derivedMeasures, windows, shifts } = splitDatasetMeasures(measures);
-  const timeMeasureNames = new Set([...Object.keys(windows), ...Object.keys(shifts)]);
+  const { derived: derivedMeasures } = splitDatasetMeasures(measures);
   for (const [measureName, definition] of Object.entries(derivedMeasures)) {
     if (!isSafeSQLIdentifier(measureName)) {
       fail(datasetName, measureName, 'name is not a safe identifier.');
@@ -134,7 +113,8 @@ export function validateDerivedMeasures(
       fail(datasetName, measureName, 'must declare an input map.');
     }
   }
-  assertAcyclic(datasetName, derivedMeasures);
+
+  assertMeasureDependenciesAcyclic(datasetName, measures);
 
   for (const [measureName, definition] of Object.entries(derivedMeasures)) {
     const uses = Object.entries(definition.uses);
@@ -146,10 +126,7 @@ export function validateDerivedMeasures(
       if (typeof dependencyName !== 'string' || dependencyName.includes('.')) {
         fail(datasetName, measureName, `references cross-dataset measure "${String(dependencyName)}".`);
       }
-      if (Object.hasOwn(derivedMeasures, dependencyName)) {
-        fail(datasetName, measureName, `references derived measure "${dependencyName}"; v1 inputs must be base measures.`);
-      }
-      if (!Object.hasOwn(baseMeasures, dependencyName) && !timeMeasureNames.has(dependencyName)) {
+      if (!Object.hasOwn(measures, dependencyName)) {
         fail(datasetName, measureName, `references missing measure "${dependencyName}".`);
       }
     }

@@ -38,7 +38,7 @@ describe('dataset-owned derived measures', () => {
     expect(orders.metric('totalRevenue', { measure: 'revenue' }).contract().kind).toBe('metric');
   });
 
-  it('rejects missing, cross-dataset, and derived-on-derived dependencies', () => {
+  it('rejects missing and cross-dataset dependencies', () => {
     const derived = measure.derived({
       uses: { revenue: 'revenue' },
       formula: ({ revenue }) => divide(revenue, nullIfZero(revenue)),
@@ -47,8 +47,7 @@ describe('dataset-owned derived measures', () => {
       .toThrow(/missing measure "missing"/);
     expect(() => defineOrders({ bad: { ...derived, uses: { revenue: 'other.revenue' } } }))
       .toThrow(/cross-dataset measure/);
-    expect(() => defineOrders({ first: derived, second: { ...derived, uses: { first: 'first' } } }))
-      .toThrow(/references derived measure "first"/);
+
   });
 
   it('rejects cycles and unsafe aliases at definition time', () => {

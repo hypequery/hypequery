@@ -1,3 +1,4 @@
+import { inheritedBaseMeasure } from './utils/measure-dependencies.js';
 import { windowCatalogMetadata, type WindowCatalogMetadata } from './utils/window-catalog-metadata.js';
 import { splitDatasetMeasures } from './utils/dataset-measures.js';
 import type {
@@ -15,7 +16,7 @@ import type {
 } from './types.js';
 import { SEMANTIC_FILTER_OPERATORS } from './constants.js';
 import { datasetTimeGrains } from './utils/dataset-time-grains.js';
-import { isApproximateAggregation, isApproximateDerivedMeasure } from './utils/approximate-measures.js';
+import { isApproximateAggregation, isApproximateDerivedMeasure, isApproximateMeasure } from './utils/approximate-measures.js';
 import { usesTimeMeasure } from './utils/time-query-measures.js';
 import { measureSupportedGrains } from './utils/measure-time-grains.js';
 import {
@@ -35,8 +36,8 @@ export interface DimensionCatalogEntry extends SemanticMetadata {
 }
 
 export interface MeasureCatalogEntry extends SemanticMetadata, WindowCatalogMetadata {
-  aggregation: MeasureDefinition['aggregation'];
-  field: string;
+  aggregation?: MeasureDefinition['aggregation'];
+  field?: string;
   /** Second column for argMax/argMin. */
   argField?: string;
   /** Percentile level in [0, 1]. */
@@ -44,7 +45,7 @@ export interface MeasureCatalogEntry extends SemanticMetadata, WindowCatalogMeta
   sql?: string;
   label?: string;
   description?: string;
-  filterCount: number;
+  filterCount?: number;
   /** Present, as `true`, when the measure returns an estimate. */
   approximate?: true;
 }
@@ -253,7 +254,9 @@ export function getDatasetCatalog(dataset: DatasetCatalogSource): DatasetCatalog
       [
         ...Object.entries(baseMeasures).map(([name, measure]) => [name, measureToCatalog(measure)]),
         ...[...Object.entries(windows), ...Object.entries(shifts)].map(([name, window]) => [name, {
-          ...measureToCatalog(baseMeasures[window.measure]),
+          ...(inheritedBaseMeasure(dataset.measures, window.measure)
+            ? measureToCatalog(inheritedBaseMeasure(dataset.measures, window.measure)!) : {}),
+          ...(isApproximateMeasure(dataset.measures, name) ? { approximate: true as const } : {}),
           ...snapshotSemanticMetadata(window),
           label: window.label,
           description: window.description,

@@ -1,3 +1,5 @@
+import { buildCompositeTimeMeasureSql } from './composite-time-measure-sql.js';
+import { measureDependencyNames } from './measure-dependencies.js';
 import type { AnyDatasetInstance, DatasetQuery } from '../types.js';
 import type { DatasetQueryExecutionOptions } from '../dataset-query.js';
 import { getBaseMeasure, getDerivedMeasure, isShiftMeasure, isWindowMeasure } from './dataset-measures.js';
@@ -21,6 +23,15 @@ export function buildTimeMeasureDatasetSql(
   if (!validation.valid) throw new Error(`Invalid dataset query: ${validation.errors.join('; ')}`);
   const { axis } = analyzeTimeMeasureAxis(ds, query);
   if (!axis || !ds.timeKey) throw new Error('Window measures require a bounded time axis.');
+
+  const dependencies = measureDependencyNames(ds.measures, query.measures ?? []);
+  const composite = dependencies.some(name => {
+    const definition = ds.measures[name];
+    if (isShiftMeasure(definition)) return !getBaseMeasure(ds.measures, definition.measure);
+    const derived = getDerivedMeasure(ds.measures, name);
+    return derived && Object.values(derived.uses).some(input => getDerivedMeasure(ds.measures, input));
+  });
+  if (composite) return buildCompositeTimeMeasureSql(ds, query, options, axis);
 
   const timeMeasures = selectedTimeMeasures(ds, query);
   const windows = [...timeMeasures.values()].filter(isWindowMeasure);

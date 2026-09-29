@@ -9,7 +9,8 @@ export function measureSupportedGrains(
 ): TimeGrain[] {
   const definition = measures[name];
   if (isShiftMeasure(definition)) {
-    return grains.filter(grain => supportsShiftGrain(definition.interval, grain));
+    return measureSupportedGrains(measures, definition.measure, grains)
+      .filter(grain => supportsShiftGrain(definition.interval, grain));
   }
   if (isWindowMeasure(definition)) return grains.filter(grain => !windowGrainErrors(name, definition, grain).length);
   const derived = getDerivedMeasure(measures, name);

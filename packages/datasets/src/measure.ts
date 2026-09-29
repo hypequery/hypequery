@@ -112,9 +112,9 @@ export const measure = {
   stddev: createMeasureHelper('stddev'),
   /** Sample variance (ClickHouse `varSamp`). */
   variance: createMeasureHelper('variance'),
-  /** A formula over base, window, or shifted measures owned by this dataset. */
+  /** A formula over measures owned by this dataset. */
   derived: createDerivedMeasure,
-  /** Evaluate a base measure in an earlier aligned period. */
+  /** Evaluate a measure and its dependencies in an earlier aligned period. */
   shift: <const TMeasureName extends string>(baseMeasure: TMeasureName, interval: MeasureTimeInterval, options?: ShiftMeasureOptions): ShiftMeasureDefinition<TMeasureName> =>
     createShiftMeasure(baseMeasure, interval, options),
   /** Re-aggregate rows over a trailing interval of whole query buckets. */
