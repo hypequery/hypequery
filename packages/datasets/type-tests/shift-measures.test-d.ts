@@ -1,5 +1,5 @@
 import {
-  dataset, dimension, divide, measure, type DatasetRowFor, type DatasetClient,
+  dataset, dimension, divide, nullIfZero, measure, type DatasetRowFor, type DatasetClient,
   type ShiftMeasureDefinition, type AgentCatalogMeasure,
 } from '../src/index.js';
 
