@@ -5,6 +5,7 @@ import type { ClickHouseConfig } from './query-builder.js';
 import { isClientConfig } from './query-builder.js';
 import { getAutoClientModule } from './env/auto-client.js';
 import type { AutoClientModule } from './env/auto-client.js';
+import { toNodeClientConfig } from './utils/clickhouse-client-compat.js';
 
 // Union type that accepts either client type
 type ClickHouseClient = NodeClickHouseClient | WebClickHouseClient;
@@ -26,7 +27,7 @@ function getClickHouseClientSync(): ClickHouseClientModule {
     }
     const clientModule: AutoClientModule = getAutoClientModule();
     return {
-      createClient: clientModule.createClient,
+      createClient: config => clientModule.createClient(toNodeClientConfig(config)),
       ClickHouseSettings: clientModule.ClickHouseSettings || {}
     };
   }

@@ -25,6 +25,7 @@ import {
   createReadonlyIntegerJsonError,
 } from '../utils/integer-json-encoding.js';
 import type { ClickHouseSettings } from '@clickhouse/client-common';
+import { toClientSettings } from '../utils/clickhouse-client-compat.js';
 
 /**
  * The node and web clients return structurally different `ResultSet`s (the web
@@ -87,7 +88,7 @@ export class ClickHouseAdapter implements DatabaseAdapter {
         this.client.query({
           query: finalSQL,
           format: 'JSONEachRow',
-          clickhouse_settings: clickhouseSettings,
+          clickhouse_settings: toClientSettings(clickhouseSettings),
           query_id: options?.queryId,
           abort_signal: options?.abortSignal,
         }),
@@ -110,7 +111,7 @@ export class ClickHouseAdapter implements DatabaseAdapter {
         this.client.query({
           query: finalSQL,
           format: 'JSONEachRow',
-          clickhouse_settings: clickhouseSettings,
+          clickhouse_settings: toClientSettings(clickhouseSettings),
           query_id: options?.queryId,
           abort_signal: options?.abortSignal,
         }),
@@ -133,11 +134,11 @@ export class ClickHouseAdapter implements DatabaseAdapter {
       ...(options?.columns && options.columns.length > 0
         ? { columns: options.columns as [string, ...string[]] }
         : {}),
-      clickhouse_settings: {
+      clickhouse_settings: toClientSettings({
         // Lets ISO-8601 timestamps (JSON.stringify'd Date values) parse into DateTime columns.
         date_time_input_format: 'best_effort',
         ...options?.clickhouseSettings,
-      },
+      }),
       query_id: options?.queryId,
       abort_signal: options?.abortSignal,
     });

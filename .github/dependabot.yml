@@ -22,6 +22,10 @@ updates:
     directory: /
     schedule:
       interval: weekly
+    ignore:
+      # v2 requires Changesets CLI v3 and new action inputs; migrate together.
+      - dependency-name: changesets/action
+        update-types: [version-update:semver-major]
     groups:
       actions:
         patterns: ["*"]

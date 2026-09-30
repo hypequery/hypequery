@@ -5,6 +5,7 @@ import { isClientConfig } from '../query-builder.js';
 import { getAutoClientModule } from '../env/auto-client.js';
 import type { AutoClientModule } from '../env/auto-client.js';
 import { getConnectionEndpoint } from './connection-endpoint.js';
+import { toNodeClientConfig } from './clickhouse-client-compat.js';
 
 export type ClickHouseClient = NodeClickHouseClient | WebClickHouseClient;
 
@@ -15,7 +16,7 @@ export function createClickHouseClient(config: ClickHouseAdapterConfig): ClickHo
 
   const clientModule: AutoClientModule = getAutoClientModule();
   const { integerJsonEncoding: _adapterOption, ...clientConfig } = config;
-  return clientModule.createClient(clientConfig);
+  return clientModule.createClient(toNodeClientConfig(clientConfig));
 }
 
 export function deriveClickHouseNamespace(config: ClickHouseAdapterConfig): string {

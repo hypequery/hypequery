@@ -35,23 +35,23 @@
     "prepack": "pnpm build"
   },
   "peerDependencies": {
-    "@tanstack/react-query": "^5.0.0",
+    "@tanstack/react-query": "^5.104.0",
     "react": "^18.0.0 || ^19.0.0",
     "react-dom": "^18.0.0 || ^19.0.0"
   },
   "devDependencies": {
     "@hypequery/datasets": "workspace:*",
     "@hypequery/serve": "workspace:*",
-    "@tanstack/react-query": "^5.0.0",
+    "@tanstack/react-query": "^5.104.0",
     "@testing-library/react": "^14.2.1",
     "@types/react": "^18.2.43",
     "@types/react-dom": "^18.2.18",
-    "@vitest/coverage-v8": "^3.2.6",
+    "@vitest/coverage-v8": "^5.0.2",
     "jsdom": "^27.4.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "typescript": "^5.7.3",
-    "vitest": "^3.2.6"
+    "vitest": "^5.0.2"
   },
   "repository": {
     "type": "git",

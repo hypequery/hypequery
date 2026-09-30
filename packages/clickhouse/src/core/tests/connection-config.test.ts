@@ -6,7 +6,7 @@ const fakeClient = {} as ClickHouseClientConfig['client'];
 
 afterEach(() => {
   vi.resetModules();
-  vi.unmock('../env/auto-client.js');
+  vi.doUnmock('../env/auto-client.js');
 });
 
 describe('isClientConfig', () => {
