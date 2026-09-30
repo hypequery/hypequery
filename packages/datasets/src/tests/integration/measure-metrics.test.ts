@@ -47,7 +47,9 @@ describe('metrics backed by dataset measures', () => {
   afterAll(async () => { await runSql(`DROP TABLE IF EXISTS ${table}`); });
 
   it('matches canonical dataset queries and emits the metric alias', async () => {
-    const query = { by: 'month' as const, dimensions: ['group'], filters: range };
+    const query = { by: 'month' as const, dimensions: ['group'], filters: range,
+      orderBy: [{ field: 'group', direction: 'asc' as const }],
+    };
     const datasetResult = await client.execute(Events, { ...query, measures: ['priorYtd'] }, context);
     const metricResult = await client.execute(PriorYtd, query, context);
     expect(metricResult.data).toEqual(datasetResult.data.map(({ priorYtd, ...rest }) => ({ ...rest, previousYearToDate: priorYtd })));
