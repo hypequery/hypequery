@@ -48,7 +48,7 @@
     "@type-challenges/utils": "^0.1.1",
     "@typescript-eslint/eslint-plugin": "^8.62.1",
     "@typescript-eslint/parser": "^8.62.1",
-    "eslint": "^8.0.0",
+    "eslint": "^10.11.0",
     "turbo": "^2.9.14",
     "typescript": "^5.9.3"
   },
