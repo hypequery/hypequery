@@ -98,6 +98,15 @@ def _tenant_scope(dataset: Dataset, context: ExecutionContext) -> TenantScope | 
             f'Dataset "{dataset.name}" requires runtime tenant scoping.',
             code="HQ_CAPABILITY_TENANT_REQUIRED",
         )
+    if type(scope) is not TenantScope:
+        # ExecutionContext checks this on construction, but object.__new__
+        # skips that. A look-alike claiming cross_tenant must not drop the
+        # predicate.
+        raise CompiledQueryError(
+            "forbidden",
+            "The execution context does not carry a tenant capability.",
+            code="HQ_CAPABILITY_CLASS_MISMATCH",
+        )
     return None if scope.cross_tenant else scope
 
 

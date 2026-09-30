@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import time
 from dataclasses import dataclass, replace
+from typing import NoReturn
 
 from ..cache import CachedRows, ResultCache
 from ..dataset import Dataset
@@ -163,17 +164,25 @@ class _DatasetClientBase:
 class _TenantBoundBase:
     """Planning methods of a client bound to one tenant capability.
 
-    It exposes no executor, cache, or unbound client, so code holding one can
-    only run semantic queries, and only as the bound tenant.
+    It has no public executor, cache, or unbound client, so code holding one
+    can only run semantic queries, and only as the bound tenant. The binding is
+    fixed at creation: neither the tenant nor the client can be reassigned.
     """
 
     __slots__ = ("_client", "_scope")
 
     _client: _DatasetClientBase
+    _scope: TenantScope
 
     def __init__(self, client: _DatasetClientBase, scope: TenantScope) -> None:
-        self._client = client
-        self._scope = scope
+        object.__setattr__(self, "_client", client)
+        object.__setattr__(self, "_scope", scope)
+
+    def __setattr__(self, name: str, value: object) -> NoReturn:
+        raise AttributeError("a tenant-bound client cannot be rebound")
+
+    def __delattr__(self, name: str) -> NoReturn:
+        raise AttributeError("a tenant-bound client cannot be rebound")
 
     def to_sql(
         self,

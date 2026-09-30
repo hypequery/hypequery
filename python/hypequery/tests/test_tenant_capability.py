@@ -25,6 +25,7 @@ from hypequery.datasets import (
     create_async_dataset_client,
     create_dataset_client,
     dimension,
+    eq,
     measure,
     plan_dataset_query,
     tenant,
@@ -249,3 +250,60 @@ def test_an_async_bound_client_runs_as_its_tenant() -> None:
     assert executor.inner.seen[0].parameter_values() == {"p0": "acme"}
     assert len(executor.inner.seen) == 1
     assert caught.value.code == "HQ_CAPABILITY_TENANT_MISMATCH"
+
+
+# --- security review follow-ups -------------------------------------------
+
+
+def test_a_scope_exposes_no_state_to_serializers() -> None:
+    with pytest.raises(TypeError):
+        tenant("acme").__getstate__()
+
+
+def test_a_compiled_query_repr_shows_no_bound_value() -> None:
+    compiled = plan_dataset_query(
+        _trips(),
+        DatasetQuery(measures=("trips",), filters=(eq("vendor", "filter-secret"),)),
+        context=ExecutionContext(tenant=tenant("tenant-secret")),
+    )
+
+    for text in (repr(compiled), str(compiled), repr(compiled.parameters)):
+        assert "secret" not in text
+    assert "<p1:String>" in repr(compiled)
+    assert compiled.parameter_values() == {"p0": "filter-secret", "p1": "tenant-secret"}
+
+
+def test_a_bound_client_cannot_be_rebound() -> None:
+    executor = _Executor()
+    scoped = create_dataset_client(executor=executor).for_tenant(tenant("acme"))
+
+    with pytest.raises(AttributeError):
+        scoped._scope = tenant("globex")
+    with pytest.raises(AttributeError):
+        scoped._client = create_dataset_client(executor=_Executor())
+    with pytest.raises(AttributeError):
+        del scoped._scope
+
+    scoped.execute(_trips(), QUERY)
+    assert executor.seen[0].parameter_values() == {"p0": "acme"}
+
+
+def test_the_planner_refuses_a_look_alike_that_skipped_the_context_check() -> None:
+    @dataclass(frozen=True)
+    class _LookAlike:
+        ids: tuple[str, ...] = ()
+        cross_tenant: bool = True
+
+    context = object.__new__(ExecutionContext)
+    for name, value in (
+        ("tenant", _LookAlike()),
+        ("deadline", None),
+        ("cancellation", None),
+        ("correlation_id", None),
+    ):
+        object.__setattr__(context, name, value)
+
+    with pytest.raises(CompiledQueryError) as caught:
+        plan_dataset_query(_trips(), QUERY, context=context)
+    assert caught.value.category == "forbidden"
+    assert caught.value.code == "HQ_CAPABILITY_CLASS_MISMATCH"

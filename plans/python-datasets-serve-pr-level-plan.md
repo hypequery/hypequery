@@ -482,8 +482,12 @@ PYC-01 are merged.
     filtering the tenant field is refused while a scope is active.
   - *Capability.* `TenantScope` is opaque. Only `tenant()`, `tenants()`, and
     `all_tenants()` create one. It cannot be constructed directly, subclassed,
-    mutated, or pickled, and its `repr` shows no tenant id.
-    `ExecutionContext` rejects anything else in its tenant slot.
+    assigned to, or serialized, and its `repr` shows no tenant id.
+    `ExecutionContext` and the planner both reject anything else in the tenant
+    slot. The seal guards against request data and mistakes, not against code
+    already running in the process, which can still use `object.__new__`.
+  - *Log safety.* `CompiledQuery` and `TypedParameter` print their redacted
+    form, so a logged or captured compiled query shows no bound value.
   - *Scoped client.* `client.for_tenant(scope)` returns a client whose only
     methods are `execute`, `validate`, and `to_sql`. It refuses a context
     naming another tenant and cannot be bound to `all_tenants()`.

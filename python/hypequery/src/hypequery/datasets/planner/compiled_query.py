@@ -81,6 +81,14 @@ class CompiledQuery:
             debug = debug.replace(parameter.placeholder, parameter.debug_placeholder)
         return debug
 
+    def __repr__(self) -> str:
+        # Built from the redacted form, so a logged, raised, or captured
+        # compiled query shows structure and never a bound value.
+        return (
+            f"CompiledQuery(query_id={self.query_id!r}, operation={self.operation!r}, "
+            f"sql={self.to_sql()!r})"
+        )
+
     def parameter_values(self) -> dict[str, object]:
         """The name-to-value map a driver binds through server parameters."""
 

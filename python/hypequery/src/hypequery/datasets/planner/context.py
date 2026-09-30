@@ -70,6 +70,11 @@ class TenantScope:
         # anywhere, which is exactly the serialization RFC 0009 rules out.
         raise TypeError("a TenantScope cannot be serialized")
 
+    def __getstate__(self) -> NoReturn:
+        # Python 3.11+ gives every object a default that returns the slots,
+        # which a serializer could call without going through pickle.
+        raise TypeError("a TenantScope cannot be serialized")
+
     def __copy__(self) -> TenantScope:
         return self
 
