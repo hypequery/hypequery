@@ -202,6 +202,48 @@ app.include_router(router)
   runs before this router authenticates, so keep those free of work you
   would not do for an anonymous caller.
 
+Every route on the router also has a fixed body policy, applied after
+authentication:
+- bodies must be UTF-8 `application/json`, otherwise `415`;
+- bodies are capped at `create_router(max_body_bytes=...)`, 1 MiB by default,
+  and counted as they stream, so a missing `Content-Length` doesn't get
+  around the cap;
+- a repeated or non-numeric `Content-Length` gets `400`.
+
+Authenticated responses are always sent with `Cache-Control: no-store`.
+
+### HTTP security profile
+
+Wrap the application with `install_http_security`:
+
+```python
+from hypequery.serve import CorsPolicy, HttpSecurity, install_http_security
+
+install_http_security(
+    app,
+    HttpSecurity(
+        allowed_hosts=("api.example.com",),
+        cors=CorsPolicy(origins=("https://app.example.com",), allow_credentials=True),
+        trusted_proxies=("10.0.0.0/8",),
+    ),
+)
+```
+
+- **Hosts.** `allowed_hosts` is required and must name hosts; `*` is refused.
+  A request for any other `Host` gets `400` and is never redirected.
+- **CORS** is off unless `cors` is set. Origins must be exact
+  `scheme://host[:port]` values. Credentialed CORS with `*` fails when the
+  policy is built, as do wildcard methods or headers.
+- **Proxies.** `X-Forwarded-For` and `X-Forwarded-Proto` are honoured only
+  from `trusted_proxies`. The client is the nearest forwarded address that
+  isn't itself a trusted proxy. By default no proxy is trusted.
+- **Request ids.** Every response carries a server-generated `x-request-id`,
+  which `request_id(request)` returns inside a handler. A caller's
+  `X-Request-ID` is never authoritative. If it is short printable ASCII, it
+  is echoed back as `x-correlation-id`; otherwise it is dropped. That covers
+  control characters, whitespace, look-alike letters, and values over 200
+  bytes.
+
 A missing or rejected credential gets `401` with
 `{"detail": {"category": "unauthenticated", ...}}` and `Cache-Control:
 no-store`. The canonical error envelope arrives with PYD-04.
