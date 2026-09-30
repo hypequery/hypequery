@@ -65,11 +65,12 @@ train.
 | PY-A | PYA-01…PYA-05 (workspace, CI, JCS/tagged values, identifiers, conformance gate) | PYA-00/PYA-02 are org-account and release work, not code |
 | PY-B | PYB-01…PYB-08; contract 3 and expression extension 2 (RFC 0015); PYB-09 dataset client | Pagination `hasMore` metadata, which needs a planner over-fetch (pick up with PYD-02) |
 | PY-C | PYC-01 executor; PYC-02 cancellation and concurrency budgets; PYC-03 tenant capability and tenant-bound clients; PYC-04 cache keys, preimage, and result cache (`cache-keys-v1` and `cache-preimages-v1` green in both languages) | A shared tenant fixture family (see PYC-03); PYC-05 needs RFC 0011 accepted |
-| PY-D | none (`hypequery.serve` is still the extra guard only) | PYD-01 is unblocked |
+| PY-D | PYD-01 router core and auth dependency | PYD-02 needs PYC-05; PYD-03 and PYD-04 are unblocked |
 | PY-E | none | all |
 
 RFC 0009 was accepted on 28 September 2026. Next steps:
-- PYD-01 (router core and auth dependency), now that PYC-03 has landed;
+- PYD-03 (HTTP security profile) and PYD-04 (canonical errors), which build
+  on the PYD-01 router;
 - TSP-04 (server-side binding in `@hypequery/clickhouse`), which is still
   open.
 
@@ -547,6 +548,27 @@ PYC-01 are merged.
 - **Acceptance:** Unauthenticated request to any endpoint fails closed by
   default; request state cannot forge auth context or tenant.
 - **Review:** Security review required.
+- **Status (2026-09-30):** Delivered as `create_router` / `ServeRouter`, with
+  tests on FastAPI 0.115 and current.
+  - *Default required.* `add_api_route` attaches the auth dependency to every
+    route before the route's own dependencies, unless the endpoint was passed
+    to `router.public` first. Every path that would skip FastAPI
+    dependencies is refused: plain routes, mounts, websockets, and
+    `include_router`, which in current FastAPI adds routes without
+    `add_api_route`.
+  - *Transport.* One header, bearer (RFC 6750 grammar) or API key (visible
+    ASCII), bounded length. A repeated header is refused. Query strings,
+    cookies, and bodies are never read.
+  - *Auth context.* The host authenticator sees only the opaque `Credential`
+    and returns a `Principal`. The tenant comes from a resolver over the
+    principal, by default `tenant_id`, and can never be `all_tenants()`.
+    Endpoints read `RequestAuth` through `Depends(router.auth)`, which
+    FastAPI caches per request. Nothing is stored in request state.
+  - *Failure.* Provider exceptions become a fixed 503, and a wrong return
+    type becomes a fixed 500. Sync providers run in the threadpool.
+  - *Deferred.* Role and scope requirements per endpoint, and endpoint
+    tenant policy, go to PYD-02 with the endpoints themselves. The response
+    body is `HTTPException` detail until PYD-04's canonical envelope.
 
 ### PYD-02 — Dataset and metric endpoints
 - **Dependencies:** PYD-01, PYB-09, PYC-05.

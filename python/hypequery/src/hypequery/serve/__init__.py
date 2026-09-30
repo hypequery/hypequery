@@ -3,8 +3,6 @@
 Requires the ``fastapi`` extra. This module fails loudly and early rather than
 letting a missing optional dependency surface as a confusing error deeper in a
 request path.
-
-Populated by train PY-D.
 """
 
 from __future__ import annotations
@@ -17,4 +15,33 @@ except ModuleNotFoundError as exc:  # pragma: no cover - exercised in a subproce
         'Install it with: pip install "hypequery[fastapi]"'
     ) from exc
 
-__all__: list[str] = []
+from .auth import (
+    MAX_CREDENTIAL_LENGTH,
+    Authenticator,
+    Credential,
+    CredentialKind,
+    CredentialTransport,
+    Principal,
+    RequestAuth,
+    TenantResolver,
+    api_key,
+    bearer_token,
+    default_tenant_resolver,
+)
+from .router import ServeRouter, create_router
+
+__all__ = [
+    "MAX_CREDENTIAL_LENGTH",
+    "Authenticator",
+    "Credential",
+    "CredentialKind",
+    "CredentialTransport",
+    "Principal",
+    "RequestAuth",
+    "ServeRouter",
+    "TenantResolver",
+    "api_key",
+    "bearer_token",
+    "create_router",
+    "default_tenant_resolver",
+]
