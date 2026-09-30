@@ -14,13 +14,18 @@ from hypequery.datasets.planner import CompiledQuery, CompiledQueryError
 from .cancellation import acquire_slot, run_with_policy
 from .errors import safe_driver_error
 from .parameters import bound_parameters
+from .readonly_settings import (
+    ReadonlyPolicy,
+    readonly_setting_error,
+    validate_readonly_policy,
+    wire_settings,
+)
 from .results import DriverResult, QueryRows, decode_result
-from .settings_access import settings_access, warn_left_to_profile
 
 
 @dataclass(frozen=True, slots=True)
 class ClickHouseConnection:
-    """Explicit connection fields; the password is absent from repr and logs."""
+    """Explicit connection fields and readonly policy; the password is never logged."""
 
     host: str = "localhost"
     port: int | None = None
@@ -28,6 +33,10 @@ class ClickHouseConnection:
     username: str = "default"
     password: str = field(default="", repr=False)
     secure: bool = False
+    readonly_policy: ReadonlyPolicy = "query"
+
+    def __post_init__(self) -> None:
+        validate_readonly_policy(self.readonly_policy)
 
 
 class _SyncClient(Protocol):
@@ -98,30 +107,30 @@ def _query_arguments(compiled: CompiledQuery) -> tuple[dict[str, object], dict[s
 class ClickHouseExecutor:
     """Execute a trusted compiled SELECT with native server parameters."""
 
-    def __init__(self, client: _SyncClient) -> None:
+    def __init__(self, client: _SyncClient, *, readonly_policy: ReadonlyPolicy = "query") -> None:
+        validate_readonly_policy(readonly_policy)
         self._client = client
-        self._warned_left_to_profile: set[str] = set()
+        self._readonly_policy = readonly_policy
 
     def execute(self, compiled: CompiledQuery) -> QueryRows:
         parameters, settings = _query_arguments(compiled)
-        access = settings_access(self._client, settings)
-        newly_blocked = set(access.left_to_profile) - self._warned_left_to_profile
-        if newly_blocked:
-            self._warned_left_to_profile.update(newly_blocked)
-            warn_left_to_profile(newly_blocked)
+        selected = wire_settings(self._client, settings, self._readonly_policy, compiled.query_id)
         # The driver's settings path puts query_id in HTTP parameters.
         # transport_settings becomes headers, which ClickHouse ignores here.
-        wire_settings: dict[str, int | str] = {**access.sendable, "query_id": compiled.query_id}
+        query_settings: dict[str, int | str] = {**selected, "query_id": compiled.query_id}
         try:
             result = self._client.query(
                 compiled.sql,
                 parameters,
-                wire_settings,
+                query_settings,
                 use_none=True,
                 tz_mode="aware",
                 transport_settings={},
             )
         except Exception as exc:
+            guidance = readonly_setting_error(exc, self._readonly_policy, compiled.query_id)
+            if guidance is not None:
+                raise guidance from None
             raise safe_driver_error(exc, compiled.query_id) from None
         return decode_result(result, compiled.query_id)
 
@@ -142,12 +151,14 @@ class AsyncClickHouseExecutor:
         control_client: _AsyncControlClient,
         *,
         max_concurrent: int = 8,
+        readonly_policy: ReadonlyPolicy = "query",
     ) -> None:
+        validate_readonly_policy(readonly_policy)
         self._client = client
         self._control_client = control_client
         self._semaphore = asyncio.Semaphore(_capacity(max_concurrent))
         self._closed = False
-        self._warned_left_to_profile: set[str] = set()
+        self._readonly_policy = readonly_policy
 
     async def _cancel_on_server(self, query_id: str) -> object:
         try:
@@ -171,13 +182,11 @@ class AsyncClickHouseExecutor:
             if self._closed:
                 raise CompiledQueryError("unavailable", "", query_id=compiled.query_id)
             parameters, settings = _query_arguments(compiled)
-            access = settings_access(self._client, settings)
-            newly_blocked = set(access.left_to_profile) - self._warned_left_to_profile
-            if newly_blocked:
-                self._warned_left_to_profile.update(newly_blocked)
-                warn_left_to_profile(newly_blocked)
-            wire_settings: dict[str, int | str] = {
-                **access.sendable,
+            selected = wire_settings(
+                self._client, settings, self._readonly_policy, compiled.query_id
+            )
+            query_settings: dict[str, int | str] = {
+                **selected,
                 "query_id": compiled.query_id,
             }
 
@@ -186,12 +195,15 @@ class AsyncClickHouseExecutor:
                     result = await self._client.query(
                         compiled.sql,
                         parameters,
-                        wire_settings,
+                        query_settings,
                         use_none=True,
                         tz_mode="aware",
                         transport_settings={},
                     )
                 except Exception as exc:
+                    guidance = readonly_setting_error(exc, self._readonly_policy, compiled.query_id)
+                    if guidance is not None:
+                        raise guidance from None
                     raise safe_driver_error(exc, compiled.query_id) from None
                 return decode_result(result, compiled.query_id)
 
@@ -224,9 +236,10 @@ class AsyncFromSyncClickHouseExecutor:
         control_client: _SyncControlClient,
         *,
         max_concurrent: int = 4,
+        readonly_policy: ReadonlyPolicy = "query",
     ) -> None:
         capacity = _capacity(max_concurrent)
-        self._sync = ClickHouseExecutor(client)
+        self._sync = ClickHouseExecutor(client, readonly_policy=readonly_policy)
         self._control = control_client
         self._workers = ThreadPoolExecutor(
             max_workers=capacity, thread_name_prefix="hypequery-query"
@@ -321,7 +334,7 @@ def create_clickhouse_executor(connection: ClickHouseConnection) -> ClickHouseEx
         )
     except Exception as exc:
         raise safe_driver_error(exc, "") from None
-    return ClickHouseExecutor(cast(_SyncClient, client))
+    return ClickHouseExecutor(cast(_SyncClient, client), readonly_policy=connection.readonly_policy)
 
 
 async def create_async_clickhouse_executor(
@@ -358,5 +371,7 @@ async def create_async_clickhouse_executor(
             await client.close()
         raise safe_driver_error(exc, "") from None
     return AsyncClickHouseExecutor(
-        cast(_AsyncClient, client), cast(_AsyncControlClient, control_client)
+        cast(_AsyncClient, client),
+        cast(_AsyncControlClient, control_client),
+        readonly_policy=connection.readonly_policy,
     )

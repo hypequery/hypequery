@@ -45,14 +45,35 @@ Any setting you pass yourself with `.settings({...})` follows the same rule: a
 
 ## Python datasets
 
-The Python planner attaches its limits to every query: `readonly = 1`,
-`max_execution_time`, `max_result_rows`, `max_result_bytes`, and `max_threads`.
-The executor sends only the ones the connected user may change:
+The Python planner attaches `readonly = 1`, `max_execution_time`,
+`max_result_rows`, `max_result_bytes`, and `max_threads` to every query. By
+default, the executor sends all five. It never silently drops a query limit.
 
-- **`readonly = 2`:** `readonly` is left out, since the user is already read-only.
-  Every limit still applies.
-- **`readonly = 1`:** the limits are left to the user's profile. The executor logs
-  one warning naming each limit it could not apply.
+- **`readonly = 1`:** Set the same limits in the user's profile. If a limit
+  differs, ClickHouse rejects the query; change the profile rather than
+  disabling the limit in HypeQuery.
+- **`readonly = 2`:** ClickHouse rejects the planner's `readonly = 1` setting.
+  Explicitly choose `readonly_policy="profile"` on the connection. HypeQuery
+  verifies that the connected profile has `readonly = 1` or `2`, then omits
+  only the `readonly` setting. It still sends every query limit.
+
+```python
+from hypequery.execution import ClickHouseConnection, create_clickhouse_executor
+
+executor = create_clickhouse_executor(
+    ClickHouseConnection(
+        host="localhost",
+        username="hypequery_reader",
+        password="...",
+        readonly_policy="profile",
+    )
+)
+```
+
+The same connection option works with `create_async_clickhouse_executor`.
+For `readonly = 1`, profile mode still requires the profile's limits to match
+the planner settings. A missing or unrestricted profile is rejected before
+the query is sent.
 
 Cancellation and deadlines still stop queries on the server for both levels,
 because the executor cancels with `KILL QUERY`, which read-only users may run.
