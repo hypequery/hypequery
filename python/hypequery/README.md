@@ -178,9 +178,13 @@ app.include_router(router)
   Query strings, cookies, and bodies are never read. A repeated,
   oversized, or malformed header is refused before your authenticator runs.
 - **Your authenticator** receives only the opaque `Credential`, never the
-  request, and returns a `Principal`, or `None` to reject it. It may be sync
-  (run in the threadpool) or async. If it raises, the request fails with a
-  fixed 503 and the exception never reaches the response.
+  request, and returns a `Principal`. To reject a credential, return `None`
+  or raise `InvalidCredential`. Wrap your token library's errors in it:
+  anything else that escapes is treated as authentication being down and
+  answered with a fixed 503. The exception never reaches the response. The
+  authenticator may be sync (run in the threadpool) or async.
+- **Authentication runs before the body is read**, so an unauthenticated
+  caller cannot make the server parse JSON or spool an upload.
 - **The tenant** comes from the principal: `tenant_id` scopes the request, and
   a principal without one is tenant-free. Pass `resolve_tenant=` to decide it
   yourself. A resolver cannot grant `all_tenants()`. No header, query
@@ -188,8 +192,13 @@ app.include_router(router)
 - **Public routes** need `@router.public` *below* the route decorator. In the
   other order the route stays authenticated.
 - **Routes that would skip authentication are refused.** That covers plain
-  Starlette routes, mounts, websockets, and `include_router` on this router.
-  Include other routers in the application instead.
+  Starlette routes, host routes, mounts, static frontends, websockets, and
+  `include_router` on this router. Include other routers in the application
+  instead.
+- **Application-level dependencies run first.** Anything passed as
+  `FastAPI(dependencies=...)` or `include_router(router, dependencies=...)`
+  runs before this router authenticates, so keep those free of work you
+  would not do for an anonymous caller.
 
 A missing or rejected credential gets `401` with
 `{"detail": {"category": "unauthenticated", ...}}` and `Cache-Control:

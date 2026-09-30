@@ -38,6 +38,15 @@ _HEADER_NAME = re.compile(r"[a-z0-9-]+")
 CredentialKind: TypeAlias = Literal["bearer", "api-key"]
 
 
+class InvalidCredential(Exception):  # noqa: N818 - named for what it means, not "Error"
+    """Raise from an authenticator to reject a credential, like returning None.
+
+    Token libraries usually raise on a bad token. Letting that exception
+    escape reads as the authenticator failing, and answers a forged token with
+    a retryable 503; converting it to this answers 401.
+    """
+
+
 @dataclass(frozen=True, slots=True)
 class CredentialTransport:
     """Where a credential is read from: one header, with one grammar."""

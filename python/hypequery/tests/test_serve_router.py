@@ -11,12 +11,14 @@ The acceptance criteria this pins:
 # No `from __future__ import annotations`: FastAPI resolves endpoint
 # annotations at registration, and these endpoints close over local routers.
 import asyncio
+import inspect
 import pickle
 from collections.abc import Callable
 from typing import Annotated, Any
 
 import pytest
-from fastapi import APIRouter, Depends, FastAPI, Request
+from fastapi import APIRouter, Body, Depends, FastAPI, Request
+from fastapi.routing import APIRoute
 from fastapi.testclient import TestClient
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import Response
@@ -25,6 +27,7 @@ from hypequery.datasets import all_tenants, tenant
 from hypequery.serve import (
     MAX_CREDENTIAL_LENGTH,
     Credential,
+    InvalidCredential,
     Principal,
     RequestAuth,
     ServeRouter,
@@ -282,6 +285,8 @@ def test_public_on_one_router_does_not_open_another() -> None:
         lambda r: r.include_router(APIRouter()),
         lambda r: r.add_route("/raw", lambda request: Response()),
         lambda r: r.mount("/static", FastAPI()),
+        lambda r: r.host("evil.test", FastAPI()),
+        lambda r: r.frontend("/", directory="."),
         lambda r: r.add_websocket_route("/ws", lambda ws: None),
         lambda r: r.add_api_websocket_route("/ws", lambda ws: None),
         lambda r: r.websocket("/ws")(lambda ws: None),
@@ -295,6 +300,123 @@ def test_registrations_that_skip_authentication_are_refused(
 
     with pytest.raises(TypeError):
         register(router)
+
+
+def test_every_route_adding_method_of_the_installed_fastapi_is_guarded() -> None:
+    # A FastAPI release that adds a new way to register routes must fail here
+    # rather than quietly open an unauthenticated path.
+    writers = set()
+    for name, member in inspect.getmembers(APIRouter, inspect.isfunction):
+        try:
+            source = inspect.getsource(member)
+        except (OSError, TypeError):
+            continue
+        if "self.routes.append" in source or "self.routes.extend" in source:
+            writers.add(name)
+
+    assert "add_api_route" in writers
+    for name in writers:
+        assert name in vars(ServeRouter), f"ServeRouter does not guard APIRouter.{name}"
+
+
+def test_a_route_class_that_skips_early_authentication_is_refused() -> None:
+    router = create_router(authenticate=_Authenticator())
+
+    with pytest.raises(TypeError):
+        router.add_api_route("/x", lambda: {}, route_class_override=APIRoute)
+
+
+def test_the_auth_dependency_cannot_be_replaced() -> None:
+    router = create_router(authenticate=_Authenticator())
+
+    with pytest.raises(AttributeError):
+        router.auth = lambda: None  # type: ignore[misc,assignment]
+
+
+# --- nothing is read before authentication --------------------------------
+
+
+def _count_body_reads(monkeypatch: pytest.MonkeyPatch) -> list[str]:
+    reads: list[str] = []
+    for name in ("body", "json", "form"):
+        original = getattr(Request, name)
+
+        def spy(self: Request, *args: Any, _name: str = name, _original: Any = original) -> Any:
+            reads.append(_name)
+            return _original(self, *args)
+
+        monkeypatch.setattr(Request, name, spy)
+    return reads
+
+
+def test_an_unauthenticated_body_is_never_read(monkeypatch: pytest.MonkeyPatch) -> None:
+    router = create_router(authenticate=_Authenticator(), prefix="/hq")
+
+    @router.post("/query")
+    def query(payload: Annotated[dict[str, Any], Body()]) -> dict[str, bool]:
+        return {"ok": True}
+
+    outer = APIRouter(prefix="/api")
+    outer.include_router(router)
+    app = FastAPI()
+    app.include_router(router)
+    app.include_router(outer)
+    client = TestClient(app)
+    reads = _count_body_reads(monkeypatch)
+
+    for path in ("/hq/query", "/api/hq/query"):
+        for content in (b"{not json", b'{"a": "' + b"x" * 1_000_000 + b'"}'):
+            response = client.post(
+                path, content=content, headers={"Content-Type": "application/json"}
+            )
+            assert response.status_code == 401
+    assert reads == []
+
+    authed = client.post("/hq/query", json={"a": 1}, headers=_bearer())
+    assert authed.status_code == 200
+    assert reads
+
+
+def test_early_authentication_is_reused_by_the_endpoint() -> None:
+    authenticator = _Authenticator()
+    router = create_router(authenticate=authenticator)
+
+    @router.post("/whoami")
+    def whoami(
+        auth: Annotated[RequestAuth, Depends(router.auth)],
+        payload: Annotated[dict[str, Any], Body()],
+    ) -> dict[str, Any]:
+        return _described(auth)
+
+    app = FastAPI()
+    app.include_router(router)
+
+    response = TestClient(app).post("/whoami", json={}, headers=_bearer())
+    assert response.json() == {"subject": "alice", "tenants": ["acme"]}
+    assert len(authenticator.seen) == 1
+
+
+def test_another_routers_auth_is_checked_by_that_router() -> None:
+    first = create_router(authenticate=_Authenticator())
+    second = create_router(authenticate=_Authenticator(Principal(subject="bob")))
+    second_seen = cast_authenticator(second)
+
+    @first.get("/both")
+    def both(auth: Annotated[RequestAuth, Depends(second.auth)]) -> dict[str, Any]:
+        return _described(auth)
+
+    app = FastAPI()
+    app.include_router(first)
+
+    response = TestClient(app).get("/both", headers=_bearer())
+    assert response.json() == {"subject": "bob", "tenants": None}
+    assert len(second_seen) == 1
+
+
+def cast_authenticator(router: ServeRouter) -> list[Credential]:
+    authenticate = router._guard._authenticate
+    assert isinstance(authenticate, _Authenticator)
+    return authenticate.seen
 
 
 # --- nothing in the request can forge the context -------------------------
@@ -381,6 +503,27 @@ def test_a_sync_provider_runs_off_the_event_loop() -> None:
 
     assert client.get("/whoami", headers=_bearer()).status_code == 200
     assert on_loop == [False, False]
+
+
+def test_an_authenticator_can_reject_by_raising_invalid_credential() -> None:
+    def authenticate(credential: Credential) -> Principal:
+        raise InvalidCredential("signature verification failed")
+
+    client = _app(create_router(authenticate=authenticate))
+    response = client.get("/whoami", headers=_bearer())
+
+    assert response.status_code == 401
+    assert response.json() == client.get("/whoami").json()
+    assert "signature" not in response.text
+
+
+def test_invalid_credential_from_a_resolver_is_a_provider_failure() -> None:
+    def resolve(principal: Principal) -> None:
+        raise InvalidCredential
+
+    client = _app(create_router(authenticate=_Authenticator(), resolve_tenant=resolve))
+
+    assert client.get("/whoami", headers=_bearer()).status_code == 503
 
 
 def test_a_failing_authenticator_fails_closed_without_detail() -> None:

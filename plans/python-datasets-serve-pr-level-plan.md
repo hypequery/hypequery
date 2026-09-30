@@ -550,12 +550,14 @@ PYC-01 are merged.
 - **Review:** Security review required.
 - **Status (2026-09-30):** Delivered as `create_router` / `ServeRouter`, with
   tests on FastAPI 0.115 and current.
-  - *Default required.* `add_api_route` attaches the auth dependency to every
-    route before the route's own dependencies, unless the endpoint was passed
-    to `router.public` first. Every path that would skip FastAPI
-    dependencies is refused: plain routes, mounts, websockets, and
-    `include_router`, which in current FastAPI adds routes without
-    `add_api_route`.
+  - *Default required.* Every route authenticates in its route class, before
+    FastAPI reads the body, and again as its first dependency, unless the
+    endpoint was passed to `router.public` first. Every path that would skip
+    FastAPI dependencies is refused: plain routes, host routes, mounts,
+    static frontends, websockets, and `include_router`, which in current
+    FastAPI adds routes without `add_api_route`. A test lists the installed
+    FastAPI's route-adding methods and fails if any is unguarded. CI runs
+    the serve tests on the FastAPI floor as well as the lock.
   - *Transport.* One header, bearer (RFC 6750 grammar) or API key (visible
     ASCII), bounded length. A repeated header is refused. Query strings,
     cookies, and bodies are never read.
@@ -564,8 +566,9 @@ PYC-01 are merged.
     principal, by default `tenant_id`, and can never be `all_tenants()`.
     Endpoints read `RequestAuth` through `Depends(router.auth)`, which
     FastAPI caches per request. Nothing is stored in request state.
-  - *Failure.* Provider exceptions become a fixed 503, and a wrong return
-    type becomes a fixed 500. Sync providers run in the threadpool.
+  - *Failure.* `InvalidCredential` from the authenticator is a 401. Other
+    provider exceptions become a fixed 503, and a wrong return type becomes
+    a fixed 500. Sync providers run in the threadpool.
   - *Deferred.* Role and scope requirements per endpoint, and endpoint
     tenant policy, go to PYD-02 with the endpoints themselves. The response
     body is `HTTPException` detail until PYD-04's canonical envelope.

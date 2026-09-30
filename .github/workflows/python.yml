@@ -92,6 +92,22 @@ jobs:
       - run: uv sync --dev
       - run: uv run pytest tests/test_import_hygiene.py
 
+  fastapi-floor:
+    # The `fastapi` extra promises the declared floor, and FastAPI's routing
+    # internals differ across releases in ways that decide whether a route is
+    # authenticated. The serve tests run against the floor as well as the lock.
+    name: serve on the FastAPI floor
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: python/hypequery/uv.lock
+      - run: uv sync --all-extras --dev
+      - run: uv pip install "fastapi==0.115.0" "starlette<0.39"
+      - run: uv run --no-sync pytest tests/test_serve_router.py
+
   build:
     # Acceptance criterion: published archives carry no local paths, secrets,
     # or stray monorepo files.
