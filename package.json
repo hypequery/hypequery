@@ -46,10 +46,10 @@
   "devDependencies": {
     "@changesets/cli": "^2.29.8",
     "@type-challenges/utils": "^0.1.1",
-    "@typescript-eslint/eslint-plugin": "^8.62.1",
-    "@typescript-eslint/parser": "^8.62.1",
+    "@typescript-eslint/eslint-plugin": "^8.70.1",
+    "@typescript-eslint/parser": "^8.70.1",
     "eslint": "^8.0.0",
-    "turbo": "^2.9.14",
+    "turbo": "^2.11.4",
     "typescript": "^5.9.3"
   },
   "pnpm": {

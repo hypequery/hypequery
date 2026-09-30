@@ -65,7 +65,7 @@
     "README-CLI.md"
   ],
   "dependencies": {
-    "@clickhouse/client": "^1.18.3",
+    "@clickhouse/client": "^1.23.1",
     "dotenv": "^16.0.0"
   },
   "peerDependencies": {
@@ -82,14 +82,14 @@
   },
   "devDependencies": {
     "@hypequery/datasets": "workspace:*",
-    "@clickhouse/client": "^1.18.3",
-    "@clickhouse/client-common": "^1.18.3",
-    "@clickhouse/client-web": "^1.18.3",
+    "@clickhouse/client": "^1.23.1",
+    "@clickhouse/client-common": "^1.23.0",
+    "@clickhouse/client-web": "^1.23.1",
     "@types/node": "^18.19.80",
     "glob": "^11.0.3",
     "ts-node": "^10.9.0",
-    "typedoc": "^0.28.1",
-    "typedoc-plugin-markdown": "^4.6.0",
+    "typedoc": "^0.28.20",
+    "typedoc-plugin-markdown": "^4.13.1",
     "typescript": "^5.7.3",
     "@vitest/coverage-v8": "^3.2.6",
     "vitest": "^3.2.6"
