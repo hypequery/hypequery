@@ -1,7 +1,7 @@
 import { mkdtemp, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('../utils/logger.js', () => ({
   logger: {
@@ -38,6 +38,13 @@ async function entrypointFile(): Promise<string> {
 describe('hypequery mcp', () => {
   let exit: ReturnType<typeof vi.spyOn>;
   let stderr: ReturnType<typeof vi.spyOn>;
+
+  // --self-test really imports `@hypequery/mcp`, which loads the MCP SDK. Load
+  // it once here, with its own budget, so a cold import on a slow CI runner
+  // isn't charged to whichever test happens to run first.
+  beforeAll(async () => {
+    await import('@hypequery/mcp');
+  }, 30_000);
 
   beforeEach(() => {
     vi.clearAllMocks();
