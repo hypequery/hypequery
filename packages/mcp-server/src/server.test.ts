@@ -13,13 +13,15 @@ const requestHandlers = vi.hoisted(() => new Map<unknown, (request: any) => unkn
 
 // Mock the MCP SDK
 vi.mock('@modelcontextprotocol/sdk/server/index.js', () => ({
-  Server: vi.fn().mockImplementation(() => ({
-    setRequestHandler: vi.fn((schema, handler) => {
-      requestHandlers.set(schema, handler);
-    }),
-    connect: vi.fn(),
-    close: vi.fn(),
-  })),
+  Server: vi.fn().mockImplementation(function () {
+    return {
+      setRequestHandler: vi.fn((schema, handler) => {
+        requestHandlers.set(schema, handler);
+      }),
+      connect: vi.fn(),
+      close: vi.fn(),
+    };
+  }),
 }));
 
 vi.mock('@modelcontextprotocol/sdk/server/stdio.js', () => ({

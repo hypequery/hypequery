@@ -46,10 +46,10 @@
   "devDependencies": {
     "@changesets/cli": "^2.29.8",
     "@type-challenges/utils": "^0.1.1",
-    "@typescript-eslint/eslint-plugin": "^8.62.1",
-    "@typescript-eslint/parser": "^8.62.1",
-    "eslint": "^8.0.0",
-    "turbo": "^2.9.14",
+    "@typescript-eslint/eslint-plugin": "^8.70.1",
+    "@typescript-eslint/parser": "^8.70.1",
+    "eslint": "^10.11.0",
+    "turbo": "^2.11.4",
     "typescript": "^5.9.3"
   },
   "pnpm": {
@@ -60,7 +60,7 @@
       "@babel/core": "^7.29.6",
       "@hono/node-server": "^2.0.5",
       "body-parser": "^2.3.0",
-      "brace-expansion": "^5.0.8",
+      "brace-expansion": "^5.0.12",
       "esbuild": "^0.25.0",
       "fast-uri": "^3.1.7",
       "flatted": "^3.4.2",
