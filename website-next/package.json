@@ -10,7 +10,7 @@
   },
   "dependencies": {
     "@radix-ui/react-popover": "^1.0.7",
-    "@shikijs/rehype": "^3.23.0",
+    "@shikijs/rehype": "^4.4.3",
     "@vercel/blob": "^2.3.1",
     "class-variance-authority": "^0.7.0",
     "framer-motion": "^12.31.0",
