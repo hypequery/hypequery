@@ -64,12 +64,12 @@ train.
 |---|---|---|
 | PY-A | PYA-01…PYA-05 (workspace, CI, JCS/tagged values, identifiers, conformance gate) | PYA-00/PYA-02 are org-account and release work, not code |
 | PY-B | PYB-01…PYB-08; contract 3 and expression extension 2 (RFC 0015); PYB-09 dataset client | Pagination `hasMore` metadata, which needs a planner over-fetch (pick up with PYD-02) |
-| PY-C | PYC-01 executor; PYC-02 cancellation and concurrency budgets; PYC-04 cache keys, preimage, and result cache (`cache-keys-v1` and `cache-preimages-v1` green in both languages) | PYC-03 is unblocked now that RFC 0009 is accepted; PYC-05 needs RFC 0011 accepted |
-| PY-D | none (`hypequery.serve` is still the extra guard only) | PYD-01 needs PYC-03 |
+| PY-C | PYC-01 executor; PYC-02 cancellation and concurrency budgets; PYC-03 tenant capability and tenant-bound clients; PYC-04 cache keys, preimage, and result cache (`cache-keys-v1` and `cache-preimages-v1` green in both languages) | A shared tenant fixture family (see PYC-03); PYC-05 needs RFC 0011 accepted |
+| PY-D | none (`hypequery.serve` is still the extra guard only) | PYD-01 is unblocked |
 | PY-E | none | all |
 
 RFC 0009 was accepted on 28 September 2026. Next steps:
-- PYC-03 (tenant capability), which unblocks all of PY-D;
+- PYD-01 (router core and auth dependency), now that PYC-03 has landed;
 - TSP-04 (server-side binding in `@hypequery/clickhouse`), which is still
   open.
 
@@ -476,6 +476,23 @@ PYC-01 are merged.
   provide/override trusted scope; joins propagate tenant predicates;
   explicit tenant filter rejected while runtime isolation is active.
 - **Review:** Security review required.
+- **Status (2026-09-30):** Delivered in Python.
+  - *Enforcement.* This arrived with PYB-08. Tenant-keyed datasets fail closed
+    without a scope, join conditions carry the target's tenant predicate, and
+    filtering the tenant field is refused while a scope is active.
+  - *Capability.* `TenantScope` is opaque. Only `tenant()`, `tenants()`, and
+    `all_tenants()` create one. It cannot be constructed directly, subclassed,
+    mutated, or pickled, and its `repr` shows no tenant id.
+    `ExecutionContext` rejects anything else in its tenant slot.
+  - *Scoped client.* `client.for_tenant(scope)` returns a client whose only
+    methods are `execute`, `validate`, and `to_sql`. It refuses a context
+    naming another tenant and cannot be bound to `all_tenants()`.
+  - *Codes.* Denials carry RFC 0009's `HQ_CAPABILITY_*` code on
+    `CompiledQueryError.code`. The RFC 0010 envelope is unchanged.
+  - *Not done.* There is no shared tenant fixture family yet, and TypeScript
+    does not surface the `HQ_CAPABILITY_*` codes either. A cross-language
+    family needs a TypeScript reference first, so it is tracked separately
+    rather than blocking PY-D.
 
 ### PYC-04 — Cache preimage and opaque keys
 - **Dependencies:** TSP-02, PYB-08.

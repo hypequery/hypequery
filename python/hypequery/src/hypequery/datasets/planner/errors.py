@@ -25,6 +25,15 @@ CompiledQueryErrorCategory: TypeAlias = Literal[
     "internal",
 ]
 
+#: RFC 0009's stable capability denial codes. They classify a denial for the
+#: runtime that raised it; the RFC 0010 envelope carries only the category.
+CapabilityDenialCode: TypeAlias = Literal[
+    "HQ_CAPABILITY_MISSING",
+    "HQ_CAPABILITY_CLASS_MISMATCH",
+    "HQ_CAPABILITY_TENANT_REQUIRED",
+    "HQ_CAPABILITY_TENANT_MISMATCH",
+]
+
 #: Categories whose cause is the server or a dependency. Their messages are
 #: fixed here rather than taken from whatever raised, because adapter text is
 #: exactly what must not reach a caller.
@@ -59,9 +68,12 @@ class CompiledQueryError(Exception):
     A server-fault category discards the message it was given: the caller sees
     a fixed sentence, and the detail belongs in a privileged diagnostic, never
     in the envelope.
+
+    `code` is set on RFC 0009 capability denials. It is not part of the
+    envelope, so `to_data()` never carries it.
     """
 
-    __slots__ = ("failure",)
+    __slots__ = ("code", "failure")
 
     def __init__(
         self,
@@ -69,7 +81,9 @@ class CompiledQueryError(Exception):
         message: str,
         *,
         query_id: str | None = None,
+        code: CapabilityDenialCode | None = None,
     ) -> None:
+        self.code = code
         safe = _SERVER_FAULT_MESSAGES[category] if category in _SERVER_FAULT else message
         self.failure = CompiledQueryFailure(category=category, message=safe, query_id=query_id)
         super().__init__(f"{category}: {safe}")

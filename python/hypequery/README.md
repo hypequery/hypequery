@@ -64,6 +64,19 @@ relationship. A query can also be a plain mapping (for example a request body);
 it is validated strictly and unknown keys are rejected. The tenant always comes
 from the trusted `ExecutionContext`, never from the query.
 
+In a request handler, bind the client to the tenant your auth layer resolved
+and pass that on instead of the client itself:
+
+```python
+scoped = client.for_tenant(tenant(principal.org_id))
+scoped.execute("trips", request_body)
+```
+
+A tenant-bound client has only `execute`, `validate`, and `to_sql`. Every
+query runs as the bound tenant. A context naming a different tenant is refused
+with `forbidden` (`HQ_CAPABILITY_TENANT_MISMATCH`), and `all_tenants()` cannot
+be bound, because no request may reach an all-tenant execution.
+
 `client.validate(...)` reports whether a query would plan without running it.
 `client.to_sql(...)` returns the redacted debug statement, which has no values
 and cannot be executed. For async code, use `create_async_dataset_client` with
@@ -513,9 +526,14 @@ compiled.to_sql()  # the redacted debug form — never executable
 A dataset that declares a `tenant_key` is not served without a tenant scope:
 reading it unscoped returns every tenant's rows, so an absent scope fails
 closed with `tenant-required` rather than at whatever consumes the result. A
-scope is created by `tenant()`, `tenants()`, or `all_tenants()` and is
-deliberately **not** a Pydantic model, so no request body can be coerced into
-one. Joined datasets carry their own tenancy into the join condition rather
+scope is RFC 0009's tenant capability. Only `tenant()`, `tenants()`, and
+`all_tenants()` create one. It is deliberately **not** a Pydantic model, it
+cannot be constructed directly, subclassed, or pickled, and its `repr` shows a
+tenant count, never a tenant id. `ExecutionContext` rejects anything else in
+its `tenant` slot, such as a mapping decoded from a request. Capability
+denials carry RFC 0009's stable code on `CompiledQueryError.code`, for
+example `HQ_CAPABILITY_TENANT_REQUIRED`; the public envelope from
+`failure.to_data()` still carries only the category and message. Joined datasets carry their own tenancy into the join condition rather
 than into `WHERE`, where it would silently turn a `LEFT ANY JOIN` into an inner
 join. The single-match join also prevents duplicate target keys from
 multiplying base rows before aggregation. Filtering the tenant field yourself

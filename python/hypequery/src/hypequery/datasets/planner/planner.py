@@ -96,6 +96,7 @@ def _tenant_scope(dataset: Dataset, context: ExecutionContext) -> TenantScope | 
         raise CompiledQueryError(
             "tenant-required",
             f'Dataset "{dataset.name}" requires runtime tenant scoping.',
+            code="HQ_CAPABILITY_TENANT_REQUIRED",
         )
     return None if scope.cross_tenant else scope
 
