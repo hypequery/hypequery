@@ -70,6 +70,7 @@
     "reference/connection",
     "reference/inside-the-query-builder",
     "reference/clickhouse-behavior",
+    "reference/readonly-users",
     "reference/trust-boundaries",
     "---Resources---",
     "changelog",

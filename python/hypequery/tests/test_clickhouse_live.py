@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import os
 import threading
+from dataclasses import replace
 from datetime import UTC, datetime
 from decimal import Decimal
 
@@ -25,6 +26,7 @@ from hypequery.datasets import (
 from hypequery.datasets.planner import CompiledQuery, CompiledQueryError, Deadline, TypedParameter
 from hypequery.execution import (
     ClickHouseConnection,
+    ReadonlyPolicy,
     create_async_clickhouse_executor,
     create_clickhouse_executor,
 )
@@ -169,3 +171,102 @@ def test_live_dataset_clients_return_the_same_rows() -> None:
             await async_executor.aclose()
 
     assert asyncio.run(run()) == expected
+
+
+@pytest.mark.skipif(
+    "HYPEQUERY_TEST_CLICKHOUSE_HOST" not in os.environ,
+    reason="live ClickHouse service is not configured",
+)
+@pytest.mark.parametrize(
+    ("level", "matching_limits", "policy", "succeeds"),
+    [
+        (1, False, "query", False),
+        (1, False, "profile", False),
+        (1, True, "query", True),
+        (1, True, "profile", True),
+        (2, False, "query", False),
+        (2, False, "profile", True),
+    ],
+)
+def test_live_readonly_users_respect_explicit_policy(
+    level: int, matching_limits: bool, policy: ReadonlyPolicy, succeeds: bool
+) -> None:
+    # A strict readonly = 1 profile must carry the planner's exact limits.
+    # Profile mode omits readonly alone, so missing limits still fail.
+    from clickhouse_connect import get_client
+
+    connection = _connection()
+    username = f"hypequery_readonly_{level}_{int(matching_limits)}"
+    password = f"{connection.password}_readonly_{level}_{int(matching_limits)}"
+    admin = get_client(
+        host=connection.host,
+        port=connection.port,
+        username=connection.username,
+        password=connection.password,
+    )
+    try:
+        admin.command(f"DROP USER IF EXISTS {username}")
+        profile = f"readonly = {level}"
+        if matching_limits:
+            profile += (
+                ", max_execution_time = 30, max_result_rows = 100000, "
+                "max_result_bytes = 67108864, max_threads = 4"
+            )
+        admin.command(f"CREATE USER {username} IDENTIFIED BY '{password}' SETTINGS {profile}")
+        admin.command(f"GRANT SELECT ON {connection.database}.* TO {username}")
+        reader_connection = replace(
+            connection, username=username, password=password, readonly_policy=policy
+        )
+        reader = create_clickhouse_executor(reader_connection)
+        try:
+            if succeeds:
+                assert reader.execute(_query(7, "Int64")).rows == ((7,),)
+            else:
+                with pytest.raises(CompiledQueryError) as exc:
+                    reader.execute(_query(7, "Int64"))
+                if level == 2 and policy == "query":
+                    assert "readonly_policy='profile'" in exc.value.message
+        finally:
+            reader.close()
+
+        async def run_async() -> tuple[tuple[object, ...], ...]:
+            async_reader = await create_async_clickhouse_executor(reader_connection)
+            try:
+                return (await async_reader.execute(_query(8, "Int64"))).rows
+            finally:
+                await async_reader.aclose()
+
+        if succeeds:
+            assert asyncio.run(run_async()) == ((8,),)
+        else:
+            with pytest.raises(CompiledQueryError):
+                asyncio.run(run_async())
+    finally:
+        admin.command(f"DROP USER IF EXISTS {username}")
+        admin.close()
+
+
+@pytest.mark.skipif(
+    "HYPEQUERY_TEST_CLICKHOUSE_HOST" not in os.environ,
+    reason="live ClickHouse service is not configured",
+)
+def test_live_profile_policy_rejects_unrestricted_user() -> None:
+    connection = replace(_connection(), readonly_policy="profile")
+    reader = create_clickhouse_executor(connection)
+    try:
+        with pytest.raises(CompiledQueryError) as exc:
+            reader.execute(_query(1, "Int64"))
+        assert exc.value.category == "forbidden"
+    finally:
+        reader.close()
+
+    async def run_async() -> None:
+        async_reader = await create_async_clickhouse_executor(connection)
+        try:
+            with pytest.raises(CompiledQueryError) as exc:
+                await async_reader.execute(_query(1, "Int64"))
+            assert exc.value.category == "forbidden"
+        finally:
+            await async_reader.aclose()
+
+    asyncio.run(run_async())

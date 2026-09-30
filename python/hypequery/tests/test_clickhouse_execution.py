@@ -1,16 +1,18 @@
 from __future__ import annotations
 
 import asyncio
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import UTC, date, datetime
 from decimal import Decimal
-from typing import cast
+from typing import Any, cast
 
 import pytest
 from clickhouse_connect.driver.binding import bind_query
 from clickhouse_connect.driver.exceptions import OperationalError, ProgrammingError
+from clickhouse_connect.driver.models import SettingDef
 
 from hypequery.datasets.planner import (
+    DEFAULT_QUERY_SETTINGS,
     CompiledQuery,
     CompiledQueryError,
     QuerySettings,
@@ -18,8 +20,10 @@ from hypequery.datasets.planner import (
 )
 from hypequery.execution import (
     AsyncClickHouseExecutor,
+    AsyncFromSyncClickHouseExecutor,
     ClickHouseConnection,
     ClickHouseExecutor,
+    ReadonlyPolicy,
 )
 from hypequery.execution.results import DriverResult, decode_result
 
@@ -179,3 +183,113 @@ def test_executors_close_owned_driver_clients() -> None:
     assert sync_client.closed
     assert async_client.closed
     assert control_client.closed
+
+
+# system.settings for the connected user, as clickhouse-connect stores it.
+def _server_settings(level: int) -> dict[str, SettingDef]:
+    return {
+        "readonly": SettingDef("readonly", str(level), 1 if level else 0),
+    }
+
+
+class ReadonlyUserClient(SyncClient):
+    def __init__(self, level: int) -> None:
+        super().__init__(Result(("value",), [(1,)]))
+        self.server_settings = _server_settings(level)
+
+
+def _sent_settings(client: SyncClient) -> dict[str, object]:
+    args = cast(tuple[object, ...], client.calls[-1][0])
+    return cast(dict[str, object], args[2])
+
+
+@pytest.mark.parametrize("level", [0, 1, 2])
+def test_default_sends_every_planner_setting(level: int) -> None:
+    client = ReadonlyUserClient(level)
+    ClickHouseExecutor(cast(Any, client)).execute(compiled())
+    sent = _sent_settings(client)
+    assert {key: sent[key] for key in DEFAULT_QUERY_SETTINGS.values} == dict(
+        DEFAULT_QUERY_SETTINGS.values
+    )
+    assert "query_id" in sent
+
+
+@pytest.mark.parametrize("level", [1, 2])
+def test_profile_policy_omits_only_readonly(level: int) -> None:
+    client = ReadonlyUserClient(level)
+    ClickHouseExecutor(cast(Any, client), readonly_policy="profile").execute(compiled())
+    sent = _sent_settings(client)
+    assert "readonly" not in sent
+    assert {key: sent[key] for key in DEFAULT_QUERY_SETTINGS.values if key != "readonly"} == {
+        key: value for key, value in DEFAULT_QUERY_SETTINGS.values.items() if key != "readonly"
+    }
+
+
+def test_profile_policy_preserves_a_stricter_planner_limit() -> None:
+    client = ReadonlyUserClient(2)
+    stricter = replace(
+        compiled(),
+        settings=QuerySettings({**DEFAULT_QUERY_SETTINGS.values, "max_threads": 2}),
+    )
+    ClickHouseExecutor(cast(Any, client), readonly_policy="profile").execute(stricter)
+    assert _sent_settings(client)["max_threads"] == 2
+
+
+@pytest.mark.parametrize("client", [ReadonlyUserClient(0), SyncClient(Result(("value",), []))])
+def test_profile_policy_requires_verified_readonly_user(client: SyncClient) -> None:
+    with pytest.raises(CompiledQueryError) as exc:
+        ClickHouseExecutor(cast(Any, client), readonly_policy="profile").execute(compiled())
+    assert exc.value.category == "forbidden"
+    assert client.calls == []
+
+
+@pytest.mark.parametrize(
+    "readonly",
+    [
+        ProgrammingError("Cannot modify 'readonly' setting in readonly mode.", name="READONLY"),
+        ProgrammingError("Setting readonly is unknown or readonly"),
+    ],
+)
+def test_readonly_error_guides_only_for_our_own_setting(readonly: Exception) -> None:
+    with pytest.raises(CompiledQueryError) as exc:
+        ClickHouseExecutor(SyncClient(readonly)).execute(compiled())
+    assert exc.value.category == "forbidden"
+    assert "readonly_policy='profile'" in exc.value.message
+
+    limit = ProgrammingError(
+        "Cannot modify 'max_threads' setting in readonly mode.", name="READONLY"
+    )
+    with pytest.raises(CompiledQueryError) as exc:
+        ClickHouseExecutor(SyncClient(limit), readonly_policy="query").execute(compiled())
+    assert exc.value.category == "internal"
+    assert "max_threads" not in exc.value.message
+
+
+@pytest.mark.parametrize("policy", ["query", "profile"])
+def test_async_executor_uses_the_same_readonly_policy(policy: ReadonlyPolicy) -> None:
+    async_client = AsyncClient(Result(("value",), [(1,)]))
+    async_client.server_settings = _server_settings(2)  # type: ignore[attr-defined]
+    executor = AsyncClickHouseExecutor(
+        cast(Any, async_client), cast(Any, object()), readonly_policy=policy
+    )
+    asyncio.run(executor.execute(compiled()))
+    sent = _sent_settings(async_client)
+    assert ("readonly" in sent) is (policy == "query")
+    assert sent["max_execution_time"] == 30
+
+
+def test_worker_bridge_keeps_profile_policy() -> None:
+    client = ReadonlyUserClient(2)
+    executor = AsyncFromSyncClickHouseExecutor(
+        cast(Any, client), cast(Any, object()), readonly_policy="profile"
+    )
+    asyncio.run(executor.execute(compiled()))
+    assert "readonly" not in _sent_settings(client)
+    executor.close()
+
+
+def test_invalid_readonly_policy_is_rejected() -> None:
+    with pytest.raises(ValueError, match="readonly_policy"):
+        ClickHouseExecutor(SyncClient(Result((), [])), readonly_policy=cast(Any, "invalid"))
+    with pytest.raises(ValueError, match="readonly_policy"):
+        ClickHouseConnection(readonly_policy=cast(Any, "invalid"))
