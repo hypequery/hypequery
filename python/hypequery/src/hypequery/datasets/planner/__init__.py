@@ -25,6 +25,7 @@ from .context import (
     tenants,
 )
 from .errors import (
+    CapabilityDenialCode,
     CompiledQueryError,
     CompiledQueryErrorCategory,
     CompiledQueryFailure,
@@ -51,6 +52,7 @@ __all__ = [
     "MAX_CORRELATION_ID_BYTES",
     "SETTING_DEFINITIONS",
     "Cancellation",
+    "CapabilityDenialCode",
     "CompiledQuery",
     "CompiledQueryError",
     "CompiledQueryErrorCategory",

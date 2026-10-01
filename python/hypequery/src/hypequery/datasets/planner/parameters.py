@@ -50,6 +50,11 @@ class TypedParameter:
 
         return f"<{self.name}:{self.clickhouse_type}>"
 
+    def __repr__(self) -> str:
+        # The generated repr would print the value, and a parameter's value is
+        # caller data or a tenant identifier. Neither may reach a log line.
+        return f"TypedParameter({self.debug_placeholder})"
+
 
 def clickhouse_type_for(field_type: DimensionType) -> str:
     """The scalar ClickHouse type a logical dimension type binds as."""

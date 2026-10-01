@@ -81,6 +81,17 @@ class CompiledQuery:
             debug = debug.replace(parameter.placeholder, parameter.debug_placeholder)
         return debug
 
+    def __repr__(self) -> str:
+        # Reprs may enter ordinary logs. Keep SQL, physical sources, and bound
+        # values out of them; to_sql() is reserved for explicit diagnostics.
+        parameter_types = {
+            name: parameter.clickhouse_type for name, parameter in self.parameters.items()
+        }
+        return (
+            f"CompiledQuery(query_id={self.query_id!r}, operation={self.operation!r}, "
+            f"parameter_types={parameter_types!r})"
+        )
+
     def parameter_values(self) -> dict[str, object]:
         """The name-to-value map a driver binds through server parameters."""
 

@@ -4,7 +4,9 @@ from __future__ import annotations
 
 from .clients import (
     AsyncDatasetClient,
+    AsyncTenantDatasetClient,
     DatasetClient,
+    TenantDatasetClient,
     create_async_dataset_client,
     create_dataset_client,
 )
@@ -23,6 +25,7 @@ from .results import (
 __all__ = [
     "AsyncDatasetClient",
     "AsyncQueryExecutor",
+    "AsyncTenantDatasetClient",
     "CacheStatus",
     "DatasetClient",
     "DatasetQueryMeta",
@@ -32,6 +35,7 @@ __all__ = [
     "QueryInput",
     "ResultRows",
     "ResultScalar",
+    "TenantDatasetClient",
     "ValidationResult",
     "create_async_dataset_client",
     "create_dataset_client",
