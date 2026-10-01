@@ -35,6 +35,7 @@ from hypequery.serve import (
     bearer_token,
     create_router,
 )
+from hypequery.serve.router import _AuthenticatingRoute
 
 TOKEN = "good-token"  # noqa: S105 - a test credential
 ALICE = Principal(subject="alice", roles=frozenset({"analyst"}), tenant_id="acme")
@@ -324,6 +325,17 @@ def test_a_route_class_that_skips_early_authentication_is_refused() -> None:
 
     with pytest.raises(TypeError):
         router.add_api_route("/x", lambda: {}, route_class_override=APIRoute)
+
+    class BypassRoute(_AuthenticatingRoute):
+        def get_route_handler(self) -> Any:
+            return APIRoute.get_route_handler(self)
+
+    with pytest.raises(TypeError):
+        router.add_api_route("/x", lambda: {}, route_class_override=BypassRoute)
+
+    router.route_class = BypassRoute
+    with pytest.raises(TypeError):
+        router.add_api_route("/x", lambda: {})
 
 
 def test_the_auth_dependency_cannot_be_replaced() -> None:

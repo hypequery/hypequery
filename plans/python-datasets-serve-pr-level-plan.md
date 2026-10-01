@@ -557,7 +557,8 @@ PYC-01 are merged.
     static frontends, websockets, and `include_router`, which in current
     FastAPI adds routes without `add_api_route`. A test lists the installed
     FastAPI's route-adding methods and fails if any is unguarded. CI runs
-    the serve tests on the FastAPI floor as well as the lock.
+    the serve tests on the FastAPI floor as well as the lock. Custom route
+    classes are refused because they can override the pre-body auth wrapper.
   - *Transport.* One header, bearer (RFC 6750 grammar) or API key (visible
     ASCII), bounded length. A repeated header is refused. Query strings,
     cookies, and bodies are never read.

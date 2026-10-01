@@ -195,7 +195,8 @@ app.include_router(router)
 - **Routes that would skip authentication are refused.** That covers plain
   Starlette routes, host routes, mounts, static frontends, websockets, and
   `include_router` on this router. Include other routers in the application
-  instead.
+  instead. Custom route classes are refused because they could bypass
+  authentication before body parsing.
 - **Application-level dependencies run first.** Anything passed as
   `FastAPI(dependencies=...)` or `include_router(router, dependencies=...)`
   runs before this router authenticates, so keep those free of work you
