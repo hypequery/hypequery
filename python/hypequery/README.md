@@ -561,6 +561,46 @@ file is written. Object-valued measure filter literals are currently rejected
 because their map-entry collation is not yet proven byte-identical to the
 TypeScript adapter; scalar and array filter values are supported.
 
+## Query events and diagnostics
+
+RFC 0011 defines two metadata-only records about an execution: the query
+event, which is safe to emit broadly, and the diagnostics projection, which is
+privileged. Validate either before it leaves the process:
+
+```python
+from hypequery.protocol import (
+    ProtocolQueryEventError,
+    validate_protocol_query_diagnostics,
+    validate_protocol_query_event,
+)
+
+event = validate_protocol_query_event(
+    {
+        "kind": "hypequery-query-event",
+        "version": 1,
+        "eventId": event_id,  # 64 lowercase hex characters
+        "occurredAt": "2026-10-01T12:00:00.000Z",
+        "target": {"project": "acme", "environment": "production"},
+        "queryName": "daily_revenue",
+        "operation": "query",
+        "outcome": "success",
+        "durationMs": 182,
+    }
+)
+```
+
+Neither record has a field for rows, parameter values, SQL text, raw tenant
+identifiers, or credentials, so an unknown field fails with
+`HQ_EVENT_UNKNOWN_FIELD` (or `HQ_DIAGNOSTICS_UNKNOWN_FIELD`) rather than being
+dropped. A record from a newer version fails with `*_INVALID_VERSION` even when
+it adds fields, so a consumer can skip it. `ProtocolQueryEventLimits` may lower
+the free-text byte limits but never raise them.
+
+Validation is all this package does with these records, as in the TypeScript
+reference: it does not yet build them from executions. `debugQuery` and
+`safeMessage` are free text, so keeping values out of them is the producer's
+job; see RFC 0011's producer obligations.
+
 ## Registry and catalog
 
 A registry is how datasets are discovered at startup, and how a relationship's
