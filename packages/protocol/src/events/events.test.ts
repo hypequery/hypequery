@@ -90,6 +90,14 @@ function materializeEvent(type: string): unknown {
     };
     case 'invalid-query-name': return { ...value, queryName: 'not an identifier' };
     case 'oversized-correlation-id': return { ...value, correlationId: 'x'.repeat(2_049) };
+    case 'newer-version-with-new-field': return { ...value, version: 2, sampleRate: 0.5 };
+    case 'wrong-kind-with-unknown-field': return { ...value, kind: 'hypequery-query-log', sql: 'SELECT 1' };
+    case 'impossible-calendar-date': return { ...value, occurredAt: '2026-02-30T00:00:00Z' };
+    case 'hour-twenty-four': return { ...value, occurredAt: '2026-07-20T24:00:00Z' };
+    case 'one-digit-fraction': return { ...value, occurredAt: '2026-07-20T12:34:56.5Z' };
+    case 'fractional-duration': return { ...value, durationMs: 1.5 };
+    case 'correlation-id-one-byte-over': return { ...value, correlationId: `${'\u00e9'.repeat(512)}x` };
+    case 'correlation-id-lone-surrogate': return { ...value, correlationId: 'req\ud800id' };
     case 'unsafe-accessor': {
       const unsafe = baseEvent() as Record<string, unknown>;
       Object.defineProperty(unsafe, 'kind', {
@@ -118,6 +126,11 @@ function materializeDiagnostics(type: string): unknown {
     case 'zero-attempts': return { ...value, attempts: 0 };
     case 'control-character-message': return { ...value, safeMessage: 'bad\u0007message' };
     case 'oversized-debug-query': return { ...value, debugQuery: 'x'.repeat(4_097) };
+    case 'newer-version-with-new-field': return { ...value, version: 2, retryReason: 'transient' };
+    case 'too-many-attempts': return { ...value, attempts: 65 };
+    case 'prefixed-runtime-identity': return { ...value, runtimeIdentity: `sha256:${'d'.repeat(64)}` };
+    case 'debug-query-lone-surrogate': return { ...value, debugQuery: 'SELECT \udc00' };
+    case 'debug-query-bell-character': return { ...value, debugQuery: 'SELECT\u00071' };
     case 'unsafe-accessor': {
       const unsafe = baseDiagnostics() as Record<string, unknown>;
       Object.defineProperty(unsafe, 'kind', {
@@ -182,6 +195,25 @@ describe('query event v1', () => {
       { ...baseEvent(), correlationId: 'x'.repeat(17) },
       { limits: { maxStringBytes: 16 } },
     )).toThrow(expect.objectContaining({ code: 'HQ_EVENT_TOO_LARGE' }));
+  });
+
+  it('reports the first failure in RFC validation order', () => {
+    expect(() => validateProtocolQueryEvent({
+      ...baseEvent(), eventId: 'bad', durationMs: -1, extra: true,
+    })).toThrow(expect.objectContaining({ code: 'HQ_EVENT_UNKNOWN_FIELD', path: '$.extra' }));
+    expect(() => validateProtocolQueryEvent({ ...baseEvent(), eventId: 'bad', durationMs: -1 }))
+      .toThrow(expect.objectContaining({ code: 'HQ_EVENT_INVALID_VALUE', path: '$.eventId' }));
+    expect(() => validateProtocolQueryEvent({ ...baseEvent(), outcome: 'failure', durationMs: -1 }))
+      .toThrow(expect.objectContaining({ path: '$.errorCategory' }));
+  });
+
+  it('accepts leap days and rejects impossible dates', () => {
+    expect(() => validateProtocolQueryEvent({ ...baseEvent(), occurredAt: '2028-02-29T23:59:59Z' }))
+      .not.toThrow();
+    for (const occurredAt of ['2027-02-29T00:00:00Z', '2026-04-31T00:00:00Z', '2026-07-20T12:60:00Z']) {
+      expect(() => validateProtocolQueryEvent({ ...baseEvent(), occurredAt }))
+        .toThrow(expect.objectContaining({ code: 'HQ_EVENT_INVALID_VALUE' }));
+    }
   });
 
   it('rejects control characters in free-text fields', () => {
