@@ -129,6 +129,83 @@ result.meta.cache  # "miss", then "hit" for the same request
 Redis can be plugged in. Stores are called synchronously, including from the
 async client.
 
+## Serving with FastAPI
+
+`hypequery.serve` (the `fastapi` extra) provides the router hypequery endpoints
+are served from. Every route on it requires authentication unless you
+explicitly mark it public:
+
+```python
+from typing import Annotated
+
+from fastapi import Depends, FastAPI
+from hypequery.serve import Credential, Principal, RequestAuth, create_router
+
+
+async def authenticate(credential: Credential) -> Principal | None:
+    claims = await verify_jwt(credential.value)  # your code
+    if claims is None:
+        return None
+    return Principal(
+        subject=claims["sub"],
+        scopes=frozenset(claims.get("scope", "").split()),
+        tenant_id=claims.get("org_id"),
+    )
+
+
+router = create_router(authenticate=authenticate)
+
+
+@router.post("/trips")
+async def trips(auth: Annotated[RequestAuth, Depends(router.auth)], body: dict) -> dict:
+    # Runs as the request's tenant only. A tenant-free request is refused.
+    scoped = client.for_tenant(auth.tenant)
+    return (await scoped.execute("trips", body)).data
+
+
+@router.get("/health")
+@router.public
+def health() -> dict[str, str]:
+    return {"status": "ok"}
+
+
+app = FastAPI()
+app.include_router(router)
+```
+
+- **Credentials** are read from one header: `Authorization: Bearer <token>`
+  by default, or `create_router(credentials=api_key())` for `X-Api-Key`.
+  Query strings, cookies, and bodies are never read. A repeated,
+  oversized, or malformed header is refused before your authenticator runs.
+- **Your authenticator** receives only the opaque `Credential`, never the
+  request, and returns a `Principal`. To reject a credential, return `None`
+  or raise `InvalidCredential`. Wrap your token library's errors in it:
+  anything else that escapes is treated as authentication being down and
+  answered with a fixed 503. The exception never reaches the response. The
+  authenticator may be sync (run in the threadpool) or async.
+- **Authentication runs before the body is read**, so an unauthenticated
+  caller cannot make the server parse JSON or spool an upload.
+- **The tenant** comes from the principal: `tenant_id` scopes the request, and
+  a principal without one is tenant-free. Pass `resolve_tenant=` to decide it
+  yourself. A resolver must return a single-tenant scope or `None`; it cannot
+  grant `tenants()` with multiple identifiers or `all_tenants()`. No header, query
+  parameter, body field, or request state can supply or change the tenant.
+- **Public routes** need `@router.public` *below* the route decorator. In the
+  other order the route stays authenticated.
+- **Routes that would skip authentication are refused.** That covers plain
+  Starlette routes, host routes, mounts, static frontends, websockets, and
+  `include_router` on this router. Include other routers in the application
+  instead. Custom route classes are refused because they could bypass
+  authentication before body parsing.
+- **Application-level dependencies run first.** Anything passed as
+  `FastAPI(dependencies=...)` or `include_router(router, dependencies=...)`
+  runs before this router authenticates, so keep those free of work you
+  would not do for an anonymous caller.
+
+A missing or rejected credential gets `401` with
+`{"detail": {"category": "unauthenticated", ...}}` and `Cache-Control:
+no-store`. The canonical error envelope arrives with PYD-04.
+
 ## ClickHouse execution
 
 The execution extra accepts `CompiledQuery` objects emitted by the planner.
