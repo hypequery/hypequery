@@ -15,7 +15,7 @@ from typing import Annotated, Any
 
 import httpx
 import pytest
-from fastapi import Body, Depends, FastAPI, Request
+from fastapi import Body, Depends, FastAPI, HTTPException, Request
 from fastapi.testclient import TestClient
 from starlette.responses import JSONResponse
 
@@ -54,6 +54,10 @@ def _app(security: HttpSecurity | None = None, *, max_body_bytes: int = 64) -> F
     @router.get("/cacheable")
     def cacheable() -> JSONResponse:
         return JSONResponse({"ok": True}, headers={"Cache-Control": "public, max-age=3600"})
+
+    @router.get("/error")
+    def error() -> None:
+        raise HTTPException(403, detail="private error")
 
     @router.post("/public-echo")
     @router.public
@@ -214,6 +218,11 @@ def test_a_plain_content_length_is_accepted() -> None:
     assert _raw(_app(max_body_bytes=1_000), "/public-echo", headers, b"{}")[0] == 200
 
 
+def test_a_headerless_body_still_requires_json() -> None:
+    assert _raw(_app(), "/public-echo", [], b"{}")[0] == 415
+    assert _raw(_app(), "/public-echo", [(b"content-type", b"application/json")], b"{}")[0] == 200
+
+
 def test_public_routes_have_the_body_policy_but_keep_their_cache_headers() -> None:
     client = TestClient(_app())
 
@@ -243,6 +252,19 @@ def test_an_authenticated_response_is_never_stored() -> None:
     ):
         assert response.status_code == 200
         assert response.headers["cache-control"] == "no-store"
+
+
+def test_an_authenticated_endpoint_error_is_never_stored() -> None:
+    response = TestClient(_app()).get("/error", headers=AUTH)
+
+    assert response.status_code == 403
+    assert response.headers["cache-control"] == "no-store"
+
+    validation_error = TestClient(_app()).post(
+        "/echo", content=b"{", headers={**AUTH, "Content-Type": "application/json"}
+    )
+    assert validation_error.status_code == 422
+    assert validation_error.headers["cache-control"] == "no-store"
 
 
 def test_create_router_validates_the_body_limit() -> None:
@@ -298,6 +320,13 @@ def test_a_request_for_another_host_is_refused() -> None:
     assert _asgi(app, [("Host", "api.test.evil.test")]).status_code == 400
     assert _asgi(app, [("Host", "api.test")]).status_code == 200
     assert _asgi(app, [("Host", "eu.api.test")]).status_code == 200
+
+
+@pytest.mark.parametrize("host", [b"api.test:443evil.test", b"api.test:99999", b"api.test:bad"])
+def test_a_malformed_host_is_refused_before_starlette_parses_it(host: bytes) -> None:
+    app = _app(HttpSecurity(allowed_hosts=("api.test",)))
+
+    assert _asgi(app, [("Host", host.decode("ascii"))]).status_code == 400
 
 
 def test_a_refused_host_is_not_redirected() -> None:

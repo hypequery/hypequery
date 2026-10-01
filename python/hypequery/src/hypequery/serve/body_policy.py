@@ -1,8 +1,8 @@
 """Request body policy for served routes: JSON only, and bounded while it streams.
 
 A declared `Content-Length` over the limit is refused before a byte is read.
-Without one (chunked transfer), the limit is enforced by counting as the body
-arrives, so leaving the header off is not a way around it.
+Without one, the limit and JSON requirement are enforced as the body arrives,
+so leaving the header off is not a way around either check.
 """
 
 from __future__ import annotations
@@ -65,12 +65,18 @@ def enforce_body_policy(request: Request, max_bytes: int) -> Request:
 
     upstream = request.receive
     received = 0
+    checked_json = has_body
 
     async def bounded_receive() -> Message:
-        nonlocal received
+        nonlocal checked_json, received
         message = await upstream()
         if message["type"] == "http.request":
-            received += len(message.get("body", b""))
+            body = message.get("body", b"")
+            if body and not checked_json:
+                # A body need not have Content-Length or Transfer-Encoding.
+                _require_json(request)
+                checked_json = True
+            received += len(body)
             if received > max_bytes:
                 raise _too_large(max_bytes)
         return message

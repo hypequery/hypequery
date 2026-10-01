@@ -236,7 +236,9 @@ install_http_security(
   policy is built, as do wildcard methods or headers.
 - **Proxies.** `X-Forwarded-For` and `X-Forwarded-Proto` are honoured only
   from `trusted_proxies`. The client is the nearest forwarded address that
-  isn't itself a trusted proxy. By default no proxy is trusted.
+  isn't itself a trusted proxy. By default no proxy is trusted. A trusted
+  proxy must replace a client's `X-Forwarded-Proto` header with the scheme it
+  observed; forwarding a caller-supplied value lets the caller spoof it.
 - **Request ids.** Every response carries a server-generated `x-request-id`,
   which `request_id(request)` returns inside a handler. A caller's
   `X-Request-ID` is never authoritative. If it is short printable ASCII, it

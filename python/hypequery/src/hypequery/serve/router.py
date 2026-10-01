@@ -25,7 +25,9 @@ from fastapi import APIRouter, Depends, Request
 from fastapi.params import Depends as DependsParam
 from fastapi.routing import APIRoute
 from starlette.concurrency import run_in_threadpool
+from starlette.datastructures import MutableHeaders
 from starlette.responses import Response
+from starlette.types import Message, Receive, Scope, Send
 
 from ..datasets.planner import TenantScope
 from .auth import (
@@ -127,6 +129,18 @@ class _AuthenticatingRoute(APIRoute):
 
     max_body_bytes: int = DEFAULT_MAX_BODY_BYTES
 
+    async def handle(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if any(isinstance(dep.dependency, _Guard) for dep in self.dependencies):
+
+            async def send_no_store(message: Message) -> None:
+                if message["type"] == "http.response.start":
+                    MutableHeaders(scope=message)["Cache-Control"] = "no-store"
+                await send(message)
+
+            await super().handle(scope, receive, send_no_store)
+            return
+        await super().handle(scope, receive, send)
+
     def get_route_handler(self) -> Callable[[Request], Coroutine[Any, Any, Response]]:
         handler = super().get_route_handler()
         guards = [d.dependency for d in self.dependencies if isinstance(d.dependency, _Guard)]
@@ -135,10 +149,7 @@ class _AuthenticatingRoute(APIRoute):
         async def guarded(request: Request) -> Response:
             for guard in guards:
                 await guard(request)
-            response = await handler(enforce_body_policy(request, max_body_bytes))
-            if guards:
-                response.headers["Cache-Control"] = "no-store"
-            return response
+            return await handler(enforce_body_policy(request, max_body_bytes))
 
         return guarded
 

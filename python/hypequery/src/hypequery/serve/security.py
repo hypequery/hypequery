@@ -25,6 +25,7 @@ from fastapi import FastAPI, Request
 from starlette.datastructures import MutableHeaders
 from starlette.middleware.cors import CORSMiddleware
 from starlette.middleware.trustedhost import TrustedHostMiddleware
+from starlette.responses import PlainTextResponse
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 #: TypeScript serve's bound and grammar for an external correlation id: small,
@@ -33,6 +34,7 @@ MAX_CORRELATION_ID_BYTES = 200
 _CORRELATION_ID = re.compile(r"[A-Za-z0-9][A-Za-z0-9._:/-]*")
 _ORIGIN = re.compile(r"https?://[a-z0-9.-]+(:[0-9]{1,5})?|https?://\[[0-9a-f:.]+\](:[0-9]{1,5})?")
 _HOST = re.compile(r"(\*\.)?[a-z0-9.-]+|\[[0-9a-f:.]+\]")
+_REQUEST_HOST = re.compile(rb"(?:[A-Za-z0-9.-]+|\[[0-9A-Fa-f:.]+\])(?::([0-9]{1,5}))?")
 
 #: Only this module holds the key, so no middleware or handler that does not
 #: import it can plant a request id where `request_id()` reads one.
@@ -212,6 +214,23 @@ class _ProxyTrustMiddleware:
         await self.app(scope, receive, send)
 
 
+class _RequestHostMiddleware:
+    """Reject malformed raw Host headers before Starlette splits off a port."""
+
+    def __init__(self, app: ASGIApp) -> None:
+        self.app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] == "http":
+            hosts = [value for name, value in scope["headers"] if name.lower() == b"host"]
+            match = _REQUEST_HOST.fullmatch(hosts[0]) if len(hosts) == 1 else None
+            if match is None or (match[1] is not None and int(match[1]) > 65535):
+                response = PlainTextResponse("Invalid host header", status_code=400)
+                await response(scope, receive, send)
+                return
+        await self.app(scope, receive, send)
+
+
 def install_http_security(app: FastAPI, security: HttpSecurity) -> None:
     """Add *security*'s middleware to *app*.
 
@@ -236,6 +255,7 @@ def install_http_security(app: FastAPI, security: HttpSecurity) -> None:
     app.add_middleware(
         TrustedHostMiddleware, allowed_hosts=list(security.allowed_hosts), www_redirect=False
     )
+    app.add_middleware(_RequestHostMiddleware)
     if security.trusted_proxies:
         app.add_middleware(_ProxyTrustMiddleware, trusted=security.trusted_proxies)
     app.add_middleware(_RequestIdMiddleware)
