@@ -13,10 +13,10 @@ const body = {
   target,
   active: true,
   rest: {
-    baseUrl: 'https://cloud.example.test/api/gateway/project-1/production/execute',
-    datasets: [{ name: 'orders', method: 'POST', url: 'https://cloud.example.test/api/gateway/project-1/production/execute/api/orders' }],
+    baseUrl: 'https://orders-123.hypequery.app',
+    datasets: [{ name: 'orders', method: 'POST', url: 'https://orders-123.hypequery.app/api/analytics/datasets/orders/query' }],
   },
-  mcp: { url: 'https://cloud.example.test/api/gateway/project-1/production/mcp' },
+  mcp: { url: 'https://orders-123.hypequery.app/mcp' },
   registry: { url: 'https://cloud.example.test/api/gateway/project-1/production/registry' },
 };
 
