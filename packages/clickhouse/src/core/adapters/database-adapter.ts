@@ -1,4 +1,5 @@
-import type { ClickHouseSettings, ClickHouseSummary } from '@clickhouse/client-common';
+import type { InsertResult } from '@clickhouse/client';
+import type { ClickHouseSettings } from '../../types/clickhouse-settings.js';
 
 export interface QueryExecutionOptions {
   clickhouseSettings?: ClickHouseSettings;
@@ -19,7 +20,7 @@ export interface InsertResultSummary {
   queryId: string;
   executed: boolean;
   /** Server-side insert summary when the client provides one (e.g. written_rows). */
-  summary?: ClickHouseSummary;
+  summary?: InsertResult['summary'];
 }
 
 export interface DatabaseAdapter {

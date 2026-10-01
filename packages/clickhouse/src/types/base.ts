@@ -1,4 +1,4 @@
-import type { ClickHouseSettings } from '@clickhouse/client-common';
+import type { ClickHouseSettings } from './clickhouse-settings.js';
 import { FilterOperator } from "./filters.js";
 
 export interface QueryConfig<_T, _Schema> {
