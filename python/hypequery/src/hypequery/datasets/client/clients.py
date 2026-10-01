@@ -9,7 +9,7 @@ around it.
 from __future__ import annotations
 
 import time
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
 from typing import NoReturn
 
 from ..cache import CachedRows, ResultCache
@@ -35,6 +35,7 @@ from .results import (
     ValidationResult,
     build_result,
 )
+from .tenant_binding import bind_tenant, require_tenant_capability
 
 #: Failures that mean "this query would not plan", as opposed to "this call
 #: should not run now". A cancelled or expired context is the second kind and
@@ -47,42 +48,6 @@ class _Planned:
     dataset: Dataset
     query: DatasetQuery
     compiled: CompiledQuery
-
-
-def _require_tenant_capability(scope: object) -> TenantScope:
-    """Admit only a capability scoped to named tenants.
-
-    A tenant-bound client is what a request handler gets, and RFC 0009 keeps
-    all-tenant execution out of reach of every request.
-    """
-
-    if scope is None:
-        raise CompiledQueryError(
-            "forbidden", "No tenant capability was presented.", code="HQ_CAPABILITY_MISSING"
-        )
-    if type(scope) is not TenantScope or scope.cross_tenant:
-        raise CompiledQueryError(
-            "forbidden",
-            "A tenant-bound client requires a tenant capability.",
-            code="HQ_CAPABILITY_CLASS_MISMATCH",
-        )
-    return scope
-
-
-def _bind_tenant(scope: TenantScope, context: ExecutionContext | None) -> ExecutionContext:
-    """*context* with *scope* as its tenant, refusing a different one."""
-
-    if context is None:
-        return ExecutionContext(tenant=scope)
-    if context.tenant is None:
-        return replace(context, tenant=scope)
-    if context.tenant != scope:
-        raise CompiledQueryError(
-            "forbidden",
-            "The execution context names a different tenant than the client is bound to.",
-            code="HQ_CAPABILITY_TENANT_MISMATCH",
-        )
-    return context
 
 
 class _DatasetClientBase:
@@ -176,7 +141,7 @@ class _TenantBoundBase:
 
     def __init__(self, client: _DatasetClientBase, scope: TenantScope) -> None:
         object.__setattr__(self, "_client", client)
-        object.__setattr__(self, "_scope", scope)
+        object.__setattr__(self, "_scope", require_tenant_capability(scope))
 
     def __setattr__(self, name: str, value: object) -> NoReturn:
         raise AttributeError("a tenant-bound client cannot be rebound")
@@ -193,7 +158,7 @@ class _TenantBoundBase:
     ) -> str:
         """The redacted debug statement. Never executable, never carries a value."""
 
-        return self._client.to_sql(target, query, context=_bind_tenant(self._scope, context))
+        return self._client.to_sql(target, query, context=bind_tenant(self._scope, context))
 
     def validate(
         self,
@@ -204,7 +169,7 @@ class _TenantBoundBase:
     ) -> ValidationResult:
         """Report whether *query* would plan for the bound tenant."""
 
-        return self._client.validate(target, query, context=_bind_tenant(self._scope, context))
+        return self._client.validate(target, query, context=bind_tenant(self._scope, context))
 
 
 class TenantDatasetClient(_TenantBoundBase):
@@ -224,7 +189,7 @@ class TenantDatasetClient(_TenantBoundBase):
     ) -> DatasetQueryResult:
         """Plan and run *query* over *target* as the bound tenant."""
 
-        bound = _bind_tenant(self._scope, context)
+        bound = bind_tenant(self._scope, context)
         return self._client.execute(target, query, context=bound, use_cache=use_cache)
 
 
@@ -245,7 +210,7 @@ class AsyncTenantDatasetClient(_TenantBoundBase):
     ) -> DatasetQueryResult:
         """Plan and run *query* over *target* as the bound tenant."""
 
-        bound = _bind_tenant(self._scope, context)
+        bound = bind_tenant(self._scope, context)
         return await self._client.execute(target, query, context=bound, use_cache=use_cache)
 
 
@@ -271,7 +236,7 @@ class DatasetClient(_DatasetClientBase):
         another tenant, as all tenants, or without a tenant.
         """
 
-        return TenantDatasetClient(self, _require_tenant_capability(scope))
+        return TenantDatasetClient(self, scope)
 
     def execute(
         self,
@@ -318,7 +283,7 @@ class AsyncDatasetClient(_DatasetClientBase):
     def for_tenant(self, scope: TenantScope) -> AsyncTenantDatasetClient:
         """An async client that runs every query as the tenant *scope* grants."""
 
-        return AsyncTenantDatasetClient(self, _require_tenant_capability(scope))
+        return AsyncTenantDatasetClient(self, scope)
 
     async def execute(
         self,

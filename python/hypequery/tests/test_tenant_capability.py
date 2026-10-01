@@ -15,11 +15,13 @@ from dataclasses import dataclass, field
 import pytest
 
 from hypequery.datasets import (
+    AsyncTenantDatasetClient,
     CompiledQuery,
     CompiledQueryError,
     Dataset,
     DatasetQuery,
     ExecutionContext,
+    TenantDatasetClient,
     all_tenants,
     count,
     create_async_dataset_client,
@@ -193,11 +195,12 @@ def test_a_bound_client_keeps_the_rest_of_the_context() -> None:
 
 def test_a_bound_client_accepts_its_own_tenant_in_the_context() -> None:
     executor = _Executor()
-    scoped = create_dataset_client(executor=executor).for_tenant(tenants(("a", "b")))
+    scoped = create_dataset_client(executor=executor).for_tenant(tenant("a"))
 
-    scoped.execute(_trips(), QUERY, context=ExecutionContext(tenant=tenants(("b", "a"))))
+    scoped.execute(_trips(), QUERY, context=ExecutionContext(tenant=tenants(("a",))))
 
     assert len(executor.seen) == 1
+    assert executor.seen[0].parameter_values() == {"p0": "a"}
 
 
 @pytest.mark.parametrize("other", [tenant("globex"), tenants(("acme", "globex")), all_tenants()])
@@ -221,11 +224,25 @@ def test_binding_requires_a_named_tenant_capability() -> None:
         client.for_tenant(None)  # type: ignore[arg-type]
     assert missing.value.code == "HQ_CAPABILITY_MISSING"
 
-    for wrong in (all_tenants(), {"ids": ["acme"]}, "acme"):
+    for wrong in (all_tenants(), tenants(("acme", "globex")), {"ids": ["acme"]}, "acme"):
         with pytest.raises(CompiledQueryError) as mismatch:
             client.for_tenant(wrong)  # type: ignore[arg-type]
         assert mismatch.value.category == "forbidden"
         assert mismatch.value.code == "HQ_CAPABILITY_CLASS_MISMATCH"
+
+
+def test_direct_bound_client_construction_enforces_the_same_scope_check() -> None:
+    sync_client = create_dataset_client(executor=_Executor())
+    async_client = create_async_dataset_client(executor=_AsyncExecutor())
+
+    for wrong in (None, all_tenants(), tenants(("acme", "globex"))):
+        with pytest.raises(CompiledQueryError):
+            TenantDatasetClient(sync_client, wrong)  # type: ignore[arg-type]
+        with pytest.raises(CompiledQueryError):
+            AsyncTenantDatasetClient(async_client, wrong)  # type: ignore[arg-type]
+
+    scoped = TenantDatasetClient(sync_client, tenant("acme"))
+    scoped.execute(_trips(), QUERY)
 
 
 def test_a_bound_client_exposes_only_semantic_queries() -> None:
@@ -260,7 +277,7 @@ def test_a_scope_exposes_no_state_to_serializers() -> None:
         tenant("acme").__getstate__()
 
 
-def test_a_compiled_query_repr_shows_no_bound_value() -> None:
+def test_a_compiled_query_repr_shows_no_sql_or_bound_value() -> None:
     compiled = plan_dataset_query(
         _trips(),
         DatasetQuery(measures=("trips",), filters=(eq("vendor", "filter-secret"),)),
@@ -269,7 +286,9 @@ def test_a_compiled_query_repr_shows_no_bound_value() -> None:
 
     for text in (repr(compiled), str(compiled), repr(compiled.parameters)):
         assert "secret" not in text
-    assert "<p1:String>" in repr(compiled)
+    assert "analytics" not in repr(compiled)
+    assert "SELECT" not in repr(compiled)
+    assert "'p1': 'String'" in repr(compiled)
     assert compiled.parameter_values() == {"p0": "filter-secret", "p1": "tenant-secret"}
 
 

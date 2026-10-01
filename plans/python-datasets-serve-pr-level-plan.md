@@ -486,11 +486,13 @@ PYC-01 are merged.
     `ExecutionContext` and the planner both reject anything else in the tenant
     slot. The seal guards against request data and mistakes, not against code
     already running in the process, which can still use `object.__new__`.
-  - *Log safety.* `CompiledQuery` and `TypedParameter` print their redacted
-    form, so a logged or captured compiled query shows no bound value.
+  - *Log safety.* `CompiledQuery` prints only query metadata and parameter
+    types; `TypedParameter` prints only its redacted placeholder. Neither
+    representation shows SQL or bound values.
   - *Scoped client.* `client.for_tenant(scope)` returns a client whose only
     methods are `execute`, `validate`, and `to_sql`. It refuses a context
-    naming another tenant and cannot be bound to `all_tenants()`.
+    naming another tenant and accepts only a single-tenant scope, including
+    when constructed directly.
   - *Codes.* Denials carry RFC 0009's `HQ_CAPABILITY_*` code on
     `CompiledQueryError.code`. The RFC 0010 envelope is unchanged.
   - *Not done.* There is no shared tenant fixture family yet, and TypeScript

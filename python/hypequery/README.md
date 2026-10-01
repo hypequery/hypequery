@@ -74,8 +74,9 @@ scoped.execute("trips", request_body)
 
 A tenant-bound client has only `execute`, `validate`, and `to_sql`. Every
 query runs as the bound tenant. A context naming a different tenant is refused
-with `forbidden` (`HQ_CAPABILITY_TENANT_MISMATCH`), and `all_tenants()` cannot
-be bound, because no request may reach an all-tenant execution.
+with `forbidden` (`HQ_CAPABILITY_TENANT_MISMATCH`). Binding requires exactly
+one tenant: `tenants()` with multiple identifiers and `all_tenants()` are
+refused, including when constructing a bound client directly.
 
 `client.validate(...)` reports whether a query would plan without running it.
 `client.to_sql(...)` returns the redacted debug statement, which has no values

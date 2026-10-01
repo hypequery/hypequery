@@ -82,11 +82,14 @@ class CompiledQuery:
         return debug
 
     def __repr__(self) -> str:
-        # Built from the redacted form, so a logged, raised, or captured
-        # compiled query shows structure and never a bound value.
+        # Reprs may enter ordinary logs. Keep SQL, physical sources, and bound
+        # values out of them; to_sql() is reserved for explicit diagnostics.
+        parameter_types = {
+            name: parameter.clickhouse_type for name, parameter in self.parameters.items()
+        }
         return (
             f"CompiledQuery(query_id={self.query_id!r}, operation={self.operation!r}, "
-            f"sql={self.to_sql()!r})"
+            f"parameter_types={parameter_types!r})"
         )
 
     def parameter_values(self) -> dict[str, object]:
