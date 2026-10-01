@@ -1,4 +1,5 @@
 import type { ClickHouseSettings } from '../../types/clickhouse-settings.js';
+import { mergeClickHouseSettings } from '../utils/clickhouse-client-compat.js';
 import type { AnyBuilderState, BuilderState, SchemaDefinition } from '../types/builder-state.js';
 import { QueryBuilder } from '../query-builder.js';
 import type { SqlDialect } from '../dialects/sql-dialect.js';
@@ -119,10 +120,7 @@ export class AnalyticsFeature<
     const query = this.builder.getQueryNode();
     return {
       ...query,
-      settings: {
-        ...(query.settings || {}),
-        ...opts,
-      }
+      settings: mergeClickHouseSettings(query.settings, opts)
     };
   }
 }

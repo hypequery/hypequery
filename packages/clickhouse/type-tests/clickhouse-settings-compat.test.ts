@@ -11,6 +11,7 @@ import type {
 type AcceptsLegacySettings = Expect<Equal<LegacySettings extends ClickHouseSettings ? true : false, true>>;
 type AcceptsNodeSettings = Expect<Equal<NodeSettings extends ClickHouseSettings ? true : false, true>>;
 type AcceptsWebSettings = Expect<Equal<WebSettings extends ClickHouseSettings ? true : false, true>>;
+type RejectsUnrelatedObjects = Expect<Equal<{ max_threads: Date } extends ClickHouseSettings ? true : false, false>>;
 
 type ConnectionSettings = NonNullable<ClickHouseConfig['clickhouse_settings']>;
 type AcceptsLegacyConnectionSettings = Expect<Equal<LegacySettings extends ConnectionSettings ? true : false, true>>;
@@ -20,6 +21,7 @@ export type SettingsCompatibility = [
   AcceptsLegacySettings,
   AcceptsNodeSettings,
   AcceptsWebSettings,
+  RejectsUnrelatedObjects,
   AcceptsLegacyConnectionSettings,
   AcceptsLegacyQuerySettings,
 ];

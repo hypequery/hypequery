@@ -66,6 +66,7 @@
   ],
   "dependencies": {
     "@clickhouse/client": "^1.23.1",
+    "@clickhouse/client-common": "^1.23.0",
     "dotenv": "^16.0.0"
   },
   "peerDependencies": {
@@ -83,7 +84,6 @@
   "devDependencies": {
     "@hypequery/datasets": "workspace:*",
     "@clickhouse/client": "^1.23.1",
-    "@clickhouse/client-common": "^1.23.0",
     "@clickhouse/client-web": "^1.23.1",
     "@types/node": "^18.19.80",
     "glob": "^13.0.6",
