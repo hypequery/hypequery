@@ -46,16 +46,21 @@ Any setting you pass yourself with `.settings({...})` follows the same rule: a
 ## Python datasets
 
 The Python planner attaches `readonly = 1`, `max_execution_time`,
-`max_result_rows`, `max_result_bytes`, and `max_threads` to every query. By
-default, the executor sends all five. It never silently drops a query limit.
+`max_result_rows`, `max_result_bytes`, and `max_threads` to every query. The
+executor never silently drops a query limit.
 
-- **`readonly = 1`:** Set the same limits in the user's profile. If a limit
+- **`readonly = 2`:** works without configuration. The user may not change
+  `readonly`, so when the driver reports that the user is already read-only
+  the executor leaves out only the planner's `readonly` setting. Every query
+  limit still applies.
+- **`readonly = 1`:** set the same limits in the user's profile. If a limit
   differs, ClickHouse rejects the query; change the profile rather than
   disabling the limit in HypeQuery.
-- **`readonly = 2`:** ClickHouse rejects the planner's `readonly = 1` setting.
-  Explicitly choose `readonly_policy="profile"` on the connection. HypeQuery
-  verifies that the connected profile has `readonly = 1` or `2`, then omits
-  only the `readonly` setting. It still sends every query limit.
+- **Unrestricted users** get all five settings, including `readonly = 1`.
+
+To require a read-only user, set `readonly_policy="profile"` on the
+connection. The executor then refuses, before any query is sent, a user whose
+profile does not enforce `readonly = 1` or `2`:
 
 ```python
 from hypequery.execution import ClickHouseConnection, create_clickhouse_executor
@@ -71,9 +76,6 @@ executor = create_clickhouse_executor(
 ```
 
 The same connection option works with `create_async_clickhouse_executor`.
-For `readonly = 1`, profile mode still requires the profile's limits to match
-the planner settings. A missing or unrestricted profile is rejected before
-the query is sent.
 
 Cancellation and deadlines still stop queries on the server for both levels,
 because the executor cancels with `KILL QUERY`, which read-only users may run.

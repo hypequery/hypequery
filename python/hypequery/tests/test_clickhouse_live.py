@@ -184,15 +184,16 @@ def test_live_dataset_clients_return_the_same_rows() -> None:
         (1, False, "profile", False),
         (1, True, "query", True),
         (1, True, "profile", True),
-        (2, False, "query", False),
+        (2, False, "query", True),
         (2, False, "profile", True),
     ],
 )
 def test_live_readonly_users_respect_explicit_policy(
     level: int, matching_limits: bool, policy: ReadonlyPolicy, succeeds: bool
 ) -> None:
-    # A strict readonly = 1 profile must carry the planner's exact limits.
-    # Profile mode omits readonly alone, so missing limits still fail.
+    # A strict readonly = 1 profile must carry the planner's exact limits, so
+    # missing limits still fail. A readonly = 2 user works in either mode: the
+    # executor leaves out only the readonly setting it may not change.
     from clickhouse_connect import get_client
 
     connection = _connection()
@@ -222,10 +223,8 @@ def test_live_readonly_users_respect_explicit_policy(
             if succeeds:
                 assert reader.execute(_query(7, "Int64")).rows == ((7,),)
             else:
-                with pytest.raises(CompiledQueryError) as exc:
+                with pytest.raises(CompiledQueryError):
                     reader.execute(_query(7, "Int64"))
-                if level == 2 and policy == "query":
-                    assert "readonly_policy='profile'" in exc.value.message
         finally:
             reader.close()
 
