@@ -187,9 +187,13 @@ class ServeRouter(APIRouter):
         **kwargs: Any,
     ) -> None:
         route_class = kwargs.get("route_class_override") or self.route_class
-        if route_class is not _AuthenticatingRoute:
-            # A subclass can override get_route_handler() and let FastAPI parse
-            # the body before the guard dependency runs.
+        if (
+            not isinstance(route_class, type)
+            or not issubclass(route_class, _AuthenticatingRoute)
+            or route_class.get_route_handler is not _AuthenticatingRoute.get_route_handler
+        ):
+            # A subclass that overrides get_route_handler() can let FastAPI
+            # parse the body before the guard dependency runs.
             raise TypeError("ServeRouter requires its authenticating route class")
         guarded = list(dependencies or ())
         if endpoint not in self._public:
