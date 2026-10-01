@@ -338,15 +338,6 @@ def test_a_route_class_that_skips_early_authentication_is_refused() -> None:
         router.add_api_route("/x", lambda: {})
 
 
-def test_a_route_subclass_that_keeps_early_authentication_is_allowed() -> None:
-    router = create_router(authenticate=_Authenticator())
-
-    class ConfiguredRoute(_AuthenticatingRoute):
-        max_body_bytes = 128
-
-    router.add_api_route("/x", lambda: {}, route_class_override=ConfiguredRoute)
-
-
 def test_the_auth_dependency_cannot_be_replaced() -> None:
     router = create_router(authenticate=_Authenticator())
 
