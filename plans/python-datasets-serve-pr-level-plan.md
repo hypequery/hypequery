@@ -65,12 +65,12 @@ train.
 | PY-A | PYA-01…PYA-05 (workspace, CI, JCS/tagged values, identifiers, conformance gate) | PYA-00/PYA-02 are org-account and release work, not code |
 | PY-B | PYB-01…PYB-08; contract 3 and expression extension 2 (RFC 0015); PYB-09 dataset client | Pagination `hasMore` metadata, which needs a planner over-fetch (pick up with PYD-02) |
 | PY-C | PYC-01 executor; PYC-02 cancellation and concurrency budgets; PYC-03 tenant capability and tenant-bound clients; PYC-04 cache keys, preimage, and result cache (`cache-keys-v1` and `cache-preimages-v1` green in both languages) | A shared tenant fixture family (see PYC-03); PYC-05 needs RFC 0011 accepted |
-| PY-D | PYD-01 router core and auth dependency | PYD-02 needs PYC-05; PYD-03 and PYD-04 are unblocked |
+| PY-D | PYD-01 router core and auth dependency; PYD-03 HTTP security profile | PYD-02 needs PYC-05; PYD-04 is unblocked |
 | PY-E | none | all |
 
 RFC 0009 was accepted on 28 September 2026. Next steps:
-- PYD-03 (HTTP security profile) and PYD-04 (canonical errors), which build
-  on the PYD-01 router;
+- PYD-04 (canonical errors and rate limiting), which builds on PYD-01 and
+  PYD-03;
 - TSP-04 (server-side binding in `@hypequery/clickhouse`), which is still
   open.
 
@@ -596,6 +596,23 @@ PYC-01 are merged.
 - **Acceptance:** Startup fails on credentialed-wildcard config; HTTP
   fixtures for each control; hostile request-ID/log-injection tests.
 - **Review:** Security review required.
+- **Status (2026-09-30):** Delivered.
+  - *Router, always on.* The body policy applies after authentication:
+    UTF-8 JSON only (`415`); a limit of 1 MiB by default, checked against
+    the declared length and counted while streaming (`413`); a repeated or
+    non-digit `Content-Length` is refused (`400`). Authenticated responses
+    are always `no-store`.
+  - *Application, `HttpSecurity` and `install_http_security`.* Required
+    trusted hosts, with `*` refused and no `www` redirect. CORS is off
+    unless configured, and the policy fails when it is built for
+    credentialed `*`, inexact origins, or wildcard methods or headers.
+    Forwarded client and scheme are honoured only from listed proxies,
+    taking the nearest untrusted address and never a non-address. A
+    server-generated `x-request-id` goes on every response, including
+    refusals. A caller's id is echoed only as `x-correlation-id` after the
+    TypeScript grammar and 200-byte bound.
+  - *Left for PYD-04.* Errors an endpoint raises bypass the route wrapper,
+    so their `no-store` and canonical body arrive with the error envelope.
 
 ### PYD-04 — Canonical errors and rate limiting
 - **Dependencies:** PYD-01.

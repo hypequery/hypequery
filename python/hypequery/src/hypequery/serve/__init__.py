@@ -29,14 +29,27 @@ from .auth import (
     bearer_token,
     default_tenant_resolver,
 )
+from .body_policy import DEFAULT_MAX_BODY_BYTES
 from .router import ServeRouter, create_router
+from .security import (
+    MAX_CORRELATION_ID_BYTES,
+    CorsPolicy,
+    HttpSecurity,
+    install_http_security,
+    request_id,
+    validate_correlation_id,
+)
 
 __all__ = [
+    "DEFAULT_MAX_BODY_BYTES",
+    "MAX_CORRELATION_ID_BYTES",
     "MAX_CREDENTIAL_LENGTH",
     "Authenticator",
+    "CorsPolicy",
     "Credential",
     "CredentialKind",
     "CredentialTransport",
+    "HttpSecurity",
     "InvalidCredential",
     "Principal",
     "RequestAuth",
@@ -46,4 +59,7 @@ __all__ = [
     "bearer_token",
     "create_router",
     "default_tenant_resolver",
+    "install_http_security",
+    "request_id",
+    "validate_correlation_id",
 ]

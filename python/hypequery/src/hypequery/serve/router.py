@@ -25,7 +25,9 @@ from fastapi import APIRouter, Depends, Request
 from fastapi.params import Depends as DependsParam
 from fastapi.routing import APIRoute
 from starlette.concurrency import run_in_threadpool
+from starlette.datastructures import MutableHeaders
 from starlette.responses import Response
+from starlette.types import Message, Receive, Scope, Send
 
 from ..datasets.planner import TenantScope
 from .auth import (
@@ -42,6 +44,7 @@ from .auth import (
     unauthenticated,
     unavailable,
 )
+from .body_policy import DEFAULT_MAX_BODY_BYTES, enforce_body_policy
 
 _Endpoint = TypeVar("_Endpoint", bound=Callable[..., Any])
 _Argument = TypeVar("_Argument")
@@ -117,20 +120,38 @@ class _AuthenticatingRoute(APIRoute):
     FastAPI parses JSON and multipart bodies before it resolves any
     dependency, so a dependency alone lets an unauthenticated caller make the
     server read and parse, or spool to disk, whatever it sends.
+
+    After authentication the body policy applies to every route, public ones
+    included: JSON only, and no more than the router's limit. An
+    authenticated response is marked `no-store`, because it answers for one
+    caller and possibly one tenant, and a shared cache must never keep it.
     """
+
+    max_body_bytes: int = DEFAULT_MAX_BODY_BYTES
+
+    async def handle(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if any(isinstance(dep.dependency, _Guard) for dep in self.dependencies):
+
+            async def send_no_store(message: Message) -> None:
+                if message["type"] == "http.response.start":
+                    MutableHeaders(scope=message)["Cache-Control"] = "no-store"
+                await send(message)
+
+            await super().handle(scope, receive, send_no_store)
+            return
+        await super().handle(scope, receive, send)
 
     def get_route_handler(self) -> Callable[[Request], Coroutine[Any, Any, Response]]:
         handler = super().get_route_handler()
         guards = [d.dependency for d in self.dependencies if isinstance(d.dependency, _Guard)]
-        if not guards:
-            return handler
+        max_body_bytes = self.max_body_bytes
 
-        async def authenticate_first(request: Request) -> Response:
+        async def guarded(request: Request) -> Response:
             for guard in guards:
                 await guard(request)
-            return await handler(request)
+            return await handler(enforce_body_policy(request, max_body_bytes))
 
-        return authenticate_first
+        return guarded
 
 
 class ServeRouter(APIRouter):
@@ -148,9 +169,15 @@ class ServeRouter(APIRouter):
         resolve_tenant: TenantResolver,
         prefix: str = "",
         tags: list[str] | None = None,
+        max_body_bytes: int = DEFAULT_MAX_BODY_BYTES,
     ) -> None:
-        super().__init__(prefix=prefix, tags=list(tags or ()), route_class=_AuthenticatingRoute)
-        self._auth_route_class = _AuthenticatingRoute
+        # One route class per router, carrying that router's body limit. It is
+        # a class rather than a value because FastAPI takes a route class.
+        route_class = type(
+            "ServeRoute", (_AuthenticatingRoute,), {"max_body_bytes": max_body_bytes}
+        )
+        super().__init__(prefix=prefix, tags=list(tags or ()), route_class=route_class)
+        self._auth_route_class = route_class
         self._public: set[Callable[..., Any]] = set()
         self._guard = _Guard(authenticate, credentials, resolve_tenant)
 
@@ -273,6 +300,7 @@ def create_router(
     resolve_tenant: TenantResolver | None = None,
     prefix: str = "",
     tags: list[str] | None = None,
+    max_body_bytes: int = DEFAULT_MAX_BODY_BYTES,
 ) -> ServeRouter:
     """Create the router Hypequery endpoints are served from.
 
@@ -283,7 +311,11 @@ def create_router(
     credential is read from, `bearer_token()` by default. *resolve_tenant*
     maps a principal to its tenant capability; by default a principal's
     `tenant_id` scopes the request and a principal without one is tenant-free.
+    *max_body_bytes* bounds every request body, 1 MiB by default.
     """
+
+    if type(max_body_bytes) is not int or max_body_bytes < 1:
+        raise ValueError("max_body_bytes must be a positive integer")
 
     if not callable(authenticate):
         raise TypeError("create_router requires an authenticate callable")
@@ -297,6 +329,7 @@ def create_router(
         resolve_tenant=resolve_tenant or default_tenant_resolver,
         prefix=prefix,
         tags=tags,
+        max_body_bytes=max_body_bytes,
     )
 
 
