@@ -142,10 +142,12 @@ class RequestAuth:
         if type(self.principal) is not Principal:
             raise TypeError("RequestAuth.principal must be a Principal")
         if self.tenant is not None and (
-            type(self.tenant) is not TenantScope or self.tenant.cross_tenant
+            type(self.tenant) is not TenantScope
+            or self.tenant.cross_tenant
+            or len(self.tenant.ids) != 1
         ):
-            # RFC 0009: no request may reach an all-tenant execution.
-            raise TypeError("RequestAuth.tenant must be a tenant capability for named tenants")
+            # RFC 0009: a request has exactly one tenant context.
+            raise TypeError("RequestAuth.tenant must be a single-tenant capability")
 
 
 #: Returns the principal, or None to reject the credential. Sync or async.

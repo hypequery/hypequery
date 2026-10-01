@@ -23,7 +23,7 @@ from fastapi.testclient import TestClient
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import Response
 
-from hypequery.datasets import all_tenants, tenant
+from hypequery.datasets import all_tenants, tenant, tenants
 from hypequery.serve import (
     MAX_CREDENTIAL_LENGTH,
     Credential,
@@ -571,8 +571,20 @@ def test_a_custom_tenant_resolver_decides_the_tenant() -> None:
     assert client.get("/whoami", headers=_bearer()).json()["tenants"] == ["org-of-alice"]
 
 
-@pytest.mark.parametrize("resolved", [all_tenants(), {"ids": ["acme"]}, "acme"])
-def test_a_resolver_cannot_grant_anything_but_named_tenants(resolved: object) -> None:
+def test_a_resolver_can_return_a_single_tenant_set() -> None:
+    client = _app(
+        create_router(
+            authenticate=_Authenticator(), resolve_tenant=lambda principal: tenants(("a",))
+        )
+    )
+
+    assert client.get("/whoami", headers=_bearer()).json()["tenants"] == ["a"]
+
+
+@pytest.mark.parametrize(
+    "resolved", [all_tenants(), tenants(("a", "b")), {"ids": ["acme"]}, "acme"]
+)
+def test_a_resolver_requires_one_named_tenant(resolved: object) -> None:
     client = _app(
         create_router(authenticate=_Authenticator(), resolve_tenant=lambda principal: resolved)  # type: ignore[arg-type,return-value]
     )
@@ -641,6 +653,7 @@ def test_credentials_and_principals_never_print_secrets() -> None:
         lambda: Principal(subject="a", tenant_id=""),
         lambda: RequestAuth(principal={"subject": "a"}),  # type: ignore[arg-type]
         lambda: RequestAuth(principal=ALICE, tenant=all_tenants()),
+        lambda: RequestAuth(principal=ALICE, tenant=tenants(("a", "b"))),
     ],
 )
 def test_auth_types_reject_invalid_values(build: Callable[[], object]) -> None:

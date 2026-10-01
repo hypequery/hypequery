@@ -563,7 +563,7 @@ PYC-01 are merged.
     cookies, and bodies are never read.
   - *Auth context.* The host authenticator sees only the opaque `Credential`
     and returns a `Principal`. The tenant comes from a resolver over the
-    principal, by default `tenant_id`, and can never be `all_tenants()`.
+    principal, by default `tenant_id`, and must be single-tenant when present.
     Endpoints read `RequestAuth` through `Depends(router.auth)`, which
     FastAPI caches per request. Nothing is stored in request state.
   - *Failure.* `InvalidCredential` from the authenticator is a 401. Other

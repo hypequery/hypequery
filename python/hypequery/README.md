@@ -187,7 +187,8 @@ app.include_router(router)
   caller cannot make the server parse JSON or spool an upload.
 - **The tenant** comes from the principal: `tenant_id` scopes the request, and
   a principal without one is tenant-free. Pass `resolve_tenant=` to decide it
-  yourself. A resolver cannot grant `all_tenants()`. No header, query
+  yourself. A resolver must return a single-tenant scope or `None`; it cannot
+  grant `tenants()` with multiple identifiers or `all_tenants()`. No header, query
   parameter, body field, or request state can supply or change the tenant.
 - **Public routes** need `@router.public` *below* the route decorator. In the
   other order the route stays authenticated.

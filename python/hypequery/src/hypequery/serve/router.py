@@ -104,7 +104,9 @@ class _Guard:
         if type(principal) is not Principal:
             raise misconfigured()
         scope = await _call_provider(self._resolve_tenant, principal)
-        if scope is not None and (type(scope) is not TenantScope or scope.cross_tenant):
+        if scope is not None and (
+            type(scope) is not TenantScope or scope.cross_tenant or len(scope.ids) != 1
+        ):
             raise misconfigured()
         return RequestAuth(principal=principal, tenant=scope)
 
