@@ -86,7 +86,11 @@ def test_a_request_without_credentials_is_refused_before_the_authenticator() -> 
 
     assert response.status_code == 401
     assert response.json() == {
-        "detail": {"category": "unauthenticated", "message": "Authentication required."}
+        "error": {
+            "type": "UNAUTHORIZED",
+            "message": "Access denied",
+            "details": {"reason": "missing_credentials"},
+        }
     }
     assert response.headers["www-authenticate"] == "Bearer"
     assert response.headers["cache-control"] == "no-store"
@@ -155,14 +159,20 @@ def test_a_credential_outside_the_configured_header_is_ignored() -> None:
     assert authenticator.seen == []
 
 
-def test_a_rejected_credential_is_indistinguishable_from_a_missing_one() -> None:
+def test_a_rejected_credential_differs_from_a_missing_one_only_in_its_reason() -> None:
+    # As in TypeScript serve. The caller knows whether it sent a credential,
+    # so the reason tells it nothing new.
     client = _app(create_router(authenticate=_Authenticator()))
 
     missing = client.get("/whoami")
     rejected = client.get("/whoami", headers=_bearer("wrong"))
+    malformed = client.get("/whoami", headers={"Authorization": "Basic x"})
 
-    assert rejected.status_code == missing.status_code == 401
-    assert rejected.json() == missing.json()
+    assert rejected.status_code == missing.status_code == malformed.status_code == 401
+    assert missing.json()["error"]["details"] == {"reason": "missing_credentials"}
+    for response in (rejected, malformed):
+        assert response.json()["error"]["details"] == {"reason": "invalid_credentials"}
+        assert response.json()["error"]["message"] == missing.json()["error"]["message"]
 
 
 @pytest.mark.parametrize("method", ["get", "post", "put", "patch", "delete", "head", "options"])
@@ -525,7 +535,7 @@ def test_an_authenticator_can_reject_by_raising_invalid_credential() -> None:
     response = client.get("/whoami", headers=_bearer())
 
     assert response.status_code == 401
-    assert response.json() == client.get("/whoami").json()
+    assert response.json()["error"]["details"] == {"reason": "invalid_credentials"}
     assert "signature" not in response.text
 
 
@@ -547,7 +557,7 @@ def test_a_failing_authenticator_fails_closed_without_detail() -> None:
 
     assert response.status_code == 503
     assert response.json() == {
-        "detail": {"category": "unavailable", "message": "Authentication is unavailable."}
+        "error": {"type": "SERVICE_UNAVAILABLE", "message": "Authentication is unavailable."}
     }
     assert TOKEN not in response.text
     assert "10.0.0.7" not in response.text
@@ -564,7 +574,10 @@ def test_an_authenticator_returning_anything_but_a_principal_fails_closed(
     response = client.get("/whoami", headers=_bearer())
 
     assert response.status_code == 500
-    assert response.json()["detail"]["category"] == "internal"
+    assert response.json()["error"] == {
+        "type": "INTERNAL_SERVER_ERROR",
+        "message": "An unexpected error occurred",
+    }
 
 
 def test_a_principal_without_a_tenant_is_tenant_free() -> None:
@@ -604,7 +617,10 @@ def test_a_resolver_requires_one_named_tenant(resolved: object) -> None:
     response = client.get("/whoami", headers=_bearer())
 
     assert response.status_code == 500
-    assert response.json()["detail"]["category"] == "internal"
+    assert response.json()["error"] == {
+        "type": "INTERNAL_SERVER_ERROR",
+        "message": "An unexpected error occurred",
+    }
 
 
 def test_a_failing_resolver_fails_closed() -> None:

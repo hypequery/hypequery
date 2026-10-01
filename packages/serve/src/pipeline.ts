@@ -57,7 +57,9 @@ const createErrorResponse = (
   headers?: Record<string, string>,
 ): ServeResponse<ErrorEnvelope> => ({
   status,
-  headers: headers ?? {},
+  // An error answers one request; a shared cache must never replay it to
+  // another caller. Matches the errors-v1 HTTP fixtures shared with Python.
+  headers: { ...(headers ?? {}), 'cache-control': 'no-store' },
   body: { error: { type, message, ...(details ? { details } : {}) } },
 });
 

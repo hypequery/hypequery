@@ -232,9 +232,9 @@ describe("createNodeHandler", () => {
       expect(result.receivedBody).toBe("plain text content");
     });
 
-    it("handles handler errors", async () => {
+    it("handles handler errors without leaking the thrown message", async () => {
       const handler: ServeHandler = async () => {
-        throw new Error("Handler error");
+        throw new Error("Handler error at /srv/app.ts running SELECT secret");
       };
 
       const listener = createNodeHandler(handler);
@@ -245,7 +245,11 @@ describe("createNodeHandler", () => {
       expect(response.statusCode).toBe(500);
       const result = JSON.parse(response.body);
       expect(result.error.type).toBe("INTERNAL_SERVER_ERROR");
-      expect(result.error.message).toBe("Handler error");
+      expect(result.error.message).toBe("An unexpected error occurred");
+      expect(response.body).not.toContain("SELECT");
+      expect(response.body).not.toContain("/srv/app.ts");
+      expect(response.getHeader("cache-control")).toBe("no-store");
+      expect(response.getHeader("x-request-id")).toBeTruthy();
     });
 
     it("handles errors with custom status", async () => {

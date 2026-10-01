@@ -14,6 +14,7 @@ import {
   parseRequestBody,
   serializeResponseBody,
 } from "./utils.js";
+import { generateRequestId } from "../utils.js";
 
 const DEFAULT_REQUEST_TIMEOUT = 30_000; // 30 seconds
 const DEFAULT_BODY_LIMIT = 1_048_576; // 1 MB
@@ -104,6 +105,7 @@ const sendError = (res: ServerResponse, error: unknown) => {
   ) {
     sendResponse(res, {
       status: 413,
+      headers: adapterErrorHeaders(),
       body: {
         error: {
           type: "PAYLOAD_TOO_LARGE",
@@ -119,17 +121,28 @@ const sendError = (res: ServerResponse, error: unknown) => {
       ? (error as ServeResponse)
       : {
           status: 500,
+          headers: adapterErrorHeaders(),
           body: {
             error: {
               type: "INTERNAL_SERVER_ERROR",
-              message:
-                error instanceof Error ? error.message : "Unexpected error",
+              // Never the thrown message: an error escaping the pipeline can
+              // carry a stack, a file path, SQL, or a driver detail.
+              message: "An unexpected error occurred",
             },
           },
         } satisfies ServeResponse;
 
   sendResponse(res, payload);
 };
+
+/**
+ * Headers for an error the adapter answers itself, before or around the
+ * pipeline: the same no-store and request id every pipeline error carries.
+ */
+const adapterErrorHeaders = (): Record<string, string> => ({
+  "cache-control": "no-store",
+  "x-request-id": generateRequestId(),
+});
 
 export const createNodeHandler = (
   handler: ServeHandler,
@@ -152,6 +165,7 @@ export const createNodeHandler = (
           const timer = setTimeout(() => {
             resolve({
               status: 504,
+              headers: adapterErrorHeaders(),
               body: {
                 error: {
                   type: "GATEWAY_TIMEOUT" as const,

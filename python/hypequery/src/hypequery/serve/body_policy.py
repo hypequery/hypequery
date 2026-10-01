@@ -7,8 +7,10 @@ so leaving the header off is not a way around either check.
 
 from __future__ import annotations
 
-from fastapi import HTTPException, Request
+from fastapi import Request
 from starlette.types import Message
+
+from .errors import ServeError
 
 #: The TypeScript Node adapter's default.
 DEFAULT_MAX_BODY_BYTES = 1_048_576
@@ -16,16 +18,14 @@ DEFAULT_MAX_BODY_BYTES = 1_048_576
 _JSON = "application/json"
 
 
-def _refuse(status: int, category: str, message: str) -> HTTPException:
-    return HTTPException(
-        status,
-        detail={"category": category, "message": message},
-        headers={"Cache-Control": "no-store"},
-    )
+def _refuse(status: int, message: str) -> ServeError:
+    return ServeError(status, "VALIDATION_ERROR", message)
 
 
-def _too_large(max_bytes: int) -> HTTPException:
-    return _refuse(413, "too-large", f"The request body may not exceed {max_bytes} bytes.")
+def _too_large(max_bytes: int) -> ServeError:
+    # TypeScript's Node adapter message. The limit is the server's own
+    # configuration, so stating it is not a leak, but there is no need to.
+    return ServeError(413, "PAYLOAD_TOO_LARGE", "Request body exceeds the configured size limit")
 
 
 def _declared_length(request: Request) -> int | None:
@@ -35,17 +35,17 @@ def _declared_length(request: Request) -> int | None:
     # Two lengths, or one that is not plain ASCII digits, is how request
     # smuggling starts; refuse rather than pick an interpretation.
     if len(values) != 1 or not values[0].isascii() or not values[0].isdigit():
-        raise _refuse(400, "input-invalid", "The request has an invalid Content-Length.")
+        raise _refuse(400, "The request has an invalid Content-Length.")
     return int(values[0])
 
 
 def _require_json(request: Request) -> None:
     media_type, _, parameters = request.headers.get("content-type", "").partition(";")
     if media_type.strip().lower() != _JSON:
-        raise _refuse(415, "input-invalid", "Request bodies must be application/json.")
+        raise _refuse(415, "Request bodies must be application/json.")
     charset = parameters.strip().lower()
     if charset and charset.replace(" ", "") not in ("charset=utf-8", 'charset="utf-8"'):
-        raise _refuse(415, "input-invalid", "Request bodies must be UTF-8 JSON.")
+        raise _refuse(415, "Request bodies must be UTF-8 JSON.")
 
 
 def enforce_body_policy(request: Request, max_bytes: int) -> Request:
