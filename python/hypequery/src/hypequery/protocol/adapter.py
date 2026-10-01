@@ -32,6 +32,8 @@ from .errors import (
     ProtocolDeploymentReleaseError,
     ProtocolExpressionError,
     ProtocolIdentifierError,
+    ProtocolQueryDiagnosticsError,
+    ProtocolQueryEventError,
     ProtocolQueryImplementationError,
     ProtocolSchemaError,
     ProtocolValueError,
@@ -47,6 +49,8 @@ from .identifiers import (
     parse_protocol_qualified_identifier,
     split_protocol_qualified_identifier,
 )
+from .query_event_fixtures import materialize_diagnostics_fixture, materialize_event_fixture
+from .query_events import validate_protocol_query_diagnostics, validate_protocol_query_event
 from .query_implementation_fixtures import materialize_implementation_fixture
 from .query_implementations import validate_protocol_query_implementation
 from .releases import (
@@ -77,6 +81,8 @@ FAMILIES = (
     "expressions-v2",
     "query-schemas-v1",
     "query-implementations-v1",
+    "query-events-v1",
+    "query-diagnostics-v1",
     "deployments-v2",
     "deployments-v3",
     "deployment-bundles-v1",
@@ -323,6 +329,22 @@ def _handle_release(role: str, case: dict[str, object]) -> dict[str, object]:
         return {"ok": False, "code": error.code}
 
 
+def _handle_query_event(case: dict[str, object]) -> dict[str, object]:
+    try:
+        validate_protocol_query_event(_fixture_value(case, materialize_event_fixture))
+        return {"ok": True}
+    except ProtocolQueryEventError as error:
+        return {"ok": False, "code": error.code}
+
+
+def _handle_query_diagnostics(case: dict[str, object]) -> dict[str, object]:
+    try:
+        validate_protocol_query_diagnostics(_fixture_value(case, materialize_diagnostics_fixture))
+        return {"ok": True}
+    except ProtocolQueryDiagnosticsError as error:
+        return {"ok": False, "code": error.code}
+
+
 def _handle_cache_key(role: str, case: dict[str, object]) -> dict[str, object]:
     generator = case.get("generator")
     if type(generator) is dict:
@@ -391,6 +413,10 @@ def _handle(family: str, role: str, case: dict[str, object], section: object) ->
         return _handle_schema(case)
     if family == "query-implementations-v1":
         return _handle_implementation(case)
+    if family == "query-events-v1":
+        return _handle_query_event(case)
+    if family == "query-diagnostics-v1":
+        return _handle_query_diagnostics(case)
     if family == "deployments-v2":
         return _handle_deployment(role, case, 2)
     if family == "deployments-v3":
