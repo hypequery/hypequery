@@ -132,7 +132,12 @@ const sendError = (res: ServerResponse, error: unknown) => {
           },
         } satisfies ServeResponse;
 
-  sendResponse(res, payload);
+  sendResponse(res, {
+    ...payload,
+    // A thrown response-shaped object is still an adapter error. These
+    // headers must override any supplied casing or value.
+    headers: { ...payload.headers, ...adapterErrorHeaders() },
+  });
 };
 
 /**

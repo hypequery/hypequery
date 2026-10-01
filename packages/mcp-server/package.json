@@ -42,7 +42,7 @@
     "pretest:unit": "node scripts/generate-version.mjs",
     "test:unit": "vitest run",
     "test:types": "tsc --project tsconfig.json --noEmit",
-    "lint": "eslint --ext .ts \"src/**/*.ts\"",
+    "lint": "eslint \"src/**/*.ts\"",
     "start": "node dist/bin.js"
   },
   "dependencies": {

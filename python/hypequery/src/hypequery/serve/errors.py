@@ -122,7 +122,7 @@ def _issues(error: RequestValidationError) -> list[dict[str, object]]:
     return issues
 
 
-def as_serve_error(exc: BaseException) -> ServeError:
+def as_serve_error(exc: BaseException, *, request: Request | None = None) -> ServeError:
     """The canonical error for *exc*, logging anything unexpected."""
 
     if isinstance(exc, ServeError):
@@ -143,7 +143,11 @@ def as_serve_error(exc: BaseException) -> ServeError:
         if exc.status_code >= 500 and exc.status_code not in _STATUS_TYPES:
             message = UNEXPECTED_ERROR_MESSAGE
         return ServeError(exc.status_code, kind, message, headers=exc.headers)
-    _log.error("Unhandled error in a served route", exc_info=exc)
+    _log.error(
+        "Unhandled error in a served route (request_id=%s)",
+        request_id(request) if request else None,
+        exc_info=exc,
+    )
     return ServeError(500, "INTERNAL_SERVER_ERROR", UNEXPECTED_ERROR_MESSAGE)
 
 

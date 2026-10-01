@@ -32,6 +32,7 @@ from hypequery.serve import (
     install_http_security,
     request_id,
 )
+from hypequery.serve.rate_limit import RateLimitCapacityError
 
 TOKENS = {"alice-token": "alice", "bob-token": "bob"}
 
@@ -163,6 +164,7 @@ def test_an_unexpected_error_is_logged_with_its_request_id_and_not_sent(
     [record] = [r for r in caplog.records if r.name == "hypequery.serve"]
     assert record.exc_info is not None
     assert "hunter2" in str(record.exc_info[1])
+    assert response.headers["x-request-id"] in record.getMessage()
 
 
 def test_validation_issues_never_echo_the_submitted_value() -> None:
@@ -215,17 +217,28 @@ def test_the_applications_own_http_errors_keep_their_handler() -> None:
 
     @app.exception_handler(StarletteHTTPException)
     async def own(request: Request, exc: StarletteHTTPException) -> JSONResponse:
-        return JSONResponse({"own": exc.detail}, status_code=exc.status_code)
+        return JSONResponse({"own": exc.detail}, status_code=exc.status_code, headers=exc.headers)
 
     @app.get("/thing")
     def thing() -> None:
         raise HTTPException(404, detail="no such thing")
+
+    @app.get("/method")
+    def method() -> None:
+        raise HTTPException(405, detail="chosen status", headers={"Allow": "PATCH"})
 
     install_http_security(app, HttpSecurity(allowed_hosts=("testserver",)))
     client = TestClient(app)
 
     assert client.get("/thing").json() == {"own": "no such thing"}
     assert client.get("/nowhere").json()["error"]["type"] == "NOT_FOUND"
+    wrong_method = client.post("/thing")
+    assert wrong_method.status_code == 405
+    assert wrong_method.json() == {"own": "Method Not Allowed"}
+    deliberate = client.get("/method")
+    assert deliberate.status_code == 405
+    assert deliberate.json() == {"own": "chosen status"}
+    assert deliberate.headers["allow"] == "PATCH"
 
 
 # --- rate limiting ----------------------------------------------------------
@@ -276,12 +289,56 @@ def test_a_limited_request_reads_no_body_and_runs_nothing(monkeypatch: pytest.Mo
     assert calls == ["ran"]
 
 
+def test_endpoint_parameter_limit_rejects_before_body_read(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    router = create_router(authenticate=_authenticate)
+    limit = RateLimit(max=1, window_seconds=60)
+
+    @router.post("/parameter")
+    def endpoint(
+        payload: Annotated[dict[str, Any], Body()],
+        limited: Annotated[None, Depends(limit)],
+    ) -> dict[str, bool]:
+        return {"ok": True}
+
+    client = _client(router)
+    assert client.post("/parameter", json={}, headers=_auth()).status_code == 200
+    reads: list[str] = []
+    original = Request.body
+
+    async def spy(self: Request) -> bytes:
+        reads.append("body")
+        return await original(self)
+
+    monkeypatch.setattr(Request, "body", spy)
+    response = client.post("/parameter", content=b"not JSON", headers=_auth())
+    assert response.status_code == 429
+    assert reads == []
+
+
 def test_each_principal_has_its_own_window() -> None:
     client = _client(_limited(RateLimit(max=1, window_seconds=60), []))
 
     assert client.post("/limited", json={}, headers=_auth("alice-token")).status_code == 200
     assert client.post("/limited", json={}, headers=_auth("alice-token")).status_code == 429
     assert client.post("/limited", json={}, headers=_auth("bob-token")).status_code == 200
+
+
+def test_tenants_with_the_same_subject_have_separate_windows() -> None:
+    def authenticate(credential: Credential) -> Principal:
+        return Principal(subject="same-subject", tenant_id=credential.value)
+
+    router = create_router(authenticate=authenticate)
+
+    @router.get("/limited", dependencies=[Depends(RateLimit(max=1, window_seconds=60))])
+    def limited() -> dict[str, bool]:
+        return {"ok": True}
+
+    client = _client(router)
+    assert client.get("/limited", headers=_auth("tenant-a")).status_code == 200
+    assert client.get("/limited", headers=_auth("tenant-a")).status_code == 429
+    assert client.get("/limited", headers=_auth("tenant-b")).status_code == 200
 
 
 def test_a_spoofed_forwarded_address_does_not_open_a_new_window() -> None:
@@ -322,14 +379,17 @@ def test_a_window_resets(monkeypatch: pytest.MonkeyPatch) -> None:
     assert client.post("/limited", json={}, headers=_auth()).status_code == 200
 
 
-def test_the_memory_store_is_bounded() -> None:
+def test_the_memory_store_refuses_new_keys_without_resetting_active_counters() -> None:
     import asyncio
 
     store = MemoryRateLimitStore(max_keys=2)
 
     async def fill() -> None:
-        for key in ("a", "b", "c", "d"):
+        for key in ("a", "b"):
             await store.hit(key, 60)
+        with pytest.raises(RateLimitCapacityError):
+            await store.hit("c", 60)
+        assert (await store.hit("a", 60))[0] == 2
 
     asyncio.run(fill())
     assert len(store._windows) == 2
@@ -343,18 +403,26 @@ def test_the_memory_store_evicts_expired_windows_first(monkeypatch: pytest.Monke
     store = MemoryRateLimitStore(max_keys=3)
 
     async def scenario() -> None:
-        await store.hit("short", 1)
         await store.hit("long", 100)
+        await store.hit("short", 1)
         await store.hit("long-2", 100)
         now[0] = 5.0
-        # "short" restarts its window and moves behind the others.
-        await store.hit("short", 100)
-        now[0] = 6.0
         await store.hit("new", 100)
 
     asyncio.run(scenario())
-    # Full with nothing expired, so the oldest window ("long") went first.
-    assert list(store._windows) == ["long-2", "short", "new"]
+    assert set(store._windows) == {"long", "long-2", "new"}
+
+
+def test_memory_store_capacity_fails_closed_even_with_fail_open_default() -> None:
+    store = MemoryRateLimitStore(max_keys=1)
+    limit = RateLimit(max=1, window_seconds=60, store=store)
+    client = _client(_limited(limit, []))
+
+    assert client.post("/limited", json={}, headers=_auth("alice-token")).status_code == 200
+    response = client.post("/limited", json={}, headers=_auth("bob-token"))
+    assert response.status_code == 503
+    assert response.json()["error"]["type"] == "SERVICE_UNAVAILABLE"
+    assert client.post("/limited", json={}, headers=_auth("alice-token")).status_code == 429
 
 
 def test_rate_limit_validates_its_configuration() -> None:

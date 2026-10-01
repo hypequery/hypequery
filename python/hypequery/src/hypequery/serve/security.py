@@ -267,7 +267,14 @@ def _install_routing_errors(app: FastAPI) -> None:
     async def routing_errors(request: Request, exc: Exception) -> Response:
         status = exc.status_code if isinstance(exc, StarletteHTTPException) else 500
         unrouted = status == 404 and "endpoint" not in request.scope
-        if status == 405 or unrouted:
+        # Starlette puts its first partial path match in the scope for a 405.
+        # Only a ServeRouter route uses method+path matching as a 404 policy.
+        from .router import _AuthenticatingRoute
+
+        serve_method_mismatch = status == 405 and isinstance(
+            request.scope.get("route"), _AuthenticatingRoute
+        )
+        if serve_method_mismatch or unrouted:
             error = ServeError(404, "NOT_FOUND", _not_found_message(request))
             return error_response(request, error)
         response = previous(request, exc)

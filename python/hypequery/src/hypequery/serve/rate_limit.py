@@ -18,6 +18,7 @@ address is the transport peer, or the nearest untrusted forwarded address when
 # No `from __future__ import annotations`: `RateLimit` is a callable-instance
 # dependency, and FastAPI 0.115 cannot resolve string annotations on one.
 import hashlib
+import heapq
 import math
 import threading
 import time
@@ -61,8 +62,9 @@ class RateLimitStore(Protocol):
 class MemoryRateLimitStore:
     """A single-process store: a fixed window per key, bounded in size.
 
-    When it is full, expired windows are dropped first and then the oldest,
-    so a flood of distinct callers cannot grow it without limit.
+    When it is full, expired windows are dropped first. If every window is
+    active, a new caller is refused rather than resetting another caller's
+    counter.
     """
 
     def __init__(self, *, max_keys: int = 100_000) -> None:
@@ -70,6 +72,7 @@ class MemoryRateLimitStore:
             raise ValueError("max_keys must be a positive integer")
         self._max_keys = max_keys
         self._windows: dict[str, tuple[int, float]] = {}
+        self._expirations: list[tuple[float, str]] = []
         self._lock = threading.Lock()
 
     async def hit(self, key: str, window_seconds: int) -> tuple[int, float]:
@@ -77,24 +80,28 @@ class MemoryRateLimitStore:
         with self._lock:
             count, resets_at = self._windows.get(key, (0, 0.0))
             if resets_at <= now:
-                # A new window is reinserted at the end, so the dict stays in
-                # window-start order and the oldest windows are at the front.
                 self._windows.pop(key, None)
                 count, resets_at = 0, now + window_seconds
                 self._evict(now)
+                if len(self._windows) >= self._max_keys:
+                    raise RateLimitCapacityError("rate limit store is full")
+                heapq.heappush(self._expirations, (resets_at, key))
             count += 1
             self._windows[key] = (count, resets_at)
             return count, resets_at - now
 
     def _evict(self, now: float) -> None:
-        # Amortized O(1): expired windows are only ever at the front. Scanning
-        # the whole store per new caller would hand an attacker cycling
-        # addresses an O(n) cost per request.
-        while self._windows:
-            oldest = next(iter(self._windows))
-            if self._windows[oldest][1] > now and len(self._windows) < self._max_keys:
-                return
-            del self._windows[oldest]
+        # A heap finds expired windows even when stores are shared by limits
+        # with different durations, without scanning every key per new caller.
+        while self._expirations and self._expirations[0][0] <= now:
+            resets_at, key = heapq.heappop(self._expirations)
+            current = self._windows.get(key)
+            if current is not None and current[1] == resets_at:
+                del self._windows[key]
+
+
+class RateLimitCapacityError(Exception):
+    """The in-memory store cannot admit a key without losing an active window."""
 
 
 def default_key(request: Request, auth: RequestAuth | None) -> str | None:
@@ -103,7 +110,10 @@ def default_key(request: Request, auth: RequestAuth | None) -> str | None:
     if auth is not None:
         # A digest, so a shared store never holds subjects, which are often
         # email addresses.
-        digest = hashlib.sha256(auth.principal.subject.encode("utf-8")).hexdigest()
+        # Length prefixes keep distinct (tenant, subject) pairs unambiguous.
+        tenant = auth.tenant.ids[0] if auth.tenant is not None else ""
+        identity = f"{len(tenant)}:{tenant}{auth.principal.subject}"
+        digest = hashlib.sha256(identity.encode("utf-8")).hexdigest()
         return f"principal:{digest[:32]}"
     client = request.client
     return f"client:{client.host}" if client is not None and client.host else None
@@ -157,6 +167,8 @@ class RateLimit:
         path = getattr(route, "path", request.url.path)
         try:
             count, resets_in = await self._store.hit(f"rl:{path}:{caller}", self._window)
+        except RateLimitCapacityError as exc:
+            raise ServeError(503, "SERVICE_UNAVAILABLE", "Rate limiter unavailable") from exc
         except Exception as exc:
             if self._fail_open:
                 return

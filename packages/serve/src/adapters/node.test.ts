@@ -269,6 +269,30 @@ describe("createNodeHandler", () => {
       const result = JSON.parse(response.body);
       expect(result.error.type).toBe("BAD_REQUEST");
       expect(result.error.message).toBe("Invalid input");
+      expect(response.getHeader("cache-control")).toBe("no-store");
+      expect(response.getHeader("x-request-id")).toBeTruthy();
+    });
+
+    it("overrides headers on a thrown response-shaped error", async () => {
+      const handler: ServeHandler = async () => {
+        throw {
+          status: 429,
+          headers: {
+            "Cache-Control": "public, max-age=60",
+            "X-Request-ID": "caller-supplied",
+            "Retry-After": "5",
+          },
+          body: { error: { type: "RATE_LIMITED", message: "Slow down" } },
+        };
+      };
+
+      const response = new MockResponse();
+      await createNodeHandler(handler)(createMockRequest({}) as any, response as any);
+
+      expect(response.statusCode).toBe(429);
+      expect(response.getHeader("cache-control")).toBe("no-store");
+      expect(response.getHeader("x-request-id")).not.toBe("caller-supplied");
+      expect(response.getHeader("retry-after")).toBe("5");
     });
 
     it("handles response with custom headers", async () => {

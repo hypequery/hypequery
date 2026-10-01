@@ -299,7 +299,9 @@ match TypeScript:
 - a store failure lets the request through, or with `fail_open=False`
   answers `503`.
 
-`MemoryRateLimitStore` is bounded, at 100,000 callers by default. For several
+`MemoryRateLimitStore` is bounded, at 100,000 callers by default. When every
+slot has an active window, a new caller receives `503` until a slot expires;
+active counters are never reset to make room. For several
 processes, pass a `store` with an async `hit(key, window_seconds)` method.
 
 ## ClickHouse execution
