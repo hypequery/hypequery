@@ -529,10 +529,16 @@ PYC-01 are merged.
 
 ### PYC-05 — Query events and diagnostics (RFC 0011)
 - **Dependencies:** PYB-08, RFC 0011 accepted.
-- **Status (2026-10-01):** Unblocked. RFC 0011 was accepted with a
-  validation order, exact timestamp and free-text rules, and boundary
-  fixtures, so the Python validators can be built against the same
-  `query-events-v1` and `query-diagnostics-v1` cases as TypeScript.
+- **Status (2026-10-01):** RFC 0011 is accepted and the implementation is
+  delivered, at parity with TypeScript.
+  `validate_protocol_query_event` and `validate_protocol_query_diagnostics`
+  port `@hypequery/protocol`'s events module check for check, with the same
+  limits and `HQ_EVENT_*` / `HQ_DIAGNOSTICS_*` codes. The Python adapter
+  announces `query-events-v1` and `query-diagnostics-v1`, and
+  `conformance:python:protocol` requires both.
+  - *Not done, as in TypeScript.* Neither language builds these records
+    from an execution yet; both only validate them. Emitting them belongs
+    with PYD-02, not ahead of TypeScript here.
 - **Scope:** Metadata-only, size-bounded query events; privileged
   diagnostics behind an explicit server-side permission; no Pydantic
   models, rows, or raw errors serialised into events.

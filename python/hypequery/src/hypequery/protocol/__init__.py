@@ -75,6 +75,10 @@ from .errors import (
     ProtocolExpressionErrorCode,
     ProtocolIdentifierError,
     ProtocolIdentifierErrorCode,
+    ProtocolQueryDiagnosticsError,
+    ProtocolQueryDiagnosticsErrorCode,
+    ProtocolQueryEventError,
+    ProtocolQueryEventErrorCode,
     ProtocolQueryImplementationError,
     ProtocolQueryImplementationErrorCode,
     ProtocolSchemaError,
@@ -121,6 +125,12 @@ from .identifiers import (
     split_protocol_qualified_identifier,
 )
 from .limits import DEFAULT_CANONICAL_VALUE_LIMITS, CanonicalValueLimits
+from .query_events import (
+    DEFAULT_PROTOCOL_QUERY_EVENT_LIMITS,
+    ProtocolQueryEventLimits,
+    validate_protocol_query_diagnostics,
+    validate_protocol_query_event,
+)
 from .query_implementation_primitives import (
     DEFAULT_PROTOCOL_QUERY_IMPLEMENTATION_LIMITS,
     ProtocolQueryImplementationLimits,
@@ -195,6 +205,7 @@ __all__ = [
     "DEFAULT_PROTOCOL_DEPLOYMENT_LIMITS",
     "DEFAULT_PROTOCOL_DEPLOYMENT_RELEASE_LIMITS",
     "DEFAULT_PROTOCOL_EXPRESSION_LIMITS",
+    "DEFAULT_PROTOCOL_QUERY_EVENT_LIMITS",
     "DEFAULT_PROTOCOL_QUERY_IMPLEMENTATION_LIMITS",
     "DEFAULT_PROTOCOL_SCHEMA_LIMITS",
     "MAX_CACHE_KEY_PREIMAGE_BYTES",
@@ -258,6 +269,11 @@ __all__ = [
     "ProtocolObjectSchema",
     "ProtocolOrderBy",
     "ProtocolQualifiedIdentifier",
+    "ProtocolQueryDiagnosticsError",
+    "ProtocolQueryDiagnosticsErrorCode",
+    "ProtocolQueryEventError",
+    "ProtocolQueryEventErrorCode",
+    "ProtocolQueryEventLimits",
     "ProtocolQueryImplementation",
     "ProtocolQueryImplementationError",
     "ProtocolQueryImplementationErrorCode",
@@ -340,6 +356,8 @@ __all__ = [
     "validate_protocol_deployment_release_envelope",
     "validate_protocol_deployment_release_target",
     "validate_protocol_expression",
+    "validate_protocol_query_diagnostics",
+    "validate_protocol_query_event",
     "validate_protocol_query_implementation",
     "validate_protocol_schema",
     "validate_protocol_semantic_query",

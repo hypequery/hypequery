@@ -116,6 +116,24 @@ ProtocolDeploymentReleaseErrorCode: TypeAlias = Literal[
     "HQ_RELEASE_UNSAFE_OBJECT",
 ]
 
+ProtocolQueryEventErrorCode: TypeAlias = Literal[
+    "HQ_EVENT_TYPE",
+    "HQ_EVENT_UNKNOWN_FIELD",
+    "HQ_EVENT_INVALID_VERSION",
+    "HQ_EVENT_INVALID_VALUE",
+    "HQ_EVENT_TOO_LARGE",
+    "HQ_EVENT_UNSAFE_OBJECT",
+]
+
+ProtocolQueryDiagnosticsErrorCode: TypeAlias = Literal[
+    "HQ_DIAGNOSTICS_TYPE",
+    "HQ_DIAGNOSTICS_UNKNOWN_FIELD",
+    "HQ_DIAGNOSTICS_INVALID_VERSION",
+    "HQ_DIAGNOSTICS_INVALID_VALUE",
+    "HQ_DIAGNOSTICS_TOO_LARGE",
+    "HQ_DIAGNOSTICS_UNSAFE_OBJECT",
+]
+
 
 class ProtocolValueError(TypeError):
     """A safe, stable RFC 0001 validation failure."""
@@ -259,3 +277,39 @@ def release_error(code: ProtocolDeploymentReleaseErrorCode, path: str = "$") -> 
     """Raise a release error without attaching input data to its message."""
 
     raise ProtocolDeploymentReleaseError(code, path)
+
+
+class ProtocolQueryEventError(TypeError):
+    """A safe, stable RFC 0011 query event validation failure."""
+
+    code: ProtocolQueryEventErrorCode
+    path: str
+
+    def __init__(self, code: ProtocolQueryEventErrorCode, path: str = "$") -> None:
+        super().__init__(f"{code} at {path}")
+        self.code = code
+        self.path = path
+
+
+def event_error(code: ProtocolQueryEventErrorCode, path: str = "$") -> NoReturn:
+    """Raise a query event error without attaching input data to its message."""
+
+    raise ProtocolQueryEventError(code, path)
+
+
+class ProtocolQueryDiagnosticsError(TypeError):
+    """A safe, stable RFC 0011 query diagnostics validation failure."""
+
+    code: ProtocolQueryDiagnosticsErrorCode
+    path: str
+
+    def __init__(self, code: ProtocolQueryDiagnosticsErrorCode, path: str = "$") -> None:
+        super().__init__(f"{code} at {path}")
+        self.code = code
+        self.path = path
+
+
+def diagnostics_error(code: ProtocolQueryDiagnosticsErrorCode, path: str = "$") -> NoReturn:
+    """Raise a query diagnostics error without attaching input data to its message."""
+
+    raise ProtocolQueryDiagnosticsError(code, path)
