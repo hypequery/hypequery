@@ -1,5 +1,15 @@
 # @hypequery/mcp
 
+## 0.8.5
+
+### Patch Changes
+
+- 40ac480: Refresh production dependencies. Keep the ClickHouse adapter compatible with the client packages' bundled setting types.
+- Updated dependencies [7c009de]
+- Updated dependencies [97ee149]
+- Updated dependencies [40ac480]
+  - @hypequery/datasets@0.21.0
+
 ## 0.8.4
 
 ### Patch Changes

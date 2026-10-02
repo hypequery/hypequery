@@ -1,5 +1,12 @@
 # @hypequery/clickhouse Changelog
 
+## 2.12.2
+
+### Patch Changes
+
+- 5ce2ac8: Expose a HypeQuery-owned ClickHouse settings union that accepts settings from the Node, web, and legacy common clients without widening accepted setting values.
+- 40ac480: Refresh production dependencies. Keep the ClickHouse adapter compatible with the client packages' bundled setting types.
+
 ## 2.12.1
 
 ### Patch Changes
