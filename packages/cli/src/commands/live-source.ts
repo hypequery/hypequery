@@ -1,19 +1,13 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { mkdir, rename, rm, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
-import {
-  validateProtocolDeploymentReleaseTarget,
-  type ProtocolDeploymentReleaseTarget,
-} from '@hypequery/protocol';
-import {
-  CLOUD_SOURCE_SCOPE,
-  type StoredCloudCredential,
-} from '../utils/cloud-credential-store.js';
+import { CLOUD_SOURCE_SCOPE } from '../utils/cloud-credential-store.js';
 import {
   resolveDeploymentCredential,
   type CloudDeploymentAccessDependencies,
 } from '../utils/cloud-deployment-access.js';
 import { captureDeploymentSourceSnapshot } from '../utils/deployment-source-snapshot.js';
+import { deploymentTargetFromOptions } from '../utils/deployment-target.js';
 import {
   fetchLiveDeployment,
   type LiveDeployment,
@@ -40,29 +34,6 @@ export type LiveSourceDifference = {
   readonly path: string;
 };
 
-function targetFromOptions(
-  options: LiveSourceOptions,
-  credential: StoredCloudCredential | undefined,
-): ProtocolDeploymentReleaseTarget {
-  if ((options.project === undefined) !== (options.environment === undefined)) {
-    throw new Error('Pass both --project and --environment, or omit both.');
-  }
-  const input = options.project === undefined
-    ? credential?.target
-    : { project: options.project, environment: options.environment };
-  if (!input) {
-    throw new Error(
-      'Missing deployment target. Run `hypequery login` or pass both '
-      + '--project and --environment.',
-    );
-  }
-  try {
-    return validateProtocolDeploymentReleaseTarget(input);
-  } catch {
-    throw new Error('The deployment target is invalid.');
-  }
-}
-
 async function liveSource(
   options: LiveSourceOptions,
   dependencies: LiveSourceDependencies,
@@ -74,7 +45,7 @@ async function liveSource(
       'The stored CLI credential cannot read deployed source. Run `hypequery login` again.',
     );
   }
-  const target = targetFromOptions(options, access.storedCredential);
+  const target = deploymentTargetFromOptions(options, access.storedCredential);
   const live = await (dependencies.fetchLive ?? fetchLiveDeployment)({
     endpoint: access.endpoint,
     token: access.token,
