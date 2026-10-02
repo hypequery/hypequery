@@ -11,11 +11,6 @@ export function toClientSettings(settings: ClickHouseSettings): NodeSettings & W
   return settings as unknown as NodeSettings & WebSettings;
 }
 
-/** Merge settings from clients with distinct nominal SettingsMap classes. */
-export function mergeClickHouseSettings(...settings: (ClickHouseSettings | undefined)[]): ClickHouseSettings {
-  return Object.assign({}, ...settings) as ClickHouseSettings;
-}
-
 /** Only the settings field differs nominally from the Node client config. */
 export function toNodeClientConfig(config: ClickHouseConnectionOptions): NodeClientConfig {
   return config as unknown as NodeClientConfig;
