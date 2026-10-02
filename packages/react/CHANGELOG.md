@@ -1,5 +1,11 @@
 # @hypequery/react
 
+## 0.6.3
+
+### Patch Changes
+
+- 40ac480: Refresh production dependencies. Keep the ClickHouse adapter compatible with the client packages' bundled setting types.
+
 ## 0.6.2
 
 ### Patch Changes

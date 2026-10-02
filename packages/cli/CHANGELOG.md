@@ -1,5 +1,19 @@
 # @hypequery/cli
 
+## 1.22.0
+
+### Minor Changes
+
+- fa2d7a2: `hypequery deploy` now prints where the deployment is served: the REST base URL, each dataset's URL, and the MCP URL, as reported by Cloud. `--mcp-config` also prints MCP client configuration that reads the key from `${HYPEQUERY_API_KEY}` and never contains a credential. `hypequery mcp --self-test --url <mcp-url>` checks a hosted MCP endpoint without calling a tool, reading the key from `HYPEQUERY_API_KEY`. `hypequery mcp --self-test` now fails when `@hypequery/mcp` isn't installed; before, it passed and the real command then failed.
+- ff36939: Add `hypequery deployment:status` to show the selected Cloud target's live release and hosted REST/MCP URLs without redeploying. The command can print MCP client configuration with an environment-variable placeholder and never includes the stored deployment credential.
+
+### Patch Changes
+
+- 40ac480: Refresh production dependencies. Keep the ClickHouse adapter compatible with the client packages' bundled setting types.
+- Updated dependencies [a8e502e]
+  - @hypequery/protocol@0.18.0
+  - @hypequery/deployment@0.9.4
+
 ## 1.21.2
 
 ### Patch Changes

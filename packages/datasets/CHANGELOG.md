@@ -1,5 +1,23 @@
 # @hypequery/datasets
 
+## 0.21.0
+
+### Minor Changes
+
+- 7c009de: Support calendar month, quarter, and year shifts at finer query grains. Clamp
+  missing dates to the target month's last day, preserve full bucket widths and
+  partial local endpoints, and exclude unmapped source buckets from dimension
+  populations. Catalog grain metadata uses the same validation rules.
+  Calendar shifts at minute and hour grains reject nonexistent local times in the
+  target period instead of silently reusing an adjacent bucket.
+- 97ee149: Allow period comparisons to wrap windows, formulas, and other comparisons, with recursive formula dependencies and inherited catalog grain requirements.
+
+### Patch Changes
+
+- 40ac480: Refresh production dependencies. Keep the ClickHouse adapter compatible with the client packages' bundled setting types.
+- Updated dependencies [a8e502e]
+  - @hypequery/protocol@0.18.0
+
 ## 0.20.0
 
 ### Minor Changes
