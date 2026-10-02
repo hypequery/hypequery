@@ -21,6 +21,10 @@ import {
   type SubmitDeploymentOptions,
 } from './commands/deploy.js';
 import {
+  deploymentStatusCommand,
+  type DeploymentStatusOptions,
+} from './commands/deployment-status.js';
+import {
   loginCommand,
   logoutCommand,
   type LoginOptions,
@@ -250,6 +254,17 @@ program
   )
   .action(runCommand(async (bundle: string, options: SubmitDeploymentOptions) => {
     await submitDeploymentCommand(bundle, options);
+  }));
+
+program
+  .command('deployment:status')
+  .description('Show the live release and hosted connection details for a Cloud target')
+  .option('--project <project>', 'Target project identifier (advanced override)')
+  .option('--environment <environment>', 'Target environment identifier (advanced override)')
+  .option('--endpoint <url>', 'HTTPS submission endpoint; requires HYPEQUERY_API_TOKEN')
+  .option('--mcp-config', 'Also print MCP client configuration for the hosted endpoint')
+  .action(runCommand(async (options: DeploymentStatusOptions) => {
+    await deploymentStatusCommand(options);
   }));
 
 program

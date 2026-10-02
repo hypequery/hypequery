@@ -691,7 +691,7 @@ describe('deploy command', () => {
         `REST  ${endpoints.rest.baseUrl}`,
         `  orders  POST ${endpoints.rest.datasets[0]!.url}`,
         `MCP   ${endpoints.mcp.url}`,
-        `HYPEQUERY_API_KEY=<key> hypequery mcp --self-test --url ${endpoints.mcp.url}`,
+        `hypequery mcp --self-test --url ${endpoints.mcp.url}`,
       ]));
       expect(printed.join('\n')).not.toContain('mcpServers');
     });
