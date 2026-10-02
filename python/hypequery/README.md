@@ -246,9 +246,66 @@ install_http_security(
   control characters, whitespace, look-alike letters, and values over 200
   bytes.
 
-A missing or rejected credential gets `401` with
-`{"detail": {"category": "unauthenticated", ...}}` and `Cache-Control:
-no-store`. The canonical error envelope arrives with PYD-04.
+### Errors
+
+Every error from a served route uses the same envelope as `@hypequery/serve`:
+
+```json
+{"error": {"type": "UNAUTHORIZED", "message": "Access denied", "details": {"reason": "missing_credentials"}}}
+```
+
+Every error response is sent with `Cache-Control: no-store` and an
+`x-request-id`. The shared fixtures in
+[`specs/serve-http`](../../specs/serve-http/fixtures/errors-v1/README.md) pin the
+envelope for both languages.
+
+- **What an endpoint raises:**
+  - `ServeError(status, type, message)` is sent as written, like TypeScript's
+    `ServeHttpError`;
+  - an `HTTPException` with a string `detail` keeps that message;
+  - a `CompiledQueryError` maps its RFC 0010 category to a status and type,
+    for example a missed deadline becomes `504 GATEWAY_TIMEOUT`;
+  - anything else is logged to the `hypequery.serve` logger with its request
+    id and answered with a fixed `500`.
+
+  A server-side failure's own text never reaches the body.
+- **Validation errors** are `400 VALIDATION_ERROR` with
+  `details.issues[].path`, as in TypeScript, not FastAPI's 422. The submitted
+  values are never echoed back.
+- **No matching route:** with `install_http_security`, an unknown path or a
+  wrong method gets `404 NOT_FOUND`. Your application's own `HTTPException`
+  handler, if it registered one first, still handles everything else.
+
+### Rate limiting
+
+Add a `RateLimit` to a route as a dependency:
+
+```python
+from fastapi import Depends
+from hypequery.serve import RateLimit
+
+@router.post("/trips", dependencies=[Depends(RateLimit(max=60, window_seconds=60))])
+async def trips(...): ...
+```
+
+It counts each request once. With the default key it runs after authentication
+and before the body is read, so a limited caller costs neither a parse nor a
+query. Custom `key` callbacks run in FastAPI's dependency order, after body
+parsing, so earlier dependencies can prepare `request.state`. Limits declared
+after a custom-key limit also retain that order. The defaults
+match TypeScript:
+- the caller is the authenticated principal, or else the client address, as
+  set by `HttpSecurity(trusted_proxies=...)` and never by a header the caller
+  chose;
+- exhaustion answers `429 RATE_LIMITED` with `Retry-After` and
+  `X-RateLimit-*`;
+- a store failure lets the request through, or with `fail_open=False`
+  answers `503`.
+
+`MemoryRateLimitStore` is bounded, at 100,000 callers by default. When every
+slot has an active window, a new caller receives `503` until a slot expires;
+active counters are never reset to make room. For several
+processes, pass a `store` with an async `hit(key, window_seconds)` method.
 
 ## ClickHouse execution
 

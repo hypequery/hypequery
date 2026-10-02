@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { defineServe } from "./server";
+import { createFetchHandler } from "./adapters/fetch";
 import type { ServeRequest } from "./types";
 import {
   MAX_CORRELATION_ID_BYTES,
@@ -131,6 +132,8 @@ describe("request-id authority in the pipeline", () => {
                 "X-Request-ID": "spoofed-request",
                 "x-correlation-id": "spoofed-correlation",
                 "retry-after": "1",
+                "cache-control": "public, max-age=30",
+                "Cache-Control": "public, max-age=60",
               },
             };
           },
@@ -147,6 +150,11 @@ describe("request-id authority in the pipeline", () => {
     expect(response.headers?.["x-correlation-id"]).toBe("client-correlation");
     expect(response.headers?.["X-Request-ID"]).toBeUndefined();
     expect(response.headers?.["retry-after"]).toBe("1");
+    const fetchResponse = await createFetchHandler(api.handler)(
+      new Request(`https://example.com${BASE_PATH}/metrics`),
+    );
+    expect(fetchResponse.headers.get("cache-control")).toBe("no-store");
+    expect(fetchResponse.headers.get("x-request-id")).toMatch(UUID);
   });
 
   it("attaches the authoritative id on a 404", async () => {

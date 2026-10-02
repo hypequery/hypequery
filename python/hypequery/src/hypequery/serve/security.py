@@ -14,6 +14,7 @@ not on the first request. `install_http_security` adds, outermost first:
 
 from __future__ import annotations
 
+import inspect
 import ipaddress
 import re
 import secrets
@@ -22,23 +23,20 @@ from dataclasses import dataclass
 from typing import Any, cast
 
 from fastapi import FastAPI, Request
+from fastapi.exception_handlers import http_exception_handler
 from starlette.datastructures import MutableHeaders
+from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.cors import CORSMiddleware
 from starlette.middleware.trustedhost import TrustedHostMiddleware
-from starlette.responses import PlainTextResponse
+from starlette.responses import PlainTextResponse, Response
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
-#: TypeScript serve's bound and grammar for an external correlation id: small,
-#: printable ASCII that cannot split a header or forge a log line.
-MAX_CORRELATION_ID_BYTES = 200
-_CORRELATION_ID = re.compile(r"[A-Za-z0-9][A-Za-z0-9._:/-]*")
+from .errors import ServeError, error_response
+from .request_ids import REQUEST_ID_KEY, validate_correlation_id
+
 _ORIGIN = re.compile(r"https?://[a-z0-9.-]+(:[0-9]{1,5})?|https?://\[[0-9a-f:.]+\](:[0-9]{1,5})?")
 _HOST = re.compile(r"(\*\.)?[a-z0-9.-]+|\[[0-9a-f:.]+\]")
 _REQUEST_HOST = re.compile(rb"(?:[A-Za-z0-9.-]+|\[[0-9A-Fa-f:.]+\])(?::([0-9]{1,5}))?")
-
-#: Only this module holds the key, so no middleware or handler that does not
-#: import it can plant a request id where `request_id()` reads one.
-_REQUEST_ID_KEY = object()
 
 
 def _validate_hosts(hosts: object) -> tuple[str, ...]:
@@ -113,24 +111,6 @@ class HttpSecurity:
                 raise ValueError(f"trusted proxy {proxy!r} is not an address or network") from exc
 
 
-def validate_correlation_id(value: str | None) -> str | None:
-    """A caller's correlation id if it is safe to echo and log, else None."""
-
-    if value is None:
-        return None
-    candidate = value.strip()
-    if len(candidate.encode("utf-8")) > MAX_CORRELATION_ID_BYTES:
-        return None
-    return candidate if _CORRELATION_ID.fullmatch(candidate) else None
-
-
-def request_id(request: Request) -> str | None:
-    """The authoritative, server-generated id of *request*, when installed."""
-
-    found = cast(MutableMapping[object, Any], request.scope).get(_REQUEST_ID_KEY)
-    return found if type(found) is str else None
-
-
 class _RequestIdMiddleware:
     def __init__(self, app: ASGIApp) -> None:
         self.app = app
@@ -140,7 +120,7 @@ class _RequestIdMiddleware:
             await self.app(scope, receive, send)
             return
         authoritative = secrets.token_hex(16)
-        cast(MutableMapping[object, Any], scope)[_REQUEST_ID_KEY] = authoritative
+        cast(MutableMapping[object, Any], scope)[REQUEST_ID_KEY] = authoritative
         values = [
             value.decode("latin-1")
             for name, value in scope["headers"]
@@ -259,3 +239,45 @@ def install_http_security(app: FastAPI, security: HttpSecurity) -> None:
     if security.trusted_proxies:
         app.add_middleware(_ProxyTrustMiddleware, trusted=security.trusted_proxies)
     app.add_middleware(_RequestIdMiddleware)
+    _install_routing_errors(app)
+
+
+def _not_found_message(request: Request) -> str:
+    # The path as the client sent it, percent-encoding intact, like the
+    # TypeScript router's URL pathname. Anything that is not short printable
+    # ASCII is not echoed.
+    raw = request.scope.get("raw_path")
+    path = raw.decode("latin-1") if isinstance(raw, bytes) else request.url.path
+    if len(path) <= 2_048 and all(0x21 <= ord(char) <= 0x7E for char in path):
+        return f"No endpoint registered for {request.method} {path}"
+    return "No endpoint registered for this request"
+
+
+def _install_routing_errors(app: FastAPI) -> None:
+    """Answer requests no route serves the way TypeScript serve does.
+
+    An unmatched path and a matched path with another method are both `404
+    NOT_FOUND`: TypeScript matches on method and path together, and a 405
+    would list the route's methods to an unauthenticated caller. Any other
+    HTTP error goes to the handler the application already had.
+    """
+
+    previous = app.exception_handlers.get(StarletteHTTPException, http_exception_handler)
+
+    async def routing_errors(request: Request, exc: Exception) -> Response:
+        status = exc.status_code if isinstance(exc, StarletteHTTPException) else 500
+        unrouted = status == 404 and "endpoint" not in request.scope
+        # Starlette puts its first partial path match in the scope for a 405.
+        # Only a ServeRouter route uses method+path matching as a 404 policy.
+        from .router import _AuthenticatingRoute
+
+        serve_method_mismatch = status == 405 and isinstance(
+            request.scope.get("route"), _AuthenticatingRoute
+        )
+        if serve_method_mismatch or unrouted:
+            error = ServeError(404, "NOT_FOUND", _not_found_message(request))
+            return error_response(request, error)
+        response = previous(request, exc)
+        return await response if inspect.isawaitable(response) else response
+
+    app.add_exception_handler(StarletteHTTPException, routing_errors)

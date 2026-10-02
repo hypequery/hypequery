@@ -1,0 +1,232 @@
+{
+  "kind": "hypequery-serve-http-fixtures",
+  "family": "errors-v1",
+  "version": 1,
+  "app": {
+    "credential": "good-token",
+    "endpoints": [
+      {
+        "method": "GET",
+        "path": "/protected",
+        "auth": "required",
+        "behavior": "returns {\"ok\": true}"
+      },
+      {
+        "method": "POST",
+        "path": "/validated",
+        "auth": "required",
+        "behavior": "accepts a JSON object {\"limit\": <number>} and returns it"
+      },
+      {
+        "method": "GET",
+        "path": "/boom",
+        "auth": "required",
+        "behavior": "raises an unexpected error whose message is the leakCanary string"
+      },
+      {
+        "method": "GET",
+        "path": "/limited",
+        "auth": "required",
+        "behavior": "rate limited to 1 request per 60 seconds per caller, then returns {\"ok\": true}"
+      },
+      {
+        "method": "GET",
+        "path": "/limiter-down",
+        "auth": "required",
+        "behavior": "rate limited by a store that always fails, with fail-open disabled"
+      }
+    ]
+  },
+  "envelope": {
+    "requestIdHeader": "x-request-id",
+    "requiredHeaders": {
+      "cache-control": "no-store"
+    },
+    "bodyKeys": [
+      "error"
+    ],
+    "errorKeys": [
+      "type",
+      "message",
+      "details"
+    ],
+    "allowedDetailKeys": [
+      "reason",
+      "issues",
+      "endpoint"
+    ]
+  },
+  "leakCanary": "SECRET-CANARY raised at /srv/app/handlers.py:42 running SELECT secret FROM vault",
+  "leakMarkers": [
+    "SECRET-CANARY",
+    "/srv/app",
+    "handlers.py",
+    "SELECT secret"
+  ],
+  "cases": [
+    {
+      "id": "missing-credential",
+      "requests": [
+        {
+          "method": "GET",
+          "path": "/protected",
+          "credential": "none"
+        }
+      ],
+      "expect": {
+        "status": 401,
+        "type": "UNAUTHORIZED",
+        "message": "Access denied",
+        "details": {
+          "reason": "missing_credentials"
+        }
+      }
+    },
+    {
+      "id": "invalid-credential",
+      "requests": [
+        {
+          "method": "GET",
+          "path": "/protected",
+          "credential": "invalid"
+        }
+      ],
+      "expect": {
+        "status": 401,
+        "type": "UNAUTHORIZED",
+        "message": "Access denied",
+        "details": {
+          "reason": "invalid_credentials"
+        }
+      }
+    },
+    {
+      "id": "unknown-path",
+      "requests": [
+        {
+          "method": "GET",
+          "path": "/missing",
+          "credential": "valid"
+        }
+      ],
+      "expect": {
+        "status": 404,
+        "type": "NOT_FOUND",
+        "message": "No endpoint registered for GET /missing"
+      }
+    },
+    {
+      "id": "unknown-path-unauthenticated",
+      "requests": [
+        {
+          "method": "GET",
+          "path": "/missing",
+          "credential": "none"
+        }
+      ],
+      "expect": {
+        "status": 404,
+        "type": "NOT_FOUND",
+        "message": "No endpoint registered for GET /missing"
+      }
+    },
+    {
+      "id": "wrong-method",
+      "requests": [
+        {
+          "method": "DELETE",
+          "path": "/protected",
+          "credential": "valid"
+        }
+      ],
+      "expect": {
+        "status": 404,
+        "type": "NOT_FOUND",
+        "message": "No endpoint registered for DELETE /protected"
+      }
+    },
+    {
+      "id": "invalid-input",
+      "requests": [
+        {
+          "method": "POST",
+          "path": "/validated",
+          "credential": "valid",
+          "json": {
+            "limit": "ten"
+          }
+        }
+      ],
+      "expect": {
+        "status": 400,
+        "type": "VALIDATION_ERROR",
+        "message": "Request validation failed",
+        "issuePaths": [
+          [
+            "limit"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "unexpected-error",
+      "requests": [
+        {
+          "method": "GET",
+          "path": "/boom",
+          "credential": "valid"
+        }
+      ],
+      "expect": {
+        "status": 500,
+        "type": "INTERNAL_SERVER_ERROR",
+        "message": "An unexpected error occurred",
+        "noDetails": true
+      }
+    },
+    {
+      "id": "rate-limited",
+      "requests": [
+        {
+          "method": "GET",
+          "path": "/limited",
+          "credential": "valid",
+          "expectStatus": 200
+        },
+        {
+          "method": "GET",
+          "path": "/limited",
+          "credential": "valid"
+        }
+      ],
+      "expect": {
+        "status": 429,
+        "type": "RATE_LIMITED",
+        "message": "Too many requests, please try again later",
+        "headers": {
+          "retry-after": "60",
+          "x-ratelimit-limit": "1",
+          "x-ratelimit-remaining": "0",
+          "x-ratelimit-reset": "60"
+        },
+        "noDetails": true
+      }
+    },
+    {
+      "id": "rate-limiter-unavailable",
+      "requests": [
+        {
+          "method": "GET",
+          "path": "/limiter-down",
+          "credential": "valid"
+        }
+      ],
+      "expect": {
+        "status": 503,
+        "type": "SERVICE_UNAVAILABLE",
+        "message": "Rate limiter unavailable",
+        "noDetails": true
+      }
+    }
+  ]
+}

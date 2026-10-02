@@ -53,7 +53,7 @@
     "test:watch": "vitest watch --config vitest.config.ts",
     "test:coverage": "vitest run --coverage --config vitest.config.ts",
     "test:cli": "node scripts/test-cli-integration.js",
-    "lint": "eslint --ext .ts \"src/**/*.ts\"",
+    "lint": "eslint \"src/**/*.ts\"",
     "docs:api": "typedoc --options typedoc.json",
     "docs:mdx": "npm run docs:api && node scripts/process-typedoc-markdown.js"
   },
