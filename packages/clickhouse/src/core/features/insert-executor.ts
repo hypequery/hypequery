@@ -1,4 +1,4 @@
-import type { ClickHouseSettings } from '@clickhouse/client-common';
+import type { ClickHouseSettings } from '../../types/clickhouse-settings.js';
 import type { AnyInsertState, SchemaDefinition } from '../types/builder-state.js';
 import type { InsertResultSummary } from '../adapters/database-adapter.js';
 import { InsertBuilder } from '../insert-builder.js';

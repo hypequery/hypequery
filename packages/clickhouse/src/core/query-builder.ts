@@ -36,7 +36,8 @@ import {
   type QueryNodeTransform,
   transformSelectQueryNode,
 } from './query-node.js';
-import type { ClickHouseSettings, BaseClickHouseClientConfigOptions } from '@clickhouse/client-common';
+import type { BaseClickHouseClientConfigOptions } from '@clickhouse/client';
+import type { ClickHouseSettings } from '../types/clickhouse-settings.js';
 import type { ClickHouseClient as NodeClickHouseClient } from '@clickhouse/client';
 import type { ClickHouseClient as WebClickHouseClient } from '@clickhouse/client-web';
 import type { CacheOptions, CacheConfig } from './cache/types.js';
@@ -146,11 +147,12 @@ export interface StreamOptions {
   abortSignal?: AbortSignal;
 }
 
-export interface ClickHouseConnectionOptions extends Omit<BaseClickHouseClientConfigOptions, 'host'> {
+export interface ClickHouseConnectionOptions extends Omit<BaseClickHouseClientConfigOptions, 'host' | 'clickhouse_settings'> {
   /**
    * @deprecated Use `url` instead. `host` is kept for backward compatibility.
    */
   host?: BaseClickHouseClientConfigOptions['host'];
+  clickhouse_settings?: ClickHouseSettings;
 }
 
 /**

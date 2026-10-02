@@ -1,5 +1,5 @@
 import { createRequire } from 'module';
-import type { ClickHouseSettings } from '@clickhouse/client-common';
+import type { ClickHouseSettings } from '../../types/clickhouse-settings.js';
 
 type NodeClientModule = typeof import('@clickhouse/client');
 

@@ -24,7 +24,7 @@ import {
   buildIntegerJsonSettings,
   createReadonlyIntegerJsonError,
 } from '../utils/integer-json-encoding.js';
-import type { ClickHouseSettings } from '@clickhouse/client-common';
+import type { ClickHouseSettings } from '../../types/clickhouse-settings.js';
 import { toClientSettings } from '../utils/clickhouse-client-compat.js';
 
 /**

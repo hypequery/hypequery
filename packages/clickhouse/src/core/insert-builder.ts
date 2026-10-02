@@ -1,4 +1,4 @@
-import type { ClickHouseSettings } from '@clickhouse/client-common';
+import type { ClickHouseSettings } from '../types/clickhouse-settings.js';
 import type { DatabaseAdapter, InsertResultSummary } from './adapters/database-adapter.js';
 import type { InsertQueryNode } from '../types/index.js';
 import type {
@@ -127,7 +127,7 @@ export class InsertBuilder<
   settings(opts: ClickHouseSettings): this {
     return this.updateQuery(query => ({
       ...query,
-      settings: { ...query.settings, ...opts },
+      settings: { ...query.settings, ...opts } as ClickHouseSettings,
     }));
   }
 

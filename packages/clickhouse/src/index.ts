@@ -65,6 +65,7 @@ export type {
   AggregationType,
   RawCteBody
 } from './types/base.js';
+export type { ClickHouseSettings } from './types/clickhouse-settings.js';
 export { CteScope } from './core/cte-scope.js';
 export type { CteScopeDeps } from './core/cte-scope.js';
 export type { CteBody } from './core/features/analytics.js';
