@@ -203,15 +203,27 @@ def _sent_settings(client: SyncClient) -> dict[str, object]:
     return cast(dict[str, object], args[2])
 
 
-@pytest.mark.parametrize("level", [0, 1, 2])
-def test_default_sends_every_planner_setting(level: int) -> None:
-    client = ReadonlyUserClient(level)
+@pytest.mark.parametrize("client", [ReadonlyUserClient(0), SyncClient(Result(("value",), [(1,)]))])
+def test_default_sends_every_planner_setting(client: SyncClient) -> None:
     ClickHouseExecutor(cast(Any, client)).execute(compiled())
     sent = _sent_settings(client)
     assert {key: sent[key] for key in DEFAULT_QUERY_SETTINGS.values} == dict(
         DEFAULT_QUERY_SETTINGS.values
     )
     assert "query_id" in sent
+
+
+# A readonly = 2 user may not change readonly, so the planner's readonly = 1
+# made every query fail; a user already read-only needs no readonly setting.
+@pytest.mark.parametrize("level", [1, 2])
+def test_default_omits_readonly_for_a_user_already_read_only(level: int) -> None:
+    client = ReadonlyUserClient(level)
+    ClickHouseExecutor(cast(Any, client)).execute(compiled())
+    sent = _sent_settings(client)
+    assert "readonly" not in sent
+    assert {key: sent[key] for key in DEFAULT_QUERY_SETTINGS.values if key != "readonly"} == {
+        key: value for key, value in DEFAULT_QUERY_SETTINGS.values.items() if key != "readonly"
+    }
 
 
 @pytest.mark.parametrize("level", [1, 2])
@@ -248,6 +260,7 @@ def test_profile_policy_requires_verified_readonly_user(client: SyncClient) -> N
     [
         ProgrammingError("Cannot modify 'readonly' setting in readonly mode.", name="READONLY"),
         ProgrammingError("Setting readonly is unknown or readonly"),
+        ProgrammingError("Setting readonly is readonly"),
     ],
 )
 def test_readonly_error_guides_only_for_our_own_setting(readonly: Exception) -> None:
@@ -265,16 +278,21 @@ def test_readonly_error_guides_only_for_our_own_setting(readonly: Exception) -> 
     assert "max_threads" not in exc.value.message
 
 
-@pytest.mark.parametrize("policy", ["query", "profile"])
-def test_async_executor_uses_the_same_readonly_policy(policy: ReadonlyPolicy) -> None:
+@pytest.mark.parametrize(
+    ("policy", "level", "sends_readonly"),
+    [("query", 0, True), ("query", 2, False), ("profile", 2, False)],
+)
+def test_async_executor_uses_the_same_readonly_policy(
+    policy: ReadonlyPolicy, level: int, sends_readonly: bool
+) -> None:
     async_client = AsyncClient(Result(("value",), [(1,)]))
-    async_client.server_settings = _server_settings(2)  # type: ignore[attr-defined]
+    async_client.server_settings = _server_settings(level)  # type: ignore[attr-defined]
     executor = AsyncClickHouseExecutor(
         cast(Any, async_client), cast(Any, object()), readonly_policy=policy
     )
     asyncio.run(executor.execute(compiled()))
     sent = _sent_settings(async_client)
-    assert ("readonly" in sent) is (policy == "query")
+    assert ("readonly" in sent) is sends_readonly
     assert sent["max_execution_time"] == 30
 
 
