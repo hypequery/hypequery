@@ -10,6 +10,7 @@ const output = vi.hoisted(() => ({
 vi.mock('../utils/logger.js', () => ({ logger: output }));
 
 import { deploymentStatusCommand } from './deployment-status.js';
+import { fetchLiveDeployment } from '../utils/live-deployment.js';
 
 const target = { project: 'acme:analytics', environment: 'production' };
 const credential = {
@@ -118,11 +119,49 @@ describe('deployment:status', () => {
     expect(output.warn).toHaveBeenCalledWith('Cloud did not return hosted endpoint details.');
   });
 
-  it('fails clearly when Cloud cannot return a live status response', async () => {
+  it('shows reserved URLs when the live-state lookup returns 404 before the first release', async () => {
+    const fetchEndpoints = vi.fn(async () => ({ ...endpoints, active: false }));
+    const request = vi.fn(async () => new Response(null, { status: 404 }));
+    await deploymentStatusCommand({ mcpConfig: true }, {
+      env: {},
+      loadCredential: async () => credential,
+      fetchLive: input => fetchLiveDeployment({ ...input, fetch: request }),
+      fetchEndpoints,
+    });
+
+    expect(request).toHaveBeenCalledWith(
+      'https://cloud.example.test/v1/deployments/targets/acme%3Aanalytics/production/state',
+      expect.objectContaining({ method: 'GET' }),
+    );
+    expect(fetchEndpoints).toHaveBeenCalledWith({
+      endpoint: credential.deploymentEndpoint,
+      token: credential.token,
+      target,
+    });
+    expect(output.info).toHaveBeenCalledWith('No live release yet.');
+    expect(output.info).toHaveBeenCalledWith(
+      'These URLs will serve the target after a release is live.',
+    );
+    expect(output.success).not.toHaveBeenCalled();
+    const printed = JSON.stringify(output.indent.mock.calls);
+    expect(printed).toContain(endpoints.mcp.url);
+    expect(printed).toContain('Bearer ${HYPEQUERY_API_KEY}');
+    expect(printed).not.toContain('self-test');
+    expect(printed).not.toContain(credential.token);
+  });
+
+  it.each([401, 403, 500])('still fails when the live-state lookup returns %s', async status => {
+    const fetchEndpoints = vi.fn();
     await expect(deploymentStatusCommand({}, {
       env: {},
       loadCredential: async () => credential,
-      fetchLive: async () => undefined,
-    })).rejects.toThrow('Cloud did not return deployment status');
+      fetchLive: input => fetchLiveDeployment({
+        ...input,
+        fetch: async () => new Response(null, { status }),
+      }),
+      fetchEndpoints,
+    })).rejects.toThrow(`Could not read the live deployment (${status})`);
+    expect(fetchEndpoints).not.toHaveBeenCalled();
+    expect(output.info).not.toHaveBeenCalledWith('No live release yet.');
   });
 });

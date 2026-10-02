@@ -33,12 +33,8 @@ export async function deploymentStatusCommand(
     target,
     resource: 'state',
   });
-  if (!live) {
-    throw new Error('Cloud did not return deployment status for this target.');
-  }
-
   logger.info(`Target: ${target.project} / ${target.environment}`);
-  if (live.active) {
+  if (live?.active) {
     logger.success(`Live release: ${live.active.releaseIdentity}`);
     logger.info(`Activated: ${live.active.activatedAt}`);
     if (live.active.restored) logger.info('This release was restored from history.');
