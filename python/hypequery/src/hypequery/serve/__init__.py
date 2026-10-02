@@ -30,15 +30,11 @@ from .auth import (
     default_tenant_resolver,
 )
 from .body_policy import DEFAULT_MAX_BODY_BYTES
+from .errors import ServeError, ServeErrorType
+from .rate_limit import MemoryRateLimitStore, RateLimit, RateLimitKey, RateLimitStore
+from .request_ids import MAX_CORRELATION_ID_BYTES, request_id, validate_correlation_id
 from .router import ServeRouter, create_router
-from .security import (
-    MAX_CORRELATION_ID_BYTES,
-    CorsPolicy,
-    HttpSecurity,
-    install_http_security,
-    request_id,
-    validate_correlation_id,
-)
+from .security import CorsPolicy, HttpSecurity, install_http_security
 
 __all__ = [
     "DEFAULT_MAX_BODY_BYTES",
@@ -51,8 +47,14 @@ __all__ = [
     "CredentialTransport",
     "HttpSecurity",
     "InvalidCredential",
+    "MemoryRateLimitStore",
     "Principal",
+    "RateLimit",
+    "RateLimitKey",
+    "RateLimitStore",
     "RequestAuth",
+    "ServeError",
+    "ServeErrorType",
     "ServeRouter",
     "TenantResolver",
     "api_key",

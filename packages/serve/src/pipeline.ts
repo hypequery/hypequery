@@ -23,6 +23,7 @@ import type {
 import { warnTenantMisconfiguration } from './tenant.js';
 import { applySemanticTenantRuntime } from './semantic/utils/tenant-runtime.js';
 import { generateRequestId, validateCorrelationId } from './utils.js';
+import { withNoStoreErrorHeaders } from './utils/error-headers.js';
 import { buildOpenApiDocument } from './openapi.js';
 import { buildDocsHtml } from './docs-ui.js';
 import { ServeQueryLogger } from './query-logger.js';
@@ -57,7 +58,9 @@ const createErrorResponse = (
   headers?: Record<string, string>,
 ): ServeResponse<ErrorEnvelope> => ({
   status,
-  headers: headers ?? {},
+  // An error answers one request; a shared cache must never replay it to
+  // another caller. Matches the errors-v1 HTTP fixtures shared with Python.
+  headers: withNoStoreErrorHeaders(headers),
   body: { error: { type, message, ...(details ? { details } : {}) } },
 });
 

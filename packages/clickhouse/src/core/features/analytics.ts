@@ -1,4 +1,4 @@
-import { ClickHouseSettings } from '@clickhouse/client-common';
+import type { ClickHouseSettings } from '../../types/clickhouse-settings.js';
 import type { AnyBuilderState, BuilderState, SchemaDefinition } from '../types/builder-state.js';
 import { QueryBuilder } from '../query-builder.js';
 import type { SqlDialect } from '../dialects/sql-dialect.js';
@@ -122,7 +122,7 @@ export class AnalyticsFeature<
       settings: {
         ...(query.settings || {}),
         ...opts,
-      }
+      } as ClickHouseSettings
     };
   }
 }

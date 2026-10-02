@@ -115,7 +115,7 @@ def test_a_declared_oversized_body_is_refused_after_authentication() -> None:
         "/echo", content=body, headers={**AUTH, "Content-Type": "application/json"}
     )
     assert response.status_code == 413
-    assert response.json()["detail"]["category"] == "too-large"
+    assert response.json()["error"]["type"] == "PAYLOAD_TOO_LARGE"
 
 
 def test_a_streamed_body_is_counted_without_a_content_length() -> None:
@@ -263,7 +263,9 @@ def test_an_authenticated_endpoint_error_is_never_stored() -> None:
     validation_error = TestClient(_app()).post(
         "/echo", content=b"{", headers={**AUTH, "Content-Type": "application/json"}
     )
-    assert validation_error.status_code == 422
+    # 400, not FastAPI's 422: the canonical envelope matches TypeScript serve.
+    assert validation_error.status_code == 400
+    assert validation_error.json()["error"]["type"] == "VALIDATION_ERROR"
     assert validation_error.headers["cache-control"] == "no-store"
 
 

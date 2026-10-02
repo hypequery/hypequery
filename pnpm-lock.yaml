@@ -123,13 +123,13 @@ importers:
       '@clickhouse/client':
         specifier: ^1.23.1
         version: 1.23.1
+      '@clickhouse/client-common':
+        specifier: ^1.23.0
+        version: 1.23.0
       dotenv:
         specifier: ^16.0.0
         version: 16.6.1
     devDependencies:
-      '@clickhouse/client-common':
-        specifier: ^1.23.0
-        version: 1.23.0
       '@clickhouse/client-web':
         specifier: ^1.23.1
         version: 1.23.1

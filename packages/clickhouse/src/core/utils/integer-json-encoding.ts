@@ -1,4 +1,4 @@
-import type { ClickHouseSettings } from '@clickhouse/client-common';
+import type { ClickHouseSettings } from '../../types/clickhouse-settings.js';
 import type { IntegerJsonEncoding } from '../query-builder.js';
 
 const QUOTE_64BIT = 'output_format_json_quote_64bit_integers';
@@ -31,7 +31,7 @@ export function buildIntegerJsonSettings(
       ...(adapterDefaultApplied ? { [QUOTE_64BIT]: 1 } : {}),
       ...configSettings,
       ...optionSettings,
-    },
+    } as ClickHouseSettings,
   };
 }
 

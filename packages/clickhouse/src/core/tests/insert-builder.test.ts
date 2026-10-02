@@ -43,6 +43,20 @@ const userRow = {
 };
 
 describe('InsertBuilder', () => {
+  it('preserves own __proto__ settings when forwarding merged settings', async () => {
+    const { db, calls } = createDb();
+    await db.insert('users').values(userRow)
+      .settings({ ['__proto__']: 'custom-value', async_insert: 0 })
+      .settings({ async_insert: 1 })
+      .execute();
+    const settings = calls[0].options!.clickhouseSettings!;
+
+    expect(Object.prototype.hasOwnProperty.call(settings, '__proto__')).toBe(true);
+    expect(settings['__proto__']).toBe('custom-value');
+    expect(settings.async_insert).toBe(1);
+    expect(Object.getPrototypeOf(settings)).toBe(Object.prototype);
+  });
+
   it('inserts a single row through the adapter', async () => {
     const { db, calls } = createDb();
     const result = await db.insert('users').values(userRow).execute();

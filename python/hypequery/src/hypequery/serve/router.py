@@ -38,6 +38,7 @@ from .auth import (
     RequestAuth,
     TenantResolver,
     bearer_token,
+    credential_presented,
     default_tenant_resolver,
     misconfigured,
     read_credential,
@@ -45,6 +46,8 @@ from .auth import (
     unavailable,
 )
 from .body_policy import DEFAULT_MAX_BODY_BYTES, enforce_body_policy
+from .errors import as_serve_error, error_response
+from .rate_limit import RateLimit
 
 _Endpoint = TypeVar("_Endpoint", bound=Callable[..., Any])
 _Argument = TypeVar("_Argument")
@@ -63,6 +66,15 @@ def _authenticated_by(request: Request) -> "dict[_Guard, RequestAuth]":
         found = {}
         scope[_AUTH_SCOPE_KEY] = found
     return found
+
+
+def authenticated_context(request: Request) -> RequestAuth | None:
+    """The `RequestAuth` a route established for *request*, if any."""
+
+    for auth in _authenticated_by(request).values():
+        if type(auth) is RequestAuth:
+            return auth
+    return None
 
 
 class _Guard:
@@ -95,15 +107,16 @@ class _Guard:
         return auth
 
     async def _run(self, request: Request) -> RequestAuth:
+        presented = credential_presented(request, self._credentials)
         credential = read_credential(request, self._credentials)
         if credential is None:
-            raise unauthenticated(self._credentials)
+            raise unauthenticated(self._credentials, presented=presented)
         try:
             principal = await _call_provider(self._authenticate, credential, rejectable=True)
         except InvalidCredential:
-            raise unauthenticated(self._credentials) from None
+            raise unauthenticated(self._credentials, presented=True) from None
         if principal is None:
-            raise unauthenticated(self._credentials)
+            raise unauthenticated(self._credentials, presented=True)
         if type(principal) is not Principal:
             raise misconfigured()
         scope = await _call_provider(self._resolve_tenant, principal)
@@ -143,13 +156,37 @@ class _AuthenticatingRoute(APIRoute):
 
     def get_route_handler(self) -> Callable[[Request], Coroutine[Any, Any, Response]]:
         handler = super().get_route_handler()
-        guards = [d.dependency for d in self.dependencies if isinstance(d.dependency, _Guard)]
+        dependencies = [d.dependency for d in self.dependencies]
+        guards = [d for d in dependencies if isinstance(d, _Guard)]
+        # FastAPI also allows Depends(RateLimit(...)) on endpoint parameters.
+        # Its dependency graph includes both forms, including nested ones.
+        limits: list[RateLimit] = []
+        pending = list(reversed(self.dependant.dependencies))
+        while pending:
+            dependency = pending.pop()
+            if isinstance(dependency.call, RateLimit) and dependency.call not in limits:
+                limits.append(dependency.call)
+            pending.extend(reversed(dependency.dependencies))
         max_body_bytes = self.max_body_bytes
 
         async def guarded(request: Request) -> Response:
-            for guard in guards:
-                await guard(request)
-            return await handler(enforce_body_policy(request, max_body_bytes))
+            # Everything a route can fail with leaves here in the canonical
+            # envelope, including what the endpoint raises: nothing reaches
+            # FastAPI's default handlers, which answer in another shape, or
+            # Starlette's, which would answer outside the request-id middleware.
+            try:
+                for guard in guards:
+                    await guard(request)
+                # Default keys need only the authenticated context. Custom
+                # keys may need state prepared by earlier dependencies, so
+                # leave them and later limits to FastAPI's normal order.
+                for limit in limits:
+                    if not limit.can_run_before_body:
+                        break
+                    await limit(request)
+                return await handler(enforce_body_policy(request, max_body_bytes))
+            except Exception as exc:
+                return error_response(request, as_serve_error(exc, request=request))
 
         return guarded
 

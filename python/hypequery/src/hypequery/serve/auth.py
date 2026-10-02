@@ -19,9 +19,10 @@ from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from typing import Literal, NoReturn, TypeAlias
 
-from fastapi import HTTPException, Request
+from fastapi import Request
 
 from ..datasets.planner import TenantScope, tenant
+from .errors import UNEXPECTED_ERROR_MESSAGE, ServeError
 
 #: Generous for a JWT, small enough that a header cannot be used to make the
 #: authenticator do unbounded work.
@@ -164,31 +165,33 @@ def default_tenant_resolver(principal: Principal) -> TenantScope | None:
     return tenant(principal.tenant_id) if principal.tenant_id is not None else None
 
 
-def unauthenticated(transport: CredentialTransport) -> HTTPException:
-    headers = {"Cache-Control": "no-store"}
+def unauthenticated(transport: CredentialTransport, *, presented: bool) -> ServeError:
+    """TypeScript's 401: "missing" when no credential was sent, else "invalid".
+
+    The caller knows which it was, so this tells them nothing new.
+    """
+
+    headers = {}
     if transport.kind == "bearer" and transport.header == "authorization":
         headers["WWW-Authenticate"] = "Bearer"
-    return HTTPException(
-        401,
-        detail={"category": "unauthenticated", "message": "Authentication required."},
-        headers=headers,
+    reason = "invalid_credentials" if presented else "missing_credentials"
+    return ServeError(
+        401, "UNAUTHORIZED", "Access denied", details={"reason": reason}, headers=headers
     )
 
 
-def unavailable() -> HTTPException:
-    return HTTPException(
-        503,
-        detail={"category": "unavailable", "message": "Authentication is unavailable."},
-        headers={"Cache-Control": "no-store"},
-    )
+def unavailable() -> ServeError:
+    return ServeError(503, "SERVICE_UNAVAILABLE", "Authentication is unavailable.")
 
 
-def misconfigured() -> HTTPException:
-    return HTTPException(
-        500,
-        detail={"category": "internal", "message": "The request could not be authenticated."},
-        headers={"Cache-Control": "no-store"},
-    )
+def misconfigured() -> ServeError:
+    return ServeError(500, "INTERNAL_SERVER_ERROR", UNEXPECTED_ERROR_MESSAGE)
+
+
+def credential_presented(request: Request, transport: CredentialTransport) -> bool:
+    """Whether the request carries the credential header at all."""
+
+    return transport.header in request.headers
 
 
 def read_credential(request: Request, transport: CredentialTransport) -> Credential | None:

@@ -120,6 +120,18 @@ describe('QueryBuilder Analytics Features', () => {
   });
 
   describe('settings', () => {
+    it('preserves own __proto__ settings across repeated merges', () => {
+      const query = queryBuilder
+        .settings({ ['__proto__']: 'custom-value', max_threads: 4 })
+        .settings({ max_threads: 8 });
+      const settings = query.getConfig().settings!;
+
+      expect(Object.prototype.hasOwnProperty.call(settings, '__proto__')).toBe(true);
+      expect(settings['__proto__']).toBe('custom-value');
+      expect(settings.max_threads).toBe(8);
+      expect(Object.getPrototypeOf(settings)).toBe(Object.prototype);
+    });
+
     it('should not change rendered SQL', () => {
       const sql = queryBuilder
         .select(['id'])

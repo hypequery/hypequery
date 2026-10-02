@@ -65,12 +65,12 @@ train.
 | PY-A | PYA-01…PYA-05 (workspace, CI, JCS/tagged values, identifiers, conformance gate) | PYA-00/PYA-02 are org-account and release work, not code |
 | PY-B | PYB-01…PYB-08; contract 3 and expression extension 2 (RFC 0015); PYB-09 dataset client | Pagination `hasMore` metadata, which needs a planner over-fetch (pick up with PYD-02) |
 | PY-C | PYC-01 executor; PYC-02 cancellation and concurrency budgets; PYC-03 tenant capability and tenant-bound clients; PYC-04 cache keys, preimage, and result cache (`cache-keys-v1` and `cache-preimages-v1` green in both languages) | A shared tenant fixture family (see PYC-03); PYC-05 needs RFC 0011 accepted |
-| PY-D | PYD-01 router core and auth dependency; PYD-03 HTTP security profile | PYD-02 needs PYC-05; PYD-04 is unblocked |
+| PY-D | PYD-01 router core and auth dependency; PYD-03 HTTP security profile; PYD-04 canonical errors and rate limiting | PYD-02 needs PYC-05; PYD-05 and PYD-06 are unblocked |
 | PY-E | none | all |
 
 RFC 0009 was accepted on 28 September 2026. Next steps:
-- PYD-04 (canonical errors and rate limiting), which builds on PYD-01 and
-  PYD-03;
+- PYD-06 (ASGI production profile), which now has PYC-02, PYD-03 and
+  PYD-04; and PYD-05 (discovery endpoint and docs policy);
 - TSP-04 (server-side binding in `@hypequery/clickhouse`), which is still
   open.
 
@@ -529,7 +529,8 @@ PYC-01 are merged.
 
 ### PYC-05 — Query events and diagnostics (RFC 0011)
 - **Dependencies:** PYB-08, RFC 0011 accepted.
-- **Status (2026-10-01):** Delivered, at parity with TypeScript.
+-- **Status (2026-10-01):** RFC 0011 is accepted and the implementation is
+  delivered, at parity with TypeScript.
   `validate_protocol_query_event` and `validate_protocol_query_diagnostics`
   port `@hypequery/protocol`'s events module check for check, with the same
   limits and `HQ_EVENT_*` / `HQ_DIAGNOSTICS_*` codes. The Python adapter
@@ -632,6 +633,35 @@ PYC-01 are merged.
 - **Acceptance:** Error snapshot fixtures shared with TypeScript; limit
   exhaustion returns canonical errors and cancels downstream work (with
   PYC-02).
+- **Status (2026-10-01):** Delivered, on both sides.
+  - *Shared fixtures.* `specs/serve-http/fixtures/errors-v1` is run by
+    `serve-http-fixtures.test.ts` and by `test_serve_http_fixtures.py`. It
+    covers missing and invalid credentials, unknown paths and wrong methods,
+    validation, unexpected errors (with a leak canary), rate limiting, and a
+    failed rate-limit store.
+  - *TypeScript changes.* Every error response is now `no-store`, which was
+    previously true only of 401 and 403. The Node adapter's fallback 500 no
+    longer echoes the thrown message. The adapter's own 413, 500, and 504
+    carry a request id. There is a changeset.
+  - *Python envelope.* `hypequery.serve.errors` holds TypeScript's 11 types.
+    The route wrapper converts everything a route can raise, so FastAPI's
+    422 becomes 400 and unexpected exceptions are logged and answered with a
+    fixed 500. Every 5xx category from `CompiledQueryError` gets a fixed
+    sentence.
+  - *Python routing.* Routing 404s and 405s become TypeScript's 404, which
+    removes the `Allow` header that listed methods.
+  - *Rate limiting.* `RateLimit` mirrors TypeScript's fixed window,
+    headers, and fail-open default. With the default key it counts once,
+    before the body is read, keyed on the principal digest or the
+    proxy-validated client. Custom keys and later limits run in FastAPI's
+    dependency order after body parsing.
+    `MemoryRateLimitStore` is bounded, with heap-based expiration eviction.
+  - *Admission.* Executor concurrency stays PYC-02's: a query waits for a
+    slot only until its deadline, then becomes `504 GATEWAY_TIMEOUT` and is
+    cancelled. TypeScript serve has no admission control to mirror.
+  - *Found along the way.* TypeScript's default rate-limit key trusts the
+    leftmost `X-Forwarded-For`, so it can be spoofed. This is filed
+    separately because fixing it changes TypeScript behaviour.
 
 ### PYD-05 — Discovery contract endpoint and docs policy
 - **Dependencies:** PYB-06, PYD-03.
