@@ -14,5 +14,13 @@
   { "id": "invalid-target", "generator": { "type": "invalid-target" }, "error": "HQ_EVENT_INVALID_VALUE" },
   { "id": "invalid-query-name", "generator": { "type": "invalid-query-name" }, "error": "HQ_EVENT_INVALID_VALUE" },
   { "id": "oversized-correlation-id", "generator": { "type": "oversized-correlation-id" }, "error": "HQ_EVENT_TOO_LARGE" },
+  { "id": "newer-version-with-new-field", "generator": { "type": "newer-version-with-new-field" }, "error": "HQ_EVENT_INVALID_VERSION" },
+  { "id": "wrong-kind-with-unknown-field", "generator": { "type": "wrong-kind-with-unknown-field" }, "error": "HQ_EVENT_INVALID_VALUE" },
+  { "id": "impossible-calendar-date", "generator": { "type": "impossible-calendar-date" }, "error": "HQ_EVENT_INVALID_VALUE" },
+  { "id": "hour-twenty-four", "generator": { "type": "hour-twenty-four" }, "error": "HQ_EVENT_INVALID_VALUE" },
+  { "id": "one-digit-fraction", "generator": { "type": "one-digit-fraction" }, "error": "HQ_EVENT_INVALID_VALUE" },
+  { "id": "fractional-duration", "generator": { "type": "fractional-duration" }, "error": "HQ_EVENT_INVALID_VALUE" },
+  { "id": "correlation-id-one-byte-over", "generator": { "type": "correlation-id-one-byte-over" }, "error": "HQ_EVENT_TOO_LARGE" },
+  { "id": "correlation-id-lone-surrogate", "generator": { "type": "correlation-id-lone-surrogate" }, "error": "HQ_EVENT_INVALID_VALUE" },
   { "id": "unsafe-accessor", "generator": { "type": "unsafe-accessor" }, "error": "HQ_EVENT_UNSAFE_OBJECT" }
 ]

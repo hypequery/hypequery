@@ -36,5 +36,25 @@
       "tenantFingerprint": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
       "correlationId": "checkout-deploy-2026-07-20T21:00Z"
     }
+  },
+  {
+    "id": "boundary-failure-event",
+    "value": {
+      "kind": "hypequery-query-event",
+      "version": 1,
+      "eventId": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+      "occurredAt": "2028-02-29T00:00:00.000Z",
+      "target": {
+        "project": "prj_acme-analytics",
+        "environment": "production"
+      },
+      "queryName": "daily_revenue",
+      "operation": "command",
+      "outcome": "failure",
+      "errorCategory": "aborted",
+      "durationMs": 86400000,
+      "rowCount": 1000000000000,
+      "correlationId": "éééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééé"
+    }
   }
 ]

@@ -23,5 +23,17 @@
       "debugQuery": "SELECT sum(revenue) FROM orders WHERE tenant_id = {tenant_fingerprint:String} AND day >= {start_date:Date}",
       "safeMessage": "The query exceeded its execution deadline."
     }
+  },
+  {
+    "id": "boundary-diagnostics",
+    "value": {
+      "kind": "hypequery-query-diagnostics",
+      "version": 1,
+      "eventId": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+      "queryId": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "terminalReason": "drained",
+      "attempts": 64,
+      "debugQuery": "SELECT sum(revenue)\nFROM (\n\tSELECT revenue FROM orders WHERE day >= {start_date:Date}\n)"
+    }
   }
 ]

@@ -1,7 +1,12 @@
 # RFC 0011: Query events and diagnostics
 
-- Status: Proposed
+- Status: Accepted
+- Accepted: 2026-10-01
 - Version: query event 1, query diagnostics 1
+
+Acceptance freezes query event 1 and query diagnostics 1. Changing a field,
+a format, a limit, the validation order, or a stable code now requires a new
+version, not an edit.
 
 ## Summary
 
@@ -23,7 +28,11 @@ fields:
 
 - `eventId`: server-generated authoritative event identifier, 64 lowercase
   hexadecimal characters;
-- `occurredAt`: RFC 3339 UTC timestamp with second or millisecond precision;
+- `occurredAt`: RFC 3339 UTC timestamp, `YYYY-MM-DDTHH:MM:SSZ` or
+  `YYYY-MM-DDTHH:MM:SS.sssZ` (exactly zero or three fractional digits, an
+  uppercase `T` and `Z`, no offset). It must name a real instant: months
+  01–12, days valid for the month and year (including leap years), hours
+  00–23, minutes and seconds 00–59. Leap seconds and `24:00` are rejected;
 - `target`: the deployment target (`project`, `environment`) as defined by
   RFC 0008;
 - `queryName`: the executed dataset, metric, or named-query identifier;
@@ -31,8 +40,10 @@ fields:
 - `outcome`: `success` or `failure`;
 - `errorCategory`: one of the RFC 0010 minimum categories — required when
   `outcome` is `failure`, forbidden when it is `success`;
-- `durationMs`: elapsed execution time, at most 24 hours;
-- `rowCount`: optional affected or returned row count, at most 10^12;
+- `durationMs`: elapsed execution time as an integer number of milliseconds,
+  from 0 through 24 hours;
+- `rowCount`: optional affected or returned row count, an integer from 0
+  through 10^12;
 - `tenantFingerprint`: optional server-derived tenant fingerprint (64
   lowercase hexadecimal characters). It is derived from the tenant context
   with a server-held secret, as defined in RFC 0009 § Tenant fingerprint. The
@@ -51,11 +62,22 @@ A diagnostics projection has `kind: "hypequery-query-diagnostics"`,
 - `terminalReason`: `completed`, `aborted`, `deadline-exceeded`, or `drained`,
   matching the RFC 0010 cancellation precedence;
 - `attempts`: execution attempts, from 1 through 64;
-- `runtimeIdentity`: optional digest of the runtime artifact that executed
-  the query;
+- `runtimeIdentity`: optional SHA-256 digest of the runtime artifact that
+  executed the query, as 64 lowercase hexadecimal characters with no
+  algorithm prefix;
 - `debugQuery`: optional non-executable RFC 0010 debug form. It contains
   placeholders and declared types only, never parameter values;
-- `safeMessage`: optional message from a category permitted to carry one.
+- `safeMessage`: optional RFC 0010 safe message.
+
+The projection carries no error category, so a validator cannot check two
+producer obligations; producers MUST enforce them before emitting:
+
+- `debugQuery` is copied from the compiler's RFC 0010 debug form, never
+  assembled from request input, adapter error text, or executable SQL;
+- `safeMessage` is the safe message of the execution's RFC 0010 error
+  envelope, so it is set only for a failed execution. For `internal` and
+  other server-fault categories it MUST NOT contain adapter error text, SQL,
+  values, or tenant identifiers.
 
 The projection is issued only to holders of the diagnostic capability, and
 every access is audited. It adds execution-shape detail, never data: result
@@ -74,7 +96,7 @@ Every conceivable execution fact belongs to one of four classes:
 | Diagnostic | Privileged projection only; shorter retention; access audited | Debug form, terminal reason, attempts, runtime identity, safe message |
 
 Products may shorten but not extend diagnostic retention, and may tighten but
-not raise the size caps below.
+not raise the byte limits below.
 
 ## Evolvability
 
@@ -96,8 +118,21 @@ silently accept a record they cannot fully interpret.
 | `rowCount` | 10^12 |
 | `attempts` | 64 |
 
-Free-text fields reject control characters. Products may lower but not raise
-these limits while claiming version 1 conformance.
+Integer fields are compared by value, not by spelling: the JSON numbers `1`
+and `1.0` are both the integer 1 and are accepted, while `1.5` is rejected.
+Parsers that keep `1.0` as a float must accept it when its value is
+integral. Identifier fields (`eventId`, `queryId`, `tenantFingerprint`,
+`runtimeIdentity`) are exactly 64 lowercase hexadecimal characters.
+
+Free-text fields (`correlationId`, `debugQuery`, `safeMessage`) must be
+well-formed Unicode and are measured in UTF-8 bytes. They reject the
+control characters U+0000–U+001F, U+007F, and U+0080–U+009F, and unpaired
+surrogates, which have no UTF-8 encoding. `debugQuery` alone may also contain tab (U+0009),
+line feed (U+000A), and carriage return (U+000D), because the compiler's debug
+form spans lines; `correlationId` and `safeMessage` are single-line.
+
+Products may lower the two byte limits but not raise any limit while claiming
+version 1 conformance. The numeric bounds are fixed.
 
 ## Stable failure codes
 
@@ -115,12 +150,46 @@ Nested validators compose without leaking: an invalid target or query name
 surfaces as `INVALID_VALUE` at its path, keeping the record's public code set
 closed.
 
+### Validation order
+
+A record can fail several checks; the first failing check determines the code,
+so every implementation reports the same one:
+
+1. The root is not a plain object: `TYPE`. The root has a custom prototype,
+   symbol keys, accessor properties, or non-enumerable properties:
+   `UNSAFE_OBJECT`.
+2. `kind` is missing or not a string: `TYPE`; any other value than this
+   record's kind: `INVALID_VALUE`.
+3. `version` is missing or not a number: `TYPE`; any number other than 1:
+   `INVALID_VERSION`. The version is checked before the field set, so a
+   newer record that adds fields still reports `INVALID_VERSION` and a
+   consumer can skip it as Evolvability requires.
+4. Any field outside the version 1 set: `UNKNOWN_FIELD`; then any missing
+   required field: `TYPE`.
+5. Each field in the order this RFC lists it. For the query event:
+   `eventId`, `occurredAt`, `target`, `queryName`, `operation`, `outcome`,
+   `errorCategory` (its presence must match `outcome`, then its value),
+   `durationMs`, `rowCount`, `tenantFingerprint`, `correlationId`. For
+   diagnostics: `eventId`, `queryId`, `terminalReason`, `attempts`,
+   `runtimeIdentity`, `debugQuery`, `safeMessage`. Within a field, a wrong
+   JSON type is `TYPE`, an over-limit free-text field is `TOO_LARGE`, and
+   any other violation is `INVALID_VALUE`. `target` is the exception: any
+   RFC 0008 target failure, including a wrong type or an unsafe object, is
+   `INVALID_VALUE` at `$.target`.
+
 ## Security
 
 The default event is safe to emit broadly because every sensitive class is
-structurally absent rather than redacted after the fact. Tenant correlation
-happens only through a derived fingerprint. The privileged projection adds
-execution shape under an audited capability while keeping values, executable
-SQL, and credentials unrepresentable. Records are validated before encoding;
-their canonical bytes are the UTF-8 encoding of their RFC 8785 serialization,
-and events are identified by `eventId` rather than content identity.
+structurally absent rather than redacted after the fact: its only free-text
+field is the caller's own `correlationId`. Tenant correlation happens only
+through a derived fingerprint. The privileged projection adds execution shape
+under an audited capability. It has no field for rows, parameter values, or
+credentials. Its free-text `debugQuery` and `safeMessage` fields are bounded
+and validated, but a validator cannot tell a placeholder from a literal, so
+keeping values out of them rests on the producer obligations above and on the
+RFC 0010 debug form rules. Until a dedicated audit RFC is accepted, the
+RFC 0009 minimum audit record applies to every diagnostics access.
+
+Records are validated before encoding; their canonical bytes are the UTF-8
+encoding of their RFC 8785 serialization, and events are identified by
+`eventId` rather than content identity.

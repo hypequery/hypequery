@@ -9,5 +9,10 @@
   { "id": "zero-attempts", "generator": { "type": "zero-attempts" }, "error": "HQ_DIAGNOSTICS_INVALID_VALUE" },
   { "id": "control-character-message", "generator": { "type": "control-character-message" }, "error": "HQ_DIAGNOSTICS_INVALID_VALUE" },
   { "id": "oversized-debug-query", "generator": { "type": "oversized-debug-query" }, "error": "HQ_DIAGNOSTICS_TOO_LARGE" },
+  { "id": "newer-version-with-new-field", "generator": { "type": "newer-version-with-new-field" }, "error": "HQ_DIAGNOSTICS_INVALID_VERSION" },
+  { "id": "too-many-attempts", "generator": { "type": "too-many-attempts" }, "error": "HQ_DIAGNOSTICS_INVALID_VALUE" },
+  { "id": "prefixed-runtime-identity", "generator": { "type": "prefixed-runtime-identity" }, "error": "HQ_DIAGNOSTICS_INVALID_VALUE" },
+  { "id": "debug-query-lone-surrogate", "generator": { "type": "debug-query-lone-surrogate" }, "error": "HQ_DIAGNOSTICS_INVALID_VALUE" },
+  { "id": "debug-query-bell-character", "generator": { "type": "debug-query-bell-character" }, "error": "HQ_DIAGNOSTICS_INVALID_VALUE" },
   { "id": "unsafe-accessor", "generator": { "type": "unsafe-accessor" }, "error": "HQ_DIAGNOSTICS_UNSAFE_OBJECT" }
 ]

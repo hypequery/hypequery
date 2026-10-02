@@ -353,6 +353,14 @@ export function materializeEvent(spec: Spec): unknown {
     case 'invalid-target': return { ...value, target: { project: 'has space', environment: 'production' } };
     case 'invalid-query-name': return { ...value, queryName: 'not an identifier' };
     case 'oversized-correlation-id': return { ...value, correlationId: repeat('x', 2_049) };
+    case 'newer-version-with-new-field': return { ...value, version: 2, sampleRate: 0.5 };
+    case 'wrong-kind-with-unknown-field': return { ...value, kind: 'hypequery-query-log', sql: 'SELECT 1' };
+    case 'impossible-calendar-date': return { ...value, occurredAt: '2026-02-30T00:00:00Z' };
+    case 'hour-twenty-four': return { ...value, occurredAt: '2026-07-20T24:00:00Z' };
+    case 'one-digit-fraction': return { ...value, occurredAt: '2026-07-20T12:34:56.5Z' };
+    case 'fractional-duration': return { ...value, durationMs: 1.5 };
+    case 'correlation-id-one-byte-over': return { ...value, correlationId: `${repeat('\u00e9', 512)}x` };
+    case 'correlation-id-lone-surrogate': return { ...value, correlationId: 'req\ud800id' };
     case 'unsafe-accessor': {
       const unsafe = baseEvent();
       Object.defineProperty(unsafe, 'kind', { enumerable: true, get: () => 'hypequery-query-event' });
@@ -388,6 +396,11 @@ export function materializeDiagnostics(spec: Spec): unknown {
     case 'zero-attempts': return { ...value, attempts: 0 };
     case 'control-character-message': return { ...value, safeMessage: 'bad\u0007message' };
     case 'oversized-debug-query': return { ...value, debugQuery: repeat('x', 4_097) };
+    case 'newer-version-with-new-field': return { ...value, version: 2, retryReason: 'transient' };
+    case 'too-many-attempts': return { ...value, attempts: 65 };
+    case 'prefixed-runtime-identity': return { ...value, runtimeIdentity: `sha256:${repeat('d', 64)}` };
+    case 'debug-query-lone-surrogate': return { ...value, debugQuery: 'SELECT \udc00' };
+    case 'debug-query-bell-character': return { ...value, debugQuery: 'SELECT\u00071' };
     case 'unsafe-accessor': {
       const unsafe = baseDiagnostics();
       Object.defineProperty(unsafe, 'kind', { enumerable: true, get: () => 'hypequery-query-diagnostics' });

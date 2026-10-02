@@ -529,6 +529,10 @@ PYC-01 are merged.
 
 ### PYC-05 — Query events and diagnostics (RFC 0011)
 - **Dependencies:** PYB-08, RFC 0011 accepted.
+- **Status (2026-10-01):** Unblocked. RFC 0011 was accepted with a
+  validation order, exact timestamp and free-text rules, and boundary
+  fixtures, so the Python validators can be built against the same
+  `query-events-v1` and `query-diagnostics-v1` cases as TypeScript.
 - **Scope:** Metadata-only, size-bounded query events; privileged
   diagnostics behind an explicit server-side permission; no Pydantic
   models, rows, or raw errors serialised into events.
