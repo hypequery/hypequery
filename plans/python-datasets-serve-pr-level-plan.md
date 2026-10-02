@@ -641,9 +641,11 @@ PYC-01 are merged.
   - *Python routing.* Routing 404s and 405s become TypeScript's 404, which
     removes the `Allow` header that listed methods.
   - *Rate limiting.* `RateLimit` mirrors TypeScript's fixed window,
-    headers, and fail-open default. It counts once, before the body is read,
-    keyed on the principal digest or the proxy-validated client.
-    `MemoryRateLimitStore` is bounded, with amortized O(1) eviction.
+    headers, and fail-open default. With the default key it counts once,
+    before the body is read, keyed on the principal digest or the
+    proxy-validated client. Custom keys and later limits run in FastAPI's
+    dependency order after body parsing.
+    `MemoryRateLimitStore` is bounded, with heap-based expiration eviction.
   - *Admission.* Executor concurrency stays PYC-02's: a query waits for a
     slot only until its deadline, then becomes `504 GATEWAY_TIMEOUT` and is
     cancelled. TypeScript serve has no admission control to mirror.

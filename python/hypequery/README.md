@@ -288,8 +288,11 @@ from hypequery.serve import RateLimit
 async def trips(...): ...
 ```
 
-It counts each request once, after authentication and before the body is
-read, so a limited caller costs neither a parse nor a query. The defaults
+It counts each request once. With the default key it runs after authentication
+and before the body is read, so a limited caller costs neither a parse nor a
+query. Custom `key` callbacks run in FastAPI's dependency order, after body
+parsing, so earlier dependencies can prepare `request.state`. Limits declared
+after a custom-key limit also retain that order. The defaults
 match TypeScript:
 - the caller is the authenticated principal, or else the client address, as
   set by `HttpSecurity(trusted_proxies=...)` and never by a header the caller

@@ -26,6 +26,7 @@ from hypequery.serve import (
     MemoryRateLimitStore,
     Principal,
     RateLimit,
+    RequestAuth,
     ServeError,
     ServeRouter,
     create_router,
@@ -144,8 +145,42 @@ def test_a_serve_error_is_sent_as_written() -> None:
     assert response.headers["retry-after"] == "5"
 
 
+@pytest.mark.parametrize("security", [False, True])
+def test_error_headers_override_supplied_values_without_case_duplicates(security: bool) -> None:
+    router = create_router(authenticate=_authenticate)
+
+    @router.get("/headers")
+    @router.public
+    def endpoint() -> None:
+        raise ServeError(
+            429,
+            "RATE_LIMITED",
+            "Slow down",
+            headers={
+                "cache-control": "public, max-age=60",
+                "Cache-Control": "public, max-age=120",
+                "X-Request-ID": "caller-supplied",
+                "Retry-After": "5",
+            },
+        )
+
+    app = FastAPI()
+    app.include_router(router)
+    if security:
+        install_http_security(app, HttpSecurity(allowed_hosts=("testserver",)))
+    response = TestClient(app).get("/headers")
+
+    assert response.status_code == 429
+    assert response.headers.get_list("cache-control") == ["no-store"]
+    assert len(response.headers.get_list("x-request-id")) == 1
+    assert "caller-supplied" not in response.headers["x-request-id"]
+    assert response.headers["retry-after"] == "5"
+
+
+@pytest.mark.parametrize("security", [False, True])
 def test_an_unexpected_error_is_logged_with_its_request_id_and_not_sent(
     caplog: pytest.LogCaptureFixture,
+    security: bool,
 ) -> None:
     router = create_router(authenticate=_authenticate)
     seen: list[str | None] = []
@@ -155,12 +190,17 @@ def test_an_unexpected_error_is_logged_with_its_request_id_and_not_sent(
         seen.append(request_id(request))
         raise RuntimeError("password=hunter2 at /srv/app.py")
 
+    app = FastAPI()
+    app.include_router(router)
+    if security:
+        install_http_security(app, HttpSecurity(allowed_hosts=("testserver",)))
     with caplog.at_level(logging.ERROR, logger="hypequery.serve"):
-        response = _client(router).get("/boom", headers=_auth())
+        response = TestClient(app, raise_server_exceptions=False).get("/boom", headers=_auth())
 
     assert response.status_code == 500
     assert "hunter2" not in response.text
-    assert response.headers["x-request-id"] == seen[0]
+    if security:
+        assert response.headers["x-request-id"] == seen[0]
     [record] = [r for r in caplog.records if r.name == "hypequery.serve"]
     assert record.exc_info is not None
     assert "hunter2" in str(record.exc_info[1])
@@ -323,6 +363,93 @@ def test_each_principal_has_its_own_window() -> None:
     assert client.post("/limited", json={}, headers=_auth("alice-token")).status_code == 200
     assert client.post("/limited", json={}, headers=_auth("alice-token")).status_code == 429
     assert client.post("/limited", json={}, headers=_auth("bob-token")).status_code == 200
+
+
+@pytest.mark.parametrize("placement", ["route", "parameter", "nested"])
+def test_custom_limit_keys_run_after_the_dependencies_that_prepare_state(placement: str) -> None:
+    router = create_router(authenticate=_authenticate)
+    events: list[str] = []
+
+    def account(request: Request) -> None:
+        events.append("account")
+        request.state.account = "account-a"
+
+    def key(request: Request, auth: RequestAuth | None) -> str:
+        events.append("key")
+        assert auth is not None
+        return str(request.state.account)
+
+    limit = RateLimit(max=1, key=key)
+
+    def nested(
+        prepared: Annotated[None, Depends(account)],
+        limited: Annotated[None, Depends(limit)],
+    ) -> None:
+        pass
+
+    if placement == "route":
+
+        @router.post("/custom", dependencies=[Depends(account), Depends(limit)])
+        def route_endpoint(payload: Annotated[dict[str, Any], Body()]) -> dict[str, bool]:
+            events.append("endpoint")
+            return {"ok": True}
+
+    elif placement == "parameter":
+
+        @router.post("/custom")
+        def parameter_endpoint(
+            payload: Annotated[dict[str, Any], Body()],
+            prepared: Annotated[None, Depends(account)],
+            limited: Annotated[None, Depends(limit)],
+        ) -> dict[str, bool]:
+            events.append("endpoint")
+            return {"ok": True}
+
+    else:
+
+        @router.post("/custom", dependencies=[Depends(nested)])
+        def nested_endpoint(payload: Annotated[dict[str, Any], Body()]) -> dict[str, bool]:
+            events.append("endpoint")
+            return {"ok": True}
+
+    client = _client(router)
+    assert client.post("/custom", json={}, headers=_auth()).status_code == 200
+    assert client.post("/custom", json={}, headers=_auth()).status_code == 429
+    assert events == ["account", "key", "endpoint", "account", "key"]
+
+
+@pytest.mark.parametrize("custom_key", [False, True])
+def test_limits_run_in_dependency_order_without_consuming_later_quota_on_rejection(
+    custom_key: bool,
+) -> None:
+    events: list[str] = []
+
+    class Store:
+        def __init__(self, name: str) -> None:
+            self.name = name
+            self.count = 0
+
+        async def hit(self, key: str, window_seconds: int) -> tuple[int, float]:
+            events.append(self.name)
+            self.count += 1
+            return self.count, 60.0
+
+    first = RateLimit(
+        max=1,
+        store=Store("first"),
+        key=(lambda request, auth: "account") if custom_key else None,
+    )
+    second = RateLimit(max=2, store=Store("second"))
+    router = create_router(authenticate=_authenticate)
+
+    @router.get("/ordered", dependencies=[Depends(first), Depends(second)])
+    def endpoint() -> dict[str, bool]:
+        return {"ok": True}
+
+    client = _client(router)
+    assert client.get("/ordered", headers=_auth()).status_code == 200
+    assert client.get("/ordered", headers=_auth()).status_code == 429
+    assert events == ["first", "second", "first"]
 
 
 def test_tenants_with_the_same_subject_have_separate_windows() -> None:

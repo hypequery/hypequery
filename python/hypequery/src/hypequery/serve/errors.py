@@ -14,7 +14,6 @@ and answered with a fixed sentence.
 from __future__ import annotations
 
 import logging
-import secrets
 from collections.abc import Mapping
 from typing import Literal, TypeAlias
 
@@ -23,7 +22,7 @@ from fastapi.exceptions import RequestValidationError
 from starlette.responses import JSONResponse
 
 from ..datasets.planner import CompiledQueryError, CompiledQueryErrorCategory
-from .request_ids import request_id
+from .request_ids import ensure_request_id
 
 ServeErrorType: TypeAlias = Literal[
     "VALIDATION_ERROR",
@@ -145,7 +144,7 @@ def as_serve_error(exc: BaseException, *, request: Request | None = None) -> Ser
         return ServeError(exc.status_code, kind, message, headers=exc.headers)
     _log.error(
         "Unhandled error in a served route (request_id=%s)",
-        request_id(request) if request else None,
+        ensure_request_id(request) if request is not None else None,
         exc_info=exc,
     )
     return ServeError(500, "INTERNAL_SERVER_ERROR", UNEXPECTED_ERROR_MESSAGE)
@@ -157,9 +156,9 @@ def error_response(request: Request, error: ServeError) -> JSONResponse:
     body: dict[str, object] = {"type": error.type, "message": error.message}
     if error.details is not None:
         body["details"] = error.details
-    headers = dict(error.headers or {})
-    headers["Cache-Control"] = "no-store"
+    headers = {name.lower(): value for name, value in (error.headers or {}).items()}
+    headers["cache-control"] = "no-store"
     # The profile's middleware replaces this with the authoritative id when it
     # is installed; without it, an error still carries one.
-    headers["x-request-id"] = request_id(request) or secrets.token_hex(16)
+    headers["x-request-id"] = ensure_request_id(request)
     return JSONResponse({"error": body}, status_code=error.status_code, headers=headers)

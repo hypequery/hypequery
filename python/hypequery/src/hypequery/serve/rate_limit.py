@@ -4,8 +4,11 @@ A `RateLimit` is a fixed window counter added to a route as a dependency:
 
     @router.get("/report", dependencies=[Depends(RateLimit(max=10, window_seconds=60))])
 
-The route runs it after authentication and before the body is read, so a
-limited caller costs neither a body parse nor a query. Exhaustion answers
+With the default key, the route runs it after authentication and before the
+body is read, so a limited caller costs neither a body parse nor a query.
+Custom keys run in FastAPI's dependency order, after body parsing, so earlier
+dependencies can prepare the state they need. Limits after a custom-key limit
+also keep that dependency order. Exhaustion answers
 `429 RATE_LIMITED` with `Retry-After` and `X-RateLimit-*`; a store failure
 lets the request through, or with `fail_open=False` answers
 `503 SERVICE_UNAVAILABLE`.
@@ -149,6 +152,12 @@ class RateLimit:
         self._fail_open = fail_open
         self._headers = headers
         self._message = message
+
+    @property
+    def can_run_before_body(self) -> bool:
+        """Whether the key needs only the route's already-established context."""
+
+        return self._key is default_key
 
     async def __call__(self, request: Request) -> None:
         # Imported here: the router imports this module to find limits.

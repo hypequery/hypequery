@@ -14,7 +14,7 @@ import {
   parseRequestBody,
   serializeResponseBody,
 } from "./utils.js";
-import { generateRequestId } from "../utils.js";
+import { adapterErrorHeaders } from "../utils/error-headers.js";
 
 const DEFAULT_REQUEST_TIMEOUT = 30_000; // 30 seconds
 const DEFAULT_BODY_LIMIT = 1_048_576; // 1 MB
@@ -121,7 +121,6 @@ const sendError = (res: ServerResponse, error: unknown) => {
       ? (error as ServeResponse)
       : {
           status: 500,
-          headers: adapterErrorHeaders(),
           body: {
             error: {
               type: "INTERNAL_SERVER_ERROR",
@@ -136,18 +135,9 @@ const sendError = (res: ServerResponse, error: unknown) => {
     ...payload,
     // A thrown response-shaped object is still an adapter error. These
     // headers must override any supplied casing or value.
-    headers: { ...payload.headers, ...adapterErrorHeaders() },
+    headers: adapterErrorHeaders(payload.headers),
   });
 };
-
-/**
- * Headers for an error the adapter answers itself, before or around the
- * pipeline: the same no-store and request id every pipeline error carries.
- */
-const adapterErrorHeaders = (): Record<string, string> => ({
-  "cache-control": "no-store",
-  "x-request-id": generateRequestId(),
-});
 
 export const createNodeHandler = (
   handler: ServeHandler,

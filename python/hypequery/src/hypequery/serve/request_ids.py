@@ -9,6 +9,7 @@ TypeScript serve.
 from __future__ import annotations
 
 import re
+import secrets
 from collections.abc import MutableMapping
 from typing import Any, cast
 
@@ -39,3 +40,13 @@ def request_id(request: Request) -> str | None:
 
     found = cast(MutableMapping[object, Any], request.scope).get(REQUEST_ID_KEY)
     return found if type(found) is str else None
+
+
+def ensure_request_id(request: Request) -> str:
+    """Reuse the profile's id, or establish one for a standalone error path."""
+
+    authoritative = request_id(request)
+    if authoritative is None:
+        authoritative = secrets.token_hex(16)
+        cast(MutableMapping[object, Any], request.scope)[REQUEST_ID_KEY] = authoritative
+    return authoritative

@@ -278,7 +278,9 @@ describe("createNodeHandler", () => {
         throw {
           status: 429,
           headers: {
+            "cache-control": "public, max-age=30",
             "Cache-Control": "public, max-age=60",
+            "x-request-id": "another-caller-id",
             "X-Request-ID": "caller-supplied",
             "Retry-After": "5",
           },
@@ -292,6 +294,7 @@ describe("createNodeHandler", () => {
       expect(response.statusCode).toBe(429);
       expect(response.getHeader("cache-control")).toBe("no-store");
       expect(response.getHeader("x-request-id")).not.toBe("caller-supplied");
+      expect(response.getHeader("x-request-id")).not.toBe("another-caller-id");
       expect(response.getHeader("retry-after")).toBe("5");
     });
 

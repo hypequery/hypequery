@@ -161,12 +161,12 @@ class _AuthenticatingRoute(APIRoute):
         # FastAPI also allows Depends(RateLimit(...)) on endpoint parameters.
         # Its dependency graph includes both forms, including nested ones.
         limits: list[RateLimit] = []
-        pending = list(self.dependant.dependencies)
+        pending = list(reversed(self.dependant.dependencies))
         while pending:
             dependency = pending.pop()
             if isinstance(dependency.call, RateLimit) and dependency.call not in limits:
                 limits.append(dependency.call)
-            pending.extend(dependency.dependencies)
+            pending.extend(reversed(dependency.dependencies))
         max_body_bytes = self.max_body_bytes
 
         async def guarded(request: Request) -> Response:
@@ -177,9 +177,12 @@ class _AuthenticatingRoute(APIRoute):
             try:
                 for guard in guards:
                     await guard(request)
-                # Limits are counted before the body is read, so a limited
-                # caller costs neither a parse nor a query.
+                # Default keys need only the authenticated context. Custom
+                # keys may need state prepared by earlier dependencies, so
+                # leave them and later limits to FastAPI's normal order.
                 for limit in limits:
+                    if not limit.can_run_before_body:
+                        break
                     await limit(request)
                 return await handler(enforce_body_policy(request, max_body_bytes))
             except Exception as exc:
