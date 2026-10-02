@@ -39,6 +39,7 @@ npx hypequery init \
 | `hypequery generate:datasets` | Dataset definitions scaffolded from tables |
 | `hypequery generate:manifest` | A browser-safe route manifest for React hooks |
 | `hypequery pull` / `diff` | Live source inspection and comparison |
+| `hypequery deployment:status` | Live release and Cloud-provided connection URLs |
 
 Non-interactive ClickHouse commands read `CLICKHOUSE_URL`, `CLICKHOUSE_DATABASE`, `CLICKHOUSE_USERNAME`, and `CLICKHOUSE_PASSWORD`.
 

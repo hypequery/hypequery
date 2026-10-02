@@ -21,10 +21,8 @@ import { resolveDeploymentCredential } from '../utils/cloud-deployment-access.js
 import { fetchLiveDeployment } from '../utils/live-deployment.js';
 import {
   fetchHostedEndpoints,
-  MCP_API_KEY_VARIABLE,
-  mcpClientConfiguration,
-  type HostedEndpoints,
 } from '../utils/hosted-endpoints.js';
+import { printHostedEndpoints } from '../utils/hosted-endpoints-output.js';
 import {
   buildDeploymentCommand,
   prepareDeploymentReleaseCommand,
@@ -210,29 +208,6 @@ export async function submitDeploymentCommand(
   });
   if (endpoints) printHostedEndpoints(endpoints, options.mcpConfig === true);
   return result;
-}
-
-/**
- * Where the deployment can be called. Printed only when Cloud says where; an
- * older Cloud returns nothing and the deploy output is unchanged.
- */
-function printHostedEndpoints(endpoints: HostedEndpoints, mcpConfig: boolean): void {
-  logger.newline();
-  logger.info('Hosted endpoints');
-  logger.indent(`REST  ${endpoints.rest.baseUrl}`);
-  const width = Math.max(0, ...endpoints.rest.datasets.map((dataset) => dataset.name.length));
-  for (const dataset of endpoints.rest.datasets) {
-    logger.indent(`  ${dataset.name.padEnd(width)}  POST ${dataset.url}`);
-  }
-  logger.indent(`MCP   ${endpoints.mcp.url}`);
-  logger.newline();
-  logger.info('Call them with a runtime API key from Cloud (Keys). To check MCP without running a query:');
-  logger.indent(`${MCP_API_KEY_VARIABLE}=<key> hypequery mcp --self-test --url ${endpoints.mcp.url}`);
-  if (mcpConfig) {
-    logger.newline();
-    logger.info(`MCP client configuration (the client reads the key from ${MCP_API_KEY_VARIABLE}):`);
-    for (const line of mcpClientConfiguration(endpoints.mcp.url).split('\n')) logger.indent(line);
-  }
 }
 
 /**
