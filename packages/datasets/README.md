@@ -102,6 +102,11 @@ Metric changes travel through the workflow your team already trusts: TypeScript,
 - [Relationships](https://hypequery.com/docs/datasets/relationships)
 - [MCP tool generation](https://hypequery.com/docs/datasets/tool-generation)
 
+## Contributing
+
+For repository contributors, see the [implementation guide](./ARCHITECTURE.md)
+for module boundaries and verification requirements.
+
 ## License
 
 Apache-2.0.
