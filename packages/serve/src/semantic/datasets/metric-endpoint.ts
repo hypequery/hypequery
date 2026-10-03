@@ -1,3 +1,4 @@
+import { publicQueryMetadata, authorizedQueryDiagnostics, type SemanticDiagnosticAccess } from "./utils/public-query-metadata.js";
 /**
  * Converts a MetricRef into a standard ServeEndpoint.
  *
@@ -39,8 +40,6 @@ import { resolveLocalAuthRequirement } from '../../auth-requirement.js';
 
 const metricResultMetaSchema = z.object({
   timingMs: z.number().optional(),
-  sql: z.string().optional(),
-  tenant: z.string().optional(),
   rowCount: z.number().optional(),
   pagination: z.object({
     limit: z.number(),
@@ -56,6 +55,7 @@ const metricResultMetaSchema = z.object({
 
 const metricResultSchema = z.object({
   data: z.array(z.record(z.unknown())),
+  diagnostics: z.object({ sql: z.string().optional(), tenant: z.string().optional() }).optional(),
   meta: metricResultMetaSchema,
 });
 
@@ -94,6 +94,7 @@ export function resolveMetricEntry<TAuth extends AuthContext>(
   requiredScopes?: string[];
   middlewares?: ServeMiddleware<any, any, any, TAuth>[];
   maxLimit?: number;
+  diagnostics?: SemanticDiagnosticAccess<TAuth>;
 } {
   if (isMetricHandleEntry(entry)) {
     return { metric: entry };
@@ -216,7 +217,10 @@ export function createMetricEndpoint<TAuth extends AuthContext>(
 
     return {
       data: result.data,
-      meta: includeMeta ? result.meta : undefined,
+      diagnostics: includeMeta
+        ? await authorizedQueryDiagnostics(resolved.diagnostics, ctx.auth, result.meta)
+        : undefined,
+      meta: includeMeta ? publicQueryMetadata(result.meta) : undefined,
     };
   };
 

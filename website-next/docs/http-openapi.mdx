@@ -305,7 +305,7 @@ In React, `useInfiniteMetric` and `useInfiniteDataset` consume `hasMore`/`offset
 
 ### Result metadata
 
-Semantic endpoints return `{ data }` by default. Opt into metadata (generated SQL, timing, row count, tenant, pagination) by sending `includeMeta: true` in the request body or the `x-include-meta: true` header, which switches the response to `{ data, meta }`.
+Semantic endpoints return `{ data }` by default. Opt into public metadata (timing, row count, cache state, pagination) by sending `includeMeta: true` in the request body or the `x-include-meta: true` header, which switches the response to `{ data, meta }`.
 
 <CodeBlock>
 <Pre>

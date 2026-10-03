@@ -1,3 +1,5 @@
+import type { SemanticDiagnosticAccess } from "./semantic/datasets/utils/public-query-metadata.js";
+export type { SemanticDiagnosticAccess } from "./semantic/datasets/utils/public-query-metadata.js";
 import type { ZodType, ZodTypeAny } from "zod";
 import type { ServeQueryLogger, ServeQueryEventCallback } from "./query-logger.js";
 import type { CacheObservability } from "./cache-observability.js";
@@ -636,6 +638,7 @@ export type MetricEntry<TAuth extends AuthContext = AuthContext> =
        * rejected). Defaults to the dataset's `limits.maxResultSize`, else 1000.
        */
       maxLimit?: number;
+      diagnostics?: SemanticDiagnosticAccess<TAuth>;
     };
 
 /** Map of metric names to entries. */

@@ -1,3 +1,4 @@
+import { publicQueryMetadata, authorizedQueryDiagnostics } from "./utils/public-query-metadata.js";
 /**
  * Converts a DatasetInstance into a standard ServeEndpoint for semantic queries.
  *
@@ -40,8 +41,6 @@ export type { DatasetEntry } from './utils/dataset-entry.js';
 
 const datasetResultMetaSchema = z.object({
   timingMs: z.number().optional(),
-  sql: z.string().optional(),
-  tenant: z.string().optional(),
   rowCount: z.number().optional(),
   pagination: z.object({
     limit: z.number(),
@@ -57,6 +56,7 @@ const datasetResultMetaSchema = z.object({
 
 const datasetResultSchema = z.object({
   data: z.array(z.record(z.unknown())),
+  diagnostics: z.object({ sql: z.string().optional(), tenant: z.string().optional() }).optional(),
   meta: datasetResultMetaSchema,
 });
 
@@ -163,8 +163,11 @@ export function createDatasetEndpoint<TAuth extends AuthContext>(
 
     return {
       data: result.data,
+      diagnostics: includeMeta
+        ? await authorizedQueryDiagnostics(resolved.diagnostics, ctx.auth, result.meta)
+        : undefined,
       meta: includeMeta ? {
-        ...(result.meta ?? {}),
+        ...publicQueryMetadata(result.meta),
         timingMs,
       } : undefined,
     };
