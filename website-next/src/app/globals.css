@@ -9,8 +9,8 @@
 html[data-theme="light"],
 html.light,
 :root {
-  --bg:          #f5f3ee;
-  --bg-alt:      #ebe7df;
+  --bg:          #ffffff;
+  --bg-alt:      #f7f7f5;
   --bg-card:     #ffffff;
   --bg-code:     #0c0e14;
   --code-text:   #e8eaf0;
@@ -373,6 +373,78 @@ html[data-theme="dark"] .home-page .shiki code {
   100% {
     transform: translateX(-50%);
   }
+}
+
+@keyframes hero-feature-in {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.home-section-title {
+  font-size: clamp(2rem, 3.4vw, 2.875rem);
+  font-weight: 400;
+  line-height: 1.1;
+  letter-spacing: -0.035em;
+}
+
+.nav-desktop-only { display: none; }
+.nav-mobile-only { display: inline; }
+
+@media (min-width: 640px) {
+  .nav-desktop-only { display: inline; }
+  .nav-mobile-only { display: none; }
+}
+
+.hero-feature-card {
+  animation: hero-feature-in 600ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+
+.framework-logo {
+  margin-left: -0.65rem;
+  position: relative;
+  transition: margin 220ms ease, transform 220ms ease, z-index 0s linear 220ms;
+}
+
+.logo-tooltip::after {
+  background: var(--text);
+  border-radius: 0.35rem;
+  color: var(--bg);
+  content: attr(data-tooltip);
+  font-family: var(--font-sans);
+  font-size: 0.68rem;
+  font-weight: 600;
+  left: 50%;
+  opacity: 0;
+  padding: 0.3rem 0.45rem;
+  pointer-events: none;
+  position: absolute;
+  top: -2rem;
+  transform: translate(-50%, 0.25rem);
+  transition: opacity 160ms ease, transform 160ms ease;
+  white-space: nowrap;
+  z-index: 10;
+}
+
+.logo-tooltip:hover::after,
+.logo-tooltip:focus-visible::after {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+
+.framework-logo-cluster:hover .framework-logo {
+  margin-left: 0.15rem;
+}
+
+.framework-logo:hover {
+  transform: translateY(-0.25rem) scale(1.12);
+  z-index: 2;
+  transition: margin 220ms ease, transform 220ms ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-feature-card { animation: none; }
+  .framework-logo { transition: none; }
+  .logo-tooltip::after { transition: none; }
 }
 
 .animate-marquee {

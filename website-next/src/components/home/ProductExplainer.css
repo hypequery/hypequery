@@ -1,0 +1,108 @@
+.explainer-model { --ripple-spread-x: 44px; }
+
+.explainer-model-ripple {
+  position: absolute;
+  inset: -1px;
+  border: 1px solid var(--border-strong);
+  border-radius: 22px;
+  pointer-events: none;
+  animation: explainer-model-ripple 4.5s cubic-bezier(0.2, 0.6, 0.3, 1) infinite;
+}
+
+.explainer-model-ripple:nth-of-type(2) { animation-delay: -1.5s; }
+.explainer-model-ripple:nth-of-type(3) { animation-delay: -3s; }
+
+@keyframes explainer-model-ripple {
+  from { opacity: 0.9; inset: -1px; border-radius: 22px; }
+  to { opacity: 0; inset: -30px calc(-1 * var(--ripple-spread-x)); border-radius: 44px; }
+}
+
+.explainer-source {
+  transition: transform 180ms ease, border-color 180ms ease;
+}
+
+.explainer-source:hover,
+.explainer-source:focus-visible {
+  border-color: var(--accent-hi);
+  transform: translateY(-2px);
+}
+
+.explainer-source-detail {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  z-index: 10;
+  width: max-content;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-card);
+  padding: 6px 9px;
+  font-size: 9px;
+  opacity: 0;
+  pointer-events: none;
+  transform: translate(-50%, 3px);
+  transition: opacity 180ms ease, transform 180ms ease;
+}
+
+.explainer-source:hover .explainer-source-detail,
+.explainer-source:focus-visible .explainer-source-detail {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+
+.explainer-connection { transition: stroke 200ms ease; }
+.explainer-connection.is-active { stroke: var(--accent); }
+
+.explainer-preview {
+  transition: transform 220ms ease, border-color 220ms ease, box-shadow 220ms ease;
+}
+
+.explainer-consumer:hover .explainer-preview,
+.explainer-consumer:focus-within .explainer-preview {
+  transform: translateY(-3px);
+  border-color: var(--accent-hi);
+  box-shadow: 0 10px 30px -18px var(--accent-hi);
+}
+
+.explainer-ask { transition: border-color 180ms ease, background 180ms ease; }
+.explainer-ask:hover { border-color: var(--accent-hi); background: var(--accent-soft); }
+.explainer-read-more { transition: color 180ms ease; }
+.explainer-read-more:hover { color: var(--accent); }
+.explainer-read-more svg { transition: transform 180ms ease; }
+.explainer-read-more:hover svg { transform: translate(2px, -2px); }
+.explainer-chart { animation: explainer-reveal 400ms ease both; }
+.explainer-result { animation: explainer-reveal 280ms ease both; }
+
+.explainer-source:focus-visible,
+.explainer-period:focus-visible,
+.explainer-ask:focus-visible,
+.explainer-read-more:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+
+@media (max-width: 767px) {
+  .explainer-model { --ripple-spread-x: 24px; }
+  .explainer-source-detail[data-edge="0"] { left: 0; transform: translateY(3px); }
+  .explainer-source-detail[data-edge="2"] { left: auto; right: 0; transform: translateY(3px); }
+  .explainer-source:hover .explainer-source-detail[data-edge="0"],
+  .explainer-source:hover .explainer-source-detail[data-edge="2"],
+  .explainer-source:focus-visible .explainer-source-detail[data-edge="0"],
+  .explainer-source:focus-visible .explainer-source-detail[data-edge="2"] { transform: translateY(0); }
+}
+
+@keyframes explainer-reveal {
+  from { opacity: 0.35; transform: translateY(3px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .explainer-signal,
+  .explainer-model-ripple { display: none; }
+  .explainer-source { transition: none; }
+  .explainer-source-detail,
+  .explainer-connection,
+  .explainer-preview,
+  .explainer-ask,
+  .explainer-read-more,
+  .explainer-read-more svg { transition: none; }
+  .explainer-result,
+  .explainer-chart { animation: none; }
+}

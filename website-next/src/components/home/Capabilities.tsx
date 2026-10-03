@@ -83,11 +83,12 @@ export function Capabilities() {
   return (
     <section className="mx-auto max-w-[1280px] px-8 pt-[112px] pb-6">
       <div className="mb-14 text-center">
-        <p className="font-mono text-eyebrow text-accent mb-3.5">Define once, everything inherits</p>
-        <h2 className="text-h2 text-text mx-auto max-w-[760px] text-balance">
-          One library, four layers. Opt-in across the stack        </h2>
+        <p className="font-mono text-eyebrow text-accent mb-3.5">From model to product</p>
+        <h2 className="home-section-title text-text mx-auto max-w-[760px] text-balance">
+          Ship it through every surface.
+        </h2>
         <p className="mt-3.5 text-body text-text-muted mx-auto max-w-[640px] text-pretty">
-          You don&apos;t adopt a platform. You install a library and use the layer you need, in the codebase you already have.
+          Use typed queries, datasets, APIs, React hooks, and MCP tools in the codebase you already have.
         </p>
       </div>
 

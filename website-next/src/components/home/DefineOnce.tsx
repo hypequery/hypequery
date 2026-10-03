@@ -45,11 +45,11 @@ export function DefineOnce() {
     <section className="mx-auto max-w-[1280px] px-8 pt-[112px] pb-6">
       <div className="mb-10 text-center">
         <p className="font-mono text-eyebrow text-accent mb-3.5">Your semantic layer, in code</p>
-        <h2 className="text-h2 text-text mx-auto max-w-[680px] text-balance">
-          Model your data once.
+        <h2 className="home-section-title text-text mx-auto max-w-[680px] text-balance">
+          Give your data a shared definition.
         </h2>
         <p className="mt-3.5 text-body text-text-muted mx-auto max-w-[600px] text-pretty">
-          Build consistent, type-safe analytics products on top.
+          Define measures, dimensions, and tenant rules in code so every consumer works from the same model.
         </p>
       </div>
 

@@ -7,25 +7,32 @@ const DEFAULT_COMMAND = 'npx @hypequery/cli init';
 export function InstallCommand({
   command = DEFAULT_COMMAND,
   className = '',
+  variant = 'default',
 }: {
   command?: string;
   className?: string;
+  variant?: 'default' | 'card';
 }) {
   const [copied, setCopied] = useState(false);
 
-  const handleCopy = () => {
-    navigator.clipboard.writeText(command);
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(command);
+    } catch {
+      return;
+    }
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
 
   return (
     <button
+      type="button"
       onClick={handleCopy}
-      className={`group relative inline-flex items-center gap-2.5 px-4 py-2.5 bg-bg-card border border-border-strong rounded-lg font-mono text-[14px] text-text hover:border-text transition hover:-translate-y-px ${className}`}
+      className={`group relative inline-flex items-center gap-2 rounded-lg border border-border-strong bg-bg-card px-3 py-2 text-text transition hover:-translate-y-px hover:border-text ${variant === 'card' ? 'font-sans text-xs' : 'font-mono text-[13px]'} ${className}`}
     >
       <span className="text-text-muted select-none">$</span>
-      <span className="font-medium">{command}</span>
+      <span className={`font-medium ${variant === 'card' ? 'min-w-0 flex-1' : ''}`}>{command}</span>
       <svg
         className="w-4 h-4 text-text-dim group-hover:text-text transition"
         fill="none"

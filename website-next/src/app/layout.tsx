@@ -28,24 +28,24 @@ const displayFont = Space_Grotesk({
 export const metadata: Metadata = {
   metadataBase: siteUrl,
   title: {
-    default: "hypequery | The TypeScript Analytics Layer for ClickHouse",
+    default: "hypequery | Ship analytics on ClickHouse",
     template: "%s | hypequery",
   },
-  description: "Define ClickHouse metrics once in TypeScript, then reuse them across APIs, jobs, dashboards, and AI agents.",
+  description: "Model your ClickHouse data once in code, then ship APIs, MCP tools, and dashboards from the same definitions.",
   alternates: {
     canonical: absoluteUrl('/'),
   },
   openGraph: {
     type: 'website',
     url: absoluteUrl('/'),
-    title: 'hypequery | The TypeScript Analytics Layer for ClickHouse',
-    description: 'Define ClickHouse metrics once in TypeScript, then reuse them across APIs, jobs, dashboards, and AI agents.',
+    title: 'hypequery | Ship analytics on ClickHouse',
+    description: 'Model your ClickHouse data once in code, then ship APIs, MCP tools, and dashboards from the same definitions.',
     siteName: 'hypequery',
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'hypequery | The TypeScript Analytics Layer for ClickHouse',
-    description: 'Define ClickHouse metrics once in TypeScript, then reuse them across APIs, jobs, dashboards, and AI agents.',
+    title: 'hypequery | Ship analytics on ClickHouse',
+    description: 'Model your ClickHouse data once in code, then ship APIs, MCP tools, and dashboards from the same definitions.',
   },
   manifest: "/site.webmanifest",
   icons: {

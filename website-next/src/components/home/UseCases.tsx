@@ -38,8 +38,8 @@ export function UseCases() {
     <section className="mx-auto max-w-[1280px] px-8 pt-[112px] pb-6">
       <div className="mb-12 text-center">
         <p className="font-mono text-eyebrow text-accent mb-3.5">Use cases</p>
-        <h2 className="text-h2 text-text mx-auto max-w-[680px] text-balance">
-          Built for the products you&apos;re already shipping.
+        <h2 className="home-section-title text-text mx-auto max-w-[680px] text-balance">
+          Put analytics in the product you&apos;re building.
         </h2>
       </div>
 

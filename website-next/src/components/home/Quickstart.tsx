@@ -28,11 +28,11 @@ export function Quickstart() {
     <section className="mx-auto max-w-[1280px] px-8 pt-[112px] pb-6">
       <div className="mb-10 text-center">
         <p className="font-mono text-eyebrow text-accent mb-3.5">Quickstart</p>
-        <h2 className="text-h2 text-text mx-auto max-w-[920px] text-balance">
-          Generate types from your schema.
+        <h2 className="home-section-title text-text mx-auto max-w-[920px] text-balance">
+          Start with the ClickHouse you already have.
         </h2>
         <p className="mt-3.5 text-body text-text-muted mx-auto max-w-[600px] text-pretty">
-          One command turns your existing ClickHouse into a fully-typed client. Start building with type safety in seconds.
+          Generate a typed client from your live schema, then build on the tables you already use.
         </p>
         <div className="mt-7 flex justify-center">
           <InstallCommand command="npx @hypequery/cli generate:types" />

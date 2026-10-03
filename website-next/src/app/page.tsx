@@ -1,16 +1,9 @@
 import Footer from '@/components/Footer';
 import Navigation from '@/components/Navigation';
 import { absoluteUrl } from '@/lib/site';
-import {
-  AnnouncementBanner,
-  Hero,
-  Quickstart,
-  DefineOnce,
-  Capabilities,
-  Stack,
-  UseCases,
-  FinalCTA,
-} from '@/components/home';
+import { Hero, FinalCTA } from '@/components/home';
+import { FeatureGrid } from '@/components/home/FeatureGrid';
+import { ProductExplainer } from '@/components/home/ProductExplainer';
 
 const softwareSchema = {
   '@context': 'https://schema.org',
@@ -21,10 +14,10 @@ const softwareSchema = {
   applicationCategory: 'DeveloperApplication',
   operatingSystem: 'Cross-platform',
   description:
-    'Define ClickHouse metrics once in TypeScript, then reuse them across APIs, jobs, dashboards, and AI agents.',
+    'Model ClickHouse data once in code, then ship APIs, MCP tools, and dashboards from the same definitions.',
   softwareVersion: 'latest',
   codeRepository: 'https://github.com/hypequery/hypequery',
-  programmingLanguage: 'TypeScript',
+  programmingLanguage: ['TypeScript', 'Python'],
   offers: {
     '@type': 'Offer',
     price: '0',
@@ -43,15 +36,11 @@ export default function Home() {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(softwareSchema) }}
       />
-      <AnnouncementBanner />
-      <Navigation hasBanner />
-      <main className="pt-[104px]">
+      <Navigation />
+      <main className="pt-[62px]">
         <Hero />
-        <Quickstart />
-        <DefineOnce />
-        <Capabilities />
-        <Stack />
-        <UseCases />
+        <ProductExplainer />
+        <FeatureGrid />
         <FinalCTA />
       </main>
       <Footer />
