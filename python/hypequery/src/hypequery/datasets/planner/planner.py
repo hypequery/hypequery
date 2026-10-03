@@ -27,6 +27,7 @@ def plan_dataset_query(
     registry: DatasetRegistry | None = None,
     context: ExecutionContext | None = None,
     settings: QuerySettings = DEFAULT_QUERY_SETTINGS,
+    overfetch: bool = False,
 ) -> CompiledQuery:
     """Compile a semantic query over *dataset* into an executable statement.
 
@@ -41,7 +42,11 @@ def plan_dataset_query(
     check_query_limits(dataset, query)
     check_reserved_alias(dataset)
     compiler = DatasetQueryCompiler(
-        dataset, query, registry or create_dataset_registry(dataset), context
+        dataset,
+        query,
+        registry or create_dataset_registry(dataset),
+        context,
+        overfetch=overfetch,
     )
     compiled = compiler.compile()
     return CompiledQuery(

@@ -66,11 +66,14 @@ class DatasetQueryCompiler:
         query: DatasetQuery,
         registry: DatasetRegistry,
         context: ExecutionContext,
+        *,
+        overfetch: bool = False,
     ) -> None:
         self.dataset = dataset
         self.query = query
         self.registry = registry
         self.context = context
+        self.overfetch = overfetch
         self.binder = ParameterBinder()
         self.selections: list[str] = []
         self.group_by: list[str] = []
@@ -112,7 +115,10 @@ class DatasetQueryCompiler:
             + where_clause(self.predicates)
             + group_by_clause(self.group_by)
             + order_by_clause(order_by)
-            + pagination_clause(result_limit, query.offset)
+            + pagination_clause(
+                result_limit + 1 if self.overfetch and result_limit is not None else result_limit,
+                query.offset,
+            )
         )
         return DatasetSql(sql, self.binder.parameters)
 

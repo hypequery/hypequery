@@ -806,7 +806,10 @@ See the [implementation plan](../../plans/python-datasets-serve-pr-level-plan.md
 For dataset coverage, CI gates, and remaining gaps, see the
 [testing review](./TESTING_REVIEW.md).
 
-## Logical discovery and documentation policy
+## Serve dataset and metric endpoints
+
+Register endpoints over `create_dataset_client` (or
+`create_async_dataset_client`) and build an app with docs closed by default:
 
 Register `add_discovery_endpoint(router, registry=registry)` to publish a bounded
 logical catalog at `/discovery`. It authenticates by default and accepts an
@@ -816,8 +819,72 @@ role access; all listed scopes are required. Explicitly pass
 256 KiB default budget is checked at startup; physical sources, columns, SQL,
 tenant policy and tenant values never appear in this projection.
 
-`create_app(router, security=HttpSecurity(allowed_hosts=("analytics.example.com",)))`
-disables `/docs`, `/redoc`, and `/openapi.json`. Explicit
-`development_docs=True` enables generated development documentation. A host
-embedding the router in an existing FastAPI app owns that app's docs policy.
-ASGI process configuration remains the separate PYD-06 work.
+```python
+from hypequery.serve import (
+    EndpointPolicy,
+    HttpSecurity,
+    add_dataset_endpoint,
+    add_discovery_endpoint,
+    add_metric_endpoint,
+    create_app,
+    create_router,
+)
+
+# authenticate is your host's credential lookup. It returns a Principal whose
+# roles, scopes and tenant_id come from trusted server-side identity data.
+router = create_router(authenticate=authenticate)
+policy = EndpointPolicy(required_scopes=frozenset({"analytics:read"}), tenant="required")
+add_dataset_endpoint(router, "/datasets/orders/query", dataset=orders, client=client, policy=policy)
+add_metric_endpoint(
+    router,
+    "/metrics/order_count",
+    dataset=orders,
+    measure="count",
+    name="order_count",
+    client=client,
+    policy=policy,
+)
+add_discovery_endpoint(router, registry=registry)
+app = create_app(router, security=HttpSecurity(allowed_hosts=("analytics.example.com",)))
+```
+
+The dataset, registry and client are authored by the host as in the client
+examples above. Metric endpoints fix one dataset measure; formula metrics and
+portable metric definitions remain a follow-up. Their optional `name` aliases
+that measure in results and ordering.
+
+POST a strict JSON body with `dimensions`, `measures` (dataset endpoints only),
+`filters`, `orderBy`, `by`, `limit`, `offset`, and `includeMeta`. Filters are
+`{"field": "country", "operator": "eq", "value": "US"}`; orders are
+`{"field": "order_count", "direction": "desc"}`. Unknown request fields,
+coercion of numbers/booleans, and attempts to supply tenant, SQL, settings,
+roles or scopes are refused. Page sizes are positive, default to 1000, and
+clamped to the endpoint and dataset caps. An extra row is fetched to compute
+`hasMore`, then removed from returned data and row counts.
+
+Responses are `{ "data": [...] }`, or `{ "data": [...], "meta": {...} }` when
+`includeMeta: true` or `x-include-meta: true` is sent. Public metadata contains
+`requestId`, `timingMs`, `rowCount`, `pagination: { limit, offset, hasMore }`, and
+`cache: { hit }`. Non-null semantic measure values are strings on the HTTP
+wire, matching TypeScript. Local Python client results keep their native values.
+
+`DiagnosticAccess(authorize=..., audit=...)` is an optional server-authored
+endpoint setting. Both callbacks run in the threadpool. Only an authenticated
+principal authorized by the host receives a separate `diagnostics` object, and
+only after the audit callback succeeds. It contains redacted debug `sql`, never
+bound values or raw tenant ids. Metadata opt-in alone grants no access.
+
+`QueryEvents(target={"project": "my-project", "environment": "production"},
+sink=...)` is an optional endpoint setting. The synchronous host sink receives
+validated RFC 0011 events containing identifiers, outcome, duration, and row
+count or canonical failure category; never request bodies, rows, SQL, credentials
+or tenant values. Sink failures do not fail queries.
+
+Discovery is authenticated unless explicitly registered with
+`EndpointPolicy(public=True)`. Its logical catalog matches TypeScript's
+`/discovery` projection and has a 256 KiB default budget enforced at startup.
+It carries no physical sources, columns, SQL, tenant policy or values.
+`create_app` disables `/docs`, `/redoc`, and `/openapi.json`; use
+`development_docs=True` only for deliberate development documentation. When
+embedding the router in an existing FastAPI app, the host owns that app's docs
+policy. The ASGI process production profile remains separate PYD-06 work.
