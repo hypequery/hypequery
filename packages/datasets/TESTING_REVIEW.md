@@ -23,7 +23,8 @@ an explicitly configured `CLICKHOUSE_TEST_HOST` as used in CI; the harness
 seeds that configured test database. Reports are in `coverage/full`.
 
 CI now enforces minimums of 95% statements, 95% lines, 90% branches, and 97%
-functions. Production files remain in the denominator. Type tests, package
+functions. CI also runs for PRs targeting `codex/` branches so stacked PRs
+receive the gate before retargeting to main. Production files remain in the denominator. Type tests, package
 builds, lint, and downstream Serve tests are separate checks.
 
 ## Behaviors checked
