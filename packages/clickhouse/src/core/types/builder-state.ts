@@ -162,6 +162,14 @@ export type JoinRightColumn<
   Table extends JoinableTable<State>
 > = `${Table}.${Extract<keyof ResolveTableSchema<State, Table>, string>}`;
 
+/** A checked column pair for an explicit equality join. */
+export type JoinKeyPair<State extends AnyBuilderState, Table extends JoinableTable<State>> =
+  readonly [keyof BaseRow<State>, JoinRightColumn<State, Table>];
+
+/** At least one equality key is required; readonly inputs are supported. */
+export type JoinKeyPairs<State extends AnyBuilderState, Table extends JoinableTable<State>> =
+  readonly [JoinKeyPair<State, Table>, ...JoinKeyPair<State, Table>[]];
+
 /**
  * Joining a CTE cannot take a table alias: aliases resolve through the schema,
  * and a CTE has no schema entry to resolve to.

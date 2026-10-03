@@ -135,6 +135,11 @@ export interface JoinConditionInput {
   value: unknown;
 }
 
+export interface JoinKeyNode {
+  leftColumn: string;
+  rightColumn: string;
+}
+
 export interface JoinNode {
   kind: 'join';
   type: JoinType;
@@ -142,6 +147,8 @@ export interface JoinNode {
   leftColumn: string;
   leftSource?: string;
   rightColumn: string;
+  /** Additional equality keys, combined with the first pair using AND. */
+  additionalKeys?: JoinKeyNode[];
   alias?: string;
   on?: ExprNode;
 }
