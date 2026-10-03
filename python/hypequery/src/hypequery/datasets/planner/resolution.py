@@ -16,6 +16,7 @@ from ..dimensions import Dimension
 from ..registry import DatasetRegistry
 from ..relationships import Relationship
 from .errors import CompiledQueryError
+from .query import DatasetQuery
 
 
 def is_qualified(name: str) -> bool:
@@ -115,3 +116,21 @@ def resolve_filter_field(dataset: Dataset, name: str) -> str:
 
     definition = dataset.filters.get(name)
     return definition.field if definition is not None else name
+
+
+def references_a_relationship(dataset: Dataset, query: DatasetQuery) -> bool:
+    """Whether anything in *query* addresses a field through a relationship."""
+
+    names = [
+        *query.dimensions,
+        *(resolve_filter_field(dataset, item.field) for item in query.filters),
+        *(order.field for order in query.order_by),
+    ]
+    selected_measures = query.measures if query.measures is not None else dataset.measures
+    for measure_name in selected_measures:
+        measure = dataset.measures.get(measure_name)
+        if measure is not None:
+            names.extend(
+                resolve_filter_field(dataset, item.field) for item in measure.filters or ()
+            )
+    return any(is_qualified(name) for name in names)
