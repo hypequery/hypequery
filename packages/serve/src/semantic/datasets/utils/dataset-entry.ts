@@ -1,3 +1,4 @@
+import type { SemanticDiagnosticAccess } from "./public-query-metadata.js";
 import type {
   AuthContext,
   AuthStrategy,
@@ -21,6 +22,7 @@ export type DatasetEntry<TAuth extends AuthContext = AuthContext> =
       /** Middleware applied to this dataset endpoint. */
       middlewares?: ServeMiddleware<any, any, any, TAuth>[];
       maxLimit?: number;
+      diagnostics?: SemanticDiagnosticAccess<TAuth>;
     };
 
 type DatasetEntryOptions<TAuth extends AuthContext> = Exclude<DatasetEntry<TAuth>, AnyDatasetInstance>;
@@ -49,6 +51,7 @@ export function resolveDatasetEntry<TAuth extends AuthContext>(
   requiredScopes?: string[];
   middlewares?: ServeMiddleware<any, any, any, TAuth>[];
   maxLimit?: number;
+  diagnostics?: SemanticDiagnosticAccess<TAuth>;
 } {
   if (isDatasetInstance(entry)) {
     return { dataset: entry };

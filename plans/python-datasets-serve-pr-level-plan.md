@@ -594,7 +594,7 @@ PYC-01 are merged.
     TypeScript; local Python client result values are unchanged.
   - Public metadata has a closed response model. Separate redacted SQL
     diagnostics require host authorization and successful audit. TypeScript
-    parity is provided by the next PR in the stack.
+    applies the same metadata boundary and authorization/audit requirements.
   - Disconnection and handler cancellation reach executor cancellation signals;
     optional `QueryEvents` emits validated metadata-only RFC 0011 records.
   - Metric endpoints fix one dataset measure and optionally alias its output
