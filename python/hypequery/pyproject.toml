@@ -103,3 +103,14 @@ name = "protocol and datasets stay framework-free and driver-free"
 type = "forbidden"
 source_modules = ["hypequery.protocol", "hypequery.datasets"]
 forbidden_modules = ["fastapi", "starlette", "uvicorn", "clickhouse_connect"]
+
+[[tool.importlinter.contracts]]
+name = "Dataset SQL compilation stays independent of client orchestration and execution"
+type = "forbidden"
+source_modules = ["hypequery.datasets.planner.compiler"]
+forbidden_modules = [
+  "hypequery.datasets.client",
+  "hypequery.datasets.cache",
+  "hypequery.execution",
+  "hypequery.serve",
+]

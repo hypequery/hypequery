@@ -778,6 +778,9 @@ a branch for either would be unreachable code.
 
 ## Development
 
+See the [datasets implementation guide](./ARCHITECTURE.md) for validation,
+compilation and client boundaries, and where future dialect work belongs.
+
 ```bash
 uv sync --all-extras --dev
 uv run pytest
