@@ -23,6 +23,8 @@ pnpm-debug.log*
 packages/clickhouse/.env.test
 
 # Testing
+.coverage
+.coverage.*
 coverage
 packages/clickhouse/ci-diagnostics/
 packages/clickhouse/ci-diagnostics.zip

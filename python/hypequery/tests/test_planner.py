@@ -912,3 +912,60 @@ def test_the_interpolation_check_script_passes() -> None:
         [sys.executable, str(script)], capture_output=True, text=True, check=False
     )
     assert completed.returncode == 0, completed.stderr
+
+
+@pytest.mark.parametrize(
+    ("aggregation", "expected"),
+    [
+        ("argMax", "argMax(`fare`, `pickup_datetime`)"),
+        ("argMin", "argMin(`fare`, `pickup_datetime`)"),
+        ("percentile", "quantile(0.95)(`fare`)"),
+    ],
+)
+def test_analytical_aggregates_resolve_physical_columns(aggregation: str, expected: str) -> None:
+    from hypequery.datasets import arg_max, arg_min, percentile
+
+    definitions = {
+        "argMax": arg_max("fare", "pickup"),
+        "argMin": arg_min("fare", "pickup"),
+        "percentile": percentile("fare", 0.95),
+    }
+    trips = _trips(measures={"result": measure(definitions[aggregation])})
+    compiled = plan_dataset_query(trips, DatasetQuery(measures=("result",)))
+    assert expected in compiled.sql
+    assert compiled.parameters == {}
+
+
+def test_like_filter_binds_pattern_as_data() -> None:
+    pattern = "x%' OR 1=1 --"
+    compiled = plan_dataset_query(
+        _trips(), DatasetQuery(measures=("trips",), filters=(like("vendor", pattern),))
+    )
+    assert "`vendor` LIKE {p0:String}" in compiled.sql
+    assert pattern not in compiled.sql
+    assert compiled.parameters["p0"].value == pattern
+    assert compiled.parameters["p0"].clickhouse_type == "String"
+
+
+def test_sql_backed_measure_refuses_relationship_join() -> None:
+    trips, customers = _related()
+    trips = _trips(
+        measures={"revenue": measure(sum_("fare"), sql="fare * 1.5")},
+        relationships=trips.relationships,
+    )
+    with pytest.raises(CompiledQueryError, match="SQL-backed measure"):
+        plan_dataset_query(
+            trips,
+            DatasetQuery(measures=("revenue",), dimensions=("customer.country",)),
+            registry=create_dataset_registry(trips, customers),
+        )
+
+
+def test_runtime_tenant_scope_does_not_block_filters_on_unscoped_dataset() -> None:
+    result = plan_dataset_query(
+        _trips(tenant_key=None),
+        DatasetQuery(measures=("trips",), filters=(eq("vendor", "a"),)),
+        context=ExecutionContext(tenant=tenant("t1")),
+    )
+    assert "`vendor` = {p0:String}" in result.sql
+    assert result.parameters["p0"].value == "a"

@@ -38,6 +38,7 @@ Issues = "https://github.com/hypequery/hypequery/issues"
 
 [dependency-groups]
 dev = [
+  "coverage>=7.10",
   "hypothesis>=6.100",
   "pytest>=8.0",
   "mypy>=1.11",
@@ -79,6 +80,17 @@ files = ["src", "tests", "scripts"]
 warn_unreachable = true
 # Public signatures must not leak Any; see the PR rules in the plan.
 disallow_any_generics = true
+
+[tool.coverage.run]
+branch = true
+source = ["hypequery.datasets"]
+patch = ["subprocess"]
+parallel = true
+
+[tool.coverage.report]
+precision = 2
+show_missing = true
+fail_under = 95
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

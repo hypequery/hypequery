@@ -192,3 +192,74 @@ def test_writer_does_not_replace_directory_created_during_publish(
         write_dataset_bundle(destination, registry, endpoints={"orders": _endpoint()})
     assert destination.is_dir()
     assert list(destination.iterdir()) == []
+
+
+def test_contract_preserves_analytical_measures_sql_metadata_and_limits() -> None:
+    from hypequery.datasets import arg_max, arg_min, percentile
+    from hypequery.datasets.dataset import DatasetLimits, FilterDefinition
+
+    dataset = Dataset(
+        name="events",
+        source="events",
+        time_key="time",
+        dimensions={
+            "time": dimension("timestamp", sql="event_at", dependencies=("event_at",)),
+            "amount": dimension("number", sql="net + tax", dependencies=("tax", "net")),
+            "active": dimension("boolean", sql="enabled", dependencies=("enabled",)),
+            "label": dimension(
+                "string", sql="name", dependencies=("name",), label="Label", description="Name"
+            ),
+        },
+        measures={
+            "latest": measure(arg_max("amount", "time")),
+            "earliest": measure(arg_min("amount", "time")),
+            "p95": measure(percentile("amount", 0.95)),
+            "sql": measure(
+                sum("amount"),
+                sql="net + tax",
+                dependencies=("tax", "net"),
+                label="Gross",
+                description="Total gross",
+            ),
+            "untyped": measure(sum("raw"), sql="raw", dependencies=("raw",)),
+        },
+        filters={"active": FilterDefinition(field="active", label="Active", description="Status")},
+        limits=DatasetLimits(max_dimensions=3, max_measures=5, max_filters=2, max_result_size=100),
+    )
+    contract = build_protocol_dataset_contract(dataset)
+    assert contract["timeField"] == "time"
+    assert contract["limits"] == {
+        "maxDimensions": 3,
+        "maxMeasures": 5,
+        "maxFilters": 2,
+        "maxResultSize": 100,
+    }
+    dimensions = {
+        item["name"]: item for item in cast(list[dict[str, object]], contract["dimensions"])
+    }
+    measures = {item["name"]: item for item in cast(list[dict[str, object]], contract["measures"])}
+    assert dimensions["label"]["label"] == "Label"
+    assert dimensions["label"]["description"] == "Name"
+    for name, kind in [
+        ("time", "string"),
+        ("amount", "number"),
+        ("active", "boolean"),
+        ("label", "string"),
+    ]:
+        assert cast(dict[str, object], dimensions[name]["source"])["output"] == {"kind": kind}
+    assert measures["latest"]["argField"] == "time"
+    assert measures["earliest"]["argField"] == "time"
+    assert measures["p95"]["level"] == 0.95
+    assert measures["sql"]["label"] == "Gross"
+    assert measures["sql"]["description"] == "Total gross"
+    assert cast(dict[str, object], measures["sql"]["sql"])["dependencies"] == ["net", "tax"]
+    assert cast(dict[str, object], measures["untyped"]["sql"])["output"] == {"kind": "any"}
+    assert cast(list[dict[str, object]], contract["filters"])[0]["description"] == "Status"
+
+
+def test_deployment_rejects_endpoints_for_unregistered_datasets() -> None:
+    customers, orders = _model()
+    with pytest.raises(ValueError, match="unregistered dataset: missing"):
+        build_protocol_deployment_contract(
+            create_dataset_registry(customers, orders), endpoints={"missing": _endpoint()}
+        )
