@@ -4,6 +4,7 @@ import type {
   ExprNode,
   FilterOperator,
   JoinType,
+  JoinKeyNode,
   OrderDirection,
   SelectQueryNode,
   SourceNode,
@@ -46,6 +47,7 @@ export type LegacyQueryConfig<T> = {
     table: string;
     leftColumn: string;
     rightColumn: string;
+    additionalKeys?: JoinKeyNode[];
     alias?: string;
     on?: ExprNode;
   }>;
@@ -214,6 +216,7 @@ export function toLegacyQueryConfig<T, Schema>(
       table: join.table,
       leftColumn: join.leftColumn,
       rightColumn: join.rightColumn,
+      ...(join.additionalKeys ? { additionalKeys: join.additionalKeys.map(key => ({ ...key })) } : {}),
       alias: join.alias,
       on: join.on,
     })),
