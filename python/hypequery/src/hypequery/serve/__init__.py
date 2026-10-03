@@ -32,7 +32,9 @@ from .auth import (
 )
 from .body_policy import DEFAULT_MAX_BODY_BYTES
 from .discovery import add_discovery_endpoint
+from .endpoints import DiagnosticAccess, add_dataset_endpoint, add_metric_endpoint
 from .errors import ServeError, ServeErrorType
+from .events import QueryEvents
 from .policy import EndpointPolicy
 from .rate_limit import MemoryRateLimitStore, RateLimit, RateLimitKey, RateLimitStore
 from .request_ids import MAX_CORRELATION_ID_BYTES, request_id, validate_correlation_id
@@ -48,11 +50,13 @@ __all__ = [
     "Credential",
     "CredentialKind",
     "CredentialTransport",
+    "DiagnosticAccess",
     "EndpointPolicy",
     "HttpSecurity",
     "InvalidCredential",
     "MemoryRateLimitStore",
     "Principal",
+    "QueryEvents",
     "RateLimit",
     "RateLimitKey",
     "RateLimitStore",
@@ -61,7 +65,9 @@ __all__ = [
     "ServeErrorType",
     "ServeRouter",
     "TenantResolver",
+    "add_dataset_endpoint",
     "add_discovery_endpoint",
+    "add_metric_endpoint",
     "api_key",
     "bearer_token",
     "create_app",

@@ -585,6 +585,21 @@ PYC-01 are merged.
     body is `HTTPException` detail until PYD-04's canonical envelope.
 
 ### PYD-02 — Dataset and metric endpoints
+- **Status (2026-10-03):** Implemented in this working tree.
+  - `add_dataset_endpoint` and `add_metric_endpoint` serve sync/async clients
+    under `EndpointPolicy` (roles, scopes, tenant and page-size policy).
+  - Strict camelCase wire requests carry no execution policy. Pagination
+    over-fetches one row, keys the fetched row set correctly in the cache, and
+    reports accurate `hasMore`. HTTP measure values are strings as in
+    TypeScript; local Python client result values are unchanged.
+  - Public metadata has a closed response model. Separate redacted SQL
+    diagnostics require host authorization and successful audit. TypeScript
+    parity is provided by the next PR in the stack.
+  - Disconnection and handler cancellation reach executor cancellation signals;
+    optional `QueryEvents` emits validated metadata-only RFC 0011 records.
+  - Metric endpoints fix one dataset measure and optionally alias its output
+    and ordering. Formula metrics/portable metric definitions are not added;
+    the existing dataset-only bundle/planner scope remains unchanged.
 - **Dependencies:** PYD-01, PYB-09, PYC-05.
 - **Scope:** Query/metric endpoints with strict request models (PYB-04),
   pagination, and the RFC 0009 metadata split: public operational metadata

@@ -64,17 +64,37 @@ class _DatasetClientBase:
         self._cache = cache
 
     def _plan(
-        self, target: DatasetTarget, query: QueryInput, context: ExecutionContext | None
+        self,
+        target: DatasetTarget,
+        query: QueryInput,
+        context: ExecutionContext | None,
+        *,
+        paginate: bool = False,
     ) -> _Planned:
         dataset = resolve_dataset(target, self._registry)
         semantic = coerce_query(query)
+        if paginate and semantic.limit is None:
+            cap = dataset.limits.max_result_size if dataset.limits else None
+            semantic = semantic.model_copy(
+                update={"limit": min(cap if cap is not None else 1000, 1000)}
+            )
         compiled = plan_dataset_query(
-            dataset, semantic, registry=self._registry, context=context, settings=self._settings
+            dataset,
+            semantic,
+            registry=self._registry,
+            context=context,
+            settings=self._settings,
+            overfetch=paginate,
         )
         return _Planned(dataset, semantic, compiled)
 
     def _cache_key(
-        self, planned: _Planned, context: ExecutionContext | None, use_cache: bool
+        self,
+        planned: _Planned,
+        context: ExecutionContext | None,
+        use_cache: bool,
+        *,
+        paginate: bool = False,
     ) -> tuple[str | None, CacheStatus]:
         # Planning ran first, so a request that fails admission, tenant
         # resolution, or validation never reaches the cache.
@@ -82,7 +102,10 @@ class _DatasetClientBase:
             return None, "off"
         if not use_cache:
             return None, "bypass"
-        key = self._cache.key_for(planned.dataset, planned.query, context, self._registry)
+        cache_query = planned.query
+        if paginate and cache_query.limit is not None:
+            cache_query = cache_query.model_copy(update={"limit": cache_query.limit + 1})
+        key = self._cache.key_for(planned.dataset, cache_query, context, self._registry)
         return key, ("miss" if key is not None else "bypass")
 
     def _cached(self, key: str | None) -> CachedRows | None:
@@ -245,20 +268,33 @@ class DatasetClient(_DatasetClientBase):
         *,
         context: ExecutionContext | None = None,
         use_cache: bool = True,
+        paginate: bool = False,
     ) -> DatasetQueryResult:
         """Plan and run *query* over *target*, from the cache when possible."""
 
-        planned = self._plan(target, query, context)
+        planned = self._plan(target, query, context, paginate=paginate)
         started = time.perf_counter()
-        key, status = self._cache_key(planned, context, use_cache)
+        key, status = self._cache_key(planned, context, use_cache, paginate=paginate)
         hit = self._cached(key)
         if hit is not None:
             elapsed = (time.perf_counter() - started) * 1000
-            return build_result(hit, planned.compiled.query_id, elapsed, "hit")
+            return build_result(
+                hit,
+                planned.compiled.query_id,
+                elapsed,
+                "hit",
+                query=planned.query if paginate else None,
+            )
         rows = self._executor.execute(planned.compiled)
         self._remember(key, rows)
         elapsed = (time.perf_counter() - started) * 1000
-        return build_result(rows, planned.compiled.query_id, elapsed, status)
+        return build_result(
+            rows,
+            planned.compiled.query_id,
+            elapsed,
+            status,
+            query=planned.query if paginate else None,
+        )
 
 
 class AsyncDatasetClient(_DatasetClientBase):
@@ -292,20 +328,33 @@ class AsyncDatasetClient(_DatasetClientBase):
         *,
         context: ExecutionContext | None = None,
         use_cache: bool = True,
+        paginate: bool = False,
     ) -> DatasetQueryResult:
         """Plan and run *query* over *target*, from the cache when possible."""
 
-        planned = self._plan(target, query, context)
+        planned = self._plan(target, query, context, paginate=paginate)
         started = time.perf_counter()
-        key, status = self._cache_key(planned, context, use_cache)
+        key, status = self._cache_key(planned, context, use_cache, paginate=paginate)
         hit = self._cached(key)
         if hit is not None:
             elapsed = (time.perf_counter() - started) * 1000
-            return build_result(hit, planned.compiled.query_id, elapsed, "hit")
+            return build_result(
+                hit,
+                planned.compiled.query_id,
+                elapsed,
+                "hit",
+                query=planned.query if paginate else None,
+            )
         rows = await self._executor.execute(planned.compiled)
         self._remember(key, rows)
         elapsed = (time.perf_counter() - started) * 1000
-        return build_result(rows, planned.compiled.query_id, elapsed, status)
+        return build_result(
+            rows,
+            planned.compiled.query_id,
+            elapsed,
+            status,
+            query=planned.query if paginate else None,
+        )
 
 
 def create_dataset_client(
