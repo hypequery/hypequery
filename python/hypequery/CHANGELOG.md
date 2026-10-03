@@ -12,3 +12,5 @@
   validated, metadata-only RFC 0011 success and failure events.
 - Add bounded logical discovery and an application factory with docs and OpenAPI
   disabled by default. Development documentation requires explicit opt-in.
+- Run shared semantic HTTP fixtures in Python and TypeScript CI, including the
+  FastAPI floor. ASGI production configuration remains PYD-06 work.
