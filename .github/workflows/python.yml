@@ -6,12 +6,16 @@ on:
     paths:
       - 'python/**'
       - 'specs/security-protocol/**'
+      - 'specs/datasets/**'
+      - 'packages/datasets/src/execution-capabilities.json'
       - 'specs/serve-http/**'
       - '.github/workflows/python.yml'
   pull_request:
     paths:
       - 'python/**'
       - 'specs/security-protocol/**'
+      - 'specs/datasets/**'
+      - 'packages/datasets/src/execution-capabilities.json'
       - 'specs/serve-http/**'
       - '.github/workflows/python.yml'
 
