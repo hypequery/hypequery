@@ -121,12 +121,15 @@ export type { CloudPublishingOptions } from './cloud-publishing.js';
 // Portable native execution of a semantic invocation (decision 0005).
 export {
   createPortableSemanticExecutor,
+  createPortableSemanticRuntime,
   PortableExecutionBudgetError,
   PortableExecutionTenantError,
   PortableExecutionUnsupportedError,
 } from './portable-executor.js';
 export type {
   PortableSemanticBudget,
+  PortableSemanticRuntime,
+  PortableDatasetCompilation,
   PortableSemanticExecutionInput,
   PortableSemanticExecutorOptions,
 } from './portable-executor.js';
@@ -314,3 +317,10 @@ export type {
   KnownStringKeys,
 } from './types.js';
 export { ProtocolSchemaAdapterError, zodToProtocolSchema } from './protocol-schema-adapter.js';
+
+// Shared dataset compilation and structural diagnostics.
+export type {
+  DatasetCompilation, DatasetCompiledStatement, DatasetCompilationDescription,
+} from './dataset-compilation.js';
+export { DATASET_EXECUTION_CAPABILITIES } from './execution-capabilities.js';
+export type { DatasetFeature, DatasetFeatureSupport, DatasetExecutionCapabilities } from './execution-capabilities.js';

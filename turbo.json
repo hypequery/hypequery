@@ -20,6 +20,7 @@
         "tsconfig*.json",
         "src/**/*.tsx",
         "src/**/*.ts",
+        "src/**/*.json",
         "src/**/*.d.ts",
         "test/**/*.ts",
         "test/**/*.tsx",
@@ -27,6 +28,7 @@
         "type-tests/**/*.tsx",
         "type-tests/**/*.d.ts",
         "$TURBO_ROOT$/specs/security-protocol/**",
+        "$TURBO_ROOT$/specs/datasets/**",
         "$TURBO_ROOT$/specs/serve-http/**",
         "$TURBO_ROOT$/specs/semantic-catalog/**"
       ]
