@@ -33,6 +33,7 @@ function currentClickHouseConfig() {
 }
 
 const cliOptions = {
+  includeUnitTests: false,
   keepContainer: process.env.KEEP_CLICKHOUSE_CONTAINER === 'true',
   reuseContainer: process.env.REUSE_CLICKHOUSE_CONTAINER === 'true',
   skipSeed: process.env.SKIP_CLICKHOUSE_SEED === 'true',
@@ -53,6 +54,9 @@ for (const arg of process.argv.slice(2)) {
   }
 
   switch (arg) {
+    case '--include-unit-tests':
+      cliOptions.includeUnitTests = true;
+      break;
     case '--keep-container':
       cliOptions.keepContainer = true;
       break;
@@ -69,8 +73,13 @@ for (const arg of process.argv.slice(2)) {
 }
 
 async function runVitest() {
-  logIntegrationMessage('Running datasets integration suite...');
-  const args = ['vitest', 'run', '--config=vitest.integration.config.ts', ...vitestArgs];
+  logIntegrationMessage(cliOptions.includeUnitTests
+    ? 'Running datasets unit and integration coverage suite...'
+    : 'Running datasets integration suite...');
+  const config = cliOptions.includeUnitTests
+    ? 'vitest.coverage.config.ts'
+    : 'vitest.integration.config.ts';
+  const args = ['vitest', 'run', `--config=${config}`, ...vitestArgs];
 
   return new Promise((resolve, reject) => {
     const child = spawn('npx', args, {
