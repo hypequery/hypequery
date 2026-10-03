@@ -10,7 +10,6 @@ import {
   type QueryBuilderLike,
   type QueryBuilderFactoryLike,
 } from '@hypequery/datasets';
-import { MetricQueryEngine } from '@hypequery/datasets/internal';
 import type { ServeRequest } from '../../types.js';
 import type { ServeQueryEvent } from '../../query-logger.js';
 
@@ -922,7 +921,7 @@ describe("Serve integration — metrics", () => {
       );
 
       expect(semanticBody(response).meta).toBeDefined();
-      expect(semanticBody(response).meta.sql).toBeDefined();
+      expect(semanticBody(response).meta.sql).toBeUndefined();
     });
 
     it("includes meta via the includeMeta input field and reports rowCount", async () => {
@@ -940,14 +939,13 @@ describe("Serve integration — metrics", () => {
       );
 
       expect(semanticBody(response).meta).toBeDefined();
-      expect(semanticBody(response).meta.sql).toBeDefined();
+      expect(semanticBody(response).meta.sql).toBeUndefined();
       // Mock returns 2 rows.
       expect(semanticBody(response).meta.rowCount).toBe(2);
     });
 
-    it("matches MetricQueryEngine.toSQL() for base metrics", async () => {
+    it("keeps base metric SQL out of public metadata", async () => {
       const factory = createMockBuilderFactory();
-      const engine = new MetricQueryEngine({ builderFactory: factory });
       const api = createAPI({
         metrics: { totalRevenue },
         queryBuilder: factory,
@@ -972,15 +970,12 @@ describe("Serve integration — metrics", () => {
       );
 
       expect(response.status).toBe(200);
-      // run() over-fetches one row (LIMIT + 1) to derive pagination.hasMore.
-      expect(semanticBody(response).meta.sql).toBe(
-        engine.toSQL(totalRevenue, { ...query, limit: query.limit + 1 }),
-      );
+      expect(semanticBody(response).meta.sql).toBeUndefined();
+      expect(semanticBody(response).meta.pagination?.limit).toBe(query.limit);
     });
 
-    it("matches MetricQueryEngine.toSQL() for derived metrics", async () => {
+    it("keeps derived metric SQL out of public metadata", async () => {
       const factory = createMockBuilderFactory();
-      const engine = new MetricQueryEngine({ builderFactory: factory });
       const api = createAPI({
         metrics: { avgOrderValue },
         queryBuilder: factory,
@@ -1002,11 +997,8 @@ describe("Serve integration — metrics", () => {
       );
 
       expect(response.status).toBe(200);
-      // No limit was sent, so the endpoint applies the default cap (1000) and
-      // over-fetches one row (1001) to derive pagination.hasMore.
-      expect(semanticBody(response).meta.sql).toBe(
-        engine.toSQL(avgOrderValue, { ...query, limit: 1001 }),
-      );
+      expect(semanticBody(response).meta.sql).toBeUndefined();
+      expect(semanticBody(response).meta.pagination?.limit).toBe(1000);
     });
   });
 
@@ -1965,7 +1957,7 @@ describe("Serve integration — metrics", () => {
 
       expect(response.status).toBe(200);
       expect(semanticBody(response).meta).toBeDefined();
-      expect(semanticBody(response).meta.sql).toBeDefined();
+      expect(semanticBody(response).meta.sql).toBeUndefined();
       expect(semanticBody(response).meta.rowCount).toBe(1);
     });
 
@@ -1992,7 +1984,7 @@ describe("Serve integration — metrics", () => {
 
       expect(response.status).toBe(200);
       expect(semanticBody(response).meta).toBeDefined();
-      expect(semanticBody(response).meta.sql).toBeDefined();
+      expect(semanticBody(response).meta.sql).toBeUndefined();
       expect(semanticBody(response).meta.rowCount).toBe(1);
     });
 
@@ -2195,7 +2187,7 @@ describe("Serve integration — metrics", () => {
       };
       expect(body.version).toBe(3);
       expect(body.contentHash).toMatch(/^[a-f0-9]{64}$/);
-      expect(body.datasets.orders.source).toBe("orders");
+      expect(body.datasets.orders).not.toHaveProperty("source");
       expect(Object.keys(body.datasets.orders.dimensions)).toContain("country");
     });
 

@@ -1,8 +1,9 @@
+import { publicSemanticContract } from "./utils/public-contract.js";
 /**
  * Serve integration for the semantic contract: assembles the contract source
  * from registered datasets/metrics and exposes it as a cached GET endpoint.
  *
- * The contract is a stable, hashed JSON projection of the semantic layer
+ * The public contract is an allowlisted logical projection of the semantic layer
  * (dimensions, measures, metrics, filters, relationships, tenant/time policy).
  * It is the shared source consumed by snapshots, CI validation, docs, and
  * codegen. The serialized document is cached after the first request since the
@@ -52,7 +53,7 @@ export function createSemanticContractEndpoint(
       if (!cached) {
         cached = getContract();
       }
-      return cached;
+      return publicSemanticContract(cached);
     },
     query: undefined,
     middlewares: [],

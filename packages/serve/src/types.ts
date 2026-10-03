@@ -1,3 +1,5 @@
+import type { SemanticDiagnosticAccess } from "./semantic/datasets/utils/public-query-metadata.js";
+export type { SemanticDiagnosticAccess } from "./semantic/datasets/utils/public-query-metadata.js";
 import type { ZodType, ZodTypeAny } from "zod";
 import type { ServeQueryLogger, ServeQueryEventCallback } from "./query-logger.js";
 import type { CacheObservability } from "./cache-observability.js";
@@ -636,6 +638,7 @@ export type MetricEntry<TAuth extends AuthContext = AuthContext> =
        * rejected). Defaults to the dataset's `limits.maxResultSize`, else 1000.
        */
       maxLimit?: number;
+      diagnostics?: SemanticDiagnosticAccess<TAuth>;
     };
 
 /** Map of metric names to entries. */
@@ -876,7 +879,11 @@ export interface ServeConfig<
    * // POST /api/data/orders/query
    * ```
    */
+  /** Logical discovery is authenticated by default. Explicitly opt into public access. */
+  discovery?: { requiresAuth?: boolean; requiredRoles?: string[]; requiredScopes?: string[] };
   semanticPaths?: {
+    /** Public logical discovery; excludes physical execution fields. */
+    discovery?: string;
     metrics?: string;
     datasets?: string;
     /** Path for the GET semantic-contract endpoint. Defaults to `/contract`. */

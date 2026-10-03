@@ -107,7 +107,7 @@ Semantic endpoints return `{ data }` by default. Include metadata with either `i
 ```
 </CodeBlock>
 
-Metadata can include generated SQL, timing, row count, tenant, and pagination.
+Public metadata contains timing, row count, cache state, and pagination. SQL and tenant details require a server-configured `diagnostics` authorization and audit callback, and appear separately under `diagnostics`. Requesting metadata alone never grants diagnostic access.
 
 ## Query definitions plus datasets
 
@@ -164,3 +164,39 @@ export const api = serve({
 </CodeBlock>
 
 For routing, auth, OpenAPI, and React hooks, see the [Serve docs](/docs/http-openapi) and [React docs](/docs/react/getting-started).
+
+## Discovery and trusted diagnostics
+
+`GET /discovery` returns a bounded logical catalog and requires authentication by
+default. Set `discovery: { requiresAuth: false }` only when that catalog is intended
+to be public. Customize its path with `semanticPaths.discovery`.
+
+The legacy `GET /contract` endpoint retains its version and opaque definition
+`contentHash`, but now omits physical sources, columns, SQL, join keys, and tenant
+policy. Use `serializeSemanticContract` locally for trusted snapshots and codegen
+that need physical definitions.
+
+Dataset and metric entries accept a `diagnostics` option:
+
+<CodeBlock>
+```typescript
+const diagnostics = {
+  authorize: (auth: { scopes?: string[] }) =>
+    auth.scopes?.includes('analytics:diagnostics') === true,
+  audit: async (auth: { userId?: string }) => {
+    await recordDiagnosticAccess(auth.userId);
+  },
+};
+
+export const api = serve({
+  auth: bearerStrategy,
+  queryBuilder: db,
+  datasets: { orders: { dataset: Orders, diagnostics } },
+});
+```
+</CodeBlock>
+
+`recordDiagnosticAccess` and `bearerStrategy` are host application functions.
+An authorized request that opts into metadata receives `{ data, meta, diagnostics }`.
+If authorization denies access, it receives public metadata only. An audit failure
+prevents diagnostic disclosure.
