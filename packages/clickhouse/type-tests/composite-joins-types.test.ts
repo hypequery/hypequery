@@ -4,17 +4,17 @@ import type { JoinKeyPairs } from '../src/index.js';
 import type { Equal, Expect } from '@type-challenges/utils';
 
 const builder = setupTestBuilder();
-type State = typeof builder extends QueryBuilder<any, infer S> ? S : never;
+type State = typeof builder extends QueryBuilder<TestSchema, infer S> ? S : never;
 const keys = [['created_by', 'users.id'], ['name', 'users.user_name']] as const satisfies JoinKeyPairs<State, 'users'>;
 
 const joined = builder.innerJoin('users', keys, 'u').select(['id', 'u.email']);
 type _Joined = Expect<Equal<Awaited<ReturnType<typeof joined.execute>>, { id: number; email: string }[]>>;
 const left = builder.leftJoin('users', keys, 'u', { column: 'u.is_active', operator: 'eq', value: true });
-const any = builder.leftAnyJoin('users', keys, 'u');
+const anyJoin = builder.leftAnyJoin('users', keys, 'u');
 const right = builder.rightJoin('users', keys, 'u');
 const full = builder.fullJoin('users', keys, 'u');
 left.select(['u.email']);
-any.select(['u.email']);
+anyJoin.select(['u.email']);
 right.select(['u.email']);
 full.select(['u.email']);
 
@@ -71,3 +71,43 @@ builder.leftJoin('users', 'created_by', 'users.id', 'u', { column: 'u.email', op
 builder.leftAnyJoin('users', 'created_by', 'users.id', 'u', [{ column: 'u.email', operator: 'eq', value: 'x' }]);
 builder.rightJoin('users', 'created_by', 'users.id', 'u').select(['u.email']);
 builder.fullJoin('users', 'created_by', 'users.id', 'u').select(['u.email']);
+
+// The ticket's complete three-component key, without any casts.
+type EntitySchema = {
+  entities: { tenant_id: 'UInt32'; entity_id: 'UInt32'; sub_id: 'UInt32' };
+};
+const entitiesDb = createQueryBuilder<EntitySchema>({ adapter: builder.getAdapter(), dialect: builder.getDialect() });
+const entityQuery = entitiesDb.table('entities').withCTE('children_cte', 'SELECT tenant_id, entity_id, parent_sub_id, document FROM children', {
+  tenant_id: 'UInt32', entity_id: 'UInt32', parent_sub_id: 'UInt32', document: 'String',
+}).leftAnyJoin('children_cte', [
+  ['tenant_id', 'children_cte.tenant_id'],
+  ['entity_id', 'children_cte.entity_id'],
+  ['sub_id', 'children_cte.parent_sub_id'],
+]).select(['tenant_id', 'entity_id', 'sub_id', 'children_cte.document']);
+type _EntityResult = Expect<Equal<Awaited<ReturnType<typeof entityQuery.execute>>, {
+  tenant_id: number; entity_id: number; sub_id: number; document: string;
+}[]>>;
+
+// All methods preserve the selected result shape through their alias transition.
+const leftResult = left.select(['id', 'u.email']);
+const anyResult = anyJoin.select(['id', 'u.email']);
+const rightResult = right.select(['id', 'u.email']);
+const fullResult = full.select(['id', 'u.email']);
+type _Left = Expect<Equal<Awaited<ReturnType<typeof leftResult.execute>>, { id: number; email: string }[]>>;
+type _Any = Expect<Equal<Awaited<ReturnType<typeof anyResult.execute>>, { id: number; email: string }[]>>;
+type _Right = Expect<Equal<Awaited<ReturnType<typeof rightResult.execute>>, { id: number; email: string }[]>>;
+type _Full = Expect<Equal<Awaited<ReturnType<typeof fullResult.execute>>, { id: number; email: string }[]>>;
+
+// @ts-expect-error third left component must belong to the base row
+builder.fullJoin('users', [['id', 'users.id'], ['name', 'users.user_name'], ['missing', 'users.created_at']]);
+// @ts-expect-error left column from a joined table is outside the existing base-row contract
+joined.leftAnyJoin('users', [['u.id', 'users.id']]);
+// @ts-expect-error right input is still checked for a builder-derived CTE
+builder.withCTE('people', setupUsersBuilder().select(['id'])).leftJoin('people', [['id', 'people.email']]);
+// @ts-expect-error widened arrays do not establish a non-empty, checked tuple list
+builder.innerJoin('users', [['id', 'users.id']] as string[][]);
+// @ts-expect-error literal ON conditions remain available only on LEFT / LEFT ANY
+builder.rightJoin('users', keys, 'u', { column: 'u.email', operator: 'eq', value: 'x' });
+
+// Also compile the live examples: their query calls must not depend on ts-nocheck.
+type _LiveCompositeJoinExamples = typeof import('../src/core/tests/integration/composite-joins.test.js');

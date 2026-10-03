@@ -1,6 +1,6 @@
 # Composite join keys
 
-Status: implemented locally; live ClickHouse integration verification pending. Package: `@hypequery/clickhouse` (currently 2.12.1).
+Status: implemented and verified against live ClickHouse. Package: `@hypequery/clickhouse` (currently 2.12.1).
 
 ## Review and recommendation
 
@@ -83,3 +83,13 @@ Implemented the pair-array overloads for all five explicit join methods, additiv
 - `pnpm test`: passed across all nine packages (18 build/test tasks); ClickHouse has 735 passing unit tests plus its compiler type tests.
 - `pnpm --filter @hypequery/clickhouse lint`: passed.
 - `pnpm test:integration -- complex-joins.test.ts`: could not execute because Docker is not running. The new live cases remain unverified.
+
+## Coverage audit and live verification
+
+Moved composite integration cases into a dedicated typed `composite-joins.test.ts` suite and made the compiler type tests check that suite. Added schema-table joins across all five methods, aliases, literal ON filtering and unmatched row preservation. Strengthened unit coverage for aliases on every method, left-source qualification, query transforms, and malformed sparse arrays. Added the exact three-component typed CTE example and result-shape assertions for every join method.
+
+- `pnpm --filter @hypequery/clickhouse test:types`: passed, including compilation of the live integration examples without casts or `ts-nocheck`.
+- `pnpm --filter @hypequery/clickhouse test:unit`: 740 tests passed.
+- `pnpm --filter @hypequery/clickhouse lint`: passed.
+- `pnpm test:integration`: 91 tests passed across 14 files against the Docker ClickHouse server, including nine composite join cases.
+- Re-ran the dedicated composite suite after correcting the compiler-checked test matrix: all nine cases passed.
