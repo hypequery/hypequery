@@ -1,3 +1,4 @@
+import { createDiscoveryEndpoint } from "../semantic/datasets/discovery-endpoint.js";
 import type {
   AuthContext,
   AuthStrategy,
@@ -290,6 +291,11 @@ export const createAPI = <
       () => serializeSemanticContract(contractSource, { includeSql: false }),
     );
     router.register(contractEndpoint);
+    router.register(createDiscoveryEndpoint(
+      normalizeRoutePath(config.semanticPaths?.discovery ?? "/discovery"),
+      () => serializeSemanticContract(contractSource, { includeSql: false }),
+      config.discovery,
+    ));
   }
 
   const corsConfig = resolveCorsConfig(config.cors);
