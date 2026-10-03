@@ -108,7 +108,7 @@ jobs:
           cache-dependency-glob: python/hypequery/uv.lock
       - run: uv sync --all-extras --dev
       - run: uv pip install "fastapi==0.115.0" "starlette<0.39"
-      - run: uv run --no-sync pytest tests/test_serve_router.py tests/test_serve_security.py tests/test_serve_errors.py tests/test_serve_http_fixtures.py tests/test_serve_discovery.py tests/test_serve_endpoints.py
+      - run: uv run --no-sync pytest tests/test_serve_router.py tests/test_serve_security.py tests/test_serve_errors.py tests/test_serve_http_fixtures.py tests/test_serve_discovery.py tests/test_serve_endpoints.py tests/test_serve_semantic_fixtures.py
 
   build:
     # Acceptance criterion: published archives carry no local paths, secrets,
@@ -143,7 +143,8 @@ jobs:
           cache-dependency-glob: python/hypequery/uv.lock
       - run: pnpm install --frozen-lockfile
       - run: uv sync --project python/hypequery --dev
-      - run: pnpm --filter @hypequery/protocol build
-      - run: pnpm --filter @hypequery/protocol-conformance build
+      - run: pnpm --filter @hypequery/serve... build
       - name: Run Python against the expected shared fixture families
         run: pnpm conformance:python
+      - name: Run shared HTTP error and semantic fixtures in both languages
+        run: pnpm conformance:serve

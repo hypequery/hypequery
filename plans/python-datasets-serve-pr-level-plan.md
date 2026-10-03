@@ -58,21 +58,18 @@ Consequence: the original PY-PROBE-01 (3–5 day probe) is no longer a
 stop-and-decide gate. It becomes the first two conformance PRs of a continuing
 train.
 
-## Progress (assessed 28 September 2026)
+## Progress (assessed 3 October 2026)
 
 | Train | Delivered | Remaining |
 |---|---|---|
-| PY-A | PYA-01…PYA-05 (workspace, CI, JCS/tagged values, identifiers, conformance gate) | PYA-00/PYA-02 are org-account and release work, not code |
-| PY-B | PYB-01…PYB-08; contract 3 and expression extension 2 (RFC 0015); PYB-09 dataset client | Pagination `hasMore` metadata, which needs a planner over-fetch (pick up with PYD-02) |
-| PY-C | PYC-01 executor; PYC-02 cancellation and concurrency budgets; PYC-03 tenant capability and tenant-bound clients; PYC-04 cache keys, preimage, and result cache (`cache-keys-v1` and `cache-preimages-v1` green in both languages) | A shared tenant fixture family (see PYC-03); PYC-05 needs RFC 0011 accepted |
-| PY-D | PYD-01 router core and auth dependency; PYD-03 HTTP security profile; PYD-04 canonical errors and rate limiting | PYD-02 needs PYC-05; PYD-05 and PYD-06 are unblocked |
+| PY-A | PYA-01, PYA-03…PYA-05 | PYA-00 account ownership and PYA-02 release workflow |
+| PY-B | PYB-01…PYB-09; pagination over-fetch now available for served queries | Formula/portable metric authoring remains outside the current dataset-only planner |
+| PY-C | PYC-01…PYC-05; serve now emits validated execution events | Shared tenant fixture family needs a TypeScript capability reference |
+| PY-D | PYD-01…PYD-05; PYD-02 includes measure-backed metric endpoints; PYD-07 shared error and semantic HTTP gates | PYD-06 ASGI production profile; its production-profile cases still need adding to PYD-07 |
 | PY-E | none | all |
 
-RFC 0009 was accepted on 28 September 2026. Next steps:
-- PYD-06 (ASGI production profile), which now has PYC-02, PYD-03 and
-  PYD-04; and PYD-05 (discovery endpoint and docs policy);
-- TSP-04 (server-side binding in `@hypequery/clickhouse`), which is still
-  open.
+Next: PYD-06, then developer experience, examples, docs and release/supply-chain
+work. TSP-04 server-side binding remains a separate TypeScript prerequisite.
 
 ## Non-goals
 
@@ -708,6 +705,17 @@ PYC-01 are merged.
 - **Review:** Security review required.
 
 ### PYD-07 — Cross-implementation HTTP conformance
+- **Status (2026-10-03):** HTTP gate implemented in this working tree;
+  production-profile qualification remains pending PYD-06.
+  - `semantic-v1` joins `errors-v1` under `specs/serve-http`, covering wire
+    rows, measures, pagination, limits, metadata, authentication and
+    role/scope/tenant policy denials, and exact safe discovery output.
+  - `pnpm conformance:serve` runs both shared families in TypeScript and
+    Python, and is included in `pnpm conformance` and Python CI. Python's
+    version matrix and FastAPI-floor job include the new serve tests.
+  - Recording executors exercise the actual planner/client/HTTP stack; they
+    do not qualify live ClickHouse or ASGI process settings. Add production
+    profile cases when PYD-06 lands before marking the complete gate done.
 - **Dependencies:** PYD-02 through PYD-06; TSP-03 for full parity.
 - **Scope:** Language-neutral HTTP fixture suite (requests + expected
   status/headers/body-shape) run against both Node Serve and FastAPI;
