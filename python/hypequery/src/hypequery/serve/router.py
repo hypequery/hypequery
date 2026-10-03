@@ -217,6 +217,12 @@ class ServeRouter(APIRouter):
         self._auth_route_class = route_class
         self._public: set[Callable[..., Any]] = set()
         self._guard = _Guard(authenticate, credentials, resolve_tenant)
+        self._credential_header = credentials.header
+
+    @property
+    def credential_header(self) -> str:
+        """Credential transport, for production startup validation."""
+        return self._credential_header
 
     @property
     def auth(self) -> Callable[[Request], Awaitable[RequestAuth]]:

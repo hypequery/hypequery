@@ -65,10 +65,10 @@ train.
 | PY-A | PYA-01, PYA-03…PYA-05 | PYA-00 account ownership and PYA-02 release workflow |
 | PY-B | PYB-01…PYB-09; pagination over-fetch now available for served queries | Formula/portable metric authoring remains outside the current dataset-only planner |
 | PY-C | PYC-01…PYC-05; serve now emits validated execution events | Shared tenant fixture family needs a TypeScript capability reference |
-| PY-D | PYD-01…PYD-05; PYD-02 includes measure-backed metric endpoints; PYD-07 shared error and semantic HTTP gates | PYD-06 ASGI production profile; its production-profile cases still need adding to PYD-07 |
+| PY-D | PYD-01…PYD-07 implemented; production profile, runtime tests and shared HTTP fixtures under production included | Review and merge the open discovery/endpoints/metadata/HTTP/profile stack |
 | PY-E | none | all |
 
-Next: PYD-06, then developer experience, examples, docs and release/supply-chain
+Next: developer experience, examples, docs and release/supply-chain
 work. TSP-04 server-side binding remains a separate TypeScript prerequisite.
 
 ## Non-goals
@@ -695,6 +695,19 @@ PYC-01 are merged.
   against TypeScript contract endpoint output.
 
 ### PYD-06 — ASGI production profile
+- **Status (2026-10-03):** Implemented in this working tree.
+  - `ProductionProfile` validates bind acknowledgement, no debug/reload/docs,
+    explicit proxy trust and header-only auth (cookie auth remains unsupported).
+  - `run_production` provides a single-worker Uvicorn process with application-
+    owned proxy handling, bounded keep-alive/shutdown, no access log and no WS.
+  - ASGI middleware rejects excess admission with canonical 503, signals executor
+    cancellation on total request timeout, and buffers responses under a byte
+    cap, including cached results. Database settings intersect profile and
+    client ceilings; pagination reserves one row within the result-row budget.
+  - Tests cover sync/async cancellation, startup misuse, capacity recovery,
+    stalled sends, response/cache limits, proxy trust and a real runner process.
+    CI also exercises the production HTTP path against live ClickHouse and the
+    FastAPI/Starlette/Uvicorn floors.
 - **Dependencies:** PYC-02, PYD-03, PYD-04.
 - **Scope:** Documented + tested production profile: Uvicorn settings
   (no debug/reload, proxy trust list), loopback-default dev bind,
@@ -705,17 +718,19 @@ PYC-01 are merged.
 - **Review:** Security review required.
 
 ### PYD-07 — Cross-implementation HTTP conformance
-- **Status (2026-10-03):** HTTP gate implemented in this working tree;
-  production-profile qualification remains pending PYD-06.
+- **Status (2026-10-03):** HTTP gate implemented in this working tree, including
+  all shared cases against Python's embedded and production configurations.
   - `semantic-v1` joins `errors-v1` under `specs/serve-http`, covering wire
     rows, measures, pagination, limits, metadata, authentication and
     role/scope/tenant policy denials, and exact safe discovery output.
   - `pnpm conformance:serve` runs both shared families in TypeScript and
     Python, and is included in `pnpm conformance` and Python CI. Python's
     version matrix and FastAPI-floor job include the new serve tests.
-  - Recording executors exercise the actual planner/client/HTTP stack; they
-    do not qualify live ClickHouse or ASGI process settings. Add production
-    profile cases when PYD-06 lands before marking the complete gate done.
+  - Shared fixtures exercise the actual planner/client/HTTP stack over recording
+    executors. Python-specific process qualification lives in the production
+    tests; live ClickHouse CI exercises its production HTTP dataset path.
+    ASGI configuration is not a shared Node/ASGI contract: TypeScript currently
+    has no equivalent admission profile.
 - **Dependencies:** PYD-02 through PYD-06; TSP-03 for full parity.
 - **Scope:** Language-neutral HTTP fixture suite (requests + expected
   status/headers/body-shape) run against both Node Serve and FastAPI;

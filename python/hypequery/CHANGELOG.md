@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Add a validated ASGI production profile and Uvicorn runner with explicit bind
+  and proxy trust, startup refusals for debug/docs/reload/cookie auth, bounded
+  admission, cancellation-aware deadlines and database/HTTP result ceilings.
+- Qualify shared HTTP fixtures under the production profile, test the real runner
+  and add the production HTTP path to the live ClickHouse matrix.
 - Add authenticated dataset and measure-backed metric HTTP endpoints with role,
   scope, tenant, and page-size policy; support synchronous and asynchronous clients.
 - Add accurate over-fetch pagination without changing ordinary client executions.
@@ -13,4 +18,4 @@
 - Add bounded logical discovery and an application factory with docs and OpenAPI
   disabled by default. Development documentation requires explicit opt-in.
 - Run shared semantic HTTP fixtures in Python and TypeScript CI, including the
-  FastAPI floor. ASGI production configuration remains PYD-06 work.
+  FastAPI and Uvicorn floors.

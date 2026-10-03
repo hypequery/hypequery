@@ -894,7 +894,75 @@ It carries no physical sources, columns, SQL, tenant policy or values.
 `create_app` disables `/docs`, `/redoc`, and `/openapi.json`; use
 `development_docs=True` only for deliberate development documentation. When
 embedding the router in an existing FastAPI app, the host owns that app's docs
-policy. The ASGI process production profile remains separate PYD-06 work.
+policy.
+
+### Production process
+
+Use the validated production profile and runner for a standalone service:
+
+```python
+from hypequery.serve import ProductionProfile, run_production
+
+app = create_app(
+    router,
+    security=HttpSecurity(
+        allowed_hosts=("analytics.example.com",),
+        trusted_proxies=("127.0.0.1",),
+    ),
+    production=ProductionProfile(
+        max_concurrency=32,
+        timeout_seconds=30,
+        max_result_rows=10_001,
+        max_result_bytes=8 << 20,
+    ),
+)
+
+if __name__ == "__main__":
+    run_production(app)
+```
+
+The runner binds to `127.0.0.1:8000` by default. An IP address outside loopback
+requires `allow_external_bind=True`, for example when binding within a container.
+It runs one Uvicorn worker per process, with reload, access logging, server headers
+and WebSockets disabled; keep-alive is five seconds and graceful shutdown allows
+the request timeout plus five seconds. A process manager can run multiple
+instances; concurrency limits apply independently to each instance.
+
+Terminate TLS at a reverse proxy. List its addresses/networks explicitly in
+`HttpSecurity.trusted_proxies`; the default trusts none, and production rejects
+all-address networks. The runner disables Uvicorn's own forwarded-header handling
+so application policy sees the original peer and controls proxy trust once.
+See [Uvicorn settings](https://www.uvicorn.org/settings/) for transport details.
+
+Production rejects debug, reload, development docs and cookie credential
+transports at startup. Authentication uses explicit bearer/API-key headers;
+cookie authentication and its required CSRF/session policy are unsupported.
+The host authenticator must validate those header credentials independently of
+cookies. Hosts embedding the router in another app own equivalent process and
+documentation safeguards.
+
+Excess in-flight requests receive canonical `503 SERVICE_UNAVAILABLE` without
+queuing. The request timeout covers authentication, body reading, query execution,
+response generation and sending; expiry cancels the handler and signals the
+dataset executor. Before response headers are sent it returns canonical
+`504 GATEWAY_TIMEOUT`; a stalled send after headers closes the connection.
+Synchronous executors must honor the cancellation signal; the built-in executor
+does, while Python cannot forcibly stop arbitrary host code running in a thread.
+
+Dataset and metric endpoints also pass time, row, byte and thread ceilings into
+the compiled query, intersecting them with stricter client settings. The row
+budget includes the one-row pagination probe: `max_result_rows=10_001` permits
+at most 10,000 returned rows, further bounded by endpoint/dataset policy.
+The byte ceiling applies both to ClickHouse results and the complete serialized
+HTTP body, including cache hits. Responses are buffered under that ceiling;
+oversized bodies return canonical `413 PAYLOAD_TOO_LARGE` without partial data.
+This profile does not provide streaming exports.
+
+CI tests the real runner, startup refusals, capacity recovery, synchronous and
+asynchronous cancellation, cache/response limits and proxy trust. The same shared
+HTTP fixtures run with and without the production profile, and live ClickHouse
+CI tests the production HTTP query path. The minimum FastAPI/Starlette combination
+and Uvicorn 0.30.0 are tested as well as the locked versions.
 
 Run both implementations' shared HTTP gates after building TypeScript packages:
 

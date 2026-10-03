@@ -80,3 +80,10 @@ def query_settings(**overrides: int) -> QuerySettings:
 
 
 DEFAULT_QUERY_SETTINGS = query_settings()
+
+
+def tighten_query_settings(base: QuerySettings, ceiling: QuerySettings | None) -> QuerySettings:
+    """Intersect trusted policies; a request context cannot raise client limits."""
+    if ceiling is None:
+        return base
+    return query_settings(**{name: min(base[name], ceiling[name]) for name in SETTING_DEFINITIONS})

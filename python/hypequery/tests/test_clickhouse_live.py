@@ -10,6 +10,7 @@ from datetime import UTC, datetime
 from decimal import Decimal
 
 import pytest
+from fastapi.testclient import TestClient
 
 from hypequery.datasets import (
     Dataset,
@@ -30,16 +31,64 @@ from hypequery.execution import (
     create_async_clickhouse_executor,
     create_clickhouse_executor,
 )
+from hypequery.serve import (
+    HttpSecurity,
+    Principal,
+    ProductionProfile,
+    add_dataset_endpoint,
+    create_app,
+    create_router,
+)
 
 
 def _connection() -> ClickHouseConnection:
     return ClickHouseConnection(
         host=os.environ["HYPEQUERY_TEST_CLICKHOUSE_HOST"],
-        port=8123,
+        port=int(os.environ.get("HYPEQUERY_TEST_CLICKHOUSE_PORT", "8123")),
         database="test_db",
         username="default",
         password=os.environ["HYPEQUERY_TEST_CLICKHOUSE_PASSWORD"],
     )
+
+
+@pytest.mark.skipif(
+    "HYPEQUERY_TEST_CLICKHOUSE_HOST" not in os.environ,
+    reason="live ClickHouse service is not configured",
+)
+def test_live_production_http_dataset() -> None:
+    """The bounded HTTP path reaches the actual driver/database in both CI versions."""
+    dataset = Dataset(
+        name="one",
+        source="system.one",
+        dimensions={"dummy": dimension("number")},
+        measures={"rows": measure(count("dummy"))},
+    )
+    executor = create_clickhouse_executor(_connection())
+    router = create_router(authenticate=lambda credential: Principal(subject="reader"))
+    add_dataset_endpoint(
+        router, "/query", dataset=dataset, client=create_dataset_client(executor=executor)
+    )
+    try:
+        app = create_app(
+            router,
+            security=HttpSecurity(allowed_hosts=("testserver",)),
+            production=ProductionProfile(max_result_rows=3, max_result_bytes=1024),
+        )
+        with TestClient(app) as http:
+            response = http.post(
+                "/query",
+                headers={"Authorization": "Bearer test"},
+                json={"measures": ["rows"], "limit": 100, "includeMeta": True},
+            )
+            assert response.status_code == 200, response.text
+            assert response.json()["data"] == [{"rows": "1"}]
+            assert response.json()["meta"]["pagination"] == {
+                "limit": 2,
+                "offset": 0,
+                "hasMore": False,
+            }
+    finally:
+        executor.close()
 
 
 def _query(value: object, kind: str) -> CompiledQuery:

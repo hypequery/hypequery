@@ -12,7 +12,7 @@ from starlette.concurrency import run_in_threadpool
 
 from ..datasets import Dataset
 from ..datasets.client import AsyncDatasetClient, DatasetClient
-from ..datasets.planner import CompiledQueryError, ExecutionContext
+from ..datasets.planner import CompiledQueryError, Deadline, ExecutionContext
 from ..datasets.query_helpers import Order
 from ..datasets.validation import validate_identifier
 from .auth import Principal
@@ -29,6 +29,7 @@ from .models import (
 from .policy import DEFAULT_ENDPOINT_POLICY, EndpointPolicy
 from .request_ids import ensure_request_id
 from .router import ServeRouter, authenticated_context
+from .utils.production_context import production_profile
 from .utils.query_response import public_response
 
 
@@ -76,6 +77,9 @@ class DatasetEndpoint:
         auth = authenticated_context(request)
         self.policy.authorize(auth)
         cap = self.policy.max_limit
+        profile = production_profile(request)
+        if profile is not None:
+            cap = min(cap, profile.max_result_rows - 1)
         if self.dataset.limits and self.dataset.limits.max_result_size is not None:
             cap = min(cap, self.dataset.limits.max_result_size)
         limit = min(payload.limit if payload.limit is not None else cap, cap)
@@ -98,6 +102,8 @@ class DatasetEndpoint:
                 tenant=auth.tenant if auth else None,
                 correlation_id=ensure_request_id(request),
                 cancellation=lifetime.cancellation,
+                deadline=Deadline.after(profile.timeout_seconds) if profile else None,
+                settings=profile.query_settings() if profile else None,
             )
             try:
                 if isinstance(self.client, AsyncDatasetClient):
