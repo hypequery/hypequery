@@ -497,6 +497,7 @@ def plan_dataset_query(
     registry: DatasetRegistry | None = None,
     context: ExecutionContext | None = None,
     settings: QuerySettings = DEFAULT_QUERY_SETTINGS,
+    overfetch: bool = False,
 ) -> CompiledQuery:
     """Compile a semantic query over *dataset* into an executable statement.
 
@@ -552,7 +553,10 @@ def plan_dataset_query(
         + where_clause(plan.predicates)
         + group_by_clause(plan.group_by)
         + order_by_clause(order_by)
-        + pagination_clause(result_limit, query.offset)
+        + pagination_clause(
+            result_limit + 1 if overfetch and result_limit is not None else result_limit,
+            query.offset,
+        )
     )
     return CompiledQuery(
         sql=sql,
