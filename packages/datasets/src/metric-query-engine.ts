@@ -7,9 +7,8 @@ import { assertMetricHandle, getMetricRef, getMetricGrain } from './utils/metric
 import { validateMetricQueryInput } from './utils/metric-query-validation.js';
 import { buildMetricQueryBuilder } from './utils/metric-query-builder.js';
 import { buildDerivedMetricSql } from './utils/metric-derived-query.js';
-import { applyPagination, overfetchLimit } from './utils/pagination.js';
-import { serializeSemanticMeasureValues } from './utils/semantic-result-serialization.js';
-import { getRuntimeTenantId } from './utils/tenant-runtime.js';
+import { overfetchLimit } from './utils/pagination.js';
+import { toMetricQueryResult } from './utils/metric-query-result.js';
 
 export interface MetricQueryEngineOptions {
   /** Query builder factory for executing metrics. */
@@ -17,7 +16,7 @@ export interface MetricQueryEngineOptions {
 }
 
 export class MetricQueryEngine {
-  private builderFactory: QueryBuilderFactoryLike;
+  private readonly builderFactory: QueryBuilderFactoryLike;
 
   constructor(options: MetricQueryEngineOptions) {
     this.builderFactory = toQueryBuilderFactory(options.builderFactory);
@@ -135,37 +134,17 @@ export class MetricQueryEngine {
       const rows = await activeBuilderFactory.rawQuery<T>(sql, params, {
         abortSignal: context?.abortSignal,
       });
-      const timingMs = Date.now() - start;
-      const { data, pagination } = applyPagination(rows, query.limit, query.offset);
-      const serializedData = serializeSemanticMeasureValues(data, [ref.name]);
-      return {
-        data: serializedData,
-        meta: {
-          sql,
-          timingMs,
-          tenant: getRuntimeTenantId(context),
-          rowCount: serializedData.length,
-          pagination,
-        },
-      };
+      return toMetricQueryResult(rows, {
+        metric: ref.name, query, sql, timingMs: Date.now() - start, context,
+      });
     }
 
     // Base metrics: fully use the builder's execute()
     const builder = buildMetricQueryBuilder(ref, spec, ref.dataset, buildQuery, grain, activeBuilderFactory, context);
     const { sql } = builder.toSQLWithParams();
     const rows = await builder.execute<T>({ abortSignal: context?.abortSignal });
-    const timingMs = Date.now() - start;
-    const { data, pagination } = applyPagination(rows, query.limit, query.offset);
-    const serializedData = serializeSemanticMeasureValues(data, [ref.name]);
-    return {
-      data: serializedData,
-      meta: {
-        sql,
-        timingMs,
-        tenant: getRuntimeTenantId(context),
-        rowCount: serializedData.length,
-        pagination,
-      },
-    };
+    return toMetricQueryResult(rows, {
+      metric: ref.name, query, sql, timingMs: Date.now() - start, context,
+    });
   }
 }

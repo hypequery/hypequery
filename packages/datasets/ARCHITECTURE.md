@@ -22,7 +22,7 @@ semantic features and future dialects can evolve without growing the client.
 | Window and shift compilation | `src/utils/time-measure-*-sql.ts`, `src/utils/shift-measure-sql.ts`, `src/utils/composite-time-measure-sql.ts` |
 | Metric execution and builder resolution | `src/metric-query-engine.ts` |
 | Client defaults, caching, result limits and target dispatch | `src/executor.ts` |
-| Result shaping and serialization | `src/utils/dataset-query-result.ts`, `src/utils/semantic-result-serialization.ts` |
+| Result shaping and serialization | `src/utils/dataset-query-result.ts`, `src/utils/metric-query-result.ts`, `src/utils/semantic-result-serialization.ts` |
 | Builder acceptance and runtime contract | `src/query-builder-protocol.ts` |
 
 Contract validators return semantic errors without obtaining a builder or
