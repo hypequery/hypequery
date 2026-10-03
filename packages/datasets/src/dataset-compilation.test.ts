@@ -39,6 +39,27 @@ function recordingFactory() {
 }
 
 describe('shared dataset compilation', () => {
+  it('preserves omitted measures while enforcing limits on explicit selections', async () => {
+    const ds = dataset('events', {
+      source: 'events', dimensions: { amount: dimension.number(), status: dimension.string() },
+      measures: { revenue: measure.sum('amount'), count: measure.count('amount') },
+      limits: { maxMeasures: 1 },
+    });
+    const { factory, executed } = recordingFactory();
+    const client = createDatasetClient({ queryBuilder: factory });
+    const compiled = client.compileDataset(ds);
+    expect(compiled.query.measures).toEqual(['revenue', 'count']);
+    expect(compiled.describe().measureDependencies).toEqual(['revenue', 'count']);
+    expect(client.toSQL(ds)).toBe(compiled.sql);
+    await client.execute(ds);
+    expect(executed).toEqual([compiled.sql]);
+    const explicit = { measures: ['revenue', 'count'] };
+    expect(() => client.toSQL(ds, explicit)).toThrow('Too many measures');
+    expect(() => client.compileDataset(ds, explicit)).toThrow('Too many measures');
+    expect(() => client.execute(ds, explicit)).toThrow('Too many measures');
+    expect(client.compileDataset(ds, { dimensions: ['status'], measures: [] }).query.measures).toEqual([]);
+  });
+
   it('previews the effective ceiling and overfetch SQL, then plans once during execution', async () => {
     const { factory, executed } = recordingFactory();
     const client = createDatasetClient({ queryBuilder: factory });
