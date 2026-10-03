@@ -1,4 +1,5 @@
 /** Metric SQL compilation; factory selection and execution belong to the client. */
+import { resolveDatasetSqlDialect } from './dataset-sql-dialect.js';
 import type { MetricRef, MetricQuery, ExecutionContext, TimeGrain } from '../types.js';
 import type { QueryBuilderFactoryLike, QueryBuilderLike } from '../query-builder-protocol.js';
 import {
@@ -29,6 +30,7 @@ export function buildMetricQueryBuilder(
   builderFactory: QueryBuilderFactoryLike,
   context?: ExecutionContext,
 ): QueryBuilderLike {
+  const dialect = resolveDatasetSqlDialect(builderFactory);
   const joinCtx = buildRelationshipBuilderContext(ds, query, context);
   let qb: QueryBuilderLike = builderFactory.table(ds.source);
   qb = applyRelationshipJoins(qb, joinCtx);
@@ -38,6 +40,7 @@ export function buildMetricQueryBuilder(
     grain,
     joinCtx,
     query.timezone,
+    dialect,
   );
 
   if (selectParts.length > 0) {
@@ -77,7 +80,7 @@ export function buildMetricQueryBuilder(
   }
 
   // Order, limit, offset
-  qb = appendOrderLimitOffset(qb, query.orderBy, grain, query.limit, query.offset, joinCtx);
+  qb = appendOrderLimitOffset(qb, query.orderBy, grain, query.limit, query.offset, joinCtx, dialect);
 
   return qb;
 }

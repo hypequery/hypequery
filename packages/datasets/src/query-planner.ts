@@ -12,7 +12,8 @@ import type { QueryBuilderLike } from "./query-builder-protocol.js";
 import { GRAIN_FUNCTIONS } from "./constants.js";
 import { applyFilteredAggregationExpression } from './utils/filtered-aggregation-sql.js';
 import { getRuntimeTenantPredicate } from './utils/tenant-runtime.js';
-import { quoteSQLIdentifier } from './sql-utils.js';
+import type { DatasetSqlDialect } from './dataset-sql-dialect.js';
+import { clickhouseDatasetSqlDialect } from './utils/clickhouse-dataset-sql-dialect.js';
 import { isQualifiedField } from './utils/relationship-fields.js';
 import {
   qualifyBaseColumn,
@@ -62,6 +63,7 @@ export function buildDimensionSelectionPlan(
   grain: TimeGrain | undefined,
   joinCtx?: RelationshipBuilderContext,
   timezone?: string,
+  dialect: DatasetSqlDialect = clickhouseDatasetSqlDialect,
 ): { selectParts: string[]; groupByParts: string[] } {
   const selectParts: string[] = [];
   const groupByParts = new Set<string>();
@@ -83,7 +85,7 @@ export function buildDimensionSelectionPlan(
       // With joins in scope, every selection is table-qualified and aliased so
       // grouping/ordering can reference the alias unambiguously.
       const alias = isQualifiedField(dimensionName)
-        ? quoteSQLIdentifier(dimensionName)
+        ? dialect.quoteIdentifier(dimensionName)
         : dimensionName;
       selectParts.push(`${expression} AS ${alias}`);
       groupByParts.add(alias);
@@ -193,11 +195,12 @@ export function appendOrderLimitOffset(
   limit?: number,
   offset?: number,
   joinCtx?: RelationshipBuilderContext,
+  dialect: DatasetSqlDialect = clickhouseDatasetSqlDialect,
 ): QueryBuilderLike {
   if (orderBy && orderBy.length > 0) {
     for (const order of orderBy) {
       const column = joinCtx && isQualifiedField(order.field)
-        ? quoteSQLIdentifier(order.field)
+        ? dialect.quoteIdentifier(order.field)
         : order.field;
       qb = qb.orderBy(column, toOrderDirection(order.direction));
     }

@@ -23,6 +23,8 @@ semantic features and future dialects can evolve without growing the client.
 | Client defaults, caching, result limits and target dispatch | `src/executor.ts` |
 | Result shaping and serialization | `src/utils/dataset-query-result.ts`, `src/utils/semantic-result-serialization.ts` |
 | Builder acceptance and runtime contract | `src/query-builder-protocol.ts` |
+| Datasets SQL rendering contract | `src/dataset-sql-dialect.ts` |
+| Active factory dialect resolution and ClickHouse default | `src/utils/dataset-sql-dialect.ts`, `src/utils/clickhouse-dataset-sql-dialect.ts` |
 
 Contract validators return semantic errors without obtaining a builder or
 executing SQL. `MetricQueryEngine.validate()` additionally compiles a query to
@@ -40,6 +42,17 @@ consumers. Preserve shipped exports when moving implementations, including the
 `src/internal.ts` surface consumed by serve.
 
 ## Adding dialect support
+
+A builder factory may carry `datasetSqlDialect` rendering metadata. Resolve it
+from the active factory passed into compilation, using the shared ClickHouse
+default when it is absent. A per-request builder override therefore selects its
+own dialect rather than inheriting the client's default. Structural adaptation
+preserves this metadata on schema-typed builders too.
+
+The initial contract covers existing quoted identifiers in base and derived query
+dimension selections, ordering and projections. It preserves unquoted aliases and
+current SQL spelling. Extend the contract as each subsequent emission site moves
+behind it. This preparatory seam does not add support for another database.
 
 The structural builder protocol is already decoupled from ClickHouse, but SQL
 rendering still contains ClickHouse assumptions. Future dialect work should

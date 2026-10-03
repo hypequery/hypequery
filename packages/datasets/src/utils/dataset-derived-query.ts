@@ -3,7 +3,7 @@ import { derivedExpressionSql } from './derived-measure-sql.js';
 import { baseMeasureNames, getBaseMeasure, getDerivedMeasure } from './dataset-measures.js';
 import type { AnyDatasetInstance, DatasetQuery, DatasetQueryResult } from '../types.js';
 import type { QueryBuilderLike } from '../query-builder-protocol.js';
-import { quoteSQLIdentifier } from '../sql-utils.js';
+import { resolveDatasetSqlDialect } from './dataset-sql-dialect.js';
 import { validateDatasetQueryInput } from './dataset-query-validation.js';
 import { overfetchLimit } from './pagination.js';
 import { toDatasetQueryResult } from './dataset-query-result.js';
@@ -30,11 +30,12 @@ export function buildDerivedDatasetSql(
     throw new Error(`Invalid dataset query: ${validation.errors.join('; ')}`);
   }
 
+  const dialect = resolveDatasetSqlDialect(options.builderFactory);
   const selected = query.measures ?? baseMeasureNames(ds.measures);
   const baseMeasures = measureDependencyNames(ds.measures, selected).filter(name => getBaseMeasure(ds.measures, name));
   const resolve = (name: string): string => {
     const derived = getDerivedMeasure(ds.measures, name);
-    return derived ? `(${derivedExpressionSql(derived, resolve)})` : quoteSQLIdentifier(name);
+    return derived ? `(${derivedExpressionSql(derived, resolve)})` : dialect.quoteIdentifier(name);
   };
   const inner = buildBaseQuery(ds, {
     ...query,
@@ -46,22 +47,22 @@ export function buildDerivedDatasetSql(
   const { sql: innerSql, parameters } = inner.toSQLWithParams();
 
   const projections: string[] = [];
-  if (query.by) projections.push(quoteSQLIdentifier('period'));
-  for (const dimension of query.dimensions ?? []) projections.push(quoteSQLIdentifier(dimension));
+  if (query.by) projections.push(dialect.quoteIdentifier('period'));
+  for (const dimension of query.dimensions ?? []) projections.push(dialect.quoteIdentifier(dimension));
   for (const name of selected) {
     const derived = getDerivedMeasure(ds.measures, name);
     projections.push(derived
-      ? `${derivedExpressionSql(derived, resolve)} AS ${quoteSQLIdentifier(name)}`
-      : quoteSQLIdentifier(name));
+      ? `${derivedExpressionSql(derived, resolve)} AS ${dialect.quoteIdentifier(name)}`
+      : dialect.quoteIdentifier(name));
   }
   let sql = `WITH base AS (${innerSql}) SELECT ${projections.join(', ')} FROM base`;
 
   if (query.orderBy?.length) {
     sql += ` ORDER BY ${query.orderBy.map(order => (
-      `${quoteSQLIdentifier(order.field)} ${order.direction === 'asc' ? 'ASC' : 'DESC'}`
+      `${dialect.quoteIdentifier(order.field)} ${order.direction === 'asc' ? 'ASC' : 'DESC'}`
     )).join(', ')}`;
   } else if (query.by) {
-    sql += ` ORDER BY ${quoteSQLIdentifier('period')} ASC`;
+    sql += ` ORDER BY ${dialect.quoteIdentifier('period')} ASC`;
   }
   const limit = options.executionLimit ?? query.limit;
   if (limit !== undefined) sql += ` LIMIT ${limit}`;

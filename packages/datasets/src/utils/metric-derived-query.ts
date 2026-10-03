@@ -1,4 +1,5 @@
 /** Metric SQL compilation; factory selection and execution belong to the client. */
+import { resolveDatasetSqlDialect } from './dataset-sql-dialect.js';
 import type { MetricRef, MetricQuery, ExecutionContext, TimeGrain } from '../types.js';
 import type { QueryBuilderFactoryLike, QueryBuilderLike } from '../query-builder-protocol.js';
 import {
@@ -18,7 +19,7 @@ import {
 } from './relationship-builder-plan.js';
 import { segmentFilters } from './segments.js';
 import type { DerivedMetricSpec } from '../types.js';
-import { quoteSQLIdentifier, validateSQLIdentifier } from '../sql-utils.js';
+import { validateSQLIdentifier } from '../sql-utils.js';
 import { isQualifiedField } from './relationship-fields.js';
 import { validateDerivedCteGrouping } from './derived-cte-validation.js';
 
@@ -30,6 +31,7 @@ export function buildDerivedMetricSql(
   builderFactory: QueryBuilderFactoryLike,
   context?: ExecutionContext,
 ): { sql: string; params: unknown[] } {
+  const dialect = resolveDatasetSqlDialect(builderFactory);
   const ds = ref.dataset;
   const joinCtx = buildRelationshipBuilderContext(ds, query, context);
 
@@ -42,6 +44,7 @@ export function buildDerivedMetricSql(
     grain,
     joinCtx,
     query.timezone,
+    dialect,
   );
 
   if (selectParts.length > 0) {
@@ -99,7 +102,7 @@ export function buildDerivedMetricSql(
   for (const dim of query.dimensions ?? []) {
     // Joined dimensions surface from the CTE under their quoted qualified alias.
     if (joinCtx && isQualifiedField(dim)) {
-      outerSelectParts.push(quoteSQLIdentifier(dim));
+      outerSelectParts.push(dialect.quoteIdentifier(dim));
       continue;
     }
     validateSQLIdentifier(dim, 'dimension name');
@@ -116,7 +119,7 @@ export function buildDerivedMetricSql(
   if (query.orderBy && query.orderBy.length > 0) {
     const orderParts = query.orderBy.map(o => {
       if (joinCtx && isQualifiedField(o.field)) {
-        return `${quoteSQLIdentifier(o.field)} ${o.direction.toUpperCase()}`;
+        return `${dialect.quoteIdentifier(o.field)} ${o.direction.toUpperCase()}`;
       }
       validateSQLIdentifier(o.field, 'order by field');
       return `${o.field} ${o.direction.toUpperCase()}`;
