@@ -799,3 +799,19 @@ and asserts each one's exact expected family list before running its cases.
 reference and SQL-portability adapters.
 
 See the [implementation plan](../../plans/python-datasets-serve-pr-level-plan.md) and [security protocol](../../specs/security-protocol/README.md).
+
+
+## Logical discovery and documentation policy
+
+Register `add_discovery_endpoint(router, registry=registry)` to publish a bounded
+logical catalog at `/discovery`. It authenticates by default and accepts an
+`EndpointPolicy` for role, scope and tenant requirements. Explicitly pass
+`EndpointPolicy(public=True)` only for intentionally public discovery. The
+256 KiB default budget is checked at startup; physical sources, columns, SQL,
+tenant policy and tenant values never appear in this projection.
+
+`create_app(router, security=HttpSecurity(allowed_hosts=("analytics.example.com",)))`
+disables `/docs`, `/redoc`, and `/openapi.json`. Explicit
+`development_docs=True` enables generated development documentation. A host
+embedding the router in an existing FastAPI app owns that app's docs policy.
+ASGI process configuration remains the separate PYD-06 work.
