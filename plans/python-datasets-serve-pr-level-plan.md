@@ -664,6 +664,15 @@ PYC-01 are merged.
     separately because fixing it changes TypeScript behaviour.
 
 ### PYD-05 — Discovery contract endpoint and docs policy
+- **Status (2026-10-03):** Implemented in this working tree.
+  - Python `add_discovery_endpoint` and TypeScript `/discovery` publish the
+    same allowlisted logical catalog, bounded at startup and authenticated by
+    default. Explicit policy can make it public or require roles/scopes.
+  - TypeScript's legacy `/contract` keeps its version and opaque definition
+    identity while dropping physical and tenant-policy fields.
+  - Python `create_app` disables docs, ReDoc and OpenAPI by default; deliberate
+    `development_docs=True` enables model-generated development docs. A host
+    embedding the router owns its own app's documentation policy.
 - **Dependencies:** PYB-06, PYD-03.
 - **Scope:** Serve the public discovery projection under endpoint policy;
   FastAPI `/docs`, `/redoc`, `/openapi.json` disabled or protected by

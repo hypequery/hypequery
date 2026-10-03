@@ -10,7 +10,7 @@ export function buildDatasetQueryDescription(
   const filterNames = Object.keys(catalog.filters);
   const relationshipNames = Object.keys(catalog.relationships);
   const lines = [
-    `Query the ${catalog.name} semantic dataset (source: ${catalog.source}).`,
+    `Query the ${catalog.name} semantic dataset.`,
     '',
     `**Dimensions:** ${dimensionNames.join(', ') || 'none'}`,
     `**Measures:** ${measureNames.join(', ') || 'none'}`,
