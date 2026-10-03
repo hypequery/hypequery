@@ -9,6 +9,8 @@
  * This keeps @hypequery/serve DB-agnostic while enabling first-class builder usage.
  */
 
+import type { DatasetSqlDialect } from './dataset-sql-dialect.js';
+
 /** A chainable query builder instance (what `.table(name)` returns). */
 export interface QueryBuilderLike {
   select(columns: string[] | string): QueryBuilderLike;
@@ -84,6 +86,8 @@ export interface QueryBuilderJoinCondition {
 
 /** A query builder factory (what `createQueryBuilder(config)` returns). */
 export interface QueryBuilderFactoryLike {
+  /** Advanced datasets rendering hook. Omission preserves legacy ClickHouse SQL. */
+  readonly datasetSqlDialect?: DatasetSqlDialect;
   table(name: string): QueryBuilderLike;
   rawQuery<T = Record<string, unknown>>(
     sql: string,
@@ -103,6 +107,7 @@ export interface QueryBuilderFactoryLike {
  * schema-typed builders; entry points adapt with `toQueryBuilderFactory`.
  */
 export interface QueryBuilderFactoryCompatible {
+  readonly datasetSqlDialect?: DatasetSqlDialect;
   table(name: never): unknown;
   rawQuery(sql: string, params?: never): Promise<unknown>;
 }

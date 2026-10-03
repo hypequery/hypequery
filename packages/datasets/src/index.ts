@@ -192,6 +192,7 @@ export type {
 
 // Dataset client
 export { createDatasetClient } from './executor.js';
+export type { DatasetSqlDialect } from './dataset-sql-dialect.js';
 export type { DatasetClient, CreateDatasetClientOptions } from './executor.js';
 
 // Semantic query result cache
