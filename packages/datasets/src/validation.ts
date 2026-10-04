@@ -80,6 +80,6 @@ export function validateFilterValue(filter: MetricFilter, fieldType: FieldType):
         ? null
         : `"between" expects ${fieldType} values for field "${filter.field}".`;
     default:
-      return null;
+      return `Unsupported semantic filter operator "${String(filter.operator)}".`;
   }
 }

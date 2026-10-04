@@ -1,3 +1,4 @@
+import { semanticQuerySyntaxErrors } from './semantic-query-syntax.js';
 /** Semantic metric validation; independent of SQL compilation and execution. */
 import type { MetricQuery, ExecutionContext } from '../types.js';
 import { validateFilterValue, type ValidationResult } from '../validation.js';
@@ -15,7 +16,7 @@ export function validateMetricQueryInput(
   query: MetricQuery,
   context?: ExecutionContext,
 ): ValidationResult {
-  const errors = [...protocolMetricCapabilityErrors(metric, query), ...queryTimezoneErrors(query.timezone)];
+  const errors = [...semanticQuerySyntaxErrors(query), ...protocolMetricCapabilityErrors(metric, query), ...queryTimezoneErrors(query.timezone)];
   const ref = getMetricRef(metric);
   const ds = ref.dataset;
   const dimensionNames = Object.keys(ds.dimensions);

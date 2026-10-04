@@ -643,6 +643,8 @@ export type MetricEntry<TAuth extends AuthContext = AuthContext> =
        * rejected). Defaults to the dataset's `limits.maxResultSize`, else 1000.
        */
       maxLimit?: number;
+      /** Enable SQL and internal tenant IDs in opt-in metadata only on trusted endpoints. */
+      trustedDiagnostics?: boolean;
     };
 
 /** Map of metric names to entries. */

@@ -922,7 +922,7 @@ describe("Serve integration — metrics", () => {
       );
 
       expect(semanticBody(response).meta).toBeDefined();
-      expect(semanticBody(response).meta.sql).toBeDefined();
+      expect(semanticBody(response).meta.sql).toBeUndefined();
     });
 
     it("includes meta via the includeMeta input field and reports rowCount", async () => {
@@ -940,7 +940,7 @@ describe("Serve integration — metrics", () => {
       );
 
       expect(semanticBody(response).meta).toBeDefined();
-      expect(semanticBody(response).meta.sql).toBeDefined();
+      expect(semanticBody(response).meta.sql).toBeUndefined();
       // Mock returns 2 rows.
       expect(semanticBody(response).meta.rowCount).toBe(2);
     });
@@ -949,7 +949,7 @@ describe("Serve integration — metrics", () => {
       const factory = createMockBuilderFactory();
       const engine = new MetricQueryEngine({ builderFactory: factory });
       const api = createAPI({
-        metrics: { totalRevenue },
+        metrics: { totalRevenue: { metric: totalRevenue, trustedDiagnostics: true } },
         queryBuilder: factory,
       });
       const query = {
@@ -982,7 +982,7 @@ describe("Serve integration — metrics", () => {
       const factory = createMockBuilderFactory();
       const engine = new MetricQueryEngine({ builderFactory: factory });
       const api = createAPI({
-        metrics: { avgOrderValue },
+        metrics: { avgOrderValue: { metric: avgOrderValue, trustedDiagnostics: true } },
         queryBuilder: factory,
       });
       const query = {
@@ -1965,7 +1965,7 @@ describe("Serve integration — metrics", () => {
 
       expect(response.status).toBe(200);
       expect(semanticBody(response).meta).toBeDefined();
-      expect(semanticBody(response).meta.sql).toBeDefined();
+      expect(semanticBody(response).meta.sql).toBeUndefined();
       expect(semanticBody(response).meta.rowCount).toBe(1);
     });
 
@@ -1992,7 +1992,7 @@ describe("Serve integration — metrics", () => {
 
       expect(response.status).toBe(200);
       expect(semanticBody(response).meta).toBeDefined();
-      expect(semanticBody(response).meta.sql).toBeDefined();
+      expect(semanticBody(response).meta.sql).toBeUndefined();
       expect(semanticBody(response).meta.rowCount).toBe(1);
     });
 
@@ -2508,5 +2508,39 @@ describe("cacheObservability", () => {
     await api.execute("totalRevenue", { input: {} });
     const [after] = await api.cacheObservability.getStats();
     expect(after.stats).toMatchObject({ hits: 1, misses: 2 });
+  });
+});
+
+describe('trusted semantic diagnostics', () => {
+  it.each(['dataset', 'metric'] as const)('redacts tenant IDs and SQL unless the server grants access: %s', async kind => {
+    for (const trustedDiagnostics of [false, true]) {
+      const api = createAPI({
+        datasets: kind === 'dataset' ? { sales: { dataset: TenantOrders, trustedDiagnostics } } : undefined,
+        metrics: kind === 'metric' ? { revenue: { metric: tenantScopedTotalRevenue, trustedDiagnostics } } : undefined,
+        queryBuilder: createMockBuilderFactory(),
+        auth: async () => ({ tenantId: 'private-tenant-id' }),
+        tenant: { extract: requiredTenantId, required: true },
+      });
+      const path = kind === 'dataset' ? '/datasets/sales/query' : '/metrics/revenue';
+      for (const includeMeta of [true, false]) {
+        const response = await api.handler(createRequest({
+          path, body: includeMeta ? { includeMeta: true } : {},
+          headers: { 'content-type': 'application/json', 'x-include-meta': includeMeta ? 'false' : 'true' },
+        }));
+        expect(response.status).toBe(200);
+        const meta = semanticBody(response).meta;
+        expect(meta.rowCount).toBe(2);
+        if (trustedDiagnostics) {
+          expect(meta.tenant).toBe('private-tenant-id');
+          expect(meta.sql).toBeDefined();
+        } else {
+          expect(meta).not.toHaveProperty('sql');
+          expect(meta).not.toHaveProperty('tenant');
+          expect(JSON.stringify(meta)).not.toContain('private-tenant-id');
+        }
+      }
+      const requestGrant = await api.handler(createRequest({ path, body: { includeMeta: true, trustedDiagnostics: true } }));
+      expect(requestGrant.status).toBe(400);
+    }
   });
 });

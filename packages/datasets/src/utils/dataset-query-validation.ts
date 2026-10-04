@@ -1,4 +1,5 @@
 import { resolveRelationshipMeasure } from './relationship-measures.js';
+import { semanticQuerySyntaxErrors } from './semantic-query-syntax.js';
 import { queryTimezoneErrors } from './query-timezone.js';
 import { baseMeasureNames } from './dataset-measures.js';
 import type {
@@ -28,7 +29,7 @@ export function validateDatasetQueryInput(
   query: DatasetQuery,
   context?: ExecutionContext,
 ): ValidationResult {
-  const errors: string[] = queryTimezoneErrors(query.timezone);
+  const errors: string[] = [...semanticQuerySyntaxErrors(query), ...queryTimezoneErrors(query.timezone)];
   const dimensionNames = Object.keys(ds.dimensions);
   const measureNames = Object.keys(ds.measures);
   const selectedDimensions = query.dimensions ?? [];

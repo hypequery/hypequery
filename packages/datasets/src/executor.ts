@@ -14,6 +14,7 @@ import { buildDatasetPlan, buildMetricPlan } from './semantic-planner.js';
 import { assertMetricHandle, getMetricRef } from './utils/metric-handle.js';
 import { validateMetricQueryInput } from './utils/metric-query-validation.js';
 import { prepareDatasetQuery } from './utils/compile-dataset-query.js';
+import { snapshotExecutionContext } from './utils/snapshot-execution-context.js';
 import type { DatasetCompilation } from './dataset-compilation.js';
 import { isDatasetInstance } from './utils/dataset-target.js';
 import { queryTimezoneErrors } from './utils/query-timezone.js';
@@ -325,7 +326,10 @@ export class DatasetClientImpl extends MetricQueryEngine implements DatasetClien
     query: SemanticQuery<TTarget> = {} as SemanticQuery<TTarget>,
     context?: ExecutionContext,
   ): Promise<SemanticResult<TTarget, TRow>> {
-    query = this.withTimezone(query);
+    // An async cache read must not let caller mutations change the query or
+    // tenant after its key has been derived.
+    query = this.withTimezone(structuredClone(query));
+    context = snapshotExecutionContext(context);
     if (this.backend && query.timezone !== undefined) {
       throw new Error('Execution timezone requires the queryBuilder execution path.');
     }

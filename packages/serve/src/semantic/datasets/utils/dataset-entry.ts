@@ -21,6 +21,8 @@ export type DatasetEntry<TAuth extends AuthContext = AuthContext> =
       /** Middleware applied to this dataset endpoint. */
       middlewares?: ServeMiddleware<any, any, any, TAuth>[];
       maxLimit?: number;
+      /** Enable SQL and internal tenant IDs in opt-in metadata only on trusted endpoints. */
+      trustedDiagnostics?: boolean;
     };
 
 type DatasetEntryOptions<TAuth extends AuthContext> = Exclude<DatasetEntry<TAuth>, AnyDatasetInstance>;
@@ -49,6 +51,8 @@ export function resolveDatasetEntry<TAuth extends AuthContext>(
   requiredScopes?: string[];
   middlewares?: ServeMiddleware<any, any, any, TAuth>[];
   maxLimit?: number;
+  /** Enable SQL and internal tenant IDs in opt-in metadata only on trusted endpoints. */
+  trustedDiagnostics?: boolean;
 } {
   if (isDatasetInstance(entry)) {
     return { dataset: entry };

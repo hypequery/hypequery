@@ -1,3 +1,4 @@
+import { semanticResponseMeta } from './utils/semantic-response-meta.js';
 /**
  * Converts a DatasetInstance into a standard ServeEndpoint for semantic queries.
  *
@@ -163,10 +164,9 @@ export function createDatasetEndpoint<TAuth extends AuthContext>(
 
     return {
       data: result.data,
-      meta: includeMeta ? {
-        ...(result.meta ?? {}),
-        timingMs,
-      } : undefined,
+      meta: includeMeta
+        ? semanticResponseMeta({ ...result.meta, timingMs }, resolved.trustedDiagnostics)
+        : undefined,
     };
   };
 

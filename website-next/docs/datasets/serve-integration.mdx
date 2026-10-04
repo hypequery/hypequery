@@ -107,7 +107,19 @@ Semantic endpoints return `{ data }` by default. Include metadata with either `i
 ```
 </CodeBlock>
 
-Metadata can include generated SQL, timing, row count, tenant, and pagination.
+Public metadata includes timing, row count, cache status, and pagination. SQL and internal tenant IDs are omitted by default.
+
+For a trusted diagnostic endpoint, set `trustedDiagnostics: true` on the server-side entry and restrict it with authentication and roles:
+
+<CodeBlock>
+```typescript
+datasets: {
+  orders: { dataset: Orders, trustedDiagnostics: true, requiredRoles: ['analytics-admin'] },
+},
+```
+</CodeBlock>
+
+Clients still request metadata with `includeMeta` or `x-include-meta`; those request flags cannot grant diagnostic access.
 
 ## Query definitions plus datasets
 

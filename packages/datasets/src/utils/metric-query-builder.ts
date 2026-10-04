@@ -1,3 +1,4 @@
+import { semanticQuerySyntaxErrors } from './semantic-query-syntax.js';
 /** Metric SQL compilation; factory selection and execution belong to the client. */
 import { resolveDatasetSqlDialect } from './dataset-sql-dialect.js';
 import type { MetricRef, MetricQuery, ExecutionContext, TimeGrain } from '../types.js';
@@ -30,6 +31,8 @@ export function buildMetricQueryBuilder(
   builderFactory: QueryBuilderFactoryLike,
   context?: ExecutionContext,
 ): QueryBuilderLike {
+  const syntaxErrors = semanticQuerySyntaxErrors(query);
+  if (syntaxErrors.length) throw new Error(syntaxErrors.join('; '));
   const dialect = resolveDatasetSqlDialect(builderFactory);
   const joinCtx = buildRelationshipBuilderContext(ds, query, context);
   let qb: QueryBuilderLike = builderFactory.table(ds.source);

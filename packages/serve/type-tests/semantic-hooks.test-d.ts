@@ -175,3 +175,13 @@ void metricValueAsNumber;
 void metricRow.country;
 
 export {};
+
+// Trusted diagnostics is a server endpoint option, never a query input.
+createAPI({
+  datasets: { orders: { dataset: Orders, trustedDiagnostics: true } },
+  metrics: { revenue: { metric: totalRevenue, trustedDiagnostics: false } },
+  queryBuilder: {} as Parameters<typeof createAPI>[0]['queryBuilder'],
+});
+// @ts-expect-error Query inputs cannot grant diagnostic access.
+const requestDiagnostics: MetricInput = { trustedDiagnostics: true };
+void requestDiagnostics;
