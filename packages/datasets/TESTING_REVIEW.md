@@ -1,6 +1,6 @@
 # Dataset testing review
 
-Reviewed on 2026-10-03 for the TypeScript dataset refactor (#580), SQL dialect
+Reviewed on 2026-10-04 for the TypeScript dataset refactor (#580), SQL dialect
 seam (#583), and Python planner refactor (#577). These changes have not been
 merged by this review.
 
@@ -8,7 +8,7 @@ merged by this review.
 
 | Implementation | Tests | Statements | Branches | Functions | Lines |
 | --- | ---: | ---: | ---: | ---: | ---: |
-| TypeScript datasets, unit + live ClickHouse | 1,455 | 95.30% | 91.07% | 97.46% | 95.96% |
+| TypeScript datasets, unit + live ClickHouse | 1,457 | 95.29% | 91.07% | 97.46% | 95.96% |
 
 The unit-only baseline was 83.74% lines and 81.86% branches. Combining the
 existing integration tests raised it to 92.91% lines and 87.56% branches;
@@ -34,6 +34,10 @@ builds, lint, and downstream Serve tests are separate checks.
 - The existing byte-identical SQL corpus compares direct query-builder SQL with
   dataset SQL. The dialect seam also checks legacy/default SQL equality, actual
   hook output, identifier escaping, and per-request factory restoration.
+- Base and derived metrics preserve custom quoted SQL through execution with a
+  runtime factory override, then restore default quoting on subsequent requests.
+  Both execution paths share pagination, serialization, and result metadata
+  through the same result helper.
 - Both implementations pass all 95 shared SQL portability fixtures. These prove
   portability-expression conformance; they do not certify Postgres or BigQuery
   execution, which this initial seam does not implement.

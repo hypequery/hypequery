@@ -97,6 +97,33 @@ describe('datasets SQL dialect seam', () => {
     expect(quoteIdentifier).toHaveBeenCalledWith('average');
   });
 
+  it.each([Revenue, Average])('preserves custom quoted SQL through metric execution: $name', async target => {
+    const factory: QueryBuilderFactoryLike = {
+      ...createRenderingBuilderFactory(),
+      datasetSqlDialect: {
+        name: 'clickhouse',
+        quoteIdentifier: identifier => `"${identifier.replace(/"/g, '""')}"`,
+      },
+    };
+    const client = createDatasetClient({ queryBuilder: createRenderingBuilderFactory() });
+    const context = { runtime: { builderFactory: factory } };
+    const query = {
+      dimensions: ['customer.country'],
+      orderBy: [{ field: 'customer.country', direction: 'asc' as const }],
+    };
+    const sql = client.toSQL(target, query, context);
+
+    expect(sql).toContain('AS "customer.country"');
+    expect(sql).toContain('GROUP BY "customer.country"');
+    expect(sql).toContain('ORDER BY "customer.country" ASC');
+    expect(sql).not.toContain('`');
+    expect((await client.execute(target, query, context)).meta.sql).toBe(sql);
+
+    const defaultSql = client.toSQL(target, query);
+    expect(defaultSql).toContain('`customer.country`');
+    expect(defaultSql).not.toBe(sql);
+  });
+
   it('uses the runtime factory dialect for compilation and execution, then restores the default', async () => {
     const defaults = trackedFactory();
     const override = trackedFactory();
