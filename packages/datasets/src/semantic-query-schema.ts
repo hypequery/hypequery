@@ -7,6 +7,7 @@ import {
   getDatasetCatalog,
   getGroupableRelationshipFields,
   getQueryableRelationshipFields,
+  getQueryableRelationshipMeasures,
   type DatasetCatalog,
   type DatasetCatalogSource,
   type MetricCatalogEntry,
@@ -199,7 +200,7 @@ function queryShape(
     ? uniqueSorted([...dimensions, metricName, ...(grains.length > 0 ? ['period'] : [])])
     : uniqueSorted([
         ...dimensions,
-        ...Object.keys(catalog.measures),
+        ...Object.keys(catalog.measures), ...getQueryableRelationshipMeasures(catalog),
         ...Object.keys(catalog.derivedMeasures ?? {}),
         ...(catalog.supportedGrains.length > 0 ? ['period'] : []),
       ]);
@@ -221,7 +222,7 @@ function queryShape(
     ),
     ...(metricName ? {} : {
       measures: boundedArray(
-        fieldEnum([...Object.keys(catalog.measures), ...Object.keys(catalog.derivedMeasures ?? {})]),
+        fieldEnum([...Object.keys(catalog.measures), ...getQueryableRelationshipMeasures(catalog), ...Object.keys(catalog.derivedMeasures ?? {})]),
         lowerLimit(catalog.limits?.maxMeasures, limits.maxMeasures),
       ),
     }),

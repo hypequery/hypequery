@@ -1,3 +1,6 @@
+import { relationshipMeasureExpressions } from './relationship-measure-sql.js';
+import { measureToAggregationSpec } from './dataset-normalization.js';
+import { applyAggregationSpec } from '../query-planner.js';
 import { resolveDatasetSqlDialect } from './dataset-sql-dialect.js';
 import { queryTimeFilterSql } from './query-timezone.js';
 import { selectedTimeMeasures } from './time-query-measures.js';
@@ -46,7 +49,7 @@ export function buildDatasetQueryBuilder(
   }
 
   const dialect = resolveDatasetSqlDialect(options.builderFactory);
-  const joinCtx = buildRelationshipBuilderContext(ds, query, options.context);
+  const joinCtx = buildRelationshipBuilderContext(ds, query, options.context, dialect);
 
   let qb = options.builderFactory.table(ds.source);
   qb = applyRelationshipJoins(qb, joinCtx);
@@ -57,14 +60,17 @@ export function buildDatasetQueryBuilder(
     qb = qb.select(selectParts);
   }
 
+  // Set grouping before aggregation: dotted output aliases cannot be inferred by the builder.
+  if (groupByParts.length > 0) qb = qb.groupBy(groupByParts);
   for (const measureName of measureNames) {
+    if (measureName.includes('.')) {
+      const expressions = relationshipMeasureExpressions(ds, measureName, joinCtx!);
+      qb = applyAggregationSpec(qb, ds, measureToAggregationSpec(measureName, expressions.definition), dialect.quoteIdentifier(measureName), joinCtx, expressions);
+      continue;
+    }
     const definition = getBaseMeasure(ds.measures, measureName);
     if (!definition) throw new Error(`Measure "${measureName}" is not a base measure.`);
     qb = applyMeasureDefinition(qb, ds, measureName, definition, joinCtx);
-  }
-
-  if (groupByParts.length > 0) {
-    qb = qb.groupBy(groupByParts);
   }
 
   const tenantColumn = resolveTenantFilterColumn(ds, options.context);

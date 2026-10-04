@@ -107,11 +107,12 @@ export function applyAggregationSpec(
   spec: AggregationSpec,
   alias: string,
   joinCtx?: RelationshipBuilderContext,
+  expressions?: { field: string; arg?: string },
 ): QueryBuilderLike {
   if (spec.sql) {
     assertNoRawSqlUnderJoins('measure', alias, spec.sql, joinCtx);
   }
-  const fieldOrExpr = applyFilteredAggregationExpression(
+  const fieldOrExpr = expressions?.field ?? applyFilteredAggregationExpression(
     ds,
     spec,
     spec.sql ?? resolveDimensionExpression(ds, spec.field, joinCtx),
@@ -136,7 +137,7 @@ export function applyAggregationSpec(
       if (!spec.argField) {
         throw new Error(`Aggregation "${spec.aggregation}" for "${alias}" requires an argField ("by" column).`);
       }
-      const argExpr = resolveDimensionExpression(ds, spec.argField, joinCtx);
+      const argExpr = expressions?.arg ?? resolveDimensionExpression(ds, spec.argField, joinCtx);
       if (spec.aggregation === "argMax") {
         if (!qb.argMax) {
           throw new Error('Query builder does not support argMax aggregations.');

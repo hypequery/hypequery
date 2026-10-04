@@ -1,86 +1,13 @@
+import { createMeasureHelper, createArgMeasureHelper, createPercentileMeasure, createMedianMeasure, createDerivedMeasure } from './utils/base-measure-definition.js';
+export { validatePercentileLevel } from './utils/base-measure-definition.js';
 import { createShiftMeasure, type ShiftMeasureOptions } from './utils/shift-measure-definition.js';
 import type {
-  DerivedMeasureDefinition,
-  DerivedMeasureOptions,
-  DerivedMeasureUses,
-  MeasureDefinition,
-  MeasureOptions,
-  MeasureAggregation,
   MeasureTimeInterval,
   TimeGrain,
   WindowMeasureDefinition,
   ShiftMeasureDefinition,
 } from './types.js';
-import { snapshotSemanticMetadata } from './utils/semantic-metadata.js';
 import { createWindowMeasure, type WindowMeasureOptions } from './utils/window-measure-definition.js';
-
-function createMeasureHelper(aggregation: MeasureAggregation) {
-  return (field: string, opts?: MeasureOptions): MeasureDefinition => ({
-    __type: 'measure_definition',
-    aggregation,
-    field,
-    sql: opts?.sql,
-    dependencies: opts?.dependencies,
-    label: opts?.label,
-    description: opts?.description,
-    ...snapshotSemanticMetadata(opts ?? {}),
-    filters: opts?.filters,
-  });
-}
-
-export function validatePercentileLevel(level: number): void {
-  if (typeof level !== 'number' || !Number.isFinite(level) || level < 0 || level > 1) {
-    throw new Error(`Invalid percentile level ${level}: expected a number between 0 and 1.`);
-  }
-}
-
-function createArgMeasureHelper(aggregation: 'argMax' | 'argMin') {
-  return (field: string, by: string, opts?: Omit<MeasureOptions, 'filters'>): MeasureDefinition => {
-    if (typeof by !== 'string' || by.trim().length === 0) {
-      throw new Error(`measure.${aggregation}("${field}", by) requires a "by" field.`);
-    }
-    return {
-      __type: 'measure_definition',
-      aggregation,
-      field,
-      argField: by,
-      sql: opts?.sql,
-      dependencies: opts?.dependencies,
-      label: opts?.label,
-      description: opts?.description,
-      ...snapshotSemanticMetadata(opts ?? {}),
-    };
-  };
-}
-
-function createPercentileMeasure(field: string, level: number, opts?: MeasureOptions): MeasureDefinition {
-  validatePercentileLevel(level);
-  return {
-    __type: 'measure_definition',
-    aggregation: 'percentile',
-    field,
-    level,
-    sql: opts?.sql,
-    dependencies: opts?.dependencies,
-    label: opts?.label,
-    description: opts?.description,
-    ...snapshotSemanticMetadata(opts ?? {}),
-    filters: opts?.filters,
-  };
-}
-
-function createDerivedMeasure<const TUses extends DerivedMeasureUses>(
-  options: DerivedMeasureOptions<TUses>,
-): DerivedMeasureDefinition<TUses> {
-  return {
-    __type: 'derived_measure_definition',
-    uses: { ...options.uses },
-    formula: options.formula,
-    label: options.label,
-    description: options.description,
-    ...snapshotSemanticMetadata(options),
-  };
-}
 
 export const measure = {
   sum: createMeasureHelper('sum'),
@@ -97,8 +24,7 @@ export const measure = {
   /** Approximate percentile of a numeric field (ClickHouse `quantile(level)`). */
   percentile: createPercentileMeasure,
   /** Median — sugar for `percentile(field, 0.5)`. */
-  median: (field: string, opts?: MeasureOptions): MeasureDefinition =>
-    createPercentileMeasure(field, 0.5, opts),
+  median: createMedianMeasure,
   /**
    * Value of `field` on the row where `by` is greatest (ClickHouse `argMax`).
    * The runtime value follows `field`'s type; aggregate result columns are

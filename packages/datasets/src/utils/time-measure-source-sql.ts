@@ -1,3 +1,5 @@
+import { resolveRelationshipMeasure } from './relationship-measures.js';
+import { relationshipMeasureExpressions } from './relationship-measure-sql.js';
 import { queryTimeSql } from './query-timezone.js';
 import type { AnyDatasetInstance, DatasetQuery, MeasureDefinition, MetricFilter } from '../types.js';
 import type { DatasetQueryExecutionOptions } from '../dataset-query.js';
@@ -47,16 +49,18 @@ export function buildTimeMeasureSourceSql(
   const sourceParts = [resolveDimensionExpression(ds, ds.timeKey!, joinCtx)];
   for (const dimension of dims) sourceParts.push(resolveDimensionExpression(ds, dimension.name, joinCtx));
   for (const name of baseNames) {
-    const definition = getBaseMeasure(ds.measures, name);
+    const related = name.includes('.') ? resolveRelationshipMeasure(ds, name) : undefined;
+    const definition = related?.definition ?? getBaseMeasure(ds.measures, name);
     if (!definition) throw new Error(`Window input "${name}" is not a base measure.`);
     const spec = measureToAggregationSpec(name, definition);
     if (spec.sql) assertNoRawSqlUnderJoins('measure', name, spec.sql, joinCtx);
     const value = `_hq_v${bases.length}`;
     const arg = `_hq_a${bases.length}`;
     bases.push({ name, definition, value, arg });
-    const expression = spec.sql ?? resolveDimensionExpression(ds, spec.field, joinCtx);
-    sourceParts.push(applyFilteredAggregationExpression(ds, spec, expression, joinCtx));
-    sourceParts.push(spec.argField ? resolveDimensionExpression(ds, spec.argField, joinCtx) : 'NULL');
+    const expressions = related ? relationshipMeasureExpressions(ds, name, joinCtx!) : undefined;
+    const expression = expressions?.field ?? spec.sql ?? resolveDimensionExpression(ds, spec.field, joinCtx);
+    sourceParts.push(expressions ? expression : applyFilteredAggregationExpression(ds, spec, expression, joinCtx));
+    sourceParts.push(expressions?.arg ?? (spec.argField ? resolveDimensionExpression(ds, spec.argField, joinCtx) : 'NULL'));
   }
   // A positional tuple isolates internal names from the source table's names.
   const sourceIdentifiers = [

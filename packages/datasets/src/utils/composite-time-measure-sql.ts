@@ -1,3 +1,4 @@
+import { queryMeasureDefinitions } from './relationship-measures.js';
 import type { AnyDatasetInstance, DatasetQuery } from '../types.js';
 import type { DatasetQueryExecutionOptions } from '../dataset-query.js';
 import type { TimeMeasureAxis } from './time-measure-axis.js';
@@ -13,7 +14,7 @@ import { buildTimeMeasureResultSql } from './time-measure-result-sql.js';
 
 /** Aggregate each dependency in its evaluation context, then evaluate formulas. */
 export function buildCompositeTimeMeasureSql(ds: AnyDatasetInstance, query: DatasetQuery, options: DatasetQueryExecutionOptions, axis: TimeMeasureAxis) {
-  const graph = buildMeasureEvaluationGraph(ds.measures, query.measures ?? []);
+  const graph = buildMeasureEvaluationGraph(queryMeasureDefinitions(ds, query.measures ?? []), query.measures ?? []);
   const leaves = graph.nodes.filter(node => !isDerivedMeasure(node.definition));
   const baseNames = new Set(leaves.map(node => isWindowMeasure(node.definition) ? node.definition.measure : node.name));
   const source = buildTimeMeasureSourceSql(ds, query, baseNames, axis.filters, options);

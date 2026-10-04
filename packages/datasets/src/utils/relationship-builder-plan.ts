@@ -1,3 +1,7 @@
+import { relationshipMeasureSource } from './relationship-measure-sql.js';
+import type { DatasetSqlDialect } from '../dataset-sql-dialect.js';
+import { clickhouseDatasetSqlDialect } from './clickhouse-dataset-sql-dialect.js';
+import { resolveRelationshipReference } from './relationship-measures.js';
 /**
  * Query-builder-path planning for to-one relationship joins.
  *
@@ -24,6 +28,7 @@ export interface ResolvedBuilderJoin {
   relationship: string;
   /** Physical target source table. */
   source: string;
+  matchMarker?: string;
   /** Base join column (unqualified). */
   from: string;
   /** Target join column (unqualified). */
@@ -38,7 +43,7 @@ export interface RelationshipBuilderContext {
   joinByRelationship: Map<string, ResolvedBuilderJoin>;
 }
 
-type QueryLike = Pick<DatasetQuery & MetricQuery, 'dimensions' | 'filters' | 'orderBy'>;
+type QueryLike = Pick<DatasetQuery & MetricQuery, 'dimensions' | 'filters' | 'orderBy'> & Pick<DatasetQuery, 'measures'>;
 
 /**
  * Builds the join context for a query, or returns undefined when the query
@@ -49,9 +54,11 @@ export function buildRelationshipBuilderContext(
   ds: AnyDatasetInstance,
   query: QueryLike,
   context?: ExecutionContext,
+  dialect: DatasetSqlDialect = clickhouseDatasetSqlDialect,
 ): RelationshipBuilderContext | undefined {
   const referenced = [
     ...(query.dimensions ?? []),
+    ...(query.measures ?? []),
     ...(query.filters ?? []).map((filter) => filter.field),
     ...(query.orderBy ?? []).map((order) => order.field),
   ].filter(isQualifiedField);
@@ -64,7 +71,7 @@ export function buildRelationshipBuilderContext(
   const joinByRelationship = new Map<string, ResolvedBuilderJoin>();
 
   for (const name of referenced) {
-    const resolution = resolveQualifiedField(ds, name);
+    const resolution = resolveRelationshipReference(ds, name, query.measures);
     if (!resolution || !resolution.resolved) {
       continue;
     }
@@ -72,9 +79,12 @@ export function buildRelationshipBuilderContext(
     if (joinByRelationship.has(relationshipName)) {
       continue;
     }
+    const measureNames = (query.measures ?? []).filter(name => name.startsWith(`${relationshipName}.`)).map(name => name.slice(relationshipName.length + 1));
+    const projected = measureNames.length ? relationshipMeasureSource(target, relationship.to, measureNames, dialect) : undefined;
     joinByRelationship.set(relationshipName, {
       relationship: relationshipName,
-      source: target.source,
+      source: projected?.source ?? target.source,
+      matchMarker: projected?.marker,
       from: relationship.from,
       to: relationship.to,
       tenant: tenantPredicate && target.tenantKey

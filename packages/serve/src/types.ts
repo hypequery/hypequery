@@ -4,6 +4,7 @@ import type { CacheObservability } from "./cache-observability.js";
 import type {
   DatasetInstance,
   DatasetQueryableDimensions,
+  DatasetQueryableMeasures,
   DatasetQueryFor,
   DatasetQueryResultFor,
   KnownStringKeys,
@@ -276,7 +277,7 @@ interface MetricEndpointSemantic<
   readonly __hypequerySemantic?: {
     kind: 'metric';
     dimensions: DatasetQueryableDimensions<TDataset>;
-    measures: TDataset['measures'];
+    measures: DatasetQueryableMeasures<TDataset>;
     metricName: TMetricName;
   };
 }
@@ -285,7 +286,7 @@ interface DatasetEndpointSemantic<TDataset extends DatasetInstance<any, any, any
   readonly __hypequerySemantic?: {
     kind: 'dataset';
     dimensions: DatasetQueryableDimensions<TDataset>;
-    measures: TDataset['measures'];
+    measures: DatasetQueryableMeasures<TDataset>;
   };
 }
 
