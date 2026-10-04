@@ -205,3 +205,5 @@ The catalog is public in `@hypequery/datasets`. MCP introspection, MCP dataset l
 React metadata, CLI-generated labels, and broader cross-package drift tests are planned follow-up work.
 
 For agent and function-calling schemas built from the same catalog, see [Tool Generation](/docs/datasets/tool-generation).
+
+Composite relationship entries also carry `keys`, an ordered list of physical `{ from, to }` pairs. The existing `from` and `to` fields mirror the first pair for compatibility; consumers executing composite relationships must use the full list.

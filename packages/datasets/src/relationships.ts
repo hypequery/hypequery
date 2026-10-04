@@ -1,3 +1,4 @@
+import { createRelationship } from './utils/relationship-definition.js';
 /**
  * Relationship helpers for dataset definitions.
  *
@@ -6,9 +7,8 @@
  * only: joining it would fan out and corrupt aggregates, so it is refused at
  * query time.
  *
- * Only the target's *dimensions* are reachable. A measure on the target dataset
- * is not addressable through a relationship, so there are no cross-dataset
- * metrics.
+ * Target dimensions and safe base measures are reachable one hop deep.
+ * Use `keys` for multiple physical column equalities joined with AND.
  *
  * Note that the `kind` passed here is a declaration, not something checked at
  * query time. Joins are single-match (`leftAnyJoin`, ClickHouse
@@ -38,29 +38,12 @@
  * ```
  */
 
-import type { RelationshipDefinition, RelationshipKind } from './types.js';
-
-function createRelationship<
-  TTarget extends { __type: 'dataset'; name: string },
-  TKind extends RelationshipKind,
->(
-  kind: TKind,
-  target: () => TTarget,
-  join: { from: string; to: string },
-): RelationshipDefinition<TTarget, TKind> {
-  return {
-    __type: 'relationship',
-    kind,
-    target,
-    from: join.from,
-    to: join.to,
-  };
-}
+import type { RelationshipDefinition, RelationshipJoin } from './types.js';
 
 /** Many-to-one relationship (FK on this table). */
 export function belongsTo<TTarget extends { __type: 'dataset'; name: string }>(
   target: () => TTarget,
-  join: { from: string; to: string },
+  join: RelationshipJoin,
 ): RelationshipDefinition<TTarget, 'belongsTo'> {
   return createRelationship('belongsTo', target, join);
 }
@@ -68,7 +51,7 @@ export function belongsTo<TTarget extends { __type: 'dataset'; name: string }>(
 /** One-to-many relationship (FK on target table). */
 export function hasMany<TTarget extends { __type: 'dataset'; name: string }>(
   target: () => TTarget,
-  join: { from: string; to: string },
+  join: RelationshipJoin,
 ): RelationshipDefinition<TTarget, 'hasMany'> {
   return createRelationship('hasMany', target, join);
 }
@@ -76,7 +59,7 @@ export function hasMany<TTarget extends { __type: 'dataset'; name: string }>(
 /** One-to-one relationship (FK on target table). */
 export function hasOne<TTarget extends { __type: 'dataset'; name: string }>(
   target: () => TTarget,
-  join: { from: string; to: string },
+  join: RelationshipJoin,
 ): RelationshipDefinition<TTarget, 'hasOne'> {
   return createRelationship('hasOne', target, join);
 }

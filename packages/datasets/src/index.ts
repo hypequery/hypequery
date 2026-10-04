@@ -264,6 +264,8 @@ export type {
   InferDimensionType,
   RelationshipKind,
   RelationshipDefinition,
+  RelationshipKey,
+  RelationshipJoin,
   AggregationType,
   MeasureAggregation,
   AggregationSpec,

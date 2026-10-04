@@ -65,6 +65,14 @@ export interface QueryBuilderLike {
     on?: QueryBuilderJoinCondition | QueryBuilderJoinCondition[],
   ): QueryBuilderLike;
 
+  /** Composite single-match join; required only for multi-column relationships. */
+  leftAnyJoinOn?(
+    table: string,
+    keys: readonly [{ readonly leftColumn: string; readonly rightColumn: string }, ...{ readonly leftColumn: string; readonly rightColumn: string }[]],
+    alias?: string,
+    on?: QueryBuilderJoinCondition | QueryBuilderJoinCondition[],
+  ): QueryBuilderLike;
+
   // Grouping
   groupBy(columns: string | string[]): QueryBuilderLike;
 

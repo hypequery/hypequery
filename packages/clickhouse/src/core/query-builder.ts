@@ -1319,6 +1319,18 @@ export class QueryBuilder<
     return this.applyJoin<TableName, Alias>('FULL', table, leftColumnOrKeys, rightColumnOrAlias, alias);
   }
 
+  /** Object-form spelling of the composite `leftAnyJoin(table, keys, alias, on)` overload. */
+  leftAnyJoinOn<TableName extends JoinableTable<State>, Alias extends string | undefined = undefined>(
+    table: TableName,
+    keys: readonly [{ readonly leftColumn: keyof BaseRow<State>; readonly rightColumn: JoinRightColumn<State, TableName> }, ...{ readonly leftColumn: keyof BaseRow<State>; readonly rightColumn: JoinRightColumn<State, TableName> }[]],
+    alias?: JoinAliasArg<State, TableName, Alias>,
+    on?: JoinConditionInput | JoinConditionInput[],
+  ): QueryBuilder<Schema, JoinResultState<State, TableName, Alias>> {
+    if (!Array.isArray(keys) || keys.length === 0) throw new Error('leftAnyJoinOn requires at least one key pair.');
+    const pairs = keys.map(key => [key.leftColumn, key.rightColumn]) as unknown as JoinKeyPairs<State, TableName>;
+    return this.applyJoin<TableName, Alias>('LEFT ANY', table, pairs, alias, on);
+  }
+
   private applyJoin<TableName extends JoinableTable<State>, Alias extends string | undefined = undefined>(
     type: JoinType,
     table: TableName,

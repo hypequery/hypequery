@@ -155,6 +155,16 @@ describe('QueryBuilder - Joins', () => {
       expect(parameters).toEqual(['active']);
     });
 
+
+    it('compiles composite single-match joins and parameterizes extra predicates', () => {
+      const { sql, parameters } = builder.leftAnyJoinOn('users', [
+        { leftColumn: 'created_by', rightColumn: 'users.id' },
+        { leftColumn: 'updated_by', rightColumn: 'users.id' },
+      ], 'user', { column: 'user.status', operator: 'eq', value: 'active' }).toSQLWithParams();
+      expect(sql).toBe('SELECT * FROM test_table LEFT ANY JOIN users AS user ON created_by = user.id AND updated_by = user.id AND user.status = ?');
+      expect(parameters).toEqual(['active']);
+    });
+
     it('should maintain types when joining on same column name', () => {
       const _query = builder
         .select(['id'])
