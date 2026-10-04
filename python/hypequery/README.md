@@ -778,6 +778,9 @@ a branch for either would be unreachable code.
 
 ## Development
 
+See the [datasets implementation guide](./ARCHITECTURE.md) for validation,
+compilation and client boundaries, and where future dialect work belongs.
+
 ```bash
 uv sync --all-extras --dev
 uv run pytest
@@ -799,3 +802,6 @@ and asserts each one's exact expected family list before running its cases.
 reference and SQL-portability adapters.
 
 See the [implementation plan](../../plans/python-datasets-serve-pr-level-plan.md) and [security protocol](../../specs/security-protocol/README.md).
+
+For dataset coverage, CI gates, and remaining gaps, see the
+[testing review](./TESTING_REVIEW.md).
