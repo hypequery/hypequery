@@ -103,7 +103,7 @@ class RequestWork:
 
 
 def request_work(request: Request) -> RequestWork:
-    scope = cast(MutableMapping[object, Any], request.scope)
+    scope = cast(MutableMapping[object, object], request.scope)
     value = scope.get(_WORK_SCOPE_KEY)
     if not isinstance(value, RequestWork):
         value = RequestWork()
