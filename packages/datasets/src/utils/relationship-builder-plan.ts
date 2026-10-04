@@ -1,3 +1,5 @@
+import { relationshipKeys } from './relationship-keys.js';
+import type { RelationshipKey } from '../types.js';
 import { relationshipMeasureSource } from './relationship-measure-sql.js';
 import type { DatasetSqlDialect } from '../dataset-sql-dialect.js';
 import { clickhouseDatasetSqlDialect } from './clickhouse-dataset-sql-dialect.js';
@@ -29,6 +31,7 @@ export interface ResolvedBuilderJoin {
   /** Physical target source table. */
   source: string;
   matchMarker?: string;
+  keys?: readonly RelationshipKey[];
   /** Base join column (unqualified). */
   from: string;
   /** Target join column (unqualified). */
@@ -79,14 +82,18 @@ export function buildRelationshipBuilderContext(
     if (joinByRelationship.has(relationshipName)) {
       continue;
     }
-    const measureNames = (query.measures ?? []).filter(name => name.startsWith(`${relationshipName}.`)).map(name => name.slice(relationshipName.length + 1));
-    const projected = measureNames.length ? relationshipMeasureSource(target, relationship.to, measureNames, dialect) : undefined;
+    const measureNames = (query.measures ?? [])
+      .filter(name => name.startsWith(`${relationshipName}.`))
+      .map(name => name.slice(relationshipName.length + 1));
+    const keys = relationshipKeys(relationship);
+    const projected = measureNames.length ? relationshipMeasureSource(target, keys.map(key => key.to), measureNames, dialect) : undefined;
     joinByRelationship.set(relationshipName, {
       relationship: relationshipName,
       source: projected?.source ?? target.source,
       matchMarker: projected?.marker,
       from: relationship.from,
       to: relationship.to,
+      keys,
       tenant: tenantPredicate && target.tenantKey
         ? { field: target.tenantKey, ...tenantPredicate }
         : undefined,
@@ -142,6 +149,16 @@ export function applyRelationshipJoins(
     return qb;
   }
   for (const join of ctx.joins) {
+    if (join.keys && join.keys.length > 1) {
+      if (!qb.leftAnyJoinOn) throw new Error(`Composite relationship "${join.relationship}" requires query builder leftAnyJoinOn support.`);
+      const keys = join.keys.map(key => ({
+        leftColumn: `${ctx.baseSource}.${key.from}`,
+        rightColumn: `${join.relationship}.${key.to}`,
+      })) as [{ leftColumn: string; rightColumn: string }, ...{ leftColumn: string; rightColumn: string }[]];
+      qb = qb.leftAnyJoinOn(join.source, keys, join.relationship, join.tenant
+        ? { column: `${join.relationship}.${join.tenant.field}`, operator: join.tenant.operator, value: join.tenant.value } : undefined);
+      continue;
+    }
     if (!qb.leftAnyJoin) {
       throw new Error(
         `Relationship "${join.relationship}" cannot be joined: the query builder does not implement ` +

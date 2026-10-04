@@ -7,8 +7,8 @@ import { applyFilteredAggregationExpression } from './filtered-aggregation-sql.j
 import type { DatasetSqlDialect } from '../dataset-sql-dialect.js';
 
 /** Explicit projection avoids marker collisions and makes absent targets detectable under join_use_nulls=0. */
-export function relationshipMeasureSource(target: AnyDatasetInstance, to: string, names: readonly string[], dialect: DatasetSqlDialect) {
-  const columns = new Set([to, ...(target.tenantKey ? [target.tenantKey] : [])]);
+export function relationshipMeasureSource(target: AnyDatasetInstance, to: readonly string[], names: readonly string[], dialect: DatasetSqlDialect) {
+  const columns = new Set([...to, ...(target.tenantKey ? [target.tenantKey] : [])]);
   for (const [name, dimension] of Object.entries(target.dimensions)) if (!dimension.sql) columns.add(dimension.column ?? name);
   for (const name of names) {
     const measure = target.measures[name];

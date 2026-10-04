@@ -1,3 +1,4 @@
+import { relationshipKeys } from './relationship-keys.js';
 /**
  * Pure helpers for `checkRelationships`: which relationships a check covers,
  * and how a key-count row becomes a finding.
@@ -14,6 +15,8 @@ export interface ToOneRelationshipTarget {
   target: AnyDatasetInstance;
   /** Target join column, which a to-one declaration requires to be unique. */
   column: string;
+  /** Full target key; absent on legacy single-key findings. */
+  columns?: readonly string[];
 }
 
 /**
@@ -41,12 +44,16 @@ export function listToOneRelationships(
   }
   return declared
     .filter(([name, relationship]) => relationship.kind !== 'hasMany' && (!only || only.includes(name)))
-    .map(([name, relationship]) => ({
-      relationship: name,
-      kind: relationship.kind as ToOneRelationshipKind,
-      target: relationship.target() as AnyDatasetInstance,
-      column: relationship.to,
-    }));
+    .map(([name, relationship]) => {
+      const columns = relationshipKeys(relationship).map(key => key.to);
+      return {
+        relationship: name,
+        kind: relationship.kind as ToOneRelationshipKind,
+        target: relationship.target() as AnyDatasetInstance,
+        column: relationship.to,
+        ...(columns.length > 1 ? { columns } : {}),
+      };
+    });
 }
 
 export interface RelationshipKeyIssue {
@@ -58,6 +65,8 @@ export interface RelationshipKeyIssue {
   source: string;
   /** Target join column. */
   column: string;
+  /** Full target key; absent on legacy single-key findings. */
+  columns?: readonly string[];
   /** Target rows with a non-NULL key, within the checked tenant scope. Large counts are decimal strings. */
   rows: number | string;
   /** Distinct non-NULL keys, within the checked tenant scope. Large counts are decimal strings. */
@@ -105,10 +114,11 @@ export function relationshipKeyIssue(
     target: entry.target.name,
     source,
     column: entry.column,
+    ...(entry.columns ? { columns: [...entry.columns] } : {}),
     rows: displayCount(rows),
     distinctKeys: displayCount(distinctKeys),
     message:
-      `Relationship "${entry.relationship}" is declared ${entry.kind}, but "${source}.${entry.column}" ` +
+      `Relationship "${entry.relationship}" is declared ${entry.kind}, but "${source}.${entry.columns ? `(${entry.columns.join(', ')})` : entry.column}" ` +
       `has ${rows} rows for ${distinctKeys} distinct keys. Joins pick an arbitrary matching row; ` +
       'make the key unique or declare the relationship as hasMany.',
   };

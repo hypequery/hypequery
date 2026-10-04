@@ -1,3 +1,4 @@
+import type { RelationshipKey } from './types.js';
 import { listRelationshipMeasures } from './utils/relationship-measures.js';
 import { inheritedBaseMeasure } from './utils/measure-dependencies.js';
 import { windowCatalogMetadata, type WindowCatalogMetadata } from './utils/window-catalog-metadata.js';
@@ -91,6 +92,7 @@ export interface RelationshipCatalogEntry {
   target: string;
   from: string;
   to: string;
+  keys?: readonly RelationshipKey[];
   queryable: boolean;
   fields: string[];
   /**
@@ -203,6 +205,7 @@ function relationshipToCatalog(
     target: relationship.target().name,
     from: relationship.from,
     to: relationship.to,
+    ...(relationship.keys ? { keys: relationship.keys.map(key => ({ ...key })) } : {}),
     queryable: relationship.kind !== 'hasMany',
     fields: listQueryableRelationshipFields(name, relationship),
     groupableFields: listGroupableRelationshipFields(name, relationship),

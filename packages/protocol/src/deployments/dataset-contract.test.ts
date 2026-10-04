@@ -116,4 +116,14 @@ describe('local dataset contract validation', () => {
     expect(() => validateProtocolDatasetContract(dataset([{ ...metric, grain: 'day' }])))
       .not.toThrow();
   });
+  it('validates and freezes composite relationship keys', () => {
+    const input = { ...dataset(), relationships: [{ name: 'customer', kind: 'belongsTo', target: 'customers', from: 'customer_id', to: 'id', queryable: true, keys: [{ from: 'customer_id', to: 'id' }, { from: 'region', to: 'region' }] }] };
+    const validated = validateProtocolDatasetContract(input);
+    expect(validated.relationships[0].keys).toEqual(input.relationships[0].keys);
+    expect(Object.isFrozen(validated.relationships[0].keys)).toBe(true);
+    for (const keys of [[], [{ from: 'other', to: 'id' }], [{ from: 'customer_id', to: 'id' }, { from: 'region', to: 'id' }], [{ from: 'customer_id', to: 'id' }, { from: 'bad;sql', to: 'region' }]]) {
+      expect(() => validateProtocolDatasetContract({ ...input, relationships: [{ ...input.relationships[0], keys }] })).toThrow(/HQ_DEPLOYMENT/);
+    }
+  });
+
 });

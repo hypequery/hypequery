@@ -53,8 +53,8 @@ const ROWS_ALIAS = '__hq_rows';
 const KEYS_ALIAS = '__hq_keys';
 
 /**
- * Checks that the target join column of each `belongsTo` and `hasOne`
- * relationship on `ds` is unique. NULL keys are ignored because they never
+ * Checks that the target join key of each `belongsTo` and `hasOne`
+ * relationship on `ds` is unique. Composite keys require every component to be non-NULL. NULL keys are ignored because they never
  * match a join. `hasMany` relationships are skipped.
  */
 export async function checkRelationships(
@@ -75,7 +75,10 @@ export async function checkRelationships(
     let qb = factory
       .table(entry.target.source)
       .count(entry.column, ROWS_ALIAS)
-      .countDistinct(entry.column, KEYS_ALIAS);
+      .countDistinct(entry.columns ? `tuple(${entry.columns.join(', ')})` : entry.column, KEYS_ALIAS);
+    if (entry.columns) {
+      for (const column of entry.columns) qb = qb.where(column, 'isNotNull', undefined);
+    }
     if (entry.target.tenantKey && tenantPredicate) {
       qb = qb.where(entry.target.tenantKey, tenantPredicate.operator, tenantPredicate.value);
     }
