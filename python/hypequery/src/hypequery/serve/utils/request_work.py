@@ -8,6 +8,9 @@ from collections.abc import Callable, MutableMapping
 from contextlib import suppress
 from typing import Any, ParamSpec, TypeVar, cast
 
+from anyio import CapacityLimiter, WouldBlock
+from anyio.to_thread import current_default_thread_limiter
+from anyio.to_thread import run_sync as run_in_worker
 from fastapi import Request
 from starlette.concurrency import run_in_threadpool
 
@@ -25,18 +28,29 @@ class RequestWork:
     def start_sync(
         self, function: Callable[_P, _T], *args: _P.args, **kwargs: _P.kwargs
     ) -> asyncio.Task[_T]:
-        return self._start(False, function, *args, **kwargs)
+        return self._start(None, function, *args, **kwargs)
 
     def start_cleanup(
         self, function: Callable[_P, _T], *args: _P.args, **kwargs: _P.kwargs
-    ) -> asyncio.Task[_T]:
-        """Failure telemetry may finish after the request has been cancelled."""
-        return self._start(True, function, *args, **kwargs)
+    ) -> asyncio.Task[_T] | None:
+        """Failure telemetry runs only with an immediately available worker slot."""
+        limiter = current_default_thread_limiter()
+        lease = object()
+        try:
+            limiter.acquire_on_behalf_of_nowait(lease)
+        except WouldBlock:
+            return None
+        return self._start((limiter, lease), function, *args, **kwargs)
 
     def _start(
-        self, cleanup: bool, function: Callable[_P, _T], *args: _P.args, **kwargs: _P.kwargs
+        self,
+        lease: tuple[CapacityLimiter, object] | None,
+        function: Callable[_P, _T],
+        *args: _P.args,
+        **kwargs: _P.kwargs,
     ) -> asyncio.Task[_T]:
         started = threading.Event()
+        cleanup = lease is not None
 
         def invoke() -> _T:
             started.set()
@@ -46,7 +60,17 @@ class RequestWork:
                 raise asyncio.CancelledError
             return function(*args, **kwargs)
 
-        task = asyncio.create_task(run_in_threadpool(invoke))
+        async def run() -> _T:
+            if lease is None:
+                return await run_in_threadpool(invoke)
+            try:
+                # The shared token is already reserved. Use a private one-token
+                # limiter to dispatch without acquiring a second shared token.
+                return await run_in_worker(invoke, limiter=CapacityLimiter(1))
+            finally:
+                lease[0].release_on_behalf_of(lease[1])
+
+        task = asyncio.create_task(run())
         self.tasks.add(task)
         self._states[task] = (started, cleanup)
         task.add_done_callback(self._finished)

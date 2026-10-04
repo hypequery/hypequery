@@ -954,7 +954,8 @@ starts; only workers already running retain admission until they stop.
 Synchronous executors must honor the cancellation signal; the factory-created
 ClickHouse executor uses its control connection, while Python cannot forcibly
 stop arbitrary host code running in a thread. Failure telemetry is delivered
-asynchronously when the HTTP waiter is cancelled.
+asynchronously when the HTTP waiter is cancelled, and is dropped if no worker
+slot is immediately available so it cannot delay admission recovery.
 
 Dataset and metric endpoints also pass time, row, byte and thread ceilings into
 the compiled query, intersecting them with stricter client settings. The row

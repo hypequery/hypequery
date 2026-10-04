@@ -490,7 +490,7 @@ def test_expired_queued_work_is_cancelled_before_a_thread_pool_token_is_availabl
     import anyio.to_thread
     from starlette.concurrency import run_in_threadpool
 
-    from hypequery.serve.utils.request_work import run_sync
+    from hypequery.serve.utils.request_work import request_work, run_sync
 
     started = threading.Event()
     release = threading.Event()
@@ -510,7 +510,13 @@ def test_expired_queued_work_is_cancelled_before_a_thread_pool_token_is_availabl
                 await asyncio.sleep(0.01)
 
             async def app(scope: Scope, receive: Receive, send: Send) -> None:
-                await run_sync(Request(scope), calls.append, "expired work")
+                request = Request(scope)
+                try:
+                    await run_sync(request, calls.append, "expired work")
+                except asyncio.CancelledError:
+                    cleanup = request_work(request).start_cleanup(calls.append, "failure telemetry")
+                    assert cleanup is None
+                    raise
                 await send({"type": "http.response.start", "status": 200, "headers": []})
                 await send({"type": "http.response.body", "body": b"ok"})
 

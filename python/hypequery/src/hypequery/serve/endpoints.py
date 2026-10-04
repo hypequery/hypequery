@@ -135,7 +135,7 @@ class DatasetEndpoint:
                         (time.perf_counter() - started) * 1000,
                         error=error,
                     )
-                    if not isinstance(exc, asyncio.CancelledError):
+                    if event is not None and not isinstance(exc, asyncio.CancelledError):
                         await asyncio.shield(event)
                 raise
         if self.events:
