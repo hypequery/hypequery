@@ -87,3 +87,14 @@ type TransformCallerInput = Api['withTransform']['input'];
 const _callerSendsRawCsv: TransformCallerInput = { csv: 'a,b,c' };
 // @ts-expect-error callers send the input side of the transform, not the output
 const _callerCannotSendArray: TransformCallerInput = { csv: ['a', 'b'] };
+
+// In-process execution must use schema input types too, despite inputSchema being optional.
+api.run('withDefault', { input: { name: 'a' } });
+api.execute('withDefault', { input: { name: 'a', limit: 5 } });
+api.client('withTransform', { input: { csv: 'a,b' } });
+// @ts-expect-error required schema fields remain required for run()
+api.run('withDefault', { input: { limit: 5 } });
+// @ts-expect-error execute() accepts pre-transform inputs
+api.execute('withTransform', { input: { csv: ['a', 'b'] } });
+// @ts-expect-error client() preserves field types
+api.client('withDefault', { input: { name: 'a', limit: 'five' } });

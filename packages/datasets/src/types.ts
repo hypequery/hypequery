@@ -1,3 +1,4 @@
+import type { DatasetFilterFor } from './utils/dataset-filter-types.js';
 import type { QueryBuilderFactoryInput } from './query-builder-protocol.js';
 import type { SemanticCacheMetaInfo, SemanticCacheRuntime } from './cache/semantic-query-cache.js';
 import type { SemanticExpression } from './semantic-plan.js';
@@ -317,11 +318,14 @@ export interface MetricContract {
 export interface MetricFilter<
   TField extends string = string,
   TValue = unknown,
+  TOperator extends MetricFilterOperator = MetricFilterOperator,
 > {
   field: TField;
-  operator: 'eq' | 'neq' | 'gt' | 'gte' | 'lt' | 'lte' | 'in' | 'notIn' | 'between' | 'like';
+  operator: TOperator;
   value: TValue;
 }
+
+export type MetricFilterOperator = 'eq' | 'neq' | 'gt' | 'gte' | 'lt' | 'lte' | 'in' | 'notIn' | 'between' | 'like';
 
 export interface MetricOrderBy<TField extends string = string> {
   field: TField;
@@ -491,6 +495,7 @@ export interface DatasetConfig<
   TMeasures extends Record<string, DatasetMeasureDefinition> = Record<string, MeasureDefinition>,
   TRelationships extends Record<string, RelationshipDefinition> = Record<string, never>,
   TSegments extends Record<string, SegmentDefinition> = Record<string, SegmentDefinition>,
+  TFilters extends SemanticFiltersDefinition | undefined = SemanticFiltersDefinition,
 > extends SemanticMetadata {
   source: string;
   description?: string;
@@ -507,7 +512,7 @@ export interface DatasetConfig<
   timeGrains?: readonly TimeGrain[];
   dimensions: TDimensions;
   measures?: TMeasures & CheckedDatasetMeasures<TMeasures>;
-  filters?: SemanticFiltersDefinition;
+  filters?: TFilters;
   relationships?: TRelationships;
   limits?: DatasetLimits;
   cache?: DatasetCachePolicy;
@@ -526,6 +531,7 @@ export interface DatasetInstance<
   TDatasetName extends string = string,
   TDerivedMeasures extends Record<string, DerivedMeasureDefinition> = Record<string, DerivedMeasureDefinition>,
   TSegments extends Record<string, SegmentDefinition> = Record<string, SegmentDefinition>,
+  TFilters extends SemanticFiltersDefinition = SemanticFiltersDefinition,
 > {
   __type: 'dataset';
   name: TDatasetName;
@@ -548,7 +554,7 @@ export interface DatasetInstance<
   measures: TMeasures;
   /** @deprecated Use measures; derived definitions have __type: "derived_measure_definition". */
   derivedMeasures: TDerivedMeasures;
-  filters: SemanticFiltersDefinition;
+  filters: TFilters;
   relationships: TRelationships;
   limits?: DatasetLimits;
   cache?: DatasetCachePolicy;
@@ -556,11 +562,11 @@ export interface DatasetInstance<
   metric<TName extends string>(
     metricName: TName,
     metricConfig: BaseMetricConfig<BaseMeasures<TMeasures>>,
-  ): BaseMetricRef<TDatasetName, TName, DatasetInstance<TDimensions, TMeasures, TRelationships, TDatasetName, TDerivedMeasures, TSegments>>;
+  ): BaseMetricRef<TDatasetName, TName, DatasetInstance<TDimensions, TMeasures, TRelationships, TDatasetName, TDerivedMeasures, TSegments, TFilters>>;
   metric<TName extends string>(
     metricName: TName,
     metricConfig: DerivedMetricConfig<TDatasetName>,
-  ): DerivedMetricRef<TDatasetName, TName, DatasetInstance<TDimensions, TMeasures, TRelationships, TDatasetName, TDerivedMeasures, TSegments>>;
+  ): DerivedMetricRef<TDatasetName, TName, DatasetInstance<TDimensions, TMeasures, TRelationships, TDatasetName, TDerivedMeasures, TSegments, TFilters>>;
 }
 
 export interface DatasetRegistryInstance {
@@ -638,8 +644,8 @@ type DatasetDimensionDefinitionByName<
 //
 // These constrain a query's dimension/measure/orderBy fields to the names a
 // dataset or metric actually declares, and describe a best-effort typed result
-// row. Filter fields stay `string` because a dataset's `filters` map is widened
-// to `SemanticFiltersDefinition` and does not preserve literal keys.
+// row. Filter fields and operators follow the dataset's normalized allowlist,
+// including the allowlists of queryable one-hop relationship targets.
 //
 // Measure and metric values are `string | null`, not `number`: semantic query
 // execution normalizes every non-null aggregate to a string while preserving
@@ -683,7 +689,7 @@ export type DatasetOrderableNames<TDataset extends DatasetInstance<any, any, any
 export interface DatasetQueryFor<TDataset extends DatasetInstance<any, any, any, any>> {
   dimensions?: readonly DatasetDimensionNames<TDataset>[];
   measures?: readonly DatasetMeasureNames<TDataset>[];
-  filters?: readonly MetricFilter[];
+  filters?: readonly DatasetFilterFor<TDataset>[];
   /** Segment names declared on the dataset. */
   segments?: readonly DatasetSegmentNames<TDataset>[];
   orderBy?: readonly MetricOrderBy<DatasetOrderableNames<TDataset>>[];
@@ -742,7 +748,7 @@ export interface MetricQueryFor<
   TMetricName extends string,
 > {
   dimensions?: readonly DatasetDimensionNames<TDataset>[];
-  filters?: readonly MetricFilter[];
+  filters?: readonly DatasetFilterFor<TDataset>[];
   /** Segment names declared on the dataset. */
   segments?: readonly DatasetSegmentNames<TDataset>[];
   orderBy?: readonly MetricOrderBy<DatasetDimensionNames<TDataset> | TMetricName | 'period'>[];
