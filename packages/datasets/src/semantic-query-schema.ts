@@ -12,7 +12,7 @@ import {
   type DatasetCatalogSource,
   type MetricCatalogEntry,
 } from './catalog.js';
-import { SEMANTIC_FILTER_OPERATORS } from './constants.js';
+import { SEMANTIC_FILTER_OPERATORS, SEMANTIC_HAVING_OPERATORS } from './constants.js';
 import type { JsonSchema } from './tools.js';
 import type { AnyDatasetInstance } from './types.js';
 import type { ProtocolSchema } from '@hypequery/protocol';
@@ -32,6 +32,12 @@ export interface SemanticQuerySchemaLimits {
 export interface SemanticQuerySchemaOptions extends SemanticQuerySchemaLimits {
   /** Input field used for time grain. Serve uses `by`; agent tools use `grain`. */
   grainField?: 'by' | 'grain';
+  /**
+   * Accept `having` conditions on dataset queries. Off by default: enable it
+   * only on surfaces that execute through the dataset client. The deployment
+   * protocol does not carry post-aggregation conditions yet.
+   */
+  having?: boolean;
   /** Include Serve's opt-in result metadata flag. */
   includeMeta?: boolean;
   /** Require at least one dimension or measure for dataset queries. */
@@ -150,6 +156,24 @@ function filterSchema(
   return z.union(variants as [ZodTypeAny, ZodTypeAny, ...ZodTypeAny[]]);
 }
 
+/**
+ * Post-aggregation conditions on selected measures. That a condition names a
+ * *selected* measure depends on the rest of the input, so it is enforced by
+ * query validation rather than expressed here.
+ */
+function havingSchema(measures: string[], maximum?: number): ZodTypeAny {
+  const measure = fieldEnum(measures);
+  const number = z.number().finite();
+  const comparisons = SEMANTIC_HAVING_OPERATORS.filter(
+    operator => operator !== 'between' && operator !== 'in' && operator !== 'notIn',
+  ) as [string, ...string[]];
+  return boundedArray(z.union([
+    z.object({ measure, operator: z.enum(comparisons), value: number }).strict(),
+    z.object({ measure, operator: z.literal('between'), value: z.array(number).min(2).max(2) }).strict(),
+    z.object({ measure, operator: z.enum(['in', 'notIn']), value: z.array(number).min(1) }).strict(),
+  ]), maximum);
+}
+
 function queryShape(
   catalog: DatasetCatalog,
   metricName: string | undefined,
@@ -204,6 +228,11 @@ function queryShape(
         ...Object.keys(catalog.derivedMeasures ?? {}),
         ...(catalog.supportedGrains.length > 0 ? ['period'] : []),
       ]);
+  const selectableMeasures = [
+    ...Object.keys(catalog.measures),
+    ...getQueryableRelationshipMeasures(catalog),
+    ...Object.keys(catalog.derivedMeasures ?? {}),
+  ];
   const maxResultSize = options.enforceResultLimit === false
     ? undefined
     : lowerLimit(catalog.limits?.maxResultSize, limits.maxResultSize);
@@ -222,7 +251,7 @@ function queryShape(
     ),
     ...(metricName ? {} : {
       measures: boundedArray(
-        fieldEnum([...Object.keys(catalog.measures), ...getQueryableRelationshipMeasures(catalog), ...Object.keys(catalog.derivedMeasures ?? {})]),
+        fieldEnum(selectableMeasures),
         lowerLimit(catalog.limits?.maxMeasures, limits.maxMeasures),
       ),
     }),
@@ -230,6 +259,11 @@ function queryShape(
       filterSchema(catalog, filterFields, relationshipOperators),
       lowerLimit(catalog.limits?.maxFilters, limits.maxFilters),
     ),
+    // Opt-in, so existing schemas and manifest hashes are unchanged and a
+    // surface only advertises conditions its executor can run.
+    ...(!metricName && options.having ? {
+      having: havingSchema(selectableMeasures, lowerLimit(catalog.limits?.maxFilters, limits.maxFilters)),
+    } : {}),
     // Only datasets that declare segments accept the field, so every other
     // schema, including hosted catalogs, is unchanged.
     ...(Object.keys(catalog.segments ?? {}).length > 0 ? {

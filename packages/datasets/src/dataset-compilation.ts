@@ -16,6 +16,8 @@ export interface DatasetCompilationDescription {
   readonly measures: readonly string[];
   readonly measureDependencies: readonly string[];
   readonly filters: readonly { readonly field: string; readonly operator: string }[];
+  /** Post-aggregation conditions, without their values. */
+  readonly having: readonly { readonly measure: string; readonly operator: string }[];
   readonly segments: readonly string[];
   readonly by?: string;
   readonly timezone?: string;

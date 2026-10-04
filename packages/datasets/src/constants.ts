@@ -2,7 +2,7 @@
  * Shared constants for semantic layer implementation.
  */
 
-import type { MetricFilter, TimeGrain } from './types.js';
+import type { DatasetHavingOperator, MetricFilter, TimeGrain } from './types.js';
 
 /**
  * Maps time grain to ClickHouse date truncation functions.
@@ -38,6 +38,22 @@ export const SEMANTIC_FILTER_OPERATORS = [
   'between',
   'like',
 ] as const satisfies readonly MetricFilter['operator'][];
+
+/**
+ * Operators accepted by dataset `having` conditions. `like` is excluded:
+ * conditions compare aggregated numeric values.
+ */
+export const SEMANTIC_HAVING_OPERATORS = [
+  'eq',
+  'neq',
+  'gt',
+  'gte',
+  'lt',
+  'lte',
+  'in',
+  'notIn',
+  'between',
+] as const satisfies readonly DatasetHavingOperator[];
 
 /**
  * Narrowing guard for a runtime-provided grain value.

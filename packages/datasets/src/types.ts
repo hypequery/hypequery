@@ -328,6 +328,19 @@ export interface MetricFilter<
 
 export type MetricFilterOperator = 'eq' | 'neq' | 'gt' | 'gte' | 'lt' | 'lte' | 'in' | 'notIn' | 'between' | 'like';
 
+/** Operators a `having` condition may apply to an aggregated measure value. */
+export type DatasetHavingOperator = Exclude<MetricFilterOperator, 'like'>;
+
+/**
+ * A condition on an aggregated measure value, applied after grouping (SQL
+ * `HAVING` semantics). `measure` must be one of the query's selected measures;
+ * values are numbers and are always bound as parameters.
+ */
+export type DatasetHavingCondition<TMeasure extends string = string> =
+  | { measure: TMeasure; operator: 'eq' | 'neq' | 'gt' | 'gte' | 'lt' | 'lte'; value: number }
+  | { measure: TMeasure; operator: 'between'; value: readonly [number, number] }
+  | { measure: TMeasure; operator: 'in' | 'notIn'; value: readonly number[] };
+
 export interface MetricOrderBy<TField extends string = string> {
   field: TField;
   direction: 'asc' | 'desc';
@@ -358,6 +371,11 @@ export interface DatasetQuery {
   dimensions?: string[];
   measures?: string[];
   filters?: MetricFilter[];
+  /**
+   * Conditions on aggregated measure values, combined with AND and applied
+   * after grouping. Each condition must reference a selected measure.
+   */
+  having?: DatasetHavingCondition[];
   /** Segment names declared on the dataset, combined with `filters` by AND. */
   segments?: string[];
   orderBy?: MetricOrderBy[];
@@ -698,6 +716,11 @@ export interface DatasetQueryFor<TDataset extends DatasetInstance<any, any, any,
   dimensions?: readonly DatasetDimensionNames<TDataset>[];
   measures?: readonly DatasetMeasureNames<TDataset>[];
   filters?: readonly DatasetFilterFor<TDataset>[];
+  /**
+   * Conditions on aggregated measure values, applied after grouping. Each
+   * condition must reference a measure selected by this query.
+   */
+  having?: readonly DatasetHavingFor<TDataset>[];
   /** Segment names declared on the dataset. */
   segments?: readonly DatasetSegmentNames<TDataset>[];
   orderBy?: readonly MetricOrderBy<DatasetOrderableNames<TDataset>>[];
@@ -708,6 +731,10 @@ export interface DatasetQueryFor<TDataset extends DatasetInstance<any, any, any,
   timezone?: string;
   includeMeta?: boolean;
 }
+
+/** A `having` condition constrained to the dataset's measure names. */
+export type DatasetHavingFor<TDataset extends DatasetInstance<any, any, any, any>> =
+  DatasetHavingCondition<DatasetMeasureNames<TDataset>>;
 
 type SelectedDimensions<
   TDataset extends DatasetInstance<any, any, any, any>,
