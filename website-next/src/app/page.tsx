@@ -3,6 +3,7 @@ import Navigation from '@/components/Navigation';
 import { absoluteUrl } from '@/lib/site';
 import { Hero, FinalCTA } from '@/components/home';
 import { FeatureGrid } from '@/components/home/FeatureGrid';
+import { DatasetQuickstart } from '@/components/home/DatasetQuickstart';
 import { ProductExplainer } from '@/components/home/ProductExplainer';
 
 const softwareSchema = {
@@ -41,6 +42,7 @@ export default function Home() {
         <Hero />
         <ProductExplainer />
         <FeatureGrid />
+        <DatasetQuickstart />
         <FinalCTA />
       </main>
       <Footer />
