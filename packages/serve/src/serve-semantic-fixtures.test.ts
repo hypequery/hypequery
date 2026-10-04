@@ -44,7 +44,7 @@ function assertPublic(value: unknown): void {
 }
 
 describe('shared semantic HTTP fixtures (semantic-v1)', () => {
-  it.each(fixtures.cases.map(fixture => [fixture.id, fixture] as const))('%s', async (_id, fixture) => {
+  it.each(fixtures.cases)('$id', async fixture => {
     const config = fixtures.app;
     const orders = dataset(config.dataset, {
       source: config.source,
