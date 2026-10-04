@@ -97,6 +97,32 @@ describe('datasets SQL dialect seam', () => {
     expect(quoteIdentifier).toHaveBeenCalledWith('average');
   });
 
+  it.each(['revenue', 'average'])('uses the runtime dialect in compilation previews and execution: %s', async selected => {
+    const factory: QueryBuilderFactoryLike = {
+      ...createRenderingBuilderFactory(),
+      datasetSqlDialect: {
+        name: 'clickhouse',
+        quoteIdentifier: identifier => `"${identifier.replace(/"/g, '""')}"`,
+      },
+    };
+    const client = createDatasetClient({ queryBuilder: createRenderingBuilderFactory() });
+    const context = { runtime: { builderFactory: factory } };
+    const query = {
+      measures: [selected],
+      dimensions: ['customer.country'],
+      orderBy: [{ field: 'customer.country', direction: 'asc' as const }],
+      limit: 2,
+    };
+    const compilation = client.compileDataset(Orders, query, context);
+
+    expect(compilation.sql).toContain('AS "customer.country"');
+    expect(compilation.sql).toContain('ORDER BY "customer.country" ASC');
+    expect(compilation.sql).not.toContain('`');
+    expect(compilation.describe().executionLimit).toBe(3);
+    expect((await client.execute(Orders, query, context)).meta.sql).toBe(compilation.sql);
+    expect(client.compileDataset(Orders, query).sql).toContain('`customer.country`');
+  });
+
   it.each([Revenue, Average])('preserves custom quoted SQL through metric execution: $name', async target => {
     const factory: QueryBuilderFactoryLike = {
       ...createRenderingBuilderFactory(),
