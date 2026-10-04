@@ -93,7 +93,13 @@ class RequestWork:
 
     async def drain(self) -> None:
         while self.tasks:
-            await asyncio.gather(*self.tasks, return_exceptions=True)
+            pending = tuple(self.tasks)
+            await asyncio.gather(*pending, return_exceptions=True)
+            # Gathering already-finished tasks can return without yielding on
+            # Python 3.12+. Retire them here rather than spinning while their
+            # queued done callbacks wait for the event loop to run.
+            for task in pending:
+                self._finished(task)
 
 
 def request_work(request: Request) -> RequestWork:
