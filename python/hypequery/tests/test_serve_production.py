@@ -484,3 +484,60 @@ def test_sync_deadline_returns_promptly_and_retains_capacity_until_worker_stops(
             assert response.status_code == 200, response.text
 
     asyncio.run(run())
+
+
+def test_expired_queued_work_is_cancelled_before_a_thread_pool_token_is_available() -> None:
+    import anyio.to_thread
+    from starlette.concurrency import run_in_threadpool
+
+    from hypequery.serve.utils.request_work import run_sync
+
+    started = threading.Event()
+    release = threading.Event()
+    calls: list[str] = []
+
+    def occupy_pool() -> None:
+        started.set()
+        release.wait(5)
+
+    async def run() -> None:
+        limiter = anyio.to_thread.current_default_thread_limiter()
+        original_tokens = limiter.total_tokens
+        limiter.total_tokens = 1
+        occupier = asyncio.create_task(run_in_threadpool(occupy_pool))
+        try:
+            while not started.is_set():
+                await asyncio.sleep(0.01)
+
+            async def app(scope: Scope, receive: Receive, send: Send) -> None:
+                await run_sync(Request(scope), calls.append, "expired work")
+                await send({"type": "http.response.start", "status": 200, "headers": []})
+                await send({"type": "http.response.body", "body": b"ok"})
+
+            async def receive() -> Message:
+                return {"type": "http.request", "body": b"", "more_body": False}
+
+            messages: list[Message] = []
+
+            async def send(message: Message) -> None:
+                messages.append(message)
+
+            middleware = ProductionLimitsMiddleware(
+                app, ProductionProfile(timeout_seconds=1, max_concurrency=1)
+            )
+            await middleware(
+                {"type": "http", "method": "GET", "path": "/", "headers": []}, receive, send
+            )
+            assert messages[0]["status"] == 504
+            await asyncio.sleep(0.05)
+            assert middleware.active == 0
+            assert calls == []
+            assert not release.is_set()
+        finally:
+            release.set()
+            await occupier
+            limiter.total_tokens = original_tokens
+        await asyncio.sleep(0.05)
+        assert calls == []
+
+    asyncio.run(run())

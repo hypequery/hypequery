@@ -24,7 +24,7 @@ class RequestLifetime:
     async def _watch(self) -> None:
         while not self.cancellation.is_set():
             if await self._request.is_disconnected():
-                self.cancellation.set()
+                request_work(self._request).cancel()
                 return
             await asyncio.sleep(0.05)
 
@@ -34,7 +34,8 @@ class RequestLifetime:
         exc: object,
         traceback: object,
     ) -> None:
-        self.cancellation.set()
+        if exc_type is not None:
+            request_work(self._request).cancel()
         if self._watcher:
             self._watcher.cancel()
             with suppress(asyncio.CancelledError):

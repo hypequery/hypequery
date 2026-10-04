@@ -949,6 +949,8 @@ dataset executor. Before response headers are sent it returns canonical
 The HTTP deadline returns promptly even when a synchronous query or authentication
 callback stalls. Its admission slot remains occupied until the tracked worker
 finishes, preventing timed-out requests from accumulating unbounded work.
+Work still waiting for a thread-pool slot is cancelled before the host callback
+starts; only workers already running retain admission until they stop.
 Synchronous executors must honor the cancellation signal; the factory-created
 ClickHouse executor uses its control connection, while Python cannot forcibly
 stop arbitrary host code running in a thread. Failure telemetry is delivered

@@ -122,14 +122,14 @@ class DatasetEndpoint:
                 if lifetime.cancellation.is_set():
                     raise CompiledQueryError("aborted", "The request was cancelled.")
             except (Exception, asyncio.CancelledError) as exc:
-                lifetime.cancellation.set()
+                request_work(request).cancel()
                 if self.events:
                     error = (
                         CompiledQueryError("aborted", "The request was cancelled.")
                         if isinstance(exc, asyncio.CancelledError)
                         else exc
                     )
-                    event = request_work(request).start_sync(
+                    event = request_work(request).start_cleanup(
                         self.events.emit,
                         self.name,
                         (time.perf_counter() - started) * 1000,

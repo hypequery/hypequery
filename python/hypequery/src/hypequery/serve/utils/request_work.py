@@ -20,17 +20,49 @@ class RequestWork:
     def __init__(self) -> None:
         self.cancellation = threading.Event()
         self.tasks: set[asyncio.Task[Any]] = set()
+        self._states: dict[asyncio.Task[Any], tuple[threading.Event, bool]] = {}
 
     def start_sync(
         self, function: Callable[_P, _T], *args: _P.args, **kwargs: _P.kwargs
     ) -> asyncio.Task[_T]:
-        task = asyncio.create_task(run_in_threadpool(function, *args, **kwargs))
+        return self._start(False, function, *args, **kwargs)
+
+    def start_cleanup(
+        self, function: Callable[_P, _T], *args: _P.args, **kwargs: _P.kwargs
+    ) -> asyncio.Task[_T]:
+        """Failure telemetry may finish after the request has been cancelled."""
+        return self._start(True, function, *args, **kwargs)
+
+    def _start(
+        self, cleanup: bool, function: Callable[_P, _T], *args: _P.args, **kwargs: _P.kwargs
+    ) -> asyncio.Task[_T]:
+        started = threading.Event()
+
+        def invoke() -> _T:
+            started.set()
+            # Recheck inside the worker: it may have waited for a pool token
+            # until after its HTTP waiter was cancelled.
+            if not cleanup and self.cancellation.is_set():
+                raise asyncio.CancelledError
+            return function(*args, **kwargs)
+
+        task = asyncio.create_task(run_in_threadpool(invoke))
         self.tasks.add(task)
+        self._states[task] = (started, cleanup)
         task.add_done_callback(self._finished)
         return task
 
+    def cancel(self) -> None:
+        self.cancellation.set()
+        for task, (started, cleanup) in tuple(self._states.items()):
+            if not cleanup and not started.is_set():
+                # Waiting for thread-pool capacity is cancellable. Running
+                # workers remain tracked until they actually return.
+                task.cancel()
+
     def _finished(self, task: asyncio.Task[Any]) -> None:
         self.tasks.discard(task)
+        self._states.pop(task, None)
         # A cancelled waiter will not retrieve a late worker exception.
         with suppress(asyncio.CancelledError, Exception):
             task.result()

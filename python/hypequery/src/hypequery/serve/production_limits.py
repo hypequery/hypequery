@@ -73,7 +73,7 @@ class ProductionLimitsMiddleware:
                         committed = True
                         await send({"type": "http.response.body", "body": bytes(body)})
             except TimeoutError:
-                work.cancellation.set()
+                work.cancel()
                 if committed:
                     # The transport must close a stalled partial response.
                     # A second status line would corrupt the HTTP connection.
@@ -95,7 +95,7 @@ class ProductionLimitsMiddleware:
                     scope, receive, send
                 )
         finally:
-            work.cancellation.set()
+            work.cancel()
             if work.tasks:
                 # A 504 releases the HTTP caller, but still-running host code
                 # keeps its admission slot until its threads have stopped.
