@@ -1,3 +1,4 @@
+import { semanticOrderDirection } from './semantic-query-syntax.js';
 import type { AnyDatasetInstance, DatasetQuery } from '../types.js';
 import type { DatasetQueryExecutionOptions } from '../dataset-query.js';
 import { quoteSQLIdentifier } from '../sql-utils.js';
@@ -32,7 +33,7 @@ export function buildTimeMeasureResultSql(
     + ` UNION ALL SELECT ${nullProjections} FROM _hq_bounds WHERE ${validationGuard} = 1)`;
   let sql = `WITH ${[...ctes, resultCte].join(',\n')} SELECT ${outputNames.map(quoteSQLIdentifier).join(', ')} FROM _hq_result`;
   const order = query.orderBy?.length ? query.orderBy : [{ field: 'period', direction: 'asc' }];
-  sql += ` ORDER BY ${order.map(item => `${quoteSQLIdentifier(item.field)} ${item.direction === 'asc' ? 'ASC' : 'DESC'}`).join(', ')}`;
+  sql += ` ORDER BY ${order.map(item => `${quoteSQLIdentifier(item.field)} ${semanticOrderDirection(item.direction)}`).join(', ')}`;
   const limit = options.executionLimit ?? query.limit;
   if (limit !== undefined) sql += ` LIMIT ${limit}`;
   if (query.offset !== undefined) sql += ` OFFSET ${query.offset}`;

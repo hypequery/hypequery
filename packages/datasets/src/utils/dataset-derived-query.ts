@@ -1,4 +1,5 @@
 import { queryMeasureDefinitions } from './relationship-measures.js';
+import { semanticOrderDirection } from './semantic-query-syntax.js';
 import { measureDependencyNames } from './measure-dependencies.js';
 import { derivedExpressionSql } from './derived-measure-sql.js';
 import { baseMeasureNames, getBaseMeasure, getDerivedMeasure } from './dataset-measures.js';
@@ -58,7 +59,7 @@ export function buildDerivedDatasetSql(
 
   if (query.orderBy?.length) {
     sql += ` ORDER BY ${query.orderBy.map(order => (
-      `${dialect.quoteIdentifier(order.field)} ${order.direction === 'asc' ? 'ASC' : 'DESC'}`
+      `${dialect.quoteIdentifier(order.field)} ${semanticOrderDirection(order.direction)}`
     )).join(', ')}`;
   } else if (query.by) {
     sql += ` ORDER BY ${dialect.quoteIdentifier('period')} ASC`;

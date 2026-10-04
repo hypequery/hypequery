@@ -1,3 +1,4 @@
+import { semanticOrderDirection } from './utils/semantic-query-syntax.js';
 import { queryTimeSql } from './utils/query-timezone.js';
 import { assertNoRawSqlUnderJoins } from './utils/sql-under-joins.js';
 import type {
@@ -24,10 +25,6 @@ import { measureToAggregationSpec } from './utils/dataset-normalization.js';
 import { validatePercentileLevel } from './measure.js';
 
 type DatasetShape = AnyDatasetInstance;
-
-function toOrderDirection(direction: MetricOrderBy['direction']): 'ASC' | 'DESC' {
-  return direction === 'asc' ? 'ASC' : 'DESC';
-}
 
 export function resolveDimensionExpression(
   ds: DatasetShape,
@@ -203,7 +200,7 @@ export function appendOrderLimitOffset(
       const column = joinCtx && isQualifiedField(order.field)
         ? dialect.quoteIdentifier(order.field)
         : order.field;
-      qb = qb.orderBy(column, toOrderDirection(order.direction));
+      qb = qb.orderBy(column, semanticOrderDirection(order.direction));
     }
   } else if (grain) {
     qb = qb.orderBy("period", "ASC");

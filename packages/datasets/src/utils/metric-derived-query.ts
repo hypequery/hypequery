@@ -1,3 +1,4 @@
+import { semanticQuerySyntaxErrors, semanticOrderDirection } from './semantic-query-syntax.js';
 /** Metric SQL compilation; factory selection and execution belong to the client. */
 import { resolveDatasetSqlDialect } from './dataset-sql-dialect.js';
 import type { MetricRef, MetricQuery, ExecutionContext, TimeGrain } from '../types.js';
@@ -31,6 +32,8 @@ export function buildDerivedMetricSql(
   builderFactory: QueryBuilderFactoryLike,
   context?: ExecutionContext,
 ): { sql: string; params: unknown[] } {
+  const syntaxErrors = semanticQuerySyntaxErrors(query);
+  if (syntaxErrors.length) throw new Error(syntaxErrors.join('; '));
   const dialect = resolveDatasetSqlDialect(builderFactory);
   const ds = ref.dataset;
   const joinCtx = buildRelationshipBuilderContext(ds, query, context);
@@ -119,10 +122,10 @@ export function buildDerivedMetricSql(
   if (query.orderBy && query.orderBy.length > 0) {
     const orderParts = query.orderBy.map(o => {
       if (joinCtx && isQualifiedField(o.field)) {
-        return `${dialect.quoteIdentifier(o.field)} ${o.direction.toUpperCase()}`;
+        return `${dialect.quoteIdentifier(o.field)} ${semanticOrderDirection(o.direction)}`;
       }
       validateSQLIdentifier(o.field, 'order by field');
-      return `${o.field} ${o.direction.toUpperCase()}`;
+      return `${o.field} ${semanticOrderDirection(o.direction)}`;
     });
     sql += ` ORDER BY ${orderParts.join(', ')}`;
   } else if (grain) {
