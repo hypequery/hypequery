@@ -33,6 +33,11 @@ export function validateDatasetQueryInput(
   const measureNames = Object.keys(ds.measures);
   const selectedDimensions = query.dimensions ?? [];
   const selectedMeasures = query.measures ?? baseMeasureNames(ds.measures);
+  for (const name of selectedDimensions) {
+    if (selectedMeasures.includes(name)) {
+      errors.push(`Output "${name}" cannot be selected as both a dimension and a measure. Select one or give the definitions distinct names.`);
+    }
+  }
   const filterNames = Object.keys(ds.filters);
   const orderableFields = new Set<string>([
     ...selectedDimensions,

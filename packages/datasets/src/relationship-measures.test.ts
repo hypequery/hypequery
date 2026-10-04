@@ -61,6 +61,15 @@ describe('relationship measures', () => {
     expect(sql).toContain('toNullable(1) AS `_hq_match_`');
     expect(sql).toContain('isNotNull(target._hq_match_)');
   });
+  it('rejects dimensions and measures sharing a qualified output name', () => {
+    const target = dataset('overlappingTarget', { source: 'overlapping_targets', dimensions: { id: dimension.number() }, measures: { id: measure.countDistinct('id') } });
+    const source = dataset('overlappingSource', { source: 'overlapping_sources', dimensions: { id: dimension.number() }, relationships: { target: belongsTo(() => target, { from: 'id', to: 'id' }) } });
+    const query = { dimensions: ['target.id'], measures: ['target.id'] };
+    expect(validateDatasetQuery(source, query).errors.join(' ')).toMatch(/cannot be selected as both/);
+    expect(() => client.toSQL(source, query)).toThrow(/cannot be selected as both/);
+    expect(validateDatasetQuery(source, { dimensions: ['target.id'], measures: [] }).valid).toBe(true);
+    expect(validateDatasetQuery(source, { measures: ['target.id'] }).valid).toBe(true);
+  });
   it('preserves related measures beside a local derived projection', () => {
     const sql = client.toSQL(Sources, { measures: ['twice', 'target.unique'] }, context);
     expect(sql).toContain('AS `target.unique`');

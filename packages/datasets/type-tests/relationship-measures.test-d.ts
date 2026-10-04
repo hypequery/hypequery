@@ -6,9 +6,13 @@ const targets = dataset('targets', {
     min: measure.min('id'), max: measure.max('id'), arg: measure.argMax('id', 'time'),
     sum: measure.sum('id'), count: measure.count('id'), avg: measure.avg('id'),
     raw: measure.min('id', { sql: 'id + 1' }), computed: measure.min('computed'),
+    filteredSql: measure.countDistinct('id', { filters: [{ field: 'computed', operator: 'gt', value: 0 }] }),
+    aliasedSql: measure.countDistinct('id', { filters: [{ field: 'computedAlias', operator: 'gt', value: 0 }] }),
+    filteredSafe: measure.countDistinct('id', { filters: [{ field: 'idAlias', operator: 'gt', value: 0 }] }),
     derived: measure.derived({ uses: { sum: 'sum' }, formula: ({ sum }) => add(sum, sum) }),
     window: measure.trailing('sum', { amount: 7, unit: 'day' }), shift: measure.shift('sum', { amount: 1, unit: 'day' }),
   },
+  filters: { computedAlias: { __type: 'filter_definition', field: 'computed' }, idAlias: { __type: 'filter_definition', field: 'id' } },
 });
 const sources = dataset('sources', {
   source: 'sources', dimensions: { id: dimension.number() }, measures: { count: measure.count('id') },
@@ -19,7 +23,7 @@ const sources = dataset('sources', {
   },
 });
 const query: DatasetQueryFor<typeof sources> = {
-  measures: ['count', 'target.unique', 'target.estimated', 'target.min', 'target.max', 'target.arg', 'profile.sum', 'profile.count', 'profile.avg'],
+  measures: ['count', 'target.unique', 'target.estimated', 'target.min', 'target.max', 'target.arg', 'profile.sum', 'profile.count', 'profile.avg', 'target.filteredSafe'],
   orderBy: [{ field: 'target.unique', direction: 'desc' }],
 };
 void query;
@@ -41,7 +45,11 @@ const shift: DatasetQueryFor<typeof sources> = { measures: ['profile.shift'] };
 const raw: DatasetQueryFor<typeof sources> = { measures: ['profile.raw'] };
 // @ts-expect-error SQL-backed target dimensions are not safe aggregate inputs
 const computed: DatasetQueryFor<typeof sources> = { measures: ['target.computed'] };
-void [sum, count, many, multi, derived, window, shift, raw, computed];
+// @ts-expect-error fixed filters on SQL-backed target dimensions are not executable
+const filteredSql: DatasetQueryFor<typeof sources> = { measures: ['target.filteredSql'] };
+// @ts-expect-error filter allowlist aliases must resolve before checking SQL-backed inputs
+const aliasedSql: DatasetQueryFor<typeof sources> = { measures: ['profile.aliasedSql'] };
+void [sum, count, many, multi, derived, window, shift, raw, computed, filteredSql, aliasedSql];
 const client = createDatasetClient({ queryBuilder: {} as never });
 async function projections() {
   const result = await client.execute(sources, { measures: ['target.unique'] });
