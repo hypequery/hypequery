@@ -179,3 +179,19 @@ describe('RFC 0015 window measure authoring', () => {
       .toContain('Window measures require exactly one bounded time range: between, or gt/gte with lt/lte, using ISO timestamps.');
   });
 });
+
+describe('window SQL compilation entry point', () => {
+  it('compiles a bounded cumulative series without executing', () => {
+    const ds = orders({ revenue: measure.sum('amount'), running: measure.cumulative('revenue') });
+    const client = createDatasetClient({ queryBuilder: createRenderingBuilderFactory() });
+    const sql = client.toSQL(ds, {
+      measures: ['running'], by: 'day',
+      filters: [{ field: 'createdAt', operator: 'between', value: ['2026-01-01', '2026-01-03'] }],
+    });
+    expect(sql).toContain('running');
+    expect(sql).toContain('createdAt');
+    expect(sql).toContain('2026-01-01');
+    expect(sql).toContain('2026-01-03');
+    expect(sql).toContain('period');
+  });
+});
