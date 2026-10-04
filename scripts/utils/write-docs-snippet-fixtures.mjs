@@ -62,6 +62,7 @@ interface DocsSchema {
   orders: {
     id: 'UInt64';
     tenant_id: 'String';
+    customer_id: 'String';
     status: 'String';
     country: 'String';
     email: 'String';
@@ -71,6 +72,7 @@ interface DocsSchema {
   customers: {
     id: 'String';
     country: 'String';
+    tier: 'String';
   };
   users: {
     user_id: 'String';
