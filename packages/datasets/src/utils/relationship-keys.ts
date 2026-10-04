@@ -30,6 +30,7 @@ export function validateRelationshipKeys(keys: readonly RelationshipKey[]): void
 /** Return the whole equality key; legacy relationships remain single-key. */
 export function relationshipKeys(relationship: Pick<RelationshipDefinition, 'from' | 'to' | 'keys'>): readonly RelationshipKey[] {
   const keys = relationship.keys ?? [{ from: relationship.from, to: relationship.to }];
+  if (!relationship.keys) return keys;
   validateRelationshipKeys(keys);
   if (keys[0].from !== relationship.from || keys[0].to !== relationship.to) {
     throw new Error('Relationship from/to must match the first keys pair.');

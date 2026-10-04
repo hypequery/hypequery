@@ -1,3 +1,4 @@
+import { normalizeRelationshipJoin } from './utils/relationship-keys.js';
 import type { RelationshipKey } from './types.js';
 /**
  * Rebuilds executable datasets from a portable deployment contract.
@@ -211,7 +212,9 @@ function rehydrateRelationships(
       target: () => resolve(target),
       from: String(relationship.from),
       to: String(relationship.to),
-      ...(relationship.keys ? { keys: relationship.keys.map(key => ({ from: String(key.from), to: String(key.to) })) as [RelationshipKey, ...RelationshipKey[]] } : {}),
+      ...(relationship.keys ? normalizeRelationshipJoin({
+        keys: relationship.keys.map(key => ({ from: String(key.from), to: String(key.to) })) as [RelationshipKey, ...RelationshipKey[]],
+      }) : {}),
     };
   }
   return relationships;

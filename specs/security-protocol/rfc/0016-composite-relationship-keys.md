@@ -8,7 +8,9 @@ must not repeat. Any NULL key component prevents a match.
 Serialized relationship records retain the existing `from` and `to` fields as
 the first pair and optionally include the complete `keys` array. When present,
 `keys` MUST be non-empty, `keys[0]` MUST agree with the top-level pair, and all
-pairs MUST pass the existing identifier and safe-object validation. The array
+pairs MUST contain unqualified physical column identifiers and pass safe-object
+validation. Top-level `from` and `to` are also unqualified when `keys` is
+present; legacy single-key records retain their existing identifier grammar. The array
 is bounded by the deployment's `maxDatasetItems` limit. These rules apply to
 local dataset contracts and deployment contracts. Existing single-key records
 are serialized unchanged.
