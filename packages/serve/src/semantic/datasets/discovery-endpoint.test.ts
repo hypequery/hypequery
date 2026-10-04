@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { dataset, dimension, measure, serializeSemanticContract } from '@hypequery/datasets';
+import { belongsTo, dataset, dimension, hasMany, hasOne, measure, serializeSemanticContract } from '@hypequery/datasets';
 import { createAPI } from '../../server/create-api.js';
 import { createBearerTokenStrategy } from '../../auth.js';
 import { publicSemanticContract } from './utils/public-contract.js';
@@ -11,6 +11,44 @@ const orders = dataset('orders', {
 });
 
 describe('logical discovery and public contract', () => {
+  it('advertises queryable relationship measures without exposing physical definitions', async () => {
+    const target = dataset('target', {
+      source: 'PHYSICAL_TARGET', tenantKey: 'TENANT_POLICY',
+      dimensions: { id: dimension.number({ column: 'PHYSICAL_ID' }) },
+      measures: {
+        unique: measure.countDistinct('PHYSICAL_ID'),
+        estimated: measure.approxCountDistinct('PHYSICAL_ID'),
+        total: measure.count('PHYSICAL_ID'),
+      },
+    });
+    const source = dataset('source', {
+      source: 'PHYSICAL_SOURCE',
+      dimensions: { id: dimension.number({ column: 'PHYSICAL_ID' }) },
+      relationships: {
+        target: belongsTo(() => target, { from: 'PHYSICAL_FK', to: 'PHYSICAL_ID' }),
+        profile: hasOne(() => target, { from: 'PHYSICAL_ID', to: 'PHYSICAL_ID' }),
+        many: hasMany(() => target, { from: 'PHYSICAL_ID', to: 'PHYSICAL_ID' }),
+      },
+    });
+    const api = createAPI({
+      basePath: '', datasets: { source }, discovery: { requiresAuth: false },
+      queryBuilder: { table: vi.fn(), rawQuery: vi.fn() },
+    });
+    const response = await api.handler({ method: 'GET', path: '/discovery', query: {}, headers: {} });
+    expect(response.status).toBe(200);
+    expect(response.body).toMatchObject({ datasets: [{
+      name: 'source',
+      measures: [
+        { name: 'profile.estimated', approximate: true },
+        { name: 'profile.total' }, { name: 'profile.unique' },
+        { name: 'target.estimated', approximate: true }, { name: 'target.unique' },
+      ],
+    }] });
+    for (const marker of ['PHYSICAL_', 'TENANT_POLICY', 'requiresTenant', 'many.total', 'target.total']) {
+      expect(JSON.stringify(response.body)).not.toContain(marker);
+    }
+  });
+
   it('keeps physical fields out while retaining definition identity', () => {
     const contract = serializeSemanticContract({ orders });
     const projection = publicSemanticContract(contract);

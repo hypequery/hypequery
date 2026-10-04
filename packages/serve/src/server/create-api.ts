@@ -293,7 +293,9 @@ export const createAPI = <
     router.register(contractEndpoint);
     router.register(createDiscoveryEndpoint(
       normalizeRoutePath(config.semanticPaths?.discovery ?? "/discovery"),
-      () => serializeSemanticContract(contractSource, { includeSql: false }),
+      // Project the catalog directly: contract serialization omits queryable
+      // relationship measures that discovery callers need to select.
+      () => contractSource,
       config.discovery,
     ));
   }
