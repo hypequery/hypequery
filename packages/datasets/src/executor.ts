@@ -1,6 +1,7 @@
 import { queryTimezoneErrors, queryTimeFilterSql } from './utils/query-timezone.js';
-import { selectedTimeMeasures, rejectTimeMeasuresOnBackend } from './utils/time-query-measures.js';
-import { buildTimeMeasureDatasetSql } from './utils/time-measure-dataset-sql.js';
+import { rejectTimeMeasuresOnBackend } from './utils/time-query-measures.js';
+import { prepareDatasetQuery } from './utils/compile-dataset-query.js';
+import type { DatasetCompilation } from './dataset-compilation.js';
 import { baseMeasureNames } from './utils/dataset-measures.js';
 import { protocolMetricCapabilityErrors } from './utils/protocol-metric-capabilities.js';
 /**
@@ -60,13 +61,11 @@ import {
 } from './utils/metric-handle.js';
 import { validateDerivedCteGrouping } from './utils/derived-cte-validation.js';
 import {
-  buildDatasetQueryBuilder,
   runDatasetQuery,
   validateDatasetQuery,
   type DatasetQueryExecutionOptions,
 } from './dataset-query.js';
 import {
-  buildDerivedDatasetSql,
   hasSelectedDerivedMeasure,
 } from './utils/dataset-derived-query.js';
 import {
@@ -348,6 +347,15 @@ export interface DatasetClient {
     query?: SemanticQuery<TTarget>,
     context?: ExecutionContext,
   ): Promise<SemanticResult<TTarget, TRow>>;
+  /** Compile the actual dataset execution SQL, including ceilings and pagination overfetch.
+   * SQL and parameters are trusted-only; describe()/JSON serialization omit values.
+   * Frozen semantic backends and standalone metric handles are not supported.
+   */
+  compileDataset<TDataset extends TypedDataset>(
+    target: TDataset,
+    query?: DatasetQueryFor<TDataset>,
+    context?: ExecutionContext,
+  ): DatasetCompilation;
   toSQL<TTarget extends SemanticTarget>(
     target: TTarget,
     query?: SemanticQuery<TTarget>,
@@ -872,6 +880,19 @@ export class DatasetClientImpl extends MetricQueryEngine implements DatasetClien
     ) as Promise<SemanticResult<TTarget, TRow>>;
   }
 
+  compileDataset<TDataset extends TypedDataset>(
+    target: TDataset,
+    query: DatasetQueryFor<TDataset> = {},
+    context?: ExecutionContext,
+  ): DatasetCompilation {
+    if (this.backend) throw new Error('Dataset compilation requires the queryBuilder execution path.');
+    if (!isDatasetInstance(target)) throw new Error('Dataset compilation requires a dataset target.');
+    return prepareDatasetQuery(target, this.withTimezone(query as DatasetQuery), {
+      builderFactory: resolveBuilderFactory(context, this.getBuilderFactory()),
+      context,
+    }).compilation;
+  }
+
   toSQL<TTarget extends SemanticTarget>(
     target: TTarget,
     query: SemanticQuery<TTarget> = {} as SemanticQuery<TTarget>,
@@ -1042,20 +1063,10 @@ export class DatasetClientImpl extends MetricQueryEngine implements DatasetClien
     query: DatasetQuery,
     context?: ExecutionContext,
   ): string {
-    const builderFactory = resolveBuilderFactory(context, this.getBuilderFactory());
-    if (selectedTimeMeasures(ds, query).size) {
-      return buildTimeMeasureDatasetSql(ds, query, { builderFactory, context }).sql;
-    }
-    if (hasSelectedDerivedMeasure(ds, query)) {
-      return buildDerivedDatasetSql(
-        ds, query, { builderFactory, context }, buildDatasetQueryBuilder,
-      ).sql;
-    }
-    const builder = buildDatasetQueryBuilder(ds, query, {
-      builderFactory,
+    return prepareDatasetQuery(ds, query, {
+      builderFactory: resolveBuilderFactory(context, this.getBuilderFactory()),
       context,
-    });
-    return builder.toSQLWithParams().sql;
+    }, 'logical').compilation.sql;
   }
 }
 

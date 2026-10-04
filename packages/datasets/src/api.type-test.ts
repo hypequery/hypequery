@@ -408,6 +408,14 @@ const builderFactory: QueryBuilderFactoryLike = {
 };
 
 const analytics = createDatasetClient({ queryBuilder: builderFactory });
+const _datasetCompilation = analytics.compileDataset(Orders, { measures: ['doubledRevenue'] });
+type _DatasetCompilationSQLIsString = Assert<Equal<typeof _datasetCompilation.sql, string>>;
+// @ts-expect-error compilation accepts declared dataset measures only.
+analytics.compileDataset(Orders, { measures: ['missing'] });
+// @ts-expect-error compilation accepts declared dataset dimensions only.
+analytics.compileDataset(Orders, { dimensions: ['missing'] });
+// @ts-expect-error standalone metric handles are not dataset compilation targets.
+analytics.compileDataset(Orders.metric('revenue', { measure: 'revenue' }));
 const explicitAnalytics: DatasetClient = analytics;
 const datasetQuery: DatasetQuery = { dimensions: ['status'], measures: ['revenue'] };
 

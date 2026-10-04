@@ -26,6 +26,8 @@ import type {
   ProtocolSemanticQuery,
 } from '@hypequery/protocol';
 import { createDatasetClient } from './executor.js';
+import type { DatasetCompilation, DatasetCompilationDescription } from './dataset-compilation.js';
+import type { ExecutionContext } from './types.js';
 import {
   rehydrateProtocolDatasets,
   UNSUPPORTED_CONTRACT_REASONS,
@@ -70,15 +72,24 @@ export interface PortableSemanticExecutorOptions {
 
 type Registry = Readonly<Record<string, RehydratedDataset>>;
 
-/**
- * Build the executor the deployment data plane injects.
- *
- * Returns the portable result record; the data plane validates it before it
- * reaches a caller.
- */
-export function createPortableSemanticExecutor(
+export interface PortableDatasetCompilation extends DatasetCompilation {
+  readonly activationRevision: string;
+  describe(): DatasetCompilationDescription & { readonly activationRevision: string };
+  toJSON(): DatasetCompilationDescription & { readonly activationRevision: string };
+}
+
+export interface PortableSemanticRuntime {
+  /** Trusted preview: the same catalog, tenant mapping and budgets as execute.
+   * The caller must enforce deployment access before calling either operation.
+   */
+  compile(input: PortableSemanticExecutionInput): PortableDatasetCompilation;
+  execute(input: PortableSemanticExecutionInput): Promise<ProtocolSemanticInvocationResult>;
+}
+
+/** Shared portable runtime for provider-side authoring preview and execution. */
+export function createPortableSemanticRuntime(
   options: PortableSemanticExecutorOptions,
-): (input: PortableSemanticExecutionInput) => Promise<ProtocolSemanticInvocationResult> {
+): PortableSemanticRuntime {
   const client = createDatasetClient({ queryBuilder: options.queryBuilder });
   let memo: { revision: string; registry: Registry } | undefined;
 
@@ -104,9 +115,7 @@ export function createPortableSemanticExecutor(
     return registry;
   }
 
-  return async function execute(
-    input: PortableSemanticExecutionInput,
-  ): Promise<ProtocolSemanticInvocationResult> {
+  function resolve(input: PortableSemanticExecutionInput) {
     const registry = registryFor(input);
     const rebuilt = registry[String(input.dataset.name)];
     if (rebuilt === undefined) {
@@ -130,11 +139,17 @@ export function createPortableSemanticExecutor(
       );
     }
     const query = semanticQuery(input.operation, input.budget.maxRows);
+    const context: ExecutionContext = tenant === undefined ? {} : { runtime: { tenant } };
+    return { target, query, context };
+  }
+
+  async function execute(input: PortableSemanticExecutionInput): Promise<ProtocolSemanticInvocationResult> {
+    const { target, query, context } = resolve(input);
 
     const output = await withDeadline(input.budget, input.signal, async signal => (
       await client.execute(target as never, query as never, {
         abortSignal: signal,
-        ...(tenant === undefined ? {} : { runtime: { tenant } }),
+        ...context,
       } as never)
     )) as { data?: readonly Record<string, unknown>[]; meta?: { pagination?: unknown } };
 
@@ -153,5 +168,29 @@ export function createPortableSemanticExecutor(
         ...(pagination === undefined ? {} : { pagination }),
       },
     }) as unknown as ProtocolSemanticInvocationResult, input.budget);
+  }
+
+  return {
+    compile(input) {
+      const { target, query, context } = resolve(input);
+      const compilation = client.compileDataset(target, query, context);
+      const description = Object.freeze({
+        ...compilation.describe(), activationRevision: input.activationRevision,
+      });
+      return Object.freeze({
+        ...compilation,
+        activationRevision: input.activationRevision,
+        describe: () => description,
+        toJSON: () => description,
+      });
+    },
+    execute,
   };
+}
+
+/** Backwards-compatible executor adapter for the deployment data plane. */
+export function createPortableSemanticExecutor(
+  options: PortableSemanticExecutorOptions,
+): (input: PortableSemanticExecutionInput) => Promise<ProtocolSemanticInvocationResult> {
+  return createPortableSemanticRuntime(options).execute;
 }
