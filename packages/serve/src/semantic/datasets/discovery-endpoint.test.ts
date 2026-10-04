@@ -31,7 +31,7 @@ describe('logical discovery and public contract', () => {
       },
     });
     const api = createAPI({
-      basePath: '', datasets: { publicSource: source }, discovery: { requiresAuth: false },
+      basePath: '', datasets: { publicSource: source, publicTarget: target }, discovery: { requiresAuth: false },
       queryBuilder: { table: vi.fn(), rawQuery: vi.fn() },
     });
     const response = await api.handler({ method: 'GET', path: '/discovery', query: {}, headers: {} });
@@ -43,7 +43,11 @@ describe('logical discovery and public contract', () => {
         { name: 'profile.total' }, { name: 'profile.unique' },
         { name: 'target.estimated', approximate: true }, { name: 'target.unique' },
       ],
-    }] });
+      relationships: [
+        { name: 'profile', target: 'publicTarget' },
+        { name: 'target', target: 'publicTarget' },
+      ],
+    }, { name: 'publicTarget' }] });
     for (const marker of ['PHYSICAL_', 'TENANT_POLICY', 'requiresTenant', 'many.total', 'target.total']) {
       expect(JSON.stringify(response.body)).not.toContain(marker);
     }
