@@ -2,9 +2,8 @@ import type { SemanticContract } from '@hypequery/datasets';
 
 /** Only logical vocabulary is published. New definition fields fail closed here. */
 function logicalFields(value: object, keys: readonly string[]): Record<string, unknown> {
-  const record = value as Record<string, unknown>;
   return Object.fromEntries(
-    keys.filter(key => record[key] !== undefined).map(key => [key, record[key]]),
+    Object.entries(value).filter(([key, entry]) => keys.includes(key) && entry !== undefined),
   );
 }
 

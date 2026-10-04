@@ -1,4 +1,3 @@
-import { publicSemanticContract } from "./utils/public-contract.js";
 /**
  * Serve integration for the semantic contract: assembles the contract source
  * from registered datasets/metrics and exposes it as a cached GET endpoint.
@@ -15,6 +14,7 @@ import type { DatasetCatalogSource, SemanticContract } from '@hypequery/datasets
 import type { AuthContext, DatasetsConfig, MetricsConfig, ServeEndpoint } from '../../types.js';
 import { resolveDatasetEntry } from './utils/dataset-entry.js';
 import { resolveMetricEntry } from './metric-endpoint.js';
+import { publicSemanticContract } from './utils/public-contract.js';
 
 /**
  * Builds the `serializeSemanticContract` input from the registered datasets and
@@ -24,7 +24,7 @@ export function buildSemanticContractSource(
   datasets: DatasetsConfig<any>,
   metrics?: MetricsConfig<any>,
 ): Record<string, DatasetCatalogSource> {
-  const metricsByDatasetName: Record<string, Record<string, unknown>> = {};
+  const metricsByDatasetName: Record<string, NonNullable<DatasetCatalogSource['metrics']>> = {};
   for (const [metricName, entry] of Object.entries(metrics ?? {})) {
     const metric = resolveMetricEntry(entry).metric;
     const datasetName = metric.contract().dataset;
@@ -35,7 +35,7 @@ export function buildSemanticContractSource(
   for (const [name, entry] of Object.entries(datasets)) {
     const ds = resolveDatasetEntry(entry).dataset;
     // The registration name is the addressable dataset name on this transport.
-    source[name] = { ...ds, name, metrics: metricsByDatasetName[ds.name] } as DatasetCatalogSource;
+    source[name] = { ...ds, name, metrics: metricsByDatasetName[ds.name] };
   }
   return source;
 }
