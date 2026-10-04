@@ -387,6 +387,153 @@
         "status": 401,
         "errorType": "UNAUTHORIZED"
       }
+    },
+    {
+      "id": "tenant-required-allowed",
+      "method": "POST",
+      "path": "/datasets/orders/query",
+      "credential": "valid",
+      "tenantRequired": true,
+      "json": {
+        "dimensions": [
+          "country"
+        ],
+        "includeMeta": true
+      },
+      "expect": {
+        "status": 200,
+        "data": [
+          {
+            "country": "US",
+            "total": "10"
+          },
+          {
+            "country": "DE",
+            "total": "20"
+          }
+        ],
+        "pagination": {
+          "limit": 2,
+          "offset": 0,
+          "hasMore": true
+        }
+      },
+      "principal": {
+        "tenantId": "fixture-tenant"
+      }
+    },
+    {
+      "id": "role-required-allowed",
+      "method": "POST",
+      "path": "/datasets/orders/query",
+      "credential": "valid",
+      "requiredRoles": [
+        "admin"
+      ],
+      "json": {
+        "dimensions": [
+          "country"
+        ],
+        "includeMeta": true
+      },
+      "expect": {
+        "status": 200,
+        "data": [
+          {
+            "country": "US",
+            "total": "10"
+          },
+          {
+            "country": "DE",
+            "total": "20"
+          }
+        ],
+        "pagination": {
+          "limit": 2,
+          "offset": 0,
+          "hasMore": true
+        }
+      },
+      "principal": {
+        "roles": [
+          "admin"
+        ]
+      }
+    },
+    {
+      "id": "scope-required-allowed",
+      "method": "POST",
+      "path": "/datasets/orders/query",
+      "credential": "valid",
+      "requiredScopes": [
+        "write"
+      ],
+      "json": {
+        "dimensions": [
+          "country"
+        ],
+        "includeMeta": true
+      },
+      "expect": {
+        "status": 200,
+        "data": [
+          {
+            "country": "US",
+            "total": "10"
+          },
+          {
+            "country": "DE",
+            "total": "20"
+          }
+        ],
+        "pagination": {
+          "limit": 2,
+          "offset": 0,
+          "hasMore": true
+        }
+      },
+      "principal": {
+        "scopes": [
+          "write"
+        ]
+      }
+    },
+    {
+      "id": "invalid-filter-identifier",
+      "method": "POST",
+      "path": "/datasets/orders/query",
+      "credential": "valid",
+      "json": {
+        "filters": [
+          {
+            "field": "bad-name",
+            "operator": "eq",
+            "value": "x"
+          }
+        ]
+      },
+      "expect": {
+        "status": 400,
+        "errorType": "VALIDATION_ERROR"
+      }
+    },
+    {
+      "id": "invalid-order-identifier",
+      "method": "POST",
+      "path": "/datasets/orders/query",
+      "credential": "valid",
+      "json": {
+        "orderBy": [
+          {
+            "field": "bad-name",
+            "direction": "asc"
+          }
+        ]
+      },
+      "expect": {
+        "status": 400,
+        "errorType": "VALIDATION_ERROR"
+      }
     }
   ]
 }

@@ -61,29 +61,46 @@ def app(case: dict[str, Any]) -> TestClient:
     dataset = Dataset(
         name=config["dataset"],
         source=config["source"],
+        tenant_key="private_tenant" if case.get("tenantRequired") else None,
         dimensions={config["dimension"]: dimension("string", column=config["column"])},
         measures={config["measure"]: measure(count(config["measureField"]))},
         limits=DatasetLimits(max_result_size=config["maxLimit"]),
     )
 
     def authenticate(credential: Credential) -> Principal | None:
-        return Principal(subject="alice") if credential.value == config["credential"] else None
+        if credential.value != config["credential"]:
+            return None
+        principal = case.get("principal", {})
+        return Principal(
+            subject="alice",
+            roles=frozenset(principal.get("roles", [])),
+            scopes=frozenset(principal.get("scopes", [])),
+            tenant_id=principal.get("tenantId"),
+        )
 
     router = create_router(authenticate=authenticate)
     client = create_dataset_client(executor=Executor())
+    policy = EndpointPolicy(
+        tenant="required" if case.get("tenantRequired") else "optional",
+        required_roles=frozenset(case.get("requiredRoles", [])),
+        required_scopes=frozenset(case.get("requiredScopes", [])),
+    )
     add_dataset_endpoint(
         router,
-        "/datasets/orders/query",
+        f"/datasets/{config['dataset']}/query",
         dataset=dataset,
         client=client,
-        policy=EndpointPolicy(
-            tenant="required" if case.get("tenantRequired") else "optional",
-            required_roles=frozenset(case.get("requiredRoles", [])),
-            required_scopes=frozenset(case.get("requiredScopes", [])),
-        ),
+        policy=policy,
     )
-    add_metric_endpoint(router, "/metrics/total", dataset=dataset, measure="total", client=client)
-    add_discovery_endpoint(router, registry=create_dataset_registry(dataset))
+    add_metric_endpoint(
+        router,
+        f"/metrics/{config['measure']}",
+        dataset=dataset,
+        measure=config["measure"],
+        client=client,
+        policy=policy,
+    )
+    add_discovery_endpoint(router, registry=create_dataset_registry(dataset), policy=policy)
     return TestClient(create_app(router, security=HttpSecurity(allowed_hosts=("testserver",))))
 
 

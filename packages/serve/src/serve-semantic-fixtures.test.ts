@@ -13,6 +13,7 @@ interface FixtureCase {
   credential: 'valid' | 'invalid' | 'none';
   headers?: Record<string, string>;
   tenantRequired?: boolean;
+  principal?: { roles?: string[]; scopes?: string[]; tenantId?: string };
   requiredRoles?: string[];
   requiredScopes?: string[];
   json?: unknown;
@@ -47,24 +48,26 @@ describe('shared semantic HTTP fixtures (semantic-v1)', () => {
     const config = fixtures.app;
     const orders = dataset(config.dataset, {
       source: config.source,
-      dimensions: { country: dimension.string({ column: config.column }) },
-      measures: { total: measure.count(config.measureField) },
+      dimensions: { [config.dimension]: dimension.string({ column: config.column }) },
+      measures: { [config.measure]: measure.count(config.measureField) },
+      ...(fixture.tenantRequired ? { tenantKey: 'private_tenant' } : {}),
       limits: { maxResultSize: config.maxLimit },
     });
     const api = createAPI({
       basePath: '',
       auth: createBearerTokenStrategy({ validate: token => {
         if (token !== config.credential) throw new AuthError('INVALID', 'Invalid token');
-        return { userId: 'alice' };
+        return { userId: 'alice', ...fixture.principal };
       } }),
       ...(fixture.path.startsWith('/metrics')
-        ? { metrics: { total: orders.metric('total', { measure: 'total' }) } }
-        : { datasets: { orders: {
+        ? { metrics: { [config.measure]: { metric: orders.metric(config.measure, { measure: config.measure }), requiredRoles: fixture.requiredRoles, requiredScopes: fixture.requiredScopes } } }
+        : { datasets: { [config.dataset]: {
           dataset: orders,
           requiredRoles: fixture.requiredRoles,
           requiredScopes: fixture.requiredScopes,
         } } }),
-      ...(fixture.tenantRequired ? { tenant: { extract: () => undefined, required: true } } : {}),
+      ...(fixture.tenantRequired ? { tenant: { extract: auth => auth.tenantId, required: true } } : {}),
+      discovery: { requiredRoles: fixture.requiredRoles, requiredScopes: fixture.requiredScopes },
       queryBuilder: semanticFixtureBuilder(config.rows),
     });
     const headers: Record<string, string> = { ...fixture.headers };
@@ -79,8 +82,7 @@ describe('shared semantic HTTP fixtures (semantic-v1)', () => {
     expect(response.status).toBe(expected.status);
     const header = (name: string) => Object.entries(response.headers ?? {}).find(([key]) => key.toLowerCase() === name)?.[1];
     expect(header('x-request-id')).toBeTruthy();
-    // Discovery is public in TypeScript; authenticated execution and all errors are no-store.
-    if (fixture.path !== '/discovery') expect(header('cache-control')).toBe('no-store');
+    expect(header('cache-control')).toBe('no-store');
     assertPublic(body);
     if (expected.data) expect(body.data).toEqual(expected.data);
     if (expected.meta === false) expect(body.meta).toBeUndefined();
