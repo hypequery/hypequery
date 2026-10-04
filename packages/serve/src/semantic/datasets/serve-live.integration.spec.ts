@@ -261,9 +261,12 @@ describe("Serve live integration — datasets", () => {
       ]);
     });
 
-    it("returns grained dataset rows and execution meta from the live builder", async () => {
+    it.each([
+      { label: "default", trustedDiagnostics: undefined },
+      { label: "trusted", trustedDiagnostics: true },
+    ])("returns grained dataset rows with $label diagnostics", async ({ trustedDiagnostics }) => {
       const api = createAPI({
-        datasets: { orders: Orders },
+        datasets: { orders: { dataset: Orders, trustedDiagnostics } },
         queryBuilder: db,
       });
 
@@ -300,9 +303,14 @@ describe("Serve live integration — datasets", () => {
         "orderCount",
         "uniqueUsers",
       ]);
-      expect(body.meta).toMatchObject({
-        sql: expect.stringContaining("COUNT(DISTINCT"),
-      });
+      if (trustedDiagnostics) {
+        expect(body.meta).toMatchObject({
+          sql: expect.stringContaining("COUNT(DISTINCT"),
+        });
+      } else {
+        expect(body.meta).not.toHaveProperty("sql");
+        expect(body.meta).not.toHaveProperty("tenant");
+      }
       expect(typeof body.meta?.timingMs).toBe("number");
     });
 
@@ -374,9 +382,12 @@ describe("Serve live integration — datasets", () => {
       ]);
     });
 
-    it("executes grained metric endpoints and returns live SQL meta", async () => {
+    it.each([
+      { label: "default", trustedDiagnostics: undefined },
+      { label: "trusted", trustedDiagnostics: true },
+    ])("executes grained metric endpoints with $label diagnostics", async ({ trustedDiagnostics }) => {
       const api = createAPI({
-        metrics: { monthlyRevenue },
+        metrics: { monthlyRevenue: { metric: monthlyRevenue, trustedDiagnostics } },
         queryBuilder: db,
       });
 
@@ -405,9 +416,14 @@ describe("Serve live integration — datasets", () => {
         "period",
         "totalRevenue",
       ]);
-      expect(body.meta).toMatchObject({
-        sql: expect.stringContaining("toStartOfMonth"),
-      });
+      if (trustedDiagnostics) {
+        expect(body.meta).toMatchObject({
+          sql: expect.stringContaining("toStartOfMonth"),
+        });
+      } else {
+        expect(body.meta).not.toHaveProperty("sql");
+        expect(body.meta).not.toHaveProperty("tenant");
+      }
       expect(typeof body.meta?.timingMs).toBe("number");
     });
   });
