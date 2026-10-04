@@ -329,6 +329,13 @@ Call `await executor.aclose()` when the async executor is no longer needed.
 Driver errors are mapped to the canonical safe error categories. Live parameter
 tests run in CI against ClickHouse; local execution needs a ClickHouse service.
 
+The synchronous executor factory opens a separate, short-timeout control
+connection to stop in-flight queries on cancellation or deadline expiry. When
+constructing `ClickHouseExecutor` with your own driver, supply a separate
+`control_client` with permission to cancel its queries. Without it, interruption
+is checked before and after the blocking call, but cannot stop that call early.
+Cancelled results are never reported as a successful HTTP execution.
+
 The async executor limits concurrent queries per client to eight by default.
 `ExecutionContext.cancellation` may be a `threading.Event` or `asyncio.Event`;
 the planner carries it into the compiled query. Caller cancellation and deadline

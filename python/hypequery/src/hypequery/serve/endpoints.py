@@ -108,6 +108,8 @@ class DatasetEndpoint:
                     result = await run_in_threadpool(
                         self.client.execute, self.dataset, query, context=context, paginate=True
                     )
+                if lifetime.cancellation.is_set():
+                    raise CompiledQueryError("aborted", "The request was cancelled.")
             except (Exception, asyncio.CancelledError) as exc:
                 lifetime.cancellation.set()
                 if self.events:

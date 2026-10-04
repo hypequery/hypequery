@@ -78,6 +78,11 @@ class _DatasetClientBase:
             semantic = semantic.model_copy(
                 update={"limit": min(cap if cap is not None else 1000, 1000)}
             )
+        if paginate and semantic.limit is not None:
+            page_ceiling = self._settings["max_result_rows"] - 1
+            if page_ceiling < 1:
+                raise CompiledQueryError("too-large", "Pagination requires room for a probe row.")
+            semantic = semantic.model_copy(update={"limit": min(semantic.limit, page_ceiling)})
         compiled = plan_dataset_query(
             dataset,
             semantic,

@@ -335,3 +335,48 @@ def test_preflight_signal_outranks_expired_deadline() -> None:
         assert client.calls == 0
 
     asyncio.run(run())
+
+
+@pytest.mark.parametrize("deadline", [False, True])
+def test_sync_query_uses_control_connection_and_never_returns_cancelled_rows(
+    deadline: bool,
+) -> None:
+    from hypequery.execution import ClickHouseExecutor
+
+    started = threading.Event()
+    finished = threading.Event()
+    signal = threading.Event()
+    calls: list[tuple[str, dict[str, str]]] = []
+
+    class BlockingClient:
+        def query(self, *_args: object, **_kwargs: object) -> DriverResult:
+            started.set()
+            assert finished.wait(2)
+            return cast(DriverResult, Result())
+
+    class SyncControl:
+        def command(self, cmd: str, parameters: dict[str, str]) -> object:
+            calls.append((cmd, parameters))
+            finished.set()
+            return None
+
+    compiled = query(cancellation=signal, deadline=Deadline.after(0.1) if deadline else None)
+
+    def cancel_after_start() -> None:
+        started.wait(1)
+        signal.set()
+
+    trigger = threading.Thread(target=cancel_after_start)
+    if not deadline:
+        trigger.start()
+    try:
+        with pytest.raises(CompiledQueryError) as exc:
+            ClickHouseExecutor(BlockingClient(), control_client=SyncControl()).execute(compiled)
+        assert category(exc) == ("deadline-exceeded" if deadline else "aborted")
+        assert calls == [
+            ("KILL QUERY WHERE query_id = {id:String} SYNC", {"id": compiled.query_id})
+        ]
+    finally:
+        finished.set()
+        if not deadline:
+            trigger.join()

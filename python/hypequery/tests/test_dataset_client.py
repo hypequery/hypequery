@@ -227,3 +227,19 @@ def test_the_async_client_matches_the_sync_client() -> None:
     assert result.data == ({"vendor": "a", "trips": 2}, {"vendor": "b", "trips": 1})
     assert result.meta.query_id == executor.inner.seen[0].query_id
     assert client.validate(_trips(), DatasetQuery(measures=("trips",))).valid
+
+
+@pytest.mark.parametrize("ceiling", [2, 100_000])
+def test_pagination_reserves_probe_inside_client_row_ceiling(ceiling: int) -> None:
+    from hypequery.datasets.planner import query_settings
+
+    executor = _Executor()
+    client = create_dataset_client(
+        executor=executor, settings=query_settings(max_result_rows=ceiling)
+    )
+    result = client.execute(
+        _trips(), DatasetQuery(measures=("trips",), limit=ceiling), paginate=True
+    )
+    assert result.meta.pagination is not None
+    assert result.meta.pagination.limit == ceiling - 1
+    assert executor.seen[0].sql.endswith(f" LIMIT {ceiling}")

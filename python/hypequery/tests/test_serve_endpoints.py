@@ -188,6 +188,8 @@ def test_zero_last_page_and_definition_cap(
         {"sql": "SELECT 1"},
         {"filters": [{"field": "country", "operator": "eq", "value": "x", "extra": 1}]},
         {"orderBy": [{"field": "country", "direction": 1}]},
+        {"filters": [{"field": "bad-name", "operator": "eq", "value": "x"}]},
+        {"orderBy": [{"field": "bad-name", "direction": "asc"}]},
         {"dimensions": ["missing"]},
     ],
 )
