@@ -1,3 +1,4 @@
+import { semanticResponseMeta } from './utils/semantic-response-meta.js';
 /**
  * Converts a MetricRef into a standard ServeEndpoint.
  *
@@ -94,6 +95,8 @@ export function resolveMetricEntry<TAuth extends AuthContext>(
   requiredScopes?: string[];
   middlewares?: ServeMiddleware<any, any, any, TAuth>[];
   maxLimit?: number;
+  /** Enable SQL and internal tenant IDs in opt-in metadata only on trusted endpoints. */
+  trustedDiagnostics?: boolean;
 } {
   if (isMetricHandleEntry(entry)) {
     return { metric: entry };
@@ -216,7 +219,7 @@ export function createMetricEndpoint<TAuth extends AuthContext>(
 
     return {
       data: result.data,
-      meta: includeMeta ? result.meta : undefined,
+      meta: includeMeta ? semanticResponseMeta(result.meta, resolved.trustedDiagnostics) : undefined,
     };
   };
 

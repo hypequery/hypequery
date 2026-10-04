@@ -107,4 +107,4 @@ The current trusted-code escape hatches are:
 - dataset `dimension.*({ sql })` and `measure.*(..., { sql })`
 - internal semantic planner calls to `rawQuery(...)` for derived metric SQL assembled from validated model definitions
 
-The public semantic surfaces do not expose a generic SQL execution tool. Serve returns generated SQL only through opt-in metadata (`includeMeta` or `x-include-meta`). MCP tools redact generated SQL and SQL-backed field expressions by default, and require programmatic `includeSql: true` for trusted debugging.
+The public semantic surfaces do not expose a generic SQL execution tool. Serve returns public operational metadata through `includeMeta` or `x-include-meta`. Generated SQL and internal tenant IDs are omitted unless the server enables `trustedDiagnostics: true` on the dataset or metric endpoint. Restrict endpoints with that option to trusted users through authentication and role policies. MCP tools redact generated SQL and SQL-backed field expressions by default, and require programmatic `includeSql: true` for trusted debugging.

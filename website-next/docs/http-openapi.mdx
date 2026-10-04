@@ -305,7 +305,7 @@ In React, `useInfiniteMetric` and `useInfiniteDataset` consume `hasMore`/`offset
 
 ### Result metadata
 
-Semantic endpoints return `{ data }` by default. Opt into metadata (generated SQL, timing, row count, tenant, pagination) by sending `includeMeta: true` in the request body or the `x-include-meta: true` header, which switches the response to `{ data, meta }`.
+Semantic endpoints return `{ data }` by default. Opt into public metadata (timing, row count, pagination, cache status) by sending `includeMeta: true` in the request body or the `x-include-meta: true` header, which switches the response to `{ data, meta }`.
 
 <CodeBlock>
 <Pre>
@@ -317,6 +317,8 @@ curl -X POST http://localhost:4000/datasets/orders/query \
 ```
 </Pre>
 </CodeBlock>
+
+Generated SQL and internal tenant IDs are omitted by default. To retain them on a trusted endpoint, configure its dataset or metric entry with `trustedDiagnostics: true` and restrict access through authentication and roles. A request body or header alone cannot enable diagnostics.
 
 ## Documentation UI
 
