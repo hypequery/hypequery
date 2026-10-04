@@ -210,3 +210,5 @@ export {
   datasetsToJSON,
   summarizeAllDatasets,
 } from './dataset/introspection.js';
+
+export type { JoinKeyPair, JoinKeyPairs } from './core/types/builder-state.js';

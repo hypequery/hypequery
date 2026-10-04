@@ -1,47 +1,19 @@
 import type { BuilderState, SchemaDefinition } from '../types/builder-state.js';
 import { QueryBuilder } from '../query-builder.js';
-import {
+import type {
   JoinType,
-  type ConditionValueNode,
-  type ExprNode,
-  type JoinConditionInput,
-  type SelectQueryNode,
-  type ValueNode,
+  JoinConditionInput,
+  JoinKeyNode,
+  SelectQueryNode,
 } from '../../types/index.js';
+import { buildOnExpression } from '../utils/join-conditions.js';
+import { aliasJoinKey } from '../utils/join-keys.js';
 
-function wrapConditionValue(operator: JoinConditionInput['operator'], value: unknown): ConditionValueNode {
-  if (operator === 'inSubquery' || operator === 'globalInSubquery' || operator === 'inTable' || operator === 'globalInTable') {
-    return String(value);
-  }
-  if (operator === 'between') {
-    const range = value as unknown[];
-    return [
-      { kind: 'value', value: range[0] },
-      { kind: 'value', value: range[1] },
-    ];
-  }
-  if (operator === 'inTuple' || operator === 'globalInTuple') {
-    return (value as unknown[][]).map(tuple =>
-      tuple.map(tupleValue => ({ kind: 'value' as const, value: tupleValue }))
-    );
-  }
-  if (operator === 'in' || operator === 'notIn' || operator === 'globalIn' || operator === 'globalNotIn') {
-    return (value as unknown[]).map(item => ({ kind: 'value' as const, value: item }));
-  }
-  return { kind: 'value', value } satisfies ValueNode;
-}
-
-function buildOnExpression(conditions: JoinConditionInput | JoinConditionInput[]): ExprNode {
-  const conditionList = Array.isArray(conditions) ? conditions : [conditions];
-  const expressions: ExprNode[] = conditionList.map(condition => ({
-    kind: 'condition',
-    column: condition.column,
-    operator: condition.operator,
-    value: wrapConditionValue(condition.operator, condition.value),
-  }));
-  return expressions.length === 1
-    ? expressions[0]
-    : { kind: 'logical', operator: 'AND', conditions: expressions };
+interface JoinOptions {
+  alias?: string;
+  leftSource?: string;
+  on?: JoinConditionInput | JoinConditionInput[];
+  additionalKeys?: JoinKeyNode[];
 }
 
 export class JoinFeature<
@@ -59,14 +31,34 @@ export class JoinFeature<
     table: string,
     leftColumn: string,
     rightColumn: string,
+    options?: JoinOptions,
+  ): SelectQueryNode<State['output'], Schema>;
+  /** @deprecated Pass join options as an object. */
+  addJoin(
+    type: JoinType,
+    table: string,
+    leftColumn: string,
+    rightColumn: string,
     alias?: string,
     leftSource?: string,
     on?: JoinConditionInput | JoinConditionInput[],
+    additionalKeys?: JoinKeyNode[],
+  ): SelectQueryNode<State['output'], Schema>;
+  addJoin(
+    type: JoinType,
+    table: string,
+    leftColumn: string,
+    rightColumn: string,
+    aliasOrOptions?: string | JoinOptions,
+    legacyLeftSource?: string,
+    legacyOn?: JoinConditionInput | JoinConditionInput[],
+    legacyAdditionalKeys?: JoinKeyNode[],
   ): SelectQueryNode<State['output'], Schema> {
+    const { alias, leftSource, on, additionalKeys } = typeof aliasOrOptions === 'object'
+      ? aliasOrOptions
+      : { alias: aliasOrOptions, leftSource: legacyLeftSource, on: legacyOn, additionalKeys: legacyAdditionalKeys };
     const query = this.builder.getQueryNode();
-    const renderedRightColumn = alias
-      ? rightColumn.replace(`${table}.`, `${alias}.`)
-      : rightColumn;
+    const firstKey = aliasJoinKey({ leftColumn, rightColumn }, table, alias);
     const newConfig = {
       ...query,
       joins: [
@@ -74,10 +66,11 @@ export class JoinFeature<
         {
           kind: 'join' as const,
           type,
-          table: String(table),
-          leftColumn: String(leftColumn),
+          table,
+          leftColumn: firstKey.leftColumn,
           leftSource,
-          rightColumn: renderedRightColumn,
+          rightColumn: firstKey.rightColumn,
+          ...(additionalKeys?.length ? { additionalKeys: additionalKeys.map(key => aliasJoinKey(key, table, alias)) } : {}),
           alias,
           on: on ? buildOnExpression(on) : undefined,
         }
