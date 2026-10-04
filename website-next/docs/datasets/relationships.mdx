@@ -22,6 +22,7 @@ const Customers = dataset('customers', {
     country: dimension.string(),
     tier: dimension.string(),
   },
+  measures: { customerCount: measure.countDistinct('id') },
 });
 
 const LineItems = dataset('line_items', {
@@ -75,6 +76,29 @@ const result = await analytics.execute(Orders, {
 
 Result rows key joined columns by their qualified name (`'customer.country'`), and the row types include them, so projections stay fully typed end to end — including through Serve endpoints and the React hooks.
 
+## Querying related measures
+
+Dataset queries can select one-hop target base measures as `<relationship>.<measure>` through `createDatasetClient({ queryBuilder: db })`:
+
+<CodeBlock>
+```typescript
+const customersByStatus = await analytics.execute(Orders, {
+  dimensions: ['status'],
+  measures: ['revenue', 'customer.customerCount'],
+  orderBy: [{ field: 'customer.customerCount', direction: 'desc' }],
+});
+// result.data[0]['customer.customerCount'] is string | null | undefined
+```
+</CodeBlock>
+
+The target population consists of rows reached by the selected base rows. Tenant scoping, base filters, and segments determine which orders participate; the target measure's fixed filters apply to customer columns. Customers without matching orders never contribute. Unmatched orders retain their base measures but contribute no target aggregate input.
+
+A `belongsTo` join repeats each customer for every matching order, so only duplicate-insensitive aggregations are selectable: `countDistinct`, `approxCountDistinct`, `min`, `max`, `argMax`, and `argMin`. A declared `hasOne` permits all base aggregations, including `sum`, `count`, and `avg`. The declaration is trusted; use `checkRelationships` to validate target key uniqueness.
+
+Derived, window, and shift measures on the target, `hasMany`, multi-hop paths, and SQL-backed target measures or inputs are rejected. Local derived and time-based measures can be selected alongside related base measures. The advanced backend execution path does not support relationship measures.
+
+Catalog relationship entries expose safe qualified measures in `measures`, preserving labels and approximate markers. Generated dataset schemas, Serve inputs, and React hooks include the same names.
+
 ## Join semantics
 
 Relationship traversal executes as a ClickHouse `LEFT ANY JOIN` (first match), aliased by the relationship name:
@@ -108,11 +132,11 @@ Issue counts are numbers when safely representable in JavaScript. Larger counts 
 
 Validation rejects, with a specific error message:
 
-- **More than one hop.** `customer.region.name` is not supported; only `<relationship>.<dimension>`.
+- **More than one hop.** `customer.region.name` is not supported; only `<relationship>.<dimension>` or `<relationship>.<measure>`.
 - **`hasMany` traversal.** Joining a to-many relationship would fan out rows and corrupt aggregates, so `hasMany` stays metadata only.
 - **SQL-backed target dimensions.** Dimensions defined with a raw `sql` expression on the target are not yet queryable through a relationship.
-- **Measures across relationships.** Measures aggregate the base dataset only.
-- **Ordering by an unselected joined field.** As with local dimensions, a qualified `orderBy` field must also be selected as a dimension.
+- **Unsafe related aggregations.** Duplicate-sensitive aggregates through `belongsTo`, and target derived/time measures, are rejected.
+- **Ordering by an unselected joined field.** As with local dimensions, a qualified `orderBy` field must also be selected as a dimension or measure.
 
 At definition time, `dataset()` rejects relationship names that collide with the dataset's own `source` table (the join alias would shadow the base table) or contain a dot.
 

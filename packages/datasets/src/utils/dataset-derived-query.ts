@@ -1,3 +1,4 @@
+import { queryMeasureDefinitions } from './relationship-measures.js';
 import { measureDependencyNames } from './measure-dependencies.js';
 import { derivedExpressionSql } from './derived-measure-sql.js';
 import { baseMeasureNames, getBaseMeasure, getDerivedMeasure } from './dataset-measures.js';
@@ -30,7 +31,7 @@ export function buildDerivedDatasetSql(
 
   const dialect = resolveDatasetSqlDialect(options.builderFactory);
   const selected = query.measures ?? baseMeasureNames(ds.measures);
-  const baseMeasures = measureDependencyNames(ds.measures, selected).filter(name => getBaseMeasure(ds.measures, name));
+  const baseMeasures = measureDependencyNames(queryMeasureDefinitions(ds, selected), selected).filter(name => name.includes('.') || getBaseMeasure(ds.measures, name));
   const resolve = (name: string): string => {
     const derived = getDerivedMeasure(ds.measures, name);
     return derived ? `(${derivedExpressionSql(derived, resolve)})` : dialect.quoteIdentifier(name);

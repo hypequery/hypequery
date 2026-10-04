@@ -1,0 +1,47 @@
+import type { DatasetInstance, MeasureDefinition, RelationshipDefinition } from '../types.js';
+
+type SafeAggregation = 'countDistinct' | 'approxCountDistinct' | 'min' | 'max' | 'argMax' | 'argMin';
+type SqlDimensions<TDimensions> = {
+  [K in keyof TDimensions & string]: TDimensions[K] extends { sql: string } ? K : never;
+}[keyof TDimensions & string];
+
+/** Fixed filters use their owner's allowlist aliases before dimension resolution. */
+type FixedFilterInputs<TMeasure, TFilters> = TMeasure extends { filters: readonly (infer TFilter)[] }
+  ? TFilter extends { field: infer TName extends string }
+    ? TName extends keyof TFilters
+      ? TFilters[TName] extends { field: infer TField extends string } ? TField : TName
+      : TName
+    : never
+  : never;
+
+type SafeMeasureNames<TMeasures, TKind, TDimensions, TFilters> = {
+  [K in keyof TMeasures & string]: TMeasures[K] extends MeasureDefinition
+    ? TMeasures[K] extends { sql: string } ? never
+      : TMeasures[K] extends { field: infer F; argField?: infer A }
+        ? (Extract<F, SqlDimensions<TDimensions>> | Extract<A, SqlDimensions<TDimensions>>
+            | Extract<FixedFilterInputs<TMeasures[K], TFilters>, SqlDimensions<TDimensions>>) extends never
+          ? TKind extends 'hasOne' ? K
+            : TMeasures[K] extends { aggregation: SafeAggregation } ? K : never
+          : never
+        : never
+    : never;
+}[keyof TMeasures & string];
+
+/** One-hop base aggregates whose cardinality is safe for the declared relationship. */
+export type QueryableRelationshipMeasureNames<TRelationships> = {
+  [K in keyof TRelationships & string]: TRelationships[K] extends RelationshipDefinition<infer TTarget, infer TKind>
+    ? TKind extends 'hasMany' ? never
+      : TTarget extends DatasetInstance<infer TDimensions, infer TMeasures, any, any>
+        ? `${K}.${SafeMeasureNames<TMeasures, TKind, TDimensions, TTarget['filters']>}` : never
+    : never;
+}[keyof TRelationships & string];
+
+export type RelationshipMeasureDefinition<TDataset, TName extends string> =
+  TDataset extends { relationships: infer TRelationships }
+    ? TName extends `${infer R}.${infer M}`
+      ? R extends keyof TRelationships
+        ? TRelationships[R] extends RelationshipDefinition<infer TTarget>
+          ? TTarget extends { measures: infer TMeasures }
+            ? M extends keyof TMeasures ? TMeasures[M] : never : never
+          : never : never
+      : never : never;

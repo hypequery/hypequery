@@ -1,4 +1,4 @@
-import { getDatasetCatalog, type AnyDatasetInstance } from '@hypequery/datasets';
+import { getDatasetCatalog, getQueryableRelationshipMeasures, type AnyDatasetInstance } from '@hypequery/datasets';
 
 export function buildDatasetQueryDescription(
   ds: AnyDatasetInstance,
@@ -6,7 +6,7 @@ export function buildDatasetQueryDescription(
 ): string {
   const catalog = getDatasetCatalog(ds);
   const dimensionNames = Object.keys(catalog.dimensions);
-  const measureNames = Object.keys(catalog.measures);
+  const measureNames = [...Object.keys(catalog.measures), ...getQueryableRelationshipMeasures(catalog)];
   const filterNames = Object.keys(catalog.filters);
   const relationshipNames = Object.keys(catalog.relationships);
   const lines = [

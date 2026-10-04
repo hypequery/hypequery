@@ -1,3 +1,4 @@
+import type { QueryableRelationshipMeasureNames, RelationshipMeasureDefinition } from './utils/relationship-measure-types.js';
 import type { DatasetFilterFor } from './utils/dataset-filter-types.js';
 import type { QueryBuilderFactoryInput } from './query-builder-protocol.js';
 import type { SemanticCacheMetaInfo, SemanticCacheRuntime } from './cache/semantic-query-cache.js';
@@ -669,7 +670,14 @@ export type DatasetFieldNames<TDataset extends DatasetInstance<any, any, any, an
 /** Measure names declared by a dataset. */
 export type DatasetMeasureNames<TDataset extends DatasetInstance<any, any, any, any>> =
   | KnownStringKeysOrFallback<TDataset['measures']>
-  | KnownStringKeys<TDataset['derivedMeasures']>;
+  | KnownStringKeys<TDataset['derivedMeasures']>
+  | QueryableRelationshipMeasureNames<TDataset['relationships']>;
+
+/** Measure definitions addressable by a one-hop dataset query. */
+export type DatasetQueryableMeasures<TDataset extends DatasetInstance<any, any, any, any>> = {
+  [K in DatasetMeasureNames<TDataset>]: K extends keyof TDataset['measures']
+    ? TDataset['measures'][K] : RelationshipMeasureDefinition<TDataset, K>;
+};
 
 /** Segment names declared by a dataset. */
 export type DatasetSegmentNames<TDataset extends DatasetInstance<any, any, any, any>> =

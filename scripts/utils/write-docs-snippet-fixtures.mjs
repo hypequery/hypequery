@@ -101,7 +101,7 @@ const CustomersFixture = datasetHelper('customers', {
     tier: dimensionHelper.string(),
   },
   measures: {
-    customerCount: measureHelper.count('id'),
+    customerCount: measureHelper.countDistinct('id'),
   },
 });
 

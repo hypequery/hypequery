@@ -1,3 +1,4 @@
+import { queryMeasureDefinitions } from './relationship-measures.js';
 import type { DatasetCompilation, DatasetCompilationDescription, DatasetCompiledStatement } from '../dataset-compilation.js';
 import type { DatasetQueryExecutionOptions } from '../dataset-query.js';
 import { buildDatasetQueryBuilder } from './build-dataset-query-builder.js';
@@ -62,7 +63,7 @@ export function prepareDatasetQuery(
     kind: 'dataset-compilation', version: 1, dataset: dataset.name, plan,
     dimensions: Object.freeze([...(query.dimensions ?? [])]),
     measures: Object.freeze([...measures]),
-    measureDependencies: Object.freeze(measureDependencyNames(dataset.measures, measures)),
+    measureDependencies: Object.freeze(measureDependencyNames(queryMeasureDefinitions(dataset, measures), measures)),
     filters: Object.freeze((query.filters ?? []).map(({ field, operator }) => Object.freeze({ field, operator }))),
     segments: Object.freeze([...(query.segments ?? [])]),
     by: query.by, timezone: query.timezone,

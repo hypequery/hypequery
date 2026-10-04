@@ -54,7 +54,7 @@ export type {
 } from './publishing/types.js';
 
 // Catalog
-export { getDatasetCatalog, getDatasetCatalogs, getQueryableRelationshipFields } from './catalog.js';
+export { getDatasetCatalog, getDatasetCatalogs, getQueryableRelationshipFields, getQueryableRelationshipMeasures } from './catalog.js';
 export { listQueryableRelationshipFields } from './utils/relationship-fields.js';
 export type {
   DatasetCatalog,
@@ -305,6 +305,7 @@ export type {
   DatasetFieldNames,
   DatasetDimensionNames,
   DatasetQueryableDimensions,
+  DatasetQueryableMeasures,
   DatasetMeasureNames,
   DatasetSegmentNames,
   DatasetOrderableNames,

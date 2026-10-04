@@ -1,3 +1,4 @@
+import { listRelationshipMeasures } from './utils/relationship-measures.js';
 import { inheritedBaseMeasure } from './utils/measure-dependencies.js';
 import { windowCatalogMetadata, type WindowCatalogMetadata } from './utils/window-catalog-metadata.js';
 import { splitDatasetMeasures } from './utils/dataset-measures.js';
@@ -97,6 +98,8 @@ export interface RelationshipCatalogEntry {
    * supplied catalog that predates it still resolves, falling back to `fields`.
    */
   groupableFields?: string[];
+  /** Safe selectable base aggregates, keyed by qualified name. */
+  measures?: Record<string, MeasureCatalogEntry>;
 }
 
 export interface DatasetCatalog extends SemanticMetadata {
@@ -193,6 +196,8 @@ function relationshipToCatalog(
   name: string,
   relationship: RelationshipDefinition,
 ): RelationshipCatalogEntry {
+  const measures = Object.fromEntries(Object.entries(listRelationshipMeasures(name, relationship))
+    .map(([key, definition]) => [key, measureToCatalog(definition)]));
   return {
     kind: relationship.kind,
     target: relationship.target().name,
@@ -201,6 +206,7 @@ function relationshipToCatalog(
     queryable: relationship.kind !== 'hasMany',
     fields: listQueryableRelationshipFields(name, relationship),
     groupableFields: listGroupableRelationshipFields(name, relationship),
+    ...(Object.keys(measures).length ? { measures } : {}),
   };
 }
 
@@ -209,6 +215,12 @@ export function getQueryableRelationshipFields(catalog: DatasetCatalog): string[
   return Object.values(catalog.relationships)
     .filter(relationship => relationship.queryable)
     .flatMap(relationship => relationship.fields);
+}
+
+/** Safe relationship aggregates advertised by a catalog. */
+export function getQueryableRelationshipMeasures(catalog: DatasetCatalog): string[] {
+  return Object.values(catalog.relationships).filter(relationship => relationship.queryable)
+    .flatMap(relationship => Object.keys(relationship.measures ?? {}));
 }
 
 /** The queryable relationship fields a catalog also allows as grouping keys. */
@@ -311,7 +323,7 @@ export function getDatasetCatalog(dataset: DatasetCatalogSource): DatasetCatalog
       ...measureNames,
       ...derivedMeasureNames,
       ...metricNames,
-      ...Object.values(relationships).flatMap(relationship => relationship.fields),
+      ...Object.values(relationships).flatMap(relationship => [...relationship.fields, ...Object.keys(relationship.measures ?? {})]),
       ...(dataset.timeKey ? ['period'] : []),
     ],
     maxLimit,

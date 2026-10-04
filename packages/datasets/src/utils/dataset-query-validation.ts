@@ -1,3 +1,4 @@
+import { resolveRelationshipMeasure } from './relationship-measures.js';
 import { queryTimezoneErrors } from './query-timezone.js';
 import { baseMeasureNames } from './dataset-measures.js';
 import type {
@@ -32,6 +33,11 @@ export function validateDatasetQueryInput(
   const measureNames = Object.keys(ds.measures);
   const selectedDimensions = query.dimensions ?? [];
   const selectedMeasures = query.measures ?? baseMeasureNames(ds.measures);
+  for (const name of selectedDimensions) {
+    if (selectedMeasures.includes(name)) {
+      errors.push(`Output "${name}" cannot be selected as both a dimension and a measure. Select one or give the definitions distinct names.`);
+    }
+  }
   const filterNames = Object.keys(ds.filters);
   const orderableFields = new Set<string>([
     ...selectedDimensions,
@@ -70,9 +76,8 @@ export function validateDatasetQueryInput(
   if (query.measures) {
     for (const measure of query.measures) {
       if (isQualifiedField(measure)) {
-        errors.push(
-          `Measure "${measure}" is relationship-qualified. Measures can only be defined on the base dataset "${ds.name}", not traversed through relationships.`,
-        );
+        try { resolveRelationshipMeasure(ds, measure); }
+        catch (error) { errors.push((error as Error).message); }
         continue;
       }
       if (!measureNames.includes(measure)) {
@@ -131,7 +136,7 @@ export function validateDatasetQueryInput(
   if (query.orderBy) {
     const invalid: string[] = [];
     for (const order of query.orderBy) {
-      if (isQualifiedField(order.field)) {
+      if (isQualifiedField(order.field) && !selectedMeasures.includes(order.field)) {
         const resolution = resolveQualifiedField(ds, order.field);
         if (resolution?.error) {
           errors.push(resolution.error);

@@ -210,6 +210,7 @@ export function buildDatasetPlan(
   query: DatasetQuery = {},
   context?: ExecutionContext,
 ): PlanNode {
+  if ((query.measures ?? []).some(name => name.includes('.'))) throw new Error('Relationship measures require the queryBuilder execution path.');
   if (query.timezone !== undefined) throw new Error('Execution timezone requires the queryBuilder execution path.');
   rejectTimeMeasuresOnBackend(ds, query);
   if ((query.measures ?? []).some(name => getDerivedMeasure(ds.measures, name) !== undefined)) {

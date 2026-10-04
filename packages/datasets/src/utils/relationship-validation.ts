@@ -1,3 +1,4 @@
+import { resolveRelationshipReference } from './relationship-measures.js';
 /**
  * Shared validation for relationship-qualified filters, used by both the
  * dataset-query and metric-query validators.
@@ -23,7 +24,7 @@ import {
 type RelationshipQuery = Pick<
   DatasetQuery & MetricQuery,
   'dimensions' | 'filters' | 'orderBy'
->;
+> & Pick<DatasetQuery, 'measures'>;
 
 /**
  * Tenant-less base datasets may still reach tenant-scoped data through a
@@ -41,12 +42,13 @@ export function validateRelationshipTenantRuntime(
 
   const referenced = [
     ...(query.dimensions ?? []),
+    ...(query.measures ?? []),
     ...(query.filters ?? []).map((filter) => filter.field),
     ...(query.orderBy ?? []).map((order) => order.field),
   ].filter(isQualifiedField);
 
   for (const name of referenced) {
-    const resolution = resolveQualifiedField(ds, name);
+    const resolution = resolveRelationshipReference(ds, name, query.measures);
     if (resolution?.resolved?.target.tenantKey) {
       return `Dataset "${ds.name}" requires runtime tenant scoping because relationship "${resolution.resolved.relationshipName}" targets a tenant-scoped dataset.`;
     }

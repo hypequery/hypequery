@@ -1,3 +1,4 @@
+import { queryMeasureDefinitions } from './relationship-measures.js';
 import { buildCompositeTimeMeasureSql } from './composite-time-measure-sql.js';
 import { measureDependencyNames } from './measure-dependencies.js';
 import type { AnyDatasetInstance, DatasetQuery } from '../types.js';
@@ -24,7 +25,7 @@ export function buildTimeMeasureDatasetSql(
   const { axis } = analyzeTimeMeasureAxis(ds, query);
   if (!axis || !ds.timeKey) throw new Error('Window measures require a bounded time axis.');
 
-  const dependencies = measureDependencyNames(ds.measures, query.measures ?? []);
+  const dependencies = measureDependencyNames(queryMeasureDefinitions(ds, query.measures ?? []), query.measures ?? []);
   const composite = dependencies.some(name => {
     const definition = ds.measures[name];
     if (isShiftMeasure(definition)) return !getBaseMeasure(ds.measures, definition.measure);
@@ -54,7 +55,7 @@ export function buildTimeMeasureDatasetSql(
   // Scan only requested populations: intervening rows must not introduce dimensions.
   const end = add('_hq_last', 1, axis.grain);
   const populations: string[] = [];
-  if ([...needed].some(name => getBaseMeasure(ds.measures, name))) {
+  if ([...needed].some(name => name.includes('.') || getBaseMeasure(ds.measures, name))) {
     populations.push(`(_hq_time >= _hq_first AND _hq_time < ${end})`);
   }
   if (windows.length) {

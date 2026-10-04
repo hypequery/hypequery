@@ -276,13 +276,13 @@ describe('relationship-qualified validation', () => {
     expect(result.errors.join(' ')).toMatch(/Unknown dimension "unknownField"/);
   });
 
-  it('rejects relationship-qualified measures', () => {
+  it('rejects an unknown measure on a relationship target', () => {
     const result = validateDatasetQuery(Orders, {
       dimensions: ['status'],
       measures: ['customer.total'],
     });
     expect(result.valid).toBe(false);
-    expect(result.errors.join(' ')).toMatch(/Measure "customer.total" is relationship-qualified/);
+    expect(result.errors.join(' ')).toMatch(/Unknown measure "total" on relationship target "customers"/);
   });
 
   it('type-checks qualified filter values', () => {
