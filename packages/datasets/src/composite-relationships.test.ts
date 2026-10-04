@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { createQueryBuilder } from '../../clickhouse/src/index.js';
 import { dataset, dimension, measure, belongsTo, hasOne, hasMany, createDatasetClient, getDatasetCatalog, serializeSemanticContract, buildProtocolDatasetContract, rehydrateProtocolDatasets } from './index.js';
 import { createInMemoryBackend } from './in-memory-backend.js';
-import type { RelationshipJoin } from './types.js';
+import type { RelationshipJoin, RelationshipKey } from './types.js';
 
 const Customers = dataset('compositeCustomers', { source: 'customers', tenantKey: 'tenant', dimensions: { id: dimension.number(), name: dimension.string() }, measures: { minimum: measure.min('score') } });
 const keys = [{ from: 'customer_id', to: 'id' }, { from: 'region_code', to: 'region' }] as const;
@@ -23,7 +23,7 @@ describe('composite relationships', () => {
     expect(sql).toContain('isNotNull(customer._hq_match)');
   });
   it('snapshots authored key arrays', () => {
-    const authored = [{ from: 'customer_id', to: 'id' }, { from: 'region_code', to: 'region' }] as [typeof keys[0], typeof keys[1]];
+    const authored: [RelationshipKey, RelationshipKey] = [{ from: 'customer_id', to: 'id' }, { from: 'region_code', to: 'region' }];
     const relationship = hasOne(() => Customers, { keys: authored });
     authored.pop();
     expect(relationship.keys).toEqual(keys);
@@ -46,7 +46,7 @@ describe('composite relationships', () => {
   });
   it('round-trips composite keys through the portable protocol contract', () => {
     const endpoint = { access: { kind: 'public' }, tenant: { kind: 'not-required' } } as const;
-    const contracts = [Customers, Orders].map(ds => buildProtocolDatasetContract(ds as never, { endpoint }));
+    const contracts = [Customers, Orders].map(ds => buildProtocolDatasetContract(ds, { endpoint }));
     const restored = rehydrateProtocolDatasets(contracts);
     const restoredKeys = restored.compositeOrders.relationships.customer.keys!;
     expect(restoredKeys).toEqual(keys);
@@ -62,9 +62,9 @@ describe('composite relationships', () => {
     expect(() => backend.execute(Orders, { dimensions: ['customer.name'], measures: ['revenue'] }, context)).toThrow(/queryBuilder execution path/);
   });
   it('refuses builders without composite join support', () => {
-    const db = createQueryBuilder({ host: 'http://localhost:8123' });
-    const factory = { table: (name: string) => { const qb = db.table(name as never); Object.defineProperty(qb, 'leftAnyJoinOn', { value: undefined }); return qb; }, rawQuery: async () => [] };
-    const unsupported = createDatasetClient({ queryBuilder: factory as never });
+    const db = createQueryBuilder<Record<string, Record<string, 'String'>>>({ host: 'http://localhost:8123' });
+    const factory = { table: (name: string) => { const qb = db.table(name); Object.defineProperty(qb, 'leftAnyJoinOn', { value: undefined }); return qb; }, rawQuery: async () => [] };
+    const unsupported = createDatasetClient({ queryBuilder: factory });
     expect(() => unsupported.toSQL(Orders, { dimensions: ['customer.name'] }, context)).toThrow(/requires query builder leftAnyJoinOn/);
   });
 });

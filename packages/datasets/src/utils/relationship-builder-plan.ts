@@ -154,8 +154,8 @@ export function applyRelationshipJoins(
       const keys = join.keys.map(key => ({
         leftColumn: `${ctx.baseSource}.${key.from}`,
         rightColumn: `${join.relationship}.${key.to}`,
-      })) as [{ leftColumn: string; rightColumn: string }, ...{ leftColumn: string; rightColumn: string }[]];
-      qb = qb.leftAnyJoinOn(join.source, keys, join.relationship, join.tenant
+      }));
+      qb = qb.leftAnyJoinOn(join.source, [keys[0], ...keys.slice(1)], join.relationship, join.tenant
         ? { column: `${join.relationship}.${join.tenant.field}`, operator: join.tenant.operator, value: join.tenant.value } : undefined);
       continue;
     }

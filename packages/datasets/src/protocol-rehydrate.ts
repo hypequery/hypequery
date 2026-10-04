@@ -1,5 +1,3 @@
-import { normalizeRelationshipJoin } from './utils/relationship-keys.js';
-import type { RelationshipKey } from './types.js';
 /**
  * Rebuilds executable datasets from a portable deployment contract.
  *
@@ -39,6 +37,7 @@ import type {
   SemanticFilterDefinition,
   TimeGrain,
 } from './types.js';
+import { normalizeRelationshipJoin, validateRelationshipKeys } from './utils/relationship-keys.js';
 import { snapshotSemanticMetadata } from './utils/semantic-metadata.js';
 import { withContractCapabilities } from './utils/protocol-metric-capabilities.js';
 import { rehydrateDerivedFormula } from './utils/protocol-rehydrate-derivation.js';
@@ -204,6 +203,12 @@ function rehydrateRelationships(
   const relationships: Record<string, RelationshipDefinition> = {};
   for (const relationship of contract.relationships) {
     const target = String(relationship.target);
+    let compositeJoin;
+    if (relationship.keys) {
+      const keys = relationship.keys.map(key => ({ from: String(key.from), to: String(key.to) }));
+      validateRelationshipKeys(keys);
+      compositeJoin = normalizeRelationshipJoin({ keys });
+    }
     relationships[String(relationship.name)] = {
       __type: 'relationship',
       kind: relationship.kind,
@@ -212,9 +217,7 @@ function rehydrateRelationships(
       target: () => resolve(target),
       from: String(relationship.from),
       to: String(relationship.to),
-      ...(relationship.keys ? normalizeRelationshipJoin({
-        keys: relationship.keys.map(key => ({ from: String(key.from), to: String(key.to) })) as [RelationshipKey, ...RelationshipKey[]],
-      }) : {}),
+      ...compositeJoin,
     };
   }
   return relationships;

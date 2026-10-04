@@ -10,11 +10,16 @@ export function normalizeRelationshipJoin(join: RelationshipJoin): Pick<Relation
   }
   const keys = composite ? join.keys : [{ from: join.from, to: join.to }];
   validateRelationshipKeys(keys);
-  const copy = keys.map(key => Object.freeze({ from: key.from, to: key.to })) as [RelationshipKey, ...RelationshipKey[]];
+  const copy: [RelationshipKey, ...RelationshipKey[]] = [
+    Object.freeze({ from: keys[0].from, to: keys[0].to }),
+    ...keys.slice(1).map(key => Object.freeze({ from: key.from, to: key.to })),
+  ];
   return { from: copy[0].from, to: copy[0].to, ...(composite ? { keys: Object.freeze(copy) } : {}) };
 }
 
-export function validateRelationshipKeys(keys: readonly RelationshipKey[]): void {
+export function validateRelationshipKeys(
+  keys: readonly RelationshipKey[],
+): asserts keys is readonly [RelationshipKey, ...RelationshipKey[]] {
   if (!Array.isArray(keys) || keys.length === 0) throw new Error('Relationship keys must be a non-empty array.');
   const from = new Set<string>();
   const to = new Set<string>();
