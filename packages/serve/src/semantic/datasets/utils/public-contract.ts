@@ -33,6 +33,8 @@ export function publicSemanticContract(contract: SemanticContract): {
       ]),
       measures: logicalEntries(dataset.measures, [
         'aggregation', 'level', 'label', 'description', 'approximate',
+        'kind', 'measure', 'interval', 'trailing', 'toDate', 'cumulative',
+        'requiresTimeRange', 'supportedGrains',
       ]),
       metrics: logicalEntries(dataset.metrics, [
         'kind', 'valueType', 'label', 'description', 'dimensions', 'measures',

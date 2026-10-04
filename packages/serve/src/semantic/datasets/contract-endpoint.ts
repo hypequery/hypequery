@@ -34,7 +34,8 @@ export function buildSemanticContractSource(
   const source: Record<string, DatasetCatalogSource> = {};
   for (const [name, entry] of Object.entries(datasets)) {
     const ds = resolveDatasetEntry(entry).dataset;
-    source[name] = { ...ds, metrics: metricsByDatasetName[ds.name] } as DatasetCatalogSource;
+    // The registration name is the addressable dataset name on this transport.
+    source[name] = { ...ds, name, metrics: metricsByDatasetName[ds.name] } as DatasetCatalogSource;
   }
   return source;
 }

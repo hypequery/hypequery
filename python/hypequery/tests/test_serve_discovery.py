@@ -80,3 +80,32 @@ def test_discovery_enforces_roles() -> None:
     )
     client = TestClient(create_app(router, security=HttpSecurity(allowed_hosts=("testserver",))))
     assert client.get("/discovery", headers={"Authorization": "Bearer reader"}).status_code == 403
+
+
+@pytest.mark.parametrize(
+    ("roles", "scopes", "status"),
+    [
+        (frozenset({"admin"}), frozenset({"catalog:read", "data:read"}), 200),
+        (frozenset({"editor"}), frozenset({"catalog:read", "data:read"}), 200),
+        (frozenset(), frozenset({"catalog:read", "data:read"}), 403),
+        (frozenset({"reader"}), frozenset({"catalog:read", "data:read"}), 403),
+        (frozenset({"admin"}), frozenset({"catalog:read"}), 403),
+    ],
+)
+def test_discovery_accepts_any_required_role_but_requires_all_scopes(
+    roles: frozenset[str], scopes: frozenset[str], status: int
+) -> None:
+    router = create_router(
+        authenticate=lambda credential: Principal(subject="alice", roles=roles, scopes=scopes)
+    )
+    add_discovery_endpoint(
+        router,
+        registry=registry(),
+        policy=EndpointPolicy(
+            required_roles=frozenset({"admin", "editor"}),
+            required_scopes=frozenset({"catalog:read", "data:read"}),
+        ),
+    )
+    client = TestClient(create_app(router, security=HttpSecurity(allowed_hosts=("testserver",))))
+    response = client.get("/discovery", headers={"Authorization": "Bearer reader"})
+    assert response.status_code == status

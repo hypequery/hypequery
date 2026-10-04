@@ -812,7 +812,8 @@ For dataset coverage, CI gates, and remaining gaps, see the
 
 Register `add_discovery_endpoint(router, registry=registry)` to publish a bounded
 logical catalog at `/discovery`. It authenticates by default and accepts an
-`EndpointPolicy` for role, scope and tenant requirements. Explicitly pass
+`EndpointPolicy` for role, scope and tenant requirements. Any listed role grants
+role access; all listed scopes are required. Explicitly pass
 `EndpointPolicy(public=True)` only for intentionally public discovery. The
 256 KiB default budget is checked at startup; physical sources, columns, SQL,
 tenant policy and tenant values never appear in this projection.

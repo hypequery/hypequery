@@ -31,13 +31,13 @@ describe('logical discovery and public contract', () => {
       },
     });
     const api = createAPI({
-      basePath: '', datasets: { source }, discovery: { requiresAuth: false },
+      basePath: '', datasets: { publicSource: source }, discovery: { requiresAuth: false },
       queryBuilder: { table: vi.fn(), rawQuery: vi.fn() },
     });
     const response = await api.handler({ method: 'GET', path: '/discovery', query: {}, headers: {} });
     expect(response.status).toBe(200);
     expect(response.body).toMatchObject({ datasets: [{
-      name: 'source',
+      name: 'publicSource',
       measures: [
         { name: 'profile.estimated', approximate: true },
         { name: 'profile.total' }, { name: 'profile.unique' },
@@ -47,6 +47,35 @@ describe('logical discovery and public contract', () => {
     for (const marker of ['PHYSICAL_', 'TENANT_POLICY', 'requiresTenant', 'many.total', 'target.total']) {
       expect(JSON.stringify(response.body)).not.toContain(marker);
     }
+  });
+
+  it('retains logical window and shift requirements in the public contract', () => {
+    const timed = dataset('timed', {
+      source: 'PHYSICAL_SOURCE', tenantKey: 'TENANT_POLICY', timeKey: 'createdAt',
+      dimensions: { createdAt: dimension.timestamp({ column: 'PHYSICAL_TIME' }) },
+      measures: {
+        total: measure.count('PHYSICAL_ID'),
+        trailing: measure.trailing('total', { amount: 7, unit: 'day' }),
+        shifted: measure.shift('total', { amount: 1, unit: 'day' }),
+        monthly: measure.toDate('total', 'month'),
+        cumulative: measure.cumulative('total'),
+      },
+    });
+    const contract = serializeSemanticContract({ timed });
+    const projection = publicSemanticContract(contract);
+    expect(projection.datasets.timed).toMatchObject({ measures: {
+      trailing: { kind: 'window', measure: 'total', trailing: { amount: 7, unit: 'day' }, requiresTimeRange: true },
+      shifted: { kind: 'shift', measure: 'total', interval: { amount: 1, unit: 'day' }, requiresTimeRange: true },
+      monthly: { kind: 'window', measure: 'total', toDate: 'month', requiresTimeRange: true },
+      cumulative: { kind: 'window', measure: 'total', cumulative: true, requiresTimeRange: true },
+    } });
+    for (const name of ['trailing', 'shifted', 'monthly', 'cumulative']) {
+      expect(contract.datasets.timed.measures[name].supportedGrains?.length).toBeGreaterThan(0);
+      expect(projection.datasets.timed).toMatchObject({ measures: {
+        [name]: { supportedGrains: contract.datasets.timed.measures[name].supportedGrains },
+      } });
+    }
+    expect(JSON.stringify(projection)).not.toMatch(/PHYSICAL_|TENANT_POLICY/);
   });
 
   it('keeps physical fields out while retaining definition identity', () => {

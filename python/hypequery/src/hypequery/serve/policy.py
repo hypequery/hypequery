@@ -37,7 +37,9 @@ class EndpointPolicy:
             raise ServeError(401, "UNAUTHORIZED", "Access denied")
         roles = auth.principal.roles if auth else frozenset()
         scopes = auth.principal.scopes if auth else frozenset()
-        if not self.required_roles <= roles or not self.required_scopes <= scopes:
+        if (self.required_roles and self.required_roles.isdisjoint(roles)) or not (
+            self.required_scopes <= scopes
+        ):
             raise ServeError(403, "FORBIDDEN", "Access denied")
         tenant = auth.tenant if auth else None
         if self.tenant == "required" and tenant is None:
