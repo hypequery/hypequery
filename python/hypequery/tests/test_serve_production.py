@@ -417,3 +417,70 @@ run_production(app)
         except subprocess.TimeoutExpired:
             process.kill()
             process.communicate()
+
+
+@pytest.mark.parametrize("blocking", ["authentication", "query"])
+def test_sync_deadline_returns_promptly_and_retains_capacity_until_worker_stops(
+    blocking: str,
+) -> None:
+    release = threading.Event()
+    finished = threading.Event()
+    cancellation: list[object] = []
+
+    def blocked_auth(credential: Credential) -> Principal | None:
+        if blocking == "authentication" and not release.is_set():
+            try:
+                release.wait(5)
+            finally:
+                finished.set()
+        return authenticate(credential)
+
+    class BlockingExecutor:
+        def execute(self, compiled: CompiledQuery) -> Rows:
+            if blocking == "query" and not release.is_set():
+                cancellation.append(compiled.cancellation)
+                try:
+                    release.wait(5)
+                finally:
+                    finished.set()
+            return Rows()
+
+    router = create_router(authenticate=blocked_auth)
+    add_dataset_endpoint(
+        router, "/query", dataset=DATASET, client=create_dataset_client(executor=BlockingExecutor())
+    )
+    application = create_app(
+        router,
+        security=SECURITY,
+        production=ProductionProfile(timeout_seconds=1, max_concurrency=1),
+    )
+
+    async def run() -> None:
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=application), base_url="http://testserver"
+        ) as http:
+            try:
+                started = time.monotonic()
+                response = await http.post("/query", headers=HEADERS, json={"measures": ["rows"]})
+                assert response.status_code == 504, response.text
+                assert time.monotonic() - started < 1.8
+                if blocking == "query":
+                    assert cancellation
+                    assert cancellation[0] is not None
+                    assert isinstance(cancellation[0], threading.Event)
+                    assert cancellation[0].is_set()
+                assert not finished.is_set()
+                busy = await http.post("/query", headers=HEADERS, json={"measures": ["rows"]})
+                assert busy.status_code == 503
+            finally:
+                release.set()
+            until = time.monotonic() + 2
+            while not finished.is_set() and time.monotonic() < until:
+                await asyncio.sleep(0.01)
+            assert finished.is_set()
+            # Give the tracked worker and admission callbacks time to run.
+            await asyncio.sleep(0.05)
+            response = await http.post("/query", headers=HEADERS, json={"measures": ["rows"]})
+            assert response.status_code == 200, response.text
+
+    asyncio.run(run())

@@ -318,3 +318,47 @@ def test_live_profile_policy_rejects_unrestricted_user() -> None:
             await async_reader.aclose()
 
     asyncio.run(run_async())
+
+
+@pytest.mark.skipif(
+    "HYPEQUERY_TEST_CLICKHOUSE_HOST" not in os.environ,
+    reason="live ClickHouse service is not configured",
+)
+@pytest.mark.parametrize("cancel_by", ["signal", "deadline"])
+def test_live_sync_cancellation_stops_server_query(cancel_by: str) -> None:
+    import time
+    from concurrent.futures import ThreadPoolExecutor
+
+    executor = create_clickhouse_executor(_connection())
+    observer = create_clickhouse_executor(_connection())
+    signal = threading.Event()
+    compiled = CompiledQuery(
+        "SELECT sleep(3) AS value",
+        {},
+        deadline=Deadline.after(0.5 if cancel_by == "deadline" else 10),
+        cancellation=signal,
+    )
+    active = CompiledQuery(
+        "SELECT count() AS value FROM system.processes WHERE query_id = {p0:String}",
+        {"p0": TypedParameter("p0", "String", compiled.query_id)},
+    )
+    try:
+        with ThreadPoolExecutor(max_workers=1) as workers:
+            task = workers.submit(executor.execute, compiled)
+            for _ in range(100):
+                if observer.execute(active).rows == ((1,),):
+                    break
+                time.sleep(0.02)
+            else:
+                pytest.fail("query did not appear in system.processes")
+            if cancel_by == "signal":
+                signal.set()
+            with pytest.raises(CompiledQueryError) as exc:
+                task.result(timeout=5)
+            assert exc.value.category == (
+                "aborted" if cancel_by == "signal" else "deadline-exceeded"
+            )
+            assert observer.execute(active).rows == ((0,),)
+    finally:
+        executor.close()
+        observer.close()

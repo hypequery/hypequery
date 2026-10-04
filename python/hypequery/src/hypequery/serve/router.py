@@ -24,7 +24,6 @@ from typing import Any, NoReturn, TypeVar, cast
 from fastapi import APIRouter, Depends, Request
 from fastapi.params import Depends as DependsParam
 from fastapi.routing import APIRoute
-from starlette.concurrency import run_in_threadpool
 from starlette.datastructures import MutableHeaders
 from starlette.responses import Response
 from starlette.types import Message, Receive, Scope, Send
@@ -48,6 +47,7 @@ from .auth import (
 from .body_policy import DEFAULT_MAX_BODY_BYTES, enforce_body_policy
 from .errors import as_serve_error, error_response
 from .rate_limit import RateLimit
+from .utils.request_work import run_sync
 
 _Endpoint = TypeVar("_Endpoint", bound=Callable[..., Any])
 _Argument = TypeVar("_Argument")
@@ -112,14 +112,16 @@ class _Guard:
         if credential is None:
             raise unauthenticated(self._credentials, presented=presented)
         try:
-            principal = await _call_provider(self._authenticate, credential, rejectable=True)
+            principal = await _call_provider(
+                self._authenticate, credential, request, rejectable=True
+            )
         except InvalidCredential:
             raise unauthenticated(self._credentials, presented=True) from None
         if principal is None:
             raise unauthenticated(self._credentials, presented=True)
         if type(principal) is not Principal:
             raise misconfigured()
-        scope = await _call_provider(self._resolve_tenant, principal)
+        scope = await _call_provider(self._resolve_tenant, principal, request)
         if scope is not None and (
             type(scope) is not TenantScope or scope.cross_tenant or len(scope.ids) != 1
         ):
@@ -303,6 +305,7 @@ def _is_async(provider: Callable[..., object]) -> bool:
 async def _call_provider(
     provider: Callable[[_Argument], _Result | Awaitable[_Result]],
     argument: _Argument,
+    request: Request,
     *,
     rejectable: bool = False,
 ) -> _Result:
@@ -321,7 +324,7 @@ async def _call_provider(
         if _is_async(provider):
             result = provider(argument)
         else:
-            result = await run_in_threadpool(provider, argument)
+            result = await run_sync(request, provider, argument)
         if inspect.isawaitable(result):
             return await result
         return result

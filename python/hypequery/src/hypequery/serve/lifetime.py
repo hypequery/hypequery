@@ -3,15 +3,16 @@
 from __future__ import annotations
 
 import asyncio
-import threading
 from contextlib import suppress
 
 from fastapi import Request
 
+from .utils.request_work import request_work
+
 
 class RequestLifetime:
     def __init__(self, request: Request) -> None:
-        self.cancellation = threading.Event()
+        self.cancellation = request_work(request).cancellation
         self._request = request
         self._watcher: asyncio.Task[None] | None = None
 

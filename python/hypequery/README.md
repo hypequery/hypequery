@@ -946,8 +946,13 @@ queuing. The request timeout covers authentication, body reading, query executio
 response generation and sending; expiry cancels the handler and signals the
 dataset executor. Before response headers are sent it returns canonical
 `504 GATEWAY_TIMEOUT`; a stalled send after headers closes the connection.
-Synchronous executors must honor the cancellation signal; the built-in executor
-does, while Python cannot forcibly stop arbitrary host code running in a thread.
+The HTTP deadline returns promptly even when a synchronous query or authentication
+callback stalls. Its admission slot remains occupied until the tracked worker
+finishes, preventing timed-out requests from accumulating unbounded work.
+Synchronous executors must honor the cancellation signal; the factory-created
+ClickHouse executor uses its control connection, while Python cannot forcibly
+stop arbitrary host code running in a thread. Failure telemetry is delivered
+asynchronously when the HTTP waiter is cancelled.
 
 Dataset and metric endpoints also pass time, row, byte and thread ceilings into
 the compiled query, intersecting them with stricter client settings. The row

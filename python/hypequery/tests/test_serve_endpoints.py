@@ -426,6 +426,9 @@ def test_handler_cancellation_reaches_executor_and_emits_aborted_event() -> None
         assert executor.compiled is not None
         assert executor.compiled.cancellation is not None
         assert executor.compiled.cancellation.is_set()
+        from hypequery.serve.utils.request_work import request_work
+
+        await request_work(request).drain()
         assert records[0]["errorCategory"] == "aborted"
         assert not [task for task in asyncio.all_tasks() if task is not asyncio.current_task()]
 

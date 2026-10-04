@@ -8,7 +8,6 @@ from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 
 from fastapi import Request
-from starlette.concurrency import run_in_threadpool
 
 from ..datasets import Dataset
 from ..datasets.client import AsyncDatasetClient, DatasetClient
@@ -31,6 +30,7 @@ from .request_ids import ensure_request_id
 from .router import ServeRouter, authenticated_context
 from .utils.production_context import production_profile
 from .utils.query_response import public_response
+from .utils.request_work import request_work, run_sync
 
 
 @dataclass(frozen=True, slots=True)
@@ -111,8 +111,13 @@ class DatasetEndpoint:
                         self.dataset, query, context=context, paginate=True
                     )
                 else:
-                    result = await run_in_threadpool(
-                        self.client.execute, self.dataset, query, context=context, paginate=True
+                    result = await run_sync(
+                        request,
+                        self.client.execute,
+                        self.dataset,
+                        query,
+                        context=context,
+                        paginate=True,
                     )
                 if lifetime.cancellation.is_set():
                     raise CompiledQueryError("aborted", "The request was cancelled.")
@@ -124,15 +129,18 @@ class DatasetEndpoint:
                         if isinstance(exc, asyncio.CancelledError)
                         else exc
                     )
-                    await run_in_threadpool(
+                    event = request_work(request).start_sync(
                         self.events.emit,
                         self.name,
                         (time.perf_counter() - started) * 1000,
                         error=error,
                     )
+                    if not isinstance(exc, asyncio.CancelledError):
+                        await asyncio.shield(event)
                 raise
         if self.events:
-            await run_in_threadpool(
+            await run_sync(
+                request,
                 self.events.emit,
                 self.name,
                 (time.perf_counter() - started) * 1000,
@@ -146,13 +154,14 @@ class DatasetEndpoint:
                 for row in response.data
             ]
         if include_meta and self.diagnostics and auth:
-            allowed = await run_in_threadpool(self.diagnostics.authorize, auth.principal)
+            allowed = await run_sync(request, self.diagnostics.authorize, auth.principal)
             if allowed is True:
                 # Audit completes before any privileged projection is returned.
-                await run_in_threadpool(
-                    self.diagnostics.audit, auth.principal, ensure_request_id(request)
+                await run_sync(
+                    request, self.diagnostics.audit, auth.principal, ensure_request_id(request)
                 )
-                sql = await run_in_threadpool(
+                sql = await run_sync(
+                    request,
                     self.client.to_sql,
                     self.dataset,
                     query,

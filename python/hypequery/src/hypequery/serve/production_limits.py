@@ -10,6 +10,7 @@ from starlette.types import ASGIApp, Message, Receive, Scope, Send
 from .errors import ServeError, as_serve_error, error_response
 from .production import ProductionProfile
 from .utils.production_context import set_production_profile
+from .utils.request_work import RequestWork, request_work
 
 
 class _ResponseTooLargeError(Exception):
@@ -21,6 +22,13 @@ class ProductionLimitsMiddleware:
         self.app = app
         self.profile = profile
         self.active = 0
+        self._draining: set[asyncio.Task[None]] = set()
+
+    async def _release_after_work(self, work: RequestWork) -> None:
+        try:
+            await work.drain()
+        finally:
+            self.active -= 1
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         if scope["type"] != "http":
@@ -35,6 +43,7 @@ class ProductionLimitsMiddleware:
         # No await between check and increment: admission is atomic on the loop.
         self.active += 1
         set_production_profile(scope, self.profile)
+        work = request_work(Request(scope))
         start: Message | None = None
         body = bytearray()
         committed = False
@@ -64,6 +73,7 @@ class ProductionLimitsMiddleware:
                         committed = True
                         await send({"type": "http.response.body", "body": bytes(body)})
             except TimeoutError:
+                work.cancellation.set()
                 if committed:
                     # The transport must close a stalled partial response.
                     # A second status line would corrupt the HTTP connection.
@@ -85,4 +95,12 @@ class ProductionLimitsMiddleware:
                     scope, receive, send
                 )
         finally:
-            self.active -= 1
+            work.cancellation.set()
+            if work.tasks:
+                # A 504 releases the HTTP caller, but still-running host code
+                # keeps its admission slot until its threads have stopped.
+                draining = asyncio.create_task(self._release_after_work(work))
+                self._draining.add(draining)
+                draining.add_done_callback(self._draining.discard)
+            else:
+                self.active -= 1
