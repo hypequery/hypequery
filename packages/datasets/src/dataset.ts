@@ -30,6 +30,8 @@
  * ```
  */
 
+import type { NormalizedDatasetFilters } from './utils/dataset-filter-types.js';
+
 import type {
   DatasetConfig,
   DatasetInstance,
@@ -43,6 +45,7 @@ import type {
   BaseMetricConfig,
   DerivedMetricConfig,
   SegmentDefinition,
+  SemanticFiltersDefinition,
 } from './types.js';
 import {
   createDerivedMetricSpec,
@@ -71,10 +74,11 @@ export function dataset<
   TDefinitions extends Record<string, DatasetMeasureDefinition> = {},
   TRelationships extends Record<string, RelationshipDefinition> = Record<string, never>,
   const TSegments extends Record<string, SegmentDefinition> = {},
+  const TFilters extends SemanticFiltersDefinition | undefined = SemanticFiltersDefinition | undefined,
 >(
   name: TDatasetName,
-  config: DatasetConfig<TDimensions, TDefinitions, TRelationships, TSegments>,
-): DatasetInstance<TDimensions, TDefinitions, TRelationships, TDatasetName, DerivedMeasures<TDefinitions>, TSegments> {
+  config: DatasetConfig<TDimensions, TDefinitions, TRelationships, TSegments, TFilters>,
+): DatasetInstance<TDimensions, TDefinitions, TRelationships, TDatasetName, DerivedMeasures<TDefinitions>, TSegments, NormalizedDatasetFilters<TDimensions, TFilters>> {
   // Structural validation runs before anything is normalized, so an invalid
   // model fails at definition time rather than on the first query that reaches
   // the broken part of it.
@@ -84,11 +88,11 @@ export function dataset<
   // The spread copies the authored keys, but TypeScript widens them through
   // CheckedDatasetMeasures. Preserve their literal names and definition types.
   const measures = { ...config.measures } as TDefinitions;
-  const filters = normalizeFilters(dimensions, config.filters);
+  const filters = normalizeFilters(dimensions, config.filters) as NormalizedDatasetFilters<TDimensions, TFilters>;
   const relationships = normalizeRelationships(config.relationships, config.source);
 
   type TMeasures = BaseMeasures<TDefinitions>;
-  type ThisDataset = DatasetInstance<TDimensions, TDefinitions, TRelationships, TDatasetName, DerivedMeasures<TDefinitions>, TSegments>;
+  type ThisDataset = DatasetInstance<TDimensions, TDefinitions, TRelationships, TDatasetName, DerivedMeasures<TDefinitions>, TSegments, NormalizedDatasetFilters<TDimensions, TFilters>>;
   function metric<TName extends string>(
     metricName: TName,
     metricConfig: BaseMetricConfig<TMeasures>,

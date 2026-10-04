@@ -133,7 +133,13 @@ const Orders = dataset('orders', {
 ```
 </CodeBlock>
 
-With this contract, `status` is the only exposed filter field, and only the listed operators are allowed.
+With this contract, `status` is the only exposed filter field, and only the listed operators are allowed. TypeScript checks these names and operators in dataset and metric execution, Serve API inputs, and React hooks, including infinite-query hooks. The filter helpers preserve their operator literals, so `eq('status', 'completed')` works with an `eq`-only policy.
+
+Use `DatasetQueryFor<typeof Orders>` or `MetricQueryFor<typeof Orders, 'revenue'>` when storing query inputs in variables. `DatasetFilterNames<typeof Orders>` describes the exposed names, and `DatasetFilterFor<typeof Orders>` describes the field/operator pairs. A filter's name is the key in the allowlist, which may differ from its backing dimension.
+
+Omitting `filters` generates an allowlist from dimensions with `filterable !== false`; an explicit empty map disables local filters. One-hop `belongsTo` and `hasOne` filters follow the target dataset's allowlist and operator policy. SQL-backed target dimensions, `hasMany`, and multi-hop paths remain unavailable.
+
+Keep dataset definitions inferred to retain their literal policies. Broad `DatasetInstance` or `SemanticFiltersDefinition` annotations lose that information. Explicit result-row generic calls retain the legacy dynamic-query contract. Filter values and runtime tenant restrictions continue to be validated when the query runs.
 
 ## Order helpers
 

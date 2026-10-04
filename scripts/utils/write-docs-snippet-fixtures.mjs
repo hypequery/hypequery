@@ -62,6 +62,7 @@ interface DocsSchema {
   orders: {
     id: 'UInt64';
     tenant_id: 'String';
+    customer_id: 'String';
     status: 'String';
     country: 'String';
     email: 'String';
@@ -71,6 +72,7 @@ interface DocsSchema {
   customers: {
     id: 'String';
     country: 'String';
+    tier: 'String';
   };
   users: {
     user_id: 'String';
@@ -91,6 +93,18 @@ const dbFixture = createQueryBuilder<DocsSchema>({
 
 const analyticsFixture = createDatasetClient({ queryBuilder: dbFixture });
 
+const CustomersFixture = datasetHelper('customers', {
+  source: 'customers',
+  dimensions: {
+    id: dimensionHelper.string(),
+    country: dimensionHelper.string(),
+    tier: dimensionHelper.string(),
+  },
+  measures: {
+    customerCount: measureHelper.count('id'),
+  },
+});
+
 const OrdersFixture = datasetHelper('orders', {
   source: 'orders',
   tenantKey: 'tenant_id',
@@ -101,22 +115,16 @@ const OrdersFixture = datasetHelper('orders', {
     status: dimensionHelper.string(),
     country: dimensionHelper.string(),
     email: dimensionHelper.string(),
+    amount: dimensionHelper.number(),
     createdAt: dimensionHelper.timestamp({ column: 'created_at' }),
   },
+  relationships: { customer: hq.belongsTo(() => CustomersFixture, { from: 'customer_id', to: 'id' }) },
   measures: {
     revenue: measureHelper.sum('amount'),
     orderCount: measureHelper.count('id'),
-  },
-});
-
-const CustomersFixture = datasetHelper('customers', {
-  source: 'customers',
-  dimensions: {
-    id: dimensionHelper.string(),
-    country: dimensionHelper.string(),
-  },
-  measures: {
-    customerCount: measureHelper.count('id'),
+    trailingRevenue: measureHelper.trailing('revenue', { amount: 7, unit: 'day' }),
+    monthToDateRevenue: measureHelper.toDate('revenue', 'month'),
+    runningRevenue: measureHelper.cumulative('revenue'),
   },
 });
 

@@ -455,6 +455,12 @@ export interface ServeEndpoint<
 }
 
 
+/** Caller input inferred from the schema type, independent of its optional storage property. */
+export type ServeEndpointInput<TEndpoint extends ServeEndpoint<any, any, any, any>> =
+  TEndpoint extends ServeEndpoint<infer TInputSchema, any, any, any, any>
+    ? SchemaInput<TInputSchema>
+    : never;
+
 export type ServeEndpointResult<
   TEndpoint extends ServeEndpoint<any, any, any, any>
 > = TEndpoint extends ServeEndpoint<any, any, any, any, infer TResult> ? TResult : never;
@@ -995,7 +1001,7 @@ export type ExecuteQueryFunction<
 > = <TKey extends keyof TQueries>(
   key: TKey,
   options?: ApiExecuteOptions<
-    SchemaInput<TQueries[TKey]["inputSchema"]>,
+    ServeEndpointInput<TQueries[NoInfer<TKey>]>,
     TContext,
     TAuth
   >,
@@ -1065,7 +1071,7 @@ export interface HypeQueryAPI<
   execute<TKey extends keyof TQueries>(
     key: TKey,
     options?: ApiExecuteOptions<
-      SchemaInput<TQueries[TKey]["inputSchema"]>,
+      ServeEndpointInput<TQueries[NoInfer<TKey>]>,
       TContext,
       TAuth
     >
@@ -1074,7 +1080,7 @@ export interface HypeQueryAPI<
   client<TKey extends keyof TQueries>(
     key: TKey,
     options?: ApiExecuteOptions<
-      SchemaInput<TQueries[TKey]["inputSchema"]>,
+      ServeEndpointInput<TQueries[NoInfer<TKey>]>,
       TContext,
       TAuth
     >
@@ -1083,7 +1089,7 @@ export interface HypeQueryAPI<
   run<TKey extends keyof TQueries>(
     key: TKey,
     options?: ApiExecuteOptions<
-      SchemaInput<TQueries[TKey]["inputSchema"]>,
+      ServeEndpointInput<TQueries[NoInfer<TKey>]>,
       TContext,
       TAuth
     >
@@ -1151,7 +1157,7 @@ export interface ServeBuilder<
   execute<TKey extends keyof TQueries>(
     key: TKey,
     options?: ApiExecuteOptions<
-      SchemaInput<TQueries[TKey]["inputSchema"]>,
+      ServeEndpointInput<TQueries[NoInfer<TKey>]>,
       TContext,
       TAuth
     >
@@ -1160,7 +1166,7 @@ export interface ServeBuilder<
   client<TKey extends keyof TQueries>(
     key: TKey,
     options?: ApiExecuteOptions<
-      SchemaInput<TQueries[TKey]["inputSchema"]>,
+      ServeEndpointInput<TQueries[NoInfer<TKey>]>,
       TContext,
       TAuth
     >
@@ -1168,7 +1174,7 @@ export interface ServeBuilder<
   run<TKey extends keyof TQueries>(
     key: TKey,
     options?: ApiExecuteOptions<
-      SchemaInput<TQueries[TKey]["inputSchema"]>,
+      ServeEndpointInput<TQueries[NoInfer<TKey>]>,
       TContext,
       TAuth
     >

@@ -276,6 +276,7 @@ export type {
   GrainedMetricRef,
   MetricContract,
   MetricFilter,
+  MetricFilterOperator,
   MetricOrderBy,
   MetricQuery,
   DatasetQuery,
@@ -325,3 +326,4 @@ export type {
 } from './dataset-compilation.js';
 export { DATASET_EXECUTION_CAPABILITIES } from './execution-capabilities.js';
 export type { DatasetFeature, DatasetFeatureSupport, DatasetExecutionCapabilities } from './execution-capabilities.js';
+export type { DatasetFilterNames, DatasetFilterFor } from './utils/dataset-filter-types.js';
