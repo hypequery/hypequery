@@ -1,14 +1,20 @@
 import type { BuilderState, SchemaDefinition } from '../types/builder-state.js';
 import { QueryBuilder } from '../query-builder.js';
-import {
+import type {
   JoinType,
-  type JoinConditionInput,
-  type JoinKeyNode,
-  type SelectQueryNode,
+  JoinConditionInput,
+  JoinKeyNode,
+  SelectQueryNode,
 } from '../../types/index.js';
-
 import { buildOnExpression } from '../utils/join-conditions.js';
 import { aliasJoinKey } from '../utils/join-keys.js';
+
+interface JoinOptions {
+  alias?: string;
+  leftSource?: string;
+  on?: JoinConditionInput | JoinConditionInput[];
+  additionalKeys?: JoinKeyNode[];
+}
 
 export class JoinFeature<
   Schema extends SchemaDefinition<Schema>,
@@ -25,13 +31,34 @@ export class JoinFeature<
     table: string,
     leftColumn: string,
     rightColumn: string,
+    options?: JoinOptions,
+  ): SelectQueryNode<State['output'], Schema>;
+  /** @deprecated Pass join options as an object. */
+  addJoin(
+    type: JoinType,
+    table: string,
+    leftColumn: string,
+    rightColumn: string,
     alias?: string,
     leftSource?: string,
     on?: JoinConditionInput | JoinConditionInput[],
     additionalKeys?: JoinKeyNode[],
+  ): SelectQueryNode<State['output'], Schema>;
+  addJoin(
+    type: JoinType,
+    table: string,
+    leftColumn: string,
+    rightColumn: string,
+    aliasOrOptions?: string | JoinOptions,
+    legacyLeftSource?: string,
+    legacyOn?: JoinConditionInput | JoinConditionInput[],
+    legacyAdditionalKeys?: JoinKeyNode[],
   ): SelectQueryNode<State['output'], Schema> {
+    const { alias, leftSource, on, additionalKeys } = typeof aliasOrOptions === 'object'
+      ? aliasOrOptions
+      : { alias: aliasOrOptions, leftSource: legacyLeftSource, on: legacyOn, additionalKeys: legacyAdditionalKeys };
     const query = this.builder.getQueryNode();
-    const firstKey = aliasJoinKey({ leftColumn: String(leftColumn), rightColumn }, table, alias);
+    const firstKey = aliasJoinKey({ leftColumn, rightColumn }, table, alias);
     const newConfig = {
       ...query,
       joins: [
@@ -39,7 +66,7 @@ export class JoinFeature<
         {
           kind: 'join' as const,
           type,
-          table: String(table),
+          table,
           leftColumn: firstKey.leftColumn,
           leftSource,
           rightColumn: firstKey.rightColumn,

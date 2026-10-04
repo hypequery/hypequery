@@ -3,8 +3,8 @@ import type { JoinConditionInput, JoinKeyNode } from '../../types/index.js';
 /** Normalize both public signatures without retaining caller-owned key arrays. */
 export function normalizeJoinArguments(
   leftColumnOrKeys: unknown,
-  rightColumnOrAlias: unknown,
-  aliasOrOn: unknown,
+  rightColumnOrAlias: string | undefined,
+  aliasOrOn: string | JoinConditionInput | JoinConditionInput[] | undefined,
   on?: JoinConditionInput | JoinConditionInput[],
 ): {
   firstKey: JoinKeyNode;
@@ -15,7 +15,7 @@ export function normalizeJoinArguments(
   if (!Array.isArray(leftColumnOrKeys)) {
     return {
       firstKey: { leftColumn: String(leftColumnOrKeys), rightColumn: String(rightColumnOrAlias) },
-      alias: aliasOrOn as string | undefined,
+      alias: typeof aliasOrOn === 'string' ? aliasOrOn : undefined,
       on,
     };
   }
@@ -30,13 +30,13 @@ export function normalizeJoinArguments(
     ) {
       throw new Error('Each join key must be a pair of non-empty column names');
     }
-    return { leftColumn: pair[0] as string, rightColumn: pair[1] as string };
+    return { leftColumn: pair[0], rightColumn: pair[1] };
   });
   return {
     firstKey: keys[0],
     additionalKeys: keys.slice(1),
-    alias: rightColumnOrAlias as string | undefined,
-    on: aliasOrOn as JoinConditionInput | JoinConditionInput[] | undefined,
+    alias: rightColumnOrAlias,
+    on: typeof aliasOrOn === 'string' ? undefined : aliasOrOn,
   };
 }
 

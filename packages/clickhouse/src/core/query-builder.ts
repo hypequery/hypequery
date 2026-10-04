@@ -1227,9 +1227,9 @@ export class QueryBuilder<
     table: TableName,
     leftColumnOrKeys: keyof BaseRow<State> | JoinKeyPairs<State, TableName>,
     rightColumnOrAlias?: JoinRightColumn<State, TableName> | JoinAliasArg<State, TableName, Alias>,
-    aliasOrOn?: JoinAliasArg<State, TableName, Alias>
+    alias?: JoinAliasArg<State, TableName, Alias>
   ): QueryBuilder<Schema, JoinResultState<State, TableName, Alias>> {
-    return this.applyJoin<TableName, Alias>('INNER', table, leftColumnOrKeys, rightColumnOrAlias, aliasOrOn);
+    return this.applyJoin<TableName, Alias>('INNER', table, leftColumnOrKeys, rightColumnOrAlias, alias);
   }
 
   leftJoin<TableName extends JoinableTable<State>, Alias extends string | undefined = undefined>(
@@ -1294,9 +1294,9 @@ export class QueryBuilder<
     table: TableName,
     leftColumnOrKeys: keyof BaseRow<State> | JoinKeyPairs<State, TableName>,
     rightColumnOrAlias?: JoinRightColumn<State, TableName> | JoinAliasArg<State, TableName, Alias>,
-    aliasOrOn?: JoinAliasArg<State, TableName, Alias>
+    alias?: JoinAliasArg<State, TableName, Alias>
   ): QueryBuilder<Schema, JoinResultState<State, TableName, Alias>> {
-    return this.applyJoin<TableName, Alias>('RIGHT', table, leftColumnOrKeys, rightColumnOrAlias, aliasOrOn);
+    return this.applyJoin<TableName, Alias>('RIGHT', table, leftColumnOrKeys, rightColumnOrAlias, alias);
   }
 
   fullJoin<TableName extends JoinableTable<State>, Alias extends string | undefined = undefined>(
@@ -1314,9 +1314,9 @@ export class QueryBuilder<
     table: TableName,
     leftColumnOrKeys: keyof BaseRow<State> | JoinKeyPairs<State, TableName>,
     rightColumnOrAlias?: JoinRightColumn<State, TableName> | JoinAliasArg<State, TableName, Alias>,
-    aliasOrOn?: JoinAliasArg<State, TableName, Alias>
+    alias?: JoinAliasArg<State, TableName, Alias>
   ): QueryBuilder<Schema, JoinResultState<State, TableName, Alias>> {
-    return this.applyJoin<TableName, Alias>('FULL', table, leftColumnOrKeys, rightColumnOrAlias, aliasOrOn);
+    return this.applyJoin<TableName, Alias>('FULL', table, leftColumnOrKeys, rightColumnOrAlias, alias);
   }
 
   private applyJoin<TableName extends JoinableTable<State>, Alias extends string | undefined = undefined>(
@@ -1336,8 +1336,11 @@ export class QueryBuilder<
     ) as NextState['aliases'];
     const nextState = this.withAliasesState<NextState>(nextAliases);
     const nextConfig = this.joins.addJoin(
-      type, String(table), args.firstKey.leftColumn, args.firstKey.rightColumn,
-      args.alias, undefined, args.on, args.additionalKeys,
+      type,
+      String(table),
+      args.firstKey.leftColumn,
+      args.firstKey.rightColumn,
+      { alias: args.alias, on: args.on, additionalKeys: args.additionalKeys },
     );
     return this.transition<NextState>(nextState, nextConfig);
   }
@@ -1403,9 +1406,9 @@ export class QueryBuilder<
         const alias = relationOptions?.alias || joinPath.alias;
         const leftColumn = String(joinPath.leftColumn);
         const leftSource = String(joinPath.from);
-        const table = String(joinPath.to) as Extract<keyof Schema, string>;
-        const rightColumn = `${table}.${joinPath.rightColumn}` as `${typeof table}.${keyof Schema[typeof table] & string}`;
-        return next.joins.addJoin(type, table, leftColumn, rightColumn, alias, leftSource);
+        const table = String(joinPath.to);
+        const rightColumn = `${table}.${joinPath.rightColumn}`;
+        return next.joins.addJoin(type, table, leftColumn, rightColumn, { alias, leftSource });
       },
       label
     );
