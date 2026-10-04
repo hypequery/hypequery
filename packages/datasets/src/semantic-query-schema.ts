@@ -167,11 +167,15 @@ function havingSchema(measures: string[], maximum?: number): ZodTypeAny {
   const comparisons = SEMANTIC_HAVING_OPERATORS.filter(
     operator => operator !== 'between' && operator !== 'in' && operator !== 'notIn',
   ) as [string, ...string[]];
-  return boundedArray(z.union([
+  const conditions = boundedArray(z.union([
     z.object({ measure, operator: z.enum(comparisons), value: number }).strict(),
     z.object({ measure, operator: z.literal('between'), value: z.array(number).min(2).max(2) }).strict(),
     z.object({ measure, operator: z.enum(['in', 'notIn']), value: z.array(number).min(1) }).strict(),
   ]), maximum);
+  return conditions.describe(
+    'Conditions on aggregated measure values, applied after grouping (SQL HAVING). '
+    + 'Each condition must name a measure selected in this query.',
+  );
 }
 
 function queryShape(
