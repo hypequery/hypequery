@@ -105,7 +105,8 @@ Metric changes travel through the workflow your team already trusts: TypeScript,
 ## Contributing
 
 For repository contributors, see the [implementation guide](./ARCHITECTURE.md)
-for module boundaries and verification requirements.
+for module boundaries and verification requirements, and the
+[testing review](./TESTING_REVIEW.md) for coverage, CI gates, and remaining gaps.
 
 ## License
 

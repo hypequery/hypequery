@@ -4,7 +4,7 @@ on:
   push:
     branches: [ main ]
   pull_request:
-    branches: [ main ]
+    branches: [ main, "codex/**" ]
 
 jobs:
   # HQ-61: a high or critical advisory in a production dependency of the
@@ -99,8 +99,8 @@ jobs:
           CLICKHOUSE_TEST_PASSWORD: hypequery_test
           CLICKHOUSE_TEST_DB: test_db
           NODE_OPTIONS: "--experimental-vm-modules --experimental-global-webcrypto --no-warnings"
-      - name: Run Datasets integration tests
-        run: pnpm --filter @hypequery/datasets test:integration
+      - name: Run Datasets unit and integration coverage gate
+        run: pnpm --filter @hypequery/datasets test:coverage:full
         env:
           CLICKHOUSE_TEST_HOST: http://localhost:8123
           CLICKHOUSE_TEST_USER: default

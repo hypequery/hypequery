@@ -1,3 +1,4 @@
+import { resolveDatasetSqlDialect } from './dataset-sql-dialect.js';
 import { queryTimeFilterSql } from './query-timezone.js';
 import { selectedTimeMeasures } from './time-query-measures.js';
 import { baseMeasureNames, getBaseMeasure } from './dataset-measures.js';
@@ -44,11 +45,12 @@ export function buildDatasetQueryBuilder(
     throw new Error(`Invalid dataset query: ${validation.errors.join('; ')}`);
   }
 
+  const dialect = resolveDatasetSqlDialect(options.builderFactory);
   const joinCtx = buildRelationshipBuilderContext(ds, query, options.context);
 
   let qb = options.builderFactory.table(ds.source);
   qb = applyRelationshipJoins(qb, joinCtx);
-  const { selectParts, groupByParts } = buildDimensionSelectionPlan(ds, query.dimensions ?? [], query.by, joinCtx, query.timezone);
+  const { selectParts, groupByParts } = buildDimensionSelectionPlan(ds, query.dimensions ?? [], query.by, joinCtx, query.timezone, dialect);
   const measureNames = query.measures ?? baseMeasureNames(ds.measures);
 
   if (selectParts.length > 0) {
@@ -88,6 +90,7 @@ export function buildDatasetQueryBuilder(
     options.executionLimit ?? query.limit,
     query.offset,
     joinCtx,
+    dialect,
   );
 }
 
