@@ -463,14 +463,15 @@ function validateRelationship(
   if ((value.kind === 'hasMany') === value.queryable) {
     deploymentError('HQ_DEPLOYMENT_INVALID_VALUE', `${path}.queryable`);
   }
-  const from = identifier(value.from, `${path}.from`, true);
-  const to = identifier(value.to, `${path}.to`, true);
+  // Composite keys are physical columns; keep legacy identifier grammar unchanged.
+  const from = identifier(value.from, `${path}.from`, value.keys === undefined);
+  const to = identifier(value.to, `${path}.to`, value.keys === undefined);
   const keys = value.keys === undefined ? undefined : requireArray(value.keys, `${path}.keys`, limits.maxDatasetItems)
     .map((input, index) => {
       const keyPath = `${path}.keys[${index}]`;
       const key = requireRecord(input, keyPath);
       exactFields(key, ['from', 'to'], [], keyPath);
-      return freezeRecord({ from: identifier(key.from, `${keyPath}.from`, true), to: identifier(key.to, `${keyPath}.to`, true) });
+      return freezeRecord({ from: identifier(key.from, `${keyPath}.from`), to: identifier(key.to, `${keyPath}.to`) });
     });
   if (keys && (
     keys.length === 0 || keys[0].from !== from || keys[0].to !== to

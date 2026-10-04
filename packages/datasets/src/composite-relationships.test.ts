@@ -48,7 +48,12 @@ describe('composite relationships', () => {
     const endpoint = { access: { kind: 'public' }, tenant: { kind: 'not-required' } } as const;
     const contracts = [Customers, Orders].map(ds => buildProtocolDatasetContract(ds as never, { endpoint }));
     const restored = rehydrateProtocolDatasets(contracts);
-    expect(restored.compositeOrders.relationships.customer.keys).toEqual(keys);
+    const restoredKeys = restored.compositeOrders.relationships.customer.keys!;
+    expect(restoredKeys).toEqual(keys);
+    expect(Object.isFrozen(restoredKeys)).toBe(true);
+    expect(restoredKeys.every(Object.isFrozen)).toBe(true);
+    expect(Reflect.set(restoredKeys[1], 'to', 'changed')).toBe(false);
+    expect(restoredKeys).toEqual(keys);
     const sql = client.toSQL(restored.compositeOrders, { dimensions: ['customer.name'], measures: ['revenue'] }, context);
     expect(sql).toContain('orders.region_code = customer.region');
   });

@@ -50,7 +50,7 @@ export function normalizeRelationships<TRelationships extends Record<string, Rel
   source: string,
 ): TRelationships {
   for (const name of Object.keys(relationships ?? {})) {
-    relationshipKeys(relationships![name]);
+    if (relationships![name].keys) relationshipKeys(relationships![name]);
     if (name === source) {
       throw new Error(
         `Invalid relationship "${name}": the name matches the dataset source table, so the join ` +
