@@ -19,6 +19,8 @@ export function createDiscoveryEndpoint(
     middlewares: [],
     auth: null,
     cacheTtlMs: null,
+    requiredRoles: policy.requiredRoles,
+    requiredScopes: policy.requiredScopes,
     metadata: {
       path,
       method: 'GET',

@@ -33,4 +33,26 @@ describe('logical discovery and public contract', () => {
       if (!requiresAuth) expect(JSON.stringify(response.body)).not.toContain('PHYSICAL_');
     }
   });
+
+  it.each([true, false])('enforces discovery roles and scopes with requiresAuth=%s', async requiresAuth => {
+    const api = createAPI({
+      basePath: '', datasets: { orders },
+      auth: createBearerTokenStrategy({ validate: token => ({
+        userId: token,
+        roles: token === 'allowed' || token === 'role-only' ? ['analyst'] : [],
+        scopes: token === 'allowed' || token === 'scope-only' ? ['catalog:read'] : [],
+      }) }),
+      discovery: { requiresAuth, requiredRoles: ['analyst'], requiredScopes: ['catalog:read'] },
+      queryBuilder: { table: vi.fn(), rawQuery: vi.fn() },
+    });
+    for (const [token, status] of [
+      [undefined, 401], ['denied', 403], ['role-only', 403], ['scope-only', 403], ['allowed', 200],
+    ] as const) {
+      const response = await api.handler({
+        method: 'GET', path: '/discovery', query: {},
+        headers: token ? { authorization: `Bearer ${token}` } : {},
+      });
+      expect(response.status).toBe(status);
+    }
+  });
 });
