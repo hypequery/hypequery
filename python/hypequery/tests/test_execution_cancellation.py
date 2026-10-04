@@ -430,3 +430,47 @@ def test_sync_cancellation_retries_when_first_kill_precedes_query_registration()
         register.set()
         stopped.set()
         trigger.join()
+
+
+@pytest.mark.parametrize("confirmation", ["finished", ["finished", "query-id"], ("finished",)])
+def test_confirmed_sync_cancellation_stops_control_traffic_before_driver_returns(
+    confirmation: object,
+) -> None:
+    from concurrent.futures import ThreadPoolExecutor
+
+    from hypequery.execution import ClickHouseExecutor
+
+    started = threading.Event()
+    release = threading.Event()
+    confirmed = threading.Event()
+    signal = threading.Event()
+    attempts: list[str] = []
+
+    class SlowReturningClient:
+        def query(self, *_args: object, **_kwargs: object) -> DriverResult:
+            started.set()
+            assert release.wait(2)
+            return cast(DriverResult, Result())
+
+    class SyncControl:
+        def command(self, _cmd: str, parameters: dict[str, str]) -> object:
+            attempts.append(parameters["id"])
+            confirmed.set()
+            return confirmation
+
+    with ThreadPoolExecutor(max_workers=1) as workers:
+        compiled = query(cancellation=signal)
+        executor = ClickHouseExecutor(SlowReturningClient(), control_client=SyncControl())
+        task = workers.submit(executor.execute, compiled)
+        try:
+            assert started.wait(1)
+            signal.set()
+            assert confirmed.wait(1)
+            time.sleep(0.15)
+            assert not task.done()
+            assert attempts == [compiled.query_id]
+        finally:
+            release.set()
+        with pytest.raises(CompiledQueryError) as exc:
+            task.result(timeout=1)
+        assert category(exc) == "aborted"
