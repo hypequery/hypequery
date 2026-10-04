@@ -380,3 +380,53 @@ def test_sync_query_uses_control_connection_and_never_returns_cancelled_rows(
         finished.set()
         if not deadline:
             trigger.join()
+
+
+def test_sync_cancellation_retries_when_first_kill_precedes_query_registration() -> None:
+    from hypequery.execution import ClickHouseExecutor
+
+    started = threading.Event()
+    register = threading.Event()
+    registered = threading.Event()
+    early_kill = threading.Event()
+    stopped = threading.Event()
+    signal = threading.Event()
+    attempts: list[bool] = []
+
+    class SubmittingClient:
+        def query(self, *_args: object, **_kwargs: object) -> DriverResult:
+            started.set()
+            assert register.wait(2)
+            registered.set()
+            assert stopped.wait(2)
+            return cast(DriverResult, Result())
+
+    class SyncControl:
+        def command(self, _cmd: str, _parameters: dict[str, str]) -> object:
+            attempts.append(registered.is_set())
+            if registered.is_set():
+                stopped.set()
+            else:
+                early_kill.set()
+            return None
+
+    def interrupt_submission() -> None:
+        started.wait(2)
+        signal.set()
+        early_kill.wait(2)
+        register.set()
+
+    trigger = threading.Thread(target=interrupt_submission)
+    trigger.start()
+    try:
+        with pytest.raises(CompiledQueryError) as exc:
+            ClickHouseExecutor(SubmittingClient(), control_client=SyncControl()).execute(
+                query(cancellation=signal)
+            )
+        assert category(exc) == "aborted"
+        assert attempts[0] is False
+        assert True in attempts
+    finally:
+        register.set()
+        stopped.set()
+        trigger.join()

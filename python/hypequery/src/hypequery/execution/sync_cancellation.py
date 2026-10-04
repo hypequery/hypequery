@@ -30,7 +30,9 @@ class SyncCancellationMonitor:
                     _LOGGER.warning(
                         "Server cancellation failed for query %s", self._compiled.query_id
                     )
-                return
+                # The driver may still be submitting the query when the first
+                # KILL runs. Retry until the driver finishes so a query that
+                # registers after cancellation cannot escape the control path.
 
     def start(self) -> None:
         self._thread.start()
