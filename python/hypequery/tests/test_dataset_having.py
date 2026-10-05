@@ -147,9 +147,14 @@ def test_like_and_unknown_fields_are_not_conditions() -> None:
 
 def test_conditions_count_against_the_filter_limit() -> None:
     condition = {"measure": "revenue", "operator": "gt", "value": 1}
-    assert "Too many having conditions: 3 (max 2)" in _error(
+    assert "Too many filters and having conditions: 3 (max 2)" in _error(
         measures=("revenue",), having=(condition, condition, condition)
     )
+    paid = {"field": "status", "operator": "eq", "value": "paid"}
+    assert "Too many filters and having conditions: 3 (max 2)" in _error(
+        measures=("revenue",), filters=(paid, paid), having=(condition,)
+    )
+    assert _plan(measures=("revenue",), filters=(paid,), having=(condition,))
 
 
 @dataclass(frozen=True)
