@@ -65,8 +65,12 @@ export interface QueryBuilderLike {
     on?: QueryBuilderJoinCondition | QueryBuilderJoinCondition[],
   ): QueryBuilderLike;
 
-  /** Composite single-match join; required only for multi-column relationships. */
-  leftAnyJoinOn?(
+  /**
+   * LEFT join on every key equality (AND) that attaches at most one target row
+   * per base row, e.g. ClickHouse `LEFT ANY JOIN`. Dialect-neutral so other
+   * builders can implement it; required only for multi-column relationships.
+   */
+  singleMatchJoin?(
     table: string,
     keys: readonly [{ readonly leftColumn: string; readonly rightColumn: string }, ...{ readonly leftColumn: string; readonly rightColumn: string }[]],
     alias?: string,

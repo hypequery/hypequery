@@ -157,7 +157,7 @@ describe('QueryBuilder - Joins', () => {
 
 
     it('compiles composite single-match joins and parameterizes extra predicates', () => {
-      const { sql, parameters } = builder.leftAnyJoinOn('users', [
+      const { sql, parameters } = builder.singleMatchJoin('users', [
         { leftColumn: 'created_by', rightColumn: 'users.id' },
         { leftColumn: 'updated_by', rightColumn: 'users.id' },
       ], 'user', { column: 'user.status', operator: 'eq', value: 'active' }).toSQLWithParams();
