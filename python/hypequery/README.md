@@ -895,3 +895,9 @@ It carries no physical sources, columns, SQL, tenant policy or values.
 `development_docs=True` only for deliberate development documentation. When
 embedding the router in an existing FastAPI app, the host owns that app's docs
 policy. The ASGI process production profile remains separate PYD-06 work.
+
+Run both implementations' shared HTTP gates after building TypeScript packages:
+
+```bash
+pnpm conformance:serve
+```

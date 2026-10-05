@@ -1,0 +1,539 @@
+{
+  "version": 1,
+  "app": {
+    "credential": "reader",
+    "dataset": "orders",
+    "source": "private_orders",
+    "dimension": "country",
+    "column": "private_country",
+    "measure": "total",
+    "measureField": "private_id",
+    "maxLimit": 2,
+    "rows": [
+      {
+        "country": "US",
+        "total": 10
+      },
+      {
+        "country": "DE",
+        "total": 20
+      },
+      {
+        "country": "FR",
+        "total": 30
+      }
+    ]
+  },
+  "forbiddenPublicKeys": [
+    "sql",
+    "tenant",
+    "tenantKey",
+    "requiresTenant",
+    "source",
+    "column",
+    "field",
+    "argField",
+    "from",
+    "to",
+    "parameters",
+    "diagnostics"
+  ],
+  "cases": [
+    {
+      "id": "dataset-data-only",
+      "method": "POST",
+      "path": "/datasets/orders/query",
+      "credential": "valid",
+      "json": {
+        "dimensions": [
+          "country"
+        ]
+      },
+      "expect": {
+        "status": 200,
+        "data": [
+          {
+            "country": "US",
+            "total": "10"
+          },
+          {
+            "country": "DE",
+            "total": "20"
+          }
+        ],
+        "meta": false
+      }
+    },
+    {
+      "id": "dataset-first-page",
+      "method": "POST",
+      "path": "/datasets/orders/query",
+      "credential": "valid",
+      "json": {
+        "dimensions": [
+          "country"
+        ],
+        "limit": 1,
+        "includeMeta": true
+      },
+      "expect": {
+        "status": 200,
+        "data": [
+          {
+            "country": "US",
+            "total": "10"
+          }
+        ],
+        "pagination": {
+          "limit": 1,
+          "offset": 0,
+          "hasMore": true
+        }
+      }
+    },
+    {
+      "id": "dataset-last-page",
+      "method": "POST",
+      "path": "/datasets/orders/query",
+      "credential": "valid",
+      "json": {
+        "dimensions": [
+          "country"
+        ],
+        "limit": 2,
+        "offset": 2,
+        "includeMeta": true
+      },
+      "expect": {
+        "status": 200,
+        "data": [
+          {
+            "country": "FR",
+            "total": "30"
+          }
+        ],
+        "pagination": {
+          "limit": 2,
+          "offset": 2,
+          "hasMore": false
+        }
+      }
+    },
+    {
+      "id": "dataset-clamped-page",
+      "method": "POST",
+      "path": "/datasets/orders/query",
+      "credential": "valid",
+      "json": {
+        "dimensions": [
+          "country"
+        ],
+        "limit": 999,
+        "includeMeta": true
+      },
+      "expect": {
+        "status": 200,
+        "data": [
+          {
+            "country": "US",
+            "total": "10"
+          },
+          {
+            "country": "DE",
+            "total": "20"
+          }
+        ],
+        "pagination": {
+          "limit": 2,
+          "offset": 0,
+          "hasMore": true
+        }
+      }
+    },
+    {
+      "id": "dataset-header-meta",
+      "method": "POST",
+      "path": "/datasets/orders/query",
+      "credential": "valid",
+      "headers": {
+        "x-include-meta": "true"
+      },
+      "json": {
+        "dimensions": [
+          "country"
+        ]
+      },
+      "expect": {
+        "status": 200,
+        "pagination": {
+          "limit": 2,
+          "offset": 0,
+          "hasMore": true
+        }
+      }
+    },
+    {
+      "id": "metric-fixed-measure",
+      "method": "POST",
+      "path": "/metrics/total",
+      "credential": "valid",
+      "json": {},
+      "expect": {
+        "status": 200,
+        "data": [
+          {
+            "total": "10"
+          },
+          {
+            "total": "20"
+          }
+        ],
+        "meta": false
+      }
+    },
+    {
+      "id": "missing-credentials",
+      "method": "POST",
+      "path": "/datasets/orders/query",
+      "credential": "none",
+      "json": {},
+      "expect": {
+        "status": 401,
+        "errorType": "UNAUTHORIZED"
+      }
+    },
+    {
+      "id": "invalid-credentials",
+      "method": "POST",
+      "path": "/datasets/orders/query",
+      "credential": "invalid",
+      "json": {},
+      "expect": {
+        "status": 401,
+        "errorType": "UNAUTHORIZED"
+      }
+    },
+    {
+      "id": "string-limit",
+      "method": "POST",
+      "path": "/datasets/orders/query",
+      "credential": "valid",
+      "json": {
+        "limit": "2"
+      },
+      "expect": {
+        "status": 400,
+        "errorType": "VALIDATION_ERROR"
+      }
+    },
+    {
+      "id": "boolean-limit",
+      "method": "POST",
+      "path": "/datasets/orders/query",
+      "credential": "valid",
+      "json": {
+        "limit": true
+      },
+      "expect": {
+        "status": 400,
+        "errorType": "VALIDATION_ERROR"
+      }
+    },
+    {
+      "id": "unknown-dimension",
+      "method": "POST",
+      "path": "/datasets/orders/query",
+      "credential": "valid",
+      "json": {
+        "dimensions": [
+          "unknown"
+        ]
+      },
+      "expect": {
+        "status": 400,
+        "errorType": "VALIDATION_ERROR"
+      }
+    },
+    {
+      "id": "discovery-public-projection",
+      "method": "GET",
+      "path": "/discovery",
+      "credential": "valid",
+      "expect": {
+        "status": 200,
+        "discovery": {
+          "datasets": [
+            {
+              "name": "orders",
+              "description": "orders analytics dataset.",
+              "timeDimension": null,
+              "dimensions": [
+                {
+                  "name": "country",
+                  "type": "string",
+                  "filterable": true,
+                  "groupable": true
+                }
+              ],
+              "measures": [
+                {
+                  "name": "total"
+                }
+              ],
+              "metrics": [],
+              "filters": [
+                {
+                  "name": "country",
+                  "type": "string",
+                  "operators": [
+                    "between",
+                    "eq",
+                    "gt",
+                    "gte",
+                    "in",
+                    "like",
+                    "lt",
+                    "lte",
+                    "neq",
+                    "notIn"
+                  ]
+                }
+              ],
+              "relationships": [],
+              "limits": {
+                "maxResultSize": 2
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "dataset-empty-page",
+      "method": "POST",
+      "path": "/datasets/orders/query",
+      "credential": "valid",
+      "json": {
+        "dimensions": [
+          "country"
+        ],
+        "limit": 0,
+        "includeMeta": true
+      },
+      "expect": {
+        "status": 400,
+        "errorType": "VALIDATION_ERROR"
+      }
+    },
+    {
+      "id": "tenant-required-denied",
+      "method": "POST",
+      "path": "/datasets/orders/query",
+      "credential": "valid",
+      "tenantRequired": true,
+      "json": {},
+      "expect": {
+        "status": 403,
+        "errorType": "FORBIDDEN"
+      }
+    },
+    {
+      "id": "role-required-denied",
+      "method": "POST",
+      "path": "/datasets/orders/query",
+      "credential": "valid",
+      "requiredRoles": [
+        "admin"
+      ],
+      "json": {},
+      "expect": {
+        "status": 403,
+        "errorType": "FORBIDDEN"
+      }
+    },
+    {
+      "id": "scope-required-denied",
+      "method": "POST",
+      "path": "/datasets/orders/query",
+      "credential": "valid",
+      "requiredScopes": [
+        "write"
+      ],
+      "json": {},
+      "expect": {
+        "status": 403,
+        "errorType": "FORBIDDEN"
+      }
+    },
+    {
+      "id": "invalid-meta-boolean",
+      "method": "POST",
+      "path": "/datasets/orders/query",
+      "credential": "valid",
+      "json": {
+        "includeMeta": "true"
+      },
+      "expect": {
+        "status": 400,
+        "errorType": "VALIDATION_ERROR"
+      }
+    },
+    {
+      "id": "discovery-authenticated-default",
+      "method": "GET",
+      "path": "/discovery",
+      "credential": "none",
+      "expect": {
+        "status": 401,
+        "errorType": "UNAUTHORIZED"
+      }
+    },
+    {
+      "id": "tenant-required-allowed",
+      "method": "POST",
+      "path": "/datasets/orders/query",
+      "credential": "valid",
+      "tenantRequired": true,
+      "json": {
+        "dimensions": [
+          "country"
+        ],
+        "includeMeta": true
+      },
+      "expect": {
+        "status": 200,
+        "data": [
+          {
+            "country": "US",
+            "total": "10"
+          },
+          {
+            "country": "DE",
+            "total": "20"
+          }
+        ],
+        "pagination": {
+          "limit": 2,
+          "offset": 0,
+          "hasMore": true
+        }
+      },
+      "principal": {
+        "tenantId": "fixture-tenant"
+      }
+    },
+    {
+      "id": "role-required-allowed",
+      "method": "POST",
+      "path": "/datasets/orders/query",
+      "credential": "valid",
+      "requiredRoles": [
+        "admin"
+      ],
+      "json": {
+        "dimensions": [
+          "country"
+        ],
+        "includeMeta": true
+      },
+      "expect": {
+        "status": 200,
+        "data": [
+          {
+            "country": "US",
+            "total": "10"
+          },
+          {
+            "country": "DE",
+            "total": "20"
+          }
+        ],
+        "pagination": {
+          "limit": 2,
+          "offset": 0,
+          "hasMore": true
+        }
+      },
+      "principal": {
+        "roles": [
+          "admin"
+        ]
+      }
+    },
+    {
+      "id": "scope-required-allowed",
+      "method": "POST",
+      "path": "/datasets/orders/query",
+      "credential": "valid",
+      "requiredScopes": [
+        "write"
+      ],
+      "json": {
+        "dimensions": [
+          "country"
+        ],
+        "includeMeta": true
+      },
+      "expect": {
+        "status": 200,
+        "data": [
+          {
+            "country": "US",
+            "total": "10"
+          },
+          {
+            "country": "DE",
+            "total": "20"
+          }
+        ],
+        "pagination": {
+          "limit": 2,
+          "offset": 0,
+          "hasMore": true
+        }
+      },
+      "principal": {
+        "scopes": [
+          "write"
+        ]
+      }
+    },
+    {
+      "id": "invalid-filter-identifier",
+      "method": "POST",
+      "path": "/datasets/orders/query",
+      "credential": "valid",
+      "json": {
+        "filters": [
+          {
+            "field": "bad-name",
+            "operator": "eq",
+            "value": "x"
+          }
+        ]
+      },
+      "expect": {
+        "status": 400,
+        "errorType": "VALIDATION_ERROR"
+      }
+    },
+    {
+      "id": "invalid-order-identifier",
+      "method": "POST",
+      "path": "/datasets/orders/query",
+      "credential": "valid",
+      "json": {
+        "orderBy": [
+          {
+            "field": "bad-name",
+            "direction": "asc"
+          }
+        ]
+      },
+      "expect": {
+        "status": 400,
+        "errorType": "VALIDATION_ERROR"
+      }
+    }
+  ]
+}
