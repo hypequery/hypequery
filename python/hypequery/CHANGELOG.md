@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Add `run_dev` and `python -m hypequery.serve.dev app:app` for local
+  development. The runner binds to loopback by default, warns with
+  `ExternalBindWarning` when bound beyond it, supports `--reload`, and refuses
+  apps created with a `ProductionProfile`.
+- Add a README Getting started path from install to a served dataset, run as
+  written from a built wheel against ClickHouse in CI.
 - Add a validated ASGI production profile and Uvicorn runner with explicit bind
   and proxy trust, startup refusals for debug/docs/reload/cookie auth, bounded
   admission, cancellation-aware deadlines and database/HTTP result ceilings.
