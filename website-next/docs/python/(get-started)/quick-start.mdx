@@ -1,0 +1,90 @@
+---
+title: Quick start
+description: Define a ClickHouse dataset in Python and run your first semantic query.
+---
+
+import { CodeBlock } from 'fumadocs-ui/components/codeblock';
+
+Install the SDK with the ClickHouse executor:
+
+<CodeBlock>
+```bash
+pip install "hypequery[clickhouse]"
+```
+</CodeBlock>
+
+Then define a dataset, create a client, and query it:
+
+<CodeBlock>
+```python
+import os
+
+from hypequery.datasets import (
+    Dataset,
+    DatasetQuery,
+    ExecutionContext,
+    count,
+    create_dataset_client,
+    dimension,
+    eq,
+    measure,
+    sum as sum_,
+    tenant,
+)
+from hypequery.execution import ClickHouseConnection, create_clickhouse_executor
+
+executor = create_clickhouse_executor(
+    ClickHouseConnection(
+        host=os.environ["CLICKHOUSE_HOST"],
+        username=os.environ["CLICKHOUSE_USER"],
+        password=os.environ["CLICKHOUSE_PASSWORD"],
+        database=os.environ["CLICKHOUSE_DATABASE"],
+    )
+)
+analytics = create_dataset_client(executor=executor)
+
+orders = Dataset(
+    name="orders",
+    source="orders",
+    tenant_key="tenant_id",
+    time_key="created_at",
+    dimensions={
+        "id": dimension("number"),
+        "tenant_id": dimension("string"),
+        "status": dimension("string"),
+        "country": dimension("string"),
+        "created_at": dimension("timestamp"),
+    },
+    measures={
+        "revenue": measure(sum_("amount")),
+        "order_count": measure(count("id")),
+    },
+)
+
+by_country = analytics.execute(
+    orders,
+    DatasetQuery(
+        dimensions=("country",),
+        measures=("revenue", "order_count"),
+        filters=(eq("status", "completed"),),
+        limit=10,
+    ),
+    context=ExecutionContext(tenant=tenant("org_123")),
+)
+by_country.data  # rows keyed by column name
+
+executor.close()
+```
+</CodeBlock>
+
+The query selects semantic names (`country`, `revenue`) and hypequery generates parameterized ClickHouse SQL. Because
+the dataset declares a `tenant_key`, every query must run with a tenant in its `ExecutionContext`, and hypequery adds
+the tenant predicate for you.
+
+Import `sum`, `min`, and `max` under aliases so they do not shadow the Python built-ins.
+
+## Next steps
+
+- [Datasets overview](/docs/python/datasets/overview)
+- [Measures](/docs/python/datasets/measures)
+- [Multi-tenancy](/docs/python/datasets/multi-tenancy)

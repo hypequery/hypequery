@@ -1,0 +1,13 @@
+{
+  "title": "TypeScript",
+  "description": "The full toolkit",
+  "root": "language",
+  "pages": [
+    "(get-started)",
+    "(query-builder)",
+    "(datasets)",
+    "(serve)",
+    "(clients)",
+    "(reference)"
+  ]
+}

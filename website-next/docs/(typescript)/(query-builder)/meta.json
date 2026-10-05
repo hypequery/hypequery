@@ -1,0 +1,15 @@
+{
+  "title": "Query Builder",
+  "description": "Type-safe ClickHouse queries in TypeScript",
+  "icon": "Code",
+  "root": true,
+  "pages": [
+    "---Queries---",
+    "...query-building",
+    "---Reuse---",
+    "re-using-queries",
+    "schemas",
+    "---Connections---",
+    "chdb"
+  ]
+}

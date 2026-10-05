@@ -615,3 +615,34 @@ html[data-theme="dark"] .home-page .shiki code {
   .dataset-quickstart-layout { grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr); }
   .dataset-example-result { border-top: 0; border-left: 1px solid var(--border); }
 }
+
+/* Docs navbar: the TypeScript / Python switcher at the start of the tab row. */
+#nd-subnav [data-header-tabs] > button[aria-haspopup] {
+  position: relative;
+  align-self: center;
+  height: 1.75rem;
+  margin-right: 0.25rem;
+  padding: 0 0.5rem 0 0.5rem;
+  gap: 0.5rem;
+  font-size: 0.8125rem;
+  font-weight: 500;
+}
+#nd-subnav [data-header-tabs] > button[aria-haspopup] > div:first-child {
+  width: 1rem;
+  height: 1rem;
+}
+#nd-subnav [data-header-tabs] > button[aria-haspopup] > svg:last-child {
+  width: 0.875rem;
+  height: 0.875rem;
+  opacity: 0.6;
+}
+/* Divider between the language switcher and the product tabs. */
+#nd-subnav [data-header-tabs] > button[aria-haspopup]::after {
+  content: '';
+  position: absolute;
+  top: 0.25rem;
+  bottom: 0.25rem;
+  right: -0.875rem;
+  width: 1px;
+  background: var(--color-fd-border);
+}

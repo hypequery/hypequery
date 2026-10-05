@@ -1,0 +1,180 @@
+---
+title: Catalog
+description: Export normalized dataset metadata for tools, docs, and agents.
+---
+
+import { Callout } from 'fumadocs-ui/components/callout';
+import { CodeBlock } from 'fumadocs-ui/components/codeblock';
+
+The dataset catalog is a normalized metadata view of a dataset definition. Use it when another runtime needs to inspect the semantic model without reaching into dataset internals.
+
+Catalog metadata includes:
+
+- source table or view
+- tenant and time keys
+- dimensions and their labels, descriptions, columns, SQL expressions, and filter/group flags
+- measures and their aggregation metadata
+- attached named metrics
+- filters, allowed operators, and filter value types
+- relationship metadata, including whether each relationship is queryable and the qualified field names it contributes
+- dataset limits, maximum result limit, supported time grains, and orderable fields
+
+## Dataset catalog
+
+<CodeBlock>
+```typescript
+import { getDatasetCatalog } from '@hypequery/datasets';
+import { Orders } from './datasets/orders.js';
+
+const catalog = getDatasetCatalog(Orders);
+
+console.log(catalog.dimensions.status);
+console.log(catalog.measures.revenue);
+```
+</CodeBlock>
+
+The returned object is plain JSON-compatible metadata.
+
+<CodeBlock>
+```json
+{
+  "name": "orders",
+  "source": "orders",
+  "tenantKey": "tenant_id",
+  "timeKey": "created_at",
+  "dimensions": {
+    "status": {
+      "type": "string",
+      "column": "status",
+      "label": "Status",
+      "filterable": true,
+      "groupable": true
+    }
+  },
+  "measures": {
+    "revenue": {
+      "aggregation": "sum",
+      "field": "amount",
+      "label": "Revenue",
+      "filterCount": 0
+    }
+  },
+  "metrics": {},
+  "filters": {
+    "status": {
+      "field": "status",
+      "operators": ["eq", "in"],
+      "valueType": "string"
+    }
+  },
+  "relationships": {},
+  "limits": {
+    "maxMeasures": 3,
+    "maxResultSize": 1000
+  },
+  "requiresTenant": true,
+  "supportedGrains": ["minute", "hour", "day", "week", "month", "quarter", "year"],
+  "orderableFields": ["status", "revenue", "period"],
+  "maxLimit": 1000
+}
+```
+</CodeBlock>
+
+The full catalog above is a trusted developer/debug view: it intentionally
+contains physical source, column, SQL, and tenancy details. Do not place it in
+model context. Use `projectAgentSafeCatalog()` for agent discovery; it removes
+those physical details, hides dimensions that are neither filterable nor
+groupable, and enforces a UTF-8 byte budget over the complete result.
+
+<CodeBlock>
+```typescript
+import { projectAgentSafeCatalog } from '@hypequery/datasets';
+
+const safeCatalog = projectAgentSafeCatalog(
+  { orders: Orders },
+  { maxCatalogBytes: 128 * 1024 },
+);
+```
+</CodeBlock>
+
+For an authenticated support surface, `projectTrustedDebugCatalog()` accepts an
+explicit `{ authorized: true }` proof supplied only after the owning application
+has made its authorization decision. The trusted projection is not registered
+as an agent-facing MCP tool.
+
+## Agent metadata
+
+Datasets, dimensions, measures, filters, and metrics accept optional `examples`,
+`synonyms`, `format`, `unit`, `currency`, and `sensitivity` metadata.
+Datasets also accept a description, freshness expectation, owner, and safe query
+defaults:
+
+<CodeBlock>
+```typescript
+const Orders = dataset('orders', {
+  source: 'analytics.orders',
+  description: 'Governed order analytics.',
+  examples: ['Revenue by region', 'Weekly order volume'],
+  synonyms: ['purchases'],
+  freshness: { maxAgeSeconds: 300 },
+  owner: 'analytics@example.com',
+  sensitivity: 'internal',
+  defaults: { dimensions: ['region'], timeGrain: 'week' },
+  timeKey: 'createdAt',
+  dimensions: {
+    createdAt: dimension.timestamp({ format: 'date-time' }),
+    region: dimension.string({ examples: ['EMEA', 'NA'], synonyms: ['market'] }),
+  },
+});
+```
+</CodeBlock>
+
+Metadata is validated and size-bounded when defined, normalized into stable
+ordering, and carried through semantic contracts and portable deployment
+contracts. Verified question/answer fixtures are intentionally a separate API.
+
+<Callout type="warn">
+`sensitivity` is an advisory label, not an access control. A field marked
+`confidential` or `restricted` is still listed in the agent-safe catalog and is
+still queryable: nothing filters a catalog or authorizes a query based on this
+value. Use it to inform reviewers and downstream tooling, and keep deciding what
+to publish — and who may query it — in your dataset registry and endpoint
+policy.
+</Callout>
+
+Relationship entries carry `queryable`, `fields`, and a `measures` record of safe qualified target base aggregates — the qualified `<relationship>.<dimension>` names a one-hop query may reference. To-one relationships (`belongsTo`, `hasOne`) are queryable; `hasMany` entries report `queryable: false` with an empty field list. See [Relationships](/docs/datasets/relationships) for the query semantics.
+
+When a filter definition does not specify `operators`, the catalog exposes the default semantic operators from `SEMANTIC_FILTER_OPERATORS`:
+
+<CodeBlock>
+```typescript
+import { SEMANTIC_FILTER_OPERATORS } from '@hypequery/datasets';
+
+console.log(SEMANTIC_FILTER_OPERATORS);
+// ["eq", "neq", "gt", "gte", "lt", "lte", "in", "notIn", "between", "like"]
+```
+</CodeBlock>
+
+## Catalog maps
+
+Use `getDatasetCatalogs` when you already have a dataset registry.
+
+<CodeBlock>
+```typescript
+import { getDatasetCatalogs } from '@hypequery/datasets';
+import { Customers, Orders } from './datasets/index.js';
+
+const catalogs = getDatasetCatalogs({
+  orders: Orders,
+  customers: Customers,
+});
+```
+</CodeBlock>
+
+## Current consumers
+
+The catalog is public in `@hypequery/datasets`. MCP introspection, MCP dataset listing, Serve endpoint descriptions, Serve OpenAPI input schemas, and generated dataset tools use it today to keep metadata aligned with real dataset definitions.
+
+React metadata, CLI-generated labels, and broader cross-package drift tests are planned follow-up work.
+
+For agent and function-calling schemas built from the same catalog, see [Tool Generation](/docs/datasets/tool-generation).

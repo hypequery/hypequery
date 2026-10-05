@@ -1,0 +1,29 @@
+---
+title: Time grains
+description: Aggregate Python dataset queries by minute, hour, day, week, month, quarter, and year.
+---
+
+import { CodeBlock } from 'fumadocs-ui/components/codeblock';
+
+When a dataset has a `time_key`, pass a grain as `by` to bucket results by time period:
+
+<CodeBlock>
+```python
+analytics.execute(
+    orders,
+    DatasetQuery(by="month", dimensions=("country",), measures=("revenue",)),
+)
+```
+</CodeBlock>
+
+Results include a `period` column, ordered ascending.
+
+Supported grains:
+
+- `minute`
+- `hour`
+- `day`
+- `week`
+- `month`
+- `quarter`
+- `year`

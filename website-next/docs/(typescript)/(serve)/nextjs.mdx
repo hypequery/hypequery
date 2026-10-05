@@ -1,0 +1,124 @@
+---
+title: Next.js
+description: Mount hypequery in a Next.js App Router project.
+---
+
+import { CodeBlock } from 'fumadocs-ui/components/codeblock';
+import { Step, Steps } from 'fumadocs-ui/components/steps';
+
+This guide assumes you already have:
+
+- a typed `db` client
+- an `analytics/queries.ts` file exporting `api`
+- at least one routed query
+
+If not, start with [Quick Start](/docs/quick-start).
+
+<Steps>
+<Step>
+
+### Mount the handler in App Router
+
+Create `app/api/analytics/[...path]/route.ts`:
+
+<CodeBlock>
+```typescript
+import { api } from '@/analytics/queries';
+import { createFetchHandler } from '@hypequery/serve';
+
+const handler = createFetchHandler(api.handler);
+
+export const runtime = 'nodejs';
+export const GET = handler;
+export const POST = handler;
+export const OPTIONS = handler;
+```
+</CodeBlock>
+
+`createFetchHandler` is exported from the root `@hypequery/serve` package, so you do not need to import from an adapter subpath.
+
+</Step>
+
+<Step>
+
+### Execute queries locally in server code
+
+Use the same definition without HTTP in server components, actions, and jobs:
+
+<CodeBlock>
+```typescript
+import { api } from '@/analytics/queries';
+
+export const dynamic = 'force-dynamic';
+
+export default async function Page() {
+  const stats = await api.run('dailyStats', {
+    input: {
+      startDate: '2025-01-01T00:00:00Z',
+      endDate: '2025-01-31T23:59:59Z',
+    },
+  });
+
+  return <pre>{JSON.stringify(stats, null, 2)}</pre>;
+}
+```
+</CodeBlock>
+
+Use `force-dynamic` on Server Components or pages that query ClickHouse during render. Without it, Next.js may try to prerender the page at build time and fail or time out when the database is unavailable.
+
+</Step>
+
+<Step>
+
+### Call the API from client components
+
+Client components cannot import the serve API as a value — doing so bundles `initServe` and
+`@hypequery/clickhouse` for the browser and fails the build with `Can't resolve 'fs/promises'`.
+Generate the route manifest as static JSON instead:
+
+<CodeBlock>
+```bash
+npx hypequery generate:manifest analytics/queries.ts --output analytics/hypequery-manifest.json
+```
+</CodeBlock>
+
+<CodeBlock>
+```typescript
+// lib/analytics.ts
+import { createAnalyticsHooks } from '@hypequery/react';
+import type { InferApiType } from '@hypequery/serve';
+import type { api } from '@/analytics/queries';
+import manifest from '@/analytics/hypequery-manifest.json';
+
+type Api = InferApiType<typeof api>;
+
+export const { useQuery, useMetric, useDataset } = createAnalyticsHooks<Api>({
+  baseUrl: '/api/analytics',
+  manifest,
+});
+```
+</CodeBlock>
+
+Both `api` and `InferApiType` are imported with `import type`, so they are erased at build time and
+only the manifest JSON survives into the client bundle. See the [React guide](/docs/react/getting-started)
+for provider setup.
+
+</Step>
+
+<Step>
+
+### Preview docs locally
+
+<CodeBlock>
+```bash
+npx hypequery dev analytics/queries.ts
+```
+</CodeBlock>
+
+With `basePath: '/api/analytics'`, the preview server exposes:
+
+- docs at `http://localhost:4000/api/analytics/docs`
+- OpenAPI at `http://localhost:4000/api/analytics/openapi.json`
+
+</Step>
+</Steps>

@@ -1,0 +1,94 @@
+---
+title: Configuration
+description: Configure the Hypequery MCP server with datasets and a dataset client.
+---
+
+import { Callout } from 'fumadocs-ui/components/callout';
+import { CodeBlock } from 'fumadocs-ui/components/codeblock';
+
+The CLI loads a config file with dynamic `import()`. The config must export:
+
+- `datasets`: a registry of dataset names to dataset instances
+- `analytics`: a dataset client created with `createDatasetClient`
+
+## Minimal config
+
+<CodeBlock>
+```javascript
+// mcp-config.mjs
+import { createQueryBuilder } from '@hypequery/clickhouse';
+import { createDatasetClient } from '@hypequery/datasets';
+import { Users } from './datasets/users.js';
+
+const db = createQueryBuilder({
+  url: process.env.CLICKHOUSE_URL,
+  username: process.env.CLICKHOUSE_USER,
+  password: process.env.CLICKHOUSE_PASSWORD,
+  database: process.env.CLICKHOUSE_DATABASE,
+});
+
+export const datasets = {
+  users: Users,
+};
+
+export const analytics = createDatasetClient({ queryBuilder: db });
+```
+</CodeBlock>
+
+Run it:
+
+<CodeBlock>
+```bash
+npx hypequery-mcp --config ./mcp-config.mjs
+```
+</CodeBlock>
+
+## Publish multiple datasets
+
+Chain one `publish` call per dataset. `alias` sets the public registry name when it should differ from the dataset's own name.
+
+<CodeBlock>
+```javascript
+import { publishDatasets } from '@hypequery/datasets';
+import { Orders } from './datasets/orders.js';
+import { Customers } from './datasets/customers.js';
+
+export const datasets = publishDatasets()
+  .publish(Orders)
+  .publish(Customers, { alias: 'accounts' })
+  .build();
+```
+</CodeBlock>
+
+Agents see two datasets, `orders` and `accounts`.
+
+### Related datasets
+
+Relationships follow the alias their target was published under. Because `Customers` is published as `accounts`, the `customer` relationship declared on `Orders` targets `accounts`, and agents can select `customer.tier` against a dataset they can also list on its own. See [Relationships](/docs/datasets/relationships).
+
+<Callout type="warn">
+  Publish every dataset that a published dataset relates to. An unpublished target keeps its original name, so the catalog advertises a relationship pointing at a dataset agents cannot list or query.
+</Callout>
+
+## Metadata for agents
+
+MCP schema introspection exposes dataset, dimension, and measure metadata. Add labels and descriptions where field names alone are ambiguous.
+
+<CodeBlock>
+```javascript
+measures: {
+  revenue: measure.sum('amount', {
+    label: 'Revenue',
+    description: 'Total completed order revenue.',
+  }),
+}
+```
+</CodeBlock>
+
+## Config path
+
+Use an absolute path when configuring desktop clients. Relative paths depend on the client's launch directory and are a common source of connection failures.
+
+<Callout type="warn">
+  MCP stdio uses stdout for protocol messages. The Hypequery MCP CLI redirects `console.log`, `console.info`, and `console.debug` to stderr so config logs do not corrupt the MCP stream.
+</Callout>

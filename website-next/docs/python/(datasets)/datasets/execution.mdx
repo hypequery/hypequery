@@ -1,0 +1,81 @@
+---
+title: Execution
+description: Validate, inspect SQL, and execute Python dataset queries.
+---
+
+import { CodeBlock } from 'fumadocs-ui/components/codeblock';
+
+`create_dataset_client` is the entry point for running semantic queries. It plans each query, hands the compiled
+statement to an executor, and returns rows keyed by column name.
+
+<CodeBlock>
+```python
+import os
+
+from hypequery.datasets import create_dataset_client
+from hypequery.execution import ClickHouseConnection, create_clickhouse_executor
+
+executor = create_clickhouse_executor(
+    ClickHouseConnection(
+        host=os.environ["CLICKHOUSE_HOST"],
+        username=os.environ["CLICKHOUSE_USER"],
+        password=os.environ["CLICKHOUSE_PASSWORD"],
+        database=os.environ["CLICKHOUSE_DATABASE"],
+    )
+)
+analytics = create_dataset_client(executor=executor)
+```
+</CodeBlock>
+
+The client does not own the executor, so call `executor.close()` when your application shuts down. For async code,
+use `create_async_dataset_client` with an async executor and `await analytics.execute(...)`.
+
+## Client methods
+
+| Method | Use it for |
+| --- | --- |
+| `analytics.validate(target, query, context=...)` | Check a query without executing it |
+| `analytics.to_sql(target, query, context=...)` | Inspect a redacted debug statement |
+| `analytics.execute(target, query, context=...)` | Plan, execute, and return rows |
+| `analytics.for_tenant(scope)` | Get a client bound to one tenant |
+
+A target is a `Dataset` or the name of a registered dataset. A query is a `DatasetQuery` or a plain mapping, such
+as a request body, which is validated strictly with unknown keys rejected.
+
+## Validate
+
+<CodeBlock>
+```python
+validation = analytics.validate(
+    orders,
+    DatasetQuery(dimensions=("country",), filters=(eq("status", "completed"),)),
+)
+
+if not validation.valid:
+    print(validation.errors)
+```
+</CodeBlock>
+
+## Inspect SQL
+
+<CodeBlock>
+```python
+sql = analytics.to_sql(
+    orders,
+    DatasetQuery(
+        dimensions=("country",),
+        measures=("revenue",),
+        filters=(eq("status", "completed"),),
+        order_by=(desc("revenue"),),
+        limit=10,
+    ),
+)
+```
+</CodeBlock>
+
+The statement has placeholders instead of values and cannot be executed.
+
+## Results
+
+`execute` returns a result with `data` (rows keyed by column name), `columns`, and `meta` with `query_id`,
+`row_count`, `timing_ms`, and `cache`.

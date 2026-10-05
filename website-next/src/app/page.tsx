@@ -15,7 +15,7 @@ const softwareSchema = {
   applicationCategory: 'DeveloperApplication',
   operatingSystem: 'Cross-platform',
   description:
-    'Model ClickHouse data once in code, then ship APIs, MCP tools, and dashboards from the same definitions.',
+    'Analytics as code for ClickHouse. Define measures, dimensions, and tenant rules once, then serve them to dashboards, APIs, and AI agents.',
   softwareVersion: 'latest',
   codeRepository: 'https://github.com/hypequery/hypequery',
   programmingLanguage: ['TypeScript', 'Python'],

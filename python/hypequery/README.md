@@ -2,9 +2,9 @@
 
 A Python semantic layer for ClickHouse datasets, metrics, multi-tenant analytics, and FastAPI serving.
 
-> **Pre-alpha:** the protocol foundation and dataset definition API are in place;
-> execution and Serve APIs are still being built. Do not use this package in
-> production yet.
+> **Pre-alpha:** the protocol foundation, dataset definitions, and sync/async
+> execution are in place; the Serve query endpoints are still being built. Do
+> not use this package in production yet.
 
 ## Planned install
 

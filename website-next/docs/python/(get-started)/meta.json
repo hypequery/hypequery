@@ -1,0 +1,7 @@
+{
+  "title": "Get started",
+  "description": "Status, install and a first query",
+  "icon": "Rocket",
+  "root": true,
+  "pages": ["index", "quick-start", "feature-status"]
+}

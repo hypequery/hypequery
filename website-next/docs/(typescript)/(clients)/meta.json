@@ -1,0 +1,19 @@
+{
+  "title": "Clients",
+  "description": "React hooks and MCP for agents",
+  "icon": "Plug",
+  "root": true,
+  "pages": [
+    "---React---",
+    "react/getting-started",
+    "react/using-queries",
+    "react/advanced-patterns",
+    "---MCP---",
+    "mcp/overview",
+    "mcp/configuration",
+    "mcp/tools",
+    "mcp/clients",
+    "mcp/programmatic",
+    "mcp/safety"
+  ]
+}

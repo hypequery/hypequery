@@ -1,0 +1,528 @@
+---
+title: Advanced Patterns
+description: Advanced React hooks configuration, HTTP methods, and cache management
+---
+
+import { Callout } from 'fumadocs-ui/components/callout';
+import { CodeBlock, Pre } from 'fumadocs-ui/components/codeblock';
+
+Learn advanced techniques for configuring and optimizing your React hooks with hypequery.
+
+## HTTP Method Configuration
+
+By default, `useQuery` and `useMutation` issue `GET` requests. Override HTTP methods per query when you need `POST`, `PUT`, or other verbs:
+
+<CodeBlock>
+<Pre>
+```ts
+import { createHooks } from '@hypequery/react';
+import type { InferApiType } from '@hypequery/serve';
+import type { api } from '@/analytics/queries';
+
+type Api = InferApiType<typeof api>;
+
+export const { useQuery, useMutation } = createHooks<Api>({
+  baseUrl: '/api',
+  config: {
+    weeklyRevenue: { method: 'GET' },    // Read-only queries
+    tripStats: { method: 'GET' },
+    rebuildMetrics: { method: 'POST' },  // Write operations
+    updateMetric: { method: 'PUT' },
+  },
+});
+```
+</Pre>
+</CodeBlock>
+
+### When to Use Different Methods
+
+- **GET**: Read-only queries, safe to cache
+- **POST**: Write operations, mutations, or queries with large inputs
+- **PUT**: Updates to specific resources
+- **DELETE**: Removal operations
+
+## Auto-Config from Server
+
+Instead of manually maintaining HTTP method configuration, let the server tell the client which methods to use.
+
+### Option A: Static Manifest (Next.js / Remix / any bundler)
+
+Generate the route manifest as JSON at build time and import it:
+
+<CodeBlock>
+<Pre>
+```bash
+npx hypequery generate:manifest analytics/api.ts --output analytics/hypequery-manifest.json
+```
+</Pre>
+</CodeBlock>
+
+<CodeBlock>
+<Pre>
+```ts
+// lib/analytics.ts
+import { createHooks } from '@hypequery/react';
+import type { InferApiType } from '@hypequery/serve';
+import type { api } from '@/analytics/api';
+import manifest from '@/analytics/hypequery-manifest.json';
+
+type Api = InferApiType<typeof api>;
+
+export const { useQuery, useMutation } = createHooks<Api>({
+  baseUrl: '/api/hypequery',
+  manifest, // ✅ Method metadata, no server code in the bundle
+});
+```
+</Pre>
+</CodeBlock>
+
+The manifest carries the method and full path for every query, metric, and dataset key, so client and
+server stay in sync without the client importing anything from the server.
+
+<Callout type="warn" title="Passing `api` directly does not work in a client module">
+  An earlier version of this page suggested `createHooks({ api })` with a value import of `api`.
+  That only holds if the module is server-only. `lib/analytics.ts` is imported by client components,
+  so a value import of `api` bundles `initServe` and `@hypequery/clickhouse` for the browser — and
+  in Next.js App Router it fails the build with `Can't resolve 'fs/promises'`.
+
+  Use the static manifest above, or the config endpoint in Option B. Reserve `api` and
+  `api.manifest()` for server-side code.
+</Callout>
+
+<Callout type="info">
+  A `manifest` (or an explicit `config` entry) is **required** when you use semantic
+  `datasets` endpoints with `useDataset`. Their POST paths differ from their map
+  keys, so the hooks need the resolved routes. `extractClientConfig(api)` in Option B includes these
+  routes too.
+</Callout>
+
+### Option B: Config Endpoint (SPAs / Vite)
+
+If your frontend can't import the server module, expose a configuration endpoint:
+
+**1. Create a config endpoint:**
+<CodeBlock>
+<Pre>
+```ts
+// app/api/hypequery-config/route.ts
+import { extractClientConfig } from '@hypequery/serve';
+import { api } from '@/analytics/queries';
+
+export function GET() {
+  return Response.json(extractClientConfig(api));
+}
+```
+</Pre>
+</CodeBlock>
+
+**2. Load config at runtime:**
+<CodeBlock>
+<Pre>
+```ts
+// lib/analytics.ts
+import { createHooks } from '@hypequery/react';
+import type { InferApiType } from '@hypequery/serve';
+import type { api } from '@/analytics/queries';
+
+type Api = InferApiType<typeof api>;
+
+let hooksPromise: Promise<ReturnType<typeof createHooks<Api>>> | null = null;
+
+export function getHypequeryHooks() {
+  if (!hooksPromise) {
+    hooksPromise = fetch('/api/hypequery-config')
+      .then((res) => res.json())
+      .then((config) =>
+        createHooks<Api>({ baseUrl: '/api/hypequery', config })
+      );
+  }
+  return hooksPromise;
+}
+```
+</Pre>
+</CodeBlock>
+
+**3. Initialize in your app:**
+<CodeBlock>
+<Pre>
+```tsx
+// app/providers.tsx
+import { getHypequeryHooks } from '@/lib/analytics';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { useEffect, useState } from 'react';
+
+const queryClient = new QueryClient();
+
+export function AppProviders({ children }: { children: React.ReactNode }) {
+  const [hooks, setHooks] = useState<any>(null);
+
+  useEffect(() => {
+    getHypequeryHooks().then(setHooks);
+  }, []);
+
+  if (!hooks) return <div>Loading...</div>;
+
+  return (
+    <QueryClientProvider client={queryClient}>
+      {children}
+    </QueryClientProvider>
+  );
+}
+```
+</Pre>
+</CodeBlock>
+
+## Query Client Access
+
+Access the TanStack Query client directly for advanced cache management:
+
+<CodeBlock>
+<Pre>
+```tsx
+import { useQueryClient } from '@tanstack/react-query';
+
+function MetricsPanel() {
+  const queryClient = useQueryClient();
+  const { data } = useQuery('metrics', {});
+
+  const handleRefresh = () => {
+    // Invalidate specific queries
+    queryClient.invalidateQueries({ queryKey: ['metrics'] });
+
+    // Or clear entire cache
+    queryClient.clear();
+  };
+
+  return (
+    <div>
+      <div>{data?.total}</div>
+      <button onClick={handleRefresh}>Refresh</button>
+    </div>
+  );
+}
+```
+</Pre>
+</CodeBlock>
+
+## Cache Invalidation
+
+### Invalidate After Mutations
+
+Automatically refresh related queries when data changes:
+
+<CodeBlock>
+<Pre>
+```tsx
+import { useMutation, useQuery } from '@/lib/analytics';
+import { useQueryClient } from '@tanstack/react-query';
+
+function MetricsManager() {
+  const queryClient = useQueryClient();
+  const { data: metrics } = useQuery('metrics', {});
+
+  const rebuild = useMutation('rebuildMetrics', {
+    onSuccess: () => {
+      // Invalidate related queries
+      queryClient.invalidateQueries({ queryKey: ['metrics'] });
+      queryClient.invalidateQueries({ queryKey: ['weeklyRevenue'] });
+    },
+  });
+
+  return (
+    <button onClick={() => rebuild.mutate({ force: true })}>
+      Rebuild
+    </button>
+  );
+}
+```
+</Pre>
+</CodeBlock>
+
+### Prefetching
+
+Preload data before it's needed:
+
+<CodeBlock>
+<Pre>
+```tsx
+import { useQueryClient } from '@tanstack/react-query';
+
+function Dashboard() {
+  const queryClient = useQueryClient();
+
+  useEffect(() => {
+    // Prefetch on mount
+    queryClient.prefetchQuery({
+      queryKey: ['weeklyRevenue', { startDate: '2025-01-01' }],
+      queryFn: () => fetch('/api/weeklyRevenue?startDate=2025-01-01')
+        .then(res => res.json()),
+    });
+  }, []);
+
+  // ...
+}
+```
+</Pre>
+</CodeBlock>
+
+## Query Keys
+
+hypequery hooks use a fixed query-key structure: `['hypequery', name]`, or `['hypequery', name, input]` when the query has input. Dataset hooks key on their resolved name (`dataset:<name>`). Use these keys with TanStack's cache APIs:
+
+<CodeBlock>
+<Pre>
+```tsx
+// Invalidate one query (must match name + input).
+queryClient.invalidateQueries({ queryKey: ['hypequery', 'weeklyRevenue'] });
+
+// Invalidate every hypequery cache entry by prefix.
+queryClient.invalidateQueries({ queryKey: ['hypequery'] });
+```
+</Pre>
+</CodeBlock>
+
+The key structure is not configurable — relying on the stable `'hypequery'` prefix lets you target hypequery caches without colliding with other TanStack queries.
+
+## Auth headers and token refresh
+
+Add auth tokens with the `headers` option. It accepts a static object or a (optionally async) function that runs per request, so it can supply a fresh short-lived token. Pair it with `onUnauthorized` to refresh credentials and retry once on a `401`:
+
+<CodeBlock>
+<Pre>
+```tsx
+export const { useQuery, useMutation } = createHooks<Api>({
+  baseUrl: '/api',
+  headers: async () => ({
+    Authorization: `Bearer ${await getAuthToken()}`,
+  }),
+  onUnauthorized: async () => {
+    // Runs on a 401; refresh the token, then the request retries once.
+    await refreshSession();
+  },
+});
+```
+</Pre>
+</CodeBlock>
+
+If you need full control over the request, override the fetch implementation with `fetchFn`:
+
+<CodeBlock>
+<Pre>
+```tsx
+export const { useQuery, useMutation } = createHooks<Api>({
+  baseUrl: '/api',
+  fetchFn: async (url, options) => {
+    const token = getAuthToken();
+
+    return fetch(url, {
+      ...options,
+      headers: {
+        ...options?.headers,
+        Authorization: `Bearer ${token}`,
+      },
+    });
+  },
+});
+```
+</Pre>
+</CodeBlock>
+
+## Suspense Mode
+
+<Callout type="info">
+  TanStack Query v5 removed the per-call `suspense: true` flag in favor of dedicated `useSuspenseQuery`/`useSuspenseInfiniteQuery` hooks. hypequery's hooks wrap the non-suspense hooks, so handle loading with `isLoading` (shown elsewhere on this page). If you need Suspense, read the endpoint with your own `useSuspenseQuery` call against the same route.
+</Callout>
+
+Use React Suspense for declarative loading states:
+
+<CodeBlock>
+<Pre>
+```tsx
+import { Suspense } from 'react';
+import { useSuspenseQuery } from '@tanstack/react-query';
+
+function MetricsChart() {
+  // Throws a promise while loading, so the parent <Suspense> shows its fallback.
+  const { data } = useSuspenseQuery({
+    queryKey: ['hypequery', 'weeklyRevenue', { startDate: '2025-01-01' }],
+    queryFn: () =>
+      fetch('/api/weeklyRevenue?startDate=2025-01-01').then((res) => res.json()),
+  });
+
+  return <div>Total: ${data.total}</div>;
+}
+
+function Dashboard() {
+  return (
+    <Suspense fallback={<div>Loading metrics...</div>}>
+      <MetricsChart />
+    </Suspense>
+  );
+}
+```
+</Pre>
+</CodeBlock>
+
+## Error Boundaries
+
+Handle errors declaratively with error boundaries:
+
+<CodeBlock>
+<Pre>
+```tsx
+import { ErrorBoundary } from 'react-error-boundary';
+
+function Dashboard() {
+  return (
+    <ErrorBoundary
+      fallback={<div>Failed to load metrics</div>}
+      onError={(error) => console.error('Metrics error:', error)}
+    >
+      <MetricsPanel />
+    </ErrorBoundary>
+  );
+}
+```
+</Pre>
+</CodeBlock>
+
+## Advanced TanStack Query Options
+
+All TanStack Query options are supported:
+
+<CodeBlock>
+<Pre>
+```tsx
+const { data, refetch, isFetching } = useQuery(
+  'weeklyRevenue',
+  { startDate: '2025-01-01' },
+  {
+    // Caching
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    gcTime: 10 * 60 * 1000, // 10 minutes (was `cacheTime` before TanStack v5)
+
+    // Refetching
+    refetchOnMount: true,
+    refetchOnWindowFocus: false,
+    refetchInterval: 30000, // Poll every 30s
+
+    // Conditional fetching
+    enabled: isAuthenticated,
+
+    // Retries
+    retry: 3,
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
+  }
+);
+```
+</Pre>
+</CodeBlock>
+
+<Callout type="info">
+  Per-query `onSuccess`/`onError` callbacks were removed from `useQuery` in TanStack Query v5. Use `useMutation` callbacks for writes, or subscribe via the global `QueryCache` if you need query-level side effects.
+</Callout>
+
+## Background Refetching
+
+Keep data fresh with background updates:
+
+<CodeBlock>
+<Pre>
+```tsx
+function LiveMetrics() {
+  const { data, dataUpdatedAt } = useQuery(
+    'liveMetrics',
+    {},
+    {
+      staleTime: 0, // Always consider stale
+      refetchInterval: 5000, // Refetch every 5 seconds
+      refetchIntervalInBackground: true, // Continue even when tab is hidden
+    }
+  );
+
+  return (
+    <div>
+      <div>Active Users: {data?.activeUsers}</div>
+      <div className="text-xs text-gray-500">
+        Updated: {new Date(dataUpdatedAt).toLocaleTimeString()}
+      </div>
+    </div>
+  );
+}
+```
+</Pre>
+</CodeBlock>
+
+## Parallel Queries
+
+Execute multiple queries efficiently:
+
+<CodeBlock>
+<Pre>
+```tsx
+function Dashboard() {
+  const revenue = useQuery('weeklyRevenue', { startDate: '2025-01-01' });
+  const users = useQuery('activeUsers', { limit: 100 });
+  const metrics = useQuery('systemMetrics', {});
+
+  // All three queries run in parallel
+  if (revenue.isLoading || users.isLoading || metrics.isLoading) {
+    return <div>Loading...</div>;
+  }
+
+  return (
+    <div>
+      <RevenueChart data={revenue.data} />
+      <UserList data={users.data} />
+      <MetricsPanel data={metrics.data} />
+    </div>
+  );
+}
+```
+</Pre>
+</CodeBlock>
+
+## Infinite Queries
+
+hypequery hooks include offset-paginated `useInfiniteQuery` and `useInfiniteDataset`. You don't wire up `getNextPageParam` yourself — the hooks advance pages using the `meta.pagination` the server returns (requested automatically via the `x-include-meta` header). Set `limit` as the page size; `offset`, if provided, is the starting offset.
+
+<CodeBlock>
+<Pre>
+```tsx
+import { useInfiniteDataset } from '@/lib/analytics';
+
+function InfiniteOrders() {
+  const {
+    data,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useInfiniteDataset('orders', {
+    dimensions: ['country', 'status'],
+    measures: ['revenue'],
+    limit: 20, // page size
+  });
+
+  return (
+    <div>
+      {data?.pages.map((page, i) => (
+        <div key={i}>
+          {/* Each page is the endpoint response: `{ data, meta }`. */}
+          {page.data.map((row, j) => (
+            <div key={j}>{row.country}: {row.revenue}</div>
+          ))}
+        </div>
+      ))}
+      {hasNextPage && (
+        <button onClick={() => fetchNextPage()} disabled={isFetchingNextPage}>
+          {isFetchingNextPage ? 'Loading...' : 'Load More'}
+        </button>
+      )}
+    </div>
+  );
+}
+```
+</Pre>
+</CodeBlock>
+
+`useInfiniteQuery` works the same way for a plain query whose endpoint returns `meta.pagination`.

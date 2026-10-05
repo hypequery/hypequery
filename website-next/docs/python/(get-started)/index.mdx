@@ -1,0 +1,48 @@
+---
+title: Python SDK
+description: The hypequery Python SDK for ClickHouse datasets and FastAPI serving.
+---
+
+import { Callout } from 'fumadocs-ui/components/callout';
+import { CodeBlock } from 'fumadocs-ui/components/codeblock';
+
+<Callout type="warn" title="Pre-alpha">
+  The Python SDK is not yet published to PyPI and its APIs may change. Do not use it in production yet.
+</Callout>
+
+The Python SDK lets you define a semantic layer over ClickHouse (datasets with dimensions, measures, and
+relationships) and query it from Python, with tenant isolation and result caching built in. A FastAPI router for
+serving datasets over HTTP is in progress.
+
+Python and TypeScript implement the same specifications and run against the same conformance fixtures, so equivalent
+definitions produce identical semantic and deployment artifacts. The APIs are idiomatic to each language rather than
+line-for-line ports. The Python SDK does not include the TypeScript query builder.
+
+## Install
+
+Once published, the SDK installs with optional extras for each executor and for serving:
+
+<CodeBlock>
+```bash
+pip install hypequery
+pip install "hypequery[clickhouse]"        # sync ClickHouse executor
+pip install "hypequery[clickhouse-async]"  # async ClickHouse executor
+pip install "hypequery[fastapi]"           # FastAPI serving
+```
+</CodeBlock>
+
+Python 3.11 or later is required.
+
+## Packages
+
+| Module | Purpose |
+| --- | --- |
+| `hypequery.datasets` | Dimensions, measures, relationships, the dataset client, caching, and the catalog |
+| `hypequery.execution` | Sync and async ClickHouse executors |
+| `hypequery.serve` | An authenticated-by-default FastAPI router with CORS and rate limiting |
+| `hypequery.protocol` | The language-neutral artifact contracts shared with TypeScript |
+
+## Next steps
+
+- [Quick start](/docs/python/quick-start): define a dataset and run a query.
+- [Feature status](/docs/python/feature-status): what is available in Python today compared with TypeScript.

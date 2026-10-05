@@ -1,0 +1,24 @@
+---
+title: Overview
+description: Define ClickHouse tables once in Python, then query them by semantic name with tenant isolation and caching.
+---
+
+Datasets are semantic analytics definitions. A dataset models a source table or view with dimensions, measures,
+relationships, a tenant key, and a time key.
+
+Use datasets when query logic has started to matter beyond one file:
+
+- define table semantics once
+- query by semantic names instead of hand-written SQL
+- apply tenant and time context consistently
+- cache results under tenant-safe keys
+- share the same definitions with TypeScript services through the language-neutral protocol
+
+The Python SDK splits responsibilities across modules: `hypequery.datasets` owns definitions, planning, and the
+client; `hypequery.execution` owns ClickHouse execution; `hypequery.serve` owns HTTP delivery.
+
+The fastest way in is the [quick start](/docs/python/quick-start). Then read:
+
+- [Definition](/docs/python/datasets/defining-datasets) for the dataset model
+- [Dimensions](/docs/python/datasets/dimensions) and [Measures](/docs/python/datasets/measures) for fields
+- [Execution](/docs/python/datasets/execution) for the client

@@ -31,7 +31,7 @@ export const metadata: Metadata = {
     default: "hypequery | Ship analytics on ClickHouse",
     template: "%s | hypequery",
   },
-  description: "Model your ClickHouse data once in code, then ship APIs, MCP tools, and dashboards from the same definitions.",
+  description: "Analytics as code for ClickHouse. Define measures, dimensions, and tenant rules once, then serve them to dashboards, APIs, and AI agents.",
   alternates: {
     canonical: absoluteUrl('/'),
   },
@@ -39,13 +39,13 @@ export const metadata: Metadata = {
     type: 'website',
     url: absoluteUrl('/'),
     title: 'hypequery | Ship analytics on ClickHouse',
-    description: 'Model your ClickHouse data once in code, then ship APIs, MCP tools, and dashboards from the same definitions.',
+    description: 'Analytics as code for ClickHouse. Define measures, dimensions, and tenant rules once, then serve them to dashboards, APIs, and AI agents.',
     siteName: 'hypequery',
   },
   twitter: {
     card: 'summary_large_image',
     title: 'hypequery | Ship analytics on ClickHouse',
-    description: 'Model your ClickHouse data once in code, then ship APIs, MCP tools, and dashboards from the same definitions.',
+    description: 'Analytics as code for ClickHouse. Define measures, dimensions, and tenant rules once, then serve them to dashboards, APIs, and AI agents.',
   },
   manifest: "/site.webmanifest",
   icons: {

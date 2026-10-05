@@ -1,0 +1,59 @@
+---
+title: Multi-tenancy
+description: Use tenant keys and trusted execution context to enforce tenant-scoped Python queries.
+---
+
+import { CodeBlock } from 'fumadocs-ui/components/codeblock';
+
+Dataset multi-tenancy is fail-closed. If a dataset declares a `tenant_key`, every query must run with a trusted
+tenant in its execution context, and hypequery adds the tenant predicate for you.
+
+## Declare the tenant key
+
+<CodeBlock>
+```python
+orders = Dataset(
+    name="orders",
+    source="orders",
+    tenant_key="tenant_id",
+    dimensions={
+        "tenant_id": dimension("string"),
+        "status": dimension("string"),
+        "country": dimension("string"),
+    },
+    measures={"revenue": measure(sum_("amount"))},
+)
+```
+</CodeBlock>
+
+## Provide tenant context
+
+<CodeBlock>
+```python
+from hypequery.datasets import ExecutionContext, tenant
+
+analytics.execute(
+    orders,
+    DatasetQuery(measures=("revenue",)),
+    context=ExecutionContext(tenant=tenant("tenant_123")),
+)
+```
+</CodeBlock>
+
+The tenant always comes from the trusted `ExecutionContext`, never from the query. A query without one fails with
+`tenant-required`, and a filter on the tenant field fails with `input-invalid`.
+
+## Tenant-bound clients
+
+In a request handler, bind the client to the tenant your auth layer resolved and pass that on instead of the
+client itself:
+
+<CodeBlock>
+```python
+scoped = analytics.for_tenant(tenant(principal.org_id))
+scoped.execute(orders, DatasetQuery(dimensions=("country",), measures=("revenue",)))
+```
+</CodeBlock>
+
+A tenant-bound client only has `execute`, `validate`, and `to_sql`, and every query runs as the bound tenant.
+Binding requires exactly one tenant: `tenants()` with multiple identifiers and `all_tenants()` are refused.

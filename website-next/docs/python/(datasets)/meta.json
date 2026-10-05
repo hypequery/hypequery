@@ -1,0 +1,20 @@
+{
+  "title": "Datasets",
+  "description": "Semantic layer for ClickHouse in Python",
+  "icon": "Layers",
+  "root": true,
+  "pages": [
+    "datasets/overview",
+    "datasets/defining-datasets",
+    "---Modeling---",
+    "datasets/dimensions",
+    "datasets/measures",
+    "datasets/filters",
+    "datasets/time-grains",
+    "datasets/relationships",
+    "---Running queries---",
+    "datasets/execution",
+    "datasets/caching",
+    "datasets/multi-tenancy"
+  ]
+}

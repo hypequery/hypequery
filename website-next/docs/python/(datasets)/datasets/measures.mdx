@@ -1,0 +1,60 @@
+---
+title: Measures
+description: Define aggregations such as revenue, counts, averages, minimums, and maximums in Python.
+---
+
+import { CodeBlock } from 'fumadocs-ui/components/codeblock';
+
+Measures are aggregations over fields in a dataset. Wrap an aggregation function in `measure(...)`, which carries
+the label, description, and filters.
+
+<CodeBlock>
+```python
+from hypequery.datasets import (
+    avg,
+    count,
+    count_distinct,
+    max as max_,
+    measure,
+    min as min_,
+    sum as sum_,
+)
+
+measures = {
+    "revenue": measure(
+        sum_("amount"),
+        label="Revenue",
+        description="Total order amount before refunds.",
+    ),
+    "order_count": measure(count("id")),
+    "unique_customers": measure(count_distinct("customer_id")),
+    "average_amount": measure(avg("amount")),
+    "min_amount": measure(min_("amount")),
+    "max_amount": measure(max_("amount")),
+}
+```
+</CodeBlock>
+
+Import `sum`, `min`, and `max` under aliases so they do not shadow the Python built-ins.
+
+## Aggregations
+
+`sum`, `count`, `count_distinct`, `avg`, `min`, `max`, `median`, `percentile(field, level)`, `stddev`, `variance`,
+`arg_max(field, by)`, and `arg_min(field, by)`.
+
+## Filtered measures
+
+Pass `filters` to aggregate only matching rows:
+
+<CodeBlock>
+```python
+"us_revenue": measure(sum_("amount"), filters=(eq("country", "US"),))
+```
+</CodeBlock>
+
+Filtered measures are not supported on `arg_max` and `arg_min`.
+
+## Not yet in Python
+
+Derived measures, window measures (trailing, to-date, cumulative), and period comparisons are TypeScript only for
+now. See [Feature status](/docs/python/feature-status).

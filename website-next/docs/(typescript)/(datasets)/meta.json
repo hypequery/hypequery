@@ -1,0 +1,26 @@
+{
+  "title": "Datasets",
+  "description": "Semantic layer for ClickHouse in TypeScript",
+  "icon": "Layers",
+  "root": true,
+  "pages": [
+    "datasets/overview",
+    "datasets/defining-datasets",
+    "---Modeling---",
+    "datasets/dimensions",
+    "datasets/measures",
+    "datasets/metrics",
+    "datasets/filters",
+    "datasets/segments",
+    "datasets/time-grains",
+    "datasets/relationships",
+    "---Running queries---",
+    "datasets/execution",
+    "datasets/caching",
+    "datasets/multi-tenancy",
+    "---Publishing---",
+    "datasets/serve-integration",
+    "datasets/catalog",
+    "datasets/tool-generation"
+  ]
+}

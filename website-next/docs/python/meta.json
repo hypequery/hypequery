@@ -1,0 +1,9 @@
+{
+  "title": "Python",
+  "description": "Datasets · pre-alpha",
+  "root": "language",
+  "pages": [
+    "(get-started)",
+    "(datasets)"
+  ]
+}

@@ -1,0 +1,70 @@
+---
+title: Filters
+description: Use typed filter helpers in Python dataset queries and filtered measures.
+---
+
+import { CodeBlock } from 'fumadocs-ui/components/codeblock';
+
+Filters are structured values used by dataset queries and filtered measures.
+
+<CodeBlock>
+```python
+from hypequery.datasets import (
+    between,
+    eq,
+    gt,
+    gte,
+    in_list,
+    like,
+    lt,
+    lte,
+    neq,
+    not_in_list,
+)
+
+eq("status", "completed")
+neq("status", "cancelled")
+gt("amount", 100)
+gte("amount", 100)
+lt("amount", 1000)
+lte("amount", 1000)
+in_list("country", ["US", "UK", "CA"])
+not_in_list("status", ["cancelled", "refunded"])
+between("created_at", "2026-01-01", "2026-01-31")
+like("email", "%@example.com")
+```
+</CodeBlock>
+
+Each helper returns a `Filter` with a field, operator, and value:
+
+<CodeBlock>
+```python
+eq("status", "completed")
+# Filter(field='status', operator='eq', value='completed')
+```
+</CodeBlock>
+
+## Use filters in dataset queries
+
+<CodeBlock>
+```python
+analytics.execute(
+    orders,
+    DatasetQuery(
+        dimensions=("country", "status"),
+        measures=("revenue", "order_count"),
+        filters=(
+            eq("status", "completed"),
+            between("created_at", "2026-01-01", "2026-01-31"),
+        ),
+    ),
+)
+```
+</CodeBlock>
+
+Values are always sent as typed parameters, never interpolated into SQL.
+
+## Tenant filters
+
+When a dataset has a `tenant_key`, filters on the tenant field are rejected. Supply the tenant through the
+[execution context](/docs/python/datasets/multi-tenancy) instead.

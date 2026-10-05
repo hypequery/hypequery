@@ -1,0 +1,503 @@
+---
+title: Quick Start
+description: Get started with hypequery.
+---
+
+import { Callout } from 'fumadocs-ui/components/callout';
+import { CodeBlock } from 'fumadocs-ui/components/codeblock';
+import { File, Folder, Files } from 'fumadocs-ui/components/files';
+import { Step, Steps } from 'fumadocs-ui/components/steps';
+import { Tab, Tabs } from 'fumadocs-ui/components/tabs';
+
+<Callout type="info" title="hypequery now supports embedded ClickHouse with chDB">
+  You can run the exact same builder code on [chDB](https://github.com/chdb-io/chdb-node). ClickHouse embedded in your
+  node process by passing its adapter: `createQueryBuilder({ adapter: chdbAdapter({ session }) })`.
+  Read how to get started [here](/docs/chdb).
+</Callout>
+
+## Choose your route
+
+This page has two paths:
+
+* **Route 1: Queries** if you want typed ClickHouse queries running in-process as quickly as possible
+* **Route 2: Datasets** if you want a reusable semantic layer — dimensions and measures defined once and queried by name
+
+Both routes can optionally be exposed over HTTP with the [Serve runtime](#optional-expose-over-http-with-serve) when you need named endpoints, validation, docs, or OpenAPI. Start with whichever route fits, and add Serve later if you need it.
+
+## Route 1: Queries [#route-1-queries]
+
+If you only need typed ClickHouse queries in your application code, start here:
+
+<Steps>
+  <Step>
+    Install the packages
+
+    <Tabs items={['npm', 'pnpm', 'yarn', 'bun']} defaultIndex={0}>
+      <Tab value="npm" label="npm">
+        <CodeBlock>
+          ```bash
+          npm install @hypequery/clickhouse
+          npm install -D @hypequery/cli
+          ```
+        </CodeBlock>
+      </Tab>
+
+      <Tab value="pnpm" label="pnpm">
+        <CodeBlock>
+          ```bash
+          pnpm add @hypequery/clickhouse
+          pnpm add -D @hypequery/cli
+          ```
+        </CodeBlock>
+      </Tab>
+
+      <Tab value="yarn" label="yarn">
+        <CodeBlock>
+          ```bash
+          yarn add @hypequery/clickhouse
+          yarn add -D @hypequery/cli
+          ```
+        </CodeBlock>
+      </Tab>
+
+      <Tab value="bun" label="bun">
+        <CodeBlock>
+          ```bash
+          bun add @hypequery/clickhouse
+          bun add -D @hypequery/cli
+          ```
+        </CodeBlock>
+      </Tab>
+    </Tabs>
+  </Step>
+
+  <Step>
+    Configure your ClickHouse env vars
+
+    Create `.env`:
+
+    <CodeBlock>
+      ```bash
+      CLICKHOUSE_URL=https://example.clickhouse.cloud:8443
+      CLICKHOUSE_DATABASE=default
+      CLICKHOUSE_USERNAME=cli_user
+      CLICKHOUSE_PASSWORD=super-secret
+      ```
+    </CodeBlock>
+
+    `hypequery generate` uses these values to connect to ClickHouse during schema introspection.
+  </Step>
+
+  <Step>
+    Generate your schema types
+
+    Use the CLI to introspect ClickHouse and write your TypeScript schema:
+
+    <CodeBlock>
+      ```bash
+      npx hypequery generate
+      ```
+    </CodeBlock>
+
+    This writes `analytics/schema.ts`, matching the CLI default and the import below. Re-run it anytime your ClickHouse schema changes.
+  </Step>
+
+  <Step>
+    Connect and run a typed query
+
+    <CodeBlock>
+      ```typescript
+      // analytics/client.ts
+      import { createQueryBuilder } from '@hypequery/clickhouse';
+      import type { IntrospectedSchema } from './schema.js';
+
+      export const db = createQueryBuilder<IntrospectedSchema>({
+        url: process.env.CLICKHOUSE_URL!,
+        username: process.env.CLICKHOUSE_USERNAME,
+        password: process.env.CLICKHOUSE_PASSWORD,
+        database: process.env.CLICKHOUSE_DATABASE,
+      });
+
+      const users = await db
+        .table('users')
+        .select(['id', 'email', 'created_at'])
+        .where('status', 'eq', 'active')
+        .orderBy('created_at', 'DESC')
+        .limit(10)
+        .execute();
+      ```
+    </CodeBlock>
+  </Step>
+</Steps>
+
+If that is all you need, continue with [Query Basics](/docs/query-building/basics). Or read more about [connecting to ClickHouse](/docs/reference/connection).
+
+## Route 2: Datasets
+
+In this route you define a **dataset** — a typed semantic model over a ClickHouse table — once, then query it by selecting dimensions and measures. The same definition powers ad hoc rollups, calculated measures, and (optionally) governed HTTP endpoints.
+
+This is the right route when query logic should be shared: when the same table semantics, tenant scoping, and KPIs need to be consistent across jobs, dashboards, APIs, and agents.
+
+<Steps>
+  <Step>
+    Install the packages
+
+    <Tabs items={['npm', 'pnpm', 'yarn', 'bun']} defaultIndex={0}>
+      <Tab value="npm" label="npm">
+        <CodeBlock>
+          ```bash
+          npm install @hypequery/datasets @hypequery/clickhouse
+          npm install -D @hypequery/cli
+          ```
+        </CodeBlock>
+      </Tab>
+
+      <Tab value="pnpm" label="pnpm">
+        <CodeBlock>
+          ```bash
+          pnpm add @hypequery/datasets @hypequery/clickhouse
+          pnpm add -D @hypequery/cli
+          ```
+        </CodeBlock>
+      </Tab>
+
+      <Tab value="yarn" label="yarn">
+        <CodeBlock>
+          ```bash
+          yarn add @hypequery/datasets @hypequery/clickhouse
+          yarn add -D @hypequery/cli
+          ```
+        </CodeBlock>
+      </Tab>
+
+      <Tab value="bun" label="bun">
+        <CodeBlock>
+          ```bash
+          bun add @hypequery/datasets @hypequery/clickhouse
+          bun add -D @hypequery/cli
+          ```
+        </CodeBlock>
+      </Tab>
+    </Tabs>
+  </Step>
+
+  <Step>
+    Configure your ClickHouse env vars
+
+    Create `.env`:
+
+    <CodeBlock>
+      ```bash
+      CLICKHOUSE_URL=https://example.clickhouse.cloud:8443
+      CLICKHOUSE_DATABASE=default
+      CLICKHOUSE_USERNAME=cli_user
+      CLICKHOUSE_PASSWORD=super-secret
+      ```
+    </CodeBlock>
+  </Step>
+
+  <Step>
+    Generate dataset definitions
+
+    Use the CLI to introspect ClickHouse and scaffold dataset definitions from your live schema:
+
+    <CodeBlock>
+      ```bash
+      npx hypequery generate:datasets
+      ```
+    </CodeBlock>
+
+    This writes `analytics/datasets.ts` by default. Generated exports use names like `OrdersDataset`; the examples below alias or rename that export to `Orders` after curation. Re-run generation when your schema changes, then curate the generated dimensions and measures so the semantic names match your product language.
+  </Step>
+
+  <Step>
+    Connect a query builder and dataset client
+
+    `@hypequery/datasets` plans and validates semantic queries; `@hypequery/clickhouse` constructs and executes them. The dataset client wraps the same query builder you would use for hand-written queries.
+
+    <CodeBlock>
+      ```typescript
+      // analytics/client.ts
+      import { createQueryBuilder } from '@hypequery/clickhouse';
+      import { createDatasetClient } from '@hypequery/datasets';
+
+      export const db = createQueryBuilder({
+        url: process.env.CLICKHOUSE_URL!,
+        username: process.env.CLICKHOUSE_USERNAME!,
+        password: process.env.CLICKHOUSE_PASSWORD!,
+        database: process.env.CLICKHOUSE_DATABASE!,
+      });
+
+      export const analytics = createDatasetClient({ queryBuilder: db });
+      ```
+    </CodeBlock>
+  </Step>
+
+  <Step>
+    Review or customize a dataset
+
+    The generated file gives you a starting point. A curated dataset maps a source table to typed dimensions and measures, plus optional tenant and time keys:
+
+    <CodeBlock>
+      ```typescript
+      // analytics/datasets/orders.ts
+      import { dataset, dimension, measure } from '@hypequery/datasets';
+
+      export const Orders = dataset('orders', {
+        source: 'orders',
+        tenantKey: 'tenant_id',
+        timeKey: 'created_at',
+        dimensions: {
+          id: dimension.number(),
+          status: dimension.string(),
+          country: dimension.string(),
+          createdAt: dimension.timestamp({ column: 'created_at' }),
+        },
+        measures: {
+          revenue: measure.sum('amount'),
+          orderCount: measure.count('id'),
+        },
+      });
+      ```
+    </CodeBlock>
+  </Step>
+
+  <Step>
+    Query the dataset
+
+    Select any combination of dimensions and measures. `execute` validates the request, generates SQL, runs it, and returns rows plus metadata.
+
+    <CodeBlock>
+      ```typescript
+      import { eq } from '@hypequery/datasets';
+      import { analytics } from './client.js';
+      import { Orders } from './datasets.js';
+
+      const byCountry = await analytics.execute(Orders, {
+        dimensions: ['country'],
+        measures: ['revenue', 'orderCount'],
+        filters: [eq('status', 'completed')],
+        orderBy: [{ field: 'revenue', direction: 'desc' }],
+        limit: 10,
+      });
+
+      console.log(byCountry.data);
+      ```
+    </CodeBlock>
+  </Step>
+
+  <Step>
+    Add calculated measures
+
+    When a value is calculated from other measures, declare it as a **derived measure** on the dataset and select it by name like any other measure.
+
+    <CodeBlock>
+      ```typescript
+      // analytics/datasets/orders.ts
+      import { dataset, dimension, divide, measure, nullIfZero } from '@hypequery/datasets';
+
+      export const Orders = dataset('orders', {
+        source: 'orders',
+        tenantKey: 'tenant_id',
+        timeKey: 'created_at',
+        dimensions: {
+          id: dimension.number(),
+          status: dimension.string(),
+          country: dimension.string(),
+          createdAt: dimension.timestamp({ column: 'created_at' }),
+        },
+        measures: {
+          revenue: measure.sum('amount'),
+          orderCount: measure.count('id'),
+          averageOrderValue: measure.derived({
+            uses: { revenue: 'revenue', orders: 'orderCount' },
+            formula: ({ revenue, orders }) => divide(revenue, nullIfZero(orders)),
+          }),
+        },
+      });
+      ```
+    </CodeBlock>
+
+    <CodeBlock>
+      ```typescript
+      const aovByCountry = await analytics.execute(Orders, {
+        dimensions: ['country'],
+        measures: ['averageOrderValue'],
+        filters: [eq('status', 'completed')],
+        orderBy: [{ field: 'averageOrderValue', direction: 'desc' }],
+        limit: 10,
+      });
+      ```
+    </CodeBlock>
+  </Step>
+</Steps>
+
+If that is all you need, continue with the [Datasets Overview](/docs/datasets/overview), or dig into [Dimensions](/docs/datasets/dimensions) and [Measures](/docs/datasets/measures).
+
+## Optional: expose over HTTP with serve
+
+Both routes stay in-process until you need an HTTP boundary. Add `@hypequery/serve` when the same logic should have a stable URL, input validation, docs, OpenAPI, auth, or React hooks. Add `@hypequery/react` when a React or Next.js UI should call those served endpoints through typed TanStack Query hooks.
+
+<Tabs items={['npm', 'pnpm', 'yarn', 'bun']} defaultIndex={0}>
+  <Tab value="npm" label="npm">
+    <CodeBlock>
+      ```bash
+      npm install @hypequery/serve zod@^3
+      npm install @hypequery/react @tanstack/react-query
+      ```
+    </CodeBlock>
+  </Tab>
+
+  <Tab value="pnpm" label="pnpm">
+    <CodeBlock>
+      ```bash
+      pnpm add @hypequery/serve zod@^3
+      pnpm add @hypequery/react @tanstack/react-query
+      ```
+    </CodeBlock>
+  </Tab>
+
+  <Tab value="yarn" label="yarn">
+    <CodeBlock>
+      ```bash
+      yarn add @hypequery/serve zod@^3
+      yarn add @hypequery/react @tanstack/react-query
+      ```
+    </CodeBlock>
+  </Tab>
+
+  <Tab value="bun" label="bun">
+    <CodeBlock>
+      ```bash
+      bun add @hypequery/serve zod@^3
+      bun add @hypequery/react @tanstack/react-query
+      ```
+    </CodeBlock>
+  </Tab>
+</Tabs>
+
+<Callout type="warn" title="zod 3 is required">
+  `@hypequery/serve` and `@hypequery/datasets` build their validation types against zod 3. Installing
+  a bare `zod` today resolves zod 4, whose schema types are structurally incompatible — your first
+  `query({ input: z.object(...) })` will fail to compile with `Type 'ZodObject<...>' is missing the
+  following properties from type 'ZodType<any, any, any>'`. Pin `zod@^3`.
+</Callout>
+
+### From Route 1: serve a named query
+
+Wrap a builder query with `query({ ... })` to turn it into a validated, named contract, then expose it with `serve`.
+
+<CodeBlock>
+```typescript
+// analytics/queries.ts
+import { initServe } from '@hypequery/serve';
+import { z } from 'zod';
+import { db } from './client.js';
+
+const { query, serve } = initServe({
+  context: () => ({ db }),
+  basePath: '/api/analytics',
+});
+
+const activeUsers = query({
+  description: 'Most recent active users',
+  input: z.object({
+    limit: z.number().min(1).max(500).default(50),
+  }),
+  output: z.array(z.object({
+    id: z.string(),
+    email: z.string(),
+    created_at: z.string(),
+  })),
+  query: async ({ ctx, input }) =>
+    ctx.db
+      .table('users')
+      .select(['id', 'email', 'created_at'])
+      .where('status', 'eq', 'active')
+      .orderBy('created_at', 'DESC')
+      .limit(input.limit)
+      .execute(),
+});
+
+export const api = serve({
+  queries: { activeUsers },
+});
+
+api.route('/active-users', api.queries.activeUsers, { method: 'POST' });
+```
+</CodeBlock>
+
+`activeUsers.execute({ input })` runs locally without HTTP, and `serve` exposes the same contract through a runtime.
+
+### From Route 2: serve datasets
+
+Pass your query builder plus the datasets you want to expose. Serve generates governed semantic endpoints from the same definitions.
+
+<CodeBlock>
+```typescript
+// analytics/api.ts
+import { initServe } from '@hypequery/serve';
+import { db } from './client.js';
+import { Orders } from './datasets/orders.js';
+
+const { serve } = initServe({
+  context: () => ({ db }),
+  basePath: '/api/analytics',
+});
+
+export const api = serve({
+  queryBuilder: db,
+  datasets: { orders: Orders },
+});
+```
+</CodeBlock>
+
+This generates `POST /datasets/orders/query` for flexible same-dataset rollups, prefixed by your `basePath`. Endpoints validate dimensions, measures, filters, time grains, and ordering against the definition. See [Serve integration](/docs/datasets/serve-integration) for per-endpoint auth, caching, and limits.
+
+### Consume served datasets from React
+
+Use `@hypequery/react` when a React or Next.js app should call those endpoints from components. Generate the route manifest as static JSON so the hooks module never imports server code into the client bundle:
+
+<CodeBlock>
+```bash
+npx hypequery generate:manifest analytics/api.ts --output analytics/hypequery-manifest.json
+```
+</CodeBlock>
+
+<CodeBlock>
+```typescript
+import { createAnalyticsHooks } from '@hypequery/react';
+import type { InferApiType } from '@hypequery/serve';
+import type { api } from './analytics/api';
+import manifest from './analytics/hypequery-manifest.json';
+
+type Api = InferApiType<typeof api>;
+
+export const { useDataset } = createAnalyticsHooks<Api>({
+  baseUrl: '/api/analytics',
+  manifest,
+});
+```
+</CodeBlock>
+
+The `api` import is type-only, so it is erased at build time; the manifest JSON is the only runtime dependency on the server module. For setup with `QueryClientProvider`, see the [React guide](/docs/react/getting-started).
+
+### Preview docs and routes [#preview-docs-and-routes]
+
+Start the dev server against the serve file for the route you chose:
+
+<CodeBlock>
+```bash
+# Route 1: named queries
+npx hypequery dev analytics/queries.ts
+
+# Route 2: datasets
+npx hypequery dev analytics/api.ts
+```
+</CodeBlock>
+
+With `basePath: '/api/analytics'`, the runtime exposes:
+
+* docs at `http://localhost:4000/api/analytics/docs`
+* OpenAPI at `http://localhost:4000/api/analytics/openapi.json`
+* your routes under `http://localhost:4000/api/analytics`

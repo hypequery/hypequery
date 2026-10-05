@@ -1,0 +1,93 @@
+---
+title: Relationships
+description: Link Python datasets and query to-one related fields one hop deep.
+---
+
+import { CodeBlock } from 'fumadocs-ui/components/codeblock';
+
+Relationships model how one dataset links to another. To-one relationships (`belongs_to`, `has_one`) are
+queryable: dataset queries can select, filter, and order by fields on the related dataset one hop deep, and
+hypequery executes the join for you. To-many relationships (`has_many`) are metadata only.
+
+## Defining relationships
+
+Pass the target dataset (or a function returning it). `from_field` is the join column on this dataset's table and
+`to_field` is the join column on the target's table.
+
+<CodeBlock>
+```python
+from hypequery.datasets import (
+    Dataset,
+    belongs_to,
+    create_dataset_client,
+    create_dataset_registry,
+    dimension,
+    has_many,
+    measure,
+    sum as sum_,
+)
+
+customers = Dataset(
+    name="customers",
+    source="customers",
+    dimensions={
+        "id": dimension("string"),
+        "country": dimension("string"),
+        "tier": dimension("string"),
+    },
+)
+
+line_items = Dataset(
+    name="line_items",
+    source="line_items",
+    dimensions={"id": dimension("string"), "sku": dimension("string")},
+)
+
+orders = Dataset(
+    name="orders",
+    source="orders",
+    dimensions={
+        "id": dimension("string"),
+        "status": dimension("string"),
+        "amount": dimension("number"),
+    },
+    measures={"revenue": measure(sum_("amount"))},
+    relationships={
+        "customer": belongs_to(customers, from_field="customer_id", to_field="id"),
+        "items": has_many(line_items, from_field="id", to_field="order_id"),
+    },
+)
+
+# The registry resolves relationship targets at query time.
+analytics = create_dataset_client(
+    executor=executor,
+    registry=create_dataset_registry(orders, customers, line_items),
+)
+```
+</CodeBlock>
+
+- `belongs_to`: many-to-one; the foreign key is on this table (`orders.customer_id → customers.id`).
+- `has_one`: one-to-one; the foreign key is on the target table.
+- `has_many`: one-to-many; the foreign key is on the target table. Metadata only.
+
+## Querying related fields
+
+Reference to-one related dimensions as `<relationship>.<dimension>` in dimensions, filters, and ordering:
+
+<CodeBlock>
+```python
+from hypequery.datasets import DatasetQuery, asc, eq
+
+result = analytics.execute(
+    "orders",
+    DatasetQuery(
+        dimensions=("customer.country",),
+        measures=("revenue",),
+        filters=(eq("customer.tier", "enterprise"),),
+        order_by=(asc("customer.country"),),
+    ),
+)
+```
+</CodeBlock>
+
+A target can be a `Dataset` or the name of a registered dataset.

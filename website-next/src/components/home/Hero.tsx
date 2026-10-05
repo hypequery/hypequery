@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { DeployWaitlist } from './DeployWaitlist';
 import { InstallCommand } from './InstallCommand';
+import { SiGithub } from 'react-icons/si';
 import { NpmDownloadsBadge } from './NpmDownloadsBadge';
 
 export function Hero() {
@@ -10,9 +11,14 @@ export function Hero() {
   return (
     <section className="mx-auto max-w-[1280px] px-5 pb-8 pt-8 sm:px-8 sm:pt-10">
       <div className="w-full">
-        <NpmDownloadsBadge />
+        <div className="flex flex-wrap items-center gap-2">
+          <NpmDownloadsBadge />
+          <a href="https://github.com/hypequery/hypequery/blob/main/LICENSE" target="_blank" rel="noreferrer" className="inline-flex h-8 items-center gap-2 rounded-lg border border-border-strong bg-bg-card px-3 font-mono text-xs text-text-muted transition hover:-translate-y-px hover:border-text focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent">
+            <SiGithub className="h-3.5 w-3.5 text-text" aria-hidden="true" /><span className="font-semibold text-text">Open source</span><span className="border-l border-border pl-2">Apache 2.0</span>
+          </a>
+        </div>
         <h1 className="whitespace-nowrap text-[clamp(1.625rem,5.4vw,4.6rem)] font-normal leading-[1.04] tracking-[-0.05em] text-text">Ship analytics on <em className="font-semibold italic">ClickHouse.</em></h1>
-        <p className="text-body-lg mt-4 max-w-[660px] text-text-muted">Model your data once in code, then ship APIs, MCP tools, and dashboards from the same definitions.</p>
+        <p className="text-body-lg mt-4 max-w-[660px] text-text-muted">Analytics as code. Define measures, dimensions, and tenant rules once, then serve them to dashboards, APIs, and AI agents.</p>
         <div className="mt-7 flex flex-wrap items-center gap-4">
           <DeployWaitlist location="hero" className="inline-flex min-h-12 items-center gap-3 rounded-lg bg-accent px-5 text-sm font-semibold text-white transition hover:-translate-y-0.5 hover:opacity-90 dark:text-[#0c0e14]" />
           <Link href="/docs/quick-start" className="inline-flex min-h-12 items-center text-sm font-semibold text-text transition hover:text-accent">Get started</Link>

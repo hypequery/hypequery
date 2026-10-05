@@ -1,0 +1,19 @@
+{
+  "title": "Reference",
+  "description": "API, CLI, ClickHouse behavior and changelog",
+  "icon": "BookOpen",
+  "root": true,
+  "pages": [
+    "reference/api",
+    "reference/packages",
+    "reference/connection",
+    "reference/inside-the-query-builder",
+    "reference/clickhouse-behavior",
+    "reference/readonly-users",
+    "reference/trust-boundaries",
+    "---Resources---",
+    "changelog",
+    "roadmap",
+    "faq"
+  ]
+}

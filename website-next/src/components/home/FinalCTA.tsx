@@ -6,10 +6,10 @@ export function FinalCTA() {
   return (
     <section className="mx-auto max-w-[1280px] px-8 py-20 text-center">
       <h2 className="home-section-title text-text max-w-[820px] mx-auto text-balance">
-        Ready to ship analytics on ClickHouse?
+        Put your analytics in code
       </h2>
       <p className="mt-3.5 text-body text-text-muted max-w-[560px] mx-auto text-pretty">
-        Start in your app today, or join the waitlist to deploy with hypequery Cloud.
+        Start in your app today, or join the waitlist for hypequery Cloud.
       </p>
       <div className="mt-8 flex flex-wrap items-center justify-center gap-4">
         <DeployWaitlist location="final" className="inline-flex min-h-12 items-center gap-3 rounded-lg bg-accent px-5 text-sm font-semibold text-white transition hover:-translate-y-0.5 hover:opacity-90 dark:text-[#0c0e14]" />

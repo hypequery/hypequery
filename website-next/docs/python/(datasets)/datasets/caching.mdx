@@ -1,0 +1,34 @@
+---
+title: Caching
+description: Cache Python dataset query results under opaque, tenant-safe keys.
+---
+
+import { CodeBlock } from 'fumadocs-ui/components/codeblock';
+
+Pass a `ResultCache` to the client to cache query results. The store only ever sees opaque `hq1.…` keys, never
+queries, tenant ids, or filter values.
+
+<CodeBlock>
+```python
+from hypequery.datasets import MemoryCacheStore, ResultCache, create_dataset_client
+
+cache = ResultCache(
+    store=MemoryCacheStore(max_entries=1_000),
+    project="acme",
+    environment="production",
+    ttl_seconds=60,
+)
+analytics = create_dataset_client(executor=executor, cache=cache)
+
+result = analytics.execute(orders, query, context=context)
+result.meta.cache  # "miss", then "hit" for the same request
+```
+</CodeBlock>
+
+- **Tenant isolation.** Entries are keyed by tenant, so two tenants never share an entry.
+- **Equivalent requests share an entry.** Filter order, `offset: 0`, and empty lists do not create separate entries.
+- **Never fails a query.** A store error runs the query uncached and reports `meta.cache == "bypass"`. Pass
+  `use_cache=False` to skip the cache for one call.
+- **Shared stores need a secret.** For a store shared across processes, such as Redis, pass a `secret` of 32 or
+  more random bytes, the same on every instance and distinct per environment. Without one, the cache generates a
+  random secret for its own lifetime, which is all an in-memory store needs.

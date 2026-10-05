@@ -1,0 +1,50 @@
+---
+title: Definition
+description: Create dataset definitions over ClickHouse tables and views in Python.
+---
+
+import { CodeBlock } from 'fumadocs-ui/components/codeblock';
+
+A dataset is a semantic model over a source table or view.
+
+<CodeBlock>
+```python
+from hypequery.datasets import Dataset, dimension, measure, sum as sum_
+
+orders = Dataset(
+    name="orders",
+    source="orders",
+    tenant_key="tenant_id",
+    time_key="created_at",
+    dimensions={
+        "id": dimension("number"),
+        "created_at": dimension("timestamp"),
+    },
+    measures={
+        "revenue": measure(sum_("amount")),
+    },
+)
+```
+</CodeBlock>
+
+`name` is the logical dataset name and `source` is the physical table or view. `tenant_key` and `time_key` are the
+columns used for runtime tenant isolation and time grains.
+
+Datasets are immutable Pydantic models, validated when you create them. Define them at module level and import them
+where you query.
+
+## Fields
+
+A dataset can include:
+
+- `name` and `source`
+- `tenant_key`
+- `time_key`
+- `dimensions`
+- `measures`
+- `filters`
+- `relationships`
+- `limits`
+
+See [Dimensions](/docs/python/datasets/dimensions), [Measures](/docs/python/datasets/measures), and
+[Relationships](/docs/python/datasets/relationships) for the main building blocks.
