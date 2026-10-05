@@ -56,6 +56,9 @@ export interface QueryBuilderLike {
    * aggregates. A builder without it can still run every query that does not
    * traverse a relationship; one that does is rejected with a clear error
    * instead of falling back to `leftJoin`.
+   *
+   * Composite relationships use the key-pair form, ANDing every
+   * `[leftColumn, rightColumn]` equality (`@hypequery/clickhouse` >= 2.13.0).
    */
   leftAnyJoin?(
     table: string,
@@ -64,15 +67,9 @@ export interface QueryBuilderLike {
     alias?: string,
     on?: QueryBuilderJoinCondition | QueryBuilderJoinCondition[],
   ): QueryBuilderLike;
-
-  /**
-   * LEFT join on every key equality (AND) that attaches at most one target row
-   * per base row, e.g. ClickHouse `LEFT ANY JOIN`. Dialect-neutral so other
-   * builders can implement it; required only for multi-column relationships.
-   */
-  singleMatchJoin?(
+  leftAnyJoin?(
     table: string,
-    keys: readonly [{ readonly leftColumn: string; readonly rightColumn: string }, ...{ readonly leftColumn: string; readonly rightColumn: string }[]],
+    keys: readonly [readonly [string, string], ...(readonly [string, string])[]],
     alias?: string,
     on?: QueryBuilderJoinCondition | QueryBuilderJoinCondition[],
   ): QueryBuilderLike;
