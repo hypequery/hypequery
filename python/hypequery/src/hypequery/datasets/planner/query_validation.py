@@ -56,6 +56,11 @@ def check_query_limits(dataset: Dataset, query: DatasetQuery) -> None:
         raise CompiledQueryError(
             "too-large", f"Too many measures: {len(measures)} (max {limits.max_measures})"
         )
+    if limits.max_filters is not None and len(query.having) > limits.max_filters:
+        raise CompiledQueryError(
+            "too-large",
+            f"Too many having conditions: {len(query.having)} (max {limits.max_filters})",
+        )
     if limits.max_filters is not None and len(query.filters) > limits.max_filters:
         raise CompiledQueryError(
             "too-large", f"Too many filters: {len(query.filters)} (max {limits.max_filters})"

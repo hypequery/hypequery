@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Add `having` conditions on selected measure values, matching
+  `@hypequery/datasets` (HQ-329). Operators are `eq`, `neq`, `gt`, `gte`, `lt`,
+  `lte`, `between`, `in` and `notIn`. Values are finite numbers bound as
+  parameters, and conditions count against `max_filters`. Dataset endpoints
+  forward `having`; metric endpoints refuse it. Queries with conditions bypass
+  the result cache until the cache preimage carries them.
 - Support composite relationship keys (RFC 0016), matching `@hypequery/datasets`.
   Pass `keys=(("customer_id", "id"), ("region_code", "region"))` to a
   relationship helper; every pair is AND-ed in the join, and related-measure
