@@ -1,5 +1,37 @@
 # @hypequery/datasets
 
+## 0.22.0
+
+### Minor Changes
+
+- 0841d1c: Add `compileDataset` to preview the same dataset compilation path used by
+  execution, including effective row limits, pagination overfetch, measure
+  dependencies and time-axis preflight statements. Structural diagnostics and JSON
+  serialization omit SQL, parameter values and tenant identifiers.
+
+  Add `createPortableSemanticRuntime` for provider-side compilation and execution
+  over the same activated catalog, and expose a tested capability matrix that
+  separates protocol representation from TS, Python and Cloud implementation
+  support. Existing logical SQL and portable executor APIs remain available.
+
+- 9b5b523: Support one-hop relationship base measures in dataset queries through the query-builder client. Allow duplicate-insensitive aggregates through belongsTo and all base aggregates through declared hasOne relationships, preserve tenant and fixed-filter scoping, and exclude unmatched target rows from aggregate inputs. Advertise safe names and approximate metadata in runtime catalogs and input schemas, with typed projections through Serve and React.
+- f30add1: Preserve dataset filter allowlist names and field-specific operators through dataset and metric queries, Serve API inputs, and React hooks. Generated filters respect `filterable: false`, and one-hop relationship filters follow the target allowlist. Filter helpers retain operator literals.
+
+  Prevent normal dataset execution from falling through to the legacy dynamic-query overload; explicit result-row generic calls remain supported. Fix Serve in-process execution input inference so its optional schema storage property no longer widens typed inputs to unknown.
+
+### Patch Changes
+
+- 339deef: Snapshot dataset and metric query inputs and tenant runtime before cache lookup,
+  so caller mutations during an asynchronous store read cannot cache another
+  tenant's result under the original tenant's key.
+- 1effbb2: Add an optional datasets SQL rendering hook to query builder factories, with a
+  ClickHouse default that preserves existing SQL. Resolve the hook from runtime
+  builder overrides and route existing quoted identifiers through it as the
+  foundation for subsequent dialect extraction.
+- 339deef: Reject unsupported semantic filter operators and invalid sort directions at
+  runtime, including direct SDK inputs, before compilation or cached execution.
+  Render sort directions through a closed mapping instead of interpolating input.
+
 ## 0.21.0
 
 ### Minor Changes
