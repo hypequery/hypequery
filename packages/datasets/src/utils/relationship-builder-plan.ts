@@ -150,12 +150,12 @@ export function applyRelationshipJoins(
   }
   for (const join of ctx.joins) {
     if (join.keys && join.keys.length > 1) {
-      if (!qb.leftAnyJoinOn) throw new Error(`Composite relationship "${join.relationship}" requires query builder leftAnyJoinOn support.`);
+      if (!qb.singleMatchJoin) throw new Error(`Composite relationship "${join.relationship}" requires query builder singleMatchJoin support.`);
       const keys = join.keys.map(key => ({
         leftColumn: `${ctx.baseSource}.${key.from}`,
         rightColumn: `${join.relationship}.${key.to}`,
       }));
-      qb = qb.leftAnyJoinOn(join.source, [keys[0], ...keys.slice(1)], join.relationship, join.tenant
+      qb = qb.singleMatchJoin(join.source, [keys[0], ...keys.slice(1)], join.relationship, join.tenant
         ? { column: `${join.relationship}.${join.tenant.field}`, operator: join.tenant.operator, value: join.tenant.value } : undefined);
       continue;
     }

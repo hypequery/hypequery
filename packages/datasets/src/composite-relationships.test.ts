@@ -63,8 +63,8 @@ describe('composite relationships', () => {
   });
   it('refuses builders without composite join support', () => {
     const db = createQueryBuilder<Record<string, Record<string, 'String'>>>({ host: 'http://localhost:8123' });
-    const factory = { table: (name: string) => { const qb = db.table(name); Object.defineProperty(qb, 'leftAnyJoinOn', { value: undefined }); return qb; }, rawQuery: async () => [] };
+    const factory = { table: (name: string) => { const qb = db.table(name); Object.defineProperty(qb, 'singleMatchJoin', { value: undefined }); return qb; }, rawQuery: async () => [] };
     const unsupported = createDatasetClient({ queryBuilder: factory });
-    expect(() => unsupported.toSQL(Orders, { dimensions: ['customer.name'] }, context)).toThrow(/requires query builder leftAnyJoinOn/);
+    expect(() => unsupported.toSQL(Orders, { dimensions: ['customer.name'] }, context)).toThrow(/requires query builder singleMatchJoin/);
   });
 });
