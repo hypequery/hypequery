@@ -6,6 +6,12 @@
   `2026-10-25T01:30:00Z` were rejected by ClickHouse, and aware datetimes could
   resolve to the wrong instant on a non-UTC server in a repeated daylight-saving
   hour. Values without an offset are passed through unchanged.
+- Select one-hop relationship base measures as `<relationship>.<measure>`,
+  matching `@hypequery/datasets`. Duplicate-insensitive aggregates are allowed
+  through `belongs_to` and every aggregate through `has_one`. Unmatched target
+  rows never feed an aggregate, and target tenant and fixed-filter scoping are
+  preserved. Catalogs, ordering and discovery advertise the safe names.
+- Reject a query that selects one name as both a dimension and a measure.
 - Add a validated ASGI production profile and Uvicorn runner with explicit bind
   and proxy trust, startup refusals for debug/docs/reload/cookie auth, bounded
   admission, cancellation-aware deadlines and database/HTTP result ceilings.

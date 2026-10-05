@@ -84,6 +84,42 @@ and cannot be executed. For async code, use `create_async_dataset_client` with
 an async executor and `await client.execute(...)`. The client does not own the
 executor, so close the executor when the application shuts down.
 
+### Measures across relationships
+
+A query can select a target's base measure as `<relationship>.<measure>`, one
+hop over a `belongs_to` or `has_one` relationship:
+
+```python
+from hypequery.datasets import desc
+
+client.execute(
+    "orders",
+    DatasetQuery(
+        dimensions=("status",),
+        measures=("revenue", "customer.customerCount"),
+        order_by=(desc("customer.customerCount"),),
+    ),
+    context=ExecutionContext(tenant=tenant("org_123")),
+)
+```
+
+The target rows that count are the ones the selected base rows reach. Base
+filters and the base tenant decide which orders take part. The target
+measure's own filters apply to customer columns, and the join carries the
+target's tenant predicate. An order with no matching customer keeps its own
+measures but contributes nothing to the customer aggregate.
+
+A `belongs_to` join repeats each customer once per matching order, so only
+duplicate-insensitive aggregates are selectable through it: `count_distinct`,
+`min`, `max`, `arg_max` and `arg_min`. A declared `has_one` permits every
+aggregate, including `sum`, `count` and `avg`; the declaration is trusted.
+`has_many`, deeper paths, SQL-backed target measures, and target measures whose
+field or filters use SQL-backed dimensions are rejected. Selecting one name as
+both a dimension and a measure is rejected.
+
+Catalog relationship entries list the safe names under `measures`, they are
+orderable, and discovery includes them. This matches `@hypequery/datasets`.
+
 ## Result caching
 
 Pass a `ResultCache` to cache results. Keys follow RFC 0009 and RFC 0013: the
