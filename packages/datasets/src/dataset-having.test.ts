@@ -173,7 +173,15 @@ describe('dataset having conditions', () => {
     it('applies the dataset filter limit to having conditions', () => {
       const condition = { measure: 'revenue', operator: 'gt', value: 1 } as const;
       expect(errorsFor(having(condition, condition, condition, condition)))
-        .toContain('Too many having conditions: 4 (max 3)');
+        .toContain('Too many filters and having conditions: 4 (max 3)');
+    });
+
+    it('counts filters and having conditions together against the filter limit', () => {
+      const condition = { measure: 'revenue', operator: 'gt', value: 1 } as const;
+      const filter = { field: 'status', operator: 'eq', value: 'paid' } as const;
+      expect(errorsFor({ ...having(condition, condition), filters: [filter, filter] }))
+        .toContain('Too many filters and having conditions: 4 (max 3)');
+      expect(errorsFor({ ...having(condition), filters: [filter, filter] })).toBe('');
     });
 
     it('rejects queries that select window or shift measures', () => {

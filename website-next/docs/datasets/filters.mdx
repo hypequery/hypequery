@@ -80,6 +80,30 @@ await analytics.execute(Orders, {
 ```
 </CodeBlock>
 
+## Filter aggregated values with `having`
+
+`filters` narrow the rows before they are aggregated. To keep only the groups whose aggregated value passes a condition, such as customers with more than 10,000 in revenue, use `having`:
+
+<CodeBlock>
+```typescript
+await analytics.execute(Orders, {
+  dimensions: ['customerId'],
+  measures: ['revenue', 'orderCount'],
+  filters: [eq('status', 'completed')],
+  having: [
+    { measure: 'revenue', operator: 'gt', value: 10_000 },
+    { measure: 'orderCount', operator: 'between', value: [2, 50] },
+  ],
+});
+```
+</CodeBlock>
+
+- Each condition must name a measure the query selects, including derived measures. A condition on an unselected measure is rejected.
+- Values are finite numbers, bound as query parameters. Operators are `eq`, `neq`, `gt`, `gte`, `lt`, `lte`, `between` (a `[min, max]` pair), `in` and `notIn` (non-empty arrays).
+- Conditions apply after grouping and before ordering and limits. A group whose measure is `NULL` never matches.
+- A dataset's `limits.maxFilters` bounds `filters` and `having` together.
+- Queries that select window or shift measures do not accept `having`.
+
 ## Use filters in measures
 
 Filtered measures are useful when a business state should always be part of the aggregation.

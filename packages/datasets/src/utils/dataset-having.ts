@@ -54,9 +54,13 @@ export function datasetHavingErrors(
   if (selectedTimeMeasures(ds, query).size > 0) {
     errors.push('Having is not supported on queries that select window or shift measures.');
   }
+  // `maxFilters` bounds every predicate the query adds, before and after
+  // aggregation alike. Filters alone over the limit are reported separately.
   const maxFilters = ds.limits?.maxFilters;
-  if (maxFilters && query.having.length > maxFilters) {
-    errors.push(`Too many having conditions: ${query.having.length} (max ${maxFilters})`);
+  const filterCount = Array.isArray(query.filters) ? query.filters.length : 0;
+  const conditionCount = filterCount + query.having.length;
+  if (maxFilters && conditionCount > maxFilters && filterCount <= maxFilters) {
+    errors.push(`Too many filters and having conditions: ${conditionCount} (max ${maxFilters})`);
   }
 
   const selected = new Set(selectedMeasures);
