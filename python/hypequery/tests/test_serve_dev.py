@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+import os
 import socket
 import subprocess
 import sys
@@ -23,6 +25,7 @@ from hypequery.serve import (
     create_router,
     run_dev,
 )
+from hypequery.serve.dev import _RELOAD_TARGET, _reload_app
 from hypequery.serve.dev.__main__ import main
 from hypequery.serve.utils.bind_address import is_loopback
 
@@ -128,18 +131,24 @@ def test_import_string_resolves_from_the_working_directory(
     _write_module(tmp_path, "devapp_production", production=True)
     monkeypatch.chdir(tmp_path)
     monkeypatch.setattr(sys, "path", list(sys.path))
+    path_before = list(sys.path)
     run_dev("devapp_plain:app")
     assert isinstance(served[0][0], FastAPI)
+    assert sys.path == path_before
     with pytest.raises(ValueError, match="run_production"):
         run_dev("devapp_production:app")
+    with pytest.raises(ValueError, match="run_production"):
+        run_dev("devapp_production:app", reload=True)
+    assert len(served) == 1
+    assert sys.path == path_before
     run_dev("devapp_plain:app", reload=True)
     assert served[1] == (
-        "devapp_plain:app",
+        "hypequery.serve.dev:_reload_app",
         {
             "host": "127.0.0.1",
             "port": 8000,
             "reload": True,
-            "app_dir": str(tmp_path),
+            "factory": True,
             "workers": 1,
             "proxy_headers": False,
             "forwarded_allow_ips": "",
@@ -147,6 +156,23 @@ def test_import_string_resolves_from_the_working_directory(
             "ws": "none",
         },
     )
+    assert sys.path == path_before
+    assert _RELOAD_TARGET not in os.environ
+
+
+def test_reload_workers_refuse_production_apps(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # A reload worker imports the app itself, so the refusal must hold there
+    # too, e.g. when a file change turns a development app into a production one.
+    _write_module(tmp_path, "devapp_reload_plain", production=False)
+    _write_module(tmp_path, "devapp_reload_production", production=True)
+    monkeypatch.setattr(sys, "path", list(sys.path))
+    monkeypatch.setenv(_RELOAD_TARGET, json.dumps([str(tmp_path), "devapp_reload_plain:app"]))
+    assert isinstance(_reload_app(), FastAPI)
+    monkeypatch.setenv(_RELOAD_TARGET, json.dumps([str(tmp_path), "devapp_reload_production:app"]))
+    with pytest.raises(ValueError, match="run_production"):
+        _reload_app()
 
 
 def test_module_entry_point_passes_options(

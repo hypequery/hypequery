@@ -12,7 +12,10 @@ from the one that works. The script:
 5. fails if the whole path takes longer than the 15-minute budget.
 
 ClickHouse comes from ``CLICKHOUSE_HOST``, ``CLICKHOUSE_PORT``,
-``CLICKHOUSE_USERNAME`` and ``CLICKHOUSE_PASSWORD``. Usage::
+``CLICKHOUSE_USERNAME`` and ``CLICKHOUSE_PASSWORD``; set
+``CLICKHOUSE_PROTOCOL=https`` for a server beyond this machine, since the
+script refuses to send credentials there over plain HTTP. The scratch database
+gets a fresh random name, so no existing database is touched. Usage::
 
     uv build --wheel
     uv run python scripts/getting_started.py dist/hypequery-*.whl
@@ -22,9 +25,11 @@ from __future__ import annotations
 
 import argparse
 import base64
+import ipaddress
 import json
 import os
 import re
+import secrets
 import shlex
 import shutil
 import signal
@@ -38,7 +43,6 @@ from pathlib import Path
 
 README = Path(__file__).resolve().parent.parent / "README.md"
 BUDGET_SECONDS = 15 * 60
-DATABASE = "hypequery_getting_started"
 SERVER = "http://127.0.0.1:8000"
 _BLOCK = re.compile(r"<!-- getting-started: (?P<name>[\w.]+) -->\n```\w*\n(?P<body>.*?)```", re.S)
 
@@ -51,14 +55,31 @@ def readme_blocks() -> dict[str, str]:
     return blocks
 
 
+def is_local(host: str) -> bool:
+    if host == "localhost":
+        return True
+    try:
+        return ipaddress.ip_address(host.strip("[]")).is_loopback
+    except ValueError:
+        return False
+
+
 def clickhouse(sql: str, *, database: str = "default") -> None:
     host = os.environ.get("CLICKHOUSE_HOST", "localhost")
     port = os.environ.get("CLICKHOUSE_PORT", "8123")
+    protocol = os.environ.get("CLICKHOUSE_PROTOCOL", "http")
     user = os.environ.get("CLICKHOUSE_USERNAME", "default")
     password = os.environ.get("CLICKHOUSE_PASSWORD", "")
+    if protocol not in ("http", "https"):
+        raise SystemExit("CLICKHOUSE_PROTOCOL must be http or https")
+    if protocol == "http" and not is_local(host):
+        raise SystemExit(
+            f"refusing to send ClickHouse credentials to {host} over plain HTTP; "
+            "set CLICKHOUSE_PROTOCOL=https"
+        )
     token = base64.b64encode(f"{user}:{password}".encode()).decode()
-    request = urllib.request.Request(
-        f"http://{host}:{port}/?database={database}",
+    request = urllib.request.Request(  # noqa: S310 - scheme checked above
+        f"{protocol}://{host}:{port}/?database={database}",
         data=sql.encode(),
         headers={"Authorization": f"Basic {token}"},
     )
@@ -121,56 +142,64 @@ def walkthrough(wheel: Path) -> None:
         workdir = Path(scratch)
         python = install(wheel, workdir / ".venv")
 
-        clickhouse(f"DROP DATABASE IF EXISTS {DATABASE}")
-        clickhouse(f"CREATE DATABASE {DATABASE}")
-        for statement in blocks["seed.sql"].split(";"):
-            if statement.strip():
-                clickhouse(statement, database=DATABASE)
-
-        (workdir / "app.py").write_text(blocks["app.py"])
-        env = {
-            **os.environ,
-            "PATH": f"{python.parent}{os.pathsep}{os.environ['PATH']}",
-            "HYPEQUERY_DEV_TOKEN": "dev-secret",
-            "CLICKHOUSE_DATABASE": DATABASE,
-        }
-        env.pop("VIRTUAL_ENV", None)
-        server = subprocess.Popen(  # noqa: S603
-            ["bash", "-c", run_command(blocks["run"])],  # noqa: S607
-            cwd=workdir,
-            env=env,
-            start_new_session=True,
-        )
+        # A fresh name, created without IF NOT EXISTS: the walkthrough only
+        # ever drops the database it created itself.
+        database = f"hypequery_getting_started_{secrets.token_hex(6)}"
+        clickhouse(f"CREATE DATABASE {database}")
         try:
-            wait_for_server(server)
-            query = subprocess.run(  # noqa: S603
-                ["bash", "-c", blocks["query"]],  # noqa: S607
-                cwd=workdir,
-                env=env,
-                check=True,
-                capture_output=True,
-                text=True,
-            )
-            actual = json.loads(query.stdout)
-            expected = json.loads(blocks["response"])
-            if actual != expected:
-                raise SystemExit(f"response differs from README:\n{query.stdout}")
-            status = unauthenticated_status()
-            if status != 401:
-                raise SystemExit(f"a request without the token returned {status}, not 401")
+            serve_walkthrough(blocks, workdir, python, database)
         finally:
-            os.killpg(server.pid, signal.SIGTERM)
-            try:
-                server.wait(timeout=10)
-            except subprocess.TimeoutExpired:
-                os.killpg(server.pid, signal.SIGKILL)
-                server.wait()
-            clickhouse(f"DROP DATABASE IF EXISTS {DATABASE}")
+            clickhouse(f"DROP DATABASE IF EXISTS {database}")
 
     elapsed = time.monotonic() - started
     print(f"getting started walkthrough passed in {elapsed:.1f}s")
     if elapsed > BUDGET_SECONDS:
         raise SystemExit(f"walkthrough took {elapsed:.0f}s, over the {BUDGET_SECONDS}s budget")
+
+
+def serve_walkthrough(blocks: dict[str, str], workdir: Path, python: Path, database: str) -> None:
+    for statement in blocks["seed.sql"].split(";"):
+        if statement.strip():
+            clickhouse(statement, database=database)
+
+    (workdir / "app.py").write_text(blocks["app.py"])
+    env = {
+        **os.environ,
+        "PATH": f"{python.parent}{os.pathsep}{os.environ['PATH']}",
+        "HYPEQUERY_DEV_TOKEN": "dev-secret",
+        "CLICKHOUSE_DATABASE": database,
+    }
+    env.pop("VIRTUAL_ENV", None)
+    server = subprocess.Popen(  # noqa: S603
+        ["bash", "-c", run_command(blocks["run"])],  # noqa: S607
+        cwd=workdir,
+        env=env,
+        start_new_session=True,
+    )
+    try:
+        wait_for_server(server)
+        query = subprocess.run(  # noqa: S603
+            ["bash", "-c", blocks["query"]],  # noqa: S607
+            cwd=workdir,
+            env=env,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        actual = json.loads(query.stdout)
+        expected = json.loads(blocks["response"])
+        if actual != expected:
+            raise SystemExit(f"response differs from README:\n{query.stdout}")
+        status = unauthenticated_status()
+        if status != 401:
+            raise SystemExit(f"a request without the token returned {status}, not 401")
+    finally:
+        os.killpg(server.pid, signal.SIGTERM)
+        try:
+            server.wait(timeout=10)
+        except subprocess.TimeoutExpired:
+            os.killpg(server.pid, signal.SIGKILL)
+            server.wait()
 
 
 def main() -> None:
