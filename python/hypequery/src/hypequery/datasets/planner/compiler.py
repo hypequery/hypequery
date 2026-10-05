@@ -551,7 +551,13 @@ class DatasetQueryCompiler:
 
         def number(value: object) -> bool:
             # `bool` is an `int` subclass; a JSON `true` is not a measure value.
-            return type(value) in (int, float) and math.isfinite(cast(float, value))
+            if type(value) not in (int, float):
+                return False
+            try:
+                return math.isfinite(cast(float, value))
+            except OverflowError:
+                # An integer beyond float range, such as 10**400.
+                return False
 
         value, operator, name = condition.value, condition.operator, condition.measure
         if operator == "between":

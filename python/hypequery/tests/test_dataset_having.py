@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 import re
+import secrets
 from dataclasses import dataclass, field
 
 import pytest
@@ -14,11 +15,14 @@ from hypequery.datasets import (
     Dataset,
     DatasetLimits,
     DatasetQuery,
+    belongs_to,
     count,
     create_dataset_client,
+    create_dataset_registry,
     desc,
     dimension,
     eq,
+    max,  # noqa: A004
     measure,
 )
 from hypequery.datasets import sum as sum_
@@ -117,6 +121,8 @@ def test_conditions_apply_to_the_default_measure_selection() -> None:
         ),
         ({"measure": "revenue", "operator": "gt", "value": True}, "expects a finite number"),
         ({"measure": "revenue", "operator": "gt", "value": "1"}, "expects a finite number"),
+        ({"measure": "revenue", "operator": "gt", "value": 10**400}, "expects a finite number"),
+        ({"measure": "revenue", "operator": "in", "value": [1, 10**400]}, "non-empty array"),
         ({"measure": "revenue", "operator": "gt", "value": [1]}, "expects a finite number"),
         ({"measure": "revenue", "operator": "between", "value": [1]}, "two-item array"),
         ({"measure": "revenue", "operator": "between", "value": [1, "2"]}, "two-item array"),
@@ -318,4 +324,86 @@ def test_live_having_filters_grouped_and_ungrouped_results() -> None:
     finally:
         executor.close()
         admin.command("DROP TABLE IF EXISTS test_db.hq_having_orders")
+        admin.close()
+
+
+@pytest.mark.skipif(
+    "HYPEQUERY_TEST_CLICKHOUSE_HOST" not in os.environ,
+    reason="live ClickHouse service is not configured",
+)
+def test_live_having_on_relationship_measures_skips_unmatched_rows() -> None:
+    import clickhouse_connect
+
+    from hypequery.execution import ClickHouseConnection, create_clickhouse_executor
+
+    host = os.environ["HYPEQUERY_TEST_CLICKHOUSE_HOST"]
+    port = int(os.environ.get("HYPEQUERY_TEST_CLICKHOUSE_PORT", "8123"))
+    password = os.environ["HYPEQUERY_TEST_CLICKHOUSE_PASSWORD"]
+    admin = clickhouse_connect.get_client(
+        host=host, port=port, username="default", password=password
+    )
+    # A fresh name, created without IF NOT EXISTS: the test only ever drops the
+    # database it created itself.
+    database = f"hq_having_relationships_{secrets.token_hex(6)}"
+    admin.command(f"CREATE DATABASE {database}")
+    executor = create_clickhouse_executor(
+        ClickHouseConnection(
+            host=host, port=port, database=database, username="default", password=password
+        )
+    )
+    try:
+        admin.command(f"CREATE TABLE {database}.targets (id UInt32, score Float64) ENGINE = Memory")
+        admin.command(
+            f"CREATE TABLE {database}.sources "
+            "(id UInt32, target_id UInt32, status String, amount Float64) ENGINE = Memory"
+        )
+        admin.command(f"INSERT INTO {database}.targets VALUES (1, 10), (2, 20), (3, 30)")  # noqa: S608
+        # Source 4 matches no target: its group's target aggregate is NULL, and
+        # must not pass a condition as a default 0 would.
+        admin.command(
+            f"INSERT INTO {database}.sources VALUES "  # noqa: S608 - generated name
+            "(1, 1, 'paid', 5), (2, 2, 'paid', 7), (3, 3, 'open', 1), (4, 9, 'refund', 2)"
+        )
+        targets = Dataset(
+            name="havingTargets",
+            source="targets",
+            dimensions={"id": dimension("number"), "score": dimension("number")},
+            measures={"highest": measure(max("score"))},
+        )
+        sources = Dataset(
+            name="havingSources",
+            source="sources",
+            dimensions={"status": dimension("string"), "amount": dimension("number")},
+            measures={"total": measure(sum_("amount"))},
+            relationships={
+                "target": belongs_to(lambda: targets, from_field="target_id", to_field="id")
+            },
+        )
+        client = create_dataset_client(
+            executor=executor, registry=create_dataset_registry(sources, targets)
+        )
+
+        def having(operator: str, value: float) -> tuple[dict[str, ResultScalar], ...]:
+            return client.execute(
+                "havingSources",
+                DatasetQuery.model_validate(
+                    {
+                        "dimensions": ["status"],
+                        "measures": ["total", "target.highest"],
+                        "having": [
+                            {"measure": "target.highest", "operator": operator, "value": value}
+                        ],
+                        "order_by": [{"field": "status", "direction": "asc"}],
+                    }
+                ),
+            ).data
+
+        assert having("gt", 15) == (
+            {"status": "open", "total": 1.0, "target.highest": 30.0},
+            {"status": "paid", "total": 12.0, "target.highest": 20.0},
+        )
+        assert having("lt", 25) == ({"status": "paid", "total": 12.0, "target.highest": 20.0},)
+    finally:
+        executor.close()
+        admin.command(f"DROP DATABASE IF EXISTS {database}")
         admin.close()
