@@ -7,7 +7,9 @@ wire data, paging, caps, measure serialization, metadata opt-in, canonical failu
 types, authentication/role/scope/tenant denials, and the exact logical discovery
 projection. Recursive public-key checks prevent SQL, physical, tenant and diagnostic
 fields from being silently added. Dynamic request IDs and timings are checked by
-shape, not compared as literals.
+shape, not compared as literals. Cache metadata is optional for uncached
+TypeScript dataset queries; when reported, these fresh fixture apps must report
+a cache miss.
 
 `pnpm conformance:serve` runs this suite and errors-v1 in both languages. Python
 quality jobs run it on 3.11–3.14 and the FastAPI-floor job includes it. Fixtures

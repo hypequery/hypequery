@@ -90,7 +90,8 @@ describe('shared semantic HTTP fixtures (semantic-v1)', () => {
       expect(body.meta.pagination).toEqual(expected.pagination);
       expect(body.meta.rowCount).toBe(body.data.length);
       expect(typeof body.meta.timingMs).toBe('number');
-      expect(body.meta.cache).toEqual({ hit: false });
+      // Cache metadata is optional when the TypeScript dataset cache is disabled.
+      if (body.meta.cache !== undefined) expect(body.meta.cache).toEqual({ hit: false });
     }
     if (expected.errorType) expect(body.error.type).toBe(expected.errorType);
     if (expected.discovery) expect(body).toEqual(expected.discovery);
