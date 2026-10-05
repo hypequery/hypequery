@@ -200,6 +200,10 @@ def test_an_output_cannot_be_both_a_dimension_and_a_measure() -> None:
     assert _sql(
         DatasetQuery(dimensions=("target.id",), measures=()), dataset=source, registry=registry
     )
+    # Omitting measures selects every base measure, so the overlap still counts.
+    with pytest.raises(CompiledQueryError, match="cannot be selected as both"):
+        _sql(DatasetQuery(dimensions=("id",)), dataset=target, registry=registry)
+    assert _sql(DatasetQuery(dimensions=("id",), measures=()), dataset=target, registry=registry)
     assert _sql(DatasetQuery(measures=("target.id",)), dataset=source, registry=registry)
 
 
