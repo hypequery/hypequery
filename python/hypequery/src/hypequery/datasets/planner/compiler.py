@@ -106,8 +106,12 @@ class DatasetQueryCompiler:
         query = self.query
         scope = resolve_tenant_scope(self.dataset, self.context)
 
+        # An omitted measure list selects every base measure, as `_add_measures` does.
+        selected_measures = (
+            query.measures if query.measures is not None else tuple(self.dataset.measures)
+        )
         for name in query.dimensions:
-            if name in (query.measures or ()):
+            if name in selected_measures:
                 raise CompiledQueryError(
                     "input-invalid",
                     f'Output "{name}" cannot be selected as both a dimension and a measure. '
