@@ -9,9 +9,20 @@ export function semanticResponseMeta(
   return {
     timingMs: meta.timingMs,
     rowCount: meta.rowCount,
-    pagination: meta.pagination,
-    cache: meta.cache,
-    resultLimit: meta.resultLimit,
+    pagination: meta.pagination === undefined ? undefined : {
+      limit: meta.pagination.limit,
+      offset: meta.pagination.offset,
+      hasMore: meta.pagination.hasMore,
+    },
+    cache: meta.cache === undefined ? undefined : {
+      hit: meta.cache.hit,
+      ageMs: meta.cache.ageMs,
+      stale: meta.cache.stale,
+    },
+    resultLimit: meta.resultLimit === undefined ? undefined : {
+      maxResultSize: meta.resultLimit.maxResultSize,
+      applied: meta.resultLimit.applied,
+    },
     ...(trustedDiagnostics ? { sql: meta.sql, tenant: meta.tenant } : {}),
   };
 }
