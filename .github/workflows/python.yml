@@ -152,7 +152,10 @@ jobs:
           cache-dependency-glob: python/hypequery/uv.lock
       - run: pnpm install --frozen-lockfile
       - run: uv sync --project python/hypequery --dev
-      - run: pnpm --filter @hypequery/serve... build
+      # Use the main CI's task graph to build serve's dependencies without its
+      # optional ClickHouse peer. pnpm's recursive runner includes that peer
+      # and races its build against the datasets declarations it consumes.
+      - run: pnpm turbo run build --filter='@hypequery/serve...'
       - name: Run Python against the expected shared fixture families
         run: pnpm conformance:python
       - name: Run shared HTTP error and semantic fixtures in both languages
