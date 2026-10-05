@@ -5,4 +5,4 @@ export {
   generateTypes,
   type GenerateTypesOptions,
   type TypeGenerationClickHouseClient,
-} from './generate-types';
+} from './generate-types.js';
