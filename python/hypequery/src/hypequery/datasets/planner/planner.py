@@ -48,8 +48,8 @@ def plan_dataset_query(
         context,
         overfetch=overfetch,
     )
-    settings = tighten_query_settings(settings, context.settings)
     compiled = compiler.compile()
+    settings = tighten_query_settings(settings, context.settings)
     return CompiledQuery(
         sql=compiled.sql,
         parameters=compiled.parameters,
