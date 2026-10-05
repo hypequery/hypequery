@@ -28,6 +28,7 @@ const footerColumns: Array<{ title: string; links: FooterLink[] }> = [
       { label: 'ClickHouse Next.js', href: '/clickhouse-nextjs' },
       { label: 'ClickHouse React', href: '/clickhouse-react' },
       { label: 'ClickHouse Node.js', href: '/clickhouse-nodejs' },
+      { label: 'ClickHouse Python', href: '/clickhouse-python' },
       { label: 'ClickHouse MCP', href: '/clickhouse-mcp' },
       { label: 'GitHub', href: 'https://github.com/hypequery/hypequery', external: true },
     ],
