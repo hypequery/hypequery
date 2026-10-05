@@ -1,0 +1,86 @@
+---
+title: Dataset endpoints
+description: Request and response shapes, pagination, and discovery for Python dataset endpoints.
+---
+
+import { CodeBlock } from 'fumadocs-ui/components/codeblock';
+
+`add_dataset_endpoint` registers a `POST` endpoint that runs semantic queries against one dataset through your
+dataset client (sync or async).
+
+<CodeBlock>
+```python
+add_dataset_endpoint(
+    router,
+    "/datasets/orders/query",
+    dataset=orders,
+    client=client,
+    policy=EndpointPolicy(tenant="required", max_limit=500),
+)
+```
+</CodeBlock>
+
+## Request body
+
+<CodeBlock>
+```json
+{
+  "dimensions": ["country"],
+  "measures": ["revenue"],
+  "filters": [{ "field": "status", "operator": "eq", "value": "completed" }],
+  "orderBy": [{ "field": "revenue", "direction": "desc" }],
+  "by": "month",
+  "limit": 10,
+  "offset": 0,
+  "includeMeta": true
+}
+```
+</CodeBlock>
+
+The body is validated strictly:
+
+- unknown fields are rejected with `400 VALIDATION_ERROR`;
+- numbers and booleans are not coerced from strings;
+- attempts to supply a tenant, SQL, settings, roles, or scopes are refused.
+
+## Response
+
+<CodeBlock>
+```json
+{
+  "data": [{ "country": "NZ", "revenue": "1200.5" }],
+  "meta": {
+    "requestId": "…",
+    "timingMs": 12,
+    "rowCount": 1,
+    "pagination": { "limit": 10, "offset": 0, "hasMore": false },
+    "cache": { "hit": false }
+  }
+}
+```
+</CodeBlock>
+
+- `meta` is included only when the body sets `includeMeta: true` or the request sends `x-include-meta: true`.
+- Non-null measure values are strings on the wire, matching TypeScript. Local Python client results keep native
+  values.
+
+## Pagination
+
+Page sizes default to 1,000 and are clamped to the endpoint's `max_limit` and the dataset's limits. The endpoint
+fetches one extra row to compute `hasMore`, then drops it from the returned data and row count.
+
+## Discovery
+
+`add_discovery_endpoint` publishes a logical catalog of your registered datasets at `/discovery`:
+
+<CodeBlock>
+```python
+add_discovery_endpoint(router, registry=registry)
+```
+</CodeBlock>
+
+- It requires authentication by default. Pass `policy=EndpointPolicy(public=True)` only for intentionally public
+  discovery.
+- The catalog matches TypeScript's `/discovery` projection. Physical tables, columns, SQL, tenant policy, and tenant
+  values never appear in it.
+- Its size is capped at 256 KiB by default (`max_bytes=`), checked at startup.

@@ -1,0 +1,44 @@
+---
+title: Rate limiting
+description: Limit request rates per caller on Python Serve routes.
+---
+
+import { CodeBlock } from 'fumadocs-ui/components/codeblock';
+
+Add a `RateLimit` to a route as a dependency:
+
+<CodeBlock>
+```python
+from fastapi import Depends
+from hypequery.serve import RateLimit
+
+
+@router.post("/reports/export", dependencies=[Depends(RateLimit(max=60, window_seconds=60))])
+def export(auth: Annotated[RequestAuth, Depends(router.auth)]) -> dict: ...
+```
+</CodeBlock>
+
+With the default key, the limit runs after authentication and before the body is read, so a limited caller costs
+neither a parse nor a query.
+
+## Defaults
+
+The defaults match TypeScript:
+
+- **Caller identity** is the authenticated principal, or else the client address set by
+  `HttpSecurity(trusted_proxies=...)`, never a header the caller chose.
+- **Exhaustion** answers `429 RATE_LIMITED` with `Retry-After` and `X-RateLimit-*` headers.
+- **Store failures** let the request through. Pass `fail_open=False` to answer `503` instead.
+
+## Custom keys
+
+Pass `key=` to group callers differently, for example by tenant. Custom key callbacks run in FastAPI's dependency
+order, after body parsing, so earlier dependencies can prepare `request.state`.
+
+## Stores
+
+`MemoryRateLimitStore` is the default. It holds up to 100,000 callers (`max_keys=`). When every slot has an active
+window, a new caller receives `503` until a slot expires; active counters are never reset to make room.
+
+For several processes, pass a `store` with an async `hit(key, window_seconds)` method backed by shared storage such
+as Redis.

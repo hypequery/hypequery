@@ -11,8 +11,8 @@ import { CodeBlock } from 'fumadocs-ui/components/codeblock';
 </Callout>
 
 The Python SDK lets you define a semantic layer over ClickHouse (datasets with dimensions, measures, and
-relationships) and query it from Python, with tenant isolation and result caching built in. A FastAPI router for
-serving datasets over HTTP is in progress.
+relationships) and query it from Python, with tenant isolation and result caching built in, then serve it over HTTP with an
+authenticated-by-default FastAPI router.
 
 Python and TypeScript implement the same specifications and run against the same conformance fixtures, so equivalent
 definitions produce identical semantic and deployment artifacts. The APIs are idiomatic to each language rather than
@@ -45,4 +45,5 @@ Python 3.11 or later is required.
 ## Next steps
 
 - [Quick start](/docs/python/quick-start): define a dataset and run a query.
+- [Serve with FastAPI](/docs/python/fastapi): expose datasets as authenticated HTTP endpoints.
 - [Feature status](/docs/python/feature-status): what is available in Python today compared with TypeScript.

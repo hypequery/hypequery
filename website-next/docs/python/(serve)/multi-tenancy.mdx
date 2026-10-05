@@ -1,0 +1,71 @@
+---
+title: Multi-tenancy
+description: Scope every Python Serve request to the authenticated tenant.
+---
+
+import { CodeBlock } from 'fumadocs-ui/components/codeblock';
+
+The tenant for a request always comes from the authenticated principal. No header, query parameter, body field, or
+request state can supply or change it.
+
+## Where the tenant comes from
+
+By default, `Principal.tenant_id` scopes the request, and a principal without one is tenant-free. Pass
+`resolve_tenant` to decide it yourself:
+
+<CodeBlock>
+```python
+from hypequery.datasets import tenant
+from hypequery.serve import Principal, create_router
+
+
+def resolve_tenant(principal: Principal):
+    org_id = lookup_org(principal.subject)  # your code
+    return tenant(org_id) if org_id else None
+
+
+router = create_router(authenticate=authenticate, resolve_tenant=resolve_tenant)
+```
+</CodeBlock>
+
+A resolver must return a single-tenant scope or `None`. It cannot grant `tenants()` with multiple identifiers or
+`all_tenants()`.
+
+## Require a tenant per endpoint
+
+<CodeBlock>
+```python
+add_dataset_endpoint(
+    router,
+    "/datasets/orders/query",
+    dataset=orders,
+    client=client,
+    policy=EndpointPolicy(tenant="required"),
+)
+```
+</CodeBlock>
+
+| `tenant` | Behavior |
+| --- | --- |
+| `"required"` | Tenant-free callers are refused |
+| `"optional"` (default) | The request runs with the caller's tenant, if any |
+| `"forbidden"` | Only tenant-free callers are allowed |
+
+When the dataset declares a `tenant_key`, the query adds the tenant predicate automatically, as in
+[dataset multi-tenancy](/docs/python/datasets/multi-tenancy). A request body that tries to set a tenant is rejected
+with `400 VALIDATION_ERROR`.
+
+## In your own routes
+
+Bind the client to the request's tenant before querying:
+
+<CodeBlock>
+```python
+@router.post("/reports/top-countries")
+def top_countries(auth: Annotated[RequestAuth, Depends(router.auth)]) -> dict:
+    scoped = client.for_tenant(auth.tenant)
+    return {"data": scoped.execute("orders", {"dimensions": ["country"], "measures": ["revenue"]}).data}
+```
+</CodeBlock>
+
+A tenant-bound client runs every query as that tenant, and refuses a context naming a different one.

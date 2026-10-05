@@ -1,0 +1,56 @@
+---
+title: Errors
+description: The error envelope and status codes returned by Python Serve.
+---
+
+import { CodeBlock } from 'fumadocs-ui/components/codeblock';
+
+Every error from a served route uses the same envelope as the TypeScript Serve runtime:
+
+<CodeBlock>
+```json
+{
+  "error": {
+    "type": "UNAUTHORIZED",
+    "message": "Access denied",
+    "details": { "reason": "missing_credentials" }
+  }
+}
+```
+</CodeBlock>
+
+Error responses are sent with `Cache-Control: no-store` and an `x-request-id`.
+
+## Error types
+
+| Status | `type` | When |
+| --- | --- | --- |
+| 400 | `VALIDATION_ERROR` | Invalid body, unknown fields, or an unknown dimension or measure |
+| 401 | `UNAUTHORIZED` | Missing or rejected credentials |
+| 403 | `FORBIDDEN` | Missing role or scope, or a tenant policy mismatch |
+| 404 | `NOT_FOUND` | Unknown path or method |
+| 413 | `PAYLOAD_TOO_LARGE` | Body or result over its byte limit |
+| 429 | `RATE_LIMITED` | Rate limit exhausted |
+| 503 | `SERVICE_UNAVAILABLE` | Authentication down, or the server at capacity |
+| 504 | `GATEWAY_TIMEOUT` | Request or query deadline missed |
+| 500 | `INTERNAL_SERVER_ERROR` | Unexpected failure |
+
+Validation errors are `400` with `details.issues[].path`, as in TypeScript, rather than FastAPI's `422`. Submitted
+values are never echoed back.
+
+## Raising errors from your routes
+
+<CodeBlock>
+```python
+from hypequery.serve import ServeError
+
+raise ServeError(404, "NOT_FOUND", "Report not found")
+```
+</CodeBlock>
+
+- `ServeError(status, type, message)` is sent as written, like TypeScript's `ServeHttpError`.
+- An `HTTPException` with a string `detail` keeps that message.
+- A dataset query error maps its category to a status and type, for example a missed deadline becomes
+  `504 GATEWAY_TIMEOUT`.
+- Anything else is logged to the `hypequery.serve` logger with its request id and answered with a fixed `500`. The
+  failure's own text never reaches the response body.

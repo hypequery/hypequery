@@ -4,6 +4,7 @@
   "root": "language",
   "pages": [
     "(get-started)",
-    "(datasets)"
+    "(datasets)",
+    "(serve)"
   ]
 }

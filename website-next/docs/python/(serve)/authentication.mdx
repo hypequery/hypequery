@@ -1,0 +1,104 @@
+---
+title: Authentication
+description: Authenticate Python Serve requests with bearer tokens or API keys, and require roles and scopes per endpoint.
+---
+
+import { CodeBlock } from 'fumadocs-ui/components/codeblock';
+
+Every route on a `create_router` router authenticates the request before FastAPI reads its body. You provide one
+function that turns a credential into a `Principal`.
+
+## The authenticator
+
+<CodeBlock>
+```python
+from hypequery.serve import Credential, InvalidCredential, Principal, create_router
+
+
+async def authenticate(credential: Credential) -> Principal | None:
+    try:
+        claims = await verify_jwt(credential.value)  # your token verification
+    except TokenError as exc:
+        raise InvalidCredential() from exc
+    return Principal(
+        subject=claims["sub"],
+        roles=frozenset(claims.get("roles", [])),
+        scopes=frozenset(claims.get("scope", "").split()),
+        tenant_id=claims.get("org_id"),
+    )
+
+
+router = create_router(authenticate=authenticate)
+```
+</CodeBlock>
+
+- The authenticator receives only the opaque `Credential`, never the request. It can be sync (run in the threadpool)
+  or async.
+- To reject a credential, return `None` or raise `InvalidCredential`. Callers get `401 UNAUTHORIZED`.
+- Wrap your token library's errors in `InvalidCredential`. Any other exception is treated as authentication being
+  down and answered with a fixed `503`; the exception text never reaches the response.
+
+## Credential transports
+
+Credentials are read from exactly one header:
+
+| Transport | Header |
+| --- | --- |
+| `bearer_token()` (default) | `Authorization: Bearer <token>` |
+| `api_key()` | `X-Api-Key: <key>` |
+
+<CodeBlock>
+```python
+from hypequery.serve import api_key
+
+router = create_router(authenticate=authenticate, credentials=api_key())
+```
+</CodeBlock>
+
+Query strings, cookies, and bodies are never read. A repeated, oversized, or malformed header is refused before your
+authenticator runs.
+
+## Roles and scopes per endpoint
+
+<CodeBlock>
+```python
+from hypequery.serve import EndpointPolicy
+
+add_dataset_endpoint(
+    router,
+    "/datasets/orders/query",
+    dataset=orders,
+    client=client,
+    policy=EndpointPolicy(
+        required_roles=frozenset({"analyst", "admin"}),
+        required_scopes=frozenset({"analytics:read"}),
+    ),
+)
+```
+</CodeBlock>
+
+- Any listed role grants access (OR).
+- All listed scopes are required (AND).
+- A caller that fails either check gets `403 FORBIDDEN`.
+
+## Public routes
+
+Mark a route public with `@router.public`, placed below the route decorator:
+
+<CodeBlock>
+```python
+@router.get("/health")
+@router.public
+def health() -> dict[str, str]:
+    return {"status": "ok"}
+```
+</CodeBlock>
+
+## What the router refuses
+
+Routes that could skip authentication are refused when you register them: plain Starlette routes, host routes,
+mounts, static frontends, websockets, custom route classes, and `include_router` on this router. Include other
+routers in your application instead.
+
+Dependencies passed to `FastAPI(dependencies=...)` or `include_router(router, dependencies=...)` run before this
+router authenticates, so keep them free of work you would not do for an anonymous caller.

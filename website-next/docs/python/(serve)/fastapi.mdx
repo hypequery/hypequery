@@ -1,0 +1,125 @@
+---
+title: Getting started
+description: Serve hypequery datasets over HTTP with an authenticated-by-default FastAPI router.
+---
+
+import { CodeBlock } from 'fumadocs-ui/components/codeblock';
+
+`hypequery.serve` turns your datasets into HTTP endpoints on a FastAPI router. Every route requires authentication
+unless you explicitly mark it public, and the tenant always comes from the authenticated caller, never from the request.
+
+## Install
+
+<CodeBlock>
+```bash
+pip install "hypequery[clickhouse,fastapi]"
+```
+</CodeBlock>
+
+## Serve a dataset
+
+<CodeBlock>
+```python
+from hypequery.datasets import create_dataset_client, create_dataset_registry
+from hypequery.serve import (
+    Credential,
+    EndpointPolicy,
+    HttpSecurity,
+    Principal,
+    add_dataset_endpoint,
+    add_discovery_endpoint,
+    create_app,
+    create_router,
+)
+
+from .datasets import orders
+from .executor import executor
+
+registry = create_dataset_registry(orders)
+client = create_dataset_client(executor=executor, registry=registry)
+
+
+async def authenticate(credential: Credential) -> Principal | None:
+    claims = await verify_jwt(credential.value)  # your token verification
+    if claims is None:
+        return None
+    return Principal(
+        subject=claims["sub"],
+        scopes=frozenset(claims.get("scope", "").split()),
+        tenant_id=claims.get("org_id"),
+    )
+
+
+router = create_router(authenticate=authenticate)
+add_dataset_endpoint(
+    router,
+    "/datasets/orders/query",
+    dataset=orders,
+    client=client,
+    policy=EndpointPolicy(required_scopes=frozenset({"analytics:read"}), tenant="required"),
+)
+add_discovery_endpoint(router, registry=registry)
+
+app = create_app(router, security=HttpSecurity(allowed_hosts=("analytics.example.com",)))
+```
+</CodeBlock>
+
+Run it with any ASGI server, or with [`run_production`](/docs/python/production) for a hardened standalone process.
+
+## Query it
+
+<CodeBlock>
+```bash
+curl -X POST https://analytics.example.com/datasets/orders/query \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"dimensions": ["country"], "measures": ["revenue"], "limit": 10}'
+```
+</CodeBlock>
+
+<CodeBlock>
+```json
+{ "data": [{ "country": "NZ", "revenue": "1200.5" }] }
+```
+</CodeBlock>
+
+Requests and responses use the same shape as the TypeScript Serve runtime, pinned by shared HTTP fixtures that run
+against both implementations in CI.
+
+## Defaults
+
+- **Authenticated by default.** Authentication runs before the body is read, so an anonymous caller cannot make the
+  server parse JSON.
+- **Strict bodies.** Bodies must be UTF-8 `application/json` (otherwise `415`) and are capped at 1 MiB, set with
+  `create_router(max_body_bytes=...)`.
+- **No caching of private data.** Authenticated responses are sent with `Cache-Control: no-store`.
+- **Docs closed.** `create_app` disables `/docs`, `/redoc`, and `/openapi.json`. Pass `development_docs=True` only
+  for deliberate development documentation.
+
+## Add your own routes
+
+The router is a regular FastAPI router. Use `router.auth` to get the authenticated principal and tenant:
+
+<CodeBlock>
+```python
+from typing import Annotated
+
+from fastapi import Depends
+from hypequery.serve import RequestAuth
+
+
+@router.post("/reports/top-countries")
+def top_countries(auth: Annotated[RequestAuth, Depends(router.auth)]) -> dict:
+    scoped = client.for_tenant(auth.tenant)
+    result = scoped.execute("orders", {"dimensions": ["country"], "measures": ["revenue"], "limit": 5})
+    return {"data": result.data}
+
+
+@router.get("/health")
+@router.public
+def health() -> dict[str, str]:
+    return {"status": "ok"}
+```
+</CodeBlock>
+
+`@router.public` must sit *below* the route decorator. In the other order the route stays authenticated.

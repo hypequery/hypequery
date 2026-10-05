@@ -1,0 +1,19 @@
+{
+  "title": "Serve",
+  "description": "Serve datasets over HTTP with FastAPI",
+  "icon": "Server",
+  "root": true,
+  "pages": [
+    "fastapi",
+    "dataset-endpoints",
+    "---Security---",
+    "authentication",
+    "multi-tenancy",
+    "http-security",
+    "rate-limiting",
+    "---Operations---",
+    "errors",
+    "observability",
+    "production"
+  ]
+}
