@@ -3,14 +3,12 @@
 import { useRef } from 'react';
 import { Info } from 'lucide-react';
 
-const CLOUD_PRIORITIES = [
-  ['Hosted REST APIs', 'cloud_feature_hosted_rest_apis'],
-  ['Hosted MCP', 'cloud_feature_hosted_mcp'],
-  ['Managed deployments', 'cloud_feature_managed_deployments'],
-  ['Tenant isolation', 'cloud_feature_tenant_isolation'],
-  ['Releases and rollback', 'cloud_feature_releases_and_rollback'],
-  ['Access controls', 'cloud_feature_access_controls'],
-  ['Usage and observability', 'cloud_feature_usage_and_observability'],
+const FIRST_USE_OPTIONS = [
+  'Hosted APIs',
+  'Hosted MCP',
+  'Embeddable chat',
+  'Embeddable dashboards',
+  'Something else',
 ] as const;
 
 export function DeployWaitlist({ location, className, compactLabel = false }: { location: string; className?: string; compactLabel?: boolean }) {
@@ -45,24 +43,24 @@ export function DeployWaitlist({ location, className, compactLabel = false }: { 
               </details>
             </div>
             <fieldset className="mt-6">
-              <legend className="text-sm font-semibold">Which Cloud features matter most to you?</legend>
-              <p className="mt-1 text-xs text-text-muted">Select any that matter to you. Optional.</p>
+              <legend className="text-sm font-semibold">What would you use first?</legend>
+              <p className="mt-1 text-xs text-text-muted">Pick one. Optional.</p>
               <div className="mt-3 grid grid-cols-2 gap-2">
-                {CLOUD_PRIORITIES.map(([feature, fieldName]) => (
-                  <label key={feature} className="flex min-h-11 cursor-pointer items-center gap-2 rounded-lg border border-border bg-bg-alt/50 px-3 py-2 text-xs leading-4 text-text transition hover:border-border-strong">
+                {FIRST_USE_OPTIONS.map((option) => (
+                  <label key={option} className="flex min-h-11 cursor-pointer items-center gap-2 rounded-lg border border-border bg-bg-alt/50 px-3 py-2 text-xs leading-4 text-text transition hover:border-border-strong has-[:checked]:border-accent">
                     <input
-                      type="checkbox"
-                      name={fieldName}
-                      value={feature}
+                      type="radio"
+                      name="first_use"
+                      value={option}
                       className="h-4 w-4 shrink-0 accent-accent"
                     />
-                    <span>{feature}</span>
+                    <span>{option}</span>
                   </label>
                 ))}
               </div>
             </fieldset>
             <label htmlFor={`deploy-context-${location}`} className="mt-6 block text-sm font-semibold">Anything else we should know?</label>
-            <textarea id={`deploy-context-${location}`} name="additional_context" rows={3} placeholder="Your use case, timeline, or anything else…" className="mt-2 w-full resize-y rounded-lg border border-border-strong bg-bg px-4 py-3 text-sm outline-none placeholder:text-text-dim focus:border-accent" />
+            <textarea id={`deploy-context-${location}`} name="additional_context" rows={3} placeholder="Your use case, or what you picked &quot;Something else&quot; for…" className="mt-2 w-full resize-y rounded-lg border border-border-strong bg-bg px-4 py-3 text-sm outline-none placeholder:text-text-dim focus:border-accent" />
             <input type="hidden" name="source" value={`homepage-deploy-${location}`} />
             <button type="submit" className="mt-4 w-full rounded-lg bg-accent px-5 py-3 text-sm font-semibold text-white transition hover:opacity-90 dark:text-[#0c0e14]">Join the cloud waitlist →</button>
           </form>
