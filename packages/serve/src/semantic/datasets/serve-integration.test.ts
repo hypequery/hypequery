@@ -2195,7 +2195,7 @@ describe("Serve integration — metrics", () => {
       };
       expect(body.version).toBe(3);
       expect(body.contentHash).toMatch(/^[a-f0-9]{64}$/);
-      expect(body.datasets.orders.source).toBe("orders");
+      expect(body.datasets.orders).not.toHaveProperty("source");
       expect(Object.keys(body.datasets.orders.dimensions)).toContain("country");
     });
 

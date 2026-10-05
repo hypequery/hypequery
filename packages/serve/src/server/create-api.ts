@@ -1,3 +1,5 @@
+import { createDiscoveryEndpoint } from "../semantic/datasets/discovery-endpoint.js";
+import { buildDiscoveryCatalogSource } from "../semantic/datasets/utils/discovery-catalog-source.js";
 import type {
   AuthContext,
   AuthStrategy,
@@ -290,6 +292,14 @@ export const createAPI = <
       () => serializeSemanticContract(contractSource, { includeSql: false }),
     );
     router.register(contractEndpoint);
+    const discoverySource = buildDiscoveryCatalogSource(contractSource, config.datasets);
+    router.register(createDiscoveryEndpoint(
+      normalizeRoutePath(config.semanticPaths?.discovery ?? "/discovery"),
+      // Project the catalog directly: contract serialization omits queryable
+      // relationship measures that discovery callers need to select.
+      () => discoverySource,
+      config.discovery,
+    ));
   }
 
   const corsConfig = resolveCorsConfig(config.cors);

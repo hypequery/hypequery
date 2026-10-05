@@ -2,7 +2,7 @@
  * Serve integration for the semantic contract: assembles the contract source
  * from registered datasets/metrics and exposes it as a cached GET endpoint.
  *
- * The contract is a stable, hashed JSON projection of the semantic layer
+ * The public contract is an allowlisted logical projection of the semantic layer
  * (dimensions, measures, metrics, filters, relationships, tenant/time policy).
  * It is the shared source consumed by snapshots, CI validation, docs, and
  * codegen. The serialized document is cached after the first request since the
@@ -14,6 +14,7 @@ import type { DatasetCatalogSource, SemanticContract } from '@hypequery/datasets
 import type { AuthContext, DatasetsConfig, MetricsConfig, ServeEndpoint } from '../../types.js';
 import { resolveDatasetEntry } from './utils/dataset-entry.js';
 import { resolveMetricEntry } from './metric-endpoint.js';
+import { publicSemanticContract } from './utils/public-contract.js';
 
 /**
  * Builds the `serializeSemanticContract` input from the registered datasets and
@@ -23,7 +24,7 @@ export function buildSemanticContractSource(
   datasets: DatasetsConfig<any>,
   metrics?: MetricsConfig<any>,
 ): Record<string, DatasetCatalogSource> {
-  const metricsByDatasetName: Record<string, Record<string, unknown>> = {};
+  const metricsByDatasetName: Record<string, NonNullable<DatasetCatalogSource['metrics']>> = {};
   for (const [metricName, entry] of Object.entries(metrics ?? {})) {
     const metric = resolveMetricEntry(entry).metric;
     const datasetName = metric.contract().dataset;
@@ -33,7 +34,8 @@ export function buildSemanticContractSource(
   const source: Record<string, DatasetCatalogSource> = {};
   for (const [name, entry] of Object.entries(datasets)) {
     const ds = resolveDatasetEntry(entry).dataset;
-    source[name] = { ...ds, metrics: metricsByDatasetName[ds.name] } as DatasetCatalogSource;
+    // The registration name is the addressable dataset name on this transport.
+    source[name] = { ...ds, name, metrics: metricsByDatasetName[ds.name] };
   }
   return source;
 }
@@ -52,7 +54,7 @@ export function createSemanticContractEndpoint(
       if (!cached) {
         cached = getContract();
       }
-      return cached;
+      return publicSemanticContract(cached);
     },
     query: undefined,
     middlewares: [],

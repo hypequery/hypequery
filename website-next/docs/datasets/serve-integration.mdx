@@ -176,3 +176,18 @@ export const api = serve({
 </CodeBlock>
 
 For routing, auth, OpenAPI, and React hooks, see the [Serve docs](/docs/http-openapi) and [React docs](/docs/react/getting-started).
+
+
+## Logical discovery
+
+`GET /discovery` returns a bounded logical catalog and authenticates by default.
+Set `discovery: { requiresAuth: false }` only for intentionally public discovery;
+configure roles/scopes through the same object. Customize the path with
+`semanticPaths.discovery`.
+
+The legacy public `/contract` retains its version and opaque definition
+`contentHash`, but omits physical sources, columns, SQL, join keys and tenant
+policy. Use local `serializeSemanticContract` for trusted snapshots and codegen
+that need physical definitions.
+The HTTP projection's `contentHash` identifies the original definition; it is
+not a digest of the public response and cannot verify that response's JSON.
