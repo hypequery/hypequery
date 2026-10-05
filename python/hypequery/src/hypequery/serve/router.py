@@ -17,14 +17,12 @@ particular way.
 # No `from __future__ import annotations`: FastAPI 0.115 cannot resolve string
 # annotations on a callable instance, which has no __globals__, and would read
 # `_Guard.__call__`'s `request: Request` as a query parameter.
-import inspect
 from collections.abc import Awaitable, Callable, Coroutine, MutableMapping, Sequence
 from typing import Any, NoReturn, TypeVar, cast
 
 from fastapi import APIRouter, Depends, Request
 from fastapi.params import Depends as DependsParam
 from fastapi.routing import APIRoute
-from starlette.concurrency import run_in_threadpool
 from starlette.datastructures import MutableHeaders
 from starlette.responses import Response
 from starlette.types import Message, Receive, Scope, Send
@@ -43,15 +41,13 @@ from .auth import (
     misconfigured,
     read_credential,
     unauthenticated,
-    unavailable,
 )
 from .body_policy import DEFAULT_MAX_BODY_BYTES, enforce_body_policy
 from .errors import as_serve_error, error_response
 from .rate_limit import RateLimit
+from .utils.provider_call import call_provider
 
 _Endpoint = TypeVar("_Endpoint", bound=Callable[..., Any])
-_Argument = TypeVar("_Argument")
-_Result = TypeVar("_Result")
 
 #: Where a route leaves the auth context for its dependencies. Only this module
 #: holds the key, and it is not a string, so no middleware, header, or request
@@ -112,14 +108,16 @@ class _Guard:
         if credential is None:
             raise unauthenticated(self._credentials, presented=presented)
         try:
-            principal = await _call_provider(self._authenticate, credential, rejectable=True)
+            principal = await call_provider(
+                self._authenticate, credential, request, rejectable=True
+            )
         except InvalidCredential:
             raise unauthenticated(self._credentials, presented=True) from None
         if principal is None:
             raise unauthenticated(self._credentials, presented=True)
         if type(principal) is not Principal:
             raise misconfigured()
-        scope = await _call_provider(self._resolve_tenant, principal)
+        scope = await call_provider(self._resolve_tenant, principal, request)
         if scope is not None and (
             type(scope) is not TenantScope or scope.cross_tenant or len(scope.ids) != 1
         ):
@@ -217,6 +215,12 @@ class ServeRouter(APIRouter):
         self._auth_route_class = route_class
         self._public: set[Callable[..., Any]] = set()
         self._guard = _Guard(authenticate, credentials, resolve_tenant)
+        self._credential_header = credentials.header
+
+    @property
+    def credential_header(self) -> str:
+        """Credential transport, for production startup validation."""
+        return self._credential_header
 
     @property
     def auth(self) -> Callable[[Request], Awaitable[RequestAuth]]:
@@ -287,47 +291,6 @@ class ServeRouter(APIRouter):
 
     def add_api_websocket_route(self, *args: Any, **kwargs: Any) -> NoReturn:
         raise TypeError("ServeRouter does not serve websockets")
-
-
-def _is_async(provider: Callable[..., object]) -> bool:
-    call = getattr(provider, "__call__", None)  # noqa: B004 - a callable instance's method
-    return inspect.iscoroutinefunction(provider) or inspect.iscoroutinefunction(call)
-
-
-async def _call_provider(
-    provider: Callable[[_Argument], _Result | Awaitable[_Result]],
-    argument: _Argument,
-    *,
-    rejectable: bool = False,
-) -> _Result:
-    """Run a host provider, failing closed and silent if it raises.
-
-    An authenticator rejects a credential by returning None or raising
-    `InvalidCredential`; with *rejectable* that exception passes through for
-    the caller to answer 401. Any other exception, even an HTTPException, is
-    the provider failing.
-
-    A sync provider runs in the threadpool, as FastAPI runs a sync dependency:
-    a token lookup that blocks must not stall every request on the loop.
-    """
-
-    try:
-        if _is_async(provider):
-            result = provider(argument)
-        else:
-            result = await run_in_threadpool(provider, argument)
-        if inspect.isawaitable(result):
-            return await result
-        return result
-    except InvalidCredential:
-        if rejectable:
-            raise
-        raise unavailable() from None
-    except Exception as exc:
-        # The provider's exception may carry a token, a claim, or a backend
-        # address. It stays the cause for a trusted debugger and never
-        # becomes response content.
-        raise unavailable() from exc
 
 
 def create_router(

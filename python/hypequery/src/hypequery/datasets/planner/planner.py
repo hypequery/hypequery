@@ -17,7 +17,7 @@ from .compiler import DatasetQueryCompiler
 from .context import ExecutionContext, effective_deadline
 from .query import DatasetQuery
 from .query_validation import check_query_limits, check_reserved_alias
-from .settings import DEFAULT_QUERY_SETTINGS, QuerySettings
+from .settings import DEFAULT_QUERY_SETTINGS, QuerySettings, tighten_query_settings
 
 
 def plan_dataset_query(
@@ -49,6 +49,7 @@ def plan_dataset_query(
         overfetch=overfetch,
     )
     compiled = compiler.compile()
+    settings = tighten_query_settings(settings, context.settings)
     return CompiledQuery(
         sql=compiled.sql,
         parameters=compiled.parameters,

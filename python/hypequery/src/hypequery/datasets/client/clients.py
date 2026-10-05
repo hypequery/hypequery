@@ -24,6 +24,7 @@ from ..planner import (
     TenantScope,
     plan_dataset_query,
 )
+from ..planner.settings import tighten_query_settings
 from ..registry import DatasetRegistry
 from .inputs import DatasetTarget, QueryInput, coerce_query, resolve_dataset
 from .results import (
@@ -79,7 +80,10 @@ class _DatasetClientBase:
                 update={"limit": min(cap if cap is not None else 1000, 1000)}
             )
         if paginate and semantic.limit is not None:
-            page_ceiling = self._settings["max_result_rows"] - 1
+            effective_settings = tighten_query_settings(
+                self._settings, context.settings if context else None
+            )
+            page_ceiling = effective_settings["max_result_rows"] - 1
             if page_ceiling < 1:
                 raise CompiledQueryError("too-large", "Pagination requires room for a probe row.")
             semantic = semantic.model_copy(update={"limit": min(semantic.limit, page_ceiling)})

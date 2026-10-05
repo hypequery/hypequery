@@ -8,11 +8,10 @@ from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 
 from fastapi import Request
-from starlette.concurrency import run_in_threadpool
 
 from ..datasets import Dataset
 from ..datasets.client import AsyncDatasetClient, DatasetClient
-from ..datasets.planner import CompiledQueryError, ExecutionContext
+from ..datasets.planner import CompiledQueryError, Deadline, ExecutionContext
 from ..datasets.query_helpers import Order
 from ..datasets.validation import validate_identifier
 from .auth import Principal
@@ -29,7 +28,9 @@ from .models import (
 from .policy import DEFAULT_ENDPOINT_POLICY, EndpointPolicy
 from .request_ids import ensure_request_id
 from .router import ServeRouter, authenticated_context
+from .utils.production_context import production_profile
 from .utils.query_response import public_response
+from .utils.request_work import request_work, run_sync
 
 
 @dataclass(frozen=True, slots=True)
@@ -76,6 +77,9 @@ class DatasetEndpoint:
         auth = authenticated_context(request)
         self.policy.authorize(auth)
         cap = self.policy.max_limit
+        profile = production_profile(request)
+        if profile is not None:
+            cap = min(cap, profile.max_result_rows - 1)
         if self.dataset.limits and self.dataset.limits.max_result_size is not None:
             cap = min(cap, self.dataset.limits.max_result_size)
         limit = min(payload.limit if payload.limit is not None else cap, cap)
@@ -98,6 +102,8 @@ class DatasetEndpoint:
                 tenant=auth.tenant if auth else None,
                 correlation_id=ensure_request_id(request),
                 cancellation=lifetime.cancellation,
+                deadline=Deadline.after(profile.timeout_seconds) if profile else None,
+                settings=profile.query_settings() if profile else None,
             )
             try:
                 if isinstance(self.client, AsyncDatasetClient):
@@ -105,28 +111,36 @@ class DatasetEndpoint:
                         self.dataset, query, context=context, paginate=True
                     )
                 else:
-                    result = await run_in_threadpool(
-                        self.client.execute, self.dataset, query, context=context, paginate=True
+                    result = await run_sync(
+                        request,
+                        self.client.execute,
+                        self.dataset,
+                        query,
+                        context=context,
+                        paginate=True,
                     )
                 if lifetime.cancellation.is_set():
                     raise CompiledQueryError("aborted", "The request was cancelled.")
             except (Exception, asyncio.CancelledError) as exc:
-                lifetime.cancellation.set()
+                request_work(request).cancel()
                 if self.events:
                     error = (
                         CompiledQueryError("aborted", "The request was cancelled.")
                         if isinstance(exc, asyncio.CancelledError)
                         else exc
                     )
-                    await run_in_threadpool(
+                    event = request_work(request).start_cleanup(
                         self.events.emit,
                         self.name,
                         (time.perf_counter() - started) * 1000,
                         error=error,
                     )
+                    if event is not None and not isinstance(exc, asyncio.CancelledError):
+                        await asyncio.shield(event)
                 raise
         if self.events:
-            await run_in_threadpool(
+            await run_sync(
+                request,
                 self.events.emit,
                 self.name,
                 (time.perf_counter() - started) * 1000,
@@ -140,13 +154,14 @@ class DatasetEndpoint:
                 for row in response.data
             ]
         if include_meta and self.diagnostics and auth:
-            allowed = await run_in_threadpool(self.diagnostics.authorize, auth.principal)
+            allowed = await run_sync(request, self.diagnostics.authorize, auth.principal)
             if allowed is True:
                 # Audit completes before any privileged projection is returned.
-                await run_in_threadpool(
-                    self.diagnostics.audit, auth.principal, ensure_request_id(request)
+                await run_sync(
+                    request, self.diagnostics.audit, auth.principal, ensure_request_id(request)
                 )
-                sql = await run_in_threadpool(
+                sql = await run_sync(
+                    request,
                     self.client.to_sql,
                     self.dataset,
                     query,

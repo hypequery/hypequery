@@ -16,6 +16,9 @@ quality jobs run it on 3.11–3.14 and the FastAPI-floor job includes it. Fixtur
 are Turbo test inputs, so edits invalidate TypeScript test caches.
 
 Coverage is HTTP behavior over recording executors, not a live ClickHouse test.
-ASGI process settings and their cross-implementation cases follow PYD-06; do not
-interpret this suite as qualification of a production process profile. Python
-metric coverage is measure-backed endpoints, not formula metric definitions.
+Python runs every shared case with and without its `ProductionProfile`. Its
+runtime-specific startup, admission, response byte ceiling, cancellation and
+real Uvicorn process tests live in `test_serve_production.py`; live ClickHouse CI
+also exercises a production HTTP dataset query. These process settings are
+Python-specific, not a shared Node/ASGI configuration contract. Python metric
+coverage is measure-backed endpoints, not formula metric definitions.

@@ -36,6 +36,7 @@ from .endpoints import DiagnosticAccess, add_dataset_endpoint, add_metric_endpoi
 from .errors import ServeError, ServeErrorType
 from .events import QueryEvents
 from .policy import EndpointPolicy
+from .production import ProductionProfile, run_production
 from .rate_limit import MemoryRateLimitStore, RateLimit, RateLimitKey, RateLimitStore
 from .request_ids import MAX_CORRELATION_ID_BYTES, request_id, validate_correlation_id
 from .router import ServeRouter, create_router
@@ -56,6 +57,7 @@ __all__ = [
     "InvalidCredential",
     "MemoryRateLimitStore",
     "Principal",
+    "ProductionProfile",
     "QueryEvents",
     "RateLimit",
     "RateLimitKey",
@@ -75,5 +77,6 @@ __all__ = [
     "default_tenant_resolver",
     "install_http_security",
     "request_id",
+    "run_production",
     "validate_correlation_id",
 ]

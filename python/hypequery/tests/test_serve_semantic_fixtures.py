@@ -27,6 +27,7 @@ from hypequery.serve import (
     EndpointPolicy,
     HttpSecurity,
     Principal,
+    ProductionProfile,
     add_dataset_endpoint,
     add_discovery_endpoint,
     add_metric_endpoint,
@@ -56,7 +57,7 @@ class Executor:
         return Rows(columns, tuple(tuple(row[column] for column in columns) for row in rows))
 
 
-def app(case: dict[str, Any]) -> TestClient:
+def app(case: dict[str, Any], production: bool = False) -> TestClient:
     config = FIXTURES["app"]
     dataset = Dataset(
         name=config["dataset"],
@@ -101,7 +102,13 @@ def app(case: dict[str, Any]) -> TestClient:
         policy=policy,
     )
     add_discovery_endpoint(router, registry=create_dataset_registry(dataset), policy=policy)
-    return TestClient(create_app(router, security=HttpSecurity(allowed_hosts=("testserver",))))
+    return TestClient(
+        create_app(
+            router,
+            security=HttpSecurity(allowed_hosts=("testserver",)),
+            production=ProductionProfile() if production else None,
+        )
+    )
 
 
 def assert_public(value: object) -> None:
@@ -115,14 +122,15 @@ def assert_public(value: object) -> None:
 
 
 @pytest.mark.parametrize("case", FIXTURES["cases"], ids=[case["id"] for case in FIXTURES["cases"]])
-def test_semantic_v1(case: dict[str, Any]) -> None:
+@pytest.mark.parametrize("production", [False, True], ids=["embedded", "production"])
+def test_semantic_v1(case: dict[str, Any], production: bool) -> None:
     headers = dict(case.get("headers", {}))
     if case["credential"] != "none":
         credential = FIXTURES["app"]["credential"] + (
             "-wrong" if case["credential"] == "invalid" else ""
         )
         headers["Authorization"] = "Bearer " + credential
-    response = app(case).request(
+    response = app(case, production).request(
         case["method"],
         case["path"],
         headers=headers,
