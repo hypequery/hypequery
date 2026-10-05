@@ -374,6 +374,14 @@ describe('dataset definition validation', () => {
       })).toThrow(/filter "bad" field "1=1 OR id" is not a safe column identifier/);
     });
 
+    it('rejects a declared filter without a string field', () => {
+      for (const field of [undefined, null, 42]) {
+        expect(defineWith({
+          filters: { missing: { __type: 'filter_definition', field } as never },
+        })).toThrow(/filter "missing" must name a field/);
+      }
+    });
+
     it('rejects a declared filter allowing an unsupported operator', () => {
       expect(defineWith({
         filters: { id: { __type: 'filter_definition', field: 'id', operators: ['eq', 'inTable'] } },
@@ -390,7 +398,7 @@ describe('dataset definition validation', () => {
         .toThrow(/is not a declared dimension or a safe column identifier/);
     });
 
-    it('accepts declared dimensions, declared filters, hidden safe columns and relationship fields', () => {
+    it('accepts declared dimensions, declared filters and hidden safe columns', () => {
       expect(defineWith({
         filters: {
           byId: { __type: 'filter_definition', field: 'id', operators: ['eq', 'in'] },
@@ -400,7 +408,6 @@ describe('dataset definition validation', () => {
           byDimension: measure.sum('amount', { filters: [{ field: 'id', operator: 'eq', value: 'a' }] }),
           byDeclaredFilter: measure.sum('amount', { filters: [{ field: 'byId', operator: 'eq', value: 'a' }] }),
           byHiddenColumn: measure.sum('amount', { filters: [{ field: 'is_test', operator: 'eq', value: false }] }),
-          byRelationship: measure.sum('amount', { filters: [{ field: 'customer.tier', operator: 'eq', value: 'gold' }] }),
         },
       })).not.toThrow();
     });

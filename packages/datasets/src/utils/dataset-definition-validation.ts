@@ -217,6 +217,10 @@ function validateFilters(
   dimensions: AnyDimensions,
 ): void {
   for (const [name, definition] of Object.entries(filters ?? {})) {
+    // JavaScript callers can omit `field`; never let it stringify to "undefined".
+    if (typeof definition.field !== 'string') {
+      fail(datasetName, `filter "${name}" must name a field.`);
+    }
     if (!Object.hasOwn(dimensions, definition.field)) {
       assertSafeColumn(datasetName, definition.field, `filter "${name}" field`);
     }
