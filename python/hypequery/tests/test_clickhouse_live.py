@@ -114,6 +114,10 @@ def _query(value: object, kind: str) -> CompiledQuery:
             "DateTime64(3)",
             "2026-10-25T01:30:00+00:00",
         ),
+        # RFC 3339 text, the JSON form of a timestamp filter, inside the hour a
+        # European daylight-saving change repeats.
+        ("2026-10-25T01:30:00Z", "DateTime64(3)", "2026-10-25T01:30:00+00:00"),
+        ("2026-10-25T02:30:00+01:00", "DateTime64(3)", "2026-10-25T01:30:00+00:00"),
     ],
 )
 def test_live_sync_parameters(value: object, kind: str, expected: object) -> None:
