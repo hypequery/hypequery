@@ -555,6 +555,26 @@ Orders = Dataset(
 )
 ```
 
+A relationship can also join on a composite key: several column pairs that
+must all be equal (RFC 0016). Pass `keys` instead of `from_field`/`to_field`:
+
+```python
+from hypequery.datasets import belongs_to
+
+customer = belongs_to(
+    lambda: Customers,
+    keys=(("customer_id", "id"), ("region_code", "region")),
+)
+```
+
+Each pair is a `(from, to)` tuple or a `RelationshipKey`. Every pair becomes an
+equality inside the same single-match join, AND-ed with any tenant predicate,
+and a NULL in any component never matches. Keys must be non-empty and must not
+repeat a source or target column. The relationship keeps `from_field` and
+`to_field` as its first pair, and catalogs, semantic contracts and deployment
+contracts carry the full `keys` list. Single-key relationships serialize
+unchanged.
+
 Relationship callbacks are invoked once by the helper. Models retain only the
 target dataset name, so `model_dump()` and `model_dump_json()` never serialize
 Python functions. Formula helpers likewise build immutable symbolic data and

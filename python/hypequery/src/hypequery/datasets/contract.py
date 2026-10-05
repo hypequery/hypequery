@@ -103,14 +103,17 @@ def _filter(entry: FilterCatalogEntry) -> dict[str, object]:
 
 
 def _relationship(entry: RelationshipCatalogEntry) -> dict[str, object]:
-    return {
+    result: dict[str, object] = {
         "kind": entry["kind"],
         "target": entry["target"],
         "from": entry["from"],
         "to": entry["to"],
-        "queryable": entry["queryable"],
-        "fields": unique_sorted(entry["fields"]),
     }
+    if "keys" in entry:
+        result["keys"] = [dict(key) for key in entry["keys"]]
+    result["queryable"] = entry["queryable"]
+    result["fields"] = unique_sorted(entry["fields"])
+    return result
 
 
 def _limits(limits: dict[str, int]) -> dict[str, object]:

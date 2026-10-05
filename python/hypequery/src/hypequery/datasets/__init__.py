@@ -109,7 +109,14 @@ from .query_helpers import (
     not_in_list,
 )
 from .registry import DatasetRegistry, create_dataset_registry
-from .relationships import Relationship, RelationshipKind, belongs_to, has_many, has_one
+from .relationships import (
+    Relationship,
+    RelationshipKey,
+    RelationshipKind,
+    belongs_to,
+    has_many,
+    has_one,
+)
 from .sql_portability import (
     DEFAULT_SQL_PORTABILITY_LIMITS,
     SqlPortabilityFailure,
@@ -167,6 +174,7 @@ __all__ = [
     "QueryExecutor",
     "Relationship",
     "RelationshipCatalogEntry",
+    "RelationshipKey",
     "RelationshipKind",
     "ResultCache",
     "SqlPortabilityFailure",

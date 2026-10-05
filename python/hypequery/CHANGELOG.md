@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Support composite relationship keys (RFC 0016), matching `@hypequery/datasets`.
+  Pass `keys=(("customer_id", "id"), ("region_code", "region"))` to a
+  relationship helper; every pair is AND-ed in the join, and related-measure
+  projections keep every target key. Catalogs, semantic contracts and
+  deployment contracts carry `keys`, and protocol validation accepts and checks
+  them. Single-key relationships are unchanged.
 - Select one-hop relationship base measures as `<relationship>.<measure>`,
   matching `@hypequery/datasets`. Duplicate-insensitive aggregates are allowed
   through `belongs_to` and every aggregate through `has_one`. Unmatched target

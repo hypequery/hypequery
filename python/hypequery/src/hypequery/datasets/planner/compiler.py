@@ -174,7 +174,7 @@ class DatasetQueryCompiler:
         """
 
         relationship = self.dataset.relationships[relationship_name]
-        columns = [relationship.to_field]
+        columns = [key.to_field for key in relationship.key_pairs]
         if target.tenant_key is not None:
             columns.append(target.tenant_key)
         for name, dimension in target.dimensions.items():
@@ -212,9 +212,13 @@ class DatasetQueryCompiler:
                 target_source = self._measure_join_source(relationship_name, target)
             else:
                 target_source = safe_qualified_identifier(target.source, what="dataset source").sql
-            left = safe_identifier(relationship.from_field, what="relationship from field")
-            right = safe_identifier(relationship.to_field, what="relationship to field")
-            condition = f"{BASE_ALIAS.sql}.{left.sql} = {alias.sql}.{right.sql}"
+            # A composite key is an AND of equalities; a NULL component never matches.
+            condition = " AND ".join(
+                f"{BASE_ALIAS.sql}."
+                f"{safe_identifier(key.from_field, what='relationship from field').sql}"
+                f" = {alias.sql}.{safe_identifier(key.to_field, what='relationship to field').sql}"
+                for key in relationship.key_pairs
+            )
             # The joined dataset carries its own tenancy, so the predicate goes into
             # the join condition rather than WHERE: in a LEFT ANY JOIN a WHERE predicate
             # on the right side would silently turn it into an inner join.
