@@ -149,16 +149,6 @@ export function applyRelationshipJoins(
     return qb;
   }
   for (const join of ctx.joins) {
-    if (join.keys && join.keys.length > 1) {
-      if (!qb.singleMatchJoin) throw new Error(`Composite relationship "${join.relationship}" requires query builder singleMatchJoin support.`);
-      const keys = join.keys.map(key => ({
-        leftColumn: `${ctx.baseSource}.${key.from}`,
-        rightColumn: `${join.relationship}.${key.to}`,
-      }));
-      qb = qb.singleMatchJoin(join.source, [keys[0], ...keys.slice(1)], join.relationship, join.tenant
-        ? { column: `${join.relationship}.${join.tenant.field}`, operator: join.tenant.operator, value: join.tenant.value } : undefined);
-      continue;
-    }
     if (!qb.leftAnyJoin) {
       throw new Error(
         `Relationship "${join.relationship}" cannot be joined: the query builder does not implement ` +
@@ -167,18 +157,26 @@ export function applyRelationshipJoins(
         'are unavailable with this builder.',
       );
     }
+    const tenant = join.tenant
+      ? {
+        column: `${join.relationship}.${join.tenant.field}`,
+        operator: join.tenant.operator,
+        value: join.tenant.value,
+      }
+      : undefined;
+    if (join.keys && join.keys.length > 1) {
+      // Key-pair form; @hypequery/clickhouse >= 2.13.0.
+      const pairs = join.keys.map(key =>
+        [`${ctx.baseSource}.${key.from}`, `${join.relationship}.${key.to}`] as const);
+      qb = qb.leftAnyJoin(join.source, [pairs[0], ...pairs.slice(1)], join.relationship, tenant);
+      continue;
+    }
     qb = qb.leftAnyJoin(
       join.source,
       `${ctx.baseSource}.${join.from}`,
       `${join.relationship}.${join.to}`,
       join.relationship,
-      join.tenant
-        ? {
-          column: `${join.relationship}.${join.tenant.field}`,
-          operator: join.tenant.operator,
-          value: join.tenant.value,
-        }
-        : undefined,
+      tenant,
     );
   }
   return qb;

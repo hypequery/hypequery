@@ -61,10 +61,10 @@ describe('composite relationships', () => {
     const backend = createDatasetClient({ backend: createInMemoryBackend({ orders: [], customers: [] }) });
     expect(() => backend.execute(Orders, { dimensions: ['customer.name'], measures: ['revenue'] }, context)).toThrow(/queryBuilder execution path/);
   });
-  it('refuses builders without composite join support', () => {
+  it('refuses composite traversal on builders without leftAnyJoin', () => {
     const db = createQueryBuilder<Record<string, Record<string, 'String'>>>({ host: 'http://localhost:8123' });
-    const factory = { table: (name: string) => { const qb = db.table(name); Object.defineProperty(qb, 'singleMatchJoin', { value: undefined }); return qb; }, rawQuery: async () => [] };
+    const factory = { table: (name: string) => { const qb = db.table(name); Object.defineProperty(qb, 'leftAnyJoin', { value: undefined }); return qb; }, rawQuery: async () => [] };
     const unsupported = createDatasetClient({ queryBuilder: factory });
-    expect(() => unsupported.toSQL(Orders, { dimensions: ['customer.name'] }, context)).toThrow(/requires query builder singleMatchJoin/);
+    expect(() => unsupported.toSQL(Orders, { dimensions: ['customer.name'] }, context)).toThrow(/does not implement leftAnyJoin/);
   });
 });

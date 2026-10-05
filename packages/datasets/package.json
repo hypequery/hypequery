@@ -60,10 +60,14 @@
     "zod-to-json-schema": "^3.25.2"
   },
   "peerDependencies": {
-    "zod": "^3.22.4"
+    "zod": "^3.22.4",
+    "@hypequery/clickhouse": ">=2.13.0"
   },
   "peerDependenciesMeta": {
     "zod": {
+      "optional": true
+    },
+    "@hypequery/clickhouse": {
       "optional": true
     }
   },

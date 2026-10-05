@@ -164,6 +164,9 @@ importers:
 
   packages/datasets:
     dependencies:
+      '@hypequery/clickhouse':
+        specifier: '>=2.13.0'
+        version: link:../clickhouse
       '@hypequery/protocol':
         specifier: ^0.18.0
         version: link:../protocol
