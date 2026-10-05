@@ -10,7 +10,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Literal, Protocol, TypeAlias
 
-from ..planner import CompiledQuery
+from ..planner import CompiledQuery, DatasetQuery
 
 #: A decoded cell. Matches the execution codec: decimals, UUIDs, dates, and
 #: datetimes arrive as strings so no precision is lost on the way out.
@@ -45,6 +45,13 @@ class AsyncQueryExecutor(Protocol):
 
 
 @dataclass(frozen=True, slots=True)
+class Pagination:
+    limit: int
+    offset: int
+    has_more: bool
+
+
+@dataclass(frozen=True, slots=True)
 class DatasetQueryMeta:
     """Operational metadata that is safe to show any caller.
 
@@ -56,6 +63,7 @@ class DatasetQueryMeta:
     row_count: int
     timing_ms: float
     cache: CacheStatus = "off"
+    pagination: Pagination | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -76,7 +84,12 @@ class ValidationResult:
 
 
 def build_result(
-    rows: ResultRows, query_id: str, timing_ms: float, cache: CacheStatus = "off"
+    rows: ResultRows,
+    query_id: str,
+    timing_ms: float,
+    cache: CacheStatus = "off",
+    *,
+    query: DatasetQuery | None = None,
 ) -> DatasetQueryResult:
     """Key positional rows by column name.
 
@@ -85,11 +98,20 @@ def build_result(
     """
 
     columns = tuple(rows.columns)
-    data = tuple(dict(zip(columns, row, strict=True)) for row in rows.rows)
+    pagination = None
+    result_rows = rows.rows
+    if query is not None and query.limit is not None:
+        pagination = Pagination(query.limit, query.offset or 0, len(result_rows) > query.limit)
+        result_rows = result_rows[: query.limit]
+    data = tuple(dict(zip(columns, row, strict=True)) for row in result_rows)
     return DatasetQueryResult(
         columns=columns,
         data=data,
         meta=DatasetQueryMeta(
-            query_id=query_id, row_count=len(data), timing_ms=timing_ms, cache=cache
+            query_id=query_id,
+            row_count=len(data),
+            timing_ms=timing_ms,
+            cache=cache,
+            pagination=pagination,
         ),
     )

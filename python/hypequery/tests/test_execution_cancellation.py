@@ -335,3 +335,142 @@ def test_preflight_signal_outranks_expired_deadline() -> None:
         assert client.calls == 0
 
     asyncio.run(run())
+
+
+@pytest.mark.parametrize("deadline", [False, True])
+def test_sync_query_uses_control_connection_and_never_returns_cancelled_rows(
+    deadline: bool,
+) -> None:
+    from hypequery.execution import ClickHouseExecutor
+
+    started = threading.Event()
+    finished = threading.Event()
+    signal = threading.Event()
+    calls: list[tuple[str, dict[str, str]]] = []
+
+    class BlockingClient:
+        def query(self, *_args: object, **_kwargs: object) -> DriverResult:
+            started.set()
+            assert finished.wait(2)
+            return cast(DriverResult, Result())
+
+    class SyncControl:
+        def command(self, cmd: str, parameters: dict[str, str]) -> object:
+            calls.append((cmd, parameters))
+            finished.set()
+            return None
+
+    compiled = query(cancellation=signal, deadline=Deadline.after(0.1) if deadline else None)
+
+    def cancel_after_start() -> None:
+        started.wait(1)
+        signal.set()
+
+    trigger = threading.Thread(target=cancel_after_start)
+    if not deadline:
+        trigger.start()
+    try:
+        with pytest.raises(CompiledQueryError) as exc:
+            ClickHouseExecutor(BlockingClient(), control_client=SyncControl()).execute(compiled)
+        assert category(exc) == ("deadline-exceeded" if deadline else "aborted")
+        assert calls == [
+            ("KILL QUERY WHERE query_id = {id:String} SYNC", {"id": compiled.query_id})
+        ]
+    finally:
+        finished.set()
+        if not deadline:
+            trigger.join()
+
+
+def test_sync_cancellation_retries_when_first_kill_precedes_query_registration() -> None:
+    from hypequery.execution import ClickHouseExecutor
+
+    started = threading.Event()
+    register = threading.Event()
+    registered = threading.Event()
+    early_kill = threading.Event()
+    stopped = threading.Event()
+    signal = threading.Event()
+    attempts: list[bool] = []
+
+    class SubmittingClient:
+        def query(self, *_args: object, **_kwargs: object) -> DriverResult:
+            started.set()
+            assert register.wait(2)
+            registered.set()
+            assert stopped.wait(2)
+            return cast(DriverResult, Result())
+
+    class SyncControl:
+        def command(self, _cmd: str, _parameters: dict[str, str]) -> object:
+            attempts.append(registered.is_set())
+            if registered.is_set():
+                stopped.set()
+            else:
+                early_kill.set()
+            return None
+
+    def interrupt_submission() -> None:
+        started.wait(2)
+        signal.set()
+        early_kill.wait(2)
+        register.set()
+
+    trigger = threading.Thread(target=interrupt_submission)
+    trigger.start()
+    try:
+        with pytest.raises(CompiledQueryError) as exc:
+            ClickHouseExecutor(SubmittingClient(), control_client=SyncControl()).execute(
+                query(cancellation=signal)
+            )
+        assert category(exc) == "aborted"
+        assert attempts[0] is False
+        assert True in attempts
+    finally:
+        register.set()
+        stopped.set()
+        trigger.join()
+
+
+@pytest.mark.parametrize("confirmation", ["finished", ["finished", "query-id"], ("finished",)])
+def test_confirmed_sync_cancellation_stops_control_traffic_before_driver_returns(
+    confirmation: object,
+) -> None:
+    from concurrent.futures import ThreadPoolExecutor
+
+    from hypequery.execution import ClickHouseExecutor
+
+    started = threading.Event()
+    release = threading.Event()
+    confirmed = threading.Event()
+    signal = threading.Event()
+    attempts: list[str] = []
+
+    class SlowReturningClient:
+        def query(self, *_args: object, **_kwargs: object) -> DriverResult:
+            started.set()
+            assert release.wait(2)
+            return cast(DriverResult, Result())
+
+    class SyncControl:
+        def command(self, _cmd: str, parameters: dict[str, str]) -> object:
+            attempts.append(parameters["id"])
+            confirmed.set()
+            return confirmation
+
+    with ThreadPoolExecutor(max_workers=1) as workers:
+        compiled = query(cancellation=signal)
+        executor = ClickHouseExecutor(SlowReturningClient(), control_client=SyncControl())
+        task = workers.submit(executor.execute, compiled)
+        try:
+            assert started.wait(1)
+            signal.set()
+            assert confirmed.wait(1)
+            time.sleep(0.15)
+            assert not task.done()
+            assert attempts == [compiled.query_id]
+        finally:
+            release.set()
+        with pytest.raises(CompiledQueryError) as exc:
+            task.result(timeout=1)
+        assert category(exc) == "aborted"
