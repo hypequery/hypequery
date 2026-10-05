@@ -5,6 +5,7 @@ from __future__ import annotations
 import copy
 import os
 import re
+import secrets
 from typing import cast
 
 import pytest
@@ -161,7 +162,22 @@ def test_catalog_contract_and_deployment_carry_complete_keys() -> None:
             "queryable": True,
         }
     ]
-    assert has_many(lambda: Customers, keys=(("customer_id", "id"),)).keys is not None
+    # A single authored pair serializes exactly like from_field/to_field.
+    single = Dataset(
+        name="singleKeyOrders",
+        source="orders",
+        dimensions={"status": dimension("string")},
+        relationships={
+            "by_keys": has_many(lambda: Customers, keys=(("customer_id", "id"),)),
+            "by_fields": has_many(lambda: Customers, from_field="customer_id", to_field="id"),
+        },
+    )
+    assert single.relationships["by_keys"] == single.relationships["by_fields"]
+    entries = cast(
+        list[dict[str, object]], build_protocol_dataset_contract(single)["relationships"]
+    )
+    by_name = {entry["name"]: entry for entry in entries}
+    assert {**by_name["by_keys"], "name": "by_fields"} == by_name["by_fields"]
 
 
 def _relationship(**overrides: object) -> dict[str, object]:
@@ -272,26 +288,28 @@ def test_live_the_full_key_matches_and_null_components_never_do() -> None:
     admin = clickhouse_connect.get_client(
         host=host, port=port, username="default", password=password
     )
-    admin.command("DROP DATABASE IF EXISTS hq_composite_relationships")
-    admin.command("CREATE DATABASE hq_composite_relationships")
+    # A fresh name, created without IF NOT EXISTS: the test only ever drops
+    # the database it created itself.
+    database = f"hq_composite_relationships_{secrets.token_hex(6)}"
+    admin.command(f"CREATE DATABASE {database}")
     admin.command(
-        "CREATE TABLE hq_composite_relationships.customers "
+        f"CREATE TABLE {database}.customers "
         "(id Nullable(UInt64), region Nullable(String), row_key String, score Float64, "
         "tier String, tenant String) ENGINE = Memory"
     )
     admin.command(
-        "CREATE TABLE hq_composite_relationships.orders (customer_id Nullable(UInt64), "
+        f"CREATE TABLE {database}.orders (customer_id Nullable(UInt64), "
         "region_code Nullable(String), amount Float64, status String, tenant String) "
         "ENGINE = Memory"
     )
     admin.command(
-        "INSERT INTO hq_composite_relationships.customers VALUES "
+        f"INSERT INTO {database}.customers VALUES "  # noqa: S608 - generated name
         "(1, 'US', '1US', 5, 'gold', 'a'), (1, 'EU', '1EU', 10, 'silver', 'a'), "
         "(1, 'EU', '1EU-b', 900, 'secret', 'b'), (NULL, 'EU', 'nullEU', 999, 'null-id', 'a'), "
         "(1, NULL, '1null', 999, 'null-region', 'a')"
     )
     admin.command(
-        "INSERT INTO hq_composite_relationships.orders VALUES "
+        f"INSERT INTO {database}.orders VALUES "  # noqa: S608 - generated name
         "(1, 'US', 10, 'paid', 'a'), (1, 'US', 20, 'paid', 'a'), (1, 'EU', 30, 'paid', 'a'), "
         "(1, 'AP', 40, 'missing', 'a'), (NULL, 'EU', 50, 'null', 'a'), "
         "(1, NULL, 60, 'null', 'a'), (1, 'EU', 900, 'paid', 'b')"
@@ -322,7 +340,7 @@ def test_live_the_full_key_matches_and_null_components_never_do() -> None:
         ClickHouseConnection(
             host=host,
             port=port,
-            database="hq_composite_relationships",
+            database=database,
             username="default",
             password=password,
         )
@@ -364,5 +382,5 @@ def test_live_the_full_key_matches_and_null_components_never_do() -> None:
         assert related == ({"customer.count": 2, "customer.lowest": 5.0},)
     finally:
         executor.close()
-        admin.command("DROP DATABASE IF EXISTS hq_composite_relationships")
+        admin.command(f"DROP DATABASE IF EXISTS {database}")
         admin.close()

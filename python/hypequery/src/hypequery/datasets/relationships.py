@@ -109,12 +109,14 @@ def _relationship(
     pairs = tuple(_key(value) for value in keys)
     if not pairs:
         raise ValueError("relationship keys must be a non-empty sequence")
+    # A single pair is the legacy relationship: contracts and catalogs carry
+    # `keys` only for composite relationships, however the pair was authored.
     return Relationship(
         kind=kind,
         target=resolved.name,
         from_field=pairs[0].from_field,
         to_field=pairs[0].to_field,
-        keys=pairs,
+        keys=pairs if len(pairs) > 1 else None,
     )
 
 
