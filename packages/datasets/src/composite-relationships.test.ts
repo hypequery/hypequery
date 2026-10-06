@@ -44,6 +44,15 @@ describe('composite relationships', () => {
     expect(legacy).not.toHaveProperty('keys');
     expect(hasMany(() => Customers, { keys }).keys).toEqual(keys);
   });
+  it('serializes a single authored pair exactly like from/to', () => {
+    const withCustomer = (customer: ReturnType<typeof belongsTo>) =>
+      dataset('singleKeyOrders', { source: 'orders', dimensions: { status: dimension.string() }, relationships: { customer } });
+    const byKeys = withCustomer(belongsTo(() => Customers, { keys: [{ from: 'customer_id', to: 'id' }] }));
+    const byFields = withCustomer(belongsTo(() => Customers, { from: 'customer_id', to: 'id' }));
+    expect(byKeys.relationships.customer).not.toHaveProperty('keys');
+    expect(getDatasetCatalog(byKeys)).toEqual(getDatasetCatalog(byFields));
+    expect(serializeSemanticContract({ orders: byKeys })).toEqual(serializeSemanticContract({ orders: byFields }));
+  });
   it('round-trips composite keys through the portable protocol contract', () => {
     const endpoint = { access: { kind: 'public' }, tenant: { kind: 'not-required' } } as const;
     const contracts = [Customers, Orders].map(ds => buildProtocolDatasetContract(ds, { endpoint }));
