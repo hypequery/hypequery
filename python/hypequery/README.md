@@ -84,6 +84,30 @@ and cannot be executed. For async code, use `create_async_dataset_client` with
 an async executor and `await client.execute(...)`. The client does not own the
 executor, so close the executor when the application shuts down.
 
+### Having conditions
+
+`having` filters on aggregated measure values, after grouping: for example,
+customers whose revenue exceeds 10,000.
+
+```python
+DatasetQuery.model_validate(
+    {
+        "dimensions": ["customerId"],
+        "measures": ["revenue"],
+        "having": [{"measure": "revenue", "operator": "gt", "value": 10_000}],
+    }
+)
+```
+
+Each condition must name a selected measure. Operators are `eq`, `neq`, `gt`,
+`gte`, `lt`, `lte`, `between`, `in` and `notIn`. Values are finite numbers: a
+two-item list for `between`, a non-empty list for `in`/`notIn`. Conditions are
+AND-ed, bound as parameters, and count against `limits.max_filters`. The
+statement repeats the measure's aggregate in `HAVING` rather than referencing
+its alias. Queries with conditions bypass the result cache until the RFC 0009
+cache preimage carries `having`. Dataset endpoints accept `having`; metric
+endpoints refuse it. This matches `@hypequery/datasets`.
+
 ### Measures across relationships
 
 A query can select a target's base measure as `<relationship>.<measure>`, one
@@ -917,7 +941,8 @@ portable metric definitions remain a follow-up. Their optional `name` aliases
 that measure in results and ordering.
 
 POST a strict JSON body with `dimensions`, `measures` (dataset endpoints only),
-`filters`, `orderBy`, `by`, `limit`, `offset`, and `includeMeta`. Filters are
+`filters`, `having` (dataset endpoints only), `orderBy`, `by`, `limit`, `offset`, and
+`includeMeta`. Filters are
 `{"field": "country", "operator": "eq", "value": "US"}`; orders are
 `{"field": "order_count", "direction": "desc"}`. Unknown request fields,
 coercion of numbers/booleans, and attempts to supply tenant, SQL, settings,

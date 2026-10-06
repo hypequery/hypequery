@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from typing import Final
 
-from .query_helpers import FilterOperator, OrderDirection
+from .query_helpers import FilterOperator, HavingOperator, OrderDirection
 from .relationships import RelationshipKind
 
 #: ClickHouse date-truncation function per supported grain.
@@ -38,6 +38,20 @@ SEMANTIC_FILTER_OPERATORS: Final[tuple[FilterOperator, ...]] = (
     "notIn",
     "between",
     "like",
+)
+
+#: The operators accepted by dataset `having` conditions; mirrors
+#: `SEMANTIC_HAVING_OPERATORS` in `packages/datasets/src/constants.ts`.
+SEMANTIC_HAVING_OPERATORS: Final[tuple[HavingOperator, ...]] = (
+    "eq",
+    "neq",
+    "gt",
+    "gte",
+    "lt",
+    "lte",
+    "in",
+    "notIn",
+    "between",
 )
 
 #: Relationships that may be joined. `hasMany` stays metadata-only because

@@ -93,6 +93,7 @@ from .planner import (
 from .query_helpers import (
     Filter,
     FilterOperator,
+    HavingCondition,
     Order,
     OrderDirection,
     asc,
@@ -164,6 +165,7 @@ __all__ = [
     "FormulaInput",
     "FormulaLiteral",
     "FormulaReference",
+    "HavingCondition",
     "Measure",
     "MeasureCatalogEntry",
     "MemoryCacheStore",
