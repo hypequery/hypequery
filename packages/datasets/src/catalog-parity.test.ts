@@ -79,13 +79,7 @@ const Orders = dataset('orders', {
 describe('catalog cross-language parity', () => {
   it('matches the shared semantic catalog fixture', () => {
     const catalogs = getDatasetCatalogs({ customers: Customers, orders: Orders });
-    const expected = JSON.parse(readFileSync(CATALOG_FIXTURE, 'utf8'));
-    // The shared fixture remains the Python/common catalog contract. The canonical
-    // TypeScript compiler additionally advertises supported relationship measures.
-    expected.orders.relationships.primaryContact.measures = {
-      'primaryContact.customerCount': { aggregation: 'count', field: 'id', filterCount: 0 },
-    };
-    expected.orders.orderableFields.splice(-1, 0, 'primaryContact.customerCount');
+    const expected = JSON.parse(readFileSync(CATALOG_FIXTURE, 'utf8')) as unknown;
 
     // Compare through JSON so `undefined` optionals drop exactly as they do on
     // the wire, which is the form the Python catalog is built to match.

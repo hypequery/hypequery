@@ -14,6 +14,7 @@ from .dataset import Dataset
 from .deployment_values import filter_expression
 from .dimensions import DimensionType
 from .registry import DatasetRegistry
+from .relationships import Relationship
 from .utils.portable_order import portable_name_key
 
 
@@ -25,6 +26,20 @@ def _field_schema(field_type: DimensionType | None) -> dict[str, str]:
     if field_type == "boolean":
         return {"kind": "boolean"}
     return {"kind": "any"}
+
+
+def _relationship_node(name: str, relation: Relationship) -> dict[str, object]:
+    node: dict[str, object] = {
+        "name": name,
+        "kind": relation.kind,
+        "target": relation.target,
+        "from": relation.from_field,
+        "to": relation.to_field,
+    }
+    if relation.keys is not None:
+        node["keys"] = [{"from": key.from_field, "to": key.to_field} for key in relation.keys]
+    node["queryable"] = relation.kind != "hasMany"
+    return node
 
 
 def _sql_expression(
@@ -114,14 +129,7 @@ def build_protocol_dataset_contract(
         filters.append(item)
 
     relationships = [
-        {
-            "name": name,
-            "kind": relation.kind,
-            "target": relation.target,
-            "from": relation.from_field,
-            "to": relation.to_field,
-            "queryable": relation.kind != "hasMany",
-        }
+        _relationship_node(name, relation)
         for name, relation in sorted(
             dataset.relationships.items(), key=lambda item: portable_name_key(item[0])
         )
