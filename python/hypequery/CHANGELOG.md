@@ -2,10 +2,10 @@
 
 ## Unreleased
 
-- Add `hypequery init [directory]` with packaged Python project templates,
-  authenticated orders endpoint, setup instructions and collision protection (PYE-01B).
-- Add framework-free `hypequery` and `python -m hypequery` CLI entry points,
-  help/version and the `init`/`dev` command contract (PYE-01A).
+- Bind timestamp parameters as Unix seconds. RFC 3339 filter values such as
+  `2026-10-25T01:30:00Z` were rejected by ClickHouse, and aware datetimes could
+  resolve to the wrong instant on a non-UTC server in a repeated daylight-saving
+  hour. Values without an offset are passed through unchanged.
 - Add `run_dev` and `python -m hypequery.serve.dev app:app` for local
   development. The runner binds to loopback by default, warns with
   `ExternalBindWarning` when bound beyond it, supports `--reload`, and refuses
@@ -29,10 +29,3 @@
   disabled by default. Development documentation requires explicit opt-in.
 - Run shared semantic HTTP fixtures in Python and TypeScript CI, including the
   FastAPI and Uvicorn floors.
-- Bind timestamp parameters as Unix seconds. RFC 3339 filter values such as
-  `2026-10-25T01:30:00Z` were rejected by ClickHouse, and aware datetimes could
-  resolve to the wrong instant on a non-UTC server in a repeated daylight-saving
-  hour. Values without an offset are passed through unchanged.
-- Align Python CLI names with TypeScript: `init --path`, `dev --hostname`, `-p`,
-  `--no-watch`, `-V` and `help [command]`; preserve positional destinations,
-  `--host` and `--no-reload` as aliases.
