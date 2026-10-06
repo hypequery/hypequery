@@ -96,3 +96,7 @@ def run_production(app: FastAPI) -> None:
         backlog=128,
         ws="none",
     )
+
+
+# Cross-language transport name; production profile checks remain mandatory.
+start_server = run_production

@@ -7,9 +7,9 @@ from hypequery.serve import (
     Credential,
     HttpSecurity,
     Principal,
-    add_dataset_endpoint,
+    create_api,
     create_app,
-    create_router,
+    create_dataset_endpoint,
 )
 
 orders = dataset(
@@ -51,11 +51,11 @@ def authenticate(credential: Credential) -> Principal | None:
     return None
 
 
-router = create_router(authenticate=authenticate)
-add_dataset_endpoint(router, "/datasets/orders/query", dataset=orders, client=client)
+api = create_api(authenticate=authenticate)
+create_dataset_endpoint(dataset=orders, client=client).install(api, "/datasets/orders/query")
 
 app = create_app(
-    router,
+    api,
     security=HttpSecurity(allowed_hosts=("127.0.0.1", "localhost")),
     development_docs=True,
 )

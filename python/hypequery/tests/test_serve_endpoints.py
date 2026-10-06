@@ -35,7 +35,10 @@ from hypequery.serve import (
     add_dataset_endpoint,
     add_discovery_endpoint,
     add_metric_endpoint,
+    create_api,
     create_app,
+    create_dataset_endpoint,
+    create_metric_endpoint,
     create_router,
 )
 
@@ -455,3 +458,33 @@ def test_named_metric_aliases_output_and_ordering() -> None:
     assert response.status_code == 200, response.text
     assert response.json()["data"][0] == {"orders": "10"}
     assert "ORDER BY `total` DESC" in executor.seen[0].sql
+
+
+@pytest.mark.parametrize("metric", [False, True])
+def test_created_endpoints_install_with_the_same_auth_policy(metric: bool) -> None:
+    api = create_api(authenticate=authenticate)
+    model = dataset()
+    client = create_dataset_client(executor=Executor())
+    policy = EndpointPolicy(required_scopes=frozenset({"read"}))
+    endpoint = (
+        create_metric_endpoint(dataset=model, measure="total", client=client, policy=policy)
+        if metric
+        else create_dataset_endpoint(dataset=model, client=client, policy=policy)
+    )
+    assert api.routes == []
+    endpoint.install(api, "/query")
+    app = create_app(api, security=HttpSecurity(allowed_hosts=("testserver",)))
+    with TestClient(app) as http:
+        payload = {"dimensions": ["country"]}
+        if not metric:
+            payload["measures"] = ["total"]
+        assert http.post("/query", json=payload).status_code == 401
+        assert (
+            http.post(
+                "/query", json=payload, headers={"Authorization": "Bearer tenantless"}
+            ).status_code
+            == 403
+        )
+        response = http.post("/query", json=payload, headers={"Authorization": "Bearer reader"})
+        assert response.status_code == 200, response.text
+        assert response.json()["data"][0]["total"] == "10"

@@ -33,14 +33,21 @@ from .auth import (
 from .body_policy import DEFAULT_MAX_BODY_BYTES
 from .dev import ExternalBindWarning, run_dev, serve_dev
 from .discovery import add_discovery_endpoint
-from .endpoints import DiagnosticAccess, add_dataset_endpoint, add_metric_endpoint
+from .endpoints import (
+    DatasetEndpoint,
+    DiagnosticAccess,
+    add_dataset_endpoint,
+    add_metric_endpoint,
+    create_dataset_endpoint,
+    create_metric_endpoint,
+)
 from .errors import ServeError, ServeErrorType
 from .events import QueryEvents
 from .policy import EndpointPolicy
-from .production import ProductionProfile, run_production
+from .production import ProductionProfile, run_production, start_server
 from .rate_limit import MemoryRateLimitStore, RateLimit, RateLimitKey, RateLimitStore
 from .request_ids import MAX_CORRELATION_ID_BYTES, request_id, validate_correlation_id
-from .router import ServeRouter, create_router
+from .router import ServeRouter, create_api, create_router
 from .security import CorsPolicy, HttpSecurity, install_http_security
 
 __all__ = [
@@ -52,6 +59,7 @@ __all__ = [
     "Credential",
     "CredentialKind",
     "CredentialTransport",
+    "DatasetEndpoint",
     "DiagnosticAccess",
     "EndpointPolicy",
     "ExternalBindWarning",
@@ -74,7 +82,10 @@ __all__ = [
     "add_metric_endpoint",
     "api_key",
     "bearer_token",
+    "create_api",
     "create_app",
+    "create_dataset_endpoint",
+    "create_metric_endpoint",
     "create_router",
     "default_tenant_resolver",
     "install_http_security",
@@ -82,5 +93,6 @@ __all__ = [
     "run_dev",
     "run_production",
     "serve_dev",
+    "start_server",
     "validate_correlation_id",
 ]

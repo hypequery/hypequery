@@ -132,3 +132,23 @@ def test_serve_dev_preserves_existing_runner() -> None:
 
     assert serve_dev is run_dev
     assert module_serve_dev is serve_dev
+
+
+def test_serve_api_and_transport_names_preserve_runtime_checks() -> None:
+    from hypequery.serve import (
+        HttpSecurity,
+        create_api,
+        create_app,
+        create_router,
+        run_production,
+        start_server,
+    )
+
+    assert create_api is create_router
+    assert start_server is run_production
+    app = create_app(
+        create_api(authenticate=lambda credential: None),
+        security=HttpSecurity(allowed_hosts=("testserver",)),
+    )
+    with pytest.raises(ValueError, match="ProductionProfile"):
+        start_server(app)

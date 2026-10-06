@@ -75,3 +75,36 @@ shift/window/derived measures still need separate Python implementations;
 there are no public stubs implying those features work. `create_dataset_client`,
 `create_dataset_registry`, contract/catalog factories, `to_sql`, `for_tenant`
 and `get_all` already follow the TypeScript names in Python spelling.
+
+
+## Serving public API audit
+
+Use current TypeScript public names in Python spelling where the roles match:
+
+| TypeScript | Python | Role |
+| --- | --- | --- |
+| `createAPI` | `create_api` | Define authenticated API routing; Python accepts the same arguments as `create_router` |
+| `createDatasetEndpoint` | `create_dataset_endpoint` | Construct a dataset endpoint; Python registration is `endpoint.install(api, path)` |
+| `createMetricEndpoint` | `create_metric_endpoint` | Construct a one-measure metric endpoint; registration is separate |
+| `serveDev` | `serve_dev` | Start the development runtime |
+| `startServer` | `start_server` | Start the production runtime; Python requires a `ProductionProfile` |
+
+`create_router`, `add_dataset_endpoint`, `add_metric_endpoint`, `run_dev` and
+`run_production` remain available. The `add_*` helpers create and install the
+endpoint in one step; the new `create_*` factories do not mutate routing.
+`create_app` is the FastAPI adapter that converts the Python API router into
+an ASGI application. It keeps its framework-specific name.
+
+Do not port TypeScript `defineServe` as a preferred new function: it is
+explicitly deprecated in favor of `createAPI` and standalone transport.
+TypeScript's query/procedure builders (`initServe`, `query`, `serve`) have no
+implemented Python equivalent. A name alias would imply behavior that is not
+available.
+
+Python `bearer_token` and `api_key` select credential transport; they do not
+replace TypeScript `createBearerTokenStrategy` / `createApiKeyStrategy`, which
+also implement authentication. Python supplies authentication separately via
+`authenticate`. JWT strategies, Node/Fetch adapters and query-builder toolkit
+exports are runtime-specific or unimplemented, not rename candidates.
+Discovery retains `add_discovery_endpoint`: the TypeScript discovery factory
+is used internally and is not re-exported by the public package index.

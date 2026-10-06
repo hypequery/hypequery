@@ -74,9 +74,9 @@ from hypequery.serve import (
     Credential,
     HttpSecurity,
     Principal,
-    add_dataset_endpoint,
+    create_dataset_endpoint,
     create_app,
-    create_router,
+    create_api,
 )
 
 orders = dataset(
@@ -116,11 +116,11 @@ def authenticate(credential: Credential) -> Principal | None:
     return None
 
 
-router = create_router(authenticate=authenticate)
-add_dataset_endpoint(router, "/datasets/orders/query", dataset=orders, client=client)
+api = create_api(authenticate=authenticate)
+create_dataset_endpoint(dataset=orders, client=client).install(api, "/datasets/orders/query")
 
 app = create_app(
-    router,
+    api,
     security=HttpSecurity(allowed_hosts=("127.0.0.1", "localhost")),
     development_docs=True,
 )
@@ -195,7 +195,7 @@ enabled. Use `--no-watch`, `--hostname` or `-p`/`--port` to change those options
 `--no-reload` and `--host` remain supported aliases. Serving
 requires the `fastapi` extra; apps using ClickHouse also need `clickhouse`.
 The command retains the development runner's external-bind warning and refuses
-production-profile apps. Use `run_production` for production serving.
+production-profile apps. Use `start_server` (also `run_production`) for production serving.
 
 `hypequery --help`, `hypequery init --help`, `hypequery dev --help` and
 `hypequery --version` (also `-V`) work without extras.
