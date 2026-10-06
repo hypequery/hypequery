@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Align Python CLI names with TypeScript: `init --path`, `dev --hostname`, `-p`,
+  `--no-watch`, `-V` and `help [command]`; preserve positional destinations,
+  `--host` and `--no-reload` as aliases.
+
 - Add framework-free `hypequery` and `python -m hypequery` CLI entry points,
   help/version and the `init`/`dev` command contract (PYE-01A).
 - Add `run_dev` and `python -m hypequery.serve.dev app:app` for local
