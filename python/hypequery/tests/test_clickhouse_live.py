@@ -114,12 +114,46 @@ def _query(value: object, kind: str) -> CompiledQuery:
             "DateTime64(3)",
             "2026-10-25T01:30:00+00:00",
         ),
+        # RFC 3339 text, the JSON form of a timestamp filter, inside the hour a
+        # European daylight-saving change repeats.
+        ("2026-10-25T01:30:00Z", "DateTime64(3)", "2026-10-25T01:30:00+00:00"),
+        ("2026-10-25T02:30:00+01:00", "DateTime64(3)", "2026-10-25T01:30:00+00:00"),
     ],
 )
 def test_live_sync_parameters(value: object, kind: str, expected: object) -> None:
     executor = create_clickhouse_executor(_connection())
     result = executor.execute(_query(value, kind))
     assert result.rows == ((expected,),)
+
+
+@pytest.mark.skipif(
+    "HYPEQUERY_TEST_CLICKHOUSE_HOST" not in os.environ,
+    reason="live ClickHouse service is not configured",
+)
+def test_live_timestamp_array_parameters() -> None:
+    # Each element of a timestamp array is bound as Unix seconds, so offsets
+    # and the repeated daylight-saving hour survive serialization intact.
+    executor = create_clickhouse_executor(_connection())
+    query = CompiledQuery(
+        sql=(
+            "SELECT arrayStringConcat(arrayMap(x -> toString(x, 'UTC'),"
+            " {p0:Array(DateTime64(3))}), ',') AS value"
+        ),
+        parameters={
+            "p0": TypedParameter(
+                "p0",
+                "Array(DateTime64(3))",
+                [
+                    "2026-10-25T01:30:00Z",
+                    "2026-10-25T02:30:00.250+01:00",
+                    datetime(2026, 10, 25, 1, 30, tzinfo=UTC),
+                ],
+            )
+        },
+    )
+    assert executor.execute(query).rows == (
+        ("2026-10-25 01:30:00.000,2026-10-25 01:30:00.250,2026-10-25 01:30:00.000",),
+    )
 
 
 @pytest.mark.skipif(
