@@ -177,7 +177,7 @@ Install `hypequery[fastapi,clickhouse]` for the complete onboarding path, then:
 ```bash
 hypequery init --path my-analytics
 cd my-analytics
-# Follow the generated README to configure ClickHouse and create sample data.
+# Follow the generated README to configure serving credentials and review definitions.
 hypequery dev
 ```
 
