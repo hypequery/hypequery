@@ -271,46 +271,10 @@ def dataset_filter(value: object, path: str, limits: ProtocolDeploymentLimits) -
     return result
 
 
-def relationship(value: object, path: str, limits: ProtocolDeploymentLimits) -> dict[str, object]:
-    node = record(value, path)
-    exact_fields(node, ("name", "kind", "target", "from", "to", "queryable"), ("keys",), path)
-    kind = node["kind"]
-    if kind not in ("belongsTo", "hasMany", "hasOne"):
-        deployment_error("HQ_DEPLOYMENT_INVALID_VALUE", f"{path}.kind")
-    if type(node["queryable"]) is not bool:
-        deployment_error("HQ_DEPLOYMENT_TYPE", f"{path}.queryable")
-    # `hasMany` is metadata only; joining it would fan out and corrupt aggregates.
-    if (kind == "hasMany") == node["queryable"]:
-        deployment_error("HQ_DEPLOYMENT_INVALID_VALUE", f"{path}.queryable")
-    name = identifier(node["name"], f"{path}.name")
-    target = identifier(node["target"], f"{path}.target")
-    # Composite keys are physical columns; legacy records keep qualified grammar.
-    composite = "keys" in node
-    source_column = identifier(node["from"], f"{path}.from", qualified=not composite)
-    target_column = identifier(node["to"], f"{path}.to", qualified=not composite)
-    result: dict[str, object] = {
-        "name": name,
-        "kind": kind,
-        "target": target,
-        "from": source_column,
-        "to": target_column,
-    }
-    if composite:
-        result["keys"] = relationship_keys(
-            node["keys"], f"{path}.keys", limits, source_column, target_column
-        )
-    result["queryable"] = node["queryable"]
-    return result
-
-
-def relationship_keys(
-    value: object,
-    path: str,
-    limits: ProtocolDeploymentLimits,
-    source_column: str,
-    target_column: str,
+def _relationship_keys(
+    value: object, path: str, limits: ProtocolDeploymentLimits, first: tuple[str, str]
 ) -> list[dict[str, str]]:
-    """Validate a composite key: two or more unique pairs led by from/to."""
+    """RFC 0016 composite keys: unqualified physical column pairs, first pair mirrored."""
 
     keys: list[dict[str, str]] = []
     for index, item in enumerate(array(value, path, limits.max_dataset_items)):
@@ -323,16 +287,48 @@ def relationship_keys(
                 "to": identifier(key["to"], f"{key_path}.to"),
             }
         )
-    # `keys` is only for composite relationships: a single pair uses from/to.
     if (
         len(keys) < 2
-        or keys[0]["from"] != source_column
-        or keys[0]["to"] != target_column
+        or (keys[0]["from"], keys[0]["to"]) != first
         or len({key["from"] for key in keys}) != len(keys)
         or len({key["to"] for key in keys}) != len(keys)
     ):
         deployment_error("HQ_DEPLOYMENT_INVALID_VALUE", path)
     return keys
+
+
+def relationship(value: object, path: str, limits: ProtocolDeploymentLimits) -> dict[str, object]:
+    node = record(value, path)
+    exact_fields(node, ("name", "kind", "target", "from", "to", "queryable"), ("keys",), path)
+    kind = node["kind"]
+    if kind not in ("belongsTo", "hasMany", "hasOne"):
+        deployment_error("HQ_DEPLOYMENT_INVALID_VALUE", f"{path}.kind")
+    if type(node["queryable"]) is not bool:
+        deployment_error("HQ_DEPLOYMENT_TYPE", f"{path}.queryable")
+    # `hasMany` is metadata only; joining it would fan out and corrupt aggregates.
+    if (kind == "hasMany") == node["queryable"]:
+        deployment_error("HQ_DEPLOYMENT_INVALID_VALUE", f"{path}.queryable")
+    # Composite keys are physical columns; the legacy single-key grammar is unchanged.
+    # Validation order matches the reference: the key, then name and target.
+    composite = "keys" in node
+    source = identifier(node["from"], f"{path}.from", qualified=not composite)
+    target_column = identifier(node["to"], f"{path}.to", qualified=not composite)
+    keys = (
+        _relationship_keys(node["keys"], f"{path}.keys", limits, (source, target_column))
+        if composite
+        else None
+    )
+    result: dict[str, object] = {
+        "name": identifier(node["name"], f"{path}.name"),
+        "kind": kind,
+        "target": identifier(node["target"], f"{path}.target"),
+        "from": source,
+        "to": target_column,
+    }
+    if keys is not None:
+        result["keys"] = keys
+    result["queryable"] = node["queryable"]
+    return result
 
 
 def dataset_limits(value: object, path: str) -> dict[str, object]:
