@@ -30,6 +30,10 @@ Supported grains:
 
 `minute` and `hour` buckets keep their time of day, so a period reads like `2024-01-01 10:00:00`.
 
+`week` buckets start on Monday (ISO 8601), in the query timezone. A week period
+is identified by its Monday, so `2026-10-04` (a Sunday) falls in the week of
+`2026-09-28`.
+
 ## Timezone
 
 Buckets and timezone-free time filters use the query timezone. Set an IANA

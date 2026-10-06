@@ -141,6 +141,13 @@ def test_a_time_grain_selects_and_orders_by_period() -> None:
     assert compiled.sql.endswith("GROUP BY `period` ORDER BY `period` ASC")
 
 
+def test_the_week_grain_starts_on_monday() -> None:
+    # toStartOfWeek's default mode starts on Sunday; every hypequery path uses ISO weeks.
+    compiled = plan_dataset_query(_trips(), DatasetQuery(by="week", measures=("trips",)))
+    assert "toMonday(" in compiled.sql
+    assert "toStartOfWeek" not in compiled.sql
+
+
 def test_a_time_grain_needs_a_time_key() -> None:
     assert _category(_trips(time_key=None), DatasetQuery(by="day")) == "input-invalid"
 

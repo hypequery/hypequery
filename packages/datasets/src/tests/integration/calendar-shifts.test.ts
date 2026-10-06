@@ -24,9 +24,9 @@ describe('calendar shifts at fine grains', () => {
       { time: '2023-01-28 12:00:00', group: 'mapped', value: 1 },
       { time: '2023-01-29 12:00:00', group: 'unmapped', value: 99 },
       { time: '2023-02-01 12:00:00', group: 'mapped', value: 2 },
-      { time: '2024-02-03 12:00:00', group: 'week', value: 3 },
-      { time: '2024-02-09 12:00:00', group: 'week', value: 9 },
-      { time: '2024-02-10 12:00:00', group: 'week', value: 100 },
+      { time: '2024-02-04 12:00:00', group: 'week', value: 3 },
+      { time: '2024-02-10 12:00:00', group: 'week', value: 9 },
+      { time: '2024-02-11 12:00:00', group: 'week', value: 100 },
       { time: '2024-02-29 08:00:00', group: 'overlap', value: 2 },
       { time: '2024-02-29 15:00:00', group: 'overlap', value: 7 },
       { time: '2024-02-29 15:00:00', group: 'overlap', value: 7 },
@@ -59,8 +59,10 @@ describe('calendar shifts at fine grains', () => {
   });
 
   it('keeps seven calendar days when a month shift starts between source weeks', async () => {
+    // The week of Monday 2024-03-04 shifts to [Sunday 2024-02-04, 2024-02-11),
+    // which starts in the source week of 2024-01-29 and ends in the next one.
     const result = await client.execute(Events, { by: 'week', measures: ['priorMonth'],
-      filters: [{ field: 'time', operator: 'gte', value: '2024-03-03' }, { field: 'time', operator: 'lt', value: '2024-03-10' }, { field: 'group', operator: 'eq', value: 'week' }] });
+      filters: [{ field: 'time', operator: 'gte', value: '2024-03-04' }, { field: 'time', operator: 'lt', value: '2024-03-11' }, { field: 'group', operator: 'eq', value: 'week' }] });
     expect(result.data.map(row => row.priorMonth)).toEqual(['12']);
   });
 

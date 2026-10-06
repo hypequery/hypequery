@@ -35,7 +35,7 @@ export function utcBucketStart(timestamp: number, grain: TimeGrain): number {
     return date.getTime();
   }
   date.setUTCHours(0, 0, 0, 0);
-  if (grain === 'week') date.setUTCDate(date.getUTCDate() - date.getUTCDay());
+  if (grain === 'week') date.setUTCDate(date.getUTCDate() - ((date.getUTCDay() + 6) % 7));
   if (grain === 'month' || grain === 'quarter' || grain === 'year') date.setUTCDate(1);
   if (grain === 'quarter') date.setUTCMonth(Math.floor(date.getUTCMonth() / 3) * 3);
   if (grain === 'year') date.setUTCMonth(0);

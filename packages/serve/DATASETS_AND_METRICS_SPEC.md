@@ -778,7 +778,7 @@ FROM base
 
 const grainMethod = {
   day: "toStartOfDay",
-  week: "toStartOfWeek",
+  week: "toMonday", // ISO weeks; toStartOfWeek defaults to Sunday
   month: "toStartOfMonth",
   quarter: "toStartOfQuarter",
   year: "toStartOfYear",

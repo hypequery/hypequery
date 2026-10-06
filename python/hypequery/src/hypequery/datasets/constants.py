@@ -11,12 +11,13 @@ from typing import Final
 from .query_helpers import FilterOperator, OrderDirection
 from .relationships import RelationshipKind
 
-#: ClickHouse date-truncation function per supported grain.
+#: ClickHouse date-truncation function per supported grain. Weeks start on
+#: Monday (ISO 8601); ``toStartOfWeek`` would start them on Sunday.
 GRAIN_FUNCTIONS: Final[dict[str, str]] = {
     "minute": "toStartOfMinute",
     "hour": "toStartOfHour",
     "day": "toStartOfDay",
-    "week": "toStartOfWeek",
+    "week": "toMonday",
     "month": "toStartOfMonth",
     "quarter": "toStartOfQuarter",
     "year": "toStartOfYear",

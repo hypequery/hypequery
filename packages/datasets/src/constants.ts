@@ -6,12 +6,15 @@ import type { MetricFilter, TimeGrain } from './types.js';
 
 /**
  * Maps time grain to ClickHouse date truncation functions.
+ *
+ * Weeks start on Monday (ISO 8601). `toMonday` is used rather than
+ * `toStartOfWeek`, whose default mode starts weeks on Sunday.
  */
 export const GRAIN_FUNCTIONS: Record<TimeGrain, string> = {
   minute: 'toStartOfMinute',
   hour: 'toStartOfHour',
   day: 'toStartOfDay',
-  week: 'toStartOfWeek',
+  week: 'toMonday',
   month: 'toStartOfMonth',
   quarter: 'toStartOfQuarter',
   year: 'toStartOfYear',

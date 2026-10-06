@@ -480,7 +480,7 @@ describe('ClickHouse Backend - Time Grains', () => {
 
     await analytics.execute(weeklyRevenue, { dimensions: ['country'] });
 
-    expect(queries[0]).toContain('toStartOfWeek(created_at) AS period');
+    expect(queries[0]).toContain('toMonday(created_at) AS period');
   });
 
   it('generates month grain', async () => {

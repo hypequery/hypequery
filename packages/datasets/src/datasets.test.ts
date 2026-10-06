@@ -955,7 +955,7 @@ describe("MetricQueryEngine", () => {
       const analytics = new MetricQueryEngine({ builderFactory: createMockBuilderFactory() });
       const sql = analytics.toSQL(totalRevenue, { by: "week" }, TENANT_CONTEXT);
 
-      expect(sql).toContain("toStartOfWeek(toDateTime64(created_at, 9, 'UTC')) AS period");
+      expect(sql).toContain("toMonday(toDateTime64(created_at, 9, 'UTC')) AS period");
     });
 
     it("rejects conflicting query.by on grained metrics", () => {

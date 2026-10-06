@@ -53,7 +53,7 @@ const GRAIN_FUNCTIONS = {
   minute: 'toStartOfMinute',
   hour: 'toStartOfHour',
   day: 'toStartOfDay',
-  week: 'toStartOfWeek',
+  week: 'toMonday',
   month: 'toStartOfMonth',
   quarter: 'toStartOfQuarter',
   year: 'toStartOfYear',

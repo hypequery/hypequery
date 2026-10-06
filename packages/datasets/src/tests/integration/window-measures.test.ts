@@ -297,7 +297,8 @@ describe('window execution against ClickHouse', () => {
     const years = await client.execute(ds, { by: 'year', measures: ['year'], filters: [{ field: 'time', operator: 'between', value: ['2026-01-01', '2027-12-31'] }] }, context);
     expect(years.data.map(row => row.year)).toEqual(['75', null]);
     const weeks = await client.execute(ds, { by: 'week', measures: ['week'], filters: range }, context);
-    expect(weeks.data.map(row => row.week)).toEqual(['37', '40']);
+    // Monday weeks: 2025-12-29 covers Dec 29–Jan 4; 2026-01-05 has no rows yet.
+    expect(weeks.data.map(row => row.week)).toEqual(['77', null]);
   });
 
 });
