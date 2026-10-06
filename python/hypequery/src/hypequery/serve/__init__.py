@@ -31,6 +31,7 @@ from .auth import (
     default_tenant_resolver,
 )
 from .body_policy import DEFAULT_MAX_BODY_BYTES
+from .dev import ExternalBindWarning, run_dev
 from .discovery import add_discovery_endpoint
 from .endpoints import DiagnosticAccess, add_dataset_endpoint, add_metric_endpoint
 from .errors import ServeError, ServeErrorType
@@ -53,6 +54,7 @@ __all__ = [
     "CredentialTransport",
     "DiagnosticAccess",
     "EndpointPolicy",
+    "ExternalBindWarning",
     "HttpSecurity",
     "InvalidCredential",
     "MemoryRateLimitStore",
@@ -77,6 +79,7 @@ __all__ = [
     "default_tenant_resolver",
     "install_http_security",
     "request_id",
+    "run_dev",
     "run_production",
     "validate_correlation_id",
 ]
