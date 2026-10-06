@@ -54,8 +54,9 @@ const KEYS_ALIAS = '__hq_keys';
 
 /**
  * Checks that the target join key of each `belongsTo` and `hasOne`
- * relationship on `ds` is unique. Composite keys require every component to be non-NULL. NULL keys are ignored because they never
- * match a join. `hasMany` relationships are skipped.
+ * relationship on `ds` is unique. NULL keys are ignored because they never
+ * match a join; a composite key is ignored when any component is NULL.
+ * `hasMany` relationships are skipped.
  */
 export async function checkRelationships(
   ds: AnyDatasetInstance,

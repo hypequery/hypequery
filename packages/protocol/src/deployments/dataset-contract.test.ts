@@ -121,9 +121,16 @@ describe('local dataset contract validation', () => {
     const validated = validateProtocolDatasetContract(input);
     expect(validated.relationships[0].keys).toEqual(input.relationships[0].keys);
     expect(Object.isFrozen(validated.relationships[0].keys)).toBe(true);
-    for (const keys of [[], [{ from: 'other', to: 'id' }], [{ from: 'customer_id', to: 'id' }, { from: 'region', to: 'id' }], [{ from: 'customer_id', to: 'id' }, { from: 'bad;sql', to: 'region' }]]) {
+    for (const keys of [[], [{ from: 'customer_id', to: 'id' }], [{ from: 'other', to: 'id' }, { from: 'region', to: 'region' }], [{ from: 'customer_id', to: 'id' }, { from: 'region', to: 'id' }], [{ from: 'customer_id', to: 'id' }, { from: 'bad;sql', to: 'region' }]]) {
       expect(() => validateProtocolDatasetContract({ ...input, relationships: [{ ...input.relationships[0], keys }] })).toThrow(/HQ_DEPLOYMENT/);
     }
+  });
+
+  it('bounds composite keys by maxDatasetItems', () => {
+    const keys = [{ from: 'customer_id', to: 'id' }, { from: 'region', to: 'region' }, { from: 'shard', to: 'shard' }];
+    const input = { ...dataset(), relationships: [{ name: 'customer', kind: 'belongsTo', target: 'customers', from: 'customer_id', to: 'id', queryable: true, keys }] };
+    expect(() => validateProtocolDatasetContract(input, { limits: { maxDatasetItems: 2 } })).toThrow(/HQ_DEPLOYMENT_TOO_MANY_ITEMS/);
+    expect(validateProtocolDatasetContract(input, { limits: { maxDatasetItems: 3 } }).relationships[0].keys).toHaveLength(3);
   });
 
   it('rejects qualified composite columns before rehydration while preserving legacy grammar', () => {

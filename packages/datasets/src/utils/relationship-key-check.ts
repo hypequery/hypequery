@@ -1,10 +1,10 @@
-import { relationshipKeys } from './relationship-keys.js';
 /**
  * Pure helpers for `checkRelationships`: which relationships a check covers,
  * and how a key-count row becomes a finding.
  */
 
 import type { AnyDatasetInstance, RelationshipDefinition } from '../types.js';
+import { relationshipKeys } from './relationship-keys.js';
 
 export type ToOneRelationshipKind = 'belongsTo' | 'hasOne';
 
@@ -118,8 +118,14 @@ export function relationshipKeyIssue(
     rows: displayCount(rows),
     distinctKeys: displayCount(distinctKeys),
     message:
-      `Relationship "${entry.relationship}" is declared ${entry.kind}, but "${source}.${entry.columns ? `(${entry.columns.join(', ')})` : entry.column}" ` +
+      `Relationship "${entry.relationship}" is declared ${entry.kind}, but ${describeKey(source, entry)} ` +
       `has ${rows} rows for ${distinctKeys} distinct keys. Joins pick an arbitrary matching row; ` +
       'make the key unique or declare the relationship as hasMany.',
   };
+}
+
+/** `"customers.id"`, or `("customers.id", "customers.region")` for a composite key. */
+function describeKey(source: string, entry: Pick<ToOneRelationshipTarget, 'column' | 'columns'>): string {
+  if (!entry.columns) return `"${source}.${entry.column}"`;
+  return `(${entry.columns.map(column => `"${source}.${column}"`).join(', ')})`;
 }

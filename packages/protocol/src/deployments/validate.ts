@@ -473,8 +473,9 @@ function validateRelationship(
       exactFields(key, ['from', 'to'], [], keyPath);
       return freezeRecord({ from: identifier(key.from, `${keyPath}.from`), to: identifier(key.to, `${keyPath}.to`) });
     });
+  // `keys` is only for composite relationships: a single pair uses from/to.
   if (keys && (
-    keys.length === 0 || keys[0].from !== from || keys[0].to !== to
+    keys.length < 2 || keys[0].from !== from || keys[0].to !== to
     || new Set(keys.map(key => key.from)).size !== keys.length
     || new Set(keys.map(key => key.to)).size !== keys.length
   )) {

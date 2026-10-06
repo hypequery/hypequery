@@ -1,10 +1,13 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createQueryBuilder } from '../../../../clickhouse/src/index.js';
-import { dataset, dimension, measure, belongsTo, createDatasetClient, checkRelationships } from '../../index.js';
+import { dataset, dimension, measure, belongsTo, hasOne, createDatasetClient, checkRelationships } from '../../index.js';
 import { TEST_CONNECTION_CONFIG, insertRows, runSql } from '../../../../../testing/clickhouse/harness.mjs';
 
 const sourceTable = 'composite_orders';
 const targetTable = 'composite_customers';
+// Narrower, non-Nullable and LowCardinality key types than the source columns.
+const profileTable = 'composite_profiles';
+const Profiles = dataset('compositeLiveProfiles', { source: profileTable, tenantKey: 'tenant', dimensions: { segment: dimension.string() } });
 const Targets = dataset('compositeLiveCustomers', {
   source: targetTable, tenantKey: 'tenant', dimensions: { tier: dimension.string() },
   measures: { count: measure.countDistinct('row_key'), lowest: measure.min('score') },
@@ -13,7 +16,10 @@ const Sources = dataset('compositeLiveOrders', {
   source: sourceTable, tenantKey: 'tenant', timeKey: 'time',
   dimensions: { status: dimension.string(), time: dimension.timestamp() },
   measures: { revenue: measure.sum('amount'), running: measure.cumulative('revenue') },
-  relationships: { customer: belongsTo(() => Targets, { keys: [{ from: 'customer_id', to: 'id' }, { from: 'region_code', to: 'region' }] }) },
+  relationships: {
+    customer: belongsTo(() => Targets, { keys: [{ from: 'customer_id', to: 'id' }, { from: 'region_code', to: 'region' }] }),
+    profile: hasOne(() => Profiles, { keys: [{ from: 'customer_id', to: 'customer' }, { from: 'region_code', to: 'region' }] }),
+  },
 });
 const db = createQueryBuilder({ host: TEST_CONNECTION_CONFIG.host, username: TEST_CONNECTION_CONFIG.user, password: TEST_CONNECTION_CONFIG.password, database: TEST_CONNECTION_CONFIG.database });
 const client = createDatasetClient({ queryBuilder: db });
@@ -23,6 +29,12 @@ describe('composite relationships against ClickHouse', () => {
   beforeAll(async () => {
     await runSql(`CREATE TABLE ${sourceTable} (customer_id Nullable(UInt64), region_code Nullable(String), amount Float64, status String, tenant String, time DateTime) ENGINE = MergeTree ORDER BY tuple()`);
     await runSql(`CREATE TABLE ${targetTable} (id Nullable(UInt64), region Nullable(String), row_key String, score Float64, tier String, tenant String) ENGINE = MergeTree ORDER BY tuple()`);
+    await runSql(`CREATE TABLE ${profileTable} (customer UInt32, region LowCardinality(String), segment String, tenant String) ENGINE = MergeTree ORDER BY tuple()`);
+    await insertRows(profileTable, [
+      { customer: 1, region: 'US', segment: 'retail', tenant: 'a' },
+      { customer: 1, region: 'EU', segment: 'wholesale', tenant: 'a' },
+      { customer: 1, region: 'EU', segment: 'other-tenant', tenant: 'b' },
+    ]);
     await insertRows(targetTable, [
       { id: 1, region: 'US', row_key: '1US', score: 5, tier: 'gold', tenant: 'a' },
       { id: 1, region: 'EU', row_key: '1EU', score: 10, tier: 'silver', tenant: 'a' },
@@ -41,7 +53,9 @@ describe('composite relationships against ClickHouse', () => {
       { customer_id: 1, region_code: 'EU', amount: 900, status: 'paid', tenant: 'b', time: '2026-01-02 12:00:00' },
     ]);
   });
-  afterAll(async () => { await runSql(`DROP TABLE IF EXISTS ${sourceTable}`); await runSql(`DROP TABLE IF EXISTS ${targetTable}`); });
+  afterAll(async () => {
+    for (const table of [sourceTable, targetTable, profileTable]) await runSql(`DROP TABLE IF EXISTS ${table}`);
+  });
   it('matches the full key, preserves unmatched rows and scopes tenants', async () => {
     const { data } = await client.execute(Sources, { dimensions: ['customer.tier'], measures: ['revenue', 'customer.count'], orderBy: [{ field: 'revenue', direction: 'asc' }] }, context);
     expect(data.filter(row => row['customer.count'] !== '0')).toEqual([{ 'customer.tier': 'gold', revenue: '30', 'customer.count': '1' }, { 'customer.tier': 'silver', revenue: '30', 'customer.count': '1' }]);
@@ -55,9 +69,17 @@ describe('composite relationships against ClickHouse', () => {
     expect((await client.execute(Sources, { measures: ['customer.count', 'customer.lowest'] }, context)).data).toEqual([{ 'customer.count': '2', 'customer.lowest': '5' }]);
   });
   it('checks combined uniqueness and ignores partially NULL target keys', async () => {
-    expect(await checkRelationships(Sources, { queryBuilder: db, context })).toEqual({ ok: true, checked: ['customer'], issues: [] });
+    expect(await checkRelationships(Sources, { queryBuilder: db, context })).toEqual({ ok: true, checked: ['customer', 'profile'], issues: [] });
     const all = await checkRelationships(Sources, { queryBuilder: db, context: { runtime: { tenant: { scope: 'all' } } } });
-    expect(all.issues).toEqual([expect.objectContaining({ columns: ['id', 'region'], rows: 3, distinctKeys: 2 })]);
+    expect(all.issues).toEqual([
+      expect.objectContaining({ relationship: 'customer', columns: ['id', 'region'], rows: 3, distinctKeys: 2 }),
+      expect.objectContaining({ relationship: 'profile', columns: ['customer', 'region'], rows: 3, distinctKeys: 2 }),
+    ]);
+  });
+  it('joins hasOne composite keys across differing column types', async () => {
+    const { data } = await client.execute(Sources, { dimensions: ['profile.segment'], measures: ['revenue'], orderBy: [{ field: 'revenue', direction: 'asc' }] }, context);
+    expect(data.filter(row => row['profile.segment'] !== '')).toEqual([{ 'profile.segment': 'retail', revenue: '30' }, { 'profile.segment': 'wholesale', revenue: '30' }]);
+    expect(data.reduce((sum, row) => sum + Number(row.revenue), 0)).toBe(210);
   });
   it('supports composite joins in the time-measure source', async () => {
     const { data } = await client.execute(Sources, { measures: ['running', 'customer.count'], by: 'day', filters: [{ field: 'time', operator: 'gte', value: '2026-01-01' }, { field: 'time', operator: 'lt', value: '2026-01-03' }] }, context);
