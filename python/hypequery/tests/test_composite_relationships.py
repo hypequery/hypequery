@@ -217,6 +217,11 @@ def test_protocol_validates_composite_keys() -> None:
     ("keys", "code", "path"),
     [
         ([], "HQ_DEPLOYMENT_INVALID_VALUE", "$.relationships[0].keys"),
+        (
+            [{"from": "customer_id", "to": "id"}],
+            "HQ_DEPLOYMENT_INVALID_VALUE",
+            "$.relationships[0].keys",
+        ),
         ([{"from": "other", "to": "id"}], "HQ_DEPLOYMENT_INVALID_VALUE", "$.relationships[0].keys"),
         (
             [{"from": "customer_id", "to": "id"}, {"from": "region", "to": "id"}],
@@ -384,3 +389,12 @@ def test_live_the_full_key_matches_and_null_components_never_do() -> None:
         executor.close()
         admin.command(f"DROP DATABASE IF EXISTS {database}")
         admin.close()
+
+
+def test_protocol_validates_key_errors_before_relationship_name() -> None:
+    with pytest.raises(ProtocolDeploymentError) as raised:
+        validate_protocol_dataset_contract(_contract(_relationship(name="bad;name", keys=[])))
+    assert (raised.value.code, raised.value.path) == (
+        "HQ_DEPLOYMENT_INVALID_VALUE",
+        "$.relationships[0].keys",
+    )

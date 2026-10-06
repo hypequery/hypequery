@@ -288,7 +288,7 @@ def _relationship_keys(
             }
         )
     if (
-        not keys
+        len(keys) < 2
         or (keys[0]["from"], keys[0]["to"]) != first
         or len({key["from"] for key in keys}) != len(keys)
         or len({key["to"] for key in keys}) != len(keys)

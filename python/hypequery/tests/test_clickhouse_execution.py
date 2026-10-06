@@ -59,23 +59,24 @@ def compiled(value: object = "a'b\x00c", kind: str = "String") -> CompiledQuery:
 
 
 @pytest.mark.parametrize(
-    ("value", "kind"),
+    ("value", "kind", "wire"),
     [
-        ("a'b\x00c", "String"),
-        (2**63 - 1, "Int64"),
-        (2**64 - 1, "UInt64"),
-        (Decimal("123456789.012345678"), "Decimal(27,9)"),
-        (datetime(2026, 10, 25, 1, 30, tzinfo=UTC), "DateTime64(3)"),
+        ("a'b\x00c", "String", "a'b\x00c"),
+        (2**63 - 1, "Int64", 2**63 - 1),
+        (2**64 - 1, "UInt64", 2**64 - 1),
+        (Decimal("123456789.012345678"), "Decimal(27,9)", Decimal("123456789.012345678")),
+        # An instant travels as Unix seconds: no server time zone can reread it.
+        (datetime(2026, 10, 25, 1, 30, tzinfo=UTC), "DateTime64(3)", "1792891800.000000"),
     ],
 )
-def test_driver_uses_server_parameter_binding(value: object, kind: str) -> None:
+def test_driver_uses_server_parameter_binding(value: object, kind: str, wire: object) -> None:
     query = compiled(value, kind)
     client = SyncClient(Result(("value",), [("ok",)]))
     result = ClickHouseExecutor(client).execute(query)
     assert result.named_rows() == ({"value": "ok"},)
     args, kwargs = cast(tuple[tuple[object, ...], dict[str, object]], client.calls[0])
     assert args[0] == query.sql
-    assert args[1] == {"p0": value}
+    assert args[1] == {"p0": wire}
     assert kwargs["transport_settings"] == {}
     assert cast(dict[str, object], args[2])["query_id"] == query.query_id
     assert kwargs["use_none"] is True
