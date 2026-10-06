@@ -31,7 +31,7 @@ from .auth import (
     default_tenant_resolver,
 )
 from .body_policy import DEFAULT_MAX_BODY_BYTES
-from .dev import ExternalBindWarning, run_dev
+from .dev import ExternalBindWarning, run_dev, serve_dev
 from .discovery import add_discovery_endpoint
 from .endpoints import DiagnosticAccess, add_dataset_endpoint, add_metric_endpoint
 from .errors import ServeError, ServeErrorType
@@ -81,5 +81,6 @@ __all__ = [
     "request_id",
     "run_dev",
     "run_production",
+    "serve_dev",
     "validate_correlation_id",
 ]

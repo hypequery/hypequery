@@ -3,6 +3,12 @@
 from __future__ import annotations
 
 from .result_cache import ResultCache
-from .store import CachedRows, CacheStore, MemoryCacheStore
+from .store import CachedRows, CacheStore, MemoryCacheStore, create_memory_cache_store
 
-__all__ = ["CacheStore", "CachedRows", "MemoryCacheStore", "ResultCache"]
+__all__ = [
+    "CacheStore",
+    "CachedRows",
+    "MemoryCacheStore",
+    "ResultCache",
+    "create_memory_cache_store",
+]

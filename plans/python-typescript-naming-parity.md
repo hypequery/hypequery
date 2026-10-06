@@ -46,8 +46,8 @@ and measures use the same `<relationship>.<name>` notation.
 
 The serving runtimes are not API-identical: TypeScript `serveDev` integrates
 its HTTP server, while Python `run_dev` starts Uvicorn for an ASGI application.
-Retain the established runtime names rather than implying interchangeable
-signatures. #600's runner stays the implementation behind the shared `dev`
+Python now exports `serve_dev` to match the TypeScript function name, while
+keeping `run_dev` available. Signatures remain specific to their runtimes. #600's runner stays the implementation behind the shared `dev`
 CLI command.
 
 ## Verification
@@ -57,3 +57,21 @@ help without optional imports, both entrypoints, ambiguous init destinations,
 flag forwarding into the runner, and real development server reload/shutdown.
 Installed wheel/sdist checks use `init --path` and `help [command]` outside the
 checkout, including base installations without serving dependencies.
+
+
+## Public authoring parity follow-up
+
+The Python authoring surface now exposes `dataset(...)`,
+`dimension.string/number/boolean/timestamp()`, base `measure.sum/count/avg/...()`
+helpers, `filter.eq/...()` and `order.asc/desc()`. Compound names follow Python
+spelling, e.g. `measure.count_distinct` and `measure.arg_max`.
+`create_memory_cache_store` matches TypeScript's `createMemoryCacheStore`.
+Existing `Dataset(...)`, `dimension("string")`, `measure(sum("amount"))`, flat
+filter/order/aggregation helpers, and `MemoryCacheStore(...)` remain valid.
+
+These names expose implemented behavior. TypeScript-only capabilities such as
+`publishDatasets`, `checkRelationships`, approximate distinct counts, and
+shift/window/derived measures still need separate Python implementations;
+there are no public stubs implying those features work. `create_dataset_client`,
+`create_dataset_registry`, contract/catalog factories, `to_sql`, `for_tenant`
+and `get_all` already follow the TypeScript names in Python spelling.

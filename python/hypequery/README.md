@@ -68,7 +68,7 @@ INSERT INTO orders VALUES
 import os
 import secrets
 
-from hypequery.datasets import Dataset, count, create_dataset_client, dimension, measure, sum
+from hypequery.datasets import create_dataset_client, dataset, dimension, measure
 from hypequery.execution import ClickHouseConnection, create_clickhouse_executor
 from hypequery.serve import (
     Credential,
@@ -79,25 +79,26 @@ from hypequery.serve import (
     create_router,
 )
 
-orders = Dataset(
-    name="orders",
+orders = dataset(
+    "orders",
     source="orders",
     time_key="created_at",
     dimensions={
-        "id": dimension("string"),
-        "country": dimension("string"),
-        "status": dimension("string"),
-        "createdAt": dimension("timestamp", column="created_at"),
+        "id": dimension.string(),
+        "country": dimension.string(),
+        "status": dimension.string(),
+        "createdAt": dimension.timestamp(column="created_at"),
     },
     measures={
-        "revenue": measure(sum("amount")),
-        "orderCount": measure(count("id")),
+        "revenue": measure.sum("amount"),
+        "orderCount": measure.count("id"),
     },
 )
 
 executor = create_clickhouse_executor(
     ClickHouseConnection(
         host=os.environ.get("CLICKHOUSE_HOST", "localhost"),
+        port=int(os.environ.get("CLICKHOUSE_PORT", "8123")),
         database=os.environ.get("CLICKHOUSE_DATABASE", "default"),
         username=os.environ.get("CLICKHOUSE_USERNAME", "default"),
         password=os.environ.get("CLICKHOUSE_PASSWORD", ""),
@@ -138,7 +139,8 @@ The development runner listens on `127.0.0.1:8000` only. Binding anywhere else
 (`--host 0.0.0.0`) works but raises an `ExternalBindWarning`: the runner is
 not hardened for a network. It refuses apps created with a `ProductionProfile`;
 run those with [`run_production`](#production-process). From Python, call
-`run_dev(app)` or `run_dev("app:app", reload=True)`.
+`serve_dev(app)` or `serve_dev("app:app", reload=True)`
+(`run_dev` remains available for compatibility).
 
 **5. Query it:**
 

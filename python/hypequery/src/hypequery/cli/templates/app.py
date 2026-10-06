@@ -1,8 +1,7 @@
 import os
 import secrets
 
-from hypequery.datasets import Dataset, count, create_dataset_client, dimension, measure
-from hypequery.datasets import sum as sql_sum
+from hypequery.datasets import create_dataset_client, dataset, dimension, measure
 from hypequery.execution import ClickHouseConnection, create_clickhouse_executor
 from hypequery.serve import (
     Credential,
@@ -13,19 +12,19 @@ from hypequery.serve import (
     create_router,
 )
 
-orders = Dataset(
-    name="orders",
+orders = dataset(
+    "orders",
     source="orders",
     time_key="created_at",
     dimensions={
-        "id": dimension("string"),
-        "country": dimension("string"),
-        "status": dimension("string"),
-        "createdAt": dimension("timestamp", column="created_at"),
+        "id": dimension.string(),
+        "country": dimension.string(),
+        "status": dimension.string(),
+        "createdAt": dimension.timestamp(column="created_at"),
     },
     measures={
-        "revenue": measure(sql_sum("amount")),
-        "orderCount": measure(count("id")),
+        "revenue": measure.sum("amount"),
+        "orderCount": measure.count("id"),
     },
 )
 
