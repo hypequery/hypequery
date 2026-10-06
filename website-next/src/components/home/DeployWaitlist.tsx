@@ -32,15 +32,15 @@ export function DeployWaitlist({ location, className, compactLabel = false }: { 
             <div className="mt-5 flex items-center gap-2">
               <input id={`design-partner-${location}`} name="design_partner" type="checkbox" value="yes" className="h-4 w-4 shrink-0 accent-accent" />
               <label htmlFor={`design-partner-${location}`} className="text-sm text-text">I&apos;d like to be a design partner</label>
-              <details className="relative">
-                <summary className="flex cursor-pointer list-none items-center text-text-muted transition hover:text-text [&::-webkit-details-marker]:hidden">
+              <span className="group relative inline-flex">
+                <button type="button" aria-describedby={`design-partner-tip-${location}`} className="flex items-center rounded text-text-muted transition hover:text-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent">
                   <Info className="h-4 w-4" aria-hidden="true" />
                   <span className="sr-only">What does being a design partner mean?</span>
-                </summary>
-                <div className="absolute right-0 top-full z-20 mt-2 w-[min(260px,75vw)] rounded-lg border border-border-strong bg-bg-card p-3 text-xs leading-5 text-text shadow-xl">
+                </button>
+                <span id={`design-partner-tip-${location}`} role="tooltip" className="pointer-events-none invisible absolute left-1/2 top-full -translate-x-1/2 z-20 mt-2 w-[min(260px,75vw)] rounded-lg border border-border-strong bg-bg-card p-3 text-xs leading-5 text-text opacity-0 shadow-xl transition-opacity group-focus-within:visible group-focus-within:opacity-100 group-hover:visible group-hover:opacity-100">
                   Help shape the Cloud roadmap. We&apos;ll reach out to arrange a design discussion.
-                </div>
-              </details>
+                </span>
+              </span>
             </div>
             <fieldset className="mt-6">
               <legend className="text-sm font-semibold">What would you use first?</legend>
