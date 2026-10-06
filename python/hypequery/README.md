@@ -175,7 +175,7 @@ Next steps: [add tenant isolation](#serving-with-fastapi), relationships
 Install `hypequery[fastapi,clickhouse]` for the complete onboarding path, then:
 
 ```bash
-hypequery init my-analytics
+hypequery init --path my-analytics
 cd my-analytics
 # Follow the generated README to configure ClickHouse and create sample data.
 hypequery dev
@@ -196,9 +196,16 @@ The command retains the development runner's external-bind warning and refuses
 production-profile apps. Use `run_production` for production serving.
 
 `hypequery --help`, `hypequery init --help`, `hypequery dev --help` and
-`hypequery --version` work without extras. `python -m hypequery` invokes the same
+`hypequery --version` (also `-V`) work without extras.
+`hypequery help [init|dev]` also shows command help. `python -m hypequery` invokes the same
 CLI. Exit codes are `0` for success/help, `1` for runtime failures and `2` for
 invalid command usage. No Node tooling is required.
+
+Python keeps `-h` for help; use `--hostname` for the bind address.
+Shared CLI commands and supported options use the TypeScript names.
+Python entrypoints use `module:attribute`, and scaffolding defaults to the current
+directory. See the [cross-language naming audit](../../plans/python-typescript-naming-parity.md)
+for the SDK and pending beta features.
 
 ## Install extras
 

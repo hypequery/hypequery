@@ -84,11 +84,18 @@ print(json.dumps({'version': version('hypequery')}))
                 self._run([*entry, "--version"]).stdout.strip() == f"hypequery {version}",
                 "CLI version differs from installed metadata",
             )
-            for args in (["--help"], ["init", "--help"], ["dev", "--help"]):
+            for args in (
+                ["--help"],
+                ["init", "--help"],
+                ["dev", "--help"],
+                ["help"],
+                ["help", "init"],
+                ["help", "dev"],
+            ):
                 require(
                     "usage: hypequery" in self._run([*entry, *args]).stdout, "CLI help is missing"
                 )
-        self._run([str(self.cli), "init", str(self.project)])
+        self._run([str(self.cli), "init", "--path", str(self.project)])
         self._run(
             [
                 str(self.python),
