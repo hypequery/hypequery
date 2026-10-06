@@ -1,5 +1,31 @@
 # @hypequery/serve
 
+## 0.20.0
+
+### Minor Changes
+
+- 0f36d1f: Add authenticated logical `/discovery` with configurable endpoint policy. The public `/contract` retains its version and definition identity while omitting physical and tenant-policy fields. Use local `serializeSemanticContract` for trusted physical definitions.
+- 9b5b523: Support one-hop relationship base measures in dataset queries through the query-builder client. Allow duplicate-insensitive aggregates through belongsTo and all base aggregates through declared hasOne relationships, preserve tenant and fixed-filter scoping, and exclude unmatched target rows from aggregate inputs. Advertise safe names and approximate metadata in runtime catalogs and input schemas, with typed projections through Serve and React.
+
+### Patch Changes
+
+- e92973f: Filter unexpected fields from nested pagination, cache, and result-limit metadata in dataset and metric responses. Preserve the existing trustedDiagnostics option and response format.
+- 339deef: Omit SQL and internal tenant IDs from caller-requested dataset and metric
+  metadata by default. Public metadata remains available through includeMeta or
+  x-include-meta. Trusted endpoints can explicitly retain diagnostics with the
+  server-side trustedDiagnostics option; protect those endpoints with auth and roles.
+- f30add1: Preserve dataset filter allowlist names and field-specific operators through dataset and metric queries, Serve API inputs, and React hooks. Generated filters respect `filterable: false`, and one-hop relationship filters follow the target allowlist. Filter helpers retain operator literals.
+
+  Prevent normal dataset execution from falling through to the legacy dynamic-query overload; explicit result-row generic calls remain supported. Fix Serve in-process execution input inference so its optional schema storage property no longer widens typed inputs to unknown.
+
+- Updated dependencies [339deef]
+- Updated dependencies [1effbb2]
+- Updated dependencies [339deef]
+- Updated dependencies [0841d1c]
+- Updated dependencies [9b5b523]
+- Updated dependencies [f30add1]
+  - @hypequery/datasets@0.22.0
+
 ## 0.19.3
 
 ### Patch Changes

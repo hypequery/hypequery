@@ -1,5 +1,14 @@
 # @hypequery/react
 
+## 0.6.4
+
+### Patch Changes
+
+- 9b5b523: Support one-hop relationship base measures in dataset queries through the query-builder client. Allow duplicate-insensitive aggregates through belongsTo and all base aggregates through declared hasOne relationships, preserve tenant and fixed-filter scoping, and exclude unmatched target rows from aggregate inputs. Advertise safe names and approximate metadata in runtime catalogs and input schemas, with typed projections through Serve and React.
+- f30add1: Preserve dataset filter allowlist names and field-specific operators through dataset and metric queries, Serve API inputs, and React hooks. Generated filters respect `filterable: false`, and one-hop relationship filters follow the target allowlist. Filter helpers retain operator literals.
+
+  Prevent normal dataset execution from falling through to the legacy dynamic-query overload; explicit result-row generic calls remain supported. Fix Serve in-process execution input inference so its optional schema storage property no longer widens typed inputs to unknown.
+
 ## 0.6.3
 
 ### Patch Changes

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import threading
 from collections.abc import Awaitable
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import suppress
@@ -11,7 +12,7 @@ from typing import Protocol, cast
 
 from hypequery.datasets.planner import CompiledQuery, CompiledQueryError
 
-from .cancellation import acquire_slot, run_with_policy
+from .cancellation import acquire_slot, run_with_policy, terminal_error
 from .errors import safe_driver_error
 from .parameters import bound_parameters
 from .readonly_settings import (
@@ -21,6 +22,7 @@ from .readonly_settings import (
     wire_settings,
 )
 from .results import DriverResult, QueryRows, decode_result
+from .sync_cancellation import SyncCancellationMonitor
 
 
 @dataclass(frozen=True, slots=True)
@@ -107,10 +109,24 @@ def _query_arguments(compiled: CompiledQuery) -> tuple[dict[str, object], dict[s
 class ClickHouseExecutor:
     """Execute a trusted compiled SELECT with native server parameters."""
 
-    def __init__(self, client: _SyncClient, *, readonly_policy: ReadonlyPolicy = "query") -> None:
+    def __init__(
+        self,
+        client: _SyncClient,
+        *,
+        readonly_policy: ReadonlyPolicy = "query",
+        control_client: _SyncControlClient | None = None,
+    ) -> None:
         validate_readonly_policy(readonly_policy)
         self._client = client
         self._readonly_policy = readonly_policy
+        self._control_client = control_client
+        self._control_lock = threading.Lock()
+
+    def _cancel_on_server(self, query_id: str) -> object:
+        if self._control_client is None:
+            return None
+        with self._control_lock:
+            return self._control_client.command(_KILL_QUERY, {"id": query_id})
 
     def execute(self, compiled: CompiledQuery) -> QueryRows:
         parameters, settings = _query_arguments(compiled)
@@ -118,6 +134,13 @@ class ClickHouseExecutor:
         # The driver's settings path puts query_id in HTTP parameters.
         # transport_settings becomes headers, which ClickHouse ignores here.
         query_settings: dict[str, int | str] = {**selected, "query_id": compiled.query_id}
+        monitor = (
+            SyncCancellationMonitor(compiled, self._cancel_on_server)
+            if self._control_client is not None
+            else None
+        )
+        if monitor is not None:
+            monitor.start()
         try:
             result = self._client.query(
                 compiled.sql,
@@ -128,10 +151,19 @@ class ClickHouseExecutor:
                 transport_settings={},
             )
         except Exception as exc:
+            reason = terminal_error(compiled)
+            if reason is not None:
+                raise reason from None
             guidance = readonly_setting_error(exc, self._readonly_policy, compiled.query_id)
             if guidance is not None:
                 raise guidance from None
             raise safe_driver_error(exc, compiled.query_id) from None
+        finally:
+            if monitor is not None:
+                monitor.stop()
+        reason = terminal_error(compiled)
+        if reason is not None:
+            raise reason
         return decode_result(result, compiled.query_id)
 
     def close(self) -> None:
@@ -140,6 +172,9 @@ class ClickHouseExecutor:
         closer = getattr(self._client, "close", None)
         if callable(closer):
             closer()
+        control_closer = getattr(self._control_client, "close", None)
+        if callable(control_closer):
+            control_closer()
 
 
 class AsyncClickHouseExecutor:
@@ -323,6 +358,7 @@ def create_clickhouse_executor(connection: ClickHouseConnection) -> ClickHouseEx
         raise ModuleNotFoundError(
             'Install "hypequery[clickhouse]" to use ClickHouse execution.'
         ) from exc
+    client = None
     try:
         client = get_client(
             host=connection.host,
@@ -332,9 +368,24 @@ def create_clickhouse_executor(connection: ClickHouseConnection) -> ClickHouseEx
             password=connection.password,
             secure=connection.secure,
         )
+        control_client = get_client(
+            host=connection.host,
+            port=connection.port,
+            database=connection.database,
+            username=connection.username,
+            password=connection.password,
+            secure=connection.secure,
+            send_receive_timeout=2,
+        )
     except Exception as exc:
+        if client is not None:
+            client.close()
         raise safe_driver_error(exc, "") from None
-    return ClickHouseExecutor(cast(_SyncClient, client), readonly_policy=connection.readonly_policy)
+    return ClickHouseExecutor(
+        cast(_SyncClient, client),
+        readonly_policy=connection.readonly_policy,
+        control_client=cast(_SyncControlClient, control_client),
+    )
 
 
 async def create_async_clickhouse_executor(

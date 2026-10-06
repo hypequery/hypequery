@@ -329,6 +329,13 @@ Call `await executor.aclose()` when the async executor is no longer needed.
 Driver errors are mapped to the canonical safe error categories. Live parameter
 tests run in CI against ClickHouse; local execution needs a ClickHouse service.
 
+The synchronous executor factory opens a separate, short-timeout control
+connection to stop in-flight queries on cancellation or deadline expiry. When
+constructing `ClickHouseExecutor` with your own driver, supply a separate
+`control_client` with permission to cancel its queries. Without it, interruption
+is checked before and after the blocking call, but cannot stop that call early.
+Cancelled results are never reported as a successful HTTP execution.
+
 The async executor limits concurrent queries per client to eight by default.
 `ExecutionContext.cancellation` may be a `threading.Event` or `asyncio.Event`;
 the planner carries it into the compiled query. Caller cancellation and deadline
@@ -805,3 +812,168 @@ See the [implementation plan](../../plans/python-datasets-serve-pr-level-plan.md
 
 For dataset coverage, CI gates, and remaining gaps, see the
 [testing review](./TESTING_REVIEW.md).
+
+## Serve dataset and metric endpoints
+
+Register endpoints over `create_dataset_client` (or
+`create_async_dataset_client`) and build an app with docs closed by default:
+
+Register `add_discovery_endpoint(router, registry=registry)` to publish a bounded
+logical catalog at `/discovery`. It authenticates by default and accepts an
+`EndpointPolicy` for role, scope and tenant requirements. Any listed role grants
+role access; all listed scopes are required. Explicitly pass
+`EndpointPolicy(public=True)` only for intentionally public discovery. The
+256 KiB default budget is checked at startup; physical sources, columns, SQL,
+tenant policy and tenant values never appear in this projection.
+
+```python
+from hypequery.serve import (
+    EndpointPolicy,
+    HttpSecurity,
+    add_dataset_endpoint,
+    add_discovery_endpoint,
+    add_metric_endpoint,
+    create_app,
+    create_router,
+)
+
+# authenticate is your host's credential lookup. It returns a Principal whose
+# roles, scopes and tenant_id come from trusted server-side identity data.
+router = create_router(authenticate=authenticate)
+policy = EndpointPolicy(required_scopes=frozenset({"analytics:read"}), tenant="required")
+add_dataset_endpoint(router, "/datasets/orders/query", dataset=orders, client=client, policy=policy)
+add_metric_endpoint(
+    router,
+    "/metrics/order_count",
+    dataset=orders,
+    measure="count",
+    name="order_count",
+    client=client,
+    policy=policy,
+)
+add_discovery_endpoint(router, registry=registry)
+app = create_app(router, security=HttpSecurity(allowed_hosts=("analytics.example.com",)))
+```
+
+The dataset, registry and client are authored by the host as in the client
+examples above. Metric endpoints fix one dataset measure; formula metrics and
+portable metric definitions remain a follow-up. Their optional `name` aliases
+that measure in results and ordering.
+
+POST a strict JSON body with `dimensions`, `measures` (dataset endpoints only),
+`filters`, `orderBy`, `by`, `limit`, `offset`, and `includeMeta`. Filters are
+`{"field": "country", "operator": "eq", "value": "US"}`; orders are
+`{"field": "order_count", "direction": "desc"}`. Unknown request fields,
+coercion of numbers/booleans, and attempts to supply tenant, SQL, settings,
+roles or scopes are refused. Page sizes are positive, default to 1000, and
+clamped to the endpoint and dataset caps. An extra row is fetched to compute
+`hasMore`, then removed from returned data and row counts.
+
+Responses are `{ "data": [...] }`, or `{ "data": [...], "meta": {...} }` when
+`includeMeta: true` or `x-include-meta: true` is sent. Public metadata contains
+`requestId`, `timingMs`, `rowCount`, `pagination: { limit, offset, hasMore }`, and
+`cache: { hit }`. Non-null semantic measure values are strings on the HTTP
+wire, matching TypeScript. Local Python client results keep their native values.
+
+`DiagnosticAccess(authorize=..., audit=...)` is an optional server-authored
+endpoint setting. Both callbacks run in the threadpool. Only an authenticated
+principal authorized by the host receives a separate `diagnostics` object, and
+only after the audit callback succeeds. It contains redacted debug `sql`, never
+bound values or raw tenant ids. Metadata opt-in alone grants no access.
+
+`QueryEvents(target={"project": "my-project", "environment": "production"},
+sink=...)` is an optional endpoint setting. The synchronous host sink receives
+validated RFC 0011 events containing identifiers, outcome, duration, and row
+count or canonical failure category; never request bodies, rows, SQL, credentials
+or tenant values. Sink failures do not fail queries.
+
+Discovery is authenticated unless explicitly registered with
+`EndpointPolicy(public=True)`. Its logical catalog matches TypeScript's
+`/discovery` projection and has a 256 KiB default budget enforced at startup.
+It carries no physical sources, columns, SQL, tenant policy or values.
+`create_app` disables `/docs`, `/redoc`, and `/openapi.json`; use
+`development_docs=True` only for deliberate development documentation. When
+embedding the router in an existing FastAPI app, the host owns that app's docs
+policy.
+
+### Production process
+
+Use the validated production profile and runner for a standalone service:
+
+```python
+from hypequery.serve import ProductionProfile, run_production
+
+app = create_app(
+    router,
+    security=HttpSecurity(
+        allowed_hosts=("analytics.example.com",),
+        trusted_proxies=("127.0.0.1",),
+    ),
+    production=ProductionProfile(
+        max_concurrency=32,
+        timeout_seconds=30,
+        max_result_rows=10_001,
+        max_result_bytes=8 << 20,
+    ),
+)
+
+if __name__ == "__main__":
+    run_production(app)
+```
+
+The runner binds to `127.0.0.1:8000` by default. An IP address outside loopback
+requires `allow_external_bind=True`, for example when binding within a container.
+It runs one Uvicorn worker per process, with reload, access logging, server headers
+and WebSockets disabled; keep-alive is five seconds and graceful shutdown allows
+the request timeout plus five seconds. A process manager can run multiple
+instances; concurrency limits apply independently to each instance.
+
+Terminate TLS at a reverse proxy. List its addresses/networks explicitly in
+`HttpSecurity.trusted_proxies`; the default trusts none, and production rejects
+all-address networks. The runner disables Uvicorn's own forwarded-header handling
+so application policy sees the original peer and controls proxy trust once.
+See [Uvicorn settings](https://www.uvicorn.org/settings/) for transport details.
+
+Production rejects debug, reload, development docs and cookie credential
+transports at startup. Authentication uses explicit bearer/API-key headers;
+cookie authentication and its required CSRF/session policy are unsupported.
+The host authenticator must validate those header credentials independently of
+cookies. Hosts embedding the router in another app own equivalent process and
+documentation safeguards.
+
+Excess in-flight requests receive canonical `503 SERVICE_UNAVAILABLE` without
+queuing. The request timeout covers authentication, body reading, query execution,
+response generation and sending; expiry cancels the handler and signals the
+dataset executor. Before response headers are sent it returns canonical
+`504 GATEWAY_TIMEOUT`; a stalled send after headers closes the connection.
+The HTTP deadline returns promptly even when a synchronous query or authentication
+callback stalls. Its admission slot remains occupied until the tracked worker
+finishes, preventing timed-out requests from accumulating unbounded work.
+Work still waiting for a thread-pool slot is cancelled before the host callback
+starts; only workers already running retain admission until they stop.
+Synchronous executors must honor the cancellation signal; the factory-created
+ClickHouse executor uses its control connection, while Python cannot forcibly
+stop arbitrary host code running in a thread. Failure telemetry is delivered
+asynchronously when the HTTP waiter is cancelled, and is dropped if no worker
+slot is immediately available so it cannot delay admission recovery.
+
+Dataset and metric endpoints also pass time, row, byte and thread ceilings into
+the compiled query, intersecting them with stricter client settings. The row
+budget includes the one-row pagination probe: `max_result_rows=10_001` permits
+at most 10,000 returned rows, further bounded by endpoint/dataset policy.
+The byte ceiling applies both to ClickHouse results and the complete serialized
+HTTP body, including cache hits. Responses are buffered under that ceiling;
+oversized bodies return canonical `413 PAYLOAD_TOO_LARGE` without partial data.
+This profile does not provide streaming exports.
+
+CI tests the real runner, startup refusals, capacity recovery, synchronous and
+asynchronous cancellation, cache/response limits and proxy trust. The same shared
+HTTP fixtures run with and without the production profile, and live ClickHouse
+CI tests the production HTTP query path. The minimum FastAPI/Starlette combination
+and Uvicorn 0.30.0 are tested as well as the locked versions.
+
+Run both implementations' shared HTTP gates after building TypeScript packages:
+
+```bash
+pnpm conformance:serve
+```

@@ -94,7 +94,11 @@ export function createSelectQueryNode<TOutput, TSchema>(
     distinct: config.distinct,
     orderBy: config.orderBy ? config.orderBy.map(item => ({ ...item })) : undefined,
     joins: config.joins
-      ? config.joins.map(item => ({ ...item, on: cloneExprNode(item.on) }))
+      ? config.joins.map(item => ({
+        ...item,
+        ...(item.additionalKeys ? { additionalKeys: item.additionalKeys.map(key => ({ ...key })) } : {}),
+        on: cloneExprNode(item.on),
+      }))
       : undefined,
     ctes: config.ctes
       ? config.ctes.map(item => ({

@@ -170,7 +170,7 @@ db.table('table_name')
 
 </CodeBlock>
 
-- `joinType`: One of `innerJoin`, `leftJoin`, `rightJoin`, `fullJoin`
+- `joinType`: One of `innerJoin`, `leftJoin`, `leftAnyJoin`, `rightJoin`, `fullJoin`
 - `other_table`: Name of the table to join
 - `left_column`: Column from the current table
 - `right_column`: Column from the joined table (format: `'table.column'`)
@@ -315,25 +315,59 @@ const results = await db.table('orders')
 
 </CodeBlock>
 
-## Joining on Multiple Conditions
+## Joining on Multiple Columns
 
-ClickHouse doesn't natively support multiple join conditions in the same join. Use `where` clauses to add additional conditions:
-
-<CodeBlock>
+Pass a non-empty array of column pairs to match a composite key. All five join methods support this form, and TypeScript checks each left column against the base row and each right column against the join target.
 
 ```typescript
-const results = await db.table('orders')
-  .innerJoin('users', 'user_id', 'users.id')
-  .where('users.status', 'eq', 'active')
-  .where('orders.created_at', 'gte', '2024-01-01')
-  .select([
-    'orders.id',
-    'users.name',
+const results = await db.table('entities')
+  .withCTE('children_cte', `
+    SELECT tenant_id AS parent_tenant_id, entity_id AS parent_entity_id,
+      sub_id AS parent_sub_id, toJSONString(groupArray(child_id)) AS children_json
+    FROM children
+    GROUP BY tenant_id, entity_id, sub_id
+  `, {
+    parent_tenant_id: 'UInt64',
+    parent_entity_id: 'UInt64',
+    parent_sub_id: 'UInt64',
+    children_json: 'String',
+  })
+  .leftAnyJoin('children_cte', [
+    ['tenant_id', 'children_cte.parent_tenant_id'],
+    ['entity_id', 'children_cte.parent_entity_id'],
+    ['sub_id', 'children_cte.parent_sub_id'],
   ])
+  .select(['tenant_id', 'entity_id', 'sub_id', 'children_cte.children_json'])
   .execute();
 ```
 
-</CodeBlock>
+The keys render as `ON tenant_id = children_cte.parent_tenant_id AND entity_id = children_cte.parent_entity_id AND sub_id = children_cte.parent_sub_id`. The CTE column types must match the columns exposed by your SQL.
+
+For schema tables, pass an optional alias after the pairs. Right columns use the table name in the input; the builder rewrites every right qualifier to the alias:
+
+```typescript
+db.table('entities').leftJoin('children', [
+  ['tenant_id', 'children.parent_tenant_id'],
+  ['entity_id', 'children.parent_entity_id'],
+], 'c');
+```
+
+CTE targets use their declared name and currently cannot take a separate join alias. Stored arrays can use `as const` to preserve column names.
+
+### Additional ON Filters
+
+`leftJoin` and `leftAnyJoin` accept literal filters after the optional alias:
+
+```typescript
+db.table('entities').leftAnyJoin('children', [
+  ['tenant_id', 'children.parent_tenant_id'],
+  ['entity_id', 'children.parent_entity_id'],
+], 'c', [{ column: 'c.status', operator: 'eq', value: 'active' }]);
+```
+
+These filter values are bound literals. A string such as `'children.entity_id'` does not become a column reference; use a column pair for column-to-column equality. Existing single-pair calls remain supported.
+
+ClickHouse supports multiple conditions in `ON`. Conditions in `ON` control matching while preserving unmatched rows according to the join type; placing the same conditions in `WHERE` filters the result and can remove unmatched outer-join rows. See the [ClickHouse JOIN documentation](https://clickhouse.com/docs/reference/statements/select/join#on-section-conditions).
 
 ## Common Patterns
 

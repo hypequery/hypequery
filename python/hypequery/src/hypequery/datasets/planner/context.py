@@ -19,6 +19,7 @@ from dataclasses import dataclass
 from typing import NoReturn, Protocol, runtime_checkable
 
 from .errors import CompiledQueryError
+from .settings import QuerySettings
 
 #: Held only by this module's factories. Constructing a `TenantScope` without
 #: it fails, so a scope cannot be assembled from parts, however trusted the
@@ -182,8 +183,11 @@ class ExecutionContext:
     deadline: Deadline | None = None
     cancellation: Cancellation | None = None
     correlation_id: str | None = None
+    settings: QuerySettings | None = None
 
     def __post_init__(self) -> None:
+        if self.settings is not None and type(self.settings) is not QuerySettings:
+            raise TypeError("settings must be QuerySettings or None")
         # The annotation is not enforced at runtime, so a mapping decoded from a
         # request could otherwise sit where a capability belongs.
         if self.tenant is not None and type(self.tenant) is not TenantScope:

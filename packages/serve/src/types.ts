@@ -885,7 +885,11 @@ export interface ServeConfig<
    * // POST /api/data/orders/query
    * ```
    */
+  /** Logical discovery is authenticated by default. Explicitly opt into public access. */
+  discovery?: { requiresAuth?: boolean; requiredRoles?: string[]; requiredScopes?: string[] };
   semanticPaths?: {
+    /** Public logical discovery; excludes physical execution fields. */
+    discovery?: string;
     metrics?: string;
     datasets?: string;
     /** Path for the GET semantic-contract endpoint. Defaults to `/contract`. */

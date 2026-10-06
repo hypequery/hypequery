@@ -19,7 +19,9 @@ from hypequery.serve import (
     Credential,
     HttpSecurity,
     Principal,
+    ProductionProfile,
     RateLimit,
+    create_app,
     create_router,
     install_http_security,
 )
@@ -43,7 +45,7 @@ class _Validated(BaseModel):
     limit: float
 
 
-def _app() -> FastAPI:
+def _app(production: bool = False) -> FastAPI:
     """The fixture app described in cases.json, fresh for each case."""
 
     def authenticate(credential: Credential) -> Principal | None:
@@ -74,6 +76,12 @@ def _app() -> FastAPI:
     def limiter_down() -> dict[str, bool]:
         return {"ok": True}
 
+    if production:
+        return create_app(
+            router,
+            security=HttpSecurity(allowed_hosts=("testserver",)),
+            production=ProductionProfile(),
+        )
     app = FastAPI()
     app.include_router(router)
     install_http_security(app, HttpSecurity(allowed_hosts=("testserver",)))
@@ -94,8 +102,11 @@ def _send(client: TestClient, request: dict[str, Any]) -> Any:
 
 
 @pytest.mark.parametrize("case", FIXTURES["cases"], ids=[case["id"] for case in FIXTURES["cases"]])
-def test_errors_v1(case: dict[str, Any], caplog: pytest.LogCaptureFixture) -> None:
-    client = TestClient(_app(), raise_server_exceptions=False)
+@pytest.mark.parametrize("production", [False, True], ids=["embedded", "production"])
+def test_errors_v1(
+    case: dict[str, Any], caplog: pytest.LogCaptureFixture, production: bool
+) -> None:
+    client = TestClient(_app(production), raise_server_exceptions=False)
     response = None
     for request in case["requests"]:
         response = _send(client, request)

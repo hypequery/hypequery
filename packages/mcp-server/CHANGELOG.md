@@ -1,5 +1,18 @@
 # @hypequery/mcp
 
+## 0.8.6
+
+### Patch Changes
+
+- 9b5b523: Support one-hop relationship base measures in dataset queries through the query-builder client. Allow duplicate-insensitive aggregates through belongsTo and all base aggregates through declared hasOne relationships, preserve tenant and fixed-filter scoping, and exclude unmatched target rows from aggregate inputs. Advertise safe names and approximate metadata in runtime catalogs and input schemas, with typed projections through Serve and React.
+- Updated dependencies [339deef]
+- Updated dependencies [1effbb2]
+- Updated dependencies [339deef]
+- Updated dependencies [0841d1c]
+- Updated dependencies [9b5b523]
+- Updated dependencies [f30add1]
+  - @hypequery/datasets@0.22.0
+
 ## 0.8.5
 
 ### Patch Changes

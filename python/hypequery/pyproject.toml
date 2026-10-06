@@ -29,7 +29,7 @@ dependencies = ["pydantic>=2.7"]
 [project.optional-dependencies]
 clickhouse = ["clickhouse-connect>=1.6.0"]
 clickhouse-async = ["clickhouse-connect[async]>=1.6.0"]
-fastapi = ["fastapi>=0.115.0"]
+fastapi = ["fastapi>=0.115.0", "uvicorn>=0.30.0"]
 
 [project.urls]
 Homepage = "https://hypequery.com"

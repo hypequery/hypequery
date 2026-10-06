@@ -3,6 +3,7 @@
 import { useEffect } from 'react';
 import * as CookieConsent from 'vanilla-cookieconsent';
 import 'vanilla-cookieconsent/dist/cookieconsent.css';
+import { isLocalHostname } from '@/lib/local-host';
 import './CookieConsent.css';
 
 declare global {
@@ -145,6 +146,8 @@ export default function CookieConsentBanner({
     });
 
     function applyConsent() {
+      // Never load trackers during local development, whatever was consented.
+      if (isLocalHostname(window.location.hostname)) return;
       if (CookieConsent.acceptedCategory('analytics')) {
         loadGoogleAnalytics(gaMeasurementId);
       }

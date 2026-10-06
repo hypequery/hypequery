@@ -17,7 +17,7 @@ from .compiler import DatasetQueryCompiler
 from .context import ExecutionContext, effective_deadline
 from .query import DatasetQuery
 from .query_validation import check_query_limits, check_reserved_alias
-from .settings import DEFAULT_QUERY_SETTINGS, QuerySettings
+from .settings import DEFAULT_QUERY_SETTINGS, QuerySettings, tighten_query_settings
 
 
 def plan_dataset_query(
@@ -27,6 +27,7 @@ def plan_dataset_query(
     registry: DatasetRegistry | None = None,
     context: ExecutionContext | None = None,
     settings: QuerySettings = DEFAULT_QUERY_SETTINGS,
+    overfetch: bool = False,
 ) -> CompiledQuery:
     """Compile a semantic query over *dataset* into an executable statement.
 
@@ -41,9 +42,14 @@ def plan_dataset_query(
     check_query_limits(dataset, query)
     check_reserved_alias(dataset)
     compiler = DatasetQueryCompiler(
-        dataset, query, registry or create_dataset_registry(dataset), context
+        dataset,
+        query,
+        registry or create_dataset_registry(dataset),
+        context,
+        overfetch=overfetch,
     )
     compiled = compiler.compile()
+    settings = tighten_query_settings(settings, context.settings)
     return CompiledQuery(
         sql=compiled.sql,
         parameters=compiled.parameters,

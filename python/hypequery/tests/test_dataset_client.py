@@ -90,7 +90,13 @@ def test_execute_keys_rows_by_column_and_reports_safe_meta() -> None:
     assert result.meta.query_id == executor.seen[0].query_id
     assert result.meta.timing_ms >= 0
     assert result.meta.cache == "off"
-    assert set(type(result.meta).__slots__) == {"query_id", "row_count", "timing_ms", "cache"}
+    assert set(type(result.meta).__slots__) == {
+        "query_id",
+        "row_count",
+        "timing_ms",
+        "cache",
+        "pagination",
+    }
 
 
 def test_the_executor_receives_the_planned_statement_with_bound_values() -> None:
@@ -221,3 +227,19 @@ def test_the_async_client_matches_the_sync_client() -> None:
     assert result.data == ({"vendor": "a", "trips": 2}, {"vendor": "b", "trips": 1})
     assert result.meta.query_id == executor.inner.seen[0].query_id
     assert client.validate(_trips(), DatasetQuery(measures=("trips",))).valid
+
+
+@pytest.mark.parametrize("ceiling", [2, 100_000])
+def test_pagination_reserves_probe_inside_client_row_ceiling(ceiling: int) -> None:
+    from hypequery.datasets.planner import query_settings
+
+    executor = _Executor()
+    client = create_dataset_client(
+        executor=executor, settings=query_settings(max_result_rows=ceiling)
+    )
+    result = client.execute(
+        _trips(), DatasetQuery(measures=("trips",), limit=ceiling), paginate=True
+    )
+    assert result.meta.pagination is not None
+    assert result.meta.pagination.limit == ceiling - 1
+    assert executor.seen[0].sql.endswith(f" LIMIT {ceiling}")
