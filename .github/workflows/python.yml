@@ -168,7 +168,7 @@ jobs:
           cache-dependency-glob: python/hypequery/uv.lock
       - run: uv sync --all-extras --dev
       - run: uv pip install "fastapi==0.115.0" "starlette<0.39" "uvicorn==0.30.0"
-      - run: uv run --no-sync pytest tests/test_serve_router.py tests/test_serve_security.py tests/test_serve_errors.py tests/test_serve_http_fixtures.py tests/test_serve_discovery.py tests/test_serve_endpoints.py tests/test_serve_semantic_fixtures.py tests/test_serve_production.py tests/test_serve_dev.py
+      - run: uv run --no-sync pytest tests/test_serve_router.py tests/test_serve_security.py tests/test_serve_errors.py tests/test_serve_http_fixtures.py tests/test_serve_discovery.py tests/test_serve_endpoints.py tests/test_serve_semantic_fixtures.py tests/test_serve_production.py tests/test_serve_dev.py tests/test_cli_dev.py
 
   getting-started:
     # PYE-01 acceptance: the README's Getting started path, run as written from

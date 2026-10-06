@@ -78,8 +78,9 @@ provides a proposed runner and walkthrough to reuse, but does not complete
 the CLI requirement. Python onboarding must work end to end without Node.
 Implementation PRs: [PYE-01A](https://github.com/hypequery/hypequery/pull/606),
 [PYE-01B](https://github.com/hypequery/hypequery/pull/607), and
-[PYE-01C](https://github.com/hypequery/hypequery/pull/608); PYE-01D adds the
-installed-artifact gate on top of that stack. Completion remains subject to
+[PYE-01C](https://github.com/hypequery/hypequery/pull/608), and
+[PYE-01D](https://github.com/hypequery/hypequery/pull/609). The final PR adds
+the installed-artifact gate on top of that stack. Completion remains subject to
 CI, review and merge.
 
 ## Non-goals
