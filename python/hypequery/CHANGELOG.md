@@ -33,3 +33,6 @@
   `2026-10-25T01:30:00Z` were rejected by ClickHouse, and aware datetimes could
   resolve to the wrong instant on a non-UTC server in a repeated daylight-saving
   hour. Values without an offset are passed through unchanged.
+- Align Python CLI names with TypeScript: `init --path`, `dev --hostname`, `-p`,
+  `--no-watch`, `-V` and `help [command]`; preserve positional destinations,
+  `--host` and `--no-reload` as aliases.
