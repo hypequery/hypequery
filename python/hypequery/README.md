@@ -181,10 +181,12 @@ cd my-analytics
 hypequery dev
 ```
 
-`hypequery init [directory]` defaults to the current directory, never overwrites
-existing generated paths, and does not install dependencies or seed a database.
-It works with the base package. Templates include `app.py`, `pyproject.toml`,
-`.env.example`, `.gitignore`, `seed.sql` and setup/query instructions.
+`hypequery init --path <directory>` (or a positional directory) inspects your
+configured ClickHouse database by default. Use `--tables` and `--exclude-tables`
+to choose tables. Generated definitions and an exact schema snapshot describe
+your actual tables; existing output paths are never overwritten. Install the
+`clickhouse` extra and export connection settings before running init.
+Only explicit `--skip-connection` generates the offline orders demo and `seed.sql`.
 
 `hypequery dev [module:app]` defaults to `app:app` on `127.0.0.1:8000` with reload
 enabled. Use `--no-watch`, `--hostname` or `-p`/`--port` to change those options.
