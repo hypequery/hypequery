@@ -17,7 +17,9 @@ from hypequery.cli import main
 
 
 @pytest.mark.parametrize("reload", [True, False])
-@pytest.mark.parametrize("hostname, no_watch", [("--hostname", "--no-watch"), ("--host", "--no-reload")])
+@pytest.mark.parametrize(
+    ("hostname", "no_watch"), [("--hostname", "--no-watch"), ("--host", "--no-reload")]
+)
 def test_options_reach_runner(
     monkeypatch: pytest.MonkeyPatch, reload: bool, hostname: str, no_watch: str
 ) -> None:
