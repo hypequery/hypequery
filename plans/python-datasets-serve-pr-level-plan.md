@@ -767,7 +767,7 @@ PYC-01 are merged.
 - **Acceptance:** New-user path from zero to a served dataset in under 15
   minutes, validated from installed distribution artifacts in CI, with no
   Node/npm/pnpm dependency.
-- **Deferred CLI scope:** Studio, schema introspection/code generation,
+- **Deferred CLI scope:** Studio, safe in-place schema regeneration,
   hosted login/deploy, and full Node CLI parity are follow-ups. This does not
   defer the Python CLI itself.
 

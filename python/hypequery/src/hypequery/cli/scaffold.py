@@ -14,12 +14,12 @@ class Scaffold:
         # Do not resolve symlinks: reject them before touching the destination.
         self.destination = destination.absolute()
 
-    def create(self) -> Path:
+    def create(self, templates: dict[str, str] | None = None) -> Path:
         written: list[Path] = []
         created_directories: list[Path] = []
         try:
-            templates = load_templates()
-            self._preflight(list(templates))
+            templates = load_templates() if templates is None else templates
+            self.preflight(list(templates))
             missing = []
             for directory in (self.destination, *self.destination.parents):
                 if directory.exists():
@@ -47,7 +47,7 @@ class Scaffold:
             ) from exc
         return self.destination
 
-    def _preflight(self, names: list[str]) -> None:
+    def preflight(self, names: list[str]) -> None:
         for ancestor in (self.destination, *self.destination.parents):
             if ancestor.is_symlink():
                 raise CliError("The destination and its parents must not be symlinks.")
