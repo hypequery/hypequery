@@ -1,11 +1,122 @@
 import type { Equal, Expect } from '@type-challenges/utils';
 import { setupTestBuilder } from './test-utils.js';
+import { SQLFormatter } from '../formatters/sql-formatter.js';
+import { transformSelectQueryNode } from '../query-node.js';
 
 describe('QueryBuilder - Joins', () => {
   let builder: ReturnType<typeof setupTestBuilder>;
 
   beforeEach(() => {
     builder = setupTestBuilder();
+  });
+
+  describe('composite keys', () => {
+    it.each([
+      ['innerJoin', 'INNER'], ['leftJoin', 'LEFT'], ['leftAnyJoin', 'LEFT ANY'],
+      ['rightJoin', 'RIGHT'], ['fullJoin', 'FULL'],
+    ] as const)('renders all keys for %s', (method, type) => {
+      for (const alias of [undefined, 'u'] as const) {
+        const keys = [
+          ['created_by', 'users.id'], ['name', 'users.user_name'], ['created_at', 'users.created_at'],
+        ] as const;
+        const query = {
+          innerJoin: builder.innerJoin('users', keys, alias),
+          leftJoin: builder.leftJoin('users', keys, alias),
+          leftAnyJoin: builder.leftAnyJoin('users', keys, alias),
+          rightJoin: builder.rightJoin('users', keys, alias),
+          fullJoin: builder.fullJoin('users', keys, alias),
+        }[method];
+        const qualifier = alias ?? 'users';
+        expect(query.toSQLWithParams()).toEqual({
+          sql: `SELECT * FROM test_table ${type} JOIN users${alias ? ` AS ${alias}` : ''} ON created_by = ${qualifier}.id AND name = ${qualifier}.user_name AND created_at = ${qualifier}.created_at`,
+          parameters: [],
+        });
+      }
+    });
+
+    it('renders a one-pair array exactly like a legacy join', () => {
+      expect(builder.innerJoin('users', [['id', 'users.id']]).getQueryNode())
+        .toEqual(builder.innerJoin('users', 'id', 'users.id').getQueryNode());
+    });
+
+    it('rewrites all right qualifiers in independently aliased joins', () => {
+      const keys = [['created_by', 'users.id'], ['name', 'users.user_name']] as const;
+      const query = builder.innerJoin('users', keys, 'creator')
+        .leftAnyJoin('users', [['updated_by', 'users.id'], ['name', 'users.user_name']], 'updater')
+        .select(['creator.email as creator_email', 'updater.email as updater_email']);
+      expect(query.toSQL()).toBe('SELECT creator.email as creator_email, updater.email as updater_email FROM test_table INNER JOIN users AS creator ON created_by = creator.id AND name = creator.user_name LEFT ANY JOIN users AS updater ON updated_by = updater.id AND name = updater.user_name');
+    });
+
+    it.each(['leftJoin', 'leftAnyJoin'] as const)('keeps %s ON filters as bound literals', method => {
+      const query = builder[method]('users', [['created_by', 'users.id'], ['name', 'users.user_name']], 'u', [
+        { column: 'u.user_name', operator: 'eq', value: 'users.user_name' },
+        { column: 'u.is_active', operator: 'eq', value: true },
+      ]).where('id', 'gt', 5);
+      expect(query.toSQLWithParams().parameters).toEqual(['users.user_name', true, 5]);
+      expect(query.toSQLWithParams().sql).toContain('ON created_by = u.id AND name = u.user_name AND u.user_name = ? AND u.is_active = ?');
+    });
+
+    it('joins a typed CTE and preserves CTE, ON, and WHERE parameter order', () => {
+      const query = builder.withCTE('children', {
+        sql: 'SELECT {parent_id:Int32} AS parent_id, {label:String} AS label', parameters: { parent_id: 7, label: 'child' },
+      }, { parent_id: 'Int32', label: 'String' })
+        .leftAnyJoin('children', [['created_by', 'children.parent_id'], ['name', 'children.label']], undefined,
+          { column: 'children.label', operator: 'neq', value: 'hidden' })
+        .where('active', 'eq', 1);
+      expect(query.toSQLWithParams()).toEqual({
+        sql: "WITH children AS (SELECT CAST(?, 'Int32') AS parent_id, CAST(?, 'String') AS label) SELECT * FROM test_table LEFT ANY JOIN children ON created_by = children.parent_id AND name = children.label AND children.label != ? WHERE active = ?",
+        parameters: [7, 'child', 'hidden', 1],
+      });
+    });
+
+    it('copies input keys and returned query-node/config keys', () => {
+      const keys: [['created_by', 'users.id'], ['name' | 'created_by', 'users.user_name' | 'users.email']] = [
+        ['created_by', 'users.id'], ['name', 'users.user_name'],
+      ];
+      const query = builder.innerJoin('users', keys);
+      const sibling = query.where('id', 'gt', 0);
+      const sql = query.toSQL();
+      keys[1][0] = 'created_by';
+      keys[1][1] = 'users.email';
+      keys.splice(1, 1);
+      for (const node of [query.getQueryNode(), query.toQueryNode(), query.getConfig()]) {
+        expect(node.joins?.[0].additionalKeys).toEqual([{ leftColumn: 'name', rightColumn: 'users.user_name' }]);
+        node.joins![0].additionalKeys![0].rightColumn = 'users.email';
+      }
+      expect(query.toSQL()).toBe(sql);
+      expect(sibling.toSQL()).toBe(`${sql} WHERE id > 0`);
+      expect(builder.getQueryNode().joins).toBeUndefined();
+    });
+
+    it('qualifies additional left keys consistently with relationship join sources', () => {
+      const node = builder.innerJoin('users', [['created_by', 'users.id'], ['name', 'users.user_name']]).getQueryNode();
+      const join = node.joins![0];
+      join.leftSource = 'source';
+      join.additionalKeys!.push({ leftColumn: 'already.qualified', rightColumn: 'users.email' });
+      expect(new SQLFormatter().compileJoins(node)).toEqual({
+        query: 'INNER JOIN users ON source.created_by = users.id AND source.name = users.user_name AND already.qualified = users.email',
+        parameters: [],
+      });
+    });
+
+    it('preserves additional keys through query transforms without sharing objects', () => {
+      const query = builder.innerJoin('users', [['created_by', 'users.id'], ['name', 'users.user_name']]);
+      const original = query.getQueryNode();
+      const transformed = transformSelectQueryNode(original, [node => {
+        node.joins![0].additionalKeys![0].rightColumn = 'users.email';
+        return node;
+      }]);
+      expect(new SQLFormatter().compileJoins(transformed).query)
+        .toBe('INNER JOIN users ON created_by = users.id AND name = users.email');
+      expect(original.joins![0].additionalKeys![0].rightColumn).toBe('users.user_name');
+      expect(query.getQueryNode()).toEqual(original);
+    });
+
+    it.each([[], [['id']], [['id', 'users.id', 'extra']], [['id', 7]], [null], [['', 'users.id']], [['id', '']], Array(1), [['id', ,]]].map(keys => ({ keys })))(
+      'rejects malformed key arrays ($keys)', ({ keys }) => {
+        expect(() => builder.innerJoin('users', keys as any)).toThrow(/join (requires|key)/);
+      },
+    );
   });
 
   describe('edge cases', () => {

@@ -22,7 +22,7 @@
     "types": "turbo run types",
     "test:integration": "cd packages/clickhouse && npm run test:integration",
     "lint": "turbo run lint --filter='@hypequery/*'",
-    "conformance": "pnpm conformance:typescript && pnpm conformance:python",
+    "conformance": "pnpm conformance:typescript && pnpm conformance:python && pnpm conformance:serve",
     "conformance:typescript": "node packages/protocol-conformance/dist/bin/conformance.js run --fixtures specs/security-protocol/fixtures -- node packages/protocol-conformance/dist/bin/reference-adapter.js && node packages/protocol-conformance/dist/bin/conformance.js run --fixtures specs/security-protocol/fixtures --families sql-portability-v1 -- node packages/datasets/scripts/conformance-adapter.mjs",
     "conformance:python": "pnpm conformance:python:protocol && pnpm conformance:python:datasets",
     "conformance:python:protocol": "node packages/protocol-conformance/dist/bin/conformance.js run --fixtures specs/security-protocol/fixtures --families cache-keys-v1,cache-preimages-v1,tagged-values-v1,identifiers-v1,expressions-v1,expressions-v2,query-schemas-v1,query-implementations-v1,query-events-v1,query-diagnostics-v1,deployments-v2,deployments-v3,deployment-bundles-v1,deployment-releases-v1 --expect-families cache-keys-v1,cache-preimages-v1,tagged-values-v1,identifiers-v1,expressions-v1,expressions-v2,query-schemas-v1,query-implementations-v1,query-events-v1,query-diagnostics-v1,deployments-v2,deployments-v3,deployment-bundles-v1,deployment-releases-v1 -- uv run --project python/hypequery --frozen python -m hypequery.protocol.adapter",
@@ -36,12 +36,14 @@
     "smoke:serve-adapters": "bash scripts/smoke-serve-adapters.sh",
     "smoke:semantic-consumer": "bash scripts/smoke-semantic-consumer.sh",
     "smoke:docs-snippets": "bash scripts/smoke-docs-snippets.sh",
-    "smoke:consumers": "pnpm smoke:cli && pnpm smoke:cli-chdb && pnpm smoke:serve-adapters && pnpm smoke:semantic-consumer && pnpm smoke:docs-snippets",
+    "smoke:clickhouse-nodenext": "bash scripts/smoke-clickhouse-nodenext.sh",
+    "smoke:consumers": "pnpm smoke:clickhouse-nodenext && pnpm smoke:cli && pnpm smoke:cli-chdb && pnpm smoke:serve-adapters && pnpm smoke:semantic-consumer && pnpm smoke:docs-snippets",
     "check:package-metadata": "node scripts/check-package-metadata.ts",
     "check:seo-health": "node scripts/verify-seo-health.ts",
     "changeset": "changeset",
     "release:version": "changeset version && pnpm install --lockfile-only --no-frozen-lockfile",
-    "release:publish": "changeset publish"
+    "release:publish": "changeset publish",
+    "conformance:serve": "pnpm --filter @hypequery/serve exec vitest run src/serve-http-fixtures.test.ts src/serve-semantic-fixtures.test.ts && uv run --project python/hypequery --frozen --extra fastapi pytest python/hypequery/tests/test_serve_http_fixtures.py python/hypequery/tests/test_serve_semantic_fixtures.py"
   },
   "devDependencies": {
     "@changesets/cli": "^2.29.8",
@@ -76,6 +78,7 @@
       "nanoid": "^3.3.18",
       "picomatch": "^4.0.4",
       "postcss": "^8.5.18",
+      "proxy-addr": "^2.0.8",
       "rollup": "^4.59.0",
       "shell-quote": "^1.8.4",
       "vite": "^6.4.3",

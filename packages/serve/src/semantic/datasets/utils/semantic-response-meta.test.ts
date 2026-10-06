@@ -16,3 +16,24 @@ it('allowlists public fields while preserving operational metadata', () => {
   expect(semanticResponseMeta(meta, true)).not.toHaveProperty('parameters');
   expect(semanticResponseMeta(undefined)).toBeUndefined();
 });
+
+// Nested runtime metadata may contain extra fields despite its static type.
+it('filters nested metadata for public and trusted responses', () => {
+  const meta = {
+    sql: 'SELECT 1', tenant: 'internal-tenant',
+    pagination: { limit: 1, offset: 0, hasMore: false, tenant: 'internal-tenant' },
+    cache: { hit: true, ageMs: 10, stale: false, sql: 'private SQL' },
+    resultLimit: { maxResultSize: 2, applied: 1, parameters: ['internal-tenant'] },
+  };
+  for (const trusted of [false, true]) {
+    const result = semanticResponseMeta(meta, trusted);
+    expect(result?.pagination).toEqual({ limit: 1, offset: 0, hasMore: false });
+    expect(result?.cache).toEqual({ hit: true, ageMs: 10, stale: false });
+    expect(result?.resultLimit).toEqual({ maxResultSize: 2, applied: 1 });
+    expect(result?.sql).toBe(trusted ? meta.sql : undefined);
+    expect(result?.tenant).toBe(trusted ? meta.tenant : undefined);
+  }
+  expect(semanticResponseMeta({ rowCount: 1 })).toMatchObject({
+    rowCount: 1, pagination: undefined, cache: undefined, resultLimit: undefined,
+  });
+});

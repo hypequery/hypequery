@@ -49,6 +49,11 @@ the public one, so serving a contract to untrusted consumers cannot leak
 internal SQL. Both files' `contentHash` values are produced identically by
 both implementations.
 
+These fixture hashes describe the local serializer projections. Serve's legacy
+HTTP `/contract` endpoint applies a narrower logical projection and retains the
+original definition's `contentHash` as an opaque identity. It is not a digest
+of the HTTP response; hashing that response cannot verify it.
+
 ## Known gap
 
 `metrics` is empty for both datasets. The Python definition surface has no

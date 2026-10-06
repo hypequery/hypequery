@@ -1,5 +1,15 @@
 # @hypequery/clickhouse Changelog
 
+## 2.13.0
+
+### Minor Changes
+
+- ccb2577: Support non-empty arrays of typed column pairs in innerJoin, leftJoin, leftAnyJoin, rightJoin, and fullJoin for composite-key equality joins to schema tables and typed CTEs. Preserve existing single-pair calls, alias handling, and literal ON filters.
+
+### Patch Changes
+
+- 0d593a3: Fix the CLI declaration re-export to use an explicit `.js` extension, so importing the package root or CLI entry point passes NodeNext and Node16 type checking with `skipLibCheck: false` and preserves schema-generator types.
+
 ## 2.12.2
 
 ### Patch Changes

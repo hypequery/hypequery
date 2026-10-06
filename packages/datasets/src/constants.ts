@@ -39,6 +39,17 @@ export const SEMANTIC_FILTER_OPERATORS = [
   'like',
 ] as const satisfies readonly MetricFilter['operator'][];
 
+const FILTER_OPERATORS: ReadonlySet<string> = new Set(SEMANTIC_FILTER_OPERATORS);
+
+/**
+ * Narrowing guard for a runtime-provided filter operator. Query builders accept
+ * operators that splice raw SQL (`inSubquery`, `inTable`), so anything outside
+ * the semantic set must never reach one.
+ */
+export function isSemanticFilterOperator(operator: unknown): operator is MetricFilter['operator'] {
+  return typeof operator === 'string' && FILTER_OPERATORS.has(operator);
+}
+
 /**
  * Narrowing guard for a runtime-provided grain value.
  */

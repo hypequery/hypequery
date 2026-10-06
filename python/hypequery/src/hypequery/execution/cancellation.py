@@ -16,7 +16,7 @@ _DRAIN_SECONDS = 2.0
 _LOGGER = logging.getLogger(__name__)
 
 
-def _terminal_error(compiled: CompiledQuery) -> CompiledQueryError | None:
+def terminal_error(compiled: CompiledQuery) -> CompiledQueryError | None:
     if compiled.cancellation is not None and compiled.cancellation.is_set():
         return CompiledQueryError("aborted", "The query was cancelled.", query_id=compiled.query_id)
     if compiled.deadline is not None and compiled.deadline.expired():
@@ -57,12 +57,12 @@ async def acquire_slot(semaphore: asyncio.Semaphore, compiled: CompiledQuery) ->
     handed_off = False
     try:
         while True:
-            reason = _terminal_error(compiled)
+            reason = terminal_error(compiled)
             if reason is not None:
                 raise reason
             done, _ = await asyncio.wait((task,), timeout=_wait_interval(compiled))
             if done:
-                reason = _terminal_error(compiled)
+                reason = terminal_error(compiled)
                 if reason is not None:
                     raise reason
                 handed_off = True
@@ -88,19 +88,19 @@ async def run_with_policy(
     task = asyncio.ensure_future(work)
     try:
         while True:
-            reason = _terminal_error(compiled)
+            reason = terminal_error(compiled)
             if reason is not None:
                 await _cancel_on_server_preserving_reason(compiled.query_id, cancel_on_server)
                 raise reason
             done, _ = await asyncio.wait((task,), timeout=_wait_interval(compiled))
             if done:
-                reason = _terminal_error(compiled)
+                reason = terminal_error(compiled)
                 if reason is not None:
                     await _cancel_on_server_preserving_reason(compiled.query_id, cancel_on_server)
                     raise reason
                 return await task
     except asyncio.CancelledError:
-        reason = _terminal_error(compiled)
+        reason = terminal_error(compiled)
         caller_task = asyncio.current_task()
         if reason is None and (caller_task is None or caller_task.cancelling() == 0):
             raise CompiledQueryError("internal", "", query_id=compiled.query_id) from None

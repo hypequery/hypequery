@@ -231,12 +231,15 @@ export class SQLFormatter {
       const tableClause = join.alias
         ? `${join.table} AS ${join.alias}`
         : join.table;
-      const leftColumn = join.leftSource && !join.leftColumn.includes('.')
-        ? `${join.leftSource}.${join.leftColumn}`
-        : join.leftColumn;
+      const keys = [join, ...(join.additionalKeys ?? [])].map(key => {
+        const leftColumn = join.leftSource && !key.leftColumn.includes('.')
+          ? `${join.leftSource}.${key.leftColumn}`
+          : key.leftColumn;
+        return `${leftColumn} = ${key.rightColumn}`;
+      }).join(' AND ');
       const extra = this.compileExpr(join.on);
       return {
-        query: `${join.type} JOIN ${tableClause} ON ${leftColumn} = ${join.rightColumn}${extra.query ? ` AND ${extra.query}` : ''}`,
+        query: `${join.type} JOIN ${tableClause} ON ${keys}${extra.query ? ` AND ${extra.query}` : ''}`,
         parameters: extra.parameters,
       };
     }), ' ');
