@@ -14,7 +14,9 @@ export function normalizeRelationshipJoin(join: RelationshipJoin): Pick<Relation
     Object.freeze({ from: keys[0].from, to: keys[0].to }),
     ...keys.slice(1).map(key => Object.freeze({ from: key.from, to: key.to })),
   ];
-  return { from: copy[0].from, to: copy[0].to, ...(composite ? { keys: Object.freeze(copy) } : {}) };
+  // A single pair is the legacy relationship: contracts and catalogs carry
+  // `keys` only for composite relationships, however the pair was authored.
+  return { from: copy[0].from, to: copy[0].to, ...(copy.length > 1 ? { keys: Object.freeze(copy) } : {}) };
 }
 
 export function validateRelationshipKeys(

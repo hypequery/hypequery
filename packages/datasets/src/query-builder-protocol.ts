@@ -59,6 +59,9 @@ export interface QueryBuilderLike {
    *
    * Composite relationships use the key-pair form, ANDing every
    * `[leftColumn, rightColumn]` equality (`@hypequery/clickhouse` >= 2.13.0).
+   * A builder must implement both overloads before composite relationships
+   * are used with it: the call cannot be told apart from a single-key-only
+   * implementation, which would receive the key pairs as a column name.
    */
   leftAnyJoin?(
     table: string,
