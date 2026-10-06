@@ -96,8 +96,7 @@ def generate_datasets(schema: Schema) -> GeneratedDatasets:
         raise CliError("The database name is outside the SDK's supported identifier grammar.")
     lines = [
         "# Generated from ClickHouse catalog metadata; review suggested measures.",
-        "from hypequery.datasets import Dataset, count, dimension, measure",
-        "from hypequery.datasets import avg as sql_avg, sum as sql_sum",
+        "from hypequery.datasets import dataset, dimension, measure",
         "",
         "datasets = {",
     ]
@@ -153,7 +152,7 @@ def generate_datasets(schema: Schema) -> GeneratedDatasets:
             )
         lines.extend(
             [
-                f"    {table.name!r}: Dataset(",
+                f"    {table.name!r}: dataset(",
                 f"        name={table.name!r},",
                 f"        source={f'{schema.database}.{table.name}'!r},",
             ]
@@ -164,13 +163,13 @@ def generate_datasets(schema: Schema) -> GeneratedDatasets:
         for physical, alias, kind in fields:
             label = physical.replace("_", " ").title()
             lines.append(
-                f"            {alias!r}: dimension({kind!r}, column={physical!r}, label={label!r}),"
+                f"            {alias!r}: dimension.{kind}(column={physical!r}, label={label!r}),"
             )
         lines.extend(
             [
                 "        },",
                 "        measures={",
-                '            "totalCount": measure(count("rows"), sql="1", label="Total Count"),',
+                '            "totalCount": measure.count("rows", sql="1", label="Total Count"),',
             ]
         )
         for physical, alias, kind in fields:
@@ -178,8 +177,8 @@ def generate_datasets(schema: Schema) -> GeneratedDatasets:
                 continue
             label = physical.replace("_", " ").title()
             for prefix, aggregation, description in [
-                ("total", "sql_sum", "Total"),
-                ("avg", "sql_avg", "Average"),
+                ("total", "sum", "Total"),
+                ("avg", "avg", "Average"),
             ]:
                 name = prefix + pascal_name(physical)
                 if name in seen:
@@ -188,7 +187,7 @@ def generate_datasets(schema: Schema) -> GeneratedDatasets:
                     )
                 seen.add(name)
                 lines.append(
-                    f"            {name!r}: measure({aggregation}({alias!r}), "
+                    f"            {name!r}: measure.{aggregation}({alias!r}, "
                     f"label={f'{description} {label}'!r}),"
                 )
         lines.extend(["        },", "    ),"])

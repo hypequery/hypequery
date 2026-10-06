@@ -797,16 +797,18 @@ PYC-01 are merged.
     consistency, and framework-free imports. Command implementations follow
     in PYE-01B/PYE-01C; do not advertise them as complete in this PR.
 
-### PYE-01B — Runnable Python project scaffold
+### PYE-01B — Schema-backed Python project scaffold
 - **Dependencies:** PYE-01A, PYB-09, PYD-02.
 - **Estimate:** 2–3 engineering days plus review.
-- **Scope:** Implement `hypequery init --path <directory>` (also accepting a positional
-  directory; default: current
-  directory). Generate a packaged template containing `pyproject.toml`,
-  `app.py`, `.env.example`, `.gitignore`, `README.md`, and sample `seed.sql`.
-  Lead with `create_dataset_client`, one orders dataset and an authenticated
-  query endpoint. Document Python virtualenv/install commands, explicit
-  environment exports, sample-data setup, `hypequery dev`, and a curl query.
+- **Scope:** `hypequery init --path <directory>` (also accepting a positional
+  directory; default: current directory) inspects the configured ClickHouse
+  catalog and generates `datasets.py`, an exact `schema.json` snapshot,
+  `app.py`, `pyproject.toml`, `.env.example`, `.gitignore`, and `README.md`.
+  Use the TypeScript dataset generator as reference for selection flags,
+  physical-column mappings, semantic names and suggested measures. Report
+  unsupported columns, collisions and tenant candidates; do not infer policy.
+  Support `--tables`, `--exclude-tables`, and `--all-tables`. The static demo and
+  `seed.sql` are available only through explicit `--skip-connection`.
   No Node tooling, implicit dependency installation or database writes.
 - **Acceptance:**
   - New and existing empty directories work, including paths containing

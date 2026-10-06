@@ -25,7 +25,7 @@ from datasets import datasets
 from hypequery.datasets import create_dataset_client, create_dataset_registry
 from hypequery.execution import ClickHouseConnection, create_clickhouse_executor
 from hypequery.serve import (
-    Credential, HttpSecurity, Principal, add_dataset_endpoint, create_app, create_router,
+    Credential, HttpSecurity, Principal, create_api, create_app, create_dataset_endpoint,
 )
 
 DEV_TOKEN = os.environ["HYPEQUERY_DEV_TOKEN"]
@@ -50,12 +50,13 @@ def authenticate(credential: Credential) -> Principal | None:
     return None
 
 
-router = create_router(authenticate=authenticate)
+api = create_api(authenticate=authenticate)
 for name, definition in datasets.items():
-    add_dataset_endpoint(router, f"/datasets/{name}/query", dataset=definition, client=client)
+    endpoint = create_dataset_endpoint(dataset=definition, client=client)
+    endpoint.install(api, f"/datasets/{name}/query")
 
 app = create_app(
-    router,
+    api,
     security=HttpSecurity(allowed_hosts=("127.0.0.1", "localhost")),
     development_docs=True,
 )
