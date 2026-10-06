@@ -2,11 +2,157 @@
 
 A Python semantic layer for ClickHouse datasets, metrics, multi-tenant analytics, and FastAPI serving.
 
-> **Pre-alpha:** the protocol foundation and dataset definition API are in place;
-> execution and Serve APIs are still being built. Do not use this package in
-> production yet.
+> **Pre-alpha:** datasets, execution and Serve are implemented and tested against
+> the shared protocol fixtures, but the package is not yet published to PyPI and
+> its APIs may still change. Do not use it in production yet.
 
-## Planned install
+## Getting started
+
+From zero to a served dataset. You need Python 3.11+ and a ClickHouse server.
+
+**1. Install** with the FastAPI and ClickHouse extras:
+
+```bash
+pip install "hypequery[fastapi,clickhouse]"
+```
+
+Until the first PyPI release, install from a checkout of this repository
+instead: `pip install "./python/hypequery[fastapi,clickhouse]"`.
+
+**2. Create sample data.** Run this in `clickhouse client` (or any SQL console)
+against your database:
+
+<!-- getting-started: seed.sql -->
+```sql
+CREATE TABLE IF NOT EXISTS orders
+(
+    id String,
+    country LowCardinality(String),
+    status LowCardinality(String),
+    amount Decimal(12, 2),
+    created_at DateTime64(3, 'UTC')
+)
+ENGINE = MergeTree
+ORDER BY (created_at, id);
+
+INSERT INTO orders VALUES
+    ('o1', 'NZ', 'paid', 120.50, '2026-09-01 10:00:00'),
+    ('o2', 'NZ', 'paid', 80.00, '2026-09-02 11:30:00'),
+    ('o3', 'AU', 'paid', 200.00, '2026-09-02 12:00:00'),
+    ('o4', 'AU', 'refunded', 50.00, '2026-09-03 09:15:00'),
+    ('o5', 'US', 'paid', 310.25, '2026-09-04 16:45:00');
+```
+
+**3. Define a dataset and serve it.** Save this as `app.py`:
+
+<!-- getting-started: app.py -->
+```python
+import os
+import secrets
+
+from hypequery.datasets import Dataset, count, create_dataset_client, dimension, measure, sum
+from hypequery.execution import ClickHouseConnection, create_clickhouse_executor
+from hypequery.serve import (
+    Credential,
+    HttpSecurity,
+    Principal,
+    add_dataset_endpoint,
+    create_app,
+    create_router,
+)
+
+orders = Dataset(
+    name="orders",
+    source="orders",
+    time_key="created_at",
+    dimensions={
+        "id": dimension("string"),
+        "country": dimension("string"),
+        "status": dimension("string"),
+        "createdAt": dimension("timestamp", column="created_at"),
+    },
+    measures={
+        "revenue": measure(sum("amount")),
+        "orderCount": measure(count("id")),
+    },
+)
+
+executor = create_clickhouse_executor(
+    ClickHouseConnection(
+        host=os.environ.get("CLICKHOUSE_HOST", "localhost"),
+        database=os.environ.get("CLICKHOUSE_DATABASE", "default"),
+        username=os.environ.get("CLICKHOUSE_USERNAME", "default"),
+        password=os.environ.get("CLICKHOUSE_PASSWORD", ""),
+    )
+)
+client = create_dataset_client(executor=executor)
+
+# A development token. Replace this with your real authentication (JWT, API keys).
+DEV_TOKEN = os.environ["HYPEQUERY_DEV_TOKEN"]
+
+
+def authenticate(credential: Credential) -> Principal | None:
+    if secrets.compare_digest(credential.value, DEV_TOKEN):
+        return Principal(subject="developer")
+    return None
+
+
+router = create_router(authenticate=authenticate)
+add_dataset_endpoint(router, "/datasets/orders/query", dataset=orders, client=client)
+
+app = create_app(
+    router,
+    security=HttpSecurity(allowed_hosts=("127.0.0.1", "localhost")),
+    development_docs=True,
+)
+```
+
+**4. Run the development server** from the directory containing `app.py`:
+
+<!-- getting-started: run -->
+```bash
+export HYPEQUERY_DEV_TOKEN=dev-secret
+export CLICKHOUSE_PASSWORD=...  # and CLICKHOUSE_HOST / CLICKHOUSE_DATABASE if needed
+python -m hypequery.serve.dev app:app --reload
+```
+
+The development runner listens on `127.0.0.1:8000` only. Binding anywhere else
+(`--host 0.0.0.0`) works but raises an `ExternalBindWarning`: the runner is
+not hardened for a network. It refuses apps created with a `ProductionProfile`;
+run those with [`run_production`](#production-process). From Python, call
+`run_dev(app)` or `run_dev("app:app", reload=True)`.
+
+**5. Query it:**
+
+<!-- getting-started: query -->
+```bash
+curl -s -X POST http://127.0.0.1:8000/datasets/orders/query \
+  -H "Authorization: Bearer $HYPEQUERY_DEV_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "dimensions": ["country"],
+    "measures": ["revenue", "orderCount"],
+    "filters": [{"field": "status", "operator": "eq", "value": "paid"}],
+    "orderBy": [{"field": "revenue", "direction": "desc"}]
+  }'
+```
+
+<!-- getting-started: response -->
+```json
+{"data":[{"country":"US","revenue":"310.25","orderCount":"1"},{"country":"NZ","revenue":"200.50","orderCount":"2"},{"country":"AU","revenue":"200.00","orderCount":"1"}]}
+```
+
+Measure values are strings on the HTTP wire, so decimals keep their precision.
+A request without the token gets `401`. Interactive docs are at
+<http://127.0.0.1:8000/docs> because the app opts in with
+`development_docs=True`; production apps keep them closed.
+
+Next steps: [add tenant isolation](#serving-with-fastapi), relationships
+([dataset definitions](#dataset-definitions)), and the
+[production profile](#production-process) before deploying.
+`scripts/getting_started.py` runs this walkthrough end to end in CI.
+
+## Install extras
 
 ```bash
 pip install hypequery

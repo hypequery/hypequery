@@ -2,24 +2,16 @@
 
 ## Unreleased
 
-- Add `having` conditions on selected measure values, matching
-  `@hypequery/datasets` (HQ-329). Operators are `eq`, `neq`, `gt`, `gte`, `lt`,
-  `lte`, `between`, `in` and `notIn`. Values are finite numbers bound as
-  parameters, and conditions count against `max_filters`. Dataset endpoints
-  forward `having`; metric endpoints refuse it. Queries with conditions bypass
-  the result cache until the cache preimage carries them.
-- Support composite relationship keys (RFC 0016), matching `@hypequery/datasets`.
-  Pass `keys=(("customer_id", "id"), ("region_code", "region"))` to a
-  relationship helper; every pair is AND-ed in the join, and related-measure
-  projections keep every target key. Catalogs, semantic contracts and
-  deployment contracts carry `keys`, and protocol validation accepts and checks
-  them. Single-key relationships are unchanged.
-- Select one-hop relationship base measures as `<relationship>.<measure>`,
-  matching `@hypequery/datasets`. Duplicate-insensitive aggregates are allowed
-  through `belongs_to` and every aggregate through `has_one`. Unmatched target
-  rows never feed an aggregate, and target tenant and fixed-filter scoping are
-  preserved. Catalogs, ordering and discovery advertise the safe names.
-- Reject a query that selects one name as both a dimension and a measure.
+- Bind timestamp parameters as Unix seconds. RFC 3339 filter values such as
+  `2026-10-25T01:30:00Z` were rejected by ClickHouse, and aware datetimes could
+  resolve to the wrong instant on a non-UTC server in a repeated daylight-saving
+  hour. Values without an offset are passed through unchanged.
+- Add `run_dev` and `python -m hypequery.serve.dev app:app` for local
+  development. The runner binds to loopback by default, warns with
+  `ExternalBindWarning` when bound beyond it, supports `--reload`, and refuses
+  apps created with a `ProductionProfile`.
+- Add a README Getting started path from install to a served dataset, run as
+  written from a built wheel against ClickHouse in CI.
 - Add a validated ASGI production profile and Uvicorn runner with explicit bind
   and proxy trust, startup refusals for debug/docs/reload/cookie auth, bounded
   admission, cancellation-aware deadlines and database/HTTP result ceilings.
@@ -37,7 +29,3 @@
   disabled by default. Development documentation requires explicit opt-in.
 - Run shared semantic HTTP fixtures in Python and TypeScript CI, including the
   FastAPI and Uvicorn floors.
-- Bind timestamp parameters as Unix seconds. RFC 3339 filter values such as
-  `2026-10-25T01:30:00Z` were rejected by ClickHouse, and aware datetimes could
-  resolve to the wrong instant on a non-UTC server in a repeated daylight-saving
-  hour. Values without an offset are passed through unchanged.
