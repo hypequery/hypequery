@@ -31,6 +31,9 @@ clickhouse = ["clickhouse-connect>=1.6.0"]
 clickhouse-async = ["clickhouse-connect[async]>=1.6.0"]
 fastapi = ["fastapi>=0.115.0", "uvicorn>=0.30.0"]
 
+[project.scripts]
+hypequery = "hypequery.cli:main"
+
 [project.urls]
 Homepage = "https://hypequery.com"
 Repository = "https://github.com/hypequery/hypequery"

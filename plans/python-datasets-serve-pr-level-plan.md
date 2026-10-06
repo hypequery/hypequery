@@ -71,6 +71,12 @@ train.
 Next: developer experience, examples, docs and release/supply-chain
 work. TSP-04 server-side binding remains a separate TypeScript prerequisite.
 
+**Beta scope update (6 October 2026):** A Python CLI is required for the
+public beta. PYE-01 now includes PYE-01A…PYE-01D below; the earlier decision
+to defer the CLI is superseded. The `claude/python-pye-01-dev-runner` branch
+provides a proposed runner and walkthrough to reuse, but does not complete
+the CLI requirement. Python onboarding must work end to end without Node.
+
 ## Non-goals
 
 - No Python query-builder port of `@hypequery/clickhouse`. The Python surface
@@ -95,6 +101,11 @@ work. TSP-04 server-side binding remains a separate TypeScript prerequisite.
   `hypequery.serve` enforce that definition-only use never imports FastAPI or
   the driver (import-linter contract in CI). Split into separate
   distributions only if a real consumer needs it.
+- **Python CLI:** ship the `hypequery` console script in the same distribution,
+  backed by `hypequery.cli`, with `python -m hypequery` as an equivalent entry
+  point. Use stdlib `argparse`; help, version and scaffolding work with the
+  base install. Load serving dependencies only for `dev`; the supported
+  onboarding install is `hypequery[fastapi,clickhouse]`.
 - **Name reservation:** reserve `hypequery`, `hypequery-clickhouse`,
   `hypequery-datasets`, `hypequery-serve`, `hypequery-fastapi` on PyPI in
   week 1 (PYA-00) — before any public signal.
@@ -165,7 +176,8 @@ TS-side prerequisites (repo)          Python workspace
    PYD-07 cross-implementation HTTP conformance
                               ▼
                      Train PY-E launch
-   PYE-01 dev experience   PYE-02 examples   PYE-03 docs
+   PYE-01A CLI entry points → PYE-01B scaffold / PYE-01C dev → PYE-01D CLI CI
+   PYE-02 examples         PYE-03 docs (depend on completed PYE-01)
    PYE-04 supply chain     PYE-05 beta       PYE-06 Cloud qualification
 ```
 
@@ -744,12 +756,115 @@ PYC-01 are merged.
 
 ### PYE-01 — Developer experience
 - **Dependencies:** PYD-06.
-- **Scope:** Getting-started path: `pip install "hypequery[fastapi,clickhouse]"`,
-  a `hypequery.serve.dev` runner (loopback default, clear bind warning),
-  project scaffold docs. Decide against a full Python CLI for the beta;
-  the Node CLI remains the studio/dev-tool surface.
+- **Scope:** Python-native onboarding: install
+  `hypequery[fastapi,clickhouse]`, scaffold a project with `hypequery init`,
+  start it with `hypequery dev`, then query a served dataset. Deliver the four
+  PR-sized tasks below. All four are beta blockers.
+- **Existing work:** Review and reuse the runner and scripted walkthrough in
+  `claude/python-pye-01-dev-runner`; preserve `run_dev` and
+  `python -m hypequery.serve.dev` as supported entry points. Merging that
+  branch alone does not mark PYE-01 complete.
 - **Acceptance:** New-user path from zero to a served dataset in under 15
-  minutes, validated by a scripted walkthrough in CI.
+  minutes, validated from installed distribution artifacts in CI, with no
+  Node/npm/pnpm dependency.
+- **Deferred CLI scope:** Studio, schema introspection/code generation,
+  hosted login/deploy, and full Node CLI parity are follow-ups. This does not
+  defer the Python CLI itself.
+
+### PYE-01A — CLI entry points and command contract
+- **Dependencies:** PYA-01.
+- **Estimate:** 0.5–1 engineering day plus review.
+- **Scope:** Add `hypequery.cli`, a `[project.scripts]` console entry point,
+  and `python -m hypequery`. Register `init` and `dev` subcommands with lazy
+  command imports. Read `--version` from installed distribution metadata;
+  provide top-level and command-specific help. Keep pure parsing/path helpers
+  in focused CLI utility modules, following the repository layout policy.
+- **Acceptance:**
+  - A clean base install exposes `hypequery --help`, `hypequery --version`,
+    `hypequery init --help`, and `hypequery dev --help`; neither FastAPI nor
+    ClickHouse dependencies are required for these commands.
+  - Console and module entry points use the same dispatcher and exit codes:
+    success/help `0`, runtime failure `1`, usage error `2`.
+  - Missing extras produce an actionable installation hint on stderr;
+    expected CLI failures do not print Python tracebacks or credentials.
+  - Tests cover dispatch, both entry points, invalid arguments, version
+    consistency, and framework-free imports. Command implementations follow
+    in PYE-01B/PYE-01C; do not advertise them as complete in this PR.
+
+### PYE-01B — Runnable Python project scaffold
+- **Dependencies:** PYE-01A, PYB-09, PYD-02.
+- **Estimate:** 2–3 engineering days plus review.
+- **Scope:** Implement `hypequery init --path <directory>` (also accepting a positional
+  directory; default: current
+  directory). Generate a packaged template containing `pyproject.toml`,
+  `app.py`, `.env.example`, `.gitignore`, `README.md`, and sample `seed.sql`.
+  Lead with `create_dataset_client`, one orders dataset and an authenticated
+  query endpoint. Document Python virtualenv/install commands, explicit
+  environment exports, sample-data setup, `hypequery dev`, and a curl query.
+  No Node tooling, implicit dependency installation or database writes.
+- **Acceptance:**
+  - New and existing empty directories work, including paths containing
+    spaces. Preflight all generated paths before writing; refuse collisions
+    with existing files, directories or symlinks without overwriting user
+    content. Do not add a force-overwrite option for beta.
+  - Templates are included in wheel and sdist and are loaded as package
+    resources, with no dependency on a repository checkout.
+  - Connection settings and the development token come from environment
+    variables; scaffolding creates no real secrets. The generated README
+    explicitly explains that `.env.example` is a reference, not auto-loaded.
+  - The app binds locally through `dev`, enables docs only for development,
+    and documents the production-profile path. Sample seeding is an explicit
+    user action using the provided SQL and Python tooling or a SQL console.
+  - Tests exercise template syntax, required content, repeat invocation and
+    collision preservation; PYE-01D proves the generated project runs.
+
+### PYE-01C — Development server command
+- **Dependencies:** PYE-01A, PYD-06, reviewed PYE-01 runner implementation.
+- **Estimate:** 1–2 engineering days plus review.
+- **Scope:** Implement `hypequery dev [module:app]`, defaulting to `app:app`
+  in the working directory, through the existing `run_dev` implementation.
+  Use TypeScript names `--hostname` (`--host` alias), `-p`/`--port` and
+  `--no-watch` (`--no-reload` alias); also support `--reload`. Reload is on by
+  default for the CLI. Keep the Python runner's existing defaults intact.
+- **Acceptance:**
+  - A scaffolded project starts with just `hypequery dev`; explicit import
+    strings and custom ports work. Default bind is `127.0.0.1:8000`.
+  - External binds keep the runner's warning and disabled proxy-header trust;
+    production-profile apps are rejected both with and without reload.
+    Reloaded child processes must retain the same app validation.
+  - Invalid ports, missing extras, malformed/missing app imports and occupied
+    ports return useful stderr errors and nonzero status. Reload startup
+    failures cannot leave a parent reporting a healthy server.
+  - Real subprocess tests prove startup, file-change reload and interrupt
+    shutdown without orphaned children; unit checks cover argument forwarding
+    and runner-policy compatibility.
+
+### PYE-01D — Installed CLI onboarding and release gate
+- **Dependencies:** PYE-01B, PYE-01C.
+- **Estimate:** 1–2 engineering days plus review.
+- **Scope:** Extend the Python workflow and existing getting-started script
+  to build wheel/sdist and exercise the installed CLI outside the checkout.
+  Use a fresh virtualenv, clean `PYTHONPATH`, and a temporary scaffold project;
+  install from each artifact with the FastAPI/ClickHouse extras. Explicitly
+  seed the CI ClickHouse fixture, start `hypequery dev`, and query the generated
+  endpoint. Keep the base-install CLI checks separate from extras checks.
+- **Acceptance:**
+  - Python 3.11–3.14 checks prove installed entry points, version, help and
+    scaffold resources; both wheel and sdist are exercised.
+  - A live ClickHouse journey proves install → init → dev → authenticated
+    query with expected rows, unauthenticated rejection, and server cleanup.
+    CI invokes the console command; a runner-only walkthrough is insufficient.
+  - Subprocess waits have bounded timeouts, failures retain useful logs, and
+    cleanup runs even when a query or startup assertion fails.
+  - The journey invokes only Python tooling and HTTP/SQL requests; neither
+    source-tree imports nor Node tooling can supply missing runtime pieces.
+  - CLI reference and quickstart commands agree with the tested flow. A
+    timed clean-environment walkthrough records the under-15-minute target.
+
+**PYE-01 implementation order:** Review the existing runner branch, then
+land PYE-01A → PYE-01B and PYE-01C → PYE-01D. Scaffold and dev implementation
+can proceed independently after the shared command contract lands. Track
+each task as a separate PR; PYE-01 is complete only when all four pass.
 
 ### PYE-02 — Examples
 - **Dependencies:** PYE-01.
@@ -762,8 +877,9 @@ PYC-01 are merged.
 
 ### PYE-03 — Documentation
 - **Dependencies:** PYE-01.
-- **Scope:** `website-next/content/docs/` Python section: authoring,
-  querying, serving, security profile, portability rules, TypeScript
+- **Scope:** `website-next/docs/` Python section: CLI installation and command
+  reference (`init`, `dev`, help/version), the scaffold-to-query quickstart,
+  authoring, querying, serving, security profile, portability rules, TypeScript
   interop (shared bundles/contracts), migration notes for teams running
   both languages.
 - **Acceptance:** Docs lead with `create_dataset_client`; every code
@@ -774,6 +890,7 @@ PYC-01 are merged.
 - **Dependencies:** PYA-02, PYE-02.
 - **Scope:** Arm the release workflow: PyPI OIDC Trusted Publishing (no
   long-lived tokens), provenance/SBOM, wheel/sdist content verification,
+  CLI entry-point and scaffold-resource verification using PYE-01D,
   dependency floors (FastAPI/Starlette/Uvicorn/Pydantic/
   clickhouse-connect), dependency scanning on the resolved matrix.
 - **Acceptance:** A `0.x` release publishes end-to-end from CI with
@@ -782,7 +899,11 @@ PYC-01 are merged.
 - **Review:** Security review required.
 
 ### PYE-05 — Public beta release
-- **Dependencies:** PYE-03, PYE-04, all conformance families green.
+- **Dependencies:** PYE-01A…PYE-01D, PYE-03, PYE-04, all conformance families green.
+- **Additional product gate (6 October 2026):** Installed Python CLI can
+  scaffold, serve and query a project without Node, and the PYE-01D artifact
+  checks and onboarding journey are green. The dev runner alone cannot
+  satisfy this gate.
 - **Gates (from the security roadmap, unchanged):**
   - Byte-identical canonical bundle fixtures across languages.
   - No raw Python code in any deployment artifact.
@@ -813,9 +934,12 @@ running concurrently in week 1–2:
 | 5–8 | PY-B core (PYB-01…PYB-07) + PYC-01 in parallel; remaining RFC acceptances |
 | 9–11 | PYB-08/09, PYC-02…PYC-05, TSP-02 |
 | 12–15 | PY-D (FastAPI) including PYD-07 shared HTTP suite |
-| 16–18 | PY-E: DX, examples, docs, supply chain, beta |
+| 16–18 | PY-E: Python CLI (PYE-01A…D), examples, docs, supply chain, beta; allow an additional week if CLI work exceeds this window |
 
-~30 Python PRs + ~8 repo-side PRs. The riskiest items for the schedule are
+~34 Python PRs (including four CLI PRs in addition to the runner) + ~8
+repo-side PRs. Reserve roughly 5–8 engineering days plus review for the CLI
+tasks; this is an estimate, not a waiver of the beta gate. The riskiest items
+for the schedule are
 byte-identical bundle parity (PYB-07 — canonicalisation edge cases) and
 cancellation correctness (PYC-02 — asyncio + sync-driver interplay); both are
 front-loaded behind fixtures rather than discovered at the end.
@@ -846,3 +970,7 @@ front-loaded behind fixtures rather than discovered at the end.
    matrix, scheduled conformance CI, release automation in PYA-02) so the
    steady-state cost is hours per month, not per week. Accepted implicitly
    by choosing to dual-run.
+5. **Python CLI required for beta (6 October 2026).** Accepted by product
+   direction. Supersedes PYE-01's earlier CLI deferral: `hypequery init`,
+   `hypequery dev`, help/version and installed-artifact onboarding CI must
+   ship before PYE-05. Full Node CLI parity remains follow-up work.
