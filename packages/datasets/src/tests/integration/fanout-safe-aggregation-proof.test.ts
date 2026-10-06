@@ -88,8 +88,8 @@ describe('HQ-81 proposed owner-population SQL (not public planner support)', () 
     expect(actual).toEqual([{ ...fixture.expected.total, child_sum: 7, child_count: 3 }]);
   });
 
-  it('preserves groups with no child measure inputs and returns NULL sum / zero count', async () => {
-    const actual = await db.rawQuery<ProofResult>(fanoutProofSql({ grouped: true, fixedChildFilter: true }));
+  it.each([0, 1] as const)('preserves groups with no child measure inputs and returns NULL sum / zero count with join_use_nulls=%s', async joinUseNulls => {
+    const actual = await db.rawQuery<ProofResult>(fanoutProofSql({ grouped: true, fixedChildFilter: true, joinUseNulls }));
     expect(actual.filter(row => row.category !== 'red').map(row => [row.child_sum, row.child_count]))
       .toEqual([[null, 0], [null, 0]]);
   });
