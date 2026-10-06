@@ -25,6 +25,7 @@ from .utils.relationship_fields import (
     list_groupable_relationship_fields,
     list_queryable_relationship_fields,
 )
+from .utils.relationship_measures import list_relationship_measures
 
 
 class DimensionCatalogEntry(TypedDict):
@@ -67,6 +68,8 @@ RelationshipCatalogEntry = TypedDict(
         "queryable": bool,
         "fields": list[str],
         "groupableFields": list[str],
+        # Safe selectable base aggregates on the target, keyed by qualified name.
+        "measures": NotRequired[dict[str, MeasureCatalogEntry]],
     },
 )
 
@@ -157,18 +160,21 @@ def _filter_entry(
 def _relationship_entry(
     name: str, relationship: Relationship, target: Dataset
 ) -> RelationshipCatalogEntry:
-    return cast(
-        RelationshipCatalogEntry,
-        {
-            "kind": relationship.kind,
-            "target": relationship.target,
-            "from": relationship.from_field,
-            "to": relationship.to_field,
-            "queryable": relationship.kind != "hasMany",
-            "fields": list(list_queryable_relationship_fields(name, relationship, target)),
-            "groupableFields": list(list_groupable_relationship_fields(name, relationship, target)),
-        },
-    )
+    entry: dict[str, object] = {
+        "kind": relationship.kind,
+        "target": relationship.target,
+        "from": relationship.from_field,
+        "to": relationship.to_field,
+        "queryable": relationship.kind != "hasMany",
+        "fields": list(list_queryable_relationship_fields(name, relationship, target)),
+        "groupableFields": list(list_groupable_relationship_fields(name, relationship, target)),
+    }
+    measures = list_relationship_measures(name, relationship, target)
+    if measures:
+        entry["measures"] = {
+            qualified: _measure_entry(measure) for qualified, measure in measures.items()
+        }
+    return cast(RelationshipCatalogEntry, entry)
 
 
 def _limits_entry(limits: DatasetLimits) -> DatasetLimitsEntry:
@@ -217,7 +223,11 @@ def get_dataset_catalog(dataset: Dataset, *, registry: DatasetRegistry) -> Datas
     catalog["orderableFields"] = [
         *dimensions,
         *dataset.measures,
-        *(field for entry in relationships.values() for field in entry["fields"]),
+        *(
+            field
+            for entry in relationships.values()
+            for field in (*entry["fields"], *entry.get("measures", {}))
+        ),
         *(["period"] if dataset.time_key else []),
     ]
     if dataset.limits is not None and dataset.limits.max_result_size is not None:
@@ -242,6 +252,17 @@ def get_queryable_relationship_fields(catalog: DatasetCatalog) -> list[str]:
         for entry in catalog["relationships"].values()
         if entry["queryable"]
         for field in entry["fields"]
+    ]
+
+
+def get_queryable_relationship_measures(catalog: DatasetCatalog) -> list[str]:
+    """The safe relationship aggregates a catalog advertises."""
+
+    return [
+        name
+        for entry in catalog["relationships"].values()
+        if entry["queryable"]
+        for name in entry.get("measures", {})
     ]
 
 

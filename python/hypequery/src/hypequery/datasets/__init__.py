@@ -29,6 +29,7 @@ from .catalog import (
     get_dataset_catalogs,
     get_groupable_relationship_fields,
     get_queryable_relationship_fields,
+    get_queryable_relationship_measures,
 )
 from .client import (
     AsyncDatasetClient,
@@ -205,6 +206,7 @@ __all__ = [
     "get_dataset_catalogs",
     "get_groupable_relationship_fields",
     "get_queryable_relationship_fields",
+    "get_queryable_relationship_measures",
     "gt",
     "gte",
     "has_many",
