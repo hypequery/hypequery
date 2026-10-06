@@ -42,12 +42,12 @@ def run(args: object) -> None:
         raise CliError(
             "Invalid app configuration or bind address; check environment and --host."
         ) from exc
-    except (ImportError, KeyError, TypeError, RuntimeError, SyntaxError) as exc:
-        # User app errors may contain connection URLs or secrets: do not echo them.
-        raise CliError(
-            "App could not start; check its code, dependencies and environment."
-        ) from exc
     except OSError as exc:
         raise CliError(
             "Cannot start the server; check the bind address and whether the port is free."
+        ) from exc
+    except Exception as exc:
+        # User app and driver errors may contain URLs, SQL or credentials.
+        raise CliError(
+            "App could not start; check its code, dependencies and environment."
         ) from exc

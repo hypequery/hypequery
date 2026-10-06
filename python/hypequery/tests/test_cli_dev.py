@@ -56,8 +56,9 @@ def test_production_app_and_bad_import_exit_promptly(tmp_path: Path, reload: boo
         assert "Traceback" not in result.stderr
 
 
-def test_app_error_does_not_echo_credentials(tmp_path: Path) -> None:
-    (tmp_path / "broken.py").write_text("raise ValueError('private-password-do-not-print')\n")
+@pytest.mark.parametrize("error", ["ValueError", "Exception", "AssertionError"])
+def test_app_error_does_not_echo_credentials(tmp_path: Path, error: str) -> None:
+    (tmp_path / "broken.py").write_text(f"raise {error}('private-password-do-not-print')\n")
     result = subprocess.run(
         [sys.executable, "-m", "hypequery", "dev", "broken:app"],
         cwd=tmp_path,
