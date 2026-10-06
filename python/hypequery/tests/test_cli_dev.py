@@ -108,7 +108,12 @@ def test_real_server_reload_and_interrupt(tmp_path: Path, reload: bool) -> None:
                                 deadline = time.monotonic() + 20
                                 continue
                             break
-                    except (httpx.ConnectError, httpx.ReadError, httpx.RemoteProtocolError):
+                    except (
+                        httpx.ConnectError,
+                        httpx.ReadError,
+                        httpx.RemoteProtocolError,
+                        httpx.TimeoutException,
+                    ):
                         pass
                     if process.poll() is not None or time.monotonic() >= deadline:
                         log.seek(0)
