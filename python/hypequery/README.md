@@ -152,6 +152,33 @@ Next steps: [add tenant isolation](#serving-with-fastapi), relationships
 [production profile](#production-process) before deploying.
 `scripts/getting_started.py` runs this walkthrough end to end in CI.
 
+## Python CLI
+
+Install `hypequery[fastapi,clickhouse]` for the complete onboarding path, then:
+
+```bash
+hypequery init my-analytics
+cd my-analytics
+# Follow the generated README to configure ClickHouse and create sample data.
+hypequery dev
+```
+
+`hypequery init [directory]` defaults to the current directory, never overwrites
+existing generated paths, and does not install dependencies or seed a database.
+It works with the base package. Templates include `app.py`, `pyproject.toml`,
+`.env.example`, `.gitignore`, `seed.sql` and setup/query instructions.
+
+`hypequery dev [module:app]` defaults to `app:app` on `127.0.0.1:8000` with reload
+enabled. Use `--no-reload`, `--host` or `--port` to change those options. Serving
+requires the `fastapi` extra; apps using ClickHouse also need `clickhouse`.
+The command retains the development runner's external-bind warning and refuses
+production-profile apps. Use `run_production` for production serving.
+
+`hypequery --help`, `hypequery init --help`, `hypequery dev --help` and
+`hypequery --version` work without extras. `python -m hypequery` invokes the same
+CLI. Exit codes are `0` for success/help, `1` for runtime failures and `2` for
+invalid command usage. No Node tooling is required.
+
 ## Install extras
 
 ```bash

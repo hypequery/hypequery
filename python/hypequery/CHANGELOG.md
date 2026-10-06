@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Add `hypequery dev [module:app]` with reload enabled by default, safe local
+  runner policies, `--no-reload`, and actionable startup errors (PYE-01C).
+
 - Add `hypequery init [directory]` with packaged Python project templates,
   authenticated orders endpoint, setup instructions and collision protection (PYE-01B).
 
