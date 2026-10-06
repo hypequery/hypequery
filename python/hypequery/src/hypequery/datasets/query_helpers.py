@@ -14,6 +14,8 @@ FilterOperator: TypeAlias = Literal[
     "eq", "neq", "gt", "gte", "lt", "lte", "in", "notIn", "between", "like"
 ]
 OrderDirection: TypeAlias = Literal["asc", "desc"]
+#: `like` is excluded: a having condition compares an aggregated numeric value.
+HavingOperator: TypeAlias = Literal["eq", "neq", "gt", "gte", "lt", "lte", "in", "notIn", "between"]
 
 
 class Filter(DefinitionModel):
@@ -26,6 +28,33 @@ class Filter(DefinitionModel):
     @field_validator("field")
     @classmethod
     def _valid_field(cls, value: str) -> str:
+        return validate_qualified_identifier(value)
+
+    @field_validator("value", mode="before")
+    @classmethod
+    def _frozen_value(cls, value: object) -> object:
+        return freeze_json_value(value)
+
+    @field_serializer("value")
+    def _serialize_value(self, value: object) -> object:
+        return thaw_json_value(value)
+
+
+class HavingCondition(DefinitionModel):
+    """A condition on an aggregated measure value, applied after grouping.
+
+    `measure` must be one the query selects. Values are finite numbers, a pair
+    for `between` and a non-empty list for `in`/`notIn`; the planner checks
+    them and always binds them as parameters.
+    """
+
+    measure: str
+    operator: HavingOperator
+    value: object
+
+    @field_validator("measure")
+    @classmethod
+    def _valid_measure(cls, value: str) -> str:
         return validate_qualified_identifier(value)
 
     @field_validator("value", mode="before")

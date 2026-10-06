@@ -6,13 +6,15 @@ The planner wraps the resulting SQL in the execution contract.
 
 from __future__ import annotations
 
+import math
 from collections.abc import Mapping
 from dataclasses import dataclass
+from typing import cast
 
 from ..dataset import Dataset
 from ..dimensions import Dimension
 from ..measures import Measure
-from ..query_helpers import Filter
+from ..query_helpers import Filter, HavingCondition
 from ..registry import DatasetRegistry
 from ..relationships import Relationship
 from ..utils.relationship_measures import measure_filter_field
@@ -42,6 +44,7 @@ from .sql_fragments import (
     aliased,
     grain_expression,
     group_by_clause,
+    having_clause,
     order_by_clause,
     pagination_clause,
     select_clause,
@@ -50,6 +53,7 @@ from .sql_fragments import (
 )
 
 _ARRAY_OPERATORS = frozenset(("in", "notIn"))
+_COMPARISONS = {"eq": "=", "neq": "!=", "gt": ">", "gte": ">=", "lt": "<", "lte": "<="}
 _MATCH_MARKER = "_hq_match"
 
 
@@ -82,6 +86,10 @@ class DatasetQueryCompiler:
         self.selections: list[str] = []
         self.group_by: list[str] = []
         self.predicates: list[str] = []
+        self.having: list[str] = []
+        # Each selected measure's aggregate, so a having condition reads the
+        # expression itself rather than an output alias.
+        self.measure_sql: dict[str, str] = {}
         self.joins: list[str] = []
         self.joined: set[str] = set()
         # A relationship whose target measures are selected joins through a
@@ -120,6 +128,7 @@ class DatasetQueryCompiler:
                 "at least one dimension or measure.",
             )
         self._add_filters(query, scope)
+        self._add_having(query)
         order_by = self._add_order_by(query)
 
         source = safe_qualified_identifier(self.dataset.source, what="dataset source")
@@ -135,6 +144,7 @@ class DatasetQueryCompiler:
             + "".join(self.joins)
             + where_clause(self.predicates)
             + group_by_clause(self.group_by)
+            + having_clause(self.having)
             + order_by_clause(order_by)
             + pagination_clause(
                 result_limit + 1 if self.overfetch and result_limit is not None else result_limit,
@@ -178,7 +188,7 @@ class DatasetQueryCompiler:
         """
 
         relationship = self.dataset.relationships[relationship_name]
-        columns = [relationship.to_field]
+        columns = [key.to_field for key in relationship.key_pairs]
         if target.tenant_key is not None:
             columns.append(target.tenant_key)
         for name, dimension in target.dimensions.items():
@@ -216,9 +226,13 @@ class DatasetQueryCompiler:
                 target_source = self._measure_join_source(relationship_name, target)
             else:
                 target_source = safe_qualified_identifier(target.source, what="dataset source").sql
-            left = safe_identifier(relationship.from_field, what="relationship from field")
-            right = safe_identifier(relationship.to_field, what="relationship to field")
-            condition = f"{BASE_ALIAS.sql}.{left.sql} = {alias.sql}.{right.sql}"
+            # A composite key is an AND of equalities; a NULL component never matches.
+            condition = " AND ".join(
+                f"{BASE_ALIAS.sql}."
+                f"{safe_identifier(key.from_field, what='relationship from field').sql}"
+                f" = {alias.sql}.{safe_identifier(key.to_field, what='relationship to field').sql}"
+                for key in relationship.key_pairs
+            )
             # The joined dataset carries its own tenancy, so the predicate goes into
             # the join condition rather than WHERE: in a LEFT ANY JOIN a WHERE predicate
             # on the right side would silently turn it into an inner join.
@@ -399,7 +413,8 @@ class DatasetQueryCompiler:
         for name in names:
             if is_qualified(name):
                 alias = SafeIdentifier(name)
-                self.selections.append(aliased(self._relationship_measure_sql(name), alias))
+                self.measure_sql[name] = self._relationship_measure_sql(name)
+                self.selections.append(aliased(self.measure_sql[name], alias))
                 self.orderable[name] = alias
                 continue
             measure = self.dataset.measures.get(name)
@@ -411,7 +426,8 @@ class DatasetQueryCompiler:
                     f"Available: {known}",
                 )
             alias = SafeIdentifier(name)
-            self.selections.append(aliased(self._measure_filter_sql(name, measure), alias))
+            self.measure_sql[name] = self._measure_filter_sql(name, measure)
+            self.selections.append(aliased(self.measure_sql[name], alias))
             self.orderable[name] = alias
 
     def _filter_type(self, field: str) -> str:
@@ -476,8 +492,7 @@ class DatasetQueryCompiler:
             placeholder = self.binder.bind(text, "String")
             return f"{column} LIKE {placeholder}"
 
-        comparisons = {"eq": "=", "neq": "!=", "gt": ">", "gte": ">=", "lt": "<", "lte": "<="}
-        comparison = comparisons.get(operator)
+        comparison = _COMPARISONS.get(operator)
         if comparison is None:
             raise CompiledQueryError("input-invalid", f"{what} uses unknown operator {operator!r}")
         placeholder = self.binder.bind(
@@ -529,6 +544,63 @@ class DatasetQueryCompiler:
             tenant_column = safe_identifier(tenant_key, what="tenant key").sql
             column = f"{BASE_ALIAS.sql}.{tenant_column}" if self.joins_active else tenant_column
             self.predicates.append(self._tenant_predicate(column, scope))
+
+    @staticmethod
+    def _having_numbers(condition: HavingCondition) -> list[float | int]:
+        """The condition's values, refused unless they are finite numbers."""
+
+        def number(value: object) -> bool:
+            # `bool` is an `int` subclass; a JSON `true` is not a measure value.
+            if type(value) not in (int, float):
+                return False
+            try:
+                return math.isfinite(cast(float, value))
+            except OverflowError:
+                # An integer beyond float range, such as 10**400.
+                return False
+
+        value, operator, name = condition.value, condition.operator, condition.measure
+        if operator == "between":
+            if type(value) is tuple and len(value) == 2 and all(map(number, value)):
+                return list(value)
+            message = f'Having "between" on "{name}" expects a two-item array of finite numbers.'
+        elif operator in _ARRAY_OPERATORS:
+            if type(value) is tuple and value and all(map(number, value)):
+                return list(value)
+            message = (
+                f'Having "{operator}" on "{name}" expects a non-empty array of finite numbers.'
+            )
+        else:
+            if number(value):
+                return [cast(float, value)]
+            message = f'Having "{operator}" on "{name}" expects a finite number.'
+        raise CompiledQueryError("input-invalid", message)
+
+    def _add_having(self, query: DatasetQuery) -> None:
+        """Conditions on aggregated values, every value bound as a parameter."""
+
+        for condition in query.having:
+            expression = self.measure_sql.get(condition.measure)
+            if expression is None:
+                selected = ", ".join(self.measure_sql)
+                raise CompiledQueryError(
+                    "input-invalid",
+                    f'Having measure "{condition.measure}" must be one of the selected '
+                    f"measures: {selected}",
+                )
+            values = self._having_numbers(condition)
+            operator = condition.operator
+            if operator == "between":
+                lower = self.binder.bind(values[0], "Float64")
+                upper = self.binder.bind(values[1], "Float64")
+                self.having.append(f"{expression} BETWEEN {lower} AND {upper}")
+            elif operator in _ARRAY_OPERATORS:
+                keyword = "IN" if operator == "in" else "NOT IN"
+                placeholder = self.binder.bind_array(values, "Float64")
+                self.having.append(f"{expression} {keyword} {placeholder}")
+            else:
+                placeholder = self.binder.bind(values[0], "Float64")
+                self.having.append(f"{expression} {_COMPARISONS[operator]} {placeholder}")
 
     def _add_order_by(self, query: DatasetQuery) -> list[str]:
         parts: list[str] = []

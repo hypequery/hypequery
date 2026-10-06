@@ -65,6 +65,8 @@ RelationshipCatalogEntry = TypedDict(
         "target": str,
         "from": str,
         "to": str,
+        # Present only for a composite key; `from`/`to` mirror its first pair.
+        "keys": NotRequired[list[dict[str, str]]],
         "queryable": bool,
         "fields": list[str],
         "groupableFields": list[str],
@@ -165,6 +167,10 @@ def _relationship_entry(
         "target": relationship.target,
         "from": relationship.from_field,
         "to": relationship.to_field,
+    }
+    if relationship.keys is not None:
+        entry["keys"] = [{"from": key.from_field, "to": key.to_field} for key in relationship.keys]
+    entry |= {
         "queryable": relationship.kind != "hasMany",
         "fields": list(list_queryable_relationship_fields(name, relationship, target)),
         "groupableFields": list(list_groupable_relationship_fields(name, relationship, target)),
