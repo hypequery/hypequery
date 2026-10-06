@@ -646,3 +646,31 @@ html[data-theme="dark"] .home-page .shiki code {
   width: 1px;
   background: var(--color-fd-border);
 }
+
+/* Homepage editable code examples (CodeMirror). */
+.editable-code .cm-editor { background: transparent; color: var(--text); font-size: inherit; border-radius: 8px; outline: 1px solid transparent; transition: outline-color 150ms ease; }
+.editable-code .cm-editor.cm-focused { outline: 1px solid color-mix(in srgb, var(--accent) 45%, transparent); }
+.editable-code .cm-scroller { font-family: inherit; line-height: inherit; }
+.editable-code .cm-content { padding: 4px 0; caret-color: var(--text); }
+.editable-code .cm-gutters { background: transparent; border: 0; color: var(--text-dim); }
+.editable-code .cm-lineNumbers .cm-gutterElement { min-width: 2rem; padding: 0 12px 0 0; }
+.editable-code .cm-activeLine { background: color-mix(in srgb, var(--text) 5%, transparent); }
+.editable-code .cm-activeLineGutter { background: transparent; color: var(--text-muted); }
+.editable-code .cm-cursor { border-left-color: var(--text); border-left-width: 2px; }
+.editable-code .cm-editor .cm-selectionBackground,
+.editable-code .cm-editor.cm-focused .cm-selectionBackground { background: color-mix(in srgb, var(--accent) 30%, transparent); }
+.editable-code .cm-matchingBracket { background: color-mix(in srgb, var(--accent) 22%, transparent); outline: none; }
+.editable-code .cm-hq-keyword { color: #7c4dcc; }
+.editable-code .cm-hq-string { color: #2f7d4f; }
+.editable-code .cm-hq-number { color: #b35c00; }
+.editable-code .cm-hq-function { color: #2563c9; }
+.editable-code .cm-hq-property { color: #9a3d6a; }
+.editable-code .cm-hq-type { color: #a15c00; }
+.editable-code .cm-hq-comment { color: var(--text-dim); font-style: italic; }
+.editable-code .cm-hq-punctuation { color: var(--text-muted); }
+html.dark .editable-code .cm-hq-keyword, html[data-theme="dark"] .editable-code .cm-hq-keyword { color: #c792ea; }
+html.dark .editable-code .cm-hq-string, html[data-theme="dark"] .editable-code .cm-hq-string { color: #a5d6a7; }
+html.dark .editable-code .cm-hq-number, html[data-theme="dark"] .editable-code .cm-hq-number { color: #f78c6c; }
+html.dark .editable-code .cm-hq-function, html[data-theme="dark"] .editable-code .cm-hq-function { color: #82aaff; }
+html.dark .editable-code .cm-hq-property, html[data-theme="dark"] .editable-code .cm-hq-property { color: #f07178; }
+html.dark .editable-code .cm-hq-type, html[data-theme="dark"] .editable-code .cm-hq-type { color: #ffcb6b; }

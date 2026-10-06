@@ -4,26 +4,49 @@ import { analytics } from './client';
 
 export const orders = dataset('orders', {
   source: 'orders',
-  dimensions: { country: dimension.string() },
-  measures: { revenue: measure.sum('amount') },
+  dimensions: {
+    country: dimension.string(),
+    channel: dimension.string(),
+    plan: dimension.string(),
+    status: dimension.string(),
+  },
+  measures: {
+    revenue: measure.sum('amount'),
+    orderCount: measure.count('id'),
+    customers: measure.countDistinct('customer_id'),
+    avgOrderValue: measure.avg('amount'),
+  },
 });
 
 const result = await analytics.execute(orders, {
   dimensions: ['country'],
-  measures: ['revenue'],
+  measures: ['revenue', 'orderCount'],
 });`,
-  python: `from hypequery.datasets import Dataset, dimension, measure, sum
+  python: `from hypequery.datasets import (
+    Dataset, avg, count, count_distinct, dimension, measure, sum as sum_,
+)
 from .client import analytics
 
 orders = Dataset(
-    name="orders", source="orders",
-    dimensions={"country": dimension("string")},
-    measures={"revenue": measure(sum("amount"))},
+    name="orders",
+    source="orders",
+    dimensions={
+        "country": dimension("string"),
+        "channel": dimension("string"),
+        "plan": dimension("string"),
+        "status": dimension("string"),
+    },
+    measures={
+        "revenue": measure(sum_("amount")),
+        "order_count": measure(count("id")),
+        "customers": measure(count_distinct("customer_id")),
+        "avg_order_value": measure(avg("amount")),
+    },
 )
 
 result = analytics.execute(orders, {
     "dimensions": ["country"],
-    "measures": ["revenue"],
+    "measures": ["revenue", "order_count"],
 })`,
 } as const;
 

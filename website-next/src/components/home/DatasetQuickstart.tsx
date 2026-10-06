@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
-import { ArrowDown, ArrowRight, Check, Cloud, Copy, Database, RotateCcw, Server } from 'lucide-react';
+import { ArrowDown, ArrowRight, Check, Cloud, Copy, Database, Pencil, RotateCcw, Server } from 'lucide-react';
 import { SiFastapi, SiHono, SiPython, SiTypescript } from 'react-icons/si';
 import CodeHighlight from '@/components/CodeHighlight';
 import { DeployWaitlist } from './DeployWaitlist';
@@ -55,7 +55,7 @@ export function DatasetQuickstart() {
         </div>
         <div className="dataset-quickstart-layout">
           <div className="min-w-0 bg-bg-alt/50 p-5 sm:p-6">
-            <div className="mb-4 font-mono text-[10px] text-text-dim">{isCloud ? 'analytics/cloud' : isBackend ? 'routes/revenue' : 'analytics/orders'}.{language === 'typescript' ? 'ts' : 'py'}</div>
+            <div className="mb-4 flex items-center gap-2 font-mono text-[10px] text-text-dim"><span>{isCloud ? 'analytics/cloud' : isBackend ? 'routes/revenue' : 'analytics/orders'}.{language === 'typescript' ? 'ts' : 'py'}</span>{!isBackend && !isCloud && <span className="inline-flex items-center gap-1 rounded border border-border px-1.5 py-0.5 font-sans text-text-muted"><Pencil className="h-2.5 w-2.5" aria-hidden="true" />Editable</span>}</div>
             {!isBackend && !isCloud
               ? <EditableCode value={datasetCode} language={language} label={`Editable ${language === 'typescript' ? 'TypeScript' : 'Python'} dataset example`} onChange={(next) => { setEditedDataset((current) => ({ ...current, [language]: next })); setCopyStatus(''); }} />
               : <CodeHighlight key={`${example}-${language}`} code={code} language={language} className="min-h-[280px] [&_code]:text-[11px] [&_code]:leading-[1.75] sm:[&_code]:text-xs" />}
