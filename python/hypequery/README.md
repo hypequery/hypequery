@@ -1070,6 +1070,21 @@ uv run ruff check .
 uv run lint-imports
 ```
 
+Verify the installed CLI outside the checkout after building both distributions:
+
+```bash
+uv build
+uv run python scripts/cli_smoke.py dist/*.whl --minimal
+uv run python scripts/cli_smoke.py dist/*.tar.gz --minimal
+# Requires a local ClickHouse server; creates and drops a fresh scratch database.
+CLICKHOUSE_PASSWORD=your-local-password uv run python scripts/cli_smoke.py dist/*.whl
+CLICKHOUSE_PASSWORD=your-local-password uv run python scripts/cli_smoke.py dist/*.tar.gz
+```
+
+The Python CI matrix runs these checks for Python 3.11–3.14. The full journey
+uses the generated README's query and expected response, verifies authentication,
+and cleans up the server and scratch database, with a 15-minute onboarding budget.
+
 From the repository root, run the Python shared-fixture gate with:
 
 ```console

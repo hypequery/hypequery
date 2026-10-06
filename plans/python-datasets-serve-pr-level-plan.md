@@ -66,7 +66,7 @@ train.
 | PY-B | PYB-01…PYB-09; pagination over-fetch now available for served queries | Formula/portable metric authoring remains outside the current dataset-only planner |
 | PY-C | PYC-01…PYC-05; serve now emits validated execution events | Shared tenant fixture family needs a TypeScript capability reference |
 | PY-D | PYD-01…PYD-07 implemented; production profile, runtime tests and shared HTTP fixtures under production included | Review and merge the open discovery/endpoints/metadata/HTTP/profile stack |
-| PY-E | none | all |
+| PY-E | Runner and CLI implementation proposed; awaiting review/merge | PYE-02…PYE-06 and release prerequisites |
 
 Next: developer experience, examples, docs and release/supply-chain
 work. TSP-04 server-side binding remains a separate TypeScript prerequisite.
@@ -76,6 +76,11 @@ public beta. PYE-01 now includes PYE-01A…PYE-01D below; the earlier decision
 to defer the CLI is superseded. The `claude/python-pye-01-dev-runner` branch
 provides a proposed runner and walkthrough to reuse, but does not complete
 the CLI requirement. Python onboarding must work end to end without Node.
+Implementation PRs: [PYE-01A](https://github.com/hypequery/hypequery/pull/606),
+[PYE-01B](https://github.com/hypequery/hypequery/pull/607), and
+[PYE-01C](https://github.com/hypequery/hypequery/pull/608); PYE-01D adds the
+installed-artifact gate on top of that stack. Completion remains subject to
+CI, review and merge.
 
 ## Non-goals
 
