@@ -346,4 +346,70 @@ describe('dataset definition validation', () => {
       );
     });
   });
+
+  // Measure filters render straight into the aggregate's if(...) condition and
+  // declared filters fall through to SQL as bare columns, so neither may carry
+  // SQL text or an operator the renderer does not know.
+  describe('rejects unsafe filter definitions', () => {
+    const sumWithFilter = (filter: Record<string, unknown>) => ({
+      measures: { m: measure.sum('amount', { filters: [filter] } as never) },
+    });
+
+    it('rejects a measure filter field carrying SQL', () => {
+      expect(defineWith(sumWithFilter({
+        field: '(SELECT 1 FROM system.users) = 1 OR id',
+        operator: 'eq',
+        value: 'x',
+      }))).toThrow(/measure "m" filter .* is not a declared dimension or a safe column identifier/);
+    });
+
+    it('rejects a measure filter with an unsupported operator', () => {
+      expect(defineWith(sumWithFilter({ field: 'id', operator: 'inSubquery', value: 'SELECT 1' })))
+        .toThrow(/measure "m" filter on "id" uses unsupported operator "inSubquery"/);
+    });
+
+    it('rejects a declared filter whose field carries SQL', () => {
+      expect(defineWith({
+        filters: { bad: { __type: 'filter_definition', field: '1=1 OR id' } },
+      })).toThrow(/filter "bad" field "1=1 OR id" is not a safe column identifier/);
+    });
+
+    it('rejects a declared filter without a string field', () => {
+      for (const field of [undefined, null, 42]) {
+        expect(defineWith({
+          filters: { missing: { __type: 'filter_definition', field } as never },
+        })).toThrow(/filter "missing" must name a field/);
+      }
+    });
+
+    it('rejects a declared filter allowing an unsupported operator', () => {
+      expect(defineWith({
+        filters: { id: { __type: 'filter_definition', field: 'id', operators: ['eq', 'inTable'] } },
+      })).toThrow(/filter "id" uses unsupported operator "inTable"/);
+    });
+
+    it('does not treat Object.prototype keys as declared dimensions', () => {
+      expect(defineWith({
+        filters: { proto: { __type: 'filter_definition', field: 'constructor' } },
+        measures: { m: measure.sum('amount', { filters: [{ field: 'toString', operator: 'eq', value: 1 }] } as never) },
+      })).not.toThrow();
+      // Safe identifiers either way; the guard is that "declared" means own key.
+      expect(defineWith(sumWithFilter({ field: 'toString OR 1', operator: 'eq', value: 1 })))
+        .toThrow(/is not a declared dimension or a safe column identifier/);
+    });
+
+    it('accepts declared dimensions, declared filters and hidden safe columns', () => {
+      expect(defineWith({
+        filters: {
+          byId: { __type: 'filter_definition', field: 'id', operators: ['eq', 'in'] },
+          isTest: { __type: 'filter_definition', field: 'is_test' },
+        },
+        measures: {
+          byDimension: measure.sum('amount', { filters: [{ field: 'id', operator: 'eq', value: 'a' }] }),
+          byDeclaredFilter: measure.sum('amount', { filters: [{ field: 'byId', operator: 'eq', value: 'a' }] }),
+          byHiddenColumn: measure.sum('amount', { filters: [{ field: 'is_test', operator: 'eq', value: false }] }),
+        },
+      })).not.toThrow();
+    });
+  });
 });
