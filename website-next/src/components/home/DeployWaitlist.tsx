@@ -1,9 +1,10 @@
 'use client';
 
-import { useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Info } from 'lucide-react';
 
-const FIRST_USE_OPTIONS = [
+const FEATURE_OPTIONS = [
   'Hosted APIs',
   'Hosted MCP',
   'Embeddable chat',
@@ -13,13 +14,16 @@ const FIRST_USE_OPTIONS = [
 
 export function DeployWaitlist({ location, className, compactLabel = false }: { location: string; className?: string; compactLabel?: boolean }) {
   const dialogRef = useRef<HTMLDialogElement>(null);
+  // The dialog renders into <body> so it looks the same wherever it is opened from.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
 
   return (
     <>
       <button type="button" className={className} onClick={() => dialogRef.current?.showModal()}>
         {compactLabel ? <><span className="nav-desktop-only">Get cloud access</span><span className="nav-mobile-only">Cloud access</span></> : 'Get cloud access'} <span aria-hidden="true">→</span>
       </button>
-      <dialog ref={dialogRef} className="m-auto max-h-[calc(100dvh-2rem)] w-[min(100%-2rem,560px)] overflow-y-auto rounded-2xl border border-border-strong bg-bg-card p-0 text-text shadow-2xl backdrop:bg-black/40" onClick={(event) => { if (event.target === dialogRef.current) dialogRef.current.close(); }}>
+      {mounted && createPortal(<dialog ref={dialogRef} className="m-auto max-h-[calc(100dvh-2rem)] w-[min(100%-2rem,560px)] overflow-y-auto rounded-2xl border border-border-strong bg-bg-card p-0 text-left text-base font-normal text-text shadow-2xl backdrop:bg-black/40" onClick={(event) => { if (event.target === dialogRef.current) dialogRef.current.close(); }}>
         <div className="p-6 sm:p-8">
           <div className="flex items-start justify-between gap-4">
             <div><p className="text-xs font-semibold uppercase tracking-[0.16em] text-accent">hypequery Cloud</p><h2 className="mt-3 text-2xl font-semibold tracking-tight">Get early access to deploy.</h2></div>
@@ -43,14 +47,14 @@ export function DeployWaitlist({ location, className, compactLabel = false }: { 
               </span>
             </div>
             <fieldset className="mt-6">
-              <legend className="text-sm font-semibold">What would you use first?</legend>
-              <p className="mt-1 text-xs text-text-muted">Pick one. Optional.</p>
+              <legend className="text-sm font-semibold">What features do you most need?</legend>
+              <p className="mt-1 text-xs text-text-muted">Pick as many as you like.</p>
               <div className="mt-3 grid grid-cols-2 gap-2">
-                {FIRST_USE_OPTIONS.map((option) => (
+                {FEATURE_OPTIONS.map((option) => (
                   <label key={option} className="flex min-h-11 cursor-pointer items-center gap-2 rounded-lg border border-border bg-bg-alt/50 px-3 py-2 text-xs leading-4 text-text transition hover:border-border-strong has-[:checked]:border-accent">
                     <input
-                      type="radio"
-                      name="first_use"
+                      type="checkbox"
+                      name="features"
                       value={option}
                       className="h-4 w-4 shrink-0 accent-accent"
                     />
@@ -65,7 +69,7 @@ export function DeployWaitlist({ location, className, compactLabel = false }: { 
             <button type="submit" className="mt-4 w-full rounded-lg bg-accent px-5 py-3 text-sm font-semibold text-white transition hover:opacity-90 dark:text-[#0c0e14]">Join the cloud waitlist →</button>
           </form>
         </div>
-      </dialog>
+      </dialog>, document.body)}
     </>
   );
 }
