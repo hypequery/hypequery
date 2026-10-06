@@ -40,7 +40,7 @@ def run(args: object) -> None:
                 "This app uses a ProductionProfile; use run_production instead of dev."
             ) from exc
         raise CliError(
-            "Invalid app configuration or bind address; check environment and --host."
+            "Invalid app configuration or bind address; check environment and --hostname."
         ) from exc
     except OSError as exc:
         raise CliError(

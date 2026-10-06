@@ -17,14 +17,17 @@ from hypequery.cli import main
 
 
 @pytest.mark.parametrize("reload", [True, False])
-def test_options_reach_runner(monkeypatch: pytest.MonkeyPatch, reload: bool) -> None:
+@pytest.mark.parametrize("hostname, no_watch", [("--hostname", "--no-watch"), ("--host", "--no-reload")])
+def test_options_reach_runner(
+    monkeypatch: pytest.MonkeyPatch, reload: bool, hostname: str, no_watch: str
+) -> None:
     calls: list[tuple[object, dict[str, object]]] = []
     monkeypatch.setattr(
         "hypequery.serve.run_dev", lambda app, **options: calls.append((app, options))
     )
-    args = ["dev", "example:app", "--host", "::1", "--port", "9001"]
+    args = ["dev", "example:app", hostname, "::1", "-p", "9001"]
     if not reload:
-        args.append("--no-reload")
+        args.append(no_watch)
     assert main(args) == 0
     assert calls == [("example:app", {"host": "::1", "port": 9001, "reload": reload})]
 
@@ -47,7 +50,7 @@ def test_production_app_and_bad_import_exit_promptly(tmp_path: Path, reload: boo
     for target, message in (("production:app", "run_production"), ("missing:app", "Cannot import")):
         args = [sys.executable, "-m", "hypequery", "dev", target]
         if not reload:
-            args.append("--no-reload")
+            args.append("--no-watch")
         result = subprocess.run(
             args, cwd=tmp_path, capture_output=True, text=True, timeout=10, check=False
         )
@@ -88,7 +91,7 @@ def test_real_server_reload_and_interrupt(tmp_path: Path, reload: bool) -> None:
     app.write_text(source)
     args = [sys.executable, "-m", "hypequery", "dev", "--port", str(port)]
     if not reload:
-        args.append("--no-reload")
+        args.append("--no-watch")
     with (tmp_path / "server.log").open("w+") as log:
         process = subprocess.Popen(
             args, cwd=tmp_path, stdout=log, stderr=log, start_new_session=True

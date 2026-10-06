@@ -169,7 +169,8 @@ It works with the base package. Templates include `app.py`, `pyproject.toml`,
 `.env.example`, `.gitignore`, `seed.sql` and setup/query instructions.
 
 `hypequery dev [module:app]` defaults to `app:app` on `127.0.0.1:8000` with reload
-enabled. Use `--no-reload`, `--host` or `--port` to change those options. Serving
+enabled. Use `--no-watch`, `--hostname` or `-p`/`--port` to change those options.
+`--no-reload` and `--host` remain supported aliases. Serving
 requires the `fastapi` extra; apps using ClickHouse also need `clickhouse`.
 The command retains the development runner's external-bind warning and refuses
 production-profile apps. Use `run_production` for production serving.
