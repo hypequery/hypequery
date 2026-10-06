@@ -14,7 +14,17 @@ from hypequery.cli import main
 from hypequery.cli.parser import parse_args
 
 
-@pytest.mark.parametrize("args", [["--help"], ["init", "--help"], ["dev", "--help"]])
+@pytest.mark.parametrize(
+    "args",
+    [
+        ["--help"],
+        ["init", "--help"],
+        ["dev", "--help"],
+        ["help"],
+        ["help", "init"],
+        ["help", "dev"],
+    ],
+)
 def test_help_does_not_import_optional_packages(args: list[str]) -> None:
     result = subprocess.run(
         [
@@ -99,3 +109,32 @@ def test_dispatch_runtime_failure_is_stderr_and_status_one(
     output = capsys.readouterr()
     assert output.out == ""
     assert output.err.strip() == "hypequery: safe actionable failure"
+
+
+@pytest.mark.parametrize("flag", ["--hostname", "--host"])
+def test_hostname_spellings(flag: str) -> None:
+    assert parse_args(["dev", flag, "localhost", "-p", "9000"]).host == "localhost"
+    assert parse_args(["dev", flag, "localhost", "-p", "9000"]).port == 9000
+
+
+@pytest.mark.parametrize("flag", ["--no-watch", "--no-reload"])
+def test_disable_watch_spellings(flag: str) -> None:
+    assert parse_args(["dev", flag]).reload is False
+
+
+@pytest.mark.parametrize("args", [["init", "example"], ["init", "--path", "example"]])
+def test_init_destination_spellings(args: list[str]) -> None:
+    assert parse_args(args).directory == "example"
+
+
+def test_init_rejects_ambiguous_destination() -> None:
+    with pytest.raises(SystemExit) as exc:
+        parse_args(["init", "one", "--path", "two"])
+    assert exc.value.code == 2
+
+
+def test_typescript_version_short_flag(capsys: pytest.CaptureFixture[str]) -> None:
+    with pytest.raises(SystemExit) as exc:
+        parse_args(["-V"])
+    assert exc.value.code == 0
+    assert capsys.readouterr().out.strip() == f"hypequery {version('hypequery')}"

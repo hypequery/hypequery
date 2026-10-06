@@ -794,7 +794,8 @@ PYC-01 are merged.
 ### PYE-01B — Runnable Python project scaffold
 - **Dependencies:** PYE-01A, PYB-09, PYD-02.
 - **Estimate:** 2–3 engineering days plus review.
-- **Scope:** Implement `hypequery init [directory]` (default: current
+- **Scope:** Implement `hypequery init --path <directory>` (also accepting a positional
+  directory; default: current
   directory). Generate a packaged template containing `pyproject.toml`,
   `app.py`, `.env.example`, `.gitignore`, `README.md`, and sample `seed.sql`.
   Lead with `create_dataset_client`, one orders dataset and an authenticated
@@ -822,7 +823,8 @@ PYC-01 are merged.
 - **Estimate:** 1–2 engineering days plus review.
 - **Scope:** Implement `hypequery dev [module:app]`, defaulting to `app:app`
   in the working directory, through the existing `run_dev` implementation.
-  Support `--host`, `--port`, `--reload` and `--no-reload`; reload is on by
+  Use TypeScript names `--hostname` (`--host` alias), `-p`/`--port` and
+  `--no-watch` (`--no-reload` alias); also support `--reload`. Reload is on by
   default for the CLI. Keep the Python runner's existing defaults intact.
 - **Acceptance:**
   - A scaffolded project starts with just `hypequery dev`; explicit import
