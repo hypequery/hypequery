@@ -1,4 +1,3 @@
-import { createRelationship } from './utils/relationship-definition.js';
 /**
  * Relationship helpers for dataset definitions.
  *
@@ -39,6 +38,7 @@ import { createRelationship } from './utils/relationship-definition.js';
  */
 
 import type { RelationshipDefinition, RelationshipJoin } from './types.js';
+import { createRelationship } from './utils/relationship-definition.js';
 
 /** Many-to-one relationship (FK on this table). */
 export function belongsTo<TTarget extends { __type: 'dataset'; name: string }>(

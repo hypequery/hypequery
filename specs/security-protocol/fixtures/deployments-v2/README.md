@@ -13,3 +13,6 @@ policy, and derived-measure rules.
 
 Every case was checked against both the TypeScript and Python implementations
 before being recorded; none of them changed either implementation's behaviour.
+
+RFC 0016 added composite relationship keys: the `composite-relationship-keys`
+success and identity cases, and the `relationship-keys-*` rejections.

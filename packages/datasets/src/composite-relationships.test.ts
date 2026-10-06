@@ -66,6 +66,36 @@ describe('composite relationships', () => {
     const sql = client.toSQL(restored.compositeOrders, { dimensions: ['customer.name'], measures: ['revenue'] }, context);
     expect(sql).toContain('orders.region_code = customer.region');
   });
+  it('keeps legacy from/to free of composite identifier rules', () => {
+    const subcolumn = belongsTo(() => Customers, { from: 'payload.customer_id', to: 'id' });
+    expect(subcolumn).toMatchObject({ from: 'payload.customer_id', to: 'id' });
+    expect(subcolumn).not.toHaveProperty('keys');
+    const Events = dataset('legacySubcolumnEvents', { source: 'events', dimensions: { status: dimension.string() }, relationships: { customer: subcolumn } });
+    expect(client.toSQL(Events, { dimensions: ['customer.name'] }, context)).toContain('ON events.payload.customer_id = customer.id');
+  });
+  it('rejects hand-built definitions whose from/to disagree with the first pair', () => {
+    const relationship = { ...belongsTo(() => Customers, { keys }), from: 'other_id' };
+    expect(() => dataset('mismatchedOrders', { source: 'orders', dimensions: {}, relationships: { customer: relationship } }))
+      .toThrow(/must match the first keys pair/);
+  });
+  it('joins composite and single-key relationships in one query', () => {
+    const Regions = dataset('compositeRegions', { source: 'regions', dimensions: { label: dimension.string() } });
+    const Mixed = dataset('mixedOrders', { source: 'orders', dimensions: { status: dimension.string() }, measures: { revenue: measure.sum('amount') }, relationships: { customer: belongsTo(() => Customers, { keys }), region: belongsTo(() => Regions, { from: 'region_code', to: 'code' }) } });
+    const sql = client.toSQL(Mixed, { dimensions: ['customer.name', 'region.label'], measures: ['revenue'] }, context);
+    expect(sql).toContain('ON orders.customer_id = customer.id AND orders.region_code = customer.region AND customer.tenant =');
+    expect(sql).toContain('ON orders.region_code = region.code');
+    expect((sql.match(/LEFT ANY JOIN/g) ?? []).length).toBe(2);
+  });
+  it('rejects portable keys that disagree with from/to or hold a single pair', () => {
+    const endpoint = { access: { kind: 'public' }, tenant: { kind: 'not-required' } } as const;
+    const portable = () => [Customers, Orders].map(ds => JSON.parse(JSON.stringify(buildProtocolDatasetContract(ds, { endpoint }))));
+    const mismatched = portable();
+    mismatched[1].relationships[0].from = 'other_id';
+    expect(() => rehydrateProtocolDatasets(mismatched)).toThrow(/must match the first keys pair/);
+    const single = portable();
+    single[1].relationships[0].keys = [keys[0]];
+    expect(() => rehydrateProtocolDatasets(single)).toThrow(/at least two pairs/);
+  });
   it('refuses composite traversal on the frozen backend', () => {
     const backend = createDatasetClient({ backend: createInMemoryBackend({ orders: [], customers: [] }) });
     expect(() => backend.execute(Orders, { dimensions: ['customer.name'], measures: ['revenue'] }, context)).toThrow(/queryBuilder execution path/);

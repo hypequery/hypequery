@@ -2,13 +2,20 @@ import type { RelationshipDefinition, RelationshipJoin, RelationshipKey } from '
 
 const COLUMN = /^[A-Za-z_][A-Za-z0-9_]*$/;
 
-/** Validate and snapshot authored keys before they are interpolated into SQL. */
-export function normalizeRelationshipJoin(join: RelationshipJoin): Pick<RelationshipDefinition, 'from' | 'to' | 'keys'> {
-  const composite = join.keys !== undefined;
-  if (composite && (join.from !== undefined || join.to !== undefined)) {
+type NormalizedRelationshipJoin = Pick<RelationshipDefinition, 'from' | 'to' | 'keys'>;
+
+/**
+ * Snapshot an authored join. `{ from, to }` passes through unchanged, as it
+ * always has; `keys` pairs are validated before they are interpolated into SQL.
+ */
+export function normalizeRelationshipJoin(join: RelationshipJoin): NormalizedRelationshipJoin {
+  if (join.keys === undefined) {
+    return { from: join.from, to: join.to };
+  }
+  if (join.from !== undefined || join.to !== undefined) {
     throw new Error('Relationship keys cannot be combined with from/to.');
   }
-  const keys = composite ? join.keys : [{ from: join.from, to: join.to }];
+  const keys = join.keys;
   validateRelationshipKeys(keys);
   const copy: [RelationshipKey, ...RelationshipKey[]] = [
     Object.freeze({ from: keys[0].from, to: keys[0].to }),
@@ -17,6 +24,26 @@ export function normalizeRelationshipJoin(join: RelationshipJoin): Pick<Relation
   // A single pair is the legacy relationship: contracts and catalogs carry
   // `keys` only for composite relationships, however the pair was authored.
   return { from: copy[0].from, to: copy[0].to, ...(copy.length > 1 ? { keys: Object.freeze(copy) } : {}) };
+}
+
+/**
+ * Rebuild a serialized composite key. Portable records carry `keys` only for
+ * composite relationships, and `from`/`to` must mirror the first pair.
+ */
+export function rehydrateCompositeRelationshipJoin(
+  from: string,
+  to: string,
+  keys: readonly RelationshipKey[],
+): NormalizedRelationshipJoin {
+  validateRelationshipKeys(keys);
+  if (keys.length < 2) {
+    throw new Error('Serialized relationship keys must contain at least two pairs; single-key relationships use from/to.');
+  }
+  const join = normalizeRelationshipJoin({ keys });
+  if (join.from !== from || join.to !== to) {
+    throw new Error('Relationship from/to must match the first keys pair.');
+  }
+  return join;
 }
 
 export function validateRelationshipKeys(
@@ -30,7 +57,8 @@ export function validateRelationshipKeys(
       throw new Error('Relationship keys must contain safe physical from/to column identifiers.');
     }
     if (from.has(key.from) || to.has(key.to)) throw new Error('Relationship keys must not repeat a source or target column.');
-    from.add(key.from); to.add(key.to);
+    from.add(key.from);
+    to.add(key.to);
   }
 }
 

@@ -870,5 +870,446 @@
       ]
     },
     "error": "HQ_DEPLOYMENT_INVALID_REFERENCE"
+  },
+  {
+    "id": "relationship-keys-empty",
+    "value": {
+      "kind": "hypequery-deployment",
+      "version": 2,
+      "datasets": [
+        {
+          "name": "customers",
+          "source": "customers",
+          "tenant": {
+            "kind": "not-required"
+          },
+          "dimensions": [],
+          "measures": [],
+          "filters": [],
+          "relationships": []
+        },
+        {
+          "name": "orders",
+          "source": "orders",
+          "tenant": {
+            "kind": "not-required"
+          },
+          "dimensions": [],
+          "measures": [],
+          "filters": [],
+          "relationships": [
+            {
+              "name": "customer",
+              "kind": "belongsTo",
+              "target": "customers",
+              "from": "customer_id",
+              "to": "id",
+              "queryable": true,
+              "keys": []
+            }
+          ]
+        }
+      ]
+    },
+    "error": "HQ_DEPLOYMENT_INVALID_VALUE"
+  },
+  {
+    "id": "relationship-keys-single-pair",
+    "value": {
+      "kind": "hypequery-deployment",
+      "version": 2,
+      "datasets": [
+        {
+          "name": "customers",
+          "source": "customers",
+          "tenant": {
+            "kind": "not-required"
+          },
+          "dimensions": [],
+          "measures": [],
+          "filters": [],
+          "relationships": []
+        },
+        {
+          "name": "orders",
+          "source": "orders",
+          "tenant": {
+            "kind": "not-required"
+          },
+          "dimensions": [],
+          "measures": [],
+          "filters": [],
+          "relationships": [
+            {
+              "name": "customer",
+              "kind": "belongsTo",
+              "target": "customers",
+              "from": "customer_id",
+              "to": "id",
+              "queryable": true,
+              "keys": [
+                {
+                  "from": "customer_id",
+                  "to": "id"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "error": "HQ_DEPLOYMENT_INVALID_VALUE"
+  },
+  {
+    "id": "relationship-keys-first-pair-disagrees",
+    "value": {
+      "kind": "hypequery-deployment",
+      "version": 2,
+      "datasets": [
+        {
+          "name": "customers",
+          "source": "customers",
+          "tenant": {
+            "kind": "not-required"
+          },
+          "dimensions": [],
+          "measures": [],
+          "filters": [],
+          "relationships": []
+        },
+        {
+          "name": "orders",
+          "source": "orders",
+          "tenant": {
+            "kind": "not-required"
+          },
+          "dimensions": [],
+          "measures": [],
+          "filters": [],
+          "relationships": [
+            {
+              "name": "customer",
+              "kind": "belongsTo",
+              "target": "customers",
+              "from": "customer_id",
+              "to": "id",
+              "queryable": true,
+              "keys": [
+                {
+                  "from": "other_id",
+                  "to": "id"
+                },
+                {
+                  "from": "region_code",
+                  "to": "region"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "error": "HQ_DEPLOYMENT_INVALID_VALUE"
+  },
+  {
+    "id": "relationship-keys-repeated-source-column",
+    "value": {
+      "kind": "hypequery-deployment",
+      "version": 2,
+      "datasets": [
+        {
+          "name": "customers",
+          "source": "customers",
+          "tenant": {
+            "kind": "not-required"
+          },
+          "dimensions": [],
+          "measures": [],
+          "filters": [],
+          "relationships": []
+        },
+        {
+          "name": "orders",
+          "source": "orders",
+          "tenant": {
+            "kind": "not-required"
+          },
+          "dimensions": [],
+          "measures": [],
+          "filters": [],
+          "relationships": [
+            {
+              "name": "customer",
+              "kind": "belongsTo",
+              "target": "customers",
+              "from": "customer_id",
+              "to": "id",
+              "queryable": true,
+              "keys": [
+                {
+                  "from": "customer_id",
+                  "to": "id"
+                },
+                {
+                  "from": "customer_id",
+                  "to": "region"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "error": "HQ_DEPLOYMENT_INVALID_VALUE"
+  },
+  {
+    "id": "relationship-keys-repeated-target-column",
+    "value": {
+      "kind": "hypequery-deployment",
+      "version": 2,
+      "datasets": [
+        {
+          "name": "customers",
+          "source": "customers",
+          "tenant": {
+            "kind": "not-required"
+          },
+          "dimensions": [],
+          "measures": [],
+          "filters": [],
+          "relationships": []
+        },
+        {
+          "name": "orders",
+          "source": "orders",
+          "tenant": {
+            "kind": "not-required"
+          },
+          "dimensions": [],
+          "measures": [],
+          "filters": [],
+          "relationships": [
+            {
+              "name": "customer",
+              "kind": "belongsTo",
+              "target": "customers",
+              "from": "customer_id",
+              "to": "id",
+              "queryable": true,
+              "keys": [
+                {
+                  "from": "customer_id",
+                  "to": "id"
+                },
+                {
+                  "from": "region_code",
+                  "to": "id"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "error": "HQ_DEPLOYMENT_INVALID_VALUE"
+  },
+  {
+    "id": "relationship-keys-qualified-pair-column",
+    "value": {
+      "kind": "hypequery-deployment",
+      "version": 2,
+      "datasets": [
+        {
+          "name": "customers",
+          "source": "customers",
+          "tenant": {
+            "kind": "not-required"
+          },
+          "dimensions": [],
+          "measures": [],
+          "filters": [],
+          "relationships": []
+        },
+        {
+          "name": "orders",
+          "source": "orders",
+          "tenant": {
+            "kind": "not-required"
+          },
+          "dimensions": [],
+          "measures": [],
+          "filters": [],
+          "relationships": [
+            {
+              "name": "customer",
+              "kind": "belongsTo",
+              "target": "customers",
+              "from": "customer_id",
+              "to": "id",
+              "queryable": true,
+              "keys": [
+                {
+                  "from": "customer_id",
+                  "to": "id"
+                },
+                {
+                  "from": "orders.region_code",
+                  "to": "region"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "error": "HQ_DEPLOYMENT_INVALID_IDENTIFIER"
+  },
+  {
+    "id": "relationship-keys-qualified-top-level-column",
+    "value": {
+      "kind": "hypequery-deployment",
+      "version": 2,
+      "datasets": [
+        {
+          "name": "customers",
+          "source": "customers",
+          "tenant": {
+            "kind": "not-required"
+          },
+          "dimensions": [],
+          "measures": [],
+          "filters": [],
+          "relationships": []
+        },
+        {
+          "name": "orders",
+          "source": "orders",
+          "tenant": {
+            "kind": "not-required"
+          },
+          "dimensions": [],
+          "measures": [],
+          "filters": [],
+          "relationships": [
+            {
+              "name": "customer",
+              "kind": "belongsTo",
+              "target": "customers",
+              "from": "orders.customer_id",
+              "to": "id",
+              "queryable": true,
+              "keys": [
+                {
+                  "from": "orders.customer_id",
+                  "to": "id"
+                },
+                {
+                  "from": "region_code",
+                  "to": "region"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "error": "HQ_DEPLOYMENT_INVALID_IDENTIFIER"
+  },
+  {
+    "id": "relationship-keys-unknown-pair-field",
+    "value": {
+      "kind": "hypequery-deployment",
+      "version": 2,
+      "datasets": [
+        {
+          "name": "customers",
+          "source": "customers",
+          "tenant": {
+            "kind": "not-required"
+          },
+          "dimensions": [],
+          "measures": [],
+          "filters": [],
+          "relationships": []
+        },
+        {
+          "name": "orders",
+          "source": "orders",
+          "tenant": {
+            "kind": "not-required"
+          },
+          "dimensions": [],
+          "measures": [],
+          "filters": [],
+          "relationships": [
+            {
+              "name": "customer",
+              "kind": "belongsTo",
+              "target": "customers",
+              "from": "customer_id",
+              "to": "id",
+              "queryable": true,
+              "keys": [
+                {
+                  "from": "customer_id",
+                  "to": "id"
+                },
+                {
+                  "from": "region_code",
+                  "to": "region",
+                  "op": "eq"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "error": "HQ_DEPLOYMENT_UNKNOWN_FIELD"
+  },
+  {
+    "id": "relationship-keys-not-array",
+    "value": {
+      "kind": "hypequery-deployment",
+      "version": 2,
+      "datasets": [
+        {
+          "name": "customers",
+          "source": "customers",
+          "tenant": {
+            "kind": "not-required"
+          },
+          "dimensions": [],
+          "measures": [],
+          "filters": [],
+          "relationships": []
+        },
+        {
+          "name": "orders",
+          "source": "orders",
+          "tenant": {
+            "kind": "not-required"
+          },
+          "dimensions": [],
+          "measures": [],
+          "filters": [],
+          "relationships": [
+            {
+              "name": "customer",
+              "kind": "belongsTo",
+              "target": "customers",
+              "from": "customer_id",
+              "to": "id",
+              "queryable": true,
+              "keys": {
+                "from": "customer_id",
+                "to": "id"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "error": "HQ_DEPLOYMENT_TYPE"
   }
 ]
