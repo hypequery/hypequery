@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Add framework-free `hypequery` and `python -m hypequery` CLI entry points,
+  help/version and the `init`/`dev` command contract (PYE-01A).
+
 - Add `run_dev` and `python -m hypequery.serve.dev app:app` for local
   development. The runner binds to loopback by default, warns with
   `ExternalBindWarning` when bound beyond it, supports `--reload`, and refuses

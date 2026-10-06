@@ -101,7 +101,7 @@ jobs:
           enable-cache: true
           cache-dependency-glob: python/hypequery/uv.lock
       - run: uv sync --dev
-      - run: uv run pytest tests/test_import_hygiene.py
+      - run: uv run pytest tests/test_import_hygiene.py tests/test_cli.py
 
   fastapi-floor:
     # The `fastapi` extra promises the declared floor, and FastAPI's routing
