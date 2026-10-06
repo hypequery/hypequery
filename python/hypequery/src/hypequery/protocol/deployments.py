@@ -332,7 +332,7 @@ def _dataset(
             node["relationships"],
             f"{path}.relationships",
             limits.max_dataset_items,
-            lambda item, item_path, _index: relationship(item, item_path),
+            lambda item, item_path, _index: relationship(item, item_path, limits),
         ),
     }
     if version == 3 and "segments" in node:

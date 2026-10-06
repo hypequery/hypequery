@@ -103,6 +103,11 @@ class ResultCache:
     ) -> str | None:
         """The store key for this execution, or None when it cannot be cached."""
 
+        if query.having:
+            # The RFC 0009 normalized query has no `having` yet. A key built
+            # without it would hand a filtered result to an unfiltered query,
+            # so these executions run uncached until the protocol carries it.
+            return None
         definitions = registry.get_all() if registry is not None else ()
         if dataset not in definitions:
             definitions = (*definitions, dataset)

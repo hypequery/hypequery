@@ -258,6 +258,66 @@ and cannot be executed. For async code, use `create_async_dataset_client` with
 an async executor and `await client.execute(...)`. The client does not own the
 executor, so close the executor when the application shuts down.
 
+### Having conditions
+
+`having` filters on aggregated measure values, after grouping: for example,
+customers whose revenue exceeds 10,000.
+
+```python
+DatasetQuery.model_validate(
+    {
+        "dimensions": ["customerId"],
+        "measures": ["revenue"],
+        "having": [{"measure": "revenue", "operator": "gt", "value": 10_000}],
+    }
+)
+```
+
+Each condition must name a selected measure. Operators are `eq`, `neq`, `gt`,
+`gte`, `lt`, `lte`, `between`, `in` and `notIn`. Values are finite numbers: a
+two-item list for `between`, a non-empty list for `in`/`notIn`. Conditions are
+AND-ed, bound as parameters, and count against `limits.max_filters`. The
+statement repeats the measure's aggregate in `HAVING` rather than referencing
+its alias. Queries with conditions bypass the result cache until the RFC 0009
+cache preimage carries `having`. Dataset endpoints accept `having`; metric
+endpoints refuse it. This matches `@hypequery/datasets`.
+
+### Measures across relationships
+
+A query can select a target's base measure as `<relationship>.<measure>`, one
+hop over a `belongs_to` or `has_one` relationship:
+
+```python
+from hypequery.datasets import desc
+
+client.execute(
+    "orders",
+    DatasetQuery(
+        dimensions=("status",),
+        measures=("revenue", "customer.customerCount"),
+        order_by=(desc("customer.customerCount"),),
+    ),
+    context=ExecutionContext(tenant=tenant("org_123")),
+)
+```
+
+The target rows that count are the ones the selected base rows reach. Base
+filters and the base tenant decide which orders take part. The target
+measure's own filters apply to customer columns, and the join carries the
+target's tenant predicate. An order with no matching customer keeps its own
+measures but contributes nothing to the customer aggregate.
+
+A `belongs_to` join repeats each customer once per matching order, so only
+duplicate-insensitive aggregates are selectable through it: `count_distinct`,
+`min`, `max`, `arg_max` and `arg_min`. A declared `has_one` permits every
+aggregate, including `sum`, `count` and `avg`; the declaration is trusted.
+`has_many`, deeper paths, SQL-backed target measures, and target measures whose
+field or filters use SQL-backed dimensions are rejected. Selecting one name as
+both a dimension and a measure is rejected.
+
+Catalog relationship entries list the safe names under `measures`, they are
+orderable, and discovery includes them. This matches `@hypequery/datasets`.
+
 ## Result caching
 
 Pass a `ResultCache` to cache results. Keys follow RFC 0009 and RFC 0013: the
@@ -693,6 +753,26 @@ Orders = Dataset(
 )
 ```
 
+A relationship can also join on a composite key: several column pairs that
+must all be equal (RFC 0016). Pass `keys` instead of `from_field`/`to_field`:
+
+```python
+from hypequery.datasets import belongs_to
+
+customer = belongs_to(
+    lambda: Customers,
+    keys=(("customer_id", "id"), ("region_code", "region")),
+)
+```
+
+Each pair is a `(from, to)` tuple or a `RelationshipKey`. Every pair becomes an
+equality inside the same single-match join, AND-ed with any tenant predicate,
+and a NULL in any component never matches. Keys must be non-empty and must not
+repeat a source or target column. The relationship keeps `from_field` and
+`to_field` as its first pair, and catalogs, semantic contracts and deployment
+contracts carry the full `keys` list. Single-key relationships serialize
+unchanged.
+
 Relationship callbacks are invoked once by the helper. Models retain only the
 target dataset name, so `model_dump()` and `model_dump_json()` never serialize
 Python functions. Formula helpers likewise build immutable symbolic data and
@@ -1035,7 +1115,8 @@ portable metric definitions remain a follow-up. Their optional `name` aliases
 that measure in results and ordering.
 
 POST a strict JSON body with `dimensions`, `measures` (dataset endpoints only),
-`filters`, `orderBy`, `by`, `limit`, `offset`, and `includeMeta`. Filters are
+`filters`, `having` (dataset endpoints only), `orderBy`, `by`, `limit`, `offset`, and
+`includeMeta`. Filters are
 `{"field": "country", "operator": "eq", "value": "US"}`; orders are
 `{"field": "order_count", "direction": "desc"}`. Unknown request fields,
 coercion of numbers/booleans, and attempts to supply tenant, SQL, settings,

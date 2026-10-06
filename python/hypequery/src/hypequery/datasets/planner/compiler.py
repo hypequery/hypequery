@@ -6,14 +6,18 @@ The planner wraps the resulting SQL in the execution contract.
 
 from __future__ import annotations
 
+import math
 from collections.abc import Mapping
 from dataclasses import dataclass
+from typing import cast
 
 from ..dataset import Dataset
 from ..dimensions import Dimension
 from ..measures import Measure
-from ..query_helpers import Filter
+from ..query_helpers import Filter, HavingCondition
 from ..registry import DatasetRegistry
+from ..relationships import Relationship
+from ..utils.relationship_measures import measure_filter_field
 from .aliases import BASE_ALIAS, PERIOD_ALIAS
 from .context import ExecutionContext, TenantScope
 from .errors import CompiledQueryError
@@ -34,11 +38,13 @@ from .resolution import (
     require_dimension,
     resolve_filter_field,
     resolve_qualified_field,
+    resolve_relationship_measure,
 )
 from .sql_fragments import (
     aliased,
     grain_expression,
     group_by_clause,
+    having_clause,
     order_by_clause,
     pagination_clause,
     select_clause,
@@ -47,6 +53,8 @@ from .sql_fragments import (
 )
 
 _ARRAY_OPERATORS = frozenset(("in", "notIn"))
+_COMPARISONS = {"eq": "=", "neq": "!=", "gt": ">", "gte": ">=", "lt": "<", "lte": "<="}
+_MATCH_MARKER = "_hq_match"
 
 
 @dataclass(frozen=True, slots=True)
@@ -78,8 +86,18 @@ class DatasetQueryCompiler:
         self.selections: list[str] = []
         self.group_by: list[str] = []
         self.predicates: list[str] = []
+        self.having: list[str] = []
+        # Each selected measure's aggregate, so a having condition reads the
+        # expression itself rather than an output alias.
+        self.measure_sql: dict[str, str] = {}
         self.joins: list[str] = []
         self.joined: set[str] = set()
+        # A relationship whose target measures are selected joins through a
+        # projection carrying a match marker; see `_measure_join_source`.
+        self.measure_relationships = {
+            name.partition(".")[0] for name in query.measures or () if is_qualified(name)
+        }
+        self.match_markers: dict[str, SafeIdentifier] = {}
         # Qualify base columns only when a relationship could make them ambiguous.
         self.joins_active = references_a_relationship(dataset, query)
         self.orderable: dict[str, SafeIdentifier] = {}
@@ -88,6 +106,17 @@ class DatasetQueryCompiler:
         query = self.query
         scope = resolve_tenant_scope(self.dataset, self.context)
 
+        # An omitted measure list selects every base measure, as `_add_measures` does.
+        selected_measures = (
+            query.measures if query.measures is not None else tuple(self.dataset.measures)
+        )
+        for name in query.dimensions:
+            if name in selected_measures:
+                raise CompiledQueryError(
+                    "input-invalid",
+                    f'Output "{name}" cannot be selected as both a dimension and a measure. '
+                    "Select one or give the definitions distinct names.",
+                )
         # Order matters: dimensions and measures register the joins and aliases that
         # filters and ordering resolve against.
         self._add_dimensions(query)
@@ -99,6 +128,7 @@ class DatasetQueryCompiler:
                 "at least one dimension or measure.",
             )
         self._add_filters(query, scope)
+        self._add_having(query)
         order_by = self._add_order_by(query)
 
         source = safe_qualified_identifier(self.dataset.source, what="dataset source")
@@ -114,6 +144,7 @@ class DatasetQueryCompiler:
             + "".join(self.joins)
             + where_clause(self.predicates)
             + group_by_clause(self.group_by)
+            + having_clause(self.having)
             + order_by_clause(order_by)
             + pagination_clause(
                 result_limit + 1 if self.overfetch and result_limit is not None else result_limit,
@@ -147,27 +178,80 @@ class DatasetQueryCompiler:
         column_sql = safe_identifier(column, what="column").sql
         return f"{BASE_ALIAS.sql}.{column_sql}" if self.joins_active else column_sql
 
-    def _ensure_join(self, name: str) -> tuple[str, SafeIdentifier]:
-        """Add the single-match LEFT ANY JOIN a qualified field needs, once."""
+    def _measure_join_source(self, relationship_name: str, target: Dataset) -> str:
+        """The target as a projection whose marker is non-null only on a match.
 
-        resolved = resolve_qualified_field(self.dataset, name, registry=self.registry)
-        alias = safe_identifier(resolved.relationship_name, what="relationship name")
-        if resolved.relationship_name not in self.joined:
-            self.joined.add(resolved.relationship_name)
-            target_source = safe_qualified_identifier(resolved.target.source, what="dataset source")
-            left = safe_identifier(resolved.relationship.from_field, what="relationship from field")
-            right = safe_identifier(resolved.relationship.to_field, what="relationship to field")
-            condition = f"{BASE_ALIAS.sql}.{left.sql} = {alias.sql}.{right.sql}"
+        Without `join_use_nulls`, an unmatched LEFT JOIN row carries column
+        defaults such as `0` and `''`, which `min` or `countDistinct` would
+        count. The marker is the one value that tells a match from a default,
+        and an explicit projection keeps it from colliding with a target column.
+        """
+
+        relationship = self.dataset.relationships[relationship_name]
+        columns = [key.to_field for key in relationship.key_pairs]
+        if target.tenant_key is not None:
+            columns.append(target.tenant_key)
+        for name, dimension in target.dimensions.items():
+            if dimension.sql is None:
+                columns.append(dimension.column or name)
+        for name in self.query.measures or ():
+            owner, _, measure_name = name.partition(".")
+            if owner != relationship_name or measure_name not in target.measures:
+                continue
+            measure = target.measures[measure_name]
+            for field in (measure.field, measure.arg_field):
+                if field is not None:
+                    declared = target.dimensions.get(field)
+                    columns.append(declared.column or field if declared else field)
+        unique = list(dict.fromkeys(columns))
+        marker = _MATCH_MARKER
+        while marker in unique:
+            marker += "_"
+        self.match_markers[relationship_name] = safe_identifier(marker, what="match marker")
+        projection = [safe_identifier(column, what="column").sql for column in unique]
+        projection.append(f"toNullable(1) AS {self.match_markers[relationship_name].sql}")
+        source = safe_qualified_identifier(target.source, what="dataset source")
+        # Every part is a validated identifier or a constant; no value reaches it.
+        return f"(SELECT {', '.join(projection)} FROM {source.sql})"  # noqa: S608
+
+    def _ensure_relationship_join(
+        self, relationship_name: str, relationship: Relationship, target: Dataset
+    ) -> SafeIdentifier:
+        """Add the single-match LEFT ANY JOIN a relationship needs, once."""
+
+        alias = safe_identifier(relationship_name, what="relationship name")
+        if relationship_name not in self.joined:
+            self.joined.add(relationship_name)
+            if relationship_name in self.measure_relationships:
+                target_source = self._measure_join_source(relationship_name, target)
+            else:
+                target_source = safe_qualified_identifier(target.source, what="dataset source").sql
+            # A composite key is an AND of equalities; a NULL component never matches.
+            condition = " AND ".join(
+                f"{BASE_ALIAS.sql}."
+                f"{safe_identifier(key.from_field, what='relationship from field').sql}"
+                f" = {alias.sql}.{safe_identifier(key.to_field, what='relationship to field').sql}"
+                for key in relationship.key_pairs
+            )
             # The joined dataset carries its own tenancy, so the predicate goes into
             # the join condition rather than WHERE: in a LEFT ANY JOIN a WHERE predicate
             # on the right side would silently turn it into an inner join.
-            target_scope = resolve_tenant_scope(resolved.target, self.context)
-            if target_scope is not None and resolved.target.tenant_key is not None:
-                tenant_column = safe_identifier(resolved.target.tenant_key, what="tenant key")
+            target_scope = resolve_tenant_scope(target, self.context)
+            if target_scope is not None and target.tenant_key is not None:
+                tenant_column = safe_identifier(target.tenant_key, what="tenant key")
                 condition += " AND " + self._tenant_predicate(
                     f"{alias.sql}.{tenant_column.sql}", target_scope
                 )
-            self.joins.append(f" LEFT ANY JOIN {target_source.sql} AS {alias.sql} ON {condition}")
+            self.joins.append(f" LEFT ANY JOIN {target_source} AS {alias.sql} ON {condition}")
+        return alias
+
+    def _ensure_join(self, name: str) -> tuple[str, SafeIdentifier]:
+        """The joined column a qualified field selects, adding its join once."""
+
+        resolved = resolve_qualified_field(self.dataset, name, registry=self.registry)
+        alias = self._ensure_relationship_join(
+            resolved.relationship_name, resolved.relationship, resolved.target
+        )
         column = resolved.dimension.column or resolved.dimension_name
         return f"{alias.sql}.{safe_identifier(column, what='column').sql}", alias
 
@@ -221,16 +305,22 @@ class DatasetQueryCompiler:
             target = trusted_expression(measure.sql)
         else:
             target = self._base_column(self.dataset.dimensions.get(measure.field), measure.field)
-
-        aggregation = measure.aggregation
-        if aggregation in ("argMax", "argMin"):
-            if measure.arg_field is None:
-                raise CompiledQueryError(
-                    "internal", f'Measure "{name}" is {aggregation} without an arg field.'
-                )
+        arg = None
+        if measure.arg_field is not None:
             arg = self._base_column(
                 self.dataset.dimensions.get(measure.arg_field), measure.arg_field
             )
+        return self._aggregate_call(name, measure, target, arg)
+
+    def _aggregate_call(self, name: str, measure: Measure, target: str, arg: str | None) -> str:
+        """The aggregate function applied to already-resolved input SQL."""
+
+        aggregation = measure.aggregation
+        if aggregation in ("argMax", "argMin"):
+            if arg is None:
+                raise CompiledQueryError(
+                    "internal", f'Measure "{name}" is {aggregation} without an arg field.'
+                )
             return f"{aggregation}({target}, {arg})"
         if aggregation == "percentile":
             if measure.level is None:
@@ -265,22 +355,68 @@ class DatasetQueryCompiler:
         """
 
         aggregate = self._aggregation_sql(name, measure)
-        if not measure.filters:
+        predicates = [
+            self._filter_predicate(filter_value) for filter_value in measure.filters or ()
+        ]
+        return self._with_conditions(aggregate, predicates)
+
+    @staticmethod
+    def _with_conditions(aggregate: str, predicates: list[str]) -> str:
+        """Apply predicates through ClickHouse's `-If` combinator."""
+
+        if not predicates:
             return aggregate
-        predicates = [self._filter_predicate(filter_value) for filter_value in measure.filters]
         condition = " AND ".join(predicates)
         head, _, tail = aggregate.partition("(")
         return f"{head}If({tail[:-1]}, {condition})"
+
+    def _relationship_measure_sql(self, name: str) -> str:
+        """A target base aggregate over matched joined rows only.
+
+        Every input is guarded by the match marker, so an unmatched base row
+        keeps its own measures but contributes nothing to the target aggregate.
+        The target measure's fixed filters narrow target columns, and the join
+        carries the target's tenant predicate.
+        """
+
+        resolved = resolve_relationship_measure(self.dataset, name, registry=self.registry)
+        target = resolved.target
+        alias = self._ensure_relationship_join(
+            resolved.relationship_name, resolved.relationship, target
+        )
+        marker = self.match_markers[resolved.relationship_name]
+        matched = f"isNotNull({alias.sql}.{marker.sql})"
+
+        def guarded(field: str) -> str:
+            dimension = target.dimensions.get(field)
+            column = dimension.column or field if dimension is not None else field
+            return f"if({matched}, {alias.sql}.{safe_identifier(column, what='column').sql}, NULL)"
+
+        measure = resolved.measure
+        arg = guarded(measure.arg_field) if measure.arg_field is not None else None
+        aggregate = self._aggregate_call(name, measure, guarded(measure.field), arg)
+        predicates = [
+            self._filter_predicate(
+                Filter(
+                    field=f"{resolved.relationship_name}."
+                    f"{measure_filter_field(target, filter_value.field)}",
+                    operator=filter_value.operator,
+                    value=filter_value.value,
+                )
+            )
+            for filter_value in measure.filters or ()
+        ]
+        return self._with_conditions(aggregate, predicates)
 
     def _add_measures(self, query: DatasetQuery) -> None:
         names = query.measures if query.measures is not None else tuple(self.dataset.measures)
         for name in names:
             if is_qualified(name):
-                raise CompiledQueryError(
-                    "input-invalid",
-                    f'Measure "{name}" is relationship-qualified. Measures are defined on the '
-                    f'base dataset "{self.dataset.name}" only.',
-                )
+                alias = SafeIdentifier(name)
+                self.measure_sql[name] = self._relationship_measure_sql(name)
+                self.selections.append(aliased(self.measure_sql[name], alias))
+                self.orderable[name] = alias
+                continue
             measure = self.dataset.measures.get(name)
             if measure is None:
                 known = ", ".join(sorted(self.dataset.measures)) or "(none)"
@@ -290,7 +426,8 @@ class DatasetQueryCompiler:
                     f"Available: {known}",
                 )
             alias = SafeIdentifier(name)
-            self.selections.append(aliased(self._measure_filter_sql(name, measure), alias))
+            self.measure_sql[name] = self._measure_filter_sql(name, measure)
+            self.selections.append(aliased(self.measure_sql[name], alias))
             self.orderable[name] = alias
 
     def _filter_type(self, field: str) -> str:
@@ -355,8 +492,7 @@ class DatasetQueryCompiler:
             placeholder = self.binder.bind(text, "String")
             return f"{column} LIKE {placeholder}"
 
-        comparisons = {"eq": "=", "neq": "!=", "gt": ">", "gte": ">=", "lt": "<", "lte": "<="}
-        comparison = comparisons.get(operator)
+        comparison = _COMPARISONS.get(operator)
         if comparison is None:
             raise CompiledQueryError("input-invalid", f"{what} uses unknown operator {operator!r}")
         placeholder = self.binder.bind(
@@ -408,6 +544,63 @@ class DatasetQueryCompiler:
             tenant_column = safe_identifier(tenant_key, what="tenant key").sql
             column = f"{BASE_ALIAS.sql}.{tenant_column}" if self.joins_active else tenant_column
             self.predicates.append(self._tenant_predicate(column, scope))
+
+    @staticmethod
+    def _having_numbers(condition: HavingCondition) -> list[float | int]:
+        """The condition's values, refused unless they are finite numbers."""
+
+        def number(value: object) -> bool:
+            # `bool` is an `int` subclass; a JSON `true` is not a measure value.
+            if type(value) not in (int, float):
+                return False
+            try:
+                return math.isfinite(cast(float, value))
+            except OverflowError:
+                # An integer beyond float range, such as 10**400.
+                return False
+
+        value, operator, name = condition.value, condition.operator, condition.measure
+        if operator == "between":
+            if type(value) is tuple and len(value) == 2 and all(map(number, value)):
+                return list(value)
+            message = f'Having "between" on "{name}" expects a two-item array of finite numbers.'
+        elif operator in _ARRAY_OPERATORS:
+            if type(value) is tuple and value and all(map(number, value)):
+                return list(value)
+            message = (
+                f'Having "{operator}" on "{name}" expects a non-empty array of finite numbers.'
+            )
+        else:
+            if number(value):
+                return [cast(float, value)]
+            message = f'Having "{operator}" on "{name}" expects a finite number.'
+        raise CompiledQueryError("input-invalid", message)
+
+    def _add_having(self, query: DatasetQuery) -> None:
+        """Conditions on aggregated values, every value bound as a parameter."""
+
+        for condition in query.having:
+            expression = self.measure_sql.get(condition.measure)
+            if expression is None:
+                selected = ", ".join(self.measure_sql)
+                raise CompiledQueryError(
+                    "input-invalid",
+                    f'Having measure "{condition.measure}" must be one of the selected '
+                    f"measures: {selected}",
+                )
+            values = self._having_numbers(condition)
+            operator = condition.operator
+            if operator == "between":
+                lower = self.binder.bind(values[0], "Float64")
+                upper = self.binder.bind(values[1], "Float64")
+                self.having.append(f"{expression} BETWEEN {lower} AND {upper}")
+            elif operator in _ARRAY_OPERATORS:
+                keyword = "IN" if operator == "in" else "NOT IN"
+                placeholder = self.binder.bind_array(values, "Float64")
+                self.having.append(f"{expression} {keyword} {placeholder}")
+            else:
+                placeholder = self.binder.bind(values[0], "Float64")
+                self.having.append(f"{expression} {_COMPARISONS[operator]} {placeholder}")
 
     def _add_order_by(self, query: DatasetQuery) -> list[str]:
         parts: list[str] = []

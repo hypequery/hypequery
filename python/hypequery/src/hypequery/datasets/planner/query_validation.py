@@ -60,6 +60,14 @@ def check_query_limits(dataset: Dataset, query: DatasetQuery) -> None:
         raise CompiledQueryError(
             "too-large", f"Too many filters: {len(query.filters)} (max {limits.max_filters})"
         )
+    # `max_filters` bounds every predicate the query adds, before and after
+    # aggregation alike.
+    conditions = len(query.filters) + len(query.having)
+    if limits.max_filters is not None and conditions > limits.max_filters:
+        raise CompiledQueryError(
+            "too-large",
+            f"Too many filters and having conditions: {conditions} (max {limits.max_filters})",
+        )
     if (
         limits.max_result_size is not None
         and query.limit is not None

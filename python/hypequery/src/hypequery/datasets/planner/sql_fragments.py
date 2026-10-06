@@ -59,6 +59,10 @@ def where_clause(predicates: Sequence[str]) -> str:
     return "" if not predicates else " WHERE " + " AND ".join(predicates)
 
 
+def having_clause(predicates: Sequence[str]) -> str:
+    return f" HAVING {' AND '.join(predicates)}" if predicates else ""
+
+
 def group_by_clause(parts: Sequence[str]) -> str:
     return "" if not parts else " GROUP BY " + ", ".join(parts)
 

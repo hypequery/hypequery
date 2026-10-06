@@ -13,8 +13,10 @@ from dataclasses import dataclass
 from ..constants import QUERYABLE_RELATIONSHIP_KINDS
 from ..dataset import Dataset
 from ..dimensions import Dimension
+from ..measures import Measure
 from ..registry import DatasetRegistry
 from ..relationships import Relationship
+from ..utils.relationship_measures import relationship_measure_error
 from .errors import CompiledQueryError
 from .query import DatasetQuery
 
@@ -98,6 +100,58 @@ def resolve_qualified_field(
     )
 
 
+@dataclass(frozen=True, slots=True)
+class ResolvedRelationshipMeasure:
+    """A `<relationship>.<measure>` name, resolved to the target aggregate."""
+
+    relationship_name: str
+    relationship: Relationship
+    target: Dataset
+    measure_name: str
+    measure: Measure
+
+
+def resolve_relationship_measure(
+    dataset: Dataset, name: str, *, registry: DatasetRegistry
+) -> ResolvedRelationshipMeasure:
+    """Resolve one hop to a target base aggregate whose cardinality is safe."""
+
+    relationship_name, _, measure_name = name.partition(".")
+    if "." in measure_name:
+        raise CompiledQueryError(
+            "input-invalid", f'Measure "{name}" must use a one-hop relationship path.'
+        )
+    relationship = dataset.relationships.get(relationship_name)
+    if relationship is None:
+        known = ", ".join(sorted(dataset.relationships)) or "(none)"
+        raise CompiledQueryError(
+            "input-invalid",
+            f'Unknown relationship "{relationship_name}" in measure "{name}". Available: {known}',
+        )
+    if relationship.kind not in QUERYABLE_RELATIONSHIP_KINDS:
+        raise CompiledQueryError(
+            "input-invalid",
+            f'Measure "{name}" cannot traverse {relationship.kind}: it would fan out aggregates.',
+        )
+    target = registry.get(relationship.target)
+    if target is None:
+        raise CompiledQueryError(
+            "internal",
+            f'Relationship "{relationship_name}" targets unregistered dataset '
+            f'"{relationship.target}".',
+        )
+    error = relationship_measure_error(name, relationship, target, measure_name)
+    if error is not None:
+        raise CompiledQueryError("input-invalid", error)
+    return ResolvedRelationshipMeasure(
+        relationship_name=relationship_name,
+        relationship=relationship,
+        target=target,
+        measure_name=measure_name,
+        measure=target.measures[measure_name],
+    )
+
+
 def require_dimension(dataset: Dataset, name: str) -> Dimension:
     """Resolve a base-dataset dimension by name."""
 
@@ -128,6 +182,7 @@ def references_a_relationship(dataset: Dataset, query: DatasetQuery) -> bool:
     ]
     selected_measures = query.measures if query.measures is not None else dataset.measures
     for measure_name in selected_measures:
+        names.append(measure_name)
         measure = dataset.measures.get(measure_name)
         if measure is not None:
             names.extend(

@@ -28,7 +28,17 @@ def _dataset(catalog: DatasetCatalog) -> dict[str, object]:
         "dimensions": dimensions,
         "measures": [
             {"name": name, **{key: entry[key] for key in ("label", "description") if key in entry}}
-            for name, entry in sorted(catalog["measures"].items())
+            for name, entry in sorted(
+                [
+                    *catalog["measures"].items(),
+                    *(
+                        item
+                        for relationship in catalog["relationships"].values()
+                        if relationship["queryable"]
+                        for item in relationship.get("measures", {}).items()
+                    ),
+                ]
+            )
         ],
         "metrics": [],
         "filters": [

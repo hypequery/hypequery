@@ -5,7 +5,7 @@ from __future__ import annotations
 from pydantic import ValidationError
 
 from ...datasets.planner import CompiledQueryError
-from ...datasets.query_helpers import Filter, Order
+from ...datasets.query_helpers import Filter, HavingCondition, Order
 from ...protocol.errors import ProtocolIdentifierError
 
 
@@ -14,6 +14,13 @@ def decode_filters(values: list[dict[str, object]]) -> tuple[Filter, ...]:
         return tuple(Filter.model_validate(value) for value in values)
     except (ValidationError, ProtocolIdentifierError):
         raise CompiledQueryError("input-invalid", "Invalid dataset filter.") from None
+
+
+def decode_having(values: list[dict[str, object]] | None) -> tuple[HavingCondition, ...]:
+    try:
+        return tuple(HavingCondition.model_validate(value) for value in values or ())
+    except (ValidationError, ProtocolIdentifierError):
+        raise CompiledQueryError("input-invalid", "Invalid having condition.") from None
 
 
 def decode_orders(values: list[dict[str, object]]) -> tuple[Order, ...]:

@@ -11,7 +11,7 @@ from __future__ import annotations
 from pydantic import BaseModel, ConfigDict, Field
 
 from ..constants import SUPPORTED_TIME_GRAINS
-from ..query_helpers import Filter, Order
+from ..query_helpers import Filter, HavingCondition, Order
 
 TimeGrain = str
 
@@ -24,6 +24,8 @@ class DatasetQuery(BaseModel):
     dimensions: tuple[str, ...] = ()
     measures: tuple[str, ...] | None = None
     filters: tuple[Filter, ...] = ()
+    #: Conditions on aggregated measure values, AND-ed and applied after grouping.
+    having: tuple[HavingCondition, ...] = ()
     by: TimeGrain | None = None
     order_by: tuple[Order, ...] = ()
     limit: int | None = Field(default=None, ge=0)
