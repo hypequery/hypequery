@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Add `hypequery init [directory]` with packaged Python project templates,
+  authenticated orders endpoint, setup instructions and collision protection (PYE-01B).
+
 - Add framework-free `hypequery` and `python -m hypequery` CLI entry points,
   help/version and the `init`/`dev` command contract (PYE-01A).
 

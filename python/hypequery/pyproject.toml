@@ -53,6 +53,10 @@ dev = [
 [tool.hatch.build.targets.wheel]
 packages = ["src/hypequery"]
 
+[tool.hatch.build]
+# Include dotfiles used by the project template despite VCS ignore rules.
+artifacts = ["src/hypequery/cli/templates/**"]
+
 [tool.ruff]
 line-length = 100
 target-version = "py311"
