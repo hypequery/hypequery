@@ -11,6 +11,8 @@ from typing import cast
 
 from hypequery.datasets.planner import CompiledQuery, CompiledQueryError
 
+from .utils.datetime_parameters import unix_seconds
+
 _NAME = re.compile(r"p(?:0|[1-9][0-9]*)\Z")
 _TYPE = re.compile(
     r"(?:String|Float64|Bool|DateTime64\(3\)|Int64|UInt64|Decimal\([0-9]+,[0-9]+\))\Z"
@@ -55,5 +57,13 @@ def bound_parameters(compiled: CompiledQuery) -> dict[str, object]:
             or not _valid_value(parameter.value)
         ):
             raise CompiledQueryError("internal", "invalid parameter", query_id=compiled.query_id)
-        values[name] = parameter.value
+        values[name] = _wire_value(scalar, parameter.value)
     return values
+
+
+def _wire_value(scalar: str, value: object) -> object:
+    if not scalar.startswith("DateTime64("):
+        return value
+    if type(value) in (list, tuple):
+        return [unix_seconds(item) for item in cast(Sequence[object], value)]
+    return unix_seconds(value)
