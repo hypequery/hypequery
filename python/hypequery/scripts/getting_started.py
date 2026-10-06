@@ -12,9 +12,9 @@ from the one that works. The script:
 5. fails if the whole path takes longer than the 15-minute budget.
 
 ClickHouse comes from ``CLICKHOUSE_HOST``, ``CLICKHOUSE_PORT``,
-``CLICKHOUSE_USERNAME`` and ``CLICKHOUSE_PASSWORD``; set
-``CLICKHOUSE_PROTOCOL=https`` for a server beyond this machine, since the
-script refuses to send credentials there over plain HTTP. The scratch database
+``CLICKHOUSE_USERNAME`` and ``CLICKHOUSE_PASSWORD``. The server must run on
+this machine: the walkthrough speaks plain HTTP, so it refuses to send
+credentials anywhere else, and never follows redirects. The scratch database
 gets a fresh random name, so no existing database is touched. Usage::
 
     uv build --wheel
@@ -64,26 +64,33 @@ def is_local(host: str) -> bool:
         return False
 
 
+class _NoRedirect(urllib.request.HTTPRedirectHandler):
+    """A redirect would carry the Authorization header to wherever it points."""
+
+    def redirect_request(self, *args: object, **kwargs: object) -> None:
+        return None
+
+
+_OPENER = urllib.request.build_opener(_NoRedirect)
+
+
 def clickhouse(sql: str, *, database: str = "default") -> None:
     host = os.environ.get("CLICKHOUSE_HOST", "localhost")
     port = os.environ.get("CLICKHOUSE_PORT", "8123")
-    protocol = os.environ.get("CLICKHOUSE_PROTOCOL", "http")
     user = os.environ.get("CLICKHOUSE_USERNAME", "default")
     password = os.environ.get("CLICKHOUSE_PASSWORD", "")
-    if protocol not in ("http", "https"):
-        raise SystemExit("CLICKHOUSE_PROTOCOL must be http or https")
-    if protocol == "http" and not is_local(host):
+    if not is_local(host):
         raise SystemExit(
-            f"refusing to send ClickHouse credentials to {host} over plain HTTP; "
-            "set CLICKHOUSE_PROTOCOL=https"
+            f"the walkthrough uses plain HTTP, so it only talks to a ClickHouse server on "
+            f"this machine, not {host}"
         )
     token = base64.b64encode(f"{user}:{password}".encode()).decode()
-    request = urllib.request.Request(  # noqa: S310 - scheme checked above
-        f"{protocol}://{host}:{port}/?database={database}",
+    request = urllib.request.Request(
+        f"http://{host}:{port}/?database={database}",
         data=sql.encode(),
         headers={"Authorization": f"Basic {token}"},
     )
-    with urllib.request.urlopen(request, timeout=30) as response:  # noqa: S310
+    with _OPENER.open(request, timeout=30) as response:
         response.read()
 
 
@@ -145,8 +152,9 @@ def walkthrough(wheel: Path) -> None:
         # A fresh name, created without IF NOT EXISTS: the walkthrough only
         # ever drops the database it created itself.
         database = f"hypequery_getting_started_{secrets.token_hex(6)}"
-        clickhouse(f"CREATE DATABASE {database}")
         try:
+            # Inside the try: a lost response to CREATE still gets cleaned up.
+            clickhouse(f"CREATE DATABASE {database}")
             serve_walkthrough(blocks, workdir, python, database)
         finally:
             clickhouse(f"DROP DATABASE IF EXISTS {database}")
