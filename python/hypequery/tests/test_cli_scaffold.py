@@ -65,3 +65,23 @@ def test_rejects_destination_symlink_and_ancestor(tmp_path: Path) -> None:
 
 def test_missing_parent_is_created(tmp_path: Path) -> None:
     assert main(["init", str(tmp_path / "nested" / "project")]) == 0
+
+
+@pytest.mark.parametrize("parent_exists", [True, False])
+def test_write_failure_rolls_back_files_and_new_directories(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    parent_exists: bool,
+) -> None:
+    parent = tmp_path / "new parent"
+    if parent_exists:
+        parent.mkdir()
+    destination = parent / "project"
+    # Simulate a resource write failing after an earlier file was created.
+    monkeypatch.setattr(
+        "hypequery.cli.scaffold.load_templates",
+        lambda: {"first.txt": "created", "missing/file.txt": "will fail"},
+    )
+    assert main(["init", str(destination)]) == 1
+    assert not destination.exists()
+    assert parent.exists() is parent_exists

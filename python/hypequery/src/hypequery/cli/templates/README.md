@@ -5,14 +5,27 @@ The generated `pyproject.toml` pins the SDK version used to scaffold this projec
 
 ## Install
 
+Before the first PyPI release, build the SDK wheel in the SDK checkout used to
+install the CLI (in a separate shell):
+
+```bash
+cd /path/to/hypequery/python/hypequery
+uv build --wheel
+```
+
+From this generated project directory, create an environment and install that
+artifact with the serving and ClickHouse extras. Replace the checkout path:
+
 ```bash
 python -m venv .venv
 source .venv/bin/activate
-python -m pip install -e .
+export HYPEQUERY_WHEEL=/path/to/hypequery/python/hypequery/dist/hypequery-__HYPEQUERY_VERSION__-py3-none-any.whl
+python -m pip install "$HYPEQUERY_WHEEL[fastapi,clickhouse]"
+python -m pip install -e . --no-deps
 ```
 
-Before the first PyPI release, install your built SDK artifact with extras into
-this environment first, then run `python -m pip install -e . --no-deps`.
+Once the SDK version pinned in `pyproject.toml` is published on PyPI, use
+`python -m pip install -e .` in the environment instead.
 
 ## Configure
 
@@ -65,6 +78,9 @@ PY
 ```bash
 hypequery dev
 ```
+
+If your older preview SDK does not yet provide `dev`, start it with
+`python -m hypequery.serve.dev app:app --reload`.
 
 This serves `app:app` on `127.0.0.1:8000` with file reload enabled. Use
 `--no-reload` to disable reload, or `--port 8001` for a different port. From

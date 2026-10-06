@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import argparse
 import shutil
 import subprocess
 import sys
@@ -59,3 +60,42 @@ def test_dev_argument_contract() -> None:
     args = parse_args(["dev"])
     assert (args.app, args.host, args.port, args.reload) == ("app:app", "127.0.0.1", 8000, True)
     assert parse_args(["dev", "--no-reload"]).reload is False
+
+
+@pytest.mark.parametrize("command", ["init", "dev"])
+def test_dispatches_parsed_arguments(monkeypatch: pytest.MonkeyPatch, command: str) -> None:
+    from types import SimpleNamespace
+
+    imported: list[str] = []
+    received: list[object] = []
+
+    def import_command(name: str) -> SimpleNamespace:
+        imported.append(name)
+        return SimpleNamespace(run=received.append)
+
+    monkeypatch.setattr("hypequery.cli.import_module", import_command)
+    assert main([command]) == 0
+    assert imported == [f"hypequery.cli.commands.{command}"]
+    assert len(received) == 1
+    assert isinstance(received[0], argparse.Namespace)
+    assert received[0].command == command
+
+
+@pytest.mark.parametrize("command", ["init", "dev"])
+def test_dispatch_runtime_failure_is_stderr_and_status_one(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    command: str,
+) -> None:
+    from types import SimpleNamespace
+
+    from hypequery.cli.errors import CliError
+
+    def fail(args: object) -> None:
+        raise CliError("safe actionable failure")
+
+    monkeypatch.setattr("hypequery.cli.import_module", lambda name: SimpleNamespace(run=fail))
+    assert main([command]) == 1
+    output = capsys.readouterr()
+    assert output.out == ""
+    assert output.err.strip() == "hypequery: safe actionable failure"

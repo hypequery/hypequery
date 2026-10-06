@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from contextlib import suppress
 from pathlib import Path
 
 from .errors import CliError
@@ -14,11 +15,19 @@ class Scaffold:
         self.destination = destination.absolute()
 
     def create(self) -> Path:
-        templates = load_templates()
         written: list[Path] = []
+        created_directories: list[Path] = []
         try:
+            templates = load_templates()
             self._preflight(list(templates))
-            self.destination.mkdir(parents=True, exist_ok=True)
+            missing = []
+            for directory in (self.destination, *self.destination.parents):
+                if directory.exists():
+                    break
+                missing.append(directory)
+            for directory in reversed(missing):
+                directory.mkdir()
+                created_directories.append(directory)
             for name, content in templates.items():
                 path = self.destination / name
                 with path.open("x", encoding="utf-8") as output:
@@ -27,7 +36,12 @@ class Scaffold:
         except OSError as exc:
             # Only remove files this invocation exclusively created.
             for path in written:
-                path.unlink(missing_ok=True)
+                with suppress(OSError):
+                    path.unlink(missing_ok=True)
+            for directory in reversed(created_directories):
+                # rmdir preserves any content created concurrently by another process.
+                with suppress(OSError):
+                    directory.rmdir()
             raise CliError(
                 "Cannot create the project; check destination permissions and existing files."
             ) from exc
