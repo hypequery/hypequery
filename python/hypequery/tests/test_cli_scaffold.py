@@ -14,7 +14,7 @@ from hypequery.cli.utils.templates import TEMPLATE_NAMES
 
 def test_scaffold_new_directory_with_spaces(tmp_path: Path) -> None:
     destination = tmp_path / "my project"
-    assert main(["init", str(destination)]) == 0
+    assert main(["init", "--skip-connection", str(destination)]) == 0
     assert {path.name for path in destination.iterdir()} == set(TEMPLATE_NAMES)
     ast.parse((destination / "app.py").read_text())
     project = tomllib.loads((destination / "pyproject.toml").read_text())
@@ -28,10 +28,10 @@ def test_scaffold_defaults_to_current_directory(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.chdir(tmp_path)
-    assert main(["init"]) == 0
+    assert main(["init", "--skip-connection"]) == 0
     assert (tmp_path / "app.py").is_file()
     original = (tmp_path / "app.py").read_bytes()
-    assert main(["init"]) == 1
+    assert main(["init", "--skip-connection"]) == 1
     assert (tmp_path / "app.py").read_bytes() == original
 
 
@@ -47,7 +47,7 @@ def test_collision_is_checked_before_any_write(tmp_path: Path, kind: str) -> Non
         if kind == "symlink":
             (tmp_path / "target").write_text("user content")
     before = set(tmp_path.iterdir())
-    assert main(["init", str(tmp_path)]) == 1
+    assert main(["init", "--skip-connection", str(tmp_path)]) == 1
     assert set(tmp_path.iterdir()) == before
     if kind == "file":
         assert collision.read_text() == "user content"
@@ -59,12 +59,12 @@ def test_rejects_destination_symlink_and_ancestor(tmp_path: Path) -> None:
     link = tmp_path / "link"
     link.symlink_to(target, target_is_directory=True)
     for destination in (link, link / "nested"):
-        assert main(["init", str(destination)]) == 1
+        assert main(["init", "--skip-connection", str(destination)]) == 1
     assert list(target.iterdir()) == []
 
 
 def test_missing_parent_is_created(tmp_path: Path) -> None:
-    assert main(["init", str(tmp_path / "nested" / "project")]) == 0
+    assert main(["init", "--skip-connection", str(tmp_path / "nested" / "project")]) == 0
 
 
 @pytest.mark.parametrize("parent_exists", [True, False])
@@ -82,6 +82,6 @@ def test_write_failure_rolls_back_files_and_new_directories(
         "hypequery.cli.scaffold.load_templates",
         lambda: {"first.txt": "created", "missing/file.txt": "will fail"},
     )
-    assert main(["init", str(destination)]) == 1
+    assert main(["init", "--skip-connection", str(destination)]) == 1
     assert not destination.exists()
     assert parent.exists() is parent_exists
