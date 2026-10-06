@@ -1,10 +1,10 @@
 import type { Metadata } from "next";
-import Script from "next/script";
 import { Plus_Jakarta_Sans, JetBrains_Mono, Space_Grotesk } from "next/font/google";
 import "./globals.css";
 import { RootProvider } from "fumadocs-ui/provider/next";
 import DefaultSearchDialog from "@/components/search";
 import CookieConsentBanner from "@/components/CookieConsent";
+import UmamiScript from "@/components/UmamiScript";
 import { absoluteUrl, siteUrl } from "@/lib/site";
 import { THEME_STORAGE_KEY } from "@/lib/theme";
 
@@ -130,12 +130,7 @@ export default function RootLayout({
         />
         {/* Optional analytics and marketing trackers are injected only after
             opt-in by CookieConsentBanner. */}
-        <Script
-          defer
-          src="https://cloud.umami.is/script.js"
-          data-website-id="a1b133a2-bf0a-4260-9c2c-f76a2a20359f"
-          strategy="afterInteractive"
-        />
+        <UmamiScript />
       </head>
       <body
         className={`${sans.variable} ${mono.variable} ${displayFont.variable} antialiased`}
