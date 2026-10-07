@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 
 from ...datasets.catalog import DatasetCatalog, get_dataset_catalogs
+from ...datasets.constants import SUPPORTED_TIME_GRAINS
 from ...datasets.registry import DatasetRegistry
 
 
@@ -57,6 +58,12 @@ def _dataset(catalog: DatasetCatalog) -> dict[str, object]:
             if entry["queryable"]
         ],
         "limits": dict(catalog.get("limits", {})),
+        **(
+            {"supportedGrains": catalog["supportedGrains"]}
+            if catalog["supportedGrains"]
+            and catalog["supportedGrains"] != list(SUPPORTED_TIME_GRAINS)
+            else {}
+        ),
     }
 
 

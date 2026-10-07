@@ -61,6 +61,10 @@ def build_protocol_dataset_contract(
 ) -> dict[str, object]:
     """Convert one definition to a validated local dataset snapshot."""
 
+    if dataset.time_grains is not None:
+        # Contract 2 cannot carry an allowed-grain policy. Refuse rather than
+        # turn a restricted local dataset into an unrestricted deployed one.
+        raise ValueError("Explicit time_grains cannot be represented by deployment contract 2.")
     dimensions: list[dict[str, object]] = []
     for name, dimension in sorted(
         dataset.dimensions.items(), key=lambda item: portable_name_key(item[0])

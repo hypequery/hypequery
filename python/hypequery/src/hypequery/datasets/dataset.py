@@ -8,6 +8,7 @@ from typing import Literal, TypeAlias, cast
 from pydantic import Field, field_serializer, field_validator, model_validator
 
 from ._base import DefinitionModel
+from .constants import SUPPORTED_TIME_GRAINS
 from .dimensions import Dimension
 from .immutability import freeze_mapping
 from .measures import Measure
@@ -55,6 +56,7 @@ class Dataset(DefinitionModel):
     source: str
     tenant_key: str | None = None
     time_key: str | None = None
+    time_grains: tuple[str, ...] | None = None
     dimensions: Mapping[str, Dimension]
     measures: Mapping[str, Measure] = Field(default_factory=dict)
     filters: Mapping[str, FilterDefinition] = Field(default_factory=dict)
@@ -87,6 +89,17 @@ class Dataset(DefinitionModel):
         data["filters"] = defaults
         return data
 
+    @field_validator("time_grains")
+    @classmethod
+    def _valid_grains(cls, grains: tuple[str, ...] | None) -> tuple[str, ...] | None:
+        if grains is not None and (
+            not grains
+            or len(set(grains)) != len(grains)
+            or any(grain not in SUPPORTED_TIME_GRAINS for grain in grains)
+        ):
+            raise ValueError("time_grains must contain distinct supported grains")
+        return grains
+
     @field_validator("name")
     @classmethod
     def _valid_name(cls, value: str) -> str:
@@ -106,6 +119,8 @@ class Dataset(DefinitionModel):
 
     @model_validator(mode="after")
     def _valid_definition_names(self) -> Dataset:
+        if self.time_grains is not None and self.time_key is None:
+            raise ValueError("time_grains requires a time_key")
         maps: tuple[DefinitionMap, ...] = (
             cast(DefinitionMap, self.dimensions),
             cast(DefinitionMap, self.measures),
@@ -133,6 +148,7 @@ def dataset(
     relationships: Mapping[str, Relationship] | None = None,
     tenant_key: str | None = None,
     time_key: str | None = None,
+    time_grains: tuple[str, ...] | None = None,
     limits: DatasetLimits | None = None,
 ) -> Dataset:
     """Define a dataset, matching TypeScript's dataset authoring entrypoint.
@@ -148,6 +164,7 @@ def dataset(
         "relationships": {} if relationships is None else relationships,
         "tenant_key": tenant_key,
         "time_key": time_key,
+        "time_grains": time_grains,
         "limits": limits,
     }
     if filters is not None:

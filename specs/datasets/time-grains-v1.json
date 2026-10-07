@@ -1,0 +1,4 @@
+[
+  {"allowed": ["day", "month"], "accepted": ["day", "month"], "rejected": ["hour", "week"]},
+  {"allowed": ["minute", "hour"], "accepted": ["minute", "hour"], "rejected": ["day", "year"]}
+]

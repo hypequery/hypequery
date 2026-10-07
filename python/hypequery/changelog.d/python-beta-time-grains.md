@@ -1,0 +1,2 @@
+- Add explicit `time_grains` policies to Python datasets, enforced by the planner and dataset/metric HTTP endpoints and reflected in catalogs, semantic contracts, discovery and OpenAPI.
+- Reject deployment export of explicit grain policies because contract 2 cannot preserve them.

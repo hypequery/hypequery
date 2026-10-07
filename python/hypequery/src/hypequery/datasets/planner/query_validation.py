@@ -43,6 +43,14 @@ def resolve_tenant_scope(dataset: Dataset, context: ExecutionContext) -> TenantS
 
 
 def check_query_limits(dataset: Dataset, query: DatasetQuery) -> None:
+    if (
+        query.by is not None
+        and dataset.time_grains is not None
+        and query.by not in dataset.time_grains
+    ):
+        raise CompiledQueryError(
+            "input-invalid", "The dataset does not support the requested time grain."
+        )
     limits = dataset.limits
     if limits is None:
         return
