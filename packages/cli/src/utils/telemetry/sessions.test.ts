@@ -72,5 +72,7 @@ describe('aggregate CLI session telemetry', () => {
   it('classifies startup choices without copying arbitrary flag values', () => {
     expect(devSessionConfig('/PRIVATE/api.ts', 'PRIVATE_FILE', { cache: 'PRIVATE_CACHE', hostname: 'PRIVATE_HOST', port: 12345 })).toMatchObject({ entry_type: 'explicit_file', cache_provider: 'unknown', custom_port: true });
     expect(devSessionConfig('/PRIVATE/queries.ts', undefined, { port: 4000 })).toMatchObject({ entry_type: 'queries.ts', custom_port: false });
+    expect(devSessionConfig('/PRIVATE/hypequery.ts', undefined, {})).toMatchObject({ entry_type: 'hypequery.ts' });
+    expect(devSessionConfig('/PRIVATE/other.ts', undefined, {})).toMatchObject({ entry_type: 'unknown' });
   });
 });

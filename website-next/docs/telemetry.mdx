@@ -419,7 +419,7 @@ Measure development-server and MCP session configuration; never emit on every re
 
 | Property | Presence | Allowed values | Question answered |
 | --- | --- | --- | --- |
-| `entry_type` | Required | `api.ts`, `queries.ts`, `explicit_file` | Which entrypoint convention is used? Never the path. |
+| `entry_type` | Required | `hypequery.ts`, `api.ts`, `queries.ts`, `explicit_file`, `unknown` | Which entrypoint convention is used? Never the path. |
 | `watch` | Required | `true`, `false` | Is file watching used? |
 | `cache_provider` | Required | `none`, `memory`, `redis`, `unknown` | Which cache providers are adopted? |
 | `cors` | Required | `true`, `false` | Is cross-origin development adopted? |
@@ -431,7 +431,7 @@ Measure development-server and MCP session configuration; never emit on every re
 
 | Property | Presence | Allowed values | Question answered |
 | --- | --- | --- | --- |
-| `entry_type` | Required | `api.ts`, `queries.ts`, `explicit_file` | Which entrypoint convention is used? Never the path. |
+| `entry_type` | Required | `hypequery.ts`, `api.ts`, `queries.ts`, `explicit_file`, `unknown` | Which entrypoint convention is used? Never the path. |
 | `mode` | Required | `self_test`, `serve` | Is MCP serving or validating? |
 | `dataset_count_bucket` | Required | `0`, `1`, `2-5`, `6-20`, `21-100`, `101+` | How many datasets are exposed to agents? |
 | `tenant_used` | Required | `true`, `false` | Is tenant scope supplied? Never its value. |

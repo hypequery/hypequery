@@ -60,6 +60,7 @@ export async function devCommand(file?: string, options: DevOptions = {}) {
 
   logger.info(`Found: ${path.relative(process.cwd(), queriesFile)}`);
   logger.newline();
+  telemetry.start(queriesFile, file, options);
 
   let currentServer: any = null;
   let lifecycleOperation: Promise<void> = Promise.resolve();
@@ -126,7 +127,6 @@ export async function devCommand(file?: string, options: DevOptions = {}) {
         hostname: options.hostname,
         quiet: true,
       });
-      telemetry.start(queriesFile, file, options);
 
       const address = currentServer.server.address();
       const port = typeof address === 'object' && address ? address.port : options.port || 4000;

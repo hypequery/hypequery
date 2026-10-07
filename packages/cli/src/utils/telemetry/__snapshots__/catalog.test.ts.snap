@@ -1883,9 +1883,11 @@ exports[`telemetry event contract > snapshots the complete versioned catalog 1`]
             "description": "Which entrypoint convention is used? Never the path.",
             "kind": "enum",
             "values": [
+              "hypequery.ts",
               "api.ts",
               "queries.ts",
               "explicit_file",
+              "unknown",
             ],
           },
           "open": {
@@ -1918,9 +1920,11 @@ exports[`telemetry event contract > snapshots the complete versioned catalog 1`]
             "description": "Which entrypoint convention is used? Never the path.",
             "kind": "enum",
             "values": [
+              "hypequery.ts",
               "api.ts",
               "queries.ts",
               "explicit_file",
+              "unknown",
             ],
           },
           "mode": {

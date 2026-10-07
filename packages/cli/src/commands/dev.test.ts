@@ -112,6 +112,25 @@ describe('dev command', () => {
   });
 
   describe('runtime lifecycle', () => {
+    it('retains counts when every initial load and watched reload fails', async () => {
+      vi.useFakeTimers();
+      const record = vi.fn();
+      vi.spyOn(TelemetryInvocation, 'create').mockResolvedValue({ common, record, flush: vi.fn() } as unknown as TelemetryInvocation);
+      vi.mocked(loadApi.loadApiModule).mockRejectedValue(Object.assign(new Error('PRIVATE_PATH'), { code: 'compile_error' }));
+      const lifecycle = new CommandLifecycle(['dev']);
+      await lifecycle.begin('dev');
+      await withCommandTelemetry(lifecycle, () => devCommand(undefined, { watch: true }));
+      const callback = vi.mocked(watch).mock.calls[0][2] as (type: string, filename: string) => void;
+      callback('change', 'PRIVATE_FIRST.ts');
+      await vi.advanceTimersByTimeAsync(100);
+      lifecycle.markInterrupted();
+      await lifecycle.finish(new CommandExit(0, 'success'));
+      const events = record.mock.calls.map(([event]) => event);
+      expect(events).toHaveLength(3);
+      expect(events[1].properties).toMatchObject({ reload_count_bucket: '1', reload_error_count_bucket: '1', load_failures: { compile_error: '2-5' } });
+      expect(events.every(validateTelemetryEvent)).toBe(true);
+      expect(JSON.stringify(events)).not.toContain('PRIVATE');
+    });
     it('aggregates failed and successful reloads without emitting per-change events', async () => {
       vi.useFakeTimers();
       const record = vi.fn();

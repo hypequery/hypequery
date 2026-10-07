@@ -3,9 +3,10 @@ import type { DevOptions } from '../../commands/dev.js';
 import type { SessionStart } from './command-context.js';
 
 /** Explicit file arguments are classified without examining or retaining their path. */
-export function entryType(resolved: string, explicit?: string): 'api.ts' | 'queries.ts' | 'explicit_file' {
+export function entryType(resolved: string, explicit?: string): SessionStart<'dev'>['entry_type'] {
   if (explicit) return 'explicit_file';
-  return path.basename(resolved) === 'queries.ts' ? 'queries.ts' : path.basename(resolved) === 'api.ts' ? 'api.ts' : 'explicit_file';
+  const basename = path.basename(resolved);
+  return basename === 'hypequery.ts' || basename === 'api.ts' || basename === 'queries.ts' ? basename : 'unknown';
 }
 
 export function devSessionConfig(resolved: string, explicit: string | undefined, options: DevOptions): SessionStart<'dev'> {

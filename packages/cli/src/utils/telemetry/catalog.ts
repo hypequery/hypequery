@@ -4,7 +4,7 @@ import { boolean, enumeration, enumList, fieldsFor, formatted, optional, record,
 const count = (description: string) => enumeration(description, COUNT_BUCKETS);
 export const EVENT_SCHEMA_VERSION = 1;
 const cache = enumeration('Which cache providers are adopted?', ['none', 'memory', 'redis', 'unknown']);
-const entry = enumeration('Which entrypoint convention is used? Never the path.', ['api.ts', 'queries.ts', 'explicit_file']);
+const entry = enumeration('Which entrypoint convention is used? Never the path.', ['hypequery.ts', 'api.ts', 'queries.ts', 'explicit_file', 'unknown']);
 const output = boolean('Was a custom output location supplied? Never the path.');
 const stages = ['started', 'database_selected', 'connection_tested', 'style_selected', 'files_written', 'dependencies_installed', 'completed'] as const;
 const deployStages = ['build', 'release', 'submit'] as const;
