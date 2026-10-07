@@ -1,0 +1,59 @@
+---
+title: React
+description: Point your existing @hypequery/react client at hypequery Cloud by changing only the base URL and token.
+---
+
+import { CodeBlock } from 'fumadocs-ui/components/codeblock';
+import { CloudWaitlistNotice } from '@/components/docs/cloud-waitlist-notice';
+
+<CloudWaitlistNotice />
+
+A React app built with `@hypequery/react` against self-hosted Serve works against Cloud unchanged. Cloud's dataset
+endpoints return the same data, metadata, and errors as Serve, and this is checked before release by running the same
+client code against both. Only the base URL and the token change.
+
+## Keep the key on your server
+
+Runtime API keys must not reach the browser. Add a same-origin route in your app that forwards requests to Cloud with
+the key, and point the React client at that route:
+
+<CodeBlock>
+```tsx
+'use client';
+
+import { createHooks, createHypequeryClient, HypequeryProvider } from '@hypequery/react';
+import type { ReactNode } from 'react';
+
+// The API explorer generates these types for each endpoint.
+type AnalyticsApi = {
+  orders: {
+    input: { dimensions?: string[]; measures?: string[]; limit?: number };
+    output: { data: Array<Record<string, string | null>> };
+  };
+};
+
+const client = createHypequeryClient<AnalyticsApi>({
+  // Same-origin route; your server adds the Cloud API key.
+  baseUrl: '/api/analytics',
+  manifest: {
+    orders: { method: 'POST', path: 'datasets/orders/query' },
+  },
+});
+
+export const { useQuery } = createHooks<AnalyticsApi>();
+
+export function AnalyticsProvider({ children }: { children: ReactNode }) {
+  return <HypequeryProvider client={client}>{children}</HypequeryProvider>;
+}
+```
+</CodeBlock>
+
+The server route is also where you set `x-hypequery-tenant-id` for the signed-in user, using a
+[trusted backend key](/docs/cloud/api-keys#tenant-authority).
+
+## Route paths
+
+Write manifest paths **without a leading slash**, for example `datasets/orders/query`. The client resolves each path
+against `baseUrl`, and a path starting with `/` replaces the base URL's own path, dropping the Cloud gateway prefix.
+
+The [API explorer](/docs/cloud/rest-api#api-explorer) generates a ready-made React snippet for each endpoint.

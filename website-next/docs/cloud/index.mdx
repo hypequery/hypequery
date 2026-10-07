@@ -33,10 +33,12 @@ Every release is served two ways:
 - **An MCP endpoint**, so AI agents can discover and query the datasets you publish. See [MCP](/docs/cloud/mcp).
 
 Access is set when you publish: you choose the roles and scopes callers need for each dataset, and Cloud checks them
-on every request.
+on every request. For customer-facing analytics, [API keys](/docs/cloud/api-keys) also decide which customer tenant
+each request runs as, and releases can be [rolled back](/docs/cloud/releases) in one click.
 
 ## Next steps
 
+- [Quick start](/docs/cloud/quick-start): from sign-up to a live endpoint
 - [How it works](/docs/cloud/how-it-works): from dataset definitions to a live release
 - [Deploy from TypeScript](/docs/cloud/deploy-typescript)
 - [Deploy from Python](/docs/cloud/deploy-python)

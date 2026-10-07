@@ -1,0 +1,46 @@
+---
+title: Releases & rollback
+description: Every hypequery Cloud deploy is an immutable release you can inspect, make live, roll back, and restore.
+---
+
+import { CodeBlock } from 'fumadocs-ui/components/codeblock';
+import { CloudWaitlistNotice } from '@/components/docs/cloud-waitlist-notice';
+
+<CloudWaitlistNotice />
+
+Each deploy creates an **immutable release** for one environment. Releases are never edited in place, so what an
+environment serves is always a release you can point to.
+
+## The Deployments page
+
+The **Deployments** page lists every release for the selected environment, with its label, when it started, the
+datasets it contains, and its status.
+
+- **Make live** serves a release in place of the current one.
+- **Restore** brings back a release that was live before, which is how you roll back.
+
+Changing the live release takes effect without a redeploy, because the release already exists.
+
+## Deploying from the CLI
+
+- A newly accepted release goes live immediately.
+- Retrying an identical deploy has no side effects.
+- If you restored an older release, the next deploy will not silently replace it. Pass `--replace-restored` when you
+  intend to.
+
+## Source snapshots
+
+By default each release includes the source files used to build it, with the Git branch and commit when available.
+The **Datasets** page shows that snapshot in a read-only viewer, so you can see exactly what is live and switch
+between releases.
+
+From your machine, compare or download the live source:
+
+<CodeBlock>
+```bash
+npx hypequery diff      # compare local source with the live release
+npx hypequery pull      # download the live release's source snapshot
+```
+</CodeBlock>
+
+Pass `--no-source` when deploying to leave source files out of a release.

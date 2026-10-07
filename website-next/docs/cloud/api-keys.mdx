@@ -1,0 +1,55 @@
+---
+title: API keys & tenants
+description: Runtime API keys for hypequery Cloud, with per-key roles, scopes, and tenant authority for customer-facing analytics.
+---
+
+import { CodeBlock } from 'fumadocs-ui/components/codeblock';
+import { CloudWaitlistNotice } from '@/components/docs/cloud-waitlist-notice';
+
+<CloudWaitlistNotice />
+
+Applications and agents call Cloud with a **runtime API key**. Each key belongs to one project and environment, and
+carries everything Cloud needs to decide what the caller may query: roles, endpoint scopes, and which customer tenant
+the request runs as.
+
+Create and manage keys on the **Keys** page under **Runtime**. The **Deployment** tab holds the separate keys the CLI
+and CI use to deploy.
+
+## What a key carries
+
+| Setting | Purpose |
+| --- | --- |
+| Name | A label for the key, such as "Production backend" |
+| Roles | Matched against the roles a dataset requires when you publish it |
+| Endpoint scopes | Matched against the scopes a dataset requires |
+| Tenant authority | Which customer tenants the key may query, described below |
+
+Keys expire after 90 days by default, can be rotated, and can be revoked. Cloud stores only a hash of each key.
+Changes take effect on the next request, because the gateway checks the key's current state every time.
+
+## Tenant authority
+
+For datasets with a tenant key, the tenant is the row filter, and a role or scope never decides which customer's rows
+a caller sees. Every key has one of two tenant policies:
+
+**Bound tenants.** The key lists 1 to 32 permitted tenant IDs. With one ID, requests run as that tenant automatically.
+With several, the caller picks one in the `x-hypequery-tenant-id` header, and Cloud verifies it is permitted before
+running the query. Use bound keys when the key itself should be the boundary, for example one key per customer.
+
+**Trusted backend.** Your own server authenticates its end user, works out their tenant, and asserts it in
+`x-hypequery-tenant-id`. Use this when your application already knows which customer is signed in. Keep these keys on
+your server only.
+
+<CodeBlock>
+```bash
+curl -X POST "$HYPEQUERY_CLOUD_URL/api/analytics/datasets/orders/query" \
+  -H "Authorization: Bearer $HYPEQUERY_API_KEY" \
+  -H "x-hypequery-tenant-id: customer-42" \
+  -H "Content-Type: application/json" \
+  -d '{"dimensions": ["country"], "measures": ["revenue"]}'
+```
+</CodeBlock>
+
+There is no "all tenants" policy. Every query of a tenant-scoped dataset runs as exactly one tenant, and a mismatched
+or ambiguous tenant is refused before anything reaches ClickHouse. The same rules apply to [MCP](/docs/cloud/mcp):
+tool arguments and chat text cannot change the tenant a query runs as.

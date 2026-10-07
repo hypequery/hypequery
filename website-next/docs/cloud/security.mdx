@@ -1,0 +1,40 @@
+---
+title: Security
+description: How hypequery Cloud protects your ClickHouse credentials, your customers' data, and itself.
+---
+
+import { CloudWaitlistNotice } from '@/components/docs/cloud-waitlist-notice';
+
+<CloudWaitlistNotice />
+
+## Your ClickHouse credentials
+
+Connection credentials are encrypted with AWS KMS envelope encryption before they are stored, and decrypted only to
+run a query. Use a dedicated [read-only ClickHouse user](/docs/cloud/clickhouse-users).
+
+## Isolation
+
+- **Between organisations.** Every organisation's projects, environments, keys, releases, and sessions are isolated.
+  An isolation test suite checks this on every change, against a real database, including two organisations running
+  queries at the same time.
+- **Between your customers.** Tenant-scoped datasets always run as exactly one tenant, resolved from the API key, never
+  from the query. See [API keys & tenants](/docs/cloud/api-keys).
+
+## What runs in Cloud
+
+Cloud runs your dataset definitions, not your application code. A release contains a deployment contract that Cloud
+validates and plans queries from; it never executes code from your repository.
+
+## Keys and sessions
+
+- Runtime and deployment keys are stored as hashes, expire after 90 days by default, and can be rotated or revoked.
+- The CLI signs in through your browser and receives a short-lived token.
+- A Cloud console session cannot query tenant-scoped data.
+
+## Limits
+
+Every request is bounded, so one caller cannot exhaust Cloud or your ClickHouse:
+
+- dataset request bodies are limited to 128 KiB;
+- MCP requests and responses are limited to 1 MiB each, with a 30-second deadline;
+- execution is admitted with bounded concurrency, and excess load is refused rather than queued without limit.

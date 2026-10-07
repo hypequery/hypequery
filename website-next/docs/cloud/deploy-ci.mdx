@@ -1,0 +1,78 @@
+---
+title: Deploy from CI
+description: Deploy to hypequery Cloud from GitHub Actions on every push.
+---
+
+import { CodeBlock } from 'fumadocs-ui/components/codeblock';
+import { CloudWaitlistNotice } from '@/components/docs/cloud-waitlist-notice';
+
+<CloudWaitlistNotice />
+
+Deploying from CI is the recommended path for production. Cloud generates a GitHub Actions workflow for your project
+and environment during onboarding and on the Deployments page.
+
+## Set up
+
+1. Create a **deployment key** on the **Keys** page, under **Deployment**.
+2. Add it to your repository as the `HYPEQUERY_API_TOKEN` secret. If you use GitHub environments, add it to the
+   environment the workflow names.
+3. Commit the generated workflow, for example as `.github/workflows/hypequery.yml`.
+
+## The workflow
+
+The generated workflow looks like this, with your project, environment, and Cloud endpoint filled in:
+
+<CodeBlock>
+```yaml
+name: Deploy hypequery to production
+
+on:
+  push:
+    branches:
+      - "main"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: hypequery-deploy-production
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    name: Deploy production
+    runs-on: ubuntu-latest
+    environment: "production"
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Preserve Git branch provenance
+        run: git checkout -B "$GITHUB_REF_NAME" "$GITHUB_SHA"
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Deploy hypequery
+        env:
+          HYPEQUERY_API_TOKEN: ${{ secrets.HYPEQUERY_API_TOKEN }}
+          HYPEQUERY_DEPLOYMENT_ENDPOINT: "<your Cloud deployment endpoint>"
+        run: >-
+          npx --yes --package=@hypequery/cli hypequery deploy 'analytics/cloud.ts'
+          --project '<project>'
+          --environment 'production'
+```
+</CodeBlock>
+
+- It deploys on every push to `main`, and can be run manually.
+- Only one deploy per environment runs at a time; a newer push cancels an older run.
+- The branch and commit are recorded with the release, so the [Releases](/docs/cloud/releases) view shows exactly
+  which commit is live.
+- The generated version detects npm, pnpm, or Yarn from your lockfile and pins the CLI version.

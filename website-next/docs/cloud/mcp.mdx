@@ -41,6 +41,18 @@ It looks like this:
 The key is a placeholder your MCP client expands from its environment. The CLI never writes a credential into the
 configuration it prints. Set `HYPEQUERY_API_KEY` in the client's environment or secret manager.
 
+## Sign in with OAuth
+
+MCP clients that support OAuth can connect without an API key. The client discovers Cloud's authorization server
+from the endpoint, and an organisation owner or admin approves it. When approving, they choose which tenants (1 to 32)
+the client may query, and the client's access is limited to exactly those tenants.
+
+## Tenants
+
+Hosted MCP follows the same [tenant rules](/docs/cloud/api-keys#tenant-authority) as REST. A key with several
+permitted tenants selects one with the `x-hypequery-tenant-id` header. Tool arguments and chat messages cannot change
+the tenant a query runs as.
+
 ## Check the endpoint
 
 <CodeBlock>

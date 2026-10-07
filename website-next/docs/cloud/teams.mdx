@@ -1,0 +1,24 @@
+---
+title: Teams
+description: Invite your team to hypequery Cloud and control who can join.
+---
+
+import { CloudWaitlistNotice } from '@/components/docs/cloud-waitlist-notice';
+
+<CloudWaitlistNotice />
+
+An organisation has three roles:
+
+| Role | Can |
+| --- | --- |
+| Owner | Everything an admin can |
+| Admin | Change connections, keys, and deployments; authorize the CLI; approve MCP clients; view request logs |
+| Member | View projects, datasets, and releases |
+
+Invite teammates from your organisation's **Settings**, where you can also see pending invitations. To control who can be invited, set the organisation's invite policy:
+
+- **Any email** (default): any address can be invited.
+- **Approved domains**: only addresses on domains you list, such as `example.com`.
+
+Team membership controls access to the Cloud console. It does not grant access to your customers' data: querying a
+tenant-scoped dataset always needs a [runtime API key](/docs/cloud/api-keys) with tenant authority.

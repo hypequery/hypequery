@@ -19,7 +19,7 @@ POST https://<environment-slug>.hypequery.app/api/analytics/datasets/orders/quer
 
 ## Make a request
 
-Send a Cloud API key as a bearer token and a dataset query as JSON:
+Send a [runtime API key](/docs/cloud/api-keys) as a bearer token and a dataset query as JSON:
 
 <CodeBlock>
 ```bash
@@ -33,7 +33,31 @@ curl -X POST https://<environment-slug>.hypequery.app/api/analytics/datasets/ord
 The body uses the same dataset query format as [self-hosted dataset endpoints](/docs/datasets/serve-integration):
 `dimensions`, `measures`, `filters`, `orderBy`, `by`, `limit`, and `offset`.
 
+Request bodies are limited to 128 KiB.
+
+## Tenants
+
+For tenant-scoped datasets, the request runs as the tenant your API key allows. A key with several permitted tenants,
+or a trusted backend key, selects the tenant with the `x-hypequery-tenant-id` header:
+
+<CodeBlock>
+```bash
+curl -X POST https://<environment-slug>.hypequery.app/api/analytics/datasets/orders/query \
+  -H "Authorization: Bearer $HYPEQUERY_API_KEY" \
+  -H "x-hypequery-tenant-id: customer-42" \
+  -H "Content-Type: application/json" \
+  -d '{"dimensions": ["country"], "measures": ["revenue"]}'
+```
+</CodeBlock>
+
+See [API keys & tenants](/docs/cloud/api-keys) for how tenant authority works.
+
 ## Access
 
-Requests are checked against the roles and scopes you set when publishing the dataset. Keep API keys server-side or in
-your secret manager; never ship them to a browser.
+A request is allowed when the API key's roles and scopes satisfy the policy you set when publishing the dataset. Keep API keys server-side or in your secret manager; never ship them to a browser. For a React app, see
+[React](/docs/cloud/react).
+
+## API explorer
+
+The **APIs** page lists every endpoint in the live release with its input and output schema. You can run requests from
+the browser and copy ready-made code samples for curl, TypeScript, and React.

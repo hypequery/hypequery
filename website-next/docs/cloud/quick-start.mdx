@@ -1,0 +1,25 @@
+---
+title: Quick start
+description: Go from sign-up to a live hypequery Cloud endpoint.
+---
+
+import { CloudWaitlistNotice } from '@/components/docs/cloud-waitlist-notice';
+
+<CloudWaitlistNotice />
+
+Cloud's onboarding walks you through these steps.
+
+1. **Sign in** with Google or an email link, and create your organisation.
+2. **Create a project.** Each project starts with a protected production environment.
+3. **Connect ClickHouse.** Enter the database your datasets will query. Cloud tests the connection before saving it,
+   and stores the credentials encrypted. See [ClickHouse users](/docs/cloud/clickhouse-users) for the read-only user
+   Cloud expects.
+4. **Choose a starting point.** Create a starter model, or publish datasets from an existing project.
+5. **Deploy.** Run the CLI commands onboarding shows you, or set up [deployment from CI](/docs/cloud/deploy-ci) with
+   GitHub Actions. Onboarding waits for the first release and confirms when it is live.
+
+Once a release is live:
+
+- create a [runtime API key](/docs/cloud/api-keys) for your application or agent;
+- try your endpoints in the [API explorer](/docs/cloud/rest-api#api-explorer);
+- connect an agent over [MCP](/docs/cloud/mcp).

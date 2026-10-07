@@ -1,0 +1,29 @@
+---
+title: Logs & usage
+description: Request logs and execution usage for hypequery Cloud.
+---
+
+import { CloudWaitlistNotice } from '@/components/docs/cloud-waitlist-notice';
+
+<CloudWaitlistNotice />
+
+## Request logs
+
+The **Logs** page records one entry for every REST and MCP dataset request, including refused and failed ones. Each
+entry shows when it ran, the query, its status, its duration, and whether it was served from cache. Open an entry to
+see its request ID, trace ID, and tenant.
+
+Logs never contain result rows, SQL, or credentials. Detailed request logs are kept for seven days, and are visible
+to organisation owners and admins.
+
+## Usage
+
+The **Usage** page shows execution usage for your organisation. Usage counts only successful dataset executions:
+
+| Counted | Not counted |
+| --- | --- |
+| A REST or MCP dataset query that succeeds | Failed, refused, cancelled, or timed-out requests |
+| | Responses served from cache |
+| | MCP discovery, such as listing datasets |
+
+Each billable execution is recorded once, even if a write is retried.
