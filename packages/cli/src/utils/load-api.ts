@@ -184,7 +184,7 @@ async function cleanupTempDirs() {
   }
 }
 
-async function cleanupTempArtifacts() {
+export async function cleanupLoadedApiArtifacts() {
   await cleanupTempFiles();
   await cleanupTempDirs();
 }
@@ -195,15 +195,11 @@ function installCleanupHooks() {
   globalState.__hypequeryCliCleanupInstalled = true;
 
   process.once('exit', () => {
-    cleanupTempArtifacts().catch(() => undefined);
+    cleanupLoadedApiArtifacts().catch(() => undefined);
   });
 
-  (['SIGINT', 'SIGTERM'] as const).forEach(signal => {
-    process.once(signal, () => {
-      cleanupTempArtifacts().catch(() => undefined);
-      process.exit();
-    });
-  });
+  // Signal shutdown belongs to the CLI/owning server. Exiting from a module
+  // cleanup listener bypassed server teardown and the bounded telemetry flush.
 }
 
 async function bundleTypeScriptModule(entryPath: string) {

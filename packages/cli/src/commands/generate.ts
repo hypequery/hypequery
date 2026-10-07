@@ -1,3 +1,5 @@
+import { exitWith } from '../utils/command-exit.js';
+import { telemetryErrorCode } from '../utils/telemetry/error-code.js';
 import path from 'node:path';
 import ora from 'ora';
 import { logger } from '../utils/logger.js';
@@ -171,6 +173,6 @@ export async function generateCommand(options: GenerateOptions = {}) {
     }
 
     logger.newline();
-    process.exit(1);
+    exitWith(1, 'failure', telemetryErrorCode(error));
   }
 }

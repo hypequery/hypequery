@@ -6,6 +6,12 @@ import * as detectDb from '../utils/detect-database.js';
 import * as findFiles from '../utils/find-files.js';
 import { logger } from '../utils/logger.js';
 import { mockProcessExit, ProcessExitError } from '../test-utils.js';
+import { CommandLifecycle } from '../utils/telemetry/lifecycle.js';
+import { TelemetryInvocation } from '../utils/telemetry/invocation.js';
+import { withCommandTelemetry } from '../utils/telemetry/command-context.js';
+import { CommandExit, installCommandExitFinalizer } from '../utils/command-exit.js';
+import { validateTelemetryEvent } from '../utils/telemetry/validation.js';
+import { common } from '../../type-tests/fixtures.js';
 const installScaffoldDependencies = vi.fn().mockResolvedValue(undefined);
 
 vi.mock('../utils/dependency-installer.js', () => ({
@@ -74,6 +80,113 @@ describe('init command - graceful failure handling', () => {
 
   afterEach(() => {
     exitHandler.restore();
+  });
+
+  describe('onboarding telemetry', () => {
+    let record: ReturnType<typeof vi.fn>;
+    let lifecycle: CommandLifecycle;
+    let restore: () => void;
+
+    beforeEach(async () => {
+      record = vi.fn();
+      vi.spyOn(TelemetryInvocation, 'create').mockResolvedValue({ common, record, flush: vi.fn().mockResolvedValue(undefined) } as unknown as TelemetryInvocation);
+      lifecycle = new CommandLifecycle(['init']);
+      await lifecycle.begin('init');
+      restore = installCommandExitFinalizer(async () => undefined);
+      vi.mocked(prompts.promptInitDatabase).mockResolvedValue('clickhouse');
+      vi.mocked(prompts.promptClickHouseConnection).mockResolvedValue(null);
+      vi.mocked(prompts.promptOutputDirectory).mockResolvedValue('PRIVATE_PATH');
+      vi.mocked(prompts.promptInitStyle).mockResolvedValue('queries');
+      vi.mocked(prompts.promptInitAuthMode).mockResolvedValue('none');
+      vi.mocked(detectDb.getTableCount).mockResolvedValue(12);
+      mockGenerateDatasets.mockResolvedValue({ tables: ['PRIVATE_TABLE'], warnings: [] });
+      installScaffoldDependencies.mockResolvedValue(undefined);
+    });
+
+    afterEach(() => { restore(); vi.restoreAllMocks(); });
+
+    async function run(options: Record<string, unknown> = {}) {
+      let exit = new CommandExit(0, 'success');
+      try { await withCommandTelemetry(lifecycle, () => initCommand(options)); }
+      catch (error) { exit = error instanceof CommandExit ? error : new CommandExit(1, 'failure'); }
+      await lifecycle.finish(exit);
+      expect(record).toHaveBeenCalledTimes(1);
+      const event = record.mock.calls[0][0];
+      expect(validateTelemetryEvent(event)).toBe(true);
+      expect(JSON.stringify(event)).not.toContain('PRIVATE');
+      return event.properties;
+    }
+
+    it('records offline scaffolding without collecting paths or credentials', async () => {
+      expect(await run()).toMatchObject({ stage_reached: 'completed', outcome: 'success', database: 'clickhouse',
+        connection_result: 'skipped', interactive: true, style: 'queries', auth: 'none', example: false,
+        package_json_present: true, analytics_directory_present: false, env_file: 'created', gitignore: 'created' });
+    });
+
+    it('counts an early return as cancellation', async () => {
+      vi.mocked(readFile).mockRejectedValueOnce(new Error('PRIVATE_FILE'));
+      vi.mocked(prompts.confirmWithoutPackageJson).mockResolvedValue(false);
+      const metrics = await run();
+      expect(metrics).toMatchObject({ stage_reached: 'started', outcome: 'cancelled', package_json_present: false });
+      expect(metrics).not.toHaveProperty('failed_stage');
+      expect(writeFile).not.toHaveBeenCalled();
+    });
+
+    it('identifies the failing connection stage and excludes connection values', async () => {
+      vi.stubEnv('CLICKHOUSE_URL', 'https://PRIVATE_USER:PRIVATE_PASSWORD@PRIVATE_HOST');
+      vi.stubEnv('CLICKHOUSE_DATABASE', 'PRIVATE_DATABASE');
+      vi.stubEnv('CLICKHOUSE_USERNAME', 'PRIVATE_USER');
+      vi.mocked(detectDb.validateConnection).mockResolvedValue(false);
+      try {
+        expect(await run({ noInteractive: true })).toMatchObject({ stage_reached: 'database_selected',
+          failed_stage: 'connection_tested', connection_result: 'failed', outcome: 'failure', interactive: false });
+      } finally { vi.unstubAllEnvs(); }
+    });
+
+    it.each([
+      ['not_installed', () => new MockChdbNotInstalledError()],
+      ['engine_error', () => new Error('PRIVATE_ENGINE_MESSAGE')],
+    ] as const)('classifies embedded %s failures after style selection', async (reason, error) => {
+      mockEnsureChdbInstalled.mockRejectedValue(error());
+      expect(await run({ database: 'chdb', noInteractive: true })).toMatchObject({ stage_reached: 'style_selected',
+        failed_stage: 'connection_tested', connection_result: 'failed', chdb_failure_reason: reason, database: 'chdb', outcome: 'failure' });
+    });
+
+    it('keeps one invocation when a failed connection is retried', async () => {
+      vi.mocked(prompts.promptClickHouseConnection).mockResolvedValue({ host: 'PRIVATE_HOST', database: 'PRIVATE_DATABASE', username: 'PRIVATE_USER', password: 'PRIVATE_PASSWORD' });
+      vi.mocked(detectDb.validateConnection).mockResolvedValueOnce(false).mockResolvedValueOnce(true);
+      vi.mocked(prompts.promptRetry).mockResolvedValueOnce(true);
+      vi.mocked(prompts.promptGenerateExample).mockResolvedValue(false);
+      expect(await run()).toMatchObject({ stage_reached: 'completed', connection_result: 'ok', table_count_bucket: '6-20', outcome: 'success' });
+      expect(TelemetryInvocation.create).toHaveBeenCalledTimes(1);
+      expect(detectDb.validateConnection).toHaveBeenCalledTimes(2);
+    });
+
+    it('buckets dataset counts and preserves context auth and table-selection choices', async () => {
+      vi.mocked(detectDb.validateConnection).mockResolvedValue(true);
+      expect(await run({ database: 'chdb', noInteractive: true, style: 'datasets', auth: 'context', tables: 'PRIVATE_TABLE' })).toMatchObject({
+        stage_reached: 'completed', database: 'chdb', connection_result: 'ok', table_count_bucket: '6-20',
+        datasets_generated_bucket: '1', table_selection: 'list', style: 'datasets', auth: 'context', env_file: 'skipped' });
+    });
+
+    it('preserves progress when dependency installation fails after files were written', async () => {
+      installScaffoldDependencies.mockRejectedValueOnce(new Error('PRIVATE_INSTALL_ERROR'));
+      expect(await run()).toMatchObject({ stage_reached: 'files_written', failed_stage: 'dependencies_installed', outcome: 'failure' });
+    });
+
+    it('omits failed_stage when overwrite is declined', async () => {
+      vi.mocked(access).mockResolvedValue(undefined);
+      vi.mocked(prompts.confirmOverwrite).mockResolvedValue(false);
+      const metrics = await run();
+      expect(metrics).toMatchObject({ stage_reached: 'style_selected', analytics_directory_present: true, outcome: 'cancelled' });
+      expect(metrics).not.toHaveProperty('failed_stage');
+    });
+
+    it('honors Commander’s --no-example option while recording its actual choice', async () => {
+      vi.mocked(detectDb.validateConnection).mockResolvedValue(true);
+      expect(await run({ database: 'chdb', example: false })).toMatchObject({ example: false });
+      expect(prompts.promptGenerateExample).not.toHaveBeenCalled();
+    });
   });
 
   describe('User cancellation scenarios', () => {

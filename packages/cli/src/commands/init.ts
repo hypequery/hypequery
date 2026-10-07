@@ -1,3 +1,9 @@
+import { countBucket } from '../utils/telemetry/buckets.js';
+import { normalizeInitDatabase, normalizeInitStyle, normalizeAuthMode, parseTableList } from '../utils/init-options.js';
+import { getChdbGitignoreEntry } from '../utils/chdb-gitignore-entry.js';
+import { InitFunnel } from '../utils/telemetry/init-funnel.js';
+import { exitWith } from '../utils/command-exit.js';
+import { telemetryErrorCode } from '../utils/telemetry/error-code.js';
 import { mkdir, writeFile, readFile, access } from 'node:fs/promises';
 import path from 'node:path';
 import ora from 'ora';
@@ -22,7 +28,6 @@ import {
   validateConnection,
   getTableCount,
   getTables,
-  type DatabaseType,
 } from '../utils/detect-database.js';
 import {
   ChdbNotInstalledError,
@@ -57,62 +62,6 @@ export interface InitOptions {
   force?: boolean;
   skipConnection?: boolean;
   auth?: AuthTemplateMode;
-}
-
-type InitDatabase = Extract<DatabaseType, 'clickhouse' | 'chdb'>;
-
-function normalizeInitDatabase(database: InitOptions['database']): InitDatabase {
-  if (!database || database === 'clickhouse') {
-    return 'clickhouse';
-  }
-  if (database === 'chdb') {
-    return 'chdb';
-  }
-  throw new Error(`Unsupported database "${database}". Use "clickhouse" or "chdb".`);
-}
-
-function normalizeInitStyle(style: InitOptions['style']): InitStyle {
-  return style === 'datasets' ? 'datasets' : 'queries';
-}
-
-function normalizeAuthMode(auth: InitOptions['auth']): AuthTemplateMode {
-  if (!auth || auth === 'none') {
-    return 'none';
-  }
-  if (auth === 'context') {
-    return 'context';
-  }
-  throw new Error(`Unsupported auth mode "${auth}". Use "none" or "context".`);
-}
-
-function parseTableList(value: string | undefined): string[] | undefined {
-  const parsed = value
-    ?.split(',')
-    .map((table) => table.trim())
-    .filter(Boolean);
-
-  return parsed && parsed.length > 0 ? parsed : undefined;
-}
-
-function getChdbGitignoreEntry(chdbPath: string | undefined): string | undefined {
-  if (!chdbPath || /[\0\r\n]/.test(chdbPath)) {
-    return undefined;
-  }
-
-  const cwd = path.resolve(process.cwd());
-  const relativePath = path.relative(cwd, path.resolve(cwd, chdbPath));
-  if (
-    relativePath.length === 0 ||
-    relativePath === '..' ||
-    relativePath.startsWith(`..${path.sep}`) ||
-    path.isAbsolute(relativePath)
-  ) {
-    return undefined;
-  }
-
-  const normalizedPath = relativePath.split(path.sep).join('/');
-  const escapedPath = normalizedPath.replace(/[\\*?[\]]/g, '\\$&');
-  return `/${escapedPath}/`;
 }
 
 type ConnectionConfig = {
@@ -155,7 +104,7 @@ async function hasProjectPackageJson(): Promise<boolean> {
   }
 }
 
-type ChdbTestResult = { ok: true } | { ok: false; reason: 'not-installed' | 'engine-error' };
+type ChdbTestResult = { ok: true; tableCount: number } | { ok: false; reason: 'not-installed' | 'engine-error' };
 
 async function testChdbConnection(chdbPath: string | undefined): Promise<ChdbTestResult> {
   const spinner = ora('Starting embedded chDB...').start();
@@ -187,7 +136,7 @@ async function testChdbConnection(chdbPath: string | undefined): Promise<ChdbTes
     `Embedded chDB ready (${chdbPath ? `${tableCount} tables in ${chdbPath}` : 'in-memory session'})`,
   );
   logger.newline();
-  return { ok: true };
+  return { ok: true, tableCount };
 }
 
 async function testConnection(
@@ -223,24 +172,45 @@ async function testConnection(
 }
 
 export async function initCommand(options: InitOptions = {}) {
+  const funnel = new InitFunnel({
+    interactive: !(options.noInteractive === true || (options as InitOptions & { interactive?: boolean }).interactive === false),
+    force: options.force === true,
+    skip_connection: options.skipConnection === true,
+  });
+  try {
+    await runInit(options, funnel);
+  } catch (error) {
+    funnel.fail(error);
+    throw error;
+  }
+}
+
+async function runInit(options: InitOptions, funnel: InitFunnel): Promise<void> {
   const noInteractive = options.noInteractive === true || (options as InitOptions & { interactive?: boolean }).interactive === false;
 
   logger.newline();
   logger.header('Welcome to hypequery!');
 
-  if (!noInteractive && !(await hasProjectPackageJson())) {
+  const packageJsonPresent = await hasProjectPackageJson();
+  funnel.update({ package_json_present: packageJsonPresent });
+  if (!noInteractive && !packageJsonPresent) {
     logger.warn(`package.json not found in ${process.cwd()}`);
     const shouldContinue = await confirmWithoutPackageJson(process.cwd());
     if (!shouldContinue) {
       logger.info('Setup cancelled. Run init from your project directory.');
+      funnel.cancel();
       return;
     }
     logger.newline();
   }
 
+  funnel.attempt('database_selected');
   const database = normalizeInitDatabase(
     options.database ?? (noInteractive ? undefined : await promptInitDatabase()),
   );
+  funnel.update({ database });
+  funnel.reach('database_selected');
+  funnel.attempt('connection_tested');
   logger.info(
     database === 'chdb'
       ? "Let's set up your analytics layer on embedded ClickHouse (chDB)."
@@ -266,14 +236,17 @@ export async function initCommand(options: InitOptions = {}) {
 
     // Handle user skipping connection details
     if (!connectionConfig) {
+      funnel.update({ connection_result: 'skipped' });
       logger.info('Skipping database connection for now.');
       logger.newline();
     } else if (options.skipConnection) {
+      funnel.update({ connection_result: 'skipped' });
       logger.info('Skipping database connection test (requested).');
       logger.newline();
     } else {
-      const { hasValidConnection: valid } = await testConnection(connectionConfig);
+      const { hasValidConnection: valid, tableCount } = await testConnection(connectionConfig);
       hasValidConnection = valid;
+      funnel.update({ connection_result: valid ? 'ok' : 'failed', ...(valid ? { table_count_bucket: countBucket(tableCount) } : {}) });
 
       if (!hasValidConnection) {
         if (noInteractive) {
@@ -282,13 +255,13 @@ export async function initCommand(options: InitOptions = {}) {
 
         const retry = await promptRetry('Try again?');
         if (retry) {
-          return initCommand({ ...options, database });
+          return runInit({ ...options, database }, funnel);
         }
 
         const continueWithout = await promptContinueWithoutDb();
         if (!continueWithout) {
           logger.info('Setup cancelled');
-          process.exit(0);
+          exitWith(0, 'cancelled');
         }
 
         logger.newline();
@@ -300,6 +273,9 @@ export async function initCommand(options: InitOptions = {}) {
     }
   }
 
+  if (database === 'clickhouse') funnel.reach('connection_tested');
+  funnel.attempt('style_selected');
+
   // Step 4: Get output directory
   let outputDir = options.path;
   if (!outputDir && !noInteractive) {
@@ -310,6 +286,13 @@ export async function initCommand(options: InitOptions = {}) {
 
   const resolvedOutputDir = path.resolve(process.cwd(), outputDir);
 
+  try {
+    await access(resolvedOutputDir);
+    funnel.update({ analytics_directory_present: true });
+  } catch {
+    funnel.update({ analytics_directory_present: false });
+  }
+
   let style = normalizeInitStyle(options.style);
   if (!options.style && !noInteractive) {
     style = await promptInitStyle();
@@ -318,6 +301,10 @@ export async function initCommand(options: InitOptions = {}) {
   if (!options.auth && !noInteractive) {
     auth = normalizeAuthMode(await promptInitAuthMode());
   }
+
+  funnel.update({ style, auth });
+  funnel.reach('style_selected');
+  funnel.attempt('files_written');
 
   // Step 5: Check for existing files
   const filesToCreate = [
@@ -350,7 +337,7 @@ export async function initCommand(options: InitOptions = {}) {
     const shouldOverwrite = noInteractive ? false : await confirmOverwrite(existingFiles);
     if (!shouldOverwrite) {
       logger.info('Setup cancelled');
-      process.exit(0);
+      exitWith(0, 'cancelled');
     }
     logger.newline();
   }
@@ -358,14 +345,18 @@ export async function initCommand(options: InitOptions = {}) {
   if (database === 'chdb') {
     // All prompts and overwrite checks are complete, so installing packages
     // here cannot leave a cancelled scaffold with unexpected dependencies.
+    funnel.attempt('dependencies_installed');
     await installScaffoldDependencies(style, 'chdb');
+    funnel.attempt('connection_tested');
 
     if (options.skipConnection) {
+      funnel.update({ connection_result: 'skipped' });
       logger.info('Skipping embedded chDB test (requested).');
       logger.newline();
     } else {
       const chdbTest = await testChdbConnection(chdbPath);
       hasValidConnection = chdbTest.ok;
+      funnel.update({ connection_result: chdbTest.ok ? 'ok' : 'failed', ...(chdbTest.ok ? { table_count_bucket: countBucket(chdbTest.tableCount) } : { chdb_failure_reason: chdbTest.reason === 'not-installed' ? 'not_installed' : 'engine_error' }) });
       if (!chdbTest.ok) {
         chdbFailureReason = chdbTest.reason;
       }
@@ -382,7 +373,7 @@ export async function initCommand(options: InitOptions = {}) {
         const continueWithout = await promptContinueWithoutDb();
         if (!continueWithout) {
           logger.info('Setup cancelled');
-          process.exit(0);
+          exitWith(0, 'cancelled');
         }
 
         logger.newline();
@@ -392,8 +383,11 @@ export async function initCommand(options: InitOptions = {}) {
     }
   }
 
+  if (database === 'chdb') funnel.reach('connection_tested');
+  funnel.attempt('files_written');
+
   // Step 6: Ask about example query (only if we have a valid connection)
-  let generateExample = !options.noExample && hasValidConnection;
+  let generateExample = !(options.noExample || (options as InitOptions & { example?: boolean }).example === false) && hasValidConnection;
   let selectedTable: string | null = null;
   let discoveredTables: string[] | null = null;
 
@@ -407,6 +401,7 @@ export async function initCommand(options: InitOptions = {}) {
     }
   }
 
+  let tableSelection: 'all' | 'list' | 'exclude' | 'prompt' = options.allTables ? 'all' : options.tables ? 'list' : options.excludeTables ? 'exclude' : 'all';
   let datasetTables = parseTableList(options.tables);
   const excludedDatasetTables = parseTableList(options.excludeTables);
 
@@ -418,6 +413,7 @@ export async function initCommand(options: InitOptions = {}) {
     !noInteractive
   ) {
     discoveredTables ??= await getTables(database, { chdbPath });
+    tableSelection = 'prompt';
     datasetTables = await promptDatasetTableSelection(
       discoveredTables,
       selectedTable ? [selectedTable] : [],
@@ -426,6 +422,8 @@ export async function initCommand(options: InitOptions = {}) {
 
   logger.newline();
 
+  funnel.update({ example: generateExample, ...(style === 'datasets' ? { table_selection: tableSelection } : {}) });
+
   // Step 7: Create directory
   await mkdir(resolvedOutputDir, { recursive: true });
 
@@ -433,7 +431,7 @@ export async function initCommand(options: InitOptions = {}) {
   // Embedded chDB has no credentials — the storage path lives in client.ts —
   // so the chdb scaffold writes no .env at all.
   if (database === 'chdb') {
-    // nothing to persist
+    funnel.update({ env_file: 'skipped' });
   } else if (connectionConfig) {
     const envPath = path.join(process.cwd(), '.env');
     const envExists = await hasEnvFile();
@@ -442,9 +440,11 @@ export async function initCommand(options: InitOptions = {}) {
       const existingEnv = await readFile(envPath, 'utf-8');
       const newEnv = appendToEnv(existingEnv, generateEnvTemplate(connectionConfig));
       await writeFile(envPath, newEnv);
+      funnel.update({ env_file: newEnv === existingEnv ? 'unchanged' : 'updated' });
       logger.success('Updated .env');
     } else {
       await writeFile(envPath, generateEnvTemplate(connectionConfig));
+      funnel.update({ env_file: 'created' });
       logger.success('Created .env');
     }
   } else {
@@ -459,8 +459,10 @@ export async function initCommand(options: InitOptions = {}) {
       password: 'YOUR_PASSWORD',
     };
 
+    funnel.update({ env_file: 'unchanged' });
     if (!envExists) {
       await writeFile(envPath, generateEnvTemplate(placeholderConfig));
+      funnel.update({ env_file: 'created' });
       logger.success('Created .env (configure your credentials)');
     }
   }
@@ -478,7 +480,7 @@ export async function initCommand(options: InitOptions = {}) {
     } catch (error) {
       typeSpinner.fail('Failed to generate types');
       logger.error(error instanceof Error ? error.message : String(error));
-      process.exit(1);
+      exitWith(1, 'failure', telemetryErrorCode(error));
     }
   } else {
     // Create placeholder schema file
@@ -526,6 +528,7 @@ export interface IntrospectedSchema {
           ? { client: getChdbTypeGenerationClient(chdbPath) }
           : {}),
       });
+      if (generated) funnel.update({ datasets_generated_bucket: countBucket(generated.tables.length) });
       logDatasetGenerationWarnings(generated?.warnings);
       generatedAnyDatasets = true;
       generatedSelectedDataset = selectedTable !== null && (
@@ -534,6 +537,7 @@ export interface IntrospectedSchema {
       );
     } else {
       await writeFile(datasetsPath, generateDatasetsPlaceholderTemplate({ auth }));
+      funnel.update({ datasets_generated_bucket: '0' });
       if (hasValidConnection) {
         logger.info(
           'Skipped dataset generation. Run `'
@@ -571,24 +575,32 @@ export interface IntrospectedSchema {
   const gitignorePath = path.join(process.cwd(), '.gitignore');
   const gitignoreExists = await hasGitignore();
   const chdbGitignoreEntry = database === 'chdb'
-    ? getChdbGitignoreEntry(chdbPath)
+    ? getChdbGitignoreEntry(chdbPath, process.cwd())
     : undefined;
   const gitignoreEntries = chdbGitignoreEntry ? [chdbGitignoreEntry] : [];
 
   if (gitignoreExists) {
     const existingGitignore = await readFile(gitignorePath, 'utf-8');
     const newGitignore = appendToGitignore(existingGitignore, gitignoreEntries);
+    funnel.update({ gitignore: 'unchanged' });
     if (newGitignore !== existingGitignore) {
       await writeFile(gitignorePath, newGitignore);
+      funnel.update({ gitignore: 'updated' });
       logger.success('Updated .gitignore');
     }
   } else {
     await writeFile(gitignorePath, appendToGitignore('', gitignoreEntries));
+    funnel.update({ gitignore: 'created' });
     logger.success('Created .gitignore');
   }
 
+  funnel.reach('files_written');
+  funnel.attempt('dependencies_installed');
+
   // Step 13: Ensure required hypequery packages are installed
   await installScaffoldDependencies(style, database);
+  funnel.reach('dependencies_installed');
+  funnel.attempt('completed');
 
   // Step 14: Success message
   logger.newline();
@@ -658,6 +670,7 @@ export interface IntrospectedSchema {
     logger.newline();
   }
 
+  funnel.reach('completed');
   logger.info('Docs: https://hypequery.com/docs');
   logger.newline();
 }

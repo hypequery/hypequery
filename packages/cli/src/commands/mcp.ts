@@ -1,3 +1,4 @@
+import { exitWith } from '../utils/command-exit.js';
 import { runMcpUntilSignal, type CloseableMcpServer } from '../utils/mcp-lifecycle.js';
 import { routeConsoleOutputToStderr } from '../utils/mcp-console.js';
 import { readServeMcpSource, tenantScopedDatasets, type ServeMcpSource } from '../utils/mcp-source.js';
@@ -39,7 +40,7 @@ function fail(message: string, hints: readonly string[] = []): never {
     for (const hint of hints) logger.indent(hint);
   }
   logger.newline();
-  process.exit(1);
+  exitWith(1, 'failure', 'validation_failed');
 }
 
 /** `--self-test --url`: initialize and list tools against a hosted endpoint. */
@@ -73,7 +74,7 @@ function entrypointNotFound(): never {
   logger.info('Or specify the file explicitly:');
   logger.indent('hypequery mcp ./path/to/api.ts');
   logger.newline();
-  process.exit(1);
+  exitWith(1, 'failure', 'entrypoint_not_found');
 }
 
 function noDatasets(file: string): never {
@@ -82,7 +83,7 @@ function noDatasets(file: string): never {
   logger.info('MCP exposes datasets and named metrics, so add them to defineServe:');
   logger.indent('defineServe({ queryBuilder: db, datasets: { orders: Orders } })');
   logger.newline();
-  process.exit(1);
+  exitWith(1, 'failure', 'no_datasets');
 }
 
 async function resolveEntrypoint(file: string | undefined, options: McpOptions): Promise<string> {
@@ -130,7 +131,7 @@ export async function mcpCommand(
       logger.info('MCP has no request to resolve a tenant from, so it must be given one:');
       logger.indent('hypequery mcp --tenant acme');
       logger.newline();
-      process.exit(1);
+      exitWith(1, 'failure', 'tenant_required');
     }
 
     const analytics = source.resolveAnalytics();
