@@ -93,6 +93,8 @@ def test_tenant_refusal_happens_before_discovery(
         "from tenancy import orders\n",
         "from .tenancy import orders\n",
         "import importlib\norders = importlib.import_module('tenancy').orders\n",
+        "from operator import methodcaller\norders = methodcaller('model_validate', s)(Dataset)\n",
+        "orders = Dataset.__dict__['model_validate'].__func__(Dataset, settings)\n",
     ],
 )
 def test_indirect_tenant_configuration_detected(source: str) -> None:
@@ -106,6 +108,15 @@ def test_generated_definitions_are_replaceable(schema: Schema) -> None:
         (Table("tenant_key", (Column("tenant_key", "UInt64"), Column("id", "UInt64"))),),
     )
     assert not has_tenant_configuration(generate_datasets(named).source)
+
+
+def test_columns_named_like_builtins_remain_replaceable() -> None:
+    names = ("eval", "vars", "getattr", "setattr", "model_validate", "methodcaller")
+    schema = Schema(
+        "analytics",
+        (Table("orders", tuple(Column(name, "UInt64") for name in names)),),
+    )
+    assert not has_tenant_configuration(generate_datasets(schema).source)
 
 
 def test_stdlib_helpers_remain_replaceable(schema: Schema) -> None:

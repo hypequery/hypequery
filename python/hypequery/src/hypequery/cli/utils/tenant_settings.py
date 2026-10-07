@@ -20,11 +20,17 @@ _SETTING = "tenant_key"
 # only as these plain values, never as a dataset setting.
 _VALUE_KEYWORDS = frozenset({"column", "name", "source"})
 
-# Callables that build or modify models from mappings or computed names.
+# Callables that build or modify models from mappings or computed names. These
+# are matched as names and attributes, not strings: generated field names (a
+# column called "eval" or "vars") are ordinary mapping keys. Name-based callers
+# such as methodcaller("model_validate") are refused through the caller itself.
 _INDIRECT = frozenset(
     {
+        "__dict__",
+        "__getattribute__",
         "__import__",
         "__setattr__",
+        "attrgetter",
         "compile",
         "eval",
         "exec",
@@ -32,6 +38,7 @@ _INDIRECT = frozenset(
         "globals",
         "import_module",
         "locals",
+        "methodcaller",
         "model_construct",
         "model_copy",
         "model_validate",
@@ -107,7 +114,7 @@ def _unsafe(node: ast.AST, exempt: set[int]) -> bool:
         if id(node) in exempt:
             return False
         # Covers mapping keys, subscripts and serialized settings such as JSON.
-        return _SETTING in node.value or node.value in _INDIRECT
+        return _SETTING in node.value
     if isinstance(node, ast.ImportFrom):
         return node.level > 0 or not _trusted_module(node.module or "")
     if isinstance(node, ast.Import):
