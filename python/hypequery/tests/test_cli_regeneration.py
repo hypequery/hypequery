@@ -81,11 +81,11 @@ def test_force_replaces_tenant_definitions_with_warning(
 def test_force_without_tenant_settings_does_not_warn(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    # A physical column named tenant_key is not a tenant setting.
+    # A physical table or column named tenant_key is not a tenant setting.
     def columns(*names: str) -> Schema:
         return Schema(
             "analytics",
-            (Table("orders", tuple(Column(name, "String") for name in names)),),
+            (Table("tenant_key", tuple(Column(name, "String") for name in names)),),
         )
 
     path = tmp_path / "datasets.py"
