@@ -1,5 +1,5 @@
 /**
- * Candidate owner-population SQL for RFC 0016 review. Test-only, fixed fixture
+ * Candidate owner-population SQL for RFC 0017 review. Test-only, fixed fixture
  * schema: this is not a production compiler or accepted execution capability.
  */
 export interface FanoutProofOptions {

@@ -16,6 +16,7 @@
     { "tenant": "a", "id": 106, "parent_id": null, "category": "orphan", "amount": 900 },
     { "tenant": "a", "id": 107, "parent_id": 1, "category": null, "amount": 11 },
     { "tenant": "a", "id": 108, "parent_id": 5, "category": null, "amount": 13 },
+    { "tenant": "a", "id": 109, "parent_id": 5, "category": "", "amount": 17 },
     { "tenant": "b", "id": 101, "parent_id": 1, "category": "red", "amount": 999 }
   ],
   "siblings": [
@@ -23,11 +24,12 @@
     { "tenant": "a", "id": 202, "parent_id": 1, "amount": 6 }
   ],
   "expected": {
-    "total": { "parent_sum": 140, "parent_count": 5, "parent_avg": 28, "child_sum": 43, "child_count": 7 },
+    "total": { "parent_sum": 140, "parent_count": 5, "parent_avg": 28, "child_sum": 60, "child_count": 8 },
     "groups": [
-      { "category": null, "parent_sum": 100, "parent_count": 3, "child_sum": 24, "child_count": 2 },
+      { "category": "", "parent_sum": 50, "parent_count": 1, "child_sum": 17, "child_count": 1 },
       { "category": "blue", "parent_sum": 40, "parent_count": 2, "child_sum": 12, "child_count": 2 },
-      { "category": "red", "parent_sum": 20, "parent_count": 2, "child_sum": 7, "child_count": 3 }
+      { "category": "red", "parent_sum": 20, "parent_count": 2, "child_sum": 7, "child_count": 3 },
+      { "category": null, "parent_sum": 100, "parent_count": 3, "child_sum": 24, "child_count": 2 }
     ]
   }
 }

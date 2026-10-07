@@ -3,7 +3,7 @@
 - Date: 2026-10-04
 - Status: Proposed; SQL proof only, public planner implementation pending
 - Tracking: [HQ-81](https://linear.app/hypequery/issue/HQ-81/prevent-duplicate-counts-in-one-to-many-joins)
-- Protocol proposal: [RFC 0016](../specs/security-protocol/rfc/0016-fanout-safe-relationship-aggregation.md)
+- Protocol proposal: [RFC 0017](../specs/security-protocol/rfc/0017-fanout-safe-relationship-aggregation.md)
 
 ## Problem and decision
 

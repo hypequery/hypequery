@@ -1,4 +1,4 @@
-# RFC 0016: Fan-out-safe relationship aggregation
+# RFC 0017: Fan-out-safe relationship aggregation
 
 - Status: Proposed
 - Date: 2026-10-04

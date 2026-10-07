@@ -58,11 +58,13 @@ describe('HQ-81 proposed owner-population SQL (not public planner support)', () 
     expect(actual[0].child_count).toBe(childTruth.rows);
   });
 
-  it.each([0, 1] as const)('counts each owner once per category including NULL with join_use_nulls=%s', async joinUseNulls => {
+  it.each([0, 1] as const)('counts each owner once per category, keeping NULL and empty string apart, with join_use_nulls=%s', async joinUseNulls => {
     const actual = await db.rawQuery<ProofResult>(fanoutProofSql({ grouped: true, joinUseNulls }));
     expect(actual.map(({ parent_avg: _average, ...row }) => row)
-      .sort((a, b) => (a.category ?? '').localeCompare(b.category ?? ''))).toEqual(fixture.expected.groups);
-    expect(actual.reduce((sum, row) => sum + (row.parent_sum ?? 0), 0)).toBe(160);
+      // Code-point order of the JSON text puts '' first and NULL last, without ties.
+      .sort((a, b) => (JSON.stringify(a.category) < JSON.stringify(b.category) ? -1 : 1)))
+      .toEqual(fixture.expected.groups);
+    expect(actual.reduce((sum, row) => sum + (row.parent_sum ?? 0), 0)).toBe(210);
     expect(fixture.expected.total.parent_sum).toBe(140);
   });
 
@@ -72,7 +74,7 @@ describe('HQ-81 proposed owner-population SQL (not public planner support)', () 
        FROM ${parents} AS p LEFT ALL JOIN ${children} AS c ON p.tenant = c.tenant AND p.id = c.parent_id
        WHERE p.tenant = 'a' SETTINGS output_format_json_quote_64bit_integers = 0`,
     );
-    expect(wrong.inflated).toBe(170);
+    expect(wrong.inflated).toBe(220);
     expect(wrong.collapsed).toBe(130);
     expect(wrong.inflated).not.toBe(fixture.expected.total.parent_sum);
     expect(wrong.collapsed).not.toBe(fixture.expected.total.parent_sum);
@@ -91,7 +93,7 @@ describe('HQ-81 proposed owner-population SQL (not public planner support)', () 
   it.each([0, 1] as const)('preserves groups with no child measure inputs and returns NULL sum / zero count with join_use_nulls=%s', async joinUseNulls => {
     const actual = await db.rawQuery<ProofResult>(fanoutProofSql({ grouped: true, fixedChildFilter: true, joinUseNulls }));
     expect(actual.filter(row => row.category !== 'red').map(row => [row.child_sum, row.child_count]))
-      .toEqual([[null, 0], [null, 0]]);
+      .toEqual([[null, 0], [null, 0], [null, 0]]);
   });
 
   it('can extend owner populations to sibling Cartesian fan-out without double counting', async () => {
@@ -103,8 +105,8 @@ describe('HQ-81 proposed owner-population SQL (not public planner support)', () 
     const [actual] = await db.rawQuery<ProofResult>(fanoutProofSql({ allTenants: true }));
     expect(actual.parent_sum).toBe(1139);
     expect(actual.parent_count).toBe(6);
-    expect(actual.child_sum).toBe(1042);
-    expect(actual.child_count).toBe(8);
+    expect(actual.child_sum).toBe(1059);
+    expect(actual.child_count).toBe(9);
   });
 
   it('returns scalar zero counts / NULL values for empty ungrouped populations', async () => {
