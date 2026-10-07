@@ -61,7 +61,7 @@ export default function Footer() {
     <footer className="border-t border-border px-8 pt-[60px] pb-9 bg-bg">
       <div className="mx-auto max-w-[1280px] footer-grid">
         <div className="max-w-[240px]" style={{ width: '240px', flexShrink: 0 }}>
-          <div className="font-mono text-[15px] font-bold text-text tracking-tight">&gt; hypequery</div>
+          <div className="font-mono text-[15px] font-bold text-text tracking-tight">hypequery</div>
           <p className="mt-2 text-[13px] leading-snug text-text-muted">
             Ship analytics on ClickHouse.
           </p>

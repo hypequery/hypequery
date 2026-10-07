@@ -35,7 +35,7 @@ export default function SiteFooter() {
       <div className="mx-auto grid max-w-7xl gap-10 lg:grid-cols-[1fr_2fr]">
         <div>
           <Link href="/" className="font-mono text-[15px] font-bold tracking-[-0.02em] text-white">
-            &gt; hypequery
+            hypequery
           </Link>
           <p className="mt-3 max-w-md text-sm leading-7 text-slate-400">
             The type-safe query builder for ClickHouse. Build queries once, reuse them across product APIs,

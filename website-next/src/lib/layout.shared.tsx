@@ -3,7 +3,7 @@ export function baseOptions() {
     nav: {
       title: (
         <div className="flex items-center px-3 font-mono text-lg font-bold text-text">
-          &gt; hypequery
+          hypequery
         </div>
       ),
     },

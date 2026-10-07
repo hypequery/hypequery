@@ -1,7 +1,7 @@
 import Footer from '@/components/Footer';
 import Navigation from '@/components/Navigation';
 import { absoluteUrl } from '@/lib/site';
-import { Hero, FinalCTA } from '@/components/home';
+import { AnnouncementBanner, Hero, FinalCTA } from '@/components/home';
 import { FeatureGrid } from '@/components/home/FeatureGrid';
 import { DatasetQuickstart } from '@/components/home/DatasetQuickstart';
 import { ProductExplainer } from '@/components/home/ProductExplainer';
@@ -37,8 +37,9 @@ export default function Home() {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(softwareSchema) }}
       />
-      <Navigation />
-      <main className="pt-[62px]">
+      <AnnouncementBanner />
+      <Navigation hasBanner />
+      <main className="pt-[104px]">
         <Hero />
         <ProductExplainer />
         <FeatureGrid />

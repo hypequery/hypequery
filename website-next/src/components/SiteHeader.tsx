@@ -42,7 +42,7 @@ export default function SiteHeader() {
           className="font-mono text-[18px] font-bold tracking-[-0.02em] text-white sm:text-[19px]"
           onClick={() => setMobileOpen(false)}
         >
-          &gt; hypequery
+          hypequery
         </Link>
         {isDesktopNav ? (
           <nav className="flex items-center gap-6">

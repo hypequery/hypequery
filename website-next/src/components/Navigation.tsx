@@ -9,7 +9,7 @@ export default function Navigation({ hasBanner = false }: { hasBanner?: boolean 
     <nav className={`fixed ${hasBanner ? 'top-[42px]' : 'top-0'} left-0 right-0 z-50 h-[62px] backdrop-blur-[14px] bg-bg/80 border-b border-border`}>
       <div className="mx-auto flex h-full max-w-[1280px] items-center justify-between px-5 sm:px-8">
         <Link href="/" className="font-mono text-[15px] font-bold text-text tracking-tight">
-          &gt; hypequery
+          hypequery
         </Link>
         <div className="flex items-center gap-4 sm:gap-8">
         <ProductMenu />
