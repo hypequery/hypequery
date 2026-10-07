@@ -8,6 +8,10 @@ import { loadApiModule } from '../utils/load-api.js';
 import { logger } from '../utils/logger.js';
 import { MCP_API_KEY_VARIABLE } from '../utils/hosted-endpoints.js';
 import { checkRemoteMcp, type RemoteMcpCheck } from '../utils/mcp-remote-check.js';
+import { McpSession } from '../utils/telemetry/mcp-session.js';
+import { countBucket } from '../utils/telemetry/buckets.js';
+import { entryType } from '../utils/telemetry/session-config.js';
+import { updateCommandTelemetry, setCommandTelemetryError } from '../utils/telemetry/command-context.js';
 
 export interface McpOptions {
   /** Analytics directory, matching `hypequery dev --path`. */
@@ -104,6 +108,8 @@ export async function mcpCommand(
   options: McpOptions = {},
   dependencies: McpDependencies = {},
 ): Promise<void> {
+  const telemetry = new McpSession();
+  updateCommandTelemetry('mcp', { mode: options.selfTest ? 'self_test' : 'serve', hosted: !!options.url, tenant_used: !!options.tenant });
   if (options.url && !options.selfTest) {
     fail('--url is only used with --self-test.', [
       'MCP clients connect to the hosted endpoint directly; this command serves a local project.',
@@ -117,13 +123,17 @@ export async function mcpCommand(
     }
     const entrypoint = await resolveEntrypoint(file, options);
     const loadApi = dependencies.loadApi ?? loadApiModule;
-    const source = resolveSource(await loadApi(entrypoint), entrypoint);
+    let api: unknown;
+    try { api = await loadApi(entrypoint); }
+    catch (error) { setCommandTelemetryError('load_error'); throw error; }
+    const source = resolveSource(api, entrypoint);
     const datasets = source.datasets as Record<string, unknown>;
 
     const names = Object.keys(datasets).sort();
     if (names.length === 0) noDatasets(entrypoint);
 
     const scoped = tenantScopedDatasets(datasets);
+    updateCommandTelemetry('mcp', { dataset_count_bucket: countBucket(names.length), tenant_dataset_count_bucket: countBucket(scoped.length) });
     if (scoped.length > 0 && !options.tenant) {
       // Fail closed rather than serving a tenant-scoped dataset unscoped.
       logger.error(`--tenant is required for tenant-scoped datasets: ${scoped.join(', ')}`);
@@ -156,13 +166,15 @@ export async function mcpCommand(
       return;
     }
 
-    const start = dependencies.start ?? defaultStart;
+    const start = dependencies.start ?? ((config) => defaultStart(config, telemetry));
     await runMcpUntilSignal(async () => {
       const server = await start({
         datasets,
         analytics,
         ...(options.tenant ? { tenantId: options.tenant } : {}),
       });
+      telemetry.start({ entry_type: entryType(entrypoint, file), mode: 'serve', dataset_count_bucket: countBucket(names.length)!,
+        tenant_used: !!options.tenant, tenant_dataset_count_bucket: countBucket(scoped.length)! });
       process.stderr.write(`hypequery MCP serving ${names.length} dataset(s): ${names.join(', ')}\n`);
       return server;
     });
@@ -175,9 +187,13 @@ async function defaultStart(config: {
   datasets: Record<string, unknown>;
   analytics: unknown;
   tenantId?: string;
-}): Promise<CloseableMcpServer> {
+}, telemetry: McpSession): Promise<CloseableMcpServer> {
   // Imported lazily so `--self-test` and the argument errors above do not pay
   // for the MCP SDK, and so the CLI still loads when it is not installed.
-  const { startStdioMCPServer } = await import('@hypequery/mcp');
-  return startStdioMCPServer(config as Parameters<typeof startStdioMCPServer>[0]);
+  const { createMCPExecutor, createMCPProtocolServer, connectMCPServerStdio } = await import('@hypequery/mcp');
+  const executor = createMCPExecutor(config as Parameters<typeof createMCPExecutor>[0]);
+  const server = createMCPProtocolServer({ executor: telemetry.instrument(executor) });
+  try { await connectMCPServerStdio(server); }
+  catch (error) { await server.close().catch(() => undefined); throw error; }
+  return server;
 }
