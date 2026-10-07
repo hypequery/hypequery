@@ -82,12 +82,12 @@ await analytics.execute(Orders, {
 
 ## Filter aggregated values with `having`
 
-`filters` narrow the rows before they are aggregated. To keep only the groups whose aggregated value passes a condition, such as customers with more than 10,000 in revenue, use `having`:
+`filters` narrow the rows before they are aggregated. To keep only the groups whose aggregated value passes a condition, such as countries with more than 10,000 in revenue, use `having`:
 
 <CodeBlock>
 ```typescript
 await analytics.execute(Orders, {
-  dimensions: ['customerId'],
+  dimensions: ['country'],
   measures: ['revenue', 'orderCount'],
   filters: [eq('status', 'completed')],
   having: [
