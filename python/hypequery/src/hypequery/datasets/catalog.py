@@ -224,7 +224,7 @@ def get_dataset_catalog(dataset: Dataset, *, registry: DatasetRegistry) -> Datas
     derived = {
         name: {
             key: value
-            for key, value in derived_measure_node(name, measure).items()
+            for key, value in derived_measure_node(name, measure, canonical_uses=True).items()
             if key not in ("kind", "name")
         }
         for name, measure in dataset.measures.items()

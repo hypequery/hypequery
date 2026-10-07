@@ -42,12 +42,12 @@
         "average": {
           "uses": [
             {
-              "alias": "revenue",
-              "measure": "revenue"
-            },
-            {
               "alias": "orders",
               "measure": "orders"
+            },
+            {
+              "alias": "revenue",
+              "measure": "revenue"
             }
           ],
           "expression": {
@@ -186,5 +186,5 @@
       "relationships": {}
     }
   },
-  "contentHash": "ea242499074044a990210df501c25f818f328e4ad9d8f99e3665ac576b446fe7"
+  "contentHash": "7d9f78c75b8f80db5f4d43c6438f111e0037788cdd77cd95ec23dd58a875d091"
 }

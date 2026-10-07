@@ -283,3 +283,43 @@ def test_other_formula_operations_and_bound_literals() -> None:
     assert "COALESCE(sum(`amount`), NULL)" in compiled.sql
     assert 100 in compiled.parameter_values().values()
     assert "100" not in compiled.sql
+
+
+@pytest.mark.parametrize("reverse", [False, True])
+def test_dependency_depth_is_independent_of_declaration_order(reverse: bool) -> None:
+
+    definitions: dict[str, Measure | DerivedMeasure] = {"base": measure.sum("amount")}
+    previous = "base"
+    for index in range(17):
+        name = f"d{index}"
+        definitions[name] = measure.derived(add(previous, 1))
+        previous = name
+    if reverse:
+        definitions = dict(reversed(tuple(definitions.items())))
+    with pytest.raises(ValidationError, match="dependency depth"):
+        Dataset(name="tooDeep", source="orders", dimensions={}, measures=definitions)
+
+
+def test_repeated_dependency_expansion_is_bounded() -> None:
+
+    definitions: dict[str, Measure | DerivedMeasure] = {"base": measure.sum("amount")}
+    previous = "base"
+    for index in range(12):
+        name = f"d{index}"
+        definitions[name] = measure.derived(add(previous, previous))
+        previous = name
+    with pytest.raises(ValidationError, match="expansion limit"):
+        Dataset(name="tooWide", source="orders", dimensions={}, measures=definitions)
+
+
+def test_formula_tree_depth_is_bounded_before_reference_walk() -> None:
+    formula = add("base", 1)
+    for _ in range(17):
+        formula = add(formula, 1)
+    with pytest.raises(ValidationError, match="formula depth"):
+        Dataset(
+            name="deepFormula",
+            source="orders",
+            dimensions={},
+            measures={"base": measure.sum("amount"), "value": measure.derived(formula)},
+        )

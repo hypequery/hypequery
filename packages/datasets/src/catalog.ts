@@ -287,7 +287,7 @@ export function getDatasetCatalog(dataset: DatasetCatalogSource): DatasetCatalog
           name,
           {
             ...snapshotSemanticMetadata(definition),
-            uses: Object.entries(definition.uses).map(([alias, measure]) => ({ alias, measure })),
+            uses: Object.entries(definition.uses).sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0).map(([alias, measure]) => ({ alias, measure })),
             expression: derivedMeasureExpression(definition),
             ...(usesTimeMeasure(definition, dataset.measures) ? {
               requiresTimeRange: true as const,

@@ -20,3 +20,15 @@ it('matches Python derived deployment and semantic contract fixtures', () => {
   // JSON removes absent optional catalog metadata before comparing wire output.
   expect(JSON.parse(JSON.stringify(serializeSemanticContract({ orders: orders(false) })))).toEqual(fixture('derived-contract-v1.json'));
 });
+
+it('keeps semantic hashes stable when derived input aliases are reordered', () => {
+  const build = (uses: { revenue: 'revenue'; orders: 'orders' }) => dataset('orders', {
+    source: 'orders', dimensions: {},
+    measures: {
+      revenue: measure.sum('amount'), orders: measure.count('id'),
+      average: measure.derived({ uses, formula: ({ revenue, orders }) => divide(revenue, nullIfZero(orders)) }),
+    },
+  });
+  expect(serializeSemanticContract({ orders: build({ revenue: 'revenue', orders: 'orders' }) }))
+    .toEqual(serializeSemanticContract({ orders: build({ orders: 'orders', revenue: 'revenue' }) }));
+});
