@@ -125,3 +125,29 @@ def asc(field: str) -> Order:
 
 def desc(field: str) -> Order:
     return Order(field=field, direction="desc")
+
+
+class _FilterHelpers:
+    """Filter helper namespace, matching TypeScript with Python spelling."""
+
+    eq = staticmethod(eq)
+    neq = staticmethod(neq)
+    gt = staticmethod(gt)
+    gte = staticmethod(gte)
+    lt = staticmethod(lt)
+    lte = staticmethod(lte)
+    in_list = staticmethod(in_list)
+    not_in_list = staticmethod(not_in_list)
+    between = staticmethod(between)
+    like = staticmethod(like)
+
+
+class _OrderHelpers:
+    """Ordering helper namespace matching TypeScript."""
+
+    asc = staticmethod(asc)
+    desc = staticmethod(desc)
+
+
+filter = _FilterHelpers()  # noqa: A001
+order = _OrderHelpers()

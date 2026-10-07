@@ -68,36 +68,37 @@ INSERT INTO orders VALUES
 import os
 import secrets
 
-from hypequery.datasets import Dataset, count, create_dataset_client, dimension, measure, sum
+from hypequery.datasets import create_dataset_client, dataset, dimension, measure
 from hypequery.execution import ClickHouseConnection, create_clickhouse_executor
 from hypequery.serve import (
     Credential,
     HttpSecurity,
     Principal,
-    add_dataset_endpoint,
+    create_dataset_endpoint,
     create_app,
-    create_router,
+    create_api,
 )
 
-orders = Dataset(
-    name="orders",
+orders = dataset(
+    "orders",
     source="orders",
     time_key="created_at",
     dimensions={
-        "id": dimension("string"),
-        "country": dimension("string"),
-        "status": dimension("string"),
-        "createdAt": dimension("timestamp", column="created_at"),
+        "id": dimension.string(),
+        "country": dimension.string(),
+        "status": dimension.string(),
+        "createdAt": dimension.timestamp(column="created_at"),
     },
     measures={
-        "revenue": measure(sum("amount")),
-        "orderCount": measure(count("id")),
+        "revenue": measure.sum("amount"),
+        "orderCount": measure.count("id"),
     },
 )
 
 executor = create_clickhouse_executor(
     ClickHouseConnection(
         host=os.environ.get("CLICKHOUSE_HOST", "localhost"),
+        port=int(os.environ.get("CLICKHOUSE_PORT", "8123")),
         database=os.environ.get("CLICKHOUSE_DATABASE", "default"),
         username=os.environ.get("CLICKHOUSE_USERNAME", "default"),
         password=os.environ.get("CLICKHOUSE_PASSWORD", ""),
@@ -115,11 +116,11 @@ def authenticate(credential: Credential) -> Principal | None:
     return None
 
 
-router = create_router(authenticate=authenticate)
-add_dataset_endpoint(router, "/datasets/orders/query", dataset=orders, client=client)
+api = create_api(authenticate=authenticate)
+create_dataset_endpoint(dataset=orders, client=client).install(api, "/datasets/orders/query")
 
 app = create_app(
-    router,
+    api,
     security=HttpSecurity(allowed_hosts=("127.0.0.1", "localhost")),
     development_docs=True,
 )
@@ -138,7 +139,8 @@ The development runner listens on `127.0.0.1:8000` only. Binding anywhere else
 (`--host 0.0.0.0`) works but raises an `ExternalBindWarning`: the runner is
 not hardened for a network. It refuses apps created with a `ProductionProfile`;
 run those with [`run_production`](#production-process). From Python, call
-`run_dev(app)` or `run_dev("app:app", reload=True)`.
+`serve_dev(app)` or `serve_dev("app:app", reload=True)`
+(`run_dev` remains available for compatibility).
 
 **5. Query it:**
 
@@ -193,7 +195,7 @@ enabled. Use `--no-watch`, `--hostname` or `-p`/`--port` to change those options
 `--no-reload` and `--host` remain supported aliases. Serving
 requires the `fastapi` extra; apps using ClickHouse also need `clickhouse`.
 The command retains the development runner's external-bind warning and refuses
-production-profile apps. Use `run_production` for production serving.
+production-profile apps. Use `start_server` (also `run_production`) for production serving.
 
 `hypequery --help`, `hypequery init --help`, `hypequery dev --help` and
 `hypequery --version` (also `-V`) work without extras.

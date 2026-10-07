@@ -121,3 +121,35 @@ class Dataset(DefinitionModel):
         object.__setattr__(self, "filters", freeze_mapping(self.filters))
         object.__setattr__(self, "relationships", freeze_mapping(self.relationships))
         return self
+
+
+def dataset(
+    name: str,
+    *,
+    source: str,
+    dimensions: Mapping[str, Dimension],
+    measures: Mapping[str, Measure] | None = None,
+    filters: Mapping[str, FilterDefinition] | None = None,
+    relationships: Mapping[str, Relationship] | None = None,
+    tenant_key: str | None = None,
+    time_key: str | None = None,
+    limits: DatasetLimits | None = None,
+) -> Dataset:
+    """Define a dataset, matching TypeScript's dataset authoring entrypoint.
+
+    Keyword arguments use Python spelling. Omitting filters keeps automatic
+    dimension filters; an explicit empty mapping disables them.
+    """
+    options: dict[str, object] = {
+        "name": name,
+        "source": source,
+        "dimensions": dimensions,
+        "measures": {} if measures is None else measures,
+        "relationships": {} if relationships is None else relationships,
+        "tenant_key": tenant_key,
+        "time_key": time_key,
+        "limits": limits,
+    }
+    if filters is not None:
+        options["filters"] = filters
+    return Dataset.model_validate(options)

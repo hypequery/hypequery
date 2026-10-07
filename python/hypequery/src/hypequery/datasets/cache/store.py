@@ -80,3 +80,8 @@ class MemoryCacheStore:
     def __len__(self) -> int:
         with self._lock:
             return len(self._entries)
+
+
+def create_memory_cache_store(*, max_entries: int = 1_000) -> MemoryCacheStore:
+    """Create a bounded memory cache, matching TypeScript's factory name."""
+    return MemoryCacheStore(max_entries=max_entries)

@@ -18,7 +18,7 @@ from .aggregations import (
     sum,  # noqa: A004
     variance,
 )
-from .cache import CachedRows, CacheStore, MemoryCacheStore, ResultCache
+from .cache import CachedRows, CacheStore, MemoryCacheStore, ResultCache, create_memory_cache_store
 from .catalog import (
     DatasetCatalog,
     DimensionCatalogEntry,
@@ -57,7 +57,7 @@ from .contract import (
     normalize_sql,
     serialize_semantic_contract,
 )
-from .dataset import Dataset, DatasetLimits, FilterDefinition
+from .dataset import Dataset, DatasetLimits, FilterDefinition, dataset
 from .deployment import build_protocol_dataset_contract, build_protocol_deployment_contract
 from .deployment_bundle import PreparedDatasetBundle, prepare_dataset_bundle, write_dataset_bundle
 from .dimensions import Dimension, DimensionType, dimension
@@ -100,6 +100,7 @@ from .query_helpers import (
     between,
     desc,
     eq,
+    filter,  # noqa: A004
     gt,
     gte,
     in_list,
@@ -108,6 +109,7 @@ from .query_helpers import (
     lte,
     neq,
     not_in_list,
+    order,
 )
 from .registry import DatasetRegistry, create_dataset_registry
 from .relationships import (
@@ -207,10 +209,13 @@ __all__ = [
     "create_async_dataset_client",
     "create_dataset_client",
     "create_dataset_registry",
+    "create_memory_cache_store",
+    "dataset",
     "desc",
     "dimension",
     "divide",
     "eq",
+    "filter",
     "floor",
     "get_dataset_catalog",
     "get_dataset_catalogs",
@@ -236,6 +241,7 @@ __all__ = [
     "normalize_sql",
     "not_in_list",
     "null_if_zero",
+    "order",
     "percentile",
     "plan_dataset_query",
     "prepare_dataset_bundle",

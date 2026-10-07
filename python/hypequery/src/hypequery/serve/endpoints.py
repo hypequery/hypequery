@@ -212,7 +212,7 @@ def add_dataset_endpoint(
 ) -> None:
     """Register a bounded POST query endpoint, authenticated by default."""
 
-    DatasetEndpoint(
+    create_dataset_endpoint(
         dataset=dataset, client=client, policy=policy, diagnostics=diagnostics, events=events
     ).install(router, path)
 
@@ -231,7 +231,7 @@ def add_metric_endpoint(
 ) -> None:
     """Register a metric fixed to one dataset measure (no formula metric surface yet)."""
 
-    DatasetEndpoint(
+    create_metric_endpoint(
         dataset=dataset,
         client=client,
         policy=policy,
@@ -240,3 +240,47 @@ def add_metric_endpoint(
         diagnostics=diagnostics,
         events=events,
     ).install(router, path)
+
+
+def create_dataset_endpoint(
+    *,
+    dataset: Dataset,
+    client: DatasetClient | AsyncDatasetClient,
+    policy: EndpointPolicy = DEFAULT_ENDPOINT_POLICY,
+    diagnostics: DiagnosticAccess | None = None,
+    events: QueryEvents | None = None,
+) -> DatasetEndpoint:
+    """Create a dataset endpoint without registering a route.
+
+    Call ``endpoint.install(api, path)`` to register it, or use
+    ``add_dataset_endpoint`` to create and register in one step.
+    """
+    return DatasetEndpoint(
+        dataset=dataset, client=client, policy=policy, diagnostics=diagnostics, events=events
+    )
+
+
+def create_metric_endpoint(
+    *,
+    dataset: Dataset,
+    measure: str,
+    name: str | None = None,
+    client: DatasetClient | AsyncDatasetClient,
+    policy: EndpointPolicy = DEFAULT_ENDPOINT_POLICY,
+    diagnostics: DiagnosticAccess | None = None,
+    events: QueryEvents | None = None,
+) -> DatasetEndpoint:
+    """Create a one-measure metric endpoint without registering a route.
+
+    Call ``endpoint.install(api, path)`` to register it, or use
+    ``add_metric_endpoint`` to create and register in one step.
+    """
+    return DatasetEndpoint(
+        dataset=dataset,
+        client=client,
+        policy=policy,
+        measure=measure,
+        name=name,
+        diagnostics=diagnostics,
+        events=events,
+    )

@@ -1,31 +1,30 @@
 import os
 import secrets
 
-from hypequery.datasets import Dataset, count, create_dataset_client, dimension, measure
-from hypequery.datasets import sum as sql_sum
+from hypequery.datasets import create_dataset_client, dataset, dimension, measure
 from hypequery.execution import ClickHouseConnection, create_clickhouse_executor
 from hypequery.serve import (
     Credential,
     HttpSecurity,
     Principal,
-    add_dataset_endpoint,
+    create_api,
     create_app,
-    create_router,
+    create_dataset_endpoint,
 )
 
-orders = Dataset(
-    name="orders",
+orders = dataset(
+    "orders",
     source="orders",
     time_key="created_at",
     dimensions={
-        "id": dimension("string"),
-        "country": dimension("string"),
-        "status": dimension("string"),
-        "createdAt": dimension("timestamp", column="created_at"),
+        "id": dimension.string(),
+        "country": dimension.string(),
+        "status": dimension.string(),
+        "createdAt": dimension.timestamp(column="created_at"),
     },
     measures={
-        "revenue": measure(sql_sum("amount")),
-        "orderCount": measure(count("id")),
+        "revenue": measure.sum("amount"),
+        "orderCount": measure.count("id"),
     },
 )
 
@@ -52,11 +51,11 @@ def authenticate(credential: Credential) -> Principal | None:
     return None
 
 
-router = create_router(authenticate=authenticate)
-add_dataset_endpoint(router, "/datasets/orders/query", dataset=orders, client=client)
+api = create_api(authenticate=authenticate)
+create_dataset_endpoint(dataset=orders, client=client).install(api, "/datasets/orders/query")
 
 app = create_app(
-    router,
+    api,
     security=HttpSecurity(allowed_hosts=("127.0.0.1", "localhost")),
     development_docs=True,
 )
