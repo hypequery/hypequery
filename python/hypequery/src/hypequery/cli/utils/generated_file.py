@@ -22,18 +22,28 @@ def has_tenant_configuration(source: str) -> bool:
             "Cannot verify existing definitions; repair their Python syntax first."
         ) from exc
     return any(
-        isinstance(node, ast.keyword)
-        and (
-            # Unpacked dictionaries and dynamically computed settings cannot be
-            # proved tenant-free without evaluating authored code. Fail closed.
-            node.arg is None
-            or (
-                node.arg == "tenant_key"
-                and not (isinstance(node.value, ast.Constant) and node.value.value is None)
-            )
+        # Unpacked dictionaries and dynamically computed settings cannot be
+        # proved tenant-free without evaluating authored code. Fail closed.
+        (isinstance(node, ast.keyword) and node.arg is None)
+        or (
+            isinstance(node, ast.keyword)
+            and node.arg == "tenant_key"
+            and not (isinstance(node.value, ast.Constant) and node.value.value is None)
         )
+        # Attribute assignment and mapping keys, e.g. model_copy(update={...}).
+        or (isinstance(node, ast.Attribute) and node.attr == "tenant_key")
+        or (isinstance(node, ast.Constant) and node.value == "tenant_key")
         for node in ast.walk(tree)
     )
+
+
+def ensure_replaceable(source: str) -> None:
+    if has_tenant_configuration(source):
+        raise CliError(
+            "Refusing to replace configured tenant boundaries or indirect settings. "
+            "Generate to a separate file and merge schema changes while preserving "
+            "tenant_key."
+        )
 
 
 @dataclass(frozen=True)
@@ -45,6 +55,36 @@ class _Snapshot:
 
 def _file_identity(info: os.stat_result) -> tuple[int, int, int, int, int]:
     return (info.st_dev, info.st_ino, info.st_mtime_ns, info.st_ctime_ns, info.st_size)
+
+
+def _default_mode() -> int:
+    # os.umask can only be read by setting it; the CLI is single-threaded.
+    umask = os.umask(0o022)
+    os.umask(umask)
+    return 0o666 & ~umask
+
+
+def _create_exclusive(temporary: Path, path: Path, contents: str, mode: int) -> None:
+    """Create without replacing a file that appeared after the last check."""
+    try:
+        # Linking publishes the complete temporary file in one step.
+        os.link(temporary, path)
+        return
+    except FileExistsError:
+        raise
+    except OSError:
+        pass  # Some filesystems (FAT, certain network mounts) lack hard links.
+    descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, mode)
+    try:
+        with os.fdopen(descriptor, "w", encoding="utf-8") as output:
+            output.write(contents)
+            output.flush()
+            os.fsync(output.fileno())
+    except BaseException:
+        # This invocation created the file exclusively, so removal is safe.
+        with suppress(OSError):
+            path.unlink()
+        raise
 
 
 class GeneratedFile:
@@ -98,12 +138,37 @@ class GeneratedFile:
                 "Review the latest file and retry."
             )
 
+    def _acquire(self, lock: Path) -> None:
+        # A per-destination exclusive directory serializes CLI writers for
+        # the validation/replacement interval, without advisory-lock APIs.
+        try:
+            lock.mkdir(mode=0o700)
+        except FileExistsError as exc:
+            try:
+                owner = f" (process {(lock / 'pid').read_text().strip()})"
+            except OSError:
+                owner = ""
+            raise CliError(
+                f"Another generator{owner} owns the output lock {lock}. Retry after it "
+                "finishes; remove the lock directory only if that process has stopped."
+            ) from exc
+        with suppress(OSError):
+            (lock / "pid").write_text(f"{os.getpid()}\n")
+
+    @staticmethod
+    def _release(lock: Path) -> None:
+        with suppress(OSError):
+            (lock / "pid").unlink(missing_ok=True)
+        with suppress(OSError):
+            lock.rmdir()
+
     def write(self, contents: str, *, overwrite: bool) -> None:
         if not self._observed:
             self.read()
         self.preflight()
         lock = self.path.with_name(f".{self.path.name}.lock")
         locked = False
+        succeeded = False
         temporary: Path | None = None
         created_directories: list[Path] = []
         try:
@@ -119,23 +184,11 @@ class GeneratedFile:
                     self.preflight()
                 else:
                     created_directories.append(directory)
-            # A per-destination exclusive directory serializes CLI writers for
-            # the validation/replacement interval, without advisory-lock APIs.
-            try:
-                lock.mkdir(mode=0o700)
-            except FileExistsError as exc:
-                raise CliError(
-                    "Another generator owns the output lock. Retry after it finishes; "
-                    "remove the lock directory only if that process has stopped."
-                ) from exc
+            self._acquire(lock)
             locked = True
             self._check_unchanged()
             if overwrite and self._snapshot is not None:
-                if has_tenant_configuration(self._snapshot.contents):
-                    raise CliError(
-                        "Refusing to replace tenant boundaries or indirect settings. "
-                        "Generate to a separate file and merge changes manually."
-                    )
+                ensure_replaceable(self._snapshot.contents)
             with tempfile.NamedTemporaryFile(
                 mode="w",
                 encoding="utf-8",
@@ -149,16 +202,16 @@ class GeneratedFile:
                 output.flush()
                 os.fsync(output.fileno())
             self._check_unchanged()
+            # The temporary file stays private while written; publish it with
+            # the existing file's mode, or the umask default for a new file.
+            mode = self._snapshot.mode if self._snapshot is not None else _default_mode()
+            temporary.chmod(mode)
             if overwrite and self._snapshot is not None:
-                # Keep temporary and replacement files private; never widen an
-                # existing file's permissions, including executable bits.
-                temporary.chmod(self._snapshot.mode & 0o600)
                 self._check_unchanged()
                 os.replace(temporary, self.path)
             else:
-                # Linking is an exclusive create even if a competing process
-                # wrote the destination after discovery or the preflight read.
-                os.link(temporary, self.path)
+                _create_exclusive(temporary, self.path, contents, mode)
+            succeeded = True
         except FileExistsError as exc:
             raise CliError(
                 "Refusing to overwrite existing definitions; use --diff or --force."
@@ -167,11 +220,11 @@ class GeneratedFile:
             raise CliError("Cannot write definitions; check output permissions.") from exc
         finally:
             if locked:
-                with suppress(OSError):
-                    lock.rmdir()
+                self._release(lock)
             if temporary is not None:
                 with suppress(OSError):
                     temporary.unlink(missing_ok=True)
-            for directory in reversed(created_directories):
-                with suppress(OSError):
-                    directory.rmdir()
+            if not succeeded:
+                for directory in reversed(created_directories):
+                    with suppress(OSError):
+                        directory.rmdir()

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import sys
 from collections.abc import Sequence
 from importlib.metadata import version
 
@@ -14,6 +15,10 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument(
         "-V", "--version", action="version", version=f"hypequery {version('hypequery')}"
     )
+    arguments = list(sys.argv[1:] if argv is None else argv)
+    if arguments[:1] == ["generate:datasets"]:
+        # Accept the TypeScript CLI's spelling as an alias.
+        arguments[:1] = ["generate", "datasets"]
     commands = parser.add_subparsers(dest="command", required=True)
     init = commands.add_parser("init", help="create a Python dataset project")
     init.add_argument("directory", nargs="?", help="destination (default: current directory)")
@@ -28,9 +33,13 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     )
     generate = commands.add_parser("generate", help="generate Python definitions from ClickHouse")
     targets = generate.add_subparsers(dest="target", required=True)
-    datasets = targets.add_parser("datasets", help="generate dataset definitions")
+    datasets = targets.add_parser(
+        "datasets",
+        help="generate dataset definitions",
+        description="Generate dataset definitions. Also available as generate:datasets.",
+    )
     destination = datasets.add_mutually_exclusive_group()
-    destination.add_argument("--output", help="output file (default: analytics/datasets.py)")
+    destination.add_argument("--output", help="output file (default: datasets.py, as init creates)")
     destination.add_argument("--path", help="output directory containing datasets.py")
     datasets.add_argument("--tables", help="comma-separated tables to inspect (default: all)")
     datasets.add_argument("--exclude-tables", help="comma-separated tables to omit")
@@ -57,7 +66,7 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     dev.set_defaults(reload=True)
     help_command = commands.add_parser("help", help="show help for a command")
     help_command.add_argument("topic", nargs="?", choices=("init", "dev", "generate"))
-    args = parser.parse_args(argv)
+    args = parser.parse_args(arguments)
     if args.command == "help":
         {None: parser, "init": init, "dev": dev, "generate": generate}[args.topic].print_help()
         parser.exit()

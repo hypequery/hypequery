@@ -105,7 +105,7 @@ curl -s -X POST http://127.0.0.1:8000/datasets/{generated.tables[0]}/query \\
 ```
 
 After schema changes, inspect drift with
-`hypequery generate datasets --output datasets.py --diff` (exit 1 when different).
+`hypequery generate datasets --diff` (exit 1 when different).
 Use `--check` in CI and `--force` to replace definitions after reviewing the diff.
 Repeat the original `--tables` / `--exclude-tables` selection when regenerating.
 Regeneration replaces the whole definitions file, so merge custom measures and

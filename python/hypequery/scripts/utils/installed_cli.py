@@ -72,7 +72,6 @@ class InstalledCli:
 import json
 import sys
 from pathlib import Path
-from typing import cast
 from importlib.metadata import version
 import hypequery
 assert Path(hypequery.__file__).resolve().is_relative_to(Path(sys.prefix).resolve())
@@ -91,6 +90,7 @@ print(json.dumps({'version': version('hypequery')}))
                 ["init", "--help"],
                 ["dev", "--help"],
                 ["generate", "datasets", "--help"],
+                ["generate:datasets", "--help"],
                 ["help", "generate"],
                 ["help"],
                 ["help", "init"],
@@ -108,7 +108,6 @@ print(json.dumps({'version': version('hypequery')}))
 import ast
 import tomllib
 from pathlib import Path
-from typing import cast
 ast.parse(Path('app.py').read_text())
 tomllib.loads(Path('pyproject.toml').read_text())
 assert Path('.env.example').is_file()

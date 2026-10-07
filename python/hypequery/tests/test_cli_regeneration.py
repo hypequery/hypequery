@@ -12,7 +12,7 @@ from hypequery.cli import main
 from hypequery.cli.errors import CliError
 from hypequery.cli.generators.datasets import generate_datasets
 from hypequery.cli.generators.schema import Column, Schema, Table
-from hypequery.cli.utils.generated_file import GeneratedFile
+from hypequery.cli.utils.generated_file import GeneratedFile, has_tenant_configuration
 
 
 @pytest.fixture
@@ -52,9 +52,40 @@ def test_default_and_directory_paths(
 ) -> None:
     monkeypatch.chdir(tmp_path)
     assert main(["generate", "datasets"]) == 0
-    assert (tmp_path / "analytics" / "datasets.py").read_text() == generate_datasets(schema).source
+    # init places datasets.py beside app.py, so the default must match that layout.
+    assert (tmp_path / "datasets.py").read_text() == generate_datasets(schema).source
+    assert main(["generate:datasets", "--check"]) == 0
     assert main(["generate", "datasets", "--path", "project"]) == 0
     assert (tmp_path / "project" / "datasets.py").exists()
+
+
+def test_tenant_refusal_happens_before_discovery(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    output = tmp_path / "datasets.py"
+    output.write_text('orders = dataset(tenant_key="tenant_id")\n')
+
+    def fail(**_: object) -> None:
+        pytest.fail("tenant refusal must not connect to ClickHouse")
+
+    monkeypatch.setattr("hypequery.cli.commands.generate.discover_schema", fail)
+    assert main(["generate", "datasets", "--output", str(output), "--force"]) == 1
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        'orders = orders.model_copy(update={"tenant_key": "tenant_id"})\n',
+        'orders.tenant_key = "tenant_id"\n',
+        'orders = Dataset.model_validate({"tenant_key": "tenant_id"})\n',
+    ],
+)
+def test_indirect_tenant_configuration_detected(source: str) -> None:
+    assert has_tenant_configuration(source)
+
+
+def test_generated_definitions_are_replaceable(schema: Schema) -> None:
+    assert not has_tenant_configuration(generate_datasets(schema).source)
 
 
 def test_tenant_boundary_cannot_be_erased(tmp_path: Path, schema: Schema) -> None:
@@ -148,6 +179,45 @@ def test_replacement_does_not_widen_permissions(tmp_path: Path) -> None:
     GeneratedFile(path).write("replacement", overwrite=True)
     assert path.read_text() == "replacement"
     assert path.stat().st_mode & 0o777 == 0o400
+
+
+def test_replacement_preserves_shared_read_permissions(tmp_path: Path) -> None:
+    path = tmp_path / "datasets.py"
+    path.write_text("original")
+    path.chmod(0o644)
+    GeneratedFile(path).write("replacement", overwrite=True)
+    assert path.stat().st_mode & 0o777 == 0o644
+
+
+def test_new_file_uses_umask_default(tmp_path: Path) -> None:
+    previous = os.umask(0o022)
+    try:
+        GeneratedFile(tmp_path / "datasets.py").write("# generated\n", overwrite=False)
+    finally:
+        os.umask(previous)
+    assert (tmp_path / "datasets.py").stat().st_mode & 0o777 == 0o644
+
+
+def test_create_without_hard_links(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    def unsupported(*_: object) -> None:
+        raise PermissionError("hard links unsupported")
+
+    monkeypatch.setattr(os, "link", unsupported)
+    path = tmp_path / "datasets.py"
+    GeneratedFile(path).write("# generated\n", overwrite=False)
+    assert path.read_text() == "# generated\n"
+    assert list(tmp_path.iterdir()) == [path]
+
+
+def test_stale_lock_reports_owner(tmp_path: Path) -> None:
+    path = tmp_path / "datasets.py"
+    lock = tmp_path / ".datasets.py.lock"
+    lock.mkdir()
+    (lock / "pid").write_text("4242\n")
+    with pytest.raises(CliError, match="process 4242"):
+        GeneratedFile(path).write("# generated\n", overwrite=False)
+    assert not path.exists()
+    assert (lock / "pid").exists()
 
 
 def test_discovery_failure_never_writes(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
