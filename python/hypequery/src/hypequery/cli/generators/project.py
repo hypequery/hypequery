@@ -13,6 +13,9 @@ def schema_templates(
 ) -> dict[str, str]:
     result = templates.copy()
     result.pop("seed.sql")
+    result["pyproject.toml"] = templates["pyproject.toml"].replace(
+        'py-modules = ["app"]', 'py-modules = ["app", "datasets"]'
+    )
     result["datasets.py"] = generated.source
     result["schema.json"] = generated.snapshot
     result["app.py"] = """import os
