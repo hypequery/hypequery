@@ -2,7 +2,7 @@ import { readFile, writeFile } from 'node:fs/promises';
 import { renderTelemetryCatalog } from '../dist/utils/telemetry/catalog-docs.js';
 
 const page = new URL('../../../website-next/docs/telemetry.mdx', import.meta.url);
-const marker = '<!-- telemetry-catalog -->';
+const marker = '{/* telemetry-catalog */}';
 const contents = await readFile(page, 'utf8');
 const start = contents.indexOf(marker);
 if (start < 0) throw new Error('Telemetry docs catalog marker is missing.');

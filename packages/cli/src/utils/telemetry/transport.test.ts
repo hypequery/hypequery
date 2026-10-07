@@ -87,4 +87,18 @@ describe('bounded telemetry transport', () => {
     expect(fetch).not.toHaveBeenCalled();
     expect(write).not.toHaveBeenCalled();
   });
+  it('ignores a 410 returned after the deadline even when fetch ignores abort', async () => {
+    vi.useFakeTimers();
+    try {
+      const onDisabled = vi.fn(async () => undefined);
+      const transport = new TelemetryTransport({ enabled: true, endpoint: 'https://telemetry.example',
+        fetch: () => new Promise(resolve => setTimeout(() => resolve(new Response(null, { status: 410 })), FLUSH_TIMEOUT_MS + 1)), onDisabled });
+      transport.enqueue(completed);
+      const flush = transport.flush();
+      await vi.advanceTimersByTimeAsync(FLUSH_TIMEOUT_MS);
+      await flush;
+      await vi.advanceTimersByTimeAsync(1);
+      expect(onDisabled).not.toHaveBeenCalled();
+    } finally { vi.useRealTimers(); }
+  });
 });

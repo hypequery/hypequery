@@ -10,6 +10,17 @@ export function flagNames(command: TelemetryCommand, args: readonly string[]): T
   const flags = new Set<TelemetryFlag>();
   for (const arg of args) {
     if (arg === '--') break;
+    if (/^-[^-].+/.test(arg)) {
+      for (const letter of arg.slice(1)) {
+        const short = `-${letter}`;
+        const canonical = short === '-h' && command !== 'dev' ? '--help' : SHORT_FLAGS[short as keyof typeof SHORT_FLAGS];
+        if (!canonical || !allowed.includes(canonical)) break;
+        flags.add(canonical as TelemetryFlag);
+        // The remainder is an attached value, never another flag.
+        if (['--output', '--port', '--hostname'].includes(canonical)) break;
+      }
+      continue;
+    }
     const name = arg.split('=', 1)[0];
     const canonical = name === '-h' && command !== 'dev'
       ? '--help' : SHORT_FLAGS[name as keyof typeof SHORT_FLAGS] ?? name;
