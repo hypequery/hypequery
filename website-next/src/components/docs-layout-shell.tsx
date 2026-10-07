@@ -12,7 +12,7 @@ import { baseOptions } from '@/lib/layout.shared';
 const LANGUAGE_ICONS: Record<string, React.ReactNode> = {
   TypeScript: <SiTypescript color="#3178C6" />,
   Python: <SiPython color="#3776AB" />,
-  Cloud: <Cloud className="text-fd-primary" />,
+  Cloud: <Cloud className="size-3.5 text-fd-primary" />,
 };
 
 function withIcon(tab: LayoutTab): LayoutTab {
