@@ -26,6 +26,17 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         action="store_true",
         help="explicit offline example; no schema discovery",
     )
+    generate = commands.add_parser("generate", help="generate Python definitions from ClickHouse")
+    targets = generate.add_subparsers(dest="target", required=True)
+    datasets = targets.add_parser("datasets", help="generate dataset definitions")
+    destination = datasets.add_mutually_exclusive_group()
+    destination.add_argument("--output", help="output file (default: analytics/datasets.py)")
+    destination.add_argument("--path", help="output directory containing datasets.py")
+    datasets.add_argument("--tables", help="comma-separated tables to inspect (default: all)")
+    datasets.add_argument("--exclude-tables", help="comma-separated tables to omit")
+    datasets.add_argument("--check", action="store_true", help="exit 1 on drift without writing")
+    datasets.add_argument("--diff", action="store_true", help="show drift without writing; exit 1")
+    datasets.add_argument("--force", action="store_true", help="replace existing definitions")
     dev = commands.add_parser("dev", help="serve a local app (requires the fastapi extra)")
     dev.add_argument("app", nargs="?", default="app:app", help="import string (default: app:app)")
     dev.add_argument(
@@ -45,10 +56,10 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     )
     dev.set_defaults(reload=True)
     help_command = commands.add_parser("help", help="show help for a command")
-    help_command.add_argument("topic", nargs="?", choices=("init", "dev"))
+    help_command.add_argument("topic", nargs="?", choices=("init", "dev", "generate"))
     args = parser.parse_args(argv)
     if args.command == "help":
-        {None: parser, "init": init, "dev": dev}[args.topic].print_help()
+        {None: parser, "init": init, "dev": dev, "generate": generate}[args.topic].print_help()
         parser.exit()
     if args.command == "init":
         if args.directory is not None and args.path is not None:
@@ -58,6 +69,8 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
             parser.error("--all-tables cannot be combined with --tables")
         if args.skip_connection and (args.tables or args.exclude_tables or args.all_tables):
             parser.error("table selection requires a database connection")
+    if args.command == "generate" and args.force and (args.check or args.diff):
+        parser.error("--force cannot be combined with --check or --diff")
     if args.command == "dev" and not 0 < args.port < 65536:
         parser.error("--port must be between 1 and 65535")
     return args

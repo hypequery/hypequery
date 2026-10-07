@@ -88,6 +88,8 @@ print(json.dumps({'version': version('hypequery')}))
                 ["--help"],
                 ["init", "--help"],
                 ["dev", "--help"],
+                ["generate", "datasets", "--help"],
+                ["help", "generate"],
                 ["help"],
                 ["help", "init"],
                 ["help", "dev"],
@@ -186,6 +188,37 @@ finally:
                 ]
             )
             self._serve(schema_expected=json.loads(ground_truth.stdout))
+            args = [
+                str(self.cli),
+                "generate",
+                "datasets",
+                "--output",
+                str(self.project / "datasets.py"),
+                "--tables",
+                "orders",
+            ]
+            self._run([*args, "--check"])
+            original = (self.project / "datasets.py").read_bytes()
+            clickhouse(f"ALTER TABLE {database}.orders ADD COLUMN regeneration_probe String")
+            for flag in ("--check", "--diff"):
+                result = subprocess.run(  # noqa: S603
+                    [*args, flag],
+                    cwd=self.project,
+                    env=self.env,
+                    capture_output=True,
+                    text=True,
+                    timeout=30,
+                    check=False,
+                )
+                require(result.returncode == 1, "Schema drift must return status 1")
+                require(
+                    (self.project / "datasets.py").read_bytes() == original,
+                    "Read-only regeneration changed definitions",
+                )
+                if flag == "--diff":
+                    require("regenerationProbe" in result.stdout, "Diff missed added column")
+            self._run([*args, "--force"])
+            self._run([*args, "--check"])
         finally:
             clickhouse(f"DROP DATABASE IF EXISTS {database}")
 

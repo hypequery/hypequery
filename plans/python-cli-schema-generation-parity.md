@@ -40,8 +40,28 @@ Qualify sources with the actual database to avoid silently querying a different
 source when runtime connection settings change. Refuse existing output paths and
 roll back newly written files on failure. Discovery does not seed or modify data.
 
+## Regeneration contract
+
+`hypequery generate datasets` writes `analytics/datasets.py`, matching the
+TypeScript command's directory and using Python's file extension. `--output`
+selects a file; `--path` selects a directory. Table inclusion and exclusion reuse
+init's metadata discovery. Repeat the original selection on every regeneration.
+
+`--check` and `--diff` never create directories or change files; drift or a missing
+file exits 1. Equal contents exit 0 without changing the modification time.
+Existing differing files require `--force`; force cannot be combined with either
+read-only option. Writes use a private temporary file, exclusive creation or atomic
+replacement, and cleanup on failure. Symlink destinations and parents are refused.
+Replacement permissions never become more permissive.
+
+Generation replaces definitions as a whole; review custom measures and relationships
+before forcing. Unlike the TypeScript command, Python refuses to force-replace an
+explicit `tenant_key`, requiring a separate generated file and a manual merge.
+Tenant-column inference and automatic auth configuration remain unimplemented.
+The `schema.json` from init is explicitly an initial discovery snapshot, not a
+current catalog cache. Regeneration only updates the requested Python file.
+
 ## Remaining TypeScript-only scope
 
-Safe in-place `generate datasets --diff/--check/--force`, chDB, and context-auth
-scaffolding remain separate Python work. Refresh by generating into a new directory
-and reviewing the diff. Do not claim these capabilities as implemented in Python.
+chDB, explicit tenant-column generation and context-auth scaffolding remain separate
+Python work. Do not claim these capabilities as implemented in Python.
