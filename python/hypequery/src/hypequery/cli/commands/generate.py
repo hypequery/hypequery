@@ -49,7 +49,7 @@ def run(args: object) -> None:
         if has_tenant_configuration(current):
             raise CliError(
                 "Refusing to replace configured tenant boundaries. Generate to a separate "
-                "file and merge schema changes while preserving tenant_key."
+                "file and merge schema changes while preserving tenant_key or indirect settings."
             )
     output.write(generated.source, overwrite=options.force)
     print(f"{'Created' if current is None else 'Updated'} dataset definitions: {output.path}")

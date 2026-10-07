@@ -56,7 +56,14 @@ Replacement permissions never become more permissive.
 
 Generation replaces definitions as a whole; review custom measures and relationships
 before forcing. Unlike the TypeScript command, Python refuses to force-replace an
-explicit `tenant_key`, requiring a separate generated file and a manual merge.
+explicit `tenant_key` or keyword-unpacked settings that cannot be verified without
+executing authored code, requiring a separate generated file and a manual merge.
+Writes compare content and file identity with the pre-discovery snapshot; changes
+or a newly created destination abort even with `--force`. A per-output lock directory
+coordinates CLI writers through validation and replacement. It does not lock ordinary
+editors: avoid editing definitions during regeneration. On a crashed invocation,
+remove a leftover `.datasets.py.lock` directory only after confirming its owner stopped.
+Competing generators may create shared parent directories without causing failure.
 Tenant-column inference and automatic auth configuration remain unimplemented.
 The `schema.json` from init is explicitly an initial discovery snapshot, not a
 current catalog cache. Regeneration only updates the requested Python file.

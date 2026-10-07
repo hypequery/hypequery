@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import runpy
 from pathlib import Path
 
 import pytest
@@ -118,7 +119,7 @@ def test_exclusive_create_preserves_competing_file(tmp_path: Path) -> None:
     file = GeneratedFile(path)
     assert file.read() is None
     path.write_text("concurrent writer")
-    with pytest.raises(CliError, match="Refusing to overwrite"):
+    with pytest.raises(CliError, match="changed since discovery"):
         file.write("generated", overwrite=False)
     assert path.read_text() == "concurrent writer"
     assert list(tmp_path.iterdir()) == [path]
@@ -160,3 +161,108 @@ def test_discovery_failure_never_writes(tmp_path: Path, monkeypatch: pytest.Monk
     assert main(["generate", "datasets", "--output", str(path), "--force"]) == 1
     assert path.read_text() == "original"
     assert list(tmp_path.iterdir()) == [path]
+
+
+@pytest.mark.parametrize(
+    "settings",
+    [
+        '**{"tenant_key": "tenant_id"}',
+        "**settings",
+        'tenant_key="tenant_id"',
+    ],
+)
+def test_valid_tenant_definitions_preserved(tmp_path: Path, schema: Schema, settings: str) -> None:
+    path = tmp_path / "datasets.py"
+    source = (
+        "from hypequery.datasets import dataset, dimension, measure\n"
+        'settings = {"tenant_key": "tenant_id"}\n'
+        'orders = dataset(name="Orders", source="analytics.orders", '
+        'dimensions={"tenantId": dimension.string(column="tenant_id"), '
+        '"id": dimension.number(column="id")}, '
+        'measures={"totalCount": measure.count("rows", sql="1")}, '
+        f"{settings})\n"
+    )
+    path.write_text(source)
+    assert runpy.run_path(str(path))["orders"].tenant_key == "tenant_id"
+    assert main(["generate", "datasets", "--output", str(path), "--force"]) == 1
+    assert path.read_text() == source
+
+
+@pytest.mark.parametrize("exists", [True, False])
+def test_changes_during_discovery_preserved(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, schema: Schema, exists: bool
+) -> None:
+    path = tmp_path / "datasets.py"
+    if exists:
+        path.write_text("# original definitions\n")
+    replacement = 'orders = dataset(tenant_key="tenant_id")\n'
+
+    def discover(**_: object) -> Schema:
+        path.write_text(replacement)
+        return schema
+
+    monkeypatch.setattr("hypequery.cli.commands.generate.discover_schema", discover)
+    assert main(["generate", "datasets", "--output", str(path), "--force"]) == 1
+    assert path.read_text() == replacement
+    assert list(tmp_path.iterdir()) == [path]
+
+
+def test_changes_during_temporary_write_preserved(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    path = tmp_path / "datasets.py"
+    path.write_text("# original\n")
+    output = GeneratedFile(path)
+    output.read()
+    fsync = os.fsync
+
+    def concurrent_write(fd: int) -> None:
+        path.write_text('orders = dataset(tenant_key="tenant_id")\n')
+        fsync(fd)
+
+    monkeypatch.setattr(os, "fsync", concurrent_write)
+    with pytest.raises(CliError, match="changed since discovery"):
+        output.write("# replacement\n", overwrite=True)
+    assert "tenant_key" in path.read_text()
+    assert list(tmp_path.iterdir()) == [path]
+
+
+def test_cli_lock_protects_validation_through_replacement(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    path = tmp_path / "datasets.py"
+    path.write_text("# original\n")
+    competing = GeneratedFile(path)
+    competing.read()
+    replace = os.replace
+
+    def concurrent_writer(source: Path, destination: Path) -> None:
+        with pytest.raises(CliError, match="Another generator"):
+            competing.write("# competing\n", overwrite=True)
+        replace(source, destination)
+
+    monkeypatch.setattr(os, "replace", concurrent_writer)
+    GeneratedFile(path).write("# replacement\n", overwrite=True)
+    assert path.read_text() == "# replacement\n"
+    assert list(tmp_path.iterdir()) == [path]
+
+
+def test_parent_created_by_competing_generator_is_accepted(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    parent = tmp_path / "shared"
+    mkdir = Path.mkdir
+
+    def concurrent_parent(
+        path: Path, mode: int = 0o777, parents: bool = False, exist_ok: bool = False
+    ) -> None:
+        if path == parent and not path.exists():
+            mkdir(path)
+            (path / "other.py").write_text("# other generator\n")
+            raise FileExistsError
+        mkdir(path, mode=mode, parents=parents, exist_ok=exist_ok)
+
+    monkeypatch.setattr(Path, "mkdir", concurrent_parent)
+    GeneratedFile(parent / "datasets.py").write("# generated\n", overwrite=False)
+    assert (parent / "datasets.py").read_text() == "# generated\n"
+    assert (parent / "other.py").exists()
