@@ -22,7 +22,24 @@ from pathlib import Path
 FORBIDDEN_NAMES = frozenset({".env", ".venv", "node_modules", "__pycache__", ".DS_Store", ".git"})
 
 # Everything the package needs in order to be usable and typed.
-REQUIRED_WHEEL_ENTRIES = ("hypequery/__init__.py", "hypequery/py.typed")
+REQUIRED_TEMPLATE_ENTRIES = tuple(
+    f"hypequery/cli/templates/{name}"
+    for name in (
+        "app.py",
+        "pyproject.toml.template",
+        ".env.example",
+        ".gitignore",
+        "README.md",
+        "seed.sql",
+    )
+)
+REQUIRED_WHEEL_ENTRIES = (
+    "hypequery/__init__.py",
+    "hypequery/__main__.py",
+    "hypequery/py.typed",
+    "hypequery/cli/__init__.py",
+    *REQUIRED_TEMPLATE_ENTRIES,
+)
 
 
 def _is_forbidden(path: str) -> str | None:
@@ -59,6 +76,10 @@ def audit_sdist(path: Path) -> list[str]:
     with tarfile.open(path) as archive:
         names = archive.getnames()
         problems = _check_forbidden("sdist", names)
+        relative_names = {"/".join(Path(name).parts[1:]) for name in names}
+        for required in REQUIRED_TEMPLATE_ENTRIES:
+            if f"src/{required}" not in relative_names:
+                problems.append(f"sdist is missing {required!r}")
 
         # Hatchling always bundles the nearest .gitignore. In a monorepo that
         # can be the repository root's, which leaks unrelated project layout.

@@ -6,6 +6,24 @@ A Python semantic layer for ClickHouse datasets, metrics, multi-tenant analytics
 > the shared protocol fixtures, but the package is not yet published to PyPI and
 > its APIs may still change. Do not use it in production yet.
 
+## Schema-backed Python CLI
+
+Install `hypequery[fastapi,clickhouse]`, export your `CLICKHOUSE_*` connection
+settings, then run `hypequery init --path analytics --tables orders,customers`.
+The default inspects actual catalog metadata and generates `datasets.py`, a
+`schema.json` snapshot, and authenticated endpoints for selected tables.
+`--exclude-tables` omits tables; all tables are selected by default.
+
+Physical names map to the same camelCase semantic names as the TypeScript CLI.
+Numeric value fields get suggested sum/average measures; IDs and coordinates
+remain dimensions. Unsupported columns and tenant candidates are reported.
+Review business semantics and configure tenant isolation explicitly. No database
+writes or automatic relationship inference occur during discovery.
+
+`--skip-connection` explicitly creates the offline orders demo with `seed.sql`.
+Existing output paths are never overwritten. See the
+[TypeScript reference and parity contract](../../plans/python-cli-schema-generation-parity.md).
+
 ## Getting started
 
 From zero to a served dataset. You need Python 3.11+ and a ClickHouse server.

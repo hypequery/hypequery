@@ -50,14 +50,14 @@ def _write_sdist(path: Path, entries: dict[str, bytes]) -> None:
 
 def _good_wheel_entries() -> dict[str, bytes]:
     return {
-        "hypequery/__init__.py": b"",
-        "hypequery/py.typed": b"",
+        **dict.fromkeys(audit.REQUIRED_WHEEL_ENTRIES, b""),
         "hypequery-0.1.0.dist-info/METADATA": b"Name: hypequery\n",
     }
 
 
 def _good_sdist_entries() -> dict[str, bytes]:
     return {
+        **{f"hypequery-0.1.0/src/{name}": b"" for name in audit.REQUIRED_TEMPLATE_ENTRIES},
         "hypequery-0.1.0/pyproject.toml": b"",
         "hypequery-0.1.0/README.md": b"",
         "hypequery-0.1.0/.gitignore": PACKAGE_GITIGNORE,
@@ -112,3 +112,26 @@ def test_errors_when_artifacts_absent(tmp_path: Path) -> None:
     empty = tmp_path / "dist"
     empty.mkdir()
     assert audit.main(["audit", str(empty)]) == 2
+
+
+@pytest.mark.parametrize("artifact", ["wheel", "sdist"])
+@pytest.mark.parametrize(
+    "missing",
+    [
+        "app.py",
+        "pyproject.toml.template",
+        ".env.example",
+        ".gitignore",
+        "README.md",
+        "seed.sql",
+    ],
+)
+def test_rejects_missing_scaffold_resource(tmp_path: Path, artifact: str, missing: str) -> None:
+    wheel = _good_wheel_entries()
+    sdist = _good_sdist_entries()
+    if artifact == "wheel":
+        del wheel[f"hypequery/cli/templates/{missing}"]
+    else:
+        del sdist[f"hypequery-0.1.0/src/hypequery/cli/templates/{missing}"]
+    dist = _build(tmp_path, wheel, sdist)
+    assert audit.main(["audit", str(dist)]) == 1
