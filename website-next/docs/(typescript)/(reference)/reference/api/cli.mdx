@@ -72,9 +72,7 @@ npx hypequery dev
 | `hypequery generate` | Rebuild `analytics/schema.ts` from your current ClickHouse schema |
 | `hypequery generate:types` | Alias for `hypequery generate` |
 | `hypequery generate:datasets` | Generate dataset (semantic layer) definitions from your ClickHouse schema |
-| `hypequery deploy <cloud>` | Build, release, and deploy a dataset-only Cloud publication, then print where it is served |
 | `hypequery mcp [file]` | Serve this project's datasets to an MCP client over stdio, or check an endpoint with `--self-test` |
-| `hypequery deployment:validate <artifact>` | Verify a deployment bundle or validate contract JSON and report its identity |
 | `hypequery help [command]` | Show help for the CLI or a specific command |
 
 The sections below expand on the supported options and expected behavior for each command.
@@ -315,56 +313,6 @@ npx @hypequery/cli generate:datasets --path analytics --check
 ```
 </CodeBlock>
 
-## `hypequery deploy <cloud>`
-
-Builds the publication module, prepares a release for the logged-in target,
-and submits it. Once Cloud accepts the release, the CLI prints where it's
-served:
-
-<CodeBlock>
-```text
-Hosted endpoints
-  REST  https://<environment-slug>.hypequery.app
-    orders  POST https://<environment-slug>.hypequery.app/api/analytics/datasets/orders/query
-  MCP   https://<environment-slug>.hypequery.app/mcp
-```
-</CodeBlock>
-
-Cloud provides these URLs, so the CLI follows Cloud's current routing. A live
-release is required before dataset calls work. A Cloud release that doesn't
-provide endpoint details leaves deploy output unchanged.
-
-| Option | Description |
-| --- | --- |
-| `--mcp-config` | Also print MCP client configuration for the hosted endpoint. It reads the key from `${HYPEQUERY_API_KEY}` and never contains a credential |
-| `--project`, `--environment` | Override the target from `hypequery login` |
-| `--replace-restored` | Replace a live release that was restored from history |
-| `--no-source` | Leave project source files out of the bundle |
-
-## `hypequery deployment:status`
-
-Shows the current release and Cloud-provided REST and MCP URLs without building
-or deploying again. It uses the target and deployment credential saved by
-`hypequery login`. With an explicit deployment credential, pass both
-`--project` and `--environment`.
-
-<CodeBlock>
-```bash
-npx hypequery deployment:status
-npx hypequery deployment:status --mcp-config
-```
-</CodeBlock>
-
-The command says when no release is live. Its optional MCP configuration uses
-`${HYPEQUERY_API_KEY}` as a placeholder and never includes the stored deployment
-credential.
-
-| Option | Description |
-| --- | --- |
-| `--project`, `--environment` | Override the target from `hypequery login`; pass both together |
-| `--endpoint` | Use an explicit Cloud submission endpoint with `HYPEQUERY_API_TOKEN` |
-| `--mcp-config` | Also print MCP client configuration for the hosted endpoint |
-
 ## `hypequery mcp [file]`
 
 Serves the project's datasets over stdio for a local MCP client.
@@ -379,14 +327,10 @@ Run it from your project directory so the file's imports resolve. See [MCP](/doc
 | `--path <dir>` | Analytics directory to load the API file from, as with `hypequery dev --path` |
 | `--tenant <id>` | Trusted tenant for tenant-scoped datasets (required when any dataset is tenant-scoped) |
 | `--self-test` | Check the entrypoint and exit. It fails if `@hypequery/mcp` isn't installed |
-| `--self-test --url <mcp-url>` | Check a hosted endpoint instead: initialize and list tools, without calling one. The runtime API key is read from `HYPEQUERY_API_KEY` rather than a command argument |
-
-Supply `HYPEQUERY_API_KEY` through your environment or secret manager before
-running the check; the command never takes the key as an argument.
 
 <CodeBlock>
 ```bash
-npx hypequery mcp --self-test --url https://<environment-slug>.hypequery.app/mcp
+npx hypequery mcp --self-test
 ```
 </CodeBlock>
 

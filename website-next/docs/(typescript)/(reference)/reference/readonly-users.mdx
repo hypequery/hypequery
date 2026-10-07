@@ -83,36 +83,3 @@ The same connection option works with `create_async_clickhouse_executor`.
 
 Cancellation and deadlines still stop queries on the server for both levels,
 because the executor cancels with `KILL QUERY`, which read-only users may run.
-
-## hypequery Cloud
-
-Cloud's executor sends `readonly = 2`, server-side cancellation, per-query
-resource limits, and precision-safe integers on every query. A `readonly = 1` user
-refuses those, so Cloud sends it no settings at all, and your profile is the only
-protection those queries get.
-
-When you connect a `readonly = 1` user, setup lists what your profile leaves out,
-for example "Cancelled queries keep running" or "No per-query memory limit". It
-also generates the profile SQL that fixes it. You must confirm before saving.
-
-This profile gives a `readonly = 1` user every protection Cloud relies on:
-
-<CodeBlock>
-```sql
-CREATE SETTINGS PROFILE hypequery_cloud SETTINGS
-    readonly = 1,
-    cancel_http_readonly_queries_on_client_close = 1,
-    output_format_json_quote_64bit_integers = 1,
-    max_execution_time = 25,
-    timeout_overflow_mode = 'throw',
-    max_threads = 8,
-    max_memory_usage = 4294967296,
-    max_result_rows = 20000,
-    max_result_bytes = 67108864,
-    result_overflow_mode = 'throw'
-TO hypequery_user;
-```
-</CodeBlock>
-
-Stricter limits are fine. Keep `max_result_rows` at 10,001 or more, or full pages
-of results will be refused.

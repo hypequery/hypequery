@@ -12,6 +12,8 @@
     "rest-api",
     "mcp",
     "---Reference---",
-    "cli"
+    "cli",
+    "clickhouse-users",
+    "portable-runtime"
   ]
 }

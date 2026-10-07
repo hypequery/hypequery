@@ -106,47 +106,6 @@ fields must not be returned as public diagnostics. The normalized `compiled.quer
 also contains filter values. `toSQL` retains its logical query behavior, including
 the requested limit; use `compileDataset` to preview the actual execution limit.
 
-### UI and cross-language authoring
-
-The UI can author a portable deployment definition directly. Validate it using
-the protocol package, then load it with `rehydrateProtocolDeploymentContract`.
-TypeScript and Python authors export the same deployment vocabulary. Cloud's
-portable runtime rebuilds these definitions and uses the TS dataset compiler;
-Python local execution uses its own native planner.
-
-Providers can use `createPortableSemanticRuntime({ queryBuilder: db })` for both
-`runtime.compile(input)` and `runtime.execute(input)`. Both resolve the same
-activation catalog, tenant context, and row budget. These are trusted adapter
-operations: the deployment data plane or an equivalent provider boundary must
-authenticate and authorize the request before supplying the input. Compilation
-does not run preflight guard statements; execution runs them before reading rows.
-Portable compilation includes `activationRevision` in its structural description
-so the diagnostic record identifies the definition generation used.
-
-Use the shipped capability matrix to enable authoring controls for a target:
-
-<CodeBlock>
-```typescript
-import { DATASET_EXECUTION_CAPABILITIES } from '@hypequery/datasets';
-
-const cloudFeatures = DATASET_EXECUTION_CAPABILITIES.features
-  .filter(feature => feature.cloud)
-  .map(feature => feature.feature);
-```
-</CodeBlock>
-
-The matrix distinguishes protocol representation, TS/Python local support,
-TS/Python publication, and repository Cloud execution. It covers base and derived
-measures, segments, window/shift measures, approximate distinct counts, and sub-day
-grains. It is a conservative feature discovery aid, not per-definition validation
-or a statement that a hosted service has qualified Python deployments.
-
-Publishing currently emits deployment v2. Protocol v3 acceptance alone does not
-enable v3 features in the portable runtime. When adding a portable dataset feature,
-complete its protocol representation, SDK authoring/export, Cloud rehydration and
-execution, and Python native planning; update the matrix and its TS/Python probes
-together. Enable UI controls only for a target whose executable support is present.
-
 ## Execute a dataset
 
 Dataset execution returns an ad hoc selection of dimensions and measures from one dataset.
