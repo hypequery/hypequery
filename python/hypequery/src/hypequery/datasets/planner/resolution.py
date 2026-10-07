@@ -9,13 +9,16 @@ input, not a crash, and it fails before a statement is built rather than after.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import cast
 
 from ..constants import QUERYABLE_RELATIONSHIP_KINDS
 from ..dataset import Dataset
+from ..derived_measures import DerivedMeasure
 from ..dimensions import Dimension
 from ..measures import Measure
 from ..registry import DatasetRegistry
 from ..relationships import Relationship
+from ..utils.derived_measures import base_measure_names, formula_references
 from ..utils.relationship_measures import relationship_measure_error
 from .errors import CompiledQueryError
 from .query import DatasetQuery
@@ -148,7 +151,7 @@ def resolve_relationship_measure(
         relationship=relationship,
         target=target,
         measure_name=measure_name,
-        measure=target.measures[measure_name],
+        measure=cast(Measure, target.measures[measure_name]),
     )
 
 
@@ -180,11 +183,25 @@ def references_a_relationship(dataset: Dataset, query: DatasetQuery) -> bool:
         *(resolve_filter_field(dataset, item.field) for item in query.filters),
         *(order.field for order in query.order_by),
     ]
-    selected_measures = query.measures if query.measures is not None else dataset.measures
+    selected_measures = (
+        query.measures if query.measures is not None else base_measure_names(dataset.measures)
+    )
     for measure_name in selected_measures:
         names.append(measure_name)
         measure = dataset.measures.get(measure_name)
-        if measure is not None:
+        if isinstance(measure, DerivedMeasure):
+            # Only local dependencies are allowed, but their filters may traverse joins.
+            pending = list(formula_references(measure.formula))
+            while pending:
+                dependency = dataset.measures[pending.pop()]
+                if isinstance(dependency, DerivedMeasure):
+                    pending.extend(formula_references(dependency.formula))
+                else:
+                    names.extend(
+                        resolve_filter_field(dataset, item.field)
+                        for item in dependency.filters or ()
+                    )
+        elif measure is not None:
             names.extend(
                 resolve_filter_field(dataset, item.field) for item in measure.filters or ()
             )

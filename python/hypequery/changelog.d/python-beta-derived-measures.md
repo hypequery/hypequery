@@ -1,0 +1,2 @@
+- Add `measure.derived(formula)` over local numeric measures, including validated references/dependency cycles, aggregate planning, HAVING, HTTP serving, and safe discovery.
+- Emit derived formulas and inputs in catalogs, semantic snapshots and deployment contract 2, with shared TypeScript fixtures. Chained derived measures execute locally but cannot be exported under contract 2; relationship traversal remains limited to base measures.

@@ -1,3 +1,5 @@
+import type { ProtocolExpression } from '@hypequery/protocol';
+import { derivedMeasureExpression } from './utils/protocol-metric-expressions.js';
 import { listRelationshipMeasures } from './utils/relationship-measures.js';
 import { inheritedBaseMeasure } from './utils/measure-dependencies.js';
 import { windowCatalogMetadata, type WindowCatalogMetadata } from './utils/window-catalog-metadata.js';
@@ -52,6 +54,8 @@ export interface MeasureCatalogEntry extends SemanticMetadata, WindowCatalogMeta
 }
 
 export interface DerivedMeasureCatalogEntry extends SemanticMetadata, WindowCatalogMetadata {
+  uses?: { alias: string; measure: string }[];
+  expression?: ProtocolExpression;
   label?: string;
   description?: string;
   /** Present, as `true`, when any measure the formula uses is approximate. */
@@ -283,6 +287,8 @@ export function getDatasetCatalog(dataset: DatasetCatalogSource): DatasetCatalog
           name,
           {
             ...snapshotSemanticMetadata(definition),
+            uses: Object.entries(definition.uses).map(([alias, measure]) => ({ alias, measure })),
+            expression: derivedMeasureExpression(definition),
             ...(usesTimeMeasure(definition, dataset.measures) ? {
               requiresTimeRange: true as const,
               supportedGrains: measureSupportedGrains(dataset.measures, name, supportedGrains),

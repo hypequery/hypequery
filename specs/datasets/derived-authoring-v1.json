@@ -1,0 +1,204 @@
+{
+  "kind": "hypequery-deployment",
+  "version": 2,
+  "datasets": [
+    {
+      "name": "orders",
+      "source": "test_db.beta_derived",
+      "tenant": {
+        "kind": "required",
+        "field": "tenant_id"
+      },
+      "dimensions": [
+        {
+          "name": "amount",
+          "type": "number",
+          "source": {
+            "kind": "column",
+            "column": "amount"
+          },
+          "filterable": true,
+          "groupable": true
+        },
+        {
+          "name": "category",
+          "type": "string",
+          "source": {
+            "kind": "column",
+            "column": "category"
+          },
+          "filterable": true,
+          "groupable": true
+        },
+        {
+          "name": "status",
+          "type": "string",
+          "source": {
+            "kind": "column",
+            "column": "status"
+          },
+          "filterable": true,
+          "groupable": true
+        }
+      ],
+      "measures": [
+        {
+          "name": "orders",
+          "aggregation": "count",
+          "field": "amount",
+          "filters": []
+        },
+        {
+          "name": "paidRevenue",
+          "aggregation": "sum",
+          "field": "amount",
+          "filters": [
+            {
+              "kind": "comparison",
+              "operator": "eq",
+              "left": {
+                "kind": "reference",
+                "name": "status"
+              },
+              "right": {
+                "kind": "literal",
+                "value": "paid"
+              }
+            }
+          ]
+        },
+        {
+          "name": "revenue",
+          "aggregation": "sum",
+          "field": "amount",
+          "filters": []
+        },
+        {
+          "kind": "derived",
+          "name": "average",
+          "uses": [
+            {
+              "alias": "revenue",
+              "measure": "revenue"
+            },
+            {
+              "alias": "orders",
+              "measure": "orders"
+            }
+          ],
+          "expression": {
+            "kind": "binary",
+            "operator": "divide",
+            "left": {
+              "kind": "reference",
+              "name": "revenue"
+            },
+            "right": {
+              "kind": "call",
+              "function": "nullIfZero",
+              "args": [
+                {
+                  "kind": "reference",
+                  "name": "orders"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "kind": "derived",
+          "name": "paidRate",
+          "uses": [
+            {
+              "alias": "paidRevenue",
+              "measure": "paidRevenue"
+            },
+            {
+              "alias": "revenue",
+              "measure": "revenue"
+            }
+          ],
+          "expression": {
+            "kind": "call",
+            "function": "coalesce",
+            "args": [
+              {
+                "kind": "binary",
+                "operator": "divide",
+                "left": {
+                  "kind": "reference",
+                  "name": "paidRevenue"
+                },
+                "right": {
+                  "kind": "call",
+                  "function": "nullIfZero",
+                  "args": [
+                    {
+                      "kind": "reference",
+                      "name": "revenue"
+                    }
+                  ]
+                }
+              },
+              {
+                "kind": "literal",
+                "value": 0.0
+              }
+            ]
+          }
+        }
+      ],
+      "filters": [
+        {
+          "name": "amount",
+          "field": "amount",
+          "operators": [
+            "eq",
+            "neq",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in",
+            "notIn",
+            "between",
+            "like"
+          ]
+        },
+        {
+          "name": "category",
+          "field": "category",
+          "operators": [
+            "eq",
+            "neq",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in",
+            "notIn",
+            "between",
+            "like"
+          ]
+        },
+        {
+          "name": "status",
+          "field": "status",
+          "operators": [
+            "eq",
+            "neq",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in",
+            "notIn",
+            "between",
+            "like"
+          ]
+        }
+      ],
+      "relationships": []
+    }
+  ]
+}

@@ -12,11 +12,14 @@ from dataclasses import dataclass
 from typing import cast
 
 from ..dataset import Dataset
+from ..derived_measures import DerivedMeasure
 from ..dimensions import Dimension
+from ..formulas import Formula, FormulaBinary, FormulaLiteral, FormulaReference
 from ..measures import Measure
 from ..query_helpers import Filter, HavingCondition
 from ..registry import DatasetRegistry
 from ..relationships import Relationship
+from ..utils.derived_measures import base_measure_names
 from ..utils.relationship_measures import measure_filter_field
 from .aliases import BASE_ALIAS, PERIOD_ALIAS
 from .context import ExecutionContext, TenantScope
@@ -108,7 +111,9 @@ class DatasetQueryCompiler:
 
         # An omitted measure list selects every base measure, as `_add_measures` does.
         selected_measures = (
-            query.measures if query.measures is not None else tuple(self.dataset.measures)
+            query.measures
+            if query.measures is not None
+            else base_measure_names(self.dataset.measures)
         )
         for name in query.dimensions:
             if name in selected_measures:
@@ -199,6 +204,8 @@ class DatasetQueryCompiler:
             if owner != relationship_name or measure_name not in target.measures:
                 continue
             measure = target.measures[measure_name]
+            if isinstance(measure, DerivedMeasure):
+                continue
             for field in (measure.field, measure.arg_field):
                 if field is not None:
                     declared = target.dimensions.get(field)
@@ -408,8 +415,46 @@ class DatasetQueryCompiler:
         ]
         return self._with_conditions(aggregate, predicates)
 
+    def _formula_sql(self, formula: Formula) -> str:
+        if isinstance(formula, FormulaReference):
+            return self._local_measure_sql(formula.name)
+        if isinstance(formula, FormulaLiteral):
+            return "NULL" if formula.value is None else self.binder.bind(formula.value, "Float64")
+        if isinstance(formula, FormulaBinary):
+            operators = {"add": "+", "subtract": "-", "multiply": "*", "divide": "/"}
+            left, right = self._formula_sql(formula.left), self._formula_sql(formula.right)
+            return f"({left} {operators[formula.operator]} {right})"
+        if formula.name == "round":
+            decimals = cast(FormulaLiteral, formula.args[1])
+            decimal_parameter = self.binder.bind(decimals.value, "Int64")
+            expression = self._formula_sql(formula.args[0])
+            return f"ROUND({expression}, {decimal_parameter})"
+        args = [self._formula_sql(arg) for arg in formula.args]
+        if formula.name == "nullIfZero":
+            return f"NULLIF({args[0]}, 0)"
+        functions = {"coalesce": "COALESCE", "round": "ROUND", "floor": "FLOOR", "ceil": "CEIL"}
+        return f"{functions[formula.name]}({', '.join(args)})"
+
+    def _local_measure_sql(self, name: str) -> str:
+        if name not in self.measure_sql:
+            measure = self.dataset.measures[name]
+            self.measure_sql[name] = (
+                self._formula_sql(measure.formula)
+                if isinstance(measure, DerivedMeasure)
+                else self._measure_filter_sql(name, measure)
+            )
+        return self.measure_sql[name]
+
     def _add_measures(self, query: DatasetQuery) -> None:
-        names = query.measures if query.measures is not None else tuple(self.dataset.measures)
+        names = (
+            query.measures
+            if query.measures is not None
+            else tuple(
+                name
+                for name, definition in self.dataset.measures.items()
+                if isinstance(definition, Measure)
+            )
+        )
         for name in names:
             if is_qualified(name):
                 alias = SafeIdentifier(name)
@@ -426,7 +471,7 @@ class DatasetQueryCompiler:
                     f"Available: {known}",
                 )
             alias = SafeIdentifier(name)
-            self.measure_sql[name] = self._measure_filter_sql(name, measure)
+            self.measure_sql[name] = self._local_measure_sql(name)
             self.selections.append(aliased(self.measure_sql[name], alias))
             self.orderable[name] = alias
 
@@ -580,13 +625,20 @@ class DatasetQueryCompiler:
         """Conditions on aggregated values, every value bound as a parameter."""
 
         for condition in query.having:
-            expression = self.measure_sql.get(condition.measure)
+            selected = (
+                query.measures
+                if query.measures is not None
+                else base_measure_names(self.dataset.measures)
+            )
+            expression = (
+                self.measure_sql.get(condition.measure) if condition.measure in selected else None
+            )
             if expression is None:
-                selected = ", ".join(self.measure_sql)
+                selected_names = ", ".join(selected)
                 raise CompiledQueryError(
                     "input-invalid",
                     f'Having measure "{condition.measure}" must be one of the selected '
-                    f"measures: {selected}",
+                    f"measures: {selected_names}",
                 )
             values = self._having_numbers(condition)
             operator = condition.operator
