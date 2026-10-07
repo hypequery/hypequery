@@ -369,8 +369,14 @@ credential.
 
 Serves the project's datasets over stdio for a local MCP client.
 
+Without `[file]`, the command looks for a Serve API file in the current directory: `hypequery.ts`,
+`analytics/api.ts`, `src/analytics/api.ts`, `api.ts`, `src/api.ts`, `analytics/queries.ts`, or
+`src/analytics/queries.ts`. It serves the datasets registered with `serve({ queryBuilder, datasets })` in that file.
+Run it from your project directory so the file's imports resolve. See [MCP](/docs/mcp/overview) for client setup.
+
 | Option | Description |
 | --- | --- |
+| `--path <dir>` | Analytics directory to load the API file from, as with `hypequery dev --path` |
 | `--tenant <id>` | Trusted tenant for tenant-scoped datasets (required when any dataset is tenant-scoped) |
 | `--self-test` | Check the entrypoint and exit. It fails if `@hypequery/mcp` isn't installed |
 | `--self-test --url <mcp-url>` | Check a hosted endpoint instead: initialize and list tools, without calling one. The runtime API key is read from `HYPEQUERY_API_KEY` rather than a command argument |

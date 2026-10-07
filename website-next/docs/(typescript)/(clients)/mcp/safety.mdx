@@ -70,7 +70,11 @@ await createMCPServer({
 
 The server forwards that value into dataset execution as runtime tenant context. Agents should not choose tenant ids through filters.
 
-The `hypequery-mcp` CLI does not accept a `tenantId`, so it cannot serve tenant-keyed datasets — startup fails with `MCP server tenantId is required for tenant-scoped datasets`. Serve multi-tenant datasets through the programmatic `createMCPServer({ ..., tenantId })` instead, one process per tenant.
+With the CLI, pass the tenant as `npx hypequery mcp --tenant <id>`. It refuses to start for tenant-scoped datasets without one.
+
+The standalone `hypequery-mcp` binary does not accept a tenant, so it cannot serve tenant-keyed datasets: startup fails with `MCP server tenantId is required for tenant-scoped datasets`. Use `hypequery mcp --tenant` or the programmatic `createMCPServer({ ..., tenantId })` instead.
+
+Either way, one server process serves one tenant.
 
 ## Raw SQL boundary
 

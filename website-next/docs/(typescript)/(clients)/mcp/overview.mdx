@@ -20,7 +20,70 @@ Use MCP when you want an agent to work inside a constrained analytics vocabulary
   MCP is a capability boundary, not an authentication layer. If your data is multi-tenant, read <a href="/docs/mcp/safety">Safety model</a> before exposing a server broadly.
 </Callout>
 
-## Install
+## How it fits together
+
+| Piece | What it does |
+| --- | --- |
+| `hypequery mcp` (CLI) | Starts an MCP server for your project |
+| MCP server (`@hypequery/mcp`) | Gives an agent tools to discover datasets and query them |
+| Datasets | Define what the agent is allowed to query |
+
+## Quick start with the CLI
+
+If your project already serves datasets with `@hypequery/serve`, the CLI can expose them over MCP with no extra
+config. Install the MCP server package alongside the CLI:
+
+<CodeBlock>
+```bash
+npm install @hypequery/mcp
+npm install -D @hypequery/cli
+```
+</CodeBlock>
+
+Then, from your project root:
+
+<CodeBlock>
+```bash
+npx hypequery mcp
+```
+</CodeBlock>
+
+The command finds your Serve API file (`analytics/api.ts`, `hypequery.ts`, or `analytics/queries.ts`, among others)
+and serves the datasets registered with `serve({ queryBuilder, datasets })`. Pass a file to choose one explicitly, or
+`--path` for a different analytics directory:
+
+<CodeBlock>
+```bash
+npx hypequery mcp ./src/analytics/api.ts
+npx hypequery mcp --path src/analytics
+```
+</CodeBlock>
+
+If any dataset has a `tenantKey`, pass the trusted tenant the server should run as. The server refuses to start
+without one:
+
+<CodeBlock>
+```bash
+npx hypequery mcp --tenant acme
+```
+</CodeBlock>
+
+Check the setup without starting the server:
+
+<CodeBlock>
+```bash
+npx hypequery mcp --self-test
+```
+</CodeBlock>
+
+The server speaks MCP over stdio, so an MCP client normally launches it. See [Clients](/docs/mcp/clients) for Claude
+Desktop and Cursor configuration.
+
+## Standalone server
+
+Use `@hypequery/mcp` directly when you don't have a Serve API, or want a dedicated config file for the agent.
+
+### Install
 
 <CodeBlock>
 ```bash
@@ -30,7 +93,7 @@ pnpm add @hypequery/mcp @hypequery/datasets @hypequery/clickhouse
 ```
 </CodeBlock>
 
-## Quick start
+### Config
 
 Create an ESM config file that exports `datasets` and `analytics`.
 

@@ -6,14 +6,50 @@ description: Connect Hypequery MCP to Claude Desktop, Cursor, and other MCP clie
 import { Callout } from 'fumadocs-ui/components/callout';
 import { CodeBlock } from 'fumadocs-ui/components/codeblock';
 
-Hypequery MCP runs over stdio. Your MCP client launches `hypequery-mcp` and passes a config path.
+Hypequery MCP runs over stdio, so your MCP client launches the server. There are two ways to launch it:
 
-## Claude Desktop
+- **`hypequery mcp`** serves the datasets in your Serve API file. The command must run from your project directory,
+  so the client config changes into it first.
+- **`@hypequery/mcp --config`** runs the [standalone server](/docs/mcp/overview#standalone-server) with a dedicated
+  config file.
+
+## Claude Desktop with `hypequery mcp`
 
 Add a server entry to Claude Desktop's config file:
 
 - macOS: `~/Library/Application Support/Claude/claude_desktop_config.json`
 - Windows: `%APPDATA%\Claude\claude_desktop_config.json`
+
+<CodeBlock>
+```json
+{
+  "mcpServers": {
+    "hypequery": {
+      "command": "sh",
+      "args": ["-c", "cd /absolute/path/to/your-project && npx hypequery mcp"],
+      "env": {
+        "CLICKHOUSE_URL": "https://example.clickhouse.cloud:8443",
+        "CLICKHOUSE_USER": "default",
+        "CLICKHOUSE_PASSWORD": "password",
+        "CLICKHOUSE_DATABASE": "analytics"
+      }
+    }
+  }
+}
+```
+</CodeBlock>
+
+On Windows, use `"command": "cmd"` with `"args": ["/c", "cd /d C:\\path\\to\\your-project && npx hypequery mcp"]`.
+Add `--tenant <id>` to the command if any dataset is tenant-scoped. Cursor accepts the same `command`, `args`, and
+`env` in its MCP configuration.
+
+Restart Claude Desktop after changing the config.
+
+## Standalone server
+
+### Claude Desktop
+
+To run the standalone server instead, point the client at your config file:
 
 <CodeBlock>
 ```json
@@ -41,7 +77,7 @@ Add a server entry to Claude Desktop's config file:
 
 Restart Claude Desktop after changing the config.
 
-## Cursor
+### Cursor
 
 Use the same command and arguments in Cursor's MCP configuration:
 
@@ -71,7 +107,16 @@ Use the same command and arguments in Cursor's MCP configuration:
 
 ## Test the server directly
 
-Before connecting a client, run the server from a terminal:
+Before connecting a client, check a `hypequery mcp` setup from your project directory. It loads the API file and
+reports the datasets it would serve, without starting the server:
+
+<CodeBlock>
+```bash
+npx hypequery mcp --self-test
+```
+</CodeBlock>
+
+For the standalone server, run it from a terminal:
 
 <CodeBlock>
 ```bash
