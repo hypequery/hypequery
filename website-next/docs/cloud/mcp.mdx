@@ -1,0 +1,53 @@
+---
+title: MCP
+description: Connect AI agents to your hosted hypequery Cloud datasets over MCP.
+---
+
+import { CodeBlock } from 'fumadocs-ui/components/codeblock';
+import { CloudWaitlistNotice } from '@/components/docs/cloud-waitlist-notice';
+
+<CloudWaitlistNotice />
+
+Every Cloud release also serves an MCP endpoint at `/mcp`, so agents can discover and query the datasets you published.
+
+## Configure a client
+
+Print a client configuration with:
+
+<CodeBlock>
+```bash
+npx hypequery deployment:status --mcp-config
+```
+</CodeBlock>
+
+It looks like this:
+
+<CodeBlock>
+```json
+{
+  "mcpServers": {
+    "hypequery": {
+      "type": "http",
+      "url": "https://<environment-slug>.hypequery.app/mcp",
+      "headers": { "Authorization": "Bearer ${HYPEQUERY_API_KEY}" }
+    }
+  }
+}
+```
+</CodeBlock>
+
+The key is a placeholder your MCP client expands from its environment. The CLI never writes a credential into the
+configuration it prints. Set `HYPEQUERY_API_KEY` in the client's environment or secret manager.
+
+## Check the endpoint
+
+<CodeBlock>
+```bash
+HYPEQUERY_API_KEY=... npx hypequery mcp --self-test --url https://<environment-slug>.hypequery.app/mcp
+```
+</CodeBlock>
+
+The self-test initializes a session and lists the available tools without calling one. A `401` means the API key was
+refused.
+
+For what agents can and cannot do through MCP, see [MCP safety](/docs/mcp/safety).

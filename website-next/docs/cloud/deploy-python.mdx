@@ -1,0 +1,55 @@
+---
+title: Deploy from Python
+description: Publish Python datasets to hypequery Cloud with a deployment bundle and the hypequery CLI.
+---
+
+import { CodeBlock } from 'fumadocs-ui/components/codeblock';
+import { CloudWaitlistNotice } from '@/components/docs/cloud-waitlist-notice';
+
+<CloudWaitlistNotice />
+
+Python projects write a deployment bundle with the Python SDK, then release and submit it with the hypequery CLI. The
+CLI is a Node.js tool, run with `npx`.
+
+## 1. Write a deployment bundle
+
+<CodeBlock>
+```python
+# analytics/cloud.py
+from hypequery.datasets import create_dataset_registry, write_dataset_bundle
+
+from .orders import orders
+
+write_dataset_bundle(
+    "analytics/hypequery-deployment",
+    create_dataset_registry(orders),
+    endpoints={
+        "orders": {
+            "access": {"kind": "authenticated", "roles": ["analyst"], "scopes": []},
+            "tenant": {"kind": "not-required"},
+            "path": "/api/analytics/datasets/orders/query",
+        },
+    },
+)
+```
+</CodeBlock>
+
+Each entry in `endpoints` publishes one dataset with its access policy, tenant requirement, and path.
+
+## 2. Log in, release, and submit
+
+<CodeBlock>
+```bash
+python -m analytics.cloud
+npx hypequery login
+npx hypequery deployment:release analytics/hypequery-deployment
+npx hypequery deployment:submit analytics/hypequery-deployment \
+  --release analytics/hypequery-deployment.release.json
+```
+</CodeBlock>
+
+- `deployment:release` binds the bundle to your project and environment and writes the release beside the bundle.
+- `deployment:submit` uploads both. Once Cloud accepts the release, check where it is served with
+  `npx hypequery deployment:status`.
+
+A one-step `publish_to_cloud` helper for Python, matching TypeScript's `publishToCloud`, is planned.

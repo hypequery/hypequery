@@ -1,0 +1,30 @@
+---
+title: hypequery Cloud
+description: Deploy your datasets as hosted REST and MCP endpoints, without running a server.
+---
+
+import { CloudWaitlistNotice } from '@/components/docs/cloud-waitlist-notice';
+
+<CloudWaitlistNotice />
+
+hypequery Cloud runs your datasets for you. You define datasets in TypeScript or Python as usual, deploy them with the
+hypequery CLI, and Cloud serves them as:
+
+- **REST endpoints** for dashboards, apps, and integrations;
+- an **MCP endpoint** so AI agents can query the datasets you publish.
+
+Cloud is an option, not a requirement. The open-source SDKs run your datasets inside your own app, and you can move
+between self-hosted and Cloud without redefining anything.
+
+## What you get
+
+- **No server to run.** Cloud hosts the endpoints for you.
+- **One deploy for REST and MCP.** Both are served from the same release.
+- **Access control at publish time.** You declare which roles and scopes can query each dataset.
+- **Releases.** Each deploy is a versioned release you can inspect with `hypequery deployment:status`.
+
+## Next steps
+
+- [How it works](/docs/cloud/how-it-works): from dataset definitions to a live release
+- [Deploy from TypeScript](/docs/cloud/deploy-typescript)
+- [Deploy from Python](/docs/cloud/deploy-python)

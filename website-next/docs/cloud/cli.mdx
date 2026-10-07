@@ -1,0 +1,25 @@
+---
+title: CLI commands
+description: hypequery CLI commands for working with hypequery Cloud.
+---
+
+import { CloudWaitlistNotice } from '@/components/docs/cloud-waitlist-notice';
+
+<CloudWaitlistNotice />
+
+| Command | Purpose |
+| --- | --- |
+| `hypequery login` | Authorize this machine with hypequery Cloud and save a default project and environment |
+| `hypequery logout` | Revoke and remove the local Cloud credential |
+| `hypequery deploy <source>` | Build, release, and submit a TypeScript publication in one step |
+| `hypequery deployment:build <cloud>` | Build a verified deployment bundle without releasing it |
+| `hypequery deployment:release <bundle>` | Bind a bundle to a project and environment as a release |
+| `hypequery deployment:submit <bundle> --release <path>` | Submit a prebuilt bundle and release |
+| `hypequery deployment:status` | Show the live release and hosted REST and MCP URLs |
+| `hypequery deployment:validate <artifact>` | Verify a bundle or contract and report its identity |
+| `hypequery pull` | Download the source snapshot from the live deployment |
+| `hypequery diff [source]` | Compare local source with the live deployment |
+| `hypequery mcp --self-test --url <url>` | Check a hosted MCP endpoint |
+
+Most commands accept `--project` and `--environment` to override the target saved by `hypequery login`. See the full
+[CLI reference](/docs/reference/api/cli) for every option.

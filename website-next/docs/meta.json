@@ -1,3 +1,7 @@
 {
-  "pages": ["(typescript)", "python"]
+  "pages": [
+    "(typescript)",
+    "python",
+    "cloud"
+  ]
 }

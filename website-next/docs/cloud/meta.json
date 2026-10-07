@@ -1,0 +1,17 @@
+{
+  "title": "Cloud",
+  "description": "Hosted APIs · waitlist",
+  "root": "language",
+  "pages": [
+    "index",
+    "how-it-works",
+    "---Deploy---",
+    "deploy-typescript",
+    "deploy-python",
+    "---Use---",
+    "rest-api",
+    "mcp",
+    "---Reference---",
+    "cli"
+  ]
+}

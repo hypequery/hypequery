@@ -1,0 +1,39 @@
+---
+title: REST API
+description: Query hosted hypequery Cloud datasets over HTTP.
+---
+
+import { CodeBlock } from 'fumadocs-ui/components/codeblock';
+import { CloudWaitlistNotice } from '@/components/docs/cloud-waitlist-notice';
+
+<CloudWaitlistNotice />
+
+Each published dataset gets a `POST` endpoint. `hypequery deploy` and `hypequery deployment:status` print the exact
+URLs for your environment:
+
+<CodeBlock>
+```text
+POST https://<environment-slug>.hypequery.app/api/analytics/datasets/orders/query
+```
+</CodeBlock>
+
+## Make a request
+
+Send a Cloud API key as a bearer token and a dataset query as JSON:
+
+<CodeBlock>
+```bash
+curl -X POST https://<environment-slug>.hypequery.app/api/analytics/datasets/orders/query \
+  -H "Authorization: Bearer $HYPEQUERY_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"dimensions": ["country"], "measures": ["revenue"], "limit": 10}'
+```
+</CodeBlock>
+
+The body uses the same dataset query format as [self-hosted dataset endpoints](/docs/datasets/serve-integration):
+`dimensions`, `measures`, `filters`, `orderBy`, `by`, `limit`, and `offset`.
+
+## Access
+
+Requests are checked against the roles and scopes you set when publishing the dataset. Keep API keys server-side or in
+your secret manager; never ship them to a browser.

@@ -4,13 +4,15 @@ import { useMemo } from 'react';
 import { DocsLayout } from 'fumadocs-ui/layouts/notebook';
 import { getLayoutTabs, type LayoutTab } from 'fumadocs-ui/layouts/shared';
 import type { Folder, Node, Root } from 'fumadocs-core/page-tree';
+import { Cloud } from 'lucide-react';
 import { SiPython, SiTypescript } from 'react-icons/si';
 import { baseOptions } from '@/lib/layout.shared';
 
-// Brand logos for the language switcher, keyed by the language root's title.
+// Icons for the switcher, keyed by each root's title (TypeScript, Python, Cloud).
 const LANGUAGE_ICONS: Record<string, React.ReactNode> = {
   TypeScript: <SiTypescript color="#3178C6" />,
   Python: <SiPython color="#3776AB" />,
+  Cloud: <Cloud className="text-fd-primary" />,
 };
 
 function withIcon(tab: LayoutTab): LayoutTab {

@@ -1,0 +1,73 @@
+---
+title: Deploy from TypeScript
+description: Publish TypeScript datasets to hypequery Cloud with publishToCloud and hypequery deploy.
+---
+
+import { CodeBlock } from 'fumadocs-ui/components/codeblock';
+import { CloudWaitlistNotice } from '@/components/docs/cloud-waitlist-notice';
+
+<CloudWaitlistNotice />
+
+## 1. Declare what Cloud publishes
+
+Create a deployment entrypoint that exports the result of `publishToCloud` as `cloud`:
+
+<CodeBlock>
+```typescript
+// analytics/cloud.ts
+import { publishToCloud } from '@hypequery/datasets';
+import { orders } from './orders';
+
+export const cloud = publishToCloud({
+  datasets: { orders },
+  access: { roles: ['analyst'], scopes: [] },
+});
+```
+</CodeBlock>
+
+- `datasets` lists the datasets Cloud exposes. Datasets they relate to are included as supporting datasets.
+- `access` is required: the roles and scopes callers need for every published dataset.
+- `datasetAccess` optionally sets a different policy for individual datasets, keyed by published name.
+
+`publishToCloud` makes no network request. It only builds the contract that the CLI uploads.
+
+## 2. Log in
+
+<CodeBlock>
+```bash
+npx hypequery login
+```
+</CodeBlock>
+
+This authorizes the machine with hypequery Cloud and saves your default project and environment.
+
+## 3. Deploy
+
+<CodeBlock>
+```bash
+npx hypequery deploy analytics/cloud.ts
+```
+</CodeBlock>
+
+The CLI builds a bundle, prepares a release for your target, and submits it. Once Cloud accepts the release, it prints
+where the datasets are served:
+
+<CodeBlock>
+```text
+Hosted endpoints
+  REST  https://<environment-slug>.hypequery.app
+    orders  POST https://<environment-slug>.hypequery.app/api/analytics/datasets/orders/query
+  MCP   https://<environment-slug>.hypequery.app/mcp
+```
+</CodeBlock>
+
+Add `--mcp-config` to also print a ready-to-use [MCP client configuration](/docs/cloud/mcp).
+
+## Useful options
+
+| Option | Description |
+| --- | --- |
+| `--project`, `--environment` | Deploy to a different target than the one saved by `hypequery login` |
+| `--no-source` | Leave project source files out of the bundle |
+| `--mcp-config` | Print MCP client configuration for the hosted endpoint |
+| `--replace-restored` | Replace a live release that was restored from history |

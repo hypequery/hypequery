@@ -674,3 +674,5 @@ html.dark .editable-code .cm-hq-number, html[data-theme="dark"] .editable-code .
 html.dark .editable-code .cm-hq-function, html[data-theme="dark"] .editable-code .cm-hq-function { color: #82aaff; }
 html.dark .editable-code .cm-hq-property, html[data-theme="dark"] .editable-code .cm-hq-property { color: #f07178; }
 html.dark .editable-code .cm-hq-type, html[data-theme="dark"] .editable-code .cm-hq-type { color: #ffcb6b; }
+/* No divider when the switcher has no product tabs after it (e.g. Cloud). */
+#nd-subnav [data-header-tabs] > button[aria-haspopup]:last-child::after { display: none; }
