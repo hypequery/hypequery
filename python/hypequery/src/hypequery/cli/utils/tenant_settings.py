@@ -26,10 +26,6 @@ _VALUE_KEYWORDS = frozenset({"column", "name", "source"})
 # such as methodcaller("model_validate") are refused through the caller itself.
 _INDIRECT = frozenset(
     {
-        "__dict__",
-        "__getattribute__",
-        "__import__",
-        "__setattr__",
         "attrgetter",
         "compile",
         "eval",
@@ -39,19 +35,31 @@ _INDIRECT = frozenset(
         "import_module",
         "locals",
         "methodcaller",
+        "model_config",
         "model_construct",
         "model_copy",
+        "model_fields",
+        "model_rebuild",
         "model_validate",
         "model_validate_json",
         "model_validate_strings",
         "run_module",
         "run_path",
         "setattr",
+        "type",
         "validate_json",
         "validate_python",
         "validate_strings",
         "vars",
     }
+)
+
+# Dunder names reach builtins, class internals and frozen-model storage.
+_PLAIN_DUNDERS = frozenset({"__name__", "__file__", "__doc__", "__all__"})
+
+# Standard modules that deserialize objects or load and run code.
+_UNSAFE_MODULES = frozenset(
+    {"code", "codeop", "copyreg", "ctypes", "importlib", "marshal", "pickle", "runpy", "shelve"}
 )
 
 
@@ -104,10 +112,17 @@ def _unsafe(node: ast.AST, exempt: set[int]) -> bool:
     if isinstance(node, ast.Dict):
         return None in node.keys  # {**settings}
     if isinstance(node, ast.Attribute):
-        return node.attr == _SETTING or node.attr in _INDIRECT
+        return node.attr == _SETTING or node.attr in _INDIRECT or _is_dunder(node.attr)
     if isinstance(node, ast.Name):
         # Class defaults, module variables and computed indirection.
-        return node.id == _SETTING or node.id in _INDIRECT
+        return (
+            node.id == _SETTING
+            or node.id in _INDIRECT
+            or (_is_dunder(node.id) and node.id not in _PLAIN_DUNDERS)
+        )
+    if isinstance(node, ast.ClassDef):
+        # Subclasses can default or alias fields under names checked nowhere else.
+        return bool(node.bases or node.keywords)
     if isinstance(node, ast.arg):
         return node.arg == _SETTING
     if isinstance(node, ast.Constant) and isinstance(node.value, str):
@@ -116,13 +131,25 @@ def _unsafe(node: ast.AST, exempt: set[int]) -> bool:
         # Covers mapping keys, subscripts and serialized settings such as JSON.
         return _SETTING in node.value
     if isinstance(node, ast.ImportFrom):
-        return node.level > 0 or not _trusted_module(node.module or "")
+        # Aliases (from operator import attrgetter as pick) would hide refused
+        # callables from the name checks, and star imports hide which names exist.
+        return (
+            node.level > 0
+            or not _trusted_module(node.module or "")
+            or any(alias.name == "*" or alias.name in _INDIRECT for alias in node.names)
+        )
     if isinstance(node, ast.Import):
         return not all(_trusted_module(alias.name) for alias in node.names)
     return False
 
 
+def _is_dunder(name: str) -> bool:
+    return len(name) > 4 and name.startswith("__") and name.endswith("__")
+
+
 def _trusted_module(name: str) -> bool:
     """Project-local modules may supply pre-configured datasets."""
-    root = name.partition(".")[0]
-    return root in {"hypequery", "__future__"} or root in sys.stdlib_module_names
+    root = name.partition(".")[0].lstrip("_")
+    if root in _UNSAFE_MODULES:
+        return False
+    return name == "__future__" or root == "hypequery" or root in sys.stdlib_module_names

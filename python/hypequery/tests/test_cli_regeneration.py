@@ -95,6 +95,20 @@ def test_tenant_refusal_happens_before_discovery(
         "import importlib\norders = importlib.import_module('tenancy').orders\n",
         "from operator import methodcaller\norders = methodcaller('model_validate', s)(Dataset)\n",
         "orders = Dataset.__dict__['model_validate'].__func__(Dataset, settings)\n",
+        # Refused callables renamed or hidden at import.
+        "from operator import attrgetter as pick\n"
+        "orders = pick('model_validate')(Dataset)({'tenant' + '_key': 'tenant_id'})\n",
+        "from builtins import getattr as g\norders = g(Dataset, 'model_validate')(s)\n",
+        "from operator import *\n",
+        # Builtins, frozen-model internals, dynamic classes and deserialization.
+        "orders = __builtins__['getattr'](Dataset, 'model_validate')(s)\n",
+        "object.__setattr__(orders, 'tenant' + '_key', 'tenant_id')\n",
+        "Scoped = type('Scoped', (Dataset,), {'tenant' + '_key': 'tenant_id'})\n",
+        "class Scoped(Dataset):\n    model_config = alias_config\n",
+        "Dataset.model_fields[name].default = 'tenant_id'\n",
+        "import pickle\norders = pickle.loads(blob)\n",
+        "from _pickle import loads\n",
+        "from importlib import import_module as load\n",
     ],
 )
 def test_indirect_tenant_configuration_detected(source: str) -> None:
@@ -120,7 +134,11 @@ def test_columns_named_like_builtins_remain_replaceable() -> None:
 
 
 def test_stdlib_helpers_remain_replaceable(schema: Schema) -> None:
-    source = "import os\n" + generate_datasets(schema).source
+    source = (
+        "from __future__ import annotations\nimport os\n"
+        "class Note:\n    pass\n"
+        "if __name__ == '__main__':\n    print(__file__)\n" + generate_datasets(schema).source
+    )
     assert not has_tenant_configuration(source)
 
 
