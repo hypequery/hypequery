@@ -4,6 +4,11 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import shutil
+import subprocess
+import sys
+import tomllib
+import zipfile
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import cast
@@ -163,3 +168,33 @@ def test_generated_app_uses_the_generated_registry() -> None:
     schema = fixture_schema()
     templates = schema_templates(load_templates(), schema, generate_datasets(schema))
     assert "registry = create_dataset_registry(*datasets.values())" in templates["app.py"]
+
+
+def test_schema_project_wheel_contains_both_modules(tmp_path: Path) -> None:
+    schema = fixture_schema()
+    templates = schema_templates(load_templates(), schema, generate_datasets(schema))
+    assert tomllib.loads(templates["pyproject.toml"])["tool"]["setuptools"]["py-modules"] == [
+        "app",
+        "datasets",
+    ]
+    for name, content in templates.items():
+        (tmp_path / name).write_text(content)
+    uv = shutil.which("uv")
+    assert uv is not None
+    subprocess.run(
+        [uv, "build", "--wheel", "--out-dir", str(tmp_path / "dist"), str(tmp_path)],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    wheel = next((tmp_path / "dist").glob("*.whl"))
+    with zipfile.ZipFile(wheel) as archive:
+        assert {"app.py", "datasets.py"} <= set(archive.namelist())
+        archive.extractall(tmp_path / "installed")
+    subprocess.run(
+        [sys.executable, "-c", "import datasets; assert 'order_events' in datasets.datasets"],
+        cwd=tmp_path / "installed",
+        check=True,
+        capture_output=True,
+        text=True,
+    )
