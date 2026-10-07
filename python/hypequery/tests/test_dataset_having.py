@@ -6,6 +6,7 @@ import os
 import re
 import secrets
 from dataclasses import dataclass, field
+from unittest.mock import Mock
 
 import pytest
 from fastapi.testclient import TestClient
@@ -245,25 +246,26 @@ def test_live_having_filters_grouped_and_ungrouped_results() -> None:
     # database it created itself.
     database = f"hq_having_orders_{secrets.token_hex(6)}"
     admin.command(f"CREATE DATABASE {database}")
-    executor = create_clickhouse_executor(
-        ClickHouseConnection(
-            host=host, port=port, database=database, username="default", password=password
-        )
-    )
-    orders = Dataset(
-        name="havingOrders",
-        source="orders",
-        dimensions={
-            "customerId": dimension("string", column="customer_id"),
-            "amount": dimension("number"),
-            "status": dimension("string"),
-        },
-        measures={
-            "revenue": measure(sum_("amount")),
-            "paidRevenue": measure(sum_("amount"), filters=(eq("status", "paid"),)),
-        },
-    )
+    executor = None
     try:
+        executor = create_clickhouse_executor(
+            ClickHouseConnection(
+                host=host, port=port, database=database, username="default", password=password
+            )
+        )
+        orders = Dataset(
+            name="havingOrders",
+            source="orders",
+            dimensions={
+                "customerId": dimension("string", column="customer_id"),
+                "amount": dimension("number"),
+                "status": dimension("string"),
+            },
+            measures={
+                "revenue": measure(sum_("amount")),
+                "paidRevenue": measure(sum_("amount"), filters=(eq("status", "paid"),)),
+            },
+        )
         admin.command(
             f"CREATE TABLE {database}.orders "
             "(customer_id String, amount Float64, status String) ENGINE = Memory"
@@ -326,9 +328,14 @@ def test_live_having_filters_grouped_and_ungrouped_results() -> None:
         ).data
         assert empty == ()
     finally:
-        executor.close()
-        admin.command(f"DROP DATABASE IF EXISTS {database}")
-        admin.close()
+        try:
+            if executor is not None:
+                executor.close()
+        finally:
+            try:
+                admin.command(f"DROP DATABASE IF EXISTS {database}")
+            finally:
+                admin.close()
 
 
 @pytest.mark.skipif(
@@ -350,12 +357,13 @@ def test_live_having_on_relationship_measures_skips_unmatched_rows() -> None:
     # database it created itself.
     database = f"hq_having_relationships_{secrets.token_hex(6)}"
     admin.command(f"CREATE DATABASE {database}")
-    executor = create_clickhouse_executor(
-        ClickHouseConnection(
-            host=host, port=port, database=database, username="default", password=password
-        )
-    )
+    executor = None
     try:
+        executor = create_clickhouse_executor(
+            ClickHouseConnection(
+                host=host, port=port, database=database, username="default", password=password
+            )
+        )
         admin.command(f"CREATE TABLE {database}.targets (id UInt32, score Float64) ENGINE = Memory")
         admin.command(
             f"CREATE TABLE {database}.sources "
@@ -408,6 +416,43 @@ def test_live_having_on_relationship_measures_skips_unmatched_rows() -> None:
         )
         assert having("lt", 25) == ({"status": "paid", "total": 12.0, "target.highest": 20.0},)
     finally:
-        executor.close()
-        admin.command(f"DROP DATABASE IF EXISTS {database}")
-        admin.close()
+        try:
+            if executor is not None:
+                executor.close()
+        finally:
+            try:
+                admin.command(f"DROP DATABASE IF EXISTS {database}")
+            finally:
+                admin.close()
+
+
+@pytest.mark.parametrize("relationship", [False, True])
+def test_live_having_drops_database_when_executor_setup_fails(
+    monkeypatch: pytest.MonkeyPatch, relationship: bool
+) -> None:
+    import clickhouse_connect
+
+    import hypequery.execution
+
+    admin = Mock()
+    monkeypatch.setenv("HYPEQUERY_TEST_CLICKHOUSE_HOST", "localhost")
+    monkeypatch.setenv("HYPEQUERY_TEST_CLICKHOUSE_PASSWORD", "test-password")
+    monkeypatch.setattr(clickhouse_connect, "get_client", Mock(return_value=admin))
+    monkeypatch.setattr(
+        hypequery.execution,
+        "create_clickhouse_executor",
+        Mock(side_effect=RuntimeError("connection failed")),
+    )
+    live_test = (
+        test_live_having_on_relationship_measures_skips_unmatched_rows
+        if relationship
+        else test_live_having_filters_grouped_and_ungrouped_results
+    )
+    with pytest.raises(RuntimeError, match="connection failed"):
+        live_test()
+
+    create_command = admin.command.call_args_list[0].args[0]
+    database = create_command.removeprefix("CREATE DATABASE ")
+    assert admin.command.call_args_list[1].args == (f"DROP DATABASE IF EXISTS {database}",)
+    assert admin.command.call_count == 2
+    admin.close.assert_called_once_with()
