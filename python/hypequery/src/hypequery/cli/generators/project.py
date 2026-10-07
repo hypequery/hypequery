@@ -108,10 +108,9 @@ After schema changes, inspect drift with
 `hypequery generate datasets --diff` (exit 1 when different).
 Use `--check` in CI and `--force` to replace definitions after reviewing the diff.
 Repeat the original `--tables` / `--exclude-tables` selection when regenerating.
-Regeneration replaces the whole definitions file, so merge custom measures and
-relationships deliberately. Definitions that configure `tenant_key`, or set
-dataset options indirectly (`**` unpacking, `model_validate`, project imports),
-cannot be force-replaced: generate to a separate file and merge changes manually.
+Regeneration replaces the whole definitions file, including custom measures,
+relationships and any `tenant_key` you configured. Review the diff first, or
+generate to a separate file and merge changes manually.
 `schema.json` records discovery at init time and is not refreshed by regeneration.
 Credentials are read from the
 environment at runtime; neither schema snapshots nor definitions contain them.

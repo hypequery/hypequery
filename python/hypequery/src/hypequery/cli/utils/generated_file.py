@@ -10,7 +10,6 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from ..errors import CliError
-from .tenant_settings import ensure_replaceable
 
 
 @dataclass(frozen=True)
@@ -154,8 +153,6 @@ class GeneratedFile:
             self._acquire(lock)
             locked = True
             self.ensure_unchanged()
-            if overwrite and self._snapshot is not None:
-                ensure_replaceable(self._snapshot.contents, self.path)
             with tempfile.NamedTemporaryFile(
                 mode="w",
                 encoding="utf-8",

@@ -57,15 +57,11 @@ replacement, and cleanup on failure. Symlink destinations and parents are refuse
 Replacement keeps the existing file's permissions; new files use the umask default.
 Filesystems without hard links fall back to exclusive creation.
 
-Generation replaces definitions as a whole; review custom measures and relationships
-before forcing. Unlike the TypeScript command, Python force-replaces only files it
-can prove tenant-free without executing authored code. It refuses any explicit
-`tenant_key` (keyword, attribute, name, parameter or string other than a generated
-`column=`/`name=`/`source=` value) and anything that could set options indirectly:
-`**` unpacking, `model_validate`/`model_copy`-style construction, reflection such as
-`getattr`/`setattr`/`eval`, and imports of project-local or third-party modules.
-Generated definitions use none of these. Refused files need a separate generated
-file and a manual merge.
+Generation replaces definitions as a whole, including authored tenant_key settings,
+custom measures and relationships; review the diff before forcing. As in TypeScript,
+`--force` is the author's decision and is never refused for content. When the
+replaced file visibly configured `tenant_key`, the command warns that generated
+definitions do not; detection is best-effort and never executes authored code.
 Writes compare content and file identity with the pre-discovery snapshot; changes
 or a newly created destination abort even with `--force`. A per-output lock directory
 coordinates CLI writers through validation and replacement. It does not lock ordinary

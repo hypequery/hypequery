@@ -1,177 +1,35 @@
-"""Refuse regeneration that could erase configured tenant boundaries.
-
-Authored code is never executed. Instead, replacement is allowed only when the
-file is provably tenant-free: every way to set ``tenant_key`` must be visible
-in the syntax tree, so anything that could supply a setting name indirectly
-(unpacking, validation from mappings, reflection, project-local imports) fails
-closed. Generated definitions use none of these forms.
-"""
+"""Notice tenant settings that a forced regeneration is about to drop."""
 
 from __future__ import annotations
 
 import ast
-import sys
-from collections.abc import Callable, Sequence
-from pathlib import Path
-
-from ..errors import CliError
 
 _SETTING = "tenant_key"
 
-# Generated definitions mention a physical table or column named tenant_key
-# only as these plain values, never as a dataset setting.
-_VALUE_KEYWORDS = frozenset({"column", "name", "source"})
 
-# Callables that build or modify models from mappings or computed names. These
-# are matched as names and attributes, not strings: generated field names (a
-# column called "eval" or "vars") are ordinary mapping keys. Name-based callers
-# such as methodcaller("model_validate") are refused through the caller itself.
-_INDIRECT = frozenset(
-    {
-        "attrgetter",
-        "compile",
-        "eval",
-        "exec",
-        "getattr",
-        "globals",
-        "import_module",
-        "locals",
-        "methodcaller",
-        "model_config",
-        "model_construct",
-        "model_copy",
-        "model_fields",
-        "model_rebuild",
-        "model_validate",
-        "model_validate_json",
-        "model_validate_strings",
-        "run_module",
-        "run_path",
-        "setattr",
-        "type",
-        "validate_json",
-        "validate_python",
-        "validate_strings",
-        "vars",
-    }
-)
+def configures_tenant(source: str) -> bool:
+    """Best-effort check for visible tenant_key settings; used only to warn.
 
-# Dunder names reach builtins, class internals and frozen-model storage.
-_PLAIN_DUNDERS = frozenset({"__name__", "__file__", "__doc__", "__all__"})
-
-# Standard modules that deserialize objects or load and run code.
-_UNSAFE_MODULES = frozenset(
-    {"code", "codeop", "copyreg", "ctypes", "importlib", "marshal", "pickle", "runpy", "shelve"}
-)
-
-
-def has_tenant_configuration(source: str, *, search_paths: Sequence[Path] = ()) -> bool:
-    """True when definitions configure, or may indirectly configure, tenant_key.
-
-    *search_paths* are directories that precede the standard library on the
-    import path when the definitions are served; local modules there shadow
-    trusted names and are therefore untrusted.
+    Generated definitions never set tenant_key, so --force removes any the
+    author added. Authored code is not executed: settings built indirectly may
+    go unnoticed, and a physical column named tenant_key is not a setting.
     """
     try:
         tree = ast.parse(source)
-    except SyntaxError as exc:
-        raise CliError(
-            "Cannot verify existing definitions; repair their Python syntax first."
-        ) from exc
-    exempt = _plain_values(tree)
-
-    def trusted(name: str) -> bool:
-        return _trusted_module(name) and not _shadowed(name, search_paths)
-
-    return any(_unsafe(node, exempt, trusted) for node in ast.walk(tree))
-
-
-def ensure_replaceable(source: str, path: Path) -> None:
-    # `hypequery dev` imports from the working directory; scripts from their own.
-    if has_tenant_configuration(source, search_paths=(path.parent, Path.cwd())):
-        raise CliError(
-            "Refusing to replace definitions that configure tenant_key or set dataset "
-            "options indirectly. Generate to a separate file and merge schema changes "
-            "while preserving tenant boundaries."
-        )
-
-
-def _plain_values(tree: ast.AST) -> set[int]:
-    """Constants that name tables or columns rather than dataset settings."""
-    exempt: set[int] = set()
-    for node in ast.walk(tree):
-        if isinstance(node, ast.keyword) and node.arg in _VALUE_KEYWORDS:
-            exempt.add(id(node.value))
-        elif isinstance(node, ast.Dict):
-            # {"tenant_key": dataset(...)} keys a dataset by its table name.
-            for key, value in zip(node.keys, node.values, strict=True):
-                if (
-                    isinstance(value, ast.Call)
-                    and isinstance(value.func, ast.Name)
-                    and value.func.id == "dataset"
-                ):
-                    exempt.add(id(key))
-    return exempt
-
-
-def _unsafe(node: ast.AST, exempt: set[int], trusted: Callable[[str], bool]) -> bool:
-    if isinstance(node, ast.keyword):
-        if node.arg is None:  # **settings cannot be inspected statically.
-            return True
-        return node.arg == _SETTING and not (
-            isinstance(node.value, ast.Constant) and node.value.value is None
-        )
-    if isinstance(node, ast.Dict):
-        return None in node.keys  # {**settings}
-    if isinstance(node, ast.Attribute):
-        return node.attr == _SETTING or node.attr in _INDIRECT or _is_dunder(node.attr)
-    if isinstance(node, ast.Name):
-        # Class defaults, module variables and computed indirection.
-        return (
-            node.id == _SETTING
-            or node.id in _INDIRECT
-            or (_is_dunder(node.id) and node.id not in _PLAIN_DUNDERS)
-        )
-    if isinstance(node, ast.ClassDef):
-        # Subclasses can default or alias fields under names checked nowhere else.
-        return bool(node.bases or node.keywords)
-    if isinstance(node, ast.arg):
-        return node.arg == _SETTING
-    if isinstance(node, ast.Constant) and isinstance(node.value, str):
-        if id(node) in exempt:
-            return False
-        # Covers mapping keys, subscripts and serialized settings such as JSON.
-        return _SETTING in node.value
-    if isinstance(node, ast.ImportFrom):
-        # Aliases (from operator import attrgetter as pick) would hide refused
-        # callables from the name checks, and star imports hide which names exist.
-        return (
-            node.level > 0
-            or not trusted(node.module or "")
-            or any(alias.name == "*" or alias.name in _INDIRECT for alias in node.names)
-        )
-    if isinstance(node, ast.Import):
-        return not all(trusted(alias.name) for alias in node.names)
-    return False
-
-
-def _is_dunder(name: str) -> bool:
-    return len(name) > 4 and name.startswith("__") and name.endswith("__")
-
-
-def _trusted_module(name: str) -> bool:
-    """Project-local modules may supply pre-configured datasets."""
-    root = name.partition(".")[0]
-    # Strip underscores only to catch C accelerators such as _pickle; trust is
-    # decided on the real name so a local _hypequery.py is never trusted.
-    if root.lstrip("_") in _UNSAFE_MODULES:
+    except SyntaxError:
         return False
-    return name == "__future__" or root == "hypequery" or root in sys.stdlib_module_names
-
-
-def _shadowed(name: str, search_paths: Sequence[Path]) -> bool:
-    root = name.partition(".")[0]
     return any(
-        (directory / f"{root}.py").exists() or (directory / root).is_dir()
-        for directory in search_paths
+        (
+            isinstance(node, ast.keyword)
+            and node.arg == _SETTING
+            and not (isinstance(node.value, ast.Constant) and node.value.value is None)
+        )
+        or (isinstance(node, ast.Attribute) and node.attr == _SETTING)
+        or (isinstance(node, ast.Dict) and any(_is_setting(key) for key in node.keys))
+        or (isinstance(node, ast.Subscript) and _is_setting(node.slice))
+        for node in ast.walk(tree)
     )
+
+
+def _is_setting(node: ast.AST | None) -> bool:
+    return isinstance(node, ast.Constant) and node.value == _SETTING

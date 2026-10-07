@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import os
-import runpy
 from pathlib import Path
 
 import pytest
@@ -13,7 +12,7 @@ from hypequery.cli.errors import CliError
 from hypequery.cli.generators.datasets import generate_datasets
 from hypequery.cli.generators.schema import Column, Schema, Table
 from hypequery.cli.utils.generated_file import GeneratedFile
-from hypequery.cli.utils.tenant_settings import has_tenant_configuration
+from hypequery.cli.utils.tenant_settings import configures_tenant
 
 
 @pytest.fixture
@@ -60,138 +59,43 @@ def test_default_and_directory_paths(
     assert (tmp_path / "project" / "datasets.py").exists()
 
 
-def test_tenant_refusal_happens_before_discovery(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    output = tmp_path / "datasets.py"
-    output.write_text('orders = dataset(tenant_key="tenant_id")\n')
-
-    def fail(**_: object) -> None:
-        pytest.fail("tenant refusal must not connect to ClickHouse")
-
-    monkeypatch.setattr("hypequery.cli.commands.generate.discover_schema", fail)
-    assert main(["generate", "datasets", "--output", str(output), "--force"]) == 1
-
-
 @pytest.mark.parametrize(
-    "source",
-    [
-        'orders = orders.model_copy(update={"tenant_key": "tenant_id"})\n',
-        'orders.tenant_key = "tenant_id"\n',
-        'orders = Dataset.model_validate({"tenant_key": "tenant_id"})\n',
-        'settings["tenant_key"] = "tenant_id"\n',
-        'setattr(orders, "tenant_key", "tenant_id")\n',
-        # Setting names held in variables or built at runtime.
-        'key = "tenant_key"\norders = Dataset.model_validate({**base, key: "tenant_id"})\n',
-        'name = "tenant" + "_key"\norders = Dataset.model_validate({name: "tenant_id"})\n',
-        "orders = Dataset(**settings)\n",
-        'orders = getattr(Dataset, "model_" + "validate")(settings)\n',
-        'orders = Dataset.model_validate_json(\'{"tenant_key": "tenant_id"}\')\n',
-        "class Scoped(Dataset):\n    tenant_key: str | None = 'tenant_id'\n",
-        "def scoped(tenant_key: str) -> None: ...\n",
-        # Pre-configured definitions imported from project modules.
-        "from tenancy import orders\n",
-        "from .tenancy import orders\n",
-        "import importlib\norders = importlib.import_module('tenancy').orders\n",
-        "from operator import methodcaller\norders = methodcaller('model_validate', s)(Dataset)\n",
-        "orders = Dataset.__dict__['model_validate'].__func__(Dataset, settings)\n",
-        # Refused callables renamed or hidden at import.
-        "from operator import attrgetter as pick\n"
-        "orders = pick('model_validate')(Dataset)({'tenant' + '_key': 'tenant_id'})\n",
-        "from builtins import getattr as g\norders = g(Dataset, 'model_validate')(s)\n",
-        "from operator import *\n",
-        # Builtins, frozen-model internals, dynamic classes and deserialization.
-        "orders = __builtins__['getattr'](Dataset, 'model_validate')(s)\n",
-        "object.__setattr__(orders, 'tenant' + '_key', 'tenant_id')\n",
-        "Scoped = type('Scoped', (Dataset,), {'tenant' + '_key': 'tenant_id'})\n",
-        "class Scoped(Dataset):\n    model_config = alias_config\n",
-        "Dataset.model_fields[name].default = 'tenant_id'\n",
-        "import pickle\norders = pickle.loads(blob)\n",
-        "from _pickle import loads\n",
-        "from importlib import import_module as load\n",
-    ],
+    "settings",
+    ['tenant_key="tenant_id"', '**{"tenant_key": "tenant_id"}', "**settings"],
 )
-def test_indirect_tenant_configuration_detected(source: str) -> None:
-    assert has_tenant_configuration(source)
-
-
-def test_generated_definitions_are_replaceable(schema: Schema) -> None:
-    assert not has_tenant_configuration(generate_datasets(schema).source)
-    named = Schema(
-        "analytics",
-        (Table("tenant_key", (Column("tenant_key", "UInt64"), Column("id", "UInt64"))),),
-    )
-    assert not has_tenant_configuration(generate_datasets(named).source)
-
-
-def test_columns_named_like_builtins_remain_replaceable() -> None:
-    names = ("eval", "vars", "getattr", "setattr", "model_validate", "methodcaller")
-    schema = Schema(
-        "analytics",
-        (Table("orders", tuple(Column(name, "UInt64") for name in names)),),
-    )
-    assert not has_tenant_configuration(generate_datasets(schema).source)
-
-
-@pytest.mark.parametrize("module", ["_hypequery", "_hypequery.datasets", "_os"])
-def test_underscore_lookalikes_are_untrusted(module: str) -> None:
-    assert has_tenant_configuration(f"from {module} import datasets\n")
-
-
-@pytest.mark.parametrize("local", ["json.py", "hypequery/__init__.py"])
-def test_local_modules_shadowing_trusted_names_are_untrusted(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, schema: Schema, local: str
+def test_force_replaces_tenant_definitions_with_warning(
+    tmp_path: Path, schema: Schema, capsys: pytest.CaptureFixture[str], settings: str
 ) -> None:
-    root = local.partition("/")[0].removesuffix(".py")
-    source = f"import {root}\n" + generate_datasets(schema).source
-    assert not has_tenant_configuration(source, search_paths=(tmp_path,))
-    (tmp_path / local).parent.mkdir(parents=True, exist_ok=True)
-    (tmp_path / local).write_text("datasets = {}\n")
-    assert has_tenant_configuration(source, search_paths=(tmp_path,))
-    monkeypatch.chdir(tmp_path)
-    output = tmp_path / "datasets.py"
-    output.write_text(source)
-    assert main(["generate", "datasets", "--output", str(output), "--force"]) == 1
-    assert output.read_text() == source
-
-
-def test_stdlib_helpers_remain_replaceable(schema: Schema) -> None:
-    source = (
-        "from __future__ import annotations\nimport os\n"
-        "class Note:\n    pass\n"
-        "if __name__ == '__main__':\n    print(__file__)\n" + generate_datasets(schema).source
+    path = tmp_path / "datasets.py"
+    path.write_text(
+        'settings = {"tenant_key": "tenant_id"}\n'
+        f'orders = dataset(name="orders", source="analytics.orders", {settings})\n'
     )
-    assert not has_tenant_configuration(source)
+    args = ["generate", "datasets", "--output", str(path)]
+    assert main(args) == 1
+    assert main([*args, "--force"]) == 0
+    assert path.read_text() == generate_datasets(schema).source
+    assert "tenant_key" in capsys.readouterr().err
 
 
-def test_column_named_tenant_key_does_not_block_regeneration(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+def test_force_without_tenant_settings_does_not_warn(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
+    # A physical column named tenant_key is not a tenant setting.
     def columns(*names: str) -> Schema:
         return Schema(
             "analytics",
             (Table("orders", tuple(Column(name, "String") for name in names)),),
         )
 
-    output = tmp_path / "datasets.py"
-    monkeypatch.setattr(
-        "hypequery.cli.commands.generate.discover_schema", lambda **_: columns("tenant_key")
-    )
-    assert main(["generate", "datasets", "--output", str(output)]) == 0
-    assert "column='tenant_key'" in output.read_text()
-    assert not has_tenant_configuration(output.read_text())
+    path = tmp_path / "datasets.py"
+    path.write_text(generate_datasets(columns("tenant_key")).source)
+    assert not configures_tenant(path.read_text())
     updated = columns("tenant_key", "status")
     monkeypatch.setattr("hypequery.cli.commands.generate.discover_schema", lambda **_: updated)
-    assert main(["generate", "datasets", "--output", str(output), "--force"]) == 0
-    assert output.read_text() == generate_datasets(updated).source
-
-
-def test_tenant_boundary_cannot_be_erased(tmp_path: Path, schema: Schema) -> None:
-    output = tmp_path / "datasets.py"
-    authored = 'configured = dataset(name="orders", tenant_key="tenant_id")\n'
-    output.write_text(authored)
-    assert main(["generate", "datasets", "--output", str(output), "--force"]) == 1
-    assert output.read_text() == authored
+    assert main(["generate", "datasets", "--output", str(path), "--force"]) == 0
+    assert path.read_text() == generate_datasets(updated).source
+    assert "tenant_key" not in capsys.readouterr().err
 
 
 def test_selection_and_invalid_flags(
@@ -329,31 +233,6 @@ def test_discovery_failure_never_writes(tmp_path: Path, monkeypatch: pytest.Monk
     assert main(["generate", "datasets", "--output", str(path), "--force"]) == 1
     assert path.read_text() == "original"
     assert list(tmp_path.iterdir()) == [path]
-
-
-@pytest.mark.parametrize(
-    "settings",
-    [
-        '**{"tenant_key": "tenant_id"}',
-        "**settings",
-        'tenant_key="tenant_id"',
-    ],
-)
-def test_valid_tenant_definitions_preserved(tmp_path: Path, schema: Schema, settings: str) -> None:
-    path = tmp_path / "datasets.py"
-    source = (
-        "from hypequery.datasets import dataset, dimension, measure\n"
-        'settings = {"tenant_key": "tenant_id"}\n'
-        'orders = dataset(name="Orders", source="analytics.orders", '
-        'dimensions={"tenantId": dimension.string(column="tenant_id"), '
-        '"id": dimension.number(column="id")}, '
-        'measures={"totalCount": measure.count("rows", sql="1")}, '
-        f"{settings})\n"
-    )
-    path.write_text(source)
-    assert runpy.run_path(str(path))["orders"].tenant_key == "tenant_id"
-    assert main(["generate", "datasets", "--output", str(path), "--force"]) == 1
-    assert path.read_text() == source
 
 
 @pytest.mark.parametrize("exists", [True, False])
