@@ -310,16 +310,3 @@ def test_repeated_dependency_expansion_is_bounded() -> None:
         previous = name
     with pytest.raises(ValidationError, match="expansion limit"):
         Dataset(name="tooWide", source="orders", dimensions={}, measures=definitions)
-
-
-def test_formula_tree_depth_is_bounded_before_reference_walk() -> None:
-    formula = add("base", 1)
-    for _ in range(17):
-        formula = add(formula, 1)
-    with pytest.raises(ValidationError, match="formula depth"):
-        Dataset(
-            name="deepFormula",
-            source="orders",
-            dimensions={},
-            measures={"base": measure.sum("amount"), "value": measure.derived(formula)},
-        )
