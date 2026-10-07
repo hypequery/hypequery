@@ -1,27 +1,39 @@
 ---
-title: hypequery Cloud
-description: Deploy your datasets as hosted REST and MCP endpoints, without running a server.
+title: Introduction
+description: hypequery Cloud hosts your ClickHouse semantic layer as REST and MCP endpoints, whether you define it in the UI or in code.
 ---
 
 import { CloudWaitlistNotice } from '@/components/docs/cloud-waitlist-notice';
 
 <CloudWaitlistNotice />
 
-hypequery Cloud runs your datasets for you. You define datasets in TypeScript or Python as usual, deploy them with the
-hypequery CLI, and Cloud serves them as:
+hypequery Cloud is the hosted home for your ClickHouse semantic layer. You define datasets once: the dimensions people
+can group by, the measures they can aggregate, the relationships between tables, and who is allowed to query them.
+Cloud then serves those datasets to your dashboards, applications, and AI agents, without a server for you to run.
 
-- **REST endpoints** for dashboards, apps, and integrations;
-- an **MCP endpoint** so AI agents can query the datasets you publish.
+## Author datasets your way
 
-Cloud is an option, not a requirement. The open-source SDKs run your datasets inside your own app, and you can move
-between self-hosted and Cloud without redefining anything.
+Cloud accepts datasets from two authoring paths. Both produce the same deployment contract, so Cloud serves them the
+same way.
 
-## What you get
+- **In the UI.** Define datasets in the browser, with no code required. This suits teams who want to model analytics
+  without setting up a project.
+- **In code, with TypeScript or Python.** Define datasets with the open-source SDKs, review them in pull requests,
+  and deploy with the hypequery CLI. See [Deploy from TypeScript](/docs/cloud/deploy-typescript) and
+  [Deploy from Python](/docs/cloud/deploy-python).
 
-- **No server to run.** Cloud hosts the endpoints for you.
-- **One deploy for REST and MCP.** Both are served from the same release.
-- **Access control at publish time.** You declare which roles and scopes can query each dataset.
-- **Releases.** Each deploy is a versioned release you can inspect with `hypequery deployment:status`.
+Code-defined datasets are not tied to Cloud. The same definitions run inside your own app with the open-source SDKs,
+so you can start self-hosted and move to Cloud later, or the other way around.
+
+## What Cloud serves
+
+Every release is served two ways:
+
+- **REST endpoints**, one per published dataset, for dashboards, apps, and integrations. See [REST API](/docs/cloud/rest-api).
+- **An MCP endpoint**, so AI agents can discover and query the datasets you publish. See [MCP](/docs/cloud/mcp).
+
+Access is set when you publish: you choose the roles and scopes callers need for each dataset, and Cloud checks them
+on every request.
 
 ## Next steps
 
