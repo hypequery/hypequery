@@ -160,3 +160,20 @@ def test_shared_timezone_partition_fixture() -> None:
     )
     for case in fixtures:
         assert timezone_identity(case["identity"], case["timezone"]) == case["partition"]
+
+
+def test_base_timezone_validation_without_system_iana_data() -> None:
+    import zoneinfo
+
+    from hypequery.datasets.utils.query_timezone import validate_timezone
+
+    original = zoneinfo.TZPATH
+    try:
+        zoneinfo.reset_tzpath(())
+        zoneinfo.ZoneInfo.clear_cache()
+        assert validate_timezone("UTC") == "UTC"
+        assert validate_timezone("America/New_York") == "America/New_York"
+        create_dataset_client(executor=RecordingExecutor())
+    finally:
+        zoneinfo.reset_tzpath(original)
+        zoneinfo.ZoneInfo.clear_cache()
