@@ -78,6 +78,8 @@ def test_tenant_refusal_happens_before_discovery(
         'orders = orders.model_copy(update={"tenant_key": "tenant_id"})\n',
         'orders.tenant_key = "tenant_id"\n',
         'orders = Dataset.model_validate({"tenant_key": "tenant_id"})\n',
+        'settings["tenant_key"] = "tenant_id"\n',
+        'setattr(orders, "tenant_key", "tenant_id")\n',
     ],
 )
 def test_indirect_tenant_configuration_detected(source: str) -> None:
@@ -86,6 +88,28 @@ def test_indirect_tenant_configuration_detected(source: str) -> None:
 
 def test_generated_definitions_are_replaceable(schema: Schema) -> None:
     assert not has_tenant_configuration(generate_datasets(schema).source)
+
+
+def test_column_named_tenant_key_does_not_block_regeneration(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def columns(*names: str) -> Schema:
+        return Schema(
+            "analytics",
+            (Table("orders", tuple(Column(name, "String") for name in names)),),
+        )
+
+    output = tmp_path / "datasets.py"
+    monkeypatch.setattr(
+        "hypequery.cli.commands.generate.discover_schema", lambda **_: columns("tenant_key")
+    )
+    assert main(["generate", "datasets", "--output", str(output)]) == 0
+    assert "column='tenant_key'" in output.read_text()
+    assert not has_tenant_configuration(output.read_text())
+    updated = columns("tenant_key", "status")
+    monkeypatch.setattr("hypequery.cli.commands.generate.discover_schema", lambda **_: updated)
+    assert main(["generate", "datasets", "--output", str(output), "--force"]) == 0
+    assert output.read_text() == generate_datasets(updated).source
 
 
 def test_tenant_boundary_cannot_be_erased(tmp_path: Path, schema: Schema) -> None:
