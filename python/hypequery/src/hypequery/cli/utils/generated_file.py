@@ -154,11 +154,11 @@ class GeneratedFile:
         self._observed = True
         return self._snapshot.contents if self._snapshot is not None else None
 
-    def _check_unchanged(self) -> None:
+    def ensure_unchanged(self) -> None:
+        """Re-read without writing; read-only checks must not trust a stale snapshot."""
         if self._read_snapshot() != self._snapshot:
             raise CliError(
-                "Definitions changed since discovery began; refusing to overwrite. "
-                "Review the latest file and retry."
+                "Definitions changed since discovery began; review the latest file and retry."
             )
 
     def _acquire(self, lock: Path) -> None:
@@ -209,7 +209,7 @@ class GeneratedFile:
                     created_directories.append(directory)
             self._acquire(lock)
             locked = True
-            self._check_unchanged()
+            self.ensure_unchanged()
             if overwrite and self._snapshot is not None:
                 ensure_replaceable(self._snapshot.contents)
             with tempfile.NamedTemporaryFile(
@@ -224,13 +224,13 @@ class GeneratedFile:
                 output.write(contents)
                 output.flush()
                 os.fsync(output.fileno())
-            self._check_unchanged()
+            self.ensure_unchanged()
             # The temporary file stays private while written; publish it with
             # the existing file's mode, or the umask default for a new file.
             mode = self._snapshot.mode if self._snapshot is not None else _default_mode()
             temporary.chmod(mode)
             if overwrite and self._snapshot is not None:
-                self._check_unchanged()
+                self.ensure_unchanged()
                 os.replace(temporary, self.path)
             else:
                 _create_exclusive(temporary, self.path, contents, mode)

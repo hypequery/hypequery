@@ -25,6 +25,8 @@ def run(args: object) -> None:
         ensure_replaceable(current)
     schema = discover_schema(tables=options.tables, exclude_tables=options.exclude_tables)
     generated = generate_datasets(schema)
+    # Up-to-date, --diff and --check results must describe the file as it is now.
+    output.ensure_unchanged()
     for warning in generated.warnings:
         print(f"Review: {warning}")
     if current == generated.source:

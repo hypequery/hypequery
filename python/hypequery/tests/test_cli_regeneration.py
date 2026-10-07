@@ -301,6 +301,33 @@ def test_changes_during_discovery_preserved(
     assert list(tmp_path.iterdir()) == [path]
 
 
+@pytest.mark.parametrize("flag", [[], ["--check"], ["--diff"]])
+def test_read_only_results_recheck_after_discovery(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, schema: Schema, flag: list[str]
+) -> None:
+    path = tmp_path / "datasets.py"
+    path.write_text(generate_datasets(schema).source)
+    edited = "# edited during discovery\n" + path.read_text()
+
+    def discover(**_: object) -> Schema:
+        path.write_text(edited)
+        return schema
+
+    monkeypatch.setattr("hypequery.cli.commands.generate.discover_schema", discover)
+    assert main(["generate", "datasets", "--output", str(path), *flag]) == 1
+    assert path.read_text() == edited
+    assert list(tmp_path.iterdir()) == [path]
+
+
+def test_read_only_recheck_never_creates_directories(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, schema: Schema
+) -> None:
+    output = tmp_path / "missing" / "datasets.py"
+    for flag in ("--check", "--diff"):
+        assert main(["generate", "datasets", "--output", str(output), flag]) == 1
+    assert not output.parent.exists()
+
+
 def test_changes_during_temporary_write_preserved(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
