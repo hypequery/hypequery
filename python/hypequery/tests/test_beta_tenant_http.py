@@ -113,52 +113,60 @@ def test_live_tenant_http_joins_cache_and_denials(asynchronous: bool) -> None:
             else:
                 executor = create_clickhouse_executor(connection)
                 client = create_dataset_client(executor=executor, registry=registry, cache=cache)
-            add_dataset_endpoint(router, "/query", dataset=orders, client=client, policy=policy)
-            add_metric_endpoint(
-                router, "/metric", dataset=orders, measure="total", client=client, policy=policy
-            )
-            add_discovery_endpoint(router, registry=registry, policy=policy)
-            app.include_router(router)
-            payload = {"dimensions": ["customer.label"], "measures": ["total"], "includeMeta": True}
-            for org, label, total in (("a", "A_ONLY", "10"), ("b", "B_ONLY", "90")):
-                headers = {"Authorization": "Bearer " + org, "x-tenant-id": "other"}
-                first = http.post("/query", json=payload, headers=headers)
-                assert first.status_code == 200, first.text
-                assert first.json()["data"] == [{"customer.label": label, "total": total}]
-                assert first.json()["meta"]["cache"] == {"hit": False}
-                again = http.post("/query", json=payload, headers=headers)
-                assert again.json()["data"] == first.json()["data"]
-                assert again.json()["meta"]["cache"] == {"hit": True}
-                metric = http.post("/metric", json={}, headers=headers)
-                assert metric.json()["data"] == [{"total": total}]
-                discovery = http.get("/discovery", headers=headers)
-                assert discovery.status_code == 200
-                for marker in ("org_id", "beta_http", "tenantKey", "parameters", "sql"):
-                    assert marker not in discovery.text
-                for forged in (
-                    {"tenant": "other"},
-                    {"context": {"tenant": "other"}},
-                    {"filters": [{"field": "org_id", "operator": "eq", "value": "b"}]},
-                ):
-                    denied = http.post("/query", json=forged, headers=headers)
-                    assert denied.status_code == 400, denied.text
-                    assert denied.headers["cache-control"] == "no-store"
-            # Authenticate the same subject with no tenant or insufficient scope;
-            # warmed cache entries must never make either request authorized.
-            for token, status in (("tenantless", 403), ("unprivileged", 403), ("invalid", 401)):
-                headers = {"Authorization": "Bearer " + token}
-                for path in ("/query", "/metric", "/discovery"):
-                    response = (
-                        http.get(path, headers=headers)
-                        if path == "/discovery"
-                        else http.post(path, json={}, headers=headers)
-                    )
-                    assert response.status_code == status, response.text
-                    assert response.headers["cache-control"] == "no-store"
-            if isinstance(executor, AsyncClickHouseExecutor):
-                http.portal.call(executor.aclose)
-            else:
-                executor.close()
+            try:
+                add_dataset_endpoint(router, "/query", dataset=orders, client=client, policy=policy)
+                add_metric_endpoint(
+                    router, "/metric", dataset=orders, measure="total", client=client, policy=policy
+                )
+                add_discovery_endpoint(router, registry=registry, policy=policy)
+                app.include_router(router)
+                payload = {
+                    "dimensions": ["customer.label"],
+                    "measures": ["total"],
+                    "includeMeta": True,
+                }
+                for org, label, total in (("a", "A_ONLY", "10"), ("b", "B_ONLY", "90")):
+                    headers = {"Authorization": "Bearer " + org, "x-tenant-id": "other"}
+                    first = http.post("/query", json=payload, headers=headers)
+                    assert first.status_code == 200, first.text
+                    assert first.json()["data"] == [{"customer.label": label, "total": total}]
+                    assert first.json()["meta"]["cache"] == {"hit": False}
+                    again = http.post("/query", json=payload, headers=headers)
+                    assert again.json()["data"] == first.json()["data"]
+                    assert again.json()["meta"]["cache"] == {"hit": True}
+                    metric = http.post("/metric", json={}, headers=headers)
+                    assert metric.json()["data"] == [{"total": total}]
+                    discovery = http.get("/discovery", headers=headers)
+                    assert discovery.status_code == 200
+                    for marker in ("org_id", "beta_http", "tenantKey", "parameters", "sql"):
+                        assert marker not in discovery.text
+                    for forged in (
+                        {"tenant": "other"},
+                        {"context": {"tenant": "other"}},
+                        {"filters": [{"field": "org_id", "operator": "eq", "value": "b"}]},
+                    ):
+                        denied = http.post("/query", json=forged, headers=headers)
+                        assert denied.status_code == 400, denied.text
+                        assert denied.headers["cache-control"] == "no-store"
+                # Authenticate the same subject with no tenant or insufficient scope;
+                # warmed cache entries must never make either request authorized.
+                for token, status in (("tenantless", 403), ("unprivileged", 403), ("invalid", 401)):
+                    headers = {"Authorization": "Bearer " + token}
+                    for path in ("/query", "/metric", "/discovery"):
+                        response = (
+                            http.get(path, headers=headers)
+                            if path == "/discovery"
+                            else http.post(
+                                path, json=payload if path == "/query" else {}, headers=headers
+                            )
+                        )
+                        assert response.status_code == status, response.text
+                        assert response.headers["cache-control"] == "no-store"
+            finally:
+                if isinstance(executor, AsyncClickHouseExecutor):
+                    http.portal.call(executor.aclose)
+                else:
+                    executor.close()
     finally:
         admin.command("DROP TABLE IF EXISTS beta_http_orders")
         admin.command("DROP TABLE IF EXISTS beta_http_customers")
@@ -170,6 +178,12 @@ def authenticate(credential: Credential) -> Principal | None:
         return None
     return Principal(
         subject="same-user",
-        tenant_id=credential.value if credential.value in {"a", "b"} else None,
+        tenant_id=(
+            "a"
+            if credential.value == "unprivileged"
+            else credential.value
+            if credential.value in {"a", "b"}
+            else None
+        ),
         scopes=frozenset() if credential.value == "unprivileged" else frozenset({"analytics:read"}),
     )
