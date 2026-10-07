@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { mkdirSync, readFileSync, writeFileSync, renameSync, unlinkSync, rmdirSync } from 'node:fs';
 import { mkdir, readFile, rename, rmdir, stat, unlink, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
@@ -63,9 +64,30 @@ export class TelemetryConfigStore {
 
   async disableVersion(version: string): Promise<TelemetryConfig | null> {
     if (!matchesTelemetryFormat('version', version)) return null;
-    return this.update(undefined, async config => ({
-      ...config, disabled_cli_versions: [...new Set([...(config.disabled_cli_versions ?? []), version])].slice(-20),
-    }), 1);
+    let lock: string | undefined;
+    let temporary: string | undefined;
+    try {
+      const directory = await this.directory();
+      if (!directory) return null;
+      // A late 410 must not leave an asynchronous settings write holding a lock
+      // when the bounded flush returns and the executable exits. Once acquired,
+      // this small critical section runs to completion without yielding.
+      const lockPath = path.join(directory, 'telemetry.lock');
+      mkdirSync(lockPath, { mode: 0o700 });
+      lock = lockPath;
+      const file = path.join(directory, 'telemetry.json');
+      const previous = parseTelemetryConfig(readFileSync(file, 'utf8'));
+      if (!previous) return null;
+      const config = { ...previous, disabled_cli_versions: [...new Set([...(previous.disabled_cli_versions ?? []), version])].slice(-20) };
+      temporary = `${file}.${randomUUID()}.tmp`;
+      writeFileSync(temporary, `${JSON.stringify(config, null, 2)}\n`, { flag: 'wx', mode: 0o600 });
+      renameSync(temporary, file);
+      return config;
+    } catch { return null; }
+    finally {
+      if (temporary) { try { unlinkSync(temporary); } catch { /* Already renamed or unavailable. */ } }
+      if (lock) { try { rmdirSync(lock); } catch { /* Settings are best effort. */ } }
+    }
   }
 
   private async update(enabled?: boolean, mutate?: (config: TelemetryConfig) => Promise<TelemetryConfig>, lockAttempts = 20): Promise<TelemetryConfig | null> {

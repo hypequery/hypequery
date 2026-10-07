@@ -71,6 +71,15 @@ describe('telemetry preferences', () => {
     expect(await store.load()).toBeNull();
     expect(await readdir(directory)).toEqual(['telemetry.lock']);
   });
+  it('persists a version kill switch without leaving settings locked', async () => {
+    const config = await store.load();
+    expect(await store.disableVersion('1.22.0')).toEqual({ ...config, disabled_cli_versions: ['1.22.0'] });
+    expect(await readdir(directory)).toEqual(['telemetry.json']);
+    expect(await store.setEnabled(false)).toMatchObject({ enabled: false, disabled_cli_versions: ['1.22.0'] });
+    await mkdir(path.join(directory, 'telemetry.lock'));
+    expect(await store.disableVersion('1.23.0')).toBeNull();
+    expect(await readdir(directory)).toEqual(['telemetry.json', 'telemetry.lock']);
+  });
 
   it.skipIf(process.platform === 'win32' || process.getuid?.() === 0)('fails closed in a read-only config directory', async () => {
     await store.load();

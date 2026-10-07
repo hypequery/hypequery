@@ -33,7 +33,7 @@ describe('telemetry event contract', () => {
 
   it('keeps the generated public event reference synchronized', async () => {
     const page = await readFile(fileURLToPath(new URL('../../../../../website-next/docs/telemetry.mdx', import.meta.url)), 'utf8');
-    expect(page.split('<!-- telemetry-catalog -->\n\n')[1]).toBe(renderTelemetryCatalog());
+    expect(page.split('{/* telemetry-catalog */}\n\n')[1]).toBe(renderTelemetryCatalog());
   });
 
   it('validates every event variant, including all optional fields and nested records', () => {
@@ -134,6 +134,9 @@ describe('telemetry event contract', () => {
     expect(flagNames('unknown', ['--tables', 'secret', '--no-telemetry'])).toEqual(['--no-telemetry']);
     expect(flagNames('generate', ['-h'])).toEqual(['--help']);
     expect(flagNames('dev', ['-h', 'private-host'])).toEqual(['--hostname']);
+    expect(flagNames('dev', ['-qp4000', '-hprivate-host'])).toEqual(['--hostname', '--port', '--quiet']);
+    expect(flagNames('generate', ['-oprivate-qV.ts'])).toEqual(['--output']);
+    expect(flagNames('dev', ['-p4000'])).toEqual(['--port']);
   });
 
   it('covers all registered commands and their actual canonical flags', async () => {

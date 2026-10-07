@@ -94,7 +94,7 @@ export class TelemetryTransport {
           signal: controller.signal, redirect: 'error',
         });
         // The proxy owns the real PostHog API key. 410 disables this CLI version.
-        if (response.status === 410) await this.options.onDisabled?.();
+        if (response.status === 410 && !controller.signal.aborted) await this.options.onDisabled?.();
         await response.body?.cancel();
       })().catch(() => undefined);
       await Promise.race([request, timeout]);
