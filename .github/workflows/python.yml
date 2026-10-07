@@ -88,6 +88,57 @@ jobs:
           HYPEQUERY_TEST_CLICKHOUSE_HOST: localhost
           HYPEQUERY_TEST_CLICKHOUSE_PASSWORD: hypequery_test
 
+  cli-artifacts:
+    name: CLI artifacts (py${{ matrix.python-version }}, ${{ matrix.artifact }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ['3.11', '3.12', '3.13', '3.14']
+        artifact: ['wheel', 'sdist']
+    services:
+      clickhouse:
+        image: clickhouse/clickhouse-server:26.3
+        ports:
+          - 8123:8123
+        env:
+          CLICKHOUSE_USER: default
+          CLICKHOUSE_PASSWORD: hypequery_test
+          CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: 1
+        options: >-
+          --health-cmd "wget --no-verbose --tries=1 --spider http://localhost:8123/ping || exit 1"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: astral-sh/setup-uv@e58605a9b6da7c637471fab8847a5e5a6b8df081 # v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: python/hypequery/uv.lock
+      - run: uv sync --dev --python ${{ matrix.python-version }}
+      - run: uv build
+      - name: Verify installed base CLI and scaffold
+        run: |
+          if [ "${{ matrix.artifact }}" = "wheel" ]; then
+            uv run python scripts/cli_smoke.py dist/*.whl --minimal
+          else
+            uv run python scripts/cli_smoke.py dist/*.tar.gz --minimal
+          fi
+      - name: Verify installed scaffold-to-query journey
+        run: |
+          if [ "${{ matrix.artifact }}" = "wheel" ]; then
+            uv run python scripts/cli_smoke.py dist/*.whl
+          else
+            uv run python scripts/cli_smoke.py dist/*.tar.gz
+          fi
+        env:
+          CLICKHOUSE_HOST: localhost
+          CLICKHOUSE_PORT: '8123'
+          CLICKHOUSE_USERNAME: default
+          CLICKHOUSE_PASSWORD: hypequery_test
+
   minimal-install:
     # The framework-free promise is only meaningful when tested WITHOUT the
     # extras installed. This job is what proves `pip install hypequery` does
@@ -117,7 +168,7 @@ jobs:
           cache-dependency-glob: python/hypequery/uv.lock
       - run: uv sync --all-extras --dev
       - run: uv pip install "fastapi==0.115.0" "starlette<0.39" "uvicorn==0.30.0"
-      - run: uv run --no-sync pytest tests/test_serve_router.py tests/test_serve_security.py tests/test_serve_errors.py tests/test_serve_http_fixtures.py tests/test_serve_discovery.py tests/test_serve_endpoints.py tests/test_serve_semantic_fixtures.py tests/test_serve_production.py tests/test_serve_dev.py
+      - run: uv run --no-sync pytest tests/test_serve_router.py tests/test_serve_security.py tests/test_serve_errors.py tests/test_serve_http_fixtures.py tests/test_serve_discovery.py tests/test_serve_endpoints.py tests/test_serve_semantic_fixtures.py tests/test_serve_production.py tests/test_serve_dev.py tests/test_cli_dev.py
 
   getting-started:
     # PYE-01 acceptance: the README's Getting started path, run as written from
