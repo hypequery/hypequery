@@ -133,6 +133,28 @@ def test_columns_named_like_builtins_remain_replaceable() -> None:
     assert not has_tenant_configuration(generate_datasets(schema).source)
 
 
+@pytest.mark.parametrize("module", ["_hypequery", "_hypequery.datasets", "_os"])
+def test_underscore_lookalikes_are_untrusted(module: str) -> None:
+    assert has_tenant_configuration(f"from {module} import datasets\n")
+
+
+@pytest.mark.parametrize("local", ["json.py", "hypequery/__init__.py"])
+def test_local_modules_shadowing_trusted_names_are_untrusted(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, schema: Schema, local: str
+) -> None:
+    root = local.partition("/")[0].removesuffix(".py")
+    source = f"import {root}\n" + generate_datasets(schema).source
+    assert not has_tenant_configuration(source, search_paths=(tmp_path,))
+    (tmp_path / local).parent.mkdir(parents=True, exist_ok=True)
+    (tmp_path / local).write_text("datasets = {}\n")
+    assert has_tenant_configuration(source, search_paths=(tmp_path,))
+    monkeypatch.chdir(tmp_path)
+    output = tmp_path / "datasets.py"
+    output.write_text(source)
+    assert main(["generate", "datasets", "--output", str(output), "--force"]) == 1
+    assert output.read_text() == source
+
+
 def test_stdlib_helpers_remain_replaceable(schema: Schema) -> None:
     source = (
         "from __future__ import annotations\nimport os\n"

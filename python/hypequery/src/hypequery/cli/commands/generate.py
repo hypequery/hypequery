@@ -23,7 +23,7 @@ def run(args: object) -> None:
     current = output.read()
     if options.force and current is not None:
         # Fail before connecting; write() repeats this check under its lock.
-        ensure_replaceable(current)
+        ensure_replaceable(current, output.path)
     schema = discover_schema(tables=options.tables, exclude_tables=options.exclude_tables)
     generated = generate_datasets(schema)
     # Up-to-date, --diff and --check results must describe the file as it is now.

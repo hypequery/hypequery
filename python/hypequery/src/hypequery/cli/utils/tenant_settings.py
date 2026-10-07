@@ -11,6 +11,8 @@ from __future__ import annotations
 
 import ast
 import sys
+from collections.abc import Callable, Sequence
+from pathlib import Path
 
 from ..errors import CliError
 
@@ -63,8 +65,13 @@ _UNSAFE_MODULES = frozenset(
 )
 
 
-def has_tenant_configuration(source: str) -> bool:
-    """True when definitions configure, or may indirectly configure, tenant_key."""
+def has_tenant_configuration(source: str, *, search_paths: Sequence[Path] = ()) -> bool:
+    """True when definitions configure, or may indirectly configure, tenant_key.
+
+    *search_paths* are directories that precede the standard library on the
+    import path when the definitions are served; local modules there shadow
+    trusted names and are therefore untrusted.
+    """
     try:
         tree = ast.parse(source)
     except SyntaxError as exc:
@@ -72,11 +79,16 @@ def has_tenant_configuration(source: str) -> bool:
             "Cannot verify existing definitions; repair their Python syntax first."
         ) from exc
     exempt = _plain_values(tree)
-    return any(_unsafe(node, exempt) for node in ast.walk(tree))
+
+    def trusted(name: str) -> bool:
+        return _trusted_module(name) and not _shadowed(name, search_paths)
+
+    return any(_unsafe(node, exempt, trusted) for node in ast.walk(tree))
 
 
-def ensure_replaceable(source: str) -> None:
-    if has_tenant_configuration(source):
+def ensure_replaceable(source: str, path: Path) -> None:
+    # `hypequery dev` imports from the working directory; scripts from their own.
+    if has_tenant_configuration(source, search_paths=(path.parent, Path.cwd())):
         raise CliError(
             "Refusing to replace definitions that configure tenant_key or set dataset "
             "options indirectly. Generate to a separate file and merge schema changes "
@@ -102,7 +114,7 @@ def _plain_values(tree: ast.AST) -> set[int]:
     return exempt
 
 
-def _unsafe(node: ast.AST, exempt: set[int]) -> bool:
+def _unsafe(node: ast.AST, exempt: set[int], trusted: Callable[[str], bool]) -> bool:
     if isinstance(node, ast.keyword):
         if node.arg is None:  # **settings cannot be inspected statically.
             return True
@@ -135,11 +147,11 @@ def _unsafe(node: ast.AST, exempt: set[int]) -> bool:
         # callables from the name checks, and star imports hide which names exist.
         return (
             node.level > 0
-            or not _trusted_module(node.module or "")
+            or not trusted(node.module or "")
             or any(alias.name == "*" or alias.name in _INDIRECT for alias in node.names)
         )
     if isinstance(node, ast.Import):
-        return not all(_trusted_module(alias.name) for alias in node.names)
+        return not all(trusted(alias.name) for alias in node.names)
     return False
 
 
@@ -149,7 +161,17 @@ def _is_dunder(name: str) -> bool:
 
 def _trusted_module(name: str) -> bool:
     """Project-local modules may supply pre-configured datasets."""
-    root = name.partition(".")[0].lstrip("_")
-    if root in _UNSAFE_MODULES:
+    root = name.partition(".")[0]
+    # Strip underscores only to catch C accelerators such as _pickle; trust is
+    # decided on the real name so a local _hypequery.py is never trusted.
+    if root.lstrip("_") in _UNSAFE_MODULES:
         return False
     return name == "__future__" or root == "hypequery" or root in sys.stdlib_module_names
+
+
+def _shadowed(name: str, search_paths: Sequence[Path]) -> bool:
+    root = name.partition(".")[0]
+    return any(
+        (directory / f"{root}.py").exists() or (directory / root).is_dir()
+        for directory in search_paths
+    )

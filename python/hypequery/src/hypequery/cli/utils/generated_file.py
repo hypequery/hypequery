@@ -155,7 +155,7 @@ class GeneratedFile:
             locked = True
             self.ensure_unchanged()
             if overwrite and self._snapshot is not None:
-                ensure_replaceable(self._snapshot.contents)
+                ensure_replaceable(self._snapshot.contents, self.path)
             with tempfile.NamedTemporaryFile(
                 mode="w",
                 encoding="utf-8",
