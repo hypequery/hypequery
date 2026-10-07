@@ -1,0 +1,2 @@
+- Add validated query and client timezones (UTC by default), apply the zone to time buckets and local time-key filter bounds, and accept timezone overrides on dataset and metric HTTP endpoints.
+- Partition non-UTC cached results using the same deployed-identity convention as TypeScript.
