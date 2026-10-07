@@ -214,3 +214,28 @@ def test_live_unique_duplicate_composite_null_and_tenant_keys() -> None:
         executor.close()
         admin.command("DROP TABLE IF EXISTS beta_relationships")
         admin.close()
+
+
+def test_later_unscoped_target_prevents_every_database_read() -> None:
+    _, protected = definitions()
+    public = Dataset(
+        name="publicCustomers", source="public_customers", dimensions={"id": dimension.number()}
+    )
+    root = Dataset(
+        name="orders",
+        source="orders",
+        dimensions={"id": dimension.number()},
+        relationships={
+            "validFirst": belongs_to(public, from_field="id", to_field="id"),
+            "protectedSecond": belongs_to(protected, from_field="id", to_field="id"),
+        },
+    )
+    registry = create_dataset_registry(root, public, protected)
+    executor = Executor()
+    with pytest.raises(CompiledQueryError):
+        check_relationships(root, executor=executor, registry=registry)
+    with pytest.raises(CompiledQueryError):
+        asyncio.run(
+            check_relationships_async(root, executor=AsyncExecutor(executor), registry=registry)
+        )
+    assert executor.queries == []
