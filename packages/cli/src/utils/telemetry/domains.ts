@@ -63,3 +63,5 @@ export const VALUE_FLAGS = {
 export type TelemetryFlag = typeof COMMAND_FLAGS[TelemetryCommand][number] | typeof GLOBAL_FLAGS[number];
 export const SHORT_FLAGS = { '-o': '--output', '-p': '--port', '-h': '--hostname', '-q': '--quiet', '-V': '--version' } as const;
 export const HYPEQUERY_PACKAGES = ['@hypequery/clickhouse', '@hypequery/datasets', '@hypequery/serve', '@hypequery/react', '@hypequery/cli', '@hypequery/mcp', '@hypequery/protocol', '@hypequery/protocol-conformance', '@hypequery/deployment'] as const;
+export const WARNING_CODES = ['tenant-key-candidate', 'tenant-column-missing'] as const;
+export const TYPE_FAMILIES = ['AggregateFunction', 'SimpleAggregateFunction', 'Variant', 'Dynamic', 'Object', 'JSON', 'Nested', 'Tuple', 'Map', 'Array', 'Nullable', 'LowCardinality', 'Decimal', 'Enum', 'DateTime', 'DateTime64', 'unknown'] as const;

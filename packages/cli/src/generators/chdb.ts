@@ -6,6 +6,8 @@ export interface ChdbGeneratorOptions {
   includeTables?: string[];
   excludeTables?: string[];
   chdbPath?: string;
+  onColumn?: GenerateTypesOptions['onColumn'];
+  onUnsupportedType?: GenerateTypesOptions['onUnsupportedType'];
 }
 
 /**
@@ -18,6 +20,8 @@ export async function generateChdbTypes(options: ChdbGeneratorOptions) {
     client: getChdbTypeGenerationClient(options.chdbPath),
     generatedBy: 'hypequery',
     includeUsageExample: false,
+    ...(options.onColumn ? { onColumn: options.onColumn } : {}),
+    ...(options.onUnsupportedType ? { onUnsupportedType: options.onUnsupportedType } : {}),
     ...(options.includeTables ? { includeTables: options.includeTables } : {}),
     ...(options.excludeTables ? { excludeTables: options.excludeTables } : {}),
   };
