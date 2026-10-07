@@ -71,6 +71,9 @@ def validate_derived_measures(
             raise ValueError("Derived formula references an unknown or non-local measure")
         stats = (0, 1)
         if isinstance(definition, DerivedMeasure):
+            # Bound recursion before descending into uncached dependencies.
+            if len(visiting) >= 16:
+                raise ValueError("Derived measure dependency depth limit exceeded")
             visiting.add(name)
             dependency_depth, nodes = formula_stats(definition.formula)
             if dependency_depth >= 16:

@@ -286,11 +286,12 @@ def test_other_formula_operations_and_bound_literals() -> None:
 
 
 @pytest.mark.parametrize("reverse", [False, True])
-def test_dependency_depth_is_independent_of_declaration_order(reverse: bool) -> None:
+@pytest.mark.parametrize("length", [17, 1000])
+def test_dependency_depth_is_independent_of_declaration_order(reverse: bool, length: int) -> None:
 
     definitions: dict[str, Measure | DerivedMeasure] = {"base": measure.sum("amount")}
     previous = "base"
-    for index in range(17):
+    for index in range(length):
         name = f"d{index}"
         definitions[name] = measure.derived(add(previous, 1))
         previous = name
@@ -310,3 +311,17 @@ def test_repeated_dependency_expansion_is_bounded() -> None:
         previous = name
     with pytest.raises(ValidationError, match="expansion limit"):
         Dataset(name="tooWide", source="orders", dimensions={}, measures=definitions)
+
+
+@pytest.mark.parametrize("reverse", [False, True])
+def test_dependency_depth_accepts_sixteen_levels(reverse: bool) -> None:
+    definitions: dict[str, Measure | DerivedMeasure] = {"base": measure.sum("amount")}
+    previous = "base"
+    for index in range(16):
+        name = f"d{index}"
+        definitions[name] = measure.derived(add(previous, 1))
+        previous = name
+    if reverse:
+        definitions = dict(reversed(tuple(definitions.items())))
+    ds = Dataset(name="atLimit", source="orders", dimensions={}, measures=definitions)
+    assert len(ds.measures) == 17
