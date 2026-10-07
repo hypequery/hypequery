@@ -1,6 +1,5 @@
 ---
 "@hypequery/datasets": minor
-"@hypequery/clickhouse": patch
 ---
 
 `week` buckets now start on Monday (ISO 8601). The datasets planner emitted
