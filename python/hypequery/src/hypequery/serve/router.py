@@ -333,7 +333,7 @@ def create_router(
     )
 
 
-__all__ = ["ServeRouter", "create_router"]
+__all__ = ["ServeRouter", "create_router", "create_api"]
 
 
 # Cross-language API definition name; create_router remains supported.

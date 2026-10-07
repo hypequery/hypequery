@@ -127,7 +127,7 @@ def _reload_app() -> FastAPI:
     return _import_app(spec, app_dir)
 
 
-__all__ = ["ExternalBindWarning", "run_dev"]
+__all__ = ["ExternalBindWarning", "run_dev", "serve_dev"]
 
 
 # Canonical cross-language name; retain run_dev for existing callers.

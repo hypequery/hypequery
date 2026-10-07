@@ -152,3 +152,10 @@ def test_serve_api_and_transport_names_preserve_runtime_checks() -> None:
     )
     with pytest.raises(ValueError, match="ProductionProfile"):
         start_server(app)
+
+
+def test_serving_aliases_are_in_module_exports() -> None:
+    from hypequery.serve import dev, router
+
+    assert {"run_dev", "serve_dev"} <= set(dev.__all__)
+    assert {"create_router", "create_api"} <= set(router.__all__)
