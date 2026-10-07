@@ -231,37 +231,28 @@ def test_dataset_endpoints_forward_conditions_and_metric_endpoints_refuse_them()
     reason="live ClickHouse service is not configured",
 )
 def test_live_having_filters_grouped_and_ungrouped_results() -> None:
-    from hypequery.execution import ClickHouseConnection, create_clickhouse_executor
-
-    executor = create_clickhouse_executor(
-        ClickHouseConnection(
-            host=os.environ["HYPEQUERY_TEST_CLICKHOUSE_HOST"],
-            port=int(os.environ.get("HYPEQUERY_TEST_CLICKHOUSE_PORT", "8123")),
-            database="test_db",
-            username="default",
-            password=os.environ["HYPEQUERY_TEST_CLICKHOUSE_PASSWORD"],
-        )
-    )
     import clickhouse_connect
 
+    from hypequery.execution import ClickHouseConnection, create_clickhouse_executor
+
+    host = os.environ["HYPEQUERY_TEST_CLICKHOUSE_HOST"]
+    port = int(os.environ.get("HYPEQUERY_TEST_CLICKHOUSE_PORT", "8123"))
+    password = os.environ["HYPEQUERY_TEST_CLICKHOUSE_PASSWORD"]
     admin = clickhouse_connect.get_client(
-        host=os.environ["HYPEQUERY_TEST_CLICKHOUSE_HOST"],
-        port=int(os.environ.get("HYPEQUERY_TEST_CLICKHOUSE_PORT", "8123")),
-        username="default",
-        password=os.environ["HYPEQUERY_TEST_CLICKHOUSE_PASSWORD"],
+        host=host, port=port, username="default", password=password
     )
-    admin.command("DROP TABLE IF EXISTS test_db.hq_having_orders")
-    admin.command(
-        "CREATE TABLE test_db.hq_having_orders "
-        "(customer_id String, amount Float64, status String) ENGINE = Memory"
-    )
-    admin.command(
-        "INSERT INTO test_db.hq_having_orders VALUES "
-        "('a', 6000, 'paid'), ('a', 5000, 'open'), ('b', 9000, 'paid'), ('c', 20000, 'paid')"
+    # A fresh name, created without IF NOT EXISTS: the test only ever drops the
+    # database it created itself.
+    database = f"hq_having_orders_{secrets.token_hex(6)}"
+    admin.command(f"CREATE DATABASE {database}")
+    executor = create_clickhouse_executor(
+        ClickHouseConnection(
+            host=host, port=port, database=database, username="default", password=password
+        )
     )
     orders = Dataset(
         name="havingOrders",
-        source="hq_having_orders",
+        source="orders",
         dimensions={
             "customerId": dimension("string", column="customer_id"),
             "amount": dimension("number"),
@@ -273,6 +264,14 @@ def test_live_having_filters_grouped_and_ungrouped_results() -> None:
         },
     )
     try:
+        admin.command(
+            f"CREATE TABLE {database}.orders "
+            "(customer_id String, amount Float64, status String) ENGINE = Memory"
+        )
+        admin.command(
+            f"INSERT INTO {database}.orders VALUES "  # noqa: S608 - generated name
+            "('a', 6000, 'paid'), ('a', 5000, 'open'), ('b', 9000, 'paid'), ('c', 20000, 'paid')"
+        )
         client = create_dataset_client(executor=executor)
         grouped = client.execute(
             orders,
@@ -328,7 +327,7 @@ def test_live_having_filters_grouped_and_ungrouped_results() -> None:
         assert empty == ()
     finally:
         executor.close()
-        admin.command("DROP TABLE IF EXISTS test_db.hq_having_orders")
+        admin.command(f"DROP DATABASE IF EXISTS {database}")
         admin.close()
 
 
