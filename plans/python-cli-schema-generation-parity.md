@@ -58,10 +58,14 @@ Replacement keeps the existing file's permissions; new files use the umask defau
 Filesystems without hard links fall back to exclusive creation.
 
 Generation replaces definitions as a whole; review custom measures and relationships
-before forcing. Unlike the TypeScript command, Python refuses to force-replace an
-explicit `tenant_key` (keyword, attribute or `"tenant_key"` mapping key) or
-keyword-unpacked settings that cannot be verified without
-executing authored code, requiring a separate generated file and a manual merge.
+before forcing. Unlike the TypeScript command, Python force-replaces only files it
+can prove tenant-free without executing authored code. It refuses any explicit
+`tenant_key` (keyword, attribute, name, parameter or string other than a generated
+`column=`/`name=`/`source=` value) and anything that could set options indirectly:
+`**` unpacking, `model_validate`/`model_copy`-style construction, reflection such as
+`getattr`/`setattr`/`eval`, and imports of project-local or third-party modules.
+Generated definitions use none of these. Refused files need a separate generated
+file and a manual merge.
 Writes compare content and file identity with the pre-discovery snapshot; changes
 or a newly created destination abort even with `--force`. A per-output lock directory
 coordinates CLI writers through validation and replacement. It does not lock ordinary

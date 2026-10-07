@@ -12,7 +12,8 @@ from hypequery.cli import main
 from hypequery.cli.errors import CliError
 from hypequery.cli.generators.datasets import generate_datasets
 from hypequery.cli.generators.schema import Column, Schema, Table
-from hypequery.cli.utils.generated_file import GeneratedFile, has_tenant_configuration
+from hypequery.cli.utils.generated_file import GeneratedFile
+from hypequery.cli.utils.tenant_settings import has_tenant_configuration
 
 
 @pytest.fixture
@@ -80,6 +81,18 @@ def test_tenant_refusal_happens_before_discovery(
         'orders = Dataset.model_validate({"tenant_key": "tenant_id"})\n',
         'settings["tenant_key"] = "tenant_id"\n',
         'setattr(orders, "tenant_key", "tenant_id")\n',
+        # Setting names held in variables or built at runtime.
+        'key = "tenant_key"\norders = Dataset.model_validate({**base, key: "tenant_id"})\n',
+        'name = "tenant" + "_key"\norders = Dataset.model_validate({name: "tenant_id"})\n',
+        "orders = Dataset(**settings)\n",
+        'orders = getattr(Dataset, "model_" + "validate")(settings)\n',
+        'orders = Dataset.model_validate_json(\'{"tenant_key": "tenant_id"}\')\n',
+        "class Scoped(Dataset):\n    tenant_key: str | None = 'tenant_id'\n",
+        "def scoped(tenant_key: str) -> None: ...\n",
+        # Pre-configured definitions imported from project modules.
+        "from tenancy import orders\n",
+        "from .tenancy import orders\n",
+        "import importlib\norders = importlib.import_module('tenancy').orders\n",
     ],
 )
 def test_indirect_tenant_configuration_detected(source: str) -> None:
@@ -88,6 +101,16 @@ def test_indirect_tenant_configuration_detected(source: str) -> None:
 
 def test_generated_definitions_are_replaceable(schema: Schema) -> None:
     assert not has_tenant_configuration(generate_datasets(schema).source)
+    named = Schema(
+        "analytics",
+        (Table("tenant_key", (Column("tenant_key", "UInt64"), Column("id", "UInt64"))),),
+    )
+    assert not has_tenant_configuration(generate_datasets(named).source)
+
+
+def test_stdlib_helpers_remain_replaceable(schema: Schema) -> None:
+    source = "import os\n" + generate_datasets(schema).source
+    assert not has_tenant_configuration(source)
 
 
 def test_column_named_tenant_key_does_not_block_regeneration(

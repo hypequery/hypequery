@@ -10,7 +10,8 @@ from typing import cast
 from ..errors import CliError
 from ..generators.datasets import generate_datasets
 from ..generators.schema import discover_schema
-from ..utils.generated_file import GeneratedFile, ensure_replaceable
+from ..utils.generated_file import GeneratedFile
+from ..utils.tenant_settings import ensure_replaceable
 
 
 def run(args: object) -> None:

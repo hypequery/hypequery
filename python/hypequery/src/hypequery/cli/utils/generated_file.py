@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import ast
 import os
 import stat
 import tempfile
@@ -11,62 +10,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from ..errors import CliError
-
-
-def has_tenant_configuration(source: str) -> bool:
-    """Inspect authored definitions without executing their code."""
-    try:
-        tree = ast.parse(source)
-    except SyntaxError as exc:
-        raise CliError(
-            "Cannot verify existing definitions; repair their Python syntax first."
-        ) from exc
-    return any(
-        # Unpacked dictionaries and dynamically computed settings cannot be
-        # proved tenant-free without evaluating authored code. Fail closed.
-        (isinstance(node, ast.keyword) and node.arg is None)
-        or (
-            isinstance(node, ast.keyword)
-            and node.arg == "tenant_key"
-            and not (isinstance(node.value, ast.Constant) and node.value.value is None)
-        )
-        or (isinstance(node, ast.Attribute) and node.attr == "tenant_key")
-        or any(_is_tenant_key(name) for name in _setting_names(node))
-        for node in ast.walk(tree)
-    )
-
-
-def _is_tenant_key(node: ast.AST | None) -> bool:
-    return isinstance(node, ast.Constant) and node.value == "tenant_key"
-
-
-def _setting_names(node: ast.AST) -> list[ast.AST | None]:
-    """Strings that name a setting, e.g. model_copy(update={"tenant_key": ...}).
-
-    A column named tenant_key appears as an ordinary value (column="tenant_key")
-    and must not block regeneration of the generator's own output.
-    """
-    if isinstance(node, ast.Dict):
-        return list(node.keys)
-    if isinstance(node, ast.Subscript):
-        return [node.slice]
-    if (
-        isinstance(node, ast.Call)
-        and isinstance(node.func, ast.Name)
-        and node.func.id == "setattr"
-        and len(node.args) >= 2
-    ):
-        return [node.args[1]]
-    return []
-
-
-def ensure_replaceable(source: str) -> None:
-    if has_tenant_configuration(source):
-        raise CliError(
-            "Refusing to replace configured tenant boundaries or indirect settings. "
-            "Generate to a separate file and merge schema changes while preserving "
-            "tenant_key."
-        )
+from .tenant_settings import ensure_replaceable
 
 
 @dataclass(frozen=True)
