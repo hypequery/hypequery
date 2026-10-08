@@ -4,7 +4,7 @@ import { useEffect, useRef } from 'react';
 import { motion, useInView, useReducedMotion } from 'motion/react';
 import { RotateCcw, Sparkles } from 'lucide-react';
 import { SiClaude } from 'react-icons/si';
-import { EXCHANGES, formatUsd, sparkline, textBar, type Exchange } from './aiAnswersData';
+import { EXCHANGES, formatUsd, type Exchange } from './aiAnswersData';
 import { useTimeline } from './useTimeline';
 
 // Claude Code's thinking glyphs.
@@ -54,32 +54,21 @@ function useFollow(key: number, reduced: boolean) {
   return ref;
 }
 
-function TerminalChart({ exchange }: { exchange: Exchange }) {
-  const values = exchange.points.map((point) => point.value);
-
-  if (exchange.chart === 'line') {
-    const first = exchange.points[0];
-    const last = exchange.points[exchange.points.length - 1];
-    const change = Math.round(((last.value - first.value) / first.value) * 100);
-    return (
-      <div className="mt-1 pl-4">
-        <span className="text-[#d97757]">{sparkline(values)}</span>
-        <span className="text-[#a8a29e]">  {first.label} {formatUsd(first.value)} → {last.label} {formatUsd(last.value)} </span>
-        <span className="text-[#4ade80]">(+{change}%)</span>
-      </div>
-    );
-  }
-
-  const max = Math.max(...values);
+/** Claude Code prints plain text, so the answer is rows and a summary line. */
+function TerminalRows({ exchange }: { exchange: Exchange }) {
   return (
     <div className="mt-1 pl-4">
       {exchange.points.map((point, index) => (
-        <motion.div key={point.label} {...reveal} transition={{ ...reveal.transition, delay: 0.08 * (index + 1) }} className="flex gap-3 whitespace-pre">
-          <span className="w-[80px] text-[#a8a29e]">{point.label}</span>
-          <span className="w-[72px] text-right">{formatUsd(point.value, exchange.signed)}</span>
-          <span className="text-[#d97757]">{textBar(point.value, max)}</span>
+        <motion.div key={point.label} {...reveal} transition={{ ...reveal.transition, delay: 0.06 * (index + 1) }} className="flex max-w-[240px] justify-between">
+          <span className="text-[#a8a29e]">{point.label}</span>
+          <span>{formatUsd(point.value, exchange.signed)}</span>
         </motion.div>
       ))}
+      <div className="mt-2 text-[#a8a29e]">
+        {exchange.reply.lead}
+        <span className="font-semibold text-[#e8e6e3]">{exchange.reply.strong}</span>
+        {exchange.reply.tail}
+      </div>
     </div>
   );
 }
@@ -117,7 +106,7 @@ function TerminalExchange({ exchange, at, glyph }: { exchange: Exchange; at: num
       {at >= T.answer && (
         <motion.div {...reveal}>
           <span>⏺</span> {exchange.heading}:
-          <TerminalChart exchange={exchange} />
+          <TerminalRows exchange={exchange} />
         </motion.div>
       )}
     </div>

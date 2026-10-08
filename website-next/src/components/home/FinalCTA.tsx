@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { DeployWaitlist } from './DeployWaitlist';
-import { InstallCommand } from './InstallCommand';
+import { SetupCommand } from './SetupCommand';
 
 export function FinalCTA() {
   return (
@@ -20,7 +20,7 @@ export function FinalCTA() {
           Get started
         </Link>
       </div>
-      <InstallCommand className="mt-4" />
+      <SetupCommand className="mt-4 justify-center" />
     </section>
   );
 }

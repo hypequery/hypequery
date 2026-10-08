@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { DeployWaitlist } from './DeployWaitlist';
-import { InstallCommand } from './InstallCommand';
+import { SetupCommand } from './SetupCommand';
 import { SiGithub } from 'react-icons/si';
 import { NpmDownloadsBadge } from './NpmDownloadsBadge';
 
@@ -23,7 +23,7 @@ export function Hero() {
           <DeployWaitlist location="hero" className="inline-flex min-h-12 items-center gap-3 rounded-lg bg-accent px-5 text-sm font-semibold text-white transition hover:-translate-y-0.5 hover:opacity-90 dark:text-[#0c0e14]" />
           <Link href="/docs/quick-start" className="inline-flex min-h-12 items-center text-sm font-semibold text-text transition hover:text-accent">Get started</Link>
         </div>
-        <InstallCommand className="mt-4" />
+        <SetupCommand className="mt-4" />
       </div>
 
     </section>

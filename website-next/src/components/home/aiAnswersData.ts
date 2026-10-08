@@ -65,19 +65,3 @@ export function formatUsd(value: number, signed = false): string {
   if (!signed) return formatted;
   return value < 0 ? `-${formatted}` : `+${formatted}`;
 }
-
-const SPARK_CHARS = '▁▂▃▄▅▆▇█';
-
-/** A one-line Unicode sparkline, as a terminal would draw it. */
-export function sparkline(values: number[]): string {
-  const min = Math.min(...values);
-  const range = Math.max(...values) - min || 1;
-  return values
-    .map((value) => SPARK_CHARS[Math.round(((value - min) / range) * (SPARK_CHARS.length - 1))])
-    .join('');
-}
-
-/** A text bar scaled against the largest value, at most `width` blocks. */
-export function textBar(value: number, max: number, width = 14): string {
-  return '█'.repeat(Math.max(1, Math.round((value / max) * width)));
-}
