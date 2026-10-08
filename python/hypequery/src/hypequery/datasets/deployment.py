@@ -10,13 +10,19 @@ from hypequery.protocol import (
     validate_protocol_deployment_contract,
 )
 
-from .constants import SEMANTIC_FILTER_OPERATORS
 from .dataset import Dataset
 from .deployment_values import filter_expression
 from .derived_measures import DerivedMeasure
 from .dimensions import DimensionType
 from .registry import DatasetRegistry
 from .relationships import Relationship
+from .utils.definition_projection import (
+    filter_operators,
+    is_queryable,
+    limits_node,
+    metadata,
+    relationship_node,
+)
 from .utils.derived_measures import derived_measure_node, formula_references
 from .utils.portable_grains import assert_publishable_time_grains
 from .utils.portable_order import portable_name_key
@@ -33,17 +39,7 @@ def _field_schema(field_type: DimensionType | None) -> dict[str, str]:
 
 
 def _relationship_node(name: str, relation: Relationship) -> dict[str, object]:
-    node: dict[str, object] = {
-        "name": name,
-        "kind": relation.kind,
-        "target": relation.target,
-        "from": relation.from_field,
-        "to": relation.to_field,
-    }
-    if relation.keys is not None:
-        node["keys"] = [{"from": key.from_field, "to": key.to_field} for key in relation.keys]
-    node["queryable"] = relation.kind != "hasMany"
-    return node
+    return {"name": name, **relationship_node(relation), "queryable": is_queryable(relation)}
 
 
 def _sql_expression(
@@ -85,11 +81,8 @@ def build_protocol_dataset_contract(
             "source": source,
             "filterable": dimension.filterable is not False,
             "groupable": dimension.groupable is not False,
+            **metadata(dimension.label, dimension.description),
         }
-        if dimension.label is not None:
-            entry["label"] = dimension.label
-        if dimension.description is not None:
-            entry["description"] = dimension.description
         dimensions.append(entry)
 
     measures: list[dict[str, object]] = []
@@ -116,28 +109,21 @@ def build_protocol_dataset_contract(
                 _field_schema(field_type.field_type if field_type is not None else None),
                 name,
             )
-        if measure.label is not None:
-            entry["label"] = measure.label
-        if measure.description is not None:
-            entry["description"] = measure.description
+        entry.update(metadata(measure.label, measure.description))
         measures.append(entry)
 
     filters: list[dict[str, object]] = []
     for name, definition in sorted(
         dataset.filters.items(), key=lambda item: portable_name_key(item[0])
     ):
-        item: dict[str, object] = {
-            "name": name,
-            "field": definition.field,
-            "operators": list(
-                SEMANTIC_FILTER_OPERATORS if definition.operators is None else definition.operators
-            ),
-        }
-        if definition.label is not None:
-            item["label"] = definition.label
-        if definition.description is not None:
-            item["description"] = definition.description
-        filters.append(item)
+        filters.append(
+            {
+                "name": name,
+                "field": definition.field,
+                "operators": filter_operators(definition),
+                **metadata(definition.label, definition.description),
+            }
+        )
 
     relationships = [
         _relationship_node(name, relation)
@@ -162,17 +148,7 @@ def build_protocol_dataset_contract(
     if dataset.time_key is not None:
         result["timeField"] = dataset.time_key
     if dataset.limits is not None:
-        limits = dataset.limits
-        result["limits"] = {
-            key: value
-            for key, value in (
-                ("maxDimensions", limits.max_dimensions),
-                ("maxMeasures", limits.max_measures),
-                ("maxFilters", limits.max_filters),
-                ("maxResultSize", limits.max_result_size),
-            )
-            if value is not None
-        }
+        result["limits"] = limits_node(dataset.limits)
     if endpoint is not None:
         result["endpoint"] = dict(endpoint)
     return validate_protocol_dataset_contract(result)
