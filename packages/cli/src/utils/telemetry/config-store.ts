@@ -1,5 +1,4 @@
 import { randomUUID } from 'node:crypto';
-import { mkdirSync, readFileSync, writeFileSync, renameSync, unlinkSync, rmdirSync } from 'node:fs';
 import { mkdir, readFile, rename, rmdir, stat, unlink, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
@@ -11,6 +10,25 @@ export interface TelemetryConfigDependencies {
   readonly env?: Readonly<Record<string, string | undefined>>;
   readonly platform?: NodeJS.Platform;
   readonly configDirectory?: string;
+}
+
+/** Settings writes in progress; each holds the cross-process lock until it settles. */
+const activeWrites = new Set<Promise<unknown>>();
+
+/**
+ * Waits, bounded, for in-progress settings writes to release their lock. The
+ * executable calls this before exiting, including on signals: process.exit()
+ * skips `finally` blocks, and a stranded lock would make every later
+ * preference change fail until someone removed it by hand.
+ */
+export async function settleTelemetrySettings(timeoutMs = 250): Promise<void> {
+  if (activeWrites.size === 0) return;
+  let timer: NodeJS.Timeout | undefined;
+  await Promise.race([
+    Promise.allSettled([...activeWrites]),
+    new Promise<void>(resolve => { timer = setTimeout(resolve, timeoutMs); timer.unref(); }),
+  ]);
+  clearTimeout(timer);
 }
 
 export class TelemetryConfigStore {
@@ -62,35 +80,33 @@ export class TelemetryConfigStore {
     });
   }
 
+  /** Kill switch from an HTTP 410. One immediate lock attempt; never waits for another writer. */
   async disableVersion(version: string): Promise<TelemetryConfig | null> {
     if (!matchesTelemetryFormat('version', version)) return null;
-    let lock: string | undefined;
-    let temporary: string | undefined;
-    try {
-      const directory = await this.directory();
-      if (!directory) return null;
-      // A late 410 must not leave an asynchronous settings write holding a lock
-      // when the bounded flush returns and the executable exits. Once acquired,
-      // this small critical section runs to completion without yielding.
-      const lockPath = path.join(directory, 'telemetry.lock');
-      mkdirSync(lockPath, { mode: 0o700 });
-      lock = lockPath;
-      const file = path.join(directory, 'telemetry.json');
-      const previous = parseTelemetryConfig(readFileSync(file, 'utf8'));
-      if (!previous) return null;
-      const config = { ...previous, disabled_cli_versions: [...new Set([...(previous.disabled_cli_versions ?? []), version])].slice(-20) };
-      temporary = `${file}.${randomUUID()}.tmp`;
-      writeFileSync(temporary, `${JSON.stringify(config, null, 2)}\n`, { flag: 'wx', mode: 0o600 });
-      renameSync(temporary, file);
-      return config;
-    } catch { return null; }
-    finally {
-      if (temporary) { try { unlinkSync(temporary); } catch { /* Already renamed or unavailable. */ } }
-      if (lock) { try { rmdirSync(lock); } catch { /* Settings are best effort. */ } }
-    }
+    return this.update(undefined, async config => ({
+      ...config,
+      disabled_cli_versions: [...new Set([...(config.disabled_cli_versions ?? []), version])].slice(-20),
+    }), 1, true);
   }
 
-  private async update(enabled?: boolean, mutate?: (config: TelemetryConfig) => Promise<TelemetryConfig>, lockAttempts = 20): Promise<TelemetryConfig | null> {
+  private update(
+    enabled?: boolean,
+    mutate?: (config: TelemetryConfig) => Promise<TelemetryConfig>,
+    lockAttempts = 20,
+    requireExisting = false,
+  ): Promise<TelemetryConfig | null> {
+    const write = this.locked(enabled, mutate, lockAttempts, requireExisting);
+    activeWrites.add(write);
+    void write.finally(() => activeWrites.delete(write));
+    return write;
+  }
+
+  private async locked(
+    enabled: boolean | undefined,
+    mutate: ((config: TelemetryConfig) => Promise<TelemetryConfig>) | undefined,
+    lockAttempts: number,
+    requireExisting: boolean,
+  ): Promise<TelemetryConfig | null> {
     let lock: string | undefined;
     let temporary: string | undefined;
     try {
@@ -121,6 +137,8 @@ export class TelemetryConfigStore {
       } catch (error) {
         if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
       }
+      // The kill switch only amends settings that collection already created.
+      if (!previous && requireExisting) return null;
       let config: TelemetryConfig = {
         schema_version: TELEMETRY_SCHEMA_VERSION,
         install_id: previous?.install_id ?? randomUUID(),

@@ -2,7 +2,7 @@ import { chmod, mkdtemp, readFile, readdir, rm, stat, writeFile, mkdir } from 'n
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { TelemetryConfigStore } from './config-store.js';
+import { TelemetryConfigStore, settleTelemetrySettings } from './config-store.js';
 import { resolveTelemetryState, telemetryOptOutSource } from './opt-out.js';
 
 describe('telemetry preferences', () => {
@@ -81,6 +81,29 @@ describe('telemetry preferences', () => {
     expect(await readdir(directory)).toEqual(['telemetry.json', 'telemetry.lock']);
   });
 
+  it('lets exit wait for an in-progress write to release its lock', async () => {
+    await store.load();
+    const pending = store.setEnabled(false);
+    await settleTelemetrySettings();
+    expect(await readdir(directory)).toEqual(['telemetry.json']);
+    expect(await pending).toMatchObject({ enabled: false });
+  });
+  it('bounds the exit wait when a write cannot finish', async () => {
+    await store.load();
+    let release!: () => void;
+    const released = new Promise<void>(resolve => { release = resolve; });
+    const blocked = store.showNotice(() => released);
+    const started = performance.now();
+    await settleTelemetrySettings(50);
+    expect(performance.now() - started).toBeLessThan(500);
+    release();
+    await blocked;
+    expect(await readdir(directory)).toEqual(['telemetry.json']);
+  });
+  it('does not create settings from a kill switch', async () => {
+    expect(await store.disableVersion('1.22.0')).toBeNull();
+    expect(await readdir(directory)).toEqual([]);
+  });
   it.skipIf(process.platform === 'win32' || process.getuid?.() === 0)('fails closed in a read-only config directory', async () => {
     await store.load();
     await chmod(directory, 0o500);

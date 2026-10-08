@@ -39,6 +39,27 @@ export const COMMAND_FLAGS = {
   help: [], version: [], telemetry: [], unknown: [],
 } as const satisfies Record<TelemetryCommand, readonly string[]>;
 export const GLOBAL_FLAGS = ['--no-telemetry', '--help', '--version'] as const;
+/** Options that consume the next argument as their value; that value is never a flag. */
+export const VALUE_FLAGS = {
+  init: ['--path', '--style', '--database', '--chdb-path', '--auth', '--tables', '--exclude-tables'],
+  dev: ['--port', '--hostname', '--cache', '--redis-url', '--path'],
+  mcp: ['--path', '--tenant', '--url'],
+  generate: ['--output', '--path', '--tables', '--database', '--chdb-path'],
+  'generate:types': ['--output', '--path', '--tables', '--database', '--chdb-path'],
+  'generate:datasets': ['--output', '--path', '--tables', '--exclude-tables', '--tenant-column'],
+  'generate:manifest': ['--output'],
+  login: ['--cloud-url', '--environment'],
+  logout: [],
+  deploy: ['--bundle-output', '--release-output', '--project', '--environment', '--endpoint'],
+  'deployment:build': ['--bundle-output'],
+  'deployment:validate': [],
+  'deployment:release': ['--project', '--environment', '--output'],
+  'deployment:submit': ['--release', '--endpoint'],
+  'deployment:status': ['--project', '--environment', '--endpoint'],
+  pull: ['--output', '--project', '--environment', '--endpoint'],
+  diff: ['--project', '--environment', '--endpoint'],
+  help: [], version: [], telemetry: [], unknown: [],
+} as const satisfies { [C in TelemetryCommand]: readonly typeof COMMAND_FLAGS[C][number][] };
 export type TelemetryFlag = typeof COMMAND_FLAGS[TelemetryCommand][number] | typeof GLOBAL_FLAGS[number];
 export const SHORT_FLAGS = { '-o': '--output', '-p': '--port', '-h': '--hostname', '-q': '--quiet', '-V': '--version' } as const;
 export const HYPEQUERY_PACKAGES = ['@hypequery/clickhouse', '@hypequery/datasets', '@hypequery/serve', '@hypequery/react', '@hypequery/cli', '@hypequery/mcp', '@hypequery/protocol', '@hypequery/protocol-conformance', '@hypequery/deployment'] as const;
