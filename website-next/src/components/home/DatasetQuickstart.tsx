@@ -23,7 +23,7 @@ export function DatasetQuickstart() {
   const result = useMemo(() => runPlayground(datasetCode, language), [datasetCode, language]);
 
   return (
-    <section aria-labelledby="dataset-quickstart-title" className="mx-auto max-w-[1280px] px-5 py-12 sm:px-8 sm:py-16">
+    <section aria-labelledby="dataset-quickstart-title" className="mx-auto max-w-[1280px] px-5 py-14 sm:px-8 sm:py-20">
       <div className="mb-8 max-w-[620px]">
         <h2 id="dataset-quickstart-title" className="home-section-title text-text">Start with one dataset</h2>
         <p className="mt-4 text-sm leading-6 text-text-muted sm:text-base">Point it at an existing table, query it from your backend, and deploy when you&apos;re ready.</p>

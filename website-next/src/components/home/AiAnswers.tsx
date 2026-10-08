@@ -1,10 +1,11 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useRef } from 'react';
 import { motion, useInView, useReducedMotion } from 'motion/react';
 import { ArrowUp, RotateCcw, Sparkles } from 'lucide-react';
 import { SiClaude } from 'react-icons/si';
 import { EXCHANGES, formatUsd, type Exchange } from './aiAnswersData';
+import { useFollow } from './useFollow';
 import { useTimeline } from './useTimeline';
 
 // Claude Code's thinking glyphs.
@@ -52,16 +53,6 @@ function currentDraft(elapsed: number) {
     if (at >= 0 && at < T.send) return exchange.question.slice(0, Math.floor(at / T.typePerChar));
   }
   return null;
-}
-
-/** Keeps a scrolling panel pinned to its newest content, like a real chat. */
-function useFollow(key: number, reduced: boolean) {
-  const ref = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    const el = ref.current;
-    if (el) el.scrollTo({ top: el.scrollHeight, behavior: reduced ? 'auto' : 'smooth' });
-  }, [key, reduced]);
-  return ref;
 }
 
 /** Claude Code prints plain text, so the answer is rows and a summary line. */

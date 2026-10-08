@@ -43,7 +43,7 @@ export function ProductExplainer() {
     : 'M0 65C20 60 25 70 45 60S75 35 95 42S130 58 150 42S175 25 195 33S225 18 250 25S280 15 300 18';
 
   return (
-    <section aria-labelledby="product-explainer-title" className="mx-auto max-w-[1280px] px-5 pb-12 pt-12 sm:px-8 sm:pt-16">
+    <section aria-labelledby="product-explainer-title" className="mx-auto max-w-[1280px] px-5 pb-12 pt-14 sm:px-8 sm:pt-20">
       <motion.div variants={ENTRANCE} initial={reducedMotion ? false : "hidden"} whileInView="visible" viewport={{ once: true, amount: 0.2 }} custom={0} className="mx-auto max-w-[660px] text-center">
         <h2 id="product-explainer-title" className="home-section-title text-text">One model, every interface</h2>
         <p className="mx-auto mt-4 max-w-[570px] text-sm leading-6 text-text-muted sm:text-base">Define your ClickHouse analytics once in code. Dashboards, embedded chat, and AI agents all read from it.</p>
