@@ -91,7 +91,8 @@ jobs:
   cli-artifacts:
     name: CLI artifacts (py${{ matrix.python-version }}, ${{ matrix.artifact }})
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    # Leave room for setup/build and two separately budgeted artifact journeys.
+    timeout-minutes: 40
     strategy:
       fail-fast: false
       matrix:
