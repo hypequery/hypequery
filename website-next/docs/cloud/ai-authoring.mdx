@@ -1,0 +1,24 @@
+---
+title: AI authoring
+description: Let hypequery Cloud's AI learn your business and draft your datasets.
+---
+
+import { CloudWaitlistNotice } from '@/components/docs/cloud-waitlist-notice';
+
+<CloudWaitlistNotice />
+
+AI authoring is the fastest way into Cloud. It onboards you, learns how your business works, and creates your
+datasets for you.
+
+1. **Connect ClickHouse** with a [read-only user](/docs/cloud/clickhouse-users).
+2. **Tell it about your business.** The AI reads your schema and asks what matters, such as how you count revenue,
+   who your customers are, and how data is split by tenant.
+3. **Review the draft.** It proposes datasets with dimensions, measures, relationships, and tenant keys. Accept, edit,
+   or reject each one.
+4. **Go live.** Accepted datasets are served as [REST](/docs/cloud/rest-api) and [MCP](/docs/cloud/mcp) endpoints.
+
+AI-authored datasets are the same as code-authored ones: they produce the same deployment contract, follow the same
+access and tenant rules, and are served the same way.
+
+If you prefer to manage datasets in code, define them in TypeScript or Python and
+[deploy from TypeScript](/docs/cloud/deploy-typescript) or [from Python](/docs/cloud/deploy-python) instead.

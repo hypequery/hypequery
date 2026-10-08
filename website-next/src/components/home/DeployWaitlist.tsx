@@ -9,6 +9,7 @@ const FEATURE_OPTIONS = [
   'Hosted MCP',
   'Embeddable chat',
   'Embeddable dashboards',
+  'AI dataset authoring',
   'Something else',
 ] as const;
 

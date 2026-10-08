@@ -5,6 +5,8 @@ import { AnnouncementBanner, Hero, FinalCTA } from '@/components/home';
 import { FeatureGrid } from '@/components/home/FeatureGrid';
 import { DatasetQuickstart } from '@/components/home/DatasetQuickstart';
 import { ProductExplainer } from '@/components/home/ProductExplainer';
+import { AiAnswers } from '@/components/home/AiAnswers';
+import { AiAuthoring } from '@/components/home/AiAuthoring';
 
 const softwareSchema = {
   '@context': 'https://schema.org',
@@ -41,6 +43,8 @@ export default function Home() {
       <Navigation hasBanner />
       <main className="pt-[104px]">
         <Hero />
+        <AiAnswers />
+        <AiAuthoring />
         <ProductExplainer />
         <FeatureGrid />
         <DatasetQuickstart />

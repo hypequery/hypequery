@@ -4,6 +4,7 @@
   "root": "language",
   "pages": [
     "index",
+    "ai-authoring",
     "how-it-works",
     "quick-start",
     "---Deploy---",
