@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Literal, TypeAlias, TypedDict, Unpack
 
-from pydantic import field_validator
+from pydantic import ValidationInfo, field_validator
 
 from ._base import DefinitionModel
 from .validation import validate_non_empty, validate_qualified_identifier
@@ -26,11 +26,10 @@ class Dimension(DefinitionModel):
 
     @field_validator("column", "sql")
     @classmethod
-    def _non_empty_text(cls, value: str | None, info: object) -> str | None:
+    def _non_empty_text(cls, value: str | None, info: ValidationInfo) -> str | None:
         if value is None:
             return None
-        field_name = getattr(info, "field_name", "value")
-        return validate_non_empty(value, field=str(field_name))
+        return validate_non_empty(value, field=info.field_name or "value")
 
     @field_validator("dependencies")
     @classmethod

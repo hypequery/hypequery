@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Literal, TypeAlias, cast
 
-from pydantic import Field, field_serializer, field_validator, model_validator
+from pydantic import Field, ValidationInfo, field_serializer, field_validator, model_validator
 
 from ._base import DefinitionModel
 from .constants import SUPPORTED_TIME_GRAINS
@@ -114,11 +114,10 @@ class Dataset(DefinitionModel):
 
     @field_validator("source", "tenant_key", "time_key")
     @classmethod
-    def _non_empty_physical_name(cls, value: str | None, info: object) -> str | None:
+    def _non_empty_physical_name(cls, value: str | None, info: ValidationInfo) -> str | None:
         if value is None:
             return None
-        field_name = getattr(info, "field_name", "value")
-        return validate_non_empty(value, field=str(field_name))
+        return validate_non_empty(value, field=info.field_name or "value")
 
     @field_serializer("dimensions", "measures", "filters", "relationships")
     def _serialize_definition_map(self, value: Mapping[str, object]) -> dict[str, object]:

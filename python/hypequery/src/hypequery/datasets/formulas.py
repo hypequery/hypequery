@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 import math
-from typing import Literal, TypeAlias, cast
+from collections.abc import Mapping
+from typing import Final, Literal, TypeAlias, cast
 
 from pydantic import SerializeAsAny, field_validator
 
@@ -48,6 +49,26 @@ class FormulaCall(_Formula):
 Formula: TypeAlias = FormulaReference | FormulaLiteral | FormulaBinary | FormulaCall
 FormulaBinary.model_rebuild()
 FormulaCall.model_rebuild()
+
+#: The argument count each formula function takes, matching TypeScript.
+FORMULA_FUNCTION_ARITIES: Final[Mapping[str, int]] = {
+    "nullIfZero": 1,
+    "coalesce": 2,
+    "round": 2,
+    "floor": 1,
+    "ceil": 1,
+}
+
+
+def formula_children(formula: Formula) -> tuple[Formula, ...]:
+    """The direct operands of *formula*; references and literals have none."""
+
+    if isinstance(formula, FormulaBinary):
+        return (formula.left, formula.right)
+    if isinstance(formula, FormulaCall):
+        return formula.args
+    return ()
+
 
 FormulaInput: TypeAlias = str | bool | int | float | Formula | None
 
