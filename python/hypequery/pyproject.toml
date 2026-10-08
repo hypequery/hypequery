@@ -24,7 +24,10 @@ classifiers = [
 
 # Definition-only use must stay framework-free. Nothing here may pull in a web
 # framework or a database driver; those are extras, enforced by importlinter.
-dependencies = ["pydantic>=2.7"]
+dependencies = [
+    "pydantic>=2.7",
+    "tzdata>=2025.2",
+]
 
 [project.optional-dependencies]
 clickhouse = ["clickhouse-connect>=1.6.0"]
