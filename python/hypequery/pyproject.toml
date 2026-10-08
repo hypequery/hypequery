@@ -51,6 +51,8 @@ dev = [
   "ruff>=0.6",
   "import-linter>=2.0",
   "httpx>=0.27",
+  "packaging>=25",
+  "towncrier==26.9.0",
 ]
 
 [tool.hatch.build.targets.wheel]
@@ -137,3 +139,20 @@ forbidden_modules = [
   "hypequery.execution",
   "hypequery.serve",
 ]
+
+# Existing fragments are Markdown bullet lists named pr-<number>.md.
+[tool.towncrier]
+name = "hypequery"
+package = ""
+directory = "changelog.d"
+filename = "CHANGELOG.md"
+template = "changelog.d/template.md"
+title_format = "## {version} ({project_date})"
+start_string = "<!-- towncrier release notes start -->\n"
+all_bullets = false
+ignore = ["README.md"]
+
+[[tool.towncrier.type]]
+directory = "md"
+name = "Changes"
+showcontent = true

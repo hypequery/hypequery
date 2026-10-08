@@ -1,6 +1,11 @@
 name: Python
 
 on:
+  workflow_call:
+    inputs:
+      ref:
+        type: string
+        required: true
   push:
     branches: [main]
     paths:
@@ -10,6 +15,8 @@ on:
       - 'packages/datasets/src/execution-capabilities.json'
       - 'specs/serve-http/**'
       - '.github/workflows/python.yml'
+      - '.github/workflows/python-release.yml'
+      - '.github/workflows/python-release-pr.yml'
   pull_request:
     paths:
       - 'python/**'
@@ -18,6 +25,8 @@ on:
       - 'packages/datasets/src/execution-capabilities.json'
       - 'specs/serve-http/**'
       - '.github/workflows/python.yml'
+      - '.github/workflows/python-release.yml'
+      - '.github/workflows/python-release-pr.yml'
 
 permissions:
   contents: read
@@ -36,6 +45,8 @@ jobs:
         python-version: ['3.11', '3.12', '3.13', '3.14']
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.ref || github.sha }}
       - uses: astral-sh/setup-uv@v5
         with:
           enable-cache: true
@@ -44,6 +55,8 @@ jobs:
       - run: uv run ruff check .
       - run: uv run ruff format --check .
       - run: uv run mypy
+      - name: Validate pending Python release notes
+        run: uv run towncrier build --draft --version 0.0.0
       - run: uv run lint-imports
       # RFC 0010: a value moves as a typed parameter, never as SQL text.
       - run: uv run python scripts/check_sql_interpolation.py
@@ -73,6 +86,8 @@ jobs:
           --health-retries 5
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.ref || github.sha }}
       - uses: astral-sh/setup-uv@v5
         with:
           enable-cache: true
@@ -113,6 +128,8 @@ jobs:
           --health-retries 5
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.ref || github.sha }}
       - uses: astral-sh/setup-uv@e58605a9b6da7c637471fab8847a5e5a6b8df081 # v5
         with:
           enable-cache: true
@@ -147,6 +164,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.ref || github.sha }}
       - uses: astral-sh/setup-uv@v5
         with:
           enable-cache: true
@@ -162,6 +181,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.ref || github.sha }}
       - uses: astral-sh/setup-uv@v5
         with:
           enable-cache: true
@@ -192,6 +213,8 @@ jobs:
           --health-retries 5
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.ref || github.sha }}
       - uses: astral-sh/setup-uv@e58605a9b6da7c637471fab8847a5e5a6b8df081 # v5
         with:
           enable-cache: true
@@ -209,6 +232,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.ref || github.sha }}
       - uses: astral-sh/setup-uv@v5
       - run: uv build
       - name: Audit archive contents
@@ -224,6 +249,8 @@ jobs:
         working-directory: .
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.ref || github.sha }}
       - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v4
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:

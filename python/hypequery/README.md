@@ -1068,6 +1068,9 @@ a branch for either would be unreachable code.
 
 ## Development
 
+See [the Python release guide](./RELEASING.md) for beta, canary, and stable
+publishing, including the bundled CLI.
+
 See the [datasets implementation guide](./ARCHITECTURE.md) for validation,
 compilation and client boundaries, and where future dialect work belongs.
 

@@ -1,0 +1,132 @@
+name: Python release
+
+on:
+  push:
+    tags: ['python-v*']
+  workflow_run:
+    workflows: [Python]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+    # Build-only canary rehearsal; this event never uploads to PyPI.
+
+permissions:
+  contents: read
+
+concurrency:
+  group: python-release-${{ github.event.workflow_run.head_sha || github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    if: >-
+      github.repository == 'hypequery/hypequery' &&
+      (github.event_name == 'push' ||
+       (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') ||
+       (github.event_name == 'workflow_run' &&
+        github.event.workflow_run.event == 'push' &&
+        github.event.workflow_run.conclusion == 'success' &&
+        github.event.workflow_run.head_repository.full_name == github.repository &&
+        vars.PYTHON_CANARY_ENABLED == 'true'))
+    runs-on: ubuntu-latest
+    outputs:
+      ref: ${{ steps.source.outputs.ref }}
+    steps:
+      - name: Select the exact tested commit
+        id: source
+        env:
+          SOURCE_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
+        run: echo "ref=$SOURCE_SHA" >> "$GITHUB_OUTPUT"
+
+  verify:
+    needs: prepare
+    # Automated canaries already passed Python CI at this exact commit.
+    if: github.event_name != 'workflow_run'
+    uses: ./.github/workflows/python.yml
+    with:
+      ref: ${{ needs.prepare.outputs.ref }}
+
+  build:
+    needs: [prepare, verify]
+    if: >-
+      always() && !cancelled() && needs.prepare.result == 'success' &&
+      (needs.verify.result == 'success' ||
+       (github.event_name == 'workflow_run' && needs.verify.result == 'skipped'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: python/hypequery
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.prepare.outputs.ref }}
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: astral-sh/setup-uv@e58605a9b6da7c637471fab8847a5e5a6b8df081 # v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: python/hypequery/uv.lock
+      - name: Require tagged releases to come from main
+        if: github.event_name == 'push'
+        run: git merge-base --is-ancestor HEAD origin/main
+      - run: uv sync --frozen --dev --python 3.12
+      - name: Validate tag or generate canary version
+        id: version
+        env:
+          RELEASE_EVENT: ${{ github.event_name }}
+          RELEASE_TAG: ${{ github.ref_name }}
+          RELEASE_RUN: ${{ github.run_number }}
+          RELEASE_ATTEMPT: ${{ github.run_attempt }}
+        run: |
+          if [ "$RELEASE_EVENT" = "push" ]; then
+            uv run --no-sync python scripts/prepare_release.py --tag "$RELEASE_TAG" --github-output "$GITHUB_OUTPUT"
+          else
+            uv run --no-sync python scripts/prepare_release.py --canary --run-number "$RELEASE_RUN" --attempt "$RELEASE_ATTEMPT" --github-output "$GITHUB_OUTPUT"
+          fi
+      - run: uv build
+      - run: uv run --no-sync python scripts/audit_artifacts.py dist
+      - name: Verify distribution identity and CLI registration
+        env:
+          RELEASE_VERSION: ${{ steps.version.outputs.version }}
+        run: uv run --no-sync python scripts/check_release_artifacts.py dist "$RELEASE_VERSION"
+      - run: uvx twine check --strict dist/*
+      - name: Verify installed CLI from both distributions
+        run: |
+          uv run --no-sync python scripts/cli_smoke.py dist/*.whl --minimal
+          uv run --no-sync python scripts/cli_smoke.py dist/*.tar.gz --minimal
+      - uses: actions/upload-artifact@v4
+        with:
+          name: python-dist
+          path: python/hypequery/dist/
+          if-no-files-found: error
+          retention-days: 14
+      - name: Record release details
+        env:
+          RELEASE_VERSION: ${{ steps.version.outputs.version }}
+          SOURCE_SHA: ${{ needs.prepare.outputs.ref }}
+        run: |
+          {
+            echo "Version: $RELEASE_VERSION"
+            echo "Source: $SOURCE_SHA"
+            echo "Install: pip install 'hypequery[fastapi,clickhouse]==$RELEASE_VERSION'"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  publish:
+    needs: build
+    if: github.event_name != 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    environment:
+      name: ${{ github.event_name == 'workflow_run' && 'pypi-canary' || 'pypi' }}
+      url: https://pypi.org/project/hypequery/${{ needs.build.outputs.version }}/
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: python-dist
+          path: dist/
+      - name: Publish verified SDK and CLI using Trusted Publishing
+        uses: pypa/gh-action-pypi-publish@release/v1
