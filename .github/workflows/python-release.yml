@@ -86,6 +86,9 @@ jobs:
           else
             uv run --no-sync python scripts/prepare_release.py --canary --run-number "$RELEASE_RUN" --attempt "$RELEASE_ATTEMPT" --github-output "$GITHUB_OUTPUT"
           fi
+      - name: Synchronize temporary canary metadata in the lockfile
+        if: github.event_name != 'push'
+        run: uv lock --offline
       - run: uv build
       - run: uv run --no-sync python scripts/audit_artifacts.py dist
       - name: Verify distribution identity and CLI registration
@@ -97,7 +100,7 @@ jobs:
         run: |
           uv run --no-sync python scripts/cli_smoke.py dist/*.whl --minimal
           uv run --no-sync python scripts/cli_smoke.py dist/*.tar.gz --minimal
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: python-dist
           path: python/hypequery/dist/
@@ -124,9 +127,9 @@ jobs:
     permissions:
       id-token: write
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           name: python-dist
           path: dist/
       - name: Publish verified SDK and CLI using Trusted Publishing
-        uses: pypa/gh-action-pypi-publish@release/v1
+        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # release/v1
