@@ -27,7 +27,7 @@ def run(args: object) -> None:
             "Cannot import the app; use a valid module:attribute in this directory."
         ) from exc
     except ModuleNotFoundError as exc:
-        if find_spec("clickhouse_connect") is None:
+        if exc.name is not None and exc.name.split(".")[0] == "clickhouse_connect":
             raise CliError(
                 'Install the database driver: pip install "hypequery[clickhouse]"'
             ) from exc

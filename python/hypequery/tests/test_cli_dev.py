@@ -156,3 +156,73 @@ def test_occupied_port_fails(tmp_path: Path) -> None:
     assert result.returncode != 0
     assert "address already in use" in result.stderr.lower()
     assert "Traceback" not in result.stderr
+
+
+@pytest.mark.parametrize("missing", ["clickhouse_connect", "clickhouse_connect.driver", "other"])
+def test_missing_app_dependency_hint_uses_exception_name(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], missing: str
+) -> None:
+    def fail(*args: object, **kwargs: object) -> None:
+        raise ModuleNotFoundError("private-password-do-not-print", name=missing)
+
+    monkeypatch.setattr("hypequery.serve.run_dev", fail)
+    monkeypatch.setattr(
+        "hypequery.cli.commands.dev.find_spec",
+        lambda name: None if name == "clickhouse_connect" else object(),
+    )
+    assert main(["dev"]) == 1
+    stderr = capsys.readouterr().err
+    assert ('pip install "hypequery[clickhouse]"' in stderr) == missing.startswith(
+        "clickhouse_connect"
+    )
+    assert "private-password" not in stderr
+
+
+@pytest.mark.parametrize("error", ["ValueError", "Exception", "AssertionError"])
+def test_reload_worker_errors_do_not_echo_credentials(tmp_path: Path, error: str) -> None:
+    with socket.socket() as probe:
+        probe.bind(("127.0.0.1", 0))
+        port = probe.getsockname()[1]
+    app = tmp_path / "app.py"
+    app.write_text("from fastapi import FastAPI\napp = FastAPI()\n")
+    with (tmp_path / "server.log").open("w+") as log:
+        process = subprocess.Popen(
+            [sys.executable, "-m", "hypequery", "dev", "--port", str(port)],
+            cwd=tmp_path,
+            stdout=log,
+            stderr=log,
+            start_new_session=True,
+        )
+        try:
+            deadline = time.monotonic() + 20
+            with httpx.Client(timeout=1) as client:
+                while True:
+                    try:
+                        if client.get(f"http://127.0.0.1:{port}/openapi.json").status_code == 200:
+                            break
+                    except httpx.TransportError:
+                        pass
+                    if process.poll() is not None or time.monotonic() >= deadline:
+                        log.seek(0)
+                        pytest.fail(f"dev server did not start: {log.read()}")
+                    time.sleep(0.1)
+            app.write_text(f"raise {error}('private-password-do-not-print')\n")
+            deadline = time.monotonic() + 20
+            while True:
+                log.seek(0)
+                output = log.read()
+                if "App reload failed; check its code, dependencies and environment." in output:
+                    break
+                if process.poll() is not None or time.monotonic() >= deadline:
+                    pytest.fail(f"reload failure was not reported safely: {output}")
+                time.sleep(0.1)
+        finally:
+            if process.poll() is None:
+                os.killpg(process.pid, signal.SIGINT)
+                try:
+                    process.wait(timeout=10)
+                except subprocess.TimeoutExpired:
+                    os.killpg(process.pid, signal.SIGKILL)
+                    process.wait(timeout=5)
+        log.seek(0)
+        assert "private-password" not in log.read()

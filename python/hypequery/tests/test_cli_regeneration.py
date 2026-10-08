@@ -226,6 +226,7 @@ def test_held_lock_reports_running_owner(tmp_path: Path) -> None:
     assert (lock / "pid").exists()
 
 
+@pytest.mark.skipif(sys.platform == "win32", reason="Windows cannot probe processes with signal 0")
 def test_stale_lock_names_stopped_owner_without_reclaiming(tmp_path: Path) -> None:
     finished = subprocess.run(
         [sys.executable, "-c", "import os; print(os.getpid())"],
@@ -502,3 +503,22 @@ def test_connection_failures_redact_credentials(
     assert secret not in captured.out + captured.err
     assert "secret-user" not in captured.out + captured.err
     assert not path.exists()
+
+
+def test_windows_lock_check_never_signals_owner(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from unittest.mock import Mock
+
+    signal_process = Mock(side_effect=AssertionError("must not signal on Windows"))
+    monkeypatch.setattr(sys, "platform", "win32")
+    monkeypatch.setattr(os, "kill", signal_process)
+    path = tmp_path / "datasets.py"
+    lock = tmp_path / ".datasets.py.lock"
+    lock.mkdir()
+    (lock / "pid").write_text("1234\n")
+    with pytest.raises(CliError, match=r"Another generator \(process 1234\)"):
+        GeneratedFile(path).write("# generated\n", overwrite=False)
+    signal_process.assert_not_called()
+    assert not path.exists()
+    assert (lock / "pid").read_text() == "1234\n"

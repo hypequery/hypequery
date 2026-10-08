@@ -1,0 +1,3 @@
+- Avoid terminating the process holding a dataset regeneration lock on Windows.
+- Give the ClickHouse installation hint only when that driver is the missing app dependency.
+- Redact application import errors in development reload workers as well as initial startup.
