@@ -47,6 +47,10 @@ export function ProductExplainer() {
       <motion.div variants={ENTRANCE} initial={reducedMotion ? false : "hidden"} whileInView="visible" viewport={{ once: true, amount: 0.2 }} custom={0} className="mx-auto max-w-[660px] text-center">
         <h2 id="product-explainer-title" className="home-section-title text-text">One model, every interface</h2>
         <p className="mx-auto mt-4 max-w-[570px] text-sm leading-6 text-text-muted sm:text-base">Define your ClickHouse analytics once in code. Dashboards, embedded chat, and AI agents all read from it.</p>
+        <Link href="/blog/seven-companies-one-pattern-why-every-scaled-clickhouse-deployment-looks-the-same" className="group mt-4 inline-flex items-center gap-1 text-sm text-text-muted transition hover:text-accent">
+          Uber, Cloudflare, and Instacart each built this layer in-house. <span className="text-text group-hover:text-accent">Read why</span>
+          <ArrowUpRight className="h-3.5 w-3.5" aria-hidden="true" />
+        </Link>
       </motion.div>
 
       <motion.div variants={ENTRANCE} initial={reducedMotion ? false : "hidden"} whileInView="visible" viewport={{ once: true, amount: 0.2 }} custom={0.06} className="relative mt-9 h-[290px] sm:mt-12" aria-label="ClickHouse tables flow into a shared hypequery model, then into dashboards, chat, and MCP agents">
