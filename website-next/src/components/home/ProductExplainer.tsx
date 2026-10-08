@@ -27,8 +27,10 @@ const ENTRANCE = {
   }),
 };
 
-// The chat and terminal need room for a few exchanges, so every preview shares this height.
-const PREVIEW_HEIGHT = 'h-[400px]';
+// Every preview shares this height. The chat and terminal render at 80% so a few exchanges still fit.
+const PREVIEW_HEIGHT = 'h-[300px]';
+const PANEL_SCALE = 0.8;
+const PANEL_HEIGHT = `${300 / PANEL_SCALE}px`;
 
 const SOURCE_FIELDS = {
   orders: 'amount · created_at · customer_id',
@@ -122,7 +124,11 @@ export function ProductExplainer() {
         <motion.article variants={ENTRANCE} initial={reducedMotion ? false : "hidden"} whileInView="visible" viewport={{ once: true, amount: 0.15 }} custom={0.06} onMouseEnter={() => setActiveConnection(4)} onMouseLeave={() => setActiveConnection(null)} onFocusCapture={() => setActiveConnection(4)} onBlurCapture={() => setActiveConnection(null)} className="explainer-consumer min-w-0 py-7 max-md:border-t max-md:border-border md:px-6 lg:px-8">
           <div className="flex items-center gap-2.5"><Send className="h-4.5 w-4.5 text-accent" aria-hidden="true" /><h3 className="text-xl font-medium tracking-tight text-text">Embedded chat</h3><span className="ml-auto rounded-full border border-border px-2 py-0.5 text-[10px] font-normal text-text-muted">Coming soon</span></div>
           <p className="mt-3 max-w-[350px] text-sm leading-6 text-text-muted">Let customers ask questions about their data, inside your app.</p>
-          <AppChat elapsed={answers.elapsed} reduced={answers.reduced} className={`explainer-preview mt-6 ${PREVIEW_HEIGHT}`} />
+          <div className={`explainer-preview mt-6 ${PREVIEW_HEIGHT}`}>
+            <div style={{ zoom: PANEL_SCALE, height: PANEL_HEIGHT }}>
+              <AppChat elapsed={answers.elapsed} reduced={answers.reduced} className="h-full" />
+            </div>
+          </div>
         </motion.article>
         <motion.article variants={ENTRANCE} initial={reducedMotion ? false : "hidden"} whileInView="visible" viewport={{ once: true, amount: 0.15 }} custom={0.12} onMouseEnter={() => setActiveConnection(5)} onMouseLeave={() => setActiveConnection(null)} onFocusCapture={() => setActiveConnection(5)} onBlurCapture={() => setActiveConnection(null)} className="explainer-consumer min-w-0 py-7 max-md:border-t max-md:border-border md:pl-6 lg:pl-8">
           <div className="flex items-center gap-2.5"><span title="Model Context Protocol (MCP)"><SiModelcontextprotocol className="h-5 w-5 text-text" aria-label="Model Context Protocol" /></span><h3 className="text-xl font-medium tracking-tight text-text">Connected agents</h3><div className="framework-logo-cluster ml-auto flex shrink-0 items-center pl-1" aria-label="AI model providers">
@@ -133,7 +139,11 @@ export function ProductExplainer() {
             ] as const).map(([name, Icon, color]) => <span key={name} title={name} data-tooltip={name} aria-label={name} className={`logo-tooltip framework-logo inline-flex h-7 w-7 items-center justify-center rounded-full border-2 border-bg bg-bg-card shadow-card ${color}`}><Icon className="h-4 w-4" aria-hidden="true" /></span>)}
           </div></div>
           <p className="mt-3 max-w-[350px] text-sm leading-6 text-text-muted">Give MCP agents access to the analytics you choose to publish.</p>
-          <ClaudeTerminal elapsed={answers.elapsed} reduced={answers.reduced} className={`explainer-preview mt-6 ${PREVIEW_HEIGHT}`} />
+          <div className={`explainer-preview mt-6 ${PREVIEW_HEIGHT}`}>
+            <div style={{ zoom: PANEL_SCALE, height: PANEL_HEIGHT }}>
+              <ClaudeTerminal elapsed={answers.elapsed} reduced={answers.reduced} className="h-full" />
+            </div>
+          </div>
           <Link href="/docs/mcp/overview" aria-label="Read more about MCP agents" className="explainer-read-more mt-5 inline-flex items-center gap-1.5 text-xs font-medium text-text-muted">Read more <ArrowUpRight className="h-3 w-3" aria-hidden="true" /></Link>
         </motion.article>
       </div>
