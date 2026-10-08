@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 import os
+import subprocess
+import sys
 from pathlib import Path
+from typing import cast
 
 import pytest
 
@@ -13,6 +16,7 @@ from hypequery.cli.generators.datasets import generate_datasets
 from hypequery.cli.generators.schema import Column, Schema, Table
 from hypequery.cli.utils.generated_file import GeneratedFile
 from hypequery.cli.utils.tenant_settings import configures_tenant
+from hypequery.datasets import Dataset
 
 
 @pytest.fixture
@@ -211,15 +215,34 @@ def test_create_without_hard_links(tmp_path: Path, monkeypatch: pytest.MonkeyPat
     assert list(tmp_path.iterdir()) == [path]
 
 
-def test_stale_lock_reports_owner(tmp_path: Path) -> None:
+def test_held_lock_reports_running_owner(tmp_path: Path) -> None:
     path = tmp_path / "datasets.py"
     lock = tmp_path / ".datasets.py.lock"
     lock.mkdir()
-    (lock / "pid").write_text("4242\n")
-    with pytest.raises(CliError, match="process 4242"):
+    (lock / "pid").write_text(f"{os.getpid()}\n")
+    with pytest.raises(CliError, match=f"Another generator \\(process {os.getpid()}\\)"):
         GeneratedFile(path).write("# generated\n", overwrite=False)
     assert not path.exists()
     assert (lock / "pid").exists()
+
+
+def test_stale_lock_names_stopped_owner_without_reclaiming(tmp_path: Path) -> None:
+    finished = subprocess.run(
+        [sys.executable, "-c", "import os; print(os.getpid())"],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    pid = int(finished.stdout)
+    path = tmp_path / "datasets.py"
+    lock = tmp_path / ".datasets.py.lock"
+    lock.mkdir()
+    (lock / "pid").write_text(f"{pid}\n")
+    with pytest.raises(CliError, match=f"process {pid}\\) stopped without releasing"):
+        GeneratedFile(path).write("# generated\n", overwrite=False)
+    # Reclaiming would race other generators; the user removes the lock.
+    assert not path.exists()
+    assert (lock / "pid").read_text() == f"{pid}\n"
 
 
 def test_discovery_failure_never_writes(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -340,3 +363,142 @@ def test_parent_created_by_competing_generator_is_accepted(
     GeneratedFile(parent / "datasets.py").write("# generated\n", overwrite=False)
     assert (parent / "datasets.py").read_text() == "# generated\n"
     assert (parent / "other.py").exists()
+
+
+def _use_schema(monkeypatch: pytest.MonkeyPatch, schema: Schema) -> None:
+    monkeypatch.setattr("hypequery.cli.commands.generate.discover_schema", lambda **_: schema)
+
+
+def _load(path: Path) -> dict[str, object]:
+    namespace: dict[str, object] = {}
+    exec(compile(path.read_text(), str(path), "exec"), namespace)  # noqa: S102 - generated file
+    return cast(dict[str, object], namespace["datasets"])
+
+
+def test_tenant_column_sets_tenant_key_and_reports_tables_without_it(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    _use_schema(
+        monkeypatch,
+        Schema(
+            "analytics",
+            (
+                Table("orders", (Column("id", "UInt64"), Column("tenant_id", "String"))),
+                Table("events", (Column("id", "UInt64"), Column("org_id", "String"))),
+            ),
+        ),
+    )
+    path = tmp_path / "datasets.py"
+    args = ["generate", "datasets", "--output", str(path), "--tenant-column", "tenant_id"]
+    assert main(args) == 0
+    datasets = _load(path)
+    assert cast(Dataset, datasets["orders"]).tenant_key == "tenant_id"
+    assert cast(Dataset, datasets["events"]).tenant_key is None
+    out = capsys.readouterr().out
+    assert "events: no 'tenant_id' column, so tenant isolation was not applied" in out
+    # The configured column is policy, not a candidate to review.
+    assert "orders: possible tenant columns" not in out
+    assert "events: possible tenant columns org_id" in out
+    assert main([*args, "--check"]) == 0
+    assert main(["generate", "datasets", "--output", str(path), "--check"]) == 1
+
+
+def test_force_with_tenant_column_keeps_boundary_without_warning(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    _use_schema(
+        monkeypatch,
+        Schema(
+            "analytics", (Table("orders", (Column("id", "UInt64"), Column("tenant_id", "String"))),)
+        ),
+    )
+    path = tmp_path / "datasets.py"
+    path.write_text(
+        'orders = dataset(name="orders", source="analytics.orders", tenant_key="tenant_id")\n'
+    )
+    args = ["generate", "datasets", "--output", str(path), "--force"]
+    assert main([*args, "--tenant-column", "tenant_id"]) == 0
+    assert "tenant_key='tenant_id'" in path.read_text()
+    assert "Warning" not in capsys.readouterr().err
+    # Without the option the regenerated file drops the boundary, so it warns.
+    assert main(args) == 0
+    assert "configured tenant_key" in capsys.readouterr().err
+
+
+def test_invalid_tenant_column_refused_before_discovery(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    def fail(**_: object) -> None:
+        pytest.fail("an invalid tenant column must be refused before connecting")
+
+    monkeypatch.setattr("hypequery.cli.commands.generate.discover_schema", fail)
+    path = tmp_path / "datasets.py"
+    assert main(["generate", "datasets", "--output", str(path), "--tenant-column", "a;b"]) == 1
+    assert "tenant column" in capsys.readouterr().err
+    assert not path.exists()
+
+
+def test_tenant_candidates_are_reported_but_never_enabled(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    _use_schema(
+        monkeypatch,
+        Schema(
+            "analytics",
+            (
+                Table(
+                    "orders",
+                    (
+                        Column("id", "UInt64"),
+                        Column("organization_id", "String"),
+                        Column("customer_id", "String"),
+                    ),
+                ),
+            ),
+        ),
+    )
+    path = tmp_path / "datasets.py"
+    assert main(["generate", "datasets", "--output", str(path)]) == 0
+    assert "Review: orders: possible tenant columns organization_id, customer_id" in (
+        capsys.readouterr().out
+    )
+    assert "tenant_key" not in path.read_text()
+
+
+@pytest.mark.parametrize(
+    ("tables", "expected"), [(("orders",), "1 table"), (("orders", "events"), "2 tables")]
+)
+def test_reports_number_of_tables_generated(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    tables: tuple[str, ...],
+    expected: str,
+) -> None:
+    _use_schema(
+        monkeypatch,
+        Schema("analytics", tuple(Table(name, (Column("id", "UInt64"),)) for name in tables)),
+    )
+    assert main(["generate", "datasets", "--output", str(tmp_path / "datasets.py")]) == 0
+    assert f"Generated dataset definitions for {expected}\n" in capsys.readouterr().out
+
+
+def test_connection_failures_redact_credentials(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    clickhouse_connect = pytest.importorskip("clickhouse_connect")
+    secret = "s3cret-generate-password"  # noqa: S105 - test value
+    monkeypatch.setenv("CLICKHOUSE_PASSWORD", secret)
+    monkeypatch.setenv("CLICKHOUSE_USERNAME", "secret-user")
+
+    def refuse(**kwargs: object) -> None:
+        raise ConnectionError(f"auth failed for {kwargs['username']}:{kwargs['password']}")
+
+    monkeypatch.setattr(clickhouse_connect, "get_client", refuse)
+    path = tmp_path / "datasets.py"
+    assert main(["generate", "datasets", "--output", str(path)]) == 1
+    captured = capsys.readouterr()
+    assert "Cannot inspect ClickHouse" in captured.err
+    assert secret not in captured.out + captured.err
+    assert "secret-user" not in captured.out + captured.err
+    assert not path.exists()

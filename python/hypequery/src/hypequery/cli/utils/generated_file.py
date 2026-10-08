@@ -53,6 +53,40 @@ def _create_exclusive(temporary: Path, path: Path, contents: str, mode: int) -> 
         raise
 
 
+def _process_running(pid: int) -> bool | None:
+    """True or False when the owner is known; None when it cannot be determined."""
+    if pid <= 0:
+        return None
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    except (PermissionError, OSError, OverflowError):
+        # PermissionError means the process exists but belongs to another user.
+        return None
+    return True
+
+
+def _lock_held_message(lock: Path) -> str:
+    try:
+        text = (lock / "pid").read_text().strip()
+    except OSError:
+        text = ""
+    pid = int(text) if text.isascii() and text.isdigit() else None
+    running = _process_running(pid) if pid is not None else None
+    if pid is not None and running is False:
+        # Reclaiming automatically would race other reclaimers; leave it to the user.
+        return (
+            f"A previous generator (process {pid}) stopped without releasing {lock}. "
+            "Remove that directory and retry."
+        )
+    owner = f" (process {pid})" if pid is not None else ""
+    return (
+        f"Another generator{owner} owns the output lock {lock}. Retry after it "
+        "finishes; remove the lock directory only if that process has stopped."
+    )
+
+
 class GeneratedFile:
     def __init__(self, path: Path) -> None:
         self.path = path.absolute()
@@ -110,14 +144,7 @@ class GeneratedFile:
         try:
             lock.mkdir(mode=0o700)
         except FileExistsError as exc:
-            try:
-                owner = f" (process {(lock / 'pid').read_text().strip()})"
-            except OSError:
-                owner = ""
-            raise CliError(
-                f"Another generator{owner} owns the output lock {lock}. Retry after it "
-                "finishes; remove the lock directory only if that process has stopped."
-            ) from exc
+            raise CliError(_lock_held_message(lock)) from exc
         with suppress(OSError):
             (lock / "pid").write_text(f"{os.getpid()}\n")
 

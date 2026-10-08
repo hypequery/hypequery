@@ -43,6 +43,11 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     destination.add_argument("--path", help="output directory containing datasets.py")
     datasets.add_argument("--tables", help="comma-separated tables to inspect (default: all)")
     datasets.add_argument("--exclude-tables", help="comma-separated tables to omit")
+    datasets.add_argument(
+        "--tenant-column",
+        help="set tenant_key to this column on tables that have it "
+        "(requires a trusted runtime tenant scope)",
+    )
     datasets.add_argument("--check", action="store_true", help="exit 1 on drift without writing")
     datasets.add_argument("--diff", action="store_true", help="show drift without writing; exit 1")
     datasets.add_argument("--force", action="store_true", help="replace existing definitions")
