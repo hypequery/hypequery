@@ -155,6 +155,26 @@ describe('protocol cache keys', () => {
     expect(key({ nested: new Map() })).toBeUndefined();
   });
 
+  it('runs having queries uncached, so differing conditions never share an entry', async () => {
+    const { factory, executions } = countingFactory();
+    const client = createDatasetClient({ queryBuilder: factory, cache: { ttlMs: 60_000 } });
+    const query = (value: number) => ({
+      dimensions: ['vendor'],
+      measures: ['trips'],
+      having: [{ measure: 'trips', operator: 'gt' as const, value }],
+    });
+
+    await client.execute(Trips, query(10), asTenant('acme'));
+    await client.execute(Trips, query(1_000), asTenant('acme'));
+    await client.execute(Trips, query(10), asTenant('acme'));
+
+    expect(executions).toHaveBeenCalledTimes(3);
+    const settings = resolveProtocolCacheKeySettings({ secret: SECRET }, false);
+    expect(datasetCacheKey(settings, Trips, query(10), asTenant('acme'), undefined)).toBeUndefined();
+    expect(datasetCacheKey(settings, Trips, { ...query(10), having: [] }, asTenant('acme'), undefined))
+      .toMatch(KEY);
+  });
+
   it('shares entries across clients that share a secret and a store', async () => {
     const { factory, executions } = countingFactory();
     const store = createMemoryCacheStore();

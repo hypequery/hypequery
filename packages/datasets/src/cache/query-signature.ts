@@ -15,6 +15,7 @@ import { windowQuerySignature } from '../utils/window-query-signature.js';
 
 import type {
   AnyDatasetInstance,
+  DatasetHavingCondition,
   DatasetQuery,
   ExecutionContext,
   GrainedMetricRef,
@@ -47,6 +48,14 @@ function filterSignature(filters: MetricFilter[] | undefined) {
     field: filter.field,
     operator: filter.operator,
     value: filter.value ?? null,
+  }));
+}
+
+function havingSignature(having: readonly DatasetHavingCondition[]) {
+  return having.map((condition) => ({
+    measure: condition.measure,
+    operator: condition.operator,
+    value: condition.value,
   }));
 }
 
@@ -134,6 +143,8 @@ export function buildDatasetQuerySignature(
     measures: query.measures ?? null,
     ...windowQuerySignature(ds, query),
     filters: filterSignature(query.filters),
+    // Omitted when absent so queries without conditions keep their existing keys.
+    ...(query.having?.length ? { having: havingSignature(query.having) } : {}),
     ...segmentSignature(ds, query.segments),
     orderBy: orderBySignature(query.orderBy),
     by: query.by ?? null,

@@ -48,6 +48,12 @@ export function buildMCPQuerySchemas(
    * entitled to a metric on a dataset it may not query itself.
    */
   queryableDatasets?: readonly string[],
+  /**
+   * Advertise and accept `having` on `query_dataset`. On by default for every
+   * MCP surface: CORE-03 requires the hosted gateway to list exactly what the
+   * local executor runs, so hosted execution must support it too.
+   */
+  features: { readonly having?: boolean } = { having: true },
 ): CanonicalSemanticQuerySchemas {
   const limits = resolveQueryLimits(undefined, configured);
   const queryable = queryableDatasets === undefined ? undefined : new Set(queryableDatasets);
@@ -78,6 +84,7 @@ export function buildMCPQuerySchemas(
         grainField: 'grain',
         ...limits,
         ...(queryableDatasets === undefined ? {} : { queryableDatasets }),
+        ...(features.having ? { having: true } : {}),
       },
     );
   }
@@ -91,7 +98,7 @@ export function buildMCPQuerySchemas(
     if (isCanonicalSchemaSource(dataset)) {
       const exact = buildCanonicalSemanticQuerySchemas(
         withLegacyDirectMetrics({ [name]: dataset }),
-        { grainField: 'grain', ...limits },
+        { grainField: 'grain', ...limits, ...(features.having ? { having: true } : {}) },
       );
       if (queryable === undefined || queryable.has(name)) {
         datasetSchemas.push(exact.queryDataset);

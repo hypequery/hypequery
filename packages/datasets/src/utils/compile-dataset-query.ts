@@ -4,7 +4,7 @@ import type { DatasetQueryExecutionOptions } from '../dataset-query.js';
 import { buildDatasetQueryBuilder } from './build-dataset-query-builder.js';
 import type { AnyDatasetInstance, DatasetQuery } from '../types.js';
 import { baseMeasureNames } from './dataset-measures.js';
-import { buildDerivedDatasetSql, hasSelectedDerivedMeasure } from './dataset-derived-query.js';
+import { buildDerivedDatasetSql, hasSelectedDerivedMeasure, needsOuterDatasetQuery } from './dataset-derived-query.js';
 import { measureDependencyNames } from './measure-dependencies.js';
 import { overfetchLimit } from './pagination.js';
 import { resolveResultLimit } from './result-limits.js';
@@ -47,8 +47,8 @@ export function prepareDatasetQuery(
       await options.builderFactory.rawQuery(compiled.timeAxisSql, compiled.parameters, { abortSignal });
       return options.builderFactory.rawQuery(compiled.sql, compiled.parameters, { abortSignal });
     };
-  } else if (hasSelectedDerivedMeasure(dataset, query)) {
-    plan = 'derived';
+  } else if (needsOuterDatasetQuery(dataset, query)) {
+    plan = hasSelectedDerivedMeasure(dataset, query) ? 'derived' : 'aggregate';
     statement = buildDerivedDatasetSql(dataset, query, executionOptions, buildDatasetQueryBuilder);
     execute = () => options.builderFactory.rawQuery(statement.sql, statement.parameters, { abortSignal });
   } else {
@@ -65,6 +65,7 @@ export function prepareDatasetQuery(
     measures: Object.freeze([...measures]),
     measureDependencies: Object.freeze(measureDependencyNames(queryMeasureDefinitions(dataset, measures), measures)),
     filters: Object.freeze((query.filters ?? []).map(({ field, operator }) => Object.freeze({ field, operator }))),
+    having: Object.freeze((query.having ?? []).map(({ measure, operator }) => Object.freeze({ measure, operator }))),
     segments: Object.freeze([...(query.segments ?? [])]),
     by: query.by, timezone: query.timezone,
     effectiveLimit: query.limit, executionLimit, offset: query.offset ?? 0,
