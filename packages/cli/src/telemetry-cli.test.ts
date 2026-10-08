@@ -1,7 +1,8 @@
 import { execFile, spawn } from 'node:child_process';
 import { mkdtemp, mkdir, rm, writeFile, readdir, utimes } from 'node:fs/promises';
 import { createServer as createTcpServer } from 'node:net';
-import { tmpdir } from 'node:os';
+import { createHash, randomUUID } from 'node:crypto';
+import { hostname, tmpdir } from 'node:os';
 import path from 'node:path';
 import { promisify } from 'node:util';
 import { beforeAll, afterAll, describe, expect, it } from 'vitest';
@@ -33,17 +34,33 @@ describe('compiled CLI telemetry regression', () => {
     return { code: result.code ?? 0, stdout: result.stdout, stderr, events };
   }
 
-  it('recovers preference changes after a killed process abandoned the settings lock', async () => {
-    const settings = await mkdtemp(path.join(tmpdir(), 'hq-cli-abandoned-lock-'));
+  it('recovers a lock left by a killed process but never takes a live owner\'s lock', async () => {
+    const settings = await mkdtemp(path.join(tmpdir(), 'hq-cli-settings-lock-'));
     try {
       const env = { ...process.env, HYPEQUERY_CONFIG_DIR: settings };
       for (const key of ['VITEST', 'NODE_ENV', 'DO_NOT_TRACK', 'HYPEQUERY_TELEMETRY_DISABLED']) delete env[key];
       await execute(process.execPath, [bin, 'telemetry', 'status'], { cwd: settings, env });
-      // What SIGKILL or a crash mid-write leaves behind: a lock nobody will release.
       const lock = path.join(settings, 'telemetry.lock');
-      await mkdir(lock);
-      const abandoned = new Date(Date.now() - 60_000);
-      await utimes(lock, abandoned, abandoned);
+      const host = createHash('sha256').update(hostname()).digest('hex').slice(0, 12);
+      const plantLock = async (pid: number) => {
+        await mkdir(lock);
+        await writeFile(path.join(lock, `owner.${pid}.${host}.${randomUUID()}`), '');
+      };
+
+      // A live owner (this test process), however old its lock, keeps it.
+      await plantLock(process.pid);
+      const ancient = new Date(Date.now() - 60 * 60 * 1000);
+      await utimes(lock, ancient, ancient);
+      const refused = await execute(process.execPath, [bin, 'telemetry', 'disable'], { cwd: settings, env })
+        .catch((error: { code?: number; stderr: string }) => error);
+      expect(refused).toMatchObject({ code: 1 });
+      expect(await readdir(lock)).toHaveLength(1);
+      await rm(lock, { recursive: true });
+
+      // What SIGKILL or a crash mid-write leaves: a lock whose owner process has exited.
+      const exited = spawn(process.execPath, ['-e', '']);
+      await new Promise(resolve => exited.on('exit', resolve));
+      await plantLock(exited.pid!);
       const disabled = await execute(process.execPath, [bin, 'telemetry', 'disable'], { cwd: settings, env });
       expect(disabled.stdout).toContain('disabled');
       const status = await execute(process.execPath, [bin, 'telemetry', 'status'], { cwd: settings, env });

@@ -1,35 +1,17 @@
 import { randomUUID } from 'node:crypto';
-import { mkdir, readFile, rename, rmdir, stat, unlink, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, rename, stat, unlink, writeFile } from 'node:fs/promises';
 import path from 'node:path';
-import { setTimeout as delay } from 'node:timers/promises';
 import { configDirectory } from '../config-directory.js';
 import { parseTelemetryConfig, TELEMETRY_SCHEMA_VERSION, type TelemetryConfig } from './config-schema.js';
 import { matchesTelemetryFormat } from './value-formats.js';
+import { acquireSettingsLock, type SettingsLock, type SettingsLockIdentity } from './settings-lock.js';
 
 export interface TelemetryConfigDependencies {
   readonly env?: Readonly<Record<string, string | undefined>>;
   readonly platform?: NodeJS.Platform;
   readonly configDirectory?: string;
-}
-
-/**
- * A lock older than this has no live owner: every settings write holds it for
- * milliseconds. Crashes, SIGKILL and power loss skip lock release, and without
- * recovery one stranded lock would block every later preference change,
- * including `hypequery telemetry disable`.
- */
-export const ABANDONED_LOCK_MS = 10_000;
-
-/** Removes the lock if it is abandoned; true when the caller should retry. */
-async function removeAbandonedLock(lockPath: string): Promise<boolean> {
-  try {
-    if (Date.now() - (await stat(lockPath)).mtimeMs < ABANDONED_LOCK_MS) return false;
-    await rmdir(lockPath);
-    return true;
-  } catch (error) {
-    // Another process reclaimed it first; retrying is safe.
-    return (error as NodeJS.ErrnoException).code === 'ENOENT';
-  }
+  /** Lock owner identity; tests use it to model separate processes. */
+  readonly lockIdentity?: SettingsLockIdentity;
 }
 
 /** Settings writes in progress; each holds the cross-process lock until it settles. */
@@ -127,32 +109,16 @@ export class TelemetryConfigStore {
     lockAttempts: number,
     requireExisting: boolean,
   ): Promise<TelemetryConfig | null> {
-    let lock: string | undefined;
+    let lock: SettingsLock | null = null;
     let temporary: string | undefined;
     try {
       const directory = await this.directory();
       if (!directory) return null;
       await mkdir(directory, { recursive: true, mode: 0o700 });
-      const lockPath = path.join(directory, 'telemetry.lock');
       // Serialize read-modify-write across processes, including first identity
-      // creation. A live writer's lock fails closed; an abandoned one is reclaimed.
-      let reclaimed = false;
-      for (let attempt = 0; attempt < lockAttempts; attempt++) {
-        try {
-          await mkdir(lockPath, { mode: 0o700 });
-          lock = lockPath;
-          break;
-        } catch (error) {
-          if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error;
-          if (!reclaimed && await removeAbandonedLock(lockPath)) {
-            reclaimed = true;
-            attempt--;
-            continue;
-          }
-          if (attempt + 1 >= lockAttempts) break;
-          await delay(10);
-        }
-      }
+      // creation. A live writer's lock fails closed however long it is held; a
+      // lock whose owner process has died is taken over (see settings-lock.ts).
+      lock = await acquireSettingsLock(directory, lockAttempts, this.dependencies.lockIdentity);
       if (!lock) return null;
       const file = path.join(directory, 'telemetry.json');
       let previous: TelemetryConfig | null = null;
@@ -183,7 +149,8 @@ export class TelemetryConfigStore {
       return null;
     } finally {
       if (temporary) await unlink(temporary).catch(() => undefined);
-      if (lock) await rmdir(lock).catch(() => undefined);
+      // Releases only this writer's ownership, never a lock taken over by another.
+      if (lock) await lock.release();
     }
   }
 }

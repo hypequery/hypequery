@@ -38,11 +38,16 @@ Display the notice on stderr only, once, TTY-only, never in CI, MCP or preferenc
 commands. Serialize disclosure across CLI processes using the settings lock and
 persist the timestamp only after stderr's write callback succeeds.
 
-Settings writes hold a cross-process lock for milliseconds. A live writer's lock
-fails closed. A lock older than 10 seconds has no live owner (a crash, SIGKILL or
-power loss skipped its release) and is reclaimed, so it cannot block later
-preference changes such as `telemetry disable`. On ordinary exits and signals the
-executable also waits, bounded at 250 ms, for in-flight writes to release it.
+Settings writes hold a cross-process lock: a directory containing one owner file
+named for the writer's process ID, host and a random token, published by atomic
+rename. A live owner keeps its lock however long it runs; age is never evidence
+of abandonment, because a slow or suspended writer is still alive. A lock whose
+owner process no longer exists on this host (a crash, SIGKILL or power loss) is
+taken over by renaming that exact owner file to the new owner's name, which fails
+if the lock was already replaced, so concurrent recoverers cannot both win.
+Release removes only the writer's own owner file. A lock owned on another host
+cannot be checked and fails closed. On ordinary exits and signals the executable
+also waits, bounded at 250 ms, for in-flight writes to release their lock.
 
 One in-memory PostHog-shaped batch has at most 32 events and 64 KiB. The
 `api_key: hypequery-cli` routing marker is not a PostHog credential; the proxy owns
