@@ -1,11 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import Link from 'next/link';
 import { motion, useReducedMotion } from 'motion/react';
-import { ArrowUpRight, ChevronDown, Database, Layers3, Send } from 'lucide-react';
+import { ArrowUpRight, ChevronDown, Database, Layers3, RotateCcw, Send } from 'lucide-react';
 import { SiClaude, SiClickhouse, SiGooglegemini, SiModelcontextprotocol, SiPython, SiReact, SiTypescript } from 'react-icons/si';
 import { RiOpenaiFill } from 'react-icons/ri';
+import { AppChat, ClaudeTerminal, useAiAnswers } from './AiAnswers';
 import './ProductExplainer.css';
 
 const CONNECTIONS = [
@@ -26,6 +27,9 @@ const ENTRANCE = {
   }),
 };
 
+// The chat and terminal need room for a few exchanges, so every preview shares this height.
+const PREVIEW_HEIGHT = 'h-[400px]';
+
 const SOURCE_FIELDS = {
   orders: 'amount · created_at · customer_id',
   customers: 'plan · region · tenant_id',
@@ -37,7 +41,11 @@ export function ProductExplainer() {
   const [activeConnection, setActiveConnection] = useState<number | null>(null);
   const [period, setPeriod] = useState('this month');
   const revenue = period === 'this month' ? '128,000' : '104,000';
-  const rawRevenue = period === 'this month' ? '128000' : '104000';
+  const countries = (period === 'this month'
+    ? [['GB', 64000], ['US', 48000], ['DE', 16000]]
+    : [['GB', 52000], ['US', 39000], ['DE', 13000]]) as [string, number][];
+  const answersRef = useRef<HTMLDivElement>(null);
+  const answers = useAiAnswers(answersRef);
   const chartPath = period === 'this month'
     ? 'M0 70C20 70 25 50 45 55S75 65 95 40S130 50 150 35S175 42 195 22S225 35 250 15S280 20 300 5'
     : 'M0 65C20 60 25 70 45 60S75 35 95 42S130 58 150 42S175 25 195 33S225 18 250 25S280 15 300 18';
@@ -87,26 +95,34 @@ export function ProductExplainer() {
         </div>
       </motion.div>
 
-      <div className="grid border-t border-border md:grid-cols-3 md:divide-x md:divide-border">
+      <div ref={answersRef} className="grid border-t border-border md:grid-cols-3 md:divide-x md:divide-border">
         <motion.article variants={ENTRANCE} initial={reducedMotion ? false : "hidden"} whileInView="visible" viewport={{ once: true, amount: 0.15 }} custom={0.0} onMouseEnter={() => setActiveConnection(3)} onMouseLeave={() => setActiveConnection(null)} onFocusCapture={() => setActiveConnection(3)} onBlurCapture={() => setActiveConnection(null)} className="explainer-consumer min-w-0 py-7 md:pr-6 lg:pr-8">
           <div className="flex items-center gap-2.5"><SiReact className="h-5 w-5 text-[#339db6]" aria-hidden="true" /><h3 className="text-xl font-medium tracking-tight text-text">Your dashboards</h3></div>
           <p className="mt-3 max-w-[350px] text-sm leading-6 text-text-muted">Build with typed React hooks and your own components.</p>
-          <div className="explainer-preview mt-6 h-[210px] overflow-hidden rounded-xl border border-border bg-bg-card shadow-card" aria-label={`Illustrative dashboard showing $${revenue} in revenue ${period}`}>
+          <div className={`explainer-preview mt-6 flex flex-col overflow-hidden rounded-xl border border-border bg-bg-card shadow-card ${PREVIEW_HEIGHT}`} aria-label={`Illustrative dashboard showing $${revenue} in revenue ${period}`}>
             <div className="flex items-center justify-between border-b border-border px-4 py-3"><span className="text-[11px] font-medium text-text">Revenue</span><div className="relative"><select aria-label="Example reporting period" value={period} onChange={(event) => setPeriod(event.target.value)} className="explainer-period cursor-pointer appearance-none rounded border border-border bg-bg-card py-1 pl-2 pr-5 text-[9px] text-text-muted"><option value="this month">This month</option><option value="last month">Last month</option></select><ChevronDown className="pointer-events-none absolute right-1.5 top-1/2 h-2.5 w-2.5 -translate-y-1/2 text-text-muted" aria-hidden="true" /></div></div>
             <div className="px-4 pt-4"><span key={period} className="explainer-result text-2xl font-medium tracking-tight text-text">${revenue}</span><span className="ml-2 text-[10px] text-text-muted">USD</span></div>
             <svg key={period} className="explainer-chart mt-3 h-20 w-full px-4" viewBox="0 0 300 80" fill="none" aria-hidden="true"><path d="M0 15H300M0 40H300M0 65H300" stroke="var(--border)" strokeDasharray="3 5" /><path d={chartPath} stroke="var(--accent)" strokeWidth="2" strokeLinecap="round" /><circle cx="300" cy={period === 'this month' ? 5 : 18} r="3" fill="var(--accent)" /></svg>
             <div className="flex justify-between px-4 text-[9px] text-text-dim"><span>{period === 'this month' ? '1 Oct' : '1 Sep'}</span><span>{period === 'this month' ? '31 Oct' : '30 Sep'}</span></div>
+            <div className="mt-auto border-t border-border px-4 pb-4 pt-3">
+              <div className="text-[10px] text-text-dim">By country</div>
+              <div className="mt-2 space-y-2">
+                {countries.map(([country, value]) => (
+                  <div key={country} className="flex items-center gap-3 text-[10px]">
+                    <span className="w-5 font-mono text-text-muted">{country}</span>
+                    <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-border"><div key={period} className="h-full rounded-full bg-accent transition-[width] duration-500" style={{ width: `${(value / countries[0][1]) * 100}%` }} /></div>
+                    <span className="w-12 text-right font-mono text-text">${value.toLocaleString('en-US')}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
           <Link href="/docs/react/getting-started" aria-label="Read more about React dashboards" className="explainer-read-more mt-5 inline-flex items-center gap-1.5 text-xs font-medium text-text-muted">Read more <ArrowUpRight className="h-3 w-3" aria-hidden="true" /></Link>
         </motion.article>
         <motion.article variants={ENTRANCE} initial={reducedMotion ? false : "hidden"} whileInView="visible" viewport={{ once: true, amount: 0.15 }} custom={0.06} onMouseEnter={() => setActiveConnection(4)} onMouseLeave={() => setActiveConnection(null)} onFocusCapture={() => setActiveConnection(4)} onBlurCapture={() => setActiveConnection(null)} className="explainer-consumer min-w-0 py-7 max-md:border-t max-md:border-border md:px-6 lg:px-8">
           <div className="flex items-center gap-2.5"><Send className="h-4.5 w-4.5 text-accent" aria-hidden="true" /><h3 className="text-xl font-medium tracking-tight text-text">Embedded chat</h3><span className="ml-auto rounded-full border border-border px-2 py-0.5 text-[10px] font-normal text-text-muted">Coming soon</span></div>
           <p className="mt-3 max-w-[350px] text-sm leading-6 text-text-muted">Let customers ask questions about their data, inside your app.</p>
-          <div className="explainer-preview relative mt-6 flex h-[210px] flex-col rounded-xl border border-border bg-bg-card p-4 shadow-card" aria-label="Illustrative embedded chat using the shared model (coming soon)">
-            <div className="ml-5 self-end rounded-xl rounded-br-sm bg-bg-alt px-3 py-2 text-[11px] leading-5 text-text">What&apos;s our revenue {period}?</div>
-            <div key={period} className="explainer-result mt-4 flex items-start gap-2"><span className="mt-0.5 rounded-md border border-border p-1.5"><Layers3 className="h-3 w-3 text-accent" aria-hidden="true" /></span><div className="text-[11px] leading-5 text-text">Your revenue {period} is <strong className="font-semibold">${revenue}.</strong><div className="mt-2 inline-flex items-center gap-1.5 rounded border border-border px-2 py-0.5 font-mono text-[9px] text-text-muted"><Database className="h-2.5 w-2.5" aria-hidden="true" />orders.revenue</div></div></div>
-            <button type="button" onClick={() => setPeriod(period === 'this month' ? 'last month' : 'this month')} className="explainer-ask mt-auto flex items-center justify-between rounded-lg border border-border px-3 py-2 text-left text-[10px] text-text-muted" aria-label={`Show revenue ${period === 'this month' ? 'last month' : 'this month'} across all examples`}><span>What about {period === 'this month' ? 'last month' : 'this month'}?</span><ArrowUpRight className="h-3.5 w-3.5" aria-hidden="true" /></button>
-          </div>
+          <AppChat elapsed={answers.elapsed} reduced={answers.reduced} className={`explainer-preview mt-6 ${PREVIEW_HEIGHT}`} />
         </motion.article>
         <motion.article variants={ENTRANCE} initial={reducedMotion ? false : "hidden"} whileInView="visible" viewport={{ once: true, amount: 0.15 }} custom={0.12} onMouseEnter={() => setActiveConnection(5)} onMouseLeave={() => setActiveConnection(null)} onFocusCapture={() => setActiveConnection(5)} onBlurCapture={() => setActiveConnection(null)} className="explainer-consumer min-w-0 py-7 max-md:border-t max-md:border-border md:pl-6 lg:pl-8">
           <div className="flex items-center gap-2.5"><span title="Model Context Protocol (MCP)"><SiModelcontextprotocol className="h-5 w-5 text-text" aria-label="Model Context Protocol" /></span><h3 className="text-xl font-medium tracking-tight text-text">Connected agents</h3><div className="framework-logo-cluster ml-auto flex shrink-0 items-center pl-1" aria-label="AI model providers">
@@ -117,12 +133,19 @@ export function ProductExplainer() {
             ] as const).map(([name, Icon, color]) => <span key={name} title={name} data-tooltip={name} aria-label={name} className={`logo-tooltip framework-logo inline-flex h-7 w-7 items-center justify-center rounded-full border-2 border-bg bg-bg-card shadow-card ${color}`}><Icon className="h-4 w-4" aria-hidden="true" /></span>)}
           </div></div>
           <p className="mt-3 max-w-[350px] text-sm leading-6 text-text-muted">Give MCP agents access to the analytics you choose to publish.</p>
-          <div className="explainer-preview mt-6 h-[210px] overflow-hidden rounded-xl border border-border bg-bg-card shadow-card" role="img" aria-label={`Illustrative MCP query returning ${rawRevenue} USD`}>
-            <div className="flex items-center gap-2 border-b border-border px-4 py-3 text-[11px] text-text-muted"><SiModelcontextprotocol className="h-3.5 w-3.5" aria-hidden="true" /><span>hypequery MCP</span><span className="ml-auto h-1.5 w-1.5 rounded-full bg-accent" /></div>
-            <div className="p-4 font-mono text-[11px] leading-6"><span className="text-accent">query_dataset</span><div className="text-text-muted">dataset: <span className="text-text">orders</span><br />measure: <span className="text-text">revenue</span><br />period: <span className="text-text">{period}</span></div><div key={period} className="explainer-result mt-3 border-t border-border pt-2 text-text"><span className="mr-2 text-accent">↳</span>revenue: {rawRevenue}</div></div>
-          </div>
+          <ClaudeTerminal elapsed={answers.elapsed} reduced={answers.reduced} className={`explainer-preview mt-6 ${PREVIEW_HEIGHT}`} />
           <Link href="/docs/mcp/overview" aria-label="Read more about MCP agents" className="explainer-read-more mt-5 inline-flex items-center gap-1.5 text-xs font-medium text-text-muted">Read more <ArrowUpRight className="h-3 w-3" aria-hidden="true" /></Link>
         </motion.article>
+      </div>
+      <div className="flex justify-end">
+        <button
+          type="button"
+          onClick={answers.replay}
+          aria-label="Replay the chat and agent examples"
+          className={`rounded-md p-1.5 text-text-dim transition hover:text-text ${answers.done ? 'opacity-100' : 'pointer-events-none opacity-0'}`}
+        >
+          <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" />
+        </button>
       </div>
     </section>
   );

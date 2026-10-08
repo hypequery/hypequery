@@ -1,8 +1,7 @@
 'use client';
 
-import { useRef } from 'react';
 import { motion, useInView, useReducedMotion } from 'motion/react';
-import { ArrowUp, RotateCcw, Sparkles } from 'lucide-react';
+import { ArrowUp, Sparkles } from 'lucide-react';
 import { SiClaude } from 'react-icons/si';
 import { Clawd } from './Clawd';
 import { EXCHANGES, formatUsd, type Exchange } from './aiAnswersData';
@@ -110,13 +109,15 @@ function TerminalExchange({ exchange, at, glyph }: { exchange: Exchange; at: num
   );
 }
 
-function ClaudeTerminal({ elapsed, reduced }: { elapsed: number; reduced: boolean }) {
+type PanelProps = { elapsed: number; reduced: boolean; className?: string };
+
+export function ClaudeTerminal({ elapsed, reduced, className = 'h-[480px]' }: PanelProps) {
   const ref = useFollow(stage(elapsed), reduced);
   const glyph = SPINNER[Math.floor(elapsed / 110) % SPINNER.length];
   const draft = currentDraft(elapsed) ?? '';
 
   return (
-    <div className="flex h-[480px] flex-col overflow-hidden rounded-xl border border-white/10 bg-[#141413] shadow-card">
+    <div className={`flex flex-col overflow-hidden rounded-xl border border-white/10 bg-[#141413] shadow-card ${className}`}>
       <div className="flex items-center gap-2 border-b border-white/10 px-4 py-3">
         <span className="h-2.5 w-2.5 rounded-full bg-[#ff5f57]" />
         <span className="h-2.5 w-2.5 rounded-full bg-[#febc2e]" />
@@ -320,11 +321,11 @@ function ChatInput({ elapsed }: { elapsed: number }) {
   );
 }
 
-function AppChat({ elapsed, reduced }: { elapsed: number; reduced: boolean }) {
+export function AppChat({ elapsed, reduced, className = 'h-[480px]' }: PanelProps) {
   const ref = useFollow(stage(elapsed), reduced);
 
   return (
-    <div className="flex h-[480px] flex-col overflow-hidden rounded-xl border border-border bg-bg-card shadow-card">
+    <div className={`flex flex-col overflow-hidden rounded-xl border border-border bg-bg-card shadow-card ${className}`}>
       <div className="flex items-center gap-2.5 border-b border-border px-4 py-3">
         <span className="flex h-6 w-6 items-center justify-center rounded-md bg-text text-[11px] font-semibold text-bg">A</span>
         <span className="text-xs font-medium text-text">Acme Analytics</span>
@@ -342,28 +343,10 @@ function AppChat({ elapsed, reduced }: { elapsed: number; reduced: boolean }) {
   );
 }
 
-export function AiAnswers() {
-  const ref = useRef<HTMLDivElement>(null);
-  const inView = useInView(ref, { once: true, amount: 0.35 });
+/** One shared clock, so the terminal and the chat ask each question together. Starts when `ref` scrolls into view. */
+export function useAiAnswers(ref: React.RefObject<HTMLElement | null>) {
+  const inView = useInView(ref, { once: true, amount: 0.3 });
   const reduced = useReducedMotion() ?? false;
   const { elapsed, replay } = useTimeline(inView, reduced, DONE);
-
-  return (
-    <section aria-label="Claude and an in-app chat answering the same questions from the same hypequery dataset" className="mx-auto max-w-[1280px] px-5 pb-4 pt-6 sm:px-8">
-      <div ref={ref} className="grid gap-4 md:grid-cols-2">
-        <ClaudeTerminal elapsed={elapsed} reduced={reduced} />
-        <AppChat elapsed={elapsed} reduced={reduced} />
-      </div>
-      <div className="mt-3 flex justify-end">
-        <button
-          type="button"
-          onClick={replay}
-          aria-label="Replay the animation"
-          className={`rounded-md p-1.5 text-text-dim transition hover:text-text ${elapsed >= DONE && !reduced ? 'opacity-100' : 'pointer-events-none opacity-0'}`}
-        >
-          <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" />
-        </button>
-      </div>
-    </section>
-  );
+  return { elapsed, reduced, replay, done: elapsed >= DONE && !reduced };
 }
