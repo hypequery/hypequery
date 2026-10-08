@@ -4,6 +4,7 @@ import { useRef } from 'react';
 import { motion, useInView, useReducedMotion } from 'motion/react';
 import { ArrowUp, RotateCcw, Sparkles } from 'lucide-react';
 import { SiClaude } from 'react-icons/si';
+import { Clawd } from './Clawd';
 import { EXCHANGES, formatUsd, type Exchange } from './aiAnswersData';
 import { useFollow } from './useFollow';
 import { useTimeline } from './useTimeline';
@@ -26,9 +27,6 @@ const EXCHANGE_MS = 6200;
 const DONE = (EXCHANGES.length - 1) * EXCHANGE_MS + T.answer + 1000;
 
 const CLAUDE_ORANGE = 'text-[#d97757]';
-
-// Clawd, the mascot on Claude Code's welcome screen.
-const CLAWD = [' ▐▛███▜▌', '▝▜█████▛▘', '  ▘▘ ▝▝'].join('\n');
 
 const reveal = {
   initial: { opacity: 0, y: 6 },
@@ -134,9 +132,9 @@ function ClaudeTerminal({ elapsed, reduced }: { elapsed: number; reduced: boolea
         {/* A terminal fills from the bottom, just above the prompt. */}
         <div ref={ref} className="flex min-h-0 flex-1 flex-col overflow-y-auto px-5 pt-5 [scrollbar-width:none]">
           <div className="mt-auto space-y-5">
-            {/* Claude Code's welcome banner, with Clawd drawn in block characters. */}
+            {/* Claude Code's welcome banner. */}
             <div className="flex items-center gap-4">
-              <pre className={`m-0 font-mono text-[12px] leading-[1.15] ${CLAUDE_ORANGE}`} aria-hidden="true">{CLAWD}</pre>
+              <Clawd className={`h-[30px] w-12 shrink-0 ${CLAUDE_ORANGE}`} />
               <div className="leading-5">
                 <div className="font-semibold">Claude Code</div>
                 <div className="text-[#a8a29e]">hypequery MCP connected</div>
