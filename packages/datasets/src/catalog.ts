@@ -1,5 +1,5 @@
 import type { ProtocolExpression } from '@hypequery/protocol';
-import { derivedMeasureExpression } from './utils/protocol-metric-expressions.js';
+import { derivedMeasureCatalogExpression } from './utils/protocol-metric-expressions.js';
 import { listRelationshipMeasures } from './utils/relationship-measures.js';
 import { inheritedBaseMeasure } from './utils/measure-dependencies.js';
 import { windowCatalogMetadata, type WindowCatalogMetadata } from './utils/window-catalog-metadata.js';
@@ -288,7 +288,7 @@ export function getDatasetCatalog(dataset: DatasetCatalogSource): DatasetCatalog
           {
             ...snapshotSemanticMetadata(definition),
             uses: Object.entries(definition.uses).sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0).map(([alias, measure]) => ({ alias, measure })),
-            expression: derivedMeasureExpression(definition),
+            expression: derivedMeasureCatalogExpression(definition),
             ...(usesTimeMeasure(definition, dataset.measures) ? {
               requiresTimeRange: true as const,
               supportedGrains: measureSupportedGrains(dataset.measures, name, supportedGrains),

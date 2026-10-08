@@ -3,6 +3,8 @@ import { dataset } from './dataset.js';
 import { dimension } from './field.js';
 import { divide, nullIfZero } from './formulas.js';
 import { measure } from './measure.js';
+import { getDatasetCatalog } from './catalog.js';
+import { buildProtocolDeploymentContract } from './index.js';
 import type { DerivedMeasureDefinition } from './types.js';
 
 // Malformed inputs deliberately bypass the authoring constraint to test runtime validation.
@@ -118,4 +120,38 @@ describe('dataset-owned derived measures', () => {
       }),
     })).toThrow(/undeclared input alias "constructor"/);
   });
+
+  it('catalogs a constructor alias as a formula reference', () => {
+    const orders = defineOrders({
+      ratio: measure.derived({
+        uses: { constructor: 'revenue' },
+        formula: ({ constructor: value }) => divide(value, nullIfZero(value)),
+      }),
+    });
+    const expression = getDatasetCatalog(orders).derivedMeasures?.ratio.expression;
+    expect(expression).toEqual({
+      kind: 'binary', operator: 'divide',
+      left: { kind: 'reference', name: 'constructor' },
+      right: { kind: 'call', function: 'nullIfZero', args: [{ kind: 'reference', name: 'constructor' }] },
+    });
+    // Publishing uses the same conversion, so it must not leak Object either.
+    const [published] = buildProtocolDeploymentContract([orders]).datasets;
+    expect(JSON.stringify(published)).toContain('"name":"constructor"');
+  });
+
+  it('catalogs locally valid aliases that only publication refuses', () => {
+    const longAlias = `a${'b'.repeat(128)}`;
+    const orders = defineOrders({
+      ratio: measure.derived({
+        uses: { __hypequery_value: 'revenue', [longAlias]: 'orders' },
+        formula: inputs => divide(inputs.__hypequery_value, nullIfZero(inputs[longAlias])),
+      }),
+    });
+    // Discovery and query schemas build catalogs for local datasets that are never published.
+    const expression = getDatasetCatalog(orders).derivedMeasures?.ratio.expression;
+    expect(JSON.stringify(expression)).toContain('"name":"__hypequery_value"');
+    expect(JSON.stringify(expression)).toContain(`"name":"${longAlias}"`);
+    expect(() => buildProtocolDeploymentContract([orders])).toThrow();
+  });
 });
+
