@@ -27,6 +27,30 @@ def formula_references(formula: Formula) -> tuple[str, ...]:
     return tuple(dict.fromkeys(ref for child in children for ref in formula_references(child)))
 
 
+#: Per-formula limits, matching TypeScript's derived-measure validation.
+MAX_FORMULA_NODES = 256
+_INT64_RANGE = range(-(2**63), 2**63)
+
+
+def formula_node_count(formula: Formula) -> int:
+    """Nodes in one formula, before expanding references to other measures."""
+    pending = [formula]
+    count = 0
+    while pending:
+        node = pending.pop()
+        count += 1
+        if isinstance(node, FormulaBinary):
+            pending.extend((node.left, node.right))
+        elif not isinstance(node, (FormulaReference, FormulaLiteral)):
+            pending.extend(node.args)
+    return count
+
+
+def literal_parameter_type(value: bool | int | float) -> str:
+    """The ClickHouse type a numeric formula literal binds as."""
+    return "Int64" if type(value) is int and value in _INT64_RANGE else "Float64"
+
+
 def validate_derived_measures(
     measures: Mapping[str, Measure | DerivedMeasure], dimensions: Mapping[str, Dimension]
 ) -> None:
@@ -74,6 +98,8 @@ def validate_derived_measures(
             # Bound recursion before descending into uncached dependencies.
             if len(visiting) >= 16:
                 raise ValueError("Derived measure dependency depth limit exceeded")
+            if formula_node_count(definition.formula) > MAX_FORMULA_NODES:
+                raise ValueError("Derived formula exceeds the expression limits")
             visiting.add(name)
             dependency_depth, nodes = formula_stats(definition.formula)
             if dependency_depth >= 16:

@@ -17,6 +17,8 @@ from hypequery.datasets import (
     DerivedMeasure,
     HavingCondition,
     Measure,
+    MemoryCacheStore,
+    ResultCache,
     add,
     build_protocol_deployment_contract,
     coalesce,
@@ -35,6 +37,7 @@ from hypequery.datasets import (
     round as round_,
 )
 from hypequery.datasets.client.results import ResultRows
+from hypequery.datasets.formulas import Formula, FormulaReference
 from hypequery.datasets.planner import CompiledQuery, CompiledQueryError, ExecutionContext, tenant
 from hypequery.serve import (
     HttpSecurity,
@@ -325,3 +328,72 @@ def test_dependency_depth_accepts_sixteen_levels(reverse: bool) -> None:
         definitions = dict(reversed(tuple(definitions.items())))
     ds = Dataset(name="atLimit", source="orders", dimensions={}, measures=definitions)
     assert len(ds.measures) == 17
+
+
+def _with_measures(**definitions: Measure | DerivedMeasure) -> Dataset:
+    ds = orders()
+    return Dataset(
+        name=ds.name,
+        source=ds.source,
+        tenant_key=ds.tenant_key,
+        dimensions=ds.dimensions,
+        measures={**ds.measures, **definitions},
+    )
+
+
+def test_literals_bind_like_typescript_writes_them() -> None:
+    from hypequery.datasets import multiply
+
+    # TypeScript writes literals inline, so integer-only formulas stay integers.
+    ds = _with_measures(
+        plusOne=measure.derived(add("orders", 1)),
+        half=measure.derived(multiply("revenue", 0.5)),
+        huge=measure.derived(add("orders", 2**63)),
+    )
+    for name, expected in (("plusOne", "Int64"), ("half", "Float64"), ("huge", "Float64")):
+        compiled = plan_dataset_query(
+            ds, DatasetQuery(measures=(name,)), context=ExecutionContext(tenant=tenant("a"))
+        )
+        # The tenant scope binds as a String; the only other parameter is the literal.
+        types = [parameter.clickhouse_type for parameter in compiled.parameters.values()]
+        assert sorted(types) == sorted(["String", expected]), name
+
+
+def _balanced_sum(leaves: int) -> Formula:
+    if leaves == 1:
+        return FormulaReference(name="revenue")
+    half = leaves // 2
+    return add(_balanced_sum(half), _balanced_sum(leaves - half))
+
+
+def test_formula_node_limit_matches_typescript() -> None:
+    from hypequery.datasets import ceil
+
+    # 128 leaves make 255 nodes; each ceil adds one. TypeScript allows 256.
+    _with_measures(total256=measure.derived(ceil(_balanced_sum(128))))
+    with pytest.raises(ValidationError, match="expression limits"):
+        _with_measures(total257=measure.derived(ceil(ceil(_balanced_sum(128)))))
+
+
+def test_formula_changes_separate_cache_entries() -> None:
+    # Mirrors TypeScript's "separates derived measures whose formulas differ only
+    # in captured values": the local identity covers the whole formula.
+    executor = CountingExecutor()
+    client = create_dataset_client(
+        executor=executor, cache=ResultCache(store=MemoryCacheStore(), ttl_seconds=60)
+    )
+    context = ExecutionContext(tenant=tenant("a"))
+    two = _with_measures(rounded=measure.derived(round_("revenue", 2)))
+    three = _with_measures(rounded=measure.derived(round_("revenue", 3)))
+    for ds in (two, three, three):
+        client.execute(ds, {"measures": ["rounded"]}, context=context)
+    assert executor.calls == 2
+
+
+class CountingExecutor:
+    def __init__(self) -> None:
+        self.calls = 0
+
+    def execute(self, query: CompiledQuery) -> ResultRows:
+        self.calls += 1
+        return CachedRows(columns=("rounded",), rows=((1.0,),))

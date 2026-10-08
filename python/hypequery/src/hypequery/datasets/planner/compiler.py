@@ -19,7 +19,7 @@ from ..measures import Measure
 from ..query_helpers import Filter, HavingCondition
 from ..registry import DatasetRegistry
 from ..relationships import Relationship
-from ..utils.derived_measures import base_measure_names
+from ..utils.derived_measures import base_measure_names, literal_parameter_type
 from ..utils.query_timezone import time_filter_value, validate_timezone
 from ..utils.relationship_measures import measure_filter_field
 from .aliases import BASE_ALIAS, PERIOD_ALIAS
@@ -448,7 +448,11 @@ class DatasetQueryCompiler:
         if isinstance(formula, FormulaReference):
             return self._local_measure_sql(formula.name)
         if isinstance(formula, FormulaLiteral):
-            return "NULL" if formula.value is None else self.binder.bind(formula.value, "Float64")
+            if formula.value is None:
+                return "NULL"
+            # TypeScript writes integer literals as ClickHouse integers, so
+            # integer-only formulas keep integer results; bind them alike.
+            return self.binder.bind(formula.value, literal_parameter_type(formula.value))
         if isinstance(formula, FormulaBinary):
             operators = {"add": "+", "subtract": "-", "multiply": "*", "divide": "/"}
             left, right = self._formula_sql(formula.left), self._formula_sql(formula.right)
