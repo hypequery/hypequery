@@ -163,3 +163,19 @@ fail visibly. If a tagged publish fails, inspect PyPI before retrying. PyPI
 versions and uploaded filenames cannot be overwritten; if an upload was partial,
 complete the missing artifact deliberately or publish a corrected new version.
 Yank a bad release rather than deleting and reusing its version.
+
+## Dependency and release evidence
+
+Python CI audits runtime dependencies, including all optional extras, on Python
+3.11–3.14. Both the committed lock and the declared direct dependency floors
+must pass pip-audit against the current PyPI advisory database. The floor
+Serve job installs the same lowest-direct resolution before its regression
+suite. Unknown scanner failures fail CI; no advisories are suppressed.
+
+The release build repeats the locked runtime audit and retains a separate
+`python-supply-chain` artifact containing a CycloneDX 1.5 SBOM, hashed runtime
+requirements, the audit report, and SHA-256 checksums of the wheel and sdist.
+The SBOM covers the lock's runtime dependency graph, including platform
+conditions and extras; it is not a claim that every dependency is installed in
+every consumer environment. Publishing remains blocked if the release audit
+fails. PyPI's publishing action creates attestations for both distributions.

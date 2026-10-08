@@ -1271,8 +1271,9 @@ This profile does not provide streaming exports.
 CI tests the real runner, startup refusals, capacity recovery, synchronous and
 asynchronous cancellation, cache/response limits and proxy trust. The same shared
 HTTP fixtures run with and without the production profile, and live ClickHouse
-CI tests the production HTTP query path. The minimum FastAPI/Starlette combination
-and Uvicorn 0.30.0 are tested as well as the locked versions.
+CI tests the production HTTP query path. The declared direct dependency floors
+(including FastAPI 0.141.1, Starlette 1.3.1 and Uvicorn 0.54.0) are tested as
+well as the locked versions.
 
 Run both implementations' shared HTTP gates after building TypeScript packages:
 

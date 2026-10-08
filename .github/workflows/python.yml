@@ -188,7 +188,10 @@ jobs:
           enable-cache: true
           cache-dependency-glob: python/hypequery/uv.lock
       - run: uv sync --all-extras --dev
-      - run: uv pip install "fastapi==0.115.0" "starlette<0.39" "uvicorn==0.30.0"
+      - name: Install the declared direct dependency floors
+        run: |
+          uv pip compile pyproject.toml --all-extras --resolution lowest-direct --output-file /tmp/python-floors.txt --quiet
+          uv pip install --requirement /tmp/python-floors.txt
       - run: uv run --no-sync pytest tests/test_serve_router.py tests/test_serve_security.py tests/test_serve_errors.py tests/test_serve_http_fixtures.py tests/test_serve_discovery.py tests/test_serve_endpoints.py tests/test_serve_semantic_fixtures.py tests/test_serve_production.py tests/test_serve_dev.py tests/test_cli_dev.py
 
   getting-started:
@@ -267,3 +270,42 @@ jobs:
         run: pnpm conformance:python
       - name: Run shared HTTP error and semantic fixtures in both languages
         run: pnpm conformance:serve
+
+  dependency-audit:
+    name: dependencies (py${{ matrix.python-version }}, ${{ matrix.resolution }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ['3.11', '3.12', '3.13', '3.14']
+        resolution: [locked, floor]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.ref || github.sha }}
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@e58605a9b6da7c637471fab8847a5e5a6b8df081 # v5
+        with:
+          version: '0.12.0'
+          python-version: ${{ matrix.python-version }}
+      - name: Resolve runtime dependencies without development tools
+        env:
+          RESOLUTION: ${{ matrix.resolution }}
+        run: |
+          mkdir -p reports
+          if [ "$RESOLUTION" = "locked" ]; then
+            uv export --frozen --all-extras --no-dev --no-emit-project --format requirements.txt --output-file reports/requirements.txt --quiet
+          else
+            uv pip compile pyproject.toml --all-extras --resolution lowest-direct --generate-hashes --output-file reports/requirements.txt --quiet
+          fi
+      - name: Audit resolved versions and hashes
+        run: uvx --python "${{ matrix.python-version }}" pip-audit==2.10.1 --disable-pip --require-hashes --requirement reports/requirements.txt --format json --output reports/audit.json
+      - name: Retain dependency reports even when an audit fails
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: python-dependencies-${{ matrix.python-version }}-${{ matrix.resolution }}
+          path: python/hypequery/reports/
+          if-no-files-found: error
+          retention-days: 30

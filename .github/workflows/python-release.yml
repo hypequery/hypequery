@@ -69,6 +69,7 @@ jobs:
         with:
           enable-cache: true
           cache-dependency-glob: python/hypequery/uv.lock
+          version: '0.12.0'
       - name: Require tagged releases to come from main
         if: github.event_name == 'push'
         run: git merge-base --is-ancestor HEAD origin/main
@@ -106,6 +107,21 @@ jobs:
           path: python/hypequery/dist/
           if-no-files-found: error
           retention-days: 14
+      - name: Generate runtime dependency SBOM and audit the release
+        run: |
+          mkdir -p reports
+          uv export --frozen --all-extras --no-dev --format cyclonedx1.5 --output-file reports/sbom.cdx.json --quiet
+          uv export --frozen --all-extras --no-dev --no-emit-project --format requirements.txt --output-file reports/requirements.txt --quiet
+          uvx --python 3.12 pip-audit==2.10.1 --disable-pip --require-hashes --requirement reports/requirements.txt --format json --output reports/audit.json
+          sha256sum dist/*.whl dist/*.tar.gz > reports/SHA256SUMS
+      - name: Retain release supply-chain evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: python-supply-chain
+          path: python/hypequery/reports/
+          if-no-files-found: error
+          retention-days: 90
       - name: Record release details
         env:
           RELEASE_VERSION: ${{ steps.version.outputs.version }}
