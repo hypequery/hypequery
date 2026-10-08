@@ -3,14 +3,16 @@
 from __future__ import annotations
 
 import asyncio
+import os
 import threading
-from collections.abc import Awaitable
+from collections.abc import Awaitable, Mapping
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import suppress
 from dataclasses import dataclass, field
-from typing import Protocol, cast
+from types import TracebackType
+from typing import Protocol, Self, TypedDict, cast
 
-from hypequery.datasets.planner import CompiledQuery, CompiledQueryError
+from hypequery.datasets.planner import SETTING_DEFINITIONS, CompiledQuery, CompiledQueryError
 
 from .cancellation import acquire_slot, run_with_policy, terminal_error
 from .errors import safe_driver_error
@@ -23,6 +25,7 @@ from .readonly_settings import (
 )
 from .results import DriverResult, QueryRows, decode_result
 from .sync_cancellation import SyncCancellationMonitor
+from .utils.connection_env import connection_fields
 
 
 @dataclass(frozen=True, slots=True)
@@ -39,6 +42,22 @@ class ClickHouseConnection:
 
     def __post_init__(self) -> None:
         validate_readonly_policy(self.readonly_policy)
+
+    @classmethod
+    def from_env(
+        cls,
+        environ: Mapping[str, str] | None = None,
+        *,
+        readonly_policy: ReadonlyPolicy = "query",
+    ) -> Self:
+        """Read ``CLICKHOUSE_HOST``, ``_PORT``, ``_DATABASE``, ``_USERNAME``,
+        ``_PASSWORD`` and ``_SECURE``, defaulting to a local server.
+
+        An unset port lets the driver choose 8123, or 8443 when secure.
+        """
+
+        fields = connection_fields(os.environ if environ is None else environ)
+        return cls(**fields, readonly_policy=readonly_policy)
 
 
 class _SyncClient(Protocol):
@@ -85,17 +104,12 @@ def _capacity(value: int) -> int:
 
 
 def _query_arguments(compiled: CompiledQuery) -> tuple[dict[str, object], dict[str, int]]:
-    if compiled.cancellation is not None and compiled.cancellation.is_set():
-        raise CompiledQueryError("aborted", "The query was cancelled.", query_id=compiled.query_id)
-    if compiled.deadline is not None and compiled.deadline.expired():
-        raise CompiledQueryError(
-            "deadline-exceeded", "The query timed out.", query_id=compiled.query_id
-        )
+    reason = terminal_error(compiled)
+    if reason is not None:
+        raise reason
     parameters = bound_parameters(compiled)
     # QuerySettings is a dataclass and can be constructed directly; recheck it
     # at the adapter boundary before allowing a setting onto the wire.
-    from hypequery.datasets.planner import SETTING_DEFINITIONS
-
     settings = dict(compiled.settings.values)
     if set(settings) != set(SETTING_DEFINITIONS) or any(
         type(value) is not int
@@ -104,6 +118,47 @@ def _query_arguments(compiled: CompiledQuery) -> tuple[dict[str, object], dict[s
     ):
         raise CompiledQueryError("internal", "invalid query settings", query_id=compiled.query_id)
     return parameters, settings
+
+
+def _driver_failure(
+    exc: Exception, compiled: CompiledQuery, policy: ReadonlyPolicy
+) -> CompiledQueryError:
+    """The public error for a failed driver call, never the driver's own text.
+
+    Readonly guidance outranks the generic mapping because it is the one
+    failure an operator can fix from the message alone.
+    """
+
+    guidance = readonly_setting_error(exc, policy, compiled.query_id)
+    if guidance is not None:
+        return guidance
+    return safe_driver_error(exc, compiled.query_id)
+
+
+class _ClientKwargs(TypedDict):
+    host: str
+    port: int | None
+    database: str
+    username: str
+    password: str
+    secure: bool
+
+
+def _client_kwargs(connection: ClickHouseConnection) -> _ClientKwargs:
+    """Connection fields shared by the query and cancellation-control clients."""
+
+    return {
+        "host": connection.host,
+        "port": connection.port,
+        "database": connection.database,
+        "username": connection.username,
+        "password": connection.password,
+        "secure": connection.secure,
+    }
+
+
+#: The control connection only sends KILL QUERY, so it fails fast.
+_CONTROL_TIMEOUT_SECONDS = 2
 
 
 class ClickHouseExecutor:
@@ -151,13 +206,11 @@ class ClickHouseExecutor:
                 transport_settings={},
             )
         except Exception as exc:
-            reason = terminal_error(compiled)
-            if reason is not None:
-                raise reason from None
-            guidance = readonly_setting_error(exc, self._readonly_policy, compiled.query_id)
-            if guidance is not None:
-                raise guidance from None
-            raise safe_driver_error(exc, compiled.query_id) from None
+            # A cancelled or expired query fails because the caller stopped it,
+            # whatever the interrupted driver call reported.
+            raise (
+                terminal_error(compiled) or _driver_failure(exc, compiled, self._readonly_policy)
+            ) from None
         finally:
             if monitor is not None:
                 monitor.stop()
@@ -175,6 +228,17 @@ class ClickHouseExecutor:
         control_closer = getattr(self._control_client, "close", None)
         if callable(control_closer):
             control_closer()
+
+    def __enter__(self) -> Self:
+        return self
+
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc: BaseException | None,
+        traceback: TracebackType | None,
+    ) -> None:
+        self.close()
 
 
 class AsyncClickHouseExecutor:
@@ -198,7 +262,8 @@ class AsyncClickHouseExecutor:
     async def _cancel_on_server(self, query_id: str) -> object:
         try:
             return await asyncio.wait_for(
-                self._control_client.command(_KILL_QUERY, {"id": query_id}), timeout=2.0
+                self._control_client.command(_KILL_QUERY, {"id": query_id}),
+                timeout=_CONTROL_TIMEOUT_SECONDS,
             )
         except Exception as exc:
             raise safe_driver_error(exc, query_id) from None
@@ -236,10 +301,8 @@ class AsyncClickHouseExecutor:
                         transport_settings={},
                     )
                 except Exception as exc:
-                    guidance = readonly_setting_error(exc, self._readonly_policy, compiled.query_id)
-                    if guidance is not None:
-                        raise guidance from None
-                    raise safe_driver_error(exc, compiled.query_id) from None
+                    # run_with_policy gives a cancellation or deadline precedence.
+                    raise _driver_failure(exc, compiled, self._readonly_policy) from None
                 return decode_result(result, compiled.query_id)
 
             query_task = asyncio.create_task(query())
@@ -260,6 +323,17 @@ class AsyncClickHouseExecutor:
             closer = getattr(client, "close", None)
             if callable(closer):
                 await cast(Awaitable[object], closer())
+
+    async def __aenter__(self) -> Self:
+        return self
+
+    async def __aexit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc: BaseException | None,
+        traceback: TracebackType | None,
+    ) -> None:
+        await self.aclose()
 
 
 class AsyncFromSyncClickHouseExecutor:
@@ -295,7 +369,7 @@ class AsyncFromSyncClickHouseExecutor:
                     _KILL_QUERY,
                     {"id": query_id},
                 ),
-                timeout=2.0,
+                timeout=_CONTROL_TIMEOUT_SECONDS,
             )
             return command
         except Exception as exc:
@@ -348,6 +422,17 @@ class AsyncFromSyncClickHouseExecutor:
             if callable(closer):
                 await asyncio.to_thread(closer)
 
+    async def __aenter__(self) -> Self:
+        return self
+
+    async def __aexit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc: BaseException | None,
+        traceback: TracebackType | None,
+    ) -> None:
+        await self.aclose()
+
 
 def create_clickhouse_executor(connection: ClickHouseConnection) -> ClickHouseExecutor:
     """Connect on demand. Install ``hypequery[clickhouse]`` first."""
@@ -360,22 +445,9 @@ def create_clickhouse_executor(connection: ClickHouseConnection) -> ClickHouseEx
         ) from exc
     client = None
     try:
-        client = get_client(
-            host=connection.host,
-            port=connection.port,
-            database=connection.database,
-            username=connection.username,
-            password=connection.password,
-            secure=connection.secure,
-        )
+        client = get_client(**_client_kwargs(connection))
         control_client = get_client(
-            host=connection.host,
-            port=connection.port,
-            database=connection.database,
-            username=connection.username,
-            password=connection.password,
-            secure=connection.secure,
-            send_receive_timeout=2,
+            **_client_kwargs(connection), send_receive_timeout=_CONTROL_TIMEOUT_SECONDS
         )
     except Exception as exc:
         if client is not None:
@@ -401,21 +473,9 @@ async def create_async_clickhouse_executor(
         ) from exc
     client = None
     try:
-        client = await create_async_client(
-            host=connection.host,
-            port=connection.port,
-            database=connection.database,
-            username=connection.username,
-            password=connection.password,
-            secure=connection.secure,
-        )
+        client = await create_async_client(**_client_kwargs(connection))
         control_client = await create_async_client(
-            host=connection.host,
-            port=connection.port,
-            database=connection.database,
-            username=connection.username,
-            password=connection.password,
-            secure=connection.secure,
+            **_client_kwargs(connection), send_receive_timeout=_CONTROL_TIMEOUT_SECONDS
         )
     except Exception as exc:
         if client is not None:
