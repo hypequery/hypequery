@@ -86,7 +86,7 @@ select = [
 [tool.mypy]
 python_version = "3.11"
 strict = true
-files = ["src", "tests", "scripts"]
+files = ["src", "tests", "scripts", "examples"]
 warn_unreachable = true
 # Public signatures must not leak Any; see the PR rules in the plan.
 disallow_any_generics = true
@@ -104,6 +104,7 @@ fail_under = 95
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+pythonpath = ["."]
 addopts = "-q"
 
 # Import boundaries. These encode the layering the security roadmap requires:
