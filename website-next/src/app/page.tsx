@@ -44,8 +44,8 @@ export default function Home() {
       <main className="pt-[104px]">
         <Hero />
         <AiAnswers />
-        <AiAuthoring />
         <ProductExplainer />
+        <AiAuthoring />
         <FeatureGrid />
         <DatasetQuickstart />
         <FinalCTA />
