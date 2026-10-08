@@ -81,13 +81,7 @@ export function ProductExplainer() {
             <div className="ml-auto flex flex-col gap-2" aria-label="Model in TypeScript or Python"><SiTypescript className="h-3.5 w-3.5 text-[#3178c6]" title="TypeScript" /><SiPython className="h-3.5 w-3.5 text-[#3776ab]" title="Python" /></div>
           </div>
         </div>
-        <div className="absolute inset-x-0 top-[214px] flex flex-col items-center gap-2 text-center">
-          <span className="bg-bg px-2 text-[10px] text-text-dim">Shared metrics · dimensions · tenant rules</span>
-          <Link href="/blog/seven-companies-one-pattern-why-every-scaled-clickhouse-deployment-looks-the-same" className="group inline-flex items-center gap-1 bg-bg px-2 text-xs text-text-muted transition hover:text-accent">
-            Uber, Cloudflare, and Instacart each built an analytics layer on ClickHouse. <span className="text-text group-hover:text-accent">Read why</span>
-            <ArrowUpRight className="h-3 w-3" aria-hidden="true" />
-          </Link>
-        </div>
+        <div className="absolute inset-x-0 bottom-8 text-center text-[10px] text-text-dim">Shared metrics · dimensions · tenant rules</div>
         <div className="absolute inset-x-0 -bottom-2 grid grid-cols-3 text-center text-[10px] text-text-muted md:hidden">
           {['React', 'Chat', 'MCP'].map((surface) => <div key={surface}><span className="rounded border border-border bg-bg-card px-3 py-1">{surface}</span></div>)}
         </div>

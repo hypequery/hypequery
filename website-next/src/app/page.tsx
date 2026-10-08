@@ -5,6 +5,7 @@ import { AnnouncementBanner, Hero, FinalCTA } from '@/components/home';
 import { FeatureGrid } from '@/components/home/FeatureGrid';
 import { DatasetQuickstart } from '@/components/home/DatasetQuickstart';
 import { ProductExplainer } from '@/components/home/ProductExplainer';
+import { PatternCallout } from '@/components/home/PatternCallout';
 import { AiAnswers } from '@/components/home/AiAnswers';
 import { AiAuthoring } from '@/components/home/AiAuthoring';
 
@@ -45,6 +46,7 @@ export default function Home() {
         <Hero />
         <AiAnswers />
         <ProductExplainer />
+        <PatternCallout />
         <AiAuthoring />
         <FeatureGrid />
         <DatasetQuickstart />
