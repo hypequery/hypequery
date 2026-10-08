@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import secrets
 
 import pytest
 from fastapi.testclient import TestClient
@@ -48,10 +49,13 @@ from hypequery.serve import (
 def test_live_tenant_http_joins_cache_and_denials(asynchronous: bool) -> None:
     import clickhouse_connect
 
+    # A fresh database per run (and per sync/async case): the test only ever
+    # drops the database it created itself.
+    database = f"hq_tenant_http_{secrets.token_hex(6)}"
     connection = ClickHouseConnection(
         host=os.environ["HYPEQUERY_TEST_CLICKHOUSE_HOST"],
         port=int(os.environ.get("HYPEQUERY_TEST_CLICKHOUSE_PORT", "8123")),
-        database="test_db",
+        database=database,
         username="default",
         password=os.environ["HYPEQUERY_TEST_CLICKHOUSE_PASSWORD"],
     )
@@ -60,17 +64,16 @@ def test_live_tenant_http_joins_cache_and_denials(asynchronous: bool) -> None:
         port=connection.port,
         username=connection.username,
         password=connection.password,
-        database="test_db",
     )
     customer = Dataset(
         name="customers",
-        source="test_db.beta_http_customers",
+        source="beta_http_customers",
         tenant_key="org_id",
         dimensions={"id": dimension.number(), "label": dimension.string()},
     )
     orders = Dataset(
         name="orders",
-        source="test_db.beta_http_orders",
+        source="beta_http_orders",
         tenant_key="org_id",
         dimensions={"id": dimension.number()},
         measures={"total": measure.sum("amount")},
@@ -80,21 +83,24 @@ def test_live_tenant_http_joins_cache_and_denials(asynchronous: bool) -> None:
     cache = ResultCache(store=MemoryCacheStore(), ttl_seconds=60)
     router = create_router(authenticate=authenticate)
     policy = EndpointPolicy(tenant="required", required_scopes=frozenset({"analytics:read"}))
+    admin.command(f"CREATE DATABASE {database}")
     try:
-        admin.command("DROP TABLE IF EXISTS beta_http_orders")
-        admin.command("DROP TABLE IF EXISTS beta_http_customers")
         admin.command(
-            "CREATE TABLE beta_http_orders (id UInt64, customer_id UInt64, amount Float64, "
+            f"CREATE TABLE {database}.beta_http_orders (id UInt64, customer_id UInt64, "
+            "amount Float64, org_id String) ENGINE=Memory"
+        )
+        admin.command(
+            f"CREATE TABLE {database}.beta_http_customers (id UInt64, label String, "
             "org_id String) ENGINE=Memory"
         )
         admin.command(
-            "CREATE TABLE beta_http_customers (id UInt64, label String, "
-            "org_id String) ENGINE=Memory"
+            f"INSERT INTO {database}.beta_http_orders VALUES "  # noqa: S608 - generated name
+            "(1, 1, 10, 'a'), (1, 1, 90, 'b')"
         )
-        admin.command("INSERT INTO beta_http_orders VALUES (1, 1, 10, 'a'), (1, 1, 90, 'b')")
         # Colliding join keys make a missing target scope visible immediately.
         admin.command(
-            "INSERT INTO beta_http_customers VALUES (1, 'B_ONLY', 'b'), (1, 'A_ONLY', 'a')"
+            f"INSERT INTO {database}.beta_http_customers VALUES "  # noqa: S608 - generated name
+            "(1, 'B_ONLY', 'b'), (1, 'A_ONLY', 'a')"
         )
         app = create_app(
             router,
@@ -168,9 +174,10 @@ def test_live_tenant_http_joins_cache_and_denials(asynchronous: bool) -> None:
                 else:
                     executor.close()
     finally:
-        admin.command("DROP TABLE IF EXISTS beta_http_orders")
-        admin.command("DROP TABLE IF EXISTS beta_http_customers")
-        admin.close()
+        try:
+            admin.command(f"DROP DATABASE IF EXISTS {database}")
+        finally:
+            admin.close()
 
 
 def authenticate(credential: Credential) -> Principal | None:
