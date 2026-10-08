@@ -31,6 +31,7 @@ def _dataset(catalog: DatasetCatalog) -> dict[str, object]:
             for name, entry in sorted(
                 [
                     *catalog["measures"].items(),
+                    *catalog.get("derivedMeasures", {}).items(),
                     *(
                         item
                         for relationship in catalog["relationships"].values()

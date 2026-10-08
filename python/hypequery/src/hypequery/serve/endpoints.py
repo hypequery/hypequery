@@ -30,6 +30,7 @@ from .request_ids import ensure_request_id
 from .router import ServeRouter, authenticated_context
 from .utils.production_context import production_profile
 from .utils.query_response import public_response
+from .utils.query_schema import endpoint_query_model
 from .utils.request_work import request_work, run_sync
 
 
@@ -188,6 +189,9 @@ class DatasetEndpoint:
                 return await self.execute(request, payload)
 
             endpoint = metric_query
+        endpoint.__annotations__["payload"] = endpoint_query_model(
+            self.dataset, metric=self.measure is not None
+        )
         if self.policy.public:
             router.public(endpoint)
         router.add_api_route(

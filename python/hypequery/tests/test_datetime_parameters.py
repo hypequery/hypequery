@@ -49,3 +49,20 @@ def test_only_datetime_parameters_are_converted() -> None:
     assert bound_parameters(_compiled("Array(DateTime64(3))", [instant, "2026-10-25"])) == {
         "p0": ["1792891800.000000", "2026-10-25"]
     }
+
+
+@pytest.mark.parametrize(
+    "kind", ["UInt8", "UInt16", "UInt32", "UInt64", "Int8", "Int16", "Int32", "Int64"]
+)
+def test_formula_literal_integer_widths_are_accepted(kind: str) -> None:
+    assert bound_parameters(_compiled(kind, 1)) == {"p0": 1}
+
+
+@pytest.mark.parametrize("kind", ["UInt128", "Int256", "Int", "UInt8 ", "Nullable(UInt8)"])
+def test_other_integer_spellings_are_refused(kind: str) -> None:
+    from hypequery.datasets.planner import CompiledQueryError
+
+    # Internal errors keep their reason private; the public message is generic.
+    with pytest.raises(CompiledQueryError) as raised:
+        bound_parameters(_compiled(kind, 1))
+    assert raised.value.category == "internal"

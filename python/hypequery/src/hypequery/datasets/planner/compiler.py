@@ -12,11 +12,15 @@ from dataclasses import dataclass
 from typing import cast
 
 from ..dataset import Dataset
+from ..derived_measures import DerivedMeasure
 from ..dimensions import Dimension
+from ..formulas import Formula, FormulaBinary, FormulaLiteral, FormulaReference
 from ..measures import Measure
 from ..query_helpers import Filter, HavingCondition
 from ..registry import DatasetRegistry
 from ..relationships import Relationship
+from ..utils.derived_measures import base_measure_names, literal_parameter_type
+from ..utils.query_timezone import time_filter_value, validate_timezone
 from ..utils.relationship_measures import measure_filter_field
 from .aliases import BASE_ALIAS, PERIOD_ALIAS
 from .context import ExecutionContext, TenantScope
@@ -47,6 +51,7 @@ from .sql_fragments import (
     having_clause,
     order_by_clause,
     pagination_clause,
+    period_value,
     select_clause,
     trusted_expression,
     where_clause,
@@ -83,6 +88,8 @@ class DatasetQueryCompiler:
         self.context = context
         self.overfetch = overfetch
         self.binder = ParameterBinder()
+        self.timezone = validate_timezone(query.timezone or "UTC")
+        self.timezone_placeholder: str | None = None
         self.selections: list[str] = []
         self.group_by: list[str] = []
         self.predicates: list[str] = []
@@ -108,7 +115,9 @@ class DatasetQueryCompiler:
 
         # An omitted measure list selects every base measure, as `_add_measures` does.
         selected_measures = (
-            query.measures if query.measures is not None else tuple(self.dataset.measures)
+            query.measures
+            if query.measures is not None
+            else base_measure_names(self.dataset.measures)
         )
         for name in query.dimensions:
             if name in selected_measures:
@@ -199,6 +208,8 @@ class DatasetQueryCompiler:
             if owner != relationship_name or measure_name not in target.measures:
                 continue
             measure = target.measures[measure_name]
+            if isinstance(measure, DerivedMeasure):
+                continue
             for field in (measure.field, measure.arg_field):
                 if field is not None:
                     declared = target.dimensions.get(field)
@@ -263,6 +274,25 @@ class DatasetQueryCompiler:
             return expression
         return self._base_column(self.dataset.dimensions.get(name), name)
 
+    def _time_sql(self, column: str) -> str:
+        if self.timezone_placeholder is None:
+            self.timezone_placeholder = self.binder.bind(self.timezone, "String")
+        return f"toDateTime64({column}, 9, {self.timezone_placeholder})"
+
+    def _is_time_field(self, field: str) -> bool:
+        if is_qualified(field) or self.dataset.time_key is None:
+            return False
+        dimension = self.dataset.dimensions.get(field)
+        time_dimension = self.dataset.dimensions.get(self.dataset.time_key)
+        return (dimension.column or field if dimension else field) == (
+            time_dimension.column or self.dataset.time_key
+            if time_dimension
+            else self.dataset.time_key
+        )
+
+    def _filter_bound(self, field: str, bound: object) -> object:
+        return time_filter_value(bound, self.timezone) if self._is_time_field(field) else bound
+
     def _add_dimensions(self, query: DatasetQuery) -> None:
         if query.by is not None:
             if self.dataset.time_key is None:
@@ -270,9 +300,15 @@ class DatasetQueryCompiler:
                     "input-invalid",
                     f'Cannot group by time — dataset "{self.dataset.name}" has no time key.',
                 )
-            time_column = self._base_column(None, self.dataset.time_key)
-            self.selections.append(aliased(grain_expression(query.by, time_column), PERIOD_ALIAS))
-            self.group_by.append(PERIOD_ALIAS.sql)
+            time_column = self._time_sql(
+                self._base_column(
+                    self.dataset.dimensions.get(self.dataset.time_key), self.dataset.time_key
+                )
+            )
+            bucket = grain_expression(query.by, time_column)
+            # Group on the bucket itself; only the selected value is text.
+            self.selections.append(aliased(period_value(bucket), PERIOD_ALIAS))
+            self.group_by.append(bucket)
             self.orderable[PERIOD_ALIAS.name] = PERIOD_ALIAS
 
         for name in query.dimensions:
@@ -408,8 +444,49 @@ class DatasetQueryCompiler:
         ]
         return self._with_conditions(aggregate, predicates)
 
+    def _formula_sql(self, formula: Formula) -> str:
+        if isinstance(formula, FormulaReference):
+            return self._local_measure_sql(formula.name)
+        if isinstance(formula, FormulaLiteral):
+            if formula.value is None:
+                return "NULL"
+            # Bind as ClickHouse would type the same literal written inline.
+            return self.binder.bind(formula.value, literal_parameter_type(formula.value))
+        if isinstance(formula, FormulaBinary):
+            operators = {"add": "+", "subtract": "-", "multiply": "*", "divide": "/"}
+            left, right = self._formula_sql(formula.left), self._formula_sql(formula.right)
+            return f"({left} {operators[formula.operator]} {right})"
+        if formula.name == "round":
+            decimals = cast(FormulaLiteral, formula.args[1])
+            decimal_parameter = self.binder.bind(decimals.value, "Int64")
+            expression = self._formula_sql(formula.args[0])
+            return f"ROUND({expression}, {decimal_parameter})"
+        args = [self._formula_sql(arg) for arg in formula.args]
+        if formula.name == "nullIfZero":
+            return f"NULLIF({args[0]}, 0)"
+        functions = {"coalesce": "COALESCE", "round": "ROUND", "floor": "FLOOR", "ceil": "CEIL"}
+        return f"{functions[formula.name]}({', '.join(args)})"
+
+    def _local_measure_sql(self, name: str) -> str:
+        if name not in self.measure_sql:
+            measure = self.dataset.measures[name]
+            self.measure_sql[name] = (
+                self._formula_sql(measure.formula)
+                if isinstance(measure, DerivedMeasure)
+                else self._measure_filter_sql(name, measure)
+            )
+        return self.measure_sql[name]
+
     def _add_measures(self, query: DatasetQuery) -> None:
-        names = query.measures if query.measures is not None else tuple(self.dataset.measures)
+        names = (
+            query.measures
+            if query.measures is not None
+            else tuple(
+                name
+                for name, definition in self.dataset.measures.items()
+                if isinstance(definition, Measure)
+            )
+        )
         for name in names:
             if is_qualified(name):
                 alias = SafeIdentifier(name)
@@ -426,7 +503,7 @@ class DatasetQueryCompiler:
                     f"Available: {known}",
                 )
             alias = SafeIdentifier(name)
-            self.measure_sql[name] = self._measure_filter_sql(name, measure)
+            self.measure_sql[name] = self._local_measure_sql(name)
             self.selections.append(aliased(self.measure_sql[name], alias))
             self.orderable[name] = alias
 
@@ -467,6 +544,8 @@ class DatasetQueryCompiler:
                     )
         validate_filter_value(filter_value, dimension.field_type)
         column = self._field_sql(field)
+        if self._is_time_field(field):
+            column = self._time_sql(column)
         clickhouse_type = self._filter_type(field)
         operator = filter_value.operator
         what = f'filter "{filter_value.field}"'
@@ -476,14 +555,16 @@ class DatasetQueryCompiler:
             if not items:
                 raise CompiledQueryError("input-invalid", f"{what} needs at least one value")
             keyword = "IN" if operator == "in" else "NOT IN"
-            placeholder = self.binder.bind_array(items, clickhouse_type)
+            placeholder = self.binder.bind_array(
+                [self._filter_bound(field, bound) for bound in items], clickhouse_type
+            )
             return f"{column} {keyword} {placeholder}"
         if operator == "between":
             items = require_sequence(filter_value.value, what=what)
             if len(items) != 2:
                 raise CompiledQueryError("input-invalid", f"{what} needs exactly two values")
-            lower = self.binder.bind(items[0], clickhouse_type)
-            upper = self.binder.bind(items[1], clickhouse_type)
+            lower = self.binder.bind(self._filter_bound(field, items[0]), clickhouse_type)
+            upper = self.binder.bind(self._filter_bound(field, items[1]), clickhouse_type)
             return f"{column} BETWEEN {lower} AND {upper}"
         if operator == "like":
             text = require_scalar(filter_value.value, what=what)
@@ -496,7 +577,8 @@ class DatasetQueryCompiler:
         if comparison is None:
             raise CompiledQueryError("input-invalid", f"{what} uses unknown operator {operator!r}")
         placeholder = self.binder.bind(
-            require_scalar(filter_value.value, what=what), clickhouse_type
+            self._filter_bound(field, require_scalar(filter_value.value, what=what)),
+            clickhouse_type,
         )
         return f"{column} {comparison} {placeholder}"
 
@@ -580,13 +662,20 @@ class DatasetQueryCompiler:
         """Conditions on aggregated values, every value bound as a parameter."""
 
         for condition in query.having:
-            expression = self.measure_sql.get(condition.measure)
+            selected = (
+                query.measures
+                if query.measures is not None
+                else base_measure_names(self.dataset.measures)
+            )
+            expression = (
+                self.measure_sql.get(condition.measure) if condition.measure in selected else None
+            )
             if expression is None:
-                selected = ", ".join(self.measure_sql)
+                selected_names = ", ".join(selected)
                 raise CompiledQueryError(
                     "input-invalid",
                     f'Having measure "{condition.measure}" must be one of the selected '
-                    f"measures: {selected}",
+                    f"measures: {selected_names}",
                 )
             values = self._having_numbers(condition)
             operator = condition.operator

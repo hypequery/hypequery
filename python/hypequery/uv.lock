@@ -759,6 +759,7 @@ version = "0.1.0.dev0"
 source = { editable = "." }
 dependencies = [
     { name = "pydantic" },
+    { name = "tzdata" },
 ]
 
 [package.optional-dependencies]
@@ -790,6 +791,7 @@ requires-dist = [
     { name = "clickhouse-connect", extras = ["async"], marker = "extra == 'clickhouse-async'", specifier = ">=1.6.0" },
     { name = "fastapi", marker = "extra == 'fastapi'", specifier = ">=0.115.0" },
     { name = "pydantic", specifier = ">=2.7" },
+    { name = "tzdata", specifier = ">=2025.2" },
     { name = "uvicorn", marker = "extra == 'fastapi'", specifier = ">=0.30.0" },
 ]
 provides-extras = ["clickhouse", "clickhouse-async", "fastapi"]

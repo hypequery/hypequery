@@ -10,6 +10,7 @@ from pydantic import ValidationError
 
 from hypequery.datasets import (
     Dataset,
+    add,
     create_dataset_registry,
     dimension,
     eq,
@@ -80,6 +81,24 @@ def test_python_feature_support(entry: dict[str, object]) -> None:
             assert support["publish"] is True
         return
 
+    if feature == "derivedMeasures":
+        ds = orders()
+        derived_dataset = Dataset(
+            name=ds.name,
+            source=ds.source,
+            tenant_key=ds.tenant_key,
+            dimensions=ds.dimensions,
+            measures={**ds.measures, "doubleRevenue": measure.derived(add("revenue", "revenue"))},
+        )
+        compiled = plan_dataset_query(
+            derived_dataset,
+            DatasetQuery(measures=("doubleRevenue",)),
+            context=ExecutionContext(tenant=tenant("acme")),
+        )
+        assert "sum(`amount`) + sum(`amount`)" in compiled.sql
+        build_protocol_deployment_contract(create_dataset_registry(derived_dataset))
+        assert support == {"local": True, "publish": True}
+        return
     assert support == {"local": False, "publish": False}
     if feature == "segments":
         definition = orders().model_dump()

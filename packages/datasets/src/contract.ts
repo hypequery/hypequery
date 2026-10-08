@@ -94,6 +94,7 @@ export interface ContractDataset extends SemanticMetadata {
   supportedGrains: string[];
   dimensions: Record<string, ContractDimension>;
   measures: Record<string, ContractMeasure>;
+  derivedMeasures?: DatasetCatalog['derivedMeasures'];
   metrics: Record<string, ContractMetric>;
   filters: Record<string, ContractFilter>;
   /** Named segments (label and description only); absent when none are declared. */
@@ -180,6 +181,9 @@ function datasetToContract(catalog: DatasetCatalog, includeSql: boolean): Contra
     measures: sortedRecord(
       Object.entries(catalog.measures).map(([name, entry]) => [name, measureToContract(entry, includeSql)]),
     ),
+    ...(catalog.derivedMeasures !== undefined ? {
+      derivedMeasures: sortedRecord(Object.entries(catalog.derivedMeasures)),
+    } : {}),
     metrics: sortedRecord(
       Object.entries(catalog.metrics).map(([name, entry]) => [name, metricToContract(entry)]),
     ),

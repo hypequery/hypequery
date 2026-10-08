@@ -3,7 +3,7 @@
   "cloudDeploymentVersion": 2,
   "features": [
     { "feature": "baseMeasures", "protocolVersions": [2, 3], "typescript": { "local": true, "publish": true }, "python": { "local": true, "publish": true }, "cloud": true },
-    { "feature": "derivedMeasures", "protocolVersions": [2, 3], "typescript": { "local": true, "publish": true }, "python": { "local": false, "publish": false }, "cloud": true },
+    { "feature": "derivedMeasures", "protocolVersions": [2, 3], "typescript": { "local": true, "publish": true }, "python": { "local": true, "publish": true }, "cloud": true },
     { "feature": "segments", "protocolVersions": [3], "typescript": { "local": true, "publish": false }, "python": { "local": false, "publish": false }, "cloud": false },
     { "feature": "windowMeasures", "protocolVersions": [3], "typescript": { "local": true, "publish": false }, "python": { "local": false, "publish": false }, "cloud": false },
     { "feature": "shiftMeasures", "protocolVersions": [3], "typescript": { "local": true, "publish": false }, "python": { "local": false, "publish": false }, "cloud": false },

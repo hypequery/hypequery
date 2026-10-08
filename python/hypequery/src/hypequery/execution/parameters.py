@@ -14,8 +14,11 @@ from hypequery.datasets.planner import CompiledQuery, CompiledQueryError
 from .utils.datetime_parameters import unix_seconds
 
 _NAME = re.compile(r"p(?:0|[1-9][0-9]*)\Z")
+# Integer widths narrower than 64 bits come from formula literals, which bind as the
+# narrowest type ClickHouse would infer for the same inline literal.
 _TYPE = re.compile(
-    r"(?:String|Float64|Bool|DateTime64\(3\)|Int64|UInt64|Decimal\([0-9]+,[0-9]+\))\Z"
+    r"(?:String|Float64|Bool|DateTime64\(3\)|U?Int(?:8|16|32|64)"
+    r"|Decimal\([0-9]+,[0-9]+\))\Z"
 )
 _PLACEHOLDER = re.compile(r"\{(p(?:0|[1-9][0-9]*)):([^{}]+)\}")
 

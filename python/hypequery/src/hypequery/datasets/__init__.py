@@ -60,6 +60,7 @@ from .contract import (
 from .dataset import Dataset, DatasetLimits, FilterDefinition, dataset
 from .deployment import build_protocol_dataset_contract, build_protocol_deployment_contract
 from .deployment_bundle import PreparedDatasetBundle, prepare_dataset_bundle, write_dataset_bundle
+from .derived_measures import DerivedMeasure
 from .dimensions import Dimension, DimensionType, dimension
 from .formulas import (
     Formula,
@@ -112,6 +113,7 @@ from .query_helpers import (
     order,
 )
 from .registry import DatasetRegistry, create_dataset_registry
+from .relationship_check import check_relationships, check_relationships_async
 from .relationships import (
     Relationship,
     RelationshipKey,
@@ -130,6 +132,7 @@ from .sql_portability import (
     SqlPortabilitySuccess,
     compile_portable_sql_expression,
 )
+from .utils.relationship_key_check import CheckRelationshipsResult, RelationshipKeyIssue
 
 __all__ = [
     "DEFAULT_SQL_PORTABILITY_LIMITS",
@@ -143,6 +146,7 @@ __all__ = [
     "AsyncTenantDatasetClient",
     "CacheStore",
     "CachedRows",
+    "CheckRelationshipsResult",
     "CompiledQuery",
     "CompiledQueryError",
     "Dataset",
@@ -153,6 +157,7 @@ __all__ = [
     "DatasetQueryMeta",
     "DatasetQueryResult",
     "DatasetRegistry",
+    "DerivedMeasure",
     "Dimension",
     "DimensionCatalogEntry",
     "DimensionType",
@@ -179,6 +184,7 @@ __all__ = [
     "Relationship",
     "RelationshipCatalogEntry",
     "RelationshipKey",
+    "RelationshipKeyIssue",
     "RelationshipKind",
     "ResultCache",
     "SqlPortabilityFailure",
@@ -200,6 +206,8 @@ __all__ = [
     "build_protocol_dataset_contract",
     "build_protocol_deployment_contract",
     "ceil",
+    "check_relationships",
+    "check_relationships_async",
     "coalesce",
     "compile_formula",
     "compile_portable_sql_expression",
