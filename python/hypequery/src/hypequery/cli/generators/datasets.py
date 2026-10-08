@@ -90,8 +90,14 @@ def measure_candidate(name: str) -> bool:
     )
 
 
-def generate_datasets(schema: Schema) -> GeneratedDatasets:
-    """Preserve source mappings, avoid collisions, and report unsupported fields."""
+def generate_datasets(schema: Schema, *, tenant_column: str | None = None) -> GeneratedDatasets:
+    """Preserve source mappings, avoid collisions, and report unsupported fields.
+
+    Only an explicit *tenant_column* sets ``tenant_key``; column-name matches are
+    reported for review and never become policy.
+    """
+    if tenant_column is not None and not is_identifier(tenant_column):
+        raise CliError("The tenant column is outside the SDK's supported identifier grammar.")
     if not is_identifier(schema.database):
         raise CliError("The database name is outside the SDK's supported identifier grammar.")
     lines = [
@@ -145,7 +151,13 @@ def generate_datasets(schema: Schema) -> GeneratedDatasets:
             if column.lower()
             in {"tenant_id", "organization_id", "org_id", "account_id", "customer_id"}
         ]
-        if tenants:
+        tenant_key = tenant_column if tenant_column in {column for column, _, _ in fields} else None
+        if tenant_column is not None and tenant_key is None:
+            warnings.append(
+                f"{table.name}: no {tenant_column!r} column, so tenant isolation was not "
+                "applied; set tenant_key to the correct column before serving tenant requests."
+            )
+        if tenants and tenant_key is None:
             warnings.append(
                 f"{table.name}: possible tenant columns {', '.join(tenants)}; "
                 "configure trusted tenant scope and tenant_key explicitly."
@@ -159,6 +171,8 @@ def generate_datasets(schema: Schema) -> GeneratedDatasets:
         )
         if time_key:
             lines.append(f"        time_key={time_key!r},")
+        if tenant_key:
+            lines.append(f"        tenant_key={tenant_key!r},")
         lines.append("        dimensions={")
         for physical, alias, kind in fields:
             label = physical.replace("_", " ").title()
