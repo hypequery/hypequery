@@ -48,6 +48,7 @@ from .sql_fragments import (
     having_clause,
     order_by_clause,
     pagination_clause,
+    period_value,
     select_clause,
     trusted_expression,
     where_clause,
@@ -297,8 +298,10 @@ class DatasetQueryCompiler:
                     self.dataset.dimensions.get(self.dataset.time_key), self.dataset.time_key
                 )
             )
-            self.selections.append(aliased(grain_expression(query.by, time_column), PERIOD_ALIAS))
-            self.group_by.append(PERIOD_ALIAS.sql)
+            bucket = grain_expression(query.by, time_column)
+            # Group on the bucket itself; only the selected value is text.
+            self.selections.append(aliased(period_value(bucket), PERIOD_ALIAS))
+            self.group_by.append(bucket)
             self.orderable[PERIOD_ALIAS.name] = PERIOD_ALIAS
 
         for name in query.dimensions:

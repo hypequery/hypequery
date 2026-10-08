@@ -137,11 +137,10 @@ def test_a_dimension_column_override_is_used() -> None:
 
 def test_a_time_grain_selects_and_orders_by_period() -> None:
     compiled = plan_dataset_query(_trips(), DatasetQuery(by="month", measures=("trips",)))
-    assert (
-        "toStartOfMonth(toDateTime64(`pickup_datetime`, 9, {p0:String})) AS `period`"
-        in compiled.sql
-    )
-    assert compiled.sql.endswith("GROUP BY `period` ORDER BY `period` ASC")
+    bucket = "toStartOfMonth(toDateTime64(`pickup_datetime`, 9, {p0:String}))"
+    # RFC 0015's result form is ClickHouse's own text for the bucket; group on the value.
+    assert f"toString({bucket}) AS `period`" in compiled.sql
+    assert compiled.sql.endswith(f"GROUP BY {bucket} ORDER BY `period` ASC")
 
 
 def test_a_time_grain_needs_a_time_key() -> None:
