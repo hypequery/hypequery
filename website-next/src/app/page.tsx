@@ -44,10 +44,10 @@ export default function Home() {
       <Navigation hasBanner />
       <main className="pt-[104px]">
         <Hero />
-        <AiAuthoring />
         <AiAnswers />
         <ProductExplainer />
         <PatternCallout />
+        <AiAuthoring />
         <FeatureGrid />
         <DatasetQuickstart />
         <FinalCTA />

@@ -349,11 +349,7 @@ export function AiAnswers() {
   const { elapsed, replay } = useTimeline(inView, reduced, DONE);
 
   return (
-    <section aria-label="Claude and an in-app chat answering the same questions from the same hypequery dataset" className="mx-auto max-w-[1280px] px-5 pb-4 pt-14 sm:px-8 sm:pt-20">
-      <p className="mb-5 flex items-center gap-2 text-sm text-text-muted">
-        <span className="h-1.5 w-1.5 rounded-full bg-accent" aria-hidden="true" />
-        <span className="font-mono text-text">orders</span> is live. Ask it from Claude, or from your app.
-      </p>
+    <section aria-label="Claude and an in-app chat answering the same questions from the same hypequery dataset" className="mx-auto max-w-[1280px] px-5 pb-4 pt-6 sm:px-8">
       <div ref={ref} className="grid gap-4 md:grid-cols-2">
         <ClaudeTerminal elapsed={elapsed} reduced={reduced} />
         <AppChat elapsed={elapsed} reduced={reduced} />
