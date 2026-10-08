@@ -15,6 +15,7 @@ from .deployment_values import filter_expression
 from .dimensions import DimensionType
 from .registry import DatasetRegistry
 from .relationships import Relationship
+from .utils.portable_grains import assert_publishable_time_grains
 from .utils.portable_order import portable_name_key
 
 
@@ -61,6 +62,9 @@ def build_protocol_dataset_contract(
 ) -> dict[str, object]:
     """Convert one definition to a validated local dataset snapshot."""
 
+    # Contract 2 cannot carry an allowed-grain policy. Refuse a restriction
+    # rather than turn it into an unrestricted deployed dataset.
+    assert_publishable_time_grains(dataset.name, dataset.time_grains)
     dimensions: list[dict[str, object]] = []
     for name, dimension in sorted(
         dataset.dimensions.items(), key=lambda item: portable_name_key(item[0])
