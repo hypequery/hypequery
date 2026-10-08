@@ -26,6 +26,20 @@ def grain_expression(grain: str, column_sql: str) -> str:
     return f"{function}({column_sql})"
 
 
+def period_value(bucket_sql: str) -> str:
+    """Render a grain bucket as RFC 0015's result form.
+
+    Sub-day and day buckets are ClickHouse ``DateTime`` values, which ClickHouse's
+    JSON output (and so TypeScript) renders as wall-clock ``YYYY-MM-DD HH:MM:SS``
+    in the bucket's zone. The Python driver would instead return an instant that
+    the result codec writes in UTC. Formatting in ClickHouse yields the same text
+    in both languages. Week-and-longer buckets are ``Date`` values, rendered as
+    ``YYYY-MM-DD`` either way. Both forms sort chronologically as text.
+    """
+
+    return f"toString({bucket_sql})"
+
+
 def trusted_expression(sql: str) -> str:
     """Enclose a trusted SQL expression so it cannot reach past its own operand.
 

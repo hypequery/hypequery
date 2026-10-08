@@ -8,7 +8,7 @@ import secrets
 from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING
 
 import pytest
 from fastapi.testclient import TestClient
@@ -150,7 +150,6 @@ def live_database() -> Iterator[tuple[Client, ClickHouseExecutor]]:
 
 @LIVE
 def test_live_zone_buckets_and_filters_match_raw_sql() -> None:
-    from hypequery.execution.results import DriverResult, decode_result
 
     with live_database() as (admin, executor):
         admin.command(
@@ -163,17 +162,18 @@ def test_live_zone_buckets_and_filters_match_raw_sql() -> None:
         client = create_dataset_client(executor=executor)
         for zone in ("UTC", "America/New_York", "America/Los_Angeles"):
             actual = client.execute(dataset(), {"by": "day", "timezone": zone})
-            raw = admin.query(
+            # Ground truth is ClickHouse's JSON text for the bucket, which is what
+            # TypeScript returns (RFC 0015's result form).
+            raw = admin.raw_query(
                 "SELECT toStartOfDay(toDateTime64(occurred_at, 9, {zone:String})) "
                 "AS period, count(occurred_at) AS rows FROM events "
                 "GROUP BY period ORDER BY period",
                 parameters={"zone": zone},
-                tz_mode="aware",
+                fmt="JSONEachRow",
+                settings={"output_format_json_quote_64bit_integers": 0},
             )
-            # Drivers normalize DateTime results; compare instants and aggregate values.
-            assert (
-                actual.data == decode_result(cast(DriverResult, raw), "ground-truth").named_rows()
-            )
+            expected = tuple(json.loads(line) for line in raw.decode().splitlines())
+            assert actual.data == expected
         filtered = client.execute(
             dataset(),
             {
@@ -206,13 +206,10 @@ def test_live_date_columns_keep_calendar_dates(zone: str) -> None:
                 measures={"total": measure.sum("value")},
             )
             result = client.execute(days, {"by": "day", "timezone": zone})
-            local_dates = admin.query(
-                "SELECT toDate(parseDateTime64BestEffort({period:String}, 0, {zone:String}), "
-                "{zone:String})",
-                parameters={"period": str(result.data[0]["period"]), "zone": zone},
-            ).result_rows
-            assert str(local_dates[0][0]) == "2026-01-02"
-            assert [row["total"] for row in result.data] == [10.0, 50.0]
+            assert result.data == (
+                {"period": "2026-01-02 00:00:00", "total": 10.0},
+                {"period": "2026-01-03 00:00:00", "total": 50.0},
+            )
 
 
 @LIVE
@@ -240,6 +237,32 @@ def test_live_offset_bounds_are_instants_and_local_bounds_follow_the_zone() -> N
         assert rows("2026-01-02T00:00:00Z", "2026-01-03T00:00:00Z") == 1
         assert rows("2026-01-02T00:00:00", "2026-01-03T00:00:00") == 2
         assert rows("2026-01-02", "2026-01-03") == 2
+
+
+@LIVE
+def test_live_period_form_matches_the_shared_typescript_fixture() -> None:
+    fixture = json.loads(
+        (Path(__file__).resolve().parents[3] / "specs/datasets/period-format-v1.json").read_text()
+    )
+    with live_database() as (admin, executor):
+        admin.command("CREATE TABLE events (occurred_at DateTime64(3, 'UTC')) ENGINE=Memory")
+        for instant in dict.fromkeys(case["instant"] for case in fixture["cases"]):
+            admin.command(
+                "INSERT INTO events SELECT parseDateTime64BestEffort({instant:String}, 3, 'UTC')",
+                parameters={"instant": instant},
+            )
+        client = create_dataset_client(executor=executor)
+        for case in fixture["cases"]:
+            result = client.execute(
+                dataset(),
+                {
+                    "by": case["grain"],
+                    "timezone": case["timezone"],
+                    "measures": ["rows"],
+                    "filters": [eq("at", case["instant"])],
+                },
+            )
+            assert [row["period"] for row in result.data] == [case["period"]], case
 
 
 def _endpoint_client() -> tuple[RecordingExecutor, TestClient]:
