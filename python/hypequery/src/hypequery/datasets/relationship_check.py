@@ -10,6 +10,7 @@ from .relationship_check_plan import RelationshipKeyCheck, plan_relationship_che
 from .utils.relationship_key_check import (
     CheckRelationshipsResult,
     RelationshipKeyIssue,
+    describe_key,
     display_count,
     read_count,
 )
@@ -32,10 +33,10 @@ class _CheckResults:
             raise ValueError("Distinct keys cannot exceed checked rows")
         if rows > keys:
             column = check.columns[0]
-            description = ", ".join(check.columns)
             message = (
                 f'Relationship "{check.name}" is declared {check.kind}, but '
-                f'"{check.target.source}.{description}" has {rows} rows for {keys} distinct keys. '
+                f"{describe_key(check.target.source, check.columns)} "
+                f"has {rows} rows for {keys} distinct keys. "
                 "Joins pick an arbitrary matching row; make the key unique "
                 "or declare the relationship as hasMany."
             )

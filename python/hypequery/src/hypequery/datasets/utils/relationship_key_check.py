@@ -36,3 +36,9 @@ def read_count(value: object) -> int:
 
 def display_count(value: int) -> int | str:
     return value if value <= 2**53 - 1 else str(value)
+
+
+def describe_key(source: str, columns: tuple[str, ...]) -> str:
+    """``"customers.id"``, or ``("customers.id", "customers.region")`` for a composite key."""
+    quoted = [f'"{source}.{column}"' for column in columns]
+    return quoted[0] if len(quoted) == 1 else "(" + ", ".join(quoted) + ")"

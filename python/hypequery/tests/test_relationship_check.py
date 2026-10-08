@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import os
+import secrets
 
 import pytest
 
@@ -31,7 +32,7 @@ from hypequery.datasets.utils.relationship_key_check import read_count
 def definitions(composite: bool = False) -> tuple[Dataset, Dataset]:
     target = Dataset(
         name="customers",
-        source="test_db.beta_relationships",
+        source="beta_relationships",
         tenant_key="tenant_id",
         dimensions={"id": dimension.number(), "region": dimension.string()},
     )
@@ -101,8 +102,17 @@ def test_findings_sync_async_and_context_propagation() -> None:
     assert actual == result
 
 
-@pytest.mark.parametrize("scope", [tenant("a"), tenants(("a", "b")), all_tenants()])
-def test_composite_null_keys_and_scoped_plan(scope: object) -> None:
+@pytest.mark.parametrize(
+    ("scope", "predicate", "parameters"),
+    [
+        (tenant("a"), " AND `tenant_id` = {p0:String}", {"p0": "a"}),
+        (tenants(("a", "b")), " AND `tenant_id` IN {p0:Array(String)}", {"p0": ["a", "b"]}),
+        (all_tenants(), "", {}),
+    ],
+)
+def test_composite_null_keys_and_scoped_plan(
+    scope: object, predicate: str, parameters: dict[str, object]
+) -> None:
     from typing import cast
 
     from hypequery.datasets.planner import TenantScope
@@ -119,7 +129,9 @@ def test_composite_null_keys_and_scoped_plan(scope: object) -> None:
     assert result.ok
     sql = executor.queries[0].sql
     assert "uniqExact(tuple(`id`, `region`))" in sql
-    assert "isNotNull(`id`) AND isNotNull(`region`)" in sql
+    # Mirrors TypeScript: the target is checked in the same scope its join uses.
+    assert sql.endswith("WHERE isNotNull(`id`) AND isNotNull(`region`)" + predicate)
+    assert executor.queries[0].parameter_values() == parameters
 
 
 def test_fail_closed_before_execution_and_filter_selection() -> None:
@@ -129,8 +141,12 @@ def test_fail_closed_before_execution_and_filter_selection() -> None:
     with pytest.raises(CompiledQueryError):
         check_relationships(ds, executor=executor, registry=registry)
     assert not executor.queries
-    for selected in (("missing",), ("many",), ("customer", "customer")):
-        with pytest.raises(ValueError, match=r"Relationship|Distinct|non-negative"):
+    for selected, message in (
+        (("missing",), 'Unknown relationship "missing" on dataset "orders"'),
+        (("many",), 'Relationship "many" on dataset "orders" is hasMany'),
+        (("customer", "customer"), "Relationship names must be distinct"),
+    ):
+        with pytest.raises(ValueError, match=message):
             check_relationships(
                 ds,
                 executor=executor,
@@ -148,7 +164,7 @@ def test_fail_closed_before_execution_and_filter_selection() -> None:
             registry=registry,
             context=ExecutionContext(deadline=Deadline.after(-1)),
         )
-    with pytest.raises(ValueError, match=r"Relationship|Distinct|non-negative"):
+    with pytest.raises(ValueError, match="Distinct keys cannot exceed checked rows"):
         check_relationships(
             ds,
             executor=Executor(1, 2),
@@ -159,7 +175,7 @@ def test_fail_closed_before_execution_and_filter_selection() -> None:
 
 @pytest.mark.parametrize("bad", [True, -1, 0.5, "-2", "", "\u0661"])
 def test_reject_malformed_counts(bad: object) -> None:
-    with pytest.raises(ValueError, match=r"Relationship|Distinct|non-negative"):
+    with pytest.raises(ValueError, match="Expected a non-negative integer row count"):
         read_count(bad)
 
 
@@ -171,32 +187,33 @@ def test_live_unique_duplicate_composite_null_and_tenant_keys() -> None:
 
     from hypequery.execution import ClickHouseConnection, create_clickhouse_executor
 
-    connection = ClickHouseConnection(
-        host=os.environ["HYPEQUERY_TEST_CLICKHOUSE_HOST"],
-        port=int(os.environ.get("HYPEQUERY_TEST_CLICKHOUSE_PORT", "8123")),
-        database="test_db",
-        username="default",
-        password=os.environ["HYPEQUERY_TEST_CLICKHOUSE_PASSWORD"],
-    )
+    host = os.environ["HYPEQUERY_TEST_CLICKHOUSE_HOST"]
+    port = int(os.environ.get("HYPEQUERY_TEST_CLICKHOUSE_PORT", "8123"))
+    password = os.environ["HYPEQUERY_TEST_CLICKHOUSE_PASSWORD"]
     admin = clickhouse_connect.get_client(
-        host=connection.host,
-        port=connection.port,
-        username=connection.username,
-        password=connection.password,
-        database="test_db",
+        host=host, port=port, username="default", password=password
     )
-    executor = create_clickhouse_executor(connection)
+    # A fresh name, created without IF NOT EXISTS: the test only ever drops the
+    # database it created itself.
+    database = f"hq_relationship_checks_{secrets.token_hex(6)}"
+    admin.command(f"CREATE DATABASE {database}")
+    executor = None
     ds, target = definitions(composite=True)
     registry = create_dataset_registry(ds, target)
     try:
-        admin.command("DROP TABLE IF EXISTS beta_relationships")
+        executor = create_clickhouse_executor(
+            ClickHouseConnection(
+                host=host, port=port, database=database, username="default", password=password
+            )
+        )
         admin.command(
-            "CREATE TABLE beta_relationships (id Nullable(UInt64), "
+            f"CREATE TABLE {database}.beta_relationships (id Nullable(UInt64), "
             "region Nullable(String), tenant_id String) ENGINE=Memory"
         )
         admin.command(
-            "INSERT INTO beta_relationships VALUES (1, 'eu', 'a'), (1, 'us', 'a'), "
-            "(NULL, 'eu', 'a'), (1, NULL, 'a'), (1, 'eu', 'b'), (1, 'eu', 'b')"
+            f"INSERT INTO {database}.beta_relationships VALUES "  # noqa: S608 - generated name
+            "(1, 'eu', 'a'), (1, 'us', 'a'), (NULL, 'eu', 'a'), (1, NULL, 'a'), "
+            "(1, 'eu', 'b'), (1, 'eu', 'b')"
         )
         for tenant_id, expected in (("a", True), ("b", False)):
             result = check_relationships(
@@ -211,9 +228,14 @@ def test_live_unique_duplicate_composite_null_and_tenant_keys() -> None:
                 assert result.issues[0].rows == 2
                 assert result.issues[0].distinct_keys == 1
     finally:
-        executor.close()
-        admin.command("DROP TABLE IF EXISTS beta_relationships")
-        admin.close()
+        try:
+            if executor is not None:
+                executor.close()
+        finally:
+            try:
+                admin.command(f"DROP DATABASE IF EXISTS {database}")
+            finally:
+                admin.close()
 
 
 def test_later_unscoped_target_prevents_every_database_read() -> None:
@@ -239,3 +261,56 @@ def test_later_unscoped_target_prevents_every_database_read() -> None:
             check_relationships_async(root, executor=AsyncExecutor(executor), registry=registry)
         )
     assert executor.queries == []
+
+
+def test_composite_finding_names_every_key_column() -> None:
+    # Mirrors TypeScript's "checks composite target tuples and excludes every
+    # nullable component", including its message.
+    ds, target = definitions(composite=True)
+    result = check_relationships(
+        ds,
+        executor=Executor("3", "2"),
+        registry=create_dataset_registry(ds, target),
+        context=ExecutionContext(tenant=tenant("a")),
+        relationships=("customer",),
+    )
+    issue = result.issues[0]
+    assert (issue.column, issue.columns, issue.rows, issue.distinct_keys) == (
+        "id",
+        ("id", "region"),
+        3,
+        2,
+    )
+    assert (
+        'but ("beta_relationships.id", "beta_relationships.region") has 3 rows for 2 distinct keys'
+        in issue.message
+    )
+
+
+def test_single_key_finding_message() -> None:
+    ds, target = definitions()
+    result = check_relationships(
+        ds,
+        executor=Executor(5, 4),
+        registry=create_dataset_registry(ds, target),
+        context=ExecutionContext(tenant=tenant("a")),
+        relationships=("customer",),
+    )
+    assert result.issues[0].message.startswith(
+        'Relationship "customer" is declared belongsTo, but "beta_relationships.id" '
+        "has 5 rows for 4 distinct keys."
+    )
+
+
+def test_equal_large_counts_pass() -> None:
+    # Mirrors TypeScript's "accepts equal large bigint counts from a driver".
+    ds, target = definitions()
+    count = str(2**53 + 1)
+    result = check_relationships(
+        ds,
+        executor=Executor(count, count),
+        registry=create_dataset_registry(ds, target),
+        context=ExecutionContext(tenant=tenant("a")),
+        relationships=("customer",),
+    )
+    assert (result.ok, result.checked, result.issues) == (True, ("customer",), ())

@@ -38,8 +38,13 @@ def plan_relationship_checks(
             raise ValueError("Relationship names must be distinct")
         for name in relationships:
             relation = dataset.relationships.get(name)
-            if relation is None or relation.kind == "hasMany":
-                raise ValueError("Relationship checks require declared to-one relationships")
+            if relation is None:
+                raise ValueError(f'Unknown relationship "{name}" on dataset "{dataset.name}".')
+            if relation.kind == "hasMany":
+                raise ValueError(
+                    f'Relationship "{name}" on dataset "{dataset.name}" is hasMany; '
+                    "only to-one relationships have a key to check."
+                )
     checks: list[RelationshipKeyCheck] = []
     settings = tighten_query_settings(DEFAULT_QUERY_SETTINGS, context.settings)
     for name, relation in dataset.relationships.items():
