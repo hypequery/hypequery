@@ -63,5 +63,55 @@
         }
       ]
     }
+  },
+  {
+    "id": "composite-relationship-keys",
+    "value": {
+      "kind": "hypequery-deployment",
+      "version": 2,
+      "datasets": [
+        {
+          "name": "customers",
+          "source": "customers",
+          "tenant": {
+            "kind": "not-required"
+          },
+          "dimensions": [],
+          "measures": [],
+          "filters": [],
+          "relationships": []
+        },
+        {
+          "name": "orders",
+          "source": "orders",
+          "tenant": {
+            "kind": "not-required"
+          },
+          "dimensions": [],
+          "measures": [],
+          "filters": [],
+          "relationships": [
+            {
+              "name": "customer",
+              "kind": "belongsTo",
+              "target": "customers",
+              "from": "customer_id",
+              "to": "id",
+              "queryable": true,
+              "keys": [
+                {
+                  "from": "customer_id",
+                  "to": "id"
+                },
+                {
+                  "from": "region_code",
+                  "to": "region"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
   }
 ]

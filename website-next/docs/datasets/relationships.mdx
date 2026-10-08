@@ -57,6 +57,36 @@ The three helpers describe where the foreign key lives:
 - `hasOne` — one-to-one; the FK is on the target table.
 - `hasMany` — one-to-many; the FK is on the target table. Metadata only — see below.
 
+## Composite keys
+
+Use `keys` when a relationship matches on several physical columns. Every pair is required, and the equalities are joined with `AND`:
+
+<CodeBlock>
+```typescript
+import { belongsTo, dataset, dimension, measure } from '@hypequery/datasets';
+
+const RegionalOrders = dataset('regional_orders', {
+  source: 'orders',
+  dimensions: { status: dimension.string() },
+  measures: { revenue: measure.sum('amount') },
+  relationships: {
+    customer: belongsTo(() => Customers, {
+      keys: [
+        { from: 'customer_id', to: 'id' },
+        { from: 'region_code', to: 'region_code' },
+      ],
+    }),
+  },
+});
+```
+</CodeBlock>
+
+This compiles to `ON orders.customer_id = customer.id AND orders.region_code = customer.region_code`. The columns are physical source columns; they do not need to be exposed dimensions. The same syntax works with `hasOne` and metadata-only `hasMany`. Existing `{ from, to }` relationships keep their behavior.
+
+`keys` must be non-empty, cannot be combined with top-level `from`/`to`, and cannot repeat a source or target column. Each key column must be a plain, unqualified identifier (letters, digits and `_`). A `keys` array with one pair is the same relationship as `{ from, to }`. A row with any NULL key component does not match. Runtime tenant conditions remain additional join predicates. `checkRelationships()` checks uniqueness of the complete target tuple and ignores keys with any NULL component.
+
+Composite relationships require `@hypequery/clickhouse` 2.13.0 or later; custom builders must accept `leftAnyJoin(table, [[leftColumn, rightColumn], ...], alias, on)`. Datasets cannot detect a builder that implements only the single-key `leftAnyJoin(table, leftColumn, rightColumn, alias, on)` form, and such a builder would receive the key-pair array as a column name, so do not define composite relationships when using one. The advanced frozen backend supports single-key relationships only. Range predicates, OR conditions, and arbitrary SQL join expressions are not part of the relationship API.
+
 ## Querying related fields
 
 Reference to-one related dimensions as `<relationship>.<dimension>` anywhere a dimension name is accepted: `dimensions`, `filters`, and `orderBy`, in both dataset and metric queries.

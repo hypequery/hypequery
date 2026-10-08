@@ -164,6 +164,9 @@ importers:
 
   packages/datasets:
     dependencies:
+      '@hypequery/clickhouse':
+        specifier: '>=2.13.0'
+        version: link:../clickhouse
       '@hypequery/protocol':
         specifier: ^0.18.0
         version: link:../protocol
@@ -3842,7 +3845,7 @@ snapshots:
       obug: 2.2.1
       std-env: 4.3.0
       tinyrainbow: 3.2.0
-      vitest: 5.0.3(@edge-runtime/vm@3.2.0)(@types/node@20.19.31)(@vitest/coverage-v8@5.0.3)(jsdom@27.4.0(@noble/hashes@1.8.0))(vite@6.4.3(@types/node@20.19.31)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.23.15)(yaml@2.8.3))
+      vitest: 5.0.3(@edge-runtime/vm@3.2.0)(@types/node@18.19.130)(@vitest/coverage-v8@5.0.3)(jsdom@27.4.0(@noble/hashes@1.8.0))(vite@6.4.3(@types/node@18.19.130)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.23.15)(yaml@2.8.3))
 
   '@vitest/istanbul-lib-coverage@1.0.2': {}
 

@@ -428,3 +428,21 @@ def test_unhashable_dimension_types_produce_protocol_errors(field_type: object) 
             )
         )
     assert raised.value.code == "HQ_DEPLOYMENT_INVALID_VALUE"
+
+
+def test_composite_key_error_precedes_relationship_name_error() -> None:
+    relationship = {
+        "name": "bad;name",
+        "kind": "belongsTo",
+        "target": "customers",
+        "from": "customer_id",
+        "to": "id",
+        "keys": [],
+        "queryable": True,
+    }
+    with pytest.raises(ProtocolDeploymentError) as raised:
+        validate_protocol_deployment_contract(_contract(_dataset(relationships=[relationship])))
+    assert (raised.value.code, raised.value.path) == (
+        "HQ_DEPLOYMENT_INVALID_VALUE",
+        "$.datasets[0].relationships[0].keys",
+    )

@@ -1,3 +1,4 @@
+import type { RelationshipKey } from './types.js';
 import { windowCatalogMetadata, type WindowCatalogMetadata } from './utils/window-catalog-metadata.js';
 import { sha256 } from '@noble/hashes/sha2';
 import { bytesToHex } from '@noble/hashes/utils';
@@ -77,6 +78,7 @@ export interface ContractRelationship {
   target: string;
   from: string;
   to: string;
+  keys?: readonly RelationshipKey[];
   queryable: boolean;
   fields: string[];
 }
@@ -276,6 +278,7 @@ function relationshipToContract(entry: RelationshipCatalogEntry): ContractRelati
     target: entry.target,
     from: entry.from,
     to: entry.to,
+    ...(entry.keys ? { keys: entry.keys.map(key => ({ ...key })) } : {}),
     queryable: entry.queryable,
     fields: uniqueSorted(entry.fields),
   };

@@ -62,6 +62,17 @@ export type InferDimensionType<T extends DimensionDefinition> =
 
 export type RelationshipKind = 'belongsTo' | 'hasMany' | 'hasOne';
 
+/** One physical source/target column equality in a relationship key. */
+export interface RelationshipKey {
+  readonly from: string;
+  readonly to: string;
+}
+
+/** Existing single-key syntax or an explicit non-empty composite key. */
+export type RelationshipJoin =
+  | { from: string; to: string; keys?: never }
+  | { keys: readonly [RelationshipKey, ...RelationshipKey[]]; from?: never; to?: never };
+
 export interface RelationshipDefinition<
   TTarget extends { __type: 'dataset'; name: string } = { __type: 'dataset'; name: string },
   TKind extends RelationshipKind = RelationshipKind,
@@ -69,8 +80,10 @@ export interface RelationshipDefinition<
   __type: 'relationship';
   kind: TKind;
   target: () => TTarget;
+  /** First pair, retained for compatibility. Composite consumers must use keys. */
   from: string;
   to: string;
+  keys?: readonly [RelationshipKey, ...RelationshipKey[]];
 }
 
 export type AggregationType =

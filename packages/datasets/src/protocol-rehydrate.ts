@@ -37,6 +37,7 @@ import type {
   SemanticFilterDefinition,
   TimeGrain,
 } from './types.js';
+import { rehydrateCompositeRelationshipJoin } from './utils/relationship-keys.js';
 import { snapshotSemanticMetadata } from './utils/semantic-metadata.js';
 import { withContractCapabilities } from './utils/protocol-metric-capabilities.js';
 import { rehydrateDerivedFormula } from './utils/protocol-rehydrate-derivation.js';
@@ -202,14 +203,24 @@ function rehydrateRelationships(
   const relationships: Record<string, RelationshipDefinition> = {};
   for (const relationship of contract.relationships) {
     const target = String(relationship.target);
+    const from = String(relationship.from);
+    const to = String(relationship.to);
+    const compositeJoin = relationship.keys
+      ? rehydrateCompositeRelationshipJoin(
+        from,
+        to,
+        relationship.keys.map(key => ({ from: String(key.from), to: String(key.to) })),
+      )
+      : undefined;
     relationships[String(relationship.name)] = {
       __type: 'relationship',
       kind: relationship.kind,
       // Resolved on call: datasets in one contract may reference each other, so
       // the target may not be built yet when this relationship is created.
       target: () => resolve(target),
-      from: String(relationship.from),
-      to: String(relationship.to),
+      from,
+      to,
+      ...compositeJoin,
     };
   }
   return relationships;
