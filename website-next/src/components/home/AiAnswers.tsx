@@ -1,9 +1,10 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useRef } from 'react';
 import { motion, useInView, useReducedMotion } from 'motion/react';
 import { RotateCcw, Sparkles } from 'lucide-react';
 import { SiClaude } from 'react-icons/si';
+import { useTimeline } from './useTimeline';
 
 const QUESTION = 'What was revenue by country last month?';
 
@@ -30,32 +31,6 @@ const T = {
 const DONE = T.answer + 800;
 
 const CLAUDE_ORANGE = 'text-[#d97757]';
-
-/** Elapsed time since the animation started, ticking until it finishes. */
-function useTimeline(active: boolean, reduced: boolean) {
-  const [elapsed, setElapsed] = useState(0);
-  const [run, setRun] = useState(0);
-
-  useEffect(() => {
-    if (!active || reduced) return;
-    const start = performance.now();
-    const timer = window.setInterval(() => {
-      const next = performance.now() - start;
-      setElapsed(next);
-      if (next >= DONE) window.clearInterval(timer);
-    }, 40);
-    return () => window.clearInterval(timer);
-  }, [active, reduced, run]);
-
-  return {
-    // Reduced motion shows the finished state straight away.
-    elapsed: reduced ? DONE : elapsed,
-    replay: () => {
-      setElapsed(0);
-      setRun((value) => value + 1);
-    },
-  };
-}
 
 const reveal = {
   initial: { opacity: 0, y: 6 },
@@ -192,10 +167,10 @@ export function AiAnswers() {
   const ref = useRef<HTMLDivElement>(null);
   const inView = useInView(ref, { once: true, amount: 0.35 });
   const reduced = useReducedMotion() ?? false;
-  const { elapsed, replay } = useTimeline(inView, reduced);
+  const { elapsed, replay } = useTimeline(inView, reduced, DONE);
 
   return (
-    <section aria-label="Claude and an in-app chat answering the same question from the same hypequery dataset" className="mx-auto max-w-[1280px] px-5 pb-4 pt-12 sm:px-8 sm:pt-16">
+    <section aria-label="Claude and an in-app chat answering the same question from the same hypequery dataset" className="mx-auto max-w-[1280px] px-5 pb-4 pt-6 sm:px-8">
       <div ref={ref} className="grid gap-4 md:grid-cols-2">
         <ClaudeTerminal elapsed={elapsed} />
         <AppChat elapsed={elapsed} />
