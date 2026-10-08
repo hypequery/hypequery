@@ -7,6 +7,7 @@ remain alongside name resolution in the compiler to preserve rejection order.
 from __future__ import annotations
 
 from ..dataset import Dataset
+from ..utils.derived_measures import base_measure_names
 from ..utils.portable_grains import unsupported_time_grain_error
 from .aliases import BASE_ALIAS
 from .context import ExecutionContext, TenantScope
@@ -56,7 +57,9 @@ def check_query_limits(dataset: Dataset, query: DatasetQuery) -> None:
             "too-large",
             f"Too many dimensions: {len(query.dimensions)} (max {limits.max_dimensions})",
         )
-    measures = query.measures if query.measures is not None else tuple(dataset.measures)
+    measures = (
+        query.measures if query.measures is not None else base_measure_names(dataset.measures)
+    )
     if limits.max_measures is not None and len(measures) > limits.max_measures:
         raise CompiledQueryError(
             "too-large", f"Too many measures: {len(measures)} (max {limits.max_measures})"

@@ -121,6 +121,7 @@ def test_constructs_typescript_equivalent_logical_model() -> None:
         from_field="customerId",
         to_field="id",
     )
+    assert isinstance(orders.measures["completedRevenue"], Measure)
     assert orders.measures["completedRevenue"].filters == (
         Filter(field="status", operator="eq", value="completed"),
     )
