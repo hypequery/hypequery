@@ -2,15 +2,13 @@
 
 from __future__ import annotations
 
-import argparse
 from importlib.util import find_spec
-from typing import cast
 
 from ..errors import CliError
+from ..options import DevOptions
 
 
-def run(args: object) -> None:
-    options = cast(argparse.Namespace, args)
+def run(options: DevOptions) -> None:
     if any(find_spec(name) is None for name in ("fastapi", "uvicorn")):
         raise CliError(
             'dev requires serving dependencies. Install: pip install "hypequery[fastapi]"'

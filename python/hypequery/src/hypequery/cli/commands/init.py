@@ -2,16 +2,14 @@
 
 from __future__ import annotations
 
-import argparse
 from pathlib import Path
-from typing import cast
 
+from ..options import InitOptions
 from ..scaffold import Scaffold
 from ..utils.templates import load_templates
 
 
-def run(args: object) -> None:
-    options = cast(argparse.Namespace, args)
+def run(options: InitOptions) -> None:
     scaffold = Scaffold(Path(options.directory))
     if options.skip_connection:
         destination = scaffold.create()
