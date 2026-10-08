@@ -21,6 +21,7 @@ from ..relationships import Relationship
 from ..utils.derived_measures import literal_parameter_type
 from ..utils.query_timezone import time_filter_value, validate_timezone
 from ..utils.relationship_measures import measure_filter_field
+from .aggregates import AggregateCall
 from .aliases import BASE_ALIAS, PERIOD_ALIAS
 from .context import ExecutionContext, TenantScope
 from .errors import CompiledQueryError
@@ -61,6 +62,19 @@ from .sql_fragments import (
 _ARRAY_OPERATORS = frozenset(("in", "notIn"))
 _COMPARISONS = {"eq": "=", "neq": "!=", "gt": ">", "gte": ">=", "lt": "<", "lte": "<="}
 _MATCH_MARKER = "_hq_match"
+#: Plain aggregations; argMax/argMin and percentile take extra operands.
+_AGGREGATE_FUNCTIONS = {
+    "sum": "sum",
+    "count": "count",
+    "countDistinct": "uniqExact",
+    "avg": "avg",
+    "min": "min",
+    "max": "max",
+    "stddev": "stddevSamp",
+    "variance": "varSamp",
+}
+_FORMULA_OPERATORS = {"add": "+", "subtract": "-", "multiply": "*", "divide": "/"}
+_FORMULA_FUNCTIONS = {"coalesce": "COALESCE", "round": "ROUND", "floor": "FLOOR", "ceil": "CEIL"}
 
 
 @dataclass(frozen=True, slots=True)
@@ -316,7 +330,7 @@ class DatasetQueryCompiler:
             self.group_by.append(alias.sql)
             self.orderable[name] = alias
 
-    def _aggregation_sql(self, name: str, measure: Measure) -> str:
+    def _aggregation(self, name: str, measure: Measure) -> AggregateCall:
         """The aggregate call for one measure, over its field or its trusted SQL."""
 
         if measure.sql is not None:
@@ -331,7 +345,9 @@ class DatasetQueryCompiler:
         arg = None if measure.arg_field is None else self._base_column(measure.arg_field)
         return self._aggregate_call(name, measure, target, arg)
 
-    def _aggregate_call(self, name: str, measure: Measure, target: str, arg: str | None) -> str:
+    def _aggregate_call(
+        self, name: str, measure: Measure, target: str, arg: str | None
+    ) -> AggregateCall:
         """The aggregate function applied to already-resolved input SQL."""
 
         aggregation = measure.aggregation
@@ -340,7 +356,7 @@ class DatasetQueryCompiler:
                 raise CompiledQueryError(
                     "internal", f'Measure "{name}" is {aggregation} without an arg field.'
                 )
-            return f"{aggregation}({target}, {arg})"
+            return AggregateCall(aggregation, (target, arg))
         if aggregation == "percentile":
             if measure.level is None:
                 raise CompiledQueryError(
@@ -349,22 +365,11 @@ class DatasetQueryCompiler:
             # The level is a definition-time float the measure model already bounded
             # to [0, 1], not caller input, and ClickHouse takes it as a function
             # parameter rather than a bindable value.
-            level = repr(measure.level)
-            return f"quantile({level})({target})"
-        functions = {
-            "sum": "sum",
-            "count": "count",
-            "countDistinct": "uniqExact",
-            "avg": "avg",
-            "min": "min",
-            "max": "max",
-            "stddev": "stddevSamp",
-            "variance": "varSamp",
-        }
-        function = functions.get(aggregation)
+            return AggregateCall("quantile", (target,), (repr(measure.level),))
+        function = _AGGREGATE_FUNCTIONS.get(aggregation)
         if function is None:
             raise CompiledQueryError("internal", f"Unknown aggregation {aggregation!r}.")
-        return f"{function}({target})"
+        return AggregateCall(function, (target,))
 
     def _measure_filter_sql(self, name: str, measure: Measure) -> str:
         """A measure's own filters, as a conditional aggregate rather than a WHERE.
@@ -373,21 +378,19 @@ class DatasetQueryCompiler:
         every other measure in the same statement too.
         """
 
-        aggregate = self._aggregation_sql(name, measure)
+        aggregate = self._aggregation(name, measure)
         predicates = [
             self._filter_predicate(filter_value) for filter_value in measure.filters or ()
         ]
         return self._with_conditions(aggregate, predicates)
 
     @staticmethod
-    def _with_conditions(aggregate: str, predicates: list[str]) -> str:
+    def _with_conditions(aggregate: AggregateCall, predicates: list[str]) -> str:
         """Apply predicates through ClickHouse's `-If` combinator."""
 
         if not predicates:
-            return aggregate
-        condition = " AND ".join(predicates)
-        head, _, tail = aggregate.partition("(")
-        return f"{head}If({tail[:-1]}, {condition})"
+            return aggregate.sql
+        return aggregate.with_condition(" AND ".join(predicates)).sql
 
     def _relationship_measure_sql(self, name: str) -> str:
         """A target base aggregate over matched joined rows only.
@@ -435,9 +438,8 @@ class DatasetQueryCompiler:
             # Bind as ClickHouse would type the same literal written inline.
             return self.binder.bind(formula.value, literal_parameter_type(formula.value))
         if isinstance(formula, FormulaBinary):
-            operators = {"add": "+", "subtract": "-", "multiply": "*", "divide": "/"}
             left, right = self._formula_sql(formula.left), self._formula_sql(formula.right)
-            return f"({left} {operators[formula.operator]} {right})"
+            return f"({left} {_FORMULA_OPERATORS[formula.operator]} {right})"
         if formula.name == "round":
             decimals = cast(FormulaLiteral, formula.args[1])
             decimal_parameter = self.binder.bind(decimals.value, "Int64")
@@ -446,8 +448,7 @@ class DatasetQueryCompiler:
         args = [self._formula_sql(arg) for arg in formula.args]
         if formula.name == "nullIfZero":
             return f"NULLIF({args[0]}, 0)"
-        functions = {"coalesce": "COALESCE", "round": "ROUND", "floor": "FLOOR", "ceil": "CEIL"}
-        return f"{functions[formula.name]}({', '.join(args)})"
+        return f"{_FORMULA_FUNCTIONS[formula.name]}({', '.join(args)})"
 
     def _local_measure_sql(self, name: str) -> str:
         if name not in self.measure_sql:
