@@ -271,7 +271,7 @@ function AuthoringDemo() {
 export function AiAuthoring() {
   return (
     <section aria-labelledby="ai-authoring-title" className="overflow-x-clip">
-      <div className="mx-auto max-w-[1280px] px-5 pb-4 pt-14 sm:px-8 sm:pt-20">
+      <div className="mx-auto max-w-[1280px] px-5 pb-4 pt-8 sm:px-8 sm:pt-12">
         <div className="grid items-center gap-10 md:grid-cols-[minmax(0,400px)_minmax(0,1fr)] md:gap-12 lg:gap-16">
           <div>
             <h2 id="ai-authoring-title" className="home-section-title text-text">Describe your business. Get a semantic layer.</h2>
