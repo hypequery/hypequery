@@ -10,7 +10,9 @@ from typing import cast
 import pytest
 
 from hypequery.datasets import (
+    SEMANTIC_FILTER_OPERATORS,
     Dataset,
+    FilterDefinition,
     belongs_to,
     build_protocol_dataset_contract,
     build_protocol_deployment_contract,
@@ -23,6 +25,7 @@ from hypequery.datasets import (
     write_dataset_bundle,
 )
 from hypequery.protocol import (
+    ProtocolDeploymentError,
     prepare_protocol_deployment_bundle_manifest,
     prepare_protocol_deployment_contract,
 )
@@ -263,3 +266,29 @@ def test_deployment_rejects_endpoints_for_unregistered_datasets() -> None:
         build_protocol_deployment_contract(
             create_dataset_registry(customers, orders), endpoints={"missing": _endpoint()}
         )
+
+
+def test_empty_filter_operator_allow_list_is_never_widened() -> None:
+    # An empty allow-list accepts no operator locally. Publishing it as "every
+    # operator" would deploy a broader capability than the planner enforces, so
+    # it is refused, as TypeScript's adapter refuses it.
+    narrowed = Dataset(
+        name="orders",
+        source="analytics.orders",
+        dimensions={"status": dimension("string")},
+        filters={"status": FilterDefinition(field="status", operators=())},
+    )
+    with pytest.raises(ProtocolDeploymentError) as error:
+        build_protocol_dataset_contract(narrowed)
+    assert error.value.code == "HQ_DEPLOYMENT_INVALID_VALUE"
+
+
+def test_omitted_filter_operators_publish_every_operator() -> None:
+    open_filter = Dataset(
+        name="orders",
+        source="analytics.orders",
+        dimensions={"status": dimension("string")},
+    )
+    contract = build_protocol_dataset_contract(open_filter)
+    filters = cast(list[dict[str, object]], contract["filters"])
+    assert filters[0]["operators"] == list(SEMANTIC_FILTER_OPERATORS)
