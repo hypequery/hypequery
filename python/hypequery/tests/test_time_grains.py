@@ -44,11 +44,22 @@ def events() -> Dataset:
     )
 
 
-@pytest.mark.parametrize("grains", [(), ("hour", "hour"), ("bad",)])
-def test_reject_invalid_definition(grains: tuple[str, ...]) -> None:
-    with pytest.raises(ValidationError):
+@pytest.mark.parametrize(
+    ("grains", "message"),
+    [
+        ((), "non-empty"),
+        (("hour", "hour"), "duplicates"),
+        (("second",), 'unsupported time grain "second"'),
+    ],
+)
+def test_reject_invalid_definition(grains: tuple[str, ...], message: str) -> None:
+    # Mirrors TypeScript's "is validated when the dataset is defined".
+    with pytest.raises(ValidationError, match=message):
         Dataset.model_validate({**events().model_dump(), "time_grains": grains})
-    with pytest.raises(ValidationError):
+
+
+def test_time_grains_require_a_time_key() -> None:
+    with pytest.raises(ValidationError, match="requires the dataset to define time_key"):
         Dataset.model_validate({**events().model_dump(), "time_key": None})
 
 
@@ -59,11 +70,35 @@ def test_allowed_grains_reach_catalog_contract_and_planner() -> None:
     contract = serialize_semantic_contract(registry)
     assert contract["datasets"]["events"]["supportedGrains"] == ["day", "month"]  # type: ignore[index]
     assert "toStartOfMonth" in plan_dataset_query(ds, DatasetQuery(by="month")).sql
-    with pytest.raises(CompiledQueryError, match="requested time grain"):
+    with pytest.raises(
+        CompiledQueryError, match=r'Unsupported time grain "hour"\. Supported: day, month'
+    ):
         plan_dataset_query(ds, DatasetQuery(by="hour"))
     # The current wire contract cannot carry this restriction; never silently drop it.
-    with pytest.raises(ValueError, match="deployment contract 2"):
+    with pytest.raises(
+        ValueError,
+        match=r'Dataset "events" time_grains excludes week, quarter, year.*cannot preserve',
+    ):
         build_protocol_dataset_contract(ds)
+
+
+@pytest.mark.parametrize(
+    "grains",
+    [
+        ("day", "week", "month", "quarter", "year"),
+        ("minute", "hour", "day", "week", "month", "quarter", "year"),
+    ],
+)
+def test_a_policy_covering_every_portable_grain_publishes_unchanged(
+    grains: tuple[str, ...],
+) -> None:
+    # Mirrors TypeScript's "publishes an explicit grain list when it includes every
+    # portable grain": contract 2 then loses nothing a deployment could serve.
+    restricted = Dataset.model_validate({**events().model_dump(), "time_grains": grains})
+    unrestricted = Dataset.model_validate({**events().model_dump(), "time_grains": None})
+    assert build_protocol_dataset_contract(restricted) == build_protocol_dataset_contract(
+        unrestricted
+    )
 
 
 class Executor:
@@ -93,8 +128,12 @@ def test_http_restrictions_and_openapi() -> None:
             assert http.post(path, headers=headers, json={"by": "hour"}).status_code == 400
             assert http.post(path, headers=headers, json={"by": "day"}).status_code == 200
         assert executor.calls == 2
+        rejected = http.post("/dataset", headers=headers, json={"by": "hour"})
+        assert "Unsupported time grain" in rejected.text
+        # Discovery is TypeScript's agent-safe projection, which has no dataset grains;
+        # the policy is published through the catalog, contract and OpenAPI instead.
         discovery = http.get("/discovery", headers=headers).json()
-        assert discovery["datasets"][0]["supportedGrains"] == ["day", "month"]
+        assert "supportedGrains" not in discovery["datasets"][0]
         schemas = http.get("/openapi.json").json()["components"]["schemas"]
         for name in ("DatasetQuery_events", "MetricQuery_events"):
             assert schemas[name]["properties"]["by"]["enum"] == ["day", "month", None]
@@ -109,12 +148,21 @@ def test_shared_grain_fixture() -> None:
     )
     for row in rows:
         ds = Dataset.model_validate({**events().model_dump(), "time_grains": tuple(row["allowed"])})
-        assert (
-            get_dataset_catalog(ds, registry=create_dataset_registry(ds))["supportedGrains"]
-            == row["allowed"]
-        )
+        registry = create_dataset_registry(ds)
+        assert get_dataset_catalog(ds, registry=registry)["supportedGrains"] == row["allowed"]
+        contract = serialize_semantic_contract(registry)
+        assert contract["datasets"]["events"]["supportedGrains"] == row["contract"]  # type: ignore[index]
         for grain in row["accepted"]:
             plan_dataset_query(ds, DatasetQuery(by=grain))
         for grain in row["rejected"]:
-            with pytest.raises(CompiledQueryError):
+            supported = ", ".join(row["allowed"])
+            with pytest.raises(CompiledQueryError) as raised:
                 plan_dataset_query(ds, DatasetQuery(by=grain))
+            assert str(raised.value).endswith(
+                f'Unsupported time grain "{grain}". Supported: {supported}'
+            )
+        if row["publishable"]:
+            build_protocol_dataset_contract(ds)
+        else:
+            with pytest.raises(ValueError, match="cannot preserve dataset-level grain"):
+                build_protocol_dataset_contract(ds)

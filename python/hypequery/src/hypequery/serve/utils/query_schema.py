@@ -5,6 +5,7 @@ from __future__ import annotations
 from pydantic import BaseModel, Field, StrictStr, create_model, field_validator
 
 from ...datasets.dataset import Dataset
+from ...datasets.utils.portable_grains import unsupported_time_grain_error
 from ..models import MetricRequest, QueryRequest
 
 
@@ -15,8 +16,9 @@ def endpoint_query_model(dataset: Dataset, *, metric: bool) -> type[BaseModel]:
     grains = dataset.time_grains
 
     def validate_grain(grain: str | None) -> str | None:
-        if grain is not None and grain not in grains:
-            raise ValueError("The dataset does not support the requested time grain.")
+        error = None if grain is None else unsupported_time_grain_error(grains, grain)
+        if error is not None:
+            raise ValueError(error)
         return grain
 
     return create_model(

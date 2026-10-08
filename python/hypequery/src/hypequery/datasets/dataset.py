@@ -92,12 +92,15 @@ class Dataset(DefinitionModel):
     @field_validator("time_grains")
     @classmethod
     def _valid_grains(cls, grains: tuple[str, ...] | None) -> tuple[str, ...] | None:
-        if grains is not None and (
-            not grains
-            or len(set(grains)) != len(grains)
-            or any(grain not in SUPPORTED_TIME_GRAINS for grain in grains)
-        ):
-            raise ValueError("time_grains must contain distinct supported grains")
+        if grains is None:
+            return None
+        if not grains:
+            raise ValueError("time_grains must be a non-empty sequence")
+        for grain in grains:
+            if grain not in SUPPORTED_TIME_GRAINS:
+                raise ValueError(f'time_grains contains unsupported time grain "{grain}"')
+        if len(set(grains)) != len(grains):
+            raise ValueError("time_grains contains duplicates")
         return grains
 
     @field_validator("name")
@@ -120,7 +123,7 @@ class Dataset(DefinitionModel):
     @model_validator(mode="after")
     def _valid_definition_names(self) -> Dataset:
         if self.time_grains is not None and self.time_key is None:
-            raise ValueError("time_grains requires a time_key")
+            raise ValueError("time_grains requires the dataset to define time_key")
         maps: tuple[DefinitionMap, ...] = (
             cast(DefinitionMap, self.dimensions),
             cast(DefinitionMap, self.measures),
