@@ -308,3 +308,12 @@ process.stdout.write(JSON.stringify(hexes.map((hex) =>
     expected = cast(list[str], json.loads(completed.stdout))
     actual = [encode_canonical_value_to_string(item[1]) for item in pairs]
     assert actual == expected
+
+
+def test_number_serialization_is_public_and_ecmascript_shaped() -> None:
+    from hypequery.protocol import serialize_protocol_number
+
+    assert serialize_protocol_number(1.0) == "1"
+    assert serialize_protocol_number(1e21) == "1e+21"
+    assert serialize_protocol_number(0.000001) == "0.000001"
+    assert serialize_protocol_number(1e-7) == "1e-7"
