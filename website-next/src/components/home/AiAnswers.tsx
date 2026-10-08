@@ -13,11 +13,12 @@ const SPINNER = ['·', '✢', '✳', '✶', '✻', '✽'];
 // Milliseconds into each exchange. Exchanges start EXCHANGE_MS apart.
 const T = {
   typePerChar: 28,
-  thinking: 1300,
+  // Both sides type the question into their input, then send it.
+  send: 1300,
+  thinking: 1500,
   tool: 2500,
   toolResult: 2900,
   answer: 3400,
-  chatSend: 1300,
   chatTyping: 1700,
 };
 const EXCHANGE_MS = 6200;
@@ -40,8 +41,17 @@ function local(elapsed: number, index: number) {
 
 /** Changes whenever something new appears, so the panels can follow it. */
 function stage(elapsed: number) {
-  const marks = [0, T.chatSend, T.chatTyping, T.thinking, T.tool, T.toolResult, T.answer];
+  const marks = [0, T.send, T.chatTyping, T.thinking, T.tool, T.toolResult, T.answer];
   return EXCHANGES.reduce((count, _, index) => count + marks.filter((mark) => local(elapsed, index) >= mark).length, 0);
+}
+
+/** The question currently being typed into the inputs, before it is sent. */
+function currentDraft(elapsed: number) {
+  for (const [index, exchange] of EXCHANGES.entries()) {
+    const at = local(elapsed, index);
+    if (at >= 0 && at < T.send) return exchange.question.slice(0, Math.floor(at / T.typePerChar));
+  }
+  return null;
 }
 
 /** Keeps a scrolling panel pinned to its newest content, like a real chat. */
@@ -74,16 +84,11 @@ function TerminalRows({ exchange }: { exchange: Exchange }) {
 }
 
 function TerminalExchange({ exchange, at, glyph }: { exchange: Exchange; at: number; glyph: string }) {
-  const typed = exchange.question.slice(0, Math.min(exchange.question.length, Math.floor(at / T.typePerChar)));
-  const typing = typed.length < exchange.question.length;
+  if (at < T.send) return null;
 
   return (
     <div className="space-y-2">
-      <div>
-        <span className="text-[#a8a29e]">&gt; </span>
-        {typed}
-        {typing && <span className="ml-px inline-block h-[1.1em] w-[0.55em] translate-y-[3px] animate-pulse bg-[#e8e6e3]" />}
-      </div>
+      <div className="text-[#a8a29e]">&gt; {exchange.question}</div>
 
       {at >= T.thinking && at < T.tool && (
         <div className={CLAUDE_ORANGE}>
@@ -116,6 +121,7 @@ function TerminalExchange({ exchange, at, glyph }: { exchange: Exchange; at: num
 function ClaudeTerminal({ elapsed, reduced }: { elapsed: number; reduced: boolean }) {
   const ref = useFollow(stage(elapsed), reduced);
   const glyph = SPINNER[Math.floor(elapsed / 110) % SPINNER.length];
+  const draft = currentDraft(elapsed) ?? '';
 
   return (
     <div className="flex h-[480px] flex-col overflow-hidden rounded-xl border border-white/10 bg-[#141413] shadow-card">
@@ -130,16 +136,29 @@ function ClaudeTerminal({ elapsed, reduced }: { elapsed: number; reduced: boolea
         <span className="w-[42px]" />
       </div>
 
-      <div ref={ref} className="flex-1 space-y-5 overflow-y-auto p-5 font-mono text-[11.5px] leading-6 text-[#e8e6e3] [scrollbar-width:none] sm:text-[12.5px]">
-        <div className="flex items-center gap-2 rounded-md border border-[#d97757]/40 px-3 py-2 text-[#a8a29e]">
-          <SiClaude className={`h-3.5 w-3.5 shrink-0 ${CLAUDE_ORANGE}`} aria-hidden="true" />
-          <span><span className="text-[#e8e6e3]">Claude Code</span> · hypequery MCP connected</span>
+      <div className="flex min-h-0 flex-1 flex-col font-mono text-[11.5px] leading-6 text-[#e8e6e3] sm:text-[12.5px]">
+        {/* A terminal fills from the bottom, just above the prompt. */}
+        <div ref={ref} className="flex min-h-0 flex-1 flex-col overflow-y-auto px-5 pt-5 [scrollbar-width:none]">
+          <div className="mt-auto space-y-5">
+            <div className="flex items-center gap-2 rounded-md border border-[#d97757]/40 px-3 py-2 text-[#a8a29e]">
+              <SiClaude className={`h-3.5 w-3.5 shrink-0 ${CLAUDE_ORANGE}`} aria-hidden="true" />
+              <span><span className="text-[#e8e6e3]">Claude Code</span> · hypequery MCP connected</span>
+            </div>
+
+            {EXCHANGES.map((exchange, index) => (
+              <TerminalExchange key={exchange.question} exchange={exchange} at={local(elapsed, index)} glyph={glyph} />
+            ))}
+          </div>
         </div>
 
-        {EXCHANGES.map((exchange, index) => {
-          const at = local(elapsed, index);
-          return at >= 0 ? <TerminalExchange key={exchange.question} exchange={exchange} at={at} glyph={glyph} /> : null;
-        })}
+        <div className="px-4 pb-3 pt-4">
+          <div className="rounded-md border border-[#78716c]/70 px-3 py-1.5">
+            <span className="text-[#a8a29e]">&gt; </span>
+            {draft}
+            <span className="ml-px inline-block h-[1.1em] w-[0.55em] translate-y-[3px] bg-[#e8e6e3]/80" />
+          </div>
+          <div className="mt-1 px-3 text-[10.5px] text-[#78716c]">? for shortcuts</div>
+        </div>
       </div>
     </div>
   );
@@ -250,7 +269,7 @@ function ChatExchange({ exchange, at, reduced }: { exchange: Exchange; at: numbe
 
   return (
     <>
-      {at >= T.chatSend && (
+      {at >= T.send && (
         <motion.div {...reveal} className="flex justify-end">
           <div className="max-w-[80%] rounded-2xl rounded-br-md bg-bg-alt px-4 py-2.5 text-sm text-text">{exchange.question}</div>
         </motion.div>
@@ -285,13 +304,9 @@ function ChatExchange({ exchange, at, reduced }: { exchange: Exchange; at: numbe
 }
 
 function ChatInput({ elapsed }: { elapsed: number }) {
-  // The question being typed, if any, before it is sent.
-  const drafting = EXCHANGES.find((_, index) => {
-    const at = local(elapsed, index);
-    return at >= 0 && at < T.chatSend;
-  });
-  const at = drafting ? local(elapsed, EXCHANGES.indexOf(drafting)) : 0;
-  const draft = drafting ? drafting.question.slice(0, Math.floor(at / T.typePerChar)) : '';
+  const typed = currentDraft(elapsed);
+  const drafting = typed !== null;
+  const draft = typed ?? '';
 
   return (
     <div className="px-4 pb-4 pt-2">
