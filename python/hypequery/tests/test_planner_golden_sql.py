@@ -128,6 +128,10 @@ Orders = Dataset(
         "firstStatus": measure.arg_min("status", "created_at"),
         "paidRevenue": measure.sum("amount", filters=(f.eq("status", "paid"), f.gte("amount", 10))),
         "goldRevenue": measure.sum("amount", filters=(f.eq("customer.tier", "gold"),)),
+        "paidP90": measure.percentile("amount", 0.9, filters=(f.eq("status", "paid"),)),
+        "paidCustomers": measure.count_distinct(
+            "customer_id", filters=(f.in_list("status", ["paid", "settled"]),)
+        ),
         "average": measure.derived(divide("revenue", null_if_zero("orders"))),
         "rounded": measure.derived(round_("average", 2)),
         "paidShare": measure.derived(coalesce(divide("paidRevenue", null_if_zero("revenue")), 0)),
@@ -227,6 +231,9 @@ CASES: Mapping[str, Callable[[], CompiledQuery]] = {
         ),
     ),
     "measure-filters": _plan(Orders, ACME, measures=("paidRevenue", "revenue")),
+    "measure-filters-on-parametric-and-distinct": _plan(
+        Orders, ACME, measures=("paidP90", "paidCustomers")
+    ),
     "measure-filter-through-join": _plan(Orders, ACME, measures=("goldRevenue",)),
     "sql-backed-fields": _plan(Events, dimensions=("doubled",), measures=("rawTotal", "events")),
     # Derived formulas
