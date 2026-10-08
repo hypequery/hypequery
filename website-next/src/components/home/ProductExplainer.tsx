@@ -18,6 +18,9 @@ const CONNECTIONS = [
   'M600 150 C600 225 1000 190 1000 290',
 ];
 
+// The left and right curves from the model out to the dashboard and agent cards.
+const SIDE_OUTPUTS = [3, 5];
+
 const ENTRANCE = {
   hidden: { opacity: 0, y: 10 },
   visible: (delay: number) => ({
@@ -66,7 +69,8 @@ export function ProductExplainer() {
         </div>
         <svg className="absolute inset-0 h-full w-full overflow-visible" viewBox="0 0 1200 290" preserveAspectRatio="none" fill="none" aria-hidden="true">
           {CONNECTIONS.map((path, index) => (
-            <g key={path}>
+            // On small screens the cards stack under the model, so only the centre line continues down to them.
+            <g key={path} className={SIDE_OUTPUTS.includes(index) ? 'max-md:hidden' : undefined}>
               <path d={path} className={`explainer-connection ${activeConnection === index ? 'is-active' : ''}`} stroke="var(--border-strong)" strokeWidth="1.4" vectorEffect="non-scaling-stroke" />
               <circle r="3" fill="var(--accent)" className="explainer-signal">
                 <animateMotion path={path} dur="5s" begin={`-${index * 0.65}s`} repeatCount="indefinite" />
@@ -92,13 +96,11 @@ export function ProductExplainer() {
           </div>
         </div>
         <div className="absolute inset-x-0 bottom-8 text-center text-[10px] text-text-dim">Shared metrics · dimensions · tenant rules</div>
-        <div className="absolute inset-x-0 -bottom-2 grid grid-cols-3 text-center text-[10px] text-text-muted md:hidden">
-          {['React', 'Chat', 'MCP'].map((surface) => <div key={surface}><span className="rounded border border-border bg-bg-card px-3 py-1">{surface}</span></div>)}
-        </div>
       </motion.div>
 
-      <div ref={answersRef} className="grid border-t border-border md:grid-cols-3 md:divide-x md:divide-border">
-        <motion.article variants={ENTRANCE} initial={reducedMotion ? false : "hidden"} whileInView="visible" viewport={{ once: true, amount: 0.15 }} custom={0.0} onMouseEnter={() => setActiveConnection(3)} onMouseLeave={() => setActiveConnection(null)} onFocusCapture={() => setActiveConnection(3)} onBlurCapture={() => setActiveConnection(null)} className="explainer-consumer min-w-0 py-7 md:pr-6 lg:pr-8">
+      <div ref={answersRef} className="grid border-border md:grid-cols-3 md:divide-x md:divide-border md:border-t">
+        <motion.article variants={ENTRANCE} initial={reducedMotion ? false : "hidden"} whileInView="visible" viewport={{ once: true, amount: 0.15 }} custom={0.0} onMouseEnter={() => setActiveConnection(3)} onMouseLeave={() => setActiveConnection(null)} onFocusCapture={() => setActiveConnection(3)} onBlurCapture={() => setActiveConnection(null)} className="explainer-consumer min-w-0 pb-7 md:pr-6 md:pt-7 lg:pr-8">
+          <div className="explainer-link md:hidden" aria-hidden="true" />
           <div className="flex items-center gap-2.5"><SiReact className="h-5 w-5 text-[#339db6]" aria-hidden="true" /><h3 className="text-xl font-medium tracking-tight text-text">Your dashboards</h3></div>
           <p className="mt-3 max-w-[350px] text-sm leading-6 text-text-muted">Build with typed React hooks and your own components.</p>
           <div className={`explainer-preview mt-6 flex flex-col overflow-hidden rounded-xl border border-border bg-bg-card shadow-card ${PREVIEW_HEIGHT}`} aria-label={`Illustrative dashboard showing $${revenue} in revenue ${period}`}>
@@ -121,7 +123,8 @@ export function ProductExplainer() {
           </div>
           <Link href="/docs/react/getting-started" aria-label="Read more about React dashboards" className="explainer-read-more mt-5 inline-flex items-center gap-1.5 text-xs font-medium text-text-muted">Read more <ArrowUpRight className="h-3 w-3" aria-hidden="true" /></Link>
         </motion.article>
-        <motion.article variants={ENTRANCE} initial={reducedMotion ? false : "hidden"} whileInView="visible" viewport={{ once: true, amount: 0.15 }} custom={0.06} onMouseEnter={() => setActiveConnection(4)} onMouseLeave={() => setActiveConnection(null)} onFocusCapture={() => setActiveConnection(4)} onBlurCapture={() => setActiveConnection(null)} className="explainer-consumer min-w-0 py-7 max-md:border-t max-md:border-border md:px-6 lg:px-8">
+        <motion.article variants={ENTRANCE} initial={reducedMotion ? false : "hidden"} whileInView="visible" viewport={{ once: true, amount: 0.15 }} custom={0.06} onMouseEnter={() => setActiveConnection(4)} onMouseLeave={() => setActiveConnection(null)} onFocusCapture={() => setActiveConnection(4)} onBlurCapture={() => setActiveConnection(null)} className="explainer-consumer min-w-0 pb-7 md:px-6 md:pt-7 lg:px-8">
+          <div className="explainer-link md:hidden" aria-hidden="true" />
           <div className="flex items-center gap-2.5"><Send className="h-4.5 w-4.5 text-accent" aria-hidden="true" /><h3 className="text-xl font-medium tracking-tight text-text">Embedded chat</h3><span className="ml-auto rounded-full border border-border px-2 py-0.5 text-[10px] font-normal text-text-muted">Coming soon</span></div>
           <p className="mt-3 max-w-[350px] text-sm leading-6 text-text-muted">Let customers ask questions about their data, inside your app.</p>
           <div className={`explainer-preview mt-6 ${PREVIEW_HEIGHT}`}>
@@ -130,7 +133,8 @@ export function ProductExplainer() {
             </div>
           </div>
         </motion.article>
-        <motion.article variants={ENTRANCE} initial={reducedMotion ? false : "hidden"} whileInView="visible" viewport={{ once: true, amount: 0.15 }} custom={0.12} onMouseEnter={() => setActiveConnection(5)} onMouseLeave={() => setActiveConnection(null)} onFocusCapture={() => setActiveConnection(5)} onBlurCapture={() => setActiveConnection(null)} className="explainer-consumer min-w-0 py-7 max-md:border-t max-md:border-border md:pl-6 lg:pl-8">
+        <motion.article variants={ENTRANCE} initial={reducedMotion ? false : "hidden"} whileInView="visible" viewport={{ once: true, amount: 0.15 }} custom={0.12} onMouseEnter={() => setActiveConnection(5)} onMouseLeave={() => setActiveConnection(null)} onFocusCapture={() => setActiveConnection(5)} onBlurCapture={() => setActiveConnection(null)} className="explainer-consumer min-w-0 pb-7 md:pl-6 md:pt-7 lg:pl-8">
+          <div className="explainer-link md:hidden" aria-hidden="true" />
           <div className="flex items-center gap-2.5"><span title="Model Context Protocol (MCP)"><SiModelcontextprotocol className="h-5 w-5 text-text" aria-label="Model Context Protocol" /></span><h3 className="text-xl font-medium tracking-tight text-text">Connected agents</h3><div className="framework-logo-cluster ml-auto flex shrink-0 items-center pl-1" aria-label="AI model providers">
             {([
               ['Claude', SiClaude, 'text-[#d97757]'],

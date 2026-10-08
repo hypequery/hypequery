@@ -88,6 +88,47 @@
   .explainer-source:focus-visible .explainer-source-detail[data-edge="2"] { transform: translateY(0); }
 }
 
+/* Small screens: the model's centre line runs down through the stacked cards. */
+.explainer-link {
+  position: relative;
+  width: 1px;
+  height: 44px;
+  margin: 0 auto 20px;
+  background: var(--border-strong);
+}
+
+.explainer-link::before {
+  content: '';
+  position: absolute;
+  bottom: -4px;
+  left: 50%;
+  width: 7px;
+  height: 7px;
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  background: var(--bg);
+  transform: translateX(-50%);
+}
+
+.explainer-link::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--accent);
+  transform: translate(-50%, -50%);
+  animation: explainer-link-signal 2.4s linear infinite;
+}
+
+@keyframes explainer-link-signal {
+  0% { top: 0; opacity: 0; }
+  15% { opacity: 1; }
+  80% { opacity: 1; }
+  100% { top: 100%; opacity: 0; }
+}
+
 @keyframes explainer-reveal {
   from { opacity: 0.35; transform: translateY(3px); }
   to { opacity: 1; transform: translateY(0); }
@@ -95,6 +136,7 @@
 
 @media (prefers-reduced-motion: reduce) {
   .explainer-signal,
+  .explainer-link::after,
   .explainer-model-ripple { display: none; }
   .explainer-source { transition: none; }
   .explainer-source-detail,
