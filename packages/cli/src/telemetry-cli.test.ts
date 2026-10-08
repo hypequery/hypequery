@@ -1,5 +1,5 @@
 import { execFile, spawn } from 'node:child_process';
-import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, mkdir, rm, writeFile, readdir, utimes } from 'node:fs/promises';
 import { createServer as createTcpServer } from 'node:net';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -32,6 +32,27 @@ describe('compiled CLI telemetry regression', () => {
     }).join('\n');
     return { code: result.code ?? 0, stdout: result.stdout, stderr, events };
   }
+
+  it('recovers preference changes after a killed process abandoned the settings lock', async () => {
+    const settings = await mkdtemp(path.join(tmpdir(), 'hq-cli-abandoned-lock-'));
+    try {
+      const env = { ...process.env, HYPEQUERY_CONFIG_DIR: settings };
+      for (const key of ['VITEST', 'NODE_ENV', 'DO_NOT_TRACK', 'HYPEQUERY_TELEMETRY_DISABLED']) delete env[key];
+      await execute(process.execPath, [bin, 'telemetry', 'status'], { cwd: settings, env });
+      // What SIGKILL or a crash mid-write leaves behind: a lock nobody will release.
+      const lock = path.join(settings, 'telemetry.lock');
+      await mkdir(lock);
+      const abandoned = new Date(Date.now() - 60_000);
+      await utimes(lock, abandoned, abandoned);
+      const disabled = await execute(process.execPath, [bin, 'telemetry', 'disable'], { cwd: settings, env });
+      expect(disabled.stdout).toContain('disabled');
+      const status = await execute(process.execPath, [bin, 'telemetry', 'status'], { cwd: settings, env });
+      expect(status.stdout).toContain('Telemetry: disabled');
+      expect(await readdir(settings)).toEqual(['telemetry.json']);
+    } finally {
+      await rm(settings, { recursive: true, force: true });
+    }
+  }, 30_000);
 
   it('exits promptly when the ingest endpoint never completes its connection', async () => {
     // Accepts TCP but never answers the TLS handshake. Built-in fetch kept the

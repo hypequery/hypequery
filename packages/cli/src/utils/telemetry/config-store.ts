@@ -12,6 +12,26 @@ export interface TelemetryConfigDependencies {
   readonly configDirectory?: string;
 }
 
+/**
+ * A lock older than this has no live owner: every settings write holds it for
+ * milliseconds. Crashes, SIGKILL and power loss skip lock release, and without
+ * recovery one stranded lock would block every later preference change,
+ * including `hypequery telemetry disable`.
+ */
+export const ABANDONED_LOCK_MS = 10_000;
+
+/** Removes the lock if it is abandoned; true when the caller should retry. */
+async function removeAbandonedLock(lockPath: string): Promise<boolean> {
+  try {
+    if (Date.now() - (await stat(lockPath)).mtimeMs < ABANDONED_LOCK_MS) return false;
+    await rmdir(lockPath);
+    return true;
+  } catch (error) {
+    // Another process reclaimed it first; retrying is safe.
+    return (error as NodeJS.ErrnoException).code === 'ENOENT';
+  }
+}
+
 /** Settings writes in progress; each holds the cross-process lock until it settles. */
 const activeWrites = new Set<Promise<unknown>>();
 
@@ -115,7 +135,8 @@ export class TelemetryConfigStore {
       await mkdir(directory, { recursive: true, mode: 0o700 });
       const lockPath = path.join(directory, 'telemetry.lock');
       // Serialize read-modify-write across processes, including first identity
-      // creation. A stale lock fails closed; never remove another process's lock.
+      // creation. A live writer's lock fails closed; an abandoned one is reclaimed.
+      let reclaimed = false;
       for (let attempt = 0; attempt < lockAttempts; attempt++) {
         try {
           await mkdir(lockPath, { mode: 0o700 });
@@ -123,6 +144,11 @@ export class TelemetryConfigStore {
           break;
         } catch (error) {
           if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error;
+          if (!reclaimed && await removeAbandonedLock(lockPath)) {
+            reclaimed = true;
+            attempt--;
+            continue;
+          }
           if (attempt + 1 >= lockAttempts) break;
           await delay(10);
         }

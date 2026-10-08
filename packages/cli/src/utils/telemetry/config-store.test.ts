@@ -1,8 +1,8 @@
-import { chmod, mkdtemp, readFile, readdir, rm, stat, writeFile, mkdir } from 'node:fs/promises';
+import { chmod, mkdtemp, readFile, readdir, rm, stat, writeFile, mkdir, utimes } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { TelemetryConfigStore, settleTelemetrySettings } from './config-store.js';
+import { ABANDONED_LOCK_MS, TelemetryConfigStore, settleTelemetrySettings } from './config-store.js';
 import { resolveTelemetryState, telemetryOptOutSource } from './opt-out.js';
 
 describe('telemetry preferences', () => {
@@ -66,10 +66,23 @@ describe('telemetry preferences', () => {
     expect(await store.load()).toBeNull();
   });
 
-  it('fails closed on a stale lock and leaves it alone', async () => {
+  it("fails closed on a live writer's lock and leaves it alone", async () => {
     await mkdir(path.join(directory, 'telemetry.lock'));
     expect(await store.load()).toBeNull();
     expect(await readdir(directory)).toEqual(['telemetry.lock']);
+  });
+  it('reclaims a lock abandoned by a crashed or killed process', async () => {
+    const config = await store.load();
+    const lock = path.join(directory, 'telemetry.lock');
+    const abandoned = new Date(Date.now() - ABANDONED_LOCK_MS - 1_000);
+    for (const write of [() => store.setEnabled(false), () => store.disableVersion('1.22.0')]) {
+      await mkdir(lock);
+      await utimes(lock, abandoned, abandoned);
+      // Opt-out and the one-attempt kill switch both recover.
+      expect(await write()).toMatchObject({ install_id: config?.install_id });
+      expect(await readdir(directory)).toEqual(['telemetry.json']);
+    }
+    expect(await store.peek()).toMatchObject({ enabled: false, disabled_cli_versions: ['1.22.0'] });
   });
   it('persists a version kill switch without leaving settings locked', async () => {
     const config = await store.load();

@@ -38,6 +38,12 @@ Display the notice on stderr only, once, TTY-only, never in CI, MCP or preferenc
 commands. Serialize disclosure across CLI processes using the settings lock and
 persist the timestamp only after stderr's write callback succeeds.
 
+Settings writes hold a cross-process lock for milliseconds. A live writer's lock
+fails closed. A lock older than 10 seconds has no live owner (a crash, SIGKILL or
+power loss skipped its release) and is reclaimed, so it cannot block later
+preference changes such as `telemetry disable`. On ordinary exits and signals the
+executable also waits, bounded at 250 ms, for in-flight writes to release it.
+
 One in-memory PostHog-shaped batch has at most 32 events and 64 KiB. The
 `api_key: hypequery-cli` routing marker is not a PostHog credential; the proxy owns
 the real key. Add only transport-owned timestamp, distinct ID, person-profile and
@@ -51,9 +57,10 @@ Delivery uses `node:http(s)`, not the built-in fetch: aborting fetch rejects on
 time, but its pending TCP or TLS connect kept the process alive for the ~10 s
 connect timeout against an unreachable endpoint. Aborting the Node request
 destroys its socket even mid-connect, so the CLI exits once the flush returns.
-Synchronous throws, network errors and non-success HTTP responses are swallowed. There are no retries or disk queues. HTTP 410 requests
-a best-effort, version-specific opt-out. The settings update takes one immediate
-lock attempt; an unavailable lock cannot prolong exit by waiting for a writer.
+Synchronous throws, network errors and non-success HTTP responses are swallowed.
+There are no retries or disk queues. HTTP 410 requests a best-effort,
+version-specific opt-out, written asynchronously with one immediate lock attempt;
+an unavailable lock cannot prolong exit by waiting for a writer.
 The kill switch leaves saved consent and other CLI versions unchanged.
 
 ## Lifecycle
