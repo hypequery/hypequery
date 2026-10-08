@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from 'react';
 import { motion, useInView, useReducedMotion } from 'motion/react';
-import { RotateCcw, Sparkles } from 'lucide-react';
+import { ArrowUp, RotateCcw, Sparkles } from 'lucide-react';
 import { SiClaude } from 'react-icons/si';
 import { EXCHANGES, formatUsd, type Exchange } from './aiAnswersData';
 import { useTimeline } from './useTimeline';
@@ -17,8 +17,8 @@ const T = {
   tool: 2500,
   toolResult: 2900,
   answer: 3400,
-  chatUser: 500,
-  chatTyping: 1300,
+  chatSend: 1300,
+  chatTyping: 1700,
 };
 const EXCHANGE_MS = 6200;
 const DONE = (EXCHANGES.length - 1) * EXCHANGE_MS + T.answer + 1000;
@@ -40,7 +40,7 @@ function local(elapsed: number, index: number) {
 
 /** Changes whenever something new appears, so the panels can follow it. */
 function stage(elapsed: number) {
-  const marks = [0, T.chatUser, T.chatTyping, T.thinking, T.tool, T.toolResult, T.answer];
+  const marks = [0, T.chatSend, T.chatTyping, T.thinking, T.tool, T.toolResult, T.answer];
   return EXCHANGES.reduce((count, _, index) => count + marks.filter((mark) => local(elapsed, index) >= mark).length, 0);
 }
 
@@ -250,35 +250,61 @@ function ChatExchange({ exchange, at, reduced }: { exchange: Exchange; at: numbe
 
   return (
     <>
-      {at >= T.chatUser && (
-        <motion.div {...reveal} className="flex items-end justify-end gap-2">
-          <div className="max-w-[80%] rounded-2xl rounded-br-sm bg-accent px-4 py-2.5 text-sm text-white dark:text-[#0c0e14]">{exchange.question}</div>
-          <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-bg-alt text-[10px] font-medium text-text-muted">JD</span>
+      {at >= T.chatSend && (
+        <motion.div {...reveal} className="flex justify-end">
+          <div className="max-w-[80%] rounded-2xl rounded-br-md bg-bg-alt px-4 py-2.5 text-sm text-text">{exchange.question}</div>
         </motion.div>
       )}
 
       {(typing || at >= T.answer) && (
-        <motion.div {...reveal} className="flex items-start gap-2">
+        <motion.div {...reveal} className="flex items-start gap-3">
           <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-accent-soft">
             <Sparkles className="h-3 w-3 text-accent" aria-hidden="true" />
           </span>
           {typing ? (
-            <div className="flex items-center gap-1 rounded-2xl rounded-bl-sm border border-border bg-bg-alt/60 px-4 py-3.5" aria-label="Assistant is typing">
+            <div className="flex h-6 items-center gap-1" aria-label="Assistant is typing">
               {[0, 1, 2].map((dot) => (
-                <span key={dot} className="h-1.5 w-1.5 animate-bounce rounded-full bg-text-muted" style={{ animationDelay: `${dot * 120}ms` }} />
+                <span key={dot} className="h-1.5 w-1.5 animate-bounce rounded-full bg-text-dim" style={{ animationDelay: `${dot * 120}ms` }} />
               ))}
             </div>
           ) : (
-            <motion.div {...reveal} className="w-[85%] max-w-[340px] rounded-2xl rounded-bl-sm border border-border bg-bg-alt/60 px-4 py-3 text-sm text-text">
+            <div className="min-w-0 flex-1 pt-0.5 text-sm leading-6 text-text">
               {exchange.reply.lead}
               <strong className="font-semibold">{exchange.reply.strong}</strong>
               {exchange.reply.tail}
-              <ChatChart exchange={exchange} reduced={reduced} />
-            </motion.div>
+              <motion.div {...reveal} className="mt-3 max-w-[360px] rounded-xl border border-border bg-bg px-4 pb-4 pt-3">
+                <div className="text-[11px] text-text-dim">{exchange.heading}</div>
+                <ChatChart exchange={exchange} reduced={reduced} />
+              </motion.div>
+            </div>
           )}
         </motion.div>
       )}
     </>
+  );
+}
+
+function ChatInput({ elapsed }: { elapsed: number }) {
+  // The question being typed, if any, before it is sent.
+  const drafting = EXCHANGES.find((_, index) => {
+    const at = local(elapsed, index);
+    return at >= 0 && at < T.chatSend;
+  });
+  const at = drafting ? local(elapsed, EXCHANGES.indexOf(drafting)) : 0;
+  const draft = drafting ? drafting.question.slice(0, Math.floor(at / T.typePerChar)) : '';
+
+  return (
+    <div className="px-4 pb-4 pt-2">
+      <div className="flex items-center gap-2 rounded-xl border border-border-strong bg-bg py-2 pl-4 pr-2 text-sm shadow-card">
+        <span className={`min-w-0 flex-1 truncate ${draft ? 'text-text' : 'text-text-dim'}`}>
+          {draft || 'Ask about your data…'}
+          {drafting && <span className="ml-px inline-block h-[1em] w-px translate-y-[2px] animate-pulse bg-text" />}
+        </span>
+        <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg transition-colors ${draft ? 'bg-accent text-white dark:text-[#0c0e14]' : 'bg-bg-alt text-text-dim'}`}>
+          <ArrowUp className="h-3.5 w-3.5" aria-hidden="true" />
+        </span>
+      </div>
+    </div>
   );
 }
 
@@ -292,12 +318,14 @@ function AppChat({ elapsed, reduced }: { elapsed: number; reduced: boolean }) {
         <span className="text-xs font-medium text-text">Acme Analytics</span>
       </div>
 
-      <div ref={ref} className="flex flex-1 flex-col gap-4 overflow-y-auto p-5 [scrollbar-width:none]">
+      <div ref={ref} className="flex flex-1 flex-col gap-5 overflow-y-auto px-5 pb-2 pt-5 [scrollbar-width:none]">
         {EXCHANGES.map((exchange, index) => {
           const at = local(elapsed, index);
           return at >= 0 ? <ChatExchange key={exchange.question} exchange={exchange} at={at} reduced={reduced} /> : null;
         })}
       </div>
+
+      <ChatInput elapsed={elapsed} />
     </div>
   );
 }
