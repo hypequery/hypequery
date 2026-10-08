@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import argparse
 import shutil
 import subprocess
 import sys
@@ -11,6 +10,7 @@ from importlib.metadata import version
 import pytest
 
 from hypequery.cli import main
+from hypequery.cli.options import DevOptions, InitOptions
 from hypequery.cli.parser import parse_args
 
 
@@ -87,8 +87,9 @@ def test_dispatches_parsed_arguments(monkeypatch: pytest.MonkeyPatch, command: s
     assert main([command]) == 0
     assert imported == [f"hypequery.cli.commands.{command}"]
     assert len(received) == 1
-    assert isinstance(received[0], argparse.Namespace)
-    assert received[0].command == command
+    # Commands receive typed options, never the untyped argparse namespace.
+    expected = {"init": InitOptions, "dev": DevOptions}[command]
+    assert type(received[0]) is expected
 
 
 @pytest.mark.parametrize("command", ["init", "dev"])
