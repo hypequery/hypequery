@@ -104,8 +104,16 @@ curl -s -X POST http://127.0.0.1:8000/datasets/{generated.tables[0]}/query \\
   -d '{payload}'
 ```
 
-Re-run discovery into a new directory after schema changes and review the diff.
-Existing generated paths are never overwritten. Credentials are read from the
+After schema changes, inspect drift with
+`hypequery generate datasets --diff` (exit 1 when different).
+Use `--check` in CI and `--force` to replace definitions after reviewing the diff.
+Repeat the original `--tables` / `--exclude-tables` selection when regenerating,
+and pass `--tenant-column <column>` to keep a `tenant_key` boundary.
+Regeneration replaces the whole definitions file, including custom measures and
+relationships. Review the diff first, or generate to a separate file and merge
+changes manually.
+`schema.json` records discovery at init time and is not refreshed by regeneration.
+Credentials are read from the
 environment at runtime; neither schema snapshots nor definitions contain them.
 """
     )

@@ -8,6 +8,8 @@ from pydantic import field_validator, model_validator
 
 from . import aggregations
 from .aggregations import Aggregation
+from .derived_measures import DerivedMeasure
+from .formulas import Formula
 from .query_helpers import Filter
 from .validation import validate_non_empty, validate_qualified_identifier
 
@@ -76,6 +78,12 @@ class _MeasureHelpers:
     """Typed base-measure helpers matching TypeScript, with Python spelling."""
 
     __call__ = staticmethod(_create_measure)
+
+    @staticmethod
+    def derived(
+        formula: Formula, *, label: str | None = None, description: str | None = None
+    ) -> DerivedMeasure:
+        return DerivedMeasure(formula=formula, label=label, description=description)
 
     @staticmethod
     def sum(field: str, **options: Unpack[_MeasureOptions]) -> Measure:

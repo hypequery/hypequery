@@ -148,6 +148,8 @@ def _dataset(catalog: DatasetCatalog, *, include_sql: bool) -> dict[str, object]
     )
     # Python has no metric handles yet, so this is always empty; the key stays
     # so the serialized shape matches.
+    if "derivedMeasures" in catalog:
+        result["derivedMeasures"] = sorted_record(catalog["derivedMeasures"])
     result["metrics"] = sorted_record(catalog["metrics"])
     result["filters"] = sorted_record(
         {name: _filter(entry) for name, entry in catalog["filters"].items()}
