@@ -1,0 +1,670 @@
+{
+  "queries": {
+    "composite-key-and-marker-collision": {
+      "debug": "SELECT `account`.`name` AS `account.name`, uniqExact(if(isNotNull(`account`.`_hq_match_`), `account`.`name`, NULL)) AS `account.accountCount` FROM `analytics`.`orders` AS `__hq_base` LEFT ANY JOIN (SELECT `name`, `region`, `_hq_match`, toNullable(1) AS `_hq_match_` FROM `analytics`.`accounts`) AS `account` ON `__hq_base`.`account_name` = `account`.`name` AND `__hq_base`.`account_region` = `account`.`region` WHERE `__hq_base`.`tenant_id` = <p0:String> GROUP BY `account.name`",
+      "parameters": [
+        [
+          "p0",
+          "String",
+          "acme"
+        ]
+      ],
+      "sql": "SELECT `account`.`name` AS `account.name`, uniqExact(if(isNotNull(`account`.`_hq_match_`), `account`.`name`, NULL)) AS `account.accountCount` FROM `analytics`.`orders` AS `__hq_base` LEFT ANY JOIN (SELECT `name`, `region`, `_hq_match`, toNullable(1) AS `_hq_match_` FROM `analytics`.`accounts`) AS `account` ON `__hq_base`.`account_name` = `account`.`name` AND `__hq_base`.`account_region` = `account`.`region` WHERE `__hq_base`.`tenant_id` = {p0:String} GROUP BY `account.name`"
+    },
+    "dataset-result-cap": {
+      "debug": "SELECT count(`kind`) AS `events` FROM `events` LIMIT 500",
+      "parameters": [],
+      "sql": "SELECT count(`kind`) AS `events` FROM `events` LIMIT 500"
+    },
+    "dataset-result-cap-overfetch": {
+      "debug": "SELECT count(`kind`) AS `events` FROM `events` LIMIT 501",
+      "parameters": [],
+      "sql": "SELECT count(`kind`) AS `events` FROM `events` LIMIT 501"
+    },
+    "default-measures": {
+      "debug": "SELECT sum(`__hq_base`.`net_amount`) AS `revenue`, count(`__hq_base`.`status`) AS `orders`, uniqExact(`__hq_base`.`customer_id`) AS `uniqueCustomers`, avg(`__hq_base`.`net_amount`) AS `avgAmount`, min(`__hq_base`.`net_amount`) AS `minAmount`, max(`__hq_base`.`net_amount`) AS `maxAmount`, quantile(0.5)(`__hq_base`.`net_amount`) AS `medianAmount`, quantile(0.95)(`__hq_base`.`net_amount`) AS `p95Amount`, stddevSamp(`__hq_base`.`net_amount`) AS `spread`, varSamp(`__hq_base`.`net_amount`) AS `variance`, argMax(`__hq_base`.`status`, `__hq_base`.`created_at`) AS `lastStatus`, argMin(`__hq_base`.`status`, `__hq_base`.`created_at`) AS `firstStatus`, sumIf(`__hq_base`.`net_amount`, `__hq_base`.`status` = <p0:String> AND `__hq_base`.`net_amount` >= <p1:Float64>) AS `paidRevenue`, sumIf(`__hq_base`.`net_amount`, `customer`.`tier` = <p3:String>) AS `goldRevenue` FROM `analytics`.`orders` AS `__hq_base` LEFT ANY JOIN `analytics`.`customers` AS `customer` ON `__hq_base`.`customer_id` = `customer`.`id` AND `customer`.`tenant_id` = <p2:String> WHERE `__hq_base`.`tenant_id` = <p4:String>",
+      "parameters": [
+        [
+          "p0",
+          "String",
+          "paid"
+        ],
+        [
+          "p1",
+          "Float64",
+          10
+        ],
+        [
+          "p2",
+          "String",
+          "acme"
+        ],
+        [
+          "p3",
+          "String",
+          "gold"
+        ],
+        [
+          "p4",
+          "String",
+          "acme"
+        ]
+      ],
+      "sql": "SELECT sum(`__hq_base`.`net_amount`) AS `revenue`, count(`__hq_base`.`status`) AS `orders`, uniqExact(`__hq_base`.`customer_id`) AS `uniqueCustomers`, avg(`__hq_base`.`net_amount`) AS `avgAmount`, min(`__hq_base`.`net_amount`) AS `minAmount`, max(`__hq_base`.`net_amount`) AS `maxAmount`, quantile(0.5)(`__hq_base`.`net_amount`) AS `medianAmount`, quantile(0.95)(`__hq_base`.`net_amount`) AS `p95Amount`, stddevSamp(`__hq_base`.`net_amount`) AS `spread`, varSamp(`__hq_base`.`net_amount`) AS `variance`, argMax(`__hq_base`.`status`, `__hq_base`.`created_at`) AS `lastStatus`, argMin(`__hq_base`.`status`, `__hq_base`.`created_at`) AS `firstStatus`, sumIf(`__hq_base`.`net_amount`, `__hq_base`.`status` = {p0:String} AND `__hq_base`.`net_amount` >= {p1:Float64}) AS `paidRevenue`, sumIf(`__hq_base`.`net_amount`, `customer`.`tier` = {p3:String}) AS `goldRevenue` FROM `analytics`.`orders` AS `__hq_base` LEFT ANY JOIN `analytics`.`customers` AS `customer` ON `__hq_base`.`customer_id` = `customer`.`id` AND `customer`.`tenant_id` = {p2:String} WHERE `__hq_base`.`tenant_id` = {p4:String}"
+    },
+    "derived-arithmetic": {
+      "debug": "SELECT ((sum(`net_amount`) * <p0:Float64>) - (count(`status`) + <p1:Int8>)) AS `net`, (FLOOR(avg(`net_amount`)) + CEIL(avg(`net_amount`))) AS `bounds`, (count(`status`) * <p2:UInt32>) AS `big`, COALESCE(sum(`net_amount`), NULL) AS `nothing` FROM `analytics`.`orders` WHERE `tenant_id` = <p3:String>",
+      "parameters": [
+        [
+          "p0",
+          "Float64",
+          0.9
+        ],
+        [
+          "p1",
+          "Int8",
+          -1
+        ],
+        [
+          "p2",
+          "UInt32",
+          70000
+        ],
+        [
+          "p3",
+          "String",
+          "acme"
+        ]
+      ],
+      "sql": "SELECT ((sum(`net_amount`) * {p0:Float64}) - (count(`status`) + {p1:Int8})) AS `net`, (FLOOR(avg(`net_amount`)) + CEIL(avg(`net_amount`))) AS `bounds`, (count(`status`) * {p2:UInt32}) AS `big`, COALESCE(sum(`net_amount`), NULL) AS `nothing` FROM `analytics`.`orders` WHERE `tenant_id` = {p3:String}"
+    },
+    "derived-chain": {
+      "debug": "SELECT ROUND((sum(`net_amount`) / NULLIF(count(`status`), 0)), <p0:Int64>) AS `rounded`, (sum(`net_amount`) / NULLIF(count(`status`), 0)) AS `average`, COALESCE((sumIf(`net_amount`, `status` = <p1:String> AND `net_amount` >= <p2:Float64>) / NULLIF(sum(`net_amount`), 0)), <p3:UInt8>) AS `paidShare` FROM `analytics`.`orders` WHERE `tenant_id` = <p4:String>",
+      "parameters": [
+        [
+          "p0",
+          "Int64",
+          2
+        ],
+        [
+          "p1",
+          "String",
+          "paid"
+        ],
+        [
+          "p2",
+          "Float64",
+          10
+        ],
+        [
+          "p3",
+          "UInt8",
+          0
+        ],
+        [
+          "p4",
+          "String",
+          "acme"
+        ]
+      ],
+      "sql": "SELECT ROUND((sum(`net_amount`) / NULLIF(count(`status`), 0)), {p0:Int64}) AS `rounded`, (sum(`net_amount`) / NULLIF(count(`status`), 0)) AS `average`, COALESCE((sumIf(`net_amount`, `status` = {p1:String} AND `net_amount` >= {p2:Float64}) / NULLIF(sum(`net_amount`), 0)), {p3:UInt8}) AS `paidShare` FROM `analytics`.`orders` WHERE `tenant_id` = {p4:String}"
+    },
+    "every-aggregation": {
+      "debug": "SELECT `status` AS `status`, sum(`net_amount`) AS `revenue`, count(`status`) AS `orders`, uniqExact(`customer_id`) AS `uniqueCustomers`, avg(`net_amount`) AS `avgAmount`, min(`net_amount`) AS `minAmount`, max(`net_amount`) AS `maxAmount`, quantile(0.5)(`net_amount`) AS `medianAmount`, quantile(0.95)(`net_amount`) AS `p95Amount`, stddevSamp(`net_amount`) AS `spread`, varSamp(`net_amount`) AS `variance`, argMax(`status`, `created_at`) AS `lastStatus`, argMin(`status`, `created_at`) AS `firstStatus` FROM `analytics`.`orders` WHERE `tenant_id` = <p0:String> GROUP BY `status`",
+      "parameters": [
+        [
+          "p0",
+          "String",
+          "acme"
+        ]
+      ],
+      "sql": "SELECT `status` AS `status`, sum(`net_amount`) AS `revenue`, count(`status`) AS `orders`, uniqExact(`customer_id`) AS `uniqueCustomers`, avg(`net_amount`) AS `avgAmount`, min(`net_amount`) AS `minAmount`, max(`net_amount`) AS `maxAmount`, quantile(0.5)(`net_amount`) AS `medianAmount`, quantile(0.95)(`net_amount`) AS `p95Amount`, stddevSamp(`net_amount`) AS `spread`, varSamp(`net_amount`) AS `variance`, argMax(`status`, `created_at`) AS `lastStatus`, argMin(`status`, `created_at`) AS `firstStatus` FROM `analytics`.`orders` WHERE `tenant_id` = {p0:String} GROUP BY `status`"
+    },
+    "filter-operators": {
+      "debug": "SELECT count(`status`) AS `orders` FROM `analytics`.`orders` WHERE `status` = <p0:String> AND `status` != <p1:String> AND `net_amount` > <p2:Float64> AND `net_amount` >= <p3:Float64> AND `net_amount` < <p4:Float64> AND `net_amount` <= <p5:Float64> AND `status` IN <p6:Array(String)> AND `status` NOT IN <p7:Array(String)> AND `net_amount` BETWEEN <p8:Float64> AND <p9:Float64> AND `status` LIKE <p10:String> AND `paid` = <p11:Bool> AND `status` IN <p12:Array(String)> AND `tenant_id` = <p13:String>",
+      "parameters": [
+        [
+          "p0",
+          "String",
+          "paid"
+        ],
+        [
+          "p1",
+          "String",
+          "void"
+        ],
+        [
+          "p2",
+          "Float64",
+          1
+        ],
+        [
+          "p3",
+          "Float64",
+          2.5
+        ],
+        [
+          "p4",
+          "Float64",
+          100
+        ],
+        [
+          "p5",
+          "Float64",
+          99
+        ],
+        [
+          "p6",
+          "Array(String)",
+          [
+            "a",
+            "b"
+          ]
+        ],
+        [
+          "p7",
+          "Array(String)",
+          [
+            "c"
+          ]
+        ],
+        [
+          "p8",
+          "Float64",
+          1
+        ],
+        [
+          "p9",
+          "Float64",
+          10
+        ],
+        [
+          "p10",
+          "String",
+          "pa%"
+        ],
+        [
+          "p11",
+          "Bool",
+          true
+        ],
+        [
+          "p12",
+          "Array(String)",
+          [
+            "x"
+          ]
+        ],
+        [
+          "p13",
+          "String",
+          "acme"
+        ]
+      ],
+      "sql": "SELECT count(`status`) AS `orders` FROM `analytics`.`orders` WHERE `status` = {p0:String} AND `status` != {p1:String} AND `net_amount` > {p2:Float64} AND `net_amount` >= {p3:Float64} AND `net_amount` < {p4:Float64} AND `net_amount` <= {p5:Float64} AND `status` IN {p6:Array(String)} AND `status` NOT IN {p7:Array(String)} AND `net_amount` BETWEEN {p8:Float64} AND {p9:Float64} AND `status` LIKE {p10:String} AND `paid` = {p11:Bool} AND `status` IN {p12:Array(String)} AND `tenant_id` = {p13:String}"
+    },
+    "grain-day": {
+      "debug": "SELECT toString(toStartOfDay(toDateTime64(`ts`, 9, <p0:String>))) AS `period`, count(`kind`) AS `events` FROM `events` GROUP BY toStartOfDay(toDateTime64(`ts`, 9, <p0:String>)) ORDER BY `period` ASC LIMIT 500",
+      "parameters": [
+        [
+          "p0",
+          "String",
+          "UTC"
+        ]
+      ],
+      "sql": "SELECT toString(toStartOfDay(toDateTime64(`ts`, 9, {p0:String}))) AS `period`, count(`kind`) AS `events` FROM `events` GROUP BY toStartOfDay(toDateTime64(`ts`, 9, {p0:String})) ORDER BY `period` ASC LIMIT 500"
+    },
+    "grain-hour": {
+      "debug": "SELECT toString(toStartOfHour(toDateTime64(`ts`, 9, <p0:String>))) AS `period`, count(`kind`) AS `events` FROM `events` GROUP BY toStartOfHour(toDateTime64(`ts`, 9, <p0:String>)) ORDER BY `period` ASC LIMIT 500",
+      "parameters": [
+        [
+          "p0",
+          "String",
+          "UTC"
+        ]
+      ],
+      "sql": "SELECT toString(toStartOfHour(toDateTime64(`ts`, 9, {p0:String}))) AS `period`, count(`kind`) AS `events` FROM `events` GROUP BY toStartOfHour(toDateTime64(`ts`, 9, {p0:String})) ORDER BY `period` ASC LIMIT 500"
+    },
+    "grain-minute": {
+      "debug": "SELECT toString(toStartOfMinute(toDateTime64(`ts`, 9, <p0:String>))) AS `period`, count(`kind`) AS `events` FROM `events` GROUP BY toStartOfMinute(toDateTime64(`ts`, 9, <p0:String>)) ORDER BY `period` ASC LIMIT 500",
+      "parameters": [
+        [
+          "p0",
+          "String",
+          "UTC"
+        ]
+      ],
+      "sql": "SELECT toString(toStartOfMinute(toDateTime64(`ts`, 9, {p0:String}))) AS `period`, count(`kind`) AS `events` FROM `events` GROUP BY toStartOfMinute(toDateTime64(`ts`, 9, {p0:String})) ORDER BY `period` ASC LIMIT 500"
+    },
+    "grain-month": {
+      "debug": "SELECT toString(toStartOfMonth(toDateTime64(`ts`, 9, <p0:String>))) AS `period`, count(`kind`) AS `events` FROM `events` GROUP BY toStartOfMonth(toDateTime64(`ts`, 9, <p0:String>)) ORDER BY `period` ASC LIMIT 500",
+      "parameters": [
+        [
+          "p0",
+          "String",
+          "UTC"
+        ]
+      ],
+      "sql": "SELECT toString(toStartOfMonth(toDateTime64(`ts`, 9, {p0:String}))) AS `period`, count(`kind`) AS `events` FROM `events` GROUP BY toStartOfMonth(toDateTime64(`ts`, 9, {p0:String})) ORDER BY `period` ASC LIMIT 500"
+    },
+    "grain-on-tenant-dataset": {
+      "debug": "SELECT toString(toStartOfMonth(toDateTime64(`created_at`, 9, <p0:String>))) AS `period`, sum(`net_amount`) AS `revenue` FROM `analytics`.`orders` WHERE `tenant_id` = <p1:String> GROUP BY toStartOfMonth(toDateTime64(`created_at`, 9, <p0:String>)) ORDER BY `period` ASC",
+      "parameters": [
+        [
+          "p0",
+          "String",
+          "UTC"
+        ],
+        [
+          "p1",
+          "String",
+          "acme"
+        ]
+      ],
+      "sql": "SELECT toString(toStartOfMonth(toDateTime64(`created_at`, 9, {p0:String}))) AS `period`, sum(`net_amount`) AS `revenue` FROM `analytics`.`orders` WHERE `tenant_id` = {p1:String} GROUP BY toStartOfMonth(toDateTime64(`created_at`, 9, {p0:String})) ORDER BY `period` ASC"
+    },
+    "grain-quarter": {
+      "debug": "SELECT toString(toStartOfQuarter(toDateTime64(`ts`, 9, <p0:String>))) AS `period`, count(`kind`) AS `events` FROM `events` GROUP BY toStartOfQuarter(toDateTime64(`ts`, 9, <p0:String>)) ORDER BY `period` ASC LIMIT 500",
+      "parameters": [
+        [
+          "p0",
+          "String",
+          "UTC"
+        ]
+      ],
+      "sql": "SELECT toString(toStartOfQuarter(toDateTime64(`ts`, 9, {p0:String}))) AS `period`, count(`kind`) AS `events` FROM `events` GROUP BY toStartOfQuarter(toDateTime64(`ts`, 9, {p0:String})) ORDER BY `period` ASC LIMIT 500"
+    },
+    "grain-week": {
+      "debug": "SELECT toString(toStartOfWeek(toDateTime64(`ts`, 9, <p0:String>))) AS `period`, count(`kind`) AS `events` FROM `events` GROUP BY toStartOfWeek(toDateTime64(`ts`, 9, <p0:String>)) ORDER BY `period` ASC LIMIT 500",
+      "parameters": [
+        [
+          "p0",
+          "String",
+          "UTC"
+        ]
+      ],
+      "sql": "SELECT toString(toStartOfWeek(toDateTime64(`ts`, 9, {p0:String}))) AS `period`, count(`kind`) AS `events` FROM `events` GROUP BY toStartOfWeek(toDateTime64(`ts`, 9, {p0:String})) ORDER BY `period` ASC LIMIT 500"
+    },
+    "grain-with-zone-dimensions-and-order": {
+      "debug": "SELECT toString(toStartOfDay(toDateTime64(`ts`, 9, <p0:String>))) AS `period`, `kind` AS `kind`, sum(`value`) AS `total` FROM `events` GROUP BY toStartOfDay(toDateTime64(`ts`, 9, <p0:String>)), `kind` ORDER BY `total` DESC LIMIT 500",
+      "parameters": [
+        [
+          "p0",
+          "String",
+          "Asia/Kolkata"
+        ]
+      ],
+      "sql": "SELECT toString(toStartOfDay(toDateTime64(`ts`, 9, {p0:String}))) AS `period`, `kind` AS `kind`, sum(`value`) AS `total` FROM `events` GROUP BY toStartOfDay(toDateTime64(`ts`, 9, {p0:String})), `kind` ORDER BY `total` DESC LIMIT 500"
+    },
+    "grain-year": {
+      "debug": "SELECT toString(toStartOfYear(toDateTime64(`ts`, 9, <p0:String>))) AS `period`, count(`kind`) AS `events` FROM `events` GROUP BY toStartOfYear(toDateTime64(`ts`, 9, <p0:String>)) ORDER BY `period` ASC LIMIT 500",
+      "parameters": [
+        [
+          "p0",
+          "String",
+          "UTC"
+        ]
+      ],
+      "sql": "SELECT toString(toStartOfYear(toDateTime64(`ts`, 9, {p0:String}))) AS `period`, count(`kind`) AS `events` FROM `events` GROUP BY toStartOfYear(toDateTime64(`ts`, 9, {p0:String})) ORDER BY `period` ASC LIMIT 500"
+    },
+    "has-one-measures": {
+      "debug": "SELECT avg(if(isNotNull(`profile`.`_hq_match`), `profile`.`age_days`, NULL)) AS `profile.profileAge`, count(if(isNotNull(`profile`.`_hq_match`), `profile`.`plan`, NULL)) AS `profile.profileCount` FROM `analytics`.`orders` AS `__hq_base` LEFT ANY JOIN (SELECT `customer_id`, `plan`, `age_days`, toNullable(1) AS `_hq_match` FROM `analytics`.`profiles`) AS `profile` ON `__hq_base`.`customer_id` = `profile`.`customer_id` WHERE `__hq_base`.`tenant_id` = <p0:String>",
+      "parameters": [
+        [
+          "p0",
+          "String",
+          "acme"
+        ]
+      ],
+      "sql": "SELECT avg(if(isNotNull(`profile`.`_hq_match`), `profile`.`age_days`, NULL)) AS `profile.profileAge`, count(if(isNotNull(`profile`.`_hq_match`), `profile`.`plan`, NULL)) AS `profile.profileCount` FROM `analytics`.`orders` AS `__hq_base` LEFT ANY JOIN (SELECT `customer_id`, `plan`, `age_days`, toNullable(1) AS `_hq_match` FROM `analytics`.`profiles`) AS `profile` ON `__hq_base`.`customer_id` = `profile`.`customer_id` WHERE `__hq_base`.`tenant_id` = {p0:String}"
+    },
+    "having-every-operator": {
+      "debug": "SELECT `__hq_base`.`status` AS `status`, sum(`__hq_base`.`net_amount`) AS `revenue`, count(`__hq_base`.`status`) AS `orders`, uniqExact(if(isNotNull(`customer`.`_hq_match`), `customer`.`id`, NULL)) AS `customer.customerCount` FROM `analytics`.`orders` AS `__hq_base` LEFT ANY JOIN (SELECT `id`, `tenant_id`, `country`, `tier`, `credit_score`, `hidden`, toNullable(1) AS `_hq_match` FROM `analytics`.`customers`) AS `customer` ON `__hq_base`.`customer_id` = `customer`.`id` AND `customer`.`tenant_id` = <p0:String> WHERE `__hq_base`.`tenant_id` = <p1:String> GROUP BY `status` HAVING sum(`__hq_base`.`net_amount`) > <p2:Float64> AND sum(`__hq_base`.`net_amount`) >= <p3:Float64> AND count(`__hq_base`.`status`) < <p4:Float64> AND count(`__hq_base`.`status`) <= <p5:Float64> AND count(`__hq_base`.`status`) = <p6:Float64> AND count(`__hq_base`.`status`) != <p7:Float64> AND sum(`__hq_base`.`net_amount`) BETWEEN <p8:Float64> AND <p9:Float64> AND count(`__hq_base`.`status`) IN <p10:Array(Float64)> AND count(`__hq_base`.`status`) NOT IN <p11:Array(Float64)> AND uniqExact(if(isNotNull(`customer`.`_hq_match`), `customer`.`id`, NULL)) >= <p12:Float64>",
+      "parameters": [
+        [
+          "p0",
+          "String",
+          "acme"
+        ],
+        [
+          "p1",
+          "String",
+          "acme"
+        ],
+        [
+          "p2",
+          "Float64",
+          10
+        ],
+        [
+          "p3",
+          "Float64",
+          10.5
+        ],
+        [
+          "p4",
+          "Float64",
+          100
+        ],
+        [
+          "p5",
+          "Float64",
+          99
+        ],
+        [
+          "p6",
+          "Float64",
+          3
+        ],
+        [
+          "p7",
+          "Float64",
+          4
+        ],
+        [
+          "p8",
+          "Float64",
+          1
+        ],
+        [
+          "p9",
+          "Float64",
+          2
+        ],
+        [
+          "p10",
+          "Array(Float64)",
+          [
+            1,
+            2,
+            3
+          ]
+        ],
+        [
+          "p11",
+          "Array(Float64)",
+          [
+            5
+          ]
+        ],
+        [
+          "p12",
+          "Float64",
+          1
+        ]
+      ],
+      "sql": "SELECT `__hq_base`.`status` AS `status`, sum(`__hq_base`.`net_amount`) AS `revenue`, count(`__hq_base`.`status`) AS `orders`, uniqExact(if(isNotNull(`customer`.`_hq_match`), `customer`.`id`, NULL)) AS `customer.customerCount` FROM `analytics`.`orders` AS `__hq_base` LEFT ANY JOIN (SELECT `id`, `tenant_id`, `country`, `tier`, `credit_score`, `hidden`, toNullable(1) AS `_hq_match` FROM `analytics`.`customers`) AS `customer` ON `__hq_base`.`customer_id` = `customer`.`id` AND `customer`.`tenant_id` = {p0:String} WHERE `__hq_base`.`tenant_id` = {p1:String} GROUP BY `status` HAVING sum(`__hq_base`.`net_amount`) > {p2:Float64} AND sum(`__hq_base`.`net_amount`) >= {p3:Float64} AND count(`__hq_base`.`status`) < {p4:Float64} AND count(`__hq_base`.`status`) <= {p5:Float64} AND count(`__hq_base`.`status`) = {p6:Float64} AND count(`__hq_base`.`status`) != {p7:Float64} AND sum(`__hq_base`.`net_amount`) BETWEEN {p8:Float64} AND {p9:Float64} AND count(`__hq_base`.`status`) IN {p10:Array(Float64)} AND count(`__hq_base`.`status`) NOT IN {p11:Array(Float64)} AND uniqExact(if(isNotNull(`customer`.`_hq_match`), `customer`.`id`, NULL)) >= {p12:Float64}"
+    },
+    "having-on-default-selection": {
+      "debug": "SELECT count(`kind`) AS `events`, sum(`value`) AS `total`, sum((value * 2\n)) AS `rawTotal` FROM `events` HAVING count(`kind`) > <p0:Float64> LIMIT 500",
+      "parameters": [
+        [
+          "p0",
+          "Float64",
+          0
+        ]
+      ],
+      "sql": "SELECT count(`kind`) AS `events`, sum(`value`) AS `total`, sum((value * 2\n)) AS `rawTotal` FROM `events` HAVING count(`kind`) > {p0:Float64} LIMIT 500"
+    },
+    "having-on-derived": {
+      "debug": "SELECT (sum(`net_amount`) / NULLIF(count(`status`), 0)) AS `average` FROM `analytics`.`orders` WHERE `tenant_id` = <p0:String> HAVING (sum(`net_amount`) / NULLIF(count(`status`), 0)) > <p1:Float64>",
+      "parameters": [
+        [
+          "p0",
+          "String",
+          "acme"
+        ],
+        [
+          "p1",
+          "Float64",
+          2
+        ]
+      ],
+      "sql": "SELECT (sum(`net_amount`) / NULLIF(count(`status`), 0)) AS `average` FROM `analytics`.`orders` WHERE `tenant_id` = {p0:String} HAVING (sum(`net_amount`) / NULLIF(count(`status`), 0)) > {p1:Float64}"
+    },
+    "limit-offset": {
+      "debug": "SELECT count(`status`) AS `orders` FROM `analytics`.`orders` WHERE `tenant_id` = <p0:String> LIMIT 10 OFFSET 20",
+      "parameters": [
+        [
+          "p0",
+          "String",
+          "acme"
+        ]
+      ],
+      "sql": "SELECT count(`status`) AS `orders` FROM `analytics`.`orders` WHERE `tenant_id` = {p0:String} LIMIT 10 OFFSET 20"
+    },
+    "measure-filter-through-join": {
+      "debug": "SELECT sumIf(`__hq_base`.`net_amount`, `customer`.`tier` = <p1:String>) AS `goldRevenue` FROM `analytics`.`orders` AS `__hq_base` LEFT ANY JOIN `analytics`.`customers` AS `customer` ON `__hq_base`.`customer_id` = `customer`.`id` AND `customer`.`tenant_id` = <p0:String> WHERE `__hq_base`.`tenant_id` = <p2:String>",
+      "parameters": [
+        [
+          "p0",
+          "String",
+          "acme"
+        ],
+        [
+          "p1",
+          "String",
+          "gold"
+        ],
+        [
+          "p2",
+          "String",
+          "acme"
+        ]
+      ],
+      "sql": "SELECT sumIf(`__hq_base`.`net_amount`, `customer`.`tier` = {p1:String}) AS `goldRevenue` FROM `analytics`.`orders` AS `__hq_base` LEFT ANY JOIN `analytics`.`customers` AS `customer` ON `__hq_base`.`customer_id` = `customer`.`id` AND `customer`.`tenant_id` = {p0:String} WHERE `__hq_base`.`tenant_id` = {p2:String}"
+    },
+    "measure-filters": {
+      "debug": "SELECT sumIf(`net_amount`, `status` = <p0:String> AND `net_amount` >= <p1:Float64>) AS `paidRevenue`, sum(`net_amount`) AS `revenue` FROM `analytics`.`orders` WHERE `tenant_id` = <p2:String>",
+      "parameters": [
+        [
+          "p0",
+          "String",
+          "paid"
+        ],
+        [
+          "p1",
+          "Float64",
+          10
+        ],
+        [
+          "p2",
+          "String",
+          "acme"
+        ]
+      ],
+      "sql": "SELECT sumIf(`net_amount`, `status` = {p0:String} AND `net_amount` >= {p1:Float64}) AS `paidRevenue`, sum(`net_amount`) AS `revenue` FROM `analytics`.`orders` WHERE `tenant_id` = {p2:String}"
+    },
+    "overfetch": {
+      "debug": "SELECT count(`status`) AS `orders` FROM `analytics`.`orders` WHERE `tenant_id` = <p0:String> LIMIT 11",
+      "parameters": [
+        [
+          "p0",
+          "String",
+          "acme"
+        ]
+      ],
+      "sql": "SELECT count(`status`) AS `orders` FROM `analytics`.`orders` WHERE `tenant_id` = {p0:String} LIMIT 11"
+    },
+    "related-measure-beside-derived": {
+      "debug": "SELECT (sum(`__hq_base`.`net_amount`) / NULLIF(count(`__hq_base`.`status`), 0)) AS `average`, uniqExact(if(isNotNull(`customer`.`_hq_match`), `customer`.`id`, NULL)) AS `customer.customerCount` FROM `analytics`.`orders` AS `__hq_base` LEFT ANY JOIN (SELECT `id`, `tenant_id`, `country`, `tier`, `credit_score`, `hidden`, toNullable(1) AS `_hq_match` FROM `analytics`.`customers`) AS `customer` ON `__hq_base`.`customer_id` = `customer`.`id` AND `customer`.`tenant_id` = <p0:String> WHERE `__hq_base`.`tenant_id` = <p1:String>",
+      "parameters": [
+        [
+          "p0",
+          "String",
+          "acme"
+        ],
+        [
+          "p1",
+          "String",
+          "acme"
+        ]
+      ],
+      "sql": "SELECT (sum(`__hq_base`.`net_amount`) / NULLIF(count(`__hq_base`.`status`), 0)) AS `average`, uniqExact(if(isNotNull(`customer`.`_hq_match`), `customer`.`id`, NULL)) AS `customer.customerCount` FROM `analytics`.`orders` AS `__hq_base` LEFT ANY JOIN (SELECT `id`, `tenant_id`, `country`, `tier`, `credit_score`, `hidden`, toNullable(1) AS `_hq_match` FROM `analytics`.`customers`) AS `customer` ON `__hq_base`.`customer_id` = `customer`.`id` AND `customer`.`tenant_id` = {p0:String} WHERE `__hq_base`.`tenant_id` = {p1:String}"
+    },
+    "relationship-all-tenants": {
+      "debug": "SELECT `customer`.`country` AS `customer.country`, count(`__hq_base`.`status`) AS `orders` FROM `analytics`.`orders` AS `__hq_base` LEFT ANY JOIN `analytics`.`customers` AS `customer` ON `__hq_base`.`customer_id` = `customer`.`id` GROUP BY `customer.country`",
+      "parameters": [],
+      "sql": "SELECT `customer`.`country` AS `customer.country`, count(`__hq_base`.`status`) AS `orders` FROM `analytics`.`orders` AS `__hq_base` LEFT ANY JOIN `analytics`.`customers` AS `customer` ON `__hq_base`.`customer_id` = `customer`.`id` GROUP BY `customer.country`"
+    },
+    "relationship-dimension-filter-order": {
+      "debug": "SELECT `customer`.`country` AS `customer.country`, sum(`__hq_base`.`net_amount`) AS `revenue` FROM `analytics`.`orders` AS `__hq_base` LEFT ANY JOIN `analytics`.`customers` AS `customer` ON `__hq_base`.`customer_id` = `customer`.`id` AND `customer`.`tenant_id` = <p0:String> WHERE `customer`.`tier` = <p1:String> AND `__hq_base`.`tenant_id` = <p2:String> GROUP BY `customer.country` ORDER BY `revenue` DESC, `customer.country` ASC",
+      "parameters": [
+        [
+          "p0",
+          "String",
+          "acme"
+        ],
+        [
+          "p1",
+          "String",
+          "gold"
+        ],
+        [
+          "p2",
+          "String",
+          "acme"
+        ]
+      ],
+      "sql": "SELECT `customer`.`country` AS `customer.country`, sum(`__hq_base`.`net_amount`) AS `revenue` FROM `analytics`.`orders` AS `__hq_base` LEFT ANY JOIN `analytics`.`customers` AS `customer` ON `__hq_base`.`customer_id` = `customer`.`id` AND `customer`.`tenant_id` = {p0:String} WHERE `customer`.`tier` = {p1:String} AND `__hq_base`.`tenant_id` = {p2:String} GROUP BY `customer.country` ORDER BY `revenue` DESC, `customer.country` ASC"
+    },
+    "relationship-measures": {
+      "debug": "SELECT `__hq_base`.`status` AS `status`, sum(`__hq_base`.`net_amount`) AS `revenue`, uniqExact(if(isNotNull(`customer`.`_hq_match`), `customer`.`id`, NULL)) AS `customer.customerCount`, max(if(isNotNull(`customer`.`_hq_match`), `customer`.`credit_score`, NULL)) AS `customer.bestScore`, argMax(if(isNotNull(`customer`.`_hq_match`), `customer`.`tier`, NULL), if(isNotNull(`customer`.`_hq_match`), `customer`.`credit_score`, NULL)) AS `customer.latestTier`, uniqExactIf(if(isNotNull(`customer`.`_hq_match`), `customer`.`id`, NULL), `customer`.`tier` = <p1:String>) AS `customer.goldCustomers` FROM `analytics`.`orders` AS `__hq_base` LEFT ANY JOIN (SELECT `id`, `tenant_id`, `country`, `tier`, `credit_score`, `hidden`, toNullable(1) AS `_hq_match` FROM `analytics`.`customers`) AS `customer` ON `__hq_base`.`customer_id` = `customer`.`id` AND `customer`.`tenant_id` = <p0:String> WHERE `__hq_base`.`tenant_id` = <p2:String> GROUP BY `status`",
+      "parameters": [
+        [
+          "p0",
+          "String",
+          "acme"
+        ],
+        [
+          "p1",
+          "String",
+          "gold"
+        ],
+        [
+          "p2",
+          "String",
+          "acme"
+        ]
+      ],
+      "sql": "SELECT `__hq_base`.`status` AS `status`, sum(`__hq_base`.`net_amount`) AS `revenue`, uniqExact(if(isNotNull(`customer`.`_hq_match`), `customer`.`id`, NULL)) AS `customer.customerCount`, max(if(isNotNull(`customer`.`_hq_match`), `customer`.`credit_score`, NULL)) AS `customer.bestScore`, argMax(if(isNotNull(`customer`.`_hq_match`), `customer`.`tier`, NULL), if(isNotNull(`customer`.`_hq_match`), `customer`.`credit_score`, NULL)) AS `customer.latestTier`, uniqExactIf(if(isNotNull(`customer`.`_hq_match`), `customer`.`id`, NULL), `customer`.`tier` = {p1:String}) AS `customer.goldCustomers` FROM `analytics`.`orders` AS `__hq_base` LEFT ANY JOIN (SELECT `id`, `tenant_id`, `country`, `tier`, `credit_score`, `hidden`, toNullable(1) AS `_hq_match` FROM `analytics`.`customers`) AS `customer` ON `__hq_base`.`customer_id` = `customer`.`id` AND `customer`.`tenant_id` = {p0:String} WHERE `__hq_base`.`tenant_id` = {p2:String} GROUP BY `status`"
+    },
+    "relationship-with-several-tenants": {
+      "debug": "SELECT `customer`.`country` AS `customer.country`, count(`__hq_base`.`status`) AS `orders` FROM `analytics`.`orders` AS `__hq_base` LEFT ANY JOIN `analytics`.`customers` AS `customer` ON `__hq_base`.`customer_id` = `customer`.`id` AND `customer`.`tenant_id` IN <p0:Array(String)> WHERE `__hq_base`.`tenant_id` IN <p1:Array(String)> GROUP BY `customer.country`",
+      "parameters": [
+        [
+          "p0",
+          "Array(String)",
+          [
+            "acme",
+            "globex"
+          ]
+        ],
+        [
+          "p1",
+          "Array(String)",
+          [
+            "acme",
+            "globex"
+          ]
+        ]
+      ],
+      "sql": "SELECT `customer`.`country` AS `customer.country`, count(`__hq_base`.`status`) AS `orders` FROM `analytics`.`orders` AS `__hq_base` LEFT ANY JOIN `analytics`.`customers` AS `customer` ON `__hq_base`.`customer_id` = `customer`.`id` AND `customer`.`tenant_id` IN {p0:Array(String)} WHERE `__hq_base`.`tenant_id` IN {p1:Array(String)} GROUP BY `customer.country`"
+    },
+    "sql-backed-fields": {
+      "debug": "SELECT (value * 2\n) AS `doubled`, sum((value * 2\n)) AS `rawTotal`, count(`kind`) AS `events` FROM `events` GROUP BY `doubled` LIMIT 500",
+      "parameters": [],
+      "sql": "SELECT (value * 2\n) AS `doubled`, sum((value * 2\n)) AS `rawTotal`, count(`kind`) AS `events` FROM `events` GROUP BY `doubled` LIMIT 500"
+    },
+    "time-filters-in-zone": {
+      "debug": "SELECT count(`status`) AS `orders` FROM `analytics`.`orders` WHERE toDateTime64(`created_at`, 9, <p0:String>) >= <p1:DateTime64(3)> AND toDateTime64(`created_at`, 9, <p0:String>) < <p2:DateTime64(3)> AND toDateTime64(`created_at`, 9, <p0:String>) BETWEEN <p3:DateTime64(3)> AND <p4:DateTime64(3)> AND toDateTime64(`created_at`, 9, <p0:String>) IN <p5:Array(DateTime64(3))> AND `tenant_id` = <p6:String>",
+      "parameters": [
+        [
+          "p0",
+          "String",
+          "America/New_York"
+        ],
+        [
+          "p1",
+          "DateTime64(3)",
+          "2026-03-08T00:00:00-05:00"
+        ],
+        [
+          "p2",
+          "DateTime64(3)",
+          "2026-03-09T00:00:00Z"
+        ],
+        [
+          "p3",
+          "DateTime64(3)",
+          "2026-01-01T00:00:00-05:00"
+        ],
+        [
+          "p4",
+          "DateTime64(3)",
+          "2026-02-01T00:00:00-05:00"
+        ],
+        [
+          "p5",
+          "Array(DateTime64(3))",
+          [
+            "2026-01-01T00:00:00+02:00"
+          ]
+        ],
+        [
+          "p6",
+          "String",
+          "acme"
+        ]
+      ],
+      "sql": "SELECT count(`status`) AS `orders` FROM `analytics`.`orders` WHERE toDateTime64(`created_at`, 9, {p0:String}) >= {p1:DateTime64(3)} AND toDateTime64(`created_at`, 9, {p0:String}) < {p2:DateTime64(3)} AND toDateTime64(`created_at`, 9, {p0:String}) BETWEEN {p3:DateTime64(3)} AND {p4:DateTime64(3)} AND toDateTime64(`created_at`, 9, {p0:String}) IN {p5:Array(DateTime64(3))} AND `tenant_id` = {p6:String}"
+    }
+  },
+  "relationshipChecks": {
+    "acme:account": {
+      "debug": "SELECT count() AS `__hq_rows`, uniqExact(tuple(`name`, `region`)) AS `__hq_keys` FROM `analytics`.`accounts` WHERE isNotNull(`name`) AND isNotNull(`region`)",
+      "parameters": [],
+      "sql": "SELECT count() AS `__hq_rows`, uniqExact(tuple(`name`, `region`)) AS `__hq_keys` FROM `analytics`.`accounts` WHERE isNotNull(`name`) AND isNotNull(`region`)"
+    },
+    "acme:customer": {
+      "debug": "SELECT count() AS `__hq_rows`, uniqExact(`id`) AS `__hq_keys` FROM `analytics`.`customers` WHERE isNotNull(`id`) AND `tenant_id` = <p0:String>",
+      "parameters": [
+        [
+          "p0",
+          "String",
+          "acme"
+        ]
+      ],
+      "sql": "SELECT count() AS `__hq_rows`, uniqExact(`id`) AS `__hq_keys` FROM `analytics`.`customers` WHERE isNotNull(`id`) AND `tenant_id` = {p0:String}"
+    },
+    "acme:profile": {
+      "debug": "SELECT count() AS `__hq_rows`, uniqExact(`customer_id`) AS `__hq_keys` FROM `analytics`.`profiles` WHERE isNotNull(`customer_id`)",
+      "parameters": [],
+      "sql": "SELECT count() AS `__hq_rows`, uniqExact(`customer_id`) AS `__hq_keys` FROM `analytics`.`profiles` WHERE isNotNull(`customer_id`)"
+    },
+    "several:account": {
+      "debug": "SELECT count() AS `__hq_rows`, uniqExact(tuple(`name`, `region`)) AS `__hq_keys` FROM `analytics`.`accounts` WHERE isNotNull(`name`) AND isNotNull(`region`)",
+      "parameters": [],
+      "sql": "SELECT count() AS `__hq_rows`, uniqExact(tuple(`name`, `region`)) AS `__hq_keys` FROM `analytics`.`accounts` WHERE isNotNull(`name`) AND isNotNull(`region`)"
+    },
+    "several:customer": {
+      "debug": "SELECT count() AS `__hq_rows`, uniqExact(`id`) AS `__hq_keys` FROM `analytics`.`customers` WHERE isNotNull(`id`) AND `tenant_id` IN <p0:Array(String)>",
+      "parameters": [
+        [
+          "p0",
+          "Array(String)",
+          [
+            "acme",
+            "globex"
+          ]
+        ]
+      ],
+      "sql": "SELECT count() AS `__hq_rows`, uniqExact(`id`) AS `__hq_keys` FROM `analytics`.`customers` WHERE isNotNull(`id`) AND `tenant_id` IN {p0:Array(String)}"
+    },
+    "several:profile": {
+      "debug": "SELECT count() AS `__hq_rows`, uniqExact(`customer_id`) AS `__hq_keys` FROM `analytics`.`profiles` WHERE isNotNull(`customer_id`)",
+      "parameters": [],
+      "sql": "SELECT count() AS `__hq_rows`, uniqExact(`customer_id`) AS `__hq_keys` FROM `analytics`.`profiles` WHERE isNotNull(`customer_id`)"
+    }
+  }
+}
