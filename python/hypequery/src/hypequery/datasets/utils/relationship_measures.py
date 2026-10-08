@@ -17,6 +17,7 @@ from typing import Final
 
 from ..constants import QUERYABLE_RELATIONSHIP_KINDS
 from ..dataset import Dataset
+from ..derived_measures import DerivedMeasure
 from ..measures import Measure
 from ..relationships import Relationship
 
@@ -50,6 +51,8 @@ def relationship_measure_error(
             f'Unknown measure "{measure_name}" on relationship target "{target.name}". '
             f"Available: {known}"
         )
+    if isinstance(measure, DerivedMeasure):
+        return "Relationship traversal of derived measures is not supported."
     if (
         relationship.kind == "belongsTo"
         and measure.aggregation not in DUPLICATE_INSENSITIVE_AGGREGATIONS
@@ -88,6 +91,7 @@ def list_relationship_measures(
     return {
         f"{name}.{measure_name}": measure
         for measure_name, measure in target.measures.items()
-        if relationship_measure_error(f"{name}.{measure_name}", relationship, target, measure_name)
+        if isinstance(measure, Measure)
+        and relationship_measure_error(f"{name}.{measure_name}", relationship, target, measure_name)
         is None
     }

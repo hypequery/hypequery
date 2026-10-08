@@ -348,3 +348,24 @@ def test_an_unregistered_target_is_an_internal_error() -> None:
     with pytest.raises(CompiledQueryError) as raised:
         _sql(DatasetQuery(measures=("target.unique",)), registry=create_dataset_registry(Sources))
     assert raised.value.category == "internal"
+
+
+def test_related_measures_beside_a_local_derived_projection() -> None:
+    # Mirrors TypeScript's relationship-measures test of the same name.
+    from hypequery.datasets import add
+
+    sources = Dataset(
+        name=Sources.name,
+        source=Sources.source,
+        dimensions=Sources.dimensions,
+        measures={**Sources.measures, "twice": measure.derived(add("total", "total"))},
+        relationships=Sources.relationships,
+    )
+    sql = _sql(
+        DatasetQuery(measures=("twice", "target.unique")),
+        dataset=sources,
+        registry=create_dataset_registry(sources, Targets),
+    )
+    assert "AS `twice`" in sql
+    assert "AS `target.unique`" in sql
+    assert "isNotNull(`target`.`_hq_match`)" in sql

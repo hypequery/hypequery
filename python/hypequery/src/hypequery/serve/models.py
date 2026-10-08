@@ -2,14 +2,22 @@
 
 from __future__ import annotations
 
-from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt, StrictStr
+from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt, StrictStr, field_validator
 
 from ..datasets.planner import DatasetQuery
+from ..datasets.utils.query_timezone import validate_timezone
 from .utils.query_input import decode_filters, decode_having, decode_orders
 
 
 class QueryRequest(BaseModel):
     model_config = ConfigDict(extra="forbid", populate_by_name=False, allow_inf_nan=False)
+
+    timezone: StrictStr | None = None
+
+    @field_validator("timezone")
+    @classmethod
+    def _timezone(cls, value: str | None) -> str | None:
+        return None if value is None else validate_timezone(value)
 
     dimensions: list[StrictStr] = Field(default_factory=list, max_length=100)
     measures: list[StrictStr] | None = Field(default=None, max_length=100)
@@ -23,6 +31,7 @@ class QueryRequest(BaseModel):
 
     def semantic(self, limit: int, measures: tuple[str, ...] | None = None) -> DatasetQuery:
         return DatasetQuery(
+            timezone=self.timezone,
             dimensions=tuple(self.dimensions),
             measures=measures
             if measures is not None

@@ -26,6 +26,7 @@ from ..planner import (
 )
 from ..planner.settings import tighten_query_settings
 from ..registry import DatasetRegistry
+from ..utils.query_timezone import validate_timezone
 from .inputs import DatasetTarget, QueryInput, coerce_query, resolve_dataset
 from .results import (
     AsyncQueryExecutor,
@@ -52,17 +53,19 @@ class _Planned:
 
 
 class _DatasetClientBase:
-    __slots__ = ("_cache", "_registry", "_settings")
+    __slots__ = ("_cache", "_registry", "_settings", "_timezone")
 
     def __init__(
         self,
         registry: DatasetRegistry | None,
         settings: QuerySettings,
         cache: ResultCache | None,
+        timezone: str = "UTC",
     ) -> None:
         self._registry = registry
         self._settings = settings
         self._cache = cache
+        self._timezone = validate_timezone(timezone)
 
     def _plan(
         self,
@@ -74,6 +77,8 @@ class _DatasetClientBase:
     ) -> _Planned:
         dataset = resolve_dataset(target, self._registry)
         semantic = coerce_query(query)
+        if semantic.timezone is None:
+            semantic = semantic.model_copy(update={"timezone": self._timezone})
         if paginate and semantic.limit is None:
             cap = dataset.limits.max_result_size if dataset.limits else None
             semantic = semantic.model_copy(
@@ -257,8 +262,9 @@ class DatasetClient(_DatasetClientBase):
         registry: DatasetRegistry | None = None,
         settings: QuerySettings = DEFAULT_QUERY_SETTINGS,
         cache: ResultCache | None = None,
+        timezone: str = "UTC",
     ) -> None:
-        super().__init__(registry, settings, cache)
+        super().__init__(registry, settings, cache, timezone)
         self._executor = executor
 
     def for_tenant(self, scope: TenantScope) -> TenantDatasetClient:
@@ -321,8 +327,9 @@ class AsyncDatasetClient(_DatasetClientBase):
         registry: DatasetRegistry | None = None,
         settings: QuerySettings = DEFAULT_QUERY_SETTINGS,
         cache: ResultCache | None = None,
+        timezone: str = "UTC",
     ) -> None:
-        super().__init__(registry, settings, cache)
+        super().__init__(registry, settings, cache, timezone)
         self._executor = executor
 
     def for_tenant(self, scope: TenantScope) -> AsyncTenantDatasetClient:
@@ -372,6 +379,7 @@ def create_dataset_client(
     registry: DatasetRegistry | None = None,
     settings: QuerySettings = DEFAULT_QUERY_SETTINGS,
     cache: ResultCache | None = None,
+    timezone: str = "UTC",
 ) -> DatasetClient:
     """Create a synchronous dataset client.
 
@@ -381,7 +389,7 @@ def create_dataset_client(
     does not own *executor*; close it when the application stops.
     """
 
-    return DatasetClient(executor, registry, settings, cache)
+    return DatasetClient(executor, registry, settings, cache, timezone)
 
 
 def create_async_dataset_client(
@@ -390,7 +398,8 @@ def create_async_dataset_client(
     registry: DatasetRegistry | None = None,
     settings: QuerySettings = DEFAULT_QUERY_SETTINGS,
     cache: ResultCache | None = None,
+    timezone: str = "UTC",
 ) -> AsyncDatasetClient:
     """Create an async dataset client. See `create_dataset_client`."""
 
-    return AsyncDatasetClient(executor, registry, settings, cache)
+    return AsyncDatasetClient(executor, registry, settings, cache, timezone)

@@ -1,0 +1,190 @@
+{
+  "version": 3,
+  "datasets": {
+    "orders": {
+      "name": "orders",
+      "source": "test_db.beta_derived",
+      "tenantKey": "tenant_id",
+      "requiresTenant": true,
+      "supportedGrains": [],
+      "dimensions": {
+        "amount": {
+          "type": "number",
+          "filterable": true,
+          "groupable": true
+        },
+        "category": {
+          "type": "string",
+          "filterable": true,
+          "groupable": true
+        },
+        "status": {
+          "type": "string",
+          "filterable": true,
+          "groupable": true
+        }
+      },
+      "measures": {
+        "orders": {
+          "aggregation": "count",
+          "field": "amount"
+        },
+        "paidRevenue": {
+          "aggregation": "sum",
+          "field": "amount"
+        },
+        "revenue": {
+          "aggregation": "sum",
+          "field": "amount"
+        }
+      },
+      "derivedMeasures": {
+        "average": {
+          "uses": [
+            {
+              "alias": "orders",
+              "measure": "orders"
+            },
+            {
+              "alias": "revenue",
+              "measure": "revenue"
+            }
+          ],
+          "expression": {
+            "kind": "binary",
+            "operator": "divide",
+            "left": {
+              "kind": "reference",
+              "name": "revenue"
+            },
+            "right": {
+              "kind": "call",
+              "function": "nullIfZero",
+              "args": [
+                {
+                  "kind": "reference",
+                  "name": "orders"
+                }
+              ]
+            }
+          }
+        },
+        "paidRate": {
+          "uses": [
+            {
+              "alias": "paidRevenue",
+              "measure": "paidRevenue"
+            },
+            {
+              "alias": "revenue",
+              "measure": "revenue"
+            }
+          ],
+          "expression": {
+            "kind": "call",
+            "function": "coalesce",
+            "args": [
+              {
+                "kind": "binary",
+                "operator": "divide",
+                "left": {
+                  "kind": "reference",
+                  "name": "paidRevenue"
+                },
+                "right": {
+                  "kind": "call",
+                  "function": "nullIfZero",
+                  "args": [
+                    {
+                      "kind": "reference",
+                      "name": "revenue"
+                    }
+                  ]
+                }
+              },
+              {
+                "kind": "literal",
+                "value": 0.0
+              }
+            ]
+          }
+        },
+        "rounded": {
+          "uses": [
+            {
+              "alias": "average",
+              "measure": "average"
+            }
+          ],
+          "expression": {
+            "kind": "call",
+            "function": "round",
+            "args": [
+              {
+                "kind": "reference",
+                "name": "average"
+              },
+              {
+                "kind": "literal",
+                "value": 2.0
+              }
+            ]
+          }
+        }
+      },
+      "metrics": {},
+      "filters": {
+        "amount": {
+          "field": "amount",
+          "operators": [
+            "between",
+            "eq",
+            "gt",
+            "gte",
+            "in",
+            "like",
+            "lt",
+            "lte",
+            "neq",
+            "notIn"
+          ],
+          "valueType": "number"
+        },
+        "category": {
+          "field": "category",
+          "operators": [
+            "between",
+            "eq",
+            "gt",
+            "gte",
+            "in",
+            "like",
+            "lt",
+            "lte",
+            "neq",
+            "notIn"
+          ],
+          "valueType": "string"
+        },
+        "status": {
+          "field": "status",
+          "operators": [
+            "between",
+            "eq",
+            "gt",
+            "gte",
+            "in",
+            "like",
+            "lt",
+            "lte",
+            "neq",
+            "notIn"
+          ],
+          "valueType": "string"
+        }
+      },
+      "relationships": {}
+    }
+  },
+  "contentHash": "7d9f78c75b8f80db5f4d43c6438f111e0037788cdd77cd95ec23dd58a875d091"
+}

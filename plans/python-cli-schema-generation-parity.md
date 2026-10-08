@@ -40,8 +40,40 @@ Qualify sources with the actual database to avoid silently querying a different
 source when runtime connection settings change. Refuse existing output paths and
 roll back newly written files on failure. Discovery does not seed or modify data.
 
+## Regeneration contract
+
+`hypequery generate datasets` (also accepted as TypeScript's `generate:datasets`)
+writes `datasets.py` in the current directory, where Python init places it beside
+`app.py`. TypeScript defaults to `analytics/datasets.ts` because its init uses that
+layout; Python follows its own init layout instead. `--output` selects a file;
+`--path` selects a directory. Table inclusion and exclusion reuse
+init's metadata discovery. Repeat the original selection on every regeneration.
+
+`--check` and `--diff` never create directories or change files; drift or a missing
+file exits 1. Equal contents exit 0 without changing the modification time.
+Existing differing files require `--force`; force cannot be combined with either
+read-only option. Writes use a private temporary file, exclusive creation or atomic
+replacement, and cleanup on failure. Symlink destinations and parents are refused.
+Replacement keeps the existing file's permissions; new files use the umask default.
+Filesystems without hard links fall back to exclusive creation.
+
+Generation replaces definitions as a whole, including authored tenant_key settings,
+custom measures and relationships; review the diff before forcing. As in TypeScript,
+`--force` is the author's decision and is never refused for content. When the
+replaced file visibly configured `tenant_key`, the command warns that generated
+definitions do not; detection is best-effort and never executes authored code.
+Writes compare content and file identity with the pre-discovery snapshot; changes
+or a newly created destination abort even with `--force`. A per-output lock directory
+coordinates CLI writers through validation and replacement. It does not lock ordinary
+editors: avoid editing definitions during regeneration. On a crashed invocation,
+remove a leftover `.datasets.py.lock` directory only after confirming its owner (whose
+PID is recorded inside and reported on contention) stopped.
+Competing generators may create shared parent directories without causing failure.
+Tenant-column inference and automatic auth configuration remain unimplemented.
+The `schema.json` from init is explicitly an initial discovery snapshot, not a
+current catalog cache. Regeneration only updates the requested Python file.
+
 ## Remaining TypeScript-only scope
 
-Safe in-place `generate datasets --diff/--check/--force`, chDB, and context-auth
-scaffolding remain separate Python work. Refresh by generating into a new directory
-and reviewing the diff. Do not claim these capabilities as implemented in Python.
+chDB, explicit tenant-column generation and context-auth scaffolding remain separate
+Python work. Do not claim these capabilities as implemented in Python.

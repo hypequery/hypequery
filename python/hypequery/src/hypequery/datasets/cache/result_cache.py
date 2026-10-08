@@ -22,6 +22,7 @@ from hypequery.protocol import (
 from ..dataset import Dataset
 from ..planner import DatasetQuery, ExecutionContext
 from ..registry import DatasetRegistry
+from ..utils.query_timezone import timezone_identity
 from .preimage_inputs import (
     effective_row_limit,
     local_definition_identity,
@@ -114,8 +115,10 @@ class ResultCache:
         try:
             preimage = build_protocol_cache_preimage(
                 secret=self.secret,
-                definition_identity=self.definition_identity
-                or local_definition_identity(definitions),
+                definition_identity=timezone_identity(
+                    self.definition_identity or local_definition_identity(definitions),
+                    query.timezone,
+                ),
                 query=wire_query(dataset, query),
                 tenant=tenant_scope(context),
                 row_limit=effective_row_limit(dataset, query),

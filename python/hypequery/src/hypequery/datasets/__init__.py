@@ -60,6 +60,7 @@ from .contract import (
 from .dataset import Dataset, DatasetLimits, FilterDefinition, dataset
 from .deployment import build_protocol_dataset_contract, build_protocol_deployment_contract
 from .deployment_bundle import PreparedDatasetBundle, prepare_dataset_bundle, write_dataset_bundle
+from .derived_measures import DerivedMeasure
 from .dimensions import Dimension, DimensionType, dimension
 from .formulas import (
     Formula,
@@ -156,6 +157,7 @@ __all__ = [
     "DatasetQueryMeta",
     "DatasetQueryResult",
     "DatasetRegistry",
+    "DerivedMeasure",
     "Dimension",
     "DimensionCatalogEntry",
     "DimensionType",

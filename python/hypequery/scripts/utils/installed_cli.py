@@ -16,6 +16,7 @@ import time
 import urllib.error
 import urllib.request
 from pathlib import Path
+from typing import cast
 
 from getting_started import BUDGET_SECONDS, clickhouse
 
@@ -88,6 +89,9 @@ print(json.dumps({'version': version('hypequery')}))
                 ["--help"],
                 ["init", "--help"],
                 ["dev", "--help"],
+                ["generate", "datasets", "--help"],
+                ["generate:datasets", "--help"],
+                ["help", "generate"],
                 ["help"],
                 ["help", "init"],
                 ["help", "dev"],
@@ -162,12 +166,62 @@ assert all(find_spec(name) is None for name in optional)
             snapshot = json.loads((self.project / "schema.json").read_text())
             require(snapshot["database"] == database, "Discovery bound the wrong database")
             require(snapshot["tables"][0]["table"] == "orders", "Wrong table selection")
-            ground_truth = self._run(
-                [
-                    str(self.python),
-                    "-c",
-                    """
-import json, os
+            self._serve(schema_expected=self._schema_ground_truth())
+            args = [
+                str(self.cli),
+                "generate",
+                "datasets",
+                "--output",
+                str(self.project / "datasets.py"),
+                "--tables",
+                "orders",
+            ]
+            self._run([*args, "--check"])
+            original = (self.project / "datasets.py").read_bytes()
+            clickhouse(f"ALTER TABLE {database}.orders ADD COLUMN regeneration_probe String")
+            for flag in ("--check", "--diff"):
+                result = subprocess.run(  # noqa: S603
+                    [*args, flag],
+                    cwd=self.project,
+                    env=self.env,
+                    capture_output=True,
+                    text=True,
+                    timeout=30,
+                    check=False,
+                )
+                require(result.returncode == 1, "Schema drift must return status 1")
+                require(
+                    (self.project / "datasets.py").read_bytes() == original,
+                    "Read-only regeneration changed definitions",
+                )
+                if flag == "--diff":
+                    require("regenerationProbe" in result.stdout, "Diff missed added column")
+            self._run([*args, "--force"])
+            self._run([*args, "--check"])
+            clickhouse(
+                "INSERT INTO orders "
+                "(id, country, status, amount, created_at, regeneration_probe) "
+                "VALUES ('regenerated', 'NZ', 'paid', 12, now(), 'new-column-value')",
+                database=database,
+            )
+            self._serve(
+                schema_expected=self._schema_ground_truth(regenerated=True),
+                schema_query={
+                    "dimensions": ["regenerationProbe"],
+                    "measures": ["totalCount"],
+                    "orderBy": [{"field": "regenerationProbe", "direction": "asc"}],
+                },
+            )
+        finally:
+            clickhouse(f"DROP DATABASE IF EXISTS {database}")
+
+    def _schema_ground_truth(self, *, regenerated: bool = False) -> dict[str, object]:
+        result = self._run(
+            [
+                str(self.python),
+                "-c",
+                """
+import json, os, sys
 import clickhouse_connect
 client = clickhouse_connect.get_client(
     host=os.environ.get('CLICKHOUSE_HOST', 'localhost'),
@@ -177,19 +231,31 @@ client = clickhouse_connect.get_client(
     password=os.environ.get('CLICKHOUSE_PASSWORD', ''),
 )
 try:
-    result = client.query('SELECT id, toString(count()) FROM orders GROUP BY id ORDER BY id')
+    regenerated = sys.argv[1] == 'True'
+    query = (
+        'SELECT regeneration_probe, toString(count()) FROM orders '
+        'GROUP BY regeneration_probe ORDER BY regeneration_probe'
+        if regenerated else
+        'SELECT id, toString(count()) FROM orders GROUP BY id ORDER BY id'
+    )
+    result = client.query(query)
     rows = result.result_rows
-    print(json.dumps({'data': [{'id': row[0], 'totalCount': row[1]} for row in rows]}))
+    field = 'regenerationProbe' if regenerated else 'id'
+    print(json.dumps({'data': [{field: row[0], 'totalCount': row[1]} for row in rows]}))
 finally:
     client.close()
 """,
-                ]
-            )
-            self._serve(schema_expected=json.loads(ground_truth.stdout))
-        finally:
-            clickhouse(f"DROP DATABASE IF EXISTS {database}")
+                str(regenerated),
+            ]
+        )
+        return cast(dict[str, object], json.loads(result.stdout))
 
-    def _serve(self, *, schema_expected: dict[str, object] | None = None) -> None:
+    def _serve(
+        self,
+        *,
+        schema_expected: dict[str, object] | None = None,
+        schema_query: dict[str, object] | None = None,
+    ) -> None:
         with socket.socket() as probe:
             probe.bind(("127.0.0.1", 0))
             port = probe.getsockname()[1]
@@ -214,7 +280,9 @@ finally:
                         "Generated README must contain the tested query and response"
                     )
                 query = json.loads(query_match[1])
-                if schema_expected is not None:
+                if schema_query is not None:
+                    query = schema_query
+                elif schema_expected is not None:
                     query["orderBy"] = [{"field": "id", "direction": "asc"}]
                 expected = schema_expected or json.loads(
                     expected_match[1] if expected_match else "{}"
