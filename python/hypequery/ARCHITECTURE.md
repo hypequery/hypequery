@@ -15,7 +15,10 @@ the planner package and has no dependency on clients, caches or executors.
 | Query limits, reserved names and tenant capability validation | `planner/query_validation.py` |
 | Field and relationship name resolution | `planner/resolution.py` |
 | Filter value validation | `planner/filter_validation.py` |
-| Per-query selections, joins, predicates and parameter allocation | `planner/compiler.py` |
+| Per-query compiler state and orchestration | `planner/compiler.py` |
+| Field SQL, joins, dimensions, measures, filters, having, ordering | `planner/features/` (one module each) |
+| Statement clauses and their rendering | `planner/query_node.py` |
+| Aggregate calls, tenant predicates, operator spellings | `planner/aggregates.py`, `planner/predicates.py`, `planner/operators.py` |
 | SQL fragment rendering, including grains and pagination | `planner/sql_fragments.py` |
 | Identifier quoting and typed parameter binding | `planner/identifiers.py`, `planner/parameters.py` |
 | Planning entry point and execution metadata | `planner/planner.py` |
@@ -25,8 +28,13 @@ the planner package and has no dependency on clients, caches or executors.
 
 `plan_dataset_query()` runs admission, limit and reserved-name checks before
 creating a `DatasetQueryCompiler`. One compiler instance owns one query's mutable
-SQL state. Its methods resolve fields, register single-match joins, allocate
-typed parameters and produce SQL. The planning entry point wraps that output in
+state: a `DatasetSelectNode` of clauses, the parameter binder and the selected
+aliases. Following `@hypequery/clickhouse`'s query builder, each concern is a
+feature in `planner/features/` that holds the compiler and reaches the others
+through it. `compile()` calls them in a fixed order — dimensions, measures,
+filters, having, ordering — which is also the parameter allocation order, then
+renders the node. `tests/test_planner_golden_sql.py` pins the SQL and parameter
+order of every compiler path; structural changes must leave it unchanged. The planning entry point wraps that output in
 `CompiledQuery`, attaching settings, deadlines, cancellation and correlation
 metadata. Clients then execute or cache it.
 
