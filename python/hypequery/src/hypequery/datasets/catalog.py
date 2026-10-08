@@ -241,7 +241,9 @@ def get_dataset_catalog(dataset: Dataset, *, registry: DatasetRegistry) -> Datas
     if dataset.limits is not None:
         catalog["limits"] = _limits_entry(dataset.limits)
     catalog["requiresTenant"] = dataset.tenant_key is not None
-    catalog["supportedGrains"] = list(SUPPORTED_TIME_GRAINS) if dataset.time_key else []
+    catalog["supportedGrains"] = (
+        list(dataset.time_grains or SUPPORTED_TIME_GRAINS) if dataset.time_key else []
+    )
     catalog["orderableFields"] = [
         *dimensions,
         *dataset.measures,

@@ -1,0 +1,2 @@
+- Add explicit `time_grains` policies to Python datasets, enforced by the planner and dataset/metric HTTP endpoints and reflected in catalogs, semantic contracts and OpenAPI. Unsupported grains are rejected with TypeScript's message, `Unsupported time grain "hour". Supported: day, month`.
+- Deployment export refuses a policy that excludes any day-through-year grain, because contract 2 cannot preserve it. A policy that includes every one of those grains publishes unchanged, matching TypeScript.

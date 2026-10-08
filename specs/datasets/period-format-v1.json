@@ -1,0 +1,14 @@
+{
+  "description": "Result form of a grain bucket (RFC 0015): DateTime buckets render as wall-clock 'YYYY-MM-DD HH:MM:SS' in the query timezone, Date buckets as 'YYYY-MM-DD'. Each case stores `instant` in a DateTime64(3, 'UTC') time key and queries it by `grain` in `timezone`.",
+  "cases": [
+    {"grain": "minute", "timezone": "UTC", "instant": "2026-01-02T10:05:07.123Z", "period": "2026-01-02 10:05:00"},
+    {"grain": "hour", "timezone": "America/New_York", "instant": "2026-01-02T10:05:07.123Z", "period": "2026-01-02 05:00:00"},
+    {"grain": "hour", "timezone": "America/New_York", "instant": "2026-03-08T07:30:00Z", "period": "2026-03-08 03:00:00"},
+    {"grain": "day", "timezone": "America/New_York", "instant": "2026-01-02T03:00:00Z", "period": "2026-01-01 00:00:00"},
+    {"grain": "day", "timezone": "Asia/Kathmandu", "instant": "2026-01-01T18:20:00Z", "period": "2026-01-02 00:00:00"},
+    {"grain": "week", "timezone": "UTC", "instant": "2026-01-02T12:00:00Z", "period": "2025-12-28"},
+    {"grain": "month", "timezone": "America/Los_Angeles", "instant": "2026-02-01T05:00:00Z", "period": "2026-01-01"},
+    {"grain": "quarter", "timezone": "UTC", "instant": "2026-05-15T00:00:00Z", "period": "2026-04-01"},
+    {"grain": "year", "timezone": "Asia/Tokyo", "instant": "2025-12-31T16:00:00Z", "period": "2026-01-01"}
+  ]
+}

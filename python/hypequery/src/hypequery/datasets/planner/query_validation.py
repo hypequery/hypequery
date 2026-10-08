@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from ..dataset import Dataset
 from ..utils.derived_measures import base_measure_names
+from ..utils.portable_grains import unsupported_time_grain_error
 from .aliases import BASE_ALIAS
 from .context import ExecutionContext, TenantScope
 from .errors import CompiledQueryError
@@ -44,6 +45,10 @@ def resolve_tenant_scope(dataset: Dataset, context: ExecutionContext) -> TenantS
 
 
 def check_query_limits(dataset: Dataset, query: DatasetQuery) -> None:
+    if query.by is not None and dataset.time_grains is not None:
+        error = unsupported_time_grain_error(dataset.time_grains, query.by)
+        if error is not None:
+            raise CompiledQueryError("input-invalid", error)
     limits = dataset.limits
     if limits is None:
         return
