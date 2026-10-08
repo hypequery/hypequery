@@ -195,7 +195,7 @@ export function AiAnswers() {
   const { elapsed, replay } = useTimeline(inView, reduced);
 
   return (
-    <section aria-label="Claude and an in-app chat answering the same question from the same hypequery dataset" className="mx-auto max-w-[1280px] px-5 pb-4 pt-6 sm:px-8">
+    <section aria-label="Claude and an in-app chat answering the same question from the same hypequery dataset" className="mx-auto max-w-[1280px] px-5 pb-4 pt-12 sm:px-8 sm:pt-16">
       <div ref={ref} className="grid gap-4 md:grid-cols-2">
         <ClaudeTerminal elapsed={elapsed} />
         <AppChat elapsed={elapsed} />

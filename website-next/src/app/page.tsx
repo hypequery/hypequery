@@ -43,8 +43,8 @@ export default function Home() {
       <Navigation hasBanner />
       <main className="pt-[104px]">
         <Hero />
-        <AiAnswers />
         <AiAuthoring />
+        <AiAnswers />
         <ProductExplainer />
         <FeatureGrid />
         <DatasetQuickstart />

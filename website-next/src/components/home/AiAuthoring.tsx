@@ -17,7 +17,7 @@ const PROPOSALS = [
 
 export function AiAuthoring() {
   return (
-    <section aria-labelledby="ai-authoring-title" className="mx-auto max-w-[1280px] px-5 pb-4 pt-12 sm:px-8 sm:pt-16">
+    <section aria-labelledby="ai-authoring-title" className="mx-auto max-w-[1280px] px-5 pb-4 pt-6 sm:px-8">
       <div className="grid items-center gap-10 md:grid-cols-2">
         <div>
           <h2 id="ai-authoring-title" className="home-section-title text-text">Describe your business. Get a semantic layer.</h2>
