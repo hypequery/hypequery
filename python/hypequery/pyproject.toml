@@ -93,14 +93,15 @@ disallow_any_generics = true
 
 [tool.coverage.run]
 branch = true
-source = ["hypequery.datasets"]
+source = ["hypequery"]
 patch = ["subprocess"]
 parallel = true
 
 [tool.coverage.report]
 precision = 2
 show_missing = true
-fail_under = 95
+# Per-package floors live in scripts/check_coverage.py; this is the overall floor.
+fail_under = 88
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -108,8 +109,9 @@ pythonpath = ["."]
 addopts = "-q"
 
 # Import boundaries. These encode the layering the security roadmap requires:
-# protocol is the foundation, datasets builds on it, serve sits on top, and
-# neither protocol nor datasets may reach for a framework or a driver.
+# protocol is the foundation, datasets builds on it, execution adapts compiled
+# queries to a driver, serve sits on top, and the CLI composes all of them.
+# Neither protocol nor datasets may reach for a framework or a driver.
 [tool.importlinter]
 root_package = "hypequery"
 # Required because the forbidden-module contract below names third-party
@@ -117,9 +119,15 @@ root_package = "hypequery"
 include_external_packages = true
 
 [[tool.importlinter.contracts]]
-name = "Layered: serve -> datasets -> protocol"
+name = "Layered: cli -> serve -> execution -> datasets -> protocol"
 type = "layers"
-layers = ["hypequery.serve", "hypequery.datasets", "hypequery.protocol"]
+layers = [
+  "hypequery.cli",
+  "hypequery.serve",
+  "hypequery.execution",
+  "hypequery.datasets",
+  "hypequery.protocol",
+]
 
 [[tool.importlinter.contracts]]
 name = "protocol and datasets stay framework-free and driver-free"
