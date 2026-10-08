@@ -15,7 +15,7 @@ const softwareSchema = {
   applicationCategory: 'DeveloperApplication',
   operatingSystem: 'Cross-platform',
   description:
-    'Analytics as code for ClickHouse. Define measures, dimensions, and tenant rules once, then serve them to dashboards, APIs, and AI agents.',
+    'Ship AI analytics on ClickHouse. Analytics as code: define measures once, and AI agents, chat, and dashboards answer from the same governed definitions.',
   softwareVersion: 'latest',
   codeRepository: 'https://github.com/hypequery/hypequery',
   programmingLanguage: ['TypeScript', 'Python'],

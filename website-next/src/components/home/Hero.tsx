@@ -17,8 +17,8 @@ export function Hero() {
             <SiGithub className="h-3.5 w-3.5 text-text" aria-hidden="true" /><span className="font-semibold text-text">Open source</span><span className="border-l border-border pl-2">Apache 2.0</span>
           </a>
         </div>
-        <h1 className="whitespace-nowrap text-[clamp(1.625rem,5.4vw,4.6rem)] font-normal leading-[1.04] tracking-[-0.05em] text-text">Ship analytics on <em className="font-semibold italic">ClickHouse.</em></h1>
-        <p className="text-body-lg mt-4 max-w-[660px] text-text-muted">Analytics as code. Define measures, dimensions, and tenant rules once, then serve them to dashboards, APIs, and AI agents.</p>
+        <h1 className="whitespace-nowrap text-[clamp(1.375rem,5.4vw,4.6rem)] font-normal leading-[1.04] tracking-[-0.05em] text-text">Ship AI analytics on <em className="font-semibold italic">ClickHouse.</em></h1>
+        <p className="text-body-lg mt-4 max-w-[660px] text-text-muted">Analytics as code. Define measures once, and AI agents, chat, and dashboards answer from the same governed definitions.</p>
         <div className="mt-7 flex flex-wrap items-center gap-4">
           <DeployWaitlist location="hero" className="inline-flex min-h-12 items-center gap-3 rounded-lg bg-accent px-5 text-sm font-semibold text-white transition hover:-translate-y-0.5 hover:opacity-90 dark:text-[#0c0e14]" />
           <Link href="/docs/quick-start" className="inline-flex min-h-12 items-center text-sm font-semibold text-text transition hover:text-accent">Get started</Link>

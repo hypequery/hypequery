@@ -28,24 +28,24 @@ const displayFont = Space_Grotesk({
 export const metadata: Metadata = {
   metadataBase: siteUrl,
   title: {
-    default: "hypequery | Ship analytics on ClickHouse",
+    default: "hypequery | Ship AI analytics on ClickHouse",
     template: "%s | hypequery",
   },
-  description: "Analytics as code for ClickHouse. Define measures, dimensions, and tenant rules once, then serve them to dashboards, APIs, and AI agents.",
+  description: "Ship AI analytics on ClickHouse. Analytics as code: define measures once, and AI agents, chat, and dashboards answer from the same governed definitions.",
   alternates: {
     canonical: absoluteUrl('/'),
   },
   openGraph: {
     type: 'website',
     url: absoluteUrl('/'),
-    title: 'hypequery | Ship analytics on ClickHouse',
-    description: 'Analytics as code for ClickHouse. Define measures, dimensions, and tenant rules once, then serve them to dashboards, APIs, and AI agents.',
+    title: 'hypequery | Ship AI analytics on ClickHouse',
+    description: 'Ship AI analytics on ClickHouse. Analytics as code: define measures once, and AI agents, chat, and dashboards answer from the same governed definitions.',
     siteName: 'hypequery',
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'hypequery | Ship analytics on ClickHouse',
-    description: 'Analytics as code for ClickHouse. Define measures, dimensions, and tenant rules once, then serve them to dashboards, APIs, and AI agents.',
+    title: 'hypequery | Ship AI analytics on ClickHouse',
+    description: 'Ship AI analytics on ClickHouse. Analytics as code: define measures once, and AI agents, chat, and dashboards answer from the same governed definitions.',
   },
   manifest: "/site.webmanifest",
   icons: {

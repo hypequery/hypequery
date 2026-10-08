@@ -28,7 +28,7 @@ export function ogImage(title?: string) {
       url: url.toString(),
       width: 1200,
       height: 630,
-      alt: title ?? 'hypequery — Ship analytics on ClickHouse',
+      alt: title ?? 'hypequery — Ship AI analytics on ClickHouse',
     },
   ];
 }
