@@ -27,6 +27,9 @@ const DONE = (EXCHANGES.length - 1) * EXCHANGE_MS + T.answer + 1000;
 
 const CLAUDE_ORANGE = 'text-[#d97757]';
 
+// Clawd, the mascot on Claude Code's welcome screen.
+const CLAWD = [' ▐▛███▜▌', '▝▜█████▛▘', '  ▘▘ ▝▝'].join('\n');
+
 const reveal = {
   initial: { opacity: 0, y: 6 },
   animate: { opacity: 1, y: 0 },
@@ -131,9 +134,14 @@ function ClaudeTerminal({ elapsed, reduced }: { elapsed: number; reduced: boolea
         {/* A terminal fills from the bottom, just above the prompt. */}
         <div ref={ref} className="flex min-h-0 flex-1 flex-col overflow-y-auto px-5 pt-5 [scrollbar-width:none]">
           <div className="mt-auto space-y-5">
-            <div className="flex items-center gap-2 rounded-md border border-[#d97757]/40 px-3 py-2 text-[#a8a29e]">
-              <SiClaude className={`h-3.5 w-3.5 shrink-0 ${CLAUDE_ORANGE}`} aria-hidden="true" />
-              <span><span className="text-[#e8e6e3]">Claude Code</span> · hypequery MCP connected</span>
+            {/* Claude Code's welcome banner, with Clawd drawn in block characters. */}
+            <div className="flex items-center gap-4">
+              <pre className={`m-0 font-mono text-[12px] leading-[1.15] ${CLAUDE_ORANGE}`} aria-hidden="true">{CLAWD}</pre>
+              <div className="leading-5">
+                <div className="font-semibold">Claude Code</div>
+                <div className="text-[#a8a29e]">hypequery MCP connected</div>
+                <div className="text-[#a8a29e]">~/acme-analytics</div>
+              </div>
             </div>
 
             {EXCHANGES.map((exchange, index) => (
