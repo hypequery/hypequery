@@ -44,7 +44,8 @@ async function main() {
   let finishing: Promise<void> | undefined;
   const finish = (exit: CommandExit) => {
     finishing ??= (async () => {
-      await lifecycle.finish(exit, selected?.name() === 'help' ? selected.args[0] : undefined);
+      // finish() never rejects; the guard keeps cleanup independent of telemetry.
+      await lifecycle.finish(exit, selected?.name() === 'help' ? selected.args[0] : undefined).catch(() => undefined);
       await cleanupLoadedApiArtifacts();
     })();
     return finishing;
@@ -78,7 +79,8 @@ async function main() {
         ?? program.commands.find(command => requested === command.name())?.name();
       await lifecycle.begin('help');
       const code = commander.exitCode ?? 0;
-      await lifecycle.finish(new CommandExit(code, code ? 'failure' : 'success', code ? 'validation_failed' : undefined), topic);
+      await lifecycle.finish(new CommandExit(code, code ? 'failure' : 'success', code ? 'validation_failed' : undefined), topic)
+        .catch(() => undefined);
       process.exitCode = code;
       await cleanupLoadedApiArtifacts();
       return;

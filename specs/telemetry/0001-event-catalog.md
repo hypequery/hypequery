@@ -25,13 +25,18 @@ validate again before sending; validating once does not make mutable data safe.
 - `cli_command_completed`: exactly once per invocation, including help/version
   and unknown-command failures. Its command discriminant restricts properties and
   flags to that command. Never emit for `telemetry disable`.
-- `cli_session_started` and `cli_session_ended`: dev/MCP configuration and
-  aggregated shutdown counters. No individual reloads, requests or tool calls.
+- `cli_session_started` and `cli_session_ended` (planned): dev/MCP configuration
+  and aggregated shutdown counters. No individual reloads, requests or tool calls.
 - `cli_crash`: only a built-in exception-class enum and a stable error code.
   Custom classes become unknown; messages, stacks and error objects are forbidden.
-- `project_features`: aggregates from a module the command already loaded.
+- `project_features` (planned): aggregates from a module the command already loaded.
   Never load user code just for telemetry. Future instrumentation must deduplicate
   this event by project ID and day, at most once per project per day.
+
+The catalog, and the public reference generated from it, contains only events
+and command properties the CLI emits. Planned events and each command's
+completion properties join the catalog in the change that instruments them, so
+the published reference never describes collection that does not happen.
 
 All events contain the common environment/identity fields. Package versions are
 restricted to the shipped package-name allowlist and exact numeric release versions;

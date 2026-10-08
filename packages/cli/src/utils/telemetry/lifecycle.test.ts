@@ -35,33 +35,51 @@ describe('CLI telemetry lifecycle', () => {
     await lifecycle.finish(new CommandExit(0, 'success'));
     expect(JSON.parse(write.mock.calls[0][0]).properties.outcome).toBe('interrupted');
   });
+  it('never rejects when telemetry setup, recording or delivery fails', async () => {
+    const options = { configDirectory: directory, cwd: directory, env: { HYPEQUERY_TELEMETRY_DEBUG: '1' }, contextOptions: { isTTY: false } };
+    vi.spyOn(TelemetryInvocation, 'create').mockRejectedValueOnce(new Error('setup failed'));
+    const failedSetup = new CommandLifecycle(['init'], options);
+    await expect(failedSetup.begin('init')).resolves.toBeUndefined();
+    await expect(failedSetup.finish(new CommandExit(0, 'success'))).resolves.toBeUndefined();
+
+    const failedRecord = new CommandLifecycle(['init'], options);
+    await failedRecord.begin('init');
+    vi.spyOn(TelemetryInvocation.prototype, 'record').mockImplementation(() => { throw new Error('record failed'); });
+    await expect(failedRecord.finish(new CommandExit(0, 'success'))).resolves.toBeUndefined();
+    vi.mocked(TelemetryInvocation.prototype.record).mockRestore();
+
+    const failedFlush = new CommandLifecycle(['init'], options);
+    await failedFlush.begin('init');
+    vi.spyOn(TelemetryInvocation.prototype, 'flush').mockRejectedValue(new Error('flush failed'));
+    await expect(failedFlush.finish(new CommandExit(0, 'success'))).resolves.toBeUndefined();
+  });
   it('isolates concurrent command metrics and ignores mismatched command updates', async () => {
     const write = vi.fn();
     const options = { configDirectory: directory, cwd: directory, env: { HYPEQUERY_TELEMETRY_DEBUG: '1' }, contextOptions: { isTTY: false }, transportOptions: { write } };
     const init = new CommandLifecycle(['init'], options);
-    const generate = new CommandLifecycle(['generate'], options);
+    const other = new CommandLifecycle(['init'], options);
     await init.begin('init');
-    await generate.begin('generate');
+    await other.begin('init');
     await Promise.all([
       withCommandTelemetry(init, async () => {
         await Promise.resolve();
         updateCommandTelemetry('init', { style: 'datasets', table_count_bucket: undefined });
-        updateCommandTelemetry('generate', { custom_output: true });
+        // Metrics for a different command never reach this invocation.
+        updateCommandTelemetry('help', { help_topic: 'init' });
       }),
-      withCommandTelemetry(generate, async () => {
+      withCommandTelemetry(other, async () => {
         await Promise.resolve();
-        updateCommandTelemetry('generate', { custom_output: false });
+        updateCommandTelemetry('init', { style: 'queries' });
       }),
     ]);
     await init.finish(new CommandExit(0, 'success'));
-    await generate.finish(new CommandExit(0, 'success'));
+    await other.finish(new CommandExit(0, 'success'));
     const events = write.mock.calls.map(([event]) => JSON.parse(event));
     expect(events).toHaveLength(2);
     expect(events[0].properties).toMatchObject({ command: 'init', style: 'datasets' });
-    expect(events[0].properties).not.toHaveProperty('custom_output');
+    expect(events[1].properties).toMatchObject({ command: 'init', style: 'queries' });
+    expect(events[0].properties).not.toHaveProperty('help_topic');
     expect(events[0].properties).not.toHaveProperty('table_count_bucket');
-    expect(events[1].properties).toMatchObject({ command: 'generate', custom_output: false });
-    expect(events[1].properties).not.toHaveProperty('style');
   });
   it('debug and staged transport still honor every opt-out and suppress preference-command events', async () => {
     for (const env of [{ HYPEQUERY_TELEMETRY_DEBUG: '1', DO_NOT_TRACK: '1' }, { HYPEQUERY_TELEMETRY_DEBUG: '1', NODE_ENV: 'test' }, {}]) {

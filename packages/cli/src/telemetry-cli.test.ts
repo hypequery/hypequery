@@ -1,5 +1,6 @@
 import { execFile, spawn } from 'node:child_process';
 import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises';
+import { createServer as createTcpServer } from 'node:net';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { promisify } from 'node:util';
@@ -14,11 +15,12 @@ describe('compiled CLI telemetry regression', () => {
   beforeAll(async () => { directory = await mkdtemp(path.join(tmpdir(), 'hq-cli-regression-')); });
   afterAll(async () => { await rm(directory, { recursive: true, force: true }); });
 
-  async function run(args: string[], mode: 'off' | 'debug' | 'failing', cwd = directory, extraEnv: NodeJS.ProcessEnv = {}) {
+  async function run(args: string[], mode: 'off' | 'debug' | 'failing' | 'stalled', cwd = directory, extraEnv: NodeJS.ProcessEnv = {}) {
     const env = { ...process.env, ...extraEnv, HYPEQUERY_CONFIG_DIR: directory };
     for (const key of ['VITEST', 'NODE_ENV', 'DO_NOT_TRACK', 'HYPEQUERY_TELEMETRY_DISABLED', 'HYPEQUERY_TELEMETRY_URL', 'HYPEQUERY_TELEMETRY_DEBUG', 'GITHUB_ACTIONS']) delete env[key];
     if (mode === 'debug') env.HYPEQUERY_TELEMETRY_DEBUG = '1';
     else if (mode === 'failing') env.HYPEQUERY_TELEMETRY_URL = 'http://127.0.0.1:1/batch';
+    else if (mode === 'stalled') env.HYPEQUERY_TELEMETRY_URL = extraEnv.HYPEQUERY_TELEMETRY_URL;
     else env.HYPEQUERY_TELEMETRY_DISABLED = '1';
     let result: { stdout: string; stderr: string; code?: number };
     try { result = await execute(process.execPath, [bin, ...args], { cwd, env, timeout: 10_000 }); }
@@ -30,6 +32,27 @@ describe('compiled CLI telemetry regression', () => {
     }).join('\n');
     return { code: result.code ?? 0, stdout: result.stdout, stderr, events };
   }
+
+  it('exits promptly when the ingest endpoint never completes its connection', async () => {
+    // Accepts TCP but never answers the TLS handshake. Built-in fetch kept the
+    // process alive here for its ~10 s connect timeout even after aborting.
+    const sockets = new Set<import('node:net').Socket>();
+    const server = createTcpServer(socket => { sockets.add(socket); /* Never speak TLS. */ });
+    await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve));
+    const { port } = server.address() as { port: number };
+    try {
+      const off = await run(['init', '--help'], 'off');
+      const started = performance.now();
+      const stalled = await run(['init', '--help'], 'stalled', directory, { HYPEQUERY_TELEMETRY_URL: `https://127.0.0.1:${port}/batch` });
+      const elapsed = performance.now() - started;
+      expect({ code: stalled.code, stdout: stalled.stdout, stderr: stalled.stderr }).toEqual({ code: off.code, stdout: off.stdout, stderr: off.stderr });
+      expect(elapsed).toBeLessThan(2_000);
+    } finally {
+      // The server never reads, so it must drop accepted sockets itself.
+      for (const socket of sockets) socket.destroy();
+      await new Promise<void>(resolve => server.close(() => resolve()));
+    }
+  }, 30_000);
 
   it('preserves exit code and output for every command help page with telemetry on/off', async () => {
     for (const command of program.commands) {

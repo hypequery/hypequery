@@ -18,12 +18,17 @@ export class CommandLifecycle {
 
   constructor(private readonly args: readonly string[], private readonly options: Omit<InvocationOptions, 'command'> = {}) {}
 
+  /** Never rejects: telemetry setup must not affect the command it observes. */
   async begin(command: string, database?: string): Promise<void> {
-    this.command = knownCommand(command);
-    if (this.invocation !== undefined) return;
-    this.started = performance.now();
-    this.invocation = await TelemetryInvocation.create({ ...this.options, command: this.command,
-      contextOptions: { ...this.options.contextOptions, database } });
+    try {
+      this.command = knownCommand(command);
+      if (this.invocation !== undefined) return;
+      this.started = performance.now();
+      this.invocation = await TelemetryInvocation.create({ ...this.options, command: this.command,
+        contextOptions: { ...this.options.contextOptions, database } });
+    } catch {
+      this.invocation = null;
+    }
   }
 
   markInterrupted(): void { this.interrupted = true; }
@@ -35,9 +40,17 @@ export class CommandLifecycle {
 
   cancel(): void { this.cancelled = true; }
 
+  /** Never rejects: a telemetry failure must not change the command's exit or skip cleanup. */
   async finish(exit: CommandExit, helpTopic?: string): Promise<void> {
     if (this.completed) return;
     this.completed = true;
+    if (!this.invocation) return;
+    try {
+      await this.record(exit, helpTopic);
+    } catch { /* Delivery is best-effort; the command's own outcome stands. */ }
+  }
+
+  private async record(exit: CommandExit, helpTopic?: string): Promise<void> {
     if (!this.invocation) return;
     const properties = {
       ...this.invocation.common, ...this.metrics, command: this.command,
