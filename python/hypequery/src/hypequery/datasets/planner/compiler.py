@@ -450,8 +450,7 @@ class DatasetQueryCompiler:
         if isinstance(formula, FormulaLiteral):
             if formula.value is None:
                 return "NULL"
-            # TypeScript writes integer literals as ClickHouse integers, so
-            # integer-only formulas keep integer results; bind them alike.
+            # Bind as ClickHouse would type the same literal written inline.
             return self.binder.bind(formula.value, literal_parameter_type(formula.value))
         if isinstance(formula, FormulaBinary):
             operators = {"add": "+", "subtract": "-", "multiply": "*", "divide": "/"}

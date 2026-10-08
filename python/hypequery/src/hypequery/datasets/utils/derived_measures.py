@@ -29,7 +29,17 @@ def formula_references(formula: Formula) -> tuple[str, ...]:
 
 #: Per-formula limits, matching TypeScript's derived-measure validation.
 MAX_FORMULA_NODES = 256
-_INT64_RANGE = range(-(2**63), 2**63)
+# ClickHouse's own inference for inline integer literals, narrowest first.
+_INTEGER_TYPES = (
+    ("UInt8", range(0, 2**8)),
+    ("UInt16", range(0, 2**16)),
+    ("UInt32", range(0, 2**32)),
+    ("UInt64", range(0, 2**64)),
+    ("Int8", range(-(2**7), 0)),
+    ("Int16", range(-(2**15), 0)),
+    ("Int32", range(-(2**31), 0)),
+    ("Int64", range(-(2**63), 0)),
+)
 
 
 def formula_node_count(formula: Formula) -> int:
@@ -47,8 +57,19 @@ def formula_node_count(formula: Formula) -> int:
 
 
 def literal_parameter_type(value: bool | int | float) -> str:
-    """The ClickHouse type a numeric formula literal binds as."""
-    return "Int64" if type(value) is int and value in _INT64_RANGE else "Float64"
+    """The ClickHouse type a numeric formula literal binds as.
+
+    TypeScript writes literals inline, and ClickHouse types an inline integer as
+    the narrowest type that holds it (``0`` is ``UInt8``). Matching that keeps
+    integer arithmetic integral and lets ``coalesce(ratio, 0)`` stay ``Float64``:
+    ClickHouse has no common type for ``Float64`` and ``Int64`` (25.x refuses it;
+    26.x returns a ``Variant``), but does for the narrower integers.
+    """
+    if type(value) is int:
+        for clickhouse_type, values in _INTEGER_TYPES:
+            if value in values:
+                return clickhouse_type
+    return "Float64"
 
 
 def validate_derived_measures(

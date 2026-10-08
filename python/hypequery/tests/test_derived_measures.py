@@ -349,14 +349,43 @@ def test_literals_bind_like_typescript_writes_them() -> None:
         plusOne=measure.derived(add("orders", 1)),
         half=measure.derived(multiply("revenue", 0.5)),
         huge=measure.derived(add("orders", 2**63)),
+        negative=measure.derived(add("orders", -40000)),
     )
-    for name, expected in (("plusOne", "Int64"), ("half", "Float64"), ("huge", "Float64")):
+    for name, expected in (
+        ("plusOne", "UInt8"),
+        ("half", "Float64"),
+        ("huge", "UInt64"),
+        ("negative", "Int32"),
+    ):
         compiled = plan_dataset_query(
             ds, DatasetQuery(measures=(name,)), context=ExecutionContext(tenant=tenant("a"))
         )
         # The tenant scope binds as a String; the only other parameter is the literal.
         types = [parameter.clickhouse_type for parameter in compiled.parameters.values()]
         assert sorted(types) == sorted(["String", expected]), name
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        (0, "UInt8"),
+        (255, "UInt8"),
+        (256, "UInt16"),
+        (70000, "UInt32"),
+        (5_000_000_000, "UInt64"),
+        (-1, "Int8"),
+        (-129, "Int16"),
+        (-40000, "Int32"),
+        (-3_000_000_000, "Int64"),
+        (2**64, "Float64"),
+        (0.5, "Float64"),
+    ],
+)
+def test_integer_literals_take_clickhouse_inline_types(value: int | float, expected: str) -> None:
+    # Values checked against ClickHouse's toTypeName for the same inline literal.
+    from hypequery.datasets.utils.derived_measures import literal_parameter_type
+
+    assert literal_parameter_type(value) == expected
 
 
 def _balanced_sum(leaves: int) -> Formula:
