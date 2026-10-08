@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { motion, useInView, useReducedMotion } from 'motion/react';
-import { Database, RotateCcw, Sparkles } from 'lucide-react';
+import { RotateCcw, Sparkles } from 'lucide-react';
 import { SiClaude } from 'react-icons/si';
 
 const QUESTION = 'What was revenue by country last month?';
@@ -26,9 +26,8 @@ const T = {
   chatUser: 500,
   chatTyping: 1300,
   chatAnswer: 3600,
-  provenance: 4400,
 };
-const DONE = T.provenance + 400;
+const DONE = T.answer + 800;
 
 const CLAUDE_ORANGE = 'text-[#d97757]';
 
@@ -64,20 +63,6 @@ const reveal = {
   transition: { duration: 0.35, ease: [0.22, 1, 0.36, 1] as const },
 };
 
-function Provenance({ visible }: { visible: boolean }) {
-  return (
-    <motion.span
-      initial={false}
-      animate={{ opacity: visible ? 1 : 0, y: visible ? 0 : 4 }}
-      transition={{ duration: 0.4 }}
-      className="inline-flex items-center gap-1.5 rounded-md border border-accent/30 bg-accent-soft px-2 py-1 font-mono text-[10px] text-accent"
-    >
-      <Database className="h-2.5 w-2.5" aria-hidden="true" />
-      orders.revenue
-    </motion.span>
-  );
-}
-
 function ClaudeTerminal({ elapsed }: { elapsed: number }) {
   const typed = QUESTION.slice(0, Math.min(QUESTION.length, Math.floor(elapsed / T.typePerChar)));
   const typing = typed.length < QUESTION.length;
@@ -85,7 +70,7 @@ function ClaudeTerminal({ elapsed }: { elapsed: number }) {
   const glyph = SPINNER[Math.floor(elapsed / 110) % SPINNER.length];
 
   return (
-    <div className="flex h-[400px] flex-col overflow-hidden rounded-xl border border-white/10 bg-[#141413] shadow-card">
+    <div className="flex h-[360px] flex-col overflow-hidden rounded-xl border border-white/10 bg-[#141413] shadow-card">
       <div className="flex items-center gap-2 border-b border-white/10 px-4 py-3">
         <span className="h-2.5 w-2.5 rounded-full bg-[#ff5f57]" />
         <span className="h-2.5 w-2.5 rounded-full bg-[#febc2e]" />
@@ -147,9 +132,6 @@ function ClaudeTerminal({ elapsed }: { elapsed: number }) {
         )}
       </div>
 
-      <div className="px-5 pb-5">
-        <Provenance visible={elapsed >= T.provenance} />
-      </div>
     </div>
   );
 }
@@ -158,7 +140,7 @@ function AppChat({ elapsed }: { elapsed: number }) {
   const typing = elapsed >= T.chatTyping && elapsed < T.chatAnswer;
 
   return (
-    <div className="flex h-[400px] flex-col overflow-hidden rounded-xl border border-border bg-bg-card shadow-card">
+    <div className="flex h-[360px] flex-col overflow-hidden rounded-xl border border-border bg-bg-card shadow-card">
       <div className="flex items-center gap-2.5 border-b border-border px-4 py-3">
         <span className="flex h-6 w-6 items-center justify-center rounded-md bg-text text-[11px] font-semibold text-bg">A</span>
         <span className="text-xs font-medium text-text">Acme Analytics</span>
@@ -202,9 +184,6 @@ function AppChat({ elapsed }: { elapsed: number }) {
         )}
       </div>
 
-      <div className="px-5 pb-5">
-        <Provenance visible={elapsed >= T.provenance} />
-      </div>
     </div>
   );
 }
