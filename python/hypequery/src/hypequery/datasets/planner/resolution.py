@@ -30,6 +30,26 @@ def is_qualified(name: str) -> bool:
     return "." in name
 
 
+def physical_column(dataset: Dataset, field: str) -> str:
+    """The source column *field* reads: its dimension's column, else its own name.
+
+    A field with no dimension (a measure's raw input, say) names a column directly.
+    """
+
+    dimension = dataset.dimensions.get(field)
+    if dimension is not None and dimension.column:
+        return dimension.column
+    return field
+
+
+def selected_measure_names(dataset: Dataset, query: DatasetQuery) -> tuple[str, ...]:
+    """The measures *query* selects. Omitting the list selects every base measure."""
+
+    if query.measures is not None:
+        return query.measures
+    return base_measure_names(dataset.measures)
+
+
 @dataclass(frozen=True, slots=True)
 class ResolvedRelationshipField:
     """A `<relationship>.<dimension>` name, resolved to what it selects."""
@@ -183,10 +203,7 @@ def references_a_relationship(dataset: Dataset, query: DatasetQuery) -> bool:
         *(resolve_filter_field(dataset, item.field) for item in query.filters),
         *(order.field for order in query.order_by),
     ]
-    selected_measures = (
-        query.measures if query.measures is not None else base_measure_names(dataset.measures)
-    )
-    for measure_name in selected_measures:
+    for measure_name in selected_measure_names(dataset, query):
         names.append(measure_name)
         measure = dataset.measures.get(measure_name)
         if isinstance(measure, DerivedMeasure):

@@ -13,13 +13,12 @@ from typing import cast
 
 from ..dataset import Dataset
 from ..derived_measures import DerivedMeasure
-from ..dimensions import Dimension
 from ..formulas import Formula, FormulaBinary, FormulaLiteral, FormulaReference
 from ..measures import Measure
 from ..query_helpers import Filter, HavingCondition
 from ..registry import DatasetRegistry
 from ..relationships import Relationship
-from ..utils.derived_measures import base_measure_names, literal_parameter_type
+from ..utils.derived_measures import literal_parameter_type
 from ..utils.query_timezone import time_filter_value, validate_timezone
 from ..utils.relationship_measures import measure_filter_field
 from .aliases import BASE_ALIAS, PERIOD_ALIAS
@@ -38,11 +37,13 @@ from .query import DatasetQuery
 from .query_validation import resolve_tenant_scope
 from .resolution import (
     is_qualified,
+    physical_column,
     references_a_relationship,
     require_dimension,
     resolve_filter_field,
     resolve_qualified_field,
     resolve_relationship_measure,
+    selected_measure_names,
 )
 from .sql_fragments import (
     aliased,
@@ -87,6 +88,7 @@ class DatasetQueryCompiler:
         self.registry = registry
         self.context = context
         self.overfetch = overfetch
+        self.selected_measures = selected_measure_names(dataset, query)
         self.binder = ParameterBinder()
         self.timezone = validate_timezone(query.timezone or "UTC")
         self.timezone_placeholder: str | None = None
@@ -113,14 +115,8 @@ class DatasetQueryCompiler:
         query = self.query
         scope = resolve_tenant_scope(self.dataset, self.context)
 
-        # An omitted measure list selects every base measure, as `_add_measures` does.
-        selected_measures = (
-            query.measures
-            if query.measures is not None
-            else base_measure_names(self.dataset.measures)
-        )
         for name in query.dimensions:
-            if name in selected_measures:
+            if name in self.selected_measures:
                 raise CompiledQueryError(
                     "input-invalid",
                     f'Output "{name}" cannot be selected as both a dimension and a measure. '
@@ -171,9 +167,10 @@ class DatasetQueryCompiler:
         placeholder = self.binder.bind_array(scope.ids, "String")
         return f"{column_sql} IN {placeholder}"
 
-    def _base_column(self, dimension: Dimension | None, name: str) -> str:
+    def _base_column(self, name: str) -> str:
         """The SQL for a base-dataset field: its trusted expression or its column."""
 
+        dimension = self.dataset.dimensions.get(name)
         if dimension is not None and dimension.sql is not None:
             if self.joins_active:
                 # A raw expression is written unqualified, so a bare `price` in it
@@ -183,8 +180,7 @@ class DatasetQueryCompiler:
                     f'SQL-backed field "{name}" cannot be combined with relationship joins.',
                 )
             return trusted_expression(dimension.sql)
-        column = dimension.column if dimension is not None and dimension.column else name
-        column_sql = safe_identifier(column, what="column").sql
+        column_sql = safe_identifier(physical_column(self.dataset, name), what="column").sql
         return f"{BASE_ALIAS.sql}.{column_sql}" if self.joins_active else column_sql
 
     def _measure_join_source(self, relationship_name: str, target: Dataset) -> str:
@@ -202,7 +198,7 @@ class DatasetQueryCompiler:
             columns.append(target.tenant_key)
         for name, dimension in target.dimensions.items():
             if dimension.sql is None:
-                columns.append(dimension.column or name)
+                columns.append(physical_column(target, name))
         for name in self.query.measures or ():
             owner, _, measure_name = name.partition(".")
             if owner != relationship_name or measure_name not in target.measures:
@@ -212,8 +208,7 @@ class DatasetQueryCompiler:
                 continue
             for field in (measure.field, measure.arg_field):
                 if field is not None:
-                    declared = target.dimensions.get(field)
-                    columns.append(declared.column or field if declared else field)
+                    columns.append(physical_column(target, field))
         unique = list(dict.fromkeys(columns))
         marker = _MATCH_MARKER
         while marker in unique:
@@ -263,7 +258,7 @@ class DatasetQueryCompiler:
         alias = self._ensure_relationship_join(
             resolved.relationship_name, resolved.relationship, resolved.target
         )
-        column = resolved.dimension.column or resolved.dimension_name
+        column = physical_column(resolved.target, resolved.dimension_name)
         return f"{alias.sql}.{safe_identifier(column, what='column').sql}", alias
 
     def _field_sql(self, name: str) -> str:
@@ -272,7 +267,7 @@ class DatasetQueryCompiler:
         if is_qualified(name):
             expression, _ = self._ensure_join(name)
             return expression
-        return self._base_column(self.dataset.dimensions.get(name), name)
+        return self._base_column(name)
 
     def _time_sql(self, column: str) -> str:
         if self.timezone_placeholder is None:
@@ -282,12 +277,8 @@ class DatasetQueryCompiler:
     def _is_time_field(self, field: str) -> bool:
         if is_qualified(field) or self.dataset.time_key is None:
             return False
-        dimension = self.dataset.dimensions.get(field)
-        time_dimension = self.dataset.dimensions.get(self.dataset.time_key)
-        return (dimension.column or field if dimension else field) == (
-            time_dimension.column or self.dataset.time_key
-            if time_dimension
-            else self.dataset.time_key
+        return physical_column(self.dataset, field) == physical_column(
+            self.dataset, self.dataset.time_key
         )
 
     def _filter_bound(self, field: str, bound: object) -> object:
@@ -300,11 +291,7 @@ class DatasetQueryCompiler:
                     "input-invalid",
                     f'Cannot group by time — dataset "{self.dataset.name}" has no time key.',
                 )
-            time_column = self._time_sql(
-                self._base_column(
-                    self.dataset.dimensions.get(self.dataset.time_key), self.dataset.time_key
-                )
-            )
+            time_column = self._time_sql(self._base_column(self.dataset.time_key))
             bucket = grain_expression(query.by, time_column)
             # Group on the bucket itself; only the selected value is text.
             self.selections.append(aliased(period_value(bucket), PERIOD_ALIAS))
@@ -340,12 +327,8 @@ class DatasetQueryCompiler:
                 )
             target = trusted_expression(measure.sql)
         else:
-            target = self._base_column(self.dataset.dimensions.get(measure.field), measure.field)
-        arg = None
-        if measure.arg_field is not None:
-            arg = self._base_column(
-                self.dataset.dimensions.get(measure.arg_field), measure.arg_field
-            )
+            target = self._base_column(measure.field)
+        arg = None if measure.arg_field is None else self._base_column(measure.arg_field)
         return self._aggregate_call(name, measure, target, arg)
 
     def _aggregate_call(self, name: str, measure: Measure, target: str, arg: str | None) -> str:
@@ -424,9 +407,8 @@ class DatasetQueryCompiler:
         matched = f"isNotNull({alias.sql}.{marker.sql})"
 
         def guarded(field: str) -> str:
-            dimension = target.dimensions.get(field)
-            column = dimension.column or field if dimension is not None else field
-            return f"if({matched}, {alias.sql}.{safe_identifier(column, what='column').sql}, NULL)"
+            column = safe_identifier(physical_column(target, field), what="column").sql
+            return f"if({matched}, {alias.sql}.{column}, NULL)"
 
         measure = resolved.measure
         arg = guarded(measure.arg_field) if measure.arg_field is not None else None
@@ -478,16 +460,7 @@ class DatasetQueryCompiler:
         return self.measure_sql[name]
 
     def _add_measures(self, query: DatasetQuery) -> None:
-        names = (
-            query.measures
-            if query.measures is not None
-            else tuple(
-                name
-                for name, definition in self.dataset.measures.items()
-                if isinstance(definition, Measure)
-            )
-        )
-        for name in names:
+        for name in self.selected_measures:
             if is_qualified(name):
                 alias = SafeIdentifier(name)
                 self.measure_sql[name] = self._relationship_measure_sql(name)
@@ -594,13 +567,13 @@ class DatasetQueryCompiler:
             resolved = resolve_qualified_field(self.dataset, field, registry=self.registry)
             if resolved.target.tenant_key is None:
                 return False
-            column = resolved.dimension.column or resolved.dimension_name
-            return column == resolved.target.tenant_key
+            return (
+                physical_column(resolved.target, resolved.dimension_name)
+                == resolved.target.tenant_key
+            )
         if self.dataset.tenant_key is None:
             return False
-        dimension = self.dataset.dimensions.get(field)
-        column = dimension.column if dimension and dimension.column else field
-        return column == self.dataset.tenant_key
+        return physical_column(self.dataset, field) == self.dataset.tenant_key
 
     def _add_filters(self, query: DatasetQuery, scope: TenantScope | None) -> None:
         tenant_key = self.dataset.tenant_key
@@ -661,12 +634,8 @@ class DatasetQueryCompiler:
     def _add_having(self, query: DatasetQuery) -> None:
         """Conditions on aggregated values, every value bound as a parameter."""
 
+        selected = self.selected_measures
         for condition in query.having:
-            selected = (
-                query.measures
-                if query.measures is not None
-                else base_measure_names(self.dataset.measures)
-            )
             expression = (
                 self.measure_sql.get(condition.measure) if condition.measure in selected else None
             )
