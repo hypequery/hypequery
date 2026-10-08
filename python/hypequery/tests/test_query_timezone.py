@@ -4,10 +4,14 @@ from __future__ import annotations
 
 import json
 import os
+import secrets
+from collections.abc import Iterator
+from contextlib import contextmanager
 from pathlib import Path
-from typing import cast
+from typing import TYPE_CHECKING, cast
 
 import pytest
+from fastapi.testclient import TestClient
 from pydantic import ValidationError
 
 from hypequery.datasets import (
@@ -19,19 +23,38 @@ from hypequery.datasets import (
     create_dataset_client,
     dimension,
     eq,
+    gte,
+    lt,
     measure,
     plan_dataset_query,
 )
 from hypequery.datasets.client.results import ResultRows
 from hypequery.datasets.planner import CompiledQuery
 from hypequery.datasets.utils.query_timezone import time_filter_value, timezone_identity
-from hypequery.serve.models import QueryRequest
+from hypequery.serve import (
+    HttpSecurity,
+    Principal,
+    add_dataset_endpoint,
+    add_metric_endpoint,
+    create_app,
+    create_router,
+)
+from hypequery.serve.models import MetricRequest, QueryRequest
+
+if TYPE_CHECKING:
+    from clickhouse_connect.driver.client import Client
+
+    from hypequery.execution import ClickHouseExecutor
+
+LIVE = pytest.mark.skipif(
+    "HYPEQUERY_TEST_CLICKHOUSE_HOST" not in os.environ, reason="live ClickHouse required"
+)
 
 
 def dataset() -> Dataset:
     return Dataset(
         name="events",
-        source="test_db.beta_timezone",
+        source="events",
         time_key="occurred_at",
         dimensions={"at": dimension.timestamp(column="occurred_at")},
         measures={"rows": measure.count("occurred_at")},
@@ -44,8 +67,9 @@ def dataset() -> Dataset:
 def test_reject_invalid_zone(zone: object) -> None:
     with pytest.raises(ValidationError):
         DatasetQuery.model_validate({"timezone": zone})
-    with pytest.raises(ValidationError):
-        QueryRequest.model_validate({"timezone": zone})
+    for request in (QueryRequest, MetricRequest):
+        with pytest.raises(ValidationError):
+            request.model_validate({"timezone": zone})
 
 
 def test_zone_bound_and_local_filter_interpretation() -> None:
@@ -89,38 +113,51 @@ def test_client_default_override_and_cache_separation() -> None:
         create_dataset_client(executor=executor, timezone="bad")
 
 
-@pytest.mark.skipif(
-    "HYPEQUERY_TEST_CLICKHOUSE_HOST" not in os.environ, reason="live ClickHouse required"
-)
-def test_live_zone_buckets_and_filters_match_raw_sql() -> None:
+@contextmanager
+def live_database() -> Iterator[tuple[Client, ClickHouseExecutor]]:
+    """A uniquely named database, dropped afterwards; never a shared fixed table."""
     import clickhouse_connect
 
     from hypequery.execution import ClickHouseConnection, create_clickhouse_executor
+
+    host = os.environ["HYPEQUERY_TEST_CLICKHOUSE_HOST"]
+    port = int(os.environ.get("HYPEQUERY_TEST_CLICKHOUSE_PORT", "8123"))
+    password = os.environ["HYPEQUERY_TEST_CLICKHOUSE_PASSWORD"]
+    admin = clickhouse_connect.get_client(
+        host=host, port=port, username="default", password=password
+    )
+    database = f"hq_timezone_{secrets.token_hex(6)}"
+    admin.command(f"CREATE DATABASE {database}")
+    executor = None
+    try:
+        executor = create_clickhouse_executor(
+            ClickHouseConnection(
+                host=host, port=port, database=database, username="default", password=password
+            )
+        )
+        admin.command(f"USE {database}")
+        yield admin, executor
+    finally:
+        try:
+            if executor is not None:
+                executor.close()
+        finally:
+            try:
+                admin.command(f"DROP DATABASE IF EXISTS {database}")
+            finally:
+                admin.close()
+
+
+@LIVE
+def test_live_zone_buckets_and_filters_match_raw_sql() -> None:
     from hypequery.execution.results import DriverResult, decode_result
 
-    connection = ClickHouseConnection(
-        host=os.environ["HYPEQUERY_TEST_CLICKHOUSE_HOST"],
-        port=int(os.environ.get("HYPEQUERY_TEST_CLICKHOUSE_PORT", "8123")),
-        database="test_db",
-        username="default",
-        password=os.environ["HYPEQUERY_TEST_CLICKHOUSE_PASSWORD"],
-    )
-    admin = clickhouse_connect.get_client(
-        host=connection.host,
-        port=connection.port,
-        username=connection.username,
-        password=connection.password,
-        database="test_db",
-    )
-    executor = create_clickhouse_executor(connection)
-    try:
-        admin.command("DROP TABLE IF EXISTS beta_timezone")
+    with live_database() as (admin, executor):
         admin.command(
-            "CREATE TABLE beta_timezone "
-            "(occurred_at DateTime64(3, 'America/New_York')) ENGINE=Memory"
+            "CREATE TABLE events (occurred_at DateTime64(3, 'America/New_York')) ENGINE=Memory"
         )
         admin.command(
-            "INSERT INTO beta_timezone VALUES ('2026-03-07 23:30:00'), "
+            "INSERT INTO events VALUES ('2026-03-07 23:30:00'), "
             "('2026-03-08 01:30:00'), ('2026-03-08 03:30:00')"
         )
         client = create_dataset_client(executor=executor)
@@ -128,7 +165,7 @@ def test_live_zone_buckets_and_filters_match_raw_sql() -> None:
             actual = client.execute(dataset(), {"by": "day", "timezone": zone})
             raw = admin.query(
                 "SELECT toStartOfDay(toDateTime64(occurred_at, 9, {zone:String})) "
-                "AS period, count(occurred_at) AS rows FROM beta_timezone "
+                "AS period, count(occurred_at) AS rows FROM events "
                 "GROUP BY period ORDER BY period",
                 parameters={"zone": zone},
                 tz_mode="aware",
@@ -146,10 +183,104 @@ def test_live_zone_buckets_and_filters_match_raw_sql() -> None:
             },
         )
         assert filtered.data[0]["rows"] == 1
-    finally:
-        executor.close()
-        admin.command("DROP TABLE IF EXISTS beta_timezone")
-        admin.close()
+
+
+@LIVE
+@pytest.mark.parametrize("zone", ["UTC", "America/New_York", "Asia/Kathmandu"])
+def test_live_date_columns_keep_calendar_dates(zone: str) -> None:
+    # Matches TypeScript's "preserves Date32 calendar dates": a Date is a local
+    # date in the query zone, so no zone moves a row into a neighbouring day.
+    with live_database() as (admin, executor):
+        admin.command("CREATE TABLE days (day Date, day32 Date32, value Float64) ENGINE=Memory")
+        admin.command(
+            "INSERT INTO days VALUES ('2026-01-02', '2026-01-02', 10), "
+            "('2026-01-03', '2026-01-03', 20), ('2026-01-03', '2026-01-03', 30)"
+        )
+        client = create_dataset_client(executor=executor)
+        for column in ("day", "day32"):
+            days = Dataset(
+                name="days",
+                source="days",
+                time_key=column,
+                dimensions={column: dimension.timestamp()},
+                measures={"total": measure.sum("value")},
+            )
+            result = client.execute(days, {"by": "day", "timezone": zone})
+            local_dates = admin.query(
+                "SELECT toDate(parseDateTime64BestEffort({period:String}, 0, {zone:String}), "
+                "{zone:String})",
+                parameters={"period": str(result.data[0]["period"]), "zone": zone},
+            ).result_rows
+            assert str(local_dates[0][0]) == "2026-01-02"
+            assert [row["total"] for row in result.data] == [10.0, 50.0]
+
+
+@LIVE
+def test_live_offset_bounds_are_instants_and_local_bounds_follow_the_zone() -> None:
+    with live_database() as (admin, executor):
+        admin.command("CREATE TABLE events (occurred_at DateTime64(3, 'UTC')) ENGINE=Memory")
+        # 2026-01-02 in New York is [05:00Z, next day 05:00Z).
+        admin.command(
+            "INSERT INTO events VALUES ('2026-01-01 23:30:00'), "
+            "('2026-01-02 12:00:00'), ('2026-01-03 03:00:00')"
+        )
+        client = create_dataset_client(executor=executor)
+
+        def rows(lower: str, upper: str) -> object:
+            result = client.execute(
+                dataset(),
+                {
+                    "measures": ["rows"],
+                    "timezone": "America/New_York",
+                    "filters": [gte("at", lower), lt("at", upper)],
+                },
+            )
+            return result.data[0]["rows"]
+
+        assert rows("2026-01-02T00:00:00Z", "2026-01-03T00:00:00Z") == 1
+        assert rows("2026-01-02T00:00:00", "2026-01-03T00:00:00") == 2
+        assert rows("2026-01-02", "2026-01-03") == 2
+
+
+def _endpoint_client() -> tuple[RecordingExecutor, TestClient]:
+    executor = RecordingExecutor()
+    cache = ResultCache(store=MemoryCacheStore(), ttl_seconds=60, secret=b"b" * 32)
+    client = create_dataset_client(executor=executor, timezone="Asia/Tokyo", cache=cache)
+    router = create_router(authenticate=lambda credential: Principal(subject="reader"))
+    add_dataset_endpoint(router, "/dataset", dataset=dataset(), client=client)
+    add_metric_endpoint(router, "/metric", dataset=dataset(), client=client, measure="rows")
+    app = create_app(router, security=HttpSecurity(allowed_hosts=("testserver",)))
+    return executor, TestClient(app, headers={"Authorization": "Bearer test"})
+
+
+@pytest.mark.parametrize("path", ["/dataset", "/metric"])
+def test_endpoints_apply_client_default_and_request_override(path: str) -> None:
+    executor, http = _endpoint_client()
+    with http:
+        assert http.post(path, json={"by": "day"}).status_code == 200
+        response = http.post(path, json={"by": "day", "timezone": "America/New_York"})
+        assert response.status_code == 200, response.text
+        assert [query.parameter_values()["p0"] for query in executor.queries] == [
+            "Asia/Tokyo",
+            "America/New_York",
+        ]
+        invalid = http.post(path, json={"by": "day", "timezone": "+09:00"})
+        assert invalid.status_code == 400
+        assert invalid.json()["error"]["type"] == "VALIDATION_ERROR"
+        assert len(executor.queries) == 2
+
+
+def test_explicit_zone_equal_to_the_default_shares_its_cache_entry() -> None:
+    executor = RecordingExecutor()
+    cache = ResultCache(store=MemoryCacheStore(), ttl_seconds=60, secret=b"a" * 32)
+    client = create_dataset_client(executor=executor, timezone="Asia/Tokyo", cache=cache)
+    first = client.execute(dataset(), {"by": "day"})
+    hit = client.execute(dataset(), {"by": "day", "timezone": "Asia/Tokyo"})
+    assert len(executor.queries) == 1
+    assert hit.data == first.data
+    # The partition is the zone itself, so the default and an explicit UTC differ.
+    client.execute(dataset(), {"by": "day", "timezone": "UTC"})
+    assert len(executor.queries) == 2
 
 
 def test_shared_timezone_partition_fixture() -> None:
