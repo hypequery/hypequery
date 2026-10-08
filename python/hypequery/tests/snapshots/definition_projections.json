@@ -1,0 +1,5310 @@
+{
+  "catalogs": {
+    "accounts": {
+      "dimensions": {
+        "_hq_match": {
+          "filterable": true,
+          "groupable": true,
+          "type": "string"
+        },
+        "name": {
+          "filterable": true,
+          "groupable": true,
+          "type": "string"
+        }
+      },
+      "filters": {
+        "_hq_match": {
+          "field": "_hq_match",
+          "operators": [
+            "eq",
+            "neq",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in",
+            "notIn",
+            "between",
+            "like"
+          ],
+          "valueType": "string"
+        },
+        "name": {
+          "field": "name",
+          "operators": [
+            "eq",
+            "neq",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in",
+            "notIn",
+            "between",
+            "like"
+          ],
+          "valueType": "string"
+        }
+      },
+      "measures": {
+        "accountCount": {
+          "aggregation": "countDistinct",
+          "field": "name",
+          "filterCount": 0
+        }
+      },
+      "metrics": {},
+      "name": "accounts",
+      "orderableFields": [
+        "name",
+        "_hq_match",
+        "accountCount"
+      ],
+      "relationships": {},
+      "requiresTenant": false,
+      "source": "analytics.accounts",
+      "supportedGrains": []
+    },
+    "customers": {
+      "dimensions": {
+        "country": {
+          "filterable": true,
+          "groupable": true,
+          "type": "string"
+        },
+        "hidden": {
+          "filterable": true,
+          "groupable": false,
+          "type": "string"
+        },
+        "id": {
+          "filterable": true,
+          "groupable": true,
+          "type": "string"
+        },
+        "score": {
+          "column": "credit_score",
+          "filterable": true,
+          "groupable": true,
+          "type": "number"
+        },
+        "tier": {
+          "filterable": true,
+          "groupable": true,
+          "type": "string"
+        }
+      },
+      "filters": {
+        "country": {
+          "field": "country",
+          "operators": [
+            "eq",
+            "neq",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in",
+            "notIn",
+            "between",
+            "like"
+          ],
+          "valueType": "string"
+        },
+        "hidden": {
+          "field": "hidden",
+          "operators": [
+            "eq",
+            "neq",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in",
+            "notIn",
+            "between",
+            "like"
+          ],
+          "valueType": "string"
+        },
+        "id": {
+          "field": "id",
+          "operators": [
+            "eq",
+            "neq",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in",
+            "notIn",
+            "between",
+            "like"
+          ],
+          "valueType": "string"
+        },
+        "score": {
+          "field": "score",
+          "operators": [
+            "eq",
+            "neq",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in",
+            "notIn",
+            "between",
+            "like"
+          ],
+          "valueType": "number"
+        },
+        "tier": {
+          "field": "tier",
+          "operators": [
+            "eq",
+            "neq",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in",
+            "notIn",
+            "between",
+            "like"
+          ],
+          "valueType": "string"
+        }
+      },
+      "measures": {
+        "bestScore": {
+          "aggregation": "max",
+          "field": "score",
+          "filterCount": 0
+        },
+        "customerCount": {
+          "aggregation": "countDistinct",
+          "field": "id",
+          "filterCount": 0
+        },
+        "goldCustomers": {
+          "aggregation": "countDistinct",
+          "field": "id",
+          "filterCount": 1
+        },
+        "latestTier": {
+          "aggregation": "argMax",
+          "argField": "score",
+          "field": "tier",
+          "filterCount": 0
+        },
+        "scoreSum": {
+          "aggregation": "sum",
+          "field": "score",
+          "filterCount": 0
+        },
+        "worstScore": {
+          "aggregation": "min",
+          "field": "score",
+          "filterCount": 0
+        }
+      },
+      "metrics": {},
+      "name": "customers",
+      "orderableFields": [
+        "id",
+        "country",
+        "tier",
+        "score",
+        "hidden",
+        "customerCount",
+        "bestScore",
+        "worstScore",
+        "latestTier",
+        "goldCustomers",
+        "scoreSum",
+        "region.code",
+        "region.label",
+        "region.regionCount"
+      ],
+      "relationships": {
+        "region": {
+          "fields": [
+            "region.code",
+            "region.label"
+          ],
+          "from": "region_code",
+          "groupableFields": [
+            "region.code",
+            "region.label"
+          ],
+          "kind": "belongsTo",
+          "measures": {
+            "region.regionCount": {
+              "aggregation": "countDistinct",
+              "field": "code",
+              "filterCount": 0
+            }
+          },
+          "queryable": true,
+          "target": "regions",
+          "to": "code"
+        }
+      },
+      "requiresTenant": true,
+      "source": "analytics.customers",
+      "supportedGrains": [],
+      "tenantKey": "tenant_id"
+    },
+    "events": {
+      "dimensions": {
+        "doubled": {
+          "filterable": true,
+          "groupable": true,
+          "sql": "value * 2",
+          "type": "number"
+        },
+        "kind": {
+          "filterable": true,
+          "groupable": true,
+          "type": "string"
+        },
+        "ts": {
+          "filterable": true,
+          "groupable": true,
+          "type": "timestamp"
+        }
+      },
+      "filters": {
+        "doubled": {
+          "field": "doubled",
+          "operators": [
+            "eq",
+            "neq",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in",
+            "notIn",
+            "between",
+            "like"
+          ],
+          "valueType": "number"
+        },
+        "kind": {
+          "field": "kind",
+          "operators": [
+            "eq",
+            "neq",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in",
+            "notIn",
+            "between",
+            "like"
+          ],
+          "valueType": "string"
+        },
+        "ts": {
+          "field": "ts",
+          "operators": [
+            "eq",
+            "neq",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in",
+            "notIn",
+            "between",
+            "like"
+          ],
+          "valueType": "timestamp"
+        }
+      },
+      "limits": {
+        "maxResultSize": 500
+      },
+      "maxLimit": 500,
+      "measures": {
+        "events": {
+          "aggregation": "count",
+          "field": "kind",
+          "filterCount": 0
+        },
+        "rawTotal": {
+          "aggregation": "sum",
+          "field": "value",
+          "filterCount": 0,
+          "sql": "value * 2"
+        },
+        "total": {
+          "aggregation": "sum",
+          "field": "value",
+          "filterCount": 0
+        }
+      },
+      "metrics": {},
+      "name": "events",
+      "orderableFields": [
+        "kind",
+        "ts",
+        "doubled",
+        "events",
+        "total",
+        "rawTotal",
+        "period"
+      ],
+      "relationships": {},
+      "requiresTenant": false,
+      "source": "events",
+      "supportedGrains": [
+        "hour",
+        "day",
+        "week",
+        "month",
+        "quarter",
+        "year",
+        "minute"
+      ],
+      "timeKey": "ts"
+    },
+    "orders": {
+      "derivedMeasures": {
+        "average": {
+          "expression": {
+            "kind": "binary",
+            "left": {
+              "kind": "reference",
+              "name": "revenue"
+            },
+            "operator": "divide",
+            "right": {
+              "args": [
+                {
+                  "kind": "reference",
+                  "name": "orders"
+                }
+              ],
+              "function": "nullIfZero",
+              "kind": "call"
+            }
+          },
+          "uses": [
+            {
+              "alias": "orders",
+              "measure": "orders"
+            },
+            {
+              "alias": "revenue",
+              "measure": "revenue"
+            }
+          ]
+        },
+        "big": {
+          "expression": {
+            "kind": "binary",
+            "left": {
+              "kind": "reference",
+              "name": "orders"
+            },
+            "operator": "multiply",
+            "right": {
+              "kind": "literal",
+              "value": 70000.0
+            }
+          },
+          "uses": [
+            {
+              "alias": "orders",
+              "measure": "orders"
+            }
+          ]
+        },
+        "bounds": {
+          "expression": {
+            "kind": "binary",
+            "left": {
+              "args": [
+                {
+                  "kind": "reference",
+                  "name": "avgAmount"
+                }
+              ],
+              "function": "floor",
+              "kind": "call"
+            },
+            "operator": "add",
+            "right": {
+              "args": [
+                {
+                  "kind": "reference",
+                  "name": "avgAmount"
+                }
+              ],
+              "function": "ceil",
+              "kind": "call"
+            }
+          },
+          "uses": [
+            {
+              "alias": "avgAmount",
+              "measure": "avgAmount"
+            }
+          ]
+        },
+        "net": {
+          "expression": {
+            "kind": "binary",
+            "left": {
+              "kind": "binary",
+              "left": {
+                "kind": "reference",
+                "name": "revenue"
+              },
+              "operator": "multiply",
+              "right": {
+                "kind": "literal",
+                "value": 0.9
+              }
+            },
+            "operator": "subtract",
+            "right": {
+              "kind": "binary",
+              "left": {
+                "kind": "reference",
+                "name": "orders"
+              },
+              "operator": "add",
+              "right": {
+                "kind": "literal",
+                "value": -1.0
+              }
+            }
+          },
+          "uses": [
+            {
+              "alias": "orders",
+              "measure": "orders"
+            },
+            {
+              "alias": "revenue",
+              "measure": "revenue"
+            }
+          ]
+        },
+        "nothing": {
+          "expression": {
+            "args": [
+              {
+                "kind": "reference",
+                "name": "revenue"
+              },
+              {
+                "kind": "literal",
+                "value": null
+              }
+            ],
+            "function": "coalesce",
+            "kind": "call"
+          },
+          "uses": [
+            {
+              "alias": "revenue",
+              "measure": "revenue"
+            }
+          ]
+        },
+        "paidShare": {
+          "expression": {
+            "args": [
+              {
+                "kind": "binary",
+                "left": {
+                  "kind": "reference",
+                  "name": "paidRevenue"
+                },
+                "operator": "divide",
+                "right": {
+                  "args": [
+                    {
+                      "kind": "reference",
+                      "name": "revenue"
+                    }
+                  ],
+                  "function": "nullIfZero",
+                  "kind": "call"
+                }
+              },
+              {
+                "kind": "literal",
+                "value": 0.0
+              }
+            ],
+            "function": "coalesce",
+            "kind": "call"
+          },
+          "uses": [
+            {
+              "alias": "paidRevenue",
+              "measure": "paidRevenue"
+            },
+            {
+              "alias": "revenue",
+              "measure": "revenue"
+            }
+          ]
+        },
+        "rounded": {
+          "expression": {
+            "args": [
+              {
+                "kind": "reference",
+                "name": "average"
+              },
+              {
+                "kind": "literal",
+                "value": 2.0
+              }
+            ],
+            "function": "round",
+            "kind": "call"
+          },
+          "uses": [
+            {
+              "alias": "average",
+              "measure": "average"
+            }
+          ]
+        }
+      },
+      "dimensions": {
+        "amount": {
+          "column": "net_amount",
+          "filterable": true,
+          "groupable": true,
+          "type": "number"
+        },
+        "channel": {
+          "filterable": false,
+          "groupable": true,
+          "type": "string"
+        },
+        "created": {
+          "column": "created_at",
+          "filterable": true,
+          "groupable": true,
+          "type": "timestamp"
+        },
+        "created_at": {
+          "filterable": true,
+          "groupable": true,
+          "type": "timestamp"
+        },
+        "customer_id": {
+          "filterable": true,
+          "groupable": true,
+          "type": "string"
+        },
+        "paid": {
+          "filterable": true,
+          "groupable": true,
+          "type": "boolean"
+        },
+        "status": {
+          "filterable": true,
+          "groupable": true,
+          "type": "string"
+        }
+      },
+      "filters": {
+        "amount": {
+          "field": "amount",
+          "operators": [
+            "eq",
+            "neq",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in",
+            "notIn",
+            "between",
+            "like"
+          ],
+          "valueType": "number"
+        },
+        "created": {
+          "field": "created",
+          "operators": [
+            "eq",
+            "neq",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in",
+            "notIn",
+            "between",
+            "like"
+          ],
+          "valueType": "timestamp"
+        },
+        "created_at": {
+          "field": "created_at",
+          "operators": [
+            "eq",
+            "neq",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in",
+            "notIn",
+            "between",
+            "like"
+          ],
+          "valueType": "timestamp"
+        },
+        "customer_id": {
+          "field": "customer_id",
+          "operators": [
+            "eq",
+            "neq",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in",
+            "notIn",
+            "between",
+            "like"
+          ],
+          "valueType": "string"
+        },
+        "paid": {
+          "field": "paid",
+          "operators": [
+            "eq",
+            "neq",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in",
+            "notIn",
+            "between",
+            "like"
+          ],
+          "valueType": "boolean"
+        },
+        "status": {
+          "field": "status",
+          "operators": [
+            "eq",
+            "neq",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in",
+            "notIn",
+            "between",
+            "like"
+          ],
+          "valueType": "string"
+        },
+        "statusOnly": {
+          "field": "status",
+          "operators": [
+            "eq",
+            "in"
+          ],
+          "valueType": "string"
+        }
+      },
+      "measures": {
+        "avgAmount": {
+          "aggregation": "avg",
+          "field": "amount",
+          "filterCount": 0
+        },
+        "firstStatus": {
+          "aggregation": "argMin",
+          "argField": "created_at",
+          "field": "status",
+          "filterCount": 0
+        },
+        "goldRevenue": {
+          "aggregation": "sum",
+          "field": "amount",
+          "filterCount": 1
+        },
+        "lastStatus": {
+          "aggregation": "argMax",
+          "argField": "created_at",
+          "field": "status",
+          "filterCount": 0
+        },
+        "maxAmount": {
+          "aggregation": "max",
+          "field": "amount",
+          "filterCount": 0
+        },
+        "medianAmount": {
+          "aggregation": "percentile",
+          "field": "amount",
+          "filterCount": 0,
+          "level": 0.5
+        },
+        "minAmount": {
+          "aggregation": "min",
+          "field": "amount",
+          "filterCount": 0
+        },
+        "orders": {
+          "aggregation": "count",
+          "field": "status",
+          "filterCount": 0
+        },
+        "p95Amount": {
+          "aggregation": "percentile",
+          "field": "amount",
+          "filterCount": 0,
+          "level": 0.95
+        },
+        "paidCustomers": {
+          "aggregation": "countDistinct",
+          "field": "customer_id",
+          "filterCount": 1
+        },
+        "paidP90": {
+          "aggregation": "percentile",
+          "field": "amount",
+          "filterCount": 1,
+          "level": 0.9
+        },
+        "paidRevenue": {
+          "aggregation": "sum",
+          "field": "amount",
+          "filterCount": 2
+        },
+        "revenue": {
+          "aggregation": "sum",
+          "field": "amount",
+          "filterCount": 0
+        },
+        "spread": {
+          "aggregation": "stddev",
+          "field": "amount",
+          "filterCount": 0
+        },
+        "uniqueCustomers": {
+          "aggregation": "countDistinct",
+          "field": "customer_id",
+          "filterCount": 0
+        },
+        "variance": {
+          "aggregation": "variance",
+          "field": "amount",
+          "filterCount": 0
+        }
+      },
+      "metrics": {},
+      "name": "orders",
+      "orderableFields": [
+        "status",
+        "amount",
+        "paid",
+        "created",
+        "created_at",
+        "customer_id",
+        "channel",
+        "revenue",
+        "orders",
+        "uniqueCustomers",
+        "avgAmount",
+        "minAmount",
+        "maxAmount",
+        "medianAmount",
+        "p95Amount",
+        "spread",
+        "variance",
+        "lastStatus",
+        "firstStatus",
+        "paidRevenue",
+        "goldRevenue",
+        "paidP90",
+        "paidCustomers",
+        "average",
+        "rounded",
+        "paidShare",
+        "net",
+        "bounds",
+        "big",
+        "nothing",
+        "customer.id",
+        "customer.country",
+        "customer.tier",
+        "customer.score",
+        "customer.hidden",
+        "customer.customerCount",
+        "customer.bestScore",
+        "customer.worstScore",
+        "customer.latestTier",
+        "customer.goldCustomers",
+        "profile.customer_id",
+        "profile.plan",
+        "profile.profileAge",
+        "profile.profileCount",
+        "account.name",
+        "account._hq_match",
+        "account.accountCount",
+        "period"
+      ],
+      "relationships": {
+        "account": {
+          "fields": [
+            "account.name",
+            "account._hq_match"
+          ],
+          "from": "account_name",
+          "groupableFields": [
+            "account.name",
+            "account._hq_match"
+          ],
+          "keys": [
+            {
+              "from": "account_name",
+              "to": "name"
+            },
+            {
+              "from": "account_region",
+              "to": "region"
+            }
+          ],
+          "kind": "belongsTo",
+          "measures": {
+            "account.accountCount": {
+              "aggregation": "countDistinct",
+              "field": "name",
+              "filterCount": 0
+            }
+          },
+          "queryable": true,
+          "target": "accounts",
+          "to": "name"
+        },
+        "customer": {
+          "fields": [
+            "customer.id",
+            "customer.country",
+            "customer.tier",
+            "customer.score",
+            "customer.hidden"
+          ],
+          "from": "customer_id",
+          "groupableFields": [
+            "customer.id",
+            "customer.country",
+            "customer.tier",
+            "customer.score"
+          ],
+          "kind": "belongsTo",
+          "measures": {
+            "customer.bestScore": {
+              "aggregation": "max",
+              "field": "score",
+              "filterCount": 0
+            },
+            "customer.customerCount": {
+              "aggregation": "countDistinct",
+              "field": "id",
+              "filterCount": 0
+            },
+            "customer.goldCustomers": {
+              "aggregation": "countDistinct",
+              "field": "id",
+              "filterCount": 1
+            },
+            "customer.latestTier": {
+              "aggregation": "argMax",
+              "argField": "score",
+              "field": "tier",
+              "filterCount": 0
+            },
+            "customer.worstScore": {
+              "aggregation": "min",
+              "field": "score",
+              "filterCount": 0
+            }
+          },
+          "queryable": true,
+          "target": "customers",
+          "to": "id"
+        },
+        "lines": {
+          "fields": [],
+          "from": "id",
+          "groupableFields": [],
+          "kind": "hasMany",
+          "queryable": false,
+          "target": "profiles",
+          "to": "order_id"
+        },
+        "profile": {
+          "fields": [
+            "profile.customer_id",
+            "profile.plan"
+          ],
+          "from": "customer_id",
+          "groupableFields": [
+            "profile.customer_id",
+            "profile.plan"
+          ],
+          "kind": "hasOne",
+          "measures": {
+            "profile.profileAge": {
+              "aggregation": "avg",
+              "field": "age_days",
+              "filterCount": 0
+            },
+            "profile.profileCount": {
+              "aggregation": "count",
+              "field": "plan",
+              "filterCount": 0
+            }
+          },
+          "queryable": true,
+          "target": "profiles",
+          "to": "customer_id"
+        }
+      },
+      "requiresTenant": true,
+      "source": "analytics.orders",
+      "supportedGrains": [
+        "minute",
+        "hour",
+        "day",
+        "week",
+        "month",
+        "quarter",
+        "year"
+      ],
+      "tenantKey": "tenant_id",
+      "timeKey": "created_at"
+    },
+    "profiles": {
+      "dimensions": {
+        "customer_id": {
+          "filterable": true,
+          "groupable": true,
+          "type": "string"
+        },
+        "plan": {
+          "filterable": true,
+          "groupable": true,
+          "type": "string"
+        }
+      },
+      "filters": {
+        "customer_id": {
+          "field": "customer_id",
+          "operators": [
+            "eq",
+            "neq",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in",
+            "notIn",
+            "between",
+            "like"
+          ],
+          "valueType": "string"
+        },
+        "plan": {
+          "field": "plan",
+          "operators": [
+            "eq",
+            "neq",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in",
+            "notIn",
+            "between",
+            "like"
+          ],
+          "valueType": "string"
+        }
+      },
+      "measures": {
+        "profileAge": {
+          "aggregation": "avg",
+          "field": "age_days",
+          "filterCount": 0
+        },
+        "profileCount": {
+          "aggregation": "count",
+          "field": "plan",
+          "filterCount": 0
+        }
+      },
+      "metrics": {},
+      "name": "profiles",
+      "orderableFields": [
+        "customer_id",
+        "plan",
+        "profileAge",
+        "profileCount"
+      ],
+      "relationships": {},
+      "requiresTenant": false,
+      "source": "analytics.profiles",
+      "supportedGrains": []
+    },
+    "regions": {
+      "dimensions": {
+        "code": {
+          "filterable": true,
+          "groupable": true,
+          "type": "string"
+        },
+        "label": {
+          "column": "region_label",
+          "filterable": true,
+          "groupable": true,
+          "type": "string"
+        }
+      },
+      "filters": {
+        "code": {
+          "field": "code",
+          "operators": [
+            "eq",
+            "neq",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in",
+            "notIn",
+            "between",
+            "like"
+          ],
+          "valueType": "string"
+        },
+        "label": {
+          "field": "label",
+          "operators": [
+            "eq",
+            "neq",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in",
+            "notIn",
+            "between",
+            "like"
+          ],
+          "valueType": "string"
+        }
+      },
+      "measures": {
+        "regionCount": {
+          "aggregation": "countDistinct",
+          "field": "code",
+          "filterCount": 0
+        }
+      },
+      "metrics": {},
+      "name": "regions",
+      "orderableFields": [
+        "code",
+        "label",
+        "regionCount"
+      ],
+      "relationships": {},
+      "requiresTenant": true,
+      "source": "geo.regions",
+      "supportedGrains": [],
+      "tenantKey": "tenant_id"
+    }
+  },
+  "datasetContracts": {
+    "accounts": {
+      "dimensions": [
+        {
+          "filterable": true,
+          "groupable": true,
+          "name": "_hq_match",
+          "source": {
+            "column": "_hq_match",
+            "kind": "column"
+          },
+          "type": "string"
+        },
+        {
+          "filterable": true,
+          "groupable": true,
+          "name": "name",
+          "source": {
+            "column": "name",
+            "kind": "column"
+          },
+          "type": "string"
+        }
+      ],
+      "filters": [
+        {
+          "field": "_hq_match",
+          "name": "_hq_match",
+          "operators": [
+            "eq",
+            "neq",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in",
+            "notIn",
+            "between",
+            "like"
+          ]
+        },
+        {
+          "field": "name",
+          "name": "name",
+          "operators": [
+            "eq",
+            "neq",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in",
+            "notIn",
+            "between",
+            "like"
+          ]
+        }
+      ],
+      "measures": [
+        {
+          "aggregation": "countDistinct",
+          "field": "name",
+          "filters": [],
+          "name": "accountCount"
+        }
+      ],
+      "metrics": [],
+      "name": "accounts",
+      "relationships": [],
+      "source": "analytics.accounts",
+      "tenant": {
+        "kind": "not-required"
+      }
+    },
+    "customers": {
+      "dimensions": [
+        {
+          "filterable": true,
+          "groupable": true,
+          "name": "country",
+          "source": {
+            "column": "country",
+            "kind": "column"
+          },
+          "type": "string"
+        },
+        {
+          "filterable": true,
+          "groupable": false,
+          "name": "hidden",
+          "source": {
+            "column": "hidden",
+            "kind": "column"
+          },
+          "type": "string"
+        },
+        {
+          "filterable": true,
+          "groupable": true,
+          "name": "id",
+          "source": {
+            "column": "id",
+            "kind": "column"
+          },
+          "type": "string"
+        },
+        {
+          "filterable": true,
+          "groupable": true,
+          "name": "score",
+          "source": {
+            "column": "credit_score",
+            "kind": "column"
+          },
+          "type": "number"
+        },
+        {
+          "filterable": true,
+          "groupable": true,
+          "name": "tier",
+          "source": {
+            "column": "tier",
+            "kind": "column"
+          },
+          "type": "string"
+        }
+      ],
+      "filters": [
+        {
+          "field": "country",
+          "name": "country",
+          "operators": [
+            "eq",
+            "neq",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in",
+            "notIn",
+            "between",
+            "like"
+          ]
+        },
+        {
+          "field": "hidden",
+          "name": "hidden",
+          "operators": [
+            "eq",
+            "neq",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in",
+            "notIn",
+            "between",
+            "like"
+          ]
+        },
+        {
+          "field": "id",
+          "name": "id",
+          "operators": [
+            "eq",
+            "neq",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in",
+            "notIn",
+            "between",
+            "like"
+          ]
+        },
+        {
+          "field": "score",
+          "name": "score",
+          "operators": [
+            "eq",
+            "neq",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in",
+            "notIn",
+            "between",
+            "like"
+          ]
+        },
+        {
+          "field": "tier",
+          "name": "tier",
+          "operators": [
+            "eq",
+            "neq",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in",
+            "notIn",
+            "between",
+            "like"
+          ]
+        }
+      ],
+      "measures": [
+        {
+          "aggregation": "max",
+          "field": "score",
+          "filters": [],
+          "name": "bestScore"
+        },
+        {
+          "aggregation": "countDistinct",
+          "field": "id",
+          "filters": [],
+          "name": "customerCount"
+        },
+        {
+          "aggregation": "countDistinct",
+          "field": "id",
+          "filters": [
+            {
+              "kind": "comparison",
+              "left": {
+                "kind": "reference",
+                "name": "tier"
+              },
+              "operator": "eq",
+              "right": {
+                "kind": "literal",
+                "value": "gold"
+              }
+            }
+          ],
+          "name": "goldCustomers"
+        },
+        {
+          "aggregation": "argMax",
+          "argField": "score",
+          "field": "tier",
+          "filters": [],
+          "name": "latestTier"
+        },
+        {
+          "aggregation": "sum",
+          "field": "score",
+          "filters": [],
+          "name": "scoreSum"
+        },
+        {
+          "aggregation": "min",
+          "field": "score",
+          "filters": [],
+          "name": "worstScore"
+        }
+      ],
+      "metrics": [],
+      "name": "customers",
+      "relationships": [
+        {
+          "from": "region_code",
+          "kind": "belongsTo",
+          "name": "region",
+          "queryable": true,
+          "target": "regions",
+          "to": "code"
+        }
+      ],
+      "source": "analytics.customers",
+      "tenant": {
+        "field": "tenant_id",
+        "kind": "required"
+      }
+    },
+    "events": {
+      "dimensions": [
+        {
+          "filterable": true,
+          "groupable": true,
+          "name": "doubled",
+          "source": {
+            "dependencies": [
+              "value"
+            ],
+            "dialect": "clickhouse",
+            "kind": "sql-expression",
+            "output": {
+              "kind": "number"
+            },
+            "sql": "value * 2"
+          },
+          "type": "number"
+        },
+        {
+          "filterable": true,
+          "groupable": true,
+          "name": "kind",
+          "source": {
+            "column": "kind",
+            "kind": "column"
+          },
+          "type": "string"
+        },
+        {
+          "filterable": true,
+          "groupable": true,
+          "name": "ts",
+          "source": {
+            "column": "ts",
+            "kind": "column"
+          },
+          "type": "timestamp"
+        }
+      ],
+      "filters": [
+        {
+          "field": "doubled",
+          "name": "doubled",
+          "operators": [
+            "eq",
+            "neq",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in",
+            "notIn",
+            "between",
+            "like"
+          ]
+        },
+        {
+          "field": "kind",
+          "name": "kind",
+          "operators": [
+            "eq",
+            "neq",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in",
+            "notIn",
+            "between",
+            "like"
+          ]
+        },
+        {
+          "field": "ts",
+          "name": "ts",
+          "operators": [
+            "eq",
+            "neq",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in",
+            "notIn",
+            "between",
+            "like"
+          ]
+        }
+      ],
+      "limits": {
+        "maxResultSize": 500
+      },
+      "measures": [
+        {
+          "aggregation": "count",
+          "field": "kind",
+          "filters": [],
+          "name": "events"
+        },
+        {
+          "aggregation": "sum",
+          "field": "value",
+          "filters": [],
+          "name": "rawTotal",
+          "sql": {
+            "dependencies": [
+              "value"
+            ],
+            "dialect": "clickhouse",
+            "kind": "sql-expression",
+            "output": {
+              "kind": "any"
+            },
+            "sql": "value * 2"
+          }
+        },
+        {
+          "aggregation": "sum",
+          "field": "value",
+          "filters": [],
+          "name": "total"
+        }
+      ],
+      "metrics": [],
+      "name": "events",
+      "relationships": [],
+      "source": "events",
+      "tenant": {
+        "kind": "not-required"
+      },
+      "timeField": "ts"
+    },
+    "orders": {
+      "dimensions": [
+        {
+          "filterable": true,
+          "groupable": true,
+          "name": "amount",
+          "source": {
+            "column": "net_amount",
+            "kind": "column"
+          },
+          "type": "number"
+        },
+        {
+          "filterable": false,
+          "groupable": true,
+          "name": "channel",
+          "source": {
+            "column": "channel",
+            "kind": "column"
+          },
+          "type": "string"
+        },
+        {
+          "filterable": true,
+          "groupable": true,
+          "name": "created",
+          "source": {
+            "column": "created_at",
+            "kind": "column"
+          },
+          "type": "timestamp"
+        },
+        {
+          "filterable": true,
+          "groupable": true,
+          "name": "created_at",
+          "source": {
+            "column": "created_at",
+            "kind": "column"
+          },
+          "type": "timestamp"
+        },
+        {
+          "filterable": true,
+          "groupable": true,
+          "name": "customer_id",
+          "source": {
+            "column": "customer_id",
+            "kind": "column"
+          },
+          "type": "string"
+        },
+        {
+          "filterable": true,
+          "groupable": true,
+          "name": "paid",
+          "source": {
+            "column": "paid",
+            "kind": "column"
+          },
+          "type": "boolean"
+        },
+        {
+          "filterable": true,
+          "groupable": true,
+          "name": "status",
+          "source": {
+            "column": "status",
+            "kind": "column"
+          },
+          "type": "string"
+        }
+      ],
+      "filters": [
+        {
+          "field": "amount",
+          "name": "amount",
+          "operators": [
+            "eq",
+            "neq",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in",
+            "notIn",
+            "between",
+            "like"
+          ]
+        },
+        {
+          "field": "created",
+          "name": "created",
+          "operators": [
+            "eq",
+            "neq",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in",
+            "notIn",
+            "between",
+            "like"
+          ]
+        },
+        {
+          "field": "created_at",
+          "name": "created_at",
+          "operators": [
+            "eq",
+            "neq",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in",
+            "notIn",
+            "between",
+            "like"
+          ]
+        },
+        {
+          "field": "customer_id",
+          "name": "customer_id",
+          "operators": [
+            "eq",
+            "neq",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in",
+            "notIn",
+            "between",
+            "like"
+          ]
+        },
+        {
+          "field": "paid",
+          "name": "paid",
+          "operators": [
+            "eq",
+            "neq",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in",
+            "notIn",
+            "between",
+            "like"
+          ]
+        },
+        {
+          "field": "status",
+          "name": "status",
+          "operators": [
+            "eq",
+            "neq",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in",
+            "notIn",
+            "between",
+            "like"
+          ]
+        },
+        {
+          "field": "status",
+          "name": "statusOnly",
+          "operators": [
+            "eq",
+            "in"
+          ]
+        }
+      ],
+      "measures": [
+        {
+          "aggregation": "avg",
+          "field": "amount",
+          "filters": [],
+          "name": "avgAmount"
+        },
+        {
+          "aggregation": "argMin",
+          "argField": "created_at",
+          "field": "status",
+          "filters": [],
+          "name": "firstStatus"
+        },
+        {
+          "aggregation": "sum",
+          "field": "amount",
+          "filters": [
+            {
+              "kind": "comparison",
+              "left": {
+                "kind": "reference",
+                "name": "customer.tier"
+              },
+              "operator": "eq",
+              "right": {
+                "kind": "literal",
+                "value": "gold"
+              }
+            }
+          ],
+          "name": "goldRevenue"
+        },
+        {
+          "aggregation": "argMax",
+          "argField": "created_at",
+          "field": "status",
+          "filters": [],
+          "name": "lastStatus"
+        },
+        {
+          "aggregation": "max",
+          "field": "amount",
+          "filters": [],
+          "name": "maxAmount"
+        },
+        {
+          "aggregation": "percentile",
+          "field": "amount",
+          "filters": [],
+          "level": 0.5,
+          "name": "medianAmount"
+        },
+        {
+          "aggregation": "min",
+          "field": "amount",
+          "filters": [],
+          "name": "minAmount"
+        },
+        {
+          "aggregation": "count",
+          "field": "status",
+          "filters": [],
+          "name": "orders"
+        },
+        {
+          "aggregation": "percentile",
+          "field": "amount",
+          "filters": [],
+          "level": 0.95,
+          "name": "p95Amount"
+        },
+        {
+          "aggregation": "countDistinct",
+          "field": "customer_id",
+          "filters": [
+            {
+              "kind": "comparison",
+              "left": {
+                "kind": "reference",
+                "name": "status"
+              },
+              "operator": "in",
+              "right": {
+                "kind": "literal",
+                "value": {
+                  "$hypequery": {
+                    "type": "array",
+                    "values": [
+                      "paid",
+                      "settled"
+                    ],
+                    "version": 1
+                  }
+                }
+              }
+            }
+          ],
+          "name": "paidCustomers"
+        },
+        {
+          "aggregation": "percentile",
+          "field": "amount",
+          "filters": [
+            {
+              "kind": "comparison",
+              "left": {
+                "kind": "reference",
+                "name": "status"
+              },
+              "operator": "eq",
+              "right": {
+                "kind": "literal",
+                "value": "paid"
+              }
+            }
+          ],
+          "level": 0.9,
+          "name": "paidP90"
+        },
+        {
+          "aggregation": "sum",
+          "field": "amount",
+          "filters": [
+            {
+              "kind": "comparison",
+              "left": {
+                "kind": "reference",
+                "name": "status"
+              },
+              "operator": "eq",
+              "right": {
+                "kind": "literal",
+                "value": "paid"
+              }
+            },
+            {
+              "kind": "comparison",
+              "left": {
+                "kind": "reference",
+                "name": "amount"
+              },
+              "operator": "gte",
+              "right": {
+                "kind": "literal",
+                "value": 10.0
+              }
+            }
+          ],
+          "name": "paidRevenue"
+        },
+        {
+          "aggregation": "sum",
+          "field": "amount",
+          "filters": [],
+          "name": "revenue"
+        },
+        {
+          "aggregation": "stddev",
+          "field": "amount",
+          "filters": [],
+          "name": "spread"
+        },
+        {
+          "aggregation": "countDistinct",
+          "field": "customer_id",
+          "filters": [],
+          "name": "uniqueCustomers"
+        },
+        {
+          "aggregation": "variance",
+          "field": "amount",
+          "filters": [],
+          "name": "variance"
+        }
+      ],
+      "metrics": [],
+      "name": "orders",
+      "relationships": [
+        {
+          "from": "account_name",
+          "keys": [
+            {
+              "from": "account_name",
+              "to": "name"
+            },
+            {
+              "from": "account_region",
+              "to": "region"
+            }
+          ],
+          "kind": "belongsTo",
+          "name": "account",
+          "queryable": true,
+          "target": "accounts",
+          "to": "name"
+        },
+        {
+          "from": "customer_id",
+          "kind": "belongsTo",
+          "name": "customer",
+          "queryable": true,
+          "target": "customers",
+          "to": "id"
+        },
+        {
+          "from": "id",
+          "kind": "hasMany",
+          "name": "lines",
+          "queryable": false,
+          "target": "profiles",
+          "to": "order_id"
+        },
+        {
+          "from": "customer_id",
+          "kind": "hasOne",
+          "name": "profile",
+          "queryable": true,
+          "target": "profiles",
+          "to": "customer_id"
+        }
+      ],
+      "source": "analytics.orders",
+      "tenant": {
+        "field": "tenant_id",
+        "kind": "required"
+      },
+      "timeField": "created_at"
+    },
+    "profiles": {
+      "dimensions": [
+        {
+          "filterable": true,
+          "groupable": true,
+          "name": "customer_id",
+          "source": {
+            "column": "customer_id",
+            "kind": "column"
+          },
+          "type": "string"
+        },
+        {
+          "filterable": true,
+          "groupable": true,
+          "name": "plan",
+          "source": {
+            "column": "plan",
+            "kind": "column"
+          },
+          "type": "string"
+        }
+      ],
+      "filters": [
+        {
+          "field": "customer_id",
+          "name": "customer_id",
+          "operators": [
+            "eq",
+            "neq",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in",
+            "notIn",
+            "between",
+            "like"
+          ]
+        },
+        {
+          "field": "plan",
+          "name": "plan",
+          "operators": [
+            "eq",
+            "neq",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in",
+            "notIn",
+            "between",
+            "like"
+          ]
+        }
+      ],
+      "measures": [
+        {
+          "aggregation": "avg",
+          "field": "age_days",
+          "filters": [],
+          "name": "profileAge"
+        },
+        {
+          "aggregation": "count",
+          "field": "plan",
+          "filters": [],
+          "name": "profileCount"
+        }
+      ],
+      "metrics": [],
+      "name": "profiles",
+      "relationships": [],
+      "source": "analytics.profiles",
+      "tenant": {
+        "kind": "not-required"
+      }
+    },
+    "regions": {
+      "dimensions": [
+        {
+          "filterable": true,
+          "groupable": true,
+          "name": "code",
+          "source": {
+            "column": "code",
+            "kind": "column"
+          },
+          "type": "string"
+        },
+        {
+          "filterable": true,
+          "groupable": true,
+          "name": "label",
+          "source": {
+            "column": "region_label",
+            "kind": "column"
+          },
+          "type": "string"
+        }
+      ],
+      "filters": [
+        {
+          "field": "code",
+          "name": "code",
+          "operators": [
+            "eq",
+            "neq",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in",
+            "notIn",
+            "between",
+            "like"
+          ]
+        },
+        {
+          "field": "label",
+          "name": "label",
+          "operators": [
+            "eq",
+            "neq",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in",
+            "notIn",
+            "between",
+            "like"
+          ]
+        }
+      ],
+      "measures": [
+        {
+          "aggregation": "countDistinct",
+          "field": "code",
+          "filters": [],
+          "name": "regionCount"
+        }
+      ],
+      "metrics": [],
+      "name": "regions",
+      "relationships": [],
+      "source": "geo.regions",
+      "tenant": {
+        "field": "tenant_id",
+        "kind": "required"
+      }
+    }
+  },
+  "deployment": {
+    "datasets": [
+      {
+        "dimensions": [
+          {
+            "filterable": true,
+            "groupable": true,
+            "name": "_hq_match",
+            "source": {
+              "column": "_hq_match",
+              "kind": "column"
+            },
+            "type": "string"
+          },
+          {
+            "filterable": true,
+            "groupable": true,
+            "name": "name",
+            "source": {
+              "column": "name",
+              "kind": "column"
+            },
+            "type": "string"
+          }
+        ],
+        "filters": [
+          {
+            "field": "_hq_match",
+            "name": "_hq_match",
+            "operators": [
+              "eq",
+              "neq",
+              "gt",
+              "gte",
+              "lt",
+              "lte",
+              "in",
+              "notIn",
+              "between",
+              "like"
+            ]
+          },
+          {
+            "field": "name",
+            "name": "name",
+            "operators": [
+              "eq",
+              "neq",
+              "gt",
+              "gte",
+              "lt",
+              "lte",
+              "in",
+              "notIn",
+              "between",
+              "like"
+            ]
+          }
+        ],
+        "measures": [
+          {
+            "aggregation": "countDistinct",
+            "field": "name",
+            "filters": [],
+            "name": "accountCount"
+          }
+        ],
+        "name": "accounts",
+        "relationships": [],
+        "source": "analytics.accounts",
+        "tenant": {
+          "kind": "not-required"
+        }
+      },
+      {
+        "dimensions": [
+          {
+            "filterable": true,
+            "groupable": true,
+            "name": "country",
+            "source": {
+              "column": "country",
+              "kind": "column"
+            },
+            "type": "string"
+          },
+          {
+            "filterable": true,
+            "groupable": false,
+            "name": "hidden",
+            "source": {
+              "column": "hidden",
+              "kind": "column"
+            },
+            "type": "string"
+          },
+          {
+            "filterable": true,
+            "groupable": true,
+            "name": "id",
+            "source": {
+              "column": "id",
+              "kind": "column"
+            },
+            "type": "string"
+          },
+          {
+            "filterable": true,
+            "groupable": true,
+            "name": "score",
+            "source": {
+              "column": "credit_score",
+              "kind": "column"
+            },
+            "type": "number"
+          },
+          {
+            "filterable": true,
+            "groupable": true,
+            "name": "tier",
+            "source": {
+              "column": "tier",
+              "kind": "column"
+            },
+            "type": "string"
+          }
+        ],
+        "endpoint": {
+          "access": {
+            "kind": "authenticated",
+            "roles": [
+              "analyst"
+            ],
+            "scopes": []
+          },
+          "path": "/api/datasets/customers/query",
+          "tenant": {
+            "column": "tenant_id",
+            "kind": "required",
+            "mode": "auto-inject"
+          }
+        },
+        "filters": [
+          {
+            "field": "country",
+            "name": "country",
+            "operators": [
+              "eq",
+              "neq",
+              "gt",
+              "gte",
+              "lt",
+              "lte",
+              "in",
+              "notIn",
+              "between",
+              "like"
+            ]
+          },
+          {
+            "field": "hidden",
+            "name": "hidden",
+            "operators": [
+              "eq",
+              "neq",
+              "gt",
+              "gte",
+              "lt",
+              "lte",
+              "in",
+              "notIn",
+              "between",
+              "like"
+            ]
+          },
+          {
+            "field": "id",
+            "name": "id",
+            "operators": [
+              "eq",
+              "neq",
+              "gt",
+              "gte",
+              "lt",
+              "lte",
+              "in",
+              "notIn",
+              "between",
+              "like"
+            ]
+          },
+          {
+            "field": "score",
+            "name": "score",
+            "operators": [
+              "eq",
+              "neq",
+              "gt",
+              "gte",
+              "lt",
+              "lte",
+              "in",
+              "notIn",
+              "between",
+              "like"
+            ]
+          },
+          {
+            "field": "tier",
+            "name": "tier",
+            "operators": [
+              "eq",
+              "neq",
+              "gt",
+              "gte",
+              "lt",
+              "lte",
+              "in",
+              "notIn",
+              "between",
+              "like"
+            ]
+          }
+        ],
+        "measures": [
+          {
+            "aggregation": "max",
+            "field": "score",
+            "filters": [],
+            "name": "bestScore"
+          },
+          {
+            "aggregation": "countDistinct",
+            "field": "id",
+            "filters": [],
+            "name": "customerCount"
+          },
+          {
+            "aggregation": "countDistinct",
+            "field": "id",
+            "filters": [
+              {
+                "kind": "comparison",
+                "left": {
+                  "kind": "reference",
+                  "name": "tier"
+                },
+                "operator": "eq",
+                "right": {
+                  "kind": "literal",
+                  "value": "gold"
+                }
+              }
+            ],
+            "name": "goldCustomers"
+          },
+          {
+            "aggregation": "argMax",
+            "argField": "score",
+            "field": "tier",
+            "filters": [],
+            "name": "latestTier"
+          },
+          {
+            "aggregation": "sum",
+            "field": "score",
+            "filters": [],
+            "name": "scoreSum"
+          },
+          {
+            "aggregation": "min",
+            "field": "score",
+            "filters": [],
+            "name": "worstScore"
+          }
+        ],
+        "name": "customers",
+        "relationships": [
+          {
+            "from": "region_code",
+            "kind": "belongsTo",
+            "name": "region",
+            "queryable": true,
+            "target": "regions",
+            "to": "code"
+          }
+        ],
+        "source": "analytics.customers",
+        "tenant": {
+          "field": "tenant_id",
+          "kind": "required"
+        }
+      },
+      {
+        "dimensions": [
+          {
+            "filterable": true,
+            "groupable": true,
+            "name": "doubled",
+            "source": {
+              "dependencies": [
+                "value"
+              ],
+              "dialect": "clickhouse",
+              "kind": "sql-expression",
+              "output": {
+                "kind": "number"
+              },
+              "sql": "value * 2"
+            },
+            "type": "number"
+          },
+          {
+            "filterable": true,
+            "groupable": true,
+            "name": "kind",
+            "source": {
+              "column": "kind",
+              "kind": "column"
+            },
+            "type": "string"
+          },
+          {
+            "filterable": true,
+            "groupable": true,
+            "name": "ts",
+            "source": {
+              "column": "ts",
+              "kind": "column"
+            },
+            "type": "timestamp"
+          }
+        ],
+        "filters": [
+          {
+            "field": "doubled",
+            "name": "doubled",
+            "operators": [
+              "eq",
+              "neq",
+              "gt",
+              "gte",
+              "lt",
+              "lte",
+              "in",
+              "notIn",
+              "between",
+              "like"
+            ]
+          },
+          {
+            "field": "kind",
+            "name": "kind",
+            "operators": [
+              "eq",
+              "neq",
+              "gt",
+              "gte",
+              "lt",
+              "lte",
+              "in",
+              "notIn",
+              "between",
+              "like"
+            ]
+          },
+          {
+            "field": "ts",
+            "name": "ts",
+            "operators": [
+              "eq",
+              "neq",
+              "gt",
+              "gte",
+              "lt",
+              "lte",
+              "in",
+              "notIn",
+              "between",
+              "like"
+            ]
+          }
+        ],
+        "limits": {
+          "maxResultSize": 500
+        },
+        "measures": [
+          {
+            "aggregation": "count",
+            "field": "kind",
+            "filters": [],
+            "name": "events"
+          },
+          {
+            "aggregation": "sum",
+            "field": "value",
+            "filters": [],
+            "name": "rawTotal",
+            "sql": {
+              "dependencies": [
+                "value"
+              ],
+              "dialect": "clickhouse",
+              "kind": "sql-expression",
+              "output": {
+                "kind": "any"
+              },
+              "sql": "value * 2"
+            }
+          },
+          {
+            "aggregation": "sum",
+            "field": "value",
+            "filters": [],
+            "name": "total"
+          }
+        ],
+        "name": "events",
+        "relationships": [],
+        "source": "events",
+        "tenant": {
+          "kind": "not-required"
+        },
+        "timeField": "ts"
+      },
+      {
+        "dimensions": [
+          {
+            "filterable": true,
+            "groupable": true,
+            "name": "customer_id",
+            "source": {
+              "column": "customer_id",
+              "kind": "column"
+            },
+            "type": "string"
+          },
+          {
+            "filterable": true,
+            "groupable": true,
+            "name": "plan",
+            "source": {
+              "column": "plan",
+              "kind": "column"
+            },
+            "type": "string"
+          }
+        ],
+        "filters": [
+          {
+            "field": "customer_id",
+            "name": "customer_id",
+            "operators": [
+              "eq",
+              "neq",
+              "gt",
+              "gte",
+              "lt",
+              "lte",
+              "in",
+              "notIn",
+              "between",
+              "like"
+            ]
+          },
+          {
+            "field": "plan",
+            "name": "plan",
+            "operators": [
+              "eq",
+              "neq",
+              "gt",
+              "gte",
+              "lt",
+              "lte",
+              "in",
+              "notIn",
+              "between",
+              "like"
+            ]
+          }
+        ],
+        "measures": [
+          {
+            "aggregation": "avg",
+            "field": "age_days",
+            "filters": [],
+            "name": "profileAge"
+          },
+          {
+            "aggregation": "count",
+            "field": "plan",
+            "filters": [],
+            "name": "profileCount"
+          }
+        ],
+        "name": "profiles",
+        "relationships": [],
+        "source": "analytics.profiles",
+        "tenant": {
+          "kind": "not-required"
+        }
+      },
+      {
+        "dimensions": [
+          {
+            "filterable": true,
+            "groupable": true,
+            "name": "code",
+            "source": {
+              "column": "code",
+              "kind": "column"
+            },
+            "type": "string"
+          },
+          {
+            "filterable": true,
+            "groupable": true,
+            "name": "label",
+            "source": {
+              "column": "region_label",
+              "kind": "column"
+            },
+            "type": "string"
+          }
+        ],
+        "filters": [
+          {
+            "field": "code",
+            "name": "code",
+            "operators": [
+              "eq",
+              "neq",
+              "gt",
+              "gte",
+              "lt",
+              "lte",
+              "in",
+              "notIn",
+              "between",
+              "like"
+            ]
+          },
+          {
+            "field": "label",
+            "name": "label",
+            "operators": [
+              "eq",
+              "neq",
+              "gt",
+              "gte",
+              "lt",
+              "lte",
+              "in",
+              "notIn",
+              "between",
+              "like"
+            ]
+          }
+        ],
+        "measures": [
+          {
+            "aggregation": "countDistinct",
+            "field": "code",
+            "filters": [],
+            "name": "regionCount"
+          }
+        ],
+        "name": "regions",
+        "relationships": [],
+        "source": "geo.regions",
+        "tenant": {
+          "field": "tenant_id",
+          "kind": "required"
+        }
+      }
+    ],
+    "kind": "hypequery-deployment",
+    "version": 2
+  },
+  "discovery": {
+    "datasets": [
+      {
+        "description": "accounts analytics dataset.",
+        "dimensions": [
+          {
+            "filterable": true,
+            "groupable": true,
+            "name": "_hq_match",
+            "type": "string"
+          },
+          {
+            "filterable": true,
+            "groupable": true,
+            "name": "name",
+            "type": "string"
+          }
+        ],
+        "filters": [
+          {
+            "name": "_hq_match",
+            "operators": [
+              "between",
+              "eq",
+              "gt",
+              "gte",
+              "in",
+              "like",
+              "lt",
+              "lte",
+              "neq",
+              "notIn"
+            ],
+            "type": "string"
+          },
+          {
+            "name": "name",
+            "operators": [
+              "between",
+              "eq",
+              "gt",
+              "gte",
+              "in",
+              "like",
+              "lt",
+              "lte",
+              "neq",
+              "notIn"
+            ],
+            "type": "string"
+          }
+        ],
+        "limits": {},
+        "measures": [
+          {
+            "name": "accountCount"
+          }
+        ],
+        "metrics": [],
+        "name": "accounts",
+        "relationships": [],
+        "timeDimension": null
+      },
+      {
+        "description": "customers analytics dataset.",
+        "dimensions": [
+          {
+            "filterable": true,
+            "groupable": true,
+            "name": "country",
+            "type": "string"
+          },
+          {
+            "filterable": true,
+            "groupable": false,
+            "name": "hidden",
+            "type": "string"
+          },
+          {
+            "filterable": true,
+            "groupable": true,
+            "name": "id",
+            "type": "string"
+          },
+          {
+            "filterable": true,
+            "groupable": true,
+            "name": "score",
+            "type": "number"
+          },
+          {
+            "filterable": true,
+            "groupable": true,
+            "name": "tier",
+            "type": "string"
+          }
+        ],
+        "filters": [
+          {
+            "name": "country",
+            "operators": [
+              "between",
+              "eq",
+              "gt",
+              "gte",
+              "in",
+              "like",
+              "lt",
+              "lte",
+              "neq",
+              "notIn"
+            ],
+            "type": "string"
+          },
+          {
+            "name": "hidden",
+            "operators": [
+              "between",
+              "eq",
+              "gt",
+              "gte",
+              "in",
+              "like",
+              "lt",
+              "lte",
+              "neq",
+              "notIn"
+            ],
+            "type": "string"
+          },
+          {
+            "name": "id",
+            "operators": [
+              "between",
+              "eq",
+              "gt",
+              "gte",
+              "in",
+              "like",
+              "lt",
+              "lte",
+              "neq",
+              "notIn"
+            ],
+            "type": "string"
+          },
+          {
+            "name": "score",
+            "operators": [
+              "between",
+              "eq",
+              "gt",
+              "gte",
+              "in",
+              "like",
+              "lt",
+              "lte",
+              "neq",
+              "notIn"
+            ],
+            "type": "number"
+          },
+          {
+            "name": "tier",
+            "operators": [
+              "between",
+              "eq",
+              "gt",
+              "gte",
+              "in",
+              "like",
+              "lt",
+              "lte",
+              "neq",
+              "notIn"
+            ],
+            "type": "string"
+          }
+        ],
+        "limits": {},
+        "measures": [
+          {
+            "name": "bestScore"
+          },
+          {
+            "name": "customerCount"
+          },
+          {
+            "name": "goldCustomers"
+          },
+          {
+            "name": "latestTier"
+          },
+          {
+            "name": "region.regionCount"
+          },
+          {
+            "name": "scoreSum"
+          },
+          {
+            "name": "worstScore"
+          }
+        ],
+        "metrics": [],
+        "name": "customers",
+        "relationships": [
+          {
+            "fields": [
+              "region.code",
+              "region.label"
+            ],
+            "name": "region",
+            "target": "regions"
+          }
+        ],
+        "timeDimension": null
+      },
+      {
+        "description": "events analytics dataset.",
+        "dimensions": [
+          {
+            "filterable": true,
+            "groupable": true,
+            "name": "doubled",
+            "type": "number"
+          },
+          {
+            "filterable": true,
+            "groupable": true,
+            "name": "kind",
+            "type": "string"
+          },
+          {
+            "filterable": true,
+            "groupable": true,
+            "name": "ts",
+            "type": "timestamp"
+          }
+        ],
+        "filters": [
+          {
+            "name": "doubled",
+            "operators": [
+              "between",
+              "eq",
+              "gt",
+              "gte",
+              "in",
+              "like",
+              "lt",
+              "lte",
+              "neq",
+              "notIn"
+            ],
+            "type": "number"
+          },
+          {
+            "name": "kind",
+            "operators": [
+              "between",
+              "eq",
+              "gt",
+              "gte",
+              "in",
+              "like",
+              "lt",
+              "lte",
+              "neq",
+              "notIn"
+            ],
+            "type": "string"
+          },
+          {
+            "name": "ts",
+            "operators": [
+              "between",
+              "eq",
+              "gt",
+              "gte",
+              "in",
+              "like",
+              "lt",
+              "lte",
+              "neq",
+              "notIn"
+            ],
+            "type": "timestamp"
+          }
+        ],
+        "limits": {
+          "maxResultSize": 500
+        },
+        "measures": [
+          {
+            "name": "events"
+          },
+          {
+            "name": "rawTotal"
+          },
+          {
+            "name": "total"
+          }
+        ],
+        "metrics": [],
+        "name": "events",
+        "relationships": [],
+        "timeDimension": "ts"
+      },
+      {
+        "description": "orders analytics dataset.",
+        "dimensions": [
+          {
+            "filterable": true,
+            "groupable": true,
+            "name": "amount",
+            "type": "number"
+          },
+          {
+            "filterable": false,
+            "groupable": true,
+            "name": "channel",
+            "type": "string"
+          },
+          {
+            "filterable": true,
+            "groupable": true,
+            "name": "created",
+            "type": "timestamp"
+          },
+          {
+            "filterable": true,
+            "groupable": true,
+            "name": "created_at",
+            "type": "timestamp"
+          },
+          {
+            "filterable": true,
+            "groupable": true,
+            "name": "customer_id",
+            "type": "string"
+          },
+          {
+            "filterable": true,
+            "groupable": true,
+            "name": "paid",
+            "type": "boolean"
+          },
+          {
+            "filterable": true,
+            "groupable": true,
+            "name": "status",
+            "type": "string"
+          }
+        ],
+        "filters": [
+          {
+            "name": "amount",
+            "operators": [
+              "between",
+              "eq",
+              "gt",
+              "gte",
+              "in",
+              "like",
+              "lt",
+              "lte",
+              "neq",
+              "notIn"
+            ],
+            "type": "number"
+          },
+          {
+            "name": "created",
+            "operators": [
+              "between",
+              "eq",
+              "gt",
+              "gte",
+              "in",
+              "like",
+              "lt",
+              "lte",
+              "neq",
+              "notIn"
+            ],
+            "type": "timestamp"
+          },
+          {
+            "name": "created_at",
+            "operators": [
+              "between",
+              "eq",
+              "gt",
+              "gte",
+              "in",
+              "like",
+              "lt",
+              "lte",
+              "neq",
+              "notIn"
+            ],
+            "type": "timestamp"
+          },
+          {
+            "name": "customer_id",
+            "operators": [
+              "between",
+              "eq",
+              "gt",
+              "gte",
+              "in",
+              "like",
+              "lt",
+              "lte",
+              "neq",
+              "notIn"
+            ],
+            "type": "string"
+          },
+          {
+            "name": "paid",
+            "operators": [
+              "between",
+              "eq",
+              "gt",
+              "gte",
+              "in",
+              "like",
+              "lt",
+              "lte",
+              "neq",
+              "notIn"
+            ],
+            "type": "boolean"
+          },
+          {
+            "name": "status",
+            "operators": [
+              "between",
+              "eq",
+              "gt",
+              "gte",
+              "in",
+              "like",
+              "lt",
+              "lte",
+              "neq",
+              "notIn"
+            ],
+            "type": "string"
+          },
+          {
+            "name": "statusOnly",
+            "operators": [
+              "eq",
+              "in"
+            ],
+            "type": "string"
+          }
+        ],
+        "limits": {},
+        "measures": [
+          {
+            "name": "account.accountCount"
+          },
+          {
+            "name": "average"
+          },
+          {
+            "name": "avgAmount"
+          },
+          {
+            "name": "big"
+          },
+          {
+            "name": "bounds"
+          },
+          {
+            "name": "customer.bestScore"
+          },
+          {
+            "name": "customer.customerCount"
+          },
+          {
+            "name": "customer.goldCustomers"
+          },
+          {
+            "name": "customer.latestTier"
+          },
+          {
+            "name": "customer.worstScore"
+          },
+          {
+            "name": "firstStatus"
+          },
+          {
+            "name": "goldRevenue"
+          },
+          {
+            "name": "lastStatus"
+          },
+          {
+            "name": "maxAmount"
+          },
+          {
+            "name": "medianAmount"
+          },
+          {
+            "name": "minAmount"
+          },
+          {
+            "name": "net"
+          },
+          {
+            "name": "nothing"
+          },
+          {
+            "name": "orders"
+          },
+          {
+            "name": "p95Amount"
+          },
+          {
+            "name": "paidCustomers"
+          },
+          {
+            "name": "paidP90"
+          },
+          {
+            "name": "paidRevenue"
+          },
+          {
+            "name": "paidShare"
+          },
+          {
+            "name": "profile.profileAge"
+          },
+          {
+            "name": "profile.profileCount"
+          },
+          {
+            "name": "revenue"
+          },
+          {
+            "name": "rounded"
+          },
+          {
+            "name": "spread"
+          },
+          {
+            "name": "uniqueCustomers"
+          },
+          {
+            "name": "variance"
+          }
+        ],
+        "metrics": [],
+        "name": "orders",
+        "relationships": [
+          {
+            "fields": [
+              "account._hq_match",
+              "account.name"
+            ],
+            "name": "account",
+            "target": "accounts"
+          },
+          {
+            "fields": [
+              "customer.country",
+              "customer.hidden",
+              "customer.id",
+              "customer.score",
+              "customer.tier"
+            ],
+            "name": "customer",
+            "target": "customers"
+          },
+          {
+            "fields": [
+              "profile.customer_id",
+              "profile.plan"
+            ],
+            "name": "profile",
+            "target": "profiles"
+          }
+        ],
+        "timeDimension": "created_at"
+      },
+      {
+        "description": "profiles analytics dataset.",
+        "dimensions": [
+          {
+            "filterable": true,
+            "groupable": true,
+            "name": "customer_id",
+            "type": "string"
+          },
+          {
+            "filterable": true,
+            "groupable": true,
+            "name": "plan",
+            "type": "string"
+          }
+        ],
+        "filters": [
+          {
+            "name": "customer_id",
+            "operators": [
+              "between",
+              "eq",
+              "gt",
+              "gte",
+              "in",
+              "like",
+              "lt",
+              "lte",
+              "neq",
+              "notIn"
+            ],
+            "type": "string"
+          },
+          {
+            "name": "plan",
+            "operators": [
+              "between",
+              "eq",
+              "gt",
+              "gte",
+              "in",
+              "like",
+              "lt",
+              "lte",
+              "neq",
+              "notIn"
+            ],
+            "type": "string"
+          }
+        ],
+        "limits": {},
+        "measures": [
+          {
+            "name": "profileAge"
+          },
+          {
+            "name": "profileCount"
+          }
+        ],
+        "metrics": [],
+        "name": "profiles",
+        "relationships": [],
+        "timeDimension": null
+      },
+      {
+        "description": "regions analytics dataset.",
+        "dimensions": [
+          {
+            "filterable": true,
+            "groupable": true,
+            "name": "code",
+            "type": "string"
+          },
+          {
+            "filterable": true,
+            "groupable": true,
+            "name": "label",
+            "type": "string"
+          }
+        ],
+        "filters": [
+          {
+            "name": "code",
+            "operators": [
+              "between",
+              "eq",
+              "gt",
+              "gte",
+              "in",
+              "like",
+              "lt",
+              "lte",
+              "neq",
+              "notIn"
+            ],
+            "type": "string"
+          },
+          {
+            "name": "label",
+            "operators": [
+              "between",
+              "eq",
+              "gt",
+              "gte",
+              "in",
+              "like",
+              "lt",
+              "lte",
+              "neq",
+              "notIn"
+            ],
+            "type": "string"
+          }
+        ],
+        "limits": {},
+        "measures": [
+          {
+            "name": "regionCount"
+          }
+        ],
+        "metrics": [],
+        "name": "regions",
+        "relationships": [],
+        "timeDimension": null
+      }
+    ]
+  },
+  "publicSemanticContract": {
+    "contentHash": "c18ba80161bb72d2607c45d4f87620869e475e68dec5b6c4b0c103d66c37e837",
+    "datasets": {
+      "accounts": {
+        "dimensions": {
+          "_hq_match": {
+            "filterable": true,
+            "groupable": true,
+            "type": "string"
+          },
+          "name": {
+            "filterable": true,
+            "groupable": true,
+            "type": "string"
+          }
+        },
+        "filters": {
+          "_hq_match": {
+            "field": "_hq_match",
+            "operators": [
+              "between",
+              "eq",
+              "gt",
+              "gte",
+              "in",
+              "like",
+              "lt",
+              "lte",
+              "neq",
+              "notIn"
+            ],
+            "valueType": "string"
+          },
+          "name": {
+            "field": "name",
+            "operators": [
+              "between",
+              "eq",
+              "gt",
+              "gte",
+              "in",
+              "like",
+              "lt",
+              "lte",
+              "neq",
+              "notIn"
+            ],
+            "valueType": "string"
+          }
+        },
+        "measures": {
+          "accountCount": {
+            "aggregation": "countDistinct",
+            "field": "name"
+          }
+        },
+        "metrics": {},
+        "name": "accounts",
+        "relationships": {},
+        "requiresTenant": false,
+        "source": "analytics.accounts",
+        "supportedGrains": []
+      },
+      "customers": {
+        "dimensions": {
+          "country": {
+            "filterable": true,
+            "groupable": true,
+            "type": "string"
+          },
+          "hidden": {
+            "filterable": true,
+            "groupable": false,
+            "type": "string"
+          },
+          "id": {
+            "filterable": true,
+            "groupable": true,
+            "type": "string"
+          },
+          "score": {
+            "column": "credit_score",
+            "filterable": true,
+            "groupable": true,
+            "type": "number"
+          },
+          "tier": {
+            "filterable": true,
+            "groupable": true,
+            "type": "string"
+          }
+        },
+        "filters": {
+          "country": {
+            "field": "country",
+            "operators": [
+              "between",
+              "eq",
+              "gt",
+              "gte",
+              "in",
+              "like",
+              "lt",
+              "lte",
+              "neq",
+              "notIn"
+            ],
+            "valueType": "string"
+          },
+          "hidden": {
+            "field": "hidden",
+            "operators": [
+              "between",
+              "eq",
+              "gt",
+              "gte",
+              "in",
+              "like",
+              "lt",
+              "lte",
+              "neq",
+              "notIn"
+            ],
+            "valueType": "string"
+          },
+          "id": {
+            "field": "id",
+            "operators": [
+              "between",
+              "eq",
+              "gt",
+              "gte",
+              "in",
+              "like",
+              "lt",
+              "lte",
+              "neq",
+              "notIn"
+            ],
+            "valueType": "string"
+          },
+          "score": {
+            "field": "score",
+            "operators": [
+              "between",
+              "eq",
+              "gt",
+              "gte",
+              "in",
+              "like",
+              "lt",
+              "lte",
+              "neq",
+              "notIn"
+            ],
+            "valueType": "number"
+          },
+          "tier": {
+            "field": "tier",
+            "operators": [
+              "between",
+              "eq",
+              "gt",
+              "gte",
+              "in",
+              "like",
+              "lt",
+              "lte",
+              "neq",
+              "notIn"
+            ],
+            "valueType": "string"
+          }
+        },
+        "measures": {
+          "bestScore": {
+            "aggregation": "max",
+            "field": "score"
+          },
+          "customerCount": {
+            "aggregation": "countDistinct",
+            "field": "id"
+          },
+          "goldCustomers": {
+            "aggregation": "countDistinct",
+            "field": "id"
+          },
+          "latestTier": {
+            "aggregation": "argMax",
+            "argField": "score",
+            "field": "tier"
+          },
+          "scoreSum": {
+            "aggregation": "sum",
+            "field": "score"
+          },
+          "worstScore": {
+            "aggregation": "min",
+            "field": "score"
+          }
+        },
+        "metrics": {},
+        "name": "customers",
+        "relationships": {
+          "region": {
+            "fields": [
+              "region.code",
+              "region.label"
+            ],
+            "from": "region_code",
+            "kind": "belongsTo",
+            "queryable": true,
+            "target": "regions",
+            "to": "code"
+          }
+        },
+        "requiresTenant": true,
+        "source": "analytics.customers",
+        "supportedGrains": [],
+        "tenantKey": "tenant_id"
+      },
+      "events": {
+        "dimensions": {
+          "doubled": {
+            "filterable": true,
+            "groupable": true,
+            "type": "number"
+          },
+          "kind": {
+            "filterable": true,
+            "groupable": true,
+            "type": "string"
+          },
+          "ts": {
+            "filterable": true,
+            "groupable": true,
+            "type": "timestamp"
+          }
+        },
+        "filters": {
+          "doubled": {
+            "field": "doubled",
+            "operators": [
+              "between",
+              "eq",
+              "gt",
+              "gte",
+              "in",
+              "like",
+              "lt",
+              "lte",
+              "neq",
+              "notIn"
+            ],
+            "valueType": "number"
+          },
+          "kind": {
+            "field": "kind",
+            "operators": [
+              "between",
+              "eq",
+              "gt",
+              "gte",
+              "in",
+              "like",
+              "lt",
+              "lte",
+              "neq",
+              "notIn"
+            ],
+            "valueType": "string"
+          },
+          "ts": {
+            "field": "ts",
+            "operators": [
+              "between",
+              "eq",
+              "gt",
+              "gte",
+              "in",
+              "like",
+              "lt",
+              "lte",
+              "neq",
+              "notIn"
+            ],
+            "valueType": "timestamp"
+          }
+        },
+        "limits": {
+          "maxResultSize": 500
+        },
+        "measures": {
+          "events": {
+            "aggregation": "count",
+            "field": "kind"
+          },
+          "rawTotal": {
+            "aggregation": "sum",
+            "field": "value"
+          },
+          "total": {
+            "aggregation": "sum",
+            "field": "value"
+          }
+        },
+        "metrics": {},
+        "name": "events",
+        "relationships": {},
+        "requiresTenant": false,
+        "source": "events",
+        "supportedGrains": [
+          "day",
+          "hour",
+          "minute",
+          "month",
+          "quarter",
+          "week",
+          "year"
+        ],
+        "timeKey": "ts"
+      },
+      "orders": {
+        "derivedMeasures": {
+          "average": {
+            "expression": {
+              "kind": "binary",
+              "left": {
+                "kind": "reference",
+                "name": "revenue"
+              },
+              "operator": "divide",
+              "right": {
+                "args": [
+                  {
+                    "kind": "reference",
+                    "name": "orders"
+                  }
+                ],
+                "function": "nullIfZero",
+                "kind": "call"
+              }
+            },
+            "uses": [
+              {
+                "alias": "orders",
+                "measure": "orders"
+              },
+              {
+                "alias": "revenue",
+                "measure": "revenue"
+              }
+            ]
+          },
+          "big": {
+            "expression": {
+              "kind": "binary",
+              "left": {
+                "kind": "reference",
+                "name": "orders"
+              },
+              "operator": "multiply",
+              "right": {
+                "kind": "literal",
+                "value": 70000.0
+              }
+            },
+            "uses": [
+              {
+                "alias": "orders",
+                "measure": "orders"
+              }
+            ]
+          },
+          "bounds": {
+            "expression": {
+              "kind": "binary",
+              "left": {
+                "args": [
+                  {
+                    "kind": "reference",
+                    "name": "avgAmount"
+                  }
+                ],
+                "function": "floor",
+                "kind": "call"
+              },
+              "operator": "add",
+              "right": {
+                "args": [
+                  {
+                    "kind": "reference",
+                    "name": "avgAmount"
+                  }
+                ],
+                "function": "ceil",
+                "kind": "call"
+              }
+            },
+            "uses": [
+              {
+                "alias": "avgAmount",
+                "measure": "avgAmount"
+              }
+            ]
+          },
+          "net": {
+            "expression": {
+              "kind": "binary",
+              "left": {
+                "kind": "binary",
+                "left": {
+                  "kind": "reference",
+                  "name": "revenue"
+                },
+                "operator": "multiply",
+                "right": {
+                  "kind": "literal",
+                  "value": 0.9
+                }
+              },
+              "operator": "subtract",
+              "right": {
+                "kind": "binary",
+                "left": {
+                  "kind": "reference",
+                  "name": "orders"
+                },
+                "operator": "add",
+                "right": {
+                  "kind": "literal",
+                  "value": -1.0
+                }
+              }
+            },
+            "uses": [
+              {
+                "alias": "orders",
+                "measure": "orders"
+              },
+              {
+                "alias": "revenue",
+                "measure": "revenue"
+              }
+            ]
+          },
+          "nothing": {
+            "expression": {
+              "args": [
+                {
+                  "kind": "reference",
+                  "name": "revenue"
+                },
+                {
+                  "kind": "literal",
+                  "value": null
+                }
+              ],
+              "function": "coalesce",
+              "kind": "call"
+            },
+            "uses": [
+              {
+                "alias": "revenue",
+                "measure": "revenue"
+              }
+            ]
+          },
+          "paidShare": {
+            "expression": {
+              "args": [
+                {
+                  "kind": "binary",
+                  "left": {
+                    "kind": "reference",
+                    "name": "paidRevenue"
+                  },
+                  "operator": "divide",
+                  "right": {
+                    "args": [
+                      {
+                        "kind": "reference",
+                        "name": "revenue"
+                      }
+                    ],
+                    "function": "nullIfZero",
+                    "kind": "call"
+                  }
+                },
+                {
+                  "kind": "literal",
+                  "value": 0.0
+                }
+              ],
+              "function": "coalesce",
+              "kind": "call"
+            },
+            "uses": [
+              {
+                "alias": "paidRevenue",
+                "measure": "paidRevenue"
+              },
+              {
+                "alias": "revenue",
+                "measure": "revenue"
+              }
+            ]
+          },
+          "rounded": {
+            "expression": {
+              "args": [
+                {
+                  "kind": "reference",
+                  "name": "average"
+                },
+                {
+                  "kind": "literal",
+                  "value": 2.0
+                }
+              ],
+              "function": "round",
+              "kind": "call"
+            },
+            "uses": [
+              {
+                "alias": "average",
+                "measure": "average"
+              }
+            ]
+          }
+        },
+        "dimensions": {
+          "amount": {
+            "column": "net_amount",
+            "filterable": true,
+            "groupable": true,
+            "type": "number"
+          },
+          "channel": {
+            "filterable": false,
+            "groupable": true,
+            "type": "string"
+          },
+          "created": {
+            "column": "created_at",
+            "filterable": true,
+            "groupable": true,
+            "type": "timestamp"
+          },
+          "created_at": {
+            "filterable": true,
+            "groupable": true,
+            "type": "timestamp"
+          },
+          "customer_id": {
+            "filterable": true,
+            "groupable": true,
+            "type": "string"
+          },
+          "paid": {
+            "filterable": true,
+            "groupable": true,
+            "type": "boolean"
+          },
+          "status": {
+            "filterable": true,
+            "groupable": true,
+            "type": "string"
+          }
+        },
+        "filters": {
+          "amount": {
+            "field": "amount",
+            "operators": [
+              "between",
+              "eq",
+              "gt",
+              "gte",
+              "in",
+              "like",
+              "lt",
+              "lte",
+              "neq",
+              "notIn"
+            ],
+            "valueType": "number"
+          },
+          "created": {
+            "field": "created",
+            "operators": [
+              "between",
+              "eq",
+              "gt",
+              "gte",
+              "in",
+              "like",
+              "lt",
+              "lte",
+              "neq",
+              "notIn"
+            ],
+            "valueType": "timestamp"
+          },
+          "created_at": {
+            "field": "created_at",
+            "operators": [
+              "between",
+              "eq",
+              "gt",
+              "gte",
+              "in",
+              "like",
+              "lt",
+              "lte",
+              "neq",
+              "notIn"
+            ],
+            "valueType": "timestamp"
+          },
+          "customer_id": {
+            "field": "customer_id",
+            "operators": [
+              "between",
+              "eq",
+              "gt",
+              "gte",
+              "in",
+              "like",
+              "lt",
+              "lte",
+              "neq",
+              "notIn"
+            ],
+            "valueType": "string"
+          },
+          "paid": {
+            "field": "paid",
+            "operators": [
+              "between",
+              "eq",
+              "gt",
+              "gte",
+              "in",
+              "like",
+              "lt",
+              "lte",
+              "neq",
+              "notIn"
+            ],
+            "valueType": "boolean"
+          },
+          "status": {
+            "field": "status",
+            "operators": [
+              "between",
+              "eq",
+              "gt",
+              "gte",
+              "in",
+              "like",
+              "lt",
+              "lte",
+              "neq",
+              "notIn"
+            ],
+            "valueType": "string"
+          },
+          "statusOnly": {
+            "field": "status",
+            "operators": [
+              "eq",
+              "in"
+            ],
+            "valueType": "string"
+          }
+        },
+        "measures": {
+          "avgAmount": {
+            "aggregation": "avg",
+            "field": "amount"
+          },
+          "firstStatus": {
+            "aggregation": "argMin",
+            "argField": "created_at",
+            "field": "status"
+          },
+          "goldRevenue": {
+            "aggregation": "sum",
+            "field": "amount"
+          },
+          "lastStatus": {
+            "aggregation": "argMax",
+            "argField": "created_at",
+            "field": "status"
+          },
+          "maxAmount": {
+            "aggregation": "max",
+            "field": "amount"
+          },
+          "medianAmount": {
+            "aggregation": "percentile",
+            "field": "amount",
+            "level": 0.5
+          },
+          "minAmount": {
+            "aggregation": "min",
+            "field": "amount"
+          },
+          "orders": {
+            "aggregation": "count",
+            "field": "status"
+          },
+          "p95Amount": {
+            "aggregation": "percentile",
+            "field": "amount",
+            "level": 0.95
+          },
+          "paidCustomers": {
+            "aggregation": "countDistinct",
+            "field": "customer_id"
+          },
+          "paidP90": {
+            "aggregation": "percentile",
+            "field": "amount",
+            "level": 0.9
+          },
+          "paidRevenue": {
+            "aggregation": "sum",
+            "field": "amount"
+          },
+          "revenue": {
+            "aggregation": "sum",
+            "field": "amount"
+          },
+          "spread": {
+            "aggregation": "stddev",
+            "field": "amount"
+          },
+          "uniqueCustomers": {
+            "aggregation": "countDistinct",
+            "field": "customer_id"
+          },
+          "variance": {
+            "aggregation": "variance",
+            "field": "amount"
+          }
+        },
+        "metrics": {},
+        "name": "orders",
+        "relationships": {
+          "account": {
+            "fields": [
+              "account._hq_match",
+              "account.name"
+            ],
+            "from": "account_name",
+            "keys": [
+              {
+                "from": "account_name",
+                "to": "name"
+              },
+              {
+                "from": "account_region",
+                "to": "region"
+              }
+            ],
+            "kind": "belongsTo",
+            "queryable": true,
+            "target": "accounts",
+            "to": "name"
+          },
+          "customer": {
+            "fields": [
+              "customer.country",
+              "customer.hidden",
+              "customer.id",
+              "customer.score",
+              "customer.tier"
+            ],
+            "from": "customer_id",
+            "kind": "belongsTo",
+            "queryable": true,
+            "target": "customers",
+            "to": "id"
+          },
+          "lines": {
+            "fields": [],
+            "from": "id",
+            "kind": "hasMany",
+            "queryable": false,
+            "target": "profiles",
+            "to": "order_id"
+          },
+          "profile": {
+            "fields": [
+              "profile.customer_id",
+              "profile.plan"
+            ],
+            "from": "customer_id",
+            "kind": "hasOne",
+            "queryable": true,
+            "target": "profiles",
+            "to": "customer_id"
+          }
+        },
+        "requiresTenant": true,
+        "source": "analytics.orders",
+        "supportedGrains": [
+          "day",
+          "hour",
+          "minute",
+          "month",
+          "quarter",
+          "week",
+          "year"
+        ],
+        "tenantKey": "tenant_id",
+        "timeKey": "created_at"
+      },
+      "profiles": {
+        "dimensions": {
+          "customer_id": {
+            "filterable": true,
+            "groupable": true,
+            "type": "string"
+          },
+          "plan": {
+            "filterable": true,
+            "groupable": true,
+            "type": "string"
+          }
+        },
+        "filters": {
+          "customer_id": {
+            "field": "customer_id",
+            "operators": [
+              "between",
+              "eq",
+              "gt",
+              "gte",
+              "in",
+              "like",
+              "lt",
+              "lte",
+              "neq",
+              "notIn"
+            ],
+            "valueType": "string"
+          },
+          "plan": {
+            "field": "plan",
+            "operators": [
+              "between",
+              "eq",
+              "gt",
+              "gte",
+              "in",
+              "like",
+              "lt",
+              "lte",
+              "neq",
+              "notIn"
+            ],
+            "valueType": "string"
+          }
+        },
+        "measures": {
+          "profileAge": {
+            "aggregation": "avg",
+            "field": "age_days"
+          },
+          "profileCount": {
+            "aggregation": "count",
+            "field": "plan"
+          }
+        },
+        "metrics": {},
+        "name": "profiles",
+        "relationships": {},
+        "requiresTenant": false,
+        "source": "analytics.profiles",
+        "supportedGrains": []
+      },
+      "regions": {
+        "dimensions": {
+          "code": {
+            "filterable": true,
+            "groupable": true,
+            "type": "string"
+          },
+          "label": {
+            "column": "region_label",
+            "filterable": true,
+            "groupable": true,
+            "type": "string"
+          }
+        },
+        "filters": {
+          "code": {
+            "field": "code",
+            "operators": [
+              "between",
+              "eq",
+              "gt",
+              "gte",
+              "in",
+              "like",
+              "lt",
+              "lte",
+              "neq",
+              "notIn"
+            ],
+            "valueType": "string"
+          },
+          "label": {
+            "field": "label",
+            "operators": [
+              "between",
+              "eq",
+              "gt",
+              "gte",
+              "in",
+              "like",
+              "lt",
+              "lte",
+              "neq",
+              "notIn"
+            ],
+            "valueType": "string"
+          }
+        },
+        "measures": {
+          "regionCount": {
+            "aggregation": "countDistinct",
+            "field": "code"
+          }
+        },
+        "metrics": {},
+        "name": "regions",
+        "relationships": {},
+        "requiresTenant": true,
+        "source": "geo.regions",
+        "supportedGrains": [],
+        "tenantKey": "tenant_id"
+      }
+    },
+    "version": 3
+  },
+  "semanticContract": {
+    "contentHash": "43987d25b45a40ec0385b1d64615bff7e009e79296760c032359ef4c7431ab84",
+    "datasets": {
+      "accounts": {
+        "dimensions": {
+          "_hq_match": {
+            "filterable": true,
+            "groupable": true,
+            "type": "string"
+          },
+          "name": {
+            "filterable": true,
+            "groupable": true,
+            "type": "string"
+          }
+        },
+        "filters": {
+          "_hq_match": {
+            "field": "_hq_match",
+            "operators": [
+              "between",
+              "eq",
+              "gt",
+              "gte",
+              "in",
+              "like",
+              "lt",
+              "lte",
+              "neq",
+              "notIn"
+            ],
+            "valueType": "string"
+          },
+          "name": {
+            "field": "name",
+            "operators": [
+              "between",
+              "eq",
+              "gt",
+              "gte",
+              "in",
+              "like",
+              "lt",
+              "lte",
+              "neq",
+              "notIn"
+            ],
+            "valueType": "string"
+          }
+        },
+        "measures": {
+          "accountCount": {
+            "aggregation": "countDistinct",
+            "field": "name"
+          }
+        },
+        "metrics": {},
+        "name": "accounts",
+        "relationships": {},
+        "requiresTenant": false,
+        "source": "analytics.accounts",
+        "supportedGrains": []
+      },
+      "customers": {
+        "dimensions": {
+          "country": {
+            "filterable": true,
+            "groupable": true,
+            "type": "string"
+          },
+          "hidden": {
+            "filterable": true,
+            "groupable": false,
+            "type": "string"
+          },
+          "id": {
+            "filterable": true,
+            "groupable": true,
+            "type": "string"
+          },
+          "score": {
+            "column": "credit_score",
+            "filterable": true,
+            "groupable": true,
+            "type": "number"
+          },
+          "tier": {
+            "filterable": true,
+            "groupable": true,
+            "type": "string"
+          }
+        },
+        "filters": {
+          "country": {
+            "field": "country",
+            "operators": [
+              "between",
+              "eq",
+              "gt",
+              "gte",
+              "in",
+              "like",
+              "lt",
+              "lte",
+              "neq",
+              "notIn"
+            ],
+            "valueType": "string"
+          },
+          "hidden": {
+            "field": "hidden",
+            "operators": [
+              "between",
+              "eq",
+              "gt",
+              "gte",
+              "in",
+              "like",
+              "lt",
+              "lte",
+              "neq",
+              "notIn"
+            ],
+            "valueType": "string"
+          },
+          "id": {
+            "field": "id",
+            "operators": [
+              "between",
+              "eq",
+              "gt",
+              "gte",
+              "in",
+              "like",
+              "lt",
+              "lte",
+              "neq",
+              "notIn"
+            ],
+            "valueType": "string"
+          },
+          "score": {
+            "field": "score",
+            "operators": [
+              "between",
+              "eq",
+              "gt",
+              "gte",
+              "in",
+              "like",
+              "lt",
+              "lte",
+              "neq",
+              "notIn"
+            ],
+            "valueType": "number"
+          },
+          "tier": {
+            "field": "tier",
+            "operators": [
+              "between",
+              "eq",
+              "gt",
+              "gte",
+              "in",
+              "like",
+              "lt",
+              "lte",
+              "neq",
+              "notIn"
+            ],
+            "valueType": "string"
+          }
+        },
+        "measures": {
+          "bestScore": {
+            "aggregation": "max",
+            "field": "score"
+          },
+          "customerCount": {
+            "aggregation": "countDistinct",
+            "field": "id"
+          },
+          "goldCustomers": {
+            "aggregation": "countDistinct",
+            "field": "id"
+          },
+          "latestTier": {
+            "aggregation": "argMax",
+            "argField": "score",
+            "field": "tier"
+          },
+          "scoreSum": {
+            "aggregation": "sum",
+            "field": "score"
+          },
+          "worstScore": {
+            "aggregation": "min",
+            "field": "score"
+          }
+        },
+        "metrics": {},
+        "name": "customers",
+        "relationships": {
+          "region": {
+            "fields": [
+              "region.code",
+              "region.label"
+            ],
+            "from": "region_code",
+            "kind": "belongsTo",
+            "queryable": true,
+            "target": "regions",
+            "to": "code"
+          }
+        },
+        "requiresTenant": true,
+        "source": "analytics.customers",
+        "supportedGrains": [],
+        "tenantKey": "tenant_id"
+      },
+      "events": {
+        "dimensions": {
+          "doubled": {
+            "filterable": true,
+            "groupable": true,
+            "sql": "value * 2",
+            "type": "number"
+          },
+          "kind": {
+            "filterable": true,
+            "groupable": true,
+            "type": "string"
+          },
+          "ts": {
+            "filterable": true,
+            "groupable": true,
+            "type": "timestamp"
+          }
+        },
+        "filters": {
+          "doubled": {
+            "field": "doubled",
+            "operators": [
+              "between",
+              "eq",
+              "gt",
+              "gte",
+              "in",
+              "like",
+              "lt",
+              "lte",
+              "neq",
+              "notIn"
+            ],
+            "valueType": "number"
+          },
+          "kind": {
+            "field": "kind",
+            "operators": [
+              "between",
+              "eq",
+              "gt",
+              "gte",
+              "in",
+              "like",
+              "lt",
+              "lte",
+              "neq",
+              "notIn"
+            ],
+            "valueType": "string"
+          },
+          "ts": {
+            "field": "ts",
+            "operators": [
+              "between",
+              "eq",
+              "gt",
+              "gte",
+              "in",
+              "like",
+              "lt",
+              "lte",
+              "neq",
+              "notIn"
+            ],
+            "valueType": "timestamp"
+          }
+        },
+        "limits": {
+          "maxResultSize": 500
+        },
+        "measures": {
+          "events": {
+            "aggregation": "count",
+            "field": "kind"
+          },
+          "rawTotal": {
+            "aggregation": "sum",
+            "field": "value",
+            "sql": "value * 2"
+          },
+          "total": {
+            "aggregation": "sum",
+            "field": "value"
+          }
+        },
+        "metrics": {},
+        "name": "events",
+        "relationships": {},
+        "requiresTenant": false,
+        "source": "events",
+        "supportedGrains": [
+          "day",
+          "hour",
+          "minute",
+          "month",
+          "quarter",
+          "week",
+          "year"
+        ],
+        "timeKey": "ts"
+      },
+      "orders": {
+        "derivedMeasures": {
+          "average": {
+            "expression": {
+              "kind": "binary",
+              "left": {
+                "kind": "reference",
+                "name": "revenue"
+              },
+              "operator": "divide",
+              "right": {
+                "args": [
+                  {
+                    "kind": "reference",
+                    "name": "orders"
+                  }
+                ],
+                "function": "nullIfZero",
+                "kind": "call"
+              }
+            },
+            "uses": [
+              {
+                "alias": "orders",
+                "measure": "orders"
+              },
+              {
+                "alias": "revenue",
+                "measure": "revenue"
+              }
+            ]
+          },
+          "big": {
+            "expression": {
+              "kind": "binary",
+              "left": {
+                "kind": "reference",
+                "name": "orders"
+              },
+              "operator": "multiply",
+              "right": {
+                "kind": "literal",
+                "value": 70000.0
+              }
+            },
+            "uses": [
+              {
+                "alias": "orders",
+                "measure": "orders"
+              }
+            ]
+          },
+          "bounds": {
+            "expression": {
+              "kind": "binary",
+              "left": {
+                "args": [
+                  {
+                    "kind": "reference",
+                    "name": "avgAmount"
+                  }
+                ],
+                "function": "floor",
+                "kind": "call"
+              },
+              "operator": "add",
+              "right": {
+                "args": [
+                  {
+                    "kind": "reference",
+                    "name": "avgAmount"
+                  }
+                ],
+                "function": "ceil",
+                "kind": "call"
+              }
+            },
+            "uses": [
+              {
+                "alias": "avgAmount",
+                "measure": "avgAmount"
+              }
+            ]
+          },
+          "net": {
+            "expression": {
+              "kind": "binary",
+              "left": {
+                "kind": "binary",
+                "left": {
+                  "kind": "reference",
+                  "name": "revenue"
+                },
+                "operator": "multiply",
+                "right": {
+                  "kind": "literal",
+                  "value": 0.9
+                }
+              },
+              "operator": "subtract",
+              "right": {
+                "kind": "binary",
+                "left": {
+                  "kind": "reference",
+                  "name": "orders"
+                },
+                "operator": "add",
+                "right": {
+                  "kind": "literal",
+                  "value": -1.0
+                }
+              }
+            },
+            "uses": [
+              {
+                "alias": "orders",
+                "measure": "orders"
+              },
+              {
+                "alias": "revenue",
+                "measure": "revenue"
+              }
+            ]
+          },
+          "nothing": {
+            "expression": {
+              "args": [
+                {
+                  "kind": "reference",
+                  "name": "revenue"
+                },
+                {
+                  "kind": "literal",
+                  "value": null
+                }
+              ],
+              "function": "coalesce",
+              "kind": "call"
+            },
+            "uses": [
+              {
+                "alias": "revenue",
+                "measure": "revenue"
+              }
+            ]
+          },
+          "paidShare": {
+            "expression": {
+              "args": [
+                {
+                  "kind": "binary",
+                  "left": {
+                    "kind": "reference",
+                    "name": "paidRevenue"
+                  },
+                  "operator": "divide",
+                  "right": {
+                    "args": [
+                      {
+                        "kind": "reference",
+                        "name": "revenue"
+                      }
+                    ],
+                    "function": "nullIfZero",
+                    "kind": "call"
+                  }
+                },
+                {
+                  "kind": "literal",
+                  "value": 0.0
+                }
+              ],
+              "function": "coalesce",
+              "kind": "call"
+            },
+            "uses": [
+              {
+                "alias": "paidRevenue",
+                "measure": "paidRevenue"
+              },
+              {
+                "alias": "revenue",
+                "measure": "revenue"
+              }
+            ]
+          },
+          "rounded": {
+            "expression": {
+              "args": [
+                {
+                  "kind": "reference",
+                  "name": "average"
+                },
+                {
+                  "kind": "literal",
+                  "value": 2.0
+                }
+              ],
+              "function": "round",
+              "kind": "call"
+            },
+            "uses": [
+              {
+                "alias": "average",
+                "measure": "average"
+              }
+            ]
+          }
+        },
+        "dimensions": {
+          "amount": {
+            "column": "net_amount",
+            "filterable": true,
+            "groupable": true,
+            "type": "number"
+          },
+          "channel": {
+            "filterable": false,
+            "groupable": true,
+            "type": "string"
+          },
+          "created": {
+            "column": "created_at",
+            "filterable": true,
+            "groupable": true,
+            "type": "timestamp"
+          },
+          "created_at": {
+            "filterable": true,
+            "groupable": true,
+            "type": "timestamp"
+          },
+          "customer_id": {
+            "filterable": true,
+            "groupable": true,
+            "type": "string"
+          },
+          "paid": {
+            "filterable": true,
+            "groupable": true,
+            "type": "boolean"
+          },
+          "status": {
+            "filterable": true,
+            "groupable": true,
+            "type": "string"
+          }
+        },
+        "filters": {
+          "amount": {
+            "field": "amount",
+            "operators": [
+              "between",
+              "eq",
+              "gt",
+              "gte",
+              "in",
+              "like",
+              "lt",
+              "lte",
+              "neq",
+              "notIn"
+            ],
+            "valueType": "number"
+          },
+          "created": {
+            "field": "created",
+            "operators": [
+              "between",
+              "eq",
+              "gt",
+              "gte",
+              "in",
+              "like",
+              "lt",
+              "lte",
+              "neq",
+              "notIn"
+            ],
+            "valueType": "timestamp"
+          },
+          "created_at": {
+            "field": "created_at",
+            "operators": [
+              "between",
+              "eq",
+              "gt",
+              "gte",
+              "in",
+              "like",
+              "lt",
+              "lte",
+              "neq",
+              "notIn"
+            ],
+            "valueType": "timestamp"
+          },
+          "customer_id": {
+            "field": "customer_id",
+            "operators": [
+              "between",
+              "eq",
+              "gt",
+              "gte",
+              "in",
+              "like",
+              "lt",
+              "lte",
+              "neq",
+              "notIn"
+            ],
+            "valueType": "string"
+          },
+          "paid": {
+            "field": "paid",
+            "operators": [
+              "between",
+              "eq",
+              "gt",
+              "gte",
+              "in",
+              "like",
+              "lt",
+              "lte",
+              "neq",
+              "notIn"
+            ],
+            "valueType": "boolean"
+          },
+          "status": {
+            "field": "status",
+            "operators": [
+              "between",
+              "eq",
+              "gt",
+              "gte",
+              "in",
+              "like",
+              "lt",
+              "lte",
+              "neq",
+              "notIn"
+            ],
+            "valueType": "string"
+          },
+          "statusOnly": {
+            "field": "status",
+            "operators": [
+              "eq",
+              "in"
+            ],
+            "valueType": "string"
+          }
+        },
+        "measures": {
+          "avgAmount": {
+            "aggregation": "avg",
+            "field": "amount"
+          },
+          "firstStatus": {
+            "aggregation": "argMin",
+            "argField": "created_at",
+            "field": "status"
+          },
+          "goldRevenue": {
+            "aggregation": "sum",
+            "field": "amount"
+          },
+          "lastStatus": {
+            "aggregation": "argMax",
+            "argField": "created_at",
+            "field": "status"
+          },
+          "maxAmount": {
+            "aggregation": "max",
+            "field": "amount"
+          },
+          "medianAmount": {
+            "aggregation": "percentile",
+            "field": "amount",
+            "level": 0.5
+          },
+          "minAmount": {
+            "aggregation": "min",
+            "field": "amount"
+          },
+          "orders": {
+            "aggregation": "count",
+            "field": "status"
+          },
+          "p95Amount": {
+            "aggregation": "percentile",
+            "field": "amount",
+            "level": 0.95
+          },
+          "paidCustomers": {
+            "aggregation": "countDistinct",
+            "field": "customer_id"
+          },
+          "paidP90": {
+            "aggregation": "percentile",
+            "field": "amount",
+            "level": 0.9
+          },
+          "paidRevenue": {
+            "aggregation": "sum",
+            "field": "amount"
+          },
+          "revenue": {
+            "aggregation": "sum",
+            "field": "amount"
+          },
+          "spread": {
+            "aggregation": "stddev",
+            "field": "amount"
+          },
+          "uniqueCustomers": {
+            "aggregation": "countDistinct",
+            "field": "customer_id"
+          },
+          "variance": {
+            "aggregation": "variance",
+            "field": "amount"
+          }
+        },
+        "metrics": {},
+        "name": "orders",
+        "relationships": {
+          "account": {
+            "fields": [
+              "account._hq_match",
+              "account.name"
+            ],
+            "from": "account_name",
+            "keys": [
+              {
+                "from": "account_name",
+                "to": "name"
+              },
+              {
+                "from": "account_region",
+                "to": "region"
+              }
+            ],
+            "kind": "belongsTo",
+            "queryable": true,
+            "target": "accounts",
+            "to": "name"
+          },
+          "customer": {
+            "fields": [
+              "customer.country",
+              "customer.hidden",
+              "customer.id",
+              "customer.score",
+              "customer.tier"
+            ],
+            "from": "customer_id",
+            "kind": "belongsTo",
+            "queryable": true,
+            "target": "customers",
+            "to": "id"
+          },
+          "lines": {
+            "fields": [],
+            "from": "id",
+            "kind": "hasMany",
+            "queryable": false,
+            "target": "profiles",
+            "to": "order_id"
+          },
+          "profile": {
+            "fields": [
+              "profile.customer_id",
+              "profile.plan"
+            ],
+            "from": "customer_id",
+            "kind": "hasOne",
+            "queryable": true,
+            "target": "profiles",
+            "to": "customer_id"
+          }
+        },
+        "requiresTenant": true,
+        "source": "analytics.orders",
+        "supportedGrains": [
+          "day",
+          "hour",
+          "minute",
+          "month",
+          "quarter",
+          "week",
+          "year"
+        ],
+        "tenantKey": "tenant_id",
+        "timeKey": "created_at"
+      },
+      "profiles": {
+        "dimensions": {
+          "customer_id": {
+            "filterable": true,
+            "groupable": true,
+            "type": "string"
+          },
+          "plan": {
+            "filterable": true,
+            "groupable": true,
+            "type": "string"
+          }
+        },
+        "filters": {
+          "customer_id": {
+            "field": "customer_id",
+            "operators": [
+              "between",
+              "eq",
+              "gt",
+              "gte",
+              "in",
+              "like",
+              "lt",
+              "lte",
+              "neq",
+              "notIn"
+            ],
+            "valueType": "string"
+          },
+          "plan": {
+            "field": "plan",
+            "operators": [
+              "between",
+              "eq",
+              "gt",
+              "gte",
+              "in",
+              "like",
+              "lt",
+              "lte",
+              "neq",
+              "notIn"
+            ],
+            "valueType": "string"
+          }
+        },
+        "measures": {
+          "profileAge": {
+            "aggregation": "avg",
+            "field": "age_days"
+          },
+          "profileCount": {
+            "aggregation": "count",
+            "field": "plan"
+          }
+        },
+        "metrics": {},
+        "name": "profiles",
+        "relationships": {},
+        "requiresTenant": false,
+        "source": "analytics.profiles",
+        "supportedGrains": []
+      },
+      "regions": {
+        "dimensions": {
+          "code": {
+            "filterable": true,
+            "groupable": true,
+            "type": "string"
+          },
+          "label": {
+            "column": "region_label",
+            "filterable": true,
+            "groupable": true,
+            "type": "string"
+          }
+        },
+        "filters": {
+          "code": {
+            "field": "code",
+            "operators": [
+              "between",
+              "eq",
+              "gt",
+              "gte",
+              "in",
+              "like",
+              "lt",
+              "lte",
+              "neq",
+              "notIn"
+            ],
+            "valueType": "string"
+          },
+          "label": {
+            "field": "label",
+            "operators": [
+              "between",
+              "eq",
+              "gt",
+              "gte",
+              "in",
+              "like",
+              "lt",
+              "lte",
+              "neq",
+              "notIn"
+            ],
+            "valueType": "string"
+          }
+        },
+        "measures": {
+          "regionCount": {
+            "aggregation": "countDistinct",
+            "field": "code"
+          }
+        },
+        "metrics": {},
+        "name": "regions",
+        "relationships": {},
+        "requiresTenant": true,
+        "source": "geo.regions",
+        "supportedGrains": [],
+        "tenantKey": "tenant_id"
+      }
+    },
+    "version": 3
+  }
+}
