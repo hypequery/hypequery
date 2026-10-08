@@ -249,20 +249,20 @@ def render_datasets(specs: tuple[DatasetSpec, ...]) -> str:
         if spec.tenant_key:
             lines.append(f"        tenant_key={spec.tenant_key!r},")
         lines.append("        dimensions={")
-        for field in spec.fields:
-            lines.append(
-                f"            {field.alias!r}: dimension.{field.kind}"
-                f"(column={field.column!r}, label={_label(field.column)!r}),"
-            )
+        lines.extend(
+            f"            {field.alias!r}: dimension.{field.kind}"
+            f"(column={field.column!r}, label={_label(field.column)!r}),"
+            for field in spec.fields
+        )
         lines.extend(["        },", "        measures={"])
         lines.append(
             f'            "totalCount": measure.count({spec.count_field!r}, label="Total Count"),'
         )
-        for item in spec.measures:
-            lines.append(
-                f"            {item.name!r}: measure.{item.aggregation}({item.field!r}, "
-                f"label={item.label!r}),"
-            )
+        lines.extend(
+            f"            {item.name!r}: measure.{item.aggregation}({item.field!r}, "
+            f"label={item.label!r}),"
+            for item in spec.measures
+        )
         lines.extend(["        },", "    ),"])
     lines.extend(["}", ""])
     return "\n".join(lines)

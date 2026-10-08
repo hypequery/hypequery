@@ -101,9 +101,11 @@ class JoinFeature(CompilerFeature):
             measure = target.measures[measure_name]
             if isinstance(measure, DerivedMeasure):
                 continue
-            for field in (measure.field, measure.arg_field):
-                if field is not None:
-                    columns.append(physical_column(target, field))
+            columns.extend(
+                physical_column(target, field)
+                for field in (measure.field, measure.arg_field)
+                if field is not None
+            )
         unique = list(dict.fromkeys(columns))
         marker = _MATCH_MARKER
         while marker in unique:

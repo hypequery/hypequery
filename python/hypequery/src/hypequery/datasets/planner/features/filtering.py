@@ -74,12 +74,15 @@ class FilterFeature(CompilerFeature):
                 raise CompiledQueryError(
                     "input-invalid", f'Filter "{filter_value.field}" is not exposed by its dataset.'
                 )
-            if definition is not None and definition.operators is not None:
-                if filter_value.operator not in definition.operators:
-                    raise CompiledQueryError(
-                        "input-invalid",
-                        f'Filter "{filter_value.field}" does not allow {filter_value.operator}.',
-                    )
+            if (
+                definition is not None
+                and definition.operators is not None
+                and filter_value.operator not in definition.operators
+            ):
+                raise CompiledQueryError(
+                    "input-invalid",
+                    f'Filter "{filter_value.field}" does not allow {filter_value.operator}.',
+                )
         validate_filter_value(filter_value, dimension.field_type)
         column = fields.field_sql(field)
         if fields.is_time_field(field):

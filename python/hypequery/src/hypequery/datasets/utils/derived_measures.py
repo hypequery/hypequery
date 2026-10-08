@@ -44,10 +44,10 @@ MAX_DERIVED_DEPENDENCY_DEPTH = 16
 MAX_EXPANDED_FORMULA_NODES = 4096
 # ClickHouse's own inference for inline integer literals, narrowest first.
 _INTEGER_TYPES = (
-    ("UInt8", range(0, 2**8)),
-    ("UInt16", range(0, 2**16)),
-    ("UInt32", range(0, 2**32)),
-    ("UInt64", range(0, 2**64)),
+    ("UInt8", range(2**8)),
+    ("UInt16", range(2**16)),
+    ("UInt32", range(2**32)),
+    ("UInt64", range(2**64)),
     ("Int8", range(-(2**7), 0)),
     ("Int16", range(-(2**15), 0)),
     ("Int32", range(-(2**31), 0)),
