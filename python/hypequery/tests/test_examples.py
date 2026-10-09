@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import importlib
 import os
+import secrets
 from pathlib import Path
 
 import pytest
@@ -42,21 +43,30 @@ def test_live_examples_seed_and_http_journeys(monkeypatch: pytest.MonkeyPatch) -
 
     monkeypatch.setenv("CLICKHOUSE_HOST", os.environ["HYPEQUERY_TEST_CLICKHOUSE_HOST"])
     monkeypatch.setenv("CLICKHOUSE_PORT", os.environ.get("HYPEQUERY_TEST_CLICKHOUSE_PORT", "8123"))
-    monkeypatch.setenv("CLICKHOUSE_DATABASE", "test_db")
+    # A fresh database per run: the test only ever drops the database it created.
+    database = f"hq_examples_{secrets.token_hex(6)}"
+    monkeypatch.setenv("CLICKHOUSE_DATABASE", database)
     monkeypatch.setenv("CLICKHOUSE_PASSWORD", os.environ["HYPEQUERY_TEST_CLICKHOUSE_PASSWORD"])
     monkeypatch.setenv("HYPEQUERY_EXAMPLE_TOKEN", "example-test")
     monkeypatch.setenv("HYPEQUERY_TENANT_A_TOKEN", "tenant-a-test")
     monkeypatch.setenv("HYPEQUERY_TENANT_B_TOKEN", "tenant-b-test")
     monkeypatch.setenv("HYPEQUERY_AGENT_TOKEN", "agent-test")
-    admin = clickhouse_connect.get_client(
+    server = clickhouse_connect.get_client(
         host=os.environ["CLICKHOUSE_HOST"],
         port=int(os.environ["CLICKHOUSE_PORT"]),
         username="default",
         password=os.environ["CLICKHOUSE_PASSWORD"],
-        database="test_db",
     )
+    server.command(f"CREATE DATABASE {database}")
+    admin = None
     try:
-        admin.command("DROP TABLE IF EXISTS example_orders")
+        admin = clickhouse_connect.get_client(
+            host=os.environ["CLICKHOUSE_HOST"],
+            port=int(os.environ["CLICKHOUSE_PORT"]),
+            username="default",
+            password=os.environ["CLICKHOUSE_PASSWORD"],
+            database=database,
+        )
         seed = (Path(__file__).parents[1] / "examples/seed.sql").read_text()
         for _ in range(2):
             for statement in seed.split(";"):
@@ -92,12 +102,28 @@ def test_live_examples_seed_and_http_journeys(monkeypatch: pytest.MonkeyPatch) -
                     assert discovery.status_code == 200
                     for marker in ("example_orders", "org_id", "sql", "parameters"):
                         assert marker not in discovery.text
+                    # Requests the agent could plausibly send with real names are
+                    # still refused: the endpoint fixes its measure, refuses
+                    # aggregate conditions, and never lets a filter choose a tenant.
                     for payload in (
-                        {"measures": ["orderCount"]},
-                        {"dimensions": ["id"]},
+                        {"measures": ["revenue"]},
+                        {"having": [{"measure": "revenue", "operator": "gt", "value": 0}]},
+                        {"filters": [{"field": "org_id", "operator": "eq", "value": "b"}]},
                         {"sql": "SELECT * FROM example_orders"},
                     ):
-                        assert http.post(path, json=payload, headers=headers).status_code == 400
+                        denied = http.post(path, json=payload, headers=headers)
+                        assert denied.status_code == 400, payload
+                        assert denied.json()["error"]["type"] == "VALIDATION_ERROR"
+                    allowed = http.post(
+                        path,
+                        json={"filters": [{"field": "country", "operator": "eq", "value": "US"}]},
+                        headers=headers,
+                    )
+                    assert allowed.json()["data"] == [{"revenue": "10"}]
     finally:
-        admin.command("DROP TABLE IF EXISTS example_orders")
-        admin.close()
+        try:
+            if admin is not None:
+                admin.close()
+            server.command(f"DROP DATABASE IF EXISTS {database}")
+        finally:
+            server.close()
