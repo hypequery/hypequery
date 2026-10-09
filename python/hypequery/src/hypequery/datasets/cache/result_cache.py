@@ -7,12 +7,15 @@ execution. It never falls back to a readable or unkeyed key.
 
 from __future__ import annotations
 
+import logging
 import math
 import re
 import secrets
 import warnings
+from collections.abc import Callable
+from contextlib import suppress
 from dataclasses import dataclass, field
-from typing import Final
+from typing import Final, Literal, TypeAlias
 
 from hypequery.protocol import (
     build_protocol_cache_preimage,
@@ -32,6 +35,10 @@ from .preimage_inputs import (
 from .store import CachedRows, CacheStore, MemoryCacheStore
 
 _DEFINITION_IDENTITY: Final = re.compile(r"[0-9a-f]{64}\Z")
+_LOGGER = logging.getLogger(__name__)
+
+#: Where a cache failure happened: building the key, reading, or writing.
+CacheStage: TypeAlias = Literal["key", "get", "put"]
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -54,6 +61,12 @@ class ResultCache:
     Construction validates everything up front, so a misconfigured cache fails
     at startup rather than silently caching nothing. An empty or short secret
     is an error, never a reason to generate one.
+
+    A failure after startup never fails a query: the call runs uncached. Pass
+    *on_error* to observe those failures — it receives the stage (``"key"``,
+    ``"get"`` or ``"put"``) and the exception, and anything it raises is
+    ignored. Without it they are logged at debug level, by type only, because
+    a store's message may carry a connection string.
     """
 
     store: CacheStore
@@ -64,6 +77,9 @@ class ResultCache:
     secret: bytes | None = field(default=None, repr=False)
     key_version: int = 1
     definition_identity: str | None = None
+    on_error: Callable[[CacheStage, Exception], None] | None = field(
+        default=None, repr=False, compare=False
+    )
 
     def __post_init__(self) -> None:
         if self.secret is None:
@@ -130,21 +146,31 @@ class ResultCache:
                 key_version=self.key_version,
                 preimage=preimage,
             )
-        except Exception:
+        except Exception as error:
             # For example, an object-valued filter with no portable form, an
             # integer binary64 cannot hold, or a preimage over RFC 0013's size
             # bound. A cache failure never fails a query: run uncached.
+            self._report("key", error)
             return None
 
     def get(self, key: str) -> CachedRows | None:
         try:
             return self.store.get(key)
-        except Exception:
+        except Exception as error:
+            self._report("get", error)
             return None
 
     def put(self, key: str, rows: CachedRows) -> bool:
         try:
             self.store.set(key, rows, float(self.ttl_seconds))
-        except Exception:
+        except Exception as error:
+            self._report("put", error)
             return False
         return True
+
+    def _report(self, stage: CacheStage, error: Exception) -> None:
+        if self.on_error is None:
+            _LOGGER.debug("Result cache %s failed: %s", stage, type(error).__name__)
+            return
+        with suppress(Exception):
+            self.on_error(stage, error)

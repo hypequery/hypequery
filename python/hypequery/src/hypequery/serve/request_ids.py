@@ -10,18 +10,18 @@ from __future__ import annotations
 
 import re
 import secrets
-from collections.abc import MutableMapping
-from typing import Any, cast
 
 from fastapi import Request
+
+from .utils.scope_slot import ScopeSlot
 
 #: TypeScript serve's bound and grammar for an external correlation id: small,
 #: printable ASCII that cannot split a header or forge a log line.
 MAX_CORRELATION_ID_BYTES = 200
 _CORRELATION_ID = re.compile(r"[A-Za-z0-9][A-Za-z0-9._:/-]*")
-#: Only this module holds the key, so no middleware or handler that does not
+#: Only this package holds the slot, so no middleware or handler that does not
 #: import it can plant a request id where `request_id()` reads one.
-REQUEST_ID_KEY = object()
+REQUEST_ID_SLOT: ScopeSlot[str] = ScopeSlot(str)
 
 
 def validate_correlation_id(value: str | None) -> str | None:
@@ -38,15 +38,10 @@ def validate_correlation_id(value: str | None) -> str | None:
 def request_id(request: Request) -> str | None:
     """The authoritative, server-generated id of *request*, when installed."""
 
-    found = cast(MutableMapping[object, Any], request.scope).get(REQUEST_ID_KEY)
-    return found if type(found) is str else None
+    return REQUEST_ID_SLOT.get(request.scope)
 
 
 def ensure_request_id(request: Request) -> str:
     """Reuse the profile's id, or establish one for a standalone error path."""
 
-    authoritative = request_id(request)
-    if authoritative is None:
-        authoritative = secrets.token_hex(16)
-        cast(MutableMapping[object, Any], request.scope)[REQUEST_ID_KEY] = authoritative
-    return authoritative
+    return REQUEST_ID_SLOT.setdefault(request.scope, lambda: secrets.token_hex(16))
