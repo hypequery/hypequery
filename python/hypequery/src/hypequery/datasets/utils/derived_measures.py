@@ -9,26 +9,38 @@ from hypequery.protocol.expression_models import expression_to_data
 from ..derived_measures import DerivedMeasure
 from ..dimensions import Dimension
 from ..formulas import (
+    FORMULA_FUNCTION_ARITIES,
     Formula,
     FormulaBinary,
     FormulaLiteral,
     FormulaReference,
     compile_formula,
+    formula_children,
 )
 from ..measures import Measure
 
 
 def formula_references(formula: Formula) -> tuple[str, ...]:
+    """The measures *formula* reads, once each, in first-use order."""
+
     if isinstance(formula, FormulaReference):
         return (formula.name,)
-    if isinstance(formula, FormulaLiteral):
-        return ()
-    children = (formula.left, formula.right) if isinstance(formula, FormulaBinary) else formula.args
-    return tuple(dict.fromkeys(ref for child in children for ref in formula_references(child)))
+    return tuple(
+        dict.fromkeys(
+            reference
+            for child in formula_children(formula)
+            for reference in formula_references(child)
+        )
+    )
 
 
 #: Per-formula limits, matching TypeScript's derived-measure validation.
 MAX_FORMULA_NODES = 256
+#: Deepest nesting within one formula, and deepest chain of derived measures.
+MAX_FORMULA_DEPTH = 16
+MAX_DERIVED_DEPENDENCY_DEPTH = 16
+#: Bound on a formula's size once references to other derived measures expand.
+MAX_EXPANDED_FORMULA_NODES = 4096
 # ClickHouse's own inference for inline integer literals, narrowest first.
 _INTEGER_TYPES = (
     ("UInt8", range(0, 2**8)),
@@ -47,12 +59,8 @@ def formula_node_count(formula: Formula) -> int:
     pending = [formula]
     count = 0
     while pending:
-        node = pending.pop()
         count += 1
-        if isinstance(node, FormulaBinary):
-            pending.extend((node.left, node.right))
-        elif not isinstance(node, (FormulaReference, FormulaLiteral)):
-            pending.extend(node.args)
+        pending.extend(formula_children(pending.pop()))
     return count
 
 
@@ -80,7 +88,7 @@ def validate_derived_measures(
     complete: dict[str, tuple[int, int]] = {}
 
     def formula_stats(formula: Formula, depth: int = 0) -> tuple[int, int]:
-        if depth > 16:
+        if depth > MAX_FORMULA_DEPTH:
             raise ValueError("Derived formula depth limit exceeded")
         if isinstance(formula, FormulaReference):
             return visit(formula.name)
@@ -88,21 +96,16 @@ def validate_derived_measures(
             if type(formula.value) not in (int, float) and formula.value is not None:
                 raise ValueError("Derived formulas require numeric or null literals")
             return (0, 1)
-        children: tuple[Formula, ...]
-        if isinstance(formula, FormulaBinary):
-            children = (formula.left, formula.right)
-        else:
-            arities = {"nullIfZero": 1, "coalesce": 2, "round": 2, "floor": 1, "ceil": 1}
-            if len(formula.args) != arities[formula.name]:
+        if not isinstance(formula, FormulaBinary):
+            if len(formula.args) != FORMULA_FUNCTION_ARITIES[formula.name]:
                 raise ValueError("Invalid derived formula arity")
             if formula.name == "round":
                 decimals = formula.args[1]
                 if not isinstance(decimals, FormulaLiteral) or type(decimals.value) is not int:
                     raise ValueError("round decimals must be an integer literal")
-            children = formula.args
-        stats = tuple(formula_stats(child, depth + 1) for child in children)
+        stats = tuple(formula_stats(child, depth + 1) for child in formula_children(formula))
         nodes = 1 + sum(size for _, size in stats)
-        if nodes > 4096:
+        if nodes > MAX_EXPANDED_FORMULA_NODES:
             raise ValueError("Derived formula expansion limit exceeded")
         return max(level for level, _ in stats), nodes
 
@@ -117,13 +120,13 @@ def validate_derived_measures(
         stats = (0, 1)
         if isinstance(definition, DerivedMeasure):
             # Bound recursion before descending into uncached dependencies.
-            if len(visiting) >= 16:
+            if len(visiting) >= MAX_DERIVED_DEPENDENCY_DEPTH:
                 raise ValueError("Derived measure dependency depth limit exceeded")
             if formula_node_count(definition.formula) > MAX_FORMULA_NODES:
                 raise ValueError("Derived formula exceeds the expression limits")
             visiting.add(name)
             dependency_depth, nodes = formula_stats(definition.formula)
-            if dependency_depth >= 16:
+            if dependency_depth >= MAX_DERIVED_DEPENDENCY_DEPTH:
                 raise ValueError("Derived measure dependency depth limit exceeded")
             references = formula_references(definition.formula)
             if not references or isinstance(definition.formula, FormulaReference):
