@@ -53,7 +53,7 @@
   "devDependencies": {
     "@hypequery/clickhouse": "workspace:*",
     "@types/node": "^20.11.30",
-    "typescript": "^5.7.3",
+    "typescript": "^6.0.3",
     "vitest": "^5.0.2"
   },
   "repository": {
