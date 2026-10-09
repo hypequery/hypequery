@@ -269,6 +269,33 @@ def test_an_async_bound_client_runs_as_its_tenant() -> None:
     assert caught.value.code == "HQ_CAPABILITY_TENANT_MISMATCH"
 
 
+def test_bound_clients_paginate_as_their_tenant() -> None:
+    executor = _Executor()
+    async_executor = _AsyncExecutor()
+    query = DatasetQuery(measures=("trips",), limit=1)
+
+    result = (
+        create_dataset_client(executor=executor)
+        .for_tenant(tenant("acme"))
+        .execute(_trips(), query, paginate=True)
+    )
+    async_result = asyncio.run(
+        create_async_dataset_client(executor=async_executor)
+        .for_tenant(tenant("acme"))
+        .execute(_trips(), query, paginate=True)
+    )
+
+    for compiled, page in (
+        (executor.seen[0], result.meta.pagination),
+        (async_executor.inner.seen[0], async_result.meta.pagination),
+    ):
+        # The probe row is fetched, and the tenant predicate is still bound.
+        assert compiled.sql.endswith(" LIMIT 2")
+        assert compiled.parameter_values() == {"p0": "acme"}
+        assert page is not None
+        assert (page.limit, page.offset, page.has_more) == (1, 0, False)
+
+
 # --- security review follow-ups -------------------------------------------
 
 
