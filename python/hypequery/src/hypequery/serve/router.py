@@ -17,8 +17,8 @@ particular way.
 # No `from __future__ import annotations`: FastAPI 0.115 cannot resolve string
 # annotations on a callable instance, which has no __globals__, and would read
 # `_Guard.__call__`'s `request: Request` as a query parameter.
-from collections.abc import Awaitable, Callable, Coroutine, MutableMapping, Sequence
-from typing import Any, NoReturn, TypeVar, cast
+from collections.abc import Awaitable, Callable, Coroutine, Sequence
+from typing import Any, NoReturn, TypeVar
 
 from fastapi import APIRouter, Depends, Request
 from fastapi.params import Depends as DependsParam
@@ -46,22 +46,18 @@ from .body_policy import DEFAULT_MAX_BODY_BYTES, enforce_body_policy
 from .errors import as_serve_error, error_response
 from .rate_limit import RateLimit
 from .utils.provider_call import call_provider
+from .utils.scope_slot import ScopeSlot
 
 _Endpoint = TypeVar("_Endpoint", bound=Callable[..., Any])
 
 #: Where a route leaves the auth context for its dependencies. Only this module
-#: holds the key, and it is not a string, so no middleware, header, or request
-#: state can put a context where `router.auth` will read one.
-_AUTH_SCOPE_KEY = object()
+#: holds the slot, and its key is not a string, so no middleware, header, or
+#: request state can put a context where `router.auth` will read one.
+_AUTH_SLOT: "ScopeSlot[dict[_Guard, RequestAuth]]" = ScopeSlot(dict)
 
 
 def _authenticated_by(request: Request) -> "dict[_Guard, RequestAuth]":
-    scope = cast(MutableMapping[object, Any], request.scope)
-    found = scope.get(_AUTH_SCOPE_KEY)
-    if type(found) is not dict:
-        found = {}
-        scope[_AUTH_SCOPE_KEY] = found
-    return found
+    return _AUTH_SLOT.setdefault(request.scope, dict)
 
 
 def authenticated_context(request: Request) -> RequestAuth | None:

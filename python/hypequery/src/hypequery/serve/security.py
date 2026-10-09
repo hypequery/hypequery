@@ -18,9 +18,7 @@ import inspect
 import ipaddress
 import re
 import secrets
-from collections.abc import MutableMapping
 from dataclasses import dataclass
-from typing import Any, cast
 
 from fastapi import FastAPI, Request
 from fastapi.exception_handlers import http_exception_handler
@@ -32,7 +30,7 @@ from starlette.responses import PlainTextResponse, Response
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from .errors import ServeError, error_response
-from .request_ids import REQUEST_ID_KEY, validate_correlation_id
+from .request_ids import REQUEST_ID_SLOT, validate_correlation_id
 
 _ORIGIN = re.compile(r"https?://[a-z0-9.-]+(:[0-9]{1,5})?|https?://\[[0-9a-f:.]+\](:[0-9]{1,5})?")
 _HOST = re.compile(r"(\*\.)?[a-z0-9.-]+|\[[0-9a-f:.]+\]")
@@ -120,7 +118,7 @@ class _RequestIdMiddleware:
             await self.app(scope, receive, send)
             return
         authoritative = secrets.token_hex(16)
-        cast(MutableMapping[object, Any], scope)[REQUEST_ID_KEY] = authoritative
+        REQUEST_ID_SLOT.set(scope, authoritative)
         values = [
             value.decode("latin-1")
             for name, value in scope["headers"]

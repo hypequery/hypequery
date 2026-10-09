@@ -25,28 +25,24 @@ import heapq
 import math
 import threading
 import time
-from collections.abc import Awaitable, Callable, MutableMapping
-from typing import Any, Protocol, cast, runtime_checkable
+from collections.abc import Awaitable, Callable
+from typing import Protocol, runtime_checkable
 
 from fastapi import Request
 
 from .auth import RequestAuth
 from .errors import ServeError
+from .utils.scope_slot import ScopeSlot
 
 DEFAULT_MESSAGE = "Too many requests, please try again later"
 
 #: Which limits a request has already been counted against. Only this module
-#: holds the key.
-_APPLIED_KEY = object()
+#: holds the slot.
+_APPLIED_SLOT: "ScopeSlot[set[RateLimit]]" = ScopeSlot(set)
 
 
 def _applied_limits(request: Request) -> "set[RateLimit]":
-    scope = cast(MutableMapping[object, Any], request.scope)
-    applied = scope.get(_APPLIED_KEY)
-    if type(applied) is not set:
-        applied = set()
-        scope[_APPLIED_KEY] = applied
-    return applied
+    return _APPLIED_SLOT.setdefault(request.scope, set)
 
 
 #: Picks the caller to count a request against, or None to leave it unlimited.
