@@ -362,7 +362,7 @@ class AsyncFromSyncClickHouseExecutor:
     async def _cancel_on_server(self, query_id: str) -> object:
         loop = asyncio.get_running_loop()
         try:
-            command = await asyncio.wait_for(
+            return await asyncio.wait_for(
                 loop.run_in_executor(
                     self._control_worker,
                     self._control.command,
@@ -371,17 +371,14 @@ class AsyncFromSyncClickHouseExecutor:
                 ),
                 timeout=_CONTROL_TIMEOUT_SECONDS,
             )
-            return command
         except Exception as exc:
             raise safe_driver_error(exc, query_id) from None
 
     def _release_slot_from_worker(self, loop: asyncio.AbstractEventLoop) -> None:
-        try:
+        # Application shutdown may close the loop before a blocked driver worker
+        # returns; no further admission is possible in that loop.
+        with suppress(RuntimeError):
             loop.call_soon_threadsafe(self._semaphore.release)
-        except RuntimeError:
-            # Application shutdown closed the loop before a blocked driver
-            # worker returned. No further admission is possible in that loop.
-            pass
 
     async def execute(self, compiled: CompiledQuery) -> QueryRows:
         if self._closed:

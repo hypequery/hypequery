@@ -8,7 +8,6 @@ from ...utils.query_timezone import time_filter_value
 from ..aliases import BASE_ALIAS
 from ..errors import CompiledQueryError
 from ..identifiers import safe_identifier
-from ..parameters import clickhouse_type_for
 from ..resolution import is_qualified, physical_column, resolve_qualified_field
 from ..sql_fragments import trusted_expression
 from .base import CompilerFeature
@@ -55,7 +54,7 @@ class FieldFeature(CompilerFeature):
 
         if self._timezone_placeholder is None:
             self._timezone_placeholder = self.compiler.binder.bind(self.compiler.timezone, "String")
-        return f"toDateTime64({column}, 9, {self._timezone_placeholder})"
+        return self.compiler.dialect.in_time_zone(column, self._timezone_placeholder)
 
     def is_time_field(self, field: str) -> bool:
         """Whether *field* reads the dataset's time key column."""
@@ -78,8 +77,10 @@ class FieldFeature(CompilerFeature):
         compiler = self.compiler
         if is_qualified(field):
             resolved = resolve_qualified_field(compiler.dataset, field, registry=compiler.registry)
-            return clickhouse_type_for(resolved.dimension.field_type)
+            return compiler.dialect.parameter_type(resolved.dimension.field_type)
         dimension = compiler.dataset.dimensions.get(field)
         # A filter on something with no declared type binds as a string: the widest
         # reading, and one the executor narrows once it knows the column.
-        return "String" if dimension is None else clickhouse_type_for(dimension.field_type)
+        if dimension is None:
+            return compiler.dialect.parameter_type("string")
+        return compiler.dialect.parameter_type(dimension.field_type)

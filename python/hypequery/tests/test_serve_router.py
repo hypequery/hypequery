@@ -334,18 +334,18 @@ def test_a_route_class_that_skips_early_authentication_is_refused() -> None:
     router = create_router(authenticate=_Authenticator())
 
     with pytest.raises(TypeError):
-        router.add_api_route("/x", lambda: {}, route_class_override=APIRoute)
+        router.add_api_route("/x", dict, route_class_override=APIRoute)
 
     class BypassRoute(_AuthenticatingRoute):
         def get_route_handler(self) -> Any:
             return APIRoute.get_route_handler(self)
 
     with pytest.raises(TypeError):
-        router.add_api_route("/x", lambda: {}, route_class_override=BypassRoute)
+        router.add_api_route("/x", dict, route_class_override=BypassRoute)
 
     router.route_class = BypassRoute
     with pytest.raises(TypeError):
-        router.add_api_route("/x", lambda: {})
+        router.add_api_route("/x", dict)
 
 
 def test_the_auth_dependency_cannot_be_replaced() -> None:

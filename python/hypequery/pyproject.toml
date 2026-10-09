@@ -79,11 +79,27 @@ select = [
   "PT",            # pytest style
   "S",             # bandit — includes S608 hardcoded-SQL, a plan-level ban
   "RUF",
+  "SIM",           # simplifications
+  "RET",           # return hygiene
+  "PIE",
+  "PERF",
+  "C90",           # mccabe complexity
 ]
+# Ruff cannot see that a NoReturn raiser such as deployment_error() ends a
+# function, so RET503 would demand unreachable returns.
+ignore = ["RET503"]
+
+[tool.ruff.lint.mccabe]
+# New code stays under this. The validators exempted below mirror their
+# TypeScript counterparts branch for branch and are pinned by conformance.
+max-complexity = 15
 
 [tool.ruff.lint.per-file-ignores]
 # Tests legitimately assert and spawn subprocesses to check import hygiene.
 "tests/**" = ["S101", "S603", "S404"]
+"src/hypequery/protocol/deployments.py" = ["C901"]
+"src/hypequery/protocol/values.py" = ["C901"]
+"src/hypequery/datasets/utils/derived_measures.py" = ["C901"]
 
 [tool.mypy]
 python_version = "3.11"
@@ -109,6 +125,11 @@ fail_under = 88
 testpaths = ["tests"]
 pythonpath = ["."]
 addopts = "-q"
+filterwarnings = [
+  # Starlette is moving its test client to httpx2. The suite also drives apps
+  # through httpx directly (Client, ASGITransport), so migrate both together.
+  "ignore:Using `httpx` with `starlette.testclient` is deprecated",
+]
 
 # Import boundaries. These encode the layering the security roadmap requires:
 # protocol is the foundation, datasets builds on it, execution adapts compiled
@@ -147,6 +168,7 @@ source_modules = [
   "hypequery.datasets.planner.aggregates",
   "hypequery.datasets.planner.predicates",
   "hypequery.datasets.planner.operators",
+  "hypequery.datasets.planner.dialects",
 ]
 forbidden_modules = [
   "hypequery.datasets.client",

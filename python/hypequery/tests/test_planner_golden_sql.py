@@ -250,3 +250,21 @@ def test_golden_sql_snapshot() -> None:
 def test_each_case_plans(name: str) -> None:
     # A case that stops planning would otherwise surface only as a snapshot diff.
     assert CASES[name]().sql.startswith("SELECT ")
+
+
+def test_every_planned_parameter_type_is_accepted_by_the_executor() -> None:
+    # The executor validates types against its own allow-list, which also admits
+    # trusted non-planner types such as Decimal. Guard the other direction: the
+    # planner must never emit a type the executor would refuse.
+    from hypequery.execution.parameters import _TYPE
+
+    snapshot = json.loads(SNAPSHOT.read_text(encoding="utf-8"))
+    emitted = {
+        parameter_type
+        for section in ("queries", "relationshipChecks")
+        for record in snapshot[section].values()
+        for _, parameter_type, _ in record["parameters"]
+    }
+    scalars = {kind[len("Array(") : -1] if kind.startswith("Array(") else kind for kind in emitted}
+    assert scalars, "the golden corpus binds parameters"
+    assert all(_TYPE.fullmatch(kind) for kind in scalars), sorted(scalars)

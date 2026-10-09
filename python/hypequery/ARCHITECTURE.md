@@ -50,12 +50,20 @@ the nearest `utils/` directory. Behavior that owns or changes selections, joins
 or parameter state stays on the compiler. Preserve the existing planner entry
 point, aliases and package exports when moving implementations.
 
-## Future dialect work
+## Dialects
 
-Compilation currently uses ClickHouse SQL and typed placeholders. Extract dialect
-rendering from the compiler, SQL fragments, identifiers and parameter binding
-without adding it to clients. Preserve tenant predicates on joined tables in
-the join condition, single-match semantics and parameter allocation order.
+Compilation spells every ClickHouse-specific construct through a `SqlDialect`
+(`planner/dialects/`): aggregate functions and the conditional (`-If`)
+combinator, grain truncation and period text, time-zone conversion, the join
+match marker, the single-match join keyword, and the relationship-check counts.
+`ClickHouseDialect` is the only implementation and the default.
+
+Identifier quoting (`SafeIdentifier`) and `{name:Type}` placeholders
+(`TypedParameter`) are not yet dialect-owned; a dialect that needs different
+ones should move them behind the same seam. A new dialect must reproduce the
+semantics each ClickHouse spelling documents — single-match joins, tenant
+predicates inside the join condition, the match marker's null behaviour and
+parameter allocation order — and needs its own live semantic-equivalence tests.
 Keep intentional SQL changes separate from structural extraction.
 
 Python does not currently author TypeScript metric handles or named queries;
