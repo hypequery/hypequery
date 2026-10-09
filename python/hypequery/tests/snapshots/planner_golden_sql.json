@@ -22,7 +22,7 @@
       "sql": "SELECT count(`kind`) AS `events` FROM `events` LIMIT 501"
     },
     "default-measures": {
-      "debug": "SELECT sum(`__hq_base`.`net_amount`) AS `revenue`, count(`__hq_base`.`status`) AS `orders`, uniqExact(`__hq_base`.`customer_id`) AS `uniqueCustomers`, avg(`__hq_base`.`net_amount`) AS `avgAmount`, min(`__hq_base`.`net_amount`) AS `minAmount`, max(`__hq_base`.`net_amount`) AS `maxAmount`, quantile(0.5)(`__hq_base`.`net_amount`) AS `medianAmount`, quantile(0.95)(`__hq_base`.`net_amount`) AS `p95Amount`, stddevSamp(`__hq_base`.`net_amount`) AS `spread`, varSamp(`__hq_base`.`net_amount`) AS `variance`, argMax(`__hq_base`.`status`, `__hq_base`.`created_at`) AS `lastStatus`, argMin(`__hq_base`.`status`, `__hq_base`.`created_at`) AS `firstStatus`, sumIf(`__hq_base`.`net_amount`, `__hq_base`.`status` = <p0:String> AND `__hq_base`.`net_amount` >= <p1:Float64>) AS `paidRevenue`, sumIf(`__hq_base`.`net_amount`, `customer`.`tier` = <p3:String>) AS `goldRevenue` FROM `analytics`.`orders` AS `__hq_base` LEFT ANY JOIN `analytics`.`customers` AS `customer` ON `__hq_base`.`customer_id` = `customer`.`id` AND `customer`.`tenant_id` = <p2:String> WHERE `__hq_base`.`tenant_id` = <p4:String>",
+      "debug": "SELECT sum(`__hq_base`.`net_amount`) AS `revenue`, count(`__hq_base`.`status`) AS `orders`, uniqExact(`__hq_base`.`customer_id`) AS `uniqueCustomers`, avg(`__hq_base`.`net_amount`) AS `avgAmount`, min(`__hq_base`.`net_amount`) AS `minAmount`, max(`__hq_base`.`net_amount`) AS `maxAmount`, quantile(0.5)(`__hq_base`.`net_amount`) AS `medianAmount`, quantile(0.95)(`__hq_base`.`net_amount`) AS `p95Amount`, stddevSamp(`__hq_base`.`net_amount`) AS `spread`, varSamp(`__hq_base`.`net_amount`) AS `variance`, argMax(`__hq_base`.`status`, `__hq_base`.`created_at`) AS `lastStatus`, argMin(`__hq_base`.`status`, `__hq_base`.`created_at`) AS `firstStatus`, sumIf(`__hq_base`.`net_amount`, `__hq_base`.`status` = <p0:String> AND `__hq_base`.`net_amount` >= <p1:Float64>) AS `paidRevenue`, sumIf(`__hq_base`.`net_amount`, `customer`.`tier` = <p3:String>) AS `goldRevenue`, quantileIf(0.9)(`__hq_base`.`net_amount`, `__hq_base`.`status` = <p4:String>) AS `paidP90`, uniqExactIf(`__hq_base`.`customer_id`, `__hq_base`.`status` IN <p5:Array(String)>) AS `paidCustomers` FROM `analytics`.`orders` AS `__hq_base` LEFT ANY JOIN `analytics`.`customers` AS `customer` ON `__hq_base`.`customer_id` = `customer`.`id` AND `customer`.`tenant_id` = <p2:String> WHERE `__hq_base`.`tenant_id` = <p6:String>",
       "parameters": [
         [
           "p0",
@@ -47,10 +47,23 @@
         [
           "p4",
           "String",
+          "paid"
+        ],
+        [
+          "p5",
+          "Array(String)",
+          [
+            "paid",
+            "settled"
+          ]
+        ],
+        [
+          "p6",
+          "String",
           "acme"
         ]
       ],
-      "sql": "SELECT sum(`__hq_base`.`net_amount`) AS `revenue`, count(`__hq_base`.`status`) AS `orders`, uniqExact(`__hq_base`.`customer_id`) AS `uniqueCustomers`, avg(`__hq_base`.`net_amount`) AS `avgAmount`, min(`__hq_base`.`net_amount`) AS `minAmount`, max(`__hq_base`.`net_amount`) AS `maxAmount`, quantile(0.5)(`__hq_base`.`net_amount`) AS `medianAmount`, quantile(0.95)(`__hq_base`.`net_amount`) AS `p95Amount`, stddevSamp(`__hq_base`.`net_amount`) AS `spread`, varSamp(`__hq_base`.`net_amount`) AS `variance`, argMax(`__hq_base`.`status`, `__hq_base`.`created_at`) AS `lastStatus`, argMin(`__hq_base`.`status`, `__hq_base`.`created_at`) AS `firstStatus`, sumIf(`__hq_base`.`net_amount`, `__hq_base`.`status` = {p0:String} AND `__hq_base`.`net_amount` >= {p1:Float64}) AS `paidRevenue`, sumIf(`__hq_base`.`net_amount`, `customer`.`tier` = {p3:String}) AS `goldRevenue` FROM `analytics`.`orders` AS `__hq_base` LEFT ANY JOIN `analytics`.`customers` AS `customer` ON `__hq_base`.`customer_id` = `customer`.`id` AND `customer`.`tenant_id` = {p2:String} WHERE `__hq_base`.`tenant_id` = {p4:String}"
+      "sql": "SELECT sum(`__hq_base`.`net_amount`) AS `revenue`, count(`__hq_base`.`status`) AS `orders`, uniqExact(`__hq_base`.`customer_id`) AS `uniqueCustomers`, avg(`__hq_base`.`net_amount`) AS `avgAmount`, min(`__hq_base`.`net_amount`) AS `minAmount`, max(`__hq_base`.`net_amount`) AS `maxAmount`, quantile(0.5)(`__hq_base`.`net_amount`) AS `medianAmount`, quantile(0.95)(`__hq_base`.`net_amount`) AS `p95Amount`, stddevSamp(`__hq_base`.`net_amount`) AS `spread`, varSamp(`__hq_base`.`net_amount`) AS `variance`, argMax(`__hq_base`.`status`, `__hq_base`.`created_at`) AS `lastStatus`, argMin(`__hq_base`.`status`, `__hq_base`.`created_at`) AS `firstStatus`, sumIf(`__hq_base`.`net_amount`, `__hq_base`.`status` = {p0:String} AND `__hq_base`.`net_amount` >= {p1:Float64}) AS `paidRevenue`, sumIf(`__hq_base`.`net_amount`, `customer`.`tier` = {p3:String}) AS `goldRevenue`, quantileIf(0.9)(`__hq_base`.`net_amount`, `__hq_base`.`status` = {p4:String}) AS `paidP90`, uniqExactIf(`__hq_base`.`customer_id`, `__hq_base`.`status` IN {p5:Array(String)}) AS `paidCustomers` FROM `analytics`.`orders` AS `__hq_base` LEFT ANY JOIN `analytics`.`customers` AS `customer` ON `__hq_base`.`customer_id` = `customer`.`id` AND `customer`.`tenant_id` = {p2:String} WHERE `__hq_base`.`tenant_id` = {p6:String}"
     },
     "derived-arithmetic": {
       "debug": "SELECT ((sum(`net_amount`) * <p0:Float64>) - (count(`status`) + <p1:Int8>)) AS `net`, (FLOOR(avg(`net_amount`)) + CEIL(avg(`net_amount`))) AS `bounds`, (count(`status`) * <p2:UInt32>) AS `big`, COALESCE(sum(`net_amount`), NULL) AS `nothing` FROM `analytics`.`orders` WHERE `tenant_id` = <p3:String>",
@@ -474,6 +487,30 @@
         ]
       ],
       "sql": "SELECT sumIf(`net_amount`, `status` = {p0:String} AND `net_amount` >= {p1:Float64}) AS `paidRevenue`, sum(`net_amount`) AS `revenue` FROM `analytics`.`orders` WHERE `tenant_id` = {p2:String}"
+    },
+    "measure-filters-on-parametric-and-distinct": {
+      "debug": "SELECT quantileIf(0.9)(`net_amount`, `status` = <p0:String>) AS `paidP90`, uniqExactIf(`customer_id`, `status` IN <p1:Array(String)>) AS `paidCustomers` FROM `analytics`.`orders` WHERE `tenant_id` = <p2:String>",
+      "parameters": [
+        [
+          "p0",
+          "String",
+          "paid"
+        ],
+        [
+          "p1",
+          "Array(String)",
+          [
+            "paid",
+            "settled"
+          ]
+        ],
+        [
+          "p2",
+          "String",
+          "acme"
+        ]
+      ],
+      "sql": "SELECT quantileIf(0.9)(`net_amount`, `status` = {p0:String}) AS `paidP90`, uniqExactIf(`customer_id`, `status` IN {p1:Array(String)}) AS `paidCustomers` FROM `analytics`.`orders` WHERE `tenant_id` = {p2:String}"
     },
     "overfetch": {
       "debug": "SELECT count(`status`) AS `orders` FROM `analytics`.`orders` WHERE `tenant_id` = <p0:String> LIMIT 11",
