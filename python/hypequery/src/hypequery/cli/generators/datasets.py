@@ -10,7 +10,7 @@ from hypequery.datasets.validation import validate_identifier
 from hypequery.protocol.errors import ProtocolIdentifierError
 
 from ..errors import CliError
-from .schema import Schema
+from .schema import Schema, Table
 
 
 @dataclass(frozen=True)
@@ -103,6 +103,171 @@ def measure_candidate(name: str) -> bool:
     )
 
 
+#: Measures suggested for each numeric value column: name prefix, aggregation, label.
+_NUMERIC_MEASURES = (("total", "sum", "Total"), ("avg", "avg", "Average"))
+#: Column names that suggest tenancy. Reported for review, never applied.
+_TENANT_HINTS = frozenset(("tenant_id", "organization_id", "org_id", "account_id", "customer_id"))
+
+
+@dataclass(frozen=True, slots=True)
+class FieldSpec:
+    """One generated dimension: its physical column, semantic alias and type."""
+
+    column: str
+    alias: str
+    kind: str
+
+
+@dataclass(frozen=True, slots=True)
+class MeasureSpec:
+    name: str
+    aggregation: str
+    field: str
+    label: str
+
+
+@dataclass(frozen=True, slots=True)
+class DatasetSpec:
+    """Everything inferred for one table, before any source is rendered."""
+
+    table: str
+    source: str
+    time_key: str | None
+    tenant_key: str | None
+    fields: tuple[FieldSpec, ...]
+    #: The column-backed row count; see `_count_field`.
+    count_field: str
+    measures: tuple[MeasureSpec, ...]
+
+
+def _label(column: str) -> str:
+    return column.replace("_", " ").title()
+
+
+def _time_key(fields: tuple[FieldSpec, ...]) -> str | None:
+    """`created_at` when present, else the only timestamp, else none."""
+
+    timestamps = [field.column for field in fields if field.kind == "timestamp"]
+    if "created_at" in timestamps:
+        return "created_at"
+    return timestamps[0] if len(timestamps) == 1 else None
+
+
+def infer_dataset(
+    table: Table, database: str, *, tenant_column: str | None, warnings: list[str]
+) -> DatasetSpec:
+    """Infer one dataset from catalog metadata, appending review warnings in order."""
+
+    if not is_identifier(table.name):
+        raise CliError(f"Table {table.name!r} is outside the SDK's supported identifier grammar.")
+    fields: list[FieldSpec] = []
+    non_nullable: list[str] = []
+    seen: set[str] = set()
+    for column in table.columns:
+        kind = dimension_type(column.type)
+        alias = field_name(column.name)
+        if kind is None or not is_identifier(column.name) or not is_identifier(alias):
+            warnings.append(
+                f"{table.name}.{column.name}: unsupported column ({column.type}); omitted."
+            )
+            continue
+        if alias in seen or alias == "totalCount":
+            raise CliError(
+                f"Semantic name collision in {table.name!r}: {alias!r}; rename or map explicitly."
+            )
+        seen.add(alias)
+        fields.append(FieldSpec(column.name, alias, kind))
+        if not is_nullable(column.type):
+            non_nullable.append(alias)
+    if not fields:
+        raise CliError(f"Table {table.name!r} has no supported scalar dimensions.")
+
+    time_key = _time_key(tuple(fields))
+    if time_key is None and sum(field.kind == "timestamp" for field in fields) > 1:
+        warnings.append(f"{table.name}: multiple timestamp columns; set time_key explicitly.")
+    columns = {field.column for field in fields}
+    tenant_key = tenant_column if tenant_column in columns else None
+    if tenant_column is not None and tenant_key is None:
+        warnings.append(
+            f"{table.name}: no {tenant_column!r} column, so tenant isolation was not "
+            "applied; set tenant_key to the correct column before serving tenant requests."
+        )
+    hints = [field.column for field in fields if field.column.lower() in _TENANT_HINTS]
+    if hints and tenant_key is None:
+        warnings.append(
+            f"{table.name}: possible tenant columns {', '.join(hints)}; "
+            "configure trusted tenant scope and tenant_key explicitly."
+        )
+
+    measures: list[MeasureSpec] = []
+    for field in fields:
+        if field.kind != "number" or not measure_candidate(field.column):
+            continue
+        for prefix, aggregation, description in _NUMERIC_MEASURES:
+            name = prefix + pascal_name(field.column)
+            if name in seen:
+                raise CliError(
+                    f"Semantic name collision in {table.name!r}: {name!r}; map explicitly."
+                )
+            seen.add(name)
+            measures.append(
+                MeasureSpec(name, aggregation, field.alias, f"{description} {_label(field.column)}")
+            )
+    return DatasetSpec(
+        table=table.name,
+        source=f"{database}.{table.name}",
+        time_key=time_key,
+        tenant_key=tenant_key,
+        fields=tuple(fields),
+        # Column-backed, as TypeScript generates it, so the definition deploys and
+        # composes with relationship joins. A non-nullable column keeps it a row
+        # count; `count` skips NULLs, so a nullable one is only the fallback.
+        count_field=non_nullable[0] if non_nullable else fields[0].alias,
+        measures=tuple(measures),
+    )
+
+
+def render_datasets(specs: tuple[DatasetSpec, ...]) -> str:
+    """Python source defining *specs*; every value is written with `repr`."""
+
+    lines = [
+        "# Generated from ClickHouse catalog metadata; review suggested measures.",
+        "from hypequery.datasets import dataset, dimension, measure",
+        "",
+        "datasets = {",
+    ]
+    for spec in specs:
+        lines.extend(
+            [
+                f"    {spec.table!r}: dataset(",
+                f"        name={spec.table!r},",
+                f"        source={spec.source!r},",
+            ]
+        )
+        if spec.time_key:
+            lines.append(f"        time_key={spec.time_key!r},")
+        if spec.tenant_key:
+            lines.append(f"        tenant_key={spec.tenant_key!r},")
+        lines.append("        dimensions={")
+        for field in spec.fields:
+            lines.append(
+                f"            {field.alias!r}: dimension.{field.kind}"
+                f"(column={field.column!r}, label={_label(field.column)!r}),"
+            )
+        lines.extend(["        },", "        measures={"])
+        lines.append(
+            f'            "totalCount": measure.count({spec.count_field!r}, label="Total Count"),'
+        )
+        for item in spec.measures:
+            lines.append(
+                f"            {item.name!r}: measure.{item.aggregation}({item.field!r}, "
+                f"label={item.label!r}),"
+            )
+        lines.extend(["        },", "    ),"])
+    lines.extend(["}", ""])
+    return "\n".join(lines)
+
+
 def generate_datasets(schema: Schema, *, tenant_column: str | None = None) -> GeneratedDatasets:
     """Preserve source mappings, avoid collisions, and report unsupported fields.
 
@@ -113,136 +278,27 @@ def generate_datasets(schema: Schema, *, tenant_column: str | None = None) -> Ge
         raise CliError("The tenant column is outside the SDK's supported identifier grammar.")
     if not is_identifier(schema.database):
         raise CliError("The database name is outside the SDK's supported identifier grammar.")
-    lines = [
-        "# Generated from ClickHouse catalog metadata; review suggested measures.",
-        "from hypequery.datasets import dataset, dimension, measure",
-        "",
-        "datasets = {",
-    ]
-    warnings: list[str] = []
-    first_dimension = ""
-    snapshot = []
-    for table in schema.tables:
-        if not is_identifier(table.name):
-            raise CliError(
-                f"Table {table.name!r} is outside the SDK's supported identifier grammar."
-            )
-        fields: list[tuple[str, str, str]] = []
-        non_nullable: list[str] = []
-        seen: set[str] = set()
-        for column in table.columns:
-            kind = dimension_type(column.type)
-            alias = field_name(column.name)
-            if kind is None or not is_identifier(column.name) or not is_identifier(alias):
-                warnings.append(
-                    f"{table.name}.{column.name}: unsupported column ({column.type}); omitted."
-                )
-                continue
-            if alias in seen or alias == "totalCount":
-                raise CliError(
-                    f"Semantic name collision in {table.name!r}: {alias!r}; "
-                    "rename or map explicitly."
-                )
-            seen.add(alias)
-            fields.append((column.name, alias, kind))
-            if not is_nullable(column.type):
-                non_nullable.append(alias)
-        if not fields:
-            raise CliError(f"Table {table.name!r} has no supported scalar dimensions.")
-        if not first_dimension:
-            first_dimension = fields[0][1]
-        timestamps = [column for column, _, kind in fields if kind == "timestamp"]
-        time_key = (
-            "created_at"
-            if "created_at" in timestamps
-            else timestamps[0]
-            if len(timestamps) == 1
-            else None
-        )
-        if len(timestamps) > 1 and time_key is None:
-            warnings.append(f"{table.name}: multiple timestamp columns; set time_key explicitly.")
-        tenants = [
-            column
-            for column, _, _ in fields
-            if column.lower()
-            in {"tenant_id", "organization_id", "org_id", "account_id", "customer_id"}
-        ]
-        tenant_key = tenant_column if tenant_column in {column for column, _, _ in fields} else None
-        if tenant_column is not None and tenant_key is None:
-            warnings.append(
-                f"{table.name}: no {tenant_column!r} column, so tenant isolation was not "
-                "applied; set tenant_key to the correct column before serving tenant requests."
-            )
-        if tenants and tenant_key is None:
-            warnings.append(
-                f"{table.name}: possible tenant columns {', '.join(tenants)}; "
-                "configure trusted tenant scope and tenant_key explicitly."
-            )
-        lines.extend(
-            [
-                f"    {table.name!r}: dataset(",
-                f"        name={table.name!r},",
-                f"        source={f'{schema.database}.{table.name}'!r},",
-            ]
-        )
-        if time_key:
-            lines.append(f"        time_key={time_key!r},")
-        if tenant_key:
-            lines.append(f"        tenant_key={tenant_key!r},")
-        lines.append("        dimensions={")
-        for physical, alias, kind in fields:
-            label = physical.replace("_", " ").title()
-            lines.append(
-                f"            {alias!r}: dimension.{kind}(column={physical!r}, label={label!r}),"
-            )
-        lines.extend(
-            [
-                "        },",
-                "        measures={",
-            ]
-        )
-        # Column-backed, as TypeScript generates it, so the definition deploys and
-        # composes with relationship joins. A non-nullable column keeps it a row
-        # count; `count` skips NULLs, so a nullable one is only the fallback.
-        count_field = non_nullable[0] if non_nullable else fields[0][1]
-        lines.append(
-            f'            "totalCount": measure.count({count_field!r}, label="Total Count"),'
-        )
-        for physical, alias, kind in fields:
-            if kind != "number" or not measure_candidate(physical):
-                continue
-            label = physical.replace("_", " ").title()
-            for prefix, aggregation, description in [
-                ("total", "sum", "Total"),
-                ("avg", "avg", "Average"),
-            ]:
-                name = prefix + pascal_name(physical)
-                if name in seen:
-                    raise CliError(
-                        f"Semantic name collision in {table.name!r}: {name!r}; map explicitly."
-                    )
-                seen.add(name)
-                lines.append(
-                    f"            {name!r}: measure.{aggregation}({alias!r}, "
-                    f"label={f'{description} {label}'!r}),"
-                )
-        lines.extend(["        },", "    ),"])
-        snapshot.append(
-            {
-                "table": table.name,
-                "columns": [{"name": column.name, "type": column.type} for column in table.columns],
-            }
-        )
-    lines.extend(["}", ""])
-    if not snapshot:
+    if not schema.tables:
         raise CliError("No tables selected.")
+    warnings: list[str] = []
+    specs = tuple(
+        infer_dataset(table, schema.database, tenant_column=tenant_column, warnings=warnings)
+        for table in schema.tables
+    )
+    snapshot = [
+        {
+            "table": table.name,
+            "columns": [{"name": column.name, "type": column.type} for column in table.columns],
+        }
+        for table in schema.tables
+    ]
     return GeneratedDatasets(
-        "\n".join(lines),
+        render_datasets(specs),
         json.dumps(
             {"database": schema.database, "tables": snapshot, "warnings": warnings}, indent=2
         )
         + "\n",
         tuple(warnings),
         tuple(table.name for table in schema.tables),
-        first_dimension,
+        specs[0].fields[0].alias,
     )

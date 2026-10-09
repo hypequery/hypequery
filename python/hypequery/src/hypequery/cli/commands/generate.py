@@ -2,21 +2,19 @@
 
 from __future__ import annotations
 
-import argparse
 import sys
 from difflib import unified_diff
 from pathlib import Path
-from typing import cast
 
 from ..errors import CliError
 from ..generators.datasets import generate_datasets, is_identifier
 from ..generators.schema import discover_schema
+from ..options import GenerateDatasetsOptions
 from ..utils.generated_file import GeneratedFile
 from ..utils.tenant_settings import configures_tenant
 
 
-def run(args: object) -> None:
-    options = cast(argparse.Namespace, args)
+def run(options: GenerateDatasetsOptions) -> None:
     # init places datasets.py beside app.py, so default to the current directory.
     output = GeneratedFile(
         Path(options.output) if options.output else Path(options.path or ".") / "datasets.py"

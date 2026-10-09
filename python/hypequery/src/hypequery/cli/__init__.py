@@ -5,14 +5,15 @@ from __future__ import annotations
 import sys
 from collections.abc import Sequence
 from importlib import import_module
-from typing import Protocol, cast
+from typing import Any, Protocol, cast
 
 from .errors import CliError
+from .options import command_options
 from .parser import parse_args
 
 
 class _Command(Protocol):
-    def run(self, args: object) -> None: ...
+    def run(self, options: Any) -> None: ...
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -20,7 +21,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = parse_args(argv)
     try:
         command = cast(_Command, import_module(f"hypequery.cli.commands.{args.command}"))
-        command.run(args)
+        command.run(command_options(args))
     except CliError as exc:
         print(f"hypequery: {exc}", file=sys.stderr)
         return 1
