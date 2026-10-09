@@ -32,14 +32,8 @@ DEV_TOKEN = os.environ["HYPEQUERY_DEV_TOKEN"]
 if not DEV_TOKEN:
     raise ValueError("HYPEQUERY_DEV_TOKEN must not be empty")
 
-executor = create_clickhouse_executor(ClickHouseConnection(
-    host=os.environ.get("CLICKHOUSE_HOST", "localhost"),
-    port=int(os.environ.get("CLICKHOUSE_PORT", "8123")),
-    database=os.environ.get("CLICKHOUSE_DATABASE", "default"),
-    username=os.environ.get("CLICKHOUSE_USERNAME", "default"),
-    password=os.environ.get("CLICKHOUSE_PASSWORD", ""),
-    secure=os.environ.get("CLICKHOUSE_SECURE", "false").lower() == "true",
-))
+# Reads CLICKHOUSE_HOST, _PORT, _DATABASE, _USERNAME, _PASSWORD and _SECURE.
+executor = create_clickhouse_executor(ClickHouseConnection.from_env())
 registry = create_dataset_registry(*datasets.values())
 client = create_dataset_client(executor=executor, registry=registry)
 

@@ -8,6 +8,8 @@ from dataclasses import dataclass
 from importlib.util import find_spec
 from typing import Protocol, cast
 
+from hypequery.execution.utils.connection_env import connection_fields
+
 from ..errors import CliError
 
 
@@ -46,17 +48,17 @@ def discover_schema(*, tables: str | None, exclude_tables: str | None) -> Schema
         raise CliError('Schema discovery requires: pip install "hypequery[clickhouse]"')
     import clickhouse_connect
 
+    try:
+        fields = connection_fields(os.environ)
+    except ValueError as exc:
+        # The parser's messages name the variable and never echo its value.
+        raise CliError(str(exc)) from exc
     client: _Client | None = None
     try:
         client = cast(
             _Client,
             clickhouse_connect.get_client(
-                host=os.environ.get("CLICKHOUSE_HOST", "localhost"),
-                port=int(os.environ.get("CLICKHOUSE_PORT", "8123")),
-                database=os.environ.get("CLICKHOUSE_DATABASE", "default"),
-                username=os.environ.get("CLICKHOUSE_USERNAME", "default"),
-                password=os.environ.get("CLICKHOUSE_PASSWORD", ""),
-                secure=os.environ.get("CLICKHOUSE_SECURE", "false").lower() == "true",
+                **fields,
                 connect_timeout=5,
                 send_receive_timeout=15,
             ),

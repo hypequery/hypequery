@@ -78,12 +78,14 @@ jobs:
           enable-cache: true
           cache-dependency-glob: python/hypequery/uv.lock
       - run: uv sync --all-extras --dev
-      - name: Run datasets coverage with live ClickHouse
+      - name: Run package coverage with live ClickHouse
         run: |
           uv run coverage erase
           uv run coverage run -m pytest
           uv run coverage combine
           uv run coverage report
+          uv run coverage json -o coverage.json
+          uv run python scripts/check_coverage.py coverage.json
         env:
           HYPEQUERY_TEST_CLICKHOUSE_HOST: localhost
           HYPEQUERY_TEST_CLICKHOUSE_PASSWORD: hypequery_test
