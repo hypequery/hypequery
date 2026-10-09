@@ -198,3 +198,20 @@ def test_schema_project_wheel_contains_both_modules(tmp_path: Path) -> None:
         capture_output=True,
         text=True,
     )
+
+
+@pytest.mark.parametrize(
+    ("name", "value"), [("CLICKHOUSE_SECURE", "sometimes"), ("CLICKHOUSE_PORT", "http")]
+)
+def test_discovery_names_a_malformed_connection_variable(
+    monkeypatch: pytest.MonkeyPatch, name: str, value: str
+) -> None:
+    from hypequery.cli.generators.schema import discover_schema
+
+    monkeypatch.setenv(name, value)
+    with pytest.raises(CliError, match=name) as caught:
+        discover_schema(tables=None, exclude_tables=None)
+    # The generic "check credentials" message would send users the wrong way,
+    # and the rejected value is never echoed.
+    assert "Cannot inspect ClickHouse" not in str(caught.value)
+    assert value not in str(caught.value)
