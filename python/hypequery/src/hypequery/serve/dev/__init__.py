@@ -104,7 +104,7 @@ def run_dev(
             os.environ[_RELOAD_TARGET] = saved_target
 
 
-def _import_app(spec: str, app_dir: str) -> FastAPI:
+def _import_app(spec: str, app_dir: str, *, redact_errors: bool = False) -> FastAPI:
     """Import *spec* from *app_dir*, and refuse what run_dev may not serve.
 
     *app_dir* stays on the path while the app is served, for its lazy imports;
@@ -115,7 +115,16 @@ def _import_app(spec: str, app_dir: str) -> FastAPI:
 
     if app_dir not in sys.path:
         sys.path.insert(0, app_dir)
-    app = import_from_string(spec)
+    try:
+        app = import_from_string(spec)
+    except Exception:
+        if not redact_errors:
+            raise
+        # Reload workers run outside the CLI error handler. User exceptions
+        # can contain credentials; suppress their message and traceback chain.
+        raise RuntimeError(
+            "App reload failed; check its code, dependencies and environment."
+        ) from None
     _check_app(app)
     return cast(FastAPI, app)
 
@@ -124,7 +133,7 @@ def _reload_app() -> FastAPI:
     """Uvicorn factory for reload workers: import and check the target app."""
 
     app_dir, spec = json.loads(os.environ[_RELOAD_TARGET])
-    return _import_app(spec, app_dir)
+    return _import_app(spec, app_dir, redact_errors=True)
 
 
 __all__ = ["ExternalBindWarning", "run_dev", "serve_dev"]
