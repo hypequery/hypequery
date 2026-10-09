@@ -1,0 +1,2 @@
+- Audit locked and minimum runtime dependency resolutions across supported Python versions, and retain release SBOMs, audit reports and distribution checksums.
+- Require urllib3 2.8.0 or newer for ClickHouse execution, fixing three published advisories. Raise core and serving dependency floors to the versions qualified by the beta suite.

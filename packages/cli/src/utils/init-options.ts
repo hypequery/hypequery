@@ -37,4 +37,3 @@ export function parseTableList(value: string | undefined): string[] | undefined 
 
   return parsed && parsed.length > 0 ? parsed : undefined;
 }
-
