@@ -2,7 +2,7 @@
 
 ``run_dev`` serves an app built with ``create_app`` for local work. It listens
 on ``127.0.0.1:8000`` unless told otherwise and warns when bound beyond
-loopback. It is not hardened for a network: use ``run_production`` behind a
+loopback. It is not hardened for a network: use ``start_server`` behind a
 reverse proxy for anything other people can reach.
 
 From a shell, ``python -m hypequery.serve.dev app:app`` does the same.
@@ -31,9 +31,7 @@ def _check_app(app: object) -> None:
     if not isinstance(app, FastAPI):
         raise TypeError("run_dev requires a FastAPI app or an import string 'module:attribute'")
     if getattr(app.state, "hypequery_production", None) is not None:
-        raise ValueError(
-            "this app was created with a ProductionProfile; run it with run_production"
-        )
+        raise ValueError("this app was created with a ProductionProfile; run it with start_server")
 
 
 def run_dev(
@@ -60,7 +58,7 @@ def run_dev(
         warnings.warn(
             f"the hypequery development server is listening on {host}:{port}, so other "
             "machines on the network can reach it. The development runner is not "
-            "hardened for that: bind to 127.0.0.1, or use run_production behind a proxy.",
+            "hardened for that: bind to 127.0.0.1, or use start_server behind a proxy.",
             ExternalBindWarning,
             stacklevel=2,
         )

@@ -33,9 +33,9 @@ def run(options: DevOptions) -> None:
             "App import failed; check its dependencies and environment variables."
         ) from exc
     except ValueError as exc:
-        if str(exc) == "this app was created with a ProductionProfile; run it with run_production":
+        if str(exc) == "this app was created with a ProductionProfile; run it with start_server":
             raise CliError(
-                "This app uses a ProductionProfile; use run_production instead of dev."
+                "This app uses a ProductionProfile; use start_server instead of dev."
             ) from exc
         raise CliError(
             "Invalid app configuration or bind address; check environment and --hostname."

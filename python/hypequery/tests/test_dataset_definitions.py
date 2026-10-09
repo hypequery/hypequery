@@ -19,45 +19,51 @@ from hypequery.datasets import (
     Measure,
     Order,
     Relationship,
-    add,
-    arg_max,
-    arg_min,
-    asc,
-    avg,
     belongs_to,
-    between,
-    ceil,
-    coalesce,
     compile_formula,
-    count,
-    count_distinct,
-    desc,
     dimension,
-    divide,
-    eq,
-    floor,
-    gt,
-    gte,
     has_many,
     has_one,
+    measure,
+)
+from hypequery.datasets.aggregations import (
+    arg_max,
+    arg_min,
+    avg,
+    count,
+    count_distinct,
+    max,  # noqa: A004
+    median,
+    min,  # noqa: A004
+    percentile,
+    stddev,
+    sum,  # noqa: A004
+    variance,
+)
+from hypequery.datasets.formulas import (
+    add,
+    ceil,
+    coalesce,
+    divide,
+    floor,
+    multiply,
+    null_if_zero,
+    round,  # noqa: A004
+    subtract,
+)
+from hypequery.datasets.query_helpers import (
+    asc,
+    between,
+    desc,
+    eq,
+    gt,
+    gte,
     in_list,
     like,
     lt,
     lte,
-    max,  # noqa: A004
-    measure,
-    median,
-    min,  # noqa: A004
-    multiply,
     neq,
     not_in_list,
-    null_if_zero,
-    percentile,
-    round,  # noqa: A004
-    stddev,
-    subtract,
-    sum,  # noqa: A004
-    variance,
 )
 from hypequery.protocol import ProtocolExpression, ProtocolIdentifierError, expression_to_data
 

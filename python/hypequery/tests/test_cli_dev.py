@@ -49,7 +49,7 @@ def test_production_app_and_bad_import_exit_promptly(tmp_path: Path, reload: boo
         "app = create_app(create_router(authenticate=lambda c: None), "
         "security=HttpSecurity(allowed_hosts=('127.0.0.1',)), production=ProductionProfile())\n"
     )
-    for target, message in (("production:app", "run_production"), ("missing:app", "Cannot import")):
+    for target, message in (("production:app", "start_server"), ("missing:app", "Cannot import")):
         args = [sys.executable, "-m", "hypequery", "dev", target]
         if not reload:
             args.append("--no-watch")

@@ -18,13 +18,15 @@ from hypequery.datasets import (
     create_async_dataset_client,
     create_dataset_client,
     dimension,
-    gt,
     measure,
     tenant,
 )
 from hypequery.datasets.cache import CachedRows, CacheStage
 from hypequery.datasets.client import DEFAULT_PAGE_SIZE, ResultScalar
 from hypequery.datasets.client.pagination import page_limit
+from hypequery.datasets.query_helpers import (
+    gt,
+)
 
 
 @pytest.mark.parametrize(

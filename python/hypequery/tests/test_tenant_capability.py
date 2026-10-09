@@ -23,18 +23,22 @@ from hypequery.datasets import (
     ExecutionContext,
     TenantDatasetClient,
     all_tenants,
-    count,
     create_async_dataset_client,
     create_dataset_client,
     dimension,
-    eq,
     measure,
     plan_dataset_query,
     tenant,
     tenants,
 )
+from hypequery.datasets.aggregations import (
+    count,
+)
 from hypequery.datasets.client import ResultScalar
 from hypequery.datasets.planner import Deadline, TenantScope
+from hypequery.datasets.query_helpers import (
+    eq,
+)
 
 
 @dataclass(frozen=True)

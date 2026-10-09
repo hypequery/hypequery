@@ -17,14 +17,18 @@ from hypequery.datasets import (
     DatasetQuery,
     MemoryCacheStore,
     ResultCache,
-    count,
     create_async_dataset_client,
     create_dataset_client,
     dimension,
-    eq,
     measure,
 )
+from hypequery.datasets.aggregations import (
+    count,
+)
 from hypequery.datasets.planner import CompiledQuery, CompiledQueryError, Deadline, TypedParameter
+from hypequery.datasets.query_helpers import (
+    eq,
+)
 from hypequery.execution import (
     ClickHouseConnection,
     ReadonlyPolicy,

@@ -16,12 +16,14 @@ from hypequery.datasets import (
     Dataset,
     DatasetLimits,
     DatasetQuery,
-    count,
     create_async_dataset_client,
     create_dataset_client,
     create_dataset_registry,
     dimension,
     measure,
+)
+from hypequery.datasets.aggregations import (
+    count,
 )
 from hypequery.datasets.cache import MemoryCacheStore, ResultCache
 from hypequery.datasets.client import ResultScalar

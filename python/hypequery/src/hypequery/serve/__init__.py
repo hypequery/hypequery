@@ -46,7 +46,7 @@ from .events import QueryEvents
 from .policy import EndpointPolicy
 from .production import ProductionProfile, run_production, start_server
 from .rate_limit import MemoryRateLimitStore, RateLimit, RateLimitKey, RateLimitStore
-from .request_ids import MAX_CORRELATION_ID_BYTES, request_id, validate_correlation_id
+from .request_ids import MAX_CORRELATION_ID_BYTES, request_id, sanitize_correlation_id
 from .router import ServeRouter, create_api, create_router
 from .security import CorsPolicy, HttpSecurity, install_http_security
 
@@ -92,7 +92,7 @@ __all__ = [
     "request_id",
     "run_dev",
     "run_production",
+    "sanitize_correlation_id",
     "serve_dev",
     "start_server",
-    "validate_correlation_id",
 ]

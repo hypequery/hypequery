@@ -8,10 +8,12 @@ from fastapi.testclient import TestClient
 from hypequery.datasets import (
     Dataset,
     DatasetRegistry,
-    count,
     create_dataset_registry,
     dimension,
     measure,
+)
+from hypequery.datasets.aggregations import (
+    count,
 )
 from hypequery.serve import (
     Credential,

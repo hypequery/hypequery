@@ -26,17 +26,21 @@ from hypequery.datasets import (
     MemoryCacheStore,
     ResultCache,
     all_tenants,
-    between,
-    count,
     create_async_dataset_client,
     create_dataset_client,
     dimension,
-    eq,
-    gt,
     measure,
     tenant,
 )
+from hypequery.datasets.aggregations import (
+    count,
+)
 from hypequery.datasets.client import ResultScalar
+from hypequery.datasets.query_helpers import (
+    between,
+    eq,
+    gt,
+)
 from hypequery.protocol import ProtocolCacheKeyError
 
 SECRET = bytes([0x5A]) * 32

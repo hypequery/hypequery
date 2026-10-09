@@ -19,26 +19,31 @@ from hypequery.datasets import (
     Measure,
     MemoryCacheStore,
     ResultCache,
-    add,
     build_protocol_deployment_contract,
-    coalesce,
     create_dataset_client,
     create_dataset_registry,
     dimension,
-    divide,
-    eq,
     get_dataset_catalog,
     measure,
-    null_if_zero,
     plan_dataset_query,
     serialize_semantic_contract,
 )
-from hypequery.datasets import (
+from hypequery.datasets.client.results import ResultRows
+from hypequery.datasets.formulas import (
+    Formula,
+    FormulaReference,
+    add,
+    coalesce,
+    divide,
+    null_if_zero,
+)
+from hypequery.datasets.formulas import (
     round as round_,
 )
-from hypequery.datasets.client.results import ResultRows
-from hypequery.datasets.formulas import Formula, FormulaReference
 from hypequery.datasets.planner import CompiledQuery, CompiledQueryError, ExecutionContext, tenant
+from hypequery.datasets.query_helpers import (
+    eq,
+)
 from hypequery.serve import (
     HttpSecurity,
     Principal,
@@ -259,7 +264,12 @@ def test_default_selection_and_publication_limits() -> None:
 
 
 def test_other_formula_operations_and_bound_literals() -> None:
-    from hypequery.datasets import ceil, floor, multiply, subtract
+    from hypequery.datasets.formulas import (
+        ceil,
+        floor,
+        multiply,
+        subtract,
+    )
 
     ds = orders()
     definitions = {
@@ -342,7 +352,9 @@ def _with_measures(**definitions: Measure | DerivedMeasure) -> Dataset:
 
 
 def test_literals_bind_like_typescript_writes_them() -> None:
-    from hypequery.datasets import multiply
+    from hypequery.datasets.formulas import (
+        multiply,
+    )
 
     # TypeScript writes literals inline, so integer-only formulas stay integers.
     ds = _with_measures(
@@ -396,7 +408,9 @@ def _balanced_sum(leaves: int) -> Formula:
 
 
 def test_formula_node_limit_matches_typescript() -> None:
-    from hypequery.datasets import ceil
+    from hypequery.datasets.formulas import (
+        ceil,
+    )
 
     # 128 leaves make 255 nodes; each ceil adds one. TypeScript allows 256.
     _with_measures(total256=measure.derived(ceil(_balanced_sum(128))))

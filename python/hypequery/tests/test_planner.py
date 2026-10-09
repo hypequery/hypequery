@@ -15,8 +15,17 @@ from pathlib import Path
 
 import pytest
 
-from hypequery.datasets import Dataset, count, dimension, measure
-from hypequery.datasets import sum as sum_
+from hypequery.datasets import (
+    Dataset,
+    dimension,
+    measure,
+)
+from hypequery.datasets.aggregations import (
+    count,
+)
+from hypequery.datasets.aggregations import (
+    sum as sum_,
+)
 from hypequery.datasets.dataset import DatasetLimits, FilterDefinition
 from hypequery.datasets.dimensions import Dimension
 from hypequery.datasets.measures import Measure
@@ -925,7 +934,11 @@ def test_the_interpolation_check_script_passes() -> None:
     ],
 )
 def test_analytical_aggregates_resolve_physical_columns(aggregation: str, expected: str) -> None:
-    from hypequery.datasets import arg_max, arg_min, percentile
+    from hypequery.datasets.aggregations import (
+        arg_max,
+        arg_min,
+        percentile,
+    )
 
     definitions = {
         "argMax": arg_max("fare", "pickup"),

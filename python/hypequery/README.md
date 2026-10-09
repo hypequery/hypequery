@@ -138,7 +138,7 @@ python -m hypequery.serve.dev app:app --reload
 The development runner listens on `127.0.0.1:8000` only. Binding anywhere else
 (`--host 0.0.0.0`) works but raises an `ExternalBindWarning`: the runner is
 not hardened for a network. It refuses apps created with a `ProductionProfile`;
-run those with [`run_production`](#production-process). From Python, call
+run those with [`start_server`](#production-process). From Python, call
 `serve_dev(app)` or `serve_dev("app:app", reload=True)`
 (`run_dev` remains available for compatibility).
 
@@ -195,7 +195,7 @@ enabled. Use `--no-watch`, `--hostname` or `-p`/`--port` to change those options
 `--no-reload` and `--host` remain supported aliases. Serving
 requires the `fastapi` extra; apps using ClickHouse also need `clickhouse`.
 The command retains the development runner's external-bind warning and refuses
-production-profile apps. Use `start_server` (also `run_production`) for production serving.
+production-profile apps. Use `start_server` for production serving.
 
 `hypequery --help`, `hypequery init --help`, `hypequery dev --help` and
 `hypequery --version` (also `-V`) work without extras.
@@ -239,7 +239,7 @@ from hypequery.datasets import (
     ExecutionContext,
     create_dataset_client,
     create_dataset_registry,
-    eq,
+    filter,
     tenant,
 )
 from hypequery.execution import ClickHouseConnection, create_clickhouse_executor
@@ -252,7 +252,9 @@ client = create_dataset_client(
 result = client.execute(
     "orders",
     DatasetQuery(
-        dimensions=("customer.country",), measures=("revenue",), filters=(eq("status", "paid"),)
+        dimensions=("customer.country",),
+        measures=("revenue",),
+        filters=(filter.eq("status", "paid"),),
     ),
     context=ExecutionContext(tenant=tenant("org_123")),
 )
@@ -317,14 +319,14 @@ A query can select a target's base measure as `<relationship>.<measure>`, one
 hop over a `belongs_to` or `has_one` relationship:
 
 ```python
-from hypequery.datasets import desc
+from hypequery.datasets import order
 
 client.execute(
     "orders",
     DatasetQuery(
         dimensions=("status",),
         measures=("revenue", "customer.customerCount"),
-        order_by=(desc("customer.customerCount"),),
+        order_by=(order.desc("customer.customerCount"),),
     ),
     context=ExecutionContext(tenant=tenant("org_123")),
 )
@@ -402,7 +404,7 @@ explicitly mark it public:
 from typing import Annotated
 
 from fastapi import Depends, FastAPI
-from hypequery.serve import Credential, Principal, RequestAuth, create_router
+from hypequery.serve import Credential, Principal, RequestAuth, create_api
 
 
 async def authenticate(credential: Credential) -> Principal | None:
@@ -416,7 +418,7 @@ async def authenticate(credential: Credential) -> Principal | None:
     )
 
 
-router = create_router(authenticate=authenticate)
+router = create_api(authenticate=authenticate)
 
 
 @router.post("/trips")
@@ -437,7 +439,7 @@ app.include_router(router)
 ```
 
 - **Credentials** are read from one header: `Authorization: Bearer <token>`
-  by default, or `create_router(credentials=api_key())` for `X-Api-Key`.
+  by default, or `create_api(credentials=api_key())` for `X-Api-Key`.
   Query strings, cookies, and bodies are never read. A repeated,
   oversized, or malformed header is refused before your authenticator runs.
 - **Your authenticator** receives only the opaque `Credential`, never the
@@ -468,7 +470,7 @@ app.include_router(router)
 Every route on the router also has a fixed body policy, applied after
 authentication:
 - bodies must be UTF-8 `application/json`, otherwise `415`;
-- bodies are capped at `create_router(max_body_bytes=...)`, 1 MiB by default,
+- bodies are capped at `create_api(max_body_bytes=...)`, 1 MiB by default,
   and counted as they stream, so a missing `Content-Length` doesn't get
   around the cap;
 - a repeated or non-numeric `Content-Length` gets `400`.
@@ -740,12 +742,9 @@ from hypequery.datasets import (
     Dataset,
     DatasetLimits,
     belongs_to,
-    count,
-    count_distinct,
     dimension,
-    eq,
+    filter,
     measure,
-    sum,
 )
 
 Customers = Dataset(
@@ -766,10 +765,10 @@ Orders = Dataset(
         "amount": dimension("number"),
     },
     measures={
-        "revenue": measure(sum("amount")),
-        "orderCount": measure(count("id")),
-        "uniqueCustomers": measure(count_distinct("customerId")),
-        "completedRevenue": measure(sum("amount"), filters=(eq("status", "completed"),)),
+        "revenue": measure.sum("amount"),
+        "orderCount": measure.count("id"),
+        "uniqueCustomers": measure.count_distinct("customerId"),
+        "completedRevenue": measure.sum("amount", filters=(filter.eq("status", "completed"),)),
     },
     relationships={
         "customer": belongs_to(
@@ -804,14 +803,21 @@ unchanged.
 
 Relationship callbacks are invoked once by the helper. Models retain only the
 target dataset name, so `model_dump()` and `model_dump_json()` never serialize
-Python functions. Formula helpers likewise build immutable symbolic data and
-`compile_formula()` lowers that data through the RFC 0003 validator:
+Python functions. The `formula` helpers likewise build immutable symbolic
+data for `measure.derived`, and `compile_formula()` lowers that data through
+the RFC 0003 validator:
 
 ```python
-from hypequery.datasets import compile_formula, divide, null_if_zero
+from hypequery.datasets import compile_formula, formula, measure
 
-average = compile_formula(divide("revenue", null_if_zero("orders")))
+average = measure.derived(
+    formula.round(formula.divide("revenue", formula.null_if_zero("orders")), 2)
+)
+compile_formula(average.formula)  # the portable RFC 0003 expression
 ```
+
+Every authoring helper lives in a namespace: `dimension.*`, `measure.*`,
+`filter.*`, `order.*` and `formula.*`.
 
 ## Deployment contracts
 
@@ -1011,16 +1017,16 @@ from hypequery.datasets.planner import (
     plan_dataset_query,
     tenant,
 )
-from hypequery.datasets.query_helpers import asc, gte
+from hypequery.datasets import filter, order
 
 compiled = plan_dataset_query(
     Trips,
     DatasetQuery(
         dimensions=("vendor", "customer.country"),
         measures=("revenue",),
-        filters=(gte("pickup", "2026-01-01"),),
+        filters=(filter.gte("pickup", "2026-01-01"),),
         by="day",
-        order_by=(asc("period"),),
+        order_by=(order.asc("period"),),
         limit=100,
     ),
     registry=registry,
@@ -1132,12 +1138,12 @@ from hypequery.serve import (
     add_discovery_endpoint,
     add_metric_endpoint,
     create_app,
-    create_router,
+    create_api,
 )
 
 # authenticate is your host's credential lookup. It returns a Principal whose
 # roles, scopes and tenant_id come from trusted server-side identity data.
-router = create_router(authenticate=authenticate)
+router = create_api(authenticate=authenticate)
 policy = EndpointPolicy(required_scopes=frozenset({"analytics:read"}), tenant="required")
 add_dataset_endpoint(router, "/datasets/orders/query", dataset=orders, client=client, policy=policy)
 add_metric_endpoint(
@@ -1200,7 +1206,7 @@ policy.
 Use the validated production profile and runner for a standalone service:
 
 ```python
-from hypequery.serve import ProductionProfile, run_production
+from hypequery.serve import ProductionProfile, start_server
 
 app = create_app(
     router,
@@ -1217,7 +1223,7 @@ app = create_app(
 )
 
 if __name__ == "__main__":
-    run_production(app)
+    start_server(app)
 ```
 
 The runner binds to `127.0.0.1:8000` by default. An IP address outside loopback

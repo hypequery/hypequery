@@ -15,11 +15,13 @@ from hypequery.datasets import (
     CompiledQuery,
     Dataset,
     DatasetLimits,
-    count,
     create_dataset_client,
     create_dataset_registry,
     dimension,
     measure,
+)
+from hypequery.datasets.aggregations import (
+    count,
 )
 from hypequery.datasets.client import ResultScalar
 from hypequery.serve import (

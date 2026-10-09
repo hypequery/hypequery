@@ -11,29 +11,33 @@ from hypequery.datasets import (
     Dataset,
     DatasetQuery,
     ExecutionContext,
-    arg_max,
-    arg_min,
-    asc,
-    avg,
     belongs_to,
-    count,
-    count_distinct,
     create_dataset_client,
     create_dataset_registry,
-    desc,
     dimension,
-    eq,
     get_dataset_catalog,
     get_queryable_relationship_measures,
     has_many,
     has_one,
-    max,  # noqa: A004
     measure,
-    min,  # noqa: A004
-    sum,  # noqa: A004
     tenant,
 )
+from hypequery.datasets.aggregations import (
+    arg_max,
+    arg_min,
+    avg,
+    count,
+    count_distinct,
+    max,  # noqa: A004
+    min,  # noqa: A004
+    sum,  # noqa: A004
+)
 from hypequery.datasets.planner import CompiledQueryError, plan_dataset_query
+from hypequery.datasets.query_helpers import (
+    asc,
+    desc,
+    eq,
+)
 from hypequery.serve.utils.discovery import public_discovery
 
 Targets = Dataset(
@@ -352,7 +356,9 @@ def test_an_unregistered_target_is_an_internal_error() -> None:
 
 def test_related_measures_beside_a_local_derived_projection() -> None:
     # Mirrors TypeScript's relationship-measures test of the same name.
-    from hypequery.datasets import add
+    from hypequery.datasets.formulas import (
+        add,
+    )
 
     sources = Dataset(
         name=Sources.name,

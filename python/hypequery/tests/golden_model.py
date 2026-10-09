@@ -12,25 +12,29 @@ from hypequery.datasets import (
     DatasetLimits,
     ExecutionContext,
     FilterDefinition,
-    add,
     belongs_to,
-    ceil,
-    coalesce,
     create_dataset_registry,
     dimension,
-    divide,
-    floor,
     has_many,
     has_one,
     measure,
-    multiply,
-    null_if_zero,
-    subtract,
     tenant,
     tenants,
 )
 from hypequery.datasets import filter as f
-from hypequery.datasets import round as round_
+from hypequery.datasets.formulas import (
+    add,
+    ceil,
+    coalesce,
+    divide,
+    floor,
+    multiply,
+    null_if_zero,
+    subtract,
+)
+from hypequery.datasets.formulas import (
+    round as round_,
+)
 from hypequery.datasets.planner import all_tenants
 
 Regions = Dataset(

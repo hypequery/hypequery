@@ -10,16 +10,22 @@ from pydantic import ValidationError
 
 from hypequery.datasets import (
     Dataset,
-    add,
     create_dataset_registry,
     dimension,
-    eq,
     measure,
 )
-from hypequery.datasets import sum as sum_
+from hypequery.datasets.aggregations import (
+    sum as sum_,
+)
 from hypequery.datasets.deployment import build_protocol_deployment_contract
+from hypequery.datasets.formulas import (
+    add,
+)
 from hypequery.datasets.measures import Measure
 from hypequery.datasets.planner import DatasetQuery, ExecutionContext, plan_dataset_query, tenant
+from hypequery.datasets.query_helpers import (
+    eq,
+)
 from hypequery.protocol import (
     validate_protocol_deployment_contract_v3,
     validate_protocol_semantic_query,

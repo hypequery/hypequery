@@ -289,7 +289,7 @@ class ServeRouter(APIRouter):
         raise TypeError("ServeRouter does not serve websockets")
 
 
-def create_router(
+def create_api(
     *,
     authenticate: Authenticator,
     credentials: CredentialTransport | None = None,
@@ -314,7 +314,7 @@ def create_router(
         raise ValueError("max_body_bytes must be a positive integer")
 
     if not callable(authenticate):
-        raise TypeError("create_router requires an authenticate callable")
+        raise TypeError("create_api requires an authenticate callable")
     if resolve_tenant is not None and not callable(resolve_tenant):
         raise TypeError("resolve_tenant must be callable")
     if credentials is not None and type(credentials) is not CredentialTransport:
@@ -332,5 +332,5 @@ def create_router(
 __all__ = ["ServeRouter", "create_api", "create_router"]
 
 
-# Cross-language API definition name; create_router remains supported.
-create_api = create_router
+#: The Python spelling of `create_api`, which matches TypeScript's `createAPI`.
+create_router = create_api

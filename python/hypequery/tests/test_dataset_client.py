@@ -20,16 +20,20 @@ from hypequery.datasets import (
     DatasetQuery,
     ExecutionContext,
     belongs_to,
-    count,
     create_async_dataset_client,
     create_dataset_client,
     create_dataset_registry,
     dimension,
-    eq,
     measure,
     tenant,
 )
+from hypequery.datasets.aggregations import (
+    count,
+)
 from hypequery.datasets.client import ResultScalar
+from hypequery.datasets.query_helpers import (
+    eq,
+)
 
 
 @dataclass(frozen=True)

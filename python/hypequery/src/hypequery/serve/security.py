@@ -30,7 +30,7 @@ from starlette.responses import PlainTextResponse, Response
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from .errors import ServeError, error_response
-from .request_ids import REQUEST_ID_SLOT, validate_correlation_id
+from .request_ids import REQUEST_ID_SLOT, sanitize_correlation_id
 
 _ORIGIN = re.compile(r"https?://[a-z0-9.-]+(:[0-9]{1,5})?|https?://\[[0-9a-f:.]+\](:[0-9]{1,5})?")
 _HOST = re.compile(r"(\*\.)?[a-z0-9.-]+|\[[0-9a-f:.]+\]")
@@ -124,7 +124,7 @@ class _RequestIdMiddleware:
             for name, value in scope["headers"]
             if name.lower() == b"x-request-id"
         ]
-        correlation = validate_correlation_id(values[0]) if len(values) == 1 else None
+        correlation = sanitize_correlation_id(values[0]) if len(values) == 1 else None
 
         async def send_with_ids(message: Message) -> None:
             if message["type"] == "http.response.start":
