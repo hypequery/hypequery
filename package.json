@@ -52,7 +52,7 @@
     "@typescript-eslint/parser": "^8.70.1",
     "eslint": "^10.11.0",
     "turbo": "^2.11.4",
-    "typescript": "^5.9.3"
+    "typescript": "^6.0.3"
   },
   "pnpm": {
     "overrides": {
