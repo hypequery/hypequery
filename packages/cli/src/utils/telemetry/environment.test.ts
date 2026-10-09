@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ciContext, CI_SIGNALS, collectEnvironment, installedPackages, packageManagerContext } from './environment.js';
+import { ciContext, CI_SIGNALS, collectEnvironment, READ_BUDGET_MS, installedPackages, packageManagerContext } from './environment.js';
 import { validateTelemetryEvent } from './validation.js';
 import { common } from '../../../type-tests/fixtures.js';
 
@@ -36,11 +36,21 @@ describe('telemetry environment', () => {
       env: { CI: '1', CLICKHOUSE_URL: 'https://user:secret@private-host', WSL_DISTRO_NAME: 'private-distro' },
       read: file => file === '/.dockerenv' ? '' : undefined,
       cliVersion: '1.22.0', nodeVersion: '22.10.1', platform: 'linux', arch: 'x64', isTTY: false,
-      executable: '/private/cli',
+      executable: '/private/cli', now: () => 0,
     });
     expect(environment).toMatchObject({ database: 'clickhouse', is_ci: true, is_docker: true, is_wsl: true, node_version: '22.10' });
     expect(JSON.stringify(environment)).not.toMatch(/secret|private/);
     expect(validateTelemetryEvent({ event: 'cli_crash', properties: { ...common, ...environment, command: 'unknown', exception_class: 'unknown', error_code: 'unknown' } })).toBe(true);
+  });
+  it('stops probing local files once the read budget is spent', () => {
+    let clock = 0;
+    const reads: string[] = [];
+    const environment = collectEnvironment({}, {
+      env: {}, executable: '/private/cli', now: () => clock,
+      read: file => { reads.push(file); clock += READ_BUDGET_MS; return file === '/proc/1/cgroup' ? 'docker' : undefined; },
+    });
+    expect(reads).toEqual(['/.dockerenv']);
+    expect(environment).toMatchObject({ is_docker: false, is_wsl: false });
   });
   it('falls back safely when metadata is unavailable or malformed', () => {
     expect(collectEnvironment({}, { env: {}, read: () => { throw new Error('private'); }, cliVersion: 'private', nodeVersion: 'private', platform: 'private', arch: 'private' }))

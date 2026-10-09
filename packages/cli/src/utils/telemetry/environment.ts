@@ -76,13 +76,19 @@ export interface EnvironmentOptions {
   readonly executable?: string;
   readonly isTTY?: boolean;
   readonly database?: string;
+  /** Monotonic clock for the local-read budget. Defaults to `performance.now`. */
+  readonly now?: () => number;
 }
+
+/** Total wall-clock budget for local file probes; telemetry must never slow the CLI. */
+export const READ_BUDGET_MS = 5;
 
 export function collectEnvironment(context: ProjectContext, options: EnvironmentOptions = {}): Omit<Common, 'install_id' | 'session_id' | 'project_id' | 'is_first_run'> {
   const env = options.env ?? process.env;
-  const deadline = performance.now() + 5;
+  const now = options.now ?? (() => performance.now());
+  const deadline = now() + READ_BUDGET_MS;
   const read: ReadLocalFile = file => {
-    if (performance.now() >= deadline) return undefined;
+    if (now() >= deadline) return undefined;
     try { return (options.read ?? readTelemetryFile)(file); } catch { return undefined; }
   };
   const os = options.platform ?? process.platform;
