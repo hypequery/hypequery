@@ -18,6 +18,7 @@ from ..formulas import (
     formula_children,
 )
 from ..measures import Measure
+from .definition_projection import metadata
 
 
 def formula_references(formula: Formula) -> tuple[str, ...]:
@@ -156,8 +157,7 @@ def derived_measure_node(
         "name": name,
         "uses": [{"alias": reference, "measure": reference} for reference in references],
         "expression": expression_to_data(compile_formula(measure.formula)),
-        **({"label": measure.label} if measure.label is not None else {}),
-        **({"description": measure.description} if measure.description is not None else {}),
+        **metadata(measure.label, measure.description),
     }
 
 
