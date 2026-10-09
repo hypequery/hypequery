@@ -27,3 +27,10 @@ Stable releases continue to use [Changesets](https://github.com/changesets/chang
 ## Important Notes
 - Canary publishing does not replace changesets for stable releases.
 - Always ensure tests pass before cutting a release.
+
+## Python SDK and CLI
+
+Python release automation is independent of Changesets. See
+[the Python release guide](python/hypequery/RELEASING.md) for Trusted Publishing
+setup, Towncrier release-preparation PRs, opt-in main canaries, tagged
+beta/RC/stable releases, and build-only rehearsals.

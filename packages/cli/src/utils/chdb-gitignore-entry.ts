@@ -20,4 +20,3 @@ export function getChdbGitignoreEntry(chdbPath: string | undefined, cwd: string)
   const escapedPath = normalizedPath.replace(/[\\*?[\]]/g, '\\$&');
   return `/${escapedPath}/`;
 }
-

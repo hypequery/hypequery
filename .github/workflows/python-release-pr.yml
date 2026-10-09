@@ -1,0 +1,71 @@
+name: Prepare Python release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Next Python version (e.g. 0.1.0b1, 0.1.0rc1, or 0.1.0)'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: python-release-pr
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    if: github.repository == 'hypequery/hypequery' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+      pull-requests: write
+    outputs:
+      head-sha: ${{ steps.pr.outputs.pull-request-head-sha }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@e58605a9b6da7c637471fab8847a5e5a6b8df081 # v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: python/hypequery/uv.lock
+      - run: uv sync --project python/hypequery --frozen --dev --python 3.12
+      - name: Prepare version, lockfile and release notes
+        id: version
+        working-directory: python/hypequery
+        env:
+          RELEASE_VERSION: ${{ inputs.version }}
+          PR_BODY: ${{ runner.temp }}/python-release-pr.md
+        run: |
+          uv run --no-sync python scripts/prepare_release_pr.py --version "$RELEASE_VERSION" --body-file "$PR_BODY" --github-output "$GITHUB_OUTPUT"
+      - name: Create or refresh the release PR
+        id: pr
+        uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8
+        with:
+          token: ${{ secrets.PYTHON_RELEASE_PR_TOKEN || github.token }}
+          base: main
+          branch: codex/python-release
+          title: 'Release Python ${{ steps.version.outputs.version }}'
+          commit-message: 'chore(python): prepare release ${{ steps.version.outputs.version }}'
+          body-path: ${{ runner.temp }}/python-release-pr.md
+          add-paths: |
+            python/hypequery/pyproject.toml
+            python/hypequery/uv.lock
+            python/hypequery/CHANGELOG.md
+            python/hypequery/changelog.d/*.md
+      - name: Show the release PR
+        env:
+          PR_URL: ${{ steps.pr.outputs.pull-request-url }}
+        run: echo "Release PR $PR_URL; review Python CI before merging." >> "$GITHUB_STEP_SUMMARY"
+
+  verify:
+    needs: prepare
+    if: needs.prepare.outputs.head-sha != ''
+    uses: ./.github/workflows/python.yml
+    with:
+      ref: ${{ needs.prepare.outputs.head-sha }}
