@@ -166,6 +166,7 @@ source_modules = [
   "hypequery.datasets.planner.aggregates",
   "hypequery.datasets.planner.predicates",
   "hypequery.datasets.planner.operators",
+  "hypequery.datasets.planner.dialects",
 ]
 forbidden_modules = [
   "hypequery.datasets.client",

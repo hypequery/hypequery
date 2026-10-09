@@ -9,8 +9,10 @@ from .dataset import Dataset
 from .planner.admission import check_execution_admission
 from .planner.compiled_query import CompiledQuery, validate_correlation_id
 from .planner.context import ExecutionContext, effective_deadline
+from .planner.dialects import CLICKHOUSE, SqlDialect
 from .planner.identifiers import safe_identifier, safe_qualified_identifier
 from .planner.parameters import ParameterBinder
+from .planner.predicates import tenant_predicate
 from .planner.query_validation import resolve_tenant_scope
 from .planner.settings import DEFAULT_QUERY_SETTINGS, tighten_query_settings
 from .registry import DatasetRegistry
@@ -30,6 +32,8 @@ def plan_relationship_checks(
     registry: DatasetRegistry,
     context: ExecutionContext,
     relationships: tuple[str, ...] | None,
+    *,
+    dialect: SqlDialect = CLICKHOUSE,
 ) -> tuple[RelationshipKeyCheck, ...]:
     check_execution_admission(context)
     resolve_tenant_scope(dataset, context)
@@ -54,20 +58,16 @@ def plan_relationship_checks(
         scope = resolve_tenant_scope(target, context)
         columns = tuple(key.to_field for key in relation.key_pairs)
         quoted = [safe_identifier(column, what="relationship target key").sql for column in columns]
-        predicates = [f"isNotNull({column})" for column in quoted]
+        predicates = [dialect.not_null(column) for column in quoted]
         binder = ParameterBinder()
         if target.tenant_key is not None and scope is not None:
             tenant_column = safe_identifier(target.tenant_key, what="tenant key").sql
-            if len(scope.ids) == 1:
-                placeholder = binder.bind(scope.ids[0], "String")
-                predicates.append(f"{tenant_column} = {placeholder}")
-            else:
-                placeholder = binder.bind_array(scope.ids, "String")
-                predicates.append(f"{tenant_column} IN {placeholder}")
-        key_sql = quoted[0] if len(quoted) == 1 else "tuple(" + ", ".join(quoted) + ")"
+            predicates.append(tenant_predicate(binder, tenant_column, scope))
         source = safe_qualified_identifier(target.source, what="dataset source").sql
+        # Every part is a validated identifier, a dialect constant or a placeholder.
         sql = (
-            f"SELECT count() AS `__hq_rows`, uniqExact({key_sql}) AS `__hq_keys` "  # noqa: S608
+            f"SELECT {dialect.row_count()} AS `__hq_rows`, "  # noqa: S608
+            f"{dialect.distinct_count(quoted)} AS `__hq_keys` "
             f"FROM {source} WHERE " + " AND ".join(predicates)
         )
         compiled = CompiledQuery(

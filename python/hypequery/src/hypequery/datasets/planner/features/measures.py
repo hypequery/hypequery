@@ -20,17 +20,6 @@ from .base import CompilerFeature
 if TYPE_CHECKING:
     from ..compiler import DatasetQueryCompiler
 
-#: Plain aggregations; argMax/argMin and percentile take extra operands.
-_AGGREGATE_FUNCTIONS = {
-    "sum": "sum",
-    "count": "count",
-    "countDistinct": "uniqExact",
-    "avg": "avg",
-    "min": "min",
-    "max": "max",
-    "stddev": "stddevSamp",
-    "variance": "varSamp",
-}
 _FORMULA_OPERATORS = {"add": "+", "subtract": "-", "multiply": "*", "divide": "/"}
 _FORMULA_FUNCTIONS = {"coalesce": "COALESCE", "round": "ROUND", "floor": "FLOOR", "ceil": "CEIL"}
 
@@ -78,36 +67,10 @@ class MeasureFeature(CompilerFeature):
         else:
             target = compiler.fields.base_column(measure.field)
         arg = None if measure.arg_field is None else compiler.fields.base_column(measure.arg_field)
-        return self._aggregate_call(name, measure, target, arg)
+        return compiler.dialect.aggregate(name, measure, target, arg)
 
-    @staticmethod
-    def _aggregate_call(name: str, measure: Measure, target: str, arg: str | None) -> AggregateCall:
-        """The aggregate function applied to already-resolved input SQL."""
-
-        aggregation = measure.aggregation
-        if aggregation in ("argMax", "argMin"):
-            if arg is None:
-                raise CompiledQueryError(
-                    "internal", f'Measure "{name}" is {aggregation} without an arg field.'
-                )
-            return AggregateCall(aggregation, (target, arg))
-        if aggregation == "percentile":
-            if measure.level is None:
-                raise CompiledQueryError(
-                    "internal", f'Measure "{name}" is a percentile with no level.'
-                )
-            # The level is a definition-time float the measure model already bounded
-            # to [0, 1], not caller input, and ClickHouse takes it as a function
-            # parameter rather than a bindable value.
-            return AggregateCall("quantile", (target,), (repr(measure.level),))
-        function = _AGGREGATE_FUNCTIONS.get(aggregation)
-        if function is None:
-            raise CompiledQueryError("internal", f"Unknown aggregation {aggregation!r}.")
-        return AggregateCall(function, (target,))
-
-    @staticmethod
-    def _with_conditions(aggregate: AggregateCall, predicates: list[str]) -> str:
-        """Apply a measure's own filters through ClickHouse's `-If` combinator.
+    def _with_conditions(self, aggregate: AggregateCall, predicates: list[str]) -> str:
+        """Apply a measure's own filters as a conditional aggregate.
 
         A measure filter narrows that one measure; putting it in WHERE would narrow
         every other measure in the same statement too.
@@ -115,7 +78,7 @@ class MeasureFeature(CompilerFeature):
 
         if not predicates:
             return aggregate.sql
-        return aggregate.with_condition(" AND ".join(predicates)).sql
+        return self.compiler.dialect.conditional(aggregate, " AND ".join(predicates)).sql
 
     def _base_measure_sql(self, name: str, measure: Measure) -> str:
         aggregate = self._aggregation(name, measure)
@@ -136,15 +99,16 @@ class MeasureFeature(CompilerFeature):
         target = resolved.target
         alias = compiler.joins.ensure(resolved.relationship_name, resolved.relationship, target)
         marker = compiler.joins.match_markers[resolved.relationship_name]
-        matched = f"isNotNull({alias.sql}.{marker.sql})"
+        dialect = compiler.dialect
+        matched = dialect.not_null(f"{alias.sql}.{marker.sql}")
 
         def guarded(field: str) -> str:
             column = safe_identifier(physical_column(target, field), what="column").sql
-            return f"if({matched}, {alias.sql}.{column}, NULL)"
+            return dialect.when(matched, f"{alias.sql}.{column}")
 
         measure = resolved.measure
         arg = guarded(measure.arg_field) if measure.arg_field is not None else None
-        aggregate = self._aggregate_call(name, measure, guarded(measure.field), arg)
+        aggregate = dialect.aggregate(name, measure, guarded(measure.field), arg)
         predicates = [
             compiler.filtering.predicate(
                 Filter(

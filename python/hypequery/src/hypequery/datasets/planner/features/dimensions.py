@@ -6,7 +6,7 @@ from ..aliases import PERIOD_ALIAS
 from ..errors import CompiledQueryError
 from ..identifiers import SafeIdentifier
 from ..resolution import is_qualified, require_dimension, resolve_qualified_field
-from ..sql_fragments import aliased, grain_expression, period_value
+from ..sql_fragments import aliased
 from .base import CompilerFeature
 
 
@@ -24,12 +24,11 @@ class DimensionFeature(CompilerFeature):
                     "input-invalid",
                     f'Cannot group by time — dataset "{dataset.name}" has no time key.',
                 )
-            fields = compiler.fields
-            bucket = grain_expression(
-                query.by, fields.time_sql(fields.base_column(dataset.time_key))
-            )
+            fields, dialect = compiler.fields, compiler.dialect
+            time_column = fields.time_sql(fields.base_column(dataset.time_key))
+            bucket = dialect.truncate_to_grain(query.by, time_column)
             # Group on the bucket itself; only the selected value is text.
-            node.selections.append(aliased(period_value(bucket), PERIOD_ALIAS))
+            node.selections.append(aliased(dialect.period_text(bucket), PERIOD_ALIAS))
             node.group_by.append(bucket)
             compiler.orderable[PERIOD_ALIAS.name] = PERIOD_ALIAS
 

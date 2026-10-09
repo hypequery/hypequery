@@ -112,7 +112,7 @@ class JoinFeature(CompilerFeature):
             marker += "_"
         self.match_markers[relationship_name] = safe_identifier(marker, what="match marker")
         projection = [safe_identifier(column, what="column").sql for column in unique]
-        projection.append(f"toNullable(1) AS {self.match_markers[relationship_name].sql}")
+        projection.append(compiler.dialect.match_marker(self.match_markers[relationship_name].sql))
         source = safe_qualified_identifier(target.source, what="dataset source")
         # Every part is a validated identifier or a constant; no value reaches it.
         return f"(SELECT {', '.join(projection)} FROM {source.sql})"  # noqa: S608

@@ -17,6 +17,7 @@ from ..registry import DatasetRegistry
 from ..utils.query_timezone import validate_timezone
 from .aliases import BASE_ALIAS
 from .context import ExecutionContext
+from .dialects import CLICKHOUSE, SqlDialect
 from .errors import CompiledQueryError
 from .features.dimensions import DimensionFeature
 from .features.fields import FieldFeature
@@ -28,7 +29,7 @@ from .features.ordering import OrderingFeature
 from .identifiers import SafeIdentifier, safe_qualified_identifier
 from .parameters import ParameterBinder, TypedParameter
 from .query import DatasetQuery
-from .query_node import DatasetSelectNode, render_select
+from .query_node import DatasetSelectNode
 from .query_validation import resolve_tenant_scope
 from .resolution import references_a_relationship, selected_measure_names
 
@@ -52,7 +53,9 @@ class DatasetQueryCompiler:
         context: ExecutionContext,
         *,
         overfetch: bool = False,
+        dialect: SqlDialect = CLICKHOUSE,
     ) -> None:
+        self.dialect = dialect
         self.dataset = dataset
         self.query = query
         self.registry = registry
@@ -102,4 +105,4 @@ class DatasetQueryCompiler:
 
         self.node.source = safe_qualified_identifier(self.dataset.source, what="dataset source").sql
         self.node.base_alias = BASE_ALIAS if self.joins_active else None
-        return DatasetSql(render_select(self.node), self.binder.parameters)
+        return DatasetSql(self.dialect.render_select(self.node), self.binder.parameters)
