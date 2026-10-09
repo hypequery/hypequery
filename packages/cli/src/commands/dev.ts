@@ -1,3 +1,5 @@
+import { exitWith, finishAndExit } from '../utils/command-exit.js';
+import { telemetryErrorCode } from '../utils/telemetry/error-code.js';
 import { watch } from 'node:fs';
 import path from 'node:path';
 import ora from 'ora';
@@ -50,7 +52,7 @@ export async function devCommand(file?: string, options: DevOptions = {}) {
 
   if (!queriesFile) {
     displayQueriesFileNotFoundError('dev');
-    process.exit(1);
+    exitWith(1, 'failure', 'entrypoint_not_found');
   }
 
   logger.info(`Found: ${path.relative(process.cwd(), queriesFile)}`);
@@ -193,7 +195,7 @@ export async function devCommand(file?: string, options: DevOptions = {}) {
       logger.newline();
 
       if (!shouldWatch) {
-        process.exit(1);
+        exitWith(1, 'failure', telemetryErrorCode(error));
       }
     }
   };
@@ -223,7 +225,7 @@ export async function devCommand(file?: string, options: DevOptions = {}) {
 
     return queueLifecycleOperation(async () => {
       await stopCurrentRuntime();
-      process.exit(0);
+      await finishAndExit(0, 'interrupted');
     });
   };
 

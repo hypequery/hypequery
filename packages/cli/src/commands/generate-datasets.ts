@@ -1,3 +1,5 @@
+import { exitWith } from '../utils/command-exit.js';
+import { telemetryErrorCode } from '../utils/telemetry/error-code.js';
 /**
  * Generate Datasets Command
  *
@@ -214,6 +216,6 @@ export async function generateDatasetsCommand(options: GenerateDatasetsOptions =
     }
 
     logger.newline();
-    process.exit(1);
+    exitWith(1, 'failure', telemetryErrorCode(error));
   }
 }

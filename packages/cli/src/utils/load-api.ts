@@ -1,5 +1,5 @@
 import { pathToFileURL } from 'node:url';
-import { access, mkdtemp, rm, mkdir, writeFile } from 'node:fs/promises';
+import { access, mkdtemp, rm, mkdir, writeFile, rmdir } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { build } from 'esbuild';
@@ -176,15 +176,17 @@ async function cleanupTempDirs() {
   );
   tempDirs.clear();
 
+  // The project root is shared with concurrent CLI processes (for example a
+  // running `dev`). Remove it only once empty, never another process's bundles.
   const projectTempRoot = path.join(process.cwd(), '.hypequery', 'tmp');
   try {
-    await rm(projectTempRoot, { recursive: true, force: true });
+    await rmdir(projectTempRoot);
   } catch {
-    // ignore cleanup failures
+    // Not empty, already gone, or unavailable.
   }
 }
 
-async function cleanupTempArtifacts() {
+export async function cleanupLoadedApiArtifacts() {
   await cleanupTempFiles();
   await cleanupTempDirs();
 }
@@ -195,15 +197,11 @@ function installCleanupHooks() {
   globalState.__hypequeryCliCleanupInstalled = true;
 
   process.once('exit', () => {
-    cleanupTempArtifacts().catch(() => undefined);
+    cleanupLoadedApiArtifacts().catch(() => undefined);
   });
 
-  (['SIGINT', 'SIGTERM'] as const).forEach(signal => {
-    process.once(signal, () => {
-      cleanupTempArtifacts().catch(() => undefined);
-      process.exit();
-    });
-  });
+  // Signal shutdown belongs to the CLI/owning server. Exiting from a module
+  // cleanup listener bypassed server teardown and the bounded telemetry flush.
 }
 
 async function bundleTypeScriptModule(entryPath: string) {

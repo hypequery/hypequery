@@ -33,6 +33,10 @@
         "$TURBO_ROOT$/specs/semantic-catalog/**"
       ]
     },
+    "@hypequery/cli#test": {
+      "dependsOn": ["build"],
+      "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/website-next/docs/telemetry.mdx"]
+    },
     "lint": {},
     "dev": {
       "cache": false,
