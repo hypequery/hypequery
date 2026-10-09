@@ -396,6 +396,11 @@ credential.
 
 Serves the project's datasets over stdio for a local MCP client.
 
+Without `[file]`, the command looks for a Serve API file in the current directory: `hypequery.ts`,
+`analytics/api.ts`, `src/analytics/api.ts`, `api.ts`, `src/api.ts`, `analytics/queries.ts`, or
+`src/analytics/queries.ts`. It serves the datasets registered with `serve({ queryBuilder, datasets })` in that file.
+With an absolute `[file]` it runs from any directory: the file's imports resolve from its own project. See [MCP](/docs/mcp/overview) for client setup.
+
 | Option | Description |
 | --- | --- |
 | `--tenant <id>` | Trusted tenant for tenant-scoped datasets (required when any dataset is tenant-scoped) |
