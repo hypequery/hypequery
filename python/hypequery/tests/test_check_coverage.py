@@ -7,6 +7,8 @@ import json
 from pathlib import Path
 from types import ModuleType
 
+import pytest
+
 _SCRIPT = Path(__file__).resolve().parents[1] / "scripts" / "check_coverage.py"
 
 
@@ -73,4 +75,31 @@ def test_gate_passes_at_and_fails_below_the_floors(tmp_path: Path) -> None:
 def test_an_unmeasured_package_fails_the_gate(tmp_path: Path) -> None:
     report = tmp_path / "empty.json"
     report.write_text(json.dumps({"files": {}}))
+    assert check.main(["check_coverage.py", str(report)]) == 1
+
+
+def _at(levels: dict[str, float]) -> dict[str, object]:
+    """A report giving each package exactly the coverage in *levels*."""
+
+    files: dict[str, object] = {}
+    for package, level in levels.items():
+        # 10,000 statements makes a two-decimal floor exactly representable.
+        files[f"src/hypequery/{package}/module.py"] = {
+            "summary": {"covered_lines": round(level * 100), "num_statements": 10_000}
+        }
+    return {"files": files}
+
+
+def test_a_package_exactly_at_its_floor_passes(tmp_path: Path) -> None:
+    report = tmp_path / "at.json"
+    report.write_text(json.dumps(_at(dict(check.FLOORS))))
+    assert check.main(["check_coverage.py", str(report)]) == 0
+
+
+@pytest.mark.parametrize("package", sorted(check.FLOORS))
+def test_one_package_just_below_its_floor_fails_the_gate(tmp_path: Path, package: str) -> None:
+    levels = dict(check.FLOORS)
+    levels[package] -= 0.01
+    report = tmp_path / "below.json"
+    report.write_text(json.dumps(_at(levels)))
     assert check.main(["check_coverage.py", str(report)]) == 1
