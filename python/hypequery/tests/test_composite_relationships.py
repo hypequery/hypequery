@@ -297,9 +297,11 @@ def test_live_the_full_key_matches_and_null_components_never_do() -> None:
     # A fresh name, created without IF NOT EXISTS: the test only ever drops
     # the database it created itself.
     database = f"hq_composite_relationships_{secrets.token_hex(6)}"
-    admin.command(f"CREATE DATABASE {database}")
+    created = False
     executor = None
     try:
+        admin.command(f"CREATE DATABASE {database}")
+        created = True
         admin.command(
             f"CREATE TABLE {database}.customers "
             "(id Nullable(UInt64), region Nullable(String), row_key String, score Float64, "
@@ -393,7 +395,8 @@ def test_live_the_full_key_matches_and_null_components_never_do() -> None:
                 executor.close()
         finally:
             try:
-                admin.command(f"DROP DATABASE IF EXISTS {database}")
+                if created:
+                    admin.command(f"DROP DATABASE IF EXISTS {database}")
             finally:
                 admin.close()
 
@@ -407,7 +410,7 @@ def test_protocol_validates_key_errors_before_relationship_name() -> None:
     )
 
 
-@pytest.mark.parametrize("failure", ["table", "executor", "close"])
+@pytest.mark.parametrize("failure", ["database", "table", "executor", "close"])
 def test_live_composite_cleans_up_after_failures(
     monkeypatch: pytest.MonkeyPatch, failure: str
 ) -> None:
@@ -422,7 +425,9 @@ def test_live_composite_cleans_up_after_failures(
     monkeypatch.setattr(clickhouse_connect, "get_client", Mock(return_value=admin))
     factory = Mock(return_value=executor)
     monkeypatch.setattr(hypequery.execution, "create_clickhouse_executor", factory)
-    if failure == "table":
+    if failure == "database":
+        admin.command.side_effect = RuntimeError("create failed")
+    elif failure == "table":
         admin.command.side_effect = [None, RuntimeError("setup failed"), None]
     elif failure == "executor":
         factory.side_effect = RuntimeError("setup failed")
@@ -433,5 +438,9 @@ def test_live_composite_cleans_up_after_failures(
         test_live_the_full_key_matches_and_null_components_never_do()
 
     database = admin.command.call_args_list[0].args[0].removeprefix("CREATE DATABASE ")
-    assert admin.command.call_args_list[-1].args == (f"DROP DATABASE IF EXISTS {database}",)
+    if failure == "database":
+        # Never drop a database this test did not create.
+        assert admin.command.call_count == 1
+    else:
+        assert admin.command.call_args_list[-1].args == (f"DROP DATABASE IF EXISTS {database}",)
     admin.close.assert_called_once_with()

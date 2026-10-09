@@ -178,6 +178,23 @@ def test_missing_app_dependency_hint_uses_exception_name(
     assert "private-password" not in stderr
 
 
+def test_missing_driver_from_real_factory_gets_install_hint(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    from hypequery.execution import ClickHouseConnection, create_clickhouse_executor
+
+    # A None entry makes the factory's import fail as if the extra were absent.
+    monkeypatch.setitem(sys.modules, "clickhouse_connect", None)
+
+    def run_app(*args: object, **kwargs: object) -> None:
+        create_clickhouse_executor(ClickHouseConnection(host="localhost"))
+
+    monkeypatch.setattr("hypequery.serve.run_dev", run_app)
+    assert main(["dev"]) == 1
+    assert 'pip install "hypequery[clickhouse]"' in capsys.readouterr().err
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="cleanup signals a POSIX process group")
 @pytest.mark.parametrize("error", ["ValueError", "Exception", "AssertionError"])
 def test_reload_worker_errors_do_not_echo_credentials(tmp_path: Path, error: str) -> None:
     with socket.socket() as probe:

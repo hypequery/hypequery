@@ -356,7 +356,8 @@ def create_clickhouse_executor(connection: ClickHouseConnection) -> ClickHouseEx
         from clickhouse_connect import get_client
     except ModuleNotFoundError as exc:
         raise ModuleNotFoundError(
-            'Install "hypequery[clickhouse]" to use ClickHouse execution.'
+            'Install "hypequery[clickhouse]" to use ClickHouse execution.',
+            name=exc.name,
         ) from exc
     client = None
     try:
@@ -397,7 +398,8 @@ async def create_async_clickhouse_executor(
         from clickhouse_connect.driver import create_async_client
     except ModuleNotFoundError as exc:
         raise ModuleNotFoundError(
-            'Install "hypequery[clickhouse-async]" to use async ClickHouse execution.'
+            'Install "hypequery[clickhouse-async]" to use async ClickHouse execution.',
+            name=exc.name,
         ) from exc
     client = None
     try:
