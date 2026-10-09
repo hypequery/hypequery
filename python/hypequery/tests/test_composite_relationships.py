@@ -18,24 +18,30 @@ from hypequery.datasets import (
     ExecutionContext,
     Relationship,
     RelationshipKey,
-    asc,
     belongs_to,
-    count_distinct,
     create_dataset_client,
     create_dataset_registry,
     dimension,
-    eq,
     get_dataset_catalog,
     has_many,
     has_one,
     measure,
-    min,  # noqa: A004
     tenant,
 )
-from hypequery.datasets import sum as sum_
+from hypequery.datasets.aggregations import (
+    count_distinct,
+    min,  # noqa: A004
+)
+from hypequery.datasets.aggregations import (
+    sum as sum_,
+)
 from hypequery.datasets.contract import serialize_semantic_contract
 from hypequery.datasets.deployment import build_protocol_dataset_contract
 from hypequery.datasets.planner import plan_dataset_query
+from hypequery.datasets.query_helpers import (
+    asc,
+    eq,
+)
 from hypequery.protocol import ProtocolDeploymentError, ProtocolIdentifierError
 from hypequery.protocol.deployments import validate_protocol_dataset_contract
 

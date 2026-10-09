@@ -21,11 +21,13 @@ from starlette.types import Message, Receive, Scope, Send
 from hypequery.datasets import (
     CompiledQuery,
     Dataset,
-    count,
     create_async_dataset_client,
     create_dataset_client,
     dimension,
     measure,
+)
+from hypequery.datasets.aggregations import (
+    count,
 )
 from hypequery.datasets.cache import MemoryCacheStore, ResultCache
 from hypequery.datasets.client import ResultScalar

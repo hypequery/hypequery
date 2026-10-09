@@ -104,5 +104,5 @@ HTTP wire. Development docs are at <http://127.0.0.1:8000/docs>.
 
 `hypequery dev` is for local development. Create an app with
 `ProductionProfile`, disable development docs, supply trusted authentication,
-and use `run_production` behind your reverse proxy. See the SDK README's
+and use `start_server` behind your reverse proxy. See the SDK README's
 production-process section for the profile and explicit proxy-trust settings.

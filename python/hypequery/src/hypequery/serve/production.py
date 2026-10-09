@@ -67,7 +67,7 @@ class ProductionProfile:
         )
 
 
-def run_production(app: FastAPI) -> None:
+def start_server(app: FastAPI) -> None:
     """Run an app created with ``create_app(..., production=profile)``.
 
     One worker per process: a process manager may run multiple instances, each
@@ -75,7 +75,7 @@ def run_production(app: FastAPI) -> None:
     """
     profile = getattr(app.state, "hypequery_production", None)
     if type(profile) is not ProductionProfile:
-        raise ValueError("run_production requires an application with a ProductionProfile")
+        raise ValueError("start_server requires an application with a ProductionProfile")
     if app.debug or app.docs_url or app.redoc_url or app.openapi_url:
         raise ValueError("production disables debug and documentation routes")
     # Lazy: importing definitions or building an app never starts a server.
@@ -98,5 +98,5 @@ def run_production(app: FastAPI) -> None:
     )
 
 
-# Cross-language transport name; production profile checks remain mandatory.
-start_server = run_production
+#: The Python spelling of `start_server`, which matches TypeScript's `startServer`.
+run_production = start_server

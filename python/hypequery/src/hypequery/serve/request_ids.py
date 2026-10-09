@@ -24,7 +24,7 @@ _CORRELATION_ID = re.compile(r"[A-Za-z0-9][A-Za-z0-9._:/-]*")
 REQUEST_ID_SLOT: ScopeSlot[str] = ScopeSlot(str)
 
 
-def validate_correlation_id(value: str | None) -> str | None:
+def sanitize_correlation_id(value: str | None) -> str | None:
     """A caller's correlation id if it is safe to echo and log, else None."""
 
     if value is None:

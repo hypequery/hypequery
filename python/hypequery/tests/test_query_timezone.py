@@ -22,14 +22,16 @@ from hypequery.datasets import (
     ResultCache,
     create_dataset_client,
     dimension,
-    eq,
-    gte,
-    lt,
     measure,
     plan_dataset_query,
 )
 from hypequery.datasets.client.results import ResultRows
 from hypequery.datasets.planner import CompiledQuery
+from hypequery.datasets.query_helpers import (
+    eq,
+    gte,
+    lt,
+)
 from hypequery.datasets.utils.query_timezone import time_filter_value, timezone_identity
 from hypequery.serve import (
     HttpSecurity,

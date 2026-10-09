@@ -17,19 +17,25 @@ from hypequery.datasets import (
     DatasetLimits,
     DatasetQuery,
     belongs_to,
-    count,
     create_dataset_client,
     create_dataset_registry,
-    desc,
     dimension,
-    eq,
-    max,  # noqa: A004
     measure,
 )
-from hypequery.datasets import sum as sum_
+from hypequery.datasets.aggregations import (
+    count,
+    max,  # noqa: A004
+)
+from hypequery.datasets.aggregations import (
+    sum as sum_,
+)
 from hypequery.datasets.cache import MemoryCacheStore, ResultCache
 from hypequery.datasets.client import ResultScalar
 from hypequery.datasets.planner import CompiledQueryError, plan_dataset_query
+from hypequery.datasets.query_helpers import (
+    desc,
+    eq,
+)
 from hypequery.serve import (
     Credential,
     HttpSecurity,

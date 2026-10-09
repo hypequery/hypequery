@@ -153,3 +153,25 @@ def floor(value: FormulaInput) -> FormulaCall:
 
 def ceil(value: FormulaInput) -> FormulaCall:
     return FormulaCall(name="ceil", args=(_operand(value),))
+
+
+class _FormulaHelpers:
+    """Formula helper namespace for derived measures, matching `measure` and `filter`.
+
+    ``formula.divide("revenue", formula.null_if_zero("orders"))`` builds the
+    symbolic expression `measure.derived` takes. A string operand names a
+    measure on the same dataset; a number is a literal.
+    """
+
+    add = staticmethod(add)
+    subtract = staticmethod(subtract)
+    multiply = staticmethod(multiply)
+    divide = staticmethod(divide)
+    null_if_zero = staticmethod(null_if_zero)
+    coalesce = staticmethod(coalesce)
+    round = staticmethod(round)
+    floor = staticmethod(floor)
+    ceil = staticmethod(ceil)
+
+
+formula = _FormulaHelpers()

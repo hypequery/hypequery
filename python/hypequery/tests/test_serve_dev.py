@@ -104,7 +104,7 @@ def test_invalid_options_fail_before_serving(
 def test_refuses_production_apps_and_non_apps(
     served: list[tuple[object, dict[str, object]]],
 ) -> None:
-    with pytest.raises(ValueError, match="run_production"):
+    with pytest.raises(ValueError, match="start_server"):
         run_dev(_app(production=ProductionProfile()))
     with pytest.raises(TypeError, match="FastAPI"):
         run_dev(object())  # type: ignore[arg-type]
@@ -135,9 +135,9 @@ def test_import_string_resolves_from_the_working_directory(
     run_dev("devapp_plain:app")
     assert isinstance(served[0][0], FastAPI)
     assert sys.path == path_before
-    with pytest.raises(ValueError, match="run_production"):
+    with pytest.raises(ValueError, match="start_server"):
         run_dev("devapp_production:app")
-    with pytest.raises(ValueError, match="run_production"):
+    with pytest.raises(ValueError, match="start_server"):
         run_dev("devapp_production:app", reload=True)
     assert len(served) == 1
     assert sys.path == path_before
@@ -171,7 +171,7 @@ def test_reload_workers_refuse_production_apps(
     monkeypatch.setenv(_RELOAD_TARGET, json.dumps([str(tmp_path), "devapp_reload_plain:app"]))
     assert isinstance(_reload_app(), FastAPI)
     monkeypatch.setenv(_RELOAD_TARGET, json.dumps([str(tmp_path), "devapp_reload_production:app"]))
-    with pytest.raises(ValueError, match="run_production"):
+    with pytest.raises(ValueError, match="start_server"):
         _reload_app()
 
 

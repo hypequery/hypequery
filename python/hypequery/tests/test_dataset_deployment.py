@@ -18,13 +18,17 @@ from hypequery.datasets import (
     build_protocol_deployment_contract,
     create_dataset_registry,
     dimension,
-    eq,
     measure,
     prepare_dataset_bundle,
-    sum,  # noqa: A004
     write_dataset_bundle,
 )
-from hypequery.datasets.query_helpers import Filter
+from hypequery.datasets.aggregations import (
+    sum,  # noqa: A004
+)
+from hypequery.datasets.query_helpers import (
+    Filter,
+    eq,
+)
 from hypequery.protocol import (
     ProtocolDeploymentError,
     prepare_protocol_deployment_bundle_manifest,
@@ -199,7 +203,11 @@ def test_writer_does_not_replace_directory_created_during_publish(
 
 
 def test_contract_preserves_analytical_measures_sql_metadata_and_limits() -> None:
-    from hypequery.datasets import arg_max, arg_min, percentile
+    from hypequery.datasets.aggregations import (
+        arg_max,
+        arg_min,
+        percentile,
+    )
     from hypequery.datasets.dataset import DatasetLimits, FilterDefinition
 
     dataset = Dataset(
