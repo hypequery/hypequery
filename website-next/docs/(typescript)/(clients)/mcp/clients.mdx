@@ -8,8 +8,8 @@ import { CodeBlock } from 'fumadocs-ui/components/codeblock';
 
 Hypequery MCP runs over stdio, so your MCP client launches the server. There are two ways to launch it:
 
-- **`hypequery mcp`** serves the datasets in your Serve API file. The command must run from your project directory,
-  so the client config changes into it first.
+- **`hypequery mcp`** serves the datasets in your Serve API file. Pass the file's absolute path and it works from
+  whatever directory the client launches it in.
 - **`@hypequery/mcp --config`** runs the [standalone server](/docs/mcp/overview#standalone-server) with a dedicated
   config file.
 
@@ -25,8 +25,8 @@ Add a server entry to Claude Desktop's config file:
 {
   "mcpServers": {
     "hypequery": {
-      "command": "sh",
-      "args": ["-c", "cd /absolute/path/to/your-project && npx hypequery mcp"],
+      "command": "npx",
+      "args": ["-y", "@hypequery/cli", "mcp", "/absolute/path/to/analytics/api.ts"],
       "env": {
         "CLICKHOUSE_URL": "https://example.clickhouse.cloud:8443",
         "CLICKHOUSE_USER": "default",
@@ -39,8 +39,9 @@ Add a server entry to Claude Desktop's config file:
 ```
 </CodeBlock>
 
-On Windows, use `"command": "cmd"` with `"args": ["/c", "cd /d C:\\path\\to\\your-project && npx hypequery mcp"]`.
-Add `--tenant <id>` to the command if any dataset is tenant-scoped. Cursor accepts the same `command`, `args`, and
+The API file's imports, including `@hypequery/mcp`, resolve from its project, so install them there as usual. Your
+project's `.env` is not loaded when the client launches from another directory, so pass connection settings in `env`.
+Add `"--tenant", "<id>"` to `args` if any dataset is tenant-scoped. Cursor accepts the same `command`, `args`, and
 `env` in its MCP configuration.
 
 Restart Claude Desktop after changing the config.
@@ -107,12 +108,12 @@ Use the same command and arguments in Cursor's MCP configuration:
 
 ## Test the server directly
 
-Before connecting a client, check a `hypequery mcp` setup from your project directory. It loads the API file and
-reports the datasets it would serve, without starting the server:
+Before connecting a client, check a `hypequery mcp` setup with the same path you put in the client config. It loads
+the API file and reports the datasets it would serve, without starting the server:
 
 <CodeBlock>
 ```bash
-npx hypequery mcp --self-test
+npx -y @hypequery/cli mcp /absolute/path/to/analytics/api.ts --self-test
 ```
 </CodeBlock>
 
