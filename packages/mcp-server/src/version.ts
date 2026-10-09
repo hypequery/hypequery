@@ -2,4 +2,4 @@
 //
 // Resolved at build time rather than read from package.json at import time, so
 // importing this package touches no filesystem and survives bundling.
-export const MCP_PACKAGE_VERSION = '0.8.4';
+export const MCP_PACKAGE_VERSION = '0.8.6';

@@ -82,7 +82,7 @@ mode; table names, connection details, and output paths are never included.
 
 ## Event reference
 
-Schema version: **1**. Default collection is inactive. The staged core emits command/crash lifecycle events in debug or explicitly configured ingest mode; init includes onboarding metrics. Other command-specific, session and project-feature instrumentation follows separately.
+Schema version: **1**. Default collection is inactive. The staged core emits command/crash lifecycle events in debug or explicitly configured ingest mode; init includes onboarding metrics, and dev/MCP report session start and aggregated shutdown counters. Other command-specific and project-feature instrumentation follows separately.
 
 Unknown events, properties, record keys, flag names, enum values, and malformed identities or versions are rejected. No argument values, paths, names, SQL, messages, stacks, hosts, tenants, or credentials are permitted.
 
@@ -169,7 +169,13 @@ No additional properties.
 
 Allowed `flags_used`: `--path`, `--tenant`, `--self-test`, `--url`, `--no-telemetry`, `--help`, `--version`. The two type-generation aliases remain distinct command values.
 
-No additional properties.
+| Property | Presence | Allowed values | Question answered |
+| --- | --- | --- | --- |
+| `mode` | Optional | `self_test`, `serve` | Is MCP used for validation or serving? |
+| `hosted` | Optional | `true`, `false` | Is MCP self-test targeting a hosted endpoint? |
+| `dataset_count_bucket` | Optional | `0`, `1`, `2-5`, `6-20`, `21-100`, `101+` | How many datasets are exposed to agents? |
+| `tenant_used` | Optional | `true`, `false` | Is a trusted tenant supplied? Never its value. |
+| `tenant_dataset_count_bucket` | Optional | `0`, `1`, `2-5`, `6-20`, `21-100`, `101+` | How many datasets require tenant scope? |
 
 #### `cli_command_completed`: `generate`
 
@@ -280,6 +286,83 @@ Allowed `flags_used`: `--no-telemetry`, `--help`, `--version`. The two type-gene
 | Property | Presence | Allowed values | Question answered |
 | --- | --- | --- | --- |
 | `help_topic` | Optional | `root`, `init`, `dev`, `mcp`, `generate`, `generate:types`, `generate:datasets`, `generate:manifest`, `login`, `logout`, `deploy`, `deployment:build`, `deployment:validate`, `deployment:release`, `deployment:submit`, `deployment:status`, `pull`, `diff`, `help`, `version`, `telemetry`, `unknown` | Which command help needs improvement? Unknown input becomes unknown. |
+
+### `cli_session_started`
+
+Measure development-server and MCP session configuration; never emit on every reload or request.
+
+| Property | Presence | Allowed values | Question answered |
+| --- | --- | --- | --- |
+| `command` | Required | `dev`, `mcp` | Which long-running command starts? |
+
+#### `cli_session_started`: `dev`
+
+| Property | Presence | Allowed values | Question answered |
+| --- | --- | --- | --- |
+| `entry_type` | Required | `hypequery.ts`, `api.ts`, `queries.ts`, `explicit_file`, `unknown` | Which entrypoint convention is used? Never the path. |
+| `watch` | Required | `true`, `false` | Is file watching used? |
+| `cache_provider` | Required | `none`, `memory`, `redis`, `unknown` | Which cache providers are adopted? |
+| `cors` | Required | `true`, `false` | Is cross-origin development adopted? |
+| `open` | Required | `true`, `false` | Is the browser opened automatically? |
+| `custom_port` | Required | `true`, `false` | Is a non-default port selected? Never its number or hostname. |
+| `quiet` | Required | `true`, `false` | Is quiet startup adopted? |
+
+#### `cli_session_started`: `mcp`
+
+| Property | Presence | Allowed values | Question answered |
+| --- | --- | --- | --- |
+| `entry_type` | Required | `hypequery.ts`, `api.ts`, `queries.ts`, `explicit_file`, `unknown` | Which entrypoint convention is used? Never the path. |
+| `mode` | Required | `self_test`, `serve` | Is MCP serving or validating? |
+| `dataset_count_bucket` | Required | `0`, `1`, `2-5`, `6-20`, `21-100`, `101+` | How many datasets are exposed to agents? |
+| `tenant_used` | Required | `true`, `false` | Is tenant scope supplied? Never its value. |
+| `tenant_dataset_count_bucket` | Required | `0`, `1`, `2-5`, `6-20`, `21-100`, `101+` | How many exposed datasets require tenant scope? |
+
+### `cli_session_ended`
+
+Measure session duration and aggregated usage on shutdown, without individual requests or tool arguments.
+
+| Property | Presence | Allowed values | Question answered |
+| --- | --- | --- | --- |
+| `command` | Required | `dev`, `mcp` | Which long-running command ends? |
+| `outcome` | Required | `success`, `failure`, `cancelled`, `interrupted` | How did the session end? |
+| `duration_bucket` | Required | `<100ms`, `100ms-1s`, `1s-10s`, `10s-1m`, `1m-10m`, `10m-1h`, `1h+` | How long are development and agent sessions? |
+
+#### `cli_session_ended`: `dev`
+
+| Property | Presence | Allowed values | Question answered |
+| --- | --- | --- | --- |
+| `reload_count_bucket` | Required | `0`, `1`, `2-5`, `6-20`, `21-100`, `101+` | How heavily is hot reload used? |
+| `reload_error_count_bucket` | Required | `0`, `1`, `2-5`, `6-20`, `21-100`, `101+` | How often does hot reload fail? |
+| `load_failures` | Required | Object with only the documented keys below | Which load failures need reliability work? |
+| `load_failures.unknown` | Optional | `0`, `1`, `2-5`, `6-20`, `21-100`, `101+` | Bucketed failures by stable code. |
+| `load_failures.connection_failed` | Optional | `0`, `1`, `2-5`, `6-20`, `21-100`, `101+` | Bucketed failures by stable code. |
+| `load_failures.auth_failed` | Optional | `0`, `1`, `2-5`, `6-20`, `21-100`, `101+` | Bucketed failures by stable code. |
+| `load_failures.entrypoint_not_found` | Optional | `0`, `1`, `2-5`, `6-20`, `21-100`, `101+` | Bucketed failures by stable code. |
+| `load_failures.compile_error` | Optional | `0`, `1`, `2-5`, `6-20`, `21-100`, `101+` | Bucketed failures by stable code. |
+| `load_failures.prompt_cancelled` | Optional | `0`, `1`, `2-5`, `6-20`, `21-100`, `101+` | Bucketed failures by stable code. |
+| `load_failures.validation_failed` | Optional | `0`, `1`, `2-5`, `6-20`, `21-100`, `101+` | Bucketed failures by stable code. |
+| `load_failures.cloud_network_error` | Optional | `0`, `1`, `2-5`, `6-20`, `21-100`, `101+` | Bucketed failures by stable code. |
+| `load_failures.cloud_rejected` | Optional | `0`, `1`, `2-5`, `6-20`, `21-100`, `101+` | Bucketed failures by stable code. |
+| `load_failures.not_installed` | Optional | `0`, `1`, `2-5`, `6-20`, `21-100`, `101+` | Bucketed failures by stable code. |
+| `load_failures.engine_error` | Optional | `0`, `1`, `2-5`, `6-20`, `21-100`, `101+` | Bucketed failures by stable code. |
+| `load_failures.no_tables` | Optional | `0`, `1`, `2-5`, `6-20`, `21-100`, `101+` | Bucketed failures by stable code. |
+| `load_failures.no_datasets` | Optional | `0`, `1`, `2-5`, `6-20`, `21-100`, `101+` | Bucketed failures by stable code. |
+| `load_failures.tenant_required` | Optional | `0`, `1`, `2-5`, `6-20`, `21-100`, `101+` | Bucketed failures by stable code. |
+| `load_failures.load_error` | Optional | `0`, `1`, `2-5`, `6-20`, `21-100`, `101+` | Bucketed failures by stable code. |
+| `load_failures.output_missing` | Optional | `0`, `1`, `2-5`, `6-20`, `21-100`, `101+` | Bucketed failures by stable code. |
+| `load_failures.output_out_of_date` | Optional | `0`, `1`, `2-5`, `6-20`, `21-100`, `101+` | Bucketed failures by stable code. |
+| `load_failures.unknown_command` | Optional | `0`, `1`, `2-5`, `6-20`, `21-100`, `101+` | Bucketed failures by stable code. |
+| `load_failures.unknown_option` | Optional | `0`, `1`, `2-5`, `6-20`, `21-100`, `101+` | Bucketed failures by stable code. |
+
+#### `cli_session_ended`: `mcp`
+
+| Property | Presence | Allowed values | Question answered |
+| --- | --- | --- | --- |
+| `tool_call_counts` | Required | Object with only the documented keys below | Which MCP tool kinds are adopted? No names or arguments. |
+| `tool_call_counts.list` | Required | `0`, `1`, `2-5`, `6-20`, `21-100`, `101+` | Bucketed calls by built-in tool kind. |
+| `tool_call_counts.describe` | Required | `0`, `1`, `2-5`, `6-20`, `21-100`, `101+` | Bucketed calls by built-in tool kind. |
+| `tool_call_counts.query` | Required | `0`, `1`, `2-5`, `6-20`, `21-100`, `101+` | Bucketed calls by built-in tool kind. |
+| `error_count_bucket` | Required | `0`, `1`, `2-5`, `6-20`, `21-100`, `101+` | How often do MCP sessions encounter errors? |
 
 ### `cli_crash`
 

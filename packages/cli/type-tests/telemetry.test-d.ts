@@ -1,6 +1,10 @@
 import { createTelemetryEvent } from '../src/utils/telemetry/validation.js';
 import { common, completed } from './fixtures.js';
-import { updateCommandTelemetry } from '../src/utils/telemetry/command-context.js';
+import { updateCommandTelemetry, startCommandSession } from '../src/utils/telemetry/command-context.js';
+
+startCommandSession('mcp', { entry_type: 'api.ts', mode: 'serve', dataset_count_bucket: '1', tenant_used: false, tenant_dataset_count_bucket: '0' }, () => ({ tool_call_counts: { list: '0', describe: '0', query: '0' }, error_count_bucket: '0' } as const));
+// @ts-expect-error MCP sessions require their tool counters.
+startCommandSession('mcp', { entry_type: 'api.ts', mode: 'serve', dataset_count_bucket: '1', tenant_used: false, tenant_dataset_count_bucket: '0' }, () => ({ reload_count_bucket: '0', reload_error_count_bucket: '0', load_failures: {} }));
 
 updateCommandTelemetry('init', { stage_reached: 'style_selected', style: 'datasets', database: 'chdb' });
 // @ts-expect-error The command metrics boundary excludes raw paths.

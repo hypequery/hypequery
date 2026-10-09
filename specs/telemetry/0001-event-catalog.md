@@ -25,7 +25,7 @@ validate again before sending; validating once does not make mutable data safe.
 - `cli_command_completed`: exactly once per invocation, including help/version
   and unknown-command failures. Its command discriminant restricts properties and
   flags to that command. Never emit for `telemetry disable`.
-- `cli_session_started` and `cli_session_ended` (planned): dev/MCP configuration
+- `cli_session_started` and `cli_session_ended`: dev/MCP configuration
   and aggregated shutdown counters. No individual reloads, requests or tool calls.
 - `cli_crash`: only a built-in exception-class enum and a stable error code.
   Custom classes become unknown; messages, stacks and error objects are forbidden.

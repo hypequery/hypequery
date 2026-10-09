@@ -5,6 +5,12 @@ import * as loadApi from '../utils/load-api.js';
 import * as detectDb from '../utils/detect-database.js';
 import { logger } from '../utils/logger.js';
 import { mockProcessExit, ProcessExitError } from '../test-utils.js';
+import { CommandLifecycle } from '../utils/telemetry/lifecycle.js';
+import { TelemetryInvocation } from '../utils/telemetry/invocation.js';
+import { withCommandTelemetry } from '../utils/telemetry/command-context.js';
+import { CommandExit } from '../utils/command-exit.js';
+import { common } from '../../type-tests/fixtures.js';
+import { validateTelemetryEvent } from '../utils/telemetry/validation.js';
 
 // Mock dependencies
 vi.mock('esbuild', () => ({
@@ -106,6 +112,46 @@ describe('dev command', () => {
   });
 
   describe('runtime lifecycle', () => {
+    it('retains counts when every initial load and watched reload fails', async () => {
+      vi.useFakeTimers();
+      const record = vi.fn();
+      vi.spyOn(TelemetryInvocation, 'create').mockResolvedValue({ common, record, flush: vi.fn() } as unknown as TelemetryInvocation);
+      vi.mocked(loadApi.loadApiModule).mockRejectedValue(Object.assign(new Error('PRIVATE_PATH'), { code: 'compile_error' }));
+      const lifecycle = new CommandLifecycle(['dev']);
+      await lifecycle.begin('dev');
+      await withCommandTelemetry(lifecycle, () => devCommand(undefined, { watch: true }));
+      const callback = vi.mocked(watch).mock.calls[0][2] as (type: string, filename: string) => void;
+      callback('change', 'PRIVATE_FIRST.ts');
+      await vi.advanceTimersByTimeAsync(100);
+      lifecycle.markInterrupted();
+      await lifecycle.finish(new CommandExit(0, 'success'));
+      const events = record.mock.calls.map(([event]) => event);
+      expect(events).toHaveLength(3);
+      expect(events[1].properties).toMatchObject({ reload_count_bucket: '1', reload_error_count_bucket: '1', load_failures: { compile_error: '2-5' } });
+      expect(events.every(validateTelemetryEvent)).toBe(true);
+      expect(JSON.stringify(events)).not.toContain('PRIVATE');
+    });
+    it('aggregates failed and successful reloads without emitting per-change events', async () => {
+      vi.useFakeTimers();
+      const record = vi.fn();
+      vi.spyOn(TelemetryInvocation, 'create').mockResolvedValue({ common, record, flush: vi.fn() } as unknown as TelemetryInvocation);
+      const lifecycle = new CommandLifecycle(['dev']);
+      await lifecycle.begin('dev');
+      await withCommandTelemetry(lifecycle, () => devCommand(undefined, { watch: true }));
+      const callback = vi.mocked(watch).mock.calls[0][2] as (type: string, filename: string) => void;
+      vi.mocked(loadApi.loadApiModule).mockRejectedValueOnce(Object.assign(new Error('PRIVATE_PATH'), { code: 'compile_error' }));
+      callback('change', 'PRIVATE_FIRST.ts');
+      await vi.advanceTimersByTimeAsync(100);
+      callback('change', 'PRIVATE_SECOND.js');
+      await vi.advanceTimersByTimeAsync(100);
+      expect(record).toHaveBeenCalledTimes(1);
+      lifecycle.markInterrupted();
+      await lifecycle.finish(new CommandExit(0, 'success'));
+      const events = record.mock.calls.map(([event]) => event);
+      expect(events[1].properties).toMatchObject({ reload_count_bucket: '2-5', reload_error_count_bucket: '1', load_failures: { compile_error: '1' } });
+      expect(events.every(validateTelemetryEvent)).toBe(true);
+      expect(JSON.stringify(events)).not.toContain('PRIVATE');
+    });
     it('serializes a second restart behind an in-progress teardown', async () => {
       vi.useFakeTimers();
       const serverStop = deferred();

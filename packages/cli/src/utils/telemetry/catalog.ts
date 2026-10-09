@@ -3,6 +3,8 @@ import { boolean, enumeration, enumList, fieldsFor, formatted, optional, record,
 
 const count = (description: string) => enumeration(description, COUNT_BUCKETS);
 export const EVENT_SCHEMA_VERSION = 1;
+const cache = enumeration('Which cache providers are adopted?', ['none', 'memory', 'redis', 'unknown']);
+const entry = enumeration('Which entrypoint convention is used? Never the path.', ['hypequery.ts', 'api.ts', 'queries.ts', 'explicit_file', 'unknown']);
 const stages = ['started', 'database_selected', 'connection_tested', 'style_selected', 'files_written', 'dependencies_installed', 'completed'] as const;
 
 export const COMMON_PROPERTIES = {
@@ -48,11 +50,49 @@ export const COMMAND_PROPERTIES = {
     package_json_present: optional(boolean('Does onboarding start in an existing project?')),
     analytics_directory_present: optional(boolean('Does onboarding reuse an analytics directory?')),
   },
+  dev: {},
+  mcp: {
+    mode: optional(enumeration('Is MCP used for validation or serving?', ['self_test', 'serve'])),
+    hosted: optional(boolean('Is MCP self-test targeting a hosted endpoint?')),
+    dataset_count_bucket: optional(count('How many datasets are exposed to agents?')),
+    tenant_used: optional(boolean('Is a trusted tenant supplied? Never its value.')),
+    tenant_dataset_count_bucket: optional(count('How many datasets require tenant scope?')),
+  },
   // Other commands report only the common completion fields until they are
   // instrumented; each instrumentation change adds its command's fields here.
-  ...Object.fromEntries(COMMANDS.filter(command => command !== 'init' && command !== 'help').map(command => [command, {}])) as Record<Exclude<typeof COMMANDS[number], 'init' | 'help'>, Record<string, never>>,
+  ...Object.fromEntries(COMMANDS.filter(command => !['init', 'dev', 'mcp', 'help'].includes(command)).map(command => [command, {}])) as Record<Exclude<typeof COMMANDS[number], 'init' | 'dev' | 'mcp' | 'help'>, Record<string, never>>,
   help: { help_topic: optional(enumeration('Which command help needs improvement? Unknown input becomes unknown.', ['root', ...COMMANDS])) },
 } as const satisfies Record<typeof COMMANDS[number], Fields>;
+
+export const SESSION_START_PROPERTIES = {
+  dev: {
+    entry_type: entry,
+    watch: boolean('Is file watching used?'),
+    cache_provider: cache,
+    cors: boolean('Is cross-origin development adopted?'),
+    open: boolean('Is the browser opened automatically?'),
+    custom_port: boolean('Is a non-default port selected? Never its number or hostname.'),
+    quiet: boolean('Is quiet startup adopted?'),
+  },
+  mcp: {
+    entry_type: entry,
+    mode: enumeration('Is MCP serving or validating?', ['self_test', 'serve']),
+    dataset_count_bucket: count('How many datasets are exposed to agents?'),
+    tenant_used: boolean('Is tenant scope supplied? Never its value.'),
+    tenant_dataset_count_bucket: count('How many exposed datasets require tenant scope?'),
+  },
+} as const;
+export const SESSION_END_PROPERTIES = {
+  dev: {
+    reload_count_bucket: count('How heavily is hot reload used?'),
+    reload_error_count_bucket: count('How often does hot reload fail?'),
+    load_failures: record('Which load failures need reliability work?', fieldsFor(ERROR_CODES, optional(count('Bucketed failures by stable code.')))),
+  },
+  mcp: {
+    tool_call_counts: record('Which MCP tool kinds are adopted? No names or arguments.', fieldsFor(['list', 'describe', 'query'] as const, count('Bucketed calls by built-in tool kind.'))),
+    error_count_bucket: count('How often do MCP sessions encounter errors?'),
+  },
+} as const;
 
 export const EVENT_CATALOG = {
   cli_command_completed: {
@@ -65,6 +105,20 @@ export const EVENT_CATALOG = {
       error_code: optional(enumeration('Which known failures need reliability work?', ERROR_CODES)),
     },
     variants: COMMAND_PROPERTIES,
+  },
+  cli_session_started: {
+    purpose: 'Measure development-server and MCP session configuration; never emit on every reload or request.',
+    properties: { command: enumeration('Which long-running command starts?', ['dev', 'mcp']) },
+    variants: SESSION_START_PROPERTIES,
+  },
+  cli_session_ended: {
+    purpose: 'Measure session duration and aggregated usage on shutdown, without individual requests or tool arguments.',
+    properties: {
+      command: enumeration('Which long-running command ends?', ['dev', 'mcp']),
+      outcome: enumeration('How did the session end?', OUTCOMES),
+      duration_bucket: enumeration('How long are development and agent sessions?', DURATION_BUCKETS),
+    },
+    variants: SESSION_END_PROPERTIES,
   },
   cli_crash: {
     purpose: 'Measure uncaught failures by stable class and code, with no messages or stacks.',

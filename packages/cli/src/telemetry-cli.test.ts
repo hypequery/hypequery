@@ -172,8 +172,69 @@ describe('compiled CLI telemetry regression', () => {
       expect(exit).toBe(0);
       expect(stdout).toContain('Shutting down dev server');
       const events = stderr.split('\n').flatMap(line => { try { const event = JSON.parse(line); return event.event ? [event] : []; } catch { return []; } });
-      expect(events).toHaveLength(1);
-      expect(events[0].properties).toMatchObject({ command: 'dev', outcome: 'interrupted' });
+      expect(events.map(event => event.event)).toEqual(['cli_session_started', 'cli_session_ended', 'cli_command_completed']);
+      expect(events[0].properties).toMatchObject({ command: 'dev', entry_type: 'explicit_file', watch: false, custom_port: true });
+      expect(events[1].properties).toMatchObject({ command: 'dev', outcome: 'interrupted', reload_count_bucket: '0', reload_error_count_bucket: '0', load_failures: {} });
+      expect(events[2].properties).toMatchObject({ command: 'dev', outcome: 'interrupted' });
     } finally { clearTimeout(timer); child.kill('SIGKILL'); }
   }, 10_000);
+
+  it('keeps MCP stdio unchanged while aggregating tool kinds at shutdown', async () => {
+    const file = path.join(directory, 'PRIVATE_MCP_API.mjs');
+    await writeFile(file, `
+const datasets = { PRIVATE_DATASET: { description: 'PRIVATE_DESCRIPTION', dimensions: { PRIVATE_DIMENSION: { type: 'string' } }, measures: { PRIVATE_MEASURE: { type: 'number' } }, metrics: {} } };
+const analytics = { execute: async () => ({ data: [{ PRIVATE_MEASURE: 3 }], meta: { rowCount: 1, executionTimeMs: 0 } }) };
+export const api = { handler: () => new Response('ok'), [Symbol.for('hypequery.mcp-source.v1')]: { version: 1, datasets, resolveAnalytics: () => analytics } };
+`);
+    const outputs = [];
+    for (const mode of ['off', 'debug', 'failing'] as const) {
+      const env = { ...process.env, HYPEQUERY_CONFIG_DIR: directory };
+      for (const key of ['VITEST', 'NODE_ENV', 'DO_NOT_TRACK', 'HYPEQUERY_TELEMETRY_DISABLED', 'HYPEQUERY_TELEMETRY_URL', 'HYPEQUERY_TELEMETRY_DEBUG', 'GITHUB_ACTIONS']) delete env[key];
+      if (mode === 'debug') env.HYPEQUERY_TELEMETRY_DEBUG = '1';
+      else if (mode === 'failing') env.HYPEQUERY_TELEMETRY_URL = 'http://127.0.0.1:1/batch';
+      else env.HYPEQUERY_TELEMETRY_DISABLED = '1';
+      const child = spawn(process.execPath, [bin, 'mcp', file], { cwd: directory, env, stdio: ['pipe', 'pipe', 'pipe'] });
+      let stdout = '';
+      let stderr = '';
+      let pending = '';
+      const replies = new Map<number, (value: Record<string, unknown>) => void>();
+      const closed = new Promise<number | null>((resolve, reject) => { child.once('error', reject); child.once('close', resolve); });
+      const timer = setTimeout(() => child.kill('SIGKILL'), 8_000);
+      child.stderr.on('data', chunk => { stderr += chunk.toString(); });
+      child.stdout.on('data', chunk => {
+        stdout += chunk.toString(); pending += chunk.toString();
+        const lines = pending.split('\n'); pending = lines.pop()!;
+        for (const line of lines) {
+          const response = JSON.parse(line);
+          replies.get(response.id)?.(response);
+        }
+      });
+      const request = (id: number, method: string, params?: unknown) => Promise.race([new Promise<Record<string, unknown>>(resolve => {
+        replies.set(id, resolve);
+        child.stdin.write(JSON.stringify({ jsonrpc: '2.0', id, method, ...(params ? { params } : {}) }) + '\n');
+      }), closed.then(() => { throw new Error(`MCP exited before replying: ${stderr}`); })]);
+      try {
+        expect(await request(1, 'initialize', { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 'PRIVATE_CLIENT', version: 'PRIVATE_VERSION' } })).toHaveProperty('result');
+        child.stdin.write(JSON.stringify({ jsonrpc: '2.0', method: 'notifications/initialized' }) + '\n');
+        expect(await request(2, 'tools/list')).toHaveProperty('result.tools');
+        expect(await request(3, 'tools/call', { name: 'list_datasets', arguments: {} })).not.toHaveProperty('result.isError', true);
+        expect(await request(4, 'tools/call', { name: 'get_dataset_schema', arguments: { dataset: 'PRIVATE_DATASET' } })).not.toHaveProperty('result.isError', true);
+        expect(await request(5, 'tools/call', { name: 'query_dataset', arguments: { dataset: 'PRIVATE_DATASET', measures: ['PRIVATE_MEASURE'] } })).not.toHaveProperty('result.isError', true);
+        expect(await request(6, 'tools/call', { name: 'query_dataset', arguments: { dataset: 'PRIVATE_UNKNOWN_DATASET', measures: ['PRIVATE_MEASURE'] } })).toHaveProperty('result.isError', true);
+        child.kill('SIGINT');
+        expect(await closed).toBe(0);
+        expect(stdout.trim().split('\n').map(line => JSON.parse(line).id)).toEqual([1, 2, 3, 4, 5, 6]);
+        outputs.push(stdout);
+        const events = stderr.split('\n').flatMap(line => { try { const event = JSON.parse(line); return event.event ? [event] : []; } catch { return []; } });
+        expect(events).toHaveLength(mode === 'debug' ? 3 : 0);
+        if (mode === 'debug') {
+          expect(events[1]).toMatchObject({ event: 'cli_session_ended', properties: { command: 'mcp', outcome: 'interrupted', tool_call_counts: { list: '1', describe: '1', query: '2-5' }, error_count_bucket: '1' } });
+          expect(JSON.stringify(events)).not.toContain('PRIVATE');
+          expect(stderr).not.toContain('Hypequery collects');
+        }
+      } finally { clearTimeout(timer); child.kill('SIGKILL'); }
+    }
+    expect(outputs[1]).toBe(outputs[0]);
+    expect(outputs[2]).toBe(outputs[0]);
+  }, 30_000);
 });
