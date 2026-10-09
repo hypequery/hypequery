@@ -44,6 +44,19 @@ def dimension_type(type_name: str) -> str | None:
     return None
 
 
+def is_nullable(type_name: str) -> bool:
+    """Whether a column can hold NULL, which `count(column)` would skip."""
+    value = type_name.strip()
+    for _ in range(8):
+        if value.startswith("Nullable("):
+            return True
+        match = re.fullmatch(r"LowCardinality\((.*)\)", value)
+        if match is None:
+            return False
+        value = match[1].strip()
+    return False
+
+
 def field_name(column: str) -> str:
     """Match TypeScript's camelCase semantic names; physical names stay explicit."""
     first, *rest = column.split("_")
@@ -115,6 +128,7 @@ def generate_datasets(schema: Schema, *, tenant_column: str | None = None) -> Ge
                 f"Table {table.name!r} is outside the SDK's supported identifier grammar."
             )
         fields: list[tuple[str, str, str]] = []
+        non_nullable: list[str] = []
         seen: set[str] = set()
         for column in table.columns:
             kind = dimension_type(column.type)
@@ -131,6 +145,8 @@ def generate_datasets(schema: Schema, *, tenant_column: str | None = None) -> Ge
                 )
             seen.add(alias)
             fields.append((column.name, alias, kind))
+            if not is_nullable(column.type):
+                non_nullable.append(alias)
         if not fields:
             raise CliError(f"Table {table.name!r} has no supported scalar dimensions.")
         if not first_dimension:
@@ -183,8 +199,14 @@ def generate_datasets(schema: Schema, *, tenant_column: str | None = None) -> Ge
             [
                 "        },",
                 "        measures={",
-                '            "totalCount": measure.count("rows", sql="1", label="Total Count"),',
             ]
+        )
+        # Column-backed, as TypeScript generates it, so the definition deploys and
+        # composes with relationship joins. A non-nullable column keeps it a row
+        # count; `count` skips NULLs, so a nullable one is only the fallback.
+        count_field = non_nullable[0] if non_nullable else fields[0][1]
+        lines.append(
+            f'            "totalCount": measure.count({count_field!r}, label="Total Count"),'
         )
         for physical, alias, kind in fields:
             if kind != "number" or not measure_candidate(physical):
