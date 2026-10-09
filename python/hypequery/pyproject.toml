@@ -138,7 +138,14 @@ forbidden_modules = ["fastapi", "starlette", "uvicorn", "clickhouse_connect"]
 [[tool.importlinter.contracts]]
 name = "Dataset SQL compilation stays independent of client orchestration and execution"
 type = "forbidden"
-source_modules = ["hypequery.datasets.planner.compiler"]
+source_modules = [
+  "hypequery.datasets.planner.compiler",
+  "hypequery.datasets.planner.features",
+  "hypequery.datasets.planner.query_node",
+  "hypequery.datasets.planner.aggregates",
+  "hypequery.datasets.planner.predicates",
+  "hypequery.datasets.planner.operators",
+]
 forbidden_modules = [
   "hypequery.datasets.client",
   "hypequery.datasets.cache",

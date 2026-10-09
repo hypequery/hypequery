@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from ...datasets import Dataset
 from ...datasets.client import DatasetQueryResult, ResultScalar
-from ...protocol._jcs import serialize_number
+from ...protocol import serialize_protocol_number
 from ..models import CacheMeta, PaginationMeta, PublicQueryMeta, QueryResponse
 
 
@@ -13,7 +13,7 @@ def _measure_value(value: ResultScalar) -> str | None:
         return None
     if type(value) is bool:
         return "true" if value else "false"
-    return serialize_number(value) if type(value) is float else str(value)
+    return serialize_protocol_number(value) if type(value) is float else str(value)
 
 
 def public_response(
