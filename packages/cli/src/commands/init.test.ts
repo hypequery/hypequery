@@ -169,6 +169,13 @@ describe('init command - graceful failure handling', () => {
         datasets_generated_bucket: '1', table_selection: 'list', style: 'datasets', auth: 'context', env_file: 'skipped' });
     });
 
+    it('omits table selection when non-interactive setup made none', async () => {
+      vi.mocked(detectDb.validateConnection).mockResolvedValue(true);
+      const properties = await run({ database: 'chdb', noInteractive: true, style: 'datasets' });
+      expect(properties).toMatchObject({ style: 'datasets', datasets_generated_bucket: '0', outcome: 'success' });
+      expect(properties).not.toHaveProperty('table_selection');
+    });
+
     it('preserves progress when dependency installation fails after files were written', async () => {
       installScaffoldDependencies.mockRejectedValueOnce(new Error('PRIVATE_INSTALL_ERROR'));
       expect(await run()).toMatchObject({ stage_reached: 'files_written', failed_stage: 'dependencies_installed', outcome: 'failure' });

@@ -16,11 +16,13 @@ from typing import NotRequired, TypedDict, cast
 
 from .constants import SEMANTIC_FILTER_OPERATORS, SUPPORTED_TIME_GRAINS
 from .dataset import Dataset, DatasetLimits, FilterDefinition
+from .derived_measures import DerivedMeasure
 from .dimensions import Dimension, DimensionType
 from .measures import Measure
 from .query_helpers import FilterOperator
 from .registry import DatasetRegistry
 from .relationships import Relationship, RelationshipKind
+from .utils.derived_measures import derived_measure_node
 from .utils.relationship_fields import (
     list_groupable_relationship_fields,
     list_queryable_relationship_fields,
@@ -90,6 +92,7 @@ class DatasetCatalog(TypedDict):
     timeKey: NotRequired[str]
     dimensions: dict[str, DimensionCatalogEntry]
     measures: dict[str, MeasureCatalogEntry]
+    derivedMeasures: NotRequired[dict[str, dict[str, object]]]
     metrics: dict[str, object]
     filters: dict[str, FilterCatalogEntry]
     relationships: dict[str, RelationshipCatalogEntry]
@@ -214,8 +217,21 @@ def get_dataset_catalog(dataset: Dataset, *, registry: DatasetRegistry) -> Datas
         name: _dimension_entry(dimension) for name, dimension in dimensions.items()
     }
     catalog["measures"] = {
-        name: _measure_entry(measure) for name, measure in dataset.measures.items()
+        name: _measure_entry(measure)
+        for name, measure in dataset.measures.items()
+        if isinstance(measure, Measure)
     }
+    derived = {
+        name: {
+            key: value
+            for key, value in derived_measure_node(name, measure, canonical_uses=True).items()
+            if key not in ("kind", "name")
+        }
+        for name, measure in dataset.measures.items()
+        if isinstance(measure, DerivedMeasure)
+    }
+    if derived:
+        catalog["derivedMeasures"] = derived
     # Python has no metric definitions yet; the key stays so the shape matches.
     catalog["metrics"] = {}
     catalog["filters"] = {
@@ -225,7 +241,9 @@ def get_dataset_catalog(dataset: Dataset, *, registry: DatasetRegistry) -> Datas
     if dataset.limits is not None:
         catalog["limits"] = _limits_entry(dataset.limits)
     catalog["requiresTenant"] = dataset.tenant_key is not None
-    catalog["supportedGrains"] = list(SUPPORTED_TIME_GRAINS) if dataset.time_key else []
+    catalog["supportedGrains"] = (
+        list(dataset.time_grains or SUPPORTED_TIME_GRAINS) if dataset.time_key else []
+    )
     catalog["orderableFields"] = [
         *dimensions,
         *dataset.measures,

@@ -1,7 +1,6 @@
 /** Stable domains: never populate these from user-provided names or messages. */
 export const COUNT_BUCKETS = ['0', '1', '2-5', '6-20', '21-100', '101+'] as const;
 export const DURATION_BUCKETS = ['<100ms', '100ms-1s', '1s-10s', '10s-1m', '1m-10m', '10m-1h', '1h+'] as const;
-export const SIZE_BUCKETS = ['0', '<10KiB', '10KiB-100KiB', '100KiB-1MiB', '1MiB-10MiB', '10MiB+'] as const;
 export const ERROR_CODES = [
   'unknown', 'connection_failed', 'auth_failed', 'entrypoint_not_found', 'compile_error',
   'prompt_cancelled', 'validation_failed', 'cloud_network_error', 'cloud_rejected',
@@ -40,9 +39,27 @@ export const COMMAND_FLAGS = {
   help: [], version: [], telemetry: [], unknown: [],
 } as const satisfies Record<TelemetryCommand, readonly string[]>;
 export const GLOBAL_FLAGS = ['--no-telemetry', '--help', '--version'] as const;
+/** Options that consume the next argument as their value; that value is never a flag. */
+export const VALUE_FLAGS = {
+  init: ['--path', '--style', '--database', '--chdb-path', '--auth', '--tables', '--exclude-tables'],
+  dev: ['--port', '--hostname', '--cache', '--redis-url', '--path'],
+  mcp: ['--path', '--tenant', '--url'],
+  generate: ['--output', '--path', '--tables', '--database', '--chdb-path'],
+  'generate:types': ['--output', '--path', '--tables', '--database', '--chdb-path'],
+  'generate:datasets': ['--output', '--path', '--tables', '--exclude-tables', '--tenant-column'],
+  'generate:manifest': ['--output'],
+  login: ['--cloud-url', '--environment'],
+  logout: [],
+  deploy: ['--bundle-output', '--release-output', '--project', '--environment', '--endpoint'],
+  'deployment:build': ['--bundle-output'],
+  'deployment:validate': [],
+  'deployment:release': ['--project', '--environment', '--output'],
+  'deployment:submit': ['--release', '--endpoint'],
+  'deployment:status': ['--project', '--environment', '--endpoint'],
+  pull: ['--output', '--project', '--environment', '--endpoint'],
+  diff: ['--project', '--environment', '--endpoint'],
+  help: [], version: [], telemetry: [], unknown: [],
+} as const satisfies { [C in TelemetryCommand]: readonly typeof COMMAND_FLAGS[C][number][] };
 export type TelemetryFlag = typeof COMMAND_FLAGS[TelemetryCommand][number] | typeof GLOBAL_FLAGS[number];
 export const SHORT_FLAGS = { '-o': '--output', '-p': '--port', '-h': '--hostname', '-q': '--quiet', '-V': '--version' } as const;
 export const HYPEQUERY_PACKAGES = ['@hypequery/clickhouse', '@hypequery/datasets', '@hypequery/serve', '@hypequery/react', '@hypequery/cli', '@hypequery/mcp', '@hypequery/protocol', '@hypequery/protocol-conformance', '@hypequery/deployment'] as const;
-export const AGGREGATIONS = ['sum', 'count', 'countDistinct', 'avg', 'min', 'max', 'argMax', 'argMin', 'percentile', 'stddev', 'variance', 'approxCountDistinct'] as const;
-export const WARNING_CODES = ['tenant-key-candidate', 'tenant-column-missing'] as const;
-export const TYPE_FAMILIES = ['AggregateFunction', 'SimpleAggregateFunction', 'Variant', 'Dynamic', 'Object', 'JSON', 'Nested', 'Tuple', 'Map', 'Array', 'Nullable', 'LowCardinality', 'Decimal', 'Enum', 'DateTime', 'DateTime64', 'unknown'] as const;

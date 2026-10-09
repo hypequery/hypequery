@@ -1,6 +1,8 @@
 import { execFile, spawn } from 'node:child_process';
-import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { mkdtemp, mkdir, rm, writeFile, readdir, utimes } from 'node:fs/promises';
+import { createServer as createTcpServer } from 'node:net';
+import { createHash, randomUUID } from 'node:crypto';
+import { hostname, tmpdir } from 'node:os';
 import path from 'node:path';
 import { promisify } from 'node:util';
 import { beforeAll, afterAll, describe, expect, it } from 'vitest';
@@ -14,11 +16,12 @@ describe('compiled CLI telemetry regression', () => {
   beforeAll(async () => { directory = await mkdtemp(path.join(tmpdir(), 'hq-cli-regression-')); });
   afterAll(async () => { await rm(directory, { recursive: true, force: true }); });
 
-  async function run(args: string[], mode: 'off' | 'debug' | 'failing', cwd = directory, extraEnv: NodeJS.ProcessEnv = {}) {
+  async function run(args: string[], mode: 'off' | 'debug' | 'failing' | 'stalled', cwd = directory, extraEnv: NodeJS.ProcessEnv = {}) {
     const env = { ...process.env, ...extraEnv, HYPEQUERY_CONFIG_DIR: directory };
     for (const key of ['VITEST', 'NODE_ENV', 'DO_NOT_TRACK', 'HYPEQUERY_TELEMETRY_DISABLED', 'HYPEQUERY_TELEMETRY_URL', 'HYPEQUERY_TELEMETRY_DEBUG', 'GITHUB_ACTIONS']) delete env[key];
     if (mode === 'debug') env.HYPEQUERY_TELEMETRY_DEBUG = '1';
     else if (mode === 'failing') env.HYPEQUERY_TELEMETRY_URL = 'http://127.0.0.1:1/batch';
+    else if (mode === 'stalled') env.HYPEQUERY_TELEMETRY_URL = extraEnv.HYPEQUERY_TELEMETRY_URL;
     else env.HYPEQUERY_TELEMETRY_DISABLED = '1';
     let result: { stdout: string; stderr: string; code?: number };
     try { result = await execute(process.execPath, [bin, ...args], { cwd, env, timeout: 10_000 }); }
@@ -30,6 +33,64 @@ describe('compiled CLI telemetry regression', () => {
     }).join('\n');
     return { code: result.code ?? 0, stdout: result.stdout, stderr, events };
   }
+
+  it('recovers a lock left by a killed process but never takes a live owner\'s lock', async () => {
+    const settings = await mkdtemp(path.join(tmpdir(), 'hq-cli-settings-lock-'));
+    try {
+      const env = { ...process.env, HYPEQUERY_CONFIG_DIR: settings };
+      for (const key of ['VITEST', 'NODE_ENV', 'DO_NOT_TRACK', 'HYPEQUERY_TELEMETRY_DISABLED']) delete env[key];
+      await execute(process.execPath, [bin, 'telemetry', 'status'], { cwd: settings, env });
+      const lock = path.join(settings, 'telemetry.lock');
+      const host = createHash('sha256').update(hostname()).digest('hex').slice(0, 12);
+      const plantLock = async (pid: number) => {
+        await mkdir(lock);
+        await writeFile(path.join(lock, `owner.${pid}.${host}.${randomUUID()}`), '');
+      };
+
+      // A live owner (this test process), however old its lock, keeps it.
+      await plantLock(process.pid);
+      const ancient = new Date(Date.now() - 60 * 60 * 1000);
+      await utimes(lock, ancient, ancient);
+      const refused = await execute(process.execPath, [bin, 'telemetry', 'disable'], { cwd: settings, env })
+        .catch((error: { code?: number; stderr: string }) => error);
+      expect(refused).toMatchObject({ code: 1 });
+      expect(await readdir(lock)).toHaveLength(1);
+      await rm(lock, { recursive: true });
+
+      // What SIGKILL or a crash mid-write leaves: a lock whose owner process has exited.
+      const exited = spawn(process.execPath, ['-e', '']);
+      await new Promise(resolve => exited.on('exit', resolve));
+      await plantLock(exited.pid!);
+      const disabled = await execute(process.execPath, [bin, 'telemetry', 'disable'], { cwd: settings, env });
+      expect(disabled.stdout).toContain('disabled');
+      const status = await execute(process.execPath, [bin, 'telemetry', 'status'], { cwd: settings, env });
+      expect(status.stdout).toContain('Telemetry: disabled');
+      expect(await readdir(settings)).toEqual(['telemetry.json']);
+    } finally {
+      await rm(settings, { recursive: true, force: true });
+    }
+  }, 30_000);
+
+  it('exits promptly when the ingest endpoint never completes its connection', async () => {
+    // Accepts TCP but never answers the TLS handshake. Built-in fetch kept the
+    // process alive here for its ~10 s connect timeout even after aborting.
+    const sockets = new Set<import('node:net').Socket>();
+    const server = createTcpServer(socket => { sockets.add(socket); /* Never speak TLS. */ });
+    await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve));
+    const { port } = server.address() as { port: number };
+    try {
+      const off = await run(['init', '--help'], 'off');
+      const started = performance.now();
+      const stalled = await run(['init', '--help'], 'stalled', directory, { HYPEQUERY_TELEMETRY_URL: `https://127.0.0.1:${port}/batch` });
+      const elapsed = performance.now() - started;
+      expect({ code: stalled.code, stdout: stalled.stdout, stderr: stalled.stderr }).toEqual({ code: off.code, stdout: off.stdout, stderr: off.stderr });
+      expect(elapsed).toBeLessThan(2_000);
+    } finally {
+      // The server never reads, so it must drop accepted sockets itself.
+      for (const socket of sockets) socket.destroy();
+      await new Promise<void>(resolve => server.close(() => resolve()));
+    }
+  }, 30_000);
 
   it('preserves exit code and output for every command help page with telemetry on/off', async () => {
     for (const command of program.commands) {

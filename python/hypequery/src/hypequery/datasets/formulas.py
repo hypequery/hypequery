@@ -35,17 +35,20 @@ class FormulaLiteral(_Formula):
 class FormulaBinary(_Formula):
     kind: Literal["binary"] = "binary"
     operator: Literal["add", "subtract", "multiply", "divide"]
-    left: SerializeAsAny[_Formula]
-    right: SerializeAsAny[_Formula]
+    left: SerializeAsAny[Formula]
+    right: SerializeAsAny[Formula]
 
 
 class FormulaCall(_Formula):
     kind: Literal["call"] = "call"
     name: Literal["nullIfZero", "coalesce", "round", "floor", "ceil"]
-    args: tuple[SerializeAsAny[_Formula], ...]
+    args: tuple[SerializeAsAny[Formula], ...]
 
 
 Formula: TypeAlias = FormulaReference | FormulaLiteral | FormulaBinary | FormulaCall
+FormulaBinary.model_rebuild()
+FormulaCall.model_rebuild()
+
 FormulaInput: TypeAlias = str | bool | int | float | Formula | None
 
 
@@ -79,13 +82,13 @@ def _formula_data(value: Formula) -> dict[str, object]:
         return {
             "kind": "binary",
             "operator": value.operator,
-            "left": _formula_data(cast(Formula, value.left)),
-            "right": _formula_data(cast(Formula, value.right)),
+            "left": _formula_data(value.left),
+            "right": _formula_data(value.right),
         }
     return {
         "kind": "call",
         "function": value.name,
-        "args": [_formula_data(cast(Formula, item)) for item in value.args],
+        "args": [_formula_data(item) for item in value.args],
     }
 
 

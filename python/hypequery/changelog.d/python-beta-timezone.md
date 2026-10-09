@@ -1,0 +1,3 @@
+- Add validated query and client timezones (UTC by default), apply the zone to time buckets and local time-key filter bounds, and accept timezone overrides on dataset and metric HTTP endpoints.
+- **Behavior change:** time buckets and offset-free time-key bounds previously used the column's or server's timezone; they now use the query zone, UTC unless set. Pass `timezone=` to `create_dataset_client` to keep a non-UTC zone. Persistent result caches populated before upgrading can return old buckets until their entries expire.
+- Partition non-UTC cached results using the same deployed-identity convention as TypeScript.

@@ -8,6 +8,7 @@ import { telemetryErrorCode } from '../utils/telemetry/error-code.js';
 import { cleanupLoadedApiArtifacts } from '../utils/load-api.js';
 import type { Command } from 'commander';
 import { withCommandTelemetry } from '../utils/telemetry/command-context.js';
+import { settleTelemetrySettings } from '../utils/telemetry/config-store.js';
 
 async function loadEnv() {
   try {
@@ -44,7 +45,11 @@ async function main() {
   let finishing: Promise<void> | undefined;
   const finish = (exit: CommandExit) => {
     finishing ??= (async () => {
-      await lifecycle.finish(exit, selected?.name() === 'help' ? selected.args[0] : undefined);
+      // finish() never rejects; the guard keeps cleanup independent of telemetry.
+      await lifecycle.finish(exit, selected?.name() === 'help' ? selected.args[0] : undefined).catch(() => undefined);
+      // Signals end in process.exit(), which skips finally blocks: let any
+      // settings write release its lock first (bounded).
+      await settleTelemetrySettings();
       await cleanupLoadedApiArtifacts();
     })();
     return finishing;
@@ -78,8 +83,10 @@ async function main() {
         ?? program.commands.find(command => requested === command.name())?.name();
       await lifecycle.begin('help');
       const code = commander.exitCode ?? 0;
-      await lifecycle.finish(new CommandExit(code, code ? 'failure' : 'success', code ? 'validation_failed' : undefined), topic);
+      await lifecycle.finish(new CommandExit(code, code ? 'failure' : 'success', code ? 'validation_failed' : undefined), topic)
+        .catch(() => undefined);
       process.exitCode = code;
+      await settleTelemetrySettings();
       await cleanupLoadedApiArtifacts();
       return;
     }

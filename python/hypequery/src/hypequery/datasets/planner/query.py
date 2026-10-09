@@ -8,10 +8,11 @@ boundary undone.
 
 from __future__ import annotations
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from ..constants import SUPPORTED_TIME_GRAINS
 from ..query_helpers import Filter, HavingCondition, Order
+from ..utils.query_timezone import validate_timezone
 
 TimeGrain = str
 
@@ -20,6 +21,13 @@ class DatasetQuery(BaseModel):
     """A grouped aggregation over one dataset."""
 
     model_config = ConfigDict(extra="forbid", frozen=True)
+
+    timezone: str | None = None
+
+    @field_validator("timezone")
+    @classmethod
+    def _timezone(cls, value: str | None) -> str | None:
+        return None if value is None else validate_timezone(value)
 
     dimensions: tuple[str, ...] = ()
     measures: tuple[str, ...] | None = None

@@ -401,7 +401,8 @@ async function runInit(options: InitOptions, funnel: InitFunnel): Promise<void> 
     }
   }
 
-  let tableSelection: 'all' | 'list' | 'exclude' | 'prompt' = options.allTables ? 'all' : options.tables ? 'list' : options.excludeTables ? 'exclude' : 'all';
+  // Undefined when no selection was made: non-interactive runs then write a placeholder.
+  let tableSelection: 'all' | 'list' | 'exclude' | 'prompt' | undefined = options.allTables ? 'all' : options.tables ? 'list' : options.excludeTables ? 'exclude' : undefined;
   let datasetTables = parseTableList(options.tables);
   const excludedDatasetTables = parseTableList(options.excludeTables);
 
@@ -422,7 +423,7 @@ async function runInit(options: InitOptions, funnel: InitFunnel): Promise<void> 
 
   logger.newline();
 
-  funnel.update({ example: generateExample, ...(style === 'datasets' ? { table_selection: tableSelection } : {}) });
+  funnel.update({ example: generateExample, ...(style === 'datasets' && tableSelection ? { table_selection: tableSelection } : {}) });
 
   // Step 7: Create directory
   await mkdir(resolvedOutputDir, { recursive: true });

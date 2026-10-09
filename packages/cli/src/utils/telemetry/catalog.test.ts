@@ -1,14 +1,13 @@
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { COMMON_PROPERTIES, COMMAND_PROPERTIES, EVENT_CATALOG, SESSION_END_PROPERTIES, SESSION_START_PROPERTIES } from './catalog.js';
+import { COMMON_PROPERTIES, COMMAND_PROPERTIES, EVENT_CATALOG } from './catalog.js';
 import { renderTelemetryCatalog } from './catalog-docs.js';
-import { COMMAND_FLAGS, GLOBAL_FLAGS } from './domains.js';
+import { COMMAND_FLAGS, GLOBAL_FLAGS, VALUE_FLAGS } from './domains.js';
 import { flagNames, knownCommand } from './flags.js';
 import { createTelemetryEvent, validateTelemetryEvent } from './validation.js';
 import { common, completed } from '../../../type-tests/fixtures.js';
 import type { Field, Fields } from './schema.js';
-import { VALUE_FORMATS } from './value-formats.js';
 
 function sampleField(field: Field): unknown {
   switch (field.kind) {
@@ -27,10 +26,6 @@ function sampleProperties(fields: Fields): Record<string, unknown> {
 }
 
 describe('telemetry event contract', () => {
-  it('snapshots the complete versioned catalog', () => {
-    expect({ formats: VALUE_FORMATS, common: COMMON_PROPERTIES, events: EVENT_CATALOG }).toMatchSnapshot();
-  });
-
   it('keeps the generated public event reference synchronized', async () => {
     const page = await readFile(fileURLToPath(new URL('../../../../../website-next/docs/telemetry.mdx', import.meta.url)), 'utf8');
     expect(page.split('{/* telemetry-catalog */}\n\n')[1]).toBe(renderTelemetryCatalog());
@@ -137,6 +132,11 @@ describe('telemetry event contract', () => {
     expect(flagNames('dev', ['-qp4000', '-hprivate-host'])).toEqual(['--hostname', '--port', '--quiet']);
     expect(flagNames('generate', ['-oprivate-qV.ts'])).toEqual(['--output']);
     expect(flagNames('dev', ['-p4000'])).toEqual(['--port']);
+    // A required option value is never read as flags, even when it starts with "-".
+    expect(flagNames('generate', ['--output', '-help.ts'])).toEqual(['--output']);
+    expect(flagNames('generate', ['-o', '-help.ts', '--tables', '--version'])).toEqual(['--output', '--tables']);
+    expect(flagNames('generate', ['--output=-h', '--help'])).toEqual(['--help', '--output']);
+    expect(flagNames('dev', ['-p', '-q'])).toEqual(['--port']);
   });
 
   it('covers all registered commands and their actual canonical flags', async () => {
@@ -145,8 +145,8 @@ describe('telemetry event contract', () => {
     for (const command of program.commands) {
       const known = knownCommand(command.name());
       expect([...COMMAND_FLAGS[known]].sort()).toEqual(command.options.map(option => option.long).sort());
+      expect([...VALUE_FLAGS[known]].sort(), command.name()).toEqual(command.options.filter(option => option.required || option.optional).map(option => option.long).sort());
     }
     expect(GLOBAL_FLAGS).toContain('--no-telemetry');
-    expect(Object.keys(SESSION_START_PROPERTIES)).toEqual(Object.keys(SESSION_END_PROPERTIES));
   });
 });

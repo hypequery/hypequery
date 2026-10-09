@@ -38,19 +38,34 @@ Display the notice on stderr only, once, TTY-only, never in CI, MCP or preferenc
 commands. Serialize disclosure across CLI processes using the settings lock and
 persist the timestamp only after stderr's write callback succeeds.
 
+Settings writes hold a cross-process lock: a directory containing one owner file
+named for the writer's process ID, host and a random token, published by atomic
+rename. A live owner keeps its lock however long it runs; age is never evidence
+of abandonment, because a slow or suspended writer is still alive. A lock whose
+owner process no longer exists on this host (a crash, SIGKILL or power loss) is
+taken over by renaming that exact owner file to the new owner's name, which fails
+if the lock was already replaced, so concurrent recoverers cannot both win.
+Release removes only the writer's own owner file. A lock owned on another host
+cannot be checked and fails closed. On ordinary exits and signals the executable
+also waits, bounded at 250 ms, for in-flight writes to release their lock.
+
 One in-memory PostHog-shaped batch has at most 32 events and 64 KiB. The
 `api_key: hypequery-cli` routing marker is not a PostHog credential; the proxy owns
 the real key. Add only transport-owned timestamp, distinct ID, person-profile and
 GeoIP-disable fields after validating and snapshotting the catalog payload.
 Never follow redirects. Only HTTPS or loopback HTTP without credentials, query
 or fragment is accepted. With debug enabled, print exactly those event envelopes
-to stderr and skip fetch. Diagnostic text never includes rejected data.
+to stderr and skip sending. Diagnostic text never includes rejected data.
 
 Flush is capped at 40 ms with an abort controller and an unref'ed timeout.
-Unavailable fetch, synchronous throws, network errors and non-success HTTP
-responses are swallowed. There are no retries or disk queues. HTTP 410 requests
-a best-effort, version-specific opt-out. The settings update takes one immediate
-lock attempt; an unavailable lock cannot prolong exit by waiting for a writer.
+Delivery uses `node:http(s)`, not the built-in fetch: aborting fetch rejects on
+time, but its pending TCP or TLS connect kept the process alive for the ~10 s
+connect timeout against an unreachable endpoint. Aborting the Node request
+destroys its socket even mid-connect, so the CLI exits once the flush returns.
+Synchronous throws, network errors and non-success HTTP responses are swallowed.
+There are no retries or disk queues. HTTP 410 requests a best-effort,
+version-specific opt-out, written asynchronously with one immediate lock attempt;
+an unavailable lock cannot prolong exit by waiting for a writer.
 The kill switch leaves saved consent and other CLI versions unchanged.
 
 ## Lifecycle
@@ -80,7 +95,8 @@ page and safe failure/logout path compares exit codes and ordinary output with
 telemetry disabled, debug-enabled and a failing ingest endpoint. Real dev
 shutdown verifies teardown on SIGINT. Unit tests cover concurrent notice display,
 identity normalization, metadata faults, CI/provider enums, payload privacy,
-batch caps, HTTP failures, unavailable fetch and a blackholed endpoint.
+batch caps, HTTP failures and a blackholed endpoint. A compiled-CLI test checks
+that an endpoint which never completes its TLS handshake does not delay exit.
 
 `pnpm --filter @hypequery/cli telemetry:benchmark` measures 30 paired compiled CLI
 invocations with a blackholed server and enforces less than 100 ms of additional

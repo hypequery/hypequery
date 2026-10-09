@@ -1,8 +1,9 @@
-import { chmod, mkdtemp, readFile, readdir, rm, stat, writeFile, mkdir } from 'node:fs/promises';
+import { chmod, mkdtemp, readFile, readdir, rm, stat, writeFile, mkdir, utimes } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { TelemetryConfigStore } from './config-store.js';
+import { TelemetryConfigStore, settleTelemetrySettings } from './config-store.js';
+import { acquireSettingsLock, type SettingsLockIdentity } from './settings-lock.js';
 import { resolveTelemetryState, telemetryOptOutSource } from './opt-out.js';
 
 describe('telemetry preferences', () => {
@@ -66,21 +67,76 @@ describe('telemetry preferences', () => {
     expect(await store.load()).toBeNull();
   });
 
-  it('fails closed on a stale lock and leaves it alone', async () => {
-    await mkdir(path.join(directory, 'telemetry.lock'));
+  it("fails closed on a live writer's lock and leaves it alone", async () => {
+    // This test process is alive, so a lock it owns is a live writer's lock.
+    await acquireSettingsLock(directory, 1);
+    const held = await readdir(path.join(directory, 'telemetry.lock'));
     expect(await store.load()).toBeNull();
     expect(await readdir(directory)).toEqual(['telemetry.lock']);
+    expect(await readdir(path.join(directory, 'telemetry.lock'))).toEqual(held);
+  });
+  it('takes over a lock whose owner process died, for opt-out and the kill switch', async () => {
+    const config = await store.load();
+    const dead = new Set<number>();
+    const identity = (pid: number): SettingsLockIdentity => ({ pid, host: 'test-host', isAlive: candidate => !dead.has(candidate) });
+    const recovering = new TelemetryConfigStore({ configDirectory: directory, env: {}, lockIdentity: identity(200) });
+    for (const write of [() => recovering.setEnabled(false), () => recovering.disableVersion('1.22.0')]) {
+      // What SIGKILL or a crash mid-write leaves: a lock owned by a process that no longer exists.
+      expect(await acquireSettingsLock(directory, 1, identity(100))).not.toBeNull();
+      dead.add(100);
+      expect(await write()).toMatchObject({ install_id: config?.install_id });
+      expect(await readdir(directory)).toEqual(['telemetry.json']);
+      dead.delete(100);
+    }
+    expect(await store.peek()).toMatchObject({ enabled: false, disabled_cli_versions: ['1.22.0'] });
+  });
+  it('never lets a slow live writer lose its lock, so it cannot overwrite a disable', async () => {
+    await store.load();
+    const live = (pid: number): SettingsLockIdentity => ({ pid, host: 'test-host', isAlive: () => true });
+    // A suspended writer, holding its lock far longer than any write takes.
+    const slow = await acquireSettingsLock(directory, 1, live(100));
+    const ancient = new Date(Date.now() - 60 * 60 * 1000);
+    await utimes(path.join(directory, 'telemetry.lock'), ancient, ancient);
+    const disabling = new TelemetryConfigStore({ configDirectory: directory, env: {}, lockIdentity: live(200) });
+    expect(await disabling.setEnabled(false)).toBeNull();
+    expect(await store.peek()).toMatchObject({ enabled: true });
+    await slow!.release();
+    expect(await disabling.setEnabled(false)).toMatchObject({ enabled: false });
   });
   it('persists a version kill switch without leaving settings locked', async () => {
     const config = await store.load();
     expect(await store.disableVersion('1.22.0')).toEqual({ ...config, disabled_cli_versions: ['1.22.0'] });
     expect(await readdir(directory)).toEqual(['telemetry.json']);
     expect(await store.setEnabled(false)).toMatchObject({ enabled: false, disabled_cli_versions: ['1.22.0'] });
-    await mkdir(path.join(directory, 'telemetry.lock'));
+    // One immediate attempt against a live writer: no wait, no change.
+    await acquireSettingsLock(directory, 1);
     expect(await store.disableVersion('1.23.0')).toBeNull();
     expect(await readdir(directory)).toEqual(['telemetry.json', 'telemetry.lock']);
   });
 
+  it('lets exit wait for an in-progress write to release its lock', async () => {
+    await store.load();
+    const pending = store.setEnabled(false);
+    await settleTelemetrySettings();
+    expect(await readdir(directory)).toEqual(['telemetry.json']);
+    expect(await pending).toMatchObject({ enabled: false });
+  });
+  it('bounds the exit wait when a write cannot finish', async () => {
+    await store.load();
+    let release!: () => void;
+    const released = new Promise<void>(resolve => { release = resolve; });
+    const blocked = store.showNotice(() => released);
+    const started = performance.now();
+    await settleTelemetrySettings(50);
+    expect(performance.now() - started).toBeLessThan(500);
+    release();
+    await blocked;
+    expect(await readdir(directory)).toEqual(['telemetry.json']);
+  });
+  it('does not create settings from a kill switch', async () => {
+    expect(await store.disableVersion('1.22.0')).toBeNull();
+    expect(await readdir(directory)).toEqual([]);
+  });
   it.skipIf(process.platform === 'win32' || process.getuid?.() === 0)('fails closed in a read-only config directory', async () => {
     await store.load();
     await chmod(directory, 0o500);

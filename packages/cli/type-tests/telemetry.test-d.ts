@@ -17,10 +17,6 @@ updateCommandTelemetry('init', { table_count_bucket: 12 });
 updateCommandTelemetry('init', { chdb_failure_reason: 'private-engine-message' });
 
 createTelemetryEvent(completed);
-createTelemetryEvent({ event: 'cli_session_started', properties: {
-  ...common, command: 'dev', entry_type: 'api.ts', watch: true,
-  cache_provider: 'memory', cors: false, open: true, custom_port: false, quiet: false,
-} });
 
 const extra = { ...completed, properties: { ...completed.properties, path: '/private/project' } } as const;
 // @ts-expect-error Variables with undeclared properties must be rejected too.
@@ -44,7 +40,5 @@ createTelemetryEvent({ ...completed, properties: { ...completed.properties, hype
 createTelemetryEvent({ ...completed, properties: { ...completed.properties, flags_used: ['--style=secret'] } });
 // @ts-expect-error Known flags from another command are also forbidden.
 createTelemetryEvent({ ...completed, properties: { ...completed.properties, flags_used: ['--tenant'] } });
-// @ts-expect-error Session variants require their own counters.
-createTelemetryEvent({ event: 'cli_session_ended', properties: { ...common, command: 'mcp', outcome: 'interrupted', duration_bucket: '1h+' } });
-// @ts-expect-error MCP handshake identity is deliberately excluded pending review.
-createTelemetryEvent({ event: 'cli_session_started', properties: { ...common, command: 'mcp', entry_type: 'api.ts', mode: 'serve', dataset_count_bucket: '1', tenant_used: true, tenant_dataset_count_bucket: '1', client_name: 'private-client' } });
+// @ts-expect-error Events that are not emitted yet are not in the catalog.
+createTelemetryEvent({ event: 'cli_session_started', properties: { ...common, command: 'dev' } });
