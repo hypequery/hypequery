@@ -1,10 +1,11 @@
-import { COMMANDS, COMMAND_FLAGS, COUNT_BUCKETS, DATABASES, DURATION_BUCKETS, ERROR_CODES, GLOBAL_FLAGS, HYPEQUERY_PACKAGES, OUTCOMES } from './domains.js';
+import { COMMANDS, COMMAND_FLAGS, COUNT_BUCKETS, DATABASES, DURATION_BUCKETS, ERROR_CODES, GLOBAL_FLAGS, HYPEQUERY_PACKAGES, OUTCOMES, TYPE_FAMILIES, WARNING_CODES } from './domains.js';
 import { boolean, enumeration, enumList, fieldsFor, formatted, optional, record, type Fields, type Properties } from './schema.js';
 
 const count = (description: string) => enumeration(description, COUNT_BUCKETS);
 export const EVENT_SCHEMA_VERSION = 1;
 const cache = enumeration('Which cache providers are adopted?', ['none', 'memory', 'redis', 'unknown']);
 const entry = enumeration('Which entrypoint convention is used? Never the path.', ['hypequery.ts', 'api.ts', 'queries.ts', 'explicit_file', 'unknown']);
+const output = boolean('Was a custom output location supplied? Never the path.');
 const stages = ['started', 'database_selected', 'connection_tested', 'style_selected', 'files_written', 'dependencies_installed', 'completed'] as const;
 
 export const COMMON_PROPERTIES = {
@@ -28,6 +29,18 @@ export const COMMON_PROPERTIES = {
   hypequery_packages: optional(record('Which toolkit packages and exact versions are adopted? No project dependencies or names.', fieldsFor(HYPEQUERY_PACKAGES, optional(formatted('Installed exact release version, or unknown.', 'version'))))),
   database: enumeration('Which database backends merit investment?', DATABASES),
 } as const satisfies Fields;
+
+const generation = {
+  chdb_path_given: optional(boolean('Is persistent embedded ClickHouse adopted?')),
+  tables_filter_used: optional(boolean('Are targeted type-generation workflows used?')),
+  table_count_bucket: optional(count('How large are introspected schemas?')),
+  column_count_bucket: optional(count('How many columns need type generation?')),
+  unsupported_type_count_bucket: optional(count('How often does type mapping need improvement?')),
+  unsupported_type_families: optional(enumList('Which built-in type families need mapping? Never full type expressions.', TYPE_FAMILIES)),
+  custom_output: optional(output),
+} as const;
+
+const INSTRUMENTED = ['init', 'dev', 'mcp', 'generate', 'generate:types', 'generate:datasets', 'generate:manifest', 'help'] as const;
 
 /** Command-specific completion fields; absence means that stage was not reached. */
 export const COMMAND_PROPERTIES = {
@@ -58,9 +71,26 @@ export const COMMAND_PROPERTIES = {
     tenant_used: optional(boolean('Is a trusted tenant supplied? Never its value.')),
     tenant_dataset_count_bucket: optional(count('How many datasets require tenant scope?')),
   },
+  generate: generation,
+  'generate:types': generation,
+  'generate:datasets': {
+    mode: optional(enumeration('Are datasets generated locally or checked in CI?', ['write', 'check', 'diff'])),
+    check_result: optional(enumeration('Does CI find stale dataset definitions?', ['up_to_date', 'out_of_date', 'missing'])),
+    force: optional(boolean('Are existing definitions replaced?')),
+    tenant_column_used: optional(boolean('Is tenant isolation explicitly scaffolded? Never the column.')),
+    tables_filter_used: optional(boolean('Is include filtering adopted?')),
+    exclude_filter_used: optional(boolean('Is exclude filtering adopted?')),
+    datasets_generated_bucket: optional(count('How many dataset definitions are generated?')),
+    warning_counts: optional(record('Which tenant-scaffolding warnings need improvement?', fieldsFor(WARNING_CODES, optional(count('Bucketed warning occurrences.'))))),
+  },
+  'generate:manifest': {
+    query_count_bucket: optional(count('How much query-based React integration is adopted?')),
+    endpoint_count_bucket: optional(count('How much endpoint-based React integration is adopted?')),
+    custom_output: optional(output),
+  },
   // Other commands report only the common completion fields until they are
   // instrumented; each instrumentation change adds its command's fields here.
-  ...Object.fromEntries(COMMANDS.filter(command => !['init', 'dev', 'mcp', 'help'].includes(command)).map(command => [command, {}])) as Record<Exclude<typeof COMMANDS[number], 'init' | 'dev' | 'mcp' | 'help'>, Record<string, never>>,
+  ...Object.fromEntries(COMMANDS.filter(command => !(INSTRUMENTED as readonly string[]).includes(command)).map(command => [command, {}])) as Record<Exclude<typeof COMMANDS[number], typeof INSTRUMENTED[number]>, Record<string, never>>,
   help: { help_topic: optional(enumeration('Which command help needs improvement? Unknown input becomes unknown.', ['root', ...COMMANDS])) },
 } as const satisfies Record<typeof COMMANDS[number], Fields>;
 

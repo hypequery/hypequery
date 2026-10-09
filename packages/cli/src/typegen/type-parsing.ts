@@ -186,21 +186,21 @@ function getPrimitiveTsType(type: string): string | null {
  * Converts a ClickHouse type string, as returned by `DESCRIBE TABLE`, into the
  * equivalent TypeScript type string.
  */
-export const clickhouseToTsType = (type: string): string => {
+export const clickhouseToTsType = (type: string, onUnsupported?: (type: string) => void): string => {
   const normalizedType = type.trim();
   const wrappedArrayType = unwrapType(normalizedType, 'Array');
   if (wrappedArrayType) {
-    return `Array<${clickhouseToTsType(wrappedArrayType)}>`;
+    return `Array<${clickhouseToTsType(wrappedArrayType, onUnsupported)}>`;
   }
 
   const wrappedNullableType = unwrapType(normalizedType, 'Nullable');
   if (wrappedNullableType) {
-    return `${clickhouseToTsType(wrappedNullableType)} | null`;
+    return `${clickhouseToTsType(wrappedNullableType, onUnsupported)} | null`;
   }
 
   const wrappedLowCardinalityType = unwrapType(normalizedType, 'LowCardinality');
   if (wrappedLowCardinalityType) {
-    return clickhouseToTsType(wrappedLowCardinalityType);
+    return clickhouseToTsType(wrappedLowCardinalityType, onUnsupported);
   }
 
   const wrappedTupleType = unwrapType(normalizedType, 'Tuple');
@@ -209,10 +209,10 @@ export const clickhouseToTsType = (type: string): string => {
     const namedParts = tupleParts.map(parseNamedTuplePart);
     if (namedParts.length > 0 && namedParts.every((part): part is NamedTuplePart => part !== null)) {
       return `{ ${namedParts
-        .map((part) => `${formatTypeScriptProperty(part.name)}: ${clickhouseToTsType(part.type)}`)
+        .map((part) => `${formatTypeScriptProperty(part.name)}: ${clickhouseToTsType(part.type, onUnsupported)}`)
         .join('; ')} }`;
     }
-    return `[${tupleParts.map((part) => clickhouseToTsType(part)).join(', ')}]`;
+    return `[${tupleParts.map((part) => clickhouseToTsType(part, onUnsupported)).join(', ')}]`;
   }
 
   const wrappedMapType = unwrapType(normalizedType, 'Map');
@@ -221,7 +221,7 @@ export const clickhouseToTsType = (type: string): string => {
     if (mapParts.length === 2) {
       const [, valueType] = mapParts;
       // JSON object keys are strings even when ClickHouse map keys are numeric.
-      return `Record<string, ${clickhouseToTsType(valueType)}>`;
+      return `Record<string, ${clickhouseToTsType(valueType, onUnsupported)}>`;
     }
     return 'Record<string, unknown>';
   }
@@ -230,5 +230,6 @@ export const clickhouseToTsType = (type: string): string => {
   if (primitiveType) return primitiveType;
 
   // Unsupported or more complex ClickHouse types currently preserve the historical fallback.
+  try { onUnsupported?.(normalizedType); } catch { /* Optional observers cannot change generated types. */ }
   return 'string';
 };

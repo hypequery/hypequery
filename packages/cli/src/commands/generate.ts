@@ -8,6 +8,9 @@ import { detectDatabase, getTableCount, type DatabaseType } from '../utils/detec
 import { ensureChdbInstalled } from '../utils/chdb-client.js';
 import { getTypeGenerator } from '../generators/index.js';
 import { redactConnectionUrl } from '../utils/redact-connection-url.js';
+import { updateCommandTelemetry } from '../utils/telemetry/command-context.js';
+import { countBucket } from '../utils/telemetry/buckets.js';
+import { TypeGenerationMetrics } from '../utils/telemetry/generation-metrics.js';
 
 export interface GenerateOptions {
   output?: string;
@@ -19,6 +22,9 @@ export interface GenerateOptions {
 }
 
 export async function generateCommand(options: GenerateOptions = {}) {
+  const command = options.commandName === 'hypequery generate:types' ? 'generate:types' : 'generate';
+  const metrics = new TypeGenerationMetrics();
+  updateCommandTelemetry(command, { custom_output: !!(options.output || options.path), tables_filter_used: !!options.tables, chdb_path_given: !!options.chdbPath });
   // Determine output path
   let outputPath: string;
 
@@ -47,6 +53,7 @@ export async function generateCommand(options: GenerateOptions = {}) {
   const requestedDbType = options.database as DatabaseType | undefined;
   const dbType = requestedDbType ?? (await detectDatabase());
   const chdbPath = dbType === 'chdb' ? options.chdbPath : undefined;
+  updateCommandTelemetry(command, { database: dbType === 'clickhouse' || dbType === 'chdb' || dbType === 'bigquery' ? dbType : 'unknown', chdb_path_given: !!chdbPath });
 
   if (dbType === 'chdb' && !requestedDbType) {
     throw new Error(
@@ -95,11 +102,14 @@ export async function generateCommand(options: GenerateOptions = {}) {
       outputPath,
       includeTables: parsedTables,
       chdbPath,
+      onColumn: () => metrics.column(),
+      onUnsupportedType: type => metrics.fallback(type),
     });
 
     // The generator returns what it actually wrote after applying filters.
     // Requested names may contain duplicates or tables that do not exist.
     const generatedCount = generatedTables.length;
+    updateCommandTelemetry(command, { ...metrics.snapshot(), table_count_bucket: countBucket(generatedCount) });
     typeSpinner.succeed(
       `Generated types for ${generatedCount} ${generatedCount === 1 ? 'table' : 'tables'}`,
     );
@@ -111,6 +121,7 @@ export async function generateCommand(options: GenerateOptions = {}) {
     logger.newline();
 
   } catch (error) {
+    updateCommandTelemetry(command, metrics.snapshot());
     activeSpinner.fail(failureMessage);
     logger.newline();
 

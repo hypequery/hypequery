@@ -2,6 +2,8 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { loadApiModule } from '../utils/load-api.js';
 import { logger } from '../utils/logger.js';
+import { updateCommandTelemetry } from '../utils/telemetry/command-context.js';
+import { manifestMetrics } from '../utils/telemetry/generation-metrics.js';
 
 export interface GenerateManifestOptions {
   output?: string;
@@ -11,6 +13,7 @@ export async function generateManifestCommand(
   apiPath: string | undefined,
   options: GenerateManifestOptions = {},
 ) {
+  updateCommandTelemetry('generate:manifest', { custom_output: options.output !== undefined });
   if (!apiPath) {
     throw new Error(
       'Missing API module path.\n\n' +
@@ -30,6 +33,7 @@ export async function generateManifestCommand(
   }
 
   const manifest = api.manifest();
+  updateCommandTelemetry('generate:manifest', manifestMetrics(api, manifest));
   await mkdir(path.dirname(outputPath), { recursive: true });
   await writeFile(outputPath, `${JSON.stringify(manifest, null, 2)}\n`, 'utf8');
 
