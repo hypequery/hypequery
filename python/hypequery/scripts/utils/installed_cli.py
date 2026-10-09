@@ -36,7 +36,7 @@ class InstalledCli:
         for key in ("PYTHONPATH", "PYTHONHOME", "VIRTUAL_ENV"):
             self.env.pop(key, None)
         # The journey cannot accidentally find Node tools on the user's PATH.
-        self.env["PATH"] = f"{self.python.parent}{os.pathsep}{os.defpath}"
+        self.env["PATH"] = str(self.python.parent)
         self.env["PYTHONNOUSERSITE"] = "1"
 
     def _run(self, args: list[str], *, cwd: Path | None = None) -> subprocess.CompletedProcess[str]:
@@ -70,10 +70,12 @@ class InstalledCli:
                 "-c",
                 """
 import json
+import shutil
 import sys
 from pathlib import Path
 from importlib.metadata import version
 import hypequery
+assert all(shutil.which(tool) is None for tool in ('node', 'npm', 'npx', 'pnpm', 'yarn'))
 assert Path(hypequery.__file__).resolve().is_relative_to(Path(sys.prefix).resolve())
 print(json.dumps({'version': version('hypequery')}))
 """,
@@ -307,14 +309,19 @@ finally:
                     require(exc.code == 401, "Unauthenticated query must return 401")
                 else:
                     raise RuntimeError("Unauthenticated request was accepted")
-            except BaseException:
-                log.seek(0)
-                print(log.read(), file=sys.stderr)
-                raise
             finally:
-                self._stop(process)
-        with socket.socket() as probe:
-            require(probe.connect_ex(("127.0.0.1", port)) != 0, "Server child survived cleanup")
+                try:
+                    self._stop(process)
+                    with socket.socket() as probe:
+                        require(
+                            probe.connect_ex(("127.0.0.1", port)) != 0,
+                            "Server child survived cleanup",
+                        )
+                finally:
+                    # Retain shutdown diagnostics before temporary files disappear.
+                    if sys.exc_info()[0] is not None:
+                        log.seek(0)
+                        print(log.read(), file=sys.stderr)
 
     def _wait(self, process: subprocess.Popen[str], base: str) -> None:
         until = time.monotonic() + 60
