@@ -7,6 +7,7 @@ import os
 import re
 import secrets
 from typing import cast
+from unittest.mock import Mock
 
 import pytest
 from pydantic import ValidationError
@@ -296,61 +297,64 @@ def test_live_the_full_key_matches_and_null_components_never_do() -> None:
     # A fresh name, created without IF NOT EXISTS: the test only ever drops
     # the database it created itself.
     database = f"hq_composite_relationships_{secrets.token_hex(6)}"
-    admin.command(f"CREATE DATABASE {database}")
-    admin.command(
-        f"CREATE TABLE {database}.customers "
-        "(id Nullable(UInt64), region Nullable(String), row_key String, score Float64, "
-        "tier String, tenant String) ENGINE = Memory"
-    )
-    admin.command(
-        f"CREATE TABLE {database}.orders (customer_id Nullable(UInt64), "
-        "region_code Nullable(String), amount Float64, status String, tenant String) "
-        "ENGINE = Memory"
-    )
-    admin.command(
-        f"INSERT INTO {database}.customers VALUES "  # noqa: S608 - generated name
-        "(1, 'US', '1US', 5, 'gold', 'a'), (1, 'EU', '1EU', 10, 'silver', 'a'), "
-        "(1, 'EU', '1EU-b', 900, 'secret', 'b'), (NULL, 'EU', 'nullEU', 999, 'null-id', 'a'), "
-        "(1, NULL, '1null', 999, 'null-region', 'a')"
-    )
-    admin.command(
-        f"INSERT INTO {database}.orders VALUES "  # noqa: S608 - generated name
-        "(1, 'US', 10, 'paid', 'a'), (1, 'US', 20, 'paid', 'a'), (1, 'EU', 30, 'paid', 'a'), "
-        "(1, 'AP', 40, 'missing', 'a'), (NULL, 'EU', 50, 'null', 'a'), "
-        "(1, NULL, 60, 'null', 'a'), (1, 'EU', 900, 'paid', 'b')"
-    )
-    targets = Dataset(
-        name="liveCustomers",
-        source="customers",
-        tenant_key="tenant",
-        dimensions={"tier": dimension("string")},
-        measures={
-            "count": measure(count_distinct("row_key")),
-            "lowest": measure(min("score")),
-        },
-    )
-    sources = Dataset(
-        name="liveOrders",
-        source="orders",
-        tenant_key="tenant",
-        dimensions={"status": dimension("string")},
-        measures={"revenue": measure(sum_("amount"))},
-        relationships={
-            "customer": belongs_to(
-                lambda: targets, keys=(("customer_id", "id"), ("region_code", "region"))
-            )
-        },
-    )
-    executor = create_clickhouse_executor(
-        ClickHouseConnection(
-            host=host,
-            port=port,
-            database=database,
-            username="default",
-            password=password,
-        )
-    )
+    created = False
+    executor = None
     try:
+        admin.command(f"CREATE DATABASE {database}")
+        created = True
+        admin.command(
+            f"CREATE TABLE {database}.customers "
+            "(id Nullable(UInt64), region Nullable(String), row_key String, score Float64, "
+            "tier String, tenant String) ENGINE = Memory"
+        )
+        admin.command(
+            f"CREATE TABLE {database}.orders (customer_id Nullable(UInt64), "
+            "region_code Nullable(String), amount Float64, status String, tenant String) "
+            "ENGINE = Memory"
+        )
+        admin.command(
+            f"INSERT INTO {database}.customers VALUES "  # noqa: S608 - generated name
+            "(1, 'US', '1US', 5, 'gold', 'a'), (1, 'EU', '1EU', 10, 'silver', 'a'), "
+            "(1, 'EU', '1EU-b', 900, 'secret', 'b'), (NULL, 'EU', 'nullEU', 999, 'null-id', 'a'), "
+            "(1, NULL, '1null', 999, 'null-region', 'a')"
+        )
+        admin.command(
+            f"INSERT INTO {database}.orders VALUES "  # noqa: S608 - generated name
+            "(1, 'US', 10, 'paid', 'a'), (1, 'US', 20, 'paid', 'a'), (1, 'EU', 30, 'paid', 'a'), "
+            "(1, 'AP', 40, 'missing', 'a'), (NULL, 'EU', 50, 'null', 'a'), "
+            "(1, NULL, 60, 'null', 'a'), (1, 'EU', 900, 'paid', 'b')"
+        )
+        targets = Dataset(
+            name="liveCustomers",
+            source="customers",
+            tenant_key="tenant",
+            dimensions={"tier": dimension("string")},
+            measures={
+                "count": measure(count_distinct("row_key")),
+                "lowest": measure(min("score")),
+            },
+        )
+        sources = Dataset(
+            name="liveOrders",
+            source="orders",
+            tenant_key="tenant",
+            dimensions={"status": dimension("string")},
+            measures={"revenue": measure(sum_("amount"))},
+            relationships={
+                "customer": belongs_to(
+                    lambda: targets, keys=(("customer_id", "id"), ("region_code", "region"))
+                )
+            },
+        )
+        executor = create_clickhouse_executor(
+            ClickHouseConnection(
+                host=host,
+                port=port,
+                database=database,
+                username="default",
+                password=password,
+            )
+        )
         client = create_dataset_client(
             executor=executor, registry=create_dataset_registry(sources, targets)
         )
@@ -386,9 +390,15 @@ def test_live_the_full_key_matches_and_null_components_never_do() -> None:
         ).data
         assert related == ({"customer.count": 2, "customer.lowest": 5.0},)
     finally:
-        executor.close()
-        admin.command(f"DROP DATABASE IF EXISTS {database}")
-        admin.close()
+        try:
+            if executor is not None:
+                executor.close()
+        finally:
+            try:
+                if created:
+                    admin.command(f"DROP DATABASE IF EXISTS {database}")
+            finally:
+                admin.close()
 
 
 def test_protocol_validates_key_errors_before_relationship_name() -> None:
@@ -398,3 +408,39 @@ def test_protocol_validates_key_errors_before_relationship_name() -> None:
         "HQ_DEPLOYMENT_INVALID_VALUE",
         "$.relationships[0].keys",
     )
+
+
+@pytest.mark.parametrize("failure", ["database", "table", "executor", "close"])
+def test_live_composite_cleans_up_after_failures(
+    monkeypatch: pytest.MonkeyPatch, failure: str
+) -> None:
+    import clickhouse_connect
+
+    import hypequery.execution
+
+    admin = Mock()
+    executor = Mock()
+    monkeypatch.setenv("HYPEQUERY_TEST_CLICKHOUSE_HOST", "localhost")
+    monkeypatch.setenv("HYPEQUERY_TEST_CLICKHOUSE_PASSWORD", "test-password")
+    monkeypatch.setattr(clickhouse_connect, "get_client", Mock(return_value=admin))
+    factory = Mock(return_value=executor)
+    monkeypatch.setattr(hypequery.execution, "create_clickhouse_executor", factory)
+    if failure == "database":
+        admin.command.side_effect = RuntimeError("create failed")
+    elif failure == "table":
+        admin.command.side_effect = [None, RuntimeError("setup failed"), None]
+    elif failure == "executor":
+        factory.side_effect = RuntimeError("setup failed")
+    else:
+        executor.execute.side_effect = RuntimeError("query failed")
+        executor.close.side_effect = RuntimeError("close failed")
+    with pytest.raises(RuntimeError):
+        test_live_the_full_key_matches_and_null_components_never_do()
+
+    database = admin.command.call_args_list[0].args[0].removeprefix("CREATE DATABASE ")
+    if failure == "database":
+        # Never drop a database this test did not create.
+        assert admin.command.call_count == 1
+    else:
+        assert admin.command.call_args_list[-1].args == (f"DROP DATABASE IF EXISTS {database}",)
+    admin.close.assert_called_once_with()

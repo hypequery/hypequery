@@ -15,6 +15,12 @@ vi.mock('../utils/logger.js', () => ({
 
 import { logger } from '../utils/logger.js';
 import { mcpCommand } from './mcp.js';
+import { CommandLifecycle } from '../utils/telemetry/lifecycle.js';
+import { TelemetryInvocation } from '../utils/telemetry/invocation.js';
+import { withCommandTelemetry } from '../utils/telemetry/command-context.js';
+import { CommandExit } from '../utils/command-exit.js';
+import { common } from '../../type-tests/fixtures.js';
+import { validateTelemetryEvent } from '../utils/telemetry/validation.js';
 
 const mcpSourceSymbol = Symbol.for('hypequery.mcp-source.v1');
 
@@ -73,6 +79,24 @@ describe('hypequery mcp', () => {
     // --self-test reports readiness without opening the stdio transport.
     expect(start).not.toHaveBeenCalled();
     expect(logger.info).toHaveBeenCalledWith('Datasets: customers, orders');
+  });
+
+  it('records self-test counts without emitting a serving session or retaining the tenant', async () => {
+    const record = vi.fn();
+    const spy = vi.spyOn(TelemetryInvocation, 'create').mockResolvedValue({ common, record, flush: vi.fn() } as unknown as TelemetryInvocation);
+    try {
+      const lifecycle = new CommandLifecycle(['mcp', '--self-test', '--tenant', 'PRIVATE_TENANT']);
+      await lifecycle.begin('mcp');
+      await withCommandTelemetry(lifecycle, async () => mcpCommand(await entrypointFile(), { selfTest: true, tenant: 'PRIVATE_TENANT' }, {
+        loadApi: async () => apiWithDatasets({ PRIVATE_DATASET: { tenantKey: 'PRIVATE_COLUMN' } }),
+      }));
+      await lifecycle.finish(new CommandExit(0, 'success'));
+      expect(record).toHaveBeenCalledTimes(1);
+      const event = record.mock.calls[0][0];
+      expect(event.properties).toMatchObject({ command: 'mcp', mode: 'self_test', hosted: false, tenant_used: true, dataset_count_bucket: '1', tenant_dataset_count_bucket: '1' });
+      expect(validateTelemetryEvent(event)).toBe(true);
+      expect(JSON.stringify(event)).not.toContain('PRIVATE');
+    } finally { spy.mockRestore(); }
   });
 
   it('hands the registry and shared client to the stdio server', async () => {

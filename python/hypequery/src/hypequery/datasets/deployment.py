@@ -129,7 +129,9 @@ def build_protocol_dataset_contract(
         item: dict[str, object] = {
             "name": name,
             "field": definition.field,
-            "operators": list(definition.operators or SEMANTIC_FILTER_OPERATORS),
+            "operators": list(
+                SEMANTIC_FILTER_OPERATORS if definition.operators is None else definition.operators
+            ),
         }
         if definition.label is not None:
             item["label"] = definition.label

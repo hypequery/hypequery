@@ -13,10 +13,4 @@ def required_environment(name: str) -> str:
 
 
 def connection() -> ClickHouseConnection:
-    return ClickHouseConnection(
-        host=os.environ.get("CLICKHOUSE_HOST", "localhost"),
-        port=int(os.environ.get("CLICKHOUSE_PORT", "8123")),
-        database=os.environ.get("CLICKHOUSE_DATABASE", "default"),
-        username=os.environ.get("CLICKHOUSE_USERNAME", "default"),
-        password=os.environ.get("CLICKHOUSE_PASSWORD", ""),
-    )
+    return ClickHouseConnection.from_env()

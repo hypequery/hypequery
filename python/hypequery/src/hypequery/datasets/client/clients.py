@@ -223,11 +223,14 @@ class TenantDatasetClient(_TenantBoundBase):
         *,
         context: ExecutionContext | None = None,
         use_cache: bool = True,
+        paginate: bool = False,
     ) -> DatasetQueryResult:
         """Plan and run *query* over *target* as the bound tenant."""
 
         bound = bind_tenant(self._scope, context)
-        return self._client.execute(target, query, context=bound, use_cache=use_cache)
+        return self._client.execute(
+            target, query, context=bound, use_cache=use_cache, paginate=paginate
+        )
 
 
 class AsyncTenantDatasetClient(_TenantBoundBase):
@@ -244,11 +247,14 @@ class AsyncTenantDatasetClient(_TenantBoundBase):
         *,
         context: ExecutionContext | None = None,
         use_cache: bool = True,
+        paginate: bool = False,
     ) -> DatasetQueryResult:
         """Plan and run *query* over *target* as the bound tenant."""
 
         bound = bind_tenant(self._scope, context)
-        return await self._client.execute(target, query, context=bound, use_cache=use_cache)
+        return await self._client.execute(
+            target, query, context=bound, use_cache=use_cache, paginate=paginate
+        )
 
 
 class DatasetClient(_DatasetClientBase):

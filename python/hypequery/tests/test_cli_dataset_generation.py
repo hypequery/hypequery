@@ -17,11 +17,18 @@ import pytest
 
 from hypequery.cli import main
 from hypequery.cli.errors import CliError
-from hypequery.cli.generators.datasets import dimension_type, generate_datasets
+from hypequery.cli.generators.datasets import dimension_type, generate_datasets, is_nullable
 from hypequery.cli.generators.project import schema_templates
 from hypequery.cli.generators.schema import Column, Schema, Table, read_schema
 from hypequery.cli.utils.templates import load_templates
-from hypequery.datasets import Dataset, DatasetQuery, plan_dataset_query
+from hypequery.datasets import (
+    Dataset,
+    DatasetQuery,
+    DerivedMeasure,
+    build_protocol_deployment_contract,
+    create_dataset_registry,
+    plan_dataset_query,
+)
 
 
 @pytest.mark.parametrize(
@@ -82,12 +89,62 @@ def test_generated_definitions_compile_and_preserve_source_schema(tmp_path: Path
     assert model.dimensions["netAmount"].field_type == "number"
     assert set(model.measures) == {"totalCount", "totalNetAmount", "avgNetAmount"}
     compiled = plan_dataset_query(model, DatasetQuery(measures=("totalCount", "totalNetAmount")))
-    assert "count((1\n))" in compiled.sql
+    # order_id is Nullable, so the row count uses the first non-nullable column.
+    assert "count(`net_amount`)" in compiled.sql
     assert "sum(`net_amount`)" in compiled.sql
     assert "`analytics`.`order_events`" in compiled.sql
     assert len(generated.warnings) == 2
     snapshot = json.loads(generated.snapshot)
     assert snapshot["tables"][0]["columns"][4] == {"name": "tags", "type": "Array(String)"}
+
+
+def _load(source: str, tmp_path: Path) -> dict[str, Dataset]:
+    path = tmp_path / "datasets.py"
+    path.write_text(source)
+    spec = importlib.util.spec_from_file_location("generated_roundtrip", path)
+    assert spec is not None
+    assert spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return cast(dict[str, Dataset], module.datasets)
+
+
+def test_generated_definitions_build_a_deployment_contract(tmp_path: Path) -> None:
+    datasets = _load(generate_datasets(fixture_schema()).source, tmp_path)
+    contract = build_protocol_deployment_contract(create_dataset_registry(*datasets.values()))
+    measures = cast(
+        list[dict[str, object]], cast(list[dict[str, object]], contract["datasets"])[0]["measures"]
+    )
+    total = next(item for item in measures if item["name"] == "totalCount")
+    assert total["aggregation"] == "count"
+    assert total["field"] == "netAmount"
+    assert "sql" not in total
+
+
+def test_total_count_falls_back_to_a_nullable_column(tmp_path: Path) -> None:
+    schema = Schema(
+        "analytics",
+        (Table("events", (Column("user_id", "LowCardinality(Nullable(String))"),)),),
+    )
+    model = _load(generate_datasets(schema).source, tmp_path)["events"]
+    total = model.measures["totalCount"]
+    assert not isinstance(total, DerivedMeasure)
+    assert total.field == "userId"
+    assert total.sql is None
+
+
+@pytest.mark.parametrize(
+    ("physical", "nullable"),
+    [
+        ("Nullable(UInt64)", True),
+        ("LowCardinality(Nullable(String))", True),
+        ("LowCardinality(String)", False),
+        ("Array(Nullable(String))", False),
+        ("UInt64", False),
+    ],
+)
+def test_nullable_detection(physical: str, nullable: bool) -> None:
+    assert is_nullable(physical) is nullable
 
 
 def test_name_collisions_and_unsupported_tables_fail_explicitly() -> None:
@@ -198,3 +255,20 @@ def test_schema_project_wheel_contains_both_modules(tmp_path: Path) -> None:
         capture_output=True,
         text=True,
     )
+
+
+@pytest.mark.parametrize(
+    ("name", "value"), [("CLICKHOUSE_SECURE", "sometimes"), ("CLICKHOUSE_PORT", "http")]
+)
+def test_discovery_names_a_malformed_connection_variable(
+    monkeypatch: pytest.MonkeyPatch, name: str, value: str
+) -> None:
+    from hypequery.cli.generators.schema import discover_schema
+
+    monkeypatch.setenv(name, value)
+    with pytest.raises(CliError, match=name) as caught:
+        discover_schema(tables=None, exclude_tables=None)
+    # The generic "check credentials" message would send users the wrong way,
+    # and the rejected value is never echoed.
+    assert "Cannot inspect ClickHouse" not in str(caught.value)
+    assert value not in str(caught.value)

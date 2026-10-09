@@ -426,3 +426,17 @@ class CountingExecutor:
     def execute(self, query: CompiledQuery) -> ResultRows:
         self.calls += 1
         return CachedRows(columns=("rounded",), rows=((1.0,),))
+
+
+def test_formula_children_cover_every_node_kind() -> None:
+    from hypequery.datasets.formulas import FormulaLiteral, formula_children
+
+    reference = FormulaReference(name="revenue")
+    literal = FormulaLiteral(value=1)
+    binary = divide(reference, literal)
+    call = coalesce(binary, 0)
+
+    assert formula_children(reference) == ()
+    assert formula_children(literal) == ()
+    assert formula_children(binary) == (reference, literal)
+    assert formula_children(call) == call.args

@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { chmod, mkdir, readFile, rename, unlink, writeFile } from 'node:fs/promises';
-import { homedir } from 'node:os';
 import path from 'node:path';
+import { configDirectory } from './config-directory.js';
 import {
   validateProtocolDeploymentReleaseTarget,
   type ProtocolDeploymentReleaseTarget,
@@ -54,20 +54,6 @@ export interface CloudCredentialStoreDependencies {
   readonly platform?: NodeJS.Platform;
 }
 
-function defaultConfigDirectory(
-  env: Readonly<Record<string, string | undefined>>,
-  platform: NodeJS.Platform,
-) {
-  if (env.HYPEQUERY_CONFIG_DIR) return env.HYPEQUERY_CONFIG_DIR;
-  if (platform === 'win32') {
-    return path.join(env.APPDATA ?? env.LOCALAPPDATA ?? homedir(), 'hypequery');
-  }
-  if (platform === 'darwin') {
-    return path.join(homedir(), 'Library', 'Application Support', 'hypequery');
-  }
-  return path.join(env.XDG_CONFIG_HOME ?? path.join(homedir(), '.config'), 'hypequery');
-}
-
 function vaultUnavailable(error: unknown): Error {
   return new Error(
     'The operating-system credential vault is unavailable. '
@@ -89,7 +75,7 @@ function paths(dependencies: CloudCredentialStoreDependencies) {
   const env = dependencies.env ?? process.env;
   const platform = dependencies.platform ?? process.platform;
   const directory = dependencies.configDirectory
-    ?? defaultConfigDirectory(env, platform);
+    ?? configDirectory(env, platform);
   return { directory, profile: path.join(directory, PROFILE_FILE) };
 }
 

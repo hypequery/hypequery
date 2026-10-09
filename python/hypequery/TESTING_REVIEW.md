@@ -51,8 +51,10 @@ uv run coverage report
 ```
 
 The ClickHouse CI matrix now runs the complete instrumented suite against both
-configured server versions and fails below **95% combined coverage**. Coverage
-includes every datasets module. Subprocess coverage is enabled so the NDJSON
+configured server versions. Coverage now measures the whole `hypequery`
+package: `coverage report` fails below 88% overall, and
+`scripts/check_coverage.py` enforces per-package floors (datasets 95%, serve
+94%, cli 90%, execution and protocol 84%). Subprocess coverage is enabled so the NDJSON
 conformance adapter is counted; a parent-only run misleadingly reports that
 module as untested. Generated coverage files are ignored by Git.
 

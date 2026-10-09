@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 import stat
+import sys
 import tempfile
 from contextlib import suppress
 from dataclasses import dataclass
@@ -55,7 +56,8 @@ def _create_exclusive(temporary: Path, path: Path, contents: str, mode: int) -> 
 
 def _process_running(pid: int) -> bool | None:
     """True or False when the owner is known; None when it cannot be determined."""
-    if pid <= 0:
+    # Windows treats signal 0 as TerminateProcess, not an existence probe.
+    if sys.platform == "win32" or pid <= 0:
         return None
     try:
         os.kill(pid, 0)

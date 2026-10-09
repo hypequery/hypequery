@@ -25,7 +25,11 @@
     "build": "tsc --project tsconfig.json",
     "dev": "tsc --project tsconfig.json --watch",
     "lint": "eslint \"src/**/*.ts\"",
-    "test": "vitest run"
+    "test": "pnpm build && vitest run && pnpm test:types",
+    "test:types": "tsc --project tsconfig.type-tests.json --noEmit",
+    "telemetry:docs": "pnpm build && node scripts/generate-telemetry-docs.mjs",
+    "telemetry:docs:check": "pnpm build && node scripts/generate-telemetry-docs.mjs --check",
+    "telemetry:benchmark": "pnpm build && node scripts/benchmark-telemetry.mjs"
   },
   "dependencies": {
     "@clickhouse/client": "^1.23.1",

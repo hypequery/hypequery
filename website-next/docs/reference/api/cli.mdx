@@ -76,8 +76,39 @@ npx hypequery dev
 | `hypequery mcp [file]` | Serve this project's datasets to an MCP client over stdio, or check an endpoint with `--self-test` |
 | `hypequery deployment:validate <artifact>` | Verify a deployment bundle or validate contract JSON and report its identity |
 | `hypequery help [command]` | Show help for the CLI or a specific command |
+| `hypequery telemetry [status\|enable\|disable]` | Inspect or change anonymous usage telemetry preferences |
 
 The sections below expand on the supported options and expected behavior for each command.
+
+## `hypequery telemetry`
+
+Telemetry controls and the staged core are available ahead of default collection.
+Normal runs send nothing. `HYPEQUERY_TELEMETRY_DEBUG=1` prints validated events to
+stderr instead of sending; `HYPEQUERY_TELEMETRY_URL` activates a staging or
+self-hosted first-party ingest endpoint. Opt-outs apply to both modes. See the
+[telemetry reference](/docs/telemetry) for the event contract and delivery limits.
+
+```bash
+hypequery telemetry          # Same as telemetry status
+hypequery telemetry disable # Save an opt-out
+hypequery telemetry enable  # Save an opt-in
+hypequery init --no-telemetry # Disable for one invocation
+```
+
+Status reports the effective setting, the source that determined it, and the random
+install ID. `enable` changes the saved preference; environment variables and the
+global flag still take precedence.
+
+The first matching setting wins: `--no-telemetry`, `DO_NOT_TRACK=1`,
+`HYPEQUERY_TELEMETRY_DISABLED=1`, test environments (`VITEST` or `NODE_ENV=test`)
+and Hypequery's own GitHub Actions CI, then the saved preference. The default
+preference is enabled, including in customer CI. Unavailable or corrupt settings
+disable telemetry for that invocation. An explicit `enable` or `disable` can repair
+corrupt settings; a failed save reports an error and the temporary opt-out options.
+
+Settings live in `telemetry.json` beside the CLI's Cloud profile: macOS Application
+Support, Windows APPDATA (or LOCALAPPDATA), or Linux XDG_CONFIG_HOME (otherwise
+`~/.config/hypequery`). `HYPEQUERY_CONFIG_DIR` overrides the directory.
 
 ## `hypequery init`
 

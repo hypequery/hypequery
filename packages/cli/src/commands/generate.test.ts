@@ -3,6 +3,8 @@ import * as findFiles from '../utils/find-files.js';
 import * as detectDb from '../utils/detect-database.js';
 import { mockProcessExit, ProcessExitError } from '../test-utils.js';
 import ora from 'ora';
+import { common } from '../../type-tests/fixtures.js';
+import { validateTelemetryEvent } from '../utils/telemetry/validation.js';
 
 vi.mock('../utils/find-files.js');
 vi.mock('../utils/detect-database.js');
@@ -41,6 +43,31 @@ let generateCommand: typeof import('./generate.js')['generateCommand'];
 describe('generate command', () => {
   let exitHandler: ReturnType<typeof mockProcessExit>;
   let mockSpinner: any;
+
+  it.each(['generate', 'generate:types'] as const)('records %s alias, actual filtered counts, and safe unsupported families', async command => {
+    const { TelemetryInvocation } = await import('../utils/telemetry/invocation.js');
+    const { CommandLifecycle } = await import('../utils/telemetry/lifecycle.js');
+    const { withCommandTelemetry } = await import('../utils/telemetry/command-context.js');
+    const { CommandExit } = await import('../utils/command-exit.js');
+    const record = vi.fn();
+    const spy = vi.spyOn(TelemetryInvocation, 'create').mockResolvedValue({ common, record, flush: vi.fn() } as unknown as InstanceType<typeof TelemetryInvocation>);
+    try {
+      const lifecycle = new CommandLifecycle([command]);
+      await lifecycle.begin(command);
+      mockGenerateTypes.mockImplementationOnce(async options => {
+        options.onColumn(); options.onColumn();
+        options.onUnsupportedType('Variant(PRIVATE_TYPE)');
+        return ['PRIVATE_TABLE'];
+      });
+      await withCommandTelemetry(lifecycle, () => generateCommand({ commandName: `hypequery ${command}`, database: 'chdb', chdbPath: 'PRIVATE_PATH', tables: 'PRIVATE_TABLE,PRIVATE_MISSING', output: 'PRIVATE_OUTPUT' }));
+      await lifecycle.finish(new CommandExit(0, 'success'));
+      const event = record.mock.calls[0][0];
+      expect(event.properties).toMatchObject({ command, database: 'chdb', custom_output: true, chdb_path_given: true, tables_filter_used: true,
+        table_count_bucket: '1', column_count_bucket: '2-5', unsupported_type_count_bucket: '1', unsupported_type_families: ['Variant'] });
+      expect(validateTelemetryEvent(event)).toBe(true);
+      expect(JSON.stringify(event)).not.toContain('PRIVATE');
+    } finally { spy.mockRestore(); }
+  });
 
   beforeEach(async () => {
     vi.resetModules();

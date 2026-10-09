@@ -9,3 +9,4 @@ dist/
 .import_linter_cache/
 __pycache__/
 reports/
+coverage.json
