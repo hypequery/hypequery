@@ -203,10 +203,7 @@ def infer_dataset(
     for field in fields:
         if field.kind != "number" or not measure_candidate(field.column):
             continue
-        for prefix, aggregation, description in (
-            ("total", "sum", "Total"),
-            ("avg", "avg", "Average"),
-        ):
+        for prefix, aggregation, description in _NUMERIC_MEASURES:
             name = prefix + pascal_name(field.column)
             if name in seen:
                 raise CliError(

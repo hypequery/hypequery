@@ -77,7 +77,10 @@ The CLI inspected `{schema.database}` without modifying the database.
 `datasets.py` contains definitions for {", ".join(generated.tables)}; `schema.json`
 records the exact source column names/types and generation warnings.
 Physical names are mapped explicitly to the same camelCase semantic field names
-as the TypeScript CLI. `totalCount` counts rows, including nullable columns.
+as the TypeScript CLI. `totalCount` counts each table's first non-nullable
+column, which is a row count. If every column is nullable it counts the first
+column instead, which skips rows where that column is NULL; check
+`schema.json` and choose a non-nullable column if you need every row.
 Numeric sum/average measures are suggestions: review their business semantics.
 IDs and coordinates remain dimensions. Relationships and tenant boundaries are
 not inferred; configure them explicitly before exposing this API.
