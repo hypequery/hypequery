@@ -48,12 +48,17 @@ def discover_schema(*, tables: str | None, exclude_tables: str | None) -> Schema
         raise CliError('Schema discovery requires: pip install "hypequery[clickhouse]"')
     import clickhouse_connect
 
+    try:
+        fields = connection_fields(os.environ)
+    except ValueError as exc:
+        # The parser's messages name the variable and never echo its value.
+        raise CliError(str(exc)) from exc
     client: _Client | None = None
     try:
         client = cast(
             _Client,
             clickhouse_connect.get_client(
-                **connection_fields(os.environ),
+                **fields,
                 connect_timeout=5,
                 send_receive_timeout=15,
             ),
