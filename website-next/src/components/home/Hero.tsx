@@ -3,8 +3,12 @@
 import Link from 'next/link';
 import { DeployWaitlist } from './DeployWaitlist';
 import { SetupCommand } from './SetupCommand';
-import { SiGithub } from 'react-icons/si';
+import { SiClickhouse, SiGithub } from 'react-icons/si';
+import { Inter } from 'next/font/google';
 import { NpmDownloadsBadge } from './NpmDownloadsBadge';
+
+// ClickHouse's wordmark is set in Inter; load just the bold weight for it.
+const clickhouseWordmark = Inter({ subsets: ['latin'], weight: '700', display: 'swap' });
 
 export function Hero() {
 
@@ -17,7 +21,12 @@ export function Hero() {
             <SiGithub className="h-3.5 w-3.5 text-text" aria-hidden="true" /><span className="font-semibold text-text">Open source</span><span className="border-l border-border pl-2">Apache 2.0</span>
           </a>
         </div>
-        <h1 className="whitespace-nowrap text-[clamp(1.375rem,5.4vw,4.6rem)] font-normal leading-[1.04] tracking-[-0.05em] text-text">Ship AI analytics on <em className="font-semibold italic">ClickHouse.</em></h1>
+        <h1 className="whitespace-nowrap text-[clamp(1.375rem,5.4vw,4.6rem)] font-normal leading-[1.04] tracking-[-0.05em] text-text">Ship AI analytics on{' '}
+          <span className="ml-[0.16em] inline-flex items-center gap-[0.14em] align-[-0.06em]">
+            <SiClickhouse className="h-[0.8em] w-[0.8em] shrink-0 text-[#161517] dark:text-[#faff69]" aria-hidden="true" />
+            <span className={`${clickhouseWordmark.className} font-bold tracking-[-0.045em]`}>ClickHouse</span>
+          </span>
+        </h1>
         <p className="text-body-lg mt-4 max-w-[660px] text-text-muted">One governed definition of your metrics, built by AI or in code. Agents, chat, and dashboards all answer from it.</p>
         <div className="mt-7 flex flex-wrap items-center gap-4">
           <DeployWaitlist location="hero" className="inline-flex min-h-12 items-center gap-3 rounded-lg bg-accent px-5 text-sm font-semibold text-white transition hover:-translate-y-0.5 hover:opacity-90 dark:text-[#0c0e14]" />
