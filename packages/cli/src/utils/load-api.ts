@@ -1,8 +1,10 @@
 import { pathToFileURL } from 'node:url';
-import { access, mkdtemp, rm, mkdir, writeFile, rmdir } from 'node:fs/promises';
+import { rmdirSync, rmSync } from 'node:fs';
+import { access, mkdtemp, mkdir, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { build } from 'esbuild';
+import { findProjectRoot } from './project-root.js';
 
 if (typeof process.setMaxListeners === 'function') {
   process.setMaxListeners(0);
@@ -109,32 +111,35 @@ export async function loadModule(modulePath: string) {
 }
 
 const globalState = globalThis as typeof globalThis & {
-  __hypequeryCliTempDirPromise?: Promise<string> | null;
+  __hypequeryCliTempDirPromises?: Map<string, Promise<string>>;
   __hypequeryCliTempFiles?: Set<string>;
   __hypequeryCliTempDirs?: Set<string>;
+  __hypequeryCliTempRoots?: Set<string>;
   __hypequeryCliCleanupInstalled?: boolean;
   __hypequeryCliImportOverride?: ((moduleUrl: string) => Promise<any>) | null;
 };
 
-let tempDirPromise: Promise<string> | null = globalState.__hypequeryCliTempDirPromise ?? null;
-const tempFiles = globalState.__hypequeryCliTempFiles ?? new Set<string>();
-const tempDirs = globalState.__hypequeryCliTempDirs ?? new Set<string>();
+// One bundle directory per project root, keyed by that root.
+const tempDirPromises = globalState.__hypequeryCliTempDirPromises ??= new Map<string, Promise<string>>();
+const tempFiles = globalState.__hypequeryCliTempFiles ??= new Set<string>();
+const tempDirs = globalState.__hypequeryCliTempDirs ??= new Set<string>();
+const tempRoots = globalState.__hypequeryCliTempRoots ??= new Set<string>();
 let cleanupHooksInstalled = globalState.__hypequeryCliCleanupInstalled ?? false;
 
-if (!globalState.__hypequeryCliTempFiles) {
-  globalState.__hypequeryCliTempFiles = tempFiles;
-}
-if (!globalState.__hypequeryCliTempDirs) {
-  globalState.__hypequeryCliTempDirs = tempDirs;
-}
-
-function ensureTempDir() {
+/**
+ * The bundle has to live inside the entry's project: its bare imports
+ * (`@hypequery/serve`, ...) resolve from the bundle's location, and the
+ * process's working directory may be anywhere (MCP clients launch from `/`).
+ */
+function ensureTempDir(projectRoot: string) {
   installCleanupHooks();
-  if (!tempDirPromise) {
-    tempDirPromise = (async () => {
-      const projectTempRoot = path.join(process.cwd(), '.hypequery', 'tmp');
+  let promise = tempDirPromises.get(projectRoot);
+  if (!promise) {
+    promise = (async () => {
+      const projectTempRoot = path.join(projectRoot, '.hypequery', 'tmp');
       try {
         await mkdir(projectTempRoot, { recursive: true });
+        tempRoots.add(projectTempRoot);
         const dir = await mkdtemp(path.join(projectTempRoot, 'bundle-'));
         tempDirs.add(dir);
         return dir;
@@ -144,51 +149,39 @@ function ensureTempDir() {
         return fallbackDir;
       }
     })();
-    globalState.__hypequeryCliTempDirPromise = tempDirPromise;
+    tempDirPromises.set(projectRoot, promise);
   }
-  return tempDirPromise;
+  return promise;
 }
 
-async function cleanupTempFiles() {
-  if (tempFiles.size === 0) return;
-  await Promise.all(
-    Array.from(tempFiles).map(async file => {
-      try {
-        await rm(file, { force: true });
-      } catch {
-        // ignore cleanup failures
-      }
-    }),
-  );
+// Synchronous so it completes inside an 'exit' handler.
+function cleanupTempArtifacts() {
+  for (const target of [...tempFiles, ...tempDirs]) {
+    try {
+      rmSync(target, { recursive: true, force: true });
+    } catch {
+      // ignore cleanup failures
+    }
+  }
   tempFiles.clear();
-}
-
-async function cleanupTempDirs() {
-  if (tempDirs.size === 0) return;
-  await Promise.all(
-    Array.from(tempDirs).map(async dir => {
-      try {
-        await rm(dir, { recursive: true, force: true });
-      } catch {
-        // ignore cleanup failures
-      }
-    }),
-  );
   tempDirs.clear();
+  tempDirPromises.clear();
 
-  // The project root is shared with concurrent CLI processes (for example a
-  // running `dev`). Remove it only once empty, never another process's bundles.
-  const projectTempRoot = path.join(process.cwd(), '.hypequery', 'tmp');
-  try {
-    await rmdir(projectTempRoot);
-  } catch {
-    // Not empty, already gone, or unavailable.
+  // Only remove the shared tmp root once empty: another hypequery process in the
+  // same project (e.g. `hypequery dev` beside an MCP client) may still use it.
+  for (const root of tempRoots) {
+    try {
+      rmdirSync(root);
+    } catch {
+      // not empty or already gone
+    }
   }
+  tempRoots.clear();
 }
 
+/** Remove this process's bundles; the CLI awaits this before it exits. */
 export async function cleanupLoadedApiArtifacts() {
-  await cleanupTempFiles();
-  await cleanupTempDirs();
+  cleanupTempArtifacts();
 }
 
 function installCleanupHooks() {
@@ -196,9 +189,8 @@ function installCleanupHooks() {
   cleanupHooksInstalled = true;
   globalState.__hypequeryCliCleanupInstalled = true;
 
-  process.once('exit', () => {
-    cleanupLoadedApiArtifacts().catch(() => undefined);
-  });
+  // Synchronous, so it still completes when this is the last thing to run.
+  process.once('exit', cleanupTempArtifacts);
 
   // Signal shutdown belongs to the CLI/owning server. Exiting from a module
   // cleanup listener bypassed server teardown and the bounded telemetry flush.
@@ -207,6 +199,7 @@ function installCleanupHooks() {
 async function bundleTypeScriptModule(entryPath: string) {
   const relativePath = path.relative(process.cwd(), entryPath);
   const tsconfigPath = await findNearestTsconfig(entryPath);
+  const projectRoot = await findProjectRoot(entryPath);
 
   try {
     const result = await build({
@@ -218,7 +211,7 @@ async function bundleTypeScriptModule(entryPath: string) {
       sourcemap: 'inline',
       write: false,
       logLevel: 'silent',
-      absWorkingDir: process.cwd(),
+      absWorkingDir: projectRoot,
       packages: 'external',
       tsconfig: tsconfigPath ?? undefined,
       loader: {
@@ -235,7 +228,7 @@ async function bundleTypeScriptModule(entryPath: string) {
       throw new Error('esbuild produced no output');
     }
 
-    const tempDir = await ensureTempDir();
+    const tempDir = await ensureTempDir(projectRoot);
     const timestamp = Date.now();
     const tempFile = path.join(
       tempDir,
