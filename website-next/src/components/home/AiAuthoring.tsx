@@ -454,7 +454,7 @@ export function AiAuthoring() {
             <h2 id="ai-authoring-title" className="home-section-title text-text">Describe your business. Get a semantic layer.</h2>
             <p className="mt-4 max-w-[520px] text-sm leading-6 text-text-muted sm:text-base">
               Connect ClickHouse, answer two questions, and Cloud drafts and publishes your datasets. Ask your first
-              question minutes later.
+              question minutes later, right in Cloud.
             </p>
             <ol className="mt-8 space-y-5">
               {STEPS.map(([title, copy], index) => (
