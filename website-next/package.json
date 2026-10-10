@@ -26,7 +26,7 @@
     "rehype-stringify": "^10.0.1",
     "remark-rehype": "^11.1.2",
     "shiki": "^3.22.0",
-    "tailwind-merge": "^2.6.0",
+    "tailwind-merge": "^3.7.0",
     "unified": "^11.0.5",
     "vanilla-cookieconsent": "^3.1.0"
   },
