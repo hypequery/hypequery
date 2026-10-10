@@ -2,7 +2,8 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { motion, useInView, useReducedMotion } from 'motion/react';
-import { Check, Plug } from 'lucide-react';
+import { Check } from 'lucide-react';
+import { CloudHeader, CloudRail, ConnectButton, Slash, VersionSwitch, type CloudPage } from './CloudAppFrame';
 
 // Screens from the Cloud chat redesign: drafts, review and publish, deployments, and logs.
 
@@ -48,7 +49,7 @@ function Table({ head, rows, align }: { head: string[]; rows: React.ReactNode[][
 
 function DraftScreen() {
   return (
-    <div className="grid h-full grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)] gap-6 p-6">
+    <div className="grid h-full max-md:gap-5 max-md:p-4 md:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)] md:gap-6 md:p-6">
       <div className="space-y-4">
         <div className="ml-auto max-w-[90%] rounded-2xl rounded-br-md bg-bg-alt px-4 py-2.5 text-[12.5px] leading-5 text-text">
           Add a net revenue measure to orders: revenue minus refunds and discounts. I also want to slice it by the
@@ -69,10 +70,10 @@ function DraftScreen() {
               <div key={step} className="flex items-center gap-2">
                 <Check className="h-3 w-3 text-accent" aria-hidden="true" />
                 <span className="text-text">{step}</span>
-                <span className="font-mono text-[10.5px] text-text-dim">{detail}</span>
+                <span className="font-mono text-[10.5px] text-text-dim max-md:hidden">{detail}</span>
               </div>
             ))}
-            <p className="pt-2 text-[12.5px] leading-5 text-text">
+            <p className="pt-2 text-[12.5px] leading-5 text-text max-md:hidden">
               I added a <span className="font-mono">refunds</span> measure, a derived <span className="font-mono">net_revenue</span>,
               and a relationship so <span className="font-mono">channel</span> is available on orders. Nothing goes live until
               you publish.
@@ -93,9 +94,9 @@ function DraftScreen() {
             ['+', 'relationship', 'orders → customers', 'many-to-one on customer_id'],
             ['~', 'dimension', 'channel', 'exposed via customer.channel'],
           ] as const).map(([kind, type, name, detail]) => (
-            <div key={name} className="grid grid-cols-[16px_76px_minmax(0,1fr)] items-center gap-2.5 border-b border-border px-3 py-2 text-[11.5px] last:border-b-0">
+            <div key={name} className="grid items-center gap-2.5 max-md:grid-cols-[16px_minmax(0,1fr)] md:grid-cols-[16px_76px_minmax(0,1fr)] border-b border-border px-3 py-2 text-[11.5px] last:border-b-0">
               <Mark kind={kind} />
-              <span className="text-text-dim">{type}</span>
+              <span className="text-text-dim max-md:hidden">{type}</span>
               <span className="truncate">
                 <span className="font-mono font-medium text-text">{name}</span>
                 <span className="ml-2 font-mono text-[10.5px] text-text-muted">{detail}</span>
@@ -103,7 +104,7 @@ function DraftScreen() {
             </div>
           ))}
         </div>
-        <div>
+        <div className="max-md:hidden">
           <div className="mb-1.5 text-[11px] text-text-dim">Results from draft net-revenue, last 3 months</div>
           <div className="overflow-hidden rounded-lg border border-border bg-bg">
             <Table
@@ -130,11 +131,10 @@ function ReviewScreen() {
         <span className="rounded-md bg-[#f59e0b]/15 px-2 py-0.5 text-[#d97706]">~2 modified</span>
         <span className="rounded-md bg-[#ef4444]/15 px-2 py-0.5 text-[#dc2626]">−1 removed</span>
         <span className="rounded-md border border-[#ef4444]/40 px-2 py-0.5 text-[#dc2626]">1 breaking</span>
-        <span className="ml-auto inline-flex items-center gap-1 text-[#16a34a]"><Check className="h-3 w-3" aria-hidden="true" />Compiles · 12 contract tests pass</span>
-        <span className="rounded-md bg-accent px-2.5 py-1 font-medium text-white dark:text-[#0c0e14]">Publish as v43</span>
+        <span className="ml-auto inline-flex items-center gap-1 text-[#16a34a] max-md:hidden"><Check className="h-3 w-3" aria-hidden="true" />Compiles · 12 contract tests pass</span>
       </div>
-      <div className="grid min-h-0 flex-1 grid-cols-[210px_minmax(0,1fr)]">
-        <div className="space-y-0.5 border-r border-border p-3 text-[11.5px]">
+      <div className="grid min-h-0 flex-1 md:grid-cols-[210px_minmax(0,1fr)]">
+        <div className="space-y-0.5 border-r border-border p-3 text-[11.5px] max-md:hidden">
           <div className="px-2 pb-1 text-[10.5px] text-text-dim">orders · 5 changes</div>
           {([
             ['~', 'avg_order_value', 'derived measure', true],
@@ -162,12 +162,12 @@ function ReviewScreen() {
           </div>
         </div>
 
-        <div className="min-w-0 space-y-3.5 overflow-hidden p-5">
+        <div className="min-w-0 space-y-3.5 overflow-hidden max-md:p-4 md:p-5">
           <div className="flex items-baseline gap-2">
             <span className="font-mono text-[13px] font-semibold text-text">orders.avg_order_value</span>
             <span className="text-[11px] text-text-dim">derived measure · modified</span>
           </div>
-          <div className="overflow-hidden rounded-lg border border-border bg-bg">
+          <div className="overflow-hidden rounded-lg border border-border bg-bg max-md:hidden">
             <Table
               head={['Property', 'Published (v42)', 'Draft net-revenue']}
               rows={[
@@ -223,12 +223,12 @@ function DeploymentsScreen() {
   ] as const;
 
   return (
-    <div className="h-full p-6">
+    <div className="h-full max-md:p-4 md:p-6">
       <div className="text-[13px] font-medium text-text">Production history</div>
       <div className="mt-1 text-[11.5px] text-text-muted">Every version that has been published. Open one to see its schema, read-only.</div>
       <div className="relative mt-4 overflow-visible rounded-lg border border-border bg-bg">
         {versions.map(([version, change, status, from, when], index) => (
-          <div key={version} className="grid grid-cols-[48px_minmax(0,1.4fr)_minmax(0,1fr)_90px_auto] items-center gap-3 border-b border-border px-4 py-2.5 text-[11.5px] last:border-b-0">
+          <div key={version} className="grid items-center gap-3 max-md:grid-cols-[34px_minmax(0,1fr)_auto] md:grid-cols-[48px_minmax(0,1.4fr)_minmax(0,1fr)_90px_auto] border-b border-border px-4 py-2.5 text-[11.5px] last:border-b-0">
             <span className="font-mono font-medium text-text">{version}</span>
             <span className="flex min-w-0 items-center gap-2">
               <span className="truncate text-text">{change}</span>
@@ -236,15 +236,15 @@ function DeploymentsScreen() {
                 <span className={`rounded-full px-1.5 py-px text-[9.5px] font-medium ${status === 'Live' ? 'bg-[#22c55e]/15 text-[#16a34a]' : 'bg-bg-alt text-text-muted'}`}>{status}</span>
               )}
             </span>
-            <span className="truncate text-text-muted">{from}</span>
+            <span className="truncate text-text-muted max-md:hidden">{from}</span>
             <span className="text-text-dim">{when}</span>
-            <span className="flex gap-3 text-[11px]">
+            <span className="flex gap-3 text-[11px] max-md:hidden">
               <span className="text-text-muted">View schema</span>
               {index > 0 && <span className={index === 1 ? 'font-medium text-accent' : 'text-text-muted'}>Roll back to this</span>}
             </span>
           </div>
         ))}
-        <motion.div {...reveal} transition={{ ...reveal.transition, delay: 0.6 }} className="absolute right-4 top-[86px] z-10 w-[270px] rounded-lg border border-border-strong bg-bg-card p-3 text-[11.5px] shadow-card">
+        <motion.div {...reveal} transition={{ ...reveal.transition, delay: 0.6 }} className="absolute top-[86px] z-10 rounded-lg max-md:inset-x-3 md:right-4 md:w-[270px] border border-border-strong bg-bg-card p-3 text-[11.5px] shadow-card">
           <div className="font-medium text-text">Roll back to v41?</div>
           <p className="mt-1 leading-4 text-text-muted">Published goes back to v41 right away. Later versions stay listed here, and open drafts are kept.</p>
           <div className="mt-3 flex justify-end gap-2">
@@ -268,8 +268,8 @@ function LogsScreen() {
   ] as const;
 
   return (
-    <div className="grid h-full grid-cols-[minmax(0,1fr)_260px]">
-      <div className="min-w-0 p-5">
+    <div className="grid h-full content-start md:grid-cols-[minmax(0,1fr)_260px]">
+      <div className="min-w-0 max-md:p-4 md:p-5">
         <div className="text-[11px] text-text-dim">Requests against draft net-revenue · last 30 min</div>
         <div className="mt-3 grid grid-cols-3 gap-2">
           {[['Requests', '41'], ['Errors', '1'], ['p95 latency', '242 ms']].map(([label, value]) => (
@@ -280,19 +280,19 @@ function LogsScreen() {
           ))}
         </div>
         <div className="mt-4 overflow-hidden rounded-lg border border-border bg-bg">
-          {rows.map(([time, status, query, source, duration, count]) => (
-            <div key={time} className={`grid grid-cols-[58px_34px_minmax(0,1fr)_minmax(0,0.8fr)_50px_18px] items-center gap-2.5 border-b border-border px-3 py-2 font-mono text-[10.5px] last:border-b-0 ${status === 400 ? 'bg-[#ef4444]/[0.06]' : ''}`}>
+          {rows.map(([time, status, query, source, duration, count], index) => (
+            <div key={time} className={`${index > 3 ? 'max-md:hidden ' : ''}grid items-center gap-2.5 max-md:grid-cols-[52px_32px_minmax(0,1fr)] md:grid-cols-[58px_34px_minmax(0,1fr)_minmax(0,0.8fr)_50px_18px] border-b border-border px-3 py-2 font-mono text-[10.5px] last:border-b-0 ${status === 400 ? 'bg-[#ef4444]/[0.06]' : ''}`}>
               <span className="text-text-dim">{time}</span>
               <span className={`rounded px-1 text-center ${status === 200 ? 'bg-[#22c55e]/15 text-[#16a34a]' : 'bg-[#ef4444]/15 text-[#dc2626]'}`}>{status}</span>
               <span className="truncate text-text">{query}</span>
-              <span className="truncate font-sans text-text-muted">{source}</span>
-              <span className="text-right text-text-muted">{duration}</span>
-              <span className="text-right text-text-muted">{count}</span>
+              <span className="truncate font-sans text-text-muted max-md:hidden">{source}</span>
+              <span className="text-right text-text-muted max-md:hidden">{duration}</span>
+              <span className="text-right text-text-muted max-md:hidden">{count}</span>
             </div>
           ))}
         </div>
       </div>
-      <div className="space-y-3 border-l border-border bg-bg-alt/30 p-4 text-[11.5px]">
+      <div className="space-y-3 border-border bg-bg-alt/30 p-4 text-[11.5px] max-md:border-t md:border-l">
         <div className="flex items-center gap-2">
           <span className="rounded bg-[#ef4444]/15 px-1 font-mono text-[10.5px] text-[#dc2626]">400</span>
           <span className="truncate font-mono text-text">gross_margin_legacy by sku</span>
@@ -308,7 +308,7 @@ function LogsScreen() {
             <span className="rounded-md border border-border bg-bg-card px-2 py-1 text-text">Ask chat to fix</span>
           </div>
         </div>
-        <div className="space-y-1 font-mono text-[10.5px] text-text-muted">
+        <div className="space-y-1 font-mono text-[10.5px] text-text-muted max-md:hidden">
           <div><span className="text-text-dim">Tenant </span>org_id = acme-eu</div>
           <div><span className="text-text-dim">Trace </span>tr_8f21c2a9</div>
         </div>
@@ -317,39 +317,103 @@ function LogsScreen() {
   );
 }
 
-const SCREENS = [
+function PageTitle({ children }: { children: React.ReactNode }) {
+  return <span className="whitespace-nowrap text-[13.5px] font-semibold text-text max-md:hidden">{children}</span>;
+}
+
+function Subtitle({ children }: { children: React.ReactNode }) {
+  return <span className="truncate text-[12.5px] text-text-muted max-xl:hidden">{children}</span>;
+}
+
+function PrimaryButton({ children }: { children: React.ReactNode }) {
+  return <span className="inline-flex h-8 shrink-0 items-center rounded-[7px] bg-accent px-3 text-[13px] font-medium text-white dark:text-[#0c0e14]">{children}</span>;
+}
+
+const SCREENS: {
+  id: string;
+  title: string;
+  copy: string;
+  page: CloudPage;
+  crumbs: React.ReactNode;
+  actions: React.ReactNode;
+  Screen: () => React.JSX.Element;
+}[] = [
   {
     id: 'draft',
     title: 'Every change starts in a draft',
     copy: 'Published is locked. Ask for a change and it lands in a draft that compiles and runs test queries.',
-    crumb: 'net-revenue · Draft / Chat',
+    page: 'chat',
+    crumbs: (
+      <>
+        <VersionSwitch draft name="net-revenue" detail="Draft" />
+        <Slash className="max-md:hidden" />
+        <PageTitle>Chat</PageTitle>
+        <Subtitle>one thread per draft · started 25 min ago</Subtitle>
+      </>
+    ),
+    actions: (
+      <>
+        <Subtitle>4 unsaved changes</Subtitle>
+        <PrimaryButton>Save</PrimaryButton>
+      </>
+    ),
     Screen: DraftScreen,
   },
   {
     id: 'review',
     title: 'Review the impact before you publish',
     copy: 'See what changed in meaning, how the numbers move, and which API keys and agents are affected.',
-    crumb: 'net-revenue · Draft / Review & publish',
+    page: 'model',
+    crumbs: (
+      <>
+        <VersionSwitch draft name="net-revenue" detail="Draft" />
+        <Slash className="max-md:hidden" />
+        <PageTitle>Review &amp; publish</PageTitle>
+      </>
+    ),
+    actions: (
+      <>
+        <Subtitle>4 unsaved changes</Subtitle>
+        <PrimaryButton>Publish as v43</PrimaryButton>
+      </>
+    ),
     Screen: ReviewScreen,
   },
   {
     id: 'deployments',
     title: 'Roll back in one click',
     copy: 'Every published version is kept, from chat, the editor, or CI. Go back to any of them right away.',
-    crumb: 'Published v42 / Settings › Deployments',
+    page: 'settings',
+    crumbs: (
+      <>
+        <VersionSwitch draft={false} name="Published" detail="v42" />
+        <Slash className="max-md:hidden" />
+        <PageTitle>Settings › Deployments</PageTitle>
+      </>
+    ),
+    actions: null,
     Screen: DeploymentsScreen,
   },
   {
     id: 'logs',
     title: 'Catch breaking requests early',
     copy: 'Every request against a draft is logged, so a dashboard that still needs a removed measure shows up first.',
-    crumb: 'net-revenue · Draft / Logs',
+    page: 'logs',
+    crumbs: (
+      <>
+        <VersionSwitch draft name="net-revenue" detail="Draft" />
+        <Slash className="max-md:hidden" />
+        <PageTitle>Logs</PageTitle>
+      </>
+    ),
+    actions: null,
     Screen: LogsScreen,
   },
-] as const;
+];
 
 export function CloudWorkflow() {
   const ref = useRef<HTMLDivElement>(null);
+  const tabsRef = useRef<HTMLDivElement>(null);
   const inView = useInView(ref, { amount: 0.4 });
   const reduced = useReducedMotion() ?? false;
   const [active, setActive] = useState(0);
@@ -362,6 +426,14 @@ export function CloudWorkflow() {
     return () => window.clearInterval(timer);
   }, [inView, pinned, reduced]);
 
+  // On small screens the tabs are a scrolling row; keep the active one in view without moving the page.
+  useEffect(() => {
+    const row = tabsRef.current;
+    const tab = row?.children[active] as HTMLElement | undefined;
+    if (!row || !tab || row.scrollWidth <= row.clientWidth) return;
+    row.scrollTo({ left: tab.offsetLeft - row.offsetLeft - 20, behavior: reduced ? 'auto' : 'smooth' });
+  }, [active, reduced]);
+
   const screen = SCREENS[active];
 
   return (
@@ -371,8 +443,8 @@ export function CloudWorkflow() {
         Your API and agents keep serving the published version while you, the AI, or CI work in drafts.
       </p>
 
-      <div ref={ref} className="mt-10 grid gap-6 lg:grid-cols-[300px_minmax(0,1fr)]">
-        <div role="tablist" aria-label="Cloud workflow" className="flex gap-2 overflow-x-auto lg:flex-col lg:gap-1">
+      <div ref={ref} className="grid max-lg:mt-8 max-lg:gap-5 lg:mt-10 lg:grid-cols-[300px_minmax(0,1fr)] lg:gap-6">
+        <div role="tablist" aria-label="Cloud workflow" ref={tabsRef} className="flex [scrollbar-width:none] max-lg:snap-x max-lg:gap-2 max-lg:overflow-x-auto max-sm:-mx-5 max-sm:scroll-px-5 max-sm:px-5 sm:max-lg:-mx-8 sm:max-lg:scroll-px-8 sm:max-lg:px-8 lg:flex-col lg:gap-1">
           {SCREENS.map(({ id, title, copy }, index) => {
             const selected = index === active;
             return (
@@ -386,10 +458,10 @@ export function CloudWorkflow() {
                   setActive(index);
                   setPinned(true);
                 }}
-                className={`relative min-w-[220px] overflow-hidden rounded-lg border px-4 py-3 text-left transition lg:min-w-0 ${selected ? 'border-border-strong bg-bg-card' : 'border-transparent hover:bg-bg-card/60'}`}
+                className={`relative shrink-0 snap-start overflow-hidden border px-4 text-left transition max-lg:rounded-full max-lg:py-2 lg:rounded-lg lg:py-3 ${selected ? 'border-border-strong bg-bg-card' : 'border-transparent hover:bg-bg-card/60'}`}
               >
-                <span className={`block text-sm font-medium ${selected ? 'text-text' : 'text-text-muted'}`}>{title}</span>
-                <span className={`mt-1 block text-[13px] leading-5 ${selected ? 'text-text-muted' : 'text-text-dim'}`}>{copy}</span>
+                <span className={`block font-medium max-lg:whitespace-nowrap max-lg:text-[13px] lg:text-sm ${selected ? 'text-text' : 'text-text-muted'}`}>{title}</span>
+                <span className={`mt-1 block text-[13px] leading-5 max-lg:hidden ${selected ? 'text-text-muted' : 'text-text-dim'}`}>{copy}</span>
                 {selected && inView && !pinned && !reduced && (
                   <motion.span
                     key={active}
@@ -403,22 +475,27 @@ export function CloudWorkflow() {
             );
           })}
         </div>
+        <p className="-mt-2 text-sm leading-6 text-text-muted lg:hidden">{screen.copy}</p>
 
-        <div id="cloud-workflow-panel" role="tabpanel" aria-label={screen.title} className="overflow-hidden rounded-xl border border-border bg-bg-card shadow-card">
-          <div className="flex items-center gap-2 border-b border-border px-4 py-2.5 text-xs">
-            <span className="flex h-6 w-6 items-center justify-center rounded-md bg-text text-[11px] font-semibold text-bg">h</span>
-            <span className="ml-1 font-medium text-text">analytics</span>
-            <span className="text-text-dim">/</span>
-            <span className="truncate text-text-muted">{screen.crumb}</span>
-            <span className="ml-auto inline-flex items-center gap-1.5 rounded-md border border-border px-2 py-1 text-text">
-              <Plug className="h-3 w-3" aria-hidden="true" />
-              Connect
-            </span>
-          </div>
-          <div className="h-[540px] overflow-x-auto">
-            <motion.div key={screen.id} {...reveal} className="h-full min-w-[760px]">
-              <screen.Screen />
-            </motion.div>
+        <div id="cloud-workflow-panel" role="tabpanel" aria-label={screen.title} className="flex overflow-hidden rounded-xl border border-border bg-bg-card shadow-card">
+          <CloudRail page={screen.page} className="max-md:hidden" />
+          <div className="flex min-w-0 flex-1 flex-col">
+            <CloudHeader
+              logo="mobile"
+              actions={
+                <span className="flex items-center gap-2.5 max-md:hidden">
+                  {screen.actions}
+                  <ConnectButton />
+                </span>
+              }
+            >
+              {screen.crumbs}
+            </CloudHeader>
+            <div className="overflow-hidden max-md:h-[500px] md:h-[540px]">
+              <motion.div key={screen.id} {...reveal} className="h-full">
+                <screen.Screen />
+              </motion.div>
+            </div>
           </div>
         </div>
       </div>

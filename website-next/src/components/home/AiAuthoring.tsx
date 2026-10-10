@@ -2,7 +2,8 @@
 
 import { useRef } from 'react';
 import { motion, useInView, useReducedMotion } from 'motion/react';
-import { ArrowUp, Check, Code2, Database, MessageSquare, Plug, RotateCcw, ScrollText } from 'lucide-react';
+import { ArrowUp, Check, RotateCcw } from 'lucide-react';
+import { CloudHeader, CloudRail, ConnectButton, VersionSwitch } from './CloudAppFrame';
 import { DeployWaitlist } from './DeployWaitlist';
 import { useFollow } from './useFollow';
 import { useTimeline } from './useTimeline';
@@ -31,8 +32,28 @@ const T = {
   thinkPublish: 12300,
   publish: 13300,
   next: 14200,
+  // Then the user asks the live model a question, as the design's analytical answer.
+  askClick: 15300,
+  ask: 15600,
+  thinkAnswer: 15900,
+  answer: 16900,
 };
-const DONE = T.next + 900;
+const DONE = T.answer + 1800;
+
+const QUESTION = 'Gross revenue by month this year';
+
+// Jul to Sep match the design's revenue figures; earlier months lead up to them.
+const MONTHLY_REVENUE = [
+  ['Jan', 1.02],
+  ['Feb', 0.98],
+  ['Mar', 1.06],
+  ['Apr', 1.11],
+  ['May', 1.17],
+  ['Jun', 1.22],
+  ['Jul', 1.28],
+  ['Aug', 1.34],
+  ['Sep', 1.4],
+] as const;
 
 const FIRST_MESSAGE =
   "We're an online store selling outdoor gear in the EU. Our product dashboards and an AI support agent will query it. Each customer account only sees its own data.";
@@ -124,6 +145,77 @@ function User({ children }: { children: React.ReactNode }) {
     <motion.div {...reveal} className="flex justify-end">
       <div className="max-w-[85%] rounded-2xl rounded-br-md bg-bg-alt px-4 py-2.5 text-[13px] leading-5 text-text">{children}</div>
     </motion.div>
+  );
+}
+
+/** The design's analytical answer: a headline, a KPI, a chart, and where the numbers came from. */
+function RevenueAnswer({ reduced }: { reduced: boolean }) {
+  const width = 300;
+  const height = 92;
+  const values = MONTHLY_REVENUE.map(([, value]) => value);
+  const min = 0.9;
+  const max = 1.45;
+  const points = values.map((value, index) => [
+    (index / (values.length - 1)) * width,
+    height - ((value - min) / (max - min)) * height,
+  ]);
+  const line = points.map(([x, y], index) => `${index ? 'L' : 'M'}${x.toFixed(1)} ${y.toFixed(1)}`).join(' ');
+  const [lastX, lastY] = points[points.length - 1];
+
+  return (
+    <Assistant>
+      Gross revenue has grown <strong className="font-semibold">7 months in a row</strong> since the February low, and
+      September was the best month this year.
+      <div className="mt-3 rounded-lg border border-border bg-bg p-3">
+        <div className="flex items-baseline gap-2">
+          <span className="text-[10.5px] text-text-dim">Gross revenue · September 2026</span>
+        </div>
+        <div className="mt-0.5 flex items-baseline gap-2">
+          <span className="text-xl font-semibold tracking-tight text-text">$1.40M</span>
+          <span className="text-[11px] text-[#16a34a]">+4.5% vs Aug</span>
+        </div>
+        <div className="relative mt-2 h-[92px]">
+          <svg viewBox={`0 0 ${width} ${height}`} className="h-full w-full overflow-visible" preserveAspectRatio="none" aria-hidden="true">
+            <motion.path
+              d={`${line} L${width} ${height} L0 ${height} Z`}
+              fill="var(--accent)"
+              fillOpacity={0.12}
+              initial={reduced ? false : { opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.6, delay: 0.5 }}
+            />
+            <motion.path
+              d={line}
+              fill="none"
+              stroke="var(--accent)"
+              strokeWidth="2"
+              vectorEffect="non-scaling-stroke"
+              strokeLinejoin="round"
+              initial={reduced ? false : { pathLength: 0 }}
+              animate={{ pathLength: 1 }}
+              transition={{ duration: 1, ease: 'easeOut' }}
+            />
+          </svg>
+          <span
+            className="absolute h-2 w-2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-accent"
+            style={{ left: `${(lastX / width) * 100}%`, top: `${(lastY / height) * 100}%` }}
+          />
+        </div>
+        <div className="mt-1.5 flex justify-between font-mono text-[9.5px] text-text-dim">
+          {MONTHLY_REVENUE.map(([month]) => <span key={month}>{month}</span>)}
+        </div>
+      </div>
+      <ul className="mt-3 space-y-1 text-[12px] text-text-muted">
+        <li>· February dipped 4% after the January sales.</li>
+        <li>· Every month since has been higher than the last.</li>
+      </ul>
+      <div className="mt-3 font-mono text-[10px] text-text-dim">From Published v1 · orders.gross_revenue by created_at month · 1 query, 184 ms</div>
+      <div className="mt-2 flex flex-wrap gap-1.5 text-[11px]">
+        {['Show as table', 'Copy as API request', 'Show query'].map((label) => (
+          <span key={label} className="rounded-md border border-border px-2 py-1 text-text-muted">{label}</span>
+        ))}
+      </div>
+    </Assistant>
   );
 }
 
@@ -224,16 +316,28 @@ function Chat({ elapsed, reduced }: { elapsed: number; reduced: boolean }) {
         {elapsed >= T.next && (
           <motion.div {...reveal} className="pl-9">
             <div className="text-[12px] font-medium text-text">What next?</div>
-            <div className="mt-2 grid grid-cols-3 gap-2">
-              {NEXT_STEPS.map(([title, detail], index) => (
-                <div key={title} className={`rounded-lg border px-3 py-2 ${index === 0 ? 'border-text bg-text text-bg' : 'border-border bg-bg text-text'}`}>
-                  <div className="text-[11.5px] font-medium">{title}</div>
-                  <div className={`mt-0.5 text-[10.5px] ${index === 0 ? 'opacity-70' : 'text-text-muted'}`}>{detail}</div>
-                </div>
-              ))}
+            <div className="mt-2 grid gap-2 sm:grid-cols-3">
+              {NEXT_STEPS.map(([title, detail], index) => {
+                const pressed = index === 2 && elapsed >= T.askClick;
+                return (
+                  <div
+                    key={title}
+                    className={`rounded-lg border px-3 py-2 transition-colors ${
+                      index === 0 ? 'border-text bg-text text-bg' : pressed ? 'border-accent bg-accent-soft text-text' : 'border-border bg-bg text-text'
+                    } ${index > 0 ? 'max-sm:hidden' : ''}`}
+                  >
+                    <div className="text-[11.5px] font-medium">{title}</div>
+                    <div className={`mt-0.5 text-[10.5px] ${index === 0 ? 'opacity-70' : 'text-text-muted'}`}>{detail}</div>
+                  </div>
+                );
+              })}
             </div>
           </motion.div>
         )}
+
+        {elapsed >= T.ask && <User>{QUESTION}</User>}
+        {elapsed >= T.thinkAnswer && elapsed < T.answer && <Thinking />}
+        {elapsed >= T.answer && <RevenueAnswer reduced={reduced} />}
       </div>
 
       <div className="px-5 pb-4 pt-2">
@@ -255,7 +359,7 @@ function DeployChecklist({ elapsed }: { elapsed: number }) {
   const activeIndex = DEPLOY_STEPS.findIndex(([, , doneAt]) => elapsed < doneAt);
 
   return (
-    <div className="border-l border-border bg-bg-alt/30 px-5 py-6">
+    <div className="border-l border-border bg-bg-alt/30 px-5 py-6 max-md:hidden">
       <div className="text-[10px] font-medium uppercase tracking-[0.1em] text-text-dim">First deployment</div>
       <ol className="mt-4 space-y-4">
         {DEPLOY_STEPS.map(([title, detail, doneAt], index) => {
@@ -294,7 +398,7 @@ function AuthoringDemo() {
   const published = elapsed >= T.publish;
 
   return (
-    <div ref={ref} className="w-[900px] lg:w-[1040px]">
+    <div ref={ref} className="max-md:w-full md:w-[900px] lg:w-[1040px]">
       <p className="sr-only">
         The hypequery Cloud onboarding chat. The assistant sees 14 ClickHouse tables and asks what the business does and
         who will query it. The user describes an EU outdoor gear store whose dashboards and AI support agent query the
@@ -302,50 +406,36 @@ function AuthoringDemo() {
         drafts four datasets, renames revenue to gross revenue on request, and publishes v1 at
         acme-analytics.hypequery.app.
       </p>
-      <div aria-hidden="true" className="overflow-hidden rounded-l-xl border border-r-0 border-border bg-bg-card shadow-card">
-        <div className="border-b border-border px-4 py-2.5 text-xs">
-          {/* Sized to the chat column, so Connect stays in view while the window runs off the page. */}
-          <div className="flex w-[560px] items-center gap-2">
-          <span className="flex h-6 w-6 items-center justify-center rounded-md bg-text text-[11px] font-semibold text-bg">h</span>
-          <span className="ml-1 font-medium text-text">analytics</span>
-          <span className="text-text-dim">/</span>
-          <span className="inline-flex items-center gap-1.5 text-text-muted">
-            <span className={`h-1.5 w-1.5 rounded-full ${published ? 'bg-[#22c55e]' : 'bg-text-dim'}`} />
-            Published
-            <span className="text-text-dim">{published ? 'v1' : 'nothing yet'}</span>
-          </span>
-          <button
-            type="button"
-            onClick={replay}
-            tabIndex={done ? 0 : -1}
-            aria-label="Replay the animation"
-            className={`ml-2 rounded-md p-1 text-text-dim transition hover:text-text ${done ? 'opacity-100' : 'pointer-events-none opacity-0'}`}
-          >
-            <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" />
-          </button>
-          <span className="ml-auto">
-            {published ? (
-              <span className="inline-flex items-center gap-1.5 rounded-md border border-border px-2 py-1 text-text">
-                <Plug className="h-3 w-3" aria-hidden="true" />
-                Connect
-              </span>
-            ) : (
-              <span className="text-text-dim">Skip setup</span>
-            )}
-          </span>
-          </div>
+      <div aria-hidden="true" className="flex overflow-hidden border-y border-l border-border bg-bg-card shadow-card max-md:h-[592px] max-md:rounded-xl max-md:border-r md:h-[632px] md:rounded-l-xl">
+        {/* As in the design, the app's rail only appears once v1 is live. */}
+        <div className={`shrink-0 overflow-hidden transition-[width] duration-500 max-md:hidden ${published ? 'w-[60px]' : 'w-0'}`}>
+          <CloudRail page="chat" className="h-full" />
         </div>
-
-        <div className="grid h-[580px] grid-cols-[auto_540px_minmax(260px,1fr)]">
-          {/* The app's sidebar only appears once v1 is live. */}
-          <div className={`flex flex-col items-center gap-3 overflow-hidden border-border pt-4 transition-all duration-500 ${published ? 'w-11 border-r opacity-100' : 'w-0 opacity-0'}`}>
-            <span className="rounded-md bg-accent-soft p-1.5 text-accent"><MessageSquare className="h-3.5 w-3.5" /></span>
-            <Code2 className="h-3.5 w-3.5 text-text-dim" />
-            <Database className="h-3.5 w-3.5 text-text-dim" />
-            <ScrollText className="h-3.5 w-3.5 text-text-dim" />
+        <div className="flex min-w-0 flex-1 flex-col">
+          <CloudHeader
+            logo={published ? 'mobile' : true}
+            innerClassName="md:w-[740px]"
+            actions={
+              <span className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={replay}
+                  tabIndex={done ? 0 : -1}
+                  aria-label="Replay the animation"
+                  className={`rounded-md p-1 text-text-dim transition hover:text-text ${done ? 'opacity-100' : 'pointer-events-none opacity-0'}`}
+                >
+                  <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" />
+                </button>
+                {published ? <ConnectButton /> : <span className="text-[12.5px] text-text-muted">Skip setup</span>}
+              </span>
+            }
+          >
+            <VersionSwitch draft={false} name="Published" detail={published ? 'v1' : 'nothing yet'} />
+          </CloudHeader>
+          <div className="grid min-h-0 flex-1 max-md:grid-cols-[minmax(0,1fr)] md:grid-cols-[540px_minmax(260px,1fr)]">
+            <Chat elapsed={elapsed} reduced={reduced} />
+            <DeployChecklist elapsed={elapsed} />
           </div>
-          <Chat elapsed={elapsed} reduced={reduced} />
-          <DeployChecklist elapsed={elapsed} />
         </div>
       </div>
     </div>
@@ -356,7 +446,7 @@ export function AiAuthoring() {
   return (
     <section aria-labelledby="ai-authoring-title" className="overflow-x-clip">
       <div className="mx-auto max-w-[1280px] px-5 pb-4 pt-14 sm:px-8 sm:pt-20">
-        <div className="grid items-center gap-10 md:grid-cols-[minmax(0,400px)_minmax(0,1fr)] md:gap-12 lg:gap-16">
+        <div className="grid items-center gap-10 max-md:grid-cols-[minmax(0,1fr)] md:grid-cols-[minmax(0,400px)_minmax(0,1fr)] md:gap-12 lg:gap-16">
           <div>
             <h2 id="ai-authoring-title" className="home-section-title text-text">Describe your business. Get a semantic layer.</h2>
             <p className="mt-4 max-w-[520px] text-sm leading-6 text-text-muted sm:text-base">
