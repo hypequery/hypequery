@@ -35,7 +35,7 @@
     "@types/node": "^26",
     "@types/react": "^19",
     "@types/react-dom": "^19",
-    "eslint": "^9",
+    "eslint": "^10",
     "eslint-config-next": "16.4.0",
     "fumadocs-mdx": "^15.4.6",
     "next": "16.4.0",
