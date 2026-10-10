@@ -1,5 +1,30 @@
 # @hypequery/datasets
 
+## 0.23.0
+
+### Minor Changes
+
+- 0d88c0e: Catalogs and semantic contracts now include each derived measure's inputs (`uses`) and expression, so changing a formula changes the snapshot hash. **Datasets that already declare derived measures report a new semantic contract `contentHash` after upgrading**, including the one Serve's contract endpoint publishes; consumers that compare it to detect definition changes will see one change. Definitions without derived measures are unchanged, as are result-cache keys and deployment contracts. Shared fixtures now pin Python derived-measure authoring to the same deployment and semantic contract output.
+
+### Patch Changes
+
+- aada8f3: `dataset()` now validates filter definitions before any query can use them.
+  A measure filter's `field` must be a declared dimension or filter, or a safe
+  column identifier (optionally `<relationship>.<field>`), and a declared filter's
+  `field` must be a declared dimension or a safe column identifier. Unsupported
+  operators are rejected in both places. Previously these values were rendered
+  into SQL unchecked. Definitions that put SQL text in a filter `field` now fail at
+  construction: declare a dimension with `sql` and filter on that dimension.
+- 03ba7f2: Fix calendar shifts (`month`, `quarter`, `year`) on a partial `week` bucket.
+  When a query filter cut a week short, its lower bound was shifted on its own
+  while its upper bound stayed anchored to the shifted week. A week starting
+  mid-way could get an empty range and read `null` even when the prior period had
+  rows, and a week cut on both sides could count rows from days it never covered.
+  Both bounds are now placed inside the shifted week: a whole week still maps to
+  its start minus the interval plus seven days, and a partial week maps to the
+  matching slice. Shifted formulas (derived, windowed and cumulative measures
+  under a shift) are fixed the same way.
+
 ## 0.22.0
 
 ### Minor Changes

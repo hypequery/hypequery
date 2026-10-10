@@ -215,7 +215,7 @@ importers:
   packages/mcp-server:
     dependencies:
       '@hypequery/datasets':
-        specifier: ^0.22.0
+        specifier: ^0.23.0
         version: link:../datasets
       '@modelcontextprotocol/sdk':
         specifier: ^1.32.1
@@ -308,7 +308,7 @@ importers:
   packages/serve:
     dependencies:
       '@hypequery/datasets':
-        specifier: ^0.22.0
+        specifier: ^0.23.0
         version: link:../datasets
       jose:
         specifier: ^5.9.6
