@@ -340,8 +340,8 @@ const SCREENS: {
 }[] = [
   {
     id: 'draft',
-    title: 'Every change starts in a draft',
-    copy: 'Published is locked. Ask for a change and it lands in a draft that compiles and runs test queries.',
+    title: 'Update your model with AI or the CLI',
+    copy: 'Ask for a change in chat, or push it from the CLI or CI. Either way it lands in a draft that compiles and runs test queries.',
     page: 'chat',
     crumbs: (
       <>
@@ -438,7 +438,7 @@ export function CloudWorkflow() {
 
   return (
     <section aria-labelledby="cloud-workflow-title" className="mx-auto max-w-[1280px] px-5 pb-4 pt-14 sm:px-8 sm:pt-20">
-      <h2 id="cloud-workflow-title" className="home-section-title max-w-[720px] text-text">Change it without breaking production</h2>
+      <h2 id="cloud-workflow-title" className="home-section-title max-w-[960px] text-text">AI changes. You review. Then it ships.</h2>
       <p className="mt-4 max-w-[600px] text-sm leading-6 text-text-muted sm:text-base">
         Published is locked. You, the AI, or CI change things in drafts you can test, review, and roll back.
       </p>
