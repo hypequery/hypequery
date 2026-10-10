@@ -23,7 +23,10 @@ export function Hero() {
         </div>
         <h1 className="whitespace-nowrap text-[clamp(1.375rem,5.4vw,4.6rem)] font-normal leading-[1.04] tracking-[-0.05em] text-text">Ship AI analytics on{' '}
           <span className="ml-[0.16em] inline-flex items-center gap-[0.14em] align-[-0.06em]">
-            <SiClickhouse className="h-[0.8em] w-[0.8em] shrink-0 text-[#161517] dark:text-[#faff69]" aria-hidden="true" />
+            {/* ClickHouse yellow on a black tile, like its app icon, so the brand colour shows in light mode too. */}
+            <span className="flex h-[0.86em] w-[0.86em] shrink-0 items-center justify-center rounded-[0.16em] bg-[#161517]" aria-hidden="true">
+              <SiClickhouse className="h-[0.6em] w-[0.6em] text-[#faff69]" />
+            </span>
             <span className={`${clickhouseWordmark.className} font-bold tracking-[-0.045em]`}>ClickHouse</span>
           </span>
         </h1>

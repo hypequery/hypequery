@@ -3,7 +3,7 @@
 import { useRef, useState } from 'react';
 import Link from 'next/link';
 import { motion, useReducedMotion } from 'motion/react';
-import { ArrowUpRight, ChevronDown, Database, Layers3, RotateCcw, Send } from 'lucide-react';
+import { ArrowUpRight, ChevronDown, Cloud, Database, Layers3, RotateCcw, Send } from 'lucide-react';
 import { SiClaude, SiClickhouse, SiGooglegemini, SiModelcontextprotocol, SiPython, SiReact, SiTypescript } from 'react-icons/si';
 import { RiOpenaiFill } from 'react-icons/ri';
 import { AppChat, ClaudeTerminal, useAiAnswers } from './AiAnswers';
@@ -92,7 +92,7 @@ export function ProductExplainer() {
           <div className="relative flex min-w-[260px] items-center gap-3 rounded-xl border border-border-strong bg-bg-card px-5 py-4 shadow-card">
             <Layers3 className="h-6 w-6 text-accent" aria-hidden="true" />
             <div><span className="block text-lg font-semibold tracking-tight text-text">hypequery</span><span className="block text-[11px] text-text-muted">Your shared analytics model</span></div>
-            <div className="ml-auto flex flex-col gap-2" aria-label="Model in TypeScript or Python"><SiTypescript className="h-3.5 w-3.5 text-[#3178c6]" title="TypeScript" /><SiPython className="h-3.5 w-3.5 text-[#3776ab]" title="Python" /></div>
+            <div className="ml-auto flex flex-col gap-1.5" aria-label="Model built in TypeScript, Python, or Cloud"><SiTypescript className="h-3.5 w-3.5 text-[#3178c6]" title="TypeScript" /><SiPython className="h-3.5 w-3.5 text-[#3776ab]" title="Python" /><Cloud className="h-3.5 w-3.5 text-accent" strokeWidth={2} aria-label="Cloud" /></div>
           </div>
         </div>
         <div className="absolute inset-x-0 bottom-8 text-center text-[10px] text-text-dim">Published v1 · orders, customers, refunds, events</div>
