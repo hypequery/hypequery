@@ -6,7 +6,7 @@ export function FinalCTA() {
   return (
     <section className="mx-auto max-w-[1280px] px-8 py-20 text-center">
       <h2 className="home-section-title text-text max-w-[820px] mx-auto text-balance">
-        Give your agents numbers they can trust
+        Build your analytics layer
       </h2>
       <p className="mt-3.5 text-body text-text-muted max-w-[560px] mx-auto text-pretty">
         Join the Cloud waitlist, or start with the open-source SDK today.
