@@ -390,15 +390,18 @@ function DeployChecklist({ elapsed }: { elapsed: number }) {
 }
 
 function AuthoringDemo() {
+  // A thin strip down the window's left edge, so only height counts: the window itself runs off the page.
   const ref = useRef<HTMLDivElement>(null);
-  const inView = useInView(ref, { once: true, amount: 0.3 });
+  // Start once most of the window is on screen, below the fixed nav, so the conversation starts where people can see it.
+  const inView = useInView(ref, { once: true, amount: 0.6, margin: '-104px 0px 0px 0px' });
   const reduced = useReducedMotion() ?? false;
   const { elapsed, replay } = useTimeline(inView, reduced, DONE);
   const done = elapsed >= DONE && !reduced;
   const published = elapsed >= T.publish;
 
   return (
-    <div ref={ref} className="max-md:w-full md:w-[900px] lg:w-[1040px]">
+    <div className="relative max-md:w-full md:w-[900px] lg:w-[1040px]">
+      <div ref={ref} aria-hidden="true" className="pointer-events-none absolute inset-y-0 left-0 w-px" />
       <p className="sr-only">
         The hypequery Cloud onboarding chat. The assistant sees 14 ClickHouse tables and asks what the business does and
         who will query it. The user describes an EU outdoor gear store whose dashboards and AI support agent query the
