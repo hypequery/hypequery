@@ -25,8 +25,8 @@ export function DatasetQuickstart() {
   return (
     <section aria-labelledby="dataset-quickstart-title" className="mx-auto max-w-[1280px] px-5 py-14 sm:px-8 sm:py-20">
       <div className="mb-8 max-w-[620px]">
-        <h2 id="dataset-quickstart-title" className="home-section-title text-text">Start with one dataset</h2>
-        <p className="mt-4 text-sm leading-6 text-text-muted sm:text-base">Point it at an existing table, query it from your backend, and deploy when you&apos;re ready.</p>
+        <h2 id="dataset-quickstart-title" className="home-section-title text-text">Prefer code? Start with one dataset</h2>
+        <p className="mt-4 text-sm leading-6 text-text-muted sm:text-base">Define datasets in TypeScript or Python, review them in pull requests, and deploy to Cloud or run them in your own app. Open source, Apache 2.0.</p>
       </div>
       <div className="mb-4 flex flex-wrap gap-1" role="tablist" aria-label="Dataset developer examples">
         {(['dataset', 'backend', 'cloud'] as const).map((value) => <button key={value} id={`dataset-step-${value}`} role="tab" type="button" aria-selected={example === value} aria-controls="dataset-example-panel" tabIndex={example === value ? 0 : -1} onClick={() => { setExample(value); setCopyStatus(''); }} onKeyDown={(event) => {

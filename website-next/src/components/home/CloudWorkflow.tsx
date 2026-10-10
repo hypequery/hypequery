@@ -440,7 +440,7 @@ export function CloudWorkflow() {
     <section aria-labelledby="cloud-workflow-title" className="mx-auto max-w-[1280px] px-5 pb-4 pt-14 sm:px-8 sm:pt-20">
       <h2 id="cloud-workflow-title" className="home-section-title max-w-[720px] text-text">Change it without breaking production</h2>
       <p className="mt-4 max-w-[600px] text-sm leading-6 text-text-muted sm:text-base">
-        Your API and agents keep serving the published version while you, the AI, or CI work in drafts.
+        Published is locked. You, the AI, or CI change things in drafts you can test, review, and roll back.
       </p>
 
       <div ref={ref} className="grid max-lg:mt-8 max-lg:gap-5 lg:mt-10 lg:grid-cols-[300px_minmax(0,1fr)] lg:gap-6">

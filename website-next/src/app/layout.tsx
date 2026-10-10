@@ -31,7 +31,7 @@ export const metadata: Metadata = {
     default: "hypequery | Ship AI analytics on ClickHouse",
     template: "%s | hypequery",
   },
-  description: "Ship AI analytics on ClickHouse. Analytics as code: define measures once, and AI agents, chat, and dashboards answer from the same governed definitions.",
+  description: "Ship AI analytics on ClickHouse. One governed definition of your metrics, built by AI or in code, that AI agents, chat, and dashboards all answer from.",
   alternates: {
     canonical: absoluteUrl('/'),
   },
@@ -39,13 +39,13 @@ export const metadata: Metadata = {
     type: 'website',
     url: absoluteUrl('/'),
     title: 'hypequery | Ship AI analytics on ClickHouse',
-    description: 'Ship AI analytics on ClickHouse. Analytics as code: define measures once, and AI agents, chat, and dashboards answer from the same governed definitions.',
+    description: 'Ship AI analytics on ClickHouse. One governed definition of your metrics, built by AI or in code, that AI agents, chat, and dashboards all answer from.',
     siteName: 'hypequery',
   },
   twitter: {
     card: 'summary_large_image',
     title: 'hypequery | Ship AI analytics on ClickHouse',
-    description: 'Ship AI analytics on ClickHouse. Analytics as code: define measures once, and AI agents, chat, and dashboards answer from the same governed definitions.',
+    description: 'Ship AI analytics on ClickHouse. One governed definition of your metrics, built by AI or in code, that AI agents, chat, and dashboards all answer from.',
   },
   manifest: "/site.webmanifest",
   icons: {

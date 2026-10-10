@@ -7,7 +7,7 @@ export function FeatureGrid() {
   return (
     <section aria-labelledby="feature-grid-title" className="mx-auto max-w-[1280px] px-5 pb-12 pt-14 sm:px-8 sm:pt-20">
       <div className="mb-8 max-w-[620px]">
-        <h2 id="feature-grid-title" className="home-section-title text-text">The hard parts, handled</h2>
+        <h2 id="feature-grid-title" className="home-section-title text-text">Built for production from day one</h2>
         <p className="mt-4 text-sm leading-6 text-text-muted sm:text-base">Tenant isolation, joins, access control, and caching come with the model, not as afterthoughts.</p>
       </div>
       <div className="product-feature-grid grid gap-4">

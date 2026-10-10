@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useSyncExternalStore } from 'react';
 import { createPortal } from 'react-dom';
 import { Info } from 'lucide-react';
 
@@ -13,11 +13,15 @@ const FEATURE_OPTIONS = [
   'Something else',
 ] as const;
 
+function noopSubscribe() {
+  return () => {};
+}
+
 export function DeployWaitlist({ location, className, compactLabel = false }: { location: string; className?: string; compactLabel?: boolean }) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   // The dialog renders into <body> so it looks the same wherever it is opened from.
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
+  // True only in the browser, so the server render and hydration match.
+  const mounted = useSyncExternalStore(noopSubscribe, () => true, () => false);
 
   return (
     <>

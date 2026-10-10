@@ -46,11 +46,11 @@ export function CloudRail({ page, className = '' }: { page: CloudPage | null; cl
   );
 }
 
-/** The version switcher: an amber dot for a draft, a green dot for Published. */
-export function VersionSwitch({ draft, name, detail }: { draft: boolean; name: string; detail: string }) {
+/** The version switcher: an amber dot for a draft, a green dot for live Published, grey before anything is live. */
+export function VersionSwitch({ draft, name, detail, live = true }: { draft: boolean; name: string; detail: string; live?: boolean }) {
   return (
     <span className="inline-flex h-8 shrink-0 items-center gap-[7px] rounded-[7px] px-2 text-[13px] font-medium text-text">
-      <span className={`h-[7px] w-[7px] rounded-full ${draft ? 'bg-[#b45309]' : 'bg-[#16a34a]'}`} />
+      <span className={`h-[7px] w-[7px] rounded-full ${draft ? 'bg-[#b45309]' : live ? 'bg-[#16a34a]' : 'bg-text-dim'}`} />
       <span className={draft ? 'font-mono' : ''}>{name}</span>
       <span className="font-normal text-text-muted">{detail}</span>
       <ChevronDown className="h-3 w-3 text-text-muted" strokeWidth={2} />

@@ -59,7 +59,7 @@ export function ProductExplainer() {
     <section aria-labelledby="product-explainer-title" className="mx-auto max-w-[1280px] px-5 pb-12 pt-14 sm:px-8 sm:pt-20">
       <motion.div variants={ENTRANCE} initial={reducedMotion ? false : "hidden"} whileInView="visible" viewport={{ once: true, amount: 0.2 }} custom={0} className="mx-auto max-w-[660px] text-center">
         <h2 id="product-explainer-title" className="home-section-title text-text">One model, every interface</h2>
-        <p className="mx-auto mt-4 max-w-[570px] text-sm leading-6 text-text-muted sm:text-base">Define your ClickHouse analytics once in code. Dashboards, embedded chat, and AI agents all read from it.</p>
+        <p className="mx-auto mt-4 max-w-[570px] text-sm leading-6 text-text-muted sm:text-base">Your app&apos;s dashboards, an AI chat for your customers, and agents like Claude all answer from the same published model.</p>
       </motion.div>
 
       <motion.div variants={ENTRANCE} initial={reducedMotion ? false : "hidden"} whileInView="visible" viewport={{ once: true, amount: 0.2 }} custom={0.06} className="relative mt-9 h-[290px] sm:mt-12" aria-label="ClickHouse tables flow into a shared hypequery model, then into dashboards, chat, and MCP agents">
@@ -95,7 +95,7 @@ export function ProductExplainer() {
             <div className="ml-auto flex flex-col gap-2" aria-label="Model in TypeScript or Python"><SiTypescript className="h-3.5 w-3.5 text-[#3178c6]" title="TypeScript" /><SiPython className="h-3.5 w-3.5 text-[#3776ab]" title="Python" /></div>
           </div>
         </div>
-        <div className="absolute inset-x-0 bottom-8 text-center text-[10px] text-text-dim">Shared metrics · dimensions · tenant rules</div>
+        <div className="absolute inset-x-0 bottom-8 text-center text-[10px] text-text-dim">Published v1 · orders, customers, refunds, events</div>
       </motion.div>
 
       <div ref={answersRef} className="grid border-border md:grid-cols-3 md:divide-x md:divide-border md:border-t">

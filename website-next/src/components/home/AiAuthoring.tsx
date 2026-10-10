@@ -430,7 +430,7 @@ function AuthoringDemo() {
               </span>
             }
           >
-            <VersionSwitch draft={false} name="Published" detail={published ? 'v1' : 'nothing yet'} />
+            <VersionSwitch draft={false} live={published} name="Published" detail={published ? 'v1' : 'nothing yet'} />
           </CloudHeader>
           <div className="grid min-h-0 flex-1 max-md:grid-cols-[minmax(0,1fr)] md:grid-cols-[540px_minmax(260px,1fr)]">
             <Chat elapsed={elapsed} reduced={reduced} />
@@ -450,8 +450,8 @@ export function AiAuthoring() {
           <div>
             <h2 id="ai-authoring-title" className="home-section-title text-text">Describe your business. Get a semantic layer.</h2>
             <p className="mt-4 max-w-[520px] text-sm leading-6 text-text-muted sm:text-base">
-              Cloud&apos;s AI drafts your datasets for you, so you go from a ClickHouse connection to governed AI answers in
-              minutes.
+              Connect ClickHouse, answer two questions, and Cloud drafts and publishes your datasets. Ask your first
+              question minutes later.
             </p>
             <ol className="mt-8 space-y-5">
               {STEPS.map(([title, copy], index) => (

@@ -18,7 +18,7 @@ const softwareSchema = {
   applicationCategory: 'DeveloperApplication',
   operatingSystem: 'Cross-platform',
   description:
-    'Ship AI analytics on ClickHouse. Analytics as code: define measures once, and AI agents, chat, and dashboards answer from the same governed definitions.',
+    'Ship AI analytics on ClickHouse. One governed definition of your metrics, built by AI or in code, that AI agents, chat, and dashboards all answer from.',
   softwareVersion: 'latest',
   codeRepository: 'https://github.com/hypequery/hypequery',
   programmingLanguage: ['TypeScript', 'Python'],
@@ -44,9 +44,9 @@ export default function Home() {
       <Navigation hasBanner />
       <main className="pt-[104px]">
         <Hero />
-        <ProductExplainer />
         <PatternCallout />
         <AiAuthoring />
+        <ProductExplainer />
         <CloudWorkflow />
         <FeatureGrid />
         <DatasetQuickstart />
