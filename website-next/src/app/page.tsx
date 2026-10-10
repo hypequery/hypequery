@@ -7,6 +7,7 @@ import { DatasetQuickstart } from '@/components/home/DatasetQuickstart';
 import { ProductExplainer } from '@/components/home/ProductExplainer';
 import { PatternCallout } from '@/components/home/PatternCallout';
 import { AiAuthoring } from '@/components/home/AiAuthoring';
+import { CloudWorkflow } from '@/components/home/CloudWorkflow';
 
 const softwareSchema = {
   '@context': 'https://schema.org',
@@ -46,6 +47,7 @@ export default function Home() {
         <ProductExplainer />
         <PatternCallout />
         <AiAuthoring />
+        <CloudWorkflow />
         <FeatureGrid />
         <DatasetQuickstart />
         <FinalCTA />
