@@ -53,9 +53,10 @@ const OFFERINGS: Offering[] = [
   },
 ];
 
+/** One offering. On wider screens its three rows join the menu's shared grid, so separators line up across columns. */
 function OfferingColumn({ offering }: { offering: Offering }) {
   return (
-    <div className="flex flex-col rounded-lg p-1">
+    <div className="rounded-lg p-1 max-sm:flex max-sm:flex-col sm:row-span-3 sm:grid sm:grid-rows-subgrid sm:gap-0">
       <Popover.Close asChild>
         <Link href={offering.href} className="group rounded-lg p-3 transition hover:bg-bg-alt focus-visible:bg-bg-alt focus-visible:outline-none">
           <span className="flex h-10 w-10 items-center justify-center gap-1 rounded-lg border border-border bg-bg-alt/70">{offering.icon}</span>
@@ -67,13 +68,15 @@ function OfferingColumn({ offering }: { offering: Offering }) {
         </Link>
       </Popover.Close>
       <div className="mx-3 mb-1 mt-1 border-t border-border" />
-      {offering.links.map((link) => (
-        <Popover.Close key={link.href} asChild>
-          <Link href={link.href} className="rounded-md px-3 py-1.5 text-[13px] text-text-muted transition hover:bg-bg-alt hover:text-text focus-visible:bg-bg-alt focus-visible:outline-none">
-            {link.label}
-          </Link>
-        </Popover.Close>
-      ))}
+      <div className="flex flex-col">
+        {offering.links.map((link) => (
+          <Popover.Close key={link.href} asChild>
+            <Link href={link.href} className="rounded-md px-3 py-1.5 text-[13px] text-text-muted transition hover:bg-bg-alt hover:text-text focus-visible:bg-bg-alt focus-visible:outline-none">
+              {link.label}
+            </Link>
+          </Popover.Close>
+        ))}
+      </div>
     </div>
   );
 }
@@ -88,7 +91,7 @@ export function ProductMenu() {
       </Popover.Trigger>
       <Popover.Portal>
         <Popover.Content align="end" sideOffset={10} className="z-[60] max-h-[calc(100vh-80px)] w-[min(760px,calc(100vw-24px))] overflow-y-auto rounded-xl border border-border-strong bg-bg-card p-2 text-text shadow-xl outline-none data-[state=open]:animate-in data-[state=closed]:animate-out">
-          <div className="grid gap-1 sm:grid-cols-3 sm:divide-x sm:divide-border">
+          <div className="grid gap-1 sm:grid-cols-3 sm:grid-rows-[auto_auto_auto] sm:divide-x sm:divide-border">
             {OFFERINGS.map((offering) => <OfferingColumn key={offering.name} offering={offering} />)}
           </div>
           <div className="mx-3 my-1 border-t border-border" />
