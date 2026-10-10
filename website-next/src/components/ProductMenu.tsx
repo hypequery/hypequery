@@ -30,7 +30,7 @@ const OFFERINGS: Offering[] = [
   },
   {
     name: 'Datasets',
-    pitch: 'The analytics layer in your codebase.',
+    pitch: 'The analytics layer in your codebase. Define your metrics once, in code.',
     href: '/docs/datasets/overview',
     icon: <><SiTypescript className="h-4 w-4 text-[#3178c6]" aria-label="TypeScript" /><SiPython className="h-4 w-4 text-[#3776ab]" aria-label="Python" /></>,
     links: [
