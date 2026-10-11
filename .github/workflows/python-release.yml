@@ -65,7 +65,7 @@ jobs:
           ref: ${{ needs.prepare.outputs.ref }}
           persist-credentials: false
           fetch-depth: 0
-      - uses: astral-sh/setup-uv@e58605a9b6da7c637471fab8847a5e5a6b8df081 # v5
+      - uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86 # v5
         with:
           enable-cache: true
           cache-dependency-glob: python/hypequery/uv.lock
@@ -101,7 +101,7 @@ jobs:
         run: |
           uv run --no-sync python scripts/cli_smoke.py dist/*.whl --minimal
           uv run --no-sync python scripts/cli_smoke.py dist/*.tar.gz --minimal
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: python-dist
           path: python/hypequery/dist/
@@ -116,7 +116,7 @@ jobs:
           sha256sum dist/*.whl dist/*.tar.gz > reports/SHA256SUMS
       - name: Retain release supply-chain evidence
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: python-supply-chain
           path: python/hypequery/reports/
@@ -143,7 +143,7 @@ jobs:
     permissions:
       id-token: write
     steps:
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: python-dist
           path: dist/
