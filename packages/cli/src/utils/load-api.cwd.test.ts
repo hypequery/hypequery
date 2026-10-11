@@ -34,6 +34,8 @@ describe('loadApiModule from another working directory', () => {
   });
 
   afterEach(async () => {
+    delete process.env.HQ_TEST_PROJECT_URL;
+    delete process.env.HQ_TEST_PROJECT_DATABASE;
     cwdSpy.mockRestore();
     await rm(project, { recursive: true, force: true });
     await rm(elsewhere, { recursive: true, force: true });
@@ -47,5 +49,25 @@ describe('loadApiModule from another working directory', () => {
     expect(api.handler()).toBe('ok');
     expect(await readdir(path.join(project, '.hypequery', 'tmp'))).toHaveLength(1);
     await expect(access(path.join(elsewhere, '.hypequery'))).rejects.toThrow();
+  });
+
+  it("loads the entry project's env files before importing it, without overriding set values", async () => {
+    // The generated client reads its connection settings from process.env when
+    // the module is evaluated, so they must be in place before the import.
+    await writeFile(
+      path.join(project, '.env'),
+      'HQ_TEST_PROJECT_URL=http://project-db:8123\nHQ_TEST_PROJECT_DATABASE=from_file\n',
+    );
+    await writeFile(
+      path.join(project, 'analytics', 'api.ts'),
+      "const settings = { url: process.env.HQ_TEST_PROJECT_URL, database: process.env.HQ_TEST_PROJECT_DATABASE };\n" +
+      "export const api = { handler: () => settings };\n",
+    );
+    process.env.HQ_TEST_PROJECT_DATABASE = 'from_environment';
+    const { loadApiModule } = await import('./load-api.js');
+
+    const api = await loadApiModule(path.join(project, 'analytics', 'api.ts'));
+
+    expect(api.handler()).toEqual({ url: 'http://project-db:8123', database: 'from_environment' });
   });
 });

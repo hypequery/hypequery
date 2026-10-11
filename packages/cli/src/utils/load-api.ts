@@ -4,6 +4,7 @@ import { access, mkdtemp, mkdir, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { build } from 'esbuild';
+import { loadEnvFiles } from './load-env-files.js';
 import { findProjectRoot } from './project-root.js';
 
 if (typeof process.setMaxListeners === 'function') {
@@ -83,6 +84,12 @@ export async function loadModule(modulePath: string) {
     const relativePath = path.relative(process.cwd(), resolved);
     throw new Error(`File not found: ${relativePath}`);
   }
+
+  // The CLI loaded the launch directory's env files at startup. An entry in
+  // another project (`hypequery mcp /abs/path/api.ts`) reads its connection
+  // settings from that project's env files, so load those too before its
+  // client module runs. Values already set keep precedence.
+  await loadEnvFiles(await findProjectRoot(resolved));
 
   const extension = path.extname(resolved).toLowerCase();
   const isTypeScript = TYPESCRIPT_EXTENSIONS.has(extension);

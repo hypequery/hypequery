@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { program } from '../cli.js';
-import { envFiles } from '../utils/env-files.js';
+import { loadEnvFiles } from '../utils/load-env-files.js';
 import { CommandExit, finishAndExit, installCommandExitFinalizer } from '../utils/command-exit.js';
 import { CommandLifecycle } from '../utils/telemetry/lifecycle.js';
 import { telemetryErrorCode } from '../utils/telemetry/error-code.js';
@@ -23,15 +23,7 @@ async function loadEnv() {
     // Optional dependency, ignore if missing
   }
 
-  try {
-    const { config } = await import('dotenv');
-    for (const path of envFiles(process.env.NODE_ENV)) {
-      // Missing files are a no-op.
-      config({ path });
-    }
-  } catch {
-    // dotenv is optional; continue if not available
-  }
+  await loadEnvFiles(process.cwd());
 }
 
 async function main() {
