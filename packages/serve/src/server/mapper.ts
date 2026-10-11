@@ -1,21 +1,17 @@
-import { zodToJsonSchema } from "zod-to-json-schema";
 import type {
   ServeEndpoint,
   ToolkitQueryDescription,
 } from "../types.js";
+import { zodToOpenApiSchema } from "../utils/zod-json-schema.js";
 
 export const mapEndpointToToolkit = (
   endpoint: ServeEndpoint<any, any, any, any>
 ): ToolkitQueryDescription => {
-  // Type assertions (as any) are necessary below for external library compatibility:
-  // - zod-to-json-schema doesn't export types that properly constrain Zod schema inputs
-  // - Using 'unknown' for the result type is safer than 'any' for the output
-  // - This is a known limitation of the zod-to-json-schema library
   const inputSchema: unknown = endpoint.inputSchema
-    ? zodToJsonSchema(endpoint.inputSchema as any, { target: "openApi3" })
+    ? zodToOpenApiSchema(endpoint.inputSchema, "input")
     : undefined;
   const outputSchema: unknown = endpoint.outputSchema
-    ? zodToJsonSchema(endpoint.outputSchema as any, { target: "openApi3" })
+    ? zodToOpenApiSchema(endpoint.outputSchema, "output")
     : undefined;
 
   return {

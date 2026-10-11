@@ -51,7 +51,7 @@ describe('dependency installer', () => {
     expect(resolveScaffoldPackages('1.1.1')).toEqual([
       '@hypequery/clickhouse',
       '@hypequery/serve',
-      'zod@^3.23.8',
+      'zod@^4.6.5',
     ]);
   });
 
@@ -59,7 +59,7 @@ describe('dependency installer', () => {
     expect(resolveScaffoldPackages('1.1.1', 'datasets')).toEqual([
       '@hypequery/clickhouse',
       '@hypequery/serve',
-      'zod@^3.23.8',
+      'zod@^4.6.5',
       '@hypequery/datasets',
     ]);
   });
@@ -68,7 +68,7 @@ describe('dependency installer', () => {
     expect(resolveScaffoldPackages('1.1.1', 'queries', 'chdb')).toEqual([
       '@hypequery/clickhouse',
       '@hypequery/serve',
-      'zod@^3.23.8',
+      'zod@^4.6.5',
       'chdb@^3.2.0',
     ]);
   });
@@ -88,7 +88,7 @@ describe('dependency installer', () => {
     expect(resolveScaffoldPackages('0.0.0-canary-20260506195711')).toEqual([
       '@hypequery/clickhouse@0.0.0-canary-20260506195711',
       '@hypequery/serve@0.0.0-canary-20260506195711',
-      'zod@^3.23.8',
+      'zod@^4.6.5',
     ]);
   });
 
@@ -97,7 +97,7 @@ describe('dependency installer', () => {
       '@hypequery/clickhouse@0.0.0-canary-20260506195711',
       '@hypequery/serve@0.0.0-canary-20260506195711',
       '@hypequery/datasets@0.0.0-canary-20260506195711',
-      'zod@^3.23.8',
+      'zod@^4.6.5',
     ]);
   });
 
@@ -110,7 +110,7 @@ describe('dependency installer', () => {
       '@hypequery/clickhouse@0.0.0-canary-20260506195711',
       '@hypequery/serve@0.0.0-canary-20260506195711',
       '@hypequery/datasets@0.0.0-canary-20260506195711',
-      'zod@^3.23.8',
+      'zod@^4.6.5',
       'chdb@^3.2.0',
     ]);
   });
@@ -123,7 +123,7 @@ describe('dependency installer', () => {
         dependencies: {
           '@hypequery/clickhouse': '^2.4.0',
           '@hypequery/serve': '^1.3.0',
-          zod: '^3.23.8',
+          zod: '^4.6.5',
         },
       }))
       .mockResolvedValueOnce(JSON.stringify({
@@ -160,7 +160,7 @@ describe('dependency installer', () => {
         'add',
         '@hypequery/clickhouse@0.0.0-canary-20260506195711',
         '@hypequery/serve@0.0.0-canary-20260506195711',
-        'zod@^3.23.8',
+        'zod@^4.6.5',
       ],
       expect.objectContaining({
         cwd: '/tmp/project',
@@ -168,7 +168,7 @@ describe('dependency installer', () => {
       })
     );
     expect(logger.success).toHaveBeenCalledWith(
-      'Installed @hypequery/clickhouse@0.0.0-canary-20260506195711, @hypequery/serve@0.0.0-canary-20260506195711, zod@^3.23.8'
+      'Installed @hypequery/clickhouse@0.0.0-canary-20260506195711, @hypequery/serve@0.0.0-canary-20260506195711, zod@^4.6.5'
     );
   });
 
@@ -180,7 +180,7 @@ describe('dependency installer', () => {
         dependencies: {
           '@hypequery/clickhouse': '0.0.0-canary-20260506195711',
           '@hypequery/serve': '0.0.0-canary-20260506195711',
-          zod: '^3.23.8',
+          zod: '^4.6.5',
         },
       }))
       .mockResolvedValueOnce(JSON.stringify({
@@ -216,7 +216,7 @@ describe('dependency installer', () => {
         'add',
         '@hypequery/clickhouse@0.0.0-canary-20260506195711',
         '@hypequery/serve@0.0.0-canary-20260506195711',
-        'zod@^3.23.8',
+        'zod@^4.6.5',
       ],
       expect.any(Object)
     );
@@ -246,7 +246,7 @@ describe('dependency installer', () => {
         '--legacy-peer-deps',
         '@hypequery/clickhouse@0.0.0-canary-20260506195711',
         '@hypequery/serve@0.0.0-canary-20260506195711',
-        'zod@^3.23.8',
+        'zod@^4.6.5',
         'chdb@^3.2.0',
       ],
       expect.objectContaining({ cwd: '/tmp/project', stdio: 'inherit' }),
@@ -273,7 +273,7 @@ describe('dependency installer', () => {
         'install',
         '@hypequery/clickhouse',
         '@hypequery/serve',
-        'zod@^3.23.8',
+        'zod@^4.6.5',
         'chdb@^3.2.0',
       ],
       expect.any(Object),
@@ -343,7 +343,7 @@ describe('dependency installer', () => {
 
     expect(spawnMock).toHaveBeenCalledWith(
       'pnpm',
-      ['add', 'zod@^3.23.8'],
+      ['add', 'zod@^4.6.5'],
       expect.any(Object)
     );
   });

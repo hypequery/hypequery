@@ -7,7 +7,8 @@
 import type { DatasetClient, MetricQuery } from '@hypequery/datasets';
 import { MCPToolError } from '../errors.js';
 import type { DatasetRegistry, MCPToolResponse, QueryToolOptions } from '../types.js';
-import { parseToolArgs, toMetricFilters } from './args.js';
+import type { ZodType } from 'zod';
+import { parseToolArgs, toMetricFilters, type QueryMetricArgs } from './args.js';
 import { buildMCPQuerySchemas } from './utils/canonical-query-schemas.js';
 import { applyQueryLimits } from './utils/query-limits.js';
 import {
@@ -25,7 +26,7 @@ export async function queryMetricTool(
   options: QueryToolOptions = {},
 ): Promise<MCPToolResponse> {
   const inputSchema = options.inputSchema ?? buildMCPQuerySchemas(datasets, options.limits).queryMetric;
-  const validatedArgs = parseToolArgs(inputSchema, 'query_metric', args);
+  const validatedArgs = parseToolArgs(inputSchema as ZodType<QueryMetricArgs>, 'query_metric', args);
   const { dataset: datasetName, metric: metricName, dimensions, filters, segments, grain, timezone, orderBy } = validatedArgs;
 
   if (!datasetName) {

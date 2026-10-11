@@ -56,7 +56,7 @@ const metricResultMetaSchema = z.object({
 }).optional();
 
 const metricResultSchema = z.object({
-  data: z.array(z.record(z.unknown())),
+  data: z.array(z.record(z.string(), z.unknown())),
   meta: metricResultMetaSchema,
 });
 

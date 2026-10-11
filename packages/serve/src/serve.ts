@@ -44,12 +44,12 @@ const resolveContext = async <
   return contextFactory;
 };
 
-const parseMaybe = <T>(schema: { parse: (value: unknown) => T } | undefined, value: unknown): T => {
+const parseMaybe = <T>(schema: { parse: (value: unknown) => unknown } | undefined, value: unknown): T => {
   if (!schema) {
     return value as T;
   }
 
-  return schema.parse(value);
+  return schema.parse(value) as T;
 };
 
 const createStandaloneQuery = <

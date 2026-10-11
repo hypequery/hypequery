@@ -173,9 +173,6 @@ importers:
       zod:
         specifier: ^4.6.5
         version: 4.6.5
-      zod-to-json-schema:
-        specifier: ^3.25.2
-        version: 3.25.2(zod@4.6.5)
     devDependencies:
       '@hypequery/protocol-conformance':
         specifier: workspace:^
@@ -325,9 +322,6 @@ importers:
       zod:
         specifier: ^4.6.5
         version: 4.6.5
-      zod-to-json-schema:
-        specifier: ^3.25.2
-        version: 3.25.2(zod@4.6.5)
     devDependencies:
       '@types/node':
         specifier: ^20.11.30

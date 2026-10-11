@@ -1,7 +1,7 @@
 import type { ZodTypeAny } from "zod";
-import { zodToJsonSchema } from "zod-to-json-schema";
 
 import type { OpenApiDocument, OpenApiOptions, ServeEndpoint } from "./types.js";
+import { zodToOpenApiSchema } from "./utils/zod-json-schema.js";
 
 const ERROR_SCHEMA = {
   type: "object",
@@ -75,26 +75,20 @@ const removeDefinitions = (schema: any): any => {
   return result;
 };
 
-const toJsonSchema = (schema: ZodTypeAny | undefined, name: string) => {
+const toJsonSchema = (schema: ZodTypeAny | undefined, io: "input" | "output") => {
   if (!schema) {
     return { type: "object" };
   }
 
-  const jsonSchema = zodToJsonSchema(schema as any, {
-    target: "openApi3",
-    name,
-    $refStrategy: "none",
-  }) as Record<string, unknown>;
-
-  return removeDefinitions(jsonSchema);
+  return removeDefinitions(zodToOpenApiSchema(schema, io));
 };
 
-const toQueryParameters = (schema: ZodTypeAny | undefined, name: string) => {
+const toQueryParameters = (schema: ZodTypeAny | undefined) => {
   if (!schema) {
     return [] as Array<Record<string, unknown>>;
   }
 
-  const jsonSchema = dereferenceSchema(toJsonSchema(schema, name));
+  const jsonSchema = dereferenceSchema(toJsonSchema(schema, "input"));
 
   if (!jsonSchema || typeof jsonSchema !== "object") {
     return [];
@@ -119,7 +113,7 @@ const toQueryParameters = (schema: ZodTypeAny | undefined, name: string) => {
   }));
 };
 
-const toOperation = (endpoint: ServeEndpoint<any, any, any, any>, nameSuffix: string) => {
+const toOperation = (endpoint: ServeEndpoint<any, any, any, any>) => {
   const operation: Record<string, unknown> = {
     operationId: endpoint.key,
     summary: endpoint.metadata.summary,
@@ -130,7 +124,7 @@ const toOperation = (endpoint: ServeEndpoint<any, any, any, any>, nameSuffix: st
         description: "Successful response",
         content: {
           "application/json": {
-            schema: toJsonSchema(endpoint.outputSchema, `${endpoint.key}${nameSuffix}`),
+            schema: toJsonSchema(endpoint.outputSchema, "output"),
           },
         },
       },
@@ -147,7 +141,7 @@ const toOperation = (endpoint: ServeEndpoint<any, any, any, any>, nameSuffix: st
 
   const queryParameters =
     endpoint.method === "GET"
-      ? toQueryParameters(endpoint.inputSchema, `${endpoint.key}Query`)
+      ? toQueryParameters(endpoint.inputSchema)
       : [];
 
   if (queryParameters.length > 0) {
@@ -157,7 +151,7 @@ const toOperation = (endpoint: ServeEndpoint<any, any, any, any>, nameSuffix: st
       required: true,
       content: {
         "application/json": {
-          schema: toJsonSchema(endpoint.inputSchema, `${endpoint.key}Request`),
+          schema: toJsonSchema(endpoint.inputSchema, "input"),
         },
       },
     };
@@ -221,7 +215,7 @@ export const buildOpenApiDocument = (
     const path = endpoint.metadata.path || "/";
     const method = endpoint.method.toLowerCase();
     const pathItem = (document.paths[path] ??= {});
-    const operation = toOperation(endpoint, "Response");
+    const operation = toOperation(endpoint);
 
     if (endpoint.metadata.requiresAuth) {
       needsSecurityScheme = true;

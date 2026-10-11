@@ -50,8 +50,32 @@ function canonicalValue(input: unknown, path: string): CanonicalValue {
   }
 }
 
+type ZodDefinition = Record<string, any>;
+type ZodCheck = Record<string, any>;
+
+function definitionOf(schema: ZodTypeAny): ZodDefinition {
+  return (schema as any)?._zod?.def ?? {};
+}
+
 function typeName(schema: ZodTypeAny): string {
-  return String((schema as any)?._def?.typeName ?? 'Unknown');
+  return String(definitionOf(schema).type ?? 'unknown');
+}
+
+/**
+ * Zod 4 stores refinements as `custom` checks on the refined schema itself.
+ * A refinement preserves the schema's input and output shape: the rule stays
+ * enforced by Zod but cannot be advertised by ProtocolSchema (for example, a
+ * cross-field selection requirement), so it is skipped here.
+ */
+function portableChecks(schema: ZodTypeAny): ZodCheck[] {
+  const checks = (definitionOf(schema).checks ?? []) as Array<{ _zod: { def: ZodCheck } }>;
+  return checks
+    .map(check => check._zod.def)
+    .filter(check => check.check !== 'custom');
+}
+
+function checkLabel(check: ZodCheck): string {
+  return String(check.format ?? check.check);
 }
 
 function description(schema: ZodTypeAny): string | undefined {
@@ -67,20 +91,20 @@ function annotate(schema: ZodTypeAny, result: Record<string, unknown>): Record<s
 
 function convertString(schema: ZodTypeAny, path: string): Record<string, unknown> {
   const result: Record<string, unknown> = { kind: 'string' };
-  for (const check of (schema as any)._def.checks as Array<Record<string, unknown>>) {
-    switch (check.kind) {
-      case 'min':
-        result.minLength = check.value;
+  for (const check of portableChecks(schema)) {
+    switch (check.check) {
+      case 'min_length':
+        result.minLength = check.minimum;
         break;
-      case 'max':
-        result.maxLength = check.value;
+      case 'max_length':
+        result.maxLength = check.maximum;
         break;
-      case 'length':
-        result.minLength = check.value;
-        result.maxLength = check.value;
+      case 'length_equals':
+        result.minLength = check.length;
+        result.maxLength = check.length;
         break;
       default:
-        throw new ProtocolSchemaAdapterError(`Unsupported Zod string check "${String(check.kind)}"`, path);
+        throw new ProtocolSchemaAdapterError(`Unsupported Zod string check "${checkLabel(check)}"`, path);
     }
   }
   return annotate(schema, result);
@@ -88,21 +112,46 @@ function convertString(schema: ZodTypeAny, path: string): Record<string, unknown
 
 function convertNumber(schema: ZodTypeAny, path: string): Record<string, unknown> {
   const result: Record<string, unknown> = { kind: 'number' };
-  for (const check of (schema as any)._def.checks as Array<Record<string, unknown>>) {
-    switch (check.kind) {
-      case 'int':
+  for (const check of portableChecks(schema)) {
+    switch (check.check) {
+      case 'number_format':
+        if (check.format !== 'safeint') {
+          throw new ProtocolSchemaAdapterError(`Unsupported Zod number check "${checkLabel(check)}"`, path);
+        }
         result.kind = 'integer';
         break;
-      case 'min':
+      case 'greater_than':
         result[check.inclusive === false ? 'exclusiveMinimum' : 'minimum'] = check.value;
         break;
-      case 'max':
+      case 'less_than':
         result[check.inclusive === false ? 'exclusiveMaximum' : 'maximum'] = check.value;
         break;
-      case 'finite':
+      default:
+        throw new ProtocolSchemaAdapterError(`Unsupported Zod number check "${checkLabel(check)}"`, path);
+    }
+  }
+  return annotate(schema, result);
+}
+
+function convertArray(schema: ZodTypeAny, definition: ZodDefinition, path: string): Record<string, unknown> {
+  const result: Record<string, unknown> = {
+    kind: 'array',
+    items: convert(definition.element, `${path}.items`),
+  };
+  for (const check of portableChecks(schema)) {
+    switch (check.check) {
+      case 'min_length':
+        result.minItems = check.minimum;
+        break;
+      case 'max_length':
+        result.maxItems = check.maximum;
+        break;
+      case 'length_equals':
+        result.minItems = check.length;
+        result.maxItems = check.length;
         break;
       default:
-        throw new ProtocolSchemaAdapterError(`Unsupported Zod number check "${String(check.kind)}"`, path);
+        throw new ProtocolSchemaAdapterError(`Unsupported Zod array check "${checkLabel(check)}"`, path);
     }
   }
   return annotate(schema, result);
@@ -110,74 +159,78 @@ function convertNumber(schema: ZodTypeAny, path: string): Record<string, unknown
 
 function isOptionalProperty(schema: ZodTypeAny): boolean {
   const name = typeName(schema);
-  return name === 'ZodOptional' || name === 'ZodDefault';
-}
-
-function nativeEnumValues(input: Record<string, string | number>): readonly (string | number)[] {
-  const values = Object.keys(input)
-    .filter(key => typeof input[String(input[key])] !== 'number')
-    .map(key => input[key]);
-  return [...new Set(values)];
+  return name === 'optional' || name === 'default';
 }
 
 function isUnconstrainedRecordKey(schema: ZodTypeAny | undefined): boolean {
-  if (schema === undefined || typeName(schema) !== 'ZodString') return false;
-  const definition = (schema as any)._def as Record<string, unknown>;
-  return Array.isArray(definition.checks)
-    && definition.checks.length === 0
-    && definition.coerce !== true;
+  if (schema === undefined || typeName(schema) !== 'string') return false;
+  const definition = definitionOf(schema);
+  return portableChecks(schema).length === 0 && definition.coerce !== true;
+}
+
+function unknownPropertiesPolicy(catchall: ZodTypeAny | undefined, path: string): string {
+  if (catchall === undefined) return 'strip';
+  switch (typeName(catchall)) {
+    case 'never':
+      return 'reject';
+    case 'unknown':
+      return 'preserve';
+    default:
+      throw new ProtocolSchemaAdapterError('Unsupported Zod object catchall', path);
+  }
+}
+
+function pipeEffect(definition: ZodDefinition): string {
+  if (typeName(definition.in) === 'transform') return 'preprocess';
+  if (typeName(definition.out) === 'transform') return 'transform';
+  return 'pipe';
 }
 
 function convert(schema: ZodTypeAny, path: string): Record<string, unknown> {
-  const definition = (schema as any)._def as Record<string, any>;
+  const definition = definitionOf(schema);
   switch (typeName(schema)) {
-    case 'ZodAny':
-    case 'ZodUnknown':
+    case 'any':
+    case 'unknown':
       return annotate(schema, { kind: 'any' });
-    case 'ZodNever':
-    case 'ZodVoid':
-    case 'ZodUndefined':
+    case 'never':
+    case 'void':
+    case 'undefined':
       return annotate(schema, { kind: 'void' });
-    case 'ZodNull':
+    case 'null':
       return annotate(schema, { kind: 'null' });
-    case 'ZodBoolean':
+    case 'boolean':
       return annotate(schema, { kind: 'boolean' });
-    case 'ZodString':
+    case 'string':
       return convertString(schema, path);
-    case 'ZodNumber':
+    case 'number':
       return convertNumber(schema, path);
-    case 'ZodLiteral':
+    case 'literal': {
+      const values = definition.values as unknown[];
+      if (values.length === 1) {
+        return annotate(schema, {
+          kind: 'literal',
+          value: canonicalValue(values[0], `${path}.value`),
+        });
+      }
       return annotate(schema, {
-        kind: 'literal',
-        value: canonicalValue(definition.value, `${path}.value`),
+        kind: 'union',
+        variants: values.map((value, index) => ({
+          kind: 'literal',
+          value: canonicalValue(value, `${path}.variants[${index}].value`),
+        })),
       });
-    case 'ZodEnum':
+    }
+    case 'enum':
+      // `options` drops the reverse mappings TypeScript adds to numeric enums.
       return annotate(schema, {
         kind: 'enum',
-        values: [...definition.values],
+        values: [...new Set((schema as any).options as (string | number)[])],
       });
-    case 'ZodNativeEnum': {
-      const values = nativeEnumValues(definition.values);
-      return annotate(schema, { kind: 'enum', values });
-    }
-    case 'ZodArray': {
-      const result: Record<string, unknown> = {
-        kind: 'array',
-        items: convert(definition.type, `${path}.items`),
-      };
-      if (definition.minLength?.value !== undefined) result.minItems = definition.minLength.value;
-      if (definition.maxLength?.value !== undefined) result.maxItems = definition.maxLength.value;
-      if (definition.exactLength?.value !== undefined) {
-        result.minItems = definition.exactLength.value;
-        result.maxItems = definition.exactLength.value;
-      }
-      return annotate(schema, result);
-    }
-    case 'ZodObject': {
-      if (typeName(definition.catchall) !== 'ZodNever') {
-        throw new ProtocolSchemaAdapterError('Unsupported Zod object catchall', path);
-      }
-      const shape = definition.shape() as Record<string, ZodTypeAny>;
+    case 'array':
+      return convertArray(schema, definition, path);
+    case 'object': {
+      const unknownProperties = unknownPropertiesPolicy(definition.catchall, path);
+      const shape = definition.shape as Record<string, ZodTypeAny>;
       const properties = Object.fromEntries(
         Object.entries(shape).map(([name, property]) => [
           name,
@@ -187,11 +240,6 @@ function convert(schema: ZodTypeAny, path: string): Record<string, unknown> {
       const required = Object.entries(shape)
         .filter(([, property]) => !isOptionalProperty(property))
         .map(([name]) => name);
-      const unknownProperties = definition.unknownKeys === 'passthrough'
-        ? 'preserve'
-        : definition.unknownKeys === 'strict'
-          ? 'reject'
-          : 'strip';
       return annotate(schema, {
         kind: 'object',
         properties,
@@ -199,7 +247,7 @@ function convert(schema: ZodTypeAny, path: string): Record<string, unknown> {
         unknownProperties,
       });
     }
-    case 'ZodRecord':
+    case 'record':
       if (!isUnconstrainedRecordKey(definition.keyType)) {
         throw new ProtocolSchemaAdapterError('Unsupported constrained Zod record key', path);
       }
@@ -207,58 +255,41 @@ function convert(schema: ZodTypeAny, path: string): Record<string, unknown> {
         kind: 'record',
         values: convert(definition.valueType, `${path}.values`),
       });
-    case 'ZodUnion':
-      return annotate(schema, {
-        kind: 'union',
-        variants: definition.options.map((option: ZodTypeAny, index: number) =>
-          convert(option, `${path}.variants[${index}]`)),
-      });
-    case 'ZodDiscriminatedUnion':
-      // RFC 0004 has no separate discriminator index. Converting every option
-      // drops only Zod's lookup metadata; each object's literal discriminator
+    case 'union':
+      // Discriminated unions are plain unions in Zod 4. RFC 0004 has no
+      // separate discriminator index; each object's literal discriminator
       // property remains part of its protocol variant.
       return annotate(schema, {
         kind: 'union',
-        variants: [...definition.options.values()].map((option: ZodTypeAny, index: number) =>
+        variants: (definition.options as ZodTypeAny[]).map((option, index) =>
           convert(option, `${path}.variants[${index}]`)),
       });
-    case 'ZodNullable':
+    case 'nullable':
       return annotate(schema, {
         kind: 'union',
         variants: [convert(definition.innerType, `${path}.variants[0]`), { kind: 'null' }],
       });
-    case 'ZodOptional':
+    case 'optional':
+    case 'readonly':
       return annotate(schema, convert(definition.innerType, path));
-    case 'ZodDefault': {
+    case 'default': {
       const inner = convert(definition.innerType, path);
       if (inner.kind === 'void') {
         throw new ProtocolSchemaAdapterError('Void schemas cannot carry defaults', path);
       }
       return annotate(schema, {
         ...inner,
-        default: canonicalValue(definition.defaultValue(), `${path}.default`),
+        default: canonicalValue(definition.defaultValue, `${path}.default`),
       });
     }
-    case 'ZodBranded':
-      return annotate(schema, convert(definition.type, path));
-    case 'ZodReadonly':
-      return annotate(schema, convert(definition.innerType, path));
-    case 'ZodEffects': {
-      const effectType = String(definition.effect?.type ?? 'unknown');
-      if (effectType !== 'refinement') {
-        throw new ProtocolSchemaAdapterError(`Unsupported Zod effect "${effectType}"`, path);
-      }
-      // A refinement preserves the wrapped schema's input and output shape.
-      // The rule itself remains enforced by Zod, but cannot be advertised by
-      // ProtocolSchema (for example, a cross-field selection requirement).
-      return annotate(schema, convert(definition.schema, path));
-    }
+    case 'pipe':
+      throw new ProtocolSchemaAdapterError(`Unsupported Zod effect "${pipeEffect(definition)}"`, path);
     default:
       throw new ProtocolSchemaAdapterError(`Unsupported Zod type "${typeName(schema)}"`, path);
   }
 }
 
-/** Converts the portable subset of a Zod v3 schema into RFC 0004. */
+/** Converts the portable subset of a Zod 4 schema into RFC 0004. */
 export function zodToProtocolSchema(
   schema: ZodTypeAny | undefined,
   path = '$',

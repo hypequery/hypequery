@@ -57,7 +57,7 @@ const datasetResultMetaSchema = z.object({
 }).optional();
 
 const datasetResultSchema = z.object({
-  data: z.array(z.record(z.unknown())),
+  data: z.array(z.record(z.string(), z.unknown())),
   meta: datasetResultMetaSchema,
 });
 

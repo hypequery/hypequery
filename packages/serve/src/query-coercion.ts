@@ -15,38 +15,34 @@ import type { ZodTypeAny } from "zod";
  * left alone.
  */
 
-type ZodDefLike = { typeName?: string; [key: string]: unknown };
+type ZodDefLike = { type?: string; [key: string]: unknown };
 
 const defOf = (schema: unknown): ZodDefLike | undefined =>
-  (schema as { _def?: ZodDefLike } | undefined)?._def;
+  (schema as { _zod?: { def?: ZodDefLike } } | undefined)?._zod?.def;
 
-const typeNameOf = (schema: unknown): string | undefined => defOf(schema)?.typeName;
+const typeNameOf = (schema: unknown): string | undefined => defOf(schema)?.type;
 
 /**
  * Strips wrappers that do not change what a query value should be coerced to.
- * `ZodPipeline` unwraps to its input side, since that is what validation
- * receives. Preprocess effects stay wrapped so their callback sees the raw wire
- * value as declared by the schema.
+ * A pipe unwraps to its input side, since that is what validation receives —
+ * this covers `.transform()` and `.pipe()`. Preprocessors (a pipe whose input
+ * is a transform) stay wrapped so their callback sees the raw wire value as
+ * declared by the schema. Refinements and brands are not wrappers in Zod 4.
  */
 function unwrap(schema: unknown, depth = 0): unknown {
   if (!schema || depth > 10) return schema;
 
   const def = defOf(schema);
-  switch (def?.typeName) {
-    case "ZodOptional":
-    case "ZodNullable":
-    case "ZodDefault":
-    case "ZodCatch":
-    case "ZodReadonly":
+  switch (def?.type) {
+    case "optional":
+    case "nullable":
+    case "default":
+    case "prefault":
+    case "catch":
+    case "readonly":
       return unwrap(def.innerType, depth + 1);
-    case "ZodBranded":
-      return unwrap(def.type, depth + 1);
-    case "ZodEffects": {
-      const effect = def.effect as { type?: unknown } | undefined;
-      if (effect?.type === "preprocess") return schema;
-      return unwrap(def.schema, depth + 1);
-    }
-    case "ZodPipeline":
+    case "pipe":
+      if (typeNameOf(def.in) === "transform") return schema;
       return unwrap(def.in, depth + 1);
     default:
       return schema;
@@ -55,12 +51,12 @@ function unwrap(schema: unknown, depth = 0): unknown {
 
 function coerceScalar(target: unknown, value: string): unknown {
   switch (typeNameOf(target)) {
-    case "ZodNumber": {
+    case "number": {
       if (value.trim() === "") return value;
       const parsed = Number(value);
       return Number.isFinite(parsed) ? parsed : value;
     }
-    case "ZodBigInt": {
+    case "bigint": {
       if (value.trim() === "") return value;
       try {
         return BigInt(value);
@@ -68,13 +64,13 @@ function coerceScalar(target: unknown, value: string): unknown {
         return value;
       }
     }
-    case "ZodBoolean": {
+    case "boolean": {
       const normalized = value.trim().toLowerCase();
       if (normalized === "true" || normalized === "1") return true;
       if (normalized === "false" || normalized === "0") return false;
       return value;
     }
-    case "ZodDate": {
+    case "date": {
       const parsed = new Date(value);
       return Number.isNaN(parsed.getTime()) ? value : parsed;
     }
@@ -88,8 +84,8 @@ function coerceScalar(target: unknown, value: string): unknown {
 function coerceValue(target: unknown, value: unknown): unknown {
   const unwrapped = unwrap(target);
 
-  if (typeNameOf(unwrapped) === "ZodArray") {
-    const element = (defOf(unwrapped)?.type ?? undefined) as ZodTypeAny | undefined;
+  if (typeNameOf(unwrapped) === "array") {
+    const element = (defOf(unwrapped)?.element ?? undefined) as ZodTypeAny | undefined;
     // A key that appears once arrives as a scalar, but the schema wants a list.
     const items = Array.isArray(value) ? value : [value];
     return items.map((item) => coerceValue(element, item));
@@ -115,15 +111,12 @@ export function coerceQueryInput(schema: ZodTypeAny | undefined, raw: unknown): 
 
   try {
     const objectSchema = unwrap(schema);
-    if (typeNameOf(objectSchema) !== "ZodObject") return raw;
+    if (typeNameOf(objectSchema) !== "object") return raw;
 
     const objectDef = defOf(objectSchema);
-    const shapeFactory = objectDef?.shape;
-    const shape = (typeof shapeFactory === "function" ? shapeFactory() : shapeFactory) as
-      | Record<string, ZodTypeAny>
-      | undefined;
+    const shape = objectDef?.shape as Record<string, ZodTypeAny> | undefined;
     if (!shape) return raw;
-    const catchall = typeNameOf(objectDef?.catchall) === "ZodNever"
+    const catchall = typeNameOf(objectDef?.catchall) === "never"
       ? undefined
       : objectDef?.catchall as ZodTypeAny | undefined;
 

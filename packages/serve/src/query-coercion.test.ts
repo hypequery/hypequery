@@ -121,7 +121,7 @@ describe("coerceQueryInput", () => {
       expect((result as { error: z.ZodError }).error.issues[0]).toMatchObject({
         code: "invalid_type",
         expected: "bigint",
-        received: "string",
+        message: expect.stringContaining("received string"),
         path: ["id"],
       });
     }
@@ -165,7 +165,7 @@ describe("coerceQueryInput", () => {
     expect((result as { error: z.ZodError }).error.issues[0]).toMatchObject({
       code: "invalid_type",
       expected: "number",
-      received: "string",
+      message: expect.stringContaining("received string"),
       path: ["limit"],
     });
   });

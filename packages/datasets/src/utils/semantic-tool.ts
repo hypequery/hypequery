@@ -18,7 +18,7 @@ export function parseCanonicalToolInput(
     }).join('; ');
     throw new Error(`Invalid ${label}: ${issues}`);
   }
-  return result.data;
+  return result.data as Record<string, unknown>;
 }
 
 export function redactSemanticToolSql(result: unknown, includeSql: boolean): unknown {

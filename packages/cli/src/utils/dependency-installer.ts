@@ -5,7 +5,7 @@ import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { logger } from './logger.js';
 
-const ZOD_SCAFFOLD_VERSION = '^3.23.8';
+const ZOD_SCAFFOLD_VERSION = '^4.6.5';
 // chdb/hypequery (the embedded adapter subpath) ships from chdb 3.2.0.
 const CHDB_SCAFFOLD_VERSION = '^3.2.0';
 const STABLE_SCAFFOLD_PACKAGES = ['@hypequery/clickhouse', '@hypequery/serve', `zod@${ZOD_SCAFFOLD_VERSION}`] as const;

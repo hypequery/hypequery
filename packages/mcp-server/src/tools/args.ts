@@ -49,6 +49,13 @@ export const queryDatasetArgsSchema = baseQuerySchema.extend({
   measures: z.array(z.string().min(1)).max(MAX_QUERY_MEASURES).optional(),
 });
 
+/**
+ * Parsed tool arguments. Per-dataset canonical schemas narrow these base
+ * schemas (exact field enums, per-field operators), so their output fits.
+ */
+export type QueryMetricArgs = z.output<typeof queryMetricArgsSchema>;
+export type QueryDatasetArgs = z.output<typeof queryDatasetArgsSchema>;
+
 function formatZodError(error: z.ZodError): string {
   return error.issues
     .map(issue => {

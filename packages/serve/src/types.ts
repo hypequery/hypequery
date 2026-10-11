@@ -708,14 +708,21 @@ type InferKnownStringKeys<T> = [KnownStringKeys<T>] extends [never]
   ? Extract<keyof T, string>
   : KnownStringKeys<T>;
 
+/**
+ * A schema whose accepted input and parsed output are the same type. Zod 4's
+ * `ZodType<T>` leaves the input side `unknown`, which would erase the request
+ * types that `SchemaInput` reads for semantic endpoints.
+ */
+type ZodTypeOf<T> = ZodType<T, T>;
+
 export type SemanticMetricEndpointMap<
   TMetrics extends MetricsConfig<TAuth>,
   TContext extends Record<string, unknown>,
   TAuth extends AuthContext,
 > = {
   [TKey in keyof TMetrics & string]: ServeEndpoint<
-    ZodType<MetricQueryFor<MetricDatasetOfEntry<TMetrics[TKey]>, MetricNameOfEntry<TMetrics[TKey]>>>,
-    ZodType<MetricResultFor<MetricDatasetOfEntry<TMetrics[TKey]>, MetricNameOfEntry<TMetrics[TKey]>>>,
+    ZodTypeOf<MetricQueryFor<MetricDatasetOfEntry<TMetrics[TKey]>, MetricNameOfEntry<TMetrics[TKey]>>>,
+    ZodTypeOf<MetricResultFor<MetricDatasetOfEntry<TMetrics[TKey]>, MetricNameOfEntry<TMetrics[TKey]>>>,
     TContext,
     TAuth,
     MetricResultFor<MetricDatasetOfEntry<TMetrics[TKey]>, MetricNameOfEntry<TMetrics[TKey]>>
@@ -728,8 +735,8 @@ export type SemanticDatasetEndpointMap<
   TAuth extends AuthContext,
 > = {
   [TKey in keyof TDatasets & string as `dataset:${TKey}`]: ServeEndpoint<
-    ZodType<DatasetQueryFor<DatasetInstanceOfEntry<TDatasets[TKey]>>>,
-    ZodType<DatasetQueryResultFor<DatasetInstanceOfEntry<TDatasets[TKey]>>>,
+    ZodTypeOf<DatasetQueryFor<DatasetInstanceOfEntry<TDatasets[TKey]>>>,
+    ZodTypeOf<DatasetQueryResultFor<DatasetInstanceOfEntry<TDatasets[TKey]>>>,
     TContext,
     TAuth,
     DatasetQueryResultFor<DatasetInstanceOfEntry<TDatasets[TKey]>>

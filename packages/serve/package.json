@@ -46,7 +46,6 @@
     "jose": "^5.9.6",
     "openapi-typescript": "^7.13.0",
     "zod": "^4.6.5",
-    "zod-to-json-schema": "^3.25.2",
     "@hypequery/datasets": "^0.22.0"
   },
   "peerDependencies": {
