@@ -5,6 +5,7 @@ import { readServeMcpSource, tenantScopedDatasets, type ServeMcpSource } from '.
 import path from 'node:path';
 import { findApiFileForPath, findQueriesFile } from '../utils/find-files.js';
 import { loadApiModule } from '../utils/load-api.js';
+import { importFromProject } from '../utils/project-root.js';
 import { logger } from '../utils/logger.js';
 import { MCP_API_KEY_VARIABLE } from '../utils/hosted-endpoints.js';
 import { checkRemoteMcp, type RemoteMcpCheck } from '../utils/mcp-remote-check.js';
@@ -150,7 +151,7 @@ export async function mcpCommand(
       // Serving needs the optional `@hypequery/mcp` peer. Without this check
       // the self-test passed and the real command then failed on import.
       try {
-        await (dependencies.loadMcp ?? (() => import('@hypequery/mcp')))();
+        await (dependencies.loadMcp ?? (() => loadMcpPackage(entrypoint)))();
       } catch {
         fail('@hypequery/mcp is not installed, so this project cannot be served over MCP.', [
           'npm install @hypequery/mcp',
@@ -166,7 +167,7 @@ export async function mcpCommand(
       return;
     }
 
-    const start = dependencies.start ?? ((config) => defaultStart(config, telemetry));
+    const start = dependencies.start ?? ((config) => defaultStart(entrypoint, config, telemetry));
     await runMcpUntilSignal(async () => {
       const server = await start({
         datasets,
@@ -183,14 +184,27 @@ export async function mcpCommand(
   }
 }
 
-async function defaultStart(config: {
+type McpPackage = typeof import('@hypequery/mcp');
+
+/**
+ * Prefers the project's own `@hypequery/mcp`, so `npx -y @hypequery/cli mcp`
+ * run from another directory still finds the optional peer.
+ */
+function loadMcpPackage(entrypoint: string): Promise<McpPackage> {
+  return importFromProject<McpPackage>('@hypequery/mcp', entrypoint, () => import('@hypequery/mcp'));
+}
+
+async function defaultStart(entrypoint: string, config: {
   datasets: Record<string, unknown>;
   analytics: unknown;
   tenantId?: string;
 }, telemetry: McpSession): Promise<CloseableMcpServer> {
   // Imported lazily so `--self-test` and the argument errors above do not pay
   // for the MCP SDK, and so the CLI still loads when it is not installed.
-  const { createMCPExecutor, createMCPProtocolServer, connectMCPServerStdio } = await import('@hypequery/mcp');
+  // The project's own copy, so a client launching from another directory
+  // still finds the optional peer; the executor stays telemetry-instrumented.
+  const { createMCPExecutor, createMCPProtocolServer, connectMCPServerStdio } =
+    await loadMcpPackage(entrypoint);
   const executor = createMCPExecutor(config as Parameters<typeof createMCPExecutor>[0]);
   const server = createMCPProtocolServer({ executor: telemetry.instrument(executor) });
   try { await connectMCPServerStdio(server); }
