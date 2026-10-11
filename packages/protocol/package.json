@@ -37,6 +37,7 @@
     "types": "tsc --project tsconfig.json --noEmit && tsc --project tsconfig.test.json"
   },
   "devDependencies": {
+    "@types/node": "^22.5.0",
     "typescript": "^6.0.3",
     "vitest": "^5.0.2"
   },

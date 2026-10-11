@@ -92,9 +92,8 @@ describe('generateDatasets', () => {
           strict: true,
           skipLibCheck: true,
           noEmit: true,
-          baseUrl: repoRoot,
           paths: {
-            '@hypequery/datasets': ['packages/datasets/src/index.ts'],
+            '@hypequery/datasets': [path.join(repoRoot, 'packages/datasets/src/index.ts')],
           },
         },
         include: [outputPath],
