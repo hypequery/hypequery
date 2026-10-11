@@ -31,7 +31,7 @@ expect_compile_failure() {
   local label="$3"
   local log="$WORKDIR/${file%.ts}.log"
 
-  if "$TSC" --target ES2022 --module NodeNext --moduleResolution NodeNext --strict --skipLibCheck --noEmit "$file" >"$log" 2>&1; then
+  if "$TSC" --ignoreConfig --target ES2022 --module NodeNext --moduleResolution NodeNext --strict --skipLibCheck --noEmit "$file" >"$log" 2>&1; then
     cat "$log"
     echo "Expected $label to fail, but it compiled."
     exit 1
