@@ -474,6 +474,9 @@ export class DatasetClientImpl extends MetricQueryEngine implements DatasetClien
         if (hasSelectedDerivedMeasure(ds, boundedQuery)) {
           throw new Error('Derived dataset measures require the queryBuilder execution path.');
         }
+        if (boundedQuery.having?.length) {
+          throw new Error('Dataset having conditions require the queryBuilder execution path.');
+        }
         return (this.backend.execute<TRow>(
           this.planDataset(ds, boundedQuery, context),
           { abortSignal: context?.abortSignal },

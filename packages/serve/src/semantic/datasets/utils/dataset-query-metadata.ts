@@ -15,6 +15,7 @@ export function buildDatasetQueryDescription(
     `**Dimensions:** ${dimensionNames.join(', ') || 'none'}`,
     `**Measures:** ${measureNames.join(', ') || 'none'}`,
     `**Filters:** ${filterNames.join(', ') || 'none'}`,
+    '**Having:** conditions on selected measures, e.g. `{ "measure": "revenue", "operator": "gt", "value": 1000 }`',
     `**Time grains:** ${catalog.supportedGrains.join(', ') || 'none'}`,
     `**Relationships:** ${relationshipNames.join(', ') || 'none'}`,
     `**Tenant scoped:** ${catalog.requiresTenant ? 'yes' : 'no'}`,

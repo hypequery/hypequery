@@ -78,6 +78,8 @@ export function createDatasetEndpoint<TAuth extends AuthContext>(
   // this dataset's contract, so OpenAPI/docs and clients see the valid fields.
   const datasetQueryInputSchema = buildDatasetInputSchema(ds, {
     includeMeta: true,
+    // Serve executes through the dataset client, which applies conditions.
+    having: true,
     requireSelection: false,
     enforceResultLimit: false,
     maxOffset: undefined,
@@ -115,6 +117,7 @@ export function createDatasetEndpoint<TAuth extends AuthContext>(
       dimensions: input.dimensions,
       measures: input.measures,
       filters: input.filters,
+      having: input.having,
       segments: input.segments,
       orderBy: input.orderBy,
       limit: Math.min(input.limit ?? effectiveMaxLimit, effectiveMaxLimit),

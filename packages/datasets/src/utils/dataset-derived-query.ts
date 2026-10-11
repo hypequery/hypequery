@@ -8,6 +8,7 @@ import type { QueryBuilderLike } from '../query-builder-protocol.js';
 import { resolveDatasetSqlDialect } from './dataset-sql-dialect.js';
 import { validateDatasetQueryInput } from './dataset-query-validation.js';
 import type { DatasetQueryExecutionOptions } from '../dataset-query.js';
+import { datasetHavingSql } from './dataset-having.js';
 
 type BuildBaseQuery = (
   dataset: AnyDatasetInstance,
@@ -17,6 +18,14 @@ type BuildBaseQuery = (
 
 export function hasSelectedDerivedMeasure(ds: AnyDatasetInstance, query: DatasetQuery): boolean {
   return (query.measures ?? []).some(name => getDerivedMeasure(ds.measures, name) !== undefined);
+}
+
+/**
+ * True when the query needs an outer query over the grouped result: derived
+ * measures are computed there, and `having` conditions filter there.
+ */
+export function needsOuterDatasetQuery(ds: AnyDatasetInstance, query: DatasetQuery): boolean {
+  return hasSelectedDerivedMeasure(ds, query) || (query.having?.length ?? 0) > 0;
 }
 
 export function buildDerivedDatasetSql(
@@ -40,6 +49,7 @@ export function buildDerivedDatasetSql(
   const inner = buildBaseQuery(ds, {
     ...query,
     measures: [...baseMeasures],
+    having: undefined,
     orderBy: undefined,
     limit: undefined,
     offset: undefined,
@@ -56,6 +66,14 @@ export function buildDerivedDatasetSql(
       : dialect.quoteIdentifier(name));
   }
   let sql = `WITH base AS (${innerSql}) SELECT ${projections.join(', ')} FROM base`;
+
+  // Conditions read the same expression the projection does, never the output
+  // alias, so the predicate stays valid on dialects without alias resolution.
+  if (query.having?.length) {
+    const having = datasetHavingSql(query.having, resolve);
+    sql += ` WHERE ${having.sql}`;
+    parameters.push(...having.parameters);
+  }
 
   if (query.orderBy?.length) {
     sql += ` ORDER BY ${query.orderBy.map(order => (
