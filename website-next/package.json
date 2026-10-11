@@ -6,7 +6,10 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "telemetry:schema": "tsx scripts/telemetry-schema.mjs",
+    "telemetry:schema:check": "tsx scripts/telemetry-schema.mjs --check",
+    "test": "npm run telemetry:schema:check && tsx --test src/lib/telemetry/*.test.ts"
   },
   "dependencies": {
     "@radix-ui/react-popover": "^1.2.0",
@@ -43,6 +46,7 @@
     "rehype-slug": "^6.0.0",
     "remark-gfm": "^4.0.1",
     "tailwindcss": "^4",
+    "tsx": "^4.23.15",
     "typescript": "^5",
     "vercel": "^62.0.0"
   },

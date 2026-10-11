@@ -1,0 +1,133 @@
+{
+  "api_key": "hypequery-cli",
+  "batch": [
+    {
+      "event": "cli_session_started",
+      "distinct_id": "9744eadc-2bf1-46d9-a166-1a538e3ddcce",
+      "properties": {
+        "schema_version": 1,
+        "cli_version": "0.0.0-canary-20261011144755",
+        "node_version": "22.22",
+        "os": "darwin",
+        "arch": "arm64",
+        "is_ci": false,
+        "ci_name": "none",
+        "is_tty": false,
+        "is_docker": false,
+        "is_wsl": false,
+        "package_manager": "unknown",
+        "invoked_via": "local_bin",
+        "hypequery_packages": {
+          "@hypequery/clickhouse": "0.0.0-canary-20261011144755",
+          "@hypequery/datasets": "0.0.0-canary-20261011144755",
+          "@hypequery/serve": "0.0.0-canary-20261011144755",
+          "@hypequery/react": "0.0.0-canary-20261011144755",
+          "@hypequery/cli": "0.0.0-canary-20261011144755",
+          "@hypequery/mcp": "0.0.0-canary-20261011144755",
+          "@hypequery/protocol": "0.0.0-canary-20261011144755",
+          "@hypequery/protocol-conformance": "0.0.0-canary-20261011144755",
+          "@hypequery/deployment": "0.0.0-canary-20261011144755"
+        },
+        "database": "unknown",
+        "install_id": "9744eadc-2bf1-46d9-a166-1a538e3ddcce",
+        "session_id": "79b6e48c-1ab7-4524-9b99-25cf7d4dd304",
+        "is_first_run": false,
+        "entry_type": "explicit_file",
+        "watch": true,
+        "cache_provider": "unknown",
+        "cors": false,
+        "open": false,
+        "custom_port": true,
+        "quiet": false,
+        "command": "dev",
+        "$process_person_profile": false,
+        "$geoip_disable": true
+      },
+      "timestamp": "2026-10-11T14:58:01.057Z"
+    },
+    {
+      "event": "cli_session_ended",
+      "distinct_id": "9744eadc-2bf1-46d9-a166-1a538e3ddcce",
+      "properties": {
+        "schema_version": 1,
+        "cli_version": "0.0.0-canary-20261011144755",
+        "node_version": "22.22",
+        "os": "darwin",
+        "arch": "arm64",
+        "is_ci": false,
+        "ci_name": "none",
+        "is_tty": false,
+        "is_docker": false,
+        "is_wsl": false,
+        "package_manager": "unknown",
+        "invoked_via": "local_bin",
+        "hypequery_packages": {
+          "@hypequery/clickhouse": "0.0.0-canary-20261011144755",
+          "@hypequery/datasets": "0.0.0-canary-20261011144755",
+          "@hypequery/serve": "0.0.0-canary-20261011144755",
+          "@hypequery/react": "0.0.0-canary-20261011144755",
+          "@hypequery/cli": "0.0.0-canary-20261011144755",
+          "@hypequery/mcp": "0.0.0-canary-20261011144755",
+          "@hypequery/protocol": "0.0.0-canary-20261011144755",
+          "@hypequery/protocol-conformance": "0.0.0-canary-20261011144755",
+          "@hypequery/deployment": "0.0.0-canary-20261011144755"
+        },
+        "database": "unknown",
+        "install_id": "9744eadc-2bf1-46d9-a166-1a538e3ddcce",
+        "session_id": "79b6e48c-1ab7-4524-9b99-25cf7d4dd304",
+        "is_first_run": false,
+        "reload_count_bucket": "1",
+        "reload_error_count_bucket": "0",
+        "load_failures": {},
+        "command": "dev",
+        "outcome": "interrupted",
+        "duration_bucket": "1s-10s",
+        "$process_person_profile": false,
+        "$geoip_disable": true
+      },
+      "timestamp": "2026-10-11T14:58:06.482Z"
+    },
+    {
+      "event": "cli_command_completed",
+      "distinct_id": "9744eadc-2bf1-46d9-a166-1a538e3ddcce",
+      "properties": {
+        "schema_version": 1,
+        "cli_version": "0.0.0-canary-20261011144755",
+        "node_version": "22.22",
+        "os": "darwin",
+        "arch": "arm64",
+        "is_ci": false,
+        "ci_name": "none",
+        "is_tty": false,
+        "is_docker": false,
+        "is_wsl": false,
+        "package_manager": "unknown",
+        "invoked_via": "local_bin",
+        "hypequery_packages": {
+          "@hypequery/clickhouse": "0.0.0-canary-20261011144755",
+          "@hypequery/datasets": "0.0.0-canary-20261011144755",
+          "@hypequery/serve": "0.0.0-canary-20261011144755",
+          "@hypequery/react": "0.0.0-canary-20261011144755",
+          "@hypequery/cli": "0.0.0-canary-20261011144755",
+          "@hypequery/mcp": "0.0.0-canary-20261011144755",
+          "@hypequery/protocol": "0.0.0-canary-20261011144755",
+          "@hypequery/protocol-conformance": "0.0.0-canary-20261011144755",
+          "@hypequery/deployment": "0.0.0-canary-20261011144755"
+        },
+        "database": "unknown",
+        "install_id": "9744eadc-2bf1-46d9-a166-1a538e3ddcce",
+        "session_id": "79b6e48c-1ab7-4524-9b99-25cf7d4dd304",
+        "is_first_run": false,
+        "command": "dev",
+        "flags_used": [
+          "--port"
+        ],
+        "outcome": "interrupted",
+        "duration_bucket": "1s-10s",
+        "$process_person_profile": false,
+        "$geoip_disable": true
+      },
+      "timestamp": "2026-10-11T14:58:06.483Z"
+    }
+  ]
+}
