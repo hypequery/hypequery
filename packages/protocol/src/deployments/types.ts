@@ -97,6 +97,8 @@ export interface ProtocolDatasetRelationship {
   readonly target: ProtocolIdentifier;
   readonly from: ProtocolQualifiedIdentifier;
   readonly to: ProtocolQualifiedIdentifier;
+  /** Full equality key; from/to mirror the first pair for compatibility. */
+  readonly keys?: readonly { readonly from: ProtocolQualifiedIdentifier; readonly to: ProtocolQualifiedIdentifier }[];
   readonly queryable: boolean;
 }
 

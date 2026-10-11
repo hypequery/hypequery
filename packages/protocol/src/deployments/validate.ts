@@ -452,9 +452,10 @@ function validateFilter(
 function validateRelationship(
   input: unknown,
   path: string,
+  limits: Readonly<ProtocolDeploymentLimits>,
 ): ProtocolDatasetRelationship {
   const value = requireRecord(input, path);
-  exactFields(value, ['name', 'kind', 'target', 'from', 'to', 'queryable'], [], path);
+  exactFields(value, ['name', 'kind', 'target', 'from', 'to', 'queryable'], ['keys'], path);
   if (!['belongsTo', 'hasMany', 'hasOne'].includes(value.kind as string)) {
     deploymentError('HQ_DEPLOYMENT_INVALID_VALUE', `${path}.kind`);
   }
@@ -462,12 +463,31 @@ function validateRelationship(
   if ((value.kind === 'hasMany') === value.queryable) {
     deploymentError('HQ_DEPLOYMENT_INVALID_VALUE', `${path}.queryable`);
   }
+  // Composite keys are physical columns; keep legacy identifier grammar unchanged.
+  const from = identifier(value.from, `${path}.from`, value.keys === undefined);
+  const to = identifier(value.to, `${path}.to`, value.keys === undefined);
+  const keys = value.keys === undefined ? undefined : requireArray(value.keys, `${path}.keys`, limits.maxDatasetItems)
+    .map((input, index) => {
+      const keyPath = `${path}.keys[${index}]`;
+      const key = requireRecord(input, keyPath);
+      exactFields(key, ['from', 'to'], [], keyPath);
+      return freezeRecord({ from: identifier(key.from, `${keyPath}.from`), to: identifier(key.to, `${keyPath}.to`) });
+    });
+  // `keys` is only for composite relationships: a single pair uses from/to.
+  if (keys && (
+    keys.length < 2 || keys[0].from !== from || keys[0].to !== to
+    || new Set(keys.map(key => key.from)).size !== keys.length
+    || new Set(keys.map(key => key.to)).size !== keys.length
+  )) {
+    deploymentError('HQ_DEPLOYMENT_INVALID_VALUE', `${path}.keys`);
+  }
   return freezeRecord({
     name: identifier(value.name, `${path}.name`),
     kind: value.kind,
     target: identifier(value.target, `${path}.target`),
-    from: identifier(value.from, `${path}.from`, true),
-    to: identifier(value.to, `${path}.to`, true),
+    from,
+    to,
+    ...(keys ? { keys: Object.freeze(keys) } : {}),
     queryable: value.queryable,
   }) as unknown as ProtocolDatasetRelationship;
 }
@@ -842,7 +862,7 @@ function validateDataset(
     ),
     relationships: namedItems(
       value.relationships, `${path}.relationships`, limits.maxDatasetItems,
-      (item, itemPath) => validateRelationship(item, itemPath),
+      (item, itemPath) => validateRelationship(item, itemPath, limits),
     ),
   };
   if (version === 3 && value.segments !== undefined) {

@@ -116,4 +116,37 @@ describe('local dataset contract validation', () => {
     expect(() => validateProtocolDatasetContract(dataset([{ ...metric, grain: 'day' }])))
       .not.toThrow();
   });
+  it('validates and freezes composite relationship keys', () => {
+    const input = { ...dataset(), relationships: [{ name: 'customer', kind: 'belongsTo', target: 'customers', from: 'customer_id', to: 'id', queryable: true, keys: [{ from: 'customer_id', to: 'id' }, { from: 'region', to: 'region' }] }] };
+    const validated = validateProtocolDatasetContract(input);
+    expect(validated.relationships[0].keys).toEqual(input.relationships[0].keys);
+    expect(Object.isFrozen(validated.relationships[0].keys)).toBe(true);
+    for (const keys of [[], [{ from: 'customer_id', to: 'id' }], [{ from: 'other', to: 'id' }, { from: 'region', to: 'region' }], [{ from: 'customer_id', to: 'id' }, { from: 'region', to: 'id' }], [{ from: 'customer_id', to: 'id' }, { from: 'bad;sql', to: 'region' }]]) {
+      expect(() => validateProtocolDatasetContract({ ...input, relationships: [{ ...input.relationships[0], keys }] })).toThrow(/HQ_DEPLOYMENT/);
+    }
+  });
+
+  it('bounds composite keys by maxDatasetItems', () => {
+    const keys = [{ from: 'customer_id', to: 'id' }, { from: 'region', to: 'region' }, { from: 'shard', to: 'shard' }];
+    const input = { ...dataset(), relationships: [{ name: 'customer', kind: 'belongsTo', target: 'customers', from: 'customer_id', to: 'id', queryable: true, keys }] };
+    expect(() => validateProtocolDatasetContract(input, { limits: { maxDatasetItems: 2 } })).toThrow(/HQ_DEPLOYMENT_TOO_MANY_ITEMS/);
+    expect(validateProtocolDatasetContract(input, { limits: { maxDatasetItems: 3 } }).relationships[0].keys).toHaveLength(3);
+  });
+
+  it('rejects qualified composite columns before rehydration while preserving legacy grammar', () => {
+    const relationship = { name: 'customer', kind: 'belongsTo', target: 'customers', from: 'customer_id', to: 'id', queryable: true };
+    for (const field of ['from', 'to'] as const) {
+      const first = { from: 'customer_id', to: 'id' };
+      const second = { from: 'region', to: 'region' };
+      for (const index of [0, 1]) {
+        const keys = [{ ...first }, { ...second }];
+        keys[index][field] = `orders.${keys[index][field]}`;
+        const input = { ...dataset(), relationships: [{ ...relationship, ...keys[0], keys }] };
+        expect(() => validateProtocolDatasetContract(input)).toThrow(/HQ_DEPLOYMENT_INVALID_IDENTIFIER/);
+      }
+    }
+    const legacy = { ...dataset(), relationships: [{ ...relationship, from: 'orders.customer_id' }] };
+    expect(validateProtocolDatasetContract(legacy).relationships[0].from).toBe('orders.customer_id');
+  });
+
 });

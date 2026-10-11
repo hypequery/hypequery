@@ -157,4 +157,14 @@ describe('checkRelationships', () => {
     await expect(checkRelationships(Orders, { queryBuilder: factory, relationships: ['items'] }))
       .rejects.toThrow(/is hasMany/);
   });
+  it('checks composite target tuples and excludes every nullable component', async () => {
+    const Composite = dataset('compositeChecks', { source: 'orders', dimensions: { id: dimension.number() }, relationships: { customer: belongsTo(() => Customers, { keys: [{ from: 'customer_id', to: 'id' }, { from: 'region', to: 'country' }] }) } });
+    const { factory, queries } = countingFactory({ customers: { rows: '3', keys: '2' } });
+    const result = await checkRelationships(Composite, { queryBuilder: factory });
+    expect(queries[0].select).toEqual(['count(id) AS __hq_rows', 'countDistinct(tuple(id, country)) AS __hq_keys']);
+    expect(queries[0].where).toEqual([['id', 'isNotNull', undefined], ['country', 'isNotNull', undefined]]);
+    expect(result.issues[0]).toMatchObject({ column: 'id', columns: ['id', 'country'], rows: 3, distinctKeys: 2 });
+    expect(result.issues[0].message).toContain('but ("customers.id", "customers.country") has 3 rows for 2 distinct keys');
+  });
+
 });

@@ -225,6 +225,7 @@ export function buildProtocolDatasetContract(
       target: relationship.target().name,
       from: relationship.from,
       to: relationship.to,
+      ...(relationship.keys ? { keys: relationship.keys.map(key => ({ ...key })) } : {}),
       queryable: relationship.kind !== 'hasMany',
     })).sort(byName),
     ...(dataset.limits !== undefined

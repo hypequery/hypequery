@@ -1,3 +1,5 @@
+import { relationshipKeys } from './relationship-keys.js';
+import type { RelationshipKey } from '../types.js';
 import { relationshipMeasureSource } from './relationship-measure-sql.js';
 import type { DatasetSqlDialect } from '../dataset-sql-dialect.js';
 import { clickhouseDatasetSqlDialect } from './clickhouse-dataset-sql-dialect.js';
@@ -29,6 +31,7 @@ export interface ResolvedBuilderJoin {
   /** Physical target source table. */
   source: string;
   matchMarker?: string;
+  keys?: readonly RelationshipKey[];
   /** Base join column (unqualified). */
   from: string;
   /** Target join column (unqualified). */
@@ -79,14 +82,18 @@ export function buildRelationshipBuilderContext(
     if (joinByRelationship.has(relationshipName)) {
       continue;
     }
-    const measureNames = (query.measures ?? []).filter(name => name.startsWith(`${relationshipName}.`)).map(name => name.slice(relationshipName.length + 1));
-    const projected = measureNames.length ? relationshipMeasureSource(target, relationship.to, measureNames, dialect) : undefined;
+    const measureNames = (query.measures ?? [])
+      .filter(name => name.startsWith(`${relationshipName}.`))
+      .map(name => name.slice(relationshipName.length + 1));
+    const keys = relationshipKeys(relationship);
+    const projected = measureNames.length ? relationshipMeasureSource(target, keys.map(key => key.to), measureNames, dialect) : undefined;
     joinByRelationship.set(relationshipName, {
       relationship: relationshipName,
       source: projected?.source ?? target.source,
       matchMarker: projected?.marker,
       from: relationship.from,
       to: relationship.to,
+      keys,
       tenant: tenantPredicate && target.tenantKey
         ? { field: target.tenantKey, ...tenantPredicate }
         : undefined,
@@ -150,18 +157,26 @@ export function applyRelationshipJoins(
         'are unavailable with this builder.',
       );
     }
+    const tenant = join.tenant
+      ? {
+        column: `${join.relationship}.${join.tenant.field}`,
+        operator: join.tenant.operator,
+        value: join.tenant.value,
+      }
+      : undefined;
+    if (join.keys && join.keys.length > 1) {
+      // Key-pair form; @hypequery/clickhouse >= 2.13.0.
+      const pairs = join.keys.map(key =>
+        [`${ctx.baseSource}.${key.from}`, `${join.relationship}.${key.to}`] as const);
+      qb = qb.leftAnyJoin(join.source, [pairs[0], ...pairs.slice(1)], join.relationship, tenant);
+      continue;
+    }
     qb = qb.leftAnyJoin(
       join.source,
       `${ctx.baseSource}.${join.from}`,
       `${join.relationship}.${join.to}`,
       join.relationship,
-      join.tenant
-        ? {
-          column: `${join.relationship}.${join.tenant.field}`,
-          operator: join.tenant.operator,
-          value: join.tenant.value,
-        }
-        : undefined,
+      tenant,
     );
   }
   return qb;
