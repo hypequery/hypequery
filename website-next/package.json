@@ -15,6 +15,7 @@
     "@radix-ui/react-popover": "^1.2.0",
     "@shikijs/rehype": "^4.5.0",
     "@vercel/blob": "^2.8.1",
+    "@vercel/firewall": "^1.2.6",
     "class-variance-authority": "^0.7.0",
     "framer-motion": "^12.31.0",
     "fumadocs-core": "^16.16.2",

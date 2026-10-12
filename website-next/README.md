@@ -77,10 +77,24 @@ does not enable collection globally. Debug mode prints events without sending.
 The endpoint returns 503 until configured and 202 after validation. Next.js
 `after()` forwards to PostHog with a three-second timeout, without client IP,
 cookies or user-agent headers. Project hashes are HMAC-rekeyed before forwarding.
-Delivery is best effort, without a durable queue or retries; the CLI's 40ms
-request budget can drop requests during cold starts or slow network connections.
-Apply deployment-level rate limits to this public endpoint before broad rollout;
-the CLI's `api_key` marker is not an authentication secret.
+Delivery is best effort, without a durable queue or retries. CLI releases after
+1.22.0 hand each batch to a detached sender process with a five-second budget, so
+cold starts no longer drop requests; 1.22.0 and earlier abort after 40ms.
+
+### Rate limiting
+
+The endpoint is public and the CLI's `api_key` marker is not an authentication
+secret, so every request is checked against a Vercel Firewall rate limit
+(`@vercel/firewall`) before its body is read. Before configuring the endpoint,
+add a Firewall custom rule in the Vercel project: condition `@vercel/firewall`
+with rate-limit ID `cli-telemetry`, and a Rate Limit action keyed by client IP
+(for example 120 requests per 60-second window). Each CLI invocation sends at
+most one request; leave headroom for CI fleets behind a shared egress IP.
+
+Requests over the limit get 429, which the CLI drops without retrying. Until
+the rule exists the endpoint returns 503, so collection cannot run unprotected.
+If the Firewall check itself errors or times out (one second), the request is
+allowed and a generic message is logged.
 
 Only for a deliberate version kill switch, set
 `TELEMETRY_DISABLED_CLI_VERSIONS=1.2.3,1.2.4`; a validated matching request gets

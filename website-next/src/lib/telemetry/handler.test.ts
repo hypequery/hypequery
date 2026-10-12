@@ -5,9 +5,14 @@ import fixture from './published-canary.fixture.json';
 import { handleTelemetry } from './handler';
 import { telemetryConfig } from './config';
 import { forwardTelemetry, posthogBatch } from './forward';
+import { firewallRateLimit, TELEMETRY_RATE_LIMIT_ID, type RateLimiter } from './rate-limit';
 import { validateBatch } from './validation';
 
 const env = { POSTHOG_PROJECT_TOKEN: 'phc_test', TELEMETRY_PROJECT_HMAC_SECRET: 'a'.repeat(64) };
+const allow: RateLimiter = async () => 'allowed';
+function handle(input: Request, schedule: Parameters<typeof handleTelemetry>[1], config: Record<string, string | undefined> = env, rateLimit = allow) {
+  return handleTelemetry(input, schedule, config, rateLimit);
+}
 function request(body: unknown = fixture, headers: Record<string, string> = {}) {
   return new Request('https://hypequery.com/api/telemetry', {
     method: 'POST', headers: { 'content-type': 'application/json', ...headers }, body: JSON.stringify(body),
@@ -16,7 +21,7 @@ function request(body: unknown = fixture, headers: Record<string, string> = {}) 
 
 test('accepts the actual published canary dev lifecycle and responds before forwarding', async () => {
   let scheduled: (() => Promise<void>) | undefined;
-  const response = await handleTelemetry(request(), callback => { scheduled = callback; }, env);
+  const response = await handle(request(), callback => { scheduled = callback; }, env);
   assert.equal(response.status, 202);
   assert.equal(response.headers.get('cache-control'), 'no-store');
   assert.equal(typeof scheduled, 'function');
@@ -27,7 +32,7 @@ test('fails closed without server credentials or with insecure/invalid hosts', a
   for (const config of [{}, { ...env, TELEMETRY_PROJECT_HMAC_SECRET: 'short' },
     { ...env, POSTHOG_HOST: 'http://posthog.com' }, { ...env, POSTHOG_HOST: 'https://user:pass@posthog.com' },
     { ...env, POSTHOG_HOST: 'https://posthog.com/path' }, { ...env, POSTHOG_HOST: 'https://posthog.com?token=x' }]) {
-    assert.equal((await handleTelemetry(request(), () => assert.fail('scheduled'), config)).status, 503);
+    assert.equal((await handle(request(), () => assert.fail('scheduled'), config)).status, 503);
   }
   assert.equal(telemetryConfig({ ...env, POSTHOG_HOST: 'https://eu.i.posthog.com' })?.host, 'https://eu.i.posthog.com');
 });
@@ -50,7 +55,7 @@ test('rejects unknown or identifying data, invalid IDs, flags, schema and timest
   for (const mutate of mutations) {
     const body = structuredClone(fixture);
     mutate(body);
-    assert.equal((await handleTelemetry(request(body), () => assert.fail('scheduled'), env)).status, 400);
+    assert.equal((await handle(request(body), () => assert.fail('scheduled'), env)).status, 400);
   }
   const completion = structuredClone(fixture.batch.find(event => event.event === 'cli_command_completed')!);
   assert.ok(completion);
@@ -60,31 +65,31 @@ test('rejects unknown or identifying data, invalid IDs, flags, schema and timest
 
 test('rejects oversized declared and streamed bodies, malformed JSON and unsupported content', async () => {
   for (const headers of [{ 'content-length': '65537' }, { 'content-length': 'NaN' }]) {
-    assert.equal((await handleTelemetry(request(fixture, headers), () => assert.fail('scheduled'), env)).status, 413);
+    assert.equal((await handle(request(fixture, headers), () => assert.fail('scheduled'), env)).status, 413);
   }
   const oversized = new Request('https://hypequery.com/api/telemetry', {
     method: 'POST', headers: { 'content-type': 'application/json' }, body: ' '.repeat(65537),
   });
-  assert.equal((await handleTelemetry(oversized, () => assert.fail('scheduled'), env)).status, 413);
+  assert.equal((await handle(oversized, () => assert.fail('scheduled'), env)).status, 413);
   const malformed = new Request('https://hypequery.com/api/telemetry', {
     method: 'POST', headers: { 'content-type': 'application/json' }, body: '{',
   });
-  assert.equal((await handleTelemetry(malformed, () => assert.fail('scheduled'), env)).status, 400);
+  assert.equal((await handle(malformed, () => assert.fail('scheduled'), env)).status, 400);
   for (const headers of [{ 'content-type': 'text/plain' }, { 'content-encoding': 'gzip' }] as Record<string, string>[]) {
-    assert.equal((await handleTelemetry(request(fixture, headers), () => assert.fail('scheduled'), env)).status, 415);
+    assert.equal((await handle(request(fixture, headers), () => assert.fail('scheduled'), env)).status, 415);
   }
 });
 
 test('returns 410 only for validated explicitly disabled versions', async () => {
   const disabled = { ...env, TELEMETRY_DISABLED_CLI_VERSIONS: fixture.batch[0].properties.cli_version };
-  assert.equal((await handleTelemetry(request(), () => assert.fail('scheduled'), disabled)).status, 410);
-  assert.equal((await handleTelemetry(request({}), () => assert.fail('scheduled'), disabled)).status, 400);
-  assert.equal((await handleTelemetry(request(), () => {}, { ...env, TELEMETRY_DISABLED_CLI_VERSIONS: '1.0.0' })).status, 202);
+  assert.equal((await handle(request(), () => assert.fail('scheduled'), disabled)).status, 410);
+  assert.equal((await handle(request({}), () => assert.fail('scheduled'), disabled)).status, 400);
+  assert.equal((await handle(request(), () => {}, { ...env, TELEMETRY_DISABLED_CLI_VERSIONS: '1.0.0' })).status, 202);
 });
 
 test('accepts the 32-event boundary and rejects the next streamed byte at 64 KiB', async () => {
   const body = { api_key: 'hypequery-cli', batch: Array.from({ length: 32 }, () => fixture.batch[0]) };
-  assert.equal((await handleTelemetry(request(body), () => {}, env)).status, 202);
+  assert.equal((await handle(request(body), () => {}, env)).status, 202);
   let cancelled = false;
   const stream = new ReadableStream<Uint8Array>({
     start(controller) {
@@ -97,7 +102,7 @@ test('accepts the 32-event boundary and rejects the next streamed byte at 64 KiB
     method: 'POST', headers: { 'content-type': 'application/json' }, body: stream,
     duplex: 'half',
   } as RequestInit);
-  assert.equal((await handleTelemetry(streamed, () => assert.fail('scheduled'), env)).status, 413);
+  assert.equal((await handle(streamed, () => assert.fail('scheduled'), env)).status, 413);
   assert.equal(cancelled, true);
 });
 
@@ -144,4 +149,50 @@ test('forwards PostHog format, rekeys projects and never forwards request IP/coo
     return new Response(null, { status: 200 });
   });
   assert.equal(calls, 1);
+});
+
+test('rate limits before reading the body and fails closed without a firewall rule', async () => {
+  let checked: Request | undefined;
+  const limited: RateLimiter = async input => { checked = input; return 'limited'; };
+  const body = request();
+  const response = await handle(body, () => assert.fail('scheduled'), env, limited);
+  assert.equal(response.status, 429);
+  assert.equal(response.headers.get('cache-control'), 'no-store');
+  assert.equal(checked, body);
+  assert.equal(body.bodyUsed, false);
+  assert.equal((await handle(request(), () => assert.fail('scheduled'), env, async () => 'unconfigured')).status, 503);
+  assert.equal((await handle(request(), () => assert.fail('scheduled'), {}, () => assert.fail('checked'))).status, 503);
+});
+
+test('maps Vercel Firewall rate-limit responses', async () => {
+  const original = { fetch: globalThis.fetch, nodeEnv: process.env.NODE_ENV, error: console.error, warn: console.warn };
+  const urls: string[] = [];
+  const errors: unknown[][] = [];
+  const respond = (status: number | Error) => {
+    globalThis.fetch = async input => {
+      urls.push(String(input));
+      if (status instanceof Error) throw status;
+      return new Response(null, { status });
+    };
+  };
+  const firewallRequest = () => request(fixture, { host: 'hypequery.com', 'x-real-ip': '203.0.113.7' });
+  Object.assign(process.env, { NODE_ENV: 'production' });
+  console.error = (...args) => { errors.push(args); };
+  console.warn = () => {};
+  try {
+    for (const [status, expected] of [[204, 'allowed'], [429, 'limited'], [403, 'limited'], [404, 'unconfigured'], [500, 'allowed']] as const) {
+      respond(status);
+      assert.equal(await firewallRateLimit(firewallRequest()), expected, String(status));
+    }
+    respond(new Error('network'));
+    assert.equal(await firewallRateLimit(firewallRequest()), 'allowed');
+    assert.equal(urls[0], `https://hypequery.com/.well-known/vercel/rate-limit-api/${TELEMETRY_RATE_LIMIT_ID}`);
+    assert.deepEqual(errors, [['CLI telemetry rate limit check failed'], ['CLI telemetry rate limit check failed']]);
+  } finally {
+    globalThis.fetch = original.fetch;
+    Object.assign(process.env, { NODE_ENV: original.nodeEnv });
+    if (original.nodeEnv === undefined) delete (process.env as Record<string, string | undefined>).NODE_ENV;
+    console.error = original.error;
+    console.warn = original.warn;
+  }
 });
