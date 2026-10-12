@@ -4,7 +4,6 @@ import { collectEnvironment, type EnvironmentOptions } from './environment.js';
 import { inspectProject } from './project-context.js';
 import { invocationIdentity } from './identity.js';
 import { resolveTelemetryState, type TelemetryResolutionOptions } from './opt-out.js';
-import { TelemetryConfigStore } from './config-store.js';
 import { showTelemetryNotice } from './notice.js';
 import { TelemetryTransport, type TransportOptions } from './transport.js';
 import { getCliVersion } from '../cli-version.js';
@@ -41,7 +40,6 @@ export class TelemetryInvocation {
         ...options.transportOptions,
         enabled: true, endpoint: env.HYPEQUERY_TELEMETRY_URL,
         debug: env.HYPEQUERY_TELEMETRY_DEBUG === '1',
-        onDisabled: () => new TelemetryConfigStore(options).disableVersion(cliVersion),
       });
       await showTelemetryNotice({ ...options, enabled: true, isTTY: common.is_tty, isCI: common.is_ci });
       return invocation;

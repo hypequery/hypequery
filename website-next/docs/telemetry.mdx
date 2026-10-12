@@ -47,9 +47,12 @@ timestamps and the transport-owned `$process_person_profile: false` and
 `$geoip_disable: true` properties. Invalid events are dropped with a fixed
 diagnostic that does not echo rejected input. All telemetry output uses stderr.
 
-Staging delivery uses one in-memory batch per invocation, a built-in Node
-HTTP(S) request, a 40 ms flush timeout, and a 64 KiB / 32-event cap. Unsent events are dropped;
-there is no retry process or disk queue. Only HTTPS endpoints and HTTP loopback
+Staging delivery uses one in-memory batch per invocation with a 64 KiB /
+32-event cap. At exit the CLI writes the batch to a private temporary file and
+starts a detached Node process that sends it in one built-in HTTP(S) request
+with a 5-second timeout, so delivery never delays the command. The sender
+deletes the file before sending. Unsent events are dropped; there is no retry
+or persistent queue. Only HTTPS endpoints and HTTP loopback
 test endpoints are accepted; URLs with credentials, query strings or fragments
 are rejected, and redirects are refused. The first-party proxy holds the real
 PostHog API key and must remove client IP information before forwarding.

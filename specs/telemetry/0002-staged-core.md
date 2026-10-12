@@ -57,15 +57,22 @@ Never follow redirects. Only HTTPS or loopback HTTP without credentials, query
 or fragment is accepted. With debug enabled, print exactly those event envelopes
 to stderr and skip sending. Diagnostic text never includes rejected data.
 
-Flush is capped at 40 ms with an abort controller and an unref'ed timeout.
+Flush never waits on the network. The serialized batch is written to a 0600
+file in a fresh temporary directory and handed to a detached, unref'ed Node
+child with ignored stdio; the CLI exits as soon as the spawn returns. A file is
+used because argv and env are capped near 32 KiB on Windows and pipe writes
+still buffered at exit are lost. The child deletes the directory before sending
+and delivers with a 5 s abort-controller timeout. An in-process cap (40 ms in
+1.22.0) dropped most requests: it is shorter than a TLS handshake plus a
+serverless cold start. The exit-latency benchmark budget is unchanged.
 Delivery uses `node:http(s)`, not the built-in fetch: aborting fetch rejects on
 time, but its pending TCP or TLS connect kept the process alive for the ~10 s
 connect timeout against an unreachable endpoint. Aborting the Node request
-destroys its socket even mid-connect, so the CLI exits once the flush returns.
-Synchronous throws, network errors and non-success HTTP responses are swallowed.
-There are no retries or disk queues. HTTP 410 requests a best-effort,
-version-specific opt-out, written asynchronously with one immediate lock attempt;
-an unavailable lock cannot prolong exit by waiting for a writer.
+destroys its socket even mid-connect, so the sender exits once its budget ends.
+Synchronous throws, spawn failures, network errors and non-success HTTP
+responses are swallowed. There are no retries or persistent queues. HTTP 410
+requests a best-effort, version-specific opt-out, written by the sender with one
+immediate lock attempt; an unavailable lock is not waited for.
 The kill switch leaves saved consent and other CLI versions unchanged.
 
 ## Lifecycle
