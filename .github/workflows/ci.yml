@@ -25,6 +25,26 @@ jobs:
         working-directory: website-next
         run: npm audit --omit=dev --audit-level=high
 
+  website:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: website-next
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: website-next/package-lock.json
+      - run: npm ci
+      - name: Check telemetry contract and endpoint
+        run: npm test
+      - name: Build website
+        run: npm run build
+        env:
+          BLOB_READ_WRITE_TOKEN: vercel_blob_rw_local_build_placeholder
+
   build:
     runs-on: ubuntu-latest
 

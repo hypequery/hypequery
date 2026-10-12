@@ -1,18 +1,17 @@
 import { validateTelemetryEvent } from './validation.js';
-import { postJson, type PostJson } from './post-json.js';
+import { dispatchDetached, type DispatchBatch } from './detached-dispatch.js';
+import { telemetryEndpoint } from './endpoint.js';
 
 export const MAX_BATCH_BYTES = 64 * 1024;
 export const MAX_BATCH_EVENTS = 32;
-export const FLUSH_TIMEOUT_MS = 40;
 
 export interface TransportOptions {
   readonly enabled: boolean;
   readonly endpoint?: string;
   readonly debug?: boolean;
-  /** Injectable for tests; defaults to an exit-safe node:http(s) POST. */
-  readonly post?: PostJson;
+  /** Injectable for tests; defaults to a detached sender process. */
+  readonly dispatch?: DispatchBatch;
   readonly write?: (text: string) => void;
-  readonly onDisabled?: () => Promise<unknown>;
   readonly now?: () => Date;
 }
 
@@ -23,7 +22,7 @@ interface WireEvent {
   readonly timestamp: string;
 }
 
-/** In-memory, one-request delivery with no retry queue and no vendor dependency. */
+/** In-memory, one-batch delivery with no retry queue and no vendor dependency. */
 export class TelemetryTransport {
   private queue: WireEvent[] = [];
   private sent = false;
@@ -76,25 +75,10 @@ export class TelemetryTransport {
       for (const event of events) this.debug(`${JSON.stringify(event)}\n`);
       return;
     }
-    if (!this.options.endpoint) return;
-    let timer: NodeJS.Timeout | undefined;
-    const controller = new AbortController();
+    const url = telemetryEndpoint(this.options.endpoint);
+    if (!url) return;
     try {
-      const url = new URL(this.options.endpoint);
-      const loopback = ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname);
-      if ((url.protocol !== 'https:' && !(url.protocol === 'http:' && loopback)) || url.username || url.password || url.search || url.hash) return;
-      const post = this.options.post ?? postJson;
-      const timeout = new Promise<void>(resolve => {
-        timer = setTimeout(() => { controller.abort(); resolve(); }, FLUSH_TIMEOUT_MS);
-        timer.unref();
-      });
-      const request = (async () => {
-        const status = await post(url, JSON.stringify({ api_key: 'hypequery-cli', batch: events }), controller.signal);
-        // The proxy owns the real PostHog API key. 410 disables this CLI version.
-        if (status === 410 && !controller.signal.aborted) await this.options.onDisabled?.();
-      })().catch(() => undefined);
-      await Promise.race([request, timeout]);
-    } catch { /* DNS/TLS/HTTP/abort/synchronous failures never affect the command. */ }
-    finally { if (timer) clearTimeout(timer); controller.abort(); }
+      (this.options.dispatch ?? dispatchDetached)(url, JSON.stringify({ api_key: 'hypequery-cli', batch: events }));
+    } catch { /* Temporary-file and spawn failures never affect the command. */ }
   }
 }

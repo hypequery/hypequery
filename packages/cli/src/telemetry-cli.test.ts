@@ -1,11 +1,12 @@
 import { execFile, spawn } from 'node:child_process';
-import { mkdtemp, mkdir, rm, writeFile, readdir, utimes } from 'node:fs/promises';
+import { mkdtemp, mkdir, rm, writeFile, readdir, readFile, utimes } from 'node:fs/promises';
+import { createServer } from 'node:http';
 import { createServer as createTcpServer } from 'node:net';
 import { createHash, randomUUID } from 'node:crypto';
 import { hostname, tmpdir } from 'node:os';
 import path from 'node:path';
 import { promisify } from 'node:util';
-import { beforeAll, afterAll, describe, expect, it } from 'vitest';
+import { beforeAll, afterAll, describe, expect, it, vi } from 'vitest';
 import { program } from './cli.js';
 
 const execute = promisify(execFile);
@@ -89,6 +90,35 @@ describe('compiled CLI telemetry regression', () => {
       // The server never reads, so it must drop accepted sockets itself.
       for (const socket of sockets) socket.destroy();
       await new Promise<void>(resolve => server.close(() => resolve()));
+    }
+  }, 30_000);
+
+  it('delivers from a detached sender after exit and honors a slow 410', async () => {
+    const settings = await mkdtemp(path.join(tmpdir(), 'hq-cli-detached-'));
+    let received = '';
+    let answered = false;
+    const server = createServer((request, response) => {
+      request.setEncoding('utf8');
+      request.on('data', chunk => { received += chunk; });
+      // Slower than any acceptable exit delay: only a sender outliving the CLI sees this answer.
+      request.on('end', () => setTimeout(() => { answered = true; response.writeHead(410).end(); }, 500));
+    });
+    await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve));
+    const { port } = server.address() as { port: number };
+    try {
+      const env = { ...process.env, HYPEQUERY_CONFIG_DIR: settings, HYPEQUERY_TELEMETRY_URL: `http://127.0.0.1:${port}/batch` };
+      for (const key of ['VITEST', 'NODE_ENV', 'DO_NOT_TRACK', 'HYPEQUERY_TELEMETRY_DISABLED', 'HYPEQUERY_TELEMETRY_DEBUG', 'GITHUB_ACTIONS']) delete env[key];
+      const version = await execute(process.execPath, [bin, '--version'], { cwd: settings, env, timeout: 10_000 });
+      expect(answered).toBe(false);
+      await vi.waitFor(async () => {
+        const config = JSON.parse(await readFile(path.join(settings, 'telemetry.json'), 'utf8'));
+        expect(config.disabled_cli_versions).toEqual([version.stdout.trim()]);
+      }, { timeout: 5_000, interval: 50 });
+      expect(JSON.parse(received)).toMatchObject({ api_key: 'hypequery-cli', batch: [{ event: 'cli_command_completed' }] });
+    } finally {
+      server.closeAllConnections();
+      await new Promise<void>(resolve => server.close(() => resolve()));
+      await rm(settings, { recursive: true, force: true });
     }
   }, 30_000);
 
