@@ -46,7 +46,7 @@
     "rehype-slug": "^6.0.0",
     "remark-gfm": "^4.0.1",
     "tailwindcss": "^4",
-    "tsx": "^4.23.15",
+    "tsx": "~4.20.6",
     "typescript": "^5",
     "vercel": "^62.0.0"
   },
