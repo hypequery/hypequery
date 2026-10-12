@@ -142,6 +142,46 @@ describe('checkProtocolDeploymentContract', () => {
       .toEqual(['HQ_DEPLOYMENT_INVALID_IDENTIFIER at $.datasets[1].name']);
   });
 
+  it('keeps checking sibling measures after a malformed one', () => {
+    const contract = deployment([dataset('orders', {
+      measures: [null, { name: 'revenue', aggregation: 'median', field: 'amount', filters: [] }],
+    })]);
+    expect(failures(checkProtocolDeploymentContract(contract))).toEqual([
+      'HQ_DEPLOYMENT_TYPE at $.datasets[0].measures[0]',
+      'HQ_DEPLOYMENT_INVALID_VALUE at $.datasets[0].measures[1].aggregation',
+    ]);
+  });
+
+  it('reports every unresolved derived-measure input', () => {
+    const derived = (name: string, input: string) => ({
+      kind: 'derived', name,
+      uses: [{ alias: 'a', measure: input }, { alias: 'b', measure: 'revenue' }],
+      expression: {
+        kind: 'binary', operator: 'divide',
+        left: { kind: 'reference', name: 'a' }, right: { kind: 'reference', name: 'b' },
+      },
+    });
+    const contract = deployment([dataset('orders', {
+      measures: [
+        { name: 'revenue', aggregation: 'sum', field: 'amount', filters: [] },
+        derived('first', 'missingA'),
+        derived('second', 'missingB'),
+      ],
+    })]);
+    expect(failures(checkProtocolDeploymentContract(contract))).toEqual([
+      'HQ_DEPLOYMENT_INVALID_REFERENCE at $.datasets[0].measures[1].uses[0].measure',
+      'HQ_DEPLOYMENT_INVALID_REFERENCE at $.datasets[0].measures[2].uses[0].measure',
+    ]);
+  });
+
+  it('reports every failing dataset metadata field', () => {
+    const contract = deployment([dataset('orders', { format: 7, sensitivity: 'invalid' })]);
+    expect(failures(checkProtocolDeploymentContract(contract))).toEqual([
+      'HQ_DEPLOYMENT_TYPE at $.datasets[0].format',
+      'HQ_DEPLOYMENT_INVALID_VALUE at $.datasets[0].sensitivity',
+    ]);
+  });
+
   it('stops at a wrong version, whose rules do not apply', () => {
     const contract = { ...deployment([dataset('orders', { source: '' })]), version: 9 };
     expect(failures(checkProtocolDeploymentContract(contract)))

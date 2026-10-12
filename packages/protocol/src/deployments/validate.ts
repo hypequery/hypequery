@@ -20,6 +20,7 @@ import type {
   ProtocolDeploymentContractV3,
   ProtocolDeploymentDataset,
   ProtocolDeploymentDatasetV3,
+  ProtocolDeploymentErrorCode,
   ProtocolDatasetSegment,
   ProtocolDeploymentMeasure,
   ProtocolDatasetDimension,
@@ -178,32 +179,40 @@ function validateSemanticMetadata(
   result: Record<string, unknown>,
   path: string,
   limits: Readonly<ProtocolDeploymentLimits>,
+  issues?: DeploymentErrorCollector,
 ): void {
   const parseText = (item: unknown, itemPath: string) => (
     boundedText(item, itemPath, limits.maxTextBytes)
   );
+  // Each metadata field is independent, so each is its own recovery point.
   for (const key of ['examples', 'synonyms'] as const) {
     if (value[key] !== undefined) {
-      result[key] = uniqueStrings(
-        value[key], `${path}.${key}`, limits.maxSemanticMetadataItems, parseText,
-      );
+      attempt(issues, () => {
+        result[key] = uniqueStrings(
+          value[key], `${path}.${key}`, limits.maxSemanticMetadataItems, parseText,
+        );
+      });
     }
   }
   for (const key of ['format', 'unit', 'timezone'] as const) {
-    optionalText(value[key], key, result, path, limits);
+    attempt(issues, () => optionalText(value[key], key, result, path, limits));
   }
   if (value.currency !== undefined) {
-    const currency = boundedText(value.currency, `${path}.currency`, limits.maxTextBytes);
-    if (!/^[A-Z]{3}$/.test(currency)) {
-      deploymentError('HQ_DEPLOYMENT_INVALID_VALUE', `${path}.currency`);
-    }
-    result.currency = currency;
+    attempt(issues, () => {
+      const currency = boundedText(value.currency, `${path}.currency`, limits.maxTextBytes);
+      if (!/^[A-Z]{3}$/.test(currency)) {
+        deploymentError('HQ_DEPLOYMENT_INVALID_VALUE', `${path}.currency`);
+      }
+      result.currency = currency;
+    });
   }
   if (value.sensitivity !== undefined) {
-    if (typeof value.sensitivity !== 'string' || !SENSITIVITIES.has(value.sensitivity)) {
-      deploymentError('HQ_DEPLOYMENT_INVALID_VALUE', `${path}.sensitivity`);
-    }
-    result.sensitivity = value.sensitivity;
+    attempt(issues, () => {
+      if (typeof value.sensitivity !== 'string' || !SENSITIVITIES.has(value.sensitivity)) {
+        deploymentError('HQ_DEPLOYMENT_INVALID_VALUE', `${path}.sensitivity`);
+      }
+      result.sensitivity = value.sensitivity;
+    });
   }
 }
 
@@ -910,7 +919,7 @@ function validateDataset(
   }
   field(() => optionalText(value.description, 'description', result, path, limits));
   field(() => optionalText(value.owner, 'owner', result, path, limits));
-  field(() => validateSemanticMetadata(value, result, path, limits));
+  validateSemanticMetadata(value, result, path, limits, issues);
   if (value.freshness !== undefined) {
     result.freshness = field(() => validateFreshness(value.freshness, `${path}.freshness`));
   }
@@ -1132,16 +1141,19 @@ function validateDeploymentDataset(
       ...(version === 3 ? ['segments'] : []),
     ], path, issues);
   // When collecting, a malformed measure list is reported and the rest of the
-  // dataset is still checked as if it had no measures.
-  const measures = attempt(issues, () => requireArray(value.measures, `${path}.measures`, limits.maxDatasetItems)
-    .map((measure, index) => requireRecord(measure, `${path}.measures[${index}]`))) ?? [];
+  // dataset is still checked as if it had no measures; a malformed measure is
+  // reported and its siblings are still checked.
+  const records = attempt(issues, () => requireArray(value.measures, `${path}.measures`, limits.maxDatasetItems)) ?? [];
+  const checked = records.map((measure, index) => (
+    attempt(issues, () => requireRecord(measure, `${path}.measures[${index}]`))
+  ));
   // Base measures are validated by the dataset; composite ones (derived, and in
   // contract 3 window and shift) reference them and are validated here.
   const isComposite = (measure: DataRecord) => measure.kind === 'derived'
     || (version === 3 && (measure.kind === 'window' || measure.kind === 'shift'));
   // Preserve original indices when validating base measures separately.
-  const baseEntries = measures.flatMap((measure, index) => (
-    isComposite(measure) ? [] : [{ measure, index }]
+  const baseEntries = checked.flatMap((measure, index) => (
+    measure === undefined || isComposite(measure) ? [] : [{ measure, index }]
   ));
   const validated = attempt(issues, () => validateDataset(
     { ...value, measures: baseEntries.map(entry => entry.measure), metrics: [] },
@@ -1151,7 +1163,7 @@ function validateDeploymentDataset(
     version,
     issues,
   ))!;
-  const composite: (DataRecord | undefined)[] = measures.map((measure, index) => attempt(issues, () => {
+  const composite: (DataRecord | undefined)[] = checked.map((measure, index) => measure && attempt(issues, () => {
     const measurePath = `${path}.measures[${index}]`;
     if (measure.kind === 'derived') {
       return validateDatasetDerivedMeasure(measure, measurePath, limits, version) as unknown as DataRecord;
@@ -1160,6 +1172,10 @@ function validateDeploymentDataset(
   }));
   // Cross-measure checks below assume every measure validated.
   issues?.checkpoint(since);
+  const measures = checked as DataRecord[];
+  // Independent cross-measure checks each recover; a check that needs a
+  // reference that failed is skipped rather than reported again.
+  const fail = (code: ProtocolDeploymentErrorCode, at: string) => attempt(issues, () => deploymentError(code, at));
   const derived = composite.map(item => (
     item?.kind === 'derived' ? item as unknown as ProtocolDatasetDerivedMeasure : undefined
   ));
@@ -1169,7 +1185,7 @@ function validateDeploymentDataset(
     composite[index] ?? validated.measures[baseIndex++]!
   )) as unknown as ProtocolDeploymentMeasure[];
   if (new Set(ordered.map(measure => measure.name)).size !== measures.length) {
-    deploymentError('HQ_DEPLOYMENT_INVALID_REFERENCE', `${path}.measures`);
+    fail('HQ_DEPLOYMENT_INVALID_REFERENCE', `${path}.measures`);
   }
   const isApproximate = (measure: unknown) => (measure as { approximate?: true } | undefined)?.approximate === true;
   // A time measure wraps exactly one base measure and needs the dataset's time axis.
@@ -1179,30 +1195,36 @@ function validateDeploymentDataset(
     const timeMeasure = item;
     const measurePath = `${path}.measures[${index}]`;
     const wrapped = baseByName.get(timeMeasure.measure as string);
-    if (!wrapped) deploymentError('HQ_DEPLOYMENT_INVALID_REFERENCE', `${measurePath}.measure`);
-    if (validated.timeField === undefined) deploymentError('HQ_DEPLOYMENT_INVALID_REFERENCE', `${measurePath}.kind`);
-    if (timeMeasure.cumulative === true && !CUMULATIVE_AGGREGATIONS.has(wrapped.aggregation)) {
-      deploymentError('HQ_DEPLOYMENT_INVALID_VALUE', `${measurePath}.cumulative`);
-    }
-    if (isApproximate(wrapped) !== isApproximate(timeMeasure)) {
-      deploymentError('HQ_DEPLOYMENT_INVALID_VALUE', `${measurePath}.approximate`);
+    if (!wrapped) fail('HQ_DEPLOYMENT_INVALID_REFERENCE', `${measurePath}.measure`);
+    if (validated.timeField === undefined) fail('HQ_DEPLOYMENT_INVALID_REFERENCE', `${measurePath}.kind`);
+    if (wrapped) {
+      if (timeMeasure.cumulative === true && !CUMULATIVE_AGGREGATIONS.has(wrapped.aggregation)) {
+        fail('HQ_DEPLOYMENT_INVALID_VALUE', `${measurePath}.cumulative`);
+      }
+      if (isApproximate(wrapped) !== isApproximate(timeMeasure)) {
+        fail('HQ_DEPLOYMENT_INVALID_VALUE', `${measurePath}.approximate`);
+      }
     }
     timeByName.set(timeMeasure.name as string, timeMeasure);
   }
   for (const [index, item] of derived.entries()) {
     if (!item) continue;
+    let resolved = true;
     for (const [useIndex, use] of item.uses.entries()) {
       if (!baseByName.has(use.measure) && !timeByName.has(use.measure)) {
-        deploymentError('HQ_DEPLOYMENT_INVALID_REFERENCE', `${path}.measures[${index}].uses[${useIndex}].measure`);
+        resolved = false;
+        fail('HQ_DEPLOYMENT_INVALID_REFERENCE', `${path}.measures[${index}].uses[${useIndex}].measure`);
       }
     }
+    if (!resolved) continue;
     const approximate = item.uses.some(use => (
       isApproximate(baseByName.get(use.measure) ?? timeByName.get(use.measure))
     ));
     if (approximate !== isApproximate(item)) {
-      deploymentError('HQ_DEPLOYMENT_INVALID_VALUE', `${path}.measures[${index}].approximate`);
+      fail('HQ_DEPLOYMENT_INVALID_VALUE', `${path}.measures[${index}].approximate`);
     }
   }
+  issues?.checkpoint(since);
   const { metrics: _metrics, ...dataset } = validated;
   return freezeRecord({ ...dataset, measures: Object.freeze(ordered) }) as unknown as ProtocolDeploymentDataset;
 }
