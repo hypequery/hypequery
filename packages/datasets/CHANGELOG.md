@@ -1,5 +1,53 @@
 # @hypequery/datasets
 
+## 0.23.0
+
+### Minor Changes
+
+- 489a658: Support composite equality keys in dataset relationships using a non-empty keys array while preserving existing from/to definitions. Compile all pairs as a single-match AND join through the key-pair form of `leftAnyJoin` (`@hypequery/clickhouse` >= 2.13.0), preserve tenant scoping and related-measure inputs, and check uniqueness of full non-NULL target tuples. Retain all key pairs in catalogs and portable contract round-trips. Declare `@hypequery/clickhouse` >= 2.13.0 as an optional peer dependency of datasets. Existing `{ from, to }` relationships are unchanged and are not subject to the composite identifier rules. Portable contracts only carry `keys` for two or more pairs, and `keys[0]` must match `from`/`to`.
+- 064661f: Dataset queries accept `having` conditions on aggregated measure values (HQ-329):
+
+  ```ts
+  await analytics.execute(Orders, {
+    dimensions: ["customerId"],
+    measures: ["revenue"],
+    having: [{ measure: "revenue", operator: "gt", value: 10_000 }],
+  });
+  ```
+
+  Each condition must reference a selected measure, including derived measures.
+  Operators are `eq`, `neq`, `gt`, `gte`, `lt`, `lte`, `between`, `in` and `notIn`.
+  Values are finite numbers bound as parameters. Conditions are applied after
+  grouping and before ordering and limits. Queries with `having` bypass the result
+  cache until the shared cache-key preimage covers conditions, as in the Python SDK.
+  A dataset's `limits.maxFilters` bounds filters and having conditions together.
+  Queries that select window or shift measures, and the deprecated semantic backend
+  path, reject `having`. Generated input schemas accept `having` only when built
+  with `{ having: true }`, so existing schemas and manifest hashes are unchanged.
+
+- 0d88c0e: Catalogs and semantic contracts now include each derived measure's inputs (`uses`) and expression, so changing a formula changes the snapshot hash. **Datasets that already declare derived measures report a new semantic contract `contentHash` after upgrading**, including the one Serve's contract endpoint publishes; consumers that compare it to detect definition changes will see one change. Definitions without derived measures are unchanged, as are result-cache keys and deployment contracts. Shared fixtures now pin Python derived-measure authoring to the same deployment and semantic contract output.
+
+### Patch Changes
+
+- aada8f3: `dataset()` now validates filter definitions before any query can use them.
+  A measure filter's `field` must be a declared dimension or filter, or a safe
+  column identifier (optionally `<relationship>.<field>`), and a declared filter's
+  `field` must be a declared dimension or a safe column identifier. Unsupported
+  operators are rejected in both places. Previously these values were rendered
+  into SQL unchecked. Definitions that put SQL text in a filter `field` now fail at
+  construction: declare a dimension with `sql` and filter on that dimension.
+- 03ba7f2: Fix calendar shifts (`month`, `quarter`, `year`) on a partial `week` bucket.
+  When a query filter cut a week short, its lower bound was shifted on its own
+  while its upper bound stayed anchored to the shifted week. A week starting
+  mid-way could get an empty range and read `null` even when the prior period had
+  rows, and a week cut on both sides could count rows from days it never covered.
+  Both bounds are now placed inside the shifted week: a whole week still maps to
+  its start minus the interval plus seven days, and a partial week maps to the
+  matching slice. Shifted formulas (derived, windowed and cumulative measures
+  under a shift) are fixed the same way.
+- Updated dependencies [489a658]
+  - @hypequery/protocol@0.19.0
+
 ## 0.22.0
 
 ### Minor Changes

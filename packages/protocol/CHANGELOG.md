@@ -1,5 +1,11 @@
 # @hypequery/protocol
 
+## 0.19.0
+
+### Minor Changes
+
+- 489a658: Support composite equality keys in dataset relationships using a non-empty keys array while preserving existing from/to definitions. Compile all pairs as a single-match AND join through the key-pair form of `leftAnyJoin` (`@hypequery/clickhouse` >= 2.13.0), preserve tenant scoping and related-measure inputs, and check uniqueness of full non-NULL target tuples. Retain all key pairs in catalogs and portable contract round-trips. Declare `@hypequery/clickhouse` >= 2.13.0 as an optional peer dependency of datasets. Existing `{ from, to }` relationships are unchanged and are not subject to the composite identifier rules. Portable contracts only carry `keys` for two or more pairs, and `keys[0]` must match `from`/`to`.
+
 ## 0.18.0
 
 ### Minor Changes
