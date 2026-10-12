@@ -1187,12 +1187,18 @@ function validateDeploymentDataset(
   if (new Set(ordered.map(measure => measure.name)).size !== measures.length) {
     fail('HQ_DEPLOYMENT_INVALID_REFERENCE', `${path}.measures`);
   }
+  // Checks by name are ambiguous while names repeat.
+  issues?.checkpoint(since);
   const isApproximate = (measure: unknown) => (measure as { approximate?: true } | undefined)?.approximate === true;
   // A time measure wraps exactly one base measure and needs the dataset's time axis.
   const timeByName = new Map<string, DataRecord>();
+  // Time measures that failed a check still resolve by name, but checks that
+  // read their properties would only repeat that failure.
+  const failedTime = new Set<string>();
   for (const [index, item] of composite.entries()) {
     if (!item || item.kind === 'derived') continue;
     const timeMeasure = item;
+    const before = issues?.count ?? 0;
     const measurePath = `${path}.measures[${index}]`;
     const wrapped = baseByName.get(timeMeasure.measure as string);
     if (!wrapped) fail('HQ_DEPLOYMENT_INVALID_REFERENCE', `${measurePath}.measure`);
@@ -1206,6 +1212,7 @@ function validateDeploymentDataset(
       }
     }
     timeByName.set(timeMeasure.name as string, timeMeasure);
+    if ((issues?.count ?? 0) > before) failedTime.add(timeMeasure.name as string);
   }
   for (const [index, item] of derived.entries()) {
     if (!item) continue;
@@ -1216,7 +1223,7 @@ function validateDeploymentDataset(
         fail('HQ_DEPLOYMENT_INVALID_REFERENCE', `${path}.measures[${index}].uses[${useIndex}].measure`);
       }
     }
-    if (!resolved) continue;
+    if (!resolved || item.uses.some(use => failedTime.has(use.measure))) continue;
     const approximate = item.uses.some(use => (
       isApproximate(baseByName.get(use.measure) ?? timeByName.get(use.measure))
     ));

@@ -174,6 +174,49 @@ describe('checkProtocolDeploymentContract', () => {
     ]);
   });
 
+  it('does not blame a derived measure for a failed window it uses', () => {
+    const base = { kind: 'hypequery-deployment', version: 3, datasets: [dataset('orders', {
+      timeField: 'created_at',
+      filters: undefined,
+      allowedFilters: [],
+      measures: [
+        { name: 'users', aggregation: 'approxCountDistinct', field: 'user_id', filters: [], approximate: true },
+        { name: 'sessions', aggregation: 'count', field: 'id', filters: [] },
+        // Missing `approximate: true` though it wraps an approximate measure.
+        { kind: 'window', requiresTimeRange: true, name: 'users7d', measure: 'users', trailing: { amount: 7, unit: 'day' } },
+        {
+          kind: 'derived', name: 'usersRatio', approximate: true,
+          uses: [{ alias: 'a', measure: 'sessions' }, { alias: 'b', measure: 'users7d' }],
+          expression: {
+            kind: 'binary', operator: 'divide',
+            left: { kind: 'reference', name: 'a' }, right: { kind: 'reference', name: 'b' },
+          },
+        },
+      ],
+    })] };
+    const contract = JSON.parse(JSON.stringify(base)) as unknown;
+    expect(failures(checkProtocolDeploymentContractV3(contract)))
+      .toEqual(['HQ_DEPLOYMENT_INVALID_VALUE at $.datasets[0].measures[2].approximate']);
+  });
+
+  it('skips name-based measure checks while measure names repeat', () => {
+    const contract = deployment([dataset('orders', {
+      measures: [
+        { name: 'revenue', aggregation: 'sum', field: 'amount', filters: [] },
+        {
+          kind: 'derived', name: 'revenue',
+          uses: [{ alias: 'a', measure: 'revenue' }, { alias: 'b', measure: 'missing' }],
+          expression: {
+            kind: 'binary', operator: 'divide',
+            left: { kind: 'reference', name: 'a' }, right: { kind: 'reference', name: 'b' },
+          },
+        },
+      ],
+    })]);
+    expect(failures(checkProtocolDeploymentContract(contract)))
+      .toEqual(['HQ_DEPLOYMENT_INVALID_REFERENCE at $.datasets[0].measures']);
+  });
+
   it('reports every failing dataset metadata field', () => {
     const contract = deployment([dataset('orders', { format: 7, sensitivity: 'invalid' })]);
     expect(failures(checkProtocolDeploymentContract(contract))).toEqual([
