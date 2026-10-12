@@ -1,9 +1,8 @@
 # CLI telemetry event contract v1
 
 Implements the event specification in HQ-231 and the catalog/validation boundary
-in HQ-243. The telemetry core and `init` onboarding instrumentation are available
-in debug or explicitly configured ingest mode. Default collection is inactive;
-the ingest proxy and rollout remain separate work.
+in HQ-243. Unless opted out, the CLI delivers these events to the first-party
+ingest proxy by default; debug mode prints them instead.
 
 ## Source of truth
 

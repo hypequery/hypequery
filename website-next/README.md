@@ -64,16 +64,12 @@ POSTHOG_HOST=https://eu.i.posthog.com
 
 Generate the HMAC secret with `openssl rand -hex 32`; retain it across deployments
 so project identifiers stay stable. Keep all three values server-side (no
-`NEXT_PUBLIC_` prefix). To enable collection in a published CLI installation:
+`NEXT_PUBLIC_` prefix).
 
-```bash
-export HYPEQUERY_TELEMETRY_URL=https://hypequery.com/api/telemetry
-hypequery telemetry enable
-hypequery --version
-```
-
-The CLI currently requires this environment variable; deploying the endpoint
-does not enable collection globally. Debug mode prints events without sending.
+The CLI sends to this endpoint by default unless the user opts out;
+`HYPEQUERY_TELEMETRY_URL` overrides it for staging. CLI versions released before
+default collection send only when that variable is set. Debug mode prints events
+without sending.
 The endpoint returns 503 until configured and 202 after validation. Next.js
 `after()` forwards to PostHog with a three-second timeout, without client IP,
 cookies or user-agent headers. Project hashes are HMAC-rekeyed before forwarding.

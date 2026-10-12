@@ -2,6 +2,8 @@ import { matchesTelemetryFormat } from './value-formats.js';
 
 export const TELEMETRY_SCHEMA_VERSION = 1;
 export const TELEMETRY_DOCS_URL = 'https://hypequery.com/docs/telemetry';
+/** First-party ingest proxy; `HYPEQUERY_TELEMETRY_URL` overrides it for staging or self-hosting. */
+export const DEFAULT_TELEMETRY_ENDPOINT = 'https://hypequery.com/api/telemetry';
 
 export interface TelemetryConfig {
   readonly schema_version: typeof TELEMETRY_SCHEMA_VERSION;
