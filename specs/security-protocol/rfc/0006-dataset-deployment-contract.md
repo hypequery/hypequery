@@ -85,6 +85,10 @@ A SQL-backed field source is an RFC 0005 expression envelope and keeps that
 family's failure codes. A malformed envelope reports `HQ_QUERY_IMPLEMENTATION_*`
 rather than being flattened into a deployment code, so the failure names the
 contract that was actually broken.
+Its reported location is still a location in the deployment contract: the
+envelope's own path is appended to the field holding it, so a blank `sql` in
+the second dimension of the first dataset is reported at
+`$.datasets[0].dimensions[1].source.sql`, not `$.sql`.
 
 The reference limits are 100 datasets; 1,000 items per dataset collection;
 100 examples, synonyms, or default dimensions; 4,096 UTF-8 bytes per text
