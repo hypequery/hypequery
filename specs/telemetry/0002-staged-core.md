@@ -1,10 +1,10 @@
 # Staged telemetry core
 
 Implements HQ-235/HQ-237/HQ-238/HQ-239/HQ-241 and the central lifecycle portion
-of HQ-240/HQ-251. Default collection stays inactive while the first-party proxy,
-privacy/legal review and rollout are unfinished. `HYPEQUERY_TELEMETRY_DEBUG=1`
-activates local inspection; `HYPEQUERY_TELEMETRY_URL` activates explicit staging
-delivery. Both obey all saved, environment and flag opt-outs. Preference commands
+of HQ-240/HQ-251. Collection is on by default and delivers to the first-party
+proxy at `https://hypequery.com/api/telemetry`. `HYPEQUERY_TELEMETRY_DEBUG=1`
+switches to local inspection; `HYPEQUERY_TELEMETRY_URL` overrides the endpoint for
+staging. All modes obey saved, environment and flag opt-outs. Preference commands
 emit nothing. Help for preference commands is an ordinary help event.
 
 ## Local context and identity

@@ -82,10 +82,10 @@ The sections below expand on the supported options and expected behavior for eac
 
 ## `hypequery telemetry`
 
-Telemetry controls and the staged core are available ahead of default collection.
-Normal runs send nothing. `HYPEQUERY_TELEMETRY_DEBUG=1` prints validated events to
-stderr instead of sending; `HYPEQUERY_TELEMETRY_URL` activates a staging or
-self-hosted first-party ingest endpoint. Opt-outs apply to both modes. See the
+The CLI sends pseudonymous usage events to `https://hypequery.com/api/telemetry`
+unless telemetry is disabled. `HYPEQUERY_TELEMETRY_DEBUG=1` prints validated events
+to stderr instead of sending; `HYPEQUERY_TELEMETRY_URL` sends to a staging or
+self-hosted first-party ingest endpoint instead. Opt-outs apply in every mode. See the
 [telemetry reference](/docs/telemetry) for the event contract and delivery limits.
 
 ```bash

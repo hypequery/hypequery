@@ -6,6 +6,8 @@ import { CommandLifecycle } from './lifecycle.js';
 import { TelemetryInvocation } from './invocation.js';
 import { CommandExit, exitWith, installCommandExitFinalizer } from '../command-exit.js';
 import { TelemetryConfigStore } from './config-store.js';
+import { DEFAULT_TELEMETRY_ENDPOINT } from './config-schema.js';
+import type { DispatchBatch } from './detached-dispatch.js';
 import { resolveTelemetryState } from './opt-out.js';
 import { exceptionClass, telemetryErrorCode } from './error-code.js';
 import { updateCommandTelemetry, withCommandTelemetry } from './command-context.js';
@@ -81,12 +83,30 @@ describe('CLI telemetry lifecycle', () => {
     expect(events[0].properties).not.toHaveProperty('help_topic');
     expect(events[0].properties).not.toHaveProperty('table_count_bucket');
   });
-  it('debug and staged transport still honor every opt-out and suppress preference-command events', async () => {
-    for (const env of [{ HYPEQUERY_TELEMETRY_DEBUG: '1', DO_NOT_TRACK: '1' }, { HYPEQUERY_TELEMETRY_DEBUG: '1', NODE_ENV: 'test' }, {}]) {
+  it('debug and default delivery still honor every opt-out and suppress preference-command events', async () => {
+    for (const env of [{ HYPEQUERY_TELEMETRY_DEBUG: '1', DO_NOT_TRACK: '1' }, { HYPEQUERY_TELEMETRY_DEBUG: '1', NODE_ENV: 'test' },
+      { DO_NOT_TRACK: '1' }, { HYPEQUERY_TELEMETRY_DISABLED: '1' }, { VITEST: 'true' },
+      { GITHUB_ACTIONS: 'true', GITHUB_REPOSITORY: 'hypequery/hypequery' }]) {
       expect(await TelemetryInvocation.create({ command: 'init', configDirectory: directory, env })).toBeNull();
     }
     expect(await TelemetryInvocation.create({ command: 'telemetry', configDirectory: directory, env: { HYPEQUERY_TELEMETRY_DEBUG: '1' } })).toBeNull();
     expect(await new TelemetryConfigStore({ configDirectory: directory }).peek()).toBeNull();
+  });
+  it('sends to the first-party endpoint by default and lets HYPEQUERY_TELEMETRY_URL override it', async () => {
+    for (const [env, expected] of [
+      [{}, DEFAULT_TELEMETRY_ENDPOINT],
+      [{ HYPEQUERY_TELEMETRY_URL: 'https://staging.example/batch' }, 'https://staging.example/batch'],
+    ] as const) {
+      const dispatch = vi.fn<DispatchBatch>();
+      const lifecycle = new CommandLifecycle(['--version'], {
+        configDirectory: directory, cwd: directory, env, contextOptions: { isTTY: false }, transportOptions: { dispatch },
+      });
+      await lifecycle.begin('version');
+      await lifecycle.finish(new CommandExit(0, 'success'));
+      expect(dispatch).toHaveBeenCalledTimes(1);
+      expect(dispatch.mock.calls[0][0].href).toBe(expected);
+      expect(JSON.parse(dispatch.mock.calls[0][1]).batch[0]).toMatchObject({ event: 'cli_command_completed', properties: { command: 'version' } });
+    }
   });
   it('persists a version-specific kill switch without disabling future releases or changing saved consent', async () => {
     const options = { configDirectory: directory, env: {} };

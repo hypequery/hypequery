@@ -3,11 +3,13 @@ title: CLI telemetry preferences
 description: Inspect and control anonymous CLI usage telemetry preferences
 ---
 
-The CLI provides telemetry preferences and a staged telemetry core. Normal runs
-do not collect or send events yet. To audit locally, set
-`HYPEQUERY_TELEMETRY_DEBUG=1`: valid event envelopes are printed to stderr and
-nothing is sent. Maintainers can set `HYPEQUERY_TELEMETRY_URL` to a staging or
-self-hosted first-party ingest endpoint. Opt-outs apply in both modes.
+The CLI collects pseudonymous usage telemetry by default and sends it to
+Hypequery's first-party ingest endpoint (`https://hypequery.com/api/telemetry`).
+Events never contain code, SQL, names, paths or credentials; the event reference
+below lists every field. To audit locally, set `HYPEQUERY_TELEMETRY_DEBUG=1`:
+valid event envelopes are printed to stderr and nothing is sent. Set
+`HYPEQUERY_TELEMETRY_URL` to send to a staging or self-hosted first-party
+endpoint instead. Opt-outs apply in every mode.
 
 ```bash
 hypequery telemetry status
@@ -32,10 +34,10 @@ disable telemetry for that run. A failed explicit save reports an error so you
 can use an environment variable or the flag instead.
 
 See the [CLI reference](/docs/reference/api/cli#hypequery-telemetry) for precedence
-and config-directory details. The planned event reference is below;
+and config-directory details. The event reference is below;
 data-handling policy will be documented before default collection is released.
 
-## Staging and debugging
+## Delivery and debugging
 
 ```bash
 HYPEQUERY_TELEMETRY_DEBUG=1 hypequery --version
@@ -47,7 +49,7 @@ timestamps and the transport-owned `$process_person_profile: false` and
 `$geoip_disable: true` properties. Invalid events are dropped with a fixed
 diagnostic that does not echo rejected input. All telemetry output uses stderr.
 
-Staging delivery uses one in-memory batch per invocation with a 64 KiB /
+Delivery uses one in-memory batch per invocation with a 64 KiB /
 32-event cap. At exit the CLI writes the batch to a private temporary file and
 starts a detached Node process that sends it in one built-in HTTP(S) request
 with a 5-second timeout, so delivery never delays the command. The sender
@@ -63,15 +65,14 @@ best-effort. Later versions remain eligible; `telemetry status` reports
 
 The disclosure appears once on enabled interactive runs, after a successful
 stderr write. It is suppressed in CI, on non-TTY streams, during preference
-commands, and under MCP. Before default collection is enabled, this disclosure
-appears only when the staged core is activated as described above.
+commands, and under MCP.
 
 Known command failures reach the bounded exit flush. Dev shutdown flushes after
 runtime teardown, and SIGINT/SIGTERM endings are classified as interrupted.
 Crash events use Node's exception monitor so native fatal-error output and exit
 behavior are preserved; network delivery during a fatal crash is best-effort.
 
-In staged mode, `init` adds onboarding progress to its single command completion
+`init` adds onboarding progress to its single command completion
 event: the furthest stage reached, the failing stage on errors, connection results,
 scaffold and authentication choices, bucketed schema/dataset counts, and whether
 configuration files were created, updated, unchanged, or skipped. Declining setup
@@ -93,7 +94,7 @@ and manifest contents are excluded, and telemetry adds no database queries.
 
 ## Event reference
 
-Schema version: **1**. Default collection is inactive. Debug or explicitly configured ingest mode emits command/crash lifecycle events, init and generation metrics, and dev/MCP session events. Cloud command and project-feature instrumentation follows separately.
+Schema version: **1**. Unless opted out, the CLI sends command/crash lifecycle events, init and generation metrics, and dev/MCP session events to the first-party ingest proxy; debug mode prints them instead. Cloud command and project-feature instrumentation follows separately.
 
 Unknown events, properties, record keys, flag names, enum values, and malformed identities or versions are rejected. No argument values, paths, names, SQL, messages, stacks, hosts, tenants, or credentials are permitted.
 
