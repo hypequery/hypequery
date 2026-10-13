@@ -55,6 +55,15 @@ Schema validators cover the declarative Serve/Zod features that can travel betwe
 
 A deployment combines dataset definitions and endpoint policies in one strict versioned envelope. Derived measures live alongside base measures in each dataset; queries and standalone metrics are not deployment targets. Bundle manifests bind declared files by path, byte length, and hash; the deployment verifier accepts only bundles with no runtime artifacts. Release envelopes bind a verified bundle to one explicit project and environment.
 
+`validateProtocolDeploymentContract` throws the first failure it finds. To report every failure at once, as an editor or deployment service would, use `checkProtocolDeploymentContract` (or `checkProtocolDeploymentContractV3` / `checkProtocolDatasetContract`). It accepts exactly the same contracts and returns `{ ok: true, value }` or `{ ok: false, errors, truncated }`, where each error carries a `code` and a contract `path`. Checks that depend on a part that already failed are skipped, so one mistake is reported once.
+
+```ts
+const result = checkProtocolDeploymentContract(input);
+if (!result.ok) {
+  for (const error of result.errors) console.error(`${error.code} at ${error.path}`);
+}
+```
+
 Canonical encoders and domain-separated SHA-256 identities make these artifacts reproducible across language implementations. Filesystem-safe construction and verification live in `@hypequery/deployment` and the CLI.
 
 ## Package use
