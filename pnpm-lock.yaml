@@ -168,7 +168,7 @@ importers:
         specifier: '>=2.13.0'
         version: link:../clickhouse
       '@hypequery/protocol':
-        specifier: ^0.19.0
+        specifier: ^0.20.0
         version: link:../protocol
       '@noble/hashes':
         specifier: ^1.8.0

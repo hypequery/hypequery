@@ -1,5 +1,12 @@
 # @hypequery/protocol-conformance
 
+## 0.15.2
+
+### Patch Changes
+
+- Updated dependencies [d1e4194]
+  - @hypequery/protocol@0.20.0
+
 ## 0.15.1
 
 ### Patch Changes
