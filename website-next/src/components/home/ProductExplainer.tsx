@@ -56,13 +56,13 @@ export function ProductExplainer() {
     : 'M0 65C20 60 25 70 45 60S75 35 95 42S130 58 150 42S175 25 195 33S225 18 250 25S280 15 300 18';
 
   return (
-    <section aria-labelledby="product-explainer-title" className="mx-auto max-w-[1280px] px-5 pb-12 pt-14 sm:px-8 sm:pt-20">
+    <section aria-labelledby="product-explainer-title" className="overflow-x-clip mx-auto max-w-[1280px] px-5 pb-12 pt-14 sm:px-8 sm:pt-20">
       <motion.div variants={ENTRANCE} initial={reducedMotion ? false : "hidden"} whileInView="visible" viewport={{ once: true, amount: 0.2 }} custom={0} className="mx-auto max-w-[660px] text-center">
         <h2 id="product-explainer-title" className="home-section-title text-text">One model, every interface</h2>
         <p className="mx-auto mt-4 max-w-[570px] text-sm leading-6 text-text-muted sm:text-base">Your app&apos;s dashboards, an AI chat for your customers, and agents like Claude all answer from the same published model.</p>
       </motion.div>
 
-      <motion.div variants={ENTRANCE} initial={reducedMotion ? false : "hidden"} whileInView="visible" viewport={{ once: true, amount: 0.2 }} custom={0.06} className="relative mt-9 h-[290px] sm:mt-12" aria-label="ClickHouse tables flow into a shared hypequery model, then into dashboards, chat, and MCP agents">
+      <motion.div variants={ENTRANCE} initial={reducedMotion ? false : "hidden"} whileInView="visible" viewport={{ once: true, amount: 0.2 }} custom={0.06} className="relative mt-9 h-[290px] sm:mt-12" role="figure" aria-label="ClickHouse tables flow into a shared hypequery model, then into dashboards, chat, and MCP agents">
         <div className="absolute inset-x-0 -top-1 flex items-center justify-center gap-2 text-[11px] text-text-muted">
           <SiClickhouse className="h-3.5 w-3.5 text-[#d6a500]" aria-hidden="true" />
           <span>ClickHouse Cloud, chDB, or self-hosted</span>
@@ -156,6 +156,8 @@ export function ProductExplainer() {
           type="button"
           onClick={answers.replay}
           aria-label="Replay the chat and agent examples"
+          tabIndex={answers.done ? 0 : -1}
+          aria-hidden={!answers.done}
           className={`rounded-md p-1.5 text-text-dim transition hover:text-text ${answers.done ? 'opacity-100' : 'pointer-events-none opacity-0'}`}
         >
           <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" />

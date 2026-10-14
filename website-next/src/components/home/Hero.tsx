@@ -21,8 +21,8 @@ export function Hero() {
             <SiGithub className="h-3.5 w-3.5 text-text" aria-hidden="true" /><span className="font-semibold text-text">Open source</span><span className="border-l border-border pl-2">Apache 2.0</span>
           </a>
         </div>
-        <h1 className="whitespace-nowrap text-[clamp(1.375rem,5.4vw,4.6rem)] font-normal leading-[1.04] tracking-[-0.05em] text-text">Ship AI analytics on{' '}
-          <span className="ml-[0.16em] inline-flex items-center gap-[0.14em] align-[-0.06em]">
+        <h1 className="max-sm:mt-3 text-[clamp(2.25rem,5.4vw,4.6rem)] font-normal sm:whitespace-nowrap leading-[1.04] tracking-[-0.05em] text-text">Ship AI analytics on{' '}
+          <span className="inline-flex items-center whitespace-nowrap sm:ml-[0.16em] gap-[0.14em] align-[-0.06em]">
             {/* ClickHouse yellow on a black tile, like its app icon, so the brand colour shows in light mode too. */}
             <span className="flex h-[0.86em] w-[0.86em] shrink-0 items-center justify-center rounded-[0.16em] bg-[#161517]" aria-hidden="true">
               <SiClickhouse className="h-[0.6em] w-[0.6em] text-[#faff69]" />

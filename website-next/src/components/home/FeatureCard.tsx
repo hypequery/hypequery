@@ -26,20 +26,3 @@ export function FeatureCard({
     </article>
   );
 }
-
-export function FeatureCardCopy({
-  title,
-  description,
-  large = false,
-}: {
-  title: string;
-  description: string;
-  large?: boolean;
-}) {
-  return (
-    <>
-      <h2 className={`${large ? 'text-[30px]' : 'text-[22px]'} font-normal leading-tight tracking-[-0.03em] text-text`}>{title}</h2>
-      <p className="mt-1 text-sm leading-5 text-text-muted">{description}</p>
-    </>
-  );
-}

@@ -1,8 +1,10 @@
 'use client';
 
-import { useRef, useSyncExternalStore } from 'react';
-import { createPortal } from 'react-dom';
-import { Info } from 'lucide-react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { Check, Info } from 'lucide-react';
+
+const FORM_ACTION = 'https://formspree.io/f/mzdwnylk';
+const OPEN_EVENT = 'hypequery:open-waitlist';
 
 const FEATURE_OPTIONS = [
   'Hosted APIs',
@@ -13,68 +15,109 @@ const FEATURE_OPTIONS = [
   'Something else',
 ] as const;
 
-function noopSubscribe() {
-  return () => {};
+type Status = 'idle' | 'sending' | 'sent' | 'error';
+
+/** A button that opens the shared waitlist dialog. `location` records where it was opened from. */
+export function DeployWaitlist({ location, className, compactLabel = false }: { location: string; className?: string; compactLabel?: boolean }) {
+  return (
+    <button type="button" className={className} onClick={() => window.dispatchEvent(new CustomEvent(OPEN_EVENT, { detail: location }))}>
+      {compactLabel
+        ? <><span className="nav-desktop-only">Get cloud access <span aria-hidden="true">→</span></span><span className="nav-mobile-only">Cloud access</span></>
+        : <>Get cloud access <span aria-hidden="true">→</span></>}
+    </button>
+  );
 }
 
-export function DeployWaitlist({ location, className, compactLabel = false }: { location: string; className?: string; compactLabel?: boolean }) {
+/** The one waitlist dialog for the whole site, rendered from the root layout. */
+export function WaitlistDialog() {
   const dialogRef = useRef<HTMLDialogElement>(null);
-  // The dialog renders into <body> so it looks the same wherever it is opened from.
-  // True only in the browser, so the server render and hydration match.
-  const mounted = useSyncExternalStore(noopSubscribe, () => true, () => false);
+  const [source, setSource] = useState('');
+  const [status, setStatus] = useState<Status>('idle');
+
+  useEffect(() => {
+    const open = (event: Event) => {
+      // Records the page and button, e.g. `homepage-deploy-hero` or `docs-deploy-cloud-notice`.
+      const { pathname } = window.location;
+      const page = pathname === '/' ? 'homepage' : pathname.split('/')[1];
+      setSource(`${page}-deploy-${(event as CustomEvent<string>).detail}`);
+      setStatus('idle');
+      dialogRef.current?.showModal();
+    };
+    window.addEventListener(OPEN_EVENT, open);
+    return () => window.removeEventListener(OPEN_EVENT, open);
+  }, []);
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = event.currentTarget;
+    setStatus('sending');
+    try {
+      const response = await fetch(FORM_ACTION, { method: 'POST', body: new FormData(form), headers: { Accept: 'application/json' } });
+      if (!response.ok) throw new Error('Waitlist signup failed');
+      form.reset();
+      setStatus('sent');
+    } catch {
+      setStatus('error');
+    }
+  }
 
   return (
-    <>
-      <button type="button" className={className} onClick={() => dialogRef.current?.showModal()}>
-        {compactLabel ? <><span className="nav-desktop-only">Get cloud access</span><span className="nav-mobile-only">Cloud access</span></> : 'Get cloud access'} <span aria-hidden="true">→</span>
-      </button>
-      {mounted && createPortal(<dialog ref={dialogRef} className="m-auto max-h-[calc(100dvh-2rem)] w-[min(100%-2rem,560px)] overflow-y-auto rounded-2xl border border-border-strong bg-bg-card p-0 text-left text-base font-normal text-text shadow-2xl backdrop:bg-black/40" onClick={(event) => { if (event.target === dialogRef.current) dialogRef.current.close(); }}>
-        <div className="p-6 sm:p-8">
-          <div className="flex items-start justify-between gap-4">
-            <div><p className="text-xs font-semibold uppercase tracking-[0.16em] text-accent">hypequery Cloud</p><h2 className="mt-3 text-2xl font-semibold tracking-tight">Get early access to deploy.</h2></div>
-            <button type="button" aria-label="Close waitlist form" className="text-text-muted" onClick={() => dialogRef.current?.close()}>✕</button>
-          </div>
-          <p className="mt-3 text-sm leading-6 text-text-muted">Cloud deployment is coming soon. Join the waitlist and we&apos;ll reach out when your project can go live.</p>
-          <form action="https://formspree.io/f/mzdwnylk" method="POST" className="mt-6">
-            <label htmlFor={`deploy-email-${location}`} className="text-sm font-semibold">Work email</label>
-            <input id={`deploy-email-${location}`} name="email" type="email" required placeholder="you@company.com" className="mt-2 w-full rounded-lg border border-border-strong bg-bg px-4 py-3 text-sm outline-none focus:border-accent" />
-            <div className="mt-5 flex items-center gap-2">
-              <input id={`design-partner-${location}`} name="design_partner" type="checkbox" value="yes" className="h-4 w-4 shrink-0 accent-accent" />
-              <label htmlFor={`design-partner-${location}`} className="text-sm text-text">I&apos;d like to be a design partner</label>
-              <span className="group relative inline-flex">
-                <button type="button" aria-describedby={`design-partner-tip-${location}`} className="flex items-center rounded text-text-muted transition hover:text-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent">
-                  <Info className="h-4 w-4" aria-hidden="true" />
-                  <span className="sr-only">What does being a design partner mean?</span>
-                </button>
-                <span id={`design-partner-tip-${location}`} role="tooltip" className="pointer-events-none invisible absolute left-1/2 top-full -translate-x-1/2 z-20 mt-2 w-[min(260px,75vw)] rounded-lg border border-border-strong bg-bg-card p-3 text-xs leading-5 text-text opacity-0 shadow-xl transition-opacity group-focus-within:visible group-focus-within:opacity-100 group-hover:visible group-hover:opacity-100">
-                  Help shape the Cloud roadmap. We&apos;ll reach out to arrange a design discussion.
-                </span>
-              </span>
-            </div>
-            <fieldset className="mt-6">
-              <legend className="text-sm font-semibold">What features do you most need?</legend>
-              <p className="mt-1 text-xs text-text-muted">Pick as many as you like.</p>
-              <div className="mt-3 grid grid-cols-2 gap-2">
-                {FEATURE_OPTIONS.map((option) => (
-                  <label key={option} className="flex min-h-11 cursor-pointer items-center gap-2 rounded-lg border border-border bg-bg-alt/50 px-3 py-2 text-xs leading-4 text-text transition hover:border-border-strong has-[:checked]:border-accent">
-                    <input
-                      type="checkbox"
-                      name="features"
-                      value={option}
-                      className="h-4 w-4 shrink-0 accent-accent"
-                    />
-                    <span>{option}</span>
-                  </label>
-                ))}
-              </div>
-            </fieldset>
-            <label htmlFor={`deploy-context-${location}`} className="mt-6 block text-sm font-semibold">Anything else we should know?</label>
-            <textarea id={`deploy-context-${location}`} name="additional_context" rows={3} placeholder="Your use case, or what you picked &quot;Something else&quot; for…" className="mt-2 w-full resize-y rounded-lg border border-border-strong bg-bg px-4 py-3 text-sm outline-none placeholder:text-text-dim focus:border-accent" />
-            <input type="hidden" name="source" value={`homepage-deploy-${location}`} />
-            <button type="submit" className="mt-4 w-full rounded-lg bg-accent px-5 py-3 text-sm font-semibold text-white transition hover:opacity-90 dark:text-[#0c0e14]">Join the cloud waitlist →</button>
-          </form>
+    <dialog ref={dialogRef} aria-labelledby="waitlist-title" className="m-auto max-h-[calc(100dvh-2rem)] w-[min(100%-2rem,560px)] overflow-y-auto rounded-2xl border border-border-strong bg-bg-card p-0 text-left text-base font-normal text-text shadow-2xl backdrop:bg-black/40" onClick={(event) => { if (event.target === dialogRef.current) dialogRef.current.close(); }}>
+      <div className="p-6 sm:p-8">
+        <div className="flex items-start justify-between gap-4">
+          <div><p className="text-xs font-semibold uppercase tracking-[0.16em] text-accent">hypequery Cloud</p><h2 id="waitlist-title" className="mt-3 text-2xl font-semibold tracking-tight">{status === 'sent' ? "You're on the list." : 'Get early access to deploy.'}</h2></div>
+          <button type="button" aria-label="Close waitlist form" className="text-text-muted" onClick={() => dialogRef.current?.close()}>✕</button>
         </div>
-      </dialog>, document.body)}
-    </>
+        {status === 'sent' ? (
+          <div role="status" className="mt-4">
+            <p className="flex items-start gap-2 text-sm leading-6 text-text-muted"><Check className="mt-1 h-4 w-4 shrink-0 text-accent" aria-hidden="true" />Thanks for signing up. We&apos;ll reach out when your project can go live.</p>
+            <button type="button" className="mt-6 w-full rounded-lg border border-border-strong px-5 py-3 text-sm font-semibold text-text transition hover:border-text" onClick={() => dialogRef.current?.close()}>Close</button>
+          </div>
+        ) : (
+          <>
+            <p className="mt-3 text-sm leading-6 text-text-muted">Cloud deployment is coming soon. Join the waitlist and we&apos;ll reach out when your project can go live.</p>
+            <form action={FORM_ACTION} method="POST" onSubmit={handleSubmit} className="mt-6">
+              <label htmlFor="waitlist-email" className="text-sm font-semibold">Work email</label>
+              <input id="waitlist-email" name="email" type="email" required placeholder="you@company.com" className="mt-2 w-full rounded-lg border border-border-strong bg-bg px-4 py-3 text-sm outline-none focus:border-accent" />
+              <div className="mt-5 flex items-center gap-2">
+                <input id="waitlist-design-partner" name="design_partner" type="checkbox" value="yes" className="h-4 w-4 shrink-0 accent-accent" />
+                <label htmlFor="waitlist-design-partner" className="text-sm text-text">I&apos;d like to be a design partner</label>
+                <span className="group relative inline-flex">
+                  <button type="button" aria-describedby="waitlist-design-partner-tip" className="flex items-center rounded text-text-muted transition hover:text-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent">
+                    <Info className="h-4 w-4" aria-hidden="true" />
+                    <span className="sr-only">What does being a design partner mean?</span>
+                  </button>
+                  <span id="waitlist-design-partner-tip" role="tooltip" className="pointer-events-none invisible absolute left-1/2 top-full -translate-x-1/2 z-20 mt-2 w-[min(260px,75vw)] rounded-lg border border-border-strong bg-bg-card p-3 text-xs leading-5 text-text opacity-0 shadow-xl transition-opacity group-focus-within:visible group-focus-within:opacity-100 group-hover:visible group-hover:opacity-100">
+                    Help shape the Cloud roadmap. We&apos;ll reach out to arrange a design discussion.
+                  </span>
+                </span>
+              </div>
+              <fieldset className="mt-6">
+                <legend className="text-sm font-semibold">What features do you most need?</legend>
+                <p className="mt-1 text-xs text-text-muted">Pick as many as you like.</p>
+                <div className="mt-3 grid grid-cols-2 gap-2">
+                  {FEATURE_OPTIONS.map((option) => (
+                    <label key={option} className="flex min-h-11 cursor-pointer items-center gap-2 rounded-lg border border-border bg-bg-alt/50 px-3 py-2 text-xs leading-4 text-text transition hover:border-border-strong has-[:checked]:border-accent">
+                      <input
+                        type="checkbox"
+                        name="features"
+                        value={option}
+                        className="h-4 w-4 shrink-0 accent-accent"
+                      />
+                      <span>{option}</span>
+                    </label>
+                  ))}
+                </div>
+              </fieldset>
+              <label htmlFor="waitlist-context" className="mt-6 block text-sm font-semibold">Anything else we should know?</label>
+              <textarea id="waitlist-context" name="additional_context" rows={3} placeholder="Your use case, or what you picked &quot;Something else&quot; for…" className="mt-2 w-full resize-y rounded-lg border border-border-strong bg-bg px-4 py-3 text-sm outline-none placeholder:text-text-dim focus:border-accent" />
+              <input type="hidden" name="source" value={source} />
+              {status === 'error' && <p role="alert" className="mt-4 text-sm text-[#dc2626]">Something went wrong. Please try again, or <a href="/contact-us" className="underline underline-offset-2">contact us</a>.</p>}
+              <button type="submit" disabled={status === 'sending'} className="mt-4 w-full rounded-lg bg-accent px-5 py-3 text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-60 dark:text-[#0c0e14]">{status === 'sending' ? 'Joining…' : 'Join the cloud waitlist →'}</button>
+            </form>
+          </>
+        )}
+      </div>
+    </dialog>
   );
 }

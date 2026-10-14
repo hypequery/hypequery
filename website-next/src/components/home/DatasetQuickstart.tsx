@@ -70,11 +70,11 @@ export function DatasetQuickstart() {
               </div>
               <div className="mt-4 flex gap-2 text-[11px] text-text-muted"><span className="rounded border border-border px-2 py-1">REST /execute</span><span className="rounded border border-border px-2 py-1">MCP /mcp</span></div>
               <DeployWaitlist location="developer-cloud" className="feature-detail-link mt-auto! pt-6" />
-              <Link href="/docs/reference/api/cli" className="mt-3 text-[11px] text-text-muted hover:text-accent">Cloud CLI reference</Link>
+              <Link href="/docs/cloud/cli" className="mt-3 text-[11px] text-text-muted hover:text-accent">Cloud CLI reference</Link>
             </> : isBackend ? <>
               <div className="flex items-center gap-2 text-xs font-medium text-text">{language === 'typescript' ? <SiHono className="h-4 w-4 text-[#ff5b3d]" aria-hidden="true" /> : <SiFastapi className="h-4 w-4 text-[#009688]" aria-hidden="true" />}Inside your {language === 'typescript' ? 'Hono' : 'FastAPI'} backend</div>
               <p className="mt-3 text-xs leading-5 text-text-muted">Your routes and middleware. Analytics in the same process.</p>
-              <div className="my-4" aria-label="Your existing backend executes hypequery queries directly against ClickHouse">
+              <div className="my-4" role="figure" aria-label="Your existing backend executes hypequery queries directly against ClickHouse">
                 <div className="rounded-lg border border-border bg-bg-alt/50 p-4">
                   <div className="flex items-center gap-2 text-xs font-medium text-text"><Server className="h-4 w-4 text-accent" aria-hidden="true" />Your existing backend</div>
                   <div className="mt-3 rounded-md border border-accent/20 bg-accent-soft px-3 py-2 font-mono text-[11px] text-accent">analytics.execute(orders, ...)</div>

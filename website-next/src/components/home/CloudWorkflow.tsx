@@ -92,7 +92,6 @@ function DraftScreen() {
             ['+', 'measure', 'refunds', 'sum(refund_amount)'],
             ['+', 'derived', 'net_revenue', 'revenue - refunds - discounts'],
             ['+', 'relationship', 'orders → customers', 'many-to-one on customer_id'],
-            ['~', 'dimension', 'channel', 'exposed via customer.channel'],
           ] as const).map(([kind, type, name, detail]) => (
             <div key={name} className="grid items-center gap-2.5 max-md:grid-cols-[16px_minmax(0,1fr)] md:grid-cols-[16px_76px_minmax(0,1fr)] border-b border-border px-3 py-2 text-[11.5px] last:border-b-0">
               <Mark kind={kind} />
@@ -353,7 +352,7 @@ const SCREENS: {
     ),
     actions: (
       <>
-        <Subtitle>4 unsaved changes</Subtitle>
+        <Subtitle>3 unsaved changes</Subtitle>
         <PrimaryButton>Save</PrimaryButton>
       </>
     ),
@@ -373,7 +372,7 @@ const SCREENS: {
     ),
     actions: (
       <>
-        <Subtitle>4 unsaved changes</Subtitle>
+        <Subtitle>6 changes vs v42</Subtitle>
         <PrimaryButton>Publish as v43</PrimaryButton>
       </>
     ),
@@ -436,6 +435,28 @@ export function CloudWorkflow() {
 
   const screen = SCREENS[active];
 
+  const select = (index: number) => {
+    setActive(index);
+    setPinned(true);
+  };
+
+  // Arrow keys, Home, and End move between tabs, as in the WAI-ARIA tabs pattern.
+  const onTabKeyDown = (event: React.KeyboardEvent, index: number) => {
+    const last = SCREENS.length - 1;
+    const next = {
+      ArrowRight: index === last ? 0 : index + 1,
+      ArrowDown: index === last ? 0 : index + 1,
+      ArrowLeft: index === 0 ? last : index - 1,
+      ArrowUp: index === 0 ? last : index - 1,
+      Home: 0,
+      End: last,
+    }[event.key];
+    if (next === undefined) return;
+    event.preventDefault();
+    select(next);
+    document.getElementById(`cloud-workflow-tab-${SCREENS[next].id}`)?.focus();
+  };
+
   return (
     <section aria-labelledby="cloud-workflow-title" className="mx-auto max-w-[1280px] px-5 pb-4 pt-14 sm:px-8 sm:pt-20">
       <h2 id="cloud-workflow-title" className="home-section-title max-w-[960px] text-text">AI changes. You review. Then it ships.</h2>
@@ -450,14 +471,14 @@ export function CloudWorkflow() {
             return (
               <button
                 key={id}
+                id={`cloud-workflow-tab-${id}`}
                 type="button"
                 role="tab"
                 aria-selected={selected}
                 aria-controls="cloud-workflow-panel"
-                onClick={() => {
-                  setActive(index);
-                  setPinned(true);
-                }}
+                tabIndex={selected ? 0 : -1}
+                onClick={() => select(index)}
+                onKeyDown={(event) => onTabKeyDown(event, index)}
                 className={`relative shrink-0 snap-start overflow-hidden border px-4 text-left transition max-lg:rounded-full max-lg:py-2 lg:rounded-lg lg:py-3 ${selected ? 'border-border-strong bg-bg-card' : 'border-transparent hover:bg-bg-card/60'}`}
               >
                 <span className={`block font-medium max-lg:whitespace-nowrap max-lg:text-[13px] lg:text-sm ${selected ? 'text-text' : 'text-text-muted'}`}>{title}</span>
@@ -477,7 +498,7 @@ export function CloudWorkflow() {
         </div>
         <p className="-mt-2 text-sm leading-6 text-text-muted lg:hidden">{screen.copy}</p>
 
-        <div id="cloud-workflow-panel" role="tabpanel" aria-label={screen.title} className="flex overflow-hidden rounded-xl border border-border bg-bg-card shadow-card">
+        <div id="cloud-workflow-panel" role="tabpanel" aria-labelledby={`cloud-workflow-tab-${screen.id}`} tabIndex={0} className="flex overflow-hidden rounded-xl border border-border bg-bg-card shadow-card">
           <CloudRail page={screen.page} className="max-md:hidden" />
           <div className="flex min-w-0 flex-1 flex-col">
             <CloudHeader

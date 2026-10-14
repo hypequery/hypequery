@@ -5,6 +5,7 @@ import { RootProvider } from "fumadocs-ui/provider/next";
 import DefaultSearchDialog from "@/components/search";
 import CookieConsentBanner from "@/components/CookieConsent";
 import UmamiScript from "@/components/UmamiScript";
+import { WaitlistDialog } from "@/components/home/DeployWaitlist";
 import { absoluteUrl, siteUrl } from "@/lib/site";
 import { THEME_STORAGE_KEY } from "@/lib/theme";
 
@@ -148,6 +149,7 @@ export default function RootLayout({
           }}
         >
           {children}
+          <WaitlistDialog />
         </RootProvider>
         <CookieConsentBanner gaMeasurementId={gaMeasurementId} />
       </body>

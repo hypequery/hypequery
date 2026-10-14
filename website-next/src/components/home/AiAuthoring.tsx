@@ -419,18 +419,7 @@ function AuthoringDemo() {
             logo={published ? 'mobile' : true}
             innerClassName="md:w-[740px]"
             actions={
-              <span className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={replay}
-                  tabIndex={done ? 0 : -1}
-                  aria-label="Replay the animation"
-                  className={`rounded-md p-1 text-text-dim transition hover:text-text ${done ? 'opacity-100' : 'pointer-events-none opacity-0'}`}
-                >
-                  <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" />
-                </button>
-                {published ? <ConnectButton /> : <span className="text-[12.5px] text-text-muted">Skip setup</span>}
-              </span>
+              published ? <ConnectButton /> : <span className="text-[12.5px] text-text-muted">Skip setup</span>
             }
           >
             <VersionSwitch draft={false} live={published} name="Published" detail={published ? 'v1' : 'nothing yet'} />
@@ -441,6 +430,17 @@ function AuthoringDemo() {
           </div>
         </div>
       </div>
+      {/* Outside the aria-hidden window, so keyboard and screen reader users can reach it. */}
+      <button
+        type="button"
+        onClick={replay}
+        tabIndex={done ? 0 : -1}
+        aria-hidden={!done}
+        className={`mt-2 inline-flex items-center gap-1.5 rounded-md px-1.5 py-1 text-xs text-text-dim transition hover:text-text ${done ? 'opacity-100' : 'pointer-events-none opacity-0'}`}
+      >
+        <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" />
+        Replay
+      </button>
     </div>
   );
 }

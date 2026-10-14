@@ -11,7 +11,7 @@ export default function Navigation({ hasBanner = false }: { hasBanner?: boolean 
         <Link href="/" className="font-mono text-[15px] font-bold text-text tracking-tight">
           hypequery
         </Link>
-        <div className="flex items-center gap-4 sm:gap-8">
+        <div className="flex items-center gap-3 sm:gap-8">
         <ProductMenu />
         <Link href="/docs" className="nav-desktop-only text-[13.5px] font-medium text-text-muted transition hover:text-text">
           Docs
@@ -24,7 +24,7 @@ export default function Navigation({ hasBanner = false }: { hasBanner?: boolean 
         >
           GitHub
         </a>
-        <DeployWaitlist location="nav" compactLabel className="inline-flex min-h-9 items-center gap-2 rounded-lg bg-accent px-3 text-xs font-semibold text-white transition hover:opacity-85 dark:text-[#0c0e14]" />
+        <DeployWaitlist location="nav" compactLabel className="inline-flex min-h-9 items-center gap-1.5 whitespace-nowrap rounded-lg bg-accent px-3 text-xs font-semibold text-white transition hover:opacity-85 dark:text-[#0c0e14]" />
         </div>
       </div>
     </nav>
