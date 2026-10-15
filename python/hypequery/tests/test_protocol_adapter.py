@@ -23,6 +23,7 @@ def test_adapter_announces_pinned_families_and_hostile_suite() -> None:
     )
     hello = cast(dict[str, object], json.loads(completed.stdout.splitlines()[0]))
     assert hello["families"] == [
+        "client-contract-v1",
         "cache-keys-v1",
         "cache-preimages-v1",
         "tagged-values-v1",

@@ -1,3 +1,4 @@
+import { composeClientContractCases } from './client-contract-fixtures.js';
 // Pure enumeration of conformance cases from a parsed manifest. All file
 // reading is injected as `loadJson` so this module has no I/O and can be unit
 // tested with in-memory fixtures.
@@ -86,7 +87,8 @@ export function enumerateFamilyCases(
   loadJson: JsonLoader,
 ): EnumeratedCase[] {
   return manifest.families.flatMap((family) => {
-    const cases = family.files.flatMap((file) => enumerateFile(family, file, loadJson));
+    const rawCases = family.files.flatMap((file) => enumerateFile(family, file, loadJson));
+    const cases = family.name === 'client-contract-v1' ? composeClientContractCases(rawCases) : rawCases;
 
     // An identity case pins the canonical bytes and hash of the success case
     // that shares its id. Attach that success value so an adapter can derive

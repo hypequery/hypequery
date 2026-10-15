@@ -1,22 +1,23 @@
 # RFC 0018: Semantic client contract
 
-- Status: Proposed
+- Status: Accepted
 - Date: 2026-10-15
-- Proposed artifact version: semantic client contract 1
+- Artifact version: semantic client contract 1
 - Implementation track: PX-01 through PX-08, Python integrated beta
 - Changes no existing deployment, expression, invocation or catalog version
 
 ## Status and purpose
 
-This proposal describes a bounded logical contract for registered dataset and
+This RFC defines a bounded logical contract for registered dataset and
 measure-backed metric HTTP endpoints. It supplies frontend type/route generation
 and an HTTP-backed MCP executor without exposing executable definitions.
 
-It does not assign a stable public format or authorize runtime exports before
-acceptance. Draft vectors live in [client-contract-v1](../drafts/client-contract-v1/README.md),
-outside the conformance manifest. PX-02 implements validators/compiler only after
-a deliberate review-and-accept pass. Acceptance moves the vectors into fixtures
-and registers a required family; current adapters must not announce it yet.
+The data format, validators and compiler were reviewed in PX-02; see the
+[acceptance record](../decisions/0018-client-contract-acceptance.md). Normative
+vectors live in [client-contract-v1](../fixtures/client-contract-v1/README.md)
+and are registered in conformance. Acceptance covers the data format and strict
+query profile. HTTP registration/discovery, generation, React and the MCP bridge
+retain their own implementation and release gates.
 
 ## Trust and compatibility boundary
 
@@ -211,7 +212,7 @@ is closed with exactly:
 
 - grains: a non-empty, duplicate-free subset of minute, hour, day, week, month,
   quarter, year; only executable grains belong here.
-- defaultTimezone: a validated IANA timezone such as UTC.
+- defaultTimezone: a timezone spelling from the pinned portable registry, such as UTC.
 - timezone: boolean, whether an explicit query timezone override is permitted.
 - periodFormat: literal calendar-date-or-local-datetime-v1.
 
@@ -220,6 +221,13 @@ selectable merely because grain queries are supported. A producer must reject
 an unexportable time configuration instead of inventing a visible dimension.
 When time is non-null, period is reserved and cannot be a dimension or measure
 key. An endpoint without time controls can use period as an ordinary field.
+
+Timezone spellings are pinned by [timezone-names.txt](../fixtures/client-contract-v1/timezone-names.txt)
+(597 IANA names/aliases in the reference environments). Membership is exact and
+case-sensitive; aliases retain their spelling in identities. Host ICU/zoneinfo
+acceptance and case normalization must not determine validation. Registry additions
+require an explicit compatible revision and shared fixtures. Missing execution-time
+timezone data is a runtime configuration error.
 
 HTTP uses by; MCP translates grain to by. If time is null, neither by nor timezone
 is accepted. If time.timezone=false, timezone is absent. Period is present only
@@ -367,10 +375,15 @@ views; they must not silently truncate an otherwise claimed complete view.
 Unsafe host objects (accessors, custom prototypes/mappings, cycles and other
 non-JSON behavior), duplicate JSON object members, unpaired Unicode surrogates
 and non-finite numbers are invalid. Do not execute application coercion/accessors
-while validating a host value. Byte/depth/count bounds must be enforced before
+while validating a host value. JavaScript reflection can invoke Proxy traps;
+transparent proxies cannot be reliably detected. Reflection failures are sanitized,
+and getter/toJSON methods are never called. This API is not a sandbox for a hostile
+JavaScript realm. Decode untrusted transport text with the bounded decoder.
+Host snapshots additionally allow 100000 nodes and 20000 own members per container
+(including an array length member). Byte/depth/count bounds must be enforced before
 unbounded allocation/traversal; they take precedence over later shape failures.
 
-Proposed stable contract codes:
+Stable contract codes:
 
 | Code | Meaning |
 | --- | --- |
@@ -387,7 +400,8 @@ Proposed stable contract codes:
 | HQ_CLIENT_QUERY | Invalid input against a validated endpoint contract |
 
 Validation phases are: bounded safe JSON/host materialization; root kind/version;
-closed shape/required members and scalar/identifier/path checks; uniqueness and
+closed shape/required members and scalar/identifier/path checks (endpoint kind is
+read as a discriminator first); uniqueness and
 cross-member references; endpoint identity checks in id order; view identity.
 Within a closed object, check unknown members before missing required members,
 then visit the RFC's listed members in their listed order; visit record keys in
@@ -396,7 +410,32 @@ collision/default/limit consistency checks precede identity verification.
 Duplicated id/path/set/default entries report DUPLICATE before cross-references.
 Invalid kind/version need not expose lower-level details. Public failure text
 must be fixed and safe; values, SQL/provider exceptions and credentials cannot
-be echoed. PX-02 must pin paths and messages with the implementation family.
+be echoed. The fixture family pins exact paths/messages. Shape/reference paths
+use input endpoint indices; identity paths use normalized id-sorted indices.
+Unknown/missing members report their containing object. Invalid field names report
+their containing record. Raw decoding and duplicate JSON members report the root,
+avoiding attacker property names in failures. Query failures use HQ_CLIENT_QUERY;
+structural/selection failures report the root, while invalid limit/offset/timezone
+reports that fixed member pointer. Contract failures precede query failures.
+
+| Code suffix | Fixed message |
+| --- | --- |
+| TYPE | Expected plain JSON data. |
+| LIMIT | Client contract exceeds validation limits. |
+| VERSION | Unsupported client contract version. |
+| UNKNOWN_FIELD | Unknown client contract field. |
+| SHAPE | Invalid client contract shape. |
+| IDENTIFIER | Invalid client contract identifier. |
+| DUPLICATE | Duplicate client contract entry. |
+| PATH | Invalid client endpoint path. |
+| REFERENCE | Inconsistent client contract reference. |
+| IDENTITY | Client contract identity does not match. |
+| QUERY | Invalid client query. |
+
+Unsigned preparation refuses supplied identities. Signed validation returns a
+detached snapshot: recursively frozen in TypeScript, ordinary typed built-ins in
+Python. Query validation revalidates its supplied contract including hashes;
+mutating a Python result does not create a trusted validation bypass.
 
 ## MCP projection and lifecycle
 
@@ -409,9 +448,13 @@ the same endpoint profile, except documented stricter MCP budgets.
 
 Metric-only authorized views can list a dataset group for navigation but must
 not advertise it as a query_dataset target. With no callable targets, query
-tools must be absent or have a pinned uncallable schema—never a generic fallback
-accepting arbitrary dataset names. PX-02/PX-07 must preserve the selected existing
-catalog-tool compatibility convention consistently across list and call paths.
+tools retain the existing fixed query_dataset/query_metric names with uncallable
+schemas. The empty dataset schema is a strict object requiring dataset: never;
+the empty metric schema requires dataset: never and metric: never. No input can
+satisfy these schemas. The call path enforces the same unavailable targets.
+JSON Schema advertises typed structural constraints; runtime semantic validation
+also enforces selection dependencies, uniqueness, portable timezone membership
+and combined predicate budgets. Consumers must preserve both steps.
 
 The bridge fetches its live authorized view using its configured principal.
 It pins validated hashes for the session, honors cancellation/streamed byte
@@ -421,27 +464,28 @@ refresh/reconnect must be explicit before executing against it. Reusing a
 previously authorized view cannot bypass a newer backend denial. Transport
 notification details belong to PX-07/PX-08, not this data-only format.
 
-The document alone provides no atomic execution revision: a schemaHash is not
-RFC 0014's activationRevision. Before publishing the bridge, its endpoint
-adapters must define drift detection and any execution-time pinning needed to
-close the discovery/execution race; a preflight fetch alone does not close it.
+Schema drift is pinned at execution with the X-Hypequery-Client-Schema request
+header. The bridge MUST send its validated endpoint schemaHash on each query.
+An opted-in endpoint authenticates and applies current policy first, resolves
+its effective descriptor for that request, then compares the header before body
+planning/execution. A mismatch returns HTTP 409 through the existing Serve error
+envelope with code CLIENT_SCHEMA_CHANGED and message "Client endpoint schema
+changed." It exposes no replacement schema or hidden endpoint details. Backend
+denial takes precedence over drift disclosure. No query is retried automatically
+with changed semantics; explicit refresh/reconnect is required. The header is a
+precondition, never authorization. Current limits apply even when schemaHash
+matches; limits are excluded from that hash. Browser callers require the matching
+CORS allow-header entry.
 
-## Acceptance gates
+A preflight discovery fetch alone does not close the race. PX-03/PX-04 must bind
+the descriptor check and execution within the same registration/policy snapshot;
+PX-07/PX-08 must prove this before the bridge ships. Hashes do not pin database
+contents, SQL definitions or business formulas, and this mechanism is not
+RFC 0014's activationRevision.
 
-Before marking Accepted:
+## Acceptance evidence
 
-1. Review identity/mount/export-ID rules and all closed shapes for ambiguity.
-2. Review type/operator/nullability/default semantics against both implementations
-   and any intentional stricter client profile behavior.
-3. Pin the exact failure messages/paths and hostile-value generator cases; draft
-   vectors currently pin codes and JSON examples, not a complete host-object suite.
-4. Decide the empty query-tool compatibility convention and document it in the
-   MCP compiler projection tests before publishing that capability.
-5. Agree the discovery/execution drift-detection boundary and safe stale-contract
-   behavior with the HTTP adapters; hashes alone do not enforce it.
-6. Independently verify canonical bytes and both identity domains; promote draft
-   vectors and update the conformance manifest/required family lists with the
-   validators in PX-02. No current release gate can claim this family yet.
-
-This proposal intentionally exposes review decisions rather than freezing them
-accidentally by implementing two runtimes first.
+The [acceptance record](../decisions/0018-client-contract-acceptance.md) resolves
+the format review gates and records identity/conformance evidence. Transport
+features must satisfy their separate release gates; format acceptance does not
+certify them.

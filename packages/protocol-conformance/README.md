@@ -85,3 +85,11 @@ fixture family or adding an implementation.
 ## License
 
 Apache-2.0.
+
+## Client contract v1
+
+Both protocol adapters announce `client-contract-v1`. The runner resolves the
+family's compact success references and negative JSON Pointer patches before
+sending complete cases over NDJSON. It checks canonical identities, normalized
+HTTP/MCP output and exact safe rejection paths/messages, including boundary
+inputs. Fixture composition neither validates nor repairs runtime artifacts.

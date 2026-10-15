@@ -8,8 +8,9 @@
         "value": 2
       }
     ],
-    "rehash": true,
-    "error": "HQ_CLIENT_VERSION"
+    "error": "HQ_CLIENT_VERSION",
+    "path": "",
+    "message": "Unsupported client contract version."
   },
   {
     "id": "unknown-root-field",
@@ -20,8 +21,9 @@
         "value": "synthetic_tenant"
       }
     ],
-    "rehash": true,
-    "error": "HQ_CLIENT_UNKNOWN_FIELD"
+    "error": "HQ_CLIENT_UNKNOWN_FIELD",
+    "path": "",
+    "message": "Unknown client contract field."
   },
   {
     "id": "physical-source",
@@ -32,8 +34,9 @@
         "value": "private_orders"
       }
     ],
-    "rehash": true,
-    "error": "HQ_CLIENT_UNKNOWN_FIELD"
+    "error": "HQ_CLIENT_UNKNOWN_FIELD",
+    "path": "/endpoints/1",
+    "message": "Unknown client contract field."
   },
   {
     "id": "physical-column",
@@ -44,8 +47,9 @@
         "value": "private_country"
       }
     ],
-    "rehash": true,
-    "error": "HQ_CLIENT_UNKNOWN_FIELD"
+    "error": "HQ_CLIENT_UNKNOWN_FIELD",
+    "path": "/endpoints/1/dimensions/country",
+    "message": "Unknown client contract field."
   },
   {
     "id": "duplicate-endpoint",
@@ -86,8 +90,9 @@
         }
       }
     ],
-    "rehash": true,
-    "error": "HQ_CLIENT_DUPLICATE"
+    "error": "HQ_CLIENT_DUPLICATE",
+    "path": "/endpoints/3",
+    "message": "Duplicate client contract entry."
   },
   {
     "id": "dataset-id-mismatch",
@@ -98,8 +103,9 @@
         "value": "differentOrders"
       }
     ],
-    "rehash": true,
-    "error": "HQ_CLIENT_REFERENCE"
+    "error": "HQ_CLIENT_REFERENCE",
+    "path": "/endpoints/1",
+    "message": "Inconsistent client contract reference."
   },
   {
     "id": "foreign-route",
@@ -110,8 +116,9 @@
         "value": "https://other.example/query"
       }
     ],
-    "rehash": true,
-    "error": "HQ_CLIENT_PATH"
+    "error": "HQ_CLIENT_PATH",
+    "path": "/endpoints/1/path",
+    "message": "Invalid client endpoint path."
   },
   {
     "id": "encoded-route",
@@ -122,8 +129,9 @@
         "value": "/api/%2e%2e/private"
       }
     ],
-    "rehash": true,
-    "error": "HQ_CLIENT_PATH"
+    "error": "HQ_CLIENT_PATH",
+    "path": "/endpoints/1/path",
+    "message": "Invalid client endpoint path."
   },
   {
     "id": "dot-segment",
@@ -134,8 +142,9 @@
         "value": "/api/../private"
       }
     ],
-    "rehash": true,
-    "error": "HQ_CLIENT_PATH"
+    "error": "HQ_CLIENT_PATH",
+    "path": "/endpoints/1/path",
+    "message": "Invalid client endpoint path."
   },
   {
     "id": "templated-route",
@@ -146,8 +155,9 @@
         "value": "/datasets/{dataset}/query"
       }
     ],
-    "rehash": true,
-    "error": "HQ_CLIENT_PATH"
+    "error": "HQ_CLIENT_PATH",
+    "path": "/endpoints/1/path",
+    "message": "Invalid client endpoint path."
   },
   {
     "id": "query-in-route",
@@ -158,8 +168,9 @@
         "value": "/query?tenant=synthetic"
       }
     ],
-    "rehash": true,
-    "error": "HQ_CLIENT_PATH"
+    "error": "HQ_CLIENT_PATH",
+    "path": "/endpoints/1/path",
+    "message": "Invalid client endpoint path."
   },
   {
     "id": "unknown-default-measure",
@@ -172,8 +183,9 @@
         ]
       }
     ],
-    "rehash": true,
-    "error": "HQ_CLIENT_REFERENCE"
+    "error": "HQ_CLIENT_REFERENCE",
+    "path": "/endpoints/1",
+    "message": "Inconsistent client contract reference."
   },
   {
     "id": "duplicate-default-measure",
@@ -187,8 +199,9 @@
         ]
       }
     ],
-    "rehash": true,
-    "error": "HQ_CLIENT_DUPLICATE"
+    "error": "HQ_CLIENT_DUPLICATE",
+    "path": "/endpoints/1/defaultMeasures",
+    "message": "Duplicate client contract entry."
   },
   {
     "id": "measure-dimension-collision",
@@ -203,8 +216,9 @@
         }
       }
     ],
-    "rehash": true,
-    "error": "HQ_CLIENT_REFERENCE"
+    "error": "HQ_CLIENT_REFERENCE",
+    "path": "/endpoints/1",
+    "message": "Inconsistent client contract reference."
   },
   {
     "id": "invalid-qualified-name",
@@ -221,8 +235,9 @@
         }
       }
     ],
-    "rehash": true,
-    "error": "HQ_CLIENT_IDENTIFIER"
+    "error": "HQ_CLIENT_IDENTIFIER",
+    "path": "/endpoints/1/dimensions",
+    "message": "Invalid client contract identifier."
   },
   {
     "id": "unsafe-boolean-operator",
@@ -235,8 +250,9 @@
         ]
       }
     ],
-    "rehash": true,
-    "error": "HQ_CLIENT_SHAPE"
+    "error": "HQ_CLIENT_SHAPE",
+    "path": "/endpoints/1/filters/customer.active/operators/0",
+    "message": "Invalid client contract shape."
   },
   {
     "id": "empty-operator-list",
@@ -247,8 +263,9 @@
         "value": []
       }
     ],
-    "rehash": true,
-    "error": "HQ_CLIENT_SHAPE"
+    "error": "HQ_CLIENT_SHAPE",
+    "path": "/endpoints/1/filters/country/operators",
+    "message": "Invalid client contract shape."
   },
   {
     "id": "duplicate-operator",
@@ -262,8 +279,9 @@
         ]
       }
     ],
-    "rehash": true,
-    "error": "HQ_CLIENT_DUPLICATE"
+    "error": "HQ_CLIENT_DUPLICATE",
+    "path": "/endpoints/1/filters/country/operators",
+    "message": "Duplicate client contract entry."
   },
   {
     "id": "number-with-boolean-wire-type",
@@ -274,8 +292,9 @@
         "value": "boolean"
       }
     ],
-    "rehash": true,
-    "error": "HQ_CLIENT_SHAPE"
+    "error": "HQ_CLIENT_SHAPE",
+    "path": "/endpoints/1/dimensions/amount/wireType",
+    "message": "Invalid client contract shape."
   },
   {
     "id": "related-non-null-guarantee",
@@ -286,8 +305,9 @@
         "value": false
       }
     ],
-    "rehash": true,
-    "error": "HQ_CLIENT_SHAPE"
+    "error": "HQ_CLIENT_SHAPE",
+    "path": "/endpoints/1/dimensions/customer.tier",
+    "message": "Invalid client contract shape."
   },
   {
     "id": "invalid-limit",
@@ -298,8 +318,9 @@
         "value": -1
       }
     ],
-    "rehash": true,
-    "error": "HQ_CLIENT_SHAPE"
+    "error": "HQ_CLIENT_SHAPE",
+    "path": "/endpoints/1/limits/maxLimit",
+    "message": "Invalid client contract shape."
   },
   {
     "id": "boolean-limit",
@@ -310,8 +331,9 @@
         "value": true
       }
     ],
-    "rehash": true,
-    "error": "HQ_CLIENT_SHAPE"
+    "error": "HQ_CLIENT_SHAPE",
+    "path": "/endpoints/1/limits/defaultLimit",
+    "message": "Invalid client contract shape."
   },
   {
     "id": "default-exceeds-limit",
@@ -322,8 +344,9 @@
         "value": 1001
       }
     ],
-    "rehash": true,
-    "error": "HQ_CLIENT_REFERENCE"
+    "error": "HQ_CLIENT_REFERENCE",
+    "path": "/endpoints/1",
+    "message": "Inconsistent client contract reference."
   },
   {
     "id": "metric-default-selection",
@@ -336,8 +359,9 @@
         ]
       }
     ],
-    "rehash": true,
-    "error": "HQ_CLIENT_UNKNOWN_FIELD"
+    "error": "HQ_CLIENT_UNKNOWN_FIELD",
+    "path": "/endpoints/2",
+    "message": "Unknown client contract field."
   },
   {
     "id": "metric-multiple-measures",
@@ -352,8 +376,9 @@
         }
       }
     ],
-    "rehash": true,
-    "error": "HQ_CLIENT_SHAPE"
+    "error": "HQ_CLIENT_SHAPE",
+    "path": "/endpoints/2",
+    "message": "Invalid client contract shape."
   },
   {
     "id": "metric-having",
@@ -364,8 +389,9 @@
         "value": true
       }
     ],
-    "rehash": true,
-    "error": "HQ_CLIENT_SHAPE"
+    "error": "HQ_CLIENT_SHAPE",
+    "path": "/endpoints/2",
+    "message": "Invalid client contract shape."
   },
   {
     "id": "unsupported-segments",
@@ -378,8 +404,9 @@
         ]
       }
     ],
-    "rehash": true,
-    "error": "HQ_CLIENT_UNKNOWN_FIELD"
+    "error": "HQ_CLIENT_UNKNOWN_FIELD",
+    "path": "/endpoints/1",
+    "message": "Unknown client contract field."
   },
   {
     "id": "invalid-grain",
@@ -392,8 +419,9 @@
         ]
       }
     ],
-    "rehash": true,
-    "error": "HQ_CLIENT_SHAPE"
+    "error": "HQ_CLIENT_SHAPE",
+    "path": "/endpoints/1/time/grains/0",
+    "message": "Invalid client contract shape."
   },
   {
     "id": "invalid-schema-hash",
@@ -404,8 +432,9 @@
         "value": "0000000000000000000000000000000000000000000000000000000000000000"
       }
     ],
-    "rehash": false,
-    "error": "HQ_CLIENT_IDENTITY"
+    "error": "HQ_CLIENT_IDENTITY",
+    "path": "/endpoints/1/schemaHash",
+    "message": "Client contract identity does not match."
   },
   {
     "id": "invalid-content-hash",
@@ -416,7 +445,128 @@
         "value": "0000000000000000000000000000000000000000000000000000000000000000"
       }
     ],
-    "rehash": false,
-    "error": "HQ_CLIENT_IDENTITY"
+    "error": "HQ_CLIENT_IDENTITY",
+    "path": "/contentHash",
+    "message": "Client contract identity does not match."
+  },
+  {
+    "id": "endpoints-256",
+    "mode": "boundary",
+    "generator": {
+      "type": "endpoints",
+      "count": 256
+    },
+    "error": "HQ_CLIENT_SHAPE",
+    "path": "/endpoints/0/kind",
+    "message": "Invalid client contract shape."
+  },
+  {
+    "id": "endpoints-257",
+    "mode": "boundary",
+    "generator": {
+      "type": "endpoints",
+      "count": 257
+    },
+    "error": "HQ_CLIENT_LIMIT",
+    "path": "/endpoints",
+    "message": "Client contract exceeds validation limits."
+  },
+  {
+    "id": "descriptors-64",
+    "mode": "boundary",
+    "generator": {
+      "type": "descriptors",
+      "count": 64
+    },
+    "error": "HQ_CLIENT_SHAPE",
+    "path": "/endpoints/0/kind",
+    "message": "Invalid client contract shape."
+  },
+  {
+    "id": "descriptors-65",
+    "mode": "boundary",
+    "generator": {
+      "type": "descriptors",
+      "count": 65
+    },
+    "error": "HQ_CLIENT_LIMIT",
+    "path": "/endpoints/64",
+    "message": "Client contract exceeds validation limits."
+  },
+  {
+    "id": "bytes-1048576",
+    "mode": "boundary",
+    "generator": {
+      "type": "bytes",
+      "count": 1048576
+    },
+    "error": "HQ_CLIENT_VERSION",
+    "path": "",
+    "message": "Unsupported client contract version."
+  },
+  {
+    "id": "bytes-1048577",
+    "mode": "boundary",
+    "generator": {
+      "type": "bytes",
+      "count": 1048577
+    },
+    "error": "HQ_CLIENT_LIMIT",
+    "path": "",
+    "message": "Client contract exceeds validation limits."
+  },
+  {
+    "id": "depth-16",
+    "mode": "boundary",
+    "generator": {
+      "type": "depth",
+      "count": 16
+    },
+    "error": "HQ_CLIENT_SHAPE",
+    "path": "",
+    "message": "Invalid client contract shape."
+  },
+  {
+    "id": "depth-17",
+    "mode": "boundary",
+    "generator": {
+      "type": "depth",
+      "count": 17
+    },
+    "error": "HQ_CLIENT_LIMIT",
+    "path": "",
+    "message": "Client contract exceeds validation limits."
+  },
+  {
+    "id": "duplicate-key",
+    "mode": "decode",
+    "value": "{\"version\":1,\"\\u0076ersion\":1}",
+    "error": "HQ_CLIENT_DUPLICATE",
+    "path": "",
+    "message": "Duplicate client contract entry."
+  },
+  {
+    "id": "trailing-comma",
+    "mode": "decode",
+    "value": "{\"x\":1,}",
+    "error": "HQ_CLIENT_TYPE",
+    "path": "",
+    "message": "Expected plain JSON data."
+  },
+  {
+    "id": "non-finite-number",
+    "mode": "decode",
+    "value": "{\"x\":1e400}",
+    "error": "HQ_CLIENT_TYPE",
+    "path": "",
+    "message": "Expected plain JSON data."
+  },
+  {
+    "id": "unpaired-surrogate",
+    "mode": "decode",
+    "value": "{\"x\":\"\\ud800\"}",
+    "error": "HQ_CLIENT_TYPE",
+    "path": "",
+    "message": "Expected plain JSON data."
   }
 ]
