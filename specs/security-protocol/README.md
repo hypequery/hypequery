@@ -29,6 +29,11 @@ A disagreement between an implementation and an accepted specification is a bug.
 
 ## Boundary
 
+[RFC 0018: Semantic client contract](./rfc/0018-semantic-client-contract.md)
+proposes the safe endpoint projection for Python/React/MCP integration. Its
+[draft vectors](./drafts/client-contract-v1/README.md) are outside the active
+conformance manifest; no current adapter announces support.
+
 The protocol may define canonical values, identifiers, expressions, query schemas, deployment envelopes, runtime references, events, diagnostics, limits, and stable error codes.
 
 It does not contain credentials, secrets, customer callbacks, database connections, HTTP handlers, authentication implementations, tenant resolution, billing logic, or Cloud control-plane behavior.
