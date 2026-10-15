@@ -15,6 +15,14 @@ const FEATURE_OPTIONS = [
   'Something else',
 ] as const;
 
+// Tells us which way to build people prefer, so the homepage can lead with it.
+const AUTHORING_OPTIONS = [
+  ['ai', 'With AI, in cloud'],
+  ['code', 'In code (TypeScript or Python)'],
+  ['both', 'Both'],
+  ['unsure', 'Not sure yet'],
+] as const;
+
 type Status = 'idle' | 'sending' | 'sent' | 'error';
 
 /** A button that opens the shared waitlist dialog. `location` records where it was opened from. */
@@ -65,7 +73,7 @@ export function WaitlistDialog() {
     <dialog ref={dialogRef} aria-labelledby="waitlist-title" className="m-auto max-h-[calc(100dvh-2rem)] w-[min(100%-2rem,560px)] overflow-y-auto rounded-2xl border border-border-strong bg-bg-card p-0 text-left text-base font-normal text-text shadow-2xl backdrop:bg-black/40" onClick={(event) => { if (event.target === dialogRef.current) dialogRef.current.close(); }}>
       <div className="p-6 sm:p-8">
         <div className="flex items-start justify-between gap-4">
-          <div><p className="text-xs font-semibold uppercase tracking-[0.16em] text-accent">hypequery Cloud</p><h2 id="waitlist-title" className="mt-3 text-2xl font-semibold tracking-tight">{status === 'sent' ? "You're on the list." : 'Get early access to deploy.'}</h2></div>
+          <div><p className="text-xs font-semibold uppercase tracking-[0.16em] text-accent">hypequery cloud</p><h2 id="waitlist-title" className="mt-3 text-2xl font-semibold tracking-tight">{status === 'sent' ? "You're on the list." : 'Get early access to deploy.'}</h2></div>
           <button type="button" aria-label="Close waitlist form" className="text-text-muted" onClick={() => dialogRef.current?.close()}>✕</button>
         </div>
         {status === 'sent' ? (
@@ -88,10 +96,21 @@ export function WaitlistDialog() {
                     <span className="sr-only">What does being a design partner mean?</span>
                   </button>
                   <span id="waitlist-design-partner-tip" role="tooltip" className="pointer-events-none invisible absolute left-1/2 top-full -translate-x-1/2 z-20 mt-2 w-[min(260px,75vw)] rounded-lg border border-border-strong bg-bg-card p-3 text-xs leading-5 text-text opacity-0 shadow-xl transition-opacity group-focus-within:visible group-focus-within:opacity-100 group-hover:visible group-hover:opacity-100">
-                    Help shape the Cloud roadmap. We&apos;ll reach out to arrange a design discussion.
+                    Help shape the cloud roadmap. We&apos;ll reach out to arrange a design discussion.
                   </span>
                 </span>
               </div>
+              <fieldset className="mt-6">
+                <legend className="text-sm font-semibold">How do you want to build your analytics layer?</legend>
+                <div className="mt-3 grid grid-cols-2 gap-2">
+                  {AUTHORING_OPTIONS.map(([value, label]) => (
+                    <label key={value} className="flex min-h-11 cursor-pointer items-center gap-2 rounded-lg border border-border bg-bg-alt/50 px-3 py-2 text-xs leading-4 text-text transition hover:border-border-strong has-[:checked]:border-accent">
+                      <input type="radio" name="authoring" value={value} className="h-4 w-4 shrink-0 accent-accent" />
+                      <span>{label}</span>
+                    </label>
+                  ))}
+                </div>
+              </fieldset>
               <fieldset className="mt-6">
                 <legend className="text-sm font-semibold">What features do you most need?</legend>
                 <p className="mt-1 text-xs text-text-muted">Pick as many as you like.</p>

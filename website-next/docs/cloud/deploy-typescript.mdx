@@ -1,6 +1,6 @@
 ---
 title: Deploy from TypeScript
-description: Publish TypeScript datasets to hypequery Cloud with publishToCloud and hypequery deploy.
+description: Publish TypeScript datasets to hypequery cloud with publishToCloud and hypequery deploy.
 ---
 
 import { CodeBlock } from 'fumadocs-ui/components/codeblock';
@@ -8,7 +8,7 @@ import { CloudWaitlistNotice } from '@/components/docs/cloud-waitlist-notice';
 
 <CloudWaitlistNotice />
 
-## 1. Declare what Cloud publishes
+## 1. Declare what cloud publishes
 
 Create a deployment entrypoint that exports the result of `publishToCloud` as `cloud`:
 
@@ -25,7 +25,7 @@ export const cloud = publishToCloud({
 ```
 </CodeBlock>
 
-- `datasets` lists the datasets Cloud exposes. Datasets they relate to are included as supporting datasets.
+- `datasets` lists the datasets cloud exposes. Datasets they relate to are included as supporting datasets.
 - `access` is required: the roles and scopes callers need for every published dataset.
 - `datasetAccess` optionally sets a different policy for individual datasets, keyed by published name.
 
@@ -39,7 +39,7 @@ npx hypequery login
 ```
 </CodeBlock>
 
-This authorizes the machine with hypequery Cloud and saves your default project and environment.
+This authorizes the machine with hypequery cloud and saves your default project and environment.
 
 ## 3. Deploy
 
@@ -49,7 +49,7 @@ npx hypequery deploy analytics/cloud.ts
 ```
 </CodeBlock>
 
-The CLI builds a bundle, prepares a release for your target, and submits it. Once Cloud accepts the release, it prints
+The CLI builds a bundle, prepares a release for your target, and submits it. Once cloud accepts the release, it prints
 where the datasets are served:
 
 <CodeBlock>

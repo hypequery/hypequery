@@ -1,6 +1,6 @@
 import { ChevronDown, Code, Database, List, MessageSquare, Plug, Settings } from 'lucide-react';
 
-// The hypequery Cloud app chrome from the chat redesign: a 60px icon rail and a 52px header.
+// The hypequery cloud app chrome from the chat redesign: a 60px icon rail and a 52px header.
 
 export type CloudPage = 'chat' | 'api' | 'model' | 'logs' | 'settings';
 

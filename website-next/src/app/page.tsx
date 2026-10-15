@@ -3,11 +3,50 @@ import Navigation from '@/components/Navigation';
 import { absoluteUrl } from '@/lib/site';
 import { AnnouncementBanner, Hero, FinalCTA } from '@/components/home';
 import { FeatureGrid } from '@/components/home/FeatureGrid';
-import { DatasetQuickstart } from '@/components/home/DatasetQuickstart';
 import { ProductExplainer } from '@/components/home/ProductExplainer';
 import { PatternCallout } from '@/components/home/PatternCallout';
-import { AiAuthoring } from '@/components/home/AiAuthoring';
+import { BuildYourWay } from '@/components/home/BuildYourWay';
 import { CloudWorkflow } from '@/components/home/CloudWorkflow';
+import { StaticCode } from '@/components/home/StaticCode';
+
+// The definition behind the explainer diagram: orders, scoped by tenant, joined to customers.
+const MODEL_CODE = `
+export const orders = dataset('orders', {
+  source: 'orders',
+  tenantKey: 'tenant_id',
+  dimensions: {
+    country: dimension.string(),
+    plan: dimension.string(),
+  },
+  measures: {
+    revenue: measure.sum('amount'),
+    orderCount: measure.count('id'),
+  },
+  relationships: {
+    customer: belongsTo(() => customers, {
+      from: 'customer_id',
+      to: 'id',
+    }),
+  },
+});
+`;
+
+// The React side of the explainer's dashboard card.
+const DASHBOARD_CODE = `
+import { useDataset } from '@/lib/analytics';
+
+export function RevenueByCountry() {
+  const { data, isLoading } =
+    useDataset('orders', {
+      dimensions: ['country'],
+      measures: ['revenue'],
+      limit: 3,
+    });
+
+  if (isLoading) return <Skeleton />;
+  return <BarList rows={data?.data} />;
+}
+`;
 
 const softwareSchema = {
   '@context': 'https://schema.org',
@@ -18,7 +57,7 @@ const softwareSchema = {
   applicationCategory: 'DeveloperApplication',
   operatingSystem: 'Cross-platform',
   description:
-    'Ship AI analytics on ClickHouse. One governed definition of your metrics, built by AI or in code, that AI agents, chat, and dashboards all answer from.',
+    'The analytics layer for ClickHouse. Ship embedded dashboards, chat, and AI agents that answer from one definition of your metrics, built with AI or in TypeScript and Python.',
   softwareVersion: 'latest',
   codeRepository: 'https://github.com/hypequery/hypequery',
   programmingLanguage: ['TypeScript', 'Python'],
@@ -45,11 +84,15 @@ export default function Home() {
       <main className="pt-[104px]">
         <Hero />
         <PatternCallout />
-        <AiAuthoring />
-        <ProductExplainer />
-        <CloudWorkflow />
+        {/* Hero (what it is) → proof → every interface (what it powers) → build it (how)
+            → production features (can I trust it) → change safely (what happens next) → CTA. */}
+        <ProductExplainer
+          modelCode={<StaticCode code={MODEL_CODE} />}
+          dashboardCode={<StaticCode code={DASHBOARD_CODE} lang="tsx" className="text-[10.5px]!" />}
+        />
+        <BuildYourWay />
         <FeatureGrid />
-        <DatasetQuickstart />
+        <CloudWorkflow />
         <FinalCTA />
       </main>
       <Footer />

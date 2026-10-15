@@ -1,6 +1,6 @@
 ---
 title: CLI commands
-description: hypequery CLI commands for working with hypequery Cloud.
+description: hypequery CLI commands for working with hypequery cloud.
 ---
 
 import { CodeBlock } from 'fumadocs-ui/components/codeblock';
@@ -10,8 +10,8 @@ import { CloudWaitlistNotice } from '@/components/docs/cloud-waitlist-notice';
 
 | Command | Purpose |
 | --- | --- |
-| `hypequery login` | Authorize this machine with hypequery Cloud and save a default project and environment |
-| `hypequery logout` | Revoke and remove the local Cloud credential |
+| `hypequery login` | Authorize this machine with hypequery cloud and save a default project and environment |
+| `hypequery logout` | Revoke and remove the local cloud credential |
 | `hypequery deploy <source>` | Build, release, and submit a TypeScript publication in one step |
 | `hypequery deployment:build <cloud>` | Build a verified deployment bundle without releasing it |
 | `hypequery deployment:release <bundle>` | Bind a bundle to a project and environment as a release |
@@ -27,7 +27,7 @@ Most commands accept `--project` and `--environment` to override the target save
 ## `hypequery deploy <cloud>`
 
 Builds the publication module, prepares a release for the logged-in target,
-and submits it. Once Cloud accepts the release, the CLI prints where it's
+and submits it. Once cloud accepts the release, the CLI prints where it's
 served:
 
 <CodeBlock>
@@ -39,8 +39,8 @@ Hosted endpoints
 ```
 </CodeBlock>
 
-Cloud provides these URLs, so the CLI follows Cloud's current routing. A live
-release is required before dataset calls work. A Cloud release that doesn't
+Cloud provides these URLs, so the CLI follows cloud's current routing. A live
+release is required before dataset calls work. A cloud release that doesn't
 provide endpoint details leaves deploy output unchanged.
 
 | Option | Description |
@@ -52,7 +52,7 @@ provide endpoint details leaves deploy output unchanged.
 
 ## `hypequery deployment:status`
 
-Shows the current release and Cloud-provided REST and MCP URLs without building
+Shows the current release and cloud-provided REST and MCP URLs without building
 or deploying again. It uses the target and deployment credential saved by
 `hypequery login`. With an explicit deployment credential, pass both
 `--project` and `--environment`.
@@ -71,6 +71,6 @@ credential.
 | Option | Description |
 | --- | --- |
 | `--project`, `--environment` | Override the target from `hypequery login`; pass both together |
-| `--endpoint` | Use an explicit Cloud submission endpoint with `HYPEQUERY_API_TOKEN` |
+| `--endpoint` | Use an explicit cloud submission endpoint with `HYPEQUERY_API_TOKEN` |
 | `--mcp-config` | Also print MCP client configuration for the hosted endpoint |
 

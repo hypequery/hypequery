@@ -5,7 +5,7 @@ import { motion, useInView, useReducedMotion } from 'motion/react';
 import { Check } from 'lucide-react';
 import { CloudHeader, CloudRail, ConnectButton, Slash, VersionSwitch, type CloudPage } from './CloudAppFrame';
 
-// Screens from the Cloud chat redesign: drafts, review and publish, deployments, and logs.
+// Screens from the cloud chat redesign: drafts, review and publish, deployments, and logs.
 
 const AUTO_ADVANCE_MS = 7000;
 
@@ -339,8 +339,8 @@ const SCREENS: {
 }[] = [
   {
     id: 'draft',
-    title: 'Update your model with AI or the CLI',
-    copy: 'Ask for a change in chat, or push it from the CLI or CI. Either way it lands in a draft that compiles and runs test queries.',
+    title: 'Make the change',
+    copy: 'Ask in chat, or push from the CLI or CI. In a draft, it compiles and runs test queries before anything goes live.',
     page: 'chat',
     crumbs: (
       <>
@@ -360,7 +360,7 @@ const SCREENS: {
   },
   {
     id: 'review',
-    title: 'Review the impact before you publish',
+    title: 'See the impact',
     copy: 'See what changed in meaning, how the numbers move, and which API keys and agents are affected.',
     page: 'model',
     crumbs: (
@@ -380,7 +380,7 @@ const SCREENS: {
   },
   {
     id: 'deployments',
-    title: 'Roll back in one click',
+    title: 'Publish or roll back',
     copy: 'Every published version is kept, from chat, the editor, or CI. Go back to any of them right away.',
     page: 'settings',
     crumbs: (
@@ -395,7 +395,7 @@ const SCREENS: {
   },
   {
     id: 'logs',
-    title: 'Catch breaking requests early',
+    title: 'Catch breaking requests',
     copy: 'Every request against a draft is logged, so a dashboard that still needs a removed measure shows up first.',
     page: 'logs',
     crumbs: (
@@ -459,9 +459,9 @@ export function CloudWorkflow() {
 
   return (
     <section aria-labelledby="cloud-workflow-title" className="mx-auto max-w-[1280px] px-5 pb-4 pt-14 sm:px-8 sm:pt-20">
-      <h2 id="cloud-workflow-title" className="home-section-title max-w-[960px] text-text">AI changes. You review. Then it ships.</h2>
+      <h2 id="cloud-workflow-title" className="home-section-title max-w-[960px] text-text">Change it without breaking anyone</h2>
       <p className="mt-4 max-w-[600px] text-sm leading-6 text-text-muted sm:text-base">
-        Published is locked. You, the AI, or CI change things in drafts you can test, review, and roll back.
+        Ask for a change in chat, edit it in code, or push from the CLI. Ship it straight away, or open a draft first, see how the numbers move, and roll back in one click.
       </p>
 
       <div ref={ref} className="grid max-lg:mt-8 max-lg:gap-5 lg:mt-10 lg:grid-cols-[300px_minmax(0,1fr)] lg:gap-6">

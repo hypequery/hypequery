@@ -29,24 +29,24 @@ const displayFont = Space_Grotesk({
 export const metadata: Metadata = {
   metadataBase: siteUrl,
   title: {
-    default: "hypequery | Ship AI analytics on ClickHouse",
+    default: "hypequery | The analytics layer for ClickHouse",
     template: "%s | hypequery",
   },
-  description: "Ship AI analytics on ClickHouse. One governed definition of your metrics, built by AI or in code, that AI agents, chat, and dashboards all answer from.",
+  description: "The analytics layer for ClickHouse. Ship embedded dashboards, chat, and AI agents that answer from one definition of your metrics, built with AI or in TypeScript and Python.",
   alternates: {
     canonical: absoluteUrl('/'),
   },
   openGraph: {
     type: 'website',
     url: absoluteUrl('/'),
-    title: 'hypequery | Ship AI analytics on ClickHouse',
-    description: 'Ship AI analytics on ClickHouse. One governed definition of your metrics, built by AI or in code, that AI agents, chat, and dashboards all answer from.',
+    title: 'hypequery | The analytics layer for ClickHouse',
+    description: 'The analytics layer for ClickHouse. Ship embedded dashboards, chat, and AI agents that answer from one definition of your metrics, built with AI or in TypeScript and Python.',
     siteName: 'hypequery',
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'hypequery | Ship AI analytics on ClickHouse',
-    description: 'Ship AI analytics on ClickHouse. One governed definition of your metrics, built by AI or in code, that AI agents, chat, and dashboards all answer from.',
+    title: 'hypequery | The analytics layer for ClickHouse',
+    description: 'The analytics layer for ClickHouse. Ship embedded dashboards, chat, and AI agents that answer from one definition of your metrics, built with AI or in TypeScript and Python.',
   },
   manifest: "/site.webmanifest",
   icons: {

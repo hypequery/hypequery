@@ -1,6 +1,6 @@
 ---
 title: API keys & tenants
-description: Runtime API keys for hypequery Cloud, with per-key roles, scopes, and tenant authority for customer-facing analytics.
+description: Runtime API keys for hypequery cloud, with per-key roles, scopes, and tenant authority for customer-facing analytics.
 ---
 
 import { CodeBlock } from 'fumadocs-ui/components/codeblock';
@@ -8,8 +8,8 @@ import { CloudWaitlistNotice } from '@/components/docs/cloud-waitlist-notice';
 
 <CloudWaitlistNotice />
 
-Applications and agents call Cloud with a **runtime API key**. Each key belongs to one project and environment, and
-carries everything Cloud needs to decide what the caller may query: roles, endpoint scopes, and which customer tenant
+Applications and agents call cloud with a **runtime API key**. Each key belongs to one project and environment, and
+carries everything cloud needs to decide what the caller may query: roles, endpoint scopes, and which customer tenant
 the request runs as.
 
 Create and manage keys on the **Keys** page under **Runtime**. The **Deployment** tab holds the separate keys the CLI
@@ -33,7 +33,7 @@ For datasets with a tenant key, the tenant is the row filter, and a role or scop
 a caller sees. Every key has one of two tenant policies:
 
 **Bound tenants.** The key lists 1 to 32 permitted tenant IDs. With one ID, requests run as that tenant automatically.
-With several, the caller picks one in the `x-hypequery-tenant-id` header, and Cloud verifies it is permitted before
+With several, the caller picks one in the `x-hypequery-tenant-id` header, and cloud verifies it is permitted before
 running the query. Use bound keys when the key itself should be the boundary, for example one key per customer.
 
 **Trusted backend.** Your own server authenticates its end user, works out their tenant, and asserts it in

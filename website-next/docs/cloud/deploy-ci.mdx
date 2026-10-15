@@ -1,6 +1,6 @@
 ---
 title: Deploy from CI
-description: Deploy to hypequery Cloud from GitHub Actions on every push.
+description: Deploy to hypequery cloud from GitHub Actions on every push.
 ---
 
 import { CodeBlock } from 'fumadocs-ui/components/codeblock';
@@ -20,7 +20,7 @@ and environment during onboarding and on the Deployments page.
 
 ## The workflow
 
-The generated workflow looks like this, with your project, environment, and Cloud endpoint filled in:
+The generated workflow looks like this, with your project, environment, and cloud endpoint filled in:
 
 <CodeBlock>
 ```yaml
@@ -63,7 +63,7 @@ jobs:
       - name: Deploy hypequery
         env:
           HYPEQUERY_API_TOKEN: ${{ secrets.HYPEQUERY_API_TOKEN }}
-          HYPEQUERY_DEPLOYMENT_ENDPOINT: "<your Cloud deployment endpoint>"
+          HYPEQUERY_DEPLOYMENT_ENDPOINT: "<your cloud deployment endpoint>"
         run: >-
           npx --yes --package=@hypequery/cli hypequery deploy 'analytics/cloud.ts'
           --project '<project>'

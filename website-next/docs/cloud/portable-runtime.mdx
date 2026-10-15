@@ -1,6 +1,6 @@
 ---
 title: Portable runtime
-description: How UI-authored and cross-language dataset definitions run in hypequery Cloud, and the execution capability matrix.
+description: How UI-authored and cross-language dataset definitions run in hypequery cloud, and the execution capability matrix.
 ---
 
 import { CodeBlock } from 'fumadocs-ui/components/codeblock';
@@ -36,13 +36,13 @@ const cloudFeatures = DATASET_EXECUTION_CAPABILITIES.features
 </CodeBlock>
 
 The matrix distinguishes protocol representation, TS/Python local support,
-TS/Python publication, and repository Cloud execution. It covers base and derived
+TS/Python publication, and repository cloud execution. It covers base and derived
 measures, segments, window/shift measures, approximate distinct counts, and sub-day
 grains. It is a conservative feature discovery aid, not per-definition validation
 or a statement that a hosted service has qualified Python deployments.
 
 Publishing currently emits deployment v2. Protocol v3 acceptance alone does not
 enable v3 features in the portable runtime. When adding a portable dataset feature,
-complete its protocol representation, SDK authoring/export, Cloud rehydration and
+complete its protocol representation, SDK authoring/export, cloud rehydration and
 execution, and Python native planning; update the matrix and its TS/Python probes
 together. Enable UI controls only for a target whose executable support is present.

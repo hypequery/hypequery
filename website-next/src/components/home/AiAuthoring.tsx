@@ -14,7 +14,7 @@ const STEPS = [
   ['Review and publish', 'It drafts datasets, measures, and tenant rules. Publish, and your API and MCP go live.'],
 ] as const;
 
-// The onboarding chat from the Cloud design: context first, then a draft model, then v1.
+// The onboarding chat from the cloud design: context first, then a draft model, then v1.
 // Milliseconds after the section scrolls into view.
 const T = {
   welcome: 300,
@@ -403,7 +403,7 @@ function AuthoringDemo() {
     <div className="relative max-md:w-full md:w-[900px] lg:w-[1040px]">
       <div ref={ref} aria-hidden="true" className="pointer-events-none absolute inset-y-0 left-0 w-px" />
       <p className="sr-only">
-        The hypequery Cloud onboarding chat. The assistant sees 14 ClickHouse tables and asks what the business does and
+        The hypequery cloud onboarding chat. The assistant sees 14 ClickHouse tables and asks what the business does and
         who will query it. The user describes an EU outdoor gear store whose dashboards and AI support agent query the
         data, with each customer seeing only its own. The assistant scopes every dataset by org_id, suggests five tables,
         drafts four datasets, renames revenue to gross revenue on request, and publishes v1 at
@@ -445,36 +445,33 @@ function AuthoringDemo() {
   );
 }
 
-export function AiAuthoring() {
+/** The "With AI" tab of the build section: the steps, and the onboarding chat running beside them. */
+export function AiAuthoringPanel() {
   return (
-    <section aria-labelledby="ai-authoring-title" className="overflow-x-clip">
-      <div className="mx-auto max-w-[1280px] px-5 pb-4 pt-14 sm:px-8 sm:pt-20">
-        <div className="grid items-center gap-10 max-md:grid-cols-[minmax(0,1fr)] md:grid-cols-[minmax(0,400px)_minmax(0,1fr)] md:gap-12 lg:gap-16">
-          <div>
-            <h2 id="ai-authoring-title" className="home-section-title text-text">Describe your business. Get an analytics layer.</h2>
-            <p className="mt-4 max-w-[520px] text-sm leading-6 text-text-muted sm:text-base">
-              Connect ClickHouse, answer two questions, and Cloud drafts and publishes your datasets. Ask your first
-              question minutes later, right in Cloud.
-            </p>
-            <ol className="mt-8 space-y-5">
-              {STEPS.map(([title, copy], index) => (
-                <li key={title} className="flex gap-4">
-                  <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-border-strong font-mono text-[11px] text-text-muted">{index + 1}</span>
-                  <span>
-                    <span className="block text-sm font-medium text-text">{title}</span>
-                    <span className="mt-1 block text-sm leading-6 text-text-muted">{copy}</span>
-                  </span>
-                </li>
-              ))}
-            </ol>
-            <div className="mt-8 flex flex-wrap items-center gap-x-6 gap-y-3">
-              <DeployWaitlist location="ai-authoring" className="inline-flex min-h-11 items-center gap-3 rounded-lg bg-accent px-5 text-sm font-semibold text-white transition hover:-translate-y-0.5 hover:opacity-90 dark:text-[#0c0e14]" />
-            </div>
-          </div>
-
-          <AuthoringDemo />
+    <div className="grid items-start gap-10 max-md:grid-cols-[minmax(0,1fr)] md:grid-cols-[minmax(0,400px)_minmax(0,1fr)] md:gap-12 lg:gap-16">
+      <div>
+        <h3 className="text-2xl font-normal tracking-[-0.03em] text-text">Describe your business. Cloud drafts the model.</h3>
+        <p className="mt-3 max-w-[520px] text-sm leading-6 text-text-muted sm:text-base">
+          Connect ClickHouse, answer two questions, and review what it drafts. Ask your first question minutes later,
+          right in cloud.
+        </p>
+        <ol className="mt-7 space-y-5">
+          {STEPS.map(([title, copy], index) => (
+            <li key={title} className="flex gap-4">
+              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-border-strong font-mono text-[11px] text-text-muted">{index + 1}</span>
+              <span>
+                <span className="block text-sm font-medium text-text">{title}</span>
+                <span className="mt-1 block text-sm leading-6 text-text-muted">{copy}</span>
+              </span>
+            </li>
+          ))}
+        </ol>
+        <div className="mt-8">
+          <DeployWaitlist location="build-ai" className="inline-flex min-h-11 items-center gap-3 rounded-lg bg-accent px-5 text-sm font-semibold text-white transition hover:-translate-y-0.5 hover:opacity-90 dark:text-[#0c0e14]" />
         </div>
       </div>
-    </section>
+
+      <AuthoringDemo />
+    </div>
   );
 }

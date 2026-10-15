@@ -1,6 +1,6 @@
 ---
 title: ClickHouse users
-description: How hypequery Cloud queries ClickHouse with read-only users, and the settings profile it relies on.
+description: How hypequery cloud queries ClickHouse with read-only users, and the settings profile it relies on.
 ---
 
 import { CodeBlock } from 'fumadocs-ui/components/codeblock';
@@ -8,19 +8,19 @@ import { CloudWaitlistNotice } from '@/components/docs/cloud-waitlist-notice';
 
 <CloudWaitlistNotice />
 
-Connect Cloud with a dedicated read-only ClickHouse user. For how `readonly = 1` and `readonly = 2` differ in general,
+Connect cloud with a dedicated read-only ClickHouse user. For how `readonly = 1` and `readonly = 2` differ in general,
 see [Read-only ClickHouse users](/docs/reference/readonly-users).
 
 Cloud's executor sends `readonly = 2`, server-side cancellation, per-query
 resource limits, and precision-safe integers on every query. A `readonly = 1` user
-refuses those, so Cloud sends it no settings at all, and your profile is the only
+refuses those, so cloud sends it no settings at all, and your profile is the only
 protection those queries get.
 
 When you connect a `readonly = 1` user, setup lists what your profile leaves out,
 for example "Cancelled queries keep running" or "No per-query memory limit". It
 also generates the profile SQL that fixes it. You must confirm before saving.
 
-This profile gives a `readonly = 1` user every protection Cloud relies on:
+This profile gives a `readonly = 1` user every protection cloud relies on:
 
 <CodeBlock>
 ```sql

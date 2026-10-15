@@ -15,7 +15,7 @@ type Offering = {
   links: { label: string; href: string }[];
 };
 
-// Three offerings, given equal weight: the query builder, the analytics layer in code, and Cloud.
+// Three offerings, given equal weight: the query builder, the analytics layer in code, and cloud.
 const OFFERINGS: Offering[] = [
   {
     name: 'Query builder',

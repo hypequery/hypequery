@@ -1,6 +1,6 @@
 ---
 title: Deploy from Python
-description: Publish Python datasets to hypequery Cloud with a deployment bundle and the hypequery CLI.
+description: Publish Python datasets to hypequery cloud with a deployment bundle and the hypequery CLI.
 ---
 
 import { CodeBlock } from 'fumadocs-ui/components/codeblock';
@@ -49,7 +49,7 @@ npx hypequery deployment:submit analytics/hypequery-deployment \
 </CodeBlock>
 
 - `deployment:release` binds the bundle to your project and environment and writes the release beside the bundle.
-- `deployment:submit` uploads both. Once Cloud accepts the release, check where it is served with
+- `deployment:submit` uploads both. Once cloud accepts the release, check where it is served with
   `npx hypequery deployment:status`.
 
 A one-step `publish_to_cloud` helper for Python, matching TypeScript's `publishToCloud`, is planned.

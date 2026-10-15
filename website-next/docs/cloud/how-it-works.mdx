@@ -1,6 +1,6 @@
 ---
 title: How it works
-description: How dataset definitions become a hosted hypequery Cloud release.
+description: How dataset definitions become a hosted hypequery cloud release.
 ---
 
 import { CloudWaitlistNotice } from '@/components/docs/cloud-waitlist-notice';
@@ -9,7 +9,7 @@ import { CloudWaitlistNotice } from '@/components/docs/cloud-waitlist-notice';
 
 Cloud deploys your **dataset definitions**, not your application code. A deploy has four steps:
 
-1. **Publish.** You choose which datasets Cloud exposes and who can query them. In TypeScript this is
+1. **Publish.** You choose which datasets cloud exposes and who can query them. In TypeScript this is
    `publishToCloud(...)`; in Python you write a deployment bundle directly.
 2. **Build.** The CLI turns the publication into a verified deployment bundle. Datasets that published datasets relate
    to are included automatically.
@@ -23,7 +23,7 @@ them separately, for example in CI or from Python.
 
 A release contains a language-neutral deployment contract: your datasets, dimensions, measures, relationships, and
 the access policy for each published dataset. TypeScript and Python produce the same contract for equivalent
-definitions, so Cloud serves both the same way.
+definitions, so cloud serves both the same way.
 
 By default the bundle also includes your project source files, so you can download them later with `hypequery pull`
 or compare them with `hypequery diff`. Pass `--no-source` to leave them out.

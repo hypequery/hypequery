@@ -1,6 +1,6 @@
 ---
 title: MCP
-description: Connect AI agents to your hosted hypequery Cloud datasets over MCP.
+description: Connect AI agents to your hosted hypequery cloud datasets over MCP.
 ---
 
 import { CodeBlock } from 'fumadocs-ui/components/codeblock';
@@ -8,7 +8,7 @@ import { CloudWaitlistNotice } from '@/components/docs/cloud-waitlist-notice';
 
 <CloudWaitlistNotice />
 
-Every Cloud release also serves an MCP endpoint at `/mcp`, so agents can discover and query the datasets you published.
+Every cloud release also serves an MCP endpoint at `/mcp`, so agents can discover and query the datasets you published.
 Cloud hosts the MCP server and handles authentication, so you don't run one yourself, whether you published from
 TypeScript or Python.
 
@@ -43,7 +43,7 @@ configuration it prints. Set `HYPEQUERY_API_KEY` in the client's environment or 
 
 ## Sign in with OAuth
 
-MCP clients that support OAuth can connect without an API key. The client discovers Cloud's authorization server
+MCP clients that support OAuth can connect without an API key. The client discovers cloud's authorization server
 from the endpoint, and an organisation owner or admin approves it. When approving, they choose which tenants (1 to 32)
 the client may query, and the client's access is limited to exactly those tenants.
 

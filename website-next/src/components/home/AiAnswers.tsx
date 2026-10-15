@@ -139,7 +139,7 @@ export function ClaudeTerminal({ elapsed, reduced, className = 'h-[480px]' }: Pa
               <div className="leading-5">
                 <div className="font-semibold">Claude Code</div>
                 <div className="text-[#a8a29e]">hypequery MCP connected</div>
-                <div className="text-[#a8a29e]">~/acme-analytics</div>
+                <div className="text-[#a8a29e]">~/northwind-app</div>
               </div>
             </div>
 
@@ -327,8 +327,8 @@ export function AppChat({ elapsed, reduced, className = 'h-[480px]' }: PanelProp
   return (
     <div className={`flex flex-col overflow-hidden rounded-xl border border-border bg-bg-card shadow-card ${className}`}>
       <div className="flex items-center gap-2.5 border-b border-border px-4 py-3">
-        <span className="flex h-6 w-6 items-center justify-center rounded-md bg-text text-[11px] font-semibold text-bg">A</span>
-        <span className="text-xs font-medium text-text">Acme Analytics</span>
+        <span className="flex h-6 w-6 items-center justify-center rounded-md bg-text text-[11px] font-semibold text-bg">N</span>
+        <span className="text-xs font-medium text-text">Northwind Analytics</span>
       </div>
 
       <div ref={ref} className="flex flex-1 flex-col gap-5 overflow-y-auto px-5 pb-2 pt-5 [scrollbar-width:none]">
