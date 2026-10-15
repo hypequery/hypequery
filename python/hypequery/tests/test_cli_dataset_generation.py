@@ -28,6 +28,7 @@ from hypequery.datasets import (
     build_protocol_deployment_contract,
     create_dataset_registry,
     plan_dataset_query,
+    write_dataset_bundle,
 )
 
 
@@ -149,6 +150,23 @@ def test_nullable_count_is_named_honestly_and_scaffold_query_uses_it(tmp_path: P
         "count(`user_id`)"
         in plan_dataset_query(model, DatasetQuery(measures=("nonNullCount",))).sql
     )
+
+
+def test_nullable_numeric_count_bundles_alongside_suggested_measures(tmp_path: Path) -> None:
+    schema = Schema("analytics", (Table("events", (Column("value", "Nullable(Int64)"),)),))
+    generated = generate_datasets(schema)
+    model = _load(generated.source, tmp_path)["events"]
+    assert set(model.measures) == {"nonNullCount", "totalValue", "avgValue"}
+    write_dataset_bundle(tmp_path / "bundle", create_dataset_registry(model))
+    contract = json.loads((tmp_path / "bundle" / "deployment.json").read_text())
+    total = next(
+        measure
+        for measure in contract["datasets"][0]["measures"]
+        if measure["name"] == "nonNullCount"
+    )
+    assert total["aggregation"] == "count"
+    assert total["field"] == "value"
+    assert generated.first_count_measure == "nonNullCount"
 
 
 @pytest.mark.parametrize("column", ["non_null_count", "count"])

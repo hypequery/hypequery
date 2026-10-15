@@ -260,7 +260,8 @@ assert 'totalCount' not in definition.measures
 registry = create_dataset_registry(definition)
 write_dataset_bundle('bundle', registry)
 deployment = json.loads(Path('bundle/deployment.json').read_text())
-assert deployment['datasets'][0]['measures'][0]['name'] == 'nonNullCount'
+count = next(m for m in deployment['datasets'][0]['measures'] if m['name'] == 'nonNullCount')
+assert count['aggregation'] == 'count' and count['field'] == 'value'
 with create_clickhouse_executor(connection) as executor:
     client = create_dataset_client(executor=executor, registry=registry)
     result = client.execute(definition, DatasetQuery(measures=('nonNullCount',)))
