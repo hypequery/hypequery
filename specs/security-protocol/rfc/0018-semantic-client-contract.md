@@ -61,6 +61,11 @@ Unknown members fail closed at every object level. In version 1 there is no
 arbitrary metadata/extension map, origin/base URL, credential transport, token,
 tenant, role/scope requirement or connection configuration. An unknown version
 must be refused before interpreting its endpoints. Values cannot be coerced.
+JSON integer constraints are evaluated by numeric value after the shared
+binary64 interpretation: 1.0 and 1 are equivalent, while true and "1" are not
+numbers. Do not introduce a Python-only distinction between integral JSON float
+spellings and TypeScript's single number type. All metadata integers are safe
+integers within the explicit bounds below.
 
 Endpoint registration and offline export are host APIs, not protocol-defined
 Python constructors. The artifact is plain JSON and contains no callbacks,
