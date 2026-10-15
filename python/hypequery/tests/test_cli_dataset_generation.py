@@ -121,16 +121,41 @@ def test_generated_definitions_build_a_deployment_contract(tmp_path: Path) -> No
     assert "sql" not in total
 
 
-def test_total_count_falls_back_to_a_nullable_column(tmp_path: Path) -> None:
+def test_nullable_count_is_named_honestly_and_scaffold_query_uses_it(tmp_path: Path) -> None:
     schema = Schema(
         "analytics",
         (Table("events", (Column("user_id", "LowCardinality(Nullable(String))"),)),),
     )
-    model = _load(generate_datasets(schema).source, tmp_path)["events"]
-    total = model.measures["totalCount"]
+    generated = generate_datasets(schema)
+    model = _load(generated.source, tmp_path)["events"]
+    assert "totalCount" not in model.measures
+    total = model.measures["nonNullCount"]
     assert not isinstance(total, DerivedMeasure)
     assert total.field == "userId"
     assert total.sql is None
+    assert total.label == "Non-null Count"
+    assert len(generated.warnings) == 1
+    assert "not every row" in generated.warnings[0]
+    assert json.loads(generated.snapshot)["warnings"] == list(generated.warnings)
+    contract = build_protocol_deployment_contract(create_dataset_registry(model))
+    measures = cast(
+        list[dict[str, object]], cast(list[dict[str, object]], contract["datasets"])[0]["measures"]
+    )
+    assert [entry["name"] for entry in measures] == ["nonNullCount"]
+    readme = schema_templates(load_templates(), schema, generated)["README.md"]
+    payload = json.loads(readme.split("  -d '", 1)[1].split("'", 1)[0])
+    assert payload["measures"] == ["nonNullCount"]
+    assert (
+        "count(`user_id`)"
+        in plan_dataset_query(model, DatasetQuery(measures=("nonNullCount",))).sql
+    )
+
+
+@pytest.mark.parametrize("column", ["non_null_count", "count"])
+def test_nullable_count_name_collision_is_refused(column: str) -> None:
+    schema = Schema("analytics", (Table("events", (Column(column, "Nullable(UInt64)"),)),))
+    with pytest.raises(CliError, match="Semantic name collision"):
+        generate_datasets(schema)
 
 
 @pytest.mark.parametrize(

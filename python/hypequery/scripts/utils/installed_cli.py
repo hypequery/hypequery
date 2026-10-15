@@ -214,8 +214,67 @@ assert all(find_spec(name) is None for name in optional)
                     "orderBy": [{"field": "regenerationProbe", "direction": "asc"}],
                 },
             )
+            self._nullable_count_journey(database)
         finally:
             clickhouse(f"DROP DATABASE IF EXISTS {database}")
+
+    def _nullable_count_journey(self, database: str) -> None:
+        clickhouse(f"CREATE TABLE {database}.nullable_events (value Nullable(Int64)) ENGINE=Memory")
+        clickhouse("INSERT INTO nullable_events VALUES (NULL), (7), (NULL)", database=database)
+        self.project = self.root / "nullable analytics"
+        result = self._run(
+            [str(self.cli), "init", "--path", str(self.project), "--tables", "nullable_events"]
+        )
+        require(
+            "not every row" in result.stdout + result.stderr, "Nullable count warning is missing"
+        )
+        self._run(
+            [str(self.cli), "generate", "datasets", "--tables", "nullable_events", "--check"],
+            cwd=self.project,
+        )
+        expected = self._run(
+            [
+                str(self.python),
+                "-c",
+                """
+import json
+import clickhouse_connect
+from pathlib import Path
+from datasets import datasets
+from hypequery.datasets import (
+    DatasetQuery, create_dataset_client, create_dataset_registry, write_dataset_bundle,
+)
+from hypequery.execution import ClickHouseConnection, create_clickhouse_executor
+
+connection = ClickHouseConnection.from_env()
+with clickhouse_connect.get_client(
+    host=connection.host, port=connection.port, database=connection.database,
+    username=connection.username, password=connection.password,
+) as raw:
+    row_count, non_null_count = raw.query(
+        'SELECT count(), count(value) FROM nullable_events'
+    ).result_rows[0]
+assert row_count == 3 and non_null_count == 1
+definition = datasets['nullable_events']
+assert 'totalCount' not in definition.measures
+registry = create_dataset_registry(definition)
+write_dataset_bundle('bundle', registry)
+deployment = json.loads(Path('bundle/deployment.json').read_text())
+assert deployment['datasets'][0]['measures'][0]['name'] == 'nonNullCount'
+with create_clickhouse_executor(connection) as executor:
+    client = create_dataset_client(executor=executor, registry=registry)
+    result = client.execute(definition, DatasetQuery(measures=('nonNullCount',)))
+assert result.data == ({'nonNullCount': non_null_count},)
+print(json.dumps({'data': [{'nonNullCount': str(non_null_count)}]}))
+""",
+            ],
+            cwd=self.project,
+        )
+        self._serve(
+            schema_expected=cast(dict[str, object], json.loads(expected.stdout)),
+            schema_query={"measures": ["nonNullCount"]},
+            schema_path="/datasets/nullable_events/query",
+        )
 
     def _schema_ground_truth(self, *, regenerated: bool = False) -> dict[str, object]:
         result = self._run(
@@ -257,6 +316,7 @@ finally:
         *,
         schema_expected: dict[str, object] | None = None,
         schema_query: dict[str, object] | None = None,
+        schema_path: str = "/datasets/orders/query",
     ) -> None:
         with socket.socket() as probe:
             probe.bind(("127.0.0.1", 0))
@@ -290,7 +350,7 @@ finally:
                     expected_match[1] if expected_match else "{}"
                 )
                 request = urllib.request.Request(  # noqa: S310 - URL is fixed to loopback HTTP
-                    f"{base}/datasets/orders/query",
+                    f"{base}{schema_path}",
                     data=json.dumps(query).encode(),
                     headers={
                         "Content-Type": "application/json",
