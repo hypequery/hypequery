@@ -73,6 +73,9 @@ def test_live_examples_seed_and_http_journeys(monkeypatch: pytest.MonkeyPatch) -
                 if statement.strip():
                     admin.command(statement)
         assert admin.query("SELECT count() FROM example_orders").result_rows == [(3,)]
+        from client_dashboard_journey import exercise_live_tutorial
+
+        exercise_live_tutorial(admin)
         for factory, path, token, expected in (
             (embedded_analytics.create_application, "/analytics/orders", "example-test", "120"),
             (multitenant_saas.create_application, "/analytics/orders", "tenant-a-test", "30"),

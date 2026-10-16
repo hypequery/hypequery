@@ -84,7 +84,7 @@ def audit_sdist(path: Path) -> list[str]:
         # Hatchling always bundles the nearest .gitignore. In a monorepo that
         # can be the repository root's, which leaks unrelated project layout.
         for name in names:
-            if Path(name).name != ".gitignore":
+            if Path(name).name != ".gitignore" or len(Path(name).parts) != 2:
                 continue
             member = archive.extractfile(name)
             if member is None:

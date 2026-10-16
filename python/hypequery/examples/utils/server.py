@@ -17,6 +17,7 @@ from hypequery.datasets import (
 )
 from hypequery.execution import ClickHouseExecutor, create_clickhouse_executor
 from hypequery.serve import (
+    CorsPolicy,
     Credential,
     HttpSecurity,
     Principal,
@@ -61,6 +62,7 @@ def application(
     datasets: tuple[Dataset, ...],
     principals: Mapping[str, Principal],
     install: Callable[[ServeRouter, DatasetClient], None],
+    cors_origins: tuple[str, ...] = (),
 ) -> FastAPI:
     authenticator = TokenAuthenticator(principals)
     executor = create_clickhouse_executor(connection())
@@ -72,7 +74,10 @@ def application(
         install(api, client)
         app = create_app(
             api,
-            security=HttpSecurity(allowed_hosts=("localhost", "127.0.0.1")),
+            security=HttpSecurity(
+                allowed_hosts=("localhost", "127.0.0.1"),
+                cors=CorsPolicy(origins=cors_origins) if cors_origins else None,
+            ),
             production=ProductionProfile(
                 max_result_rows=101,
                 max_result_bytes=1 << 20,

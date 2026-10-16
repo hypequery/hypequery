@@ -6,6 +6,14 @@ A Python semantic layer for ClickHouse datasets, metrics, multi-tenant analytics
 > the shared protocol fixtures, but the package is not yet published to PyPI and
 > its APIs may still change. Do not use it in production yet.
 
+## Python → React → MCP example
+
+The [complete client tutorial](examples/client_dashboard/README.md) shares one
+Python definition across authorized HTTP, generated React types and MCP stdio.
+Its preparation script uses an installed wheel and packed Node packages outside
+the checkout. Matching npm features remain in the development release stack;
+currently published packages may not support the complete journey yet.
+
 ## Schema-backed Python CLI
 
 Install `hypequery[fastapi,clickhouse]`, export your `CLICKHOUSE_*` connection
