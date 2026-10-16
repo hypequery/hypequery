@@ -85,7 +85,7 @@
     "@hypequery/datasets": "workspace:*",
     "@clickhouse/client": "^1.24.0",
     "@clickhouse/client-web": "^1.24.0",
-    "@types/node": "^18.19.80",
+    "@types/node": "^26.6.5",
     "glob": "^13.0.6",
     "ts-node": "^10.9.0",
     "typedoc": "^0.28.20",

@@ -58,7 +58,7 @@
   "devDependencies": {
     "@hypequery/mcp": "workspace:*",
     "@hypequery/serve": "workspace:*",
-    "@types/node": "^20.11.30",
+    "@types/node": "^26.6.5",
     "@types/prompts": "^2.4.9",
     "@vitest/coverage-v8": "^5.0.2",
     "typescript": "^6.0.3",
