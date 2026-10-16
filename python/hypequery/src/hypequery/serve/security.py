@@ -61,6 +61,7 @@ class CorsPolicy:
         "Content-Type",
         "X-Request-ID",
         "X-Include-Meta",
+        "X-Hypequery-Client-Schema",
     )
     max_age: int = 600
 

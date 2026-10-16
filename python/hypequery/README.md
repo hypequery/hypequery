@@ -1339,3 +1339,37 @@ reserving the pagination probe row from process/client row budgets, and enforce
 the advertised strict client profile. Dataset ceilings can only lower the
 profile. Router-owned registration, authorized discovery and the export CLI are
 separate integrations; this SDK does not infer deployment paths or permission.
+
+### Registered client endpoints
+
+Opt in to the strict client profile when installing a dataset or metric route:
+
+```python
+from hypequery.datasets import ClientQueryProfile
+from hypequery.serve import add_dataset_endpoint, export_client_contract
+
+add_dataset_endpoint(
+    api,
+    "/datasets/orders/query",
+    dataset=Orders,
+    client=client,
+    client_profile=ClientQueryProfile(default_limit=100, max_limit=1000),
+)
+# After create_app(api, security=..., production=...) has resolved configuration:
+artifact = export_client_contract(app)
+```
+
+Application export resolves actual FastAPI inclusion prefixes and intersects
+profile, dataset, endpoint policy, client and production ceilings, reserving the
+pagination probe row. For a custom FastAPI host pass `routers=[api]`; for a mounted
+child created by `create_app`, configure its external `client_mount_path` there.
+Proxy headers never determine artifact paths. Ambiguous route registrations fail
+closed. Legacy routes keep their input behavior and are omitted from this export.
+
+Consumers can send the endpoint's `schemaHash` in `X-Hypequery-Client-Schema`.
+Authentication and current endpoint policy run first. A stale pin returns HTTP 409
+with `error.type="VALIDATION_ERROR"`, `error.details.code="CLIENT_SCHEMA_CHANGED"`
+and a fixed safe message; no query is executed. Current limits still apply when
+the schema hash matches. Strict routes validate typed filters, selections,
+combined budgets and metadata before planning, and cannot enable SQL diagnostics.
+Live caller-scoped discovery and frontend/MCP integration follow separately.

@@ -469,7 +469,7 @@ header. The bridge MUST send its validated endpoint schemaHash on each query.
 An opted-in endpoint authenticates and applies current policy first, resolves
 its effective descriptor for that request, then compares the header before body
 planning/execution. A mismatch returns HTTP 409 through the existing Serve error
-envelope with code CLIENT_SCHEMA_CHANGED and message "Client endpoint schema
+envelope with type VALIDATION_ERROR, details.code CLIENT_SCHEMA_CHANGED and message "Client endpoint schema
 changed." It exposes no replacement schema or hidden endpoint details. Backend
 denial takes precedence over drift disclosure. No query is retried automatically
 with changed semantics; explicit refresh/reconnect is required. The header is a

@@ -43,6 +43,7 @@ from .auth import (
     unauthenticated,
 )
 from .body_policy import DEFAULT_MAX_BODY_BYTES, enforce_body_policy
+from .client_contract import ClientEndpointRegistry
 from .errors import as_serve_error, error_response
 from .rate_limit import RateLimit
 from .utils.provider_call import call_provider
@@ -212,6 +213,7 @@ class ServeRouter(APIRouter):
         self._public: set[Callable[..., Any]] = set()
         self._guard = _Guard(authenticate, credentials, resolve_tenant)
         self._credential_header = credentials.header
+        self.client_endpoints = ClientEndpointRegistry()
 
     @property
     def credential_header(self) -> str:

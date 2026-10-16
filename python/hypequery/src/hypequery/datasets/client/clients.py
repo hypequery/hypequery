@@ -87,6 +87,21 @@ class _DatasetClientBase:
         self._cache = cache
         self._timezone = validate_timezone(timezone)
 
+    @property
+    def registry(self) -> DatasetRegistry | None:
+        """Definition registry used by this client, without constructing an executor."""
+        return self._registry
+
+    @property
+    def default_timezone(self) -> str:
+        """Trusted default applied when a query omits its timezone."""
+        return self._timezone
+
+    @property
+    def result_row_limit(self) -> int:
+        """Current client row ceiling, including the pagination probe."""
+        return self._settings["max_result_rows"]
+
     def _plan(
         self,
         target: DatasetTarget,

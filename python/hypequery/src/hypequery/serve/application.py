@@ -6,6 +6,7 @@ import ipaddress
 
 from fastapi import FastAPI
 
+from .client_contract import export_client_contract
 from .production import ProductionProfile
 from .production_limits import ProductionLimitsMiddleware
 from .router import ServeRouter
@@ -18,6 +19,7 @@ def create_app(
     security: HttpSecurity,
     development_docs: bool = False,
     production: ProductionProfile | None = None,
+    client_mount_path: str = "",
 ) -> FastAPI:
     """Build the serving app. Public docs require explicit development opt-in.
 
@@ -25,6 +27,8 @@ def create_app(
     an existing app, the host owns its docs and process configuration.
     """
 
+    if type(client_mount_path) is not str:
+        raise TypeError("client_mount_path must be a string")
     if type(development_docs) is not bool:
         raise TypeError("development_docs must be a boolean")
     if type(security) is not HttpSecurity:
@@ -47,8 +51,12 @@ def create_app(
         openapi_url="/openapi.json" if development_docs else None,
     )
     app.include_router(router)
+    app.state.hypequery_client_registries = (router.client_endpoints,)
+    app.state.hypequery_client_mount_path = client_mount_path
     if production is not None:
         app.state.hypequery_production = production
         app.add_middleware(ProductionLimitsMiddleware, profile=production)
     install_http_security(app, security)
+    if router.client_endpoints.bindings:
+        export_client_contract(app)
     return app
