@@ -1373,3 +1373,26 @@ and a fixed safe message; no query is executed. Current limits still apply when
 the schema hash matches. Strict routes validate typed filters, selections,
 combined budgets and metadata before planning, and cannot enable SQL diagnostics.
 Live caller-scoped discovery and frontend/MCP integration follow separately.
+
+### Caller-scoped client discovery
+
+Install live discovery before constructing the application:
+
+```python
+from hypequery.serve import add_client_contract_endpoint
+
+add_client_contract_endpoint(api)  # GET /client-contract, plus the router prefix
+```
+
+The route authenticates by default and independently applies each installed strict
+endpoint's policy to the current principal and tenant. It returns a signed
+`view="authorized"` contract; a metric-only caller sees its metric without gaining
+a dataset query target. A valid principal with no targets receives an empty view.
+Responses are `no-store` and vary by credential transport. The default 256 KiB
+response budget fails closed rather than silently dropping capabilities.
+
+For a custom FastAPI host, configure `routers=[api]` when adding discovery.
+Public discovery requires explicit `policy=EndpointPolicy(public=True)` and follows
+public-route semantics: it advertises anonymous/public targets only. Query parameters
+cannot select a build view, principal, tenant or deployment path. A discovered
+contract describes capabilities; query authentication and policy still apply.

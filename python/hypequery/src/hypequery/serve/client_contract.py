@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from dataclasses import dataclass, replace
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, Literal, cast
 
 from fastapi import FastAPI, Request
 from fastapi.routing import APIRoute, iter_route_contexts
@@ -17,9 +17,11 @@ from ..protocol import (
     ProtocolClientContractError,
     validate_protocol_client_query,
 )
+from .auth import RequestAuth
 from .errors import ServeError
 from .policy import EndpointPolicy
 from .production import ProductionProfile
+from .utils.client_contract_view import client_contract_view
 from .utils.client_route_conflicts import client_route_conflicts
 from .utils.production_context import production_profile
 
@@ -125,8 +127,21 @@ class ClientEndpointRegistry:
         self.check(binding)
         self._bindings.append(binding)
 
-    def find(self, route: object) -> ClientEndpointBinding | None:
-        return next((binding for binding in self._bindings if binding.route is route), None)
+    def find(
+        self, route: object, *, authorized: bool = False, auth: RequestAuth | None = None
+    ) -> ClientEndpointBinding | None:
+        for binding in self._bindings:
+            if binding.route is not route:
+                continue
+            if authorized:
+                try:
+                    binding.policy.authorize(auth)
+                except ServeError as error:
+                    if error.status_code in (401, 403):
+                        return None
+                    raise
+            return binding
+        return None
 
 
 def export_client_contract(
@@ -135,6 +150,8 @@ def export_client_contract(
     routers: Sequence[ServeRouter] = (),
     production: ProductionProfile | None = None,
     mount_path: str | None = None,
+    view: Literal["build", "authorized"] = "build",
+    auth: RequestAuth | None = None,
 ) -> PreparedProtocolClientContract:
     """Export only opted-in routes actually installed on this router/application.
 
@@ -144,6 +161,8 @@ def export_client_contract(
     """
     from .router import ServeRouter
 
+    if view not in ("build", "authorized"):
+        raise ValueError("client export view must be build or authorized")
     registries: tuple[ClientEndpointRegistry, ...]
     if isinstance(source, ServeRouter):
         registries = (source.client_endpoints,)
@@ -183,7 +202,12 @@ def export_client_contract(
             (
                 found
                 for registry in registries
-                if (found := registry.find(route.original_route)) is not None
+                if (
+                    found := registry.find(
+                        route.original_route, authorized=view == "authorized", auth=auth
+                    )
+                )
+                is not None
             ),
             None,
         )
@@ -201,6 +225,8 @@ def export_client_contract(
                 registry_datasets[dataset.name] = dataset
     from ..datasets import create_dataset_registry
 
-    return export_definition_contract(
+    prepared = export_definition_contract(
         definitions, mount_path=mount, registry=create_dataset_registry(*registry_datasets.values())
     )
+
+    return client_contract_view(prepared, view)
