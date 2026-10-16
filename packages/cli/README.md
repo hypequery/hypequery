@@ -37,11 +37,43 @@ npx hypequery init \
 | `hypequery dev` | Local API, docs, and hot reload |
 | `hypequery generate` | Fresh TypeScript types from ClickHouse or chDB |
 | `hypequery generate:datasets` | Dataset definitions scaffolded from tables |
+| `hypequery generate:client` | TypeScript API types and routes from a Python client contract |
 | `hypequery generate:manifest` | A browser-safe route manifest for React hooks |
 | `hypequery pull` / `diff` | Live source inspection and comparison |
 | `hypequery deployment:status` | Live release and Cloud-provided connection URLs |
 
 Non-interactive ClickHouse commands read `CLICKHOUSE_URL`, `CLICKHOUSE_DATABASE`, `CLICKHOUSE_USERNAME`, and `CLICKHOUSE_PASSWORD`.
+
+## Generate a client for Python endpoints
+
+Export a build contract from your Python definition-only factory, then generate
+one TypeScript file with no backend imports:
+
+```bash
+# In the Python project (the factory returns export_client_contract(...)):
+hypequery export client-contract --factory analytics.contract:build --output client-contract.json
+
+# In the frontend project:
+npx hypequery generate:client ../backend/client-contract.json --output src/hypequery-client.ts
+npx hypequery generate:client ../backend/client-contract.json --output src/hypequery-client.ts --check
+```
+
+The file exports `ClientApi`, `clientManifest`, `clientContractHash` and public
+response metadata types. It preserves installed POST paths, endpoint schema
+hashes, metric aliases, default measures, field-specific filter types and wire
+nullability. Numeric dimensions can be strings on the wire; aggregate values are
+strings or null. Time buckets may be null when the physical time column is null.
+Results use optional fields until a consumer narrows the query's selections.
+
+Generation reads local JSON only (1 MiB maximum); it never evaluates a backend
+module or fetches an endpoint. Signed identities, duplicate JSON members and
+strict contract bounds are checked before writing. Use the owner-controlled
+`build` view; principal-specific live discovery is for runtime consumers.
+`--check` detects drift without creating directories or changing files. Existing
+output requires `--force` to replace, and symlinked output paths are refused.
+Generated output is bounded to 16 MiB. TypeScript describes structural inputs;
+the Python endpoint still validates timezones, selection dependencies, query
+budgets and authorization on every request.
 
 ## Why use the CLI
 

@@ -40,7 +40,7 @@ const generation = {
   custom_output: optional(output),
 } as const;
 
-const INSTRUMENTED = ['init', 'dev', 'mcp', 'generate', 'generate:types', 'generate:datasets', 'generate:manifest', 'help'] as const;
+const INSTRUMENTED = ['init', 'dev', 'mcp', 'generate', 'generate:types', 'generate:datasets', 'generate:manifest', 'generate:client', 'help'] as const;
 
 /** Command-specific completion fields; absence means that stage was not reached. */
 export const COMMAND_PROPERTIES = {
@@ -82,6 +82,13 @@ export const COMMAND_PROPERTIES = {
     exclude_filter_used: optional(boolean('Is exclude filtering adopted?')),
     datasets_generated_bucket: optional(count('How many dataset definitions are generated?')),
     warning_counts: optional(record('Which tenant-scaffolding warnings need improvement?', fieldsFor(WARNING_CODES, optional(count('Bucketed warning occurrences.'))))),
+  },
+  'generate:client': {
+    mode: optional(enumeration('Are client types generated or checked in CI?', ['write', 'check'])),
+    check_result: optional(enumeration('Does CI find stale client types?', ['up_to_date', 'out_of_date', 'missing'])),
+    force: optional(boolean('Are generated client types replaced?')),
+    custom_output: optional(output),
+    endpoint_count_bucket: optional(count('How many public endpoints need client types?')),
   },
   'generate:manifest': {
     query_count_bucket: optional(count('How much query-based React integration is adopted?')),
