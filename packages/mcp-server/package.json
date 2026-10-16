@@ -48,7 +48,8 @@
   "dependencies": {
     "@hypequery/datasets": "^0.23.0",
     "@modelcontextprotocol/sdk": "^1.32.1",
-    "zod": "^3.23.8"
+    "zod": "^3.23.8",
+    "@hypequery/protocol": "workspace:*"
   },
   "devDependencies": {
     "@hypequery/clickhouse": "workspace:*",

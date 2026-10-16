@@ -34,3 +34,8 @@ installed Python wheel, generated TypeScript, packed React hooks, cross-origin
 HTTP, auth/cache isolation, pagination and schema drift in a real browser.
 Its SQLite test executor covers wiring only; it does not replace the live
 ClickHouse journeys above.
+
+[Installed Python/MCP qualification](./python-client-mcp.md) checks actual SDK
+tool calls through HTTP to the installed Python fixture, with packed npm packages
+and distinct principals. Its database test double has the same limits as the
+browser fixture; live ClickHouse cancellation remains an independent gate.

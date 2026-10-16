@@ -7,6 +7,9 @@ import {
   MCPToolError,
   connectMCPServerStdio,
   createMCPExecutor,
+  createMCPHttpExecutor,
+  HypequeryMCPHttpExecutor,
+  type MCPHttpExecutorConfig,
   createMCPProtocolServer,
   createMCPServer,
   startStdioMCPServer,
@@ -48,4 +51,26 @@ it('accepts segments in the exported query argument types', () => {
     .toEqualTypeOf<'paid'[] | undefined>();
   expectTypeOf<QueryDatasetArgs<typeof _orders>['dataset']>().toEqualTypeOf<'orders'>();
   expectTypeOf<QueryMetricArgs<typeof _orders>['dataset']>().toEqualTypeOf<'orders'>();
+});
+
+
+it('exports a governed HTTP executor without adding tenant or SQL configuration', () => {
+  expectTypeOf(createMCPHttpExecutor).parameter(0).toEqualTypeOf<MCPHttpExecutorConfig>();
+  expectTypeOf(createMCPHttpExecutor).returns.toEqualTypeOf<Promise<HypequeryMCPHttpExecutor>>();
+  expectTypeOf<HypequeryMCPHttpExecutor>().toExtend<MCPToolExecutor>();
+  const configuration: MCPHttpExecutorConfig = {
+    url: 'https://python.example.test/client-contract',
+    headers: async () => ({ authorization: 'Bearer fixture-token' }),
+  };
+  const invalidTenant: MCPHttpExecutorConfig = {
+    url: configuration.url,
+    // @ts-expect-error Tenant scope belongs to the Python backend principal.
+    tenantId: 'not-a-client-option',
+  };
+  const invalidSql: MCPHttpExecutorConfig = {
+    url: configuration.url,
+    // @ts-expect-error HTTP client profiles never expose SQL diagnostics.
+    includeSql: true,
+  };
+  void [configuration, invalidTenant, invalidSql];
 });
