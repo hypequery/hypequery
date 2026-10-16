@@ -46,7 +46,7 @@
     "conformance:serve": "pnpm --filter @hypequery/serve exec vitest run src/serve-http-fixtures.test.ts src/serve-semantic-fixtures.test.ts && uv run --project python/hypequery --frozen --extra fastapi pytest python/hypequery/tests/test_serve_http_fixtures.py python/hypequery/tests/test_serve_semantic_fixtures.py"
   },
   "devDependencies": {
-    "@changesets/cli": "^2.29.8",
+    "@changesets/cli": "^3.0.3",
     "@type-challenges/utils": "^0.1.1",
     "@typescript-eslint/eslint-plugin": "^8.71.1",
     "@typescript-eslint/parser": "^8.71.1",
