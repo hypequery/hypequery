@@ -38,7 +38,16 @@ class DevOptions:
     reload: bool
 
 
-CommandOptions = InitOptions | GenerateDatasetsOptions | DevOptions
+@dataclass(frozen=True, slots=True)
+class ExportClientContractOptions:
+    factory: str
+    output: str | None
+    stdout: bool
+    check: bool
+    force: bool
+
+
+CommandOptions = InitOptions | GenerateDatasetsOptions | DevOptions | ExportClientContractOptions
 
 
 def command_options(args: argparse.Namespace) -> CommandOptions:
@@ -60,6 +69,14 @@ def command_options(args: argparse.Namespace) -> CommandOptions:
             tenant_column=args.tenant_column,
             check=args.check,
             diff=args.diff,
+            force=args.force,
+        )
+    if args.command == "export":
+        return ExportClientContractOptions(
+            factory=args.factory,
+            output=args.output,
+            stdout=args.stdout or args.output == "-",
+            check=args.check,
             force=args.force,
         )
     if args.command == "dev":

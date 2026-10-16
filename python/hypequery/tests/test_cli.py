@@ -23,6 +23,9 @@ from hypequery.cli.parser import parse_args
         ["help"],
         ["help", "init"],
         ["help", "dev"],
+        ["export", "--help"],
+        ["export", "client-contract", "--help"],
+        ["help", "export"],
     ],
 )
 def test_help_does_not_import_optional_packages(args: list[str]) -> None:

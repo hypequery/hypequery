@@ -90,7 +90,11 @@ def _lock_held_message(lock: Path) -> str:
 
 
 class GeneratedFile:
-    def __init__(self, path: Path) -> None:
+    def __init__(
+        self, path: Path, *, max_bytes: int | None = None, overwrite_hint: str = "--diff or --force"
+    ) -> None:
+        self._max_bytes = max_bytes
+        self._overwrite_hint = overwrite_hint
         self.path = path.absolute()
         self._snapshot: _Snapshot | None = None
         self._observed = False
@@ -110,7 +114,13 @@ class GeneratedFile:
         try:
             with self.path.open(encoding="utf-8") as source:
                 before = os.fstat(source.fileno())
-                contents = source.read()
+                if self._max_bytes is not None and before.st_size > self._max_bytes:
+                    raise CliError("The output file exceeds the byte budget.")
+                contents = (
+                    source.read() if self._max_bytes is None else source.read(self._max_bytes + 1)
+                )
+                if self._max_bytes is not None and len(contents.encode("utf-8")) > self._max_bytes:
+                    raise CliError("The output file exceeds the byte budget.")
                 after = os.fstat(source.fileno())
             if _file_identity(before) != _file_identity(after):
                 raise CliError(
@@ -207,7 +217,7 @@ class GeneratedFile:
             succeeded = True
         except FileExistsError as exc:
             raise CliError(
-                "Refusing to overwrite existing definitions; use --diff or --force."
+                f"Refusing to overwrite existing definitions; use {self._overwrite_hint}."
             ) from exc
         except OSError as exc:
             raise CliError("Cannot write definitions; check output permissions.") from exc

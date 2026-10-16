@@ -51,6 +51,25 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     datasets.add_argument("--check", action="store_true", help="exit 1 on drift without writing")
     datasets.add_argument("--diff", action="store_true", help="show drift without writing; exit 1")
     datasets.add_argument("--force", action="store_true", help="replace existing definitions")
+    export = commands.add_parser("export", help="export public client artifacts offline")
+    export_targets = export.add_subparsers(dest="target", required=True)
+    client_contract = export_targets.add_parser(
+        "client-contract", help="export a signed client contract"
+    )
+    client_contract.add_argument(
+        "--factory", required=True, help="explicit zero-argument definition factory: module:factory"
+    )
+    output = client_contract.add_mutually_exclusive_group()
+    output.add_argument(
+        "--output", help="output file (default: client-contract.json; - for stdout)"
+    )
+    output.add_argument("--stdout", action="store_true", help="write canonical JSON only to stdout")
+    client_contract.add_argument(
+        "--check", action="store_true", help="exit 1 on drift without writing"
+    )
+    client_contract.add_argument(
+        "--force", action="store_true", help="replace an existing artifact"
+    )
     dev = commands.add_parser("dev", help="serve a local app (requires the fastapi extra)")
     dev.add_argument("app", nargs="?", default="app:app", help="import string (default: app:app)")
     dev.add_argument(
@@ -70,10 +89,12 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     )
     dev.set_defaults(reload=True)
     help_command = commands.add_parser("help", help="show help for a command")
-    help_command.add_argument("topic", nargs="?", choices=("init", "dev", "generate"))
+    help_command.add_argument("topic", nargs="?", choices=("init", "dev", "generate", "export"))
     args = parser.parse_args(arguments)
     if args.command == "help":
-        {None: parser, "init": init, "dev": dev, "generate": generate}[args.topic].print_help()
+        {None: parser, "init": init, "dev": dev, "generate": generate, "export": export}[
+            args.topic
+        ].print_help()
         parser.exit()
     if args.command == "init":
         if args.directory is not None and args.path is not None:
@@ -85,6 +106,11 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
             parser.error("table selection requires a database connection")
     if args.command == "generate" and args.force and (args.check or args.diff):
         parser.error("--force cannot be combined with --check or --diff")
+    if args.command == "export":
+        if args.check and args.force:
+            parser.error("--force cannot be combined with --check")
+        if (args.stdout or args.output == "-") and (args.check or args.force):
+            parser.error("stdout export cannot be combined with --check or --force")
     if args.command == "dev" and not 0 < args.port < 65536:
         parser.error("--port must be between 1 and 65535")
     return args

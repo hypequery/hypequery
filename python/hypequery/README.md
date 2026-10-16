@@ -1396,3 +1396,28 @@ Public discovery requires explicit `policy=EndpointPolicy(public=True)` and foll
 public-route semantics: it advertises anonymous/public targets only. Query parameters
 cannot select a build view, principal, tenant or deployment path. A discovered
 contract describes capabilities; query authentication and policy still apply.
+
+### Offline export command
+
+Put a zero-argument definition-only factory in a project module. It should return
+`export_client_contract(...)` from `hypequery.datasets`, or its signed `contract`
+member. Then run the Python CLI from that project directory:
+
+```bash
+python -m hypequery export client-contract --factory client_contract:build
+python -m hypequery export client-contract --factory client_contract:build --check
+python -m hypequery export client-contract --factory client_contract:build --stdout
+```
+
+The default destination is `client-contract.json`; use `--output` to choose another
+path, or `--output -` for stdout. Existing artifacts require `--force` to replace;
+`--check` reports drift without creating files or directories. Writes are atomic,
+preserve existing permissions and refuse symlinks or concurrent changes. Existing
+input is bounded to the contract's 1 MiB budget before project code is imported.
+
+The command explicitly imports the named project factory; use a definition-only
+module rather than an application module that starts services or opens connections.
+The CLI itself loads no database/serving adapter. It verifies supplied identities
+and emits only canonical contract JSON in stdout mode; project chatter and import
+failures are redacted. It does not infer routes, authenticate a principal or grant
+query access. This artifact is the input to the frontend/MCP generation workflow.
