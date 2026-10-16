@@ -10,6 +10,7 @@ from hypequery.datasets.validation import validate_identifier
 from hypequery.protocol.errors import ProtocolIdentifierError
 
 from ..errors import CliError
+from .count_measure import CountMeasure, suggest_count_measure
 from .schema import Schema, Table
 
 
@@ -20,6 +21,7 @@ class GeneratedDatasets:
     warnings: tuple[str, ...]
     tables: tuple[str, ...]
     first_dimension: str
+    first_count_measure: str
 
 
 def dimension_type(type_name: str) -> str | None:
@@ -135,8 +137,8 @@ class DatasetSpec:
     time_key: str | None
     tenant_key: str | None
     fields: tuple[FieldSpec, ...]
-    #: The column-backed row count; see `_count_field`.
-    count_field: str
+    #: Column-backed count; nullable fallback must never be labelled a total.
+    count: CountMeasure
     measures: tuple[MeasureSpec, ...]
 
 
@@ -182,6 +184,15 @@ def infer_dataset(
     if not fields:
         raise CliError(f"Table {table.name!r} has no supported scalar dimensions.")
 
+    count = suggest_count_measure(non_nullable, fields[0].alias)
+    if count.name in seen:
+        raise CliError(
+            f"Semantic name collision in {table.name!r}: {count.name!r}; map explicitly."
+        )
+    # Keep totalCount reserved even when its nullable fallback has another name.
+    seen.update(("totalCount", count.name))
+    warnings.extend(count.warnings(table.name))
+
     time_key = _time_key(tuple(fields))
     if time_key is None and sum(field.kind == "timestamp" for field in fields) > 1:
         warnings.append(f"{table.name}: multiple timestamp columns; set time_key explicitly.")
@@ -219,10 +230,8 @@ def infer_dataset(
         time_key=time_key,
         tenant_key=tenant_key,
         fields=tuple(fields),
-        # Column-backed, as TypeScript generates it, so the definition deploys and
-        # composes with relationship joins. A non-nullable column keeps it a row
-        # count; `count` skips NULLs, so a nullable one is only the fallback.
-        count_field=non_nullable[0] if non_nullable else fields[0].alias,
+        # Keep the count column-backed so it deploys and composes with joins.
+        count=count,
         measures=tuple(measures),
     )
 
@@ -256,7 +265,8 @@ def render_datasets(specs: tuple[DatasetSpec, ...]) -> str:
         )
         lines.extend(["        },", "        measures={"])
         lines.append(
-            f'            "totalCount": measure.count({spec.count_field!r}, label="Total Count"),'
+            f'            "{spec.count.name}": measure.count('
+            f'{spec.count.field!r}, label="{spec.count.label}"),'
         )
         lines.extend(
             f"            {item.name!r}: measure.{item.aggregation}({item.field!r}, "
@@ -301,4 +311,5 @@ def generate_datasets(schema: Schema, *, tenant_column: str | None = None) -> Ge
         tuple(warnings),
         tuple(table.name for table in schema.tables),
         specs[0].fields[0].alias,
+        specs[0].count.name,
     )

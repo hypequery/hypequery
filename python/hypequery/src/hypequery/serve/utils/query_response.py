@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from ...datasets import Dataset
+from collections.abc import Collection
+
 from ...datasets.client import DatasetQueryResult, ResultScalar
 from ...protocol import serialize_protocol_number
 from ..models import CacheMeta, PaginationMeta, PublicQueryMeta, QueryResponse
@@ -17,7 +18,7 @@ def _measure_value(value: ResultScalar) -> str | None:
 
 
 def public_response(
-    result: DatasetQueryResult, request_id: str, include_meta: bool, dataset: Dataset
+    result: DatasetQueryResult, request_id: str, include_meta: bool, measures: Collection[str]
 ) -> QueryResponse:
     meta = None
     pagination = result.meta.pagination
@@ -35,10 +36,7 @@ def public_response(
         )
     # Every non-null semantic measure is a string on the shared HTTP wire.
     data = [
-        {
-            name: _measure_value(value) if name in dataset.measures else value
-            for name, value in row.items()
-        }
+        {name: _measure_value(value) if name in measures else value for name, value in row.items()}
         for row in result.data
     ]
     return QueryResponse(data=data, meta=meta)

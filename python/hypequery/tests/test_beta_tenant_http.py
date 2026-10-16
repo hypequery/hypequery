@@ -70,6 +70,7 @@ def test_live_tenant_http_joins_cache_and_denials(asynchronous: bool) -> None:
         source="beta_http_customers",
         tenant_key="org_id",
         dimensions={"id": dimension.number(), "label": dimension.string()},
+        measures={"unique": measure.count_distinct("id")},
     )
     orders = Dataset(
         name="orders",
@@ -128,14 +129,16 @@ def test_live_tenant_http_joins_cache_and_denials(asynchronous: bool) -> None:
                 app.include_router(router)
                 payload = {
                     "dimensions": ["customer.label"],
-                    "measures": ["total"],
+                    "measures": ["total", "customer.unique"],
                     "includeMeta": True,
                 }
                 for org, label, total in (("a", "A_ONLY", "10"), ("b", "B_ONLY", "90")):
                     headers = {"Authorization": "Bearer " + org, "x-tenant-id": "other"}
                     first = http.post("/query", json=payload, headers=headers)
                     assert first.status_code == 200, first.text
-                    assert first.json()["data"] == [{"customer.label": label, "total": total}]
+                    assert first.json()["data"] == [
+                        {"customer.label": label, "total": total, "customer.unique": "1"}
+                    ]
                     assert first.json()["meta"]["cache"] == {"hit": False}
                     again = http.post("/query", json=payload, headers=headers)
                     assert again.json()["data"] == first.json()["data"]

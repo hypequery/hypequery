@@ -63,7 +63,11 @@ app = create_app(
         "export CLICKHOUSE_DATABASE=default", f"export CLICKHOUSE_DATABASE={schema.database}"
     )
     payload = json.dumps(
-        {"dimensions": [generated.first_dimension], "measures": ["totalCount"], "limit": 10}
+        {
+            "dimensions": [generated.first_dimension],
+            "measures": [generated.first_count_measure],
+            "limit": 10,
+        }
     )
     report = (
         "\n".join(f"- {warning}" for warning in generated.warnings)
@@ -78,9 +82,9 @@ The CLI inspected `{schema.database}` without modifying the database.
 records the exact source column names/types and generation warnings.
 Physical names are mapped explicitly to the same camelCase semantic field names
 as the TypeScript CLI. `totalCount` counts each table's first non-nullable
-column, which is a row count. If every column is nullable it counts the first
-column instead, which skips rows where that column is NULL; check
-`schema.json` and choose a non-nullable column if you need every row.
+column, which is a row count. If no supported non-nullable column is available,
+the CLI generates `nonNullCount` instead and reports a warning. It counts the
+first supported column's non-null values, not every row; `totalCount` is omitted.
 Numeric sum/average measures are suggestions: review their business semantics.
 IDs and coordinates remain dimensions. Relationships and tenant boundaries are
 not inferred; configure them explicitly before exposing this API.

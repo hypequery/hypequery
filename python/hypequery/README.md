@@ -20,6 +20,12 @@ remain dimensions. Unsupported columns and tenant candidates are reported.
 Review business semantics and configure tenant isolation explicitly. No database
 writes or automatic relationship inference occur during discovery.
 
+`totalCount` counts a supported non-nullable column, so it includes every row.
+If none exists, the CLI emits `nonNullCount` instead and warns that it counts
+only non-null values in the first supported column. Regeneration uses the same
+rule; review references to a previously generated `totalCount` before replacing
+definitions for an all-nullable table.
+
 `--skip-connection` explicitly creates the offline orders demo with `seed.sql`.
 Existing output paths are never overwritten. See the
 [TypeScript reference and parity contract](../../plans/python-cli-schema-generation-parity.md).
@@ -499,6 +505,8 @@ install_http_security(
 - **CORS** is off unless `cors` is set. Origins must be exact
   `scheme://host[:port]` values. Credentialed CORS with `*` fails when the
   policy is built, as do wildcard methods or headers.
+  Default allowed request headers include `X-Include-Meta`, used by React's
+  infinite-query hooks to request pagination metadata.
 - **Proxies.** `X-Forwarded-For` and `X-Forwarded-Proto` are honoured only
   from `trusted_proxies`. The client is the nearest forwarded address that
   isn't itself a trusted proxy. By default no proxy is trusted. A trusted
