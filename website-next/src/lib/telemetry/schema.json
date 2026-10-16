@@ -223,6 +223,7 @@
             "generate:types",
             "generate:datasets",
             "generate:manifest",
+            "generate:client",
             "login",
             "logout",
             "deploy",
@@ -789,6 +790,50 @@
             "optional": true
           }
         },
+        "generate:client": {
+          "mode": {
+            "kind": "enum",
+            "description": "Are client types generated or checked in CI?",
+            "values": [
+              "write",
+              "check"
+            ],
+            "optional": true
+          },
+          "check_result": {
+            "kind": "enum",
+            "description": "Does CI find stale client types?",
+            "values": [
+              "up_to_date",
+              "out_of_date",
+              "missing"
+            ],
+            "optional": true
+          },
+          "force": {
+            "kind": "boolean",
+            "description": "Are generated client types replaced?",
+            "optional": true
+          },
+          "custom_output": {
+            "kind": "boolean",
+            "description": "Was a custom output location supplied? Never the path.",
+            "optional": true
+          },
+          "endpoint_count_bucket": {
+            "kind": "enum",
+            "description": "How many public endpoints need client types?",
+            "values": [
+              "0",
+              "1",
+              "2-5",
+              "6-20",
+              "21-100",
+              "101+"
+            ],
+            "optional": true
+          }
+        },
         "generate:manifest": {
           "query_count_bucket": {
             "kind": "enum",
@@ -848,6 +893,7 @@
               "generate:types",
               "generate:datasets",
               "generate:manifest",
+              "generate:client",
               "login",
               "logout",
               "deploy",
@@ -1362,6 +1408,7 @@
             "generate:types",
             "generate:datasets",
             "generate:manifest",
+            "generate:client",
             "login",
             "logout",
             "deploy",
@@ -1480,6 +1527,11 @@
     ],
     "generate:manifest": [
       "--output"
+    ],
+    "generate:client": [
+      "--output",
+      "--check",
+      "--force"
     ],
     "login": [
       "--cloud-url",
