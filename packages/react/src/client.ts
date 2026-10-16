@@ -1,3 +1,4 @@
+import { clientSchemaHeaders } from './utils/client-schema-headers.js';
 import { HttpError } from './errors.js';
 
 export type ApiContract = Record<string, { input: any; output: any }>;
@@ -5,11 +6,15 @@ export type ApiContract = Record<string, { input: any; output: any }>;
 export interface QueryMethodConfig {
   method?: string;
   path?: string;
+  /** Generated endpoint schema precondition. A mismatch requires explicit regeneration/refresh. */
+  schemaHash?: string;
 }
 
 export interface RouteManifestEntry {
   method?: string;
   path?: string;
+  /** Generated endpoint schema precondition. A mismatch requires explicit regeneration/refresh. */
+  schemaHash?: string;
 }
 
 export type RouteManifest = Record<string, RouteManifestEntry>;
@@ -36,10 +41,10 @@ export interface HypequeryClientConfig<Api extends ApiContract = ApiContract> {
   api?: Api;
 }
 
-const normalizeMethodConfig = (source?: Record<string, { method?: string; path?: string }>) => {
+const normalizeMethodConfig = (source?: Record<string, QueryMethodConfig>) => {
   if (!source) return {};
   return Object.fromEntries(
-    Object.entries(source).map(([key, value]) => [key, { method: value.method ?? 'GET', path: value.path }])
+    Object.entries(source).map(([key, value]) => [key, { method: value.method ?? 'GET', path: value.path, schemaHash: value.schemaHash }])
   );
 };
 
@@ -125,11 +130,12 @@ export function createHypequeryClient<Api extends ApiContract = ApiContract>(
     api,
   } = config;
   const cacheKey = config.cacheKey ?? `client:${++clientSequence}`;
-  const finalConfig = {
-    ...deriveMethodConfig(api),
-    ...(manifest ? normalizeMethodConfig(manifest) : {}),
-    ...explicitConfig,
-  };
+  const finalConfig: Record<string, QueryMethodConfig> = Object.assign(
+    Object.create(null), deriveMethodConfig(api), manifest ? normalizeMethodConfig(manifest) : {},
+  );
+  for (const [name, override] of Object.entries(explicitConfig)) {
+    finalConfig[name] = { ...finalConfig[name], ...override };
+  }
 
   const request = async (
     name: string,
@@ -170,12 +176,12 @@ export function createHypequeryClient<Api extends ApiContract = ApiContract>(
       ]);
       return fetchFn(finalUrl, {
         method,
-        headers: {
+        headers: clientSchemaHeaders({
           ...resolvedHeaders,
           ...(resolvedToken ? { authorization: `Bearer ${resolvedToken}` } : {}),
           ...(extraHeaders ?? {}),
           ...(body ? { 'content-type': 'application/json' } : {}),
-        },
+        }, methodConfig?.schemaHash),
         body,
       });
     };
