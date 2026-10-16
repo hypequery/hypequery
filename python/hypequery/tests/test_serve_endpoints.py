@@ -12,10 +12,12 @@ import pytest
 from fastapi.testclient import TestClient
 
 from hypequery.datasets import (
+    AsyncDatasetClient,
     CompiledQuery,
     Dataset,
     DatasetLimits,
     DatasetQuery,
+    belongs_to,
     create_async_dataset_client,
     create_dataset_client,
     create_dataset_registry,
@@ -28,6 +30,7 @@ from hypequery.datasets.aggregations import (
 from hypequery.datasets.cache import MemoryCacheStore, ResultCache
 from hypequery.datasets.client import ResultScalar
 from hypequery.serve import (
+    CorsPolicy,
     Credential,
     DiagnosticAccess,
     EndpointPolicy,
@@ -110,6 +113,7 @@ def app(
     async_client: bool = False,
     diagnostics: DiagnosticAccess | None = None,
     events: QueryEvents | None = None,
+    cors: CorsPolicy | None = None,
 ) -> tuple[TestClient, Executor]:
     executor = Executor()
     model = dataset(tenant=tenant, max_size=max_size)
@@ -132,7 +136,9 @@ def app(
         router, "/metrics/total", dataset=model, measure="total", client=client, policy=policy
     )
     add_discovery_endpoint(router, registry=create_dataset_registry(model))
-    application = create_app(router, security=HttpSecurity(allowed_hosts=("testserver",)))
+    application = create_app(
+        router, security=HttpSecurity(allowed_hosts=("testserver",), cors=cors)
+    )
     return TestClient(application, raise_server_exceptions=False), executor
 
 
@@ -155,6 +161,130 @@ def test_pagination_overfetch_and_public_metadata(async_client: bool) -> None:
     assert response.headers["cache-control"] == "no-store"
     assert "private_" not in response.text
     assert "TENANT_SECRET" not in response.text
+
+
+@pytest.mark.parametrize("async_client", [False, True])
+def test_related_measures_serialize_without_changing_dimensions_or_local_results(
+    async_client: bool,
+) -> None:
+    target = Dataset(
+        name="target",
+        source="private_targets",
+        dimensions={
+            "id": dimension.number(),
+            "score": dimension.number(),
+            "active": dimension.boolean(),
+            "label": dimension.string(),
+            "unavailable": dimension.number(),
+        },
+        measures={
+            "unique": measure.count_distinct("id"),
+            "lowest": measure.min("score"),
+            "latest": measure.arg_max("label", "id"),
+            "flag": measure.arg_min("active", "id"),
+            "missing": measure.min("unavailable"),
+        },
+    )
+    source = Dataset(
+        name="source",
+        source="private_sources",
+        dimensions={"id": dimension.number()},
+        measures={"total": measure.count("id")},
+        relationships={"target": belongs_to(lambda: target, from_field="target_id", to_field="id")},
+    )
+    dimensions = ("id", "target.score", "target.active")
+    measures = (
+        "total",
+        "target.unique",
+        "target.lowest",
+        "target.latest",
+        "target.flag",
+        "target.missing",
+    )
+    values: tuple[ResultScalar, ...] = (7, 1.5, True, 3, 2**64 - 1, -1.25, "gold", False, None)
+
+    class ProjectionExecutor(Executor):
+        def execute(self, compiled: CompiledQuery) -> Rows:
+            self.seen.append(compiled)
+            return Rows((*dimensions, *measures), (values,))
+
+    executor = ProjectionExecutor()
+    registry = create_dataset_registry(source, target)
+    client = (
+        create_async_dataset_client(executor=AsyncExecutor(executor), registry=registry)
+        if async_client
+        else create_dataset_client(executor=executor, registry=registry)
+    )
+    query = DatasetQuery(dimensions=dimensions, measures=measures)
+    native_result = (
+        asyncio.run(client.execute(source, query))
+        if isinstance(client, AsyncDatasetClient)
+        else client.execute(source, query)
+    )
+    assert native_result.data == (dict(zip((*dimensions, *measures), values, strict=True)),)
+
+    router = create_api(authenticate=authenticate)
+    add_dataset_endpoint(router, "/query", dataset=source, client=client)
+    with TestClient(
+        create_app(router, security=HttpSecurity(allowed_hosts=("testserver",)))
+    ) as http:
+        response = http.post(
+            "/query",
+            headers={"Authorization": "Bearer reader"},
+            json={"dimensions": dimensions, "measures": measures},
+        )
+    assert response.status_code == 200, response.text
+    assert response.json()["data"] == [
+        {
+            "id": 7,
+            "target.score": 1.5,
+            "target.active": True,
+            "total": "3",
+            "target.unique": str(2**64 - 1),
+            "target.lowest": "-1.25",
+            "target.latest": "gold",
+            "target.flag": "false",
+            "target.missing": None,
+        }
+    ]
+
+
+@pytest.mark.parametrize("path", ["/datasets/orders/query", "/metrics/total"])
+def test_cross_origin_pagination_metadata_header_is_allowed(path: str) -> None:
+    client, _ = app(cors=CorsPolicy(origins=("https://app.test",)))
+    preflight_headers = {
+        "Origin": "https://app.test",
+        "Access-Control-Request-Method": "POST",
+        "Access-Control-Request-Headers": "authorization,content-type,x-include-meta",
+    }
+    with client:
+        preflight = client.options(path, headers=preflight_headers)
+        assert preflight.status_code == 200, preflight.text
+        assert preflight.headers["access-control-allow-origin"] == "https://app.test"
+        for offset, has_more, rows in ((0, True, 2), (2, False, 1)):
+            response = client.post(
+                path,
+                headers={
+                    "Origin": "https://app.test",
+                    "Authorization": "Bearer reader",
+                    "x-include-meta": "true",
+                },
+                json={"dimensions": ["country"], "limit": 2, "offset": offset},
+            )
+            assert response.status_code == 200, response.text
+            assert response.headers["access-control-allow-origin"] == "https://app.test"
+            assert len(response.json()["data"]) == rows
+            assert response.json()["meta"]["pagination"] == {
+                "limit": 2,
+                "offset": offset,
+                "hasMore": has_more,
+            }
+        for override in (
+            {"Origin": "https://evil.test"},
+            {"Access-Control-Request-Headers": "authorization,x-unapproved"},
+        ):
+            denied = client.options(path, headers={**preflight_headers, **override})
+            assert denied.status_code == 400
 
 
 @pytest.mark.parametrize(
