@@ -67,6 +67,7 @@ export const COMMAND_PROPERTIES = {
   mcp: {
     mode: optional(enumeration('Is MCP used for validation or serving?', ['self_test', 'serve'])),
     hosted: optional(boolean('Is MCP self-test targeting a hosted endpoint?')),
+    http_backend: optional(boolean('Is MCP using an authorized HTTP client contract? Never its URL or principal.')),
     dataset_count_bucket: optional(count('How many datasets are exposed to agents?')),
     tenant_used: optional(boolean('Is a trusted tenant supplied? Never its value.')),
     tenant_dataset_count_bucket: optional(count('How many datasets require tenant scope?')),
@@ -112,11 +113,12 @@ export const SESSION_START_PROPERTIES = {
     quiet: boolean('Is quiet startup adopted?'),
   },
   mcp: {
-    entry_type: entry,
+    entry_type: optional(entry),
+    http_backend: optional(boolean('Is MCP using an authorized HTTP client contract? Never its URL or principal.')),
     mode: enumeration('Is MCP serving or validating?', ['self_test', 'serve']),
-    dataset_count_bucket: count('How many datasets are exposed to agents?'),
+    dataset_count_bucket: optional(count('How many local datasets are exposed to agents? Omit for HTTP contracts.')),
     tenant_used: boolean('Is tenant scope supplied? Never its value.'),
-    tenant_dataset_count_bucket: count('How many exposed datasets require tenant scope?'),
+    tenant_dataset_count_bucket: optional(count('How many local datasets require tenant scope? Omit for HTTP contracts.')),
   },
 } as const;
 export const SESSION_END_PROPERTIES = {

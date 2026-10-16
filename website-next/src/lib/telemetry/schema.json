@@ -268,6 +268,7 @@
             "--tenant",
             "--self-test",
             "--url",
+            "--client-contract-url",
             "--output",
             "--tenant-column",
             "--check",
@@ -508,6 +509,11 @@
           "hosted": {
             "kind": "boolean",
             "description": "Is MCP self-test targeting a hosted endpoint?",
+            "optional": true
+          },
+          "http_backend": {
+            "kind": "boolean",
+            "description": "Is MCP using an authorized HTTP client contract? Never its URL or principal.",
             "optional": true
           },
           "dataset_count_bucket": {
@@ -980,7 +986,13 @@
               "queries.ts",
               "explicit_file",
               "unknown"
-            ]
+            ],
+            "optional": true
+          },
+          "http_backend": {
+            "kind": "boolean",
+            "description": "Is MCP using an authorized HTTP client contract? Never its URL or principal.",
+            "optional": true
           },
           "mode": {
             "kind": "enum",
@@ -992,7 +1004,7 @@
           },
           "dataset_count_bucket": {
             "kind": "enum",
-            "description": "How many datasets are exposed to agents?",
+            "description": "How many local datasets are exposed to agents? Omit for HTTP contracts.",
             "values": [
               "0",
               "1",
@@ -1000,7 +1012,8 @@
               "6-20",
               "21-100",
               "101+"
-            ]
+            ],
+            "optional": true
           },
           "tenant_used": {
             "kind": "boolean",
@@ -1008,7 +1021,7 @@
           },
           "tenant_dataset_count_bucket": {
             "kind": "enum",
-            "description": "How many exposed datasets require tenant scope?",
+            "description": "How many local datasets require tenant scope? Omit for HTTP contracts.",
             "values": [
               "0",
               "1",
@@ -1016,7 +1029,8 @@
               "6-20",
               "21-100",
               "101+"
-            ]
+            ],
+            "optional": true
           }
         }
       }
@@ -1499,7 +1513,8 @@
       "--path",
       "--tenant",
       "--self-test",
-      "--url"
+      "--url",
+      "--client-contract-url"
     ],
     "generate": [
       "--output",

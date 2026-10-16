@@ -1,3 +1,4 @@
+import { runHttpMcp } from '../utils/mcp-http.js';
 import { exitWith } from '../utils/command-exit.js';
 import { runMcpUntilSignal, type CloseableMcpServer } from '../utils/mcp-lifecycle.js';
 import { routeConsoleOutputToStderr } from '../utils/mcp-console.js';
@@ -23,6 +24,8 @@ export interface McpOptions {
   selfTest?: boolean;
   /** With `selfTest`: check this hosted MCP endpoint instead of a local entrypoint. */
   url?: string;
+  /** Authorized HTTP client-contract discovery; no local analytics entrypoint. */
+  clientContractUrl?: string;
 }
 
 export interface McpDependencies {
@@ -110,7 +113,10 @@ export async function mcpCommand(
   dependencies: McpDependencies = {},
 ): Promise<void> {
   const telemetry = new McpSession();
-  updateCommandTelemetry('mcp', { mode: options.selfTest ? 'self_test' : 'serve', hosted: !!options.url, tenant_used: !!options.tenant });
+  updateCommandTelemetry('mcp', { mode: options.selfTest ? 'self_test' : 'serve', hosted: !!options.url, tenant_used: !!options.tenant, http_backend: !!options.clientContractUrl });
+  if (options.clientContractUrl !== undefined && (file !== undefined || options.path !== undefined || options.tenant !== undefined || options.url !== undefined)) {
+    fail('--client-contract-url cannot be combined with a file, --path, --tenant or --url.');
+  }
   if (options.url && !options.selfTest) {
     fail('--url is only used with --self-test.', [
       'MCP clients connect to the hosted endpoint directly; this command serves a local project.',
@@ -118,6 +124,10 @@ export async function mcpCommand(
   }
   const restoreConsole = routeConsoleOutputToStderr();
   try {
+    if (options.clientContractUrl !== undefined) {
+      await runHttpMcp(options.clientContractUrl, !!options.selfTest, dependencies, telemetry);
+      return;
+    }
     if (options.url) {
       await remoteSelfTest(options.url, dependencies);
       return;

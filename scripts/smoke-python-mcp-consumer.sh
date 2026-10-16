@@ -6,6 +6,11 @@ HQ_ROOT="$(cd "$(dirname "$0")/.." && pwd -P)"
 HQ_SMOKE="$(mktemp -d "${TMPDIR:-/tmp}/hq-python-mcp-XXXXXX")"
 HQ_SMOKE="$(cd "$HQ_SMOKE" && pwd -P)"
 HQ_API_PID=''
+HQ_CLI_MODE="${1:-}"
+if [[ "$HQ_CLI_MODE" != '' && "$HQ_CLI_MODE" != '--cli' ]]; then
+  printf 'Usage: %s [--cli]\n' "$0" >&2
+  exit 2
+fi
 cleanup() {
   if [[ -n "$HQ_API_PID" ]]; then
     kill "$HQ_API_PID" 2>/dev/null || true
@@ -19,8 +24,14 @@ cp "$HQ_ROOT"/testing/fixtures/python-client-browser/mcp-smoke.mjs "$HQ_SMOKE/co
 cp "$HQ_ROOT"/testing/fixtures/python-client-browser/mcp-consumer.ts "$HQ_SMOKE/consumer/consumer.ts"
 
 cd "$HQ_ROOT"
-pnpm --filter '@hypequery/mcp...' -r build
-for package in protocol datasets mcp-server; do
+HQ_PACKAGES=(protocol datasets mcp-server)
+if [[ "$HQ_CLI_MODE" == '--cli' ]]; then
+  pnpm --filter '@hypequery/cli...' -r build
+  HQ_PACKAGES+=(clickhouse serve deployment cli)
+else
+  pnpm --filter '@hypequery/mcp...' -r build
+fi
+for package in "${HQ_PACKAGES[@]}"; do
   (cd "$HQ_ROOT/packages/$package" && pnpm pack --pack-destination "$HQ_SMOKE/artifacts")
 done
 uv build --project python/hypequery --out-dir "$HQ_SMOKE/artifacts"
@@ -33,7 +44,8 @@ cd "$HQ_SMOKE/consumer"
 cat > package.json <<'JSON'
 {"name":"python-mcp-consumer-qualification","private":true,"type":"module"}
 JSON
-npm install --omit=optional "${HQ_PROTOCOL[0]}" "${HQ_DATASETS[0]}" "${HQ_MCP[0]}" @modelcontextprotocol/sdk@1.32.1 typescript@6.0.3 @types/node@22
+HQ_TARBALLS=("$HQ_SMOKE"/artifacts/*.tgz)
+npm install --omit=optional "${HQ_TARBALLS[@]}" @modelcontextprotocol/sdk@1.32.1 typescript@6.0.3 @types/node@22
 ./node_modules/.bin/tsc consumer.ts --noEmit --strict --module nodenext --moduleResolution nodenext --target es2022 --lib es2022,dom --types node
 
 uv run --isolated --no-project --with "${HQ_WHEELS[0]}" python - <<'PY'
@@ -62,5 +74,8 @@ for attempt in range(100):
         time.sleep(0.1)
 PY
 kill -0 "$HQ_API_PID"
+if [[ "$HQ_CLI_MODE" == '--cli' ]]; then
+  export HYPEQUERY_TEST_MCP_CLI_BIN="$HQ_SMOKE/consumer/node_modules/@hypequery/cli/dist/bin/cli.js"
+fi
 HYPEQUERY_TEST_CLIENT_CONTRACT_URL='http://127.0.0.1:8792/mounted/v1/client-contract' node smoke.mjs
 printf 'Installed MCP/Python HTTP qualification passed. Artifacts and logs: %s\n' "$HQ_SMOKE"
