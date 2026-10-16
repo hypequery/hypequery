@@ -33,6 +33,7 @@ from .client import (
     create_async_dataset_client,
     create_dataset_client,
 )
+from .client_contract import ClientEndpointDefinition, ClientQueryProfile, export_client_contract
 from .constants import (
     SEMANTIC_FILTER_OPERATORS,
     SUPPORTED_TIME_GRAINS,
@@ -115,6 +116,8 @@ __all__ = [
     "CacheStore",
     "CachedRows",
     "CheckRelationshipsResult",
+    "ClientEndpointDefinition",
+    "ClientQueryProfile",
     "CompiledQuery",
     "CompiledQueryError",
     "Dataset",
@@ -178,6 +181,7 @@ __all__ = [
     "create_memory_cache_store",
     "dataset",
     "dimension",
+    "export_client_contract",
     "filter",
     "formula",
     "get_dataset_catalog",
