@@ -353,6 +353,7 @@ def test_live_nullable_period_survives_strict_http(grain: str, function: str) ->
             name="events",
             source="events",
             time_key="occurred_at",
+            dimensions={},
             measures={"rows": measure.count("id")},
         )
         router = create_router(authenticate=lambda _: Principal(subject="reader"))
