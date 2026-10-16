@@ -38,7 +38,7 @@ function copy(input: unknown, budget: Budget, depth: number): unknown {
     if (array ? prototype !== Array.prototype : prototype !== Object.prototype && prototype !== null) {
       clientError('HQ_CLIENT_TYPE');
     }
-    if (keys.length > 20_000) clientError('HQ_CLIENT_LIMIT');
+    if (keys.length > 20_000 + (array ? 1 : 0)) clientError('HQ_CLIENT_LIMIT');
     if (keys.some(key => typeof key !== 'string')) clientError('HQ_CLIENT_TYPE');
     const descriptors: PropertyDescriptorMap = Object.create(null);
     for (const key of keys as string[]) {

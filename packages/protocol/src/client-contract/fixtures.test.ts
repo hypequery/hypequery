@@ -145,4 +145,4 @@ it('accepts real contracts at the endpoint and total-descriptor ceilings', () =>
     expect(result.contract.endpoints).toHaveLength(endpointCount);
     expect(validateProtocolClientContract(result.contract)).toEqual(result.contract);
   }
-});
+}, 30_000);

@@ -568,5 +568,27 @@
     "error": "HQ_CLIENT_TYPE",
     "path": "",
     "message": "Expected plain JSON data."
+  },
+  {
+    "id": "array-members-20000",
+    "mode": "boundary",
+    "generator": {
+      "type": "members",
+      "count": 20000
+    },
+    "error": "HQ_CLIENT_SHAPE",
+    "path": "",
+    "message": "Invalid client contract shape."
+  },
+  {
+    "id": "array-members-20001",
+    "mode": "boundary",
+    "generator": {
+      "type": "members",
+      "count": 20001
+    },
+    "error": "HQ_CLIENT_LIMIT",
+    "path": "",
+    "message": "Client contract exceeds validation limits."
   }
 ]

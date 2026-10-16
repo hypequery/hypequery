@@ -37,7 +37,8 @@ export function composeClientContractCases(cases: EnumeratedCase[]): EnumeratedC
       else if (generator.type === 'descriptors') {
         const dimensions = Object.fromEntries(Array.from({ length: 256 }, (_, i) => ['field' + i, null]));
         value = { ...base(values, 'build'), endpoints: Array.from({ length: generator.count as number }, () => ({ dimensions })) };
-      } else if (generator.type === 'bytes') value = { extra: 'x'.repeat((generator.count as number) - 12) };
+      } else if (generator.type === 'members') value = Array.from({ length: generator.count as number }, () => null);
+      else if (generator.type === 'bytes') value = { extra: 'x'.repeat((generator.count as number) - 12) };
       else if (generator.type === 'depth') { value = 0; for (let i = 1; i < (generator.count as number); i++) value = [value]; }
       else throw new Error('Unknown client fixture generator');
       return { ...item, case: { ...c, value } };

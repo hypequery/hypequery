@@ -19,7 +19,7 @@ implementations receive complete inputs and need no fixture-file access. A set
 array adds/replaces fields in a deep-copied base using RFC 6901 JSON Pointers;
 - appends an array element. Parents must exist. It never recomputes identities:
 malformed shape validation must precede identity validation. The runner's boundary
-generators expand only synthetic byte, depth, endpoint and descriptor counts.
+generators expand only synthetic byte, depth, endpoint, descriptor and array-member counts.
 Identity cases reuse the matching success value, as other fixture families do.
 
 The query compiler preserves fixed MCP tool names; empty target sets have required

@@ -379,8 +379,8 @@ while validating a host value. JavaScript reflection can invoke Proxy traps;
 transparent proxies cannot be reliably detected. Reflection failures are sanitized,
 and getter/toJSON methods are never called. This API is not a sandbox for a hostile
 JavaScript realm. Decode untrusted transport text with the bounded decoder.
-Host snapshots additionally allow 100000 nodes and 20000 own members per container
-(including an array length member). Byte/depth/count bounds must be enforced before
+Host snapshots additionally allow 100000 nodes and 20000 JSON members per container
+(excluding JavaScript arrays' implicit length member). Byte/depth/count bounds must be enforced before
 unbounded allocation/traversal; they take precedence over later shape failures.
 
 Stable contract codes:
