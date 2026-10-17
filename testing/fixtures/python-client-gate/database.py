@@ -63,6 +63,7 @@ try:
                 queries = {
                     "related": "SELECT o.country AS country, p.label AS `profile.label`, toString(sum(o.amount)) AS revenue, toString(sumOrNull(p.score)) AS `profile.total`, toString(minOrNull(p.score)) AS `profile.minimum` FROM client_orders o LEFT JOIN client_profiles p ON o.id=p.id AND o.org_id=p.org_id WHERE o.org_id={tenant:String} GROUP BY o.country,p.label ORDER BY country ASC SETTINGS join_use_nulls=1",
                     "having": "SELECT country,toString(sum(amount)) AS revenue FROM client_orders WHERE org_id={tenant:String} GROUP BY country HAVING sum(amount)>=20 ORDER BY country ASC",
+                    "havingTotal": "SELECT toString(sum(amount)) AS revenue FROM client_orders WHERE org_id={tenant:String} HAVING sum(amount)>=50",
                     "time": "SELECT formatDateTime(toStartOfDay(created_at,'America/Los_Angeles'),'%Y-%m-%d %H:%i:%S','America/Los_Angeles') AS period,toString(sum(amount)) AS revenue FROM client_orders WHERE org_id={tenant:String} GROUP BY period ORDER BY period ASC",
                 }
                 oracle = {}
