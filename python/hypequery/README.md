@@ -2,9 +2,11 @@
 
 A Python semantic layer for ClickHouse datasets, metrics, multi-tenant analytics, and FastAPI serving.
 
-> **Pre-alpha:** datasets, execution and Serve are implemented and tested against
-> the shared protocol fixtures, but the package is not yet published to PyPI and
-> its APIs may still change. Do not use it in production yet.
+> **Beta candidate 0.1.0b1:** datasets, execution, Serve, generated React clients
+> and HTTP-backed MCP have installed-artifact qualification. This branch prepares
+> the release; it does not establish PyPI or matching npm availability. APIs may
+> change during beta. Use the [release checklist](RELEASING.md#integrated-beta-candidate)
+> before deploying or announcing it.
 
 ## Python → React → MCP example
 
