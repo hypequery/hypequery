@@ -26,6 +26,8 @@ export interface ProtocolVisibleDatasetFields {
   readonly measures: ReadonlySet<string>;
   /** Declared filter names whose field is a visible dimension. */
   readonly filters: ReadonlySet<string>;
+  /** Relationships whose join keys and target are visible; only these contribute joined fields. */
+  readonly relationships: ReadonlySet<string>;
   /** Whether the dataset's time field may be grouped by (`by`). */
   readonly timeField: boolean;
 }

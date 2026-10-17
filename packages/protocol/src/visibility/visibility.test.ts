@@ -163,6 +163,52 @@ describe('field visibility', () => {
     expect(visible.filters.has('customerSegment')).toBe(true);
   });
 
+  it('hides a join whose local key is hidden, so the key cannot be read back through it', () => {
+    const policy = visibility({
+      shipments: { dimensions: ['carrier'], measures: '*' },
+      customers: { dimensions: '*', measures: '*' },
+    });
+    const visible = resolveProtocolVisibleDatasetFields(shipments, datasets, policy)!;
+    // customer.id would equal the hidden accountId on every row.
+    expect([...visible.dimensions]).toEqual(['carrier']);
+    expect(visible.relationships.size).toBe(0);
+    expect(visible.filters.has('customerSegment')).toBe(false);
+  });
+
+  it('checks every column of a composite join key', () => {
+    const composite = {
+      ...shipments,
+      dimensions: [
+        ...shipments.dimensions,
+        { ...dimension('region_code'), name: 'regionCode', source: { kind: 'column', column: 'region_code' } },
+      ],
+      relationships: [{
+        ...shipments.relationships[0],
+        from: 'account_id', to: 'id',
+        keys: [{ from: 'account_id', to: 'id' }, { from: 'region_code', to: 'region' }],
+      }],
+    } as unknown as ProtocolDeploymentDataset;
+    const accountShown = { ...composite, dimensions: composite.dimensions.map(d => (
+      d.name === 'accountId' ? { ...d, source: { kind: 'column', column: 'account_id' } } : d
+    )) } as unknown as ProtocolDeploymentDataset;
+    const partial = visibility({
+      shipments: { dimensions: ['accountId'], measures: '*' },
+      customers: { dimensions: '*', measures: '*' },
+    });
+    expect(resolveProtocolVisibleDatasetFields(accountShown, datasets, partial)!.relationships.size).toBe(0);
+    const both = visibility({
+      shipments: { dimensions: ['accountId', 'regionCode'], measures: '*' },
+      customers: { dimensions: '*', measures: '*' },
+    });
+    expect([...resolveProtocolVisibleDatasetFields(accountShown, datasets, both)!.relationships]).toEqual(['customer']);
+  });
+
+  it('authorizes measures by name, independently of the dimension they aggregate', () => {
+    const policy = visibility({ shipments: { dimensions: ['carrier'], measures: ['freightCost'] } });
+    // freightCost = sum(cost) stays visible with cost hidden; see the RFC note on '*'.
+    expect([...resolveProtocolVisibleDatasetFields(shipments, datasets, policy)!.measures]).toEqual(['freightCost']);
+  });
+
   it('is not fooled by prototype keys', () => {
     const policy = visibility({});
     const proto = { ...shipments, name: 'constructor' } as unknown as ProtocolDeploymentDataset;

@@ -94,7 +94,7 @@ function resolveDataset(
  * ones are missing from, so a refusal reads exactly like an unknown field and
  * does not confirm that the hidden one exists.
  */
-function narrowToVisible(allowed: Resolved, visible: ProtocolVisibleDatasetFields): Resolved {
+function narrowResolvedToVisible(allowed: Resolved, visible: ProtocolVisibleDatasetFields): Resolved {
   return {
     groupable: new Set([...allowed.groupable].filter(name => visible.dimensions.has(name))),
     filters: new Map([...allowed.filters].filter(([name]) => (
@@ -147,7 +147,7 @@ export function validateSemanticOperation(
   }
 
   const published = resolveDataset(dataset, datasets);
-  const allowed = visible === undefined ? published : narrowToVisible(published, visible);
+  const allowed = visible === undefined ? published : narrowResolvedToVisible(published, visible);
 
   const dimensions = operation.dimensions ?? [];
   if (dimensions.length > limits.maxDimensions) {
@@ -232,8 +232,7 @@ export function validateSemanticOperation(
  * Validates filters the provider enforces on every call, such as an embedded
  * end user's account (RFC 0018). They are checked against what the contract
  * publishes, not against the caller's visibility: a provider may constrain on
- * a field the caller can't see. They don't count toward the caller's filter
- * ceiling, because the caller didn't choose them.
+ * a field the caller can't see.
  */
 export function validateSemanticConstraints(
   constraints: readonly ProtocolExpression[],

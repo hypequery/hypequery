@@ -96,6 +96,7 @@ export type {
   DeploymentSemanticDataPlaneOptions,
   DeploymentSemanticExecutionInput,
   DeploymentSemanticInvocationRequest,
+  DeploymentSemanticContextInput,
   DeploymentSemanticTenantInput,
 } from './semantic-data-plane.js';
 export {

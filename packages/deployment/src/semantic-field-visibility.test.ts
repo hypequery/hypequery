@@ -1,6 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
 import { projectAgentSafeCatalog } from '@hypequery/datasets';
-import { validateProtocolFieldVisibility } from '@hypequery/protocol';
 import { projectAuthorizedDeploymentContract } from './authorized-contract.js';
 import {
   createDeploymentSemanticDataPlane,
@@ -90,6 +89,14 @@ const ACCOUNT_42 = {
   right: { kind: 'literal', value: '42' },
 };
 
+function withLimits(limits: Record<string, number>) {
+  const base = contract();
+  return {
+    ...base,
+    datasets: base.datasets.map(dataset => (dataset.name === 'shipments' ? { ...dataset, limits } : dataset)),
+  };
+}
+
 function plane(overrides: Partial<DeploymentSemanticDataPlaneOptions> = {}) {
   const execute = vi.fn(async (_input: DeploymentSemanticExecutionInput) => ({
     kind: 'hypequery-semantic-invocation-result',
@@ -135,9 +142,27 @@ describe('field visibility in the data plane', () => {
   it('runs a query over visible fields only', async () => {
     const { plane: dataPlane, execute } = plane();
     expect(await refusal(dataPlane, {
-      dataset: 'shipments', dimensions: ['carrier', 'customer.segment'], measures: ['shipments'],
+      dataset: 'shipments', dimensions: ['carrier'], measures: ['shipments'],
     })).toBeNull();
     expect(execute).toHaveBeenCalledTimes(1);
+  });
+
+  it('allows a joined field when the join key and target field are visible', async () => {
+    const { plane: dataPlane } = plane({
+      resolveFieldVisibility: async () => ({
+        ...POLICY,
+        datasets: {
+          ...POLICY.datasets,
+          shipments: { ...POLICY.datasets.shipments, dimensions: ['accountId', 'carrier'] },
+        },
+      }),
+    });
+    expect(await refusal(dataPlane, {
+      dataset: 'shipments', dimensions: ['customer.segment'], measures: ['shipments'],
+    })).toBeNull();
+    expect(await refusal(dataPlane, {
+      dataset: 'shipments', dimensions: ['customer.creditLimit'],
+    })).toMatchObject({ category: 'input-invalid' });
   });
 
   it.each([
@@ -172,6 +197,39 @@ describe('field visibility in the data plane', () => {
     });
   });
 
+  it('answers a hidden dataset as not found before any access or tenant check', async () => {
+    const resolveTenant = vi.fn(async () => null);
+    const tenantBound = contract();
+    const customers = tenantBound.datasets[0]!;
+    (customers as Record<string, unknown>).tenant = { kind: 'required', field: 'tenant_id' };
+    (customers as Record<string, unknown>).endpoint = {
+      access: { kind: 'authenticated', roles: ['admin'], scopes: [] },
+      tenant: { kind: 'required', mode: 'auto-inject', column: 'tenant_id' },
+    };
+    const { plane: dataPlane } = plane({
+      deployment: tenantBound as never,
+      resolveTenant,
+      resolveFieldVisibility: async () => ({ ...POLICY, datasets: { shipments: POLICY.datasets.shipments } }),
+    });
+    expect(await refusal(dataPlane, { dataset: 'customers', dimensions: ['segment'] })).toMatchObject({
+      category: 'not-found', code: 'HQ_SEMANTIC_DATASET_NOT_FOUND',
+    });
+    expect(resolveTenant).not.toHaveBeenCalled();
+  });
+
+  it('refuses a joined field whose local key is hidden', async () => {
+    const { plane: dataPlane } = plane({
+      resolveFieldVisibility: async () => ({
+        ...POLICY,
+        datasets: { ...POLICY.datasets, customers: { dimensions: '*', measures: '*' } },
+      }),
+    });
+    // customer.id would read back the hidden accountId.
+    expect(await refusal(dataPlane, { dataset: 'shipments', dimensions: ['customer.id'] })).toMatchObject({
+      category: 'input-invalid',
+    });
+  });
+
   it('treats an invalid policy as a configuration fault, never as no restriction', async () => {
     const { plane: dataPlane, execute } = plane({ resolveFieldVisibility: async () => ({ datasets: {} }) });
     expect(await refusal(dataPlane, { dataset: 'shipments', measures: ['shipments'] })).toMatchObject({
@@ -187,17 +245,34 @@ describe('field visibility in the data plane', () => {
 });
 
 describe('enforced constraints in the data plane', () => {
+  const region = {
+    kind: 'comparison', operator: 'eq',
+    left: { kind: 'reference', name: 'region' }, right: { kind: 'literal', value: 'EMEA' },
+  };
+
   it('ANDs constraints after the caller filters, on fields the caller cannot see', async () => {
-    const { plane: dataPlane, execute } = plane({ resolveConstraints: async () => [ACCOUNT_42] });
-    const region = {
-      kind: 'comparison', operator: 'eq',
-      left: { kind: 'reference', name: 'region' }, right: { kind: 'literal', value: 'EMEA' },
-    };
-    // maxFilters is 1: the constraint doesn't count against the caller.
+    const { plane: dataPlane, execute } = plane({
+      deployment: withLimits({ maxFilters: 2 }) as never,
+      resolveConstraints: async () => [ACCOUNT_42],
+    });
     expect(await refusal(dataPlane, {
       dataset: 'shipments', measures: ['shipments'], filters: [region],
     })).toBeNull();
     expect(execute.mock.calls[0]![0].operation.filters).toEqual([region, ACCOUNT_42]);
+  });
+
+  it('counts constraints toward the filter ceiling and says how many remain', async () => {
+    const { plane: dataPlane, execute } = plane({ resolveConstraints: async () => [ACCOUNT_42] });
+    // maxFilters is 1 and the constraint takes it.
+    expect(await refusal(dataPlane, {
+      dataset: 'shipments', measures: ['shipments'], filters: [region],
+    })).toMatchObject({ category: 'input-invalid', message: 'At most 0 filters may be applied.' });
+    expect(execute).not.toHaveBeenCalled();
+
+    const { plane: tooMany } = plane({ resolveConstraints: async () => [ACCOUNT_42, ACCOUNT_42] });
+    expect(await refusal(tooMany, { dataset: 'shipments', measures: ['shipments'] })).toMatchObject({
+      category: 'forbidden', code: 'HQ_SEMANTIC_CONSTRAINT_UNENFORCEABLE',
+    });
   });
 
   it('refuses a dataset that cannot enforce a constraint, without describing it', async () => {
@@ -225,7 +300,7 @@ describe('enforced constraints in the data plane', () => {
 });
 
 describe('field visibility in discovery', () => {
-  const policy = validateProtocolFieldVisibility(POLICY);
+  const policy = POLICY;
   const principal = { subject: 'embed:user-17', roles: ['analyst'], scopes: [] };
 
   it('advertises exactly what the data plane accepts, as a valid contract', () => {
@@ -242,22 +317,52 @@ describe('field visibility in discovery', () => {
     expect(shipments.filters.map(filter => filter.name)).toEqual(['region']);
     expect(shipments.timeField).toBeUndefined();
     expect(shipments.defaults).toEqual({ dimensions: ['carrier'] });
+    const concealed = shipments.dimensions.find(dimension => dimension.name === 'accountId')!;
+    expect(concealed).toEqual({
+      name: 'accountId', type: 'string', source: { kind: 'column', column: 'accountId' },
+      filterable: false, groupable: false,
+    });
 
     const customers = projected.datasets.find(dataset => dataset.name === 'customers')!;
     expect(customers.dimensions.filter(dimension => dimension.groupable).map(dimension => dimension.name))
       .toEqual(['segment']);
   });
 
-  it('unpublishes a hidden dataset but keeps what a visible join reaches', () => {
+  it('keeps a join-only target to the dimensions its policy entry shows', () => {
+    const base = contract();
+    // The principal may not address customers directly, only join to it.
+    (base.datasets[0] as Record<string, unknown>).endpoint = {
+      access: { kind: 'authenticated', roles: ['admin'], scopes: [] },
+      tenant: { kind: 'not-required' },
+    };
     const { contract: projected, queryable } = projectAuthorizedDeploymentContract(
-      contract() as never,
+      base as never,
       principal,
-      { visibility: validateProtocolFieldVisibility({ ...POLICY, datasets: { shipments: POLICY.datasets.shipments } }) },
+      {
+        visibility: {
+          ...POLICY,
+          datasets: {
+            shipments: { dimensions: ['accountId', 'carrier'], measures: '*' },
+            customers: { dimensions: ['segment'], measures: [] },
+          },
+        },
+      },
     );
     expect(queryable).toEqual(['shipments']);
     const customers = projected.datasets.find(dataset => dataset.name === 'customers')!;
     expect(customers.endpoint).toBeUndefined();
-    expect(customers.dimensions.some(dimension => dimension.groupable || dimension.filterable)).toBe(false);
+    expect(customers.dimensions.filter(dimension => dimension.groupable).map(dimension => dimension.name))
+      .toEqual(['segment']);
+  });
+
+  it('removes a hidden dataset entirely when no visible join needs it', () => {
+    const { contract: projected, queryable } = projectAuthorizedDeploymentContract(
+      contract() as never,
+      principal,
+      { visibility: { ...POLICY, datasets: { shipments: { dimensions: ['accountId', 'carrier'], measures: '*' } } } },
+    );
+    expect(queryable).toEqual(['shipments']);
+    expect(projected.datasets.map(dataset => dataset.name)).toEqual(['shipments']);
   });
 
   it('feeds an agent-safe catalog that names no hidden field', () => {
@@ -274,6 +379,33 @@ describe('field visibility in discovery', () => {
     }
     expect(text).toContain('"shipments"');
     expect(text).toContain('"carrier"');
+  });
+
+  it('drops a relationship to a hidden target, so its name is not advertised', () => {
+    const { contract: projected } = projectAuthorizedDeploymentContract(
+      contract() as never,
+      principal,
+      { visibility: { ...POLICY, datasets: { shipments: { dimensions: ['accountId', 'carrier'], measures: '*' } } } },
+    );
+    expect(projected.datasets.map(dataset => dataset.name)).toEqual(['shipments']);
+    expect(projected.datasets[0]!.relationships).toEqual([]);
+    expect(JSON.stringify(projectAgentSafeCatalog(projected as never))).not.toContain('customer');
+  });
+
+  it('omits defaults that would be empty once the time field is hidden', () => {
+    const base = contract();
+    const shipments = base.datasets[1] as Record<string, unknown>;
+    shipments.defaults = { timeGrain: 'month' };
+    const { contract: projected } = projectAuthorizedDeploymentContract(
+      base as never, principal, { visibility: POLICY },
+    );
+    expect(projected.datasets.find(dataset => dataset.name === 'shipments')!.defaults).toBeUndefined();
+  });
+
+  it('validates the policy exactly as execution does', () => {
+    expect(() => projectAuthorizedDeploymentContract(contract() as never, principal, {
+      visibility: { ...POLICY, datasets: { shipments: { dimensions: 'all', measures: '*' } } },
+    })).toThrow();
   });
 
   it('is unchanged without a policy', () => {
