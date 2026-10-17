@@ -8,8 +8,8 @@ HQ_SMOKE="$(cd "$HQ_SMOKE" && pwd -P)"
 HQ_API_PID=''
 HQ_WEB_PID=''
 cleanup() {
-  if [[ -n "$HQ_API_PID" ]]; then kill "$HQ_API_PID" 2>/dev/null || true; fi
-  if [[ -n "$HQ_WEB_PID" ]]; then kill "$HQ_WEB_PID" 2>/dev/null || true; fi
+  if [[ -n "$HQ_API_PID" ]]; then kill "$HQ_API_PID" 2>/dev/null || true; wait "$HQ_API_PID" 2>/dev/null || true; fi
+  if [[ -n "$HQ_WEB_PID" ]]; then kill "$HQ_WEB_PID" 2>/dev/null || true; wait "$HQ_WEB_PID" 2>/dev/null || true; fi
 }
 trap cleanup EXIT INT TERM
 

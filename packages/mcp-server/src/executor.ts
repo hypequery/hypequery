@@ -64,14 +64,14 @@ export interface MCPServerConfig extends MCPExecutorConfig {
 }
 
 export interface MCPToolExecutor {
-  listTools(): Promise<ListToolsResult>;
+  listTools(signal?: AbortSignal): Promise<ListToolsResult>;
   callTool(
     name: string,
     args?: Record<string, unknown>,
     signal?: AbortSignal,
   ): Promise<CallToolResult>;
-  listPrompts(): Promise<ListPromptsResult>;
-  getPrompt(name: string, args?: Record<string, string>): Promise<GetPromptResult>;
+  listPrompts(signal?: AbortSignal): Promise<ListPromptsResult>;
+  getPrompt(name: string, args?: Record<string, string>, signal?: AbortSignal): Promise<GetPromptResult>;
   getManifestHash(): string;
 }
 
