@@ -33,11 +33,14 @@ try {
   const pending = client.callTool(input, undefined, { signal: controller.signal }).then(value => ({ value }), () => ({ cancelled: true }));
   const observed = await eventually(async () => (await active())[0], 'MCP call did not start database work');
   assert(observed.elapsed < 1, 'Observer reached query too late to prove cancellation');
+  // The stop deadline starts at abort, not after the call settles: a call that ignores
+  // the signal would otherwise finish naturally (sleep 3) and leave nothing running.
   const before = Date.now();
   controller.abort();
-  await pending;
   await eventually(async () => (await active()).length === 0, 'MCP cancellation left database work running', 1500);
   measurements.signalStopMs = Date.now() - before;
+  assert(measurements.signalStopMs < 2000, 'MCP cancellation did not stop database work promptly');
+  assert.deepEqual(await pending, { cancelled: true }, 'Cancelled MCP call completed instead of rejecting');
   // Exercise the executor's own deadline independently from SDK request cancellation.
   const executor = await createMCPHttpExecutor({ url: 'http://127.0.0.1:8000/v1/client-contract',
     headers: { authorization: `Bearer ${process.env.HYPEQUERY_TENANT_A_TOKEN}` }, executionBudget: { timeoutMs: 500 },
