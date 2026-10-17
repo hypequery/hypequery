@@ -213,7 +213,7 @@ class ServeRouter(APIRouter):
         self._public: set[Callable[..., Any]] = set()
         self._guard = _Guard(authenticate, credentials, resolve_tenant)
         self._credential_header = credentials.header
-        self.client_endpoints = ClientEndpointRegistry()
+        self.client_endpoints = ClientEndpointRegistry(self._guard)
 
     @property
     def credential_header(self) -> str:
