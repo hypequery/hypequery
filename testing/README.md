@@ -26,3 +26,11 @@ Tests are read-only except the optional CLI schema-refresh journey, which create
 5. React consumes the running Serve API.
 
 Treat every documentation mismatch found during a journey as a product bug. Record new findings in the journey appendix and fix the source documentation or behavior separately from the test result.
+
+## Focused cross-language browser fixture
+
+[Python client browser qualification](./python-client-browser.md) exercises an
+installed Python wheel, generated TypeScript, packed React hooks, cross-origin
+HTTP, auth/cache isolation, pagination and schema drift in a real browser.
+Its SQLite test executor covers wiring only; it does not replace the live
+ClickHouse journeys above.
