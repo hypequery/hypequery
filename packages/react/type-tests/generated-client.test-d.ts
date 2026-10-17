@@ -39,6 +39,12 @@ export type _OptionalMeasure = Expect<Equal<Widened['revenue'], string | null | 
 export type _OptionalPeriod = Expect<Equal<Widened['period'], string | null | undefined>>;
 declare const varying: readonly ('country' | 'amount')[];
 const array = hooks.useDataset('orders', { dimensions: varying, measures: [] });
+declare const chosen: 'country' | 'customer.tier';
+const union = hooks.useDataset('orders', { dimensions: [chosen, 'amount'], measures: [] });
+type UnionRow = NonNullable<typeof union.data>['data'][number];
+export type _UnionElementCountry = Expect<Equal<UnionRow['country'], string | undefined>>;
+export type _UnionElementTier = Expect<Equal<UnionRow['customer.tier'], string | null | undefined>>;
+export type _UnionElementCertain = Expect<Equal<UnionRow['amount'], number | string | null>>;
 export type _ArrayNotTuple = Expect<Equal<NonNullable<typeof array.data>['data'][number]['country'], string | undefined>>;
 
 // Ordinary APIs without a semantic tag must keep their declared output (rather than never).

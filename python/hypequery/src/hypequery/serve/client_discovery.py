@@ -8,10 +8,23 @@ from fastapi import Request
 from starlette.responses import Response
 
 from ..protocol import ProtocolClientContractError
-from .client_contract import export_client_contract
+from .auth import RequestAuth
+from .client_contract import ClientEndpointRegistry, client_registries, export_client_contract
 from .errors import ServeError
 from .policy import DEFAULT_ENDPOINT_POLICY, EndpointPolicy
 from .router import ServeRouter, authenticated_context
+
+
+async def target_auth(registry: ClientEndpointRegistry, request: Request) -> RequestAuth | None:
+    """Authenticate *request* with the registry's own router; None when refused."""
+    if registry.guard is None:
+        return None
+    try:
+        return await registry.guard(request)
+    except ServeError as error:
+        if error.status_code in (401, 403):
+            return None
+        raise
 
 
 def add_client_contract_endpoint(
@@ -34,11 +47,16 @@ def add_client_contract_endpoint(
     sources = tuple(routers)
 
     async def discover(request: Request) -> Response:
-        auth = authenticated_context(request)
-        policy.authorize(auth)
+        policy.authorize(authenticated_context(request))
+        auths: dict[ClientEndpointRegistry, RequestAuth | None] = {}
+        if not policy.public:
+            # Each target is authorized by its own router: a credential accepted
+            # by discovery must not reveal another router's endpoints.
+            for registry in client_registries(request.app, sources):
+                auths[registry] = await target_auth(registry, request)
         try:
             artifact = export_client_contract(
-                request.app, routers=sources, view="authorized", auth=auth
+                request.app, routers=sources, view="authorized", auths=auths
             )
         except ProtocolClientContractError:
             raise ServeError(
