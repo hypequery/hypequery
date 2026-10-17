@@ -15,18 +15,24 @@ import type {
   ProtocolDeploymentContract,
   ProtocolDeploymentDataset,
   ProtocolEndpointPolicy,
+  ProtocolExpression,
   ProtocolSemanticInvocation,
   ProtocolSemanticInvocationResult,
   ProtocolSemanticQuery,
+  ProtocolVisibleDatasetFields,
 } from '@hypequery/protocol';
 import {
   ProtocolSemanticInvocationError,
+  resolveProtocolVisibleDatasetFields,
   validateProtocolDeploymentContract,
+  validateProtocolExpression,
+  validateProtocolFieldVisibility,
   validateProtocolSemanticInvocation,
   validateProtocolSemanticInvocationResult,
 } from '@hypequery/protocol';
 import type { DeploymentDataPlanePrincipal } from './principal.js';
 import {
+  validateSemanticConstraints,
   validateSemanticOperation,
   type SemanticOperationLimits,
 } from './semantic-operation-validation.js';
@@ -86,6 +92,21 @@ export interface DeploymentSemanticDataPlaneOptions {
     input: DeploymentSemanticAuthenticationInput,
   ) => Promise<DeploymentDataPlanePrincipal | null>;
   readonly resolveTenant?: (input: DeploymentSemanticTenantInput) => Promise<unknown>;
+  /**
+   * The datasets and fields this principal may see (RFC 0018), as an
+   * unvalidated `hypequery-field-visibility` record. Resolve to `undefined`
+   * for no restriction. A hidden dataset or field is refused exactly like an
+   * unknown one. Like the tenant, never taken from the invocation.
+   */
+  readonly resolveFieldVisibility?: (input: DeploymentSemanticTenantInput) => Promise<unknown>;
+  /**
+   * Filters the provider enforces on this call, as unvalidated comparison
+   * expressions on the dataset's declared filters (RFC 0018). They are ANDed
+   * onto the caller's filters, checked against the contract rather than the
+   * caller's visibility, and don't count toward the caller's filter ceiling.
+   * A constraint the dataset can't enforce refuses the call.
+   */
+  readonly resolveConstraints?: (input: DeploymentSemanticTenantInput) => Promise<unknown>;
   readonly execute: (input: DeploymentSemanticExecutionInput) => Promise<unknown>;
   /** Server-side ceilings, applied on top of contract and caller limits. */
   readonly limits?: Partial<SemanticOperationLimits> & {
@@ -238,6 +259,60 @@ export function createDeploymentSemanticDataPlane(
     }
     throwIfAborted(request.signal);
 
+    let visible: ProtocolVisibleDatasetFields | undefined;
+    if (options.resolveFieldVisibility) {
+      let policy: unknown;
+      try {
+        policy = await options.resolveFieldVisibility({ principal, invocation, dataset });
+      } catch (error) {
+        fail('forbidden', 'HQ_SEMANTIC_FORBIDDEN', 'Visibility resolution failed.', { cause: error });
+      }
+      if (policy !== undefined) {
+        let parsed;
+        try {
+          parsed = validateProtocolFieldVisibility(policy);
+        } catch (error) {
+          fail('configuration-invalid', 'HQ_SEMANTIC_CONFIGURATION',
+            'The visibility policy is invalid.', { cause: error });
+        }
+        const resolved = resolveProtocolVisibleDatasetFields(dataset, datasets, parsed);
+        if (resolved === null) {
+          // Indistinguishable from a dataset the contract never had.
+          fail('not-found', 'HQ_SEMANTIC_DATASET_NOT_FOUND', 'The dataset was not found.', {
+            path: '$.operation.dataset',
+            relist: true,
+          });
+        }
+        visible = resolved;
+      }
+    }
+
+    let constraints: readonly ProtocolExpression[] = [];
+    if (options.resolveConstraints) {
+      let raw: unknown;
+      try {
+        raw = await options.resolveConstraints({ principal, invocation, dataset });
+      } catch (error) {
+        fail('forbidden', 'HQ_SEMANTIC_FORBIDDEN', 'Constraint resolution failed.', { cause: error });
+      }
+      if (raw !== undefined) {
+        try {
+          if (!Array.isArray(raw)) throw new TypeError('Constraints must be an array.');
+          constraints = Object.freeze(raw.map(expression => validateProtocolExpression(expression)));
+        } catch (error) {
+          fail('configuration-invalid', 'HQ_SEMANTIC_CONFIGURATION',
+            'The enforced constraints are invalid.', { cause: error });
+        }
+        if (validateSemanticConstraints(constraints, dataset, datasets).length > 0) {
+          // Not caller-correctable, and the constraint is the provider's
+          // policy: say the target is forbidden without describing it.
+          fail('forbidden', 'HQ_SEMANTIC_CONSTRAINT_UNENFORCEABLE',
+            'The principal lacks required access.');
+        }
+      }
+    }
+    throwIfAborted(request.signal);
+
     const budget: DeploymentSemanticBudget = Object.freeze({
       maxRows: lowest(
         invocation.budget?.maxRows,
@@ -269,7 +344,7 @@ export function createDeploymentSemanticDataPlane(
       maxDimensions: tighten(dataset.limits?.maxDimensions, configured.maxDimensions),
       maxMeasures: tighten(dataset.limits?.maxMeasures, configured.maxMeasures),
       maxFilters: tighten(dataset.limits?.maxFilters, configured.maxFilters),
-    });
+    }, visible);
     if (violations.length > 0) {
       const [first] = violations;
       fail('input-invalid', 'HQ_SEMANTIC_INPUT_INVALID', first.message, { path: first.path });
@@ -281,7 +356,9 @@ export function createDeploymentSemanticDataPlane(
       output = await options.execute({
         deployment,
         dataset,
-        operation,
+        operation: constraints.length === 0
+          ? operation
+          : Object.freeze({ ...operation, filters: [...(operation.filters ?? []), ...constraints] }),
         principal,
         tenant,
         budget,

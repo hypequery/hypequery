@@ -18,8 +18,13 @@ import type {
   ProtocolDeploymentContract,
   ProtocolDeploymentDataset,
   ProtocolEndpointPolicy,
+  ProtocolFieldVisibility,
+  ProtocolVisibleDatasetFields,
 } from '@hypequery/protocol';
-import { validateProtocolDeploymentContract } from '@hypequery/protocol';
+import {
+  resolveProtocolVisibleDatasetFields,
+  validateProtocolDeploymentContract,
+} from '@hypequery/protocol';
 import type { DeploymentDataPlanePrincipal } from './principal.js';
 import { missing } from './utils/required-access.js';
 
@@ -64,9 +69,51 @@ export function isDeploymentEndpointAuthorized(
  * because a relationship names it and the contract would not validate without
  * it.
  */
+/**
+ * Narrows a dimension to one the principal can neither group nor filter by.
+ *
+ * Measures, relationships and the tenant key may still reference it, so it
+ * stays in the contract; the safe catalog omits a dimension that is neither,
+ * so it is not advertised.
+ */
+function concealDimension<T extends { readonly groupable: boolean; readonly filterable: boolean }>(
+  dimension: T,
+): T {
+  return { ...dimension, groupable: false, filterable: false };
+}
+
+/**
+ * Narrows a published dataset to what a visibility policy shows (RFC 0018),
+ * using the same resolution the data plane enforces, so discovery never
+ * advertises a field execution would refuse.
+ */
+function narrowToVisible(
+  dataset: ProtocolDeploymentDataset,
+  visible: ProtocolVisibleDatasetFields,
+): ProtocolDeploymentDataset {
+  const { defaults, timeField, ...rest } = dataset;
+  const visibleDefaults = defaults === undefined ? undefined : {
+    ...(defaults.dimensions === undefined ? {} : {
+      dimensions: defaults.dimensions.filter(name => visible.dimensions.has(String(name))),
+    }),
+    ...(defaults.timeGrain === undefined || !visible.timeField ? {} : { timeGrain: defaults.timeGrain }),
+  };
+  return {
+    ...rest,
+    ...(visible.timeField && timeField !== undefined ? { timeField } : {}),
+    ...(visibleDefaults === undefined ? {} : { defaults: visibleDefaults }),
+    dimensions: dataset.dimensions.map(dimension => (
+      visible.dimensions.has(String(dimension.name)) ? dimension : concealDimension(dimension)
+    )),
+    measures: dataset.measures.filter(measure => visible.measures.has(String(measure.name))),
+    filters: dataset.filters.filter(filter => visible.filters.has(String(filter.name))),
+  } as ProtocolDeploymentDataset;
+}
+
 function narrowToJoin(
   dataset: ProtocolDeploymentDataset,
   reachable: boolean,
+  visibleDimensions?: ReadonlySet<string>,
 ): ProtocolDeploymentDataset {
   // `defaults` describes how to query the dataset directly, which is exactly
   // what this principal may not do.
@@ -75,7 +122,11 @@ function narrowToJoin(
   return {
     ...rest,
     dimensions: reachable
-      ? dataset.dimensions
+      ? dataset.dimensions.map(dimension => (
+          visibleDimensions === undefined || visibleDimensions.has(String(dimension.name))
+            ? dimension
+            : concealDimension(dimension)
+        ))
       : dataset.dimensions.filter(dimension => String(dimension.name) === timeField),
     measures: [],
     filters: [],
@@ -127,13 +178,32 @@ export interface AuthorizedDeploymentProjection {
  * projection that could emit an invalid one would move that failure to whatever
  * read it next.
  */
+export interface AuthorizedDeploymentProjectionOptions {
+  /**
+   * A validated field-visibility policy for this principal (RFC 0018). A
+   * dataset it hides is not published; fields it hides are not advertised.
+   */
+  readonly visibility?: ProtocolFieldVisibility;
+}
+
 export function projectAuthorizedDeploymentContract(
   contract: ProtocolDeploymentContract,
   principal: DeploymentDataPlanePrincipal | null,
+  options: AuthorizedDeploymentProjectionOptions = {},
 ): AuthorizedDeploymentProjection {
   const byName = new Map(contract.datasets.map(dataset => [String(dataset.name), dataset]));
+  const visibleFields = new Map<string, ProtocolVisibleDatasetFields | null>();
+  const visibleIn = (dataset: ProtocolDeploymentDataset) => {
+    if (options.visibility === undefined) return undefined;
+    const name = String(dataset.name);
+    if (!visibleFields.has(name)) {
+      visibleFields.set(name, resolveProtocolVisibleDatasetFields(dataset, byName, options.visibility));
+    }
+    return visibleFields.get(name);
+  };
   const published = new Set(contract.datasets
     .filter(dataset => isDeploymentEndpointAuthorized(dataset.endpoint, principal))
+    .filter(dataset => visibleIn(dataset) !== null)
     .map(dataset => String(dataset.name)));
 
   const required = new Set<string>();
@@ -159,13 +229,28 @@ export function projectAuthorizedDeploymentContract(
     }
   }
 
+  // What a join may reach on a target: its own policy entry, if any. Without
+  // one, a hidden target contributes no joined fields.
+  const joinable = (dataset: ProtocolDeploymentDataset) => {
+    if (options.visibility === undefined) return undefined;
+    const entry = Object.hasOwn(options.visibility.datasets, String(dataset.name))
+      ? options.visibility.datasets[String(dataset.name)]
+      : undefined;
+    if (entry === undefined) return new Set<string>();
+    return entry.dimensions === '*'
+      ? new Set(dataset.dimensions.map(dimension => String(dimension.name)))
+      : new Set(entry.dimensions);
+  };
+
   const datasets = contract.datasets
     .filter(dataset => required.has(String(dataset.name)))
-    .map(dataset => (
-      published.has(String(dataset.name))
-        ? dataset
-        : narrowToJoin(dataset, reachable.has(String(dataset.name)))
-    ));
+    .map(dataset => {
+      if (!published.has(String(dataset.name))) {
+        return narrowToJoin(dataset, reachable.has(String(dataset.name)), joinable(dataset));
+      }
+      const visible = visibleIn(dataset);
+      return visible ? narrowToVisible(dataset, visible) : dataset;
+    });
 
   return Object.freeze({
     contract: validateProtocolDeploymentContract({ ...contract, datasets }),
