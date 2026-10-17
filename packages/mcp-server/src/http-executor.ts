@@ -98,8 +98,8 @@ export class HypequeryMCPHttpExecutor implements MCPToolExecutor {
 
   getManifestHash(): string { return this.schemas.manifestHash; }
 
-  async listTools(): Promise<ListToolsResult> {
-    await executeWithinBudget(signal => this.current(signal), this.budget);
+  async listTools(signal?: AbortSignal): Promise<ListToolsResult> {
+    await executeWithinBudget(requestSignal => this.current(requestSignal), this.budget, signal);
     return structuredClone(this.manifest);
   }
 
@@ -147,15 +147,15 @@ export class HypequeryMCPHttpExecutor implements MCPToolExecutor {
     }
   }
 
-  async listPrompts(): Promise<ListPromptsResult> {
-    await executeWithinBudget(signal => this.current(signal), this.budget);
+  async listPrompts(signal?: AbortSignal): Promise<ListPromptsResult> {
+    await executeWithinBudget(requestSignal => this.current(requestSignal), this.budget, signal);
     return { prompts: [{ name: 'dataset_guide', description: 'Guide to the authorized client endpoint profiles', arguments: [{ name: 'dataset', required: false }] }] };
   }
 
-  async getPrompt(name: string, args?: Record<string, string>): Promise<GetPromptResult> {
+  async getPrompt(name: string, args?: Record<string, string>, signal?: AbortSignal): Promise<GetPromptResult> {
     const input = httpToolArguments(args, ['dataset']);
     if (name !== 'dataset_guide' || input.dataset !== undefined && (typeof input.dataset !== 'string' || !clientDatasetNames(this.schemas.contract).includes(input.dataset))) throw new MCPToolError('MCP_NOT_FOUND', 'Client guide not found.');
-    await executeWithinBudget(signal => this.current(signal), this.budget);
+    await executeWithinBudget(requestSignal => this.current(requestSignal), this.budget, signal);
     const profiles = input.dataset === undefined ? clientDatasetList(this.schemas.contract) : clientDatasetProfile(this.schemas.contract, input.dataset as string);
     const result: GetPromptResult = { messages: [{ role: 'user', content: { type: 'text', text: 'Use only the authorized endpoints and tool schemas. A metric-only dataset group is not a query_dataset target. Each endpoint retains its own fields, defaults and limits. For pagination, request includeMeta=true when metadata is available and follow pagination.hasMore and offset + limit. Tenant and credentials belong to the backend host. Reconnect explicitly after a stale-contract error.\n' + JSON.stringify(profiles) } }] };
     assertWithinBudget(result, this.budget);

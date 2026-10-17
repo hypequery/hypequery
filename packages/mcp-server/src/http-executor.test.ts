@@ -183,6 +183,32 @@ describe('authorized HTTP MCP executor', () => {
     expect(fetchFn).toHaveBeenCalledTimes(calls);
   });
 
+  it('aborts discovery requests when list and prompt calls are cancelled', async () => {
+    for (const call of [
+      (executor: any, signal: AbortSignal) => executor.listTools(signal),
+      (executor: any, signal: AbortSignal) => executor.listPrompts(signal),
+      (executor: any, signal: AbortSignal) => executor.getPrompt('dataset_guide', undefined, signal),
+    ]) {
+      let count = 0;
+      let start!: () => void;
+      const started = new Promise<void>(resolve => { start = resolve; });
+      let upstream: AbortSignal | undefined;
+      const fetchFn = vi.fn(async (_url: unknown, init?: RequestInit) => {
+        if (++count === 1) return json(contract);
+        upstream = init!.signal!;
+        start();
+        return new Promise<Response>((_resolve, reject) => upstream!.addEventListener('abort', () => reject(new Error('PRIVATE_CANCEL')), { once: true }));
+      });
+      const executor = await createMCPHttpExecutor({ url, fetchFn: fetchFn as typeof fetch });
+      const controller = new AbortController();
+      const pending = call(executor, controller.signal);
+      await started;
+      controller.abort('PRIVATE_REASON');
+      await expect(pending).rejects.toThrow();
+      expect(upstream?.aborted).toBe(true);
+    }
+  });
+
   it('enforces deadlines across discovery and headers, even if a custom fetch never settles', async () => {
     let count = 0;
     let signal: AbortSignal | undefined;

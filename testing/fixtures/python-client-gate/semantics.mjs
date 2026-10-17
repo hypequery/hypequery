@@ -43,6 +43,7 @@ for (const [tenant, token] of [['a', process.env.HYPEQUERY_TENANT_A_TOKEN], ['b'
 }
 assert(oracle.a.related.some(row => row['profile.label'] === null && row['profile.total'] === null));
 assert(oracle.a.related.some(row => row['profile.total'] === '9007199254740993.12'));
+assert.deepEqual(semanticRows(oracle.a.havingTotal), [{ revenue: '60' }]);
 assert(oracle.a.time.some(row => row.period.startsWith('2025-12-31')));
 await writeFile(`${process.env.HYPEQUERY_GATE_OUTPUT}/semantics.json`, JSON.stringify({ passed: true, cases, transports: ['http', 'mcp'], oracle: 'independent raw SQL', relatedNulls: true, preciseDecimal: true, tenantJoinGuard: true, having: true, timezoneBoundary: true }, null, 2));
 console.log('HTTP and actual MCP stdio equal raw SQL for both tenants: related nulls/measures, HAVING and timezone day boundaries.');
