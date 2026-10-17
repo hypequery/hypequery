@@ -9,6 +9,10 @@ if [[ "${HYPEQUERY_TUTORIAL_REACT_MAJOR:-19}" != '18' && "${HYPEQUERY_TUTORIAL_R
 fi
 mkdir -p "$HQ_TUTORIAL/artifacts" "$HQ_TUTORIAL/backend"
 cd "$HQ_ROOT"
+# The optional datasets/ClickHouse development peer cycle is not a build order.
+# Prime declarations before the recursive workspace build on a clean checkout.
+pnpm --filter @hypequery/protocol build
+pnpm --filter @hypequery/datasets build
 pnpm --filter '@hypequery/cli...' --filter '@hypequery/react...' -r build
 for package in protocol datasets mcp-server clickhouse serve deployment cli react; do
   (cd "$HQ_ROOT/packages/$package" && pnpm pack --pack-destination "$HQ_TUTORIAL/artifacts")
