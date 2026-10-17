@@ -12,6 +12,6 @@ for (const name of ['react', 'datasets', 'mcp']) {
   const files = execFileSync('tar', ['-tzf', archive], { encoding: 'utf8', env: { ...process.env, LC_ALL: 'C' } }).trim().split('\n');
   const metadata = JSON.parse(execFileSync('tar', ['-xOf', archive, 'package/package.json'], { encoding: 'utf8', env: { ...process.env, LC_ALL: 'C' } }));
   if (metadata.name !== `@hypequery/${name}`) throw new Error('Unexpected client package identity.');
-  auditClientArtifactFiles(files);
+  auditClientArtifactFiles(files, metadata);
   console.log(`Client artifact audit passed: ${metadata.name}@${metadata.version}, ${files.length} files.`);
 }

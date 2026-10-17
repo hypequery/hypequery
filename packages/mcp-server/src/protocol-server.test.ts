@@ -72,7 +72,8 @@ describe('HypequeryMCPProtocolServer', () => {
         { value: 42 },
         expect.any(AbortSignal),
       );
-      expect(executor.getPrompt).toHaveBeenCalledWith('fixture_prompt', { dataset: 'orders' });
+      expect(executor.getPrompt).toHaveBeenCalledWith('fixture_prompt', { dataset: 'orders' }, expect.any(AbortSignal));
+      expect(executor.listTools).toHaveBeenCalledWith(expect.any(AbortSignal));
     } finally {
       await client.close();
       await server.close();
