@@ -369,10 +369,13 @@ def test_a_qualified_field_adds_one_single_match_join(relationship_kind: str) ->
     # A duplicate target key must not multiply the base row before aggregation.
     assert compiled.sql.count("LEFT ANY JOIN") == 1
     assert (
-        "LEFT ANY JOIN `analytics`.`customers` AS `customer` "
+        "FROM `analytics`.`customers`) AS `customer` "
         f"ON {BASE_ALIAS.sql}.`customer_id` = `customer`.`id`" in compiled.sql
     )
-    assert "`customer`.`country` AS `customer.country`" in compiled.sql
+    assert (
+        "if(isNotNull(`customer`.`_hq_match`), `customer`.`country`, NULL) AS `customer.country`"
+        in compiled.sql
+    )
 
 
 @pytest.mark.parametrize("measures", [("matched_revenue",), None])
@@ -395,10 +398,14 @@ def test_a_measure_filter_alone_activates_its_relationship_join(
 
     assert "FROM `analytics`.`trips` AS `__hq_base`" in compiled.sql
     assert (
-        "LEFT ANY JOIN `analytics`.`customers` AS `customer` "
+        "FROM `analytics`.`customers`) AS `customer` "
         "ON `__hq_base`.`customer_id` = `customer`.`id`" in compiled.sql
     )
-    assert "sumIf(`__hq_base`.`fare`, `customer`.`country` = {p0:String})" in compiled.sql
+    assert (
+        "sumIf(`__hq_base`.`fare`, if(isNotNull(`customer`.`_hq_match`), "
+        "`customer`.`country`, NULL) = {p0:String})"
+        in compiled.sql
+    )
 
 
 def test_base_columns_are_qualified_only_when_a_join_is_present() -> None:
@@ -714,7 +721,7 @@ def test_a_joined_target_without_tenancy_is_filterable() -> None:
         registry=create_dataset_registry(trips, customers),
         context=ExecutionContext(tenant=tenant("acme")),
     )
-    assert "`customer`.`tier` = " in compiled.sql
+    assert "if(isNotNull(`customer`.`_hq_match`), `customer`.`tier`, NULL) = " in compiled.sql
 
 
 def test_a_join_propagates_the_tenant_predicate_into_its_condition() -> None:
@@ -733,7 +740,8 @@ def test_a_join_propagates_the_tenant_predicate_into_its_condition() -> None:
     )
     # In the join condition, not in WHERE: a WHERE predicate on the right side
     # of a LEFT ANY JOIN quietly turns it into an inner join.
-    assert "LEFT ANY JOIN `analytics`.`customers` AS `customer`" in compiled.sql
+    assert "LEFT ANY JOIN (SELECT" in compiled.sql
+    assert "FROM `analytics`.`customers`) AS `customer`" in compiled.sql
     assert "ON `__hq_base`.`customer_id` = `customer`.`id` AND `customer`.`tenant_id` = " in (
         compiled.sql
     )

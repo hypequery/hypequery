@@ -42,9 +42,10 @@ class DimensionFeature(CompilerFeature):
             expression = compiler.fields.field_sql(name)
             if dimension.groupable is False:
                 raise CompiledQueryError("input-invalid", f'Dimension "{name}" is not groupable.')
-            # Every selection is aliased to the name the caller used, so grouping
-            # and ordering reference one stable label whatever the expression is.
+            # A qualified alias can also resolve to the physical joined column.
+            # Group its guarded expression so the match marker remains part of
+            # the key, independently of ClickHouse alias-resolution settings.
             alias = SafeIdentifier(name)
             node.selections.append(aliased(expression, alias))
-            node.group_by.append(alias.sql)
+            node.group_by.append(expression if is_qualified(name) else alias.sql)
             compiler.orderable[name] = alias
