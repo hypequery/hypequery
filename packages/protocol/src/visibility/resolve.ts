@@ -20,6 +20,28 @@ function measureInputs(measure: object): readonly string[] {
   return [];
 }
 
+/**
+ * Whether a relationship's local join keys are visible. A joined `to` field
+ * holds the same values as its `from` key, so exposing the join while hiding
+ * the key would let a caller read the key back through the relationship.
+ * Keys name a dimension or, for composite keys, a physical column; a column
+ * counts as visible when a visible dimension reads it.
+ */
+function joinKeysVisible(
+  relationship: ProtocolDeploymentDataset['relationships'][number],
+  dataset: ProtocolDeploymentDataset,
+  visible: ReadonlySet<string>,
+  allDimensions: boolean,
+): boolean {
+  if (allDimensions) return true;
+  const keys = [String(relationship.from), ...(relationship.keys ?? []).map(key => String(key.from))];
+  return keys.every(key => dataset.dimensions.some(dimension => (
+    visible.has(String(dimension.name))
+    && (String(dimension.name) === key
+      || (dimension.source.kind === 'column' && dimension.source.column === key))
+  )));
+}
+
 /** A measure over the dataset's time axis (window or shift), which needs the time field. */
 function isTimeMeasure(measure: object): boolean {
   return 'measure' in measure && typeof measure.measure === 'string';
@@ -35,13 +57,21 @@ function isTimeMeasure(measure: object): boolean {
  * non-groupable or non-filterable stays so.
  *
  * - A one-hop `relationship.dimension` is visible only when the target dataset
- *   and that dimension are visible in the target's own entry.
+ *   and that dimension are visible in the target's own entry, and the
+ *   relationship's local join keys are visible.
  * - A declared filter is visible only when the dimension it filters is.
  * - The time field is visible only as a visible dimension; grouping by period
  *   and time measures need it.
  * - A measure is visible only when it is listed and every measure it is
  *   computed from is visible too. A derived ratio over a hidden measure would
  *   let a caller recover the hidden value.
+ * - Measures are authorized by name, independently of the dimensions they
+ *   aggregate: `revenue = sum(amount)` stays visible with `amount` hidden. A
+ *   `min`, `max`, `argMax` or `countDistinct` over a hidden dimension reveals
+ *   its values, so list measures explicitly rather than use `*` when a dataset
+ *   has any that must stay hidden; `*` also exposes measures added later.
+ * - Segments are not narrowed. Deployment contract 2, which this resolves, has
+ *   none.
  */
 export function resolveProtocolVisibleDatasetFields(
   dataset: ProtocolDeploymentDataset,
@@ -53,14 +83,18 @@ export function resolveProtocolVisibleDatasetFields(
     : undefined;
   if (entry === undefined) return null;
 
-  const dimensions = pick(dataset.dimensions.map(dimension => String(dimension.name)), entry.dimensions);
-  const timeField = dataset.timeField !== undefined && dimensions.has(String(dataset.timeField));
+  const local = pick(dataset.dimensions.map(dimension => String(dimension.name)), entry.dimensions);
+  const dimensions = new Set(local);
+  const timeField = dataset.timeField !== undefined && local.has(String(dataset.timeField));
+  const relationships = new Set<string>();
   for (const relationship of dataset.relationships) {
     const target = datasets.get(String(relationship.target));
     const targetEntry = target && Object.hasOwn(visibility.datasets, String(target.name))
       ? visibility.datasets[String(target.name)]
       : undefined;
     if (!target || targetEntry === undefined) continue;
+    if (!joinKeysVisible(relationship, dataset, local, entry.dimensions === '*')) continue;
+    relationships.add(String(relationship.name));
     const visible = pick(target.dimensions.map(dimension => String(dimension.name)), targetEntry.dimensions);
     for (const name of visible) dimensions.add(`${String(relationship.name)}.${name}`);
   }
@@ -89,5 +123,5 @@ export function resolveProtocolVisibleDatasetFields(
   };
   const measures = new Set([...byName.keys()].filter(name => isVisible(name, new Set())));
 
-  return Object.freeze({ dimensions, measures, filters, timeField });
+  return Object.freeze({ dimensions, measures, filters, relationships, timeField });
 }
