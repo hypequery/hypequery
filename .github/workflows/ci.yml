@@ -137,8 +137,13 @@ jobs:
           NODE_OPTIONS: "--experimental-vm-modules --experimental-global-webcrypto --no-warnings"
       - name: Run smoke tests
         run: pnpm smoke:consumers
+  python-clients:
+    uses: ./.github/workflows/python-clients.yml
+    with:
+      ref: ${{ github.sha }}
+
   canary-release:
-    needs: build
+    needs: [build, python-clients]
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     permissions:
@@ -215,7 +220,7 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
   release:
-    needs: build
+    needs: [build, python-clients]
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     permissions:

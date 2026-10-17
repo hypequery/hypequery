@@ -46,3 +46,6 @@ ClickHouse/React/MCP journey and records its development-artifact qualification.
 `pnpm smoke:client-artifacts` packs React, datasets and MCP and rejects internal
 test programs or missing public entrypoints. It runs in the existing consumer
 smoke gate and tutorial preparation.
+
+The [installed Python client release gate](./python-client-release-gate.md) runs
+real ClickHouse, generated React and MCP cancellation and is reused by CI/release workflows.
