@@ -32,6 +32,7 @@ from .auth import (
 )
 from .body_policy import DEFAULT_MAX_BODY_BYTES
 from .client_contract import export_client_contract
+from .client_discovery import add_client_contract_endpoint
 from .dev import ExternalBindWarning, run_dev, serve_dev
 from .discovery import add_discovery_endpoint
 from .endpoints import (
@@ -78,6 +79,7 @@ __all__ = [
     "ServeErrorType",
     "ServeRouter",
     "TenantResolver",
+    "add_client_contract_endpoint",
     "add_dataset_endpoint",
     "add_discovery_endpoint",
     "add_metric_endpoint",
