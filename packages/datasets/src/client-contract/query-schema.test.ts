@@ -36,6 +36,19 @@ describe('client descriptor query compiler', () => {
     expect(schema).toMatchObject({ additionalProperties: false });
     expect(compiled.build.manifestHash).toBe(compiled.build.contract.contentHash);
   });
+  it('rejects accessors without invoking them', () => {
+    const schema = compiled.build.endpoints.get('orders')!.http;
+    let calls = 0;
+    const getter = Object.defineProperty({}, 'limit', { enumerable: true, get: () => { calls++; return 1; } });
+    const throwing = Object.defineProperty({}, 'limit', { enumerable: true, get: () => { throw new Error('boom'); } });
+    expect(schema.safeParse(getter).success).toBe(false);
+    expect(() => schema.safeParse(throwing)).not.toThrow();
+    expect(schema.safeParse(throwing).success).toBe(false);
+    expect(compiled.build.queryDataset.safeParse(Object.defineProperty({ dataset: 'orders' }, 'limit', {
+      enumerable: true, get: () => { throw new Error('boom'); },
+    })).success).toBe(false);
+    expect(calls).toBe(0);
+  });
   it('runs dependent checks beyond the exported structural JSON schema', () => {
     const schema = compiled.build.endpoints.get('orders')!.http;
     for (const input of [{ dimensions: ['country', 'country'] }, { measures: ['orderCount'], having: [{ measure: 'revenue', operator: 'gt', value: 1 }] },
