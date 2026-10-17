@@ -1,5 +1,17 @@
 # @hypequery/datasets
 
+## 0.24.0
+
+### Minor Changes
+
+- c4082b4: Add semantic client contract v1 validation, canonical identities and strict HTTP/MCP query validation. Compile typed endpoint/tool schemas from public descriptors and test Python/TypeScript with the required shared conformance family. Existing catalog schemas keep their defaults.
+
+### Patch Changes
+
+- 94710d7: Exclude internal runtime and type-test programs from published package tarballs while preserving public runtime and declaration exports.
+- Updated dependencies [c4082b4]
+  - @hypequery/protocol@0.21.0
+
 ## 0.23.1
 
 ### Patch Changes
