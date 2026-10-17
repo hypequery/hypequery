@@ -4,6 +4,7 @@ import { mcpCommand, type McpOptions } from './commands/mcp.js';
 import { devCommand, type DevOptions } from './commands/dev.js';
 import { generateCommand, type GenerateOptions } from './commands/generate.js';
 import { generateDatasetsCommand, type GenerateDatasetsOptions } from './commands/generate-datasets.js';
+import { generateClientCommand, type GenerateClientOptions } from './commands/generate-client.js';
 import { generateManifestCommand, type GenerateManifestOptions } from './commands/generate-manifest.js';
 import {
   buildDeploymentCommand,
@@ -204,6 +205,16 @@ program
   .option('--diff', 'Print generated changes without writing them')
   .action(runCommand(async (options: GenerateDatasetsOptions) => {
     await generateDatasetsCommand(options);
+  }));
+
+program
+  .command('generate:client <contract>')
+  .description('Generate browser-safe TypeScript API types and routes from a client contract JSON file')
+  .option('-o, --output <path>', 'Output TypeScript file (default: analytics/hypequery-client.ts)')
+  .option('--check', 'Check for drift without writing')
+  .option('--force', 'Replace an existing output file')
+  .action(runCommand(async (contract: string, options: GenerateClientOptions) => {
+    await generateClientCommand(contract, options);
   }));
 
 program
