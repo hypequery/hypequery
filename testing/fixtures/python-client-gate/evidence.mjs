@@ -24,6 +24,7 @@ const report = {
   endpointHashes: Object.fromEntries(contract.endpoints.map(item => [item.id, item.schemaHash])),
   browser: JSON.parse(await readFile(`${output}/browser.json`, 'utf8')),
   cancellation: JSON.parse(await readFile(`${output}/cancellation.json`, 'utf8')),
+  semantics: JSON.parse(await readFile(`${output}/semantics.json`, 'utf8')),
   mcp: { passed: true }, artifacts, skips: [],
 };
 await writeFile(`${output}/qualification.json`, JSON.stringify(report, null, 2));

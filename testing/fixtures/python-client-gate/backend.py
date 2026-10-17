@@ -4,10 +4,11 @@ import json
 import os
 
 from examples.client_dashboard.api import install as install_tutorial
-from examples.client_dashboard.definitions import orders
+from examples.client_dashboard.definitions import orders, profile
 from examples.utils.config import required_environment
 from examples.utils.server import application
 from fastapi import FastAPI, Request
+from gate_definitions import joined, profiles
 from hypequery.datasets import ClientQueryProfile, DatasetClient, dataset, measure
 from hypequery.serve import EndpointPolicy, Principal, ServeRouter, add_dataset_endpoint
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
@@ -24,6 +25,14 @@ slow = dataset(
 
 def install(api: ServeRouter, client: DatasetClient) -> None:
     install_tutorial(api, client)
+    add_dataset_endpoint(
+        api,
+        "/v1/joined",
+        dataset=joined,
+        client=client,
+        policy=EndpointPolicy(tenant="required"),
+        client_profile=profile,
+    )
     add_dataset_endpoint(
         api,
         "/v1/slow",
@@ -45,15 +54,16 @@ class FaultMiddleware(BaseHTTPMiddleware):
             )
         response = await call_next(request)
         if (
-            fault == "wire"
+            fault in {"wire", "related-wire"}
             and response.status_code == 200
-            and request.url.path == "/v1/orders"
+            and request.url.path == ("/v1/orders" if fault == "wire" else "/v1/joined")
         ):
             body = b"".join([chunk async for chunk in response.body_iterator])
             value = json.loads(body)
+            field = "revenue" if fault == "wire" else "profile.total"
             for row in value.get("data", []):
-                if "revenue" in row:
-                    row["revenue"] = float(row["revenue"])
+                if row.get(field) is not None:
+                    row[field] = float(row[field])
             headers = dict(response.headers)
             headers.pop("content-length", None)
             return JSONResponse(value, headers=headers)
@@ -63,7 +73,7 @@ class FaultMiddleware(BaseHTTPMiddleware):
 def app() -> FastAPI:
     fault = os.environ.get("HYPEQUERY_GATE_FAULT")
     result = application(
-        datasets=(orders, slow),
+        datasets=(orders, slow, joined, profiles),
         install=install,
         cors_origins=(
             "http://127.0.0.1:5999" if fault == "cors" else "http://127.0.0.1:5173",
@@ -79,6 +89,6 @@ def app() -> FastAPI:
             ),
         },
     )
-    if fault in {"mcp", "wire"}:
+    if fault in {"mcp", "wire", "related-wire"}:
         result.add_middleware(FaultMiddleware)
     return result
