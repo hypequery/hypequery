@@ -1,5 +1,14 @@
 # @hypequery/react
 
+## 0.7.0
+
+### Minor Changes
+
+- 4736fb3: Support generated Python client contracts with selection-aware nullable wire
+  results, explicit default measures, metric aliases and endpoint schema headers.
+  Preserve schema pins through route configuration and authentication refresh,
+  and retain declared outputs for ordinary APIs without semantic metadata.
+
 ## 0.6.4
 
 ### Patch Changes

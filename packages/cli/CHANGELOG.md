@@ -1,5 +1,20 @@
 # @hypequery/cli
 
+## 1.25.0
+
+### Minor Changes
+
+- b0d168e: Add offline `generate:client` generation of self-contained API types, installed
+  POST route mappings and schema hashes from validated Python client contracts.
+  Preserve typed filters, nullable wire values, metric aliases and default measures,
+  with drift checks and explicit replacement of existing generated files.
+
+### Patch Changes
+
+- Updated dependencies [9d97163]
+  - @hypequery/protocol@0.21.0
+  - @hypequery/deployment@0.9.7
+
 ## 1.24.1
 
 ### Patch Changes
