@@ -755,7 +755,7 @@ wheels = [
 
 [[package]]
 name = "hypequery"
-version = "0.1.0.dev0"
+version = "0.1.0b1"
 source = { editable = "." }
 dependencies = [
     { name = "pydantic" },
