@@ -42,3 +42,7 @@ browser fixture; live ClickHouse cancellation remains an independent gate.
 
 The [installed Python client tutorial](./python-client-tutorial.md) adds a real
 ClickHouse/React/MCP journey and records its development-artifact qualification.
+
+`pnpm smoke:client-artifacts` packs React, datasets and MCP and rejects internal
+test programs or missing public entrypoints. It runs in the existing consumer
+smoke gate and tutorial preparation.
