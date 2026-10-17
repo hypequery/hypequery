@@ -3,18 +3,20 @@
 from __future__ import annotations
 
 import asyncio
+import copy
 import time
 from collections.abc import Awaitable, Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 from fastapi import Request
 
-from ..datasets import Dataset
+from ..datasets import ClientQueryProfile, Dataset
 from ..datasets.client import AsyncDatasetClient, DatasetClient, DatasetQueryResult
 from ..datasets.planner import CompiledQueryError, DatasetQuery, Deadline, ExecutionContext
 from ..datasets.planner.resolution import selected_measure_names
 from ..datasets.validation import validate_identifier
 from .auth import Principal, RequestAuth
+from .client_contract import ClientEndpointBinding
 from .errors import ServeError
 from .events import QueryEvents
 from .lifetime import RequestLifetime
@@ -59,6 +61,7 @@ class DatasetEndpoint:
         name: str | None = None,
         diagnostics: DiagnosticAccess | None = None,
         events: QueryEvents | None = None,
+        client_profile: ClientQueryProfile | None = None,
     ) -> None:
         if dataset.tenant_key is not None and (policy.public or policy.tenant == "forbidden"):
             raise ValueError("tenant-keyed datasets cannot be public or forbid tenants")
@@ -66,6 +69,11 @@ class DatasetEndpoint:
             raise ValueError("served datasets must allow at least one result")
         if measure is not None and measure not in dataset.measures:
             raise ValueError("metric measure must exist on the dataset")
+        if client_profile is not None and type(client_profile) is not ClientQueryProfile:
+            raise TypeError("client_profile must be a ClientQueryProfile")
+        if client_profile is not None and diagnostics is not None:
+            raise ValueError("strict client endpoints cannot include SQL diagnostics")
+        self.client_profile = client_profile
         self.dataset = dataset
         self.client = client
         self.policy = policy
@@ -210,7 +218,37 @@ class DatasetEndpoint:
 
     def install(self, router: ServeRouter, path: str) -> None:
         endpoint: Callable[..., Awaitable[QueryResponse]]
-        if self.measure is None:
+        binding: ClientEndpointBinding | None = None
+        if self.client_profile is not None:
+            target = copy.copy(self)
+
+            async def client_query(request: Request, payload: dict[str, object]) -> QueryResponse:
+                target.policy.authorize(authenticated_context(request))
+                if binding is None:
+                    raise RuntimeError("client binding was not installed")
+                body = binding.validate(request, payload)
+                model = MetricRequest if target.measure is not None else QueryRequest
+                return await target.execute(request, model.model_validate(body))
+
+            endpoint = client_query
+            binding = ClientEndpointBinding(
+                dataset=target.dataset,
+                client=target.client,
+                policy=target.policy,
+                profile=self.client_profile,
+                handler=endpoint,
+                path=router.prefix + path,
+                measure=target.measure,
+                name=target.name,
+            )
+            router.client_endpoints.check(binding)
+            if any(
+                getattr(route, "path", None) == router.prefix + path
+                and "POST" in getattr(route, "methods", ())
+                for route in router.routes
+            ):
+                raise ValueError("client endpoint path is already registered")
+        elif self.measure is None:
 
             async def dataset_query(request: Request, payload: QueryRequest) -> QueryResponse:
                 return await self.execute(request, payload)
@@ -224,8 +262,10 @@ class DatasetEndpoint:
                 return await self.execute(request, payload)
 
             endpoint = metric_query
-        endpoint.__annotations__["payload"] = endpoint_query_model(
-            self.dataset, metric=self.measure is not None
+        endpoint.__annotations__["payload"] = (
+            dict[str, object]
+            if binding is not None
+            else endpoint_query_model(self.dataset, metric=self.measure is not None)
         )
         if self.policy.public:
             router.public(endpoint)
@@ -238,6 +278,10 @@ class DatasetEndpoint:
             tags=["metrics" if self.measure else "datasets"],
         )
 
+        if binding is not None:
+            binding = replace(binding, route=router.routes[-1])
+            router.client_endpoints.register(binding)
+
 
 def add_dataset_endpoint(
     router: ServeRouter,
@@ -248,11 +292,17 @@ def add_dataset_endpoint(
     policy: EndpointPolicy = DEFAULT_ENDPOINT_POLICY,
     diagnostics: DiagnosticAccess | None = None,
     events: QueryEvents | None = None,
+    client_profile: ClientQueryProfile | None = None,
 ) -> None:
     """Register a bounded POST query endpoint, authenticated by default."""
 
     create_dataset_endpoint(
-        dataset=dataset, client=client, policy=policy, diagnostics=diagnostics, events=events
+        dataset=dataset,
+        client=client,
+        policy=policy,
+        diagnostics=diagnostics,
+        events=events,
+        client_profile=client_profile,
     ).install(router, path)
 
 
@@ -267,6 +317,7 @@ def add_metric_endpoint(
     policy: EndpointPolicy = DEFAULT_ENDPOINT_POLICY,
     diagnostics: DiagnosticAccess | None = None,
     events: QueryEvents | None = None,
+    client_profile: ClientQueryProfile | None = None,
 ) -> None:
     """Register a metric fixed to one dataset measure (no formula metric surface yet)."""
 
@@ -278,6 +329,7 @@ def add_metric_endpoint(
         name=name,
         diagnostics=diagnostics,
         events=events,
+        client_profile=client_profile,
     ).install(router, path)
 
 
@@ -288,6 +340,7 @@ def create_dataset_endpoint(
     policy: EndpointPolicy = DEFAULT_ENDPOINT_POLICY,
     diagnostics: DiagnosticAccess | None = None,
     events: QueryEvents | None = None,
+    client_profile: ClientQueryProfile | None = None,
 ) -> DatasetEndpoint:
     """Create a dataset endpoint without registering a route.
 
@@ -295,7 +348,12 @@ def create_dataset_endpoint(
     ``add_dataset_endpoint`` to create and register in one step.
     """
     return DatasetEndpoint(
-        dataset=dataset, client=client, policy=policy, diagnostics=diagnostics, events=events
+        dataset=dataset,
+        client=client,
+        policy=policy,
+        diagnostics=diagnostics,
+        events=events,
+        client_profile=client_profile,
     )
 
 
@@ -308,6 +366,7 @@ def create_metric_endpoint(
     policy: EndpointPolicy = DEFAULT_ENDPOINT_POLICY,
     diagnostics: DiagnosticAccess | None = None,
     events: QueryEvents | None = None,
+    client_profile: ClientQueryProfile | None = None,
 ) -> DatasetEndpoint:
     """Create a one-measure metric endpoint without registering a route.
 
@@ -322,4 +381,5 @@ def create_metric_endpoint(
         name=name,
         diagnostics=diagnostics,
         events=events,
+        client_profile=client_profile,
     )

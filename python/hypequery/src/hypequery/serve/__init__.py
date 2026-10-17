@@ -31,6 +31,7 @@ from .auth import (
     default_tenant_resolver,
 )
 from .body_policy import DEFAULT_MAX_BODY_BYTES
+from .client_contract import export_client_contract
 from .dev import ExternalBindWarning, run_dev, serve_dev
 from .discovery import add_discovery_endpoint
 from .endpoints import (
@@ -88,6 +89,7 @@ __all__ = [
     "create_metric_endpoint",
     "create_router",
     "default_tenant_resolver",
+    "export_client_contract",
     "install_http_security",
     "request_id",
     "run_dev",
