@@ -13,7 +13,9 @@ from hypequery.datasets import (
     CompiledQuery,
     Dataset,
     DatasetLimits,
+    belongs_to,
     create_dataset_client,
+    create_dataset_registry,
     dimension,
     measure,
 )
@@ -167,6 +169,35 @@ def test_metric_alias_and_custom_app_inclusion_prefix() -> None:
         )
     assert response.status_code == 200
     assert response.json()["data"][0]["sales"] == "12"
+
+
+def test_separate_clients_keep_their_own_relationship_targets() -> None:
+    router = create_api(authenticate=authenticate)
+    for name, attribute in (("orders", "tier"), ("invoices", "region")):
+        customers = Dataset(
+            name="customers",
+            source=f"{name}_customers",
+            dimensions={"id": dimension.number(), attribute: dimension.string()},
+        )
+        dataset = Dataset(
+            name=name,
+            source=name,
+            dimensions={"id": dimension.number()},
+            measures={"total": measure.count("id")},
+            relationships={"customer": belongs_to(customers, from_field="id", to_field="id")},
+        )
+        client = create_dataset_client(
+            executor=Executor(), registry=create_dataset_registry(dataset, customers)
+        )
+        add_dataset_endpoint(
+            router, f"/{name}", dataset=dataset, client=client, client_profile=ClientQueryProfile()
+        )
+    app = create_app(router, security=HttpSecurity(allowed_hosts=("testserver",)))
+    endpoints = {item["id"]: item for item in export_client_contract(app)["contract"]["endpoints"]}
+    assert "customer.tier" in endpoints["orders"]["dimensions"]
+    assert "customer.region" not in endpoints["orders"]["dimensions"]
+    assert "customer.region" in endpoints["invoices"]["dimensions"]
+    assert "customer.tier" not in endpoints["invoices"]["dimensions"]
 
 
 def test_legacy_endpoints_are_not_advertised() -> None:
