@@ -29,7 +29,7 @@ export function Hero() {
             <span className={`${clickhouseWordmark.className} font-bold tracking-[-0.045em]`}>ClickHouse</span>
           </span>
         </h1>
-        <p className="text-body-lg mt-5 max-w-[660px] text-text-muted">Ship embedded dashboards, chat, and AI agents that all answer from one definition of your metrics. Build it with AI or in code. Every customer only ever sees their own data.</p>
+        <p className="text-body-lg mt-5 max-w-[660px] text-text-muted">Ship embedded dashboards, chat, and AI agents that all answer from one definition of your metrics. Build it with AI or in code. Every customer only sees their own data.</p>
         <div className="mt-7 flex flex-wrap items-center gap-3">
           <DeployWaitlist location="hero" className="inline-flex min-h-12 items-center gap-3 rounded-lg bg-accent px-5 text-sm font-semibold text-white transition hover:-translate-y-0.5 hover:opacity-90 dark:text-[#0c0e14]" />
           <Link href="/docs/quick-start" className="inline-flex min-h-12 items-center rounded-lg border border-border-strong bg-bg-card px-5 text-sm font-semibold text-text transition hover:-translate-y-0.5 hover:border-text">Start open source</Link>

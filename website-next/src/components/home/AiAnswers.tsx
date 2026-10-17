@@ -1,7 +1,8 @@
 'use client';
 
 import { motion, useInView, useReducedMotion } from 'motion/react';
-import { ArrowUp, Sparkles } from 'lucide-react';
+import { ArrowUp } from 'lucide-react';
+import { HypequeryMascotIcon } from '../HypequeryMascotIcon';
 import { SiClaude } from 'react-icons/si';
 import { Clawd } from './Clawd';
 import { EXCHANGES, formatUsd, type Exchange } from './aiAnswersData';
@@ -276,7 +277,7 @@ function ChatExchange({ exchange, at, reduced }: { exchange: Exchange; at: numbe
       {(typing || at >= T.answer) && (
         <motion.div {...reveal} className="flex items-start gap-3">
           <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-accent-soft">
-            <Sparkles className="h-3 w-3 text-accent" aria-hidden="true" />
+            <HypequeryMascotIcon className="h-3.5 w-3.5 text-accent" />
           </span>
           {typing ? (
             <div className="flex h-6 items-center gap-1" aria-label="Assistant is typing">
@@ -327,7 +328,7 @@ export function AppChat({ elapsed, reduced, className = 'h-[480px]' }: PanelProp
   return (
     <div className={`flex flex-col overflow-hidden rounded-xl border border-border bg-bg-card shadow-card ${className}`}>
       <div className="flex items-center gap-2.5 border-b border-border px-4 py-3">
-        <span className="flex h-6 w-6 items-center justify-center rounded-md bg-text text-[11px] font-semibold text-bg">N</span>
+        <span className="flex h-6 w-6 items-center justify-center rounded-md bg-text text-bg"><HypequeryMascotIcon className="h-4 w-4" /></span>
         <span className="text-xs font-medium text-text">Northwind Analytics</span>
       </div>
 

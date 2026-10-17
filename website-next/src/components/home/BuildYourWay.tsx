@@ -38,7 +38,7 @@ export function BuildYourWay() {
         <div className="max-w-[680px]">
           <h2 id="build-your-way-title" className="home-section-title text-text">Build it with AI, or write it in code</h2>
           <p className="mt-4 text-sm leading-6 text-text-muted sm:text-base">
-            Have AI draft it for you in hypequery cloud, or write it in TypeScript or Python and run it wherever you like: in your own backend, or on cloud.
+            Have AI draft your semantic layer for you in hypequery cloud, or write it in TypeScript or Python. Run it wherever you like: in your own backend, or on cloud.
           </p>
         </div>
 

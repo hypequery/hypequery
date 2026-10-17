@@ -6,7 +6,7 @@ export function FinalCTA() {
   return (
     <section className="mx-auto max-w-[1280px] px-8 py-20 text-center">
       <h2 className="home-section-title text-text max-w-[820px] mx-auto text-balance">
-        Give every tool the same answer
+        Ship your analytics layer today
       </h2>
       <p className="mt-3.5 text-body text-text-muted max-w-[560px] mx-auto text-pretty">
         Build your analytics layer with AI or in code, and host it on hypequery cloud.

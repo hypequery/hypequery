@@ -6,8 +6,8 @@ import { FeatureCard } from './FeatureCard';
 export function FeatureGrid() {
   return (
     <section aria-labelledby="feature-grid-title" className="mx-auto max-w-[1280px] px-5 pb-12 pt-14 sm:px-8 sm:pt-20">
-      <div className="mb-8 max-w-[620px]">
-        <h2 id="feature-grid-title" className="home-section-title text-text">Built for production from day one</h2>
+      <div className="mb-8 max-w-[620px] sm:max-w-none">
+        <h2 id="feature-grid-title" className="home-section-title text-text sm:whitespace-nowrap">Built for production from day one</h2>
         <p className="mt-4 text-sm leading-6 text-text-muted sm:text-base">Tenant isolation, joins, access control, and caching are part of the model, so every tool gets them for free.</p>
       </div>
       <div className="product-feature-grid grid gap-4">

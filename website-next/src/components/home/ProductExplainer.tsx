@@ -4,10 +4,11 @@ import { useRef, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { motion, useReducedMotion } from 'motion/react';
 import * as Popover from '@radix-ui/react-popover';
-import { ArrowUpRight, ChevronDown, Cloud, Code2, Database, Layers3, RotateCcw, Send } from 'lucide-react';
+import { ArrowUpRight, ChevronDown, Cloud, Code2, Database, RotateCcw, Send } from 'lucide-react';
 import { SiClaude, SiClickhouse, SiGooglegemini, SiModelcontextprotocol, SiPython, SiReact, SiTypescript } from 'react-icons/si';
 import { RiOpenaiFill } from 'react-icons/ri';
 import { AppChat, ClaudeTerminal, useAiAnswers } from './AiAnswers';
+import { HypequeryMascotIcon } from '../HypequeryMascotIcon';
 import './ProductExplainer.css';
 
 const CONNECTIONS = [
@@ -64,7 +65,7 @@ export function ProductExplainer({ modelCode, dashboardCode }: { modelCode: Reac
     <section aria-labelledby="product-explainer-title" className="overflow-x-clip mx-auto max-w-[1280px] px-5 pb-12 pt-14 sm:px-8 sm:pt-20">
       <motion.div variants={ENTRANCE} initial={reducedMotion ? false : "hidden"} whileInView="visible" viewport={{ once: true, amount: 0.2 }} custom={0} className="mx-auto max-w-[660px] text-center">
         <h2 id="product-explainer-title" className="home-section-title text-text">One model behind every answer</h2>
-        <p className="mx-auto mt-4 max-w-[570px] text-sm leading-6 text-text-muted sm:text-base">Your dashboards, an AI chat inside your app, and agents like Claude all query the same published model. Ask any of them for last month&apos;s revenue, and they all say $128,000.</p>
+        <p className="mx-auto mt-4 max-w-[570px] text-sm leading-6 text-text-muted sm:text-base">Your dashboards, embedded AI chat and agents like Claude all query the same published model.</p>
       </motion.div>
 
       <motion.div variants={ENTRANCE} initial={reducedMotion ? false : "hidden"} whileInView="visible" viewport={{ once: true, amount: 0.2 }} custom={0.06} className="relative mt-9 h-[290px] sm:mt-12" role="figure" aria-label="ClickHouse tables flow into a shared hypequery model, then into dashboards, chat, and MCP agents">
@@ -97,7 +98,7 @@ export function ProductExplainer({ modelCode, dashboardCode }: { modelCode: Reac
           <Popover.Root>
           <Popover.Trigger asChild>
           <button type="button" aria-label="View the model's code" className="explainer-model-trigger relative flex min-w-[260px] items-center gap-3 rounded-xl border border-border-strong bg-bg-card px-5 py-4 text-left shadow-card transition hover:border-accent focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent">
-            <Layers3 className="h-6 w-6 text-accent" aria-hidden="true" />
+            <HypequeryMascotIcon blink className="h-6 w-6 text-accent" aria-hidden="true" />
             <div><span className="block text-lg font-semibold tracking-tight text-text">hypequery</span><span className="block text-[11px] text-text-muted">Your shared analytics model</span><span className="mt-1 inline-flex items-center gap-1 text-[10.5px] font-medium text-accent"><Code2 className="h-3 w-3" aria-hidden="true" />View the code</span></div>
             <div className="ml-auto flex flex-col gap-1.5" aria-label="Model built in TypeScript, Python, or cloud"><SiTypescript className="h-3.5 w-3.5 text-[#3178c6]" title="TypeScript" /><SiPython className="h-3.5 w-3.5 text-[#3776ab]" title="Python" /><Cloud className="h-3.5 w-3.5 text-accent" strokeWidth={2} aria-label="Cloud" /></div>
           </button>
@@ -169,7 +170,7 @@ export function ProductExplainer({ modelCode, dashboardCode }: { modelCode: Reac
               ['Gemini', SiGooglegemini, 'text-[#4285f4]'],
             ] as const).map(([name, Icon, color]) => <span key={name} title={name} data-tooltip={name} aria-label={name} className={`logo-tooltip framework-logo inline-flex h-7 w-7 items-center justify-center rounded-full border-2 border-bg bg-bg-card shadow-card ${color}`}><Icon className="h-4 w-4" aria-hidden="true" /></span>)}
           </div></div>
-          <p className="mt-3 max-w-[350px] text-sm leading-6 text-text-muted">Connect Claude, ChatGPT, or Cursor over MCP. They only see what you publish.</p>
+          <p className="mt-3 max-w-[350px] text-sm leading-6 text-text-muted">Connect Claude, ChatGPT, or your favourite model over MCP. They only see what you publish.</p>
           <div className={`explainer-preview mt-6 ${PREVIEW_HEIGHT}`}>
             <div style={{ zoom: PANEL_SCALE, height: PANEL_HEIGHT }}>
               <ClaudeTerminal elapsed={answers.elapsed} reduced={answers.reduced} className="h-full" />

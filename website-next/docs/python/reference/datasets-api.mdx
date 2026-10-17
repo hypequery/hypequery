@@ -1,0 +1,71 @@
+---
+title: hypequery.datasets
+description: Reference for the dataset definition, query, client, cache and catalog API.
+---
+
+Everything on this page imports from `hypequery.datasets`. Importing it needs only `pydantic`; no database driver or web framework is loaded.
+
+## Defining datasets
+
+| Export | Signature | Purpose |
+| --- | --- | --- |
+| `Dataset` | `Dataset(*, name, source, dimensions, measures={}, filters={}, relationships=…, tenant_key=None, time_key=None, limits=None)` | A normalized semantic model over one physical source |
+| `dimension` | `dimension(field_type, *, label, description, column, sql, dependencies, filterable, groupable)` | A typed dimension. `field_type` is `"string"`, `"number"`, `"boolean"` or `"timestamp"` |
+| `measure` | `measure(value, *, sql, dependencies, label, description, filters)` | Attach metadata and optional filters to an aggregation |
+| `DatasetLimits` | `DatasetLimits(*, max_dimensions, max_measures, max_filters, max_result_size)` | Optional per-dataset query limits |
+| `belongs_to`, `has_one`, `has_many` | `belongs_to(target, *, from_field, to_field)` | Relationships. `has_many` is metadata-only |
+
+### Aggregations
+
+`count`, `count_distinct`, `sum`, `avg`, `min`, `max`, `median`, `stddev`, `variance`, `percentile`, `arg_min` and `arg_max` build the `Aggregation` you pass to `measure`.
+
+### Formulas
+
+`add`, `subtract`, `multiply`, `divide`, `coalesce`, `null_if_zero`, `round`, `floor` and `ceil` build `Formula` values for derived expressions. `compile_formula` compiles one.
+
+## Querying
+
+| Export | Purpose |
+| --- | --- |
+| `DatasetQuery(*, dimensions=(), measures=None, filters=(), by=None, order_by=(), limit=None, …)` | A grouped aggregation over one dataset |
+| `Filter`, `FilterOperator` | A filter on a dimension. Operators: `eq`, `neq`, `gt`, `gte`, `lt`, `lte`, `in`, `notIn`, `between`, `like` |
+| `eq`, `neq`, `gt`, `gte`, `lt`, `lte`, `in_list`, `not_in_list`, `between`, `like` | Filter helpers |
+| `Order`, `asc`, `desc` | Result ordering |
+| `ExecutionContext(tenant=None, deadline=None, cancellation=None, correlation_id=None, settings=None)` | What a trusted caller supplies alongside a query |
+| `tenant(id)`, `tenants((id, …))`, `all_tenants()` | Tenant scopes for an execution |
+
+Supported time grains: `minute`, `hour`, `day`, `week`, `month`, `quarter`, `year`.
+
+## Clients
+
+```python
+create_dataset_client(*, executor, registry=None, settings=QuerySettings(...), cache=None) -> DatasetClient
+create_async_dataset_client(*, executor, registry=None, settings=QuerySettings(...), cache=None) -> AsyncDatasetClient
+```
+
+`DatasetClient` and `AsyncDatasetClient` expose `execute`, `to_sql`, `validate` and `for_tenant`. `for_tenant` returns a `TenantDatasetClient` (or `AsyncTenantDatasetClient`) bound to one tenant.
+
+The default settings are read-only, `max_execution_time` 30 seconds, `max_result_rows` 100,000, `max_result_bytes` 64 MiB and `max_threads` 4.
+
+Results come back as `DatasetQueryResult`, with `DatasetQueryMeta` and `Pagination` alongside the rows.
+
+## Registry and catalog
+
+| Export | Purpose |
+| --- | --- |
+| `create_dataset_registry(*datasets)` | A registry holding datasets by name |
+| `get_dataset_catalog(dataset, *, registry)` | Catalog metadata for one dataset |
+| `get_dataset_catalogs(registry)` | Every registered dataset's catalog, keyed by dataset name |
+| `get_queryable_relationship_fields`, `get_groupable_relationship_fields` | Fields reachable through relationships |
+
+## Caching
+
+| Export | Purpose |
+| --- | --- |
+| `ResultCache(*, store, ttl_seconds, project="hypequery", environment="default", secret=None, key_version=1, definition_identity=None)` | Cache configuration for one namespace |
+| `CacheStore` | The store protocol |
+| `MemoryCacheStore(*, max_entries=1000)` | Thread-safe, bounded, in-process LRU store |
+
+## Deployment bundles
+
+`prepare_dataset_bundle(registry, *, endpoints=None)` assembles canonical bundle bytes without touching the filesystem. `write_dataset_bundle(output_directory, registry, *, endpoints=None)` writes a new bundle and refuses to replace an existing one.

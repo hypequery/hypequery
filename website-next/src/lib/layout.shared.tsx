@@ -1,9 +1,12 @@
+import { HypequeryMascotIcon } from '@/components/HypequeryMascotIcon';
+
 export function baseOptions() {
   return {
     nav: {
       title: (
-        <div className="flex items-center px-3 font-mono text-lg font-bold text-text">
-          hypequery
+        <div className="flex items-center gap-2 px-3 font-mono text-[15px] font-bold text-text">
+          <HypequeryMascotIcon className="h-6 w-auto shrink-0" />
+          <span>hypequery</span>
         </div>
       ),
     },

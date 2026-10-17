@@ -2,8 +2,9 @@
 
 import Link from 'next/link';
 import type { ReactNode } from 'react';
+import { HypequeryMascotIcon } from './HypequeryMascotIcon';
 import * as Popover from '@radix-ui/react-popover';
-import { ChevronDown, Cloud } from 'lucide-react';
+import { ChevronDown } from 'lucide-react';
 import { SiPython, SiTypescript } from 'react-icons/si';
 
 type Offering = {
@@ -44,7 +45,7 @@ const OFFERINGS: Offering[] = [
     pitch: 'Describe your business, and AI builds and hosts your analytics layer.',
     href: '/docs/cloud',
     badge: 'Waitlist',
-    icon: <Cloud className="h-5 w-5 text-accent" strokeWidth={1.8} aria-hidden="true" />,
+    icon: <HypequeryMascotIcon className="h-5 w-5 text-accent" aria-hidden="true" />,
     links: [
       { label: 'AI authoring', href: '/docs/cloud/ai-authoring' },
       { label: 'Drafts and rollback', href: '/docs/cloud/releases' },

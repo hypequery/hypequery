@@ -1,5 +1,6 @@
 'use client';
 
+import { HypequeryMascotIcon } from '../HypequeryMascotIcon';
 import { useEffect, useRef, useState } from 'react';
 import { motion, useInView, useReducedMotion } from 'motion/react';
 import { Check } from 'lucide-react';
@@ -16,7 +17,7 @@ const reveal = {
 };
 
 function Avatar() {
-  return <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-text text-[11px] font-semibold text-bg">h</span>;
+  return <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-text text-bg"><HypequeryMascotIcon className="h-4 w-4" /></span>;
 }
 
 function Mark({ kind }: { kind: '+' | '~' | '−' }) {
@@ -459,7 +460,7 @@ export function CloudWorkflow() {
 
   return (
     <section aria-labelledby="cloud-workflow-title" className="mx-auto max-w-[1280px] px-5 pb-4 pt-14 sm:px-8 sm:pt-20">
-      <h2 id="cloud-workflow-title" className="home-section-title max-w-[960px] text-text">Change it without breaking anyone</h2>
+      <h2 id="cloud-workflow-title" className="home-section-title max-w-[960px] text-text">Make changes with confidence</h2>
       <p className="mt-4 max-w-[600px] text-sm leading-6 text-text-muted sm:text-base">
         Ask for a change in chat, edit it in code, or push from the CLI. Ship it straight away, or open a draft first, see how the numbers move, and roll back in one click.
       </p>

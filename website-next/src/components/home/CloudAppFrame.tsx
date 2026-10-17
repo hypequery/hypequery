@@ -1,3 +1,4 @@
+import { HypequeryMascotIcon } from '../HypequeryMascotIcon';
 import { ChevronDown, Code, Database, List, MessageSquare, Plug, Settings } from 'lucide-react';
 
 // The hypequery cloud app chrome from the chat redesign: a 60px icon rail and a 52px header.
@@ -12,7 +13,7 @@ const NAV = [
 ] as const;
 
 export function CloudLogo() {
-  return <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-text text-[15px] font-bold text-bg">h</span>;
+  return <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-text text-bg"><HypequeryMascotIcon className="h-5 w-5" /></span>;
 }
 
 function RailItem({ active, label, children }: { active: boolean; label: string; children: React.ReactNode }) {

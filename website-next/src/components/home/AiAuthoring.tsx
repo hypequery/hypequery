@@ -1,5 +1,6 @@
 'use client';
 
+import { HypequeryMascotIcon } from '../HypequeryMascotIcon';
 import { useRef } from 'react';
 import { motion, useInView, useReducedMotion } from 'motion/react';
 import { ArrowUp, Check, RotateCcw } from 'lucide-react';
@@ -115,7 +116,7 @@ function typed(text: string, from: number, until: number, elapsed: number) {
 }
 
 function Avatar() {
-  return <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-text text-[11px] font-semibold text-bg">h</span>;
+  return <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-text text-bg"><HypequeryMascotIcon className="h-4 w-4" /></span>;
 }
 
 function Assistant({ children }: { children: React.ReactNode }) {

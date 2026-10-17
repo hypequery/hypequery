@@ -4,15 +4,17 @@ import { useMemo } from 'react';
 import { DocsLayout } from 'fumadocs-ui/layouts/notebook';
 import { getLayoutTabs, type LayoutTab } from 'fumadocs-ui/layouts/shared';
 import type { Folder, Node, Root } from 'fumadocs-core/page-tree';
-import { Cloud } from 'lucide-react';
+import { HypequeryMascotIcon } from './HypequeryMascotIcon';
+import { Plug } from 'lucide-react';
 import { SiPython, SiTypescript } from 'react-icons/si';
 import { baseOptions } from '@/lib/layout.shared';
 
-// Icons for the switcher, keyed by each root's title (TypeScript, Python, Cloud).
+// Icons for the switcher, keyed by each root's title (TypeScript, Python, Cloud, Connect).
 const LANGUAGE_ICONS: Record<string, React.ReactNode> = {
   TypeScript: <SiTypescript color="#3178C6" />,
   Python: <SiPython color="#3776AB" />,
-  Cloud: <Cloud className="size-4 scale-125 text-fd-primary" />,
+  Cloud: <HypequeryMascotIcon className="size-4 scale-125 text-fd-primary" />,
+  Connect: <Plug className="text-fd-primary" />,
 };
 
 function withIcon(tab: LayoutTab): LayoutTab {

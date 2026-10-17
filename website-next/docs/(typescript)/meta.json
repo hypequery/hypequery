@@ -7,7 +7,6 @@
     "(query-builder)",
     "(datasets)",
     "(serve)",
-    "(clients)",
     "(reference)"
   ]
 }

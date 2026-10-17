@@ -1,0 +1,82 @@
+---
+title: hypequery.serve
+description: Reference for the FastAPI serving layer.
+---
+
+import { Callout } from 'fumadocs-ui/components/callout';
+
+<Callout type="info">
+  `hypequery.serve` needs the FastAPI extra: `pip install "hypequery[fastapi]"`. Importing it without FastAPI raises an error that says so.
+</Callout>
+
+## Building an app
+
+| Export | Signature | Purpose |
+| --- | --- | --- |
+| `create_router` | `create_router(*, authenticate, credentials=None, resolve_tenant=…, …)` | The router endpoints register on. `authenticate` maps a `Credential` to a `Principal` or `None` |
+| `create_app` | `create_app(router, *, security, development_docs=False, production=None)` | Build the FastAPI app. Public docs need explicit development opt-in |
+| `run_production` | `run_production(app)` | Run an app created with `production=ProductionProfile(...)` |
+
+## Endpoints
+
+| Export | Purpose |
+| --- | --- |
+| `add_dataset_endpoint(router, path, *, dataset, client, policy=EndpointPolicy(), …)` | A bounded POST query endpoint, authenticated by default |
+| `add_metric_endpoint(router, path, *, dataset, measure, name=None, client, policy=…)` | A metric fixed to one dataset measure |
+| `add_discovery_endpoint(router, path="/discovery", *, registry, policy=…, max_bytes=262144)` | A frozen projection of the registry, with no physical details |
+
+## Authentication
+
+| Export | Purpose |
+| --- | --- |
+| `api_key(*, header="x-api-key")` | Read a bare API key from a header |
+| `bearer_token(*, header="authorization")` | Read `Bearer <token>` as RFC 6750 defines it |
+| `Credential`, `CredentialKind`, `CredentialTransport` | What was presented and how it was read |
+| `Principal` | The authenticated caller, with `subject`, `roles`, `scopes` and `tenant_id` |
+| `default_tenant_resolver(principal)` | Scope the request to the principal's `tenant_id`, or to no tenant |
+| `InvalidCredential`, `RequestAuth`, `Authenticator`, `TenantResolver` | Types and the error to raise for bad credentials |
+
+## Policy
+
+`EndpointPolicy(public=False, required_roles=frozenset(), required_scopes=frozenset(), tenant="optional", max_limit=1000)`
+
+`tenant` is `"required"`, `"optional"` or `"forbidden"`.
+
+## HTTP security
+
+| Export | Purpose |
+| --- | --- |
+| `HttpSecurity(allowed_hosts, cors=None, trusted_proxies=())` | The HTTP profile for a served app |
+| `CorsPolicy(origins, allow_credentials=False, allow_methods=("GET", "POST"), allow_headers=(…), max_age=600)` | Cross-origin access. With no policy, no CORS headers are sent |
+| `install_http_security` | Install the profile on an app yourself |
+| `DEFAULT_MAX_BODY_BYTES` | The default request body limit |
+
+## Rate limiting
+
+`RateLimit(*, max=100, window_seconds=60, key=None, store=None, fail_open=True, headers=True, message=…)` is a fixed-window limit for one route. `MemoryRateLimitStore` is the in-process store, and `RateLimitStore` is the protocol for your own. `RateLimitKey` types the key function.
+
+## Production
+
+`ProductionProfile(host="127.0.0.1", port=8000, allow_external_bind=False, debug=False, reload=False, cookie_auth=False, max_concurrency=32, timeout_seconds=30, max_result_rows=10001, max_result_bytes=8388608, max_threads=4)` sets per-process ceilings. Cookie authentication is deliberately unsupported.
+
+## Errors
+
+Raise `ServeError(status, type, message, *, details=None, headers=None)` from an endpoint to return a specific canonical error. `type` is a `ServeErrorType`:
+
+| Type | Meaning |
+| --- | --- |
+| `VALIDATION_ERROR` | The request failed validation |
+| `UNAUTHORIZED` | Missing or invalid credentials |
+| `FORBIDDEN` | Authenticated, but not allowed |
+| `NOT_FOUND` | Unknown route or resource |
+| `PAYLOAD_TOO_LARGE` | The body exceeded the limit |
+| `RATE_LIMITED` | The rate limit was exceeded |
+| `QUERY_FAILURE` | The query failed |
+| `CLICKHOUSE_UNREACHABLE` | ClickHouse could not be reached |
+| `GATEWAY_TIMEOUT` | The query timed out |
+| `SERVICE_UNAVAILABLE` | The service cannot take the request |
+| `INTERNAL_SERVER_ERROR` | An unexpected failure |
+
+## Events and request IDs
+
+`QueryEvents(*, target, sink)` emits query events to a sink. `request_id`, `validate_correlation_id` and `MAX_CORRELATION_ID_BYTES` handle correlation IDs.

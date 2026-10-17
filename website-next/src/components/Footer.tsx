@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import ThemeToggle from '@/components/ThemeToggle';
+import { HypequeryMascotIcon } from '@/components/HypequeryMascotIcon';
 
 type FooterLink = {
   label: string;
@@ -61,7 +62,10 @@ export default function Footer() {
     <footer className="border-t border-border px-8 pt-[60px] pb-9 bg-bg">
       <div className="mx-auto max-w-[1280px] footer-grid">
         <div className="max-w-[240px]" style={{ width: '240px', flexShrink: 0 }}>
-          <div className="font-mono text-[15px] font-bold text-text tracking-tight">hypequery</div>
+          <div className="inline-flex items-center gap-2 font-mono text-[15px] font-bold text-text tracking-tight">
+            <HypequeryMascotIcon className="h-6 w-auto shrink-0" />
+            <span>hypequery</span>
+          </div>
           <p className="mt-2 text-[13px] leading-snug text-text-muted">
             The analytics layer for ClickHouse.
           </p>
