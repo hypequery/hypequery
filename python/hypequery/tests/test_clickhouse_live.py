@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import os
 import threading
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import replace
 from datetime import UTC, datetime
 from decimal import Decimal
@@ -400,3 +401,22 @@ def test_live_sync_cancellation_stops_server_query(cancel_by: str) -> None:
     finally:
         executor.close()
         observer.close()
+
+
+@pytest.mark.skipif(
+    "HYPEQUERY_TEST_CLICKHOUSE_HOST" not in os.environ,
+    reason="live ClickHouse service is not configured",
+)
+def test_live_shared_sync_executor_accepts_overlapping_queries() -> None:
+    executor = create_clickhouse_executor(_connection())
+    barrier = threading.Barrier(4)
+
+    def execute(_: int) -> tuple[tuple[str | int | float | bool | None, ...], ...]:
+        barrier.wait(timeout=10)
+        return executor.execute(CompiledQuery("SELECT sleep(0.2) AS value", {})).rows
+
+    try:
+        with ThreadPoolExecutor(max_workers=4) as pool:
+            assert list(pool.map(execute, range(4))) == [((0,),)] * 4
+    finally:
+        executor.close()

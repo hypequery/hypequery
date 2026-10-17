@@ -338,6 +338,7 @@ CONNECTION = ClickHouseConnection(
     readonly_policy="profile",
 )
 CONNECTION_KWARGS = {
+    "autogenerate_session_id": False,
     "host": "ch.internal",
     "port": 8443,
     "database": "analytics",
