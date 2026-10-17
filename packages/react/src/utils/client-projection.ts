@@ -5,13 +5,19 @@ type WireValue<Definition> = Definition extends { wireType: infer Wire; nullable
   : unknown;
 
 type ArrayNames<Value> = NonNullable<Value> extends readonly (infer Name)[] ? Name : never;
+type IsUnion<T, U = T> = T extends unknown ? ([U] extends [T] ? false : true) : never;
+/** Names a fixed tuple always selects: an element typed as a union may name any of them. */
+type CertainNames<Tuple> = Tuple extends readonly [infer Head, ...infer Rest]
+  ? (IsUnion<Head> extends true ? never : Head) | CertainNames<Rest>
+  : never;
 
 type SelectedFields<Definitions, Input, Key extends string, Defaults = never> =
   Key extends keyof Input
     ? Input extends Record<Key, readonly unknown[]>
       ? number extends Input[Key]['length']
         ? { [Name in Extract<ArrayNames<Input[Key]>, keyof Definitions>]?: WireValue<Definitions[Name]> }
-        : { [Name in Extract<ArrayNames<Input[Key]>, keyof Definitions>]-?: WireValue<Definitions[Name]> }
+        : { [Name in Extract<CertainNames<Input[Key]>, keyof Definitions>]-?: WireValue<Definitions[Name]> }
+          & { [Name in Exclude<Extract<ArrayNames<Input[Key]>, keyof Definitions>, CertainNames<Input[Key]>>]?: WireValue<Definitions[Name]> }
       : { [Name in Extract<ArrayNames<Input[Key]> | Defaults, keyof Definitions>]?: WireValue<Definitions[Name]> }
     : { [Name in Extract<Defaults, keyof Definitions>]-?: WireValue<Definitions[Name]> };
 
