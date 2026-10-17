@@ -88,6 +88,10 @@ export function compareCase(ec: EnumeratedCase, result: HandlerResult): CaseOutc
       if (code !== ec.case.error) {
         return outcome(ec, 'fail', { expected: String(ec.case.error), actual: String(code) });
       }
+      if (ec.family === 'client-contract-v1') {
+        const o = output(result);
+        if (o.path !== ec.case.path || o.message !== ec.case.message) return outcome(ec, 'fail', { message: 'client failure path/message mismatch' });
+      }
       return outcome(ec, 'pass');
     }
     case 'non-portable': {
@@ -118,6 +122,9 @@ export function compareCase(ec: EnumeratedCase, result: HandlerResult): CaseOutc
 }
 
 function compareSuccessOutput(ec: EnumeratedCase, o: Record<string, unknown>): CaseOutcome {
+  if (ec.family === 'client-contract-v1' && ec.case.expected !== undefined && !deepEqual(o, ec.case.expected)) {
+    return outcome(ec, 'fail', { message: 'client normalized output mismatch' });
+  }
   if (ec.family === 'tagged-values-v1') {
     if (o.canonicalHex !== ec.case.canonicalHex) {
       return outcome(ec, 'fail', { expected: 'canonicalHex', actual: 'mismatch' });

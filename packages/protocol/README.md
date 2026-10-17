@@ -19,6 +19,7 @@ This package implements those rules in TypeScript. Python and other implementati
 
 - canonical tagged values and RFC 8785 encoding
 - strict simple and qualified logical identifiers
+- signed semantic client descriptors and strict HTTP/MCP client queries
 - closed semantic expression and query envelopes
 - portable input and output schemas
 - trusted query implementation artifacts
@@ -75,3 +76,19 @@ Self-hosted `@hypequery/serve` can continue to run application source directly. 
 ## License
 
 Apache-2.0.
+
+## Semantic client contracts
+
+RFC 0018 describes registered public endpoint capabilities for type generation
+and HTTP-backed MCP. Use `decodeProtocolClientContract(text)` at an untrusted JSON
+text boundary (bounded, rejects duplicate members), or
+`validateProtocolClientContract(value)` for an already decoded signed object.
+`prepareProtocolClientContract(unsigned)` computes the domain-separated schema
+and view hashes and refuses preexisting hash fields.
+
+`validateProtocolClientQuery(contract, endpointId, input, 'http' | 'mcp')` validates
+and normalizes the strict client profile. Its result contains the registered
+endpoint, selected measures, effective clamped limit and HTTP body. It maps MCP
+grain to by and removes routing arguments. All returned data is a frozen snapshot.
+These APIs do not authenticate, register a route, export application definitions
+or execute queries. An endpoint hash is a compatibility identity, not permission.

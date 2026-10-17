@@ -111,3 +111,14 @@ for module boundaries and verification requirements, and the
 ## License
 
 Apache-2.0.
+
+## Public client descriptor schemas
+
+`buildClientContractQuerySchemas(contract)` validates an RFC 0018 signed client
+contract and returns per-endpoint HTTP schemas plus the canonical dataset/metric
+MCP schemas, JSON schemas and manifest hash. It accepts public descriptors without
+constructing Dataset instances or loading project code. Filter values have their
+advertised scalar/range/list types. Runtime validation additionally checks selected
+fields, uniqueness, timezone membership and combined predicate limits; preserve it
+when using the structural JSON schemas. Empty MCP target sets remain uncallable.
+Existing catalog-based schema APIs keep their defaults.

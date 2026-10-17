@@ -91,3 +91,14 @@ describe('compareCase', () => {
     expect(compareCase(ordinary, skip).status).toBe('fail');
   });
 });
+
+it('checks complete client query output and exact safe failures', () => {
+  const accepted = makeCase('success', 'client-contract-v1', { expected: { body: { limit: 20 } } });
+  expect(compareCase(accepted, { ok: true, output: { body: { limit: 20 } } }).status).toBe('pass');
+  expect(compareCase(accepted, { ok: true, output: { body: { limit: 21 } } }).status).toBe('fail');
+  const rejected = makeCase('rejection', 'client-contract-v1', { error: 'HQ_CLIENT_QUERY', path: '/limit', message: 'Invalid client query.' });
+  const output = { path: '/limit', message: 'Invalid client query.' };
+  expect(compareCase(rejected, { ok: false, code: 'HQ_CLIENT_QUERY', output }).status).toBe('pass');
+  expect(compareCase(rejected, { ok: false, code: 'HQ_CLIENT_QUERY', output: { ...output, path: '' } }).status).toBe('fail');
+  expect(compareCase(rejected, { ok: false, code: 'HQ_CLIENT_QUERY', output: { ...output, message: 'secret' } }).status).toBe('fail');
+});

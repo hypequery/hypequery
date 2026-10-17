@@ -17,6 +17,7 @@ from .cache_keys import (
     derive_protocol_cache_namespace_token,
 )
 from .cache_preimages import ProtocolCachePreimageError, build_protocol_cache_preimage
+from .client_contract.conformance import handle_client_contract
 from .deployment_codec import (
     prepare_protocol_deployment_contract,
     prepare_protocol_deployment_contract_v3,
@@ -73,6 +74,7 @@ from .values import (
 from .wire_numbers import to_binary64_tree
 
 FAMILIES = (
+    "client-contract-v1",
     "cache-keys-v1",
     "cache-preimages-v1",
     "tagged-values-v1",
@@ -397,8 +399,12 @@ def _handle_cache_preimage(role: str, case: dict[str, object]) -> dict[str, obje
 
 
 def _handle(family: str, role: str, case: dict[str, object], section: object) -> dict[str, object]:
-    if family == "cache-keys-v1":
-        return _handle_cache_key(role, case)
+    role_handlers = {
+        "client-contract-v1": handle_client_contract,
+        "cache-keys-v1": _handle_cache_key,
+    }
+    if family in role_handlers:
+        return role_handlers[family](role, case)
     if family == "cache-preimages-v1":
         return _handle_cache_preimage(role, case)
     if family == "tagged-values-v1":

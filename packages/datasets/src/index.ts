@@ -333,3 +333,6 @@ export type {
 export { DATASET_EXECUTION_CAPABILITIES } from './execution-capabilities.js';
 export type { DatasetFeature, DatasetFeatureSupport, DatasetExecutionCapabilities } from './execution-capabilities.js';
 export type { DatasetFilterNames, DatasetFilterFor } from './utils/dataset-filter-types.js';
+
+export { buildClientContractQuerySchemas } from './client-contract/query-schema.js';
+export type { ClientContractQuerySchemas, ClientEndpointQuerySchema } from './client-contract/query-schema.js';

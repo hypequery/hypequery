@@ -1,0 +1,2097 @@
+[
+  {
+    "id": "no-selection",
+    "contract": "build",
+    "endpoint": "orders",
+    "input": {
+      "measures": []
+    },
+    "error": "HQ_CLIENT_QUERY",
+    "mode": "query",
+    "path": "",
+    "message": "Invalid client query."
+  },
+  {
+    "id": "filter-alias-cannot-group",
+    "contract": "build",
+    "endpoint": "orders",
+    "input": {
+      "dimensions": [
+        "paidStatus"
+      ]
+    },
+    "error": "HQ_CLIENT_QUERY",
+    "mode": "query",
+    "path": "",
+    "message": "Invalid client query."
+  },
+  {
+    "id": "filter-only-cannot-group",
+    "contract": "build",
+    "endpoint": "orders",
+    "input": {
+      "dimensions": [
+        "customer.active"
+      ]
+    },
+    "error": "HQ_CLIENT_QUERY",
+    "mode": "query",
+    "path": "",
+    "message": "Invalid client query."
+  },
+  {
+    "id": "string-range-rejected",
+    "contract": "build",
+    "endpoint": "orders",
+    "input": {
+      "filters": [
+        {
+          "field": "amount",
+          "operator": "between",
+          "value": [
+            "10",
+            "20"
+          ]
+        }
+      ]
+    },
+    "error": "HQ_CLIENT_QUERY",
+    "mode": "query",
+    "path": "",
+    "message": "Invalid client query."
+  },
+  {
+    "id": "numeric-boolean-rejected",
+    "contract": "build",
+    "endpoint": "orders",
+    "input": {
+      "filters": [
+        {
+          "field": "customer.active",
+          "operator": "eq",
+          "value": 1
+        }
+      ]
+    },
+    "error": "HQ_CLIENT_QUERY",
+    "mode": "query",
+    "path": "",
+    "message": "Invalid client query."
+  },
+  {
+    "id": "null-filter-rejected",
+    "contract": "build",
+    "endpoint": "orders",
+    "input": {
+      "filters": [
+        {
+          "field": "country",
+          "operator": "eq",
+          "value": null
+        }
+      ]
+    },
+    "error": "HQ_CLIENT_QUERY",
+    "mode": "query",
+    "path": "",
+    "message": "Invalid client query."
+  },
+  {
+    "id": "empty-in-rejected",
+    "contract": "build",
+    "endpoint": "orders",
+    "input": {
+      "filters": [
+        {
+          "field": "country",
+          "operator": "in",
+          "value": []
+        }
+      ]
+    },
+    "error": "HQ_CLIENT_QUERY",
+    "mode": "query",
+    "path": "",
+    "message": "Invalid client query."
+  },
+  {
+    "id": "related-operator-not-allowed",
+    "contract": "build",
+    "endpoint": "orders",
+    "input": {
+      "filters": [
+        {
+          "field": "customer.tier",
+          "operator": "like",
+          "value": "g%"
+        }
+      ]
+    },
+    "error": "HQ_CLIENT_QUERY",
+    "mode": "query",
+    "path": "",
+    "message": "Invalid client query."
+  },
+  {
+    "id": "unsupported-grain",
+    "contract": "build",
+    "endpoint": "orders",
+    "input": {
+      "by": "minute"
+    },
+    "error": "HQ_CLIENT_QUERY",
+    "mode": "query",
+    "path": "",
+    "message": "Invalid client query."
+  },
+  {
+    "id": "having-unselected",
+    "contract": "build",
+    "endpoint": "orders",
+    "input": {
+      "measures": [
+        "orderCount"
+      ],
+      "having": [
+        {
+          "measure": "revenue",
+          "operator": "gt",
+          "value": 10
+        }
+      ]
+    },
+    "error": "HQ_CLIENT_QUERY",
+    "mode": "query",
+    "path": "",
+    "message": "Invalid client query."
+  },
+  {
+    "id": "having-string-measure",
+    "contract": "build",
+    "endpoint": "orders",
+    "input": {
+      "measures": [
+        "latestLabel"
+      ],
+      "having": [
+        {
+          "measure": "latestLabel",
+          "operator": "gt",
+          "value": 10
+        }
+      ]
+    },
+    "error": "HQ_CLIENT_QUERY",
+    "mode": "query",
+    "path": "",
+    "message": "Invalid client query."
+  },
+  {
+    "id": "metric-measures-even-empty",
+    "contract": "metric-only",
+    "endpoint": "ordersRevenue",
+    "input": {
+      "measures": []
+    },
+    "error": "HQ_CLIENT_QUERY",
+    "mode": "query",
+    "path": "",
+    "message": "Invalid client query."
+  },
+  {
+    "id": "metric-having-even-empty",
+    "contract": "metric-only",
+    "endpoint": "ordersRevenue",
+    "input": {
+      "having": []
+    },
+    "error": "HQ_CLIENT_QUERY",
+    "mode": "query",
+    "path": "",
+    "message": "Invalid client query."
+  },
+  {
+    "id": "dataset-hidden-from-metric-only",
+    "contract": "metric-only",
+    "endpoint": "orders",
+    "input": {},
+    "error": "HQ_CLIENT_QUERY",
+    "mode": "query",
+    "path": "",
+    "message": "Invalid client query."
+  },
+  {
+    "id": "no-time-grain",
+    "contract": "build",
+    "endpoint": "countries",
+    "input": {
+      "dimensions": [
+        "country"
+      ],
+      "by": "day"
+    },
+    "error": "HQ_CLIENT_QUERY",
+    "mode": "query",
+    "path": "",
+    "message": "Invalid client query."
+  },
+  {
+    "id": "no-time-timezone",
+    "contract": "build",
+    "endpoint": "countries",
+    "input": {
+      "dimensions": [
+        "country"
+      ],
+      "timezone": "UTC"
+    },
+    "error": "HQ_CLIENT_QUERY",
+    "mode": "query",
+    "path": "",
+    "message": "Invalid client query."
+  },
+  {
+    "id": "metadata-disabled",
+    "contract": "build",
+    "endpoint": "countries",
+    "input": {
+      "dimensions": [
+        "country"
+      ],
+      "includeMeta": true
+    },
+    "error": "HQ_CLIENT_QUERY",
+    "mode": "query",
+    "path": "",
+    "message": "Invalid client query."
+  },
+  {
+    "id": "unknown-tenant",
+    "contract": "build",
+    "endpoint": "orders",
+    "input": {
+      "tenant": "synthetic_tenant"
+    },
+    "error": "HQ_CLIENT_QUERY",
+    "mode": "query",
+    "path": "",
+    "message": "Invalid client query."
+  },
+  {
+    "id": "unknown-sql",
+    "contract": "build",
+    "endpoint": "orders",
+    "input": {
+      "sql": "SELECT 1"
+    },
+    "error": "HQ_CLIENT_QUERY",
+    "mode": "query",
+    "path": "",
+    "message": "Invalid client query."
+  },
+  {
+    "id": "unsupported-segment",
+    "contract": "build",
+    "endpoint": "orders",
+    "input": {
+      "segments": [
+        "paid"
+      ]
+    },
+    "error": "HQ_CLIENT_QUERY",
+    "mode": "query",
+    "path": "",
+    "message": "Invalid client query."
+  },
+  {
+    "id": "unselected-order",
+    "contract": "build",
+    "endpoint": "orders",
+    "input": {
+      "measures": [
+        "revenue"
+      ],
+      "orderBy": [
+        {
+          "field": "orderCount",
+          "direction": "desc"
+        }
+      ]
+    },
+    "error": "HQ_CLIENT_QUERY",
+    "mode": "query",
+    "path": "",
+    "message": "Invalid client query."
+  },
+  {
+    "id": "float-limit",
+    "contract": "build",
+    "endpoint": "orders",
+    "input": {
+      "limit": 1.5
+    },
+    "error": "HQ_CLIENT_QUERY",
+    "mode": "query",
+    "path": "/limit",
+    "message": "Invalid client query."
+  },
+  {
+    "id": "bool-limit",
+    "contract": "build",
+    "endpoint": "orders",
+    "input": {
+      "limit": true
+    },
+    "error": "HQ_CLIENT_QUERY",
+    "mode": "query",
+    "path": "/limit",
+    "message": "Invalid client query."
+  },
+  {
+    "id": "too-large-offset",
+    "contract": "build",
+    "endpoint": "orders",
+    "input": {
+      "offset": 10001
+    },
+    "error": "HQ_CLIENT_QUERY",
+    "mode": "query",
+    "path": "/offset",
+    "message": "Invalid client query."
+  },
+  {
+    "id": "null-dimensions",
+    "mode": "query",
+    "contract": "build",
+    "endpoint": "orders",
+    "input": {
+      "dimensions": null
+    },
+    "error": "HQ_CLIENT_QUERY",
+    "path": "",
+    "message": "Invalid client query."
+  },
+  {
+    "id": "null-measures",
+    "mode": "query",
+    "contract": "build",
+    "endpoint": "orders",
+    "input": {
+      "measures": null
+    },
+    "error": "HQ_CLIENT_QUERY",
+    "path": "",
+    "message": "Invalid client query."
+  },
+  {
+    "id": "null-filters",
+    "mode": "query",
+    "contract": "build",
+    "endpoint": "orders",
+    "input": {
+      "filters": null
+    },
+    "error": "HQ_CLIENT_QUERY",
+    "path": "",
+    "message": "Invalid client query."
+  },
+  {
+    "id": "null-having",
+    "mode": "query",
+    "contract": "build",
+    "endpoint": "orders",
+    "input": {
+      "having": null
+    },
+    "error": "HQ_CLIENT_QUERY",
+    "path": "",
+    "message": "Invalid client query."
+  },
+  {
+    "id": "null-orderBy",
+    "mode": "query",
+    "contract": "build",
+    "endpoint": "orders",
+    "input": {
+      "orderBy": null
+    },
+    "error": "HQ_CLIENT_QUERY",
+    "path": "",
+    "message": "Invalid client query."
+  },
+  {
+    "id": "null-limit",
+    "mode": "query",
+    "contract": "build",
+    "endpoint": "orders",
+    "input": {
+      "limit": null
+    },
+    "error": "HQ_CLIENT_QUERY",
+    "path": "/limit",
+    "message": "Invalid client query."
+  },
+  {
+    "id": "null-offset",
+    "mode": "query",
+    "contract": "build",
+    "endpoint": "orders",
+    "input": {
+      "offset": null
+    },
+    "error": "HQ_CLIENT_QUERY",
+    "path": "/offset",
+    "message": "Invalid client query."
+  },
+  {
+    "id": "null-by",
+    "mode": "query",
+    "contract": "build",
+    "endpoint": "orders",
+    "input": {
+      "by": null
+    },
+    "error": "HQ_CLIENT_QUERY",
+    "path": "",
+    "message": "Invalid client query."
+  },
+  {
+    "id": "null-timezone",
+    "mode": "query",
+    "contract": "build",
+    "endpoint": "orders",
+    "input": {
+      "timezone": null
+    },
+    "error": "HQ_CLIENT_QUERY",
+    "path": "/timezone",
+    "message": "Invalid client query."
+  },
+  {
+    "id": "null-includeMeta",
+    "mode": "query",
+    "contract": "build",
+    "endpoint": "orders",
+    "input": {
+      "includeMeta": null
+    },
+    "error": "HQ_CLIENT_QUERY",
+    "path": "",
+    "message": "Invalid client query."
+  },
+  {
+    "id": "duplicate-dimension",
+    "mode": "query",
+    "contract": "build",
+    "endpoint": "orders",
+    "input": {
+      "dimensions": [
+        "country",
+        "country"
+      ]
+    },
+    "error": "HQ_CLIENT_QUERY",
+    "path": "",
+    "message": "Invalid client query."
+  },
+  {
+    "id": "duplicate-measure",
+    "mode": "query",
+    "contract": "build",
+    "endpoint": "orders",
+    "input": {
+      "measures": [
+        "revenue",
+        "revenue"
+      ]
+    },
+    "error": "HQ_CLIENT_QUERY",
+    "path": "",
+    "message": "Invalid client query."
+  },
+  {
+    "id": "boolean-offset",
+    "mode": "query",
+    "contract": "build",
+    "endpoint": "orders",
+    "input": {
+      "offset": true
+    },
+    "error": "HQ_CLIENT_QUERY",
+    "path": "/offset",
+    "message": "Invalid client query."
+  },
+  {
+    "id": "invalid-timezone-case",
+    "mode": "query",
+    "contract": "build",
+    "endpoint": "orders",
+    "input": {
+      "timezone": "utc"
+    },
+    "error": "HQ_CLIENT_QUERY",
+    "path": "/timezone",
+    "message": "Invalid client query."
+  },
+  {
+    "id": "combined-predicate-budget",
+    "mode": "query",
+    "contract": "build",
+    "endpoint": "orders",
+    "input": {
+      "filters": [
+        {
+          "field": "country",
+          "operator": "eq",
+          "value": "x"
+        },
+        {
+          "field": "country",
+          "operator": "eq",
+          "value": "x"
+        },
+        {
+          "field": "country",
+          "operator": "eq",
+          "value": "x"
+        },
+        {
+          "field": "country",
+          "operator": "eq",
+          "value": "x"
+        },
+        {
+          "field": "country",
+          "operator": "eq",
+          "value": "x"
+        },
+        {
+          "field": "country",
+          "operator": "eq",
+          "value": "x"
+        },
+        {
+          "field": "country",
+          "operator": "eq",
+          "value": "x"
+        },
+        {
+          "field": "country",
+          "operator": "eq",
+          "value": "x"
+        },
+        {
+          "field": "country",
+          "operator": "eq",
+          "value": "x"
+        },
+        {
+          "field": "country",
+          "operator": "eq",
+          "value": "x"
+        },
+        {
+          "field": "country",
+          "operator": "eq",
+          "value": "x"
+        },
+        {
+          "field": "country",
+          "operator": "eq",
+          "value": "x"
+        },
+        {
+          "field": "country",
+          "operator": "eq",
+          "value": "x"
+        },
+        {
+          "field": "country",
+          "operator": "eq",
+          "value": "x"
+        },
+        {
+          "field": "country",
+          "operator": "eq",
+          "value": "x"
+        },
+        {
+          "field": "country",
+          "operator": "eq",
+          "value": "x"
+        },
+        {
+          "field": "country",
+          "operator": "eq",
+          "value": "x"
+        },
+        {
+          "field": "country",
+          "operator": "eq",
+          "value": "x"
+        },
+        {
+          "field": "country",
+          "operator": "eq",
+          "value": "x"
+        },
+        {
+          "field": "country",
+          "operator": "eq",
+          "value": "x"
+        },
+        {
+          "field": "country",
+          "operator": "eq",
+          "value": "x"
+        },
+        {
+          "field": "country",
+          "operator": "eq",
+          "value": "x"
+        },
+        {
+          "field": "country",
+          "operator": "eq",
+          "value": "x"
+        },
+        {
+          "field": "country",
+          "operator": "eq",
+          "value": "x"
+        },
+        {
+          "field": "country",
+          "operator": "eq",
+          "value": "x"
+        },
+        {
+          "field": "country",
+          "operator": "eq",
+          "value": "x"
+        },
+        {
+          "field": "country",
+          "operator": "eq",
+          "value": "x"
+        },
+        {
+          "field": "country",
+          "operator": "eq",
+          "value": "x"
+        },
+        {
+          "field": "country",
+          "operator": "eq",
+          "value": "x"
+        },
+        {
+          "field": "country",
+          "operator": "eq",
+          "value": "x"
+        },
+        {
+          "field": "country",
+          "operator": "eq",
+          "value": "x"
+        },
+        {
+          "field": "country",
+          "operator": "eq",
+          "value": "x"
+        },
+        {
+          "field": "country",
+          "operator": "eq",
+          "value": "x"
+        },
+        {
+          "field": "country",
+          "operator": "eq",
+          "value": "x"
+        },
+        {
+          "field": "country",
+          "operator": "eq",
+          "value": "x"
+        },
+        {
+          "field": "country",
+          "operator": "eq",
+          "value": "x"
+        },
+        {
+          "field": "country",
+          "operator": "eq",
+          "value": "x"
+        },
+        {
+          "field": "country",
+          "operator": "eq",
+          "value": "x"
+        },
+        {
+          "field": "country",
+          "operator": "eq",
+          "value": "x"
+        },
+        {
+          "field": "country",
+          "operator": "eq",
+          "value": "x"
+        },
+        {
+          "field": "country",
+          "operator": "eq",
+          "value": "x"
+        },
+        {
+          "field": "country",
+          "operator": "eq",
+          "value": "x"
+        },
+        {
+          "field": "country",
+          "operator": "eq",
+          "value": "x"
+        },
+        {
+          "field": "country",
+          "operator": "eq",
+          "value": "x"
+        },
+        {
+          "field": "country",
+          "operator": "eq",
+          "value": "x"
+        },
+        {
+          "field": "country",
+          "operator": "eq",
+          "value": "x"
+        },
+        {
+          "field": "country",
+          "operator": "eq",
+          "value": "x"
+        },
+        {
+          "field": "country",
+          "operator": "eq",
+          "value": "x"
+        },
+        {
+          "field": "country",
+          "operator": "eq",
+          "value": "x"
+        },
+        {
+          "field": "country",
+          "operator": "eq",
+          "value": "x"
+        },
+        {
+          "field": "country",
+          "operator": "eq",
+          "value": "x"
+        },
+        {
+          "field": "country",
+          "operator": "eq",
+          "value": "x"
+        },
+        {
+          "field": "country",
+          "operator": "eq",
+          "value": "x"
+        },
+        {
+          "field": "country",
+          "operator": "eq",
+          "value": "x"
+        },
+        {
+          "field": "country",
+          "operator": "eq",
+          "value": "x"
+        },
+        {
+          "field": "country",
+          "operator": "eq",
+          "value": "x"
+        },
+        {
+          "field": "country",
+          "operator": "eq",
+          "value": "x"
+        },
+        {
+          "field": "country",
+          "operator": "eq",
+          "value": "x"
+        },
+        {
+          "field": "country",
+          "operator": "eq",
+          "value": "x"
+        },
+        {
+          "field": "country",
+          "operator": "eq",
+          "value": "x"
+        },
+        {
+          "field": "country",
+          "operator": "eq",
+          "value": "x"
+        },
+        {
+          "field": "country",
+          "operator": "eq",
+          "value": "x"
+        },
+        {
+          "field": "country",
+          "operator": "eq",
+          "value": "x"
+        },
+        {
+          "field": "country",
+          "operator": "eq",
+          "value": "x"
+        },
+        {
+          "field": "country",
+          "operator": "eq",
+          "value": "x"
+        },
+        {
+          "field": "country",
+          "operator": "eq",
+          "value": "x"
+        },
+        {
+          "field": "country",
+          "operator": "eq",
+          "value": "x"
+        },
+        {
+          "field": "country",
+          "operator": "eq",
+          "value": "x"
+        },
+        {
+          "field": "country",
+          "operator": "eq",
+          "value": "x"
+        },
+        {
+          "field": "country",
+          "operator": "eq",
+          "value": "x"
+        },
+        {
+          "field": "country",
+          "operator": "eq",
+          "value": "x"
+        },
+        {
+          "field": "country",
+          "operator": "eq",
+          "value": "x"
+        },
+        {
+          "field": "country",
+          "operator": "eq",
+          "value": "x"
+        },
+        {
+          "field": "country",
+          "operator": "eq",
+          "value": "x"
+        },
+        {
+          "field": "country",
+          "operator": "eq",
+          "value": "x"
+        },
+        {
+          "field": "country",
+          "operator": "eq",
+          "value": "x"
+        },
+        {
+          "field": "country",
+          "operator": "eq",
+          "value": "x"
+        },
+        {
+          "field": "country",
+          "operator": "eq",
+          "value": "x"
+        },
+        {
+          "field": "country",
+          "operator": "eq",
+          "value": "x"
+        },
+        {
+          "field": "country",
+          "operator": "eq",
+          "value": "x"
+        },
+        {
+          "field": "country",
+          "operator": "eq",
+          "value": "x"
+        },
+        {
+          "field": "country",
+          "operator": "eq",
+          "value": "x"
+        },
+        {
+          "field": "country",
+          "operator": "eq",
+          "value": "x"
+        },
+        {
+          "field": "country",
+          "operator": "eq",
+          "value": "x"
+        },
+        {
+          "field": "country",
+          "operator": "eq",
+          "value": "x"
+        },
+        {
+          "field": "country",
+          "operator": "eq",
+          "value": "x"
+        },
+        {
+          "field": "country",
+          "operator": "eq",
+          "value": "x"
+        },
+        {
+          "field": "country",
+          "operator": "eq",
+          "value": "x"
+        },
+        {
+          "field": "country",
+          "operator": "eq",
+          "value": "x"
+        },
+        {
+          "field": "country",
+          "operator": "eq",
+          "value": "x"
+        },
+        {
+          "field": "country",
+          "operator": "eq",
+          "value": "x"
+        },
+        {
+          "field": "country",
+          "operator": "eq",
+          "value": "x"
+        },
+        {
+          "field": "country",
+          "operator": "eq",
+          "value": "x"
+        },
+        {
+          "field": "country",
+          "operator": "eq",
+          "value": "x"
+        },
+        {
+          "field": "country",
+          "operator": "eq",
+          "value": "x"
+        },
+        {
+          "field": "country",
+          "operator": "eq",
+          "value": "x"
+        },
+        {
+          "field": "country",
+          "operator": "eq",
+          "value": "x"
+        },
+        {
+          "field": "country",
+          "operator": "eq",
+          "value": "x"
+        },
+        {
+          "field": "country",
+          "operator": "eq",
+          "value": "x"
+        },
+        {
+          "field": "country",
+          "operator": "eq",
+          "value": "x"
+        }
+      ],
+      "having": [
+        {
+          "measure": "revenue",
+          "operator": "gt",
+          "value": 1
+        }
+      ]
+    },
+    "error": "HQ_CLIENT_QUERY",
+    "path": "",
+    "message": "Invalid client query."
+  },
+  {
+    "id": "too-many-filter-values",
+    "mode": "query",
+    "contract": "build",
+    "endpoint": "orders",
+    "input": {
+      "filters": [
+        {
+          "field": "country",
+          "operator": "in",
+          "value": [
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x"
+          ]
+        }
+      ]
+    },
+    "error": "HQ_CLIENT_QUERY",
+    "path": "",
+    "message": "Invalid client query."
+  },
+  {
+    "id": "duplicate-order",
+    "mode": "query",
+    "contract": "build",
+    "endpoint": "orders",
+    "input": {
+      "orderBy": [
+        {
+          "field": "revenue",
+          "direction": "asc"
+        },
+        {
+          "field": "revenue",
+          "direction": "asc"
+        }
+      ]
+    },
+    "error": "HQ_CLIENT_QUERY",
+    "path": "",
+    "message": "Invalid client query."
+  }
+]
