@@ -73,6 +73,21 @@ def export_client_contract(
     final paths including router/inclusion prefixes; this pure function cannot
     infer how an application is mounted. Live authorized views belong to Serve.
     """
+    return export_registered_client_contract(
+        [(endpoint, registry) for endpoint in endpoints], mount_path=mount_path
+    )
+
+
+def export_registered_client_contract(
+    endpoints: Sequence[tuple[ClientEndpointDefinition, DatasetRegistry | None]],
+    *,
+    mount_path: str = "",
+) -> PreparedProtocolClientContract:
+    """Export a build view where each endpoint resolves fields in its own registry.
+
+    Separate clients may register different datasets under one name, so their
+    registries are never merged into a shared namespace.
+    """
     if mount_path and (not mount_path.startswith("/") or mount_path.endswith("/")):
         raise ValueError("mount_path must be empty or an absolute path without a trailing slash")
     return prepare_protocol_client_contract(
@@ -81,7 +96,8 @@ def export_client_contract(
             "version": 1,
             "view": "build",
             "endpoints": [
-                endpoint_descriptor(endpoint, registry, mount_path) for endpoint in endpoints
+                endpoint_descriptor(endpoint, registry, mount_path)
+                for endpoint, registry in endpoints
             ],
         }
     )
