@@ -29,9 +29,13 @@ Report unsupported arrays/maps/tuples/aggregate states rather than assuming stri
 Unwrap Nullable/LowCardinality for scalar mapping. Fail before writes on semantic
 name collisions, invalid identifiers, missing tables or no supported scalar fields.
 
-`totalCount` aggregates constant `1`, avoiding nullable-column undercounting.
-It uses the SDK SQL-backed measure form, which cannot participate in relationship
-joins; review/replace it when adding relationship measures. `time_key` prefers an
+`totalCount` counts the first supported non-nullable column, so it counts every
+row while staying column-backed for deployment and relationship joins. If no
+supported non-nullable column exists, Python omits `totalCount`, generates
+`nonNullCount` over the first supported column and warns that it excludes NULLs.
+The generated example query uses the count actually emitted. This is a deliberate
+correction to the TypeScript-style nullable fallback: a count of non-null values
+must not be labelled a total row count. `time_key` prefers an
 actual timestamp `created_at`, otherwise the sole timestamp. Multiple alternatives
 require explicit review. Catalog metadata cannot infer business relationships or
 trusted tenant boundaries.

@@ -12,6 +12,7 @@ from fastapi import Request
 from ..datasets import Dataset
 from ..datasets.client import AsyncDatasetClient, DatasetClient, DatasetQueryResult
 from ..datasets.planner import CompiledQueryError, DatasetQuery, Deadline, ExecutionContext
+from ..datasets.planner.resolution import selected_measure_names
 from ..datasets.validation import validate_identifier
 from .auth import Principal, RequestAuth
 from .errors import ServeError
@@ -87,7 +88,12 @@ class DatasetEndpoint:
             query = self.alias.query(query)
         result = await self._run(request, query, auth, profile)
         include_meta = payload.include_meta or request.headers.get("x-include-meta") == "true"
-        response = public_response(result, ensure_request_id(request), include_meta, self.dataset)
+        response = public_response(
+            result,
+            ensure_request_id(request),
+            include_meta,
+            selected_measure_names(self.dataset, query),
+        )
         if self.alias is not None:
             response.data = self.alias.rows(response.data)
         if include_meta and self.diagnostics and auth:

@@ -53,6 +53,7 @@ def _generate() -> dict[str, object]:
             "warnings": list(generated.warnings),
             "tables": list(generated.tables),
             "firstDimension": generated.first_dimension,
+            "firstCountMeasure": generated.first_count_measure,
         }
     return cases
 

@@ -56,7 +56,12 @@ class CorsPolicy:
     origins: tuple[str, ...]
     allow_credentials: bool = False
     allow_methods: tuple[str, ...] = ("GET", "POST")
-    allow_headers: tuple[str, ...] = ("Authorization", "Content-Type", "X-Request-ID")
+    allow_headers: tuple[str, ...] = (
+        "Authorization",
+        "Content-Type",
+        "X-Request-ID",
+        "X-Include-Meta",
+    )
     max_age: int = 600
 
     def __post_init__(self) -> None:
