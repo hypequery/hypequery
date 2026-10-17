@@ -1,5 +1,25 @@
 # @hypequery/mcp
 
+## 0.10.0
+
+### Minor Changes
+
+- bb5541e: Add an HTTP MCP executor over authorized Python client contracts, retaining
+  endpoint-specific query permissions and schema pins. Bound discovery, tool
+  manifests, streamed JSON results and execution time; reject redirects, stale
+  views, private metadata and result fields outside the requested projection.
+  Existing local and discovery-only executors remain supported.
+  `MCPToolExecutor.listTools`, `listPrompts` and `getPrompt` accept an optional
+  cancellation signal, which the protocol server now forwards from each request.
+
+### Patch Changes
+
+- 94710d7: Exclude internal runtime and type-test programs from published package tarballs while preserving public runtime and declaration exports.
+- Updated dependencies [c4082b4]
+- Updated dependencies [94710d7]
+  - @hypequery/protocol@0.21.0
+  - @hypequery/datasets@0.24.0
+
 ## 0.9.0
 
 ### Minor Changes
