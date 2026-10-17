@@ -217,3 +217,52 @@ def test_explicit_public_discovery_projects_anonymous_capabilities_only() -> Non
     assert response.status_code == 200
     assert [item["id"] for item in response.json()["endpoints"]] == ["publicOrders"]
     assert response.headers["cache-control"] == "no-store"
+
+
+def test_each_target_is_authenticated_by_its_own_router() -> None:
+    def admin_auth(credential: Credential) -> Principal | None:
+        return Principal(subject="admin") if credential.value in ("admin", "both") else None
+
+    def reader_auth(credential: Credential) -> Principal | None:
+        return Principal(subject="user") if credential.value in ("reader", "both") else None
+
+    main = create_api(authenticate=reader_auth)
+    admin = create_api(authenticate=admin_auth, prefix="/admin")
+    for router, name in ((main, "orders"), (admin, "payroll")):
+        add_dataset_endpoint(
+            router,
+            "/" + name,
+            dataset=Dataset(name=name, source="private", dimensions={"id": dimension.string()}),
+            client=create_dataset_client(executor=Executor()),
+            client_profile=ClientQueryProfile(),
+        )
+    add_client_contract_endpoint(main, routers=[main, admin])
+    app = FastAPI()
+    app.include_router(main)
+    app.include_router(admin)
+    with TestClient(app) as http:
+        reader = http.get("/client-contract", headers={"Authorization": "Bearer reader"})
+        both = http.get("/client-contract", headers={"Authorization": "Bearer both"})
+    assert [item["id"] for item in reader.json()["endpoints"]] == ["orders"]
+    assert "payroll" not in reader.text
+    assert [item["id"] for item in both.json()["endpoints"]] == ["orders", "payroll"]
+
+
+def test_public_targets_are_checked_without_the_callers_tenant() -> None:
+    def tenant_auth(credential: Credential) -> Principal:
+        return Principal(subject="user", tenant_id="tenant-a")
+
+    router = create_api(authenticate=tenant_auth)
+    add_dataset_endpoint(
+        router,
+        "/public",
+        dataset=Dataset(name="public", source="private", dimensions={"id": dimension.string()}),
+        client=create_dataset_client(executor=Executor()),
+        policy=EndpointPolicy(public=True, tenant="forbidden"),
+        client_profile=ClientQueryProfile(),
+    )
+    add_client_contract_endpoint(router)
+    app = create_app(router, security=HttpSecurity(allowed_hosts=("testserver",)))
+    with TestClient(app) as http:
+        response = http.get("/client-contract", headers={"Authorization": "Bearer any"})
+    assert [item["id"] for item in response.json()["endpoints"]] == ["public"]
