@@ -76,7 +76,7 @@ try {
     await page.getByRole('textbox', { name: 'User token' }).fill(token);
     await page.getByRole('button', { name: 'Connect as user' }).click();
     await eventually(async () => await page.getByRole('status').textContent() === 'Ready' && JSON.stringify(semanticRows(await journey.result('Related'))) === JSON.stringify(semanticRows(oracle[tenant].related)), 'Semantic hooks did not match independent SQL');
-    for (const [title, name] of [['Related', 'related'], ['Having', 'having'], ['Timezone', 'time']]) assert.deepEqual(semanticRows(await journey.result(title)), semanticRows(oracle[tenant][name]));
+    for (const [title, name] of [['Related', 'related'], ['Having', 'having'], ['Having total', 'havingTotal'], ['Timezone', 'time']]) assert.deepEqual(semanticRows(await journey.result(title)), semanticRows(oracle[tenant][name]));
   }
   assert(posts >= 18 && pinned === posts && metadata > 0);
   assert.deepEqual(errors, []);
