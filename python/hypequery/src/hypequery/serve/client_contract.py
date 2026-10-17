@@ -12,6 +12,8 @@ from fastapi.routing import APIRoute, iter_route_contexts
 from ..datasets import ClientEndpointDefinition, ClientQueryProfile, Dataset
 from ..datasets import export_client_contract as export_definition_contract
 from ..datasets.client import AsyncDatasetClient, DatasetClient
+from ..datasets.client_contract.export import export_registered_client_contract
+from ..datasets.registry import DatasetRegistry
 from ..protocol import (
     PreparedProtocolClientContract,
     ProtocolClientContractError,
@@ -168,8 +170,7 @@ def export_client_contract(
         if mount_path is not None and mount_path != configured_mount:
             raise ValueError("application mount path must match its execution configuration")
         mount = configured_mount
-    definitions: list[ClientEndpointDefinition] = []
-    registry_datasets: dict[str, Dataset] = {}
+    definitions: list[tuple[ClientEndpointDefinition, DatasetRegistry | None]] = []
     seen_paths: set[str] = set()
     routes = list(iter_route_contexts(source.routes))
     for route in routes:
@@ -192,15 +193,5 @@ def export_client_contract(
         if route.path in seen_paths or client_route_conflicts(route, routes):
             raise ValueError("client export refuses ambiguous POST route paths")
         seen_paths.add(route.path)
-        definitions.append(binding.definition(route.path, production))
-        if binding.client.registry is not None:
-            for dataset in binding.client.registry.get_all():
-                previous = registry_datasets.get(dataset.name)
-                if previous is not None and previous != dataset:
-                    raise ValueError("client export has conflicting dataset registries")
-                registry_datasets[dataset.name] = dataset
-    from ..datasets import create_dataset_registry
-
-    return export_definition_contract(
-        definitions, mount_path=mount, registry=create_dataset_registry(*registry_datasets.values())
-    )
+        definitions.append((binding.definition(route.path, production), binding.client.registry))
+    return export_registered_client_contract(definitions, mount_path=mount)
