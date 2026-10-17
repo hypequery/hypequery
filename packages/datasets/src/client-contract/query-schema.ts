@@ -61,10 +61,16 @@ function endpointSchema(contract: ProtocolClientContract, endpoint: ProtocolClie
     fields.dataset = z.literal(endpoint.dataset);
     if (endpoint.kind === 'metric') fields.metric = z.literal(endpoint.id);
   }
-  return z.object(fields).strict().superRefine((input, context) => {
+  // Validate before zod reads properties: the runtime validator snapshots input
+  // without invoking accessors, so a hostile getter cannot escape safeParse.
+  return z.preprocess((input, context) => {
     try { validateProtocolClientQuery(contract, endpoint.id, input, transport); }
-    catch { context.addIssue({ code: z.ZodIssueCode.custom, message: 'Invalid client query.' }); }
-  });
+    catch {
+      context.addIssue({ code: z.ZodIssueCode.custom, message: 'Invalid client query.' });
+      return z.NEVER;
+    }
+    return input;
+  }, z.object(fields).strict());
 }
 /** Compile typed endpoint and MCP schemas from the same validated client descriptor.
  * JSON Schema describes structural constraints; execution must retain the runtime
