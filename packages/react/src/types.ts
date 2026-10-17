@@ -1,3 +1,5 @@
+import type { ClientOutputForInput } from './utils/client-projection.js';
+
 export type HttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
 
 export type KnownStringKeys<T> = {
@@ -74,14 +76,22 @@ type MetricOutputForInput<TInfo, TInput, TFallback> =
       >
     : TFallback;
 
-export type QueryOutputForInput<
+type LegacyOutputForInput<
   Api,
   Name extends ExtractNames<Api>,
   TInput,
-> = SemanticInfo<Api, Name> extends infer Info
+> = [SemanticInfo<Api, Name>] extends [never]
+  ? QueryOutput<Api, Name>
+  : SemanticInfo<Api, Name> extends infer Info
   ? Info extends { kind: 'dataset' }
     ? DatasetOutputForInput<Info, TInput, QueryOutput<Api, Name>>
     : Info extends { kind: 'metric' }
       ? MetricOutputForInput<Info, TInput, QueryOutput<Api, Name>>
       : QueryOutput<Api, Name>
   : QueryOutput<Api, Name>;
+
+/** Narrow generated client rows while retaining the legacy semantic and ordinary API contracts. */
+export type QueryOutputForInput<Api, Name extends ExtractNames<Api>, TInput> =
+  '__hypequeryClientSemantic' extends keyof Api[Name]
+    ? ClientOutputForInput<NonNullable<Api[Name]['__hypequeryClientSemantic']>, TInput, QueryOutput<Api, Name>>
+    : LegacyOutputForInput<Api, Name, TInput>;

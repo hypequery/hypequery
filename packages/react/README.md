@@ -85,6 +85,39 @@ export const { useMetric, useDataset } =
   });
 ```
 
+## Use Python datasets
+
+Generate a TypeScript client file from the Python build contract with
+`hypequery generate:client client-contract.json --output src/hypequery-client.ts`.
+Use its API type and route map directly:
+
+```tsx
+import { createAnalyticsHooks } from '@hypequery/react';
+import { clientManifest, type ClientApi } from './hypequery-client.js';
+
+export const { useDataset, useMetric, useInfiniteDataset } =
+  createAnalyticsHooks<ClientApi>({
+    baseUrl: 'https://analytics.example.com',
+    manifest: clientManifest,
+    token: () => getShortLivedUserToken(),
+  });
+```
+
+Use the endpoint origin as `baseUrl`: generated paths already contain the full
+installed mount prefix. Every request sends its endpoint schema hash. A `409`
+with `CLIENT_SCHEMA_CHANGED` requires explicit regeneration and review; the client
+does not fetch a replacement schema or refresh authentication for that response.
+TanStack Query retry/refetch policies remain configurable by your application.
+Use a new client or cache scope when the deployment, user or authorization scope
+changes; a token resolver changing its return value does not invalidate cached data.
+
+Literal selections expose their selected fields. Omitted measures use the exported
+`defaultMeasures`; `measures: []` selects none. Numeric dimension values may be
+numbers or strings, unknown/related nullability includes null, and aggregates use
+strings or null. A time bucket may be null. Widened query inputs retain optional
+fields because their actual selection is known only at runtime. Existing server
+inference and handwritten API types remain supported.
+
 ## Build the dashboard
 
 ```tsx

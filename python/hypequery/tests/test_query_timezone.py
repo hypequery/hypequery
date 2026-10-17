@@ -16,6 +16,7 @@ from pydantic import ValidationError
 
 from hypequery.datasets import (
     CachedRows,
+    ClientQueryProfile,
     Dataset,
     DatasetQuery,
     MemoryCacheStore,
@@ -40,6 +41,7 @@ from hypequery.serve import (
     add_metric_endpoint,
     create_app,
     create_router,
+    export_client_contract,
 )
 from hypequery.serve.models import MetricRequest, QueryRequest
 
@@ -333,3 +335,51 @@ def test_base_timezone_validation_without_system_iana_data() -> None:
     finally:
         zoneinfo.reset_tzpath(original)
         zoneinfo.ZoneInfo.clear_cache()
+
+
+@LIVE
+@pytest.mark.parametrize(
+    ("grain", "function"), [("day", "toStartOfDay"), ("month", "toStartOfMonth")]
+)
+def test_live_nullable_period_survives_strict_http(grain: str, function: str) -> None:
+    """Generated clients must allow null buckets without silently dropping source rows."""
+    with live_database() as (admin, executor):
+        admin.command(
+            "CREATE TABLE events (id UInt64, occurred_at Nullable(DateTime64(3, 'UTC'))) "
+            "ENGINE=Memory"
+        )
+        admin.command("INSERT INTO events VALUES (1, NULL), (2, '2026-01-02 12:00:00')")
+        events = Dataset(
+            name="events",
+            source="events",
+            time_key="occurred_at",
+            dimensions={},
+            measures={"rows": measure.count("id")},
+        )
+        router = create_router(authenticate=lambda _: Principal(subject="reader"))
+        add_dataset_endpoint(
+            router,
+            "/query",
+            dataset=events,
+            client=create_dataset_client(executor=executor),
+            client_profile=ClientQueryProfile(),
+        )
+        app = create_app(router, security=HttpSecurity(allowed_hosts=("testserver",)))
+        contract = export_client_contract(app)["contract"]
+        schema_hash = contract["endpoints"][0]["schemaHash"]
+        with TestClient(app) as http:
+            response = http.post(
+                "/query",
+                headers={"Authorization": "Bearer test", "X-Hypequery-Client-Schema": schema_hash},
+                json={"by": grain, "orderBy": [{"field": "period", "direction": "asc"}]},
+            )
+        assert response.status_code == 200, response.text
+        raw = admin.raw_query(
+            "SELECT toString(" + function + "(toDateTime64(occurred_at, 9, 'UTC'))) AS period, "  # noqa: S608 - fixed functions
+            "toString(count(id)) AS rows FROM events GROUP BY period ORDER BY period",
+            fmt="JSONEachRow",
+        )
+        expected = [json.loads(line) for line in raw.decode().splitlines()]
+        assert response.json()["data"] == expected
+        assert any(row["period"] is None for row in expected)
+        assert sum(int(row["rows"]) for row in expected) == 2

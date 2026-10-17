@@ -231,7 +231,9 @@ timezone data is a runtime configuration error.
 
 HTTP uses by; MCP translates grain to by. If time is null, neither by nor timezone
 is accepted. If time.timezone=false, timezone is absent. Period is present only
-when by is supplied. Minute/hour/day periods use YYYY-MM-DD HH:MM:SS wall-clock
+when by is supplied. A nullable physical time key may produce a null period;
+consumers must preserve that bucket and allow null rather than dropping rows.
+Non-null minute/hour/day periods use YYYY-MM-DD HH:MM:SS wall-clock
 text in the query timezone; week/month/quarter/year use YYYY-MM-DD, following
 RFC 0015. Ordering period requires a grain in that request.
 
