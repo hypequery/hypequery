@@ -285,3 +285,18 @@ export type {
 } from './query-implementations/index.js';
 
 export { PROTOCOL_SEMANTIC_FAILURE_MESSAGES } from './invocations/failure-messages.js';
+
+export {
+  PROTOCOL_FIELD_VISIBILITY_LIMITS,
+  ProtocolFieldVisibilityError,
+  resolveProtocolVisibleDatasetFields,
+  validateProtocolFieldVisibility,
+} from './visibility/index.js';
+
+export type {
+  ProtocolDatasetVisibility,
+  ProtocolFieldVisibility,
+  ProtocolFieldVisibilityErrorCode,
+  ProtocolVisibleDatasetFields,
+  ProtocolVisibleFields,
+} from './visibility/index.js';
