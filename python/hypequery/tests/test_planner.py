@@ -403,8 +403,7 @@ def test_a_measure_filter_alone_activates_its_relationship_join(
     )
     assert (
         "sumIf(`__hq_base`.`fare`, if(isNotNull(`customer`.`_hq_match`), "
-        "`customer`.`country`, NULL) = {p0:String})"
-        in compiled.sql
+        "`customer`.`country`, NULL) = {p0:String})" in compiled.sql
     )
 
 
