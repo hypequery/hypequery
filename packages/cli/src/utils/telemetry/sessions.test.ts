@@ -67,6 +67,12 @@ describe('aggregate CLI session telemetry', () => {
     expect(session.snapshot()).toEqual({ tool_call_counts: { list: '1', describe: '1', query: '2-5' }, error_count_bucket: '2-5' });
     expect(JSON.stringify(session.snapshot())).not.toContain('PRIVATE');
     expect(wrapped.getManifestHash()).toBe('hash');
+    await wrapped.listTools(signal);
+    await wrapped.listPrompts(signal);
+    await wrapped.getPrompt('guide', { dataset: 'orders' }, signal);
+    expect(executor.listTools).toHaveBeenCalledWith(signal);
+    expect(executor.listPrompts).toHaveBeenCalledWith(signal);
+    expect(executor.getPrompt).toHaveBeenCalledWith('guide', { dataset: 'orders' }, signal);
   });
 
   it('classifies startup choices without copying arbitrary flag values', () => {

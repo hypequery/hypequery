@@ -217,6 +217,39 @@ describe('hypequery mcp', () => {
     expect(logger.success).not.toHaveBeenCalled();
   });
 
+  it.each([
+    ['api.ts', {}], [undefined, { path: './analytics' }],
+    [undefined, { tenant: 'PRIVATE' }], [undefined, { url: 'https://mcp.test' }],
+  ] as const)('refuses conflicting HTTP mode inputs before importing code (%s)', async (file, options) => {
+    const loadApi = vi.fn();
+    const loadMcp = vi.fn();
+    await expect(mcpCommand(file, { ...options, clientContractUrl: 'https://backend.test/client-contract' }, { loadApi, loadMcp })).rejects.toThrow('process.exit:1');
+    expect(loadApi).not.toHaveBeenCalled();
+    expect(loadMcp).not.toHaveBeenCalled();
+  });
+
+  it('takes the HTTP path without resolving a local API and reports the mode without URL/key telemetry', async () => {
+    const record = vi.fn();
+    const spy = vi.spyOn(TelemetryInvocation, 'create').mockResolvedValue({ common, record, flush: vi.fn() } as unknown as TelemetryInvocation);
+    const loadApi = vi.fn();
+    const create = vi.fn(async () => ({ listTools: async () => ({ tools: [] }) }));
+    try {
+      const lifecycle = new CommandLifecycle(['mcp', '--self-test', '--client-contract-url', 'https://PRIVATE.test/PRIVATE']);
+      await lifecycle.begin('mcp');
+      await withCommandTelemetry(lifecycle, () => mcpCommand(undefined, { selfTest: true, clientContractUrl: 'https://PRIVATE.test/PRIVATE' }, {
+        loadApi, env: { HYPEQUERY_API_KEY: 'PRIVATE_KEY' },
+        loadMcp: async () => ({ createMCPHttpExecutor: create, createMCPProtocolServer: vi.fn(), connectMCPServerStdio: vi.fn() }),
+      }));
+      await lifecycle.finish(new CommandExit(0, 'success'));
+      expect(loadApi).not.toHaveBeenCalled();
+      const event = record.mock.calls[0][0];
+      expect(event.properties).toMatchObject({ mode: 'self_test', http_backend: true, hosted: false, tenant_used: false });
+      expect(validateTelemetryEvent(event)).toBe(true);
+      expect(JSON.stringify(event)).not.toContain('PRIVATE');
+      expect(event.properties.flags_used).toContain('--client-contract-url');
+    } finally { spy.mockRestore(); }
+  });
+
   describe('--self-test --url', () => {
     const url = 'https://cloud.example.test/api/gateway/p/production/mcp';
 

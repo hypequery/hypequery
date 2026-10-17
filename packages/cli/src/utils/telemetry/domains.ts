@@ -21,7 +21,7 @@ export type TelemetryCommand = typeof COMMANDS[number];
 export const COMMAND_FLAGS = {
   init: ['--path', '--style', '--database', '--chdb-path', '--auth', '--all-tables', '--tables', '--exclude-tables', '--no-example', '--no-interactive', '--force', '--skip-connection'],
   dev: ['--port', '--hostname', '--no-watch', '--no-cache', '--cache', '--redis-url', '--open', '--cors', '--path', '--quiet'],
-  mcp: ['--path', '--tenant', '--self-test', '--url'],
+  mcp: ['--path', '--tenant', '--self-test', '--url', '--client-contract-url'],
   generate: ['--output', '--path', '--tables', '--database', '--chdb-path'],
   'generate:types': ['--output', '--path', '--tables', '--database', '--chdb-path'],
   'generate:datasets': ['--output', '--path', '--tables', '--exclude-tables', '--tenant-column', '--force', '--check', '--diff'],
@@ -44,7 +44,7 @@ export const GLOBAL_FLAGS = ['--no-telemetry', '--help', '--version'] as const;
 export const VALUE_FLAGS = {
   init: ['--path', '--style', '--database', '--chdb-path', '--auth', '--tables', '--exclude-tables'],
   dev: ['--port', '--hostname', '--cache', '--redis-url', '--path'],
-  mcp: ['--path', '--tenant', '--url'],
+  mcp: ['--path', '--tenant', '--url', '--client-contract-url'],
   generate: ['--output', '--path', '--tables', '--database', '--chdb-path'],
   'generate:types': ['--output', '--path', '--tables', '--database', '--chdb-path'],
   'generate:datasets': ['--output', '--path', '--tables', '--exclude-tables', '--tenant-column'],
