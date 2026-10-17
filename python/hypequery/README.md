@@ -1294,3 +1294,48 @@ Run both implementations' shared HTTP gates after building TypeScript packages:
 ```bash
 pnpm conformance:serve
 ```
+
+### Definition-only client artifacts
+
+The base install can prepare an RFC 0018 build artifact for frontend/MCP tooling
+without importing FastAPI or constructing a database executor:
+
+```python
+from hypequery.datasets import (
+    ClientEndpointDefinition,
+    ClientQueryProfile,
+    export_client_contract,
+)
+
+artifact = export_client_contract(
+    [
+        ClientEndpointDefinition(
+            dataset=Orders,
+            path="/api/datasets/orders/query",
+            profile=ClientQueryProfile(default_limit=100, max_limit=100),
+        ),
+        ClientEndpointDefinition(
+            dataset=Orders,
+            path="/api/metrics/revenue",
+            profile=ClientQueryProfile(default_limit=100, max_limit=100),
+            measure="revenue",
+            name="sales",  # metric ID and output alias
+        ),
+    ],
+    mount_path="/analytics",
+)
+# artifact["canonical"] is the complete signed JSON document.
+```
+
+Supply a `registry` when definitions reference queryable relationships. Target
+filter permissions and safe relationship aggregate rules are resolved directly
+from definitions, including filter aliases and filter-only fields. Physical
+sources, columns, SQL, tenancy configuration and arbitrary metadata are omitted.
+Base-dimension nullability is conservatively unknown; joined dimensions are nullable.
+
+These definitions describe intended bindings and do not install HTTP routes.
+The host must supply final router/inclusion paths and trusted effective ceilings,
+reserving the pagination probe row from process/client row budgets, and enforce
+the advertised strict client profile. Dataset ceilings can only lower the
+profile. Router-owned registration, authorized discovery and the export CLI are
+separate integrations; this SDK does not infer deployment paths or permission.
