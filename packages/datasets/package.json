@@ -75,8 +75,8 @@
     "@hypequery/protocol-conformance": "workspace:^",
     "@types/node": "^18.19.80",
     "typescript": "^6.0.3",
-    "@vitest/coverage-v8": "^5.0.2",
-    "vitest": "^5.0.2"
+    "@vitest/coverage-v8": "^5.0.4",
+    "vitest": "^5.0.4"
   },
   "repository": {
     "type": "git",
