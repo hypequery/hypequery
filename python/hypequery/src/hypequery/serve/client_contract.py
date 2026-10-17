@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Awaitable, Callable, Mapping, Sequence
 from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING, Literal, cast
 
@@ -12,6 +12,8 @@ from fastapi.routing import APIRoute, iter_route_contexts
 from ..datasets import ClientEndpointDefinition, ClientQueryProfile, Dataset
 from ..datasets import export_client_contract as export_definition_contract
 from ..datasets.client import AsyncDatasetClient, DatasetClient
+from ..datasets.client_contract.export import export_registered_client_contract
+from ..datasets.registry import DatasetRegistry
 from ..protocol import (
     PreparedProtocolClientContract,
     ProtocolClientContractError,
@@ -109,8 +111,11 @@ class ClientEndpointBinding:
 class ClientEndpointRegistry:
     """Owning registry for opted-in endpoints, frozen per installed binding."""
 
-    def __init__(self) -> None:
+    def __init__(self, guard: Callable[[Request], Awaitable[RequestAuth]] | None = None) -> None:
         self._bindings: list[ClientEndpointBinding] = []
+        #: The owning router's authentication; discovery authenticates each source
+        #: with its own guard rather than trusting another router's result.
+        self.guard = guard
 
     @property
     def bindings(self) -> tuple[ClientEndpointBinding, ...]:
@@ -135,13 +140,34 @@ class ClientEndpointRegistry:
                 continue
             if authorized:
                 try:
-                    binding.policy.authorize(auth)
+                    # Public routes run without authentication or a tenant.
+                    binding.policy.authorize(None if binding.policy.public else auth)
                 except ServeError as error:
                     if error.status_code in (401, 403):
                         return None
                     raise
             return binding
         return None
+
+
+def client_registries(
+    source: ServeRouter | FastAPI, routers: Sequence[ServeRouter] = ()
+) -> tuple[ClientEndpointRegistry, ...]:
+    """The installed binding registries an export or discovery view may project."""
+    from .router import ServeRouter
+
+    if isinstance(source, ServeRouter):
+        return (source.client_endpoints,)
+    owned: object = getattr(source.state, "hypequery_client_registries", None)
+    if owned is None and not routers:
+        raise ValueError("custom FastAPI exports require explicit Hypequery routers")
+    if routers:
+        return tuple(router.client_endpoints for router in routers)
+    if type(owned) is not tuple or any(
+        not isinstance(item, ClientEndpointRegistry) for item in owned
+    ):
+        raise ValueError("application client registries are misconfigured")
+    return cast(tuple[ClientEndpointRegistry, ...], owned)
 
 
 def export_client_contract(
@@ -151,34 +177,24 @@ def export_client_contract(
     production: ProductionProfile | None = None,
     mount_path: str | None = None,
     view: Literal["build", "authorized"] = "build",
-    auth: RequestAuth | None = None,
+    auths: Mapping[ClientEndpointRegistry, RequestAuth | None] | None = None,
 ) -> PreparedProtocolClientContract:
     """Export only opted-in routes actually installed on this router/application.
 
     For a custom FastAPI host, pass its source Hypequery routers explicitly.
     Mounted child apps require their trusted external mount_path. Proxy headers
     are never consulted. create_app stores its registry and mount configuration.
+    An authorized view checks each target against *auths*, the request's
+    authentication by that target's own router (None when it was refused).
     """
     from .router import ServeRouter
 
     if view not in ("build", "authorized"):
         raise ValueError("client export view must be build or authorized")
-    registries: tuple[ClientEndpointRegistry, ...]
+    registries = client_registries(source, routers)
     if isinstance(source, ServeRouter):
-        registries = (source.client_endpoints,)
         mount = "" if mount_path is None else mount_path
     else:
-        owned: object = getattr(source.state, "hypequery_client_registries", None)
-        if owned is None and not routers:
-            raise ValueError("custom FastAPI exports require explicit Hypequery routers")
-        if routers:
-            registries = tuple(router.client_endpoints for router in routers)
-        else:
-            if type(owned) is not tuple or any(
-                not isinstance(item, ClientEndpointRegistry) for item in owned
-            ):
-                raise ValueError("application client registries are misconfigured")
-            registries = cast(tuple[ClientEndpointRegistry, ...], owned)
         configured = getattr(source.state, "hypequery_production", None)
         if production is not None and production != configured:
             raise ValueError("application export must use its installed production profile")
@@ -187,8 +203,7 @@ def export_client_contract(
         if mount_path is not None and mount_path != configured_mount:
             raise ValueError("application mount path must match its execution configuration")
         mount = configured_mount
-    definitions: list[ClientEndpointDefinition] = []
-    registry_datasets: dict[str, Dataset] = {}
+    definitions: list[tuple[ClientEndpointDefinition, DatasetRegistry | None]] = []
     seen_paths: set[str] = set()
     routes = list(iter_route_contexts(source.routes))
     for route in routes:
@@ -204,7 +219,9 @@ def export_client_contract(
                 for registry in registries
                 if (
                     found := registry.find(
-                        route.original_route, authorized=view == "authorized", auth=auth
+                        route.original_route,
+                        authorized=view == "authorized",
+                        auth=(auths or {}).get(registry),
                     )
                 )
                 is not None
@@ -216,17 +233,6 @@ def export_client_contract(
         if route.path in seen_paths or client_route_conflicts(route, routes):
             raise ValueError("client export refuses ambiguous POST route paths")
         seen_paths.add(route.path)
-        definitions.append(binding.definition(route.path, production))
-        if binding.client.registry is not None:
-            for dataset in binding.client.registry.get_all():
-                previous = registry_datasets.get(dataset.name)
-                if previous is not None and previous != dataset:
-                    raise ValueError("client export has conflicting dataset registries")
-                registry_datasets[dataset.name] = dataset
-    from ..datasets import create_dataset_registry
-
-    prepared = export_definition_contract(
-        definitions, mount_path=mount, registry=create_dataset_registry(*registry_datasets.values())
-    )
-
+        definitions.append((binding.definition(route.path, production), binding.client.registry))
+    prepared = export_registered_client_contract(definitions, mount_path=mount)
     return client_contract_view(prepared, view)
