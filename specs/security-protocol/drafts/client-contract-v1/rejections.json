@@ -1,0 +1,422 @@
+[
+  {
+    "id": "unsupported-version",
+    "base": "build",
+    "set": [
+      {
+        "path": "/version",
+        "value": 2
+      }
+    ],
+    "rehash": true,
+    "error": "HQ_CLIENT_VERSION"
+  },
+  {
+    "id": "unknown-root-field",
+    "base": "build",
+    "set": [
+      {
+        "path": "/tenant",
+        "value": "synthetic_tenant"
+      }
+    ],
+    "rehash": true,
+    "error": "HQ_CLIENT_UNKNOWN_FIELD"
+  },
+  {
+    "id": "physical-source",
+    "base": "build",
+    "set": [
+      {
+        "path": "/endpoints/1/source",
+        "value": "private_orders"
+      }
+    ],
+    "rehash": true,
+    "error": "HQ_CLIENT_UNKNOWN_FIELD"
+  },
+  {
+    "id": "physical-column",
+    "base": "build",
+    "set": [
+      {
+        "path": "/endpoints/1/dimensions/country/column",
+        "value": "private_country"
+      }
+    ],
+    "rehash": true,
+    "error": "HQ_CLIENT_UNKNOWN_FIELD"
+  },
+  {
+    "id": "duplicate-endpoint",
+    "base": "build",
+    "set": [
+      {
+        "path": "/endpoints/-",
+        "value": {
+          "id": "countries",
+          "kind": "dataset",
+          "dataset": "countries",
+          "path": "/api/v1/datasets/countries/query",
+          "dimensions": {
+            "country": {
+              "type": "string",
+              "wireType": "string",
+              "nullable": false,
+              "groupable": true,
+              "orderable": true
+            }
+          },
+          "measures": {},
+          "filters": {},
+          "time": null,
+          "defaultMeasures": [],
+          "metadata": false,
+          "limits": {
+            "defaultLimit": 100,
+            "maxLimit": 1000,
+            "maxOffset": 10000,
+            "maxDimensions": 50,
+            "maxMeasures": 0,
+            "maxPredicates": 0,
+            "maxOrderBy": 50,
+            "maxFilterValues": 1000
+          },
+          "schemaHash": "9a5f50cd7564f283d2f0ee8f3f1cdc27731683c939e176bd25919a83d28d94ca"
+        }
+      }
+    ],
+    "rehash": true,
+    "error": "HQ_CLIENT_DUPLICATE"
+  },
+  {
+    "id": "dataset-id-mismatch",
+    "base": "build",
+    "set": [
+      {
+        "path": "/endpoints/1/dataset",
+        "value": "differentOrders"
+      }
+    ],
+    "rehash": true,
+    "error": "HQ_CLIENT_REFERENCE"
+  },
+  {
+    "id": "foreign-route",
+    "base": "build",
+    "set": [
+      {
+        "path": "/endpoints/1/path",
+        "value": "https://other.example/query"
+      }
+    ],
+    "rehash": true,
+    "error": "HQ_CLIENT_PATH"
+  },
+  {
+    "id": "encoded-route",
+    "base": "build",
+    "set": [
+      {
+        "path": "/endpoints/1/path",
+        "value": "/api/%2e%2e/private"
+      }
+    ],
+    "rehash": true,
+    "error": "HQ_CLIENT_PATH"
+  },
+  {
+    "id": "dot-segment",
+    "base": "build",
+    "set": [
+      {
+        "path": "/endpoints/1/path",
+        "value": "/api/../private"
+      }
+    ],
+    "rehash": true,
+    "error": "HQ_CLIENT_PATH"
+  },
+  {
+    "id": "templated-route",
+    "base": "build",
+    "set": [
+      {
+        "path": "/endpoints/1/path",
+        "value": "/datasets/{dataset}/query"
+      }
+    ],
+    "rehash": true,
+    "error": "HQ_CLIENT_PATH"
+  },
+  {
+    "id": "query-in-route",
+    "base": "build",
+    "set": [
+      {
+        "path": "/endpoints/1/path",
+        "value": "/query?tenant=synthetic"
+      }
+    ],
+    "rehash": true,
+    "error": "HQ_CLIENT_PATH"
+  },
+  {
+    "id": "unknown-default-measure",
+    "base": "build",
+    "set": [
+      {
+        "path": "/endpoints/1/defaultMeasures",
+        "value": [
+          "missing"
+        ]
+      }
+    ],
+    "rehash": true,
+    "error": "HQ_CLIENT_REFERENCE"
+  },
+  {
+    "id": "duplicate-default-measure",
+    "base": "build",
+    "set": [
+      {
+        "path": "/endpoints/1/defaultMeasures",
+        "value": [
+          "revenue",
+          "revenue"
+        ]
+      }
+    ],
+    "rehash": true,
+    "error": "HQ_CLIENT_DUPLICATE"
+  },
+  {
+    "id": "measure-dimension-collision",
+    "base": "build",
+    "set": [
+      {
+        "path": "/endpoints/1/measures/country",
+        "value": {
+          "wireType": "string",
+          "nullable": true,
+          "having": false
+        }
+      }
+    ],
+    "rehash": true,
+    "error": "HQ_CLIENT_REFERENCE"
+  },
+  {
+    "id": "invalid-qualified-name",
+    "base": "build",
+    "set": [
+      {
+        "path": "/endpoints/1/dimensions/customer.next.tier",
+        "value": {
+          "type": "string",
+          "wireType": "string",
+          "nullable": false,
+          "groupable": true,
+          "orderable": true
+        }
+      }
+    ],
+    "rehash": true,
+    "error": "HQ_CLIENT_IDENTIFIER"
+  },
+  {
+    "id": "unsafe-boolean-operator",
+    "base": "build",
+    "set": [
+      {
+        "path": "/endpoints/1/filters/customer.active/operators",
+        "value": [
+          "gt"
+        ]
+      }
+    ],
+    "rehash": true,
+    "error": "HQ_CLIENT_SHAPE"
+  },
+  {
+    "id": "empty-operator-list",
+    "base": "build",
+    "set": [
+      {
+        "path": "/endpoints/1/filters/country/operators",
+        "value": []
+      }
+    ],
+    "rehash": true,
+    "error": "HQ_CLIENT_SHAPE"
+  },
+  {
+    "id": "duplicate-operator",
+    "base": "build",
+    "set": [
+      {
+        "path": "/endpoints/1/filters/country/operators",
+        "value": [
+          "eq",
+          "eq"
+        ]
+      }
+    ],
+    "rehash": true,
+    "error": "HQ_CLIENT_DUPLICATE"
+  },
+  {
+    "id": "number-with-boolean-wire-type",
+    "base": "build",
+    "set": [
+      {
+        "path": "/endpoints/1/dimensions/amount/wireType",
+        "value": "boolean"
+      }
+    ],
+    "rehash": true,
+    "error": "HQ_CLIENT_SHAPE"
+  },
+  {
+    "id": "related-non-null-guarantee",
+    "base": "build",
+    "set": [
+      {
+        "path": "/endpoints/1/dimensions/customer.tier/nullable",
+        "value": false
+      }
+    ],
+    "rehash": true,
+    "error": "HQ_CLIENT_SHAPE"
+  },
+  {
+    "id": "invalid-limit",
+    "base": "build",
+    "set": [
+      {
+        "path": "/endpoints/1/limits/maxLimit",
+        "value": -1
+      }
+    ],
+    "rehash": true,
+    "error": "HQ_CLIENT_SHAPE"
+  },
+  {
+    "id": "boolean-limit",
+    "base": "build",
+    "set": [
+      {
+        "path": "/endpoints/1/limits/defaultLimit",
+        "value": true
+      }
+    ],
+    "rehash": true,
+    "error": "HQ_CLIENT_SHAPE"
+  },
+  {
+    "id": "default-exceeds-limit",
+    "base": "build",
+    "set": [
+      {
+        "path": "/endpoints/1/limits/defaultLimit",
+        "value": 1001
+      }
+    ],
+    "rehash": true,
+    "error": "HQ_CLIENT_REFERENCE"
+  },
+  {
+    "id": "metric-default-selection",
+    "base": "build",
+    "set": [
+      {
+        "path": "/endpoints/2/defaultMeasures",
+        "value": [
+          "revenue"
+        ]
+      }
+    ],
+    "rehash": true,
+    "error": "HQ_CLIENT_UNKNOWN_FIELD"
+  },
+  {
+    "id": "metric-multiple-measures",
+    "base": "build",
+    "set": [
+      {
+        "path": "/endpoints/2/measures/other",
+        "value": {
+          "wireType": "string",
+          "nullable": true,
+          "having": false
+        }
+      }
+    ],
+    "rehash": true,
+    "error": "HQ_CLIENT_SHAPE"
+  },
+  {
+    "id": "metric-having",
+    "base": "build",
+    "set": [
+      {
+        "path": "/endpoints/2/measures/revenue/having",
+        "value": true
+      }
+    ],
+    "rehash": true,
+    "error": "HQ_CLIENT_SHAPE"
+  },
+  {
+    "id": "unsupported-segments",
+    "base": "build",
+    "set": [
+      {
+        "path": "/endpoints/1/segments",
+        "value": [
+          "paid"
+        ]
+      }
+    ],
+    "rehash": true,
+    "error": "HQ_CLIENT_UNKNOWN_FIELD"
+  },
+  {
+    "id": "invalid-grain",
+    "base": "build",
+    "set": [
+      {
+        "path": "/endpoints/1/time/grains",
+        "value": [
+          "fortnight"
+        ]
+      }
+    ],
+    "rehash": true,
+    "error": "HQ_CLIENT_SHAPE"
+  },
+  {
+    "id": "invalid-schema-hash",
+    "base": "build",
+    "set": [
+      {
+        "path": "/endpoints/1/schemaHash",
+        "value": "0000000000000000000000000000000000000000000000000000000000000000"
+      }
+    ],
+    "rehash": false,
+    "error": "HQ_CLIENT_IDENTITY"
+  },
+  {
+    "id": "invalid-content-hash",
+    "base": "build",
+    "set": [
+      {
+        "path": "/contentHash",
+        "value": "0000000000000000000000000000000000000000000000000000000000000000"
+      }
+    ],
+    "rehash": false,
+    "error": "HQ_CLIENT_IDENTITY"
+  }
+]
