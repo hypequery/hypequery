@@ -24,6 +24,7 @@
     "schemas",
     "---Datasets---",
     "datasets/overview",
+    "python-client-workflow",
     "datasets/defining-datasets",
     "datasets/dimensions",
     "datasets/measures",

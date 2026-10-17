@@ -1,0 +1,1 @@
+- Add a runnable Python → generated React → HTTP MCP tutorial with tenant-scoped ClickHouse serving, decimal/null seed data, per-login browser cache isolation and installed-artifact preparation.
