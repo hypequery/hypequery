@@ -12,6 +12,7 @@ import type {
   ProtocolExpression,
   ProtocolSemanticQuery,
   ProtocolTimeGrain,
+  ProtocolVisibleDatasetFields,
 } from '@hypequery/protocol';
 
 export interface SemanticOperationViolation {
@@ -88,6 +89,23 @@ function resolveDataset(
 }
 
 /**
+ * Narrows what a dataset exposes to what a visibility policy lets this
+ * principal see (RFC 0018). Hidden fields drop out of the same sets unknown
+ * ones are missing from, so a refusal reads exactly like an unknown field and
+ * does not confirm that the hidden one exists.
+ */
+function narrowToVisible(allowed: Resolved, visible: ProtocolVisibleDatasetFields): Resolved {
+  return {
+    groupable: new Set([...allowed.groupable].filter(name => visible.dimensions.has(name))),
+    filters: new Map([...allowed.filters].filter(([name]) => (
+      visible.filters.has(name) || (name.includes('.') && visible.dimensions.has(name))
+    ))),
+    measures: new Set([...allowed.measures].filter(name => visible.measures.has(name))),
+    grains: visible.timeField ? allowed.grains : new Set(),
+  };
+}
+
+/**
  * The field a filter expression addresses, or null when it is not a plain
  * comparison.
  *
@@ -115,6 +133,8 @@ export function validateSemanticOperation(
   dataset: ProtocolDeploymentDataset,
   datasets: ReadonlyMap<string, ProtocolDeploymentDataset>,
   limits: SemanticOperationLimits,
+  /** What the principal may see; omitted means everything the contract publishes. */
+  visible?: ProtocolVisibleDatasetFields,
 ): readonly SemanticOperationViolation[] {
   const violations: SemanticOperationViolation[] = [];
   const fail = (message: string, path: string) => violations.push({ message, path });
@@ -126,7 +146,8 @@ export function validateSemanticOperation(
     return violations;
   }
 
-  const allowed = resolveDataset(dataset, datasets);
+  const published = resolveDataset(dataset, datasets);
+  const allowed = visible === undefined ? published : narrowToVisible(published, visible);
 
   const dimensions = operation.dimensions ?? [];
   if (dimensions.length > limits.maxDimensions) {
@@ -204,5 +225,34 @@ export function validateSemanticOperation(
     fail(`The offset may not exceed ${limits.maxOffset}.`, '$.operation.offset');
   }
 
+  return violations;
+}
+
+/**
+ * Validates filters the provider enforces on every call, such as an embedded
+ * end user's account (RFC 0018). They are checked against what the contract
+ * publishes, not against the caller's visibility: a provider may constrain on
+ * a field the caller can't see. They don't count toward the caller's filter
+ * ceiling, because the caller didn't choose them.
+ */
+export function validateSemanticConstraints(
+  constraints: readonly ProtocolExpression[],
+  dataset: ProtocolDeploymentDataset,
+  datasets: ReadonlyMap<string, ProtocolDeploymentDataset>,
+): readonly SemanticOperationViolation[] {
+  const violations: SemanticOperationViolation[] = [];
+  const allowed = resolveDataset(dataset, datasets);
+  constraints.forEach((expression, index) => {
+    const path = `$.constraints[${index}]`;
+    const comparison = comparisonField(expression);
+    if (comparison === null) {
+      violations.push({ message: 'A constraint must be a field/operator/value comparison.', path });
+      return;
+    }
+    const operators = allowed.filters.get(comparison.field);
+    if (operators === undefined || !operators.has(comparison.operator)) {
+      violations.push({ message: 'The constraint cannot be enforced on this dataset.', path });
+    }
+  });
   return violations;
 }
