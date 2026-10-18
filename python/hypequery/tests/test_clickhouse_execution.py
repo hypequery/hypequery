@@ -128,6 +128,12 @@ def test_result_codec_is_closed() -> None:
     assert decoded.rows == ((2**63, "1.25", "2026-01-02", "2026-01-02T00:00:00+00:00", None),)
     with pytest.raises(CompiledQueryError):
         decode_result(cast(DriverResult, Result(("x",), [(object(),)])), query.query_id)
+    # avg() over no rows is nan and a derived division can be inf: both are
+    # null on the wire, like ClickHouse's own JSON formats, not a failed query.
+    denormals = Result(("mean", "ratio", "drop"), [(float("nan"), float("inf"), float("-inf"))])
+    assert decode_result(cast(DriverResult, denormals), query.query_id).rows == (
+        (None, None, None),
+    )
     with pytest.raises(CompiledQueryError):
         decode_result(cast(DriverResult, Result(("x", "x"), [])), query.query_id)
 
