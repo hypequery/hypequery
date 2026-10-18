@@ -57,7 +57,7 @@ export const clickhouseDatasetSqlDialect: DatasetSqlDialectRules = Object.freeze
   subtractTime: (time: string, amount: number, grain: TimeGrain) => `subtract${INTERVAL_UNITS[grain]}(${time}, ${amount})`,
   timeDiff: (grain: TimeGrain, start: string, end: string) => `dateDiff('${grain}', ${start}, ${end})`,
   toQueryTimezone: (time: string, timezone: string) => `toDateTime64(${time}, 9, '${timezone}')`,
-  parseTimestamp: (value: string, timezone: string) => `parseDateTime64BestEffort(${stringLiteral(value)}, 9, ${timezone})`,
+  parseTimestamp: (value: string, timezone: string) => `parseDateTime64BestEffort(${value}, 9, ${timezone})`,
   timezoneOf: (time: string) => `timezoneOf(${time})`,
   clockPart: (part, time) => `to${part}(${time})`,
   isDateOnlyType: (value: string) => `position(toTypeName(${value}), 'Date') > 0 AND position(toTypeName(${value}), 'DateTime') = 0`,

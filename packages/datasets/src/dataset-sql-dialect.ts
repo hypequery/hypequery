@@ -61,7 +61,7 @@ export interface DatasetSqlDialectRules extends DatasetSqlDialect {
   timeDiff(grain: TimeGrain, start: string, end: string): string;
   /** Convert a source time to the query timezone, a validated canonical IANA name. */
   toQueryTimezone(time: string, timezone: string): string;
-  /** Parse a timestamp literal in the zone the `timezone` expression evaluates to. */
+  /** Parse a timestamp from a string expression, such as a bound placeholder, in the zone `timezone` evaluates to. */
   parseTimestamp(value: string, timezone: string): string;
   /** The timezone a zoned timestamp expression carries. */
   timezoneOf(time: string): string;

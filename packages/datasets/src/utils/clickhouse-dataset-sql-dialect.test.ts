@@ -35,7 +35,7 @@ describe('ClickHouse datasets SQL rules', () => {
 
   it('spells timezone conversion, parsing and inspection', () => {
     expect(ch.toQueryTimezone('t', 'Asia/Tokyo')).toBe("toDateTime64(t, 9, 'Asia/Tokyo')");
-    expect(ch.parseTimestamp("2026-01-01'", 'z')).toBe("parseDateTime64BestEffort('2026-01-01''', 9, z)");
+    expect(ch.parseTimestamp('?', 'z')).toBe('parseDateTime64BestEffort(?, 9, z)');
     expect(ch.timezoneOf('t')).toBe('timezoneOf(t)');
     expect(ch.clockPart('Minute', 't')).toBe('toMinute(t)');
     expect(ch.isDateOnlyType('v')).toBe("position(toTypeName(v), 'Date') > 0 AND position(toTypeName(v), 'DateTime') = 0");
