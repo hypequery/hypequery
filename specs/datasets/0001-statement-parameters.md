@@ -122,10 +122,11 @@ readonly embedsPositionalPieces: boolean;
 
 ### Builder pieces
 
-`embed` handles query-builder output in one of two ways.
+`embedBuilder` handles query-builder output according to the dialect.
 
-1. **Preferred:** the builder renders its placeholders through a callback, so
-   datasets supplies the markers.
+1. **Numbering dialects** (`embedsPositionalPieces: false`, such as Postgres)
+   require the builder to render its placeholders through a callback, so
+   datasets supplies the markers:
 
    ```ts
    interface QueryBuilderLike {
@@ -136,26 +137,30 @@ readonly embedsPositionalPieces: boolean;
    }
    ```
 
-   `embed` calls it with `allocator.bind`. The builder never chooses how a
-   placeholder is spelled and never numbers anything. The Postgres builder
-   (HQ-279) implements this from day one. `@hypequery/clickhouse` writes `?`
-   when it constructs each expression (`utils/predicate-builder.ts`), not when
-   it compiles the query. It can implement the callback by splitting its own
-   compiled output with its existing `splitSqlPlaceholders`, which is safe
-   because that SQL is ClickHouse. Threading the callback into expression
-   construction can come later; the output is the same either way.
+   `embedBuilder` calls it with `allocator.bind` and requires a string result.
+   The builder never chooses how a placeholder is spelled and never numbers
+   anything. A builder without the method is rejected:
 
-2. **Fallback:** for builders without the callback, `embed` stores the
-   `{ sql, parameters }` pair as one positional block. At render time it
-   splices the SQL verbatim and inserts its parameters at that point in text
-   order. This is only correct when the dialect's own placeholder is the same
-   positional `?`, so `embed` throws when `embedsPositionalPieces` is false:
+   > The "postgres" datasets dialect numbers placeholders; the query builder
+   > must implement toSQLWithPlaceholders.
 
-   > Query builder "…" must implement `toSQLWithPlaceholders` to be used with
-   > the postgres datasets dialect.
+   The Postgres builder (HQ-279) implements this from day one.
+   `@hypequery/clickhouse` implements it from 2.14.0 by splitting its own
+   compiled output with `splitSqlPlaceholders`, which is safe because that SQL
+   is ClickHouse.
 
-   This fallback keeps every existing third-party ClickHouse-compatible builder
-   working unchanged (the chDB adapter, custom builders in tests).
+2. **Positional `?` dialects** (ClickHouse, BigQuery) embed the builder's
+   `{ sql, parameters }` as one positional block and **never call the
+   callback**, even when the builder has one. At render time the block's SQL is
+   spliced verbatim and its parameters are inserted at that point in text
+   order.
+
+   *Amended 2026-10-18 (#708):* this was originally "prefer the callback
+   whenever it exists". `QueryBuilderLike` is a public duck-typed protocol, and
+   a mock builder that answers every property name (a `Proxy`) appeared to
+   implement the method but returned a non-string. Calling the callback only
+   where it is needed leaves behaviour on positional dialects unchanged for
+   every existing builder, including the chDB adapter and custom builders.
 
 ### Single render point
 
@@ -234,10 +239,11 @@ byte-identical.
    a literal. **This intentionally changes the golden corpus:** literals become
    `?`, and `parameters` and the preflight statement gain entries. It is
    reviewed on its own, and it closes the last caller-value-in-text path.
+   Implemented in hypequery/hypequery#707.
 3. **`toSQLWithPlaceholders`.** Add the optional protocol method with type
    tests, and implement it in `@hypequery/clickhouse` (the builder's output is
-   unchanged). Dataset compilation stops depending on positional embedding for
-   the first-party builder.
+   unchanged). Used only by numbering dialects. Implemented in
+   hypequery/hypequery#708.
 4. **Postgres dialect `placeholder`** (`$n`, reuse, casts from
    `ParameterType`). Lands with HQ-279. The parity corpus (HQ-309) checks the
    final parameter arrays.
