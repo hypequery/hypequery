@@ -1,0 +1,24 @@
+{
+  "name": "hypequery-python-client-tutorial",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "generate": "hypequery generate:client contract.json --output client.generated.ts",
+    "check:generated": "hypequery generate:client contract.json --output client.generated.ts --check",
+    "build": "tsc --noEmit && esbuild app.tsx --bundle --format=esm --outfile=public/app.js --metafile=public/app.meta.json",
+    "dev": "esbuild app.tsx --bundle --format=esm --outfile=public/app.js --servedir=public --serve=127.0.0.1:5173",
+    "check:mcp": "node mcp-check.mjs"
+  },
+  "dependencies": {
+    "@tanstack/react-query": "^5.90.16",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "esbuild": "^0.28.2",
+    "typescript": "^6.0.3",
+    "@modelcontextprotocol/sdk": "^1.32.1"
+  }
+}

@@ -135,3 +135,10 @@ def test_rejects_missing_scaffold_resource(tmp_path: Path, artifact: str, missin
         del sdist[f"hypequery-0.1.0/src/hypequery/cli/templates/{missing}"]
     dist = _build(tmp_path, wheel, sdist)
     assert audit.main(["audit", str(dist)]) == 1
+
+
+def test_allows_frontend_example_gitignore(tmp_path: Path) -> None:
+    entries = _good_sdist_entries()
+    entries["hypequery-0.1.0/examples/client_dashboard/frontend/.gitignore"] = b"node_modules/\n"
+    dist = _build(tmp_path, _good_wheel_entries(), entries)
+    assert audit.main(["audit", str(dist)]) == 0

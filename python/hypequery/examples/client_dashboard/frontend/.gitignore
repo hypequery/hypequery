@@ -1,0 +1,6 @@
+node_modules/
+package-lock.json
+contract.json
+client.generated.ts
+public/app.js
+public/app.meta.json

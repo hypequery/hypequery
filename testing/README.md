@@ -39,3 +39,6 @@ ClickHouse journeys above.
 tool calls through HTTP to the installed Python fixture, with packed npm packages
 and distinct principals. Its database test double has the same limits as the
 browser fixture; live ClickHouse cancellation remains an independent gate.
+
+The [installed Python client tutorial](./python-client-tutorial.md) adds a real
+ClickHouse/React/MCP journey and records its development-artifact qualification.
