@@ -73,8 +73,10 @@ value a caller influences leaves the SQL text."
 interface StatementParameters {
   /** Bind one value; returns an opaque marker to place where the value goes. */
   bind(value: unknown, type?: ParameterType): string;
-  /** Embed a compiled builder piece. Returns a marker for its SQL. */
+  /** Embed a compiled positional builder piece. Returns a marker for its SQL. */
   embed(piece: BuilderStatement): string;
+  /** Embed a query builder's statement the way the dialect requires (below). */
+  embedBuilder(builder: QueryBuilderLike): string;
   /** Replace markers in text order and spell placeholders for the dialect. */
   render(text: string): { sql: string; parameters: unknown[] };
 }
