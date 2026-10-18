@@ -6,10 +6,13 @@ type WireValue<Definition> = Definition extends { wireType: infer Wire; nullable
 
 type ArrayNames<Value> = NonNullable<Value> extends readonly (infer Name)[] ? Name : never;
 type IsUnion<T, U = T> = T extends unknown ? ([U] extends [T] ? false : true) : never;
-/** Names a fixed tuple always selects: an element typed as a union may name any of them. */
-type CertainNames<Tuple> = Tuple extends readonly [infer Head, ...infer Rest]
-  ? (IsUnion<Head> extends true ? never : Head) | CertainNames<Rest>
+/** Names one fixed tuple always selects: an element typed as a union may name any of them. */
+type TupleNames<Tuple> = Tuple extends readonly [infer Head, ...infer Rest]
+  ? (IsUnion<Head> extends true ? never : Head) | TupleNames<Rest>
   : never;
+/** Names every alternative of a (possibly union-typed) tuple selection selects. */
+type CertainNames<Selection> = (Selection extends unknown ? (names: TupleNames<Selection>) => void : never) extends
+  (names: infer Names) => void ? Names : never;
 
 type SelectedFields<Definitions, Input, Key extends string, Defaults = never> =
   Key extends keyof Input
