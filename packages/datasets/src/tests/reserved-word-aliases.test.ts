@@ -59,7 +59,7 @@ describe('reserved-word names are quoted wherever the planner aliases them', () 
     expect(base).toContain('ORDER BY `group` ASC');
     const derived = client.toSQL(Ratio as never, { dimensions: ['group'], orderBy: [{ field: 'range', direction: 'desc' }] } as never);
     expect(derived).toContain('SUM(value) AS `end`');
-    expect(derived).toContain('SELECT `group`, (`end`) / (NULLIF(`rows`, 0)) AS `range` FROM base');
+    expect(derived).toContain('SELECT `group`, (`end` / NULLIF(`rows`, 0)) AS `range` FROM base');
     expect(derived).toContain('ORDER BY `range` DESC');
   });
 });

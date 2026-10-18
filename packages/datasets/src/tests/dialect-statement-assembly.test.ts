@@ -21,6 +21,10 @@ const strictRules = defineDatasetSqlDialectRules({
   ...clickhouseDatasetSqlDialect,
   name: 'strict-test',
   orderTerm: (expression: string, direction?: 'ASC' | 'DESC') => `${expression} ${direction ?? 'ASC'} NULLS LAST`,
+  // Fractional division regardless of operand types (HQ-268 shape).
+  formulaBinary: (operator, left, right) => operator === 'divide'
+    ? `(CAST(${left} AS DOUBLE) / ${right})`
+    : clickhouseDatasetSqlDialect.formulaBinary(operator, left, right),
   paginate: (limit: number | undefined, offset: number | undefined) =>
     offset !== undefined && limit === undefined
       ? ` LIMIT 9223372036854775807 OFFSET ${offset}`
@@ -72,5 +76,21 @@ describe('dialect ordering and pagination', () => {
     expect(client.toSQL(Aov as never, { limit: 5 } as never)).toMatch(/ORDER BY `period` ASC NULLS LAST LIMIT 5$/);
     expect(client.toSQL(Aov as never, { orderBy: [{ field: 'aovMetric', direction: 'desc' }], offset: 2 } as never))
       .toMatch(/ORDER BY `aovMetric` DESC NULLS LAST LIMIT 9223372036854775807 OFFSET 2$/);
+  });
+
+  it('renders derived measure and derived metric formulas through the same dialect rules', () => {
+    expect(client.toSQL(Orders, { dimensions: ['status'], measures: ['aov'] }))
+      .toContain('(CAST(`revenue` AS DOUBLE) / NULLIF(`orders`, 0)) AS `aov`');
+    expect(client.toSQL(Aov as never, {} as never))
+      .toContain('(CAST(`revenue` AS DOUBLE) / NULLIF(`orders`, 0)) AS `aovMetric`');
+  });
+
+  it('rejects a derived metric formula input that was not declared', () => {
+    const Broken = Orders.metric('broken', {
+      uses: { revenue: Orders.metric('r2', { measure: 'revenue' }) },
+      formula: (() => ({ __type: 'formula_expr', expression: { kind: 'ref', name: 'revenue; DROP TABLE x' }, toSQL: () => '' })) as never,
+    }) as MetricHandle;
+    expect(() => createDatasetClient({ queryBuilder: createRenderingBuilderFactory() }).toSQL(Broken as never, {} as never))
+      .toThrow(/formula references undeclared input "revenue; DROP TABLE x"/);
   });
 });

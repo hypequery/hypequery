@@ -12,6 +12,7 @@ import {
 } from '../query-planner.js';
 import { queryTimeFilterSql } from './query-timezone.js';
 import { StatementParameters, type PlannedStatement } from './statement-parameters.js';
+import { formulaExpressionSql } from './derived-measure-sql.js';
 import { isTenantScopedFilter } from './metric-handle.js';
 import { getRuntimeTenantPredicate } from './tenant-runtime.js';
 import {
@@ -63,6 +64,7 @@ export function buildDerivedMetricSql(
 
   // Base aggregations
   const refAliases: Record<string, string> = {};
+  const inputNames: Record<string, string> = {};
   const aggregateAliases: string[] = [];
   for (const [alias, baseMetric] of Object.entries(spec.uses)) {
     const baseSpec = baseMetric.spec;
@@ -72,6 +74,7 @@ export function buildDerivedMetricSql(
     const quoted = dialect.quoteIdentifier(alias);
     cteBuilder = applyAggregationSpec(cteBuilder, ds, baseSpec, alias, joinCtx, dialect);
     refAliases[alias] = quoted;
+    inputNames[alias] = alias;
     aggregateAliases.push(quoted);
   }
 
@@ -113,9 +116,17 @@ export function buildDerivedMetricSql(
     outerSelectParts.push(dialect.quoteIdentifier(dim));
   }
 
-  const formulaExpr = spec.formula(refAliases);
+  // Render through the dialect, like derived measures. FormulaExpr.toSQL()
+  // is kept for definition identity, not for planning.
   validateSQLIdentifier(ref.name, 'metric name');
-  outerSelectParts.push(`${formulaExpr.toSQL()} AS ${dialect.quoteIdentifier(ref.name)}`);
+  const formulaSql = formulaExpressionSql(dialect, spec.formula(inputNames).expression, name => {
+    const quoted = refAliases[name];
+    if (quoted === undefined || !Object.hasOwn(refAliases, name)) {
+      throw new Error(`Derived metric "${ref.name}" formula references undeclared input "${name}".`);
+    }
+    return quoted;
+  });
+  outerSelectParts.push(`${formulaSql} AS ${dialect.quoteIdentifier(ref.name)}`);
 
   const parameters = new StatementParameters(dialect);
   let text = `WITH base AS (${parameters.embedBuilder(cteBuilder)}) SELECT ${outerSelectParts.join(', ')} FROM base`;
