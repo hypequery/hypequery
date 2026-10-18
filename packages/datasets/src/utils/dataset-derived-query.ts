@@ -56,7 +56,7 @@ export function buildDerivedDatasetSql(
     offset: undefined,
   }, { ...options, executionLimit: undefined, skipDefaultOrderBy: true });
   const parameters = new StatementParameters(dialect);
-  const base = parameters.embed(inner.toSQLWithParams());
+  const base = parameters.embedBuilder(inner);
 
   const projections: string[] = [];
   if (query.by) projections.push(dialect.quoteIdentifier('period'));

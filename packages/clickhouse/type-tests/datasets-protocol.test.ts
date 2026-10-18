@@ -11,6 +11,7 @@ import type {
   CreateDatasetClientOptions,
   ExecutionContext,
   QueryBuilderFactoryInput,
+  QueryBuilderLike,
 } from '@hypequery/datasets';
 
 interface TypedSchema {
@@ -42,6 +43,14 @@ const rejectedObject: QueryBuilderFactoryInput = { foo: 1 };
 // @ts-expect-error a ClickHouse client (query/exec, no table) is not a factory
 const rejectedClient: QueryBuilderFactoryInput = { query() { }, exec() { } };
 
+// The builder's placeholder renderer satisfies the optional datasets protocol member.
+const ordersQuery = typedDb.table('orders').where('status', 'eq', 'paid');
+const placeholderRenderer: NonNullable<QueryBuilderLike['toSQLWithPlaceholders']> =
+  ordersQuery.toSQLWithPlaceholders.bind(ordersQuery);
+const renderedSql: string = ordersQuery.toSQLWithPlaceholders(value => `$${String(value).length}`);
+
+void placeholderRenderer;
+void renderedSql;
 void acceptedInput;
 void acceptedOptions;
 void client;

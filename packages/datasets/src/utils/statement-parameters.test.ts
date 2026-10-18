@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { DatasetSqlDialectRules } from '../dataset-sql-dialect.js';
 import { clickhouseDatasetSqlDialect } from './clickhouse-dataset-sql-dialect.js';
+import { createQueryBuilder } from '../../../clickhouse/src/index.js';
 import { StatementParameters, renderStatement } from './statement-parameters.js';
 
 /** A Postgres-shaped test dialect: numbered, re-used placeholders, no positional pieces. */
@@ -105,6 +106,53 @@ describe('StatementParameters', () => {
   it('uses a distinct nonce per allocator', () => {
     const markers = new Set(Array.from({ length: 20 }, () => new StatementParameters(clickhouseDatasetSqlDialect).bind(1)));
     expect(markers.size).toBe(20);
+  });
+
+  it('binds builder values through toSQLWithPlaceholders when the builder offers it', () => {
+    const statement = new StatementParameters(numbered);
+    const outer = statement.bind(99);
+    const inner = statement.embedBuilder({
+      toSQLWithParams: () => { throw new Error('positional SQL must not be used'); },
+      toSQLWithPlaceholders: placeholder => `SELECT * FROM t WHERE a = ${placeholder('x')} AND b = ${placeholder('y')}`,
+    });
+    expect(statement.render(`WITH base AS (${inner}) SELECT * FROM base WHERE n > ${outer}`)).toEqual({
+      sql: 'WITH base AS (SELECT * FROM t WHERE a = $1 AND b = $2) SELECT * FROM base WHERE n > $3',
+      parameters: ['x', 'y', 99],
+    });
+  });
+
+  it('keeps the positional path on ? dialects without calling the callback', () => {
+    let called = false;
+    const positional = new StatementParameters(clickhouseDatasetSqlDialect);
+    const block = positional.embedBuilder({
+      toSQLWithParams: () => ({ sql: 'SELECT ?', parameters: [1] }),
+      toSQLWithPlaceholders: () => { called = true; return 'unused'; },
+    });
+    expect(positional.render(block)).toEqual({ sql: 'SELECT ?', parameters: [1] });
+    expect(called).toBe(false);
+  });
+
+  it('requires a string-returning callback on numbering dialects', () => {
+    const positionalOnly = { toSQLWithParams: () => ({ sql: 'SELECT ?', parameters: [1] }) };
+    expect(() => new StatementParameters(numbered).embedBuilder(positionalOnly))
+      .toThrow(/"numbered" datasets dialect numbers placeholders; the query builder must implement toSQLWithPlaceholders/);
+    const proxyLike = { ...positionalOnly, toSQLWithPlaceholders: () => ({}) as unknown as string };
+    expect(() => new StatementParameters(numbered).embedBuilder(proxyLike)).toThrow(/must return SQL text/);
+  });
+
+  it('numbers a real query builder statement continuously with outer values on a $n dialect', () => {
+    const db = createQueryBuilder({ host: 'http://localhost:8123' });
+    const inner = db.table('orders').select(['status']).sum('amount', 'revenue')
+      .where('tenant_id', 'eq', 'acme').where('status', 'in', ['paid', 'shipped']).groupBy(['status']);
+    const statement = new StatementParameters(numbered);
+    const low = statement.bind(10, 'number');
+    const high = statement.bind(20, 'number');
+    const text = `WITH base AS (${statement.embedBuilder(inner)}) SELECT * FROM base WHERE revenue BETWEEN ${low} AND ${high}`;
+    const rendered = statement.render(text);
+    expect(rendered.parameters).toEqual(['acme', 'paid', 'shipped', 10, 20]);
+    expect(rendered.sql).toContain("tenant_id = $1 AND status IN ($2, $3)");
+    expect(rendered.sql).toContain('revenue BETWEEN $4 AND $5');
+    expect(rendered.sql).not.toContain('?');
   });
 
   it('renders planned statements through their own allocator', () => {
