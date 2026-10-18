@@ -21,7 +21,7 @@ class Journey {
     return JSON.parse(await this.page.getByRole('heading', { name: title, exact: true }).locator('xpath=following-sibling::pre[1]').textContent());
   }
   async login(token, expected, revenue) {
-    await this.page.getByRole('textbox', { name: 'User token' }).fill(token);
+    await this.page.getByLabel('User token').fill(token);
     await this.page.getByRole('button', { name: 'Connect as user' }).click();
     await eventually(async () => await this.page.getByRole('status').textContent() === 'Ready' && expected.test((await this.result('Sales metric'))[0].sales), 'Concurrent hooks did not become ready');
     assert.match((await this.result('Sales metric'))[0].sales, expected);
