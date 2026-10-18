@@ -22,6 +22,12 @@ The gate runs:
   nullable decimal values, fixed metric aliases, pagination and rejected SQL/context.
 - Headless Chromium with all four hooks concurrently, both pagination terminations,
   A→B→A isolation, actual schema headers and no browser console/request errors.
+- Generated, strictly compiled React hooks, direct HTTP and actual MCP stdio
+  compared with independent raw SQL for related dimensions/measures, missing
+  targets, cross-tenant join guards, HAVING and timezone-sensitive day boundaries.
+  Decimal strings compare exactly without conversion to JavaScript numbers;
+  number-valued aggregates still fail the wire-type check. A related decimal
+  exceeds JavaScript's safe-integer range to detect lossy conversion.
 - Actual MCP SDK cancellation after observing a slow query in `system.processes`,
   followed by an executor deadline. Each must stop database work before the
   three-second query could complete naturally. A response-only abort cannot pass.
@@ -59,15 +65,24 @@ HYPEQUERY_GATE_FAULT=cors bash scripts/smoke-python-client-release.sh
 HYPEQUERY_GATE_FAULT=tenant bash scripts/smoke-python-client-release.sh
 HYPEQUERY_GATE_FAULT=wire bash scripts/smoke-python-client-release.sh
 HYPEQUERY_GATE_FAULT=mcp bash scripts/smoke-python-client-release.sh
+HYPEQUERY_GATE_FAULT=related-wire bash scripts/smoke-python-client-release.sh
 ```
 
 These corrupt generated output, browser CORS, tenant mapping, aggregate wire type
-or backend execution respectively. They only affect the test fixture. No fault
+or backend execution respectively; `related-wire` corrupts a related measure. They only affect the test fixture. No fault
 is enabled in normal CI. `HYPEQUERY_TUTORIAL_REACT_MAJOR=18` selects the React 18
 consumer; default is 19. `HYPEQUERY_GATE_BROWSER_EXECUTABLE` may select a local
 browser; CI uses the pinned Playwright Chromium install.
 
-Remaining beta gates include combined related-measure/timezone/HAVING and full
-HTTP error/refresh coverage, exact published npm/PyPI versions, publisher/OIDC
+Remaining beta gates include full HTTP error/refresh coverage, exact published npm/PyPI versions, publisher/OIDC
 configuration and release rehearsal. Green development-artifact CI alone does
 not authorize a release announcement.
+
+The related-field extension uncovered empty-string/zero defaults for absent
+joined targets. It requires the Python planner fix that guards qualified fields
+and groups/orders by the guarded expression. The fixtures include another
+tenant's matching target key, so an incorrect join cannot pass by returning a
+plausible aggregate. The extra browser bundle is independently audited for
+backend imports, and strict types require selected related values to be
+`string | null`. Raw SQL preserves its own decimal formatting; canonicalization
+removes only insignificant zeroes without losing precision or accepting numbers.

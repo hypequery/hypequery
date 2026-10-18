@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
-import { writeFile } from 'node:fs/promises';
+import { readFile, writeFile } from 'node:fs/promises';
 import { chromium } from 'playwright';
+import { semanticRows } from './utils/semantic-rows.mjs';
 import { eventually } from './utils/eventually.mjs';
 
 // Seeded revenue per country for each tenant (examples/client_dashboard/seed.sql).
@@ -69,10 +70,18 @@ try {
   await journey.login(process.env.HYPEQUERY_TENANT_B_TOKEN, /^1000(?:\.0+)?$/, TENANT_B);
   await journey.pages(2, TENANT_B);
   await journey.login(process.env.HYPEQUERY_TENANT_A_TOKEN, /^60(?:\.0+)?$/, TENANT_A);
+  await page.goto('http://127.0.0.1:5173/semantic.html');
+  const oracle = JSON.parse(await readFile(`${output}/semantic-oracle.json`, 'utf8'));
+  for (const [tenant, token] of [['a', process.env.HYPEQUERY_TENANT_A_TOKEN], ['b', process.env.HYPEQUERY_TENANT_B_TOKEN]]) {
+    await page.getByLabel('User token').fill(token);
+    await page.getByRole('button', { name: 'Connect as user' }).click();
+    await eventually(async () => await page.getByRole('status').textContent() === 'Ready' && JSON.stringify(semanticRows(await journey.result('Related'))) === JSON.stringify(semanticRows(oracle[tenant].related)), 'Semantic hooks did not match independent SQL');
+    for (const [title, name] of [['Related', 'related'], ['Having', 'having'], ['Having total', 'havingTotal'], ['Timezone', 'time']]) assert.deepEqual(semanticRows(await journey.result(title)), semanticRows(oracle[tenant][name]));
+  }
   assert(posts >= 18 && pinned === posts && metadata > 0);
   assert.deepEqual(errors, []);
   await page.screenshot({ path: `${output}/browser.png`, fullPage: true });
-  await writeFile(`${output}/browser.json`, JSON.stringify({ passed: true, browser: browser.version(), posts, pinned, metadata, principalSwitch: true, paginationTermination: true, errors }, null, 2));
+  await writeFile(`${output}/browser.json`, JSON.stringify({ passed: true, browser: browser.version(), posts, pinned, metadata, principalSwitch: true, paginationTermination: true, relatedHavingTimezone: true, errors }, null, 2));
   console.log('Browser → installed Python → ClickHouse passed: four concurrent hooks, nulls/decimal strings, both paginations, A/B/A isolation and schema pins.');
 } catch (error) {
   await page.screenshot({ path: `${output}/browser-failure.png`, fullPage: true }).catch(() => {});
