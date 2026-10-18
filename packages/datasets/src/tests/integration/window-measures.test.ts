@@ -6,6 +6,7 @@ import { belongsTo } from '../../relationships.js';
 import { subtract } from '../../formulas.js';
 import { measure } from '../../measure.js';
 import { buildTimeMeasureDatasetSql } from '../../utils/time-measure-dataset-sql.js';
+import { renderStatement } from '../../utils/statement-parameters.js';
 import { toQueryBuilderFactory } from '../../query-builder-protocol.js';
 import { createDatasetClient } from '../../executor.js';
 import { TEST_CONNECTION_CONFIG, insertRows, runSql } from '../../../../../testing/clickhouse/harness.mjs';
@@ -260,7 +261,7 @@ describe('window execution against ClickHouse', () => {
       filters: [{ field: 'time', operator: 'between', value: ['2011-12-29', '2011-12-29'] }],
     })).rejects.toThrow(/skipped local calendar bucket/);
     await expect(client.execute(ds, axisQuery)).rejects.toThrow(/skipped local calendar bucket/);
-    const { sql, parameters } = buildTimeMeasureDatasetSql(ds, axisQuery, { builderFactory: toQueryBuilderFactory(db) });
+    const { sql, parameters } = renderStatement(buildTimeMeasureDatasetSql(ds, axisQuery, { builderFactory: toQueryBuilderFactory(db) }).statement);
     await expect(db.rawQuery(sql, parameters)).rejects.toThrow(/skipped local calendar bucket/);
     await expect(client.execute(ds, {
       timezone: 'Pacific/Apia', by: 'day', measures: ['rolling'],
@@ -284,7 +285,7 @@ describe('window execution against ClickHouse', () => {
   it('rejects an oversized series even when no dimension combination matches', async () => {
     const query = { by: 'day' as const, dimensions: ['group'], measures: ['totalRevenue'], filters: [...range, { field: 'user', operator: 'eq' as const, value: 'missing' }], limit: 3 };
     await expect(client.execute(Events, query, context)).rejects.toThrow('Window series exceeds the effective result limit of 3 buckets.');
-    const { sql, parameters } = buildTimeMeasureDatasetSql(Events, query, { builderFactory: toQueryBuilderFactory(db), context });
+    const { sql, parameters } = renderStatement(buildTimeMeasureDatasetSql(Events, query, { builderFactory: toQueryBuilderFactory(db), context }).statement);
     await expect(db.rawQuery(sql, parameters)).rejects.toThrow('Window series exceeds the effective result limit of 3 buckets.');
   });
 

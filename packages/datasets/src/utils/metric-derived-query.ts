@@ -11,6 +11,7 @@ import {
   resolveTenantFilterColumn,
 } from '../query-planner.js';
 import { queryTimeFilterSql } from './query-timezone.js';
+import { StatementParameters, type PlannedStatement } from './statement-parameters.js';
 import { isTenantScopedFilter } from './metric-handle.js';
 import { getRuntimeTenantPredicate } from './tenant-runtime.js';
 import {
@@ -31,7 +32,7 @@ export function buildDerivedMetricSql(
   grain: TimeGrain | undefined,
   builderFactory: QueryBuilderFactoryLike,
   context?: ExecutionContext,
-): { sql: string; params: unknown[] } {
+): PlannedStatement {
   const syntaxErrors = semanticQuerySyntaxErrors(query);
   if (syntaxErrors.length) throw new Error(syntaxErrors.join('; '));
   const dialect = resolveDatasetSqlDialect(builderFactory);
@@ -116,7 +117,8 @@ export function buildDerivedMetricSql(
   validateSQLIdentifier(ref.name, 'metric name');
   outerSelectParts.push(`${formulaExpr.toSQL()} AS ${ref.name}`);
 
-  let sql = `WITH base AS (${cteSql}) SELECT ${outerSelectParts.join(', ')} FROM base`;
+  const parameters = new StatementParameters(dialect);
+  let text = `WITH base AS (${parameters.embed({ sql: cteSql, parameters: cteParams })}) SELECT ${outerSelectParts.join(', ')} FROM base`;
 
   // ORDER BY
   if (query.orderBy && query.orderBy.length > 0) {
@@ -127,21 +129,21 @@ export function buildDerivedMetricSql(
       validateSQLIdentifier(o.field, 'order by field');
       return `${o.field} ${semanticOrderDirection(o.direction)}`;
     });
-    sql += ` ORDER BY ${orderParts.join(', ')}`;
+    text += ` ORDER BY ${orderParts.join(', ')}`;
   } else if (grain) {
-    sql += ' ORDER BY period';
+    text += ' ORDER BY period';
   }
 
   if (query.limit != null) {
     // Ensure limit is a safe integer
     const limit = Math.floor(Math.abs(query.limit));
-    sql += ` LIMIT ${limit}`;
+    text += ` LIMIT ${limit}`;
   }
   if (query.offset != null) {
     // Ensure offset is a safe integer
     const offset = Math.floor(Math.abs(query.offset));
-    sql += ` OFFSET ${offset}`;
+    text += ` OFFSET ${offset}`;
   }
 
-  return { sql, params: cteParams };
+  return { text, parameters };
 }

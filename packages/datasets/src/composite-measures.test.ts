@@ -3,6 +3,7 @@ import { dataset, dimension, measure, divide, multiply } from './index.js';
 import { buildDatasetQuerySignature } from './cache/query-signature.js';
 import { getDatasetCatalog } from './catalog.js';
 import { buildDerivedDatasetSql } from './utils/dataset-derived-query.js';
+import { renderStatement } from './utils/statement-parameters.js';
 import { createQueryBuilder } from '../../clickhouse/src/index.js';
 
 const dimensions = { time: dimension.timestamp(), value: dimension.number() };
@@ -23,7 +24,7 @@ describe('composed measure dependencies', () => {
   });
   it('expands nested ordinary formulas over aggregated leaf columns', () => {
     const builder = createQueryBuilder({ host: 'http://localhost:8123' });
-    const sql = buildDerivedDatasetSql(model(3), { measures: ['twice'] }, { builderFactory: builder }, () => builder.table('events').select(['SUM(value) AS revenue'])).sql;
+    const { sql } = renderStatement(buildDerivedDatasetSql(model(3), { measures: ['twice'] }, { builderFactory: builder }, () => builder.table('events').select(['SUM(value) AS revenue'])));
     expect(sql).toContain('(((`revenue` * 3)) * 2) AS `twice`');
   });
   it('propagates estimates through formulas and comparison wrappers', () => {

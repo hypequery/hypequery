@@ -6,6 +6,7 @@ import { measure } from '../../measure.js';
 import { createDatasetClient } from '../../executor.js';
 import { belongsTo } from '../../relationships.js';
 import { buildTimeMeasureDatasetSql } from '../../utils/time-measure-dataset-sql.js';
+import { renderStatement } from '../../utils/statement-parameters.js';
 import { toQueryBuilderFactory } from '../../query-builder-protocol.js';
 import { clickhouseDatasetSqlDialect } from '../../utils/clickhouse-dataset-sql-dialect.js';
 import { divide, nullIfZero, subtract } from '../../formulas.js';
@@ -169,7 +170,7 @@ describe('shift execution against ClickHouse', () => {
     expect(result.meta.pagination.hasMore).toBe(true);
     const query = { by: 'month' as const, dimensions: ['group'], measures: ['priorRevenue'], filters: [...range, { field: 'user', operator: 'eq' as const, value: 'missing' }], limit: 2 };
     await expect(client.execute(Events, query, context)).rejects.toThrow(/effective result limit/);
-    const { sql, parameters } = buildTimeMeasureDatasetSql(Events, query, { builderFactory: toQueryBuilderFactory(db), context });
+    const { sql, parameters } = renderStatement(buildTimeMeasureDatasetSql(Events, query, { builderFactory: toQueryBuilderFactory(db), context }).statement);
     await expect(db.rawQuery(sql, parameters)).rejects.toThrow(/effective result limit/);
   });
 
@@ -211,7 +212,7 @@ describe('shift execution against ClickHouse', () => {
         ],
       };
       await expect(client.execute(ds, query)).rejects.toThrow(/skipped local calendar bucket/);
-      const { sql, parameters } = buildTimeMeasureDatasetSql(ds, query, { builderFactory: toQueryBuilderFactory(db) });
+      const { sql, parameters } = renderStatement(buildTimeMeasureDatasetSql(ds, query, { builderFactory: toQueryBuilderFactory(db) }).statement);
       await expect(db.rawQuery(sql, parameters)).rejects.toThrow(/skipped local calendar bucket/);
     }
   });
