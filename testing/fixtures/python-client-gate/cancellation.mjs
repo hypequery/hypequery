@@ -8,8 +8,12 @@ import { eventually } from './utils/eventually.mjs';
 
 const database = process.env.CLICKHOUSE_DATABASE;
 assert(/^hq_client_gate_[0-9a-f]{16}$/.test(database));
-const secure = ['1', 'true'].includes(process.env.CLICKHOUSE_SECURE ?? '');
-const admin = new URL(`${secure ? 'https' : 'http'}://${process.env.CLICKHOUSE_HOST ?? '127.0.0.1'}:${process.env.CLICKHOUSE_PORT ?? '8123'}`);
+// Mirror Python's connection_fields: same truthy spellings, and an unset port follows the scheme.
+const secureFlag = (process.env.CLICKHOUSE_SECURE ?? '').trim().toLowerCase();
+assert(['', '0', 'false', 'no', 'off', '1', 'true', 'yes', 'on'].includes(secureFlag), 'CLICKHOUSE_SECURE must be true or false');
+const secure = ['1', 'true', 'yes', 'on'].includes(secureFlag);
+const port = (process.env.CLICKHOUSE_PORT ?? '').trim() || (secure ? '8443' : '8123');
+const admin = new URL(`${secure ? 'https' : 'http'}://${process.env.CLICKHOUSE_HOST || 'localhost'}:${port}`);
 const authorization = `Basic ${Buffer.from(`${process.env.CLICKHOUSE_USERNAME ?? 'default'}:${process.env.CLICKHOUSE_PASSWORD ?? ''}`).toString('base64')}`;
 const query = `SELECT elapsed FROM system.processes WHERE current_database = '${database}' AND position(query, 'client_slow') > 0 FORMAT JSONEachRow`;
 const active = async () => {
