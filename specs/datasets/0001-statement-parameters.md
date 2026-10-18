@@ -239,21 +239,23 @@ byte-identical.
    `ParameterType`). Lands with HQ-279. The parity corpus (HQ-309) checks the
    final parameter arrays.
 
-## Open questions
+## Decisions
 
-1. **IN lists on Postgres.** Expand to `IN ($1, $2, …)` (today's shape, and
-   the 65,535-parameter cap applies) or bind one array, `= ANY($1)`, as Python
-   does for ClickHouse? Proposal: expand in v1 to stay comparable with the
-   ClickHouse parity corpus, and revisit with typed arrays.
-2. **Values authored in the definition.** Measure-filter literals and formula
-   literals come from the dataset definition (trusted), not the caller. They
+Resolved on 2026-10-18.
+
+1. **IN lists on Postgres are expanded** to `IN ($1, $2, …)`, today's shape,
+   so results stay directly comparable with the ClickHouse parity corpus. The
+   65,535-parameter cap applies. Binding one array (`= ANY($1)`, as Python
+   does for ClickHouse) is revisited alongside typed arrays.
+2. **Only caller-influenced values are bound.** Measure-filter literals and
+   formula literals come from the dataset definition, which is trusted. They
    stay inline, spelled by `measureFilterLiteral` / `formulaLiteral`. Binding
-   them would change the SQL for no security gain and would add parameters to
-   every aggregate. Confirm this is the intended boundary.
-3. **Timezone names.** These are validated IANA names, inlined by
-   `toQueryTimezone`. Python binds the zone as a parameter. Proposal: keep it
-   inline, since the validated grammar makes injection impossible and
-   ClickHouse needs a constant zone for `DateTime64(9, tz)` typing.
+   them would change SQL for no security gain and would add parameters to every
+   aggregate.
+3. **Timezone names stay inline**, spelled by `toQueryTimezone`. They are
+   validated IANA names, a grammar that cannot carry SQL, and ClickHouse needs
+   a constant zone for `DateTime64(9, tz)` typing. Python binds the zone; this
+   is a documented difference, not drift.
 
 ## Python
 
