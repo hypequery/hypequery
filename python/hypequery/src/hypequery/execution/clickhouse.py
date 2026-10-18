@@ -397,7 +397,11 @@ class AsyncFromSyncClickHouseExecutor:
             future = self._workers.submit(self._sync.execute, compiled)
             submitted = True
             work = asyncio.wrap_future(future)
-            return await run_with_policy(work, compiled, self._cancel_on_server)
+            # The blocking driver call cannot be interrupted; the bridge knows
+            # when it returns, so server cancellation can be retried until then.
+            return await run_with_policy(
+                work, compiled, self._cancel_on_server, pending=lambda: not future.done()
+            )
         finally:
             if submitted and not future.done():
                 future.add_done_callback(lambda _: self._release_slot_from_worker(loop))

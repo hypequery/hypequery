@@ -474,3 +474,92 @@ def test_confirmed_sync_cancellation_stops_control_traffic_before_driver_returns
         with pytest.raises(CompiledQueryError) as exc:
             task.result(timeout=1)
         assert category(exc) == "aborted"
+
+
+def test_native_async_cancellation_retries_until_the_server_confirms() -> None:
+    async def run() -> None:
+        signal = threading.Event()
+        client = AsyncClient()
+        confirmed = asyncio.Event()
+
+        class LateControl:
+            def __init__(self) -> None:
+                self.calls = 0
+
+            async def command(self, _cmd: str, _parameters: dict[str, str]) -> object:
+                self.calls += 1
+                if self.calls < 3:
+                    # The query had not registered on the server yet.
+                    return None
+                confirmed.set()
+                return "finished"
+
+        control = LateControl()
+        executor = AsyncClickHouseExecutor(client, control)
+        task = asyncio.create_task(executor.execute(query(cancellation=signal)))
+        await client.started.wait()
+        signal.set()
+        with pytest.raises(CompiledQueryError) as exc:
+            await task
+        assert category(exc) == "aborted"
+        # The request does not wait for the retries.
+        assert control.calls == 1
+        await asyncio.wait_for(confirmed.wait(), timeout=2)
+        assert control.calls == 3
+        await asyncio.sleep(0.2)
+        # Confirmation stops the retries.
+        assert control.calls == 3
+
+    asyncio.run(run())
+
+
+def test_sync_bridge_cancellation_retries_when_first_kill_precedes_registration() -> None:
+    started = threading.Event()
+    register = threading.Event()
+    registered = threading.Event()
+    stopped = threading.Event()
+    signal = threading.Event()
+    attempts: list[bool] = []
+
+    class SubmittingClient:
+        def query(self, *_args: object, **_kwargs: object) -> DriverResult:
+            started.set()
+            assert register.wait(2)
+            registered.set()
+            assert stopped.wait(2)
+            return cast(DriverResult, Result())
+
+    class LateControl:
+        def command(self, _cmd: str, _parameters: dict[str, str]) -> object:
+            attempts.append(registered.is_set())
+            if registered.is_set():
+                stopped.set()
+                return "finished"
+            return None
+
+    async def run() -> None:
+        executor = AsyncFromSyncClickHouseExecutor(
+            SubmittingClient(), LateControl(), max_concurrent=1
+        )
+        task = asyncio.create_task(executor.execute(query(cancellation=signal)))
+        while not started.is_set():
+            await asyncio.sleep(0.005)
+        signal.set()
+        with pytest.raises(CompiledQueryError) as exc:
+            await task
+        assert category(exc) == "aborted"
+        # The first KILL preceded registration and matched nothing.
+        assert attempts == [False]
+        register.set()
+        deadline = time.monotonic() + 2
+        while not stopped.is_set() and time.monotonic() < deadline:
+            await asyncio.sleep(0.01)
+        # A later attempt reached the registered query and stopped it.
+        assert True in attempts
+        await executor.aclose()
+
+    try:
+        asyncio.run(run())
+    finally:
+        register.set()
+        stopped.set()
