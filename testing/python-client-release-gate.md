@@ -28,6 +28,13 @@ The gate runs:
   Decimal strings compare exactly without conversion to JavaScript numbers;
   number-valued aggregates still fail the wire-type check. A related decimal
   exceeds JavaScript's safe-integer range to detect lossy conversion.
+- Browser HTTP errors from real Python handlers: successful token refresh, a
+  persistent 401 limited to one refresh/retry, and 400/403/409/429/500/503 without
+  auth refresh or query retries. Verify schema pins, CORS, canonical safe error
+  envelopes, no-store/request IDs and rate-limit response headers. Unexpected
+  exception text must not reach the browser.
+- Installed MCP rejects unauthorized/forbidden discovery and, through the SDK
+  protocol adapter, expired credentials before a data POST, without replay.
 - Actual MCP SDK cancellation after observing a slow query in `system.processes`,
   followed by an executor deadline. Each must stop database work before the
   three-second query could complete naturally. A response-only abort cannot pass.
@@ -74,7 +81,7 @@ is enabled in normal CI. `HYPEQUERY_TUTORIAL_REACT_MAJOR=18` selects the React 1
 consumer; default is 19. `HYPEQUERY_GATE_BROWSER_EXECUTABLE` may select a local
 browser; CI uses the pinned Playwright Chromium install.
 
-Remaining beta gates include full HTTP error/refresh coverage, exact published npm/PyPI versions, publisher/OIDC
+Remaining beta gates include exact published npm/PyPI versions, publisher/OIDC
 configuration and release rehearsal. Green development-artifact CI alone does
 not authorize a release announcement.
 

@@ -33,6 +33,7 @@ git rev-parse HEAD > "$HQ_GATE/source-sha.txt"
 if [[ -n "$(git status --porcelain --untracked-files=normal)" ]]; then echo true; else echo false; fi > "$HQ_GATE/worktree-dirty.txt"
 HYPEQUERY_TUTORIAL_DIRECTORY_FILE="$HQ_GATE/prepared.path" bash scripts/prepare-python-client-tutorial.sh >"$HQ_GATE/build.log" 2>&1 || { tail -80 "$HQ_GATE/build.log"; exit 1; }
 read -r HQ_TUTORIAL < "$HQ_GATE/prepared.path"
+cp "$HQ_ROOT/testing/fixtures/python-client-gate/error_routes.py" "$HQ_TUTORIAL/backend/gate_error_routes.py"
 cp "$HQ_ROOT/testing/fixtures/python-client-gate/backend.py" "$HQ_TUTORIAL/backend/client_gate.py"
 cp "$HQ_ROOT/testing/fixtures/python-client-gate/definitions.py" "$HQ_TUTORIAL/backend/gate_definitions.py"
 cp "$HQ_ROOT/testing/fixtures/python-client-gate/database.py" "$HQ_TUTORIAL/backend/database.py"
@@ -43,7 +44,7 @@ HQ_STAGE='contract'
 if [[ "${HYPEQUERY_GATE_FAULT:-}" == 'stale' ]]; then printf '\n// intentional drift\n' >> "$HQ_FRONTEND/client.generated.ts"; fi
 (cd "$HQ_FRONTEND" && npm run check:generated) >"$HQ_GATE/generation.log" 2>&1 || { cat "$HQ_GATE/generation.log"; exit 1; }
 cp "$HQ_ROOT/testing/fixtures/python-client-gate/"*.mjs "$HQ_FRONTEND/"
-cp "$HQ_ROOT/testing/fixtures/python-client-gate/semantic-app.tsx" "$HQ_FRONTEND/"
+cp "$HQ_ROOT/testing/fixtures/python-client-gate/"*-app.tsx "$HQ_FRONTEND/"
 cp -R "$HQ_ROOT/testing/fixtures/python-client-gate/utils" "$HQ_FRONTEND/"
 export CLICKHOUSE_DATABASE="hq_client_gate_$(python3 -c 'import secrets; print(secrets.token_hex(8))')"
 export HYPEQUERY_TENANT_A_TOKEN='gate-user-a'
@@ -83,10 +84,12 @@ PY
 kill -0 "$HQ_API_PID"
 kill -0 "$HQ_UI_PID"
 cd "$HQ_FRONTEND"
-./node_modules/.bin/tsc semantic-app.tsx --ignoreConfig --noEmit --strict --module esnext --moduleResolution bundler --target es2022 --jsx react-jsx --lib es2022,dom
-./node_modules/.bin/esbuild semantic-app.tsx --bundle --format=esm --outfile=public/semantic.js --metafile=public/semantic.meta.json
-node "$HQ_ROOT/scripts/utils/audit-python-browser-bundle.mjs" public/semantic.meta.json
-printf '<!doctype html><html lang="en"><head><meta charset="utf-8"><link rel="icon" href="data:,"><title>Semantic gate</title></head><body><div id="root"></div><script type="module" src="/semantic.js"></script></body></html>\n' > public/semantic.html
+./node_modules/.bin/tsc semantic-app.tsx errors-app.tsx --ignoreConfig --noEmit --strict --module esnext --moduleResolution bundler --target es2022 --jsx react-jsx --lib es2022,dom
+for HQ_PAGE in semantic errors; do
+  ./node_modules/.bin/esbuild "$HQ_PAGE-app.tsx" --bundle --format=esm --outfile="public/$HQ_PAGE.js" --metafile="public/$HQ_PAGE.meta.json"
+  node "$HQ_ROOT/scripts/utils/audit-python-browser-bundle.mjs" "public/$HQ_PAGE.meta.json"
+  printf '<!doctype html><html lang="en"><head><meta charset="utf-8"><link rel="icon" href="data:,"><title>Client qualification</title></head><body><div id="root"></div><script type="module" src="/%s.js"></script></body></html>\n' "$HQ_PAGE" > "public/$HQ_PAGE.html"
+done
 npm install --no-save --omit=optional playwright@1.64.1 >"$HQ_GATE/browser-install.log" 2>&1
 if [[ -z "${HYPEQUERY_GATE_BROWSER_EXECUTABLE:-}" ]]; then
   npx --no-install playwright install --with-deps chromium >>"$HQ_GATE/browser-install.log" 2>&1
@@ -97,6 +100,9 @@ HQ_STAGE='semantics'
 node semantics.mjs >"$HQ_GATE/semantics.log" 2>&1 || { cat "$HQ_GATE/semantics.log"; exit 1; }
 HQ_STAGE='browser'
 node browser.mjs >"$HQ_GATE/browser.log" 2>&1 || { cat "$HQ_GATE/browser.log"; exit 1; }
+HQ_STAGE='errors'
+node errors.mjs >"$HQ_GATE/errors.log" 2>&1 || { cat "$HQ_GATE/errors.log"; exit 1; }
+node errors-browser.mjs >"$HQ_GATE/errors-browser.log" 2>&1 || { cat "$HQ_GATE/errors-browser.log"; exit 1; }
 HQ_STAGE='cancellation'
 node cancellation.mjs >"$HQ_GATE/cancellation.log" 2>&1 || { cat "$HQ_GATE/cancellation.log"; exit 1; }
 node evidence.mjs

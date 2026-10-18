@@ -9,6 +9,7 @@ from examples.utils.config import required_environment
 from examples.utils.server import application
 from fastapi import FastAPI, Request
 from gate_definitions import joined, profiles
+from gate_error_routes import ErrorRoutes
 from hypequery.datasets import ClientQueryProfile, DatasetClient, dataset, measure
 from hypequery.serve import EndpointPolicy, Principal, ServeRouter, add_dataset_endpoint
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
@@ -25,6 +26,7 @@ slow = dataset(
 
 def install(api: ServeRouter, client: DatasetClient) -> None:
     install_tutorial(api, client)
+    ErrorRoutes().install(api)
     add_dataset_endpoint(
         api,
         "/v1/joined",
@@ -82,6 +84,7 @@ def app() -> FastAPI:
             required_environment("HYPEQUERY_TENANT_A_TOKEN"): Principal(
                 subject="alice", tenant_id="a", scopes=frozenset({"analytics:read"})
             ),
+            "gate-denied-user": Principal(subject="denied", tenant_id="a"),
             required_environment("HYPEQUERY_TENANT_B_TOKEN"): Principal(
                 subject="bob",
                 tenant_id="a" if fault == "tenant" else "b",
