@@ -169,11 +169,12 @@ program
 
 program
   .command('mcp [file]')
-  .description('Serve this project\'s datasets to an MCP client over stdio')
+  .description('Serve local datasets or authorized HTTP client endpoints over MCP stdio')
   .option('--path <path>', 'Analytics directory (loads <path>/api.ts or <path>/queries.ts)')
   .option('--tenant <id>', 'Trusted tenant applied to every tenant-scoped dataset')
   .option('--self-test', 'Check the entrypoint and exit without speaking MCP')
   .option('--url <url>', 'With --self-test: check a hosted MCP endpoint (key from HYPEQUERY_API_KEY)')
+  .option('--client-contract-url <url>', 'Bridge authorized HTTP client endpoints to MCP (Bearer key from HYPEQUERY_API_KEY)')
   .action(runCommand(async (file: string | undefined, options: McpOptions) => {
     await mcpCommand(file, options);
   }));

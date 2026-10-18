@@ -90,3 +90,36 @@ budgets and authorization on every request.
 ## License
 
 Apache-2.0.
+
+### Python HTTP datasets over MCP
+
+For a Python API exposing an authorized client-contract endpoint, install a
+compatible `@hypequery/mcp` alongside the CLI in your Node project, then run:
+
+```bash
+# Supply the backend principal's Bearer credential through your environment.
+# Omit it only when your backend intentionally authorizes public access.
+export HYPEQUERY_API_KEY='your-backend-credential'
+hypequery mcp --client-contract-url https://api.example.com/v1/client-contract --self-test
+hypequery mcp --client-contract-url https://api.example.com/v1/client-contract
+```
+
+The self-test checks authorized discovery and tool schemas without querying
+business data. Serving uses MCP stdio: stdout carries protocol messages and
+status/errors go to stderr. Use the second command as your MCP client's command
+and arguments; supply the credential using that client's secret/environment
+configuration. Never put the credential in a URL or command argument.
+
+Python owns authentication, tenant resolution, policy and SQL execution. One
+bridge process serves one backend principal. Restart it after changing principal
+or after a stale-contract error; it never silently replaces pinned schemas or
+replays a query. HTTPS is required except on loopback, and redirects are refused.
+
+`--client-contract-url` cannot be combined with a local file, `--path`, `--tenant`
+or `--url`. The existing `--self-test --url` checks a hosted MCP endpoint; the
+new flag points at a Python HTTP discovery endpoint. No local analytics module
+or Python process is loaded by this mode. Node is needed for the MCP bridge;
+the Python API itself does not require Node.
+
+The npm packages must contain the matching client-contract features. Workspace
+qualification does not imply that these changes have already been published.

@@ -28,3 +28,11 @@ principal, and the Python endpoint applies its current policy before execution.
 Development artifacts tested on 16 October 2026: Python 0.1.0.dev0, MCP 0.9.0,
 datasets 0.23.1 and protocol 0.20.0. These are workspace builds carrying the
 stacked changes, not claims about already-published versions.
+
+Add `--cli` to the smoke command to build and pack the CLI and its dependencies
+as well. This runs its discovery-only self-test, then launches two actual MCP
+stdio child processes with distinct environment credentials. The same assertions
+run through `StdioClientTransport`; closing each SDK client must terminate its
+child process, and its stderr must not contain its credential. Stdout is parsed
+by the real SDK, so non-protocol output breaks the journey. CLI installation also
+includes dependencies for the existing local TypeScript modes.
