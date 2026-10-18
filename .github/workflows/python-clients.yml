@@ -1,0 +1,88 @@
+name: Python client qualification
+
+on:
+  workflow_call:
+    inputs:
+      ref:
+        type: string
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  clients:
+    name: installed clients (py${{ matrix.python }}, CH${{ matrix.clickhouse }}, React${{ matrix.react }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - python: '3.11'
+            clickhouse: '25.8'
+            react: '18'
+          - python: '3.14'
+            clickhouse: '26.3'
+            react: '19'
+    services:
+      clickhouse:
+        image: clickhouse/clickhouse-server:${{ matrix.clickhouse }}
+        ports:
+          - 8123:8123
+        env:
+          CLICKHOUSE_USER: default
+          CLICKHOUSE_PASSWORD: hypequery_test
+          CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: 1
+        options: >-
+          --health-cmd "wget --no-verbose --tries=1 --spider http://localhost:8123/ping || exit 1"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.ref }}
+          persist-credentials: false
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+          cache: pnpm
+      - uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86 # v5
+        with:
+          version: '0.12.0'
+          python-version: ${{ matrix.python }}
+          enable-cache: true
+          cache-dependency-glob: python/hypequery/uv.lock
+      - run: pnpm install --frozen-lockfile
+      - name: Qualify installed Python, generated React and MCP on this commit
+        id: gate
+        env:
+          UV_PYTHON: ${{ matrix.python }}
+          HYPEQUERY_TUTORIAL_REACT_MAJOR: ${{ matrix.react }}
+          HYPEQUERY_GATE_DIRECTORY_FILE: ${{ runner.temp }}/client-gate-directory
+          CLICKHOUSE_HOST: 127.0.0.1
+          CLICKHOUSE_PORT: '8123'
+          CLICKHOUSE_USERNAME: default
+          CLICKHOUSE_PASSWORD: hypequery_test
+        run: |
+          set +e
+          bash scripts/smoke-python-client-release.sh
+          result=$?
+          if [ -f "$HYPEQUERY_GATE_DIRECTORY_FILE" ]; then
+            echo "directory=$(cat "$HYPEQUERY_GATE_DIRECTORY_FILE")" >> "$GITHUB_OUTPUT"
+          fi
+          exit "$result"
+      - name: Retain qualification evidence and failure diagnostics
+        if: always() && steps.gate.outputs.directory != ''
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: python-clients-${{ matrix.python }}-ch${{ matrix.clickhouse }}-react${{ matrix.react }}
+          path: |
+            ${{ steps.gate.outputs.directory }}/*.json
+            ${{ steps.gate.outputs.directory }}/*.txt
+            ${{ steps.gate.outputs.directory }}/*.png
+            ${{ steps.gate.outputs.directory }}/*.log
+          if-no-files-found: error
+          retention-days: 14
