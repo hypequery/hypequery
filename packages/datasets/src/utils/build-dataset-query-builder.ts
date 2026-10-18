@@ -68,7 +68,7 @@ export function buildDatasetQueryBuilder(
   for (const measureName of measureNames) {
     if (measureName.includes('.')) {
       const expressions = relationshipMeasureExpressions(ds, measureName, joinCtx!, dialect);
-      qb = applyAggregationSpec(qb, ds, measureToAggregationSpec(measureName, expressions.definition), dialect.quoteIdentifier(measureName), joinCtx, dialect, expressions);
+      qb = applyAggregationSpec(qb, ds, measureToAggregationSpec(measureName, expressions.definition), measureName, joinCtx, dialect, expressions);
       continue;
     }
     const definition = getBaseMeasure(ds.measures, measureName);

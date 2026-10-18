@@ -11,7 +11,14 @@
 
 import type { DatasetSqlDialect } from './dataset-sql-dialect.js';
 
-/** A chainable query builder instance (what `.table(name)` returns). */
+/**
+ * A chainable query builder instance (what `.table(name)` returns).
+ *
+ * Aliases and column arguments the datasets planner passes are SQL text as
+ * the datasets dialect spells it: generated output aliases arrive already
+ * quoted (for example `` `revenue` ``). Insert them verbatim; do not quote
+ * them again.
+ */
 export interface QueryBuilderLike {
   select(columns: string[] | string): QueryBuilderLike;
 

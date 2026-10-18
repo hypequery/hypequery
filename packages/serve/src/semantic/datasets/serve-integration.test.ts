@@ -742,7 +742,7 @@ describe("Serve integration — metrics", () => {
 
       expect(factory._calls['select']).toBeDefined();
       expect(factory._calls['select'][0][0]).toContain('country');
-      expect(factory._calls['sum']).toContainEqual(['amount', 'totalRevenue']);
+      expect(factory._calls['sum']).toContainEqual(['amount', '`totalRevenue`']);
       expect(factory._calls['where']).toContainEqual(['status', 'eq', 'completed']);
       expect(factory._calls['limit']).toContainEqual([10]);
     });
@@ -763,7 +763,7 @@ describe("Serve integration — metrics", () => {
       );
 
       expect(factory._calls['select']).toBeDefined();
-      expect(factory._calls['select'][0][0]).toContain("toStartOfMonth(toDateTime64(created_at, 9, 'UTC')) AS period");
+      expect(factory._calls['select'][0][0]).toContain("toStartOfMonth(toDateTime64(created_at, 9, 'UTC')) AS `period`");
     });
 
     it("supports grained metric refs in createAPI", async () => {
@@ -782,8 +782,8 @@ describe("Serve integration — metrics", () => {
       );
 
       expect(factory._calls['select']).toBeDefined();
-      expect(factory._calls['select'][0][0]).toContain("toStartOfMonth(toDateTime64(created_at, 9, 'UTC')) AS period");
-      expect(factory._calls['orderBy']).toContainEqual(['period', 'ASC']);
+      expect(factory._calls['select'][0][0]).toContain("toStartOfMonth(toDateTime64(created_at, 9, 'UTC')) AS `period`");
+      expect(factory._calls['orderBy']).toContainEqual(['`period`', 'ASC']);
     });
 
     it("rejects conflicting body.by for grained metric refs", async () => {
@@ -827,7 +827,7 @@ describe("Serve integration — metrics", () => {
 
       const sql = stringValue(factory._calls['rawQuery'][0][0]);
       expect(sql).toContain("WITH base AS");
-      expect(sql).toContain("NULLIF(orderCount, 0)");
+      expect(sql).toContain("NULLIF(`orderCount`, 0)");
     });
 
     it("matches the docs-style monthly metric example end-to-end", async () => {
@@ -851,9 +851,9 @@ describe("Serve integration — metrics", () => {
 
       expect(response.status).toBe(200);
       expect(factory._calls['select']).toBeDefined();
-      expect(factory._calls['select'][0][0]).toContain("toStartOfMonth(toDateTime64(created_at, 9, 'UTC')) AS period");
+      expect(factory._calls['select'][0][0]).toContain("toStartOfMonth(toDateTime64(created_at, 9, 'UTC')) AS `period`");
       expect(factory._calls['select'][0][0]).toContain('country');
-      expect(factory._calls['orderBy']).toContainEqual(['period', 'ASC']);
+      expect(factory._calls['orderBy']).toContainEqual(['`period`', 'ASC']);
       expect(factory._calls['limit']).toContainEqual([12]);
     });
 
@@ -879,8 +879,8 @@ describe("Serve integration — metrics", () => {
       expect(response.status).toBe(200);
       expect(factory._calls['select']).toBeDefined();
       const selectArgs = factory._calls['select'].flat(2);
-      expect(selectArgs).toContain("toStartOfMonth(toDateTime64(created_at, 9, 'UTC')) AS period");
-      expect(selectArgs).toContain('country_code AS countryCode');
+      expect(selectArgs).toContain("toStartOfMonth(toDateTime64(created_at, 9, 'UTC')) AS `period`");
+      expect(selectArgs).toContain('country_code AS `countryCode`');
       expect(factory._calls['where']).toContainEqual(["toDateTime64(created_at, 9, 'UTC')", 'gte', '2025-01-01']);
     });
   });
@@ -1533,7 +1533,7 @@ describe("Serve integration — metrics", () => {
       expect(factory._calls['table']).toBeDefined();
       expect(factory._calls['table'][0]).toEqual(['orders']);
       expect(factory._calls['sum']).toBeDefined();
-      expect(factory._calls['sum'][0]).toEqual(['amount', 'totalRevenue']);
+      expect(factory._calls['sum'][0]).toEqual(['amount', '`totalRevenue`']);
     });
 
     it("passes filters through builder.where()", async () => {
@@ -1598,7 +1598,7 @@ describe("Serve integration — metrics", () => {
       // Should select with toStartOfMonth expression
       expect(factory._calls['select']).toBeDefined();
       const selectArgs = factory._calls['select'][0][0];
-      expect(selectArgs).toContain("toStartOfMonth(toDateTime64(created_at, 9, 'UTC')) AS period");
+      expect(selectArgs).toContain("toStartOfMonth(toDateTime64(created_at, 9, 'UTC')) AS `period`");
     });
 
     it("applies order/limit/offset via builder methods", async () => {
@@ -1621,7 +1621,7 @@ describe("Serve integration — metrics", () => {
       );
 
       expect(factory._calls['orderBy']).toBeDefined();
-      expect(factory._calls['orderBy'][0]).toEqual(['totalRevenue', 'DESC']);
+      expect(factory._calls['orderBy'][0]).toEqual(['`totalRevenue`', 'DESC']);
       expect(factory._calls['limit']).toBeDefined();
       expect(factory._calls['limit'][0]).toEqual([10]);
       expect(factory._calls['offset']).toBeDefined();
@@ -1683,7 +1683,7 @@ describe("Serve integration — metrics", () => {
       expect(factory.rawQuery).toHaveBeenCalled();
       const sql = stringValue(factory._calls['rawQuery'][0][0]);
       expect(sql).toContain("WITH base AS");
-      expect(sql).toContain("NULLIF(orderCount, 0)");
+      expect(sql).toContain("NULLIF(`orderCount`, 0)");
     });
 
     it("handles grained derived metrics via builder + rawQuery", async () => {
@@ -1706,7 +1706,7 @@ describe("Serve integration — metrics", () => {
       const sql = stringValue(factory._calls['rawQuery'][0][0]);
       expect(sql).toContain("WITH base AS");
       expect(sql).toContain("period");
-      expect(sql).toContain("NULLIF(orderCount, 0)");
+      expect(sql).toContain("NULLIF(`orderCount`, 0)");
     });
 
     it("executes dataset queries via builder.execute() and returns dataset rows", async () => {
@@ -1737,8 +1737,8 @@ describe("Serve integration — metrics", () => {
       ]);
       expect(factory._calls['table'][0]).toEqual(['orders']);
       expect(factory._calls['select'][0][0]).toContain('country');
-      expect(factory._calls['sum']).toContainEqual(['amount', 'revenue']);
-      expect(factory._calls['count']).toContainEqual(['id', 'count']);
+      expect(factory._calls['sum']).toContainEqual(['amount', '`revenue`']);
+      expect(factory._calls['count']).toContainEqual(['id', '`count`']);
       expect(factory._calls['groupBy'][0][0]).toContain('country');
     });
 
@@ -1760,8 +1760,8 @@ describe("Serve integration — metrics", () => {
       );
 
       expect(response.status).toBe(200);
-      expect(factory._calls['sum']).toContainEqual(['amount', 'revenue']);
-      expect(factory._calls['count']).toContainEqual(['id', 'count']);
+      expect(factory._calls['sum']).toContainEqual(['amount', '`revenue`']);
+      expect(factory._calls['count']).toContainEqual(['id', '`count`']);
     });
 
     it("returns request validation errors for invalid dataset fields", async () => {
@@ -1820,11 +1820,11 @@ describe("Serve integration — metrics", () => {
         { period: "2025-01-01", countryCode: "DE", revenue: "3000" },
       ]);
       const selectArgs = factory._calls['select'][0][0];
-      expect(selectArgs).toContain("toStartOfMonth(toDateTime64(created_at, 9, 'UTC')) AS period");
-      expect(selectArgs).toContain('country_code AS countryCode');
-      expect(factory._calls['sum']).toContainEqual(['amount', 'revenue']);
-      expect(factory._calls['groupBy'][0][0]).toContain('period');
-      expect(factory._calls['groupBy'][0][0]).toContain('countryCode');
+      expect(selectArgs).toContain("toStartOfMonth(toDateTime64(created_at, 9, 'UTC')) AS `period`");
+      expect(selectArgs).toContain('country_code AS `countryCode`');
+      expect(factory._calls['sum']).toContainEqual(['amount', '`revenue`']);
+      expect(factory._calls['groupBy'][0][0]).toContain('`period`');
+      expect(factory._calls['groupBy'][0][0]).toContain('`countryCode`');
     });
 
     it("passes dataset filters through resolved fields before execution", async () => {
@@ -1879,7 +1879,7 @@ describe("Serve integration — metrics", () => {
       );
 
       expect(response.status).toBe(200);
-      expect(factory._calls['orderBy']).toContainEqual(['revenue', 'DESC']);
+      expect(factory._calls['orderBy']).toContainEqual(['`revenue`', 'DESC']);
       // Over-fetches one extra row (LIMIT 25 + 1) to derive pagination.hasMore.
       expect(factory._calls['limit']).toContainEqual([26]);
       expect(factory._calls['offset']).toContainEqual([10]);

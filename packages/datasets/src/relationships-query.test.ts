@@ -593,10 +593,10 @@ describe('relationship joins on the query-builder path', () => {
       orderBy: [{ field: 'customer.country', direction: 'asc' }],
     });
     expect(sql).toContain('LEFT ANY JOIN customers AS customer ON orders.customer_id = customer.id');
-    expect(sql).toContain('orders.status AS status');
+    expect(sql).toContain('orders.status AS `status`');
     expect(sql).toContain('customer.country_code AS `customer.country`');
-    expect(sql).toContain('SUM(orders.amount) AS revenue');
-    expect(sql).toContain('GROUP BY status, `customer.country`');
+    expect(sql).toContain('SUM(orders.amount) AS `revenue`');
+    expect(sql).toContain('GROUP BY `status`, `customer.country`');
     expect(sql).toContain('ORDER BY `customer.country` ASC');
   });
 
@@ -642,7 +642,7 @@ describe('relationship joins on the query-builder path', () => {
   it('still runs non-relationship queries on a builder without leftAnyJoin', () => {
     const client = createDatasetClient({ queryBuilder: createJoinMockBuilderFactory({ anyJoin: false }) });
     expect(client.toSQL(Orders, { dimensions: ['status'], measures: ['revenue'] }))
-      .toBe('SELECT status, SUM(amount) AS revenue FROM orders GROUP BY status');
+      .toBe('SELECT status, SUM(amount) AS `revenue` FROM orders GROUP BY status');
   });
 
   it('leaves non-join queries unqualified (no regression)', () => {
@@ -650,7 +650,7 @@ describe('relationship joins on the query-builder path', () => {
       dimensions: ['status'],
       measures: ['revenue'],
     });
-    expect(sql).toBe('SELECT status, SUM(amount) AS revenue FROM orders GROUP BY status');
+    expect(sql).toBe('SELECT status, SUM(amount) AS `revenue` FROM orders GROUP BY status');
   });
 
   it('rejects a SQL-backed base dimension combined with a join', () => {
@@ -672,6 +672,6 @@ describe('relationship joins on the query-builder path', () => {
       dimensions: ['lineTotal'],
       measures: ['revenue'],
     });
-    expect(sql).toContain('price * quantity AS lineTotal');
+    expect(sql).toContain('price * quantity AS `lineTotal`');
   });
 });
