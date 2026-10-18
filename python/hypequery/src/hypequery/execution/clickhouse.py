@@ -136,6 +136,7 @@ def _driver_failure(
 
 
 class _ClientKwargs(TypedDict):
+    autogenerate_session_id: bool
     host: str
     port: int | None
     database: str
@@ -148,6 +149,10 @@ def _client_kwargs(connection: ClickHouseConnection) -> _ClientKwargs:
     """Connection fields shared by the query and cancellation-control clients."""
 
     return {
+        # A process-wide executor serves overlapping HTTP/worker queries. The
+        # driver's generated session locks the client to one active query.
+        # Queries use explicit settings/parameters and need no session state.
+        "autogenerate_session_id": False,
         "host": connection.host,
         "port": connection.port,
         "database": connection.database,
