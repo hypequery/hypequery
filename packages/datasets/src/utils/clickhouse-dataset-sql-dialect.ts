@@ -38,6 +38,10 @@ export const clickhouseDatasetSqlDialect: DatasetSqlDialectRules = Object.freeze
   reusesPlaceholders: false,
   embedsPositionalPieces: true,
 
+  orderTerm: (expression: string, direction?: 'ASC' | 'DESC') => direction ? `${expression} ${direction}` : expression,
+  paginate: (limit: number | undefined, offset: number | undefined) =>
+    `${limit === undefined ? '' : ` LIMIT ${limit}`}${offset === undefined ? '' : ` OFFSET ${offset}`}`,
+
   stringLiteral,
   measureFilterLiteral(value: unknown): string {
     if (value === null) return 'NULL';

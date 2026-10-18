@@ -3,6 +3,18 @@ import type { QueryBuilderFactoryInput } from '../query-builder-protocol.js';
 import { clickhouseDatasetSqlDialect } from './clickhouse-dataset-sql-dialect.js';
 
 const resolved = new WeakMap<DatasetSqlDialect, DatasetSqlDialectRules>();
+const complete = new WeakSet<DatasetSqlDialect>();
+
+/**
+ * Register a complete engine rule set, so a factory can carry it as its
+ * `datasetSqlDialect` and have it used as-is rather than completed with the
+ * ClickHouse rules. Internal: for engine packages and tests.
+ */
+export function defineDatasetSqlDialectRules<TRules extends DatasetSqlDialectRules>(rules: TRules): Readonly<TRules> {
+  const frozen = Object.isFrozen(rules) ? rules : Object.freeze({ ...rules });
+  complete.add(frozen);
+  return frozen;
+}
 
 /**
  * Complete a public dialect hook with the ClickHouse rules it does not
@@ -10,6 +22,7 @@ const resolved = new WeakMap<DatasetSqlDialect, DatasetSqlDialectRules>();
  */
 export function completeDatasetSqlDialect(dialect: DatasetSqlDialect): DatasetSqlDialectRules {
   if (dialect === clickhouseDatasetSqlDialect) return clickhouseDatasetSqlDialect;
+  if (complete.has(dialect)) return dialect as DatasetSqlDialectRules;
   let rules = resolved.get(dialect);
   if (!rules) {
     // Read the public members explicitly: a class-based hook keeps its methods
