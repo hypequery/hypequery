@@ -1,3 +1,6 @@
+import type { AggregationType, MeasureDefinition, TimeGrain } from './types.js';
+import type { SemanticBinaryOperator, SemanticFunctionName } from './semantic-plan.js';
+
 /**
  * SQL rendering owned by the semantic datasets layer, separate from a query
  * builder's compiler dialect. Extend this contract as emission sites migrate.
@@ -7,4 +10,89 @@ export interface DatasetSqlDialect {
   readonly name: string;
   /** Quote one output identifier; dots in a qualified semantic alias are literal. */
   quoteIdentifier(identifier: string): string;
+}
+
+/** A formula binary operator, matching `SemanticExpression` `binary` nodes. */
+export type DatasetSqlBinaryOperator = SemanticBinaryOperator;
+
+/** A wall-clock component read from a zoned timestamp. */
+export type DatasetSqlClockPart = 'Hour' | 'Minute' | 'Second';
+
+/**
+ * Every engine-specific spelling the datasets planner emits outside the query
+ * builder. Arguments are already-rendered SQL expressions; implementations
+ * only spell them, so planning decisions stay shared across engines.
+ *
+ * Internal: engines implement the full rule set. The public
+ * `DatasetSqlDialect` hook may override a subset, which
+ * `resolveDatasetSqlDialect` merges onto the ClickHouse rules.
+ */
+export interface DatasetSqlDialectRules extends DatasetSqlDialect {
+  // Literals
+  stringLiteral(value: string): string;
+  /** A literal compared against a column inside a measure filter. */
+  measureFilterLiteral(value: unknown): string;
+
+  // Time
+  /** Truncate a timestamp to the start of its grain bucket. */
+  truncateTime(time: string, grain: TimeGrain): string;
+  /** Move a timestamp forward by `amount` grains; `amount` may be an expression. */
+  addTime(time: string, amount: string | number, grain: TimeGrain): string;
+  /** Move a timestamp back by a literal number of grains. */
+  subtractTime(time: string, amount: number, grain: TimeGrain): string;
+  /** Whole grain boundaries crossed from `start` to `end`. */
+  timeDiff(grain: TimeGrain, start: string, end: string): string;
+  /** Convert a source time to the query timezone, a validated canonical IANA name. */
+  toQueryTimezone(time: string, timezone: string): string;
+  /** Parse a timestamp literal in the zone the `timezone` expression evaluates to. */
+  parseTimestamp(value: string, timezone: string): string;
+  /** The timezone a zoned timestamp expression carries. */
+  timezoneOf(time: string): string;
+  /** One wall-clock component of a zoned timestamp. */
+  clockPart(part: DatasetSqlClockPart, time: string): string;
+  /** True when a value's physical type is a date without a time of day. */
+  isDateOnlyType(value: string): string;
+
+  // Control flow and guards
+  /** Fail the statement with `message` when `condition` holds; evaluates to 0 otherwise. */
+  guard(condition: string, message: string): string;
+  ifElse(condition: string, then: string, otherwise: string): string;
+  greatest(...values: string[]): string;
+  least(...values: string[]): string;
+  /** NULL-safe equality. */
+  isNotDistinctFrom(left: string, right: string): string;
+  isNotNull(value: string): string;
+  /** Narrow a value the planner has already proven non-NULL. */
+  assumeNotNull(value: string): string;
+  /** Widen a value to a nullable type, so unmatched joins yield NULL. */
+  toNullable(value: string): string;
+  /** Count rows matching `condition`. */
+  countIf(condition: string): string;
+  /** Expand each row into `count` rows carrying the indices 0..count-1. */
+  seriesIndex(count: string): string;
+  /** True when `predicate`, which reads `index`, holds for some index in 0..count-1. */
+  anyIndex(index: string, count: string, predicate: string): string;
+
+  // Row packing
+  /** Pack expressions into one positional value, isolating their names. */
+  packRow(values: readonly string[]): string;
+  /** Read the 1-based `position` from a packed row. */
+  rowElement(row: string, position: number): string;
+  /** Every column of `relation` except `columns`. */
+  selectAllExcept(relation: string, columns: readonly string[]): string;
+  /** Join keyword matching each left row to the nearest preceding right row. */
+  readonly asofLeftJoin: string;
+
+  // Aggregates
+  /** Wrap a filtered measure's input so non-matching rows contribute `fallback`. */
+  filteredAggregateInput(condition: string, value: string, fallback: '0' | 'NULL'): string;
+  /** A time-measure aggregate: NULL over an empty population unless it counts. */
+  windowAggregate(definition: MeasureDefinition, value: string, arg: string): string;
+  /** Re-aggregate partial results; NULL over an empty population. */
+  reaggregate(aggregation: AggregationType, value: string): string;
+
+  // Formulas
+  formulaLiteral(value: string | number | boolean | null): string;
+  formulaBinary(operator: DatasetSqlBinaryOperator, left: string, right: string): string;
+  formulaFunction(name: SemanticFunctionName, args: readonly string[]): string;
 }

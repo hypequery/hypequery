@@ -36,7 +36,7 @@ export function buildDerivedMetricSql(
   if (syntaxErrors.length) throw new Error(syntaxErrors.join('; '));
   const dialect = resolveDatasetSqlDialect(builderFactory);
   const ds = ref.dataset;
-  const joinCtx = buildRelationshipBuilderContext(ds, query, context);
+  const joinCtx = buildRelationshipBuilderContext(ds, query, context, dialect);
 
   // Build the CTE inner query using the builder
   let cteBuilder: QueryBuilderLike = builderFactory.table(ds.source);
@@ -62,7 +62,7 @@ export function buildDerivedMetricSql(
     if (baseSpec.__type !== 'aggregation_spec') {
       throw new Error(`Derived metric "${ref.name}" references non-base metric "${alias}".`);
     }
-    cteBuilder = applyAggregationSpec(cteBuilder, ds, baseSpec, alias, joinCtx);
+    cteBuilder = applyAggregationSpec(cteBuilder, ds, baseSpec, alias, joinCtx, dialect);
     refAliases[alias] = alias;
     aggregateAliases.push(alias);
   }
@@ -84,7 +84,7 @@ export function buildDerivedMetricSql(
       );
     }
     const resolvedField = resolveFilterField(ds, filter.field, joinCtx);
-    cteBuilder = cteBuilder.where(queryTimeFilterSql(ds, filter.field, resolvedField, query.timezone), filter.operator, filter.value);
+    cteBuilder = cteBuilder.where(queryTimeFilterSql(dialect, ds, filter.field, resolvedField, query.timezone), filter.operator, filter.value);
   }
   for (const filter of segmentFilters(ds, query.segments)) {
     cteBuilder = cteBuilder.where(

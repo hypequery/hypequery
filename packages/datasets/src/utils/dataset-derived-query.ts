@@ -44,7 +44,7 @@ export function buildDerivedDatasetSql(
   const baseMeasures = measureDependencyNames(queryMeasureDefinitions(ds, selected), selected).filter(name => name.includes('.') || getBaseMeasure(ds.measures, name));
   const resolve = (name: string): string => {
     const derived = getDerivedMeasure(ds.measures, name);
-    return derived ? `(${derivedExpressionSql(derived, resolve)})` : dialect.quoteIdentifier(name);
+    return derived ? `(${derivedExpressionSql(dialect, derived, resolve)})` : dialect.quoteIdentifier(name);
   };
   const inner = buildBaseQuery(ds, {
     ...query,
@@ -62,7 +62,7 @@ export function buildDerivedDatasetSql(
   for (const name of selected) {
     const derived = getDerivedMeasure(ds.measures, name);
     projections.push(derived
-      ? `${derivedExpressionSql(derived, resolve)} AS ${dialect.quoteIdentifier(name)}`
+      ? `${derivedExpressionSql(dialect, derived, resolve)} AS ${dialect.quoteIdentifier(name)}`
       : dialect.quoteIdentifier(name));
   }
   let sql = `WITH base AS (${innerSql}) SELECT ${projections.join(', ')} FROM base`;

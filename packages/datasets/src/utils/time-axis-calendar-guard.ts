@@ -1,5 +1,5 @@
+import type { DatasetSqlDialectRules } from '../dataset-sql-dialect.js';
 import type { TimeGrain } from '../types.js';
-import { addTimeSql } from './time-arithmetic-sql.js';
 
 /**
  * Calendar arithmetic can clamp a nonexistent date onto the previous bucket
@@ -7,12 +7,14 @@ import { addTimeSql } from './time-arithmetic-sql.js';
  * repeating them would duplicate aggregates and cumulative contributions.
  * `count` must already include the series/fanout guards, bounding enumeration.
  */
-export function calendarBucketGuardSql(start: string, count: string, grain: TimeGrain): string {
+export function calendarBucketGuardSql(dialect: DatasetSqlDialectRules, start: string, count: string, grain: TimeGrain): string {
   if (grain === 'minute' || grain === 'hour') return '0';
-  const current = addTimeSql(start, '_hq_calendar_index', grain);
-  const next = addTimeSql(start, '_hq_calendar_index + 1', grain);
+  const index = '_hq_calendar_index';
+  const current = dialect.addTime(start, index, grain);
+  const next = dialect.addTime(start, `${index} + 1`, grain);
   // Include the end boundary, which also bounds the source-row scan.
-  const indices = `range(toUInt64(greatest(1, ${count})))`;
-  return `throwIf(arrayExists(_hq_calendar_index -> ${next} <= ${current}, ${indices}), `
-    + "'Time range crosses a skipped local calendar bucket; use a UTC time key for this range.')";
+  return dialect.guard(
+    dialect.anyIndex(index, dialect.greatest('1', count), `${next} <= ${current}`),
+    'Time range crosses a skipped local calendar bucket; use a UTC time key for this range.',
+  );
 }

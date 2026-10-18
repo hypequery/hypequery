@@ -1,3 +1,4 @@
+import type { DatasetSqlDialectRules } from '../dataset-sql-dialect.js';
 import type { AnyDatasetInstance } from '../types.js';
 
 /** Named zones only: reject fixed offsets, invalid zones, and SQL fragments. */
@@ -18,21 +19,22 @@ export function queryTimezoneErrors(timezone: unknown): string[] {
 }
 
 /** Conversion preserves timestamp instants and interprets Date values as local dates. */
-export function queryTimeSql(expression: string, timezone: string | undefined): string {
+export function queryTimeSql(dialect: DatasetSqlDialectRules, expression: string, timezone: string | undefined): string {
   timezone ??= 'UTC';
   const errors = queryTimezoneErrors(timezone);
   if (errors.length) throw new Error(errors[0]);
   const name = new Intl.DateTimeFormat('en', { timeZone: timezone }).resolvedOptions().timeZone;
-  return `toDateTime64(${expression}, 9, '${name}')`;
+  return dialect.toQueryTimezone(expression, name);
 }
 
 /** Apply the query zone to time-key predicates, including semantic filter aliases. */
 export function queryTimeFilterSql(
+  dialect: DatasetSqlDialectRules,
   ds: AnyDatasetInstance, field: string, expression: string, timezone: string | undefined,
 ): string {
   if (!ds.timeKey || field.includes('.')) return expression;
   const resolved = ds.filters[field]?.field ?? field;
   const column = ds.dimensions[resolved]?.column ?? resolved;
   const timeColumn = ds.dimensions[ds.timeKey]?.column ?? ds.timeKey;
-  return column === timeColumn ? queryTimeSql(expression, timezone) : expression;
+  return column === timeColumn ? queryTimeSql(dialect, expression, timezone) : expression;
 }
