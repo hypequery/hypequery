@@ -73,7 +73,7 @@ try {
   await page.goto('http://127.0.0.1:5173/semantic.html');
   const oracle = JSON.parse(await readFile(`${output}/semantic-oracle.json`, 'utf8'));
   for (const [tenant, token] of [['a', process.env.HYPEQUERY_TENANT_A_TOKEN], ['b', process.env.HYPEQUERY_TENANT_B_TOKEN]]) {
-    await page.getByRole('textbox', { name: 'User token' }).fill(token);
+    await page.getByLabel('User token').fill(token);
     await page.getByRole('button', { name: 'Connect as user' }).click();
     await eventually(async () => await page.getByRole('status').textContent() === 'Ready' && JSON.stringify(semanticRows(await journey.result('Related'))) === JSON.stringify(semanticRows(oracle[tenant].related)), 'Semantic hooks did not match independent SQL');
     for (const [title, name] of [['Related', 'related'], ['Having', 'having'], ['Having total', 'havingTotal'], ['Timezone', 'time']]) assert.deepEqual(semanticRows(await journey.result(title)), semanticRows(oracle[tenant][name]));
