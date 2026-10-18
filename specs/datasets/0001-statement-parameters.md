@@ -103,11 +103,13 @@ interface StatementParameters {
 
 ### Dialect rules
 
-Two additions to `DatasetSqlDialectRules`:
+Three additions to `DatasetSqlDialectRules`:
 
 ```ts
-/** Spell the placeholder for the `index`th bound value (0-based, text order). */
+/** Spell the placeholder for the value at `index` in the rendered parameter array. */
 placeholder(index: number, parameter: BoundParameter): string;
+/** A repeated value re-uses its placeholder (`$k`) rather than binding again. */
+readonly reusesPlaceholders: boolean;
 /** Whether a builder's own positional `?` pieces can be embedded verbatim. */
 readonly embedsPositionalPieces: boolean;
 ```
@@ -219,7 +221,7 @@ Each step is its own PR. Every step except 2 keeps the golden corpus
 byte-identical.
 
 1. **Allocator and render.** Add `StatementParameters`, the dialect
-   `placeholder` / `embedsPositionalPieces` rules, and the fallback positional
+   `placeholder` / `reusesPlaceholders` / `embedsPositionalPieces` rules, and the fallback positional
    embedding. Route the three splice sites, `having`, and both render points
    through it. Tests:
    - markers render in text order even when bound out of order;
@@ -227,6 +229,7 @@ byte-identical.
    - a foreign nonce or a leftover marker throws;
    - `embed` without the callback throws for a non-positional test dialect;
    - no public output contains a marker.
+   Implemented in hypequery/hypequery#706.
 2. **Bind the axis bounds.** `parseTimestamp` takes a bound marker instead of
    a literal. **This intentionally changes the golden corpus:** literals become
    `?`, and `parameters` and the preflight statement gain entries. It is
