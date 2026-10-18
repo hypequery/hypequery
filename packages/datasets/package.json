@@ -51,7 +51,12 @@
     "lint": "eslint \"src/**/*.ts\""
   },
   "files": [
-    "dist"
+    "dist",
+    "!dist/**/*.test.*",
+    "!dist/**/*.type-test.*",
+    "!dist/**/__tests__/**",
+    "!dist/**/tests/**",
+    "!dist/**/type-tests/**"
   ],
   "dependencies": {
     "@hypequery/protocol": "^0.20.0",

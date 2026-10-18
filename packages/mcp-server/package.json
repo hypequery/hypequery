@@ -30,7 +30,12 @@
     }
   },
   "files": [
-    "dist"
+    "dist",
+    "!dist/**/*.test.*",
+    "!dist/**/*.type-test.*",
+    "!dist/**/__tests__/**",
+    "!dist/**/tests/**",
+    "!dist/**/type-tests/**"
   ],
   "scripts": {
     "prepack": "npm run build",

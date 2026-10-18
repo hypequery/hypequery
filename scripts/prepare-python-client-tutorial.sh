@@ -9,6 +9,7 @@ pnpm --filter '@hypequery/cli...' --filter '@hypequery/react...' -r build
 for package in protocol datasets mcp-server clickhouse serve deployment cli react; do
   (cd "$HQ_ROOT/packages/$package" && pnpm pack --pack-destination "$HQ_TUTORIAL/artifacts")
 done
+node scripts/audit-client-packages.mjs "$HQ_TUTORIAL/artifacts"
 uv build --project python/hypequery --out-dir "$HQ_TUTORIAL/artifacts"
 (cd python/hypequery && tar --exclude=__pycache__ --exclude=node_modules --exclude=client.generated.ts --exclude=contract.json --exclude=app.js --exclude=app.meta.json --exclude=package-lock.json -cf - examples/client_dashboard examples/utils examples/__init__.py) | (cd "$HQ_TUTORIAL/backend" && tar -xf -)
 HQ_WHEELS=("$HQ_TUTORIAL"/artifacts/*.whl)

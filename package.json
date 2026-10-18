@@ -37,13 +37,14 @@
     "smoke:semantic-consumer": "bash scripts/smoke-semantic-consumer.sh",
     "smoke:docs-snippets": "bash scripts/smoke-docs-snippets.sh",
     "smoke:clickhouse-nodenext": "bash scripts/smoke-clickhouse-nodenext.sh",
-    "smoke:consumers": "pnpm smoke:clickhouse-nodenext && pnpm smoke:cli && pnpm smoke:cli-chdb && pnpm smoke:serve-adapters && pnpm smoke:semantic-consumer && pnpm smoke:docs-snippets",
+    "smoke:consumers": "pnpm smoke:clickhouse-nodenext && pnpm smoke:cli && pnpm smoke:cli-chdb && pnpm smoke:serve-adapters && pnpm smoke:semantic-consumer && pnpm smoke:docs-snippets && pnpm smoke:client-artifacts",
     "check:package-metadata": "node scripts/check-package-metadata.ts",
     "check:seo-health": "node scripts/verify-seo-health.ts",
     "changeset": "changeset",
     "release:version": "changeset version && pnpm install --lockfile-only --no-frozen-lockfile",
     "release:publish": "changeset publish",
-    "conformance:serve": "pnpm --filter @hypequery/serve exec vitest run src/serve-http-fixtures.test.ts src/serve-semantic-fixtures.test.ts && uv run --project python/hypequery --frozen --extra fastapi pytest python/hypequery/tests/test_serve_http_fixtures.py python/hypequery/tests/test_serve_semantic_fixtures.py"
+    "conformance:serve": "pnpm --filter @hypequery/serve exec vitest run src/serve-http-fixtures.test.ts src/serve-semantic-fixtures.test.ts && uv run --project python/hypequery --frozen --extra fastapi pytest python/hypequery/tests/test_serve_http_fixtures.py python/hypequery/tests/test_serve_semantic_fixtures.py",
+    "smoke:client-artifacts": "bash scripts/smoke-client-artifacts.sh"
   },
   "devDependencies": {
     "@changesets/cli": "^2.29.8",
