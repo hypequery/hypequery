@@ -44,20 +44,20 @@ export class HypequeryMCPProtocolServer {
   }
 
   private setupHandlers(): void {
-    this.server.setRequestHandler(ListToolsRequestSchema, async () => (
-      this.executor.listTools()
+    this.server.setRequestHandler(ListToolsRequestSchema, async (_request, extra) => (
+      this.executor.listTools(extra?.signal)
     ));
 
     this.server.setRequestHandler(CallToolRequestSchema, async (request, extra) => (
       this.executor.callTool(request.params.name, request.params.arguments, extra?.signal)
     ));
 
-    this.server.setRequestHandler(ListPromptsRequestSchema, async () => (
-      this.executor.listPrompts()
+    this.server.setRequestHandler(ListPromptsRequestSchema, async (_request, extra) => (
+      this.executor.listPrompts(extra?.signal)
     ));
 
-    this.server.setRequestHandler(GetPromptRequestSchema, async (request) => (
-      this.executor.getPrompt(request.params.name, request.params.arguments)
+    this.server.setRequestHandler(GetPromptRequestSchema, async (request, extra) => (
+      this.executor.getPrompt(request.params.name, request.params.arguments, extra?.signal)
     ));
   }
 
