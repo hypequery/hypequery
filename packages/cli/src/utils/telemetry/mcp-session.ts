@@ -16,8 +16,8 @@ export class McpSession {
 
   instrument(executor: MCPToolExecutor): MCPToolExecutor {
     return {
-      listTools: () => executor.listTools(), listPrompts: () => executor.listPrompts(),
-      getPrompt: (name, args) => executor.getPrompt(name, args), getManifestHash: () => executor.getManifestHash(),
+      listTools: signal => executor.listTools(signal), listPrompts: signal => executor.listPrompts(signal),
+      getPrompt: (name, args, signal) => executor.getPrompt(name, args, signal), getManifestHash: () => executor.getManifestHash(),
       callTool: async (name, args, signal) => {
         if (Object.hasOwn(toolKinds, name)) this.calls[toolKinds[name]]++;
         try {

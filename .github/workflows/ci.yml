@@ -16,7 +16,7 @@ jobs:
       - name: Setup pnpm
         uses: pnpm/action-setup@v6
       - name: Setup Node.js
-        uses: actions/setup-node@v7
+        uses: actions/setup-node@v7.1.0
         with:
           node-version: '22'
       - name: Audit workspace packages
@@ -32,7 +32,7 @@ jobs:
         working-directory: website-next
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@v7.1.0
         with:
           node-version: '22'
           cache: npm
@@ -70,7 +70,7 @@ jobs:
       - name: Setup pnpm
         uses: pnpm/action-setup@v6
       - name: Setup Node.js
-        uses: actions/setup-node@v7
+        uses: actions/setup-node@v7.1.0
         with:
           node-version: '22'
           cache: 'pnpm'
@@ -100,7 +100,7 @@ jobs:
       - name: Run unit tests
         run: pnpm test
       - name: Setup uv for Python conformance
-        uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86 # v5
+        uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
         with:
           enable-cache: true
           cache-dependency-glob: python/hypequery/uv.lock
@@ -151,7 +151,7 @@ jobs:
       - name: Setup pnpm
         uses: pnpm/action-setup@v6
       - name: Setup Node.js
-        uses: actions/setup-node@v7
+        uses: actions/setup-node@v7.1.0
         with:
           node-version: '22'
           cache: 'pnpm'
@@ -229,7 +229,7 @@ jobs:
       - name: Setup pnpm
         uses: pnpm/action-setup@v6
       - name: Setup Node.js
-        uses: actions/setup-node@v7
+        uses: actions/setup-node@v7.1.0
         with:
           node-version: '22'
           cache: 'pnpm'
