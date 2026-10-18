@@ -45,6 +45,16 @@ type UnionRow = NonNullable<typeof union.data>['data'][number];
 export type _UnionElementCountry = Expect<Equal<UnionRow['country'], string | undefined>>;
 export type _UnionElementTier = Expect<Equal<UnionRow['customer.tier'], string | null | undefined>>;
 export type _UnionElementCertain = Expect<Equal<UnionRow['amount'], number | string | null>>;
+declare const alternatives: readonly ['country', 'amount'] | readonly ['amount'];
+const either = hooks.useDataset('orders', { dimensions: alternatives, measures: [] });
+type EitherRow = NonNullable<typeof either.data>['data'][number];
+export type _AlternativeOptional = Expect<Equal<EitherRow['country'], string | undefined>>;
+export type _AlternativeCertain = Expect<Equal<EitherRow['amount'], number | string | null>>;
+declare const disjoint: readonly ['country'] | readonly ['customer.tier'];
+const neither = hooks.useDataset('orders', { dimensions: disjoint, measures: [] });
+type NeitherRow = NonNullable<typeof neither.data>['data'][number];
+export type _DisjointCountry = Expect<Equal<NeitherRow['country'], string | undefined>>;
+export type _DisjointTier = Expect<Equal<NeitherRow['customer.tier'], string | null | undefined>>;
 export type _ArrayNotTuple = Expect<Equal<NonNullable<typeof array.data>['data'][number]['country'], string | undefined>>;
 
 // Ordinary APIs without a semantic tag must keep their declared output (rather than never).
