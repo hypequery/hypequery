@@ -12,7 +12,9 @@
     "reference/readonly-users",
     "reference/trust-boundaries",
     "---Resources---",
+    "telemetry",
     "changelog",
+    "roadmap",
     "faq"
   ]
 }

@@ -5,6 +5,7 @@
   "root": true,
   "pages": [
     "datasets/overview",
+    "python-client-workflow",
     "datasets/defining-datasets",
     "---Modeling---",
     "datasets/dimensions",
