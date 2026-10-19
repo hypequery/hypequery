@@ -2,13 +2,16 @@
 
 A Python semantic layer for ClickHouse datasets, metrics, multi-tenant analytics, and FastAPI serving.
 
-> **Pre-alpha:** datasets, execution and Serve are implemented and tested against
-> the shared protocol fixtures, but the package is not yet published to PyPI and
-> its APIs may still change. Do not use it in production yet.
+> **Beta candidate:** datasets, execution, Serve and the CLI are implemented and
+> tested against the shared protocol fixtures. The `hypequery` name on PyPI
+> currently holds a `0.0.1.dev0` placeholder; `0.1.0b1` will be the first
+> functional release. APIs may still change before 1.0. Segments, window and
+> shift measures, `approx_count_distinct` and the `semantic-invocations`
+> protocol families are TypeScript-only for now.
 
 ## Python → React → MCP example
 
-The [complete client tutorial](examples/client_dashboard/README.md) shares one
+The [complete client tutorial](https://github.com/hypequery/hypequery/blob/main/python/hypequery/examples/client_dashboard/README.md) shares one
 Python definition across authorized HTTP, generated React types and MCP stdio.
 Its preparation script uses an installed wheel and packed Node packages outside
 the checkout. Matching npm features remain in the development release stack;
@@ -36,7 +39,7 @@ definitions for an all-nullable table.
 
 `--skip-connection` explicitly creates the offline orders demo with `seed.sql`.
 Existing output paths are never overwritten. See the
-[TypeScript reference and parity contract](../../plans/python-cli-schema-generation-parity.md).
+[TypeScript reference and parity contract](https://github.com/hypequery/hypequery/blob/main/plans/python-cli-schema-generation-parity.md).
 
 ## Getting started
 
@@ -48,8 +51,8 @@ From zero to a served dataset. You need Python 3.11+ and a ClickHouse server.
 pip install "hypequery[fastapi,clickhouse]"
 ```
 
-Until the first PyPI release, install from a checkout of this repository
-instead: `pip install "./python/hypequery[fastapi,clickhouse]"`.
+To try an unreleased build, install from a checkout of this repository instead:
+`pip install "./python/hypequery[fastapi,clickhouse]"`.
 
 **2. Create sample data.** Run this in `clickhouse client` (or any SQL console)
 against your database:
@@ -220,7 +223,7 @@ invalid command usage. No Node tooling is required.
 Python keeps `-h` for help; use `--hostname` for the bind address.
 Shared CLI commands and supported options use the TypeScript names.
 Python entrypoints use `module:attribute`, and scaffolding defaults to the current
-directory. See the [cross-language naming audit](../../plans/python-typescript-naming-parity.md)
+directory. See the [cross-language naming audit](https://github.com/hypequery/hypequery/blob/main/plans/python-typescript-naming-parity.md)
 for the SDK and pending beta features.
 
 ## Install extras
@@ -537,7 +540,7 @@ Every error from a served route uses the same envelope as `@hypequery/serve`:
 
 Every error response is sent with `Cache-Control: no-store` and an
 `x-request-id`. The shared fixtures in
-[`specs/serve-http`](../../specs/serve-http/fixtures/errors-v1/README.md) pin the
+[`specs/serve-http`](https://github.com/hypequery/hypequery/blob/main/specs/serve-http/fixtures/errors-v1/README.md) pin the
 envelope for both languages.
 
 - **What an endpoint raises:**
@@ -1090,10 +1093,10 @@ a branch for either would be unreachable code.
 
 ## Development
 
-See [the Python release guide](./RELEASING.md) for beta, canary, and stable
+See [the Python release guide](https://github.com/hypequery/hypequery/blob/main/python/hypequery/RELEASING.md) for beta, canary, and stable
 publishing, including the bundled CLI.
 
-See the [datasets implementation guide](./ARCHITECTURE.md) for validation,
+See the [datasets implementation guide](https://github.com/hypequery/hypequery/blob/main/python/hypequery/ARCHITECTURE.md) for validation,
 compilation and client boundaries, and where future dialect work belongs.
 
 ```bash
@@ -1131,10 +1134,10 @@ and asserts each one's exact expected family list before running its cases.
 `pnpm conformance` runs this Python gate together with the TypeScript
 reference and SQL-portability adapters.
 
-See the [implementation plan](../../plans/python-datasets-serve-pr-level-plan.md) and [security protocol](../../specs/security-protocol/README.md).
+See the [implementation plan](https://github.com/hypequery/hypequery/blob/main/plans/python-datasets-serve-pr-level-plan.md) and [security protocol](https://github.com/hypequery/hypequery/blob/main/specs/security-protocol/README.md).
 
 For dataset coverage, CI gates, and remaining gaps, see the
-[testing review](./TESTING_REVIEW.md).
+[testing review](https://github.com/hypequery/hypequery/blob/main/python/hypequery/TESTING_REVIEW.md).
 
 ## Serve dataset and metric endpoints
 
