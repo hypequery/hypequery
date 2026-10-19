@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from ..aliases import PERIOD_ALIAS
 from ..errors import CompiledQueryError
+from ..resolution import is_qualified
 from .base import CompilerFeature
 
 
@@ -24,7 +25,12 @@ class OrderingFeature(CompilerFeature):
                     f'Cannot order by "{order.field}" because it is not selected. '
                     f"Available: {known}",
                 )
-            node.order_by.append(f"{alias.sql} {'ASC' if order.direction == 'asc' else 'DESC'}")
+            expression = (
+                compiler.fields.field_sql(order.field)
+                if order.field in query.dimensions and is_qualified(order.field)
+                else alias.sql
+            )
+            node.order_by.append(f"{expression} {'ASC' if order.direction == 'asc' else 'DESC'}")
         if not node.order_by and query.by is not None:
             node.order_by.append(f"{PERIOD_ALIAS.sql} ASC")
 
