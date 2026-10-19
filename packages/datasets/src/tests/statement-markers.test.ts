@@ -93,6 +93,16 @@ describe('statement markers never escape compilation', () => {
     expect(calls[0].params).toEqual(['acme']);
   });
 
+  it('embeds an already-compiled positional statement without recompiling', () => {
+    const parameters = new StatementParameters(clickhouseDatasetSqlDialect);
+    let compiles = 0;
+    const builder = { toSQLWithParams: () => { compiles++; return { sql: 'SELECT ?', parameters: [1] }; } };
+    const compiled = builder.toSQLWithParams();
+    const rendered = parameters.render(`WITH base AS (${parameters.embedBuilder(builder, compiled)}) SELECT * FROM base`);
+    expect(compiles).toBe(1);
+    expect(rendered).toEqual({ sql: 'WITH base AS (SELECT ?) SELECT * FROM base', parameters: [1] });
+  });
+
   it('binds having values after the embedded base query, in text order', () => {
     const { client } = recordingClient();
     const compilation = client.compileDataset(Orders, {

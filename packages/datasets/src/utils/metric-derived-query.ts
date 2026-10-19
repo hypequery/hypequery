@@ -95,7 +95,8 @@ export function buildDerivedMetricSql(
 
   // Check the builder's own SQL: embedded text may be an opaque block marker.
   // Replaced by a plan-level check in HQ-197.
-  const groupingErrors = validateDerivedCteGrouping(cteBuilder.toSQLWithParams().sql, aggregateAliases, groupByParts);
+  const cteStatement = cteBuilder.toSQLWithParams();
+  const groupingErrors = validateDerivedCteGrouping(cteStatement.sql, aggregateAliases, groupByParts);
   if (groupingErrors.length > 0) {
     throw new Error(groupingErrors.join('; '));
   }
@@ -119,7 +120,7 @@ export function buildDerivedMetricSql(
   outerSelectParts.push(`${formulaExpr.toSQL()} AS ${ref.name}`);
 
   const parameters = new StatementParameters(dialect);
-  let text = `WITH base AS (${parameters.embedBuilder(cteBuilder)}) SELECT ${outerSelectParts.join(', ')} FROM base`;
+  let text = `WITH base AS (${parameters.embedBuilder(cteBuilder, cteStatement)}) SELECT ${outerSelectParts.join(', ')} FROM base`;
 
   // ORDER BY
   if (query.orderBy && query.orderBy.length > 0) {
