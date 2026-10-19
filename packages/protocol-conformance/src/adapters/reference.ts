@@ -1,3 +1,4 @@
+import { handleClientContract } from './client-contract.js';
 // The TypeScript reference adapter. Maps each family/role/case to the public
 // root export of @hypequery/protocol and returns a wire result. Every operation
 // goes through the package's supported surface — this is exactly what a second
@@ -55,7 +56,10 @@ const STABLE_CODE = /^HQ_[A-Z0-9_]+$/;
 /** Turns a thrown protocol error into a wire rejection; rethrows anything else. */
 function mapError(error: unknown): HandlerResult {
   const code = (error as { code?: unknown })?.code;
-  if (typeof code === 'string' && STABLE_CODE.test(code)) return { ok: false, code };
+  if (typeof code === 'string' && STABLE_CODE.test(code)) {
+    const safe = error as { path?: string; message?: string };
+    return { ok: false, code, ...(code.startsWith('HQ_CLIENT_') ? { output: { path: safe.path, message: safe.message } } : {}) };
+  }
   throw error;
 }
 
@@ -93,6 +97,7 @@ export const REFERENCE_HOSTILE_OBJECT_SUITE = {
 } as const;
 
 export const REFERENCE_FAMILIES = [
+  'client-contract-v1',
   'cache-keys-v1',
   'cache-preimages-v1',
   'tagged-values-v1',
@@ -118,6 +123,8 @@ export function referenceHandle(
   section?: string,
 ): HandlerResult {
   switch (family) {
+    case 'client-contract-v1':
+      return attempt(() => handleClientContract(role, c));
     case 'tagged-values-v1':
       return handleTaggedValue(role, c);
     case 'identifiers-v1':

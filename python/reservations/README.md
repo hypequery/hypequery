@@ -10,7 +10,10 @@ These metadata-only releases reserve official Hypequery project names while the 
 | `hypequery-clickhouse` | The main SDK’s `clickhouse` extra |
 | `hypequery-fastapi` | The main SDK’s `fastapi` extra |
 
-The placeholders prevent dependency confusion and point users to the correct package shape without pretending working code exists.
+These are historical bootstrap placeholders, not supported PyPI reservations.
+Empty packages can be removed under PEP 541. Do not use them for SDK releases;
+publish the working `python/hypequery` distribution using
+[the release guide](../hypequery/RELEASING.md).
 
 ## Bootstrap publishing
 

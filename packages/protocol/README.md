@@ -19,6 +19,7 @@ This package implements those rules in TypeScript. Python and other implementati
 
 - canonical tagged values and RFC 8785 encoding
 - strict simple and qualified logical identifiers
+- signed semantic client descriptors and strict HTTP/MCP client queries
 - closed semantic expression and query envelopes
 - portable input and output schemas
 - trusted query implementation artifacts
@@ -55,6 +56,15 @@ Schema validators cover the declarative Serve/Zod features that can travel betwe
 
 A deployment combines dataset definitions and endpoint policies in one strict versioned envelope. Derived measures live alongside base measures in each dataset; queries and standalone metrics are not deployment targets. Bundle manifests bind declared files by path, byte length, and hash; the deployment verifier accepts only bundles with no runtime artifacts. Release envelopes bind a verified bundle to one explicit project and environment.
 
+`validateProtocolDeploymentContract` throws the first failure it finds. To report every failure at once, as an editor or deployment service would, use `checkProtocolDeploymentContract` (or `checkProtocolDeploymentContractV3` / `checkProtocolDatasetContract`). It accepts exactly the same contracts and returns `{ ok: true, value }` or `{ ok: false, errors, truncated }`, where each error carries a `code` and a contract `path`. Checks that depend on a part that already failed are skipped, so one mistake is reported once.
+
+```ts
+const result = checkProtocolDeploymentContract(input);
+if (!result.ok) {
+  for (const error of result.errors) console.error(`${error.code} at ${error.path}`);
+}
+```
+
 Canonical encoders and domain-separated SHA-256 identities make these artifacts reproducible across language implementations. Filesystem-safe construction and verification live in `@hypequery/deployment` and the CLI.
 
 ## Package use
@@ -66,3 +76,19 @@ Self-hosted `@hypequery/serve` can continue to run application source directly. 
 ## License
 
 Apache-2.0.
+
+## Semantic client contracts
+
+RFC 0018 describes registered public endpoint capabilities for type generation
+and HTTP-backed MCP. Use `decodeProtocolClientContract(text)` at an untrusted JSON
+text boundary (bounded, rejects duplicate members), or
+`validateProtocolClientContract(value)` for an already decoded signed object.
+`prepareProtocolClientContract(unsigned)` computes the domain-separated schema
+and view hashes and refuses preexisting hash fields.
+
+`validateProtocolClientQuery(contract, endpointId, input, 'http' | 'mcp')` validates
+and normalizes the strict client profile. Its result contains the registered
+endpoint, selected measures, effective clamped limit and HTTP body. It maps MCP
+grain to by and removes routing arguments. All returned data is a frozen snapshot.
+These APIs do not authenticate, register a route, export application definitions
+or execute queries. An endpoint hash is a compatibility identity, not permission.

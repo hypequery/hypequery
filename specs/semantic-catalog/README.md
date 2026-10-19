@@ -24,6 +24,9 @@ that has an edge:
   filter that narrows the operator list;
 - `belongsTo`, `hasOne`, and `hasMany` relationships — the last contributing no
   queryable fields at all;
+- relationship measures: `customerCount` (a `count`) is advertised through the
+  `hasOne` relationship only, because a `belongsTo` repeats target rows and
+  admits duplicate-insensitive aggregates alone;
 - measures covering a plain aggregate, `countDistinct`, `argMax` with its
   `argField`, `percentile` with its `level`, and a filtered measure whose
   `filterCount` is non-zero;

@@ -1,23 +1,68 @@
 name: Python
 
 on:
+  workflow_call:
+    inputs:
+      ref:
+        type: string
+        required: true
   push:
     branches: [main]
     paths:
       - 'python/**'
       - 'specs/security-protocol/**'
       - 'specs/datasets/**'
-      - 'packages/datasets/src/execution-capabilities.json'
+      - 'packages/protocol/**'
+      - 'packages/protocol-conformance/**'
+      - 'packages/datasets/**'
+      - 'packages/react/**'
+      - 'packages/mcp-server/**'
+      - 'packages/cli/**'
+      - 'packages/serve/**'
+      - 'packages/deployment/**'
+      - 'testing/fixtures/python-client-gate/**'
+      - 'scripts/prepare-python-client-tutorial.sh'
+      - 'scripts/smoke-python-client-release.sh'
+      - 'scripts/smoke-client-artifacts.sh'
+      - 'scripts/audit-client-packages.mjs'
+      - 'scripts/utils/npm-client-artifact-audit.mjs'
+      - 'scripts/utils/audit-python-browser-bundle.mjs'
+      - 'pnpm-lock.yaml'
+      - 'pnpm-workspace.yaml'
+      - 'package.json'
+      - '.github/workflows/python-clients.yml'
       - 'specs/serve-http/**'
       - '.github/workflows/python.yml'
+      - '.github/workflows/python-release.yml'
+      - '.github/workflows/python-release-pr.yml'
   pull_request:
     paths:
       - 'python/**'
       - 'specs/security-protocol/**'
       - 'specs/datasets/**'
-      - 'packages/datasets/src/execution-capabilities.json'
+      - 'packages/protocol/**'
+      - 'packages/protocol-conformance/**'
+      - 'packages/datasets/**'
+      - 'packages/react/**'
+      - 'packages/mcp-server/**'
+      - 'packages/cli/**'
+      - 'packages/serve/**'
+      - 'packages/deployment/**'
+      - 'testing/fixtures/python-client-gate/**'
+      - 'scripts/prepare-python-client-tutorial.sh'
+      - 'scripts/smoke-python-client-release.sh'
+      - 'scripts/smoke-client-artifacts.sh'
+      - 'scripts/audit-client-packages.mjs'
+      - 'scripts/utils/npm-client-artifact-audit.mjs'
+      - 'scripts/utils/audit-python-browser-bundle.mjs'
+      - 'pnpm-lock.yaml'
+      - 'pnpm-workspace.yaml'
+      - 'package.json'
+      - '.github/workflows/python-clients.yml'
       - 'specs/serve-http/**'
       - '.github/workflows/python.yml'
+      - '.github/workflows/python-release.yml'
+      - '.github/workflows/python-release-pr.yml'
 
 permissions:
   contents: read
@@ -27,6 +72,11 @@ defaults:
     working-directory: python/hypequery
 
 jobs:
+  client-qualification:
+    uses: ./.github/workflows/python-clients.yml
+    with:
+      ref: ${{ inputs.ref || github.sha }}
+
   quality:
     name: quality (py${{ matrix.python-version }})
     runs-on: ubuntu-latest
@@ -35,8 +85,10 @@ jobs:
       matrix:
         python-version: ['3.11', '3.12', '3.13', '3.14']
     steps:
-      - uses: actions/checkout@v7
-      - uses: astral-sh/setup-uv@v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.ref || github.sha }}
+      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
         with:
           enable-cache: true
           cache-dependency-glob: python/hypequery/uv.lock
@@ -44,6 +96,8 @@ jobs:
       - run: uv run ruff check .
       - run: uv run ruff format --check .
       - run: uv run mypy
+      - name: Validate pending Python release notes
+        run: uv run towncrier build --draft --version 0.0.0
       - run: uv run lint-imports
       # RFC 0010: a value moves as a typed parameter, never as SQL text.
       - run: uv run python scripts/check_sql_interpolation.py
@@ -72,21 +126,79 @@ jobs:
           --health-timeout 5s
           --health-retries 5
     steps:
-      - uses: actions/checkout@v7
-      - uses: astral-sh/setup-uv@v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.ref || github.sha }}
+      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
         with:
           enable-cache: true
           cache-dependency-glob: python/hypequery/uv.lock
       - run: uv sync --all-extras --dev
-      - name: Run datasets coverage with live ClickHouse
+      - name: Run package coverage with live ClickHouse
         run: |
           uv run coverage erase
           uv run coverage run -m pytest
           uv run coverage combine
           uv run coverage report
+          uv run coverage json -o coverage.json
+          uv run python scripts/check_coverage.py coverage.json
         env:
           HYPEQUERY_TEST_CLICKHOUSE_HOST: localhost
           HYPEQUERY_TEST_CLICKHOUSE_PASSWORD: hypequery_test
+
+  cli-artifacts:
+    name: CLI artifacts (py${{ matrix.python-version }}, ${{ matrix.artifact }})
+    runs-on: ubuntu-latest
+    # Leave room for setup/build and two separately budgeted artifact journeys.
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ['3.11', '3.12', '3.13', '3.14']
+        artifact: ['wheel', 'sdist']
+    services:
+      clickhouse:
+        image: clickhouse/clickhouse-server:26.3
+        ports:
+          - 8123:8123
+        env:
+          CLICKHOUSE_USER: default
+          CLICKHOUSE_PASSWORD: hypequery_test
+          CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: 1
+        options: >-
+          --health-cmd "wget --no-verbose --tries=1 --spider http://localhost:8123/ping || exit 1"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.ref || github.sha }}
+      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+        with:
+          enable-cache: true
+          cache-dependency-glob: python/hypequery/uv.lock
+      - run: uv sync --dev --python ${{ matrix.python-version }}
+      - run: uv build
+      - name: Verify installed base CLI and scaffold
+        run: |
+          if [ "${{ matrix.artifact }}" = "wheel" ]; then
+            uv run python scripts/cli_smoke.py dist/*.whl --minimal
+          else
+            uv run python scripts/cli_smoke.py dist/*.tar.gz --minimal
+          fi
+      - name: Verify installed scaffold-to-query journey
+        run: |
+          if [ "${{ matrix.artifact }}" = "wheel" ]; then
+            uv run python scripts/cli_smoke.py dist/*.whl
+          else
+            uv run python scripts/cli_smoke.py dist/*.tar.gz
+          fi
+        env:
+          CLICKHOUSE_HOST: localhost
+          CLICKHOUSE_PORT: '8123'
+          CLICKHOUSE_USERNAME: default
+          CLICKHOUSE_PASSWORD: hypequery_test
 
   minimal-install:
     # The framework-free promise is only meaningful when tested WITHOUT the
@@ -95,13 +207,15 @@ jobs:
     name: minimal install (no extras)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
-      - uses: astral-sh/setup-uv@v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.ref || github.sha }}
+      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
         with:
           enable-cache: true
           cache-dependency-glob: python/hypequery/uv.lock
       - run: uv sync --dev
-      - run: uv run pytest tests/test_import_hygiene.py
+      - run: uv run pytest tests/test_import_hygiene.py tests/test_cli.py tests/test_cli_scaffold.py
 
   fastapi-floor:
     # The `fastapi` extra promises the declared floor, and FastAPI's routing
@@ -110,14 +224,53 @@ jobs:
     name: serve on the FastAPI floor
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
-      - uses: astral-sh/setup-uv@v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.ref || github.sha }}
+      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
         with:
           enable-cache: true
           cache-dependency-glob: python/hypequery/uv.lock
       - run: uv sync --all-extras --dev
-      - run: uv pip install "fastapi==0.115.0" "starlette<0.39" "uvicorn==0.30.0"
-      - run: uv run --no-sync pytest tests/test_serve_router.py tests/test_serve_security.py tests/test_serve_errors.py tests/test_serve_http_fixtures.py tests/test_serve_discovery.py tests/test_serve_endpoints.py tests/test_serve_semantic_fixtures.py tests/test_serve_production.py
+      - name: Install the declared direct dependency floors
+        run: |
+          uv pip compile pyproject.toml --all-extras --resolution lowest-direct --output-file /tmp/python-floors.txt --quiet
+          uv pip install --requirement /tmp/python-floors.txt
+      - run: uv run --no-sync pytest tests/test_serve_router.py tests/test_serve_security.py tests/test_serve_errors.py tests/test_serve_http_fixtures.py tests/test_serve_discovery.py tests/test_serve_endpoints.py tests/test_serve_semantic_fixtures.py tests/test_serve_production.py tests/test_serve_dev.py tests/test_cli_dev.py
+
+  getting-started:
+    # PYE-01 acceptance: the README's Getting started path, run as written from
+    # a freshly built wheel, reaches a served dataset well inside 15 minutes.
+    name: getting started walkthrough
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      clickhouse:
+        image: clickhouse/clickhouse-server:26.3
+        ports:
+          - 8123:8123
+        env:
+          CLICKHOUSE_USER: default
+          CLICKHOUSE_PASSWORD: hypequery_test
+          CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: 1
+        options: >-
+          --health-cmd "wget --no-verbose --tries=1 --spider http://localhost:8123/ping || exit 1"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.ref || github.sha }}
+      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+        with:
+          enable-cache: true
+          cache-dependency-glob: python/hypequery/uv.lock
+      - run: uv build --wheel
+      - run: uv run --no-project --python 3.12 python scripts/getting_started.py dist/hypequery-*.whl
+        env:
+          CLICKHOUSE_HOST: localhost
+          CLICKHOUSE_PASSWORD: hypequery_test
 
   build:
     # Acceptance criterion: published archives carry no local paths, secrets,
@@ -125,8 +278,10 @@ jobs:
     name: build and audit artifacts
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
-      - uses: astral-sh/setup-uv@v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.ref || github.sha }}
+      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
       - run: uv build
       - name: Audit archive contents
         run: uv run python scripts/audit_artifacts.py dist
@@ -141,19 +296,63 @@ jobs:
         working-directory: .
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.ref || github.sha }}
       - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v4
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: '22'
           cache: 'pnpm'
-      - uses: astral-sh/setup-uv@e58605a9b6da7c637471fab8847a5e5a6b8df081 # v5
+      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
         with:
           enable-cache: true
           cache-dependency-glob: python/hypequery/uv.lock
       - run: pnpm install --frozen-lockfile
       - run: uv sync --project python/hypequery --dev
-      - run: pnpm --filter @hypequery/serve... build
+      # Use the main CI's task graph to build serve's dependencies without its
+      # optional ClickHouse peer. pnpm's recursive runner includes that peer
+      # and races its build against the datasets declarations it consumes.
+      - run: pnpm turbo run build --filter='@hypequery/serve...'
       - name: Run Python against the expected shared fixture families
         run: pnpm conformance:python
       - name: Run shared HTTP error and semantic fixtures in both languages
         run: pnpm conformance:serve
+
+  dependency-audit:
+    name: dependencies (py${{ matrix.python-version }}, ${{ matrix.resolution }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ['3.11', '3.12', '3.13', '3.14']
+        resolution: [locked, floor]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.ref || github.sha }}
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+        with:
+          version: '0.12.0'
+          python-version: ${{ matrix.python-version }}
+      - name: Resolve runtime dependencies without development tools
+        env:
+          RESOLUTION: ${{ matrix.resolution }}
+        run: |
+          mkdir -p reports
+          if [ "$RESOLUTION" = "locked" ]; then
+            uv export --frozen --all-extras --no-dev --no-emit-project --format requirements.txt --output-file reports/requirements.txt --quiet
+          else
+            uv pip compile pyproject.toml --all-extras --resolution lowest-direct --generate-hashes --output-file reports/requirements.txt --quiet
+          fi
+      - name: Audit resolved versions and hashes
+        run: uvx --python "${{ matrix.python-version }}" pip-audit==2.10.1 --disable-pip --require-hashes --requirement reports/requirements.txt --format json --output reports/audit.json
+      - name: Retain dependency reports even when an audit fails
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: python-dependencies-${{ matrix.python-version }}-${{ matrix.resolution }}
+          path: python/hypequery/reports/
+          if-no-files-found: error
+          retention-days: 30

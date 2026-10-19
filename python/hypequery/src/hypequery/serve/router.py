@@ -17,8 +17,8 @@ particular way.
 # No `from __future__ import annotations`: FastAPI 0.115 cannot resolve string
 # annotations on a callable instance, which has no __globals__, and would read
 # `_Guard.__call__`'s `request: Request` as a query parameter.
-from collections.abc import Awaitable, Callable, Coroutine, MutableMapping, Sequence
-from typing import Any, NoReturn, TypeVar, cast
+from collections.abc import Awaitable, Callable, Coroutine, Sequence
+from typing import Any, NoReturn, TypeVar
 
 from fastapi import APIRouter, Depends, Request
 from fastapi.params import Depends as DependsParam
@@ -43,25 +43,22 @@ from .auth import (
     unauthenticated,
 )
 from .body_policy import DEFAULT_MAX_BODY_BYTES, enforce_body_policy
+from .client_contract import ClientEndpointRegistry
 from .errors import as_serve_error, error_response
 from .rate_limit import RateLimit
 from .utils.provider_call import call_provider
+from .utils.scope_slot import ScopeSlot
 
 _Endpoint = TypeVar("_Endpoint", bound=Callable[..., Any])
 
 #: Where a route leaves the auth context for its dependencies. Only this module
-#: holds the key, and it is not a string, so no middleware, header, or request
-#: state can put a context where `router.auth` will read one.
-_AUTH_SCOPE_KEY = object()
+#: holds the slot, and its key is not a string, so no middleware, header, or
+#: request state can put a context where `router.auth` will read one.
+_AUTH_SLOT: "ScopeSlot[dict[_Guard, RequestAuth]]" = ScopeSlot(dict)
 
 
 def _authenticated_by(request: Request) -> "dict[_Guard, RequestAuth]":
-    scope = cast(MutableMapping[object, Any], request.scope)
-    found = scope.get(_AUTH_SCOPE_KEY)
-    if type(found) is not dict:
-        found = {}
-        scope[_AUTH_SCOPE_KEY] = found
-    return found
+    return _AUTH_SLOT.setdefault(request.scope, dict)
 
 
 def authenticated_context(request: Request) -> RequestAuth | None:
@@ -216,6 +213,7 @@ class ServeRouter(APIRouter):
         self._public: set[Callable[..., Any]] = set()
         self._guard = _Guard(authenticate, credentials, resolve_tenant)
         self._credential_header = credentials.header
+        self.client_endpoints = ClientEndpointRegistry(self._guard)
 
     @property
     def credential_header(self) -> str:
@@ -293,7 +291,7 @@ class ServeRouter(APIRouter):
         raise TypeError("ServeRouter does not serve websockets")
 
 
-def create_router(
+def create_api(
     *,
     authenticate: Authenticator,
     credentials: CredentialTransport | None = None,
@@ -318,7 +316,7 @@ def create_router(
         raise ValueError("max_body_bytes must be a positive integer")
 
     if not callable(authenticate):
-        raise TypeError("create_router requires an authenticate callable")
+        raise TypeError("create_api requires an authenticate callable")
     if resolve_tenant is not None and not callable(resolve_tenant):
         raise TypeError("resolve_tenant must be callable")
     if credentials is not None and type(credentials) is not CredentialTransport:
@@ -333,4 +331,8 @@ def create_router(
     )
 
 
-__all__ = ["ServeRouter", "create_router"]
+__all__ = ["ServeRouter", "create_api", "create_router"]
+
+
+#: The Python spelling of `create_api`, which matches TypeScript's `createAPI`.
+create_router = create_api

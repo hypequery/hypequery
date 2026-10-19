@@ -1,5 +1,19 @@
 # @hypequery/protocol
 
+## 0.20.0
+
+### Minor Changes
+
+- d1e4194: Add `checkProtocolDeploymentContract`, `checkProtocolDeploymentContractV3` and `checkProtocolDatasetContract`, which report every failure in a contract in one pass (bounded at 100) instead of throwing the first. They accept exactly what the matching `validate*` functions accept and skip checks that depend on a part that already failed, so a mistake is not reported twice.
+
+  A malformed SQL expression embedded in a deployment contract still fails with its `HQ_QUERY_IMPLEMENTATION_*` code, but its `path` now locates it in the contract (for example `$.datasets[0].dimensions[1].source.sql`) instead of the expression root (`$.sql`).
+
+## 0.19.0
+
+### Minor Changes
+
+- 489a658: Support composite equality keys in dataset relationships using a non-empty keys array while preserving existing from/to definitions. Compile all pairs as a single-match AND join through the key-pair form of `leftAnyJoin` (`@hypequery/clickhouse` >= 2.13.0), preserve tenant scoping and related-measure inputs, and check uniqueness of full non-NULL target tuples. Retain all key pairs in catalogs and portable contract round-trips. Declare `@hypequery/clickhouse` >= 2.13.0 as an optional peer dependency of datasets. Existing `{ from, to }` relationships are unchanged and are not subject to the composite identifier rules. Portable contracts only carry `keys` for two or more pairs, and `keys[0]` must match `from`/`to`.
+
 ## 0.18.0
 
 ### Minor Changes

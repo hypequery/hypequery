@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import os
 import threading
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import replace
 from datetime import UTC, datetime
 from decimal import Decimal
@@ -17,14 +18,18 @@ from hypequery.datasets import (
     DatasetQuery,
     MemoryCacheStore,
     ResultCache,
-    count,
     create_async_dataset_client,
     create_dataset_client,
     dimension,
-    eq,
     measure,
 )
+from hypequery.datasets.aggregations import (
+    count,
+)
 from hypequery.datasets.planner import CompiledQuery, CompiledQueryError, Deadline, TypedParameter
+from hypequery.datasets.query_helpers import (
+    eq,
+)
 from hypequery.execution import (
     ClickHouseConnection,
     ReadonlyPolicy,
@@ -114,12 +119,46 @@ def _query(value: object, kind: str) -> CompiledQuery:
             "DateTime64(3)",
             "2026-10-25T01:30:00+00:00",
         ),
+        # RFC 3339 text, the JSON form of a timestamp filter, inside the hour a
+        # European daylight-saving change repeats.
+        ("2026-10-25T01:30:00Z", "DateTime64(3)", "2026-10-25T01:30:00+00:00"),
+        ("2026-10-25T02:30:00+01:00", "DateTime64(3)", "2026-10-25T01:30:00+00:00"),
     ],
 )
 def test_live_sync_parameters(value: object, kind: str, expected: object) -> None:
     executor = create_clickhouse_executor(_connection())
     result = executor.execute(_query(value, kind))
     assert result.rows == ((expected,),)
+
+
+@pytest.mark.skipif(
+    "HYPEQUERY_TEST_CLICKHOUSE_HOST" not in os.environ,
+    reason="live ClickHouse service is not configured",
+)
+def test_live_timestamp_array_parameters() -> None:
+    # Each element of a timestamp array is bound as Unix seconds, so offsets
+    # and the repeated daylight-saving hour survive serialization intact.
+    executor = create_clickhouse_executor(_connection())
+    query = CompiledQuery(
+        sql=(
+            "SELECT arrayStringConcat(arrayMap(x -> toString(x, 'UTC'),"
+            " {p0:Array(DateTime64(3))}), ',') AS value"
+        ),
+        parameters={
+            "p0": TypedParameter(
+                "p0",
+                "Array(DateTime64(3))",
+                [
+                    "2026-10-25T01:30:00Z",
+                    "2026-10-25T02:30:00.250+01:00",
+                    datetime(2026, 10, 25, 1, 30, tzinfo=UTC),
+                ],
+            )
+        },
+    )
+    assert executor.execute(query).rows == (
+        ("2026-10-25 01:30:00.000,2026-10-25 01:30:00.250,2026-10-25 01:30:00.000",),
+    )
 
 
 @pytest.mark.skipif(
@@ -362,3 +401,22 @@ def test_live_sync_cancellation_stops_server_query(cancel_by: str) -> None:
     finally:
         executor.close()
         observer.close()
+
+
+@pytest.mark.skipif(
+    "HYPEQUERY_TEST_CLICKHOUSE_HOST" not in os.environ,
+    reason="live ClickHouse service is not configured",
+)
+def test_live_shared_sync_executor_accepts_overlapping_queries() -> None:
+    executor = create_clickhouse_executor(_connection())
+    barrier = threading.Barrier(4)
+
+    def execute(_: int) -> tuple[tuple[str | int | float | bool | None, ...], ...]:
+        barrier.wait(timeout=10)
+        return executor.execute(CompiledQuery("SELECT sleep(0.2) AS value", {})).rows
+
+    try:
+        with ThreadPoolExecutor(max_workers=4) as pool:
+            assert list(pool.map(execute, range(4))) == [((0,),)] * 4
+    finally:
+        executor.close()

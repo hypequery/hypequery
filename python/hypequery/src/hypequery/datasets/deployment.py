@@ -3,17 +3,28 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
+from typing import cast
 
 from hypequery.protocol import (
     validate_protocol_dataset_contract,
     validate_protocol_deployment_contract,
 )
 
-from .constants import SEMANTIC_FILTER_OPERATORS
 from .dataset import Dataset
 from .deployment_values import filter_expression
+from .derived_measures import DerivedMeasure
 from .dimensions import DimensionType
 from .registry import DatasetRegistry
+from .relationships import Relationship
+from .utils.definition_projection import (
+    filter_operators,
+    is_queryable,
+    limits_node,
+    metadata,
+    relationship_node,
+)
+from .utils.derived_measures import derived_measure_node, formula_references
+from .utils.portable_grains import assert_publishable_time_grains
 from .utils.portable_order import portable_name_key
 
 
@@ -25,6 +36,10 @@ def _field_schema(field_type: DimensionType | None) -> dict[str, str]:
     if field_type == "boolean":
         return {"kind": "boolean"}
     return {"kind": "any"}
+
+
+def _relationship_node(name: str, relation: Relationship) -> dict[str, object]:
+    return {"name": name, **relationship_node(relation), "queryable": is_queryable(relation)}
 
 
 def _sql_expression(
@@ -46,6 +61,9 @@ def build_protocol_dataset_contract(
 ) -> dict[str, object]:
     """Convert one definition to a validated local dataset snapshot."""
 
+    # Contract 2 cannot carry an allowed-grain policy. Refuse a restriction
+    # rather than turn it into an unrestricted deployed dataset.
+    assert_publishable_time_grains(dataset.name, dataset.time_grains)
     dimensions: list[dict[str, object]] = []
     for name, dimension in sorted(
         dataset.dimensions.items(), key=lambda item: portable_name_key(item[0])
@@ -63,17 +81,16 @@ def build_protocol_dataset_contract(
             "source": source,
             "filterable": dimension.filterable is not False,
             "groupable": dimension.groupable is not False,
+            **metadata(dimension.label, dimension.description),
         }
-        if dimension.label is not None:
-            entry["label"] = dimension.label
-        if dimension.description is not None:
-            entry["description"] = dimension.description
         dimensions.append(entry)
 
     measures: list[dict[str, object]] = []
     for name, measure in sorted(
         dataset.measures.items(), key=lambda item: portable_name_key(item[0])
     ):
+        if isinstance(measure, DerivedMeasure):
+            continue
         entry = {
             "name": name,
             "aggregation": measure.aggregation,
@@ -92,36 +109,24 @@ def build_protocol_dataset_contract(
                 _field_schema(field_type.field_type if field_type is not None else None),
                 name,
             )
-        if measure.label is not None:
-            entry["label"] = measure.label
-        if measure.description is not None:
-            entry["description"] = measure.description
+        entry.update(metadata(measure.label, measure.description))
         measures.append(entry)
 
     filters: list[dict[str, object]] = []
     for name, definition in sorted(
         dataset.filters.items(), key=lambda item: portable_name_key(item[0])
     ):
-        item: dict[str, object] = {
-            "name": name,
-            "field": definition.field,
-            "operators": list(definition.operators or SEMANTIC_FILTER_OPERATORS),
-        }
-        if definition.label is not None:
-            item["label"] = definition.label
-        if definition.description is not None:
-            item["description"] = definition.description
-        filters.append(item)
+        filters.append(
+            {
+                "name": name,
+                "field": definition.field,
+                "operators": filter_operators(definition),
+                **metadata(definition.label, definition.description),
+            }
+        )
 
     relationships = [
-        {
-            "name": name,
-            "kind": relation.kind,
-            "target": relation.target,
-            "from": relation.from_field,
-            "to": relation.to_field,
-            "queryable": relation.kind != "hasMany",
-        }
+        _relationship_node(name, relation)
         for name, relation in sorted(
             dataset.relationships.items(), key=lambda item: portable_name_key(item[0])
         )
@@ -143,17 +148,7 @@ def build_protocol_dataset_contract(
     if dataset.time_key is not None:
         result["timeField"] = dataset.time_key
     if dataset.limits is not None:
-        limits = dataset.limits
-        result["limits"] = {
-            key: value
-            for key, value in (
-                ("maxDimensions", limits.max_dimensions),
-                ("maxMeasures", limits.max_measures),
-                ("maxFilters", limits.max_filters),
-                ("maxResultSize", limits.max_result_size),
-            )
-            if value is not None
-        }
+        result["limits"] = limits_node(dataset.limits)
     if endpoint is not None:
         result["endpoint"] = dict(endpoint)
     return validate_protocol_dataset_contract(result)
@@ -175,12 +170,31 @@ def build_protocol_deployment_contract(
         unknown = set(endpoints) - {dataset.name for dataset in datasets}
         if unknown:
             raise ValueError(f"Endpoint names an unregistered dataset: {min(unknown)}")
+    for dataset in datasets:
+        for definition in dataset.measures.values():
+            if isinstance(definition, DerivedMeasure) and any(
+                isinstance(dataset.measures[reference], DerivedMeasure)
+                for reference in formula_references(definition.formula)
+            ):
+                raise ValueError(
+                    "Deployment contract 2 requires derived measures to reference base measures."
+                )
     entries = []
     for dataset in datasets:
         snapshot = build_protocol_dataset_contract(
             dataset, endpoint=(endpoints or {}).get(dataset.name)
         )
-        entries.append({key: value for key, value in snapshot.items() if key != "metrics"})
+        entry = {key: value for key, value in snapshot.items() if key != "metrics"}
+        measures = [
+            *cast(list[dict[str, object]], snapshot["measures"]),
+            *(
+                derived_measure_node(name, measure)
+                for name, measure in dataset.measures.items()
+                if isinstance(measure, DerivedMeasure)
+            ),
+        ]
+        entry["measures"] = measures
+        entries.append(entry)
     return validate_protocol_deployment_contract(
         {"kind": "hypequery-deployment", "version": 2, "datasets": entries}
     )

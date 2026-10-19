@@ -1,3 +1,7 @@
+import { exitWith, finishAndExit } from '../utils/command-exit.js';
+import { telemetryErrorCode } from '../utils/telemetry/error-code.js';
+import { DevSession } from '../utils/telemetry/dev-session.js';
+import { setCommandTelemetryError } from '../utils/telemetry/command-context.js';
 import { watch } from 'node:fs';
 import path from 'node:path';
 import ora from 'ora';
@@ -41,6 +45,7 @@ export interface DevOptions {
 }
 
 export async function devCommand(file?: string, options: DevOptions = {}) {
+  const telemetry = new DevSession();
   // Step 1: Find queries file
   const queriesFile = file
     ? await findQueriesFile(file)
@@ -50,11 +55,12 @@ export async function devCommand(file?: string, options: DevOptions = {}) {
 
   if (!queriesFile) {
     displayQueriesFileNotFoundError('dev');
-    process.exit(1);
+    exitWith(1, 'failure', 'entrypoint_not_found');
   }
 
   logger.info(`Found: ${path.relative(process.cwd(), queriesFile)}`);
   logger.newline();
+  telemetry.start(queriesFile, file, options);
 
   let currentServer: any = null;
   let lifecycleOperation: Promise<void> = Promise.resolve();
@@ -83,10 +89,12 @@ export async function devCommand(file?: string, options: DevOptions = {}) {
     // Loading spinners for slow operations
     const compileSpinner = ora('Compiling queries...').start();
     const dbSpinner = ora('Connecting to ClickHouse...').start();
+    let loading = true;
 
     try {
       // Load the API module
       const api = await loadApiModule(queriesFile);
+      loading = false;
       compileSpinner.succeed('Compiled queries');
 
       // Get table count for display
@@ -160,7 +168,9 @@ export async function devCommand(file?: string, options: DevOptions = {}) {
           logger.indent(`Visit: ${baseUrl}`);
         }
       }
+      return true;
     } catch (error) {
+      const code = loading ? telemetry.loadFailed(error) : telemetryErrorCode(error);
       // If server startup or later setup fails, tear down any resources
       // acquired by this attempt before retrying or exiting.
       try {
@@ -193,24 +203,28 @@ export async function devCommand(file?: string, options: DevOptions = {}) {
       logger.newline();
 
       if (!shouldWatch) {
-        process.exit(1);
+        setCommandTelemetryError(code);
+        exitWith(1, 'failure', code);
       }
+      return false;
     }
   };
 
   const restartServer = () =>
     queueLifecycleOperation(async () => {
       if (shutdownRequested) return;
+      telemetry.reload();
 
       if (currentServer) {
         logger.newline();
         logger.reload('File changed, restarting...');
         logger.newline();
-        await stopCurrentRuntime();
+        try { await stopCurrentRuntime(); }
+        catch (error) { telemetry.reloadFailed(); throw error; }
       }
 
       if (!shutdownRequested) {
-        await startServer();
+        if (!await startServer()) telemetry.reloadFailed();
       }
     });
 
@@ -223,7 +237,7 @@ export async function devCommand(file?: string, options: DevOptions = {}) {
 
     return queueLifecycleOperation(async () => {
       await stopCurrentRuntime();
-      process.exit(0);
+      await finishAndExit(0, 'interrupted');
     });
   };
 

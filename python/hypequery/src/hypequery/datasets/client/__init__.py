@@ -6,11 +6,13 @@ from .clients import (
     AsyncDatasetClient,
     AsyncTenantDatasetClient,
     DatasetClient,
+    ExecuteOptions,
     TenantDatasetClient,
     create_async_dataset_client,
     create_dataset_client,
 )
 from .inputs import DatasetTarget, QueryInput
+from .pagination import DEFAULT_PAGE_SIZE
 from .results import (
     AsyncQueryExecutor,
     CacheStatus,
@@ -24,6 +26,7 @@ from .results import (
 )
 
 __all__ = [
+    "DEFAULT_PAGE_SIZE",
     "AsyncDatasetClient",
     "AsyncQueryExecutor",
     "AsyncTenantDatasetClient",
@@ -32,6 +35,7 @@ __all__ = [
     "DatasetQueryMeta",
     "DatasetQueryResult",
     "DatasetTarget",
+    "ExecuteOptions",
     "Pagination",
     "QueryExecutor",
     "QueryInput",

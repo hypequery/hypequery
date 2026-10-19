@@ -1,0 +1,1650 @@
+{
+  "COMMON_PROPERTIES": {
+    "schema_version": {
+      "kind": "enum",
+      "description": "Which event contract does this payload use?",
+      "values": [
+        1
+      ]
+    },
+    "cli_version": {
+      "kind": "format",
+      "description": "Which CLI releases are in use?",
+      "format": "version"
+    },
+    "node_version": {
+      "kind": "format",
+      "description": "Which Node major.minor releases need support?",
+      "format": "node_version"
+    },
+    "os": {
+      "kind": "enum",
+      "description": "Which operating systems need support?",
+      "values": [
+        "darwin",
+        "linux",
+        "win32",
+        "aix",
+        "freebsd",
+        "openbsd",
+        "sunos",
+        "android",
+        "unknown"
+      ]
+    },
+    "arch": {
+      "kind": "enum",
+      "description": "Which CPU architectures need support?",
+      "values": [
+        "arm",
+        "arm64",
+        "ia32",
+        "x64",
+        "loong64",
+        "mips",
+        "mipsel",
+        "ppc",
+        "ppc64",
+        "riscv64",
+        "s390",
+        "s390x",
+        "unknown"
+      ]
+    },
+    "is_ci": {
+      "kind": "boolean",
+      "description": "How much usage happens in CI?"
+    },
+    "ci_name": {
+      "kind": "enum",
+      "description": "Which CI providers need support?",
+      "values": [
+        "none",
+        "github_actions",
+        "gitlab",
+        "circleci",
+        "buildkite",
+        "jenkins",
+        "vercel",
+        "netlify",
+        "azure",
+        "bitbucket",
+        "teamcity",
+        "travis",
+        "codebuild",
+        "unknown"
+      ]
+    },
+    "is_tty": {
+      "kind": "boolean",
+      "description": "How much usage is interactive?"
+    },
+    "is_docker": {
+      "kind": "boolean",
+      "description": "How much usage runs in containers?"
+    },
+    "is_wsl": {
+      "kind": "boolean",
+      "description": "How much usage runs in WSL?"
+    },
+    "package_manager": {
+      "kind": "enum",
+      "description": "Which package managers need support?",
+      "values": [
+        "npm",
+        "pnpm",
+        "yarn",
+        "bun",
+        "unknown"
+      ]
+    },
+    "package_manager_major": {
+      "kind": "format",
+      "description": "Which package-manager major releases need support?",
+      "format": "major_version",
+      "optional": true
+    },
+    "invoked_via": {
+      "kind": "enum",
+      "description": "How is the CLI invoked?",
+      "values": [
+        "npx",
+        "pnpm_dlx",
+        "bunx",
+        "global",
+        "local_bin",
+        "unknown"
+      ]
+    },
+    "install_id": {
+      "kind": "format",
+      "description": "Count active installations without hardware or account identifiers.",
+      "format": "uuid"
+    },
+    "project_id": {
+      "kind": "format",
+      "description": "Count active projects across installations; omit when no signal exists.",
+      "format": "hash",
+      "optional": true
+    },
+    "session_id": {
+      "kind": "format",
+      "description": "Group events from the same invocation.",
+      "format": "uuid"
+    },
+    "is_first_run": {
+      "kind": "boolean",
+      "description": "How many installations are new?"
+    },
+    "hypequery_packages": {
+      "kind": "record",
+      "description": "Which toolkit packages and exact versions are adopted? No project dependencies or names.",
+      "fields": {
+        "@hypequery/clickhouse": {
+          "kind": "format",
+          "description": "Installed exact release version, or unknown.",
+          "format": "version",
+          "optional": true
+        },
+        "@hypequery/datasets": {
+          "kind": "format",
+          "description": "Installed exact release version, or unknown.",
+          "format": "version",
+          "optional": true
+        },
+        "@hypequery/serve": {
+          "kind": "format",
+          "description": "Installed exact release version, or unknown.",
+          "format": "version",
+          "optional": true
+        },
+        "@hypequery/react": {
+          "kind": "format",
+          "description": "Installed exact release version, or unknown.",
+          "format": "version",
+          "optional": true
+        },
+        "@hypequery/cli": {
+          "kind": "format",
+          "description": "Installed exact release version, or unknown.",
+          "format": "version",
+          "optional": true
+        },
+        "@hypequery/mcp": {
+          "kind": "format",
+          "description": "Installed exact release version, or unknown.",
+          "format": "version",
+          "optional": true
+        },
+        "@hypequery/protocol": {
+          "kind": "format",
+          "description": "Installed exact release version, or unknown.",
+          "format": "version",
+          "optional": true
+        },
+        "@hypequery/protocol-conformance": {
+          "kind": "format",
+          "description": "Installed exact release version, or unknown.",
+          "format": "version",
+          "optional": true
+        },
+        "@hypequery/deployment": {
+          "kind": "format",
+          "description": "Installed exact release version, or unknown.",
+          "format": "version",
+          "optional": true
+        }
+      },
+      "optional": true
+    },
+    "database": {
+      "kind": "enum",
+      "description": "Which database backends merit investment?",
+      "values": [
+        "clickhouse",
+        "chdb",
+        "bigquery",
+        "unknown"
+      ]
+    }
+  },
+  "EVENT_CATALOG": {
+    "cli_command_completed": {
+      "purpose": "Measure command adoption, onboarding drop-off and release reliability. Exactly once per invocation; never emit for telemetry disable.",
+      "properties": {
+        "command": {
+          "kind": "enum",
+          "description": "Which known command was requested? Raw unknown input is never retained.",
+          "values": [
+            "init",
+            "dev",
+            "mcp",
+            "generate",
+            "generate:types",
+            "generate:datasets",
+            "generate:manifest",
+            "generate:client",
+            "login",
+            "logout",
+            "deploy",
+            "deployment:build",
+            "deployment:validate",
+            "deployment:release",
+            "deployment:submit",
+            "deployment:status",
+            "pull",
+            "diff",
+            "help",
+            "version",
+            "telemetry",
+            "unknown"
+          ]
+        },
+        "flags_used": {
+          "kind": "enum_list",
+          "description": "Which documented flags are adopted? Canonical names only, never values.",
+          "values": [
+            "--path",
+            "--style",
+            "--database",
+            "--chdb-path",
+            "--auth",
+            "--all-tables",
+            "--tables",
+            "--exclude-tables",
+            "--no-example",
+            "--no-interactive",
+            "--force",
+            "--skip-connection",
+            "--port",
+            "--hostname",
+            "--no-watch",
+            "--no-cache",
+            "--cache",
+            "--redis-url",
+            "--open",
+            "--cors",
+            "--quiet",
+            "--tenant",
+            "--self-test",
+            "--url",
+            "--client-contract-url",
+            "--output",
+            "--tenant-column",
+            "--check",
+            "--diff",
+            "--cloud-url",
+            "--environment",
+            "--bundle-output",
+            "--release-output",
+            "--project",
+            "--no-source",
+            "--endpoint",
+            "--replace-restored",
+            "--mcp-config",
+            "--release",
+            "--no-telemetry",
+            "--help",
+            "--version"
+          ]
+        },
+        "outcome": {
+          "kind": "enum",
+          "description": "Which commands fail, succeed or are aborted?",
+          "values": [
+            "success",
+            "failure",
+            "cancelled",
+            "interrupted"
+          ]
+        },
+        "duration_bucket": {
+          "kind": "enum",
+          "description": "Which commands need performance work?",
+          "values": [
+            "<100ms",
+            "100ms-1s",
+            "1s-10s",
+            "10s-1m",
+            "1m-10m",
+            "10m-1h",
+            "1h+"
+          ]
+        },
+        "error_code": {
+          "kind": "enum",
+          "description": "Which known failures need reliability work?",
+          "values": [
+            "unknown",
+            "connection_failed",
+            "auth_failed",
+            "entrypoint_not_found",
+            "compile_error",
+            "prompt_cancelled",
+            "validation_failed",
+            "cloud_network_error",
+            "cloud_rejected",
+            "not_installed",
+            "engine_error",
+            "no_tables",
+            "no_datasets",
+            "tenant_required",
+            "load_error",
+            "output_missing",
+            "output_out_of_date",
+            "unknown_command",
+            "unknown_option"
+          ],
+          "optional": true
+        }
+      },
+      "variants": {
+        "init": {
+          "stage_reached": {
+            "kind": "enum",
+            "description": "Where does onboarding stop?",
+            "values": [
+              "started",
+              "database_selected",
+              "connection_tested",
+              "style_selected",
+              "files_written",
+              "dependencies_installed",
+              "completed"
+            ],
+            "optional": true
+          },
+          "failed_stage": {
+            "kind": "enum",
+            "description": "Which onboarding stage needs reliability work?",
+            "values": [
+              "started",
+              "database_selected",
+              "connection_tested",
+              "style_selected",
+              "files_written",
+              "dependencies_installed",
+              "completed"
+            ],
+            "optional": true
+          },
+          "style": {
+            "kind": "enum",
+            "description": "Which scaffold style is adopted?",
+            "values": [
+              "queries",
+              "datasets"
+            ],
+            "optional": true
+          },
+          "auth": {
+            "kind": "enum",
+            "description": "Is context authentication adopted?",
+            "values": [
+              "none",
+              "context"
+            ],
+            "optional": true
+          },
+          "interactive": {
+            "kind": "boolean",
+            "description": "How much onboarding is interactive?",
+            "optional": true
+          },
+          "force": {
+            "kind": "boolean",
+            "description": "How often are scaffold files overwritten?",
+            "optional": true
+          },
+          "example": {
+            "kind": "boolean",
+            "description": "Are example queries requested?",
+            "optional": true
+          },
+          "skip_connection": {
+            "kind": "boolean",
+            "description": "Are offline scaffolds used?",
+            "optional": true
+          },
+          "connection_result": {
+            "kind": "enum",
+            "description": "Where does connection setup fail?",
+            "values": [
+              "ok",
+              "failed",
+              "skipped"
+            ],
+            "optional": true
+          },
+          "chdb_failure_reason": {
+            "kind": "enum",
+            "description": "Does embedded onboarding fail at installation or execution?",
+            "values": [
+              "not_installed",
+              "engine_error"
+            ],
+            "optional": true
+          },
+          "table_count_bucket": {
+            "kind": "enum",
+            "description": "How large are onboarding schemas?",
+            "values": [
+              "0",
+              "1",
+              "2-5",
+              "6-20",
+              "21-100",
+              "101+"
+            ],
+            "optional": true
+          },
+          "datasets_generated_bucket": {
+            "kind": "enum",
+            "description": "How many datasets are scaffolded?",
+            "values": [
+              "0",
+              "1",
+              "2-5",
+              "6-20",
+              "21-100",
+              "101+"
+            ],
+            "optional": true
+          },
+          "table_selection": {
+            "kind": "enum",
+            "description": "Which table-selection workflows are used?",
+            "values": [
+              "all",
+              "list",
+              "exclude",
+              "prompt"
+            ],
+            "optional": true
+          },
+          "env_file": {
+            "kind": "enum",
+            "description": "Does onboarding create or update environment config?",
+            "values": [
+              "created",
+              "updated",
+              "unchanged",
+              "skipped"
+            ],
+            "optional": true
+          },
+          "gitignore": {
+            "kind": "enum",
+            "description": "Does onboarding create or update ignore config?",
+            "values": [
+              "created",
+              "updated",
+              "unchanged",
+              "skipped"
+            ],
+            "optional": true
+          },
+          "package_json_present": {
+            "kind": "boolean",
+            "description": "Does onboarding start in an existing project?",
+            "optional": true
+          },
+          "analytics_directory_present": {
+            "kind": "boolean",
+            "description": "Does onboarding reuse an analytics directory?",
+            "optional": true
+          }
+        },
+        "dev": {},
+        "mcp": {
+          "mode": {
+            "kind": "enum",
+            "description": "Is MCP used for validation or serving?",
+            "values": [
+              "self_test",
+              "serve"
+            ],
+            "optional": true
+          },
+          "hosted": {
+            "kind": "boolean",
+            "description": "Is MCP self-test targeting a hosted endpoint?",
+            "optional": true
+          },
+          "http_backend": {
+            "kind": "boolean",
+            "description": "Is MCP using an authorized HTTP client contract? Never its URL or principal.",
+            "optional": true
+          },
+          "dataset_count_bucket": {
+            "kind": "enum",
+            "description": "How many datasets are exposed to agents?",
+            "values": [
+              "0",
+              "1",
+              "2-5",
+              "6-20",
+              "21-100",
+              "101+"
+            ],
+            "optional": true
+          },
+          "tenant_used": {
+            "kind": "boolean",
+            "description": "Is a trusted tenant supplied? Never its value.",
+            "optional": true
+          },
+          "tenant_dataset_count_bucket": {
+            "kind": "enum",
+            "description": "How many datasets require tenant scope?",
+            "values": [
+              "0",
+              "1",
+              "2-5",
+              "6-20",
+              "21-100",
+              "101+"
+            ],
+            "optional": true
+          }
+        },
+        "generate": {
+          "chdb_path_given": {
+            "kind": "boolean",
+            "description": "Is persistent embedded ClickHouse adopted?",
+            "optional": true
+          },
+          "tables_filter_used": {
+            "kind": "boolean",
+            "description": "Are targeted type-generation workflows used?",
+            "optional": true
+          },
+          "table_count_bucket": {
+            "kind": "enum",
+            "description": "How large are introspected schemas?",
+            "values": [
+              "0",
+              "1",
+              "2-5",
+              "6-20",
+              "21-100",
+              "101+"
+            ],
+            "optional": true
+          },
+          "column_count_bucket": {
+            "kind": "enum",
+            "description": "How many columns need type generation?",
+            "values": [
+              "0",
+              "1",
+              "2-5",
+              "6-20",
+              "21-100",
+              "101+"
+            ],
+            "optional": true
+          },
+          "unsupported_type_count_bucket": {
+            "kind": "enum",
+            "description": "How often does type mapping need improvement?",
+            "values": [
+              "0",
+              "1",
+              "2-5",
+              "6-20",
+              "21-100",
+              "101+"
+            ],
+            "optional": true
+          },
+          "unsupported_type_families": {
+            "kind": "enum_list",
+            "description": "Which built-in type families need mapping? Never full type expressions.",
+            "values": [
+              "AggregateFunction",
+              "SimpleAggregateFunction",
+              "Variant",
+              "Dynamic",
+              "Object",
+              "JSON",
+              "Nested",
+              "Tuple",
+              "Map",
+              "Array",
+              "Nullable",
+              "LowCardinality",
+              "Decimal",
+              "Enum",
+              "DateTime",
+              "DateTime64",
+              "unknown"
+            ],
+            "optional": true
+          },
+          "custom_output": {
+            "kind": "boolean",
+            "description": "Was a custom output location supplied? Never the path.",
+            "optional": true
+          }
+        },
+        "generate:types": {
+          "chdb_path_given": {
+            "kind": "boolean",
+            "description": "Is persistent embedded ClickHouse adopted?",
+            "optional": true
+          },
+          "tables_filter_used": {
+            "kind": "boolean",
+            "description": "Are targeted type-generation workflows used?",
+            "optional": true
+          },
+          "table_count_bucket": {
+            "kind": "enum",
+            "description": "How large are introspected schemas?",
+            "values": [
+              "0",
+              "1",
+              "2-5",
+              "6-20",
+              "21-100",
+              "101+"
+            ],
+            "optional": true
+          },
+          "column_count_bucket": {
+            "kind": "enum",
+            "description": "How many columns need type generation?",
+            "values": [
+              "0",
+              "1",
+              "2-5",
+              "6-20",
+              "21-100",
+              "101+"
+            ],
+            "optional": true
+          },
+          "unsupported_type_count_bucket": {
+            "kind": "enum",
+            "description": "How often does type mapping need improvement?",
+            "values": [
+              "0",
+              "1",
+              "2-5",
+              "6-20",
+              "21-100",
+              "101+"
+            ],
+            "optional": true
+          },
+          "unsupported_type_families": {
+            "kind": "enum_list",
+            "description": "Which built-in type families need mapping? Never full type expressions.",
+            "values": [
+              "AggregateFunction",
+              "SimpleAggregateFunction",
+              "Variant",
+              "Dynamic",
+              "Object",
+              "JSON",
+              "Nested",
+              "Tuple",
+              "Map",
+              "Array",
+              "Nullable",
+              "LowCardinality",
+              "Decimal",
+              "Enum",
+              "DateTime",
+              "DateTime64",
+              "unknown"
+            ],
+            "optional": true
+          },
+          "custom_output": {
+            "kind": "boolean",
+            "description": "Was a custom output location supplied? Never the path.",
+            "optional": true
+          }
+        },
+        "generate:datasets": {
+          "mode": {
+            "kind": "enum",
+            "description": "Are datasets generated locally or checked in CI?",
+            "values": [
+              "write",
+              "check",
+              "diff"
+            ],
+            "optional": true
+          },
+          "check_result": {
+            "kind": "enum",
+            "description": "Does CI find stale dataset definitions?",
+            "values": [
+              "up_to_date",
+              "out_of_date",
+              "missing"
+            ],
+            "optional": true
+          },
+          "force": {
+            "kind": "boolean",
+            "description": "Are existing definitions replaced?",
+            "optional": true
+          },
+          "tenant_column_used": {
+            "kind": "boolean",
+            "description": "Is tenant isolation explicitly scaffolded? Never the column.",
+            "optional": true
+          },
+          "tables_filter_used": {
+            "kind": "boolean",
+            "description": "Is include filtering adopted?",
+            "optional": true
+          },
+          "exclude_filter_used": {
+            "kind": "boolean",
+            "description": "Is exclude filtering adopted?",
+            "optional": true
+          },
+          "datasets_generated_bucket": {
+            "kind": "enum",
+            "description": "How many dataset definitions are generated?",
+            "values": [
+              "0",
+              "1",
+              "2-5",
+              "6-20",
+              "21-100",
+              "101+"
+            ],
+            "optional": true
+          },
+          "warning_counts": {
+            "kind": "record",
+            "description": "Which tenant-scaffolding warnings need improvement?",
+            "fields": {
+              "tenant-key-candidate": {
+                "kind": "enum",
+                "description": "Bucketed warning occurrences.",
+                "values": [
+                  "0",
+                  "1",
+                  "2-5",
+                  "6-20",
+                  "21-100",
+                  "101+"
+                ],
+                "optional": true
+              },
+              "tenant-column-missing": {
+                "kind": "enum",
+                "description": "Bucketed warning occurrences.",
+                "values": [
+                  "0",
+                  "1",
+                  "2-5",
+                  "6-20",
+                  "21-100",
+                  "101+"
+                ],
+                "optional": true
+              }
+            },
+            "optional": true
+          }
+        },
+        "generate:client": {
+          "mode": {
+            "kind": "enum",
+            "description": "Are client types generated or checked in CI?",
+            "values": [
+              "write",
+              "check"
+            ],
+            "optional": true
+          },
+          "check_result": {
+            "kind": "enum",
+            "description": "Does CI find stale client types?",
+            "values": [
+              "up_to_date",
+              "out_of_date",
+              "missing"
+            ],
+            "optional": true
+          },
+          "force": {
+            "kind": "boolean",
+            "description": "Are generated client types replaced?",
+            "optional": true
+          },
+          "custom_output": {
+            "kind": "boolean",
+            "description": "Was a custom output location supplied? Never the path.",
+            "optional": true
+          },
+          "endpoint_count_bucket": {
+            "kind": "enum",
+            "description": "How many public endpoints need client types?",
+            "values": [
+              "0",
+              "1",
+              "2-5",
+              "6-20",
+              "21-100",
+              "101+"
+            ],
+            "optional": true
+          }
+        },
+        "generate:manifest": {
+          "query_count_bucket": {
+            "kind": "enum",
+            "description": "How much query-based React integration is adopted?",
+            "values": [
+              "0",
+              "1",
+              "2-5",
+              "6-20",
+              "21-100",
+              "101+"
+            ],
+            "optional": true
+          },
+          "endpoint_count_bucket": {
+            "kind": "enum",
+            "description": "How much endpoint-based React integration is adopted?",
+            "values": [
+              "0",
+              "1",
+              "2-5",
+              "6-20",
+              "21-100",
+              "101+"
+            ],
+            "optional": true
+          },
+          "custom_output": {
+            "kind": "boolean",
+            "description": "Was a custom output location supplied? Never the path.",
+            "optional": true
+          }
+        },
+        "login": {},
+        "logout": {},
+        "deploy": {},
+        "deployment:build": {},
+        "deployment:validate": {},
+        "deployment:release": {},
+        "deployment:submit": {},
+        "deployment:status": {},
+        "pull": {},
+        "diff": {},
+        "version": {},
+        "telemetry": {},
+        "unknown": {},
+        "help": {
+          "help_topic": {
+            "kind": "enum",
+            "description": "Which command help needs improvement? Unknown input becomes unknown.",
+            "values": [
+              "root",
+              "init",
+              "dev",
+              "mcp",
+              "generate",
+              "generate:types",
+              "generate:datasets",
+              "generate:manifest",
+              "generate:client",
+              "login",
+              "logout",
+              "deploy",
+              "deployment:build",
+              "deployment:validate",
+              "deployment:release",
+              "deployment:submit",
+              "deployment:status",
+              "pull",
+              "diff",
+              "help",
+              "version",
+              "telemetry",
+              "unknown"
+            ],
+            "optional": true
+          }
+        }
+      }
+    },
+    "cli_session_started": {
+      "purpose": "Measure development-server and MCP session configuration; never emit on every reload or request.",
+      "properties": {
+        "command": {
+          "kind": "enum",
+          "description": "Which long-running command starts?",
+          "values": [
+            "dev",
+            "mcp"
+          ]
+        }
+      },
+      "variants": {
+        "dev": {
+          "entry_type": {
+            "kind": "enum",
+            "description": "Which entrypoint convention is used? Never the path.",
+            "values": [
+              "hypequery.ts",
+              "api.ts",
+              "queries.ts",
+              "explicit_file",
+              "unknown"
+            ]
+          },
+          "watch": {
+            "kind": "boolean",
+            "description": "Is file watching used?"
+          },
+          "cache_provider": {
+            "kind": "enum",
+            "description": "Which cache providers are adopted?",
+            "values": [
+              "none",
+              "memory",
+              "redis",
+              "unknown"
+            ]
+          },
+          "cors": {
+            "kind": "boolean",
+            "description": "Is cross-origin development adopted?"
+          },
+          "open": {
+            "kind": "boolean",
+            "description": "Is the browser opened automatically?"
+          },
+          "custom_port": {
+            "kind": "boolean",
+            "description": "Is a non-default port selected? Never its number or hostname."
+          },
+          "quiet": {
+            "kind": "boolean",
+            "description": "Is quiet startup adopted?"
+          }
+        },
+        "mcp": {
+          "entry_type": {
+            "kind": "enum",
+            "description": "Which entrypoint convention is used? Never the path.",
+            "values": [
+              "hypequery.ts",
+              "api.ts",
+              "queries.ts",
+              "explicit_file",
+              "unknown"
+            ],
+            "optional": true
+          },
+          "http_backend": {
+            "kind": "boolean",
+            "description": "Is MCP using an authorized HTTP client contract? Never its URL or principal.",
+            "optional": true
+          },
+          "mode": {
+            "kind": "enum",
+            "description": "Is MCP serving or validating?",
+            "values": [
+              "self_test",
+              "serve"
+            ]
+          },
+          "dataset_count_bucket": {
+            "kind": "enum",
+            "description": "How many local datasets are exposed to agents? Omit for HTTP contracts.",
+            "values": [
+              "0",
+              "1",
+              "2-5",
+              "6-20",
+              "21-100",
+              "101+"
+            ],
+            "optional": true
+          },
+          "tenant_used": {
+            "kind": "boolean",
+            "description": "Is tenant scope supplied? Never its value."
+          },
+          "tenant_dataset_count_bucket": {
+            "kind": "enum",
+            "description": "How many local datasets require tenant scope? Omit for HTTP contracts.",
+            "values": [
+              "0",
+              "1",
+              "2-5",
+              "6-20",
+              "21-100",
+              "101+"
+            ],
+            "optional": true
+          }
+        }
+      }
+    },
+    "cli_session_ended": {
+      "purpose": "Measure session duration and aggregated usage on shutdown, without individual requests or tool arguments.",
+      "properties": {
+        "command": {
+          "kind": "enum",
+          "description": "Which long-running command ends?",
+          "values": [
+            "dev",
+            "mcp"
+          ]
+        },
+        "outcome": {
+          "kind": "enum",
+          "description": "How did the session end?",
+          "values": [
+            "success",
+            "failure",
+            "cancelled",
+            "interrupted"
+          ]
+        },
+        "duration_bucket": {
+          "kind": "enum",
+          "description": "How long are development and agent sessions?",
+          "values": [
+            "<100ms",
+            "100ms-1s",
+            "1s-10s",
+            "10s-1m",
+            "1m-10m",
+            "10m-1h",
+            "1h+"
+          ]
+        }
+      },
+      "variants": {
+        "dev": {
+          "reload_count_bucket": {
+            "kind": "enum",
+            "description": "How heavily is hot reload used?",
+            "values": [
+              "0",
+              "1",
+              "2-5",
+              "6-20",
+              "21-100",
+              "101+"
+            ]
+          },
+          "reload_error_count_bucket": {
+            "kind": "enum",
+            "description": "How often does hot reload fail?",
+            "values": [
+              "0",
+              "1",
+              "2-5",
+              "6-20",
+              "21-100",
+              "101+"
+            ]
+          },
+          "load_failures": {
+            "kind": "record",
+            "description": "Which load failures need reliability work?",
+            "fields": {
+              "unknown": {
+                "kind": "enum",
+                "description": "Bucketed failures by stable code.",
+                "values": [
+                  "0",
+                  "1",
+                  "2-5",
+                  "6-20",
+                  "21-100",
+                  "101+"
+                ],
+                "optional": true
+              },
+              "connection_failed": {
+                "kind": "enum",
+                "description": "Bucketed failures by stable code.",
+                "values": [
+                  "0",
+                  "1",
+                  "2-5",
+                  "6-20",
+                  "21-100",
+                  "101+"
+                ],
+                "optional": true
+              },
+              "auth_failed": {
+                "kind": "enum",
+                "description": "Bucketed failures by stable code.",
+                "values": [
+                  "0",
+                  "1",
+                  "2-5",
+                  "6-20",
+                  "21-100",
+                  "101+"
+                ],
+                "optional": true
+              },
+              "entrypoint_not_found": {
+                "kind": "enum",
+                "description": "Bucketed failures by stable code.",
+                "values": [
+                  "0",
+                  "1",
+                  "2-5",
+                  "6-20",
+                  "21-100",
+                  "101+"
+                ],
+                "optional": true
+              },
+              "compile_error": {
+                "kind": "enum",
+                "description": "Bucketed failures by stable code.",
+                "values": [
+                  "0",
+                  "1",
+                  "2-5",
+                  "6-20",
+                  "21-100",
+                  "101+"
+                ],
+                "optional": true
+              },
+              "prompt_cancelled": {
+                "kind": "enum",
+                "description": "Bucketed failures by stable code.",
+                "values": [
+                  "0",
+                  "1",
+                  "2-5",
+                  "6-20",
+                  "21-100",
+                  "101+"
+                ],
+                "optional": true
+              },
+              "validation_failed": {
+                "kind": "enum",
+                "description": "Bucketed failures by stable code.",
+                "values": [
+                  "0",
+                  "1",
+                  "2-5",
+                  "6-20",
+                  "21-100",
+                  "101+"
+                ],
+                "optional": true
+              },
+              "cloud_network_error": {
+                "kind": "enum",
+                "description": "Bucketed failures by stable code.",
+                "values": [
+                  "0",
+                  "1",
+                  "2-5",
+                  "6-20",
+                  "21-100",
+                  "101+"
+                ],
+                "optional": true
+              },
+              "cloud_rejected": {
+                "kind": "enum",
+                "description": "Bucketed failures by stable code.",
+                "values": [
+                  "0",
+                  "1",
+                  "2-5",
+                  "6-20",
+                  "21-100",
+                  "101+"
+                ],
+                "optional": true
+              },
+              "not_installed": {
+                "kind": "enum",
+                "description": "Bucketed failures by stable code.",
+                "values": [
+                  "0",
+                  "1",
+                  "2-5",
+                  "6-20",
+                  "21-100",
+                  "101+"
+                ],
+                "optional": true
+              },
+              "engine_error": {
+                "kind": "enum",
+                "description": "Bucketed failures by stable code.",
+                "values": [
+                  "0",
+                  "1",
+                  "2-5",
+                  "6-20",
+                  "21-100",
+                  "101+"
+                ],
+                "optional": true
+              },
+              "no_tables": {
+                "kind": "enum",
+                "description": "Bucketed failures by stable code.",
+                "values": [
+                  "0",
+                  "1",
+                  "2-5",
+                  "6-20",
+                  "21-100",
+                  "101+"
+                ],
+                "optional": true
+              },
+              "no_datasets": {
+                "kind": "enum",
+                "description": "Bucketed failures by stable code.",
+                "values": [
+                  "0",
+                  "1",
+                  "2-5",
+                  "6-20",
+                  "21-100",
+                  "101+"
+                ],
+                "optional": true
+              },
+              "tenant_required": {
+                "kind": "enum",
+                "description": "Bucketed failures by stable code.",
+                "values": [
+                  "0",
+                  "1",
+                  "2-5",
+                  "6-20",
+                  "21-100",
+                  "101+"
+                ],
+                "optional": true
+              },
+              "load_error": {
+                "kind": "enum",
+                "description": "Bucketed failures by stable code.",
+                "values": [
+                  "0",
+                  "1",
+                  "2-5",
+                  "6-20",
+                  "21-100",
+                  "101+"
+                ],
+                "optional": true
+              },
+              "output_missing": {
+                "kind": "enum",
+                "description": "Bucketed failures by stable code.",
+                "values": [
+                  "0",
+                  "1",
+                  "2-5",
+                  "6-20",
+                  "21-100",
+                  "101+"
+                ],
+                "optional": true
+              },
+              "output_out_of_date": {
+                "kind": "enum",
+                "description": "Bucketed failures by stable code.",
+                "values": [
+                  "0",
+                  "1",
+                  "2-5",
+                  "6-20",
+                  "21-100",
+                  "101+"
+                ],
+                "optional": true
+              },
+              "unknown_command": {
+                "kind": "enum",
+                "description": "Bucketed failures by stable code.",
+                "values": [
+                  "0",
+                  "1",
+                  "2-5",
+                  "6-20",
+                  "21-100",
+                  "101+"
+                ],
+                "optional": true
+              },
+              "unknown_option": {
+                "kind": "enum",
+                "description": "Bucketed failures by stable code.",
+                "values": [
+                  "0",
+                  "1",
+                  "2-5",
+                  "6-20",
+                  "21-100",
+                  "101+"
+                ],
+                "optional": true
+              }
+            }
+          }
+        },
+        "mcp": {
+          "tool_call_counts": {
+            "kind": "record",
+            "description": "Which MCP tool kinds are adopted? No names or arguments.",
+            "fields": {
+              "list": {
+                "kind": "enum",
+                "description": "Bucketed calls by built-in tool kind.",
+                "values": [
+                  "0",
+                  "1",
+                  "2-5",
+                  "6-20",
+                  "21-100",
+                  "101+"
+                ]
+              },
+              "describe": {
+                "kind": "enum",
+                "description": "Bucketed calls by built-in tool kind.",
+                "values": [
+                  "0",
+                  "1",
+                  "2-5",
+                  "6-20",
+                  "21-100",
+                  "101+"
+                ]
+              },
+              "query": {
+                "kind": "enum",
+                "description": "Bucketed calls by built-in tool kind.",
+                "values": [
+                  "0",
+                  "1",
+                  "2-5",
+                  "6-20",
+                  "21-100",
+                  "101+"
+                ]
+              }
+            }
+          },
+          "error_count_bucket": {
+            "kind": "enum",
+            "description": "How often do MCP sessions encounter errors?",
+            "values": [
+              "0",
+              "1",
+              "2-5",
+              "6-20",
+              "21-100",
+              "101+"
+            ]
+          }
+        }
+      }
+    },
+    "cli_crash": {
+      "purpose": "Measure uncaught failures by stable class and code, with no messages or stacks.",
+      "properties": {
+        "command": {
+          "kind": "enum",
+          "description": "Which command crashed?",
+          "values": [
+            "init",
+            "dev",
+            "mcp",
+            "generate",
+            "generate:types",
+            "generate:datasets",
+            "generate:manifest",
+            "generate:client",
+            "login",
+            "logout",
+            "deploy",
+            "deployment:build",
+            "deployment:validate",
+            "deployment:release",
+            "deployment:submit",
+            "deployment:status",
+            "pull",
+            "diff",
+            "help",
+            "version",
+            "telemetry",
+            "unknown"
+          ]
+        },
+        "exception_class": {
+          "kind": "enum",
+          "description": "Which built-in exception classes need investigation?",
+          "values": [
+            "Error",
+            "TypeError",
+            "RangeError",
+            "SyntaxError",
+            "ReferenceError",
+            "URIError",
+            "EvalError",
+            "AggregateError",
+            "unknown"
+          ]
+        },
+        "error_code": {
+          "kind": "enum",
+          "description": "Which known failure caused the crash?",
+          "values": [
+            "unknown",
+            "connection_failed",
+            "auth_failed",
+            "entrypoint_not_found",
+            "compile_error",
+            "prompt_cancelled",
+            "validation_failed",
+            "cloud_network_error",
+            "cloud_rejected",
+            "not_installed",
+            "engine_error",
+            "no_tables",
+            "no_datasets",
+            "tenant_required",
+            "load_error",
+            "output_missing",
+            "output_out_of_date",
+            "unknown_command",
+            "unknown_option"
+          ]
+        }
+      }
+    }
+  },
+  "COMMAND_FLAGS": {
+    "init": [
+      "--path",
+      "--style",
+      "--database",
+      "--chdb-path",
+      "--auth",
+      "--all-tables",
+      "--tables",
+      "--exclude-tables",
+      "--no-example",
+      "--no-interactive",
+      "--force",
+      "--skip-connection"
+    ],
+    "dev": [
+      "--port",
+      "--hostname",
+      "--no-watch",
+      "--no-cache",
+      "--cache",
+      "--redis-url",
+      "--open",
+      "--cors",
+      "--path",
+      "--quiet"
+    ],
+    "mcp": [
+      "--path",
+      "--tenant",
+      "--self-test",
+      "--url",
+      "--client-contract-url"
+    ],
+    "generate": [
+      "--output",
+      "--path",
+      "--tables",
+      "--database",
+      "--chdb-path"
+    ],
+    "generate:types": [
+      "--output",
+      "--path",
+      "--tables",
+      "--database",
+      "--chdb-path"
+    ],
+    "generate:datasets": [
+      "--output",
+      "--path",
+      "--tables",
+      "--exclude-tables",
+      "--tenant-column",
+      "--force",
+      "--check",
+      "--diff"
+    ],
+    "generate:manifest": [
+      "--output"
+    ],
+    "generate:client": [
+      "--output",
+      "--check",
+      "--force"
+    ],
+    "login": [
+      "--cloud-url",
+      "--environment"
+    ],
+    "logout": [],
+    "deploy": [
+      "--bundle-output",
+      "--release-output",
+      "--project",
+      "--environment",
+      "--no-source",
+      "--endpoint",
+      "--replace-restored",
+      "--mcp-config"
+    ],
+    "deployment:build": [
+      "--bundle-output",
+      "--no-source"
+    ],
+    "deployment:validate": [],
+    "deployment:release": [
+      "--project",
+      "--environment",
+      "--output"
+    ],
+    "deployment:submit": [
+      "--release",
+      "--endpoint",
+      "--replace-restored"
+    ],
+    "deployment:status": [
+      "--project",
+      "--environment",
+      "--endpoint",
+      "--mcp-config"
+    ],
+    "pull": [
+      "--output",
+      "--project",
+      "--environment",
+      "--endpoint"
+    ],
+    "diff": [
+      "--project",
+      "--environment",
+      "--endpoint"
+    ],
+    "help": [],
+    "version": [],
+    "telemetry": [],
+    "unknown": []
+  },
+  "GLOBAL_FLAGS": [
+    "--no-telemetry",
+    "--help",
+    "--version"
+  ],
+  "VALUE_FORMATS": {
+    "uuid": {
+      "pattern": {
+        "source": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+        "flags": "i"
+      },
+      "maxLength": 36,
+      "description": "Random UUID v4 (36 characters)"
+    },
+    "hash": {
+      "pattern": {
+        "source": "^[0-9a-f]{64}$",
+        "flags": ""
+      },
+      "maxLength": 64,
+      "description": "64 lowercase hexadecimal characters (salted SHA-256)"
+    },
+    "version": {
+      "pattern": {
+        "source": "^(?:unknown|\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}(?:-(?:canary|alpha|beta|rc|dev|snapshot)(?:[.-]\\d{1,14})*)?)$",
+        "flags": ""
+      },
+      "maxLength": 80,
+      "description": "Exact major.minor.patch (1–3 digits per component); optional canary/alpha/beta/rc/dev/snapshot suffix with 1–14 digit numeric components, or `unknown`; at most 80 characters"
+    },
+    "node_version": {
+      "pattern": {
+        "source": "^(?:unknown|\\d{1,3}\\.\\d{1,3})$",
+        "flags": ""
+      },
+      "maxLength": 80,
+      "description": "Numeric major.minor (1–3 digits per component), or `unknown`"
+    },
+    "major_version": {
+      "pattern": {
+        "source": "^(?:unknown|\\d{1,3})$",
+        "flags": ""
+      },
+      "maxLength": 80,
+      "description": "Numeric major (1–3 digits), or `unknown`"
+    }
+  }
+}

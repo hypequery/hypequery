@@ -76,38 +76,55 @@ function aggregationExpression(spec: AggregationSpec): ProtocolExpression {
   return result;
 }
 
+type ReferenceName = (name: string) => ProtocolReferenceExpression['name'];
+
 function semanticExpression(
   expression: SemanticExpression,
   references: Readonly<Record<string, ProtocolExpression>> = {},
+  referenceName: ReferenceName = parseProtocolQualifiedIdentifier,
 ): ProtocolExpression {
   switch (expression.kind) {
     case 'ref':
-      return references[expression.name]
-        ?? {
-          kind: 'reference',
-          name: parseProtocolQualifiedIdentifier(expression.name),
-        } satisfies ProtocolReferenceExpression;
+      // Own properties only: an alias such as `constructor` must stay a reference.
+      return Object.hasOwn(references, expression.name)
+        ? references[expression.name]!
+        : { kind: 'reference', name: referenceName(expression.name) } satisfies ProtocolReferenceExpression;
     case 'literal':
       return { kind: 'literal', value: canonicalValue(expression.value) };
     case 'binary':
       return {
         kind: 'binary',
         operator: expression.operator,
-        left: semanticExpression(expression.left, references),
-        right: semanticExpression(expression.right, references),
+        left: semanticExpression(expression.left, references, referenceName),
+        right: semanticExpression(expression.right, references, referenceName),
       } satisfies ProtocolBinaryExpression;
     case 'function':
       return {
         kind: 'call',
         function: expression.name,
-        args: expression.args.map(argument => semanticExpression(argument, references)),
+        args: expression.args.map(argument => semanticExpression(argument, references, referenceName)),
       } satisfies ProtocolCallExpression;
   }
 }
 
-export function derivedMeasureExpression(definition: DerivedMeasureDefinition): ProtocolExpression {
+function derivedFormula(definition: DerivedMeasureDefinition): SemanticExpression {
   const aliases = Object.fromEntries(Object.keys(definition.uses).map(alias => [alias, alias]));
-  return semanticExpression(definition.formula(aliases).expression);
+  return definition.formula(aliases).expression;
+}
+
+/** The published form; aliases must satisfy the protocol identifier grammar. */
+export function derivedMeasureExpression(definition: DerivedMeasureDefinition): ProtocolExpression {
+  return semanticExpression(derivedFormula(definition));
+}
+
+/**
+ * The catalog form. Catalogs describe local datasets that may never be published,
+ * so aliases keep their locally valid names (for example `__hypequery_value`, or
+ * names past the protocol's length limit) instead of failing catalog creation.
+ * Publishing still validates them through `derivedMeasureExpression`.
+ */
+export function derivedMeasureCatalogExpression(definition: DerivedMeasureDefinition): ProtocolExpression {
+  return semanticExpression(derivedFormula(definition), {}, name => name as ProtocolReferenceExpression['name']);
 }
 
 export function metricExpression(spec: AggregationSpec | DerivedMetricSpec): ProtocolExpression {

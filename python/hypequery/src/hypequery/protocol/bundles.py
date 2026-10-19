@@ -215,10 +215,8 @@ def _branch(value: object, path: str, max_bytes: int) -> str:
     if (
         not value
         or value == "@"
-        or value.startswith("-")
-        or value.startswith("/")
-        or value.endswith("/")
-        or value.endswith(".")
+        or value.startswith(("-", "/"))
+        or value.endswith(("/", "."))
         or "//" in value
         or ".." in value
         or "@{" in value

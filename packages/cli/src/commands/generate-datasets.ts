@@ -1,3 +1,5 @@
+import { exitWith } from '../utils/command-exit.js';
+import { telemetryErrorCode } from '../utils/telemetry/error-code.js';
 /**
  * Generate Datasets Command
  *
@@ -14,6 +16,9 @@ import { redactConnectionUrl } from '../utils/redact-connection-url.js';
 import { logDatasetGenerationWarnings } from '../utils/dataset-generation-warnings.js';
 import { formatGeneratedFileDiff } from '../utils/generated-file-diff.js';
 import { readGeneratedFile, writeGeneratedFileAtomically } from '../utils/generated-file.js';
+import { updateCommandTelemetry, setCommandTelemetryError } from '../utils/telemetry/command-context.js';
+import { countBucket } from '../utils/telemetry/buckets.js';
+import { warningBuckets } from '../utils/telemetry/generation-metrics.js';
 
 export interface GenerateDatasetsOptions {
   output?: string;
@@ -52,6 +57,8 @@ function parseTableList(value: string | undefined): string[] | undefined {
 }
 
 export async function generateDatasetsCommand(options: GenerateDatasetsOptions = {}) {
+  updateCommandTelemetry('generate:datasets', { mode: options.check ? 'check' : options.diff ? 'diff' : 'write', force: !!options.force,
+    tenant_column_used: !!options.tenantColumn, tables_filter_used: !!options.tables, exclude_filter_used: !!options.excludeTables });
   // Determine output path
   let outputPath: string;
 
@@ -70,6 +77,7 @@ export async function generateDatasetsCommand(options: GenerateDatasetsOptions =
 
   if (options.force && (options.check || options.diff)) {
     logger.error('--force cannot be combined with --check or --diff.');
+    setCommandTelemetryError('validation_failed');
     process.exitCode = 1;
     return;
   }
@@ -110,10 +118,16 @@ export async function generateDatasetsCommand(options: GenerateDatasetsOptions =
     );
 
     logDatasetGenerationWarnings(generated?.warnings);
+    updateCommandTelemetry('generate:datasets', { datasets_generated_bucket: countBucket(generated.tables.length), warning_counts: warningBuckets(generated.warnings) });
 
     const relativeOutput = path.relative(process.cwd(), outputPath);
     const currentContents = await readGeneratedFile(outputPath);
     const contentsMatch = currentContents === generated.contents;
+    if (options.check) {
+      const result = contentsMatch ? 'up_to_date' : currentContents === undefined ? 'missing' : 'out_of_date';
+      updateCommandTelemetry('generate:datasets', { check_result: result });
+      if (!contentsMatch) setCommandTelemetryError(currentContents === undefined ? 'output_missing' : 'output_out_of_date');
+    }
 
     if (contentsMatch) {
       logger.success(
@@ -125,6 +139,7 @@ export async function generateDatasetsCommand(options: GenerateDatasetsOptions =
         return;
       }
     } else if (options.diff) {
+      setCommandTelemetryError('output_out_of_date');
       logger.raw(formatGeneratedFileDiff(currentContents ?? '', generated.contents, relativeOutput));
       logger.error(`Generated dataset definitions differ: ${relativeOutput}`);
       process.exitCode = 1;
@@ -214,6 +229,6 @@ export async function generateDatasetsCommand(options: GenerateDatasetsOptions =
     }
 
     logger.newline();
-    process.exit(1);
+    exitWith(1, 'failure', telemetryErrorCode(error));
   }
 }

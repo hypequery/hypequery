@@ -9,21 +9,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
-from ..constants import GRAIN_FUNCTIONS
-from .errors import CompiledQueryError
 from .identifiers import SafeIdentifier
-
-
-def grain_expression(grain: str, column_sql: str) -> str:
-    """Wrap a time column in the truncation function for *grain*."""
-
-    function = GRAIN_FUNCTIONS.get(grain)
-    if function is None:
-        supported = ", ".join(GRAIN_FUNCTIONS)
-        raise CompiledQueryError(
-            "input-invalid", f'Unsupported time grain "{grain}". Supported: {supported}'
-        )
-    return f"{function}({column_sql})"
 
 
 def trusted_expression(sql: str) -> str:
@@ -57,6 +43,10 @@ def select_clause(parts: Sequence[str]) -> str:
 
 def where_clause(predicates: Sequence[str]) -> str:
     return "" if not predicates else " WHERE " + " AND ".join(predicates)
+
+
+def having_clause(predicates: Sequence[str]) -> str:
+    return f" HAVING {' AND '.join(predicates)}" if predicates else ""
 
 
 def group_by_clause(parts: Sequence[str]) -> str:

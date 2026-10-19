@@ -23,6 +23,7 @@ import {
 } from './relationship-validation.js';
 import { segmentSelectionErrors } from './segments.js';
 import { analyzeTimeMeasureAxis } from './time-measure-axis.js';
+import { datasetHavingErrors } from './dataset-having.js';
 
 export function validateDatasetQueryInput(
   ds: AnyDatasetInstance,
@@ -185,6 +186,8 @@ export function validateDatasetQueryInput(
   if (ds.limits?.maxMeasures && query.measures && query.measures.length > ds.limits.maxMeasures) {
     errors.push(`Too many measures: ${query.measures.length} (max ${ds.limits.maxMeasures})`);
   }
+
+  errors.push(...datasetHavingErrors(ds, query, selectedMeasures));
 
   if (ds.limits?.maxFilters && query.filters && query.filters.length > ds.limits.maxFilters) {
     errors.push(`Too many filters: ${query.filters.length} (max ${ds.limits.maxFilters})`);

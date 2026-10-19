@@ -80,3 +80,5 @@ export {
   MAX_MANIFEST_BYTES,
 } from './types.js';
 export { MCP_PACKAGE_VERSION } from './version.js';
+
+export { HypequeryMCPHttpExecutor, createMCPHttpExecutor, type MCPHttpExecutorConfig } from './http-executor.js';

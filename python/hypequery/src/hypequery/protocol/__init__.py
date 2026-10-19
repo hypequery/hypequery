@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+# ECMAScript JSON number text, shared by every hash and wire encoder.
+from ._jcs import serialize_number as serialize_protocol_number
 from .bundle_codec import (
     PROTOCOL_DEPLOYMENT_BUNDLE_IDENTITY_DOMAIN,
     PreparedProtocolDeploymentBundleManifest,
@@ -31,6 +33,24 @@ from .cache_preimages import (
     ProtocolCachePreimageErrorCode,
     build_protocol_cache_preimage,
     derive_protocol_tenant_fingerprint,
+)
+from .client_contract import (
+    CLIENT_ERROR_MESSAGES,
+    ClientDimension,
+    ClientFilter,
+    ClientMeasure,
+    ClientQueryLimits,
+    ClientQueryPlan,
+    ClientTime,
+    PreparedProtocolClientContract,
+    ProtocolClientContract,
+    ProtocolClientContractError,
+    ProtocolClientContractErrorCode,
+    ProtocolClientEndpoint,
+    decode_protocol_client_contract,
+    prepare_protocol_client_contract,
+    validate_protocol_client_contract,
+    validate_protocol_client_query,
 )
 from .constructors import (
     TaggedValue,
@@ -200,6 +220,7 @@ from .values import (
 )
 
 __all__ = [
+    "CLIENT_ERROR_MESSAGES",
     "DEFAULT_CANONICAL_VALUE_LIMITS",
     "DEFAULT_PROTOCOL_DEPLOYMENT_BUNDLE_LIMITS",
     "DEFAULT_PROTOCOL_DEPLOYMENT_LIMITS",
@@ -221,7 +242,14 @@ __all__ = [
     "UNSET",
     "CanonicalValue",
     "CanonicalValueLimits",
+    "ClientDimension",
+    "ClientFilter",
+    "ClientMeasure",
+    "ClientQueryLimits",
+    "ClientQueryPlan",
+    "ClientTime",
     "FrozenCanonicalValue",
+    "PreparedProtocolClientContract",
     "PreparedProtocolDeploymentBundleManifest",
     "PreparedProtocolDeploymentContract",
     "PreparedProtocolDeploymentRelease",
@@ -237,6 +265,10 @@ __all__ = [
     "ProtocolCachePreimageError",
     "ProtocolCachePreimageErrorCode",
     "ProtocolCallExpression",
+    "ProtocolClientContract",
+    "ProtocolClientContractError",
+    "ProtocolClientContractErrorCode",
+    "ProtocolClientEndpoint",
     "ProtocolComparisonExpression",
     "ProtocolComparisonOperator",
     "ProtocolCompiledSqlImplementation",
@@ -313,6 +345,7 @@ __all__ = [
     "datetime_value",
     "decimal_value",
     "decode_canonical_value",
+    "decode_protocol_client_contract",
     "derive_protocol_cache_key",
     "derive_protocol_cache_namespace_token",
     "derive_protocol_tenant_fingerprint",
@@ -337,6 +370,7 @@ __all__ = [
     "map_value",
     "parse_protocol_identifier",
     "parse_protocol_qualified_identifier",
+    "prepare_protocol_client_contract",
     "prepare_protocol_deployment_bundle_manifest",
     "prepare_protocol_deployment_contract",
     "prepare_protocol_deployment_contract_v3",
@@ -344,11 +378,14 @@ __all__ = [
     "query_implementation_to_data",
     "schema_to_data",
     "semantic_query_to_data",
+    "serialize_protocol_number",
     "split_protocol_qualified_identifier",
     "sql_expression_to_data",
     "tuple_value",
     "uuid_value",
     "validate_canonical_value",
+    "validate_protocol_client_contract",
+    "validate_protocol_client_query",
     "validate_protocol_dataset_contract",
     "validate_protocol_deployment_bundle_manifest",
     "validate_protocol_deployment_contract",

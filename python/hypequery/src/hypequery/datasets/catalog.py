@@ -14,17 +14,27 @@ from __future__ import annotations
 
 from typing import NotRequired, TypedDict, cast
 
-from .constants import SEMANTIC_FILTER_OPERATORS, SUPPORTED_TIME_GRAINS
+from .constants import SUPPORTED_TIME_GRAINS
 from .dataset import Dataset, DatasetLimits, FilterDefinition
+from .derived_measures import DerivedMeasure
 from .dimensions import Dimension, DimensionType
 from .measures import Measure
 from .query_helpers import FilterOperator
 from .registry import DatasetRegistry
 from .relationships import Relationship, RelationshipKind
+from .utils.definition_projection import (
+    filter_operators,
+    is_queryable,
+    limits_node,
+    metadata,
+    relationship_node,
+)
+from .utils.derived_measures import derived_measure_node
 from .utils.relationship_fields import (
     list_groupable_relationship_fields,
     list_queryable_relationship_fields,
 )
+from .utils.relationship_measures import list_relationship_measures
 
 
 class DimensionCatalogEntry(TypedDict):
@@ -64,9 +74,13 @@ RelationshipCatalogEntry = TypedDict(
         "target": str,
         "from": str,
         "to": str,
+        # Present only for a composite key; `from`/`to` mirror its first pair.
+        "keys": NotRequired[list[dict[str, str]]],
         "queryable": bool,
         "fields": list[str],
         "groupableFields": list[str],
+        # Safe selectable base aggregates on the target, keyed by qualified name.
+        "measures": NotRequired[dict[str, MeasureCatalogEntry]],
     },
 )
 
@@ -85,6 +99,7 @@ class DatasetCatalog(TypedDict):
     timeKey: NotRequired[str]
     dimensions: dict[str, DimensionCatalogEntry]
     measures: dict[str, MeasureCatalogEntry]
+    derivedMeasures: NotRequired[dict[str, dict[str, object]]]
     metrics: dict[str, object]
     filters: dict[str, FilterCatalogEntry]
     relationships: dict[str, RelationshipCatalogEntry]
@@ -111,10 +126,9 @@ def _dimension_entry(dimension: Dimension) -> DimensionCatalogEntry:
         _present(
             column=dimension.column,
             sql=dimension.sql,
-            label=dimension.label,
-            description=dimension.description,
         )
     )
+    entry.update(metadata(dimension.label, dimension.description))
     entry["filterable"] = dimension.filterable is not False
     entry["groupable"] = dimension.groupable is not False
     return cast(DimensionCatalogEntry, entry)
@@ -127,10 +141,9 @@ def _measure_entry(measure: Measure) -> MeasureCatalogEntry:
             argField=measure.arg_field,
             level=measure.level,
             sql=measure.sql,
-            label=measure.label,
-            description=measure.description,
         )
     )
+    entry.update(metadata(measure.label, measure.description))
     entry["filterCount"] = len(measure.filters or ())
     return cast(MeasureCatalogEntry, entry)
 
@@ -139,15 +152,10 @@ def _filter_entry(
     definition: FilterDefinition, dimensions: dict[str, Dimension]
 ) -> FilterCatalogEntry:
     entry: dict[str, object] = {"field": definition.field}
-    entry.update(_present(label=definition.label, description=definition.description))
-    # `is not None`, not truthiness: an empty tuple is a declared decision that
-    # this filter accepts no operator, and widening it to every operator would
-    # publish a capability the planner refuses. An empty array is truthy in
-    # JavaScript, so the reference catalog keeps it and this must too.
-    declared_operators = definition.operators
-    entry["operators"] = list(
-        SEMANTIC_FILTER_OPERATORS if declared_operators is None else declared_operators
-    )
+    entry.update(metadata(definition.label, definition.description))
+    # An empty array is truthy in JavaScript, so the reference catalog keeps an
+    # empty allow-list as declared, and this must too.
+    entry["operators"] = filter_operators(definition)
     declared = dimensions.get(definition.field)
     if declared is not None:
         entry["valueType"] = declared.field_type
@@ -157,30 +165,22 @@ def _filter_entry(
 def _relationship_entry(
     name: str, relationship: Relationship, target: Dataset
 ) -> RelationshipCatalogEntry:
-    return cast(
-        RelationshipCatalogEntry,
-        {
-            "kind": relationship.kind,
-            "target": relationship.target,
-            "from": relationship.from_field,
-            "to": relationship.to_field,
-            "queryable": relationship.kind != "hasMany",
-            "fields": list(list_queryable_relationship_fields(name, relationship, target)),
-            "groupableFields": list(list_groupable_relationship_fields(name, relationship, target)),
-        },
-    )
+    entry = relationship_node(relationship)
+    entry |= {
+        "queryable": is_queryable(relationship),
+        "fields": list(list_queryable_relationship_fields(name, relationship, target)),
+        "groupableFields": list(list_groupable_relationship_fields(name, relationship, target)),
+    }
+    measures = list_relationship_measures(name, relationship, target)
+    if measures:
+        entry["measures"] = {
+            qualified: _measure_entry(measure) for qualified, measure in measures.items()
+        }
+    return cast(RelationshipCatalogEntry, entry)
 
 
 def _limits_entry(limits: DatasetLimits) -> DatasetLimitsEntry:
-    return cast(
-        DatasetLimitsEntry,
-        _present(
-            maxDimensions=limits.max_dimensions,
-            maxMeasures=limits.max_measures,
-            maxFilters=limits.max_filters,
-            maxResultSize=limits.max_result_size,
-        ),
-    )
+    return cast(DatasetLimitsEntry, limits_node(limits))
 
 
 def get_dataset_catalog(dataset: Dataset, *, registry: DatasetRegistry) -> DatasetCatalog:
@@ -202,8 +202,21 @@ def get_dataset_catalog(dataset: Dataset, *, registry: DatasetRegistry) -> Datas
         name: _dimension_entry(dimension) for name, dimension in dimensions.items()
     }
     catalog["measures"] = {
-        name: _measure_entry(measure) for name, measure in dataset.measures.items()
+        name: _measure_entry(measure)
+        for name, measure in dataset.measures.items()
+        if isinstance(measure, Measure)
     }
+    derived = {
+        name: {
+            key: value
+            for key, value in derived_measure_node(name, measure, canonical_uses=True).items()
+            if key not in ("kind", "name")
+        }
+        for name, measure in dataset.measures.items()
+        if isinstance(measure, DerivedMeasure)
+    }
+    if derived:
+        catalog["derivedMeasures"] = derived
     # Python has no metric definitions yet; the key stays so the shape matches.
     catalog["metrics"] = {}
     catalog["filters"] = {
@@ -213,11 +226,17 @@ def get_dataset_catalog(dataset: Dataset, *, registry: DatasetRegistry) -> Datas
     if dataset.limits is not None:
         catalog["limits"] = _limits_entry(dataset.limits)
     catalog["requiresTenant"] = dataset.tenant_key is not None
-    catalog["supportedGrains"] = list(SUPPORTED_TIME_GRAINS) if dataset.time_key else []
+    catalog["supportedGrains"] = (
+        list(dataset.time_grains or SUPPORTED_TIME_GRAINS) if dataset.time_key else []
+    )
     catalog["orderableFields"] = [
         *dimensions,
         *dataset.measures,
-        *(field for entry in relationships.values() for field in entry["fields"]),
+        *(
+            field
+            for entry in relationships.values()
+            for field in (*entry["fields"], *entry.get("measures", {}))
+        ),
         *(["period"] if dataset.time_key else []),
     ]
     if dataset.limits is not None and dataset.limits.max_result_size is not None:
@@ -242,6 +261,17 @@ def get_queryable_relationship_fields(catalog: DatasetCatalog) -> list[str]:
         for entry in catalog["relationships"].values()
         if entry["queryable"]
         for field in entry["fields"]
+    ]
+
+
+def get_queryable_relationship_measures(catalog: DatasetCatalog) -> list[str]:
+    """The safe relationship aggregates a catalog advertises."""
+
+    return [
+        name
+        for entry in catalog["relationships"].values()
+        if entry["queryable"]
+        for name in entry.get("measures", {})
     ]
 
 

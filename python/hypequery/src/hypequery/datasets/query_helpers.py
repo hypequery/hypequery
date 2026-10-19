@@ -14,6 +14,8 @@ FilterOperator: TypeAlias = Literal[
     "eq", "neq", "gt", "gte", "lt", "lte", "in", "notIn", "between", "like"
 ]
 OrderDirection: TypeAlias = Literal["asc", "desc"]
+#: `like` is excluded: a having condition compares an aggregated numeric value.
+HavingOperator: TypeAlias = Literal["eq", "neq", "gt", "gte", "lt", "lte", "in", "notIn", "between"]
 
 
 class Filter(DefinitionModel):
@@ -26,6 +28,33 @@ class Filter(DefinitionModel):
     @field_validator("field")
     @classmethod
     def _valid_field(cls, value: str) -> str:
+        return validate_qualified_identifier(value)
+
+    @field_validator("value", mode="before")
+    @classmethod
+    def _frozen_value(cls, value: object) -> object:
+        return freeze_json_value(value)
+
+    @field_serializer("value")
+    def _serialize_value(self, value: object) -> object:
+        return thaw_json_value(value)
+
+
+class HavingCondition(DefinitionModel):
+    """A condition on an aggregated measure value, applied after grouping.
+
+    `measure` must be one the query selects. Values are finite numbers, a pair
+    for `between` and a non-empty list for `in`/`notIn`; the planner checks
+    them and always binds them as parameters.
+    """
+
+    measure: str
+    operator: HavingOperator
+    value: object
+
+    @field_validator("measure")
+    @classmethod
+    def _valid_measure(cls, value: str) -> str:
         return validate_qualified_identifier(value)
 
     @field_validator("value", mode="before")
@@ -96,3 +125,29 @@ def asc(field: str) -> Order:
 
 def desc(field: str) -> Order:
     return Order(field=field, direction="desc")
+
+
+class _FilterHelpers:
+    """Filter helper namespace, matching TypeScript with Python spelling."""
+
+    eq = staticmethod(eq)
+    neq = staticmethod(neq)
+    gt = staticmethod(gt)
+    gte = staticmethod(gte)
+    lt = staticmethod(lt)
+    lte = staticmethod(lte)
+    in_list = staticmethod(in_list)
+    not_in_list = staticmethod(not_in_list)
+    between = staticmethod(between)
+    like = staticmethod(like)
+
+
+class _OrderHelpers:
+    """Ordering helper namespace matching TypeScript."""
+
+    asc = staticmethod(asc)
+    desc = staticmethod(desc)
+
+
+filter = _FilterHelpers()  # noqa: A001
+order = _OrderHelpers()

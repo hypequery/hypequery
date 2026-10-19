@@ -3,18 +3,20 @@
 from __future__ import annotations
 
 import asyncio
+import copy
 import time
 from collections.abc import Awaitable, Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 from fastapi import Request
 
-from ..datasets import Dataset
-from ..datasets.client import AsyncDatasetClient, DatasetClient
-from ..datasets.planner import CompiledQueryError, Deadline, ExecutionContext
-from ..datasets.query_helpers import Order
+from ..datasets import ClientQueryProfile, Dataset
+from ..datasets.client import AsyncDatasetClient, DatasetClient, DatasetQueryResult
+from ..datasets.planner import CompiledQueryError, DatasetQuery, Deadline, ExecutionContext
+from ..datasets.planner.resolution import selected_measure_names
 from ..datasets.validation import validate_identifier
-from .auth import Principal
+from .auth import Principal, RequestAuth
+from .client_contract import ClientEndpointBinding
 from .errors import ServeError
 from .events import QueryEvents
 from .lifetime import RequestLifetime
@@ -26,10 +28,13 @@ from .models import (
     QueryResponse,
 )
 from .policy import DEFAULT_ENDPOINT_POLICY, EndpointPolicy
+from .production import ProductionProfile
 from .request_ids import ensure_request_id
 from .router import ServeRouter, authenticated_context
+from .utils.metric_alias import MetricAlias
 from .utils.production_context import production_profile
 from .utils.query_response import public_response
+from .utils.query_schema import endpoint_query_model
 from .utils.request_work import request_work, run_sync
 
 
@@ -56,6 +61,7 @@ class DatasetEndpoint:
         name: str | None = None,
         diagnostics: DiagnosticAccess | None = None,
         events: QueryEvents | None = None,
+        client_profile: ClientQueryProfile | None = None,
     ) -> None:
         if dataset.tenant_key is not None and (policy.public or policy.tenant == "forbidden"):
             raise ValueError("tenant-keyed datasets cannot be public or forbid tenants")
@@ -63,6 +69,11 @@ class DatasetEndpoint:
             raise ValueError("served datasets must allow at least one result")
         if measure is not None and measure not in dataset.measures:
             raise ValueError("metric measure must exist on the dataset")
+        if client_profile is not None and type(client_profile) is not ClientQueryProfile:
+            raise TypeError("client_profile must be a ClientQueryProfile")
+        if client_profile is not None and diagnostics is not None:
+            raise ValueError("strict client endpoints cannot include SQL diagnostics")
+        self.client_profile = client_profile
         self.dataset = dataset
         self.client = client
         self.policy = policy
@@ -72,30 +83,53 @@ class DatasetEndpoint:
             raise ValueError("metric name must not shadow a dataset dimension")
         self.diagnostics = diagnostics
         self.events = events
+        self.alias = MetricAlias(measure, self.name) if measure is not None else None
 
     async def execute(self, request: Request, payload: QueryRequest) -> QueryResponse:
         auth = authenticated_context(request)
         self.policy.authorize(auth)
-        cap = self.policy.max_limit
         profile = production_profile(request)
+        query = payload.semantic(
+            self._effective_limit(payload, profile), (self.measure,) if self.measure else None
+        )
+        if self.alias is not None:
+            query = self.alias.query(query)
+        result = await self._run(request, query, auth, profile)
+        include_meta = payload.include_meta or request.headers.get("x-include-meta") == "true"
+        response = public_response(
+            result,
+            ensure_request_id(request),
+            include_meta,
+            selected_measure_names(self.dataset, query),
+        )
+        if self.alias is not None:
+            response.data = self.alias.rows(response.data)
+        if include_meta and self.diagnostics and auth:
+            return await self._with_diagnostics(request, response, query, auth, self.diagnostics)
+        return response
+
+    def _effective_limit(self, payload: QueryRequest, profile: ProductionProfile | None) -> int:
+        """The caller's limit, held under the policy, process and dataset ceilings.
+
+        The process ceiling leaves one row for the pagination probe.
+        """
+
+        cap = self.policy.max_limit
         if profile is not None:
             cap = min(cap, profile.max_result_rows - 1)
         if self.dataset.limits and self.dataset.limits.max_result_size is not None:
             cap = min(cap, self.dataset.limits.max_result_size)
-        limit = min(payload.limit if payload.limit is not None else cap, cap)
-        query = payload.semantic(limit, (self.measure,) if self.measure else None)
-        if self.measure is not None:
-            query = query.model_copy(
-                update={
-                    "order_by": tuple(
-                        Order(
-                            field=self.measure if order.field == self.name else order.field,
-                            direction=order.direction,
-                        )
-                        for order in query.order_by
-                    )
-                }
-            )
+        return min(payload.limit if payload.limit is not None else cap, cap)
+
+    async def _run(
+        self,
+        request: Request,
+        query: DatasetQuery,
+        auth: RequestAuth | None,
+        profile: ProductionProfile | None,
+    ) -> DatasetQueryResult:
+        """Execute under the request's lifetime, emitting one query event either way."""
+
         started = time.perf_counter()
         async with RequestLifetime(request) as lifetime:
             context = ExecutionContext(
@@ -124,19 +158,7 @@ class DatasetEndpoint:
             except (Exception, asyncio.CancelledError) as exc:
                 request_work(request).cancel()
                 if self.events:
-                    error = (
-                        CompiledQueryError("aborted", "The request was cancelled.")
-                        if isinstance(exc, asyncio.CancelledError)
-                        else exc
-                    )
-                    event = request_work(request).start_cleanup(
-                        self.events.emit,
-                        self.name,
-                        (time.perf_counter() - started) * 1000,
-                        error=error,
-                    )
-                    if event is not None and not isinstance(exc, asyncio.CancelledError):
-                        await asyncio.shield(event)
+                    await self._emit_failure(request, self.events, exc, started)
                 raise
         if self.events:
             await run_sync(
@@ -146,35 +168,87 @@ class DatasetEndpoint:
                 (time.perf_counter() - started) * 1000,
                 row_count=result.meta.row_count,
             )
-        include_meta = payload.include_meta or request.headers.get("x-include-meta") == "true"
-        response = public_response(result, ensure_request_id(request), include_meta, self.dataset)
-        if self.measure is not None and self.name != self.measure:
-            response.data = [
-                {self.name if key == self.measure else key: value for key, value in row.items()}
-                for row in response.data
-            ]
-        if include_meta and self.diagnostics and auth:
-            allowed = await run_sync(request, self.diagnostics.authorize, auth.principal)
-            if allowed is True:
-                # Audit completes before any privileged projection is returned.
-                await run_sync(
-                    request, self.diagnostics.audit, auth.principal, ensure_request_id(request)
-                )
-                sql = await run_sync(
-                    request,
-                    self.client.to_sql,
-                    self.dataset,
-                    query,
-                    context=ExecutionContext(tenant=auth.tenant),
-                )
-                return DiagnosticQueryResponse(
-                    **response.model_dump(), diagnostics=QueryDiagnostics(sql=sql)
-                )
-        return response
+        return result
+
+    async def _emit_failure(
+        self, request: Request, events: QueryEvents, exc: BaseException, started: float
+    ) -> None:
+        """Emit the failure event as tracked cleanup, so cancellation cannot drop it.
+
+        A cancelled request does not wait for the event: its waiter is already
+        being torn down, and the cleanup stays tracked by the request's work.
+        """
+
+        cancelled = isinstance(exc, asyncio.CancelledError)
+        error = CompiledQueryError("aborted", "The request was cancelled.") if cancelled else exc
+        event = request_work(request).start_cleanup(
+            events.emit,
+            self.name,
+            (time.perf_counter() - started) * 1000,
+            error=error,
+        )
+        if event is not None and not cancelled:
+            await asyncio.shield(event)
+
+    async def _with_diagnostics(
+        self,
+        request: Request,
+        response: QueryResponse,
+        query: DatasetQuery,
+        auth: RequestAuth,
+        diagnostics: DiagnosticAccess,
+    ) -> QueryResponse:
+        """Add redacted SQL when the host authorizes this principal; audit first."""
+
+        allowed = await run_sync(request, diagnostics.authorize, auth.principal)
+        if allowed is not True:
+            return response
+        # Audit completes before any privileged projection is returned.
+        await run_sync(request, diagnostics.audit, auth.principal, ensure_request_id(request))
+        sql = await run_sync(
+            request,
+            self.client.to_sql,
+            self.dataset,
+            query,
+            context=ExecutionContext(tenant=auth.tenant),
+        )
+        return DiagnosticQueryResponse(
+            **response.model_dump(), diagnostics=QueryDiagnostics(sql=sql)
+        )
 
     def install(self, router: ServeRouter, path: str) -> None:
         endpoint: Callable[..., Awaitable[QueryResponse]]
-        if self.measure is None:
+        binding: ClientEndpointBinding | None = None
+        if self.client_profile is not None:
+            target = copy.copy(self)
+
+            async def client_query(request: Request, payload: dict[str, object]) -> QueryResponse:
+                target.policy.authorize(authenticated_context(request))
+                if binding is None:
+                    raise RuntimeError("client binding was not installed")
+                body = binding.validate(request, payload)
+                model = MetricRequest if target.measure is not None else QueryRequest
+                return await target.execute(request, model.model_validate(body))
+
+            endpoint = client_query
+            binding = ClientEndpointBinding(
+                dataset=target.dataset,
+                client=target.client,
+                policy=target.policy,
+                profile=self.client_profile,
+                handler=endpoint,
+                path=router.prefix + path,
+                measure=target.measure,
+                name=target.name,
+            )
+            router.client_endpoints.check(binding)
+            if any(
+                getattr(route, "path", None) == router.prefix + path
+                and "POST" in getattr(route, "methods", ())
+                for route in router.routes
+            ):
+                raise ValueError("client endpoint path is already registered")
+        elif self.measure is None:
 
             async def dataset_query(request: Request, payload: QueryRequest) -> QueryResponse:
                 return await self.execute(request, payload)
@@ -188,6 +262,11 @@ class DatasetEndpoint:
                 return await self.execute(request, payload)
 
             endpoint = metric_query
+        endpoint.__annotations__["payload"] = (
+            dict[str, object]
+            if binding is not None
+            else endpoint_query_model(self.dataset, metric=self.measure is not None)
+        )
         if self.policy.public:
             router.public(endpoint)
         router.add_api_route(
@@ -199,6 +278,10 @@ class DatasetEndpoint:
             tags=["metrics" if self.measure else "datasets"],
         )
 
+        if binding is not None:
+            binding = replace(binding, route=router.routes[-1])
+            router.client_endpoints.register(binding)
+
 
 def add_dataset_endpoint(
     router: ServeRouter,
@@ -209,11 +292,17 @@ def add_dataset_endpoint(
     policy: EndpointPolicy = DEFAULT_ENDPOINT_POLICY,
     diagnostics: DiagnosticAccess | None = None,
     events: QueryEvents | None = None,
+    client_profile: ClientQueryProfile | None = None,
 ) -> None:
     """Register a bounded POST query endpoint, authenticated by default."""
 
-    DatasetEndpoint(
-        dataset=dataset, client=client, policy=policy, diagnostics=diagnostics, events=events
+    create_dataset_endpoint(
+        dataset=dataset,
+        client=client,
+        policy=policy,
+        diagnostics=diagnostics,
+        events=events,
+        client_profile=client_profile,
     ).install(router, path)
 
 
@@ -228,10 +317,11 @@ def add_metric_endpoint(
     policy: EndpointPolicy = DEFAULT_ENDPOINT_POLICY,
     diagnostics: DiagnosticAccess | None = None,
     events: QueryEvents | None = None,
+    client_profile: ClientQueryProfile | None = None,
 ) -> None:
     """Register a metric fixed to one dataset measure (no formula metric surface yet)."""
 
-    DatasetEndpoint(
+    create_metric_endpoint(
         dataset=dataset,
         client=client,
         policy=policy,
@@ -239,4 +329,57 @@ def add_metric_endpoint(
         name=name,
         diagnostics=diagnostics,
         events=events,
+        client_profile=client_profile,
     ).install(router, path)
+
+
+def create_dataset_endpoint(
+    *,
+    dataset: Dataset,
+    client: DatasetClient | AsyncDatasetClient,
+    policy: EndpointPolicy = DEFAULT_ENDPOINT_POLICY,
+    diagnostics: DiagnosticAccess | None = None,
+    events: QueryEvents | None = None,
+    client_profile: ClientQueryProfile | None = None,
+) -> DatasetEndpoint:
+    """Create a dataset endpoint without registering a route.
+
+    Call ``endpoint.install(api, path)`` to register it, or use
+    ``add_dataset_endpoint`` to create and register in one step.
+    """
+    return DatasetEndpoint(
+        dataset=dataset,
+        client=client,
+        policy=policy,
+        diagnostics=diagnostics,
+        events=events,
+        client_profile=client_profile,
+    )
+
+
+def create_metric_endpoint(
+    *,
+    dataset: Dataset,
+    measure: str,
+    name: str | None = None,
+    client: DatasetClient | AsyncDatasetClient,
+    policy: EndpointPolicy = DEFAULT_ENDPOINT_POLICY,
+    diagnostics: DiagnosticAccess | None = None,
+    events: QueryEvents | None = None,
+    client_profile: ClientQueryProfile | None = None,
+) -> DatasetEndpoint:
+    """Create a one-measure metric endpoint without registering a route.
+
+    Call ``endpoint.install(api, path)`` to register it, or use
+    ``add_metric_endpoint`` to create and register in one step.
+    """
+    return DatasetEndpoint(
+        dataset=dataset,
+        client=client,
+        policy=policy,
+        measure=measure,
+        name=name,
+        diagnostics=diagnostics,
+        events=events,
+        client_profile=client_profile,
+    )

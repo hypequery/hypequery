@@ -7,6 +7,7 @@ import type {
   RelationshipDefinition,
   SemanticFiltersDefinition,
 } from '../types.js';
+import { relationshipKeys } from './relationship-keys.js';
 
 type AnyMeasures = Record<string, DatasetMeasureDefinition>;
 type AnyRelationships = Record<string, RelationshipDefinition>;
@@ -48,7 +49,9 @@ export function normalizeRelationships<TRelationships extends Record<string, Rel
   relationships: TRelationships | undefined,
   source: string,
 ): TRelationships {
-  for (const name of Object.keys(relationships ?? {})) {
+  for (const [name, relationship] of Object.entries(relationships ?? {})) {
+    // Hand-built definitions skip the helpers, so check composite keys here.
+    if (relationship.keys) relationshipKeys(relationship);
     if (name === source) {
       throw new Error(
         `Invalid relationship "${name}": the name matches the dataset source table, so the join ` +

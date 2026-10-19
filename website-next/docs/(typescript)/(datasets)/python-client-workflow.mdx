@@ -1,0 +1,32 @@
+---
+title: Python datasets, React and MCP
+description: One Python semantic definition shared by generated React hooks and an HTTP-backed MCP bridge.
+---
+
+The Python client workflow serves ClickHouse datasets and fixed-measure metrics,
+generates TypeScript types/routes for the existing React hooks, and connects the
+Node MCP server to the same authorized HTTP API. Python owns SQL, authentication,
+tenant resolution and current endpoint policy.
+
+This workflow is under development. Python remains pre-alpha; matching npm
+client-contract changes must be released together. Follow the
+[runnable installed-artifact tutorial](https://github.com/hypequery/hypequery/tree/main/python/hypequery/examples/client_dashboard)
+for pure definitions, offline export, authenticated serving, decimal/null seed,
+all four React query hooks, per-login cache isolation and MCP stdio configuration.
+The preparation command builds development artifacts outside the checkout.
+Published-version qualification remains a release gate.
+
+The Python CLI exports build-time capabilities. The Node CLI's `generate:client`
+consumes that JSON and writes standalone `ClientApi` and route manifest types
+with endpoint schema pins. Build exports do not grant permission. Python
+reauthorizes every request; a schema change returns 409 and requires an explicit
+rebuild/reconnect.
+
+The MCP CLI uses `--client-contract-url` for authorized Python HTTP discovery.
+The existing `--self-test --url` checks a hosted MCP endpoint. Host credentials
+belong in the environment, and one MCP process represents one backend principal.
+Browser code uses user-scoped credentials and resets cache scope on login changes.
+
+The Python API needs no Node process. Frontend generation and MCP bridging
+require Node. Native Python MCP transport and hosted MCP OAuth are separate from
+this self-hosted workflow.

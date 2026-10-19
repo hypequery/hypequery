@@ -1,6 +1,6 @@
 {
   "name": "@hypequery/protocol",
-  "version": "0.18.0",
+  "version": "0.20.0",
   "description": "Portable analytics contracts and TypeScript reference implementation for Hypequery",
   "keywords": [
     "hypequery",
@@ -37,8 +37,9 @@
     "types": "tsc --project tsconfig.json --noEmit && tsc --project tsconfig.test.json"
   },
   "devDependencies": {
-    "typescript": "^5.7.3",
-    "vitest": "^5.0.2"
+    "@types/node": "^22.5.0",
+    "typescript": "^6.0.3",
+    "vitest": "^5.0.4"
   },
   "repository": {
     "type": "git",

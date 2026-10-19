@@ -26,3 +26,26 @@ Tests are read-only except the optional CLI schema-refresh journey, which create
 5. React consumes the running Serve API.
 
 Treat every documentation mismatch found during a journey as a product bug. Record new findings in the journey appendix and fix the source documentation or behavior separately from the test result.
+
+## Focused cross-language browser fixture
+
+[Python client browser qualification](./python-client-browser.md) exercises an
+installed Python wheel, generated TypeScript, packed React hooks, cross-origin
+HTTP, auth/cache isolation, pagination and schema drift in a real browser.
+Its SQLite test executor covers wiring only; it does not replace the live
+ClickHouse journeys above.
+
+[Installed Python/MCP qualification](./python-client-mcp.md) checks actual SDK
+tool calls through HTTP to the installed Python fixture, with packed npm packages
+and distinct principals. Its database test double has the same limits as the
+browser fixture; live ClickHouse cancellation remains an independent gate.
+
+The [installed Python client tutorial](./python-client-tutorial.md) adds a real
+ClickHouse/React/MCP journey and records its development-artifact qualification.
+
+`pnpm smoke:client-artifacts` packs React, datasets and MCP and rejects internal
+test programs or missing public entrypoints. It runs in the existing consumer
+smoke gate and tutorial preparation.
+
+The [installed Python client release gate](./python-client-release-gate.md) runs
+real ClickHouse, generated React and MCP cancellation and is reused by CI/release workflows.

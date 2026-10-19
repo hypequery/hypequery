@@ -14,16 +14,6 @@ from dataclasses import dataclass, field
 from ..dimensions import DimensionType
 from .errors import CompiledQueryError
 
-#: The ClickHouse type each declared dimension type binds as. These are the
-#: widest safe reading of a logical type; PYC-01's executor narrows them against
-#: the real column type, which is the only place the physical schema is known.
-_CLICKHOUSE_TYPES: Mapping[DimensionType, str] = {
-    "string": "String",
-    "number": "Float64",
-    "boolean": "Bool",
-    "timestamp": "DateTime64(3)",
-}
-
 
 @dataclass(frozen=True, slots=True)
 class TypedParameter:
@@ -57,9 +47,15 @@ class TypedParameter:
 
 
 def clickhouse_type_for(field_type: DimensionType) -> str:
-    """The scalar ClickHouse type a logical dimension type binds as."""
+    """The scalar ClickHouse type a logical dimension type binds as.
 
-    return _CLICKHOUSE_TYPES[field_type]
+    Compilation asks its dialect (`SqlDialect.parameter_type`); this remains
+    for callers that want the ClickHouse spelling directly.
+    """
+
+    from .dialects.clickhouse import PARAMETER_TYPES
+
+    return PARAMETER_TYPES[field_type]
 
 
 @dataclass(slots=True)

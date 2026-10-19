@@ -1,0 +1,12 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "hypequery-project"
+version = "0.1.0"
+requires-python = ">=3.11"
+dependencies = ["hypequery[fastapi,clickhouse]==__HYPEQUERY_VERSION__"]
+
+[tool.setuptools]
+py-modules = ["app"]

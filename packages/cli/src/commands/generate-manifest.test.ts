@@ -1,5 +1,11 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { mkdir, writeFile } from 'node:fs/promises';
+import { TelemetryInvocation } from '../utils/telemetry/invocation.js';
+import { CommandLifecycle } from '../utils/telemetry/lifecycle.js';
+import { withCommandTelemetry } from '../utils/telemetry/command-context.js';
+import { CommandExit } from '../utils/command-exit.js';
+import { common } from '../../type-tests/fixtures.js';
+import { validateTelemetryEvent } from '../utils/telemetry/validation.js';
 
 const mockLoadApiModule = vi.hoisted(() => vi.fn());
 
@@ -57,6 +63,23 @@ describe('generate manifest command', () => {
     await expect(generateManifestCommand(undefined)).rejects.toThrow(
       /Missing API module path[\s\S]*generate:manifest analytics\/api\.ts/,
     );
+  });
+
+  it('records bucketed manifest/registry sizes and custom-output use without endpoint content', async () => {
+    const record = vi.fn();
+    const spy = vi.spyOn(TelemetryInvocation, 'create').mockResolvedValue({ common, record, flush: vi.fn() } as unknown as TelemetryInvocation);
+    try {
+      const lifecycle = new CommandLifecycle(['generate:manifest']);
+      await lifecycle.begin('generate:manifest');
+      mockLoadApiModule.mockResolvedValue({ queries: { PRIVATE_QUERY: {} }, manifest: () => ({ PRIVATE_ROUTE: { path: 'PRIVATE_PATH' }, PRIVATE_OTHER_ROUTE: {} }) });
+      const { generateManifestCommand } = await import('./generate-manifest.js');
+      await withCommandTelemetry(lifecycle, () => generateManifestCommand('PRIVATE_API', { output: 'PRIVATE_OUTPUT' }));
+      await lifecycle.finish(new CommandExit(0, 'success'));
+      const event = record.mock.calls[0][0];
+      expect(event.properties).toMatchObject({ custom_output: true, query_count_bucket: '1', endpoint_count_bucket: '2-5' });
+      expect(validateTelemetryEvent(event)).toBe(true);
+      expect(JSON.stringify(event)).not.toContain('PRIVATE');
+    } finally { spy.mockRestore(); }
   });
 
   it('fails clearly when the exported API has no manifest method', async () => {

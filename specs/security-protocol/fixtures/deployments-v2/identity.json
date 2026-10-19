@@ -3,5 +3,10 @@
     "id": "derived-measures",
     "canonical": "{\"datasets\":[{\"dimensions\":[],\"filters\":[],\"measures\":[{\"aggregation\":\"sum\",\"field\":\"amount\",\"filters\":[],\"name\":\"revenue\"},{\"aggregation\":\"count\",\"field\":\"id\",\"filters\":[],\"name\":\"orders\"},{\"expression\":{\"kind\":\"binary\",\"left\":{\"kind\":\"reference\",\"name\":\"revenue\"},\"operator\":\"divide\",\"right\":{\"args\":[{\"kind\":\"reference\",\"name\":\"orders\"}],\"function\":\"nullIfZero\",\"kind\":\"call\"}},\"kind\":\"derived\",\"name\":\"averageOrderValue\",\"uses\":[{\"alias\":\"revenue\",\"measure\":\"revenue\"},{\"alias\":\"orders\",\"measure\":\"orders\"}]}],\"name\":\"orders\",\"relationships\":[],\"source\":\"orders\",\"tenant\":{\"kind\":\"not-required\"}}],\"kind\":\"hypequery-deployment\",\"version\":2}",
     "sha256": "bd7b6818e8028e609923324455c3842425dcaa447dfd7d792b50de288769f379"
+  },
+  {
+    "id": "composite-relationship-keys",
+    "canonical": "{\"datasets\":[{\"dimensions\":[],\"filters\":[],\"measures\":[],\"name\":\"customers\",\"relationships\":[],\"source\":\"customers\",\"tenant\":{\"kind\":\"not-required\"}},{\"dimensions\":[],\"filters\":[],\"measures\":[],\"name\":\"orders\",\"relationships\":[{\"from\":\"customer_id\",\"keys\":[{\"from\":\"customer_id\",\"to\":\"id\"},{\"from\":\"region_code\",\"to\":\"region\"}],\"kind\":\"belongsTo\",\"name\":\"customer\",\"queryable\":true,\"target\":\"customers\",\"to\":\"id\"}],\"source\":\"orders\",\"tenant\":{\"kind\":\"not-required\"}}],\"kind\":\"hypequery-deployment\",\"version\":2}",
+    "sha256": "3c0b6f845c890832ff88170b473c659892339f0ae74de6271f3232be4b50f841"
   }
 ]

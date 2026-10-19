@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 import math
-from typing import Literal, TypeAlias, cast
+from collections.abc import Mapping
+from typing import Final, Literal, TypeAlias, cast
 
 from pydantic import SerializeAsAny, field_validator
 
@@ -35,17 +36,40 @@ class FormulaLiteral(_Formula):
 class FormulaBinary(_Formula):
     kind: Literal["binary"] = "binary"
     operator: Literal["add", "subtract", "multiply", "divide"]
-    left: SerializeAsAny[_Formula]
-    right: SerializeAsAny[_Formula]
+    left: SerializeAsAny[Formula]
+    right: SerializeAsAny[Formula]
 
 
 class FormulaCall(_Formula):
     kind: Literal["call"] = "call"
     name: Literal["nullIfZero", "coalesce", "round", "floor", "ceil"]
-    args: tuple[SerializeAsAny[_Formula], ...]
+    args: tuple[SerializeAsAny[Formula], ...]
 
 
 Formula: TypeAlias = FormulaReference | FormulaLiteral | FormulaBinary | FormulaCall
+FormulaBinary.model_rebuild()
+FormulaCall.model_rebuild()
+
+#: The argument count each formula function takes, matching TypeScript.
+FORMULA_FUNCTION_ARITIES: Final[Mapping[str, int]] = {
+    "nullIfZero": 1,
+    "coalesce": 2,
+    "round": 2,
+    "floor": 1,
+    "ceil": 1,
+}
+
+
+def formula_children(formula: Formula) -> tuple[Formula, ...]:
+    """The direct operands of *formula*; references and literals have none."""
+
+    if isinstance(formula, FormulaBinary):
+        return (formula.left, formula.right)
+    if isinstance(formula, FormulaCall):
+        return formula.args
+    return ()
+
+
 FormulaInput: TypeAlias = str | bool | int | float | Formula | None
 
 
@@ -79,13 +103,13 @@ def _formula_data(value: Formula) -> dict[str, object]:
         return {
             "kind": "binary",
             "operator": value.operator,
-            "left": _formula_data(cast(Formula, value.left)),
-            "right": _formula_data(cast(Formula, value.right)),
+            "left": _formula_data(value.left),
+            "right": _formula_data(value.right),
         }
     return {
         "kind": "call",
         "function": value.name,
-        "args": [_formula_data(cast(Formula, item)) for item in value.args],
+        "args": [_formula_data(item) for item in value.args],
     }
 
 
@@ -129,3 +153,25 @@ def floor(value: FormulaInput) -> FormulaCall:
 
 def ceil(value: FormulaInput) -> FormulaCall:
     return FormulaCall(name="ceil", args=(_operand(value),))
+
+
+class _FormulaHelpers:
+    """Formula helper namespace for derived measures, matching `measure` and `filter`.
+
+    ``formula.divide("revenue", formula.null_if_zero("orders"))`` builds the
+    symbolic expression `measure.derived` takes. A string operand names a
+    measure on the same dataset; a number is a literal.
+    """
+
+    add = staticmethod(add)
+    subtract = staticmethod(subtract)
+    multiply = staticmethod(multiply)
+    divide = staticmethod(divide)
+    null_if_zero = staticmethod(null_if_zero)
+    coalesce = staticmethod(coalesce)
+    round = staticmethod(round)
+    floor = staticmethod(floor)
+    ceil = staticmethod(ceil)
+
+
+formula = _FormulaHelpers()

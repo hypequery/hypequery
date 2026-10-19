@@ -5,7 +5,9 @@ import {
   parseProtocolIdentifier,
   parseProtocolQualifiedIdentifier,
 } from '../identifiers/index.js';
+import { ProtocolQueryImplementationError } from '../query-implementations/errors.js';
 import { validateProtocolSqlExpression } from '../sql-expressions/validate.js';
+import { DeploymentErrorCollector, attempt, collectErrors } from './collect.js';
 import { deploymentError } from './errors.js';
 import { expressionReferences, isSegmentPredicate, isSegmentReference } from './segments.js';
 import { resolveDeploymentLimits } from './limits.js';
@@ -13,10 +15,12 @@ import type {
   ProtocolAccessPolicy,
   ProtocolDatasetContract,
   ProtocolDatasetDerivedMeasure,
+  ProtocolDeploymentCheckResult,
   ProtocolDeploymentContract,
   ProtocolDeploymentContractV3,
   ProtocolDeploymentDataset,
   ProtocolDeploymentDatasetV3,
+  ProtocolDeploymentErrorCode,
   ProtocolDatasetSegment,
   ProtocolDeploymentMeasure,
   ProtocolDatasetDimension,
@@ -101,13 +105,14 @@ function exactFields(
   required: readonly string[],
   optional: readonly string[],
   path: string,
+  issues?: DeploymentErrorCollector,
 ): void {
   const allowed = new Set([...required, ...optional]);
   for (const key of Object.keys(value)) {
-    if (!allowed.has(key)) deploymentError('HQ_DEPLOYMENT_UNKNOWN_FIELD', `${path}.${key}`);
+    if (!allowed.has(key)) attempt(issues, () => deploymentError('HQ_DEPLOYMENT_UNKNOWN_FIELD', `${path}.${key}`));
   }
   for (const key of required) {
-    if (!Object.hasOwn(value, key)) deploymentError('HQ_DEPLOYMENT_TYPE', `${path}.${key}`);
+    if (!Object.hasOwn(value, key)) attempt(issues, () => deploymentError('HQ_DEPLOYMENT_TYPE', `${path}.${key}`));
   }
 }
 
@@ -174,32 +179,40 @@ function validateSemanticMetadata(
   result: Record<string, unknown>,
   path: string,
   limits: Readonly<ProtocolDeploymentLimits>,
+  issues?: DeploymentErrorCollector,
 ): void {
   const parseText = (item: unknown, itemPath: string) => (
     boundedText(item, itemPath, limits.maxTextBytes)
   );
+  // Each metadata field is independent, so each is its own recovery point.
   for (const key of ['examples', 'synonyms'] as const) {
     if (value[key] !== undefined) {
-      result[key] = uniqueStrings(
-        value[key], `${path}.${key}`, limits.maxSemanticMetadataItems, parseText,
-      );
+      attempt(issues, () => {
+        result[key] = uniqueStrings(
+          value[key], `${path}.${key}`, limits.maxSemanticMetadataItems, parseText,
+        );
+      });
     }
   }
   for (const key of ['format', 'unit', 'timezone'] as const) {
-    optionalText(value[key], key, result, path, limits);
+    attempt(issues, () => optionalText(value[key], key, result, path, limits));
   }
   if (value.currency !== undefined) {
-    const currency = boundedText(value.currency, `${path}.currency`, limits.maxTextBytes);
-    if (!/^[A-Z]{3}$/.test(currency)) {
-      deploymentError('HQ_DEPLOYMENT_INVALID_VALUE', `${path}.currency`);
-    }
-    result.currency = currency;
+    attempt(issues, () => {
+      const currency = boundedText(value.currency, `${path}.currency`, limits.maxTextBytes);
+      if (!/^[A-Z]{3}$/.test(currency)) {
+        deploymentError('HQ_DEPLOYMENT_INVALID_VALUE', `${path}.currency`);
+      }
+      result.currency = currency;
+    });
   }
   if (value.sensitivity !== undefined) {
-    if (typeof value.sensitivity !== 'string' || !SENSITIVITIES.has(value.sensitivity)) {
-      deploymentError('HQ_DEPLOYMENT_INVALID_VALUE', `${path}.sensitivity`);
-    }
-    result.sensitivity = value.sensitivity;
+    attempt(issues, () => {
+      if (typeof value.sensitivity !== 'string' || !SENSITIVITIES.has(value.sensitivity)) {
+        deploymentError('HQ_DEPLOYMENT_INVALID_VALUE', `${path}.sensitivity`);
+      }
+      result.sensitivity = value.sensitivity;
+    });
   }
 }
 
@@ -304,6 +317,11 @@ function nested<T>(action: () => T, path: string): T {
   } catch (error) {
     if (error instanceof ProtocolExpressionError) {
       deploymentError('HQ_DEPLOYMENT_INVALID_VALUE', path);
+    }
+    // RFC 0006 keeps the SQL envelope's own code; only the location is rebased
+    // from the envelope root onto the contract.
+    if (error instanceof ProtocolQueryImplementationError) {
+      throw new ProtocolQueryImplementationError(error.code, `${path}${error.path.slice(1)}`);
     }
     throw error;
   }
@@ -452,9 +470,10 @@ function validateFilter(
 function validateRelationship(
   input: unknown,
   path: string,
+  limits: Readonly<ProtocolDeploymentLimits>,
 ): ProtocolDatasetRelationship {
   const value = requireRecord(input, path);
-  exactFields(value, ['name', 'kind', 'target', 'from', 'to', 'queryable'], [], path);
+  exactFields(value, ['name', 'kind', 'target', 'from', 'to', 'queryable'], ['keys'], path);
   if (!['belongsTo', 'hasMany', 'hasOne'].includes(value.kind as string)) {
     deploymentError('HQ_DEPLOYMENT_INVALID_VALUE', `${path}.kind`);
   }
@@ -462,12 +481,31 @@ function validateRelationship(
   if ((value.kind === 'hasMany') === value.queryable) {
     deploymentError('HQ_DEPLOYMENT_INVALID_VALUE', `${path}.queryable`);
   }
+  // Composite keys are physical columns; keep legacy identifier grammar unchanged.
+  const from = identifier(value.from, `${path}.from`, value.keys === undefined);
+  const to = identifier(value.to, `${path}.to`, value.keys === undefined);
+  const keys = value.keys === undefined ? undefined : requireArray(value.keys, `${path}.keys`, limits.maxDatasetItems)
+    .map((input, index) => {
+      const keyPath = `${path}.keys[${index}]`;
+      const key = requireRecord(input, keyPath);
+      exactFields(key, ['from', 'to'], [], keyPath);
+      return freezeRecord({ from: identifier(key.from, `${keyPath}.from`), to: identifier(key.to, `${keyPath}.to`) });
+    });
+  // `keys` is only for composite relationships: a single pair uses from/to.
+  if (keys && (
+    keys.length < 2 || keys[0].from !== from || keys[0].to !== to
+    || new Set(keys.map(key => key.from)).size !== keys.length
+    || new Set(keys.map(key => key.to)).size !== keys.length
+  )) {
+    deploymentError('HQ_DEPLOYMENT_INVALID_VALUE', `${path}.keys`);
+  }
   return freezeRecord({
     name: identifier(value.name, `${path}.name`),
     kind: value.kind,
     target: identifier(value.target, `${path}.target`),
-    from: identifier(value.from, `${path}.from`, true),
-    to: identifier(value.to, `${path}.to`, true),
+    from,
+    to,
+    ...(keys ? { keys: Object.freeze(keys) } : {}),
     queryable: value.queryable,
   }) as unknown as ProtocolDatasetRelationship;
 }
@@ -759,8 +797,13 @@ function namedItems<T extends { readonly name: string }>(
   path: string,
   maxItems: number,
   validate: (value: unknown, path: string, index: number) => T,
+  issues?: DeploymentErrorCollector,
 ): readonly T[] {
-  const items = requireArray(input, path, maxItems).map((value, index) => validate(value, `${path}[${index}]`, index));
+  const since = issues?.count ?? 0;
+  const items = requireArray(input, path, maxItems)
+    .map((value, index) => attempt(issues, () => validate(value, `${path}[${index}]`, index)) as T);
+  // Name checks over a partial list would report the failed items again.
+  issues?.checkpoint(since);
   if (new Set(items.map(item => item.name)).size !== items.length) {
     deploymentError('HQ_DEPLOYMENT_INVALID_REFERENCE', path);
   }
@@ -798,7 +841,10 @@ function validateDataset(
   limits: Readonly<ProtocolDeploymentLimits>,
   measureIndices?: readonly number[],
   version: ContractVersion = 2,
+  issues?: DeploymentErrorCollector,
 ): ProtocolDatasetContract {
+  const since = issues?.count ?? 0;
+  const field = <T>(action: () => T): T => attempt(issues, action) as T;
   const value = requireRecord(input, path);
   // Contract 3 renames the allow-list; the old name is then an unknown field.
   const filtersKey = version === 3 ? 'allowedFilters' : 'filters';
@@ -814,16 +860,20 @@ function validateDataset(
       ...(version === 3 ? ['segments'] : []),
     ],
     path,
+    issues,
   );
+  // Each field is a recovery point when collecting; without a collector
+  // `field` is a plain call and the first failure throws.
   const result: Record<string, unknown> = {
-    name: identifier(value.name, `${path}.name`),
-    source: boundedText(value.source, `${path}.source`, limits.maxSourceBytes),
-    tenant: validateTenant(value.tenant, `${path}.tenant`, limits),
-    dimensions: namedItems(
+    name: field(() => identifier(value.name, `${path}.name`)),
+    source: field(() => boundedText(value.source, `${path}.source`, limits.maxSourceBytes)),
+    tenant: field(() => validateTenant(value.tenant, `${path}.tenant`, limits)),
+    dimensions: field(() => namedItems(
       value.dimensions, `${path}.dimensions`, limits.maxDatasetItems,
       (item, itemPath) => validateDimension(item, itemPath, limits),
-    ),
-    measures: namedItems(
+      issues,
+    )),
+    measures: field(() => namedItems(
       value.measures, `${path}.measures`, limits.maxDatasetItems,
       (item, itemPath, index) => validateMeasure(
         item,
@@ -831,22 +881,28 @@ function validateDataset(
         limits,
         version,
       ),
-    ),
-    [filtersKey]: namedItems(
+      issues,
+    )),
+    [filtersKey]: field(() => namedItems(
       value[filtersKey], `${path}.${filtersKey}`, limits.maxDatasetItems,
       (item, itemPath) => validateFilter(item, itemPath, limits),
-    ),
-    metrics: namedItems(
+      issues,
+    )),
+    metrics: field(() => namedItems(
       value.metrics, `${path}.metrics`, limits.maxDatasetItems,
       (item, itemPath) => validateMetric(item, itemPath, limits),
-    ),
-    relationships: namedItems(
+      issues,
+    )),
+    relationships: field(() => namedItems(
       value.relationships, `${path}.relationships`, limits.maxDatasetItems,
-      (item, itemPath) => validateRelationship(item, itemPath),
-    ),
+      (item, itemPath) => validateRelationship(item, itemPath, limits),
+      issues,
+    )),
   };
-  if (version === 3 && value.segments !== undefined) {
-    result.segments = namedItems(
+  // Segments resolve against the dimensions and tenant, so they wait for both.
+  if (version === 3 && value.segments !== undefined
+    && result.dimensions !== undefined && result.tenant !== undefined) {
+    result.segments = field(() => namedItems(
       value.segments, `${path}.segments`, limits.maxDatasetItems,
       (item, itemPath) => validateSegment(
         item,
@@ -855,20 +911,26 @@ function validateDataset(
         result.dimensions as readonly ProtocolDatasetDimension[],
         result.tenant as ProtocolDatasetTenantPolicy,
       ),
-    );
+      issues,
+    ));
   }
-  if (value.timeField !== undefined) result.timeField = identifier(value.timeField, `${path}.timeField`, true);
-  optionalText(value.description, 'description', result, path, limits);
-  optionalText(value.owner, 'owner', result, path, limits);
-  validateSemanticMetadata(value, result, path, limits);
+  if (value.timeField !== undefined) {
+    result.timeField = field(() => identifier(value.timeField, `${path}.timeField`, true));
+  }
+  field(() => optionalText(value.description, 'description', result, path, limits));
+  field(() => optionalText(value.owner, 'owner', result, path, limits));
+  validateSemanticMetadata(value, result, path, limits, issues);
   if (value.freshness !== undefined) {
-    result.freshness = validateFreshness(value.freshness, `${path}.freshness`);
+    result.freshness = field(() => validateFreshness(value.freshness, `${path}.freshness`));
   }
   if (value.defaults !== undefined) {
-    result.defaults = validateDefaults(value.defaults, `${path}.defaults`, limits, version);
+    result.defaults = field(() => validateDefaults(value.defaults, `${path}.defaults`, limits, version));
   }
-  if (value.limits !== undefined) result.limits = validateLimits(value.limits, `${path}.limits`);
-  if (value.endpoint !== undefined) result.endpoint = validateEndpoint(value.endpoint, `${path}.endpoint`, limits);
+  if (value.limits !== undefined) result.limits = field(() => validateLimits(value.limits, `${path}.limits`));
+  if (value.endpoint !== undefined) {
+    result.endpoint = field(() => validateEndpoint(value.endpoint, `${path}.endpoint`, limits));
+  }
+  issues?.checkpoint(since);
   return freezeRecord(result) as unknown as ProtocolDatasetContract;
 }
 
@@ -879,28 +941,41 @@ export function validateProtocolDatasetContract(
   return validateDataset(input, '$', resolveDeploymentLimits(options));
 }
 
-function validateDatasetReferences(datasets: readonly ProtocolDeploymentDataset[]): void {
+/**
+ * Check a dataset contract and report every failure found, instead of
+ * throwing the first. Accepts exactly what `validateProtocolDatasetContract` accepts.
+ */
+export function checkProtocolDatasetContract(
+  input: unknown,
+  options: ProtocolDeploymentOptions = {},
+): ProtocolDeploymentCheckResult<ProtocolDatasetContract> {
+  const limits = resolveDeploymentLimits(options);
+  return collectErrors(issues => validateDataset(input, '$', limits, undefined, 2, issues));
+}
+
+function validateDatasetReferences(
+  datasets: readonly ProtocolDeploymentDataset[],
+  issues?: DeploymentErrorCollector,
+): void {
   const names = new Set(datasets.map(dataset => dataset.name));
+  const reference = (path: string) => attempt(issues, () => deploymentError('HQ_DEPLOYMENT_INVALID_REFERENCE', path));
   for (const [index, dataset] of datasets.entries()) {
     if (dataset.defaults?.dimensions?.some(name => (
       !dataset.dimensions.some(dimension => dimension.name === name && dimension.groupable)
     ))) {
-      deploymentError('HQ_DEPLOYMENT_INVALID_REFERENCE', `$.datasets[${index}].defaults.dimensions`);
+      reference(`$.datasets[${index}].defaults.dimensions`);
     }
     if (dataset.defaults?.timeGrain !== undefined && dataset.timeField === undefined) {
-      deploymentError('HQ_DEPLOYMENT_INVALID_REFERENCE', `$.datasets[${index}].defaults.timeGrain`);
+      reference(`$.datasets[${index}].defaults.timeGrain`);
     }
     for (const [relationshipIndex, relationship] of dataset.relationships.entries()) {
       if (!names.has(relationship.target)) {
-        deploymentError(
-          'HQ_DEPLOYMENT_INVALID_REFERENCE',
-          `$.datasets[${index}].relationships[${relationshipIndex}].target`,
-        );
+        reference(`$.datasets[${index}].relationships[${relationshipIndex}].target`);
       }
     }
     if (dataset.endpoint !== undefined
       && (dataset.tenant.kind === 'required') !== (dataset.endpoint.tenant.kind === 'required')) {
-      deploymentError('HQ_DEPLOYMENT_INVALID_REFERENCE', `$.datasets[${index}].endpoint.tenant`);
+      reference(`$.datasets[${index}].endpoint.tenant`);
     }
   }
 }
@@ -1051,7 +1126,9 @@ function validateDeploymentDataset(
   path: string,
   limits: Readonly<ProtocolDeploymentLimits>,
   version: ContractVersion = 2,
+  issues?: DeploymentErrorCollector,
 ): ProtocolDeploymentDataset {
+  const since = issues?.count ?? 0;
   const value = requireRecord(input, path);
   exactFields(value,
     [
@@ -1062,31 +1139,43 @@ function validateDeploymentDataset(
       'description', 'freshness', 'owner', 'defaults',
       ...SEMANTIC_METADATA_FIELDS, 'timeField', 'limits', 'endpoint',
       ...(version === 3 ? ['segments'] : []),
-    ], path);
-  const measures = requireArray(value.measures, `${path}.measures`, limits.maxDatasetItems)
-    .map((measure, index) => requireRecord(measure, `${path}.measures[${index}]`));
+    ], path, issues);
+  // When collecting, a malformed measure list is reported and the rest of the
+  // dataset is still checked as if it had no measures; a malformed measure is
+  // reported and its siblings are still checked.
+  const records = attempt(issues, () => requireArray(value.measures, `${path}.measures`, limits.maxDatasetItems)) ?? [];
+  const checked = records.map((measure, index) => (
+    attempt(issues, () => requireRecord(measure, `${path}.measures[${index}]`))
+  ));
   // Base measures are validated by the dataset; composite ones (derived, and in
   // contract 3 window and shift) reference them and are validated here.
   const isComposite = (measure: DataRecord) => measure.kind === 'derived'
     || (version === 3 && (measure.kind === 'window' || measure.kind === 'shift'));
   // Preserve original indices when validating base measures separately.
-  const baseEntries = measures.flatMap((measure, index) => (
-    isComposite(measure) ? [] : [{ measure, index }]
+  const baseEntries = checked.flatMap((measure, index) => (
+    measure === undefined || isComposite(measure) ? [] : [{ measure, index }]
   ));
-  const validated = validateDataset(
+  const validated = attempt(issues, () => validateDataset(
     { ...value, measures: baseEntries.map(entry => entry.measure), metrics: [] },
     path,
     limits,
     baseEntries.map(entry => entry.index),
     version,
-  );
-  const composite: (DataRecord | undefined)[] = measures.map((measure, index) => {
+    issues,
+  ))!;
+  const composite: (DataRecord | undefined)[] = checked.map((measure, index) => measure && attempt(issues, () => {
     const measurePath = `${path}.measures[${index}]`;
     if (measure.kind === 'derived') {
       return validateDatasetDerivedMeasure(measure, measurePath, limits, version) as unknown as DataRecord;
     }
     return isComposite(measure) ? validateTimeMeasure(measure, measurePath, limits) : undefined;
-  });
+  }));
+  // Cross-measure checks below assume every measure validated.
+  issues?.checkpoint(since);
+  const measures = checked as DataRecord[];
+  // Independent cross-measure checks each recover; a check that needs a
+  // reference that failed is skipped rather than reported again.
+  const fail = (code: ProtocolDeploymentErrorCode, at: string) => attempt(issues, () => deploymentError(code, at));
   const derived = composite.map(item => (
     item?.kind === 'derived' ? item as unknown as ProtocolDatasetDerivedMeasure : undefined
   ));
@@ -1096,42 +1185,80 @@ function validateDeploymentDataset(
     composite[index] ?? validated.measures[baseIndex++]!
   )) as unknown as ProtocolDeploymentMeasure[];
   if (new Set(ordered.map(measure => measure.name)).size !== measures.length) {
-    deploymentError('HQ_DEPLOYMENT_INVALID_REFERENCE', `${path}.measures`);
+    fail('HQ_DEPLOYMENT_INVALID_REFERENCE', `${path}.measures`);
   }
+  // Checks by name are ambiguous while names repeat.
+  issues?.checkpoint(since);
   const isApproximate = (measure: unknown) => (measure as { approximate?: true } | undefined)?.approximate === true;
   // A time measure wraps exactly one base measure and needs the dataset's time axis.
   const timeByName = new Map<string, DataRecord>();
+  // Time measures that failed a check still resolve by name, but checks that
+  // read their properties would only repeat that failure.
+  const failedTime = new Set<string>();
   for (const [index, item] of composite.entries()) {
     if (!item || item.kind === 'derived') continue;
     const timeMeasure = item;
+    const before = issues?.count ?? 0;
     const measurePath = `${path}.measures[${index}]`;
     const wrapped = baseByName.get(timeMeasure.measure as string);
-    if (!wrapped) deploymentError('HQ_DEPLOYMENT_INVALID_REFERENCE', `${measurePath}.measure`);
-    if (validated.timeField === undefined) deploymentError('HQ_DEPLOYMENT_INVALID_REFERENCE', `${measurePath}.kind`);
-    if (timeMeasure.cumulative === true && !CUMULATIVE_AGGREGATIONS.has(wrapped.aggregation)) {
-      deploymentError('HQ_DEPLOYMENT_INVALID_VALUE', `${measurePath}.cumulative`);
-    }
-    if (isApproximate(wrapped) !== isApproximate(timeMeasure)) {
-      deploymentError('HQ_DEPLOYMENT_INVALID_VALUE', `${measurePath}.approximate`);
+    if (!wrapped) fail('HQ_DEPLOYMENT_INVALID_REFERENCE', `${measurePath}.measure`);
+    if (validated.timeField === undefined) fail('HQ_DEPLOYMENT_INVALID_REFERENCE', `${measurePath}.kind`);
+    if (wrapped) {
+      if (timeMeasure.cumulative === true && !CUMULATIVE_AGGREGATIONS.has(wrapped.aggregation)) {
+        fail('HQ_DEPLOYMENT_INVALID_VALUE', `${measurePath}.cumulative`);
+      }
+      if (isApproximate(wrapped) !== isApproximate(timeMeasure)) {
+        fail('HQ_DEPLOYMENT_INVALID_VALUE', `${measurePath}.approximate`);
+      }
     }
     timeByName.set(timeMeasure.name as string, timeMeasure);
+    if ((issues?.count ?? 0) > before) failedTime.add(timeMeasure.name as string);
   }
   for (const [index, item] of derived.entries()) {
     if (!item) continue;
+    let resolved = true;
     for (const [useIndex, use] of item.uses.entries()) {
       if (!baseByName.has(use.measure) && !timeByName.has(use.measure)) {
-        deploymentError('HQ_DEPLOYMENT_INVALID_REFERENCE', `${path}.measures[${index}].uses[${useIndex}].measure`);
+        resolved = false;
+        fail('HQ_DEPLOYMENT_INVALID_REFERENCE', `${path}.measures[${index}].uses[${useIndex}].measure`);
       }
     }
+    if (!resolved || item.uses.some(use => failedTime.has(use.measure))) continue;
     const approximate = item.uses.some(use => (
       isApproximate(baseByName.get(use.measure) ?? timeByName.get(use.measure))
     ));
     if (approximate !== isApproximate(item)) {
-      deploymentError('HQ_DEPLOYMENT_INVALID_VALUE', `${path}.measures[${index}].approximate`);
+      fail('HQ_DEPLOYMENT_INVALID_VALUE', `${path}.measures[${index}].approximate`);
     }
   }
+  issues?.checkpoint(since);
   const { metrics: _metrics, ...dataset } = validated;
   return freezeRecord({ ...dataset, measures: Object.freeze(ordered) }) as unknown as ProtocolDeploymentDataset;
+}
+
+function validateContract(
+  input: unknown,
+  limits: Readonly<ProtocolDeploymentLimits>,
+  version: ContractVersion,
+  issues?: DeploymentErrorCollector,
+): readonly ProtocolDeploymentDataset[] {
+  const value = requireRecord(input, '$');
+  exactFields(value, ['kind', 'version', 'datasets'], [], '$', issues);
+  attempt(issues, () => {
+    if (value.kind !== 'hypequery-deployment') deploymentError('HQ_DEPLOYMENT_INVALID_VALUE', '$.kind');
+  });
+  // Another version's rules do not apply, so its datasets are not worth checking.
+  const since = issues?.count ?? 0;
+  attempt(issues, () => {
+    if (value.version !== version) deploymentError('HQ_DEPLOYMENT_INVALID_VERSION', '$.version');
+  });
+  issues?.checkpoint(since);
+  const datasets = attempt(issues, () => namedItems(value.datasets, '$.datasets', limits.maxDatasets,
+    (item, path) => validateDeploymentDataset(item, path, limits, version, issues), issues))!;
+  // References between datasets need every dataset validated first.
+  issues?.checkpoint(0);
+  validateDatasetReferences(datasets, issues);
+  return datasets;
 }
 
 /** Validate the deployment contract. Unsupported fields are forbidden, even when empty. */
@@ -1139,15 +1266,28 @@ export function validateProtocolDeploymentContract(
   input: unknown,
   options: ProtocolDeploymentOptions = {},
 ): ProtocolDeploymentContract {
-  const limits = resolveDeploymentLimits(options);
-  const value = requireRecord(input, '$');
-  exactFields(value, ['kind', 'version', 'datasets'], [], '$');
-  if (value.kind !== 'hypequery-deployment') deploymentError('HQ_DEPLOYMENT_INVALID_VALUE', '$.kind');
-  if (value.version !== 2) deploymentError('HQ_DEPLOYMENT_INVALID_VERSION', '$.version');
-  const datasets = namedItems(value.datasets, '$.datasets', limits.maxDatasets,
-    (item, path) => validateDeploymentDataset(item, path, limits));
-  validateDatasetReferences(datasets);
+  return deploymentContract(validateContract(input, resolveDeploymentLimits(options), 2));
+}
+
+function deploymentContract(datasets: readonly ProtocolDeploymentDataset[]): ProtocolDeploymentContract {
   return freezeRecord({ kind: 'hypequery-deployment', version: 2, datasets }) as unknown as ProtocolDeploymentContract;
+}
+
+/**
+ * Check a deployment contract and report every failure found, instead of
+ * throwing the first. Accepts exactly what `validateProtocolDeploymentContract`
+ * accepts, and returns the same value when it does.
+ *
+ * Failures are reported per independent part of the contract (each dataset,
+ * collection item and dataset field). Checks that depend on a part that
+ * already failed are skipped so one mistake is not reported several times.
+ */
+export function checkProtocolDeploymentContract(
+  input: unknown,
+  options: ProtocolDeploymentOptions = {},
+): ProtocolDeploymentCheckResult<ProtocolDeploymentContract> {
+  const limits = resolveDeploymentLimits(options);
+  return collectErrors(issues => deploymentContract(validateContract(input, limits, 2, issues)));
 }
 
 /** True when a contract 3 dataset uses anything contract 2 cannot express. */
@@ -1173,14 +1313,24 @@ export function validateProtocolDeploymentContractV3(
   input: unknown,
   options: ProtocolDeploymentOptions = {},
 ): ProtocolDeploymentContractV3 {
+  return deploymentContractV3(validateContract(input, resolveDeploymentLimits(options), 3));
+}
+
+/**
+ * Check a deployment contract 3 and report every failure found, instead of
+ * throwing the first. Accepts exactly what `validateProtocolDeploymentContractV3`
+ * accepts; see `checkProtocolDeploymentContract` for how failures are grouped.
+ */
+export function checkProtocolDeploymentContractV3(
+  input: unknown,
+  options: ProtocolDeploymentOptions = {},
+): ProtocolDeploymentCheckResult<ProtocolDeploymentContractV3> {
   const limits = resolveDeploymentLimits(options);
-  const value = requireRecord(input, '$');
-  exactFields(value, ['kind', 'version', 'datasets'], [], '$');
-  if (value.kind !== 'hypequery-deployment') deploymentError('HQ_DEPLOYMENT_INVALID_VALUE', '$.kind');
-  if (value.version !== 3) deploymentError('HQ_DEPLOYMENT_INVALID_VERSION', '$.version');
-  const datasets = namedItems(value.datasets, '$.datasets', limits.maxDatasets,
-    (item, path) => validateDeploymentDataset(item, path, limits, 3)) as unknown as readonly ProtocolDeploymentDatasetV3[];
-  validateDatasetReferences(datasets as unknown as readonly ProtocolDeploymentDataset[]);
+  return collectErrors(issues => deploymentContractV3(validateContract(input, limits, 3, issues)));
+}
+
+function deploymentContractV3(validated: readonly ProtocolDeploymentDataset[]): ProtocolDeploymentContractV3 {
+  const datasets = validated as unknown as readonly ProtocolDeploymentDatasetV3[];
   if (!datasets.some(usesContract3Feature)) {
     deploymentError('HQ_DEPLOYMENT_INVALID_VERSION', '$.version');
   }

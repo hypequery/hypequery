@@ -1,11 +1,10 @@
-import { readFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
 import { Command } from 'commander';
 import { initCommand } from './commands/init.js';
 import { mcpCommand, type McpOptions } from './commands/mcp.js';
 import { devCommand, type DevOptions } from './commands/dev.js';
 import { generateCommand, type GenerateOptions } from './commands/generate.js';
 import { generateDatasetsCommand, type GenerateDatasetsOptions } from './commands/generate-datasets.js';
+import { generateClientCommand, type GenerateClientOptions } from './commands/generate-client.js';
 import { generateManifestCommand, type GenerateManifestOptions } from './commands/generate-manifest.js';
 import {
   buildDeploymentCommand,
@@ -36,19 +35,12 @@ import {
   type PullOptions,
 } from './commands/live-source.js';
 import { isPromptCancelled } from './utils/prompts.js';
+import { telemetryCommand } from './commands/telemetry.js';
+import { getCliVersion } from './utils/cli-version.js';
+import { CommandExit } from './utils/command-exit.js';
+import { telemetryErrorCode } from './utils/telemetry/error-code.js';
 
 const program = new Command();
-
-function getCliVersion(): string {
-  try {
-    const pkg = JSON.parse(
-      readFileSync(fileURLToPath(new URL('../package.json', import.meta.url)), 'utf8'),
-    ) as { version?: string };
-    return pkg.version ?? '0.0.0';
-  } catch {
-    return '0.0.0';
-  }
-}
 
 export function normalizeInitOptions(options: Record<string, unknown>) {
   return {
@@ -60,7 +52,15 @@ export function normalizeInitOptions(options: Record<string, unknown>) {
 program
   .name('hypequery')
   .description('Type-safe analytics layer for ClickHouse')
-  .version(getCliVersion());
+  .version(getCliVersion())
+  .option('--no-telemetry', 'Disable anonymous usage telemetry for this invocation');
+
+program
+  .command('telemetry [action]')
+  .description('Show or change anonymous usage telemetry settings (status|enable|disable)')
+  .action(runCommand(async (action: string | undefined) => {
+    await telemetryCommand(action, { telemetry: program.opts().telemetry });
+  }));
 
 program
   .command('login')
@@ -106,14 +106,15 @@ function runCommand<TArgs extends unknown[]>(
     try {
       await action(...args);
     } catch (error) {
+      if (error instanceof CommandExit) throw error;
       // Ctrl+C at a prompt is a deliberate abort, not a failure: report it as
       // the interrupt it is instead of dumping an error and exiting 1.
       if (isPromptCancelled(error)) {
         console.log('\nCancelled.');
-        process.exit(130);
+        throw new CommandExit(130, 'cancelled', 'prompt_cancelled');
       }
       console.error(error instanceof Error ? error.message : error);
-      process.exit(1);
+      throw new CommandExit(1, 'failure', telemetryErrorCode(error));
     }
   };
 }
@@ -168,11 +169,12 @@ program
 
 program
   .command('mcp [file]')
-  .description('Serve this project\'s datasets to an MCP client over stdio')
+  .description('Serve local datasets or authorized HTTP client endpoints over MCP stdio')
   .option('--path <path>', 'Analytics directory (loads <path>/api.ts or <path>/queries.ts)')
   .option('--tenant <id>', 'Trusted tenant applied to every tenant-scoped dataset')
   .option('--self-test', 'Check the entrypoint and exit without speaking MCP')
   .option('--url <url>', 'With --self-test: check a hosted MCP endpoint (key from HYPEQUERY_API_KEY)')
+  .option('--client-contract-url <url>', 'Bridge authorized HTTP client endpoints to MCP (Bearer key from HYPEQUERY_API_KEY)')
   .action(runCommand(async (file: string | undefined, options: McpOptions) => {
     await mcpCommand(file, options);
   }));
@@ -204,6 +206,16 @@ program
   .option('--diff', 'Print generated changes without writing them')
   .action(runCommand(async (options: GenerateDatasetsOptions) => {
     await generateDatasetsCommand(options);
+  }));
+
+program
+  .command('generate:client <contract>')
+  .description('Generate browser-safe TypeScript API types and routes from a client contract JSON file')
+  .option('-o, --output <path>', 'Output TypeScript file (default: analytics/hypequery-client.ts)')
+  .option('--check', 'Check for drift without writing')
+  .option('--force', 'Replace an existing output file')
+  .action(runCommand(async (contract: string, options: GenerateClientOptions) => {
+    await generateClientCommand(contract, options);
   }));
 
 program
@@ -299,7 +311,7 @@ program
         cmd.help();
       } else {
         console.error(`Unknown command: ${command}`);
-        process.exit(1);
+        throw new CommandExit(1, 'failure', 'unknown_command');
       }
     } else {
       program.help();
@@ -310,6 +322,9 @@ program
 program.on('--help', () => {
   console.log('');
   console.log('Examples:');
+  console.log('  hypequery telemetry status');
+  console.log('  hypequery telemetry disable');
+  console.log('  hypequery --no-telemetry init');
   console.log('  hypequery login');
   console.log('  hypequery logout');
   console.log('  hypequery init');

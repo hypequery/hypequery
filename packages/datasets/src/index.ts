@@ -244,7 +244,7 @@ export { toQueryBuilderFactory } from './query-builder-protocol.js';
 export { validateSQLIdentifier, isSafeSQLIdentifier, quoteSQLIdentifier } from './sql-utils.js';
 
 // Constants
-export { GRAIN_FUNCTIONS, SEMANTIC_FILTER_OPERATORS, SUPPORTED_TIME_GRAINS } from './constants.js';
+export { GRAIN_FUNCTIONS, SEMANTIC_FILTER_OPERATORS, SEMANTIC_HAVING_OPERATORS, SUPPORTED_TIME_GRAINS } from './constants.js';
 
 // Types
 export type {
@@ -264,6 +264,8 @@ export type {
   InferDimensionType,
   RelationshipKind,
   RelationshipDefinition,
+  RelationshipKey,
+  RelationshipJoin,
   AggregationType,
   MeasureAggregation,
   AggregationSpec,
@@ -310,6 +312,9 @@ export type {
   DatasetSegmentNames,
   DatasetOrderableNames,
   DatasetQueryFor,
+  DatasetHavingCondition,
+  DatasetHavingFor,
+  DatasetHavingOperator,
   DatasetRow,
   DatasetRowFor,
   DatasetQueryResultFor,
@@ -328,3 +333,6 @@ export type {
 export { DATASET_EXECUTION_CAPABILITIES } from './execution-capabilities.js';
 export type { DatasetFeature, DatasetFeatureSupport, DatasetExecutionCapabilities } from './execution-capabilities.js';
 export type { DatasetFilterNames, DatasetFilterFor } from './utils/dataset-filter-types.js';
+
+export { buildClientContractQuerySchemas } from './client-contract/query-schema.js';
+export type { ClientContractQuerySchemas, ClientEndpointQuerySchema } from './client-contract/query-schema.js';

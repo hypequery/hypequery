@@ -72,10 +72,43 @@ npx hypequery dev
 | `hypequery generate` | Rebuild `analytics/schema.ts` from your current ClickHouse schema |
 | `hypequery generate:types` | Alias for `hypequery generate` |
 | `hypequery generate:datasets` | Generate dataset (semantic layer) definitions from your ClickHouse schema |
+| `hypequery deploy <cloud>` | Build, release, and deploy a dataset-only Cloud publication, then print where it is served |
 | `hypequery mcp [file]` | Serve this project's datasets to an MCP client over stdio, or check an endpoint with `--self-test` |
+| `hypequery deployment:validate <artifact>` | Verify a deployment bundle or validate contract JSON and report its identity |
 | `hypequery help [command]` | Show help for the CLI or a specific command |
+| `hypequery telemetry [status\|enable\|disable]` | Inspect or change anonymous usage telemetry preferences |
 
 The sections below expand on the supported options and expected behavior for each command.
+
+## `hypequery telemetry`
+
+The CLI sends pseudonymous usage events to `https://hypequery.com/api/telemetry`
+unless telemetry is disabled. `HYPEQUERY_TELEMETRY_DEBUG=1` prints validated events
+to stderr instead of sending; `HYPEQUERY_TELEMETRY_URL` sends to a staging or
+self-hosted first-party ingest endpoint instead. Opt-outs apply in every mode. See the
+[telemetry reference](/docs/telemetry) for the event contract and delivery limits.
+
+```bash
+hypequery telemetry          # Same as telemetry status
+hypequery telemetry disable # Save an opt-out
+hypequery telemetry enable  # Save an opt-in
+hypequery init --no-telemetry # Disable for one invocation
+```
+
+Status reports the effective setting, the source that determined it, and the random
+install ID. `enable` changes the saved preference; environment variables and the
+global flag still take precedence.
+
+The first matching setting wins: `--no-telemetry`, `DO_NOT_TRACK=1`,
+`HYPEQUERY_TELEMETRY_DISABLED=1`, test environments (`VITEST` or `NODE_ENV=test`)
+and Hypequery's own GitHub Actions CI, then the saved preference. The default
+preference is enabled, including in customer CI. Unavailable or corrupt settings
+disable telemetry for that invocation. An explicit `enable` or `disable` can repair
+corrupt settings; a failed save reports an error and the temporary opt-out options.
+
+Settings live in `telemetry.json` beside the CLI's Cloud profile: macOS Application
+Support, Windows APPDATA (or LOCALAPPDATA), or Linux XDG_CONFIG_HOME (otherwise
+`~/.config/hypequery`). `HYPEQUERY_CONFIG_DIR` overrides the directory.
 
 ## `hypequery init`
 
@@ -313,6 +346,52 @@ npx @hypequery/cli generate:datasets --path analytics --check
 ```
 </CodeBlock>
 
+## `hypequery deploy <cloud>`
+
+Builds the publication module, prepares a release for the logged-in target,
+and submits it. Once Cloud accepts the release, the CLI prints where it's
+served:
+
+```text
+Hosted endpoints
+  REST  https://<environment-slug>.hypequery.app
+    orders  POST https://<environment-slug>.hypequery.app/api/analytics/datasets/orders/query
+  MCP   https://<environment-slug>.hypequery.app/mcp
+```
+
+Cloud provides these URLs, so the CLI follows Cloud's current routing. A live
+release is required before dataset calls work. A Cloud release that doesn't
+provide endpoint details leaves deploy output unchanged.
+
+| Option | Description |
+| --- | --- |
+| `--mcp-config` | Also print MCP client configuration for the hosted endpoint. It reads the key from `${HYPEQUERY_API_KEY}` and never contains a credential |
+| `--project`, `--environment` | Override the target from `hypequery login` |
+| `--replace-restored` | Replace a live release that was restored from history |
+| `--no-source` | Leave project source files out of the bundle |
+
+## `hypequery deployment:status`
+
+Shows the current release and Cloud-provided REST and MCP URLs without building
+or deploying again. It uses the target and deployment credential saved by
+`hypequery login`. With an explicit deployment credential, pass both
+`--project` and `--environment`.
+
+```bash
+npx hypequery deployment:status
+npx hypequery deployment:status --mcp-config
+```
+
+The command says when no release is live. Its optional MCP configuration uses
+`${HYPEQUERY_API_KEY}` as a placeholder and never includes the stored deployment
+credential.
+
+| Option | Description |
+| --- | --- |
+| `--project`, `--environment` | Override the target from `hypequery login`; pass both together |
+| `--endpoint` | Use an explicit Cloud submission endpoint with `HYPEQUERY_API_TOKEN` |
+| `--mcp-config` | Also print MCP client configuration for the hosted endpoint |
+
 ## `hypequery mcp [file]`
 
 Serves the project's datasets over stdio for a local MCP client.
@@ -320,19 +399,20 @@ Serves the project's datasets over stdio for a local MCP client.
 Without `[file]`, the command looks for a Serve API file in the current directory: `hypequery.ts`,
 `analytics/api.ts`, `src/analytics/api.ts`, `api.ts`, `src/api.ts`, `analytics/queries.ts`, or
 `src/analytics/queries.ts`. It serves the datasets registered with `serve({ queryBuilder, datasets })` in that file.
-Run it from your project directory so the file's imports resolve. See [MCP](/docs/mcp/overview) for client setup.
+With an absolute `[file]` it runs from any directory: the file's imports resolve from its own project, and that project's `.env*` files are loaded (values already set in the environment win). See [MCP](/docs/mcp/overview) for client setup.
 
 | Option | Description |
 | --- | --- |
-| `--path <dir>` | Analytics directory to load the API file from, as with `hypequery dev --path` |
 | `--tenant <id>` | Trusted tenant for tenant-scoped datasets (required when any dataset is tenant-scoped) |
 | `--self-test` | Check the entrypoint and exit. It fails if `@hypequery/mcp` isn't installed |
+| `--self-test --url <mcp-url>` | Check a hosted endpoint instead: initialize and list tools, without calling one. The runtime API key is read from `HYPEQUERY_API_KEY` rather than a command argument |
 
-<CodeBlock>
+Supply `HYPEQUERY_API_KEY` through your environment or secret manager before
+running the check; the command never takes the key as an argument.
+
 ```bash
-npx hypequery mcp --self-test
+npx hypequery mcp --self-test --url https://<environment-slug>.hypequery.app/mcp
 ```
-</CodeBlock>
 
 ## Environment variables
 

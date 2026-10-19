@@ -14,6 +14,9 @@ export type {
 } from './codec.js';
 export { DEFAULT_PROTOCOL_DEPLOYMENT_LIMITS } from './limits.js';
 export {
+  checkProtocolDatasetContract,
+  checkProtocolDeploymentContract,
+  checkProtocolDeploymentContractV3,
   validateProtocolDatasetContract,
   validateProtocolDeploymentContract,
   validateProtocolDeploymentContractV3,
@@ -48,7 +51,9 @@ export type {
   ProtocolDatasetShiftMeasure,
   ProtocolDatasetWindowMeasure,
   ProtocolTimeInterval,
+  ProtocolDeploymentCheckResult,
   ProtocolDeploymentErrorCode,
+  ProtocolDeploymentValidationError,
   ProtocolDeploymentLimits,
   ProtocolDeploymentOptions,
   ProtocolEndpointPolicy,

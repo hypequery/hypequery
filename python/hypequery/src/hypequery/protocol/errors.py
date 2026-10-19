@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Literal, NoReturn, TypeAlias
+from typing import Generic, Literal, NoReturn, TypeAlias, TypeVar
 
 ProtocolValueErrorCode: TypeAlias = Literal[
     "HQ_VALUE_INVALID_JSON",
@@ -135,16 +135,23 @@ ProtocolQueryDiagnosticsErrorCode: TypeAlias = Literal[
 ]
 
 
-class ProtocolValueError(TypeError):
-    """A safe, stable RFC 0001 validation failure."""
+_Code = TypeVar("_Code", bound=str)
 
-    code: ProtocolValueErrorCode
+
+class _ProtocolPathError(TypeError, Generic[_Code]):
+    """A stable code and the JSON path it applies to; never the rejected input."""
+
+    code: _Code
     path: str
 
-    def __init__(self, code: ProtocolValueErrorCode, path: str = "$") -> None:
+    def __init__(self, code: _Code, path: str = "$") -> None:
         super().__init__(f"{code} at {path}")
         self.code = code
         self.path = path
+
+
+class ProtocolValueError(_ProtocolPathError[ProtocolValueErrorCode]):
+    """A safe, stable RFC 0001 validation failure."""
 
 
 def value_error(code: ProtocolValueErrorCode, path: str = "$") -> NoReturn:
@@ -169,16 +176,8 @@ def identifier_error(code: ProtocolIdentifierErrorCode) -> NoReturn:
     raise ProtocolIdentifierError(code)
 
 
-class ProtocolExpressionError(TypeError):
+class ProtocolExpressionError(_ProtocolPathError[ProtocolExpressionErrorCode]):
     """A safe, stable RFC 0003 validation failure."""
-
-    code: ProtocolExpressionErrorCode
-    path: str
-
-    def __init__(self, code: ProtocolExpressionErrorCode, path: str = "$") -> None:
-        super().__init__(f"{code} at {path}")
-        self.code = code
-        self.path = path
 
 
 def expression_error(code: ProtocolExpressionErrorCode, path: str = "$") -> NoReturn:
@@ -187,16 +186,8 @@ def expression_error(code: ProtocolExpressionErrorCode, path: str = "$") -> NoRe
     raise ProtocolExpressionError(code, path)
 
 
-class ProtocolSchemaError(TypeError):
+class ProtocolSchemaError(_ProtocolPathError[ProtocolSchemaErrorCode]):
     """A safe, stable RFC 0004 validation failure."""
-
-    code: ProtocolSchemaErrorCode
-    path: str
-
-    def __init__(self, code: ProtocolSchemaErrorCode, path: str = "$") -> None:
-        super().__init__(f"{code} at {path}")
-        self.code = code
-        self.path = path
 
 
 def schema_error(code: ProtocolSchemaErrorCode, path: str = "$") -> NoReturn:
@@ -205,16 +196,8 @@ def schema_error(code: ProtocolSchemaErrorCode, path: str = "$") -> NoReturn:
     raise ProtocolSchemaError(code, path)
 
 
-class ProtocolQueryImplementationError(TypeError):
+class ProtocolQueryImplementationError(_ProtocolPathError[ProtocolQueryImplementationErrorCode]):
     """A safe, stable RFC 0005 validation failure."""
-
-    code: ProtocolQueryImplementationErrorCode
-    path: str
-
-    def __init__(self, code: ProtocolQueryImplementationErrorCode, path: str = "$") -> None:
-        super().__init__(f"{code} at {path}")
-        self.code = code
-        self.path = path
 
 
 def query_implementation_error(
@@ -225,16 +208,8 @@ def query_implementation_error(
     raise ProtocolQueryImplementationError(code, path)
 
 
-class ProtocolDeploymentError(TypeError):
+class ProtocolDeploymentError(_ProtocolPathError[ProtocolDeploymentErrorCode]):
     """A safe, stable RFC 0006 validation failure."""
-
-    code: ProtocolDeploymentErrorCode
-    path: str
-
-    def __init__(self, code: ProtocolDeploymentErrorCode, path: str = "$") -> None:
-        super().__init__(f"{code} at {path}")
-        self.code = code
-        self.path = path
 
 
 def deployment_error(code: ProtocolDeploymentErrorCode, path: str = "$") -> NoReturn:
@@ -243,16 +218,8 @@ def deployment_error(code: ProtocolDeploymentErrorCode, path: str = "$") -> NoRe
     raise ProtocolDeploymentError(code, path)
 
 
-class ProtocolDeploymentBundleError(TypeError):
+class ProtocolDeploymentBundleError(_ProtocolPathError[ProtocolDeploymentBundleErrorCode]):
     """A safe, stable RFC 0007 validation failure."""
-
-    code: ProtocolDeploymentBundleErrorCode
-    path: str
-
-    def __init__(self, code: ProtocolDeploymentBundleErrorCode, path: str = "$") -> None:
-        super().__init__(f"{code} at {path}")
-        self.code = code
-        self.path = path
 
 
 def bundle_error(code: ProtocolDeploymentBundleErrorCode, path: str = "$") -> NoReturn:
@@ -261,16 +228,8 @@ def bundle_error(code: ProtocolDeploymentBundleErrorCode, path: str = "$") -> No
     raise ProtocolDeploymentBundleError(code, path)
 
 
-class ProtocolDeploymentReleaseError(TypeError):
+class ProtocolDeploymentReleaseError(_ProtocolPathError[ProtocolDeploymentReleaseErrorCode]):
     """A safe, stable RFC 0008 validation failure."""
-
-    code: ProtocolDeploymentReleaseErrorCode
-    path: str
-
-    def __init__(self, code: ProtocolDeploymentReleaseErrorCode, path: str = "$") -> None:
-        super().__init__(f"{code} at {path}")
-        self.code = code
-        self.path = path
 
 
 def release_error(code: ProtocolDeploymentReleaseErrorCode, path: str = "$") -> NoReturn:
@@ -279,16 +238,8 @@ def release_error(code: ProtocolDeploymentReleaseErrorCode, path: str = "$") -> 
     raise ProtocolDeploymentReleaseError(code, path)
 
 
-class ProtocolQueryEventError(TypeError):
+class ProtocolQueryEventError(_ProtocolPathError[ProtocolQueryEventErrorCode]):
     """A safe, stable RFC 0011 query event validation failure."""
-
-    code: ProtocolQueryEventErrorCode
-    path: str
-
-    def __init__(self, code: ProtocolQueryEventErrorCode, path: str = "$") -> None:
-        super().__init__(f"{code} at {path}")
-        self.code = code
-        self.path = path
 
 
 def event_error(code: ProtocolQueryEventErrorCode, path: str = "$") -> NoReturn:
@@ -297,16 +248,8 @@ def event_error(code: ProtocolQueryEventErrorCode, path: str = "$") -> NoReturn:
     raise ProtocolQueryEventError(code, path)
 
 
-class ProtocolQueryDiagnosticsError(TypeError):
+class ProtocolQueryDiagnosticsError(_ProtocolPathError[ProtocolQueryDiagnosticsErrorCode]):
     """A safe, stable RFC 0011 query diagnostics validation failure."""
-
-    code: ProtocolQueryDiagnosticsErrorCode
-    path: str
-
-    def __init__(self, code: ProtocolQueryDiagnosticsErrorCode, path: str = "$") -> None:
-        super().__init__(f"{code} at {path}")
-        self.code = code
-        self.path = path
 
 
 def diagnostics_error(code: ProtocolQueryDiagnosticsErrorCode, path: str = "$") -> NoReturn:

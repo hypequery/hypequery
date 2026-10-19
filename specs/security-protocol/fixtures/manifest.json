@@ -314,6 +314,39 @@
           "role": "rejection"
         }
       ]
+    },
+    {
+      "name": "client-contract-v1",
+      "rfc": "0018",
+      "codePrefixes": [
+        "HQ_CLIENT_"
+      ],
+      "files": [
+        {
+          "path": "client-contract-v1/success.json",
+          "role": "success"
+        },
+        {
+          "path": "client-contract-v1/identities.json",
+          "role": "identity"
+        },
+        {
+          "path": "client-contract-v1/rejections.json",
+          "role": "rejection"
+        },
+        {
+          "path": "client-contract-v1/queries.json",
+          "role": "success"
+        },
+        {
+          "path": "client-contract-v1/query-rejections.json",
+          "role": "rejection"
+        },
+        {
+          "path": "client-contract-v1/relations.json",
+          "role": "success"
+        }
+      ]
     }
   ],
   "fuzz": [

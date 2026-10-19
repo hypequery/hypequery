@@ -2,11 +2,228 @@
 
 A Python semantic layer for ClickHouse datasets, metrics, multi-tenant analytics, and FastAPI serving.
 
-> **Pre-alpha:** the protocol foundation, dataset definitions, and sync/async
-> execution are in place; the Serve query endpoints are still being built. Do
-> not use this package in production yet.
+> **Pre-alpha:** datasets, execution and Serve are implemented and tested against
+> the shared protocol fixtures, but the package is not yet published to PyPI and
+> its APIs may still change. Do not use it in production yet.
 
-## Planned install
+## Python → React → MCP example
+
+The [complete client tutorial](examples/client_dashboard/README.md) shares one
+Python definition across authorized HTTP, generated React types and MCP stdio.
+Its preparation script uses an installed wheel and packed Node packages outside
+the checkout. Matching npm features remain in the development release stack;
+currently published packages may not support the complete journey yet.
+
+## Schema-backed Python CLI
+
+Install `hypequery[fastapi,clickhouse]`, export your `CLICKHOUSE_*` connection
+settings, then run `hypequery init --path analytics --tables orders,customers`.
+The default inspects actual catalog metadata and generates `datasets.py`, a
+`schema.json` snapshot, and authenticated endpoints for selected tables.
+`--exclude-tables` omits tables; all tables are selected by default.
+
+Physical names map to the same camelCase semantic names as the TypeScript CLI.
+Numeric value fields get suggested sum/average measures; IDs and coordinates
+remain dimensions. Unsupported columns and tenant candidates are reported.
+Review business semantics and configure tenant isolation explicitly. No database
+writes or automatic relationship inference occur during discovery.
+
+`totalCount` counts a supported non-nullable column, so it includes every row.
+If none exists, the CLI emits `nonNullCount` instead and warns that it counts
+only non-null values in the first supported column. Regeneration uses the same
+rule; review references to a previously generated `totalCount` before replacing
+definitions for an all-nullable table.
+
+`--skip-connection` explicitly creates the offline orders demo with `seed.sql`.
+Existing output paths are never overwritten. See the
+[TypeScript reference and parity contract](../../plans/python-cli-schema-generation-parity.md).
+
+## Getting started
+
+From zero to a served dataset. You need Python 3.11+ and a ClickHouse server.
+
+**1. Install** with the FastAPI and ClickHouse extras:
+
+```bash
+pip install "hypequery[fastapi,clickhouse]"
+```
+
+Until the first PyPI release, install from a checkout of this repository
+instead: `pip install "./python/hypequery[fastapi,clickhouse]"`.
+
+**2. Create sample data.** Run this in `clickhouse client` (or any SQL console)
+against your database:
+
+<!-- getting-started: seed.sql -->
+```sql
+CREATE TABLE IF NOT EXISTS orders
+(
+    id String,
+    country LowCardinality(String),
+    status LowCardinality(String),
+    amount Decimal(12, 2),
+    created_at DateTime64(3, 'UTC')
+)
+ENGINE = MergeTree
+ORDER BY (created_at, id);
+
+INSERT INTO orders VALUES
+    ('o1', 'NZ', 'paid', 120.50, '2026-09-01 10:00:00'),
+    ('o2', 'NZ', 'paid', 80.00, '2026-09-02 11:30:00'),
+    ('o3', 'AU', 'paid', 200.00, '2026-09-02 12:00:00'),
+    ('o4', 'AU', 'refunded', 50.00, '2026-09-03 09:15:00'),
+    ('o5', 'US', 'paid', 310.25, '2026-09-04 16:45:00');
+```
+
+**3. Define a dataset and serve it.** Save this as `app.py`:
+
+<!-- getting-started: app.py -->
+```python
+import os
+import secrets
+
+from hypequery.datasets import create_dataset_client, dataset, dimension, measure
+from hypequery.execution import ClickHouseConnection, create_clickhouse_executor
+from hypequery.serve import (
+    Credential,
+    HttpSecurity,
+    Principal,
+    create_dataset_endpoint,
+    create_app,
+    create_api,
+)
+
+orders = dataset(
+    "orders",
+    source="orders",
+    time_key="created_at",
+    dimensions={
+        "id": dimension.string(),
+        "country": dimension.string(),
+        "status": dimension.string(),
+        "createdAt": dimension.timestamp(column="created_at"),
+    },
+    measures={
+        "revenue": measure.sum("amount"),
+        "orderCount": measure.count("id"),
+    },
+)
+
+executor = create_clickhouse_executor(
+    ClickHouseConnection(
+        host=os.environ.get("CLICKHOUSE_HOST", "localhost"),
+        port=int(os.environ.get("CLICKHOUSE_PORT", "8123")),
+        database=os.environ.get("CLICKHOUSE_DATABASE", "default"),
+        username=os.environ.get("CLICKHOUSE_USERNAME", "default"),
+        password=os.environ.get("CLICKHOUSE_PASSWORD", ""),
+    )
+)
+client = create_dataset_client(executor=executor)
+
+# A development token. Replace this with your real authentication (JWT, API keys).
+DEV_TOKEN = os.environ["HYPEQUERY_DEV_TOKEN"]
+
+
+def authenticate(credential: Credential) -> Principal | None:
+    if secrets.compare_digest(credential.value, DEV_TOKEN):
+        return Principal(subject="developer")
+    return None
+
+
+api = create_api(authenticate=authenticate)
+create_dataset_endpoint(dataset=orders, client=client).install(api, "/datasets/orders/query")
+
+app = create_app(
+    api,
+    security=HttpSecurity(allowed_hosts=("127.0.0.1", "localhost")),
+    development_docs=True,
+)
+```
+
+**4. Run the development server** from the directory containing `app.py`:
+
+<!-- getting-started: run -->
+```bash
+export HYPEQUERY_DEV_TOKEN=dev-secret
+export CLICKHOUSE_PASSWORD=...  # and CLICKHOUSE_HOST / CLICKHOUSE_DATABASE if needed
+python -m hypequery.serve.dev app:app --reload
+```
+
+The development runner listens on `127.0.0.1:8000` only. Binding anywhere else
+(`--host 0.0.0.0`) works but raises an `ExternalBindWarning`: the runner is
+not hardened for a network. It refuses apps created with a `ProductionProfile`;
+run those with [`start_server`](#production-process). From Python, call
+`serve_dev(app)` or `serve_dev("app:app", reload=True)`
+(`run_dev` remains available for compatibility).
+
+**5. Query it:**
+
+<!-- getting-started: query -->
+```bash
+curl -s -X POST http://127.0.0.1:8000/datasets/orders/query \
+  -H "Authorization: Bearer $HYPEQUERY_DEV_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "dimensions": ["country"],
+    "measures": ["revenue", "orderCount"],
+    "filters": [{"field": "status", "operator": "eq", "value": "paid"}],
+    "orderBy": [{"field": "revenue", "direction": "desc"}]
+  }'
+```
+
+<!-- getting-started: response -->
+```json
+{"data":[{"country":"US","revenue":"310.25","orderCount":"1"},{"country":"NZ","revenue":"200.50","orderCount":"2"},{"country":"AU","revenue":"200.00","orderCount":"1"}]}
+```
+
+Measure values are strings on the HTTP wire, so decimals keep their precision.
+A request without the token gets `401`. Interactive docs are at
+<http://127.0.0.1:8000/docs> because the app opts in with
+`development_docs=True`; production apps keep them closed.
+
+Next steps: [add tenant isolation](#serving-with-fastapi), relationships
+([dataset definitions](#dataset-definitions)), and the
+[production profile](#production-process) before deploying.
+`scripts/getting_started.py` runs this walkthrough end to end in CI.
+
+## Python CLI
+
+Install `hypequery[fastapi,clickhouse]` for the complete onboarding path, then:
+
+```bash
+hypequery init --path my-analytics
+cd my-analytics
+# Follow the generated README to configure serving credentials and review definitions.
+hypequery dev
+```
+
+`hypequery init --path <directory>` (or a positional directory) inspects your
+configured ClickHouse database by default. Use `--tables` and `--exclude-tables`
+to choose tables. Generated definitions and an exact schema snapshot describe
+your actual tables; existing output paths are never overwritten. Install the
+`clickhouse` extra and export connection settings before running init.
+Only explicit `--skip-connection` generates the offline orders demo and `seed.sql`.
+
+`hypequery dev [module:app]` defaults to `app:app` on `127.0.0.1:8000` with reload
+enabled. Use `--no-watch`, `--hostname` or `-p`/`--port` to change those options.
+`--no-reload` and `--host` remain supported aliases. Serving
+requires the `fastapi` extra; apps using ClickHouse also need `clickhouse`.
+The command retains the development runner's external-bind warning and refuses
+production-profile apps. Use `start_server` for production serving.
+
+`hypequery --help`, `hypequery init --help`, `hypequery dev --help` and
+`hypequery --version` (also `-V`) work without extras.
+`hypequery help [init|dev]` also shows command help. `python -m hypequery` invokes the same
+CLI. Exit codes are `0` for success/help, `1` for runtime failures and `2` for
+invalid command usage. No Node tooling is required.
+
+Python keeps `-h` for help; use `--hostname` for the bind address.
+Shared CLI commands and supported options use the TypeScript names.
+Python entrypoints use `module:attribute`, and scaffolding defaults to the current
+directory. See the [cross-language naming audit](../../plans/python-typescript-naming-parity.md)
+for the SDK and pending beta features.
+
+## Install extras
 
 ```bash
 pip install hypequery
@@ -36,7 +253,7 @@ from hypequery.datasets import (
     ExecutionContext,
     create_dataset_client,
     create_dataset_registry,
-    eq,
+    filter,
     tenant,
 )
 from hypequery.execution import ClickHouseConnection, create_clickhouse_executor
@@ -49,7 +266,9 @@ client = create_dataset_client(
 result = client.execute(
     "orders",
     DatasetQuery(
-        dimensions=("customer.country",), measures=("revenue",), filters=(eq("status", "paid"),)
+        dimensions=("customer.country",),
+        measures=("revenue",),
+        filters=(filter.eq("status", "paid"),),
     ),
     context=ExecutionContext(tenant=tenant("org_123")),
 )
@@ -83,6 +302,66 @@ refused, including when constructing a bound client directly.
 and cannot be executed. For async code, use `create_async_dataset_client` with
 an async executor and `await client.execute(...)`. The client does not own the
 executor, so close the executor when the application shuts down.
+
+### Having conditions
+
+`having` filters on aggregated measure values, after grouping: for example,
+customers whose revenue exceeds 10,000.
+
+```python
+DatasetQuery.model_validate(
+    {
+        "dimensions": ["customerId"],
+        "measures": ["revenue"],
+        "having": [{"measure": "revenue", "operator": "gt", "value": 10_000}],
+    }
+)
+```
+
+Each condition must name a selected measure. Operators are `eq`, `neq`, `gt`,
+`gte`, `lt`, `lte`, `between`, `in` and `notIn`. Values are finite numbers: a
+two-item list for `between`, a non-empty list for `in`/`notIn`. Conditions are
+AND-ed, bound as parameters, and count against `limits.max_filters`. The
+statement repeats the measure's aggregate in `HAVING` rather than referencing
+its alias. Queries with conditions bypass the result cache until the RFC 0009
+cache preimage carries `having`. Dataset endpoints accept `having`; metric
+endpoints refuse it. This matches `@hypequery/datasets`.
+
+### Measures across relationships
+
+A query can select a target's base measure as `<relationship>.<measure>`, one
+hop over a `belongs_to` or `has_one` relationship:
+
+```python
+from hypequery.datasets import order
+
+client.execute(
+    "orders",
+    DatasetQuery(
+        dimensions=("status",),
+        measures=("revenue", "customer.customerCount"),
+        order_by=(order.desc("customer.customerCount"),),
+    ),
+    context=ExecutionContext(tenant=tenant("org_123")),
+)
+```
+
+The target rows that count are the ones the selected base rows reach. Base
+filters and the base tenant decide which orders take part. The target
+measure's own filters apply to customer columns, and the join carries the
+target's tenant predicate. An order with no matching customer keeps its own
+measures but contributes nothing to the customer aggregate.
+
+A `belongs_to` join repeats each customer once per matching order, so only
+duplicate-insensitive aggregates are selectable through it: `count_distinct`,
+`min`, `max`, `arg_max` and `arg_min`. A declared `has_one` permits every
+aggregate, including `sum`, `count` and `avg`; the declaration is trusted.
+`has_many`, deeper paths, SQL-backed target measures, and target measures whose
+field or filters use SQL-backed dimensions are rejected. Selecting one name as
+both a dimension and a measure is rejected.
+
+Catalog relationship entries list the safe names under `measures`, they are
+orderable, and discovery includes them. This matches `@hypequery/datasets`.
 
 ## Result caching
 
@@ -139,7 +418,7 @@ explicitly mark it public:
 from typing import Annotated
 
 from fastapi import Depends, FastAPI
-from hypequery.serve import Credential, Principal, RequestAuth, create_router
+from hypequery.serve import Credential, Principal, RequestAuth, create_api
 
 
 async def authenticate(credential: Credential) -> Principal | None:
@@ -153,7 +432,7 @@ async def authenticate(credential: Credential) -> Principal | None:
     )
 
 
-router = create_router(authenticate=authenticate)
+router = create_api(authenticate=authenticate)
 
 
 @router.post("/trips")
@@ -174,7 +453,7 @@ app.include_router(router)
 ```
 
 - **Credentials** are read from one header: `Authorization: Bearer <token>`
-  by default, or `create_router(credentials=api_key())` for `X-Api-Key`.
+  by default, or `create_api(credentials=api_key())` for `X-Api-Key`.
   Query strings, cookies, and bodies are never read. A repeated,
   oversized, or malformed header is refused before your authenticator runs.
 - **Your authenticator** receives only the opaque `Credential`, never the
@@ -205,7 +484,7 @@ app.include_router(router)
 Every route on the router also has a fixed body policy, applied after
 authentication:
 - bodies must be UTF-8 `application/json`, otherwise `415`;
-- bodies are capped at `create_router(max_body_bytes=...)`, 1 MiB by default,
+- bodies are capped at `create_api(max_body_bytes=...)`, 1 MiB by default,
   and counted as they stream, so a missing `Content-Length` doesn't get
   around the cap;
 - a repeated or non-numeric `Content-Length` gets `400`.
@@ -234,6 +513,8 @@ install_http_security(
 - **CORS** is off unless `cors` is set. Origins must be exact
   `scheme://host[:port]` values. Credentialed CORS with `*` fails when the
   policy is built, as do wildcard methods or headers.
+  Default allowed request headers include `X-Include-Meta`, used by React's
+  infinite-query hooks to request pagination metadata.
 - **Proxies.** `X-Forwarded-For` and `X-Forwarded-Proto` are honoured only
   from `trusted_proxies`. The client is the nearest forwarded address that
   isn't itself a trusted proxy. By default no proxy is trusted. A trusted
@@ -477,12 +758,9 @@ from hypequery.datasets import (
     Dataset,
     DatasetLimits,
     belongs_to,
-    count,
-    count_distinct,
     dimension,
-    eq,
+    filter,
     measure,
-    sum,
 )
 
 Customers = Dataset(
@@ -503,10 +781,10 @@ Orders = Dataset(
         "amount": dimension("number"),
     },
     measures={
-        "revenue": measure(sum("amount")),
-        "orderCount": measure(count("id")),
-        "uniqueCustomers": measure(count_distinct("customerId")),
-        "completedRevenue": measure(sum("amount"), filters=(eq("status", "completed"),)),
+        "revenue": measure.sum("amount"),
+        "orderCount": measure.count("id"),
+        "uniqueCustomers": measure.count_distinct("customerId"),
+        "completedRevenue": measure.sum("amount", filters=(filter.eq("status", "completed"),)),
     },
     relationships={
         "customer": belongs_to(
@@ -519,16 +797,43 @@ Orders = Dataset(
 )
 ```
 
-Relationship callbacks are invoked once by the helper. Models retain only the
-target dataset name, so `model_dump()` and `model_dump_json()` never serialize
-Python functions. Formula helpers likewise build immutable symbolic data and
-`compile_formula()` lowers that data through the RFC 0003 validator:
+A relationship can also join on a composite key: several column pairs that
+must all be equal (RFC 0016). Pass `keys` instead of `from_field`/`to_field`:
 
 ```python
-from hypequery.datasets import compile_formula, divide, null_if_zero
+from hypequery.datasets import belongs_to
 
-average = compile_formula(divide("revenue", null_if_zero("orders")))
+customer = belongs_to(
+    lambda: Customers,
+    keys=(("customer_id", "id"), ("region_code", "region")),
+)
 ```
+
+Each pair is a `(from, to)` tuple or a `RelationshipKey`. Every pair becomes an
+equality inside the same single-match join, AND-ed with any tenant predicate,
+and a NULL in any component never matches. Keys must be non-empty and must not
+repeat a source or target column. The relationship keeps `from_field` and
+`to_field` as its first pair, and catalogs, semantic contracts and deployment
+contracts carry the full `keys` list. Single-key relationships serialize
+unchanged.
+
+Relationship callbacks are invoked once by the helper. Models retain only the
+target dataset name, so `model_dump()` and `model_dump_json()` never serialize
+Python functions. The `formula` helpers likewise build immutable symbolic
+data for `measure.derived`, and `compile_formula()` lowers that data through
+the RFC 0003 validator:
+
+```python
+from hypequery.datasets import compile_formula, formula, measure
+
+average = measure.derived(
+    formula.round(formula.divide("revenue", formula.null_if_zero("orders")), 2)
+)
+compile_formula(average.formula)  # the portable RFC 0003 expression
+```
+
+Every authoring helper lives in a namespace: `dimension.*`, `measure.*`,
+`filter.*`, `order.*` and `formula.*`.
 
 ## Deployment contracts
 
@@ -728,16 +1033,16 @@ from hypequery.datasets.planner import (
     plan_dataset_query,
     tenant,
 )
-from hypequery.datasets.query_helpers import asc, gte
+from hypequery.datasets import filter, order
 
 compiled = plan_dataset_query(
     Trips,
     DatasetQuery(
         dimensions=("vendor", "customer.country"),
         measures=("revenue",),
-        filters=(gte("pickup", "2026-01-01"),),
+        filters=(filter.gte("pickup", "2026-01-01"),),
         by="day",
-        order_by=(asc("period"),),
+        order_by=(order.asc("period"),),
         limit=100,
     ),
     registry=registry,
@@ -785,6 +1090,9 @@ a branch for either would be unreachable code.
 
 ## Development
 
+See [the Python release guide](./RELEASING.md) for beta, canary, and stable
+publishing, including the bundled CLI.
+
 See the [datasets implementation guide](./ARCHITECTURE.md) for validation,
 compilation and client boundaries, and where future dialect work belongs.
 
@@ -795,6 +1103,21 @@ uv run mypy
 uv run ruff check .
 uv run lint-imports
 ```
+
+Verify the installed CLI outside the checkout after building both distributions:
+
+```bash
+uv build
+uv run python scripts/cli_smoke.py dist/*.whl --minimal
+uv run python scripts/cli_smoke.py dist/*.tar.gz --minimal
+# Requires a local ClickHouse server; creates and drops a fresh scratch database.
+CLICKHOUSE_PASSWORD=your-local-password uv run python scripts/cli_smoke.py dist/*.whl
+CLICKHOUSE_PASSWORD=your-local-password uv run python scripts/cli_smoke.py dist/*.tar.gz
+```
+
+The Python CI matrix runs these checks for Python 3.11–3.14. The full journey
+uses the generated README's query and expected response, verifies authentication,
+and cleans up the server and scratch database, with a 15-minute onboarding budget.
 
 From the repository root, run the Python shared-fixture gate with:
 
@@ -834,12 +1157,12 @@ from hypequery.serve import (
     add_discovery_endpoint,
     add_metric_endpoint,
     create_app,
-    create_router,
+    create_api,
 )
 
 # authenticate is your host's credential lookup. It returns a Principal whose
 # roles, scopes and tenant_id come from trusted server-side identity data.
-router = create_router(authenticate=authenticate)
+router = create_api(authenticate=authenticate)
 policy = EndpointPolicy(required_scopes=frozenset({"analytics:read"}), tenant="required")
 add_dataset_endpoint(router, "/datasets/orders/query", dataset=orders, client=client, policy=policy)
 add_metric_endpoint(
@@ -861,7 +1184,8 @@ portable metric definitions remain a follow-up. Their optional `name` aliases
 that measure in results and ordering.
 
 POST a strict JSON body with `dimensions`, `measures` (dataset endpoints only),
-`filters`, `orderBy`, `by`, `limit`, `offset`, and `includeMeta`. Filters are
+`filters`, `having` (dataset endpoints only), `orderBy`, `by`, `limit`, `offset`, and
+`includeMeta`. Filters are
 `{"field": "country", "operator": "eq", "value": "US"}`; orders are
 `{"field": "order_count", "direction": "desc"}`. Unknown request fields,
 coercion of numbers/booleans, and attempts to supply tenant, SQL, settings,
@@ -901,7 +1225,7 @@ policy.
 Use the validated production profile and runner for a standalone service:
 
 ```python
-from hypequery.serve import ProductionProfile, run_production
+from hypequery.serve import ProductionProfile, start_server
 
 app = create_app(
     router,
@@ -918,7 +1242,7 @@ app = create_app(
 )
 
 if __name__ == "__main__":
-    run_production(app)
+    start_server(app)
 ```
 
 The runner binds to `127.0.0.1:8000` by default. An IP address outside loopback
@@ -969,11 +1293,139 @@ This profile does not provide streaming exports.
 CI tests the real runner, startup refusals, capacity recovery, synchronous and
 asynchronous cancellation, cache/response limits and proxy trust. The same shared
 HTTP fixtures run with and without the production profile, and live ClickHouse
-CI tests the production HTTP query path. The minimum FastAPI/Starlette combination
-and Uvicorn 0.30.0 are tested as well as the locked versions.
+CI tests the production HTTP query path. The declared direct dependency floors
+(including FastAPI 0.141.1, Starlette 1.3.1 and Uvicorn 0.54.0) are tested as
+well as the locked versions.
 
 Run both implementations' shared HTTP gates after building TypeScript packages:
 
 ```bash
 pnpm conformance:serve
 ```
+
+### Definition-only client artifacts
+
+The base install can prepare an RFC 0018 build artifact for frontend/MCP tooling
+without importing FastAPI or constructing a database executor:
+
+```python
+from hypequery.datasets import (
+    ClientEndpointDefinition,
+    ClientQueryProfile,
+    export_client_contract,
+)
+
+artifact = export_client_contract(
+    [
+        ClientEndpointDefinition(
+            dataset=Orders,
+            path="/api/datasets/orders/query",
+            profile=ClientQueryProfile(default_limit=100, max_limit=100),
+        ),
+        ClientEndpointDefinition(
+            dataset=Orders,
+            path="/api/metrics/revenue",
+            profile=ClientQueryProfile(default_limit=100, max_limit=100),
+            measure="revenue",
+            name="sales",  # metric ID and output alias
+        ),
+    ],
+    mount_path="/analytics",
+)
+# artifact["canonical"] is the complete signed JSON document.
+```
+
+Supply a `registry` when definitions reference queryable relationships. Target
+filter permissions and safe relationship aggregate rules are resolved directly
+from definitions, including filter aliases and filter-only fields. Physical
+sources, columns, SQL, tenancy configuration and arbitrary metadata are omitted.
+Base-dimension nullability is conservatively unknown; joined dimensions are nullable.
+
+These definitions describe intended bindings and do not install HTTP routes.
+The host must supply final router/inclusion paths and trusted effective ceilings,
+reserving the pagination probe row from process/client row budgets, and enforce
+the advertised strict client profile. Dataset ceilings can only lower the
+profile. Router-owned registration, authorized discovery and the export CLI are
+separate integrations; this SDK does not infer deployment paths or permission.
+
+### Registered client endpoints
+
+Opt in to the strict client profile when installing a dataset or metric route:
+
+```python
+from hypequery.datasets import ClientQueryProfile
+from hypequery.serve import add_dataset_endpoint, export_client_contract
+
+add_dataset_endpoint(
+    api,
+    "/datasets/orders/query",
+    dataset=Orders,
+    client=client,
+    client_profile=ClientQueryProfile(default_limit=100, max_limit=1000),
+)
+# After create_app(api, security=..., production=...) has resolved configuration:
+artifact = export_client_contract(app)
+```
+
+Application export resolves actual FastAPI inclusion prefixes and intersects
+profile, dataset, endpoint policy, client and production ceilings, reserving the
+pagination probe row. For a custom FastAPI host pass `routers=[api]`; for a mounted
+child created by `create_app`, configure its external `client_mount_path` there.
+Proxy headers never determine artifact paths. Ambiguous route registrations fail
+closed. Legacy routes keep their input behavior and are omitted from this export.
+
+Consumers can send the endpoint's `schemaHash` in `X-Hypequery-Client-Schema`.
+Authentication and current endpoint policy run first. A stale pin returns HTTP 409
+with `error.type="VALIDATION_ERROR"`, `error.details.code="CLIENT_SCHEMA_CHANGED"`
+and a fixed safe message; no query is executed. Current limits still apply when
+the schema hash matches. Strict routes validate typed filters, selections,
+combined budgets and metadata before planning, and cannot enable SQL diagnostics.
+Live caller-scoped discovery and frontend/MCP integration follow separately.
+
+### Caller-scoped client discovery
+
+Install live discovery before constructing the application:
+
+```python
+from hypequery.serve import add_client_contract_endpoint
+
+add_client_contract_endpoint(api)  # GET /client-contract, plus the router prefix
+```
+
+The route authenticates by default and independently applies each installed strict
+endpoint's policy to the current principal and tenant. It returns a signed
+`view="authorized"` contract; a metric-only caller sees its metric without gaining
+a dataset query target. A valid principal with no targets receives an empty view.
+Responses are `no-store` and vary by credential transport. The default 256 KiB
+response budget fails closed rather than silently dropping capabilities.
+
+For a custom FastAPI host, configure `routers=[api]` when adding discovery.
+Public discovery requires explicit `policy=EndpointPolicy(public=True)` and follows
+public-route semantics: it advertises anonymous/public targets only. Query parameters
+cannot select a build view, principal, tenant or deployment path. A discovered
+contract describes capabilities; query authentication and policy still apply.
+
+### Offline export command
+
+Put a zero-argument definition-only factory in a project module. It should return
+`export_client_contract(...)` from `hypequery.datasets`, or its signed `contract`
+member. Then run the Python CLI from that project directory:
+
+```bash
+python -m hypequery export client-contract --factory client_contract:build
+python -m hypequery export client-contract --factory client_contract:build --check
+python -m hypequery export client-contract --factory client_contract:build --stdout
+```
+
+The default destination is `client-contract.json`; use `--output` to choose another
+path, or `--output -` for stdout. Existing artifacts require `--force` to replace;
+`--check` reports drift without creating files or directories. Writes are atomic,
+preserve existing permissions and refuse symlinks or concurrent changes. Existing
+input is bounded to the contract's 1 MiB budget before project code is imported.
+
+The command explicitly imports the named project factory; use a definition-only
+module rather than an application module that starts services or opens connections.
+The CLI itself loads no database/serving adapter. It verifies supplied identities
+and emits only canonical contract JSON in stdout mode; project chatter and import
+failures are redacted. It does not infer routes, authenticate a principal or grant
+query access. This artifact is the input to the frontend/MCP generation workflow.

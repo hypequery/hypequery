@@ -1,3 +1,4 @@
+import type { RelationshipKey } from './types.js';
 import { windowCatalogMetadata, type WindowCatalogMetadata } from './utils/window-catalog-metadata.js';
 import { sha256 } from '@noble/hashes/sha2';
 import { bytesToHex } from '@noble/hashes/utils';
@@ -77,6 +78,7 @@ export interface ContractRelationship {
   target: string;
   from: string;
   to: string;
+  keys?: readonly RelationshipKey[];
   queryable: boolean;
   fields: string[];
 }
@@ -94,6 +96,7 @@ export interface ContractDataset extends SemanticMetadata {
   supportedGrains: string[];
   dimensions: Record<string, ContractDimension>;
   measures: Record<string, ContractMeasure>;
+  derivedMeasures?: DatasetCatalog['derivedMeasures'];
   metrics: Record<string, ContractMetric>;
   filters: Record<string, ContractFilter>;
   /** Named segments (label and description only); absent when none are declared. */
@@ -180,6 +183,9 @@ function datasetToContract(catalog: DatasetCatalog, includeSql: boolean): Contra
     measures: sortedRecord(
       Object.entries(catalog.measures).map(([name, entry]) => [name, measureToContract(entry, includeSql)]),
     ),
+    ...(catalog.derivedMeasures !== undefined ? {
+      derivedMeasures: sortedRecord(Object.entries(catalog.derivedMeasures)),
+    } : {}),
     metrics: sortedRecord(
       Object.entries(catalog.metrics).map(([name, entry]) => [name, metricToContract(entry)]),
     ),
@@ -276,6 +282,7 @@ function relationshipToContract(entry: RelationshipCatalogEntry): ContractRelati
     target: entry.target,
     from: entry.from,
     to: entry.to,
+    ...(entry.keys ? { keys: entry.keys.map(key => ({ ...key })) } : {}),
     queryable: entry.queryable,
     fields: uniqueSorted(entry.fields),
   };

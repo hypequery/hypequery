@@ -9,12 +9,11 @@ from collections.abc import Iterable
 from hypequery.protocol import tuple_value
 
 from ..dataset import Dataset
-from ..deployment_values import canonical_filter_value
+from ..deployment_values import binary64_number, canonical_filter_value
 from ..planner import DatasetQuery, ExecutionContext
 from ..query_helpers import Filter
 
 _LOCAL_DEFINITION_DOMAIN = b"hypequery.python.local-definitions.v1\x00"
-_MAX_EXACT_BINARY64_INTEGER = 2**53
 
 
 def _binary64_literal(value: object) -> object:
@@ -26,9 +25,7 @@ def _binary64_literal(value: object) -> object:
     """
 
     if type(value) is int:
-        if abs(value) > _MAX_EXACT_BINARY64_INTEGER:
-            raise ValueError("integer filter value is not exactly representable as binary64")
-        return float(value)
+        return binary64_number(value)
     if type(value) is tuple:
         return tuple(_binary64_literal(item) for item in value)
     return value

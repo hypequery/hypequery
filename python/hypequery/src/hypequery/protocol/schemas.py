@@ -270,9 +270,12 @@ def _validate(source: object, path: str, depth: int, state: _State) -> ProtocolS
         schema = _validate_kind(kind, value, path, depth, state)
     finally:
         state.active.discard(id(value))
-    if schema.kind != "void" and schema.default is not UNSET:
-        if not schema_accepts_default(schema, schema.default):
-            schema_error("HQ_SCHEMA_INVALID_VALUE", f"{path}.default")
+    if (
+        schema.kind != "void"
+        and schema.default is not UNSET
+        and not schema_accepts_default(schema, schema.default)
+    ):
+        schema_error("HQ_SCHEMA_INVALID_VALUE", f"{path}.default")
     return schema
 
 

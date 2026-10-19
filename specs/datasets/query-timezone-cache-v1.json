@@ -1,0 +1,17 @@
+[
+  {
+    "timezone": "UTC",
+    "identity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "partition": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  },
+  {
+    "timezone": "America/New_York",
+    "identity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "partition": "d87566a6e17d89cd2e4f7c00c640c633ab060b3c39c649b4e07a9a7be0d0881e"
+  },
+  {
+    "timezone": "Europe/Madrid",
+    "identity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "partition": "9eaadaf72b888982d98cba99034ab24d537e223335e6092b3beb31bf50f77610"
+  }
+]

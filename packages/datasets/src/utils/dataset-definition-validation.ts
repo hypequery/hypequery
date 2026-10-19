@@ -26,9 +26,12 @@ import type {
   DatasetConfig,
   DatasetMeasureDefinition,
   DimensionDefinition,
+  MetricFilter,
   RelationshipDefinition,
+  SemanticFiltersDefinition,
 } from '../types.js';
 import { escapeRegExp, isSafeSQLIdentifier, stripSqlLiterals } from '../sql-utils.js';
+import { SEMANTIC_FILTER_OPERATORS, isSemanticFilterOperator } from '../constants.js';
 import { validateDerivedMeasures } from './derived-measure-validation.js';
 import { isDerivedMeasure, isWindowMeasure, isShiftMeasure } from './dataset-measures.js';
 import { validateWindowMeasures } from './window-measure-validation.js';
@@ -189,10 +192,81 @@ function validateDimensions(datasetName: string, dimensions: AnyDimensions): voi
   }
 }
 
+function assertSemanticOperator(
+  datasetName: string,
+  operator: unknown,
+  context: string,
+): void {
+  if (!isSemanticFilterOperator(operator)) {
+    fail(
+      datasetName,
+      `${context} uses unsupported operator "${String(operator)}". ` +
+      `Supported: ${SEMANTIC_FILTER_OPERATORS.join(', ')}.`,
+    );
+  }
+}
+
+/**
+ * Validates the declared filter map. A filter's `field` names the dimension it
+ * filters on; when it is not a declared dimension it falls through to SQL as a
+ * bare column, so it must then be a safe identifier.
+ */
+function validateFilters(
+  datasetName: string,
+  filters: SemanticFiltersDefinition | undefined,
+  dimensions: AnyDimensions,
+): void {
+  for (const [name, definition] of Object.entries(filters ?? {})) {
+    // JavaScript callers can omit `field`; never let it stringify to "undefined".
+    if (typeof definition.field !== 'string') {
+      fail(datasetName, `filter "${name}" must name a field.`);
+    }
+    if (!Object.hasOwn(dimensions, definition.field)) {
+      assertSafeColumn(datasetName, definition.field, `filter "${name}" field`);
+    }
+    for (const operator of definition.operators ?? []) {
+      assertSemanticOperator(datasetName, operator, `filter "${name}"`);
+    }
+  }
+}
+
+/**
+ * Validates a measure's fixed filters. These are rendered straight into the
+ * aggregate's `if(...)` condition, so the field must resolve to a declared
+ * dimension or filter, or else be a safe (optionally relationship-qualified)
+ * identifier, and the operator must be one the renderer knows.
+ */
+function validateMeasureFilters(
+  datasetName: string,
+  measureName: string,
+  filters: readonly MetricFilter[],
+  dimensions: AnyDimensions,
+  declaredFilters: SemanticFiltersDefinition | undefined,
+): void {
+  for (const filter of filters) {
+    const context = `measure "${measureName}" filter on "${String(filter.field)}"`;
+    if (typeof filter.field !== 'string') {
+      fail(datasetName, `${context} must name a field.`);
+    }
+    const declared = Object.hasOwn(dimensions, filter.field)
+      || (declaredFilters !== undefined && Object.hasOwn(declaredFilters, filter.field));
+    if (!declared && !isSafeQualifiedName(filter.field, 2)) {
+      fail(
+        datasetName,
+        `${context} is not a declared dimension or a safe column identifier. Measure filter ` +
+        'fields are interpolated into SQL, so they must contain only letters, numbers and ' +
+        'underscores (optionally "<relationship>.<field>").',
+      );
+    }
+    assertSemanticOperator(datasetName, filter.operator, context);
+  }
+}
+
 function validateMeasures(
   datasetName: string,
   measures: AnyMeasures,
   dimensions: AnyDimensions,
+  declaredFilters: SemanticFiltersDefinition | undefined,
 ): void {
   for (const [name, definition] of Object.entries(measures)) {
     assertSafeName(datasetName, 'measure', name);
@@ -208,6 +282,8 @@ function validateMeasures(
     if (definition.sql !== undefined) {
       validateRawSql(datasetName, 'measure', name, definition.sql, definition.dependencies);
     }
+
+    validateMeasureFilters(datasetName, name, definition.filters ?? [], dimensions, declaredFilters);
 
     // `field` and `argField` name either a declared dimension or a physical
     // column that the model deliberately does not expose (the `allowHiddenField`
@@ -303,11 +379,12 @@ export function validateDatasetDefinition(
   const dimensions = config.dimensions ?? {};
 
   validateDimensions(name, dimensions);
+  validateFilters(name, config.filters, dimensions);
   const measures = config.measures ?? {};
   validateWindowMeasures(name, config.timeKey, measures);
   validateShiftMeasures(name, config.timeKey, measures);
   validateDerivedMeasures(name, measures);
-  validateMeasures(name, measures, dimensions);
+  validateMeasures(name, measures, dimensions, config.filters);
   validateLimits(name, config.limits);
   validateDatasetAgentMetadata(name, config);
 }

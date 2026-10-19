@@ -1,0 +1,446 @@
+[
+  {
+    "id": "default-base-selection",
+    "contract": "build",
+    "endpoint": "orders",
+    "input": {},
+    "mode": "query",
+    "expected": {
+      "body": {
+        "dimensions": [],
+        "filters": [],
+        "orderBy": [],
+        "limit": 100,
+        "offset": 0,
+        "includeMeta": false,
+        "measures": [
+          "revenue",
+          "orderCount",
+          "latestLabel"
+        ],
+        "having": []
+      },
+      "selectedMeasures": [
+        "revenue",
+        "orderCount",
+        "latestLabel"
+      ],
+      "effectiveLimit": 100
+    }
+  },
+  {
+    "id": "explicit-derived-and-related",
+    "contract": "build",
+    "endpoint": "orders",
+    "input": {
+      "dimensions": [
+        "country",
+        "customer.tier"
+      ],
+      "measures": [
+        "averageRevenue",
+        "customer.unique"
+      ]
+    },
+    "mode": "query",
+    "expected": {
+      "body": {
+        "dimensions": [
+          "country",
+          "customer.tier"
+        ],
+        "filters": [],
+        "orderBy": [],
+        "limit": 100,
+        "offset": 0,
+        "includeMeta": false,
+        "measures": [
+          "averageRevenue",
+          "customer.unique"
+        ],
+        "having": []
+      },
+      "selectedMeasures": [
+        "averageRevenue",
+        "customer.unique"
+      ],
+      "effectiveLimit": 100
+    }
+  },
+  {
+    "id": "explicit-empty-measures",
+    "contract": "build",
+    "endpoint": "orders",
+    "input": {
+      "dimensions": [
+        "country"
+      ],
+      "measures": []
+    },
+    "mode": "query",
+    "expected": {
+      "body": {
+        "dimensions": [
+          "country"
+        ],
+        "filters": [],
+        "orderBy": [],
+        "limit": 100,
+        "offset": 0,
+        "includeMeta": false,
+        "measures": [],
+        "having": []
+      },
+      "selectedMeasures": [],
+      "effectiveLimit": 100
+    }
+  },
+  {
+    "id": "typed-number-range",
+    "contract": "build",
+    "endpoint": "orders",
+    "input": {
+      "measures": [
+        "revenue"
+      ],
+      "filters": [
+        {
+          "field": "amount",
+          "operator": "between",
+          "value": [
+            10,
+            20
+          ]
+        }
+      ]
+    },
+    "mode": "query",
+    "expected": {
+      "body": {
+        "dimensions": [],
+        "filters": [
+          {
+            "field": "amount",
+            "operator": "between",
+            "value": [
+              10,
+              20
+            ]
+          }
+        ],
+        "orderBy": [],
+        "limit": 100,
+        "offset": 0,
+        "includeMeta": false,
+        "measures": [
+          "revenue"
+        ],
+        "having": []
+      },
+      "selectedMeasures": [
+        "revenue"
+      ],
+      "effectiveLimit": 100
+    }
+  },
+  {
+    "id": "typed-related-boolean",
+    "contract": "build",
+    "endpoint": "orders",
+    "input": {
+      "filters": [
+        {
+          "field": "customer.active",
+          "operator": "eq",
+          "value": true
+        }
+      ]
+    },
+    "mode": "query",
+    "expected": {
+      "body": {
+        "dimensions": [],
+        "filters": [
+          {
+            "field": "customer.active",
+            "operator": "eq",
+            "value": true
+          }
+        ],
+        "orderBy": [],
+        "limit": 100,
+        "offset": 0,
+        "includeMeta": false,
+        "measures": [
+          "revenue",
+          "orderCount",
+          "latestLabel"
+        ],
+        "having": []
+      },
+      "selectedMeasures": [
+        "revenue",
+        "orderCount",
+        "latestLabel"
+      ],
+      "effectiveLimit": 100
+    }
+  },
+  {
+    "id": "filter-alias-not-dimension",
+    "contract": "build",
+    "endpoint": "orders",
+    "input": {
+      "filters": [
+        {
+          "field": "paidStatus",
+          "operator": "eq",
+          "value": "paid"
+        }
+      ]
+    },
+    "mode": "query",
+    "expected": {
+      "body": {
+        "dimensions": [],
+        "filters": [
+          {
+            "field": "paidStatus",
+            "operator": "eq",
+            "value": "paid"
+          }
+        ],
+        "orderBy": [],
+        "limit": 100,
+        "offset": 0,
+        "includeMeta": false,
+        "measures": [
+          "revenue",
+          "orderCount",
+          "latestLabel"
+        ],
+        "having": []
+      },
+      "selectedMeasures": [
+        "revenue",
+        "orderCount",
+        "latestLabel"
+      ],
+      "effectiveLimit": 100
+    }
+  },
+  {
+    "id": "grain-timezone",
+    "contract": "build",
+    "endpoint": "orders",
+    "input": {
+      "by": "hour",
+      "timezone": "America/New_York",
+      "orderBy": [
+        {
+          "field": "period",
+          "direction": "asc"
+        }
+      ]
+    },
+    "mode": "query",
+    "expected": {
+      "body": {
+        "dimensions": [],
+        "filters": [],
+        "orderBy": [
+          {
+            "field": "period",
+            "direction": "asc"
+          }
+        ],
+        "limit": 100,
+        "offset": 0,
+        "includeMeta": false,
+        "measures": [
+          "revenue",
+          "orderCount",
+          "latestLabel"
+        ],
+        "having": [],
+        "by": "hour",
+        "timezone": "America/New_York"
+      },
+      "selectedMeasures": [
+        "revenue",
+        "orderCount",
+        "latestLabel"
+      ],
+      "effectiveLimit": 100
+    }
+  },
+  {
+    "id": "having-selected",
+    "contract": "build",
+    "endpoint": "orders",
+    "input": {
+      "measures": [
+        "revenue"
+      ],
+      "having": [
+        {
+          "measure": "revenue",
+          "operator": "gt",
+          "value": 10
+        }
+      ]
+    },
+    "mode": "query",
+    "expected": {
+      "body": {
+        "dimensions": [],
+        "filters": [],
+        "orderBy": [],
+        "limit": 100,
+        "offset": 0,
+        "includeMeta": false,
+        "measures": [
+          "revenue"
+        ],
+        "having": [
+          {
+            "measure": "revenue",
+            "operator": "gt",
+            "value": 10
+          }
+        ]
+      },
+      "selectedMeasures": [
+        "revenue"
+      ],
+      "effectiveLimit": 100
+    }
+  },
+  {
+    "id": "metric-query",
+    "contract": "metric-only",
+    "endpoint": "ordersRevenue",
+    "input": {
+      "dimensions": [
+        "country"
+      ],
+      "includeMeta": true
+    },
+    "mode": "query",
+    "expected": {
+      "body": {
+        "dimensions": [
+          "country"
+        ],
+        "filters": [],
+        "orderBy": [],
+        "limit": 20,
+        "offset": 0,
+        "includeMeta": true
+      },
+      "selectedMeasures": [
+        "revenue"
+      ],
+      "effectiveLimit": 20
+    }
+  },
+  {
+    "id": "dimensions-only-dataset",
+    "contract": "build",
+    "endpoint": "countries",
+    "input": {
+      "dimensions": [
+        "country"
+      ],
+      "measures": []
+    },
+    "mode": "query",
+    "expected": {
+      "body": {
+        "dimensions": [
+          "country"
+        ],
+        "filters": [],
+        "orderBy": [],
+        "limit": 100,
+        "offset": 0,
+        "includeMeta": false,
+        "measures": [],
+        "having": []
+      },
+      "selectedMeasures": [],
+      "effectiveLimit": 100
+    }
+  },
+  {
+    "id": "clamped-limit",
+    "contract": "build",
+    "endpoint": "orders",
+    "input": {
+      "limit": 100000,
+      "includeMeta": true
+    },
+    "mode": "query",
+    "expected": {
+      "body": {
+        "dimensions": [],
+        "filters": [],
+        "orderBy": [],
+        "limit": 1000,
+        "offset": 0,
+        "includeMeta": true,
+        "measures": [
+          "revenue",
+          "orderCount",
+          "latestLabel"
+        ],
+        "having": []
+      },
+      "selectedMeasures": [
+        "revenue",
+        "orderCount",
+        "latestLabel"
+      ],
+      "effectiveLimit": 1000
+    }
+  },
+  {
+    "id": "mcp-grain-mapping",
+    "contract": "build",
+    "endpoint": "orders",
+    "input": {
+      "dataset": "orders",
+      "grain": "hour",
+      "measures": [
+        "revenue"
+      ]
+    },
+    "transport": "mcp",
+    "http": {
+      "by": "hour",
+      "measures": [
+        "revenue"
+      ]
+    },
+    "mode": "query",
+    "expected": {
+      "body": {
+        "dimensions": [],
+        "filters": [],
+        "orderBy": [],
+        "limit": 100,
+        "offset": 0,
+        "includeMeta": false,
+        "measures": [
+          "revenue"
+        ],
+        "having": [],
+        "by": "hour"
+      },
+      "selectedMeasures": [
+        "revenue"
+      ],
+      "effectiveLimit": 100
+    }
+  }
+]

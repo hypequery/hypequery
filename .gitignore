@@ -42,3 +42,6 @@ examples/basic-dashboard/src/generated/clickhouse-schema.ts
 # Generated website artifacts
 website-next/.source/
 dist-file-index.txt
+
+# Local browser qualification artifacts
+output/playwright/

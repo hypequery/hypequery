@@ -24,12 +24,18 @@ classifiers = [
 
 # Definition-only use must stay framework-free. Nothing here may pull in a web
 # framework or a database driver; those are extras, enforced by importlinter.
-dependencies = ["pydantic>=2.7"]
+dependencies = [
+    "pydantic>=2.13.4",
+    "tzdata>=2025.2",
+]
 
 [project.optional-dependencies]
-clickhouse = ["clickhouse-connect>=1.6.0"]
-clickhouse-async = ["clickhouse-connect[async]>=1.6.0"]
-fastapi = ["fastapi>=0.115.0", "uvicorn>=0.30.0"]
+clickhouse = ["clickhouse-connect>=1.6.0", "urllib3>=2.8.0"]
+clickhouse-async = ["clickhouse-connect[async]>=1.6.0", "urllib3>=2.8.0"]
+fastapi = ["fastapi>=0.141.1", "starlette>=1.3.1", "uvicorn>=0.54.0"]
+
+[project.scripts]
+hypequery = "hypequery.cli:main"
 
 [project.urls]
 Homepage = "https://hypequery.com"
@@ -45,10 +51,16 @@ dev = [
   "ruff>=0.6",
   "import-linter>=2.0",
   "httpx>=0.27",
+  "packaging>=25",
+  "towncrier==26.9.0",
 ]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/hypequery"]
+
+[tool.hatch.build]
+# Include dotfiles used by the project template despite VCS ignore rules.
+artifacts = ["src/hypequery/cli/templates/**"]
 
 [tool.ruff]
 line-length = 100
@@ -67,38 +79,62 @@ select = [
   "PT",            # pytest style
   "S",             # bandit — includes S608 hardcoded-SQL, a plan-level ban
   "RUF",
+  "SIM",           # simplifications
+  "RET",           # return hygiene
+  "PIE",
+  "PERF",
+  "C90",           # mccabe complexity
 ]
+# Ruff cannot see that a NoReturn raiser such as deployment_error() ends a
+# function, so RET503 would demand unreachable returns.
+ignore = ["RET503"]
+
+[tool.ruff.lint.mccabe]
+# New code stays under this. The validators exempted below mirror their
+# TypeScript counterparts branch for branch and are pinned by conformance.
+max-complexity = 15
 
 [tool.ruff.lint.per-file-ignores]
 # Tests legitimately assert and spawn subprocesses to check import hygiene.
 "tests/**" = ["S101", "S603", "S404"]
+"src/hypequery/protocol/deployments.py" = ["C901"]
+"src/hypequery/protocol/values.py" = ["C901"]
+"src/hypequery/datasets/utils/derived_measures.py" = ["C901"]
 
 [tool.mypy]
 python_version = "3.11"
 strict = true
-files = ["src", "tests", "scripts"]
+files = ["src", "tests", "scripts", "examples"]
 warn_unreachable = true
 # Public signatures must not leak Any; see the PR rules in the plan.
 disallow_any_generics = true
 
 [tool.coverage.run]
 branch = true
-source = ["hypequery.datasets"]
+source = ["hypequery"]
 patch = ["subprocess"]
 parallel = true
 
 [tool.coverage.report]
 precision = 2
 show_missing = true
-fail_under = 95
+# Per-package floors live in scripts/check_coverage.py; this is the overall floor.
+fail_under = 88
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+pythonpath = ["."]
 addopts = "-q"
+filterwarnings = [
+  # Starlette is moving its test client to httpx2. The suite also drives apps
+  # through httpx directly (Client, ASGITransport), so migrate both together.
+  "ignore:Using `httpx` with `starlette.testclient` is deprecated",
+]
 
 # Import boundaries. These encode the layering the security roadmap requires:
-# protocol is the foundation, datasets builds on it, serve sits on top, and
-# neither protocol nor datasets may reach for a framework or a driver.
+# protocol is the foundation, datasets builds on it, execution adapts compiled
+# queries to a driver, serve sits on top, and the CLI composes all of them.
+# Neither protocol nor datasets may reach for a framework or a driver.
 [tool.importlinter]
 root_package = "hypequery"
 # Required because the forbidden-module contract below names third-party
@@ -106,9 +142,15 @@ root_package = "hypequery"
 include_external_packages = true
 
 [[tool.importlinter.contracts]]
-name = "Layered: serve -> datasets -> protocol"
+name = "Layered: cli -> serve -> execution -> datasets -> protocol"
 type = "layers"
-layers = ["hypequery.serve", "hypequery.datasets", "hypequery.protocol"]
+layers = [
+  "hypequery.cli",
+  "hypequery.serve",
+  "hypequery.execution",
+  "hypequery.datasets",
+  "hypequery.protocol",
+]
 
 [[tool.importlinter.contracts]]
 name = "protocol and datasets stay framework-free and driver-free"
@@ -119,10 +161,35 @@ forbidden_modules = ["fastapi", "starlette", "uvicorn", "clickhouse_connect"]
 [[tool.importlinter.contracts]]
 name = "Dataset SQL compilation stays independent of client orchestration and execution"
 type = "forbidden"
-source_modules = ["hypequery.datasets.planner.compiler"]
+source_modules = [
+  "hypequery.datasets.planner.compiler",
+  "hypequery.datasets.planner.features",
+  "hypequery.datasets.planner.query_node",
+  "hypequery.datasets.planner.aggregates",
+  "hypequery.datasets.planner.predicates",
+  "hypequery.datasets.planner.operators",
+  "hypequery.datasets.planner.dialects",
+]
 forbidden_modules = [
   "hypequery.datasets.client",
   "hypequery.datasets.cache",
   "hypequery.execution",
   "hypequery.serve",
 ]
+
+# Existing fragments are Markdown bullet lists named pr-<number>.md.
+[tool.towncrier]
+name = "hypequery"
+package = ""
+directory = "changelog.d"
+filename = "CHANGELOG.md"
+template = "changelog.d/template.md"
+title_format = "## {version} ({project_date})"
+start_string = "<!-- towncrier release notes start -->\n"
+all_bullets = false
+ignore = ["README.md"]
+
+[[tool.towncrier.type]]
+directory = "md"
+name = "Changes"
+showcontent = true

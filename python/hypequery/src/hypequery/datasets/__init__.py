@@ -5,20 +5,8 @@ from __future__ import annotations
 from .aggregations import (
     Aggregation,
     AggregationType,
-    arg_max,
-    arg_min,
-    avg,
-    count,
-    count_distinct,
-    max,  # noqa: A004
-    median,
-    min,  # noqa: A004
-    percentile,
-    stddev,
-    sum,  # noqa: A004
-    variance,
 )
-from .cache import CachedRows, CacheStore, MemoryCacheStore, ResultCache
+from .cache import CachedRows, CacheStore, MemoryCacheStore, ResultCache, create_memory_cache_store
 from .catalog import (
     DatasetCatalog,
     DimensionCatalogEntry,
@@ -29,6 +17,7 @@ from .catalog import (
     get_dataset_catalogs,
     get_groupable_relationship_fields,
     get_queryable_relationship_fields,
+    get_queryable_relationship_measures,
 )
 from .client import (
     AsyncDatasetClient,
@@ -44,6 +33,7 @@ from .client import (
     create_async_dataset_client,
     create_dataset_client,
 )
+from .client_contract import ClientEndpointDefinition, ClientQueryProfile, export_client_contract
 from .constants import (
     SEMANTIC_FILTER_OPERATORS,
     SUPPORTED_TIME_GRAINS,
@@ -56,9 +46,10 @@ from .contract import (
     normalize_sql,
     serialize_semantic_contract,
 )
-from .dataset import Dataset, DatasetLimits, FilterDefinition
+from .dataset import Dataset, DatasetLimits, FilterDefinition, dataset
 from .deployment import build_protocol_dataset_contract, build_protocol_deployment_contract
 from .deployment_bundle import PreparedDatasetBundle, prepare_dataset_bundle, write_dataset_bundle
+from .derived_measures import DerivedMeasure
 from .dimensions import Dimension, DimensionType, dimension
 from .formulas import (
     Formula,
@@ -67,16 +58,8 @@ from .formulas import (
     FormulaInput,
     FormulaLiteral,
     FormulaReference,
-    add,
-    ceil,
-    coalesce,
     compile_formula,
-    divide,
-    floor,
-    multiply,
-    null_if_zero,
-    round,  # noqa: A004
-    subtract,
+    formula,
 )
 from .measures import Measure, measure
 from .planner import (
@@ -92,23 +75,22 @@ from .planner import (
 from .query_helpers import (
     Filter,
     FilterOperator,
+    HavingCondition,
     Order,
     OrderDirection,
-    asc,
-    between,
-    desc,
-    eq,
-    gt,
-    gte,
-    in_list,
-    like,
-    lt,
-    lte,
-    neq,
-    not_in_list,
+    filter,  # noqa: A004
+    order,
 )
 from .registry import DatasetRegistry, create_dataset_registry
-from .relationships import Relationship, RelationshipKind, belongs_to, has_many, has_one
+from .relationship_check import check_relationships, check_relationships_async
+from .relationships import (
+    Relationship,
+    RelationshipKey,
+    RelationshipKind,
+    belongs_to,
+    has_many,
+    has_one,
+)
 from .sql_portability import (
     DEFAULT_SQL_PORTABILITY_LIMITS,
     SqlPortabilityFailure,
@@ -119,6 +101,7 @@ from .sql_portability import (
     SqlPortabilitySuccess,
     compile_portable_sql_expression,
 )
+from .utils.relationship_key_check import CheckRelationshipsResult, RelationshipKeyIssue
 
 __all__ = [
     "DEFAULT_SQL_PORTABILITY_LIMITS",
@@ -132,6 +115,9 @@ __all__ = [
     "AsyncTenantDatasetClient",
     "CacheStore",
     "CachedRows",
+    "CheckRelationshipsResult",
+    "ClientEndpointDefinition",
+    "ClientQueryProfile",
     "CompiledQuery",
     "CompiledQueryError",
     "Dataset",
@@ -142,6 +128,7 @@ __all__ = [
     "DatasetQueryMeta",
     "DatasetQueryResult",
     "DatasetRegistry",
+    "DerivedMeasure",
     "Dimension",
     "DimensionCatalogEntry",
     "DimensionType",
@@ -156,6 +143,7 @@ __all__ = [
     "FormulaInput",
     "FormulaLiteral",
     "FormulaReference",
+    "HavingCondition",
     "Measure",
     "MeasureCatalogEntry",
     "MemoryCacheStore",
@@ -166,6 +154,8 @@ __all__ = [
     "QueryExecutor",
     "Relationship",
     "RelationshipCatalogEntry",
+    "RelationshipKey",
+    "RelationshipKeyIssue",
     "RelationshipKind",
     "ResultCache",
     "SqlPortabilityFailure",
@@ -176,64 +166,40 @@ __all__ = [
     "SqlPortabilitySuccess",
     "TenantDatasetClient",
     "ValidationResult",
-    "add",
     "all_tenants",
-    "arg_max",
-    "arg_min",
-    "asc",
-    "avg",
     "belongs_to",
-    "between",
     "build_protocol_dataset_contract",
     "build_protocol_deployment_contract",
-    "ceil",
-    "coalesce",
+    "check_relationships",
+    "check_relationships_async",
     "compile_formula",
     "compile_portable_sql_expression",
     "contract_to_stable_json",
-    "count",
-    "count_distinct",
     "create_async_dataset_client",
     "create_dataset_client",
     "create_dataset_registry",
-    "desc",
+    "create_memory_cache_store",
+    "dataset",
     "dimension",
-    "divide",
-    "eq",
-    "floor",
+    "export_client_contract",
+    "filter",
+    "formula",
     "get_dataset_catalog",
     "get_dataset_catalogs",
     "get_groupable_relationship_fields",
     "get_queryable_relationship_fields",
-    "gt",
-    "gte",
+    "get_queryable_relationship_measures",
     "has_many",
     "has_one",
     "hash_contract",
-    "in_list",
     "is_supported_time_grain",
-    "like",
-    "lt",
-    "lte",
-    "max",
     "measure",
-    "median",
-    "min",
-    "multiply",
-    "neq",
     "normalize_sql",
-    "not_in_list",
-    "null_if_zero",
-    "percentile",
+    "order",
     "plan_dataset_query",
     "prepare_dataset_bundle",
-    "round",
     "serialize_semantic_contract",
-    "stddev",
-    "subtract",
-    "sum",
     "tenant",
     "tenants",
-    "variance",
     "write_dataset_bundle",
 ]

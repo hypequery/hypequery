@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import asyncio
 import threading
-from collections.abc import Callable, MutableMapping
+from collections.abc import Callable
 from contextlib import suppress
-from typing import Any, ParamSpec, TypeVar, cast
+from typing import Any, ParamSpec, TypeVar
 
 from anyio import CapacityLimiter, WouldBlock
 from anyio.to_thread import current_default_thread_limiter
@@ -14,9 +14,10 @@ from anyio.to_thread import run_sync as run_in_worker
 from fastapi import Request
 from starlette.concurrency import run_in_threadpool
 
+from .scope_slot import ScopeSlot
+
 _P = ParamSpec("_P")
 _T = TypeVar("_T")
-_WORK_SCOPE_KEY = object()
 
 
 class RequestWork:
@@ -102,13 +103,11 @@ class RequestWork:
                 self._finished(task)
 
 
+_WORK_SLOT = ScopeSlot(RequestWork)
+
+
 def request_work(request: Request) -> RequestWork:
-    scope = cast(MutableMapping[object, object], request.scope)
-    value = scope.get(_WORK_SCOPE_KEY)
-    if not isinstance(value, RequestWork):
-        value = RequestWork()
-        scope[_WORK_SCOPE_KEY] = value
-    return value
+    return _WORK_SLOT.setdefault(request.scope, RequestWork)
 
 
 async def run_sync(

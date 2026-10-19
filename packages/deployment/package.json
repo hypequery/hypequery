@@ -1,6 +1,6 @@
 {
   "name": "@hypequery/deployment",
-  "version": "0.9.4",
+  "version": "0.9.6",
   "description": "Verified deployment intake, activation, and semantic invocation for Hypequery analytics",
   "keywords": [
     "hypequery",
@@ -38,8 +38,8 @@
   "devDependencies": {
     "@hypequery/datasets": "workspace:*",
     "@types/node": "^22.5.0",
-    "typescript": "^5.7.3",
-    "vitest": "^5.0.2"
+    "typescript": "^6.0.3",
+    "vitest": "^5.0.4"
   },
   "engines": {
     "node": ">=20"

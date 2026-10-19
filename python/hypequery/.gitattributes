@@ -1,0 +1,3 @@
+# Golden snapshots are written by their tests (HYPEQUERY_UPDATE_SNAPSHOTS=1);
+# collapse them in review diffs.
+tests/snapshots/*.json linguist-generated=true

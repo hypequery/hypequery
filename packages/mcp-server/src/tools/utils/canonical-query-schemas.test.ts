@@ -110,6 +110,7 @@ describe('MCP canonical query schemas', () => {
     const canonical = buildCanonicalSemanticQuerySchemas(registry, {
       grainField: 'grain',
       ...resolveQueryLimits(),
+      having: true,
     });
     const mcp = buildMCPQuerySchemas(registry);
 

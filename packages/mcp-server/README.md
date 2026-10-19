@@ -48,6 +48,76 @@ Add it to an MCP client:
 
 Now an agent can ask, “Show revenue by region for the last month,” using the same metric definition as your backend and dashboard.
 
+## Connect to a Python HTTP backend
+
+An existing Python server can own definitions, authorization, tenancy and SQL.
+Opt its dataset/metric routes into `ClientQueryProfile` and install
+`add_client_contract_endpoint` from `hypequery.serve`. The MCP bridge consumes that
+endpoint's **authorized** view; an offline `build` export cannot be used as live
+discovery. No Node dataset registry or Python application import is needed.
+
+```ts
+import {
+  createMCPHttpExecutor,
+  createMCPProtocolServer,
+  connectMCPServerStdio,
+} from '@hypequery/mcp';
+
+const url = process.env.HYPEQUERY_CLIENT_CONTRACT_URL;
+const token = process.env.HYPEQUERY_API_KEY;
+if (!url || !token) throw new Error('Configure the backend discovery URL and credential.');
+
+const executor = await createMCPHttpExecutor({
+  url,
+  headers: { authorization: `Bearer ${token}` },
+});
+await connectMCPServerStdio(createMCPProtocolServer({ executor }));
+```
+
+The URL is the full discovery endpoint, including its mount prefix. HTTPS is
+required except for loopback development. URLs cannot contain credentials,
+queries or fragments. Keep one executor/session per principal; a headers resolver
+may rotate credentials for that same principal. Browser code must never contain
+this server credential. Remote MCP hosting/OAuth is a separate transport concern.
+
+The four tool names stay the same. HTTP mode preserves each authorized endpoint's
+own dimensions, filters, defaults, time controls and limits. Metric-only groups
+have `queryable: false`; inspecting them does not invent a dataset query route.
+Introspection returns endpoint profiles rather than merging permissions into a
+synthetic dataset. Unsupported segments, SQL/debug options and caller-selected
+tenants, tokens, origins or routes are rejected before backend requests.
+
+HTTP query responses preserve the public backend envelope: `data`, plus optional
+`meta` with request ID, timing, row count, pagination and optional `cache.hit`.
+Set `includeMeta: true` when the endpoint advertises metadata and use
+`pagination.hasMore` with `offset + limit` to page. This differs from the existing
+local executor's cache-status metadata; each mode advertises its actual output
+schema. Returned rows must contain exactly the selected fields with their
+advertised scalar/null types. Private diagnostics or unexpected fields fail
+closed instead of being forwarded to the agent.
+
+The bridge rechecks its authorized view before discovery, prompts and execution,
+and pins each POST to the validated endpoint schema. View changes or backend 409s
+invalidate the session: construct a new executor/reconnect explicitly. No query
+is automatically replayed with new semantics. Backend authorization is still
+checked on every request, including after discovery.
+
+Budgets default to 30 seconds, 256 KiB discovery/manifests and 1 MiB query responses.
+HTTP mode has a hard 1 MiB response ceiling, 1,000 rows/filter-list values, 10,000
+JSON nodes, 1,000 members per JSON collection and nesting depth 16. Query ceilings
+can be lowered through `queryLimits`; unservable default selections are refused
+rather than silently changed. `executionBudget`, `catalogBudget` and
+`maxContractBytes` allow smaller deployment limits. Streamed/decompressed bytes
+are bounded even without Content-Length, and redirects are refused. Request
+cancellation aborts the HTTP operation; the backend must carry disconnection into
+its executor (the Python serve adapter does so). End-to-end ClickHouse cancellation
+remains part of integrated release qualification.
+
+A TypeScript consumer of the MCP SDK needs its Fetch/DOM type names available
+(e.g. `lib: ["ES2022", "DOM"]` alongside Node types); this does not require a browser
+runtime. The repository's installed-artifact smoke checks this without
+`skipLibCheck` and without the optional ClickHouse peer installed.
+
 ## Tools agents receive
 
 - `list_datasets` discovers available analytics models;

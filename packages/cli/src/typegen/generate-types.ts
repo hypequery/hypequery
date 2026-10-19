@@ -36,6 +36,9 @@ export interface GenerateTypesOptions {
   generatedBy?: string;
   /** Append the historical usage-example comment block. */
   includeUsageExample?: boolean;
+  /** Optional aggregate-observation hooks; errors never affect generation. */
+  onColumn?: () => void;
+  onUnsupportedType?: (type: string) => void;
 }
 
 interface GeneratedTypeDefinitions {
@@ -125,7 +128,8 @@ export interface IntrospectedSchema {`;
 
     typeDefinitions += `export interface ${capitalizeFirstLetter(table.name)}Record {`;
     for (const column of columns) {
-      const tsType = clickhouseToTsType(column.type);
+      try { options.onColumn?.(); } catch { /* Preserve type output. */ }
+      const tsType = clickhouseToTsType(column.type, options.onUnsupportedType);
       typeDefinitions += `\n  '${column.name}': ${tsType};`;
     }
     typeDefinitions += '\n}\n\n';

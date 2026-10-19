@@ -15,8 +15,17 @@ from pathlib import Path
 
 import pytest
 
-from hypequery.datasets import Dataset, count, dimension, measure
-from hypequery.datasets import sum as sum_
+from hypequery.datasets import (
+    Dataset,
+    dimension,
+    measure,
+)
+from hypequery.datasets.aggregations import (
+    count,
+)
+from hypequery.datasets.aggregations import (
+    sum as sum_,
+)
 from hypequery.datasets.dataset import DatasetLimits, FilterDefinition
 from hypequery.datasets.dimensions import Dimension
 from hypequery.datasets.measures import Measure
@@ -137,8 +146,10 @@ def test_a_dimension_column_override_is_used() -> None:
 
 def test_a_time_grain_selects_and_orders_by_period() -> None:
     compiled = plan_dataset_query(_trips(), DatasetQuery(by="month", measures=("trips",)))
-    assert "toStartOfMonth(`pickup_datetime`) AS `period`" in compiled.sql
-    assert compiled.sql.endswith("GROUP BY `period` ORDER BY `period` ASC")
+    bucket = "toStartOfMonth(toDateTime64(`pickup_datetime`, 9, {p0:String}))"
+    # RFC 0015's result form is ClickHouse's own text for the bucket; group on the value.
+    assert f"toString({bucket}) AS `period`" in compiled.sql
+    assert compiled.sql.endswith(f"GROUP BY {bucket} ORDER BY `period` ASC")
 
 
 def test_a_time_grain_needs_a_time_key() -> None:
@@ -266,7 +277,7 @@ def test_a_declared_dimension_type_chooses_the_parameter_type() -> None:
         ),
     )
     types = {name: parameter.clickhouse_type for name, parameter in compiled.parameters.items()}
-    assert types == {"p0": "String", "p1": "Float64", "p2": "DateTime64(3)"}
+    assert types == {"p0": "String", "p1": "Float64", "p2": "String", "p3": "DateTime64(3)"}
 
 
 def test_a_list_binds_as_one_array_rather_than_a_rendered_list() -> None:
@@ -358,10 +369,13 @@ def test_a_qualified_field_adds_one_single_match_join(relationship_kind: str) ->
     # A duplicate target key must not multiply the base row before aggregation.
     assert compiled.sql.count("LEFT ANY JOIN") == 1
     assert (
-        "LEFT ANY JOIN `analytics`.`customers` AS `customer` "
+        "FROM `analytics`.`customers`) AS `customer` "
         f"ON {BASE_ALIAS.sql}.`customer_id` = `customer`.`id`" in compiled.sql
     )
-    assert "`customer`.`country` AS `customer.country`" in compiled.sql
+    assert (
+        "if(isNotNull(`customer`.`_hq_match`), `customer`.`country`, NULL) AS `customer.country`"
+        in compiled.sql
+    )
 
 
 @pytest.mark.parametrize("measures", [("matched_revenue",), None])
@@ -384,10 +398,13 @@ def test_a_measure_filter_alone_activates_its_relationship_join(
 
     assert "FROM `analytics`.`trips` AS `__hq_base`" in compiled.sql
     assert (
-        "LEFT ANY JOIN `analytics`.`customers` AS `customer` "
+        "FROM `analytics`.`customers`) AS `customer` "
         "ON `__hq_base`.`customer_id` = `customer`.`id`" in compiled.sql
     )
-    assert "sumIf(`__hq_base`.`fare`, `customer`.`country` = {p0:String})" in compiled.sql
+    assert (
+        "sumIf(`__hq_base`.`fare`, if(isNotNull(`customer`.`_hq_match`), "
+        "`customer`.`country`, NULL) = {p0:String})" in compiled.sql
+    )
 
 
 def test_base_columns_are_qualified_only_when_a_join_is_present() -> None:
@@ -703,7 +720,7 @@ def test_a_joined_target_without_tenancy_is_filterable() -> None:
         registry=create_dataset_registry(trips, customers),
         context=ExecutionContext(tenant=tenant("acme")),
     )
-    assert "`customer`.`tier` = " in compiled.sql
+    assert "if(isNotNull(`customer`.`_hq_match`), `customer`.`tier`, NULL) = " in compiled.sql
 
 
 def test_a_join_propagates_the_tenant_predicate_into_its_condition() -> None:
@@ -722,7 +739,8 @@ def test_a_join_propagates_the_tenant_predicate_into_its_condition() -> None:
     )
     # In the join condition, not in WHERE: a WHERE predicate on the right side
     # of a LEFT ANY JOIN quietly turns it into an inner join.
-    assert "LEFT ANY JOIN `analytics`.`customers` AS `customer`" in compiled.sql
+    assert "LEFT ANY JOIN (SELECT" in compiled.sql
+    assert "FROM `analytics`.`customers`) AS `customer`" in compiled.sql
     assert "ON `__hq_base`.`customer_id` = `customer`.`id` AND `customer`.`tenant_id` = " in (
         compiled.sql
     )
@@ -923,7 +941,11 @@ def test_the_interpolation_check_script_passes() -> None:
     ],
 )
 def test_analytical_aggregates_resolve_physical_columns(aggregation: str, expected: str) -> None:
-    from hypequery.datasets import arg_max, arg_min, percentile
+    from hypequery.datasets.aggregations import (
+        arg_max,
+        arg_min,
+        percentile,
+    )
 
     definitions = {
         "argMax": arg_max("fare", "pickup"),

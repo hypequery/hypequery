@@ -16,7 +16,7 @@ jobs:
       - name: Setup pnpm
         uses: pnpm/action-setup@v6
       - name: Setup Node.js
-        uses: actions/setup-node@v7
+        uses: actions/setup-node@v7.1.0
         with:
           node-version: '22'
       - name: Audit workspace packages
@@ -24,6 +24,26 @@ jobs:
       - name: Audit website
         working-directory: website-next
         run: npm audit --omit=dev --audit-level=high
+
+  website:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: website-next
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7.1.0
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: website-next/package-lock.json
+      - run: npm ci
+      - name: Check telemetry contract and endpoint
+        run: npm test
+      - name: Build website
+        run: npm run build
+        env:
+          BLOB_READ_WRITE_TOKEN: vercel_blob_rw_local_build_placeholder
 
   build:
     runs-on: ubuntu-latest
@@ -50,7 +70,7 @@ jobs:
       - name: Setup pnpm
         uses: pnpm/action-setup@v6
       - name: Setup Node.js
-        uses: actions/setup-node@v7
+        uses: actions/setup-node@v7.1.0
         with:
           node-version: '22'
           cache: 'pnpm'
@@ -80,7 +100,7 @@ jobs:
       - name: Run unit tests
         run: pnpm test
       - name: Setup uv for Python conformance
-        uses: astral-sh/setup-uv@e58605a9b6da7c637471fab8847a5e5a6b8df081 # v5
+        uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
         with:
           enable-cache: true
           cache-dependency-glob: python/hypequery/uv.lock
@@ -117,8 +137,13 @@ jobs:
           NODE_OPTIONS: "--experimental-vm-modules --experimental-global-webcrypto --no-warnings"
       - name: Run smoke tests
         run: pnpm smoke:consumers
+  python-clients:
+    uses: ./.github/workflows/python-clients.yml
+    with:
+      ref: ${{ github.sha }}
+
   canary-release:
-    needs: build
+    needs: [build, python-clients]
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     permissions:
@@ -131,7 +156,7 @@ jobs:
       - name: Setup pnpm
         uses: pnpm/action-setup@v6
       - name: Setup Node.js
-        uses: actions/setup-node@v7
+        uses: actions/setup-node@v7.1.0
         with:
           node-version: '22'
           cache: 'pnpm'
@@ -195,7 +220,7 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
   release:
-    needs: build
+    needs: [build, python-clients]
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     permissions:
@@ -209,7 +234,7 @@ jobs:
       - name: Setup pnpm
         uses: pnpm/action-setup@v6
       - name: Setup Node.js
-        uses: actions/setup-node@v7
+        uses: actions/setup-node@v7.1.0
         with:
           node-version: '22'
           cache: 'pnpm'

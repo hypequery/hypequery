@@ -22,13 +22,9 @@ from hypequery.datasets import (
     DatasetLimits,
     DatasetRegistry,
     FilterDefinition,
-    arg_max,
     belongs_to,
-    count,
-    count_distinct,
     create_dataset_registry,
     dimension,
-    eq,
     get_dataset_catalog,
     get_dataset_catalogs,
     get_groupable_relationship_fields,
@@ -36,11 +32,19 @@ from hypequery.datasets import (
     has_many,
     has_one,
     measure,
-    percentile,
     serialize_semantic_contract,
+)
+from hypequery.datasets.aggregations import (
+    arg_max,
+    count,
+    count_distinct,
+    percentile,
     sum,  # noqa: A004
 )
 from hypequery.datasets.contract import contract_to_stable_json, hash_contract, normalize_sql
+from hypequery.datasets.query_helpers import (
+    eq,
+)
 
 FIXTURES = Path(__file__).resolve().parents[3] / "specs" / "semantic-catalog"
 CATALOG_FIXTURE = FIXTURES / "catalog.json"

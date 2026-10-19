@@ -2,6 +2,7 @@ import { access, readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { getClickHouseClient } from './clickhouse-client.js';
 import { validateChdb, getChdbTables } from './chdb-client.js';
+import { detectDatabaseFromEnvironment } from './detect-database-environment.js';
 
 /**
  * Database type detection result
@@ -21,17 +22,8 @@ export interface DatabaseOptions {
  */
 export async function detectDatabase(): Promise<DatabaseType> {
   // Check environment variables
-  if (
-    process.env.CLICKHOUSE_HOST ||
-    process.env.CLICKHOUSE_URL ||
-    process.env.CLICKHOUSE_DATABASE
-  ) {
-    return 'clickhouse';
-  }
-
-  if (process.env.BIGQUERY_PROJECT_ID || process.env.GOOGLE_APPLICATION_CREDENTIALS) {
-    return 'bigquery';
-  }
+  const detected = detectDatabaseFromEnvironment(process.env);
+  if (detected) return detected;
 
   // Check for .env file and parse it
   try {

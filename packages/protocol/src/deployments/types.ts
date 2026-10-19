@@ -1,6 +1,10 @@
 import type { ProtocolExpression, ProtocolQueryTimeGrain, ProtocolTimeGrain } from '../expressions/index.js';
 import type { ProtocolIdentifier, ProtocolQualifiedIdentifier } from '../identifiers/index.js';
-import type { ProtocolSqlExpression } from '../query-implementations/index.js';
+import type {
+  ProtocolQueryImplementationError,
+  ProtocolSqlExpression,
+} from '../query-implementations/index.js';
+import type { ProtocolDeploymentError } from './errors.js';
 
 export type ProtocolDatasetFieldType = 'string' | 'number' | 'boolean' | 'timestamp';
 export type ProtocolSemanticSensitivity = 'public' | 'internal' | 'confidential' | 'restricted';
@@ -97,6 +101,8 @@ export interface ProtocolDatasetRelationship {
   readonly target: ProtocolIdentifier;
   readonly from: ProtocolQualifiedIdentifier;
   readonly to: ProtocolQualifiedIdentifier;
+  /** Full equality key; from/to mirror the first pair for compatibility. */
+  readonly keys?: readonly { readonly from: ProtocolQualifiedIdentifier; readonly to: ProtocolQualifiedIdentifier }[];
   readonly queryable: boolean;
 }
 
@@ -319,3 +325,24 @@ export type ProtocolDeploymentErrorCode =
   | 'HQ_DEPLOYMENT_TOO_MANY_ITEMS'
   | 'HQ_DEPLOYMENT_TOO_LARGE'
   | 'HQ_DEPLOYMENT_UNSAFE_OBJECT';
+
+/**
+ * A failure reported by a deployment check. Embedded SQL expressions keep
+ * their RFC 0005 error type; its `path` is still a location in the contract.
+ */
+export type ProtocolDeploymentValidationError =
+  | ProtocolDeploymentError
+  | ProtocolQueryImplementationError;
+
+/**
+ * Outcome of checking a contract without stopping at the first failure.
+ * `errors` is in contract order and holds at most 100 entries; `truncated`
+ * says more failures were found than reported.
+ */
+export type ProtocolDeploymentCheckResult<T> =
+  | { readonly ok: true; readonly value: T }
+  | {
+    readonly ok: false;
+    readonly errors: readonly ProtocolDeploymentValidationError[];
+    readonly truncated: boolean;
+  };

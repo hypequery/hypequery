@@ -32,7 +32,9 @@ def exceeds_utf8_byte_limit(value: str, maximum: int) -> bool:
                 index += 1
             else:
                 length += 3
-        elif 0xDC00 <= code_point <= 0xDFFF:
+        # A lone low surrogate encodes as three bytes, like any other BMP code
+        # point; it is kept as its own branch so the surrogate cases read whole.
+        elif 0xDC00 <= code_point <= 0xDFFF:  # noqa: SIM114
             length += 3
         elif code_point <= 0xFFFF:
             length += 3

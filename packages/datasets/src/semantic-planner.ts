@@ -115,6 +115,7 @@ function collectJoins(
   const joins = new Map<string, SemanticJoinPlan>();
   for (const name of referenced) {
     const { relationshipName, relationship, target } = resolveQualifiedPlanField(ds, name);
+    if (relationship.keys && relationship.keys.length > 1) throw new Error('Composite relationships require the queryBuilder execution path.');
     if (joins.has(relationshipName)) {
       continue;
     }

@@ -217,6 +217,10 @@ export function datasetCacheKey(
   context: ExecutionContext | undefined,
   scope: string | undefined,
 ): string | undefined {
+  // RFC 0009's normalized query has no `having`, so no portable key can
+  // separate queries that differ only in their conditions. Run them uncached,
+  // as the Python SDK does, until the shared preimage covers `having`.
+  if (query.having !== undefined && query.having.length > 0) return undefined;
   try {
     const wire = {
       kind: 'dataset',

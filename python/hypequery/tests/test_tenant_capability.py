@@ -23,18 +23,22 @@ from hypequery.datasets import (
     ExecutionContext,
     TenantDatasetClient,
     all_tenants,
-    count,
     create_async_dataset_client,
     create_dataset_client,
     dimension,
-    eq,
     measure,
     plan_dataset_query,
     tenant,
     tenants,
 )
+from hypequery.datasets.aggregations import (
+    count,
+)
 from hypequery.datasets.client import ResultScalar
 from hypequery.datasets.planner import Deadline, TenantScope
+from hypequery.datasets.query_helpers import (
+    eq,
+)
 
 
 @dataclass(frozen=True)
@@ -267,6 +271,33 @@ def test_an_async_bound_client_runs_as_its_tenant() -> None:
     assert executor.inner.seen[0].parameter_values() == {"p0": "acme"}
     assert len(executor.inner.seen) == 1
     assert caught.value.code == "HQ_CAPABILITY_TENANT_MISMATCH"
+
+
+def test_bound_clients_paginate_as_their_tenant() -> None:
+    executor = _Executor()
+    async_executor = _AsyncExecutor()
+    query = DatasetQuery(measures=("trips",), limit=1)
+
+    result = (
+        create_dataset_client(executor=executor)
+        .for_tenant(tenant("acme"))
+        .execute(_trips(), query, paginate=True)
+    )
+    async_result = asyncio.run(
+        create_async_dataset_client(executor=async_executor)
+        .for_tenant(tenant("acme"))
+        .execute(_trips(), query, paginate=True)
+    )
+
+    for compiled, page in (
+        (executor.seen[0], result.meta.pagination),
+        (async_executor.inner.seen[0], async_result.meta.pagination),
+    ):
+        # The probe row is fetched, and the tenant predicate is still bound.
+        assert compiled.sql.endswith(" LIMIT 2")
+        assert compiled.parameter_values() == {"p0": "acme"}
+        assert page is not None
+        assert (page.limit, page.offset, page.has_more) == (1, 0, False)
 
 
 # --- security review follow-ups -------------------------------------------

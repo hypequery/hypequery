@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createQueryBuilder } from '../../../../clickhouse/src/index.js';
-import { createDatasetClient, dataset, dimension, measure } from '../../index.js';
+import { createDatasetClient, dataset, dimension, measure, multiply } from '../../index.js';
 import { TEST_CONNECTION_CONFIG as config, runSql, insertRows } from '../../../../../testing/clickhouse/harness.mjs';
 
 const table = 'hq_calendar_shift';
@@ -11,6 +11,10 @@ const Events = dataset('calendarShiftEvents', {
   measures: {
     revenue: measure.sum('value'), priorYear: measure.shift('revenue', { amount: 1, unit: 'year' }),
     priorMonth: measure.shift('revenue', { amount: 1, unit: 'month' }),
+    // A shifted formula evaluates its inputs in a shifted context rather than
+    // through the per-bucket shift ranges, so it exercises the other code path.
+    doubled: measure.derived({ uses: { revenue: 'revenue' }, formula: ({ revenue }) => multiply(revenue, 2) }),
+    priorMonthDoubled: measure.shift('doubled', { amount: 1, unit: 'month' }),
   },
 });
 
@@ -27,6 +31,14 @@ describe('calendar shifts at fine grains', () => {
       { time: '2024-02-03 12:00:00', group: 'week', value: 3 },
       { time: '2024-02-09 12:00:00', group: 'week', value: 9 },
       { time: '2024-02-10 12:00:00', group: 'week', value: 100 },
+      // Partial weeks (HQ-330). Values hold for Sunday and Monday weeks alike.
+      { time: '2024-01-29 12:00:00', group: 'lead', value: 600 },
+      { time: '2024-01-30 12:00:00', group: 'lead', value: 4 },
+      { time: '2024-02-02 12:00:00', group: 'lead', value: 50 },
+      { time: '2024-01-28 12:00:00', group: 'both', value: 600 },
+      { time: '2024-01-29 12:00:00', group: 'both', value: 4 },
+      { time: '2024-01-31 12:00:00', group: 'both', value: 50 },
+      { time: '2024-02-01 12:00:00', group: 'both', value: 7000 },
       { time: '2024-02-29 08:00:00', group: 'overlap', value: 2 },
       { time: '2024-02-29 15:00:00', group: 'overlap', value: 7 },
       { time: '2024-02-29 15:00:00', group: 'overlap', value: 7 },
@@ -62,6 +74,26 @@ describe('calendar shifts at fine grains', () => {
     const result = await client.execute(Events, { by: 'week', measures: ['priorMonth'],
       filters: [{ field: 'time', operator: 'gte', value: '2024-03-03' }, { field: 'time', operator: 'lt', value: '2024-03-10' }, { field: 'group', operator: 'eq', value: 'week' }] });
     expect(result.data.map(row => row.priorMonth)).toEqual(['12']);
+  });
+
+  it('keeps a partial leading week inside its shifted week', async () => {
+    // The first week is cut to 2024-03-01 onwards. The full week maps to its
+    // start minus one month plus seven days; the selected days map to the
+    // matching slice of that range, which ends on 2024-01-31 inclusive. The
+    // bound used to be 2024-03-01 minus one month (2024-02-01), past the end
+    // of the shifted week, so the range was empty and the bucket read null.
+    const result = await client.execute(Events, { by: 'week', measures: ['priorMonth', 'priorMonthDoubled'],
+      filters: [{ field: 'time', operator: 'gte', value: '2024-03-01' }, { field: 'time', operator: 'lt', value: '2024-03-10' }, { field: 'group', operator: 'eq', value: 'lead' }] });
+    expect(result.data.map(row => [row.priorMonth, row.priorMonthDoubled])).toEqual([['4', '8'], [null, null]]);
+  });
+
+  it('keeps a week cut on both sides inside its shifted week', async () => {
+    // Thursday 2024-02-29 to Saturday 2024-03-02 maps to 2024-01-29–2024-01-31.
+    // Shifting the upper bound on its own gave 2024-02-02 and pulled in rows
+    // from days the bucket never covered.
+    const result = await client.execute(Events, { by: 'week', measures: ['priorMonth', 'priorMonthDoubled'],
+      filters: [{ field: 'time', operator: 'gte', value: '2024-02-29' }, { field: 'time', operator: 'lt', value: '2024-03-02' }, { field: 'group', operator: 'eq', value: 'both' }] });
+    expect(result.data.map(row => [row.priorMonth, row.priorMonthDoubled])).toEqual([['4', '8']]);
   });
 
   it('preserves source multiplicity when clamped buckets overlap', async () => {

@@ -127,7 +127,14 @@ def check_behaviour() -> list[str]:
     """Plan hostile queries and report any way a value changed the statement."""
 
     sys.path.insert(0, str(ROOT / "src"))
-    from hypequery.datasets import Dataset, count, dimension, measure
+    from hypequery.datasets import (
+        Dataset,
+        dimension,
+        measure,
+    )
+    from hypequery.datasets.aggregations import (
+        count,
+    )
     from hypequery.datasets.planner import ExecutionContext, plan_dataset_query, tenant
 
     dataset = Dataset(

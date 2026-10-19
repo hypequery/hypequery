@@ -5,19 +5,26 @@ import { calendarBucketGuardSql } from './time-axis-calendar-guard.js';
 import type { TimeMeasureAxis } from './time-measure-axis.js';
 import { calendarShiftAtFineGrain } from './shift-measure-grains.js';
 import { shiftWallTimeGuardSql } from './shift-wall-time-sql.js';
+import { anchoredCalendarShiftSql } from './calendar-shift-sql.js';
 
 /** Preserve the selected portion of a bucket and both authored endpoint operators. */
 export function shiftRangeSql(shift: ShiftMeasureDefinition, axis: TimeMeasureAxis, period?: string) {
   const first = period ?? '_hq_first';
   const last = period ?? '_hq_last';
   const end = addTimeSql(last, 1, axis.grain);
-  const upper = subtractTimeSql(`least(${end}, _hq_upper)`, shift.interval.amount, shift.interval.unit);
+  const calendar = calendarShiftAtFineGrain(shift.interval, axis.grain);
   // Clamp the bucket anchor, then retain its width. Independently clamping both
   // dates would turn March 30–31 into February 28–28, dropping an entire day.
+  // A partial bucket keeps the matching slice of that shifted range, so both
+  // bounds are placed relative to the anchor rather than shifted on their own.
+  const shiftBound = (point: string, anchor: string) => calendar
+    ? anchoredCalendarShiftSql(point, anchor, shift.interval)
+    : subtractTimeSql(point, shift.interval.amount, shift.interval.unit);
+  const upper = shiftBound(`least(${end}, _hq_upper)`, last);
   const shiftedEnd = addTimeSql(subtractTimeSql(last, shift.interval.amount, shift.interval.unit), 1, axis.grain);
   return {
-    lower: subtractTimeSql(`greatest(${first}, _hq_lower)`, shift.interval.amount, shift.interval.unit),
-    upper: calendarShiftAtFineGrain(shift.interval, axis.grain) ? `if(_hq_upper >= ${end}, ${shiftedEnd}, ${upper})` : upper,
+    lower: shiftBound(`greatest(${first}, _hq_lower)`, first),
+    upper: calendar ? `if(_hq_upper >= ${end}, ${shiftedEnd}, ${upper})` : upper,
     lowerInclusive: period ? `(${period} > _hq_lower OR ${Number(axis.lowerInclusive)})` : String(Number(axis.lowerInclusive)),
     upperInclusive: `(_hq_upper < ${end} AND ${Number(axis.upperInclusive)})`,
   };

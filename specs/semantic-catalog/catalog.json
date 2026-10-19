@@ -225,7 +225,14 @@
         "groupableFields": [
           "primaryContact.id",
           "primaryContact.country"
-        ]
+        ],
+        "measures": {
+          "primaryContact.customerCount": {
+            "aggregation": "count",
+            "field": "id",
+            "filterCount": 0
+          }
+        }
       },
       "relatedCustomers": {
         "kind": "hasMany",
@@ -270,6 +277,7 @@
       "primaryContact.id",
       "primaryContact.country",
       "primaryContact.tier",
+      "primaryContact.customerCount",
       "period"
     ],
     "maxLimit": 1000

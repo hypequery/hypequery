@@ -1,0 +1,6 @@
+[
+  {"allowed": ["day", "month"], "accepted": ["day", "month"], "rejected": ["hour", "week"], "contract": ["day", "month"], "publishable": false},
+  {"allowed": ["minute", "hour"], "accepted": ["minute", "hour"], "rejected": ["day", "year"], "contract": ["hour", "minute"], "publishable": false},
+  {"allowed": ["year", "quarter", "month", "week", "day"], "accepted": ["day", "year"], "rejected": ["minute", "hour"], "contract": ["day", "month", "quarter", "week", "year"], "publishable": true},
+  {"allowed": ["minute", "hour", "day", "week", "month", "quarter", "year"], "accepted": ["minute", "year"], "rejected": [], "contract": ["day", "hour", "minute", "month", "quarter", "week", "year"], "publishable": true}
+]

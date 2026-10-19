@@ -1,6 +1,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import * as detectDb from '../utils/detect-database.js';
 import { mockProcessExit } from '../test-utils.js';
+import { common } from '../../type-tests/fixtures.js';
+import { validateTelemetryEvent } from '../utils/telemetry/validation.js';
 
 const mockLogger = vi.hoisted(() => ({
   success: vi.fn(),
@@ -78,6 +80,33 @@ describe('generate datasets command', () => {
     expect(mockGenerateDatasets).toHaveBeenCalledWith(
       expect.objectContaining({ outputPath: expect.stringContaining('custom/datasets.ts') }),
     );
+  });
+
+  it.each([
+    ['generated datasets\n', 'up_to_date', 'success'],
+    ['PRIVATE_OLD_CONTENTS', 'out_of_date', 'failure'],
+    [undefined, 'missing', 'failure'],
+  ] as const)('records --check result %s without table, column, or warning content', async (contents, result, outcome) => {
+    const { TelemetryInvocation } = await import('../utils/telemetry/invocation.js');
+    const { CommandLifecycle } = await import('../utils/telemetry/lifecycle.js');
+    const { withCommandTelemetry } = await import('../utils/telemetry/command-context.js');
+    const { CommandExit } = await import('../utils/command-exit.js');
+    const record = vi.fn();
+    const spy = vi.spyOn(TelemetryInvocation, 'create').mockResolvedValue({ common, record, flush: vi.fn() } as unknown as InstanceType<typeof TelemetryInvocation>);
+    try {
+      const lifecycle = new CommandLifecycle(['generate:datasets', '--check']);
+      await lifecycle.begin('generate:datasets');
+      mockReadGeneratedFile.mockResolvedValue(contents);
+      mockGenerateDatasets.mockResolvedValue({ tables: [], warnings: [{ kind: 'tenant-column-missing', table: 'PRIVATE_TABLE', column: 'PRIVATE_COLUMN', message: 'PRIVATE_WARNING' }], contents: 'generated datasets\n' });
+      await withCommandTelemetry(lifecycle, () => generateDatasetsCommand({ check: true, tables: 'PRIVATE_TABLE', excludeTables: 'PRIVATE_EXCLUDED', tenantColumn: 'PRIVATE_TENANT' }));
+      await lifecycle.finish(new CommandExit(process.exitCode ? 1 : 0, outcome, process.exitCode ? 'unknown' : undefined));
+      const event = record.mock.calls[0][0];
+      expect(validateTelemetryEvent(event)).toBe(true);
+      expect(event.properties).toMatchObject({ mode: 'check', check_result: result, outcome, datasets_generated_bucket: '0', tenant_column_used: true, tables_filter_used: true, exclude_filter_used: true, warning_counts: { 'tenant-column-missing': '1', 'tenant-key-candidate': '0' } });
+      if (outcome === 'failure') expect(event.properties.error_code).toBe(result === 'missing' ? 'output_missing' : 'output_out_of_date');
+      expect(JSON.stringify(event)).not.toContain('PRIVATE');
+      expect(mockWriteGeneratedFileAtomically).not.toHaveBeenCalled();
+    } finally { spy.mockRestore(); }
   });
 
   it('prefers output over path', async () => {

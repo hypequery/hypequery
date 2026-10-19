@@ -1,0 +1,1 @@
+Add explicit synchronous and asynchronous relationship uniqueness checks. Checks respect trusted tenant scopes, deadlines and cancellation, validate complete composite target keys, and report duplicate to-one keys without automatically running database queries.

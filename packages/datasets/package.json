@@ -1,6 +1,6 @@
 {
   "name": "@hypequery/datasets",
-  "version": "0.22.0",
+  "version": "0.23.1",
   "description": "Code-first TypeScript semantic layer for ClickHouse datasets, metrics, multi-tenancy, and AI agents",
   "keywords": [
     "semantic-layer",
@@ -51,28 +51,37 @@
     "lint": "eslint \"src/**/*.ts\""
   },
   "files": [
-    "dist"
+    "dist",
+    "!dist/**/*.test.*",
+    "!dist/**/*.type-test.*",
+    "!dist/**/__tests__/**",
+    "!dist/**/tests/**",
+    "!dist/**/type-tests/**"
   ],
   "dependencies": {
-    "@hypequery/protocol": "^0.18.0",
+    "@hypequery/protocol": "^0.20.0",
     "@noble/hashes": "^1.8.0",
     "zod": "^3.22.4",
     "zod-to-json-schema": "^3.25.2"
   },
   "peerDependencies": {
-    "zod": "^3.22.4"
+    "zod": "^3.22.4",
+    "@hypequery/clickhouse": ">=2.13.0"
   },
   "peerDependenciesMeta": {
     "zod": {
+      "optional": true
+    },
+    "@hypequery/clickhouse": {
       "optional": true
     }
   },
   "devDependencies": {
     "@hypequery/protocol-conformance": "workspace:^",
     "@types/node": "^18.19.80",
-    "typescript": "^5.7.3",
-    "@vitest/coverage-v8": "^5.0.2",
-    "vitest": "^5.0.2"
+    "typescript": "^6.0.3",
+    "@vitest/coverage-v8": "^5.0.4",
+    "vitest": "^5.0.4"
   },
   "repository": {
     "type": "git",

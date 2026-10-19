@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from typing import cast
 
-from hypequery.protocol._jcs import serialize_number
+from hypequery.protocol import serialize_protocol_number
 
 
 def stable_json(value: object, depth: int = 0) -> str:
@@ -13,7 +13,7 @@ def stable_json(value: object, depth: int = 0) -> str:
 
     if type(value) is float:
         number = value
-        return "0" if number == 0 else serialize_number(number)
+        return "0" if number == 0 else serialize_protocol_number(number)
     if type(value) is dict:
         entries = cast(dict[str, object], value)
         if not entries:

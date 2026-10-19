@@ -43,6 +43,9 @@ export function buildDatasetQueryBuilder(
   if (hasSelectedDerivedMeasure(ds, query)) {
     throw new Error('A derived dataset query needs the outer SQL projection; use createDatasetClient().toSQL().');
   }
+  if (query.having?.length) {
+    throw new Error('A dataset query with having needs the outer SQL projection; use createDatasetClient().toSQL().');
+  }
   const validation = validateDatasetQueryInput(ds, query, options.context);
   if (!validation.valid) {
     throw new Error(`Invalid dataset query: ${validation.errors.join('; ')}`);

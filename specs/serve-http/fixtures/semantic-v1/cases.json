@@ -534,6 +534,99 @@
         "status": 400,
         "errorType": "VALIDATION_ERROR"
       }
+    },
+    {
+      "id": "tenant-body-forgery-tenant",
+      "method": "POST",
+      "path": "/datasets/orders/query",
+      "credential": "valid",
+      "tenantRequired": true,
+      "principal": {
+        "tenantId": "fixture-tenant"
+      },
+      "json": {
+        "tenant": "other"
+      },
+      "expect": {
+        "status": 400,
+        "errorType": "VALIDATION_ERROR"
+      }
+    },
+    {
+      "id": "tenant-body-forgery-tenantId",
+      "method": "POST",
+      "path": "/datasets/orders/query",
+      "credential": "valid",
+      "tenantRequired": true,
+      "principal": {
+        "tenantId": "fixture-tenant"
+      },
+      "json": {
+        "tenantId": "other"
+      },
+      "expect": {
+        "status": 400,
+        "errorType": "VALIDATION_ERROR"
+      }
+    },
+    {
+      "id": "tenant-body-forgery-context",
+      "method": "POST",
+      "path": "/datasets/orders/query",
+      "credential": "valid",
+      "tenantRequired": true,
+      "principal": {
+        "tenantId": "fixture-tenant"
+      },
+      "json": {
+        "context": {
+          "tenant": {
+            "ids": [
+              "other"
+            ]
+          }
+        }
+      },
+      "expect": {
+        "status": 400,
+        "errorType": "VALIDATION_ERROR"
+      }
+    },
+    {
+      "id": "tenant-body-forgery-executionContext",
+      "method": "POST",
+      "path": "/datasets/orders/query",
+      "credential": "valid",
+      "tenantRequired": true,
+      "principal": {
+        "tenantId": "fixture-tenant"
+      },
+      "json": {
+        "executionContext": {
+          "tenant": {
+            "mode": "all"
+          }
+        }
+      },
+      "expect": {
+        "status": 400,
+        "errorType": "VALIDATION_ERROR"
+      }
+    },
+    {
+      "id": "tenant-header-does-not-grant-scope",
+      "method": "POST",
+      "path": "/datasets/orders/query",
+      "credential": "valid",
+      "tenantRequired": true,
+      "headers": {
+        "x-tenant-id": "fixture-tenant"
+      },
+      "json": {},
+      "expect": {
+        "status": 403,
+        "errorType": "FORBIDDEN"
+      }
     }
   ]
 }

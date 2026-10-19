@@ -4,6 +4,12 @@ import * as protocol from './index.js';
 describe('@hypequery/protocol public surface', () => {
   it('exports only the reviewed protocol surfaces', () => {
     expect(Object.keys(protocol).sort()).toEqual([
+      'validateProtocolClientQuery',
+      'validateProtocolClientContract',
+      'prepareProtocolClientContract',
+      'decodeProtocolClientContract',
+      'ProtocolClientContractError',
+      'CLIENT_ERROR_MESSAGES',
       'DEFAULT_CANONICAL_VALUE_LIMITS',
       'DEFAULT_PROTOCOL_DEPLOYMENT_BUNDLE_LIMITS',
       'DEFAULT_PROTOCOL_DEPLOYMENT_LIMITS',
@@ -37,6 +43,9 @@ describe('@hypequery/protocol public surface', () => {
       'ProtocolValueError',
       'applyProtocolSchemaValue',
       'buildProtocolCachePreimage',
+      'checkProtocolDatasetContract',
+      'checkProtocolDeploymentContract',
+      'checkProtocolDeploymentContractV3',
       'createProtocolSchemaValueParser',
       'decodeCanonicalValue',
       'deriveProtocolCacheKey',

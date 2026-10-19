@@ -12,13 +12,20 @@ from hypequery.datasets import (
     Dataset,
     create_dataset_registry,
     dimension,
-    eq,
     measure,
 )
-from hypequery.datasets import sum as sum_
+from hypequery.datasets.aggregations import (
+    sum as sum_,
+)
 from hypequery.datasets.deployment import build_protocol_deployment_contract
+from hypequery.datasets.formulas import (
+    add,
+)
 from hypequery.datasets.measures import Measure
 from hypequery.datasets.planner import DatasetQuery, ExecutionContext, plan_dataset_query, tenant
+from hypequery.datasets.query_helpers import (
+    eq,
+)
 from hypequery.protocol import (
     validate_protocol_deployment_contract_v3,
     validate_protocol_semantic_query,
@@ -80,6 +87,24 @@ def test_python_feature_support(entry: dict[str, object]) -> None:
             assert support["publish"] is True
         return
 
+    if feature == "derivedMeasures":
+        ds = orders()
+        derived_dataset = Dataset(
+            name=ds.name,
+            source=ds.source,
+            tenant_key=ds.tenant_key,
+            dimensions=ds.dimensions,
+            measures={**ds.measures, "doubleRevenue": measure.derived(add("revenue", "revenue"))},
+        )
+        compiled = plan_dataset_query(
+            derived_dataset,
+            DatasetQuery(measures=("doubleRevenue",)),
+            context=ExecutionContext(tenant=tenant("acme")),
+        )
+        assert "sum(`amount`) + sum(`amount`)" in compiled.sql
+        build_protocol_deployment_contract(create_dataset_registry(derived_dataset))
+        assert support == {"local": True, "publish": True}
+        return
     assert support == {"local": False, "publish": False}
     if feature == "segments":
         definition = orders().model_dump()

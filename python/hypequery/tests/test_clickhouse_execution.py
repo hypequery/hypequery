@@ -59,23 +59,24 @@ def compiled(value: object = "a'b\x00c", kind: str = "String") -> CompiledQuery:
 
 
 @pytest.mark.parametrize(
-    ("value", "kind"),
+    ("value", "kind", "wire"),
     [
-        ("a'b\x00c", "String"),
-        (2**63 - 1, "Int64"),
-        (2**64 - 1, "UInt64"),
-        (Decimal("123456789.012345678"), "Decimal(27,9)"),
-        (datetime(2026, 10, 25, 1, 30, tzinfo=UTC), "DateTime64(3)"),
+        ("a'b\x00c", "String", "a'b\x00c"),
+        (2**63 - 1, "Int64", 2**63 - 1),
+        (2**64 - 1, "UInt64", 2**64 - 1),
+        (Decimal("123456789.012345678"), "Decimal(27,9)", Decimal("123456789.012345678")),
+        # An instant travels as Unix seconds: no server time zone can reread it.
+        (datetime(2026, 10, 25, 1, 30, tzinfo=UTC), "DateTime64(3)", "1792891800.000000"),
     ],
 )
-def test_driver_uses_server_parameter_binding(value: object, kind: str) -> None:
+def test_driver_uses_server_parameter_binding(value: object, kind: str, wire: object) -> None:
     query = compiled(value, kind)
     client = SyncClient(Result(("value",), [("ok",)]))
     result = ClickHouseExecutor(client).execute(query)
     assert result.named_rows() == ({"value": "ok"},)
     args, kwargs = cast(tuple[tuple[object, ...], dict[str, object]], client.calls[0])
     assert args[0] == query.sql
-    assert args[1] == {"p0": value}
+    assert args[1] == {"p0": wire}
     assert kwargs["transport_settings"] == {}
     assert cast(dict[str, object], args[2])["query_id"] == query.query_id
     assert kwargs["use_none"] is True
@@ -311,3 +312,136 @@ def test_invalid_readonly_policy_is_rejected() -> None:
         ClickHouseExecutor(SyncClient(Result((), [])), readonly_policy=cast(Any, "invalid"))
     with pytest.raises(ValueError, match="readonly_policy"):
         ClickHouseConnection(readonly_policy=cast(Any, "invalid"))
+
+
+class _FactoryClient:
+    def __init__(self, **kwargs: object) -> None:
+        self.kwargs = kwargs
+        self.closed = False
+
+    def close(self) -> None:
+        self.closed = True
+
+
+class _AsyncFactoryClient(_FactoryClient):
+    async def close(self) -> None:  # type: ignore[override]
+        self.closed = True
+
+
+CONNECTION = ClickHouseConnection(
+    host="ch.internal",
+    port=8443,
+    database="analytics",
+    username="reader",
+    password="secret",  # noqa: S106 - a fake client never connects
+    secure=True,
+    readonly_policy="profile",
+)
+CONNECTION_KWARGS = {
+    "autogenerate_session_id": False,
+    "host": "ch.internal",
+    "port": 8443,
+    "database": "analytics",
+    "username": "reader",
+    "password": "secret",
+    "secure": True,
+}
+
+
+def test_sync_factory_opens_a_query_and_a_fast_control_client(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import clickhouse_connect
+
+    created: list[_FactoryClient] = []
+
+    def get_client(**kwargs: object) -> _FactoryClient:
+        created.append(_FactoryClient(**kwargs))
+        return created[-1]
+
+    monkeypatch.setattr(clickhouse_connect, "get_client", get_client)
+    from hypequery.execution import create_clickhouse_executor
+
+    executor = create_clickhouse_executor(CONNECTION)
+
+    assert [client.kwargs for client in created] == [
+        CONNECTION_KWARGS,
+        {**CONNECTION_KWARGS, "send_receive_timeout": 2},
+    ]
+    assert executor._readonly_policy == "profile"
+    executor.close()
+    assert all(client.closed for client in created)
+
+
+def test_sync_factory_closes_the_first_client_when_the_second_fails(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import clickhouse_connect
+
+    created: list[_FactoryClient] = []
+
+    def get_client(**kwargs: object) -> _FactoryClient:
+        if created:
+            raise OSError("refused: ch.internal:8443 secret")
+        created.append(_FactoryClient(**kwargs))
+        return created[-1]
+
+    monkeypatch.setattr(clickhouse_connect, "get_client", get_client)
+    from hypequery.execution import create_clickhouse_executor
+
+    with pytest.raises(CompiledQueryError) as caught:
+        create_clickhouse_executor(CONNECTION)
+
+    assert caught.value.category == "unavailable"
+    assert "secret" not in str(caught.value)
+    assert created[0].closed
+
+
+def test_async_factory_opens_a_query_and_a_fast_control_client(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import clickhouse_connect.driver as driver
+
+    created: list[_AsyncFactoryClient] = []
+
+    async def create_async_client(**kwargs: object) -> _AsyncFactoryClient:
+        created.append(_AsyncFactoryClient(**kwargs))
+        return created[-1]
+
+    monkeypatch.setattr(driver, "create_async_client", create_async_client)
+    from hypequery.execution import create_async_clickhouse_executor
+
+    async def scenario() -> None:
+        executor = await create_async_clickhouse_executor(CONNECTION)
+        await executor.aclose()
+
+    asyncio.run(scenario())
+
+    assert [client.kwargs for client in created] == [
+        CONNECTION_KWARGS,
+        {**CONNECTION_KWARGS, "send_receive_timeout": 2},
+    ]
+    assert all(client.closed for client in created)
+
+
+def test_async_factory_closes_the_first_client_when_the_second_fails(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import clickhouse_connect.driver as driver
+
+    created: list[_AsyncFactoryClient] = []
+
+    async def create_async_client(**kwargs: object) -> _AsyncFactoryClient:
+        if created:
+            raise OSError("refused")
+        created.append(_AsyncFactoryClient(**kwargs))
+        return created[-1]
+
+    monkeypatch.setattr(driver, "create_async_client", create_async_client)
+    from hypequery.execution import create_async_clickhouse_executor
+
+    with pytest.raises(CompiledQueryError) as caught:
+        asyncio.run(create_async_clickhouse_executor(CONNECTION))
+
+    assert caught.value.category == "unavailable"
+    assert created[0].closed

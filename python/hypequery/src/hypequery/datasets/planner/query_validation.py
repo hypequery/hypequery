@@ -7,10 +7,12 @@ remain alongside name resolution in the compiler to preserve rejection order.
 from __future__ import annotations
 
 from ..dataset import Dataset
+from ..utils.portable_grains import unsupported_time_grain_error
 from .aliases import BASE_ALIAS
 from .context import ExecutionContext, TenantScope
 from .errors import CompiledQueryError
 from .query import DatasetQuery
+from .resolution import selected_measure_names
 
 
 def resolve_tenant_scope(dataset: Dataset, context: ExecutionContext) -> TenantScope | None:
@@ -43,6 +45,10 @@ def resolve_tenant_scope(dataset: Dataset, context: ExecutionContext) -> TenantS
 
 
 def check_query_limits(dataset: Dataset, query: DatasetQuery) -> None:
+    if query.by is not None and dataset.time_grains is not None:
+        error = unsupported_time_grain_error(dataset.time_grains, query.by)
+        if error is not None:
+            raise CompiledQueryError("input-invalid", error)
     limits = dataset.limits
     if limits is None:
         return
@@ -51,7 +57,7 @@ def check_query_limits(dataset: Dataset, query: DatasetQuery) -> None:
             "too-large",
             f"Too many dimensions: {len(query.dimensions)} (max {limits.max_dimensions})",
         )
-    measures = query.measures if query.measures is not None else tuple(dataset.measures)
+    measures = selected_measure_names(dataset, query)
     if limits.max_measures is not None and len(measures) > limits.max_measures:
         raise CompiledQueryError(
             "too-large", f"Too many measures: {len(measures)} (max {limits.max_measures})"
@@ -59,6 +65,14 @@ def check_query_limits(dataset: Dataset, query: DatasetQuery) -> None:
     if limits.max_filters is not None and len(query.filters) > limits.max_filters:
         raise CompiledQueryError(
             "too-large", f"Too many filters: {len(query.filters)} (max {limits.max_filters})"
+        )
+    # `max_filters` bounds every predicate the query adds, before and after
+    # aggregation alike.
+    conditions = len(query.filters) + len(query.having)
+    if limits.max_filters is not None and conditions > limits.max_filters:
+        raise CompiledQueryError(
+            "too-large",
+            f"Too many filters and having conditions: {conditions} (max {limits.max_filters})",
         )
     if (
         limits.max_result_size is not None

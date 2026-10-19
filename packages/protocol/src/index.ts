@@ -217,6 +217,9 @@ export {
   PROTOCOL_DEPLOYMENT_IDENTITY_DOMAIN,
   PROTOCOL_DEPLOYMENT_V3_IDENTITY_DOMAIN,
   ProtocolDeploymentError,
+  checkProtocolDatasetContract,
+  checkProtocolDeploymentContract,
+  checkProtocolDeploymentContractV3,
   encodeProtocolDeploymentContract,
   encodeProtocolDeploymentContractToString,
   hashProtocolDeploymentContract,
@@ -258,7 +261,9 @@ export type {
   ProtocolDatasetShiftMeasure,
   ProtocolDatasetWindowMeasure,
   ProtocolTimeInterval,
+  ProtocolDeploymentCheckResult,
   ProtocolDeploymentErrorCode,
+  ProtocolDeploymentValidationError,
   ProtocolDeploymentLimits,
   ProtocolDeploymentOptions,
   ProtocolEndpointPolicy,
@@ -280,3 +285,5 @@ export type {
 } from './query-implementations/index.js';
 
 export { PROTOCOL_SEMANTIC_FAILURE_MESSAGES } from './invocations/failure-messages.js';
+
+export * from './client-contract/index.js';

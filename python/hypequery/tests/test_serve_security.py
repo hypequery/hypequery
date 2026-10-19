@@ -29,7 +29,7 @@ from hypequery.serve import (
     create_router,
     install_http_security,
     request_id,
-    validate_correlation_id,
+    sanitize_correlation_id,
 )
 
 TOKEN = "good-token"  # noqa: S105 - a test credential
@@ -429,7 +429,7 @@ def test_a_caller_request_id_is_only_ever_a_correlation_id() -> None:
     ],
 )
 def test_a_hostile_request_id_is_dropped(hostile: str) -> None:
-    assert validate_correlation_id(hostile) is None
+    assert sanitize_correlation_id(hostile) is None
 
     _, headers = _raw(
         _app(SECURE), "/ids", [(b"x-request-id", hostile.encode("utf-8"))], method="GET"
