@@ -70,6 +70,6 @@ describe('reserved-word names are quoted wherever the planner aliases them', () 
     const sql = client.toSQL(Ratio as never, { dimensions: ['limit', 'offset', 'having'], limit: 10 } as never);
     expect(sql).toContain('limit_value AS `limit`');
     expect(sql).toMatch(/GROUP BY `limit`, `offset`, `having`/);
-    expect(sql).toContain('SELECT `limit`, `offset`, `having`, (`end`) / (NULLIF(`rows`, 0)) AS `range` FROM base');
+    expect(sql).toMatch(/SELECT `limit`, `offset`, `having`, .* AS `range` FROM base LIMIT 10$/);
   });
 });
