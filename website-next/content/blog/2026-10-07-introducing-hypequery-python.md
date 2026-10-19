@@ -6,7 +6,7 @@ seoDescription: "hypequery for Python brings code-first datasets to ClickHouse: 
 pubDate: 2026-10-07
 heroImage: ""
 slug: introducing-hypequery-python
-status: published
+status: draft
 tags:
   - ClickHouse
   - Python
@@ -33,7 +33,7 @@ A driver like clickhouse-connect gets rows out of ClickHouse. It does not know w
 A dataset maps a ClickHouse table to named dimensions and measures. It is plain Python, validated when you create it, and reviewed in pull requests like the rest of your application.
 
 ```python
-from hypequery.datasets import Dataset, count, dimension, measure, sum as sum_
+from hypequery.datasets import Dataset, dimension, measure
 
 orders = Dataset(
     name="orders",
@@ -46,8 +46,8 @@ orders = Dataset(
         "created_at": dimension("timestamp"),
     },
     measures={
-        "revenue": measure(sum_("amount")),
-        "order_count": measure(count("id")),
+        "revenue": measure.sum("amount"),
+        "order_count": measure.count("id"),
     },
 )
 ```
@@ -57,7 +57,7 @@ orders = Dataset(
 Queries select semantic names. hypequery plans parameterized ClickHouse SQL and adds the tenant predicate from a trusted execution context, never from the query itself.
 
 ```python
-from hypequery.datasets import DatasetQuery, ExecutionContext, create_dataset_client, eq, tenant
+from hypequery.datasets import DatasetQuery, ExecutionContext, create_dataset_client, filter, tenant
 from hypequery.execution import ClickHouseConnection, create_clickhouse_executor
 
 executor = create_clickhouse_executor(
@@ -70,7 +70,7 @@ result = analytics.execute(
     DatasetQuery(
         dimensions=("country",),
         measures=("revenue", "order_count"),
-        filters=(eq("status", "completed"),),
+        filters=(filter.eq("status", "completed"),),
         by="month",
     ),
     context=ExecutionContext(tenant=tenant("org_123")),
@@ -128,7 +128,7 @@ That means a team can define analytics in whichever language fits each service. 
 
 ## What's next
 
-The Python SDK covers datasets, execution, caching, multi-tenancy, and FastAPI serving today. Some newer dataset features are TypeScript-only for now, including derived measures, window measures, period comparisons, and segments. We are bringing them to Python next, and the [feature status page](/docs/python/feature-status) tracks where each one stands.
+The Python SDK covers datasets, derived measures, relationships, execution, caching, multi-tenancy, FastAPI serving, and a CLI that scaffolds a project from your live schema today. Some newer dataset features are TypeScript-only for now, including window measures, period comparisons, and segments. We are bringing them to Python next, and the [feature status page](/docs/python/feature-status) tracks where each one stands.
 
 ## Get started
 
