@@ -8,6 +8,7 @@ import { selectedTimeMeasures } from './time-query-measures.js';
 import { analyzeTimeMeasureAxis } from './time-measure-axis.js';
 import { validateDatasetQueryInput } from './dataset-query-validation.js';
 import { resolveDatasetSqlDialect } from './dataset-sql-dialect.js';
+import { assertRawSqlForDialect } from './raw-sql-dialect-check.js';
 import { StatementParameters, type PlannedStatement } from './statement-parameters.js';
 import { shiftBucketCtes } from './shift-measure-sql.js';
 import { buildTimeMeasureSourceSql } from './time-measure-source-sql.js';
@@ -30,6 +31,7 @@ export function buildTimeMeasureDatasetSql(
   const validation = validateDatasetQueryInput(ds, query, options.context);
   if (!validation.valid) throw new Error(`Invalid dataset query: ${validation.errors.join('; ')}`);
   const dialect = resolveDatasetSqlDialect(options.builderFactory);
+  assertRawSqlForDialect(ds, dialect);
   const { axis } = analyzeTimeMeasureAxis(ds, query);
   if (!axis || !ds.timeKey) throw new Error('Window measures require a bounded time axis.');
 
