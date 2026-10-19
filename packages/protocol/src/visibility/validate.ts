@@ -34,7 +34,8 @@ function fields(value: unknown, path: string): ProtocolVisibleFields {
   if (value.length > PROTOCOL_FIELD_VISIBILITY_LIMITS.maxFieldsPerList) {
     visibilityError('HQ_VISIBILITY_TOO_LARGE', path);
   }
-  const names = value.map((name, index) => {
+  // Array.from visits holes as undefined, so a sparse list fails closed.
+  const names = Array.from(value as unknown[], (name, index) => {
     if (typeof name !== 'string' || !isProtocolIdentifier(name)) {
       visibilityError('HQ_VISIBILITY_INVALID', `${path}[${index}]`);
     }

@@ -147,6 +147,18 @@ describe('field visibility in the data plane', () => {
     expect(execute).toHaveBeenCalledTimes(1);
   });
 
+  it('spells out only visible base measures when the caller omits measures', async () => {
+    const { plane: dataPlane, execute } = plane();
+    expect(await refusal(dataPlane, { dataset: 'shipments', dimensions: ['carrier'] })).toBeNull();
+    expect(execute.mock.calls[0][0].operation).toMatchObject({ measures: ['shipments'] });
+  });
+
+  it('leaves an omitted measure list alone without a policy', async () => {
+    const { plane: dataPlane, execute } = plane({ resolveFieldVisibility: async () => undefined });
+    expect(await refusal(dataPlane, { dataset: 'shipments', dimensions: ['carrier'] })).toBeNull();
+    expect(execute.mock.calls[0][0].operation).not.toHaveProperty('measures');
+  });
+
   it('allows a joined field when the join key and target field are visible', async () => {
     const { plane: dataPlane } = plane({
       resolveFieldVisibility: async () => ({

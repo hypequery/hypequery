@@ -83,6 +83,9 @@ describe('field visibility', () => {
     [{ kind: 'hypequery-field-visibility', version: 1, datasets: { a: { dimensions: ['x', 'x'], measures: '*' } } }],
     [{ kind: 'hypequery-field-visibility', version: 1, datasets: { a: { dimensions: 'all', measures: '*' } } }],
     [{ kind: 'hypequery-field-visibility', version: 1, datasets: { a: { dimensions: ['a.b'], measures: '*' } } }],
+    [{ kind: 'hypequery-field-visibility', version: 1, datasets: { a: { dimensions: new Array(1), measures: '*' } } }],
+    // eslint-disable-next-line no-sparse-arrays
+    [{ kind: 'hypequery-field-visibility', version: 1, datasets: { a: { dimensions: '*', measures: ['x', , 'y'] } } }],
   ])('fails closed on a malformed policy', (input) => {
     expect(() => validateProtocolFieldVisibility(input)).toThrow(ProtocolFieldVisibilityError);
   });

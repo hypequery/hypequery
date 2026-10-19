@@ -40,6 +40,7 @@ import { DeploymentSemanticInvocationError, fail, throwIfAborted } from './seman
 import { missing } from './utils/required-access.js';
 import { definedLimits, lowest, tighten } from './utils/semantic-budget-limits.js';
 import { claimedFailure } from './utils/semantic-executor-failure.js';
+import { withVisibleDefaultMeasures } from './utils/visible-measure-selection.js';
 
 export { DeploymentSemanticInvocationError, toProtocolSemanticInvocationFailure } from './semantic-invocation-errors.js';
 
@@ -367,14 +368,15 @@ export function createDeploymentSemanticDataPlane(
     }
     throwIfAborted(request.signal);
 
+    const selected = withVisibleDefaultMeasures(operation, dataset, visible);
     let output: unknown;
     try {
       output = await options.execute({
         deployment,
         dataset,
         operation: constraints.length === 0
-          ? operation
-          : Object.freeze({ ...operation, filters: [...(operation.filters ?? []), ...constraints] }),
+          ? selected
+          : Object.freeze({ ...selected, filters: [...(selected.filters ?? []), ...constraints] }),
         principal,
         tenant,
         budget,
