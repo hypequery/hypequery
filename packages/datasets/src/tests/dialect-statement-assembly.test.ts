@@ -10,6 +10,7 @@ import { createDatasetClient } from '../executor.js';
 import { dimension } from '../field.js';
 import { divide, nullIfZero } from '../formulas.js';
 import { measure } from '../measure.js';
+import { belongsTo } from '../relationships.js';
 import type { QueryBuilderFactoryLike } from '../query-builder-protocol.js';
 import type { MetricHandle } from '../types.js';
 import { clickhouseDatasetSqlDialect } from '../utils/clickhouse-dataset-sql-dialect.js';
@@ -56,6 +57,26 @@ describe('dialect ordering and pagination', () => {
     expect(Object.isFrozen(strictRules)).toBe(true);
     const partial = completeDatasetSqlDialect({ name: 'partial', quoteIdentifier: (id: string) => `"${id}"` });
     expect(partial.orderTerm).toBe(clickhouseDatasetSqlDialect.orderTerm);
+  });
+
+  it('quotes relationship sources with a partial hook\'s quoteIdentifier', () => {
+    const Customers = dataset('customers', {
+      source: 'analytics.customers',
+      dimensions: { id: dimension.number({ column: 'customer_id' }), country: dimension.string({ column: 'country_code' }) },
+      measures: { customers: measure.countDistinct('id') },
+    });
+    const Sales = dataset('sales', {
+      source: 'analytics.orders',
+      dimensions: { status: dimension.string() },
+      measures: { revenue: measure.sum('status') },
+      relationships: { customer: belongsTo(() => Customers, { from: 'customer_id', to: 'customer_id' }) },
+    });
+    const hook = { name: 'double-quotes', quoteIdentifier: (id: string) => `"${id.replaceAll('"', '""')}"` };
+    expect(completeDatasetSqlDialect(hook).quoteQualifiedName('analytics.customers')).toBe('"analytics"."customers"');
+    const quoted = createDatasetClient({ queryBuilder: { ...createRenderingBuilderFactory(), datasetSqlDialect: hook } });
+    const sql = quoted.toSQL(Sales, { dimensions: ['customer.country'], measures: ['customer.customers'] });
+    expect(sql).toContain('FROM "analytics"."customers")');
+    expect(sql).not.toContain('`analytics`');
   });
 
   it('keeps prototype methods of a class-based rule set', () => {

@@ -35,6 +35,7 @@ export function completeDatasetSqlDialect(dialect: DatasetSqlDialect): DatasetSq
       ...clickhouseDatasetSqlDialect,
       name: dialect.name,
       quoteIdentifier: (identifier: string) => dialect.quoteIdentifier(identifier),
+      quoteQualifiedName: (name: string) => name.split('.').map(part => dialect.quoteIdentifier(part)).join('.'),
     });
     resolved.set(dialect, rules);
   }
