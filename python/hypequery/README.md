@@ -812,8 +812,8 @@ Orders = Dataset(
 `from_field` and `to_field` name physical columns of the two sources, as in
 TypeScript's `from`/`to`, not dimensions: here `customer_id` rather than the
 `customerId` dimension that maps it. The target is a `Dataset` or a
-zero-argument callable returning one, invoked once when the helper runs, so a
-dataset defined later in the module needs the callable form.
+zero-argument callable returning one, invoked once when the helper runs. The
+target dataset must already be defined, even when using a callable.
 
 A relationship can also join on a composite key: several column pairs that
 must all be equal (RFC 0016). Pass `keys` instead of `from_field`/`to_field`:
