@@ -79,10 +79,11 @@ export class StatementParameters {
    * block, exactly as before: `toSQLWithPlaceholders` is not called, so a
    * duck-typed builder that answers any method name keeps working. Dialects
    * that number placeholders need each value bound here, so they require the
-   * builder to render through `toSQLWithPlaceholders`.
+   * builder to render through `toSQLWithPlaceholders`. A caller that already
+   * compiled the builder positionally can pass that statement to reuse it.
    */
-  embedBuilder(builder: EmbeddableBuilder): string {
-    if (this.dialect.embedsPositionalPieces) return this.embed(builder.toSQLWithParams());
+  embedBuilder(builder: EmbeddableBuilder, compiled?: BuilderStatement): string {
+    if (this.dialect.embedsPositionalPieces) return this.embed(compiled ?? builder.toSQLWithParams());
     if (typeof builder.toSQLWithPlaceholders !== 'function') {
       throw new Error(
         `The "${this.dialect.name}" datasets dialect numbers placeholders; `
