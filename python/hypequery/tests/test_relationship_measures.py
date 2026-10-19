@@ -142,7 +142,9 @@ def test_one_guarded_join_serves_dimensions_measures_filters_and_ordering() -> N
     assert "toNullable(1) AS `_hq_match`" in sql
     assert "isNotNull(`target`.`_hq_match`)" in sql
     assert re.search(r"`target`\.`tenant_id` = \{p\d+:String\}", sql)
-    assert re.search(r"uniqExactIf\(.*`target`\.`tier` = \{p\d+:String\}\) AS `target.gold`", sql)
+    assert re.search(
+        r"uniqExactIf\(.*`target`\.`tier`, NULL\) = \{p\d+:String\}\) AS `target.gold`", sql
+    )
     assert "ORDER BY `target.unique` DESC" in sql
 
 
@@ -321,6 +323,43 @@ def test_live_unmatched_and_other_tenant_rows_never_feed_target_aggregates() -> 
                 "profile.count": 2,
             },
         )
+        for measures in (("total",), ("total", "target.lowest")):
+            grouped = client.execute(
+                "sources",
+                DatasetQuery(
+                    dimensions=("target.tier", "target.value"),
+                    measures=measures,
+                    order_by=(asc("target.tier"),),
+                ),
+                context=CONTEXT,
+            )
+            assert grouped.data[0]["target.tier"] == "gold"
+            assert grouped.data[0]["target.value"] == 10.0
+            assert grouped.data[0]["total"] == 12.0
+            assert grouped.data[1]["target.tier"] is None
+            assert grouped.data[1]["target.value"] is None
+            assert grouped.data[1]["total"] == 7.0
+        filtered = client.execute(
+            "sources",
+            DatasetQuery(
+                dimensions=("status",), measures=("total",), filters=(eq("target.tier", ""),)
+            ),
+            context=CONTEXT,
+        )
+        assert filtered.data == ()
+        admin.command("INSERT INTO hq_relationship_measures.targets VALUES (4, 'a', 0, '')")
+        admin.command("INSERT INTO hq_relationship_measures.sources VALUES (6, 4, 'paid', 8)")
+        matched = client.execute(
+            "sources",
+            DatasetQuery(
+                dimensions=("target.tier", "target.value"),
+                measures=("total",),
+                filters=(eq("target.tier", ""),),
+            ),
+            context=CONTEXT,
+        )
+        assert matched.data == ({"target.tier": "", "target.value": 0.0, "total": 8.0},)
+
     finally:
         executor.close()
         admin.command("DROP DATABASE IF EXISTS hq_relationship_measures")
@@ -375,3 +414,9 @@ def test_related_measures_beside_a_local_derived_projection() -> None:
     assert "AS `twice`" in sql
     assert "AS `target.unique`" in sql
     assert "isNotNull(`target`.`_hq_match`)" in sql
+
+
+def test_joined_dimensions_use_a_match_marker_without_related_measures() -> None:
+    sql = _sql(DatasetQuery(dimensions=("target.tier",), measures=("total",)))
+    assert "toNullable(1) AS `_hq_match`" in sql
+    assert "if(isNotNull(`target`.`_hq_match`), `target`.`tier`, NULL)" in sql
