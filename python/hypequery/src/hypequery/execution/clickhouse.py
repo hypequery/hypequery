@@ -416,10 +416,18 @@ class AsyncFromSyncClickHouseExecutor:
         self._control_worker.shutdown(wait=False, cancel_futures=True)
 
     async def aclose(self) -> None:
-        """Wait for workers, then close the supplied driver clients."""
+        """Wait for workers, then close the supplied driver clients.
 
-        self.close()
+        The control worker stays up until every query worker has returned: a
+        cancellation retry may still need it to stop a query that registered
+        on the server after the first KILL, and shutting it down first would
+        leave that query running until ``max_execution_time``.
+        """
+
+        self._closed = True
+        self._workers.shutdown(wait=False, cancel_futures=True)
         await asyncio.to_thread(self._workers.shutdown, wait=True)
+        self._control_worker.shutdown(wait=False, cancel_futures=True)
         await asyncio.to_thread(self._control_worker.shutdown, wait=True)
         closer = getattr(self._control, "close", None)
         try:

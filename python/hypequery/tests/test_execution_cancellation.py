@@ -563,3 +563,55 @@ def test_sync_bridge_cancellation_retries_when_first_kill_precedes_registration(
     finally:
         register.set()
         stopped.set()
+
+
+def test_sync_bridge_aclose_keeps_the_control_worker_until_queries_stop() -> None:
+    """Closing right after an unconfirmed KILL must still let the retries reach the query."""
+
+    started = threading.Event()
+    register = threading.Event()
+    registered = threading.Event()
+    stopped = threading.Event()
+    signal = threading.Event()
+    attempts: list[bool] = []
+
+    class SubmittingClient:
+        def query(self, *_args: object, **_kwargs: object) -> DriverResult:
+            started.set()
+            assert register.wait(2)
+            registered.set()
+            # Without a KILL this blocks until the server's own time limit.
+            assert stopped.wait(2)
+            return cast(DriverResult, Result())
+
+    class LateControl:
+        def command(self, _cmd: str, _parameters: dict[str, str]) -> object:
+            attempts.append(registered.is_set())
+            if registered.is_set():
+                stopped.set()
+                return "finished"
+            return None
+
+    async def run() -> None:
+        executor = AsyncFromSyncClickHouseExecutor(
+            SubmittingClient(), LateControl(), max_concurrent=1
+        )
+        task = asyncio.create_task(executor.execute(query(cancellation=signal)))
+        while not started.is_set():
+            await asyncio.sleep(0.005)
+        signal.set()
+        with pytest.raises(CompiledQueryError):
+            await task
+        assert attempts == [False]
+        register.set()
+        # Shutdown must not disable the retries: the query registers late and
+        # a later KILL, sent through the still-open control worker, stops it.
+        await asyncio.wait_for(executor.aclose(), timeout=1.5)
+        assert stopped.is_set()
+        assert True in attempts
+
+    try:
+        asyncio.run(run())
+    finally:
+        register.set()
+        stopped.set()
