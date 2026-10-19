@@ -1,11 +1,12 @@
 {
   "title": "Python",
-  "description": "Datasets \u00b7 pre-alpha",
+  "description": "Datasets · pre-alpha",
   "root": "language",
   "pages": [
     "---Get started---",
     "(get-started)/index",
     "(get-started)/quick-start",
+    "(get-started)/cli",
     "(get-started)/feature-status",
     "---Datasets---",
     "(datasets)/datasets/overview",
