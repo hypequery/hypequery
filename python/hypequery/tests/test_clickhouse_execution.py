@@ -144,6 +144,16 @@ def test_result_codec_is_closed() -> None:
         (OperationalError("password=secret value='secret'"), "unavailable"),
         (ProgrammingError("SELECT 'secret'"), "internal"),
         (ProgrammingError("secret", name="NOT_ENOUGH_PRIVILEGES"), "forbidden"),
+        # ClickHouse reports a wrong password under REQUIRED_PASSWORD (194), not
+        # AUTHENTICATION_FAILED (516); every credential refusal is unauthenticated.
+        (
+            ProgrammingError("secret: password is incorrect", name="REQUIRED_PASSWORD"),
+            "unauthenticated",
+        ),
+        (ProgrammingError("secret", name="WRONG_PASSWORD"), "unauthenticated"),
+        (ProgrammingError("secret", name="UNKNOWN_USER"), "unauthenticated"),
+        (ProgrammingError("secret", name="AUTHENTICATION_FAILED"), "unauthenticated"),
+        (ProgrammingError("Database secret does not exist", name="UNKNOWN_DATABASE"), "not-found"),
     ],
 )
 def test_driver_error_is_redacted(failure: Exception, category: str) -> None:
@@ -276,13 +286,39 @@ def test_readonly_error_guides_only_for_our_own_setting(readonly: Exception) -> 
     assert exc.value.category == "forbidden"
     assert "readonly_policy='profile'" in exc.value.message
 
-    limit = ProgrammingError(
-        "Cannot modify 'max_threads' setting in readonly mode.", name="READONLY"
+    other = ProgrammingError(
+        "Cannot modify 'secret_setting' setting in readonly mode.", name="READONLY"
     )
     with pytest.raises(CompiledQueryError) as exc:
-        ClickHouseExecutor(SyncClient(limit), readonly_policy="query").execute(compiled())
+        ClickHouseExecutor(SyncClient(other), readonly_policy="query").execute(compiled())
     assert exc.value.category == "internal"
-    assert "max_threads" not in exc.value.message
+    assert "secret_setting" not in exc.value.message
+
+
+# A readonly = 1 user may not change any setting, so the planner's limits are
+# refused one at a time. That is the one failure an operator fixes from the
+# message alone: use a readonly = 2 user.
+@pytest.mark.parametrize("policy", ["query", "profile"])
+@pytest.mark.parametrize(
+    "limit",
+    [
+        ProgrammingError("Setting max_execution_time is readonly"),
+        ProgrammingError("Setting max_threads is unknown or readonly"),
+        ProgrammingError(
+            "Cannot modify 'max_result_rows' setting in readonly mode.", name="READONLY"
+        ),
+    ],
+)
+def test_readonly_user_refusing_our_limits_gets_guidance(
+    limit: Exception, policy: ReadonlyPolicy
+) -> None:
+    client = ReadonlyUserClient(1)
+    client.result = limit
+    with pytest.raises(CompiledQueryError) as exc:
+        ClickHouseExecutor(cast(Any, client), readonly_policy=policy).execute(compiled())
+    assert exc.value.category == "forbidden"
+    assert "readonly = 2" in exc.value.message
+    assert "max_" not in exc.value.message
 
 
 @pytest.mark.parametrize(

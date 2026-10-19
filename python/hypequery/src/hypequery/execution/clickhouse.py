@@ -10,7 +10,7 @@ from concurrent.futures import ThreadPoolExecutor
 from contextlib import suppress
 from dataclasses import dataclass, field
 from types import TracebackType
-from typing import Protocol, Self, TypedDict, cast
+from typing import Any, Protocol, Self, TypedDict, cast
 
 from hypequery.datasets.planner import SETTING_DEFINITIONS, CompiledQuery, CompiledQueryError
 
@@ -341,6 +341,11 @@ class AsyncClickHouseExecutor:
         await self.aclose()
 
 
+def _retrieve_outcome(done: asyncio.Future[Any]) -> None:
+    if not done.cancelled():
+        done.exception()
+
+
 class AsyncFromSyncClickHouseExecutor:
     """Bounded worker bridge for applications with a synchronous driver client."""
 
@@ -397,6 +402,10 @@ class AsyncFromSyncClickHouseExecutor:
             future = self._workers.submit(self._sync.execute, compiled)
             submitted = True
             work = asyncio.wrap_future(future)
+            # A caller that gave up on the query (cancellation, deadline) never
+            # reads the worker's outcome; mark it retrieved so asyncio does not
+            # log the abandoned exception at garbage collection.
+            work.add_done_callback(_retrieve_outcome)
             # The blocking driver call cannot be interrupted; the bridge knows
             # when it returns, so server cancellation can be retried until then.
             return await run_with_policy(

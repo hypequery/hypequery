@@ -391,9 +391,10 @@ result.meta.cache  # "miss", then "hit" for the same request
   executions never share one either.
 - **Equivalent requests share an entry.** Filter order, `offset: 0`, and empty
   lists do not create separate entries.
-- **Never fails a query.** A store error, or a query with no portable form,
-  runs uncached and reports `meta.cache == "bypass"`. Pass `use_cache=False`
-  to skip the cache for one call.
+- **Never fails a query.** A store error is treated as a miss: the query runs,
+  `meta.cache == "miss"`, and `on_error` sees the failure. A query with no
+  portable form runs uncached and reports `meta.cache == "bypass"`, as does
+  `use_cache=False`, which skips the cache for one call.
 - **The secret is optional.** Without one, the cache generates a random secret
   for its own lifetime. Keys stay opaque, and entries last as long as the
   process, which is all an in-memory store needs.
@@ -627,9 +628,17 @@ expiry issue a separate `KILL QUERY` command using the server query ID. A
 cancelled ASGI task is treated as caller cancellation. For a synchronous driver
 used inside an async application, `AsyncFromSyncClickHouseExecutor` runs query
 work in a bounded worker pool with a separate control worker and supports the
-same cancellation contract. During application shutdown, call
-`await executor.aclose()` to wait for workers and close both supplied driver
-clients. `close()` stops admission immediately without waiting for workers.
+same cancellation contract. Create the driver clients it wraps with
+`autogenerate_session_id=False`, as the factories do: a clickhouse-connect
+client bound to a session refuses concurrent queries, so with the default
+client every query past the first fails while another is running. During
+application shutdown, call `await executor.aclose()` to wait for workers and
+close both supplied driver clients. `close()` stops admission immediately
+without waiting for workers.
+
+`ExecutionContext(deadline=Deadline.after(seconds))` bounds one execution;
+`Deadline` is exported by `hypequery.datasets`. A query that is still running
+when it expires is killed on the server and fails with `deadline-exceeded`.
 
 ## Canonical protocol values
 
@@ -792,13 +801,19 @@ Orders = Dataset(
     relationships={
         "customer": belongs_to(
             lambda: Customers,
-            from_field="customerId",
+            from_field="customer_id",
             to_field="id",
         )
     },
     limits=DatasetLimits(max_dimensions=5, max_filters=10),
 )
 ```
+
+`from_field` and `to_field` name physical columns of the two sources, as in
+TypeScript's `from`/`to`, not dimensions: here `customer_id` rather than the
+`customerId` dimension that maps it. The target is a `Dataset` or a
+zero-argument callable returning one, invoked once when the helper runs, so a
+dataset defined later in the module needs the callable form.
 
 A relationship can also join on a composite key: several column pairs that
 must all be equal (RFC 0016). Pass `keys` instead of `from_field`/`to_field`:

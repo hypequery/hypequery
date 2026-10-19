@@ -9,6 +9,7 @@ import subprocess
 import sys
 import time
 from pathlib import Path
+from typing import Any, cast
 
 import httpx
 import pytest
@@ -176,6 +177,33 @@ def test_missing_app_dependency_hint_uses_exception_name(
         "clickhouse_connect"
     )
     assert "private-password" not in stderr
+
+
+@pytest.mark.parametrize(
+    ("category", "hint"),
+    [
+        ("unauthenticated", "CLICKHOUSE_USERNAME and CLICKHOUSE_PASSWORD"),
+        ("unavailable", "CLICKHOUSE_HOST, CLICKHOUSE_PORT and CLICKHOUSE_SECURE"),
+        ("not-found", "CLICKHOUSE_DATABASE"),
+        ("forbidden", "grants and readonly profile"),
+        ("internal", "CLICKHOUSE_* environment"),
+    ],
+)
+def test_clickhouse_startup_failure_names_the_setting_to_check(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], category: str, hint: str
+) -> None:
+    from hypequery.datasets.planner import CompiledQueryError
+
+    def fail(*args: object, **kwargs: object) -> None:
+        raise CompiledQueryError(cast(Any, category), "private-password-do-not-print")
+
+    monkeypatch.setattr("hypequery.serve.run_dev", fail)
+    assert main(["dev"]) == 1
+    stderr = capsys.readouterr().err
+    assert stderr.startswith("hypequery: App could not start. ")
+    assert hint in stderr
+    assert "private-password" not in stderr
+    assert "Traceback" not in stderr
 
 
 def test_missing_driver_from_real_factory_gets_install_hint(
