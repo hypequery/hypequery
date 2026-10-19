@@ -1,7 +1,7 @@
 import { relationshipKeys } from './relationship-keys.js';
 import type { RelationshipKey } from '../types.js';
 import { relationshipMeasureSource } from './relationship-measure-sql.js';
-import type { DatasetSqlDialect } from '../dataset-sql-dialect.js';
+import type { DatasetSqlDialectRules } from '../dataset-sql-dialect.js';
 import { clickhouseDatasetSqlDialect } from './clickhouse-dataset-sql-dialect.js';
 import { resolveRelationshipReference } from './relationship-measures.js';
 /**
@@ -57,7 +57,7 @@ export function buildRelationshipBuilderContext(
   ds: AnyDatasetInstance,
   query: QueryLike,
   context?: ExecutionContext,
-  dialect: DatasetSqlDialect = clickhouseDatasetSqlDialect,
+  dialect: DatasetSqlDialectRules = clickhouseDatasetSqlDialect,
 ): RelationshipBuilderContext | undefined {
   const referenced = [
     ...(query.dimensions ?? []),

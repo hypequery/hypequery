@@ -34,7 +34,7 @@ export function buildMetricQueryBuilder(
   const syntaxErrors = semanticQuerySyntaxErrors(query);
   if (syntaxErrors.length) throw new Error(syntaxErrors.join('; '));
   const dialect = resolveDatasetSqlDialect(builderFactory);
-  const joinCtx = buildRelationshipBuilderContext(ds, query, context);
+  const joinCtx = buildRelationshipBuilderContext(ds, query, context, dialect);
   let qb: QueryBuilderLike = builderFactory.table(ds.source);
   qb = applyRelationshipJoins(qb, joinCtx);
   const { selectParts, groupByParts } = buildDimensionSelectionPlan(
@@ -51,7 +51,7 @@ export function buildMetricQueryBuilder(
   }
 
   // Aggregation (appends to select, auto-sets groupBy on non-agg columns)
-  qb = applyAggregationSpec(qb, ds, spec, ref.name, joinCtx);
+  qb = applyAggregationSpec(qb, ds, spec, ref.name, joinCtx, dialect);
 
   // Explicit groupBy (ensures period + dims are grouped even if aggregation auto-groupBy misses them)
   if (groupByParts.length > 0) {
@@ -73,7 +73,7 @@ export function buildMetricQueryBuilder(
       );
     }
     const resolvedField = resolveFilterField(ds, filter.field, joinCtx);
-    qb = qb.where(queryTimeFilterSql(ds, filter.field, resolvedField, query.timezone), filter.operator, filter.value);
+    qb = qb.where(queryTimeFilterSql(dialect, ds, filter.field, resolvedField, query.timezone), filter.operator, filter.value);
   }
 
   // Segments: author-defined, so they resolve dimensions directly rather

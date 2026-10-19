@@ -12,6 +12,7 @@ import { createDatasetClient, MetricQueryEngine } from './executor.js';
 import { createInMemoryBackend } from './in-memory-backend.js';
 import { quoteSQLIdentifier } from './sql-utils.js';
 import { applyFilteredAggregationExpression } from './utils/filtered-aggregation-sql.js';
+import { clickhouseDatasetSqlDialect } from './utils/clickhouse-dataset-sql-dialect.js';
 import type { QueryBuilderFactoryLike, QueryBuilderLike } from './query-builder-protocol.js';
 
 // =============================================================================
@@ -924,7 +925,7 @@ describe("MetricQueryEngine", () => {
       const expression = applyFilteredAggregationExpression(Orders, {
         ...sum('amount'),
         filters: [eq('status', "x\\' OR 1=1 --")],
-      }, 'amount');
+      }, 'amount', undefined, clickhouseDatasetSqlDialect);
 
       expect(expression).toBe("if((status = 'x\\\\'' OR 1=1 --'), amount, 0)");
     });

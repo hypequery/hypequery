@@ -10,11 +10,10 @@ import type {
   TimeGrain,
 } from "./types.js";
 import type { QueryBuilderLike } from "./query-builder-protocol.js";
-import { GRAIN_FUNCTIONS } from "./constants.js";
+import { isSupportedTimeGrain } from "./constants.js";
 import { applyFilteredAggregationExpression } from './utils/filtered-aggregation-sql.js';
 import { getRuntimeTenantPredicate } from './utils/tenant-runtime.js';
-import type { DatasetSqlDialect } from './dataset-sql-dialect.js';
-import { clickhouseDatasetSqlDialect } from './utils/clickhouse-dataset-sql-dialect.js';
+import type { DatasetSqlDialectRules } from './dataset-sql-dialect.js';
 import { isQualifiedField } from './utils/relationship-fields.js';
 import {
   qualifyBaseColumn,
@@ -58,20 +57,19 @@ export function buildDimensionSelectionPlan(
   ds: DatasetShape,
   dimensions: string[],
   grain: TimeGrain | undefined,
-  joinCtx?: RelationshipBuilderContext,
-  timezone?: string,
-  dialect: DatasetSqlDialect = clickhouseDatasetSqlDialect,
+  joinCtx: RelationshipBuilderContext | undefined,
+  timezone: string | undefined,
+  dialect: DatasetSqlDialectRules,
 ): { selectParts: string[]; groupByParts: string[] } {
   const selectParts: string[] = [];
   const groupByParts = new Set<string>();
 
   if (grain) {
-    const fn = GRAIN_FUNCTIONS[grain];
-    if (!fn) {
+    if (!isSupportedTimeGrain(grain)) {
       throw new Error(`Unsupported time grain "${grain}".`);
     }
     const time = resolveDimensionExpression(ds, String(ds.timeKey), joinCtx);
-    selectParts.push(`${fn}(${queryTimeSql(time, timezone)}) AS period`);
+    selectParts.push(`${dialect.truncateTime(queryTimeSql(dialect, time, timezone), grain)} AS period`);
     groupByParts.add("period");
   }
 
@@ -103,7 +101,8 @@ export function applyAggregationSpec(
   ds: DatasetShape,
   spec: AggregationSpec,
   alias: string,
-  joinCtx?: RelationshipBuilderContext,
+  joinCtx: RelationshipBuilderContext | undefined,
+  dialect: DatasetSqlDialectRules,
   expressions?: { field: string; arg?: string },
 ): QueryBuilderLike {
   if (spec.sql) {
@@ -114,6 +113,7 @@ export function applyAggregationSpec(
     spec,
     spec.sql ?? resolveDimensionExpression(ds, spec.field, joinCtx),
     joinCtx,
+    dialect,
   );
 
   switch (spec.aggregation) {
@@ -181,19 +181,20 @@ export function applyMeasureDefinition(
   ds: DatasetShape,
   name: string,
   definition: MeasureDefinition,
-  joinCtx?: RelationshipBuilderContext,
+  joinCtx: RelationshipBuilderContext | undefined,
+  dialect: DatasetSqlDialectRules,
 ): QueryBuilderLike {
-  return applyAggregationSpec(qb, ds, measureToAggregationSpec(name, definition), name, joinCtx);
+  return applyAggregationSpec(qb, ds, measureToAggregationSpec(name, definition), name, joinCtx, dialect);
 }
 
 export function appendOrderLimitOffset(
   qb: QueryBuilderLike,
   orderBy: MetricOrderBy[] | undefined,
   grain: TimeGrain | undefined,
-  limit?: number,
-  offset?: number,
-  joinCtx?: RelationshipBuilderContext,
-  dialect: DatasetSqlDialect = clickhouseDatasetSqlDialect,
+  limit: number | undefined,
+  offset: number | undefined,
+  joinCtx: RelationshipBuilderContext | undefined,
+  dialect: DatasetSqlDialectRules,
 ): QueryBuilderLike {
   if (orderBy && orderBy.length > 0) {
     for (const order of orderBy) {

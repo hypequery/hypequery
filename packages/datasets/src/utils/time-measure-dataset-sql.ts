@@ -7,7 +7,7 @@ import { getBaseMeasure, getDerivedMeasure, isShiftMeasure, isWindowMeasure } fr
 import { selectedTimeMeasures } from './time-query-measures.js';
 import { analyzeTimeMeasureAxis } from './time-measure-axis.js';
 import { validateDatasetQueryInput } from './dataset-query-validation.js';
-import { addTimeSql as add } from './time-arithmetic-sql.js';
+import { resolveDatasetSqlDialect } from './dataset-sql-dialect.js';
 import { shiftBucketCtes } from './shift-measure-sql.js';
 import { buildTimeMeasureSourceSql } from './time-measure-source-sql.js';
 import { buildTimeMeasureAxisSql } from './time-measure-axis-sql.js';
@@ -22,6 +22,7 @@ export function buildTimeMeasureDatasetSql(
 ): { sql: string; parameters: unknown[]; timeAxisSql: string } {
   const validation = validateDatasetQueryInput(ds, query, options.context);
   if (!validation.valid) throw new Error(`Invalid dataset query: ${validation.errors.join('; ')}`);
+  const dialect = resolveDatasetSqlDialect(options.builderFactory);
   const { axis } = analyzeTimeMeasureAxis(ds, query);
   if (!axis || !ds.timeKey) throw new Error('Window measures require a bounded time axis.');
 
@@ -45,24 +46,24 @@ export function buildTimeMeasureDatasetSql(
   const baseNames = new Set([...needed].map(name => timeMeasures.get(name)?.measure ?? name));
 
   const source = buildTimeMeasureSourceSql(ds, query, baseNames, axis.filters, options);
-  const timeAxis = buildTimeMeasureAxisSql(source, axis, shifts);
+  const timeAxis = buildTimeMeasureAxisSql(dialect, source, axis, shifts);
   const shiftedInputs = new Map<string, ReturnType<typeof shiftBucketCtes>>();
   [...needed].forEach((name, index) => {
     const measure = timeMeasures.get(name);
-    if (isShiftMeasure(measure)) shiftedInputs.set(name, shiftBucketCtes(measure, axis, index));
+    if (isShiftMeasure(measure)) shiftedInputs.set(name, shiftBucketCtes(dialect, measure, axis, index));
   });
 
   // Scan only requested populations: intervening rows must not introduce dimensions.
-  const end = add('_hq_last', 1, axis.grain);
+  const end = dialect.addTime('_hq_last', 1, axis.grain);
   const populations: string[] = [];
   if ([...needed].some(name => name.includes('.') || getBaseMeasure(ds.measures, name))) {
     populations.push(`(_hq_time >= _hq_first AND _hq_time < ${end})`);
   }
   if (windows.length) {
     const starts = windows.filter(window => !window.cumulative)
-      .map(window => windowScanStartSql(window, axis.grain));
+      .map(window => windowScanStartSql(dialect, window, axis.grain));
     const lower = windows.some(window => window.cumulative)
-      ? '' : ` AND _hq_time >= least(${starts.join(', ')})`;
+      ? '' : ` AND _hq_time >= ${dialect.least(...starts)}`;
     populations.push(`(_hq_time < ${end}${lower})`);
   }
   for (const shifted of shiftedInputs.values()) populations.push(`(_hq_time IN (${shifted.sourceTimesSql}))`);
@@ -77,9 +78,9 @@ export function buildTimeMeasureDatasetSql(
       const shifted = shiftedInputs.get(name)!;
       return { name, base, rowsSql: shifted.rowsSql, restrictToAxis: false };
     }
-    return { name, base, window, rowsSql: windowMeasureRowsSql(window, axis) };
+    return { name, base, window, rowsSql: windowMeasureRowsSql(dialect, window, axis) };
   });
-  const values = buildTimeMeasureValuesSql(source.dimensions, inputs, axis);
+  const values = buildTimeMeasureValuesSql(dialect, source.dimensions, inputs, axis);
   const sql = buildTimeMeasureResultSql(
     ds, query, options, source.dimensions,
     [...source.ctes, ...timeAxis.ctes, ...[...shiftedInputs.values()].flatMap(input => input.ctes), scanCte, ...values],
