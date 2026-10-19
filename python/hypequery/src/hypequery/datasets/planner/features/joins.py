@@ -12,7 +12,7 @@ from ..identifiers import SafeIdentifier, safe_identifier, safe_qualified_identi
 from ..predicates import tenant_predicate
 from ..query_node import JoinNode
 from ..query_validation import resolve_tenant_scope
-from ..resolution import is_qualified, physical_column, resolve_qualified_field
+from ..resolution import physical_column, resolve_qualified_field
 from .base import CompilerFeature
 
 if TYPE_CHECKING:
@@ -24,16 +24,11 @@ _MATCH_MARKER = "_hq_match"
 class JoinFeature(CompilerFeature):
     """Adds each relationship's join once and remembers how to read a match."""
 
-    __slots__ = ("_joined", "_measure_relationships", "match_markers")
+    __slots__ = ("_joined", "match_markers")
 
     def __init__(self, compiler: DatasetQueryCompiler) -> None:
         super().__init__(compiler)
         self._joined: set[str] = set()
-        # A relationship whose target measures are selected joins through a
-        # projection carrying a match marker; see `_measure_join_source`.
-        self._measure_relationships = {
-            name.partition(".")[0] for name in compiler.query.measures or () if is_qualified(name)
-        }
         self.match_markers: dict[str, SafeIdentifier] = {}
 
     def joined_column(self, name: str) -> str:
@@ -43,7 +38,9 @@ class JoinFeature(CompilerFeature):
         resolved = resolve_qualified_field(compiler.dataset, name, registry=compiler.registry)
         alias = self.ensure(resolved.relationship_name, resolved.relationship, resolved.target)
         column = physical_column(resolved.target, resolved.dimension_name)
-        return f"{alias.sql}.{safe_identifier(column, what='column').sql}"
+        value = f"{alias.sql}.{safe_identifier(column, what='column').sql}"
+        marker = f"{alias.sql}.{self.match_markers[resolved.relationship_name].sql}"
+        return compiler.dialect.when(compiler.dialect.not_null(marker), value)
 
     def ensure(
         self, relationship_name: str, relationship: Relationship, target: Dataset
@@ -54,10 +51,7 @@ class JoinFeature(CompilerFeature):
         if relationship_name in self._joined:
             return alias
         self._joined.add(relationship_name)
-        if relationship_name in self._measure_relationships:
-            target_source = self._measure_join_source(relationship_name, target)
-        else:
-            target_source = safe_qualified_identifier(target.source, what="dataset source").sql
+        target_source = self._measure_join_source(relationship_name, target)
         # A composite key is an AND of equalities; a NULL component never matches.
         condition = " AND ".join(
             f"{BASE_ALIAS.sql}."
@@ -82,7 +76,8 @@ class JoinFeature(CompilerFeature):
 
         Without `join_use_nulls`, an unmatched LEFT JOIN row carries column
         defaults such as `0` and `''`, which `min` or `countDistinct` would
-        count. The marker is the one value that tells a match from a default,
+        count, and joined dimensions would expose those defaults as data. The
+        marker is the one value that tells a match from a default,
         and an explicit projection keeps it from colliding with a target column.
         """
 

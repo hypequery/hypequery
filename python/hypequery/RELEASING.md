@@ -48,6 +48,22 @@ pip install "hypequery[fastapi,clickhouse]==0.1.0.dev42001"
 pip install --upgrade "hypequery[fastapi,clickhouse]"
 ```
 
+## Integrated client qualification
+
+The reusable Python workflow includes the installed Python/React/MCP gate at its
+selected source SHA. It runs a deliberate Python 3.11/ClickHouse 25.8/React 18 and
+Python 3.14/ClickHouse 26.3/React 19 subset, including browser queries and MCP
+cancellation reaching the database. Tagged releases and rehearsals invoke this
+same graph; enabled canaries require its successful main-commit run. Node package
+stable/canary publishing also waits for this client gate.
+
+Retain the `python-clients-*` qualification reports, artifact checksums and
+failure diagnostics with the release evidence. See the
+[gate specification](../../testing/python-client-release-gate.md) for local runs,
+fault checks and remaining beta requirements. Development artifact checks do not
+replace exact published-version qualification. GitHub required-check settings
+must be configured separately; no test job receives publish credentials.
+
 ## One-time setup
 
 After merging the workflows into `main`:
