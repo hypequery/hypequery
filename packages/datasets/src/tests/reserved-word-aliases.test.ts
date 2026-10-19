@@ -21,6 +21,9 @@ const Events = dataset('events', {
     group: dimension.string({ column: 'group_name' }),
     order: dimension.string({ sql: 'upper(order_code)', dependencies: ['order_code'] }),
     value: dimension.number(),
+    limit: dimension.string({ column: 'limit_value' }),
+    offset: dimension.string({ column: 'offset_value' }),
+    having: dimension.string({ column: 'having_value' }),
   },
   measures: {
     rows: measure.count('value'),
@@ -61,5 +64,12 @@ describe('reserved-word names are quoted wherever the planner aliases them', () 
     expect(derived).toContain('SUM(value) AS `end`');
     expect(derived).toContain('SELECT `group`, (`end` / NULLIF(`rows`, 0)) AS `range` FROM base');
     expect(derived).toContain('ORDER BY `range` DESC');
+  });
+
+  it('derived metric grouped by clause keywords (limit, offset, having)', () => {
+    const sql = client.toSQL(Ratio as never, { dimensions: ['limit', 'offset', 'having'], limit: 10 } as never);
+    expect(sql).toContain('limit_value AS `limit`');
+    expect(sql).toMatch(/GROUP BY `limit`, `offset`, `having`/);
+    expect(sql).toContain('SELECT `limit`, `offset`, `having`, (`end`) / (NULLIF(`rows`, 0)) AS `range` FROM base');
   });
 });
