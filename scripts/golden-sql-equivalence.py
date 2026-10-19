@@ -3,14 +3,18 @@
 Use it to review an intentional golden diff: every statement whose text changed
 between BASE and HEAD runs in `clickhouse local` against the same generated
 tables (NULL times, a status containing a quote and a backslash, two tenants),
-and its result and column names must match. Statements whose text did not
-change are skipped.
+and its column names and rows must match. Rows compare as a multiset, since
+not every statement fully orders its result, and `clickhouse local` runs with
+one thread so a LIMIT over ties picks the same rows on both sides. Statements
+whose text did not change are skipped; added statements and files must run
+without error.
 
 Requires the `clickhouse` binary on PATH (`clickhouse local` needs no server).
 
     python3 scripts/golden-sql-equivalence.py . origin/main HEAD < /dev/null
 
-Exit status is 1 when any changed statement returns a different result.
+Exit status is 1 when any changed statement returns a different result, or
+when any changed or added statement fails to run.
 """
 import json, subprocess, sys, re
 
@@ -73,26 +77,49 @@ def statements(rev, name):
 
 def run(sql):
     try:
-        r = subprocess.run(['clickhouse', 'local', '--multiquery', '--query', SETUP + sql + ' FORMAT TSVWithNames'],
+        r = subprocess.run(['clickhouse', 'local', '--max_threads', '1', '--multiquery', '--query', SETUP + sql + ' FORMAT TSVWithNames'],
                            capture_output=True, text=True, stdin=subprocess.DEVNULL, timeout=120)
     except subprocess.TimeoutExpired:
         return (-1, 'timeout')
     return (r.returncode, r.stdout if r.returncode == 0 else re.sub(r'\(version.*', '', r.stderr.strip().splitlines()[-1] if r.stderr.strip() else ''))
 
+def comparable(result):
+    # Header first, then rows in a stable order.
+    lines = result.splitlines()
+    return lines[:1] + sorted(lines[1:])
+
+def row_count(result):
+    return max(len(result.splitlines()) - 1, 0)
+
 names = subprocess.check_output(['git', '-C', REPO, 'ls-tree', '--name-only', f'{HEAD}:{GOLDEN}']).decode().split()
-same = diff = 0
+same = diff = failed = added = 0
 for name in names:
     try: base = statements(BASE, name)
-    except subprocess.CalledProcessError: print('new file', name); continue
+    except subprocess.CalledProcessError: base = []
     head = statements(HEAD, name)
-    for (label, bsql, bp), (_, hsql, hp) in zip(base, head):
+    for index, (label, hsql, hp) in enumerate(head):
+        if index >= len(base):
+            h = run(substitute(hsql, hp))
+            if h[0] == 0:
+                added += 1
+                print(f'ADDED   {name} [{label}] rows={row_count(h[1])}')
+            else:
+                failed += 1
+                print(f'FAILED  {name} [{label}] (added)\n   head: {h[1][:300]!r}')
+            continue
+        _, bsql, bp = base[index]
         if bsql == hsql and bp == hp: same += 1; continue
         b, h = run(substitute(bsql, bp)), run(substitute(hsql, hp))
-        if b == h:
+        if b[0] != 0 or h[0] != 0:
+            failed += 1
+            print(f'FAILED  {name} [{label}]\n   base: {b[1][:300]!r}\n   head: {h[1][:300]!r}')
+        elif comparable(b[1]) == comparable(h[1]):
             same += 1
-            print(f'EQUAL   {name} [{label}] rows={b[1].count(chr(10)) - 1 if b[0] == 0 else "error: " + b[1][:80]}')
+            print(f'EQUAL   {name} [{label}] rows={row_count(b[1])}')
         else:
             diff += 1
             print(f'DIFFER  {name} [{label}]\n   base: {b[1][:300]!r}\n   head: {h[1][:300]!r}')
-print(f'\n{same} statements equivalent, {diff} differ')
-sys.exit(1 if diff else 0)
+    for label, _, _ in base[len(head):]:
+        print(f'REMOVED {name} [{label}]')
+print(f'\n{same} statements equivalent, {added} added, {diff} differ, {failed} failed to run')
+sys.exit(1 if diff or failed else 0)
