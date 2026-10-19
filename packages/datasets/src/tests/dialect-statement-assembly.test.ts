@@ -58,6 +58,25 @@ describe('dialect ordering and pagination', () => {
     expect(partial.orderTerm).toBe(clickhouseDatasetSqlDialect.orderTerm);
   });
 
+  it('keeps prototype methods of a class-based rule set', () => {
+    class ClassRules {
+      readonly name = 'class-rules';
+      readonly reusesPlaceholders = clickhouseDatasetSqlDialect.reusesPlaceholders;
+      readonly embedsPositionalPieces = clickhouseDatasetSqlDialect.embedsPositionalPieces;
+      orderTerm(expression: string, direction?: 'ASC' | 'DESC') { return strictRules.orderTerm(expression, direction); }
+      paginate(limit: number | undefined, offset: number | undefined) { return strictRules.paginate(limit, offset); }
+    }
+    Object.setPrototypeOf(ClassRules.prototype, clickhouseDatasetSqlDialect);
+    const instance = new ClassRules();
+    const registered = defineDatasetSqlDialectRules(instance as unknown as typeof strictRules);
+    expect(Object.isFrozen(registered)).toBe(true);
+    expect(Object.isFrozen(instance)).toBe(false);
+    expect(completeDatasetSqlDialect(registered)).toBe(registered);
+    const classClient = createDatasetClient({ queryBuilder: { ...createRenderingBuilderFactory(), datasetSqlDialect: registered } });
+    expect(classClient.toSQL(Orders, { dimensions: ['status'], measures: ['aov'], orderBy: [{ field: 'aov', direction: 'desc' }], offset: 20 }))
+      .toMatch(/ORDER BY `aov` DESC NULLS LAST LIMIT 9223372036854775807 OFFSET 20$/);
+  });
+
   it('derived dataset statements', () => {
     const sql = client.toSQL(Orders, { dimensions: ['status'], measures: ['aov'], orderBy: [{ field: 'aov', direction: 'desc' }], offset: 20 });
     expect(sql).toMatch(/ORDER BY `aov` DESC NULLS LAST LIMIT 9223372036854775807 OFFSET 20$/);
