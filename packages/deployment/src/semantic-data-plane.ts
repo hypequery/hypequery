@@ -369,6 +369,13 @@ export function createDeploymentSemanticDataPlane(
     throwIfAborted(request.signal);
 
     const selected = withVisibleDefaultMeasures(operation, dataset, visible);
+    const maxMeasures = tighten(dataset.limits?.maxMeasures, configured.maxMeasures);
+    if (selected !== operation && selected.kind === 'dataset' && (selected.measures?.length ?? 0) > maxMeasures) {
+      // The caller asked for the default selection; it narrowed to more
+      // measures than one query may select, so the caller has to choose.
+      fail('input-invalid', 'HQ_SEMANTIC_INPUT_INVALID',
+        `Select at most ${maxMeasures} measures explicitly.`, { path: '$.operation.measures' });
+    }
     let output: unknown;
     try {
       output = await options.execute({

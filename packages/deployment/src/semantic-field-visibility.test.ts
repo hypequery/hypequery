@@ -153,6 +153,38 @@ describe('field visibility in the data plane', () => {
     expect(execute.mock.calls[0][0].operation).toMatchObject({ measures: ['shipments'] });
   });
 
+  it('keeps the default selection when the policy hides no base measure', async () => {
+    const { plane: dataPlane, execute } = plane({
+      deployment: withLimits({ maxMeasures: 1 }) as never,
+      resolveFieldVisibility: async () => ({
+        ...POLICY, datasets: { ...POLICY.datasets, shipments: { dimensions: '*', measures: '*' } },
+      }),
+    });
+    expect(await refusal(dataPlane, { dataset: 'shipments', dimensions: ['carrier'] })).toBeNull();
+    expect(execute.mock.calls[0][0].operation).not.toHaveProperty('measures');
+  });
+
+  it('asks the caller to choose when the visible defaults exceed the measure ceiling', async () => {
+    const base = withLimits({ maxMeasures: 1 });
+    const deployment = {
+      ...base,
+      datasets: base.datasets.map(dataset => (dataset.name === 'shipments'
+        ? { ...dataset, measures: [...dataset.measures, { name: 'stops', aggregation: 'count', field: 'region', filters: [] }] }
+        : dataset)),
+    };
+    const { plane: dataPlane, execute } = plane({
+      deployment: deployment as never,
+      resolveFieldVisibility: async () => ({
+        ...POLICY,
+        datasets: { ...POLICY.datasets, shipments: { ...POLICY.datasets.shipments, measures: ['shipments', 'stops'] } },
+      }),
+    });
+    expect(await refusal(dataPlane, { dataset: 'shipments', dimensions: ['carrier'] })).toMatchObject({
+      category: 'input-invalid', message: 'Select at most 1 measures explicitly.',
+    });
+    expect(execute).not.toHaveBeenCalled();
+  });
+
   it('leaves an omitted measure list alone without a policy', async () => {
     const { plane: dataPlane, execute } = plane({ resolveFieldVisibility: async () => undefined });
     expect(await refusal(dataPlane, { dataset: 'shipments', dimensions: ['carrier'] })).toBeNull();

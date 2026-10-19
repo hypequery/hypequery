@@ -12,9 +12,10 @@ function isBaseMeasure(measure: object): boolean {
 
 /**
  * A dataset operation that omits `measures` asks the executor for every base
- * measure of the full contract, hidden ones included. Under a visibility
- * policy, spell out the visible base measures instead, so the selection the
- * executor runs is the one the visibility check saw.
+ * measure of the full contract. When the visibility policy hides any of them,
+ * spell out the visible base measures instead, so the selection the executor
+ * runs is one the visibility check allows. When none is hidden the operation
+ * is returned unchanged and keeps the executor's default selection.
  */
 export function withVisibleDefaultMeasures(
   operation: ProtocolSemanticQuery,
@@ -22,8 +23,8 @@ export function withVisibleDefaultMeasures(
   visible: ProtocolVisibleDatasetFields | undefined,
 ): ProtocolSemanticQuery {
   if (visible === undefined || operation.kind !== 'dataset' || operation.measures !== undefined) return operation;
-  const measures = dataset.measures
-    .filter(measure => isBaseMeasure(measure) && visible.measures.has(String(measure.name)))
-    .map(measure => joinProtocolQualifiedIdentifier([measure.name]));
-  return Object.freeze({ ...operation, measures });
+  const base = dataset.measures.filter(isBaseMeasure);
+  const shown = base.filter(measure => visible.measures.has(String(measure.name)));
+  if (shown.length === base.length) return operation;
+  return Object.freeze({ ...operation, measures: shown.map(measure => joinProtocolQualifiedIdentifier([measure.name])) });
 }
