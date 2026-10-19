@@ -31,7 +31,7 @@ separate concurrency fix is required for this journey. With that fix, the live
 Python journeys, browser steps and installed MCP check pass. The browser bundle
 has no backend package/Python inputs.
 
-This is development-artifact evidence. Supported ClickHouse 25.8/26.3 run in the
-Python CI matrix. A required candidate-SHA combined browser/MCP gate, combined
-MCP→Python→database cancellation, React peer compatibility and exact published
-package versions remain release gates.
+This is development-artifact evidence. The reusable installed client gate covers
+ClickHouse 25.8/26.3, React 18/19, actual MCP→Python→database cancellation, and
+related/HAVING/timezone queries against independent SQL. Exact published versions,
+full HTTP error/refresh coverage and publisher qualification remain beta gates.
