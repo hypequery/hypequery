@@ -10,19 +10,12 @@ statement to an executor, and returns rows keyed by column name.
 
 <CodeBlock>
 ```python
-import os
-
 from hypequery.datasets import create_dataset_client
 from hypequery.execution import ClickHouseConnection, create_clickhouse_executor
 
-executor = create_clickhouse_executor(
-    ClickHouseConnection(
-        host=os.environ["CLICKHOUSE_HOST"],
-        username=os.environ["CLICKHOUSE_USER"],
-        password=os.environ["CLICKHOUSE_PASSWORD"],
-        database=os.environ["CLICKHOUSE_DATABASE"],
-    )
-)
+# Reads CLICKHOUSE_HOST, _PORT, _DATABASE, _USERNAME, _PASSWORD and _SECURE,
+# or pass host=..., username=..., password=..., database=... explicitly.
+executor = create_clickhouse_executor(ClickHouseConnection.from_env())
 analytics = create_dataset_client(executor=executor)
 ```
 </CodeBlock>
@@ -46,9 +39,11 @@ as a request body, which is validated strictly with unknown keys rejected.
 
 <CodeBlock>
 ```python
+from hypequery.datasets import DatasetQuery, filter, order
+
 validation = analytics.validate(
     orders,
-    DatasetQuery(dimensions=("country",), filters=(eq("status", "completed"),)),
+    DatasetQuery(dimensions=("country",), filters=(filter.eq("status", "completed"),)),
 )
 
 if not validation.valid:
@@ -65,8 +60,8 @@ sql = analytics.to_sql(
     DatasetQuery(
         dimensions=("country",),
         measures=("revenue",),
-        filters=(eq("status", "completed"),),
-        order_by=(desc("revenue"),),
+        filters=(filter.eq("status", "completed"),),
+        order_by=(order.desc("revenue"),),
         limit=10,
     ),
 )

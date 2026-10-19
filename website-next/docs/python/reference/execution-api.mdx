@@ -17,7 +17,8 @@ Importing `hypequery.execution` does not import the driver or open a connection.
 | `create_clickhouse_executor(connection)` | A `ClickHouseExecutor`. Connects on demand |
 | `create_async_clickhouse_executor(connection)` | An `AsyncClickHouseExecutor`. Connects on demand |
 | `AsyncFromSyncClickHouseExecutor(client, control_client, *, max_concurrent=4)` | A bounded worker bridge for apps that already have a synchronous driver client |
-| `ClickHouseConnection` | The connection protocol the executors accept |
+| `ClickHouseConnection(host="localhost", port=None, database="default", username="default", password="", secure=False, readonly_policy="query")` | Connection fields; the password never appears in its `repr` |
+| `ClickHouseConnection.from_env(environ=None, *, readonly_policy="query")` | Read `CLICKHOUSE_HOST`, `_PORT`, `_DATABASE`, `_USERNAME`, `_PASSWORD` and `_SECURE` |
 
 Pass the executor to `create_dataset_client(executor=...)` or `create_async_dataset_client(executor=...)`.
 

@@ -17,30 +17,20 @@ Then define a dataset, create a client, and query it:
 
 <CodeBlock>
 ```python
-import os
-
 from hypequery.datasets import (
     Dataset,
     DatasetQuery,
     ExecutionContext,
-    count,
     create_dataset_client,
     dimension,
-    eq,
+    filter,
     measure,
-    sum as sum_,
     tenant,
 )
 from hypequery.execution import ClickHouseConnection, create_clickhouse_executor
 
-executor = create_clickhouse_executor(
-    ClickHouseConnection(
-        host=os.environ["CLICKHOUSE_HOST"],
-        username=os.environ["CLICKHOUSE_USER"],
-        password=os.environ["CLICKHOUSE_PASSWORD"],
-        database=os.environ["CLICKHOUSE_DATABASE"],
-    )
-)
+# Reads CLICKHOUSE_HOST, _PORT, _DATABASE, _USERNAME, _PASSWORD and _SECURE.
+executor = create_clickhouse_executor(ClickHouseConnection.from_env())
 analytics = create_dataset_client(executor=executor)
 
 orders = Dataset(
@@ -56,8 +46,8 @@ orders = Dataset(
         "created_at": dimension("timestamp"),
     },
     measures={
-        "revenue": measure(sum_("amount")),
-        "order_count": measure(count("id")),
+        "revenue": measure.sum("amount"),
+        "order_count": measure.count("id"),
     },
 )
 
@@ -66,7 +56,7 @@ by_country = analytics.execute(
     DatasetQuery(
         dimensions=("country",),
         measures=("revenue", "order_count"),
-        filters=(eq("status", "completed"),),
+        filters=(filter.eq("status", "completed"),),
         limit=10,
     ),
     context=ExecutionContext(tenant=tenant("org_123")),
@@ -81,10 +71,13 @@ The query selects semantic names (`country`, `revenue`) and hypequery generates 
 the dataset declares a `tenant_key`, every query must run with a tenant in its `ExecutionContext`, and hypequery adds
 the tenant predicate for you.
 
-Import `sum`, `min`, and `max` under aliases so they do not shadow the Python built-ins.
+Aggregations live on the `measure` namespace (`measure.sum`, `measure.count`, ...) and filter helpers on `filter`
+(`filter.eq`, `filter.between`, ...), so nothing shadows a Python built-in. `ClickHouseConnection.from_env()` reads the
+`CLICKHOUSE_*` environment variables; pass `host`, `username`, `password` and `database` explicitly instead if you prefer.
 
 ## Next steps
 
+- [Python CLI](/docs/python/cli): scaffold a project from your live schema with `hypequery init`
 - [Datasets overview](/docs/python/datasets/overview)
 - [Measures](/docs/python/datasets/measures)
 - [Multi-tenancy](/docs/python/datasets/multi-tenancy)

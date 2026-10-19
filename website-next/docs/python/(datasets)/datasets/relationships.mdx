@@ -24,7 +24,6 @@ from hypequery.datasets import (
     dimension,
     has_many,
     measure,
-    sum as sum_,
 )
 
 customers = Dataset(
@@ -51,7 +50,7 @@ orders = Dataset(
         "status": dimension("string"),
         "amount": dimension("number"),
     },
-    measures={"revenue": measure(sum_("amount"))},
+    measures={"revenue": measure.sum("amount")},
     relationships={
         "customer": belongs_to(customers, from_field="customer_id", to_field="id"),
         "items": has_many(line_items, from_field="id", to_field="order_id"),
@@ -76,18 +75,25 @@ Reference to-one related dimensions as `<relationship>.<dimension>` in dimension
 
 <CodeBlock>
 ```python
-from hypequery.datasets import DatasetQuery, asc, eq
+from hypequery.datasets import DatasetQuery, filter, order
 
 result = analytics.execute(
     "orders",
     DatasetQuery(
         dimensions=("customer.country",),
         measures=("revenue",),
-        filters=(eq("customer.tier", "enterprise"),),
-        order_by=(asc("customer.country"),),
+        filters=(filter.eq("customer.tier", "enterprise"),),
+        order_by=(order.asc("customer.country"),),
     ),
 )
 ```
 </CodeBlock>
 
 A target can be a `Dataset` or the name of a registered dataset.
+
+## Checking join keys
+
+`check_relationships(dataset, *, executor, registry, context=None, relationships=None)` runs scoped uniqueness checks
+on the physical target keys of each to-one relationship and reports duplicates, so a `belongs_to` that would fan out
+rows is caught before it reaches a dashboard. `check_relationships_async` is the async form. Both respect the tenant
+scope, deadline, and cancellation in `context`, and neither runs unless you call it.

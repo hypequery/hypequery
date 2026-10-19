@@ -12,6 +12,8 @@ tenant in its execution context, and hypequery adds the tenant predicate for you
 
 <CodeBlock>
 ```python
+from hypequery.datasets import Dataset, dimension, measure
+
 orders = Dataset(
     name="orders",
     source="orders",
@@ -21,7 +23,7 @@ orders = Dataset(
         "status": dimension("string"),
         "country": dimension("string"),
     },
-    measures={"revenue": measure(sum_("amount"))},
+    measures={"revenue": measure.sum("amount")},
 )
 ```
 </CodeBlock>

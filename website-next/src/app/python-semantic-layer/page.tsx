@@ -23,15 +23,7 @@ export const metadata: Metadata = {
   },
 };
 
-const modelCode = `from hypequery.datasets import (
-    Dataset,
-    belongs_to,
-    count_distinct,
-    dimension,
-    eq,
-    measure,
-    sum as sum_,
-)
+const modelCode = `from hypequery.datasets import Dataset, belongs_to, dimension, filter, measure
 
 customers = Dataset(
     name="customers",
@@ -45,9 +37,9 @@ orders = Dataset(
     tenant_key="tenant_id",
     dimensions={"country": dimension("string"), "status": dimension("string")},
     measures={
-        "revenue": measure(sum_("amount"), label="Revenue"),
-        "us_revenue": measure(sum_("amount"), filters=(eq("country", "US"),)),
-        "buyers": measure(count_distinct("customer_id")),
+        "revenue": measure.sum("amount", label="Revenue"),
+        "us_revenue": measure.sum("amount", filters=(filter.eq("country", "US"),)),
+        "buyers": measure.count_distinct("customer_id"),
     },
     relationships={
         "customer": belongs_to(customers, from_field="customer_id", to_field="id"),

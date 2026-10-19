@@ -9,7 +9,7 @@ A dataset is a semantic model over a source table or view.
 
 <CodeBlock>
 ```python
-from hypequery.datasets import Dataset, dimension, measure, sum as sum_
+from hypequery.datasets import Dataset, dimension, measure
 
 orders = Dataset(
     name="orders",
@@ -21,7 +21,7 @@ orders = Dataset(
         "created_at": dimension("timestamp"),
     },
     measures={
-        "revenue": measure(sum_("amount")),
+        "revenue": measure.sum("amount"),
     },
 )
 ```
@@ -31,7 +31,8 @@ orders = Dataset(
 columns used for runtime tenant isolation and time grains.
 
 Datasets are immutable Pydantic models, validated when you create them. Define them at module level and import them
-where you query.
+where you query. The `dataset(name, *, source=..., dimensions=..., ...)` helper builds the same model with the
+keyword spelling the TypeScript `dataset()` entrypoint uses.
 
 ## Fields
 

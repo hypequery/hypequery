@@ -34,8 +34,8 @@ CORS is off unless `cors` is set.
 
 - Origins must be exact `scheme://host[:port]` values.
 - Credentialed CORS with a wildcard origin is refused when the policy is built, as are wildcard methods or headers.
-- Defaults: methods `GET` and `POST`; headers `Authorization`, `Content-Type`, and `X-Request-ID`; `max_age` 600
-  seconds.
+- Defaults: methods `GET` and `POST`; headers `Authorization`, `Content-Type`, `X-Request-ID`, `X-Include-Meta`, and
+  `X-Hypequery-Client-Schema`; `max_age` 600 seconds.
 
 ## Trusted proxies
 

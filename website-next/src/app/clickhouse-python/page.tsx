@@ -23,7 +23,7 @@ export const metadata: Metadata = {
   },
 };
 
-const datasetCode = `from hypequery.datasets import Dataset, count, dimension, measure, sum as sum_
+const datasetCode = `from hypequery.datasets import Dataset, dimension, measure
 
 orders = Dataset(
     name="orders",
@@ -36,12 +36,12 @@ orders = Dataset(
         "created_at": dimension("timestamp"),
     },
     measures={
-        "revenue": measure(sum_("amount")),
-        "order_count": measure(count("id")),
+        "revenue": measure.sum("amount"),
+        "order_count": measure.count("id"),
     },
 )`;
 
-const queryCode = `from hypequery.datasets import DatasetQuery, ExecutionContext, create_dataset_client, eq, tenant
+const queryCode = `from hypequery.datasets import DatasetQuery, ExecutionContext, create_dataset_client, filter, tenant
 from hypequery.execution import ClickHouseConnection, create_clickhouse_executor
 
 executor = create_clickhouse_executor(
@@ -54,7 +54,7 @@ result = analytics.execute(
     DatasetQuery(
         dimensions=("country",),
         measures=("revenue", "order_count"),
-        filters=(eq("status", "completed"),),
+        filters=(filter.eq("status", "completed"),),
         by="month",
     ),
     context=ExecutionContext(tenant=tenant("org_123")),
