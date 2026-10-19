@@ -11,7 +11,11 @@ const complete = new WeakSet<DatasetSqlDialect>();
  * ClickHouse rules. Internal: for engine packages and tests.
  */
 export function defineDatasetSqlDialectRules<TRules extends DatasetSqlDialectRules>(rules: TRules): Readonly<TRules> {
-  const frozen = Object.isFrozen(rules) ? rules : Object.freeze({ ...rules });
+  // Copy onto the same prototype rather than spreading: a class-based rule set
+  // keeps its methods there, and the caller's object is left unfrozen.
+  const frozen = Object.isFrozen(rules)
+    ? rules
+    : Object.freeze(Object.create(Object.getPrototypeOf(rules), Object.getOwnPropertyDescriptors(rules)) as TRules);
   complete.add(frozen);
   return frozen;
 }
