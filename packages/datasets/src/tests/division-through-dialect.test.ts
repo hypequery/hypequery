@@ -67,7 +67,7 @@ const datasetPaths: Record<string, DatasetQuery> = {
 
 function expectNoBareDivision(sql: string) {
   expect(sql).toContain('HQ_DIVIDE(');
-  expect(sql).not.toMatch(/\s\/\s/);
+  expect(sql).not.toContain('/');
 }
 
 describe('every planner division goes through the dialect', () => {
