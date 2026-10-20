@@ -10,7 +10,7 @@ import {
   resolveFilterField,
   resolveTenantFilterColumn,
 } from '../query-planner.js';
-import { queryTimeFilterSql } from './query-timezone.js';
+import { queryTimeFilter } from './query-timezone.js';
 import { isTenantScopedFilter } from './metric-handle.js';
 import { getRuntimeTenantPredicate } from './tenant-runtime.js';
 import {
@@ -84,12 +84,14 @@ export function buildDerivedMetricSql(
       );
     }
     const resolvedField = resolveFilterField(ds, filter.field, joinCtx);
-    cteBuilder = cteBuilder.where(queryTimeFilterSql(dialect, ds, filter.field, resolvedField, query.timezone), filter.operator, filter.value);
+    const predicate = queryTimeFilter(dialect, ds, filter, resolvedField, query.timezone);
+    cteBuilder = cteBuilder.where(predicate.expression, filter.operator, predicate.value);
   }
   for (const filter of segmentFilters(ds, query.segments)) {
-    cteBuilder = cteBuilder.where(
-      resolveDimensionExpression(ds, filter.field, joinCtx), filter.operator, filter.value,
+    const predicate = queryTimeFilter(
+      dialect, ds, filter, resolveDimensionExpression(ds, filter.field, joinCtx), query.timezone, { timeKeyInQueryZone: false },
     );
+    cteBuilder = cteBuilder.where(predicate.expression, filter.operator, predicate.value);
   }
 
   const { sql: cteSql, parameters: cteParams } = cteBuilder.toSQLWithParams();

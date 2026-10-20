@@ -2,7 +2,7 @@ import { relationshipMeasureExpressions } from './relationship-measure-sql.js';
 import { measureToAggregationSpec } from './dataset-normalization.js';
 import { applyAggregationSpec } from '../query-planner.js';
 import { resolveDatasetSqlDialect } from './dataset-sql-dialect.js';
-import { queryTimeFilterSql } from './query-timezone.js';
+import { queryTimeFilter } from './query-timezone.js';
 import { selectedTimeMeasures } from './time-query-measures.js';
 import { baseMeasureNames, getBaseMeasure } from './dataset-measures.js';
 import type {
@@ -84,12 +84,16 @@ export function buildDatasetQueryBuilder(
 
   for (const filter of query.filters ?? []) {
     const resolvedField = resolveFilterField(ds, filter.field, joinCtx);
-    qb = qb.where(queryTimeFilterSql(dialect, ds, filter.field, resolvedField, query.timezone), filter.operator, filter.value);
+    const predicate = queryTimeFilter(dialect, ds, filter, resolvedField, query.timezone);
+    qb = qb.where(predicate.expression, filter.operator, predicate.value);
   }
 
   // Segments are author-defined, so they bypass the caller filter allow-list.
   for (const filter of segmentFilters(ds, query.segments)) {
-    qb = qb.where(resolveDimensionExpression(ds, filter.field, joinCtx), filter.operator, filter.value);
+    const predicate = queryTimeFilter(
+      dialect, ds, filter, resolveDimensionExpression(ds, filter.field, joinCtx), query.timezone, { timeKeyInQueryZone: false },
+    );
+    qb = qb.where(predicate.expression, filter.operator, predicate.value);
   }
 
   return appendOrderLimitOffset(

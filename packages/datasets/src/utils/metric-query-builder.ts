@@ -11,7 +11,7 @@ import {
   resolveFilterField,
   resolveTenantFilterColumn,
 } from '../query-planner.js';
-import { queryTimeFilterSql } from './query-timezone.js';
+import { queryTimeFilter } from './query-timezone.js';
 import { isTenantScopedFilter } from './metric-handle.js';
 import { getRuntimeTenantPredicate } from './tenant-runtime.js';
 import {
@@ -73,13 +73,17 @@ export function buildMetricQueryBuilder(
       );
     }
     const resolvedField = resolveFilterField(ds, filter.field, joinCtx);
-    qb = qb.where(queryTimeFilterSql(dialect, ds, filter.field, resolvedField, query.timezone), filter.operator, filter.value);
+    const predicate = queryTimeFilter(dialect, ds, filter, resolvedField, query.timezone);
+    qb = qb.where(predicate.expression, filter.operator, predicate.value);
   }
 
   // Segments: author-defined, so they resolve dimensions directly rather
   // than through the caller-facing filter allow-list.
   for (const filter of segmentFilters(ds, query.segments)) {
-    qb = qb.where(resolveDimensionExpression(ds, filter.field, joinCtx), filter.operator, filter.value);
+    const predicate = queryTimeFilter(
+      dialect, ds, filter, resolveDimensionExpression(ds, filter.field, joinCtx), query.timezone, { timeKeyInQueryZone: false },
+    );
+    qb = qb.where(predicate.expression, filter.operator, predicate.value);
   }
 
   // Order, limit, offset
