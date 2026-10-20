@@ -34,8 +34,11 @@ class QueryRows:
 def _scalar(value: object, query_id: str) -> JsonScalar:
     if value is None or type(value) in (str, bool, int):
         return cast(JsonScalar, value)
-    if type(value) is float and math.isfinite(value):
-        return value
+    if type(value) is float:
+        # ClickHouse yields nan from avg/stddev/var over no rows and inf from a
+        # division by zero. Its JSON output formats write both as null, which
+        # is what TypeScript consumers already receive, so Python does the same.
+        return value if math.isfinite(value) else None
     if type(value) is Decimal and value.is_finite():
         return str(value)
     if type(value) is UUID:

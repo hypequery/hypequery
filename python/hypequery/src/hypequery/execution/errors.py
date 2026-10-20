@@ -4,6 +4,20 @@ from __future__ import annotations
 
 from hypequery.datasets.planner import CompiledQueryError
 
+#: ClickHouse reports a bad password or user under several codes: 516
+#: AUTHENTICATION_FAILED, 192 UNKNOWN_USER, 193 WRONG_PASSWORD, 194
+#: REQUIRED_PASSWORD and 195 IP_ADDRESS_NOT_ALLOWED. All of them mean the
+#: configured credentials were refused, which is what a caller needs to know.
+_AUTHENTICATION = frozenset(
+    (
+        "AUTHENTICATION_FAILED",
+        "UNKNOWN_USER",
+        "WRONG_PASSWORD",
+        "REQUIRED_PASSWORD",
+        "IP_ADDRESS_NOT_ALLOWED",
+    )
+)
+
 
 def safe_driver_error(exc: Exception, query_id: str) -> CompiledQueryError:
     from clickhouse_connect.driver.exceptions import (
@@ -12,13 +26,17 @@ def safe_driver_error(exc: Exception, query_id: str) -> CompiledQueryError:
     )
 
     if isinstance(exc, Error):
-        if exc.name == "AUTHENTICATION_FAILED":
+        if exc.name in _AUTHENTICATION:
             return CompiledQueryError(
                 "unauthenticated", "ClickHouse authentication failed.", query_id=query_id
             )
         if exc.name in ("ACCESS_DENIED", "NOT_ENOUGH_PRIVILEGES"):
             return CompiledQueryError(
                 "forbidden", "ClickHouse access was denied.", query_id=query_id
+            )
+        if exc.name == "UNKNOWN_DATABASE":
+            return CompiledQueryError(
+                "not-found", "The ClickHouse database does not exist.", query_id=query_id
             )
         if exc.name in ("TIMEOUT_EXCEEDED", "QUERY_WAS_CANCELLED"):
             return CompiledQueryError(

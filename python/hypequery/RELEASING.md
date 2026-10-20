@@ -34,8 +34,9 @@ summary; `--pre` alone does not guarantee selection of a canary. Keep the
 committed version aimed at the next beta or stable release as development moves
 forward. Once a stable SDK exists, normal pip upgrades exclude prereleases;
 before that, pip may select a prerelease when no stable version satisfies the
-requirement. An existing stable placeholder may continue to be selected until
-users explicitly request the SDK beta.
+requirement. The `0.0.1.dev0` placeholder already on PyPI is itself a
+development release, so `pip install hypequery` resolves to the newest
+prerelease once the beta is published and never prefers the placeholder.
 
 ```bash
 # Beta: select the tested release, including the CLI and integration extras.

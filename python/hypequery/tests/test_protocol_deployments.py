@@ -113,6 +113,16 @@ def test_shared_identity_fixtures_pin_canonical_bytes_and_hash() -> None:
         assert prepared.identity == fixture["sha256"], fixture["id"]
 
 
+def test_text_with_an_unpaired_surrogate_canonicalizes_like_json_stringify() -> None:
+    """TypeScript accepts a lone surrogate in a description and JSON.stringify escapes it."""
+
+    prepared = prepare_protocol_deployment_contract(
+        _contract(_dataset(description="ok \ud800 lone"))
+    )
+
+    assert '"description":"ok \\ud800 lone"' in prepared.canonical
+
+
 def test_identity_is_domain_separated_from_the_bare_contract() -> None:
     """A deployment hash must not collide with a plain hash of the same bytes."""
 

@@ -24,7 +24,7 @@
  *     orderCount: measure.count("id"),
  *   },
  *   relationships: {
- *     customer: belongsTo(() => Customers, { from: "customerId", to: "id" }),
+ *     customer: belongsTo(() => Customers, { from: "customer_id", to: "id" }),
  *   },
  * });
  * ```
