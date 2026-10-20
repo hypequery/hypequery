@@ -1,6 +1,7 @@
 import { SEMANTIC_HAVING_OPERATORS } from '../constants.js';
 import type { AnyDatasetInstance, DatasetHavingCondition, DatasetQuery } from '../types.js';
 import { selectedTimeMeasures } from './time-query-measures.js';
+import type { StatementParameters } from './statement-parameters.js';
 
 const HAVING_OPERATORS: ReadonlySet<string> = new Set(SEMANTIC_HAVING_OPERATORS);
 
@@ -90,32 +91,30 @@ export function datasetHavingErrors(
 }
 
 /**
- * Renders validated `having` conditions as one parameterized predicate.
+ * Renders validated `having` conditions as one predicate.
  *
  * `measureSql` maps a selected measure to the expression that reads its
- * aggregated value in the outer query. Values are only ever bound as `?`
- * parameters, appended in placeholder order.
+ * aggregated value in the outer query. Values are only ever bound through
+ * `statement`, never written into the SQL text.
  */
 export function datasetHavingSql(
   conditions: readonly DatasetHavingCondition[],
   measureSql: (measure: string) => string,
-): { sql: string; parameters: unknown[] } {
-  const parameters: unknown[] = [];
+  statement: StatementParameters,
+): string {
+  const bind = (value: unknown) => statement.bind(value, 'number');
   const predicates = conditions.map((condition) => {
     const column = measureSql(condition.measure);
     if (condition.operator === 'between') {
-      parameters.push(condition.value[0], condition.value[1]);
-      return `${column} BETWEEN ? AND ?`;
+      return `${column} BETWEEN ${bind(condition.value[0])} AND ${bind(condition.value[1])}`;
     }
     if (condition.operator === 'in' || condition.operator === 'notIn') {
-      parameters.push(...condition.value);
-      const placeholders = condition.value.map(() => '?').join(', ');
+      const placeholders = condition.value.map(bind).join(', ');
       return `${column} ${condition.operator === 'in' ? 'IN' : 'NOT IN'} (${placeholders})`;
     }
     const comparison = COMPARISONS[condition.operator];
     if (!comparison) throw new Error(`Unsupported having operator "${String(condition.operator)}".`);
-    parameters.push(condition.value);
-    return `${column} ${comparison} ?`;
+    return `${column} ${comparison} ${bind(condition.value)}`;
   });
-  return { sql: predicates.join(' AND '), parameters };
+  return predicates.join(' AND ');
 }

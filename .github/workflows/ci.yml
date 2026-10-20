@@ -3,8 +3,11 @@ name: CI Build and Release
 on:
   push:
     branches: [ main ]
+  # Every PR, including ones stacked on another PR's branch: a stacked PR's
+  # base is not main, and filtering on main left those PRs without tests.
+  # Publishing jobs stay gated on a push to main.
   pull_request:
-    branches: [ main, "codex/**" ]
+    branches: [ "**" ]
 
 jobs:
   # HQ-61: a high or critical advisory in a production dependency of the

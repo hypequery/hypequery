@@ -11,6 +11,7 @@ import { getBaseMeasure } from './dataset-measures.js';
 import { measureToAggregationSpec } from './dataset-normalization.js';
 import { applyFilteredAggregationExpression } from './filtered-aggregation-sql.js';
 import { assertNoRawSqlUnderJoins } from './sql-under-joins.js';
+import type { StatementParameters } from './statement-parameters.js';
 
 export interface TimeMeasureSqlDimension {
   name: string;
@@ -26,7 +27,6 @@ export interface TimeMeasureSqlBase {
 
 export interface TimeMeasureSqlSource {
   ctes: string[];
-  parameters: unknown[];
   dimensions: TimeMeasureSqlDimension[];
   bases: TimeMeasureSqlBase[];
   rowAlias: string;
@@ -39,9 +39,11 @@ export function buildTimeMeasureSourceSql(
   baseNames: Iterable<string>,
   filters: readonly MetricFilter[],
   options: DatasetQueryExecutionOptions,
+  statement: StatementParameters,
 ): TimeMeasureSqlSource {
+  const { dialect } = statement;
   const bases: TimeMeasureSqlBase[] = [];
-  const joinCtx = buildRelationshipBuilderContext(ds, query, options.context);
+  const joinCtx = buildRelationshipBuilderContext(ds, query, options.context, dialect);
   // Keep source expressions in their own SELECT scope: internal aliases cannot
   // capture authored SQL identifiers, even if a physical column shares a name.
   let raw = applyRelationshipJoins(options.builderFactory.table(ds.source), joinCtx);
@@ -57,9 +59,9 @@ export function buildTimeMeasureSourceSql(
     const value = `_hq_v${bases.length}`;
     const arg = `_hq_a${bases.length}`;
     bases.push({ name, definition, value, arg });
-    const expressions = related ? relationshipMeasureExpressions(ds, name, joinCtx!) : undefined;
+    const expressions = related ? relationshipMeasureExpressions(ds, name, joinCtx!, dialect) : undefined;
     const expression = expressions?.field ?? spec.sql ?? resolveDimensionExpression(ds, spec.field, joinCtx);
-    sourceParts.push(expressions ? expression : applyFilteredAggregationExpression(ds, spec, expression, joinCtx));
+    sourceParts.push(expressions ? expression : applyFilteredAggregationExpression(ds, spec, expression, joinCtx, dialect));
     sourceParts.push(expressions?.arg ?? (spec.argField ? resolveDimensionExpression(ds, spec.argField, joinCtx) : 'NULL'));
   }
   // A positional tuple isolates internal names from the source table's names.
@@ -72,7 +74,7 @@ export function buildTimeMeasureSourceSql(
   ];
   let rowAlias = '_hq_row';
   while (sourceIdentifiers.some(text => text.includes(rowAlias))) rowAlias += '_';
-  raw = raw.select([`tuple(${sourceParts.join(', ')}) AS ${rowAlias}`]);
+  raw = raw.select([`${dialect.packRow(sourceParts)} AS ${rowAlias}`]);
   const tenant = getRuntimeTenantPredicate(options.context);
   const tenantColumn = resolveTenantFilterColumn(ds, options.context);
   if (tenant && tenantColumn) raw = raw.where(qualifyBaseColumn(joinCtx, tenantColumn), tenant.operator, tenant.value);
@@ -82,20 +84,19 @@ export function buildTimeMeasureSourceSql(
   for (const filter of segmentFilters(ds, query.segments)) {
     raw = raw.where(resolveDimensionExpression(ds, filter.field, joinCtx), filter.operator, filter.value);
   }
-  const { sql: rawSql, parameters } = raw.toSQLWithParams();
-  const sourceColumns = [`${queryTimeSql(`assumeNotNull(tupleElement(${rowAlias}, 1))`, query.timezone)} AS _hq_time`];
-  dims.forEach((dimension, i) => sourceColumns.push(`tupleElement(${rowAlias}, ${i + 2}) AS ${dimension.alias}`));
+  const rawSql = statement.embed(raw.toSQLWithParams());
+  const sourceColumns = [`${queryTimeSql(dialect, dialect.assumeNotNull(dialect.rowElement(rowAlias, 1)), query.timezone)} AS _hq_time`];
+  dims.forEach((dimension, i) => sourceColumns.push(`${dialect.rowElement(rowAlias, i + 2)} AS ${dimension.alias}`));
   bases.forEach((base, i) => {
     const valuePosition = dims.length + 2 + i * 2;
-    sourceColumns.push(`tupleElement(${rowAlias}, ${valuePosition}) AS ${base.value}`);
-    sourceColumns.push(`tupleElement(${rowAlias}, ${valuePosition + 1}) AS ${base.arg}`);
+    sourceColumns.push(`${dialect.rowElement(rowAlias, valuePosition)} AS ${base.value}`);
+    sourceColumns.push(`${dialect.rowElement(rowAlias, valuePosition + 1)} AS ${base.arg}`);
   });
   return {
     ctes: [
       `_hq_raw AS (${rawSql})`,
-      `_hq_source AS (SELECT ${sourceColumns.join(', ')} FROM _hq_raw WHERE isNotNull(tupleElement(${rowAlias}, 1)))`,
+      `_hq_source AS (SELECT ${sourceColumns.join(', ')} FROM _hq_raw WHERE ${dialect.isNotNull(dialect.rowElement(rowAlias, 1))})`,
     ],
-    parameters,
     dimensions: dims,
     bases,
     rowAlias,

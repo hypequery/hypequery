@@ -797,7 +797,7 @@ wheels = [
 
 [[package]]
 name = "hypequery"
-version = "0.1.0.dev0"
+version = "0.1.0b1"
 source = { editable = "." }
 dependencies = [
     { name = "pydantic" },
@@ -810,6 +810,7 @@ clickhouse = [
     { name = "urllib3" },
 ]
 clickhouse-async = [
+    { name = "aiohttp" },
     { name = "clickhouse-connect", extra = ["async"] },
     { name = "urllib3" },
 ]
@@ -834,6 +835,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "aiohttp", marker = "extra == 'clickhouse-async'", specifier = ">=3.14.4" },
     { name = "clickhouse-connect", marker = "extra == 'clickhouse'", specifier = ">=1.4.2" },
     { name = "clickhouse-connect", extras = ["async"], marker = "extra == 'clickhouse-async'", specifier = ">=1.4.2" },
     { name = "fastapi", marker = "extra == 'fastapi'", specifier = ">=0.137.2" },

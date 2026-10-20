@@ -4,10 +4,10 @@ import type { RelationshipBuilderContext } from './relationship-builder-plan.js'
 import { resolveDimensionExpression } from '../query-planner.js';
 import { measureToAggregationSpec } from './dataset-normalization.js';
 import { applyFilteredAggregationExpression } from './filtered-aggregation-sql.js';
-import type { DatasetSqlDialect } from '../dataset-sql-dialect.js';
+import type { DatasetSqlDialectRules } from '../dataset-sql-dialect.js';
 
 /** Explicit projection avoids marker collisions and makes absent targets detectable under join_use_nulls=0. */
-export function relationshipMeasureSource(target: AnyDatasetInstance, to: readonly string[], names: readonly string[], dialect: DatasetSqlDialect) {
+export function relationshipMeasureSource(target: AnyDatasetInstance, to: readonly string[], names: readonly string[], dialect: DatasetSqlDialectRules) {
   const columns = new Set([...to, ...(target.tenantKey ? [target.tenantKey] : [])]);
   for (const [name, dimension] of Object.entries(target.dimensions)) if (!dimension.sql) columns.add(dimension.column ?? name);
   for (const name of names) {
@@ -22,22 +22,22 @@ export function relationshipMeasureSource(target: AnyDatasetInstance, to: readon
   const quote = dialect.quoteIdentifier;
   const source = target.source.split('.').map(quote).join('.');
   const projection = [...columns].map(quote);
-  return { source: `(SELECT ${[...projection, `toNullable(1) AS ${quote(marker)}`].join(', ')} FROM ${source})`, marker };
+  return { source: `(SELECT ${[...projection, `${dialect.toNullable('1')} AS ${quote(marker)}`].join(', ')} FROM ${source})`, marker };
 }
 
-export function relationshipMeasureExpressions(ds: AnyDatasetInstance, name: string, joinCtx: RelationshipBuilderContext) {
+export function relationshipMeasureExpressions(ds: AnyDatasetInstance, name: string, joinCtx: RelationshipBuilderContext, dialect: DatasetSqlDialectRules) {
   const resolved = resolveRelationshipMeasure(ds, name);
   const { relationshipName, target, definition } = resolved;
   const marker = joinCtx.joinByRelationship.get(relationshipName)?.matchMarker;
   if (!marker) throw new Error(`Missing match marker for relationship measure "${name}".`);
   const ownerContext = { ...joinCtx, baseSource: relationshipName };
   const spec: AggregationSpec = measureToAggregationSpec(name, definition);
-  const matched = `isNotNull(${relationshipName}.${marker})`;
+  const matched = dialect.isNotNull(`${relationshipName}.${marker}`);
   const field = definition.field === '*' ? `${relationshipName}.${marker}` : resolveDimensionExpression(target, definition.field, ownerContext);
-  const filtered = applyFilteredAggregationExpression(target, spec, field, ownerContext);
+  const filtered = applyFilteredAggregationExpression(target, spec, field, ownerContext, dialect);
   return {
     definition,
-    field: `if(${matched}, ${filtered}, NULL)`,
-    arg: definition.argField ? `if(${matched}, ${resolveDimensionExpression(target, definition.argField, ownerContext)}, NULL)` : undefined,
+    field: dialect.ifElse(matched, filtered, 'NULL'),
+    arg: definition.argField ? dialect.ifElse(matched, resolveDimensionExpression(target, definition.argField, ownerContext), 'NULL') : undefined,
   };
 }

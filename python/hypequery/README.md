@@ -2,12 +2,11 @@
 
 A Python semantic layer for ClickHouse datasets, metrics, multi-tenant analytics, and FastAPI serving.
 
-> **Beta candidate:** datasets, execution, Serve and the CLI are implemented and
-> tested against the shared protocol fixtures. The `hypequery` name on PyPI
-> currently holds a `0.0.1.dev0` placeholder; `0.1.0b1` will be the first
-> functional release. APIs may still change before 1.0. Segments, window and
-> shift measures, `approx_count_distinct` and the `semantic-invocations`
-> protocol families are TypeScript-only for now.
+> **Beta candidate 0.1.0b1:** datasets, execution, Serve, generated React clients
+> and HTTP-backed MCP have installed-artifact qualification. This branch prepares
+> the release; it does not establish PyPI or matching npm availability. APIs may
+> change during beta. Use the [release checklist](RELEASING.md#integrated-beta-candidate)
+> before deploying or announcing it.
 
 ## Python → React → MCP example
 

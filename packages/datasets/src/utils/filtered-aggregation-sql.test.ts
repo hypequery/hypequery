@@ -3,6 +3,7 @@ import { dataset } from '../dataset.js';
 import { dimension } from '../field.js';
 import type { AggregationSpec, MetricFilter } from '../types.js';
 import { applyFilteredAggregationExpression } from './filtered-aggregation-sql.js';
+import { clickhouseDatasetSqlDialect as dialect } from './clickhouse-dataset-sql-dialect.js';
 
 const Sales = dataset('sales', { source: 'sales', dimensions: { value: dimension.number() } });
 
@@ -10,7 +11,7 @@ function render(operator: MetricFilter['operator'], value: unknown, aggregation:
   return applyFilteredAggregationExpression(Sales, {
     aggregation,
     filters: [{ field: 'value', operator, value } as MetricFilter],
-  } as AggregationSpec, 'amount');
+  } as AggregationSpec, 'amount', undefined, dialect);
 }
 
 describe('filtered aggregate SQL', () => {
@@ -31,12 +32,12 @@ describe('filtered aggregate SQL', () => {
   );
 
   it('combines all fixed filters and leaves unfiltered expressions unchanged', () => {
-    expect(applyFilteredAggregationExpression(Sales, { aggregation: 'sum' }, 'amount')).toBe('amount');
+    expect(applyFilteredAggregationExpression(Sales, { aggregation: 'sum' }, 'amount', undefined, dialect)).toBe('amount');
     expect(applyFilteredAggregationExpression(Sales, {
       aggregation: 'sum', filters: [
         { field: 'value', operator: 'gt', value: 1 }, { field: 'value', operator: 'lt', value: 10 },
       ],
-    }, 'amount')).toBe('if((value > 1) AND (value < 10), amount, 0)');
+    }, 'amount', undefined, dialect)).toBe('if((value > 1) AND (value < 10), amount, 0)');
   });
 
   it.each([

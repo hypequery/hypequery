@@ -67,13 +67,13 @@ export function buildDatasetQueryBuilder(
   if (groupByParts.length > 0) qb = qb.groupBy(groupByParts);
   for (const measureName of measureNames) {
     if (measureName.includes('.')) {
-      const expressions = relationshipMeasureExpressions(ds, measureName, joinCtx!);
-      qb = applyAggregationSpec(qb, ds, measureToAggregationSpec(measureName, expressions.definition), dialect.quoteIdentifier(measureName), joinCtx, expressions);
+      const expressions = relationshipMeasureExpressions(ds, measureName, joinCtx!, dialect);
+      qb = applyAggregationSpec(qb, ds, measureToAggregationSpec(measureName, expressions.definition), dialect.quoteIdentifier(measureName), joinCtx, dialect, expressions);
       continue;
     }
     const definition = getBaseMeasure(ds.measures, measureName);
     if (!definition) throw new Error(`Measure "${measureName}" is not a base measure.`);
-    qb = applyMeasureDefinition(qb, ds, measureName, definition, joinCtx);
+    qb = applyMeasureDefinition(qb, ds, measureName, definition, joinCtx, dialect);
   }
 
   const tenantColumn = resolveTenantFilterColumn(ds, options.context);
@@ -84,7 +84,7 @@ export function buildDatasetQueryBuilder(
 
   for (const filter of query.filters ?? []) {
     const resolvedField = resolveFilterField(ds, filter.field, joinCtx);
-    qb = qb.where(queryTimeFilterSql(ds, filter.field, resolvedField, query.timezone), filter.operator, filter.value);
+    qb = qb.where(queryTimeFilterSql(dialect, ds, filter.field, resolvedField, query.timezone), filter.operator, filter.value);
   }
 
   // Segments are author-defined, so they bypass the caller filter allow-list.

@@ -1,64 +1,41 @@
 import type { AggregationSpec, AnyDatasetInstance, MetricFilter } from '../types.js';
 import { resolveFilterField } from '../query-planner.js';
 import type { RelationshipBuilderContext } from './relationship-builder-plan.js';
+import type { DatasetSqlDialectRules } from '../dataset-sql-dialect.js';
 
 type DatasetShape = AnyDatasetInstance;
-
-function renderMeasureFilterLiteral(value: unknown): string {
-  if (value === null) {
-    return 'NULL';
-  }
-
-  if (typeof value === 'string') {
-    // ClickHouse also treats backslash as a string escape. Doubling quotes
-    // without escaping backslashes lets a value ending in \\ before a quote
-    // break out of the literal and change the predicate.
-    return `'${value.replace(/\\/g, '\\\\').replace(/'/g, "''")}'`;
-  }
-
-  if (typeof value === 'number') {
-    if (!Number.isFinite(value)) {
-      throw new Error(`Invalid non-finite numeric literal in measure filter: ${value}`);
-    }
-    return String(value);
-  }
-
-  if (typeof value === 'boolean') {
-    return value ? '1' : '0';
-  }
-
-  throw new Error(`Unsupported literal type in measure filter: ${typeof value}`);
-}
 
 function renderMeasureFilterCondition(
   ds: DatasetShape,
   filter: MetricFilter,
-  joinCtx?: RelationshipBuilderContext,
+  joinCtx: RelationshipBuilderContext | undefined,
+  dialect: DatasetSqlDialectRules,
 ): string {
   const field = resolveFilterField(ds, filter.field, joinCtx);
+  const literal = (value: unknown) => dialect.measureFilterLiteral(value);
 
   switch (filter.operator) {
     case 'eq':
-      return `${field} = ${renderMeasureFilterLiteral(filter.value)}`;
+      return `${field} = ${literal(filter.value)}`;
     case 'neq':
-      return `${field} != ${renderMeasureFilterLiteral(filter.value)}`;
+      return `${field} != ${literal(filter.value)}`;
     case 'gt':
-      return `${field} > ${renderMeasureFilterLiteral(filter.value)}`;
+      return `${field} > ${literal(filter.value)}`;
     case 'gte':
-      return `${field} >= ${renderMeasureFilterLiteral(filter.value)}`;
+      return `${field} >= ${literal(filter.value)}`;
     case 'lt':
-      return `${field} < ${renderMeasureFilterLiteral(filter.value)}`;
+      return `${field} < ${literal(filter.value)}`;
     case 'lte':
-      return `${field} <= ${renderMeasureFilterLiteral(filter.value)}`;
+      return `${field} <= ${literal(filter.value)}`;
     case 'like':
-      return `${field} LIKE ${renderMeasureFilterLiteral(filter.value)}`;
+      return `${field} LIKE ${literal(filter.value)}`;
     case 'in':
     case 'notIn': {
       if (!Array.isArray(filter.value) || filter.value.length === 0) {
         throw new Error(`"${filter.operator}" measure filters require a non-empty array.`);
       }
 
-      const values = filter.value.map(renderMeasureFilterLiteral).join(', ');
+      const values = filter.value.map(literal).join(', ');
       return `${field} ${filter.operator === 'in' ? 'IN' : 'NOT IN'} (${values})`;
     }
     case 'between': {
@@ -66,7 +43,7 @@ function renderMeasureFilterCondition(
         throw new Error('"between" measure filters require a two-item array.');
       }
 
-      return `${field} BETWEEN ${renderMeasureFilterLiteral(filter.value[0])} AND ${renderMeasureFilterLiteral(filter.value[1])}`;
+      return `${field} BETWEEN ${literal(filter.value[0])} AND ${literal(filter.value[1])}`;
     }
   }
 }
@@ -75,20 +52,21 @@ export function applyFilteredAggregationExpression(
   ds: DatasetShape,
   spec: AggregationSpec,
   fieldOrExpr: string,
-  joinCtx?: RelationshipBuilderContext,
+  joinCtx: RelationshipBuilderContext | undefined,
+  dialect: DatasetSqlDialectRules,
 ): string {
   if (!spec.filters?.length) {
     return fieldOrExpr;
   }
 
   const combinedCondition = spec.filters
-    .map(filter => renderMeasureFilterCondition(ds, filter, joinCtx))
+    .map(filter => renderMeasureFilterCondition(ds, filter, joinCtx, dialect))
     .map(condition => `(${condition})`)
     .join(' AND ');
 
   switch (spec.aggregation) {
     case 'sum':
-      return `if(${combinedCondition}, ${fieldOrExpr}, 0)`;
+      return dialect.filteredAggregateInput(combinedCondition, fieldOrExpr, '0');
     // Aggregate functions skip NULLs, so the NULL fallback excludes
     // non-matching rows from percentile/stddev/variance too.
     case 'count':
@@ -100,7 +78,7 @@ export function applyFilteredAggregationExpression(
     case 'stddev':
     case 'variance':
     case 'approxCountDistinct':
-      return `if(${combinedCondition}, ${fieldOrExpr}, NULL)`;
+      return dialect.filteredAggregateInput(combinedCondition, fieldOrExpr, 'NULL');
     case 'argMax':
     case 'argMin':
       // NULL handling under argMax/argMin varies across ClickHouse versions.
