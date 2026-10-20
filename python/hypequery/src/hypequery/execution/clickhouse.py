@@ -10,7 +10,7 @@ from concurrent.futures import ThreadPoolExecutor
 from contextlib import suppress
 from dataclasses import dataclass, field
 from types import TracebackType
-from typing import Protocol, Self, TypedDict, cast
+from typing import Any, Protocol, Self, TypedDict, cast
 
 from hypequery.datasets.planner import SETTING_DEFINITIONS, CompiledQuery, CompiledQueryError
 
@@ -341,6 +341,11 @@ class AsyncClickHouseExecutor:
         await self.aclose()
 
 
+def _retrieve_outcome(done: asyncio.Future[Any]) -> None:
+    if not done.cancelled():
+        done.exception()
+
+
 class AsyncFromSyncClickHouseExecutor:
     """Bounded worker bridge for applications with a synchronous driver client."""
 
@@ -397,7 +402,15 @@ class AsyncFromSyncClickHouseExecutor:
             future = self._workers.submit(self._sync.execute, compiled)
             submitted = True
             work = asyncio.wrap_future(future)
-            return await run_with_policy(work, compiled, self._cancel_on_server)
+            # A caller that gave up on the query (cancellation, deadline) never
+            # reads the worker's outcome; mark it retrieved so asyncio does not
+            # log the abandoned exception at garbage collection.
+            work.add_done_callback(_retrieve_outcome)
+            # The blocking driver call cannot be interrupted; the bridge knows
+            # when it returns, so server cancellation can be retried until then.
+            return await run_with_policy(
+                work, compiled, self._cancel_on_server, pending=lambda: not future.done()
+            )
         finally:
             if submitted and not future.done():
                 future.add_done_callback(lambda _: self._release_slot_from_worker(loop))
@@ -412,10 +425,18 @@ class AsyncFromSyncClickHouseExecutor:
         self._control_worker.shutdown(wait=False, cancel_futures=True)
 
     async def aclose(self) -> None:
-        """Wait for workers, then close the supplied driver clients."""
+        """Wait for workers, then close the supplied driver clients.
 
-        self.close()
+        The control worker stays up until every query worker has returned: a
+        cancellation retry may still need it to stop a query that registered
+        on the server after the first KILL, and shutting it down first would
+        leave that query running until ``max_execution_time``.
+        """
+
+        self._closed = True
+        self._workers.shutdown(wait=False, cancel_futures=True)
         await asyncio.to_thread(self._workers.shutdown, wait=True)
+        self._control_worker.shutdown(wait=False, cancel_futures=True)
         await asyncio.to_thread(self._control_worker.shutdown, wait=True)
         closer = getattr(self._control, "close", None)
         try:

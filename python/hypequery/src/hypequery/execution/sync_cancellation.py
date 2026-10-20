@@ -8,19 +8,9 @@ from collections.abc import Callable
 
 from hypequery.datasets.planner import CompiledQuery
 
-from .cancellation import terminal_error
+from .cancellation import server_cancellation_confirmed, terminal_error
 
 _LOGGER = logging.getLogger(__name__)
-
-
-def server_cancellation_confirmed(response: object) -> bool:
-    """KILL ... SYNC returns a finished status only when it matched a query."""
-    if isinstance(response, str):
-        return response.split("\t", 1)[0] == "finished"
-    if isinstance(response, (list, tuple)) and response:
-        status: object = response[0]
-        return isinstance(status, str) and status == "finished"
-    return False
 
 
 class SyncCancellationMonitor:

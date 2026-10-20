@@ -308,7 +308,7 @@ jobs:
           enable-cache: true
           cache-dependency-glob: python/hypequery/uv.lock
       - run: pnpm install --frozen-lockfile
-      - run: uv sync --project python/hypequery --dev
+      - run: uv sync --project python/hypequery --frozen --dev
       # Use the main CI's task graph to build serve's dependencies without its
       # optional ClickHouse peer. pnpm's recursive runner includes that peer
       # and races its build against the datasets declarations it consumes.
