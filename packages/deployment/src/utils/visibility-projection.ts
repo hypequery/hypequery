@@ -7,7 +7,7 @@ type Dimension = ProtocolDeploymentDataset['dimensions'][number];
 
 /**
  * A dimension the principal may neither group nor filter by, with its label,
- * description and semantic metadata removed (RFC 0018).
+ * description and semantic metadata removed (RFC 0019).
  *
  * It stays in the contract because measures, relationships and the tenant key
  * may reference it. The agent-safe catalog omits a dimension that is neither

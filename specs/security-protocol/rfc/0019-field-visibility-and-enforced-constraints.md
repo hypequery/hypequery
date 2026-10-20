@@ -1,4 +1,4 @@
-# RFC 0018: Field visibility and enforced constraints
+# RFC 0019: Field visibility and enforced constraints
 
 - Status: Proposed
 - Version: field visibility 1

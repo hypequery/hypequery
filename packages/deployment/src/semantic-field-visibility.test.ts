@@ -9,7 +9,7 @@ import {
 } from './semantic-data-plane.js';
 
 /**
- * K-07 / RFC 0018: field visibility and provider-enforced constraints. The
+ * K-07 / RFC 0019: field visibility and provider-enforced constraints. The
  * data plane and the discovery projection read one resolver, so these cases
  * check both against the same policies.
  */

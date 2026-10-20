@@ -49,7 +49,7 @@ function isTimeMeasure(measure: object): boolean {
 
 /**
  * What one dataset exposes under a visibility policy, or null when the policy
- * hides the dataset (RFC 0018).
+ * hides the dataset (RFC 0019).
  *
  * Names the policy lists but the contract doesn't have are ignored, so a
  * policy written against one release keeps working after a later release

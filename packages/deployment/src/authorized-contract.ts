@@ -115,7 +115,7 @@ export interface AuthorizedDeploymentProjection {
 
 export interface AuthorizedDeploymentProjectionOptions {
   /**
-   * A `hypequery-field-visibility` record for this principal (RFC 0018),
+   * A `hypequery-field-visibility` record for this principal (RFC 0019),
    * validated here exactly as the data plane validates it. A dataset it hides
    * is not published; fields it hides are not offered.
    */

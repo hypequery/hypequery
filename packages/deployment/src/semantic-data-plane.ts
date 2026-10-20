@@ -98,7 +98,7 @@ export interface DeploymentSemanticDataPlaneOptions {
   ) => Promise<DeploymentDataPlanePrincipal | null>;
   readonly resolveTenant?: (input: DeploymentSemanticTenantInput) => Promise<unknown>;
   /**
-   * The datasets and fields this principal may see (RFC 0018), as an
+   * The datasets and fields this principal may see (RFC 0019), as an
    * unvalidated `hypequery-field-visibility` record. Resolve to `undefined`
    * for no restriction. A hidden dataset or field is refused exactly like an
    * unknown one. Like the tenant, never taken from the invocation.
@@ -106,7 +106,7 @@ export interface DeploymentSemanticDataPlaneOptions {
   readonly resolveFieldVisibility?: (input: DeploymentSemanticContextInput) => Promise<unknown>;
   /**
    * Filters the provider enforces on this call, as unvalidated comparison
-   * expressions on the dataset's declared filters (RFC 0018), at most 32.
+   * expressions on the dataset's declared filters (RFC 0019), at most 32.
    * They are ANDed onto the caller's filters and checked against the contract
    * rather than the caller's visibility. They count toward the dataset's
    * filter ceiling, since executors apply them as filters; the caller is told

@@ -90,7 +90,7 @@ function resolveDataset(
 
 /**
  * Narrows what a dataset exposes to what a visibility policy lets this
- * principal see (RFC 0018). Hidden fields drop out of the same sets unknown
+ * principal see (RFC 0019). Hidden fields drop out of the same sets unknown
  * ones are missing from, so a refusal reads exactly like an unknown field and
  * does not confirm that the hidden one exists.
  */
@@ -230,7 +230,7 @@ export function validateSemanticOperation(
 
 /**
  * Validates filters the provider enforces on every call, such as an embedded
- * end user's account (RFC 0018). They are checked against what the contract
+ * end user's account (RFC 0019). They are checked against what the contract
  * publishes, not against the caller's visibility: a provider may constrain on
  * a field the caller can't see.
  */

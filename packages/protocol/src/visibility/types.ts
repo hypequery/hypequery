@@ -7,7 +7,7 @@ export interface ProtocolDatasetVisibility {
 }
 
 /**
- * Which datasets and fields a principal may see and query (RFC 0018).
+ * Which datasets and fields a principal may see and query (RFC 0019).
  *
  * An allowlist: a dataset absent from `datasets` is hidden entirely, and a
  * field absent from its dataset's list is hidden. It narrows what the
