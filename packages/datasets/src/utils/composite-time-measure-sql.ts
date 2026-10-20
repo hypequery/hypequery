@@ -26,7 +26,7 @@ export function buildCompositeTimeMeasureSql(
   const leaves = graph.nodes.filter(node => !isDerivedMeasure(node.definition));
   const baseNames = new Set(leaves.map(node => isWindowMeasure(node.definition) ? node.definition.measure : node.name));
   const source = buildTimeMeasureSourceSql(ds, query, baseNames, axis.filters, options, parameters);
-  const timeAxis = buildTimeMeasureAxisSql(dialect, source, axis);
+  const timeAxis = buildTimeMeasureAxisSql(parameters, source, axis);
   const contexts = timeMeasureContextCtes(dialect, graph.contexts, axis);
   const inputs = leaves.map(node => {
     const window = isWindowMeasure(node.definition) ? node.definition : undefined;

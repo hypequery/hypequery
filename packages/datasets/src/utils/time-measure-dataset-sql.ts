@@ -54,7 +54,7 @@ export function buildTimeMeasureDatasetSql(
   const baseNames = new Set([...needed].map(name => timeMeasures.get(name)?.measure ?? name));
 
   const source = buildTimeMeasureSourceSql(ds, query, baseNames, axis.filters, options, parameters);
-  const timeAxis = buildTimeMeasureAxisSql(dialect, source, axis, shifts);
+  const timeAxis = buildTimeMeasureAxisSql(parameters, source, axis, shifts);
   const shiftedInputs = new Map<string, ReturnType<typeof shiftBucketCtes>>();
   [...needed].forEach((name, index) => {
     const measure = timeMeasures.get(name);
