@@ -79,13 +79,18 @@ async def _retry_server_cancellation(
     The driver may still be submitting when the first KILL runs, so a query
     that registers afterwards would otherwise run to ``max_execution_time``
     while holding its worker slot. *pending* reports whether the driver call is
-    still running; without it the retries stop at the server's own time limit,
-    by which point the query has ended either way.
+    still running. With it, retries continue for as long as that call does, as
+    the synchronous monitor's do: ``max_execution_time`` bounds execution on
+    the server, not how long submission takes, so a slow submission must not
+    outlast the retries. Without it, the retries stop at the server's own time
+    limit, by which point a query registered within it has ended either way.
     """
-    budget = time.monotonic() + compiled.settings.max_execution_time
+    budget = (
+        None if pending is not None else time.monotonic() + compiled.settings.max_execution_time
+    )
     interval = _POLL_SECONDS
     warned = False
-    while time.monotonic() < budget:
+    while budget is None or time.monotonic() < budget:
         await asyncio.sleep(interval)
         if pending is not None and not pending():
             return

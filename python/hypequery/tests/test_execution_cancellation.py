@@ -565,6 +565,64 @@ def test_sync_bridge_cancellation_retries_when_first_kill_precedes_registration(
         stopped.set()
 
 
+def test_sync_bridge_retries_outlast_max_execution_time_while_the_driver_runs() -> None:
+    """max_execution_time bounds execution on the server, not a slow submission."""
+    from hypequery.datasets.planner import query_settings
+
+    started = threading.Event()
+    register = threading.Event()
+    registered = threading.Event()
+    stopped = threading.Event()
+    signal = threading.Event()
+
+    class SlowSubmittingClient:
+        def query(self, *_args: object, **_kwargs: object) -> DriverResult:
+            started.set()
+            assert register.wait(5)
+            registered.set()
+            assert stopped.wait(5)
+            return cast(DriverResult, Result())
+
+    class LateControl:
+        def command(self, _cmd: str, _parameters: dict[str, str]) -> object:
+            if registered.is_set():
+                stopped.set()
+                return "finished"
+            return None
+
+    async def run() -> None:
+        executor = AsyncFromSyncClickHouseExecutor(
+            SlowSubmittingClient(), LateControl(), max_concurrent=1
+        )
+        compiled = CompiledQuery(
+            "SELECT 1 AS value",
+            {},
+            cancellation=signal,
+            settings=query_settings(max_execution_time=1),
+        )
+        task = asyncio.create_task(executor.execute(compiled))
+        while not started.is_set():
+            await asyncio.sleep(0.005)
+        signal.set()
+        with pytest.raises(CompiledQueryError):
+            await task
+        # Submission finishes well after the server-side time limit (and the
+        # last backed-off attempt inside it) has passed.
+        await asyncio.sleep(2.5)
+        register.set()
+        deadline = time.monotonic() + 4
+        while not stopped.is_set() and time.monotonic() < deadline:
+            await asyncio.sleep(0.01)
+        assert stopped.is_set(), "the late-registering query escaped cancellation"
+        await executor.aclose()
+
+    try:
+        asyncio.run(run())
+    finally:
+        register.set()
+        stopped.set()
+
+
 def test_sync_bridge_aclose_keeps_the_control_worker_until_queries_stop() -> None:
     """Closing right after an unconfirmed KILL must still let the retries reach the query."""
 
