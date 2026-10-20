@@ -1,1 +1,0 @@
-- Disable automatic ClickHouse driver sessions for owned query/control clients so overlapping HTTP and worker queries can share an executor without session-lock failures.
