@@ -10,6 +10,7 @@ import { overfetchLimit } from './pagination.js';
 import { resolveResultLimit } from './result-limits.js';
 import { buildTimeMeasureDatasetSql } from './time-measure-dataset-sql.js';
 import { selectedTimeMeasures } from './time-query-measures.js';
+import { renderStatement } from './statement-parameters.js';
 
 export interface PreparedDatasetQuery {
   readonly compilation: DatasetCompilation;
@@ -40,16 +41,18 @@ export function prepareDatasetQuery(
 
   if (selectedTimeMeasures(dataset, query).size) {
     plan = 'time';
-    const compiled = buildTimeMeasureDatasetSql(dataset, query, executionOptions);
-    statement = compiled;
-    preflightStatements.push({ sql: compiled.timeAxisSql, parameters: compiled.parameters });
+    const planned = buildTimeMeasureDatasetSql(dataset, query, executionOptions);
+    const main = renderStatement(planned.statement);
+    const preflight = renderStatement(planned.preflight);
+    statement = main;
+    preflightStatements.push(preflight);
     execute = async () => {
-      await options.builderFactory.rawQuery(compiled.timeAxisSql, compiled.parameters, { abortSignal });
-      return options.builderFactory.rawQuery(compiled.sql, compiled.parameters, { abortSignal });
+      await options.builderFactory.rawQuery(preflight.sql, preflight.parameters, { abortSignal });
+      return options.builderFactory.rawQuery(main.sql, main.parameters, { abortSignal });
     };
   } else if (needsOuterDatasetQuery(dataset, query)) {
     plan = hasSelectedDerivedMeasure(dataset, query) ? 'derived' : 'aggregate';
-    statement = buildDerivedDatasetSql(dataset, query, executionOptions, buildDatasetQueryBuilder);
+    statement = renderStatement(buildDerivedDatasetSql(dataset, query, executionOptions, buildDatasetQueryBuilder));
     execute = () => options.builderFactory.rawQuery(statement.sql, statement.parameters, { abortSignal });
   } else {
     plan = 'aggregate';

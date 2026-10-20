@@ -1,4 +1,4 @@
-import type { AggregationType, MeasureDefinition, TimeGrain } from './types.js';
+import type { AggregationType, DimensionType, MeasureDefinition, TimeGrain } from './types.js';
 import type { SemanticBinaryOperator, SemanticFunctionName } from './semantic-plan.js';
 
 /**
@@ -15,6 +15,15 @@ export interface DatasetSqlDialect {
 /** A formula binary operator, matching `SemanticExpression` `binary` nodes. */
 export type DatasetSqlBinaryOperator = SemanticBinaryOperator;
 
+/** The logical type of a bound value, when the planner knows it. */
+export type DatasetSqlParameterType = DimensionType | { readonly array: DimensionType };
+
+/** A value bound into a statement, with its logical type when known. */
+export interface DatasetSqlBoundParameter {
+  readonly value: unknown;
+  readonly type?: DatasetSqlParameterType;
+}
+
 /** A wall-clock component read from a zoned timestamp. */
 export type DatasetSqlClockPart = 'Hour' | 'Minute' | 'Second';
 
@@ -28,6 +37,14 @@ export type DatasetSqlClockPart = 'Hour' | 'Minute' | 'Second';
  * `resolveDatasetSqlDialect` merges onto the ClickHouse rules.
  */
 export interface DatasetSqlDialectRules extends DatasetSqlDialect {
+  // Parameters
+  /** Spell the placeholder for the value at `index` in the rendered parameter array. */
+  placeholder(index: number, parameter: DatasetSqlBoundParameter): string;
+  /** A repeated value re-uses its placeholder (`$k`) rather than binding again. */
+  readonly reusesPlaceholders: boolean;
+  /** A builder's own positional `?` statement can be embedded verbatim. */
+  readonly embedsPositionalPieces: boolean;
+
   // Literals
   stringLiteral(value: string): string;
   /** A literal compared against a column inside a measure filter. */

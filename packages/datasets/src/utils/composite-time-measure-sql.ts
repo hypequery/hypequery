@@ -10,15 +10,22 @@ import { timeMeasureContextCtes, timeMeasureContextGuard } from './time-measure-
 import { timeMeasureLeafSql } from './time-measure-leaf-sql.js';
 import { derivedProjection } from './derived-measure-sql.js';
 import { buildTimeMeasureResultSql } from './time-measure-result-sql.js';
-import { resolveDatasetSqlDialect } from './dataset-sql-dialect.js';
+import type { StatementParameters } from './statement-parameters.js';
+import type { PlannedTimeMeasureStatements } from './time-measure-dataset-sql.js';
 
 /** Aggregate each dependency in its evaluation context, then evaluate formulas. */
-export function buildCompositeTimeMeasureSql(ds: AnyDatasetInstance, query: DatasetQuery, options: DatasetQueryExecutionOptions, axis: TimeMeasureAxis) {
-  const dialect = resolveDatasetSqlDialect(options.builderFactory);
+export function buildCompositeTimeMeasureSql(
+  ds: AnyDatasetInstance,
+  query: DatasetQuery,
+  options: DatasetQueryExecutionOptions,
+  axis: TimeMeasureAxis,
+  parameters: StatementParameters,
+): PlannedTimeMeasureStatements {
+  const { dialect } = parameters;
   const graph = buildMeasureEvaluationGraph(queryMeasureDefinitions(ds, query.measures ?? []), query.measures ?? []);
   const leaves = graph.nodes.filter(node => !isDerivedMeasure(node.definition));
   const baseNames = new Set(leaves.map(node => isWindowMeasure(node.definition) ? node.definition.measure : node.name));
-  const source = buildTimeMeasureSourceSql(ds, query, baseNames, axis.filters, options);
+  const source = buildTimeMeasureSourceSql(ds, query, baseNames, axis.filters, options, parameters);
   const timeAxis = buildTimeMeasureAxisSql(dialect, source, axis);
   const contexts = timeMeasureContextCtes(dialect, graph.contexts, axis);
   const inputs = leaves.map(node => {
@@ -58,8 +65,7 @@ export function buildCompositeTimeMeasureSql(ds: AnyDatasetInstance, query: Data
   ctes.push(`_hq_values AS (SELECT ${projections.join(', ')} FROM ${previous} AS v)`);
   const guard = [timeAxis.guard, timeAxis.rangeGuard, ...graph.contexts.map(context => timeMeasureContextGuard(dialect, context, axis)), ...inputs.map(input => input.guard)].join(' + ');
   return {
-    sql: buildTimeMeasureResultSql(ds, query, options, source.dimensions, ctes, guard, true),
-    parameters: source.parameters,
-    timeAxisSql: `WITH ${guardCtes.join(',\n')} SELECT ${guard} AS _hq_validated FROM _hq_bounds`,
+    statement: { text: buildTimeMeasureResultSql(ds, query, options, source.dimensions, ctes, guard, true), parameters },
+    preflight: { text: `WITH ${guardCtes.join(',\n')} SELECT ${guard} AS _hq_validated FROM _hq_bounds`, parameters },
   };
 }

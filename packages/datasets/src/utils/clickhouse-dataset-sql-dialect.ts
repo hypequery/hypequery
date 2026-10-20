@@ -33,6 +33,11 @@ export const clickhouseDatasetSqlDialect: DatasetSqlDialectRules = Object.freeze
   name: 'clickhouse',
   quoteIdentifier: quoteSQLIdentifier,
 
+  // The adapter substitutes positional `?` on the client, one value per marker.
+  placeholder: () => '?',
+  reusesPlaceholders: false,
+  embedsPositionalPieces: true,
+
   stringLiteral,
   measureFilterLiteral(value: unknown): string {
     if (value === null) return 'NULL';
