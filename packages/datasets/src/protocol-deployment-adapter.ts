@@ -1,4 +1,5 @@
 import { splitDatasetMeasures } from './utils/dataset-measures.js';
+import { assertDeployable } from './utils/deployable-formulas.js';
 import {
   parseProtocolIdentifier,
   validateProtocolDeploymentContract,
@@ -21,6 +22,8 @@ export function buildProtocolDeploymentContract(
   options: BuildProtocolDeploymentContractOptions = {},
 ): ProtocolDeploymentContract {
   const contracts: ProtocolDeploymentDataset[] = datasets.map(dataset => {
+    // Name the dataset and measure before the contract grammar can only name a path.
+    assertDeployable(dataset);
     const contract = buildProtocolDatasetContract(dataset, {
       endpoint: options.endpoints?.[dataset.name],
     });

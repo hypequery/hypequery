@@ -139,8 +139,13 @@ measures, segments, window/shift measures, approximate distinct counts, and sub-
 grains. It is a conservative feature discovery aid, not per-definition validation
 or a statement that a hosted service has qualified Python deployments.
 
-Publishing currently emits deployment v2. Protocol v3 acceptance alone does not
-enable v3 features in the portable runtime. When adding a portable dataset feature,
+Publishing currently emits deployment v2. Its formula grammar is narrower than
+local planning: a derived measure may reference only base measures, and a
+literal may appear only as `round` decimals or a `coalesce` fallback.
+`buildProtocolDeploymentContract` and `assertDeployable` refuse anything else
+with an error that names the dataset and measure; see
+[Deployable formulas](/docs/datasets/measures#deployable-formulas). Protocol v3
+acceptance alone does not enable v3 features in the portable runtime. When adding a portable dataset feature,
 complete its protocol representation, SDK authoring/export, Cloud rehydration and
 execution, and Python native planning; update the matrix and its TS/Python probes
 together. Enable UI controls only for a target whose executable support is present.

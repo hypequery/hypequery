@@ -23,7 +23,8 @@ from .utils.definition_projection import (
     metadata,
     relationship_node,
 )
-from .utils.derived_measures import derived_measure_node, formula_references
+from .utils.deployable_formulas import deployable_measure_issues
+from .utils.derived_measures import derived_measure_node
 from .utils.portable_grains import assert_publishable_time_grains
 from .utils.portable_order import portable_name_key
 
@@ -154,6 +155,21 @@ def build_protocol_dataset_contract(
     return validate_protocol_dataset_contract(result)
 
 
+def validate_deployable(dataset: Dataset) -> None:
+    """Refuse a dataset whose derived measures the deployment contract cannot carry.
+
+    Local queries accept every formula the ``formula`` helpers build. A
+    deployment contract accepts a narrower subset: derived measures may
+    reference only base measures, and a literal may appear only as ``round``
+    decimals or as a ``coalesce`` fallback. ``build_protocol_deployment_contract``
+    and ``write_dataset_bundle`` run this check first, so the error names the
+    dataset and measure (``orders.doubled: ...``) instead of a contract path.
+    """
+
+    for name, issue in deployable_measure_issues(dataset.measures):
+        raise ValueError(f"{dataset.name}.{name}: {issue}")
+
+
 def build_protocol_deployment_contract(
     registry: DatasetRegistry,
     *,
@@ -171,14 +187,7 @@ def build_protocol_deployment_contract(
         if unknown:
             raise ValueError(f"Endpoint names an unregistered dataset: {min(unknown)}")
     for dataset in datasets:
-        for definition in dataset.measures.values():
-            if isinstance(definition, DerivedMeasure) and any(
-                isinstance(dataset.measures[reference], DerivedMeasure)
-                for reference in formula_references(definition.formula)
-            ):
-                raise ValueError(
-                    "Deployment contract 2 requires derived measures to reference base measures."
-                )
+        validate_deployable(dataset)
     entries = []
     for dataset in datasets:
         snapshot = build_protocol_dataset_contract(

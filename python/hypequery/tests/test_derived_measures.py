@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import json
 import os
+import re
 from pathlib import Path
+from typing import cast
 
 import pytest
 from fastapi.testclient import TestClient
@@ -26,15 +28,20 @@ from hypequery.datasets import (
     get_dataset_catalog,
     measure,
     plan_dataset_query,
+    prepare_dataset_bundle,
     serialize_semantic_contract,
+    validate_deployable,
 )
 from hypequery.datasets.client.results import ResultRows
 from hypequery.datasets.formulas import (
     Formula,
     FormulaReference,
     add,
+    ceil,
     coalesce,
     divide,
+    floor,
+    multiply,
     null_if_zero,
 )
 from hypequery.datasets.formulas import (
@@ -259,17 +266,100 @@ def test_default_selection_and_publication_limits() -> None:
     ds = orders()
     compiled = plan_dataset_query(ds, context=ExecutionContext(tenant=tenant("a")))
     assert "AS `average`" not in compiled.sql
-    with pytest.raises(ValueError, match="reference base measures"):
+    with pytest.raises(ValueError, match=re.escape("orders.rounded: references derived measure")):
         build_protocol_deployment_contract(create_dataset_registry(ds))
 
 
-def test_other_formula_operations_and_bound_literals() -> None:
-    from hypequery.datasets.formulas import (
-        ceil,
-        floor,
-        multiply,
-        subtract,
+def _deployable_orders(**definitions: Measure | DerivedMeasure) -> Dataset:
+    """The ``orders`` fixture without its derived-of-derived measure, plus *definitions*."""
+
+    ds = orders()
+    return Dataset(
+        name=ds.name,
+        source=ds.source,
+        tenant_key=ds.tenant_key,
+        dimensions=ds.dimensions,
+        measures={
+            **{key: value for key, value in ds.measures.items() if key != "rounded"},
+            **definitions,
+        },
     )
+
+
+@pytest.mark.parametrize(
+    ("name", "definition", "message"),
+    [
+        (
+            "doubled",
+            measure.derived(multiply("revenue", 2)),
+            "orders.doubled: a numeric literal cannot be an arithmetic operand in a deployable "
+            "formula; literals are only accepted as round decimals or a coalesce fallback",
+        ),
+        (
+            "plusOne",
+            measure.derived(add("orders", 1)),
+            "orders.plusOne: a numeric literal cannot be an arithmetic operand",
+        ),
+        (
+            "floorAov",
+            measure.derived(floor("average")),
+            'orders.floorAov: references derived measure "average"; a deployable formula may '
+            "only reference base measures",
+        ),
+        (
+            "ceilAov",
+            measure.derived(ceil("average")),
+            'orders.ceilAov: references derived measure "average"',
+        ),
+        (
+            "nullable",
+            measure.derived(coalesce("revenue", None)),
+            "orders.nullable: a coalesce fallback must be a number in a deployable formula",
+        ),
+        (
+            "flooredConstant",
+            measure.derived(add("revenue", floor(2))),
+            "orders.flooredConstant: a literal cannot be the value passed to floor",
+        ),
+        (
+            "nested",
+            measure.derived(divide("revenue", null_if_zero(multiply("orders", 2)))),
+            "orders.nested: a numeric literal cannot be an arithmetic operand",
+        ),
+    ],
+)
+def test_validate_deployable_names_the_dataset_and_measure(
+    name: str, definition: DerivedMeasure, message: str
+) -> None:
+    validate_deployable(_deployable_orders())
+    # Every refused measure still plans and queries locally.
+    broken = _deployable_orders(**{name: definition})
+    plan_dataset_query(
+        broken, DatasetQuery(measures=(name,)), context=ExecutionContext(tenant=tenant("a"))
+    )
+    with pytest.raises(ValueError, match=re.escape(message)):
+        validate_deployable(broken)
+    with pytest.raises(ValueError, match=re.escape(message)):
+        build_protocol_deployment_contract(create_dataset_registry(broken))
+    with pytest.raises(ValueError, match=re.escape(message)):
+        prepare_dataset_bundle(create_dataset_registry(broken))
+
+
+def test_deployable_formulas_accept_round_decimals_and_coalesce_fallbacks() -> None:
+    deployable = _deployable_orders(
+        roundedAverage=measure.derived(round_(divide("revenue", null_if_zero("orders")), 2)),
+        safeShare=measure.derived(coalesce(divide("paidRevenue", null_if_zero("revenue")), 0.5)),
+        guarded=measure.derived(coalesce("paidRevenue", "revenue")),
+    )
+    validate_deployable(deployable)
+    contract = build_protocol_deployment_contract(create_dataset_registry(deployable))
+    published = cast(list[dict[str, object]], contract["datasets"])[0]
+    names = {entry["name"] for entry in cast(list[dict[str, object]], published["measures"])}
+    assert {"roundedAverage", "safeShare", "guarded"} <= names
+
+
+def test_other_formula_operations_and_bound_literals() -> None:
+    from hypequery.datasets.formulas import subtract
 
     ds = orders()
     definitions = {
