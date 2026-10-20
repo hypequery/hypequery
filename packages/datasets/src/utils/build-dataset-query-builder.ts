@@ -100,6 +100,7 @@ export function buildDatasetQueryBuilder(
     query.offset,
     joinCtx,
     dialect,
+    { ds, dimensions: query.dimensions ?? [] },
   );
 }
 

@@ -133,7 +133,7 @@ Catalog relationship entries expose safe qualified measures in `measures`, prese
 
 Relationship traversal executes as a ClickHouse `LEFT ANY JOIN` (first match), aliased by the relationship name:
 
-- Base rows always survive. An order with no matching customer keeps its measures; its joined columns are `NULL`.
+- Base rows always survive. An order with no matching customer keeps its measures; its joined columns are `NULL`. This holds whatever the server's `join_use_nulls` setting: the joined target is projected with a match marker and every joined column reads through it, so an unmatched row never surfaces ClickHouse's `''`/`0` column defaults as data.
 - At most one target row matches per base row, so duplicate join keys on the target can never fan out and inflate aggregates. `NULL` keys never match.
 - Filtering on a joined column excludes base rows without a match (the standard SQL behavior: `NULL` fails the comparison).
 

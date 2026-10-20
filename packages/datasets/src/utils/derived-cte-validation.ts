@@ -1,11 +1,32 @@
+/**
+ * Splits a GROUP BY list on its top-level commas only, so a function call such
+ * as `if(isNotNull(customer._hq_match), customer.tier, NULL)` stays one key.
+ */
+function splitTopLevel(list: string): string[] {
+  const parts: string[] = [];
+  let depth = 0;
+  let current = '';
+  for (const char of list) {
+    if (char === '(') depth += 1;
+    else if (char === ')') depth -= 1;
+    if (char === ',' && depth === 0) {
+      parts.push(current);
+      current = '';
+      continue;
+    }
+    current += char;
+  }
+  parts.push(current);
+  return parts;
+}
+
 export function extractGroupByExpressions(sql: string): string[] {
   const match = sql.match(/\bGROUP BY\b\s+(.+?)(?:\bHAVING\b|\bORDER BY\b|\bLIMIT\b|\bOFFSET\b|$)/is);
   if (!match) {
     return [];
   }
 
-  return match[1]
-    .split(',')
+  return splitTopLevel(match[1])
     .map(part => part.trim())
     .filter(Boolean);
 }

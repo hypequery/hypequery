@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createQueryBuilder } from '../../../../clickhouse/src/index.js';
 import { dataset, dimension, measure, belongsTo, hasOne, createDatasetClient, add } from '../../index.js';
+import { toQueryBuilderFactory, type QueryBuilderFactoryLike, type QueryBuilderLike } from '../../query-builder-protocol.js';
 import { TEST_CONNECTION_CONFIG, insertRows, runSql } from '../../../../../testing/clickhouse/harness.mjs';
 
 const sourceTable = 'hq83_sources';
@@ -25,6 +26,16 @@ const Sources = dataset('hq83Sources', {
 });
 const db = createQueryBuilder({ host: TEST_CONNECTION_CONFIG.host, username: TEST_CONNECTION_CONFIG.user, password: TEST_CONNECTION_CONFIG.password, database: TEST_CONNECTION_CONFIG.database });
 const client = createDatasetClient({ queryBuilder: db });
+/** The same client with the server-side join_use_nulls setting pinned on every query. */
+const clientWithJoinNulls = (joinUseNulls: 0 | 1) => {
+  const factory = toQueryBuilderFactory(db);
+  return createDatasetClient({
+    queryBuilder: {
+      table: (name: string) => (factory.table(name) as unknown as ReturnType<typeof db.table>).settings({ join_use_nulls: joinUseNulls }) as unknown as QueryBuilderLike,
+      rawQuery: factory.rawQuery.bind(factory),
+    } satisfies QueryBuilderFactoryLike,
+  });
+};
 const context = { runtime: { tenant: { id: 'a' } } };
 
 describe('relationship measures against ClickHouse', () => {
@@ -58,6 +69,21 @@ describe('relationship measures against ClickHouse', () => {
   it('does not invent target values for unmatched groups under ClickHouse default joins', async () => {
     const { data } = await client.execute(Sources, { dimensions: ['status'], measures: ['target.unique', 'target.lowest'], filters: [{ field: 'status', operator: 'eq', value: 'missing' }] }, context);
     expect(data).toEqual([{ status: 'missing', 'target.unique': '0', 'target.lowest': null }]);
+  });
+  it.each([0, 1] as const)('groups unmatched and other-tenant targets under NULL without related measures (join_use_nulls=%s)', async (joinUseNulls) => {
+    // Source 4 points at a missing target and source 5 at another tenant's:
+    // both keep their revenue under a NULL tier, never under the '' default.
+    const { data } = await clientWithJoinNulls(joinUseNulls).execute(Sources, { dimensions: ['target.tier'], measures: ['revenue'], orderBy: [{ field: 'target.tier', direction: 'asc' }] }, context);
+    expect(data).toEqual([
+      { 'target.tier': 'gold', revenue: '30' },
+      { 'target.tier': 'silver', revenue: '30' },
+      { 'target.tier': null, revenue: '90' },
+    ]);
+  });
+  it.each([0, 1] as const)('excludes unmatched and other-tenant targets from a neq filter on a joined dimension (join_use_nulls=%s)', async (joinUseNulls) => {
+    // Standard SQL: NULL != 'gold' is not true, so only the silver source survives.
+    const { data } = await clientWithJoinNulls(joinUseNulls).execute(Sources, { measures: ['target.unique', 'revenue'], filters: [{ field: 'target.tier', operator: 'neq', value: 'gold' }] }, context);
+    expect(data).toEqual([{ 'target.unique': '1', revenue: '30' }]);
   });
   it('allows additive and count aggregates over declared hasOne targets', async () => {
     const { data } = await client.execute(Sources, { measures: ['profile.count', 'profile.total', 'profile.average'] }, context);
