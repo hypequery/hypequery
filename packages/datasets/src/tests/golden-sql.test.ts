@@ -108,7 +108,8 @@ const Orders = dataset('orders', {
     paid: { filters: [{ field: 'status', operator: 'eq', value: 'paid' }] },
   },
   relationships: {
-    customer: belongsTo(() => Customers, { from: 'customerId', to: 'id' }),
+    // Relationship keys are physical columns.
+    customer: belongsTo(() => Customers, { from: 'customer_id', to: 'customer_id' }),
   },
 });
 

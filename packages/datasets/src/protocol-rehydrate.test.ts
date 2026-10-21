@@ -256,7 +256,7 @@ describe('contract-to-catalog rehydration', () => {
     // The formula, written in the aliases the contract carried, over an
     // intermediate aggregate whose columns are those same aliases. Nothing here
     // came from a customer module.
-    expect(sql).toContain('(`revenue`) / (NULLIF(`orders`, 0)) AS `averageOrderValue`');
+    expect(sql).toContain('(`revenue` / NULLIF(`orders`, 0)) AS `averageOrderValue`');
     expect(sql).toContain('SUM(amount) AS `revenue`');
     expect(sql).toContain('COUNT(order_id) AS `orders`');
     expect(sql).toContain('analytics.orders');

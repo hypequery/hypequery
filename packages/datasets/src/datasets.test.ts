@@ -981,8 +981,8 @@ describe("MetricQueryEngine", () => {
       expect(sql).toContain("SUM(amount) AS `totalRevenue`");
       expect(sql).toContain("COUNT(id) AS `orderCount`");
       expect(sql).toContain("FROM base");
-      expect(sql).toContain("(`totalRevenue`) / (NULLIF(`orderCount`, 0)) AS `avgOrderValue`");
-      expect(sql).not.toContain("SELECT `country`, (`totalRevenue`) / (NULLIF(`orderCount`, 0)) AS `avgOrderValue`, `totalRevenue`, `orderCount` FROM base");
+      expect(sql).toContain("(`totalRevenue` / NULLIF(`orderCount`, 0)) AS `avgOrderValue`");
+      expect(sql).not.toContain("SELECT `country`, (`totalRevenue` / NULLIF(`orderCount`, 0)) AS `avgOrderValue`, `totalRevenue`, `orderCount` FROM base");
     });
 
     it("does not emit GROUP BY for ungrouped derived metrics", () => {
