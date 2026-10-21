@@ -10,6 +10,7 @@ import { createDatasetClient } from '../executor.js';
 import { dimension } from '../field.js';
 import { divide, nullIfZero } from '../formulas.js';
 import { measure } from '../measure.js';
+import { belongsTo } from '../relationships.js';
 import type { QueryBuilderFactoryLike } from '../query-builder-protocol.js';
 import type { MetricHandle } from '../types.js';
 import { clickhouseDatasetSqlDialect } from '../utils/clickhouse-dataset-sql-dialect.js';
@@ -58,6 +59,26 @@ describe('dialect ordering and pagination', () => {
     expect(partial.orderTerm).toBe(clickhouseDatasetSqlDialect.orderTerm);
   });
 
+  it('quotes relationship sources with a partial hook\'s quoteIdentifier', () => {
+    const Customers = dataset('customers', {
+      source: 'analytics.customers',
+      dimensions: { id: dimension.number({ column: 'customer_id' }), country: dimension.string({ column: 'country_code' }) },
+      measures: { customers: measure.countDistinct('id') },
+    });
+    const Sales = dataset('sales', {
+      source: 'analytics.orders',
+      dimensions: { status: dimension.string() },
+      measures: { revenue: measure.sum('status') },
+      relationships: { customer: belongsTo(() => Customers, { from: 'customer_id', to: 'customer_id' }) },
+    });
+    const hook = { name: 'double-quotes', quoteIdentifier: (id: string) => `"${id.replaceAll('"', '""')}"` };
+    expect(completeDatasetSqlDialect(hook).quoteQualifiedName('analytics.customers')).toBe('"analytics"."customers"');
+    const quoted = createDatasetClient({ queryBuilder: { ...createRenderingBuilderFactory(), datasetSqlDialect: hook } });
+    const sql = quoted.toSQL(Sales, { dimensions: ['customer.country'], measures: ['customer.customers'] });
+    expect(sql).toContain('FROM "analytics"."customers")');
+    expect(sql).not.toContain('`analytics`');
+  });
+
   it('keeps prototype methods of a class-based rule set', () => {
     class ClassRules {
       readonly name = 'class-rules';
@@ -77,12 +98,19 @@ describe('dialect ordering and pagination', () => {
       .toMatch(/ORDER BY `aov` DESC NULLS LAST LIMIT 9223372036854775807 OFFSET 20$/);
   });
 
+  it('keeps the identity of rules a plain rule set shares with ClickHouse', () => {
+    const shared = defineDatasetSqlDialectRules({ ...clickhouseDatasetSqlDialect, name: 'shared-rules' });
+    expect(shared.rawSqlExpressionError).toBe(clickhouseDatasetSqlDialect.rawSqlExpressionError);
+    expect(shared.orderTerm).toBe(clickhouseDatasetSqlDialect.orderTerm);
+  });
+
   it('keeps the private fields a class-based rule set reads', () => {
     class PrivateRules {
       readonly #nulls = 'NULLS LAST';
+      readonly #positional = clickhouseDatasetSqlDialect.embedsPositionalPieces;
       readonly name = 'private-rules';
       readonly reusesPlaceholders = clickhouseDatasetSqlDialect.reusesPlaceholders;
-      readonly embedsPositionalPieces = clickhouseDatasetSqlDialect.embedsPositionalPieces;
+      get embedsPositionalPieces() { return this.#positional; }
       orderTerm(expression: string, direction?: 'ASC' | 'DESC') { return `${expression} ${direction ?? 'ASC'} ${this.#nulls}`; }
       paginate(limit: number | undefined, offset: number | undefined) { return strictRules.paginate(limit, offset); }
     }
@@ -92,6 +120,7 @@ describe('dialect ordering and pagination', () => {
     expect(Object.isFrozen(registered)).toBe(true);
     expect(Object.isFrozen(instance)).toBe(false);
     expect(registered).toBeInstanceOf(PrivateRules);
+    expect(registered.embedsPositionalPieces).toBe(true);
     const privateClient = createDatasetClient({ queryBuilder: { ...createRenderingBuilderFactory(), datasetSqlDialect: registered } });
     expect(privateClient.toSQL(Orders, { dimensions: ['status'], measures: ['aov'], orderBy: [{ field: 'aov', direction: 'desc' }], offset: 20 }))
       .toMatch(/ORDER BY `aov` DESC NULLS LAST LIMIT 9223372036854775807 OFFSET 20$/);

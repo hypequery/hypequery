@@ -2,6 +2,7 @@ import { relationshipMeasureExpressions } from './relationship-measure-sql.js';
 import { measureToAggregationSpec } from './dataset-normalization.js';
 import { applyAggregationSpec } from '../query-planner.js';
 import { resolveDatasetSqlDialect } from './dataset-sql-dialect.js';
+import { assertRawSqlForDialect } from './raw-sql-dialect-check.js';
 import { queryTimeFilter } from './query-timezone.js';
 import { selectedTimeMeasures } from './time-query-measures.js';
 import { baseMeasureNames, getBaseMeasure } from './dataset-measures.js';
@@ -52,6 +53,7 @@ export function buildDatasetQueryBuilder(
   }
 
   const dialect = resolveDatasetSqlDialect(options.builderFactory);
+  assertRawSqlForDialect(ds, dialect);
   const joinCtx = buildRelationshipBuilderContext(ds, query, options.context, dialect);
 
   let qb = options.builderFactory.table(ds.source);

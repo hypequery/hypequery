@@ -20,7 +20,7 @@ export function relationshipMeasureSource(target: AnyDatasetInstance, to: readon
   let marker = '_hq_match';
   while (columns.has(marker)) marker += '_';
   const quote = dialect.quoteIdentifier;
-  const source = target.source.split('.').map(quote).join('.');
+  const source = dialect.quoteQualifiedName(target.source);
   const projection = [...columns].map(quote);
   return { source: `(SELECT ${[...projection, `${dialect.toNullable('1')} AS ${quote(marker)}`].join(', ')} FROM ${source})`, marker };
 }
