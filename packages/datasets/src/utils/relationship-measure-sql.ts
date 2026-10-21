@@ -30,7 +30,7 @@ export function relationshipJoinSource(target: AnyDatasetInstance, to: readonly 
   let marker = '_hq_match';
   while (columns.has(marker)) marker += '_';
   const quote = dialect.quoteIdentifier;
-  const source = target.source.split('.').map(quote).join('.');
+  const source = dialect.quoteQualifiedName(target.source);
   // Sorted so the SQL is byte-identical however the target's dimensions are
   // ordered (authored vs. rehydrated catalogs declare them differently).
   const projection = [...columns].sort().map(quote);

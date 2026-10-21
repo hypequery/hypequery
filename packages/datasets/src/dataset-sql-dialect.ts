@@ -24,6 +24,9 @@ export interface DatasetSqlBoundParameter {
   readonly type?: DatasetSqlParameterType;
 }
 
+/** Why a raw `sql` expression is not one safe expression under a dialect's lexical rules. */
+export type DatasetRawSqlExpressionError = 'unterminated-literal' | 'statement-break';
+
 /** A wall-clock component read from a zoned timestamp. */
 export type DatasetSqlClockPart = 'Hour' | 'Minute' | 'Second';
 
@@ -57,6 +60,18 @@ export interface DatasetSqlDialectRules extends DatasetSqlDialect {
    * Engines that reject OFFSET without LIMIT supply a LIMIT here.
    */
   paginate(limit: number | undefined, offset: number | undefined): string;
+
+  // Identifiers and raw SQL
+  /** Quote a dotted physical source path (`analytics.orders`). */
+  quoteQualifiedName(name: string): string;
+  /**
+   * Check that author-written raw `sql` is one expression under this engine's
+   * lexical rules: no terminator or comment hidden outside a literal. Engines
+   * differ (backslash escapes, `#` comments, triple-quoted strings), so an
+   * engine that cannot check its own raw SQL must reject it here rather than
+   * inherit another engine's rules.
+   */
+  rawSqlExpressionError(sql: string): DatasetRawSqlExpressionError | undefined;
 
   // Literals
   stringLiteral(value: string): string;

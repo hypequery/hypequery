@@ -1,6 +1,6 @@
 import type { DatasetSqlBinaryOperator, DatasetSqlDialectRules } from '../dataset-sql-dialect.js';
 import type { TimeGrain } from '../types.js';
-import { quoteSQLIdentifier } from '../sql-utils.js';
+import { quoteSQLIdentifier, stripSqlLiterals } from '../sql-utils.js';
 
 const TRUNCATE_FUNCTIONS: Record<TimeGrain, string> = {
   minute: 'toStartOfMinute',
@@ -20,6 +20,14 @@ const INTERVAL_UNITS: Record<TimeGrain, string> = {
 const BINARY_OPERATORS: Record<DatasetSqlBinaryOperator, string> = {
   add: '+', subtract: '-', multiply: '*', divide: '/',
 };
+
+/**
+ * Statement terminators and comment openers. A raw `sql` value is spliced into
+ * a larger expression, so any of these turns one expression into something
+ * else: `;` starts a second statement, `--` and `/*` comment out whatever the
+ * builder appends after it.
+ */
+const STATEMENT_BREAKERS = /;|--|\/\*/;
 
 // ClickHouse also treats backslash as a string escape. Doubling quotes without
 // escaping backslashes lets a value ending in \\ before a quote break out of
@@ -41,6 +49,18 @@ export const clickhouseDatasetSqlDialect: DatasetSqlDialectRules = Object.freeze
   orderTerm: (expression: string, direction?: 'ASC' | 'DESC') => direction ? `${expression} ${direction}` : expression,
   paginate: (limit: number | undefined, offset: number | undefined) =>
     `${limit === undefined ? '' : ` LIMIT ${limit}`}${offset === undefined ? '' : ` OFFSET ${offset}`}`,
+
+  quoteQualifiedName: (name: string) => name.split('.').map(quoteSQLIdentifier).join('.'),
+  rawSqlExpressionError(sql: string) {
+    let code: string;
+    try {
+      // Quoted spans are blanked first, so a terminator inside a literal is data.
+      code = stripSqlLiterals(sql);
+    } catch {
+      return 'unterminated-literal';
+    }
+    return STATEMENT_BREAKERS.test(code) ? 'statement-break' : undefined;
+  },
 
   stringLiteral,
   measureFilterLiteral(value: unknown): string {

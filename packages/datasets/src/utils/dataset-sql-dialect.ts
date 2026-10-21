@@ -18,18 +18,21 @@ export function defineDatasetSqlDialectRules<TRules extends DatasetSqlDialectRul
 
 /**
  * A frozen snapshot of a rule set that leaves the caller's object unfrozen.
- * Every member along the prototype chain is copied as an own property, with
- * methods bound to the original: a class-based rule set keeps its methods on
- * the prototype, and its `#private` fields exist only on the instance its
- * constructor ran on, so a copy must not become their receiver.
+ *
+ * Own members are copied as they are, so a rule shared with another rule set
+ * (spread from the ClickHouse rules, say) keeps its identity. Members a class
+ * declares are read through the original instance, methods bound to it and
+ * getters evaluated on it: its `#private` fields exist only on the object its
+ * constructor ran on, so a copy must not become their receiver. Members
+ * inherited from a plain object stay inherited.
  */
 function receiverBoundSnapshot<TRules extends object>(rules: TRules): Readonly<TRules> {
-  const snapshot: object = Object.create(Object.getPrototypeOf(rules));
-  const seen = new Set<PropertyKey>();
-  for (let owner: object | null = rules; owner && owner !== Object.prototype; owner = Object.getPrototypeOf(owner)) {
+  const snapshot: object = Object.create(Object.getPrototypeOf(rules), Object.getOwnPropertyDescriptors(rules));
+  for (let owner = Object.getPrototypeOf(rules) as object | null; owner && isClassPrototype(owner); owner = Object.getPrototypeOf(owner)) {
     for (const key of Reflect.ownKeys(owner)) {
-      if (key === 'constructor' || seen.has(key)) continue;
-      seen.add(key);
+      if (key === 'constructor' || Object.hasOwn(snapshot, key)) continue;
+      // Read through the original, so a getter sees its own private fields;
+      // a method is bound to it for the same reason.
       const value: unknown = Reflect.get(rules, key);
       // Define rather than assign: assignment cannot shadow a read-only
       // member inherited from a frozen prototype such as the ClickHouse rules.
@@ -40,6 +43,13 @@ function receiverBoundSnapshot<TRules extends object>(rules: TRules): Readonly<T
     }
   }
   return Object.freeze(snapshot) as Readonly<TRules>;
+}
+
+/** A prototype a class declaration created: its constructor points back at it. */
+function isClassPrototype(owner: object): boolean {
+  if (owner === Object.prototype || !Object.hasOwn(owner, 'constructor')) return false;
+  const constructor: unknown = (owner as { constructor?: unknown }).constructor;
+  return typeof constructor === 'function' && constructor.prototype === owner;
 }
 
 /**
@@ -57,6 +67,7 @@ export function completeDatasetSqlDialect(dialect: DatasetSqlDialect): DatasetSq
       ...clickhouseDatasetSqlDialect,
       name: dialect.name,
       quoteIdentifier: (identifier: string) => dialect.quoteIdentifier(identifier),
+      quoteQualifiedName: (name: string) => name.split('.').map(part => dialect.quoteIdentifier(part)).join('.'),
     });
     resolved.set(dialect, rules);
   }
