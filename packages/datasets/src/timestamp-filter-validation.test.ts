@@ -20,6 +20,12 @@ describe('timestamp filter values', () => {
     '20260201',
     '1700000000',
     '2026-02-01T00:00:00+0000',
+    '2026-01-31-05:30',
+    '2026-01-31Z',
+    '2026-02-01T00:00:00+05:60',
+    '2026-02-01T00:00:00+24:00',
+    '2026-02-01T24:00:00',
+    '2026-02-01T12:60:00',
   ];
   it.each(refused)('refuses %j for comparison, between and in', value => {
     for (const filter of [
@@ -40,6 +46,7 @@ describe('timestamp filter values', () => {
     '2026-02-01T00:00:00Z',
     '2026-02-01T00:00:00.000Z',
     '2026-02-01T10:00:00+10:00',
+    '2026-02-01T10:00:00-05:30',
     '2024-02-29',
   ])('accepts %j', value => {
     expect(validateFilterValue({ field: 'createdAt', operator: 'gte', value }, 'timestamp')).toBeNull();
