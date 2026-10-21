@@ -14,7 +14,7 @@ from typing import Any, Protocol, Self, TypedDict, cast
 
 from hypequery.datasets.planner import SETTING_DEFINITIONS, CompiledQuery, CompiledQueryError
 
-from .cancellation import acquire_slot, run_with_policy, terminal_error
+from .cancellation import acquire_slot, run_with_policy, stop_retries, terminal_error
 from .errors import safe_driver_error
 from .parameters import bound_parameters
 from .readonly_settings import (
@@ -25,6 +25,7 @@ from .readonly_settings import (
 )
 from .results import DriverResult, QueryRows, decode_result
 from .sync_cancellation import SyncCancellationMonitor
+from .utils.close_cancellation import cancels_on_close
 from .utils.connection_env import connection_fields, control_fields
 
 
@@ -293,6 +294,8 @@ class AsyncClickHouseExecutor:
         self._semaphore = asyncio.Semaphore(_capacity(max_concurrent))
         self._closed = False
         self._readonly_policy = readonly_policy
+        self._retries: set[asyncio.Task[None]] = set()
+        self._cancels_on_close = cancels_on_close(client)
 
     async def _cancel_on_server(self, query_id: str) -> object:
         try:
@@ -341,7 +344,18 @@ class AsyncClickHouseExecutor:
                 return decode_result(result, compiled.query_id)
 
             query_task = asyncio.create_task(query())
-            return await run_with_policy(query_task, compiled, self._cancel_on_server)
+            running = query_task
+            # When the server cancels a query whose request closed, the end of
+            # the driver call is the end of the query, so retries stop there.
+            # Otherwise a query registered after the first KILL can only be
+            # stopped by asking again, until the server's own time limit.
+            return await run_with_policy(
+                query_task,
+                compiled,
+                self._cancel_on_server,
+                pending=(lambda: not running.done()) if self._cancels_on_close else None,
+                retries=self._retries,
+            )
         finally:
             if query_task is None:
                 self._semaphore.release()
@@ -351,9 +365,10 @@ class AsyncClickHouseExecutor:
                 query_task.add_done_callback(self._release_slot_when_done)
 
     async def aclose(self) -> None:
-        """Close the driver and dedicated control connection."""
+        """Stop pending KILL retries, then close the driver and control connection."""
 
         self._closed = True
+        await stop_retries(self._retries)
         for client in (self._client, self._control_client):
             closer = getattr(client, "close", None)
             if callable(closer):
@@ -398,6 +413,7 @@ class AsyncFromSyncClickHouseExecutor:
         )
         self._semaphore = asyncio.Semaphore(capacity)
         self._closed = False
+        self._retries: set[asyncio.Task[None]] = set()
 
     async def _cancel_on_server(self, query_id: str) -> object:
         loop = asyncio.get_running_loop()
@@ -439,7 +455,11 @@ class AsyncFromSyncClickHouseExecutor:
             # The blocking driver call cannot be interrupted; the bridge knows
             # when it returns, so server cancellation can be retried until then.
             return await run_with_policy(
-                work, compiled, self._cancel_on_server, pending=lambda: not future.done()
+                work,
+                compiled,
+                self._cancel_on_server,
+                pending=lambda: not future.done(),
+                retries=self._retries,
             )
         finally:
             if submitted and not future.done():
@@ -466,6 +486,8 @@ class AsyncFromSyncClickHouseExecutor:
         self._closed = True
         self._workers.shutdown(wait=False, cancel_futures=True)
         await asyncio.to_thread(self._workers.shutdown, wait=True)
+        # Every driver call has returned, so no retry has anything left to stop.
+        await stop_retries(self._retries)
         self._control_worker.shutdown(wait=False, cancel_futures=True)
         await asyncio.to_thread(self._control_worker.shutdown, wait=True)
         closer = getattr(self._control, "close", None)

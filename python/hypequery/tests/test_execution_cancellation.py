@@ -778,3 +778,98 @@ def test_a_refused_async_kill_schedules_no_retries(
             await executor.aclose()
 
     asyncio.run(run())
+
+
+class _NeverConfirmingControl:
+    def __init__(self) -> None:
+        self.calls = 0
+
+    async def command(self, _cmd: str, _parameters: dict[str, str]) -> object:
+        self.calls += 1
+        # No match: not registered yet, or already gone. KILL cannot tell.
+        return None
+
+
+class _CancelOnCloseClient(AsyncClient):
+    def get_client_setting(self, key: str) -> str | None:
+        return "1" if key == "cancel_http_readonly_queries_on_client_close" else None
+
+
+def test_native_async_retries_stop_with_the_request_when_the_server_cancels_on_close() -> None:
+    async def run() -> None:
+        signal = threading.Event()
+        client = _CancelOnCloseClient()
+        control = _NeverConfirmingControl()
+        executor = AsyncClickHouseExecutor(client, control)
+        task = asyncio.create_task(executor.execute(query(cancellation=signal)))
+        await client.started.wait()
+        signal.set()
+        with pytest.raises(CompiledQueryError):
+            await task
+        assert client.cancelled.is_set()
+        await asyncio.sleep(0.3)
+        # The closed request ended the query on the server: one KILL, no retries.
+        assert control.calls == 1
+        assert not executor._retries
+        await executor.aclose()
+
+    asyncio.run(run())
+
+
+def test_native_async_aclose_stops_outstanding_retries() -> None:
+    async def run() -> None:
+        signal = threading.Event()
+        client = AsyncClient()
+        control = _NeverConfirmingControl()
+        executor = AsyncClickHouseExecutor(client, control)
+        task = asyncio.create_task(executor.execute(query(cancellation=signal)))
+        await client.started.wait()
+        signal.set()
+        with pytest.raises(CompiledQueryError):
+            await task
+        await asyncio.sleep(0.1)
+        assert executor._retries
+        await executor.aclose()
+        assert not executor._retries
+        calls = control.calls
+        await asyncio.sleep(0.3)
+        assert control.calls == calls
+
+    asyncio.run(run())
+
+
+def test_sync_bridge_aclose_stops_outstanding_retries() -> None:
+    async def run() -> None:
+        signal = threading.Event()
+        release = threading.Event()
+        started = threading.Event()
+        calls: list[int] = []
+
+        class SlowClient:
+            def query(self, *_args: object, **_kwargs: object) -> DriverResult:
+                started.set()
+                assert release.wait(3)
+                return cast(DriverResult, Result())
+
+        class NeverConfirming:
+            def command(self, _cmd: str, _parameters: dict[str, str]) -> object:
+                calls.append(1)
+                return None
+
+        executor = AsyncFromSyncClickHouseExecutor(SlowClient(), NeverConfirming())
+        task = asyncio.create_task(executor.execute(query(cancellation=signal)))
+        await asyncio.to_thread(started.wait, 2)
+        signal.set()
+        with pytest.raises(CompiledQueryError):
+            await task
+        assert executor._retries
+        closing = asyncio.create_task(executor.aclose())
+        await asyncio.sleep(0.1)
+        release.set()
+        await closing
+        assert not executor._retries
+        count = len(calls)
+        await asyncio.sleep(0.3)
+        assert len(calls) == count
+
+    asyncio.run(run())
