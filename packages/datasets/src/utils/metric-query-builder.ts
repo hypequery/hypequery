@@ -50,13 +50,12 @@ export function buildMetricQueryBuilder(
     qb = qb.select(selectParts);
   }
 
-  // Aggregation (appends to select, auto-sets groupBy on non-agg columns)
-  qb = applyAggregationSpec(qb, ds, spec, ref.name, joinCtx, dialect);
-
-  // Explicit groupBy (ensures period + dims are grouped even if aggregation auto-groupBy misses them)
+  // Group before aggregating: the builder only infers GROUP BY when none is
+  // set, and cannot infer it from quoted aliases.
   if (groupByParts.length > 0) {
     qb = qb.groupBy(groupByParts);
   }
+  qb = applyAggregationSpec(qb, ds, spec, ref.name, joinCtx, dialect);
 
   // Tenant auto-injection
   const tenantColumn = resolveTenantFilterColumn(ds, context);

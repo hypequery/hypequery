@@ -9,10 +9,11 @@ query limit is still sent: a limit is never silently dropped.
 
 from __future__ import annotations
 
+import re
 from collections.abc import Mapping
 from typing import Literal, TypeAlias
 
-from hypequery.datasets.planner import CompiledQueryError
+from hypequery.datasets.planner import SETTING_DEFINITIONS, CompiledQueryError
 
 ReadonlyPolicy: TypeAlias = Literal["query", "profile"]
 
@@ -62,29 +63,52 @@ def wire_settings(
     return _without_readonly(settings)
 
 
+# clickhouse-connect 1.6 says "is unknown or readonly"; later versions "is readonly".
+_DRIVER_REFUSED = re.compile(r"^Setting (\w+) is (?:unknown or )?readonly$")
+# The server's own wording for a readonly = 1 user, error code 164 READONLY.
+_SERVER_REFUSED = re.compile(r"Cannot modify '(\w+)' setting in readonly mode")
+
+
+def _refused_setting(exc: Exception) -> str | None:
+    """The name of the setting ClickHouse or the driver refused, if that is the failure."""
+    message = str(exc)
+    driver = _DRIVER_REFUSED.match(message)
+    if driver is not None:
+        return driver.group(1)
+    if getattr(exc, "name", None) == "READONLY":
+        server = _SERVER_REFUSED.search(message)
+        if server is not None:
+            return server.group(1)
+    return None
+
+
 def readonly_setting_error(
     exc: Exception, policy: ReadonlyPolicy, query_id: str
 ) -> CompiledQueryError | None:
-    """Give guidance only for rejection of HypeQuery's own readonly setting.
+    """Give guidance only for rejection of HypeQuery's own settings.
 
-    Reached only when the driver could not report the user's readonly level, so
-    the planner's ``readonly`` was sent and refused.
+    A user whose profile sets ``readonly = 1`` may not change any setting, so
+    the planner's limits are refused one by one; that is the failure an
+    operator can fix from the message alone. The refused setting's name is not
+    echoed: the guidance is the same for all of them.
     """
 
-    if policy != "query":
+    setting = _refused_setting(exc)
+    if setting is None or setting not in SETTING_DEFINITIONS:
         return None
-    message = str(exc)
-    # clickhouse-connect 1.6 says "is unknown or readonly"; later versions "is readonly".
-    driver_rejected_setting = message in (
-        "Setting readonly is unknown or readonly",
-        "Setting readonly is readonly",
-    )
-    server_rejected_setting = getattr(exc, "name", None) == "READONLY" and "'readonly'" in message
-    if not (driver_rejected_setting or server_rejected_setting):
-        return None
+    if setting == "readonly":
+        if policy != "query":
+            return None
+        return CompiledQueryError(
+            "forbidden",
+            "ClickHouse rejected HypeQuery's readonly setting. Use readonly_policy='profile' "
+            "only when the ClickHouse user profile enforces readonly = 1 or 2.",
+            query_id=query_id,
+        )
     return CompiledQueryError(
         "forbidden",
-        "ClickHouse rejected HypeQuery's readonly setting. Use readonly_policy='profile' "
-        "only when the ClickHouse user profile enforces readonly = 1 or 2.",
+        "ClickHouse rejected HypeQuery's per-query limits: the connected user is readonly = 1, "
+        "which forbids changing any setting. Use a user whose profile sets readonly = 2 "
+        "(settings may change, data may not).",
         query_id=query_id,
     )

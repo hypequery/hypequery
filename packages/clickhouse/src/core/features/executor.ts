@@ -2,6 +2,7 @@ import type { BuilderState, SchemaDefinition } from '../types/builder-state.js';
 import { QueryBuilder } from '../query-builder.js';
 import { logger, type QueryLog } from '../utils/logger.js';
 import { substituteParameters } from '../utils.js';
+import { splitSqlPlaceholders } from '../utils/sql-parens.js';
 
 interface ExecutorRunOptions {
   queryId?: string;
@@ -22,6 +23,19 @@ export class ExecutorFeature<
   toSQLWithParams(): { sql: string, parameters: any[] } {
     const compiled = this.compileQuery();
     return { sql: compiled.query, parameters: [...compiled.parameters] };
+  }
+
+  toSQLWithPlaceholders(placeholder: (value: unknown) => string): string {
+    const { sql, parameters } = this.toSQLWithParams();
+    const parts = splitSqlPlaceholders(sql);
+    if (parts.length - 1 !== parameters.length) {
+      throw new Error(`Mismatch between placeholders and parameters. Found ${parts.length - 1} placeholders but ${parameters.length} parameters.`);
+    }
+    let rendered = parts[0]!;
+    for (let i = 0; i < parameters.length; i++) {
+      rendered += placeholder(parameters[i]) + parts[i + 1]!;
+    }
+    return rendered;
   }
 
   toSQL(): string {

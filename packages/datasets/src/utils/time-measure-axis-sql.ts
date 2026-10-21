@@ -1,4 +1,4 @@
-import type { DatasetSqlDialectRules } from '../dataset-sql-dialect.js';
+import type { StatementParameters } from './statement-parameters.js';
 import type { TimeMeasureAxis } from './time-measure-axis.js';
 import type { TimeMeasureSqlSource } from './time-measure-source-sql.js';
 import { calendarBucketGuardSql } from './time-axis-calendar-guard.js';
@@ -15,11 +15,12 @@ export interface TimeMeasureSqlAxis {
 
 /** Build bounded output buckets using the query timezone. */
 export function buildTimeMeasureAxisSql(
-  dialect: DatasetSqlDialectRules,
+  statement: StatementParameters,
   source: TimeMeasureSqlSource,
   axis: TimeMeasureAxis,
   shifts: readonly ShiftMeasureDefinition[] = [],
 ): TimeMeasureSqlAxis {
+  const { dialect } = statement;
   const first = dialect.truncateTime('_hq_lower', axis.grain);
   const upperBucket = dialect.truncateTime('_hq_upper', axis.grain);
   const last = axis.upperInclusive
@@ -45,8 +46,9 @@ export function buildTimeMeasureAxisSql(
   // Reading any(time) here would scan the entire population just for its type.
   const timezone = dialect.timezoneOf(dialect.assumeNotNull('(SELECT _hq_time FROM _hq_source LIMIT 0)'));
   const bounds = [
-    `${dialect.parseTimestamp(axis.lower, timezone)} AS _hq_lower`,
-    `${dialect.parseTimestamp(axis.upper, timezone)} AS _hq_upper`,
+    // The bounds come from the caller's time filter: bind them, never inline them.
+    `${dialect.parseTimestamp(statement.bind(axis.lower, 'string'), timezone)} AS _hq_lower`,
+    `${dialect.parseTimestamp(statement.bind(axis.upper, 'string'), timezone)} AS _hq_upper`,
     `${first} AS _hq_first`,
     `${last} AS _hq_last`,
   ];

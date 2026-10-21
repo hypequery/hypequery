@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from collections.abc import Mapping
 from copy import deepcopy
-from typing import assert_type, cast
+from typing import Any, assert_type, cast
 
 import pytest
 from pydantic import JsonValue, ValidationError
@@ -140,6 +140,22 @@ def test_constructs_typescript_equivalent_logical_model() -> None:
             "to_field": "id",
         }
     }
+
+
+def test_relationship_target_must_be_a_dataset_not_its_name() -> None:
+    # A name cannot be resolved here, and an AttributeError would say nothing useful.
+    with pytest.raises(TypeError, match="not a dataset name"):
+        belongs_to(cast(Any, "customers"), from_field="customer_id", to_field="id")
+    with pytest.raises(TypeError, match="not a dataset name"):
+        has_many(cast(Any, lambda: "customers"), from_field="id", to_field="customer_id")
+
+
+def test_deadline_is_part_of_the_public_package() -> None:
+    from hypequery.datasets import Deadline, ExecutionContext
+
+    deadline = ExecutionContext(deadline=Deadline.after(1)).deadline
+    assert deadline is not None
+    assert deadline.remaining() <= 1
 
 
 def test_relationship_helpers_resolve_direct_and_callable_targets() -> None:
