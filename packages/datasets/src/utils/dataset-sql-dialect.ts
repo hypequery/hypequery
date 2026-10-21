@@ -11,13 +11,35 @@ const complete = new WeakSet<DatasetSqlDialect>();
  * ClickHouse rules. Internal: for engine packages and tests.
  */
 export function defineDatasetSqlDialectRules<TRules extends DatasetSqlDialectRules>(rules: TRules): Readonly<TRules> {
-  // Copy onto the same prototype rather than spreading: a class-based rule set
-  // keeps its methods there, and the caller's object is left unfrozen.
-  const frozen = Object.isFrozen(rules)
-    ? rules
-    : Object.freeze(Object.create(Object.getPrototypeOf(rules), Object.getOwnPropertyDescriptors(rules)) as TRules);
+  const frozen = Object.isFrozen(rules) ? rules : receiverBoundSnapshot(rules);
   complete.add(frozen);
   return frozen;
+}
+
+/**
+ * A frozen snapshot of a rule set that leaves the caller's object unfrozen.
+ * Every member along the prototype chain is copied as an own property, with
+ * methods bound to the original: a class-based rule set keeps its methods on
+ * the prototype, and its `#private` fields exist only on the instance its
+ * constructor ran on, so a copy must not become their receiver.
+ */
+function receiverBoundSnapshot<TRules extends object>(rules: TRules): Readonly<TRules> {
+  const snapshot: object = Object.create(Object.getPrototypeOf(rules));
+  const seen = new Set<PropertyKey>();
+  for (let owner: object | null = rules; owner && owner !== Object.prototype; owner = Object.getPrototypeOf(owner)) {
+    for (const key of Reflect.ownKeys(owner)) {
+      if (key === 'constructor' || seen.has(key)) continue;
+      seen.add(key);
+      const value: unknown = Reflect.get(rules, key);
+      // Define rather than assign: assignment cannot shadow a read-only
+      // member inherited from a frozen prototype such as the ClickHouse rules.
+      Object.defineProperty(snapshot, key, {
+        value: typeof value === 'function' ? value.bind(rules) : value,
+        enumerable: true,
+      });
+    }
+  }
+  return Object.freeze(snapshot) as Readonly<TRules>;
 }
 
 /**

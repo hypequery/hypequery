@@ -129,25 +129,58 @@ def serialize_number(value: float) -> str:
     return sign + body
 
 
+_SHORT_ESCAPES = {
+    '"': '\\"',
+    "\\": "\\\\",
+    "\b": "\\b",
+    "\f": "\\f",
+    "\n": "\\n",
+    "\r": "\\r",
+    "\t": "\\t",
+}
+
+
+def _is_high_surrogate(code: int) -> bool:
+    return 0xD800 <= code <= 0xDBFF
+
+
+def _is_low_surrogate(code: int) -> bool:
+    return 0xDC00 <= code <= 0xDFFF
+
+
 def _serialize_string(value: str) -> str:
+    """Write *value* as ``JSON.stringify`` does, surrogates included.
+
+    A Python string may hold UTF-16 surrogate code points that UTF-8 cannot
+    encode. Well-formed ``JSON.stringify`` writes an unpaired one as a
+    ``\\udXXX`` escape and a pair as the astral character it spells, so the
+    same bytes come out of both implementations.
+    """
+
     parts = ['"']
-    short_escapes = {
-        '"': '\\"',
-        "\\": "\\\\",
-        "\b": "\\b",
-        "\f": "\\f",
-        "\n": "\\n",
-        "\r": "\\r",
-        "\t": "\\t",
-    }
-    for character in value:
-        escaped = short_escapes.get(character)
+    index = 0
+    length = len(value)
+    while index < length:
+        character = value[index]
+        code = ord(character)
+        escaped = _SHORT_ESCAPES.get(character)
         if escaped is not None:
             parts.append(escaped)
-        elif ord(character) <= 0x1F:
-            parts.append(f"\\u{ord(character):04x}")
+        elif code <= 0x1F:
+            parts.append(f"\\u{code:04x}")
+        elif (
+            _is_high_surrogate(code)
+            and index + 1 < length
+            and _is_low_surrogate(ord(value[index + 1]))
+        ):
+            low = ord(value[index + 1])
+            parts.append(chr(0x10000 + ((code - 0xD800) << 10) + (low - 0xDC00)))
+            index += 1
+        elif _is_high_surrogate(code) or _is_low_surrogate(code):
+            parts.append(f"\\u{code:04x}")
         else:
             parts.append(character)
+        index += 1
     parts.append('"')
     return "".join(parts)
 
@@ -184,7 +217,8 @@ class _JcsWriter:
             self.write("]")
         elif type(value) is dict:
             self.write("{")
-            keys = sorted(value, key=lambda key: key.encode("utf-16-be"))
+            # JavaScript sorts keys by UTF-16 code unit; a lone surrogate is one unit.
+            keys = sorted(value, key=lambda key: key.encode("utf-16-be", "surrogatepass"))
             for index, key in enumerate(keys):
                 if index:
                     self.write(",")

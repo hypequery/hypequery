@@ -206,6 +206,19 @@ def test_validate_reports_problems_without_executing() -> None:
     malformed = client.validate(_trips(), {"limit": -1})
     assert not malformed.valid
     assert "limit" in malformed.errors[0]
+    # A field name outside RFC 0002's grammar is reported, not raised: the
+    # identifier error is a TypeError that Pydantic does not wrap.
+    for shape in (
+        {"filters": [{"field": "a b", "operator": "eq", "value": 1}]},
+        {"order_by": [{"field": "a.b.c.d.e.f.g.h.i", "direction": "asc"}]},
+        {"having": [{"measure": "trips;", "operator": "gt", "value": 1}]},
+    ):
+        reported = client.validate(_trips(), shape)
+        assert not reported.valid
+        assert "portable identifier" in reported.errors[0]
+        with pytest.raises(CompiledQueryError) as caught:
+            client.execute(_trips(), shape)
+        assert caught.value.category == "input-invalid"
     assert executor.seen == []
 
 

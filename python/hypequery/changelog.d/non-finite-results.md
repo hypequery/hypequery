@@ -1,0 +1,1 @@
+- Return `null` for non-finite measure values instead of failing the query. ClickHouse reports `nan` for `avg`, `stddev` and `variance` over no matching rows and `inf` for a derived division by zero; such results previously surfaced as an internal error, so a metric endpoint whose filters matched nothing answered 500.

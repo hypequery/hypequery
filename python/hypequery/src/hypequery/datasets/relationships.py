@@ -98,6 +98,11 @@ def _relationship(
     keys: Sequence[RelationshipKeyInput] | None,
 ) -> Relationship:
     resolved = target() if callable(target) else target
+    if type(getattr(resolved, "name", None)) is not str:
+        raise TypeError(
+            "relationship target must be a Dataset, or a zero-argument callable returning "
+            "one, not a dataset name; the callable is invoked once, here"
+        )
     if keys is None:
         if from_field is None or to_field is None:
             raise TypeError("a relationship needs from_field and to_field, or keys")

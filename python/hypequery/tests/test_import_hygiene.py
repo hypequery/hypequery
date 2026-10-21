@@ -96,3 +96,14 @@ def test_serve_reports_missing_extra_actionably() -> None:
 
     assert result.returncode != 0
     assert "hypequery[fastapi]" in result.stderr, result.stderr
+
+
+def test_version_matches_the_package_metadata() -> None:
+    import tomllib
+    from importlib.metadata import version
+    from pathlib import Path
+
+    import hypequery
+
+    project = tomllib.loads((Path(__file__).parents[1] / "pyproject.toml").read_text())
+    assert hypequery.__version__ == version("hypequery") == project["project"]["version"]
