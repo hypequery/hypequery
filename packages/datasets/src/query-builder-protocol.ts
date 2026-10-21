@@ -87,6 +87,16 @@ export interface QueryBuilderLike {
 
   // Terminal operations
   toSQLWithParams(): { sql: string; parameters: unknown[] };
+  /**
+   * Optional: compile with each bound value written through `placeholder`,
+   * called once per value in SQL order, its result inserted verbatim. Lets
+   * the datasets planner own placeholder spelling and numbering when it
+   * embeds this statement in a larger one. Required on datasets dialects that
+   * number placeholders (such as Postgres `$n`) and only called there:
+   * positional `?` dialects keep using `toSQLWithParams`, unchanged.
+   * `@hypequery/clickhouse` implements it from 2.14.0.
+   */
+  toSQLWithPlaceholders?(placeholder: (value: unknown) => string): string;
   execute<T = Record<string, unknown>>(options?: { abortSignal?: AbortSignal }): Promise<T[]>;
 }
 

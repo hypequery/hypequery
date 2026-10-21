@@ -6,6 +6,12 @@ export interface BuilderStatement {
   readonly parameters: readonly unknown[];
 }
 
+/** A query builder, as far as embedding its compiled statement is concerned. */
+export interface EmbeddableBuilder {
+  toSQLWithParams(): BuilderStatement;
+  toSQLWithPlaceholders?(placeholder: (value: unknown) => string): string;
+}
+
 /** An executable statement, rendered for its dialect. */
 export interface RenderedStatement {
   sql: string;
@@ -64,6 +70,29 @@ export class StatementParameters {
     }
     this.pieces.push({ sql: piece.sql, parameters: [...piece.parameters] });
     return this.marker('b', this.pieces.length - 1);
+  }
+
+  /**
+   * Embed a query builder's statement.
+   *
+   * On positional `?` dialects the builder's own statement is embedded as one
+   * block, exactly as before: `toSQLWithPlaceholders` is not called, so a
+   * duck-typed builder that answers any method name keeps working. Dialects
+   * that number placeholders need each value bound here, so they require the
+   * builder to render through `toSQLWithPlaceholders`. A caller that already
+   * compiled the builder positionally can pass that statement to reuse it.
+   */
+  embedBuilder(builder: EmbeddableBuilder, compiled?: BuilderStatement): string {
+    if (this.dialect.embedsPositionalPieces) return this.embed(compiled ?? builder.toSQLWithParams());
+    if (typeof builder.toSQLWithPlaceholders !== 'function') {
+      throw new Error(
+        `The "${this.dialect.name}" datasets dialect numbers placeholders; `
+        + 'the query builder must implement toSQLWithPlaceholders.',
+      );
+    }
+    const sql: unknown = builder.toSQLWithPlaceholders(value => this.bind(value));
+    if (typeof sql !== 'string') throw new Error('Query builder toSQLWithPlaceholders must return SQL text.');
+    return sql;
   }
 
   /** Replace every marker in text order. Fails closed on foreign or malformed markers. */

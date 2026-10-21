@@ -84,7 +84,7 @@ export function buildTimeMeasureSourceSql(
   for (const filter of segmentFilters(ds, query.segments)) {
     raw = raw.where(resolveDimensionExpression(ds, filter.field, joinCtx), filter.operator, filter.value);
   }
-  const rawSql = statement.embed(raw.toSQLWithParams());
+  const rawSql = statement.embedBuilder(raw);
   const sourceColumns = [`${queryTimeSql(dialect, dialect.assumeNotNull(dialect.rowElement(rowAlias, 1)), query.timezone)} AS _hq_time`];
   dims.forEach((dimension, i) => sourceColumns.push(`${dialect.rowElement(rowAlias, i + 2)} AS ${dimension.alias}`));
   bases.forEach((base, i) => {
