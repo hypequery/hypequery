@@ -8,17 +8,17 @@ Importing `hypequery.execution` does not import the driver or open a connection.
 | Install | Gives you |
 | --- | --- |
 | `pip install "hypequery[clickhouse]"` | The sync executor |
-| `pip install "hypequery[clickhouse-async]"` | The async executor |
+| `pip install "hypequery[clickhouse-async]"` | The async executor, and everything `clickhouse` gives |
 
 ## Executors
 
 | Export | Purpose |
 | --- | --- |
-| `create_clickhouse_executor(connection)` | A `ClickHouseExecutor`. Connects on demand |
-| `create_async_clickhouse_executor(connection)` | An `AsyncClickHouseExecutor`. Connects on demand |
-| `AsyncFromSyncClickHouseExecutor(client, control_client, *, max_concurrent=4)` | A bounded worker bridge for apps that already have a synchronous driver client |
-| `ClickHouseConnection(host="localhost", port=None, database="default", username="default", password="", secure=False, readonly_policy="query")` | Connection fields; the password never appears in its `repr` |
-| `ClickHouseConnection.from_env(environ=None, *, readonly_policy="query")` | Read `CLICKHOUSE_HOST`, `_PORT`, `_DATABASE`, `_USERNAME`, `_PASSWORD` and `_SECURE` |
+| `create_clickhouse_executor(connection)` | A `ClickHouseExecutor`. Connects when called |
+| `create_async_clickhouse_executor(connection)` | An `AsyncClickHouseExecutor` running up to 8 queries at once. Connects when awaited |
+| `AsyncFromSyncClickHouseExecutor(client, control_client, *, max_concurrent=4)` | A bounded worker bridge for apps that already have a synchronous driver client. Create both clients with `autogenerate_session_id=False` |
+| `ClickHouseConnection(host="localhost", port=None, database="default", username="default", password="", secure=False, readonly_policy="query", control_username=None, control_password="")` | Connection fields; passwords never appear in its `repr` |
+| `ClickHouseConnection.from_env(environ=None, *, readonly_policy="query")` | Read `CLICKHOUSE_HOST`, `_PORT`, `_DATABASE`, `_USERNAME`, `_PASSWORD`, `_SECURE`, `_CONTROL_USERNAME` and `_CONTROL_PASSWORD` |
 
 Pass the executor to `create_dataset_client(executor=...)` or `create_async_dataset_client(executor=...)`.
 
@@ -27,3 +27,39 @@ Pass the executor to `create_dataset_client(executor=...)` or `create_async_data
 `QueryRows` is the row type executors return.
 
 `ReadonlyPolicy` is `"query"` or `"profile"`. In `query` mode, a user the driver reports as already read-only (`readonly` 1 or 2) doesn't get the planner's `readonly` setting, because a `readonly = 2` user would refuse it. Every other user gets all settings. `profile` mode does the same and also refuses a user that is not read-only.
+
+A `readonly = 1` user may not change any setting, so it refuses the planner's per-query limits and every query fails with
+`forbidden`. Serve with a user whose profile sets `readonly = 2`: settings may change, data may not.
+
+## Cancellation and deadlines
+
+A caller's cancellation, or an `ExecutionContext` deadline, stops the query on the server with
+`KILL QUERY … SYNC`. The executor sends it on a separate, short-timeout control connection. Grant what that needs:
+
+- By default the control connection signs in as the query user, which then needs
+  `GRANT SELECT ON system.processes TO <user>`.
+- With `control_username`/`control_password` set (or `CLICKHOUSE_CONTROL_USERNAME`/`_PASSWORD`), cancellation runs
+  as that user instead. It needs `SELECT ON system.processes` **and** `KILL QUERY ON *.*`, because it stops queries
+  another user started.
+
+If ClickHouse refuses the `KILL`, the executor logs one error on the `hypequery.execution.cancellation` logger and
+stops asking. The query then runs until `max_execution_time` (30 s by default), though the caller still gets
+`aborted` or `deadline-exceeded` immediately. The native async executor's driver also asks ClickHouse to drop a
+read-only query when its request closes, when the user may change that setting.
+
+`await executor.aclose()` stops any outstanding `KILL` retries, then closes the driver and control clients. The bridge
+waits for its worker threads before closing. `close()` on the bridge stops admitting work without waiting.
+
+## Errors
+
+Driver failures become a `CompiledQueryError` with a safe category; the driver's own text never reaches the caller.
+
+| Category | When |
+| --- | --- |
+| `unauthenticated` | ClickHouse refused the credentials |
+| `forbidden` | Access denied, or a `readonly = 1` user refused the query settings |
+| `not-found` | The database does not exist |
+| `too-large` | The result exceeded its row or byte limit |
+| `deadline-exceeded` | The query timed out |
+| `unavailable` | ClickHouse could not be reached |
+| `internal` | Anything else |

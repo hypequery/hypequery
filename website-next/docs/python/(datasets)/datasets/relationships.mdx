@@ -91,6 +91,9 @@ result = analytics.execute(
 
 A target can be a `Dataset` or the name of a registered dataset.
 
+Served endpoints don't expose related fields unless you opt in per relationship with
+`include_related`. See [Dataset endpoints](/docs/python/dataset-endpoints).
+
 ## Checking join keys
 
 `check_relationships(dataset, *, executor, registry, context=None, relationships=None)` runs scoped uniqueness checks

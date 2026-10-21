@@ -33,6 +33,15 @@ measures = {
 `measure.median`, `measure.percentile(field, level)`, `measure.stddev`, `measure.variance`,
 `measure.arg_max(field, by)`, and `measure.arg_min(field, by)`.
 
+`stddev` and `variance` are **sample** statistics (`stddevSamp`, `varSamp`).
+`median` and `percentile` use ClickHouse's approximate `quantile`, so expect small
+differences from an exact calculation on large inputs. `count_distinct` is exact
+(`uniqExact`).
+
+Over HTTP, every non-null measure value is a string, as in TypeScript. The local
+Python client returns integer counts as `int`, floating-point results as `float`,
+and `Decimal` sums as `str`, so check the type before doing arithmetic.
+
 ## Filtered measures
 
 Pass `filters` to aggregate only matching rows:

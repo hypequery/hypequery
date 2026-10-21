@@ -35,6 +35,10 @@ never overwritten.
 | `--all-tables` | Inspect every table (the default) |
 | `--skip-connection` | Write the offline orders example and `seed.sql` instead of inspecting a database |
 
+Schema discovery reads only `system.tables` and `system.columns` for the current database, so the user needs
+`SHOW` and `SELECT` on it. A read-only user works, whether its profile sets `readonly = 1` or `2`. If discovery fails,
+the message names what to check: credentials, host and port, the database, or grants.
+
 Physical names map to the same camelCase semantic names as the TypeScript CLI. Numeric value columns get suggested
 `sum` and `avg` measures; ids and coordinates stay dimensions. Unsupported columns and likely tenant columns are
 reported, and nothing is written to the database. Review the generated semantics and configure tenant isolation

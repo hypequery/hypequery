@@ -20,8 +20,10 @@ analytics = create_dataset_client(executor=executor)
 ```
 </CodeBlock>
 
-The client does not own the executor, so call `executor.close()` when your application shuts down. For async code,
-use `create_async_dataset_client` with an async executor and `await analytics.execute(...)`.
+The client does not own the executor, so call `executor.close()` when your application shuts down. The factory
+connects as soon as it is called, so create the executor in your app's startup rather than at import time if the app
+must start while ClickHouse is down. In a FastAPI app, close it from the app's lifespan. For async code, use
+`create_async_dataset_client` with an async executor and `await analytics.execute(...)`.
 
 ## Client methods
 
@@ -32,8 +34,12 @@ use `create_async_dataset_client` with an async executor and `await analytics.ex
 | `analytics.execute(target, query, context=...)` | Plan, execute, and return rows |
 | `analytics.for_tenant(scope)` | Get a client bound to one tenant |
 
-A target is a `Dataset` or the name of a registered dataset. A query is a `DatasetQuery` or a plain mapping, such
-as a request body, which is validated strictly with unknown keys rejected.
+A target is a `Dataset` or the name of a registered dataset. A query is a `DatasetQuery` or a plain mapping,
+validated strictly with unknown keys rejected. A mapping uses the Python field names, so write `order_by`, not the
+HTTP body's `orderBy`.
+
+`DatasetQuery(timezone="Europe/Berlin")` sets the zone for time buckets and offset-free time-key bounds for one query;
+`create_dataset_client(timezone=...)` sets the default, `UTC` unless given.
 
 ## Validate
 
@@ -74,3 +80,20 @@ The statement has placeholders instead of values and cannot be executed.
 
 `execute` returns a result with `data` (rows keyed by column name), `columns`, and `meta` with `query_id`,
 `row_count`, `timing_ms`, and `cache`.
+
+`meta.pagination` is `None` unless you pass `paginate=True`:
+
+<CodeBlock>
+```python
+page = analytics.execute(orders, DatasetQuery(dimensions=("country",), limit=50, offset=100), paginate=True)
+page.meta.pagination  # Pagination(limit=50, offset=100, has_more=True)
+```
+</CodeBlock>
+
+The client fetches one extra row to compute `has_more` and drops it from `data`. There is no total row count.
+
+Value types differ from the HTTP wire, where every measure is a string:
+- integer counts come back as `int`;
+- floating-point results come back as `float`;
+- `Decimal` values come back as `str`, to keep their precision;
+- timestamps come back as ISO 8601 strings.
