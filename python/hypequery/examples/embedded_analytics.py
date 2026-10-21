@@ -2,7 +2,10 @@
 
 Seed examples/seed.sql, set CLICKHOUSE_* and HYPEQUERY_EXAMPLE_TOKEN, then POST
 /analytics/orders with a server-held bearer token and {"dimensions":["country"]}.
-The host can mint its own short-lived user credentials instead of this token table.
+The token stands for one signed-in user of organization "a", so only that
+organization's orders are counted. The host can mint its own short-lived user
+credentials instead of this token table, carrying the user's organization as
+the principal's tenant.
 """
 
 from fastapi import FastAPI
@@ -22,6 +25,9 @@ from .utils.server import application
 orders = dataset(
     "orders",
     source="example_orders",
+    # Embedded dashboards serve many customers from one table: every query is
+    # scoped to the caller's organization, never chosen by the request.
+    tenant_key="org_id",
     time_key="created_at",
     dimensions={
         "country": dimension.string(),
@@ -35,7 +41,9 @@ def install(api: ServeRouter, client: DatasetClient) -> None:
     create_dataset_endpoint(
         dataset=orders,
         client=client,
-        policy=EndpointPolicy(required_scopes=frozenset({"analytics:read"}), max_limit=100),
+        policy=EndpointPolicy(
+            tenant="required", required_scopes=frozenset({"analytics:read"}), max_limit=100
+        ),
     ).install(api, "/analytics/orders")
 
 
@@ -46,6 +54,7 @@ def create_application() -> FastAPI:
         principals={
             required_environment("HYPEQUERY_EXAMPLE_TOKEN"): Principal(
                 subject="analyst",
+                tenant_id="a",
                 scopes=frozenset({"analytics:read"}),
             )
         },

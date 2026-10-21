@@ -185,9 +185,18 @@ Yank a bad release rather than deleting and reusing its version.
 
 Python CI audits runtime dependencies, including all optional extras, on Python
 3.11–3.14. Both the committed lock and the declared direct dependency floors
-must pass pip-audit against the current PyPI advisory database. The floor
+must pass pip-audit against the current PyPI advisory database. Each Python's
+floor job then installs that audited lowest-direct resolution with
+`--only-binary :all:` and runs the full suite against it, so a floor with no
+wheel for that Python, or one that fails the suite there, fails CI. The floor
 Serve job installs the same lowest-direct resolution before its regression
 suite. Unknown scanner failures fail CI; no advisories are suppressed.
+
+Measure a new floor on every supported Python, not just the oldest: resolve
+with `uv pip compile pyproject.toml --all-extras --resolution lowest-direct
+--python <version>`, install the result with `--only-binary :all:`, and run
+the suite. When one Python needs a higher floor, split the requirement with a
+`python_version` marker rather than raising it everywhere.
 
 The release build repeats the locked runtime audit and retains a separate
 `python-supply-chain` artifact containing a CycloneDX 1.5 SBOM, hashed runtime

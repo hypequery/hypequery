@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import json
 import re
+from contextlib import suppress
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -520,6 +521,40 @@ def test_request_lifetime_propagates_disconnect_and_closes_watcher() -> None:
         async with RequestLifetime(request) as lifetime:
             await asyncio.sleep(0.01)
             assert lifetime.cancellation.is_set()
+        assert not [task for task in asyncio.all_tasks() if task is not asyncio.current_task()]
+
+    asyncio.run(check())
+
+
+@pytest.mark.parametrize("concurrency", [1, 50])
+def test_request_lifetime_exits_when_is_disconnected_absorbs_a_cancel(concurrency: int) -> None:
+    from fastapi import Request
+
+    from hypequery.serve.lifetime import RequestLifetime
+
+    class AbsorbingRequest(Request):
+        # Starlette's is_disconnected() awaits inside an already-cancelled
+        # anyio CancelScope, which can absorb a cancel aimed at the watcher.
+        async def is_disconnected(self) -> bool:
+            with suppress(asyncio.CancelledError):
+                await asyncio.sleep(0.02)
+            return False
+
+    async def receive() -> dict[str, Any]:
+        await asyncio.Event().wait()
+        raise AssertionError("unreachable")
+
+    async def one() -> None:
+        request = AbsorbingRequest(
+            {"type": "http", "method": "POST", "path": "/", "headers": []}, receive
+        )
+        async with RequestLifetime(request) as lifetime:
+            await asyncio.sleep(0.01)
+        assert not lifetime.cancellation.is_set()
+
+    async def check() -> None:
+        async with asyncio.timeout(2):
+            await asyncio.gather(*(one() for _ in range(concurrency)))
         assert not [task for task in asyncio.all_tasks() if task is not asyncio.current_task()]
 
     asyncio.run(check())

@@ -42,7 +42,9 @@ def safe_driver_error(exc: Exception, query_id: str) -> CompiledQueryError:
             return CompiledQueryError(
                 "deadline-exceeded", "The query timed out.", query_id=query_id
             )
-        if exc.name in ("TOO_MANY_ROWS", "TOO_MANY_BYTES"):
+        # ClickHouse 26 reports a result-limit breach as code 396
+        # TOO_MANY_ROWS_OR_BYTES; older servers used the two separate names.
+        if exc.name in ("TOO_MANY_ROWS", "TOO_MANY_BYTES", "TOO_MANY_ROWS_OR_BYTES"):
             return CompiledQueryError(
                 "too-large", "The query result is too large.", query_id=query_id
             )

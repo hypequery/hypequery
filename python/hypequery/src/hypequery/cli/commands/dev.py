@@ -8,20 +8,8 @@ from hypequery.datasets.planner import CompiledQueryError
 
 from ..errors import CliError
 from ..options import DevOptions
+from ..utils.clickhouse_hints import clickhouse_hint
 from ..utils.startup_errors import missing_environment_variable, quiet_driver_warnings
-
-#: Startup failures the executor factory reports with a safe category. The
-#: message names the environment variables to check and never the driver's text.
-_CLICKHOUSE_HINTS = {
-    "unauthenticated": (
-        "ClickHouse rejected the credentials; check CLICKHOUSE_USERNAME and CLICKHOUSE_PASSWORD."
-    ),
-    "unavailable": (
-        "ClickHouse is unreachable; check CLICKHOUSE_HOST, CLICKHOUSE_PORT and CLICKHOUSE_SECURE."
-    ),
-    "not-found": "ClickHouse database not found; check CLICKHOUSE_DATABASE.",
-    "forbidden": "ClickHouse denied access; check the user's grants and readonly profile.",
-}
 
 
 def run(options: DevOptions) -> None:
@@ -73,10 +61,7 @@ def run(options: DevOptions) -> None:
     except CompiledQueryError as exc:
         # The executor factory raises these while the app module connects; the
         # category is safe and tells a developer which setting to look at.
-        hint = _CLICKHOUSE_HINTS.get(exc.category)
-        if hint is None:
-            hint = "ClickHouse refused the connection; check the CLICKHOUSE_* environment."
-        raise CliError(f"App could not start. {hint}") from exc
+        raise CliError(f"App could not start. {clickhouse_hint(exc.category)}") from exc
     except KeyError as exc:
         name = missing_environment_variable(exc)
         if name is None:

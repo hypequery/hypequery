@@ -7,12 +7,15 @@ from typing import cast
 
 from ..dimensions import DimensionType
 from ..query_helpers import Filter
+from ..utils.timestamp_text import is_timestamp_text
 from .errors import CompiledQueryError
 
 
 def _matches_field_type(field_type: DimensionType, value: object) -> bool:
-    if field_type in ("string", "timestamp"):
+    if field_type == "string":
         return type(value) is str
+    if field_type == "timestamp":
+        return type(value) is str and is_timestamp_text(value)
     if field_type == "boolean":
         return type(value) is bool
     if type(value) not in (int, float):
@@ -37,9 +40,7 @@ def validate_filter_value(filter_value: Filter, field_type: DimensionType) -> No
         if (expected is not None and len(items) != expected) or (expected is None and not items):
             raise CompiledQueryError("input-invalid", f'Filter "{name}" has the wrong list length.')
         if not all(_matches_field_type(field_type, item) for item in items):
-            raise CompiledQueryError(
-                "input-invalid", f'Filter "{name}" expects {field_type} values.'
-            )
+            raise CompiledQueryError("input-invalid", _type_message(name, field_type, plural=True))
         return
     if operator == "like" and field_type not in ("string", "timestamp"):
         raise CompiledQueryError(
@@ -47,5 +48,24 @@ def validate_filter_value(filter_value: Filter, field_type: DimensionType) -> No
         )
     if operator in ("gt", "gte", "lt", "lte") and field_type == "boolean":
         raise CompiledQueryError("input-invalid", f'Filter "{name}" cannot order a boolean field.')
+    if operator == "like" and field_type == "timestamp":
+        # A pattern is matched against the text form, not read as an instant.
+        if type(value) is not str:
+            raise CompiledQueryError("input-invalid", f'Filter "{name}" needs a text pattern.')
+        return
     if not _matches_field_type(field_type, value):
-        raise CompiledQueryError("input-invalid", f'Filter "{name}" expects a {field_type} value.')
+        raise CompiledQueryError("input-invalid", _type_message(name, field_type, plural=False))
+
+
+def _type_message(name: str, field_type: DimensionType, *, plural: bool) -> str:
+    if field_type == "timestamp":
+        what = "ISO 8601 timestamps" if plural else "an ISO 8601 timestamp"
+        return (
+            f'Filter "{name}" expects {what}, such as 2026-01-31 or 2026-01-31T12:00:00Z, '
+            "with a real calendar date and time."
+        )
+    return (
+        f'Filter "{name}" expects {field_type} values.'
+        if plural
+        else (f'Filter "{name}" expects a {field_type} value.')
+    )
