@@ -1,5 +1,7 @@
 ---
 '@hypequery/datasets': patch
+'@hypequery/protocol': patch
+'@hypequery/mcp': patch
 ---
 
-MCP tool schemas built from a client contract now advertise each endpoint's `maxLimit` as the `limit` maximum. An agent asking for more rows gets an argument error instead of a silently clamped page. HTTP schemas keep clamping, as both Serve implementations do.
+MCP tools refuse a `limit` above the endpoint's `maxLimit` with `MCP_INVALID_ARGUMENTS` instead of silently clamping it, so an agent never mistakes a shortened page for the whole answer. Tool schemas built from a client contract advertise that ceiling as the `limit` maximum, and `validateProtocolClientQuery(..., 'mcp')` enforces it. HTTP requests keep clamping, as both Serve implementations do.

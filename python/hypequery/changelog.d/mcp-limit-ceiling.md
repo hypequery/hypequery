@@ -1,0 +1,1 @@
+- `validate_protocol_client_query(..., transport="mcp")` refuses a `limit` above the endpoint's `maxLimit` instead of clamping it, matching TypeScript's MCP executor. HTTP input still clamps.
