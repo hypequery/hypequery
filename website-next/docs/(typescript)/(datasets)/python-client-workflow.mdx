@@ -8,12 +8,14 @@ generates TypeScript types/routes for the existing React hooks, and connects the
 Node MCP server to the same authorized HTTP API. Python owns SQL, authentication,
 tenant resolution and current endpoint policy.
 
-This workflow is under development. Python remains pre-alpha; matching npm
-client-contract changes must be released together. Follow the
+The Python SDK is in beta. Release it together with the npm packages that
+understand the same client contract (`@hypequery/cli`, `@hypequery/react` and
+`@hypequery/mcp`). Follow the
 [runnable installed-artifact tutorial](https://github.com/hypequery/hypequery/tree/main/python/hypequery/examples/client_dashboard)
 for pure definitions, offline export, authenticated serving, decimal/null seed,
 all four React query hooks, per-login cache isolation and MCP stdio configuration.
-The preparation command builds development artifacts outside the checkout.
+Its preparation script runs `pnpm build` and `uv build` inside the checkout,
+then installs the results into a separate directory.
 Published-version qualification remains a release gate.
 
 The Python CLI exports build-time capabilities. The Node CLI's `generate:client`
