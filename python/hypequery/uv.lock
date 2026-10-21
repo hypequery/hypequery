@@ -806,16 +806,22 @@ dependencies = [
 
 [package.optional-dependencies]
 clickhouse = [
+    { name = "certifi" },
     { name = "clickhouse-connect" },
     { name = "urllib3" },
 ]
 clickhouse-async = [
     { name = "aiohttp" },
+    { name = "certifi" },
     { name = "clickhouse-connect", extra = ["async"] },
+    { name = "idna" },
     { name = "urllib3" },
 ]
 fastapi = [
+    { name = "anyio" },
     { name = "fastapi" },
+    { name = "h11" },
+    { name = "idna" },
     { name = "starlette" },
     { name = "uvicorn" },
 ]
@@ -836,9 +842,15 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "aiohttp", marker = "extra == 'clickhouse-async'", specifier = ">=3.14.4" },
+    { name = "anyio", marker = "extra == 'fastapi'", specifier = ">=4.14.2" },
+    { name = "certifi", marker = "extra == 'clickhouse'", specifier = ">=2026.10.19" },
+    { name = "certifi", marker = "extra == 'clickhouse-async'", specifier = ">=2026.10.19" },
     { name = "clickhouse-connect", marker = "extra == 'clickhouse'", specifier = ">=1.4.2" },
     { name = "clickhouse-connect", extras = ["async"], marker = "extra == 'clickhouse-async'", specifier = ">=1.4.2" },
     { name = "fastapi", marker = "extra == 'fastapi'", specifier = ">=0.137.2" },
+    { name = "h11", marker = "extra == 'fastapi'", specifier = ">=0.16.0" },
+    { name = "idna", marker = "extra == 'clickhouse-async'", specifier = ">=3.15" },
+    { name = "idna", marker = "extra == 'fastapi'", specifier = ">=3.15" },
     { name = "pydantic", marker = "python_full_version < '3.14'", specifier = ">=2.9.2" },
     { name = "pydantic", marker = "python_full_version >= '3.14'", specifier = ">=2.12.2" },
     { name = "starlette", marker = "extra == 'fastapi'", specifier = ">=1.3.1" },
