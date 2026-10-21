@@ -25,12 +25,19 @@ from .readonly_settings import (
 )
 from .results import DriverResult, QueryRows, decode_result
 from .sync_cancellation import SyncCancellationMonitor
-from .utils.connection_env import connection_fields
+from .utils.connection_env import connection_fields, control_fields
 
 
 @dataclass(frozen=True, slots=True)
 class ClickHouseConnection:
-    """Explicit connection fields and readonly policy; the password is never logged."""
+    """Explicit connection fields and readonly policy; passwords are never logged.
+
+    Cancellation sends ``KILL QUERY`` on a separate control connection. By
+    default it signs in as *username*, which then needs
+    ``GRANT SELECT ON system.processes``. Set *control_username* to cancel as a
+    different user instead; that user needs ``SELECT ON system.processes`` and
+    ``KILL QUERY``.
+    """
 
     host: str = "localhost"
     port: int | None = None
@@ -39,9 +46,13 @@ class ClickHouseConnection:
     password: str = field(default="", repr=False)
     secure: bool = False
     readonly_policy: ReadonlyPolicy = "query"
+    control_username: str | None = None
+    control_password: str = field(default="", repr=False)
 
     def __post_init__(self) -> None:
         validate_readonly_policy(self.readonly_policy)
+        if self.control_username is None and self.control_password:
+            raise ValueError("control_password needs control_username")
 
     @classmethod
     def from_env(
@@ -51,13 +62,16 @@ class ClickHouseConnection:
         readonly_policy: ReadonlyPolicy = "query",
     ) -> Self:
         """Read ``CLICKHOUSE_HOST``, ``_PORT``, ``_DATABASE``, ``_USERNAME``,
-        ``_PASSWORD`` and ``_SECURE``, defaulting to a local server.
+        ``_PASSWORD``, ``_SECURE``, ``_CONTROL_USERNAME`` and
+        ``_CONTROL_PASSWORD``, defaulting to a local server.
 
         An unset port lets the driver choose 8123, or 8443 when secure.
         """
 
-        fields = connection_fields(os.environ if environ is None else environ)
-        return cls(**fields, readonly_policy=readonly_policy)
+        source = os.environ if environ is None else environ
+        return cls(
+            **connection_fields(source), **control_fields(source), readonly_policy=readonly_policy
+        )
 
 
 class _SyncClient(Protocol):
@@ -166,6 +180,19 @@ def _client_kwargs(connection: ClickHouseConnection) -> _ClientKwargs:
 _CONTROL_TIMEOUT_SECONDS = 2
 
 
+def _control_kwargs(connection: ClickHouseConnection) -> dict[str, Any]:
+    """The cancellation-control client: the query user unless one is configured."""
+
+    kwargs: dict[str, Any] = {
+        **_client_kwargs(connection),
+        "send_receive_timeout": _CONTROL_TIMEOUT_SECONDS,
+    }
+    if connection.control_username is not None:
+        kwargs["username"] = connection.control_username
+        kwargs["password"] = connection.control_password
+    return kwargs
+
+
 class ClickHouseExecutor:
     """Execute a trusted compiled SELECT with native server parameters."""
 
@@ -185,8 +212,11 @@ class ClickHouseExecutor:
     def _cancel_on_server(self, query_id: str) -> object:
         if self._control_client is None:
             return None
-        with self._control_lock:
-            return self._control_client.command(_KILL_QUERY, {"id": query_id})
+        try:
+            with self._control_lock:
+                return self._control_client.command(_KILL_QUERY, {"id": query_id})
+        except Exception as exc:
+            raise safe_driver_error(exc, query_id) from None
 
     def execute(self, compiled: CompiledQuery) -> QueryRows:
         parameters, settings = _query_arguments(compiled)
@@ -470,9 +500,7 @@ def create_clickhouse_executor(connection: ClickHouseConnection) -> ClickHouseEx
     client = None
     try:
         client = get_client(**_client_kwargs(connection))
-        control_client = get_client(
-            **_client_kwargs(connection), send_receive_timeout=_CONTROL_TIMEOUT_SECONDS
-        )
+        control_client = get_client(**_control_kwargs(connection))
     except Exception as exc:
         if client is not None:
             client.close()
@@ -499,9 +527,7 @@ async def create_async_clickhouse_executor(
     client = None
     try:
         client = await create_async_client(**_client_kwargs(connection))
-        control_client = await create_async_client(
-            **_client_kwargs(connection), send_receive_timeout=_CONTROL_TIMEOUT_SECONDS
-        )
+        control_client = await create_async_client(**_control_kwargs(connection))
     except Exception as exc:
         if client is not None:
             await client.close()

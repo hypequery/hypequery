@@ -54,6 +54,24 @@ def _secure(environ: Mapping[str, str]) -> bool:
     raise ValueError("CLICKHOUSE_SECURE must be true or false")
 
 
+class ControlFields(TypedDict):
+    control_username: str | None
+    control_password: str
+
+
+def control_fields(environ: Mapping[str, str]) -> ControlFields:
+    """Separate credentials for the connection that sends ``KILL QUERY``.
+
+    Unset means the query user cancels its own queries.
+    """
+
+    username = environ.get("CLICKHOUSE_CONTROL_USERNAME") or None
+    password = environ.get("CLICKHOUSE_CONTROL_PASSWORD", "")
+    if username is None and password:
+        raise ValueError("CLICKHOUSE_CONTROL_PASSWORD needs CLICKHOUSE_CONTROL_USERNAME")
+    return {"control_username": username, "control_password": password}
+
+
 def connection_fields(environ: Mapping[str, str]) -> ConnectionFields:
     """Validated connection fields from *environ*."""
 
