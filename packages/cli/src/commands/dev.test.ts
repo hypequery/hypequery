@@ -44,6 +44,12 @@ vi.mock('@hypequery/serve/dev', () => ({
   serveDev: mockServeDev,
 }));
 
+// Delegates to the mocked @hypequery/serve/dev unless a test says otherwise.
+const mockLoadServeDev = vi.fn();
+vi.mock('../utils/load-serve-dev.js', () => ({
+  loadServeDev: mockLoadServeDev,
+}));
+
 // Mock open package
 const mockOpen = vi.fn();
 vi.mock('open', () => ({
@@ -103,6 +109,16 @@ describe('dev command', () => {
     });
     mockServerStop.mockResolvedValue(undefined);
     mockOpen.mockResolvedValue(undefined);
+    mockLoadServeDev.mockResolvedValue({ serveDev: mockServeDev });
+  });
+
+  it('names @hypequery/serve before loading an API that imports it', async () => {
+    mockLoadServeDev.mockRejectedValueOnce(
+      new Error('hypequery dev needs @hypequery/serve. Install it: npm install @hypequery/serve'),
+    );
+    await expect(devCommand(undefined, { watch: false })).rejects.toThrow(ProcessExitError);
+    expect(loadApi.loadApiModule).not.toHaveBeenCalled();
+    expect(vi.mocked(logger.info).mock.calls.flat().join('\n')).toContain('npm install @hypequery/serve');
   });
 
   afterEach(() => {

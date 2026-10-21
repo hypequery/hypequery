@@ -93,6 +93,10 @@ export async function devCommand(file?: string, options: DevOptions = {}) {
     let loading = true;
 
     try {
+      // Before the API module: it imports @hypequery/serve itself, and failing
+      // there would hide which package to install.
+      const { serveDev } = await loadServeDev();
+
       // Load the API module
       const api = await loadApiModule(queriesFile);
       loading = false;
@@ -121,7 +125,6 @@ export async function devCommand(file?: string, options: DevOptions = {}) {
       logger.newline();
 
       // Start the server
-      const { serveDev } = await loadServeDev();
 
       currentServer = await serveDev(api, {
         port: options.port,
@@ -281,4 +284,3 @@ export async function devCommand(file?: string, options: DevOptions = {}) {
     process.once('SIGTERM', shutdown);
   }
 }
-

@@ -9,7 +9,9 @@ export async function loadServeDev(
     return await load();
   } catch (error) {
     const code = (error as { code?: unknown }).code;
-    if (code === 'ERR_MODULE_NOT_FOUND' || code === 'MODULE_NOT_FOUND') {
+    const message = error instanceof Error ? error.message : '';
+    // Only serve itself: a module serve fails to find is a different problem.
+    if ((code === 'ERR_MODULE_NOT_FOUND' || code === 'MODULE_NOT_FOUND') && message.includes("'@hypequery/serve")) {
       throw new Error('hypequery dev needs @hypequery/serve. Install it: npm install @hypequery/serve');
     }
     throw error;
