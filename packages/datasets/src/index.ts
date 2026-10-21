@@ -112,6 +112,7 @@ export type {
 } from './protocol-rehydrate.js';
 export { buildProtocolDatasetContract } from './protocol-adapter.js';
 export { buildProtocolDeploymentContract } from './protocol-deployment-adapter.js';
+export { assertDeployable } from './utils/deployable-formulas.js';
 export type { BuildProtocolDeploymentContractOptions } from './protocol-deployment-adapter.js';
 export { rehydrateProtocolDeploymentContract } from './protocol-rehydrate.js';
 export type { BuildProtocolDatasetContractOptions } from './protocol-adapter.js';

@@ -47,7 +47,11 @@ from .contract import (
     serialize_semantic_contract,
 )
 from .dataset import Dataset, DatasetLimits, FilterDefinition, dataset
-from .deployment import build_protocol_dataset_contract, build_protocol_deployment_contract
+from .deployment import (
+    build_protocol_dataset_contract,
+    build_protocol_deployment_contract,
+    validate_deployable,
+)
 from .deployment_bundle import PreparedDatasetBundle, prepare_dataset_bundle, write_dataset_bundle
 from .derived_measures import DerivedMeasure
 from .dimensions import Dimension, DimensionType, dimension
@@ -203,5 +207,6 @@ __all__ = [
     "serialize_semantic_contract",
     "tenant",
     "tenants",
+    "validate_deployable",
     "write_dataset_bundle",
 ]

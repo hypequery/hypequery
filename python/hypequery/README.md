@@ -876,6 +876,32 @@ The canonical bytes and hash are byte-identical to `@hypequery/protocol` for
 the same contract. A 74-probe differential run across both implementations
 found no divergence in acceptance, error code, or identity.
 
+### Deployable formulas
+
+Local queries accept every formula the `formula` helpers build. A deployment
+contract accepts a narrower subset:
+
+- A derived measure may reference only base measures. `formula.round("aov", 2)`
+  over a derived `aov` is not deployable; inline the inner formula instead.
+- A literal may appear only as the `round` decimals or as a `coalesce`
+  fallback. `formula.multiply("revenue", 2)` and `formula.null_if_zero(0)` are
+  not deployable, and the `coalesce` fallback must be a number (`None` is
+  refused).
+
+`build_protocol_deployment_contract()` and `write_dataset_bundle()` check this
+before building the contract, so the error names the dataset and measure
+instead of a contract path. `validate_deployable()` runs the same check on its
+own:
+
+```python
+from hypequery.datasets import validate_deployable
+
+validate_deployable(orders)
+# ValueError: orders.doubled: a numeric literal cannot be an arithmetic operand
+# in a deployable formula; literals are only accepted as round decimals or a
+# coalesce fallback
+```
+
 ## Bundles and releases
 
 An RFC 0007 bundle manifest describes the content-addressed directory that
