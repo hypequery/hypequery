@@ -2,6 +2,7 @@ import type { DatasetSqlDialectRules } from '../dataset-sql-dialect.js';
 import type { AnyDatasetInstance, MetricFilter, MetricFilterOperator } from '../types.js';
 import { resolveDimensionFieldType, resolveFilterFieldType } from './filter-field-type.js';
 import { instantWallClock, parseTimestampInstant } from './timestamp-instants.js';
+import { mixedInstantListError } from '../validation.js';
 
 /** Named zones only: reject fixed offsets, invalid zones, and SQL fragments. */
 export function isQueryTimezone(value: unknown): value is string {
@@ -82,9 +83,10 @@ const INSTANT_ZONE = 'UTC';
  *
  * A range or exclusion list mixing both kinds splits into one predicate per
  * kind, so an instant bound never loses its offset to a local one. A mixed
- * `in` list cannot split (its members are alternatives), so its instants are
- * read at the query zone's wall clock, which only a repeated DST hour makes
- * ambiguous. Non-timestamp fields and `like` patterns are bound unchanged.
+ * `in` list cannot split (its members are alternatives, and predicates only
+ * combine with AND), so it is rejected rather than read in one zone that
+ * changes a member's meaning. Non-timestamp fields and `like` patterns are
+ * bound unchanged.
  */
 export function queryTimeFilter(
   dialect: DatasetSqlDialectRules,
@@ -130,9 +132,7 @@ export function queryTimeFilter(
         { expression: localExpression, operator: 'notIn', value: values.filter((_, index) => !instants[index]) },
         { expression: instantExpression, operator: 'notIn', value: rewrite(INSTANT_ZONE).filter((_, index) => instants[index]) },
       ];
-    default: {
-      const zone = canonicalTimezone(timezone);
-      return [{ expression: dialect.toQueryTimezone(expression, zone), operator: filter.operator, value: rewrite(zone) }];
-    }
+    default:
+      throw new Error(mixedInstantListError(filter.field));
   }
 }

@@ -66,6 +66,9 @@ gte('createdAt', '2026-02-01')                // local midnight in the query tim
 ```
 </CodeBlock>
 
+A `between` or `notIn` may mix the two forms; each bound keeps its own
+meaning. An `in` list must use one form or the other.
+
 ## Use filters in metric queries
 
 <CodeBlock>

@@ -3,6 +3,7 @@
  */
 
 import type { FieldType, MetricFilter } from './types.js';
+import { parseTimestampInstant } from './utils/timestamp-instants.js';
 
 /**
  * Result of a validation operation.
@@ -31,6 +32,20 @@ export function matchesFieldType(fieldType: FieldType, value: unknown): boolean 
     default:
       return false;
   }
+}
+
+/** True when a list holds both instants (`Z` or an offset) and offset-free timestamps. */
+export function mixesInstantsAndLocalTimes(values: readonly unknown[]): boolean {
+  const instants = values.map(value => parseTimestampInstant(value) !== undefined);
+  return instants.some(Boolean) && !instants.every(Boolean);
+}
+
+/**
+ * An `in` list is one predicate, so every member is read in the same zone:
+ * an instant and a local time cannot share one without changing a meaning.
+ */
+export function mixedInstantListError(field: string): string {
+  return `"in" cannot mix instants (with Z or an offset) and local timestamps for field "${field}"; use one form.`;
 }
 
 /**
@@ -69,9 +84,12 @@ export function validateFilterValue(filter: MetricFilter, fieldType: FieldType):
       if (!Array.isArray(filter.value) || filter.value.length === 0) {
         return `"${filter.operator}" expects a non-empty array for field "${filter.field}".`;
       }
-      return filter.value.every(value => matchesFieldType(fieldType, value))
-        ? null
-        : `"${filter.operator}" expects ${fieldType} values for field "${filter.field}".`;
+      if (!filter.value.every(value => matchesFieldType(fieldType, value))) {
+        return `"${filter.operator}" expects ${fieldType} values for field "${filter.field}".`;
+      }
+      return filter.operator === 'in' && fieldType === 'timestamp' && mixesInstantsAndLocalTimes(filter.value)
+        ? mixedInstantListError(filter.field)
+        : null;
     case 'between':
       if (!Array.isArray(filter.value) || filter.value.length !== 2) {
         return `"between" expects a two-item array for field "${filter.field}".`;

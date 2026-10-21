@@ -140,14 +140,35 @@ describe('timestamp filter binding', () => {
     expect(early.predicate).toBe(late.predicate);
   });
 
-  it('splits a mixed exclusion list and reads a mixed in list at the query zone', () => {
+  it('splits a mixed exclusion list so each member keeps its own zone', () => {
     expect(where(tokyo, 'createdAt', 'notIn', ['2026-02-01', '2026-02-01T00:00:00Z'])).toEqual({
       predicate: "toDateTime64(created_at, 9, 'Asia/Tokyo') NOT IN (?) AND toDateTime64(created_at, 9, 'UTC') NOT IN (?)",
       parameters: ['2026-02-01', '2026-02-01 00:00:00'],
     });
-    expect(where(tokyo, 'createdAt', 'in', ['2026-02-01', '2026-02-01T00:00:00Z'])).toEqual({
-      predicate: "toDateTime64(created_at, 9, 'Asia/Tokyo') IN (?, ?)",
-      parameters: ['2026-02-01', '2026-02-01 09:00:00'],
+    expect(where(tokyo, 'shippedAt', 'notIn', ['2026-02-01 00:00:00', '2026-02-02T00:00:00Z'])).toEqual({
+      predicate: "shipped_at NOT IN (?) AND toDateTime64(shipped_at, 9, 'UTC') NOT IN (?)",
+      parameters: ['2026-02-01 00:00:00', '2026-02-02 00:00:00'],
+    });
+  });
+
+  it('rejects a mixed in list rather than reading its members in one zone', () => {
+    const mixed = ['2026-02-01 00:00:00', '2026-02-02T00:00:00Z'];
+    for (const field of ['createdAt', 'shippedAt']) {
+      const query = { measures: ['orderCount'], filters: [{ field, operator: 'in', value: mixed }] } as never;
+      expect(tokyo.validate(Orders, query, context).errors).toEqual([
+        `"in" cannot mix instants (with Z or an offset) and local timestamps for field "${field}"; use one form.`,
+      ]);
+      expect(() => tokyo.compileDataset(Orders, query, context)).toThrow(/cannot mix instants/);
+    }
+    expect(() => dataset('bad', {
+      source: 'orders',
+      dimensions: { shippedAt: dimension.timestamp({ column: 'shipped_at' }) },
+      measures: { orderCount: measure.count('id') },
+      segments: { mixed: { filters: [{ field: 'shippedAt', operator: 'in', value: mixed }] } },
+    })).toThrow(/cannot mix instants/);
+    expect(where(tokyo, 'shippedAt', 'in', ['2026-02-01 00:00:00', '2026-02-02 00:00:00'])).toEqual({
+      predicate: 'shipped_at IN (?, ?)',
+      parameters: ['2026-02-01 00:00:00', '2026-02-02 00:00:00'],
     });
   });
 
