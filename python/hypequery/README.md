@@ -1097,6 +1097,12 @@ compiled.parameter_values()  # {"p0": "2026-01-01", "p1": "acme"}
 compiled.to_sql()  # the redacted debug form — never executable
 ```
 
+A timestamp filter value must be an ISO 8601 date or date-time: `2026-01-31`,
+`2026-01-31 12:00:00`, or `2026-01-31T12:00:00.123Z`. A time needs seconds, and a
+fraction or a `Z`/`±hh:mm` offset is optional. Anything else, including an
+impossible date such as `2026-02-30`, is refused as `input-invalid` before it
+reaches ClickHouse, which would otherwise read it as a different instant.
+
 A dataset that declares a `tenant_key` is not served without a tenant scope:
 reading it unscoped returns every tenant's rows, so an absent scope fails
 closed with `tenant-required` rather than at whatever consumes the result. A

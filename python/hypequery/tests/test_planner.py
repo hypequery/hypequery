@@ -320,6 +320,56 @@ def test_filter_values_must_match_the_declared_dimension_type(filter_value: Filt
     )
 
 
+@pytest.mark.parametrize(
+    "value",
+    [
+        "2026-13-45",
+        "2026-02-30",
+        "2026-02-01 25:00:00",
+        "2026-02-01 12:00",
+        "2026-02-01T00:00Z",
+        "yesterday",
+        "not-a-date",
+        "",
+        "20260201",
+        "2026-W05-1",
+        "1700000000",
+        "2026-02-01T00:00:00+0000",
+    ],
+)
+def test_a_timestamp_filter_refuses_text_clickhouse_would_coerce(value: str) -> None:
+    # ClickHouse reads 2026-13-45 as 1900-01-01 and rolls 2026-02-30 over to
+    # March, so these must never reach it as a bound value.
+    between = Filter(field="pickup", operator="between", value=[value, "2026-03-01"])
+    for filter_value in (gte("pickup", value), between):
+        with pytest.raises(CompiledQueryError, match='"pickup" expects') as caught:
+            plan_dataset_query(_trips(), DatasetQuery(measures=("trips",), filters=(filter_value,)))
+        assert caught.value.category == "input-invalid"
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        "2026-02-01",
+        "2026-02-01 12:00:00",
+        "2026-02-01T12:00:00.123",
+        "2026-02-01T12:00:00.123456789",
+        "2026-02-01T00:00:00Z",
+        "2026-02-01T00:00:00.000Z",
+        "2026-02-01T10:00:00+10:00",
+        "2024-02-29",
+    ],
+)
+def test_a_timestamp_filter_accepts_iso_8601_dates_and_times(value: str) -> None:
+    plan_dataset_query(_trips(), DatasetQuery(measures=("trips",), filters=(gte("pickup", value),)))
+
+
+def test_a_timestamp_like_pattern_is_not_read_as_an_instant() -> None:
+    plan_dataset_query(
+        _trips(), DatasetQuery(measures=("trips",), filters=(like("pickup", "2026-02-%"),))
+    )
+
+
 def test_a_request_cannot_filter_on_an_unexposed_dimension() -> None:
     dataset = _trips(filters={"vendor": FilterDefinition(field="vendor")})
     assert (
