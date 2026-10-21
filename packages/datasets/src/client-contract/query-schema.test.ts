@@ -57,3 +57,18 @@ describe('client descriptor query compiler', () => {
     }
   });
 });
+
+describe('MCP transport schemas', () => {
+  const schemas = compiled.build;
+  const maxLimit = schemas.contract.endpoints.find(endpoint => endpoint.id === 'orders')!.limits.maxLimit;
+
+  it('advertise the endpoint maximum instead of clamping an agent silently', () => {
+    expect(schemas.queryDataset.safeParse({ dataset: 'orders', limit: maxLimit }).success).toBe(true);
+    const over = schemas.queryDataset.safeParse({ dataset: 'orders', limit: maxLimit + 1 });
+    expect(over.success).toBe(false);
+    expect(JSON.stringify(schemas.queryDatasetJsonSchema)).toContain(`"maximum":${maxLimit}`);
+    // HTTP keeps clamping, as both servers do.
+    expect(schemas.endpoints.get('orders')!.http.safeParse({ limit: maxLimit + 1 }).success).toBe(true);
+  });
+
+});
