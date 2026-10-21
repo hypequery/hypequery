@@ -1,5 +1,6 @@
 import { createDiscoveryEndpoint } from "../semantic/datasets/discovery-endpoint.js";
 import { buildDiscoveryCatalogSource } from "../semantic/datasets/utils/discovery-catalog-source.js";
+import { collectRelatedDatasetPolicies } from "../semantic/datasets/utils/related-dataset-policy.js";
 import type {
   AuthContext,
   AuthStrategy,
@@ -216,6 +217,9 @@ export const createAPI = <
   };
 
   // Process metrics — auto-generate POST endpoints
+  // Related fields must satisfy the policy of the related dataset's own entry.
+  const relatedPolicies = config.datasets ? collectRelatedDatasetPolicies(config.datasets) : undefined;
+
   if (config.metrics) {
     const metricsEntries = config.metrics;
     const builderFactory = resolvedQueryBuilder;
@@ -232,7 +236,7 @@ export const createAPI = <
 
     for (const [name, entry] of Object.entries(metricsEntries)) {
       assertSemanticKeyAvailable(queryEntries as Record<string, unknown>, name, "metric");
-      const metricEndpoint = createMetricEndpoint(name, entry, analytics, builderFactory);
+      const metricEndpoint = createMetricEndpoint(name, entry, analytics, builderFactory, relatedPolicies);
       const metricsPath = config.semanticPaths?.metrics ?? '/metrics';
       const routePath = normalizeRoutePath(`${metricsPath}/${name}`);
 
@@ -266,6 +270,7 @@ export const createAPI = <
         entry,
         getAnalytics(builderFactory),
         builderFactory,
+        relatedPolicies,
       );
       const datasetsPath = config.semanticPaths?.datasets ?? '/datasets';
       const routePath = normalizeRoutePath(`${datasetsPath}/${name}/query`);

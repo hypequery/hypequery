@@ -32,6 +32,7 @@ import {
 import { buildDatasetQueryDescription } from './utils/dataset-query-metadata.js';
 import { resolveDatasetEntry, type DatasetEntry } from './utils/dataset-entry.js';
 import { resolveLocalAuthRequirement } from '../../auth-requirement.js';
+import { assertRelatedDatasetAccess, type RelatedDatasetPolicies } from './utils/related-dataset-policy.js';
 
 export type { DatasetEntry } from './utils/dataset-entry.js';
 
@@ -70,6 +71,7 @@ export function createDatasetEndpoint<TAuth extends AuthContext>(
   entry: DatasetEntry<TAuth>,
   analytics: DatasetClient,
   builderFactory: QueryBuilderFactoryLike,
+  relatedPolicies?: RelatedDatasetPolicies,
 ): ServeEndpoint<z.ZodTypeAny, typeof datasetResultSchema, any, TAuth, any> {
   const resolved = resolveDatasetEntry(entry);
   const ds = resolved.dataset;
@@ -125,6 +127,7 @@ export function createDatasetEndpoint<TAuth extends AuthContext>(
       by: input.by,
       timezone: input.timezone,
     };
+    assertRelatedDatasetAccess(ds, query, ctx.auth ?? null, relatedPolicies);
     const validationContext = runtime ? { runtime } : undefined;
     const validation = analytics.validate(ds, query, validationContext);
     if (!validation.valid) {
