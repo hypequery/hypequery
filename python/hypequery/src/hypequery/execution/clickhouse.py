@@ -9,12 +9,13 @@ from collections.abc import Awaitable, Mapping
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import suppress
 from dataclasses import dataclass, field
+from importlib.util import find_spec
 from types import TracebackType
 from typing import Any, Protocol, Self, TypedDict, cast
 
 from hypequery.datasets.planner import SETTING_DEFINITIONS, CompiledQuery, CompiledQueryError
 
-from .cancellation import acquire_slot, run_with_policy, terminal_error
+from .cancellation import KillRetries, acquire_slot, run_with_policy, terminal_error
 from .errors import safe_driver_error
 from .parameters import bound_parameters
 from .readonly_settings import (
@@ -25,12 +26,20 @@ from .readonly_settings import (
 )
 from .results import DriverResult, QueryRows, decode_result
 from .sync_cancellation import SyncCancellationMonitor
-from .utils.connection_env import connection_fields
+from .utils.close_cancellation import cancels_on_close
+from .utils.connection_env import connection_fields, control_fields
 
 
 @dataclass(frozen=True, slots=True)
 class ClickHouseConnection:
-    """Explicit connection fields and readonly policy; the password is never logged."""
+    """Explicit connection fields and readonly policy; passwords are never logged.
+
+    Cancellation sends ``KILL QUERY`` on a separate control connection. By
+    default it signs in as *username*, which then needs
+    ``GRANT SELECT ON system.processes``. Set *control_username* to cancel as a
+    different user instead; that user needs ``SELECT ON system.processes`` and
+    ``KILL QUERY``.
+    """
 
     host: str = "localhost"
     port: int | None = None
@@ -39,9 +48,13 @@ class ClickHouseConnection:
     password: str = field(default="", repr=False)
     secure: bool = False
     readonly_policy: ReadonlyPolicy = "query"
+    control_username: str | None = None
+    control_password: str = field(default="", repr=False)
 
     def __post_init__(self) -> None:
         validate_readonly_policy(self.readonly_policy)
+        if self.control_username is None and self.control_password:
+            raise ValueError("control_password needs control_username")
 
     @classmethod
     def from_env(
@@ -51,13 +64,16 @@ class ClickHouseConnection:
         readonly_policy: ReadonlyPolicy = "query",
     ) -> Self:
         """Read ``CLICKHOUSE_HOST``, ``_PORT``, ``_DATABASE``, ``_USERNAME``,
-        ``_PASSWORD`` and ``_SECURE``, defaulting to a local server.
+        ``_PASSWORD``, ``_SECURE``, ``_CONTROL_USERNAME`` and
+        ``_CONTROL_PASSWORD``, defaulting to a local server.
 
         An unset port lets the driver choose 8123, or 8443 when secure.
         """
 
-        fields = connection_fields(os.environ if environ is None else environ)
-        return cls(**fields, readonly_policy=readonly_policy)
+        source = os.environ if environ is None else environ
+        return cls(
+            **connection_fields(source), **control_fields(source), readonly_policy=readonly_policy
+        )
 
 
 class _SyncClient(Protocol):
@@ -166,6 +182,19 @@ def _client_kwargs(connection: ClickHouseConnection) -> _ClientKwargs:
 _CONTROL_TIMEOUT_SECONDS = 2
 
 
+def _control_kwargs(connection: ClickHouseConnection) -> dict[str, Any]:
+    """The cancellation-control client: the query user unless one is configured."""
+
+    kwargs: dict[str, Any] = {
+        **_client_kwargs(connection),
+        "send_receive_timeout": _CONTROL_TIMEOUT_SECONDS,
+    }
+    if connection.control_username is not None:
+        kwargs["username"] = connection.control_username
+        kwargs["password"] = connection.control_password
+    return kwargs
+
+
 class ClickHouseExecutor:
     """Execute a trusted compiled SELECT with native server parameters."""
 
@@ -185,8 +214,11 @@ class ClickHouseExecutor:
     def _cancel_on_server(self, query_id: str) -> object:
         if self._control_client is None:
             return None
-        with self._control_lock:
-            return self._control_client.command(_KILL_QUERY, {"id": query_id})
+        try:
+            with self._control_lock:
+                return self._control_client.command(_KILL_QUERY, {"id": query_id})
+        except Exception as exc:
+            raise safe_driver_error(exc, query_id) from None
 
     def execute(self, compiled: CompiledQuery) -> QueryRows:
         parameters, settings = _query_arguments(compiled)
@@ -263,6 +295,8 @@ class AsyncClickHouseExecutor:
         self._semaphore = asyncio.Semaphore(_capacity(max_concurrent))
         self._closed = False
         self._readonly_policy = readonly_policy
+        self._retries = KillRetries()
+        self._cancels_on_close = cancels_on_close(client)
 
     async def _cancel_on_server(self, query_id: str) -> object:
         try:
@@ -311,7 +345,18 @@ class AsyncClickHouseExecutor:
                 return decode_result(result, compiled.query_id)
 
             query_task = asyncio.create_task(query())
-            return await run_with_policy(query_task, compiled, self._cancel_on_server)
+            running = query_task
+            # When the server cancels a query whose request closed, the end of
+            # the driver call is the end of the query, so retries stop there.
+            # Otherwise a query registered after the first KILL can only be
+            # stopped by asking again, until the server's own time limit.
+            return await run_with_policy(
+                query_task,
+                compiled,
+                self._cancel_on_server,
+                pending=(lambda: not running.done()) if self._cancels_on_close else None,
+                retries=self._retries,
+            )
         finally:
             if query_task is None:
                 self._semaphore.release()
@@ -321,9 +366,10 @@ class AsyncClickHouseExecutor:
                 query_task.add_done_callback(self._release_slot_when_done)
 
     async def aclose(self) -> None:
-        """Close the driver and dedicated control connection."""
+        """Stop pending KILL retries, then close the driver and control connection."""
 
         self._closed = True
+        await self._retries.close()
         for client in (self._client, self._control_client):
             closer = getattr(client, "close", None)
             if callable(closer):
@@ -368,6 +414,7 @@ class AsyncFromSyncClickHouseExecutor:
         )
         self._semaphore = asyncio.Semaphore(capacity)
         self._closed = False
+        self._retries = KillRetries()
 
     async def _cancel_on_server(self, query_id: str) -> object:
         loop = asyncio.get_running_loop()
@@ -409,7 +456,11 @@ class AsyncFromSyncClickHouseExecutor:
             # The blocking driver call cannot be interrupted; the bridge knows
             # when it returns, so server cancellation can be retried until then.
             return await run_with_policy(
-                work, compiled, self._cancel_on_server, pending=lambda: not future.done()
+                work,
+                compiled,
+                self._cancel_on_server,
+                pending=lambda: not future.done(),
+                retries=self._retries,
             )
         finally:
             if submitted and not future.done():
@@ -436,6 +487,8 @@ class AsyncFromSyncClickHouseExecutor:
         self._closed = True
         self._workers.shutdown(wait=False, cancel_futures=True)
         await asyncio.to_thread(self._workers.shutdown, wait=True)
+        # Every driver call has returned, so no retry has anything left to stop.
+        await self._retries.close()
         self._control_worker.shutdown(wait=False, cancel_futures=True)
         await asyncio.to_thread(self._control_worker.shutdown, wait=True)
         closer = getattr(self._control, "close", None)
@@ -470,9 +523,7 @@ def create_clickhouse_executor(connection: ClickHouseConnection) -> ClickHouseEx
     client = None
     try:
         client = get_client(**_client_kwargs(connection))
-        control_client = get_client(
-            **_client_kwargs(connection), send_receive_timeout=_CONTROL_TIMEOUT_SECONDS
-        )
+        control_client = get_client(**_control_kwargs(connection))
     except Exception as exc:
         if client is not None:
             client.close()
@@ -496,12 +547,17 @@ async def create_async_clickhouse_executor(
             'Install "hypequery[clickhouse-async]" to use async ClickHouse execution.',
             name=exc.name,
         ) from exc
+    # The driver imports without aiohttp and only fails when a client is
+    # created, where the error would be reported as an opaque internal one.
+    if find_spec("aiohttp") is None:
+        raise ModuleNotFoundError(
+            'Install "hypequery[clickhouse-async]" to use async ClickHouse execution.',
+            name="aiohttp",
+        )
     client = None
     try:
         client = await create_async_client(**_client_kwargs(connection))
-        control_client = await create_async_client(
-            **_client_kwargs(connection), send_receive_timeout=_CONTROL_TIMEOUT_SECONDS
-        )
+        control_client = await create_async_client(**_control_kwargs(connection))
     except Exception as exc:
         if client is not None:
             await client.close()

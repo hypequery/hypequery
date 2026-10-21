@@ -190,7 +190,12 @@ def test_separate_clients_keep_their_own_relationship_targets() -> None:
             executor=Executor(), registry=create_dataset_registry(dataset, customers)
         )
         add_dataset_endpoint(
-            router, f"/{name}", dataset=dataset, client=client, client_profile=ClientQueryProfile()
+            router,
+            f"/{name}",
+            dataset=dataset,
+            client=client,
+            client_profile=ClientQueryProfile(),
+            include_related={"customer"},
         )
     app = create_app(router, security=HttpSecurity(allowed_hosts=("testserver",)))
     endpoints = {item["id"]: item for item in export_client_contract(app)["contract"]["endpoints"]}

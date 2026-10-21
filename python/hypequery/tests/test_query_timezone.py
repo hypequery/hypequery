@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import secrets
 from collections.abc import Iterator
 from contextlib import contextmanager
@@ -98,7 +99,9 @@ class RecordingExecutor:
 
     def execute(self, query: CompiledQuery) -> ResultRows:
         self.queries.append(query)
-        return CachedRows(columns=("rows",), rows=((1,),))
+        # Columns are the statement's own aliases, as a real executor returns.
+        columns = tuple(re.findall(r" AS `([^`]+)`", query.sql.split(" FROM ", 1)[0]))
+        return CachedRows(columns=columns, rows=(tuple(1 for _ in columns),))
 
 
 def test_client_default_override_and_cache_separation() -> None:

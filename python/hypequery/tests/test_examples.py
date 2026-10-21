@@ -77,7 +77,8 @@ def test_live_examples_seed_and_http_journeys(monkeypatch: pytest.MonkeyPatch) -
 
         exercise_live_tutorial(admin)
         for factory, path, token, expected in (
-            (embedded_analytics.create_application, "/analytics/orders", "example-test", "120"),
+            # Organization a only: b's 90 must not be counted.
+            (embedded_analytics.create_application, "/analytics/orders", "example-test", "30"),
             (multitenant_saas.create_application, "/analytics/orders", "tenant-a-test", "30"),
             (multitenant_saas.create_application, "/analytics/orders", "tenant-b-test", "90"),
             (governed_agent.create_application, "/agent/revenue", "agent-test", "30"),

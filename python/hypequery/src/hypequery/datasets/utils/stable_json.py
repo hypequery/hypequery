@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from typing import cast
 
-from hypequery.protocol import serialize_protocol_number
+from hypequery.protocol import serialize_protocol_number, serialize_protocol_string
 
 
 def stable_json(value: object, depth: int = 0) -> str:
@@ -19,7 +19,7 @@ def stable_json(value: object, depth: int = 0) -> str:
         if not entries:
             return "{}"
         items = [
-            f"{json.dumps(key, ensure_ascii=False)}: {stable_json(item, depth + 1)}"
+            f"{serialize_protocol_string(key)}: {stable_json(item, depth + 1)}"
             for key, item in entries.items()
         ]
         opening, closing = "{", "}"
@@ -29,6 +29,10 @@ def stable_json(value: object, depth: int = 0) -> str:
             return "[]"
         items = [stable_json(item, depth + 1) for item in values]
         opening, closing = "[", "]"
+    elif type(value) is str:
+        # JSON.stringify writes a lone surrogate as an escape, so the text
+        # always encodes as UTF-8 and hashes as TypeScript's does.
+        return serialize_protocol_string(value)
     else:
         return json.dumps(value, ensure_ascii=False, allow_nan=False)
     indentation = "  " * (depth + 1)

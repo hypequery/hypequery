@@ -18,6 +18,7 @@ from typing import cast
 
 from fastapi import FastAPI
 
+from ...execution.utils.driver_loggers import apply_driver_log_levels, driver_log_levels
 from ..utils.bind_address import is_loopback
 
 _RELOAD_TARGET = "HYPEQUERY_DEV_RELOAD_TARGET"
@@ -79,7 +80,7 @@ def run_dev(
             # ``_reload_app`` rather than the user's import string.
             target = _import_app(app, os.getcwd())
             if reload:
-                os.environ[_RELOAD_TARGET] = json.dumps([os.getcwd(), app])
+                os.environ[_RELOAD_TARGET] = json.dumps([os.getcwd(), app, driver_log_levels()])
                 target = f"{__name__}:_reload_app"
         uvicorn.run(
             target,
@@ -130,7 +131,9 @@ def _import_app(spec: str, app_dir: str, *, redact_errors: bool = False) -> Fast
 def _reload_app() -> FastAPI:
     """Uvicorn factory for reload workers: import and check the target app."""
 
-    app_dir, spec = json.loads(os.environ[_RELOAD_TARGET])
+    app_dir, spec, *rest = json.loads(os.environ[_RELOAD_TARGET])
+    # Before the import: a connection made while importing may already warn.
+    apply_driver_log_levels(rest[0] if rest else None)
     return _import_app(spec, app_dir, redact_errors=True)
 
 

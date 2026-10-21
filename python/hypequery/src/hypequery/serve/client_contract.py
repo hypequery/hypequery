@@ -44,6 +44,7 @@ class ClientEndpointBinding:
     measure: str | None = None
     name: str | None = None
     route: object | None = None
+    related: frozenset[str] = frozenset()
 
     def definition(
         self, path: str, production: ProductionProfile | None
@@ -58,6 +59,7 @@ class ClientEndpointBinding:
             path=path,
             measure=self.measure,
             name=self.name,
+            related=self.related,
             profile=replace(
                 self.profile, max_limit=maximum, default_timezone=self.client.default_timezone
             ),

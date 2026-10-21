@@ -34,6 +34,7 @@ def install(api: ServeRouter, client: DatasetClient) -> None:
         client=client,
         policy=EndpointPolicy(tenant="required"),
         client_profile=profile,
+        include_related={"profile"},
     )
     add_dataset_endpoint(
         api,
