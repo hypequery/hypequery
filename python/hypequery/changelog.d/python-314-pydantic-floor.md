@@ -1,0 +1,1 @@
+- Require pydantic 2.12.2 or newer on Python 3.14. pydantic-core publishes no Python 3.14 wheel for the previous 2.9.2 floor, and pydantic 2.12.0 rejects one of the serve request models on 3.14. Python 3.11–3.13 keep the 2.9.2 floor.

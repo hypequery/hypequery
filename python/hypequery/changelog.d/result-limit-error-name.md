@@ -1,0 +1,1 @@
+- Report a query that exceeds its result limit as `too-large` (HTTP 413) on ClickHouse 26, which renamed the error to `TOO_MANY_ROWS_OR_BYTES` (code 396). It was reported as `internal` (HTTP 500).

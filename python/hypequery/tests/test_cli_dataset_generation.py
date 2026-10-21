@@ -234,6 +234,102 @@ def test_table_selection_is_exact_and_parameterized() -> None:
         read_schema(client, tables="missing", exclude_tables=None)
 
 
+def test_discovery_refuses_a_table_list_cut_by_its_limit() -> None:
+    class ManyTables(Client):
+        def query(
+            self, query: str, *, parameters: dict[str, object], settings: dict[str, int]
+        ) -> Result:
+            if "system.tables" in query:
+                return Result([(f"t{index}",) for index in range(100_001)])
+            return super().query(query, parameters=parameters, settings=settings)
+
+    with pytest.raises(CliError, match="more tables than discovery can list"):
+        read_schema(ManyTables(), tables=None, exclude_tables="t1")
+
+
+@dataclass
+class _Setting:
+    value: str
+
+
+@dataclass
+class ReadonlyProfileClient:
+    """The driver reports the user's profile readonly level from system.settings."""
+
+    level: str
+    queries: list[str] = field(default_factory=list)
+    sent: list[dict[str, int]] = field(default_factory=list)
+
+    @property
+    def server_settings(self) -> dict[str, _Setting]:
+        return {"readonly": _Setting(self.level)}
+
+    def query(
+        self, query: str, *, parameters: dict[str, object], settings: dict[str, int]
+    ) -> Result:
+        # A readonly = 2 user refuses a change to readonly; readonly = 1 refuses any change.
+        if self.level == "2" and "readonly" in settings:
+            raise RuntimeError("Cannot modify 'readonly' setting in readonly mode")
+        if self.level == "1" and settings:
+            raise RuntimeError("Cannot modify 'max_execution_time' setting in readonly mode")
+        self.queries.append(query)
+        self.sent.append(settings)
+        return Client().query(query, parameters=parameters, settings={"readonly": 1})
+
+    def close(self) -> None:
+        pass
+
+
+@pytest.mark.parametrize(
+    ("level", "sent"),
+    [
+        ("0", {"readonly": 1, "max_execution_time": 15, "max_result_rows": 100_001}),
+        ("2", {"max_execution_time": 15, "max_result_rows": 100_001}),
+        ("1", {}),
+    ],
+)
+def test_discovery_sends_only_settings_the_user_profile_allows(
+    level: str, sent: dict[str, int]
+) -> None:
+    client = ReadonlyProfileClient(level=level)
+    schema = read_schema(client, tables="orders", exclude_tables=None)
+    assert tuple(table.name for table in schema.tables) == ("orders",)
+    assert client.sent == [sent] * 3
+    # Without server-side limits, each catalog query still caps its rows.
+    assert all("LIMIT 100001" in query for query in client.queries[1:])
+
+
+@pytest.mark.parametrize(
+    ("failure", "names"),
+    [
+        ("REQUIRED_PASSWORD", "CLICKHOUSE_USERNAME and CLICKHOUSE_PASSWORD"),
+        ("UNKNOWN_DATABASE", "CLICKHOUSE_DATABASE"),
+        ("ACCESS_DENIED", "grants"),
+        (None, "CLICKHOUSE_HOST"),
+    ],
+)
+def test_discovery_failures_name_what_to_check(
+    monkeypatch: pytest.MonkeyPatch, failure: str | None, names: str
+) -> None:
+    clickhouse_connect = pytest.importorskip("clickhouse_connect")
+    from clickhouse_connect.driver.exceptions import DatabaseError
+
+    from hypequery.cli.generators.schema import discover_schema
+
+    def refuse(**_kwargs: object) -> None:
+        if failure is None:
+            raise ConnectionRefusedError("127.0.0.1:8123 secret")
+        error = DatabaseError("secret driver text")
+        error.name = failure
+        raise error
+
+    monkeypatch.setattr(clickhouse_connect, "get_client", refuse)
+    with pytest.raises(CliError, match="Cannot inspect ClickHouse") as caught:
+        discover_schema(tables=None, exclude_tables=None)
+    assert names in str(caught.value)
+    assert "secret" not in str(caught.value)
+
+
 def test_real_schema_init_does_not_seed_or_store_credentials(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

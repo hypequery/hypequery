@@ -26,6 +26,7 @@ from ..dataset import Dataset
 from ..planner import DatasetQuery, ExecutionContext
 from ..registry import DatasetRegistry
 from ..utils.query_timezone import timezone_identity
+from .cached_rows_check import cached_rows_problem
 from .preimage_inputs import (
     effective_row_limit,
     local_definition_identity,
@@ -153,12 +154,26 @@ class ResultCache:
             self._report("key", error)
             return None
 
-    def get(self, key: str) -> CachedRows | None:
+    def get(self, key: str, *, columns: tuple[str, ...] | None = None) -> CachedRows | None:
+        """The stored rows for *key*, or None on a miss or any store failure.
+
+        A value that isn't well-formed ``CachedRows``, or whose columns differ
+        from *columns*, is reported as a ``get`` failure and treated as a miss:
+        a store must never fail a query or answer it with another query's rows.
+        """
+
         try:
-            return self.store.get(key)
+            value = self.store.get(key)
         except Exception as error:
             self._report("get", error)
             return None
+        if value is None:
+            return None
+        problem = cached_rows_problem(value, columns)
+        if problem is not None:
+            self._report("get", ValueError(problem))
+            return None
+        return value
 
     def put(self, key: str, rows: CachedRows) -> bool:
         try:
