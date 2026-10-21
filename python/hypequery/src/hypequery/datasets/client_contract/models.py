@@ -69,6 +69,8 @@ class ClientEndpointDefinition:
     No route is registered and no client/executor is constructed. For metrics,
     measure names the local measure and name is the public metric/output alias.
     The host owns the final route and must enforce the advertised strict profile.
+    *related* names the relationships whose fields the endpoint exposes; None
+    exposes every queryable relationship.
     """
 
     dataset: Dataset
@@ -76,3 +78,4 @@ class ClientEndpointDefinition:
     profile: ClientQueryProfile
     measure: str | None = None
     name: str | None = None
+    related: frozenset[str] | None = None
