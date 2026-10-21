@@ -35,7 +35,7 @@ describe('ClickHouse datasets SQL rules', () => {
 
   it('spells timezone conversion, parsing and inspection', () => {
     expect(ch.toQueryTimezone('t', 'Asia/Tokyo')).toBe("toDateTime64(t, 9, 'Asia/Tokyo')");
-    expect(ch.parseTimestamp("2026-01-01'", 'z')).toBe("parseDateTime64BestEffort('2026-01-01''', 9, z)");
+    expect(ch.parseTimestamp('?', 'z')).toBe('parseDateTime64BestEffort(?, 9, z)');
     expect(ch.timezoneOf('t')).toBe('timezoneOf(t)');
     expect(ch.clockPart('Minute', 't')).toBe('toMinute(t)');
     expect(ch.isDateOnlyType('v')).toBe("position(toTypeName(v), 'Date') > 0 AND position(toTypeName(v), 'DateTime') = 0");
@@ -60,6 +60,15 @@ describe('ClickHouse datasets SQL rules', () => {
     expect(ch.rowElement('r', 3)).toBe('tupleElement(r, 3)');
     expect(ch.selectAllExcept('s', ['a', 'b'])).toBe('s.* EXCEPT (a, b)');
     expect(ch.asofLeftJoin).toBe('LEFT ASOF JOIN');
+  });
+
+  it('spells ordering and pagination', () => {
+    expect(ch.orderTerm('`x`', 'DESC')).toBe('`x` DESC');
+    expect(ch.orderTerm('period')).toBe('period');
+    expect(ch.paginate(undefined, undefined)).toBe('');
+    expect(ch.paginate(10, undefined)).toBe(' LIMIT 10');
+    expect(ch.paginate(undefined, 5)).toBe(' OFFSET 5');
+    expect(ch.paginate(10, 5)).toBe(' LIMIT 10 OFFSET 5');
   });
 
   it('wraps filtered aggregate inputs', () => {

@@ -19,7 +19,9 @@ from collections.abc import Iterable
 from pathlib import Path
 
 # Files that must never reach PyPI, matched per path component.
-FORBIDDEN_NAMES = frozenset({".env", ".venv", "node_modules", "__pycache__", ".DS_Store", ".git"})
+FORBIDDEN_NAMES = frozenset(
+    {".env", ".venv", "node_modules", "__pycache__", ".DS_Store", ".git", ".hypothesis"}
+)
 
 # Everything the package needs in order to be usable and typed.
 REQUIRED_TEMPLATE_ENTRIES = tuple(

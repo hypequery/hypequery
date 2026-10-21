@@ -12,6 +12,8 @@ from ..errors import ProtocolValueError
 from .errors import ProtocolClientContractError, client_error
 
 CLIENT_MAX_BYTES = 1_048_576
+#: ECMAScript's Number.MAX_SAFE_INTEGER: every integer up to here is one double.
+_MAX_SAFE_INTEGER = 2**53
 
 
 @dataclass
@@ -46,7 +48,12 @@ class _Budget:
             if not math.isfinite(number):
                 client_error("HQ_CLIENT_TYPE")
             # JSON numbers have binary64 semantics in this cross-language profile.
-            result: int | float = int(number) if number.is_integer() else number
+            # Past 2**53 the exact digits of the double differ from ECMAScript's
+            # shortest round-trip form that TypeScript's JSON.stringify writes,
+            # so such a value stays a float and canonicalizes through the same
+            # number serializer.
+            integral = number.is_integer() and abs(number) <= _MAX_SAFE_INTEGER
+            result: int | float = int(number) if integral else number
             self.charge(len(serialize_jcs(result, max_bytes=CLIENT_MAX_BYTES)))
             return result
         if type(value) not in (dict, list) or id(value) in self.active:

@@ -33,6 +33,15 @@ export const clickhouseDatasetSqlDialect: DatasetSqlDialectRules = Object.freeze
   name: 'clickhouse',
   quoteIdentifier: quoteSQLIdentifier,
 
+  // The adapter substitutes positional `?` on the client, one value per marker.
+  placeholder: () => '?',
+  reusesPlaceholders: false,
+  embedsPositionalPieces: true,
+
+  orderTerm: (expression: string, direction?: 'ASC' | 'DESC') => direction ? `${expression} ${direction}` : expression,
+  paginate: (limit: number | undefined, offset: number | undefined) =>
+    `${limit === undefined ? '' : ` LIMIT ${limit}`}${offset === undefined ? '' : ` OFFSET ${offset}`}`,
+
   stringLiteral,
   measureFilterLiteral(value: unknown): string {
     if (value === null) return 'NULL';
@@ -52,7 +61,7 @@ export const clickhouseDatasetSqlDialect: DatasetSqlDialectRules = Object.freeze
   subtractTime: (time: string, amount: number, grain: TimeGrain) => `subtract${INTERVAL_UNITS[grain]}(${time}, ${amount})`,
   timeDiff: (grain: TimeGrain, start: string, end: string) => `dateDiff('${grain}', ${start}, ${end})`,
   toQueryTimezone: (time: string, timezone: string) => `toDateTime64(${time}, 9, '${timezone}')`,
-  parseTimestamp: (value: string, timezone: string) => `parseDateTime64BestEffort(${stringLiteral(value)}, 9, ${timezone})`,
+  parseTimestamp: (value: string, timezone: string) => `parseDateTime64BestEffort(${value}, 9, ${timezone})`,
   timezoneOf: (time: string) => `timezoneOf(${time})`,
   clockPart: (part, time) => `to${part}(${time})`,
   isDateOnlyType: (value: string) => `position(toTypeName(${value}), 'Date') > 0 AND position(toTypeName(${value}), 'DateTime') = 0`,

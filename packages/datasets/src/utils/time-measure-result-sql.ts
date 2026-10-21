@@ -35,9 +35,8 @@ export function buildTimeMeasureResultSql(
     + ` UNION ALL SELECT ${nullProjections} FROM _hq_bounds WHERE ${validationGuard} = 1)`;
   let sql = `WITH ${[...ctes, resultCte].join(',\n')} SELECT ${outputNames.map(name => quote(name)).join(', ')} FROM _hq_result`;
   const order = query.orderBy?.length ? query.orderBy : [{ field: 'period', direction: 'asc' }];
-  sql += ` ORDER BY ${order.map(item => `${quote(item.field)} ${semanticOrderDirection(item.direction)}`).join(', ')}`;
+  sql += ` ORDER BY ${order.map(item => dialect.orderTerm(quote(item.field), semanticOrderDirection(item.direction))).join(', ')}`;
   const limit = options.executionLimit ?? query.limit;
-  if (limit !== undefined) sql += ` LIMIT ${limit}`;
-  if (query.offset !== undefined) sql += ` OFFSET ${query.offset}`;
+  sql += dialect.paginate(limit, query.offset);
   return sql;
 }
