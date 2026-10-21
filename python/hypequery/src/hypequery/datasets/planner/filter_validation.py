@@ -10,6 +10,11 @@ from ..query_helpers import Filter
 from ..utils.timestamp_text import is_timestamp_text
 from .errors import CompiledQueryError
 
+#: Number filters bind as Float64, which holds every integer up to 2**53
+#: exactly. Beyond that ClickHouse compares a rounded value, so an exact
+#: UInt64/Int64 id silently matches nothing.
+_MAX_EXACT_INTEGER = 2**53
+
 
 def _matches_field_type(field_type: DimensionType, value: object) -> bool:
     if field_type == "string":
@@ -20,6 +25,8 @@ def _matches_field_type(field_type: DimensionType, value: object) -> bool:
         return type(value) is bool
     if type(value) not in (int, float):
         return False
+    if type(value) is int:
+        return abs(value) <= _MAX_EXACT_INTEGER
     try:
         return math.isfinite(cast(int | float, value))
     except OverflowError:
@@ -63,6 +70,12 @@ def _type_message(name: str, field_type: DimensionType, *, plural: bool) -> str:
         return (
             f'Filter "{name}" expects {what}, such as 2026-01-31 or 2026-01-31T12:00:00Z, '
             "with a real calendar date and time."
+        )
+    if field_type == "number":
+        what = "finite numbers" if plural else "a finite number"
+        return (
+            f'Filter "{name}" expects {what}; integers must be within ±2**53 to compare '
+            "exactly. Declare a large id as dimension.string() to filter it exactly."
         )
     return (
         f'Filter "{name}" expects {field_type} values.'

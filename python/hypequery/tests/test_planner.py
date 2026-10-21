@@ -1064,3 +1064,22 @@ def test_runtime_tenant_scope_does_not_block_filters_on_unscoped_dataset() -> No
     )
     assert "`vendor` = {p0:String}" in result.sql
     assert result.parameters["p0"].value == "a"
+
+
+@pytest.mark.parametrize("value", [2**53 + 1, -(2**53) - 1, 2**64 - 1])
+def test_a_number_filter_refuses_integers_float64_cannot_hold_exactly(value: int) -> None:
+    # Number filters bind as Float64: ClickHouse would compare a rounded value
+    # and an exact UInt64 id would silently match nothing.
+    for filter_value in (
+        eq("fare", value),
+        in_list("fare", [1, value]),
+        Filter(field="fare", operator="between", value=[0, value]),
+    ):
+        with pytest.raises(CompiledQueryError, match=r"2\*\*53.*dimension\.string") as caught:
+            plan_dataset_query(_trips(), DatasetQuery(measures=("trips",), filters=(filter_value,)))
+        assert caught.value.category == "input-invalid"
+
+
+@pytest.mark.parametrize("value", [2**53, -(2**53), 0, 1.5, 1e300])
+def test_a_number_filter_accepts_exactly_representable_values(value: float) -> None:
+    plan_dataset_query(_trips(), DatasetQuery(measures=("trips",), filters=(eq("fare", value),)))
