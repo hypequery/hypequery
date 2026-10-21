@@ -2,11 +2,10 @@
 
 A Python semantic layer for ClickHouse datasets, metrics, multi-tenant analytics, and FastAPI serving.
 
-> **Beta candidate 0.1.0b1:** datasets, execution, Serve, generated React clients
-> and HTTP-backed MCP have installed-artifact qualification. This branch prepares
-> the release; it does not establish PyPI or matching npm availability. APIs may
-> change during beta. Use the [release checklist](RELEASING.md#integrated-beta-candidate)
-> before deploying or announcing it.
+> **Beta (0.1.0b1).** Datasets, execution, Serve, generated React clients and
+> HTTP-backed MCP are tested end to end from the installed package. APIs may still
+> change before 1.0. Please report problems on
+> [GitHub](https://github.com/hypequery/hypequery/issues).
 
 ## Python → React → MCP example
 
@@ -49,6 +48,10 @@ From zero to a served dataset. You need Python 3.11+ and a ClickHouse server.
 ```bash
 pip install "hypequery[fastapi,clickhouse]"
 ```
+
+That covers the synchronous executor this guide uses. For the native async
+executor (`create_async_clickhouse_executor`), install
+`"hypequery[fastapi,clickhouse-async]"` instead.
 
 To try an unreleased build, install from a checkout of this repository instead:
 `pip install "./python/hypequery[fastapi,clickhouse]"`.
@@ -233,6 +236,17 @@ pip install "hypequery[clickhouse]"
 pip install "hypequery[clickhouse-async]"
 pip install "hypequery[fastapi]"
 ```
+
+| Extra | Adds | Needed for |
+|---|---|---|
+| (none) | pydantic | defining datasets, planning, `to_sql()`, protocol artifacts |
+| `clickhouse` | clickhouse-connect | `create_clickhouse_executor` and `hypequery init` / `generate` |
+| `clickhouse-async` | clickhouse-connect with aiohttp | `create_async_clickhouse_executor`; also covers everything `clickhouse` does |
+| `fastapi` | FastAPI, Starlette, uvicorn | `hypequery.serve` and `hypequery dev` |
+
+Combine them as needed, for example `"hypequery[fastapi,clickhouse-async]"`.
+Without `clickhouse-async`, `create_async_clickhouse_executor` raises an error
+naming the extra to install.
 
 The SDK is organised as:
 

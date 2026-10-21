@@ -9,6 +9,7 @@ from collections.abc import Awaitable, Mapping
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import suppress
 from dataclasses import dataclass, field
+from importlib.util import find_spec
 from types import TracebackType
 from typing import Any, Protocol, Self, TypedDict, cast
 
@@ -496,6 +497,13 @@ async def create_async_clickhouse_executor(
             'Install "hypequery[clickhouse-async]" to use async ClickHouse execution.',
             name=exc.name,
         ) from exc
+    # The driver imports without aiohttp and only fails when a client is
+    # created, where the error would be reported as an opaque internal one.
+    if find_spec("aiohttp") is None:
+        raise ModuleNotFoundError(
+            'Install "hypequery[clickhouse-async]" to use async ClickHouse execution.',
+            name="aiohttp",
+        )
     client = None
     try:
         client = await create_async_client(**_client_kwargs(connection))

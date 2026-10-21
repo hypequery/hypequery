@@ -9,6 +9,7 @@ description = "Type-safe ClickHouse semantic layer and serving for Python."
 readme = "README.md"
 requires-python = ">=3.11"
 license = "Apache-2.0"
+license-files = ["LICENSE"]
 authors = [{ name = "Hypequery" }]
 keywords = ["clickhouse", "analytics", "semantic-layer", "datasets", "fastapi"]
 classifiers = [
@@ -28,7 +29,9 @@ classifiers = [
 # suite in a clean environment (pydantic is also FastAPI 0.137+'s own floor;
 # fastapi 0.137.2 introduced iter_route_contexts; clickhouse-connect 1.4.2
 # introduced named driver errors the executor maps to categories; urllib3 2.8.0
-# fixes three published advisories). CI's floor jobs install exactly these.
+# fixes three published advisories). Transitive floors close advisories the
+# direct floors would still admit: h11 0.16.0 (via uvicorn) and anyio 4.14.2
+# (via starlette). CI's floor jobs install exactly these.
 dependencies = [
     "pydantic>=2.9.2",
     "tzdata>=2025.2",
@@ -37,7 +40,13 @@ dependencies = [
 [project.optional-dependencies]
 clickhouse = ["clickhouse-connect>=1.4.2", "urllib3>=2.8.0"]
 clickhouse-async = ["clickhouse-connect[async]>=1.4.2", "aiohttp>=3.14.4", "urllib3>=2.8.0"]
-fastapi = ["fastapi>=0.137.2", "starlette>=1.3.1", "uvicorn>=0.30.6"]
+fastapi = [
+    "fastapi>=0.137.2",
+    "starlette>=1.3.1",
+    "uvicorn>=0.30.6",
+    "h11>=0.16.0",
+    "anyio>=4.14.2",
+]
 
 [project.scripts]
 hypequery = "hypequery.cli:main"
@@ -62,6 +71,10 @@ dev = [
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/hypequery"]
+
+[tool.hatch.build.targets.sdist]
+# A point-in-time review of an earlier PR; it describes no shipped behaviour.
+exclude = ["TESTING_REVIEW.md"]
 
 [tool.hatch.build]
 # Include dotfiles used by the project template despite VCS ignore rules.
