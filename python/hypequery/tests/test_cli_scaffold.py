@@ -85,3 +85,18 @@ def test_write_failure_rolls_back_files_and_new_directories(
     assert main(["init", "--skip-connection", str(destination)]) == 1
     assert not destination.exists()
     assert parent.exists() is parent_exists
+
+
+def test_init_next_step_changes_into_the_new_directory(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    assert main(["init", "analytics", "--skip-connection"]) == 0
+    assert "Then run: cd analytics && hypequery dev" in capsys.readouterr().out
+    # A name starting with "-" must not read as an option to cd.
+    assert main(["init", "./-analytics", "--skip-connection"]) == 0
+    assert "Then run: cd ./-analytics && hypequery dev" in capsys.readouterr().out
+    (tmp_path / "here").mkdir()
+    monkeypatch.chdir(tmp_path / "here")
+    assert main(["init", "--skip-connection"]) == 0
+    assert "Then run: hypequery dev\n" in capsys.readouterr().out

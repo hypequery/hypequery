@@ -9,6 +9,7 @@ from hypequery.datasets.planner import CompiledQueryError
 from ..errors import CliError
 from ..options import DevOptions
 from ..utils.clickhouse_hints import clickhouse_hint
+from ..utils.startup_errors import missing_environment_variable, quiet_driver_warnings
 
 
 def run(options: DevOptions) -> None:
@@ -21,8 +22,18 @@ def run(options: DevOptions) -> None:
 
     from hypequery.serve import run_dev
 
+    quiet_driver_warnings()
     try:
         run_dev(options.app, host=options.host, port=options.port, reload=options.reload)
+    except SystemExit as exc:
+        # uvicorn exits 3 when the app or the socket fails to start; it has
+        # already logged why. Keep the CLI's documented 0/1/2 exit codes.
+        if exc.code in (None, 0):
+            raise
+        raise CliError(
+            f"Cannot start the server; check the bind address and whether port {options.port} "
+            "is free."
+        ) from exc
     except ImportFromStringError as exc:
         raise CliError(
             "Cannot import the app; use a valid module:attribute in this directory."
@@ -51,6 +62,13 @@ def run(options: DevOptions) -> None:
         # The executor factory raises these while the app module connects; the
         # category is safe and tells a developer which setting to look at.
         raise CliError(f"App could not start. {clickhouse_hint(exc.category)}") from exc
+    except KeyError as exc:
+        name = missing_environment_variable(exc)
+        if name is None:
+            raise CliError(
+                "App could not start; check its code, dependencies and environment."
+            ) from exc
+        raise CliError(f"App could not start: set the {name} environment variable.") from exc
     except Exception as exc:
         # User app and driver errors may contain URLs, SQL or credentials.
         raise CliError(
