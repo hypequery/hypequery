@@ -1,0 +1,1 @@
+- Order time buckets by their instant rather than their text label. On a daylight-saving fall-back day, two hourly buckets share a label such as `01:00:00`, and they could come back in either order. TypeScript already orders them chronologically.

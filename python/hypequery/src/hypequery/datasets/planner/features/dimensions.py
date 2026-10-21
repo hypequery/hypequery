@@ -31,6 +31,7 @@ class DimensionFeature(CompilerFeature):
             node.selections.append(aliased(dialect.period_text(bucket), PERIOD_ALIAS))
             node.group_by.append(bucket)
             compiler.orderable[PERIOD_ALIAS.name] = PERIOD_ALIAS
+            compiler.period_bucket = bucket
 
         for name in query.dimensions:
             if is_qualified(name):

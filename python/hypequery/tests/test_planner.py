@@ -149,7 +149,23 @@ def test_a_time_grain_selects_and_orders_by_period() -> None:
     bucket = "toStartOfMonth(toDateTime64(`pickup_datetime`, 9, {p0:String}))"
     # RFC 0015's result form is ClickHouse's own text for the bucket; group on the value.
     assert f"toString({bucket}) AS `period`" in compiled.sql
-    assert compiled.sql.endswith(f"GROUP BY {bucket} ORDER BY `period` ASC")
+    # Order by the bucket, not its text: on a daylight-saving fall-back day two
+    # hours share a label, and only the instant puts them in order.
+    assert compiled.sql.endswith(f"GROUP BY {bucket} ORDER BY {bucket} ASC")
+
+
+@pytest.mark.parametrize("direction", ["asc", "desc"])
+def test_an_explicit_period_order_sorts_by_the_bucket_instant(direction: str) -> None:
+    compiled = plan_dataset_query(
+        _trips(),
+        DatasetQuery(
+            by="hour",
+            measures=("trips",),
+            order_by=(asc("period") if direction == "asc" else desc("period"),),
+        ),
+    )
+    bucket = "toStartOfHour(toDateTime64(`pickup_datetime`, 9, {p0:String}))"
+    assert compiled.sql.endswith(f"ORDER BY {bucket} {direction.upper()}")
 
 
 def test_a_time_grain_needs_a_time_key() -> None:
