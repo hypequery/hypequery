@@ -71,6 +71,25 @@ describe('ClickHouse datasets SQL rules', () => {
     expect(ch.paginate(10, 5)).toBe(' LIMIT 10 OFFSET 5');
   });
 
+  it('quotes qualified source paths per segment', () => {
+    expect(ch.quoteQualifiedName('analytics.orders')).toBe('`analytics`.`orders`');
+    expect(ch.quoteQualifiedName('odd`db.t')).toBe('`odd``db`.`t`');
+  });
+
+  it.each([
+    ["concat(name, '; ')", undefined],
+    ["replaceAll(note, '--', '')", undefined],
+    ["concat('it''s', ';')", undefined],
+    ["concat('\\'', '; DROP')", undefined],
+    ['amount * 2', undefined],
+    ['amount; DROP TABLE x', 'statement-break'],
+    ['amount -- trailing', 'statement-break'],
+    ['amount /* hidden */', 'statement-break'],
+    ["concat('open", 'unterminated-literal'],
+  ] as const)('checks raw sql %s', (sql, error) => {
+    expect(ch.rawSqlExpressionError(sql)).toBe(error);
+  });
+
   it('wraps filtered aggregate inputs', () => {
     expect(ch.filteredAggregateInput('c', 'v', '0')).toBe('if(c, v, 0)');
     expect(ch.filteredAggregateInput('c', 'v', 'NULL')).toBe('if(c, v, NULL)');
