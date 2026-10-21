@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Coroutine
 from contextlib import suppress
 from typing import TypeVar
 
@@ -21,9 +21,40 @@ _DRAIN_SECONDS = 2.0
 _RETRY_CAP_SECONDS = 5.0
 _LOGGER = logging.getLogger(__name__)
 
-#: Retries outlive the request that started them; keep them referenced. An
-#: executor passes its own set instead, so closing it can stop them.
-_RETRIES: set[asyncio.Task[None]] = set()
+
+class KillRetries:
+    """The KILL retries an owner left running, kept referenced until they end.
+
+    Once closed, it cancels those retries and starts no more: a request still
+    unwinding when its executor closes must not leave a retry behind.
+    """
+
+    def __init__(self) -> None:
+        self._tasks: set[asyncio.Task[None]] = set()
+        self._closed = False
+
+    def __len__(self) -> int:
+        return len(self._tasks)
+
+    def start(self, retry: Coroutine[object, object, None]) -> None:
+        if self._closed:
+            retry.close()
+            return
+        task = asyncio.create_task(retry)
+        self._tasks.add(task)
+        task.add_done_callback(self._tasks.discard)
+
+    async def close(self) -> None:
+        self._closed = True
+        pending = tuple(self._tasks)
+        for task in pending:
+            task.cancel()
+        await asyncio.gather(*pending, return_exceptions=True)
+
+
+#: Retries outlive the request that started them; an executor passes its own
+#: KillRetries so closing it can stop them, and anything else shares this one.
+_RETRIES = KillRetries()
 
 
 def server_cancellation_confirmed(response: object) -> bool:
@@ -120,20 +151,9 @@ def _ensure_server_cancellation(
     compiled: CompiledQuery,
     cancel_on_server: Callable[[str], Awaitable[object]],
     pending: Callable[[], bool] | None,
-    retries: set[asyncio.Task[None]],
+    retries: KillRetries,
 ) -> None:
-    task = asyncio.create_task(_retry_server_cancellation(compiled, cancel_on_server, pending))
-    retries.add(task)
-    task.add_done_callback(retries.discard)
-
-
-async def stop_retries(retries: set[asyncio.Task[None]]) -> None:
-    """Cancel an executor's outstanding KILL retries, for its shutdown."""
-
-    pending = tuple(retries)
-    for task in pending:
-        task.cancel()
-    await asyncio.gather(*pending, return_exceptions=True)
+    retries.start(_retry_server_cancellation(compiled, cancel_on_server, pending))
 
 
 async def acquire_slot(semaphore: asyncio.Semaphore, compiled: CompiledQuery) -> None:
@@ -170,7 +190,7 @@ async def run_with_policy(
     cancel_on_server: Callable[[str], Awaitable[object]],
     *,
     pending: Callable[[], bool] | None = None,
-    retries: set[asyncio.Task[None]] | None = None,
+    retries: KillRetries | None = None,
 ) -> _T:
     """Monitor a running query and ask ClickHouse to stop it on interruption.
 

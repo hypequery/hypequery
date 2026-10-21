@@ -14,7 +14,7 @@ from typing import Any, Protocol, Self, TypedDict, cast
 
 from hypequery.datasets.planner import SETTING_DEFINITIONS, CompiledQuery, CompiledQueryError
 
-from .cancellation import acquire_slot, run_with_policy, stop_retries, terminal_error
+from .cancellation import KillRetries, acquire_slot, run_with_policy, terminal_error
 from .errors import safe_driver_error
 from .parameters import bound_parameters
 from .readonly_settings import (
@@ -294,7 +294,7 @@ class AsyncClickHouseExecutor:
         self._semaphore = asyncio.Semaphore(_capacity(max_concurrent))
         self._closed = False
         self._readonly_policy = readonly_policy
-        self._retries: set[asyncio.Task[None]] = set()
+        self._retries = KillRetries()
         self._cancels_on_close = cancels_on_close(client)
 
     async def _cancel_on_server(self, query_id: str) -> object:
@@ -368,7 +368,7 @@ class AsyncClickHouseExecutor:
         """Stop pending KILL retries, then close the driver and control connection."""
 
         self._closed = True
-        await stop_retries(self._retries)
+        await self._retries.close()
         for client in (self._client, self._control_client):
             closer = getattr(client, "close", None)
             if callable(closer):
@@ -413,7 +413,7 @@ class AsyncFromSyncClickHouseExecutor:
         )
         self._semaphore = asyncio.Semaphore(capacity)
         self._closed = False
-        self._retries: set[asyncio.Task[None]] = set()
+        self._retries = KillRetries()
 
     async def _cancel_on_server(self, query_id: str) -> object:
         loop = asyncio.get_running_loop()
@@ -487,7 +487,7 @@ class AsyncFromSyncClickHouseExecutor:
         self._workers.shutdown(wait=False, cancel_futures=True)
         await asyncio.to_thread(self._workers.shutdown, wait=True)
         # Every driver call has returned, so no retry has anything left to stop.
-        await stop_retries(self._retries)
+        await self._retries.close()
         self._control_worker.shutdown(wait=False, cancel_futures=True)
         await asyncio.to_thread(self._control_worker.shutdown, wait=True)
         closer = getattr(self._control, "close", None)

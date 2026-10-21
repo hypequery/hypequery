@@ -838,6 +838,38 @@ def test_native_async_aclose_stops_outstanding_retries() -> None:
     asyncio.run(run())
 
 
+def test_native_async_aclose_during_cancellation_starts_no_retry() -> None:
+    async def run() -> None:
+        signal = threading.Event()
+        client = AsyncClient()
+        kill_sent = asyncio.Event()
+        kill_answer = asyncio.Event()
+        calls: list[int] = []
+
+        class SlowControl:
+            async def command(self, _cmd: str, _parameters: dict[str, str]) -> object:
+                calls.append(1)
+                kill_sent.set()
+                await kill_answer.wait()
+                return None
+
+        executor = AsyncClickHouseExecutor(client, SlowControl())
+        task = asyncio.create_task(executor.execute(query(cancellation=signal)))
+        await client.started.wait()
+        signal.set()
+        # The executor closes while the request is still waiting on its first KILL.
+        await kill_sent.wait()
+        await executor.aclose()
+        kill_answer.set()
+        with pytest.raises(CompiledQueryError):
+            await task
+        assert not executor._retries
+        await asyncio.sleep(0.3)
+        assert len(calls) == 1
+
+    asyncio.run(run())
+
+
 def test_sync_bridge_aclose_stops_outstanding_retries() -> None:
     async def run() -> None:
         signal = threading.Event()
