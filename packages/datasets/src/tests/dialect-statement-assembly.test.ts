@@ -107,9 +107,10 @@ describe('dialect ordering and pagination', () => {
   it('keeps the private fields a class-based rule set reads', () => {
     class PrivateRules {
       readonly #nulls = 'NULLS LAST';
+      readonly #positional = clickhouseDatasetSqlDialect.embedsPositionalPieces;
       readonly name = 'private-rules';
       readonly reusesPlaceholders = clickhouseDatasetSqlDialect.reusesPlaceholders;
-      readonly embedsPositionalPieces = clickhouseDatasetSqlDialect.embedsPositionalPieces;
+      get embedsPositionalPieces() { return this.#positional; }
       orderTerm(expression: string, direction?: 'ASC' | 'DESC') { return `${expression} ${direction ?? 'ASC'} ${this.#nulls}`; }
       paginate(limit: number | undefined, offset: number | undefined) { return strictRules.paginate(limit, offset); }
     }
@@ -119,6 +120,7 @@ describe('dialect ordering and pagination', () => {
     expect(Object.isFrozen(registered)).toBe(true);
     expect(Object.isFrozen(instance)).toBe(false);
     expect(registered).toBeInstanceOf(PrivateRules);
+    expect(registered.embedsPositionalPieces).toBe(true);
     const privateClient = createDatasetClient({ queryBuilder: { ...createRenderingBuilderFactory(), datasetSqlDialect: registered } });
     expect(privateClient.toSQL(Orders, { dimensions: ['status'], measures: ['aov'], orderBy: [{ field: 'aov', direction: 'desc' }], offset: 20 }))
       .toMatch(/ORDER BY `aov` DESC NULLS LAST LIMIT 9223372036854775807 OFFSET 20$/);

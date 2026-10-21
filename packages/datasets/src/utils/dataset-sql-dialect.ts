@@ -20,21 +20,26 @@ export function defineDatasetSqlDialectRules<TRules extends DatasetSqlDialectRul
  * A frozen snapshot of a rule set that leaves the caller's object unfrozen.
  *
  * Own members are copied as they are, so a rule shared with another rule set
- * (spread from the ClickHouse rules, say) keeps its identity. Methods a class
- * declares are bound to the original instance: its `#private` fields exist
- * only on the object its constructor ran on, so a copy must not become their
- * receiver. Members inherited from a plain object stay inherited.
+ * (spread from the ClickHouse rules, say) keeps its identity. Members a class
+ * declares are read through the original instance, methods bound to it and
+ * getters evaluated on it: its `#private` fields exist only on the object its
+ * constructor ran on, so a copy must not become their receiver. Members
+ * inherited from a plain object stay inherited.
  */
 function receiverBoundSnapshot<TRules extends object>(rules: TRules): Readonly<TRules> {
   const snapshot: object = Object.create(Object.getPrototypeOf(rules), Object.getOwnPropertyDescriptors(rules));
   for (let owner = Object.getPrototypeOf(rules) as object | null; owner && isClassPrototype(owner); owner = Object.getPrototypeOf(owner)) {
     for (const key of Reflect.ownKeys(owner)) {
       if (key === 'constructor' || Object.hasOwn(snapshot, key)) continue;
+      // Read through the original, so a getter sees its own private fields;
+      // a method is bound to it for the same reason.
       const value: unknown = Reflect.get(rules, key);
-      if (typeof value !== 'function') continue;
       // Define rather than assign: assignment cannot shadow a read-only
       // member inherited from a frozen prototype such as the ClickHouse rules.
-      Object.defineProperty(snapshot, key, { value: value.bind(rules), enumerable: true });
+      Object.defineProperty(snapshot, key, {
+        value: typeof value === 'function' ? value.bind(rules) : value,
+        enumerable: true,
+      });
     }
   }
   return Object.freeze(snapshot) as Readonly<TRules>;
