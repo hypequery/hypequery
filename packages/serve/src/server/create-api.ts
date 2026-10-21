@@ -218,7 +218,9 @@ export const createAPI = <
 
   // Process metrics — auto-generate POST endpoints
   // Related fields must satisfy the policy of the related dataset's own entry.
-  const relatedPolicies = config.datasets ? collectRelatedDatasetPolicies(config.datasets) : undefined;
+  const relatedPolicies = config.datasets
+    ? collectRelatedDatasetPolicies(config.datasets, authStrategies.length > 0)
+    : undefined;
 
   if (config.metrics) {
     const metricsEntries = config.metrics;

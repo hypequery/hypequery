@@ -179,7 +179,8 @@ export function createMetricEndpoint<TAuth extends AuthContext>(
       timezone: input.timezone,
     };
 
-    assertRelatedDatasetAccess(ds, query, ctx.auth ?? null, relatedPolicies);
+    // The metric's own filters are local; only the request can reach a relationship.
+    assertRelatedDatasetAccess(ds, { ...query, measures: [] }, ctx.auth ?? null, relatedPolicies);
 
     if (ctx.tenantId && !runtime?.tenant) {
       throw new ServeHttpError(

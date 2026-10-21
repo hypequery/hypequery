@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { belongsTo, dataset, dimension, measure, type QueryBuilderFactoryLike } from '@hypequery/datasets';
+import { belongsTo, dataset, dimension, divide, eq, measure, type QueryBuilderFactoryLike } from '@hypequery/datasets';
 import { createAPI } from '../../server/create-api.js';
 import { createBearerTokenStrategy } from '../../auth.js';
 import { ServeHttpError } from '../../errors.js';
@@ -84,5 +84,71 @@ describe('related dataset policy', () => {
     expect(response.status).toBe(403);
     expect(JSON.stringify(response.body)).toContain('related dataset');
     expect(planned).toBe(false);
+  });
+
+  it('holds a related dataset that inherits global auth to sign-in', () => {
+    const inherited = collectRelatedDatasetPolicies({
+      orders: { dataset: Orders, requiresAuth: false },
+      shipments: Shipments,
+    }, true);
+    expect(() => assertRelatedDatasetAccess(Orders, relatedQueries.dimension, null, inherited)).toThrow(ServeHttpError);
+    expect(() => assertRelatedDatasetAccess(Orders, relatedQueries.dimension, reader, inherited)).not.toThrow();
+    const explicitlyPublic = collectRelatedDatasetPolicies({
+      orders: { dataset: Orders, requiresAuth: false },
+      shipments: { dataset: Shipments, requiresAuth: false },
+    }, true);
+    expect(() => assertRelatedDatasetAccess(Orders, relatedQueries.dimension, null, explicitlyPublic)).not.toThrow();
+  });
+
+  it('does not let a public dataset with the same name stand in for the related one', () => {
+    const PublicShipments = dataset('shipments', {
+      source: 'public_shipments',
+      dimensions: { orderId: dimension.string({ column: 'order_id' }), carrier: dimension.string() },
+      measures: { shipped: measure.countDistinct('order_id') },
+    });
+    const sameName = collectRelatedDatasetPolicies({
+      shipments: { dataset: Shipments, requiredScopes: ['shipments:read'] },
+      publicShipments: { dataset: PublicShipments, requiresAuth: false },
+    });
+    expect(() => assertRelatedDatasetAccess(Orders, relatedQueries.dimension, reader, sameName)).toThrow(ServeHttpError);
+    // A namesake that is not itself the served object is held to every entry of that name.
+    const onlyNamesakes = collectRelatedDatasetPolicies({
+      publicShipments: { dataset: PublicShipments, requiresAuth: false },
+      protectedShipments: { dataset: PublicShipments, requiredScopes: ['shipments:read'] },
+    });
+    expect(() => assertRelatedDatasetAccess(Orders, relatedQueries.dimension, reader, onlyNamesakes)).toThrow(ServeHttpError);
+  });
+
+  describe('measures that filter through a relationship', () => {
+    const OrdersWithUps = dataset('orders', {
+      source: 'orders',
+      dimensions: { id: dimension.string(), country: dimension.string() },
+      measures: {
+        revenue: measure.sum('amount'),
+        upsRevenue: measure.sum('amount', { filters: [eq('shipment.carrier', 'ups')] }),
+        upsShare: measure.derived({
+          uses: { ups: 'upsRevenue', all: 'revenue' },
+          formula: ({ ups, all }) => divide(ups, all),
+        }),
+      },
+      relationships: { shipment: belongsTo(() => Shipments, { from: 'id', to: 'order_id' }) },
+    });
+    const ownPolicies = collectRelatedDatasetPolicies({
+      orders: { dataset: OrdersWithUps, requiredScopes: ['orders:read'] },
+      shipments: { dataset: Shipments, requiredScopes: ['shipments:read'] },
+    });
+
+    it.each([
+      ['a filtered measure', { measures: ['upsRevenue'] }],
+      ['a derived measure over it', { measures: ['upsShare'] }],
+      ['the default selection', { dimensions: ['country'] }],
+    ])('refuses %s to a caller who cannot read the related dataset', (_, query) => {
+      expect(() => assertRelatedDatasetAccess(OrdersWithUps, query, reader, ownPolicies)).toThrow(ServeHttpError);
+      expect(() => assertRelatedDatasetAccess(OrdersWithUps, query, shipper, ownPolicies)).not.toThrow();
+    });
+
+    it('leaves measures that stay local alone', () => {
+      expect(() => assertRelatedDatasetAccess(OrdersWithUps, { measures: ['revenue'] }, reader, ownPolicies)).not.toThrow();
+    });
   });
 });

@@ -1,4 +1,5 @@
 import type { AnyDatasetInstance, DatasetQuery } from '@hypequery/datasets';
+import { queryFieldReferences } from '@hypequery/datasets/internal';
 import { checkRoleAuthorization, checkScopeAuthorization } from '../../../auth.js';
 import { resolveLocalAuthRequirement } from '../../../auth-requirement.js';
 import { ServeHttpError } from '../../../errors.js';
@@ -13,26 +14,37 @@ interface DatasetAccessPolicy {
 }
 
 /**
- * Policies of the served dataset entries, by dataset name. A dataset served by
- * several entries is readable through a relationship when any one admits the caller.
+ * Policies of the served dataset entries, by dataset object: a relationship
+ * reads one specific definition, and two definitions may share a name. A
+ * dataset served by several entries is readable through a relationship when
+ * any one admits the caller.
  */
-export type RelatedDatasetPolicies = ReadonlyMap<string, readonly DatasetAccessPolicy[]>;
+export interface RelatedDatasetPolicies {
+  readonly byDataset: ReadonlyMap<AnyDatasetInstance, readonly DatasetAccessPolicy[]>;
+  readonly byName: ReadonlyMap<string, readonly DatasetAccessPolicy[]>;
+}
 
+/**
+ * *globalAuth* says whether the API has global auth strategies; an entry with
+ * no local requirement inherits them, as its own endpoint does.
+ */
 export function collectRelatedDatasetPolicies(
   entries: Readonly<Record<string, DatasetEntry<any>>>,
+  globalAuth = false,
 ): RelatedDatasetPolicies {
-  const policies = new Map<string, DatasetAccessPolicy[]>();
+  const byDataset = new Map<AnyDatasetInstance, DatasetAccessPolicy[]>();
+  const byName = new Map<string, DatasetAccessPolicy[]>();
   for (const entry of Object.values(entries)) {
     const resolved = resolveDatasetEntry(entry);
-    const list = policies.get(resolved.dataset.name) ?? [];
-    list.push({
-      requiresAuth: resolveLocalAuthRequirement(resolved) === true,
+    const policy: DatasetAccessPolicy = {
+      requiresAuth: resolveLocalAuthRequirement(resolved) ?? globalAuth,
       requiredRoles: resolved.requiredRoles ?? [],
       requiredScopes: resolved.requiredScopes ?? [],
-    });
-    policies.set(resolved.dataset.name, list);
+    };
+    byDataset.set(resolved.dataset, [...(byDataset.get(resolved.dataset) ?? []), policy]);
+    byName.set(resolved.dataset.name, [...(byName.get(resolved.dataset.name) ?? []), policy]);
   }
-  return policies;
+  return { byDataset, byName };
 }
 
 function admits(policy: DatasetAccessPolicy, auth: AuthContext | null): boolean {
@@ -42,22 +54,25 @@ function admits(policy: DatasetAccessPolicy, auth: AuthContext | null): boolean 
   return true;
 }
 
-/** Relationship names a query reads through, including named filters defined on a related field. */
+/** Relationship names a query reads through, including through measure filters and defaults. */
 function referencedRelationships(dataset: AnyDatasetInstance, query: DatasetQuery): Set<string> {
-  const names: string[] = [
-    ...(query.dimensions ?? []),
-    ...(query.measures ?? []),
-    ...(query.filters ?? []).map(filter => dataset.filters?.[filter.field]?.field ?? filter.field),
-    ...(query.orderBy ?? []).map(order => order.field),
-    ...(query.having ?? []).map(condition => condition.measure),
-  ];
   const relationships = new Set<string>();
-  for (const name of names) {
+  for (const name of queryFieldReferences(dataset, query)) {
     if (typeof name !== 'string' || !name.includes('.')) continue;
     const relation = name.slice(0, name.indexOf('.'));
     if (Object.prototype.hasOwnProperty.call(dataset.relationships ?? {}, relation)) relationships.add(relation);
   }
   return relationships;
+}
+
+/** Whether *auth* may read *target* through a relationship. */
+function admitsRelated(target: AnyDatasetInstance, auth: AuthContext | null, policies: RelatedDatasetPolicies): boolean {
+  const served = policies.byDataset.get(target);
+  if (served) return served.some(policy => admits(policy, auth));
+  // Not served itself, but another definition with its name is: hold the
+  // caller to every such entry rather than guess which one it stands for.
+  const namesake = policies.byName.get(target.name);
+  return !namesake || namesake.every(policy => admits(policy, auth));
 }
 
 /**
@@ -72,11 +87,10 @@ export function assertRelatedDatasetAccess(
   auth: AuthContext | null,
   policies: RelatedDatasetPolicies | undefined,
 ): void {
-  if (!policies || policies.size === 0) return;
+  if (!policies || policies.byName.size === 0) return;
   for (const relation of referencedRelationships(dataset, query)) {
-    const target = dataset.relationships[relation]!.target();
-    const served = policies.get(target.name);
-    if (served && !served.some(policy => admits(policy, auth))) {
+    const target = dataset.relationships[relation]!.target() as AnyDatasetInstance;
+    if (!admitsRelated(target, auth, policies)) {
       throw new ServeHttpError(
         403,
         'FORBIDDEN',
