@@ -6,6 +6,7 @@ from pathlib import Path
 
 from ..options import InitOptions
 from ..scaffold import Scaffold
+from ..utils.next_steps import cd_prefix
 from ..utils.templates import load_templates
 
 
@@ -42,4 +43,4 @@ def run(options: InitOptions) -> None:
         "Next: follow README.md to install dependencies, configure serving credentials "
         "and review dataset definitions."
     )
-    print("Then run: hypequery dev")
+    print(f"Then run: {cd_prefix(destination)}hypequery dev")
