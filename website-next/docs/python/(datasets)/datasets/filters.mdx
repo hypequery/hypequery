@@ -68,6 +68,7 @@ Which operators a field accepts depends on its type:
 - `in` and `notIn` need a non-empty list, and `between` needs exactly two values.
 - There is no null operator.
 - Values must match the field type: numbers for number fields, `True`/`False` for booleans, strings for strings.
+- Integers on a number field must be within ±2**53. Number filters compare as `Float64`, which can't hold larger integers exactly, so declare a large id as `dimension.string()` to filter it exactly.
 
 A timestamp value is an ISO 8601 date or date-time string: `"2026-01-31"`,
 `"2026-01-31 12:00:00"` or `"2026-01-31T12:00:00.123Z"`.
