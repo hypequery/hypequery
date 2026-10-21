@@ -348,6 +348,18 @@ jobs:
           fi
       - name: Audit resolved versions and hashes
         run: uvx --python "${{ matrix.python-version }}" pip-audit==2.10.1 --disable-pip --require-hashes --requirement reports/requirements.txt --format json --output reports/audit.json
+      # A floor that resolves and audits clean can still have no wheel for this
+      # Python (pydantic 2.9.2 on 3.14), or fail at import (2.12.0 on 3.14). Install
+      # it as a user would, from wheels only, and import every subpackage.
+      - name: Install the floor from wheels and import every subpackage
+        if: matrix.resolution == 'floor'
+        env:
+          PYTHON_VERSION: ${{ matrix.python-version }}
+        run: |
+          uv venv --python "$PYTHON_VERSION" "$RUNNER_TEMP/floor"
+          uv pip install --python "$RUNNER_TEMP/floor/bin/python" --only-binary :all: --require-hashes --requirement reports/requirements.txt
+          uv pip install --python "$RUNNER_TEMP/floor/bin/python" --no-deps .
+          "$RUNNER_TEMP/floor/bin/python" -c "import hypequery.cli, hypequery.datasets, hypequery.execution, hypequery.protocol, hypequery.serve"
       - name: Retain dependency reports even when an audit fails
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2

@@ -185,9 +185,12 @@ Yank a bad release rather than deleting and reusing its version.
 
 Python CI audits runtime dependencies, including all optional extras, on Python
 3.11–3.14. Both the committed lock and the declared direct dependency floors
-must pass pip-audit against the current PyPI advisory database. The floor
-Serve job installs the same lowest-direct resolution before its regression
-suite. Unknown scanner failures fail CI; no advisories are suppressed.
+must pass pip-audit against the current PyPI advisory database. On each Python
+version the floor resolution is also installed from wheels only and every
+subpackage imported, so a floor with no wheel for that version, or one that
+fails at import, fails CI. The floor Serve job installs the same lowest-direct
+resolution before its regression suite. Unknown scanner failures fail CI; no
+advisories are suppressed.
 
 The release build repeats the locked runtime audit and retains a separate
 `python-supply-chain` artifact containing a CycloneDX 1.5 SBOM, hashed runtime

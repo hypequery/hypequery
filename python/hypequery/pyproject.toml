@@ -28,9 +28,13 @@ classifiers = [
 # suite in a clean environment (pydantic is also FastAPI 0.137+'s own floor;
 # fastapi 0.137.2 introduced iter_route_contexts; clickhouse-connect 1.4.2
 # introduced named driver errors the executor maps to categories; urllib3 2.8.0
-# fixes three published advisories). CI's floor jobs install exactly these.
+# fixes three published advisories). pydantic-core publishes no Python 3.14
+# wheel before pydantic 2.12.0, and 2.12.0 cannot build Serve's request
+# models on 3.14 (fixed in 2.12.2), so 3.14 has its own floor. CI's floor job for
+# each Python version installs exactly these from wheels.
 dependencies = [
-    "pydantic>=2.9.2",
+    "pydantic>=2.9.2; python_version < '3.14'",
+    "pydantic>=2.12.2; python_version >= '3.14'",
     "tzdata>=2025.2",
 ]
 
