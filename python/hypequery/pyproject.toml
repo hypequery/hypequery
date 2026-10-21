@@ -24,13 +24,17 @@ classifiers = [
 
 # Definition-only use must stay framework-free. Nothing here may pull in a web
 # framework or a database driver; those are extras, enforced by importlinter.
-# Floors are measured minimums: each is the oldest release that passes the
-# suite in a clean environment (pydantic is also FastAPI 0.137+'s own floor;
-# fastapi 0.137.2 introduced iter_route_contexts; clickhouse-connect 1.4.2
-# introduced named driver errors the executor maps to categories; urllib3 2.8.0
-# fixes three published advisories). CI's floor jobs install exactly these.
+# Floors are measured minimums: each is the oldest release that installs from
+# wheels and passes the suite on its Python version. pydantic 2.9.2 is also
+# FastAPI 0.137+'s own floor. On Python 3.14, pydantic-core has no wheel before
+# pydantic 2.12.0, 2.12.0 rejects MetricRequest's `None` field overrides and
+# 2.12.1 is yanked, so 3.14 starts at 2.12.2. fastapi 0.137.2
+# introduced iter_route_contexts; clickhouse-connect 1.4.2 introduced named
+# driver errors the executor maps to categories; urllib3 2.8.0 fixes three
+# published advisories. CI's floor jobs install exactly these.
 dependencies = [
-    "pydantic>=2.9.2",
+    "pydantic>=2.9.2; python_version < '3.14'",
+    "pydantic>=2.12.2; python_version >= '3.14'",
     "tzdata>=2025.2",
 ]
 
