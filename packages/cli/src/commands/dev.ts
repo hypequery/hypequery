@@ -1,3 +1,4 @@
+import { loadServeDev } from '../utils/load-serve-dev.js';
 import { exitWith, finishAndExit } from '../utils/command-exit.js';
 import { telemetryErrorCode } from '../utils/telemetry/error-code.js';
 import { DevSession } from '../utils/telemetry/dev-session.js';
@@ -120,7 +121,7 @@ export async function devCommand(file?: string, options: DevOptions = {}) {
       logger.newline();
 
       // Start the server
-      const { serveDev } = await import('@hypequery/serve/dev');
+      const { serveDev } = await loadServeDev();
 
       currentServer = await serveDev(api, {
         port: options.port,
@@ -280,3 +281,4 @@ export async function devCommand(file?: string, options: DevOptions = {}) {
     process.once('SIGTERM', shutdown);
   }
 }
+
