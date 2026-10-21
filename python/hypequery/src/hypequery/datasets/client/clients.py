@@ -26,6 +26,7 @@ from ..planner import (
 )
 from ..planner.settings import tighten_query_settings
 from ..registry import DatasetRegistry
+from ..utils.output_columns import output_columns
 from ..utils.query_timezone import validate_timezone
 from .inputs import DatasetTarget, QueryInput, coerce_query, resolve_dataset
 from .pagination import page_limit
@@ -168,7 +169,11 @@ class _DatasetClientBase:
         planned = self._plan(target, query, context, paginate=paginate)
         started = time.perf_counter()
         key, status = self._cache_key(planned, context, use_cache, paginate=paginate)
-        hit = self._cache.get(key) if key is not None and self._cache is not None else None
+        hit = (
+            self._cache.get(key, columns=output_columns(planned.dataset, planned.query))
+            if key is not None and self._cache is not None
+            else None
+        )
         return _Execution(planned, key, status, started, paginate, hit)
 
     def _complete(self, execution: _Execution, rows: ResultRows) -> DatasetQueryResult:
