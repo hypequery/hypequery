@@ -204,10 +204,17 @@ def test_use_cache_false_bypasses_without_touching_the_store() -> None:
     assert store.keys == []
 
 
-def test_a_query_with_no_portable_form_runs_uncached() -> None:
+def test_a_query_with_no_portable_form_runs_uncached(monkeypatch: pytest.MonkeyPatch) -> None:
+    def unportable_preimage(**_: object) -> None:
+        # For example, a preimage over RFC 0013's size bound.
+        raise ValueError("no portable form")
+
+    monkeypatch.setattr(
+        "hypequery.datasets.cache.result_cache.build_protocol_cache_preimage", unportable_preimage
+    )
     executor = _Executor()
     client = create_dataset_client(executor=executor, cache=_cache())
-    unportable = DatasetQuery(measures=("trips",), filters=(eq("fare", 2**60),))
+    unportable = DatasetQuery(measures=("trips",), filters=(eq("fare", 5),))
 
     first = client.execute(_trips(), unportable, context=AS_ACME)
     second = client.execute(_trips(), unportable, context=AS_ACME)
