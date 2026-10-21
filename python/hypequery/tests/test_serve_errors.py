@@ -151,18 +151,19 @@ def _body_router() -> ServeRouter:
     ("content", "headers", "status"),
     [
         # Not valid UTF-8: FastAPI's own parse error, which is caller input.
-        ('{"name": "caf\xe9"}'.encode("latin-1"), {}, 400),
-        # Nested past Python's recursion limit.
-        (b'{"a":' + b"[" * 100_000 + b"]" * 100_000 + b"}", {}, 400),
-        (b"\x1f\x8b\x08\x00", {"content-encoding": "gzip"}, 415),
-        (b"{}", {"content-encoding": "br"}, 415),
+        ('{"name": "caf\xe9"}'.encode("latin-1"), {}, {400}),
+        # Nested past the recursion limit of Python 3.13 and earlier; 3.14's
+        # decoder parses it, so either answer is fine as long as it is not 500.
+        (b'{"a":' + b"[" * 100_000 + b"]" * 100_000 + b"}", {}, {200, 400}),
+        (b"\x1f\x8b\x08\x00", {"content-encoding": "gzip"}, {415}),
+        (b"{}", {"content-encoding": "br"}, {415}),
     ],
     ids=["latin-1", "deep-nesting", "gzip", "brotli"],
 )
 def test_an_unreadable_body_is_caller_input_not_a_server_error(
     content: bytes,
     headers: dict[str, str],
-    status: int,
+    status: set[int],
     caplog: pytest.LogCaptureFixture,
 ) -> None:
     client = _client(_body_router())
@@ -171,8 +172,9 @@ def test_an_unreadable_body_is_caller_input_not_a_server_error(
         content=content,
         headers={**_auth(), "content-type": "application/json", **headers},
     )
-    assert response.status_code == status
-    assert response.json()["error"]["type"] == "VALIDATION_ERROR"
+    assert response.status_code in status
+    if response.status_code != 200:
+        assert response.json()["error"]["type"] == "VALIDATION_ERROR"
     assert "Unhandled error" not in caplog.text
 
 
