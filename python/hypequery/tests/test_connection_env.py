@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+from dataclasses import replace
 
 import pytest
 
@@ -69,8 +70,57 @@ def test_the_process_environment_is_the_default(monkeypatch: pytest.MonkeyPatch)
 
 
 def test_the_password_is_not_in_the_repr() -> None:
-    connection = ClickHouseConnection.from_env({"CLICKHOUSE_PASSWORD": "hunter2"})
+    connection = ClickHouseConnection.from_env(
+        {
+            "CLICKHOUSE_PASSWORD": "hunter2",
+            "CLICKHOUSE_CONTROL_USERNAME": "killer",
+            "CLICKHOUSE_CONTROL_PASSWORD": "hunter3",
+        }
+    )
     assert "hunter2" not in repr(connection)
+    assert "hunter3" not in repr(connection)
+
+
+def test_control_credentials_default_to_the_query_user() -> None:
+    connection = ClickHouseConnection.from_env({"CLICKHOUSE_USERNAME": "reader"})
+    assert (connection.control_username, connection.control_password) == (None, "")
+
+
+def test_control_credentials_are_read() -> None:
+    connection = ClickHouseConnection.from_env(
+        {"CLICKHOUSE_CONTROL_USERNAME": "killer", "CLICKHOUSE_CONTROL_PASSWORD": "pw"}
+    )
+    assert (connection.control_username, connection.control_password) == ("killer", "pw")
+
+
+def test_a_control_password_needs_a_control_username() -> None:
+    with pytest.raises(ValueError, match="CLICKHOUSE_CONTROL_USERNAME") as caught:
+        ClickHouseConnection.from_env({"CLICKHOUSE_CONTROL_PASSWORD": "hunter3"})
+    assert "hunter3" not in str(caught.value)
+    with pytest.raises(ValueError, match="control_username"):
+        ClickHouseConnection(control_password="hunter3")  # noqa: S106 - a test credential
+
+
+def test_the_control_client_signs_in_as_the_control_user(monkeypatch: pytest.MonkeyPatch) -> None:
+    import clickhouse_connect
+
+    created: list[dict[str, object]] = []
+
+    def get_client(**kwargs: object) -> _Closable:
+        created.append(kwargs)
+        return _Closable()
+
+    monkeypatch.setattr(clickhouse_connect, "get_client", get_client)
+    from hypequery.execution import create_clickhouse_executor
+
+    reader = ClickHouseConnection(username="reader", password="pw")  # noqa: S106 - a test credential
+    create_clickhouse_executor(reader)
+    create_clickhouse_executor(
+        replace(reader, control_username="killer", control_password="kpw")  # noqa: S106 - a test credential
+    )
+    signed_in = [(kwargs["username"], kwargs["password"]) for kwargs in created]
+    assert signed_in == [("reader", "pw"), ("reader", "pw"), ("reader", "pw"), ("killer", "kpw")]
+    assert [("send_receive_timeout" in kwargs) for kwargs in created] == [False, True, False, True]
 
 
 class _Closable:

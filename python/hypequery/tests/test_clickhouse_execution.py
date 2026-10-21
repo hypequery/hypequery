@@ -144,6 +144,7 @@ def test_result_codec_is_closed() -> None:
         (OperationalError("password=secret value='secret'"), "unavailable"),
         (ProgrammingError("SELECT 'secret'"), "internal"),
         (ProgrammingError("secret", name="NOT_ENOUGH_PRIVILEGES"), "forbidden"),
+        (ProgrammingError("secret", name="TOO_MANY_ROWS_OR_BYTES"), "too-large"),
         # ClickHouse reports a wrong password under REQUIRED_PASSWORD (194), not
         # AUTHENTICATION_FAILED (516); every credential refusal is unauthenticated.
         (

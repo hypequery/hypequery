@@ -11,6 +11,8 @@ from typing import TypeVar
 
 from hypequery.datasets.planner import CompiledQuery, CompiledQueryError
 
+from .utils.refused_kill import is_refused_kill, report_refused_kill
+
 _T = TypeVar("_T")
 _POLL_SECONDS = 0.025
 _DRAIN_SECONDS = 2.0
@@ -60,11 +62,17 @@ async def _drain(task: asyncio.Future[_T]) -> None:
 async def _cancel_on_server_preserving_reason(
     query_id: str, cancel_on_server: Callable[[str], Awaitable[object]]
 ) -> bool:
-    """Send one KILL and report whether the server confirmed a match."""
+    """Send one KILL; report whether asking again is pointless.
+
+    That is when the server confirmed a match, or refused the KILL outright.
+    """
     try:
         return server_cancellation_confirmed(await cancel_on_server(query_id))
-    except Exception:
+    except Exception as exc:
         # The caller's terminal reason still wins if the control connection fails.
+        if is_refused_kill(exc):
+            report_refused_kill()
+            return True
         _LOGGER.warning("Server cancellation failed for query %s", query_id)
         return False
 
@@ -97,7 +105,10 @@ async def _retry_server_cancellation(
         try:
             if server_cancellation_confirmed(await cancel_on_server(compiled.query_id)):
                 return
-        except Exception:
+        except Exception as exc:
+            if is_refused_kill(exc):
+                report_refused_kill()
+                return
             if not warned:
                 _LOGGER.warning("Server cancellation failed for query %s", compiled.query_id)
                 warned = True
@@ -158,14 +169,14 @@ async def run_with_policy(
 
     task = asyncio.ensure_future(work)
     # Set when a KILL went out while the driver call was still running and the
-    # server did not confirm a match: the query may register after it.
+    # server neither confirmed a match nor refused: the query may register after it.
     unconfirmed = False
 
     async def cancel_now() -> None:
         nonlocal unconfirmed
         in_flight = not task.done()
-        confirmed = await _cancel_on_server_preserving_reason(compiled.query_id, cancel_on_server)
-        unconfirmed = in_flight and not confirmed
+        settled = await _cancel_on_server_preserving_reason(compiled.query_id, cancel_on_server)
+        unconfirmed = in_flight and not settled
 
     try:
         while True:

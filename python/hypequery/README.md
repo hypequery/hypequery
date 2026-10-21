@@ -405,7 +405,8 @@ result.meta.cache  # "miss", then "hit" for the same request
 - **Equivalent requests share an entry.** Filter order, `offset: 0`, and empty
   lists do not create separate entries.
 - **Never fails a query.** A store error is treated as a miss: the query runs,
-  `meta.cache == "miss"`, and `on_error` sees the failure. A query with no
+  `meta.cache == "miss"`, and `on_error` sees the failure. So is a stored value
+  that isn't well-formed `CachedRows` with exactly this query's columns. A query with no
   portable form runs uncached and reports `meta.cache == "bypass"`, as does
   `use_cache=False`, which skips the cache for one call.
 - **The secret is optional.** Without one, the cache generates a random secret
@@ -652,6 +653,40 @@ without waiting for workers.
 `ExecutionContext(deadline=Deadline.after(seconds))` bounds one execution;
 `Deadline` is exported by `hypequery.datasets`. A query that is still running
 when it expires is killed on the server and fails with `deadline-exceeded`.
+
+### Grants for cancellation
+
+`KILL QUERY` needs privileges a query-only user usually lacks. The control
+connection signs in as the query user by default, and that user needs:
+
+```sql
+GRANT SELECT ON system.processes TO reader;
+```
+
+To keep the query user minimal, give cancellation its own user instead. It
+needs both grants, because it stops queries another user started:
+
+```sql
+GRANT SELECT ON system.processes, KILL QUERY ON *.* TO hypequery_control;
+```
+
+```python
+ClickHouseConnection(
+    username="reader",
+    password=reader_password,
+    control_username="hypequery_control",
+    control_password=control_password,
+)
+```
+
+`ClickHouseConnection.from_env()` reads these from `CLICKHOUSE_CONTROL_USERNAME`
+and `CLICKHOUSE_CONTROL_PASSWORD`. If ClickHouse refuses a `KILL`, the
+executor logs one error naming these fixes on the
+`hypequery.execution.cancellation` logger and stops asking. The query then
+runs until `max_execution_time`, and the caller still gets `aborted` or
+`deadline-exceeded`. The native async executor needs the grant less, since its
+driver also asks ClickHouse to cancel a readonly query when the connection
+closes.
 
 ## Canonical protocol values
 
@@ -1351,8 +1386,9 @@ CI tests the real runner, startup refusals, capacity recovery, synchronous and
 asynchronous cancellation, cache/response limits and proxy trust. The same shared
 HTTP fixtures run with and without the production profile, and live ClickHouse
 CI tests the production HTTP query path. The declared direct dependency floors
-(pydantic 2.9.2, FastAPI 0.137.2, Starlette 1.3.1, Uvicorn 0.30.6 and
-clickhouse-connect 1.4.2) are tested as well as the locked versions.
+(pydantic 2.9.2, raised to 2.12.2 on Python 3.14; FastAPI 0.137.2; Starlette
+1.3.1; Uvicorn 0.30.6; clickhouse-connect 1.4.2) are installed from wheels and
+tested on every supported Python, as well as the locked versions.
 
 Run both implementations' shared HTTP gates after building TypeScript packages:
 
