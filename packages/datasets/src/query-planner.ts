@@ -17,7 +17,7 @@ import type { DatasetSqlDialectRules } from './dataset-sql-dialect.js';
 import { isQualifiedField } from './utils/relationship-fields.js';
 import {
   qualifyBaseColumn,
-  resolveQualifiedColumn,
+  resolveQualifiedExpression,
   type RelationshipBuilderContext,
 } from './utils/relationship-builder-plan.js';
 import { measureToAggregationSpec } from './utils/dataset-normalization.js';
@@ -31,7 +31,7 @@ export function resolveDimensionExpression(
   joinCtx?: RelationshipBuilderContext,
 ): string {
   if (joinCtx && isQualifiedField(dimensionName)) {
-    return resolveQualifiedColumn(ds, dimensionName);
+    return resolveQualifiedExpression(ds, dimensionName, joinCtx);
   }
   const definition = ds.dimensions[dimensionName];
   if (definition?.sql) {
@@ -47,7 +47,7 @@ export function resolveFilterField(
   joinCtx?: RelationshipBuilderContext,
 ): string {
   if (joinCtx && isQualifiedField(filterField)) {
-    return resolveQualifiedColumn(ds, filterField);
+    return resolveQualifiedExpression(ds, filterField, joinCtx);
   }
   const resolvedField = ds.filters[filterField]?.field ?? filterField;
   return resolveDimensionExpression(ds, resolvedField, joinCtx);
@@ -86,7 +86,10 @@ export function buildDimensionSelectionPlan(
     } else {
       const alias = dialect.quoteIdentifier(dimensionName);
       selectParts.push(`${expression} AS ${alias}`);
-      groupByParts.add(alias);
+      // A qualified alias (`customer.tier`) can resolve to the physical joined
+      // column, so group on its guarded expression: the match marker stays
+      // part of the key whatever the engine's alias-resolution rules.
+      groupByParts.add(joinCtx && isQualifiedField(dimensionName) ? expression : alias);
     }
   }
 
@@ -187,6 +190,12 @@ export function applyMeasureDefinition(
   return applyAggregationSpec(qb, ds, measureToAggregationSpec(name, definition), name, joinCtx, dialect);
 }
 
+/**
+ * Appends ORDER BY, LIMIT and OFFSET. Under joins, an order on a selected
+ * qualified dimension repeats its guarded expression (the GROUP BY key) rather
+ * than naming the alias, which the engine may resolve to the raw joined column;
+ * any other qualified order (a related measure) sorts by its quoted alias.
+ */
 export function appendOrderLimitOffset(
   qb: QueryBuilderLike,
   orderBy: MetricOrderBy[] | undefined,
@@ -195,10 +204,16 @@ export function appendOrderLimitOffset(
   offset: number | undefined,
   joinCtx: RelationshipBuilderContext | undefined,
   dialect: DatasetSqlDialectRules,
+  selection?: { ds: DatasetShape; dimensions: readonly string[] },
 ): QueryBuilderLike {
   if (orderBy && orderBy.length > 0) {
     for (const order of orderBy) {
-      qb = qb.orderBy(dialect.quoteIdentifier(order.field), semanticOrderDirection(order.direction));
+      // A selected related dimension orders by its guarded expression, for the
+      // same alias-resolution reason it groups by it.
+      const column = joinCtx && isQualifiedField(order.field) && selection?.dimensions.includes(order.field)
+        ? resolveDimensionExpression(selection.ds, order.field, joinCtx)
+        : dialect.quoteIdentifier(order.field);
+      qb = qb.orderBy(column, semanticOrderDirection(order.direction));
     }
   } else if (grain) {
     qb = qb.orderBy(dialect.quoteIdentifier("period"), "ASC");

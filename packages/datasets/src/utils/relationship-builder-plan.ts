@@ -1,6 +1,6 @@
 import { relationshipKeys } from './relationship-keys.js';
 import type { RelationshipKey } from '../types.js';
-import { relationshipMeasureSource } from './relationship-measure-sql.js';
+import { relationshipJoinSource } from './relationship-measure-sql.js';
 import type { DatasetSqlDialectRules } from '../dataset-sql-dialect.js';
 import { clickhouseDatasetSqlDialect } from './clickhouse-dataset-sql-dialect.js';
 import { resolveRelationshipReference } from './relationship-measures.js';
@@ -13,6 +13,13 @@ import { resolveRelationshipReference } from './relationship-measures.js';
  * name, and aliases joined selections back to their quoted qualified name. When
  * no qualified field is referenced, no context is produced and the builder path
  * behaves exactly as before.
+ *
+ * Every joined target is a projection carrying a match marker (see
+ * `relationshipJoinSource`), and every joined dimension or filter reads through
+ * it: a base row without a match yields NULL for the target's columns
+ * regardless of the engine's `join_use_nulls` setting, so a missing or
+ * other-tenant target never surfaces as `''`/`0` and never passes a `neq`
+ * filter. This mirrors the Python planner.
  */
 
 import type {
@@ -28,9 +35,10 @@ import { isQualifiedField, resolveQualifiedField } from './relationship-fields.j
 export interface ResolvedBuilderJoin {
   /** Relationship name, used as the joined table's SQL alias. */
   relationship: string;
-  /** Physical target source table. */
+  /** Joined source: the target projected with its match marker. */
   source: string;
-  matchMarker?: string;
+  /** Column of `source` that is non-null only when the target matched. */
+  matchMarker: string;
   keys?: readonly RelationshipKey[];
   /** Base join column (unqualified). */
   from: string;
@@ -44,6 +52,8 @@ export interface RelationshipBuilderContext {
   baseSource: string;
   joins: ResolvedBuilderJoin[];
   joinByRelationship: Map<string, ResolvedBuilderJoin>;
+  /** Dialect the join sources and match guards were rendered with. */
+  dialect: DatasetSqlDialectRules;
 }
 
 type QueryLike = Pick<DatasetQuery & MetricQuery, 'dimensions' | 'filters' | 'orderBy'> & Pick<DatasetQuery, 'measures'>;
@@ -86,11 +96,11 @@ export function buildRelationshipBuilderContext(
       .filter(name => name.startsWith(`${relationshipName}.`))
       .map(name => name.slice(relationshipName.length + 1));
     const keys = relationshipKeys(relationship);
-    const projected = measureNames.length ? relationshipMeasureSource(target, keys.map(key => key.to), measureNames, dialect) : undefined;
+    const projected = relationshipJoinSource(target, keys.map(key => key.to), measureNames, dialect);
     joinByRelationship.set(relationshipName, {
       relationship: relationshipName,
-      source: projected?.source ?? target.source,
-      matchMarker: projected?.marker,
+      source: projected.source,
+      matchMarker: projected.marker,
       from: relationship.from,
       to: relationship.to,
       keys,
@@ -104,6 +114,7 @@ export function buildRelationshipBuilderContext(
     baseSource: ds.source,
     joins: Array.from(joinByRelationship.values()),
     joinByRelationship,
+    dialect,
   };
 }
 
@@ -116,20 +127,34 @@ export function qualifyBaseColumn(
 }
 
 /**
- * Resolves a relationship-qualified field to its SQL column reference
- * (`<relationship>.<targetColumn>`). Throws if the name cannot be resolved,
- * which should be unreachable after validation.
+ * Resolves a relationship-qualified field to a null-guarded SQL expression:
+ * the target column when the join matched, NULL otherwise
+ * (`if(isNotNull(<relationship>.<marker>), <relationship>.<column>, NULL)`).
+ * Throws if the name cannot be resolved, which should be unreachable after
+ * validation.
+ *
+ * Without the guard, ClickHouse fills unmatched LEFT JOIN columns with type
+ * defaults unless `join_use_nulls` is on, so an order without a customer would
+ * group under `''` and pass a `neq` filter. The guard makes the planner's
+ * documented NULL semantics hold whatever the server setting.
  */
-export function resolveQualifiedColumn(
+export function resolveQualifiedExpression(
   ds: AnyDatasetInstance,
   name: string,
+  ctx: RelationshipBuilderContext,
 ): string {
   const resolution = resolveQualifiedField(ds, name);
   if (!resolution || !resolution.resolved) {
     throw new Error(resolution?.error ?? `Cannot resolve relationship field "${name}".`);
   }
   const { relationshipName, targetColumn } = resolution.resolved;
-  return `${relationshipName}.${targetColumn}`;
+  const join = ctx.joinByRelationship.get(relationshipName);
+  if (!join) {
+    throw new Error(`Relationship "${relationshipName}" referenced by "${name}" was not planned as a join.`);
+  }
+  const { dialect } = ctx;
+  const matched = dialect.isNotNull(`${relationshipName}.${join.matchMarker}`);
+  return dialect.ifElse(matched, `${relationshipName}.${targetColumn}`, 'NULL');
 }
 
 /**

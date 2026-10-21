@@ -78,7 +78,9 @@ describe('composite relationships against ClickHouse', () => {
   });
   it('joins hasOne composite keys across differing column types', async () => {
     const { data } = await client.execute(Sources, { dimensions: ['profile.segment'], measures: ['revenue'], orderBy: [{ field: 'revenue', direction: 'asc' }] }, context);
-    expect(data.filter(row => row['profile.segment'] !== '')).toEqual([{ 'profile.segment': 'retail', revenue: '30' }, { 'profile.segment': 'wholesale', revenue: '30' }]);
+    // Sources with no profile (missing region, NULL key parts) group under NULL,
+    // never under the '' default, independently of join_use_nulls.
+    expect(data).toEqual([{ 'profile.segment': 'retail', revenue: '30' }, { 'profile.segment': 'wholesale', revenue: '30' }, { 'profile.segment': null, revenue: '150' }]);
     expect(data.reduce((sum, row) => sum + Number(row.revenue), 0)).toBe(210);
   });
   it('supports composite joins in the time-measure source', async () => {

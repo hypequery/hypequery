@@ -84,7 +84,7 @@ export function buildMetricQueryBuilder(
   }
 
   // Order, limit, offset
-  qb = appendOrderLimitOffset(qb, query.orderBy, grain, query.limit, query.offset, joinCtx, dialect);
+  qb = appendOrderLimitOffset(qb, query.orderBy, grain, query.limit, query.offset, joinCtx, dialect, { ds, dimensions: query.dimensions ?? [] });
 
   return qb;
 }

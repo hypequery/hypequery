@@ -6,8 +6,18 @@ import { measureToAggregationSpec } from './dataset-normalization.js';
 import { applyFilteredAggregationExpression } from './filtered-aggregation-sql.js';
 import type { DatasetSqlDialectRules } from '../dataset-sql-dialect.js';
 
-/** Explicit projection avoids marker collisions and makes absent targets detectable under join_use_nulls=0. */
-export function relationshipMeasureSource(target: AnyDatasetInstance, to: readonly string[], names: readonly string[], dialect: DatasetSqlDialectRules) {
+/**
+ * The joined target as a projection whose marker is non-null only on a match.
+ *
+ * Without `join_use_nulls`, an unmatched LEFT JOIN row carries column defaults
+ * such as `0` and `''`, which `min` or `countDistinct` would count and which
+ * joined dimensions would expose as data. The marker is the one value that
+ * tells a match from a default, and an explicit projection keeps it from
+ * colliding with a target column. `names` are the related measures selected
+ * from the target (possibly none); the projection always carries the join
+ * keys, the tenant key and every column-backed dimension.
+ */
+export function relationshipJoinSource(target: AnyDatasetInstance, to: readonly string[], names: readonly string[], dialect: DatasetSqlDialectRules) {
   const columns = new Set([...to, ...(target.tenantKey ? [target.tenantKey] : [])]);
   for (const [name, dimension] of Object.entries(target.dimensions)) if (!dimension.sql) columns.add(dimension.column ?? name);
   for (const name of names) {
@@ -21,7 +31,9 @@ export function relationshipMeasureSource(target: AnyDatasetInstance, to: readon
   while (columns.has(marker)) marker += '_';
   const quote = dialect.quoteIdentifier;
   const source = dialect.quoteQualifiedName(target.source);
-  const projection = [...columns].map(quote);
+  // Sorted so the SQL is byte-identical however the target's dimensions are
+  // ordered (authored vs. rehydrated catalogs declare them differently).
+  const projection = [...columns].sort().map(quote);
   return { source: `(SELECT ${[...projection, `${dialect.toNullable('1')} AS ${quote(marker)}`].join(', ')} FROM ${source})`, marker };
 }
 

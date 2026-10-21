@@ -171,7 +171,10 @@ describe('datasets SQL dialect seam', () => {
     const compilation = client.compileDataset(Orders, query, context);
 
     expect(compilation.sql).toContain('AS "customer.country"');
-    expect(compilation.sql).toContain('ORDER BY "customer.country" ASC');
+    // A derived measure orders its outer SELECT by the CTE column; a base
+    // measure repeats the guarded join expression (the GROUP BY key).
+    const orderKey = compilation.sql.includes('FROM base') ? '"customer.country"' : 'if(isNotNull(customer._hq_match), customer.country, NULL)';
+    expect(compilation.sql).toContain(`ORDER BY ${orderKey} ASC`);
     expect(compilation.sql).not.toContain('`');
     expect(compilation.describe().executionLimit).toBe(3);
     expect((await client.execute(Orders, query, context)).meta.sql).toBe(compilation.sql);
@@ -195,8 +198,9 @@ describe('datasets SQL dialect seam', () => {
     const sql = client.toSQL(target, query, context);
 
     expect(sql).toContain('AS "customer.country"');
-    expect(sql).toContain('GROUP BY "customer.country"');
-    expect(sql).toContain('ORDER BY "customer.country" ASC');
+    expect(sql).toContain('GROUP BY if(isNotNull(customer._hq_match), customer.country, NULL)');
+    const orderKey = sql.includes('FROM base') ? '"customer.country"' : 'if(isNotNull(customer._hq_match), customer.country, NULL)';
+    expect(sql).toContain(`ORDER BY ${orderKey} ASC`);
     expect(sql).not.toContain('`');
     expect((await client.execute(target, query, context)).meta.sql).toBe(sql);
 

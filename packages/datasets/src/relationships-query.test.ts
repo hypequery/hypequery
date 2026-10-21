@@ -592,12 +592,20 @@ describe('relationship joins on the query-builder path', () => {
       measures: ['revenue'],
       orderBy: [{ field: 'customer.country', direction: 'asc' }],
     });
-    expect(sql).toContain('LEFT ANY JOIN customers AS customer ON orders.customer_id = customer.id');
+    // The target is projected with a match marker, and the joined dimension
+    // reads through it so an unmatched order groups under NULL (never ''),
+    // whatever the server's join_use_nulls setting.
+    expect(sql).toContain(
+      'LEFT ANY JOIN (SELECT `country_code`, `id`, `tier`, toNullable(1) AS `_hq_match` FROM `customers`) AS customer ON orders.customer_id = customer.id',
+    );
     expect(sql).toContain('orders.status AS `status`');
-    expect(sql).toContain('customer.country_code AS `customer.country`');
+    const country = 'if(isNotNull(customer._hq_match), customer.country_code, NULL)';
+    expect(sql).toContain(`${country} AS \`customer.country\``);
     expect(sql).toContain('SUM(orders.amount) AS `revenue`');
-    expect(sql).toContain('GROUP BY `status`, `customer.country`');
-    expect(sql).toContain('ORDER BY `customer.country` ASC');
+    // GROUP BY and ORDER BY repeat the guarded expression: ClickHouse resolves
+    // the alias `customer.country` to the raw joined column.
+    expect(sql).toContain(`GROUP BY \`status\`, ${country}`);
+    expect(sql).toContain(`ORDER BY ${country} ASC`);
   });
 
   it('deduplicates joins referenced by both a dimension and a filter', () => {
@@ -606,9 +614,21 @@ describe('relationship joins on the query-builder path', () => {
       measures: ['revenue'],
       filters: [{ field: 'customer.tier', operator: 'eq', value: 'enterprise' }],
     });
-    const joinCount = (sql.match(/LEFT ANY JOIN customers AS customer/g) ?? []).length;
+    const joinCount = (sql.match(/LEFT ANY JOIN \(SELECT .* FROM `customers`\) AS customer/g) ?? []).length;
     expect(joinCount).toBe(1);
-    expect(sql).toContain('customer.tier = ?');
+    expect(sql).toContain('if(isNotNull(customer._hq_match), customer.tier, NULL) = ?');
+  });
+
+  it('excludes unmatched rows from a neq filter on a joined dimension', () => {
+    // Without the guard, ClickHouse (join_use_nulls = 0) fills an unmatched
+    // customer's tier with '' and `'' != 'gold'` keeps the orphan order. The
+    // guarded NULL fails the comparison, matching SQL semantics and Python.
+    const sql = builderClient().toSQL(Orders, {
+      measures: ['revenue'],
+      filters: [{ field: 'customer.tier', operator: 'neq', value: 'gold' }],
+    });
+    expect(sql).toContain('WHERE if(isNotNull(customer._hq_match), customer.tier, NULL) neq ?');
+    expect(sql).not.toContain('customer.tier neq ?');
   });
 
   it('injects the joined tenant predicate under runtime tenancy', () => {
@@ -619,7 +639,7 @@ describe('relationship joins on the query-builder path', () => {
       context,
     );
     expect(sql).toContain(
-      'LEFT ANY JOIN tenant_customers AS customer ON tenant_orders.customer_id = customer.id AND customer.tenant_id = ?',
+      'LEFT ANY JOIN (SELECT `country`, `id`, `tenant_id`, toNullable(1) AS `_hq_match` FROM `tenant_customers`) AS customer ON tenant_orders.customer_id = customer.id AND customer.tenant_id = ?',
     );
     expect(sql).toContain('tenant_orders.tenant_id = ?');
     expect(sql).not.toContain('WHERE customer.tenant_id = ?');
