@@ -123,6 +123,69 @@ def test_an_endpoint_http_error_keeps_only_a_string_message() -> None:
     }
 
 
+def test_a_starlette_http_error_is_mapped_like_fastapis() -> None:
+    router = create_router(authenticate=_authenticate)
+
+    @router.get("/conflict")
+    def conflict() -> None:
+        raise StarletteHTTPException(409, detail="The report is already running.")
+
+    response = _client(router).get("/conflict", headers=_auth())
+    assert (response.status_code, response.json()["error"]) == (
+        409,
+        {"type": "VALIDATION_ERROR", "message": "The report is already running."},
+    )
+
+
+def _body_router() -> ServeRouter:
+    router = create_router(authenticate=_authenticate)
+
+    @router.post("/echo")
+    def echo(payload: Annotated[dict[str, Any], Body()]) -> dict[str, Any]:
+        return {"keys": sorted(payload)}
+
+    return router
+
+
+@pytest.mark.parametrize(
+    ("content", "headers", "status"),
+    [
+        # Not valid UTF-8: FastAPI's own parse error, which is caller input.
+        ('{"name": "caf\xe9"}'.encode("latin-1"), {}, 400),
+        # Nested past Python's recursion limit.
+        (b'{"a":' + b"[" * 100_000 + b"]" * 100_000 + b"}", {}, 400),
+        (b"\x1f\x8b\x08\x00", {"content-encoding": "gzip"}, 415),
+        (b"{}", {"content-encoding": "br"}, 415),
+    ],
+    ids=["latin-1", "deep-nesting", "gzip", "brotli"],
+)
+def test_an_unreadable_body_is_caller_input_not_a_server_error(
+    content: bytes,
+    headers: dict[str, str],
+    status: int,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    client = _client(_body_router())
+    response = client.post(
+        "/echo",
+        content=content,
+        headers={**_auth(), "content-type": "application/json", **headers},
+    )
+    assert response.status_code == status
+    assert response.json()["error"]["type"] == "VALIDATION_ERROR"
+    assert "Unhandled error" not in caplog.text
+
+
+def test_an_identity_content_encoding_is_accepted() -> None:
+    client = _client(_body_router())
+    response = client.post(
+        "/echo",
+        content=b'{"b": 1, "a": 2}',
+        headers={**_auth(), "content-type": "application/json", "content-encoding": "identity"},
+    )
+    assert response.json() == {"keys": ["a", "b"]}
+
+
 def test_a_serve_error_is_sent_as_written() -> None:
     router = create_router(authenticate=_authenticate)
 
