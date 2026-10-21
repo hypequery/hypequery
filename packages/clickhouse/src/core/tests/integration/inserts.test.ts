@@ -72,6 +72,18 @@ describe('Integration Tests - Inserts', () => {
       });
     }, SETUP_TIMEOUT);
 
+    // Reads DateTime64 as epoch millis so the assertion does not depend on the
+    // server timezone (the default text rendering uses the server's zone).
+    const readHappenedAtMillis = async (id: number): Promise<number> => {
+      const result = await ClickHouseConnection.getClient().query({
+        query: 'SELECT toUnixTimestamp64Milli(happened_at) AS ms FROM insert_test WHERE id = {id:Int32}',
+        query_params: { id },
+        format: 'JSONEachRow',
+      });
+      const [row] = await result.json<{ ms: string | number }>();
+      return Number(row.ms);
+    };
+
     afterAll(async () => {
       const client = ClickHouseConnection.getClient();
       await client.command({ query: 'DROP TABLE IF EXISTS insert_test' });
@@ -107,9 +119,7 @@ describe('Integration Tests - Inserts', () => {
       expect(row.attributes).toEqual({ source: 'integration' });
       expect(row.note).toBeNull();
       expect(row.status).toBe('explicit');
-      // DateTime64(3) round trip: server returns 'YYYY-MM-DD HH:MM:SS.mmm' in the
-      // server timezone (UTC in the test container).
-      expect(new Date(`${row.happened_at.replace(' ', 'T')}Z`).getTime()).toBe(happenedAt.getTime());
+      expect(await readHappenedAtMillis(1)).toBe(happenedAt.getTime());
     });
 
     test('columns() subset lets ClickHouse fill DEFAULT and Nullable columns', async () => {
@@ -204,8 +214,7 @@ describe('Integration Tests - Inserts', () => {
       expect(row.name).toBe('helper');
       expect(row.big).toBe('123');
       expect(row.attributes).toEqual({ via: 'helper' });
-      expect(new Date(`${row.happened_at.replace(' ', 'T')}Z`).getTime())
-        .toBe(new Date('2026-03-07T01:02:03.456Z').getTime());
+      expect(await readHappenedAtMillis(20)).toBe(new Date('2026-03-07T01:02:03.456Z').getTime());
     });
   });
 });
