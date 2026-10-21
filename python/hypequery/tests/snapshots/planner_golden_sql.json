@@ -217,7 +217,7 @@
       "sql": "SELECT count(`status`) AS `orders` FROM `analytics`.`orders` WHERE `status` = {p0:String} AND `status` != {p1:String} AND `net_amount` > {p2:Float64} AND `net_amount` >= {p3:Float64} AND `net_amount` < {p4:Float64} AND `net_amount` <= {p5:Float64} AND `status` IN {p6:Array(String)} AND `status` NOT IN {p7:Array(String)} AND `net_amount` BETWEEN {p8:Float64} AND {p9:Float64} AND `status` LIKE {p10:String} AND `paid` = {p11:Bool} AND `status` IN {p12:Array(String)} AND `tenant_id` = {p13:String}"
     },
     "grain-day": {
-      "debug": "SELECT toString(toStartOfDay(toDateTime64(`ts`, 9, <p0:String>))) AS `period`, count(`kind`) AS `events` FROM `events` GROUP BY toStartOfDay(toDateTime64(`ts`, 9, <p0:String>)) ORDER BY `period` ASC LIMIT 500",
+      "debug": "SELECT toString(toStartOfDay(toDateTime64(`ts`, 9, <p0:String>))) AS `period`, count(`kind`) AS `events` FROM `events` GROUP BY toStartOfDay(toDateTime64(`ts`, 9, <p0:String>)) ORDER BY toStartOfDay(toDateTime64(`ts`, 9, <p0:String>)) ASC LIMIT 500",
       "parameters": [
         [
           "p0",
@@ -225,10 +225,10 @@
           "UTC"
         ]
       ],
-      "sql": "SELECT toString(toStartOfDay(toDateTime64(`ts`, 9, {p0:String}))) AS `period`, count(`kind`) AS `events` FROM `events` GROUP BY toStartOfDay(toDateTime64(`ts`, 9, {p0:String})) ORDER BY `period` ASC LIMIT 500"
+      "sql": "SELECT toString(toStartOfDay(toDateTime64(`ts`, 9, {p0:String}))) AS `period`, count(`kind`) AS `events` FROM `events` GROUP BY toStartOfDay(toDateTime64(`ts`, 9, {p0:String})) ORDER BY toStartOfDay(toDateTime64(`ts`, 9, {p0:String})) ASC LIMIT 500"
     },
     "grain-hour": {
-      "debug": "SELECT toString(toStartOfHour(toDateTime64(`ts`, 9, <p0:String>))) AS `period`, count(`kind`) AS `events` FROM `events` GROUP BY toStartOfHour(toDateTime64(`ts`, 9, <p0:String>)) ORDER BY `period` ASC LIMIT 500",
+      "debug": "SELECT toString(toStartOfHour(toDateTime64(`ts`, 9, <p0:String>))) AS `period`, count(`kind`) AS `events` FROM `events` GROUP BY toStartOfHour(toDateTime64(`ts`, 9, <p0:String>)) ORDER BY toStartOfHour(toDateTime64(`ts`, 9, <p0:String>)) ASC LIMIT 500",
       "parameters": [
         [
           "p0",
@@ -236,10 +236,10 @@
           "UTC"
         ]
       ],
-      "sql": "SELECT toString(toStartOfHour(toDateTime64(`ts`, 9, {p0:String}))) AS `period`, count(`kind`) AS `events` FROM `events` GROUP BY toStartOfHour(toDateTime64(`ts`, 9, {p0:String})) ORDER BY `period` ASC LIMIT 500"
+      "sql": "SELECT toString(toStartOfHour(toDateTime64(`ts`, 9, {p0:String}))) AS `period`, count(`kind`) AS `events` FROM `events` GROUP BY toStartOfHour(toDateTime64(`ts`, 9, {p0:String})) ORDER BY toStartOfHour(toDateTime64(`ts`, 9, {p0:String})) ASC LIMIT 500"
     },
     "grain-minute": {
-      "debug": "SELECT toString(toStartOfMinute(toDateTime64(`ts`, 9, <p0:String>))) AS `period`, count(`kind`) AS `events` FROM `events` GROUP BY toStartOfMinute(toDateTime64(`ts`, 9, <p0:String>)) ORDER BY `period` ASC LIMIT 500",
+      "debug": "SELECT toString(toStartOfMinute(toDateTime64(`ts`, 9, <p0:String>))) AS `period`, count(`kind`) AS `events` FROM `events` GROUP BY toStartOfMinute(toDateTime64(`ts`, 9, <p0:String>)) ORDER BY toStartOfMinute(toDateTime64(`ts`, 9, <p0:String>)) ASC LIMIT 500",
       "parameters": [
         [
           "p0",
@@ -247,10 +247,10 @@
           "UTC"
         ]
       ],
-      "sql": "SELECT toString(toStartOfMinute(toDateTime64(`ts`, 9, {p0:String}))) AS `period`, count(`kind`) AS `events` FROM `events` GROUP BY toStartOfMinute(toDateTime64(`ts`, 9, {p0:String})) ORDER BY `period` ASC LIMIT 500"
+      "sql": "SELECT toString(toStartOfMinute(toDateTime64(`ts`, 9, {p0:String}))) AS `period`, count(`kind`) AS `events` FROM `events` GROUP BY toStartOfMinute(toDateTime64(`ts`, 9, {p0:String})) ORDER BY toStartOfMinute(toDateTime64(`ts`, 9, {p0:String})) ASC LIMIT 500"
     },
     "grain-month": {
-      "debug": "SELECT toString(toStartOfMonth(toDateTime64(`ts`, 9, <p0:String>))) AS `period`, count(`kind`) AS `events` FROM `events` GROUP BY toStartOfMonth(toDateTime64(`ts`, 9, <p0:String>)) ORDER BY `period` ASC LIMIT 500",
+      "debug": "SELECT toString(toStartOfMonth(toDateTime64(`ts`, 9, <p0:String>))) AS `period`, count(`kind`) AS `events` FROM `events` GROUP BY toStartOfMonth(toDateTime64(`ts`, 9, <p0:String>)) ORDER BY toStartOfMonth(toDateTime64(`ts`, 9, <p0:String>)) ASC LIMIT 500",
       "parameters": [
         [
           "p0",
@@ -258,10 +258,10 @@
           "UTC"
         ]
       ],
-      "sql": "SELECT toString(toStartOfMonth(toDateTime64(`ts`, 9, {p0:String}))) AS `period`, count(`kind`) AS `events` FROM `events` GROUP BY toStartOfMonth(toDateTime64(`ts`, 9, {p0:String})) ORDER BY `period` ASC LIMIT 500"
+      "sql": "SELECT toString(toStartOfMonth(toDateTime64(`ts`, 9, {p0:String}))) AS `period`, count(`kind`) AS `events` FROM `events` GROUP BY toStartOfMonth(toDateTime64(`ts`, 9, {p0:String})) ORDER BY toStartOfMonth(toDateTime64(`ts`, 9, {p0:String})) ASC LIMIT 500"
     },
     "grain-on-tenant-dataset": {
-      "debug": "SELECT toString(toStartOfMonth(toDateTime64(`created_at`, 9, <p0:String>))) AS `period`, sum(`net_amount`) AS `revenue` FROM `analytics`.`orders` WHERE `tenant_id` = <p1:String> GROUP BY toStartOfMonth(toDateTime64(`created_at`, 9, <p0:String>)) ORDER BY `period` ASC",
+      "debug": "SELECT toString(toStartOfMonth(toDateTime64(`created_at`, 9, <p0:String>))) AS `period`, sum(`net_amount`) AS `revenue` FROM `analytics`.`orders` WHERE `tenant_id` = <p1:String> GROUP BY toStartOfMonth(toDateTime64(`created_at`, 9, <p0:String>)) ORDER BY toStartOfMonth(toDateTime64(`created_at`, 9, <p0:String>)) ASC",
       "parameters": [
         [
           "p0",
@@ -274,10 +274,10 @@
           "acme"
         ]
       ],
-      "sql": "SELECT toString(toStartOfMonth(toDateTime64(`created_at`, 9, {p0:String}))) AS `period`, sum(`net_amount`) AS `revenue` FROM `analytics`.`orders` WHERE `tenant_id` = {p1:String} GROUP BY toStartOfMonth(toDateTime64(`created_at`, 9, {p0:String})) ORDER BY `period` ASC"
+      "sql": "SELECT toString(toStartOfMonth(toDateTime64(`created_at`, 9, {p0:String}))) AS `period`, sum(`net_amount`) AS `revenue` FROM `analytics`.`orders` WHERE `tenant_id` = {p1:String} GROUP BY toStartOfMonth(toDateTime64(`created_at`, 9, {p0:String})) ORDER BY toStartOfMonth(toDateTime64(`created_at`, 9, {p0:String})) ASC"
     },
     "grain-quarter": {
-      "debug": "SELECT toString(toStartOfQuarter(toDateTime64(`ts`, 9, <p0:String>))) AS `period`, count(`kind`) AS `events` FROM `events` GROUP BY toStartOfQuarter(toDateTime64(`ts`, 9, <p0:String>)) ORDER BY `period` ASC LIMIT 500",
+      "debug": "SELECT toString(toStartOfQuarter(toDateTime64(`ts`, 9, <p0:String>))) AS `period`, count(`kind`) AS `events` FROM `events` GROUP BY toStartOfQuarter(toDateTime64(`ts`, 9, <p0:String>)) ORDER BY toStartOfQuarter(toDateTime64(`ts`, 9, <p0:String>)) ASC LIMIT 500",
       "parameters": [
         [
           "p0",
@@ -285,10 +285,10 @@
           "UTC"
         ]
       ],
-      "sql": "SELECT toString(toStartOfQuarter(toDateTime64(`ts`, 9, {p0:String}))) AS `period`, count(`kind`) AS `events` FROM `events` GROUP BY toStartOfQuarter(toDateTime64(`ts`, 9, {p0:String})) ORDER BY `period` ASC LIMIT 500"
+      "sql": "SELECT toString(toStartOfQuarter(toDateTime64(`ts`, 9, {p0:String}))) AS `period`, count(`kind`) AS `events` FROM `events` GROUP BY toStartOfQuarter(toDateTime64(`ts`, 9, {p0:String})) ORDER BY toStartOfQuarter(toDateTime64(`ts`, 9, {p0:String})) ASC LIMIT 500"
     },
     "grain-week": {
-      "debug": "SELECT toString(toStartOfWeek(toDateTime64(`ts`, 9, <p0:String>))) AS `period`, count(`kind`) AS `events` FROM `events` GROUP BY toStartOfWeek(toDateTime64(`ts`, 9, <p0:String>)) ORDER BY `period` ASC LIMIT 500",
+      "debug": "SELECT toString(toStartOfWeek(toDateTime64(`ts`, 9, <p0:String>))) AS `period`, count(`kind`) AS `events` FROM `events` GROUP BY toStartOfWeek(toDateTime64(`ts`, 9, <p0:String>)) ORDER BY toStartOfWeek(toDateTime64(`ts`, 9, <p0:String>)) ASC LIMIT 500",
       "parameters": [
         [
           "p0",
@@ -296,7 +296,7 @@
           "UTC"
         ]
       ],
-      "sql": "SELECT toString(toStartOfWeek(toDateTime64(`ts`, 9, {p0:String}))) AS `period`, count(`kind`) AS `events` FROM `events` GROUP BY toStartOfWeek(toDateTime64(`ts`, 9, {p0:String})) ORDER BY `period` ASC LIMIT 500"
+      "sql": "SELECT toString(toStartOfWeek(toDateTime64(`ts`, 9, {p0:String}))) AS `period`, count(`kind`) AS `events` FROM `events` GROUP BY toStartOfWeek(toDateTime64(`ts`, 9, {p0:String})) ORDER BY toStartOfWeek(toDateTime64(`ts`, 9, {p0:String})) ASC LIMIT 500"
     },
     "grain-with-zone-dimensions-and-order": {
       "debug": "SELECT toString(toStartOfDay(toDateTime64(`ts`, 9, <p0:String>))) AS `period`, `kind` AS `kind`, sum(`value`) AS `total` FROM `events` GROUP BY toStartOfDay(toDateTime64(`ts`, 9, <p0:String>)), `kind` ORDER BY `total` DESC LIMIT 500",
@@ -310,7 +310,7 @@
       "sql": "SELECT toString(toStartOfDay(toDateTime64(`ts`, 9, {p0:String}))) AS `period`, `kind` AS `kind`, sum(`value`) AS `total` FROM `events` GROUP BY toStartOfDay(toDateTime64(`ts`, 9, {p0:String})), `kind` ORDER BY `total` DESC LIMIT 500"
     },
     "grain-year": {
-      "debug": "SELECT toString(toStartOfYear(toDateTime64(`ts`, 9, <p0:String>))) AS `period`, count(`kind`) AS `events` FROM `events` GROUP BY toStartOfYear(toDateTime64(`ts`, 9, <p0:String>)) ORDER BY `period` ASC LIMIT 500",
+      "debug": "SELECT toString(toStartOfYear(toDateTime64(`ts`, 9, <p0:String>))) AS `period`, count(`kind`) AS `events` FROM `events` GROUP BY toStartOfYear(toDateTime64(`ts`, 9, <p0:String>)) ORDER BY toStartOfYear(toDateTime64(`ts`, 9, <p0:String>)) ASC LIMIT 500",
       "parameters": [
         [
           "p0",
@@ -318,7 +318,7 @@
           "UTC"
         ]
       ],
-      "sql": "SELECT toString(toStartOfYear(toDateTime64(`ts`, 9, {p0:String}))) AS `period`, count(`kind`) AS `events` FROM `events` GROUP BY toStartOfYear(toDateTime64(`ts`, 9, {p0:String})) ORDER BY `period` ASC LIMIT 500"
+      "sql": "SELECT toString(toStartOfYear(toDateTime64(`ts`, 9, {p0:String}))) AS `period`, count(`kind`) AS `events` FROM `events` GROUP BY toStartOfYear(toDateTime64(`ts`, 9, {p0:String})) ORDER BY toStartOfYear(toDateTime64(`ts`, 9, {p0:String})) ASC LIMIT 500"
     },
     "has-one-measures": {
       "debug": "SELECT avg(if(isNotNull(`profile`.`_hq_match`), `profile`.`age_days`, NULL)) AS `profile.profileAge`, count(if(isNotNull(`profile`.`_hq_match`), `profile`.`plan`, NULL)) AS `profile.profileCount` FROM `analytics`.`orders` AS `__hq_base` LEFT ANY JOIN (SELECT `customer_id`, `plan`, `age_days`, toNullable(1) AS `_hq_match` FROM `analytics`.`profiles`) AS `profile` ON `__hq_base`.`customer_id` = `profile`.`customer_id` WHERE `__hq_base`.`tenant_id` = <p0:String>",
