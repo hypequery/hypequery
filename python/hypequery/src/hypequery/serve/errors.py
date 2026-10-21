@@ -19,6 +19,7 @@ from typing import Literal, TypeAlias
 
 from fastapi import HTTPException, Request
 from fastapi.exceptions import RequestValidationError
+from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.responses import JSONResponse
 
 from ..datasets.planner import CompiledQueryError, CompiledQueryErrorCategory
@@ -134,7 +135,9 @@ def as_serve_error(exc: BaseException, *, request: Request | None = None) -> Ser
         status, kind = _CATEGORIES[exc.category]
         message = _SERVER_MESSAGES.get(exc.category, exc.message)
         return ServeError(status, kind, message)
-    if isinstance(exc, HTTPException):
+    # FastAPI's HTTPException subclasses Starlette's, which FastAPI itself
+    # raises for a body it cannot parse; both are the route's chosen status.
+    if isinstance(exc, StarletteHTTPException):
         kind = _status_type(exc.status_code)
         # An endpoint's own string detail is its intended message, as with
         # TypeScript's ServeHttpError. Anything else is not text to show.

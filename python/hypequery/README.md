@@ -487,7 +487,12 @@ app.include_router(router)
 
 Every route on the router also has a fixed body policy, applied after
 authentication:
-- bodies must be UTF-8 `application/json`, otherwise `415`;
+- bodies must be `application/json` with no charset or `charset=utf-8`,
+  otherwise `415`;
+- a `Content-Encoding` other than `identity` (gzip, br, ...) gets `415`: the
+  size cap counts the bytes received, so compressed bodies are refused;
+- a body that isn't valid JSON, including invalid UTF-8 or nesting past
+  Python's recursion limit, gets `400 VALIDATION_ERROR`;
 - bodies are capped at `create_api(max_body_bytes=...)`, 1 MiB by default,
   and counted as they stream, so a missing `Content-Length` doesn't get
   around the cap;
@@ -547,7 +552,9 @@ envelope for both languages.
 - **What an endpoint raises:**
   - `ServeError(status, type, message)` is sent as written, like TypeScript's
     `ServeHttpError`;
-  - an `HTTPException` with a string `detail` keeps that message;
+  - an `HTTPException`, FastAPI's or Starlette's, keeps its status and, when
+    `detail` is a string, that message. A 4xx status without its own type
+    becomes `VALIDATION_ERROR`;
   - a `CompiledQueryError` maps its RFC 0010 category to a status and type,
     for example a missed deadline becomes `504 GATEWAY_TIMEOUT`;
   - anything else is logged to the `hypequery.serve` logger with its request
