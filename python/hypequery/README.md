@@ -1372,8 +1372,9 @@ CI tests the real runner, startup refusals, capacity recovery, synchronous and
 asynchronous cancellation, cache/response limits and proxy trust. The same shared
 HTTP fixtures run with and without the production profile, and live ClickHouse
 CI tests the production HTTP query path. The declared direct dependency floors
-(pydantic 2.9.2, FastAPI 0.137.2, Starlette 1.3.1, Uvicorn 0.30.6 and
-clickhouse-connect 1.4.2) are tested as well as the locked versions.
+(pydantic 2.9.2, raised to 2.12.2 on Python 3.14; FastAPI 0.137.2; Starlette
+1.3.1; Uvicorn 0.30.6; clickhouse-connect 1.4.2) are installed from wheels and
+tested on every supported Python, as well as the locked versions.
 
 Run both implementations' shared HTTP gates after building TypeScript packages:
 

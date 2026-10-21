@@ -339,15 +339,28 @@ jobs:
       - name: Resolve runtime dependencies without development tools
         env:
           RESOLUTION: ${{ matrix.resolution }}
+          PYTHON_VERSION: ${{ matrix.python-version }}
         run: |
           mkdir -p reports
           if [ "$RESOLUTION" = "locked" ]; then
             uv export --frozen --all-extras --no-dev --no-emit-project --format requirements.txt --output-file reports/requirements.txt --quiet
           else
-            uv pip compile pyproject.toml --all-extras --resolution lowest-direct --generate-hashes --output-file reports/requirements.txt --quiet
+            uv pip compile pyproject.toml --all-extras --resolution lowest-direct --python-version "$PYTHON_VERSION" --generate-hashes --output-file reports/requirements.txt --quiet
           fi
       - name: Audit resolved versions and hashes
         run: uvx --python "${{ matrix.python-version }}" pip-audit==2.10.1 --disable-pip --require-hashes --requirement reports/requirements.txt --format json --output reports/audit.json
+      # Resolving is not installing: a floor with no wheel for this Python still
+      # resolves. Install the audited set from wheels only, so such a floor
+      # fails here. Resolution above deliberately omits --only-binary, which
+      # would step past that floor to a later release instead of failing.
+      - name: Install the declared direct dependency floors from wheels
+        if: matrix.resolution == 'floor'
+        run: |
+          uv sync --all-extras --dev --python "${{ matrix.python-version }}"
+          uv pip install --only-binary :all: --require-hashes --requirement reports/requirements.txt
+      - name: Run the suite on the floors
+        if: matrix.resolution == 'floor'
+        run: uv run --no-sync pytest
       - name: Retain dependency reports even when an audit fails
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
