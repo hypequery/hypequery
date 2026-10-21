@@ -10,7 +10,7 @@ Learn advanced techniques for configuring and optimizing your React hooks with h
 
 ## HTTP Method Configuration
 
-By default, `useQuery` and `useMutation` issue `GET` requests. Override HTTP methods per query when you need `POST`, `PUT`, or other verbs:
+By default, `useQuery` and `useMutation` issue `GET` requests for routes the hooks don't otherwise know. Routes from a manifest use the manifest's method, so dataset and metric endpoints, including every route in a client generated from a Python contract, use `POST`. Override HTTP methods per query when you need `POST`, `PUT`, or other verbs:
 
 <CodeBlock>
 <Pre>
@@ -267,19 +267,24 @@ function Dashboard() {
 
 ## Query Keys
 
-hypequery hooks use a fixed query-key structure: `['hypequery', name]`, or `['hypequery', name, input]` when the query has input. Dataset hooks key on their resolved name (`dataset:<name>`). Use these keys with TanStack's cache APIs:
+hypequery hooks use a fixed query-key structure: `['hypequery', cacheKey, name]`, or `['hypequery', cacheKey, name, input]` when the query has input. `cacheKey` is the client's cache scope: the `cacheKey` option you passed to `createHooks`, `createAnalyticsHooks` or `createHypequeryClient`, or a generated one per client otherwise. Dataset hooks key on their resolved name (`dataset:<name>`). Use these keys with TanStack's cache APIs:
 
 <CodeBlock>
 <Pre>
 ```tsx
-// Invalidate one query (must match name + input).
-queryClient.invalidateQueries({ queryKey: ['hypequery', 'weeklyRevenue'] });
+// Give the client a known scope when you create it...
+export const { useQuery } = createHooks<Api>({ baseUrl: '/api', cacheKey: 'analytics' });
 
-// Invalidate every hypequery cache entry by prefix.
+// ...then invalidate one query (TanStack matches by prefix, so this covers every input).
+queryClient.invalidateQueries({ queryKey: ['hypequery', 'analytics', 'weeklyRevenue'] });
+
+// Invalidate every hypequery cache entry, for every client.
 queryClient.invalidateQueries({ queryKey: ['hypequery'] });
 ```
 </Pre>
 </CodeBlock>
+
+Under a `HypequeryProvider`, read the scope with `useHypequeryClient().cacheKey`.
 
 The key structure is not configurable — relying on the stable `'hypequery'` prefix lets you target hypequery caches without colliding with other TanStack queries.
 

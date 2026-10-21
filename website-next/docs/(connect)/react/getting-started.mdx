@@ -8,7 +8,7 @@ import { CodeBlock, Pre } from 'fumadocs-ui/components/codeblock';
 
 Use `@hypequery/react` to generate type-safe hooks (`useQuery`, `useMutation`) backed by TanStack Query. Bring your exported `serve({ queries })` API type into your React app without duplicating schemas.
 
-For semantic `datasets` endpoints, use `createAnalyticsHooks`, which adds `useDataset` on top of the base hooks. See [Analytics hooks for datasets](#analytics-hooks-for-datasets) below.
+For semantic `datasets` endpoints, use `createAnalyticsHooks`, which adds `useDataset` on top of the base hooks. See [Analytics hooks for datasets](#analytics-hooks-for-datasets) below. If your datasets are defined in Python, see [Datasets served from Python](#datasets-served-from-python).
 
 ## Installation
 
@@ -20,7 +20,7 @@ npm install @hypequery/react @tanstack/react-query
 </Pre>
 </CodeBlock>
 
-Peer dependencies: `react@^18`, `@tanstack/react-query@^5`.
+Peer dependencies: `react` and `react-dom` `^18 || ^19`, and `@tanstack/react-query@^5.104.2`.
 
 ## Setup
 
@@ -183,3 +183,116 @@ function App() {
 ```
 </Pre>
 </CodeBlock>
+
+## Datasets served from Python
+
+A Python backend (`hypequery.serve`) has no TypeScript API type to infer. Instead,
+it exports a **client contract**: a JSON description of each endpoint's fields,
+limits and schema hash. Generate a typed client file from it, then pass that file's
+API type and route map to the hooks.
+
+**1. Export the contract** from the Python project. Offline, put a zero-argument,
+definition-only factory in a module, one that returns
+`export_client_contract(...)` from `hypequery.datasets` and opens no connections,
+and run the Python CLI from the project directory:
+
+<CodeBlock>
+<Pre>
+```bash
+python -m hypequery export client-contract --factory client_contract:build --output client-contract.json
+```
+</Pre>
+</CodeBlock>
+
+Or fetch it from a running server's `/v1/client-contract` route
+(`add_client_contract_endpoint`). Both give the same schema hashes for the same
+definitions.
+
+**2. Generate the client** in the React app. `generate:client` lives in the Node
+CLI, so install it as a dev dependency first; `npx hypequery` alone will not find it:
+
+<CodeBlock>
+<Pre>
+```bash
+npm install -D @hypequery/cli
+npx hypequery generate:client client-contract.json --output src/hypequery-client.ts
+```
+</Pre>
+</CodeBlock>
+
+The file exports `ClientApi` (request and response types), `clientManifest` (routes
+and schema hashes) and `clientContractHash`. Run it with `--check` in CI to fail on
+drift, and with `--force` to overwrite after reviewing a change.
+
+**3. Create the hooks.** Pass the endpoint **origin** as `baseUrl`; the generated
+paths already include the server's mount prefix:
+
+<CodeBlock>
+<Pre>
+```ts
+// lib/analytics.ts
+import { createAnalyticsHooks } from '@hypequery/react';
+import { clientManifest, type ClientApi } from '@/hypequery-client';
+
+export const { useDataset, useMetric, useInfiniteDataset, useInfiniteMetric } =
+  createAnalyticsHooks<ClientApi>({
+    baseUrl: 'https://analytics.example.com',
+    manifest: clientManifest,
+    token: () => getShortLivedUserToken(),
+  });
+```
+</Pre>
+</CodeBlock>
+
+Every generated route is a `POST`, whatever the default method on other routes.
+
+### One client per signed-in user
+
+When users sign in and out in the same page, create a client per session with
+`createHypequeryClient` and provide it, with its own `QueryClient`, through
+`HypequeryProvider`. Hooks created without a config read the client from the provider:
+
+<CodeBlock>
+<Pre>
+```tsx
+import { QueryClient } from '@tanstack/react-query';
+import { HypequeryProvider, createAnalyticsHooks, createHypequeryClient } from '@hypequery/react';
+import { clientContractHash, clientManifest, type ClientApi } from '@/hypequery-client';
+
+export const hooks = createAnalyticsHooks<ClientApi>();
+
+function signIn(token: string) {
+  return {
+    client: createHypequeryClient<ClientApi>({
+      baseUrl: 'https://analytics.example.com',
+      manifest: clientManifest,
+      token,
+      cacheKey: `${clientContractHash}:${crypto.randomUUID()}`,
+    }),
+    queries: new QueryClient(),
+  };
+}
+
+// <HypequeryProvider client={session.client} queryClient={session.queries}>…</HypequeryProvider>
+```
+</Pre>
+</CodeBlock>
+
+`cacheKey` scopes the TanStack cache. Use a new client, or a new `cacheKey`,
+whenever the deployment, user or authorization scope changes. Changing what a
+token resolver returns does **not** invalidate cached data.
+
+### When the server's contract changes
+
+Every request sends its endpoint's schema hash in `X-Hypequery-Client-Schema`.
+If the Python definitions have changed since the client was generated, the server
+answers `409` with `details.code` `CLIENT_SCHEMA_CHANGED` instead of returning data
+in a shape your types don't describe. The hooks do not fetch a new contract. Export
+it again, regenerate the client, and review the type errors.
+
+### Result types
+
+- Omitted `measures` select the endpoint's default measures; `measures: []` selects none.
+- Measure values are strings or `null`.
+- Numeric dimensions may arrive as numbers or strings, and related fields may be `null`.
+- Selected fields are typed as optional properties, so check for them before use.
