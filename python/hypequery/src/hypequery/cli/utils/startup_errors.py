@@ -5,11 +5,9 @@ from __future__ import annotations
 import logging
 import re
 
-_ENV_NAME = re.compile(r"[A-Z][A-Z0-9_]{1,99}\Z")
+from hypequery.execution.utils.driver_loggers import DRIVER_LOGGERS
 
-#: Driver loggers whose warnings repeat what the CLI's own hint says, and whose
-#: retry lines can carry bound parameter values (tenant ids, filter values).
-_DRIVER_LOGGERS = ("clickhouse_connect", "urllib3")
+_ENV_NAME = re.compile(r"[A-Z][A-Z0-9_]{1,99}\Z")
 
 
 def missing_environment_variable(exc: BaseException) -> str | None:
@@ -22,7 +20,10 @@ def missing_environment_variable(exc: BaseException) -> str | None:
 
 
 def quiet_driver_warnings() -> None:
-    """Keep driver warnings out of the terminal; their errors still show."""
+    """Keep driver warnings out of the terminal; their errors still show.
 
-    for name in _DRIVER_LOGGERS:
+    They repeat what the CLI's own hint says. Reload workers inherit the levels.
+    """
+
+    for name in DRIVER_LOGGERS:
         logging.getLogger(name).setLevel(logging.ERROR)

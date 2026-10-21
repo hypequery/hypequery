@@ -93,6 +93,9 @@ def test_init_next_step_changes_into_the_new_directory(
     monkeypatch.chdir(tmp_path)
     assert main(["init", "analytics", "--skip-connection"]) == 0
     assert "Then run: cd analytics && hypequery dev" in capsys.readouterr().out
+    # A name starting with "-" must not read as an option to cd.
+    assert main(["init", "./-analytics", "--skip-connection"]) == 0
+    assert "Then run: cd ./-analytics && hypequery dev" in capsys.readouterr().out
     (tmp_path / "here").mkdir()
     monkeypatch.chdir(tmp_path / "here")
     assert main(["init", "--skip-connection"]) == 0
