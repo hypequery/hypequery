@@ -6,6 +6,7 @@ from collections.abc import Mapping
 
 from pydantic import ValidationError
 
+from ...protocol.errors import ProtocolIdentifierError
 from ..dataset import Dataset
 from ..planner import CompiledQueryError, DatasetQuery
 from ..registry import DatasetRegistry
@@ -63,4 +64,11 @@ def coerce_query(query: QueryInput) -> DatasetQuery:
     except ValidationError as exc:
         raise CompiledQueryError(
             "input-invalid", "Invalid dataset query: " + "; ".join(validation_messages(exc))
+        ) from None
+    except ProtocolIdentifierError as exc:
+        # The field validators raise RFC 0002's error, a TypeError, which
+        # Pydantic does not wrap: it would otherwise escape as a server fault.
+        raise CompiledQueryError(
+            "input-invalid",
+            f"Invalid dataset query: a field name is not a portable identifier ({exc.code}).",
         ) from None

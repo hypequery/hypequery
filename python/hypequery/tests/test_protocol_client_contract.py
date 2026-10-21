@@ -130,6 +130,26 @@ def test_null_is_not_omission(key: str) -> None:
     assert failure.value.code == "HQ_CLIENT_QUERY"
 
 
+@pytest.mark.parametrize(
+    ("value", "canonical"),
+    [
+        (5, "5"),
+        (5.0, "5"),
+        (2**53, "9007199254740992"),
+        # Beyond 2**53 the exact integer digits and JSON.stringify's shortest
+        # round-trip digits differ; the shared wire form is JavaScript's.
+        (2**60, "1152921504606847000"),
+        (1e21, "1e+21"),
+        (123456789012345678, "123456789012345680"),
+        (-(2**60), "-1152921504606847000"),
+    ],
+)
+def test_numbers_canonicalize_like_json_stringify(value: float, canonical: str) -> None:
+    from hypequery.protocol.client_contract.safe_data import client_canonical, snapshot_client_data
+
+    assert client_canonical(snapshot_client_data({"n": value})) == '{"n":' + canonical + "}"
+
+
 def test_detached_output() -> None:
     original = copy.deepcopy(CONTRACTS["build"])
     result = validate_protocol_client_contract(original)

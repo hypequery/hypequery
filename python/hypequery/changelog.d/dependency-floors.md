@@ -1,0 +1,1 @@
+- Lower the dependency floors to measured minimums: pydantic 2.9.2, FastAPI 0.137.2, Starlette 1.3.1, Uvicorn 0.30.6 and clickhouse-connect 1.4.2 (urllib3 stays at 2.8.0). Each is the oldest release that passes the full suite, so `hypequery` installs next to projects that pin older releases of those libraries.
