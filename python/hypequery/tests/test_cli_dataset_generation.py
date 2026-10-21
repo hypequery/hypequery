@@ -234,6 +234,19 @@ def test_table_selection_is_exact_and_parameterized() -> None:
         read_schema(client, tables="missing", exclude_tables=None)
 
 
+def test_discovery_refuses_a_table_list_cut_by_its_limit() -> None:
+    class ManyTables(Client):
+        def query(
+            self, query: str, *, parameters: dict[str, object], settings: dict[str, int]
+        ) -> Result:
+            if "system.tables" in query:
+                return Result([(f"t{index}",) for index in range(100_001)])
+            return super().query(query, parameters=parameters, settings=settings)
+
+    with pytest.raises(CliError, match="more tables than discovery can list"):
+        read_schema(ManyTables(), tables=None, exclude_tables="t1")
+
+
 @dataclass
 class _Setting:
     value: str

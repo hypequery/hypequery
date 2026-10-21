@@ -110,6 +110,9 @@ def read_schema(client: _Client, *, tables: str | None, exclude_tables: str | No
         parameters={"database": database},
         settings=settings,
     ).result_rows
+    if len(rows) > _ROW_CAP:
+        # The LIMIT cut the list; discovering from part of it would be silently wrong.
+        raise CliError("The database has more tables than discovery can list.")
     available = {str(row[0]) for row in rows if not str(row[0]).startswith(".inner")}
     include = {name.strip() for name in tables.split(",") if name.strip()} if tables else available
     exclude = (
