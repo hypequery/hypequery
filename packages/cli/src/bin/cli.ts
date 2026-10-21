@@ -65,7 +65,11 @@ async function main() {
   process.on('SIGINT', () => observeSignal('SIGINT'));
   process.on('SIGTERM', () => observeSignal('SIGTERM'));
   try {
-    await withCommandTelemetry(lifecycle, () => program.parseAsync(process.argv));
+    // Commander treats an omitted subcommand as an error. A bare invocation
+    // should browse root help successfully, including with the global opt-out.
+    // Keep the original args in the lifecycle so telemetry reflects user input.
+    const parseArgs = args.every(arg => arg === '--no-telemetry') ? [...args, '--help'] : args;
+    await withCommandTelemetry(lifecycle, () => program.parseAsync(parseArgs, { from: 'user' }));
     if (lifecycle.command === 'dev') return; // Its shutdown handler finalizes after teardown.
     await finish(new CommandExit(Number(process.exitCode ?? 0), process.exitCode ? 'failure' : 'success', process.exitCode ? 'unknown' : undefined));
   } catch (error) {

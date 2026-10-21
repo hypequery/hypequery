@@ -122,18 +122,52 @@ describe('compiled CLI telemetry regression', () => {
     }
   }, 30_000);
 
-  it('preserves exit code and output for every command help page with telemetry on/off', async () => {
-    for (const command of program.commands) {
-      const args = [command.name(), '--help'];
+  it('successfully displays root and command help with telemetry on/off', async () => {
+    const invocations = [
+      { args: [], topic: 'root' },
+      { args: ['--help'], topic: 'root' },
+      { args: ['-h'], topic: 'root' },
+      { args: ['help'], topic: 'root' },
+      ...program.commands.flatMap(command => [
+        { args: [command.name(), '--help'], topic: command.name() },
+        { args: ['help', command.name()], topic: command.name() },
+      ]),
+    ];
+    for (const { args, topic } of invocations) {
       const off = await run(args, 'off');
       const on = await run(args, 'debug');
       const failing = await run(args, 'failing');
-      expect({ code: on.code, stdout: on.stdout, stderr: on.stderr }, command.name()).toEqual({ code: off.code, stdout: off.stdout, stderr: off.stderr });
-      expect({ code: failing.code, stdout: failing.stdout, stderr: failing.stderr }, command.name()).toEqual({ code: off.code, stdout: off.stdout, stderr: off.stderr });
+      expect(off.code, JSON.stringify(args)).toBe(0);
+      expect(off.stdout).toContain('Usage:');
+      expect(off.stderr).toBe('');
+      expect({ code: on.code, stdout: on.stdout, stderr: on.stderr }).toEqual({ code: off.code, stdout: off.stdout, stderr: off.stderr });
+      expect({ code: failing.code, stdout: failing.stdout, stderr: failing.stderr }).toEqual({ code: off.code, stdout: off.stdout, stderr: off.stderr });
       expect(on.events).toHaveLength(1);
-      if (on.events.length) expect(on.events[0].properties).toMatchObject({ command: 'help', help_topic: command.name() });
+      expect(on.events[0].properties).toMatchObject({ command: 'help', help_topic: topic, outcome: 'success' });
+      expect(on.events[0].properties).not.toHaveProperty('error_code');
     }
   }, 60_000);
+
+  it.each([['PRIVATE_UNKNOWN_COMMAND'], ['help', 'PRIVATE_UNKNOWN_COMMAND']])(
+    'reports unknown commands as failures without retaining their names: %j', async (...args) => {
+      const result = await run(args, 'debug');
+      expect(result.code).toBe(1);
+      expect(result.events).toHaveLength(1);
+      expect(result.events[0].properties).toMatchObject({
+        command: args[0] === 'help' ? 'help' : 'unknown',
+        outcome: 'failure', error_code: 'unknown_command',
+      });
+      expect(JSON.stringify(result.events)).not.toContain('PRIVATE');
+    },
+  );
+
+  it('displays root help with only the global telemetry opt-out', async () => {
+    const result = await run(['--no-telemetry'], 'debug');
+    expect(result.code).toBe(0);
+    expect(result.stdout).toContain('Usage:');
+    expect(result.stderr).toBe('');
+    expect(result.events).toHaveLength(0);
+  });
 
   it.each([
     ['--version'], ['PRIVATE_UNKNOWN_COMMAND'], ['init', '--PRIVATE_UNKNOWN_OPTION'],
