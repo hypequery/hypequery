@@ -57,7 +57,10 @@ def endpoint_descriptor(
         },
     }
     if not metric:
-        node["defaultMeasures"] = list(base_measure_names(dataset.measures))
+        # An endpoint's default selection is the base measures it can serve.
+        node["defaultMeasures"] = [
+            name for name in base_measure_names(dataset.measures) if name in measures
+        ]
     return node
 
 

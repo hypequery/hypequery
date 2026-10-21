@@ -13,12 +13,12 @@ from typing import cast
 
 from ..constants import QUERYABLE_RELATIONSHIP_KINDS
 from ..dataset import Dataset
-from ..derived_measures import DerivedMeasure
 from ..dimensions import Dimension
 from ..measures import Measure
 from ..registry import DatasetRegistry
 from ..relationships import Relationship
-from ..utils.derived_measures import base_measure_names, formula_references
+from ..utils.derived_measures import base_measure_names
+from ..utils.measure_references import measure_filter_fields
 from ..utils.relationship_measures import relationship_measure_error
 from .errors import CompiledQueryError
 from .query import DatasetQuery
@@ -195,8 +195,8 @@ def resolve_filter_field(dataset: Dataset, name: str) -> str:
     return definition.field if definition is not None else name
 
 
-def references_a_relationship(dataset: Dataset, query: DatasetQuery) -> bool:
-    """Whether anything in *query* addresses a field through a relationship."""
+def referenced_fields(dataset: Dataset, query: DatasetQuery) -> list[str]:
+    """Every field *query* reads, including the fixed filters of the measures it selects."""
 
     names = [
         *query.dimensions,
@@ -205,21 +205,12 @@ def references_a_relationship(dataset: Dataset, query: DatasetQuery) -> bool:
     ]
     for measure_name in selected_measure_names(dataset, query):
         names.append(measure_name)
-        measure = dataset.measures.get(measure_name)
-        if isinstance(measure, DerivedMeasure):
-            # Only local dependencies are allowed, but their filters may traverse joins.
-            pending = list(formula_references(measure.formula))
-            while pending:
-                dependency = dataset.measures[pending.pop()]
-                if isinstance(dependency, DerivedMeasure):
-                    pending.extend(formula_references(dependency.formula))
-                else:
-                    names.extend(
-                        resolve_filter_field(dataset, item.field)
-                        for item in dependency.filters or ()
-                    )
-        elif measure is not None:
-            names.extend(
-                resolve_filter_field(dataset, item.field) for item in measure.filters or ()
-            )
-    return any(is_qualified(name) for name in names)
+        # Only local dependencies are allowed, but their filters may traverse joins.
+        names.extend(measure_filter_fields(dataset, measure_name))
+    return names
+
+
+def references_a_relationship(dataset: Dataset, query: DatasetQuery) -> bool:
+    """Whether anything in *query* addresses a field through a relationship."""
+
+    return any(is_qualified(name) for name in referenced_fields(dataset, query))

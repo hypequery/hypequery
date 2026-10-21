@@ -35,7 +35,12 @@ from .utils.metric_alias import MetricAlias
 from .utils.production_context import production_profile
 from .utils.query_response import public_response
 from .utils.query_schema import endpoint_query_model
-from .utils.related_fields import checked_related, refuse_unlisted_related
+from .utils.related_fields import (
+    checked_related,
+    default_measures,
+    refuse_unlisted_related,
+    refuse_unservable_metric,
+)
 from .utils.request_work import request_work, run_sync
 
 
@@ -89,6 +94,9 @@ class DatasetEndpoint:
         # Related fields are opt-in per endpoint: this endpoint's policy says
         # nothing about who may read the datasets a relationship reaches.
         self.include_related = checked_related(dataset, include_related)
+        if measure is not None:
+            refuse_unservable_metric(dataset, measure, self.include_related)
+        self._default_measures = default_measures(dataset, self.include_related)
 
     async def execute(self, request: Request, payload: QueryRequest) -> QueryResponse:
         auth = authenticated_context(request)
@@ -99,6 +107,8 @@ class DatasetEndpoint:
         )
         if self.alias is not None:
             query = self.alias.query(query)
+        if query.measures is None and self._default_measures is not None:
+            query = query.model_copy(update={"measures": self._default_measures})
         refuse_unlisted_related(self.dataset, query, self.include_related)
         result = await self._run(request, query, auth, profile)
         include_meta = payload.include_meta or request.headers.get("x-include-meta") == "true"

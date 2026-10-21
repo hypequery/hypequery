@@ -1238,8 +1238,12 @@ add_dataset_endpoint(
 ```
 
 Without the opt-in, the endpoint refuses those fields with `400 VALIDATION_ERROR`
-and leaves them out of its client contract. Include a relationship only when
-this endpoint's policy is enough to read the related dataset.
+and leaves them out of its client contract. The same goes for a measure whose
+fixed filters read a related field, directly or through a derived measure: the
+endpoint refuses it, and a request that omits `measures` selects only the base
+measures the endpoint can serve. A metric endpoint for such a measure is refused
+when it is created. Include a relationship only when this endpoint's policy is
+enough to read the related dataset.
 
 The dataset, registry and client are authored by the host as in the client
 examples above. Metric endpoints fix one dataset measure; formula metrics and
