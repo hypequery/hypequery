@@ -33,7 +33,7 @@ describe('independent metric compilers', () => {
     expect(sql).toContain("tenant = 't1'");
     expect(sql).toContain('GROUP BY country');
     expect(sql).toContain('SELECT country,');
-    expect(sql).toContain('ORDER BY average DESC LIMIT 10 OFFSET 2');
+    expect(sql).toContain('ORDER BY `average` DESC LIMIT 10 OFFSET 2');
   });
 
   it('refuses tenant filters even when called independently of client validation', () => {

@@ -8,18 +8,25 @@ import { selectedTimeMeasures } from './time-query-measures.js';
 import { analyzeTimeMeasureAxis } from './time-measure-axis.js';
 import { validateDatasetQueryInput } from './dataset-query-validation.js';
 import { resolveDatasetSqlDialect } from './dataset-sql-dialect.js';
+import { StatementParameters, type PlannedStatement } from './statement-parameters.js';
 import { shiftBucketCtes } from './shift-measure-sql.js';
 import { buildTimeMeasureSourceSql } from './time-measure-source-sql.js';
 import { buildTimeMeasureAxisSql } from './time-measure-axis-sql.js';
 import { buildTimeMeasureValuesSql, windowMeasureRowsSql, windowScanStartSql } from './time-measure-values-sql.js';
 import { buildTimeMeasureResultSql } from './time-measure-result-sql.js';
 
+/** A time-measure statement and the axis check that must run before it. */
+export interface PlannedTimeMeasureStatements {
+  readonly statement: PlannedStatement;
+  readonly preflight: PlannedStatement;
+}
+
 /** Plan source rows → output axis → window/shift values → final projection. */
 export function buildTimeMeasureDatasetSql(
   ds: AnyDatasetInstance,
   query: DatasetQuery,
   options: DatasetQueryExecutionOptions,
-): { sql: string; parameters: unknown[]; timeAxisSql: string } {
+): PlannedTimeMeasureStatements {
   const validation = validateDatasetQueryInput(ds, query, options.context);
   if (!validation.valid) throw new Error(`Invalid dataset query: ${validation.errors.join('; ')}`);
   const dialect = resolveDatasetSqlDialect(options.builderFactory);
@@ -33,7 +40,8 @@ export function buildTimeMeasureDatasetSql(
     const derived = getDerivedMeasure(ds.measures, name);
     return derived && Object.values(derived.uses).some(input => getDerivedMeasure(ds.measures, input));
   });
-  if (composite) return buildCompositeTimeMeasureSql(ds, query, options, axis);
+  const parameters = new StatementParameters(dialect);
+  if (composite) return buildCompositeTimeMeasureSql(ds, query, options, axis, parameters);
 
   const timeMeasures = selectedTimeMeasures(ds, query);
   const windows = [...timeMeasures.values()].filter(isWindowMeasure);
@@ -45,8 +53,8 @@ export function buildTimeMeasureDatasetSql(
   }
   const baseNames = new Set([...needed].map(name => timeMeasures.get(name)?.measure ?? name));
 
-  const source = buildTimeMeasureSourceSql(ds, query, baseNames, axis.filters, options);
-  const timeAxis = buildTimeMeasureAxisSql(dialect, source, axis, shifts);
+  const source = buildTimeMeasureSourceSql(ds, query, baseNames, axis.filters, options, parameters);
+  const timeAxis = buildTimeMeasureAxisSql(parameters, source, axis, shifts);
   const shiftedInputs = new Map<string, ReturnType<typeof shiftBucketCtes>>();
   [...needed].forEach((name, index) => {
     const measure = timeMeasures.get(name);
@@ -81,10 +89,10 @@ export function buildTimeMeasureDatasetSql(
     return { name, base, window, rowsSql: windowMeasureRowsSql(dialect, window, axis) };
   });
   const values = buildTimeMeasureValuesSql(dialect, source.dimensions, inputs, axis);
-  const sql = buildTimeMeasureResultSql(
+  const text = buildTimeMeasureResultSql(
     ds, query, options, source.dimensions,
     [...source.ctes, ...timeAxis.ctes, ...[...shiftedInputs.values()].flatMap(input => input.ctes), scanCte, ...values],
     `${timeAxis.guard} + ${timeAxis.rangeGuard} + ${timeAxis.postSeriesGuard}`,
   );
-  return { sql, parameters: source.parameters, timeAxisSql: timeAxis.timeAxisSql };
+  return { statement: { text, parameters }, preflight: { text: timeAxis.timeAxisSql, parameters } };
 }

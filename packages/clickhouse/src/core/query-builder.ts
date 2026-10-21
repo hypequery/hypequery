@@ -847,6 +847,27 @@ export class QueryBuilder<
     return this.executor.toSQLWithParams();
   }
 
+  /**
+   * Compiles the query, writing each bound value through `placeholder`.
+   *
+   * The callback is called once per value, in the order the values appear in
+   * the SQL, and its return value is inserted verbatim as SQL. The caller
+   * owns placeholder spelling and numbering, so the statement can be embedded
+   * in a larger one without renumbering it. Question marks inside literals,
+   * quoted identifiers and comments are left untouched.
+   *
+   * @example
+   * ```ts
+   * const values: unknown[] = [];
+   * const sql = db.table('events').where('id', 'eq', 7)
+   *   .toSQLWithPlaceholders(value => `$${values.push(value)}`);
+   * // SELECT * FROM events WHERE id = $1, values: [7]
+   * ```
+   */
+  toSQLWithPlaceholders(placeholder: (value: unknown) => string): string {
+    return this.executor.toSQLWithPlaceholders(placeholder);
+  }
+
   execute(options?: ExecuteOptions): Promise<State['output'][]> {
     return executeWithCache(this, options);
   }

@@ -11,7 +11,7 @@ import { getBaseMeasure } from './dataset-measures.js';
 import { measureToAggregationSpec } from './dataset-normalization.js';
 import { applyFilteredAggregationExpression } from './filtered-aggregation-sql.js';
 import { assertNoRawSqlUnderJoins } from './sql-under-joins.js';
-import { resolveDatasetSqlDialect } from './dataset-sql-dialect.js';
+import type { StatementParameters } from './statement-parameters.js';
 
 export interface TimeMeasureSqlDimension {
   name: string;
@@ -27,7 +27,6 @@ export interface TimeMeasureSqlBase {
 
 export interface TimeMeasureSqlSource {
   ctes: string[];
-  parameters: unknown[];
   dimensions: TimeMeasureSqlDimension[];
   bases: TimeMeasureSqlBase[];
   rowAlias: string;
@@ -40,8 +39,9 @@ export function buildTimeMeasureSourceSql(
   baseNames: Iterable<string>,
   filters: readonly MetricFilter[],
   options: DatasetQueryExecutionOptions,
+  statement: StatementParameters,
 ): TimeMeasureSqlSource {
-  const dialect = resolveDatasetSqlDialect(options.builderFactory);
+  const { dialect } = statement;
   const bases: TimeMeasureSqlBase[] = [];
   const joinCtx = buildRelationshipBuilderContext(ds, query, options.context, dialect);
   // Keep source expressions in their own SELECT scope: internal aliases cannot
@@ -92,7 +92,7 @@ export function buildTimeMeasureSourceSql(
     );
     raw = raw.where(predicate.expression, filter.operator, predicate.value);
   }
-  const { sql: rawSql, parameters } = raw.toSQLWithParams();
+  const rawSql = statement.embedBuilder(raw);
   const sourceColumns = [`${queryTimeSql(dialect, dialect.assumeNotNull(dialect.rowElement(rowAlias, 1)), query.timezone)} AS _hq_time`];
   dims.forEach((dimension, i) => sourceColumns.push(`${dialect.rowElement(rowAlias, i + 2)} AS ${dimension.alias}`));
   bases.forEach((base, i) => {
@@ -105,7 +105,6 @@ export function buildTimeMeasureSourceSql(
       `_hq_raw AS (${rawSql})`,
       `_hq_source AS (SELECT ${sourceColumns.join(', ')} FROM _hq_raw WHERE ${dialect.isNotNull(dialect.rowElement(rowAlias, 1))})`,
     ],
-    parameters,
     dimensions: dims,
     bases,
     rowAlias,

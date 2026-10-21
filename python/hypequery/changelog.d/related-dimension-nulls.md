@@ -1,1 +1,0 @@
-- Preserve nulls for unmatched related dimensions and filters independently of ClickHouse `join_use_nulls`, including queries without related measures. Missing or other-tenant targets no longer appear as empty strings or zero values.

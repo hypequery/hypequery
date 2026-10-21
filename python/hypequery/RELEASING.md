@@ -34,8 +34,9 @@ summary; `--pre` alone does not guarantee selection of a canary. Keep the
 committed version aimed at the next beta or stable release as development moves
 forward. Once a stable SDK exists, normal pip upgrades exclude prereleases;
 before that, pip may select a prerelease when no stable version satisfies the
-requirement. An existing stable placeholder may continue to be selected until
-users explicitly request the SDK beta.
+requirement. The `0.0.1.dev0` placeholder already on PyPI is itself a
+development release, so `pip install hypequery` resolves to the newest
+prerelease once the beta is published and never prefers the placeholder.
 
 ```bash
 # Beta: select the tested release, including the CLI and integration extras.
@@ -195,3 +196,80 @@ The SBOM covers the lock's runtime dependency graph, including platform
 conditions and extras; it is not a claim that every dependency is installed in
 every consumer environment. Publishing remains blocked if the release audit
 fails. PyPI's publishing action creates attestations for both distributions.
+
+## Integrated beta candidate
+
+The stacked release-preparation PR targets **0.1.0b1**. Its metadata classifier
+is Beta and its notes describe the final combined behavior. Its date is the
+preparation date; update it if the actual release occurs later. The PR is a
+candidate, not evidence that either registry has published it.
+
+Merge the implementation stack in dependency order and rerun the release PR's
+normal monorepo/Python/client checks after rebasing onto current main. This PR
+was opened with the maintainer's GitHub CLI credentials, so ordinary PR events
+trigger the full check graph. Do not substitute the default-token preparation
+workflow's Python-only verification for any missing required monorepo checks.
+
+The current stack's Changesets predict these npm versions (regenerate the plan
+if main gains additional changesets before release):
+
+| Package | Candidate version |
+| --- | --- |
+| `@hypequery/protocol` | `0.21.0` |
+| `@hypequery/datasets` | `0.24.0` |
+| `@hypequery/protocol-conformance` | `0.16.0` |
+| `@hypequery/react` | `0.7.0` |
+| `@hypequery/mcp` | `0.10.0` |
+| `@hypequery/cli` | `1.25.0` |
+| `@hypequery/deployment` | `0.9.7` |
+| `@hypequery/serve` | `0.21.1` |
+| `@hypequery/clickhouse` | `2.13.0` (unchanged) |
+
+These are planned versions, not registry assertions. Keep the six feature and
+packaging changeset files until the final npm release PR consumes them. That PR
+must retain the feature summaries, transitive dependency updates and the patch
+artifact-hygiene fix even when a minor bump subsumes its patch bump. Do not delete
+files simply to remove a pending version bump. Closing a superseded release PR
+is separate from consuming its changesets.
+
+Before the beta tag:
+
+1. Merge and publish the npm release PR, then record the actual versions and
+   registry integrity values. If any planned version changed, use the actual
+   released versions throughout the evidence and tutorial install commands.
+2. In a fresh directory, copy `examples/client_dashboard`, create a fresh Python
+   environment, and install the candidate wheel's `fastapi,clickhouse` extras.
+   Install the eight runtime npm packages from the preparation script's package
+   list using **registry version pins**, not local tarballs. Run offline export,
+   `npm run generate`, `npm run check:generated`, strict frontend build and the
+   bundle audit. Seed an isolated test database and follow the tutorial's two-user
+   browser and `npm run check:mcp` journeys. Retain its lockfile and checksums.
+3. Run the main-only build rehearsal at the reviewed merged SHA, retain
+   `python-dist`, `python-supply-chain` and both client qualification artifacts,
+   and verify their recorded source SHA. A green run for an earlier main commit
+   does not qualify a later candidate. A local build/pack run is additional
+   evidence, not proof of the workflow or publisher bindings.
+4. Confirm GitHub environment/tag restrictions, required checks and both private
+   PyPI Trusted Publisher bindings. The private PyPI settings are a maintainer
+   check; their existence cannot be inferred from workflow YAML. Keep canaries
+   disabled until an intentional upload is approved. A build-only rehearsal does
+   not exercise OIDC publication.
+5. Record the release owner, beta feedback channel and rollback owner. Review
+   the remaining limitations below. Only then push the reviewed Python tag.
+
+After publication, repeat the clean consumer journey with
+`hypequery[fastapi,clickhouse]==0.1.0b1` from **PyPI**, and the exact published npm
+pins. Check both wheel/sdist metadata and PyPI attestations/checksums against the
+release artifacts. Retain source SHA, workflow URLs, versions, generated hashes,
+consumer lockfiles, browser/MCP results and any skips together. Announce only
+when this registry-installed run succeeds. A failed or partial upload needs
+inspection and possibly a new version; never overwrite or silently reuse one.
+
+Beta scope is Python 3.11–3.14; the full cross-client compatibility subset is
+Python 3.11/ClickHouse 25.8/React 18 and Python 3.14/ClickHouse 26.3/React 19 with
+Chromium. Firefox/WebKit, every Cartesian version combination and a separately
+configured third-party MCP application are not qualified by the SDK stdio tests.
+Local chained derived measures cannot be exported under deployment contract 2;
+relationship measures traverse one hop and base measures only. HAVING bypasses
+the result cache. The related-null planner correction in this stack is Python;
+it does not establish the same behavior for the native TypeScript planner.
