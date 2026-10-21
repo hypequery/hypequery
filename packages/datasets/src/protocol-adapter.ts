@@ -1,3 +1,4 @@
+import { byName } from './utils/by-name.js';
 import { splitDatasetMeasures } from './utils/dataset-measures.js';
 import { filterExpression, metricExpression, metricDerivation } from './utils/protocol-metric-expressions.js';
 import {
@@ -27,10 +28,6 @@ export interface BuildProtocolDatasetContractOptions {
   readonly metrics?: Readonly<Record<string, MetricHandle>>;
   readonly endpoint?: ProtocolEndpointPolicy;
   readonly metricEndpoints?: Readonly<Record<string, ProtocolEndpointPolicy>>;
-}
-
-function byName<T extends { readonly name: string }>(left: T, right: T): number {
-  return left.name.localeCompare(right.name);
 }
 
 function fieldSchema(type: FieldType | undefined): ProtocolSchema {

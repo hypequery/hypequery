@@ -289,10 +289,13 @@ describe.each(SCHEMAS)('rehydrated $label emits byte-identical SQL', spec => {
 // ---------------------------------------------------------------------------
 
 const marketplace = contractsFor(SCHEMAS[1]);
-const lineItems = marketplace[marketplace.length - 1];
+// The deployment contract lists datasets by name, so find the target by name.
+const lineItemsIndex = marketplace.findIndex(contract => String(contract.name) === SCHEMAS[1].target.name);
+const lineItems = marketplace[lineItemsIndex];
 
 function withLineItems(patch: (contract: typeof lineItems) => unknown) {
-  return [...marketplace.slice(0, -1), patch(structuredClone(lineItems))] as never;
+  return marketplace.map((contract, index) =>
+    index === lineItemsIndex ? patch(structuredClone(lineItems)) : contract) as never;
 }
 
 const REHYDRATION_EXCLUSIONS: ReadonlyArray<{
@@ -314,7 +317,7 @@ const REHYDRATION_EXCLUSIONS: ReadonlyArray<{
   {
     reason: UNSUPPORTED_CONTRACT_REASONS.relationshipTargetMissing,
     scenario: 'line items deployed without the buyers dataset they join to',
-    contracts: () => [marketplace[1], lineItems] as never,
+    contracts: () => marketplace.filter(contract => String(contract.name) !== Buyers.name) as never,
   },
 ];
 
