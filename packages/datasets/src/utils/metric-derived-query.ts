@@ -126,26 +126,21 @@ export function buildDerivedMetricSql(
   if (query.orderBy && query.orderBy.length > 0) {
     const orderParts = query.orderBy.map(o => {
       if (joinCtx && isQualifiedField(o.field)) {
-        return `${dialect.quoteIdentifier(o.field)} ${semanticOrderDirection(o.direction)}`;
+        return dialect.orderTerm(dialect.quoteIdentifier(o.field), semanticOrderDirection(o.direction));
       }
       validateSQLIdentifier(o.field, 'order by field');
-      return `${o.field} ${semanticOrderDirection(o.direction)}`;
+      return dialect.orderTerm(o.field, semanticOrderDirection(o.direction));
     });
     text += ` ORDER BY ${orderParts.join(', ')}`;
   } else if (grain) {
-    text += ' ORDER BY period';
+    text += ` ORDER BY ${dialect.orderTerm('period')}`;
   }
 
-  if (query.limit != null) {
-    // Ensure limit is a safe integer
-    const limit = Math.floor(Math.abs(query.limit));
-    text += ` LIMIT ${limit}`;
-  }
-  if (query.offset != null) {
-    // Ensure offset is a safe integer
-    const offset = Math.floor(Math.abs(query.offset));
-    text += ` OFFSET ${offset}`;
-  }
+  // Ensure limit and offset are safe integers.
+  text += dialect.paginate(
+    query.limit != null ? Math.floor(Math.abs(query.limit)) : undefined,
+    query.offset != null ? Math.floor(Math.abs(query.offset)) : undefined,
+  );
 
   return { text, parameters };
 }

@@ -62,6 +62,15 @@ describe('ClickHouse datasets SQL rules', () => {
     expect(ch.asofLeftJoin).toBe('LEFT ASOF JOIN');
   });
 
+  it('spells ordering and pagination', () => {
+    expect(ch.orderTerm('`x`', 'DESC')).toBe('`x` DESC');
+    expect(ch.orderTerm('period')).toBe('period');
+    expect(ch.paginate(undefined, undefined)).toBe('');
+    expect(ch.paginate(10, undefined)).toBe(' LIMIT 10');
+    expect(ch.paginate(undefined, 5)).toBe(' OFFSET 5');
+    expect(ch.paginate(10, 5)).toBe(' LIMIT 10 OFFSET 5');
+  });
+
   it('wraps filtered aggregate inputs', () => {
     expect(ch.filteredAggregateInput('c', 'v', '0')).toBe('if(c, v, 0)');
     expect(ch.filteredAggregateInput('c', 'v', 'NULL')).toBe('if(c, v, NULL)');

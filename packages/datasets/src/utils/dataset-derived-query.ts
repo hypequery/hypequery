@@ -77,13 +77,12 @@ export function buildDerivedDatasetSql(
 
   if (query.orderBy?.length) {
     text += ` ORDER BY ${query.orderBy.map(order => (
-      `${dialect.quoteIdentifier(order.field)} ${semanticOrderDirection(order.direction)}`
+      dialect.orderTerm(dialect.quoteIdentifier(order.field), semanticOrderDirection(order.direction))
     )).join(', ')}`;
   } else if (query.by) {
-    text += ` ORDER BY ${dialect.quoteIdentifier('period')} ASC`;
+    text += ` ORDER BY ${dialect.orderTerm(dialect.quoteIdentifier('period'), 'ASC')}`;
   }
   const limit = options.executionLimit ?? query.limit;
-  if (limit !== undefined) text += ` LIMIT ${limit}`;
-  if (query.offset !== undefined) text += ` OFFSET ${query.offset}`;
+  text += dialect.paginate(limit, query.offset);
   return { text, parameters };
 }

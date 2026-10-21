@@ -45,6 +45,19 @@ export interface DatasetSqlDialectRules extends DatasetSqlDialect {
   /** A builder's own positional `?` statement can be embedded verbatim. */
   readonly embedsPositionalPieces: boolean;
 
+  // Ordering and pagination of planner-assembled statements
+  /**
+   * One ORDER BY term. Engines whose NULL placement differs from ClickHouse
+   * (NULLs last in both directions) add explicit `NULLS` clauses here so
+   * results order identically. No direction keeps the engine default (ASC).
+   */
+  orderTerm(expression: string, direction?: 'ASC' | 'DESC'): string;
+  /**
+   * The trailing pagination clause, including its leading space, or ''.
+   * Engines that reject OFFSET without LIMIT supply a LIMIT here.
+   */
+  paginate(limit: number | undefined, offset: number | undefined): string;
+
   // Literals
   stringLiteral(value: string): string;
   /** A literal compared against a column inside a measure filter. */
