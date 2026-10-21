@@ -391,7 +391,8 @@ result.meta.cache  # "miss", then "hit" for the same request
 - **Equivalent requests share an entry.** Filter order, `offset: 0`, and empty
   lists do not create separate entries.
 - **Never fails a query.** A store error is treated as a miss: the query runs,
-  `meta.cache == "miss"`, and `on_error` sees the failure. A query with no
+  `meta.cache == "miss"`, and `on_error` sees the failure. So is a stored value
+  that isn't well-formed `CachedRows` with exactly this query's columns. A query with no
   portable form runs uncached and reports `meta.cache == "bypass"`, as does
   `use_cache=False`, which skips the cache for one call.
 - **The secret is optional.** Without one, the cache generates a random secret
