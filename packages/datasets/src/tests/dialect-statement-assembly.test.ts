@@ -108,8 +108,8 @@ describe('dialect ordering and pagination', () => {
   });
 
   it('derived metric statements', () => {
-    expect(client.toSQL(Aov as never, { limit: 5 } as never)).toMatch(/ORDER BY period ASC NULLS LAST LIMIT 5$/);
+    expect(client.toSQL(Aov as never, { limit: 5 } as never)).toMatch(/ORDER BY `period` ASC NULLS LAST LIMIT 5$/);
     expect(client.toSQL(Aov as never, { orderBy: [{ field: 'aovMetric', direction: 'desc' }], offset: 2 } as never))
-      .toMatch(/ORDER BY aovMetric DESC NULLS LAST LIMIT 9223372036854775807 OFFSET 2$/);
+      .toMatch(/ORDER BY `aovMetric` DESC NULLS LAST LIMIT 9223372036854775807 OFFSET 2$/);
   });
 });

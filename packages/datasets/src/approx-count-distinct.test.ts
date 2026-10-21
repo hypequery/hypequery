@@ -60,7 +60,7 @@ const Events = dataset('events', {
 describe('approxCountDistinct', () => {
   it('renders uniq on the query-builder path, with the NULL fallback for filters', () => {
     const client = createDatasetClient({ queryBuilder: sqlFactory() });
-    expect(client.toSQL(Events, { measures: ['visitors'] })).toBe('SELECT uniq(user_id) AS visitors FROM events');
+    expect(client.toSQL(Events, { measures: ['visitors'] })).toBe('SELECT uniq(user_id) AS `visitors` FROM events');
     expect(client.toSQL(Events, { measures: ['buyers'] }))
       .toContain('uniq(if((kind = ');
   });

@@ -69,27 +69,24 @@ export function buildDimensionSelectionPlan(
       throw new Error(`Unsupported time grain "${grain}".`);
     }
     const time = resolveDimensionExpression(ds, String(ds.timeKey), joinCtx);
-    selectParts.push(`${dialect.truncateTime(queryTimeSql(dialect, time, timezone), grain)} AS period`);
-    groupByParts.add("period");
+    const period = dialect.quoteIdentifier('period');
+    selectParts.push(`${dialect.truncateTime(queryTimeSql(dialect, time, timezone), grain)} AS ${period}`);
+    groupByParts.add(period);
   }
 
   for (const dimensionName of dimensions) {
     const expression = resolveDimensionExpression(ds, dimensionName, joinCtx);
 
-    if (joinCtx) {
-      // With joins in scope, every selection is table-qualified and aliased so
-      // grouping/ordering can reference the alias unambiguously.
-      const alias = isQualifiedField(dimensionName)
-        ? dialect.quoteIdentifier(dimensionName)
-        : dimensionName;
-      selectParts.push(`${expression} AS ${alias}`);
-      groupByParts.add(alias);
-    } else if (expression === dimensionName) {
+    // Every generated alias is quoted: reserved words and engines that fold
+    // unquoted case (Postgres) must keep the semantic name. With joins in
+    // scope every selection is table-qualified, so it is always aliased.
+    if (!joinCtx && expression === dimensionName) {
       selectParts.push(dimensionName);
       groupByParts.add(dimensionName);
     } else {
-      selectParts.push(`${expression} AS ${dimensionName}`);
-      groupByParts.add(dimensionName);
+      const alias = dialect.quoteIdentifier(dimensionName);
+      selectParts.push(`${expression} AS ${alias}`);
+      groupByParts.add(alias);
     }
   }
 
@@ -100,13 +97,16 @@ export function applyAggregationSpec(
   qb: QueryBuilderLike,
   ds: DatasetShape,
   spec: AggregationSpec,
-  alias: string,
+  name: string,
   joinCtx: RelationshipBuilderContext | undefined,
   dialect: DatasetSqlDialectRules,
   expressions?: { field: string; arg?: string },
 ): QueryBuilderLike {
+  // The semantic name is the output alias, quoted so it survives reserved
+  // words and case folding; messages keep the unquoted name.
+  const alias = dialect.quoteIdentifier(name);
   if (spec.sql) {
-    assertNoRawSqlUnderJoins('measure', alias, spec.sql, joinCtx);
+    assertNoRawSqlUnderJoins('measure', name, spec.sql, joinCtx);
   }
   const fieldOrExpr = expressions?.field ?? applyFilteredAggregationExpression(
     ds,
@@ -132,7 +132,7 @@ export function applyAggregationSpec(
     case "argMax":
     case "argMin": {
       if (!spec.argField) {
-        throw new Error(`Aggregation "${spec.aggregation}" for "${alias}" requires an argField ("by" column).`);
+        throw new Error(`Aggregation "${spec.aggregation}" for "${name}" requires an argField ("by" column).`);
       }
       const argExpr = expressions?.arg ?? resolveDimensionExpression(ds, spec.argField, joinCtx);
       if (spec.aggregation === "argMax") {
@@ -148,7 +148,7 @@ export function applyAggregationSpec(
     }
     case "percentile": {
       if (spec.level == null) {
-        throw new Error(`Aggregation "percentile" for "${alias}" requires a level.`);
+        throw new Error(`Aggregation "percentile" for "${name}" requires a level.`);
       }
       validatePercentileLevel(spec.level);
       if (!qb.quantile) {
@@ -198,13 +198,10 @@ export function appendOrderLimitOffset(
 ): QueryBuilderLike {
   if (orderBy && orderBy.length > 0) {
     for (const order of orderBy) {
-      const column = joinCtx && isQualifiedField(order.field)
-        ? dialect.quoteIdentifier(order.field)
-        : order.field;
-      qb = qb.orderBy(column, semanticOrderDirection(order.direction));
+      qb = qb.orderBy(dialect.quoteIdentifier(order.field), semanticOrderDirection(order.direction));
     }
   } else if (grain) {
-    qb = qb.orderBy("period", "ASC");
+    qb = qb.orderBy(dialect.quoteIdentifier("period"), "ASC");
   }
 
   if (limit != null) {

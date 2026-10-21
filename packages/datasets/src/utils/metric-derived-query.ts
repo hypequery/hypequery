@@ -55,6 +55,12 @@ export function buildDerivedMetricSql(
     cteBuilder = cteBuilder.select(selectParts);
   }
 
+  // Group before aggregating: the builder only infers GROUP BY when none is
+  // set, and cannot infer it from quoted aliases.
+  if (groupByParts.length > 0) {
+    cteBuilder = cteBuilder.groupBy(groupByParts);
+  }
+
   // Base aggregations
   const refAliases: Record<string, string> = {};
   const aggregateAliases: string[] = [];
@@ -63,13 +69,10 @@ export function buildDerivedMetricSql(
     if (baseSpec.__type !== 'aggregation_spec') {
       throw new Error(`Derived metric "${ref.name}" references non-base metric "${alias}".`);
     }
+    const quoted = dialect.quoteIdentifier(alias);
     cteBuilder = applyAggregationSpec(cteBuilder, ds, baseSpec, alias, joinCtx, dialect);
-    refAliases[alias] = alias;
-    aggregateAliases.push(alias);
-  }
-
-  if (groupByParts.length > 0) {
-    cteBuilder = cteBuilder.groupBy(groupByParts);
+    refAliases[alias] = quoted;
+    aggregateAliases.push(quoted);
   }
 
   // Filters on CTE
@@ -104,20 +107,16 @@ export function buildDerivedMetricSql(
   // Outer query: trivial SELECT from the CTE — stays as string concat
   // because table('base') would fail schema typing
   const outerSelectParts: string[] = [];
-  if (grain) outerSelectParts.push('period');
+  if (grain) outerSelectParts.push(dialect.quoteIdentifier('period'));
   for (const dim of query.dimensions ?? []) {
     // Joined dimensions surface from the CTE under their quoted qualified alias.
-    if (joinCtx && isQualifiedField(dim)) {
-      outerSelectParts.push(dialect.quoteIdentifier(dim));
-      continue;
-    }
-    validateSQLIdentifier(dim, 'dimension name');
-    outerSelectParts.push(dim);
+    if (!(joinCtx && isQualifiedField(dim))) validateSQLIdentifier(dim, 'dimension name');
+    outerSelectParts.push(dialect.quoteIdentifier(dim));
   }
 
   const formulaExpr = spec.formula(refAliases);
   validateSQLIdentifier(ref.name, 'metric name');
-  outerSelectParts.push(`${formulaExpr.toSQL()} AS ${ref.name}`);
+  outerSelectParts.push(`${formulaExpr.toSQL()} AS ${dialect.quoteIdentifier(ref.name)}`);
 
   const parameters = new StatementParameters(dialect);
   let text = `WITH base AS (${parameters.embedBuilder(cteBuilder, cteStatement)}) SELECT ${outerSelectParts.join(', ')} FROM base`;
@@ -125,15 +124,12 @@ export function buildDerivedMetricSql(
   // ORDER BY
   if (query.orderBy && query.orderBy.length > 0) {
     const orderParts = query.orderBy.map(o => {
-      if (joinCtx && isQualifiedField(o.field)) {
-        return dialect.orderTerm(dialect.quoteIdentifier(o.field), semanticOrderDirection(o.direction));
-      }
-      validateSQLIdentifier(o.field, 'order by field');
-      return dialect.orderTerm(o.field, semanticOrderDirection(o.direction));
+      if (!(joinCtx && isQualifiedField(o.field))) validateSQLIdentifier(o.field, 'order by field');
+      return dialect.orderTerm(dialect.quoteIdentifier(o.field), semanticOrderDirection(o.direction));
     });
     text += ` ORDER BY ${orderParts.join(', ')}`;
   } else if (grain) {
-    text += ` ORDER BY ${dialect.orderTerm('period')}`;
+    text += ` ORDER BY ${dialect.orderTerm(dialect.quoteIdentifier('period'))}`;
   }
 
   // Ensure limit and offset are safe integers.
