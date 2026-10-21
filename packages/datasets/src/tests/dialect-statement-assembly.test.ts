@@ -98,6 +98,12 @@ describe('dialect ordering and pagination', () => {
       .toMatch(/ORDER BY `aov` DESC NULLS LAST LIMIT 9223372036854775807 OFFSET 20$/);
   });
 
+  it('keeps the identity of rules a plain rule set shares with ClickHouse', () => {
+    const shared = defineDatasetSqlDialectRules({ ...clickhouseDatasetSqlDialect, name: 'shared-rules' });
+    expect(shared.rawSqlExpressionError).toBe(clickhouseDatasetSqlDialect.rawSqlExpressionError);
+    expect(shared.orderTerm).toBe(clickhouseDatasetSqlDialect.orderTerm);
+  });
+
   it('keeps the private fields a class-based rule set reads', () => {
     class PrivateRules {
       readonly #nulls = 'NULLS LAST';
