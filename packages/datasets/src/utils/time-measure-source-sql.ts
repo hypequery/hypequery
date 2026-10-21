@@ -1,6 +1,6 @@
 import { resolveRelationshipMeasure } from './relationship-measures.js';
 import { relationshipMeasureExpressions } from './relationship-measure-sql.js';
-import { queryTimeSql } from './query-timezone.js';
+import { queryTimeFilter, queryTimeSql } from './query-timezone.js';
 import type { AnyDatasetInstance, DatasetQuery, MeasureDefinition, MetricFilter } from '../types.js';
 import type { DatasetQueryExecutionOptions } from '../dataset-query.js';
 import { resolveDimensionExpression, resolveFilterField, resolveTenantFilterColumn } from '../query-planner.js';
@@ -78,11 +78,19 @@ export function buildTimeMeasureSourceSql(
   const tenant = getRuntimeTenantPredicate(options.context);
   const tenantColumn = resolveTenantFilterColumn(ds, options.context);
   if (tenant && tenantColumn) raw = raw.where(qualifyBaseColumn(joinCtx, tenantColumn), tenant.operator, tenant.value);
+  // The time axis already consumed every time-key bound, so these are the
+  // remaining caller filters.
   for (const filter of filters) {
-    raw = raw.where(resolveFilterField(ds, filter.field, joinCtx), filter.operator, filter.value);
+    const predicates = queryTimeFilter(dialect, ds, filter, resolveFilterField(ds, filter.field, joinCtx), query.timezone);
+    for (const predicate of predicates) {
+      raw = raw.where(predicate.expression, predicate.operator, predicate.value);
+    }
   }
   for (const filter of segmentFilters(ds, query.segments)) {
-    raw = raw.where(resolveDimensionExpression(ds, filter.field, joinCtx), filter.operator, filter.value);
+    const predicates = queryTimeFilter(dialect, ds, filter, resolveDimensionExpression(ds, filter.field, joinCtx), query.timezone, { field: 'dimension' });
+    for (const predicate of predicates) {
+      raw = raw.where(predicate.expression, predicate.operator, predicate.value);
+    }
   }
   const rawSql = statement.embedBuilder(raw);
   const sourceColumns = [`${queryTimeSql(dialect, dialect.assumeNotNull(dialect.rowElement(rowAlias, 1)), query.timezone)} AS _hq_time`];

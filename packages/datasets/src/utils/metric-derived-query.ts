@@ -11,7 +11,7 @@ import {
   resolveFilterField,
   resolveTenantFilterColumn,
 } from '../query-planner.js';
-import { queryTimeFilterSql } from './query-timezone.js';
+import { queryTimeFilter } from './query-timezone.js';
 import { StatementParameters, type PlannedStatement } from './statement-parameters.js';
 import { formulaExpressionSql } from './derived-measure-sql.js';
 import { isTenantScopedFilter } from './metric-handle.js';
@@ -93,12 +93,15 @@ export function buildDerivedMetricSql(
       );
     }
     const resolvedField = resolveFilterField(ds, filter.field, joinCtx);
-    cteBuilder = cteBuilder.where(queryTimeFilterSql(dialect, ds, filter.field, resolvedField, query.timezone), filter.operator, filter.value);
+    for (const predicate of queryTimeFilter(dialect, ds, filter, resolvedField, query.timezone)) {
+      cteBuilder = cteBuilder.where(predicate.expression, predicate.operator, predicate.value);
+    }
   }
   for (const filter of segmentFilters(ds, query.segments)) {
-    cteBuilder = cteBuilder.where(
-      resolveDimensionExpression(ds, filter.field, joinCtx), filter.operator, filter.value,
-    );
+    const predicates = queryTimeFilter(dialect, ds, filter, resolveDimensionExpression(ds, filter.field, joinCtx), query.timezone, { field: 'dimension' });
+    for (const predicate of predicates) {
+      cteBuilder = cteBuilder.where(predicate.expression, predicate.operator, predicate.value);
+    }
   }
 
   // Check the builder's own SQL: embedded text may be an opaque block marker.
