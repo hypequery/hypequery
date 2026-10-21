@@ -76,6 +76,36 @@ npx hypequery mcp --self-test
 ```
 </CodeBlock>
 
+## Datasets served from Python
+
+A Python backend (`hypequery.serve`) has no TypeScript API for the CLI to load.
+Instead, `hypequery mcp --client-contract-url` bridges its **authorized client
+contract**: the endpoints the API key's principal may call, with their fields and
+limits. Python keeps ownership of SQL, authorization and the tenant. The bridge
+only turns tool calls into the same HTTP requests a generated React client sends.
+
+<CodeBlock>
+```bash
+npm install @hypequery/mcp
+npm install -D @hypequery/cli
+HYPEQUERY_API_KEY=… npx hypequery mcp --client-contract-url https://analytics.example.com/v1/client-contract
+```
+</CodeBlock>
+
+- The URL is the backend's discovery route (`add_client_contract_endpoint`). It
+  must be HTTPS, or plain HTTP on `localhost`, `127.0.0.1` or `[::1]`, and must not
+  contain credentials, a query string or a fragment.
+- `HYPEQUERY_API_KEY` is sent as `Authorization: Bearer …` to that origin only.
+  Redirects are refused, so the key is never forwarded elsewhere.
+- One process serves one principal. Its tenant comes from that principal on the
+  Python side, so `--tenant`, a file and `--path` can't be combined with
+  `--client-contract-url`.
+- If the backend's definitions change while the bridge runs, query tools fail with
+  `MCP_STALE_CONTRACT`. Restart the bridge to load the new contract.
+
+Add `--self-test` to fetch and validate the contract and count the tools it would
+expose, without calling any query tool.
+
 The server speaks MCP over stdio, so an MCP client normally launches it. See [Clients](/docs/mcp/clients) for Claude
 Desktop and Cursor configuration.
 
