@@ -19,6 +19,7 @@ const Orders = dataset('orders', {
     createdAt: dimension.timestamp({ column: 'created_at' }),
     shippedAt: dimension.timestamp({ column: 'shipped_at' }),
     status: dimension.string(),
+    country: dimension.string(),
     amount: dimension.number(),
   },
   measures: {
@@ -30,8 +31,12 @@ const Orders = dataset('orders', {
       formula: ({ revenue, orderCount }) => divide(revenue, orderCount),
     }),
   },
+  // `status` is both a string dimension and a caller filter alias for the
+  // timestamp key; segments name the dimension, caller filters the alias.
+  filters: { status: { field: 'createdAt' }, createdAt: { field: 'createdAt' }, shippedAt: { field: 'shippedAt' }, country: { field: 'country' }, amount: { field: 'amount' } },
   segments: {
     sinceFebruary: { filters: [{ field: 'createdAt', operator: 'gte', value: '2026-02-01T00:00:00Z' }] },
+    isoStatus: { filters: [{ field: 'status', operator: 'eq', value: '2026-02-01T00:00:00Z' }] },
   },
 });
 
@@ -117,9 +122,31 @@ describe('timestamp filter binding', () => {
     });
   });
 
-  it('reads an instant in the query zone when a range mixes it with a local bound', () => {
+  it('keeps an instant bound absolute when a range mixes it with a local bound', () => {
     expect(where(tokyo, 'createdAt', 'between', ['2026-02-01', '2026-02-01T00:00:00Z'])).toEqual({
-      predicate: "toDateTime64(created_at, 9, 'Asia/Tokyo') BETWEEN ? AND ?",
+      predicate: "toDateTime64(created_at, 9, 'Asia/Tokyo') >= ? AND toDateTime64(created_at, 9, 'UTC') <= ?",
+      parameters: ['2026-02-01', '2026-02-01 00:00:00'],
+    });
+    expect(where(tokyo, 'createdAt', 'between', ['2026-02-01T00:00:00Z', '2026-03-01'])).toEqual({
+      predicate: "toDateTime64(created_at, 9, 'UTC') >= ? AND toDateTime64(created_at, 9, 'Asia/Tokyo') <= ?",
+      parameters: ['2026-02-01 00:00:00', '2026-03-01'],
+    });
+    // The repeated autumn hour: instants an hour apart must not bind alike.
+    const newYork = createDatasetClient({ queryBuilder, timezone: 'America/New_York' });
+    const early = where(newYork, 'createdAt', 'between', ['2026-11-01', '2026-11-01T05:30:00Z']);
+    const late = where(newYork, 'createdAt', 'between', ['2026-11-01', '2026-11-01T06:30:00Z']);
+    expect(early.parameters).toEqual(['2026-11-01', '2026-11-01 05:30:00']);
+    expect(late.parameters).toEqual(['2026-11-01', '2026-11-01 06:30:00']);
+    expect(early.predicate).toBe(late.predicate);
+  });
+
+  it('splits a mixed exclusion list and reads a mixed in list at the query zone', () => {
+    expect(where(tokyo, 'createdAt', 'notIn', ['2026-02-01', '2026-02-01T00:00:00Z'])).toEqual({
+      predicate: "toDateTime64(created_at, 9, 'Asia/Tokyo') NOT IN (?) AND toDateTime64(created_at, 9, 'UTC') NOT IN (?)",
+      parameters: ['2026-02-01', '2026-02-01 00:00:00'],
+    });
+    expect(where(tokyo, 'createdAt', 'in', ['2026-02-01', '2026-02-01T00:00:00Z'])).toEqual({
+      predicate: "toDateTime64(created_at, 9, 'Asia/Tokyo') IN (?, ?)",
       parameters: ['2026-02-01', '2026-02-01 09:00:00'],
     });
   });
@@ -133,7 +160,7 @@ describe('timestamp filter binding', () => {
   });
 
   it('never rewrites a string value or a like pattern that merely looks like an instant', () => {
-    expect(where(utc, 'status', 'eq', '2026-02-01T00:00:00Z')).toEqual({ predicate: 'status = ?', parameters: ['2026-02-01T00:00:00Z'] });
+    expect(where(utc, 'country', 'eq', '2026-02-01T00:00:00Z')).toEqual({ predicate: 'country = ?', parameters: ['2026-02-01T00:00:00Z'] });
     expect(where(utc, 'createdAt', 'like', '2026-02-01T00:00:00Z')).toEqual({
       predicate: "toDateTime64(created_at, 9, 'UTC') LIKE ?",
       parameters: ['2026-02-01T00:00:00Z'],
@@ -154,6 +181,11 @@ describe('timestamp filter binding', () => {
     expect(rendering.toSQL(Orders.metric('orderCount', { measure: 'orderCount' }), { filters }, context)).toContain(bound);
     expect(rendering.toSQL(Orders, { measures: ['averageOrder'], filters }, context)).toContain(bound);
     expect(rendering.toSQL(Orders, { measures: ['orderCount'], segments: ['sinceFebruary'] }, context)).toContain(bound);
+    // A segment names the string dimension, not the alias that shadows it.
+    expect(rendering.toSQL(Orders, { measures: ['orderCount'], segments: ['isoStatus'] }, context))
+      .toContain("status = '2026-02-01T00:00:00Z'");
+    expect(rendering.toSQL(Orders, { measures: ['orderCount'], filters: [{ field: 'status', operator: 'gte', value: '2026-02-01T00:00:00Z' }] }, context))
+      .toContain(bound);
 
     const running = rendering.toSQL(Orders, {
       measures: ['running'], by: 'day',

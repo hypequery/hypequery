@@ -1,6 +1,6 @@
 import type { DatasetSqlDialectRules } from '../dataset-sql-dialect.js';
-import type { AnyDatasetInstance, MetricFilter } from '../types.js';
-import { resolveFilterFieldType } from './filter-field-type.js';
+import type { AnyDatasetInstance, MetricFilter, MetricFilterOperator } from '../types.js';
+import { resolveDimensionFieldType, resolveFilterFieldType } from './filter-field-type.js';
 import { instantWallClock, parseTimestampInstant } from './timestamp-instants.js';
 
 /** Named zones only: reject fixed offsets, invalid zones, and SQL fragments. */
@@ -49,32 +49,42 @@ export function queryTimeFilterSql(
   return isTimeKeyFilter(ds, field) ? queryTimeSql(dialect, expression, timezone) : expression;
 }
 
-export interface QueryTimeFilterPredicate {
+/** One `where` call: the column side, its operator, and the value to bind. */
+export interface QueryTimePredicate {
   /** The column side of the predicate, converted to a zone when the value needs one. */
   readonly expression: string;
+  readonly operator: MetricFilterOperator;
   /** The value to bind, with instants rewritten to the wall clock of that zone. */
   readonly value: unknown;
 }
 
 export interface QueryTimeFilterOptions {
   /**
-   * Convert a time-key column to the query zone even for offset-free values,
-   * so they read as local time there. Default true; caller filters opt in,
-   * author-defined segment filters keep the column's own zone.
+   * How `filter.field` names its dimension. Caller filters (`'filter'`, the
+   * default) go through the dataset's filter aliases and read the time key in
+   * the query zone. Segment filters (`'dimension'`) name a dimension directly
+   * and keep the column's own zone for offset-free values.
    */
-  readonly timeKeyInQueryZone?: boolean;
+  readonly field?: 'filter' | 'dimension';
 }
 
+const INSTANT_ZONE = 'UTC';
+
 /**
- * The predicate for one filter under the query zone.
+ * The `where` predicates for one filter under the query zone.
  *
  * A timestamp value carrying `Z` or an offset is an instant, which ClickHouse
- * cannot read as a DateTime64 literal. Such a value is rewritten to the wall
- * clock it shows in the zone the column is converted to, which keeps the
- * comparison exact: a predicate whose values are all instants compares in
- * UTC, where no wall clock is ambiguous; one that mixes instants with
- * offset-free values keeps the query zone, so the local values still read
- * there. Offset-free values and non-timestamp fields are bound unchanged.
+ * cannot read as a DateTime64 literal. Such a value is rewritten to its UTC
+ * wall clock and compared against the column converted to UTC, where no wall
+ * clock is ambiguous, so the comparison stays exact in every query zone.
+ * Offset-free values keep the predicate they had: the query zone for a
+ * caller filter on the time key, the column's own zone otherwise.
+ *
+ * A range or exclusion list mixing both kinds splits into one predicate per
+ * kind, so an instant bound never loses its offset to a local one. A mixed
+ * `in` list cannot split (its members are alternatives), so its instants are
+ * read at the query zone's wall clock, which only a repeated DST hour makes
+ * ambiguous. Non-timestamp fields and `like` patterns are bound unchanged.
  */
 export function queryTimeFilter(
   dialect: DatasetSqlDialectRules,
@@ -83,23 +93,46 @@ export function queryTimeFilter(
   expression: string,
   timezone: string | undefined,
   options: QueryTimeFilterOptions = {},
-): QueryTimeFilterPredicate {
-  const timeKey = options.timeKeyInQueryZone !== false && isTimeKeyFilter(ds, filter.field);
+): QueryTimePredicate[] {
+  const callerFilter = options.field !== 'dimension';
+  const fieldType = callerFilter
+    ? resolveFilterFieldType(ds, filter.field)
+    : resolveDimensionFieldType(ds, filter.field);
+  const localExpression = callerFilter && isTimeKeyFilter(ds, filter.field)
+    ? queryTimeSql(dialect, expression, timezone)
+    : expression;
+  const local: QueryTimePredicate = { expression: localExpression, operator: filter.operator, value: filter.value };
+  if (fieldType !== 'timestamp' || filter.operator === 'like') return [local];
+
   const values = Array.isArray(filter.value) ? filter.value : [filter.value];
-  // A `like` pattern is text, never a point in time.
-  const instants = filter.operator !== 'like' && resolveFilterFieldType(ds, filter.field) === 'timestamp'
-    ? values.map(parseTimestampInstant)
-    : [];
-  if (!instants.some(Boolean)) {
-    return { expression: timeKey ? queryTimeSql(dialect, expression, timezone) : expression, value: filter.value };
-  }
-  const zone = instants.every(Boolean) ? 'UTC' : canonicalTimezone(timezone);
-  const rewritten = values.map((value, index) => {
+  const instants = values.map(parseTimestampInstant);
+  if (!instants.some(Boolean)) return [local];
+
+  const instantExpression = dialect.toQueryTimezone(expression, INSTANT_ZONE);
+  const rewrite = (zone: string) => values.map((value, index) => {
     const instant = instants[index];
     return instant ? instantWallClock(instant, zone) : value;
   });
-  return {
-    expression: dialect.toQueryTimezone(expression, zone),
-    value: Array.isArray(filter.value) ? rewritten : rewritten[0],
-  };
+  if (instants.every(Boolean)) {
+    const rewritten = rewrite(INSTANT_ZONE);
+    return [{ expression: instantExpression, operator: filter.operator, value: Array.isArray(filter.value) ? rewritten : rewritten[0] }];
+  }
+
+  switch (filter.operator) {
+    case 'between': {
+      const bound = (index: number, operator: MetricFilterOperator): QueryTimePredicate => instants[index]
+        ? { expression: instantExpression, operator, value: instantWallClock(instants[index]!, INSTANT_ZONE) }
+        : { expression: localExpression, operator, value: values[index] };
+      return [bound(0, 'gte'), bound(1, 'lte')];
+    }
+    case 'notIn':
+      return [
+        { expression: localExpression, operator: 'notIn', value: values.filter((_, index) => !instants[index]) },
+        { expression: instantExpression, operator: 'notIn', value: rewrite(INSTANT_ZONE).filter((_, index) => instants[index]) },
+      ];
+    default: {
+      const zone = canonicalTimezone(timezone);
+      return [{ expression: dialect.toQueryTimezone(expression, zone), operator: filter.operator, value: rewrite(zone) }];
+    }
+  }
 }

@@ -93,14 +93,15 @@ export function buildDerivedMetricSql(
       );
     }
     const resolvedField = resolveFilterField(ds, filter.field, joinCtx);
-    const predicate = queryTimeFilter(dialect, ds, filter, resolvedField, query.timezone);
-    cteBuilder = cteBuilder.where(predicate.expression, filter.operator, predicate.value);
+    for (const predicate of queryTimeFilter(dialect, ds, filter, resolvedField, query.timezone)) {
+      cteBuilder = cteBuilder.where(predicate.expression, predicate.operator, predicate.value);
+    }
   }
   for (const filter of segmentFilters(ds, query.segments)) {
-    const predicate = queryTimeFilter(
-      dialect, ds, filter, resolveDimensionExpression(ds, filter.field, joinCtx), query.timezone, { timeKeyInQueryZone: false },
-    );
-    cteBuilder = cteBuilder.where(predicate.expression, filter.operator, predicate.value);
+    const predicates = queryTimeFilter(dialect, ds, filter, resolveDimensionExpression(ds, filter.field, joinCtx), query.timezone, { field: 'dimension' });
+    for (const predicate of predicates) {
+      cteBuilder = cteBuilder.where(predicate.expression, predicate.operator, predicate.value);
+    }
   }
 
   // Check the builder's own SQL: embedded text may be an opaque block marker.

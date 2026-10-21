@@ -86,16 +86,17 @@ export function buildDatasetQueryBuilder(
 
   for (const filter of query.filters ?? []) {
     const resolvedField = resolveFilterField(ds, filter.field, joinCtx);
-    const predicate = queryTimeFilter(dialect, ds, filter, resolvedField, query.timezone);
-    qb = qb.where(predicate.expression, filter.operator, predicate.value);
+    for (const predicate of queryTimeFilter(dialect, ds, filter, resolvedField, query.timezone)) {
+      qb = qb.where(predicate.expression, predicate.operator, predicate.value);
+    }
   }
 
   // Segments are author-defined, so they bypass the caller filter allow-list.
   for (const filter of segmentFilters(ds, query.segments)) {
-    const predicate = queryTimeFilter(
-      dialect, ds, filter, resolveDimensionExpression(ds, filter.field, joinCtx), query.timezone, { timeKeyInQueryZone: false },
-    );
-    qb = qb.where(predicate.expression, filter.operator, predicate.value);
+    const predicates = queryTimeFilter(dialect, ds, filter, resolveDimensionExpression(ds, filter.field, joinCtx), query.timezone, { field: 'dimension' });
+    for (const predicate of predicates) {
+      qb = qb.where(predicate.expression, predicate.operator, predicate.value);
+    }
   }
 
   return appendOrderLimitOffset(

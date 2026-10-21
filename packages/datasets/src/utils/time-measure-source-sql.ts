@@ -78,19 +78,19 @@ export function buildTimeMeasureSourceSql(
   const tenant = getRuntimeTenantPredicate(options.context);
   const tenantColumn = resolveTenantFilterColumn(ds, options.context);
   if (tenant && tenantColumn) raw = raw.where(qualifyBaseColumn(joinCtx, tenantColumn), tenant.operator, tenant.value);
-  // The time axis already consumed the time-key bounds; the rest keep their
-  // column's zone unless an instant value needs an explicit one.
+  // The time axis already consumed every time-key bound, so these are the
+  // remaining caller filters.
   for (const filter of filters) {
-    const predicate = queryTimeFilter(
-      dialect, ds, filter, resolveFilterField(ds, filter.field, joinCtx), query.timezone, { timeKeyInQueryZone: false },
-    );
-    raw = raw.where(predicate.expression, filter.operator, predicate.value);
+    const predicates = queryTimeFilter(dialect, ds, filter, resolveFilterField(ds, filter.field, joinCtx), query.timezone);
+    for (const predicate of predicates) {
+      raw = raw.where(predicate.expression, predicate.operator, predicate.value);
+    }
   }
   for (const filter of segmentFilters(ds, query.segments)) {
-    const predicate = queryTimeFilter(
-      dialect, ds, filter, resolveDimensionExpression(ds, filter.field, joinCtx), query.timezone, { timeKeyInQueryZone: false },
-    );
-    raw = raw.where(predicate.expression, filter.operator, predicate.value);
+    const predicates = queryTimeFilter(dialect, ds, filter, resolveDimensionExpression(ds, filter.field, joinCtx), query.timezone, { field: 'dimension' });
+    for (const predicate of predicates) {
+      raw = raw.where(predicate.expression, predicate.operator, predicate.value);
+    }
   }
   const rawSql = statement.embedBuilder(raw);
   const sourceColumns = [`${queryTimeSql(dialect, dialect.assumeNotNull(dialect.rowElement(rowAlias, 1)), query.timezone)} AS _hq_time`];
