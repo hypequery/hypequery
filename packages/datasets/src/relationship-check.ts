@@ -20,6 +20,7 @@
 import type { AnyDatasetInstance, ExecutionContext } from './types.js';
 import { toQueryBuilderFactory, type QueryBuilderFactoryInput } from './query-builder-protocol.js';
 import { getRuntimeTenantPredicate, validateTenantRuntime } from './utils/tenant-runtime.js';
+import { resolveDatasetSqlDialect } from './utils/dataset-sql-dialect.js';
 import {
   listToOneRelationships,
   readCount,
@@ -63,6 +64,7 @@ export async function checkRelationships(
   options: CheckRelationshipsOptions,
 ): Promise<CheckRelationshipsResult> {
   const factory = toQueryBuilderFactory(options.queryBuilder);
+  const dialect = resolveDatasetSqlDialect(factory);
   const tenantPredicate = getRuntimeTenantPredicate(options.context);
   const entries = listToOneRelationships(ds, options.relationships);
   const issues: RelationshipKeyIssue[] = [];
@@ -76,7 +78,7 @@ export async function checkRelationships(
     let qb = factory
       .table(entry.target.source)
       .count(entry.column, ROWS_ALIAS)
-      .countDistinct(entry.columns ? `tuple(${entry.columns.join(', ')})` : entry.column, KEYS_ALIAS);
+      .countDistinct(entry.columns ? dialect.packRow(entry.columns) : entry.column, KEYS_ALIAS);
     if (entry.columns) {
       for (const column of entry.columns) qb = qb.where(column, 'isNotNull', undefined);
     }

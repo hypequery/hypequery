@@ -1,6 +1,7 @@
 import { semanticQuerySyntaxErrors } from './semantic-query-syntax.js';
 /** Metric SQL compilation; factory selection and execution belong to the client. */
 import { resolveDatasetSqlDialect } from './dataset-sql-dialect.js';
+import { assertRawSqlForDialect } from './raw-sql-dialect-check.js';
 import type { MetricRef, MetricQuery, ExecutionContext, TimeGrain } from '../types.js';
 import type { QueryBuilderFactoryLike, QueryBuilderLike } from '../query-builder-protocol.js';
 import {
@@ -11,7 +12,7 @@ import {
   resolveFilterField,
   resolveTenantFilterColumn,
 } from '../query-planner.js';
-import { queryTimeFilterSql } from './query-timezone.js';
+import { queryTimeFilter } from './query-timezone.js';
 import { isTenantScopedFilter } from './metric-handle.js';
 import { getRuntimeTenantPredicate } from './tenant-runtime.js';
 import {
@@ -34,7 +35,8 @@ export function buildMetricQueryBuilder(
   const syntaxErrors = semanticQuerySyntaxErrors(query);
   if (syntaxErrors.length) throw new Error(syntaxErrors.join('; '));
   const dialect = resolveDatasetSqlDialect(builderFactory);
-  const joinCtx = buildRelationshipBuilderContext(ds, query, context);
+  assertRawSqlForDialect(ds, dialect);
+  const joinCtx = buildRelationshipBuilderContext(ds, query, context, dialect);
   let qb: QueryBuilderLike = builderFactory.table(ds.source);
   qb = applyRelationshipJoins(qb, joinCtx);
   const { selectParts, groupByParts } = buildDimensionSelectionPlan(
@@ -50,13 +52,12 @@ export function buildMetricQueryBuilder(
     qb = qb.select(selectParts);
   }
 
-  // Aggregation (appends to select, auto-sets groupBy on non-agg columns)
-  qb = applyAggregationSpec(qb, ds, spec, ref.name, joinCtx);
-
-  // Explicit groupBy (ensures period + dims are grouped even if aggregation auto-groupBy misses them)
+  // Group before aggregating: the builder only infers GROUP BY when none is
+  // set, and cannot infer it from quoted aliases.
   if (groupByParts.length > 0) {
     qb = qb.groupBy(groupByParts);
   }
+  qb = applyAggregationSpec(qb, ds, spec, ref.name, joinCtx, dialect);
 
   // Tenant auto-injection
   const tenantColumn = resolveTenantFilterColumn(ds, context);
@@ -73,17 +74,22 @@ export function buildMetricQueryBuilder(
       );
     }
     const resolvedField = resolveFilterField(ds, filter.field, joinCtx);
-    qb = qb.where(queryTimeFilterSql(ds, filter.field, resolvedField, query.timezone), filter.operator, filter.value);
+    for (const predicate of queryTimeFilter(dialect, ds, filter, resolvedField, query.timezone)) {
+      qb = qb.where(predicate.expression, predicate.operator, predicate.value);
+    }
   }
 
   // Segments: author-defined, so they resolve dimensions directly rather
   // than through the caller-facing filter allow-list.
   for (const filter of segmentFilters(ds, query.segments)) {
-    qb = qb.where(resolveDimensionExpression(ds, filter.field, joinCtx), filter.operator, filter.value);
+    const predicates = queryTimeFilter(dialect, ds, filter, resolveDimensionExpression(ds, filter.field, joinCtx), query.timezone, { field: 'dimension' });
+    for (const predicate of predicates) {
+      qb = qb.where(predicate.expression, predicate.operator, predicate.value);
+    }
   }
 
   // Order, limit, offset
-  qb = appendOrderLimitOffset(qb, query.orderBy, grain, query.limit, query.offset, joinCtx, dialect);
+  qb = appendOrderLimitOffset(qb, query.orderBy, grain, query.limit, query.offset, joinCtx, dialect, { ds, dimensions: query.dimensions ?? [] });
 
   return qb;
 }

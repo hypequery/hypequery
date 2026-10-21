@@ -9,6 +9,7 @@ import { resolveDatasetSqlDialect } from './dataset-sql-dialect.js';
 import { validateDatasetQueryInput } from './dataset-query-validation.js';
 import type { DatasetQueryExecutionOptions } from '../dataset-query.js';
 import { datasetHavingSql } from './dataset-having.js';
+import { StatementParameters, type PlannedStatement } from './statement-parameters.js';
 
 type BuildBaseQuery = (
   dataset: AnyDatasetInstance,
@@ -33,7 +34,7 @@ export function buildDerivedDatasetSql(
   query: DatasetQuery,
   options: DatasetQueryExecutionOptions,
   buildBaseQuery: BuildBaseQuery,
-): { sql: string; parameters: unknown[] } {
+): PlannedStatement {
   const validation = validateDatasetQueryInput(ds, query, options.context);
   if (!validation.valid) {
     throw new Error(`Invalid dataset query: ${validation.errors.join('; ')}`);
@@ -44,7 +45,7 @@ export function buildDerivedDatasetSql(
   const baseMeasures = measureDependencyNames(queryMeasureDefinitions(ds, selected), selected).filter(name => name.includes('.') || getBaseMeasure(ds.measures, name));
   const resolve = (name: string): string => {
     const derived = getDerivedMeasure(ds.measures, name);
-    return derived ? `(${derivedExpressionSql(derived, resolve)})` : dialect.quoteIdentifier(name);
+    return derived ? `(${derivedExpressionSql(dialect, derived, resolve)})` : dialect.quoteIdentifier(name);
   };
   const inner = buildBaseQuery(ds, {
     ...query,
@@ -54,7 +55,8 @@ export function buildDerivedDatasetSql(
     limit: undefined,
     offset: undefined,
   }, { ...options, executionLimit: undefined, skipDefaultOrderBy: true });
-  const { sql: innerSql, parameters } = inner.toSQLWithParams();
+  const parameters = new StatementParameters(dialect);
+  const base = parameters.embedBuilder(inner);
 
   const projections: string[] = [];
   if (query.by) projections.push(dialect.quoteIdentifier('period'));
@@ -62,28 +64,25 @@ export function buildDerivedDatasetSql(
   for (const name of selected) {
     const derived = getDerivedMeasure(ds.measures, name);
     projections.push(derived
-      ? `${derivedExpressionSql(derived, resolve)} AS ${dialect.quoteIdentifier(name)}`
+      ? `${derivedExpressionSql(dialect, derived, resolve)} AS ${dialect.quoteIdentifier(name)}`
       : dialect.quoteIdentifier(name));
   }
-  let sql = `WITH base AS (${innerSql}) SELECT ${projections.join(', ')} FROM base`;
+  let text = `WITH base AS (${base}) SELECT ${projections.join(', ')} FROM base`;
 
   // Conditions read the same expression the projection does, never the output
   // alias, so the predicate stays valid on dialects without alias resolution.
   if (query.having?.length) {
-    const having = datasetHavingSql(query.having, resolve);
-    sql += ` WHERE ${having.sql}`;
-    parameters.push(...having.parameters);
+    text += ` WHERE ${datasetHavingSql(query.having, resolve, parameters)}`;
   }
 
   if (query.orderBy?.length) {
-    sql += ` ORDER BY ${query.orderBy.map(order => (
-      `${dialect.quoteIdentifier(order.field)} ${semanticOrderDirection(order.direction)}`
+    text += ` ORDER BY ${query.orderBy.map(order => (
+      dialect.orderTerm(dialect.quoteIdentifier(order.field), semanticOrderDirection(order.direction))
     )).join(', ')}`;
   } else if (query.by) {
-    sql += ` ORDER BY ${dialect.quoteIdentifier('period')} ASC`;
+    text += ` ORDER BY ${dialect.orderTerm(dialect.quoteIdentifier('period'), 'ASC')}`;
   }
   const limit = options.executionLimit ?? query.limit;
-  if (limit !== undefined) sql += ` LIMIT ${limit}`;
-  if (query.offset !== undefined) sql += ` OFFSET ${query.offset}`;
-  return { sql, parameters };
+  text += dialect.paginate(limit, query.offset);
+  return { text, parameters };
 }

@@ -50,6 +50,25 @@ eq('status', 'completed')
 ```
 </CodeBlock>
 
+## Timestamp values
+
+Timestamp filters take ISO 8601 strings. A date (`'2026-02-01'`) or an
+offset-free date-time (`'2026-02-01T00:00:00'`, `'2026-02-01 00:00:00'`) is
+read as local time in the query timezone. A value carrying `Z` or an offset,
+such as `new Date().toISOString()` produces, is an instant and selects the
+same rows in every query timezone:
+
+<CodeBlock>
+```typescript
+gte('createdAt', '2026-02-01T00:00:00Z')      // instant
+gte('createdAt', '2026-02-01T00:00:00.000Z')  // instant, fractional seconds kept
+gte('createdAt', '2026-02-01')                // local midnight in the query timezone
+```
+</CodeBlock>
+
+A `between` or `notIn` may mix the two forms; each bound keeps its own
+meaning. An `in` list must use one form or the other.
+
 ## Use filters in dataset queries
 
 <CodeBlock>

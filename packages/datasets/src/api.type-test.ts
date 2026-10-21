@@ -1,5 +1,6 @@
 import {
   add,
+  assertDeployable,
   between,
   buildCanonicalSemanticQuerySchemas,
   buildProtocolDeploymentContract,
@@ -156,6 +157,7 @@ dataset('invalidWindowInput', {
 type _UnselectedDerivedMeasureIsNotInDefaultResult = Assert<
   Equal<HasKey<DatasetRowFor<typeof Orders, {}>, 'doubledRevenue'>, false>
 >;
+assertDeployable(Orders);
 const deploymentContract = buildProtocolDeploymentContract([Orders]);
 type _DeploymentContractVersion = Assert<Equal<typeof deploymentContract.version, 2>>;
 rehydrateProtocolDeploymentContract(deploymentContract);

@@ -1,7 +1,7 @@
 import { semanticOrderDirection } from './semantic-query-syntax.js';
 import type { AnyDatasetInstance, DatasetQuery } from '../types.js';
 import type { DatasetQueryExecutionOptions } from '../dataset-query.js';
-import { quoteSQLIdentifier } from '../sql-utils.js';
+import { resolveDatasetSqlDialect } from './dataset-sql-dialect.js';
 import { getDerivedMeasure } from './dataset-measures.js';
 import { derivedProjection } from './derived-measure-sql.js';
 import type { TimeMeasureSqlDimension } from './time-measure-source-sql.js';
@@ -16,26 +16,27 @@ export function buildTimeMeasureResultSql(
   validationGuard: string,
   formulasEvaluated = false,
 ): string {
+  const dialect = resolveDatasetSqlDialect(options.builderFactory);
+  const quote = dialect.quoteIdentifier;
   const selected = query.measures ?? [];
   const projections = [
-    quoteSQLIdentifier('period'),
-    ...dims.map(dimension => quoteSQLIdentifier(dimension.name)),
+    quote('period'),
+    ...dims.map(dimension => quote(dimension.name)),
     ...selected.map(name => {
       const derived = getDerivedMeasure(ds.measures, name);
-      return derived && !formulasEvaluated ? derivedProjection(name, derived) : quoteSQLIdentifier(name);
+      return derived && !formulasEvaluated ? derivedProjection(dialect, name, derived) : quote(name);
     }),
   ];
   // Keep toSQL independently guarded too. This branch produces no valid
   // result rows, and forces axis validation even when _hq_values is empty.
   const outputNames = ['period', ...dims.map(dimension => dimension.name), ...selected];
-  const nullProjections = outputNames.map(name => `NULL AS ${quoteSQLIdentifier(name)}`).join(', ');
+  const nullProjections = outputNames.map(name => `NULL AS ${quote(name)}`).join(', ');
   const resultCte = `_hq_result AS (SELECT ${projections.join(', ')} FROM _hq_values`
     + ` UNION ALL SELECT ${nullProjections} FROM _hq_bounds WHERE ${validationGuard} = 1)`;
-  let sql = `WITH ${[...ctes, resultCte].join(',\n')} SELECT ${outputNames.map(quoteSQLIdentifier).join(', ')} FROM _hq_result`;
+  let sql = `WITH ${[...ctes, resultCte].join(',\n')} SELECT ${outputNames.map(name => quote(name)).join(', ')} FROM _hq_result`;
   const order = query.orderBy?.length ? query.orderBy : [{ field: 'period', direction: 'asc' }];
-  sql += ` ORDER BY ${order.map(item => `${quoteSQLIdentifier(item.field)} ${semanticOrderDirection(item.direction)}`).join(', ')}`;
+  sql += ` ORDER BY ${order.map(item => dialect.orderTerm(quote(item.field), semanticOrderDirection(item.direction))).join(', ')}`;
   const limit = options.executionLimit ?? query.limit;
-  if (limit !== undefined) sql += ` LIMIT ${limit}`;
-  if (query.offset !== undefined) sql += ` OFFSET ${query.offset}`;
+  sql += dialect.paginate(limit, query.offset);
   return sql;
 }

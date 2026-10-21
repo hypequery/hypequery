@@ -2,13 +2,15 @@
 
 A Python semantic layer for ClickHouse datasets, metrics, multi-tenant analytics, and FastAPI serving.
 
-> **Pre-alpha:** datasets, execution and Serve are implemented and tested against
-> the shared protocol fixtures, but the package is not yet published to PyPI and
-> its APIs may still change. Do not use it in production yet.
+> **Beta candidate 0.1.0b1:** datasets, execution, Serve, generated React clients
+> and HTTP-backed MCP have installed-artifact qualification. This branch prepares
+> the release; it does not establish PyPI or matching npm availability. APIs may
+> change during beta. Use the [release checklist](RELEASING.md#integrated-beta-candidate)
+> before deploying or announcing it.
 
 ## Python → React → MCP example
 
-The [complete client tutorial](examples/client_dashboard/README.md) shares one
+The [complete client tutorial](https://github.com/hypequery/hypequery/blob/main/python/hypequery/examples/client_dashboard/README.md) shares one
 Python definition across authorized HTTP, generated React types and MCP stdio.
 Its preparation script uses an installed wheel and packed Node packages outside
 the checkout. Matching npm features remain in the development release stack;
@@ -36,7 +38,7 @@ definitions for an all-nullable table.
 
 `--skip-connection` explicitly creates the offline orders demo with `seed.sql`.
 Existing output paths are never overwritten. See the
-[TypeScript reference and parity contract](../../plans/python-cli-schema-generation-parity.md).
+[TypeScript reference and parity contract](https://github.com/hypequery/hypequery/blob/main/plans/python-cli-schema-generation-parity.md).
 
 ## Getting started
 
@@ -48,8 +50,8 @@ From zero to a served dataset. You need Python 3.11+ and a ClickHouse server.
 pip install "hypequery[fastapi,clickhouse]"
 ```
 
-Until the first PyPI release, install from a checkout of this repository
-instead: `pip install "./python/hypequery[fastapi,clickhouse]"`.
+To try an unreleased build, install from a checkout of this repository instead:
+`pip install "./python/hypequery[fastapi,clickhouse]"`.
 
 **2. Create sample data.** Run this in `clickhouse client` (or any SQL console)
 against your database:
@@ -220,7 +222,7 @@ invalid command usage. No Node tooling is required.
 Python keeps `-h` for help; use `--hostname` for the bind address.
 Shared CLI commands and supported options use the TypeScript names.
 Python entrypoints use `module:attribute`, and scaffolding defaults to the current
-directory. See the [cross-language naming audit](../../plans/python-typescript-naming-parity.md)
+directory. See the [cross-language naming audit](https://github.com/hypequery/hypequery/blob/main/plans/python-typescript-naming-parity.md)
 for the SDK and pending beta features.
 
 ## Install extras
@@ -388,9 +390,10 @@ result.meta.cache  # "miss", then "hit" for the same request
   executions never share one either.
 - **Equivalent requests share an entry.** Filter order, `offset: 0`, and empty
   lists do not create separate entries.
-- **Never fails a query.** A store error, or a query with no portable form,
-  runs uncached and reports `meta.cache == "bypass"`. Pass `use_cache=False`
-  to skip the cache for one call.
+- **Never fails a query.** A store error is treated as a miss: the query runs,
+  `meta.cache == "miss"`, and `on_error` sees the failure. A query with no
+  portable form runs uncached and reports `meta.cache == "bypass"`, as does
+  `use_cache=False`, which skips the cache for one call.
 - **The secret is optional.** Without one, the cache generates a random secret
   for its own lifetime. Keys stay opaque, and entries last as long as the
   process, which is all an in-memory store needs.
@@ -537,7 +540,7 @@ Every error from a served route uses the same envelope as `@hypequery/serve`:
 
 Every error response is sent with `Cache-Control: no-store` and an
 `x-request-id`. The shared fixtures in
-[`specs/serve-http`](../../specs/serve-http/fixtures/errors-v1/README.md) pin the
+[`specs/serve-http`](https://github.com/hypequery/hypequery/blob/main/specs/serve-http/fixtures/errors-v1/README.md) pin the
 envelope for both languages.
 
 - **What an endpoint raises:**
@@ -624,9 +627,17 @@ expiry issue a separate `KILL QUERY` command using the server query ID. A
 cancelled ASGI task is treated as caller cancellation. For a synchronous driver
 used inside an async application, `AsyncFromSyncClickHouseExecutor` runs query
 work in a bounded worker pool with a separate control worker and supports the
-same cancellation contract. During application shutdown, call
-`await executor.aclose()` to wait for workers and close both supplied driver
-clients. `close()` stops admission immediately without waiting for workers.
+same cancellation contract. Create the driver clients it wraps with
+`autogenerate_session_id=False`, as the factories do: a clickhouse-connect
+client bound to a session refuses concurrent queries, so with the default
+client every query past the first fails while another is running. During
+application shutdown, call `await executor.aclose()` to wait for workers and
+close both supplied driver clients. `close()` stops admission immediately
+without waiting for workers.
+
+`ExecutionContext(deadline=Deadline.after(seconds))` bounds one execution;
+`Deadline` is exported by `hypequery.datasets`. A query that is still running
+when it expires is killed on the server and fails with `deadline-exceeded`.
 
 ## Canonical protocol values
 
@@ -789,13 +800,19 @@ Orders = Dataset(
     relationships={
         "customer": belongs_to(
             lambda: Customers,
-            from_field="customerId",
+            from_field="customer_id",
             to_field="id",
         )
     },
     limits=DatasetLimits(max_dimensions=5, max_filters=10),
 )
 ```
+
+`from_field` and `to_field` name physical columns of the two sources, as in
+TypeScript's `from`/`to`, not dimensions: here `customer_id` rather than the
+`customerId` dimension that maps it. The target is a `Dataset` or a
+zero-argument callable returning one, invoked once when the helper runs. The
+target dataset must already be defined, even when using a callable.
 
 A relationship can also join on a composite key: several column pairs that
 must all be equal (RFC 0016). Pass `keys` instead of `from_field`/`to_field`:
@@ -858,6 +875,32 @@ encoded — identity is only ever computed over something that already passed.
 The canonical bytes and hash are byte-identical to `@hypequery/protocol` for
 the same contract. A 74-probe differential run across both implementations
 found no divergence in acceptance, error code, or identity.
+
+### Deployable formulas
+
+Local queries accept every formula the `formula` helpers build. A deployment
+contract accepts a narrower subset:
+
+- A derived measure may reference only base measures. `formula.round("aov", 2)`
+  over a derived `aov` is not deployable; inline the inner formula instead.
+- A literal may appear only as the `round` decimals or as a `coalesce`
+  fallback. `formula.multiply("revenue", 2)` and `formula.null_if_zero(0)` are
+  not deployable, and the `coalesce` fallback must be a number (`None` is
+  refused).
+
+`build_protocol_deployment_contract()` and `write_dataset_bundle()` check this
+before building the contract, so the error names the dataset and measure
+instead of a contract path. `validate_deployable()` runs the same check on its
+own:
+
+```python
+from hypequery.datasets import validate_deployable
+
+validate_deployable(orders)
+# ValueError: orders.doubled: a numeric literal cannot be an arithmetic operand
+# in a deployable formula; literals are only accepted as round decimals or a
+# coalesce fallback
+```
 
 ## Bundles and releases
 
@@ -1090,10 +1133,10 @@ a branch for either would be unreachable code.
 
 ## Development
 
-See [the Python release guide](./RELEASING.md) for beta, canary, and stable
+See [the Python release guide](https://github.com/hypequery/hypequery/blob/main/python/hypequery/RELEASING.md) for beta, canary, and stable
 publishing, including the bundled CLI.
 
-See the [datasets implementation guide](./ARCHITECTURE.md) for validation,
+See the [datasets implementation guide](https://github.com/hypequery/hypequery/blob/main/python/hypequery/ARCHITECTURE.md) for validation,
 compilation and client boundaries, and where future dialect work belongs.
 
 ```bash
@@ -1131,10 +1174,10 @@ and asserts each one's exact expected family list before running its cases.
 `pnpm conformance` runs this Python gate together with the TypeScript
 reference and SQL-portability adapters.
 
-See the [implementation plan](../../plans/python-datasets-serve-pr-level-plan.md) and [security protocol](../../specs/security-protocol/README.md).
+See the [implementation plan](https://github.com/hypequery/hypequery/blob/main/plans/python-datasets-serve-pr-level-plan.md) and [security protocol](https://github.com/hypequery/hypequery/blob/main/specs/security-protocol/README.md).
 
 For dataset coverage, CI gates, and remaining gaps, see the
-[testing review](./TESTING_REVIEW.md).
+[testing review](https://github.com/hypequery/hypequery/blob/main/python/hypequery/TESTING_REVIEW.md).
 
 ## Serve dataset and metric endpoints
 
@@ -1294,8 +1337,8 @@ CI tests the real runner, startup refusals, capacity recovery, synchronous and
 asynchronous cancellation, cache/response limits and proxy trust. The same shared
 HTTP fixtures run with and without the production profile, and live ClickHouse
 CI tests the production HTTP query path. The declared direct dependency floors
-(including FastAPI 0.141.1, Starlette 1.3.1 and Uvicorn 0.54.0) are tested as
-well as the locked versions.
+(pydantic 2.9.2, FastAPI 0.137.2, Starlette 1.3.1, Uvicorn 0.30.6 and
+clickhouse-connect 1.4.2) are tested as well as the locked versions.
 
 Run both implementations' shared HTTP gates after building TypeScript packages:
 

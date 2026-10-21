@@ -1,0 +1,1 @@
+- Canonicalize text containing unpaired UTF-16 surrogates as `JSON.stringify` does, writing a `\\udXXX` escape, instead of failing with a `UnicodeEncodeError`. Deployment and bundle contracts with such a label or description now produce the same canonical bytes as TypeScript.

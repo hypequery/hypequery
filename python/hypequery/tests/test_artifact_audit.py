@@ -89,6 +89,7 @@ def test_rejects_missing_py_typed(tmp_path: Path) -> None:
     [
         "hypequery-0.1.0/.import_linter_cache/data.json",
         "hypequery-0.1.0/.mypy_cache/x.json",
+        "hypequery-0.1.0/.hypothesis/unicode_data/16.0.0/charmap.json.gz",
         "hypequery-0.1.0/src/__pycache__/mod.pyc",
         "hypequery-0.1.0/.env",
         "hypequery-0.1.0/node_modules/left-pad/index.js",

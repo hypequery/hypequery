@@ -74,6 +74,34 @@ rehydration. Existing standalone metrics remain available for local and
 self-hosted use; for new dataset-owned calculations, prefer this API. See
 [Metrics](/docs/datasets/metrics) for the older named-metric API.
 
+### Deployable formulas
+
+Local queries accept every formula the helpers build. A deployment contract
+accepts a narrower subset, and `hypequery deploy` refuses a dataset that steps
+outside it:
+
+- A derived measure may reference only base measures. A derived measure built
+  on another derived measure, such as `round(averageOrderValue, 2)`, is not
+  deployable; inline the inner formula instead.
+- A literal may appear only as the `round` decimals or as a `coalesce`
+  fallback. `multiply(revenue, 2)` or `nullIfZero(0)` are not deployable, and
+  the `coalesce` fallback must be a number.
+
+`assertDeployable(dataset)` runs the same check on its own, and
+`buildProtocolDeploymentContract` runs it before building the contract, so the
+error names the dataset and measure rather than a contract path:
+
+<CodeBlock>
+```typescript
+import { assertDeployable } from '@hypequery/datasets';
+
+assertDeployable(Orders);
+// Error: orders.doubled: a numeric literal cannot be an arithmetic operand in a
+// deployable formula; literals are only accepted as round decimals or a
+// coalesce fallback
+```
+</CodeBlock>
+
 With that definition, callers use the semantic measure names:
 
 <CodeBlock>
@@ -117,7 +145,8 @@ Orders.measures.runningRevenue; // The window definition, alongside revenue.
 Each window references a base measure on its dataset and requires `timeKey`.
 `cumulative` supports only `sum`, `count`, `min`, and `max`. A derived formula
 may reference a base or window measure, but cannot reference another derived
-measure.
+measure. Deployment contracts are stricter still: see
+[Deployable formulas](#deployable-formulas).
 
 Execute windows with `createDatasetClient({ queryBuilder })`. Select a grain
 and exactly one bounded filter on the dataset's time field:

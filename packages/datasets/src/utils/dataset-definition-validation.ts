@@ -31,6 +31,8 @@ import type {
   SemanticFiltersDefinition,
 } from '../types.js';
 import { escapeRegExp, isSafeSQLIdentifier, stripSqlLiterals } from '../sql-utils.js';
+import { clickhouseDatasetSqlDialect } from './clickhouse-dataset-sql-dialect.js';
+import { rawSqlErrorMessage } from './raw-sql-dialect-check.js';
 import { SEMANTIC_FILTER_OPERATORS, isSemanticFilterOperator } from '../constants.js';
 import { validateDerivedMeasures } from './derived-measure-validation.js';
 import { isDerivedMeasure, isWindowMeasure, isShiftMeasure } from './dataset-measures.js';
@@ -40,15 +42,6 @@ import { validateDatasetAgentMetadata } from './semantic-metadata-validation.js'
 type AnyDimensions = Record<string, DimensionDefinition>;
 type AnyMeasures = Record<string, DatasetMeasureDefinition>;
 type AnyRelationships = Record<string, RelationshipDefinition>;
-
-/**
- * Statement terminators and comment openers.
- *
- * A raw `sql` value is spliced into a larger expression, so any of these turns
- * one expression into something else: `;` starts a second statement, `--` and
- * `/*` comment out whatever the builder appends after it.
- */
-const STATEMENT_BREAKERS = /;|--|\/\*/;
 
 /** Dataset, dimension and measure names address fields as `<relationship>.<dimension>`. */
 const QUALIFIED_SEPARATOR = '.';
@@ -126,27 +119,15 @@ function validateRawSql(
     fail(datasetName, `${kind} "${name}" declares an empty sql expression.`);
   }
 
-  // Quoted spans are blanked first, so a terminator or comment opener *inside* a
-  // string literal is data rather than syntax. An unterminated quote is itself a
-  // rejection: left as data, an open quote would hide everything after it.
-  let code: string;
-  let referenceable: string;
-  try {
-    code = stripSqlLiterals(sql);
-    // A quoted identifier is a column reference, so the dependency check below
-    // needs its text even though the terminator check above must not see it.
-    referenceable = stripSqlLiterals(sql, { keepQuotedIdentifiers: true });
-  } catch {
-    fail(datasetName, `${kind} "${name}" sql has an unterminated quoted literal.`);
-  }
-
-  if (STATEMENT_BREAKERS.test(code)) {
-    fail(
-      datasetName,
-      `${kind} "${name}" sql must be a single expression without statement terminators or ` +
-      'comments (";", "--", "/*") outside a quoted literal.',
-    );
-  }
+  // Definitions are engine-neutral, so this checks ClickHouse lexical rules;
+  // compilation re-checks under any other engine's rules (raw-sql-dialect-check).
+  // An unterminated quote is itself a rejection: left as data, an open quote
+  // would hide everything after it.
+  const lexicalError = clickhouseDatasetSqlDialect.rawSqlExpressionError(sql);
+  if (lexicalError) fail(datasetName, rawSqlErrorMessage(kind, name, lexicalError));
+  // A quoted identifier is a column reference, so the dependency check below
+  // needs its text even though the terminator check above must not see it.
+  const referenceable = stripSqlLiterals(sql, { keepQuotedIdentifiers: true });
 
   for (const dependency of dependencies ?? []) {
     // Dependencies are qualified identifiers (`analytics.orders.amount`); the

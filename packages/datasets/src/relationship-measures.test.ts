@@ -48,8 +48,28 @@ describe('relationship measures', () => {
     expect(sql).toContain('toNullable(1) AS `_hq_match`');
     expect(sql).toContain('isNotNull(target._hq_match)');
     expect(sql).toContain('target.tenant_id =');
-    expect(sql).toContain("target.tier = 'gold'");
+    expect(sql).toContain('WHERE if(isNotNull(target._hq_match), target.tier, NULL) = ?');
     expect(sql).toContain('ORDER BY `target.unique` DESC');
+  });
+  it('guards joined dimensions with the match marker without related measures', () => {
+    // Mirrors Python's test_joined_dimensions_use_a_match_marker_without_related_measures.
+    const sql = client.toSQL(Sources, { dimensions: ['target.tier'], measures: ['total'] }, context);
+    expect(sql).toContain('toNullable(1) AS `_hq_match`');
+    const tier = 'if(isNotNull(target._hq_match), target.tier, NULL)';
+    expect(sql).toContain(`${tier} AS \`target.tier\``);
+    // ClickHouse resolves the alias `target.tier` to the raw joined column, so
+    // the key is the guarded expression itself.
+    expect(sql).toContain(`GROUP BY ${tier}`);
+    expect(sql).not.toContain('GROUP BY `target.tier`');
+  });
+  it('guards joined dimension filters with the match marker without related measures', () => {
+    const sql = client.toSQL(Sources, { measures: ['total'], filters: [{ field: 'target.tier', operator: 'neq', value: 'gold' }] }, context);
+    expect(sql).toContain('WHERE if(isNotNull(target._hq_match), target.tier, NULL) != ?');
+    expect(sql).not.toContain('WHERE target.tier != ?');
+  });
+  it('orders a selected joined dimension by its guarded expression and a related measure by its alias', () => {
+    const sql = client.toSQL(Sources, { dimensions: ['target.tier'], measures: ['target.unique'], orderBy: [{ field: 'target.tier', direction: 'asc' }, { field: 'target.unique', direction: 'desc' }] }, context);
+    expect(sql).toContain('ORDER BY if(isNotNull(target._hq_match), target.tier, NULL) ASC, `target.unique` DESC');
   });
   it('guards the target input for count', () => {
     expect(client.toSQL(Sources, { measures: ['profile.count'] }, context)).toContain('COUNT(if(isNotNull(profile._hq_match), profile.id, NULL))');

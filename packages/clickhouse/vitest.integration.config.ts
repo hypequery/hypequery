@@ -7,7 +7,7 @@ export default defineConfig({
     ...(baseConfig.test ?? {}),
     include: ['src/core/tests/integration/**/*.test.ts'],
     exclude: [],
-    threads: false,
+    fileParallelism: false,
     testTimeout: 30_000,
     hookTimeout: 30_000
   }

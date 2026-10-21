@@ -2,7 +2,8 @@ import { relationshipMeasureExpressions } from './relationship-measure-sql.js';
 import { measureToAggregationSpec } from './dataset-normalization.js';
 import { applyAggregationSpec } from '../query-planner.js';
 import { resolveDatasetSqlDialect } from './dataset-sql-dialect.js';
-import { queryTimeFilterSql } from './query-timezone.js';
+import { assertRawSqlForDialect } from './raw-sql-dialect-check.js';
+import { queryTimeFilter } from './query-timezone.js';
 import { selectedTimeMeasures } from './time-query-measures.js';
 import { baseMeasureNames, getBaseMeasure } from './dataset-measures.js';
 import type {
@@ -52,6 +53,7 @@ export function buildDatasetQueryBuilder(
   }
 
   const dialect = resolveDatasetSqlDialect(options.builderFactory);
+  assertRawSqlForDialect(ds, dialect);
   const joinCtx = buildRelationshipBuilderContext(ds, query, options.context, dialect);
 
   let qb = options.builderFactory.table(ds.source);
@@ -67,13 +69,13 @@ export function buildDatasetQueryBuilder(
   if (groupByParts.length > 0) qb = qb.groupBy(groupByParts);
   for (const measureName of measureNames) {
     if (measureName.includes('.')) {
-      const expressions = relationshipMeasureExpressions(ds, measureName, joinCtx!);
-      qb = applyAggregationSpec(qb, ds, measureToAggregationSpec(measureName, expressions.definition), dialect.quoteIdentifier(measureName), joinCtx, expressions);
+      const expressions = relationshipMeasureExpressions(ds, measureName, joinCtx!, dialect);
+      qb = applyAggregationSpec(qb, ds, measureToAggregationSpec(measureName, expressions.definition), measureName, joinCtx, dialect, expressions);
       continue;
     }
     const definition = getBaseMeasure(ds.measures, measureName);
     if (!definition) throw new Error(`Measure "${measureName}" is not a base measure.`);
-    qb = applyMeasureDefinition(qb, ds, measureName, definition, joinCtx);
+    qb = applyMeasureDefinition(qb, ds, measureName, definition, joinCtx, dialect);
   }
 
   const tenantColumn = resolveTenantFilterColumn(ds, options.context);
@@ -84,12 +86,17 @@ export function buildDatasetQueryBuilder(
 
   for (const filter of query.filters ?? []) {
     const resolvedField = resolveFilterField(ds, filter.field, joinCtx);
-    qb = qb.where(queryTimeFilterSql(ds, filter.field, resolvedField, query.timezone), filter.operator, filter.value);
+    for (const predicate of queryTimeFilter(dialect, ds, filter, resolvedField, query.timezone)) {
+      qb = qb.where(predicate.expression, predicate.operator, predicate.value);
+    }
   }
 
   // Segments are author-defined, so they bypass the caller filter allow-list.
   for (const filter of segmentFilters(ds, query.segments)) {
-    qb = qb.where(resolveDimensionExpression(ds, filter.field, joinCtx), filter.operator, filter.value);
+    const predicates = queryTimeFilter(dialect, ds, filter, resolveDimensionExpression(ds, filter.field, joinCtx), query.timezone, { field: 'dimension' });
+    for (const predicate of predicates) {
+      qb = qb.where(predicate.expression, predicate.operator, predicate.value);
+    }
   }
 
   return appendOrderLimitOffset(
@@ -100,6 +107,7 @@ export function buildDatasetQueryBuilder(
     query.offset,
     joinCtx,
     dialect,
+    { ds, dimensions: query.dimensions ?? [] },
   );
 }
 

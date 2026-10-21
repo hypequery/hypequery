@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { dataset } from './dataset.js';
 import { dimension } from './field.js';
-import { divide, nullIfZero } from './formulas.js';
+import { coalesce, divide, multiply, nullIfZero, round } from './formulas.js';
 import { measure } from './measure.js';
 import { getDatasetCatalog } from './catalog.js';
-import { buildProtocolDeploymentContract } from './index.js';
+import { assertDeployable, buildProtocolDeploymentContract } from './index.js';
 import type { DerivedMeasureDefinition } from './types.js';
 
 // Malformed inputs deliberately bypass the authoring constraint to test runtime validation.
@@ -155,3 +155,89 @@ describe('dataset-owned derived measures', () => {
   });
 });
 
+describe('deployable formulas', () => {
+  const LITERAL_POSITIONS = 'literals are only accepted as round decimals or a coalesce fallback';
+  // The helpers' signatures refuse a bare number; the runtime accepts one, as
+  // the Python helpers do, so the deployment check has to name it.
+  const literal = (value: unknown) => value as string;
+
+  it('names the dataset and measure when a derived measure references another derived measure', () => {
+    const orders = defineOrders({
+      average: measure.derived({
+        uses: { revenue: 'revenue', orders: 'orders' },
+        formula: ({ revenue, orders }) => divide(revenue, nullIfZero(orders)),
+      }),
+      rounded: measure.derived({
+        uses: { aov: 'average' },
+        formula: ({ aov }) => round(aov, 2),
+      }),
+    });
+    const message = 'orders.rounded: references derived measure "average" (as "aov"); '
+      + 'a deployable formula may only reference base measures, so inline that formula or reference the base measures directly';
+    expect(() => assertDeployable(orders)).toThrow(message);
+    expect(() => buildProtocolDeploymentContract([orders])).toThrow(message);
+  });
+
+  it('names a literal used as an arithmetic operand', () => {
+    const orders = defineOrders({
+      doubled: measure.derived({
+        uses: { revenue: 'revenue' },
+        formula: ({ revenue }) => multiply(revenue, literal(2)),
+      }),
+    });
+    const message = `orders.doubled: a numeric literal cannot be an arithmetic operand in a deployable formula; ${LITERAL_POSITIONS}`;
+    expect(() => assertDeployable(orders)).toThrow(message);
+    expect(() => buildProtocolDeploymentContract([orders])).toThrow(message);
+  });
+
+  it('names a literal passed to a function or used as a non-numeric coalesce fallback', () => {
+    const guarded = defineOrders({
+      guarded: measure.derived({
+        uses: { revenue: 'revenue' },
+        formula: ({ revenue }) => divide(revenue, nullIfZero(literal(0))),
+      }),
+    });
+    expect(() => assertDeployable(guarded)).toThrow(
+      `orders.guarded: a numeric literal cannot be the value passed to nullIfZero in a deployable formula; ${LITERAL_POSITIONS}`,
+    );
+    // The helpers cannot build a null fallback; a hand-written expression can.
+    const nullable = defineOrders({
+      nullable: measure.derived({
+        uses: { revenue: 'revenue' },
+        formula: ({ revenue }) => ({
+          __type: 'formula_expr',
+          expression: {
+            kind: 'function', name: 'coalesce',
+            args: [{ kind: 'ref', name: revenue }, { kind: 'literal', value: null }],
+          },
+          toSQL: () => `COALESCE(${revenue}, NULL)`,
+        }),
+      }),
+    });
+    expect(() => assertDeployable(nullable)).toThrow(
+      'orders.nullable: a coalesce fallback must be a number in a deployable formula',
+    );
+  });
+
+  it('accepts round decimals, coalesce fallbacks and references as the only literal positions', () => {
+    const orders = defineOrders({
+      roundedAverage: measure.derived({
+        uses: { revenue: 'revenue', orders: 'orders' },
+        formula: ({ revenue, orders }) => round(divide(revenue, nullIfZero(orders)), 2),
+      }),
+      safeShare: measure.derived({
+        uses: { revenue: 'revenue', orders: 'orders' },
+        formula: ({ revenue, orders }) => coalesce(divide(revenue, nullIfZero(orders)), 0),
+      }),
+      fallbackToOrders: measure.derived({
+        uses: { revenue: 'revenue', orders: 'orders' },
+        formula: ({ revenue, orders }) => coalesce(revenue, orders),
+      }),
+    });
+    expect(() => assertDeployable(orders)).not.toThrow();
+    const [published] = buildProtocolDeploymentContract([orders]).datasets;
+    expect(published!.measures.map(entry => entry.name)).toEqual(
+      expect.arrayContaining(['roundedAverage', 'safeShare', 'fallbackToOrders']),
+    );
+  });
+});

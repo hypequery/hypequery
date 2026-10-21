@@ -10,15 +10,14 @@ import type {
   TimeGrain,
 } from "./types.js";
 import type { QueryBuilderLike } from "./query-builder-protocol.js";
-import { GRAIN_FUNCTIONS } from "./constants.js";
+import { isSupportedTimeGrain } from "./constants.js";
 import { applyFilteredAggregationExpression } from './utils/filtered-aggregation-sql.js';
 import { getRuntimeTenantPredicate } from './utils/tenant-runtime.js';
-import type { DatasetSqlDialect } from './dataset-sql-dialect.js';
-import { clickhouseDatasetSqlDialect } from './utils/clickhouse-dataset-sql-dialect.js';
+import type { DatasetSqlDialectRules } from './dataset-sql-dialect.js';
 import { isQualifiedField } from './utils/relationship-fields.js';
 import {
   qualifyBaseColumn,
-  resolveQualifiedColumn,
+  resolveQualifiedExpression,
   type RelationshipBuilderContext,
 } from './utils/relationship-builder-plan.js';
 import { measureToAggregationSpec } from './utils/dataset-normalization.js';
@@ -32,7 +31,7 @@ export function resolveDimensionExpression(
   joinCtx?: RelationshipBuilderContext,
 ): string {
   if (joinCtx && isQualifiedField(dimensionName)) {
-    return resolveQualifiedColumn(ds, dimensionName);
+    return resolveQualifiedExpression(ds, dimensionName, joinCtx);
   }
   const definition = ds.dimensions[dimensionName];
   if (definition?.sql) {
@@ -48,7 +47,7 @@ export function resolveFilterField(
   joinCtx?: RelationshipBuilderContext,
 ): string {
   if (joinCtx && isQualifiedField(filterField)) {
-    return resolveQualifiedColumn(ds, filterField);
+    return resolveQualifiedExpression(ds, filterField, joinCtx);
   }
   const resolvedField = ds.filters[filterField]?.field ?? filterField;
   return resolveDimensionExpression(ds, resolvedField, joinCtx);
@@ -58,40 +57,39 @@ export function buildDimensionSelectionPlan(
   ds: DatasetShape,
   dimensions: string[],
   grain: TimeGrain | undefined,
-  joinCtx?: RelationshipBuilderContext,
-  timezone?: string,
-  dialect: DatasetSqlDialect = clickhouseDatasetSqlDialect,
+  joinCtx: RelationshipBuilderContext | undefined,
+  timezone: string | undefined,
+  dialect: DatasetSqlDialectRules,
 ): { selectParts: string[]; groupByParts: string[] } {
   const selectParts: string[] = [];
   const groupByParts = new Set<string>();
 
   if (grain) {
-    const fn = GRAIN_FUNCTIONS[grain];
-    if (!fn) {
+    if (!isSupportedTimeGrain(grain)) {
       throw new Error(`Unsupported time grain "${grain}".`);
     }
     const time = resolveDimensionExpression(ds, String(ds.timeKey), joinCtx);
-    selectParts.push(`${fn}(${queryTimeSql(time, timezone)}) AS period`);
-    groupByParts.add("period");
+    const period = dialect.quoteIdentifier('period');
+    selectParts.push(`${dialect.truncateTime(queryTimeSql(dialect, time, timezone), grain)} AS ${period}`);
+    groupByParts.add(period);
   }
 
   for (const dimensionName of dimensions) {
     const expression = resolveDimensionExpression(ds, dimensionName, joinCtx);
 
-    if (joinCtx) {
-      // With joins in scope, every selection is table-qualified and aliased so
-      // grouping/ordering can reference the alias unambiguously.
-      const alias = isQualifiedField(dimensionName)
-        ? dialect.quoteIdentifier(dimensionName)
-        : dimensionName;
-      selectParts.push(`${expression} AS ${alias}`);
-      groupByParts.add(alias);
-    } else if (expression === dimensionName) {
+    // Every generated alias is quoted: reserved words and engines that fold
+    // unquoted case (Postgres) must keep the semantic name. With joins in
+    // scope every selection is table-qualified, so it is always aliased.
+    if (!joinCtx && expression === dimensionName) {
       selectParts.push(dimensionName);
       groupByParts.add(dimensionName);
     } else {
-      selectParts.push(`${expression} AS ${dimensionName}`);
-      groupByParts.add(dimensionName);
+      const alias = dialect.quoteIdentifier(dimensionName);
+      selectParts.push(`${expression} AS ${alias}`);
+      // A qualified alias (`customer.tier`) can resolve to the physical joined
+      // column, so group on its guarded expression: the match marker stays
+      // part of the key whatever the engine's alias-resolution rules.
+      groupByParts.add(joinCtx && isQualifiedField(dimensionName) ? expression : alias);
     }
   }
 
@@ -102,18 +100,23 @@ export function applyAggregationSpec(
   qb: QueryBuilderLike,
   ds: DatasetShape,
   spec: AggregationSpec,
-  alias: string,
-  joinCtx?: RelationshipBuilderContext,
+  name: string,
+  joinCtx: RelationshipBuilderContext | undefined,
+  dialect: DatasetSqlDialectRules,
   expressions?: { field: string; arg?: string },
 ): QueryBuilderLike {
+  // The semantic name is the output alias, quoted so it survives reserved
+  // words and case folding; messages keep the unquoted name.
+  const alias = dialect.quoteIdentifier(name);
   if (spec.sql) {
-    assertNoRawSqlUnderJoins('measure', alias, spec.sql, joinCtx);
+    assertNoRawSqlUnderJoins('measure', name, spec.sql, joinCtx);
   }
   const fieldOrExpr = expressions?.field ?? applyFilteredAggregationExpression(
     ds,
     spec,
     spec.sql ?? resolveDimensionExpression(ds, spec.field, joinCtx),
     joinCtx,
+    dialect,
   );
 
   switch (spec.aggregation) {
@@ -132,7 +135,7 @@ export function applyAggregationSpec(
     case "argMax":
     case "argMin": {
       if (!spec.argField) {
-        throw new Error(`Aggregation "${spec.aggregation}" for "${alias}" requires an argField ("by" column).`);
+        throw new Error(`Aggregation "${spec.aggregation}" for "${name}" requires an argField ("by" column).`);
       }
       const argExpr = expressions?.arg ?? resolveDimensionExpression(ds, spec.argField, joinCtx);
       if (spec.aggregation === "argMax") {
@@ -148,7 +151,7 @@ export function applyAggregationSpec(
     }
     case "percentile": {
       if (spec.level == null) {
-        throw new Error(`Aggregation "percentile" for "${alias}" requires a level.`);
+        throw new Error(`Aggregation "percentile" for "${name}" requires a level.`);
       }
       validatePercentileLevel(spec.level);
       if (!qb.quantile) {
@@ -181,29 +184,39 @@ export function applyMeasureDefinition(
   ds: DatasetShape,
   name: string,
   definition: MeasureDefinition,
-  joinCtx?: RelationshipBuilderContext,
+  joinCtx: RelationshipBuilderContext | undefined,
+  dialect: DatasetSqlDialectRules,
 ): QueryBuilderLike {
-  return applyAggregationSpec(qb, ds, measureToAggregationSpec(name, definition), name, joinCtx);
+  return applyAggregationSpec(qb, ds, measureToAggregationSpec(name, definition), name, joinCtx, dialect);
 }
 
+/**
+ * Appends ORDER BY, LIMIT and OFFSET. Under joins, an order on a selected
+ * qualified dimension repeats its guarded expression (the GROUP BY key) rather
+ * than naming the alias, which the engine may resolve to the raw joined column;
+ * any other qualified order (a related measure) sorts by its quoted alias.
+ */
 export function appendOrderLimitOffset(
   qb: QueryBuilderLike,
   orderBy: MetricOrderBy[] | undefined,
   grain: TimeGrain | undefined,
-  limit?: number,
-  offset?: number,
-  joinCtx?: RelationshipBuilderContext,
-  dialect: DatasetSqlDialect = clickhouseDatasetSqlDialect,
+  limit: number | undefined,
+  offset: number | undefined,
+  joinCtx: RelationshipBuilderContext | undefined,
+  dialect: DatasetSqlDialectRules,
+  selection?: { ds: DatasetShape; dimensions: readonly string[] },
 ): QueryBuilderLike {
   if (orderBy && orderBy.length > 0) {
     for (const order of orderBy) {
-      const column = joinCtx && isQualifiedField(order.field)
-        ? dialect.quoteIdentifier(order.field)
-        : order.field;
+      // A selected related dimension orders by its guarded expression, for the
+      // same alias-resolution reason it groups by it.
+      const column = joinCtx && isQualifiedField(order.field) && selection?.dimensions.includes(order.field)
+        ? resolveDimensionExpression(selection.ds, order.field, joinCtx)
+        : dialect.quoteIdentifier(order.field);
       qb = qb.orderBy(column, semanticOrderDirection(order.direction));
     }
   } else if (grain) {
-    qb = qb.orderBy("period", "ASC");
+    qb = qb.orderBy(dialect.quoteIdentifier("period"), "ASC");
   }
 
   if (limit != null) {

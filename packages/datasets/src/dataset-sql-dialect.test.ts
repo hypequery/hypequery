@@ -8,7 +8,7 @@ import { belongsTo } from './relationships.js';
 import { toQueryBuilderFactory, type QueryBuilderFactoryLike } from './query-builder-protocol.js';
 import { createRenderingBuilderFactory } from './tests/support/sql-equality-harness.js';
 import { clickhouseDatasetSqlDialect } from './utils/clickhouse-dataset-sql-dialect.js';
-import { resolveDatasetSqlDialect } from './utils/dataset-sql-dialect.js';
+import { completeDatasetSqlDialect, resolveDatasetSqlDialect } from './utils/dataset-sql-dialect.js';
 
 const Customers = dataset('customers', {
   source: 'customers',
@@ -53,10 +53,65 @@ describe('datasets SQL dialect seam', () => {
   });
 
   it('preserves factory metadata through structural adaptation', () => {
-    const { factory } = trackedFactory();
+    const { factory, quoteIdentifier } = trackedFactory();
     expect(toQueryBuilderFactory(factory)).toBe(factory);
-    expect(resolveDatasetSqlDialect(toQueryBuilderFactory(factory)))
-      .toBe(factory.datasetSqlDialect);
+    const rules = resolveDatasetSqlDialect(toQueryBuilderFactory(factory));
+    expect(resolveDatasetSqlDialect(factory)).toBe(rules);
+    expect(rules.name).toBe('clickhouse');
+    expect(rules.quoteIdentifier('x')).toBe('`x`');
+    expect(quoteIdentifier).toHaveBeenCalledWith('x');
+  });
+
+  it('completes a partial hook with the ClickHouse rules it does not override', () => {
+    const hook = { name: 'custom', quoteIdentifier: (identifier: string) => `[${identifier}]` };
+    const rules = completeDatasetSqlDialect(hook);
+    expect(completeDatasetSqlDialect(hook)).toBe(rules);
+    expect(completeDatasetSqlDialect(clickhouseDatasetSqlDialect)).toBe(clickhouseDatasetSqlDialect);
+    expect(Object.isFrozen(rules)).toBe(true);
+    expect(rules.name).toBe('custom');
+    expect(rules.quoteIdentifier('a')).toBe('[a]');
+    expect(rules.truncateTime('t', 'day')).toBe(clickhouseDatasetSqlDialect.truncateTime('t', 'day'));
+  });
+
+  it('keeps prototype methods of a class-based hook', () => {
+    class BracketDialect {
+      readonly name = 'brackets';
+      quoteIdentifier(identifier: string) { return `[${identifier}]`; }
+    }
+    expect(completeDatasetSqlDialect(new BracketDialect()).quoteIdentifier('a')).toBe('[a]');
+  });
+
+  it('applies the hook to time-measure and relationship SQL', () => {
+    const Events = dataset('events', {
+      source: 'events',
+      timeKey: 'time',
+      dimensions: { time: dimension.timestamp({ column: 'event_at' }), status: dimension.string(), amount: dimension.number() },
+      measures: {
+        revenue: measure.sum('amount'),
+        rolling: measure.trailing('revenue', { amount: 7, unit: 'day' }),
+        ratio: measure.derived({
+          uses: { rolling: 'rolling', revenue: 'revenue' },
+          formula: ({ rolling, revenue }) => divide(revenue, nullIfZero(rolling)),
+        }),
+      },
+    });
+    const factory: QueryBuilderFactoryLike = {
+      ...createRenderingBuilderFactory(),
+      datasetSqlDialect: { name: 'clickhouse', quoteIdentifier: identifier => `"${identifier}"` },
+    };
+    const client = createDatasetClient({ queryBuilder: factory });
+    const sql = client.toSQL(Events, {
+      by: 'day',
+      dimensions: ['status'],
+      measures: ['rolling', 'ratio'],
+      filters: [{ field: 'time', operator: 'between', value: ['2026-01-01', '2026-02-01'] }],
+    });
+    expect(sql).toContain('AS "status"');
+    expect(sql).toContain('AS "rolling"');
+    expect(sql).toContain('ORDER BY "period" ASC');
+    expect(sql).not.toContain('`');
+    expect(client.toSQL(Orders, { dimensions: ['customer.country'], measures: ['revenue'] }))
+      .toContain('AS "customer.country"');
   });
 
   it('uses the hook result in derived selections, references and ordering', () => {
@@ -116,7 +171,10 @@ describe('datasets SQL dialect seam', () => {
     const compilation = client.compileDataset(Orders, query, context);
 
     expect(compilation.sql).toContain('AS "customer.country"');
-    expect(compilation.sql).toContain('ORDER BY "customer.country" ASC');
+    // A derived measure orders its outer SELECT by the CTE column; a base
+    // measure repeats the guarded join expression (the GROUP BY key).
+    const orderKey = compilation.sql.includes('FROM base') ? '"customer.country"' : 'if(isNotNull(customer._hq_match), customer.country, NULL)';
+    expect(compilation.sql).toContain(`ORDER BY ${orderKey} ASC`);
     expect(compilation.sql).not.toContain('`');
     expect(compilation.describe().executionLimit).toBe(3);
     expect((await client.execute(Orders, query, context)).meta.sql).toBe(compilation.sql);
@@ -140,8 +198,9 @@ describe('datasets SQL dialect seam', () => {
     const sql = client.toSQL(target, query, context);
 
     expect(sql).toContain('AS "customer.country"');
-    expect(sql).toContain('GROUP BY "customer.country"');
-    expect(sql).toContain('ORDER BY "customer.country" ASC');
+    expect(sql).toContain('GROUP BY if(isNotNull(customer._hq_match), customer.country, NULL)');
+    const orderKey = sql.includes('FROM base') ? '"customer.country"' : 'if(isNotNull(customer._hq_match), customer.country, NULL)';
+    expect(sql).toContain(`ORDER BY ${orderKey} ASC`);
     expect(sql).not.toContain('`');
     expect((await client.execute(target, query, context)).meta.sql).toBe(sql);
 

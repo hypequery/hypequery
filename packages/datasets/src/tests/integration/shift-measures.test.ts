@@ -6,8 +6,9 @@ import { measure } from '../../measure.js';
 import { createDatasetClient } from '../../executor.js';
 import { belongsTo } from '../../relationships.js';
 import { buildTimeMeasureDatasetSql } from '../../utils/time-measure-dataset-sql.js';
+import { renderStatement } from '../../utils/statement-parameters.js';
 import { toQueryBuilderFactory } from '../../query-builder-protocol.js';
-import { subtractTimeSql } from '../../utils/time-arithmetic-sql.js';
+import { clickhouseDatasetSqlDialect } from '../../utils/clickhouse-dataset-sql-dialect.js';
 import { divide, nullIfZero, subtract } from '../../formulas.js';
 import { TEST_CONNECTION_CONFIG, insertRows, runSql } from '../../../../../testing/clickhouse/harness.mjs';
 
@@ -169,7 +170,7 @@ describe('shift execution against ClickHouse', () => {
     expect(result.meta.pagination.hasMore).toBe(true);
     const query = { by: 'month' as const, dimensions: ['group'], measures: ['priorRevenue'], filters: [...range, { field: 'user', operator: 'eq' as const, value: 'missing' }], limit: 2 };
     await expect(client.execute(Events, query, context)).rejects.toThrow(/effective result limit/);
-    const { sql, parameters } = buildTimeMeasureDatasetSql(Events, query, { builderFactory: toQueryBuilderFactory(db), context });
+    const { sql, parameters } = renderStatement(buildTimeMeasureDatasetSql(Events, query, { builderFactory: toQueryBuilderFactory(db), context }).statement);
     await expect(db.rawQuery(sql, parameters)).rejects.toThrow(/effective result limit/);
   });
 
@@ -187,7 +188,7 @@ describe('shift execution against ClickHouse', () => {
     const result = await client.execute(ds, { by: 'month', measures: ['priorMonth'], filters: [{ field: 'time', operator: 'between', value: ['2024-03-01', '2024-05-31'] }] });
     expect(result.data.map(row => row.priorMonth)).toEqual(['30', '40', '80']);
     // The shared SQL arithmetic uses ClickHouse's clamping for month ends.
-    const clamped = await db.rawQuery<{ prior: string }>(`SELECT ${subtractTimeSql("toDate('2024-03-31')", 1, 'month')} AS prior`);
+    const clamped = await db.rawQuery<{ prior: string }>(`SELECT ${clickhouseDatasetSqlDialect.subtractTime("toDate('2024-03-31')", 1, 'month')} AS prior`);
     expect(clamped[0].prior).toBe('2024-02-29');
   });
 
@@ -211,7 +212,7 @@ describe('shift execution against ClickHouse', () => {
         ],
       };
       await expect(client.execute(ds, query)).rejects.toThrow(/skipped local calendar bucket/);
-      const { sql, parameters } = buildTimeMeasureDatasetSql(ds, query, { builderFactory: toQueryBuilderFactory(db) });
+      const { sql, parameters } = renderStatement(buildTimeMeasureDatasetSql(ds, query, { builderFactory: toQueryBuilderFactory(db) }).statement);
       await expect(db.rawQuery(sql, parameters)).rejects.toThrow(/skipped local calendar bucket/);
     }
   });

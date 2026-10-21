@@ -89,7 +89,7 @@ describe('RFC 0015 window measure authoring', () => {
     expect(ds.derivedMeasures.revenueRatio).toBe(ds.measures.revenueRatio);
     expect(ds.metric('totalRevenue', { measure: 'revenue' }).contract().measures).toEqual(['revenue']);
     const client = createDatasetClient({ queryBuilder: createRenderingBuilderFactory() });
-    expect(client.toSQL(ds, {})).toBe('SELECT SUM(amount) AS revenue FROM orders');
+    expect(client.toSQL(ds, {})).toBe('SELECT SUM(amount) AS `revenue` FROM orders');
     expect(client.toSQL(ds, { measures: ['revenueRatio'] })).toContain('NULLIF');
     // JavaScript callers cannot turn a non-aggregate definition into a metric.
     // @ts-expect-error Deliberately invalid input exercises JavaScript runtime validation.
@@ -184,14 +184,18 @@ describe('window SQL compilation entry point', () => {
   it('compiles a bounded cumulative series without executing', () => {
     const ds = orders({ revenue: measure.sum('amount'), running: measure.cumulative('revenue') });
     const client = createDatasetClient({ queryBuilder: createRenderingBuilderFactory() });
-    const sql = client.toSQL(ds, {
-      measures: ['running'], by: 'day',
-      filters: [{ field: 'createdAt', operator: 'between', value: ['2026-01-01', '2026-01-03'] }],
-    });
+    const query = {
+      measures: ['running'], by: 'day' as const,
+      filters: [{ field: 'createdAt', operator: 'between' as const, value: ['2026-01-01', '2026-01-03'] }],
+    };
+    const sql = client.toSQL(ds, query);
     expect(sql).toContain('running');
     expect(sql).toContain('createdAt');
-    expect(sql).toContain('2026-01-01');
-    expect(sql).toContain('2026-01-03');
     expect(sql).toContain('period');
+    // Caller bounds are bound, in the statement and its axis preflight.
+    expect(sql).not.toContain('2026-01-01');
+    const compilation = client.compileDataset(ds, query);
+    expect(compilation.parameters).toEqual(['2026-01-01', '2026-01-03']);
+    expect(compilation.preflightStatements[0].parameters).toEqual(['2026-01-01', '2026-01-03']);
   });
 });

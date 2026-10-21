@@ -9,6 +9,7 @@ import { buildMetricQueryBuilder } from './utils/metric-query-builder.js';
 import { buildDerivedMetricSql } from './utils/metric-derived-query.js';
 import { overfetchLimit } from './utils/pagination.js';
 import { toMetricQueryResult } from './utils/metric-query-result.js';
+import { renderStatement } from './utils/statement-parameters.js';
 
 export interface MetricQueryEngineOptions {
   /** Query builder factory for executing metrics. */
@@ -69,7 +70,7 @@ export class MetricQueryEngine {
     const spec = ref.spec;
 
     if (spec.__type === 'derived_metric_spec') {
-      return buildDerivedMetricSql(ref, spec, query, grain, this.resolveBuilderFactory(context), context).sql;
+      return renderStatement(buildDerivedMetricSql(ref, spec, query, grain, this.resolveBuilderFactory(context), context)).sql;
     }
 
     const builder = buildMetricQueryBuilder(ref, spec, ref.dataset, query, grain, this.resolveBuilderFactory(context), context);
@@ -96,7 +97,7 @@ export class MetricQueryEngine {
 
     try {
       if (ref.spec.__type === 'derived_metric_spec') {
-        buildDerivedMetricSql(ref, ref.spec, query, grain, this.resolveBuilderFactory(context), context);
+        renderStatement(buildDerivedMetricSql(ref, ref.spec, query, grain, this.resolveBuilderFactory(context), context));
       } else {
         buildMetricQueryBuilder(ref, ref.spec, ref.dataset, query, grain, this.resolveBuilderFactory(context), context).toSQLWithParams();
       }
@@ -130,7 +131,7 @@ export class MetricQueryEngine {
 
     if (spec.__type === 'derived_metric_spec') {
       // Derived metrics: build CTE via builder, outer query via string, execute via rawQuery
-      const { sql, params } = buildDerivedMetricSql(ref, spec, buildQuery, grain, activeBuilderFactory, context);
+      const { sql, parameters: params } = renderStatement(buildDerivedMetricSql(ref, spec, buildQuery, grain, activeBuilderFactory, context));
       const rows = await activeBuilderFactory.rawQuery<T>(sql, params, {
         abortSignal: context?.abortSignal,
       });

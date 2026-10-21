@@ -10,3 +10,4 @@ dist/
 __pycache__/
 reports/
 coverage.json
+.hypothesis/

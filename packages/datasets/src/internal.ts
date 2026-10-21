@@ -26,7 +26,8 @@ export type {
 // Query builder protocol - duck-typed interfaces for DB-agnostic execution
 export type { DatasetSqlDialect } from './dataset-sql-dialect.js';
 export { clickhouseDatasetSqlDialect } from './utils/clickhouse-dataset-sql-dialect.js';
-export { resolveDatasetSqlDialect } from './utils/dataset-sql-dialect.js';
+export { defineDatasetSqlDialectRules, resolveDatasetSqlDialect } from './utils/dataset-sql-dialect.js';
+export type { DatasetSqlDialectRules, DatasetSqlBoundParameter, DatasetSqlParameterType } from './dataset-sql-dialect.js';
 export type {
   QueryBuilderLike,
   QueryBuilderFactoryLike

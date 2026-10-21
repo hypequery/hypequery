@@ -32,7 +32,7 @@ describe('shift measures', () => {
     expect(definition.interval.amount).toBe(1);
     expect(Object.keys(Events.measures)).toEqual(['revenue', 'prior', 'ratio']);
     expect('shiftMeasures' in Events).toBe(false);
-    expect(client.toSQL(Events)).toBe('SELECT SUM(value) AS revenue FROM events');
+    expect(client.toSQL(Events)).toBe('SELECT SUM(value) AS `revenue` FROM events');
     // @ts-expect-error Standalone metrics remain base-only.
     expect(() => Events.metric('invalid', { measure: 'prior' })).toThrow(/must be a base measure/);
   });

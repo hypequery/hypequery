@@ -363,6 +363,13 @@ Cloud provides these URLs, so the CLI follows Cloud's current routing. A live
 release is required before dataset calls work. A Cloud release that doesn't
 provide endpoint details leaves deploy output unchanged.
 
+The build refuses a derived measure the deployment contract cannot carry (one
+that references another derived measure, or uses a literal anywhere other than
+`round` decimals or a `coalesce` fallback) with an error naming the dataset and
+measure, for example `orders.doubled: a numeric literal cannot be an arithmetic
+operand in a deployable formula`. See
+[Deployable formulas](/docs/datasets/measures#deployable-formulas).
+
 | Option | Description |
 | --- | --- |
 | `--mcp-config` | Also print MCP client configuration for the hosted endpoint. It reads the key from `${HYPEQUERY_API_KEY}` and never contains a credential |
