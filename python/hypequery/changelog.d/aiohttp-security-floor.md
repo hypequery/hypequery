@@ -1,0 +1,1 @@
+- Require aiohttp 3.14.4 or newer with the `clickhouse-async` extra, fixing three published advisories (CVE-2026-111063, CVE-2026-111064, GHSA-2g87-pp6c-29x5).

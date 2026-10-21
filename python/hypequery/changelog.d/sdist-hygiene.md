@@ -1,0 +1,1 @@
+- Exclude the Hypothesis example database from source distributions and refuse archives that contain one in the release artifact audit.

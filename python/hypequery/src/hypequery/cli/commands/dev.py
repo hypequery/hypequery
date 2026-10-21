@@ -4,8 +4,23 @@ from __future__ import annotations
 
 from importlib.util import find_spec
 
+from hypequery.datasets.planner import CompiledQueryError
+
 from ..errors import CliError
 from ..options import DevOptions
+
+#: Startup failures the executor factory reports with a safe category. The
+#: message names the environment variables to check and never the driver's text.
+_CLICKHOUSE_HINTS = {
+    "unauthenticated": (
+        "ClickHouse rejected the credentials; check CLICKHOUSE_USERNAME and CLICKHOUSE_PASSWORD."
+    ),
+    "unavailable": (
+        "ClickHouse is unreachable; check CLICKHOUSE_HOST, CLICKHOUSE_PORT and CLICKHOUSE_SECURE."
+    ),
+    "not-found": "ClickHouse database not found; check CLICKHOUSE_DATABASE.",
+    "forbidden": "ClickHouse denied access; check the user's grants and readonly profile.",
+}
 
 
 def run(options: DevOptions) -> None:
@@ -44,6 +59,13 @@ def run(options: DevOptions) -> None:
         raise CliError(
             "Cannot start the server; check the bind address and whether the port is free."
         ) from exc
+    except CompiledQueryError as exc:
+        # The executor factory raises these while the app module connects; the
+        # category is safe and tells a developer which setting to look at.
+        hint = _CLICKHOUSE_HINTS.get(exc.category)
+        if hint is None:
+            hint = "ClickHouse refused the connection; check the CLICKHOUSE_* environment."
+        raise CliError(f"App could not start. {hint}") from exc
     except Exception as exc:
         # User app and driver errors may contain URLs, SQL or credentials.
         raise CliError(
