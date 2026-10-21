@@ -43,6 +43,29 @@ The body is validated strictly:
 - numbers and booleans are not coerced from strings;
 - attempts to supply a tenant, SQL, settings, roles, or scopes are refused.
 
+Omitting `measures` selects the dataset's default measures; `"measures": []` selects none. `timezone` (an IANA name)
+is also accepted.
+
+## Related fields
+
+An endpoint's policy says who may call it, not who may read the datasets its relationships reach. So fields from
+related datasets are off by default: `customer.country`, related measures, and named filters defined on a related
+field are refused with `400 VALIDATION_ERROR` and left out of the client contract. Opt in per relationship when this
+endpoint's policy is enough to read the related data:
+
+<CodeBlock>
+```python
+add_dataset_endpoint(
+    router,
+    "/datasets/orders/query",
+    dataset=orders,
+    client=client,
+    policy=policy,
+    include_related={"customer"},
+)
+```
+</CodeBlock>
+
 ## Response
 
 <CodeBlock>

@@ -36,7 +36,9 @@ Error responses are sent with `Cache-Control: no-store` and an `x-request-id`.
 | 500 | `INTERNAL_SERVER_ERROR` | Unexpected failure |
 
 Validation errors are `400` with `details.issues[].path`, as in TypeScript, rather than FastAPI's `422`. Submitted
-values are never echoed back.
+values are never echoed back. Endpoints with a strict client profile (`client_profile=`) answer any invalid query with
+the fixed message `Invalid client query.` and no `details`. They also answer `409` with `details.code`
+`CLIENT_SCHEMA_CHANGED` when the caller's schema pin is stale.
 
 ## Raising errors from your routes
 
@@ -49,7 +51,8 @@ raise ServeError(404, "NOT_FOUND", "Report not found")
 </CodeBlock>
 
 - `ServeError(status, type, message)` is sent as written, like TypeScript's `ServeHttpError`.
-- An `HTTPException` with a string `detail` keeps that message.
+- An `HTTPException`, FastAPI's or Starlette's, keeps its status, and its message when `detail` is a string. A 4xx
+  status without a type of its own, such as `409`, is typed `VALIDATION_ERROR`.
 - A dataset query error maps its category to a status and type, for example a missed deadline becomes
   `504 GATEWAY_TIMEOUT`.
 - Anything else is logged to the `hypequery.serve` logger with its request id and answered with a fixed `500`. The

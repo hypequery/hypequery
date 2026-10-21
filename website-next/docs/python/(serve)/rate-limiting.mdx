@@ -35,6 +35,9 @@ The defaults match TypeScript:
 Pass `key=` to group callers differently, for example by tenant. Custom key callbacks run in FastAPI's dependency
 order, after body parsing, so earlier dependencies can prepare `request.state`.
 
+A key callback that returns `None` leaves that request unlimited. The default key does the same for an
+unauthenticated request with no client address. Return a fixed key instead if such requests must still be counted.
+
 ## Stores
 
 `MemoryRateLimitStore` is the default. It holds up to 100,000 callers (`max_keys=`). When every slot has an active

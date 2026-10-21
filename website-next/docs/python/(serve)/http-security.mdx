@@ -47,6 +47,9 @@ caller's value lets the caller spoof it.
 
 ## Request ids
 
-- Every response carries a server-generated `x-request-id`. Read it in a handler with `request_id(request)`.
-- A caller's `X-Request-ID` is never authoritative. If it is short printable ASCII, it is echoed back as
-  `x-correlation-id`; otherwise it is dropped.
+- Every response carries a server-generated `x-request-id`. Read it in a handler with `request_id(request)`. This
+  needs `create_app` or `install_http_security`: a router included in a plain FastAPI app adds the id to its error
+  responses only.
+- A caller's `X-Request-ID` is never authoritative. It is echoed back as `x-correlation-id` only when it is at most
+  200 bytes, starts with a letter or digit, and uses only letters, digits, `.`, `_`, `:`, `/` and `-`. Anything else
+  is dropped.
