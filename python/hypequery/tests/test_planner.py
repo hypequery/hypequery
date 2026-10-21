@@ -159,8 +159,10 @@ def test_an_explicit_period_order_sorts_by_the_bucket_instant(direction: str) ->
     compiled = plan_dataset_query(
         _trips(),
         DatasetQuery(
-            by="hour", measures=("trips",), order_by=(Order(field="period", direction=direction),)
-        ),  # type: ignore[arg-type]
+            by="hour",
+            measures=("trips",),
+            order_by=(asc("period") if direction == "asc" else desc("period"),),
+        ),
     )
     bucket = "toStartOfHour(toDateTime64(`pickup_datetime`, 9, {p0:String}))"
     assert compiled.sql.endswith(f"ORDER BY {bucket} {direction.upper()}")
