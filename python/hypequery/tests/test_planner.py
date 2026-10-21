@@ -335,6 +335,12 @@ def test_filter_values_must_match_the_declared_dimension_type(filter_value: Filt
         "2026-W05-1",
         "1700000000",
         "2026-02-01T00:00:00+0000",
+        "2026-01-31-05:30",
+        "2026-01-31Z",
+        "2026-02-01T00:00:00+05:60",
+        "2026-02-01T00:00:00+24:00",
+        "2026-02-01T24:00:00",
+        "2026-02-01T12:60:00",
     ],
 )
 def test_a_timestamp_filter_refuses_text_clickhouse_would_coerce(value: str) -> None:
@@ -357,6 +363,7 @@ def test_a_timestamp_filter_refuses_text_clickhouse_would_coerce(value: str) -> 
         "2026-02-01T00:00:00Z",
         "2026-02-01T00:00:00.000Z",
         "2026-02-01T10:00:00+10:00",
+        "2026-02-01T10:00:00-05:30",
         "2024-02-29",
     ],
 )

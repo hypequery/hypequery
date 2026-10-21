@@ -3,7 +3,9 @@
 ClickHouse reads an out-of-range or unparseable `DateTime64` parameter as some
 other instant instead of refusing it, so validation accepts only calendar dates
 and times in ISO 8601 extended form, which the executor binds exactly. A time
-needs its seconds: ClickHouse refuses 2026-01-31 12:00.
+needs its seconds: ClickHouse refuses 2026-01-31 12:00. A zone suffix needs a
+time before it, and its offset must be a real one: fromisoformat would read
+2026-01-31-05:30 as 05:30 local and +05:60 as +06:00.
 """
 
 from __future__ import annotations
@@ -13,8 +15,8 @@ from datetime import datetime
 
 _TIMESTAMP = re.compile(
     r"\d{4}-\d{2}-\d{2}"
-    r"(?:[T ]\d{2}:\d{2}:\d{2}(?:\.\d{1,9})?)?"
-    r"(?:Z|[+-]\d{2}:\d{2})?\Z"
+    r"(?:[T ](?:[01]\d|2[0-3]):[0-5]\d:[0-5]\d(?:\.\d{1,9})?"
+    r"(?:Z|[+-](?:[01]\d|2[0-3]):[0-5]\d)?)?\Z"
 )
 
 
