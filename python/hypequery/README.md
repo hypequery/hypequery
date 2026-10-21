@@ -639,6 +639,40 @@ without waiting for workers.
 `Deadline` is exported by `hypequery.datasets`. A query that is still running
 when it expires is killed on the server and fails with `deadline-exceeded`.
 
+### Grants for cancellation
+
+`KILL QUERY` needs privileges a query-only user usually lacks. The control
+connection signs in as the query user by default, and that user needs:
+
+```sql
+GRANT SELECT ON system.processes TO reader;
+```
+
+To keep the query user minimal, give cancellation its own user instead. It
+needs both grants, because it stops queries another user started:
+
+```sql
+GRANT SELECT ON system.processes, KILL QUERY ON *.* TO hypequery_control;
+```
+
+```python
+ClickHouseConnection(
+    username="reader",
+    password=reader_password,
+    control_username="hypequery_control",
+    control_password=control_password,
+)
+```
+
+`ClickHouseConnection.from_env()` reads these from `CLICKHOUSE_CONTROL_USERNAME`
+and `CLICKHOUSE_CONTROL_PASSWORD`. If ClickHouse refuses a `KILL`, the
+executor logs one error naming these fixes on the
+`hypequery.execution.cancellation` logger and stops asking. The query then
+runs until `max_execution_time`, and the caller still gets `aborted` or
+`deadline-exceeded`. The native async executor needs the grant less, since its
+driver also asks ClickHouse to cancel a readonly query when the connection
+closes.
+
 ## Canonical protocol values
 
 RFC 0001 tagged values and exact RFC 8785 canonical JSON are available from

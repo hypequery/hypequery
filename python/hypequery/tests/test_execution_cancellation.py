@@ -673,3 +673,108 @@ def test_sync_bridge_aclose_keeps_the_control_worker_until_queries_stop() -> Non
     finally:
         register.set()
         stopped.set()
+
+
+def _refused() -> Exception:
+    from clickhouse_connect.driver.exceptions import DatabaseError
+
+    error = DatabaseError("Not enough privileges: SELECT ON system.processes")
+    error.name = "ACCESS_DENIED"
+    return error
+
+
+@pytest.fixture
+def refused_kill_log(monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture):  # type: ignore[no-untyped-def]
+    from hypequery.execution.utils import refused_kill
+
+    monkeypatch.setattr(refused_kill, "_reported", False)
+    caplog.set_level("ERROR", logger="hypequery.execution.cancellation")
+    return caplog
+
+
+def _refusals(caplog: pytest.LogCaptureFixture) -> int:
+    return sum("refused KILL QUERY" in record.getMessage() for record in caplog.records)
+
+
+def test_a_refused_sync_kill_stops_retrying_and_says_so_once(
+    refused_kill_log: pytest.LogCaptureFixture,
+) -> None:
+    from hypequery.execution import ClickHouseExecutor
+
+    started = threading.Event()
+    release = threading.Event()
+    attempts: list[int] = []
+
+    class SlowClient:
+        def query(self, *_args: object, **_kwargs: object) -> DriverResult:
+            started.set()
+            assert release.wait(2)
+            return cast(DriverResult, Result())
+
+    class RefusingControl:
+        def command(self, _cmd: str, _parameters: dict[str, str]) -> object:
+            attempts.append(1)
+            raise _refused()
+
+    executor = ClickHouseExecutor(SlowClient(), control_client=RefusingControl())
+    for _ in range(2):
+        started.clear()
+        release.clear()
+        signal = threading.Event()
+        trigger = threading.Timer(0.05, signal.set)
+        trigger.start()
+        # The query outlives the KILL, then finishes on its own.
+        threading.Timer(0.4, release.set).start()
+        with pytest.raises(CompiledQueryError) as exc:
+            executor.execute(query(cancellation=signal))
+        assert category(exc) == "aborted"
+    assert len(attempts) == 2
+    assert _refusals(refused_kill_log) == 1
+
+
+@pytest.mark.parametrize("bridge", [False, True])
+def test_a_refused_async_kill_schedules_no_retries(
+    bridge: bool, refused_kill_log: pytest.LogCaptureFixture
+) -> None:
+    async def run() -> None:
+        signal = threading.Event()
+        attempts: list[int] = []
+
+        if bridge:
+            client = SyncClient()
+
+            class RefusingSyncControl:
+                def command(self, _cmd: str, _parameters: dict[str, str]) -> object:
+                    attempts.append(1)
+                    raise _refused()
+
+            executor: AsyncClickHouseExecutor | AsyncFromSyncClickHouseExecutor = (
+                AsyncFromSyncClickHouseExecutor(client, RefusingSyncControl())
+            )
+            started = asyncio.to_thread(client.started.wait, 2)
+        else:
+            async_client = AsyncClient()
+
+            class RefusingControl:
+                async def command(self, _cmd: str, _parameters: dict[str, str]) -> object:
+                    attempts.append(1)
+                    raise _refused()
+
+            executor = AsyncClickHouseExecutor(async_client, RefusingControl())
+            started = async_client.started.wait()
+        task = asyncio.create_task(executor.execute(query(cancellation=signal)))
+        await started
+        signal.set()
+        with pytest.raises(CompiledQueryError) as exc:
+            await task
+        assert category(exc) == "aborted"
+        await asyncio.sleep(0.3)
+        assert len(attempts) == 1
+        assert _refusals(refused_kill_log) == 1
+        if bridge:
+            client.released.set()
+            await executor.aclose()
+        else:
+            await executor.aclose()
+
+    asyncio.run(run())
