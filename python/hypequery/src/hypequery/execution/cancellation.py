@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import time
 from collections.abc import Awaitable, Callable
 from contextlib import suppress
 from typing import TypeVar
@@ -13,7 +14,23 @@ from hypequery.datasets.planner import CompiledQuery, CompiledQueryError
 _T = TypeVar("_T")
 _POLL_SECONDS = 0.025
 _DRAIN_SECONDS = 2.0
+#: Back off between repeated KILL attempts, but keep asking often enough that a
+#: query which registered after the first attempt is stopped soon after.
+_RETRY_CAP_SECONDS = 5.0
 _LOGGER = logging.getLogger(__name__)
+
+#: Retries outlive the request that started them; keep them referenced.
+_RETRIES: set[asyncio.Task[None]] = set()
+
+
+def server_cancellation_confirmed(response: object) -> bool:
+    """KILL ... SYNC returns a finished status only when it matched a query."""
+    if isinstance(response, str):
+        return response.split("\t", 1)[0] == "finished"
+    if isinstance(response, (list, tuple)) and response:
+        status: object = response[0]
+        return isinstance(status, str) and status == "finished"
+    return False
 
 
 def terminal_error(compiled: CompiledQuery) -> CompiledQueryError | None:
@@ -42,12 +59,59 @@ async def _drain(task: asyncio.Future[_T]) -> None:
 
 async def _cancel_on_server_preserving_reason(
     query_id: str, cancel_on_server: Callable[[str], Awaitable[object]]
-) -> None:
+) -> bool:
+    """Send one KILL and report whether the server confirmed a match."""
     try:
-        await cancel_on_server(query_id)
+        return server_cancellation_confirmed(await cancel_on_server(query_id))
     except Exception:
         # The caller's terminal reason still wins if the control connection fails.
         _LOGGER.warning("Server cancellation failed for query %s", query_id)
+        return False
+
+
+async def _retry_server_cancellation(
+    compiled: CompiledQuery,
+    cancel_on_server: Callable[[str], Awaitable[object]],
+    pending: Callable[[], bool] | None,
+) -> None:
+    """Ask again until the server confirms or the driver's work is over.
+
+    The driver may still be submitting when the first KILL runs, so a query
+    that registers afterwards would otherwise run to ``max_execution_time``
+    while holding its worker slot. *pending* reports whether the driver call is
+    still running. With it, retries continue for as long as that call does, as
+    the synchronous monitor's do: ``max_execution_time`` bounds execution on
+    the server, not how long submission takes, so a slow submission must not
+    outlast the retries. Without it, the retries stop at the server's own time
+    limit, by which point a query registered within it has ended either way.
+    """
+    budget = (
+        None if pending is not None else time.monotonic() + compiled.settings.max_execution_time
+    )
+    interval = _POLL_SECONDS
+    warned = False
+    while budget is None or time.monotonic() < budget:
+        await asyncio.sleep(interval)
+        if pending is not None and not pending():
+            return
+        try:
+            if server_cancellation_confirmed(await cancel_on_server(compiled.query_id)):
+                return
+        except Exception:
+            if not warned:
+                _LOGGER.warning("Server cancellation failed for query %s", compiled.query_id)
+                warned = True
+        interval = min(interval * 2, _RETRY_CAP_SECONDS)
+
+
+def _ensure_server_cancellation(
+    compiled: CompiledQuery,
+    cancel_on_server: Callable[[str], Awaitable[object]],
+    pending: Callable[[], bool] | None,
+) -> None:
+    task = asyncio.create_task(_retry_server_cancellation(compiled, cancel_on_server, pending))
+    _RETRIES.add(task)
+    task.add_done_callback(_RETRIES.discard)
 
 
 async def acquire_slot(semaphore: asyncio.Semaphore, compiled: CompiledQuery) -> None:
@@ -82,21 +146,38 @@ async def run_with_policy(
     work: Awaitable[_T],
     compiled: CompiledQuery,
     cancel_on_server: Callable[[str], Awaitable[object]],
+    *,
+    pending: Callable[[], bool] | None = None,
 ) -> _T:
-    """Monitor a running query and ask ClickHouse to stop it on interruption."""
+    """Monitor a running query and ask ClickHouse to stop it on interruption.
+
+    *pending* tells whether the driver call behind *work* is still running once
+    *work* itself has been abandoned; a bridge over a blocking driver can say,
+    a native async driver cannot.
+    """
 
     task = asyncio.ensure_future(work)
+    # Set when a KILL went out while the driver call was still running and the
+    # server did not confirm a match: the query may register after it.
+    unconfirmed = False
+
+    async def cancel_now() -> None:
+        nonlocal unconfirmed
+        in_flight = not task.done()
+        confirmed = await _cancel_on_server_preserving_reason(compiled.query_id, cancel_on_server)
+        unconfirmed = in_flight and not confirmed
+
     try:
         while True:
             reason = terminal_error(compiled)
             if reason is not None:
-                await _cancel_on_server_preserving_reason(compiled.query_id, cancel_on_server)
+                await cancel_now()
                 raise reason
             done, _ = await asyncio.wait((task,), timeout=_wait_interval(compiled))
             if done:
                 reason = terminal_error(compiled)
                 if reason is not None:
-                    await _cancel_on_server_preserving_reason(compiled.query_id, cancel_on_server)
+                    await cancel_now()
                     raise reason
                 return await task
     except asyncio.CancelledError:
@@ -104,9 +185,7 @@ async def run_with_policy(
         caller_task = asyncio.current_task()
         if reason is None and (caller_task is None or caller_task.cancelling() == 0):
             raise CompiledQueryError("internal", "", query_id=compiled.query_id) from None
-        await asyncio.shield(
-            _cancel_on_server_preserving_reason(compiled.query_id, cancel_on_server)
-        )
+        await asyncio.shield(cancel_now())
         raise (
             reason
             or CompiledQueryError("aborted", "The query was cancelled.", query_id=compiled.query_id)
@@ -114,3 +193,5 @@ async def run_with_policy(
     finally:
         if not task.done():
             await _drain(task)
+        if unconfirmed:
+            _ensure_server_cancellation(compiled, cancel_on_server, pending)
