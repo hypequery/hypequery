@@ -1221,6 +1221,26 @@ add_discovery_endpoint(router, registry=registry)
 app = create_app(router, security=HttpSecurity(allowed_hosts=("analytics.example.com",)))
 ```
 
+An endpoint serves its own dataset's fields only. Its policy says who may read
+that dataset, not the datasets its relationships reach. Fields such as
+`customer.country`, related measures, and named filters defined on a related
+field therefore need an explicit opt-in, per relationship:
+
+```python
+add_dataset_endpoint(
+    router,
+    "/datasets/orders/query",
+    dataset=orders,
+    client=client,
+    policy=policy,
+    include_related={"customer"},
+)
+```
+
+Without the opt-in, the endpoint refuses those fields with `400 VALIDATION_ERROR`
+and leaves them out of its client contract. Include a relationship only when
+this endpoint's policy is enough to read the related dataset.
+
 The dataset, registry and client are authored by the host as in the client
 examples above. Metric endpoints fix one dataset measure; formula metrics and
 portable metric definitions remain a follow-up. Their optional `name` aliases

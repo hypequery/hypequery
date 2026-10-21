@@ -57,13 +57,16 @@ def request_filter(dataset: Dataset, field: str) -> bool:
 
 
 def public_fields(
-    dataset: Dataset, registry: DatasetRegistry | None
+    dataset: Dataset, registry: DatasetRegistry | None, related: frozenset[str] | None = None
 ) -> tuple[dict[str, ClientDimension], dict[str, ClientMeasure], dict[str, ClientFilter]]:
+    """The fields an endpoint advertises; *related* limits which relationships appear."""
     dimensions = {name: dimension_descriptor(d) for name, d in dataset.dimensions.items()}
     measures = {name: measure_descriptor(dataset, m) for name, m in dataset.measures.items()}
     filters: dict[str, ClientFilter] = {}
     related_filters: dict[str, ClientFilter] = {}
     for relation_name, relationship in dataset.relationships.items():
+        if related is not None and relation_name not in related:
+            continue
         if relationship.kind not in ("belongsTo", "hasOne"):
             continue
         if registry is None:

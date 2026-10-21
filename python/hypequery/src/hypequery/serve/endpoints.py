@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 import copy
 import time
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Iterable
 from dataclasses import dataclass, replace
 
 from fastapi import Request
@@ -35,6 +35,7 @@ from .utils.metric_alias import MetricAlias
 from .utils.production_context import production_profile
 from .utils.query_response import public_response
 from .utils.query_schema import endpoint_query_model
+from .utils.related_fields import checked_related, refuse_unlisted_related
 from .utils.request_work import request_work, run_sync
 
 
@@ -62,6 +63,7 @@ class DatasetEndpoint:
         diagnostics: DiagnosticAccess | None = None,
         events: QueryEvents | None = None,
         client_profile: ClientQueryProfile | None = None,
+        include_related: Iterable[str] = (),
     ) -> None:
         if dataset.tenant_key is not None and (policy.public or policy.tenant == "forbidden"):
             raise ValueError("tenant-keyed datasets cannot be public or forbid tenants")
@@ -84,6 +86,9 @@ class DatasetEndpoint:
         self.diagnostics = diagnostics
         self.events = events
         self.alias = MetricAlias(measure, self.name) if measure is not None else None
+        # Related fields are opt-in per endpoint: this endpoint's policy says
+        # nothing about who may read the datasets a relationship reaches.
+        self.include_related = checked_related(dataset, include_related)
 
     async def execute(self, request: Request, payload: QueryRequest) -> QueryResponse:
         auth = authenticated_context(request)
@@ -94,6 +99,7 @@ class DatasetEndpoint:
         )
         if self.alias is not None:
             query = self.alias.query(query)
+        refuse_unlisted_related(self.dataset, query, self.include_related)
         result = await self._run(request, query, auth, profile)
         include_meta = payload.include_meta or request.headers.get("x-include-meta") == "true"
         response = public_response(
@@ -240,6 +246,7 @@ class DatasetEndpoint:
                 path=router.prefix + path,
                 measure=target.measure,
                 name=target.name,
+                related=target.include_related,
             )
             router.client_endpoints.check(binding)
             if any(
@@ -293,6 +300,7 @@ def add_dataset_endpoint(
     diagnostics: DiagnosticAccess | None = None,
     events: QueryEvents | None = None,
     client_profile: ClientQueryProfile | None = None,
+    include_related: Iterable[str] = (),
 ) -> None:
     """Register a bounded POST query endpoint, authenticated by default."""
 
@@ -303,6 +311,7 @@ def add_dataset_endpoint(
         diagnostics=diagnostics,
         events=events,
         client_profile=client_profile,
+        include_related=include_related,
     ).install(router, path)
 
 
@@ -318,6 +327,7 @@ def add_metric_endpoint(
     diagnostics: DiagnosticAccess | None = None,
     events: QueryEvents | None = None,
     client_profile: ClientQueryProfile | None = None,
+    include_related: Iterable[str] = (),
 ) -> None:
     """Register a metric fixed to one dataset measure (no formula metric surface yet)."""
 
@@ -330,6 +340,7 @@ def add_metric_endpoint(
         diagnostics=diagnostics,
         events=events,
         client_profile=client_profile,
+        include_related=include_related,
     ).install(router, path)
 
 
@@ -341,11 +352,14 @@ def create_dataset_endpoint(
     diagnostics: DiagnosticAccess | None = None,
     events: QueryEvents | None = None,
     client_profile: ClientQueryProfile | None = None,
+    include_related: Iterable[str] = (),
 ) -> DatasetEndpoint:
     """Create a dataset endpoint without registering a route.
 
     Call ``endpoint.install(api, path)`` to register it, or use
-    ``add_dataset_endpoint`` to create and register in one step.
+    ``add_dataset_endpoint`` to create and register in one step. Fields of
+    related datasets are exposed only for the relationships named in
+    *include_related*, since *policy* does not cover those datasets.
     """
     return DatasetEndpoint(
         dataset=dataset,
@@ -354,6 +368,7 @@ def create_dataset_endpoint(
         diagnostics=diagnostics,
         events=events,
         client_profile=client_profile,
+        include_related=include_related,
     )
 
 
@@ -367,6 +382,7 @@ def create_metric_endpoint(
     diagnostics: DiagnosticAccess | None = None,
     events: QueryEvents | None = None,
     client_profile: ClientQueryProfile | None = None,
+    include_related: Iterable[str] = (),
 ) -> DatasetEndpoint:
     """Create a one-measure metric endpoint without registering a route.
 
@@ -382,4 +398,5 @@ def create_metric_endpoint(
         diagnostics=diagnostics,
         events=events,
         client_profile=client_profile,
+        include_related=include_related,
     )

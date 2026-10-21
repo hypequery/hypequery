@@ -22,7 +22,7 @@ def endpoint_descriptor(
         registered = registry.get(dataset.name)
         if registered is not None and registered != dataset:
             raise ValueError("client endpoint differs from its registered dataset definition")
-    dimensions, measures, filters = public_fields(dataset, registry)
+    dimensions, measures, filters = public_fields(dataset, registry, definition.related)
     metric = definition.measure is not None
     if definition.name is not None:
         name = definition.name

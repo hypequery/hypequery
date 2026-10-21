@@ -224,7 +224,9 @@ def test_related_measures_serialize_without_changing_dimensions_or_local_results
     assert native_result.data == (dict(zip((*dimensions, *measures), values, strict=True)),)
 
     router = create_api(authenticate=authenticate)
-    add_dataset_endpoint(router, "/query", dataset=source, client=client)
+    add_dataset_endpoint(
+        router, "/query", dataset=source, client=client, include_related={"target"}
+    )
     with TestClient(
         create_app(router, security=HttpSecurity(allowed_hosts=("testserver",)))
     ) as http:
@@ -620,3 +622,112 @@ def test_created_endpoints_install_with_the_same_auth_policy(metric: bool) -> No
         response = http.post("/query", json=payload, headers={"Authorization": "Bearer reader"})
         assert response.status_code == 200, response.text
         assert response.json()["data"][0]["total"] == "10"
+
+
+def _orders_with_shipments() -> tuple[Dataset, Dataset]:
+    from hypequery.datasets.dataset import FilterDefinition
+
+    shipments = Dataset(
+        name="shipments",
+        source="private_shipments",
+        dimensions={"order_id": dimension.number(), "carrier": dimension.string()},
+        measures={"shipped": measure.count_distinct("order_id")},
+    )
+    orders = Dataset(
+        name="orders",
+        source="private_orders",
+        dimensions={"id": dimension.number(), "country": dimension.string()},
+        measures={"total": measure.count("id")},
+        filters={
+            "country": FilterDefinition(field="country"),
+            "carrier": FilterDefinition(field="shipment.carrier"),
+        },
+        relationships={"shipment": belongs_to(shipments, from_field="id", to_field="order_id")},
+    )
+    return orders, shipments
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        {"dimensions": ["shipment.carrier"]},
+        {"measures": ["shipment.shipped"]},
+        {"filters": [{"field": "shipment.carrier", "operator": "eq", "value": "ups"}]},
+        # A named filter defined on a related field reads that field too.
+        {"filters": [{"field": "carrier", "operator": "eq", "value": "ups"}]},
+    ],
+    ids=["dimension", "measure", "filter", "named-filter"],
+)
+def test_related_fields_need_the_endpoint_to_include_the_relationship(
+    body: dict[str, object],
+) -> None:
+    # The QA repro: a caller refused by the shipments endpoint read shipment
+    # data through the orders endpoint, whose policy says nothing about shipments.
+    orders, shipments = _orders_with_shipments()
+    executor = Executor()
+    client = create_dataset_client(
+        executor=executor, registry=create_dataset_registry(orders, shipments)
+    )
+    router = create_router(authenticate=authenticate)
+    add_dataset_endpoint(router, "/orders", dataset=orders, client=client)
+    add_dataset_endpoint(
+        router, "/orders-shipped", dataset=orders, client=client, include_related={"shipment"}
+    )
+    add_dataset_endpoint(
+        router,
+        "/shipments",
+        dataset=shipments,
+        client=client,
+        policy=EndpointPolicy(required_scopes=frozenset({"shipments:read"})),
+    )
+    http = TestClient(create_app(router, security=HttpSecurity(allowed_hosts=("testserver",))))
+    headers = {"Authorization": "Bearer reader"}
+    assert http.post("/shipments", json={}, headers=headers).status_code == 403
+    refused = http.post("/orders", json=body, headers=headers)
+    assert refused.status_code == 400, refused.text
+    assert refused.json()["error"]["type"] == "VALIDATION_ERROR"
+    assert "not available on this endpoint" in refused.json()["error"]["message"]
+    assert executor.seen == []
+    assert http.post("/orders-shipped", json=body, headers=headers).status_code == 200
+    assert len(executor.seen) == 1
+
+
+def test_the_client_contract_advertises_only_included_relationships() -> None:
+    from hypequery.datasets import ClientQueryProfile
+    from hypequery.serve import export_client_contract
+
+    orders, shipments = _orders_with_shipments()
+    client = create_dataset_client(
+        executor=Executor(), registry=create_dataset_registry(orders, shipments)
+    )
+    contracts = {}
+    for related in ((), ("shipment",)):
+        router = create_api(authenticate=authenticate)
+        add_dataset_endpoint(
+            router,
+            "/orders",
+            dataset=orders,
+            client=client,
+            client_profile=ClientQueryProfile(),
+            include_related=related,
+        )
+        app_ = create_app(router, security=HttpSecurity(allowed_hosts=("testserver",)))
+        contracts[related] = export_client_contract(app_)["contract"]["endpoints"][0]
+    closed, opened = contracts[()], contracts[("shipment",)]
+    assert set(closed["dimensions"]) == {"id", "country"}
+    assert "shipment.shipped" not in closed["measures"]
+    assert set(closed["filters"]) == {"country"}
+    assert "shipment.carrier" in opened["dimensions"]
+    assert "shipment.shipped" in opened["measures"]
+    assert "carrier" in opened["filters"]
+
+
+def test_include_related_must_name_declared_relationships() -> None:
+    orders, shipments = _orders_with_shipments()
+    client = create_dataset_client(
+        executor=Executor(), registry=create_dataset_registry(orders, shipments)
+    )
+    with pytest.raises(ValueError, match="shipments"):
+        create_dataset_endpoint(dataset=orders, client=client, include_related={"shipments"})
+    with pytest.raises(TypeError):
+        create_dataset_endpoint(dataset=orders, client=client, include_related="shipment")
