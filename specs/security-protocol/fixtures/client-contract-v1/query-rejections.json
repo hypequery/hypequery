@@ -2093,5 +2093,22 @@
     "error": "HQ_CLIENT_QUERY",
     "path": "",
     "message": "Invalid client query."
+  },
+  {
+    "id": "mcp-limit-above-max",
+    "contract": "build",
+    "endpoint": "orders",
+    "input": {
+      "dataset": "orders",
+      "measures": [
+        "revenue"
+      ],
+      "limit": 1001
+    },
+    "transport": "mcp",
+    "error": "HQ_CLIENT_QUERY",
+    "mode": "query",
+    "path": "/limit",
+    "message": "Invalid client query."
   }
 ]

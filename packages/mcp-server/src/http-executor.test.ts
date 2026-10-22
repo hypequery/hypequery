@@ -39,7 +39,7 @@ describe('authorized HTTP MCP executor', () => {
   it('executes through the advertised path, pin and normalized body, without local SQL/tenant routing', async () => {
     const fetchFn = backend();
     const executor = await createMCPHttpExecutor({ url, fetchFn: fetchFn as typeof fetch, headers: { authorization: 'Bearer PRIVATE_TOKEN' } });
-    const result = await executor.callTool('query_dataset', { ...args, limit: 10000 });
+    const result = await executor.callTool('query_dataset', { ...args, limit: 1000 });
     expect(result.structuredContent).toEqual(rows);
     const post = fetchFn.mock.calls.find(call => call[1]?.method === 'POST')!;
     expect(post[0]).toBe('https://python.example.test/api/v1/datasets/orders/query');
@@ -70,7 +70,7 @@ describe('authorized HTTP MCP executor', () => {
     { ...args, filters: [{ field: 'amount', operator: 'eq', value: '1' }] },
     { ...args, having: [{ measure: 'orderCount', operator: 'eq', value: 1 }] },
     { ...args, orderBy: [{ field: 'amount', direction: 'asc' }] }, { ...args, timezone: 'utc' },
-    { ...args, by: 'day' }, { ...args, offset: 10001 }, { ...args, measures: null }, { ...args, dimensions: ['country', 'country'] },
+    { ...args, by: 'day' }, { ...args, offset: 10001 }, { ...args, limit: 1001 }, { ...args, measures: null }, { ...args, dimensions: ['country', 'country'] },
   ])('rejects invalid model arguments without even fetching discovery', async input => {
     const fetchFn = backend();
     const executor = await createMCPHttpExecutor({ url, fetchFn: fetchFn as typeof fetch });
@@ -319,7 +319,11 @@ describe('authorized HTTP MCP executor', () => {
     expect(executor.getManifestHash()).not.toBe(contract.contentHash);
     const profile = (await executor.callTool('get_dataset_schema', { dataset: 'orders' })).structuredContent as any;
     expect(profile.endpoints[0].limits).toMatchObject({ maxLimit: 2, defaultLimit: 2, maxOffset: 5 });
-    await executor.callTool('query_dataset', { ...args, limit: 999 });
+    // An agent is refused a limit above the ceiling rather than handed a shortened page.
+    expect(code(await executor.callTool('query_dataset', { ...args, limit: 999 }))).toBe('MCP_INVALID_ARGUMENTS');
+    expect(code(await executor.callTool('query_metric', { dataset: 'orders', metric: 'ordersRevenue', limit: 3 }))).toBe('MCP_INVALID_ARGUMENTS');
+    expect(fetchFn.mock.calls.some(call => call[1]?.method === 'POST')).toBe(false);
+    await executor.callTool('query_dataset', { ...args, limit: 2 });
     const post = fetchFn.mock.calls.find(call => call[1]?.method === 'POST')!;
     expect(JSON.parse(post[1]?.body as string).limit).toBe(2);
     expect(new Headers(post[1]?.headers).get('x-hypequery-client-schema')).toBe(contract.endpoints.find((endpoint: any) => endpoint.id === 'orders').schemaHash);
