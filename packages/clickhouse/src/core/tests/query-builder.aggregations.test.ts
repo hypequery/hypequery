@@ -183,6 +183,20 @@ describe('QueryBuilder - Aggregations', () => {
       expect(sql).toBe('SELECT category, uniq(id) AS distinct_ids FROM test_table GROUP BY category');
     });
 
+    it('should finalize aggregate states with the -Merge combinator', () => {
+      const sql = builder
+        .select(['category'])
+        .mergeState('uniq', 'id', 'users')
+        .toSQL();
+      expect(sql).toBe('SELECT category, uniqMerge(id) AS users FROM test_table GROUP BY category');
+    });
+
+    it('should reject state function names that are not bare function names', () => {
+      for (const name of ['uniq(x)', 'uniqMerge', 'sumIf', 'sum; DROP', '', 'quantile(0.5)']) {
+        expect(() => builder.mergeState(name, 'id', 'users')).toThrow(/Invalid aggregate state function/);
+      }
+    });
+
     it('should infer GROUP BY from plain selections but never from analytical aggregates', () => {
       const sql = builder
         .select(['category'])

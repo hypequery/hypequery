@@ -17,6 +17,7 @@
 
 import type { AggregationSpec, AggregationType } from './types.js';
 import { validatePercentileLevel } from './measure.js';
+import { assertAggregateStateFunction, type AggregateStateFunction } from './utils/aggregate-state-functions.js';
 
 function createAggregation(aggregation: AggregationType, field: string): AggregationSpec {
   return {
@@ -53,6 +54,12 @@ export function min(field: string): AggregationSpec {
 
 export function max(field: string): AggregationSpec {
   return createAggregation('max', field);
+}
+
+/** Finalize the aggregate states stored in `field` with `stateFunction`'s `-Merge` combinator. */
+export function merge(stateFunction: AggregateStateFunction, field: string): AggregationSpec {
+  assertAggregateStateFunction(stateFunction, `merge(…, "${field}")`);
+  return { ...createAggregation('merge', field), stateFunction };
 }
 
 /** Approximate percentile of a numeric field at `level` in [0, 1]. */

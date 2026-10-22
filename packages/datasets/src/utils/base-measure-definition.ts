@@ -7,6 +7,7 @@ import type {
   MeasureAggregation,
 } from '../types.js';
 import { snapshotSemanticMetadata } from './semantic-metadata.js';
+import { assertAggregateStateFunction, type AggregateStateFunction } from './aggregate-state-functions.js';
 
 export function createMeasureHelper<TAggregation extends MeasureAggregation>(aggregation: TAggregation) {
   return <const TField extends string, const TOptions extends MeasureOptions = MeasureOptions>(field: TField, opts?: TOptions): MeasureDefinition & { aggregation: TAggregation; field: TField } & TOptions => ({
@@ -61,6 +62,36 @@ export function createPercentileMeasure<const TField extends string, const TOpti
     ...snapshotSemanticMetadata(opts ?? {}),
     filters: opts?.filters,
   } as MeasureDefinition & { aggregation: 'percentile'; field: TField } & TOptions;
+}
+
+/**
+ * Finalizes the aggregate states stored in `field` (an `AggregateFunction`
+ * column) with `stateFunction`'s `-Merge` combinator. Measure filters are not
+ * supported: a filtered merge needs `-MergeIf`, which this measure does not
+ * emit yet.
+ */
+export function createMergeMeasure<
+  const TStateFunction extends AggregateStateFunction,
+  const TField extends string,
+  const TOptions extends Omit<MeasureOptions, 'filters' | 'sql' | 'dependencies'> = Omit<MeasureOptions, 'filters' | 'sql' | 'dependencies'>,
+>(
+  stateFunction: TStateFunction,
+  field: TField,
+  opts?: TOptions & { filters?: never; sql?: never; dependencies?: never },
+): MeasureDefinition & { aggregation: 'merge'; field: TField; stateFunction: TStateFunction } & TOptions {
+  assertAggregateStateFunction(stateFunction, `measure.merge(…, "${field}")`);
+  if (typeof field !== 'string' || field.trim().length === 0) {
+    throw new Error('measure.merge(stateFunction, field) requires a field.');
+  }
+  return {
+    __type: 'measure_definition',
+    aggregation: 'merge',
+    field,
+    stateFunction,
+    label: opts?.label,
+    description: opts?.description,
+    ...snapshotSemanticMetadata(opts ?? {}),
+  } as MeasureDefinition & { aggregation: 'merge'; field: TField; stateFunction: TStateFunction } & TOptions;
 }
 
 export function createMedianMeasure<const TField extends string, const TOptions extends MeasureOptions = MeasureOptions>(field: TField, opts?: TOptions) {
