@@ -1,5 +1,28 @@
 # @hypequery/serve
 
+## 0.21.1
+
+### Patch Changes
+
+- bb910a4: Dataset and metric endpoints now enforce the related dataset's own policy. Previously a query on one served dataset could read fields of a related dataset through a relationship, such as `shipment.carrier` on `orders`, even when the caller failed that dataset's own endpoint's `requiredRoles`, `requiredScopes` or auth requirement. Such a query now answers `403 FORBIDDEN` before it is planned. The check covers measures whose fixed filters read a related field, directly or through a derived measure, including the measures an omitted `measures` list selects. A related dataset with no local auth setting inherits the API's global auth, as its own endpoint does, and policies are matched to the related dataset definition itself rather than to any dataset sharing its name. Related datasets that are not served as their own entry are unaffected, so existing APIs keep working unless they relied on reading a protected dataset through another one.
+- Updated dependencies [bc14e60]
+- Updated dependencies [9d97163]
+- Updated dependencies [aa10003]
+- Updated dependencies [91804f0]
+- Updated dependencies [3661a84]
+- Updated dependencies [87ed4ad]
+- Updated dependencies [8201f86]
+- Updated dependencies [9f19fc3]
+- Updated dependencies [fcf39bb]
+- Updated dependencies [2a9ac25]
+- Updated dependencies [68b0aa8]
+- Updated dependencies [c413f61]
+- Updated dependencies [cbf8691]
+- Updated dependencies [dbee699]
+- Updated dependencies [bb910a4]
+- Updated dependencies [636b46f]
+  - @hypequery/datasets@0.24.0
+
 ## 0.21.0
 
 ### Minor Changes

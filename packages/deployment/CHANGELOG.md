@@ -1,5 +1,18 @@
 # @hypequery/deployment
 
+## 0.10.0
+
+### Minor Changes
+
+- e0f9c6e: Add field visibility and enforced constraints (RFC 0019). `@hypequery/protocol` exports `validateProtocolFieldVisibility` and `resolveProtocolVisibleDatasetFields`. The semantic data plane accepts `resolveFieldVisibility` and `resolveConstraints`: hidden datasets and fields are refused exactly like unknown ones (before access and tenant checks), joins over hidden keys are hidden, and provider-enforced comparisons are ANDed onto every call within the dataset's filter ceiling. `DeploymentSemanticContextInput` names the input every context resolver receives. `projectAuthorizedDeploymentContract` takes a `visibility` option so discovery advertises only what execution accepts.
+
+### Patch Changes
+
+- Updated dependencies [9d97163]
+- Updated dependencies [e0f9c6e]
+- Updated dependencies [cbf8691]
+  - @hypequery/protocol@0.21.0
+
 ## 0.9.6
 
 ### Patch Changes
