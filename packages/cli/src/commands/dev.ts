@@ -1,3 +1,4 @@
+import { loadServeDev } from '../utils/load-serve-dev.js';
 import { exitWith, finishAndExit } from '../utils/command-exit.js';
 import { telemetryErrorCode } from '../utils/telemetry/error-code.js';
 import { DevSession } from '../utils/telemetry/dev-session.js';
@@ -92,6 +93,10 @@ export async function devCommand(file?: string, options: DevOptions = {}) {
     let loading = true;
 
     try {
+      // Before the API module: it imports @hypequery/serve itself, and failing
+      // there would hide which package to install.
+      const { serveDev } = await loadServeDev();
+
       // Load the API module
       const api = await loadApiModule(queriesFile);
       loading = false;
@@ -120,7 +125,6 @@ export async function devCommand(file?: string, options: DevOptions = {}) {
       logger.newline();
 
       // Start the server
-      const { serveDev } = await import('@hypequery/serve/dev');
 
       currentServer = await serveDev(api, {
         port: options.port,
