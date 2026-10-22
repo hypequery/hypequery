@@ -1,5 +1,41 @@
 # @hypequery/datasets
 
+## 0.24.0
+
+### Minor Changes
+
+- 9d97163: Add semantic client contract v1 validation, canonical identities and strict HTTP/MCP query validation. Compile typed endpoint/tool schemas from public descriptors and test Python/TypeScript with the required shared conformance family. Existing catalog schemas keep their defaults.
+- 68b0aa8: Add `assertDeployable(dataset)`, which refuses derived measures the deployment contract cannot carry (a reference to another derived measure, or a literal anywhere other than `round` decimals or a `coalesce` fallback) with an error naming the dataset and measure, for example `orders.doubled: a numeric literal cannot be an arithmetic operand in a deployable formula`. `buildProtocolDeploymentContract`, and so `hypequery deploy`, runs the check before building the contract instead of failing later with only a contract path such as `$.datasets[2].measures[19].expression.right`.
+
+### Patch Changes
+
+- bc14e60: Add `toSQLWithPlaceholders(placeholder)` to the query builder: it compiles the query and writes each bound value through the callback, in SQL order, so a caller can number placeholders when embedding the statement in a larger one. `@hypequery/datasets` adds it as an optional `QueryBuilderLike` member, used only by datasets dialects that number placeholders. ClickHouse datasets queries keep using `toSQLWithParams`, so existing builders and generated SQL are unchanged.
+- aa10003: Exclude internal runtime and type-test programs from published package tarballs while preserving public runtime and declaration exports.
+- 91804f0: Fix the `dataset()` JSDoc example so the `belongsTo` join names the physical `customer_id` column rather than the `customerId` dimension; relationship `from`/`to` keys are columns, and the dimension name fails at query time.
+- 3661a84: Bind time-measure (window and shift) axis bounds as query parameters instead of writing them into the SQL text. `compileDataset()` and `toSQL()` now show `parseDateTime64BestEffort(?, …)` with the caller's bounds in `parameters` (and in each preflight statement's parameters). The statement ClickHouse executes is unchanged.
+- 87ed4ad: Route every ClickHouse-specific SQL spelling in the datasets planner (time grains and arithmetic, timezone conversion, time-measure guards and series expansion, window aggregates, measure-filter literals, formula rendering and row packing) through the internal datasets SQL dialect. Generated ClickHouse SQL is unchanged. A custom `datasetSqlDialect.quoteIdentifier` hook now also applies to time-measure (window and shift) queries.
+
+  `GRAIN_FUNCTIONS` is deprecated: grain SQL is engine-specific and no longer read by the planner. Use `SUPPORTED_TIME_GRAINS` to enumerate grains.
+
+- 8201f86: Render derived metric formulas through the datasets SQL dialect, the same renderer derived measures use, instead of `FormulaExpr.toSQL()`. Generated SQL changes only in parenthesization (`(a) / (NULLIF(b, 0))` becomes `(a / NULLIF(b, 0))`); results are unchanged. A derived metric formula that references an input not declared in `uses` is now rejected rather than written into the SQL. `FormulaExpr.toSQL()` itself is unchanged.
+- 9f19fc3: Quote every alias the datasets planner generates — dimension, `period`, measure and metric aliases, and the GROUP BY, ORDER BY and outer-query references to them — so names that are SQL keywords (`rows`, `order`, `end`, `window`, …) work and engines that fold unquoted case keep the semantic name. `compileDataset()` and `toSQL()` show the backtick-quoted aliases; result row keys are unchanged. Custom `QueryBuilderLike` implementations receive these aliases already quoted and must insert them verbatim.
+- fcf39bb: Preserve NULLs for unmatched related dimensions and related-dimension filters independently of ClickHouse `join_use_nulls`, including queries that select no related measure. Every relationship join now projects the target with a `_hq_match` marker, and a joined dimension such as `customer.tier` renders as `if(isNotNull(customer._hq_match), customer.tier, NULL)` in SELECT, GROUP BY, ORDER BY, WHERE and measure filters. An order whose customer is missing or belongs to another tenant groups under `NULL` instead of `''`/`0`, and a `neq` filter on a joined dimension excludes it, matching the Python package and standard SQL semantics.
+- 2a9ac25: Accept ISO 8601 instants in timestamp filters. A value carrying `Z` or an offset, such as `new Date().toISOString()` produces (`2026-02-01T00:00:00Z`, `2026-02-01T00:00:00.000Z`), previously failed in ClickHouse with "Cannot convert string ... to type DateTime64". The datasets planner now rewrites such a value to its wall clock in the zone the column is compared in, so it selects the same rows as the equivalent offset-free form and matches the Python planner. Offset-free values (`2026-02-01T00:00:00`, `2026-02-01 00:00:00`, `2026-02-01`) are bound unchanged and still read as local time in the query timezone.
+- c413f61: Two parity fixes with the Python SDK:
+
+  - A dimension declared `groupable: false` is now refused as a query dimension, locally and through a relationship (`Dimension "x" is not groupable.`). It can still be filtered on. Serve's input schemas already excluded these dimensions; direct client queries didn't.
+  - `buildProtocolDeploymentContract` lists datasets by name, so the deployment contract and its identity no longer depend on the order the datasets are passed in. A deployment whose datasets weren't already in name order gets a new, stable identity once.
+  - Protocol artifacts now order names with a fixed collation (underscore, digits, then letters without case, lowercase first) instead of the host's `localeCompare`, matching Python's `portable_name_key`. Contracts and their identities no longer change with the machine's locale; under the default locale the order is unchanged.
+
+- cbf8691: MCP tools refuse a `limit` above the endpoint's `maxLimit` with `MCP_INVALID_ARGUMENTS` instead of silently clamping it, so an agent never mistakes a shortened page for the whole answer. Tool schemas built from a client contract advertise that ceiling as the `limit` maximum, and `validateProtocolClientQuery(..., 'mcp')` enforces it. HTTP requests keep clamping, as both Serve implementations do.
+- dbee699: Refuse number filter values that aren't safe integers (beyond ±2^53). Number filters bind as Float64, so such a value is already rounded and silently matched nothing against an exact `Int64` or `UInt64` id. Declare a large id as `dimension.string()` to filter it exactly.
+- bb910a4: Dataset and metric endpoints now enforce the related dataset's own policy. Previously a query on one served dataset could read fields of a related dataset through a relationship, such as `shipment.carrier` on `orders`, even when the caller failed that dataset's own endpoint's `requiredRoles`, `requiredScopes` or auth requirement. Such a query now answers `403 FORBIDDEN` before it is planned. The check covers measures whose fixed filters read a related field, directly or through a derived measure, including the measures an omitted `measures` list selects. A related dataset with no local auth setting inherits the API's global auth, as its own endpoint does, and policies are matched to the related dataset definition itself rather than to any dataset sharing its name. Related datasets that are not served as their own entry are unaffected, so existing APIs keep working unless they relied on reading a protected dataset through another one.
+- 636b46f: Refuse timestamp filter values that are not a real ISO 8601 date or date-time, such as `2026-13-45`, `2026-02-30`, `yesterday`, `20260201` or `2026-01-31 12:00`. `validate()` reports them and execution fails before planning. ClickHouse read some of these as a different instant instead of failing: `2026-13-45` became 1900-01-01 and `2026-02-30` rolled into March, so queries silently returned wrong totals. Accepted forms are `YYYY-MM-DD`, or `YYYY-MM-DD[T ]hh:mm:ss[.fraction]` optionally followed by `Z` or `±hh:mm`, which includes `Date#toISOString()` output. `like` patterns on timestamp fields are unchanged.
+- Updated dependencies [9d97163]
+- Updated dependencies [e0f9c6e]
+- Updated dependencies [cbf8691]
+  - @hypequery/protocol@0.21.0
+
 ## 0.23.1
 
 ### Patch Changes

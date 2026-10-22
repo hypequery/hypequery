@@ -1,5 +1,24 @@
 # @hypequery/cli
 
+## 1.25.0
+
+### Minor Changes
+
+- 3d1c757: Add MCP stdio bridging and discovery-only self-tests for authorized Python HTTP client contracts with `--client-contract-url`. Read Bearer credentials from `HYPEQUERY_API_KEY`, keep tenant resolution in Python, and abort discovery on shutdown.
+- b0d168e: Add offline `generate:client` generation of self-contained API types, installed
+  POST route mappings and schema hashes from validated Python client contracts.
+  Preserve typed filters, nullable wire values, metric aliases and default measures,
+  with drift checks and explicit replacement of existing generated files.
+
+### Patch Changes
+
+- 4fda9e7: `@hypequery/serve` is now an optional peer dependency. Installing `@hypequery/cli` in a frontend project, for example to run `generate:client` for a Python backend, no longer makes npm install the server packages too. `hypequery dev` says to install `@hypequery/serve` when it is missing.
+- Updated dependencies [9d97163]
+- Updated dependencies [e0f9c6e]
+- Updated dependencies [cbf8691]
+  - @hypequery/protocol@0.21.0
+  - @hypequery/deployment@0.10.0
+
 ## 1.24.1
 
 ### Patch Changes
