@@ -1,0 +1,91 @@
+---
+title: Python CLI
+description: Scaffold a Python dataset project from your ClickHouse schema, regenerate definitions, serve locally, and export client contracts.
+---
+
+import { CodeBlock } from 'fumadocs-ui/components/codeblock';
+
+The `hypequery` command ships with the Python package and needs no Node tooling. `python -m hypequery` runs the same
+CLI. Install the serving and ClickHouse extras for the full onboarding path:
+
+<CodeBlock>
+```bash
+pip install "hypequery[fastapi,clickhouse]"
+export CLICKHOUSE_HOST=localhost CLICKHOUSE_USERNAME=default CLICKHOUSE_PASSWORD=... CLICKHOUSE_DATABASE=analytics
+hypequery init --path my-analytics
+cd my-analytics
+hypequery dev
+```
+</CodeBlock>
+
+`hypequery --help`, `hypequery <command> --help`, `hypequery help <command>` and `hypequery --version` (or `-V`) work
+without the extras. Exit codes are `0` for success, `1` for a runtime failure and `2` for invalid usage.
+
+## `hypequery init`
+
+Creates a project from your live schema: `datasets.py` with one dataset per table, a `schema.json` snapshot, an
+`app.py` serving authenticated endpoints, a `pyproject.toml`, a `README.md` and a `.env.example`. Existing files are
+never overwritten.
+
+| Option | Description |
+| --- | --- |
+| `[directory]` or `--path <dir>` | Destination; defaults to the current directory |
+| `--tables a,b` | Only inspect these tables (default: all) |
+| `--exclude-tables a,b` | Skip these tables |
+| `--all-tables` | Inspect every table (the default) |
+| `--skip-connection` | Write the offline orders example and `seed.sql` instead of inspecting a database |
+
+Schema discovery reads only `system.tables` and `system.columns` for the current database, so the user needs
+`SHOW` and `SELECT` on it. A read-only user works, whether its profile sets `readonly = 1` or `2`. If discovery fails,
+the message names what to check: credentials, host and port, the database, or grants.
+
+Physical names map to the same camelCase semantic names as the TypeScript CLI. Numeric value columns get suggested
+`sum` and `avg` measures; ids and coordinates stay dimensions. Unsupported columns and likely tenant columns are
+reported, and nothing is written to the database. Review the generated semantics and configure tenant isolation
+explicitly before serving real data.
+
+## `hypequery generate datasets`
+
+Regenerates `datasets.py` from the current schema. Also spelled `generate:datasets`, as in the TypeScript CLI.
+
+| Option | Description |
+| --- | --- |
+| `--output <file>` | Output file (default `datasets.py`) |
+| `--path <dir>` | Output directory containing `datasets.py` |
+| `--tables`, `--exclude-tables` | Table selection, as for `init` |
+| `--tenant-column <column>` | Set `tenant_key` on tables that have this column; reports tables that do not |
+| `--check` | Exit 1 if the file would change, without writing |
+| `--diff` | Show the drift without writing; exit 1 if any |
+| `--force` | Replace the existing file; warns when it removes a configured `tenant_key` |
+
+Replacement is atomic and preserves the file's permissions. Use `--check` in CI to catch schema drift.
+
+## `hypequery dev`
+
+Serves a local app with uvicorn. Requires the `fastapi` extra.
+
+| Option | Description |
+| --- | --- |
+| `[app]` | Import string, default `app:app`, resolved from the working directory |
+| `--hostname`, `--host <addr>` | Bind address, default `127.0.0.1`. Binding beyond loopback prints a warning |
+| `-p`, `--port <port>` | Port, default `8000` |
+| `--reload` / `--no-watch` (`--no-reload`) | Reload on file changes; on by default |
+
+The dev runner is not hardened for a network. Apps built with a `ProductionProfile` are refused here; run those with
+`start_server` behind a reverse proxy instead. Startup failures are reported without their traceback so credentials in
+an exception never reach the terminal.
+
+## `hypequery export client-contract`
+
+Writes the canonical client contract that generated React hooks and the MCP bridge consume, without starting a server
+or connecting to a database.
+
+| Option | Description |
+| --- | --- |
+| `--factory module:factory` | Zero-argument factory returning the definition-only metadata (required) |
+| `--output <file>` | Output file, default `client-contract.json`; `-` for stdout |
+| `--stdout` | Write canonical JSON only to stdout |
+| `--check` | Exit 1 if the artifact would change, without writing |
+| `--force` | Replace an existing artifact |
+
+See [Python datasets, React and MCP](/docs/python-client-workflow) for the end-to-end workflow.

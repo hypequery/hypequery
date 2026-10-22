@@ -1,0 +1,59 @@
+---
+title: Production
+description: Run Python Serve as a hardened standalone process.
+---
+
+import { CodeBlock } from 'fumadocs-ui/components/codeblock';
+
+Use `ProductionProfile` and `run_production` to run the app as a standalone service with validated settings:
+
+<CodeBlock>
+```python
+from hypequery.serve import HttpSecurity, ProductionProfile, create_app, run_production
+
+app = create_app(
+    router,
+    security=HttpSecurity(
+        allowed_hosts=("analytics.example.com",),
+        trusted_proxies=("127.0.0.1",),
+    ),
+    production=ProductionProfile(
+        max_concurrency=32,
+        timeout_seconds=30,
+        max_result_rows=10_001,
+        max_result_bytes=8 << 20,
+    ),
+)
+
+if __name__ == "__main__":
+    run_production(app)
+```
+</CodeBlock>
+
+## Process
+
+- Binds to `127.0.0.1:8000` by default (`host=`, `port=`). Binding outside loopback, for example inside a container,
+  requires `allow_external_bind=True`.
+- Runs one Uvicorn worker per process with reload, access logging, server headers, and WebSockets disabled. Use a
+  process manager to run several instances; limits apply per instance.
+- Terminate TLS at a reverse proxy and list its addresses in `HttpSecurity.trusted_proxies`. Production rejects
+  all-address networks.
+- Debug, reload, development docs, and cookie credentials are rejected at startup.
+
+## Limits
+
+| Setting | Default | Effect |
+| --- | --- | --- |
+| `max_concurrency` | 32 | Excess in-flight requests get `503 SERVICE_UNAVAILABLE` without queuing |
+| `timeout_seconds` | 30 | Covers auth, body, query, and response; expiry cancels the query and returns `504` |
+| `max_result_rows` | 10,001 | Includes the one-row pagination probe, so at most 10,000 rows are returned |
+| `max_result_bytes` | 8 MiB | Applies to ClickHouse results and the serialized response; oversized bodies get `413` |
+| `max_threads` | 4 | ClickHouse thread ceiling per query |
+
+Time, row, byte, and thread ceilings are passed into the compiled query and intersected with stricter client
+settings. Responses are buffered under the byte ceiling, so this profile does not provide streaming exports.
+
+## Embedding in an existing app
+
+If you mount the router in your own FastAPI app instead, your app owns equivalent safeguards: process settings, the
+docs policy, and timeouts.

@@ -5,6 +5,7 @@ import { RootProvider } from "fumadocs-ui/provider/next";
 import DefaultSearchDialog from "@/components/search";
 import CookieConsentBanner from "@/components/CookieConsent";
 import UmamiScript from "@/components/UmamiScript";
+import { WaitlistDialog } from "@/components/home/DeployWaitlist";
 import { absoluteUrl, siteUrl } from "@/lib/site";
 import { THEME_STORAGE_KEY } from "@/lib/theme";
 
@@ -28,24 +29,24 @@ const displayFont = Space_Grotesk({
 export const metadata: Metadata = {
   metadataBase: siteUrl,
   title: {
-    default: "hypequery | The TypeScript Analytics Layer for ClickHouse",
+    default: "hypequery | The analytics layer for ClickHouse",
     template: "%s | hypequery",
   },
-  description: "Define ClickHouse metrics once in TypeScript, then reuse them across APIs, jobs, dashboards, and AI agents.",
+  description: "The analytics layer for ClickHouse. Ship embedded dashboards, chat, and AI agents that answer from one definition of your metrics, built with AI or in TypeScript and Python.",
   alternates: {
     canonical: absoluteUrl('/'),
   },
   openGraph: {
     type: 'website',
     url: absoluteUrl('/'),
-    title: 'hypequery | The TypeScript Analytics Layer for ClickHouse',
-    description: 'Define ClickHouse metrics once in TypeScript, then reuse them across APIs, jobs, dashboards, and AI agents.',
+    title: 'hypequery | The analytics layer for ClickHouse',
+    description: 'The analytics layer for ClickHouse. Ship embedded dashboards, chat, and AI agents that answer from one definition of your metrics, built with AI or in TypeScript and Python.',
     siteName: 'hypequery',
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'hypequery | The TypeScript Analytics Layer for ClickHouse',
-    description: 'Define ClickHouse metrics once in TypeScript, then reuse them across APIs, jobs, dashboards, and AI agents.',
+    title: 'hypequery | The analytics layer for ClickHouse',
+    description: 'The analytics layer for ClickHouse. Ship embedded dashboards, chat, and AI agents that answer from one definition of your metrics, built with AI or in TypeScript and Python.',
   },
   manifest: "/site.webmanifest",
   icons: {
@@ -148,6 +149,7 @@ export default function RootLayout({
           }}
         >
           {children}
+          <WaitlistDialog />
         </RootProvider>
         <CookieConsentBanner gaMeasurementId={gaMeasurementId} />
       </body>

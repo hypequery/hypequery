@@ -1,0 +1,13 @@
+{
+  "title": "Get started",
+  "description": "What hypequery is and how to pick a path",
+  "icon": "Rocket",
+  "root": true,
+  "pages": [
+    "introduction",
+    "quick-start",
+    "capabilities",
+    "why-hypequery",
+    "core-concepts"
+  ]
+}

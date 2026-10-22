@@ -1,0 +1,90 @@
+---
+title: Filters
+description: Use typed filter helpers in Python dataset queries and filtered measures.
+---
+
+import { CodeBlock } from 'fumadocs-ui/components/codeblock';
+
+Filters are structured values used by dataset queries and filtered measures.
+
+<CodeBlock>
+```python
+from hypequery.datasets import filter
+
+filter.eq("status", "completed")
+filter.neq("status", "cancelled")
+filter.gt("amount", 100)
+filter.gte("amount", 100)
+filter.lt("amount", 1000)
+filter.lte("amount", 1000)
+filter.in_list("country", ["US", "UK", "CA"])
+filter.not_in_list("status", ["cancelled", "refunded"])
+filter.between("created_at", "2026-01-01", "2026-01-31")
+filter.like("email", "%@example.com")
+```
+</CodeBlock>
+
+Each helper returns a `Filter` with a field, operator, and value. The `filter` namespace shadows the built-in only
+inside the module that imports it; import `from hypequery.datasets import filter as f` if that matters to you.
+
+<CodeBlock>
+```python
+filter.eq("status", "completed")
+# Filter(field='status', operator='eq', value='completed')
+```
+</CodeBlock>
+
+## Use filters in dataset queries
+
+<CodeBlock>
+```python
+analytics.execute(
+    orders,
+    DatasetQuery(
+        dimensions=("country", "status"),
+        measures=("revenue", "order_count"),
+        filters=(
+            filter.eq("status", "completed"),
+            filter.between("created_at", "2026-01-01", "2026-01-31"),
+        ),
+    ),
+)
+```
+</CodeBlock>
+
+Values are always sent as typed parameters, never interpolated into SQL.
+
+## Operators and values
+
+Which operators a field accepts depends on its type:
+
+| Field type | Operators |
+| --- | --- |
+| `string` | all |
+| `timestamp` | all |
+| `number` | all except `like` |
+| `boolean` | `eq`, `neq`, `in`, `notIn` |
+
+- `in` and `notIn` need a non-empty list, and `between` needs exactly two values.
+- There is no null operator.
+- Values must match the field type: numbers for number fields, `True`/`False` for booleans, strings for strings.
+- Integers on a number field must be within ±2**53. Number filters compare as `Float64`, which can't hold larger integers exactly, so declare a large id as `dimension.string()` to filter it exactly.
+
+A timestamp value is an ISO 8601 date or date-time string: `"2026-01-31"`,
+`"2026-01-31 12:00:00"` or `"2026-01-31T12:00:00.123Z"`.
+- A time needs seconds; a fraction and a `Z`/`±hh:mm` offset are optional.
+- An offset-free value on the dataset's time key is read in the query's time zone.
+- `datetime` objects and anything else, including impossible dates such as
+  `"2026-02-30"`, are refused as `input-invalid` before the query runs.
+
+## Named filters
+
+A dataset without a `filters=` argument accepts a filter on any plain dimension that
+is filterable. Passing `filters={...}`, even an empty mapping, replaces that: only the
+named filters you list are accepted. A named filter can narrow its operators with
+`FilterDefinition(field=..., operators=(...))`.
+
+## Tenant filters
+
+When a dataset has a `tenant_key`, filters on the tenant field are rejected. Supply the tenant through the
+[execution context](/docs/python/datasets/multi-tenancy) instead.

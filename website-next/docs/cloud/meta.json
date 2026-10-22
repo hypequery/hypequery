@@ -1,0 +1,29 @@
+{
+  "title": "Cloud",
+  "description": "Hosted APIs · waitlist",
+  "root": "language",
+  "pages": [
+    "index",
+    "ai-authoring",
+    "how-it-works",
+    "quick-start",
+    "---Deploy---",
+    "deploy-typescript",
+    "deploy-python",
+    "deploy-ci",
+    "releases",
+    "---Use---",
+    "rest-api",
+    "mcp",
+    "react",
+    "---Manage---",
+    "api-keys",
+    "logs-usage",
+    "teams",
+    "---Reference---",
+    "cli",
+    "clickhouse-users",
+    "security",
+    "portable-runtime"
+  ]
+}

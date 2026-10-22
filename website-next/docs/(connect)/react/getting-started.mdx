@@ -1,0 +1,298 @@
+---
+title: Getting Started
+description: Install and set up @hypequery/react for type-safe hooks
+---
+
+import { Callout } from 'fumadocs-ui/components/callout';
+import { CodeBlock, Pre } from 'fumadocs-ui/components/codeblock';
+
+Use `@hypequery/react` to generate type-safe hooks (`useQuery`, `useMutation`) backed by TanStack Query. Bring your exported `serve({ queries })` API type into your React app without duplicating schemas.
+
+For semantic `datasets` endpoints, use `createAnalyticsHooks`, which adds `useDataset` on top of the base hooks. See [Analytics hooks for datasets](#analytics-hooks-for-datasets) below. If your datasets are defined in Python, see [Datasets served from Python](#datasets-served-from-python).
+
+## Installation
+
+<CodeBlock>
+<Pre>
+```bash
+npm install @hypequery/react @tanstack/react-query
+```
+</Pre>
+</CodeBlock>
+
+Peer dependencies: `react` and `react-dom` `^18 || ^19`, and `@tanstack/react-query@^5.104.2`.
+
+## Setup
+
+### Option 1: Automatic Type Inference (Recommended)
+
+Use `InferApiType` to automatically extract types from your API definition:
+
+<CodeBlock>
+<Pre>
+```ts
+// lib/analytics.ts
+import { createHooks } from '@hypequery/react';
+import type { InferApiType } from '@hypequery/serve';
+import type { api } from '@/analytics/api';
+
+// Automatic type inference - no manual type definition needed!
+type Api = InferApiType<typeof api>;
+
+export const { useQuery, useMutation } = createHooks<Api>({
+  baseUrl: '/api', // where your hypequery routes live
+});
+```
+</Pre>
+</CodeBlock>
+
+This eliminates the need to manually define and maintain a separate type for your API.
+
+Both `@hypequery/serve` imports here are `import type`, so they are erased at build time and no
+server code reaches the client bundle. Keep it that way — this module is imported by client
+components.
+
+### Option 2: Manual Type Definition
+
+If you prefer to manually define your API types:
+
+<CodeBlock>
+<Pre>
+```ts
+// lib/analytics.ts
+import { createHooks } from '@hypequery/react';
+
+type Api = {
+  weeklyRevenue: {
+    input: { startDate: string };
+    output: { total: number };
+  };
+  // ... other queries
+};
+
+export const { useQuery, useMutation } = createHooks<Api>({
+  baseUrl: '/api',
+});
+```
+</Pre>
+</CodeBlock>
+
+## Analytics hooks for datasets
+
+When your API registers `datasets`, use `createAnalyticsHooks` instead of `createHooks`. It returns everything `createHooks` does, plus `useDataset` and `useInfiniteDataset`.
+
+Semantic endpoints are POST routes whose paths differ from their map keys (e.g. the `orders` dataset lives at `POST /datasets/orders/query`), so the hooks need a `manifest` to resolve them.
+
+Generate the manifest as static JSON and import **the type** of your API, never its value:
+
+<CodeBlock>
+<Pre>
+```bash
+npx hypequery generate:manifest analytics/api.ts --output analytics/hypequery-manifest.json
+```
+</Pre>
+</CodeBlock>
+
+<CodeBlock>
+<Pre>
+```ts
+// lib/analytics.ts
+import { createAnalyticsHooks } from '@hypequery/react';
+import type { InferApiType } from '@hypequery/serve';
+import type { api } from '@/analytics/api';
+import manifest from '@/analytics/hypequery-manifest.json';
+
+// `import type` is erased at build time, so the server module — and the
+// ClickHouse client it constructs — never reaches the browser bundle.
+type Api = InferApiType<typeof api>;
+
+export const {
+  useQuery,
+  useMutation,
+  useDataset,
+  useInfiniteDataset,
+} = createAnalyticsHooks<Api>({
+  baseUrl: '/api',
+  manifest,
+});
+```
+</Pre>
+</CodeBlock>
+
+Re-run `generate:manifest` whenever you add or re-route an endpoint. Wire it into your build (`"prebuild": "hypequery generate:manifest …"`) so it cannot drift.
+
+<Callout type="warn" title="Do not import the serve API as a value here">
+  This module is imported by client components, so anything it imports as a *value* is bundled for
+  the browser. Calling `manifest: api.manifest()` requires a value import of `api`, which pulls
+  `initServe` and `@hypequery/clickhouse` into the client graph. In a Next.js App Router project that
+  fails the build outright:
+
+  <CodeBlock>
+  <Pre>
+  ```text
+  ./node_modules/@hypequery/clickhouse/dist/cli/generate-types.js:2:1
+  Error: Module not found: Can't resolve 'fs/promises'
+  ```
+  </Pre>
+  </CodeBlock>
+
+  `api.manifest()` is a **server-side** API. Use it in your build step, in a config endpoint, or
+  anywhere else that only runs on the server — not in the module that exports your hooks.
+</Callout>
+
+<Callout type="info">
+  `api.manifest()` output is plain JSON, so you can also serve it from a small endpoint and fetch it
+  at runtime when a static file does not suit your setup — see <a href="/docs/react/advanced-patterns#auto-config-from-server">Auto-config from server</a>. Without a manifest (or an explicit <code>config</code> entry), `useDataset` throws a clear error rather than calling the wrong URL.
+</Callout>
+
+## Provider Setup
+
+Wrap your app with TanStack Query's provider:
+
+<CodeBlock>
+<Pre>
+```tsx
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+
+const queryClient = new QueryClient();
+
+export function AppProviders({ children }: { children: React.ReactNode }) {
+  return (
+    <QueryClientProvider client={queryClient}>
+      {children}
+    </QueryClientProvider>
+  );
+}
+```
+</Pre>
+</CodeBlock>
+
+<CodeBlock>
+<Pre>
+```tsx
+// app.tsx or _app.tsx
+import { AppProviders } from './providers';
+
+function App() {
+  return (
+    <AppProviders>
+      <YourApp />
+    </AppProviders>
+  );
+}
+```
+</Pre>
+</CodeBlock>
+
+## Datasets served from Python
+
+A Python backend (`hypequery.serve`) has no TypeScript API type to infer. Instead,
+it exports a **client contract**: a JSON description of each endpoint's fields,
+limits and schema hash. Generate a typed client file from it, then pass that file's
+API type and route map to the hooks.
+
+**1. Export the contract** from the Python project. Offline, put a zero-argument,
+definition-only factory in a module, one that returns
+`export_client_contract(...)` from `hypequery.datasets` and opens no connections,
+and run the Python CLI from the project directory:
+
+<CodeBlock>
+<Pre>
+```bash
+python -m hypequery export client-contract --factory client_contract:build --output client-contract.json
+```
+</Pre>
+</CodeBlock>
+
+Or fetch it from a running server's `/v1/client-contract` route
+(`add_client_contract_endpoint`). Both give the same schema hashes for the same
+definitions.
+
+**2. Generate the client** in the React app. `generate:client` lives in the Node
+CLI, so install it as a dev dependency first; `npx hypequery` alone will not find it:
+
+<CodeBlock>
+<Pre>
+```bash
+npm install -D @hypequery/cli
+npx hypequery generate:client client-contract.json --output src/hypequery-client.ts
+```
+</Pre>
+</CodeBlock>
+
+The file exports `ClientApi` (request and response types), `clientManifest` (routes
+and schema hashes) and `clientContractHash`. Run it with `--check` in CI to fail on
+drift, and with `--force` to overwrite after reviewing a change.
+
+**3. Create the hooks.** Pass the endpoint **origin** as `baseUrl`; the generated
+paths already include the server's mount prefix:
+
+<CodeBlock>
+<Pre>
+```ts
+// lib/analytics.ts
+import { createAnalyticsHooks } from '@hypequery/react';
+import { clientManifest, type ClientApi } from '@/hypequery-client';
+
+export const { useDataset, useMetric, useInfiniteDataset, useInfiniteMetric } =
+  createAnalyticsHooks<ClientApi>({
+    baseUrl: 'https://analytics.example.com',
+    manifest: clientManifest,
+    token: () => getShortLivedUserToken(),
+  });
+```
+</Pre>
+</CodeBlock>
+
+Every generated route is a `POST`, whatever the default method on other routes.
+
+### One client per signed-in user
+
+When users sign in and out in the same page, create a client per session with
+`createHypequeryClient` and provide it, with its own `QueryClient`, through
+`HypequeryProvider`. Hooks created without a config read the client from the provider:
+
+<CodeBlock>
+<Pre>
+```tsx
+import { QueryClient } from '@tanstack/react-query';
+import { HypequeryProvider, createAnalyticsHooks, createHypequeryClient } from '@hypequery/react';
+import { clientContractHash, clientManifest, type ClientApi } from '@/hypequery-client';
+
+export const hooks = createAnalyticsHooks<ClientApi>();
+
+function signIn(token: string) {
+  return {
+    client: createHypequeryClient<ClientApi>({
+      baseUrl: 'https://analytics.example.com',
+      manifest: clientManifest,
+      token,
+      cacheKey: `${clientContractHash}:${crypto.randomUUID()}`,
+    }),
+    queries: new QueryClient(),
+  };
+}
+
+// <HypequeryProvider client={session.client} queryClient={session.queries}>…</HypequeryProvider>
+```
+</Pre>
+</CodeBlock>
+
+`cacheKey` scopes the TanStack cache. Use a new client, or a new `cacheKey`,
+whenever the deployment, user or authorization scope changes. Changing what a
+token resolver returns does **not** invalidate cached data.
+
+### When the server's contract changes
+
+Every request sends its endpoint's schema hash in `X-Hypequery-Client-Schema`.
+If the Python definitions have changed since the client was generated, the server
+answers `409` with `details.code` `CLIENT_SCHEMA_CHANGED` instead of returning data
+in a shape your types don't describe. The hooks do not fetch a new contract. Export
+it again, regenerate the client, and review the type errors.
+
+### Result types
+
+- Omitted `measures` select the endpoint's default measures; `measures: []` selects none.
+- Measure values are strings or `null`.
+- Numeric dimensions may arrive as numbers or strings, and related fields may be `null`.
+- Selected fields are typed as optional properties, so check for them before use.

@@ -1,6 +1,6 @@
 /**
  * Extracts TypeScript code blocks from the datasets guide pages
- * (website-next/docs/datasets/*.mdx) into standalone modules that
+ * (website-next/docs/(typescript)/(datasets)/datasets/*.mdx) into standalone modules that
  * `smoke-docs-snippets.sh` type-checks against the built packages.
  *
  * Guide snippets often reference identifiers introduced by earlier snippets
@@ -24,7 +24,7 @@ import { fileURLToPath } from 'node:url';
 
 const scriptDirectory = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDirectory, '..', '..');
-const docsDirectory = path.join(repoRoot, 'website-next', 'docs', 'datasets');
+const docsDirectory = path.join(repoRoot, 'website-next', 'docs', '(typescript)', '(datasets)', 'datasets');
 
 const staticFiles = {
   'package.json': `{
@@ -301,7 +301,7 @@ function classifyBlock(code) {
 
 function renderSnippet(docName, block) {
   const code = block.lines.join('\n');
-  const header = `// Source: website-next/docs/datasets/${docName}:${block.line}\n`;
+  const header = `// Source: website-next/docs/(typescript)/(datasets)/datasets/${docName}:${block.line}\n`;
 
   switch (classifyBlock(code)) {
     case 'skip':

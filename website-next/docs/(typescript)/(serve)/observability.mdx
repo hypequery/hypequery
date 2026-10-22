@@ -1,0 +1,115 @@
+---
+title: Observability
+description: Track runtime execution, slow queries, and builder-level query logs in hypequery.
+---
+
+import { CodeBlock } from 'fumadocs-ui/components/codeblock';
+import { Pre } from 'fumadocs-ui/components/codeblock';
+
+hypequery has two observability layers:
+
+- runtime observability in `@hypequery/serve`
+- builder-level query logging in `@hypequery/clickhouse`
+
+## Runtime observability
+
+Use runtime hooks and query logging when you want visibility into requests flowing through `serve({ queries })`.
+
+### Lifecycle hooks
+
+<CodeBlock>
+<Pre>
+```typescript
+const api = serve({
+  queries: { activeUsers },
+  hooks: {
+    onRequestStart: async (event) => {
+      console.log('start', event.queryKey);
+    },
+    onRequestEnd: async (event) => {
+      console.log('end', event.queryKey, event.durationMs);
+    },
+    onAuthFailure: async (event) => {
+      console.warn('auth failed', event.queryKey, event.reason);
+    },
+    onAuthorizationFailure: async (event) => {
+      console.warn('forbidden', event.queryKey, event.reason, event.required);
+    },
+    onError: async (event) => {
+      console.error('error', event.queryKey, event.error);
+    },
+  },
+});
+```
+</Pre>
+</CodeBlock>
+
+### Query logging
+
+<CodeBlock>
+<Pre>
+```typescript
+const api = serve({
+  queries: { activeUsers },
+  queryLogging: 'json',
+  slowQueryThreshold: 2_000,
+});
+```
+</Pre>
+</CodeBlock>
+
+`queryLogging` accepts:
+
+- `true`
+- `'json'`
+- `(event) => void`
+
+Lifecycle hooks currently support:
+
+- `onRequestStart`
+- `onRequestEnd`
+- `onAuthFailure`
+- `onAuthorizationFailure`
+- `onError`
+
+Hooks and query logging fire for auto-generated `metrics` and `datasets` endpoints too, since they share the runtime with queries. In hook events, `event.queryKey` carries the endpoint key: the metric name for metric endpoints, and `dataset:<name>` for dataset endpoints. That makes it easy to attribute timing, auth failures, and errors back to a specific semantic endpoint.
+
+## Builder-level query logging
+
+Use the ClickHouse logger when you want SQL-level visibility into the query builder itself.
+
+<CodeBlock>
+<Pre>
+```typescript
+import { logger } from '@hypequery/clickhouse';
+
+logger.configure({
+  enabled: true,
+  level: 'debug',
+  onQueryLog: (log) => {
+    console.log(log.query, log.duration, log.status);
+  },
+});
+```
+</Pre>
+</CodeBlock>
+
+This is the right layer when you care about:
+
+- generated SQL
+- parameters
+- row counts
+- cache metadata
+- low-level ClickHouse failures
+
+## When to use each layer
+
+- use runtime observability for API-level timing, auth failures, and request lifecycle events
+- use builder logging for SQL-level analysis and ClickHouse debugging
+- use both when you want end-to-end visibility from route to database
+
+## See Also
+
+- [Runtime Features](/docs/runtime-features)
+- [Rate Limiting](/docs/rate-limiting)
+- [Query Caching](/docs/query-building/caching)

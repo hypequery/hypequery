@@ -1,0 +1,91 @@
+---
+title: Time grains
+description: Aggregate dataset queries by minute, hour, day, week, month, quarter, and year.
+---
+
+import { CodeBlock } from 'fumadocs-ui/components/codeblock';
+
+When a dataset has a `timeKey`, pass a grain as `by` to aggregate by time period. Results include a `period` column.
+
+<CodeBlock>
+```typescript
+await analytics.execute(Orders, {
+  by: 'month',
+  dimensions: ['country'],
+  measures: ['revenue'],
+});
+```
+</CodeBlock>
+
+Supported grains:
+
+- `minute`
+- `hour`
+- `day`
+- `week`
+- `month`
+- `quarter`
+- `year`
+
+`minute` and `hour` buckets keep their time of day, so a period reads like `2024-01-01 10:00:00`.
+
+## Timezone
+
+Buckets and timezone-free time filters use the query timezone. Set an IANA
+name on the client, or override it per query. The default is `UTC`; offsets
+in timestamps always identify instants.
+
+<CodeBlock>
+```typescript
+import { createDatasetClient } from '@hypequery/datasets';
+
+const client = createDatasetClient({ queryBuilder: db, timezone: 'UTC' });
+await client.execute(Orders, {
+  by: 'day',
+  timezone: 'America/New_York',
+  measures: ['revenue'],
+});
+```
+</CodeBlock>
+
+The same `timezone` option works for windows and period comparisons.
+
+## Restricting grains
+
+By default a dataset with a `timeKey` supports every grain. Pass `timeGrains` to narrow the list. Queries and the catalog's `supportedGrains` then use only those grains. This is how you refuse sub-day buckets when `timeKey` is a `Date` column with no time of day:
+
+<CodeBlock>
+```typescript
+const DailySales = dataset('daily_sales', {
+  source: 'daily_sales',
+  timeKey: 'day',
+  timeGrains: ['day', 'week', 'month', 'quarter', 'year'],
+  dimensions: { day: dimension.timestamp() },
+  measures: { revenue: measure.sum('amount') },
+});
+```
+</CodeBlock>
+
+## Time key and timestamp dimensions
+
+`timeKey` names the physical timestamp column used for time bucketing. It does not create a selectable dimension by itself.
+
+If you also want callers to select, filter, or group by that timestamp through the dataset API, add a timestamp dimension that maps a semantic name to the same column:
+
+<CodeBlock>
+```typescript
+const Orders = dataset('orders', {
+  source: 'orders',
+  timeKey: 'created_at',
+  dimensions: {
+    createdAt: dimension.timestamp({ column: 'created_at' }),
+    country: dimension.string(),
+  },
+  measures: {
+    revenue: measure.sum('amount'),
+  },
+});
+```
+</CodeBlock>
+
+With that setup, `.by('month')` buckets on `created_at`, while dataset queries can still use the semantic dimension name `createdAt`.

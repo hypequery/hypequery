@@ -1,16 +1,52 @@
 import Footer from '@/components/Footer';
 import Navigation from '@/components/Navigation';
 import { absoluteUrl } from '@/lib/site';
-import {
-  AnnouncementBanner,
-  Hero,
-  Quickstart,
-  DefineOnce,
-  Capabilities,
-  Stack,
-  UseCases,
-  FinalCTA,
-} from '@/components/home';
+import { AnnouncementBanner, Hero, FinalCTA } from '@/components/home';
+import { FeatureGrid } from '@/components/home/FeatureGrid';
+import { ProductExplainer } from '@/components/home/ProductExplainer';
+import { PatternCallout } from '@/components/home/PatternCallout';
+import { BuildYourWay } from '@/components/home/BuildYourWay';
+import { CloudWorkflow } from '@/components/home/CloudWorkflow';
+import { StaticCode } from '@/components/home/StaticCode';
+
+// The definition behind the explainer diagram: orders, scoped by tenant, joined to customers.
+const MODEL_CODE = `
+export const orders = dataset('orders', {
+  source: 'orders',
+  tenantKey: 'tenant_id',
+  dimensions: {
+    country: dimension.string(),
+    plan: dimension.string(),
+  },
+  measures: {
+    revenue: measure.sum('amount'),
+    orderCount: measure.count('id'),
+  },
+  relationships: {
+    customer: belongsTo(() => customers, {
+      from: 'customer_id',
+      to: 'id',
+    }),
+  },
+});
+`;
+
+// The React side of the explainer's dashboard card.
+const DASHBOARD_CODE = `
+import { useDataset } from '@/lib/analytics';
+
+export function RevenueByCountry() {
+  const { data, isLoading } =
+    useDataset('orders', {
+      dimensions: ['country'],
+      measures: ['revenue'],
+      limit: 3,
+    });
+
+  if (isLoading) return <Skeleton />;
+  return <BarList rows={data?.data} />;
+}
+`;
 
 const softwareSchema = {
   '@context': 'https://schema.org',
@@ -21,10 +57,10 @@ const softwareSchema = {
   applicationCategory: 'DeveloperApplication',
   operatingSystem: 'Cross-platform',
   description:
-    'Define ClickHouse metrics once in TypeScript, then reuse them across APIs, jobs, dashboards, and AI agents.',
+    'The analytics layer for ClickHouse. Ship embedded dashboards, chat, and AI agents that answer from one definition of your metrics, built with AI or in TypeScript and Python.',
   softwareVersion: 'latest',
   codeRepository: 'https://github.com/hypequery/hypequery',
-  programmingLanguage: 'TypeScript',
+  programmingLanguage: ['TypeScript', 'Python'],
   offers: {
     '@type': 'Offer',
     price: '0',
@@ -47,11 +83,16 @@ export default function Home() {
       <Navigation hasBanner />
       <main className="pt-[104px]">
         <Hero />
-        <Quickstart />
-        <DefineOnce />
-        <Capabilities />
-        <Stack />
-        <UseCases />
+        <PatternCallout />
+        {/* Hero (what it is) → proof → every interface (what it powers) → build it (how)
+            → production features (can I trust it) → change safely (what happens next) → CTA. */}
+        <ProductExplainer
+          modelCode={<StaticCode code={MODEL_CODE} />}
+          dashboardCode={<StaticCode code={DASHBOARD_CODE} lang="tsx" className="text-[10.5px]!" />}
+        />
+        <BuildYourWay />
+        <FeatureGrid />
+        <CloudWorkflow />
         <FinalCTA />
       </main>
       <Footer />

@@ -1,0 +1,136 @@
+---
+title: Introduction
+description: Build a type-safe ClickHouse analytics backend with a TypeScript query builder, semantic datasets, multi-tenant APIs, React hooks, and MCP tools.
+---
+
+import { CodeBlock } from 'fumadocs-ui/components/codeblock';
+import { Book, Braces, GitBranch, Zap } from 'lucide-react';
+
+# A TypeScript semantic layer for ClickHouse
+
+hypequery gives TypeScript teams one place to define ClickHouse analytics and reuse them in backend code, HTTP APIs, React dashboards, and MCP tools for AI agents. It is an open-source library that runs inside your application—not a hosted BI platform or a separate semantic-layer server.
+
+Start with the type-safe query builder when a query is local. Add a dataset when dimensions, measures, metrics, tenant isolation, and time grains become shared product meaning. Add Serve, React, or MCP only when another consumer needs the same contract.
+
+## The canonical dataset
+
+<CodeBlock>
+```ts
+import { dataset, dimension, measure } from '@hypequery/datasets';
+
+export const Orders = dataset('orders', {
+  source: 'orders',
+  tenantKey: 'tenant_id',
+  timeKey: 'created_at',
+  dimensions: {
+    id: dimension.string(),
+    region: dimension.string(),
+    status: dimension.string(),
+    createdAt: dimension.timestamp({ column: 'created_at' }),
+  },
+  measures: {
+    revenue: measure.sum('amount'),
+    orderCount: measure.count('id'),
+    p95OrderValue: measure.percentile('amount', 0.95),
+    latestStatus: measure.argMax('status', 'createdAt'),
+  },
+});
+```
+</CodeBlock>
+
+This is ordinary TypeScript: review it in a pull request, test it in CI, import it in a worker, serve it as an API, consume it with a typed React hook, or expose it as a bounded MCP tool.
+
+## The packages
+
+| Package | Role |
+| --- | --- |
+| `@hypequery/clickhouse` | Schema generation and a type-safe ClickHouse query builder |
+| `@hypequery/datasets` | Code-first semantic datasets, dimensions, measures, metrics, relationships, time grains, and tenant rules |
+| `@hypequery/serve` | Validated HTTP APIs, OpenAPI, authentication, tenancy, and runtime adapters |
+| `@hypequery/react` | Typed TanStack Query hooks for queries, metrics, and datasets |
+| `@hypequery/mcp` | Governed ClickHouse tools for Claude, Cursor, and other MCP clients |
+| `@hypequery/cli` | Scaffolding, schema generation, local docs, and deployment commands |
+
+## Choose your starting point
+
+1. Run `npx hypequery init` if you want a working project scaffold.
+2. Use `@hypequery/clickhouse` directly if you only need typed local queries.
+3. Define `@hypequery/datasets` when analytics meaning is shared.
+4. Add `serve()`, React hooks, or MCP when the model needs to cross a process boundary.
+
+<div className="grid grid-cols-1 md:grid-cols-2 gap-4 my-8">
+
+<a href="/docs/quick-start" className="not-prose flex items-start gap-3 p-4 rounded-lg border border-border hover:border-accent transition-colors bg-card/50 hover:bg-card cursor-pointer">
+  <Zap className="w-5 h-5 text-accent mt-0.5 flex-shrink-0" />
+  <div>
+    <div className="font-semibold text-foreground mb-1">Quick start</div>
+    <p className="text-sm text-muted-foreground">Connect ClickHouse, generate types, and run the first query</p>
+  </div>
+</a>
+
+<a href="/docs/capabilities" className="not-prose flex items-start gap-3 p-4 rounded-lg border border-border hover:border-cyan-500 transition-colors bg-card/50 hover:bg-card cursor-pointer">
+  <Book className="w-5 h-5 text-cyan-500 mt-0.5 flex-shrink-0" />
+  <div>
+    <div className="font-semibold text-foreground mb-1">Current capabilities</div>
+    <p className="text-sm text-muted-foreground">Check the shipped builder, aggregate, dataset, React, and MCP surface</p>
+  </div>
+</a>
+
+<a href="/docs/query-building/basics" className="not-prose flex items-start gap-3 p-4 rounded-lg border border-border hover:border-orange-500 transition-colors bg-card/50 hover:bg-card cursor-pointer">
+  <Braces className="w-5 h-5 text-orange-500 mt-0.5 flex-shrink-0" />
+  <div>
+    <div className="font-semibold text-foreground mb-1">Query builder</div>
+    <p className="text-sm text-muted-foreground">Write typed ClickHouse filters, joins, aggregations, and native clauses</p>
+  </div>
+</a>
+
+<a href="https://github.com/hypequery/hypequery-examples" target="_blank" rel="noopener" className="not-prose flex items-start gap-3 p-4 rounded-lg border border-border hover:border-foreground transition-colors bg-card/50 hover:bg-card cursor-pointer">
+  <GitBranch className="w-5 h-5 text-foreground mt-0.5 flex-shrink-0" />
+  <div>
+    <div className="font-semibold text-foreground mb-1">Example apps</div>
+    <p className="text-sm text-muted-foreground">Browse complete framework and dashboard examples</p>
+  </div>
+</a>
+
+</div>
+
+## The progression in code
+
+A query can begin as a local builder chain:
+
+<CodeBlock>
+```ts
+const revenueByRegion = await db
+  .table('orders')
+  .select(['region'])
+  .sum('amount', 'revenue')
+  .groupBy('region')
+  .execute();
+```
+</CodeBlock>
+
+When it becomes reusable business meaning, promote it into the `Orders` dataset. When it needs an HTTP contract, pass the dataset to Serve:
+
+<CodeBlock>
+```ts
+const { serve } = initServe({
+  context: () => ({ db }),
+});
+
+export const api = serve({
+  queryBuilder: db,
+  datasets: { orders: Orders },
+});
+```
+</CodeBlock>
+
+That API can be called in process, over HTTP, from `@hypequery/react`, or through `@hypequery/mcp`. The definition and tenant rules stay in one place.
+
+## Next steps
+
+- [Quick start](/docs/quick-start)
+- [What hypequery supports today](/docs/capabilities)
+- [Datasets overview](/docs/datasets/overview)
+- [Multi-tenant datasets](/docs/datasets/multi-tenancy)
+- [React hooks](/docs/react/getting-started)
+- [MCP for ClickHouse](/docs/mcp/overview)

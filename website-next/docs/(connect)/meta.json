@@ -1,0 +1,18 @@
+{
+  "title": "Connect",
+  "description": "React, MCP and agents",
+  "root": "language",
+  "pages": [
+    "---MCP---",
+    "mcp/overview",
+    "mcp/configuration",
+    "mcp/tools",
+    "mcp/clients",
+    "mcp/programmatic",
+    "mcp/safety",
+    "---React---",
+    "react/getting-started",
+    "react/using-queries",
+    "react/advanced-patterns"
+  ]
+}

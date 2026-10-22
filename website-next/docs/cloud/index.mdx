@@ -1,0 +1,44 @@
+---
+title: Introduction
+description: hypequery cloud hosts your ClickHouse semantic layer as REST and MCP endpoints, whether you define it in the UI or in code.
+---
+
+import { CloudWaitlistNotice } from '@/components/docs/cloud-waitlist-notice';
+
+<CloudWaitlistNotice />
+
+hypequery cloud is the hosted home for your ClickHouse semantic layer. You define datasets once: the dimensions people
+can group by, the measures they can aggregate, the relationships between tables, and who is allowed to query them.
+Cloud then serves those datasets to your dashboards, applications, and AI agents, without a server for you to run.
+
+## Author datasets your way
+
+Cloud accepts datasets from two authoring paths. Both produce the same deployment contract, so cloud serves them the
+same way.
+
+- **With AI.** Cloud's AI onboards you, learns your business, and drafts your datasets for you to review. See
+  [AI authoring](/docs/cloud/ai-authoring).
+- **In code, with TypeScript or Python.** Define datasets with the open-source SDKs, review them in pull requests,
+  and deploy with the hypequery CLI or from CI. See [Deploy from TypeScript](/docs/cloud/deploy-typescript) and
+  [Deploy from Python](/docs/cloud/deploy-python).
+
+Code-defined datasets are not tied to cloud. The same definitions run inside your own app with the open-source SDKs,
+so you can start self-hosted and move to cloud later, or the other way around.
+
+## What cloud serves
+
+Every release is served two ways:
+
+- **REST endpoints**, one per published dataset, for dashboards, apps, and integrations. See [REST API](/docs/cloud/rest-api).
+- **An MCP endpoint**, so AI agents can discover and query the datasets you publish. See [MCP](/docs/cloud/mcp).
+
+Access is set when you publish: you choose the roles and scopes callers need for each dataset, and cloud checks them
+on every request. For customer-facing analytics, [API keys](/docs/cloud/api-keys) also decide which customer tenant
+each request runs as, and releases can be [rolled back](/docs/cloud/releases) in one click.
+
+## Next steps
+
+- [Quick start](/docs/cloud/quick-start): from sign-up to a live endpoint
+- [How it works](/docs/cloud/how-it-works): from dataset definitions to a live release
+- [Deploy from TypeScript](/docs/cloud/deploy-typescript)
+- [Deploy from Python](/docs/cloud/deploy-python)

@@ -80,7 +80,7 @@ export default function CookieConsentBanner({
   useEffect(() => {
     void CookieConsent.run({
       guiOptions: {
-        consentModal: { layout: 'box wide', position: 'bottom left' },
+        consentModal: { layout: 'box', position: 'bottom right' },
         preferencesModal: { layout: 'box' },
       },
       categories: {

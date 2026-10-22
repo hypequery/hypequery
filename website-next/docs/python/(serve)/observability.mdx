@@ -1,0 +1,70 @@
+---
+title: Observability
+description: Query events and audited diagnostics for Python Serve endpoints.
+---
+
+import { CodeBlock } from 'fumadocs-ui/components/codeblock';
+
+## Query events
+
+Pass `events=QueryEvents(...)` to an endpoint to receive one event per query:
+
+<CodeBlock>
+```python
+from hypequery.serve import QueryEvents
+
+
+def sink(event) -> None:
+    logger.info("hypequery query", extra={"event": event})  # your logging or metrics pipeline
+
+
+add_dataset_endpoint(
+    router,
+    "/datasets/orders/query",
+    dataset=orders,
+    client=client,
+    events=QueryEvents(target={"project": "acme", "environment": "production"}, sink=sink),
+)
+```
+</CodeBlock>
+
+- Events follow the shared query-event format and contain identifiers, outcome, duration, and row count or failure
+  category.
+- They never contain request bodies, rows, SQL, credentials, or tenant values.
+- The sink is synchronous. A failing sink never fails the query.
+
+## Diagnostics
+
+Generated SQL is not returned by default, even with `includeMeta`. To let trusted callers see it, add
+`DiagnosticAccess`:
+
+<CodeBlock>
+```python
+from hypequery.serve import DiagnosticAccess, Principal
+
+
+def authorize(principal: Principal) -> bool:
+    return "admin" in principal.roles
+
+
+def audit(principal: Principal, request_id: str) -> None:
+    audit_log.write(principal.subject, request_id)  # your audit trail
+
+
+add_dataset_endpoint(
+    router,
+    "/datasets/orders/query",
+    dataset=orders,
+    client=client,
+    diagnostics=DiagnosticAccess(authorize=authorize, audit=audit),
+)
+```
+</CodeBlock>
+
+Only a principal your `authorize` callback approves receives a separate `diagnostics` object, and only after `audit`
+succeeds. It contains redacted SQL, never bound values or raw tenant ids. Both callbacks run in the threadpool.
+
+## Request ids
+
+Every response carries an `x-request-id`, which also appears in `meta.requestId` and in server logs for unexpected
+errors. See [HTTP security](/docs/python/http-security#request-ids).

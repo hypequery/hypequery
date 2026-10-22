@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="300" height="401" viewBox="35 20 300 401" fill="none" role="img" aria-labelledby="blink-title blink-desc">
+  <title id="blink-title">hypequery logo mark</title>
+  <desc id="blink-desc">A stationary rounded rising-chart mascot with happy eyes that blink occasionally.</desc>
+  <style>
+    .blink-eyes {
+      transform-box: view-box;
+      transform-origin: 212px 224px;
+      animation: hypequery-blink 5s linear infinite;
+    }
+    @keyframes hypequery-blink {
+      0%, 44%, 48%, 100% { transform: scaleY(1); }
+      46% { transform: scaleY(.05); }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .blink-eyes { animation: none; }
+    }
+  </style>
+  <defs>
+    <mask id="hypequery-blink-face" maskUnits="userSpaceOnUse" x="35" y="20" width="300" height="401" style="mask-type:luminance">
+      <rect x="35" y="20" width="300" height="401" fill="white"/>
+      <g class="blink-eyes" fill="black">
+        <path d="M140 225Q167 185 194 225Z M230 225Q257 185 284 225Z"/>
+      </g>
+    </mask>
+  </defs>
+  <path fill="#101827" mask="url(#hypequery-blink-face)" d="M59 185H120V129C120 115.75 130.75 105 144 105H220V44C220 30.75 230.75 20 244 20H311C324.25 20 335 30.75 335 44V362C335 375.25 324.25 386 311 386H315V401C315 412.05 306.05 421 295 421H245C233.95 421 225 412.05 225 401V386H145V401C145 412.05 136.05 421 125 421H85C73.95 421 65 412.05 65 401V386H59C45.75 386 35 375.25 35 362V209C35 195.75 45.75 185 59 185Z"/>
+</svg>
