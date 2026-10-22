@@ -53,6 +53,9 @@
   "peerDependenciesMeta": {
     "@hypequery/mcp": {
       "optional": true
+    },
+    "@hypequery/serve": {
+      "optional": true
     }
   },
   "devDependencies": {

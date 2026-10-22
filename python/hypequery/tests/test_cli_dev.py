@@ -154,9 +154,48 @@ def test_occupied_port_fails(tmp_path: Path) -> None:
             timeout=10,
             check=False,
         )
-    assert result.returncode != 0
+    # uvicorn exits 3 on a bind failure; the CLI keeps its documented codes.
+    assert result.returncode == 1
     assert "address already in use" in result.stderr.lower()
+    assert "whether port" in result.stderr
     assert "Traceback" not in result.stderr
+
+
+@pytest.mark.parametrize(
+    ("missing", "expected"),
+    [
+        ("HYPEQUERY_DEV_TOKEN", "set the HYPEQUERY_DEV_TOKEN environment variable"),
+        ("private-password-do-not-print", "check its code, dependencies and environment"),
+        ("lowercase_key", "check its code, dependencies and environment"),
+    ],
+)
+def test_a_missing_environment_variable_is_named(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], missing: str, expected: str
+) -> None:
+    def fail(*args: object, **kwargs: object) -> None:
+        raise KeyError(missing)
+
+    monkeypatch.setattr("hypequery.serve.run_dev", fail)
+    assert main(["dev"]) == 1
+    stderr = capsys.readouterr().err
+    assert expected in stderr
+    assert "private-password" not in stderr
+
+
+def test_dev_keeps_driver_warnings_out_of_the_terminal(monkeypatch: pytest.MonkeyPatch) -> None:
+    import logging
+
+    seen: dict[str, int] = {}
+
+    def record(*args: object, **kwargs: object) -> None:
+        for name in ("clickhouse_connect", "urllib3"):
+            seen[name] = logging.getLogger(name).getEffectiveLevel()
+
+    monkeypatch.setattr("hypequery.serve.run_dev", record)
+    for name in ("clickhouse_connect", "urllib3"):
+        monkeypatch.setattr(logging.getLogger(name), "level", logging.NOTSET)
+    assert main(["dev"]) == 0
+    assert seen == {"clickhouse_connect": logging.ERROR, "urllib3": logging.ERROR}
 
 
 @pytest.mark.parametrize("missing", ["clickhouse_connect", "clickhouse_connect.driver", "other"])

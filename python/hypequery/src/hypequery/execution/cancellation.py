@@ -5,11 +5,13 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Coroutine
 from contextlib import suppress
 from typing import TypeVar
 
 from hypequery.datasets.planner import CompiledQuery, CompiledQueryError
+
+from .utils.refused_kill import is_refused_kill, report_refused_kill
 
 _T = TypeVar("_T")
 _POLL_SECONDS = 0.025
@@ -19,8 +21,40 @@ _DRAIN_SECONDS = 2.0
 _RETRY_CAP_SECONDS = 5.0
 _LOGGER = logging.getLogger(__name__)
 
-#: Retries outlive the request that started them; keep them referenced.
-_RETRIES: set[asyncio.Task[None]] = set()
+
+class KillRetries:
+    """The KILL retries an owner left running, kept referenced until they end.
+
+    Once closed, it cancels those retries and starts no more: a request still
+    unwinding when its executor closes must not leave a retry behind.
+    """
+
+    def __init__(self) -> None:
+        self._tasks: set[asyncio.Task[None]] = set()
+        self._closed = False
+
+    def __len__(self) -> int:
+        return len(self._tasks)
+
+    def start(self, retry: Coroutine[object, object, None]) -> None:
+        if self._closed:
+            retry.close()
+            return
+        task = asyncio.create_task(retry)
+        self._tasks.add(task)
+        task.add_done_callback(self._tasks.discard)
+
+    async def close(self) -> None:
+        self._closed = True
+        pending = tuple(self._tasks)
+        for task in pending:
+            task.cancel()
+        await asyncio.gather(*pending, return_exceptions=True)
+
+
+#: Retries outlive the request that started them; an executor passes its own
+#: KillRetries so closing it can stop them, and anything else shares this one.
+_RETRIES = KillRetries()
 
 
 def server_cancellation_confirmed(response: object) -> bool:
@@ -60,11 +94,17 @@ async def _drain(task: asyncio.Future[_T]) -> None:
 async def _cancel_on_server_preserving_reason(
     query_id: str, cancel_on_server: Callable[[str], Awaitable[object]]
 ) -> bool:
-    """Send one KILL and report whether the server confirmed a match."""
+    """Send one KILL; report whether asking again is pointless.
+
+    That is when the server confirmed a match, or refused the KILL outright.
+    """
     try:
         return server_cancellation_confirmed(await cancel_on_server(query_id))
-    except Exception:
+    except Exception as exc:
         # The caller's terminal reason still wins if the control connection fails.
+        if is_refused_kill(exc):
+            report_refused_kill()
+            return True
         _LOGGER.warning("Server cancellation failed for query %s", query_id)
         return False
 
@@ -97,7 +137,10 @@ async def _retry_server_cancellation(
         try:
             if server_cancellation_confirmed(await cancel_on_server(compiled.query_id)):
                 return
-        except Exception:
+        except Exception as exc:
+            if is_refused_kill(exc):
+                report_refused_kill()
+                return
             if not warned:
                 _LOGGER.warning("Server cancellation failed for query %s", compiled.query_id)
                 warned = True
@@ -108,10 +151,9 @@ def _ensure_server_cancellation(
     compiled: CompiledQuery,
     cancel_on_server: Callable[[str], Awaitable[object]],
     pending: Callable[[], bool] | None,
+    retries: KillRetries,
 ) -> None:
-    task = asyncio.create_task(_retry_server_cancellation(compiled, cancel_on_server, pending))
-    _RETRIES.add(task)
-    task.add_done_callback(_RETRIES.discard)
+    retries.start(_retry_server_cancellation(compiled, cancel_on_server, pending))
 
 
 async def acquire_slot(semaphore: asyncio.Semaphore, compiled: CompiledQuery) -> None:
@@ -148,24 +190,25 @@ async def run_with_policy(
     cancel_on_server: Callable[[str], Awaitable[object]],
     *,
     pending: Callable[[], bool] | None = None,
+    retries: KillRetries | None = None,
 ) -> _T:
     """Monitor a running query and ask ClickHouse to stop it on interruption.
 
     *pending* tells whether the driver call behind *work* is still running once
-    *work* itself has been abandoned; a bridge over a blocking driver can say,
-    a native async driver cannot.
+    *work* itself has been abandoned. *retries* collects any KILL retries left
+    running after this returns, so their owner can stop them when it closes.
     """
 
     task = asyncio.ensure_future(work)
     # Set when a KILL went out while the driver call was still running and the
-    # server did not confirm a match: the query may register after it.
+    # server neither confirmed a match nor refused: the query may register after it.
     unconfirmed = False
 
     async def cancel_now() -> None:
         nonlocal unconfirmed
         in_flight = not task.done()
-        confirmed = await _cancel_on_server_preserving_reason(compiled.query_id, cancel_on_server)
-        unconfirmed = in_flight and not confirmed
+        settled = await _cancel_on_server_preserving_reason(compiled.query_id, cancel_on_server)
+        unconfirmed = in_flight and not settled
 
     try:
         while True:
@@ -194,4 +237,6 @@ async def run_with_policy(
         if not task.done():
             await _drain(task)
         if unconfirmed:
-            _ensure_server_cancellation(compiled, cancel_on_server, pending)
+            _ensure_server_cancellation(
+                compiled, cancel_on_server, pending, _RETRIES if retries is None else retries
+            )

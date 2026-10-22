@@ -61,3 +61,6 @@ export type {
   DatasetQuery,
   DatasetQueryResult,
 } from './types.js';
+
+// Query field references - used by serve to hold related fields to their dataset's policy
+export { queryFieldReferences } from './utils/query-field-references.js';

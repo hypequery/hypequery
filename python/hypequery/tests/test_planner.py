@@ -149,7 +149,23 @@ def test_a_time_grain_selects_and_orders_by_period() -> None:
     bucket = "toStartOfMonth(toDateTime64(`pickup_datetime`, 9, {p0:String}))"
     # RFC 0015's result form is ClickHouse's own text for the bucket; group on the value.
     assert f"toString({bucket}) AS `period`" in compiled.sql
-    assert compiled.sql.endswith(f"GROUP BY {bucket} ORDER BY `period` ASC")
+    # Order by the bucket, not its text: on a daylight-saving fall-back day two
+    # hours share a label, and only the instant puts them in order.
+    assert compiled.sql.endswith(f"GROUP BY {bucket} ORDER BY {bucket} ASC")
+
+
+@pytest.mark.parametrize("direction", ["asc", "desc"])
+def test_an_explicit_period_order_sorts_by_the_bucket_instant(direction: str) -> None:
+    compiled = plan_dataset_query(
+        _trips(),
+        DatasetQuery(
+            by="hour",
+            measures=("trips",),
+            order_by=(asc("period") if direction == "asc" else desc("period"),),
+        ),
+    )
+    bucket = "toStartOfHour(toDateTime64(`pickup_datetime`, 9, {p0:String}))"
+    assert compiled.sql.endswith(f"ORDER BY {bucket} {direction.upper()}")
 
 
 def test_a_time_grain_needs_a_time_key() -> None:
@@ -317,6 +333,63 @@ def test_filter_values_must_match_the_declared_dimension_type(filter_value: Filt
     assert (
         _category(_trips(), DatasetQuery(measures=("trips",), filters=(filter_value,)))
         == "input-invalid"
+    )
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        "2026-13-45",
+        "2026-02-30",
+        "2026-02-01 25:00:00",
+        "2026-02-01 12:00",
+        "2026-02-01T00:00Z",
+        "yesterday",
+        "not-a-date",
+        "",
+        "20260201",
+        "2026-W05-1",
+        "1700000000",
+        "2026-02-01T00:00:00+0000",
+        "2026-01-31-05:30",
+        "2026-01-31Z",
+        "2026-02-01T00:00:00+05:60",
+        "2026-02-01T00:00:00+24:00",
+        "2026-02-01T24:00:00",
+        "2026-02-01T12:60:00",
+    ],
+)
+def test_a_timestamp_filter_refuses_text_clickhouse_would_coerce(value: str) -> None:
+    # ClickHouse reads 2026-13-45 as 1900-01-01 and rolls 2026-02-30 over to
+    # March, so these must never reach it as a bound value.
+    between = Filter(field="pickup", operator="between", value=[value, "2026-03-01"])
+    for filter_value in (gte("pickup", value), between):
+        with pytest.raises(CompiledQueryError, match='"pickup" expects') as caught:
+            plan_dataset_query(_trips(), DatasetQuery(measures=("trips",), filters=(filter_value,)))
+        assert caught.value.category == "input-invalid"
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        "2026-02-01",
+        "2026-02-01 12:00:00",
+        "2026-02-01T12:00:00.123",
+        "2026-02-01T12:00:00.123456789",
+        "2026-02-01T00:00:00Z",
+        "2026-02-01T00:00:00.000Z",
+        "2026-02-01T10:00:00+10:00",
+        "2026-02-01T10:00:00-05:30",
+        "2024-02-29",
+    ],
+)
+def test_a_timestamp_filter_accepts_iso_8601_dates_and_times(value: str) -> None:
+    plan_dataset_query(_trips(), DatasetQuery(measures=("trips",), filters=(gte("pickup", value),)))
+
+
+def test_a_timestamp_like_pattern_is_not_read_as_an_instant() -> None:
+    plan_dataset_query(
+        _trips(), DatasetQuery(measures=("trips",), filters=(like("pickup", "2026-02-%"),))
     )
 
 
@@ -991,3 +1064,22 @@ def test_runtime_tenant_scope_does_not_block_filters_on_unscoped_dataset() -> No
     )
     assert "`vendor` = {p0:String}" in result.sql
     assert result.parameters["p0"].value == "a"
+
+
+@pytest.mark.parametrize("value", [2**53 + 1, -(2**53) - 1, 2**64 - 1])
+def test_a_number_filter_refuses_integers_float64_cannot_hold_exactly(value: int) -> None:
+    # Number filters bind as Float64: ClickHouse would compare a rounded value
+    # and an exact UInt64 id would silently match nothing.
+    for filter_value in (
+        eq("fare", value),
+        in_list("fare", [1, value]),
+        Filter(field="fare", operator="between", value=[0, value]),
+    ):
+        with pytest.raises(CompiledQueryError, match=r"2\*\*53.*dimension\.string") as caught:
+            plan_dataset_query(_trips(), DatasetQuery(measures=("trips",), filters=(filter_value,)))
+        assert caught.value.category == "input-invalid"
+
+
+@pytest.mark.parametrize("value", [2**53, -(2**53), 0, 1.5, 1e300])
+def test_a_number_filter_accepts_exactly_representable_values(value: float) -> None:
+    plan_dataset_query(_trips(), DatasetQuery(measures=("trips",), filters=(eq("fare", value),)))
