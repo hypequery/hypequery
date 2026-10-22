@@ -61,3 +61,19 @@ describe('timestamp filter values', () => {
     expect(validateFilterValue({ field: 'createdAt', operator: 'like', value: '2026-02-%' }, 'timestamp')).toBeNull();
   });
 });
+
+describe('number filter values', () => {
+  it.each([2 ** 53 + 2, -(2 ** 53) - 2, 1e300])('refuses %d, which Float64 cannot compare exactly as an integer', value => {
+    for (const filter of [
+      { field: 'id', operator: 'eq' as const, value },
+      { field: 'id', operator: 'in' as const, value: [1, value] },
+      { field: 'id', operator: 'between' as const, value: [0, value] },
+    ]) {
+      expect(validateFilterValue(filter, 'number')).toMatch(/safe integers.*dimension\.string/);
+    }
+  });
+
+  it.each([Number.MAX_SAFE_INTEGER, -Number.MAX_SAFE_INTEGER, 0, 1.5, 1e-300])('accepts %d', value => {
+    expect(validateFilterValue({ field: 'id', operator: 'eq', value }, 'number')).toBeNull();
+  });
+});

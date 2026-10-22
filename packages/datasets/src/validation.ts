@@ -28,7 +28,10 @@ export function matchesFieldType(fieldType: FieldType, value: unknown): boolean 
     case 'timestamp':
       return isTimestampText(value);
     case 'number':
-      return typeof value === 'number' && Number.isFinite(value);
+      // Number filters bind as Float64; an integer beyond 2^53 is already rounded
+      // and would silently match nothing against an exact Int64/UInt64 column.
+      return typeof value === 'number' && Number.isFinite(value)
+        && (!Number.isInteger(value) || Number.isSafeInteger(value));
     case 'boolean':
       return typeof value === 'boolean';
     default:
@@ -54,6 +57,10 @@ function typeError(filter: MetricFilter, fieldType: FieldType, plural: boolean):
   if (fieldType === 'timestamp') {
     const what = plural ? 'ISO 8601 timestamps' : 'an ISO 8601 timestamp';
     return `"${filter.operator}" expects ${what} for field "${filter.field}", such as 2026-01-31 or 2026-01-31T12:00:00Z, with a real calendar date and time.`;
+  }
+  if (fieldType === 'number') {
+    const what = plural ? 'number values' : 'a number value';
+    return `"${filter.operator}" expects ${what} for field "${filter.field}"; integers must be safe integers (within ±2^53) to compare exactly. Declare a large id as dimension.string() to filter it exactly.`;
   }
   return plural
     ? `"${filter.operator}" expects ${fieldType} values for field "${filter.field}".`
