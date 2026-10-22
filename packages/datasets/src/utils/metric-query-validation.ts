@@ -1,3 +1,4 @@
+import { notGroupableError } from './groupable.js';
 import { semanticQuerySyntaxErrors } from './semantic-query-syntax.js';
 /** Semantic metric validation; independent of SQL compilation and execution. */
 import type { MetricQuery, ExecutionContext } from '../types.js';
@@ -49,11 +50,15 @@ export function validateMetricQueryInput(
       const resolution = resolveQualifiedField(ds, dim);
       if (resolution?.error) {
         errors.push(resolution.error);
+      } else if (resolution?.resolved?.targetDimension.groupable === false) {
+        errors.push(notGroupableError(dim));
       }
       continue;
     }
     if (!dimensionNames.includes(dim)) {
       errors.push(`Unknown dimension "${dim}". Available: ${dimensionNames.join(', ')}`);
+    } else if (ds.dimensions[dim]?.groupable === false) {
+      errors.push(notGroupableError(dim));
     }
   }
 
