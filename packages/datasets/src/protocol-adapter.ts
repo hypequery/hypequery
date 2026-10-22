@@ -130,6 +130,12 @@ export function buildProtocolDatasetContract(
   }
   assertNoPublishedSegments(dataset);
   assertPublishableTimeGrains(dataset);
+  if (dataset.final) {
+    throw new Error(
+      `Dataset "${dataset.name}" is declared final: true, which the deployment contract cannot carry yet. ` +
+      'Publishing it would serve the source without FINAL and count unmerged row versions.',
+    );
+  }
   const metrics = Object.entries(options.metrics ?? {})
     .filter(([, metric]) => (
       metric.__type === 'grained_metric_ref' ? metric.metric : metric

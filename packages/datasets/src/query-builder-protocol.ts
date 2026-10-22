@@ -47,6 +47,14 @@ export interface QueryBuilderLike {
   // Filtering
   where(column: string, operator: string, value: unknown): QueryBuilderLike;
 
+  /**
+   * Optional: read the table source with ClickHouse `FINAL`. Needed only for
+   * datasets declared `final: true`; querying one through a builder without
+   * it is refused rather than run without `FINAL`, which would count every
+   * unmerged row version.
+   */
+  final?(): QueryBuilderLike;
+
   // Joins. Relationship traversal uses `leftAnyJoin`; `leftJoin` stays part
   // of the protocol for builder compatibility.
   leftJoin(
