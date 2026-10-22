@@ -40,9 +40,11 @@ For one dataset under a policy:
   for each relationship whose target dataset is visible, limited to the
   dimensions visible in the target's own entry.
 - **Relationships:** visible only when the target is visible and every local
-  join key (`from`, and each `keys[].from`) is a visible dimension or the
-  source column of one. A joined `to` field holds the key's values, so a
-  visible join over a hidden key would read the key back.
+  join key (`from`, and each `keys[].from`) is the source column of a visible
+  column dimension. Execution joins on the key as a physical column, so a
+  visible dimension that only shares the key's name doesn't count. A joined
+  `to` field holds the key's values, so a visible join over a hidden key would
+  read the key back.
 - **Filters:** a declared filter is visible when the dimension it filters is.
 - **Time field:** visible when it is a visible dimension. Grouping by period
   and time measures (window, shift) require it.

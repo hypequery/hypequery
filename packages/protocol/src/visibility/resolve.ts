@@ -24,8 +24,9 @@ function measureInputs(measure: object): readonly string[] {
  * Whether a relationship's local join keys are visible. A joined `to` field
  * holds the same values as its `from` key, so exposing the join while hiding
  * the key would let a caller read the key back through the relationship.
- * Keys name a dimension or, for composite keys, a physical column; a column
- * counts as visible when a visible dimension reads it.
+ * Execution joins on keys as physical columns, so a key counts as visible only
+ * when a visible dimension reads that column. A dimension merely named like
+ * the key doesn't count: it may read a different column.
  */
 function joinKeysVisible(
   relationship: ProtocolDeploymentDataset['relationships'][number],
@@ -37,8 +38,8 @@ function joinKeysVisible(
   const keys = [String(relationship.from), ...(relationship.keys ?? []).map(key => String(key.from))];
   return keys.every(key => dataset.dimensions.some(dimension => (
     visible.has(String(dimension.name))
-    && (String(dimension.name) === key
-      || (dimension.source.kind === 'column' && dimension.source.column === key))
+    && dimension.source.kind === 'column'
+    && dimension.source.column === key
   )));
 }
 

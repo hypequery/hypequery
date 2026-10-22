@@ -178,6 +178,34 @@ describe('field visibility', () => {
     expect(visible.filters.has('customerSegment')).toBe(false);
   });
 
+  it('matches join keys by the column a visible dimension reads, not by its name', () => {
+    // Visible `account_id` reads public_id; hidden `privateAccount` reads the
+    // account_id column the join actually uses.
+    const renamed = {
+      ...shipments,
+      dimensions: [
+        dimension('carrier'),
+        { ...dimension('account_id'), source: { kind: 'column', column: 'public_id' } },
+        { ...dimension('privateAccount'), source: { kind: 'column', column: 'account_id' } },
+      ],
+      filters: [],
+      relationships: [{ ...shipments.relationships[0], from: 'account_id' }],
+    } as unknown as ProtocolDeploymentDataset;
+    const policy = visibility({
+      shipments: { dimensions: ['carrier', 'account_id'], measures: '*' },
+      customers: { dimensions: '*', measures: '*' },
+    });
+    const visible = resolveProtocolVisibleDatasetFields(renamed, datasets, policy)!;
+    expect(visible.relationships.size).toBe(0);
+    expect([...visible.dimensions].some(name => name.startsWith('customer.'))).toBe(false);
+
+    const keyShown = visibility({
+      shipments: { dimensions: ['carrier', 'privateAccount'], measures: '*' },
+      customers: { dimensions: '*', measures: '*' },
+    });
+    expect([...resolveProtocolVisibleDatasetFields(renamed, datasets, keyShown)!.relationships]).toEqual(['customer']);
+  });
+
   it('checks every column of a composite join key', () => {
     const composite = {
       ...shipments,
