@@ -28,6 +28,7 @@ export type {
   ProtocolDeploymentMeasure,
   ProtocolAccessPolicy,
   ProtocolDatasetContract,
+  ProtocolRowResolution,
   ProtocolDatasetDefaults,
   ProtocolDatasetDimension,
   ProtocolDatasetFieldSource,
@@ -61,3 +62,5 @@ export type {
   ProtocolMetricDerivation,
   ProtocolMetricInput,
 } from './types.js';
+
+export { validateProtocolRowResolution } from './row-resolution.js';

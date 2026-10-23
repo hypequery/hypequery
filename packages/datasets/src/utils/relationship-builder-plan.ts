@@ -1,3 +1,4 @@
+import { resolvedSourceQualifier } from './resolved-row-source.js';
 import { relationshipKeys } from './relationship-keys.js';
 import type { RelationshipKey } from '../types.js';
 import { relationshipJoinSource } from './relationship-measure-sql.js';
@@ -111,7 +112,7 @@ export function buildRelationshipBuilderContext(
   }
 
   return {
-    baseSource: ds.source,
+    baseSource: resolvedSourceQualifier(ds),
     joins: Array.from(joinByRelationship.values()),
     joinByRelationship,
     dialect,

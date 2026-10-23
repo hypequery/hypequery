@@ -1311,5 +1311,81 @@
       ]
     },
     "error": "HQ_DEPLOYMENT_TYPE"
+  },
+  {
+    "id": "resolved-aggregating-unsupported",
+    "value": {
+      "kind": "hypequery-deployment",
+      "version": 2,
+      "datasets": [
+        {
+          "name": "users",
+          "source": "users",
+          "tenant": {
+            "kind": "not-required"
+          },
+          "dimensions": [],
+          "measures": [],
+          "filters": [],
+          "relationships": [],
+          "rowResolution": {
+            "kind": "final",
+            "engine": "aggregating"
+          }
+        }
+      ]
+    },
+    "error": "HQ_DEPLOYMENT_INVALID_VALUE"
+  },
+  {
+    "id": "resolved-collapsing-missing-sign",
+    "value": {
+      "kind": "hypequery-deployment",
+      "version": 2,
+      "datasets": [
+        {
+          "name": "users",
+          "source": "users",
+          "tenant": {
+            "kind": "not-required"
+          },
+          "dimensions": [],
+          "measures": [],
+          "filters": [],
+          "relationships": [],
+          "rowResolution": {
+            "kind": "final",
+            "engine": "collapsing"
+          }
+        }
+      ]
+    },
+    "error": "HQ_DEPLOYMENT_TYPE"
+  },
+  {
+    "id": "resolved-column-injection",
+    "value": {
+      "kind": "hypequery-deployment",
+      "version": 2,
+      "datasets": [
+        {
+          "name": "users",
+          "source": "users",
+          "tenant": {
+            "kind": "not-required"
+          },
+          "dimensions": [],
+          "measures": [],
+          "filters": [],
+          "relationships": [],
+          "rowResolution": {
+            "kind": "final",
+            "engine": "replacing",
+            "deletedColumn": "x OR 1"
+          }
+        }
+      ]
+    },
+    "error": "HQ_DEPLOYMENT_INVALID_IDENTIFIER"
   }
 ]

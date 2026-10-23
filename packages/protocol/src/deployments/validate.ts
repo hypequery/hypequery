@@ -1,3 +1,4 @@
+import { validateProtocolRowResolution } from './row-resolution.js';
 import { ProtocolExpressionError, validateProtocolExpression } from '../expressions/index.js';
 import type { ProtocolExpression } from '../expressions/index.js';
 import {
@@ -854,7 +855,7 @@ function validateDataset(
       'name', 'source', 'tenant', 'dimensions', 'measures', filtersKey, 'metrics', 'relationships',
     ],
     [
-      'description', 'freshness', 'owner', 'defaults',
+      'description', 'freshness', 'owner', 'defaults', 'rowResolution',
       ...SEMANTIC_METADATA_FIELDS,
       'timeField', 'limits', 'endpoint',
       ...(version === 3 ? ['segments'] : []),
@@ -913,6 +914,9 @@ function validateDataset(
       ),
       issues,
     ));
+  }
+  if (value.rowResolution !== undefined) {
+    result.rowResolution = field(() => validateProtocolRowResolution(value.rowResolution, `${path}.rowResolution`));
   }
   if (value.timeField !== undefined) {
     result.timeField = field(() => identifier(value.timeField, `${path}.timeField`, true));
@@ -1136,7 +1140,7 @@ function validateDeploymentDataset(
       version === 3 ? 'allowedFilters' : 'filters', 'relationships',
     ],
     [
-      'description', 'freshness', 'owner', 'defaults',
+      'description', 'freshness', 'owner', 'defaults', 'rowResolution',
       ...SEMANTIC_METADATA_FIELDS, 'timeField', 'limits', 'endpoint',
       ...(version === 3 ? ['segments'] : []),
     ], path, issues);

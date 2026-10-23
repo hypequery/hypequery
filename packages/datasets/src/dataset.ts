@@ -1,3 +1,4 @@
+import { validateProtocolRowResolution } from '@hypequery/protocol';
 /**
  * dataset() — creates a typed semantic model over a physical table.
  *
@@ -139,6 +140,7 @@ export function dataset<
     __type: 'dataset',
     name,
     source: config.source,
+    ...(config.rowResolution === undefined ? {} : { rowResolution: validateProtocolRowResolution(config.rowResolution) }),
     description: config.description,
     ...snapshotSemanticMetadata(config),
     freshness: config.freshness === undefined ? undefined : { ...config.freshness },

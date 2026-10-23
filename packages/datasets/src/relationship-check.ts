@@ -1,3 +1,4 @@
+import { datasetBuilderSource } from './utils/resolved-row-source.js';
 /**
  * Verifies declared to-one relationships against the data.
  *
@@ -76,7 +77,7 @@ export async function checkRelationships(
     }
 
     let qb = factory
-      .table(entry.target.source)
+      .table(datasetBuilderSource(entry.target, dialect))
       .count(entry.column, ROWS_ALIAS)
       .countDistinct(entry.columns ? dialect.packRow(entry.columns) : entry.column, KEYS_ALIAS);
     if (entry.columns) {

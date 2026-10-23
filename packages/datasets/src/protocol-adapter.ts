@@ -148,6 +148,7 @@ export function buildProtocolDatasetContract(
     ...(dataset.description !== undefined ? { description: dataset.description } : {}),
     ...toProtocolSemanticMetadata(dataset),
     source: dataset.source,
+    ...(dataset.rowResolution === undefined ? {} : { rowResolution: { ...dataset.rowResolution } }),
     ...(dataset.freshness !== undefined ? { freshness: { ...dataset.freshness } } : {}),
     ...(dataset.owner !== undefined ? { owner: dataset.owner } : {}),
     ...(dataset.defaults !== undefined

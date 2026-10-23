@@ -1,3 +1,6 @@
+export type RowResolution =
+  | { readonly kind: 'final'; readonly engine: 'replacing'; readonly deletedColumn?: string }
+  | { readonly kind: 'final'; readonly engine: 'collapsing' | 'versioned-collapsing'; readonly signColumn: string };
 import type { QueryableRelationshipMeasureNames, RelationshipMeasureDefinition } from './utils/relationship-measure-types.js';
 import type { DatasetFilterFor } from './utils/dataset-filter-types.js';
 import type { QueryBuilderFactoryInput } from './query-builder-protocol.js';
@@ -530,6 +533,7 @@ export interface DatasetConfig<
   TFilters extends SemanticFiltersDefinition | undefined = SemanticFiltersDefinition,
 > extends SemanticMetadata {
   source: string;
+  rowResolution?: RowResolution;
   description?: string;
   freshness?: DatasetFreshness;
   owner?: string;
@@ -568,6 +572,7 @@ export interface DatasetInstance<
   __type: 'dataset';
   name: TDatasetName;
   source: string;
+  rowResolution?: RowResolution;
   description?: string;
   examples?: readonly string[];
   synonyms?: readonly string[];

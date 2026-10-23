@@ -238,6 +238,7 @@ export type {
   PreparedProtocolDeploymentContractV3,
   ProtocolAccessPolicy,
   ProtocolDatasetContract,
+  ProtocolRowResolution,
   ProtocolDatasetDefaults,
   ProtocolDatasetDimension,
   ProtocolDatasetFieldSource,
@@ -302,3 +303,5 @@ export type {
   ProtocolVisibleDatasetFields,
   ProtocolVisibleFields,
 } from './visibility/index.js';
+
+export { validateProtocolRowResolution } from './deployments/row-resolution.js';
