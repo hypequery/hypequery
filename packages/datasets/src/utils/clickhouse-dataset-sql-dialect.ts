@@ -1,6 +1,8 @@
 import type { DatasetSqlBinaryOperator, DatasetSqlDialectRules } from '../dataset-sql-dialect.js';
 import type { TimeGrain } from '../types.js';
 import { quoteSQLIdentifier, stripSqlLiterals } from '../sql-utils.js';
+import { assertAggregateStateFunction, mergeStateExpression, type AggregateStateFunction } from './aggregate-state-functions.js';
+import type { MeasureDefinition } from '../types.js';
 
 const TRUNCATE_FUNCTIONS: Record<TimeGrain, string> = {
   minute: 'toStartOfMinute',
@@ -109,6 +111,9 @@ export const clickhouseDatasetSqlDialect: DatasetSqlDialectRules = Object.freeze
       case 'count': return `count(${value})`;
       case 'countDistinct': return `uniqExact(${value})`;
       case 'approxCountDistinct': return `uniq(${value})`;
+      // -Merge cannot take -OrNull (the state type names the bare function); a
+      // window group always has rows, and counts coalesce to 0 downstream.
+      case 'merge': return mergeStateExpression(requireStateFunction(definition), value);
       case 'percentile': return `quantileOrNull(${definition.level})(${value})`;
       case 'argMax': return `argMaxOrNull(${value}, ${arg})`;
       case 'argMin': return `argMinOrNull(${value}, ${arg})`;
@@ -144,3 +149,8 @@ export const clickhouseDatasetSqlDialect: DatasetSqlDialectRules = Object.freeze
     }
   },
 } satisfies DatasetSqlDialectRules);
+
+function requireStateFunction(definition: Pick<MeasureDefinition, 'stateFunction'>): AggregateStateFunction {
+  assertAggregateStateFunction(definition.stateFunction, 'A merge measure');
+  return definition.stateFunction;
+}

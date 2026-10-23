@@ -43,6 +43,13 @@ export interface QueryBuilderLike {
   variance?(column: string, alias?: string): QueryBuilderLike;
   /** Estimated number of distinct non-NULL values of `column`. */
   approxCountDistinct?(column: string, alias?: string): QueryBuilderLike;
+  /**
+   * Finalize the aggregate states in `column` with `stateFunction`'s `-Merge`
+   * combinator (ClickHouse `uniqMerge(users)`). `stateFunction` is one of the
+   * datasets allowlist. `@hypequery/clickhouse` implements it from the release
+   * that adds `mergeState`.
+   */
+  mergeState?(stateFunction: string, column: string, alias?: string): QueryBuilderLike;
 
   // Filtering
   where(column: string, operator: string, value: unknown): QueryBuilderLike;

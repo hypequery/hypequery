@@ -6,10 +6,17 @@ import { getBaseMeasure } from './dataset-measures.js';
  * (RFC 0015).
  */
 
-import type { AggregationType, DerivedMeasureDefinition, DatasetMeasureDefinition } from '../types.js';
+import type { AggregationType, DerivedMeasureDefinition, DatasetMeasureDefinition, MeasureDefinition } from '../types.js';
+import { isApproximateStateFunction } from './aggregate-state-functions.js';
 
 export function isApproximateAggregation(aggregation: AggregationType): boolean {
   return aggregation === 'approxCountDistinct';
+}
+
+/** A base measure is approximate by aggregation, or by merging estimating states (`uniqMerge`). */
+export function isApproximateBaseMeasure(definition: Pick<MeasureDefinition, 'aggregation' | 'stateFunction'>): boolean {
+  return isApproximateAggregation(definition.aggregation)
+    || (definition.aggregation === 'merge' && isApproximateStateFunction(definition.stateFunction));
 }
 
 /** A derived measure is approximate when any measure it uses is. */
@@ -19,13 +26,13 @@ export function isApproximateDerivedMeasure(
 ): boolean {
   return measureDependencyNames(measures, Object.values(definition.uses)).some(name => {
     const base = getBaseMeasure(measures, name);
-    return base !== undefined && isApproximateAggregation(base.aggregation);
+    return base !== undefined && isApproximateBaseMeasure(base);
   });
 }
 
 export function isApproximateMeasure(measures: Readonly<Record<string, DatasetMeasureDefinition>>, name: string): boolean {
   return measureDependencyNames(measures, [name]).some(input => {
     const base = getBaseMeasure(measures, input);
-    return base !== undefined && isApproximateAggregation(base.aggregation);
+    return base !== undefined && isApproximateBaseMeasure(base);
   });
 }

@@ -19,8 +19,9 @@ export type {
 // Aggregation helpers
 export {
   sum, count, countDistinct, approxCountDistinct, avg, min, max,
-  percentile, median, argMax, argMin, stddev, variance,
+  percentile, median, argMax, argMin, stddev, variance, merge,
 } from './aggregations.js';
+export { AGGREGATE_STATE_FUNCTIONS, type AggregateStateFunction } from './utils/aggregate-state-functions.js';
 
 // Formula helpers
 export {

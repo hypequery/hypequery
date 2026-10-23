@@ -95,6 +95,10 @@ export function createRenderingBuilderFactory(): QueryBuilderFactoryLike {
       },
       stddev: agg('stddevSamp'),
       variance: agg('varSamp'),
+      mergeState: (stateFunction, column, alias) => {
+        select.push(`${stateFunction}Merge(${column}) AS ${alias ?? `${column}_merge`}`);
+        return builder;
+      },
       where: (column, operator, value) => {
         where.push(condition(column, operator, value));
         return builder;
