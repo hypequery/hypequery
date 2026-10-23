@@ -83,6 +83,17 @@ export function createMergeMeasure<
   if (typeof field !== 'string' || field.trim().length === 0) {
     throw new Error('measure.merge(stateFunction, field) requires a field.');
   }
+  // The types forbid these, but untyped callers can still pass them. Dropping
+  // them would silently widen the measure (an ignored filter counts every row),
+  // so they are rejected instead.
+  const unsupported = (['filters', 'sql', 'dependencies'] as const)
+    .filter(key => (opts as Record<string, unknown> | undefined)?.[key] !== undefined);
+  if (unsupported.length) {
+    throw new Error(
+      `measure.merge(…, "${field}") does not support ${unsupported.join(', ')}: ` +
+      'merge measures read a stored state column, and a filtered merge needs -MergeIf, which is not emitted yet.',
+    );
+  }
   return {
     __type: 'measure_definition',
     aggregation: 'merge',

@@ -86,6 +86,15 @@ describe('merge measure validation', () => {
     expect(AGGREGATE_STATE_FUNCTIONS).toContain('uniq');
   });
 
+  it('rejects filters, sql and dependencies passed to the helper by untyped callers', () => {
+    const untyped = measure.merge as unknown as (fn: string, field: string, opts: Record<string, unknown>) => unknown;
+    expect(() => untyped('uniq', 'users', { filters: [{ field: 'kind', operator: 'eq', value: 'x' }] }))
+      .toThrow('measure.merge(…, "users") does not support filters');
+    expect(() => untyped('uniq', 'users', { sql: 'uniqMerge(users)' })).toThrow('does not support sql');
+    expect(() => untyped('uniq', 'users', { dependencies: ['users'] })).toThrow('does not support dependencies');
+    expect(() => untyped('uniq', 'users', { label: 'Users' })).not.toThrow();
+  });
+
   it('rejects hand-built or rehydrated definitions with a bad state function, filters or sql', () => {
     const build = (definition: Partial<MeasureDefinition>) => () => dataset('bad', {
       source: 'bad',
