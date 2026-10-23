@@ -13,6 +13,7 @@ import {
 } from './index.js';
 import { createInMemoryBackend } from './in-memory-backend.js';
 import { buildDatasetQuerySignature } from './cache/query-signature.js';
+import { datasetCacheKey, metricCacheKey, resolveProtocolCacheKeySettings } from './cache/protocol-cache-keys.js';
 import type { QueryBuilderFactoryLike, QueryBuilderLike } from './query-builder-protocol.js';
 
 // A ReplacingMergeTree dimension table: one row per tenant version.
@@ -176,7 +177,41 @@ describe('final: true datasets', () => {
     );
   });
 
-  it('gives final datasets their own cache keys and keeps existing keys unchanged', () => {
+  it('separates result-cache keys by final, on the dataset and on a joined target', () => {
+    const settings = resolveProtocolCacheKeySettings({ secret: new Uint8Array(32).fill(7) }, false);
+    const tenants = (final: boolean) => dataset('cache_tenants', {
+      source: 'hq_saas.tenants',
+      final,
+      dimensions: { id: dimension.string({ column: 'tenant_id' }), plan: dimension.string() },
+    });
+    // Identical definitions except for the `final` flag on the base or the target.
+    const subscriptions = (final: boolean, targetFinal: boolean) => {
+      const target = tenants(targetFinal);
+      return dataset('cache_subscriptions', {
+        source: 'hq_saas.subscriptions',
+        final,
+        dimensions: { status: dimension.string() },
+        measures: { mrr: measure.sum('mrr') },
+        relationships: { tenant: belongsTo(() => target, { from: 'tenant_id', to: 'tenant_id' }) },
+      });
+    };
+    const query = { dimensions: ['tenant.plan'], measures: ['mrr'], limit: 100 };
+    const datasetKey = (final: boolean, targetFinal: boolean) =>
+      datasetCacheKey(settings, subscriptions(final, targetFinal), query, undefined, undefined);
+    const metricKey = (final: boolean, targetFinal: boolean) =>
+      metricCacheKey(settings, subscriptions(final, targetFinal).metric('mrr', { measure: 'mrr' }), query, undefined, undefined);
+
+    for (const key of [datasetKey, metricKey]) {
+      const raw = key(false, false);
+      expect(raw).toBeDefined();
+      expect(key(false, false)).toBe(raw);
+      expect(key(true, false)).not.toBe(raw);
+      expect(key(false, true)).not.toBe(raw);
+      expect(key(true, true)).not.toBe(key(true, false));
+    }
+  });
+
+  it('separates the exported query signature by final and keeps existing signatures unchanged', () => {
     const query = { dimensions: ['status'], measures: ['mrr'] };
     const finalKey = buildDatasetQuerySignature(Subscriptions, query);
     const rawKey = buildDatasetQuerySignature(RawSubscriptions, query);
