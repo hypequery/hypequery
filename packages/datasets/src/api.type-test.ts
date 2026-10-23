@@ -510,3 +510,24 @@ void unnamedReason;
 void featureReason;
 void legacyFeatureError;
 void executionReason;
+
+// Explicit FINAL resolution is authored with ordinary column names.
+const resolvedUsers = dataset('resolvedUsers', {
+  source: 'users', dimensions: { id: dimension.number() },
+  rowResolution: { kind: 'final', engine: 'replacing', deletedColumn: 'is_deleted' },
+});
+resolvedUsers.rowResolution;
+dataset('collapsedRows', {
+  source: 'rows', dimensions: {},
+  rowResolution: { kind: 'final', engine: 'collapsing', signColumn: 'sign' },
+});
+dataset('unsupportedStates', {
+  source: 'states', dimensions: {},
+  // @ts-expect-error FINAL does not turn aggregate states into scalar measures.
+  rowResolution: { kind: 'final', engine: 'aggregating' },
+});
+dataset('missingSign', {
+  source: 'rows', dimensions: {},
+  // @ts-expect-error collapsing resolution must name the sign column.
+  rowResolution: { kind: 'final', engine: 'collapsing' },
+});

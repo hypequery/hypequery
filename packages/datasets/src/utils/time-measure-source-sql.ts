@@ -1,3 +1,4 @@
+import { datasetBuilderSource } from './resolved-row-source.js';
 import { resolveRelationshipMeasure } from './relationship-measures.js';
 import { relationshipMeasureExpressions } from './relationship-measure-sql.js';
 import { queryTimeFilter, queryTimeSql } from './query-timezone.js';
@@ -46,7 +47,7 @@ export function buildTimeMeasureSourceSql(
   const joinCtx = buildRelationshipBuilderContext(ds, query, options.context, dialect);
   // Keep source expressions in their own SELECT scope: internal aliases cannot
   // capture authored SQL identifiers, even if a physical column shares a name.
-  let raw = applyRelationshipJoins(options.builderFactory.table(ds.source), joinCtx);
+  let raw = applyRelationshipJoins(options.builderFactory.table(datasetBuilderSource(ds, dialect)), joinCtx);
   const dims = (query.dimensions ?? []).map((name, i) => ({ name, alias: `_hq_d${i}` }));
   const sourceParts = [resolveDimensionExpression(ds, ds.timeKey!, joinCtx)];
   for (const dimension of dims) sourceParts.push(resolveDimensionExpression(ds, dimension.name, joinCtx));

@@ -418,6 +418,7 @@ export function rehydrateProtocolDatasets(
     const name = String(contract.name);
     const instance = dataset(name, {
       source: contract.source,
+      ...(contract.rowResolution === undefined ? {} : { rowResolution: contract.rowResolution }),
       ...snapshotSemanticMetadata(contract),
       ...(contract.description !== undefined ? { description: contract.description } : {}),
       ...(contract.owner !== undefined ? { owner: contract.owner } : {}),

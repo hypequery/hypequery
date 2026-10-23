@@ -294,6 +294,7 @@ export type {
   SegmentDefinition,
   SemanticFiltersDefinition,
   DatasetConfig,
+  RowResolution,
   DatasetDefaults,
   DatasetFreshness,
   DatasetLimits,

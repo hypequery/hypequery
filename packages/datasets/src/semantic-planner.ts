@@ -1,3 +1,4 @@
+import { rejectResolvedRowsOnBackend } from './utils/resolved-row-source.js';
 import { rejectTimeMeasuresOnBackend } from './utils/time-query-measures.js';
 import { baseMeasureNames, getBaseMeasure, getDerivedMeasure } from './utils/dataset-measures.js';
 import { protocolMetricCapabilityErrors } from './utils/protocol-metric-capabilities.js';
@@ -115,6 +116,7 @@ function collectJoins(
   const joins = new Map<string, SemanticJoinPlan>();
   for (const name of referenced) {
     const { relationshipName, relationship, target } = resolveQualifiedPlanField(ds, name);
+    rejectResolvedRowsOnBackend(target);
     if (relationship.keys && relationship.keys.length > 1) throw new Error('Composite relationships require the queryBuilder execution path.');
     if (joins.has(relationshipName)) {
       continue;
@@ -188,6 +190,7 @@ function aggregatePlan(
   aggregations: SemanticAggregationPlan[],
   context?: ExecutionContext,
 ): PlanNode {
+  rejectResolvedRowsOnBackend(ds);
   return {
     kind: 'aggregate',
     source: ds.source,
@@ -211,6 +214,7 @@ export function buildDatasetPlan(
   query: DatasetQuery = {},
   context?: ExecutionContext,
 ): PlanNode {
+  rejectResolvedRowsOnBackend(ds);
   if ((query.measures ?? []).some(name => name.includes('.'))) throw new Error('Relationship measures require the queryBuilder execution path.');
   if (query.timezone !== undefined) throw new Error('Execution timezone requires the queryBuilder execution path.');
   rejectTimeMeasuresOnBackend(ds, query);
@@ -329,6 +333,7 @@ export function buildMetricPlan(
   const errors = protocolMetricCapabilityErrors(metric, query);
   if (errors.length) throw new Error(`Invalid metric query: ${errors.join('; ')}`);
   const ref = getMetricRef(metric as MetricHandle);
+  rejectResolvedRowsOnBackend(ref.dataset);
   const grain = getMetricGrain(metric as MetricHandle, query);
   const plannedQuery = { ...query, by: grain };
 

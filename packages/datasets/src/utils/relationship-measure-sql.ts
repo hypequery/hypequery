@@ -1,3 +1,4 @@
+import { resolvedRowSource } from './resolved-row-source.js';
 import type { AnyDatasetInstance, AggregationSpec } from '../types.js';
 import { resolveRelationshipMeasure } from './relationship-measures.js';
 import type { RelationshipBuilderContext } from './relationship-builder-plan.js';
@@ -30,7 +31,7 @@ export function relationshipJoinSource(target: AnyDatasetInstance, to: readonly 
   let marker = '_hq_match';
   while (columns.has(marker)) marker += '_';
   const quote = dialect.quoteIdentifier;
-  const source = dialect.quoteQualifiedName(target.source);
+  const source = resolvedRowSource(target, dialect);
   // Sorted so the SQL is byte-identical however the target's dimensions are
   // ordered (authored vs. rehydrated catalogs declare them differently).
   const projection = [...columns].sort().map(quote);

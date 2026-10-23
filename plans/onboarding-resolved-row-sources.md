@@ -10,3 +10,9 @@ Aggregating and Summing states are not scalar measures and are outside this poli
 
 Cloud acceptance remains blocked until compatible Core packages are released and
 Cloud upgrades its pinned packages. This branch does not publish packages or alter CI.
+
+Implementation: explicit `rowResolution` FINAL policy for replacing and both
+collapsing families, strict portable grammar in TypeScript and Python, contract
+roundtrip/cache identity, shared resolved source scans and backend/dialect refusal.
+See RFC 0020 for authoring and connection requirements. Package publication and
+Cloud dependency upgrades remain separate work; no CI configuration changed.

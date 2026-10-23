@@ -155,10 +155,16 @@ export interface ProtocolDatasetLimits {
   readonly maxResultSize?: number;
 }
 
+/** Explicit ClickHouse engine resolution; omitted means physical rows. */
+export type ProtocolRowResolution =
+  | { readonly kind: 'final'; readonly engine: 'replacing'; readonly deletedColumn?: ProtocolIdentifier }
+  | { readonly kind: 'final'; readonly engine: 'collapsing' | 'versioned-collapsing'; readonly signColumn: ProtocolIdentifier };
+
 export interface ProtocolDatasetContract extends ProtocolSemanticMetadata {
   readonly name: ProtocolIdentifier;
   readonly description?: string;
   readonly source: string;
+  readonly rowResolution?: ProtocolRowResolution;
   readonly freshness?: ProtocolDatasetFreshness;
   readonly owner?: string;
   readonly defaults?: ProtocolDatasetDefaults;
