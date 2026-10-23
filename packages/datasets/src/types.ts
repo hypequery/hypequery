@@ -530,6 +530,15 @@ export interface DatasetConfig<
   TFilters extends SemanticFiltersDefinition | undefined = SemanticFiltersDefinition,
 > extends SemanticMetadata {
   source: string;
+  /**
+   * Read the source with ClickHouse `FINAL`, so queries see one row per
+   * sorting key: the latest version in a ReplacingMergeTree (deleted keys
+   * dropped when the engine has an `is_deleted` column) and collapsed rows in
+   * a CollapsingMergeTree. Without it, row versions that have not been merged
+   * yet are each counted. Applies to every query on this dataset, to its
+   * relationship-key checks, and to joins that target it.
+   */
+  final?: boolean;
   description?: string;
   freshness?: DatasetFreshness;
   owner?: string;
@@ -568,6 +577,8 @@ export interface DatasetInstance<
   __type: 'dataset';
   name: TDatasetName;
   source: string;
+  /** Source is read with `FINAL`; see `DatasetConfig.final`. */
+  final?: boolean;
   description?: string;
   examples?: readonly string[];
   synonyms?: readonly string[];
