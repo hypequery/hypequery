@@ -62,6 +62,9 @@
     "gray-matter": {
       "js-yaml": "^3.15.1"
     },
+    "@vercel/cli-config": {
+      "zod": "^4.6.6"
+    },
     "ip-address": "^10.4.0",
     "js-yaml": "^4.3.1",
     "minimatch": "^10.2.3",
