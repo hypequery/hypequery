@@ -1465,6 +1465,20 @@ artifact = export_client_contract(
 # artifact["canonical"] is the complete signed JSON document.
 ```
 
+Related fields are left out unless a definition names the relationship, as
+`include_related` does for an installed endpoint. Pass the same names to both so
+the exported schema hash matches the live one; otherwise generated clients get
+`409 CLIENT_SCHEMA_CHANGED`:
+
+```python
+ClientEndpointDefinition(
+    dataset=Orders,
+    path="/api/datasets/orders/query",
+    profile=ClientQueryProfile(default_limit=100, max_limit=100),
+    related={"customer"},  # matches include_related={"customer"}
+)
+```
+
 Supply a `registry` when definitions reference queryable relationships. Target
 filter permissions and safe relationship aggregate rules are resolved directly
 from definitions, including filter aliases and filter-only fields. Physical
