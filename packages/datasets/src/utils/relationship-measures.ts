@@ -22,6 +22,9 @@ export function resolveRelationshipMeasure(ds: AnyDatasetInstance, name: string)
   const definition = Object.hasOwn(target.measures, parsed.field) ? target.measures[parsed.field] : undefined;
   if (!definition) throw new Error(`Unknown measure "${parsed.field}" on relationship target "${target.name}".`);
   if (!isBaseMeasure(definition)) throw new Error(`Measure "${name}" must reference a base aggregate; derived, window, and shift measures are not selectable through relationships.`);
+  if (definition.aggregation === 'merge') {
+    throw new Error(`Measure "${name}" cannot merge aggregate states through a relationship: joined rows would repeat or drop states. Query the target dataset directly.`);
+  }
   if (relationship.kind === 'belongsTo' && !DUPLICATE_INSENSITIVE.has(definition.aggregation)) {
     throw new Error(`Measure "${name}" cannot use ${definition.aggregation} through belongsTo: repeated target rows would inflate the aggregation. Use a duplicate-insensitive measure or query the target dataset.`);
   }
