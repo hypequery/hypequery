@@ -39,12 +39,12 @@
     "commander": "^12.0.0",
     "dotenv": "^18.0.8",
     "esbuild": "^0.28.2",
-    "open": "^10.0.0",
+    "open": "^11.0.4",
     "ora": "^8.0.1",
     "prompts": "^2.4.2"
   },
   "optionalDependencies": {
-    "@napi-rs/keyring": "2.1.1"
+    "@napi-rs/keyring": "2.1.2"
   },
   "peerDependencies": {
     "@hypequery/mcp": "*",
@@ -63,9 +63,9 @@
     "@hypequery/serve": "workspace:*",
     "@types/node": "^20.11.30",
     "@types/prompts": "^2.4.9",
-    "@vitest/coverage-v8": "^5.0.4",
+    "@vitest/coverage-v8": "^5.0.5",
     "typescript": "^6.0.3",
-    "vitest": "^5.0.4"
+    "vitest": "^5.0.5"
   },
   "repository": {
     "type": "git",
