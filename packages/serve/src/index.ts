@@ -23,7 +23,7 @@ export type { CacheObservability, CacheLayerStats, BuilderCacheLike } from "./ca
  * builders it converts. Kept here because it is a shipped export of this
  * package and removing it would break importers for no benefit.
  */
-export { ProtocolSchemaAdapterError, zodToProtocolSchema } from '@hypequery/datasets';
+export { ProtocolSchemaAdapterError, zodToProtocolSchema } from '@hypequery/datasets/schemas';
 /** @deprecated Import from `@hypequery/serve/dev` instead. */
 export { serveDev } from "./dev.js";
 export * from "./serve.js";

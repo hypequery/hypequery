@@ -19,8 +19,8 @@ import type {
   ServeMiddleware,
   TenantConfigOverride,
 } from '../../types.js';
+import { buildMetricInputSchema } from '@hypequery/datasets/schemas';
 import {
-  buildMetricInputSchema,
   type AnyDatasetInstance,
   type DatasetClient,
   type MetricContract,
@@ -57,7 +57,7 @@ const metricResultMetaSchema = z.object({
 }).optional();
 
 const metricResultSchema = z.object({
-  data: z.array(z.record(z.unknown())),
+  data: z.array(z.record(z.string(), z.unknown())),
   meta: metricResultMetaSchema,
 });
 

@@ -15,11 +15,8 @@ Catalog mode creates one generic `query_dataset` tool.
 
 <CodeBlock>
 ```typescript
-import {
-  createDatasetClient,
-  generateDatasetTools,
-  toOpenAITools,
-} from '@hypequery/datasets';
+import { createDatasetClient } from '@hypequery/datasets';
+import { generateDatasetTools, toOpenAITools } from '@hypequery/datasets/schemas';
 import { Orders } from './datasets/orders.js';
 import { db } from './db.js';
 
@@ -115,7 +112,7 @@ import {
   toAISDKTools,
   toMcpTools,
   toOpenAITools,
-} from '@hypequery/datasets';
+} from '@hypequery/datasets/schemas';
 
 const openaiTools = toOpenAITools(tools);
 const aiSdkTools = toAISDKTools(tools);
