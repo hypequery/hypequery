@@ -9,3 +9,12 @@ packages:
   - 'packages/protocol'
   - 'packages/protocol-conformance'
   - 'packages/tsconfig'
+
+auditConfig:
+  ignoreGhsas:
+    # zod <4.6.6: memory exhaustion validating oversized constrained collections.
+    # Only patched in zod 4; there is no fixed 3.x. zod 3 is part of the public
+    # peer range of @hypequery/datasets and @hypequery/serve, so the fix is the
+    # zod 4 migration (a breaking change), not a lockfile bump. Remove this
+    # entry once that lands.
+    - GHSA-mrhx-c7xc-m3w5

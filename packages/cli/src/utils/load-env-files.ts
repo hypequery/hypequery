@@ -20,7 +20,7 @@ export async function loadEnvFiles(directory: string): Promise<void> {
     const { config } = await import('dotenv');
     for (const file of envFiles(process.env.NODE_ENV)) {
       // Missing files are a no-op.
-      config({ path: path.join(resolved, file) });
+      config({ path: path.join(resolved, file), quiet: true });
     }
   } catch {
     // dotenv is optional; continue if not available

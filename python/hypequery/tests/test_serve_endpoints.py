@@ -778,6 +778,95 @@ def _orders_with_a_ups_measure() -> tuple[Dataset, Dataset]:
     )
 
 
+@pytest.mark.parametrize("related", [(), ("shipment",)], ids=["default", "included"])
+def test_offline_export_matches_the_live_contract_for_a_dataset_with_relationships(
+    related: tuple[str, ...],
+) -> None:
+    # The QA repro: an offline export exposed every relationship while Serve
+    # exposed none by default, so a client generated from it got 409s.
+    from hypequery.datasets import ClientEndpointDefinition, ClientQueryProfile
+    from hypequery.datasets import export_client_contract as export_offline
+    from hypequery.serve import export_client_contract
+
+    orders, shipments = _orders_with_a_ups_measure()
+    registry = create_dataset_registry(orders, shipments)
+    client = create_dataset_client(executor=Executor(), registry=registry)
+    profile = ClientQueryProfile(default_limit=50, max_limit=100)
+    router = create_api(authenticate=authenticate)
+    add_dataset_endpoint(
+        router,
+        "/orders",
+        dataset=orders,
+        client=client,
+        client_profile=profile,
+        include_related=related,
+    )
+    add_metric_endpoint(
+        router,
+        "/total",
+        dataset=orders,
+        measure="total",
+        client=client,
+        client_profile=profile,
+        include_related=related,
+    )
+    app_ = create_app(router, security=HttpSecurity(allowed_hosts=("testserver",)))
+    # Leave the offline default in place when the endpoint uses Serve's default.
+    if related:
+        definitions = [
+            ClientEndpointDefinition(orders, "/orders", profile, related=related),
+            ClientEndpointDefinition(orders, "/total", profile, measure="total", related=related),
+        ]
+    else:
+        definitions = [
+            ClientEndpointDefinition(orders, "/orders", profile),
+            ClientEndpointDefinition(orders, "/total", profile, measure="total"),
+        ]
+    offline = export_offline(definitions, registry=registry)["contract"]
+    live = export_client_contract(app_)["contract"]
+    assert [e["schemaHash"] for e in offline["endpoints"]] == [
+        e["schemaHash"] for e in live["endpoints"]
+    ]
+    assert offline == live
+    advertised = offline["endpoints"][0]
+    assert ("shipment.carrier" in advertised["dimensions"]) is bool(related)
+    assert ("ups_orders" in advertised["defaultMeasures"]) is bool(related)
+
+
+def test_offline_export_refuses_a_metric_serve_would_refuse() -> None:
+    from hypequery.datasets import ClientEndpointDefinition, ClientQueryProfile
+    from hypequery.datasets import export_client_contract as export_offline
+
+    orders, shipments = _orders_with_a_ups_measure()
+    registry = create_dataset_registry(orders, shipments)
+    client = create_dataset_client(executor=Executor(), registry=registry)
+    with pytest.raises(ValueError, match="include_related"):
+        create_metric_endpoint(dataset=orders, measure="ups_orders", client=client)
+    definition = ClientEndpointDefinition(
+        orders, "/ups", ClientQueryProfile(), measure="ups_orders"
+    )
+    with pytest.raises(ValueError, match="missing from related"):
+        export_offline([definition], registry=registry)
+    included = ClientEndpointDefinition(
+        orders, "/ups", ClientQueryProfile(), measure="ups_orders", related={"shipment"}
+    )
+    assert export_offline([included], registry=registry)["contract"]["endpoints"]
+
+
+def test_offline_related_must_name_declared_relationships() -> None:
+    from hypequery.datasets import ClientEndpointDefinition, ClientQueryProfile
+
+    orders, _ = _orders_with_shipments()
+    with pytest.raises(ValueError, match="shipments"):
+        ClientEndpointDefinition(orders, "/orders", ClientQueryProfile(), related={"shipments"})
+    with pytest.raises(TypeError):
+        ClientEndpointDefinition(orders, "/orders", ClientQueryProfile(), related="shipment")
+    definition = ClientEndpointDefinition(
+        orders, "/orders", ClientQueryProfile(), related=["shipment"]
+    )
+    assert definition.related == frozenset({"shipment"})
+
+
 @pytest.mark.parametrize(
     "body",
     [

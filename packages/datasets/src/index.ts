@@ -1,3 +1,5 @@
+import * as schemas from './schemas.js';
+
 // Dataset definition
 export { dataset } from './dataset.js';
 
@@ -159,26 +161,49 @@ export type {
   ContractRelationship,
 } from './contract.js';
 
-// Agent/tool metadata
-export {
-  generateDatasetTools,
-  toOpenAITools,
-  toAISDKTools,
-  toMcpTools,
-} from './tools.js';
+// Zod-backed schemas and agent tools now live at `@hypequery/datasets/schemas`.
+// These root re-exports remain for compatibility and are removed in 1.0.
 
-// Canonical semantic query schemas shared by Serve, MCP, and agent adapters.
-export {
-  buildDatasetInputSchema,
-  buildMetricInputSchema,
-  buildCanonicalSemanticQuerySchemas,
-  toSemanticJsonSchema,
-  DEFAULT_SEMANTIC_QUERY_SCHEMA_LIMITS,
-  buildDatasetInputProtocolSchema,
-  buildMetricInputProtocolSchema,
-} from './semantic-query-schema.js';
+/** @deprecated Import from `@hypequery/datasets/schemas`; the root entry stops exporting it in 1.0. */
+export const generateDatasetTools = schemas.generateDatasetTools;
+/** @deprecated Import from `@hypequery/datasets/schemas`; the root entry stops exporting it in 1.0. */
+export const toOpenAITools = schemas.toOpenAITools;
+/** @deprecated Import from `@hypequery/datasets/schemas`; the root entry stops exporting it in 1.0. */
+export const toAISDKTools = schemas.toAISDKTools;
+/** @deprecated Import from `@hypequery/datasets/schemas`; the root entry stops exporting it in 1.0. */
+export const toMcpTools = schemas.toMcpTools;
+/** @deprecated Import from `@hypequery/datasets/schemas`; the root entry stops exporting it in 1.0. */
+export const buildDatasetInputSchema = schemas.buildDatasetInputSchema;
+/** @deprecated Import from `@hypequery/datasets/schemas`; the root entry stops exporting it in 1.0. */
+export const buildMetricInputSchema = schemas.buildMetricInputSchema;
+/** @deprecated Import from `@hypequery/datasets/schemas`; the root entry stops exporting it in 1.0. */
+export const buildCanonicalSemanticQuerySchemas = schemas.buildCanonicalSemanticQuerySchemas;
+/** @deprecated Import from `@hypequery/datasets/schemas`; the root entry stops exporting it in 1.0. */
+export const toSemanticJsonSchema = schemas.toSemanticJsonSchema;
+/** @deprecated Import from `@hypequery/datasets/schemas`; the root entry stops exporting it in 1.0. */
+export const DEFAULT_SEMANTIC_QUERY_SCHEMA_LIMITS = schemas.DEFAULT_SEMANTIC_QUERY_SCHEMA_LIMITS;
+/** @deprecated Import from `@hypequery/datasets/schemas`; the root entry stops exporting it in 1.0. */
+export const buildDatasetInputProtocolSchema = schemas.buildDatasetInputProtocolSchema;
+/** @deprecated Import from `@hypequery/datasets/schemas`; the root entry stops exporting it in 1.0. */
+export const buildMetricInputProtocolSchema = schemas.buildMetricInputProtocolSchema;
+/** @deprecated Import from `@hypequery/datasets/schemas`; the root entry stops exporting it in 1.0. */
+export const zodToProtocolSchema = schemas.zodToProtocolSchema;
+/** @deprecated Import from `@hypequery/datasets/schemas`; the root entry stops exporting it in 1.0. */
+export const ProtocolSchemaAdapterError = schemas.ProtocolSchemaAdapterError;
+/** @deprecated Import from `@hypequery/datasets/schemas`; the root entry stops exporting it in 1.0. */
+export type ProtocolSchemaAdapterError = schemas.ProtocolSchemaAdapterError;
+/** @deprecated Import from `@hypequery/datasets/schemas`; the root entry stops exporting it in 1.0. */
+export const buildClientContractQuerySchemas = schemas.buildClientContractQuerySchemas;
+/** @deprecated Import from `@hypequery/datasets/schemas`; the root entry stops exporting it in 1.0. */
+export type CanonicalSemanticQuerySchemas = schemas.CanonicalSemanticQuerySchemas;
+/** @deprecated Import from `@hypequery/datasets/schemas`; the root entry stops exporting it in 1.0. */
+export type ClientContractQuerySchemas = schemas.ClientContractQuerySchemas;
+/** @deprecated Import from `@hypequery/datasets/schemas`; the root entry stops exporting it in 1.0. */
+export type ClientEndpointQuerySchema = schemas.ClientEndpointQuerySchema;
+
+// Schema options and tool shapes are plain types with no Zod in them, so they
+// stay available from the root entry too.
 export type {
-  CanonicalSemanticQuerySchemas,
   SemanticMetricQueryContract,
   SemanticQuerySchemaLimits,
   SemanticQuerySchemaOptions,
@@ -326,7 +351,6 @@ export type {
   MetricResultFor,
   KnownStringKeys,
 } from './types.js';
-export { ProtocolSchemaAdapterError, zodToProtocolSchema } from './protocol-schema-adapter.js';
 
 // Shared dataset compilation and structural diagnostics.
 export type {
@@ -336,5 +360,3 @@ export { DATASET_EXECUTION_CAPABILITIES } from './execution-capabilities.js';
 export type { DatasetFeature, DatasetFeatureSupport, DatasetExecutionCapabilities } from './execution-capabilities.js';
 export type { DatasetFilterNames, DatasetFilterFor } from './utils/dataset-filter-types.js';
 
-export { buildClientContractQuerySchemas } from './client-contract/query-schema.js';
-export type { ClientContractQuerySchemas, ClientEndpointQuerySchema } from './client-contract/query-schema.js';

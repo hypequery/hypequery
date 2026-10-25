@@ -1,8 +1,7 @@
 import { isQueryTimezone } from './utils/query-timezone.js';
-import { sha256 } from '@noble/hashes/sha2';
-import { bytesToHex } from '@noble/hashes/utils';
+import { sha256 } from '@noble/hashes/sha2.js';
+import { bytesToHex } from '@noble/hashes/utils.js';
 import { z, type ZodTypeAny } from 'zod';
-import { zodToJsonSchema } from 'zod-to-json-schema';
 import {
   getDatasetCatalog,
   getGroupableRelationshipFields,
@@ -18,6 +17,8 @@ import type { AnyDatasetInstance } from './types.js';
 import type { ProtocolSchema } from '@hypequery/protocol';
 import { zodToProtocolSchema } from './protocol-schema-adapter.js';
 import { compareStrings, stableStringify, uniqueSorted } from './utils/canonical-json.js';
+import { zodToDraft7JsonSchema } from './utils/zod-json-schema.js';
+import type { AnyZodSchema } from './utils/zod-schema-version.js';
 
 export interface SemanticQuerySchemaLimits {
   defaultResultSize?: number;
@@ -297,10 +298,7 @@ export function buildDatasetInputSchema(
     resolveCatalog(dataset), undefined, options, relationshipFilterPolicy(dataset),
   )).strict();
   if (options.requireSelection === false) return schema;
-  return schema.refine(
-    input => (input.dimensions?.length ?? 0) > 0 || (input.measures?.length ?? 0) > 0,
-    { message: 'At least one dimension or measure must be specified' },
-  );
+  return requireSelection(schema);
 }
 
 export function buildMetricInputSchema(
@@ -330,26 +328,29 @@ function unionSchemas(schemas: ZodTypeAny[], emptyShape: Record<string, ZodTypeA
   return z.union(schemas as [ZodTypeAny, ZodTypeAny, ...ZodTypeAny[]]);
 }
 
-function withSelectors(
-  schema: ZodTypeAny,
-  selectors: Record<string, ZodTypeAny>,
-  requireSelection: boolean,
-): ZodTypeAny {
-  const shape = (schema instanceof z.ZodEffects ? schema.innerType() : schema).shape;
-  const selected = z.object({ ...selectors, ...shape }).strict();
-  if (!requireSelection) return selected;
-  return selected.refine(
-    input => (input.dimensions?.length ?? 0) > 0 || (input.measures?.length ?? 0) > 0,
+function requireSelection(schema: z.ZodObject): ZodTypeAny {
+  return schema.refine(
+    (input: { dimensions?: unknown[]; measures?: unknown[] }) =>
+      (input.dimensions?.length ?? 0) > 0 || (input.measures?.length ?? 0) > 0,
     { message: 'At least one dimension or measure must be specified' },
   );
 }
 
-export function toSemanticJsonSchema(
+function withSelectors(
   schema: ZodTypeAny,
+  selectors: Record<string, ZodTypeAny>,
+  selectionRequired: boolean,
+): ZodTypeAny {
+  // Zod 4 keeps refinements on the object itself, so its shape is readable.
+  const selected = z.object({ ...selectors, ...(schema as z.ZodObject).shape }).strict();
+  return selectionRequired ? requireSelection(selected) : selected;
+}
+
+export function toSemanticJsonSchema(
+  schema: AnyZodSchema,
   options: { requireSelection?: boolean } = {},
 ): JsonSchema {
-  const converted = zodToJsonSchema(schema, { target: 'jsonSchema7', $refStrategy: 'none' });
-  const { $schema: _schema, ...jsonSchema } = converted;
+  const { $schema: _schema, ...jsonSchema } = zodToDraft7JsonSchema(schema);
   const result = jsonSchema as JsonSchema;
   const objectSchema = result.anyOf && !result.type ? { ...result, type: 'object' } : result;
   return options.requireSelection ? addSelectionRequirement(objectSchema) : objectSchema;

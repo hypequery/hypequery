@@ -1,7 +1,7 @@
 import type { RelationshipKey } from './types.js';
 import { windowCatalogMetadata, type WindowCatalogMetadata } from './utils/window-catalog-metadata.js';
-import { sha256 } from '@noble/hashes/sha2';
-import { bytesToHex } from '@noble/hashes/utils';
+import { sha256 } from '@noble/hashes/sha2.js';
+import { bytesToHex } from '@noble/hashes/utils.js';
 import {
   getDatasetCatalogs,
   type DatasetCatalog,
@@ -309,7 +309,7 @@ export function contractToStableJson(
 export function hashContract(
   contract: SemanticContract | SemanticContractWithoutHash,
 ): string {
-  return bytesToHex(sha256(contractToStableJson(contract)));
+  return bytesToHex(sha256(new TextEncoder().encode(contractToStableJson(contract))));
 }
 
 /** Normalizes SQL escape-hatch whitespace so equivalent SQL hashes identically. */

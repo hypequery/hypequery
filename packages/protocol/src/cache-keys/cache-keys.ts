@@ -1,5 +1,5 @@
-import { hmac } from '@noble/hashes/hmac';
-import { sha256 } from '@noble/hashes/sha2';
+import { hmac } from '@noble/hashes/hmac.js';
+import { sha256 } from '@noble/hashes/sha2.js';
 import { validateProtocolDeploymentReleaseTarget } from '../releases/validate.js';
 import {
   PROTOCOL_CACHE_KEY_LIMITS,
