@@ -123,7 +123,7 @@ describe('semantic dataset tools', () => {
         dataset: 'orders',
         dimensions: ['missing'],
       }),
-    ).rejects.toThrow('Invalid dataset query: dimensions.0: Invalid enum value');
+    ).rejects.toThrow('Invalid dataset query: dimensions.0: Invalid option: expected one of');
     expect(execute).not.toHaveBeenCalled();
   });
 
@@ -213,7 +213,7 @@ describe('semantic dataset tools', () => {
       tool.execute({
         orderBy: [{ field: 'revenue', direction: 'desc' }],
       }),
-    ).rejects.toThrow('Invalid totalRevenue metric query: orderBy.0.field: Invalid enum value');
+    ).rejects.toThrow('Invalid totalRevenue metric query: orderBy.0.field: Invalid option: expected one of');
     expect(execute).not.toHaveBeenCalled();
   });
 

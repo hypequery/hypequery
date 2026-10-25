@@ -22,7 +22,7 @@ import type {
   DatasetClient,
   QueryBuilderFactoryLike,
 } from '@hypequery/datasets';
-import { buildDatasetInputSchema } from '@hypequery/datasets';
+import { buildDatasetInputSchema } from '@hypequery/datasets/schemas';
 import type { DatasetQuery } from '@hypequery/datasets/internal';
 import { ServeHttpError } from '../../errors.js';
 import {
@@ -58,7 +58,7 @@ const datasetResultMetaSchema = z.object({
 }).optional();
 
 const datasetResultSchema = z.object({
-  data: z.array(z.record(z.unknown())),
+  data: z.array(z.record(z.string(), z.unknown())),
   meta: datasetResultMetaSchema,
 });
 

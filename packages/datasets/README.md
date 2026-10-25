@@ -72,6 +72,9 @@ The same definition can become:
 - an OpenAI, AI SDK, or MCP tool schema;
 - a stable semantic contract for CI and deployment.
 
+Schema builders and agent tools are imported from `@hypequery/datasets/schemas`.
+(Their root-entry re-exports are deprecated and removed in 1.0.)
+
 `buildCanonicalSemanticQuerySchemas()` compiles the same catalog into strict
 dataset and metric Zod validators, JSON Schemas, and a deterministic manifest
 hash. It accepts either live local Dataset definitions or an already-normalized

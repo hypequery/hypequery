@@ -5,7 +5,7 @@ import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { logger } from './logger.js';
 
-const ZOD_SCAFFOLD_VERSION = '^3.23.8';
+const ZOD_SCAFFOLD_VERSION = '^4.6.6';
 // chdb/hypequery (the embedded adapter subpath) ships from chdb 3.2.0.
 const CHDB_SCAFFOLD_VERSION = '^3.2.0';
 const STABLE_SCAFFOLD_PACKAGES = ['@hypequery/clickhouse', '@hypequery/serve', `zod@${ZOD_SCAFFOLD_VERSION}`] as const;
@@ -146,12 +146,36 @@ export function resolveScaffoldPackages(
   ];
 }
 
+/** The oldest Zod 3 that Serve's `zod` peer range (`^3.23.8 || ^4.0.0`) accepts. */
+const SERVE_MIN_ZOD_3 = [3, 23, 8] as const;
+
+/**
+ * Whether a project's `zod` range can only resolve versions Serve accepts:
+ * its lowest version, the first `x.y.z` in it (missing parts count as 0), is
+ * Zod 4 or at least 3.23.8. So `^3.23.8`, `~4.1.0` and `4` are kept, while
+ * `3.1.0`, `~3.1.0` and `3` are upgraded. Tags such as `latest` are upgraded.
+ */
+function isServeCompatibleZodRange(range: string): boolean {
+  const match = /(\d+)(?:\.(\d+))?(?:\.(\d+))?/.exec(range);
+  if (!match) return false;
+  const [major, minor, patch] = [match[1], match[2], match[3]].map(part => Number(part ?? 0));
+  if (major === 4) return true;
+  if (major !== 3) return false;
+  const [, minMinor, minPatch] = SERVE_MIN_ZOD_3;
+  return minor > minMinor || (minor === minMinor && patch >= minPatch);
+}
+
 function shouldInstallPackage(pkgJson: PackageJson, specifier: string): boolean {
   const name = packageNameFromSpecifier(specifier);
   const existingVersion = getDependencyVersion(pkgJson, name);
 
   if (!existingVersion) {
     return true;
+  }
+
+  // Serve accepts Zod 3 or Zod 4, so keep whichever the project already uses.
+  if (name === 'zod' && isServeCompatibleZodRange(existingVersion)) {
+    return false;
   }
 
   const desiredHasPinnedVersion = specifier.startsWith('@')
