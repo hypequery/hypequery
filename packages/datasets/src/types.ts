@@ -3,6 +3,7 @@ import type { DatasetFilterFor } from './utils/dataset-filter-types.js';
 import type { QueryBuilderFactoryInput } from './query-builder-protocol.js';
 import type { SemanticCacheMetaInfo, SemanticCacheRuntime } from './cache/semantic-query-cache.js';
 import type { SemanticExpression } from './semantic-plan.js';
+import type { AggregateStateFunction } from './utils/aggregate-state-functions.js';
 
 export type FieldType = 'string' | 'number' | 'boolean' | 'timestamp';
 export type DimensionType = FieldType;
@@ -99,7 +100,12 @@ export type AggregationType =
   | 'stddev'
   | 'variance'
   /** Estimated distinct count (ClickHouse `uniq`); results carry `approximate`. */
-  | 'approxCountDistinct';
+  | 'approxCountDistinct'
+  /**
+   * Finalize stored aggregate states (`AggregateFunction` columns of an
+   * AggregatingMergeTree table) with the `-Merge` combinator of `stateFunction`.
+   */
+  | 'merge';
 export type MeasureAggregation = AggregationType;
 
 export interface AggregationSpec {
@@ -110,6 +116,8 @@ export interface AggregationSpec {
   argField?: string;
   /** Percentile level in [0, 1]. Required when aggregation is 'percentile'. */
   level?: number;
+  /** State function whose `-Merge` reads the column. Required when aggregation is 'merge'. */
+  stateFunction?: AggregateStateFunction;
   sql?: string;
   filters?: MetricFilter[];
 }
@@ -131,6 +139,8 @@ export interface MeasureDefinition extends SemanticMetadata {
   argField?: string;
   /** Percentile level in [0, 1]. Required when aggregation is 'percentile'. */
   level?: number;
+  /** State function whose `-Merge` reads the column. Required when aggregation is 'merge'. */
+  stateFunction?: AggregateStateFunction;
   sql?: string;
   /** Identifiers referenced by `sql`; required when producing a protocol artifact. */
   dependencies?: readonly string[];

@@ -783,6 +783,25 @@ export class QueryBuilder<
     );
   }
 
+  /**
+   * Finalize the aggregate states stored in `column` (an `AggregateFunction`
+   * column of an AggregatingMergeTree table) with `stateFunction`'s `-Merge`
+   * combinator: `mergeState('uniq', 'users')` selects `uniqMerge(users)`.
+   * `stateFunction` must be a bare function name, without combinators.
+   */
+  mergeState<
+    Column extends keyof BaseRow<State>,
+    Alias extends string = `${Column & string}_merge`,
+  >(
+    stateFunction: string,
+    column: Column,
+    alias?: Alias
+  ): QueryBuilder<Schema, AppendToOutput<State, Record<Alias, string>>> {
+    return this.applyAggregation(column, alias, 'merge', (col, finalAlias) =>
+      this.aggregations.mergeState(stateFunction, col, finalAlias)
+    );
+  }
+
   /** Sample variance of `column` (ClickHouse `varSamp`). */
   variance<Column extends SelectableColumn<State>, Alias extends string = `${Column & string}_variance`>(
     column: Column,

@@ -79,6 +79,9 @@ export function applyFilteredAggregationExpression(
     case 'variance':
     case 'approxCountDistinct':
       return dialect.filteredAggregateInput(combinedCondition, fieldOrExpr, 'NULL');
+    case 'merge':
+      // A filtered merge needs -MergeIf; wrapping a state column in if() is a type error.
+      throw new Error('Measure filters are not supported on merge aggregations.');
     case 'argMax':
     case 'argMin':
       // NULL handling under argMax/argMin varies across ClickHouse versions.

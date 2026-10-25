@@ -152,6 +152,12 @@ function aggregationForMeasure(
   if (!measure) {
     throw new Error(`Unknown measure "${name}" on dataset "${ds.name}".`);
   }
+  if (measure.aggregation === 'merge') {
+    throw new Error(
+      `Semantic backend plans do not support merge measure "${name}": it reads ClickHouse aggregate states. ` +
+      'Query it through createDatasetClient({ queryBuilder }).',
+    );
+  }
   if (measure.sql) {
     throw new Error(
       `Semantic backend plans do not support SQL-backed measure "${name}". ` +
