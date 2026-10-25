@@ -24,6 +24,11 @@
       "import": "./dist/index.js",
       "require": "./dist/index.js"
     },
+    "./schemas": {
+      "types": "./dist/schemas.d.ts",
+      "import": "./dist/schemas.js",
+      "require": "./dist/schemas.js"
+    },
     "./internal": {
       "types": "./dist/internal.d.ts",
       "import": "./dist/internal.js",
@@ -61,17 +66,13 @@
   "dependencies": {
     "@hypequery/protocol": "^0.20.0",
     "@noble/hashes": "^2.4.0",
-    "zod": "^3.22.4",
+    "zod": "^4.6.6",
     "zod-to-json-schema": "^3.25.2"
   },
   "peerDependencies": {
-    "zod": "^3.22.4",
     "@hypequery/clickhouse": ">=2.13.0"
   },
   "peerDependenciesMeta": {
-    "zod": {
-      "optional": true
-    },
     "@hypequery/clickhouse": {
       "optional": true
     }

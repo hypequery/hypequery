@@ -5,7 +5,7 @@ import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { logger } from './logger.js';
 
-const ZOD_SCAFFOLD_VERSION = '^3.23.8';
+const ZOD_SCAFFOLD_VERSION = '^4.6.6';
 // chdb/hypequery (the embedded adapter subpath) ships from chdb 3.2.0.
 const CHDB_SCAFFOLD_VERSION = '^3.2.0';
 const STABLE_SCAFFOLD_PACKAGES = ['@hypequery/clickhouse', '@hypequery/serve', `zod@${ZOD_SCAFFOLD_VERSION}`] as const;
@@ -146,12 +146,23 @@ export function resolveScaffoldPackages(
   ];
 }
 
+/** A range whose first version is Zod 3 or Zod 4, such as `^3.23.8`, `~4.1.0` or `4`. */
+function isServeCompatibleZodRange(range: string): boolean {
+  const major = /\d+/.exec(range)?.[0];
+  return major === '3' || major === '4';
+}
+
 function shouldInstallPackage(pkgJson: PackageJson, specifier: string): boolean {
   const name = packageNameFromSpecifier(specifier);
   const existingVersion = getDependencyVersion(pkgJson, name);
 
   if (!existingVersion) {
     return true;
+  }
+
+  // Serve accepts Zod 3 or Zod 4, so keep whichever the project already uses.
+  if (name === 'zod' && isServeCompatibleZodRange(existingVersion)) {
+    return false;
   }
 
   const desiredHasPinnedVersion = specifier.startsWith('@')
