@@ -178,14 +178,15 @@ describe('multiple time keys', () => {
         .safeParse({ by: 'day', timeKey: 'shippedAt' }).success).toBe(true);
     });
 
-    it('passes the selected axis through generated tools', async () => {
+    it.each([undefined, 'per-dataset'] as const)('passes the selected axis through generated tools (mode %s)', async mode => {
       const seen: unknown[] = [];
       const [tool] = generateDatasetTools({
-        mode: 'per-dataset',
+        ...(mode ? { mode } : {}),
         datasets: { orders: Orders },
         analytics: { execute: async (_target: unknown, query: unknown) => { seen.push(query); return { data: [] }; } } as never,
       });
-      await tool.execute({ measures: ['revenue'], by: 'day', timeKey: 'shippedAt' });
+      const query = { measures: ['revenue'], by: 'day', timeKey: 'shippedAt' };
+      await tool!.execute(mode ? query : { dataset: 'orders', ...query });
       expect(seen[0]).toMatchObject({ timeKey: 'shippedAt' });
     });
   });

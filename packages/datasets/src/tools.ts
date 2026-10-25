@@ -88,7 +88,8 @@ function buildCatalogTool(
   analytics: DatasetToolAnalytics,
   includeSql: boolean,
 ): SemanticToolDefinition {
-  const schemas = buildCanonicalSemanticQuerySchemas(datasets);
+  // Parsed input reaches the client whole, so it can carry a selected time axis.
+  const schemas = buildCanonicalSemanticQuerySchemas(datasets, { timeKey: true });
 
   return {
     name: 'query_dataset',
