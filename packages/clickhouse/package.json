@@ -89,10 +89,10 @@
     "glob": "^13.0.6",
     "ts-node": "^10.9.0",
     "typedoc": "^0.28.20",
-    "typedoc-plugin-markdown": "^4.13.1",
+    "typedoc-plugin-markdown": "^4.14.1",
     "typescript": "^6.0.3",
-    "@vitest/coverage-v8": "^5.0.4",
-    "vitest": "^5.0.4"
+    "@vitest/coverage-v8": "^5.0.5",
+    "vitest": "^5.0.5"
   },
   "ts-node": {
     "esm": true,
