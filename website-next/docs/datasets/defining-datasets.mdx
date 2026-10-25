@@ -28,6 +28,37 @@ const Orders = dataset('orders', {
 
 `source` is the physical table or view name. The first `dataset()` argument is the logical dataset name. `tenantKey` and `timeKey` are physical column names used for runtime tenant isolation and time graining.
 
+## Versioned tables (`final`)
+
+ReplacingMergeTree and CollapsingMergeTree tables keep several rows per key until a background merge runs, and merges never finish on a schedule you control. Queried directly, a subscription with three status changes counts three times. Set `final: true` to read the source with `FINAL`, so every query sees one row per sorting key:
+
+<CodeBlock>
+```typescript
+// ReplacingMergeTree(updated_at): one row per subscription status change
+export const Subscriptions = dataset('subscriptions', {
+  source: 'saas.subscriptions',
+  final: true,
+  dimensions: {
+    status: dimension.string(),
+  },
+  measures: {
+    mrr: measure.sum('mrr'),
+  },
+});
+```
+</CodeBlock>
+
+With `final: true`:
+
+- Every query on the dataset reads `FROM saas.subscriptions FINAL`, including metric, derived and window queries.
+- Joins that target the dataset read it with `FINAL` too, so a versioned dimension table can't fan out or pick a stale row.
+- `checkRelationships` counts keys on the resolved rows.
+- For `ReplacingMergeTree(ver, is_deleted)`, rows whose latest version is deleted disappear. A plain `WHERE is_deleted = 0` can't do this, because it keeps a deleted key's earlier versions.
+
+`FINAL` makes queries do more work at read time. ClickHouse keeps it fast when the partition key separates keys and `do_not_merge_across_partitions_select_final` is enabled.
+
+A `final` dataset needs the query-builder execution path. Semantic backends and publishing to the deployment contract refuse it, rather than serving unresolved rows.
+
 ## Module pattern
 
 Define datasets at the module level and export them from dedicated files.
@@ -56,6 +87,7 @@ export const Orders = dataset('orders', {
 A dataset can include:
 
 - `source`
+- `final`
 - `tenantKey`
 - `timeKey`
 - `dimensions`

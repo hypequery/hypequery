@@ -45,6 +45,8 @@ export interface ContractMeasure extends SemanticMetadata, WindowCatalogMetadata
   argField?: string;
   /** Percentile level in [0, 1]. */
   level?: number;
+  /** State function a `merge` measure finalizes. */
+  stateFunction?: MeasureCatalogEntry['stateFunction'];
   sql?: string;
   label?: string;
   description?: string;
@@ -243,6 +245,7 @@ function measureToContract(entry: MeasureCatalogEntry, includeSql: boolean): Con
     field: entry.field,
     ...(entry.argField !== undefined ? { argField: entry.argField } : {}),
     ...(entry.level !== undefined ? { level: entry.level } : {}),
+    ...(entry.stateFunction !== undefined ? { stateFunction: entry.stateFunction } : {}),
     ...(includeSql && entry.sql !== undefined ? { sql: normalizeSql(entry.sql) } : {}),
     ...(entry.label !== undefined ? { label: entry.label } : {}),
     ...(entry.description !== undefined ? { description: entry.description } : {}),

@@ -1,4 +1,4 @@
-import { createMeasureHelper, createArgMeasureHelper, createPercentileMeasure, createMedianMeasure, createDerivedMeasure } from './utils/base-measure-definition.js';
+import { createMeasureHelper, createArgMeasureHelper, createPercentileMeasure, createMedianMeasure, createDerivedMeasure, createMergeMeasure } from './utils/base-measure-definition.js';
 export { validatePercentileLevel } from './utils/base-measure-definition.js';
 import { createShiftMeasure, type ShiftMeasureOptions } from './utils/shift-measure-definition.js';
 import type {
@@ -34,6 +34,14 @@ export const measure = {
   argMax: createArgMeasureHelper('argMax'),
   /** Value of `field` on the row where `by` is smallest (ClickHouse `argMin`). */
   argMin: createArgMeasureHelper('argMin'),
+  /**
+   * Finalize stored aggregate states: `measure.merge('uniq', 'users')` reads an
+   * `AggregateFunction(uniq, …)` column of an AggregatingMergeTree table as
+   * `uniqMerge(users)`. For `SimpleAggregateFunction` columns use the plain
+   * measure (`measure.sum`, `measure.max`). Not usable through relationships,
+   * with measure filters, or in published contracts.
+   */
+  merge: createMergeMeasure,
   /** Sample standard deviation (ClickHouse `stddevSamp`). */
   stddev: createMeasureHelper('stddev'),
   /** Sample variance (ClickHouse `varSamp`). */

@@ -140,6 +140,7 @@ export function dataset<
     __type: 'dataset',
     name,
     source: config.source,
+    ...(config.final ? { final: true } : {}),
     description: config.description,
     ...snapshotSemanticMetadata(config),
     freshness: config.freshness === undefined ? undefined : { ...config.freshness },

@@ -8,7 +8,7 @@ export class AggregationFeature<
 > {
   private static readonly TRAILING_ALIAS_PATTERN = /\s+AS\s+[A-Za-z_][A-Za-z0-9_]*$/i;
   private static readonly LEADING_AGGREGATE_CALL_PATTERN =
-    /^(COUNT|SUM|AVG|MIN|MAX|argMax|argMin|quantile|stddevSamp|varSamp|uniq)\s*\(/i;
+    /^(COUNT|SUM|AVG|MIN|MAX|argMax|argMin|quantile|stddevSamp|varSamp|uniq|[A-Za-z][A-Za-z0-9]*Merge)\s*\(/i;
 
   constructor(private builder: QueryBuilder<Schema, State>) { }
 
@@ -133,5 +133,21 @@ export class AggregationFeature<
 
   approxCountDistinct(column: string, alias: string) {
     return this.appendAggregateSelection(`uniq(${column}) AS ${alias}`);
+  }
+
+  mergeState(stateFunction: string, column: string, alias: string) {
+    assertStateFunctionName(stateFunction);
+    return this.appendAggregateSelection(`${stateFunction}Merge(${column}) AS ${alias}`);
+  }
+}
+
+const STATE_FUNCTION_NAME = /^[A-Za-z][A-Za-z0-9]*$/;
+
+/** The name is spliced into SQL as `<name>Merge`, so it must be a bare function name. */
+function assertStateFunctionName(stateFunction: string): void {
+  if (typeof stateFunction !== 'string' || !STATE_FUNCTION_NAME.test(stateFunction) || /(Merge|State|If|OrNull|OrDefault)$/.test(stateFunction)) {
+    throw new Error(
+      `Invalid aggregate state function "${String(stateFunction)}": expected a bare function name such as "uniq" or "sum".`,
+    );
   }
 }

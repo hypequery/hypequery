@@ -65,6 +65,12 @@ export interface DatasetSqlDialectRules extends DatasetSqlDialect {
   /** Quote a dotted physical source path (`analytics.orders`). */
   quoteQualifiedName(name: string): string;
   /**
+   * A quoted table read with row-version resolution (ClickHouse `FINAL`), used
+   * for joined targets declared `final: true`. Omit it on engines without such
+   * a modifier; those datasets are then refused instead of read unresolved.
+   */
+  finalTable?(quotedSource: string): string;
+  /**
    * Check that author-written raw `sql` is one expression under this engine's
    * lexical rules: no terminator or comment hidden outside a literal. Engines
    * differ (backslash escapes, `#` comments, triple-quoted strings), so an

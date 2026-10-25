@@ -1,3 +1,4 @@
+import { datasetSourceBuilder } from './dataset-source.js';
 import { semanticQuerySyntaxErrors } from './semantic-query-syntax.js';
 /** Metric SQL compilation; factory selection and execution belong to the client. */
 import { resolveDatasetSqlDialect } from './dataset-sql-dialect.js';
@@ -39,7 +40,7 @@ export function buildMetricQueryBuilder(
   const dialect = resolveDatasetSqlDialect(builderFactory);
   assertRawSqlForDialect(ds, dialect);
   const joinCtx = buildRelationshipBuilderContext(ds, query, context, dialect);
-  let qb: QueryBuilderLike = builderFactory.table(ds.source);
+  let qb: QueryBuilderLike = datasetSourceBuilder(builderFactory, ds);
   qb = applyRelationshipJoins(qb, joinCtx);
   const { selectParts, groupByParts } = buildDimensionSelectionPlan(
     ds,
