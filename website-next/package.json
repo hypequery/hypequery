@@ -54,6 +54,9 @@
   "overrides": {
     "@babel/core": "^7.29.6",
     "@tootallnate/once": "^3.0.0",
+    "@vercel/cli-config": {
+      "zod": "^4.6.6"
+    },
     "ajv": "^6.14.0",
     "esbuild": "^0.25.0",
     "brace-expansion": "^5.0.12",
