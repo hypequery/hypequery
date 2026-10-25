@@ -146,10 +146,23 @@ export function resolveScaffoldPackages(
   ];
 }
 
-/** A range whose first version is Zod 3 or Zod 4, such as `^3.23.8`, `~4.1.0` or `4`. */
+/** The oldest Zod 3 that Serve's `zod` peer range (`^3.23.8 || ^4.0.0`) accepts. */
+const SERVE_MIN_ZOD_3 = [3, 23, 8] as const;
+
+/**
+ * Whether a project's `zod` range can only resolve versions Serve accepts:
+ * its lowest version, the first `x.y.z` in it (missing parts count as 0), is
+ * Zod 4 or at least 3.23.8. So `^3.23.8`, `~4.1.0` and `4` are kept, while
+ * `3.1.0`, `~3.1.0` and `3` are upgraded. Tags such as `latest` are upgraded.
+ */
 function isServeCompatibleZodRange(range: string): boolean {
-  const major = /\d+/.exec(range)?.[0];
-  return major === '3' || major === '4';
+  const match = /(\d+)(?:\.(\d+))?(?:\.(\d+))?/.exec(range);
+  if (!match) return false;
+  const [major, minor, patch] = [match[1], match[2], match[3]].map(part => Number(part ?? 0));
+  if (major === 4) return true;
+  if (major !== 3) return false;
+  const [, minMinor, minPatch] = SERVE_MIN_ZOD_3;
+  return minor > minMinor || (minor === minMinor && patch >= minPatch);
 }
 
 function shouldInstallPackage(pkgJson: PackageJson, specifier: string): boolean {

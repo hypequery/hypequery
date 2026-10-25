@@ -323,7 +323,7 @@ describe('dependency installer', () => {
     );
   });
 
-  it('upgrades zod versions serve cannot use to the scaffold range', async () => {
+  it.each(['^2.0.0', '3.1.0', '~3.1.0', '3', '^3.22.4'])('upgrades zod %s, which serve cannot use, to the scaffold range', async (zod) => {
     vi.mocked(readFile)
       .mockResolvedValueOnce(JSON.stringify({
         name: 'fixture-app',
@@ -331,7 +331,7 @@ describe('dependency installer', () => {
         dependencies: {
           '@hypequery/clickhouse': '0.0.0-canary-20260506195711',
           '@hypequery/serve': '0.0.0-canary-20260506195711',
-          zod: '^2.0.0',
+          zod,
         },
       }))
       .mockResolvedValueOnce(JSON.stringify({
@@ -348,7 +348,7 @@ describe('dependency installer', () => {
     );
   });
 
-  it.each(['^3.23.8', '^4.4.3'])('keeps an existing zod %s, which serve accepts', async (zod) => {
+  it.each(['^3.23.8', '3.24.1', '~3.25.0', '^4.4.3', '4'])('keeps an existing zod %s, which serve accepts', async (zod) => {
     vi.mocked(readFile)
       .mockResolvedValueOnce(JSON.stringify({
         name: 'fixture-app',

@@ -39,6 +39,9 @@
     "*": {
       "internal": [
         "./dist/internal.d.ts"
+      ],
+      "schemas": [
+        "./dist/schemas.d.ts"
       ]
     }
   },
