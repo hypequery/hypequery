@@ -1,4 +1,3 @@
-import type { ZodTypeAny } from 'zod';
 
 import type {
   AuthContext,
@@ -12,12 +11,13 @@ import type {
   ExecutableQuery,
   InferExecutableQueryResult,
   TenantConfigOverride,
+  ServeSchema,
 } from './types.js';
 import { mergeTags } from './utils.js';
 
 interface BuilderState<TContext extends Record<string, unknown>, TAuth extends AuthContext> {
-  inputSchema?: ZodTypeAny;
-  outputSchema?: ZodTypeAny;
+  inputSchema?: ServeSchema;
+  outputSchema?: ServeSchema;
   description?: string;
   name?: string;
   summary?: string;
@@ -43,14 +43,14 @@ export const createProcedureBuilder = <
   TAuth extends AuthContext
 >(): QueryProcedureBuilder<TContext, TAuth> => {
   const build = <
-    TInputSchema extends ZodTypeAny | undefined,
-    TOutputSchema extends ZodTypeAny
+    TInputSchema extends ServeSchema | undefined,
+    TOutputSchema extends ServeSchema
   >(
     state: BuilderState<TContext, TAuth>
   ): QueryProcedureBuilder<TContext, TAuth, TInputSchema, TOutputSchema> => ({
-    input: <TNewInputSchema extends ZodTypeAny>(schema: TNewInputSchema) =>
+    input: <TNewInputSchema extends ServeSchema>(schema: TNewInputSchema) =>
       build<TNewInputSchema, TOutputSchema>({ ...state, inputSchema: schema }),
-    output: <TNewOutputSchema extends ZodTypeAny>(schema: TNewOutputSchema) =>
+    output: <TNewOutputSchema extends ServeSchema>(schema: TNewOutputSchema) =>
       build<TInputSchema, TNewOutputSchema>({ ...state, outputSchema: schema }),
     describe: (description) => build<TInputSchema, TOutputSchema>({ ...state, description }),
     name: (name) => build<TInputSchema, TOutputSchema>({ ...state, name }),

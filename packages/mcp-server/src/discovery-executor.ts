@@ -27,7 +27,7 @@ import type {
   ListPromptsResult,
   ListToolsResult,
 } from '@modelcontextprotocol/sdk/types.js';
-import type { CanonicalSemanticQuerySchemas } from '@hypequery/datasets';
+import type { CanonicalSemanticQuerySchemas } from '@hypequery/datasets/schemas';
 import { MCPToolError } from './errors.js';
 import type { MCPToolExecutor } from './executor.js';
 import { datasetGuidePrompt } from './prompts/dataset-guide.js';

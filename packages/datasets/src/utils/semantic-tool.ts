@@ -1,4 +1,4 @@
-import type { ZodTypeAny } from 'zod';
+import type { ZodType } from 'zod';
 
 export function semanticToolNamePart(name: string): string {
   const normalized = name.replace(/[^A-Za-z0-9_-]/g, '_');
@@ -6,19 +6,19 @@ export function semanticToolNamePart(name: string): string {
 }
 
 export function parseCanonicalToolInput(
-  schema: ZodTypeAny,
+  schema: ZodType,
   input: Record<string, unknown>,
   label: string,
 ): Record<string, unknown> {
   const result = schema.safeParse(input);
   if (!result.success) {
     const issues = result.error.issues.map((issue) => {
-      const path = issue.path.length > 0 ? issue.path.join('.') : 'input';
+      const path = issue.path.length > 0 ? issue.path.map(String).join('.') : 'input';
       return `${path}: ${issue.message}`;
     }).join('; ');
     throw new Error(`Invalid ${label}: ${issues}`);
   }
-  return result.data;
+  return result.data as Record<string, unknown>;
 }
 
 export function redactSemanticToolSql(result: unknown, includeSql: boolean): unknown {
