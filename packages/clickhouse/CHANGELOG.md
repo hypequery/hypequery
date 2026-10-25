@@ -1,5 +1,16 @@
 # @hypequery/clickhouse Changelog
 
+## 2.14.0
+
+### Minor Changes
+
+- bc14e60: Add `toSQLWithPlaceholders(placeholder)` to the query builder: it compiles the query and writes each bound value through the callback, in SQL order, so a caller can number placeholders when embedding the statement in a larger one. `@hypequery/datasets` adds it as an optional `QueryBuilderLike` member, used only by datasets dialects that number placeholders. ClickHouse datasets queries keep using `toSQLWithParams`, so existing builders and generated SQL are unchanged.
+- 4af1695: Add `measure.merge(stateFunction, field)` (and `merge()` for metric configs) to read `AggregateFunction` columns of AggregatingMergeTree tables with the matching `-Merge` combinator, for example `measure.merge('uniq', 'users')` renders `uniqMerge(users)`. Trailing and to-date windows merge states across buckets, so weekly distinct counts from daily states are exact to the state function. State functions are allowlisted; merges of estimating states are catalogued as `approximate`. Merge measures are refused with measure filters, raw `sql`, relationships, cumulative windows, semantic backends and deployment-contract publishing. `@hypequery/clickhouse` adds `mergeState(stateFunction, column, alias)` to the query builder; `QueryBuilderLike` gains it as an optional member.
+
+### Patch Changes
+
+- 1570a03: Upgrade `dotenv` to v18 and load env files quietly, so dotenv's "injected env" log lines no longer appear in CLI output.
+
 ## 2.13.0
 
 ### Minor Changes

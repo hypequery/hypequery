@@ -1,5 +1,32 @@
 # @hypequery/cli
 
+## 1.25.0
+
+### Minor Changes
+
+- 3d1c757: Add MCP stdio bridging and discovery-only self-tests for authorized Python HTTP client contracts with `--client-contract-url`. Read Bearer credentials from `HYPEQUERY_API_KEY`, keep tenant resolution in Python, and abort discovery on shutdown.
+- b0d168e: Add offline `generate:client` generation of self-contained API types, installed
+  POST route mappings and schema hashes from validated Python client contracts.
+  Preserve typed filters, nullable wire values, metric aliases and default measures,
+  with drift checks and explicit replacement of existing generated files.
+
+### Patch Changes
+
+- 4fda9e7: `@hypequery/serve` is now an optional peer dependency. Installing `@hypequery/cli` in a frontend project, for example to run `generate:client` for a Python backend, no longer makes npm install the server packages too. `hypequery dev` says to install `@hypequery/serve` when it is missing.
+- 1570a03: Upgrade `dotenv` to v18 and load env files quietly, so dotenv's "injected env" log lines no longer appear in CLI output.
+- afa5e81: Serve accepts your schemas from Zod 3 or Zod 4. Query inputs and outputs are typed against a structural `ServeSchema` instead of Zod 3's `ZodTypeAny`, so `npm install zod` (which now resolves Zod 4) works with the quick start, and existing Zod 3 projects keep compiling. Query-string coercion and the OpenAPI document read both majors. The optional `zod` peer range is now `^3.23.8 || ^4.0.0`.
+
+  Serve and MCP now depend on `zod@^4.6.6` (was `^3.23.8`), clearing GHSA-mrhx-c7xc-m3w5. For dataset and metric endpoints, whose schemas Serve builds, `VALIDATION_ERROR` issue text and codes now follow Zod 4 (for example `Invalid option: expected one of …`, and no `received` field). Endpoints with your own schemas report whatever your Zod reports, as before.
+
+  `hypequery init` scaffolds `zod@^4.6.6`.
+
+- Updated dependencies [9d97163]
+- Updated dependencies [e0f9c6e]
+- Updated dependencies [cbf8691]
+- Updated dependencies [e32fa97]
+  - @hypequery/protocol@0.21.0
+  - @hypequery/deployment@0.10.0
+
 ## 1.24.1
 
 ### Patch Changes
