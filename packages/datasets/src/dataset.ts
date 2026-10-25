@@ -14,6 +14,7 @@
  *   source: "orders",
  *   tenantKey: "tenant_id",
  *   timeKey: "created_at",
+ *   timeKeys: ["shipped_at"],
  *   dimensions: {
  *     id: dimension.string(),
  *     status: dimension.string({ label: "Order Status" }),
@@ -149,6 +150,9 @@ export function dataset<
     },
     tenantKey: config.tenantKey,
     timeKey: config.timeKey,
+    ...(config.timeKeys === undefined || config.timeKeys.length === 0
+      ? {}
+      : { timeKeys: Object.freeze(config.timeKeys.filter(key => key !== config.timeKey)) }),
     ...(config.timeGrains === undefined ? {} : { timeGrains: Object.freeze([...config.timeGrains]) }),
     dimensions,
     measures,

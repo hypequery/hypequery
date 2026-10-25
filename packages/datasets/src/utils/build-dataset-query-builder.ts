@@ -30,27 +30,29 @@ import {
   hasSelectedDerivedMeasure,
 } from './dataset-derived-query.js';
 import { segmentFilters } from './segments.js';
+import { datasetOnTimeKey } from './dataset-time-keys.js';
 
 import type { DatasetQueryExecutionOptions } from '../dataset-query.js';
 
 export function buildDatasetQueryBuilder(
-  ds: AnyDatasetInstance,
+  dataset: AnyDatasetInstance,
   query: DatasetQuery,
   options: DatasetQueryExecutionOptions,
 ): QueryBuilderLike {
-  if (selectedTimeMeasures(ds, query).size) {
+  if (selectedTimeMeasures(dataset, query).size) {
     throw new Error('A time-based dataset query needs the time-measure SQL planner; use createDatasetClient().toSQL().');
   }
-  if (hasSelectedDerivedMeasure(ds, query)) {
+  if (hasSelectedDerivedMeasure(dataset, query)) {
     throw new Error('A derived dataset query needs the outer SQL projection; use createDatasetClient().toSQL().');
   }
   if (query.having?.length) {
     throw new Error('A dataset query with having needs the outer SQL projection; use createDatasetClient().toSQL().');
   }
-  const validation = validateDatasetQueryInput(ds, query, options.context);
+  const validation = validateDatasetQueryInput(dataset, query, options.context);
   if (!validation.valid) {
     throw new Error(`Invalid dataset query: ${validation.errors.join('; ')}`);
   }
+  const ds = datasetOnTimeKey(dataset, query.timeKey);
 
   const dialect = resolveDatasetSqlDialect(options.builderFactory);
   assertRawSqlForDialect(ds, dialect);

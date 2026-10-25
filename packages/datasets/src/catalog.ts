@@ -117,6 +117,8 @@ export interface DatasetCatalog extends SemanticMetadata {
   defaults?: DatasetDefaults;
   tenantKey?: string;
   timeKey?: string;
+  /** Alternate time axes a query may select; absent when the dataset declares none. */
+  timeKeys?: string[];
   dimensions: Record<string, DimensionCatalogEntry>;
   measures: Record<string, MeasureCatalogEntry>;
   /** Dataset-owned post-aggregation measures; absent in older hosted catalogs. */
@@ -263,6 +265,7 @@ export function getDatasetCatalog(dataset: DatasetCatalogSource): DatasetCatalog
     defaults: dataset.defaults,
     tenantKey: dataset.tenantKey,
     timeKey: dataset.timeKey,
+    ...(dataset.timeKeys?.length ? { timeKeys: [...dataset.timeKeys] } : {}),
     dimensions: Object.fromEntries(
       Object.entries(dataset.dimensions).map(([name, dimension]) => [
         name,

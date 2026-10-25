@@ -82,6 +82,8 @@ export function createDatasetEndpoint<TAuth extends AuthContext>(
     includeMeta: true,
     // Serve executes through the dataset client, which applies conditions.
     having: true,
+    // ...and passes the selected time axis through to it.
+    timeKey: true,
     requireSelection: false,
     enforceResultLimit: false,
     maxOffset: undefined,
@@ -125,6 +127,7 @@ export function createDatasetEndpoint<TAuth extends AuthContext>(
       limit: Math.min(input.limit ?? effectiveMaxLimit, effectiveMaxLimit),
       offset: input.offset,
       by: input.by,
+      timeKey: input.timeKey,
       timezone: input.timezone,
     };
     assertRelatedDatasetAccess(ds, query, ctx.auth ?? null, relatedPolicies);

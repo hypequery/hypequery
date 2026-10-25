@@ -25,13 +25,21 @@ import {
 import { segmentSelectionErrors } from './segments.js';
 import { analyzeTimeMeasureAxis } from './time-measure-axis.js';
 import { datasetHavingErrors } from './dataset-having.js';
+import { datasetOnTimeKey, selectedTimeKeyError } from './dataset-time-keys.js';
 
 export function validateDatasetQueryInput(
-  ds: AnyDatasetInstance,
+  dataset: AnyDatasetInstance,
   query: DatasetQuery,
   context?: ExecutionContext,
 ): ValidationResult {
-  const errors: string[] = [...semanticQuerySyntaxErrors(query), ...queryTimezoneErrors(query.timezone)];
+  // Validate against the selected time axis, so grain and window checks see it.
+  const timeKeyError = selectedTimeKeyError(dataset, query.timeKey);
+  const ds = timeKeyError ? dataset : datasetOnTimeKey(dataset, query.timeKey);
+  const errors: string[] = [
+    ...semanticQuerySyntaxErrors(query),
+    ...queryTimezoneErrors(query.timezone),
+    ...(timeKeyError ? [timeKeyError] : []),
+  ];
   const dimensionNames = Object.keys(ds.dimensions);
   const measureNames = Object.keys(ds.measures);
   const selectedDimensions = query.dimensions ?? [];

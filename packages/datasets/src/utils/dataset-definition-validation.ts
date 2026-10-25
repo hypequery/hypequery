@@ -12,7 +12,7 @@ import { validateShiftMeasures } from './shift-measure-validation.js';
  *
  * Two categories of check live here:
  *
- * - **Identifier safety.** `source`, `tenantKey`, `timeKey`, dimension columns
+ * - **Identifier safety.** `source`, `tenantKey`, `timeKey`, `timeKeys`, dimension columns
  *   and measure fields are all interpolated into SQL as identifiers. They are
  *   validated once here rather than trusted at every call site that builds a
  *   predicate from them.
@@ -351,6 +351,26 @@ export function validateDatasetDefinition(
     }
     if (!(config.timeKey in (config.dimensions ?? {}))) {
       assertSafeColumn(name, config.timeKey, 'timeKey');
+    }
+  }
+
+  if (config.timeKeys !== undefined) {
+    if (!Array.isArray(config.timeKeys)) {
+      fail(name, 'timeKeys must be an array of dimension names or columns.');
+    }
+    if (config.timeKey === undefined) {
+      fail(name, 'timeKeys requires timeKey, the default time axis.');
+    }
+    if (new Set(config.timeKeys).size !== config.timeKeys.length) {
+      fail(name, 'timeKeys must not contain duplicates.');
+    }
+    for (const timeKey of config.timeKeys) {
+      if (typeof timeKey !== 'string' || timeKey.trim().length === 0) {
+        fail(name, 'timeKeys entries must be non-empty strings.');
+      }
+      if (!(timeKey in (config.dimensions ?? {}))) {
+        assertSafeColumn(name, timeKey, 'timeKeys');
+      }
     }
   }
 

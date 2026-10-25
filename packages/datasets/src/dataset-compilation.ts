@@ -20,6 +20,8 @@ export interface DatasetCompilationDescription {
   readonly having: readonly { readonly measure: string; readonly operator: string }[];
   readonly segments: readonly string[];
   readonly by?: string;
+  /** The selected time axis, when the query names one. */
+  readonly timeKey?: string;
   readonly timezone?: string;
   readonly effectiveLimit?: number;
   /** Includes the extra row used to determine pagination.hasMore. */

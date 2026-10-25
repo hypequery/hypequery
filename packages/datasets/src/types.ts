@@ -376,6 +376,11 @@ export interface MetricQuery {
   limit?: number;
   offset?: number;
   by?: TimeGrain;
+  /**
+   * Time axis for `by` and for window and shift measures: the dataset's
+   * `timeKey` or one of its `timeKeys`. Defaults to `timeKey`.
+   */
+  timeKey?: string;
   /** IANA timezone for buckets and local time-key bounds; overrides the client default. */
   timezone?: string;
 }
@@ -395,6 +400,11 @@ export interface DatasetQuery {
   limit?: number;
   offset?: number;
   by?: TimeGrain;
+  /**
+   * Time axis for `by` and for window and shift measures: the dataset's
+   * `timeKey` or one of its `timeKeys`. Defaults to `timeKey`.
+   */
+  timeKey?: string;
   /** IANA timezone for buckets and local time-key bounds; overrides the client default. */
   timezone?: string;
 }
@@ -535,7 +545,16 @@ export interface DatasetConfig<
   owner?: string;
   defaults?: DatasetDefaults;
   tenantKey?: string;
+  /** The default time axis: what `by` buckets on when a query selects no `timeKey`. */
   timeKey?: string;
+  /**
+   * Further time axes a query may select with `query.timeKey`, such as
+   * `shipped_at` beside a `created_at` default. Each is a dimension name or a
+   * column, like `timeKey`, and requires `timeKey` to be set. The selected
+   * axis drives grains, window and shift measures, and their time-range
+   * checks; `timeGrains` applies to every axis.
+   */
+  timeKeys?: readonly string[];
   /**
    * Restricts the time grains this dataset supports. Defaults to every grain
    * the planner can bucket on. Use it, for example, to refuse `minute` and
@@ -580,6 +599,8 @@ export interface DatasetInstance<
   defaults?: DatasetDefaults;
   tenantKey?: string;
   timeKey?: string;
+  /** Alternate time axes, excluding `timeKey`; see `DatasetConfig.timeKeys`. */
+  timeKeys?: readonly string[];
   timeGrains?: readonly TimeGrain[];
   dimensions: TDimensions;
   /** All declared measures: base aggregates, formulas, and time windows. */
@@ -740,6 +761,11 @@ export interface DatasetQueryFor<TDataset extends DatasetInstance<any, any, any,
   limit?: number;
   offset?: number;
   by?: TimeGrain;
+  /**
+   * Time axis for `by` and for window and shift measures: the dataset's
+   * `timeKey` or one of its `timeKeys`. Defaults to `timeKey`.
+   */
+  timeKey?: string;
   /** IANA timezone for buckets and local time-key bounds; overrides the client default. */
   timezone?: string;
   includeMeta?: boolean;
@@ -803,6 +829,11 @@ export interface MetricQueryFor<
   limit?: number;
   offset?: number;
   by?: TimeGrain;
+  /**
+   * Time axis for `by` and for window and shift measures: the dataset's
+   * `timeKey` or one of its `timeKeys`. Defaults to `timeKey`.
+   */
+  timeKey?: string;
   /** IANA timezone for buckets and local time-key bounds; overrides the client default. */
   timezone?: string;
   includeMeta?: boolean;

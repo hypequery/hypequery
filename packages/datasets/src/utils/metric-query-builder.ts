@@ -21,12 +21,13 @@ import {
   qualifyBaseColumn,
 } from './relationship-builder-plan.js';
 import { segmentFilters } from './segments.js';
+import { datasetOnTimeKey } from './dataset-time-keys.js';
 import type { AggregationSpec, AnyDatasetInstance } from '../types.js';
 
 export function buildMetricQueryBuilder(
   ref: MetricRef,
   spec: AggregationSpec,
-  ds: AnyDatasetInstance,
+  dataset: AnyDatasetInstance,
   query: MetricQuery,
   grain: TimeGrain | undefined,
   builderFactory: QueryBuilderFactoryLike,
@@ -34,6 +35,7 @@ export function buildMetricQueryBuilder(
 ): QueryBuilderLike {
   const syntaxErrors = semanticQuerySyntaxErrors(query);
   if (syntaxErrors.length) throw new Error(syntaxErrors.join('; '));
+  const ds = datasetOnTimeKey(dataset, query.timeKey);
   const dialect = resolveDatasetSqlDialect(builderFactory);
   assertRawSqlForDialect(ds, dialect);
   const joinCtx = buildRelationshipBuilderContext(ds, query, context, dialect);

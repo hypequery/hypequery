@@ -145,7 +145,8 @@ class DefinitionDescriber {
 /**
  * The local definition identity RFC 0009 leaves implementation-defined: a
  * digest of every definition that could affect the rows of a query over
- * `root`, plus the metric spec, cache scope, and timezone when present.
+ * `root`, plus the metric spec, cache scope, timezone, and alternate time axis
+ * when present.
  *
  * Throws when a definition holds a function it cannot describe safely; the
  * caller then runs the query uncached.
@@ -156,7 +157,7 @@ class DefinitionDescriber {
  */
 export function localDefinitionIdentity(
   root: AnyDatasetInstance,
-  extra: { metric?: unknown; scope?: string; timezone?: string } = {},
+  extra: { metric?: unknown; scope?: string; timezone?: string; timeKey?: string } = {},
 ): string {
   const describer = new DefinitionDescriber();
   describer.reference(root);
@@ -166,6 +167,8 @@ export function localDefinitionIdentity(
     metric,
     scope: extra.scope ?? null,
     timezone: extra.timezone ?? null,
+    // Present only for an alternate axis, so default queries keep their keys.
+    ...(extra.timeKey !== undefined ? { timeKey: extra.timeKey } : {}),
   });
   return bytesToHex(sha256(new TextEncoder().encode(LOCAL_DEFINITION_DOMAIN + description)));
 }
@@ -175,18 +178,21 @@ function foldPartition(identity: string, domain: string, value: string): string 
 }
 
 /**
- * Folds a cache scope and a non-default timezone into a deployed definition
- * identity. Both change the rows one release returns (`scope` picks the data
- * source, the timezone moves bucket boundaries), so they must separate keys
- * even when the definitions are identical.
+ * Folds a cache scope, a non-default timezone and an alternate time axis into
+ * a deployed definition identity. Each changes the rows one release returns
+ * (`scope` picks the data source, the timezone moves bucket boundaries, the
+ * axis picks the column they bucket), so they must separate keys even when
+ * the definitions are identical.
  */
 export function scopedDefinitionIdentity(
   identity: string,
   scope: string | undefined,
   timezone?: string,
+  timeKey?: string,
 ): string {
   let folded = identity;
   if (scope !== undefined) folded = foldPartition(folded, 'hypequery.ts.cache-scope.v1', scope);
   if (timezone !== undefined) folded = foldPartition(folded, 'hypequery.ts.cache-timezone.v1', timezone);
+  if (timeKey !== undefined) folded = foldPartition(folded, 'hypequery.ts.cache-time-key.v1', timeKey);
   return folded;
 }
