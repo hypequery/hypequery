@@ -7,7 +7,7 @@ import { clickhouseToTsType } from './type-parsing.js';
 export { clickhouseToTsType } from './type-parsing.js';
 
 // Load environment variables from the current directory
-dotenv.config();
+dotenv.config({ quiet: true });
 
 /**
  * @typedef {Object} ColumnInfo
