@@ -15,6 +15,7 @@ import type {
   MetricRef,
 } from '../types.js';
 import { getMetricGrain, getMetricRef, type MetricHandle } from '../utils/metric-handle.js';
+import { runtimeConstraints } from '../utils/row-scope.js';
 import { localDefinitionIdentity, scopedDefinitionIdentity } from './definition-identity.js';
 
 /** Namespace defaults, so caching works without any configuration. */
@@ -135,10 +136,23 @@ function filterNode(filter: MetricFilter): Record<string, unknown> {
   };
 }
 
-function sharedQueryFields(query: DatasetQuery | MetricQuery): Record<string, unknown> {
+/**
+ * The call's filters as the preimage sees them: the caller's, then the
+ * enforced constraints (RFC 0020). Constraints change rows, so they must
+ * change the key; the preimage sorts and dedupes filters, so a constraint and
+ * an identical caller filter (which yield the same rows) share an entry.
+ */
+function effectiveFilters(query: DatasetQuery | MetricQuery, context: ExecutionContext | undefined) {
+  const constraints = runtimeConstraints(context);
+  if (constraints.length === 0) return query.filters;
+  return [...(query.filters ?? []), ...constraints];
+}
+
+function sharedQueryFields(query: DatasetQuery | MetricQuery, context: ExecutionContext | undefined): Record<string, unknown> {
+  const filters = effectiveFilters(query, context);
   return {
     ...(query.dimensions !== undefined ? { dimensions: [...query.dimensions] } : {}),
-    ...(query.filters !== undefined ? { filters: query.filters.map(filterNode) } : {}),
+    ...(filters !== undefined ? { filters: filters.map(filterNode) } : {}),
     ...(query.segments !== undefined ? { segments: [...query.segments] } : {}),
     ...(query.orderBy !== undefined
       ? { orderBy: query.orderBy.map(({ field, direction }) => ({ field, direction })) }
@@ -225,7 +239,7 @@ export function datasetCacheKey(
     const wire = {
       kind: 'dataset',
       dataset: ds.name,
-      ...sharedQueryFields(query),
+      ...sharedQueryFields(query, context),
       ...(query.measures !== undefined ? { measures: [...query.measures] } : {}),
       ...(query.by !== undefined ? { by: query.by } : {}),
     };
@@ -251,7 +265,7 @@ export function metricCacheKey(
       kind: 'metric',
       dataset: ref.dataset.name,
       metric: ref.name,
-      ...sharedQueryFields(query),
+      ...sharedQueryFields(query, context),
       ...(grain !== undefined ? { by: grain } : {}),
     };
     const definition = definitionFor(settings, ref.dataset, scope, query, ref.spec);

@@ -1,12 +1,11 @@
-import { datasetSourceBuilder } from './dataset-source.js';
+import { scopedDatasetSource } from './scoped-dataset-source.js';
 import { resolveRelationshipMeasure } from './relationship-measures.js';
 import { relationshipMeasureExpressions } from './relationship-measure-sql.js';
 import { queryTimeFilter, queryTimeSql } from './query-timezone.js';
 import type { AnyDatasetInstance, DatasetQuery, MeasureDefinition, MetricFilter } from '../types.js';
 import type { DatasetQueryExecutionOptions } from '../dataset-query.js';
-import { resolveDimensionExpression, resolveFilterField, resolveTenantFilterColumn } from '../query-planner.js';
-import { applyRelationshipJoins, buildRelationshipBuilderContext, qualifyBaseColumn } from './relationship-builder-plan.js';
-import { getRuntimeTenantPredicate } from './tenant-runtime.js';
+import { resolveDimensionExpression, resolveFilterField } from '../query-planner.js';
+import { buildRelationshipBuilderContext } from './relationship-builder-plan.js';
 import { segmentFilters } from './segments.js';
 import { getBaseMeasure } from './dataset-measures.js';
 import { measureToAggregationSpec } from './dataset-normalization.js';
@@ -47,7 +46,9 @@ export function buildTimeMeasureSourceSql(
   const joinCtx = buildRelationshipBuilderContext(ds, query, options.context, dialect);
   // Keep source expressions in their own SELECT scope: internal aliases cannot
   // capture authored SQL identifiers, even if a physical column shares a name.
-  let raw = applyRelationshipJoins(datasetSourceBuilder(options.builderFactory, ds), joinCtx);
+  let raw = scopedDatasetSource({
+    builderFactory: options.builderFactory, ds, context: options.context, joinCtx, dialect, timezone: query.timezone,
+  });
   const dims = (query.dimensions ?? []).map((name, i) => ({ name, alias: `_hq_d${i}` }));
   const sourceParts = [resolveDimensionExpression(ds, ds.timeKey!, joinCtx)];
   for (const dimension of dims) sourceParts.push(resolveDimensionExpression(ds, dimension.name, joinCtx));
@@ -76,9 +77,6 @@ export function buildTimeMeasureSourceSql(
   let rowAlias = '_hq_row';
   while (sourceIdentifiers.some(text => text.includes(rowAlias))) rowAlias += '_';
   raw = raw.select([`${dialect.packRow(sourceParts)} AS ${rowAlias}`]);
-  const tenant = getRuntimeTenantPredicate(options.context);
-  const tenantColumn = resolveTenantFilterColumn(ds, options.context);
-  if (tenant && tenantColumn) raw = raw.where(qualifyBaseColumn(joinCtx, tenantColumn), tenant.operator, tenant.value);
   // The time axis already consumed every time-key bound, so these are the
   // remaining caller filters.
   for (const filter of filters) {

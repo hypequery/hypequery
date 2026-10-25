@@ -29,7 +29,7 @@ import type {
   MetricQuery,
 } from '../types.js';
 import type { QueryBuilderLike } from '../query-builder-protocol.js';
-import { getRuntimeTenantPredicate, type TenantPredicate } from './tenant-runtime.js';
+import { datasetRowScope, runtimeConstraints, type RowScopePredicate } from './row-scope.js';
 import { isQualifiedField, resolveQualifiedField } from './relationship-fields.js';
 
 export interface ResolvedBuilderJoin {
@@ -44,8 +44,8 @@ export interface ResolvedBuilderJoin {
   from: string;
   /** Target join column (unqualified). */
   to: string;
-  /** Tenant predicate applied to the joined target, when active. */
-  tenant?: TenantPredicate & { field: string };
+  /** The target's own row scope (RFC 0020), applied in the join condition. */
+  scope: RowScopePredicate[];
 }
 
 export interface RelationshipBuilderContext {
@@ -59,9 +59,10 @@ export interface RelationshipBuilderContext {
 type QueryLike = Pick<DatasetQuery & MetricQuery, 'dimensions' | 'filters' | 'orderBy'> & Pick<DatasetQuery, 'measures'>;
 
 /**
- * Builds the join context for a query, or returns undefined when the query
- * references no relationship-qualified fields. Validation runs first, so any
- * qualified name that fails to resolve here is skipped defensively.
+ * Builds the join context for a query, or returns undefined when neither the
+ * query nor the call's enforced constraints reference a relationship-qualified
+ * field. Validation runs first, so any qualified name that fails to resolve
+ * here is skipped defensively.
  */
 export function buildRelationshipBuilderContext(
   ds: AnyDatasetInstance,
@@ -74,13 +75,13 @@ export function buildRelationshipBuilderContext(
     ...(query.measures ?? []),
     ...(query.filters ?? []).map((filter) => filter.field),
     ...(query.orderBy ?? []).map((order) => order.field),
+    ...runtimeConstraints(context).map((constraint) => constraint.field),
   ].filter(isQualifiedField);
 
   if (referenced.length === 0) {
     return undefined;
   }
 
-  const tenantPredicate = getRuntimeTenantPredicate(context);
   const joinByRelationship = new Map<string, ResolvedBuilderJoin>();
 
   for (const name of referenced) {
@@ -104,9 +105,7 @@ export function buildRelationshipBuilderContext(
       from: relationship.from,
       to: relationship.to,
       keys,
-      tenant: tenantPredicate && target.tenantKey
-        ? { field: target.tenantKey, ...tenantPredicate }
-        : undefined,
+      scope: datasetRowScope(target, context),
     });
   }
 
@@ -159,8 +158,9 @@ export function resolveQualifiedExpression(
 
 /**
  * Applies each relationship join to the builder as a single-match LEFT JOIN
- * (`leftAnyJoin`, e.g. ClickHouse `LEFT ANY JOIN`) and, when runtime tenancy
- * is active on a target, scopes the joined rows with the tenant predicate.
+ * (`leftAnyJoin`, e.g. ClickHouse `LEFT ANY JOIN`), scoping the joined rows
+ * with the target's own row scope: an out-of-scope target row behaves exactly
+ * like a missing one.
  *
  * A builder without `leftAnyJoin` is refused rather than downgraded to a plain
  * `leftJoin`: duplicate target keys would fan out base rows and silently
@@ -182,18 +182,18 @@ export function applyRelationshipJoins(
         'are unavailable with this builder.',
       );
     }
-    const tenant = join.tenant
-      ? {
-        column: `${join.relationship}.${join.tenant.field}`,
-        operator: join.tenant.operator,
-        value: join.tenant.value,
-      }
-      : undefined;
+    const conditions = join.scope.map(predicate => ({
+      column: `${join.relationship}.${predicate.column}`,
+      operator: predicate.operator,
+      value: predicate.value,
+    }));
+    // A single condition keeps the object form older builders accept.
+    const scope = conditions.length > 1 ? conditions : conditions[0];
     if (join.keys && join.keys.length > 1) {
       // Key-pair form; @hypequery/clickhouse >= 2.13.0.
       const pairs = join.keys.map(key =>
         [`${ctx.baseSource}.${key.from}`, `${join.relationship}.${key.to}`] as const);
-      qb = qb.leftAnyJoin(join.source, [pairs[0], ...pairs.slice(1)], join.relationship, tenant);
+      qb = qb.leftAnyJoin(join.source, [pairs[0], ...pairs.slice(1)], join.relationship, scope);
       continue;
     }
     qb = qb.leftAnyJoin(
@@ -201,7 +201,7 @@ export function applyRelationshipJoins(
       `${ctx.baseSource}.${join.from}`,
       `${join.relationship}.${join.to}`,
       join.relationship,
-      tenant,
+      scope,
     );
   }
   return qb;
