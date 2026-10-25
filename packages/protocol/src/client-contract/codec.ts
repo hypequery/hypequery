@@ -1,5 +1,5 @@
-import { sha256 } from '@noble/hashes/sha2';
-import { bytesToHex } from '@noble/hashes/utils';
+import { sha256 } from '@noble/hashes/sha2.js';
+import { bytesToHex } from '@noble/hashes/utils.js';
 import { clientCanonical } from './safe-data.js';
 
 export const CLIENT_SCHEMA_DOMAIN = 'hypequery:client-endpoint-schema:v1\0';
