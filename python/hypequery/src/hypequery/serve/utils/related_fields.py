@@ -18,21 +18,14 @@ from ...datasets.planner.resolution import (
 )
 from ...datasets.utils.derived_measures import base_measure_names
 from ...datasets.utils.measure_references import measure_filter_fields, measure_stays_within
+from ...datasets.utils.relationship_names import checked_relationship_names
 from ..errors import ServeError
 
 
 def checked_related(dataset: Dataset, include_related: Iterable[str]) -> frozenset[str]:
     """*include_related* as a set, refusing names that are not relationships."""
 
-    if isinstance(include_related, str):
-        raise TypeError("include_related must be a collection of relationship names")
-    names = frozenset(include_related)
-    unknown = sorted(names - set(dataset.relationships))
-    if unknown:
-        raise ValueError(
-            f"include_related names unknown relationships on {dataset.name!r}: {', '.join(unknown)}"
-        )
-    return names
+    return checked_relationship_names(dataset, include_related, argument="include_related")
 
 
 def default_measures(dataset: Dataset, include_related: frozenset[str]) -> tuple[str, ...] | None:
