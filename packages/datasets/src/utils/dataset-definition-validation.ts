@@ -361,6 +361,10 @@ export function validateDatasetDefinition(
     );
   }
 
+  if (config.final !== undefined && typeof config.final !== 'boolean') {
+    fail(name, 'final must be true or false.');
+  }
+
   // The tenant key is the isolation boundary: it becomes a WHERE predicate on
   // every query against a tenant-scoped dataset, so it is checked here rather
   // than trusted wherever that predicate is assembled.

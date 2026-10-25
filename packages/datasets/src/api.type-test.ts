@@ -512,6 +512,21 @@ void featureReason;
 void legacyFeatureError;
 void executionReason;
 
+// `final` is an optional boolean on dataset definitions and instances.
+const _FinalSubscriptions = dataset('finalSubscriptions', {
+  source: 'subscriptions',
+  final: true,
+  dimensions: { status: dimension.string() },
+  measures: { mrr: measure.sum('mrr') },
+});
+type _FinalFlag = Assert<Equal<typeof _FinalSubscriptions.final, boolean | undefined>>;
+dataset('notFinal', {
+  source: 'subscriptions',
+  // @ts-expect-error final must be a boolean
+  final: 'yes',
+  dimensions: { status: dimension.string() },
+});
+
 // ── merge measures (AggregatingMergeTree states) ─────────────────────────────
 
 const mergedUsers = mergeMeasureHelpers.merge('uniq', 'users');

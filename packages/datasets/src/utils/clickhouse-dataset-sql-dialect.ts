@@ -53,6 +53,7 @@ export const clickhouseDatasetSqlDialect: DatasetSqlDialectRules = Object.freeze
     `${limit === undefined ? '' : ` LIMIT ${limit}`}${offset === undefined ? '' : ` OFFSET ${offset}`}`,
 
   quoteQualifiedName: (name: string) => name.split('.').map(quoteSQLIdentifier).join('.'),
+  finalTable: (quotedSource: string) => `${quotedSource} FINAL`,
   rawSqlExpressionError(sql: string) {
     let code: string;
     try {
