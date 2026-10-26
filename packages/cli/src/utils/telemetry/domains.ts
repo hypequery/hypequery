@@ -8,7 +8,7 @@ export const ERROR_CODES = [
   'load_error', 'output_missing', 'output_out_of_date', 'unknown_command', 'unknown_option',
 ] as const;
 export const OUTCOMES = ['success', 'failure', 'cancelled', 'interrupted'] as const;
-export const DATABASES = ['clickhouse', 'chdb', 'bigquery', 'unknown'] as const;
+export const DATABASES = ['clickhouse', 'chdb', 'postgres', 'bigquery', 'unknown'] as const;
 export const COMMANDS = [
   'init', 'dev', 'mcp', 'generate', 'generate:types', 'generate:datasets',
   'generate:manifest', 'generate:client', 'login', 'logout', 'deploy', 'deployment:build',
@@ -24,7 +24,7 @@ export const COMMAND_FLAGS = {
   mcp: ['--path', '--tenant', '--self-test', '--url', '--client-contract-url'],
   generate: ['--output', '--path', '--tables', '--database', '--chdb-path'],
   'generate:types': ['--output', '--path', '--tables', '--database', '--chdb-path'],
-  'generate:datasets': ['--output', '--path', '--tables', '--exclude-tables', '--tenant-column', '--force', '--check', '--diff'],
+  'generate:datasets': ['--output', '--path', '--tables', '--exclude-tables', '--tenant-column', '--database', '--force', '--check', '--diff'],
   'generate:manifest': ['--output'],
   'generate:client': ['--output', '--check', '--force'],
   login: ['--cloud-url', '--environment'],
@@ -47,7 +47,7 @@ export const VALUE_FLAGS = {
   mcp: ['--path', '--tenant', '--url', '--client-contract-url'],
   generate: ['--output', '--path', '--tables', '--database', '--chdb-path'],
   'generate:types': ['--output', '--path', '--tables', '--database', '--chdb-path'],
-  'generate:datasets': ['--output', '--path', '--tables', '--exclude-tables', '--tenant-column'],
+  'generate:datasets': ['--output', '--path', '--tables', '--exclude-tables', '--tenant-column', '--database'],
   'generate:manifest': ['--output'],
   'generate:client': ['--output'],
   login: ['--cloud-url', '--environment'],

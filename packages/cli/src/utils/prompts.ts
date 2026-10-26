@@ -94,11 +94,21 @@ export async function promptClickHouseConnection(): Promise<{
   };
 }
 
-export type InitDatabase = 'clickhouse' | 'chdb';
+export type InitDatabase = 'clickhouse' | 'chdb' | 'postgres';
 
 /**
  * Choose between a remote ClickHouse server and embedded chDB.
  */
+/** Prompt for a Postgres connection URL; empty means configure it later. */
+export async function promptPostgresUrl(): Promise<string | null> {
+  const response = await ask({
+    type: 'password',
+    name: 'url',
+    message: 'Postgres URL, e.g. postgres://user:password@host:5432/db (or skip to configure later):',
+  });
+  return response.url ? String(response.url) : null;
+}
+
 export async function promptInitDatabase(): Promise<InitDatabase> {
   const response = await ask({
     type: 'select',
@@ -107,6 +117,7 @@ export async function promptInitDatabase(): Promise<InitDatabase> {
     choices: [
       { title: 'ClickHouse server or Cloud', value: 'clickhouse' },
       { title: 'chDB (embedded, no server)', value: 'chdb' },
+      { title: 'Postgres', value: 'postgres' },
     ],
     initial: 0,
   });

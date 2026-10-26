@@ -10,8 +10,10 @@ import { telemetryErrorCode } from '../utils/telemetry/error-code.js';
 import path from 'node:path';
 import ora from 'ora';
 import { logger } from '../utils/logger.js';
-import { getTableCount } from '../utils/detect-database.js';
+import { detectDatabase, getTableCount } from '../utils/detect-database.js';
 import { generateDatasets } from '../generators/dataset-generator.js';
+import { postgresIntrospector, postgresUrlFromEnv, withPostgresClient } from '../generators/introspection/postgres.js';
+import type { SchemaIntrospector } from '../generators/introspection/types.js';
 import { redactConnectionUrl } from '../utils/redact-connection-url.js';
 import { logDatasetGenerationWarnings } from '../utils/dataset-generation-warnings.js';
 import { formatGeneratedFileDiff } from '../utils/generated-file-diff.js';
@@ -21,6 +23,7 @@ import { countBucket } from '../utils/telemetry/buckets.js';
 import { warningBuckets } from '../utils/telemetry/generation-metrics.js';
 
 export interface GenerateDatasetsOptions {
+  database?: string;
   output?: string;
   path?: string;
   tables?: string;
@@ -85,30 +88,42 @@ export async function generateDatasetsCommand(options: GenerateDatasetsOptions =
   logger.newline();
   logger.header('hypequery generate datasets');
 
-  const spinner = ora('Connecting to ClickHouse...').start();
+  let database: 'clickhouse' | 'postgres';
+  try {
+    database = await resolveDatasetsDatabase(options.database);
+  } catch (error) {
+    logger.error(error instanceof Error ? error.message : String(error));
+    setCommandTelemetryError('validation_failed');
+    process.exitCode = 1;
+    return;
+  }
+  updateCommandTelemetry('generate:datasets', { database });
+  const engine = database === 'postgres' ? 'Postgres' : 'ClickHouse';
+  const spinner = ora(`Connecting to ${engine}...`).start();
 
   try {
-    // Get table count
-    const tableCount = await getTableCount('clickhouse');
-    spinner.succeed('Connected to ClickHouse');
+    await withIntrospector(database, async (introspector) => {
+      const tableCount = await getTableCount(database);
+      spinner.succeed(`Connected to ${engine}`);
 
-    logger.success(
-      parsedTables
-        ? `Found ${tableCount} tables, filtering to ${parsedTables.length}`
-        : `Found ${tableCount} tables`,
-    );
+      logger.success(
+        parsedTables
+          ? `Found ${tableCount} tables, filtering to ${parsedTables.length}`
+          : `Found ${tableCount} tables`,
+      );
 
-    // Generate datasets
-    const datasetSpinner = ora('Generating dataset definitions...').start();
+      // Generate datasets
+      const datasetSpinner = ora('Generating dataset definitions...').start();
 
-    const generated = await generateDatasets({
-      outputPath,
-      includeTables: parsedTables,
-      excludeTables: excludedTables,
-      // Regeneration replaces the whole file, so a tenant boundary configured at
-      // init has to be restated here or it is dropped on every refresh.
-      tenantColumn: options.tenantColumn,
-      writeOutput: false,
+      const generated = await generateDatasets({
+        ...(introspector ? { introspector } : {}),
+        outputPath,
+        includeTables: parsedTables,
+        excludeTables: excludedTables,
+        // Regeneration replaces the whole file, so a tenant boundary configured at
+        // init has to be restated here or it is dropped on every refresh.
+        tenantColumn: options.tenantColumn,
+        writeOutput: false,
     });
 
     const generatedTables = generated?.tables ?? parsedTables ?? [];
@@ -190,16 +205,23 @@ export async function generateDatasetsCommand(options: GenerateDatasetsOptions =
     logger.info('Example usage:');
     logger.indent(`import { datasets } from '${importPath}';`);
     logger.indent('import { createDatasetClient } from \'@hypequery/datasets\';');
-    logger.indent('import { createQueryBuilder } from \'@hypequery/clickhouse\';');
-    logger.indent('');
-    logger.indent('const db = createQueryBuilder({ url, username, password, database });');
+    if (database === 'postgres') {
+      logger.indent('import { createPostgresQueryBuilder } from \'@hypequery/postgres\';');
+      logger.indent('import pg from \'pg\';');
+      logger.indent('');
+      logger.indent('const db = createPostgresQueryBuilder({ pool: new pg.Pool({ connectionString: process.env.DATABASE_URL }) });');
+    } else {
+      logger.indent('import { createQueryBuilder } from \'@hypequery/clickhouse\';');
+      logger.indent('');
+      logger.indent('const db = createQueryBuilder({ url, username, password, database });');
+    }
     logger.indent('const analytics = createDatasetClient({ queryBuilder: db });');
     logger.indent(
       `const rowCount = datasets['${firstTable}'].metric('rowCount', { measure: 'totalCount' });`,
     );
     logger.indent('const result = await analytics.execute(rowCount);');
     logger.newline();
-
+    });
   } catch (error) {
     spinner.fail('Failed to generate datasets');
     logger.newline();
@@ -208,7 +230,11 @@ export async function generateDatasetsCommand(options: GenerateDatasetsOptions =
       logger.error(error.message);
 
       // Provide specific guidance
-      if (error.message.includes('ECONNREFUSED')) {
+      if (error.message.includes('ECONNREFUSED') && database === 'postgres') {
+        logger.newline();
+        logger.info('Check that Postgres is running and DATABASE_URL points at it:');
+        logger.indent('DATABASE_URL=' + redactConnectionUrl(postgresUrlFromEnv()));
+      } else if (error.message.includes('ECONNREFUSED')) {
         logger.newline();
         logger.info('This usually means:');
         logger.indent('• ClickHouse is not running');
@@ -231,4 +257,26 @@ export async function generateDatasetsCommand(options: GenerateDatasetsOptions =
     logger.newline();
     exitWith(1, 'failure', telemetryErrorCode(error));
   }
+}
+
+/** The engine to introspect: the flag, else what the environment configures. */
+async function resolveDatasetsDatabase(flag: string | undefined): Promise<'clickhouse' | 'postgres'> {
+  if (flag === 'clickhouse' || flag === 'postgres') return flag;
+  if (flag !== undefined) {
+    throw new Error(`Unsupported database "${flag}" for generate:datasets. Use "clickhouse" or "postgres".`);
+  }
+  return (await detectDatabase()) === 'postgres' ? 'postgres' : 'clickhouse';
+}
+
+/** Run *work* with the Postgres introspector; ClickHouse uses the generator's default. */
+async function withIntrospector<T>(
+  database: 'clickhouse' | 'postgres',
+  work: (introspector: SchemaIntrospector | undefined) => Promise<T>,
+): Promise<T> {
+  if (database === 'clickhouse') return work(undefined);
+  const url = postgresUrlFromEnv();
+  if (!url) {
+    throw new Error('Postgres connection details are missing. Set DATABASE_URL (or POSTGRES_URL) to a postgres:// URL.');
+  }
+  return withPostgresClient(url, (client) => work(postgresIntrospector(client)));
 }

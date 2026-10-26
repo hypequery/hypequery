@@ -40,6 +40,11 @@ vi.mock('../generators/index.js', () => ({
   getTypeGenerator: mockGetTypeGenerator,
 }));
 const mockGenerateDatasets = vi.fn().mockResolvedValue(undefined);
+const mockWithPostgresClient = vi.hoisted(() => vi.fn());
+vi.mock('../generators/introspection/postgres.js', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../generators/introspection/postgres.js')>()),
+  withPostgresClient: mockWithPostgresClient,
+}));
 vi.mock('../generators/dataset-generator.js', () => ({
   generateDatasets: mockGenerateDatasets,
 }));
@@ -895,7 +900,55 @@ describe('init command - graceful failure handling', () => {
     });
 
     it('rejects unsupported database values', async () => {
-      await expect(initCommand({ database: 'postgres' })).rejects.toThrow(/Unsupported database/);
+      await expect(initCommand({ database: 'mysql' })).rejects.toThrow(/Unsupported database/);
+    });
+  });
+
+  describe('Postgres scaffold (--database postgres)', () => {
+    const URL = 'postgres://user:secret@db.example:5432/app';
+    const written = (name: string) => vi.mocked(writeFile).mock.calls
+      .find(([file]) => String(file).endsWith(name))?.[1] as string | undefined;
+
+    beforeEach(() => {
+      vi.stubEnv('DATABASE_URL', URL);
+      vi.mocked(detectDb.validateConnection).mockResolvedValue(true);
+      vi.mocked(detectDb.getTableCount).mockResolvedValue(3);
+      mockGenerateDatasets.mockResolvedValue({ tables: ['orders'], warnings: [] });
+      mockWithPostgresClient.mockImplementation(async (_url: string, work: (client: unknown) => unknown) => work({}));
+    });
+
+    afterEach(() => { vi.unstubAllEnvs(); });
+
+    it('scaffolds datasets on a Postgres client from DATABASE_URL', async () => {
+      await initCommand({ database: 'postgres', allTables: true, noInteractive: true });
+
+      expect(detectDb.validateConnection).toHaveBeenCalledWith('postgres');
+      expect(written('client.ts')).toContain("createPostgresQueryBuilder({ pool })");
+      expect(written('.env')).toContain(`DATABASE_URL=${URL}`);
+      expect(written('schema.ts')).toBeUndefined();
+      expect(written('api.ts')).toContain('queryBuilder: db');
+      expect(mockWithPostgresClient).toHaveBeenCalledWith(URL, expect.any(Function));
+      expect(mockGenerateDatasets).toHaveBeenCalledWith(expect.objectContaining({ introspector: expect.anything() }));
+      expect(installScaffoldDependencies).toHaveBeenCalledWith('datasets', 'postgres');
+    });
+
+    it('requires a Postgres URL in non-interactive mode', async () => {
+      vi.stubEnv('DATABASE_URL', 'mysql://not-postgres');
+      await expect(initCommand({ database: 'postgres', noInteractive: true })).rejects.toThrow(/Missing DATABASE_URL/);
+    });
+
+    it('refuses the ClickHouse-only queries scaffold', async () => {
+      await expect(
+        initCommand({ database: 'postgres', style: 'queries', noInteractive: true }),
+      ).rejects.toThrow(/--style datasets/);
+    });
+
+    it('writes a placeholder when the connection is skipped', async () => {
+      await initCommand({ database: 'postgres', skipConnection: true, noInteractive: true });
+
+      expect(detectDb.validateConnection).not.toHaveBeenCalled();
+      expect(mockGenerateDatasets).not.toHaveBeenCalled();
+      expect(written('datasets.ts')).toBeDefined();
     });
   });
 });

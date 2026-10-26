@@ -12,6 +12,7 @@ import {
   promptClickHouseConnection,
   promptInitDatabase,
   promptChdbStorage,
+  promptPostgresUrl,
   promptOutputDirectory,
   promptInitStyle,
   promptInitAuthMode,
@@ -35,7 +36,7 @@ import {
   getChdbTypeGenerationClient,
 } from '../utils/chdb-client.js';
 import { hasEnvFile, hasGitignore } from '../utils/find-files.js';
-import { generateEnvTemplate, appendToEnv } from '../templates/env.js';
+import { generateEnvTemplate, generatePostgresEnvTemplate, appendToEnv } from '../templates/env.js';
 import { generateClientTemplate } from '../templates/client.js';
 import { generateQueriesTemplate, type AuthTemplateMode } from '../templates/queries.js';
 import { generateApiTemplate } from '../templates/api.js';
@@ -45,6 +46,7 @@ import { generateDatasetsPlaceholderTemplate } from '../templates/datasets.js';
 import { appendToGitignore } from '../templates/gitignore.js';
 import { getTypeGenerator } from '../generators/index.js';
 import { generateDatasets } from '../generators/dataset-generator.js';
+import { postgresIntrospector, postgresUrlFromEnv, withPostgresClient } from '../generators/introspection/postgres.js';
 import { installScaffoldDependencies } from '../utils/dependency-installer.js';
 import { logDatasetGenerationWarnings } from '../utils/dataset-generation-warnings.js';
 import { formatRegenerateDatasetsCommand } from '../utils/regenerate-datasets-command.js';
@@ -93,6 +95,41 @@ async function resolveConnectionConfig(options: InitOptions): Promise<Connection
   }
 
   return promptClickHouseConnection();
+}
+
+/** A Postgres URL from the environment, or a prompt; null to configure it later. */
+async function resolvePostgresUrl(options: InitOptions): Promise<string | null> {
+  if (options.noInteractive) {
+    const url = postgresUrlFromEnv();
+    if (!url) {
+      throw new Error(
+        'Missing DATABASE_URL. Provide a postgres:// connection URL via the environment when using --no-interactive.',
+      );
+    }
+    return url;
+  }
+  return postgresUrlFromEnv() ?? promptPostgresUrl();
+}
+
+async function testPostgresConnection(url: string): Promise<{ hasValidConnection: boolean; tableCount: number }> {
+  const spinner = ora('Testing connection...').start();
+  process.env.DATABASE_URL = url;
+  if (!(await validateConnection('postgres'))) {
+    spinner.fail('Connection failed');
+    logger.newline();
+    logger.error('Could not connect to Postgres.');
+    logger.newline();
+    logger.info('Common issues:');
+    logger.indent('• Check the URL: postgres://user:password@host:5432/database');
+    logger.indent('• Verify the role can connect and read the schema');
+    logger.indent('• Check firewall/network access and SSL settings (?sslmode=require)');
+    logger.newline();
+    return { hasValidConnection: false, tableCount: 0 };
+  }
+  const tableCount = await getTableCount('postgres');
+  spinner.succeed(`Connected successfully (${tableCount} tables found)`);
+  logger.newline();
+  return { hasValidConnection: true, tableCount };
 }
 
 async function hasProjectPackageJson(): Promise<boolean> {
@@ -223,8 +260,38 @@ async function runInit(options: InitOptions, funnel: InitFunnel): Promise<void> 
   let hasValidConnection = false;
   let chdbPath = options.chdbPath;
   let chdbFailureReason: 'not-installed' | 'engine-error' | undefined;
+  let postgresUrl: string | null = null;
 
-  if (database === 'chdb') {
+  if (database === 'postgres') {
+    postgresUrl = await resolvePostgresUrl(options);
+    if (!postgresUrl) {
+      funnel.update({ connection_result: 'skipped' });
+      logger.info('Skipping database connection for now.');
+      logger.newline();
+    } else if (options.skipConnection) {
+      funnel.update({ connection_result: 'skipped' });
+      logger.info('Skipping database connection test (requested).');
+      logger.newline();
+    } else {
+      const { hasValidConnection: valid, tableCount } = await testPostgresConnection(postgresUrl);
+      hasValidConnection = valid;
+      funnel.update({ connection_result: valid ? 'ok' : 'failed', ...(valid ? { table_count_bucket: countBucket(tableCount) } : {}) });
+      if (!valid) {
+        if (noInteractive) {
+          throw new Error('Failed to connect to Postgres in non-interactive mode. Check DATABASE_URL.');
+        }
+        const continueWithout = await promptContinueWithoutDb();
+        if (!continueWithout) {
+          logger.info('Setup cancelled');
+          exitWith(0, 'cancelled');
+        }
+        logger.newline();
+        logger.info('Continuing without database connection.');
+        logger.info('You can configure DATABASE_URL later in .env');
+        logger.newline();
+      }
+    }
+  } else if (database === 'chdb') {
     // No server, no credentials — the only connection question is where the
     // embedded session stores its data.
     if (!chdbPath && !noInteractive) {
@@ -273,7 +340,7 @@ async function runInit(options: InitOptions, funnel: InitFunnel): Promise<void> 
     }
   }
 
-  if (database === 'clickhouse') funnel.reach('connection_tested');
+  if (database === 'clickhouse' || database === 'postgres') funnel.reach('connection_tested');
   funnel.attempt('style_selected');
 
   // Step 4: Get output directory
@@ -294,7 +361,13 @@ async function runInit(options: InitOptions, funnel: InitFunnel): Promise<void> 
   }
 
   let style = normalizeInitStyle(options.style);
-  if (!options.style && !noInteractive) {
+  if (database === 'postgres') {
+    // The queries scaffold is built on the ClickHouse query builder.
+    if (options.style && style !== 'datasets') {
+      throw new Error('Postgres projects use the datasets scaffold. Re-run with --style datasets.');
+    }
+    style = 'datasets';
+  } else if (!options.style && !noInteractive) {
     style = await promptInitStyle();
   }
   let auth = normalizeAuthMode(options.auth);
@@ -309,7 +382,8 @@ async function runInit(options: InitOptions, funnel: InitFunnel): Promise<void> 
   // Step 5: Check for existing files
   const filesToCreate = [
     path.join(resolvedOutputDir, 'client.ts'),
-    path.join(resolvedOutputDir, 'schema.ts'),
+    // Postgres datasets need no generated query-builder schema.
+    ...(database === 'postgres' ? [] : [path.join(resolvedOutputDir, 'schema.ts')]),
     ...(style === 'datasets'
       ? [
           path.join(resolvedOutputDir, 'datasets.ts'),
@@ -433,6 +507,21 @@ async function runInit(options: InitOptions, funnel: InitFunnel): Promise<void> 
   // so the chdb scaffold writes no .env at all.
   if (database === 'chdb') {
     funnel.update({ env_file: 'skipped' });
+  } else if (database === 'postgres') {
+    const envPath = path.join(process.cwd(), '.env');
+    const content = generatePostgresEnvTemplate(postgresUrl ?? 'postgres://YOUR_USER:YOUR_PASSWORD@YOUR_HOST:5432/YOUR_DATABASE');
+    if (await hasEnvFile()) {
+      const existingEnv = await readFile(envPath, 'utf-8');
+      // An existing DATABASE_URL is kept unless we have a tested one to write.
+      const newEnv = postgresUrl || !/^DATABASE_URL=/m.test(existingEnv) ? appendToEnv(existingEnv, content) : existingEnv;
+      await writeFile(envPath, newEnv);
+      funnel.update({ env_file: newEnv === existingEnv ? 'unchanged' : 'updated' });
+      if (newEnv !== existingEnv) logger.success('Updated .env');
+    } else {
+      await writeFile(envPath, content);
+      funnel.update({ env_file: 'created' });
+      logger.success(postgresUrl ? 'Created .env' : 'Created .env (configure DATABASE_URL)');
+    }
   } else if (connectionConfig) {
     const envPath = path.join(process.cwd(), '.env');
     const envExists = await hasEnvFile();
@@ -471,7 +560,9 @@ async function runInit(options: InitOptions, funnel: InitFunnel): Promise<void> 
   // Step 9: Generate types from schema (only if we have a valid connection)
   const schemaPath = path.join(resolvedOutputDir, 'schema.ts');
 
-  if (hasValidConnection) {
+  if (database === 'postgres') {
+    // Datasets describe the schema; there is no query-builder type file.
+  } else if (hasValidConnection) {
     const typeSpinner = ora('Generating TypeScript types...').start();
 
     try {
@@ -501,9 +592,8 @@ export interface IntrospectedSchema {
   // Step 10: Create client.ts
   const clientPath = path.join(resolvedOutputDir, 'client.ts');
   await writeFile(clientPath, generateClientTemplate({ database, chdbPath }));
-  logger.success(
-    `Created ${database === 'chdb' ? 'embedded chDB' : 'ClickHouse'} client (${path.relative(process.cwd(), clientPath)})`,
-  );
+  const clientLabel = database === 'chdb' ? 'embedded chDB' : database === 'postgres' ? 'Postgres' : 'ClickHouse';
+  logger.success(`Created ${clientLabel} client (${path.relative(process.cwd(), clientPath)})`);
 
   // Step 11: Create API entrypoint
   let apiPath: string;
@@ -517,7 +607,7 @@ export interface IntrospectedSchema {
     );
 
     if (shouldGenerateDatasets) {
-      const generated = await generateDatasets({
+      const generationOptions = {
         outputPath: datasetsPath,
         includeTables: options.allTables ? undefined : datasetTables,
         excludeTables: excludedDatasetTables,
@@ -528,7 +618,11 @@ export interface IntrospectedSchema {
         ...(database === 'chdb'
           ? { client: getChdbTypeGenerationClient(chdbPath) }
           : {}),
-      });
+      };
+      const generated = database === 'postgres' && postgresUrl
+        ? await withPostgresClient(postgresUrl, (client) =>
+          generateDatasets({ ...generationOptions, introspector: postgresIntrospector(client) }))
+        : await generateDatasets(generationOptions);
       if (generated) funnel.update({ datasets_generated_bucket: countBucket(generated.tables.length) });
       logDatasetGenerationWarnings(generated?.warnings);
       generatedAnyDatasets = true;
@@ -651,6 +745,13 @@ export interface IntrospectedSchema {
         ? `2. Run: npx hypequery generate --database chdb --chdb-path ${chdbPath}`
         : '2. Re-run init with --chdb-path <dir> if later generate commands must see your tables',
     );
+    logger.indent('3. Run: npx hypequery dev          (to start dev server)');
+    logger.newline();
+  } else if (database === 'postgres') {
+    logger.info('Next steps:');
+    logger.newline();
+    logger.indent('1. Set DATABASE_URL in .env');
+    logger.indent(`2. Run: npx hypequery generate:datasets --database postgres --path ${outputDir} --force`);
     logger.indent('3. Run: npx hypequery dev          (to start dev server)');
     logger.newline();
   } else {

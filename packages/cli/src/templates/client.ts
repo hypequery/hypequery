@@ -1,5 +1,5 @@
 export interface ClientTemplateOptions {
-  database?: 'clickhouse' | 'chdb';
+  database?: 'clickhouse' | 'chdb' | 'postgres';
   /** On-disk chDB session directory; omit for an in-memory session. */
   chdbPath?: string;
 }
@@ -8,6 +8,17 @@ export interface ClientTemplateOptions {
  * Generate client.ts file for ClickHouse (HTTP) or embedded chDB
  */
 export function generateClientTemplate(options: ClientTemplateOptions = {}): string {
+  if (options.database === 'postgres') {
+    return `import pg from 'pg';
+import { createPostgresQueryBuilder } from '@hypequery/postgres';
+
+// Each query runs read-only with a statement timeout; see @hypequery/postgres.
+export const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
+
+export const db = createPostgresQueryBuilder({ pool });
+`;
+  }
+
   if (options.database === 'chdb') {
     // JSON.stringify produces a valid JS string literal for any path
     // (quotes, backslashes) — raw interpolation would break the scaffold.

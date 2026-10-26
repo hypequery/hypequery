@@ -53,7 +53,7 @@ export async function generateCommand(options: GenerateOptions = {}) {
   const requestedDbType = options.database as DatabaseType | undefined;
   const dbType = requestedDbType ?? (await detectDatabase());
   const chdbPath = dbType === 'chdb' ? options.chdbPath : undefined;
-  updateCommandTelemetry(command, { database: dbType === 'clickhouse' || dbType === 'chdb' || dbType === 'bigquery' ? dbType : 'unknown', chdb_path_given: !!chdbPath });
+  updateCommandTelemetry(command, { database: dbType === 'clickhouse' || dbType === 'chdb' || dbType === 'postgres' || dbType === 'bigquery' ? dbType : 'unknown', chdb_path_given: !!chdbPath });
 
   if (dbType === 'chdb' && !requestedDbType) {
     throw new Error(

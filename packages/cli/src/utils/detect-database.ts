@@ -3,11 +3,12 @@ import path from 'node:path';
 import { getClickHouseClient } from './clickhouse-client.js';
 import { validateChdb, getChdbTables } from './chdb-client.js';
 import { detectDatabaseFromEnvironment } from './detect-database-environment.js';
+import { postgresIntrospector, postgresUrlFromEnv, withPostgresClient } from '../generators/introspection/postgres.js';
 
 /**
  * Database type detection result
  */
-export type DatabaseType = 'clickhouse' | 'chdb' | 'bigquery' | 'unknown';
+export type DatabaseType = 'clickhouse' | 'chdb' | 'postgres' | 'bigquery' | 'unknown';
 
 /**
  * Options threaded through to drivers that need more than env vars —
@@ -37,6 +38,10 @@ export async function detectDatabase(): Promise<DatabaseType> {
       envContent.includes('CLICKHOUSE_HOST')
     ) {
       return 'clickhouse';
+    }
+
+    if (/^(?:HYPEQUERY_POSTGRES_URL|POSTGRES_URL|DATABASE_URL)=["']?postgres(?:ql)?:\/\//m.test(envContent)) {
+      return 'postgres';
     }
 
     if (
@@ -80,6 +85,8 @@ export async function validateConnection(
       return validateClickHouse();
     case 'chdb':
       return validateChdb(options.chdbPath);
+    case 'postgres':
+      return validatePostgres();
     case 'bigquery':
       return validateBigQuery();
     default:
@@ -103,6 +110,29 @@ async function validateClickHouse(): Promise<boolean> {
   }
 }
 
+async function validatePostgres(): Promise<boolean> {
+  const url = postgresUrlFromEnv();
+  if (!url) return false;
+  try {
+    await withPostgresClient(url, (client) => client.query('SELECT 1'));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** Tables a Postgres dataset may read, as `generate:datasets` names them. */
+async function getPostgresTables(): Promise<string[]> {
+  const url = postgresUrlFromEnv();
+  if (!url) return [];
+  try {
+    return await withPostgresClient(url, async (client) =>
+      (await postgresIntrospector(client).listTables()).map((table) => table.name));
+  } catch {
+    return [];
+  }
+}
+
 async function validateBigQuery(): Promise<boolean> {
   // TODO: Implement when BigQuery support is added
   return false;
@@ -120,6 +150,8 @@ export async function getTableCount(
       return getClickHouseTableCount();
     case 'chdb':
       return (await getChdbTables(options.chdbPath)).length;
+    case 'postgres':
+      return (await getPostgresTables()).length;
     default:
       return 0;
   }
@@ -160,6 +192,8 @@ export async function getTables(
       return getClickHouseTables();
     case 'chdb':
       return getChdbTables(options.chdbPath);
+    case 'postgres':
+      return getPostgresTables();
     default:
       return [];
   }

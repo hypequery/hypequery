@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { generateEnvTemplate, appendToEnv } from './env.js';
+import { generateEnvTemplate, generatePostgresEnvTemplate, appendToEnv } from './env.js';
 
 describe('env template', () => {
   describe('generateEnvTemplate', () => {
@@ -106,5 +106,15 @@ OTHER_VAR=value
       expect(result).toContain('EXISTING_VAR=value\n');
       expect(result).toContain('CLICKHOUSE_URL=http://localhost:8123');
     });
+  });
+});
+
+describe('generatePostgresEnvTemplate', () => {
+  it('writes DATABASE_URL and replaces it in an existing hypequery section', () => {
+    const env = generatePostgresEnvTemplate('postgres://u:p@h/db');
+    expect(env).toBe('# Hypequery Configuration\nDATABASE_URL=postgres://u:p@h/db\n');
+    expect(appendToEnv(`OTHER=1\n\n${env}`, generatePostgresEnvTemplate('postgres://u:p@h/other')))
+      .toBe('OTHER=1\n\n# Hypequery Configuration\nDATABASE_URL=postgres://u:p@h/other');
+    expect(generatePostgresEnvTemplate('postgres://YOUR_USER@h/db')).toContain('Replace this placeholder');
   });
 });

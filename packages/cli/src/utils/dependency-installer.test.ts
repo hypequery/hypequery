@@ -369,3 +369,13 @@ describe('dependency installer', () => {
     expect(spawnMock).not.toHaveBeenCalled();
   });
 });
+
+describe('resolveScaffoldPackages (postgres)', () => {
+  it('installs the Postgres engine and pg, never the ClickHouse builder', () => {
+    expect(resolveScaffoldPackages('1.2.3', 'datasets', 'postgres')).toEqual([
+      '@hypequery/postgres', '@hypequery/datasets', '@hypequery/serve', 'pg', 'zod@^4.6.6',
+    ]);
+    expect(resolveScaffoldPackages('0.0.0-canary-20261026', 'datasets', 'postgres')[0])
+      .toBe('@hypequery/postgres@0.0.0-canary-20261026');
+  });
+});

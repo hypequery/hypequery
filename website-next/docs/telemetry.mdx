@@ -133,7 +133,7 @@ Every event includes these fields. Unknown environment details use the documente
 | `hypequery_packages.@hypequery/protocol` | Optional | Exact major.minor.patch (1–3 digits per component); optional canary/alpha/beta/rc/dev/snapshot suffix with 1–14 digit numeric components, or `unknown`; at most 80 characters | Installed exact release version, or unknown. |
 | `hypequery_packages.@hypequery/protocol-conformance` | Optional | Exact major.minor.patch (1–3 digits per component); optional canary/alpha/beta/rc/dev/snapshot suffix with 1–14 digit numeric components, or `unknown`; at most 80 characters | Installed exact release version, or unknown. |
 | `hypequery_packages.@hypequery/deployment` | Optional | Exact major.minor.patch (1–3 digits per component); optional canary/alpha/beta/rc/dev/snapshot suffix with 1–14 digit numeric components, or `unknown`; at most 80 characters | Installed exact release version, or unknown. |
-| `database` | Required | `clickhouse`, `chdb`, `bigquery`, `unknown` | Which database backends merit investment? |
+| `database` | Required | `clickhouse`, `chdb`, `postgres`, `bigquery`, `unknown` | Which database backends merit investment? |
 
 ### `cli_command_completed`
 
@@ -220,7 +220,7 @@ Allowed `flags_used`: `--output`, `--path`, `--tables`, `--database`, `--chdb-pa
 
 #### `cli_command_completed`: `generate:datasets`
 
-Allowed `flags_used`: `--output`, `--path`, `--tables`, `--exclude-tables`, `--tenant-column`, `--force`, `--check`, `--diff`, `--no-telemetry`, `--help`, `--version`. The two type-generation aliases remain distinct command values.
+Allowed `flags_used`: `--output`, `--path`, `--tables`, `--exclude-tables`, `--tenant-column`, `--database`, `--force`, `--check`, `--diff`, `--no-telemetry`, `--help`, `--version`. The two type-generation aliases remain distinct command values.
 
 | Property | Presence | Allowed values | Question answered |
 | --- | --- | --- | --- |

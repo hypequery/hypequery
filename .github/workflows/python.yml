@@ -20,6 +20,7 @@ on:
       - 'packages/cli/**'
       - 'packages/serve/**'
       - 'packages/deployment/**'
+      - 'packages/postgres/**'
       - 'testing/fixtures/python-client-gate/**'
       - 'scripts/prepare-python-client-tutorial.sh'
       - 'scripts/smoke-python-client-release.sh'
@@ -48,6 +49,7 @@ on:
       - 'packages/cli/**'
       - 'packages/serve/**'
       - 'packages/deployment/**'
+      - 'packages/postgres/**'
       - 'testing/fixtures/python-client-gate/**'
       - 'scripts/prepare-python-client-tutorial.sh'
       - 'scripts/smoke-python-client-release.sh'
@@ -111,6 +113,18 @@ jobs:
       matrix:
         clickhouse-version: ['25.8', '26.3']
     services:
+      # Postgres runs beside ClickHouse so the parity suite compares both.
+      postgres:
+        image: postgres:17
+        ports:
+          - 5432:5432
+        env:
+          POSTGRES_HOST_AUTH_METHOD: trust
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
       clickhouse:
         image: clickhouse/clickhouse-server:${{ matrix.clickhouse-version }}
         ports:
@@ -145,6 +159,7 @@ jobs:
         env:
           HYPEQUERY_TEST_CLICKHOUSE_HOST: localhost
           HYPEQUERY_TEST_CLICKHOUSE_PASSWORD: hypequery_test
+          HYPEQUERY_TEST_POSTGRES_URL: postgresql://postgres@localhost:5432/postgres
 
   cli-artifacts:
     name: CLI artifacts (py${{ matrix.python-version }}, ${{ matrix.artifact }})

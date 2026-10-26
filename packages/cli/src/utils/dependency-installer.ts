@@ -10,7 +10,7 @@ const ZOD_SCAFFOLD_VERSION = '^4.6.6';
 const CHDB_SCAFFOLD_VERSION = '^3.2.0';
 const STABLE_SCAFFOLD_PACKAGES = ['@hypequery/clickhouse', '@hypequery/serve', `zod@${ZOD_SCAFFOLD_VERSION}`] as const;
 type ScaffoldStyle = 'queries' | 'datasets';
-type ScaffoldDatabase = 'clickhouse' | 'chdb';
+type ScaffoldDatabase = 'clickhouse' | 'chdb' | 'postgres';
 const CLI_PACKAGE_PATH = fileURLToPath(new URL('../../package.json', import.meta.url));
 
 type PackageManager = 'pnpm' | 'yarn' | 'npm' | 'bun';
@@ -129,6 +129,18 @@ export function resolveScaffoldPackages(
   const includeDatasets = style === 'datasets';
   const includeChdb = database === 'chdb';
 
+  if (database === 'postgres') {
+    // Datasets over the Postgres engine; no ClickHouse builder.
+    const pin = isCanaryVersion(cliVersion) ? `@${cliVersion}` : '';
+    return [
+      `@hypequery/postgres${pin}`,
+      `@hypequery/datasets${pin}`,
+      `@hypequery/serve${pin}`,
+      'pg',
+      `zod@${ZOD_SCAFFOLD_VERSION}`,
+    ];
+  }
+
   if (isCanaryVersion(cliVersion)) {
     return [
       `@hypequery/clickhouse@${cliVersion}`,
@@ -203,7 +215,7 @@ export async function installScaffoldDependencies(
     readCliPackageJson(),
   ]);
   if (!pkgJson) {
-    const packages = [
+    const packages = database === 'postgres' ? resolveScaffoldPackages(undefined, style, database) : [
       '@hypequery/clickhouse',
       '@hypequery/serve',
       ...(style === 'datasets' ? ['@hypequery/datasets'] : []),

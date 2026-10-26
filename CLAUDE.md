@@ -14,6 +14,7 @@ pnpm + Turbo monorepo. `pnpm-workspace.yaml` is the authoritative workspace list
 | `packages/react` | TanStack Query hooks |
 | `packages/cli` | `npx hypequery …` commands |
 | `packages/mcp-server` | `@hypequery/mcp` — exposes datasets to agents |
+| `packages/postgres` | `@hypequery/postgres` — datasets on Postgres (builder, SQL rules, driver) |
 | `packages/protocol` / `packages/protocol-conformance` | Security protocol + cross-language conformance runner |
 | `packages/deployment` | Deployment contracts and tooling |
 | `packages/tsconfig` | Shared tsconfig presets — new packages extend this |
@@ -57,7 +58,7 @@ pnpm smoke:consumers    # all consumer smoke tests (scripts/smoke-*.sh)
 - **Canary**: every push to `main` auto-publishes snapshot builds to the npm
   `canary` dist-tag for `@hypequery/clickhouse`, `@hypequery/datasets`,
   `@hypequery/deployment`, `@hypequery/serve`, `@hypequery/cli`,
-  `@hypequery/mcp`, `@hypequery/protocol`,
+  `@hypequery/mcp`, `@hypequery/postgres`, `@hypequery/protocol`,
   `@hypequery/protocol-conformance`, and `@hypequery/react`. No manual steps.
 - **Stable**: Changesets-driven. Any user-facing change to a published package needs a changeset (`pnpm changeset`) in the PR. Full flow in `release-commands.md`.
 

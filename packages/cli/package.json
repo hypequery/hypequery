@@ -41,6 +41,7 @@
     "esbuild": "^0.28.2",
     "open": "^11.0.4",
     "ora": "^8.0.1",
+    "pg": "^8.13.1",
     "prompts": "^2.4.2"
   },
   "optionalDependencies": {
@@ -62,6 +63,7 @@
     "@hypequery/mcp": "workspace:*",
     "@hypequery/serve": "workspace:*",
     "@types/node": "^20.11.30",
+    "@types/pg": "^8.11.10",
     "@types/prompts": "^2.4.9",
     "@vitest/coverage-v8": "^5.0.5",
     "typescript": "^6.0.3",

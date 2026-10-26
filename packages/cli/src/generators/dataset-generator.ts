@@ -1,20 +1,30 @@
 /**
  * Dataset Generator
  *
- * Generates dataset DSL code from ClickHouse schema introspection.
- * This reduces quickstart friction by auto-scaffolding dataset definitions.
+ * Generates dataset DSL code from schema introspection (ClickHouse or
+ * Postgres). This reduces quickstart friction by auto-scaffolding dataset
+ * definitions.
  */
 
 import fs from 'fs/promises';
 import path from 'path';
 import type { TypeGenerationClickHouseClient } from '../typegen/index.js';
 import { getClickHouseClient } from '../utils/clickhouse-client.js';
+import { clickhouseIntrospector } from './introspection/clickhouse.js';
+import type {
+  IntrospectedColumn,
+  IntrospectedForeignKey,
+  IntrospectedTable,
+  SchemaIntrospector,
+} from './introspection/types.js';
 
 export interface DatasetGeneratorOptions {
   outputPath: string;
   includeTables?: string[];
   excludeTables?: string[];
   client?: TypeGenerationClickHouseClient;
+  /** The schema to introspect; defaults to ClickHouse over `client` or the environment. */
+  introspector?: SchemaIntrospector;
   /**
    * Tenant column the caller has already configured as a trusted runtime tenant
    * scope (for example the `tenant.column` of a scaffolded context-auth API).
@@ -42,58 +52,16 @@ export type DatasetGenerationWarning =
       message: string;
     };
 
-interface ColumnInfo {
-  name: string;
-  type: string;
-  default_type: string;
-  default_expression: string;
-}
-
-/**
- * Determine the dataset dimension type from a ClickHouse type
- */
-function clickhouseToDimensionType(chType: string): string {
-  const normalized = chType.toLowerCase();
-
-  // String types
-  if (normalized.includes('string') || normalized.includes('enum')) {
-    return 'string';
-  }
-
-  // Numeric types
-  if (
-    normalized.includes('int') ||
-    normalized.includes('float') ||
-    normalized.includes('double') ||
-    normalized.includes('decimal')
-  ) {
-    return 'number';
-  }
-
-  // Date/Time types
-  if (normalized.includes('date') || normalized.includes('datetime')) {
-    return 'timestamp';
-  }
-
-  // Boolean
-  if (normalized.includes('bool')) {
-    return 'boolean';
-  }
-
-  // Default to string for unknown types
-  return 'string';
-}
+type ColumnInfo = IntrospectedColumn;
 
 /**
  * Check if a column is likely a timestamp column
  */
 function isTimestampColumn(column: ColumnInfo): boolean {
   const name = column.name.toLowerCase();
-  const type = column.type.toLowerCase();
 
   return (
-    type.includes('date') ||
-    type.includes('datetime') ||
+    column.temporal ||
     name.includes('timestamp') ||
     name.includes('_at') ||
     name === 'created' ||
@@ -123,14 +91,7 @@ function isTenantKeyCandidate(column: ColumnInfo): boolean {
  * Check if a column is numeric and suitable for measures
  */
 function isNumericColumn(column: ColumnInfo): boolean {
-  const type = column.type.toLowerCase();
-
-  return (
-    type.includes('int') ||
-    type.includes('float') ||
-    type.includes('double') ||
-    type.includes('decimal')
-  );
+  return column.numeric;
 }
 
 /**
@@ -206,16 +167,14 @@ function generateLabel(columnName: string): string {
  * Generate dataset definition code for a single table
  */
 async function generateDatasetForTable(
-  client: TypeGenerationClickHouseClient,
-  tableName: string,
+  introspector: SchemaIntrospector,
+  table: IntrospectedTable,
+  exportNames: ReadonlyMap<string, string>,
+  foreignKeys: readonly IntrospectedForeignKey[],
   tenantColumn?: string
-): Promise<{ code: string; warnings: DatasetGenerationWarning[] }> {
-  // Get column information
-  const columnsQuery = await client.query({
-    query: `DESCRIBE TABLE ${tableName}`,
-    format: 'JSONEachRow',
-  });
-  const columns = await columnsQuery.json() as unknown as ColumnInfo[];
+): Promise<{ code: string; warnings: DatasetGenerationWarning[]; usesRelationships: boolean }> {
+  const tableName = table.name;
+  const columns = await introspector.describeTable(table);
 
   // Determine timeKey (prefer created_at, then any timestamp column)
   const timestampColumns = columns.filter(isTimestampColumn);
@@ -258,7 +217,7 @@ async function generateDatasetForTable(
   const dimensionLines: string[] = [];
   for (const column of columns) {
     const fieldName = columnToCamelCase(column.name);
-    const dimensionType = clickhouseToDimensionType(column.type);
+    const dimensionType = column.dimensionType;
     const label = generateLabel(column.name);
 
     // Skip if column name === fieldName (no transformation needed)
@@ -298,7 +257,7 @@ async function generateDatasetForTable(
   const datasetName = tableToPascalCase(tableName);
   const configLines: string[] = [];
 
-  configLines.push(`  source: '${tableName}',`);
+  configLines.push(`  source: '${table.source}',`);
 
   if (timeKeyColumn) {
     configLines.push(`  timeKey: '${timeKeyColumn.name}',`);
@@ -321,27 +280,57 @@ async function generateDatasetForTable(
   configLines.push(...measureLines);
   configLines.push(`  },`);
 
+  const relationshipLines = relationshipDefinitions(columns, foreignKeys, exportNames);
+  if (relationshipLines.length > 0) {
+    configLines.push(`  relationships: {`);
+    configLines.push(...relationshipLines);
+    configLines.push(`  },`);
+  }
+
   return {
     code: `export const ${datasetName}Dataset = dataset('${tableName}', {
 ${configLines.join('\n')}
 });
 `,
     warnings,
+    usesRelationships: relationshipLines.length > 0,
   };
+}
+
+/**
+ * `belongsTo` relationships from single-column foreign keys. A relationship is
+ * named for its key column without the `_id`/`Id` suffix (`customer_id` →
+ * `customer`), falling back to the target dataset when that name is taken.
+ * Keys are physical columns on both sides.
+ */
+function relationshipDefinitions(
+  columns: readonly ColumnInfo[],
+  foreignKeys: readonly IntrospectedForeignKey[],
+  exportNames: ReadonlyMap<string, string>,
+): string[] {
+  const taken = new Set(columns.map((column) => columnToCamelCase(column.name)));
+  const lines: string[] = [];
+  for (const key of foreignKeys) {
+    const target = exportNames.get(key.target);
+    if (!target) continue;
+    const stem = key.column.replace(/(_id|Id)$/, '');
+    let name = columnToCamelCase(stem === key.column ? `${key.column}_ref` : stem);
+    if (taken.has(name)) name = columnToCamelCase(key.target);
+    if (taken.has(name)) continue;
+    taken.add(name);
+    lines.push(`    ${name}: belongsTo(() => ${target}, { from: '${key.column}', to: '${key.targetColumn}' }),`);
+  }
+  return lines;
 }
 
 /**
  * Generate dataset definitions from ClickHouse schema
  */
 export async function generateDatasets(options: DatasetGeneratorOptions) {
-  const client = options.client ?? getClickHouseClient();
+  const introspector = options.introspector ?? clickhouseIntrospector(options.client ?? getClickHouseClient());
 
   // Get all tables
-  const tablesQuery = await client.query({
-    query: 'SHOW TABLES',
-    format: 'JSONEachRow',
-  });
-  let tables = await tablesQuery.json() as unknown as Array<{ name: string }>;
+  let tables = await introspector.listTables();
 
   // Filter tables
   if (options.includeTables && options.includeTables.length > 0) {
@@ -352,9 +341,6 @@ export async function generateDatasets(options: DatasetGeneratorOptions) {
     tables = tables.filter((table) => !options.excludeTables!.includes(table.name));
   }
 
-  // Filter out system tables
-  tables = tables.filter((table) => !table.name.startsWith('system.') && !table.name.startsWith('.inner'));
-
   if (tables.length === 0) {
     throw new Error('No tables found matching the specified criteria');
   }
@@ -362,18 +348,25 @@ export async function generateDatasets(options: DatasetGeneratorOptions) {
   // Generate dataset definitions
   const datasetDefinitions: string[] = [];
   const warnings: DatasetGenerationWarning[] = [];
+  const exportNames = new Map(tables.map((table) => [table.name, `${tableToPascalCase(table.name)}Dataset`]));
+  const foreignKeys = introspector.foreignKeys ? await introspector.foreignKeys(tables) : new Map();
+  let usesRelationships = false;
 
   for (const table of tables) {
-    const generated = await generateDatasetForTable(client, table.name, options.tenantColumn);
+    const generated = await generateDatasetForTable(
+      introspector, table, exportNames, foreignKeys.get(table.name) ?? [], options.tenantColumn,
+    );
     datasetDefinitions.push(generated.code);
     warnings.push(...generated.warnings);
+    usesRelationships ||= generated.usesRelationships;
   }
 
   // Build the complete output file
+  const imports = usesRelationships ? 'belongsTo, dataset, dimension, measure' : 'dataset, dimension, measure';
   const header = `// Generated by @hypequery/cli
-// This file defines dataset definitions based on your ClickHouse database schema
+// This file defines dataset definitions based on your ${introspector.engine} database schema
 
-import { dataset, dimension, measure } from '@hypequery/datasets';
+import { ${imports} } from '@hypequery/datasets';
 
 `;
 

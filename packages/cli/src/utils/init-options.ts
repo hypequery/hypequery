@@ -3,16 +3,16 @@ import type { InitStyle } from './prompts.js';
 import type { AuthTemplateMode } from '../templates/queries.js';
 import type { DatabaseType } from './detect-database.js';
 
-type InitDatabase = Extract<DatabaseType, 'clickhouse' | 'chdb'>;
+type InitDatabase = Extract<DatabaseType, 'clickhouse' | 'chdb' | 'postgres'>;
 
 export function normalizeInitDatabase(database: InitOptions['database']): InitDatabase {
   if (!database || database === 'clickhouse') {
     return 'clickhouse';
   }
-  if (database === 'chdb') {
-    return 'chdb';
+  if (database === 'chdb' || database === 'postgres') {
+    return database;
   }
-  throw new Error(`Unsupported database "${database}". Use "clickhouse" or "chdb".`);
+  throw new Error(`Unsupported database "${database}". Use "clickhouse", "chdb" or "postgres".`);
 }
 
 export function normalizeInitStyle(style: InitOptions['style']): InitStyle {

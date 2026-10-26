@@ -135,7 +135,7 @@ program
   .description('Initialize a new hypequery project')
   .option('--path <path>', 'Output directory (default: analytics/)')
   .option('--style <style>', 'Scaffold style: queries or datasets')
-  .option('--database <type>', 'Database driver: clickhouse (default) or chdb for embedded, zero-server ClickHouse')
+  .option('--database <type>', 'Database driver: clickhouse (default), chdb for embedded ClickHouse, or postgres')
   .option('--chdb-path <path>', 'Embedded chDB data directory (with --database chdb; omit for in-memory)')
   .option('--auth <mode>', 'Auth scaffold mode: none or context')
   .option('--all-tables', 'Generate datasets for all discovered tables when using --style datasets')
@@ -192,7 +192,7 @@ addTypeGenerationOptions(program.command('generate:types'))
 
 program
   .command('generate:datasets')
-  .description('Generate dataset definitions from ClickHouse schema')
+  .description('Generate dataset definitions from a ClickHouse or Postgres schema')
   .option('-o, --output <path>', 'Output file (default: analytics/datasets.ts)')
   .option('--path <path>', 'Analytics directory (derives <path>/datasets.ts)')
   .option('--tables <names>', 'Only generate for specific tables (comma-separated)')
@@ -201,6 +201,7 @@ program
     '--tenant-column <column>',
     'Set tenantKey to this column on tables that have it (requires a trusted runtime tenant scope)',
   )
+  .option('--database <type>', 'Database to introspect: clickhouse or postgres (default: auto-detect)')
   .option('--force', 'Replace an existing output file when generated contents differ')
   .option('--check', 'Exit with an error when the output file is missing or out of date')
   .option('--diff', 'Print generated changes without writing them')

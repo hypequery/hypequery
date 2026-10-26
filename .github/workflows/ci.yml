@@ -140,13 +140,67 @@ jobs:
           NODE_OPTIONS: "--experimental-vm-modules --experimental-global-webcrypto --no-warnings"
       - name: Run smoke tests
         run: pnpm smoke:consumers
+  # @hypequery/postgres against each supported Postgres, and the cross-engine
+  # parity suite: identical rows in ClickHouse and Postgres, identical results.
+  postgres:
+    name: postgres (${{ matrix.postgres-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        postgres-version: ['14', '17']
+    services:
+      postgres:
+        image: postgres:${{ matrix.postgres-version }}
+        ports:
+          - 5432:5432
+        env:
+          POSTGRES_HOST_AUTH_METHOD: trust
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      clickhouse:
+        image: clickhouse/clickhouse-server:latest
+        ports:
+          - 8123:8123
+        env:
+          CLICKHOUSE_USER: default
+          CLICKHOUSE_PASSWORD: hypequery_test
+          CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: 1
+        options: >-
+          --health-cmd "wget --no-verbose --tries=1 --spider http://localhost:8123/ping || exit 1"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v7
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+      - name: Setup Node.js
+        uses: actions/setup-node@v7.1.0
+        with:
+          node-version: '22'
+          cache: 'pnpm'
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Build the Postgres package and its dependencies
+        run: pnpm turbo run build --filter='@hypequery/postgres...'
+      - name: Run Postgres integration and cross-engine parity tests
+        run: pnpm --filter @hypequery/postgres test:integration
+        env:
+          POSTGRES_URL: postgres://postgres@localhost:5432/postgres
+          CLICKHOUSE_URL: http://localhost:8123
+          CLICKHOUSE_PASSWORD: hypequery_test
+
   python-clients:
     uses: ./.github/workflows/python-clients.yml
     with:
       ref: ${{ github.sha }}
 
   canary-release:
-    needs: [build, python-clients]
+    needs: [build, postgres, python-clients]
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     permissions:
@@ -180,6 +234,7 @@ jobs:
           "@hypequery/serve": patch
           "@hypequery/cli": patch
           "@hypequery/mcp": patch
+          "@hypequery/postgres": patch
           "@hypequery/protocol": patch
           "@hypequery/protocol-conformance": patch
           "@hypequery/react": patch
@@ -203,6 +258,8 @@ jobs:
               packages/mcp-server/package.json \
               packages/mcp-server/CHANGELOG.md \
               packages/mcp-server/src/version.ts \
+              packages/postgres/package.json \
+              packages/postgres/CHANGELOG.md \
               packages/protocol/package.json \
               packages/protocol/CHANGELOG.md \
               packages/protocol-conformance/package.json \
@@ -223,7 +280,7 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
   release:
-    needs: [build, python-clients]
+    needs: [build, postgres, python-clients]
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     permissions:

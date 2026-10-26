@@ -47,3 +47,12 @@ describe('generateClientTemplate', () => {
     expect(result).toContain('in-memory session');
   });
 });
+
+describe('generateClientTemplate (postgres)', () => {
+  it('builds a Postgres query builder over a pool from DATABASE_URL', () => {
+    const template = generateClientTemplate({ database: 'postgres' });
+    expect(template).toContain("import { createPostgresQueryBuilder } from '@hypequery/postgres';");
+    expect(template).toContain('new pg.Pool({ connectionString: process.env.DATABASE_URL })');
+    expect(template).not.toContain('@hypequery/clickhouse');
+  });
+});

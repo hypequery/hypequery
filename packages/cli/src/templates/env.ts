@@ -30,6 +30,19 @@ CLICKHOUSE_PASSWORD=${config.password}
 `;
 }
 
+/** Generate .env file content for Postgres. */
+export function generatePostgresEnvTemplate(url: string): string {
+  return url.includes('YOUR_')
+    ? `# Hypequery Configuration
+# Replace this placeholder with your Postgres connection URL
+
+DATABASE_URL=${url}
+`
+    : `# Hypequery Configuration
+DATABASE_URL=${url}
+`;
+}
+
 /**
  * Append to existing .env file
  */
@@ -45,7 +58,9 @@ export function appendToEnv(existingContent: string, newContent: string): string
       let endIndex = startIndex + 1;
       while (
         endIndex < lines.length &&
-        (lines[endIndex].startsWith('CLICKHOUSE_') || lines[endIndex].trim() === '')
+        (lines[endIndex].startsWith('CLICKHOUSE_')
+          || lines[endIndex].startsWith('DATABASE_URL=')
+          || lines[endIndex].trim() === '')
       ) {
         endIndex++;
       }

@@ -89,6 +89,9 @@ importers:
       ora:
         specifier: ^8.0.1
         version: 8.2.0
+      pg:
+        specifier: ^8.13.1
+        version: 8.23.1
       prompts:
         specifier: ^2.4.2
         version: 2.4.2
@@ -102,6 +105,9 @@ importers:
       '@types/node':
         specifier: ^20.11.30
         version: 20.19.31
+      '@types/pg':
+        specifier: ^8.11.10
+        version: 8.23.1
       '@types/prompts':
         specifier: ^2.4.9
         version: 2.4.9
