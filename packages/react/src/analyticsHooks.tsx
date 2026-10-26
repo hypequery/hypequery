@@ -8,6 +8,7 @@ import type {
 import { createHooks, type CreateHooksConfig } from './createHooks.js';
 import { HttpError } from './errors.js';
 import type { ExtractNames, QueryInput, QueryOutput, QueryOutputForInput } from './types.js';
+import type { WithPageMeta } from './utils/response-meta.js';
 
 type DatasetKey<Name extends string> = `dataset:${Name}`;
 type DatasetNamesFromApi<Api> =
@@ -100,9 +101,9 @@ export function createAnalyticsHooks<
   function useInfiniteMetric<Name extends MetricName, const TInput extends QueryInput<Api, Name>>(
     name: Name,
     input: TInput,
-    options?: InfiniteQueryOptions<Api, Name, QueryOutputForInput<Api, Name, TInput>>,
+    options?: InfiniteQueryOptions<Api, Name, WithPageMeta<QueryOutputForInput<Api, Name, TInput>>>,
   ): UseInfiniteQueryResult<
-    InfiniteData<QueryOutputForInput<Api, Name, TInput>, number>,
+    InfiniteData<WithPageMeta<QueryOutputForInput<Api, Name, TInput>>, number>,
     HttpError
   > {
     return (hooks.useInfiniteQuery as any)(name, input, options);
@@ -117,11 +118,11 @@ export function createAnalyticsHooks<
     options?: InfiniteQueryOptions<
       Api,
       Extract<ExtractNames<Api>, DatasetKey<Name>>,
-      QueryOutputForInput<Api, Extract<ExtractNames<Api>, DatasetKey<Name>>, TInput>
+      WithPageMeta<QueryOutputForInput<Api, Extract<ExtractNames<Api>, DatasetKey<Name>>, TInput>>
     >,
   ): UseInfiniteQueryResult<
     InfiniteData<
-      QueryOutputForInput<Api, Extract<ExtractNames<Api>, DatasetKey<Name>>, TInput>,
+      WithPageMeta<QueryOutputForInput<Api, Extract<ExtractNames<Api>, DatasetKey<Name>>, TInput>>,
       number
     >,
     HttpError

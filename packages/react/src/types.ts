@@ -1,4 +1,5 @@
 import type { ClientOutputForInput } from './utils/client-projection.js';
+import type { WithRequestedMeta } from './utils/response-meta.js';
 
 export type HttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
 
@@ -91,7 +92,9 @@ type LegacyOutputForInput<
   : QueryOutput<Api, Name>;
 
 /** Narrow generated client rows while retaining the legacy semantic and ordinary API contracts. */
-export type QueryOutputForInput<Api, Name extends ExtractNames<Api>, TInput> =
+export type QueryOutputForInput<Api, Name extends ExtractNames<Api>, TInput> = WithRequestedMeta<
   '__hypequeryClientSemantic' extends keyof Api[Name]
     ? ClientOutputForInput<NonNullable<Api[Name]['__hypequeryClientSemantic']>, TInput, QueryOutput<Api, Name>>
-    : LegacyOutputForInput<Api, Name, TInput>;
+    : LegacyOutputForInput<Api, Name, TInput>,
+  TInput
+>;

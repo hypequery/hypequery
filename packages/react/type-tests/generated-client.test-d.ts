@@ -1,5 +1,5 @@
 import { createAnalyticsHooks, createHypequeryClient, type QueryOutputForInput } from '../src/index.js';
-import { clientManifest, type ClientApi } from './client-contract.generated.js';
+import { clientManifest, type ClientApi, type ClientResponseMeta } from './client-contract.generated.js';
 import type { Expect, Equal } from '@type-challenges/utils';
 
 const hooks = createAnalyticsHooks<ClientApi>({ baseUrl: 'https://api.example.com', manifest: clientManifest });
@@ -29,6 +29,19 @@ const infinite = hooks.useInfiniteDataset('orders', { dimensions: ['amount'], me
 type Infinite = NonNullable<typeof infinite.data>['pages'][number]['data'][number];
 export type _InfiniteKeys = Expect<Equal<keyof Infinite, 'amount' | 'averageRevenue'>>;
 export type _InfiniteNumber = Expect<Equal<Infinite['amount'], number | string | null>>;
+
+// includeMeta: true guarantees metadata; otherwise it stays optional.
+const withMeta = hooks.useDataset('orders', { measures: ['revenue'], includeMeta: true });
+export type _RequestedMeta = Expect<Equal<NonNullable<typeof withMeta.data>['meta'], ClientResponseMeta>>;
+export type _RequestedMetaRows = Expect<Equal<keyof NonNullable<typeof withMeta.data>['data'][number], 'revenue'>>;
+const withoutMeta = hooks.useDataset('orders', { measures: ['revenue'] });
+export type _OptionalMeta = Expect<Equal<NonNullable<typeof withoutMeta.data>['meta'], ClientResponseMeta | null | undefined>>;
+const metricMeta = hooks.useMetric('ordersRevenue', { includeMeta: true });
+export type _MetricMeta = Expect<Equal<NonNullable<typeof metricMeta.data>['meta']['pagination']['hasMore'], boolean>>;
+// Infinite queries always request metadata, so each page carries it.
+export type _InfiniteMeta = Expect<Equal<NonNullable<typeof infinite.data>['pages'][number]['meta'], ClientResponseMeta>>;
+const infiniteMetric = hooks.useInfiniteMetric('ordersRevenue', { limit: 5 });
+export type _InfiniteMetricMeta = Expect<Equal<NonNullable<typeof infiniteMetric.data>['pages'][number]['meta'], ClientResponseMeta>>;
 
 // Widened or optional selections cannot promise that every possible field is present.
 declare const dynamic: ClientApi['dataset:orders']['input'];
