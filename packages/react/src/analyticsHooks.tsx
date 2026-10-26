@@ -32,6 +32,12 @@ type QueryOptions<Api, Key extends ExtractNames<Api>> = Omit<
   'queryKey' | 'queryFn'
 >;
 
+/** Query options whose `select` receives the projected response; `TData` is what `select` returns. */
+type ProjectedQueryOptions<Api, Key extends ExtractNames<Api>, TProjected, TData> = Omit<
+  TanstackUseQueryOptions<TProjected, HttpError, TData, QueryKey<Key, QueryInput<Api, Key>>>,
+  'queryKey' | 'queryFn'
+>;
+
 /** Infinite-query options parameterized by the projected page type. */
 type InfiniteQueryOptions<Api, Key extends ExtractNames<Api>, TPage> = Omit<
   TanstackUseInfiniteQueryOptions<
@@ -65,11 +71,15 @@ export function createAnalyticsHooks<
   function useMetric<Name extends MetricName>(
     ...args: QueryInput<Api, Name> extends never ? [name: Name, options?: QueryOptions<Api, Name>] : never
   ): UseQueryResult<QueryOutput<Api, Name>, HttpError>;
-  function useMetric<Name extends MetricName, const TInput extends QueryInput<Api, Name>>(
+  function useMetric<
+    Name extends MetricName,
+    const TInput extends QueryInput<Api, Name>,
+    TData = QueryOutputForInput<Api, Name, TInput>,
+  >(
     name: Name,
     input: TInput,
-    options?: QueryOptions<Api, Name>,
-  ): UseQueryResult<QueryOutputForInput<Api, Name, TInput>, HttpError>;
+    options?: ProjectedQueryOptions<Api, Name, QueryOutputForInput<Api, Name, TInput>, TData>,
+  ): UseQueryResult<TData, HttpError>;
   function useMetric(
     ...args: any[]
   ): UseQueryResult<any, HttpError> {
@@ -85,11 +95,17 @@ export function createAnalyticsHooks<
   function useDataset<
     Name extends DatasetNamesFromApi<Api>,
     const TInput extends QueryInput<Api, Extract<ExtractNames<Api>, DatasetKey<Name>>>,
+    TData = QueryOutputForInput<Api, Extract<ExtractNames<Api>, DatasetKey<Name>>, TInput>,
   >(
     name: Name,
     input: TInput,
-    options?: QueryOptions<Api, Extract<ExtractNames<Api>, DatasetKey<Name>>>,
-  ): UseQueryResult<QueryOutputForInput<Api, Extract<ExtractNames<Api>, DatasetKey<Name>>, TInput>, HttpError>;
+    options?: ProjectedQueryOptions<
+      Api,
+      Extract<ExtractNames<Api>, DatasetKey<Name>>,
+      QueryOutputForInput<Api, Extract<ExtractNames<Api>, DatasetKey<Name>>, TInput>,
+      TData
+    >,
+  ): UseQueryResult<TData, HttpError>;
   function useDataset(
     ...args: any[]
   ): UseQueryResult<any, HttpError> {

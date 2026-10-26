@@ -43,6 +43,36 @@ export type _InfiniteMeta = Expect<Equal<NonNullable<typeof infinite.data>['page
 const infiniteMetric = hooks.useInfiniteMetric('ordersRevenue', { limit: 5 });
 export type _InfiniteMetricMeta = Expect<Equal<NonNullable<typeof infiniteMetric.data>['pages'][number]['meta'], ClientResponseMeta>>;
 
+// select receives the projected response and decides the result type.
+const selectedMeta = hooks.useDataset('orders', { measures: ['revenue'], includeMeta: true }, {
+  select: (response) => {
+    type _SelectInput = Expect<Equal<typeof response.meta, ClientResponseMeta>>;
+    return { rows: response.data };
+  },
+});
+export type _SelectedResult = Expect<Equal<keyof NonNullable<typeof selectedMeta.data>, 'rows'>>;
+// @ts-expect-error a select result without meta has no meta to read
+selectedMeta.data?.meta;
+const selectedMetric = hooks.useMetric('ordersRevenue', { includeMeta: true }, { select: (response) => response.meta.rowCount });
+export type _SelectedMetric = Expect<Equal<typeof selectedMetric.data, number | undefined>>;
+
+// Union outputs keep each variant's fields when meta is narrowed.
+type VariantMeta = { requestId: string };
+type VariantApi = {
+  report: {
+    input: { includeMeta?: boolean };
+    output: { kind: 'ok'; value: number; meta?: VariantMeta } | { kind: 'empty'; reason: string; meta?: VariantMeta };
+  };
+};
+type Variants = QueryOutputForInput<VariantApi, 'report', { includeMeta: true }>;
+declare const variant: Variants;
+if (variant.kind === 'ok') {
+  const value: number = variant.value;
+} else {
+  const reason: string = variant.reason;
+}
+export type _VariantMeta = Expect<Equal<Variants['meta'], VariantMeta>>;
+
 // Widened or optional selections cannot promise that every possible field is present.
 declare const dynamic: ClientApi['dataset:orders']['input'];
 const widened = hooks.useDataset('orders', dynamic);
