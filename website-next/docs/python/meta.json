@@ -1,6 +1,6 @@
 {
   "title": "Python",
-  "description": "Datasets · beta",
+  "description": "Datasets \u00b7 beta",
   "root": "language",
   "pages": [
     "---Get started---",
@@ -24,6 +24,10 @@
     "---Serve---",
     "(serve)/fastapi",
     "(serve)/dataset-endpoints",
+    "---Clients---",
+    "(serve)/client-endpoints",
+    "[React hooks](/docs/react/getting-started#datasets-served-from-python)",
+    "[MCP for agents](/docs/mcp/overview#datasets-served-from-python)",
     "---Security---",
     "(serve)/authentication",
     "(serve)/multi-tenancy",

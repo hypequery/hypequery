@@ -14,13 +14,17 @@ The Python SDK lets you define a semantic layer over ClickHouse (datasets with d
 relationships) and query it from Python, with tenant isolation and result caching built in, then serve it over HTTP with an
 authenticated-by-default FastAPI router.
 
+The same served endpoints can feed generated, type-safe React hooks (`@hypequery/react`) and AI agents through the
+`hypequery mcp` bridge, so the frontend and agents use the definitions Python owns. See
+[React and MCP clients](/docs/python/client-endpoints).
+
 Python and TypeScript implement the same specifications and run against the same conformance fixtures, so equivalent
 definitions produce identical semantic and deployment artifacts. The APIs are idiomatic to each language rather than
 line-for-line ports. The Python SDK does not include the TypeScript query builder.
 
 ## Install
 
-Once published, the SDK installs with optional extras for each executor and for serving:
+Install the SDK with optional extras for each executor and for serving:
 
 <CodeBlock>
 ```bash
@@ -48,4 +52,5 @@ Python 3.11 or later is required.
 - [Quick start](/docs/python/quick-start): define a dataset and run a query.
 - [Python CLI](/docs/python/cli): scaffold a project from your ClickHouse schema and serve it locally.
 - [Serve with FastAPI](/docs/python/fastapi): expose datasets as authenticated HTTP endpoints.
+- [React and MCP clients](/docs/python/client-endpoints): generated React hooks and agent tools over the same endpoints.
 - [Feature status](/docs/python/feature-status): what is available in Python today compared with TypeScript.

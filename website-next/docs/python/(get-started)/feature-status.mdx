@@ -23,11 +23,11 @@ The Python SDK is in beta. This table tracks coverage against the TypeScript pac
 | Segments | Available | Planned |
 | Relationship checks | Available | Available (`check_relationships`) |
 | Cloud publishing | Available | Bundle export available (`write_dataset_bundle`); one-step publish planned |
-| MCP server for AI agents | Available | Through the Node MCP server over exported [client contracts](/docs/python-client-workflow); no native Python server |
+| MCP server for AI agents | Available | Through the Node `hypequery mcp` bridge over the server's live client contract ([setup](/docs/python/client-endpoints)); no native Python server |
 | Tool generation for agents | Available | Under consideration |
 | Serve: auth, CORS, rate limiting, errors | Available | Available |
 | Serve: dataset query endpoints and discovery | Available | Available |
 | CLI (`init`, `generate datasets`, `dev`, `export client-contract`) | Available | Available |
-| Generated React hooks | Available | Available via exported client contracts |
+| Generated React hooks | Available | Available via exported client contracts and `generate:client` ([setup](/docs/python/client-endpoints)) |
 | Query builder | Available | Not planned |
 | Named metrics | Available | Not planned. Use metric endpoints or derived measures |

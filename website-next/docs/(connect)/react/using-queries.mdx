@@ -192,29 +192,95 @@ function OrdersRollup() {
 
 Both hooks validate against the server-side contract: an invalid dimension, measure, or filter returns a `400` error you can handle the same way as any other query. For cursor-free pagination, see [`useInfiniteDataset`](/docs/react/advanced-patterns#infinite-queries).
 
-## Error Handling
+Rows contain the fields you selected. Measure values arrive as strings (or `null`) so decimals keep their precision;
+convert them with a decimal library rather than `Number(...)` when exact arithmetic matters.
 
-Errors from your hypequery API are structured:
+Pass `includeMeta: true` to also receive `meta` with `requestId`, `timingMs`, `rowCount` and
+`pagination: { limit, offset, hasMore }`.
+
+## `useMetric`
+
+`useMetric` queries a metric endpoint: one measure, optionally grouped by dimensions or a time grain. It takes the same
+input as `useDataset` without `measures` or `having`, and each row carries the metric under its name:
 
 <CodeBlock>
 <Pre>
 ```tsx
-const { data, error } = useQuery('weeklyRevenue', { startDate: '2025-01-01' });
+import { useMetric } from '@/lib/analytics';
 
-if (error) {
-  // Validation errors from hypequery
-  if (error.status === 400) {
-    return <div>Invalid input: {error.message}</div>;
-  }
+function MonthlyRevenue() {
+  const { data } = useMetric('revenue', {
+    by: 'month',
+    filters: [{ field: 'createdAt', operator: 'between', value: ['2026-01-01T00:00:00Z', '2026-03-31T23:59:59Z'] }],
+    orderBy: [{ field: 'period', direction: 'asc' }],
+  });
 
-  // Network errors
-  if (error.name === 'TypeError') {
-    return <div>Network error. Please check your connection.</div>;
-  }
-
-  // Generic error
-  return <div>Something went wrong: {error.message}</div>;
+  return (
+    <ul>
+      {data?.data.map((row) => (
+        <li key={row.period}>{row.period}: {row.revenue}</li>
+      ))}
+    </ul>
+  );
 }
+```
+</Pre>
+</CodeBlock>
+
+With `by`, each row also has `period`, the start of its time bucket. `useInfiniteMetric` pages through a metric the same
+way [`useInfiniteDataset`](/docs/react/advanced-patterns#infinite-queries) pages through a dataset.
+
+For a TypeScript backend, pass `metrics` to `createAnalyticsHooks` to limit which names `useMetric` accepts. A client
+generated from a Python backend already knows its metric endpoints.
+
+## Error Handling
+
+Failed requests reject with an `HttpError`, exported from `@hypequery/react`. It has the HTTP `status` and the parsed
+response `body`; for hypequery endpoints the body is `{ error: { type, message, details? } }`. `error.message` itself is
+a generic description of the failed request, so read the server's message from the body:
+
+<CodeBlock>
+<Pre>
+```tsx
+import { HttpError } from '@hypequery/react';
+
+type ServerError = { error?: { type?: string; message?: string; details?: { code?: string } } };
+
+function errorMessage(error: unknown): string {
+  if (!(error instanceof HttpError)) return 'Network error. Please check your connection.';
+
+  const server = (error.body as ServerError | null)?.error;
+  if (error.status === 409 && server?.details?.code === 'CLIENT_SCHEMA_CHANGED') {
+    return 'This page is out of date. Reload to get the latest version.';
+  }
+  if (error.status === 400) return `Invalid query: ${server?.message ?? 'check the request'}`;
+  if (error.status === 401 || error.status === 403) return 'You are not allowed to see this data.';
+  return `Something went wrong (${error.status}).`;
+}
+
+const { error } = useQuery('weeklyRevenue', { startDate: '2025-01-01' });
+if (error) return <div>{errorMessage(error)}</div>;
+```
+</Pre>
+</CodeBlock>
+
+`body` is typed `unknown` because servers and proxies can return any payload; narrow it before reading fields.
+
+A `409` with `CLIENT_SCHEMA_CHANGED` comes from clients generated from a Python backend: the server's definitions changed
+after the client was generated. Retrying cannot succeed. Regenerate the client and redeploy the frontend; see
+[Datasets served from Python](/docs/react/getting-started#datasets-served-from-python).
+
+## Queries without input
+
+For a query that takes no input, pass TanStack options as the second argument. If the call could be read as input,
+wrap the options in `queryOptions` so the hook treats them as options:
+
+<CodeBlock>
+<Pre>
+```tsx
+import { queryOptions } from '@hypequery/react';
+
+const { data } = useQuery('activeUsers', queryOptions({ enabled: isSignedIn }));
 ```
 </Pre>
 </CodeBlock>

@@ -86,8 +86,9 @@ curl -X POST https://analytics.example.com/datasets/orders/query \
 Requests and responses use the same shape as the TypeScript Serve runtime, pinned by shared HTTP fixtures that run
 against both implementations in CI.
 
-These endpoints serve applications over HTTP. There is no Python MCP server yet, so AI agents cannot connect to
-Python datasets directly. In TypeScript, `hypequery mcp` provides this today.
+These endpoints serve applications over HTTP. To give React apps generated, type-safe hooks and AI agents MCP tools
+over the same endpoints, install them with a client profile; see [React and MCP clients](/docs/python/client-endpoints).
+Agents connect through the Node `hypequery mcp` bridge; there is no native Python MCP server.
 
 ## Defaults
 

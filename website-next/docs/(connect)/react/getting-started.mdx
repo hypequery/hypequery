@@ -20,7 +20,7 @@ npm install @hypequery/react @tanstack/react-query
 </Pre>
 </CodeBlock>
 
-Peer dependencies: `react` and `react-dom` `^18 || ^19`, and `@tanstack/react-query@^5.104.2`.
+Peer dependencies: `react` and `react-dom` `^18 || ^19`, and `@tanstack/react-query@^5.104.5`.
 
 ## Setup
 
@@ -204,9 +204,11 @@ python -m hypequery export client-contract --factory client_contract:build --out
 </Pre>
 </CodeBlock>
 
-Or fetch it from a running server's `/v1/client-contract` route
-(`add_client_contract_endpoint`). Both give the same schema hashes for the same
-definitions.
+Or export it from the configured application with
+`hypequery.serve.export_client_contract(app)`; both produce the same build contract.
+Don't generate from the live `/v1/client-contract` route: it returns the caller's
+**authorized** view for MCP and discovery, and `generate:client` refuses it. See
+[Python: React and MCP clients](/docs/python/client-endpoints) for the backend setup.
 
 **2. Generate the client** in the React app. `generate:client` lives in the Node
 CLI, so install it as a dev dependency first; `npx hypequery` alone will not find it:
@@ -292,7 +294,13 @@ it again, regenerate the client, and review the type errors.
 
 ### Result types
 
-- Omitted `measures` select the endpoint's default measures; `measures: []` selects none.
-- Measure values are strings or `null`.
-- Numeric dimensions may arrive as numbers or strings, and related fields may be `null`.
-- Selected fields are typed as optional properties, so check for them before use.
+- Rows contain exactly the selected fields. Omitted `measures` select the endpoint's
+  default measures; `measures: []` selects none.
+- Fields named in a literal selection (`dimensions: ['country']`) are always present.
+  Fields picked from a runtime `string[]` are optional, since the compiler can't know
+  which were chosen.
+- Measure values are `string | null`, so decimals keep their precision.
+- Numeric dimensions are `number | string | null`, and timestamps are strings.
+- Dimensions include `null`: the contract doesn't declare columns non-nullable, and
+  related fields are always nullable.
+- Metric rows contain the metric under its name, plus `period` when you pass `by`.

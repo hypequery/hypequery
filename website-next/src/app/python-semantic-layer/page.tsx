@@ -138,12 +138,12 @@ export default function PythonSemanticLayerPage() {
         {
           title: 'Open source',
           copy:
-            'Apache 2.0 licensed. Run it entirely in your own infrastructure against your own ClickHouse.',
+            'Apache 2.0 licensed and currently in beta. Run it entirely in your own infrastructure against your own ClickHouse.',
         },
         {
           title: 'Serving is optional',
           copy:
-            'Query datasets in-process, or add the FastAPI router when dashboards, customers, or agents need HTTP access.',
+            'Query datasets in-process, or add the FastAPI router when dashboards, customers, or agents need HTTP access. The same endpoints feed type-safe React hooks and MCP tools.',
         },
       ]}
       readingLinks={[
@@ -166,6 +166,11 @@ export default function PythonSemanticLayerPage() {
           href: '/clickhouse-fastapi',
           title: 'ClickHouse FastAPI',
           description: 'Serve your Python model as authenticated HTTP endpoints.',
+        },
+        {
+          href: '/docs/python/client-endpoints',
+          title: 'React and MCP clients',
+          description: 'Generated, type-safe React hooks and agent tools over your Python endpoints.',
         },
       ]}
       relatedPillars={[

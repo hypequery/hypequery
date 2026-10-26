@@ -9,8 +9,10 @@ Add a `RateLimit` to a route as a dependency:
 
 <CodeBlock>
 ```python
+from typing import Annotated
+
 from fastapi import Depends
-from hypequery.serve import RateLimit
+from hypequery.serve import RateLimit, RequestAuth
 
 
 @router.post("/reports/export", dependencies=[Depends(RateLimit(max=60, window_seconds=60))])
