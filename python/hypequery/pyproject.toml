@@ -19,6 +19,8 @@ classifiers = [
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
   "Programming Language :: Python :: 3.14",
+  "Framework :: FastAPI",
+  "Framework :: Pydantic :: 2",
   "Topic :: Database",
   "Typing :: Typed",
 ]
@@ -67,6 +69,8 @@ hypequery = "hypequery.cli:main"
 Homepage = "https://hypequery.com"
 Repository = "https://github.com/hypequery/hypequery"
 Issues = "https://github.com/hypequery/hypequery/issues"
+Documentation = "https://github.com/hypequery/hypequery/tree/main/python/hypequery#readme"
+Changelog = "https://github.com/hypequery/hypequery/blob/main/python/hypequery/CHANGELOG.md"
 
 [dependency-groups]
 dev = [
