@@ -1,2 +1,0 @@
-- Serve routes now map Starlette's `HTTPException` like FastAPI's, keeping its status and string `detail`. They previously returned `500` for it, and FastAPI raises it itself for a body it cannot parse. So a body with invalid UTF-8, or one nested past the recursion limit, now gets `400 VALIDATION_ERROR` instead of `500`, without logging a traceback.
-- Serve routes refuse a request body with any `Content-Encoding` other than `identity` with `415`. A gzip body previously got `500`. The body cap counts bytes as they arrive, so a compressed body is never expanded.

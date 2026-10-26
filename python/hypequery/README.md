@@ -11,9 +11,10 @@ A Python semantic layer for ClickHouse datasets, metrics, multi-tenant analytics
 
 The [complete client tutorial](https://github.com/hypequery/hypequery/blob/main/python/hypequery/examples/client_dashboard/README.md) shares one
 Python definition across authorized HTTP, generated React types and MCP stdio.
-Its preparation script uses an installed wheel and packed Node packages outside
-the checkout. Matching npm features remain in the development release stack;
-currently published packages may not support the complete journey yet.
+It works with the published npm packages (`@hypequery/cli` 1.25+,
+`@hypequery/react` 0.7+ and `@hypequery/mcp` 0.10+). Its preparation script
+builds the same journey from a checkout, using an installed wheel and packed
+Node packages outside the repository.
 
 ## Schema-backed Python CLI
 

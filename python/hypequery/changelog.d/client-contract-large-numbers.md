@@ -1,1 +1,0 @@
-- Canonicalize client-contract numbers beyond 2**53 with ECMAScript's shortest round-trip digits, matching TypeScript's `JSON.stringify`. Contract identities and schema hashes containing such a value no longer differ between the two implementations.
