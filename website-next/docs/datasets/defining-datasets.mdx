@@ -57,7 +57,19 @@ With `final: true`:
 
 `FINAL` makes queries do more work at read time. ClickHouse keeps it fast when the partition key separates keys and `do_not_merge_across_partitions_select_final` is enabled.
 
-A `final` dataset needs the query-builder execution path. Semantic backends and publishing to the deployment contract refuse it, rather than serving unresolved rows.
+To publish a versioned dataset to a deployment contract (hypequery Cloud, MCP), name the engine with `rowResolution` instead of `final: true`. It reads the same way, and also keeps only current rows: not deleted, or positive in a collapsing table.
+
+```ts
+export const Users = dataset('users', {
+  source: 'saas.users',
+  rowResolution: { kind: 'final', engine: 'replacing', deletedColumn: 'is_deleted' },
+  // For CollapsingMergeTree: { kind: 'final', engine: 'collapsing', signColumn: 'sign' }
+  dimensions: { plan: dimension.string() },
+  measures: { users: measure.count() },
+});
+```
+
+A `final` dataset needs the query-builder execution path. Semantic backends refuse it, and publishing refuses `final: true` without `rowResolution`, rather than serving unresolved rows.
 
 ## Module pattern
 
