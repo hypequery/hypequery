@@ -55,14 +55,14 @@ export function relationshipMeasureExpressions(ds: AnyDatasetInstance, name: str
   const { relationshipName, target, definition } = resolved;
   const marker = joinCtx.joinByRelationship.get(relationshipName)?.matchMarker;
   if (!marker) throw new Error(`Missing match marker for relationship measure "${name}".`);
-  const ownerContext = { ...joinCtx, baseSource: relationshipName };
+  const ownerContext = { ...joinCtx, baseSource: relationshipName, baseIsAlias: true };
   const spec: AggregationSpec = measureToAggregationSpec(name, definition);
   const matched = dialect.isNotNull(`${relationshipName}.${marker}`);
-  const field = definition.field === '*' ? `${relationshipName}.${marker}` : resolveDimensionExpression(target, definition.field, ownerContext);
+  const field = definition.field === '*' ? `${relationshipName}.${marker}` : resolveDimensionExpression(target, definition.field, ownerContext, dialect);
   const filtered = applyFilteredAggregationExpression(target, spec, field, ownerContext, dialect);
   return {
     definition,
     field: dialect.ifElse(matched, filtered, 'NULL'),
-    arg: definition.argField ? dialect.ifElse(matched, resolveDimensionExpression(target, definition.argField, ownerContext), 'NULL') : undefined,
+    arg: definition.argField ? dialect.ifElse(matched, resolveDimensionExpression(target, definition.argField, ownerContext, dialect), 'NULL') : undefined,
   };
 }

@@ -5,6 +5,10 @@ import { postgresDatasetSqlDialect } from './dialect/postgres-dataset-sql-dialec
 import { requireDriver } from './features/executor.js';
 import { PostgresQueryBuilder } from './postgres-query-builder.js';
 import { createSelectNode } from './query-node.js';
+import { quotePostgresQualifiedName } from './utils/identifiers.js';
+
+/** `table` or `schema.table` of plain identifiers; anything else (a subquery) is inserted verbatim. */
+const PLAIN_TABLE_NAME = /^[A-Za-z_][A-Za-z0-9_$]*(\.[A-Za-z_][A-Za-z0-9_$]*)?$/;
 
 export type CreatePostgresQueryBuilderOptions =
   | { readonly driver: PostgresDriver }
@@ -40,7 +44,11 @@ export function createPostgresQueryBuilder(options: CreatePostgresQueryBuilderOp
   const driver = resolveDriver(options);
   return Object.freeze({
     datasetSqlDialect: postgresDatasetSqlDialect,
-    table: (name: string) => new PostgresQueryBuilder({ node: createSelectNode(name), ...(driver ? { driver } : {}) }),
+    // Quoted, so a mixed-case table matches the quoted references the planner emits.
+    table: (name: string) => new PostgresQueryBuilder({
+      node: createSelectNode(PLAIN_TABLE_NAME.test(name) ? quotePostgresQualifiedName(name) : name),
+      ...(driver ? { driver } : {}),
+    }),
     rawQuery: <T>(sql: string, params: unknown[] = [], queryOptions?: PostgresQueryOptions) =>
       requireDriver(driver).query<T>(sql, params, queryOptions),
   });

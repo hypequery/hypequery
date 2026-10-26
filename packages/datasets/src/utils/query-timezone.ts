@@ -3,6 +3,7 @@ import type { AnyDatasetInstance, MetricFilter, MetricFilterOperator } from '../
 import { resolveDimensionFieldType, resolveFilterFieldType } from './filter-field-type.js';
 import { instantWallClock, parseTimestampInstant } from './timestamp-instants.js';
 import { mixedInstantListError } from '../validation.js';
+import type { QueryBuilderLike } from '../query-builder-protocol.js';
 
 /** Named zones only: reject fixed offsets, invalid zones, and SQL fragments. */
 export function isQueryTimezone(value: unknown): value is string {
@@ -58,6 +59,19 @@ export interface QueryTimePredicate {
   readonly operator: MetricFilterOperator;
   /** The value to bind, with instants rewritten to the wall clock of that zone. */
   readonly value: unknown;
+  /**
+   * The same predicate with the column left bare and each bound value
+   * converted instead, when the dialect can spell it (`queryTimeValue`).
+   */
+  readonly bareColumn?: { readonly column: string; readonly convert: (placeholder: string) => string };
+}
+
+/** Apply a time predicate, comparing the bare column when the builder and dialect allow it. */
+export function applyQueryTimePredicate(qb: QueryBuilderLike, predicate: QueryTimePredicate): QueryBuilderLike {
+  if (predicate.bareColumn && qb.whereConverted) {
+    return qb.whereConverted(predicate.bareColumn.column, predicate.operator, predicate.value, predicate.bareColumn.convert);
+  }
+  return qb.where(predicate.expression, predicate.operator, predicate.value);
 }
 
 export interface QueryTimeFilterOptions {
@@ -101,10 +115,23 @@ export function queryTimeFilter(
   const fieldType = callerFilter
     ? resolveFilterFieldType(ds, filter.field)
     : resolveDimensionFieldType(ds, filter.field);
-  const localExpression = callerFilter && isTimeKeyFilter(ds, filter.field)
-    ? queryTimeSql(dialect, expression, timezone)
-    : expression;
-  const local: QueryTimePredicate = { expression: localExpression, operator: filter.operator, value: filter.value };
+  const timeKey = callerFilter && isTimeKeyFilter(ds, filter.field);
+  const localExpression = timeKey ? queryTimeSql(dialect, expression, timezone) : expression;
+  // A bare column compared with converted values keeps an index usable. Only
+  // base fields: a probe cannot read a joined relationship's columns.
+  const bare = (zone: string) => dialect.queryTimeValue && !filter.field.includes('.')
+    ? {
+      column: expression,
+      convert: (placeholder: string) => dialect.queryTimeValue!(
+        placeholder, zone, `(SELECT ${expression} FROM ${dialect.quoteQualifiedName(ds.source)} LIMIT 0)`,
+      ),
+    }
+    : undefined;
+  const localBare = timeKey ? bare(canonicalTimezone(timezone)) : undefined;
+  const local: QueryTimePredicate = {
+    expression: localExpression, operator: filter.operator, value: filter.value,
+    ...(localBare && fieldType === 'timestamp' && filter.operator !== 'like' ? { bareColumn: localBare } : {}),
+  };
   if (fieldType !== 'timestamp' || filter.operator === 'like') return [local];
 
   const values = Array.isArray(filter.value) ? filter.value : [filter.value];
@@ -112,26 +139,31 @@ export function queryTimeFilter(
   if (!instants.some(Boolean)) return [local];
 
   const instantExpression = dialect.toQueryTimezone(expression, INSTANT_ZONE);
+  const instantBare = bare(INSTANT_ZONE);
+  const instantPredicate = (operator: MetricFilterOperator, value: unknown): QueryTimePredicate => ({
+    expression: instantExpression, operator, value, ...(instantBare ? { bareColumn: instantBare } : {}),
+  });
+  const localPredicate = (operator: MetricFilterOperator, value: unknown): QueryTimePredicate => ({ ...local, operator, value });
   const rewrite = (zone: string) => values.map((value, index) => {
     const instant = instants[index];
     return instant ? instantWallClock(instant, zone) : value;
   });
   if (instants.every(Boolean)) {
     const rewritten = rewrite(INSTANT_ZONE);
-    return [{ expression: instantExpression, operator: filter.operator, value: Array.isArray(filter.value) ? rewritten : rewritten[0] }];
+    return [instantPredicate(filter.operator, Array.isArray(filter.value) ? rewritten : rewritten[0])];
   }
 
   switch (filter.operator) {
     case 'between': {
       const bound = (index: number, operator: MetricFilterOperator): QueryTimePredicate => instants[index]
-        ? { expression: instantExpression, operator, value: instantWallClock(instants[index]!, INSTANT_ZONE) }
-        : { expression: localExpression, operator, value: values[index] };
+        ? instantPredicate(operator, instantWallClock(instants[index]!, INSTANT_ZONE))
+        : localPredicate(operator, values[index]);
       return [bound(0, 'gte'), bound(1, 'lte')];
     }
     case 'notIn':
       return [
-        { expression: localExpression, operator: 'notIn', value: values.filter((_, index) => !instants[index]) },
-        { expression: instantExpression, operator: 'notIn', value: rewrite(INSTANT_ZONE).filter((_, index) => instants[index]) },
+        localPredicate('notIn', values.filter((_, index) => !instants[index])),
+        instantPredicate('notIn', rewrite(INSTANT_ZONE).filter((_, index) => instants[index])),
       ];
     default:
       throw new Error(mixedInstantListError(filter.field));

@@ -54,6 +54,8 @@ export interface RelationshipBuilderContext {
   joinByRelationship: Map<string, ResolvedBuilderJoin>;
   /** Dialect the join sources and match guards were rendered with. */
   dialect: DatasetSqlDialectRules;
+  /** `baseSource` is a join alias (a relationship), not a physical source path. */
+  baseIsAlias?: boolean;
 }
 
 type QueryLike = Pick<DatasetQuery & MetricQuery, 'dimensions' | 'filters' | 'orderBy'> & Pick<DatasetQuery, 'measures'>;
@@ -122,8 +124,12 @@ export function buildRelationshipBuilderContext(
 export function qualifyBaseColumn(
   ctx: RelationshipBuilderContext | undefined,
   column: string,
+  dialect: DatasetSqlDialectRules,
 ): string {
-  return ctx ? `${ctx.baseSource}.${column}` : column;
+  // A join alias is declared unquoted, so only its column is quoted.
+  return ctx?.baseIsAlias
+    ? `${ctx.baseSource}.${dialect.columnReference(column)}`
+    : dialect.columnReference(column, ctx?.baseSource);
 }
 
 /**
@@ -154,7 +160,7 @@ export function resolveQualifiedExpression(
   }
   const { dialect } = ctx;
   const matched = dialect.isNotNull(`${relationshipName}.${join.matchMarker}`);
-  return dialect.ifElse(matched, `${relationshipName}.${targetColumn}`, 'NULL');
+  return dialect.ifElse(matched, `${relationshipName}.${dialect.columnReference(targetColumn)}`, 'NULL');
 }
 
 /**
@@ -184,7 +190,7 @@ export function applyRelationshipJoins(
     }
     const tenant = join.tenant
       ? {
-        column: `${join.relationship}.${join.tenant.field}`,
+        column: `${join.relationship}.${ctx.dialect.columnReference(join.tenant.field)}`,
         operator: join.tenant.operator,
         value: join.tenant.value,
       }
@@ -192,14 +198,14 @@ export function applyRelationshipJoins(
     if (join.keys && join.keys.length > 1) {
       // Key-pair form; @hypequery/clickhouse >= 2.13.0.
       const pairs = join.keys.map(key =>
-        [`${ctx.baseSource}.${key.from}`, `${join.relationship}.${key.to}`] as const);
+        [ctx.dialect.columnReference(key.from, ctx.baseSource), `${join.relationship}.${ctx.dialect.columnReference(key.to)}`] as const);
       qb = qb.leftAnyJoin(join.source, [pairs[0], ...pairs.slice(1)], join.relationship, tenant);
       continue;
     }
     qb = qb.leftAnyJoin(
       join.source,
-      `${ctx.baseSource}.${join.from}`,
-      `${join.relationship}.${join.to}`,
+      ctx.dialect.columnReference(join.from, ctx.baseSource),
+      `${join.relationship}.${ctx.dialect.columnReference(join.to)}`,
       join.relationship,
       tenant,
     );

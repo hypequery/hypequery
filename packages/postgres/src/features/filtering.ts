@@ -1,7 +1,7 @@
 import type { PostgresFilterOperator, PostgresSelectNode } from '../types.js';
 import { updateSelectNode } from '../query-node.js';
 
-const OPERATORS = new Set<string>(['eq', 'neq', 'gt', 'gte', 'lt', 'lte', 'in', 'notIn', 'like', 'between']);
+const OPERATORS = new Set<string>(['eq', 'neq', 'gt', 'gte', 'lt', 'lte', 'in', 'notIn', 'like', 'between', 'isNull', 'isNotNull']);
 
 export function isPostgresFilterOperator(operator: string): operator is PostgresFilterOperator {
   return OPERATORS.has(operator);
@@ -11,9 +11,11 @@ export function isPostgresFilterOperator(operator: string): operator is Postgres
 export class FilteringFeature {
   constructor(private readonly node: () => PostgresSelectNode) {}
 
-  where(column: string, operator: string, value: unknown): PostgresSelectNode {
+  where(column: string, operator: string, value: unknown, convert?: (placeholder: string) => string): PostgresSelectNode {
     if (!isPostgresFilterOperator(operator)) throw new Error(`Unsupported filter operator: ${operator}`);
     const node = this.node();
-    return updateSelectNode(node, { where: [...node.where, { kind: 'condition', column, operator, value }] });
+    return updateSelectNode(node, {
+      where: [...node.where, { kind: 'condition', column, operator, value, ...(convert ? { convert } : {}) }],
+    });
   }
 }

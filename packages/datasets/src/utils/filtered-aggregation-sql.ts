@@ -11,7 +11,7 @@ function renderMeasureFilterCondition(
   joinCtx: RelationshipBuilderContext | undefined,
   dialect: DatasetSqlDialectRules,
 ): string {
-  const field = resolveFilterField(ds, filter.field, joinCtx);
+  const field = resolveFilterField(ds, filter.field, joinCtx, dialect);
   const literal = (value: unknown) => dialect.measureFilterLiteral(value);
 
   switch (filter.operator) {

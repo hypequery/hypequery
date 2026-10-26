@@ -5,9 +5,12 @@ const COMPARISONS: Record<string, string> = {
 };
 
 /** Render one predicate, binding every value through `placeholder`. */
-export function compileCondition(condition: ConditionNode, placeholder: PlaceholderWriter): string {
-  const { column, operator, value } = condition;
+export function compileCondition(condition: ConditionNode, bindValue: PlaceholderWriter): string {
+  const { column, operator, value, convert } = condition;
+  const placeholder: PlaceholderWriter = convert ? item => convert(bindValue(item)) : bindValue;
   switch (operator) {
+    case 'isNull': return `${column} IS NULL`;
+    case 'isNotNull': return `${column} IS NOT NULL`;
     case 'in':
     case 'notIn': {
       const values = toList(value, operator);

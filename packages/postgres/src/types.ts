@@ -12,7 +12,8 @@ export interface SelectionNode {
 
 export type PostgresFilterOperator =
   | 'eq' | 'neq' | 'gt' | 'gte' | 'lt' | 'lte'
-  | 'in' | 'notIn' | 'like' | 'between';
+  | 'in' | 'notIn' | 'like' | 'between'
+  | 'isNull' | 'isNotNull';
 
 /** A `column <operator> value` predicate whose value is bound, never inlined. */
 export interface ConditionNode {
@@ -20,6 +21,8 @@ export interface ConditionNode {
   readonly column: string;
   readonly operator: PostgresFilterOperator;
   readonly value: unknown;
+  /** Wraps each bound value's placeholder, e.g. to convert it to the column's type. */
+  readonly convert?: (placeholder: string) => string;
 }
 
 /**

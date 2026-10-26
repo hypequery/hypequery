@@ -13,7 +13,7 @@ import {
   resolveFilterField,
   resolveTenantFilterColumn,
 } from '../query-planner.js';
-import { queryTimeFilter } from './query-timezone.js';
+import { applyQueryTimePredicate, queryTimeFilter } from './query-timezone.js';
 import { isTenantScopedFilter } from './metric-handle.js';
 import { getRuntimeTenantPredicate } from './tenant-runtime.js';
 import {
@@ -64,7 +64,7 @@ export function buildMetricQueryBuilder(
   const tenantColumn = resolveTenantFilterColumn(ds, context);
   const tenantPredicate = getRuntimeTenantPredicate(context);
   if (tenantPredicate && tenantColumn) {
-    qb = qb.where(qualifyBaseColumn(joinCtx, tenantColumn), tenantPredicate.operator, tenantPredicate.value);
+    qb = qb.where(qualifyBaseColumn(joinCtx, tenantColumn, dialect), tenantPredicate.operator, tenantPredicate.value);
   }
 
   // User filters
@@ -74,18 +74,18 @@ export function buildMetricQueryBuilder(
         `Cannot filter on tenant field "${filter.field}" when runtime tenancy enforcement is active.`,
       );
     }
-    const resolvedField = resolveFilterField(ds, filter.field, joinCtx);
+    const resolvedField = resolveFilterField(ds, filter.field, joinCtx, dialect);
     for (const predicate of queryTimeFilter(dialect, ds, filter, resolvedField, query.timezone)) {
-      qb = qb.where(predicate.expression, predicate.operator, predicate.value);
+      qb = applyQueryTimePredicate(qb, predicate);
     }
   }
 
   // Segments: author-defined, so they resolve dimensions directly rather
   // than through the caller-facing filter allow-list.
   for (const filter of segmentFilters(ds, query.segments)) {
-    const predicates = queryTimeFilter(dialect, ds, filter, resolveDimensionExpression(ds, filter.field, joinCtx), query.timezone, { field: 'dimension' });
+    const predicates = queryTimeFilter(dialect, ds, filter, resolveDimensionExpression(ds, filter.field, joinCtx, dialect), query.timezone, { field: 'dimension' });
     for (const predicate of predicates) {
-      qb = qb.where(predicate.expression, predicate.operator, predicate.value);
+      qb = applyQueryTimePredicate(qb, predicate);
     }
   }
 

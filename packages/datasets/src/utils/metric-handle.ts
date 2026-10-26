@@ -1,3 +1,4 @@
+import { clickhouseDatasetSqlDialect } from './clickhouse-dataset-sql-dialect.js';
 import type {
   AnyDatasetInstance,
   ExecutionContext,
@@ -62,5 +63,7 @@ export function isTenantScopedFilter(
     return false;
   }
 
-  return resolveFilterField(ds, filter.field) === resolveDimensionExpression(ds, tenantColumn);
+  // Compared under one rule set: only whether both name the same column matters.
+  return resolveFilterField(ds, filter.field, undefined, clickhouseDatasetSqlDialect)
+    === resolveDimensionExpression(ds, tenantColumn, undefined, clickhouseDatasetSqlDialect);
 }

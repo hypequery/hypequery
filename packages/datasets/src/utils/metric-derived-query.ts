@@ -12,7 +12,7 @@ import {
   resolveFilterField,
   resolveTenantFilterColumn,
 } from '../query-planner.js';
-import { queryTimeFilter } from './query-timezone.js';
+import { applyQueryTimePredicate, queryTimeFilter } from './query-timezone.js';
 import { StatementParameters, type PlannedStatement } from './statement-parameters.js';
 import { formulaExpressionSql } from './derived-measure-sql.js';
 import { isTenantScopedFilter } from './metric-handle.js';
@@ -85,7 +85,7 @@ export function buildDerivedMetricSql(
   const tenantColumn = resolveTenantFilterColumn(ds, context);
   const tenantPredicate = getRuntimeTenantPredicate(context);
   if (tenantPredicate && tenantColumn) {
-    cteBuilder = cteBuilder.where(qualifyBaseColumn(joinCtx, tenantColumn), tenantPredicate.operator, tenantPredicate.value);
+    cteBuilder = cteBuilder.where(qualifyBaseColumn(joinCtx, tenantColumn, dialect), tenantPredicate.operator, tenantPredicate.value);
   }
   for (const filter of query.filters ?? []) {
     if (isTenantScopedFilter(ds, filter, context)) {
@@ -93,15 +93,15 @@ export function buildDerivedMetricSql(
         `Cannot filter on tenant field "${filter.field}" when runtime tenancy enforcement is active.`,
       );
     }
-    const resolvedField = resolveFilterField(ds, filter.field, joinCtx);
+    const resolvedField = resolveFilterField(ds, filter.field, joinCtx, dialect);
     for (const predicate of queryTimeFilter(dialect, ds, filter, resolvedField, query.timezone)) {
-      cteBuilder = cteBuilder.where(predicate.expression, predicate.operator, predicate.value);
+      cteBuilder = applyQueryTimePredicate(cteBuilder, predicate);
     }
   }
   for (const filter of segmentFilters(ds, query.segments)) {
-    const predicates = queryTimeFilter(dialect, ds, filter, resolveDimensionExpression(ds, filter.field, joinCtx), query.timezone, { field: 'dimension' });
+    const predicates = queryTimeFilter(dialect, ds, filter, resolveDimensionExpression(ds, filter.field, joinCtx, dialect), query.timezone, { field: 'dimension' });
     for (const predicate of predicates) {
-      cteBuilder = cteBuilder.where(predicate.expression, predicate.operator, predicate.value);
+      cteBuilder = applyQueryTimePredicate(cteBuilder, predicate);
     }
   }
 

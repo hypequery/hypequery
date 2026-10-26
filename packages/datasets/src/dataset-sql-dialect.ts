@@ -69,6 +69,12 @@ export interface DatasetSqlDialectRules extends DatasetSqlDialect {
   paginate(limit: number | undefined, offset: number | undefined): string;
 
   // Identifiers and raw SQL
+  /**
+   * A physical column (a validated identifier), optionally qualified by the
+   * dataset's physical source path. Engines that fold unquoted case quote
+   * it, so `createdAt` and reserved names like `user` keep their meaning.
+   */
+  columnReference(column: string, source?: string): string;
   /** Quote a dotted physical source path (`analytics.orders`). */
   quoteQualifiedName(name: string): string;
   /**
@@ -102,6 +108,14 @@ export interface DatasetSqlDialectRules extends DatasetSqlDialect {
   timeDiff(grain: TimeGrain, start: string, end: string): string;
   /** Convert a source time to the query timezone, a validated canonical IANA name. */
   toQueryTimezone(time: string, timezone: string): string;
+  /**
+   * Optional: a bound time filter value (the placeholder `value`, a wall
+   * clock in `timezone`) as a value comparable to the bare column, so the
+   * predicate leaves the column unwrapped and an index on it applies.
+   * `probe` is a zero-row scalar with the column's type. Without it, time
+   * predicates convert the column with `toQueryTimezone` instead.
+   */
+  queryTimeValue?(value: string, timezone: string, probe: string): string;
   /** Parse a timestamp from a string expression, such as a bound placeholder, in the zone `timezone` evaluates to. */
   parseTimestamp(value: string, timezone: string): string;
   /**

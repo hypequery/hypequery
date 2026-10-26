@@ -64,6 +64,9 @@ export const postgresDatasetSqlDialect: DatasetSqlDialectRules = defineDatasetSq
     `${limit === undefined ? '' : ` LIMIT ${limit}`}${offset === undefined ? '' : ` OFFSET ${offset}`}`,
 
   quoteQualifiedName: quotePostgresQualifiedName,
+  // Postgres folds unquoted names to lower case and reserves words like `user`.
+  columnReference: (column: string, source?: string) =>
+    `${source ? `${quotePostgresQualifiedName(source)}.` : ''}${quotePostgresIdentifier(column)}`,
   // No `finalTable`: Postgres has no row-version modifier, so datasets
   // declared `final: true` are refused rather than read unresolved.
   rawSqlExpressionError(sql: string) {
@@ -91,6 +94,13 @@ export const postgresDatasetSqlDialect: DatasetSqlDialectRules = defineDatasetSq
   timeDiff,
   toQueryTimezone,
   parseTimestamp,
+  // A bare time column (`date`, `timestamp` assumed UTC, or `timestamptz`)
+  // against a timestamptz value: the probe is an uncorrelated zero-row
+  // subquery, run once, so the right side is constant and the column's index
+  // applies. A `date` holds local dates, so its wall clock is read as UTC.
+  queryTimeValue: (value: string, timezone: string, probe: string) =>
+    `(CASE WHEN pg_typeof(${probe}) = 'date'::regtype THEN CAST(${value} AS timestamp) AT TIME ZONE 'UTC' `
+    + `ELSE CAST(${value} AS timestamp) AT TIME ZONE ${stringLiteral(timezone)} END)`,
   // Converted times are wall clocks without a zone; the zone is the query's.
   timezoneOf: (_time: string, timezone: string) => stringLiteral(timezone),
   clockPart: (part, time) => `FLOOR(EXTRACT(${part.toUpperCase()} FROM ${time}))::int`,

@@ -1,7 +1,7 @@
 import { datasetSourceBuilder } from './dataset-source.js';
 import { resolveRelationshipMeasure } from './relationship-measures.js';
 import { relationshipMeasureExpressions } from './relationship-measure-sql.js';
-import { canonicalTimezone, queryTimeFilter, queryTimeSql } from './query-timezone.js';
+import { canonicalTimezone, applyQueryTimePredicate, queryTimeFilter, queryTimeSql } from './query-timezone.js';
 import type { AnyDatasetInstance, DatasetQuery, MeasureDefinition, MetricFilter } from '../types.js';
 import type { DatasetQueryExecutionOptions } from '../dataset-query.js';
 import { resolveDimensionExpression, resolveFilterField, resolveTenantFilterColumn } from '../query-planner.js';
@@ -51,8 +51,8 @@ export function buildTimeMeasureSourceSql(
   // capture authored SQL identifiers, even if a physical column shares a name.
   let raw = applyRelationshipJoins(datasetSourceBuilder(options.builderFactory, ds), joinCtx);
   const dims = (query.dimensions ?? []).map((name, i) => ({ name, alias: `_hq_d${i}` }));
-  const sourceParts = [resolveDimensionExpression(ds, ds.timeKey!, joinCtx)];
-  for (const dimension of dims) sourceParts.push(resolveDimensionExpression(ds, dimension.name, joinCtx));
+  const sourceParts = [resolveDimensionExpression(ds, ds.timeKey!, joinCtx, dialect)];
+  for (const dimension of dims) sourceParts.push(resolveDimensionExpression(ds, dimension.name, joinCtx, dialect));
   for (const name of baseNames) {
     const related = name.includes('.') ? resolveRelationshipMeasure(ds, name) : undefined;
     const definition = related?.definition ?? getBaseMeasure(ds.measures, name);
@@ -63,9 +63,9 @@ export function buildTimeMeasureSourceSql(
     const arg = `_hq_a${bases.length}`;
     bases.push({ name, definition, value, arg });
     const expressions = related ? relationshipMeasureExpressions(ds, name, joinCtx!, dialect) : undefined;
-    const expression = expressions?.field ?? spec.sql ?? resolveDimensionExpression(ds, spec.field, joinCtx);
+    const expression = expressions?.field ?? spec.sql ?? resolveDimensionExpression(ds, spec.field, joinCtx, dialect);
     sourceParts.push(expressions ? expression : applyFilteredAggregationExpression(ds, spec, expression, joinCtx, dialect));
-    sourceParts.push(expressions?.arg ?? (spec.argField ? resolveDimensionExpression(ds, spec.argField, joinCtx) : 'NULL'));
+    sourceParts.push(expressions?.arg ?? (spec.argField ? resolveDimensionExpression(ds, spec.argField, joinCtx, dialect) : 'NULL'));
   }
   // A positional tuple isolates internal names from the source table's names.
   const sourceIdentifiers = [
@@ -80,19 +80,19 @@ export function buildTimeMeasureSourceSql(
   raw = raw.select(dialect.isolateColumns(rowAlias, sourceParts));
   const tenant = getRuntimeTenantPredicate(options.context);
   const tenantColumn = resolveTenantFilterColumn(ds, options.context);
-  if (tenant && tenantColumn) raw = raw.where(qualifyBaseColumn(joinCtx, tenantColumn), tenant.operator, tenant.value);
+  if (tenant && tenantColumn) raw = raw.where(qualifyBaseColumn(joinCtx, tenantColumn, dialect), tenant.operator, tenant.value);
   // The time axis already consumed every time-key bound, so these are the
   // remaining caller filters.
   for (const filter of filters) {
-    const predicates = queryTimeFilter(dialect, ds, filter, resolveFilterField(ds, filter.field, joinCtx), query.timezone);
+    const predicates = queryTimeFilter(dialect, ds, filter, resolveFilterField(ds, filter.field, joinCtx, dialect), query.timezone);
     for (const predicate of predicates) {
-      raw = raw.where(predicate.expression, predicate.operator, predicate.value);
+      raw = applyQueryTimePredicate(raw, predicate);
     }
   }
   for (const filter of segmentFilters(ds, query.segments)) {
-    const predicates = queryTimeFilter(dialect, ds, filter, resolveDimensionExpression(ds, filter.field, joinCtx), query.timezone, { field: 'dimension' });
+    const predicates = queryTimeFilter(dialect, ds, filter, resolveDimensionExpression(ds, filter.field, joinCtx, dialect), query.timezone, { field: 'dimension' });
     for (const predicate of predicates) {
-      raw = raw.where(predicate.expression, predicate.operator, predicate.value);
+      raw = applyQueryTimePredicate(raw, predicate);
     }
   }
   const rawSql = statement.embedBuilder(raw);

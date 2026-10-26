@@ -97,6 +97,16 @@ export class PostgresQueryBuilder {
     return this.with(this.filtering.where(column, operator, value));
   }
 
+  /** `where` with each value's placeholder wrapped by `convert`, leaving the column bare. */
+  whereConverted(
+    column: string,
+    operator: string,
+    value: unknown,
+    convert: (placeholder: string) => string,
+  ): PostgresQueryBuilder {
+    return this.with(this.filtering.where(column, operator, value, convert));
+  }
+
   leftJoin(
     table: string,
     leftColumn: string,

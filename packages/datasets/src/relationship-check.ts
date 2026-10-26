@@ -76,14 +76,15 @@ export async function checkRelationships(
       throw new Error(`Cannot check relationship "${entry.relationship}": ${tenantError}`);
     }
 
+    const column = (name: string) => dialect.columnReference(name);
     let qb = datasetSourceBuilder(factory, entry.target)
-      .count(entry.column, ROWS_ALIAS)
-      .countDistinct(entry.columns ? dialect.packRow(entry.columns) : entry.column, KEYS_ALIAS);
+      .count(column(entry.column), ROWS_ALIAS)
+      .countDistinct(entry.columns ? dialect.packRow(entry.columns.map(column)) : column(entry.column), KEYS_ALIAS);
     if (entry.columns) {
-      for (const column of entry.columns) qb = qb.where(column, 'isNotNull', undefined);
+      for (const name of entry.columns) qb = qb.where(column(name), 'isNotNull', undefined);
     }
     if (entry.target.tenantKey && tenantPredicate) {
-      qb = qb.where(entry.target.tenantKey, tenantPredicate.operator, tenantPredicate.value);
+      qb = qb.where(column(entry.target.tenantKey), tenantPredicate.operator, tenantPredicate.value);
     }
 
     const [row] = await qb.execute<Record<string, unknown>>({

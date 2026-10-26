@@ -4,7 +4,7 @@ import { measureToAggregationSpec } from './dataset-normalization.js';
 import { applyAggregationSpec } from '../query-planner.js';
 import { resolveDatasetSqlDialect } from './dataset-sql-dialect.js';
 import { assertRawSqlForDialect } from './raw-sql-dialect-check.js';
-import { queryTimeFilter } from './query-timezone.js';
+import { applyQueryTimePredicate, queryTimeFilter } from './query-timezone.js';
 import { selectedTimeMeasures } from './time-query-measures.js';
 import { baseMeasureNames, getBaseMeasure } from './dataset-measures.js';
 import type {
@@ -82,21 +82,21 @@ export function buildDatasetQueryBuilder(
   const tenantColumn = resolveTenantFilterColumn(ds, options.context);
   const tenantPredicate = getRuntimeTenantPredicate(options.context);
   if (tenantPredicate && tenantColumn) {
-    qb = qb.where(qualifyBaseColumn(joinCtx, tenantColumn), tenantPredicate.operator, tenantPredicate.value);
+    qb = qb.where(qualifyBaseColumn(joinCtx, tenantColumn, dialect), tenantPredicate.operator, tenantPredicate.value);
   }
 
   for (const filter of query.filters ?? []) {
-    const resolvedField = resolveFilterField(ds, filter.field, joinCtx);
+    const resolvedField = resolveFilterField(ds, filter.field, joinCtx, dialect);
     for (const predicate of queryTimeFilter(dialect, ds, filter, resolvedField, query.timezone)) {
-      qb = qb.where(predicate.expression, predicate.operator, predicate.value);
+      qb = applyQueryTimePredicate(qb, predicate);
     }
   }
 
   // Segments are author-defined, so they bypass the caller filter allow-list.
   for (const filter of segmentFilters(ds, query.segments)) {
-    const predicates = queryTimeFilter(dialect, ds, filter, resolveDimensionExpression(ds, filter.field, joinCtx), query.timezone, { field: 'dimension' });
+    const predicates = queryTimeFilter(dialect, ds, filter, resolveDimensionExpression(ds, filter.field, joinCtx, dialect), query.timezone, { field: 'dimension' });
     for (const predicate of predicates) {
-      qb = qb.where(predicate.expression, predicate.operator, predicate.value);
+      qb = applyQueryTimePredicate(qb, predicate);
     }
   }
 

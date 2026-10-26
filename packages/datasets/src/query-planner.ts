@@ -30,7 +30,8 @@ type DatasetShape = AnyDatasetInstance;
 export function resolveDimensionExpression(
   ds: DatasetShape,
   dimensionName: string,
-  joinCtx?: RelationshipBuilderContext,
+  joinCtx: RelationshipBuilderContext | undefined,
+  dialect: DatasetSqlDialectRules,
 ): string {
   if (joinCtx && isQualifiedField(dimensionName)) {
     return resolveQualifiedExpression(ds, dimensionName, joinCtx);
@@ -40,19 +41,20 @@ export function resolveDimensionExpression(
     assertNoRawSqlUnderJoins('dimension', dimensionName, definition.sql, joinCtx);
     return definition.sql;
   }
-  return qualifyBaseColumn(joinCtx, definition?.column ?? dimensionName);
+  return qualifyBaseColumn(joinCtx, definition?.column ?? dimensionName, dialect);
 }
 
 export function resolveFilterField(
   ds: DatasetShape,
   filterField: string,
-  joinCtx?: RelationshipBuilderContext,
+  joinCtx: RelationshipBuilderContext | undefined,
+  dialect: DatasetSqlDialectRules,
 ): string {
   if (joinCtx && isQualifiedField(filterField)) {
     return resolveQualifiedExpression(ds, filterField, joinCtx);
   }
   const resolvedField = ds.filters[filterField]?.field ?? filterField;
-  return resolveDimensionExpression(ds, resolvedField, joinCtx);
+  return resolveDimensionExpression(ds, resolvedField, joinCtx, dialect);
 }
 
 export function buildDimensionSelectionPlan(
@@ -70,7 +72,7 @@ export function buildDimensionSelectionPlan(
     if (!isSupportedTimeGrain(grain)) {
       throw new Error(`Unsupported time grain "${grain}".`);
     }
-    const time = resolveDimensionExpression(ds, String(ds.timeKey), joinCtx);
+    const time = resolveDimensionExpression(ds, String(ds.timeKey), joinCtx, dialect);
     const period = dialect.quoteIdentifier('period');
     // Bucket in the query timezone; group by the bucket itself when the
     // engine renders it differently (a wall clock repeats in a DST fall-back).
@@ -82,14 +84,14 @@ export function buildDimensionSelectionPlan(
   }
 
   for (const dimensionName of dimensions) {
-    const expression = resolveDimensionExpression(ds, dimensionName, joinCtx);
+    const expression = resolveDimensionExpression(ds, dimensionName, joinCtx, dialect);
 
     // Every generated alias is quoted: reserved words and engines that fold
     // unquoted case (Postgres) must keep the semantic name. With joins in
     // scope every selection is table-qualified, so it is always aliased.
-    if (!joinCtx && expression === dimensionName) {
-      selectParts.push(dimensionName);
-      groupByParts.add(dimensionName);
+    if (!joinCtx && expression === dialect.columnReference(dimensionName)) {
+      selectParts.push(expression);
+      groupByParts.add(expression);
     } else {
       const alias = dialect.quoteIdentifier(dimensionName);
       selectParts.push(`${expression} AS ${alias}`);
@@ -121,7 +123,7 @@ export function applyAggregationSpec(
   const fieldOrExpr = expressions?.field ?? applyFilteredAggregationExpression(
     ds,
     spec,
-    spec.sql ?? resolveDimensionExpression(ds, spec.field, joinCtx),
+    spec.sql ?? resolveDimensionExpression(ds, spec.field, joinCtx, dialect),
     joinCtx,
     dialect,
   );
@@ -144,7 +146,7 @@ export function applyAggregationSpec(
       if (!spec.argField) {
         throw new Error(`Aggregation "${spec.aggregation}" for "${name}" requires an argField ("by" column).`);
       }
-      const argExpr = expressions?.arg ?? resolveDimensionExpression(ds, spec.argField, joinCtx);
+      const argExpr = expressions?.arg ?? resolveDimensionExpression(ds, spec.argField, joinCtx, dialect);
       if (spec.aggregation === "argMax") {
         if (!qb.argMax) {
           throw new Error('Query builder does not support argMax aggregations.');
@@ -228,7 +230,7 @@ export function appendOrderLimitOffset(
       // A selected related dimension orders by its guarded expression, for the
       // same alias-resolution reason it groups by it.
       const column = joinCtx && isQualifiedField(order.field) && selection?.dimensions.includes(order.field)
-        ? resolveDimensionExpression(selection.ds, order.field, joinCtx)
+        ? resolveDimensionExpression(selection.ds, order.field, joinCtx, dialect)
         : dialect.quoteIdentifier(order.field);
       qb = qb.orderBy(column, semanticOrderDirection(order.direction));
     }

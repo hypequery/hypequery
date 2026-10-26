@@ -53,6 +53,13 @@ export interface QueryBuilderLike {
 
   // Filtering
   where(column: string, operator: string, value: unknown): QueryBuilderLike;
+  /**
+   * Optional: like `where`, with each bound value's placeholder passed
+   * through `convert` and the result inserted verbatim in its place. Lets
+   * the datasets planner compare a bare (indexable) column with a converted
+   * value. Used only with datasets dialects that define `queryTimeValue`.
+   */
+  whereConverted?(column: string, operator: string, value: unknown, convert: (placeholder: string) => string): QueryBuilderLike;
 
   /**
    * Optional: read the table source with ClickHouse `FINAL`. Needed only for
