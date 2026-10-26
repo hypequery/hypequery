@@ -96,3 +96,17 @@ const Dynamic = dataset('dynamic', {
   measures: { revenue: measure.sum('amount') },
 });
 client.execute(Dynamic, { measures: ['revenue'], timeKey: 'anything' });
+
+// Explicit leading type arguments skip inference, so the time axes take the
+// broad defaults: these definitions keep compiling and accept any string axis.
+const Explicit = dataset<'orders', {}>('orders', {
+  source: 'orders',
+  dimensions: {},
+  timeKey: 'created_at',
+  timeKeys: ['shipped_at'],
+});
+const explicitAxes: Equal<DatasetTimeKeyNames<typeof Explicit>, string> = true;
+void explicitAxes;
+client.execute(Explicit, { dimensions: [], timeKey: 'shipped_at' });
+const ExplicitNoAxis = dataset<'none', {}>('none', { source: 'none', dimensions: {} });
+void ExplicitNoAxis;

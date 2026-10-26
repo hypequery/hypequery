@@ -116,6 +116,7 @@ await analytics.execute(Orders, {
 });
 
 // Metrics take the same option, including pinned grains.
+const revenue = Orders.metric('revenue', { measure: 'revenue' });
 await analytics.execute(revenue.by('week'), { timeKey: 'shippedAt' });
 ```
 </CodeBlock>
