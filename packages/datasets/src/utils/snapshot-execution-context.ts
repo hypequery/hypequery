@@ -10,6 +10,9 @@ export function snapshotExecutionContext(context?: ExecutionContext): ExecutionC
         ...context.runtime,
         // Copy tenant objects and ID lists; retain adapter and AbortSignal identity.
         tenant: structuredClone(context.runtime.tenant),
+        ...(context.runtime.constraints === undefined
+          ? {}
+          : { constraints: structuredClone(context.runtime.constraints) }),
       },
     }),
     ...(context.cache && { cache: { ...context.cache } }),
