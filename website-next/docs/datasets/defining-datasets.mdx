@@ -64,8 +64,8 @@ export const Users = dataset('users', {
   source: 'saas.users',
   rowResolution: { kind: 'final', engine: 'replacing', deletedColumn: 'is_deleted' },
   // For CollapsingMergeTree: { kind: 'final', engine: 'collapsing', signColumn: 'sign' }
-  dimensions: { plan: dimension.string() },
-  measures: { users: measure.count() },
+  dimensions: { id: dimension.string(), plan: dimension.string() },
+  measures: { users: measure.count('id') },
 });
 ```
 
