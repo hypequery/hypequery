@@ -299,6 +299,9 @@ def test_reload_worker_errors_do_not_echo_credentials(tmp_path: Path, error: str
                     break
                 if process.poll() is not None or time.monotonic() >= deadline:
                     pytest.fail(f"reload failure was not reported safely: {output}")
+                # StatReload records its mtime baseline on its first scan, which can land
+                # after the edit above. Bumping the mtime makes a later scan see a change.
+                os.utime(app)
                 time.sleep(0.1)
         finally:
             if process.poll() is None:
