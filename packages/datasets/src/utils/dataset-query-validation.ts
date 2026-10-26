@@ -1,3 +1,4 @@
+import { notGroupableError } from './groupable.js';
 import { resolveRelationshipMeasure } from './relationship-measures.js';
 import { semanticQuerySyntaxErrors } from './semantic-query-syntax.js';
 import { queryTimezoneErrors } from './query-timezone.js';
@@ -66,11 +67,15 @@ export function validateDatasetQueryInput(
         const resolution = resolveQualifiedField(ds, dimension);
         if (resolution?.error) {
           errors.push(resolution.error);
+        } else if (resolution?.resolved?.targetDimension.groupable === false) {
+          errors.push(notGroupableError(dimension));
         }
         continue;
       }
       if (!dimensionNames.includes(dimension)) {
         errors.push(`Unknown dimensions: ${dimension}. Available: ${dimensionNames.join(', ')}`);
+      } else if (ds.dimensions[dimension]?.groupable === false) {
+        errors.push(notGroupableError(dimension));
       }
     }
   }

@@ -143,7 +143,15 @@ def test_cache_failures_without_a_hook_log_the_type_only(caplog: pytest.LogCaptu
     assert "secret" not in caplog.text
 
 
-def test_an_unkeyable_query_reports_the_key_stage_and_runs_uncached() -> None:
+def test_an_unkeyable_query_reports_the_key_stage_and_runs_uncached(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def unportable_preimage(**_: object) -> None:
+        raise ValueError("no portable form")
+
+    monkeypatch.setattr(
+        "hypequery.datasets.cache.result_cache.build_protocol_cache_preimage", unportable_preimage
+    )
     seen: list[CacheStage] = []
     cache = _cache(on_error=lambda stage, error: seen.append(stage))
     fares = Dataset(
@@ -152,9 +160,8 @@ def test_an_unkeyable_query_reports_the_key_stage_and_runs_uncached() -> None:
         dimensions={"fare": dimension.number()},
         measures={"rides": measure.count("fare")},
     )
-    # The planner binds any finite number; the RFC 0009 preimage has no exact
-    # spelling for an integer beyond 2**53, so this execution cannot be keyed.
-    query = DatasetQuery(measures=("rides",), filters=(gt("fare", 2**60),))
+    # A preimage that cannot be built, such as one over RFC 0013's size bound.
+    query = DatasetQuery(measures=("rides",), filters=(gt("fare", 60),))
 
     result = create_dataset_client(executor=_Executor(), cache=cache).execute(fares, query)
 

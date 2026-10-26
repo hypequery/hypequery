@@ -673,3 +673,235 @@ def test_sync_bridge_aclose_keeps_the_control_worker_until_queries_stop() -> Non
     finally:
         register.set()
         stopped.set()
+
+
+def _refused() -> Exception:
+    from clickhouse_connect.driver.exceptions import DatabaseError
+
+    error = DatabaseError("Not enough privileges: SELECT ON system.processes")
+    error.name = "ACCESS_DENIED"
+    return error
+
+
+@pytest.fixture
+def refused_kill_log(monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture):  # type: ignore[no-untyped-def]
+    from hypequery.execution.utils import refused_kill
+
+    monkeypatch.setattr(refused_kill, "_reported", False)
+    caplog.set_level("ERROR", logger="hypequery.execution.cancellation")
+    return caplog
+
+
+def _refusals(caplog: pytest.LogCaptureFixture) -> int:
+    return sum("refused KILL QUERY" in record.getMessage() for record in caplog.records)
+
+
+def test_a_refused_sync_kill_stops_retrying_and_says_so_once(
+    refused_kill_log: pytest.LogCaptureFixture,
+) -> None:
+    from hypequery.execution import ClickHouseExecutor
+
+    started = threading.Event()
+    release = threading.Event()
+    attempts: list[int] = []
+
+    class SlowClient:
+        def query(self, *_args: object, **_kwargs: object) -> DriverResult:
+            started.set()
+            assert release.wait(2)
+            return cast(DriverResult, Result())
+
+    class RefusingControl:
+        def command(self, _cmd: str, _parameters: dict[str, str]) -> object:
+            attempts.append(1)
+            raise _refused()
+
+    executor = ClickHouseExecutor(SlowClient(), control_client=RefusingControl())
+    for _ in range(2):
+        started.clear()
+        release.clear()
+        signal = threading.Event()
+        trigger = threading.Timer(0.05, signal.set)
+        trigger.start()
+        # The query outlives the KILL, then finishes on its own.
+        threading.Timer(0.4, release.set).start()
+        with pytest.raises(CompiledQueryError) as exc:
+            executor.execute(query(cancellation=signal))
+        assert category(exc) == "aborted"
+    assert len(attempts) == 2
+    assert _refusals(refused_kill_log) == 1
+
+
+@pytest.mark.parametrize("bridge", [False, True])
+def test_a_refused_async_kill_schedules_no_retries(
+    bridge: bool, refused_kill_log: pytest.LogCaptureFixture
+) -> None:
+    async def run() -> None:
+        signal = threading.Event()
+        attempts: list[int] = []
+
+        if bridge:
+            client = SyncClient()
+
+            class RefusingSyncControl:
+                def command(self, _cmd: str, _parameters: dict[str, str]) -> object:
+                    attempts.append(1)
+                    raise _refused()
+
+            executor: AsyncClickHouseExecutor | AsyncFromSyncClickHouseExecutor = (
+                AsyncFromSyncClickHouseExecutor(client, RefusingSyncControl())
+            )
+            started = asyncio.to_thread(client.started.wait, 2)
+        else:
+            async_client = AsyncClient()
+
+            class RefusingControl:
+                async def command(self, _cmd: str, _parameters: dict[str, str]) -> object:
+                    attempts.append(1)
+                    raise _refused()
+
+            executor = AsyncClickHouseExecutor(async_client, RefusingControl())
+            started = async_client.started.wait()
+        task = asyncio.create_task(executor.execute(query(cancellation=signal)))
+        await started
+        signal.set()
+        with pytest.raises(CompiledQueryError) as exc:
+            await task
+        assert category(exc) == "aborted"
+        await asyncio.sleep(0.3)
+        assert len(attempts) == 1
+        assert _refusals(refused_kill_log) == 1
+        if bridge:
+            client.released.set()
+            await executor.aclose()
+        else:
+            await executor.aclose()
+
+    asyncio.run(run())
+
+
+class _NeverConfirmingControl:
+    def __init__(self) -> None:
+        self.calls = 0
+
+    async def command(self, _cmd: str, _parameters: dict[str, str]) -> object:
+        self.calls += 1
+        # No match: not registered yet, or already gone. KILL cannot tell.
+        return None
+
+
+class _CancelOnCloseClient(AsyncClient):
+    def get_client_setting(self, key: str) -> str | None:
+        return "1" if key == "cancel_http_readonly_queries_on_client_close" else None
+
+
+def test_native_async_retries_stop_with_the_request_when_the_server_cancels_on_close() -> None:
+    async def run() -> None:
+        signal = threading.Event()
+        client = _CancelOnCloseClient()
+        control = _NeverConfirmingControl()
+        executor = AsyncClickHouseExecutor(client, control)
+        task = asyncio.create_task(executor.execute(query(cancellation=signal)))
+        await client.started.wait()
+        signal.set()
+        with pytest.raises(CompiledQueryError):
+            await task
+        assert client.cancelled.is_set()
+        await asyncio.sleep(0.3)
+        # The closed request ended the query on the server: one KILL, no retries.
+        assert control.calls == 1
+        assert not executor._retries
+        await executor.aclose()
+
+    asyncio.run(run())
+
+
+def test_native_async_aclose_stops_outstanding_retries() -> None:
+    async def run() -> None:
+        signal = threading.Event()
+        client = AsyncClient()
+        control = _NeverConfirmingControl()
+        executor = AsyncClickHouseExecutor(client, control)
+        task = asyncio.create_task(executor.execute(query(cancellation=signal)))
+        await client.started.wait()
+        signal.set()
+        with pytest.raises(CompiledQueryError):
+            await task
+        await asyncio.sleep(0.1)
+        assert executor._retries
+        await executor.aclose()
+        assert not executor._retries
+        calls = control.calls
+        await asyncio.sleep(0.3)
+        assert control.calls == calls
+
+    asyncio.run(run())
+
+
+def test_native_async_aclose_during_cancellation_starts_no_retry() -> None:
+    async def run() -> None:
+        signal = threading.Event()
+        client = AsyncClient()
+        kill_sent = asyncio.Event()
+        kill_answer = asyncio.Event()
+        calls: list[int] = []
+
+        class SlowControl:
+            async def command(self, _cmd: str, _parameters: dict[str, str]) -> object:
+                calls.append(1)
+                kill_sent.set()
+                await kill_answer.wait()
+                return None
+
+        executor = AsyncClickHouseExecutor(client, SlowControl())
+        task = asyncio.create_task(executor.execute(query(cancellation=signal)))
+        await client.started.wait()
+        signal.set()
+        # The executor closes while the request is still waiting on its first KILL.
+        await kill_sent.wait()
+        await executor.aclose()
+        kill_answer.set()
+        with pytest.raises(CompiledQueryError):
+            await task
+        assert not executor._retries
+        await asyncio.sleep(0.3)
+        assert len(calls) == 1
+
+    asyncio.run(run())
+
+
+def test_sync_bridge_aclose_stops_outstanding_retries() -> None:
+    async def run() -> None:
+        signal = threading.Event()
+        release = threading.Event()
+        started = threading.Event()
+        calls: list[int] = []
+
+        class SlowClient:
+            def query(self, *_args: object, **_kwargs: object) -> DriverResult:
+                started.set()
+                assert release.wait(3)
+                return cast(DriverResult, Result())
+
+        class NeverConfirming:
+            def command(self, _cmd: str, _parameters: dict[str, str]) -> object:
+                calls.append(1)
+                return None
+
+        executor = AsyncFromSyncClickHouseExecutor(SlowClient(), NeverConfirming())
+        task = asyncio.create_task(executor.execute(query(cancellation=signal)))
+        await asyncio.to_thread(started.wait, 2)
+        signal.set()
+        with pytest.raises(CompiledQueryError):
+            await task
+        assert executor._retries
+        closing = asyncio.create_task(executor.aclose())
+        await asyncio.sleep(0.1)
+        release.set()
+        await closing
+        assert not executor._retries
+        count = len(calls)
+        await asyncio.sleep(0.3)
+        assert len(calls) == count
+
+    asyncio.run(run())

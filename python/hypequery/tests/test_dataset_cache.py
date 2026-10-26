@@ -59,7 +59,11 @@ class _Executor:
 
     def execute(self, compiled: CompiledQuery) -> _Rows:
         self.calls.append(compiled)
-        return _Rows(("vendor", "trips"), (("a", len(self.calls)),))
+        # Columns are the statement's own aliases, as a real executor returns.
+        columns = tuple(re.findall(r" AS `([^`]+)`", compiled.sql.split(" FROM ", 1)[0]))
+        return _Rows(
+            columns, (tuple("a" if name == "vendor" else len(self.calls) for name in columns),)
+        )
 
 
 @dataclass
@@ -180,7 +184,7 @@ def test_a_store_only_ever_sees_opaque_keys() -> None:
         assert KEY.match(key)
         for fragment in ("secret-vendor", "tenant-marker", "analytics", "trips", "vendor"):
             assert fragment not in key
-    assert store.values == [CachedRows(("vendor", "trips"), (("a", 1),))]
+    assert store.values == [CachedRows(("trips",), ((1,),))]
 
 
 def test_a_failing_store_never_fails_a_query() -> None:
@@ -204,10 +208,17 @@ def test_use_cache_false_bypasses_without_touching_the_store() -> None:
     assert store.keys == []
 
 
-def test_a_query_with_no_portable_form_runs_uncached() -> None:
+def test_a_query_with_no_portable_form_runs_uncached(monkeypatch: pytest.MonkeyPatch) -> None:
+    def unportable_preimage(**_: object) -> None:
+        # For example, a preimage over RFC 0013's size bound.
+        raise ValueError("no portable form")
+
+    monkeypatch.setattr(
+        "hypequery.datasets.cache.result_cache.build_protocol_cache_preimage", unportable_preimage
+    )
     executor = _Executor()
     client = create_dataset_client(executor=executor, cache=_cache())
-    unportable = DatasetQuery(measures=("trips",), filters=(eq("fare", 2**60),))
+    unportable = DatasetQuery(measures=("trips",), filters=(eq("fare", 5),))
 
     first = client.execute(_trips(), unportable, context=AS_ACME)
     second = client.execute(_trips(), unportable, context=AS_ACME)
@@ -384,3 +395,36 @@ def test_python_derives_the_same_key_as_typescript() -> None:
 def test_the_namespace_defaults_match_typescript() -> None:
     cache = ResultCache(store=MemoryCacheStore(), ttl_seconds=60)
     assert (cache.project, cache.environment, cache.key_version) == ("hypequery", "default", 1)
+
+
+@pytest.mark.parametrize(
+    "stored",
+    [
+        "not rows",
+        {"columns": ("trips",), "rows": ((1,),)},
+        # A well-formed entry for some other query, e.g. a stale definition.
+        CachedRows(("bogus",), (("x",),)),
+        CachedRows(("trips",), ((1, 2),)),
+        CachedRows(("trips",), ((object(),),)),  # type: ignore[arg-type]
+        CachedRows(("trips",), [(1,)]),  # type: ignore[arg-type]
+    ],
+)
+def test_a_store_value_that_cannot_answer_the_query_is_a_reported_miss(stored: object) -> None:
+    class _BadStore:
+        def get(self, key: str) -> object:
+            return stored
+
+        def set(self, key: str, value: CachedRows, ttl_seconds: float) -> None:
+            pass
+
+    seen: list[str] = []
+    cache = _cache(_BadStore(), on_error=lambda stage, error: seen.append(stage))
+    executor = _Executor()
+    client = create_dataset_client(executor=executor, cache=cache)
+
+    result = client.execute(_trips(), DatasetQuery(measures=("trips",)), context=AS_ACME)
+
+    assert result.meta.cache == "miss"
+    assert result.data == ({"trips": 1},)
+    assert len(executor.calls) == 1
+    assert seen == ["get"]

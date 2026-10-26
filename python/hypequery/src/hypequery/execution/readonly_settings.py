@@ -23,7 +23,7 @@ def validate_readonly_policy(policy: ReadonlyPolicy) -> None:
         raise ValueError("readonly_policy must be 'query' or 'profile'")
 
 
-def _profile_readonly_level(client: object) -> str:
+def profile_readonly_level(client: object) -> str:
     """The connected user's readonly level from the driver's system.settings, or ""."""
 
     server = getattr(client, "server_settings", None)
@@ -49,7 +49,7 @@ def wire_settings(
     ``profile`` mode additionally refuses a user that is not read-only.
     """
 
-    level = _profile_readonly_level(client)
+    level = profile_readonly_level(client)
     if policy == "query":
         return _without_readonly(settings) if level in ("1", "2") else dict(settings)
 

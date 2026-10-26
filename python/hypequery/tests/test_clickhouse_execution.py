@@ -144,6 +144,7 @@ def test_result_codec_is_closed() -> None:
         (OperationalError("password=secret value='secret'"), "unavailable"),
         (ProgrammingError("SELECT 'secret'"), "internal"),
         (ProgrammingError("secret", name="NOT_ENOUGH_PRIVILEGES"), "forbidden"),
+        (ProgrammingError("secret", name="TOO_MANY_ROWS_OR_BYTES"), "too-large"),
         # ClickHouse reports a wrong password under REQUIRED_PASSWORD (194), not
         # AUTHENTICATION_FAILED (516); every credential refusal is unauthenticated.
         (
@@ -487,3 +488,17 @@ def test_async_factory_closes_the_first_client_when_the_second_fails(
 
     assert caught.value.category == "unavailable"
     assert created[0].closed
+
+
+def test_async_factory_without_aiohttp_names_the_extra(monkeypatch: pytest.MonkeyPatch) -> None:
+    from importlib.util import find_spec
+
+    monkeypatch.setattr(
+        "hypequery.execution.clickhouse.find_spec",
+        lambda name: None if name == "aiohttp" else find_spec(name),
+    )
+    from hypequery.execution import create_async_clickhouse_executor
+
+    with pytest.raises(ModuleNotFoundError, match=r"hypequery\[clickhouse-async\]") as caught:
+        asyncio.run(create_async_clickhouse_executor(CONNECTION))
+    assert caught.value.name == "aiohttp"

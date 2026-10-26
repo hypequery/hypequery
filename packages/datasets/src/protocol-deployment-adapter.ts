@@ -1,3 +1,4 @@
+import { byName } from './utils/by-name.js';
 import { splitDatasetMeasures } from './utils/dataset-measures.js';
 import { assertDeployable } from './utils/deployable-formulas.js';
 import {
@@ -21,7 +22,9 @@ export function buildProtocolDeploymentContract(
   datasets: readonly AnyDatasetInstance[],
   options: BuildProtocolDeploymentContractOptions = {},
 ): ProtocolDeploymentContract {
-  const contracts: ProtocolDeploymentDataset[] = datasets.map(dataset => {
+  // Sorted, as Python's builder does: the contract's identity must not depend
+  // on the order the datasets were passed in.
+  const contracts: ProtocolDeploymentDataset[] = [...datasets].sort(byName).map(dataset => {
     // Name the dataset and measure before the contract grammar can only name a path.
     assertDeployable(dataset);
     const contract = buildProtocolDatasetContract(dataset, {

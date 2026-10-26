@@ -1,10 +1,10 @@
 import { createHash } from 'node:crypto';
+import type { DatasetCatalogSource } from '@hypequery/datasets';
 import {
   buildCanonicalSemanticQuerySchemas,
   toSemanticJsonSchema,
   type CanonicalSemanticQuerySchemas,
-  type DatasetCatalogSource,
-} from '@hypequery/datasets';
+} from '@hypequery/datasets/schemas';
 import { z, type ZodTypeAny } from 'zod';
 import type { DatasetRegistry, MCPQueryLimits } from '../../types.js';
 import { queryDatasetArgsSchema, queryMetricArgsSchema } from '../args.js';

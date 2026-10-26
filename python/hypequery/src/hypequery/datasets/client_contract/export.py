@@ -8,6 +8,7 @@ from ...protocol import PreparedProtocolClientContract, prepare_protocol_client_
 from ..constants import SUPPORTED_TIME_GRAINS
 from ..registry import DatasetRegistry
 from ..utils.derived_measures import base_measure_names
+from ..utils.measure_references import measure_stays_within
 from .fields import public_fields
 from .models import ClientEndpointDefinition
 
@@ -22,7 +23,8 @@ def endpoint_descriptor(
         registered = registry.get(dataset.name)
         if registered is not None and registered != dataset:
             raise ValueError("client endpoint differs from its registered dataset definition")
-    dimensions, measures, filters = public_fields(dataset, registry)
+    related = frozenset(definition.related)
+    dimensions, measures, filters = public_fields(dataset, registry, related)
     metric = definition.measure is not None
     if definition.name is not None:
         name = definition.name
@@ -32,9 +34,15 @@ def endpoint_descriptor(
         name = dataset.name
     if not metric and name != dataset.name:
         raise ValueError("dataset client export ID must equal the dataset name")
-    if metric:
+    if definition.measure is not None:
         if definition.measure not in dataset.measures:
             raise ValueError("client metric must reference a local dataset measure")
+        if not measure_stays_within(dataset, definition.measure, related):
+            # Serve refuses to install this metric endpoint, so never advertise it.
+            raise ValueError(
+                f"metric measure {definition.measure!r} filters through a relationship "
+                "missing from related"
+            )
         # The public metric ID is its output alias, matching DatasetEndpoint/MetricAlias.
         measures = {name: {"wireType": "string", "nullable": True, "having": False}}
     node: dict[str, object] = {
@@ -57,7 +65,10 @@ def endpoint_descriptor(
         },
     }
     if not metric:
-        node["defaultMeasures"] = list(base_measure_names(dataset.measures))
+        # An endpoint's default selection is the base measures it can serve.
+        node["defaultMeasures"] = [
+            name for name in base_measure_names(dataset.measures) if name in measures
+        ]
     return node
 
 

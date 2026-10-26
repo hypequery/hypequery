@@ -1,4 +1,5 @@
-import { SUPPORTED_TIME_GRAINS, type CanonicalSemanticQuerySchemas } from '@hypequery/datasets';
+import { SUPPORTED_TIME_GRAINS } from '@hypequery/datasets';
+import type { CanonicalSemanticQuerySchemas } from '@hypequery/datasets/schemas';
 import type { ListToolsResult, Tool } from '@modelcontextprotocol/sdk/types.js';
 import { resultSchema } from './utils/result-schema.js';
 

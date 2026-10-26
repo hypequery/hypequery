@@ -109,7 +109,9 @@ def _order(
     return order_by
 
 
-def _body(endpoint: ProtocolClientEndpoint, source: dict[str, object]) -> ClientQueryPlan:
+def _body(
+    endpoint: ProtocolClientEndpoint, source: dict[str, object], transport: str
+) -> ClientQueryPlan:
     keys = ["dimensions", "filters", "orderBy", "limit", "offset", "includeMeta"]
     if endpoint["kind"] == "dataset":
         keys.extend(["measures", "having"])
@@ -144,8 +146,11 @@ def _body(endpoint: ProtocolClientEndpoint, source: dict[str, object]) -> Client
     if "timezone" in source:
         timezone(source["timezone"], "/timezone")
     order_by = _order(endpoint, source, dimensions, selected)
+    # HTTP clamps a larger limit; an agent is refused one, so it never reads a
+    # silently shortened page as the whole answer.
+    ceiling = caps["maxLimit"] if transport == "mcp" else 9007199254740991
     effective_limit = min(
-        integer(source.get("limit", caps["defaultLimit"]), 1, 9007199254740991, "/limit"),
+        integer(source.get("limit", caps["defaultLimit"]), 1, ceiling, "/limit"),
         caps["maxLimit"],
     )
     offset = integer(source.get("offset", 0), 0, caps["maxOffset"], "/offset")
@@ -204,6 +209,6 @@ def validate_protocol_client_query(
                 source["by"] = source.pop("grain")
         elif transport != "http":
             client_error("HQ_CLIENT_QUERY")
-        return _body(endpoint, source)
+        return _body(endpoint, source, transport)
     except ProtocolClientContractError as error:
         client_error("HQ_CLIENT_QUERY", error.path)

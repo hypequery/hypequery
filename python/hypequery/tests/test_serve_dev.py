@@ -175,6 +175,28 @@ def test_reload_workers_refuse_production_apps(
         _reload_app()
 
 
+def test_reload_workers_keep_the_callers_driver_log_levels(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, served: list[tuple[object, dict[str, object]]]
+) -> None:
+    import logging
+
+    _write_module(tmp_path, "devapp_reload_logs", production=False)
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(sys, "path", list(sys.path))
+    driver = logging.getLogger("clickhouse_connect")
+    monkeypatch.setattr(driver, "level", logging.ERROR)
+    targets: list[str] = []
+    monkeypatch.setattr(
+        "uvicorn.run", lambda *_args, **_kwargs: targets.append(os.environ[_RELOAD_TARGET])
+    )
+    run_dev("devapp_reload_logs:app", reload=True)
+    # The worker is a new process; its driver logger starts at the default.
+    driver.setLevel(logging.NOTSET)
+    monkeypatch.setenv(_RELOAD_TARGET, targets[0])
+    assert isinstance(_reload_app(), FastAPI)
+    assert driver.level == logging.ERROR
+
+
 def test_module_entry_point_passes_options(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

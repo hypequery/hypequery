@@ -1,0 +1,1 @@
+- `serialize_semantic_contract` and `hash_contract` no longer raise `UnicodeEncodeError` when a label or description contains an unpaired UTF-16 surrogate. Such a character is escaped as `\udXXX`, as `JSON.stringify` does, so the hash matches TypeScript's for the same model. `hypequery.protocol` now exports `serialize_protocol_string`.

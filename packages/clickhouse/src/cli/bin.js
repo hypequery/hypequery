@@ -7,7 +7,7 @@ import dotenv from 'dotenv';
 import fs from 'fs/promises';
 
 // Load environment variables from the current directory
-dotenv.config();
+dotenv.config({ quiet: true });
 
 // ANSI color codes for prettier output
 const colors = {

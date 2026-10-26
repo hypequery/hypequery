@@ -52,13 +52,15 @@ export const queryDatasetArgsSchema = baseQuerySchema.extend({
 function formatZodError(error: z.ZodError): string {
   return error.issues
     .map(issue => {
-      const path = issue.path.length > 0 ? issue.path.join('.') : 'arguments';
+      const path = issue.path.length > 0 ? issue.path.map(String).join('.') : 'arguments';
       return `${path}: ${issue.message}`;
     })
     .join('; ');
 }
 
-export function parseToolArgs<T>(schema: z.ZodType<T>, toolName: string, args: unknown): T {
+// Canonical schemas are built per catalog, so their parsed type is not known
+// statically; callers name it, as Zod 3's `ZodTypeAny` used to imply `any`.
+export function parseToolArgs<T = any>(schema: z.ZodType, toolName: string, args: unknown): T {
   const result = schema.safeParse(args);
   if (!result.success) {
     throw new MCPToolError(
@@ -66,7 +68,7 @@ export function parseToolArgs<T>(schema: z.ZodType<T>, toolName: string, args: u
       `Invalid ${toolName} arguments: ${formatZodError(result.error)}`,
     );
   }
-  return result.data;
+  return result.data as T;
 }
 
 export function toMetricFilters(

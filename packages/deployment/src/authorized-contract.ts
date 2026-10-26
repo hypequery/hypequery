@@ -18,10 +18,16 @@ import type {
   ProtocolDeploymentContract,
   ProtocolDeploymentDataset,
   ProtocolEndpointPolicy,
+  ProtocolVisibleDatasetFields,
 } from '@hypequery/protocol';
-import { validateProtocolDeploymentContract } from '@hypequery/protocol';
+import {
+  resolveProtocolVisibleDatasetFields,
+  validateProtocolDeploymentContract,
+  validateProtocolFieldVisibility,
+} from '@hypequery/protocol';
 import type { DeploymentDataPlanePrincipal } from './principal.js';
 import { missing } from './utils/required-access.js';
+import { concealDimension, narrowDatasetToVisible } from './utils/visibility-projection.js';
 
 /**
  * Whether a principal satisfies an access policy.
@@ -57,7 +63,8 @@ export function isDeploymentEndpointAuthorized(
  * publish the name and type of every dimension, filter, and measure on it.
  * What a join actually reaches is the target's dimensions — `resolveDataset`
  * offers each groupable one as `<relationship>.<name>` and each filterable one
- * under the full operator set — so those stay and everything else goes.
+ * under the full operator set — so those stay and everything else goes. Under
+ * a visibility policy, only the dimensions the target's own entry shows stay.
  *
  * A dataset no queryable relationship reaches keeps nothing but its time field,
  * which the planner reads for every grained query. It is retained at all only
@@ -67,6 +74,7 @@ export function isDeploymentEndpointAuthorized(
 function narrowToJoin(
   dataset: ProtocolDeploymentDataset,
   reachable: boolean,
+  joinable?: ReadonlySet<string>,
 ): ProtocolDeploymentDataset {
   // `defaults` describes how to query the dataset directly, which is exactly
   // what this principal may not do.
@@ -75,7 +83,11 @@ function narrowToJoin(
   return {
     ...rest,
     dimensions: reachable
-      ? dataset.dimensions
+      ? dataset.dimensions.map(dimension => (
+          joinable === undefined || joinable.has(String(dimension.name))
+            ? dimension
+            : concealDimension(dimension)
+        ))
       : dataset.dimensions.filter(dimension => String(dimension.name) === timeField),
     measures: [],
     filters: [],
@@ -99,6 +111,15 @@ export interface AuthorizedDeploymentProjection {
    * no access to it.
    */
   readonly queryable: readonly string[];
+}
+
+export interface AuthorizedDeploymentProjectionOptions {
+  /**
+   * A `hypequery-field-visibility` record for this principal (RFC 0019),
+   * validated here exactly as the data plane validates it. A dataset it hides
+   * is not published; fields it hides are not offered.
+   */
+  readonly visibility?: unknown;
 }
 
 /**
@@ -130,11 +151,31 @@ export interface AuthorizedDeploymentProjection {
 export function projectAuthorizedDeploymentContract(
   contract: ProtocolDeploymentContract,
   principal: DeploymentDataPlanePrincipal | null,
+  options: AuthorizedDeploymentProjectionOptions = {},
 ): AuthorizedDeploymentProjection {
   const byName = new Map(contract.datasets.map(dataset => [String(dataset.name), dataset]));
-  const published = new Set(contract.datasets
-    .filter(dataset => isDeploymentEndpointAuthorized(dataset.endpoint, principal))
-    .map(dataset => String(dataset.name)));
+  const visibility = options.visibility === undefined
+    ? undefined
+    : validateProtocolFieldVisibility(options.visibility);
+  const visibleIn = (dataset: ProtocolDeploymentDataset): ProtocolVisibleDatasetFields | null | undefined => (
+    visibility === undefined
+      ? undefined
+      : resolveProtocolVisibleDatasetFields(dataset, byName, visibility)
+  );
+
+  // Each published dataset as the principal sees it. Narrowing comes first,
+  // because a relationship it drops must not keep its target in the contract.
+  const projected = new Map<string, ProtocolDeploymentDataset>();
+  for (const dataset of contract.datasets) {
+    if (!isDeploymentEndpointAuthorized(dataset.endpoint, principal)) continue;
+    const visible = visibleIn(dataset);
+    if (visible === null) continue;
+    projected.set(String(dataset.name), visible ? narrowDatasetToVisible(dataset, visible) : dataset);
+  }
+  const published = new Set(projected.keys());
+  const relationshipsOf = (name: string) => (
+    projected.get(name)?.relationships ?? byName.get(name)!.relationships
+  );
 
   const required = new Set<string>();
   const require = (name: string) => {
@@ -142,7 +183,7 @@ export function projectAuthorizedDeploymentContract(
     required.add(name);
     // Transitive: a retained target has relationships of its own, and every
     // target named in the contract has to still be there for it to validate.
-    for (const relationship of byName.get(name)!.relationships) {
+    for (const relationship of relationshipsOf(name)) {
       require(String(relationship.target));
     }
   };
@@ -154,17 +195,29 @@ export function projectAuthorizedDeploymentContract(
   // validates passes none of it on.
   const reachable = new Set<string>();
   for (const name of published) {
-    for (const relationship of byName.get(name)!.relationships) {
+    for (const relationship of relationshipsOf(name)) {
       if (relationship.queryable) reachable.add(String(relationship.target));
     }
   }
 
+  // What a join may reach on a target: the dimensions its own policy entry
+  // shows. A relationship to a target without one was already dropped above.
+  const joinable = (dataset: ProtocolDeploymentDataset) => {
+    if (visibility === undefined) return undefined;
+    const entry = Object.hasOwn(visibility.datasets, String(dataset.name))
+      ? visibility.datasets[String(dataset.name)]
+      : undefined;
+    if (entry === undefined) return new Set<string>();
+    return entry.dimensions === '*'
+      ? new Set(dataset.dimensions.map(dimension => String(dimension.name)))
+      : new Set(entry.dimensions);
+  };
+
   const datasets = contract.datasets
     .filter(dataset => required.has(String(dataset.name)))
     .map(dataset => (
-      published.has(String(dataset.name))
-        ? dataset
-        : narrowToJoin(dataset, reachable.has(String(dataset.name)))
+      projected.get(String(dataset.name))
+        ?? narrowToJoin(dataset, reachable.has(String(dataset.name)), joinable(dataset))
     ));
 
   return Object.freeze({

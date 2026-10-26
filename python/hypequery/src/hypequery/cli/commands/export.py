@@ -27,7 +27,10 @@ def run(options: ExportClientContractOptions) -> None:
         print(f"Client contract is up to date: {output.path}")
         return
     if options.check:
-        raise CliError("Client contract is missing or out of date; rerun export to review changes.")
+        raise CliError(
+            "Client contract is missing or out of date; review it with --stdout, then rerun export "
+            "with --force to replace it."
+        )
     if current is not None and not options.force:
         raise CliError("Refusing to overwrite an existing client contract; use --check or --force.")
     output.write(canonical, overwrite=options.force)

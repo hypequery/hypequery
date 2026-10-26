@@ -39,6 +39,14 @@ def _declared_length(request: Request) -> int | None:
     return int(values[0])
 
 
+def _require_identity_encoding(request: Request) -> None:
+    # The body limit counts bytes as they arrive; a compressed body would be
+    # measured before it expands, so none is accepted.
+    for value in request.headers.getlist("content-encoding"):
+        if any(coding.strip().lower() not in ("", "identity") for coding in value.split(",")):
+            raise _refuse(415, "Request bodies must not be content-encoded.")
+
+
 def _require_json(request: Request) -> None:
     media_type, _, parameters = request.headers.get("content-type", "").partition(";")
     if media_type.strip().lower() != _JSON:
@@ -56,6 +64,7 @@ def enforce_body_policy(request: Request, max_bytes: int) -> Request:
     original.
     """
 
+    _require_identity_encoding(request)
     declared = _declared_length(request)
     if declared is not None and declared > max_bytes:
         raise _too_large(max_bytes)

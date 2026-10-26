@@ -95,6 +95,16 @@ function normalizeFilters(
  * query's dimensions, filters, or orderBy, scoping each joined target with the
  * runtime tenant predicate when the target declares a `tenantKey`.
  */
+/**
+ * Semantic backends receive a source name, not SQL, so they cannot apply
+ * `FINAL`. Running a final dataset there would count unmerged row versions.
+ */
+function rejectFinalOnBackend(ds: Pick<AnyDatasetInstance, 'name' | 'final'>): void {
+  if (ds.final) {
+    throw new Error(`Dataset "${ds.name}" is declared final: true, which requires the queryBuilder execution path.`);
+  }
+}
+
 function collectJoins(
   ds: AnyDatasetInstance,
   dimensions: string[] = [],
@@ -116,6 +126,7 @@ function collectJoins(
   for (const name of referenced) {
     const { relationshipName, relationship, target } = resolveQualifiedPlanField(ds, name);
     if (relationship.keys && relationship.keys.length > 1) throw new Error('Composite relationships require the queryBuilder execution path.');
+    rejectFinalOnBackend(target);
     if (joins.has(relationshipName)) {
       continue;
     }
@@ -140,6 +151,12 @@ function aggregationForMeasure(
   const measure = getBaseMeasure(ds.measures, name);
   if (!measure) {
     throw new Error(`Unknown measure "${name}" on dataset "${ds.name}".`);
+  }
+  if (measure.aggregation === 'merge') {
+    throw new Error(
+      `Semantic backend plans do not support merge measure "${name}": it reads ClickHouse aggregate states. ` +
+      'Query it through createDatasetClient({ queryBuilder }).',
+    );
   }
   if (measure.sql) {
     throw new Error(
@@ -211,6 +228,7 @@ export function buildDatasetPlan(
   query: DatasetQuery = {},
   context?: ExecutionContext,
 ): PlanNode {
+  rejectFinalOnBackend(ds);
   if ((query.measures ?? []).some(name => name.includes('.'))) throw new Error('Relationship measures require the queryBuilder execution path.');
   if (query.timezone !== undefined) throw new Error('Execution timezone requires the queryBuilder execution path.');
   rejectTimeMeasuresOnBackend(ds, query);
@@ -329,6 +347,7 @@ export function buildMetricPlan(
   const errors = protocolMetricCapabilityErrors(metric, query);
   if (errors.length) throw new Error(`Invalid metric query: ${errors.join('; ')}`);
   const ref = getMetricRef(metric as MetricHandle);
+  rejectFinalOnBackend(ref.dataset);
   const grain = getMetricGrain(metric as MetricHandle, query);
   const plannedQuery = { ...query, by: grain };
 

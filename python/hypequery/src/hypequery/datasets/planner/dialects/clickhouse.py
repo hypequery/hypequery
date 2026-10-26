@@ -100,7 +100,9 @@ class ClickHouseDialect:
         in the bucket's zone. The Python driver would instead return an instant that
         the result codec writes in UTC. Formatting in ClickHouse yields the same text
         in both languages. Week-and-longer buckets are ``Date`` values, rendered as
-        ``YYYY-MM-DD`` either way. Both forms sort chronologically as text.
+        ``YYYY-MM-DD`` either way. The text does not sort chronologically on a
+        daylight-saving fall-back day, when two hours share a label, so ordering
+        uses the bucket itself.
         """
 
         return f"toString({bucket})"

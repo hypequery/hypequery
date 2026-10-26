@@ -69,6 +69,8 @@ class DatasetQueryCompiler:
         self.node = DatasetSelectNode()
         #: Output name to alias for everything selected so far; ordering reads it.
         self.orderable: dict[str, SafeIdentifier] = {}
+        #: The time bucket behind the text ``period`` output, which orders by instant.
+        self.period_bucket: str | None = None
 
         self.fields = FieldFeature(self)
         self.joins = JoinFeature(self)

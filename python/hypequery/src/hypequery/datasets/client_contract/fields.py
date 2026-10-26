@@ -9,6 +9,7 @@ from ..dimensions import Dimension
 from ..measures import Measure
 from ..registry import DatasetRegistry
 from ..utils.definition_projection import filter_operators
+from ..utils.measure_references import measure_stays_within
 from ..utils.relationship_fields import list_queryable_relationship_fields
 from ..utils.relationship_measures import list_relationship_measures
 
@@ -57,13 +58,20 @@ def request_filter(dataset: Dataset, field: str) -> bool:
 
 
 def public_fields(
-    dataset: Dataset, registry: DatasetRegistry | None
+    dataset: Dataset, registry: DatasetRegistry | None, related: frozenset[str]
 ) -> tuple[dict[str, ClientDimension], dict[str, ClientMeasure], dict[str, ClientFilter]]:
+    """The fields an endpoint advertises; *related* limits which relationships appear."""
     dimensions = {name: dimension_descriptor(d) for name, d in dataset.dimensions.items()}
-    measures = {name: measure_descriptor(dataset, m) for name, m in dataset.measures.items()}
+    measures = {
+        name: measure_descriptor(dataset, m)
+        for name, m in dataset.measures.items()
+        if measure_stays_within(dataset, name, related)
+    }
     filters: dict[str, ClientFilter] = {}
     related_filters: dict[str, ClientFilter] = {}
     for relation_name, relationship in dataset.relationships.items():
+        if relation_name not in related:
+            continue
         if relationship.kind not in ("belongsTo", "hasOne"):
             continue
         if registry is None:

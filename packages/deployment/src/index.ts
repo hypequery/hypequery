@@ -96,9 +96,13 @@ export type {
   DeploymentSemanticDataPlaneOptions,
   DeploymentSemanticExecutionInput,
   DeploymentSemanticInvocationRequest,
+  DeploymentSemanticContextInput,
   DeploymentSemanticTenantInput,
 } from './semantic-data-plane.js';
-export { validateSemanticOperation } from './semantic-operation-validation.js';
+export {
+  validateSemanticConstraints,
+  validateSemanticOperation,
+} from './semantic-operation-validation.js';
 export type {
   SemanticOperationLimits,
   SemanticOperationViolation,
@@ -110,4 +114,8 @@ export {
   isDeploymentEndpointAuthorized,
   projectAuthorizedDeploymentContract,
   satisfiesDeploymentAccess,
+} from './authorized-contract.js';
+export type {
+  AuthorizedDeploymentProjection,
+  AuthorizedDeploymentProjectionOptions,
 } from './authorized-contract.js';

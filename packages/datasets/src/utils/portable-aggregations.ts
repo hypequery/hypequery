@@ -4,6 +4,7 @@
  * `approxCountDistinct` runs locally, but it is an expression extension 2 and
  * deployment contract 3 feature (RFC 0015). Publishing emits contract 2 until
  * it can emit contract 3, so it refuses the measure with an error naming it.
+ * `merge` reads ClickHouse aggregate-state columns and has no contract form.
  */
 
 import type { ProtocolAggregation } from '@hypequery/protocol';
@@ -16,6 +17,12 @@ export function requirePortableAggregation(
   aggregation: AggregationType,
   owner: string,
 ): PortableAggregation {
+  if (aggregation === 'merge') {
+    throw new Error(
+      `${owner} uses merge, which cannot be published: the deployment contract has no aggregate-state ` +
+      'measures. Use it for local queries only.',
+    );
+  }
   if (aggregation === 'approxCountDistinct') {
     throw new Error(
       `${owner} uses approxCountDistinct, which cannot be published yet: approximate aggregations ` +

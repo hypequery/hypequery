@@ -19,8 +19,8 @@ import type {
   ServeMiddleware,
   TenantConfigOverride,
 } from '../../types.js';
+import { buildMetricInputSchema } from '@hypequery/datasets/schemas';
 import {
-  buildMetricInputSchema,
   type AnyDatasetInstance,
   type DatasetClient,
   type MetricContract,
@@ -33,6 +33,7 @@ import {
   resolveSemanticQueryBuilder,
 } from '../query-builder-context.js';
 import { resolveLocalAuthRequirement } from '../../auth-requirement.js';
+import { assertRelatedDatasetAccess, type RelatedDatasetPolicies } from './utils/related-dataset-policy.js';
 
 // ---------------------------------------------------------------------------
 // Zod schemas for metric query input / output
@@ -56,7 +57,7 @@ const metricResultMetaSchema = z.object({
 }).optional();
 
 const metricResultSchema = z.object({
-  data: z.array(z.record(z.unknown())),
+  data: z.array(z.record(z.string(), z.unknown())),
   meta: metricResultMetaSchema,
 });
 
@@ -118,6 +119,7 @@ export function createMetricEndpoint<TAuth extends AuthContext>(
   entry: MetricEntry<TAuth>,
   analytics: DatasetClient,
   defaultBuilderFactory: QueryBuilderFactoryLike,
+  relatedPolicies?: RelatedDatasetPolicies,
 ): ServeEndpoint<z.ZodTypeAny, typeof metricResultSchema, any, TAuth, any> {
   const resolved = resolveMetricEntry(entry);
   const metricRef = resolved.metric;
@@ -176,6 +178,9 @@ export function createMetricEndpoint<TAuth extends AuthContext>(
       by: input.by,
       timezone: input.timezone,
     };
+
+    // The metric's own filters are local; only the request can reach a relationship.
+    assertRelatedDatasetAccess(ds, { ...query, measures: [] }, ctx.auth ?? null, relatedPolicies);
 
     if (ctx.tenantId && !runtime?.tenant) {
       throw new ServeHttpError(
