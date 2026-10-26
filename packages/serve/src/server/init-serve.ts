@@ -50,7 +50,7 @@ export const initServe = <
   const { context, ...staticOptions } = options;
   const procedure = createProcedureBuilder<TContext, TAuth>();
   const define = <
-    TQueries extends ServeQueriesMap<TContext, TAuth>,
+    TQueries extends ServeQueriesMap<TContext, TAuth> = Record<never, never>,
     TMetrics extends MetricsConfig<TAuth> = Record<never, never>,
     TDatasets extends DatasetsConfig<TAuth> = Record<never, never>
   >(

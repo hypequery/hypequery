@@ -1222,7 +1222,7 @@ export interface ServeInitializer<
   readonly query: QueryFactory<TContext, TAuth>;
   queries<TQueries extends ServeQueriesMap<TContext, TAuth>>(queries: TQueries): TQueries;
   serve<
-    TQueries extends ServeQueriesMap<TContext, TAuth>,
+    TQueries extends ServeQueriesMap<TContext, TAuth> = Record<never, never>,
     TMetrics extends MetricsConfig<TAuth> = Record<never, never>,
     TDatasets extends DatasetsConfig<TAuth> = Record<never, never>
   >(
@@ -1234,7 +1234,7 @@ export interface ServeInitializer<
     TAuth
   >;
   define<
-    TQueries extends ServeQueriesMap<TContext, TAuth>,
+    TQueries extends ServeQueriesMap<TContext, TAuth> = Record<never, never>,
     TMetrics extends MetricsConfig<TAuth> = Record<never, never>,
     TDatasets extends DatasetsConfig<TAuth> = Record<never, never>
   >(
