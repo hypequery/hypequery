@@ -16,6 +16,7 @@ import {
   getRuntimeTenantPredicate,
   hasTenantRuntime,
 } from './tenant-runtime.js';
+import { runtimeConstraints } from './row-scope.js';
 import {
   isQualifiedField,
   resolveQualifiedField,
@@ -45,6 +46,7 @@ export function validateRelationshipTenantRuntime(
     ...(query.measures ?? []),
     ...(query.filters ?? []).map((filter) => filter.field),
     ...(query.orderBy ?? []).map((order) => order.field),
+    ...runtimeConstraints(context).map((constraint) => constraint.field),
   ].filter(isQualifiedField);
 
   for (const name of referenced) {

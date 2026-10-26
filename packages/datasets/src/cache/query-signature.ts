@@ -26,6 +26,7 @@ import type {
 } from '../types.js';
 import { getMetricGrain, getMetricRef, type MetricHandle } from '../utils/metric-handle.js';
 import { getRuntimeTenantPredicate } from '../utils/tenant-runtime.js';
+import { runtimeConstraints } from '../utils/row-scope.js';
 import { buildRelationshipBuilderContext } from '../utils/relationship-builder-plan.js';
 import { stableStringify } from '../utils/canonical-json.js';
 
@@ -79,7 +80,7 @@ function activatesTenantScopedJoin(
   context?: ExecutionContext,
 ): boolean {
   const joinCtx = buildRelationshipBuilderContext(ds, query, context);
-  return !!joinCtx && joinCtx.joins.some((join) => join.tenant);
+  return !!joinCtx && joinCtx.joins.some((join) => join.scope.length > 0);
 }
 
 /**
@@ -106,6 +107,12 @@ function tenantSignature(
     return { key: ds.tenantKey, scope: 'all' };
   }
   return { key: ds.tenantKey, operator: predicate.operator, value: predicate.value };
+}
+
+/** Enforced constraints change rows; absent when none, keeping existing signatures. */
+function constraintSignature(context?: ExecutionContext): Record<string, unknown> {
+  const constraints = runtimeConstraints(context);
+  return constraints.length ? { constraints: filterSignature([...constraints]) } : {};
 }
 
 /**
@@ -155,6 +162,7 @@ export function buildDatasetQuerySignature(
     limit: query.limit ?? null,
     offset: query.offset ?? null,
     tenant: tenantSignature(ds, query, context),
+    ...constraintSignature(context),
     scope: scopeSignature(context),
   });
 }
@@ -184,6 +192,7 @@ export function buildMetricQuerySignature(
     limit: query.limit ?? null,
     offset: query.offset ?? null,
     tenant: tenantSignature(ref.dataset, query, context),
+    ...constraintSignature(context),
     scope: scopeSignature(context),
   });
 }

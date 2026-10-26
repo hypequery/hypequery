@@ -28,6 +28,7 @@ describe('ClickHouse datasets SQL rules', () => {
     ['year', 'toStartOfYear', 'Years'],
   ] as const)('spells %s time arithmetic', (grain, truncate, unit) => {
     expect(ch.truncateTime('t', grain)).toBe(`${truncate}(t)`);
+    expect(ch.truncateTimeInZone('t', grain, 'z')).toBe(`toDateTime64(${truncate}(t), 9, z)`);
     expect(ch.addTime('t', 'n + 1', grain)).toBe(`add${unit}(t, n + 1)`);
     expect(ch.subtractTime('t', 2, grain)).toBe(`subtract${unit}(t, 2)`);
     expect(ch.timeDiff(grain, 'a', 'b')).toBe(`dateDiff('${grain}', a, b)`);
