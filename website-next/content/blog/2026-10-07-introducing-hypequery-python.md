@@ -128,7 +128,7 @@ Endpoints installed with a client profile also publish a **client contract**: th
 
 ```bash
 python -m hypequery export client-contract --factory analytics.definitions:build --output web/client-contract.json
-npx hypequery generate:client client-contract.json --output src/hypequery-client.ts
+cd web && npx hypequery generate:client client-contract.json --output src/hypequery-client.ts
 ```
 
 ```tsx

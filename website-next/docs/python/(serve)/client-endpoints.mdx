@@ -221,7 +221,9 @@ Types describe what the server accepts; Python still authorizes, validates and c
 | Deployed server ahead of a running frontend | The server answers `409 CLIENT_SCHEMA_CHANGED`; rebuild and redeploy the frontend |
 
 Each request carries its endpoint's schema hash in `X-Hypequery-Client-Schema`, so a stale client never receives data in
-a shape its types don't describe. Neither the hooks nor the MCP bridge fetch a new contract on their own.
+a shape its types don't describe. Neither the hooks nor the MCP bridge automatically adopts a changed contract: the hooks
+keep their generated types, and the bridge re-reads the live contract but refuses one that changed
+(`MCP_STALE_CONTRACT`) until you restart it.
 
 A complete runnable version of this setup, with two tenants, a React app and MCP checks, is in
 [`examples/client_dashboard`](https://github.com/hypequery/hypequery/tree/main/python/hypequery/examples/client_dashboard).

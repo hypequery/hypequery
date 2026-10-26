@@ -22,7 +22,8 @@ TypeScript backend. Python owns SQL, authentication, tenant resolution and endpo
 # Python project
 python -m hypequery export client-contract --factory analytics.definitions:build --output web/client-contract.json
 
-# Frontend project
+# Frontend project, where the contract was written
+cd web
 npm install @hypequery/react @tanstack/react-query
 npm install -D @hypequery/cli
 npx hypequery generate:client client-contract.json --output src/hypequery-client.ts
