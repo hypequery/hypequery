@@ -245,8 +245,9 @@ Before pushing the tag:
 3. **Consumer journey from registry pins.** In a fresh directory outside the
    checkout, install the rehearsal wheel with `fastapi,clickhouse` and the npm
    packages above by **registry version**, not tarballs. Run offline export,
-   `generate:client`, `--check`, a strict frontend build, the two-user browser
-   journey and the MCP journey against an isolated database.
+   `generate:client`, `--check`, a strict frontend build, the browser bundle
+   audit, the two-user browser journey and the MCP journey against an isolated
+   database.
 4. **Owners.** Record the release owner, the beta feedback channel and the
    rollback owner (who yanks, and when).
 5. **Tag** the rehearsed commit, as in
