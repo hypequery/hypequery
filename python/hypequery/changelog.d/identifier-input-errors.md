@@ -1,1 +1,0 @@
-- Report a filter, ordering or having field name outside the portable identifier grammar as an `input-invalid` query error from `DatasetClient.validate` and `execute`. It previously escaped as a raw `ProtocolIdentifierError` (a `TypeError`), which non-Serve hosts answered as a server fault.
