@@ -473,6 +473,14 @@ export type SemanticTenantRuntime =
 export interface SemanticExecutionRuntime {
   builderFactory?: QueryBuilderFactoryInput;
   tenant?: SemanticTenantRuntime;
+  /**
+   * RFC 0019 enforced constraints: comparisons on the queried dataset's
+   * declared filters or one-hop relationship fields, ANDed with the caller's
+   * filters. Resolve them from trusted context (the authenticated principal),
+   * never from caller input. A constraint the dataset cannot enforce refuses
+   * the call.
+   */
+  constraints?: MetricFilter[];
 }
 
 export interface ExecutionContext {

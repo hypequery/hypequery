@@ -1,6 +1,0 @@
-- `hypequery dev` now says which ClickHouse setting to check when the app cannot connect: refused credentials, an unreachable host, a missing database or denied access each get their own hint instead of "App could not start". Wrong-password failures, which ClickHouse reports as `REQUIRED_PASSWORD`, `WRONG_PASSWORD` or `UNKNOWN_USER`, are now classified `unauthenticated` rather than `internal`, and an unknown database is `not-found`.
-- A ClickHouse user whose profile sets `readonly = 1` refuses HypeQuery's per-query limits; that failure is now reported as `forbidden` with guidance to use a `readonly = 2` user instead of an opaque internal error.
-- `Deadline` is exported from `hypequery.datasets` so an `ExecutionContext` deadline can be built from the public package.
-- Passing a dataset name instead of a `Dataset` to `belongs_to`, `has_one` or `has_many` raises a `TypeError` that says so, instead of an `AttributeError`.
-- `AsyncFromSyncClickHouseExecutor` no longer leaves "Future exception was never retrieved" in the logs when a caller cancels a query.
-- README: the relationship example names the physical `customer_id` column (join keys are columns, not dimensions), the result cache documents a store failure as a `miss`, and the bridge executor documents the session-free driver clients it needs.

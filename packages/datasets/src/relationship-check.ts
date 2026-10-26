@@ -20,7 +20,8 @@
 import { datasetSourceBuilder } from './utils/dataset-source.js';
 import type { AnyDatasetInstance, ExecutionContext } from './types.js';
 import { toQueryBuilderFactory, type QueryBuilderFactoryInput } from './query-builder-protocol.js';
-import { getRuntimeTenantPredicate, validateTenantRuntime } from './utils/tenant-runtime.js';
+import { validateTenantRuntime } from './utils/tenant-runtime.js';
+import { applyRowScope, datasetRowScope } from './utils/row-scope.js';
 import { resolveDatasetSqlDialect } from './utils/dataset-sql-dialect.js';
 import {
   listToOneRelationships,
@@ -66,7 +67,6 @@ export async function checkRelationships(
 ): Promise<CheckRelationshipsResult> {
   const factory = toQueryBuilderFactory(options.queryBuilder);
   const dialect = resolveDatasetSqlDialect(factory);
-  const tenantPredicate = getRuntimeTenantPredicate(options.context);
   const entries = listToOneRelationships(ds, options.relationships);
   const issues: RelationshipKeyIssue[] = [];
 
@@ -82,9 +82,7 @@ export async function checkRelationships(
     if (entry.columns) {
       for (const column of entry.columns) qb = qb.where(column, 'isNotNull', undefined);
     }
-    if (entry.target.tenantKey && tenantPredicate) {
-      qb = qb.where(entry.target.tenantKey, tenantPredicate.operator, tenantPredicate.value);
-    }
+    qb = applyRowScope(qb, datasetRowScope(entry.target, options.context));
 
     const [row] = await qb.execute<Record<string, unknown>>({
       abortSignal: options.context?.abortSignal,

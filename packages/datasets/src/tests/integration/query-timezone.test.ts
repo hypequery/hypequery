@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createQueryBuilder } from '../../../../clickhouse/src/index.js';
-import { createDatasetClient, dataset, dimension, measure, add } from '../../index.js';
+import { createDatasetClient, dataset, dimension, measure, add, divide, nullIfZero, round } from '../../index.js';
 import { TEST_CONNECTION_CONFIG as config, runSql, insertRows } from '../../../../../testing/clickhouse/harness.mjs';
 
 const table = 'hq_query_timezone';
@@ -31,10 +31,17 @@ describe('query timezone against ClickHouse', () => {
       (parseDateTime64BestEffort('2026-01-03T00:30:00Z', 9), 40)`);
     await runSql(`CREATE TABLE ${table}_dates (event_at Date32, value Float64) ENGINE=Memory`);
     await insertRows(`${table}_dates`, [{ event_at: '2026-01-02', value: 10 }]);
+    await runSql(`CREATE TABLE ${table}_utc (event_at DateTime64(9, 'UTC'), value Float64) ENGINE=Memory`);
+    await runSql(`INSERT INTO ${table}_utc VALUES
+      (parseDateTime64BestEffort('2026-01-01T03:00:00Z', 9), 10),
+      (parseDateTime64BestEffort('2026-01-02T03:00:00Z', 9), 20),
+      (parseDateTime64BestEffort('2026-01-03T03:00:00Z', 9), 40),
+      (parseDateTime64BestEffort('2026-02-01T03:00:00Z', 9), 80)`);
   });
   afterAll(async () => {
     await runSql(`DROP TABLE IF EXISTS ${table}`);
     await runSql(`DROP TABLE IF EXISTS ${table}_dates`);
+    await runSql(`DROP TABLE IF EXISTS ${table}_utc`);
   });
 
   it.each([
@@ -101,5 +108,61 @@ describe('query timezone against ClickHouse', () => {
     const Dates = dataset('dateEvents', { source: `${table}_dates`, timeKey: 'time', dimensions: TokyoSource.dimensions, measures: TokyoSource.measures, filters: { range: { field: 'time' } } });
     const result = await client.execute(Dates, { by: 'day', measures: ['revenue', 'running'], filters, timezone });
     expect(result.data.map(row => [row.revenue, row.running])).toEqual([['10', '10']]);
+  });
+
+  // A nested formula over a to-date measure takes the composite plan, whose
+  // to-date lower bound must stay in the query zone rather than server UTC.
+  const ToDate = dataset('toDateEvents', {
+    source: `${table}_utc`, timeKey: 'time', dimensions: TokyoSource.dimensions,
+    filters: { range: { field: 'time' } },
+    measures: {
+      revenue: measure.sum('value'),
+      monthToDate: measure.toDate('revenue', 'month'),
+      yearToDate: measure.toDate('revenue', 'year'),
+      monthToDateShare: measure.derived({
+        uses: { mtd: 'monthToDate', revenue: 'revenue' },
+        formula: ({ mtd, revenue }) => divide(revenue, nullIfZero(mtd)),
+      }),
+      monthToDateShareRounded: measure.derived({ uses: { value: 'monthToDateShare' }, formula: ({ value }) => round(value, 4) }),
+      yearToDateShare: measure.derived({
+        uses: { ytd: 'yearToDate', revenue: 'revenue' },
+        formula: ({ ytd, revenue }) => divide(revenue, nullIfZero(ytd)),
+      }),
+      yearToDateShareRounded: measure.derived({ uses: { value: 'yearToDateShare' }, formula: ({ value }) => round(value, 4) }),
+    },
+  });
+
+  it.each([
+    ['UTC', ['10', '30', '70']], ['Asia/Tokyo', ['10', '30', '70']], ['America/New_York', ['20', '60', '60']],
+  ])('matches non-composite to-date values through a nested formula in %s', async (timezone, monthToDate) => {
+    const range = [
+      { field: 'range', operator: 'gte' as const, value: '2026-01-01' },
+      { field: 'range', operator: 'lt' as const, value: '2026-01-04' },
+    ];
+    const plain = await client.execute(ToDate, { by: 'day', measures: ['revenue', 'monthToDate'], filters: range, timezone });
+    const composite = await client.execute(ToDate, {
+      by: 'day', measures: ['revenue', 'monthToDate', 'monthToDateShareRounded'], filters: range, timezone,
+    });
+    expect(plain.data.map(row => row.monthToDate)).toEqual(monthToDate);
+    expect(composite.data.map(row => row.monthToDate)).toEqual(monthToDate);
+    expect(composite.data[0].monthToDateShareRounded).toBe('1');
+  });
+
+  // Month buckets are zone-less Dates, so the to-date start must take the
+  // query zone from the source rather than from the bucket itself.
+  it.each([
+    ['UTC', ['70', '150']], ['Asia/Tokyo', ['70', '150']], ['America/New_York', ['140', '140']],
+  ])('matches non-composite to-date values on month buckets in %s', async (timezone, yearToDate) => {
+    const range = [
+      { field: 'range', operator: 'gte' as const, value: '2026-01-01' },
+      { field: 'range', operator: 'lt' as const, value: '2026-03-01' },
+    ];
+    const plain = await client.execute(ToDate, { by: 'month', measures: ['revenue', 'yearToDate'], filters: range, timezone });
+    const composite = await client.execute(ToDate, {
+      by: 'month', measures: ['revenue', 'yearToDate', 'yearToDateShareRounded'], filters: range, timezone,
+    });
+    expect(plain.data.map(row => row.yearToDate)).toEqual(yearToDate);
+    expect(composite.data.map(row => row.yearToDate)).toEqual(yearToDate);
+    expect(composite.data[0].yearToDateShareRounded).toBe('1');
   });
 });

@@ -23,6 +23,7 @@ import {
   validateRelationshipTenantRuntime,
 } from './relationship-validation.js';
 import { segmentSelectionErrors } from './segments.js';
+import { enforcedConstraintErrors } from './enforced-constraints.js';
 import { analyzeTimeMeasureAxis } from './time-measure-axis.js';
 import { datasetHavingErrors } from './dataset-having.js';
 import { datasetOnTimeKey, selectedTimeKeyError } from './dataset-time-keys.js';
@@ -64,6 +65,7 @@ export function validateDatasetQueryInput(
   if (relationshipTenantError) {
     errors.push(relationshipTenantError);
   }
+  errors.push(...enforcedConstraintErrors(ds, context, query.filters?.length ?? 0));
 
   if (selectedDimensions.length === 0 && selectedMeasures.length === 0) {
     errors.push(`Dataset "${ds.name}" query must select at least one dimension or measure.`);

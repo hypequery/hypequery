@@ -1,4 +1,4 @@
-import { datasetSourceBuilder } from './dataset-source.js';
+import { scopedDatasetSource } from './scoped-dataset-source.js';
 import { semanticQuerySyntaxErrors } from './semantic-query-syntax.js';
 /** Metric SQL compilation; factory selection and execution belong to the client. */
 import { resolveDatasetSqlDialect } from './dataset-sql-dialect.js';
@@ -11,16 +11,10 @@ import {
   buildDimensionSelectionPlan,
   resolveDimensionExpression,
   resolveFilterField,
-  resolveTenantFilterColumn,
 } from '../query-planner.js';
 import { queryTimeFilter } from './query-timezone.js';
 import { isTenantScopedFilter } from './metric-handle.js';
-import { getRuntimeTenantPredicate } from './tenant-runtime.js';
-import {
-  applyRelationshipJoins,
-  buildRelationshipBuilderContext,
-  qualifyBaseColumn,
-} from './relationship-builder-plan.js';
+import { buildRelationshipBuilderContext } from './relationship-builder-plan.js';
 import { segmentFilters } from './segments.js';
 import { datasetOnTimeKey } from './dataset-time-keys.js';
 import type { AggregationSpec, AnyDatasetInstance } from '../types.js';
@@ -40,8 +34,7 @@ export function buildMetricQueryBuilder(
   const dialect = resolveDatasetSqlDialect(builderFactory);
   assertRawSqlForDialect(ds, dialect);
   const joinCtx = buildRelationshipBuilderContext(ds, query, context, dialect);
-  let qb: QueryBuilderLike = datasetSourceBuilder(builderFactory, ds);
-  qb = applyRelationshipJoins(qb, joinCtx);
+  let qb: QueryBuilderLike = scopedDatasetSource({ builderFactory, ds, context, joinCtx, dialect, timezone: query.timezone });
   const { selectParts, groupByParts } = buildDimensionSelectionPlan(
     ds,
     query.dimensions ?? [],
@@ -61,13 +54,6 @@ export function buildMetricQueryBuilder(
     qb = qb.groupBy(groupByParts);
   }
   qb = applyAggregationSpec(qb, ds, spec, ref.name, joinCtx, dialect);
-
-  // Tenant auto-injection
-  const tenantColumn = resolveTenantFilterColumn(ds, context);
-  const tenantPredicate = getRuntimeTenantPredicate(context);
-  if (tenantPredicate && tenantColumn) {
-    qb = qb.where(qualifyBaseColumn(joinCtx, tenantColumn), tenantPredicate.operator, tenantPredicate.value);
-  }
 
   // User filters
   for (const filter of query.filters ?? []) {

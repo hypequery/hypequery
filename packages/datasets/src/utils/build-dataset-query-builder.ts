@@ -1,4 +1,4 @@
-import { datasetSourceBuilder } from './dataset-source.js';
+import { scopedDatasetSource } from './scoped-dataset-source.js';
 import { relationshipMeasureExpressions } from './relationship-measure-sql.js';
 import { measureToAggregationSpec } from './dataset-normalization.js';
 import { applyAggregationSpec } from '../query-planner.js';
@@ -18,15 +18,9 @@ import {
   buildDimensionSelectionPlan,
   resolveDimensionExpression,
   resolveFilterField,
-  resolveTenantFilterColumn,
 } from '../query-planner.js';
 import { validateDatasetQueryInput } from './dataset-query-validation.js';
-import { getRuntimeTenantPredicate } from './tenant-runtime.js';
-import {
-  applyRelationshipJoins,
-  buildRelationshipBuilderContext,
-  qualifyBaseColumn,
-} from './relationship-builder-plan.js';
+import { buildRelationshipBuilderContext } from './relationship-builder-plan.js';
 import {
   hasSelectedDerivedMeasure,
 } from './dataset-derived-query.js';
@@ -59,8 +53,9 @@ export function buildDatasetQueryBuilder(
   assertRawSqlForDialect(ds, dialect);
   const joinCtx = buildRelationshipBuilderContext(ds, query, options.context, dialect);
 
-  let qb = datasetSourceBuilder(options.builderFactory, ds);
-  qb = applyRelationshipJoins(qb, joinCtx);
+  let qb = scopedDatasetSource({
+    builderFactory: options.builderFactory, ds, context: options.context, joinCtx, dialect, timezone: query.timezone,
+  });
   const { selectParts, groupByParts } = buildDimensionSelectionPlan(ds, query.dimensions ?? [], query.by, joinCtx, query.timezone, dialect);
   const measureNames = query.measures ?? baseMeasureNames(ds.measures);
 
@@ -79,12 +74,6 @@ export function buildDatasetQueryBuilder(
     const definition = getBaseMeasure(ds.measures, measureName);
     if (!definition) throw new Error(`Measure "${measureName}" is not a base measure.`);
     qb = applyMeasureDefinition(qb, ds, measureName, definition, joinCtx, dialect);
-  }
-
-  const tenantColumn = resolveTenantFilterColumn(ds, options.context);
-  const tenantPredicate = getRuntimeTenantPredicate(options.context);
-  if (tenantPredicate && tenantColumn) {
-    qb = qb.where(qualifyBaseColumn(joinCtx, tenantColumn), tenantPredicate.operator, tenantPredicate.value);
   }
 
   for (const filter of query.filters ?? []) {
