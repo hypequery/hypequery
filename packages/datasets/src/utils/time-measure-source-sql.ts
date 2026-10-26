@@ -34,12 +34,12 @@ export interface TimeMeasureSqlSource {
   rowAlias: string;
 }
 
-/** Isolate authored expressions, joins, tenancy and filters from internal SQL aliases. */
 /** The query timezone carried by `_hq_source` time, read from a zero-row scalar without scanning. */
 export function sourceTimezoneSql(dialect: DatasetSqlDialectRules): string {
   return dialect.timezoneOf(dialect.assumeNotNull('(SELECT _hq_time FROM _hq_source LIMIT 0)'));
 }
 
+/** Isolate authored expressions, joins, tenancy and filters from internal SQL aliases. */
 export function buildTimeMeasureSourceSql(
   ds: AnyDatasetInstance,
   query: DatasetQuery,
