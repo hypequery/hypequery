@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import json
 import re
+from contextlib import suppress
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -224,7 +225,9 @@ def test_related_measures_serialize_without_changing_dimensions_or_local_results
     assert native_result.data == (dict(zip((*dimensions, *measures), values, strict=True)),)
 
     router = create_api(authenticate=authenticate)
-    add_dataset_endpoint(router, "/query", dataset=source, client=client)
+    add_dataset_endpoint(
+        router, "/query", dataset=source, client=client, include_related={"target"}
+    )
     with TestClient(
         create_app(router, security=HttpSecurity(allowed_hosts=("testserver",)))
     ) as http:
@@ -525,6 +528,40 @@ def test_request_lifetime_propagates_disconnect_and_closes_watcher() -> None:
     asyncio.run(check())
 
 
+@pytest.mark.parametrize("concurrency", [1, 50])
+def test_request_lifetime_exits_when_is_disconnected_absorbs_a_cancel(concurrency: int) -> None:
+    from fastapi import Request
+
+    from hypequery.serve.lifetime import RequestLifetime
+
+    class AbsorbingRequest(Request):
+        # Starlette's is_disconnected() awaits inside an already-cancelled
+        # anyio CancelScope, which can absorb a cancel aimed at the watcher.
+        async def is_disconnected(self) -> bool:
+            with suppress(asyncio.CancelledError):
+                await asyncio.sleep(0.02)
+            return False
+
+    async def receive() -> dict[str, Any]:
+        await asyncio.Event().wait()
+        raise AssertionError("unreachable")
+
+    async def one() -> None:
+        request = AbsorbingRequest(
+            {"type": "http", "method": "POST", "path": "/", "headers": []}, receive
+        )
+        async with RequestLifetime(request) as lifetime:
+            await asyncio.sleep(0.01)
+        assert not lifetime.cancellation.is_set()
+
+    async def check() -> None:
+        async with asyncio.timeout(2):
+            await asyncio.gather(*(one() for _ in range(concurrency)))
+        assert not [task for task in asyncio.all_tasks() if task is not asyncio.current_task()]
+
+    asyncio.run(check())
+
+
 def test_handler_cancellation_reaches_executor_and_emits_aborted_event() -> None:
     from fastapi import Request
 
@@ -620,3 +657,306 @@ def test_created_endpoints_install_with_the_same_auth_policy(metric: bool) -> No
         response = http.post("/query", json=payload, headers={"Authorization": "Bearer reader"})
         assert response.status_code == 200, response.text
         assert response.json()["data"][0]["total"] == "10"
+
+
+def _orders_with_shipments(**measures: Any) -> tuple[Dataset, Dataset]:
+    from hypequery.datasets.dataset import FilterDefinition
+
+    shipments = Dataset(
+        name="shipments",
+        source="private_shipments",
+        dimensions={"order_id": dimension.number(), "carrier": dimension.string()},
+        measures={"shipped": measure.count_distinct("order_id")},
+    )
+    orders = Dataset(
+        name="orders",
+        source="private_orders",
+        dimensions={"id": dimension.number(), "country": dimension.string()},
+        measures={"total": measure.count("id"), **measures},
+        filters={
+            "country": FilterDefinition(field="country"),
+            "carrier": FilterDefinition(field="shipment.carrier"),
+        },
+        relationships={"shipment": belongs_to(shipments, from_field="id", to_field="order_id")},
+    )
+    return orders, shipments
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        {"dimensions": ["shipment.carrier"]},
+        {"measures": ["shipment.shipped"]},
+        {"filters": [{"field": "shipment.carrier", "operator": "eq", "value": "ups"}]},
+        # A named filter defined on a related field reads that field too.
+        {"filters": [{"field": "carrier", "operator": "eq", "value": "ups"}]},
+    ],
+    ids=["dimension", "measure", "filter", "named-filter"],
+)
+def test_related_fields_need_the_endpoint_to_include_the_relationship(
+    body: dict[str, object],
+) -> None:
+    # The QA repro: a caller refused by the shipments endpoint read shipment
+    # data through the orders endpoint, whose policy says nothing about shipments.
+    orders, shipments = _orders_with_shipments()
+    executor = Executor()
+    client = create_dataset_client(
+        executor=executor, registry=create_dataset_registry(orders, shipments)
+    )
+    router = create_router(authenticate=authenticate)
+    add_dataset_endpoint(router, "/orders", dataset=orders, client=client)
+    add_dataset_endpoint(
+        router, "/orders-shipped", dataset=orders, client=client, include_related={"shipment"}
+    )
+    add_dataset_endpoint(
+        router,
+        "/shipments",
+        dataset=shipments,
+        client=client,
+        policy=EndpointPolicy(required_scopes=frozenset({"shipments:read"})),
+    )
+    http = TestClient(create_app(router, security=HttpSecurity(allowed_hosts=("testserver",))))
+    headers = {"Authorization": "Bearer reader"}
+    assert http.post("/shipments", json={}, headers=headers).status_code == 403
+    refused = http.post("/orders", json=body, headers=headers)
+    assert refused.status_code == 400, refused.text
+    assert refused.json()["error"]["type"] == "VALIDATION_ERROR"
+    assert "not available on this endpoint" in refused.json()["error"]["message"]
+    assert executor.seen == []
+    assert http.post("/orders-shipped", json=body, headers=headers).status_code == 200
+    assert len(executor.seen) == 1
+
+
+def test_the_client_contract_advertises_only_included_relationships() -> None:
+    from hypequery.datasets import ClientQueryProfile
+    from hypequery.serve import export_client_contract
+
+    orders, shipments = _orders_with_shipments()
+    client = create_dataset_client(
+        executor=Executor(), registry=create_dataset_registry(orders, shipments)
+    )
+    contracts = {}
+    for related in ((), ("shipment",)):
+        router = create_api(authenticate=authenticate)
+        add_dataset_endpoint(
+            router,
+            "/orders",
+            dataset=orders,
+            client=client,
+            client_profile=ClientQueryProfile(),
+            include_related=related,
+        )
+        app_ = create_app(router, security=HttpSecurity(allowed_hosts=("testserver",)))
+        contracts[related] = export_client_contract(app_)["contract"]["endpoints"][0]
+    closed, opened = contracts[()], contracts[("shipment",)]
+    assert set(closed["dimensions"]) == {"id", "country"}
+    assert "shipment.shipped" not in closed["measures"]
+    assert set(closed["filters"]) == {"country"}
+    assert "shipment.carrier" in opened["dimensions"]
+    assert "shipment.shipped" in opened["measures"]
+    assert "carrier" in opened["filters"]
+
+
+def test_include_related_must_name_declared_relationships() -> None:
+    orders, shipments = _orders_with_shipments()
+    client = create_dataset_client(
+        executor=Executor(), registry=create_dataset_registry(orders, shipments)
+    )
+    with pytest.raises(ValueError, match="shipments"):
+        create_dataset_endpoint(dataset=orders, client=client, include_related={"shipments"})
+    with pytest.raises(TypeError):
+        create_dataset_endpoint(dataset=orders, client=client, include_related="shipment")
+
+
+def _orders_with_a_ups_measure() -> tuple[Dataset, Dataset]:
+    from hypequery.datasets import filter as f
+    from hypequery.datasets.formulas import divide
+
+    return _orders_with_shipments(
+        ups_orders=measure.count("id", filters=(f.eq("shipment.carrier", "ups"),)),
+        ups_share=measure.derived(divide("ups_orders", "total")),
+    )
+
+
+@pytest.mark.parametrize("related", [(), ("shipment",)], ids=["default", "included"])
+def test_offline_export_matches_the_live_contract_for_a_dataset_with_relationships(
+    related: tuple[str, ...],
+) -> None:
+    # The QA repro: an offline export exposed every relationship while Serve
+    # exposed none by default, so a client generated from it got 409s.
+    from hypequery.datasets import ClientEndpointDefinition, ClientQueryProfile
+    from hypequery.datasets import export_client_contract as export_offline
+    from hypequery.serve import export_client_contract
+
+    orders, shipments = _orders_with_a_ups_measure()
+    registry = create_dataset_registry(orders, shipments)
+    client = create_dataset_client(executor=Executor(), registry=registry)
+    profile = ClientQueryProfile(default_limit=50, max_limit=100)
+    router = create_api(authenticate=authenticate)
+    add_dataset_endpoint(
+        router,
+        "/orders",
+        dataset=orders,
+        client=client,
+        client_profile=profile,
+        include_related=related,
+    )
+    add_metric_endpoint(
+        router,
+        "/total",
+        dataset=orders,
+        measure="total",
+        client=client,
+        client_profile=profile,
+        include_related=related,
+    )
+    app_ = create_app(router, security=HttpSecurity(allowed_hosts=("testserver",)))
+    # Leave the offline default in place when the endpoint uses Serve's default.
+    if related:
+        definitions = [
+            ClientEndpointDefinition(orders, "/orders", profile, related=related),
+            ClientEndpointDefinition(orders, "/total", profile, measure="total", related=related),
+        ]
+    else:
+        definitions = [
+            ClientEndpointDefinition(orders, "/orders", profile),
+            ClientEndpointDefinition(orders, "/total", profile, measure="total"),
+        ]
+    offline = export_offline(definitions, registry=registry)["contract"]
+    live = export_client_contract(app_)["contract"]
+    assert [e["schemaHash"] for e in offline["endpoints"]] == [
+        e["schemaHash"] for e in live["endpoints"]
+    ]
+    assert offline == live
+    advertised = offline["endpoints"][0]
+    assert ("shipment.carrier" in advertised["dimensions"]) is bool(related)
+    assert ("ups_orders" in advertised["defaultMeasures"]) is bool(related)
+
+
+def test_offline_export_refuses_a_metric_serve_would_refuse() -> None:
+    from hypequery.datasets import ClientEndpointDefinition, ClientQueryProfile
+    from hypequery.datasets import export_client_contract as export_offline
+
+    orders, shipments = _orders_with_a_ups_measure()
+    registry = create_dataset_registry(orders, shipments)
+    client = create_dataset_client(executor=Executor(), registry=registry)
+    with pytest.raises(ValueError, match="include_related"):
+        create_metric_endpoint(dataset=orders, measure="ups_orders", client=client)
+    definition = ClientEndpointDefinition(
+        orders, "/ups", ClientQueryProfile(), measure="ups_orders"
+    )
+    with pytest.raises(ValueError, match="missing from related"):
+        export_offline([definition], registry=registry)
+    included = ClientEndpointDefinition(
+        orders, "/ups", ClientQueryProfile(), measure="ups_orders", related={"shipment"}
+    )
+    assert export_offline([included], registry=registry)["contract"]["endpoints"]
+
+
+def test_offline_related_must_name_declared_relationships() -> None:
+    from hypequery.datasets import ClientEndpointDefinition, ClientQueryProfile
+
+    orders, _ = _orders_with_shipments()
+    with pytest.raises(ValueError, match="shipments"):
+        ClientEndpointDefinition(orders, "/orders", ClientQueryProfile(), related={"shipments"})
+    with pytest.raises(TypeError):
+        ClientEndpointDefinition(orders, "/orders", ClientQueryProfile(), related="shipment")
+    definition = ClientEndpointDefinition(
+        orders, "/orders", ClientQueryProfile(), related=["shipment"]
+    )
+    assert definition.related == frozenset({"shipment"})
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        {"measures": ["ups_orders"]},
+        {"measures": ["ups_share"]},
+    ],
+    ids=["filtered", "derived"],
+)
+def test_a_measure_filtering_on_a_related_field_needs_the_relationship(
+    body: dict[str, object],
+) -> None:
+    orders, shipments = _orders_with_a_ups_measure()
+    executor = Executor()
+    client = create_dataset_client(
+        executor=executor, registry=create_dataset_registry(orders, shipments)
+    )
+    router = create_router(authenticate=authenticate)
+    add_dataset_endpoint(router, "/orders", dataset=orders, client=client)
+    add_dataset_endpoint(
+        router, "/orders-shipped", dataset=orders, client=client, include_related={"shipment"}
+    )
+    http = TestClient(create_app(router, security=HttpSecurity(allowed_hosts=("testserver",))))
+    headers = {"Authorization": "Bearer reader"}
+    refused = http.post("/orders", json=body, headers=headers)
+    assert refused.status_code == 400, refused.text
+    assert re.fullmatch(
+        r'Measure "ups_(orders|share)" filters on "shipment.carrier", which is not '
+        r"available on this endpoint.",
+        refused.json()["error"]["message"],
+    )
+    assert executor.seen == []
+    assert http.post("/orders-shipped", json=body, headers=headers).status_code == 200
+    assert len(executor.seen) == 1
+
+
+def test_an_omitted_measure_list_selects_only_the_measures_the_endpoint_serves() -> None:
+    orders, shipments = _orders_with_a_ups_measure()
+    executor = Executor()
+    client = create_dataset_client(
+        executor=executor, registry=create_dataset_registry(orders, shipments)
+    )
+    router = create_router(authenticate=authenticate)
+    add_dataset_endpoint(router, "/orders", dataset=orders, client=client)
+    add_dataset_endpoint(
+        router, "/orders-shipped", dataset=orders, client=client, include_related={"shipment"}
+    )
+    http = TestClient(create_app(router, security=HttpSecurity(allowed_hosts=("testserver",))))
+    headers = {"Authorization": "Bearer reader"}
+    for path in ("/orders", "/orders-shipped"):
+        response = http.post(path, json={"dimensions": ["country"]}, headers=headers)
+        assert response.status_code == 200, response.text
+    closed, opened = executor.seen
+    assert "shipment" not in closed.sql
+    assert "private_shipments" in opened.sql
+
+
+def test_a_metric_endpoint_refuses_a_measure_it_cannot_serve() -> None:
+    orders, shipments = _orders_with_a_ups_measure()
+    client = create_dataset_client(
+        executor=Executor(), registry=create_dataset_registry(orders, shipments)
+    )
+    with pytest.raises(ValueError, match="include_related"):
+        create_metric_endpoint(dataset=orders, client=client, measure="ups_share")
+    create_metric_endpoint(
+        dataset=orders, client=client, measure="ups_share", include_related={"shipment"}
+    )
+
+
+def test_the_client_contract_omits_measures_filtering_on_excluded_relationships() -> None:
+    from hypequery.datasets import ClientQueryProfile
+    from hypequery.serve import export_client_contract
+
+    orders, shipments = _orders_with_a_ups_measure()
+    client = create_dataset_client(
+        executor=Executor(), registry=create_dataset_registry(orders, shipments)
+    )
+    measures = {}
+    for related in ((), ("shipment",)):
+        router = create_api(authenticate=authenticate)
+        add_dataset_endpoint(
+            router,
+            "/orders",
+            dataset=orders,
+            client=client,
+            client_profile=ClientQueryProfile(),
+            include_related=related,
+        )
+        app_ = create_app(router, security=HttpSecurity(allowed_hosts=("testserver",)))
+        measures[related] = set(
+            export_client_contract(app_)["contract"]["endpoints"][0]["measures"]
+        )
+    assert measures[()] == {"total"}
+    assert {"total", "ups_orders", "ups_share", "shipment.shipped"} <= measures[("shipment",)]

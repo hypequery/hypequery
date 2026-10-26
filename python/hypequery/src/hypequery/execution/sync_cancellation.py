@@ -9,6 +9,7 @@ from collections.abc import Callable
 from hypequery.datasets.planner import CompiledQuery
 
 from .cancellation import server_cancellation_confirmed, terminal_error
+from .utils.refused_kill import is_refused_kill, report_refused_kill
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -28,8 +29,11 @@ class SyncCancellationMonitor:
                 try:
                     if server_cancellation_confirmed(self._cancel(self._compiled.query_id)):
                         return
-                except Exception:
+                except Exception as exc:
                     # Preserve cancellation precedence even if the control request fails.
+                    if is_refused_kill(exc):
+                        report_refused_kill()
+                        return
                     if not warned:
                         _LOGGER.warning(
                             "Server cancellation failed for query %s", self._compiled.query_id

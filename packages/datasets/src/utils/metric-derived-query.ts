@@ -1,3 +1,4 @@
+import { datasetSourceBuilder } from './dataset-source.js';
 import { semanticQuerySyntaxErrors, semanticOrderDirection } from './semantic-query-syntax.js';
 /** Metric SQL compilation; factory selection and execution belong to the client. */
 import { resolveDatasetSqlDialect } from './dataset-sql-dialect.js';
@@ -43,7 +44,7 @@ export function buildDerivedMetricSql(
   const joinCtx = buildRelationshipBuilderContext(ds, query, context, dialect);
 
   // Build the CTE inner query using the builder
-  let cteBuilder: QueryBuilderLike = builderFactory.table(ds.source);
+  let cteBuilder: QueryBuilderLike = datasetSourceBuilder(builderFactory, ds);
   cteBuilder = applyRelationshipJoins(cteBuilder, joinCtx);
   const { selectParts, groupByParts } = buildDimensionSelectionPlan(
     ds,

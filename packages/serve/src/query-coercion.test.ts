@@ -1,10 +1,15 @@
 import { describe, it, expect } from "vitest";
-import { z } from "zod";
+import { z as zod4 } from "zod";
+import { z as zod3 } from "zod/v3";
 import { coerceQueryInput } from "./query-coercion.js";
 
 /** Coercion is only useful if the schema then accepts the result. */
-const parse = (schema: z.ZodTypeAny, raw: unknown) =>
+const parse = (schema: any, raw: unknown) =>
   schema.safeParse(coerceQueryInput(schema, raw));
+
+// Callers bring their own Zod, so every case runs against both majors.
+describe.each([["zod 3", zod3], ["zod 4", zod4]] as const)("%s", (_major, zodModule) => {
+const z = zodModule as any;
 
 describe("coerceQueryInput", () => {
   it("coerces the numeric case that made GET endpoints unusable", () => {
@@ -121,7 +126,6 @@ describe("coerceQueryInput", () => {
       expect((result as { error: z.ZodError }).error.issues[0]).toMatchObject({
         code: "invalid_type",
         expected: "bigint",
-        received: "string",
         path: ["id"],
       });
     }
@@ -165,7 +169,6 @@ describe("coerceQueryInput", () => {
     expect((result as { error: z.ZodError }).error.issues[0]).toMatchObject({
       code: "invalid_type",
       expected: "number",
-      received: "string",
       path: ["limit"],
     });
   });
@@ -195,4 +198,5 @@ describe("coerceQueryInput", () => {
 
     expect(raw).toEqual({ limit: "5" });
   });
+});
 });

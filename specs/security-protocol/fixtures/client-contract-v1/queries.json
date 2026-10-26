@@ -442,5 +442,43 @@
       ],
       "effectiveLimit": 100
     }
+  },
+  {
+    "id": "mcp-limit-at-max",
+    "contract": "build",
+    "endpoint": "orders",
+    "input": {
+      "dataset": "orders",
+      "measures": [
+        "revenue"
+      ],
+      "limit": 1000
+    },
+    "transport": "mcp",
+    "http": {
+      "measures": [
+        "revenue"
+      ],
+      "limit": 1000
+    },
+    "mode": "query",
+    "expected": {
+      "body": {
+        "dimensions": [],
+        "filters": [],
+        "orderBy": [],
+        "limit": 1000,
+        "offset": 0,
+        "includeMeta": false,
+        "measures": [
+          "revenue"
+        ],
+        "having": []
+      },
+      "selectedMeasures": [
+        "revenue"
+      ],
+      "effectiveLimit": 1000
+    }
   }
 ]

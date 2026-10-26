@@ -2,19 +2,19 @@
 
 A Python semantic layer for ClickHouse datasets, metrics, multi-tenant analytics, and FastAPI serving.
 
-> **Beta candidate 0.1.0b1:** datasets, execution, Serve, generated React clients
-> and HTTP-backed MCP have installed-artifact qualification. This branch prepares
-> the release; it does not establish PyPI or matching npm availability. APIs may
-> change during beta. Use the [release checklist](RELEASING.md#integrated-beta-candidate)
-> before deploying or announcing it.
+> **Beta (0.1.0b1).** Datasets, execution, Serve, generated React clients and
+> HTTP-backed MCP are tested end to end from the installed package. APIs may still
+> change before 1.0. Please report problems on
+> [GitHub](https://github.com/hypequery/hypequery/issues).
 
 ## Python → React → MCP example
 
 The [complete client tutorial](https://github.com/hypequery/hypequery/blob/main/python/hypequery/examples/client_dashboard/README.md) shares one
 Python definition across authorized HTTP, generated React types and MCP stdio.
-Its preparation script uses an installed wheel and packed Node packages outside
-the checkout. Matching npm features remain in the development release stack;
-currently published packages may not support the complete journey yet.
+It works with the published npm packages (`@hypequery/cli` 1.25+,
+`@hypequery/react` 0.7+ and `@hypequery/mcp` 0.10+). Its preparation script
+builds the same journey from a checkout, using an installed wheel and packed
+Node packages outside the repository.
 
 ## Schema-backed Python CLI
 
@@ -49,6 +49,10 @@ From zero to a served dataset. You need Python 3.11+ and a ClickHouse server.
 ```bash
 pip install "hypequery[fastapi,clickhouse]"
 ```
+
+That covers the synchronous executor this guide uses. For the native async
+executor (`create_async_clickhouse_executor`), install
+`"hypequery[fastapi,clickhouse-async]"` instead.
 
 To try an unreleased build, install from a checkout of this repository instead:
 `pip install "./python/hypequery[fastapi,clickhouse]"`.
@@ -234,6 +238,17 @@ pip install "hypequery[clickhouse-async]"
 pip install "hypequery[fastapi]"
 ```
 
+| Extra | Adds | Needed for |
+|---|---|---|
+| (none) | pydantic | defining datasets, planning, `to_sql()`, protocol artifacts |
+| `clickhouse` | clickhouse-connect | `create_clickhouse_executor` and `hypequery init` / `generate` |
+| `clickhouse-async` | clickhouse-connect with aiohttp | `create_async_clickhouse_executor`; also covers everything `clickhouse` does |
+| `fastapi` | FastAPI, Starlette, uvicorn | `hypequery.serve` and `hypequery dev` |
+
+Combine them as needed, for example `"hypequery[fastapi,clickhouse-async]"`.
+Without `clickhouse-async`, `create_async_clickhouse_executor` raises an error
+naming the extra to install.
+
 The SDK is organised as:
 
 - `hypequery.protocol` for the language-neutral artifact contracts;
@@ -391,7 +406,8 @@ result.meta.cache  # "miss", then "hit" for the same request
 - **Equivalent requests share an entry.** Filter order, `offset: 0`, and empty
   lists do not create separate entries.
 - **Never fails a query.** A store error is treated as a miss: the query runs,
-  `meta.cache == "miss"`, and `on_error` sees the failure. A query with no
+  `meta.cache == "miss"`, and `on_error` sees the failure. So is a stored value
+  that isn't well-formed `CachedRows` with exactly this query's columns. A query with no
   portable form runs uncached and reports `meta.cache == "bypass"`, as does
   `use_cache=False`, which skips the cache for one call.
 - **The secret is optional.** Without one, the cache generates a random secret
@@ -486,7 +502,12 @@ app.include_router(router)
 
 Every route on the router also has a fixed body policy, applied after
 authentication:
-- bodies must be UTF-8 `application/json`, otherwise `415`;
+- bodies must be `application/json` with no charset or `charset=utf-8`,
+  otherwise `415`;
+- a `Content-Encoding` other than `identity` (gzip, br, ...) gets `415`: the
+  size cap counts the bytes received, so compressed bodies are refused;
+- a body that isn't valid JSON, including invalid UTF-8 or nesting past
+  Python's recursion limit, gets `400 VALIDATION_ERROR`;
 - bodies are capped at `create_api(max_body_bytes=...)`, 1 MiB by default,
   and counted as they stream, so a missing `Content-Length` doesn't get
   around the cap;
@@ -546,7 +567,9 @@ envelope for both languages.
 - **What an endpoint raises:**
   - `ServeError(status, type, message)` is sent as written, like TypeScript's
     `ServeHttpError`;
-  - an `HTTPException` with a string `detail` keeps that message;
+  - an `HTTPException`, FastAPI's or Starlette's, keeps its status and, when
+    `detail` is a string, that message. A 4xx status without its own type
+    becomes `VALIDATION_ERROR`;
   - a `CompiledQueryError` maps its RFC 0010 category to a status and type,
     for example a missed deadline becomes `504 GATEWAY_TIMEOUT`;
   - anything else is logged to the `hypequery.serve` logger with its request
@@ -638,6 +661,40 @@ without waiting for workers.
 `ExecutionContext(deadline=Deadline.after(seconds))` bounds one execution;
 `Deadline` is exported by `hypequery.datasets`. A query that is still running
 when it expires is killed on the server and fails with `deadline-exceeded`.
+
+### Grants for cancellation
+
+`KILL QUERY` needs privileges a query-only user usually lacks. The control
+connection signs in as the query user by default, and that user needs:
+
+```sql
+GRANT SELECT ON system.processes TO reader;
+```
+
+To keep the query user minimal, give cancellation its own user instead. It
+needs both grants, because it stops queries another user started:
+
+```sql
+GRANT SELECT ON system.processes, KILL QUERY ON *.* TO hypequery_control;
+```
+
+```python
+ClickHouseConnection(
+    username="reader",
+    password=reader_password,
+    control_username="hypequery_control",
+    control_password=control_password,
+)
+```
+
+`ClickHouseConnection.from_env()` reads these from `CLICKHOUSE_CONTROL_USERNAME`
+and `CLICKHOUSE_CONTROL_PASSWORD`. If ClickHouse refuses a `KILL`, the
+executor logs one error naming these fixes on the
+`hypequery.execution.cancellation` logger and stops asking. The query then
+runs until `max_execution_time`, and the caller still gets `aborted` or
+`deadline-exceeded`. The native async executor needs the grant less, since its
+driver also asks ClickHouse to cancel a readonly query when the connection
+closes.
 
 ## Canonical protocol values
 
@@ -1097,6 +1154,12 @@ compiled.parameter_values()  # {"p0": "2026-01-01", "p1": "acme"}
 compiled.to_sql()  # the redacted debug form — never executable
 ```
 
+A timestamp filter value must be an ISO 8601 date or date-time: `2026-01-31`,
+`2026-01-31 12:00:00`, or `2026-01-31T12:00:00.123Z`. A time needs seconds, and a
+fraction or a `Z`/`±hh:mm` offset is optional. Anything else, including an
+impossible date such as `2026-02-30`, is refused as `input-invalid` before it
+reaches ClickHouse, which would otherwise read it as a different instant.
+
 A dataset that declares a `tenant_key` is not served without a tenant scope:
 reading it unscoped returns every tenant's rows, so an absent scope fails
 closed with `tenant-required` rather than at whatever consumes the result. A
@@ -1221,6 +1284,30 @@ add_discovery_endpoint(router, registry=registry)
 app = create_app(router, security=HttpSecurity(allowed_hosts=("analytics.example.com",)))
 ```
 
+An endpoint serves its own dataset's fields only. Its policy says who may read
+that dataset, not the datasets its relationships reach. Fields such as
+`customer.country`, related measures, and named filters defined on a related
+field therefore need an explicit opt-in, per relationship:
+
+```python
+add_dataset_endpoint(
+    router,
+    "/datasets/orders/query",
+    dataset=orders,
+    client=client,
+    policy=policy,
+    include_related={"customer"},
+)
+```
+
+Without the opt-in, the endpoint refuses those fields with `400 VALIDATION_ERROR`
+and leaves them out of its client contract. The same goes for a measure whose
+fixed filters read a related field, directly or through a derived measure: the
+endpoint refuses it, and a request that omits `measures` selects only the base
+measures the endpoint can serve. A metric endpoint for such a measure is refused
+when it is created. Include a relationship only when this endpoint's policy is
+enough to read the related dataset.
+
 The dataset, registry and client are authored by the host as in the client
 examples above. Metric endpoints fix one dataset measure; formula metrics and
 portable metric definitions remain a follow-up. Their optional `name` aliases
@@ -1337,9 +1424,9 @@ CI tests the real runner, startup refusals, capacity recovery, synchronous and
 asynchronous cancellation, cache/response limits and proxy trust. The same shared
 HTTP fixtures run with and without the production profile, and live ClickHouse
 CI tests the production HTTP query path. The declared direct dependency floors
-(pydantic 2.9.2, or 2.12.2 on Python 3.14; FastAPI 0.137.2, Starlette 1.3.1,
-Uvicorn 0.30.6 and clickhouse-connect 1.4.2) are tested as well as the locked
-versions.
+(pydantic 2.9.2, raised to 2.12.2 on Python 3.14; FastAPI 0.137.2; Starlette
+1.3.1; Uvicorn 0.30.6; clickhouse-connect 1.4.2) are installed from wheels and
+tested on every supported Python, as well as the locked versions.
 
 Run both implementations' shared HTTP gates after building TypeScript packages:
 
@@ -1377,6 +1464,20 @@ artifact = export_client_contract(
     mount_path="/analytics",
 )
 # artifact["canonical"] is the complete signed JSON document.
+```
+
+Related fields are left out unless a definition names the relationship, as
+`include_related` does for an installed endpoint. Pass the same names to both so
+the exported schema hash matches the live one; otherwise generated clients get
+`409 CLIENT_SCHEMA_CHANGED`:
+
+```python
+ClientEndpointDefinition(
+    dataset=Orders,
+    path="/api/datasets/orders/query",
+    profile=ClientQueryProfile(default_limit=100, max_limit=100),
+    related={"customer"},  # matches include_related={"customer"}
+)
 ```
 
 Supply a `registry` when definitions reference queryable relationships. Target

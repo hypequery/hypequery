@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass
 
 from ...protocol import ClientQueryLimits
 from ..dataset import Dataset
+from ..utils.relationship_names import checked_relationship_names
 
 
 @dataclass(frozen=True, slots=True)
@@ -69,6 +71,9 @@ class ClientEndpointDefinition:
     No route is registered and no client/executor is constructed. For metrics,
     measure names the local measure and name is the public metric/output alias.
     The host owns the final route and must enforce the advertised strict profile.
+    *related* names the relationships whose fields the endpoint exposes, as
+    Serve's include_related does; by default it exposes none, so an export
+    matches the live contract of an endpoint installed with the same arguments.
     """
 
     dataset: Dataset
@@ -76,3 +81,8 @@ class ClientEndpointDefinition:
     profile: ClientQueryProfile
     measure: str | None = None
     name: str | None = None
+    related: Iterable[str] = ()
+
+    def __post_init__(self) -> None:
+        names = checked_relationship_names(self.dataset, self.related, argument="related")
+        object.__setattr__(self, "related", names)

@@ -350,6 +350,9 @@ function applyAggregations(
       case 'approxCountDistinct':
         qb = qb.approxCountDistinct(field, name);
         break;
+      case 'merge':
+        // Semantic plans never carry merge measures; the datasets planner refuses them.
+        throw new Error(`Semantic backend plans do not support merge measure "${name}".`);
     }
   }
 

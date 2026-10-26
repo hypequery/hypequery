@@ -37,7 +37,8 @@ def build() -> PreparedProtocolClientContract:
             ClientEndpointDefinition(
                 orders, "/v1/sales", profile, measure="revenue", name="sales"
             ),
-            ClientEndpointDefinition(joined, "/v1/joined", profile),
+            # Matches the installed endpoint's include_related={"profile"}.
+            ClientEndpointDefinition(joined, "/v1/joined", profile, related={"profile"}),
         ],
         registry=create_dataset_registry(orders, joined, profiles),
     )

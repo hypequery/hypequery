@@ -4,6 +4,7 @@ from __future__ import annotations
 
 # ECMAScript JSON number text, shared by every hash and wire encoder.
 from ._jcs import serialize_number as serialize_protocol_number
+from ._jcs import serialize_string as serialize_protocol_string
 from .bundle_codec import (
     PROTOCOL_DEPLOYMENT_BUNDLE_IDENTITY_DOMAIN,
     PreparedProtocolDeploymentBundleManifest,
@@ -379,6 +380,7 @@ __all__ = [
     "schema_to_data",
     "semantic_query_to_data",
     "serialize_protocol_number",
+    "serialize_protocol_string",
     "split_protocol_qualified_identifier",
     "sql_expression_to_data",
     "tuple_value",

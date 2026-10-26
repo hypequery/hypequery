@@ -1,4 +1,3 @@
-import type { ZodType, ZodTypeAny } from "zod";
 import type { ServeQueryLogger, ServeQueryEventCallback } from "./query-logger.js";
 import type { CacheObservability } from "./cache-observability.js";
 import type {
@@ -229,10 +228,34 @@ export type ServeMiddleware<
 ) => Promise<TResult>;
 
 /**
+ * A Zod 3 or Zod 4 schema, as serve uses it: parse input and infer types.
+ *
+ * Structural rather than imported from Zod, so a schema built with either
+ * major, or with another installed copy of Zod, is accepted. Bring the Zod you
+ * already use.
+ */
+export interface ServeSchema<Output = any, Input = Output> {
+  readonly _output: Output;
+  readonly _input: Input;
+  parse(data: unknown): Output;
+  safeParse(data: unknown): ServeSchemaParseResult<Output>;
+}
+
+/** The parts of a Zod `safeParse` result serve reads. */
+export type ServeSchemaParseResult<Output> =
+  | { readonly success: true; readonly data: Output }
+  | { readonly success: false; readonly error: ServeSchemaError };
+
+/** The parts of a Zod error serve reads and returns in a `VALIDATION_ERROR`. */
+export interface ServeSchemaError {
+  readonly issues: ReadonlyArray<{ readonly path: ReadonlyArray<PropertyKey>; readonly message: string }>;
+}
+
+/**
  * What a *caller* sends. Use for anything crossing the wire or handed to
  * `api.execute()` — a field with `.default()` is genuinely optional there.
  */
-export type SchemaInput<T extends ZodTypeAny | undefined> = T extends ZodTypeAny
+export type SchemaInput<T extends ServeSchema | undefined> = T extends ServeSchema
   ? T["_input"]
   : unknown;
 
@@ -245,7 +268,7 @@ export type SchemaInput<T extends ZodTypeAny | undefined> = T extends ZodTypeAny
  * fields look `| undefined` and forces callers to re-supply a default the
  * schema already guarantees.
  */
-export type SchemaOutput<T extends ZodTypeAny | undefined> = T extends ZodTypeAny
+export type SchemaOutput<T extends ServeSchema | undefined> = T extends ServeSchema
   ? T["_output"]
   : unknown;
 
@@ -421,8 +444,8 @@ export interface ApiExecuteOptions<
 }
 
 export interface ServeEndpoint<
-  TInputSchema extends ZodTypeAny | undefined = undefined,
-  TOutputSchema extends ZodTypeAny = ZodTypeAny,
+  TInputSchema extends ServeSchema | undefined = undefined,
+  TOutputSchema extends ServeSchema = ServeSchema,
   TContext extends Record<string, unknown> = Record<string, unknown>,
   TAuth extends AuthContext = AuthContext,
   TResult = SchemaOutput<TOutputSchema>
@@ -467,8 +490,8 @@ export type ServeEndpointResult<
 > = TEndpoint extends ServeEndpoint<any, any, any, any, infer TResult> ? TResult : never;
 
 export interface ServeQueryConfig<
-  TInputSchema extends ZodTypeAny | undefined = undefined,
-  TOutputSchema extends ZodTypeAny = ZodTypeAny,
+  TInputSchema extends ServeSchema | undefined = undefined,
+  TOutputSchema extends ServeSchema = ServeSchema,
   TContext extends Record<string, unknown> = Record<string, unknown>,
   TAuth extends AuthContext = AuthContext,
   TResult = SchemaOutput<TOutputSchema>
@@ -502,8 +525,8 @@ export interface ServeQueryConfig<
 }
 
 export interface StandaloneQueryDefinition<
-  TInputSchema extends ZodTypeAny | undefined = undefined,
-  TOutputSchema extends ZodTypeAny = ZodTypeAny,
+  TInputSchema extends ServeSchema | undefined = undefined,
+  TOutputSchema extends ServeSchema = ServeSchema,
   TContext extends Record<string, unknown> = Record<string, unknown>,
   TAuth extends AuthContext = AuthContext,
   TResult = SchemaOutput<TOutputSchema>
@@ -515,11 +538,11 @@ export interface StandaloneQueryDefinition<
 }
 
 export interface QueryObjectConfig<
-  TInputSchema extends ZodTypeAny | undefined = undefined,
-  TOutputSchema extends ZodTypeAny | undefined = undefined,
+  TInputSchema extends ServeSchema | undefined = undefined,
+  TOutputSchema extends ServeSchema | undefined = undefined,
   TContext extends Record<string, unknown> = Record<string, unknown>,
   TAuth extends AuthContext = AuthContext,
-  TResult = TOutputSchema extends ZodTypeAny ? SchemaOutput<TOutputSchema> : unknown
+  TResult = TOutputSchema extends ServeSchema ? SchemaOutput<TOutputSchema> : unknown
 > {
   input?: TInputSchema;
   output?: TOutputSchema;
@@ -714,8 +737,8 @@ export type SemanticMetricEndpointMap<
   TAuth extends AuthContext,
 > = {
   [TKey in keyof TMetrics & string]: ServeEndpoint<
-    ZodType<MetricQueryFor<MetricDatasetOfEntry<TMetrics[TKey]>, MetricNameOfEntry<TMetrics[TKey]>>>,
-    ZodType<MetricResultFor<MetricDatasetOfEntry<TMetrics[TKey]>, MetricNameOfEntry<TMetrics[TKey]>>>,
+    ServeSchema<MetricQueryFor<MetricDatasetOfEntry<TMetrics[TKey]>, MetricNameOfEntry<TMetrics[TKey]>>>,
+    ServeSchema<MetricResultFor<MetricDatasetOfEntry<TMetrics[TKey]>, MetricNameOfEntry<TMetrics[TKey]>>>,
     TContext,
     TAuth,
     MetricResultFor<MetricDatasetOfEntry<TMetrics[TKey]>, MetricNameOfEntry<TMetrics[TKey]>>
@@ -728,8 +751,8 @@ export type SemanticDatasetEndpointMap<
   TAuth extends AuthContext,
 > = {
   [TKey in keyof TDatasets & string as `dataset:${TKey}`]: ServeEndpoint<
-    ZodType<DatasetQueryFor<DatasetInstanceOfEntry<TDatasets[TKey]>>>,
-    ZodType<DatasetQueryResultFor<DatasetInstanceOfEntry<TDatasets[TKey]>>>,
+    ServeSchema<DatasetQueryFor<DatasetInstanceOfEntry<TDatasets[TKey]>>>,
+    ServeSchema<DatasetQueryResultFor<DatasetInstanceOfEntry<TDatasets[TKey]>>>,
     TContext,
     TAuth,
     DatasetQueryResultFor<DatasetInstanceOfEntry<TDatasets[TKey]>>
@@ -1199,7 +1222,7 @@ export interface ServeInitializer<
   readonly query: QueryFactory<TContext, TAuth>;
   queries<TQueries extends ServeQueriesMap<TContext, TAuth>>(queries: TQueries): TQueries;
   serve<
-    TQueries extends ServeQueriesMap<TContext, TAuth>,
+    TQueries extends ServeQueriesMap<TContext, TAuth> = Record<never, never>,
     TMetrics extends MetricsConfig<TAuth> = Record<never, never>,
     TDatasets extends DatasetsConfig<TAuth> = Record<never, never>
   >(
@@ -1211,7 +1234,7 @@ export interface ServeInitializer<
     TAuth
   >;
   define<
-    TQueries extends ServeQueriesMap<TContext, TAuth>,
+    TQueries extends ServeQueriesMap<TContext, TAuth> = Record<never, never>,
     TMetrics extends MetricsConfig<TAuth> = Record<never, never>,
     TDatasets extends DatasetsConfig<TAuth> = Record<never, never>
   >(
@@ -1229,14 +1252,14 @@ export type QueryFactory<
   TAuth extends AuthContext,
 > = QueryProcedureBuilder<TContext, TAuth> & {
   <
-    TInputSchema extends ZodTypeAny | undefined = undefined,
-    TOutputSchema extends ZodTypeAny | undefined = undefined,
-    TResult = TOutputSchema extends ZodTypeAny ? SchemaOutput<TOutputSchema> : unknown
+    TInputSchema extends ServeSchema | undefined = undefined,
+    TOutputSchema extends ServeSchema | undefined = undefined,
+    TResult = TOutputSchema extends ServeSchema ? SchemaOutput<TOutputSchema> : unknown
   >(
     config: QueryObjectConfig<TInputSchema, TOutputSchema, TContext, TAuth, TResult>
   ): StandaloneQueryDefinition<
     TInputSchema,
-    TOutputSchema extends ZodTypeAny ? TOutputSchema : ZodTypeAny,
+    TOutputSchema extends ServeSchema ? TOutputSchema : ServeSchema,
     TContext,
     TAuth,
     TResult
@@ -1246,13 +1269,13 @@ export type QueryFactory<
 export interface QueryProcedureBuilder<
   TContext extends Record<string, unknown>,
   TAuth extends AuthContext,
-  TInputSchema extends ZodTypeAny | undefined = undefined,
-  TOutputSchema extends ZodTypeAny = ZodTypeAny
+  TInputSchema extends ServeSchema | undefined = undefined,
+  TOutputSchema extends ServeSchema = ServeSchema
 > {
-  input<TNewInputSchema extends ZodTypeAny>(
+  input<TNewInputSchema extends ServeSchema>(
     schema: TNewInputSchema
   ): QueryProcedureBuilder<TContext, TAuth, TNewInputSchema, TOutputSchema>;
-  output<TNewOutputSchema extends ZodTypeAny>(
+  output<TNewOutputSchema extends ServeSchema>(
     schema: TNewOutputSchema
   ): QueryProcedureBuilder<TContext, TAuth, TInputSchema, TNewOutputSchema>;
   describe(description: string): QueryProcedureBuilder<TContext, TAuth, TInputSchema, TOutputSchema>;

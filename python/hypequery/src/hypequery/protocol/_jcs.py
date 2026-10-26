@@ -148,7 +148,7 @@ def _is_low_surrogate(code: int) -> bool:
     return 0xDC00 <= code <= 0xDFFF
 
 
-def _serialize_string(value: str) -> str:
+def serialize_string(value: str) -> str:
     """Write *value* as ``JSON.stringify`` does, surrogates included.
 
     A Python string may hold UTF-16 surrogate code points that UTF-8 cannot
@@ -203,7 +203,7 @@ class _JcsWriter:
         elif type(value) is bool:
             self.write("true" if value else "false")
         elif type(value) is str:
-            self.write(_serialize_string(value))
+            self.write(serialize_string(value))
         elif type(value) is int:
             self.write(str(value))
         elif type(value) is float:
@@ -222,7 +222,7 @@ class _JcsWriter:
             for index, key in enumerate(keys):
                 if index:
                     self.write(",")
-                self.write(_serialize_string(key))
+                self.write(serialize_string(key))
                 self.write(":")
                 self.serialize(value[key])
             self.write("}")

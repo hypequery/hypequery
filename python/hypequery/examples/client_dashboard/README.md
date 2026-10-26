@@ -5,9 +5,11 @@ and expose the same endpoints to MCP. Requirements: Python 3.11+, Node 20+
 (22 recommended), pnpm, uv, and a ClickHouse instance. Python backend use does
 not require Node; frontend tooling and the MCP bridge do.
 
-These features are in a development PR stack. Currently published npm/PyPI
-versions may not contain them. Exact published versions must be qualified before
-a beta announcement. This tutorial uses installed development artifacts.
+The published npm packages support this journey: `@hypequery/cli` 1.25+,
+`@hypequery/react` 0.7+ and `@hypequery/mcp` 0.10+. The MCP bridge
+(`hypequery mcp --client-contract-url`) needs `@hypequery/mcp` installed next to
+`@hypequery/cli`. The preparation script below builds everything from this
+checkout instead, so it also covers unreleased changes.
 
 ## Prepare
 

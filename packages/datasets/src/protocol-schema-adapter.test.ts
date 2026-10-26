@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { z } from 'zod';
+import { z as zod4 } from 'zod';
+import { z as zod3 } from 'zod/v3';
 import { ProtocolSchemaAdapterError, zodToProtocolSchema } from './protocol-schema-adapter.js';
+
+// Callers bring their own Zod, so every case runs against both majors. The
+// two builders share this surface; `any` keeps one table for both.
+describe.each([['zod 3', zod3], ['zod 4', zod4]] as const)('%s', (_major, zodModule) => {
+const z = zodModule as any;
 
 describe('zodToProtocolSchema effects', () => {
   it('unwraps refinements that preserve the schema shape', () => {
@@ -95,5 +101,20 @@ describe('portable schema contract', () => {
       expect(error).toBeInstanceOf(ProtocolSchemaAdapterError);
       expect((error as ProtocolSchemaAdapterError).path).toMatch(/^\$\.properties\.value(?:\.default)?$/);
     }
+  });
+});
+});
+
+describe('zod 4 only shapes', () => {
+  it('converts a multi-value literal to a union of literals', () => {
+    expect(zodToProtocolSchema(zod4.literal(['a', 1]))).toEqual({
+      kind: 'union',
+      variants: [{ kind: 'literal', value: 'a' }, { kind: 'literal', value: 1 }],
+    });
+  });
+
+  it('rejects a pipe between schemas', () => {
+    expect(() => zodToProtocolSchema(zod4.string().pipe(zod4.string().min(1))))
+      .toThrow(new ProtocolSchemaAdapterError('Unsupported Zod effect "pipe"'));
   });
 });

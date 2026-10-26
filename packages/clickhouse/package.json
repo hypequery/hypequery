@@ -1,6 +1,6 @@
 {
   "name": "@hypequery/clickhouse",
-  "version": "2.13.0",
+  "version": "2.14.0",
   "description": "Type-safe ClickHouse query builder and schema generator for TypeScript analytics",
   "keywords": [
     "clickhouse",
@@ -67,7 +67,7 @@
   "dependencies": {
     "@clickhouse/client": "^1.24.1",
     "@clickhouse/client-common": "^1.23.0",
-    "dotenv": "^16.0.0"
+    "dotenv": "^18.0.8"
   },
   "peerDependencies": {
     "@clickhouse/client-web": "^0.2.0 || ^1.0.0",
@@ -89,10 +89,10 @@
     "glob": "^13.0.6",
     "ts-node": "^10.9.0",
     "typedoc": "^0.28.20",
-    "typedoc-plugin-markdown": "^4.13.1",
+    "typedoc-plugin-markdown": "^4.14.1",
     "typescript": "^6.0.3",
-    "@vitest/coverage-v8": "^5.0.4",
-    "vitest": "^5.0.4"
+    "@vitest/coverage-v8": "^5.0.5",
+    "vitest": "^5.0.5"
   },
   "ts-node": {
     "esm": true,

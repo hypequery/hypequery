@@ -420,3 +420,72 @@ def test_live_shared_sync_executor_accepts_overlapping_queries() -> None:
             assert list(pool.map(execute, range(4))) == [((0,),)] * 4
     finally:
         executor.close()
+
+
+@pytest.mark.skipif(
+    "HYPEQUERY_TEST_CLICKHOUSE_HOST" not in os.environ,
+    reason="live ClickHouse service is not configured",
+)
+def test_live_repeated_fall_back_hours_order_by_instant() -> None:
+    import secrets
+
+    import clickhouse_connect
+
+    from hypequery.datasets.query_helpers import asc, desc
+
+    # New York repeats 01:00 on 2025-11-02: 05:xx UTC is EDT, 06:xx UTC is EST.
+    # Both buckets print as "2025-11-02 01:00:00", so only the instant orders them.
+    database = f"hq_dst_{secrets.token_hex(6)}"
+    connection = replace(_connection(), database=database)
+    admin = clickhouse_connect.get_client(
+        host=connection.host,
+        port=connection.port,
+        username=connection.username,
+        password=connection.password,
+    )
+    events = Dataset(
+        name="events",
+        source="events",
+        time_key="at",
+        dimensions={"at": dimension.timestamp()},
+        measures={"events": measure.count("at")},
+    )
+    admin.command(f"CREATE DATABASE {database}")
+    try:
+        admin.command(f"CREATE TABLE {database}.events (at DateTime64(3, 'UTC')) ENGINE=Memory")
+        admin.command(
+            f"INSERT INTO {database}.events VALUES "  # noqa: S608 - generated name
+            "('2025-11-02 04:30:00'), "
+            "('2025-11-02 05:30:00'), "
+            "('2025-11-02 06:10:00'), ('2025-11-02 06:20:00'), ('2025-11-02 06:30:00'), "
+            "('2025-11-02 07:30:00'), ('2025-11-02 07:40:00')"
+        )
+        executor = create_clickhouse_executor(connection)
+        client = create_dataset_client(executor=executor)
+        try:
+            rows = {}
+            for name, order in (
+                ("default", ()),
+                ("asc", (asc("period"),)),
+                ("desc", (desc("period"),)),
+            ):
+                query = DatasetQuery(
+                    by="hour", timezone="America/New_York", measures=("events",), order_by=order
+                )
+                rows[name] = [
+                    (row["period"], row["events"]) for row in client.execute(events, query).data
+                ]
+        finally:
+            executor.close()
+    finally:
+        admin.command(f"DROP DATABASE IF EXISTS {database}")
+        admin.close()
+
+    chronological = [
+        ("2025-11-02 00:00:00", 1),
+        ("2025-11-02 01:00:00", 1),
+        ("2025-11-02 01:00:00", 3),
+        ("2025-11-02 02:00:00", 2),
+    ]
+    assert rows["default"] == rows["asc"] == chronological
+    assert rows["desc"] == chronological[::-1]

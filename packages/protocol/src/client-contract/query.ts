@@ -29,7 +29,7 @@ function predicateValue(value: unknown, type: string, operator: string, maximum:
       : type === 'boolean' ? typeof item !== 'boolean' : typeof item !== 'string') clientError('HQ_CLIENT_QUERY');
   }
 }
-function bodyFor(endpoint: ProtocolClientEndpoint, source: Record<string, unknown>): ClientQueryPlan {
+function bodyFor(endpoint: ProtocolClientEndpoint, source: Record<string, unknown>, transport: 'http' | 'mcp'): ClientQueryPlan {
   const keys = ['dimensions', 'filters', 'orderBy', 'limit', 'offset', 'includeMeta',
     ...(endpoint.kind === 'dataset' ? ['measures', 'having'] : []),
     ...(endpoint.time ? ['by', ...(endpoint.time.timezone ? ['timezone'] : [])] : [])];
@@ -70,8 +70,10 @@ function bodyFor(endpoint: ProtocolClientEndpoint, source: Record<string, unknow
       || (order.direction !== 'asc' && order.direction !== 'desc')) clientError('HQ_CLIENT_QUERY');
     ordered.add(order.field);
   }
+  // HTTP clamps a larger limit; an agent is refused one, so it never reads a
+  // silently shortened page as the whole answer.
   const effectiveLimit = Math.min(source.limit === undefined ? caps.defaultLimit
-    : integer(source.limit, 1, Number.MAX_SAFE_INTEGER, '/limit'), caps.maxLimit);
+    : integer(source.limit, 1, transport === 'mcp' ? caps.maxLimit : Number.MAX_SAFE_INTEGER, '/limit'), caps.maxLimit);
   const offset = source.offset === undefined ? 0 : integer(source.offset, 0, caps.maxOffset, '/offset');
   if (source.includeMeta !== undefined && typeof source.includeMeta !== 'boolean') clientError('HQ_CLIENT_QUERY');
   if (source.includeMeta === true && !endpoint.metadata) clientError('HQ_CLIENT_QUERY');
@@ -99,7 +101,7 @@ export function validateProtocolClientQuery(
       if (Object.hasOwn(source, 'by')) clientError('HQ_CLIENT_QUERY');
       if (Object.hasOwn(source, 'grain')) { source.by = source.grain; delete source.grain; }
     } else if (transport !== 'http') clientError('HQ_CLIENT_QUERY');
-    return bodyFor(endpoint, source);
+    return bodyFor(endpoint, source, transport);
   } catch (error) {
     if (error instanceof ProtocolClientContractError) clientError('HQ_CLIENT_QUERY', error.path);
     throw error;

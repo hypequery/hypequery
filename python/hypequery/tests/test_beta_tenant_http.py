@@ -121,7 +121,14 @@ def test_live_tenant_http_joins_cache_and_denials(asynchronous: bool) -> None:
                 executor = create_clickhouse_executor(connection)
                 client = create_dataset_client(executor=executor, registry=registry, cache=cache)
             try:
-                add_dataset_endpoint(router, "/query", dataset=orders, client=client, policy=policy)
+                add_dataset_endpoint(
+                    router,
+                    "/query",
+                    dataset=orders,
+                    client=client,
+                    policy=policy,
+                    include_related={"customer"},
+                )
                 add_metric_endpoint(
                     router, "/metric", dataset=orders, measure="total", client=client, policy=policy
                 )

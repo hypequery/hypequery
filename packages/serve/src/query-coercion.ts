@@ -1,4 +1,5 @@
-import type { ZodTypeAny } from "zod";
+import { isZod4Schema } from "@hypequery/datasets/internal";
+import type { ServeSchema } from "./types.js";
 
 /**
  * Query strings carry no types — every value arrives as a string, or an array of
@@ -17,8 +18,38 @@ import type { ZodTypeAny } from "zod";
 
 type ZodDefLike = { typeName?: string; [key: string]: unknown };
 
-const defOf = (schema: unknown): ZodDefLike | undefined =>
-  (schema as { _def?: ZodDefLike } | undefined)?._def;
+/** Zod 4 definition types, named as the Zod 3 types this module switches on. */
+const ZOD4_TYPE_NAMES: Record<string, string> = {
+  optional: "ZodOptional",
+  nonoptional: "ZodOptional",
+  nullable: "ZodNullable",
+  default: "ZodDefault",
+  prefault: "ZodDefault",
+  catch: "ZodCatch",
+  readonly: "ZodReadonly",
+  pipe: "ZodPipeline",
+  number: "ZodNumber",
+  bigint: "ZodBigInt",
+  boolean: "ZodBoolean",
+  date: "ZodDate",
+  array: "ZodArray",
+  object: "ZodObject",
+  never: "ZodNever",
+};
+
+/**
+ * A schema's definition in Zod 3 form. Zod 4 keeps refinements on the schema
+ * itself and expresses preprocess as a pipe out of a transform, so that pipe
+ * is reported as a preprocess effect and stays wrapped.
+ */
+const defOf = (schema: unknown): ZodDefLike | undefined => {
+  if (!isZod4Schema(schema)) return (schema as { _def?: ZodDefLike } | undefined)?._def;
+  const def = schema._zod.def;
+  if (def.type === "pipe" && isZod4Schema(def.in) && def.in._zod.def.type === "transform") {
+    return { typeName: "ZodEffects", effect: { type: "preprocess" } };
+  }
+  return { ...def, typeName: ZOD4_TYPE_NAMES[def.type] ?? def.type, type: def.element };
+};
 
 const typeNameOf = (schema: unknown): string | undefined => defOf(schema)?.typeName;
 
@@ -89,7 +120,7 @@ function coerceValue(target: unknown, value: unknown): unknown {
   const unwrapped = unwrap(target);
 
   if (typeNameOf(unwrapped) === "ZodArray") {
-    const element = (defOf(unwrapped)?.type ?? undefined) as ZodTypeAny | undefined;
+    const element = (defOf(unwrapped)?.type ?? undefined) as ServeSchema | undefined;
     // A key that appears once arrives as a scalar, but the schema wants a list.
     const items = Array.isArray(value) ? value : [value];
     return items.map((item) => coerceValue(element, item));
@@ -108,7 +139,7 @@ function coerceValue(target: unknown, value: unknown): unknown {
  * untouched when the schema is absent, is not an object schema, or when the
  * payload is not a plain object.
  */
-export function coerceQueryInput(schema: ZodTypeAny | undefined, raw: unknown): unknown {
+export function coerceQueryInput(schema: ServeSchema | undefined, raw: unknown): unknown {
   if (!schema || raw === null || typeof raw !== "object" || Array.isArray(raw)) {
     return raw;
   }
@@ -120,12 +151,12 @@ export function coerceQueryInput(schema: ZodTypeAny | undefined, raw: unknown): 
     const objectDef = defOf(objectSchema);
     const shapeFactory = objectDef?.shape;
     const shape = (typeof shapeFactory === "function" ? shapeFactory() : shapeFactory) as
-      | Record<string, ZodTypeAny>
+      | Record<string, ServeSchema>
       | undefined;
     if (!shape) return raw;
     const catchall = typeNameOf(objectDef?.catchall) === "ZodNever"
       ? undefined
-      : objectDef?.catchall as ZodTypeAny | undefined;
+      : objectDef?.catchall as ServeSchema | undefined;
 
     const coerced: Record<string, unknown> = { ...(raw as Record<string, unknown>) };
     for (const [key, value] of Object.entries(coerced)) {

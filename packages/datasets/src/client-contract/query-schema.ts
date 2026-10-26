@@ -45,7 +45,9 @@ function endpointSchema(contract: ProtocolClientContract, endpoint: ProtocolClie
     dimensions: z.array(enumeration(groupable)).max(caps.maxDimensions).optional(),
     filters: z.array(predicates(endpoint, false)).max(caps.maxPredicates).optional(),
     orderBy: z.array(z.object({ field: enumeration(orderable), direction: z.enum(['asc', 'desc']) }).strict()).max(caps.maxOrderBy).optional(),
-    limit: z.number().int().min(1).max(Number.MAX_SAFE_INTEGER).optional(),
+    // HTTP clamps a larger limit to the endpoint's maximum. An agent should
+    // see the real ceiling, rather than learn of truncation from metadata.
+    limit: z.number().int().min(1).max(transport === 'mcp' ? caps.maxLimit : Number.MAX_SAFE_INTEGER).optional(),
     offset: z.number().int().min(0).max(caps.maxOffset).optional(),
     includeMeta: (endpoint.metadata ? z.boolean() : z.literal(false)).optional(),
   };

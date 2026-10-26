@@ -4,6 +4,7 @@
 
 import type { FieldType, MetricFilter } from './types.js';
 import { parseTimestampInstant } from './utils/timestamp-instants.js';
+import { isTimestampText } from './utils/timestamp-text.js';
 
 /**
  * Result of a validation operation.
@@ -23,10 +24,14 @@ export interface ValidationResult {
 export function matchesFieldType(fieldType: FieldType, value: unknown): boolean {
   switch (fieldType) {
     case 'string':
-    case 'timestamp':
       return typeof value === 'string';
+    case 'timestamp':
+      return isTimestampText(value);
     case 'number':
-      return typeof value === 'number' && Number.isFinite(value);
+      // Number filters bind as Float64; an integer beyond 2^53 is already rounded
+      // and would silently match nothing against an exact Int64/UInt64 column.
+      return typeof value === 'number' && Number.isFinite(value)
+        && (!Number.isInteger(value) || Number.isSafeInteger(value));
     case 'boolean':
       return typeof value === 'boolean';
     default:
@@ -48,6 +53,20 @@ export function mixedInstantListError(field: string): string {
   return `"in" cannot mix instants (with Z or an offset) and local timestamps for field "${field}"; use one form.`;
 }
 
+function typeError(filter: MetricFilter, fieldType: FieldType, plural: boolean): string {
+  if (fieldType === 'timestamp') {
+    const what = plural ? 'ISO 8601 timestamps' : 'an ISO 8601 timestamp';
+    return `"${filter.operator}" expects ${what} for field "${filter.field}", such as 2026-01-31 or 2026-01-31T12:00:00Z, with a real calendar date and time.`;
+  }
+  if (fieldType === 'number') {
+    const what = plural ? 'number values' : 'a number value';
+    return `"${filter.operator}" expects ${what} for field "${filter.field}"; integers must be safe integers (within ±2^53) to compare exactly. Declare a large id as dimension.string() to filter it exactly.`;
+  }
+  return plural
+    ? `"${filter.operator}" expects ${fieldType} values for field "${filter.field}".`
+    : `"${filter.operator}" expects a ${fieldType} value for field "${filter.field}".`;
+}
+
 /**
  * Validates a filter value against the expected field type.
  *
@@ -61,7 +80,7 @@ export function validateFilterValue(filter: MetricFilter, fieldType: FieldType):
     case 'neq':
       return matchesFieldType(fieldType, filter.value)
         ? null
-        : `"${filter.operator}" expects a ${fieldType} value for field "${filter.field}".`;
+        : typeError(filter, fieldType, false);
     case 'gt':
     case 'gte':
     case 'lt':
@@ -71,7 +90,7 @@ export function validateFilterValue(filter: MetricFilter, fieldType: FieldType):
       }
       return matchesFieldType(fieldType, filter.value)
         ? null
-        : `"${filter.operator}" expects a ${fieldType} value for field "${filter.field}".`;
+        : typeError(filter, fieldType, false);
     case 'like':
       if (fieldType !== 'string' && fieldType !== 'timestamp') {
         return `"like" is only supported for string or timestamp field "${filter.field}".`;
@@ -85,7 +104,7 @@ export function validateFilterValue(filter: MetricFilter, fieldType: FieldType):
         return `"${filter.operator}" expects a non-empty array for field "${filter.field}".`;
       }
       if (!filter.value.every(value => matchesFieldType(fieldType, value))) {
-        return `"${filter.operator}" expects ${fieldType} values for field "${filter.field}".`;
+        return typeError(filter, fieldType, true);
       }
       return filter.operator === 'in' && fieldType === 'timestamp' && mixesInstantsAndLocalTimes(filter.value)
         ? mixedInstantListError(filter.field)
@@ -96,7 +115,7 @@ export function validateFilterValue(filter: MetricFilter, fieldType: FieldType):
       }
       return filter.value.every(value => matchesFieldType(fieldType, value))
         ? null
-        : `"between" expects ${fieldType} values for field "${filter.field}".`;
+        : typeError(filter, fieldType, true);
     default:
       return `Unsupported semantic filter operator "${String(filter.operator)}".`;
   }

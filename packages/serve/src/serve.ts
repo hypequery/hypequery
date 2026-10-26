@@ -15,8 +15,8 @@ import type {
   StandaloneQueryDefinition,
   MetricsConfig,
   DatasetsConfig,
+  ServeSchema,
 } from "./types.js";
-import type { ZodTypeAny } from "zod";
 import { defineServe } from "./server/define-serve.js";
 
 const defaultRequest: ServeRequest = {
@@ -53,15 +53,15 @@ const parseMaybe = <T>(schema: { parse: (value: unknown) => T } | undefined, val
 };
 
 const createStandaloneQuery = <
-  TInputSchema extends ZodTypeAny | undefined,
-  TOutputSchema extends ZodTypeAny | undefined,
+  TInputSchema extends ServeSchema | undefined,
+  TOutputSchema extends ServeSchema | undefined,
   TContext extends Record<string, unknown>,
   TAuth extends AuthContext,
   TResult,
 >(
   config: QueryObjectConfig<TInputSchema, TOutputSchema, TContext, TAuth, TResult>,
   contextFactory?: ServeContextFactory<TContext, TAuth>,
-): StandaloneQueryDefinition<TInputSchema, TOutputSchema extends ZodTypeAny ? TOutputSchema : ZodTypeAny, TContext, TAuth, TResult> => {
+): StandaloneQueryDefinition<TInputSchema, TOutputSchema extends ServeSchema ? TOutputSchema : ServeSchema, TContext, TAuth, TResult> => {
   const run = config.query;
 
   const definition = {
@@ -109,7 +109,7 @@ const createStandaloneQuery = <
     ...(config.custom && { custom: config.custom }),
   };
 
-  return definition as StandaloneQueryDefinition<TInputSchema, TOutputSchema extends ZodTypeAny ? TOutputSchema : ZodTypeAny, TContext, TAuth, TResult>;
+  return definition as StandaloneQueryDefinition<TInputSchema, TOutputSchema extends ServeSchema ? TOutputSchema : ServeSchema, TContext, TAuth, TResult>;
 };
 
 export const createQueryFactory = <
@@ -119,14 +119,14 @@ export const createQueryFactory = <
   contextFactory?: ServeContextFactory<TContext, TAuth>,
 ) => {
   return <
-    TInputSchema extends ZodTypeAny | undefined = undefined,
-    TOutputSchema extends ZodTypeAny | undefined = undefined,
-    TResult = TOutputSchema extends ZodTypeAny ? SchemaOutput<TOutputSchema> : unknown
+    TInputSchema extends ServeSchema | undefined = undefined,
+    TOutputSchema extends ServeSchema | undefined = undefined,
+    TResult = TOutputSchema extends ServeSchema ? SchemaOutput<TOutputSchema> : unknown
   >(
     config: QueryObjectConfig<TInputSchema, TOutputSchema, TContext, TAuth, TResult>,
   ): StandaloneQueryDefinition<
     TInputSchema,
-    TOutputSchema extends ZodTypeAny ? TOutputSchema : ZodTypeAny,
+    TOutputSchema extends ServeSchema ? TOutputSchema : ServeSchema,
     TContext,
     TAuth,
     TResult

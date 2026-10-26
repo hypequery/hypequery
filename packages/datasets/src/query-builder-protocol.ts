@@ -43,9 +43,24 @@ export interface QueryBuilderLike {
   variance?(column: string, alias?: string): QueryBuilderLike;
   /** Estimated number of distinct non-NULL values of `column`. */
   approxCountDistinct?(column: string, alias?: string): QueryBuilderLike;
+  /**
+   * Finalize the aggregate states in `column` with `stateFunction`'s `-Merge`
+   * combinator (ClickHouse `uniqMerge(users)`). `stateFunction` is one of the
+   * datasets allowlist. `@hypequery/clickhouse` implements it from the release
+   * that adds `mergeState`.
+   */
+  mergeState?(stateFunction: string, column: string, alias?: string): QueryBuilderLike;
 
   // Filtering
   where(column: string, operator: string, value: unknown): QueryBuilderLike;
+
+  /**
+   * Optional: read the table source with ClickHouse `FINAL`. Needed only for
+   * datasets declared `final: true`; querying one through a builder without
+   * it is refused rather than run without `FINAL`, which would count every
+   * unmerged row version.
+   */
+  final?(): QueryBuilderLike;
 
   // Joins. Relationship traversal uses `leftAnyJoin`; `leftJoin` stays part
   // of the protocol for builder compatibility.

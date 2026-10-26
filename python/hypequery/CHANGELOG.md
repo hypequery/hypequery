@@ -4,7 +4,7 @@
 
 <!-- towncrier release notes start -->
 
-## 0.1.0b1 (2026-10-17)
+## 0.1.0b1 (2026-10-26)
 
 - Avoid terminating the process holding a dataset regeneration lock on Windows.
 - Give the ClickHouse installation hint only when that driver is the missing app dependency, including when the executor factory reports it.
@@ -226,3 +226,69 @@
   response with raw SQL.
 
 - Add explicit synchronous and asynchronous relationship uniqueness checks. Checks respect trusted tenant scopes, deadlines and cancellation, validate complete composite target keys, and report duplicate to-one keys without automatically running database queries.
+
+- Require aiohttp 3.14.4 or newer with the `clickhouse-async` extra, fixing three published advisories (CVE-2026-111063, CVE-2026-111064, GHSA-2g87-pp6c-29x5).
+
+- Retry server-side `KILL QUERY` from the async executors until ClickHouse confirms it or the driver call returns. A cancellation or deadline that landed before the query registered on the server previously let the query run to `max_execution_time` while holding its worker slot; the synchronous executor already retried. `AsyncFromSyncClickHouseExecutor` keeps retrying for as long as its driver call runs, so a submission slower than `max_execution_time` cannot escape cancellation; the native async executor stops when its driver request ends if the server cancels read-only queries on a closed request (clickhouse-connect enables this whenever the user may change it), and otherwise at the server's own time limit. `aclose()` on either async executor stops its outstanding retries.
+
+- The result cache treats a stored value that cannot answer the query as a reported `get` failure and a miss. That covers anything other than `CachedRows`, rows that don't match the columns, non-scalar values, and columns that differ from the query's. Previously a malformed value failed the request, and a well-formed entry with other columns was served as a hit. `ResultCache.get` accepts the expected `columns`.
+
+- Canonicalize text containing unpaired UTF-16 surrogates as `JSON.stringify` does, writing a `\\udXXX` escape, instead of failing with a `UnicodeEncodeError`. Deployment and bundle contracts with such a label or description now produce the same canonical bytes as TypeScript.
+
+- `hypequery init` and `hypequery generate datasets` now work for least-privilege ClickHouse users. Schema discovery sent `readonly = 1` on every catalog query, so a `readonly = 2` user failed with "Cannot modify 'readonly' setting" and a `readonly = 1` user was refused on the query limits. Discovery now follows the executor: it leaves out `readonly` for a user whose profile is already read-only, keeps the time and row limits for `readonly = 2`, and relies on a SQL `LIMIT` for `readonly = 1`, which may not change any setting.
+- When discovery fails, `init` and `generate` now name what to check, as `dev` does: credentials, host and port, database, or grants. Previously every failure gave one generic message.
+
+- `hypequery dev` keeps its documented exit codes: a busy port now exits 1 with a hint naming the port, instead of exiting 3. A missing environment variable, such as `HYPEQUERY_DEV_TOKEN`, is named instead of reported as a generic failure. ClickHouse driver warnings, such as "Unexpected Http Driver Exception" and urllib3 retry lines that can include bound parameter values, no longer print ahead of the CLI's own hint.
+- `hypequery init` prints `cd <directory> && hypequery dev` when the project was created somewhere else. The generated `.env.example` lists `CLICKHOUSE_SECURE`. The `export client-contract --check` hint now says to review with `--stdout` and replace with `--force`.
+
+- Canonicalize client-contract numbers beyond 2**53 with ECMAScript's shortest round-trip digits, matching TypeScript's `JSON.stringify`. Contract identities and schema hashes containing such a value no longer differ between the two implementations.
+
+- `serialize_semantic_contract` and `hash_contract` no longer raise `UnicodeEncodeError` when a label or description contains an unpaired UTF-16 surrogate. Such a character is escaped as `\udXXX`, as `JSON.stringify` does, so the hash matches TypeScript's for the same model. `hypequery.protocol` now exports `serialize_protocol_string`.
+
+- Lower the dependency floors to measured minimums: pydantic 2.9.2, FastAPI 0.137.2, Starlette 1.3.1, Uvicorn 0.30.6 and clickhouse-connect 1.4.2 (urllib3 stays at 2.8.0). Each is the oldest release that passes the full suite, so `hypequery` installs next to projects that pin older releases of those libraries.
+
+- Add `validate_deployable(dataset)`, which refuses derived measures the deployment contract cannot carry (a reference to another derived measure, or a literal anywhere other than `round` decimals or a `coalesce` fallback) with an error naming the dataset and measure, for example `orders.doubled: a numeric literal cannot be an arithmetic operand in a deployable formula`. `build_protocol_deployment_contract()` and `write_dataset_bundle()` run the check first instead of failing with only a contract path.
+
+- Order time buckets by their instant rather than their text label. On a daylight-saving fall-back day, two hourly buckets share a label such as `01:00:00`, and they could come back in either order. TypeScript already orders them chronologically.
+
+- The `embedded_analytics` example is now tenant-scoped. Its dataset declares `tenant_key="org_id"`, the endpoint requires a tenant, and the example token belongs to organization "a". Previously every caller saw every organization's orders.
+
+- Served dataset and metric endpoints no longer expose related datasets' fields by default. Previously a caller refused by the shipments endpoint could still read `shipment.carrier` through the orders endpoint, and the client contract advertised those fields. Related dimensions, related measures, and named filters defined on a related field now need `include_related={"shipment"}` on `create_dataset_endpoint`, `add_dataset_endpoint` or the metric equivalents. Without it, they are refused with `400 VALIDATION_ERROR` and left out of the endpoint's client contract. So are measures whose fixed filters read a related field, directly or through a derived measure; an omitted `measures` list selects only the base measures the endpoint can serve, and a metric endpoint for such a measure is refused when created. `ClientEndpointDefinition` gains `related` for the same purpose, with the same default and checks, so an offline `hypequery export client-contract` matches the live contract of an endpoint installed with the same arguments. Pass `related={"shipment"}` where the endpoint passes `include_related={"shipment"}`; an offline metric whose measure filters through an excluded relationship is refused, as Serve refuses it.
+
+- Report a filter, ordering or having field name outside the portable identifier grammar as an `input-invalid` query error from `DatasetClient.validate` and `execute`. It previously escaped as a raw `ProtocolIdentifierError` (a `TypeError`), which non-Serve hosts answered as a server fault.
+
+- Add `control_username` and `control_password` to `ClickHouseConnection`, read from `CLICKHOUSE_CONTROL_USERNAME` and `CLICKHOUSE_CONTROL_PASSWORD` by `from_env()`, so the connection that sends `KILL QUERY` can sign in as its own user. Without them, the query user cancels its own queries and needs `GRANT SELECT ON system.processes`; a separate control user also needs `KILL QUERY`. The README now documents both grants.
+- When ClickHouse refuses a `KILL QUERY`, executors now log one error naming the missing grant and stop retrying, instead of sending a warning and dozens of refused `KILL`s per cancelled query.
+
+- `validate_protocol_client_query(..., transport="mcp")` refuses a `limit` above the endpoint's `maxLimit` instead of clamping it, matching TypeScript's MCP executor. HTTP input still clamps.
+
+- Return `null` for non-finite measure values instead of failing the query. ClickHouse reports `nan` for `avg`, `stddev` and `variance` over no matching rows and `inf` for a derived division by zero; such results previously surfaced as an internal error, so a metric endpoint whose filters matched nothing answered 500.
+
+- Refuse integer filter values outside ±2**53 on number fields with `input-invalid`. Number filters bind as `Float64`, which can't hold larger integers exactly, so ClickHouse compared a rounded value and an exact `UInt64` or `Int64` id silently matched nothing. Declare a large id as `dimension.string()` to filter it exactly.
+
+- Ship the Apache-2.0 `LICENSE` file in the wheel and sdist, and leave a stale internal review document out of the sdist.
+- Raise transitive minimum versions that the direct floors still admitted with published advisories: `h11>=0.16.0` (via uvicorn) and `anyio>=4.14.2` (via Starlette) in the `fastapi` extra, `certifi>=2026.10.19` (via clickhouse-connect) in both ClickHouse extras, and `idna>=3.15` (via anyio and aiohttp) in the `fastapi` and `clickhouse-async` extras.
+- `create_async_clickhouse_executor` now raises `ModuleNotFoundError` naming `hypequery[clickhouse-async]` when aiohttp is missing. With only `hypequery[clickhouse]` installed, it previously failed with an opaque `internal` error.
+- Rewrite the README's beta notice for PyPI, where the old relative link was broken. Document what each install extra is for, including `clickhouse-async`.
+
+- `hypequery dev` now says which ClickHouse setting to check when the app cannot connect: refused credentials, an unreachable host, a missing database or denied access each get their own hint instead of "App could not start". Wrong-password failures, which ClickHouse reports as `REQUIRED_PASSWORD`, `WRONG_PASSWORD` or `UNKNOWN_USER`, are now classified `unauthenticated` rather than `internal`, and an unknown database is `not-found`.
+- A ClickHouse user whose profile sets `readonly = 1` refuses HypeQuery's per-query limits; that failure is now reported as `forbidden` with guidance to use a `readonly = 2` user instead of an opaque internal error.
+- `Deadline` is exported from `hypequery.datasets` so an `ExecutionContext` deadline can be built from the public package.
+- Passing a dataset name instead of a `Dataset` to `belongs_to`, `has_one` or `has_many` raises a `TypeError` that says so, instead of an `AttributeError`.
+- `AsyncFromSyncClickHouseExecutor` no longer leaves "Future exception was never retrieved" in the logs when a caller cancels a query.
+- README: the relationship example names the physical `customer_id` column (join keys are columns, not dimensions), the result cache documents a store failure as a `miss`, and the bridge executor documents the session-free driver clients it needs.
+
+- Report a query that exceeds its result limit as `too-large` (HTTP 413) on ClickHouse 26, which renamed the error to `TOO_MANY_ROWS_OR_BYTES` (code 396). It was reported as `internal` (HTTP 500).
+
+- Exclude the Hypothesis example database from source distributions and refuse archives that contain one in the release artifact audit.
+
+- Serve routes now map Starlette's `HTTPException` like FastAPI's, keeping its status and string `detail`. They previously returned `500` for it, and FastAPI raises it itself for a body it cannot parse. So a body with invalid UTF-8, or one nested past the recursion limit, now gets `400 VALIDATION_ERROR` instead of `500`, without logging a traceback.
+- Serve routes refuse a request body with any `Content-Encoding` other than `identity` with `415`. A gzip body previously got `500`. The body cap counts bytes as they arrive, so a compressed body is never expanded.
+
+- Fix Serve requests that could hang until the client gave up, or until the production timeout (30 s by default), after the query had already finished. The request's disconnect watcher is now stopped with a flag rather than `Task.cancel()`, which Starlette's `Request.is_disconnected()` could absorb. The stall hit sequential requests too, and became frequent under concurrency or host load: about 60% of requests at 50 concurrent.
+
+- Refuse timestamp filter values that are not a real ISO 8601 date or date-time, such as `2026-13-45`, `2026-02-30`, `yesterday` or `2026-01-31 12:00`, with `input-invalid` naming the filter. ClickHouse coerced some of these to a different instant instead of failing: `2026-13-45` became 1900-01-01 and `2026-02-30` rolled over to March 2, so the query silently returned wrong numbers. `validate()` now reports them too. Accepted forms are `YYYY-MM-DD`, or `YYYY-MM-DD[T ]hh:mm:ss[.fraction]`, optionally followed by `Z` or `±hh:mm`. `like` patterns on timestamp fields are unchanged.
+
+- Require pydantic 2.12.2 or newer on Python 3.14. pydantic-core publishes no Python 3.14 wheel for the previous 2.9.2 floor, and pydantic 2.12.0 rejects one of the serve request models on 3.14. Python 3.11–3.13 keep the 2.9.2 floor.
+
+- The README that `hypequery init` generates installs the pinned SDK from PyPI with `pip install -e .`, keeping the local-wheel route for unreleased builds.

@@ -272,6 +272,7 @@ cycles. Standalone comparison metrics are not supported yet.
 - `measure.argMin(field, by, opts?)`
 - `measure.stddev(field, opts?)`
 - `measure.variance(field, opts?)`
+- `measure.merge(stateFunction, field, opts?)`
 
 The helper determines the aggregation. The field should be the semantic field name when it exists in `dimensions`, or the physical column name when you are aggregating a raw table column.
 
@@ -308,6 +309,51 @@ The percentile, standard deviation, and variance helpers support measure-local
 filters. Filters are intentionally not supported on `argMax` or `argMin`
 because NULL handling for conditional arg aggregates differs across ClickHouse
 versions. Use a query-level filter when filtering an arg aggregate.
+
+### Aggregate-state tables
+
+An `AggregatingMergeTree` table, usually filled by a materialized view, stores
+partial aggregation states rather than values. Read an
+`AggregateFunction(<fn>, <type>)` column with `measure.merge`, which applies the
+matching `-Merge` combinator. Read a `SimpleAggregateFunction(<fn>, <type>)`
+column with the plain helper for the same function.
+
+<CodeBlock>
+```typescript
+// CREATE TABLE daily_active_users (
+//   day Date, tenant_id UUID,
+//   users AggregateFunction(uniq, Nullable(UUID)),
+//   events SimpleAggregateFunction(sum, UInt64)
+// ) ENGINE = AggregatingMergeTree ORDER BY (tenant_id, day)
+const DailyActiveUsers = dataset('dailyActiveUsers', {
+  source: 'daily_active_users',
+  timeKey: 'day',
+  dimensions: { day: dimension.timestamp(), tenantId: dimension.string({ column: 'tenant_id' }) },
+  measures: {
+    activeUsers: measure.merge('uniq', 'users'),   // uniqMerge(users)
+    events: measure.sum('events'),                  // SUM(events)
+    weeklyActiveUsers: measure.trailing('activeUsers', { amount: 7, unit: 'day' }),
+  },
+});
+```
+</CodeBlock>
+
+Merging states across rows is what makes the result correct at any grain: the
+weekly window above merges seven days of `uniq` states into one distinct count
+rather than adding seven daily counts.
+
+Supported state functions are `uniq`, `uniqExact`, `uniqCombined`,
+`uniqCombined64`, `uniqHLL12`, `uniqTheta`, `count`, `sum`, `avg`, `min`, `max`,
+`any`, `anyLast` and `groupBitmap`. Parametric states such as `quantile(0.9)`
+are not supported. Merges of estimating states (`uniq`, `uniqCombined`,
+`uniqHLL12`, `uniqTheta`) are marked `approximate`, and count-like merges read
+`0` over an empty bucket.
+
+A merge measure reads the state column directly, so it takes no measure filters
+or `sql`. It can't be selected through a relationship, accumulated with
+`measure.cumulative`, evaluated by a semantic backend such as the in-memory
+backend, or published to the deployment contract. Query it with
+`createDatasetClient({ queryBuilder })`.
 
 ## Options
 
