@@ -6,6 +6,7 @@ packages:
   - 'packages/deployment'
   - 'packages/serve'
   - 'packages/mcp-server'
+  - 'packages/postgres'
   - 'packages/protocol'
   - 'packages/protocol-conformance'
   - 'packages/tsconfig'

@@ -8,6 +8,7 @@
     "packages/datasets",
     "packages/deployment",
     "packages/mcp-server",
+    "packages/postgres",
     "packages/protocol",
     "packages/protocol-conformance",
     "packages/react",

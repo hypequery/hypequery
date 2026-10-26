@@ -1,0 +1,63 @@
+{
+  "name": "@hypequery/postgres",
+  "version": "0.0.0",
+  "description": "Postgres engine for hypequery datasets: query builder, SQL rules and a pluggable execution driver",
+  "keywords": [
+    "postgres",
+    "postgresql",
+    "semantic-layer",
+    "typescript",
+    "analytics",
+    "datasets",
+    "metrics"
+  ],
+  "license": "Apache-2.0",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "!dist/**/*.test.*",
+    "!dist/**/tests/**"
+  ],
+  "scripts": {
+    "build": "tsc --project tsconfig.json",
+    "dev": "tsc --project tsconfig.json --watch",
+    "lint": "eslint \"src/**/*.ts\"",
+    "test": "npm run test:types && npm run test:unit",
+    "test:unit": "vitest run",
+    "test:types": "tsc --project tsconfig.type-tests.json",
+    "test:integration": "vitest run --config vitest.integration.config.ts",
+    "types": "tsc --project tsconfig.json --noEmit"
+  },
+  "peerDependencies": {
+    "@hypequery/datasets": ">=0.24.0"
+  },
+  "devDependencies": {
+    "@hypequery/datasets": "workspace:^",
+    "@types/node": "^20.11.30",
+    "@types/pg": "^8.11.10",
+    "pg": "^8.13.1",
+    "typescript": "^6.0.3",
+    "vitest": "^5.0.5"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/hypequery/hypequery.git",
+    "directory": "packages/postgres"
+  },
+  "homepage": "https://hypequery.com",
+  "bugs": {
+    "url": "https://github.com/hypequery/hypequery/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}
