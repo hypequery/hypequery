@@ -13,6 +13,7 @@ import { measureToAggregationSpec } from './dataset-normalization.js';
 import { applyFilteredAggregationExpression } from './filtered-aggregation-sql.js';
 import { assertNoRawSqlUnderJoins } from './sql-under-joins.js';
 import type { StatementParameters } from './statement-parameters.js';
+import type { DatasetSqlDialectRules } from '../dataset-sql-dialect.js';
 
 export interface TimeMeasureSqlDimension {
   name: string;
@@ -31,6 +32,11 @@ export interface TimeMeasureSqlSource {
   dimensions: TimeMeasureSqlDimension[];
   bases: TimeMeasureSqlBase[];
   rowAlias: string;
+}
+
+/** The query timezone carried by `_hq_source` time, read from a zero-row scalar without scanning. */
+export function sourceTimezoneSql(dialect: DatasetSqlDialectRules): string {
+  return dialect.timezoneOf(dialect.assumeNotNull('(SELECT _hq_time FROM _hq_source LIMIT 0)'));
 }
 
 /** Isolate authored expressions, joins, tenancy and filters from internal SQL aliases. */
