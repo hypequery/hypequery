@@ -80,6 +80,9 @@ export const clickhouseDatasetSqlDialect: DatasetSqlDialectRules = Object.freeze
   },
 
   truncateTime: (time: string, grain: TimeGrain) => `${TRUNCATE_FUNCTIONS[grain]}(${time})`,
+  // Calendar truncation returns a zone-less Date; later day arithmetic on it
+  // would run in the server zone, not the query zone.
+  truncateTimeInZone: (time: string, grain: TimeGrain, timezone: string) => `toDateTime64(${TRUNCATE_FUNCTIONS[grain]}(${time}), 9, ${timezone})`,
   addTime: (time: string, amount: string | number, grain: TimeGrain) => `add${INTERVAL_UNITS[grain]}(${time}, ${amount})`,
   subtractTime: (time: string, amount: number, grain: TimeGrain) => `subtract${INTERVAL_UNITS[grain]}(${time}, ${amount})`,
   timeDiff: (grain: TimeGrain, start: string, end: string) => `dateDiff('${grain}', ${start}, ${end})`,

@@ -1,6 +1,6 @@
 import type { StatementParameters } from './statement-parameters.js';
 import type { TimeMeasureAxis } from './time-measure-axis.js';
-import type { TimeMeasureSqlSource } from './time-measure-source-sql.js';
+import { sourceTimezoneSql, type TimeMeasureSqlSource } from './time-measure-source-sql.js';
 import { calendarBucketGuardSql } from './time-axis-calendar-guard.js';
 import type { ShiftMeasureDefinition } from '../types.js';
 import { shiftCalendarGuardSql, shiftWallTimeSeriesGuardSql } from './shift-measure-sql.js';
@@ -44,7 +44,7 @@ export function buildTimeMeasureAxisSql(
 
   // A zero-row scalar retains the converted timestamp type and query timezone.
   // Reading any(time) here would scan the entire population just for its type.
-  const timezone = dialect.timezoneOf(dialect.assumeNotNull('(SELECT _hq_time FROM _hq_source LIMIT 0)'));
+  const timezone = sourceTimezoneSql(dialect);
   const bounds = [
     // The bounds come from the caller's time filter: bind them, never inline them.
     `${dialect.parseTimestamp(statement.bind(axis.lower, 'string'), timezone)} AS _hq_lower`,

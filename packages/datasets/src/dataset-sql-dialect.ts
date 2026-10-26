@@ -87,6 +87,8 @@ export interface DatasetSqlDialectRules extends DatasetSqlDialect {
   // Time
   /** Truncate a timestamp to the start of its grain bucket. */
   truncateTime(time: string, grain: TimeGrain): string;
+  /** Truncate like `truncateTime`, returning a timestamp in the zone `timezone` evaluates to. */
+  truncateTimeInZone(time: string, grain: TimeGrain, timezone: string): string;
   /** Move a timestamp forward by `amount` grains; `amount` may be an expression. */
   addTime(time: string, amount: string | number, grain: TimeGrain): string;
   /** Move a timestamp back by a literal number of grains. */
