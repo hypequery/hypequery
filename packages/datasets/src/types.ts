@@ -1,6 +1,6 @@
 /**
  * How a dataset's rows are resolved, as the deployment contract carries it
- * (RFC 0020). Implies `final: true`; the engine's deletion or sign column also
+ * (RFC 0021). Implies `final: true`; the engine's deletion or sign column also
  * filters the resolved rows, so only current rows remain.
  */
 export type RowResolution =
@@ -567,7 +567,7 @@ export interface DatasetConfig<
   final?: boolean;
   /**
    * `final` with the engine named, as the deployment contract carries it, so
-   * the dataset can be published (RFC 0020). Keeps only rows whose deletion
+   * the dataset can be published (RFC 0021). Keeps only rows whose deletion
    * column is 0, or whose sign column is 1, after `FINAL`.
    */
   rowResolution?: RowResolution;

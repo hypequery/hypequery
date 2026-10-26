@@ -1,4 +1,4 @@
-# RFC 0020: Explicit resolved-row dataset sources
+# RFC 0021: Explicit resolved-row dataset sources
 
 - Status: Proposed
 - Version: source resolution 1
@@ -36,15 +36,22 @@ configuration, not engine detection. Version ties retain ClickHouse's own FINAL
 semantics; this policy does not invent a deterministic tie-breaker. The engine's
 sorting key defines identity, including any partition behavior the server uses.
 
-The TypeScript ClickHouse planner resolves each physical source before measure,
-dimension, tenant, segment and user filters. Target relationships use the same
-resolved population before ANY JOIN or uniqueness checks. Derived/window/shift
-scans share this source renderer. The source subquery disables automatic PREWHERE
-movement so a deletion or mutable-dimension predicate cannot retain an older
-version. See [ClickHouse's PREWHERE documentation](https://clickhouse.com/docs/reference/statements/select/prewhere).
-These query-local safety settings require a read-only connection that permits
-settings changes (`readonly=2`, or equivalent grants); `readonly=1` profiles may
-refuse the query and must be adjusted. The planner never retries with raw rows.
+The TypeScript ClickHouse planner maps a policy onto the dataset's `final`
+source path (the same one `final: true` uses): the source is read in place with
+`FINAL`, so SQL fields that name the database-qualified source stay valid. After
+`FINAL`, the deletion column must equal zero or the sign column must equal one;
+current ClickHouse already drops those rows, and the filter keeps older servers
+and unmatched cancel rows from counting. Measure, dimension, tenant, row-scope,
+segment and user filters apply to the resolved rows. Relationship targets read
+`FINAL` with the same filter inside their match projection, before the join and
+before uniqueness checks. Derived/window/shift scans share the source path.
+ClickHouse applies `WHERE` after `FINAL` unless a profile enables
+`optimize_move_to_prewhere_if_final` (off by default), so no per-query settings
+are sent and `readonly=1` profiles can run these queries. The planner never
+retries with raw rows.
+
+A code-first dataset may declare `final: true` without naming the engine; it
+cannot be published to a deployment contract until it declares `rowResolution`.
 
 SummingMergeTree and AggregatingMergeTree are deliberately unsupported by this
 policy: FINAL merging does not turn aggregate states into ordinary scalar

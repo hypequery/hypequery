@@ -14,7 +14,7 @@ Cloud upgrades its pinned packages. This branch does not publish packages or alt
 Implementation: explicit `rowResolution` FINAL policy for replacing and both
 collapsing families, strict portable grammar in TypeScript and Python, contract
 roundtrip/cache identity, shared resolved source scans and backend/dialect refusal.
-See RFC 0020 for authoring and connection requirements. Package publication and
+See RFC 0021 for authoring and connection requirements. Package publication and
 Cloud dependency upgrades remain separate work; no CI configuration changed.
 
 Validation: protocol 819 + datasets 1,784 + deployment 157 + serve 599 unit tests;
