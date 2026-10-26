@@ -548,6 +548,8 @@ export interface DatasetConfig<
   TRelationships extends Record<string, RelationshipDefinition> = Record<string, never>,
   TSegments extends Record<string, SegmentDefinition> = Record<string, SegmentDefinition>,
   TFilters extends SemanticFiltersDefinition | undefined = SemanticFiltersDefinition,
+  TTimeKey extends string | undefined = string | undefined,
+  TTimeKeys extends readonly string[] = readonly string[],
 > extends SemanticMetadata {
   source: string;
   /**
@@ -565,7 +567,7 @@ export interface DatasetConfig<
   defaults?: DatasetDefaults;
   tenantKey?: string;
   /** The default time axis: what `by` buckets on when a query selects no `timeKey`. */
-  timeKey?: string;
+  timeKey?: TTimeKey;
   /**
    * Further time axes a query may select with `query.timeKey`, such as
    * `shipped_at` beside a `created_at` default. Each is a dimension name or a
@@ -573,7 +575,7 @@ export interface DatasetConfig<
    * axis drives grains, window and shift measures, and their time-range
    * checks; `timeGrains` applies to every axis.
    */
-  timeKeys?: readonly string[];
+  timeKeys?: TTimeKeys;
   /**
    * Restricts the time grains this dataset supports. Defaults to every grain
    * the planner can bucket on. Use it, for example, to refuse `minute` and
@@ -602,6 +604,8 @@ export interface DatasetInstance<
   TDerivedMeasures extends Record<string, DerivedMeasureDefinition> = Record<string, DerivedMeasureDefinition>,
   TSegments extends Record<string, SegmentDefinition> = Record<string, SegmentDefinition>,
   TFilters extends SemanticFiltersDefinition = SemanticFiltersDefinition,
+  TTimeKey extends string | undefined = string | undefined,
+  TTimeKeys extends string = string,
 > {
   __type: 'dataset';
   name: TDatasetName;
@@ -619,9 +623,9 @@ export interface DatasetInstance<
   sensitivity?: SemanticSensitivity;
   defaults?: DatasetDefaults;
   tenantKey?: string;
-  timeKey?: string;
+  timeKey?: TTimeKey;
   /** Alternate time axes, excluding `timeKey`; see `DatasetConfig.timeKeys`. */
-  timeKeys?: readonly string[];
+  timeKeys?: readonly TTimeKeys[];
   timeGrains?: readonly TimeGrain[];
   dimensions: TDimensions;
   /** All declared measures: base aggregates, formulas, and time windows. */
@@ -636,11 +640,11 @@ export interface DatasetInstance<
   metric<TName extends string>(
     metricName: TName,
     metricConfig: BaseMetricConfig<BaseMeasures<TMeasures>>,
-  ): BaseMetricRef<TDatasetName, TName, DatasetInstance<TDimensions, TMeasures, TRelationships, TDatasetName, TDerivedMeasures, TSegments, TFilters>>;
+  ): BaseMetricRef<TDatasetName, TName, DatasetInstance<TDimensions, TMeasures, TRelationships, TDatasetName, TDerivedMeasures, TSegments, TFilters, TTimeKey, TTimeKeys>>;
   metric<TName extends string>(
     metricName: TName,
     metricConfig: DerivedMetricConfig<TDatasetName>,
-  ): DerivedMetricRef<TDatasetName, TName, DatasetInstance<TDimensions, TMeasures, TRelationships, TDatasetName, TDerivedMeasures, TSegments, TFilters>>;
+  ): DerivedMetricRef<TDatasetName, TName, DatasetInstance<TDimensions, TMeasures, TRelationships, TDatasetName, TDerivedMeasures, TSegments, TFilters, TTimeKey, TTimeKeys>>;
 }
 
 export interface DatasetRegistryInstance {
@@ -757,6 +761,14 @@ export type DatasetSegmentNames<TDataset extends DatasetInstance<any, any, any, 
   keyof TDataset['segments'] & string;
 
 /**
+ * Time axes a query may select with `timeKey`: the dataset's `timeKey` and its
+ * `timeKeys`. `never` when the dataset declares no time axis.
+ */
+export type DatasetTimeKeyNames<TDataset extends DatasetInstance<any, any, any, any>> =
+  | Exclude<TDataset['timeKey'], undefined>
+  | (NonNullable<TDataset['timeKeys']> extends readonly (infer TKey)[] ? TKey & string : never);
+
+/**
  * Fields a result can be ordered by. This is the selection-independent superset
  * (every dimension + measure, plus the synthetic `period` column for grained
  * queries); the runtime validator additionally requires the field to be selected.
@@ -786,7 +798,7 @@ export interface DatasetQueryFor<TDataset extends DatasetInstance<any, any, any,
    * Time axis for `by` and for window and shift measures: the dataset's
    * `timeKey` or one of its `timeKeys`. Defaults to `timeKey`.
    */
-  timeKey?: string;
+  timeKey?: DatasetTimeKeyNames<TDataset>;
   /** IANA timezone for buckets and local time-key bounds; overrides the client default. */
   timezone?: string;
   includeMeta?: boolean;
@@ -854,7 +866,7 @@ export interface MetricQueryFor<
    * Time axis for `by` and for window and shift measures: the dataset's
    * `timeKey` or one of its `timeKeys`. Defaults to `timeKey`.
    */
-  timeKey?: string;
+  timeKey?: DatasetTimeKeyNames<TDataset>;
   /** IANA timezone for buckets and local time-key bounds; overrides the client default. */
   timezone?: string;
   includeMeta?: boolean;

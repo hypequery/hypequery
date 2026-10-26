@@ -76,10 +76,12 @@ export function dataset<
   TRelationships extends Record<string, RelationshipDefinition> = Record<string, never>,
   const TSegments extends Record<string, SegmentDefinition> = {},
   const TFilters extends SemanticFiltersDefinition | undefined = SemanticFiltersDefinition | undefined,
+  const TTimeKey extends string | undefined = undefined,
+  const TTimeKeys extends readonly string[] = readonly [],
 >(
   name: TDatasetName,
-  config: DatasetConfig<TDimensions, TDefinitions, TRelationships, TSegments, TFilters>,
-): DatasetInstance<TDimensions, TDefinitions, TRelationships, TDatasetName, DerivedMeasures<TDefinitions>, TSegments, NormalizedDatasetFilters<TDimensions, TFilters>> {
+  config: DatasetConfig<TDimensions, TDefinitions, TRelationships, TSegments, TFilters, TTimeKey, TTimeKeys>,
+): DatasetInstance<TDimensions, TDefinitions, TRelationships, TDatasetName, DerivedMeasures<TDefinitions>, TSegments, NormalizedDatasetFilters<TDimensions, TFilters>, TTimeKey, TTimeKeys[number]> {
   // Structural validation runs before anything is normalized, so an invalid
   // model fails at definition time rather than on the first query that reaches
   // the broken part of it.
@@ -93,7 +95,7 @@ export function dataset<
   const relationships = normalizeRelationships(config.relationships, config.source);
 
   type TMeasures = BaseMeasures<TDefinitions>;
-  type ThisDataset = DatasetInstance<TDimensions, TDefinitions, TRelationships, TDatasetName, DerivedMeasures<TDefinitions>, TSegments, NormalizedDatasetFilters<TDimensions, TFilters>>;
+  type ThisDataset = DatasetInstance<TDimensions, TDefinitions, TRelationships, TDatasetName, DerivedMeasures<TDefinitions>, TSegments, NormalizedDatasetFilters<TDimensions, TFilters>, TTimeKey, TTimeKeys[number]>;
   function metric<TName extends string>(
     metricName: TName,
     metricConfig: BaseMetricConfig<TMeasures>,

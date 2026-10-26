@@ -120,7 +120,7 @@ await analytics.execute(revenue.by('week'), { timeKey: 'shippedAt' });
 ```
 </CodeBlock>
 
-Each entry is a dimension name or a column, like `timeKey`, and `timeKeys` requires a `timeKey`. A query that names no `timeKey`, or names the default, behaves exactly as before.
+Each entry is a dimension name or a column, like `timeKey`, and `timeKeys` requires a `timeKey`. A query that names no `timeKey`, or names the default, behaves exactly as before. In TypeScript, a query's `timeKey` only accepts the axes the dataset declares, so a typo fails to compile.
 
 The selected axis drives everything time-based in the query:
 
