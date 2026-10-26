@@ -337,6 +337,7 @@ export type {
   DatasetQueryableMeasures,
   DatasetMeasureNames,
   DatasetSegmentNames,
+  DatasetTimeKeyNames,
   DatasetOrderableNames,
   DatasetQueryFor,
   DatasetHavingCondition,

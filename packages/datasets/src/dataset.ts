@@ -14,6 +14,7 @@
  *   source: "orders",
  *   tenantKey: "tenant_id",
  *   timeKey: "created_at",
+ *   timeKeys: ["shipped_at"],
  *   dimensions: {
  *     id: dimension.string(),
  *     status: dimension.string({ label: "Order Status" }),
@@ -68,6 +69,8 @@ import { validateSemanticMetadata } from './utils/semantic-metadata-validation.j
 import { derivedMeasuresView, getBaseMeasure } from './utils/dataset-measures.js';
 import { normalizeSegments } from './utils/segments.js';
 
+// Inferred calls: an omitted timeKey or timeKeys narrows to "none", so a
+// query's timeKey is checked against exactly the declared axes.
 export function dataset<
   TDatasetName extends string,
   TDimensions extends Record<string, DimensionDefinition>,
@@ -75,10 +78,41 @@ export function dataset<
   TRelationships extends Record<string, RelationshipDefinition> = Record<string, never>,
   const TSegments extends Record<string, SegmentDefinition> = {},
   const TFilters extends SemanticFiltersDefinition | undefined = SemanticFiltersDefinition | undefined,
+  const TTimeKey extends string | undefined = undefined,
+  const TTimeKeys extends readonly string[] = readonly [],
 >(
   name: TDatasetName,
-  config: DatasetConfig<TDimensions, TDefinitions, TRelationships, TSegments, TFilters>,
-): DatasetInstance<TDimensions, TDefinitions, TRelationships, TDatasetName, DerivedMeasures<TDefinitions>, TSegments, NormalizedDatasetFilters<TDimensions, TFilters>> {
+  config: DatasetConfig<TDimensions, TDefinitions, TRelationships, TSegments, TFilters, TTimeKey, TTimeKeys>,
+): DatasetInstance<TDimensions, TDefinitions, TRelationships, TDatasetName, DerivedMeasures<TDefinitions>, TSegments, NormalizedDatasetFilters<TDimensions, TFilters>, TTimeKey, TTimeKeys[number]>;
+// Calls that pass leading type arguments explicitly get these defaults, not
+// inference, so the time axes default broad: such definitions keep compiling
+// and their queries accept any string timeKey, as before.
+export function dataset<
+  TDatasetName extends string,
+  TDimensions extends Record<string, DimensionDefinition>,
+  TDefinitions extends Record<string, DatasetMeasureDefinition> = {},
+  TRelationships extends Record<string, RelationshipDefinition> = Record<string, never>,
+  const TSegments extends Record<string, SegmentDefinition> = {},
+  const TFilters extends SemanticFiltersDefinition | undefined = SemanticFiltersDefinition | undefined,
+  const TTimeKey extends string | undefined = string | undefined,
+  const TTimeKeys extends readonly string[] = readonly string[],
+>(
+  name: TDatasetName,
+  config: DatasetConfig<TDimensions, TDefinitions, TRelationships, TSegments, TFilters, TTimeKey, TTimeKeys>,
+): DatasetInstance<TDimensions, TDefinitions, TRelationships, TDatasetName, DerivedMeasures<TDefinitions>, TSegments, NormalizedDatasetFilters<TDimensions, TFilters>, TTimeKey, TTimeKeys[number]>;
+export function dataset<
+  TDatasetName extends string,
+  TDimensions extends Record<string, DimensionDefinition>,
+  TDefinitions extends Record<string, DatasetMeasureDefinition> = {},
+  TRelationships extends Record<string, RelationshipDefinition> = Record<string, never>,
+  const TSegments extends Record<string, SegmentDefinition> = {},
+  const TFilters extends SemanticFiltersDefinition | undefined = SemanticFiltersDefinition | undefined,
+  const TTimeKey extends string | undefined = string | undefined,
+  const TTimeKeys extends readonly string[] = readonly string[],
+>(
+  name: TDatasetName,
+  config: DatasetConfig<TDimensions, TDefinitions, TRelationships, TSegments, TFilters, TTimeKey, TTimeKeys>,
+): DatasetInstance<TDimensions, TDefinitions, TRelationships, TDatasetName, DerivedMeasures<TDefinitions>, TSegments, NormalizedDatasetFilters<TDimensions, TFilters>, TTimeKey, TTimeKeys[number]> {
   // Structural validation runs before anything is normalized, so an invalid
   // model fails at definition time rather than on the first query that reaches
   // the broken part of it.
@@ -92,7 +126,7 @@ export function dataset<
   const relationships = normalizeRelationships(config.relationships, config.source);
 
   type TMeasures = BaseMeasures<TDefinitions>;
-  type ThisDataset = DatasetInstance<TDimensions, TDefinitions, TRelationships, TDatasetName, DerivedMeasures<TDefinitions>, TSegments, NormalizedDatasetFilters<TDimensions, TFilters>>;
+  type ThisDataset = DatasetInstance<TDimensions, TDefinitions, TRelationships, TDatasetName, DerivedMeasures<TDefinitions>, TSegments, NormalizedDatasetFilters<TDimensions, TFilters>, TTimeKey, TTimeKeys[number]>;
   function metric<TName extends string>(
     metricName: TName,
     metricConfig: BaseMetricConfig<TMeasures>,
@@ -150,6 +184,9 @@ export function dataset<
     },
     tenantKey: config.tenantKey,
     timeKey: config.timeKey,
+    ...(config.timeKeys === undefined || config.timeKeys.length === 0
+      ? {}
+      : { timeKeys: Object.freeze(config.timeKeys.filter(key => key !== config.timeKey)) }),
     ...(config.timeGrains === undefined ? {} : { timeGrains: Object.freeze([...config.timeGrains]) }),
     dimensions,
     measures,

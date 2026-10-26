@@ -17,6 +17,7 @@ import type {
 import { getMetricGrain, getMetricRef, type MetricHandle } from '../utils/metric-handle.js';
 import { runtimeConstraints } from '../utils/row-scope.js';
 import { localDefinitionIdentity, scopedDefinitionIdentity } from './definition-identity.js';
+import { selectsAlternateTimeKey } from '../utils/dataset-time-keys.js';
 
 /** Namespace defaults, so caching works without any configuration. */
 export const DEFAULT_CACHE_PROJECT = 'hypequery';
@@ -206,6 +207,14 @@ function partitionTimezone(query: DatasetQuery | MetricQuery): string | undefine
   return query.timezone === 'UTC' ? undefined : query.timezone;
 }
 
+/**
+ * RFC 0009's normalized query has no time axis either. An alternate axis is
+ * folded in like the timezone; the default, named or omitted, folds in nothing.
+ */
+function partitionTimeKey(root: AnyDatasetInstance, query: DatasetQuery | MetricQuery): string | undefined {
+  return selectsAlternateTimeKey(root, query.timeKey) ? query.timeKey : undefined;
+}
+
 function definitionFor(
   settings: ProtocolCacheKeySettings,
   root: AnyDatasetInstance,
@@ -214,9 +223,10 @@ function definitionFor(
   metric?: unknown,
 ): string {
   const timezone = partitionTimezone(query);
+  const timeKey = partitionTimeKey(root, query);
   return settings.definitionIdentity !== undefined
-    ? scopedDefinitionIdentity(settings.definitionIdentity, scope, timezone)
-    : localDefinitionIdentity(root, { metric, scope, timezone });
+    ? scopedDefinitionIdentity(settings.definitionIdentity, scope, timezone, timeKey)
+    : localDefinitionIdentity(root, { metric, scope, timezone, timeKey });
 }
 
 /**

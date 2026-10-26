@@ -11,6 +11,7 @@ import { resolveResultLimit } from './result-limits.js';
 import { buildTimeMeasureDatasetSql } from './time-measure-dataset-sql.js';
 import { selectedTimeMeasures } from './time-query-measures.js';
 import { renderStatement } from './statement-parameters.js';
+import { datasetOnTimeKey, selectedTimeKeyError } from './dataset-time-keys.js';
 
 export interface PreparedDatasetQuery {
   readonly compilation: DatasetCompilation;
@@ -19,11 +20,14 @@ export interface PreparedDatasetQuery {
 
 /** The one dispatch point for dataset preview and query-builder execution. */
 export function prepareDatasetQuery(
-  dataset: AnyDatasetInstance,
+  source: AnyDatasetInstance,
   input: DatasetQuery,
   options: DatasetQueryExecutionOptions,
   mode: 'execution' | 'logical' = 'execution',
 ): PreparedDatasetQuery {
+  // Every planner below compiles against the selected time axis. An unknown
+  // axis is left for each planner's validation to report as a query error.
+  const dataset = selectedTimeKeyError(source, input.timeKey) ? source : datasetOnTimeKey(source, input.timeKey);
   const query: DatasetQuery = structuredClone({
     ...input,
     limit: mode === 'execution' ? resolveResultLimit(input.limit, dataset.limits).limit : input.limit,
@@ -70,7 +74,7 @@ export function prepareDatasetQuery(
     filters: Object.freeze((query.filters ?? []).map(({ field, operator }) => Object.freeze({ field, operator }))),
     having: Object.freeze((query.having ?? []).map(({ measure, operator }) => Object.freeze({ measure, operator }))),
     segments: Object.freeze([...(query.segments ?? [])]),
-    by: query.by, timezone: query.timezone,
+    by: query.by, timeKey: query.timeKey, timezone: query.timezone,
     effectiveLimit: query.limit, executionLimit, offset: query.offset ?? 0,
     parameterCount: statement.parameters.length,
     preflightStatementCount: preflightStatements.length,

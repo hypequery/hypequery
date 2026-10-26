@@ -28,6 +28,7 @@ import { isSupportedTimeGrain } from './constants.js';
 import { datasetRowScope, runtimeConstraints } from './utils/row-scope.js';
 import { isQualifiedField, resolveQualifiedField } from './utils/relationship-fields.js';
 import { segmentFilters } from './utils/segments.js';
+import { selectsAlternateTimeKey } from './utils/dataset-time-keys.js';
 
 function resolveField(ds: AnyDatasetInstance, field: string): string {
   const dimension = ds.dimensions[field];
@@ -249,6 +250,7 @@ export function buildDatasetPlan(
   rejectConstraintsOnBackend(context);
   if ((query.measures ?? []).some(name => name.includes('.'))) throw new Error('Relationship measures require the queryBuilder execution path.');
   if (query.timezone !== undefined) throw new Error('Execution timezone requires the queryBuilder execution path.');
+  if (selectsAlternateTimeKey(ds, query.timeKey)) throw new Error('Alternate time keys require the queryBuilder execution path.');
   rejectTimeMeasuresOnBackend(ds, query);
   if ((query.measures ?? []).some(name => getDerivedMeasure(ds.measures, name) !== undefined)) {
     throw new Error('Derived dataset measures require the queryBuilder execution path.');
@@ -365,6 +367,7 @@ export function buildMetricPlan(
   const errors = protocolMetricCapabilityErrors(metric, query);
   if (errors.length) throw new Error(`Invalid metric query: ${errors.join('; ')}`);
   const ref = getMetricRef(metric as MetricHandle);
+  if (selectsAlternateTimeKey(ref.dataset, query.timeKey)) throw new Error('Alternate time keys require the queryBuilder execution path.');
   rejectFinalOnBackend(ref.dataset);
   rejectConstraintsOnBackend(context);
   const grain = getMetricGrain(metric as MetricHandle, query);

@@ -134,6 +134,7 @@ export function createMetricEndpoint<TAuth extends AuthContext>(
   const effectiveMaxLimit = resolved.maxLimit ?? ds.limits?.maxResultSize ?? 1000;
   const metricQueryInputSchema = buildMetricInputSchema(ds, contract.name, {
     includeMeta: true,
+    timeKey: true,
     enforceResultLimit: false,
     maxOffset: undefined,
     maxDimensions: undefined,
@@ -176,6 +177,7 @@ export function createMetricEndpoint<TAuth extends AuthContext>(
       limit: Math.min(input.limit ?? effectiveMaxLimit, effectiveMaxLimit),
       offset: input.offset,
       by: input.by,
+      timeKey: input.timeKey,
       timezone: input.timezone,
     };
 

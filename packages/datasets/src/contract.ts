@@ -94,6 +94,7 @@ export interface ContractDataset extends SemanticMetadata {
   defaults?: DatasetDefaults;
   tenantKey?: string;
   timeKey?: string;
+  timeKeys?: string[];
   requiresTenant: boolean;
   supportedGrains: string[];
   dimensions: Record<string, ContractDimension>;
@@ -177,6 +178,7 @@ function datasetToContract(catalog: DatasetCatalog, includeSql: boolean): Contra
       : {}),
     ...(catalog.tenantKey !== undefined ? { tenantKey: catalog.tenantKey } : {}),
     ...(catalog.timeKey !== undefined ? { timeKey: catalog.timeKey } : {}),
+    ...(catalog.timeKeys?.length ? { timeKeys: uniqueSorted(catalog.timeKeys) } : {}),
     requiresTenant: catalog.requiresTenant,
     supportedGrains: uniqueSorted(catalog.supportedGrains),
     dimensions: sortedRecord(

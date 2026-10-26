@@ -11,6 +11,7 @@ import { validateTenantRuntime } from './tenant-runtime.js';
 import { isQualifiedField, resolveQualifiedField } from './relationship-fields.js';
 import { validateQualifiedFilter, validateRelationshipTenantRuntime } from './relationship-validation.js';
 import { segmentSelectionErrors } from './segments.js';
+import { datasetOnTimeKey, selectedTimeKeyError } from './dataset-time-keys.js';
 import { enforcedConstraintErrors } from './enforced-constraints.js';
 
 export function validateMetricQueryInput(
@@ -20,7 +21,9 @@ export function validateMetricQueryInput(
 ): ValidationResult {
   const errors = [...semanticQuerySyntaxErrors(query), ...protocolMetricCapabilityErrors(metric, query), ...queryTimezoneErrors(query.timezone)];
   const ref = getMetricRef(metric);
-  const ds = ref.dataset;
+  const timeKeyError = selectedTimeKeyError(ref.dataset, query.timeKey);
+  if (timeKeyError) errors.push(timeKeyError);
+  const ds = timeKeyError ? ref.dataset : datasetOnTimeKey(ref.dataset, query.timeKey);
   const dimensionNames = Object.keys(ds.dimensions);
   const filterNames = Object.keys(ds.filters);
   const grain = getMetricGrain(metric, query);

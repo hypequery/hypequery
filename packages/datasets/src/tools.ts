@@ -88,7 +88,8 @@ function buildCatalogTool(
   analytics: DatasetToolAnalytics,
   includeSql: boolean,
 ): SemanticToolDefinition {
-  const schemas = buildCanonicalSemanticQuerySchemas(datasets);
+  // Parsed input reaches the client whole, so it can carry a selected time axis.
+  const schemas = buildCanonicalSemanticQuerySchemas(datasets, { timeKey: true });
 
   return {
     name: 'query_dataset',
@@ -113,7 +114,7 @@ function buildDatasetTools(
   includeSql: boolean,
 ): SemanticToolDefinition[] {
   return Object.entries(datasets).map(([datasetName, dataset]) => {
-    const schema = buildDatasetInputSchema(dataset);
+    const schema = buildDatasetInputSchema(dataset, { timeKey: true });
     return {
       name: `query_${semanticToolNamePart(datasetName)}`,
       description: `Query the ${datasetName} analytics dataset.`,
@@ -136,7 +137,7 @@ function buildMetricTools(
 
   for (const [datasetName, dataset] of Object.entries(datasets)) {
     for (const [metricName, metric] of Object.entries(dataset.metrics ?? {})) {
-      const schema = buildMetricInputSchema(dataset, metricName, {}, metric.contract());
+      const schema = buildMetricInputSchema(dataset, metricName, { timeKey: true }, metric.contract());
       tools.push({
         name: `query_${semanticToolNamePart(metricName)}`,
         description: `Query the ${metricName} metric from the ${datasetName} dataset.`,

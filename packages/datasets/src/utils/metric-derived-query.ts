@@ -21,6 +21,7 @@ import type { DerivedMetricSpec } from '../types.js';
 import { validateSQLIdentifier } from '../sql-utils.js';
 import { isQualifiedField } from './relationship-fields.js';
 import { validateDerivedCteGrouping } from './derived-cte-validation.js';
+import { datasetOnTimeKey } from './dataset-time-keys.js';
 
 export function buildDerivedMetricSql(
   ref: MetricRef,
@@ -34,7 +35,7 @@ export function buildDerivedMetricSql(
   if (syntaxErrors.length) throw new Error(syntaxErrors.join('; '));
   const dialect = resolveDatasetSqlDialect(builderFactory);
   assertRawSqlForDialect(ref.dataset, dialect);
-  const ds = ref.dataset;
+  const ds = datasetOnTimeKey(ref.dataset, query.timeKey);
   const joinCtx = buildRelationshipBuilderContext(ds, query, context, dialect);
 
   // Build the CTE inner query using the builder
