@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import time
 from dataclasses import dataclass
-from typing import NoReturn, TypedDict, Unpack
+from typing import NoReturn, TypedDict, Unpack, cast
 
 from ..cache import CachedRows, ResultCache
 from ..dataset import Dataset
@@ -24,6 +24,7 @@ from ..planner import (
     TenantScope,
     plan_dataset_query,
 )
+from ..planner.dialects import CLICKHOUSE, SqlDialect
 from ..planner.settings import tighten_query_settings
 from ..registry import DatasetRegistry
 from ..utils.output_columns import output_columns
@@ -73,8 +74,15 @@ class ExecuteOptions(TypedDict, total=False):
     paginate: bool
 
 
+def executor_dialect(executor: object) -> SqlDialect:
+    """The SQL dialect *executor* runs; an executor that names none runs ClickHouse."""
+
+    dialect = getattr(executor, "dialect", None)
+    return CLICKHOUSE if dialect is None else cast(SqlDialect, dialect)
+
+
 class _DatasetClientBase:
-    __slots__ = ("_cache", "_registry", "_settings", "_timezone")
+    __slots__ = ("_cache", "_dialect", "_registry", "_settings", "_timezone")
 
     def __init__(
         self,
@@ -82,11 +90,13 @@ class _DatasetClientBase:
         settings: QuerySettings,
         cache: ResultCache | None,
         timezone: str = "UTC",
+        dialect: SqlDialect = CLICKHOUSE,
     ) -> None:
         self._registry = registry
         self._settings = settings
         self._cache = cache
         self._timezone = validate_timezone(timezone)
+        self._dialect = dialect
 
     @property
     def registry(self) -> DatasetRegistry | None:
@@ -132,6 +142,7 @@ class _DatasetClientBase:
             context=context,
             settings=self._settings,
             overfetch=paginate,
+            dialect=self._dialect,
         )
         return _Planned(dataset, semantic, compiled)
 
@@ -327,7 +338,7 @@ class DatasetClient(_DatasetClientBase):
         cache: ResultCache | None = None,
         timezone: str = "UTC",
     ) -> None:
-        super().__init__(registry, settings, cache, timezone)
+        super().__init__(registry, settings, cache, timezone, executor_dialect(executor))
         self._executor = executor
 
     def for_tenant(self, scope: TenantScope) -> TenantDatasetClient:
@@ -373,7 +384,7 @@ class AsyncDatasetClient(_DatasetClientBase):
         cache: ResultCache | None = None,
         timezone: str = "UTC",
     ) -> None:
-        super().__init__(registry, settings, cache, timezone)
+        super().__init__(registry, settings, cache, timezone, executor_dialect(executor))
         self._executor = executor
 
     def for_tenant(self, scope: TenantScope) -> AsyncTenantDatasetClient:

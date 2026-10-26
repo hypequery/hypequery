@@ -183,8 +183,9 @@ export const postgresDatasetSqlDialect: DatasetSqlDialectRules = defineDatasetSq
   formulaBinary(operator, left, right) {
     const symbol = BINARY_OPERATORS[operator];
     if (!symbol) throw new Error('Formula contains an unsupported binary operator.');
-    // ClickHouse `/` is always floating point; Postgres truncates bigint / bigint.
-    if (operator === 'divide') return `(CAST(${left} AS double precision) / ${right})`;
+    // ClickHouse `/` is always floating point and x/0 is inf, which results
+    // report as null; Postgres truncates bigint / bigint and raises on /0.
+    if (operator === 'divide') return `(CAST(${left} AS double precision) / NULLIF(${right}, 0))`;
     return `(${left} ${symbol} ${right})`;
   },
   formulaFunction(name, args) {

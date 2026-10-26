@@ -9,8 +9,6 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
-from .identifiers import SafeIdentifier
-
 
 def trusted_expression(sql: str) -> str:
     """Enclose a trusted SQL expression so it cannot reach past its own operand.
@@ -31,10 +29,10 @@ def trusted_expression(sql: str) -> str:
     return f"({sql}\n)"
 
 
-def aliased(expression: str, alias: SafeIdentifier) -> str:
-    """`<expression> AS <alias>`, with the alias quoted."""
+def aliased(expression: str, quoted_alias: str) -> str:
+    """`<expression> AS <alias>`, with the alias already quoted by the dialect."""
 
-    return f"{expression} AS {alias.sql}"
+    return f"{expression} AS {quoted_alias}"
 
 
 def select_clause(parts: Sequence[str]) -> str:

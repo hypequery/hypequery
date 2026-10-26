@@ -38,8 +38,9 @@ class JoinFeature(CompilerFeature):
         resolved = resolve_qualified_field(compiler.dataset, name, registry=compiler.registry)
         alias = self.ensure(resolved.relationship_name, resolved.relationship, resolved.target)
         column = physical_column(resolved.target, resolved.dimension_name)
-        value = f"{alias.sql}.{safe_identifier(column, what='column').sql}"
-        marker = f"{alias.sql}.{self.match_markers[resolved.relationship_name].sql}"
+        quote = compiler.quote
+        value = f"{quote(alias)}.{quote(safe_identifier(column, what='column'))}"
+        marker = f"{quote(alias)}.{quote(self.match_markers[resolved.relationship_name])}"
         return compiler.dialect.when(compiler.dialect.not_null(marker), value)
 
     def ensure(
@@ -52,11 +53,13 @@ class JoinFeature(CompilerFeature):
             return alias
         self._joined.add(relationship_name)
         target_source = self._measure_join_source(relationship_name, target)
+        quote = self.compiler.quote
         # A composite key is an AND of equalities; a NULL component never matches.
         condition = " AND ".join(
-            f"{BASE_ALIAS.sql}."
-            f"{safe_identifier(key.from_field, what='relationship from field').sql}"
-            f" = {alias.sql}.{safe_identifier(key.to_field, what='relationship to field').sql}"
+            f"{quote(BASE_ALIAS)}."
+            f"{quote(safe_identifier(key.from_field, what='relationship from field'))}"
+            f" = {quote(alias)}."
+            f"{quote(safe_identifier(key.to_field, what='relationship to field'))}"
             for key in relationship.key_pairs
         )
         # The joined dataset carries its own tenancy, so the predicate goes into
@@ -66,7 +69,7 @@ class JoinFeature(CompilerFeature):
         if target_scope is not None and target.tenant_key is not None:
             tenant_column = safe_identifier(target.tenant_key, what="tenant key")
             condition += " AND " + tenant_predicate(
-                self.compiler.binder, f"{alias.sql}.{tenant_column.sql}", target_scope
+                self.compiler.binder, f"{quote(alias)}.{quote(tenant_column)}", target_scope
             )
         self.compiler.node.joins.append(JoinNode(target_source, alias, condition))
         return alias
@@ -106,8 +109,11 @@ class JoinFeature(CompilerFeature):
         while marker in unique:
             marker += "_"
         self.match_markers[relationship_name] = safe_identifier(marker, what="match marker")
-        projection = [safe_identifier(column, what="column").sql for column in unique]
-        projection.append(compiler.dialect.match_marker(self.match_markers[relationship_name].sql))
-        source = safe_qualified_identifier(target.source, what="dataset source")
+        quote = compiler.quote
+        projection = [quote(safe_identifier(column, what="column")) for column in unique]
+        projection.append(
+            compiler.dialect.match_marker(quote(self.match_markers[relationship_name]))
+        )
+        source = quote(safe_qualified_identifier(target.source, what="dataset source"))
         # Every part is a validated identifier or a constant; no value reaches it.
-        return f"(SELECT {', '.join(projection)} FROM {source.sql})"  # noqa: S608
+        return f"(SELECT {', '.join(projection)} FROM {source})"  # noqa: S608

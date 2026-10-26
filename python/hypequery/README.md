@@ -235,6 +235,7 @@ for the SDK and pending beta features.
 pip install hypequery
 pip install "hypequery[clickhouse]"
 pip install "hypequery[clickhouse-async]"
+pip install "hypequery[postgres]"
 pip install "hypequery[fastapi]"
 ```
 
@@ -243,6 +244,7 @@ pip install "hypequery[fastapi]"
 | (none) | pydantic | defining datasets, planning, `to_sql()`, protocol artifacts |
 | `clickhouse` | clickhouse-connect | `create_clickhouse_executor` and `hypequery init` / `generate` |
 | `clickhouse-async` | clickhouse-connect with aiohttp | `create_async_clickhouse_executor`; also covers everything `clickhouse` does |
+| `postgres` | psycopg 3 | `create_postgres_executor` and `create_async_postgres_executor` |
 | `fastapi` | FastAPI, Starlette, uvicorn | `hypequery.serve` and `hypequery dev` |
 
 Combine them as needed, for example `"hypequery[fastapi,clickhouse-async]"`.
@@ -253,8 +255,31 @@ The SDK is organised as:
 
 - `hypequery.protocol` for the language-neutral artifact contracts;
 - `hypequery.datasets` for dimensions, measures, metrics, and relationships;
-- `hypequery.execution` for sync and async ClickHouse execution;
+- `hypequery.execution` for sync and async ClickHouse and Postgres execution;
 - `hypequery.serve` for a strict FastAPI router.
+
+### Postgres
+
+The same datasets run on Postgres: pass a Postgres executor and the client
+compiles Postgres SQL for it.
+
+```python
+from hypequery.datasets import create_dataset_client
+from hypequery.execution import create_postgres_executor
+
+client = create_dataset_client(
+    executor=create_postgres_executor("postgresql://user@host/db"),  # or HYPEQUERY_POSTGRES_URL
+    registry=registry,
+)
+```
+
+Results match ClickHouse for the same rows: floating-point division, half-to-even
+`round`, NULLs sorted last, Sunday weeks and RFC 0015 period text, with DST
+buckets kept distinct. Each query runs in a read-only transaction with a
+statement timeout from the query settings, binds every value server-side, and
+is cancelled on the server when its deadline or cancellation fires. Time-key
+filters compare the bare column, so an index on it applies. Pass a
+`psycopg_pool.ConnectionPool` as `pool=` to reuse connections.
 
 Python and TypeScript implement the same specifications and run against the same conformance fixtures. The goal is identical semantic and deployment artifacts across both languages, not a line-for-line port of the TypeScript runtime.
 

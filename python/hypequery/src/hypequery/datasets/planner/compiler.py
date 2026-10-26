@@ -26,7 +26,7 @@ from .features.having import HavingFeature
 from .features.joins import JoinFeature
 from .features.measures import MeasureFeature
 from .features.ordering import OrderingFeature
-from .identifiers import SafeIdentifier, safe_qualified_identifier
+from .identifiers import SafeIdentifier, SafeQualifiedIdentifier, quoted, safe_qualified_identifier
 from .parameters import ParameterBinder, TypedParameter
 from .query import DatasetQuery
 from .query_node import DatasetSelectNode
@@ -65,7 +65,7 @@ class DatasetQueryCompiler:
         self.timezone = validate_timezone(query.timezone or "UTC")
         # Qualify base columns only when a relationship could make them ambiguous.
         self.joins_active = references_a_relationship(dataset, query)
-        self.binder = ParameterBinder()
+        self.binder = ParameterBinder(dialect)
         self.node = DatasetSelectNode()
         #: Output name to alias for everything selected so far; ordering reads it.
         self.orderable: dict[str, SafeIdentifier] = {}
@@ -79,6 +79,11 @@ class DatasetQueryCompiler:
         self.filtering = FilterFeature(self)
         self.having = HavingFeature(self)
         self.ordering = OrderingFeature(self)
+
+    def quote(self, identifier: SafeIdentifier | SafeQualifiedIdentifier) -> str:
+        """*identifier* quoted for this compilation's dialect."""
+
+        return quoted(self.dialect, identifier)
 
     def compile(self) -> DatasetSql:
         scope = resolve_tenant_scope(self.dataset, self.context)
@@ -105,6 +110,8 @@ class DatasetQueryCompiler:
         self.ordering.add()
         self.ordering.paginate()
 
-        self.node.source = safe_qualified_identifier(self.dataset.source, what="dataset source").sql
+        self.node.source = self.quote(
+            safe_qualified_identifier(self.dataset.source, what="dataset source")
+        )
         self.node.base_alias = BASE_ALIAS if self.joins_active else None
         return DatasetSql(self.dialect.render_select(self.node), self.binder.parameters)

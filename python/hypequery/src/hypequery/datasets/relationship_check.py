@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from .client.clients import executor_dialect
 from .client.results import AsyncQueryExecutor, QueryExecutor, ResultRows
 from .dataset import Dataset
 from .planner.context import ExecutionContext
@@ -70,7 +71,11 @@ def check_relationships(
 ) -> CheckRelationshipsResult:
     """Check physical target keys within the trusted tenant scope; skip hasMany."""
     checks = plan_relationship_checks(
-        dataset, registry, context or ExecutionContext(), relationships
+        dataset,
+        registry,
+        context or ExecutionContext(),
+        relationships,
+        dialect=executor_dialect(executor),
     )
     results = _CheckResults(checks)
     for check in checks:
@@ -88,7 +93,11 @@ async def check_relationships_async(
 ) -> CheckRelationshipsResult:
     """Async equivalent of check_relationships, preserving deadlines/cancellation."""
     checks = plan_relationship_checks(
-        dataset, registry, context or ExecutionContext(), relationships
+        dataset,
+        registry,
+        context or ExecutionContext(),
+        relationships,
+        dialect=executor_dialect(executor),
     )
     results = _CheckResults(checks)
     for check in checks:

@@ -15,6 +15,7 @@ from .aliases import PERIOD_ALIAS as PERIOD_ALIAS
 from .compiled_query import CompiledQuery, validate_correlation_id
 from .compiler import DatasetQueryCompiler
 from .context import ExecutionContext, effective_deadline
+from .dialects import CLICKHOUSE, SqlDialect
 from .query import DatasetQuery
 from .query_validation import check_query_limits, check_reserved_alias
 from .settings import DEFAULT_QUERY_SETTINGS, QuerySettings, tighten_query_settings
@@ -28,6 +29,7 @@ def plan_dataset_query(
     context: ExecutionContext | None = None,
     settings: QuerySettings = DEFAULT_QUERY_SETTINGS,
     overfetch: bool = False,
+    dialect: SqlDialect = CLICKHOUSE,
 ) -> CompiledQuery:
     """Compile a semantic query over *dataset* into an executable statement.
 
@@ -47,6 +49,7 @@ def plan_dataset_query(
         registry or create_dataset_registry(dataset),
         context,
         overfetch=overfetch,
+        dialect=dialect,
     )
     compiled = compiler.compile()
     settings = tighten_query_settings(settings, context.settings)
@@ -58,4 +61,5 @@ def plan_dataset_query(
         deadline=effective_deadline(context.deadline, settings.max_execution_time),
         cancellation=context.cancellation,
         correlation_id=validate_correlation_id(context.correlation_id),
+        dialect=dialect.name,
     )

@@ -72,21 +72,22 @@ class CompiledQuery:
     #: Server-generated and authoritative. A caller's correlation identifier is
     #: a separate field precisely so the two can never be confused.
     query_id: str = field(default_factory=_new_query_id)
+    #: The SQL dialect the statement was compiled for; an executor refuses others.
+    dialect: str = "clickhouse"
 
     def to_sql(self) -> str:
         """The redacted debug form. Never executable, never carries a value."""
 
         debug = self.sql
-        for parameter in self.parameters.values():
+        # Longest first, so `$1` cannot rewrite the head of `$10`.
+        for parameter in sorted(self.parameters.values(), key=lambda p: -len(p.placeholder)):
             debug = debug.replace(parameter.placeholder, parameter.debug_placeholder)
         return debug
 
     def __repr__(self) -> str:
         # Reprs may enter ordinary logs. Keep SQL, physical sources, and bound
         # values out of them; to_sql() is reserved for explicit diagnostics.
-        parameter_types = {
-            name: parameter.clickhouse_type for name, parameter in self.parameters.items()
-        }
+        parameter_types = {name: parameter.sql_type for name, parameter in self.parameters.items()}
         return (
             f"CompiledQuery(query_id={self.query_id!r}, operation={self.operation!r}, "
             f"parameter_types={parameter_types!r})"
@@ -96,6 +97,11 @@ class CompiledQuery:
         """The name-to-value map a driver binds through server parameters."""
 
         return {name: parameter.value for name, parameter in self.parameters.items()}
+
+    def positional_parameter_values(self) -> list[object]:
+        """The values in allocation order, which is `$n` order on positional dialects."""
+
+        return [parameter.value for parameter in self.parameters.values()]
 
     def describe(self) -> dict[str, object]:
         """A log-safe description: identifiers, structure, and setting names.
@@ -109,8 +115,6 @@ class CompiledQuery:
             "correlationId": self.correlation_id,
             "operation": self.operation,
             "sql": self.to_sql(),
-            "parameters": {
-                name: parameter.clickhouse_type for name, parameter in self.parameters.items()
-            },
+            "parameters": {name: parameter.sql_type for name, parameter in self.parameters.items()},
             "settings": dict(self.settings.values),
         }

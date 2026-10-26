@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from typing import TYPE_CHECKING
 
 from ...utils.query_timezone import time_filter_value
 from ..aliases import BASE_ALIAS
 from ..errors import CompiledQueryError
-from ..identifiers import safe_identifier
+from ..identifiers import safe_identifier, safe_qualified_identifier
 from ..resolution import is_qualified, physical_column, resolve_qualified_field
 from ..sql_fragments import trusted_expression
 from .base import CompilerFeature
@@ -39,8 +40,10 @@ class FieldFeature(CompilerFeature):
                     f'SQL-backed field "{name}" cannot be combined with relationship joins.',
                 )
             return trusted_expression(dimension.sql)
-        column_sql = safe_identifier(physical_column(compiler.dataset, name), what="column").sql
-        return f"{BASE_ALIAS.sql}.{column_sql}" if compiler.joins_active else column_sql
+        column_sql = compiler.quote(
+            safe_identifier(physical_column(compiler.dataset, name), what="column")
+        )
+        return f"{compiler.quote(BASE_ALIAS)}.{column_sql}" if compiler.joins_active else column_sql
 
     def field_sql(self, name: str) -> str:
         """The SQL for any queryable field, base or relationship-qualified."""
@@ -49,12 +52,37 @@ class FieldFeature(CompilerFeature):
             return self.compiler.joins.joined_column(name)
         return self.base_column(name)
 
-    def time_sql(self, column: str) -> str:
-        """*column* read as an instant in the query's zone, which is bound once."""
+    def zone_placeholder(self) -> str:
+        """The query's zone, bound once however many expressions read it."""
 
         if self._timezone_placeholder is None:
-            self._timezone_placeholder = self.compiler.binder.bind(self.compiler.timezone, "String")
-        return self.compiler.dialect.in_time_zone(column, self._timezone_placeholder)
+            compiler = self.compiler
+            self._timezone_placeholder = compiler.binder.bind(
+                compiler.timezone, compiler.dialect.scalar_type("String")
+            )
+        return self._timezone_placeholder
+
+    def time_sql(self, column: str) -> str:
+        """*column* read as an instant in the query's zone."""
+
+        return self.compiler.dialect.in_time_zone(column, self.zone_placeholder())
+
+    def time_comparison(self, field: str) -> tuple[str, Callable[[str], str] | None]:
+        """The column side and value spelling for comparing a time-key *field*.
+
+        The probe reads the column's type without scanning the source: an
+        uncorrelated zero-row subquery the server evaluates once.
+        """
+
+        compiler = self.compiler
+        column = self.base_column(field)
+        source = compiler.quote(
+            safe_qualified_identifier(compiler.dataset.source, what="dataset source")
+        )
+        alias = f" AS {compiler.quote(BASE_ALIAS)}" if compiler.joins_active else ""
+        # Every part is a validated identifier or trusted SQL; no value reaches it.
+        probe = f"(SELECT {column} FROM {source}{alias} LIMIT 0)"  # noqa: S608
+        return compiler.dialect.time_comparison(column, self.zone_placeholder(), probe)
 
     def is_time_field(self, field: str) -> bool:
         """Whether *field* reads the dataset's time key column."""
@@ -72,7 +100,7 @@ class FieldFeature(CompilerFeature):
         return bound
 
     def filter_type(self, field: str) -> str:
-        """The ClickHouse type a filter on *field* binds as."""
+        """The parameter type a filter on *field* binds as."""
 
         compiler = self.compiler
         if is_qualified(field):

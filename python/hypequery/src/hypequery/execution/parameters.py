@@ -39,6 +39,10 @@ def bound_parameters(compiled: CompiledQuery) -> dict[str, object]:
 
     if compiled.operation != "query":
         raise CompiledQueryError("internal", "unsupported operation", query_id=compiled.query_id)
+    if compiled.dialect != "clickhouse":
+        raise CompiledQueryError(
+            "internal", "the query was compiled for another SQL dialect", query_id=compiled.query_id
+        )
     if type(compiled.sql) is not str or not compiled.sql.lstrip().upper().startswith("SELECT "):
         raise CompiledQueryError("internal", "invalid compiled query", query_id=compiled.query_id)
     matches = _PLACEHOLDER.findall(compiled.sql)
@@ -50,7 +54,7 @@ def bound_parameters(compiled: CompiledQuery) -> dict[str, object]:
         raise CompiledQueryError("internal", "invalid parameter", query_id=compiled.query_id)
     values: dict[str, object] = {}
     for name, parameter in compiled.parameters.items():
-        kind = parameter.clickhouse_type
+        kind = parameter.sql_type
         scalar = kind[6:-1] if kind.startswith("Array(") and kind.endswith(")") else kind
         if (
             not _NAME.fullmatch(name)

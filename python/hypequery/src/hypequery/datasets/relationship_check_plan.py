@@ -10,7 +10,7 @@ from .planner.admission import check_execution_admission
 from .planner.compiled_query import CompiledQuery, validate_correlation_id
 from .planner.context import ExecutionContext, effective_deadline
 from .planner.dialects import CLICKHOUSE, SqlDialect
-from .planner.identifiers import safe_identifier, safe_qualified_identifier
+from .planner.identifiers import quoted, safe_identifier, safe_qualified_identifier
 from .planner.parameters import ParameterBinder
 from .planner.predicates import tenant_predicate
 from .planner.query_validation import resolve_tenant_scope
@@ -57,17 +57,20 @@ def plan_relationship_checks(
         target = registry.require(relation.target)
         scope = resolve_tenant_scope(target, context)
         columns = tuple(key.to_field for key in relation.key_pairs)
-        quoted = [safe_identifier(column, what="relationship target key").sql for column in columns]
-        predicates = [dialect.not_null(column) for column in quoted]
-        binder = ParameterBinder()
+        quoted_columns = [
+            quoted(dialect, safe_identifier(column, what="relationship target key"))
+            for column in columns
+        ]
+        predicates = [dialect.not_null(column) for column in quoted_columns]
+        binder = ParameterBinder(dialect)
         if target.tenant_key is not None and scope is not None:
-            tenant_column = safe_identifier(target.tenant_key, what="tenant key").sql
+            tenant_column = quoted(dialect, safe_identifier(target.tenant_key, what="tenant key"))
             predicates.append(tenant_predicate(binder, tenant_column, scope))
-        source = safe_qualified_identifier(target.source, what="dataset source").sql
+        source = quoted(dialect, safe_qualified_identifier(target.source, what="dataset source"))
         # Every part is a validated identifier, a dialect constant or a placeholder.
         sql = (
-            f"SELECT {dialect.row_count()} AS `__hq_rows`, "  # noqa: S608
-            f"{dialect.distinct_count(quoted)} AS `__hq_keys` "
+            f"SELECT {dialect.row_count()} AS {dialect.quote('__hq_rows')}, "  # noqa: S608
+            f"{dialect.distinct_count(quoted_columns)} AS {dialect.quote('__hq_keys')} "
             f"FROM {source} WHERE " + " AND ".join(predicates)
         )
         compiled = CompiledQuery(
@@ -77,6 +80,7 @@ def plan_relationship_checks(
             deadline=effective_deadline(context.deadline, settings.max_execution_time),
             cancellation=context.cancellation,
             correlation_id=validate_correlation_id(context.correlation_id),
+            dialect=dialect.name,
         )
         checks.append(RelationshipKeyCheck(name, relation.kind, target, columns, compiled))
     return tuple(checks)

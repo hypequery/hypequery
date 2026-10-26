@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from typing import TYPE_CHECKING, Final
 
 from ...constants import GRAIN_FUNCTIONS
@@ -21,6 +21,7 @@ if TYPE_CHECKING:
     from ...dimensions import DimensionType
     from ...measures import Measure
     from ..query_node import DatasetSelectNode
+    from .base import Aggregate
 
 #: The ClickHouse type each declared dimension type binds as. These are the
 #: widest safe reading of a logical type; the executor narrows them against the
@@ -54,8 +55,33 @@ class ClickHouseDialect:
     def name(self) -> str:
         return "clickhouse"
 
+    def quote(self, name: str) -> str:
+        """The backtick-quoted form, with any backtick in the name doubled."""
+
+        return "`" + name.replace("`", "``") + "`"
+
+    def placeholder(self, name: str, index: int, sql_type: str) -> str:
+        """ClickHouse's own server-parameter syntax, bound by name."""
+
+        return f"{{{name}:{sql_type}}}"
+
     def parameter_type(self, field_type: DimensionType) -> str:
         return PARAMETER_TYPES[field_type]
+
+    def scalar_type(self, name: str) -> str:
+        return name
+
+    def array_type(self, element_type: str) -> str:
+        return f"Array({element_type})"
+
+    def membership(self, column: str, array_placeholder: str, *, negated: bool) -> str:
+        return f"{column} {'NOT IN' if negated else 'IN'} {array_placeholder}"
+
+    def time_comparison(
+        self, column: str, zone_placeholder: str, probe: str
+    ) -> tuple[str, Callable[[str], str] | None]:
+        # A DateTime64 parameter compares with the column read in the query zone.
+        return self.in_time_zone(column, zone_placeholder), None
 
     def aggregate(self, name: str, measure: Measure, target: str, arg: str | None) -> AggregateCall:
         aggregation = measure.aggregation
@@ -79,11 +105,19 @@ class ClickHouseDialect:
             raise CompiledQueryError("internal", f"Unknown aggregation {aggregation!r}.")
         return AggregateCall(function, (target,))
 
-    def conditional(self, aggregate: AggregateCall, condition: str) -> AggregateCall:
+    def conditional(self, aggregate: Aggregate, condition: str) -> AggregateCall:
         # The -If combinator: `sumIf(x, cond)`, `quantileIf(l)(x, cond)`.
+        if not isinstance(aggregate, AggregateCall):
+            raise CompiledQueryError("internal", "not a ClickHouse aggregate")
         return aggregate.with_condition(condition)
 
-    def truncate_to_grain(self, grain: str, column: str) -> str:
+    def divide(self, left: str, right: str) -> str:
+        return f"({left} / {right})"
+
+    def round(self, expression: str, decimals_placeholder: str) -> str:
+        return f"ROUND({expression}, {decimals_placeholder})"
+
+    def truncate_to_grain(self, grain: str, column: str, zone_placeholder: str) -> str:
         function = GRAIN_FUNCTIONS.get(grain)
         if function is None:
             supported = ", ".join(GRAIN_FUNCTIONS)
@@ -92,7 +126,7 @@ class ClickHouseDialect:
             )
         return f"{function}({column})"
 
-    def period_text(self, bucket: str) -> str:
+    def period_text(self, bucket: str, grain: str, zone_placeholder: str) -> str:
         """Render a grain bucket as RFC 0015's result form.
 
         Sub-day and day buckets are ClickHouse ``DateTime`` values, which ClickHouse's
@@ -121,6 +155,13 @@ class ClickHouseDialect:
     def when(self, condition: str, expression: str) -> str:
         return f"if({condition}, {expression}, NULL)"
 
+    def group_key(self, expression: str, alias: str) -> str:
+        return alias
+
+    def order_term(self, expression: str, descending: bool) -> str:
+        # ClickHouse sorts NULLs last in both directions by default.
+        return f"{expression} {'DESC' if descending else 'ASC'}"
+
     def row_count(self) -> str:
         return "count()"
 
@@ -131,11 +172,11 @@ class ClickHouseDialect:
     def render_select(self, node: DatasetSelectNode) -> str:
         from_clause = f" FROM {node.source}"
         if node.base_alias is not None:
-            from_clause += f" AS {node.base_alias.sql}"
+            from_clause += f" AS {self.quote(node.base_alias.name)}"
         # ANY: each base row meets at most one target row, so a duplicated
         # to-one key cannot fan out the base aggregates.
         joins = "".join(
-            f" LEFT ANY JOIN {join.source} AS {join.alias.sql} ON {join.condition}"
+            f" LEFT ANY JOIN {join.source} AS {self.quote(join.alias.name)} ON {join.condition}"
             for join in node.joins
         )
         return (

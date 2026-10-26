@@ -25,7 +25,7 @@ describe('Postgres datasets SQL rules', () => {
   });
 
   it('divides in floating point and rounds half to even like ClickHouse floats', () => {
-    expect(pg.formulaBinary('divide', '"a"', '"b"')).toBe('(CAST("a" AS double precision) / "b")');
+    expect(pg.formulaBinary('divide', '"a"', '"b"')).toBe('(CAST("a" AS double precision) / NULLIF("b", 0))');
     expect(pg.formulaFunction('round', ['x', '2']))
       .toBe('(ROUND(CAST(x AS double precision) * CAST(1e2 AS double precision)) / CAST(1e2 AS double precision))');
     expect(pg.formulaFunction('round', ['x', '-1']))

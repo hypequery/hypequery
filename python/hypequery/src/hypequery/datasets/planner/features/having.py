@@ -7,7 +7,7 @@ from typing import cast
 
 from ...query_helpers import HavingCondition
 from ..errors import CompiledQueryError
-from ..operators import ARRAY_OPERATORS, COMPARISON_SQL, membership_keyword
+from ..operators import ARRAY_OPERATORS, COMPARISON_SQL
 from .base import CompilerFeature
 
 
@@ -48,7 +48,8 @@ class HavingFeature(CompilerFeature):
 
     def add(self) -> None:
         compiler = self.compiler
-        binder, having = compiler.binder, compiler.node.having
+        binder, having, dialect = compiler.binder, compiler.node.having, compiler.dialect
+        number = dialect.scalar_type("Float64")
         selected = compiler.selected_measures
         measure_sql = compiler.measures.measure_sql
         for condition in compiler.query.having:
@@ -64,12 +65,14 @@ class HavingFeature(CompilerFeature):
             values = having_numbers(condition)
             operator = condition.operator
             if operator == "between":
-                lower = binder.bind(values[0], "Float64")
-                upper = binder.bind(values[1], "Float64")
+                lower = binder.bind(values[0], number)
+                upper = binder.bind(values[1], number)
                 having.append(f"{expression} BETWEEN {lower} AND {upper}")
             elif operator in ARRAY_OPERATORS:
-                placeholder = binder.bind_array(values, "Float64")
-                having.append(f"{expression} {membership_keyword(operator)} {placeholder}")
+                placeholder = binder.bind_array(values, number)
+                having.append(
+                    dialect.membership(expression, placeholder, negated=operator == "notIn")
+                )
             else:
-                placeholder = binder.bind(values[0], "Float64")
+                placeholder = binder.bind(values[0], number)
                 having.append(f"{expression} {COMPARISON_SQL[operator]} {placeholder}")

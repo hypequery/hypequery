@@ -30,10 +30,14 @@ class OrderingFeature(CompilerFeature):
             elif order.field in query.dimensions and is_qualified(order.field):
                 expression = compiler.fields.field_sql(order.field)
             else:
-                expression = alias.sql
-            node.order_by.append(f"{expression} {'ASC' if order.direction == 'asc' else 'DESC'}")
+                expression = compiler.quote(alias)
+            node.order_by.append(
+                compiler.dialect.order_term(expression, descending=order.direction == "desc")
+            )
         if not node.order_by and compiler.period_bucket is not None:
-            node.order_by.append(f"{compiler.period_bucket} ASC")
+            node.order_by.append(
+                compiler.dialect.order_term(compiler.period_bucket, descending=False)
+            )
 
     def paginate(self) -> None:
         """The query's limit, else the dataset's cap; one more row when probing."""

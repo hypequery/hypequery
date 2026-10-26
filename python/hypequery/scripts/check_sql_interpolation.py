@@ -46,11 +46,14 @@ HOSTILE = (
     "a\u0000b",
     "{p0:String}",
     "<p0:String>",
+    "$1",
 )
 
 #: Values that cannot be confused with planner syntax, so a plain substring
 #: search over the statement is meaningful for them.
-SEARCHABLE = tuple(value for value in HOSTILE if "{" not in value and "<" not in value)
+SEARCHABLE = tuple(
+    value for value in HOSTILE if "{" not in value and "<" not in value and "$" not in value
+)
 
 #: A second value for the same query shape. The statement must not change.
 BENIGN = "acme"
@@ -136,6 +139,7 @@ def check_behaviour() -> list[str]:
         count,
     )
     from hypequery.datasets.planner import ExecutionContext, plan_dataset_query, tenant
+    from hypequery.datasets.planner.dialects import CLICKHOUSE, POSTGRES
 
     dataset = Dataset(
         name="trips",
@@ -150,32 +154,38 @@ def check_behaviour() -> list[str]:
         measures={"trips": measure(count("id"))},
     )
 
-    def plan(value: object, index: int) -> object:
+    def plan(value: object, index: int, dialect: object) -> object:
         return plan_dataset_query(
             dataset,
             _queries(value)[index],  # type: ignore[arg-type]
             context=ExecutionContext(tenant=tenant(str(value) or BENIGN)),
+            dialect=dialect,  # type: ignore[arg-type]
         )
 
     failures: list[str] = []
-    for hostile in HOSTILE:
-        for index in range(len(_queries(BENIGN))):
-            compiled = plan(hostile, index)
-            reference = plan(BENIGN, index)
-            where = f"shape {index}, value {hostile!r}"
-            if compiled.sql != reference.sql:  # type: ignore[attr-defined]
-                failures.append(f"{where}: the value changed CompiledQuery.sql")
-            if compiled.to_sql() != reference.to_sql():  # type: ignore[attr-defined]
-                failures.append(f"{where}: the value changed the debug form")
-            bound = list(compiled.parameter_values().values())  # type: ignore[attr-defined]
-            flat = [item for value in bound for item in (value if type(value) is list else [value])]
-            if hostile not in flat:
-                failures.append(f"{where}: was not bound as a parameter either")
-            if hostile in SEARCHABLE:
-                if hostile in compiled.sql:  # type: ignore[attr-defined]
-                    failures.append(f"{where}: appears verbatim in CompiledQuery.sql")
-                if hostile in compiled.to_sql():  # type: ignore[attr-defined]
-                    failures.append(f"{where}: appears verbatim in the debug form")
+    cases = [
+        (dialect, hostile, index)
+        for dialect in (CLICKHOUSE, POSTGRES)
+        for hostile in HOSTILE
+        for index in range(len(_queries(BENIGN)))
+    ]
+    for dialect, hostile, index in cases:
+        compiled = plan(hostile, index, dialect)
+        reference = plan(BENIGN, index, dialect)
+        where = f"{dialect.name} shape {index}, value {hostile!r}"
+        if compiled.sql != reference.sql:  # type: ignore[attr-defined]
+            failures.append(f"{where}: the value changed CompiledQuery.sql")
+        if compiled.to_sql() != reference.to_sql():  # type: ignore[attr-defined]
+            failures.append(f"{where}: the value changed the debug form")
+        bound = list(compiled.parameter_values().values())  # type: ignore[attr-defined]
+        flat = [item for value in bound for item in (value if type(value) is list else [value])]
+        if hostile not in flat:
+            failures.append(f"{where}: was not bound as a parameter either")
+        if hostile in SEARCHABLE:
+            if hostile in compiled.sql:  # type: ignore[attr-defined]
+                failures.append(f"{where}: appears verbatim in CompiledQuery.sql")
+            if hostile in compiled.to_sql():  # type: ignore[attr-defined]
+                failures.append(f"{where}: appears verbatim in the debug form")
     return failures
 
 

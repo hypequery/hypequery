@@ -463,7 +463,7 @@ def test_literals_bind_like_typescript_writes_them() -> None:
             ds, DatasetQuery(measures=(name,)), context=ExecutionContext(tenant=tenant("a"))
         )
         # The tenant scope binds as a String; the only other parameter is the literal.
-        types = [parameter.clickhouse_type for parameter in compiled.parameters.values()]
+        types = [parameter.sql_type for parameter in compiled.parameters.values()]
         assert sorted(types) == sorted(["String", expected]), name
 
 

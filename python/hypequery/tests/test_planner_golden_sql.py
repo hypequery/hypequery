@@ -24,10 +24,17 @@ from hypequery.datasets import Dataset, DatasetQuery, ExecutionContext, plan_dat
 from hypequery.datasets import filter as f
 from hypequery.datasets import order as o
 from hypequery.datasets.planner import CompiledQuery
+from hypequery.datasets.planner.dialects import CLICKHOUSE, POSTGRES, SqlDialect
 from hypequery.datasets.query_helpers import HavingCondition
 from hypequery.datasets.relationship_check_plan import plan_relationship_checks
 
-SNAPSHOT = Path(__file__).parent / "snapshots" / "planner_golden_sql.json"
+SNAPSHOTS = Path(__file__).parent / "snapshots"
+#: One snapshot per dialect, compiled from the same cases.
+SNAPSHOT_FILES: Mapping[str, str] = {
+    "clickhouse": "planner_golden_sql.json",
+    "postgres": "planner_golden_sql_postgres.json",
+}
+DIALECTS: Mapping[str, SqlDialect] = {"clickhouse": CLICKHOUSE, "postgres": POSTGRES}
 UPDATE = os.environ.get("HYPEQUERY_UPDATE_SNAPSHOTS") == "1"
 
 
@@ -37,14 +44,15 @@ def _plan(
     *,
     overfetch: bool = False,
     **query: object,
-) -> Callable[[], CompiledQuery]:
-    def plan() -> CompiledQuery:
+) -> Callable[[SqlDialect], CompiledQuery]:
+    def plan(dialect: SqlDialect) -> CompiledQuery:
         return plan_dataset_query(
             dataset,
             DatasetQuery.model_validate(query),
             registry=REGISTRY,
             context=context,
             overfetch=overfetch,
+            dialect=dialect,
         )
 
     return plan
@@ -56,7 +64,7 @@ def _having(measure_name: str, operator: str, value: object) -> HavingCondition:
     )
 
 
-CASES: Mapping[str, Callable[[], CompiledQuery]] = {
+CASES: Mapping[str, Callable[[SqlDialect], CompiledQuery]] = {
     # Selection and aggregation
     "default-measures": _plan(Orders, ACME),
     "every-aggregation": _plan(
@@ -206,25 +214,25 @@ def _record(compiled: CompiledQuery) -> dict[str, object]:
     return {
         "sql": compiled.sql,
         "parameters": [
-            [name, parameter.clickhouse_type, parameter.value]
+            [name, parameter.sql_type, parameter.value]
             for name, parameter in compiled.parameters.items()
         ],
         "debug": compiled.to_sql(),
     }
 
 
-def _relationship_checks() -> dict[str, object]:
+def _relationship_checks(dialect: SqlDialect) -> dict[str, object]:
     checks: dict[str, object] = {}
     for context_name, context in (("acme", ACME), ("several", SEVERAL)):
-        for check in plan_relationship_checks(Orders, REGISTRY, context, None):
+        for check in plan_relationship_checks(Orders, REGISTRY, context, None, dialect=dialect):
             checks[f"{context_name}:{check.name}"] = _record(check.compiled)
     return checks
 
 
-def _current() -> dict[str, object]:
+def _current(dialect: SqlDialect) -> dict[str, object]:
     return {
-        "queries": {name: _record(plan()) for name, plan in CASES.items()},
-        "relationshipChecks": _relationship_checks(),
+        "queries": {name: _record(plan(dialect)) for name, plan in CASES.items()},
+        "relationshipChecks": _relationship_checks(dialect),
     }
 
 
@@ -232,13 +240,15 @@ def _encode(snapshot: Mapping[str, object]) -> str:
     return json.dumps(snapshot, indent=2, ensure_ascii=False, sort_keys=True) + "\n"
 
 
-def test_golden_sql_snapshot() -> None:
-    current = _encode(_current())
+@pytest.mark.parametrize("dialect_name", sorted(DIALECTS))
+def test_golden_sql_snapshot(dialect_name: str) -> None:
+    snapshot = SNAPSHOTS / SNAPSHOT_FILES[dialect_name]
+    current = _encode(_current(DIALECTS[dialect_name]))
     if UPDATE:
-        SNAPSHOT.parent.mkdir(exist_ok=True)
-        SNAPSHOT.write_text(current, encoding="utf-8")
-    assert SNAPSHOT.exists(), "run with HYPEQUERY_UPDATE_SNAPSHOTS=1 to create the snapshot"
-    expected = json.loads(SNAPSHOT.read_text(encoding="utf-8"))
+        snapshot.parent.mkdir(exist_ok=True)
+        snapshot.write_text(current, encoding="utf-8")
+    assert snapshot.exists(), "run with HYPEQUERY_UPDATE_SNAPSHOTS=1 to create the snapshot"
+    expected = json.loads(snapshot.read_text(encoding="utf-8"))
     actual = json.loads(current)
     for section in ("queries", "relationshipChecks"):
         assert sorted(actual[section]) == sorted(expected[section]), section
@@ -246,10 +256,13 @@ def test_golden_sql_snapshot() -> None:
             assert actual[section][name] == record, f"{section}:{name}"
 
 
+@pytest.mark.parametrize("dialect_name", sorted(DIALECTS))
 @pytest.mark.parametrize("name", sorted(CASES))
-def test_each_case_plans(name: str) -> None:
+def test_each_case_plans(name: str, dialect_name: str) -> None:
     # A case that stops planning would otherwise surface only as a snapshot diff.
-    assert CASES[name]().sql.startswith("SELECT ")
+    compiled = CASES[name](DIALECTS[dialect_name])
+    assert compiled.sql.startswith("SELECT ")
+    assert compiled.dialect == dialect_name
 
 
 def test_every_planned_parameter_type_is_accepted_by_the_executor() -> None:
@@ -258,7 +271,7 @@ def test_every_planned_parameter_type_is_accepted_by_the_executor() -> None:
     # planner must never emit a type the executor would refuse.
     from hypequery.execution.parameters import _TYPE
 
-    snapshot = json.loads(SNAPSHOT.read_text(encoding="utf-8"))
+    snapshot = json.loads((SNAPSHOTS / SNAPSHOT_FILES["clickhouse"]).read_text(encoding="utf-8"))
     emitted = {
         parameter_type
         for section in ("queries", "relationshipChecks")

@@ -10,7 +10,7 @@ from ...measures import Measure
 from ...query_helpers import Filter
 from ...utils.derived_measures import literal_parameter_type
 from ...utils.relationship_measures import measure_filter_field
-from ..aggregates import AggregateCall
+from ..dialects.base import Aggregate
 from ..errors import CompiledQueryError
 from ..identifiers import SafeIdentifier, safe_identifier
 from ..resolution import is_qualified, physical_column, resolve_relationship_measure
@@ -20,7 +20,7 @@ from .base import CompilerFeature
 if TYPE_CHECKING:
     from ..compiler import DatasetQueryCompiler
 
-_FORMULA_OPERATORS = {"add": "+", "subtract": "-", "multiply": "*", "divide": "/"}
+_FORMULA_OPERATORS = {"add": "+", "subtract": "-", "multiply": "*"}
 _FORMULA_FUNCTIONS = {"coalesce": "COALESCE", "round": "ROUND", "floor": "FLOOR", "ceil": "CEIL"}
 
 
@@ -50,10 +50,10 @@ class MeasureFeature(CompilerFeature):
             else:
                 self.measure_sql[name] = self._local_measure_sql(name)
             alias = SafeIdentifier(name)
-            compiler.node.selections.append(aliased(self.measure_sql[name], alias))
+            compiler.node.selections.append(aliased(self.measure_sql[name], compiler.quote(alias)))
             compiler.orderable[name] = alias
 
-    def _aggregation(self, name: str, measure: Measure) -> AggregateCall:
+    def _aggregation(self, name: str, measure: Measure) -> Aggregate:
         """The aggregate call for one measure, over its field or its trusted SQL."""
 
         compiler = self.compiler
@@ -69,7 +69,7 @@ class MeasureFeature(CompilerFeature):
         arg = None if measure.arg_field is None else compiler.fields.base_column(measure.arg_field)
         return compiler.dialect.aggregate(name, measure, target, arg)
 
-    def _with_conditions(self, aggregate: AggregateCall, predicates: list[str]) -> str:
+    def _with_conditions(self, aggregate: Aggregate, predicates: list[str]) -> str:
         """Apply a measure's own filters as a conditional aggregate.
 
         A measure filter narrows that one measure; putting it in WHERE would narrow
@@ -100,11 +100,11 @@ class MeasureFeature(CompilerFeature):
         alias = compiler.joins.ensure(resolved.relationship_name, resolved.relationship, target)
         marker = compiler.joins.match_markers[resolved.relationship_name]
         dialect = compiler.dialect
-        matched = dialect.not_null(f"{alias.sql}.{marker.sql}")
+        matched = dialect.not_null(f"{compiler.quote(alias)}.{compiler.quote(marker)}")
 
         def guarded(field: str) -> str:
-            column = safe_identifier(physical_column(target, field), what="column").sql
-            return dialect.when(matched, f"{alias.sql}.{column}")
+            column = compiler.quote(safe_identifier(physical_column(target, field), what="column"))
+            return dialect.when(matched, f"{compiler.quote(alias)}.{column}")
 
         measure = resolved.measure
         arg = guarded(measure.arg_field) if measure.arg_field is not None else None
@@ -135,22 +135,26 @@ class MeasureFeature(CompilerFeature):
         return self.measure_sql[name]
 
     def _formula_sql(self, formula: Formula) -> str:
-        binder = self.compiler.binder
+        binder, dialect = self.compiler.binder, self.compiler.dialect
         if isinstance(formula, FormulaReference):
             return self._local_measure_sql(formula.name)
         if isinstance(formula, FormulaLiteral):
             if formula.value is None:
                 return "NULL"
             # Bind as ClickHouse would type the same literal written inline.
-            return binder.bind(formula.value, literal_parameter_type(formula.value))
+            return binder.bind(
+                formula.value, dialect.scalar_type(literal_parameter_type(formula.value))
+            )
         if isinstance(formula, FormulaBinary):
             left, right = self._formula_sql(formula.left), self._formula_sql(formula.right)
+            if formula.operator == "divide":
+                return dialect.divide(left, right)
             return f"({left} {_FORMULA_OPERATORS[formula.operator]} {right})"
         if formula.name == "round":
             decimals = cast(FormulaLiteral, formula.args[1])
-            decimal_parameter = binder.bind(decimals.value, "Int64")
+            decimal_parameter = binder.bind(decimals.value, dialect.scalar_type("Int64"))
             expression = self._formula_sql(formula.args[0])
-            return f"ROUND({expression}, {decimal_parameter})"
+            return dialect.round(expression, decimal_parameter)
         args = [self._formula_sql(arg) for arg in formula.args]
         if formula.name == "nullIfZero":
             return f"NULLIF({args[0]}, 0)"

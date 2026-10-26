@@ -8,7 +8,7 @@ from ..context import TenantScope
 from ..errors import CompiledQueryError
 from ..filter_validation import validate_filter_value
 from ..identifiers import safe_identifier
-from ..operators import ARRAY_OPERATORS, COMPARISON_SQL, membership_keyword
+from ..operators import ARRAY_OPERATORS, COMPARISON_SQL
 from ..parameters import require_scalar, require_sequence
 from ..predicates import tenant_predicate
 from ..resolution import (
@@ -19,6 +19,10 @@ from ..resolution import (
     resolve_qualified_field,
 )
 from .base import CompilerFeature
+
+
+def _unchanged(placeholder: str) -> str:
+    return placeholder
 
 
 class FilterFeature(CompilerFeature):
@@ -50,8 +54,12 @@ class FilterFeature(CompilerFeature):
             # tenant_key names a physical source column. A dimension of the same
             # name may have a different column or SQL expression; never use it as
             # the authorization predicate.
-            tenant_column = safe_identifier(dataset.tenant_key, what="tenant key").sql
-            column = f"{BASE_ALIAS.sql}.{tenant_column}" if compiler.joins_active else tenant_column
+            tenant_column = compiler.quote(safe_identifier(dataset.tenant_key, what="tenant key"))
+            column = (
+                f"{compiler.quote(BASE_ALIAS)}.{tenant_column}"
+                if compiler.joins_active
+                else tenant_column
+            )
             where.append(tenant_predicate(compiler.binder, column, scope))
 
     def predicate(self, filter_value: Filter, *, request_filter: bool = False) -> str:
@@ -84,41 +92,57 @@ class FilterFeature(CompilerFeature):
                     f'Filter "{filter_value.field}" does not allow {filter_value.operator}.',
                 )
         validate_filter_value(filter_value, dimension.field_type)
-        column = fields.field_sql(field)
-        if fields.is_time_field(field):
-            column = fields.time_sql(column)
-        clickhouse_type = fields.filter_type(field)
+        dialect = compiler.dialect
         operator = filter_value.operator
+        convert = None
+        if fields.is_time_field(field) and operator != "like":
+            column, convert = fields.time_comparison(field)
+        else:
+            column = fields.field_sql(field)
+            if fields.is_time_field(field):
+                column = fields.time_sql(column)
+        value_sql = convert or _unchanged
+        sql_type = fields.filter_type(field)
         what = f'filter "{filter_value.field}"'
 
         if operator in ARRAY_OPERATORS:
             items = require_sequence(filter_value.value, what=what)
             if not items:
                 raise CompiledQueryError("input-invalid", f"{what} needs at least one value")
+            if convert is not None:
+                # A converted value is spelled per element: bind them one by one.
+                elements = [
+                    value_sql(binder.bind(fields.filter_bound(field, bound), sql_type))
+                    for bound in items
+                ]
+                membership = f"{column} IN ({', '.join(elements)})"
+                return f"NOT ({membership})" if operator == "notIn" else membership
             placeholder = binder.bind_array(
-                [fields.filter_bound(field, bound) for bound in items], clickhouse_type
+                [fields.filter_bound(field, bound) for bound in items], sql_type
             )
-            return f"{column} {membership_keyword(operator)} {placeholder}"
+            return dialect.membership(column, placeholder, negated=operator == "notIn")
         if operator == "between":
             items = require_sequence(filter_value.value, what=what)
             if len(items) != 2:
                 raise CompiledQueryError("input-invalid", f"{what} needs exactly two values")
-            lower = binder.bind(fields.filter_bound(field, items[0]), clickhouse_type)
-            upper = binder.bind(fields.filter_bound(field, items[1]), clickhouse_type)
+            lower = value_sql(binder.bind(fields.filter_bound(field, items[0]), sql_type))
+            upper = value_sql(binder.bind(fields.filter_bound(field, items[1]), sql_type))
             return f"{column} BETWEEN {lower} AND {upper}"
         if operator == "like":
             text = require_scalar(filter_value.value, what=what)
             if type(text) is not str:
                 raise CompiledQueryError("input-invalid", f"{what} needs a string value")
-            placeholder = binder.bind(text, "String")
+            placeholder = binder.bind(text, dialect.scalar_type("String"))
             return f"{column} LIKE {placeholder}"
 
         comparison = COMPARISON_SQL.get(operator)
         if comparison is None:
             raise CompiledQueryError("input-invalid", f"{what} uses unknown operator {operator!r}")
-        placeholder = binder.bind(
-            fields.filter_bound(field, require_scalar(filter_value.value, what=what)),
-            clickhouse_type,
+        placeholder = value_sql(
+            binder.bind(
+                fields.filter_bound(field, require_scalar(filter_value.value, what=what)),
+                sql_type,
+            )
         )
         return f"{column} {comparison} {placeholder}"
 

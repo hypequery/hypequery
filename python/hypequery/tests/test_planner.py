@@ -41,6 +41,7 @@ from hypequery.datasets.planner import (
     tenant,
     tenants,
 )
+from hypequery.datasets.planner.dialects import CLICKHOUSE
 from hypequery.datasets.planner.planner import BASE_ALIAS
 from hypequery.datasets.query_helpers import Filter, asc, desc, eq, gte, in_list, like
 from hypequery.datasets.registry import DatasetRegistry, create_dataset_registry
@@ -292,7 +293,7 @@ def test_a_declared_dimension_type_chooses_the_parameter_type() -> None:
             filters=(eq("vendor", "yellow"), eq("fare", 3), eq("pickup", "2026-01-01")),
         ),
     )
-    types = {name: parameter.clickhouse_type for name, parameter in compiled.parameters.items()}
+    types = {name: parameter.sql_type for name, parameter in compiled.parameters.items()}
     assert types == {"p0": "String", "p1": "Float64", "p2": "String", "p3": "DateTime64(3)"}
 
 
@@ -443,7 +444,7 @@ def test_a_qualified_field_adds_one_single_match_join(relationship_kind: str) ->
     assert compiled.sql.count("LEFT ANY JOIN") == 1
     assert (
         "FROM `analytics`.`customers`) AS `customer` "
-        f"ON {BASE_ALIAS.sql}.`customer_id` = `customer`.`id`" in compiled.sql
+        f"ON {CLICKHOUSE.quote(BASE_ALIAS.name)}.`customer_id` = `customer`.`id`" in compiled.sql
     )
     assert (
         "if(isNotNull(`customer`.`_hq_match`), `customer`.`country`, NULL) AS `customer.country`"
@@ -488,8 +489,8 @@ def test_base_columns_are_qualified_only_when_a_join_is_present() -> None:
         trips, DatasetQuery(dimensions=("vendor", "customer.country")), registry=registry
     )
     assert "`vendor` AS `vendor`" in plain.sql
-    assert BASE_ALIAS.sql not in plain.sql
-    assert f"{BASE_ALIAS.sql}.`vendor` AS `vendor`" in joined.sql
+    assert CLICKHOUSE.quote(BASE_ALIAS.name) not in plain.sql
+    assert f"{CLICKHOUSE.quote(BASE_ALIAS.name)}.`vendor` AS `vendor`" in joined.sql
 
 
 def test_a_has_many_relationship_cannot_be_joined() -> None:
@@ -1039,7 +1040,7 @@ def test_like_filter_binds_pattern_as_data() -> None:
     assert "`vendor` LIKE {p0:String}" in compiled.sql
     assert pattern not in compiled.sql
     assert compiled.parameters["p0"].value == pattern
-    assert compiled.parameters["p0"].clickhouse_type == "String"
+    assert compiled.parameters["p0"].sql_type == "String"
 
 
 def test_sql_backed_measure_refuses_relationship_join() -> None:

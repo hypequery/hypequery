@@ -1,33 +1,40 @@
-"""Named typed placeholders and the parameter map they bind to.
+"""Typed placeholders and the parameter map they bind to.
 
 Every value a caller influences leaves the SQL text and becomes a parameter.
-The statement carries `{name:Type}` — ClickHouse's own server-parameter syntax —
-and the value travels beside it, never inside it. Allocation is central so a
-name is unique by construction rather than by a later check.
+The statement carries a placeholder the dialect spells — `{name:Type}` on
+ClickHouse, `$n` on Postgres — and the value travels beside it, never inside
+it. Allocation is central so a name is unique by construction rather than by
+a later check, and allocation order is the `$n` order.
 """
 
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
+from typing import TYPE_CHECKING
 
 from ..dimensions import DimensionType
 from .errors import CompiledQueryError
 
+if TYPE_CHECKING:
+    from .dialects.base import SqlDialect
+
 
 @dataclass(frozen=True, slots=True)
 class TypedParameter:
-    """One declared parameter: its name, its ClickHouse type, and its value."""
+    """One declared parameter: its name, its SQL type, its value, and its placeholder."""
 
     name: str
-    clickhouse_type: str
+    #: The type the value binds as, spelled for the compiling dialect.
+    sql_type: str
     value: object
+    #: The executable form written into the statement, spelled by the dialect.
+    #: Defaults to ClickHouse's `{name:Type}` server-parameter syntax.
+    placeholder: str = ""
 
-    @property
-    def placeholder(self) -> str:
-        """The executable form, bound by the driver's server parameters."""
-
-        return f"{{{self.name}:{self.clickhouse_type}}}"
+    def __post_init__(self) -> None:
+        if not self.placeholder:
+            object.__setattr__(self, "placeholder", f"{{{self.name}:{self.sql_type}}}")
 
     @property
     def debug_placeholder(self) -> str:
@@ -38,7 +45,7 @@ class TypedParameter:
         one no driver will bind.
         """
 
-        return f"<{self.name}:{self.clickhouse_type}>"
+        return f"<{self.name}:{self.sql_type}>"
 
     def __repr__(self) -> str:
         # The generated repr would print the value, and a parameter's value is
@@ -62,14 +69,19 @@ def clickhouse_type_for(field_type: DimensionType) -> str:
 class ParameterBinder:
     """Allocates placeholder names and collects what they bind to."""
 
+    dialect: SqlDialect
     _parameters: dict[str, TypedParameter] = field(default_factory=dict)
 
-    def bind(self, value: object, clickhouse_type: str) -> str:
+    def bind(self, value: object, sql_type: str) -> str:
         """Declare one value and return the placeholder to write into SQL."""
 
-        name = f"p{len(self._parameters)}"
+        index = len(self._parameters)
+        name = f"p{index}"
         self._parameters[name] = TypedParameter(
-            name=name, clickhouse_type=clickhouse_type, value=value
+            name=name,
+            sql_type=sql_type,
+            value=value,
+            placeholder=self.dialect.placeholder(name, index, sql_type),
         )
         return self._parameters[name].placeholder
 
@@ -81,7 +93,7 @@ class ParameterBinder:
         `Array(T)` keeps the text stable and the values out of it.
         """
 
-        return self.bind(list(values), f"Array({element_type})")
+        return self.bind(list(values), self.dialect.array_type(element_type))
 
     @property
     def parameters(self) -> Mapping[str, TypedParameter]:

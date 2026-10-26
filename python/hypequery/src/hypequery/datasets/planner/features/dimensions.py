@@ -26,9 +26,12 @@ class DimensionFeature(CompilerFeature):
                 )
             fields, dialect = compiler.fields, compiler.dialect
             time_column = fields.time_sql(fields.base_column(dataset.time_key))
-            bucket = dialect.truncate_to_grain(query.by, time_column)
+            zone = fields.zone_placeholder()
+            bucket = dialect.truncate_to_grain(query.by, time_column, zone)
             # Group on the bucket itself; only the selected value is text.
-            node.selections.append(aliased(dialect.period_text(bucket), PERIOD_ALIAS))
+            node.selections.append(
+                aliased(dialect.period_text(bucket, query.by, zone), compiler.quote(PERIOD_ALIAS))
+            )
             node.group_by.append(bucket)
             compiler.orderable[PERIOD_ALIAS.name] = PERIOD_ALIAS
             compiler.period_bucket = bucket
@@ -47,6 +50,11 @@ class DimensionFeature(CompilerFeature):
             # Group its guarded expression so the match marker remains part of
             # the key, independently of ClickHouse alias-resolution settings.
             alias = SafeIdentifier(name)
-            node.selections.append(aliased(expression, alias))
-            node.group_by.append(expression if is_qualified(name) else alias.sql)
+            quoted_alias = compiler.quote(alias)
+            node.selections.append(aliased(expression, quoted_alias))
+            node.group_by.append(
+                expression
+                if is_qualified(name)
+                else compiler.dialect.group_key(expression, quoted_alias)
+            )
             compiler.orderable[name] = alias

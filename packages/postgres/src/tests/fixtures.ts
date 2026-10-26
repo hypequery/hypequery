@@ -99,7 +99,11 @@ export function defineDatasets(schema: string) {
         formula: ({ mtd, revenue }) => divide(revenue, nullIfZero(mtd)),
       }),
       monthToDateShareRounded: measure.derived({ uses: { value: 'monthToDateShare' }, formula: ({ value }) => round(value, 4) }),
-      rollingShare: measure.derived({
+      unguarded: measure.derived({
+      uses: { revenue: 'revenue', gifts: 'giftOrders' },
+      formula: ({ revenue, gifts }) => divide(revenue, gifts),
+    }),
+    rollingShare: measure.derived({
         uses: { rolling: 'rolling', running: 'running' },
         formula: ({ rolling, running }) => divide(rolling, nullIfZero(running)),
       }),

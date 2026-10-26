@@ -88,6 +88,7 @@ export const parityOnlyCases: Record<string, DatasetQuery> = {
     by: 'day', measures: ['monthToDate', 'priorMonth'],
     filters: [{ field: 'createdAt', operator: 'gt', value: '2026-02-10T12:00:00Z' }, { field: 'createdAt', operator: 'lt', value: '2026-03-05T00:00:00Z' }],
   },
+  'unguarded-division': { dimensions: ['region'], measures: ['unguarded'] },
   'composite-tokyo-utc-control': { by: 'day', measures: ['monthToDateShareRounded', 'rollingShare'], filters: RANGE },
   'filtered-measures-under-windows': {
     by: 'week', dimensions: ['region'], measures: ['paidRevenue', 'giftOrders'],

@@ -1,0 +1,705 @@
+{
+  "queries": {
+    "composite-key-and-marker-collision": {
+      "debug": "SELECT CASE WHEN (\"account\".\"_hq_match_\" IS NOT NULL) THEN \"account\".\"name\" ELSE NULL END AS \"account.name\", COUNT(DISTINCT CASE WHEN (\"account\".\"_hq_match_\" IS NOT NULL) THEN \"account\".\"name\" ELSE NULL END) AS \"account.accountCount\" FROM \"analytics\".\"orders\" AS \"__hq_base\" LEFT JOIN LATERAL (SELECT * FROM (SELECT \"name\", \"region\", \"_hq_match\", 1 AS \"_hq_match_\" FROM \"analytics\".\"accounts\") AS \"account\" WHERE \"__hq_base\".\"account_name\" = \"account\".\"name\" AND \"__hq_base\".\"account_region\" = \"account\".\"region\" LIMIT 1) AS \"account\" ON TRUE WHERE \"__hq_base\".\"tenant_id\" = <p0:text> GROUP BY CASE WHEN (\"account\".\"_hq_match_\" IS NOT NULL) THEN \"account\".\"name\" ELSE NULL END",
+      "parameters": [
+        [
+          "p0",
+          "text",
+          "acme"
+        ]
+      ],
+      "sql": "SELECT CASE WHEN (\"account\".\"_hq_match_\" IS NOT NULL) THEN \"account\".\"name\" ELSE NULL END AS \"account.name\", COUNT(DISTINCT CASE WHEN (\"account\".\"_hq_match_\" IS NOT NULL) THEN \"account\".\"name\" ELSE NULL END) AS \"account.accountCount\" FROM \"analytics\".\"orders\" AS \"__hq_base\" LEFT JOIN LATERAL (SELECT * FROM (SELECT \"name\", \"region\", \"_hq_match\", 1 AS \"_hq_match_\" FROM \"analytics\".\"accounts\") AS \"account\" WHERE \"__hq_base\".\"account_name\" = \"account\".\"name\" AND \"__hq_base\".\"account_region\" = \"account\".\"region\" LIMIT 1) AS \"account\" ON TRUE WHERE \"__hq_base\".\"tenant_id\" = $1 GROUP BY CASE WHEN (\"account\".\"_hq_match_\" IS NOT NULL) THEN \"account\".\"name\" ELSE NULL END"
+    },
+    "dataset-result-cap": {
+      "debug": "SELECT COUNT(\"kind\") AS \"events\" FROM \"events\" LIMIT 500",
+      "parameters": [],
+      "sql": "SELECT COUNT(\"kind\") AS \"events\" FROM \"events\" LIMIT 500"
+    },
+    "dataset-result-cap-overfetch": {
+      "debug": "SELECT COUNT(\"kind\") AS \"events\" FROM \"events\" LIMIT 501",
+      "parameters": [],
+      "sql": "SELECT COUNT(\"kind\") AS \"events\" FROM \"events\" LIMIT 501"
+    },
+    "default-measures": {
+      "debug": "SELECT SUM(\"__hq_base\".\"net_amount\") AS \"revenue\", COUNT(\"__hq_base\".\"status\") AS \"orders\", COUNT(DISTINCT \"__hq_base\".\"customer_id\") AS \"uniqueCustomers\", AVG(\"__hq_base\".\"net_amount\") AS \"avgAmount\", MIN(\"__hq_base\".\"net_amount\") AS \"minAmount\", MAX(\"__hq_base\".\"net_amount\") AS \"maxAmount\", percentile_cont(0.5) WITHIN GROUP (ORDER BY \"__hq_base\".\"net_amount\") AS \"medianAmount\", percentile_cont(0.95) WITHIN GROUP (ORDER BY \"__hq_base\".\"net_amount\") AS \"p95Amount\", stddev_samp(\"__hq_base\".\"net_amount\") AS \"spread\", var_samp(\"__hq_base\".\"net_amount\") AS \"variance\", (ARRAY_AGG(\"__hq_base\".\"status\" ORDER BY \"__hq_base\".\"created_at\" DESC) FILTER (WHERE \"__hq_base\".\"created_at\" IS NOT NULL))[1] AS \"lastStatus\", (ARRAY_AGG(\"__hq_base\".\"status\" ORDER BY \"__hq_base\".\"created_at\" ASC) FILTER (WHERE \"__hq_base\".\"created_at\" IS NOT NULL))[1] AS \"firstStatus\", COALESCE(SUM(\"__hq_base\".\"net_amount\") FILTER (WHERE \"__hq_base\".\"status\" = <p0:text> AND \"__hq_base\".\"net_amount\" >= <p1:double precision>), 0) AS \"paidRevenue\", COALESCE(SUM(\"__hq_base\".\"net_amount\") FILTER (WHERE CASE WHEN (\"customer\".\"_hq_match\" IS NOT NULL) THEN \"customer\".\"tier\" ELSE NULL END = <p3:text>), 0) AS \"goldRevenue\", percentile_cont(0.9) WITHIN GROUP (ORDER BY \"__hq_base\".\"net_amount\") FILTER (WHERE \"__hq_base\".\"status\" = <p4:text>) AS \"paidP90\", COUNT(DISTINCT \"__hq_base\".\"customer_id\") FILTER (WHERE \"__hq_base\".\"status\" = ANY(<p5:text[]>)) AS \"paidCustomers\" FROM \"analytics\".\"orders\" AS \"__hq_base\" LEFT JOIN LATERAL (SELECT * FROM (SELECT \"id\", \"tenant_id\", \"country\", \"tier\", \"credit_score\", \"hidden\", 1 AS \"_hq_match\" FROM \"analytics\".\"customers\") AS \"customer\" WHERE \"__hq_base\".\"customer_id\" = \"customer\".\"id\" AND \"customer\".\"tenant_id\" = <p2:text> LIMIT 1) AS \"customer\" ON TRUE WHERE \"__hq_base\".\"tenant_id\" = <p6:text>",
+      "parameters": [
+        [
+          "p0",
+          "text",
+          "paid"
+        ],
+        [
+          "p1",
+          "double precision",
+          10
+        ],
+        [
+          "p2",
+          "text",
+          "acme"
+        ],
+        [
+          "p3",
+          "text",
+          "gold"
+        ],
+        [
+          "p4",
+          "text",
+          "paid"
+        ],
+        [
+          "p5",
+          "text[]",
+          [
+            "paid",
+            "settled"
+          ]
+        ],
+        [
+          "p6",
+          "text",
+          "acme"
+        ]
+      ],
+      "sql": "SELECT SUM(\"__hq_base\".\"net_amount\") AS \"revenue\", COUNT(\"__hq_base\".\"status\") AS \"orders\", COUNT(DISTINCT \"__hq_base\".\"customer_id\") AS \"uniqueCustomers\", AVG(\"__hq_base\".\"net_amount\") AS \"avgAmount\", MIN(\"__hq_base\".\"net_amount\") AS \"minAmount\", MAX(\"__hq_base\".\"net_amount\") AS \"maxAmount\", percentile_cont(0.5) WITHIN GROUP (ORDER BY \"__hq_base\".\"net_amount\") AS \"medianAmount\", percentile_cont(0.95) WITHIN GROUP (ORDER BY \"__hq_base\".\"net_amount\") AS \"p95Amount\", stddev_samp(\"__hq_base\".\"net_amount\") AS \"spread\", var_samp(\"__hq_base\".\"net_amount\") AS \"variance\", (ARRAY_AGG(\"__hq_base\".\"status\" ORDER BY \"__hq_base\".\"created_at\" DESC) FILTER (WHERE \"__hq_base\".\"created_at\" IS NOT NULL))[1] AS \"lastStatus\", (ARRAY_AGG(\"__hq_base\".\"status\" ORDER BY \"__hq_base\".\"created_at\" ASC) FILTER (WHERE \"__hq_base\".\"created_at\" IS NOT NULL))[1] AS \"firstStatus\", COALESCE(SUM(\"__hq_base\".\"net_amount\") FILTER (WHERE \"__hq_base\".\"status\" = $1 AND \"__hq_base\".\"net_amount\" >= $2), 0) AS \"paidRevenue\", COALESCE(SUM(\"__hq_base\".\"net_amount\") FILTER (WHERE CASE WHEN (\"customer\".\"_hq_match\" IS NOT NULL) THEN \"customer\".\"tier\" ELSE NULL END = $4), 0) AS \"goldRevenue\", percentile_cont(0.9) WITHIN GROUP (ORDER BY \"__hq_base\".\"net_amount\") FILTER (WHERE \"__hq_base\".\"status\" = $5) AS \"paidP90\", COUNT(DISTINCT \"__hq_base\".\"customer_id\") FILTER (WHERE \"__hq_base\".\"status\" = ANY($6)) AS \"paidCustomers\" FROM \"analytics\".\"orders\" AS \"__hq_base\" LEFT JOIN LATERAL (SELECT * FROM (SELECT \"id\", \"tenant_id\", \"country\", \"tier\", \"credit_score\", \"hidden\", 1 AS \"_hq_match\" FROM \"analytics\".\"customers\") AS \"customer\" WHERE \"__hq_base\".\"customer_id\" = \"customer\".\"id\" AND \"customer\".\"tenant_id\" = $3 LIMIT 1) AS \"customer\" ON TRUE WHERE \"__hq_base\".\"tenant_id\" = $7"
+    },
+    "derived-arithmetic": {
+      "debug": "SELECT ((SUM(\"net_amount\") * <p0:double precision>) - (COUNT(\"status\") + <p1:bigint>)) AS \"net\", (FLOOR(AVG(\"net_amount\")) + CEIL(AVG(\"net_amount\"))) AS \"bounds\", (COUNT(\"status\") * <p2:bigint>) AS \"big\", COALESCE(SUM(\"net_amount\"), NULL) AS \"nothing\" FROM \"analytics\".\"orders\" WHERE \"tenant_id\" = <p3:text>",
+      "parameters": [
+        [
+          "p0",
+          "double precision",
+          0.9
+        ],
+        [
+          "p1",
+          "bigint",
+          -1
+        ],
+        [
+          "p2",
+          "bigint",
+          70000
+        ],
+        [
+          "p3",
+          "text",
+          "acme"
+        ]
+      ],
+      "sql": "SELECT ((SUM(\"net_amount\") * $1) - (COUNT(\"status\") + $2)) AS \"net\", (FLOOR(AVG(\"net_amount\")) + CEIL(AVG(\"net_amount\"))) AS \"bounds\", (COUNT(\"status\") * $3) AS \"big\", COALESCE(SUM(\"net_amount\"), NULL) AS \"nothing\" FROM \"analytics\".\"orders\" WHERE \"tenant_id\" = $4"
+    },
+    "derived-chain": {
+      "debug": "SELECT (CASE WHEN CAST(<p0:bigint> AS integer) >= 0 THEN ROUND(CAST((CAST(SUM(\"net_amount\") AS double precision) / NULLIF(NULLIF(COUNT(\"status\"), 0), 0)) AS double precision) * power(CAST(10 AS double precision), abs(CAST(<p0:bigint> AS integer)))) / power(CAST(10 AS double precision), abs(CAST(<p0:bigint> AS integer))) ELSE ROUND(CAST((CAST(SUM(\"net_amount\") AS double precision) / NULLIF(NULLIF(COUNT(\"status\"), 0), 0)) AS double precision) / power(CAST(10 AS double precision), abs(CAST(<p0:bigint> AS integer)))) * power(CAST(10 AS double precision), abs(CAST(<p0:bigint> AS integer))) END) AS \"rounded\", (CAST(SUM(\"net_amount\") AS double precision) / NULLIF(NULLIF(COUNT(\"status\"), 0), 0)) AS \"average\", COALESCE((CAST(COALESCE(SUM(\"net_amount\") FILTER (WHERE \"status\" = <p1:text> AND \"net_amount\" >= <p2:double precision>), 0) AS double precision) / NULLIF(NULLIF(SUM(\"net_amount\"), 0), 0)), <p3:bigint>) AS \"paidShare\" FROM \"analytics\".\"orders\" WHERE \"tenant_id\" = <p4:text>",
+      "parameters": [
+        [
+          "p0",
+          "bigint",
+          2
+        ],
+        [
+          "p1",
+          "text",
+          "paid"
+        ],
+        [
+          "p2",
+          "double precision",
+          10
+        ],
+        [
+          "p3",
+          "bigint",
+          0
+        ],
+        [
+          "p4",
+          "text",
+          "acme"
+        ]
+      ],
+      "sql": "SELECT (CASE WHEN CAST($1 AS integer) >= 0 THEN ROUND(CAST((CAST(SUM(\"net_amount\") AS double precision) / NULLIF(NULLIF(COUNT(\"status\"), 0), 0)) AS double precision) * power(CAST(10 AS double precision), abs(CAST($1 AS integer)))) / power(CAST(10 AS double precision), abs(CAST($1 AS integer))) ELSE ROUND(CAST((CAST(SUM(\"net_amount\") AS double precision) / NULLIF(NULLIF(COUNT(\"status\"), 0), 0)) AS double precision) / power(CAST(10 AS double precision), abs(CAST($1 AS integer)))) * power(CAST(10 AS double precision), abs(CAST($1 AS integer))) END) AS \"rounded\", (CAST(SUM(\"net_amount\") AS double precision) / NULLIF(NULLIF(COUNT(\"status\"), 0), 0)) AS \"average\", COALESCE((CAST(COALESCE(SUM(\"net_amount\") FILTER (WHERE \"status\" = $2 AND \"net_amount\" >= $3), 0) AS double precision) / NULLIF(NULLIF(SUM(\"net_amount\"), 0), 0)), $4) AS \"paidShare\" FROM \"analytics\".\"orders\" WHERE \"tenant_id\" = $5"
+    },
+    "every-aggregation": {
+      "debug": "SELECT \"status\" AS \"status\", SUM(\"net_amount\") AS \"revenue\", COUNT(\"status\") AS \"orders\", COUNT(DISTINCT \"customer_id\") AS \"uniqueCustomers\", AVG(\"net_amount\") AS \"avgAmount\", MIN(\"net_amount\") AS \"minAmount\", MAX(\"net_amount\") AS \"maxAmount\", percentile_cont(0.5) WITHIN GROUP (ORDER BY \"net_amount\") AS \"medianAmount\", percentile_cont(0.95) WITHIN GROUP (ORDER BY \"net_amount\") AS \"p95Amount\", stddev_samp(\"net_amount\") AS \"spread\", var_samp(\"net_amount\") AS \"variance\", (ARRAY_AGG(\"status\" ORDER BY \"created_at\" DESC) FILTER (WHERE \"created_at\" IS NOT NULL))[1] AS \"lastStatus\", (ARRAY_AGG(\"status\" ORDER BY \"created_at\" ASC) FILTER (WHERE \"created_at\" IS NOT NULL))[1] AS \"firstStatus\" FROM \"analytics\".\"orders\" WHERE \"tenant_id\" = <p0:text> GROUP BY \"status\"",
+      "parameters": [
+        [
+          "p0",
+          "text",
+          "acme"
+        ]
+      ],
+      "sql": "SELECT \"status\" AS \"status\", SUM(\"net_amount\") AS \"revenue\", COUNT(\"status\") AS \"orders\", COUNT(DISTINCT \"customer_id\") AS \"uniqueCustomers\", AVG(\"net_amount\") AS \"avgAmount\", MIN(\"net_amount\") AS \"minAmount\", MAX(\"net_amount\") AS \"maxAmount\", percentile_cont(0.5) WITHIN GROUP (ORDER BY \"net_amount\") AS \"medianAmount\", percentile_cont(0.95) WITHIN GROUP (ORDER BY \"net_amount\") AS \"p95Amount\", stddev_samp(\"net_amount\") AS \"spread\", var_samp(\"net_amount\") AS \"variance\", (ARRAY_AGG(\"status\" ORDER BY \"created_at\" DESC) FILTER (WHERE \"created_at\" IS NOT NULL))[1] AS \"lastStatus\", (ARRAY_AGG(\"status\" ORDER BY \"created_at\" ASC) FILTER (WHERE \"created_at\" IS NOT NULL))[1] AS \"firstStatus\" FROM \"analytics\".\"orders\" WHERE \"tenant_id\" = $1 GROUP BY \"status\""
+    },
+    "filter-operators": {
+      "debug": "SELECT COUNT(\"status\") AS \"orders\" FROM \"analytics\".\"orders\" WHERE \"status\" = <p0:text> AND \"status\" != <p1:text> AND \"net_amount\" > <p2:double precision> AND \"net_amount\" >= <p3:double precision> AND \"net_amount\" < <p4:double precision> AND \"net_amount\" <= <p5:double precision> AND \"status\" = ANY(<p6:text[]>) AND NOT (\"status\" = ANY(<p7:text[]>)) AND \"net_amount\" BETWEEN <p8:double precision> AND <p9:double precision> AND \"status\" LIKE <p10:text> AND \"paid\" = <p11:boolean> AND \"status\" = ANY(<p12:text[]>) AND \"tenant_id\" = <p13:text>",
+      "parameters": [
+        [
+          "p0",
+          "text",
+          "paid"
+        ],
+        [
+          "p1",
+          "text",
+          "void"
+        ],
+        [
+          "p2",
+          "double precision",
+          1
+        ],
+        [
+          "p3",
+          "double precision",
+          2.5
+        ],
+        [
+          "p4",
+          "double precision",
+          100
+        ],
+        [
+          "p5",
+          "double precision",
+          99
+        ],
+        [
+          "p6",
+          "text[]",
+          [
+            "a",
+            "b"
+          ]
+        ],
+        [
+          "p7",
+          "text[]",
+          [
+            "c"
+          ]
+        ],
+        [
+          "p8",
+          "double precision",
+          1
+        ],
+        [
+          "p9",
+          "double precision",
+          10
+        ],
+        [
+          "p10",
+          "text",
+          "pa%"
+        ],
+        [
+          "p11",
+          "boolean",
+          true
+        ],
+        [
+          "p12",
+          "text[]",
+          [
+            "x"
+          ]
+        ],
+        [
+          "p13",
+          "text",
+          "acme"
+        ]
+      ],
+      "sql": "SELECT COUNT(\"status\") AS \"orders\" FROM \"analytics\".\"orders\" WHERE \"status\" = $1 AND \"status\" != $2 AND \"net_amount\" > $3 AND \"net_amount\" >= $4 AND \"net_amount\" < $5 AND \"net_amount\" <= $6 AND \"status\" = ANY($7) AND NOT (\"status\" = ANY($8)) AND \"net_amount\" BETWEEN $9 AND $10 AND \"status\" LIKE $11 AND \"paid\" = $12 AND \"status\" = ANY($13) AND \"tenant_id\" = $14"
+    },
+    "grain-day": {
+      "debug": "SELECT to_char(date_trunc('day', (CASE WHEN pg_typeof(\"ts\") = 'date'::regtype THEN (\"ts\")::timestamp AT TIME ZONE <p0:text> ELSE (\"ts\")::timestamptz END), <p0:text>) AT TIME ZONE <p0:text>, 'YYYY-MM-DD HH24:MI:SS') AS \"period\", COUNT(\"kind\") AS \"events\" FROM \"events\" GROUP BY date_trunc('day', (CASE WHEN pg_typeof(\"ts\") = 'date'::regtype THEN (\"ts\")::timestamp AT TIME ZONE <p0:text> ELSE (\"ts\")::timestamptz END), <p0:text>) ORDER BY date_trunc('day', (CASE WHEN pg_typeof(\"ts\") = 'date'::regtype THEN (\"ts\")::timestamp AT TIME ZONE <p0:text> ELSE (\"ts\")::timestamptz END), <p0:text>) ASC LIMIT 500",
+      "parameters": [
+        [
+          "p0",
+          "text",
+          "UTC"
+        ]
+      ],
+      "sql": "SELECT to_char(date_trunc('day', (CASE WHEN pg_typeof(\"ts\") = 'date'::regtype THEN (\"ts\")::timestamp AT TIME ZONE $1 ELSE (\"ts\")::timestamptz END), $1) AT TIME ZONE $1, 'YYYY-MM-DD HH24:MI:SS') AS \"period\", COUNT(\"kind\") AS \"events\" FROM \"events\" GROUP BY date_trunc('day', (CASE WHEN pg_typeof(\"ts\") = 'date'::regtype THEN (\"ts\")::timestamp AT TIME ZONE $1 ELSE (\"ts\")::timestamptz END), $1) ORDER BY date_trunc('day', (CASE WHEN pg_typeof(\"ts\") = 'date'::regtype THEN (\"ts\")::timestamp AT TIME ZONE $1 ELSE (\"ts\")::timestamptz END), $1) ASC LIMIT 500"
+    },
+    "grain-hour": {
+      "debug": "SELECT to_char(date_trunc('hour', (CASE WHEN pg_typeof(\"ts\") = 'date'::regtype THEN (\"ts\")::timestamp AT TIME ZONE <p0:text> ELSE (\"ts\")::timestamptz END), <p0:text>) AT TIME ZONE <p0:text>, 'YYYY-MM-DD HH24:MI:SS') AS \"period\", COUNT(\"kind\") AS \"events\" FROM \"events\" GROUP BY date_trunc('hour', (CASE WHEN pg_typeof(\"ts\") = 'date'::regtype THEN (\"ts\")::timestamp AT TIME ZONE <p0:text> ELSE (\"ts\")::timestamptz END), <p0:text>) ORDER BY date_trunc('hour', (CASE WHEN pg_typeof(\"ts\") = 'date'::regtype THEN (\"ts\")::timestamp AT TIME ZONE <p0:text> ELSE (\"ts\")::timestamptz END), <p0:text>) ASC LIMIT 500",
+      "parameters": [
+        [
+          "p0",
+          "text",
+          "UTC"
+        ]
+      ],
+      "sql": "SELECT to_char(date_trunc('hour', (CASE WHEN pg_typeof(\"ts\") = 'date'::regtype THEN (\"ts\")::timestamp AT TIME ZONE $1 ELSE (\"ts\")::timestamptz END), $1) AT TIME ZONE $1, 'YYYY-MM-DD HH24:MI:SS') AS \"period\", COUNT(\"kind\") AS \"events\" FROM \"events\" GROUP BY date_trunc('hour', (CASE WHEN pg_typeof(\"ts\") = 'date'::regtype THEN (\"ts\")::timestamp AT TIME ZONE $1 ELSE (\"ts\")::timestamptz END), $1) ORDER BY date_trunc('hour', (CASE WHEN pg_typeof(\"ts\") = 'date'::regtype THEN (\"ts\")::timestamp AT TIME ZONE $1 ELSE (\"ts\")::timestamptz END), $1) ASC LIMIT 500"
+    },
+    "grain-minute": {
+      "debug": "SELECT to_char(date_trunc('minute', (CASE WHEN pg_typeof(\"ts\") = 'date'::regtype THEN (\"ts\")::timestamp AT TIME ZONE <p0:text> ELSE (\"ts\")::timestamptz END), <p0:text>) AT TIME ZONE <p0:text>, 'YYYY-MM-DD HH24:MI:SS') AS \"period\", COUNT(\"kind\") AS \"events\" FROM \"events\" GROUP BY date_trunc('minute', (CASE WHEN pg_typeof(\"ts\") = 'date'::regtype THEN (\"ts\")::timestamp AT TIME ZONE <p0:text> ELSE (\"ts\")::timestamptz END), <p0:text>) ORDER BY date_trunc('minute', (CASE WHEN pg_typeof(\"ts\") = 'date'::regtype THEN (\"ts\")::timestamp AT TIME ZONE <p0:text> ELSE (\"ts\")::timestamptz END), <p0:text>) ASC LIMIT 500",
+      "parameters": [
+        [
+          "p0",
+          "text",
+          "UTC"
+        ]
+      ],
+      "sql": "SELECT to_char(date_trunc('minute', (CASE WHEN pg_typeof(\"ts\") = 'date'::regtype THEN (\"ts\")::timestamp AT TIME ZONE $1 ELSE (\"ts\")::timestamptz END), $1) AT TIME ZONE $1, 'YYYY-MM-DD HH24:MI:SS') AS \"period\", COUNT(\"kind\") AS \"events\" FROM \"events\" GROUP BY date_trunc('minute', (CASE WHEN pg_typeof(\"ts\") = 'date'::regtype THEN (\"ts\")::timestamp AT TIME ZONE $1 ELSE (\"ts\")::timestamptz END), $1) ORDER BY date_trunc('minute', (CASE WHEN pg_typeof(\"ts\") = 'date'::regtype THEN (\"ts\")::timestamp AT TIME ZONE $1 ELSE (\"ts\")::timestamptz END), $1) ASC LIMIT 500"
+    },
+    "grain-month": {
+      "debug": "SELECT to_char(date_trunc('month', (CASE WHEN pg_typeof(\"ts\") = 'date'::regtype THEN (\"ts\")::timestamp AT TIME ZONE <p0:text> ELSE (\"ts\")::timestamptz END), <p0:text>) AT TIME ZONE <p0:text>, 'YYYY-MM-DD') AS \"period\", COUNT(\"kind\") AS \"events\" FROM \"events\" GROUP BY date_trunc('month', (CASE WHEN pg_typeof(\"ts\") = 'date'::regtype THEN (\"ts\")::timestamp AT TIME ZONE <p0:text> ELSE (\"ts\")::timestamptz END), <p0:text>) ORDER BY date_trunc('month', (CASE WHEN pg_typeof(\"ts\") = 'date'::regtype THEN (\"ts\")::timestamp AT TIME ZONE <p0:text> ELSE (\"ts\")::timestamptz END), <p0:text>) ASC LIMIT 500",
+      "parameters": [
+        [
+          "p0",
+          "text",
+          "UTC"
+        ]
+      ],
+      "sql": "SELECT to_char(date_trunc('month', (CASE WHEN pg_typeof(\"ts\") = 'date'::regtype THEN (\"ts\")::timestamp AT TIME ZONE $1 ELSE (\"ts\")::timestamptz END), $1) AT TIME ZONE $1, 'YYYY-MM-DD') AS \"period\", COUNT(\"kind\") AS \"events\" FROM \"events\" GROUP BY date_trunc('month', (CASE WHEN pg_typeof(\"ts\") = 'date'::regtype THEN (\"ts\")::timestamp AT TIME ZONE $1 ELSE (\"ts\")::timestamptz END), $1) ORDER BY date_trunc('month', (CASE WHEN pg_typeof(\"ts\") = 'date'::regtype THEN (\"ts\")::timestamp AT TIME ZONE $1 ELSE (\"ts\")::timestamptz END), $1) ASC LIMIT 500"
+    },
+    "grain-on-tenant-dataset": {
+      "debug": "SELECT to_char(date_trunc('month', (CASE WHEN pg_typeof(\"created_at\") = 'date'::regtype THEN (\"created_at\")::timestamp AT TIME ZONE <p0:text> ELSE (\"created_at\")::timestamptz END), <p0:text>) AT TIME ZONE <p0:text>, 'YYYY-MM-DD') AS \"period\", SUM(\"net_amount\") AS \"revenue\" FROM \"analytics\".\"orders\" WHERE \"tenant_id\" = <p1:text> GROUP BY date_trunc('month', (CASE WHEN pg_typeof(\"created_at\") = 'date'::regtype THEN (\"created_at\")::timestamp AT TIME ZONE <p0:text> ELSE (\"created_at\")::timestamptz END), <p0:text>) ORDER BY date_trunc('month', (CASE WHEN pg_typeof(\"created_at\") = 'date'::regtype THEN (\"created_at\")::timestamp AT TIME ZONE <p0:text> ELSE (\"created_at\")::timestamptz END), <p0:text>) ASC",
+      "parameters": [
+        [
+          "p0",
+          "text",
+          "UTC"
+        ],
+        [
+          "p1",
+          "text",
+          "acme"
+        ]
+      ],
+      "sql": "SELECT to_char(date_trunc('month', (CASE WHEN pg_typeof(\"created_at\") = 'date'::regtype THEN (\"created_at\")::timestamp AT TIME ZONE $1 ELSE (\"created_at\")::timestamptz END), $1) AT TIME ZONE $1, 'YYYY-MM-DD') AS \"period\", SUM(\"net_amount\") AS \"revenue\" FROM \"analytics\".\"orders\" WHERE \"tenant_id\" = $2 GROUP BY date_trunc('month', (CASE WHEN pg_typeof(\"created_at\") = 'date'::regtype THEN (\"created_at\")::timestamp AT TIME ZONE $1 ELSE (\"created_at\")::timestamptz END), $1) ORDER BY date_trunc('month', (CASE WHEN pg_typeof(\"created_at\") = 'date'::regtype THEN (\"created_at\")::timestamp AT TIME ZONE $1 ELSE (\"created_at\")::timestamptz END), $1) ASC"
+    },
+    "grain-quarter": {
+      "debug": "SELECT to_char(date_trunc('quarter', (CASE WHEN pg_typeof(\"ts\") = 'date'::regtype THEN (\"ts\")::timestamp AT TIME ZONE <p0:text> ELSE (\"ts\")::timestamptz END), <p0:text>) AT TIME ZONE <p0:text>, 'YYYY-MM-DD') AS \"period\", COUNT(\"kind\") AS \"events\" FROM \"events\" GROUP BY date_trunc('quarter', (CASE WHEN pg_typeof(\"ts\") = 'date'::regtype THEN (\"ts\")::timestamp AT TIME ZONE <p0:text> ELSE (\"ts\")::timestamptz END), <p0:text>) ORDER BY date_trunc('quarter', (CASE WHEN pg_typeof(\"ts\") = 'date'::regtype THEN (\"ts\")::timestamp AT TIME ZONE <p0:text> ELSE (\"ts\")::timestamptz END), <p0:text>) ASC LIMIT 500",
+      "parameters": [
+        [
+          "p0",
+          "text",
+          "UTC"
+        ]
+      ],
+      "sql": "SELECT to_char(date_trunc('quarter', (CASE WHEN pg_typeof(\"ts\") = 'date'::regtype THEN (\"ts\")::timestamp AT TIME ZONE $1 ELSE (\"ts\")::timestamptz END), $1) AT TIME ZONE $1, 'YYYY-MM-DD') AS \"period\", COUNT(\"kind\") AS \"events\" FROM \"events\" GROUP BY date_trunc('quarter', (CASE WHEN pg_typeof(\"ts\") = 'date'::regtype THEN (\"ts\")::timestamp AT TIME ZONE $1 ELSE (\"ts\")::timestamptz END), $1) ORDER BY date_trunc('quarter', (CASE WHEN pg_typeof(\"ts\") = 'date'::regtype THEN (\"ts\")::timestamp AT TIME ZONE $1 ELSE (\"ts\")::timestamptz END), $1) ASC LIMIT 500"
+    },
+    "grain-week": {
+      "debug": "SELECT to_char(((date_trunc('week', ((CASE WHEN pg_typeof(\"ts\") = 'date'::regtype THEN (\"ts\")::timestamp AT TIME ZONE <p0:text> ELSE (\"ts\")::timestamptz END) AT TIME ZONE <p0:text>) + INTERVAL '1 day') - INTERVAL '1 day') AT TIME ZONE <p0:text>) AT TIME ZONE <p0:text>, 'YYYY-MM-DD') AS \"period\", COUNT(\"kind\") AS \"events\" FROM \"events\" GROUP BY ((date_trunc('week', ((CASE WHEN pg_typeof(\"ts\") = 'date'::regtype THEN (\"ts\")::timestamp AT TIME ZONE <p0:text> ELSE (\"ts\")::timestamptz END) AT TIME ZONE <p0:text>) + INTERVAL '1 day') - INTERVAL '1 day') AT TIME ZONE <p0:text>) ORDER BY ((date_trunc('week', ((CASE WHEN pg_typeof(\"ts\") = 'date'::regtype THEN (\"ts\")::timestamp AT TIME ZONE <p0:text> ELSE (\"ts\")::timestamptz END) AT TIME ZONE <p0:text>) + INTERVAL '1 day') - INTERVAL '1 day') AT TIME ZONE <p0:text>) ASC LIMIT 500",
+      "parameters": [
+        [
+          "p0",
+          "text",
+          "UTC"
+        ]
+      ],
+      "sql": "SELECT to_char(((date_trunc('week', ((CASE WHEN pg_typeof(\"ts\") = 'date'::regtype THEN (\"ts\")::timestamp AT TIME ZONE $1 ELSE (\"ts\")::timestamptz END) AT TIME ZONE $1) + INTERVAL '1 day') - INTERVAL '1 day') AT TIME ZONE $1) AT TIME ZONE $1, 'YYYY-MM-DD') AS \"period\", COUNT(\"kind\") AS \"events\" FROM \"events\" GROUP BY ((date_trunc('week', ((CASE WHEN pg_typeof(\"ts\") = 'date'::regtype THEN (\"ts\")::timestamp AT TIME ZONE $1 ELSE (\"ts\")::timestamptz END) AT TIME ZONE $1) + INTERVAL '1 day') - INTERVAL '1 day') AT TIME ZONE $1) ORDER BY ((date_trunc('week', ((CASE WHEN pg_typeof(\"ts\") = 'date'::regtype THEN (\"ts\")::timestamp AT TIME ZONE $1 ELSE (\"ts\")::timestamptz END) AT TIME ZONE $1) + INTERVAL '1 day') - INTERVAL '1 day') AT TIME ZONE $1) ASC LIMIT 500"
+    },
+    "grain-with-zone-dimensions-and-order": {
+      "debug": "SELECT to_char(date_trunc('day', (CASE WHEN pg_typeof(\"ts\") = 'date'::regtype THEN (\"ts\")::timestamp AT TIME ZONE <p0:text> ELSE (\"ts\")::timestamptz END), <p0:text>) AT TIME ZONE <p0:text>, 'YYYY-MM-DD HH24:MI:SS') AS \"period\", \"kind\" AS \"kind\", SUM(\"value\") AS \"total\" FROM \"events\" GROUP BY date_trunc('day', (CASE WHEN pg_typeof(\"ts\") = 'date'::regtype THEN (\"ts\")::timestamp AT TIME ZONE <p0:text> ELSE (\"ts\")::timestamptz END), <p0:text>), \"kind\" ORDER BY \"total\" DESC NULLS LAST LIMIT 500",
+      "parameters": [
+        [
+          "p0",
+          "text",
+          "Asia/Kolkata"
+        ]
+      ],
+      "sql": "SELECT to_char(date_trunc('day', (CASE WHEN pg_typeof(\"ts\") = 'date'::regtype THEN (\"ts\")::timestamp AT TIME ZONE $1 ELSE (\"ts\")::timestamptz END), $1) AT TIME ZONE $1, 'YYYY-MM-DD HH24:MI:SS') AS \"period\", \"kind\" AS \"kind\", SUM(\"value\") AS \"total\" FROM \"events\" GROUP BY date_trunc('day', (CASE WHEN pg_typeof(\"ts\") = 'date'::regtype THEN (\"ts\")::timestamp AT TIME ZONE $1 ELSE (\"ts\")::timestamptz END), $1), \"kind\" ORDER BY \"total\" DESC NULLS LAST LIMIT 500"
+    },
+    "grain-year": {
+      "debug": "SELECT to_char(date_trunc('year', (CASE WHEN pg_typeof(\"ts\") = 'date'::regtype THEN (\"ts\")::timestamp AT TIME ZONE <p0:text> ELSE (\"ts\")::timestamptz END), <p0:text>) AT TIME ZONE <p0:text>, 'YYYY-MM-DD') AS \"period\", COUNT(\"kind\") AS \"events\" FROM \"events\" GROUP BY date_trunc('year', (CASE WHEN pg_typeof(\"ts\") = 'date'::regtype THEN (\"ts\")::timestamp AT TIME ZONE <p0:text> ELSE (\"ts\")::timestamptz END), <p0:text>) ORDER BY date_trunc('year', (CASE WHEN pg_typeof(\"ts\") = 'date'::regtype THEN (\"ts\")::timestamp AT TIME ZONE <p0:text> ELSE (\"ts\")::timestamptz END), <p0:text>) ASC LIMIT 500",
+      "parameters": [
+        [
+          "p0",
+          "text",
+          "UTC"
+        ]
+      ],
+      "sql": "SELECT to_char(date_trunc('year', (CASE WHEN pg_typeof(\"ts\") = 'date'::regtype THEN (\"ts\")::timestamp AT TIME ZONE $1 ELSE (\"ts\")::timestamptz END), $1) AT TIME ZONE $1, 'YYYY-MM-DD') AS \"period\", COUNT(\"kind\") AS \"events\" FROM \"events\" GROUP BY date_trunc('year', (CASE WHEN pg_typeof(\"ts\") = 'date'::regtype THEN (\"ts\")::timestamp AT TIME ZONE $1 ELSE (\"ts\")::timestamptz END), $1) ORDER BY date_trunc('year', (CASE WHEN pg_typeof(\"ts\") = 'date'::regtype THEN (\"ts\")::timestamp AT TIME ZONE $1 ELSE (\"ts\")::timestamptz END), $1) ASC LIMIT 500"
+    },
+    "has-one-measures": {
+      "debug": "SELECT AVG(CASE WHEN (\"profile\".\"_hq_match\" IS NOT NULL) THEN \"profile\".\"age_days\" ELSE NULL END) AS \"profile.profileAge\", COUNT(CASE WHEN (\"profile\".\"_hq_match\" IS NOT NULL) THEN \"profile\".\"plan\" ELSE NULL END) AS \"profile.profileCount\" FROM \"analytics\".\"orders\" AS \"__hq_base\" LEFT JOIN LATERAL (SELECT * FROM (SELECT \"customer_id\", \"plan\", \"age_days\", 1 AS \"_hq_match\" FROM \"analytics\".\"profiles\") AS \"profile\" WHERE \"__hq_base\".\"customer_id\" = \"profile\".\"customer_id\" LIMIT 1) AS \"profile\" ON TRUE WHERE \"__hq_base\".\"tenant_id\" = <p0:text>",
+      "parameters": [
+        [
+          "p0",
+          "text",
+          "acme"
+        ]
+      ],
+      "sql": "SELECT AVG(CASE WHEN (\"profile\".\"_hq_match\" IS NOT NULL) THEN \"profile\".\"age_days\" ELSE NULL END) AS \"profile.profileAge\", COUNT(CASE WHEN (\"profile\".\"_hq_match\" IS NOT NULL) THEN \"profile\".\"plan\" ELSE NULL END) AS \"profile.profileCount\" FROM \"analytics\".\"orders\" AS \"__hq_base\" LEFT JOIN LATERAL (SELECT * FROM (SELECT \"customer_id\", \"plan\", \"age_days\", 1 AS \"_hq_match\" FROM \"analytics\".\"profiles\") AS \"profile\" WHERE \"__hq_base\".\"customer_id\" = \"profile\".\"customer_id\" LIMIT 1) AS \"profile\" ON TRUE WHERE \"__hq_base\".\"tenant_id\" = $1"
+    },
+    "having-every-operator": {
+      "debug": "SELECT \"__hq_base\".\"status\" AS \"status\", SUM(\"__hq_base\".\"net_amount\") AS \"revenue\", COUNT(\"__hq_base\".\"status\") AS \"orders\", COUNT(DISTINCT CASE WHEN (\"customer\".\"_hq_match\" IS NOT NULL) THEN \"customer\".\"id\" ELSE NULL END) AS \"customer.customerCount\" FROM \"analytics\".\"orders\" AS \"__hq_base\" LEFT JOIN LATERAL (SELECT * FROM (SELECT \"id\", \"tenant_id\", \"country\", \"tier\", \"credit_score\", \"hidden\", 1 AS \"_hq_match\" FROM \"analytics\".\"customers\") AS \"customer\" WHERE \"__hq_base\".\"customer_id\" = \"customer\".\"id\" AND \"customer\".\"tenant_id\" = <p0:text> LIMIT 1) AS \"customer\" ON TRUE WHERE \"__hq_base\".\"tenant_id\" = <p1:text> GROUP BY \"__hq_base\".\"status\" HAVING SUM(\"__hq_base\".\"net_amount\") > <p2:double precision> AND SUM(\"__hq_base\".\"net_amount\") >= <p3:double precision> AND COUNT(\"__hq_base\".\"status\") < <p4:double precision> AND COUNT(\"__hq_base\".\"status\") <= <p5:double precision> AND COUNT(\"__hq_base\".\"status\") = <p6:double precision> AND COUNT(\"__hq_base\".\"status\") != <p7:double precision> AND SUM(\"__hq_base\".\"net_amount\") BETWEEN <p8:double precision> AND <p9:double precision> AND COUNT(\"__hq_base\".\"status\") = ANY(<p10:double precision[]>) AND NOT (COUNT(\"__hq_base\".\"status\") = ANY(<p11:double precision[]>)) AND COUNT(DISTINCT CASE WHEN (\"customer\".\"_hq_match\" IS NOT NULL) THEN \"customer\".\"id\" ELSE NULL END) >= <p12:double precision>",
+      "parameters": [
+        [
+          "p0",
+          "text",
+          "acme"
+        ],
+        [
+          "p1",
+          "text",
+          "acme"
+        ],
+        [
+          "p2",
+          "double precision",
+          10
+        ],
+        [
+          "p3",
+          "double precision",
+          10.5
+        ],
+        [
+          "p4",
+          "double precision",
+          100
+        ],
+        [
+          "p5",
+          "double precision",
+          99
+        ],
+        [
+          "p6",
+          "double precision",
+          3
+        ],
+        [
+          "p7",
+          "double precision",
+          4
+        ],
+        [
+          "p8",
+          "double precision",
+          1
+        ],
+        [
+          "p9",
+          "double precision",
+          2
+        ],
+        [
+          "p10",
+          "double precision[]",
+          [
+            1,
+            2,
+            3
+          ]
+        ],
+        [
+          "p11",
+          "double precision[]",
+          [
+            5
+          ]
+        ],
+        [
+          "p12",
+          "double precision",
+          1
+        ]
+      ],
+      "sql": "SELECT \"__hq_base\".\"status\" AS \"status\", SUM(\"__hq_base\".\"net_amount\") AS \"revenue\", COUNT(\"__hq_base\".\"status\") AS \"orders\", COUNT(DISTINCT CASE WHEN (\"customer\".\"_hq_match\" IS NOT NULL) THEN \"customer\".\"id\" ELSE NULL END) AS \"customer.customerCount\" FROM \"analytics\".\"orders\" AS \"__hq_base\" LEFT JOIN LATERAL (SELECT * FROM (SELECT \"id\", \"tenant_id\", \"country\", \"tier\", \"credit_score\", \"hidden\", 1 AS \"_hq_match\" FROM \"analytics\".\"customers\") AS \"customer\" WHERE \"__hq_base\".\"customer_id\" = \"customer\".\"id\" AND \"customer\".\"tenant_id\" = $1 LIMIT 1) AS \"customer\" ON TRUE WHERE \"__hq_base\".\"tenant_id\" = $2 GROUP BY \"__hq_base\".\"status\" HAVING SUM(\"__hq_base\".\"net_amount\") > $3 AND SUM(\"__hq_base\".\"net_amount\") >= $4 AND COUNT(\"__hq_base\".\"status\") < $5 AND COUNT(\"__hq_base\".\"status\") <= $6 AND COUNT(\"__hq_base\".\"status\") = $7 AND COUNT(\"__hq_base\".\"status\") != $8 AND SUM(\"__hq_base\".\"net_amount\") BETWEEN $9 AND $10 AND COUNT(\"__hq_base\".\"status\") = ANY($11) AND NOT (COUNT(\"__hq_base\".\"status\") = ANY($12)) AND COUNT(DISTINCT CASE WHEN (\"customer\".\"_hq_match\" IS NOT NULL) THEN \"customer\".\"id\" ELSE NULL END) >= $13"
+    },
+    "having-on-default-selection": {
+      "debug": "SELECT COUNT(\"kind\") AS \"events\", SUM(\"value\") AS \"total\", SUM((value * 2\n)) AS \"rawTotal\" FROM \"events\" HAVING COUNT(\"kind\") > <p0:double precision> LIMIT 500",
+      "parameters": [
+        [
+          "p0",
+          "double precision",
+          0
+        ]
+      ],
+      "sql": "SELECT COUNT(\"kind\") AS \"events\", SUM(\"value\") AS \"total\", SUM((value * 2\n)) AS \"rawTotal\" FROM \"events\" HAVING COUNT(\"kind\") > $1 LIMIT 500"
+    },
+    "having-on-derived": {
+      "debug": "SELECT (CAST(SUM(\"net_amount\") AS double precision) / NULLIF(NULLIF(COUNT(\"status\"), 0), 0)) AS \"average\" FROM \"analytics\".\"orders\" WHERE \"tenant_id\" = <p0:text> HAVING (CAST(SUM(\"net_amount\") AS double precision) / NULLIF(NULLIF(COUNT(\"status\"), 0), 0)) > <p1:double precision>",
+      "parameters": [
+        [
+          "p0",
+          "text",
+          "acme"
+        ],
+        [
+          "p1",
+          "double precision",
+          2
+        ]
+      ],
+      "sql": "SELECT (CAST(SUM(\"net_amount\") AS double precision) / NULLIF(NULLIF(COUNT(\"status\"), 0), 0)) AS \"average\" FROM \"analytics\".\"orders\" WHERE \"tenant_id\" = $1 HAVING (CAST(SUM(\"net_amount\") AS double precision) / NULLIF(NULLIF(COUNT(\"status\"), 0), 0)) > $2"
+    },
+    "limit-offset": {
+      "debug": "SELECT COUNT(\"status\") AS \"orders\" FROM \"analytics\".\"orders\" WHERE \"tenant_id\" = <p0:text> LIMIT 10 OFFSET 20",
+      "parameters": [
+        [
+          "p0",
+          "text",
+          "acme"
+        ]
+      ],
+      "sql": "SELECT COUNT(\"status\") AS \"orders\" FROM \"analytics\".\"orders\" WHERE \"tenant_id\" = $1 LIMIT 10 OFFSET 20"
+    },
+    "measure-filter-through-join": {
+      "debug": "SELECT COALESCE(SUM(\"__hq_base\".\"net_amount\") FILTER (WHERE CASE WHEN (\"customer\".\"_hq_match\" IS NOT NULL) THEN \"customer\".\"tier\" ELSE NULL END = <p1:text>), 0) AS \"goldRevenue\" FROM \"analytics\".\"orders\" AS \"__hq_base\" LEFT JOIN LATERAL (SELECT * FROM (SELECT \"id\", \"tenant_id\", \"country\", \"tier\", \"credit_score\", \"hidden\", 1 AS \"_hq_match\" FROM \"analytics\".\"customers\") AS \"customer\" WHERE \"__hq_base\".\"customer_id\" = \"customer\".\"id\" AND \"customer\".\"tenant_id\" = <p0:text> LIMIT 1) AS \"customer\" ON TRUE WHERE \"__hq_base\".\"tenant_id\" = <p2:text>",
+      "parameters": [
+        [
+          "p0",
+          "text",
+          "acme"
+        ],
+        [
+          "p1",
+          "text",
+          "gold"
+        ],
+        [
+          "p2",
+          "text",
+          "acme"
+        ]
+      ],
+      "sql": "SELECT COALESCE(SUM(\"__hq_base\".\"net_amount\") FILTER (WHERE CASE WHEN (\"customer\".\"_hq_match\" IS NOT NULL) THEN \"customer\".\"tier\" ELSE NULL END = $2), 0) AS \"goldRevenue\" FROM \"analytics\".\"orders\" AS \"__hq_base\" LEFT JOIN LATERAL (SELECT * FROM (SELECT \"id\", \"tenant_id\", \"country\", \"tier\", \"credit_score\", \"hidden\", 1 AS \"_hq_match\" FROM \"analytics\".\"customers\") AS \"customer\" WHERE \"__hq_base\".\"customer_id\" = \"customer\".\"id\" AND \"customer\".\"tenant_id\" = $1 LIMIT 1) AS \"customer\" ON TRUE WHERE \"__hq_base\".\"tenant_id\" = $3"
+    },
+    "measure-filters": {
+      "debug": "SELECT COALESCE(SUM(\"net_amount\") FILTER (WHERE \"status\" = <p0:text> AND \"net_amount\" >= <p1:double precision>), 0) AS \"paidRevenue\", SUM(\"net_amount\") AS \"revenue\" FROM \"analytics\".\"orders\" WHERE \"tenant_id\" = <p2:text>",
+      "parameters": [
+        [
+          "p0",
+          "text",
+          "paid"
+        ],
+        [
+          "p1",
+          "double precision",
+          10
+        ],
+        [
+          "p2",
+          "text",
+          "acme"
+        ]
+      ],
+      "sql": "SELECT COALESCE(SUM(\"net_amount\") FILTER (WHERE \"status\" = $1 AND \"net_amount\" >= $2), 0) AS \"paidRevenue\", SUM(\"net_amount\") AS \"revenue\" FROM \"analytics\".\"orders\" WHERE \"tenant_id\" = $3"
+    },
+    "measure-filters-on-parametric-and-distinct": {
+      "debug": "SELECT percentile_cont(0.9) WITHIN GROUP (ORDER BY \"net_amount\") FILTER (WHERE \"status\" = <p0:text>) AS \"paidP90\", COUNT(DISTINCT \"customer_id\") FILTER (WHERE \"status\" = ANY(<p1:text[]>)) AS \"paidCustomers\" FROM \"analytics\".\"orders\" WHERE \"tenant_id\" = <p2:text>",
+      "parameters": [
+        [
+          "p0",
+          "text",
+          "paid"
+        ],
+        [
+          "p1",
+          "text[]",
+          [
+            "paid",
+            "settled"
+          ]
+        ],
+        [
+          "p2",
+          "text",
+          "acme"
+        ]
+      ],
+      "sql": "SELECT percentile_cont(0.9) WITHIN GROUP (ORDER BY \"net_amount\") FILTER (WHERE \"status\" = $1) AS \"paidP90\", COUNT(DISTINCT \"customer_id\") FILTER (WHERE \"status\" = ANY($2)) AS \"paidCustomers\" FROM \"analytics\".\"orders\" WHERE \"tenant_id\" = $3"
+    },
+    "overfetch": {
+      "debug": "SELECT COUNT(\"status\") AS \"orders\" FROM \"analytics\".\"orders\" WHERE \"tenant_id\" = <p0:text> LIMIT 11",
+      "parameters": [
+        [
+          "p0",
+          "text",
+          "acme"
+        ]
+      ],
+      "sql": "SELECT COUNT(\"status\") AS \"orders\" FROM \"analytics\".\"orders\" WHERE \"tenant_id\" = $1 LIMIT 11"
+    },
+    "related-measure-beside-derived": {
+      "debug": "SELECT (CAST(SUM(\"__hq_base\".\"net_amount\") AS double precision) / NULLIF(NULLIF(COUNT(\"__hq_base\".\"status\"), 0), 0)) AS \"average\", COUNT(DISTINCT CASE WHEN (\"customer\".\"_hq_match\" IS NOT NULL) THEN \"customer\".\"id\" ELSE NULL END) AS \"customer.customerCount\" FROM \"analytics\".\"orders\" AS \"__hq_base\" LEFT JOIN LATERAL (SELECT * FROM (SELECT \"id\", \"tenant_id\", \"country\", \"tier\", \"credit_score\", \"hidden\", 1 AS \"_hq_match\" FROM \"analytics\".\"customers\") AS \"customer\" WHERE \"__hq_base\".\"customer_id\" = \"customer\".\"id\" AND \"customer\".\"tenant_id\" = <p0:text> LIMIT 1) AS \"customer\" ON TRUE WHERE \"__hq_base\".\"tenant_id\" = <p1:text>",
+      "parameters": [
+        [
+          "p0",
+          "text",
+          "acme"
+        ],
+        [
+          "p1",
+          "text",
+          "acme"
+        ]
+      ],
+      "sql": "SELECT (CAST(SUM(\"__hq_base\".\"net_amount\") AS double precision) / NULLIF(NULLIF(COUNT(\"__hq_base\".\"status\"), 0), 0)) AS \"average\", COUNT(DISTINCT CASE WHEN (\"customer\".\"_hq_match\" IS NOT NULL) THEN \"customer\".\"id\" ELSE NULL END) AS \"customer.customerCount\" FROM \"analytics\".\"orders\" AS \"__hq_base\" LEFT JOIN LATERAL (SELECT * FROM (SELECT \"id\", \"tenant_id\", \"country\", \"tier\", \"credit_score\", \"hidden\", 1 AS \"_hq_match\" FROM \"analytics\".\"customers\") AS \"customer\" WHERE \"__hq_base\".\"customer_id\" = \"customer\".\"id\" AND \"customer\".\"tenant_id\" = $1 LIMIT 1) AS \"customer\" ON TRUE WHERE \"__hq_base\".\"tenant_id\" = $2"
+    },
+    "relationship-all-tenants": {
+      "debug": "SELECT CASE WHEN (\"customer\".\"_hq_match\" IS NOT NULL) THEN \"customer\".\"country\" ELSE NULL END AS \"customer.country\", COUNT(\"__hq_base\".\"status\") AS \"orders\" FROM \"analytics\".\"orders\" AS \"__hq_base\" LEFT JOIN LATERAL (SELECT * FROM (SELECT \"id\", \"tenant_id\", \"country\", \"tier\", \"credit_score\", \"hidden\", 1 AS \"_hq_match\" FROM \"analytics\".\"customers\") AS \"customer\" WHERE \"__hq_base\".\"customer_id\" = \"customer\".\"id\" LIMIT 1) AS \"customer\" ON TRUE GROUP BY CASE WHEN (\"customer\".\"_hq_match\" IS NOT NULL) THEN \"customer\".\"country\" ELSE NULL END",
+      "parameters": [],
+      "sql": "SELECT CASE WHEN (\"customer\".\"_hq_match\" IS NOT NULL) THEN \"customer\".\"country\" ELSE NULL END AS \"customer.country\", COUNT(\"__hq_base\".\"status\") AS \"orders\" FROM \"analytics\".\"orders\" AS \"__hq_base\" LEFT JOIN LATERAL (SELECT * FROM (SELECT \"id\", \"tenant_id\", \"country\", \"tier\", \"credit_score\", \"hidden\", 1 AS \"_hq_match\" FROM \"analytics\".\"customers\") AS \"customer\" WHERE \"__hq_base\".\"customer_id\" = \"customer\".\"id\" LIMIT 1) AS \"customer\" ON TRUE GROUP BY CASE WHEN (\"customer\".\"_hq_match\" IS NOT NULL) THEN \"customer\".\"country\" ELSE NULL END"
+    },
+    "relationship-dimension-filter-order": {
+      "debug": "SELECT CASE WHEN (\"customer\".\"_hq_match\" IS NOT NULL) THEN \"customer\".\"country\" ELSE NULL END AS \"customer.country\", SUM(\"__hq_base\".\"net_amount\") AS \"revenue\" FROM \"analytics\".\"orders\" AS \"__hq_base\" LEFT JOIN LATERAL (SELECT * FROM (SELECT \"id\", \"tenant_id\", \"country\", \"tier\", \"credit_score\", \"hidden\", 1 AS \"_hq_match\" FROM \"analytics\".\"customers\") AS \"customer\" WHERE \"__hq_base\".\"customer_id\" = \"customer\".\"id\" AND \"customer\".\"tenant_id\" = <p0:text> LIMIT 1) AS \"customer\" ON TRUE WHERE CASE WHEN (\"customer\".\"_hq_match\" IS NOT NULL) THEN \"customer\".\"tier\" ELSE NULL END = <p1:text> AND \"__hq_base\".\"tenant_id\" = <p2:text> GROUP BY CASE WHEN (\"customer\".\"_hq_match\" IS NOT NULL) THEN \"customer\".\"country\" ELSE NULL END ORDER BY \"revenue\" DESC NULLS LAST, CASE WHEN (\"customer\".\"_hq_match\" IS NOT NULL) THEN \"customer\".\"country\" ELSE NULL END ASC",
+      "parameters": [
+        [
+          "p0",
+          "text",
+          "acme"
+        ],
+        [
+          "p1",
+          "text",
+          "gold"
+        ],
+        [
+          "p2",
+          "text",
+          "acme"
+        ]
+      ],
+      "sql": "SELECT CASE WHEN (\"customer\".\"_hq_match\" IS NOT NULL) THEN \"customer\".\"country\" ELSE NULL END AS \"customer.country\", SUM(\"__hq_base\".\"net_amount\") AS \"revenue\" FROM \"analytics\".\"orders\" AS \"__hq_base\" LEFT JOIN LATERAL (SELECT * FROM (SELECT \"id\", \"tenant_id\", \"country\", \"tier\", \"credit_score\", \"hidden\", 1 AS \"_hq_match\" FROM \"analytics\".\"customers\") AS \"customer\" WHERE \"__hq_base\".\"customer_id\" = \"customer\".\"id\" AND \"customer\".\"tenant_id\" = $1 LIMIT 1) AS \"customer\" ON TRUE WHERE CASE WHEN (\"customer\".\"_hq_match\" IS NOT NULL) THEN \"customer\".\"tier\" ELSE NULL END = $2 AND \"__hq_base\".\"tenant_id\" = $3 GROUP BY CASE WHEN (\"customer\".\"_hq_match\" IS NOT NULL) THEN \"customer\".\"country\" ELSE NULL END ORDER BY \"revenue\" DESC NULLS LAST, CASE WHEN (\"customer\".\"_hq_match\" IS NOT NULL) THEN \"customer\".\"country\" ELSE NULL END ASC"
+    },
+    "relationship-measures": {
+      "debug": "SELECT \"__hq_base\".\"status\" AS \"status\", SUM(\"__hq_base\".\"net_amount\") AS \"revenue\", COUNT(DISTINCT CASE WHEN (\"customer\".\"_hq_match\" IS NOT NULL) THEN \"customer\".\"id\" ELSE NULL END) AS \"customer.customerCount\", MAX(CASE WHEN (\"customer\".\"_hq_match\" IS NOT NULL) THEN \"customer\".\"credit_score\" ELSE NULL END) AS \"customer.bestScore\", (ARRAY_AGG(CASE WHEN (\"customer\".\"_hq_match\" IS NOT NULL) THEN \"customer\".\"tier\" ELSE NULL END ORDER BY CASE WHEN (\"customer\".\"_hq_match\" IS NOT NULL) THEN \"customer\".\"credit_score\" ELSE NULL END DESC) FILTER (WHERE CASE WHEN (\"customer\".\"_hq_match\" IS NOT NULL) THEN \"customer\".\"credit_score\" ELSE NULL END IS NOT NULL))[1] AS \"customer.latestTier\", COUNT(DISTINCT CASE WHEN (\"customer\".\"_hq_match\" IS NOT NULL) THEN \"customer\".\"id\" ELSE NULL END) FILTER (WHERE CASE WHEN (\"customer\".\"_hq_match\" IS NOT NULL) THEN \"customer\".\"tier\" ELSE NULL END = <p1:text>) AS \"customer.goldCustomers\" FROM \"analytics\".\"orders\" AS \"__hq_base\" LEFT JOIN LATERAL (SELECT * FROM (SELECT \"id\", \"tenant_id\", \"country\", \"tier\", \"credit_score\", \"hidden\", 1 AS \"_hq_match\" FROM \"analytics\".\"customers\") AS \"customer\" WHERE \"__hq_base\".\"customer_id\" = \"customer\".\"id\" AND \"customer\".\"tenant_id\" = <p0:text> LIMIT 1) AS \"customer\" ON TRUE WHERE \"__hq_base\".\"tenant_id\" = <p2:text> GROUP BY \"__hq_base\".\"status\"",
+      "parameters": [
+        [
+          "p0",
+          "text",
+          "acme"
+        ],
+        [
+          "p1",
+          "text",
+          "gold"
+        ],
+        [
+          "p2",
+          "text",
+          "acme"
+        ]
+      ],
+      "sql": "SELECT \"__hq_base\".\"status\" AS \"status\", SUM(\"__hq_base\".\"net_amount\") AS \"revenue\", COUNT(DISTINCT CASE WHEN (\"customer\".\"_hq_match\" IS NOT NULL) THEN \"customer\".\"id\" ELSE NULL END) AS \"customer.customerCount\", MAX(CASE WHEN (\"customer\".\"_hq_match\" IS NOT NULL) THEN \"customer\".\"credit_score\" ELSE NULL END) AS \"customer.bestScore\", (ARRAY_AGG(CASE WHEN (\"customer\".\"_hq_match\" IS NOT NULL) THEN \"customer\".\"tier\" ELSE NULL END ORDER BY CASE WHEN (\"customer\".\"_hq_match\" IS NOT NULL) THEN \"customer\".\"credit_score\" ELSE NULL END DESC) FILTER (WHERE CASE WHEN (\"customer\".\"_hq_match\" IS NOT NULL) THEN \"customer\".\"credit_score\" ELSE NULL END IS NOT NULL))[1] AS \"customer.latestTier\", COUNT(DISTINCT CASE WHEN (\"customer\".\"_hq_match\" IS NOT NULL) THEN \"customer\".\"id\" ELSE NULL END) FILTER (WHERE CASE WHEN (\"customer\".\"_hq_match\" IS NOT NULL) THEN \"customer\".\"tier\" ELSE NULL END = $2) AS \"customer.goldCustomers\" FROM \"analytics\".\"orders\" AS \"__hq_base\" LEFT JOIN LATERAL (SELECT * FROM (SELECT \"id\", \"tenant_id\", \"country\", \"tier\", \"credit_score\", \"hidden\", 1 AS \"_hq_match\" FROM \"analytics\".\"customers\") AS \"customer\" WHERE \"__hq_base\".\"customer_id\" = \"customer\".\"id\" AND \"customer\".\"tenant_id\" = $1 LIMIT 1) AS \"customer\" ON TRUE WHERE \"__hq_base\".\"tenant_id\" = $3 GROUP BY \"__hq_base\".\"status\""
+    },
+    "relationship-with-several-tenants": {
+      "debug": "SELECT CASE WHEN (\"customer\".\"_hq_match\" IS NOT NULL) THEN \"customer\".\"country\" ELSE NULL END AS \"customer.country\", COUNT(\"__hq_base\".\"status\") AS \"orders\" FROM \"analytics\".\"orders\" AS \"__hq_base\" LEFT JOIN LATERAL (SELECT * FROM (SELECT \"id\", \"tenant_id\", \"country\", \"tier\", \"credit_score\", \"hidden\", 1 AS \"_hq_match\" FROM \"analytics\".\"customers\") AS \"customer\" WHERE \"__hq_base\".\"customer_id\" = \"customer\".\"id\" AND \"customer\".\"tenant_id\" = ANY(<p0:text[]>) LIMIT 1) AS \"customer\" ON TRUE WHERE \"__hq_base\".\"tenant_id\" = ANY(<p1:text[]>) GROUP BY CASE WHEN (\"customer\".\"_hq_match\" IS NOT NULL) THEN \"customer\".\"country\" ELSE NULL END",
+      "parameters": [
+        [
+          "p0",
+          "text[]",
+          [
+            "acme",
+            "globex"
+          ]
+        ],
+        [
+          "p1",
+          "text[]",
+          [
+            "acme",
+            "globex"
+          ]
+        ]
+      ],
+      "sql": "SELECT CASE WHEN (\"customer\".\"_hq_match\" IS NOT NULL) THEN \"customer\".\"country\" ELSE NULL END AS \"customer.country\", COUNT(\"__hq_base\".\"status\") AS \"orders\" FROM \"analytics\".\"orders\" AS \"__hq_base\" LEFT JOIN LATERAL (SELECT * FROM (SELECT \"id\", \"tenant_id\", \"country\", \"tier\", \"credit_score\", \"hidden\", 1 AS \"_hq_match\" FROM \"analytics\".\"customers\") AS \"customer\" WHERE \"__hq_base\".\"customer_id\" = \"customer\".\"id\" AND \"customer\".\"tenant_id\" = ANY($1) LIMIT 1) AS \"customer\" ON TRUE WHERE \"__hq_base\".\"tenant_id\" = ANY($2) GROUP BY CASE WHEN (\"customer\".\"_hq_match\" IS NOT NULL) THEN \"customer\".\"country\" ELSE NULL END"
+    },
+    "sql-backed-fields": {
+      "debug": "SELECT (value * 2\n) AS \"doubled\", SUM((value * 2\n)) AS \"rawTotal\", COUNT(\"kind\") AS \"events\" FROM \"events\" GROUP BY (value * 2\n) LIMIT 500",
+      "parameters": [],
+      "sql": "SELECT (value * 2\n) AS \"doubled\", SUM((value * 2\n)) AS \"rawTotal\", COUNT(\"kind\") AS \"events\" FROM \"events\" GROUP BY (value * 2\n) LIMIT 500"
+    },
+    "time-filters-in-zone": {
+      "debug": "SELECT COUNT(\"status\") AS \"orders\" FROM \"analytics\".\"orders\" WHERE \"created_at\" >= (CASE WHEN pg_typeof((SELECT \"created_at\" FROM \"analytics\".\"orders\" LIMIT 0)) = 'date'::regtype THEN CAST(<p1:timestamptz> AS timestamptz) AT TIME ZONE <p0:text> ELSE CAST(<p1:timestamptz> AS timestamptz) END) AND \"created_at\" < (CASE WHEN pg_typeof((SELECT \"created_at\" FROM \"analytics\".\"orders\" LIMIT 0)) = 'date'::regtype THEN CAST(<p2:timestamptz> AS timestamptz) AT TIME ZONE <p0:text> ELSE CAST(<p2:timestamptz> AS timestamptz) END) AND \"created_at\" BETWEEN (CASE WHEN pg_typeof((SELECT \"created_at\" FROM \"analytics\".\"orders\" LIMIT 0)) = 'date'::regtype THEN CAST(<p3:timestamptz> AS timestamptz) AT TIME ZONE <p0:text> ELSE CAST(<p3:timestamptz> AS timestamptz) END) AND (CASE WHEN pg_typeof((SELECT \"created_at\" FROM \"analytics\".\"orders\" LIMIT 0)) = 'date'::regtype THEN CAST(<p4:timestamptz> AS timestamptz) AT TIME ZONE <p0:text> ELSE CAST(<p4:timestamptz> AS timestamptz) END) AND \"created_at\" IN ((CASE WHEN pg_typeof((SELECT \"created_at\" FROM \"analytics\".\"orders\" LIMIT 0)) = 'date'::regtype THEN CAST(<p5:timestamptz> AS timestamptz) AT TIME ZONE <p0:text> ELSE CAST(<p5:timestamptz> AS timestamptz) END)) AND \"tenant_id\" = <p6:text>",
+      "parameters": [
+        [
+          "p0",
+          "text",
+          "America/New_York"
+        ],
+        [
+          "p1",
+          "timestamptz",
+          "2026-03-08T00:00:00-05:00"
+        ],
+        [
+          "p2",
+          "timestamptz",
+          "2026-03-09T00:00:00Z"
+        ],
+        [
+          "p3",
+          "timestamptz",
+          "2026-01-01T00:00:00-05:00"
+        ],
+        [
+          "p4",
+          "timestamptz",
+          "2026-02-01T00:00:00-05:00"
+        ],
+        [
+          "p5",
+          "timestamptz",
+          "2026-01-01T00:00:00+02:00"
+        ],
+        [
+          "p6",
+          "text",
+          "acme"
+        ]
+      ],
+      "sql": "SELECT COUNT(\"status\") AS \"orders\" FROM \"analytics\".\"orders\" WHERE \"created_at\" >= (CASE WHEN pg_typeof((SELECT \"created_at\" FROM \"analytics\".\"orders\" LIMIT 0)) = 'date'::regtype THEN CAST($2 AS timestamptz) AT TIME ZONE $1 ELSE CAST($2 AS timestamptz) END) AND \"created_at\" < (CASE WHEN pg_typeof((SELECT \"created_at\" FROM \"analytics\".\"orders\" LIMIT 0)) = 'date'::regtype THEN CAST($3 AS timestamptz) AT TIME ZONE $1 ELSE CAST($3 AS timestamptz) END) AND \"created_at\" BETWEEN (CASE WHEN pg_typeof((SELECT \"created_at\" FROM \"analytics\".\"orders\" LIMIT 0)) = 'date'::regtype THEN CAST($4 AS timestamptz) AT TIME ZONE $1 ELSE CAST($4 AS timestamptz) END) AND (CASE WHEN pg_typeof((SELECT \"created_at\" FROM \"analytics\".\"orders\" LIMIT 0)) = 'date'::regtype THEN CAST($5 AS timestamptz) AT TIME ZONE $1 ELSE CAST($5 AS timestamptz) END) AND \"created_at\" IN ((CASE WHEN pg_typeof((SELECT \"created_at\" FROM \"analytics\".\"orders\" LIMIT 0)) = 'date'::regtype THEN CAST($6 AS timestamptz) AT TIME ZONE $1 ELSE CAST($6 AS timestamptz) END)) AND \"tenant_id\" = $7"
+    }
+  },
+  "relationshipChecks": {
+    "acme:account": {
+      "debug": "SELECT COUNT(*) AS \"__hq_rows\", COUNT(DISTINCT ROW(\"name\", \"region\")) AS \"__hq_keys\" FROM \"analytics\".\"accounts\" WHERE (\"name\" IS NOT NULL) AND (\"region\" IS NOT NULL)",
+      "parameters": [],
+      "sql": "SELECT COUNT(*) AS \"__hq_rows\", COUNT(DISTINCT ROW(\"name\", \"region\")) AS \"__hq_keys\" FROM \"analytics\".\"accounts\" WHERE (\"name\" IS NOT NULL) AND (\"region\" IS NOT NULL)"
+    },
+    "acme:customer": {
+      "debug": "SELECT COUNT(*) AS \"__hq_rows\", COUNT(DISTINCT \"id\") AS \"__hq_keys\" FROM \"analytics\".\"customers\" WHERE (\"id\" IS NOT NULL) AND \"tenant_id\" = <p0:text>",
+      "parameters": [
+        [
+          "p0",
+          "text",
+          "acme"
+        ]
+      ],
+      "sql": "SELECT COUNT(*) AS \"__hq_rows\", COUNT(DISTINCT \"id\") AS \"__hq_keys\" FROM \"analytics\".\"customers\" WHERE (\"id\" IS NOT NULL) AND \"tenant_id\" = $1"
+    },
+    "acme:profile": {
+      "debug": "SELECT COUNT(*) AS \"__hq_rows\", COUNT(DISTINCT \"customer_id\") AS \"__hq_keys\" FROM \"analytics\".\"profiles\" WHERE (\"customer_id\" IS NOT NULL)",
+      "parameters": [],
+      "sql": "SELECT COUNT(*) AS \"__hq_rows\", COUNT(DISTINCT \"customer_id\") AS \"__hq_keys\" FROM \"analytics\".\"profiles\" WHERE (\"customer_id\" IS NOT NULL)"
+    },
+    "several:account": {
+      "debug": "SELECT COUNT(*) AS \"__hq_rows\", COUNT(DISTINCT ROW(\"name\", \"region\")) AS \"__hq_keys\" FROM \"analytics\".\"accounts\" WHERE (\"name\" IS NOT NULL) AND (\"region\" IS NOT NULL)",
+      "parameters": [],
+      "sql": "SELECT COUNT(*) AS \"__hq_rows\", COUNT(DISTINCT ROW(\"name\", \"region\")) AS \"__hq_keys\" FROM \"analytics\".\"accounts\" WHERE (\"name\" IS NOT NULL) AND (\"region\" IS NOT NULL)"
+    },
+    "several:customer": {
+      "debug": "SELECT COUNT(*) AS \"__hq_rows\", COUNT(DISTINCT \"id\") AS \"__hq_keys\" FROM \"analytics\".\"customers\" WHERE (\"id\" IS NOT NULL) AND \"tenant_id\" = ANY(<p0:text[]>)",
+      "parameters": [
+        [
+          "p0",
+          "text[]",
+          [
+            "acme",
+            "globex"
+          ]
+        ]
+      ],
+      "sql": "SELECT COUNT(*) AS \"__hq_rows\", COUNT(DISTINCT \"id\") AS \"__hq_keys\" FROM \"analytics\".\"customers\" WHERE (\"id\" IS NOT NULL) AND \"tenant_id\" = ANY($1)"
+    },
+    "several:profile": {
+      "debug": "SELECT COUNT(*) AS \"__hq_rows\", COUNT(DISTINCT \"customer_id\") AS \"__hq_keys\" FROM \"analytics\".\"profiles\" WHERE (\"customer_id\" IS NOT NULL)",
+      "parameters": [],
+      "sql": "SELECT COUNT(*) AS \"__hq_rows\", COUNT(DISTINCT \"customer_id\") AS \"__hq_keys\" FROM \"analytics\".\"profiles\" WHERE (\"customer_id\" IS NOT NULL)"
+    }
+  }
+}
