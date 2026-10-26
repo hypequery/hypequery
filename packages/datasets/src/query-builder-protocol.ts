@@ -61,6 +61,8 @@ export interface QueryBuilderLike {
    * unmerged row version.
    */
   final?(): QueryBuilderLike;
+  /** Query-level ClickHouse settings, sent with the query. */
+  settings?(opts: Record<string, string | number | boolean>): QueryBuilderLike;
 
   // Joins. Relationship traversal uses `leftAnyJoin`; `leftJoin` stays part
   // of the protocol for builder compatibility.

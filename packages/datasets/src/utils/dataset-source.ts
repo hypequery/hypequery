@@ -20,19 +20,22 @@ export function datasetSourceBuilder(
       'Reading it without FINAL would count every unmerged row version, so the query is refused.',
     );
   }
+  // A filter moved to PREWHERE runs before FINAL and can match an older version
+  // of a row. The default already forbids that; pinning it also covers profiles
+  // that enable it. readonly = 1 accepts a setting equal to the profile's, and
+  // refuses it exactly where the profile is unsafe, so the query fails closed.
+  const resolved = qb.final();
+  const safe = resolved.settings ? resolved.settings({ optimize_move_to_prewhere_if_final: 0 }) : resolved;
   const current = currentRowPredicate(ds);
   // Qualified like every base column, so it stays unambiguous once joins are added.
-  return current
-    ? qb.final().where(`${ds.source}.${current.column}`, 'eq', current.value)
-    : qb.final();
+  return current ? safe.where(`${ds.source}.${current.column}`, 'eq', current.value) : safe;
 }
 
 /**
  * After `FINAL`, the rows that are current state: not deleted in a
  * ReplacingMergeTree, positive in a collapsing engine. `FINAL` alone removes
- * these on current ClickHouse; the filter keeps older servers and unmatched
- * cancel rows from counting. ClickHouse applies it after `FINAL` unless a
- * profile enables `optimize_move_to_prewhere_if_final` (off by default).
+ * engine-declared deletions on current ClickHouse; the filter covers deletion
+ * columns the engine doesn't declare, older servers and unmatched cancel rows.
  */
 export function currentRowPredicate(
   ds: Pick<AnyDatasetInstance, 'rowResolution'>,
