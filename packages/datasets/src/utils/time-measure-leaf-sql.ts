@@ -34,8 +34,8 @@ export function timeMeasureLeafSql(dialect: DatasetSqlDialectRules, id: number, 
   const lower = window?.trailing ? dialect.subtractTime('_hq_eval_end', window.trailing.amount, window.trailing.unit)
     : window?.toDate ? dialect.truncateTime('_hq_eval_period', window.toDate) : '_hq_eval_lower';
   const upper = window ? '_hq_eval_end' : '_hq_eval_upper';
-  const lowerInclusive = window ? '1' : '_hq_lower_inclusive';
-  const upperInclusive = window ? '0' : '_hq_upper_inclusive';
+  const lowerInclusive = window ? dialect.booleanLiteral(true) : '_hq_lower_inclusive';
+  const upperInclusive = window ? dialect.booleanLiteral(false) : '_hq_upper_inclusive';
   const first = dialect.truncateTime('_hq_scan_lower', axis.grain);
   const last = dialect.truncateTime('_hq_scan_upper', axis.grain);
   const partialUpper = dialect.ifElse(`_hq_scan_upper > ${last} OR _hq_scan_upper_inclusive`, '1', '0');

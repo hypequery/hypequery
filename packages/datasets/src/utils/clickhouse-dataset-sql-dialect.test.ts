@@ -36,7 +36,8 @@ describe('ClickHouse datasets SQL rules', () => {
   it('spells timezone conversion, parsing and inspection', () => {
     expect(ch.toQueryTimezone('t', 'Asia/Tokyo')).toBe("toDateTime64(t, 9, 'Asia/Tokyo')");
     expect(ch.parseTimestamp('?', 'z')).toBe('parseDateTime64BestEffort(?, 9, z)');
-    expect(ch.timezoneOf('t')).toBe('timezoneOf(t)');
+    expect(ch.timezoneOf('t', 'UTC')).toBe('timezoneOf(t)');
+    expect(ch.periodValue('p', 'week')).toBe('p');
     expect(ch.clockPart('Minute', 't')).toBe('toMinute(t)');
     expect(ch.isDateOnlyType('v')).toBe("position(toTypeName(v), 'Date') > 0 AND position(toTypeName(v), 'DateTime') = 0");
   });
@@ -57,9 +58,15 @@ describe('ClickHouse datasets SQL rules', () => {
 
   it('spells row packing and structural clauses', () => {
     expect(ch.packRow(['a', 'b'])).toBe('tuple(a, b)');
-    expect(ch.rowElement('r', 3)).toBe('tupleElement(r, 3)');
-    expect(ch.selectAllExcept('s', ['a', 'b'])).toBe('s.* EXCEPT (a, b)');
-    expect(ch.asofLeftJoin).toBe('LEFT ASOF JOIN');
+    expect(ch.isolateColumns('r', ['a', 'b'])).toEqual(['tuple(a, b) AS r']);
+    expect(ch.isolatedColumn('r', 3)).toBe('tupleElement(r, 3)');
+    expect(ch.isolatedColumnProbe('r', 'raw', 1)).toBe('tupleElement((SELECT r FROM raw LIMIT 0), 1)');
+    expect(ch.selectAllExcept('s', ['a', 'b'], ['s.c'])).toBe('s.* EXCEPT (a, b)');
+    expect(ch.derivedTable('SELECT 1', 'x')).toBe('(SELECT 1)');
+    expect(ch.booleanLiteral(true)).toBe('1');
+    expect(ch.selectWithAliasReferences([['1', 'a'], ['a + 1', 'b']])).toBe('SELECT 1 AS a, a + 1 AS b');
+    expect(ch.asofLeftJoin('agg', 'm', [['s.p', 'm.p']], ['s.e', 'm.t']))
+      .toBe('LEFT ASOF JOIN agg AS m ON s.p = m.p AND s.e > m.t');
   });
 
   it('spells ordering and pagination', () => {

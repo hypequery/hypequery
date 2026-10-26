@@ -1,5 +1,6 @@
 import type { PostgresSelectNode } from '../types.js';
 import { updateSelectNode } from '../query-node.js';
+import { argExtremeSql, percentileSql } from '../utils/aggregate-sql.js';
 
 /** Aggregate selections, spelled for Postgres to match the ClickHouse results. */
 export class AggregationFeature {
@@ -31,25 +32,16 @@ export class AggregationFeature {
 
   /** ClickHouse `argMax`: the value on the row whose `argColumn` is greatest, ignoring NULL args. */
   argMax(column: string, argColumn: string, alias?: string) {
-    return this.append(
-      `(ARRAY_AGG(${column} ORDER BY ${argColumn} DESC) FILTER (WHERE ${argColumn} IS NOT NULL))[1]`,
-      alias ?? `${column}_argMax`,
-    );
+    return this.append(argExtremeSql(column, argColumn, 'DESC'), alias ?? `${column}_argMax`);
   }
 
   argMin(column: string, argColumn: string, alias?: string) {
-    return this.append(
-      `(ARRAY_AGG(${column} ORDER BY ${argColumn} ASC) FILTER (WHERE ${argColumn} IS NOT NULL))[1]`,
-      alias ?? `${column}_argMin`,
-    );
+    return this.append(argExtremeSql(column, argColumn, 'ASC'), alias ?? `${column}_argMin`);
   }
 
   /** Interpolated percentile; ClickHouse `quantile` is an approximation of the same value. */
   quantile(column: string, level: number, alias?: string) {
-    if (!Number.isFinite(level) || level < 0 || level > 1) {
-      throw new Error('A quantile level must be a number in [0, 1].');
-    }
-    return this.append(`percentile_cont(${level}) WITHIN GROUP (ORDER BY ${column})`, alias ?? `${column}_quantile`);
+    return this.append(percentileSql(column, level), alias ?? `${column}_quantile`);
   }
 
   stddev(column: string, alias?: string) {

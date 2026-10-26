@@ -38,9 +38,10 @@
     "types": "tsc --project tsconfig.json --noEmit"
   },
   "peerDependencies": {
-    "@hypequery/datasets": ">=0.24.0"
+    "@hypequery/datasets": ">=0.24.1"
   },
   "devDependencies": {
+    "@hypequery/clickhouse": "workspace:^",
     "@hypequery/datasets": "workspace:^",
     "@types/node": "^20.11.30",
     "@types/pg": "^8.11.10",

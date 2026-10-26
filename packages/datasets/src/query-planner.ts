@@ -1,5 +1,6 @@
 import { semanticOrderDirection } from './utils/semantic-query-syntax.js';
-import { queryTimeSql } from './utils/query-timezone.js';
+import { canonicalTimezone, queryTimeSql } from './utils/query-timezone.js';
+import { zonedDatasetSqlDialect } from './utils/dataset-sql-dialect.js';
 import { assertNoRawSqlUnderJoins } from './utils/sql-under-joins.js';
 import type {
   AggregationSpec,
@@ -71,8 +72,13 @@ export function buildDimensionSelectionPlan(
     }
     const time = resolveDimensionExpression(ds, String(ds.timeKey), joinCtx);
     const period = dialect.quoteIdentifier('period');
-    selectParts.push(`${dialect.truncateTime(queryTimeSql(dialect, time, timezone), grain)} AS ${period}`);
-    groupByParts.add(period);
+    // Bucket in the query timezone; group by the bucket itself when the
+    // engine renders it differently (a wall clock repeats in a DST fall-back).
+    const zoned = zonedDatasetSqlDialect(dialect, canonicalTimezone(timezone));
+    const bucket = zoned.truncateTime(queryTimeSql(zoned, time, timezone), grain);
+    const value = zoned.periodValue(bucket, grain);
+    selectParts.push(`${value} AS ${period}`);
+    groupByParts.add(value === bucket ? period : bucket);
   }
 
   for (const dimensionName of dimensions) {

@@ -64,7 +64,7 @@ export function buildTimeMeasureValuesSql(
     ? ` CROSS JOIN (SELECT DISTINCT ${keys.join(', ')} FROM _hq_scanned) AS _hq_combinations`
     : '';
   ctes.push(`_hq_skeleton AS (SELECT * FROM _hq_series${combinations})`);
-  const projections = ['s._hq_period AS period', ...dims.map(dimension => `s.${dimension.alias} AS ${dialect.quoteIdentifier(dimension.name)}`)];
+  const projections = [`${dialect.periodValue('s._hq_period', axis.grain)} AS period`, ...dims.map(dimension => `s.${dimension.alias} AS ${dialect.quoteIdentifier(dimension.name)}`)];
   const joins: string[] = [];
   let index = 0;
   for (const input of inputs) {

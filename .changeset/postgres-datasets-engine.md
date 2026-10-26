@@ -2,4 +2,11 @@
 "@hypequery/postgres": minor
 ---
 
-New package: run hypequery datasets on Postgres. `createPostgresQueryBuilder({ pool })` plugs into `createDatasetClient({ queryBuilder })` and supports aggregates (including percentile, argMax/argMin, stddev and variance), measure filters, segments, caller filters, time grains in a query timezone, derived measures, `having` and relationship traversal. Results follow the same contract as ClickHouse: floating-point division, NULLs sorted last, Sunday weeks and RFC 0015 period text. Each query runs read-only with a statement timeout and is cancelled on abort. Time measures (trailing, toDate, cumulative, shift) are refused with a clear error for now.
+New package: run hypequery datasets on Postgres. Pass `createPostgresQueryBuilder({ pool })` to `createDatasetClient({ queryBuilder })`. The full datasets surface is supported:
+
+- aggregates, including percentile, argMax/argMin, stddev and variance
+- measure filters, segments, caller filters and time grains in a query timezone
+- derived measures, `having` and relationship traversal
+- time measures (trailing, toDate, cumulative, shift) and formulas over them
+
+Results match ClickHouse, checked by a cross-engine parity suite over identical data. Division is floating point, `round` rounds half to even, NULLs sort last, weeks start on Sunday, and buckets stay distinct across DST transitions. Each query runs read-only with a statement timeout and is cancelled on abort.

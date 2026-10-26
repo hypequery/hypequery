@@ -7,7 +7,8 @@ import { getBaseMeasure, getDerivedMeasure, isShiftMeasure, isWindowMeasure } fr
 import { selectedTimeMeasures } from './time-query-measures.js';
 import { analyzeTimeMeasureAxis } from './time-measure-axis.js';
 import { validateDatasetQueryInput } from './dataset-query-validation.js';
-import { resolveDatasetSqlDialect } from './dataset-sql-dialect.js';
+import { resolveDatasetSqlDialect, zonedDatasetSqlDialect } from './dataset-sql-dialect.js';
+import { canonicalTimezone } from './query-timezone.js';
 import { assertRawSqlForDialect } from './raw-sql-dialect-check.js';
 import { StatementParameters, type PlannedStatement } from './statement-parameters.js';
 import { shiftBucketCtes } from './shift-measure-sql.js';
@@ -30,8 +31,10 @@ export function buildTimeMeasureDatasetSql(
 ): PlannedTimeMeasureStatements {
   const validation = validateDatasetQueryInput(ds, query, options.context);
   if (!validation.valid) throw new Error(`Invalid dataset query: ${validation.errors.join('; ')}`);
-  const dialect = resolveDatasetSqlDialect(options.builderFactory);
-  assertRawSqlForDialect(ds, dialect);
+  const engine = resolveDatasetSqlDialect(options.builderFactory);
+  assertRawSqlForDialect(ds, engine);
+  // Every time-measure expression is planned in the query timezone.
+  const dialect = zonedDatasetSqlDialect(engine, canonicalTimezone(query.timezone));
   const { axis } = analyzeTimeMeasureAxis(ds, query);
   if (!axis || !ds.timeKey) throw new Error('Window measures require a bounded time axis.');
 

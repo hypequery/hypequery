@@ -34,7 +34,7 @@ export function buildTimeMeasureAxisSql(
     : dialect.guard(`${count} > ${axis.resultLimit}`, `Window series exceeds the effective result limit of ${axis.resultLimit} buckets.`);
   const calendarGuard = calendarBucketGuardSql(dialect, '_hq_first', `${count} + ${limitGuard} + ${rangeGuard}`, axis.grain);
 
-  const physicalTime = dialect.rowElement(`(SELECT ${source.rowAlias} FROM _hq_raw LIMIT 0)`, 1);
+  const physicalTime = dialect.isolatedColumnProbe(source.rowAlias, '_hq_raw', 1);
   const physicalGuard = axis.grain === 'minute' || axis.grain === 'hour'
     ? dialect.guard(dialect.isDateOnlyType(physicalTime), 'Sub-day time measures require a time-of-day column; Date and Date32 are not supported.')
     : '0';
@@ -44,18 +44,18 @@ export function buildTimeMeasureAxisSql(
 
   // A zero-row scalar retains the converted timestamp type and query timezone.
   // Reading any(time) here would scan the entire population just for its type.
-  const timezone = dialect.timezoneOf(dialect.assumeNotNull('(SELECT _hq_time FROM _hq_source LIMIT 0)'));
-  const bounds = [
+  const timezone = dialect.timezoneOf(dialect.assumeNotNull('(SELECT _hq_time FROM _hq_source LIMIT 0)'), source.timezone);
+  const bounds: [string, string][] = [
     // The bounds come from the caller's time filter: bind them, never inline them.
-    `${dialect.parseTimestamp(statement.bind(axis.lower, 'string'), timezone)} AS _hq_lower`,
-    `${dialect.parseTimestamp(statement.bind(axis.upper, 'string'), timezone)} AS _hq_upper`,
-    `${first} AS _hq_first`,
-    `${last} AS _hq_last`,
+    [dialect.parseTimestamp(statement.bind(axis.lower, 'string'), timezone), '_hq_lower'],
+    [dialect.parseTimestamp(statement.bind(axis.upper, 'string'), timezone), '_hq_upper'],
+    [first, '_hq_first'],
+    [last, '_hq_last'],
   ];
   const bucketIndices = dialect.seriesIndex(`${count} + ${guard} + ${rangeGuard}`);
   const period = dialect.addTime('_hq_first', bucketIndices, axis.grain);
   const ctes = [
-    `_hq_bounds AS (SELECT ${bounds.join(', ')})`,
+    `_hq_bounds AS (${dialect.selectWithAliasReferences(bounds)})`,
     `_hq_series AS (SELECT ${period} AS _hq_period FROM _hq_bounds)`,
   ];
   // Always check the singleton axis before aggregating. ClickHouse can skip

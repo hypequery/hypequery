@@ -21,7 +21,8 @@ export function queryTimezoneErrors(timezone: unknown): string[] {
     ? [] : ['Invalid timezone: use an IANA name such as UTC or America/New_York.'];
 }
 
-function canonicalTimezone(timezone: string | undefined): string {
+/** The validated canonical IANA name of a query timezone (UTC when omitted). */
+export function canonicalTimezone(timezone: string | undefined): string {
   timezone ??= 'UTC';
   const errors = queryTimezoneErrors(timezone);
   if (errors.length) throw new Error(errors[0]);

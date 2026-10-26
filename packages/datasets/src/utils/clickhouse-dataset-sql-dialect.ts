@@ -86,11 +86,13 @@ export const clickhouseDatasetSqlDialect: DatasetSqlDialectRules = Object.freeze
   toQueryTimezone: (time: string, timezone: string) => `toDateTime64(${time}, 9, '${timezone}')`,
   parseTimestamp: (value: string, timezone: string) => `parseDateTime64BestEffort(${value}, 9, ${timezone})`,
   timezoneOf: (time: string) => `timezoneOf(${time})`,
+  periodValue: (expression: string) => expression,
   clockPart: (part, time) => `to${part}(${time})`,
   isDateOnlyType: (value: string) => `position(toTypeName(${value}), 'Date') > 0 AND position(toTypeName(${value}), 'DateTime') = 0`,
 
   guard: (condition: string, message: string) => `throwIf(${condition}, ${stringLiteral(message)})`,
   ifElse: (condition: string, then: string, otherwise: string) => `if(${condition}, ${then}, ${otherwise})`,
+  booleanLiteral: (value: boolean) => value ? '1' : '0',
   greatest: (...values: string[]) => `greatest(${values.join(', ')})`,
   least: (...values: string[]) => `least(${values.join(', ')})`,
   isNotDistinctFrom: (left: string, right: string) => `isNotDistinctFrom(${left}, ${right})`,
@@ -102,9 +104,18 @@ export const clickhouseDatasetSqlDialect: DatasetSqlDialectRules = Object.freeze
   anyIndex: (index: string, count: string, predicate: string) => `arrayExists(${index} -> ${predicate}, range(toUInt64(${count})))`,
 
   packRow: (values: readonly string[]) => `tuple(${values.join(', ')})`,
-  rowElement: (row: string, position: number) => `tupleElement(${row}, ${position})`,
-  selectAllExcept: (relation: string, columns: readonly string[]) => `${relation}.* EXCEPT (${columns.join(', ')})`,
-  asofLeftJoin: 'LEFT ASOF JOIN',
+  // One tuple column: ClickHouse resolves SELECT aliases inside sibling
+  // expressions, so separately aliased columns could capture authored names.
+  isolateColumns: (rowAlias: string, values: readonly string[]) => [`tuple(${values.join(', ')}) AS ${rowAlias}`],
+  isolatedColumn: (rowAlias: string, position: number) => `tupleElement(${rowAlias}, ${position})`,
+  isolatedColumnProbe: (rowAlias: string, relation: string, position: number) =>
+    `tupleElement((SELECT ${rowAlias} FROM ${relation} LIMIT 0), ${position})`,
+  selectAllExcept: (relation: string, excluded: readonly string[]) => `${relation}.* EXCEPT (${excluded.join(', ')})`,
+  derivedTable: (sql: string) => `(${sql})`,
+  // ClickHouse resolves a SELECT alias inside the sibling items after it.
+  selectWithAliasReferences: items => `SELECT ${items.map(([expression, alias]) => `${expression} AS ${alias}`).join(', ')}`,
+  asofLeftJoin: (relation, alias, equalities, before) => `LEFT ASOF JOIN ${relation} AS ${alias} ON ${
+    [...equalities.map(([left, right]) => `${left} = ${right}`), `${before[0]} > ${before[1]}`].join(' AND ')}`,
 
   filteredAggregateInput: (condition: string, value: string, fallback: '0' | 'NULL') => `if(${condition}, ${value}, ${fallback})`,
   windowAggregate(definition, value, arg) {

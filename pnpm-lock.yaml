@@ -245,6 +245,9 @@ importers:
 
   packages/postgres:
     devDependencies:
+      '@hypequery/clickhouse':
+        specifier: workspace:^
+        version: link:../clickhouse
       '@hypequery/datasets':
         specifier: workspace:^
         version: link:../datasets

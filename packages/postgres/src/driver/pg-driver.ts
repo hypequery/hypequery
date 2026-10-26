@@ -1,5 +1,6 @@
 import type { PostgresDriver, PostgresQueryOptions } from './driver.js';
 import { resultValueTypes } from './result-values.js';
+import { toGuardError } from '../dialect/guard-errors.js';
 
 /** The subset of a node-postgres `PoolClient` the driver uses. */
 export interface PgClientLike {
@@ -81,7 +82,7 @@ export function createPgDriver(options: PgDriverOptions): PostgresDriver {
           releaseError = rollbackError instanceof Error ? rollbackError : new Error(String(rollbackError));
         }
         if (abortSignal?.aborted) throw abortSignal.reason ?? error;
-        throw error;
+        throw toGuardError(error);
       } finally {
         abortSignal?.removeEventListener('abort', cancel);
         client.release(releaseError);

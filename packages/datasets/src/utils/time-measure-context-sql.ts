@@ -9,7 +9,7 @@ import { anchoredCalendarShiftSql } from './calendar-shift-sql.js';
 /** Keep output coordinates separate from each shifted evaluation interval. */
 export function timeMeasureContextCtes(dialect: DatasetSqlDialectRules, contexts: readonly MeasureEvaluationContext[], axis: TimeMeasureAxis): string[] {
   const end = dialect.addTime('_hq_period', 1, axis.grain);
-  const root = `_hq_context0 AS (SELECT _hq_period, _hq_period AS _hq_eval_period, ${end} AS _hq_eval_end, ${dialect.greatest('_hq_period', '_hq_lower')} AS _hq_eval_lower, ${dialect.least(end, '_hq_upper')} AS _hq_eval_upper, (_hq_period > _hq_lower OR ${Number(axis.lowerInclusive)}) AS _hq_lower_inclusive, (_hq_upper < ${end} AND ${Number(axis.upperInclusive)}) AS _hq_upper_inclusive FROM _hq_series CROSS JOIN _hq_bounds)`;
+  const root = `_hq_context0 AS (SELECT _hq_period, _hq_period AS _hq_eval_period, ${end} AS _hq_eval_end, ${dialect.greatest('_hq_period', '_hq_lower')} AS _hq_eval_lower, ${dialect.least(end, '_hq_upper')} AS _hq_eval_upper, (_hq_period > _hq_lower OR ${dialect.booleanLiteral(axis.lowerInclusive)}) AS _hq_lower_inclusive, (_hq_upper < ${end} AND ${dialect.booleanLiteral(axis.upperInclusive)}) AS _hq_upper_inclusive FROM _hq_series CROSS JOIN _hq_bounds)`;
   return [root, ...contexts.slice(1).map(context => {
     const interval = context.interval!;
     const calendar = calendarShiftAtFineGrain(interval, axis.grain);

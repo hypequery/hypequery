@@ -80,3 +80,8 @@ export function resolveDatasetSqlDialect(factory: QueryBuilderFactoryInput): Dat
     ? completeDatasetSqlDialect(factory.datasetSqlDialect)
     : clickhouseDatasetSqlDialect;
 }
+
+/** The rules for planning in `timezone`: the engine's zoned rules, if it has them. */
+export function zonedDatasetSqlDialect(dialect: DatasetSqlDialectRules, timezone: string): DatasetSqlDialectRules {
+  return dialect.withQueryTimezone?.(timezone) ?? dialect;
+}

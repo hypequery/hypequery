@@ -24,8 +24,8 @@ export function shiftRangeSql(dialect: DatasetSqlDialectRules, shift: ShiftMeasu
   return {
     lower: shiftBound(dialect.greatest(first, '_hq_lower'), first),
     upper: calendar ? dialect.ifElse(`_hq_upper >= ${end}`, shiftedEnd, upper) : upper,
-    lowerInclusive: period ? `(${period} > _hq_lower OR ${Number(axis.lowerInclusive)})` : String(Number(axis.lowerInclusive)),
-    upperInclusive: `(_hq_upper < ${end} AND ${Number(axis.upperInclusive)})`,
+    lowerInclusive: period ? `(${period} > _hq_lower OR ${dialect.booleanLiteral(axis.lowerInclusive)})` : dialect.booleanLiteral(axis.lowerInclusive),
+    upperInclusive: `(_hq_upper < ${end} AND ${dialect.booleanLiteral(axis.upperInclusive)})`,
   };
 }
 

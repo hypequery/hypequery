@@ -34,11 +34,13 @@ export function buildCompositeTimeMeasureSql(
     return { node, ...timeMeasureLeafSql(dialect, node.id, node.context, base, window, axis, source.dimensions) };
   });
   const keys = source.dimensions.map(dim => dim.alias);
-  const combinations = keys.length ? ` CROSS JOIN (SELECT DISTINCT ${keys.join(', ')} FROM (${inputs.map(input => `SELECT ${keys.join(', ')} FROM ${input.population}`).join(' UNION ALL ')})) AS _hq_combinations` : '';
+  const combinations = keys.length ? ` CROSS JOIN (SELECT DISTINCT ${keys.join(', ')} FROM ${dialect.derivedTable(inputs.map(input => `SELECT ${keys.join(', ')} FROM ${input.population}`).join(' UNION ALL '), '_hq_populations')}) AS _hq_combinations` : '';
   const guardCtes = [...source.ctes, ...timeAxis.ctes, ...contexts, ...inputs.flatMap(input => input.ctes)];
   const ctes = [...guardCtes,
     `_hq_skeleton AS (SELECT * FROM _hq_series${combinations})`];
   let previous = '_hq_skeleton';
+  // The columns of `previous`, for engines that cannot select all-but-some.
+  const columns = ['_hq_period', ...keys];
   for (const input of inputs) {
     const { node } = input;
     const output = `_hq_value${node.id}`;
@@ -48,19 +50,23 @@ export function buildCompositeTimeMeasureSql(
       const partition = dialect.packRow(keys.length ? keys.map(key => `s.${key}`) : ['0']);
       const lookup = `_hq_lookup${node.id}`;
       ctes.push(`${lookup} AS (SELECT s.*, c._hq_eval_end, ${partition} AS _hq_partition FROM ${previous} AS s INNER JOIN _hq_context${input.context} AS c ON s._hq_period = c._hq_period)`);
-      ctes.push(`${next} AS (SELECT ${dialect.selectAllExcept('s', ['_hq_eval_end', '_hq_partition'])}, ${value} AS ${output} FROM ${lookup} AS s ${dialect.asofLeftJoin} ${input.aggregate} AS m ON s._hq_partition = m._hq_partition AND s._hq_eval_end > m._hq_time)`);
+      const kept = columns.map(column => `s.${column}`);
+      const asof = dialect.asofLeftJoin(input.aggregate, 'm', [['s._hq_partition', 'm._hq_partition']], ['s._hq_eval_end', 'm._hq_time']);
+      ctes.push(`${next} AS (SELECT ${dialect.selectAllExcept('s', ['_hq_eval_end', '_hq_partition'], kept)}, ${value} AS ${output} FROM ${lookup} AS s ${asof})`);
     } else {
       const condition = ['s._hq_period = m._hq_period', ...keys.map(key => dialect.isNotDistinctFrom(`s.${key}`, `m.${key}`))];
       ctes.push(`${next} AS (SELECT s.*, ${value} AS ${output} FROM ${previous} AS s LEFT JOIN ${input.aggregate} AS m ON ${condition.join(' AND ')})`);
     }
+    columns.push(output);
     previous = next;
   }
   for (const node of graph.nodes.filter(node => isDerivedMeasure(node.definition))) {
     const next = `_hq_formula${node.id}`;
     ctes.push(`${next} AS (SELECT *, ${derivedProjection(dialect, `_hq_value${node.id}`, evaluationFormula(node))} FROM ${previous})`);
+    columns.push(`_hq_value${node.id}`);
     previous = next;
   }
-  const projections = ['v._hq_period AS period', ...source.dimensions.map(dim => `v.${dim.alias} AS ${dialect.quoteIdentifier(dim.name)}`),
+  const projections = [`${dialect.periodValue('v._hq_period', axis.grain)} AS period`, ...source.dimensions.map(dim => `v.${dim.alias} AS ${dialect.quoteIdentifier(dim.name)}`),
     ...Object.entries(graph.outputs).map(([name, id]) => `v._hq_value${id} AS ${dialect.quoteIdentifier(name)}`)];
   ctes.push(`_hq_values AS (SELECT ${projections.join(', ')} FROM ${previous} AS v)`);
   const guard = [timeAxis.guard, timeAxis.rangeGuard, ...graph.contexts.map(context => timeMeasureContextGuard(dialect, context, axis)), ...inputs.map(input => input.guard)].join(' + ');

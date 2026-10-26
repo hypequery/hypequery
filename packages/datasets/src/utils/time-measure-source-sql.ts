@@ -1,7 +1,7 @@
 import { datasetSourceBuilder } from './dataset-source.js';
 import { resolveRelationshipMeasure } from './relationship-measures.js';
 import { relationshipMeasureExpressions } from './relationship-measure-sql.js';
-import { queryTimeFilter, queryTimeSql } from './query-timezone.js';
+import { canonicalTimezone, queryTimeFilter, queryTimeSql } from './query-timezone.js';
 import type { AnyDatasetInstance, DatasetQuery, MeasureDefinition, MetricFilter } from '../types.js';
 import type { DatasetQueryExecutionOptions } from '../dataset-query.js';
 import { resolveDimensionExpression, resolveFilterField, resolveTenantFilterColumn } from '../query-planner.js';
@@ -31,6 +31,8 @@ export interface TimeMeasureSqlSource {
   dimensions: TimeMeasureSqlDimension[];
   bases: TimeMeasureSqlBase[];
   rowAlias: string;
+  /** Canonical IANA name of the zone `_hq_time` is converted to. */
+  timezone: string;
 }
 
 /** Isolate authored expressions, joins, tenancy and filters from internal SQL aliases. */
@@ -75,7 +77,7 @@ export function buildTimeMeasureSourceSql(
   ];
   let rowAlias = '_hq_row';
   while (sourceIdentifiers.some(text => text.includes(rowAlias))) rowAlias += '_';
-  raw = raw.select([`${dialect.packRow(sourceParts)} AS ${rowAlias}`]);
+  raw = raw.select(dialect.isolateColumns(rowAlias, sourceParts));
   const tenant = getRuntimeTenantPredicate(options.context);
   const tenantColumn = resolveTenantFilterColumn(ds, options.context);
   if (tenant && tenantColumn) raw = raw.where(qualifyBaseColumn(joinCtx, tenantColumn), tenant.operator, tenant.value);
@@ -94,20 +96,21 @@ export function buildTimeMeasureSourceSql(
     }
   }
   const rawSql = statement.embedBuilder(raw);
-  const sourceColumns = [`${queryTimeSql(dialect, dialect.assumeNotNull(dialect.rowElement(rowAlias, 1)), query.timezone)} AS _hq_time`];
-  dims.forEach((dimension, i) => sourceColumns.push(`${dialect.rowElement(rowAlias, i + 2)} AS ${dimension.alias}`));
+  const sourceColumns = [`${queryTimeSql(dialect, dialect.assumeNotNull(dialect.isolatedColumn(rowAlias, 1)), query.timezone)} AS _hq_time`];
+  dims.forEach((dimension, i) => sourceColumns.push(`${dialect.isolatedColumn(rowAlias, i + 2)} AS ${dimension.alias}`));
   bases.forEach((base, i) => {
     const valuePosition = dims.length + 2 + i * 2;
-    sourceColumns.push(`${dialect.rowElement(rowAlias, valuePosition)} AS ${base.value}`);
-    sourceColumns.push(`${dialect.rowElement(rowAlias, valuePosition + 1)} AS ${base.arg}`);
+    sourceColumns.push(`${dialect.isolatedColumn(rowAlias, valuePosition)} AS ${base.value}`);
+    sourceColumns.push(`${dialect.isolatedColumn(rowAlias, valuePosition + 1)} AS ${base.arg}`);
   });
   return {
     ctes: [
       `_hq_raw AS (${rawSql})`,
-      `_hq_source AS (SELECT ${sourceColumns.join(', ')} FROM _hq_raw WHERE ${dialect.isNotNull(dialect.rowElement(rowAlias, 1))})`,
+      `_hq_source AS (SELECT ${sourceColumns.join(', ')} FROM _hq_raw WHERE ${dialect.isNotNull(dialect.isolatedColumn(rowAlias, 1))})`,
     ],
     dimensions: dims,
     bases,
     rowAlias,
+    timezone: canonicalTimezone(query.timezone),
   };
 }

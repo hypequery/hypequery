@@ -40,6 +40,13 @@ export type DatasetSqlClockPart = 'Hour' | 'Minute' | 'Second';
  * `resolveDatasetSqlDialect` merges onto the ClickHouse rules.
  */
 export interface DatasetSqlDialectRules extends DatasetSqlDialect {
+  /**
+   * Rules for one query timezone, for engines whose time arithmetic needs
+   * the zone explicitly (the zone is a validated canonical IANA name).
+   * Engines whose converted times carry their zone omit it.
+   */
+  withQueryTimezone?(timezone: string): DatasetSqlDialectRules;
+
   // Parameters
   /** Spell the placeholder for the value at `index` in the rendered parameter array. */
   placeholder(index: number, parameter: DatasetSqlBoundParameter): string;
@@ -97,17 +104,30 @@ export interface DatasetSqlDialectRules extends DatasetSqlDialect {
   toQueryTimezone(time: string, timezone: string): string;
   /** Parse a timestamp from a string expression, such as a bound placeholder, in the zone `timezone` evaluates to. */
   parseTimestamp(value: string, timezone: string): string;
-  /** The timezone a zoned timestamp expression carries. */
-  timezoneOf(time: string): string;
+  /**
+   * The query timezone as a SQL expression, for `parseTimestamp`. `time` is a
+   * zero-row probe of a time already converted with `toQueryTimezone`;
+   * `timezone` is that zone's validated canonical IANA name.
+   */
+  timezoneOf(time: string, timezone: string): string;
   /** One wall-clock component of a zoned timestamp. */
   clockPart(part: DatasetSqlClockPart, time: string): string;
   /** True when a value's physical type is a date without a time of day. */
   isDateOnlyType(value: string): string;
 
+  /**
+   * A grain bucket as returned in the `period` column. Interval arithmetic
+   * may widen a date bucket to a timestamp; engines that do restore the
+   * bucket's result type here.
+   */
+  periodValue(expression: string, grain: TimeGrain): string;
+
   // Control flow and guards
   /** Fail the statement with `message` when `condition` holds; evaluates to 0 otherwise. */
   guard(condition: string, message: string): string;
   ifElse(condition: string, then: string, otherwise: string): string;
+  /** A boolean constant usable both as a predicate and as a selected flag. */
+  booleanLiteral(value: boolean): string;
   greatest(...values: string[]): string;
   least(...values: string[]): string;
   /** NULL-safe equality. */
@@ -125,14 +145,41 @@ export interface DatasetSqlDialectRules extends DatasetSqlDialect {
   anyIndex(index: string, count: string, predicate: string): string;
 
   // Row packing
-  /** Pack expressions into one positional value, isolating their names. */
+  /** Pack expressions into one comparable, groupable value (a partition or distinct key). */
   packRow(values: readonly string[]): string;
-  /** Read the 1-based `position` from a packed row. */
-  rowElement(row: string, position: number): string;
-  /** Every column of `relation` except `columns`. */
-  selectAllExcept(relation: string, columns: readonly string[]): string;
-  /** Join keyword matching each left row to the nearest preceding right row. */
-  readonly asofLeftJoin: string;
+  /**
+   * Select items projecting `values` under names that cannot capture, or be
+   * captured by, authored SQL in the same SELECT. Read them back with
+   * `isolatedColumn`. `rowAlias` is unique against every authored identifier.
+   */
+  isolateColumns(rowAlias: string, values: readonly string[]): string[];
+  /** The 1-based `position` of `isolateColumns`, read from the relation selecting it. */
+  isolatedColumn(rowAlias: string, position: number): string;
+  /** A zero-row scalar with the type of an isolated column of `relation`, read without scanning it. */
+  isolatedColumnProbe(rowAlias: string, relation: string, position: number): string;
+  /**
+   * Every column of `relation` except `excluded`. `kept` lists the remaining
+   * columns, for engines that cannot exclude by name.
+   */
+  selectAllExcept(relation: string, excluded: readonly string[], kept: readonly string[]): string;
+  /**
+   * A FROM-less SELECT of `[expression, alias]` items in which an item may
+   * read the aliases of the items before it.
+   */
+  selectWithAliasReferences(items: readonly (readonly [string, string])[]): string;
+  /** A FROM-clause subquery; `alias` is required by engines that name every derived table. */
+  derivedTable(sql: string, alias: string): string;
+  /**
+   * A LEFT join of `relation AS alias` matching each left row to the one
+   * right row that satisfies every `equalities` pair (NULLs match) and has
+   * the greatest `before[1]` strictly less than `before[0]`.
+   */
+  asofLeftJoin(
+    relation: string,
+    alias: string,
+    equalities: readonly (readonly [string, string])[],
+    before: readonly [string, string],
+  ): string;
 
   // Aggregates
   /** Wrap a filtered measure's input so non-matching rows contribute `fallback`. */
