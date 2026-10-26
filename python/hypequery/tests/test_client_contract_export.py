@@ -157,7 +157,9 @@ def test_related_fields_apply_target_permissions_and_safe_measure_rules() -> Non
             "many": Relationship(kind="hasMany", target="unknown", from_field="id", to_field="id"),
         },
     )
-    definition = ClientEndpointDefinition(dataset, "/orders", ClientQueryProfile())
+    definition = ClientEndpointDefinition(
+        dataset, "/orders", ClientQueryProfile(), related={"customer"}
+    )
     with pytest.raises(ValueError, match="registry"):
         export_client_contract([definition])
     registry = create_dataset_registry(dataset, target)

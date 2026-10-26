@@ -1,4 +1,4 @@
-import { buildClientContractQuerySchemas, type ClientContractQuerySchemas } from '@hypequery/datasets';
+import { buildClientContractQuerySchemas, type ClientContractQuerySchemas } from '@hypequery/datasets/schemas';
 import { decodeProtocolClientContract, validateProtocolClientQuery, type ClientQueryPlan, type ProtocolClientContract } from '@hypequery/protocol';
 import type { CallToolResult, GetPromptResult, ListPromptsResult, ListToolsResult } from '@modelcontextprotocol/sdk/types.js';
 import type { MCPToolExecutor } from './executor.js';

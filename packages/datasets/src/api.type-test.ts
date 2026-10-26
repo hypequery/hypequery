@@ -1,3 +1,4 @@
+import { measure as mergeMeasureHelpers, merge as mergeAggregation, type AggregateStateFunction } from './index.js';
 import {
   add,
   assertDeployable,
@@ -511,23 +512,40 @@ void featureReason;
 void legacyFeatureError;
 void executionReason;
 
-// Explicit FINAL resolution is authored with ordinary column names.
-const resolvedUsers = dataset('resolvedUsers', {
-  source: 'users', dimensions: { id: dimension.number() },
-  rowResolution: { kind: 'final', engine: 'replacing', deletedColumn: 'is_deleted' },
+// `final` is an optional boolean on dataset definitions and instances.
+const _FinalSubscriptions = dataset('finalSubscriptions', {
+  source: 'subscriptions',
+  final: true,
+  dimensions: { status: dimension.string() },
+  measures: { mrr: measure.sum('mrr') },
 });
-resolvedUsers.rowResolution;
-dataset('collapsedRows', {
-  source: 'rows', dimensions: {},
-  rowResolution: { kind: 'final', engine: 'collapsing', signColumn: 'sign' },
+type _FinalFlag = Assert<Equal<typeof _FinalSubscriptions.final, boolean | undefined>>;
+dataset('notFinal', {
+  source: 'subscriptions',
+  // @ts-expect-error final must be a boolean
+  final: 'yes',
+  dimensions: { status: dimension.string() },
 });
-dataset('unsupportedStates', {
-  source: 'states', dimensions: {},
-  // @ts-expect-error FINAL does not turn aggregate states into scalar measures.
-  rowResolution: { kind: 'final', engine: 'aggregating' },
-});
-dataset('missingSign', {
-  source: 'rows', dimensions: {},
-  // @ts-expect-error collapsing resolution must name the sign column.
-  rowResolution: { kind: 'final', engine: 'collapsing' },
-});
+
+// ── merge measures (AggregatingMergeTree states) ─────────────────────────────
+
+const mergedUsers = mergeMeasureHelpers.merge('uniq', 'users');
+const mergedAggregation: 'merge' = mergedUsers.aggregation;
+const mergedStateFunction: 'uniq' = mergedUsers.stateFunction;
+const mergedField: 'users' = mergedUsers.field;
+const allowlisted: AggregateStateFunction = 'groupBitmap';
+// @ts-expect-error only allowlisted, non-parametric state functions can be merged.
+mergeMeasureHelpers.merge('quantile', 'latency');
+// @ts-expect-error a merge measure cannot carry filters: it would need -MergeIf.
+mergeMeasureHelpers.merge('uniq', 'users', { filters: [{ field: 'kind', operator: 'eq', value: 'x' }] });
+// @ts-expect-error a merge measure reads a stored state column, never raw sql.
+mergeMeasureHelpers.merge('sum', 'total', { sql: 'total * 2' });
+const mergedSpec = mergeAggregation('uniqExact', 'users');
+// @ts-expect-error metric configs use the same allowlist.
+mergeAggregation('groupArray', 'users');
+
+void mergedAggregation;
+void mergedStateFunction;
+void mergedField;
+void allowlisted;
+void mergedSpec;

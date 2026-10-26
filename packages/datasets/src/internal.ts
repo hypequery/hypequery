@@ -64,3 +64,7 @@ export type {
 
 // Query field references - used by serve to hold related fields to their dataset's policy
 export { queryFieldReferences } from './utils/query-field-references.js';
+
+// Zod major detection shared with serve, which accepts Zod 3 or Zod 4 schemas.
+export { isZod4Schema } from './utils/zod-schema-version.js';
+export type { AnyZodSchema } from './utils/zod-schema-version.js';

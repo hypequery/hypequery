@@ -1,8 +1,8 @@
 import type { RowResolution } from './types.js';
 import type { RelationshipKey } from './types.js';
 import { windowCatalogMetadata, type WindowCatalogMetadata } from './utils/window-catalog-metadata.js';
-import { sha256 } from '@noble/hashes/sha2';
-import { bytesToHex } from '@noble/hashes/utils';
+import { sha256 } from '@noble/hashes/sha2.js';
+import { bytesToHex } from '@noble/hashes/utils.js';
 import {
   getDatasetCatalogs,
   type DatasetCatalog,
@@ -46,6 +46,8 @@ export interface ContractMeasure extends SemanticMetadata, WindowCatalogMetadata
   argField?: string;
   /** Percentile level in [0, 1]. */
   level?: number;
+  /** State function a `merge` measure finalizes. */
+  stateFunction?: MeasureCatalogEntry['stateFunction'];
   sql?: string;
   label?: string;
   description?: string;
@@ -244,6 +246,7 @@ function measureToContract(entry: MeasureCatalogEntry, includeSql: boolean): Con
     field: entry.field,
     ...(entry.argField !== undefined ? { argField: entry.argField } : {}),
     ...(entry.level !== undefined ? { level: entry.level } : {}),
+    ...(entry.stateFunction !== undefined ? { stateFunction: entry.stateFunction } : {}),
     ...(includeSql && entry.sql !== undefined ? { sql: normalizeSql(entry.sql) } : {}),
     ...(entry.label !== undefined ? { label: entry.label } : {}),
     ...(entry.description !== undefined ? { description: entry.description } : {}),
@@ -309,7 +312,7 @@ export function contractToStableJson(
 export function hashContract(
   contract: SemanticContract | SemanticContractWithoutHash,
 ): string {
-  return bytesToHex(sha256(contractToStableJson(contract)));
+  return bytesToHex(sha256(new TextEncoder().encode(contractToStableJson(contract))));
 }
 
 /** Normalizes SQL escape-hatch whitespace so equivalent SQL hashes identically. */

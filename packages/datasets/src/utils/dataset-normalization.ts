@@ -82,6 +82,7 @@ export function measureToAggregationSpec(
     field: definition.field,
     argField: definition.argField,
     level: definition.level,
+    ...(definition.stateFunction !== undefined ? { stateFunction: definition.stateFunction } : {}),
     sql: definition.sql,
     filters: definition.filters,
   };

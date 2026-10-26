@@ -11,8 +11,6 @@ import { rehydrateProtocolDatasets } from './protocol-rehydrate.js';
 import { serializeSemanticContract } from './contract.js';
 import { buildDatasetQuerySignature } from './cache/query-signature.js';
 import { buildDatasetPlan } from './semantic-planner.js';
-import { datasetBuilderSource } from './utils/resolved-row-source.js';
-import { clickhouseDatasetSqlDialect } from './utils/clickhouse-dataset-sql-dialect.js';
 
 const policy = { kind: 'final', engine: 'replacing', deletedColumn: 'is_deleted' } as const;
 const Users = dataset('users', {
@@ -23,12 +21,20 @@ const Users = dataset('users', {
 const client = createDatasetClient({ queryBuilder: createQueryBuilder({ host: 'http://127.0.0.1:8123' }) });
 
 describe('resolved row dataset sources', () => {
-  it('resolves before deletion and user predicates, without rewriting the source identifier', () => {
+  it('reads the source in place with FINAL and keeps only rows that are not deleted', () => {
     const statement = client.compileDataset(Users, { measures: ['total'], filters: [{ field: 'amount', operator: 'gt', value: 10 }] });
-    expect(statement.sql).toContain('FROM `analytics`.`users` FINAL WHERE `is_deleted` = 0 SETTINGS optimize_move_to_prewhere = 0');
-    expect(statement.sql).toContain(') AS `users`');
-    expect(statement.parameters).toEqual([10]);
+    expect(statement.sql).toBe('SELECT SUM(amount) AS `total` FROM analytics.users FINAL WHERE analytics.users.is_deleted = ? AND amount > ?');
+    expect(statement.parameters).toEqual([0, 10]);
+    expect(Users.final).toBe(true);
     expect(Users.source).toBe('analytics.users');
+  });
+  it('keeps SQL fields that name the database-qualified source valid', () => {
+    const Qualified = dataset('users', {
+      source: 'analytics.users', rowResolution: policy,
+      dimensions: { id: dimension.number() },
+      measures: { total: measure.sum('amount', { sql: 'analytics.users.amount' }) },
+    });
+    expect(client.toSQL(Qualified, { measures: ['total'] })).toContain('analytics.users.amount) AS `total` FROM analytics.users FINAL');
   });
   it('resolves relationship targets and keeps base qualifiers valid', () => {
     const Orders = dataset('orders', { source: 'orders', rowResolution: policy,
@@ -38,8 +44,8 @@ describe('resolved row dataset sources', () => {
     });
     const sql = client.toSQL(Orders, { dimensions: ['user.id'], measures: ['total'] });
     expect(sql.match(/FINAL/g)).toHaveLength(2);
-    expect(sql).toContain('orders.amount');
-    expect(sql).toContain('FROM (SELECT * FROM `analytics`.`users` FINAL');
+    expect(sql).toContain('SUM(orders.amount)');
+    expect(sql).toContain('FROM `analytics`.`users` FINAL WHERE `is_deleted` = 0) AS user');
   });
   it('carries policy through deployment rehydration and cache identity', () => {
     const contract = buildProtocolDeploymentContract([Users]);
@@ -52,7 +58,6 @@ describe('resolved row dataset sources', () => {
   });
   it('rejects unsupported engines, dialects and frozen backend rather than counting raw rows', () => {
     expect(() => dataset('bad', { source: 'bad', dimensions: {}, rowResolution: { kind: 'final', engine: 'aggregating' } as never })).toThrow();
-    expect(() => datasetBuilderSource(Users, { ...clickhouseDatasetSqlDialect, name: 'postgres' })).toThrow('ClickHouse');
     expect(() => buildDatasetPlan(Users)).toThrow('queryBuilder');
   });
   it('resolves both base and derived metric scans', () => {
@@ -64,6 +69,9 @@ describe('resolved row dataset sources', () => {
   });
   it('collapsing policies apply the sign test after FINAL', () => {
     const Collapsing = dataset('collapsing', { source: 'collapsing', dimensions: { id: dimension.number() }, rowResolution: { kind: 'final', engine: 'collapsing', signColumn: 'sign' }, measures: { rows: measure.count('id') } });
-    expect(client.toSQL(Collapsing, { measures: ['rows'] })).toContain('FINAL WHERE `sign` = 1');
+    expect(client.compileDataset(Collapsing, { measures: ['rows'] })).toMatchObject({
+      sql: 'SELECT COUNT(id) AS `rows` FROM collapsing FINAL WHERE collapsing.sign = ?',
+      parameters: [1],
+    });
   });
 });

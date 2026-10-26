@@ -140,7 +140,9 @@ export function dataset<
     __type: 'dataset',
     name,
     source: config.source,
-    ...(config.rowResolution === undefined ? {} : { rowResolution: validateProtocolRowResolution(config.rowResolution) }),
+    ...(config.rowResolution !== undefined
+      ? { final: true, rowResolution: validateProtocolRowResolution(config.rowResolution) }
+      : config.final ? { final: true } : {}),
     description: config.description,
     ...snapshotSemanticMetadata(config),
     freshness: config.freshness === undefined ? undefined : { ...config.freshness },

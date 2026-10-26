@@ -1,3 +1,8 @@
+/**
+ * How a dataset's rows are resolved, as the deployment contract carries it
+ * (RFC 0020). Implies `final: true`; the engine's deletion or sign column also
+ * filters the resolved rows, so only current rows remain.
+ */
 export type RowResolution =
   | { readonly kind: 'final'; readonly engine: 'replacing'; readonly deletedColumn?: string }
   | { readonly kind: 'final'; readonly engine: 'collapsing' | 'versioned-collapsing'; readonly signColumn: string };
@@ -6,6 +11,7 @@ import type { DatasetFilterFor } from './utils/dataset-filter-types.js';
 import type { QueryBuilderFactoryInput } from './query-builder-protocol.js';
 import type { SemanticCacheMetaInfo, SemanticCacheRuntime } from './cache/semantic-query-cache.js';
 import type { SemanticExpression } from './semantic-plan.js';
+import type { AggregateStateFunction } from './utils/aggregate-state-functions.js';
 
 export type FieldType = 'string' | 'number' | 'boolean' | 'timestamp';
 export type DimensionType = FieldType;
@@ -102,7 +108,12 @@ export type AggregationType =
   | 'stddev'
   | 'variance'
   /** Estimated distinct count (ClickHouse `uniq`); results carry `approximate`. */
-  | 'approxCountDistinct';
+  | 'approxCountDistinct'
+  /**
+   * Finalize stored aggregate states (`AggregateFunction` columns of an
+   * AggregatingMergeTree table) with the `-Merge` combinator of `stateFunction`.
+   */
+  | 'merge';
 export type MeasureAggregation = AggregationType;
 
 export interface AggregationSpec {
@@ -113,6 +124,8 @@ export interface AggregationSpec {
   argField?: string;
   /** Percentile level in [0, 1]. Required when aggregation is 'percentile'. */
   level?: number;
+  /** State function whose `-Merge` reads the column. Required when aggregation is 'merge'. */
+  stateFunction?: AggregateStateFunction;
   sql?: string;
   filters?: MetricFilter[];
 }
@@ -134,6 +147,8 @@ export interface MeasureDefinition extends SemanticMetadata {
   argField?: string;
   /** Percentile level in [0, 1]. Required when aggregation is 'percentile'. */
   level?: number;
+  /** State function whose `-Merge` reads the column. Required when aggregation is 'merge'. */
+  stateFunction?: AggregateStateFunction;
   sql?: string;
   /** Identifiers referenced by `sql`; required when producing a protocol artifact. */
   dependencies?: readonly string[];
@@ -533,6 +548,20 @@ export interface DatasetConfig<
   TFilters extends SemanticFiltersDefinition | undefined = SemanticFiltersDefinition,
 > extends SemanticMetadata {
   source: string;
+  /**
+   * Read the source with ClickHouse `FINAL`, so queries see one row per
+   * sorting key: the latest version in a ReplacingMergeTree (deleted keys
+   * dropped when the engine has an `is_deleted` column) and collapsed rows in
+   * a CollapsingMergeTree. Without it, row versions that have not been merged
+   * yet are each counted. Applies to every query on this dataset, to its
+   * relationship-key checks, and to joins that target it.
+   */
+  final?: boolean;
+  /**
+   * `final` with the engine named, as the deployment contract carries it, so
+   * the dataset can be published (RFC 0020). Keeps only rows whose deletion
+   * column is 0, or whose sign column is 1, after `FINAL`.
+   */
   rowResolution?: RowResolution;
   description?: string;
   freshness?: DatasetFreshness;
@@ -572,6 +601,9 @@ export interface DatasetInstance<
   __type: 'dataset';
   name: TDatasetName;
   source: string;
+  /** Source is read with `FINAL`; see `DatasetConfig.final`. */
+  final?: boolean;
+  /** Set with `final`; see `DatasetConfig.rowResolution`. */
   rowResolution?: RowResolution;
   description?: string;
   examples?: readonly string[];

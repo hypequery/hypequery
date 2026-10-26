@@ -1,7 +1,8 @@
-import type { ZodTypeAny } from "zod";
+import { isZod4Schema } from "@hypequery/datasets/internal";
+import { z } from "zod";
 import { zodToJsonSchema } from "zod-to-json-schema";
 
-import type { OpenApiDocument, OpenApiOptions, ServeEndpoint } from "./types.js";
+import type { OpenApiDocument, OpenApiOptions, ServeEndpoint, ServeSchema } from "./types.js";
 
 const ERROR_SCHEMA = {
   type: "object",
@@ -75,9 +76,19 @@ const removeDefinitions = (schema: any): any => {
   return result;
 };
 
-const toJsonSchema = (schema: ZodTypeAny | undefined, name: string) => {
+const toJsonSchema = (schema: ServeSchema | undefined, name: string) => {
   if (!schema) {
     return { type: "object" };
+  }
+
+  // `zod-to-json-schema` only reads Zod 3; Zod 4 ships its own generator.
+  if (isZod4Schema(schema)) {
+    const { $schema: _schema, ...jsonSchema } = z.toJSONSchema(schema as unknown as z.ZodType, {
+      target: "openapi-3.0",
+      io: "input",
+      unrepresentable: "any",
+    }) as Record<string, unknown>;
+    return removeDefinitions(jsonSchema);
   }
 
   const jsonSchema = zodToJsonSchema(schema as any, {
@@ -89,7 +100,7 @@ const toJsonSchema = (schema: ZodTypeAny | undefined, name: string) => {
   return removeDefinitions(jsonSchema);
 };
 
-const toQueryParameters = (schema: ZodTypeAny | undefined, name: string) => {
+const toQueryParameters = (schema: ServeSchema | undefined, name: string) => {
   if (!schema) {
     return [] as Array<Record<string, unknown>>;
   }

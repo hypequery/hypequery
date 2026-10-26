@@ -21,7 +21,8 @@ import type {
 } from './types.js';
 import { SEMANTIC_FILTER_OPERATORS } from './constants.js';
 import { datasetTimeGrains } from './utils/dataset-time-grains.js';
-import { isApproximateAggregation, isApproximateDerivedMeasure, isApproximateMeasure } from './utils/approximate-measures.js';
+import type { AggregateStateFunction } from './utils/aggregate-state-functions.js';
+import { isApproximateBaseMeasure, isApproximateDerivedMeasure, isApproximateMeasure } from './utils/approximate-measures.js';
 import { usesTimeMeasure } from './utils/time-query-measures.js';
 import { measureSupportedGrains } from './utils/measure-time-grains.js';
 import {
@@ -47,6 +48,8 @@ export interface MeasureCatalogEntry extends SemanticMetadata, WindowCatalogMeta
   argField?: string;
   /** Percentile level in [0, 1]. */
   level?: number;
+  /** State function a `merge` measure finalizes (`uniq` for `uniqMerge`). */
+  stateFunction?: AggregateStateFunction;
   sql?: string;
   label?: string;
   description?: string;
@@ -159,12 +162,13 @@ function measureToCatalog(measure: MeasureDefinition): MeasureCatalogEntry {
     field: measure.field,
     argField: measure.argField,
     level: measure.level,
+    ...(measure.stateFunction !== undefined ? { stateFunction: measure.stateFunction } : {}),
     sql: measure.sql,
     label: measure.label,
     description: measure.description,
     ...snapshotSemanticMetadata(measure),
     filterCount: measure.filters?.length ?? 0,
-    ...(isApproximateAggregation(measure.aggregation) ? { approximate: true as const } : {}),
+    ...(isApproximateBaseMeasure(measure) ? { approximate: true as const } : {}),
   };
 }
 

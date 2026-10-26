@@ -1,4 +1,4 @@
-import { z, type ZodTypeAny } from 'zod';
+import { z } from 'zod';
 
 import type {
   AuthContext,
@@ -19,6 +19,7 @@ import type {
   TenantConfig,
   TenantConfigOverride,
   MaybePromise,
+  ServeSchema,
 } from './types.js';
 import { warnTenantMisconfiguration } from './tenant.js';
 import { applySemanticTenantRuntime } from './semantic/utils/tenant-runtime.js';
@@ -214,7 +215,7 @@ const checkAuthorization = <TAuth extends AuthContext>(
   return { ok: true };
 };
 
-const validateInput = (schema: ZodTypeAny | undefined, payload: unknown) => {
+const validateInput = (schema: ServeSchema | undefined, payload: unknown) => {
   if (!schema) {
     return { success: true as const, data: payload };
   }

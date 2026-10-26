@@ -277,6 +277,10 @@ function aggregateRows(rows: InMemoryTable, aggregation: SemanticAggregationPlan
       }
       return percentileOf(numericValues(), aggregation.level);
     }
+    case 'merge':
+      throw new Error(
+        `Aggregation "merge" for "${aggregation.name}" reads stored aggregate states, which the in-memory backend cannot evaluate.`,
+      );
     case 'stddev':
       return Math.sqrt(sampleVarianceOf(numericValues()));
     case 'variance':

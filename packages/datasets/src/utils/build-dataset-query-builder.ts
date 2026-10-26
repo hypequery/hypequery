@@ -1,4 +1,4 @@
-import { datasetBuilderSource } from './resolved-row-source.js';
+import { datasetSourceBuilder } from './dataset-source.js';
 import { relationshipMeasureExpressions } from './relationship-measure-sql.js';
 import { measureToAggregationSpec } from './dataset-normalization.js';
 import { applyAggregationSpec } from '../query-planner.js';
@@ -57,7 +57,7 @@ export function buildDatasetQueryBuilder(
   assertRawSqlForDialect(ds, dialect);
   const joinCtx = buildRelationshipBuilderContext(ds, query, options.context, dialect);
 
-  let qb = options.builderFactory.table(datasetBuilderSource(ds, dialect));
+  let qb = datasetSourceBuilder(options.builderFactory, ds);
   qb = applyRelationshipJoins(qb, joinCtx);
   const { selectParts, groupByParts } = buildDimensionSelectionPlan(ds, query.dimensions ?? [], query.by, joinCtx, query.timezone, dialect);
   const measureNames = query.measures ?? baseMeasureNames(ds.measures);

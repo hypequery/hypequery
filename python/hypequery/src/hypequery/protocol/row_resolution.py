@@ -1,4 +1,5 @@
 """Portable shape of explicit ClickHouse FINAL source resolution."""
+
 from __future__ import annotations
 
 from .deployment_primitives import exact_fields, identifier, record

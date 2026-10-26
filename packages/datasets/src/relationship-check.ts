@@ -1,4 +1,3 @@
-import { datasetBuilderSource } from './utils/resolved-row-source.js';
 /**
  * Verifies declared to-one relationships against the data.
  *
@@ -18,6 +17,7 @@ import { datasetBuilderSource } from './utils/resolved-row-source.js';
  * ```
  */
 
+import { datasetSourceBuilder } from './utils/dataset-source.js';
 import type { AnyDatasetInstance, ExecutionContext } from './types.js';
 import { toQueryBuilderFactory, type QueryBuilderFactoryInput } from './query-builder-protocol.js';
 import { getRuntimeTenantPredicate, validateTenantRuntime } from './utils/tenant-runtime.js';
@@ -76,8 +76,7 @@ export async function checkRelationships(
       throw new Error(`Cannot check relationship "${entry.relationship}": ${tenantError}`);
     }
 
-    let qb = factory
-      .table(datasetBuilderSource(entry.target, dialect))
+    let qb = datasetSourceBuilder(factory, entry.target)
       .count(entry.column, ROWS_ALIAS)
       .countDistinct(entry.columns ? dialect.packRow(entry.columns) : entry.column, KEYS_ALIAS);
     if (entry.columns) {

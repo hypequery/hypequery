@@ -1,4 +1,4 @@
-import { resolvedRowSource } from './resolved-row-source.js';
+import { currentRowPredicate } from './dataset-source.js';
 import type { AnyDatasetInstance, AggregationSpec } from '../types.js';
 import { resolveRelationshipMeasure } from './relationship-measures.js';
 import type { RelationshipBuilderContext } from './relationship-builder-plan.js';
@@ -31,11 +31,26 @@ export function relationshipJoinSource(target: AnyDatasetInstance, to: readonly 
   let marker = '_hq_match';
   while (columns.has(marker)) marker += '_';
   const quote = dialect.quoteIdentifier;
-  const source = resolvedRowSource(target, dialect);
+  const source = relationshipTargetTable(target, dialect);
   // Sorted so the SQL is byte-identical however the target's dimensions are
   // ordered (authored vs. rehydrated catalogs declare them differently).
   const projection = [...columns].sort().map(quote);
-  return { source: `(SELECT ${[...projection, `${dialect.toNullable('1')} AS ${quote(marker)}`].join(', ')} FROM ${source})`, marker };
+  const current = currentRowPredicate(target);
+  const where = current ? ` WHERE ${quote(current.column)} = ${current.value}` : '';
+  return { source: `(SELECT ${[...projection, `${dialect.toNullable('1')} AS ${quote(marker)}`].join(', ')} FROM ${source}${where})`, marker };
+}
+
+/** The target's quoted table, read with `FINAL` when the target dataset requires it. */
+function relationshipTargetTable(target: AnyDatasetInstance, dialect: DatasetSqlDialectRules): string {
+  const quoted = dialect.quoteQualifiedName(target.source);
+  if (!target.final) return quoted;
+  if (!dialect.finalTable) {
+    throw new Error(
+      `Dataset "${target.name}" is declared final: true, but the "${dialect.name}" SQL dialect has no FINAL ` +
+      'modifier, so it cannot be joined without counting unmerged row versions.',
+    );
+  }
+  return dialect.finalTable(quoted);
 }
 
 export function relationshipMeasureExpressions(ds: AnyDatasetInstance, name: string, joinCtx: RelationshipBuilderContext, dialect: DatasetSqlDialectRules) {

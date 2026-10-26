@@ -130,6 +130,12 @@ export function buildProtocolDatasetContract(
   }
   assertNoPublishedSegments(dataset);
   assertPublishableTimeGrains(dataset);
+  if (dataset.final && !dataset.rowResolution) {
+    throw new Error(
+      `Dataset "${dataset.name}" is declared final: true without rowResolution. ` +
+      'The deployment contract needs the engine to publish it; declare rowResolution instead.',
+    );
+  }
   const metrics = Object.entries(options.metrics ?? {})
     .filter(([, metric]) => (
       metric.__type === 'grained_metric_ref' ? metric.metric : metric

@@ -1,5 +1,17 @@
 # @hypequery/protocol
 
+## 0.21.0
+
+### Minor Changes
+
+- 9d97163: Add semantic client contract v1 validation, canonical identities and strict HTTP/MCP query validation. Compile typed endpoint/tool schemas from public descriptors and test Python/TypeScript with the required shared conformance family. Existing catalog schemas keep their defaults.
+- e0f9c6e: Add field visibility and enforced constraints (RFC 0019). `@hypequery/protocol` exports `validateProtocolFieldVisibility` and `resolveProtocolVisibleDatasetFields`. The semantic data plane accepts `resolveFieldVisibility` and `resolveConstraints`: hidden datasets and fields are refused exactly like unknown ones (before access and tenant checks), joins over hidden keys are hidden, and provider-enforced comparisons are ANDed onto every call within the dataset's filter ceiling. `DeploymentSemanticContextInput` names the input every context resolver receives. `projectAuthorizedDeploymentContract` takes a `visibility` option so discovery advertises only what execution accepts.
+
+### Patch Changes
+
+- cbf8691: MCP tools refuse a `limit` above the endpoint's `maxLimit` with `MCP_INVALID_ARGUMENTS` instead of silently clamping it, so an agent never mistakes a shortened page for the whole answer. Tool schemas built from a client contract advertise that ceiling as the `limit` maximum, and `validateProtocolClientQuery(..., 'mcp')` enforces it. HTTP requests keep clamping, as both Serve implementations do.
+- e32fa97: Upgrade `@noble/hashes` to v2. Hash outputs are unchanged.
+
 ## 0.20.0
 
 ### Minor Changes

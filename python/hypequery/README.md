@@ -11,9 +11,10 @@ A Python semantic layer for ClickHouse datasets, metrics, multi-tenant analytics
 
 The [complete client tutorial](https://github.com/hypequery/hypequery/blob/main/python/hypequery/examples/client_dashboard/README.md) shares one
 Python definition across authorized HTTP, generated React types and MCP stdio.
-Its preparation script uses an installed wheel and packed Node packages outside
-the checkout. Matching npm features remain in the development release stack;
-currently published packages may not support the complete journey yet.
+It works with the published npm packages (`@hypequery/cli` 1.25+,
+`@hypequery/react` 0.7+ and `@hypequery/mcp` 0.10+). Its preparation script
+builds the same journey from a checkout, using an installed wheel and packed
+Node packages outside the repository.
 
 ## Schema-backed Python CLI
 
@@ -1463,6 +1464,20 @@ artifact = export_client_contract(
     mount_path="/analytics",
 )
 # artifact["canonical"] is the complete signed JSON document.
+```
+
+Related fields are left out unless a definition names the relationship, as
+`include_related` does for an installed endpoint. Pass the same names to both so
+the exported schema hash matches the live one; otherwise generated clients get
+`409 CLIENT_SCHEMA_CHANGED`:
+
+```python
+ClientEndpointDefinition(
+    dataset=Orders,
+    path="/api/datasets/orders/query",
+    profile=ClientQueryProfile(default_limit=100, max_limit=100),
+    related={"customer"},  # matches include_related={"customer"}
+)
 ```
 
 Supply a `registry` when definitions reference queryable relationships. Target

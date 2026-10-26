@@ -28,6 +28,37 @@ const Orders = dataset('orders', {
 
 `source` is the physical table or view name. The first `dataset()` argument is the logical dataset name. `tenantKey` and `timeKey` are physical column names used for runtime tenant isolation and time graining.
 
+## Versioned tables (`final`)
+
+ReplacingMergeTree and CollapsingMergeTree tables keep several rows per key until a background merge runs, and merges never finish on a schedule you control. Queried directly, a subscription with three status changes counts three times. Set `final: true` to read the source with `FINAL`, so every query sees one row per sorting key:
+
+<CodeBlock>
+```typescript
+// ReplacingMergeTree(updated_at): one row per subscription status change
+export const Subscriptions = dataset('subscriptions', {
+  source: 'saas.subscriptions',
+  final: true,
+  dimensions: {
+    status: dimension.string(),
+  },
+  measures: {
+    mrr: measure.sum('mrr'),
+  },
+});
+```
+</CodeBlock>
+
+With `final: true`:
+
+- Every query on the dataset reads `FROM saas.subscriptions FINAL`, including metric, derived and window queries.
+- Joins that target the dataset read it with `FINAL` too, so a versioned dimension table can't fan out or pick a stale row.
+- `checkRelationships` counts keys on the resolved rows.
+- For `ReplacingMergeTree(ver, is_deleted)`, rows whose latest version is deleted disappear. A plain `WHERE is_deleted = 0` can't do this, because it keeps a deleted key's earlier versions.
+
+`FINAL` makes queries do more work at read time. ClickHouse keeps it fast when the partition key separates keys and `do_not_merge_across_partitions_select_final` is enabled.
+
+A `final` dataset needs the query-builder execution path. Semantic backends and publishing to the deployment contract refuse it, rather than serving unresolved rows.
+
 ## Module pattern
 
 Define datasets at the module level and export them from dedicated files.
@@ -56,7 +87,7 @@ export const Orders = dataset('orders', {
 A dataset can include:
 
 - `source`
-- `rowResolution` (explicit current rows for supported versioned tables)
+- `final`
 - `tenantKey`
 - `timeKey`
 - `dimensions`
@@ -66,37 +97,3 @@ A dataset can include:
 - `limits`
 
 See [Dimensions](/docs/datasets/dimensions), [Measures](/docs/datasets/measures), [Metrics](/docs/datasets/metrics), and [Relationships](/docs/datasets/relationships) for the main building blocks.
-
-## Current rows from versioned tables
-
-For a ReplacingMergeTree table, select its resolved rows explicitly:
-
-<CodeBlock>
-```typescript
-const Users = dataset('users', {
-  source: 'users',
-  rowResolution: { kind: 'final', engine: 'replacing', deletedColumn: 'is_deleted' },
-  dimensions: { id: dimension.number() },
-  measures: { users: measure.count('id') },
-});
-```
-</CodeBlock>
-
-The table's own sorting key and version choose the current row. The optional
-`deletedColumn` keeps only resolved rows whose deletion marker is zero. All
-measures, tenant filters, relationships and time queries use that population.
-Omit `rowResolution` to read physical rows as before.
-
-For CollapsingMergeTree or VersionedCollapsingMergeTree, use
-`{ kind: 'final', engine: 'collapsing', signColumn: 'sign' }` or
-`engine: 'versioned-collapsing'`. Cancellation pairs resolve before positive
-surviving rows are counted. Verify the engine family and column names against
-the source metadata; replicated forms use the same policy.
-
-This requires the ClickHouse query-builder execution path and a read-only user
-that permits query settings (`readonly=2`). The planner disables PREWHERE for
-these source reads to preserve version/deletion semantics. Other dialects and
-semantic backends refuse resolved sources. SummingMergeTree and
-AggregatingMergeTree need different measure semantics and are unsupported by
-this policy. Portable deployment consumers must upgrade together to a protocol
-version that understands `rowResolution`; stripping the field changes numbers.

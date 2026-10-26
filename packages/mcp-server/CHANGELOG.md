@@ -1,5 +1,51 @@
 # @hypequery/mcp
 
+## 0.10.0
+
+### Minor Changes
+
+- 329f16b: Add an HTTP MCP executor over authorized Python client contracts, retaining
+  endpoint-specific query permissions and schema pins. Bound discovery, tool
+  manifests, streamed JSON results and execution time; reject redirects, stale
+  views, private metadata and result fields outside the requested projection.
+  Existing local and discovery-only executors remain supported.
+  `MCPToolExecutor.listTools`, `listPrompts` and `getPrompt` accept an optional
+  cancellation signal, which the protocol server now forwards from each request.
+
+### Patch Changes
+
+- aa10003: Exclude internal runtime and type-test programs from published package tarballs while preserving public runtime and declaration exports.
+- cbf8691: MCP tools refuse a `limit` above the endpoint's `maxLimit` with `MCP_INVALID_ARGUMENTS` instead of silently clamping it, so an agent never mistakes a shortened page for the whole answer. Tool schemas built from a client contract advertise that ceiling as the `limit` maximum, and `validateProtocolClientQuery(..., 'mcp')` enforces it. HTTP requests keep clamping, as both Serve implementations do.
+- afa5e81: Serve accepts your schemas from Zod 3 or Zod 4. Query inputs and outputs are typed against a structural `ServeSchema` instead of Zod 3's `ZodTypeAny`, so `npm install zod` (which now resolves Zod 4) works with the quick start, and existing Zod 3 projects keep compiling. Query-string coercion and the OpenAPI document read both majors. The optional `zod` peer range is now `^3.23.8 || ^4.0.0`.
+
+  Serve and MCP now depend on `zod@^4.6.6` (was `^3.23.8`), clearing GHSA-mrhx-c7xc-m3w5. For dataset and metric endpoints, whose schemas Serve builds, `VALIDATION_ERROR` issue text and codes now follow Zod 4 (for example `Invalid option: expected one of …`, and no `received` field). Endpoints with your own schemas report whatever your Zod reports, as before.
+
+  `hypequery init` scaffolds `zod@^4.6.6`.
+
+- Updated dependencies [bc14e60]
+- Updated dependencies [9d97163]
+- Updated dependencies [aa10003]
+- Updated dependencies [91804f0]
+- Updated dependencies [4af1695]
+- Updated dependencies [3661a84]
+- Updated dependencies [87ed4ad]
+- Updated dependencies [c1f1dd8]
+- Updated dependencies [8201f86]
+- Updated dependencies [9f19fc3]
+- Updated dependencies [fcf39bb]
+- Updated dependencies [afa5e81]
+- Updated dependencies [2a9ac25]
+- Updated dependencies [68b0aa8]
+- Updated dependencies [e0f9c6e]
+- Updated dependencies [c413f61]
+- Updated dependencies [cbf8691]
+- Updated dependencies [e32fa97]
+- Updated dependencies [dbee699]
+- Updated dependencies [bb910a4]
+- Updated dependencies [636b46f]
+  - @hypequery/datasets@0.24.0
+  - @hypequery/protocol@0.21.0
+
 ## 0.9.0
 
 ### Minor Changes

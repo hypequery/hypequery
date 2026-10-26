@@ -1,5 +1,6 @@
 import { dataset, dimension, measure, divide, nullIfZero, belongsTo } from '../semantic/index.js';
-import { createAPI } from '../index.js';
+import { createAPI, initServe, type InferApiType } from '../index.js';
+import type { Equal, Expect } from '@type-challenges/utils';
 import type { QueryBuilderFactoryLike } from '@hypequery/datasets';
 
 const Customers = dataset('customers', {
@@ -67,3 +68,28 @@ void semanticApi.execute('dataset:orders', {
 
 // @ts-expect-error only configured semantic keys are executable
 void semanticApi.execute('dataset:customers', { input: {} });
+
+// initServe(...).serve/define without `queries` must keep the configured
+// semantic keys instead of widening to a string index signature.
+const semanticInit = initServe({ context: () => ({}) });
+
+const datasetsOnlyApi = semanticInit.serve({
+  datasets: { orders: Orders },
+  queryBuilder,
+});
+type DatasetsOnlyApi = InferApiType<typeof datasetsOnlyApi>;
+type _datasetsOnlyKeys = Expect<Equal<keyof DatasetsOnlyApi, 'dataset:orders'>>;
+void datasetsOnlyApi.execute('dataset:orders', {
+  input: { dimensions: ['status'], measures: ['revenue'] },
+});
+// @ts-expect-error only configured semantic keys are executable
+void datasetsOnlyApi.execute('dataset:customers', { input: {} });
+
+const metricsOnlyApi = semanticInit.define({
+  metrics: { totalRevenue },
+  queryBuilder,
+});
+type MetricsOnlyApi = InferApiType<typeof metricsOnlyApi>;
+type _metricsOnlyKeys = Expect<Equal<keyof MetricsOnlyApi, 'totalRevenue'>>;
+// @ts-expect-error only configured semantic keys are executable
+void metricsOnlyApi.execute('dataset:orders', { input: {} });

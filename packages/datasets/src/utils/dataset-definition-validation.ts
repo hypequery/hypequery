@@ -26,6 +26,7 @@ import type {
   DatasetConfig,
   DatasetMeasureDefinition,
   DimensionDefinition,
+  MeasureDefinition,
   MetricFilter,
   RelationshipDefinition,
   SemanticFiltersDefinition,
@@ -38,6 +39,7 @@ import { validateDerivedMeasures } from './derived-measure-validation.js';
 import { isDerivedMeasure, isWindowMeasure, isShiftMeasure } from './dataset-measures.js';
 import { validateWindowMeasures } from './window-measure-validation.js';
 import { validateDatasetAgentMetadata } from './semantic-metadata-validation.js';
+import { AGGREGATE_STATE_FUNCTIONS, isAggregateStateFunction } from './aggregate-state-functions.js';
 
 type AnyDimensions = Record<string, DimensionDefinition>;
 type AnyMeasures = Record<string, DatasetMeasureDefinition>;
@@ -265,6 +267,9 @@ function validateMeasures(
     }
 
     validateMeasureFilters(datasetName, name, definition.filters ?? [], dimensions, declaredFilters);
+    if (definition.aggregation === 'merge') {
+      validateMergeMeasure(datasetName, name, definition);
+    }
 
     // `field` and `argField` name either a declared dimension or a physical
     // column that the model deliberately does not expose (the `allowHiddenField`
@@ -279,6 +284,27 @@ function validateMeasures(
       }
       assertSafeColumn(datasetName, value, `measure "${name}" ${label}`);
     }
+  }
+}
+
+/**
+ * A merge measure names its state function (interpolated into SQL as
+ * `<fn>Merge`) and reads a plain column: raw SQL or filters would wrap the
+ * state column in an expression the `-Merge` combinator rejects.
+ */
+function validateMergeMeasure(datasetName: string, name: string, definition: MeasureDefinition): void {
+  if (!isAggregateStateFunction(definition.stateFunction)) {
+    fail(
+      datasetName,
+      `measure "${name}" merges unsupported aggregate state "${String(definition.stateFunction)}". ` +
+      `Supported state functions: ${AGGREGATE_STATE_FUNCTIONS.join(', ')}.`,
+    );
+  }
+  if (definition.filters?.length) {
+    fail(datasetName, `measure "${name}" cannot have filters: merge measures read stored states.`);
+  }
+  if (definition.sql !== undefined) {
+    fail(datasetName, `measure "${name}" cannot use sql: merge measures read a stored state column.`);
   }
 }
 
@@ -333,6 +359,10 @@ export function validateDatasetDefinition(
       `source "${config.source}" is not a safe table identifier. Expected "table" or ` +
       '"database.table", each segment containing only letters, numbers and underscores.',
     );
+  }
+
+  if (config.final !== undefined && typeof config.final !== 'boolean') {
+    fail(name, 'final must be true or false.');
   }
 
   // The tenant key is the isolation boundary: it becomes a WHERE predicate on

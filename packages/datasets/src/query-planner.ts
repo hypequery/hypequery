@@ -22,6 +22,7 @@ import {
 } from './utils/relationship-builder-plan.js';
 import { measureToAggregationSpec } from './utils/dataset-normalization.js';
 import { validatePercentileLevel } from './measure.js';
+import { assertAggregateStateFunction } from './utils/aggregate-state-functions.js';
 
 type DatasetShape = AnyDatasetInstance;
 
@@ -164,6 +165,16 @@ export function applyAggregationSpec(
         throw new Error('Query builder does not support approxCountDistinct aggregations.');
       }
       return qb.approxCountDistinct(fieldOrExpr, alias);
+    case "merge": {
+      assertAggregateStateFunction(spec.stateFunction, `Measure "${name}"`);
+      if (spec.filters?.length) {
+        throw new Error(`Measure filters are not supported on merge aggregations ("${name}").`);
+      }
+      if (!qb.mergeState) {
+        throw new Error('Query builder does not support merge aggregations (mergeState).');
+      }
+      return qb.mergeState(spec.stateFunction, fieldOrExpr, alias);
+    }
     case "stddev":
       if (!qb.stddev) {
         throw new Error('Query builder does not support stddev aggregations.');
