@@ -149,6 +149,43 @@ describe('multiple time keys', () => {
     });
   });
 
+  describe('row scope', () => {
+    const Scoped = dataset('scoped', {
+      source: 'scoped_orders',
+      tenantKey: 'tenant_id',
+      timeKey: 'createdAt',
+      timeKeys: ['shippedAt'],
+      dimensions: {
+        status: dimension.string(),
+        createdAt: dimension.timestamp({ column: 'created_at' }),
+        shippedAt: dimension.timestamp({ column: 'shipped_at' }),
+      },
+      filters: { status: { field: 'status' }, shippedAt: { field: 'shippedAt' } },
+      measures: {
+        revenue: measure.sum('amount'),
+        prior: measure.shift('revenue', { amount: 1, unit: 'year' }),
+      },
+    });
+    const context = { runtime: { tenant: 'acme', constraints: [{ field: 'status', operator: 'eq' as const, value: 'paid' }] } };
+    const revenue = Scoped.metric('scopedRevenue', { measure: 'revenue' });
+    const shapes: [string, () => string][] = [
+      ['aggregate', () => client.toSQL(Scoped, { measures: ['revenue'], by: 'month', timeKey: 'shippedAt' }, context)],
+      ['shift', () => client.toSQL(Scoped, { measures: ['prior'], by: 'month', timeKey: 'shippedAt', filters: shippedRange }, context)],
+      ['metric', () => client.toSQL(revenue, { by: 'month', timeKey: 'shippedAt' }, context)],
+    ];
+
+    it.each(shapes)('keeps tenant and enforced constraints on an alternate axis (%s)', (_shape, compile) => {
+      const sql = compile();
+      expect(sql).toContain('shipped_at');
+      expect(sql).toContain("tenant_id = 'acme'");
+      expect(sql).toContain("status = 'paid'");
+    });
+
+    it('refuses an alternate-axis query without the required tenant', () => {
+      expect(client.validate(Scoped, { measures: ['revenue'], by: 'month', timeKey: 'shippedAt' }).valid).toBe(false);
+    });
+  });
+
   describe('backend path', () => {
     it('refuses an alternate axis but accepts the default by name', async () => {
       const backend = createDatasetClient({ backend: createInMemoryBackend({ orders: [] }) });
