@@ -489,7 +489,7 @@ function Dashboard() {
 
 ## Infinite Queries
 
-hypequery hooks include offset-paginated `useInfiniteQuery` and `useInfiniteDataset`. You don't wire up `getNextPageParam` yourself — the hooks advance pages using the `meta.pagination` the server returns (requested automatically via the `x-include-meta` header). Set `limit` as the page size; `offset`, if provided, is the starting offset.
+hypequery hooks include offset-paginated `useInfiniteQuery`, `useInfiniteDataset` and `useInfiniteMetric`. You don't wire up `getNextPageParam` yourself — the hooks advance pages using the `meta.pagination` the server returns (requested automatically via the `x-include-meta` header). Set `limit` as the page size; `offset`, if provided, is the starting offset.
 
 <CodeBlock>
 <Pre>
@@ -530,4 +530,4 @@ function InfiniteOrders() {
 </Pre>
 </CodeBlock>
 
-`useInfiniteQuery` works the same way for a plain query whose endpoint returns `meta.pagination`.
+`useInfiniteMetric` takes a metric name and the same input as `useMetric`. `useInfiniteQuery` works the same way for a plain query whose endpoint returns `meta.pagination`.

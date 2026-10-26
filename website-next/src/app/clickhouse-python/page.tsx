@@ -139,12 +139,12 @@ export default function ClickHousePythonPage() {
         {
           title: 'When to add serving',
           copy:
-            'When a dashboard, customer, or agent needs the same numbers over HTTP. The FastAPI router serves datasets without new query code.',
+            'When a dashboard, customer, or agent needs the same numbers over HTTP. The FastAPI router serves datasets without new query code, and its endpoints feed type-safe React hooks and MCP tools.',
         },
         {
           title: 'TypeScript too',
           copy:
-            'Python and TypeScript share the same specifications and conformance fixtures, so mixed-language teams can share one model.',
+            'Python and TypeScript share the same specifications and conformance fixtures, so mixed-language teams can share one model. The Python SDK is in beta.',
         },
       ]}
       readingLinks={[

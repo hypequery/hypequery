@@ -150,7 +150,7 @@ export default function ClickHouseFastAPIPage() {
         {
           title: 'Where to go next',
           copy:
-            'Start with the Python datasets docs if you have not modelled a table yet, then come back to serving.',
+            'Start with the Python datasets docs if you have not modelled a table yet, then come back to serving. To call these endpoints from React or an AI agent, add a client profile and generate typed hooks.',
         },
       ]}
       readingLinks={[
@@ -168,6 +168,11 @@ export default function ClickHouseFastAPIPage() {
           href: '/clickhouse-python',
           title: 'ClickHouse with Python',
           description: 'Model ClickHouse tables as datasets and query them by name.',
+        },
+        {
+          href: '/docs/python/client-endpoints',
+          title: 'React and MCP clients',
+          description: 'Type-safe React hooks and agent tools over the same endpoints.',
         },
         {
           href: '/clickhouse-rest-api',

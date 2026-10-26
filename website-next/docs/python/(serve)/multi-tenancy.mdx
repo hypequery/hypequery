@@ -61,6 +61,12 @@ Bind the client to the request's tenant before querying:
 
 <CodeBlock>
 ```python
+from typing import Annotated
+
+from fastapi import Depends
+from hypequery.serve import RequestAuth
+
+
 @router.post("/reports/top-countries")
 def top_countries(auth: Annotated[RequestAuth, Depends(router.auth)]) -> dict:
     scoped = client.for_tenant(auth.tenant)

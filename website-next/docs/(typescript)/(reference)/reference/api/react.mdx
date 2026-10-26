@@ -20,7 +20,7 @@ npm install @hypequery/react @tanstack/react-query
 ```
 </CodeBlock>
 
-Peer dependencies: `react@^18`, `@tanstack/react-query@^5`.
+Peer dependencies: `react` and `react-dom` `^18 || ^19`, and `@tanstack/react-query@^5.104.5`.
 
 ## Setup
 
@@ -270,9 +270,28 @@ Call `await getHypequeryHooks()` once during app bootstrap and reuse the returne
 
 Both hooks accept the underlying TanStack options, so you can control `staleTime`, retries, invalidation, manual `queryClient` access, etc.
 
+## Exports
+
+| Export | Purpose |
+| --- | --- |
+| `createHooks<Api>(config?)` | `useQuery`, `useMutation` and `useInfiniteQuery` for an API type |
+| `createAnalyticsHooks<Api>(config?)` | Everything `createHooks` returns, plus `useDataset`, `useMetric`, `useInfiniteDataset` and `useInfiniteMetric` |
+| `createHypequeryClient<Api>(config)` | A request client with its own `baseUrl`, `manifest`, `token`, headers and `cacheKey` |
+| `HypequeryProvider` | Provides a client (and optionally a `QueryClient`) to hooks created without a config |
+| `useHypequeryClient()` | Reads the provided client, for example its `cacheKey` |
+| `queryOptions(options)` | Marks an object as TanStack options, for calls where it could be read as input |
+| `HttpError` | The error type for non-2xx responses, with `status` and parsed `body` |
+
+Types: `QueryInput`, `QueryOutput`, `QueryOutputForInput`, `HttpMethod`, `ApiContract`, `HypequeryClient`,
+`HypequeryClientConfig`, `HeadersInput`, `TokenInput`, `QueryMethodConfig`, `RouteManifest`, `RouteManifestEntry`,
+`HypequeryProviderProps`, `CreateHooksConfig` and `CreateAnalyticsHooksConfig`.
+
 ## Error handling
 
-Errors bubble through TanStack Query’s `error` state. Validation errors from hypequery endpoints arrive as structured JSON (status code + body). Network failures throw standard `fetch` errors.
+Errors surface through TanStack Query's `error` state. A non-2xx response rejects with `HttpError`: `status` is the HTTP
+status and `body` the parsed response (`{ error: { type, message, details? } }` for hypequery endpoints; typed `unknown`
+because proxies can return anything). `message` is a generic description of the failed request. Network failures reject
+with the underlying `fetch` error. See [Error Handling](/docs/react/using-queries#error-handling).
 
 ## When to use it
 

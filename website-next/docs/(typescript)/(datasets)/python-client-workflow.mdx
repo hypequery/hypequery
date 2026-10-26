@@ -3,32 +3,51 @@ title: Python datasets, React and MCP
 description: One Python semantic definition shared by generated React hooks and an HTTP-backed MCP bridge.
 ---
 
-The Python client workflow serves ClickHouse datasets and fixed-measure metrics,
-generates TypeScript types/routes for the existing React hooks, and connects the
-Node MCP server to the same authorized HTTP API. Python owns SQL, authentication,
-tenant resolution and current endpoint policy.
+import { CodeBlock } from 'fumadocs-ui/components/codeblock';
 
-The Python SDK is in beta. Release it together with the npm packages that
-understand the same client contract (`@hypequery/cli`, `@hypequery/react` and
-`@hypequery/mcp`). Follow the
-[runnable installed-artifact tutorial](https://github.com/hypequery/hypequery/tree/main/python/hypequery/examples/client_dashboard)
-for pure definitions, offline export, authenticated serving, decimal/null seed,
-all four React query hooks, per-login cache isolation and MCP stdio configuration.
-Its preparation script runs `pnpm build` and `uv build` inside the checkout,
-then installs the results into a separate directory.
-Published-version qualification remains a release gate.
+Datasets defined and served in Python can power the same `@hypequery/react` hooks and `hypequery mcp` tools as a
+TypeScript backend. Python owns SQL, authentication, tenant resolution and endpoint policy. React and MCP only see a
+**client contract**: the endpoints a client may call, with their fields, operators, limits and schema hashes.
 
-The Python CLI exports build-time capabilities. The Node CLI's `generate:client`
-consumes that JSON and writes standalone `ClientApi` and route manifest types
-with endpoint schema pins. Build exports do not grant permission. Python
-reauthorizes every request; a schema change returns 409 and requires an explicit
-rebuild/reconnect.
+| Step | Where | Command or API |
+| --- | --- | --- |
+| Declare and serve client endpoints | Python | `ClientEndpointDefinition`, `add_dataset_endpoint(..., client_profile=...)`, `add_metric_endpoint`, `add_client_contract_endpoint` |
+| Export the build contract | Python | `python -m hypequery export client-contract --factory module:build` |
+| Generate typed hooks | Frontend | `npx hypequery generate:client client-contract.json` |
+| Query from React | Frontend | `createAnalyticsHooks<ClientApi>({ manifest: clientManifest, ... })` |
+| Connect agents | Anywhere Node runs | `npx hypequery mcp --client-contract-url https://…/v1/client-contract` |
 
-The MCP CLI uses `--client-contract-url` for authorized Python HTTP discovery.
-The existing `--self-test --url` checks a hosted MCP endpoint. Host credentials
-belong in the environment, and one MCP process represents one backend principal.
-Browser code uses user-scoped credentials and resets cache scope on login changes.
+<CodeBlock>
+```bash
+# Python project
+python -m hypequery export client-contract --factory analytics.definitions:build --output web/client-contract.json
 
-The Python API needs no Node process. Frontend generation and MCP bridging
-require Node. Native Python MCP transport and hosted MCP OAuth are separate from
-this self-hosted workflow.
+# Frontend project
+npm install @hypequery/react @tanstack/react-query
+npm install -D @hypequery/cli
+npx hypequery generate:client client-contract.json --output src/hypequery-client.ts
+```
+</CodeBlock>
+
+The guides for each side:
+
+- [Python: React and MCP clients](/docs/python/client-endpoints) covers definitions, installing endpoints with a client
+  profile, exporting, mount prefixes, what the generated types guarantee, and keeping clients in sync.
+- [React: datasets served from Python](/docs/react/getting-started#datasets-served-from-python) covers generating the
+  client, per-login clients and cache scope, schema changes and result types.
+- [MCP: datasets served from Python](/docs/mcp/overview#datasets-served-from-python) covers the bridge's URL rules,
+  credentials, `--self-test` and client configuration.
+
+A few rules hold across all three:
+
+- The build contract comes from the definition owner: the offline export or `hypequery.serve.export_client_contract(app)`.
+  The live `/v1/client-contract` route returns the caller's authorized view, which only the MCP bridge consumes.
+- A contract describes capabilities; it does not grant permission. Python authenticates and authorizes every request.
+- Every request carries its endpoint's schema hash. When Python definitions change, stale clients get
+  `409 CLIENT_SCHEMA_CHANGED` instead of data in an unexpected shape. Regenerate and redeploy; nothing updates itself.
+- One MCP process acts as one backend principal. Browser code uses user-scoped credentials and a fresh client and cache
+  scope per login.
+
+Python serving needs no Node process; generating the React client and running the MCP bridge do. There is no native
+Python MCP server. A runnable two-tenant example with a React app and MCP checks is in
+[`examples/client_dashboard`](https://github.com/hypequery/hypequery/tree/main/python/hypequery/examples/client_dashboard).
