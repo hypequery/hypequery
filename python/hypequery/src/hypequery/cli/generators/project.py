@@ -6,16 +6,30 @@ import json
 
 from ..utils.connection_scaffold import export_lines, replace_env_block
 from .datasets import GeneratedDatasets
+from .framework_apps import (
+    APP_MODULE,
+    EXTRAS,
+    Framework,
+    django_module,
+    flask_module,
+    readme_section,
+)
 from .schema import Schema
 
 
 def schema_templates(
-    templates: dict[str, str], schema: Schema, generated: GeneratedDatasets
+    templates: dict[str, str],
+    schema: Schema,
+    generated: GeneratedDatasets,
+    framework: Framework = "fastapi",
 ) -> dict[str, str]:
     result = templates.copy()
     result.pop("seed.sql")
-    result["pyproject.toml"] = templates["pyproject.toml"].replace(
-        'py-modules = ["app"]', 'py-modules = ["app", "datasets"]'
+    module = APP_MODULE[framework]
+    result["pyproject.toml"] = (
+        templates["pyproject.toml"]
+        .replace('py-modules = ["app"]', f'py-modules = ["{module}", "datasets"]')
+        .replace("hypequery[fastapi,clickhouse]", f"hypequery[{EXTRAS[framework]}]")
     )
     result["datasets.py"] = generated.source
     result["schema.json"] = generated.snapshot
@@ -97,6 +111,47 @@ app = create_app(
         "\n".join(f"- {warning}" for warning in generated.warnings)
         or "No unsupported columns or ambiguous time keys were found."
     )
+    run_section = (
+        f"""## Run and query
+
+Use the same connection settings as schema discovery. No seed data is needed;
+this project queries your existing tables. Start the server with `hypequery dev`.
+
+```bash
+curl -s -X POST http://127.0.0.1:8000/datasets/{generated.tables[0]}/query \\
+  -H "Authorization: Bearer $HYPEQUERY_DEV_TOKEN" \\
+  -H "Content-Type: application/json" \\
+  -d '{payload}'
+```
+"""
+        if framework == "fastapi"
+        else readme_section(framework, generated.tables[0])
+    )
+    if framework != "fastapi":
+        result.pop("app.py")
+        result[f"{module}.py"] = (
+            django_module(generated.tenant_column)
+            if framework == "django"
+            else flask_module(generated.tenant_column)
+        )
+        result[".env.example"] = result[".env.example"].replace("HYPEQUERY_DEV_TOKEN=\n", "")
+        prefix = (
+            prefix.replace(
+                "Export your\nconnection settings and create a development token in your shell:",
+                "Export your\nconnection settings in your shell:",
+            )
+            .replace(
+                "export HYPEQUERY_DEV_TOKEN=\"$(python -c 'import secrets; "
+                "print(secrets.token_urlsafe(32))')\"\n",
+                "",
+            )
+            .replace("[fastapi,clickhouse]", f"[{EXTRAS[framework]}]")
+            .replace(
+                "Do not commit credentials. The token is for local development; use your real\n"
+                "authentication and a production profile before exposing the app to users.",
+                "Do not commit credentials.",
+            )
+        )
     result["README.md"] = (
         prefix
         + f"""## Generated datasets
@@ -117,18 +172,7 @@ not inferred; configure them explicitly before exposing this API.
 
 {report}
 
-## Run and query
-
-Use the same connection settings as schema discovery. No seed data is needed;
-this project queries your existing tables. Start the server with `hypequery dev`.
-
-```bash
-curl -s -X POST http://127.0.0.1:8000/datasets/{generated.tables[0]}/query \\
-  -H "Authorization: Bearer $HYPEQUERY_DEV_TOKEN" \\
-  -H "Content-Type: application/json" \\
-  -d '{payload}'
-```
-
+{run_section}
 After schema changes, inspect drift with `{regenerate} --diff`
 (exit 1 when different). Use `--check` in CI and `--force` to replace
 definitions after reviewing the diff. The table selection given to init is

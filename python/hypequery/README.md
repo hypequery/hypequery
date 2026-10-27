@@ -206,7 +206,10 @@ hypequery dev
 `hypequery init --path <directory>` (or a positional directory) inspects your
 configured ClickHouse database by default. Use `--tables` and `--exclude-tables`
 to choose tables, and `--tenant-column <column>` to set `tenant_key` on every
-table that has it. The selection is recorded in `schema.json`, and
+table that has it. `--framework django` or `--framework flask` writes an
+`analytics.py` for an existing Django project, or a Flask `app.py`, using
+`hypequery.contrib` instead of the FastAPI app; their tenant function returns
+`None` until you wire it to your login. The selection is recorded in `schema.json`, and
 `hypequery generate datasets` reuses it unless given `--tables`,
 `--exclude-tables` or `--all-tables`. The scaffold's `.env.example` and README
 repeat how discovery connected (`CLICKHOUSE_URL`, or the host, port and TLS
