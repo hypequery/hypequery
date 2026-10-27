@@ -139,9 +139,10 @@ def test_the_executor_rechecks_the_compiled_query(tamper: Any) -> None:
 
 def test_the_statement_timeout_is_the_tighter_of_setting_and_deadline() -> None:
     compiled = _compiled(measures=("orders",))
-    assert _arguments(compiled)[1] == 30_000
-    assert _arguments(replace(compiled, settings=query_settings(max_execution_time=5)))[1] == 5_000
-    assert _arguments(replace(compiled, deadline=Deadline.after(0.5)))[1] <= 500
+    assert _arguments(compiled)[1].timeout_ms == 30_000
+    shorter = replace(compiled, settings=query_settings(max_execution_time=5))
+    assert _arguments(shorter)[1].timeout_ms == 5_000
+    assert _arguments(replace(compiled, deadline=Deadline.after(0.5)))[1].timeout_ms <= 500
 
 
 def test_values_normalize_to_clickhouse_result_types() -> None:
@@ -186,12 +187,15 @@ class _FakeCursor:
     executed: list[tuple[str, list[object]]] = field(default_factory=list)
     description: list[Any] = field(default_factory=list)
 
-    def execute(self, sql: str, values: list[object], *, prepare: bool | None = None) -> None:
-        assert prepare is False
+    fetched: list[int] = field(default_factory=list)
+
+    def execute(self, sql: str, values: list[object]) -> None:
         self.executed.append((sql, values))
 
     def fetchmany(self, size: int) -> list[tuple[object, ...]]:
-        return self.rows[:size]
+        self.fetched.append(size)
+        batch, self.rows = self.rows[:size], self.rows[size:]
+        return batch
 
 
 @dataclass
@@ -244,7 +248,12 @@ def test_a_query_runs_read_only_in_a_rolled_back_transaction() -> None:
     assert rows.rows == (("paid", 12),)
     assert connection.statements[0] == "SET TRANSACTION READ ONLY"
     assert "'TimeZone', 'UTC'" in connection.statements[1]
-    assert connection.arguments[1] == ["30000", None]
+    # max_threads 4 is the leader and at most 3 workers, capped by the server's own setting.
+    assert connection.arguments[1] == ["30000", None, 3]
+    assert (
+        "least(%s::int, current_setting('max_parallel_workers_per_gather')"
+        in (connection.statements[1])
+    )
     assert connection.rolled_back
     assert cursor.executed == [(compiled.sql, ["acme"])]
 
@@ -252,17 +261,37 @@ def test_a_query_runs_read_only_in_a_rolled_back_transaction() -> None:
 def test_search_path_is_pinned_with_pg_catalog_first_and_pg_temp_last() -> None:
     executor, connection, _ = _executor([(1,)], ("orders",), search_path=("analytics", 'a"b'))
     executor.execute(_compiled(measures=("orders",)))
-    assert connection.arguments[1] == ["30000", 'pg_catalog, "analytics", "a""b", pg_temp']
+    assert connection.arguments[1] == ["30000", 'pg_catalog, "analytics", "a""b", pg_temp', 3]
     for bad in (("pg_catalog",), ("",), "analytics"):
         with pytest.raises((ValueError, TypeError)):
             _executor([], (), search_path=bad)  # type: ignore[arg-type]
 
 
 def test_a_result_beyond_the_row_ceiling_is_refused() -> None:
-    executor, _, _ = _executor([("a", 1)] * 5, ("status", "orders"))
+    executor, _, cursor = _executor([("a", 1)] * 5, ("status", "orders"))
     compiled = replace(
         _compiled(dimensions=("status",), measures=("orders",)),
         settings=query_settings(max_result_rows=4),
+    )
+    with pytest.raises(CompiledQueryError) as refused:
+        executor.execute(compiled)
+    assert refused.value.category == "too-large"
+    # Only one row past the ceiling is ever asked for.
+    assert cursor.fetched == [5]
+
+
+def test_rows_are_fetched_in_batches_until_the_cursor_is_drained() -> None:
+    executor, _, cursor = _executor([("a", 1)] * 2_500, ("status", "orders"))
+    rows = executor.execute(_compiled(dimensions=("status",), measures=("orders",)))
+    assert len(rows.rows) == 2_500
+    assert cursor.fetched == [1_000, 1_000, 1_000]
+
+
+def test_a_result_beyond_the_byte_ceiling_is_refused() -> None:
+    executor, _, _ = _executor([("x" * 600,)] * 2, ("status",))
+    compiled = replace(
+        _compiled(dimensions=("status",), measures=("orders",)),
+        settings=query_settings(max_result_bytes=1_000),
     )
     with pytest.raises(CompiledQueryError) as refused:
         executor.execute(compiled)

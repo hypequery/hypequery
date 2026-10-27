@@ -6,7 +6,10 @@ connection. Install ``hypequery[postgres]`` to use it.
 Each query runs in its own read-only transaction that pins what the compiled
 SQL relies on: a UTC session zone (a zone-less ``timestamp`` is read as UTC),
 standard-conforming strings, a server-side statement timeout from the
-compiled settings and deadline, and optionally a pinned ``search_path``.
+compiled settings and deadline, a parallel-worker ceiling from ``max_threads``,
+and optionally a pinned ``search_path``. Rows come through a server-side cursor
+in batches, so a result past ``max_result_rows`` or ``max_result_bytes`` stops
+on the server instead of being sent whole.
 Nothing outlives the transaction and no statement is prepared by name, as a
 transaction-mode pooler such as PgBouncer requires. Values travel as server-side parameters
 (``$n``, never interpolated), so a statement is exactly one statement.
@@ -75,8 +78,19 @@ class PostgresConnection:
         return cls(conninfo)
 
 
-def _arguments(compiled: CompiledQuery) -> tuple[list[object], int, int]:
-    """The positional values, the statement timeout (ms) and the row ceiling.
+@dataclass(frozen=True, slots=True)
+class _Limits:
+    """What one execution may spend, from the compiled settings and deadline."""
+
+    timeout_ms: int
+    max_rows: int
+    max_bytes: int
+    #: `max_threads` counts the leader; Postgres counts only the extra workers.
+    max_parallel_workers: int
+
+
+def _arguments(compiled: CompiledQuery) -> tuple[list[object], _Limits]:
+    """The positional values and the execution limits.
 
     Re-checks the compiled query at the adapter boundary: the statement must be
     a Postgres SELECT whose `$n` placeholders are exactly the declared
@@ -114,7 +128,13 @@ def _arguments(compiled: CompiledQuery) -> tuple[list[object], int, int]:
     if compiled.deadline is not None:
         remaining = compiled.deadline.remaining()
         timeout_ms = max(1, min(timeout_ms, math.ceil(remaining * 1000)))
-    return [parameter.value for parameter in parameters], timeout_ms, settings["max_result_rows"]
+    limits = _Limits(
+        timeout_ms=timeout_ms,
+        max_rows=settings["max_result_rows"],
+        max_bytes=settings["max_result_bytes"],
+        max_parallel_workers=settings["max_threads"] - 1,
+    )
+    return [parameter.value for parameter in parameters], limits
 
 
 def _valid_value(value: object) -> bool:
@@ -136,14 +156,17 @@ _SETUP_SQL: Final = (
     "SELECT set_config('statement_timeout', %s, true), "
     "set_config('TimeZone', 'UTC', true), "
     "set_config('standard_conforming_strings', 'on', true), "
-    "set_config('search_path', coalesce(%s, current_setting('search_path')), true)"
+    "set_config('search_path', coalesce(%s, current_setting('search_path')), true), "
+    # A ceiling only: never more parallel workers than the server already allows.
+    "set_config('max_parallel_workers_per_gather', "
+    "least(%s::int, current_setting('max_parallel_workers_per_gather')::int)::text, true)"
 )
 
 
-def _setup(timeout_ms: int, search_path: str | None) -> tuple[str, list[object]]:
+def _setup(limits: _Limits, search_path: str | None) -> tuple[str, list[object]]:
     """Transaction-local settings in one bound statement (psycopg sends one per call)."""
 
-    return _SETUP_SQL, [str(timeout_ms), search_path]
+    return _SETUP_SQL, [str(limits.timeout_ms), search_path, limits.max_parallel_workers]
 
 
 def pinned_search_path(schemas: Sequence[str]) -> str:
@@ -205,6 +228,57 @@ def _too_large(query_id: str) -> CompiledQueryError:
     return CompiledQueryError("too-large", "The query result is too large.", query_id=query_id)
 
 
+#: Rows fetched from the server cursor per round trip.
+_FETCH_BATCH: Final = 1_000
+#: The server-side cursor every query runs through; one per transaction.
+_CURSOR_NAME: Final = "_hq_rows"
+
+
+def _value_bytes(value: object) -> int:
+    """An approximate in-memory size, for the ``max_result_bytes`` ceiling."""
+
+    if value is None:
+        return 1
+    if isinstance(value, str):
+        return len(value.encode())
+    if isinstance(value, (bytes, bytearray, memoryview)):
+        return len(value)
+    if isinstance(value, (list, tuple)):
+        return 8 + sum(_value_bytes(item) for item in cast(Sequence[object], value))
+    if isinstance(value, dict):
+        items = cast(Mapping[object, object], value).items()
+        return 8 + sum(_value_bytes(key) + _value_bytes(item) for key, item in items)
+    if isinstance(value, Decimal):
+        return 16
+    return 8
+
+
+class _Budget:
+    """Counts fetched rows and bytes; refuses a result past either ceiling."""
+
+    def __init__(self, limits: _Limits, query_id: str) -> None:
+        self._limits = limits
+        self._query_id = query_id
+        self.rows: list[tuple[object, ...]] = []
+        self._bytes = 0
+
+    def next_batch(self) -> int:
+        """How many rows to ask for next: one past the ceiling at most."""
+
+        return min(_FETCH_BATCH, self._limits.max_rows + 1 - len(self.rows))
+
+    def add(self, batch: Sequence[tuple[object, ...]], requested: int) -> bool:
+        """Keep *batch*; True while more rows may follow (a full batch came back)."""
+
+        self.rows.extend(batch)
+        if len(self.rows) > self._limits.max_rows:
+            raise _too_large(self._query_id)
+        self._bytes += sum(_value_bytes(value) for row in batch for value in row)
+        if self._bytes > self._limits.max_bytes:
+            raise _too_large(self._query_id)
+        return len(batch) == requested
+
+
 def safe_postgres_error(exc: Exception, query_id: str) -> CompiledQueryError:
     """The public error for a failed driver call, never the driver's own text."""
 
@@ -230,6 +304,12 @@ def safe_postgres_error(exc: Exception, query_id: str) -> CompiledQueryError:
     return CompiledQueryError("internal", "", query_id=query_id)
 
 
+def _server_cursor(connection: psycopg.Connection[Any]) -> Any:
+    import psycopg
+
+    return psycopg.RawServerCursor(connection, _CURSOR_NAME, scrollable=False)
+
+
 class PostgresExecutor:
     """Execute trusted compiled SELECTs on Postgres with server-side parameters."""
 
@@ -249,10 +329,10 @@ class PostgresExecutor:
         self._search_path = None if search_path is None else pinned_search_path(search_path)
 
     def execute(self, compiled: CompiledQuery) -> QueryRows:
-        import psycopg
 
-        values, timeout_ms, max_rows = _arguments(compiled)
+        values, limits = _arguments(compiled)
         query_id = compiled.query_id
+        budget = _Budget(limits, query_id)
         try:
             with self._connect() as connection:
                 done = threading.Event()
@@ -264,11 +344,14 @@ class PostgresExecutor:
                     # Read-only: nothing to keep, so the transaction never commits.
                     with connection.transaction(force_rollback=True):
                         connection.execute(_READ_ONLY)
-                        connection.execute(*_setup(timeout_ms, self._search_path), prepare=False)
-                        cursor = (self._cursor or psycopg.RawCursor)(connection)
                         # Unnamed statements only, as a transaction-mode pooler requires.
-                        cursor.execute(compiled.sql, values, prepare=False)
-                        rows = cursor.fetchmany(max_rows + 1)
+                        connection.execute(*_setup(limits, self._search_path), prepare=False)
+                        # A server-side cursor: the server stops at the ceiling
+                        # instead of sending the whole result.
+                        cursor = (self._cursor or _server_cursor)(connection)
+                        cursor.execute(compiled.sql, values)
+                        while budget.add(cursor.fetchmany(size := budget.next_batch()), size):
+                            pass
                         description = cursor.description
                 finally:
                     done.set()
@@ -279,9 +362,7 @@ class PostgresExecutor:
         reason = terminal_error(compiled)
         if reason is not None:
             raise reason
-        if len(rows) > max_rows:
-            raise _too_large(query_id)
-        return _decode(description, rows, query_id)
+        return _decode(description, budget.rows, query_id)
 
     def close(self) -> None:
         """Nothing is held between queries; a pool belongs to its owner."""
@@ -321,8 +402,8 @@ class AsyncPostgresExecutor:
         self._search_path = None if search_path is None else pinned_search_path(search_path)
 
     async def execute(self, compiled: CompiledQuery) -> QueryRows:
-        values, timeout_ms, max_rows = _arguments(compiled)
-        work = asyncio.ensure_future(self._run(compiled, values, timeout_ms, max_rows))
+        values, limits = _arguments(compiled)
+        work = asyncio.ensure_future(self._run(compiled, values, limits))
         try:
             while True:
                 done, _ = await asyncio.wait((work,), timeout=_POLL_SECONDS)
@@ -340,29 +421,29 @@ class AsyncPostgresExecutor:
             raise
 
     async def _run(
-        self, compiled: CompiledQuery, values: list[object], timeout_ms: int, max_rows: int
+        self, compiled: CompiledQuery, values: list[object], limits: _Limits
     ) -> QueryRows:
         import psycopg
 
         query_id = compiled.query_id
+        budget = _Budget(limits, query_id)
         try:
             async with (
                 self._connect() as connection,
                 connection.transaction(force_rollback=True),
             ):
                 await connection.execute(_READ_ONLY)
-                await connection.execute(*_setup(timeout_ms, self._search_path), prepare=False)
-                cursor = psycopg.AsyncRawCursor(connection)
-                await cursor.execute(compiled.sql, values, prepare=False)
-                rows = await cursor.fetchmany(max_rows + 1)
+                await connection.execute(*_setup(limits, self._search_path), prepare=False)
+                cursor = psycopg.AsyncRawServerCursor(connection, _CURSOR_NAME, scrollable=False)
+                await cursor.execute(compiled.sql, values)
+                while budget.add(await cursor.fetchmany(size := budget.next_batch()), size):
+                    pass
                 description = cursor.description
         except (CompiledQueryError, asyncio.CancelledError):
             raise
         except Exception as exc:
             raise (terminal_error(compiled) or safe_postgres_error(exc, query_id)) from None
-        if len(rows) > max_rows:
-            raise _too_large(query_id)
-        return _decode(description, rows, query_id)
+        return _decode(description, budget.rows, query_id)
 
     async def close(self) -> None:
         """Nothing is held between queries; a pool belongs to its owner."""

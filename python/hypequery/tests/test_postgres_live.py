@@ -390,3 +390,52 @@ def test_a_pinned_search_path_resolves_unqualified_names() -> None:
     finally:
         with psycopg.connect(POSTGRES_URL, autocommit=True) as connection:
             connection.execute('DROP SCHEMA "Py Search" CASCADE')
+
+
+def configured_rows(row: tuple[object, ...] | None) -> tuple[tuple[object, ...], ...]:
+    assert row is not None
+    return (row,)
+
+
+@requires_postgres
+def test_parallel_workers_only_ever_go_down(postgres_executor: object) -> None:
+    from dataclasses import replace
+
+    from hypequery.datasets.planner.settings import query_settings
+
+    base = plan_dataset_query(
+        Orders, _query({"measures": ("orders",)}), registry=REGISTRY, context=ACME, dialect=POSTGRES
+    )
+    probe = replace(
+        base, sql="SELECT current_setting('max_parallel_workers_per_gather') AS w", parameters={}
+    )
+    import psycopg
+
+    assert POSTGRES_URL is not None
+    with psycopg.connect(POSTGRES_URL) as connection:
+        configured = connection.execute("SHOW max_parallel_workers_per_gather").fetchone()
+    # Asking for more than the server allows leaves the server's value.
+    generous = replace(probe, settings=query_settings(max_threads=64))
+    assert postgres_executor.execute(generous).rows == configured_rows(configured)  # type: ignore[attr-defined]
+    single = replace(probe, settings=query_settings(max_threads=1))
+    assert postgres_executor.execute(single).rows == (("0",),)  # type: ignore[attr-defined]
+
+
+@requires_postgres
+def test_the_server_stops_at_the_byte_ceiling(postgres_executor: object) -> None:
+    from dataclasses import replace
+
+    from hypequery.datasets.planner.settings import query_settings
+
+    base = plan_dataset_query(
+        Orders, _query({"measures": ("orders",)}), registry=REGISTRY, context=ACME, dialect=POSTGRES
+    )
+    wide = replace(
+        base,
+        sql="SELECT repeat('x', 1000) AS v FROM generate_series(1, 5000)",
+        parameters={},
+        settings=query_settings(max_result_bytes=100_000),
+    )
+    with pytest.raises(CompiledQueryError) as refused:
+        postgres_executor.execute(wide)  # type: ignore[attr-defined]
+    assert refused.value.category == "too-large"
