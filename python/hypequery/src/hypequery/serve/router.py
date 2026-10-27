@@ -22,10 +22,11 @@ and the core reads, validates and answers the request (decision 0023, step 1).
 # annotations on a callable instance, which has no __globals__, and would read
 # `_Guard.__call__`'s `request: Request` as a query parameter.
 from collections.abc import Awaitable, Callable, Coroutine, Sequence
+from dataclasses import replace
 from typing import Any, NoReturn, TypeVar
 from weakref import WeakKeyDictionary
 
-from fastapi import APIRouter, Body, Depends, Request
+from fastapi import APIRouter, Depends, Request
 from fastapi.params import Depends as DependsParam
 from fastapi.routing import APIRoute
 from starlette.datastructures import MutableHeaders
@@ -44,6 +45,7 @@ from .body_policy import DEFAULT_MAX_BODY_BYTES, enforce_body_policy
 from .client_contract import FastAPIHost
 from .core.api import Api, Route
 from .core.authentication import Authentication
+from .core.body import receive_body
 from .core.client_contract import ClientEndpointRegistry
 from .core.messages import ServeRequest
 from .errors import as_serve_error, error_response, map_error
@@ -81,8 +83,19 @@ def core_route_of(route: object) -> Route | None:
     return found[1] if found is not None else None
 
 
-async def _empty_body() -> Message:
-    return {"type": "http.request", "body": b"", "more_body": False}
+def _replay(body: bytes, upstream: Receive) -> Receive:
+    """A `receive` that delivers *body*, already read, then defers to *upstream*."""
+
+    delivered = False
+
+    async def receive() -> Message:
+        nonlocal delivered
+        if delivered:
+            return await upstream()
+        delivered = True
+        return {"type": "http.request", "body": body, "more_body": False}
+
+    return receive
 
 
 class _Guard:
@@ -131,7 +144,8 @@ class _AuthenticatingRoute(APIRoute):
 
     def get_route_handler(self) -> Callable[[Request], Coroutine[Any, Any, Response]]:
         handler = super().get_route_handler()
-        served_by_core = self.endpoint in _CORE_ENDPOINTS
+        core = _CORE_ENDPOINTS.get(self.endpoint)
+        core_input = core is not None and core[1].input is not None
         dependencies = [d.dependency for d in self.dependencies]
         guards = [d for d in dependencies if isinstance(d, _Guard)]
         # FastAPI also allows Depends(RateLimit(...)) on endpoint parameters.
@@ -160,11 +174,16 @@ class _AuthenticatingRoute(APIRoute):
                     if not limit.can_run_before_body:
                         break
                     await limit(request)
-                if served_by_core:
-                    # FastAPI resolves the route's dependencies with no body;
-                    # the core then reads it under its own body policy.
+                if core_input:
+                    # The core reads the body under its policy, once. FastAPI
+                    # then sees the same bytes, so the host's dependencies and
+                    # FastAPI's own decoding run as they always have.
+                    received = serve_request(request)
+                    body = await receive_body(received, max_body_bytes)
+                    _CORE_REQUEST.set(request.scope, replace(received, body=body))
+                    return await handler(Request(request.scope, _replay(body, request.receive)))
+                if core is not None:
                     _CORE_REQUEST.set(request.scope, serve_request(request))
-                    return await handler(Request(request.scope, _empty_body))
                 return await handler(enforce_body_policy(request, max_body_bytes))
             except Exception as exc:
                 return error_response(request, as_serve_error(exc, request=request))
@@ -260,32 +279,39 @@ class ServeRouter(APIRouter):
         """Serve the core *route* at *path* on this router.
 
         FastAPI documents it, with *documented_input* as its request body, and
-        resolves its dependencies; the core reads and validates the body and
-        answers. Internal to this package.
+        resolves its dependencies; the core reads the body under its policy,
+        validates it and answers. Internal to this package.
         """
 
         api = self._api
         if route.path != self.prefix + path or route not in api.routes:
             raise ValueError("a core route is served at its own API's path")
 
-        async def endpoint(request: Request) -> Response:
+        async def served(request: Request) -> Response:
             return await _serve_core_route(request, api, route)
 
+        endpoint: Callable[..., Awaitable[Response]] = served
         if documented_input is not None:
-            # The default only keeps FastAPI from reading the body; the core
-            # requires one, and the schema says so.
+            # FastAPI validates the documented body too, in its own order
+            # relative to the host's dependencies; the core then validates the
+            # same bytes identically and answers.
             async def endpoint_with_body(
-                request: Request,
-                payload: Any = Body(None),  # noqa: B008 - FastAPI's parameter declaration
+                request: Request, response: Response, payload: Any
             ) -> Response:
-                return await _serve_core_route(request, api, route)
+                served = await _serve_core_route(request, api, route)
+                if served.status_code < 400:
+                    # What dependencies set on FastAPI's injected response
+                    # applies to a successful answer, as for a returned model.
+                    if response.status_code:
+                        served.status_code = response.status_code
+                    served.headers.raw.extend(response.headers.raw)
+                return served
 
             # Assigned whole, so the annotation holds under deferred evaluation too.
             endpoint_with_body.__annotations__ = {
                 **endpoint_with_body.__annotations__,
                 "payload": documented_input,
             }
-            kwargs["openapi_extra"] = {"requestBody": {"required": True}}
             endpoint = endpoint_with_body
         # FastAPI names the operation after its endpoint: keep the handler's.
         endpoint.__name__ = endpoint.__qualname__ = route.handler.__name__

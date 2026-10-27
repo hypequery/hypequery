@@ -103,6 +103,23 @@ async def read_body(request: ServeRequest, max_bytes: int, *, checked_json: bool
     return bytes(received)
 
 
+async def _read_or_refuse(request: ServeRequest, max_bytes: int, *, checked_json: bool) -> bytes:
+    try:
+        return await read_body(request, max_bytes, checked_json=checked_json)
+    except ServeHttpError:
+        raise
+    except Exception as exc:
+        # FastAPI's answer to a body it could not receive.
+        raise _refuse(400, "There was an error parsing the body") from exc
+
+
+async def receive_body(request: ServeRequest, max_bytes: int) -> bytes:
+    """The whole body under the body policy, for a host that must buffer it first."""
+
+    checked_json = check_body_headers(request.headers, max_bytes)
+    return await _read_or_refuse(request, max_bytes, checked_json=checked_json)
+
+
 async def read_input(
     request: ServeRequest, schema: TypeAdapter[object], max_bytes: int, *, checked_json: bool
 ) -> object:
@@ -112,11 +129,9 @@ async def read_input(
     core changes no response.
     """
 
+    raw = await _read_or_refuse(request, max_bytes, checked_json=checked_json)
     try:
-        raw = await read_body(request, max_bytes, checked_json=checked_json)
         value = json.loads(raw) if raw else None
-    except ServeHttpError:
-        raise
     except json.JSONDecodeError as exc:
         raise request_validation_error(
             [{"type": "json_invalid", "loc": ("body", exc.pos), "msg": "JSON decode error"}]

@@ -524,3 +524,41 @@ def test_client_discovery_fails_closed_when_a_target_cannot_be_checked_or_export
     )
     assert response.status == 503
     assert body["error"]["message"] == "Client discovery is unavailable."
+
+
+def test_host_dependencies_see_the_body_and_shape_the_response() -> None:
+    from fastapi import Request, Response
+
+    seen: list[object] = []
+
+    async def reads_json(request: Request) -> None:
+        seen.append(await request.json())
+
+    def stamps(response: Response) -> None:
+        response.headers["x-host"] = "yes"
+        response.set_cookie("visited", "1")
+        response.status_code = 202
+
+    router = create_api(authenticate=authenticate)
+    add_dataset_endpoint(
+        router, "/orders", dataset=orders(), client=create_dataset_client(executor=Executor())
+    )
+    app = FastAPI()
+    app.include_router(router, dependencies=[Depends(reads_json), Depends(stamps)])
+    http = TestClient(app)
+    response = http.post(
+        "/orders", json={"measures": ["total"]}, headers={"Authorization": "Bearer reader"}
+    )
+    assert response.status_code == 202, response.text
+    assert response.json() == {"data": [{"total": "3"}]}
+    assert response.headers["x-host"] == "yes"
+    assert response.cookies["visited"] == "1"
+    assert response.headers["cache-control"] == "no-store"
+    assert seen == [{"measures": ["total"]}]
+
+    # A failed query is an error, whatever the dependencies set.
+    response = http.post(
+        "/orders", json={"measures": ["nope"]}, headers={"Authorization": "Bearer reader"}
+    )
+    assert response.status_code == 400
+    assert "x-host" not in response.headers
