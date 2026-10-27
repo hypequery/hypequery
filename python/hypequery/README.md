@@ -247,7 +247,7 @@ pip install "hypequery[pandas]"   # or [polars], [arrow]
 | `clickhouse-async` | clickhouse-connect with aiohttp | `create_async_clickhouse_executor`; also covers everything `clickhouse` does |
 | `fastapi` | FastAPI, Starlette, uvicorn | `hypequery.serve` and `hypequery dev` |
 | `django` | Django, clickhouse-connect | `hypequery.contrib.django` |
-| `flask` | Flask, a2wsgi, clickhouse-connect | `hypequery.contrib.flask` |
+| `flask` | Flask, clickhouse-connect | `hypequery.contrib.flask` |
 | `pandas` / `polars` / `arrow` | that library | `result.to_pandas()` / `to_polars()` / `to_arrow()` |
 
 Combine them as needed, for example `"hypequery[fastapi,clickhouse-async]"`.
@@ -507,25 +507,9 @@ async client, so `await` its calls. There, `TENANT` runs through `sync_to_async`
 the first query, so it may use the ORM just as in sync views. `manage.py check` validates `HYPEQUERY` (bad import
 paths, URLs, keys) without connecting. Outside a request, `get_client()` and
 `get_async_client()` return the process's clients. `get_client()` does not
-connect until its first query, so `asgi.py` can hand it to hypequery's HTTP
-endpoints while the app is built, even with ClickHouse down. Other keys:
+connect until its first query, so modules can hold it at import time and the
+project starts even with ClickHouse down. Other keys:
 `READONLY_POLICY`, `TIMEZONE`, `MAX_CONCURRENT`.
-
-To serve hypequery's HTTP endpoints from the same ASGI process:
-
-```python
-# asgi.py
-from django.core.asgi import get_asgi_application
-from hypequery.contrib.django.asgi import mount_serve
-
-django_app = get_asgi_application()
-from analytics.serve import serve_app  # a hypequery.serve.create_app(...) app
-
-application = mount_serve(django_app, serve_app, prefix="/analytics")
-```
-
-Serve keeps its own authentication: it reads a bearer token or API key from a
-header, never Django's session cookie.
 
 ### Flask
 
@@ -552,7 +536,6 @@ def create_app():
         result = hq.client.execute("orders", {"measures": ["revenue"]})
         return {"data": list(result.data)}
 
-    hq.mount_serve(app, serve_app, prefix="/analytics")  # optional
     return app
 ```
 
@@ -562,13 +545,23 @@ environment), `HYPEQUERY_REGISTRY`, `HYPEQUERY_READONLY_POLICY`,
 `HYPEQUERY_TIMEZONE`, `HYPEQUERY_MAX_CONCURRENT`. `init_app` validates them
 without connecting. The client is not closed in `teardown_appcontext`, which
 runs after every request; it lives for the process, and connects on its first
-query. To install hypequery's HTTP endpoints in `create_app`, give them
-`hq.client_for(app)`: it needs no app context and does not connect.
+query. Outside a request (CLI commands, background jobs, setup code in
+`create_app`), `hq.client_for(app)` returns the app's client with no app context
+and without connecting.
 
 A decorator on an `async def` route must itself be async-aware. A plain sync
 wrapper (a hand-written `login_required`, say) returns the route's coroutine
 unawaited, and Flask answers 500. Check `inspect.iscoroutinefunction(view)` and
 wrap with an `async def`, as Flask's own `ensure_sync` expects.
+
+### hypequery's HTTP endpoints
+
+These integrations run queries inside your Django views and Flask routes. The
+generated React hooks and the MCP bridge instead call hypequery's own HTTP
+endpoints (`hypequery.serve`), which today run as a separate FastAPI app; see
+"Serving with FastAPI". Native Django and Flask adapters for those endpoints,
+using your framework's login, are planned (decision 0023 in
+`specs/security-protocol/decisions`).
 
 ### Async views and shutdown
 

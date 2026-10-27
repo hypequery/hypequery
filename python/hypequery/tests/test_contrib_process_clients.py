@@ -1,19 +1,15 @@
-"""Per-process clients and the prefix-mount helpers shared by the integrations."""
+"""Per-process clients shared by the framework integrations."""
 
 from __future__ import annotations
 
 import asyncio
 import os
-from collections.abc import MutableMapping
-from typing import Any
 
 import pytest
 
 from contrib_doubles import REGISTRY, Built, install_executors, query
-from hypequery.contrib.utils.asgi_mount import mount_asgi, validate_prefix
 from hypequery.contrib.utils.process_clients import ClientConfig, ProcessClients
 from hypequery.contrib.utils.tenant_value import bind_tenant_value
-from hypequery.contrib.utils.wsgi_mount import mount_wsgi
 from hypequery.datasets import DatasetClient, TenantDatasetClient
 from hypequery.datasets.planner import tenant
 from hypequery.execution import ClickHouseConnection
@@ -129,112 +125,6 @@ def test_tenant_values_bind_or_pass_through(built: Built) -> None:
     with pytest.raises(TypeError, match="tenant id"):
         bind_tenant_value(client, 42)  # type: ignore[call-overload]
     assert isinstance(client, DatasetClient)
-
-
-@pytest.mark.parametrize("prefix", ["", "/", "analytics", "/analytics/", "//x", "/a?b", 3])
-def test_mount_prefixes_are_validated(prefix: Any) -> None:
-    with pytest.raises(ValueError, match="mount prefix"):
-        validate_prefix(prefix)
-
-
-Scope = MutableMapping[str, Any]
-
-
-def _recorder(name: str, seen: list[tuple[str, Scope]]) -> Any:
-    async def app(scope: Scope, receive: Any, send: Any) -> None:
-        seen.append((name, scope))
-
-    return app
-
-
-async def _noop_receive() -> MutableMapping[str, Any]:
-    return {}
-
-
-async def _noop_send(message: MutableMapping[str, Any]) -> None:
-    return None
-
-
-async def _call(app: Any, scope: Scope) -> None:
-    await app(scope, _noop_receive, _noop_send)
-
-
-@pytest.mark.parametrize(
-    ("scope", "target", "path", "root_path"),
-    [
-        ({"type": "http", "path": "/analytics/q"}, "mounted", "/analytics/q", "/analytics"),
-        ({"type": "http", "path": "/analytics"}, "mounted", "/analytics", "/analytics"),
-        ({"type": "websocket", "path": "/analytics/ws"}, "mounted", "/analytics/ws", "/analytics"),
-        ({"type": "http", "path": "/analyticsx"}, "host", "/analyticsx", None),
-        ({"type": "http", "path": "/"}, "host", "/", None),
-        # A server that includes root_path in path, and one that does not.
-        (
-            {"type": "http", "path": "/app/analytics/q", "root_path": "/app"},
-            "mounted",
-            "/app/analytics/q",
-            "/app/analytics",
-        ),
-        (
-            {"type": "http", "path": "/analytics/q", "root_path": "/app"},
-            "mounted",
-            "/app/analytics/q",
-            "/app/analytics",
-        ),
-    ],
-)
-def test_asgi_mount_routes_by_prefix(
-    scope: Scope, target: str, path: str, root_path: str | None
-) -> None:
-    seen: list[tuple[str, Scope]] = []
-    app = mount_asgi(_recorder("host", seen), _recorder("mounted", seen), prefix="/analytics")
-    asyncio.run(_call(app, dict(scope)))
-    [(name, received)] = seen
-    assert name == target
-    assert received["path"] == path
-    assert received.get("root_path") == root_path
-
-
-@pytest.mark.parametrize("lifespan", ["host", "mounted"])
-def test_asgi_mount_sends_lifespan_to_one_app(lifespan: Any) -> None:
-    seen: list[tuple[str, Scope]] = []
-    app = mount_asgi(
-        _recorder("host", seen), _recorder("mounted", seen), prefix="/a", lifespan=lifespan
-    )
-    asyncio.run(_call(app, {"type": "lifespan"}))
-    assert [name for name, _ in seen] == [lifespan]
-
-
-def test_asgi_mount_lifespan_choice_is_checked() -> None:
-    with pytest.raises(ValueError, match="lifespan"):
-        mount_asgi(_recorder("h", []), _recorder("m", []), prefix="/a", lifespan="both")  # type: ignore[arg-type]
-
-
-def test_wsgi_mount_routes_by_prefix() -> None:
-    async def mounted(scope: Scope, receive: Any, send: Any) -> None:
-        body = f"{scope['root_path']}|{scope['path']}".encode()
-        await send({"type": "http.response.start", "status": 200, "headers": []})
-        await send({"type": "http.response.body", "body": body})
-
-    def host(environ: dict[str, Any], start_response: Any) -> list[bytes]:
-        start_response("200 OK", [])
-        return [b"host:" + environ["PATH_INFO"].encode()]
-
-    app = mount_wsgi(host, mounted, prefix="/analytics")
-
-    from werkzeug.test import Client
-
-    client = Client(app)
-    assert client.get("/analytics/q").get_data() == b"/analytics|/analytics/q"
-    assert client.get("/analyticsx").get_data() == b"host:/analyticsx"
-    assert client.get("/").get_data() == b"host:/"
-
-
-def test_wsgi_mount_explains_a_missing_a2wsgi(monkeypatch: pytest.MonkeyPatch) -> None:
-    import sys
-
-    monkeypatch.setitem(sys.modules, "a2wsgi", None)
-    with pytest.raises(ModuleNotFoundError, match=r"hypequery\[flask\]"):
-        mount_wsgi(lambda environ, start: [], _recorder("m", []), prefix="/a")
 
 
 def test_a_closed_lazy_client_refuses_to_reconnect(built: Built) -> None:

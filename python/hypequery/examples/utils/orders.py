@@ -9,14 +9,10 @@ the integration is the same.
 from __future__ import annotations
 
 import secrets
-from typing import TYPE_CHECKING
 
 from hypequery.datasets import create_dataset_registry, dataset, dimension, measure
 
 from .config import required_environment
-
-if TYPE_CHECKING:
-    from hypequery.serve import Principal
 
 orders = dataset(
     "orders",
@@ -49,19 +45,3 @@ def organization_for(authorization: str | None) -> str | None:
         if secrets.compare_digest(token, known):
             return organization
     return None
-
-
-def principals() -> dict[str, Principal]:
-    """The same table as Serve principals, for the mounted HTTP endpoints."""
-
-    # Imported here so the pandas and SQLAlchemy examples don't need the fastapi extra.
-    from hypequery.serve import Principal
-
-    return {
-        token: Principal(
-            subject=f"user-{organization}",
-            tenant_id=organization,
-            scopes=frozenset({"analytics:read"}),
-        )
-        for token, organization in tenant_tokens().items()
-    }

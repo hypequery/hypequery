@@ -109,7 +109,7 @@ def test_definition_imports_leave_dataframe_libraries_and_frameworks_alone() -> 
         import hypequery.execution
         import hypequery.contrib.sqlalchemy
 
-        optional = ("pandas", "polars", "pyarrow", "django", "flask", "a2wsgi", "sqlalchemy")
+        optional = ("pandas", "polars", "pyarrow", "django", "flask", "sqlalchemy")
         leaked = [m for m in optional if m in sys.modules]
         assert not leaked, f"optional libraries leaked into a definition import: {leaked}"
         assert "hypequery.contrib.django" not in sys.modules

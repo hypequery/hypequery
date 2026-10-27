@@ -1,13 +1,10 @@
 """Run: python -m examples.flask_app (from python/hypequery).
 
-Needs ``hypequery[flask,fastapi]``. Seed examples/seed.sql; set CLICKHOUSE_URL
+Needs ``hypequery[flask]``. Seed examples/seed.sql; set CLICKHOUSE_URL
 (or the CLICKHOUSE_* variables), HYPEQUERY_TENANT_A_TOKEN and
 HYPEQUERY_TENANT_B_TOKEN. Then:
 
     curl -H "Authorization: Bearer $HYPEQUERY_TENANT_A_TOKEN" localhost:5001/revenue
-    curl -X POST -H "Authorization: Bearer $HYPEQUERY_TENANT_A_TOKEN" \\
-         -H "Content-Type: application/json" -d '{"dimensions":["country"]}' \\
-         localhost:5001/api/analytics/orders
 """
 
 from __future__ import annotations
@@ -29,7 +26,7 @@ def current_tenant() -> str | None:
     return organization_for(request.headers.get("Authorization"))
 
 
-def create_app(*, mount_serve: bool = True) -> Flask:
+def create_app() -> Flask:
     app = Flask(__name__)
     # HYPEQUERY_URL is unset, so the connection comes from CLICKHOUSE_URL or CLICKHOUSE_*.
     app.config["HYPEQUERY_REGISTRY"] = "examples.utils.orders:registry"
@@ -53,18 +50,6 @@ def create_app(*, mount_serve: bool = True) -> Flask:
         result = await hq.async_client.execute("orders", {"measures": ["revenue"], "by": "day"})
         return {"data": list(result.data)}
 
-    if mount_serve:
-        # hypequery's own HTTP endpoints (a FastAPI app) under /api.
-        from . import multitenant_saas
-        from .utils.orders import principals
-        from .utils.server import application
-
-        serve_app = application(
-            datasets=(multitenant_saas.orders,),
-            install=multitenant_saas.install,
-            principals=principals(),
-        )
-        hq.mount_serve(app, serve_app, prefix="/api")
     return app
 
 

@@ -1,10 +1,10 @@
-"""hypequery.contrib.django: settings, system check, middleware, clients, ASGI mount."""
+"""hypequery.contrib.django: settings, system check, middleware and clients."""
 
 from __future__ import annotations
 
 import asyncio
 import json
-from collections.abc import Iterator, MutableMapping
+from collections.abc import Iterator
 from typing import Any
 
 import pytest
@@ -31,8 +31,6 @@ if not settings.configured:
     )
     django.setup()
 
-import httpx  # noqa: E402
-from django.core.asgi import get_asgi_application  # noqa: E402
 from django.http import HttpRequest, JsonResponse  # noqa: E402
 from django.test import AsyncClient, Client, override_settings  # noqa: E402
 from django.urls import path  # noqa: E402
@@ -46,7 +44,6 @@ from hypequery.contrib.django import (  # noqa: E402
     tenant_client,
 )
 from hypequery.contrib.django.apps import check_settings  # noqa: E402
-from hypequery.contrib.django.asgi import mount_serve  # noqa: E402
 from hypequery.contrib.django.conf import load_settings  # noqa: E402
 from hypequery.datasets import CompiledQueryError, TenantDatasetClient  # noqa: E402
 
@@ -244,40 +241,6 @@ def test_the_check_is_registered() -> None:
     from django.core import checks
 
     assert check_settings in checks.registry.registry.get_checks()
-
-
-def test_mount_serve_splits_one_asgi_process() -> None:
-    async def serve_app(scope: MutableMapping[str, Any], receive: Any, send: Any) -> None:
-        if scope["type"] == "lifespan":
-            message = await receive()
-            await send({"type": message["type"] + ".complete"})
-            return
-        body = json.dumps({"root_path": scope["root_path"], "path": scope["path"]}).encode()
-        await send({"type": "http.response.start", "status": 200, "headers": []})
-        await send({"type": "http.response.body", "body": body})
-
-    application = mount_serve(get_asgi_application(), serve_app)
-
-    async def scenario() -> tuple[httpx.Response, httpx.Response, list[MutableMapping[str, Any]]]:
-        transport = httpx.ASGITransport(app=application)
-        async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as http:
-            mounted = await http.get("/analytics/datasets/orders")
-            hosted = await http.get("/idle")
-        sent: list[MutableMapping[str, Any]] = []
-
-        async def receive() -> dict[str, Any]:
-            return {"type": "lifespan.startup"}
-
-        async def send(message: MutableMapping[str, Any]) -> None:
-            sent.append(message)
-
-        await application({"type": "lifespan"}, receive, send)
-        return mounted, hosted, sent
-
-    mounted, hosted, lifespan = asyncio.run(scenario())
-    assert mounted.json() == {"root_path": "/analytics", "path": "/analytics/datasets/orders"}
-    assert hosted.json() == {"ok": True}
-    assert lifespan == [{"type": "lifespan.startup.complete"}]
 
 
 def test_async_views_resolve_a_database_backed_tenant_off_the_event_loop(built: Built) -> None:

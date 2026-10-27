@@ -1,6 +1,6 @@
 """Run: python -m examples.django_app runserver (from python/hypequery).
 
-Needs ``hypequery[django,fastapi]``. Seed examples/seed.sql; set CLICKHOUSE_URL
+Needs ``hypequery[django]``. Seed examples/seed.sql; set CLICKHOUSE_URL
 (or the CLICKHOUSE_* variables), HYPEQUERY_TENANT_A_TOKEN and
 HYPEQUERY_TENANT_B_TOKEN. Then:
 
@@ -75,7 +75,7 @@ def configure() -> None:
 
 
 def asgi_application() -> Any:
-    """Django plus hypequery's HTTP endpoints under /api, in one ASGI app.
+    """The same project as an ASGI app, so async views share one event loop.
 
     Run with: uvicorn "examples.django_app:asgi_application" --factory
     """
@@ -83,19 +83,7 @@ def asgi_application() -> Any:
     configure()
     from django.core.asgi import get_asgi_application
 
-    from hypequery.contrib.django.asgi import mount_serve
-
-    from . import multitenant_saas
-    from .utils.orders import principals
-    from .utils.server import application
-
-    django_app = get_asgi_application()
-    serve_app = application(
-        datasets=(multitenant_saas.orders,),
-        install=multitenant_saas.install,
-        principals=principals(),
-    )
-    return mount_serve(django_app, serve_app, prefix="/api")
+    return get_asgi_application()
 
 
 if __name__ == "__main__":
