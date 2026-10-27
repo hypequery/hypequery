@@ -1,5 +1,6 @@
 import type { AnyDatasetInstance } from '../types.js';
 import type { QueryBuilderFactoryLike, QueryBuilderLike } from '../query-builder-protocol.js';
+import type { RelationshipBuilderContext } from './relationship-builder-plan.js';
 
 /**
  * The dataset's source table as a builder, read with `FINAL` when the dataset
@@ -35,25 +36,24 @@ export function datasetSourceBuilder(
  */
 export const FINAL_SAFETY_SETTINGS = { optimize_move_to_prewhere_if_final: 0 } as const;
 
-/** Whether a query over this dataset can read a source with `FINAL`: its own, or a join target's. */
-export function datasetReadsFinal(
-  ds: Pick<AnyDatasetInstance, 'final' | 'relationships'>,
+/**
+ * Whether a query reads a source with `FINAL`: the dataset's own, or a
+ * relationship target it actually joins. Unused relationships don't count, so
+ * a plain query never carries the pin.
+ */
+export function queryReadsFinal(
+  ds: Pick<AnyDatasetInstance, 'final'>,
+  joinCtx: Pick<RelationshipBuilderContext, 'joins'> | undefined,
 ): boolean {
-  if (ds.final) return true;
-  return Object.values(ds.relationships ?? {}).some(
-    relationship => Boolean((relationship.target() as Partial<AnyDatasetInstance> | undefined)?.final),
-  );
+  return Boolean(ds.final) || Boolean(joinCtx?.joins.some(join => join.final));
 }
 
 /**
  * The statement with `FINAL_SAFETY_SETTINGS` in its own SQL, for paths that run
  * rendered SQL (`rawQuery`), where builder settings don't travel.
  */
-export function withFinalSafety<T extends { sql: string }>(
-  ds: Pick<AnyDatasetInstance, 'final' | 'relationships'>,
-  statement: T,
-): T {
-  if (!datasetReadsFinal(ds)) return statement;
+export function withFinalSafety<T extends { sql: string }>(readsFinal: boolean, statement: T): T {
+  if (!readsFinal) return statement;
   const pins = Object.entries(FINAL_SAFETY_SETTINGS).map(([name, value]) => `${name} = ${value}`);
   return { ...statement, sql: `${statement.sql} SETTINGS ${pins.join(', ')}` };
 }

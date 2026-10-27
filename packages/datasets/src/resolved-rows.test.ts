@@ -100,6 +100,8 @@ describe('resolved row dataset sources', () => {
         }).getQueryNode().settings;
       expect(settings(Users, { measures: ['total'] })).toMatchObject({ optimize_move_to_prewhere_if_final: 0 });
       expect(settings(Plain, { dimensions: ['user.amount'], measures: ['rows'] })).toMatchObject({ optimize_move_to_prewhere_if_final: 0 });
+      // A relationship the query doesn't use reads nothing with FINAL.
+      expect(settings(Plain, { measures: ['rows'] })?.optimize_move_to_prewhere_if_final).toBeUndefined();
       const Raw = dataset('raw', { source: 'raw', dimensions: { id: dimension.number() }, measures: { rows: measure.count('id') } });
       expect(settings(Raw, { measures: ['rows'] })?.optimize_move_to_prewhere_if_final).toBeUndefined();
     });
@@ -125,6 +127,10 @@ describe('resolved row dataset sources', () => {
       await joined.client.execute(PlainTimed, { dimensions: ['user.amount'], measures: ['running'], by: 'day', filters: [{ field: 'at', operator: 'between', value: ['2026-03-01T00:00:00Z', '2026-03-02T23:59:59Z'] }] });
       expect(joined.sent.length).toBeGreaterThanOrEqual(2);
       for (const sql of joined.sent) expect(sql.endsWith(PIN)).toBe(true);
+      const unjoined = recording();
+      await unjoined.client.execute(PlainTimed, { measures: ['running'], by: 'day', filters: [{ field: 'at', operator: 'between', value: ['2026-03-01T00:00:00Z', '2026-03-02T23:59:59Z'] }] });
+      expect(unjoined.sent.length).toBeGreaterThanOrEqual(2);
+      for (const sql of unjoined.sent) expect(sql).not.toContain('SETTINGS');
     });
   });
 });

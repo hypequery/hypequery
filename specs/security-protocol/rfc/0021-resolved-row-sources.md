@@ -47,7 +47,7 @@ segment and user filters apply to the resolved rows. Relationship targets read
 before uniqueness checks. Derived/window/shift scans share the source path.
 ClickHouse applies `WHERE` after `FINAL` unless `optimize_move_to_prewhere_if_final`
 is enabled, which would let a filter match an older version. Every query that
-reads `FINAL` (on its own source or a relationship target) therefore sends
+reads `FINAL` (its own source, or a relationship target it joins) therefore sends
 `optimize_move_to_prewhere_if_final = 0`: as a builder setting, and in the SQL's
 own `SETTINGS` clause for statements run as raw SQL (time, derived-dataset and
 derived-metric queries). This is the server default. A `readonly=2` user, or a
