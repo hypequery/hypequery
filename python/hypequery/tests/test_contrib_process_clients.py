@@ -244,3 +244,67 @@ def test_a_closed_lazy_client_refuses_to_reconnect(built: Built) -> None:
     with pytest.raises(RuntimeError, match="closed"):
         query(client)
     assert built.sync == []
+
+
+class _Executor:
+    def __init__(self) -> None:
+        self.closed = 0
+
+    def execute(self, compiled: object) -> str:
+        return "rows"
+
+    def close(self) -> None:
+        self.closed += 1
+
+
+def test_overlapping_first_queries_connect_once() -> None:
+    import threading
+
+    from hypequery.contrib.utils.lazy_executor import LazyExecutor
+
+    started = threading.Event()
+    release = threading.Event()
+    connects: list[_Executor] = []
+
+    def connect() -> _Executor:
+        started.set()
+        release.wait(timeout=5)  # hold the first connect so the others overlap it
+        connects.append(_Executor())
+        return connects[-1]
+
+    lazy = LazyExecutor(connect)  # type: ignore[arg-type]
+    results: list[object] = []
+    threads = [
+        threading.Thread(target=lambda: results.append(lazy.execute(object())))  # type: ignore[arg-type]
+        for _ in range(8)
+    ]
+    for thread in threads:
+        thread.start()
+    assert started.wait(timeout=5)
+    release.set()
+    for thread in threads:
+        thread.join(timeout=5)
+    assert len(connects) == 1
+    assert results == ["rows"] * 8
+    assert lazy.connected
+
+
+def test_a_failed_connect_is_retried_by_the_next_query() -> None:
+    from hypequery.contrib.utils.lazy_executor import LazyExecutor
+
+    attempts: list[int] = []
+
+    def connect() -> _Executor:
+        attempts.append(1)
+        if len(attempts) == 1:
+            raise ConnectionError("ClickHouse is down")
+        return _Executor()
+
+    lazy = LazyExecutor(connect)  # type: ignore[arg-type]
+    with pytest.raises(ConnectionError):
+        lazy.execute(object())  # type: ignore[arg-type]
+    assert not lazy.connected
+    assert lazy.execute(object()) == "rows"  # type: ignore[arg-type,comparison-overlap]
+    assert len(attempts) == 2
+    lazy.close()
+    lazy.close()
