@@ -46,7 +46,12 @@ from hypequery.serve.core.authentication import Authentication
 from hypequery.serve.core.client_contract import export_placements
 from hypequery.serve.core.client_discovery import add_client_contract_route
 from hypequery.serve.core.endpoints import DatasetEndpointCore, add_dataset_route
-from hypequery.serve.core.errors import ServeHttpError, serve_error, use_error_class
+from hypequery.serve.core.errors import (
+    ServeHttpError,
+    serve_error,
+    use_error_class,
+    validation_issues,
+)
 
 TOKEN = {"authorization": "Bearer reader"}
 
@@ -466,3 +471,56 @@ def test_a_core_route_is_documented_only_at_its_own_path() -> None:
         router._add_core_route("/y", route)
     with pytest.raises(ValueError, match="own API"):
         router._add_core_route("/x", new_api().add_route("GET", "/api/x", echo))
+
+
+def test_the_neutral_error_and_issue_paths() -> None:
+    error = ServeHttpError(
+        429, "RATE_LIMITED", "Slow down", details={"retry": 1}, headers={"Retry-After": "1"}
+    )
+    assert (error.status_code, error.type, error.message) == (429, "RATE_LIMITED", "Slow down")
+    assert error.details == {"retry": 1}
+    assert error.headers == {"Retry-After": "1"}
+    assert validation_issues([{"loc": "body", "msg": "m", "type": "t"}]) == [
+        {"path": [], "message": "m", "code": "t"}
+    ]
+
+
+def _orders_api(authenticator: Any, path: str) -> Api:
+    api = Api(authentication=Authentication(authenticator, bearer_token(), default_tenant_resolver))
+    add_dataset_route(
+        api,
+        path,
+        DatasetEndpointCore(
+            dataset=orders(),
+            client=create_dataset_client(executor=Executor()),
+            client_profile=ClientQueryProfile(),
+        ),
+    )
+    return api
+
+
+def test_client_discovery_fails_closed_when_a_target_cannot_be_checked_or_exported() -> None:
+    def broken(credential: Credential) -> Principal:
+        raise RuntimeError("auth backend down")
+
+    main = _orders_api(authenticate, "/orders")
+    unavailable = _orders_api(broken, "/elsewhere")
+    add_client_contract_route(main, sources=(main.client_endpoints, unavailable.client_endpoints))
+    response, body = handle(
+        main, ServeRequest(method="GET", path="/client-contract", headers=Headers(TOKEN.items()))
+    )
+    assert response.status == 503
+    assert body["error"]["message"] == "Authentication is unavailable."
+
+    # The same endpoint id at two paths cannot form one contract.
+    duplicate = _orders_api(authenticate, "/again")
+    add_client_contract_route(
+        duplicate,
+        "/both",
+        sources=(main.client_endpoints, duplicate.client_endpoints),
+    )
+    response, body = handle(
+        duplicate, ServeRequest(method="GET", path="/both", headers=Headers(TOKEN.items()))
+    )
+    assert response.status == 503
+    assert body["error"]["message"] == "Client discovery is unavailable."

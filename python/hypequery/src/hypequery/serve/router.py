@@ -280,7 +280,11 @@ class ServeRouter(APIRouter):
             ) -> Response:
                 return await _serve_core_route(request, api, route)
 
-            endpoint_with_body.__annotations__["payload"] = documented_input
+            # Assigned whole, so the annotation holds under deferred evaluation too.
+            endpoint_with_body.__annotations__ = {
+                **endpoint_with_body.__annotations__,
+                "payload": documented_input,
+            }
             kwargs["openapi_extra"] = {"requestBody": {"required": True}}
             endpoint = endpoint_with_body
         # FastAPI names the operation after its endpoint: keep the handler's.
