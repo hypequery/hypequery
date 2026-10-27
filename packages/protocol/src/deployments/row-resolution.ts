@@ -13,8 +13,13 @@ export function validateProtocolRowResolution(input: unknown, path = '$.rowResol
     const descriptor = Object.getOwnPropertyDescriptor(value, key);
     if (typeof key !== 'string' || !descriptor || !('value' in descriptor)) deploymentError('HQ_DEPLOYMENT_UNSAFE_OBJECT', path);
   }
-  for (const key of ['kind', 'engine']) if (!Object.hasOwn(value, key)) deploymentError('HQ_DEPLOYMENT_TYPE', `${path}.${key}`);
+  if (!Object.hasOwn(value, 'kind')) deploymentError('HQ_DEPLOYMENT_TYPE', `${path}.kind`);
   if (value.kind !== 'final') deploymentError('HQ_DEPLOYMENT_INVALID_VALUE', `${path}.kind`);
+  // Without an engine: FINAL only, and no column can apply.
+  if (!Object.hasOwn(value, 'engine')) {
+    for (const key of Object.getOwnPropertyNames(value)) if (key !== 'kind') deploymentError('HQ_DEPLOYMENT_UNKNOWN_FIELD', `${path}.${key}`);
+    return Object.freeze({ kind: 'final' });
+  }
   const engine = value.engine;
   if (engine !== 'replacing' && engine !== 'collapsing' && engine !== 'versioned-collapsing') deploymentError('HQ_DEPLOYMENT_INVALID_VALUE', `${path}.engine`);
   const columnKey = engine === 'replacing' ? 'deletedColumn' : 'signColumn';

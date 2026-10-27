@@ -21,7 +21,10 @@ local semantic cache identity.
 }
 ```
 
-`kind` must be `final`. `engine` is one of:
+`kind` must be `final`. Without `engine`, `{ "kind": "final" }` reads the source
+with `FINAL` and applies no other filter; no other key is allowed. This is how a
+code-first `final: true` dataset is published, and it rehydrates to exactly that.
+`engine` is one of:
 
 - `replacing`: ReplacingMergeTree or its replicated form. The table's own sorting
   key and version arguments select the latest row. Optional `deletedColumn` names
@@ -56,8 +59,9 @@ a `readonly=1` profile that enables the option refuses these queries. Operators
 must keep the option off, or allow the setting, for resolved-row datasets. The
 planner never retries with raw rows.
 
-A code-first dataset may declare `final: true` without naming the engine; it
-cannot be published to a deployment contract until it declares `rowResolution`.
+A code-first `final: true` dataset publishes as `{ "kind": "final" }`; naming the
+engine adds the deletion or sign filter for deletion columns the engine doesn't
+declare and for older servers or unmatched cancel rows.
 
 SummingMergeTree and AggregatingMergeTree are deliberately unsupported by this
 policy: FINAL merging does not turn aggregate states into ordinary scalar

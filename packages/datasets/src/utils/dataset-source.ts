@@ -1,4 +1,4 @@
-import type { AnyDatasetInstance } from '../types.js';
+import type { AnyDatasetInstance, RowResolution } from '../types.js';
 import type { QueryBuilderFactoryLike, QueryBuilderLike } from '../query-builder-protocol.js';
 import type { RelationshipBuilderContext } from './relationship-builder-plan.js';
 
@@ -68,8 +68,19 @@ export function currentRowPredicate(
   ds: Pick<AnyDatasetInstance, 'rowResolution'>,
 ): { column: string; value: 0 | 1 } | undefined {
   const policy = ds.rowResolution;
-  if (!policy) return undefined;
+  if (!policy || !('engine' in policy)) return undefined;
   if (policy.engine === 'replacing')
     return policy.deletedColumn === undefined ? undefined : { column: policy.deletedColumn, value: 0 };
   return { column: policy.signColumn, value: 1 };
+}
+
+/**
+ * The contract's form of a dataset's row resolution: its policy, or
+ * `{ kind: 'final' }` for a plain `final: true`, so code-first `final` survives
+ * publishing (RFC 0021).
+ */
+export function rowResolutionOf(
+  ds: Pick<AnyDatasetInstance, 'final' | 'rowResolution'>,
+): RowResolution | undefined {
+  return ds.rowResolution ?? (ds.final ? { kind: 'final' } : undefined);
 }

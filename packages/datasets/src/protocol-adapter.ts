@@ -1,4 +1,5 @@
 import { byName } from './utils/by-name.js';
+import { rowResolutionOf } from './utils/dataset-source.js';
 import { splitDatasetMeasures } from './utils/dataset-measures.js';
 import { filterExpression, metricExpression, metricDerivation } from './utils/protocol-metric-expressions.js';
 import {
@@ -130,12 +131,6 @@ export function buildProtocolDatasetContract(
   }
   assertNoPublishedSegments(dataset);
   assertPublishableTimeGrains(dataset);
-  if (dataset.final && !dataset.rowResolution) {
-    throw new Error(
-      `Dataset "${dataset.name}" is declared final: true without rowResolution. ` +
-      'The deployment contract needs the engine to publish it; declare rowResolution instead.',
-    );
-  }
   const metrics = Object.entries(options.metrics ?? {})
     .filter(([, metric]) => (
       metric.__type === 'grained_metric_ref' ? metric.metric : metric
@@ -154,7 +149,7 @@ export function buildProtocolDatasetContract(
     ...(dataset.description !== undefined ? { description: dataset.description } : {}),
     ...toProtocolSemanticMetadata(dataset),
     source: dataset.source,
-    ...(dataset.rowResolution === undefined ? {} : { rowResolution: { ...dataset.rowResolution } }),
+    ...(rowResolutionOf(dataset) === undefined ? {} : { rowResolution: { ...rowResolutionOf(dataset)! } }),
     ...(dataset.freshness !== undefined ? { freshness: { ...dataset.freshness } } : {}),
     ...(dataset.owner !== undefined ? { owner: dataset.owner } : {}),
     ...(dataset.defaults !== undefined

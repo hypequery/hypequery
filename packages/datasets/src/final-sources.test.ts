@@ -12,6 +12,8 @@ import {
   nullIfZero,
 } from './index.js';
 import { createInMemoryBackend } from './in-memory-backend.js';
+import { buildProtocolDeploymentContract } from './protocol-deployment-adapter.js';
+import { rehydrateProtocolDatasets } from './protocol-rehydrate.js';
 import { buildDatasetQuerySignature } from './cache/query-signature.js';
 import { datasetCacheKey, metricCacheKey, resolveProtocolCacheKeySettings } from './cache/protocol-cache-keys.js';
 import type { QueryBuilderFactoryLike, QueryBuilderLike } from './query-builder-protocol.js';
@@ -171,10 +173,17 @@ describe('final: true datasets', () => {
     })).toThrow('final must be true or false.');
   });
 
-  it('refuses publishing final: true without rowResolution, which names the engine', () => {
-    expect(() => buildProtocolDatasetContract(Tenants)).toThrow(
-      'Dataset "tenants" is declared final: true without rowResolution.',
-    );
+  it('survives publishing: the contract carries FINAL, and rehydrates to the authored dataset', () => {
+    expect(buildProtocolDatasetContract(Tenants).rowResolution).toEqual({ kind: 'final' });
+    const hydrated = rehydrateProtocolDatasets(buildProtocolDeploymentContract([Tenants]).datasets).tenants;
+    // Exactly what was authored: FINAL only, with no engine filter added.
+    expect(hydrated.final).toBe(true);
+    expect(hydrated.rowResolution).toBeUndefined();
+    const client = createDatasetClient({ queryBuilder: createQueryBuilder({ host: 'http://127.0.0.1:8123' }) });
+    const query = { dimensions: ['plan'], measures: ['tenantCount'] };
+    expect(client.toSQL(hydrated, query)).toBe(client.toSQL(Tenants, query));
+    expect(client.toSQL(hydrated, query)).toContain('FROM hq_saas.tenants FINAL');
+    expect(buildDatasetQuerySignature(hydrated, query)).toBe(buildDatasetQuerySignature(Tenants, query));
   });
 
   it('separates result-cache keys by final, on the dataset and on a joined target', () => {

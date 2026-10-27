@@ -1,9 +1,11 @@
 /**
  * How a dataset's rows are resolved, as the deployment contract carries it
- * (RFC 0021). Implies `final: true`; the engine's deletion or sign column also
- * filters the resolved rows, so only current rows remain.
+ * (RFC 0021). Implies `final: true`. `{ kind: 'final' }` is exactly `final: true`;
+ * naming the engine also filters the resolved rows by its deletion or sign
+ * column, so only current rows remain.
  */
 export type RowResolution =
+  | { readonly kind: 'final' }
   | { readonly kind: 'final'; readonly engine: 'replacing'; readonly deletedColumn?: string }
   | { readonly kind: 'final'; readonly engine: 'collapsing' | 'versioned-collapsing'; readonly signColumn: string };
 import type { QueryableRelationshipMeasureNames, RelationshipMeasureDefinition } from './utils/relationship-measure-types.js';

@@ -140,6 +140,29 @@
     }
   },
   {
+    "id": "resolved-rows-final-only",
+    "value": {
+      "kind": "hypequery-deployment",
+      "version": 2,
+      "datasets": [
+        {
+          "name": "users",
+          "source": "users",
+          "tenant": {
+            "kind": "not-required"
+          },
+          "dimensions": [],
+          "measures": [],
+          "filters": [],
+          "relationships": [],
+          "rowResolution": {
+            "kind": "final"
+          }
+        }
+      ]
+    }
+  },
+  {
     "id": "resolved-rows-collapsing",
     "value": {
       "kind": "hypequery-deployment",

@@ -1,4 +1,5 @@
 import { validateProtocolRowResolution } from '@hypequery/protocol';
+import type { RowResolution } from './types.js';
 /**
  * dataset() — creates a typed semantic model over a physical table.
  *
@@ -140,9 +141,7 @@ export function dataset<
     __type: 'dataset',
     name,
     source: config.source,
-    ...(config.rowResolution !== undefined
-      ? { final: true, rowResolution: validateProtocolRowResolution(config.rowResolution) }
-      : config.final ? { final: true } : {}),
+    ...datasetRowResolution(config),
     description: config.description,
     ...snapshotSemanticMetadata(config),
     freshness: config.freshness === undefined ? undefined : { ...config.freshness },
@@ -166,4 +165,15 @@ export function dataset<
   };
 
   return ds;
+}
+
+/**
+ * `final` and `rowResolution` on the instance. An engine-less policy is stored
+ * as plain `final: true`, so a published `final: true` dataset rehydrates to
+ * exactly what was authored.
+ */
+function datasetRowResolution(config: { final?: boolean; rowResolution?: RowResolution }) {
+  if (config.rowResolution === undefined) return config.final ? { final: true as const } : {};
+  const policy = validateProtocolRowResolution(config.rowResolution) as RowResolution;
+  return 'engine' in policy ? { final: true as const, rowResolution: policy } : { final: true as const };
 }

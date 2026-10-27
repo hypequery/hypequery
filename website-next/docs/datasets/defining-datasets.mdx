@@ -59,7 +59,7 @@ With `final: true`:
 
 Queries that read `FINAL` send `optimize_move_to_prewhere_if_final = 0`, the server default, so no filter can run before `FINAL` and match an older version of a row. A `readonly = 1` connection accepts it unless its profile turns that option on, in which case these queries are refused rather than answered from old rows.
 
-To publish a versioned dataset to a deployment contract (hypequery Cloud, MCP), name the engine with `rowResolution` instead of `final: true`. It reads the same way, and also keeps only current rows: not deleted, or positive in a collapsing table.
+`final: true` survives publishing to a deployment contract (hypequery Cloud, MCP): the published dataset reads with `FINAL` exactly as it does locally. To also filter by the engine's deletion or sign column after `FINAL`, for a deletion column the engine doesn't declare or the extra guarantee in a collapsing table, name the engine with `rowResolution`:
 
 ```ts
 export const Users = dataset('users', {
@@ -71,7 +71,7 @@ export const Users = dataset('users', {
 });
 ```
 
-A `final` dataset needs the query-builder execution path. Semantic backends refuse it, and publishing refuses `final: true` without `rowResolution`, rather than serving unresolved rows.
+A `final` dataset needs the query-builder execution path. Semantic backends refuse it rather than serving unresolved rows.
 
 ## Module pattern
 

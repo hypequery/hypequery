@@ -8,11 +8,14 @@ from .errors import deployment_error
 
 def row_resolution(value: object, path: str) -> dict[str, object]:
     node = record(value, path)
-    for key in ("kind", "engine"):
-        if key not in node:
-            deployment_error("HQ_DEPLOYMENT_TYPE", f"{path}.{key}")
+    if "kind" not in node:
+        deployment_error("HQ_DEPLOYMENT_TYPE", f"{path}.kind")
     if node.get("kind") != "final":
         deployment_error("HQ_DEPLOYMENT_INVALID_VALUE", f"{path}.kind")
+    # Without an engine: FINAL only, and no column can apply.
+    if "engine" not in node:
+        exact_fields(node, ("kind",), (), path)
+        return {"kind": "final"}
     engine = node.get("engine")
     if engine not in ("replacing", "collapsing", "versioned-collapsing"):
         deployment_error("HQ_DEPLOYMENT_INVALID_VALUE", f"{path}.engine")

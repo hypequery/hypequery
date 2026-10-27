@@ -15,6 +15,11 @@
     "sha256": "0c46e71aa427fb41adafb01008f5b747934edfad94308ea8513aff2a7c08a0e5"
   },
   {
+    "id": "resolved-rows-final-only",
+    "canonical": "{\"datasets\":[{\"dimensions\":[],\"filters\":[],\"measures\":[],\"name\":\"users\",\"relationships\":[],\"rowResolution\":{\"kind\":\"final\"},\"source\":\"users\",\"tenant\":{\"kind\":\"not-required\"}}],\"kind\":\"hypequery-deployment\",\"version\":2}",
+    "sha256": "6739f29f0931ee983b721213f9e290e9c9a7548195fbe190a4a913296360e23c"
+  },
+  {
     "id": "resolved-rows-collapsing",
     "canonical": "{\"datasets\":[{\"dimensions\":[],\"filters\":[],\"measures\":[],\"name\":\"users\",\"relationships\":[],\"rowResolution\":{\"engine\":\"collapsing\",\"kind\":\"final\",\"signColumn\":\"sign\"},\"source\":\"users\",\"tenant\":{\"kind\":\"not-required\"}}],\"kind\":\"hypequery-deployment\",\"version\":2}",
     "sha256": "22ed69eda4f470ee9063426a1e6387d9af534f51e4053fff7ddfda8263dbb702"

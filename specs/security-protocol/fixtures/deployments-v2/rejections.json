@@ -1338,6 +1338,31 @@
     "error": "HQ_DEPLOYMENT_INVALID_VALUE"
   },
   {
+    "id": "resolved-final-only-column",
+    "value": {
+      "kind": "hypequery-deployment",
+      "version": 2,
+      "datasets": [
+        {
+          "name": "users",
+          "source": "users",
+          "tenant": {
+            "kind": "not-required"
+          },
+          "dimensions": [],
+          "measures": [],
+          "filters": [],
+          "relationships": [],
+          "rowResolution": {
+            "kind": "final",
+            "deletedColumn": "is_deleted"
+          }
+        }
+      ]
+    },
+    "error": "HQ_DEPLOYMENT_UNKNOWN_FIELD"
+  },
+  {
     "id": "resolved-collapsing-missing-sign",
     "value": {
       "kind": "hypequery-deployment",
