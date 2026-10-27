@@ -163,7 +163,9 @@ class _DatasetClientBase:
         cache_query = planned.query
         if paginate and cache_query.limit is not None:
             cache_query = cache_query.model_copy(update={"limit": cache_query.limit + 1})
-        key = self._cache.key_for(planned.dataset, cache_query, context, self._registry)
+        key = self._cache.key_for(
+            planned.dataset, cache_query, context, self._registry, engine=self._dialect.name
+        )
         return key, ("miss" if key is not None else "bypass")
 
     def _start(

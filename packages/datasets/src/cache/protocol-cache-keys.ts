@@ -192,17 +192,24 @@ function partitionTimezone(query: DatasetQuery | MetricQuery): string | undefine
   return query.timezone === 'UTC' ? undefined : query.timezone;
 }
 
+/** The engine partition: none for ClickHouse, the reference engine, so its keys are unchanged. */
+function partitionEngine(engine: string | undefined): string | undefined {
+  return engine === undefined || engine === 'clickhouse' ? undefined : engine;
+}
+
 function definitionFor(
   settings: ProtocolCacheKeySettings,
   root: AnyDatasetInstance,
   scope: string | undefined,
   query: DatasetQuery | MetricQuery,
   metric?: unknown,
+  engine?: string,
 ): string {
   const timezone = partitionTimezone(query);
+  const partition = partitionEngine(engine);
   return settings.definitionIdentity !== undefined
-    ? scopedDefinitionIdentity(settings.definitionIdentity, scope, timezone)
-    : localDefinitionIdentity(root, { metric, scope, timezone });
+    ? scopedDefinitionIdentity(settings.definitionIdentity, scope, timezone, partition)
+    : localDefinitionIdentity(root, { metric, scope, timezone, ...(partition ? { engine: partition } : {}) });
 }
 
 /**
@@ -216,6 +223,7 @@ export function datasetCacheKey(
   query: DatasetQuery,
   context: ExecutionContext | undefined,
   scope: string | undefined,
+  engine?: string,
 ): string | undefined {
   // RFC 0009's normalized query has no `having`, so no portable key can
   // separate queries that differ only in their conditions. Run them uncached,
@@ -229,7 +237,7 @@ export function datasetCacheKey(
       ...(query.measures !== undefined ? { measures: [...query.measures] } : {}),
       ...(query.by !== undefined ? { by: query.by } : {}),
     };
-    return deriveKey(settings, wire, definitionFor(settings, ds, scope, query), context, query.limit);
+    return deriveKey(settings, wire, definitionFor(settings, ds, scope, query, undefined, engine), context, query.limit);
   } catch {
     // A cache failure never fails a query: run uncached.
     return undefined;
@@ -243,6 +251,7 @@ export function metricCacheKey(
   query: MetricQuery,
   context: ExecutionContext | undefined,
   scope: string | undefined,
+  engine?: string,
 ): string | undefined {
   try {
     const ref = getMetricRef(metric as MetricHandle);
@@ -254,7 +263,7 @@ export function metricCacheKey(
       ...sharedQueryFields(query),
       ...(grain !== undefined ? { by: grain } : {}),
     };
-    const definition = definitionFor(settings, ref.dataset, scope, query, ref.spec);
+    const definition = definitionFor(settings, ref.dataset, scope, query, ref.spec, engine);
     return deriveKey(settings, wire, definition, context, query.limit);
   } catch {
     return undefined;

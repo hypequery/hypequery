@@ -41,3 +41,14 @@ def timezone_identity(identity: str, timezone: str | None) -> str:
     validate_timezone(timezone)
     payload = "hypequery.ts.cache-timezone.v1\0" + identity + "\0" + timezone
     return hashlib.sha256(payload.encode()).hexdigest()
+
+
+def engine_identity(identity: str, engine: str) -> str:
+    """Match TypeScript's engine partition: another engine reads other data.
+
+    ClickHouse, the reference engine, folds in nothing, so its keys are unchanged.
+    """
+    if engine == "clickhouse":
+        return identity
+    payload = "hypequery.ts.cache-engine.v1\0" + identity + "\0" + engine
+    return hashlib.sha256(payload.encode()).hexdigest()

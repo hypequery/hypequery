@@ -25,7 +25,7 @@ from hypequery.protocol import (
 from ..dataset import Dataset
 from ..planner import DatasetQuery, ExecutionContext
 from ..registry import DatasetRegistry
-from ..utils.query_timezone import timezone_identity
+from ..utils.query_timezone import engine_identity, timezone_identity
 from .cached_rows_check import cached_rows_problem
 from .preimage_inputs import (
     effective_row_limit,
@@ -118,8 +118,13 @@ class ResultCache:
         query: DatasetQuery,
         context: ExecutionContext | None,
         registry: DatasetRegistry | None,
+        engine: str = "clickhouse",
     ) -> str | None:
-        """The store key for this execution, or None when it cannot be cached."""
+        """The store key for this execution, or None when it cannot be cached.
+
+        *engine* is the SQL dialect that runs the query; the same query on
+        another engine reads other data, so it never shares an entry.
+        """
 
         if query.having:
             # The RFC 0009 normalized query has no `having` yet. A key built
@@ -132,9 +137,12 @@ class ResultCache:
         try:
             preimage = build_protocol_cache_preimage(
                 secret=self.secret,
-                definition_identity=timezone_identity(
-                    self.definition_identity or local_definition_identity(definitions),
-                    query.timezone,
+                definition_identity=engine_identity(
+                    timezone_identity(
+                        self.definition_identity or local_definition_identity(definitions),
+                        query.timezone,
+                    ),
+                    engine,
                 ),
                 query=wire_query(dataset, query),
                 tenant=tenant_scope(context),

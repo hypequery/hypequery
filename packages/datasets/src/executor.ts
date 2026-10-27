@@ -22,6 +22,7 @@ import { rejectTimeMeasuresOnBackend } from './utils/time-query-measures.js';
 import { baseMeasureNames } from './utils/dataset-measures.js';
 import { hasSelectedDerivedMeasure } from './utils/dataset-derived-query.js';
 import { serializeSemanticMeasureValues } from './utils/semantic-result-serialization.js';
+import { resolveDatasetSqlDialect } from './utils/dataset-sql-dialect.js';
 import { resolveResultLimit, withResultLimit } from './utils/result-limits.js';
 import { resolveDatasetCacheRuntime, type ClientCacheDefaults } from './utils/dataset-cache-policy.js';
 import {
@@ -252,6 +253,11 @@ export class DatasetClientImpl extends MetricQueryEngine implements DatasetClien
     return this.cacheEnabledByDefault;
   }
 
+  /** The engine the call runs on, which partitions its cache entries. */
+  private cacheEngine(context?: ExecutionContext): string {
+    return resolveDatasetSqlDialect(this.resolveBuilderFactory(context)).name;
+  }
+
   /** The call's cache partition: its own `cache.scope`, else the client default. */
   private cacheScope(context?: ExecutionContext): string | undefined {
     if (context?.cache === false) return undefined;
@@ -440,6 +446,7 @@ export class DatasetClientImpl extends MetricQueryEngine implements DatasetClien
 
     const key = metricCacheKey(
       this.cacheKeySettings, metric, boundedQuery, cacheRuntime, this.cacheScope(cacheRuntime),
+      this.cacheEngine(cacheRuntime),
     );
     if (key === undefined) {
       // No portable key for this call (see metricCacheKey): run uncached.
@@ -503,6 +510,7 @@ export class DatasetClientImpl extends MetricQueryEngine implements DatasetClien
     // from the rows, so it must not be stored in or read back from an entry.
     const key = datasetCacheKey(
       this.cacheKeySettings, ds, boundedQuery, cacheRuntime, this.cacheScope(cacheRuntime),
+      this.cacheEngine(cacheRuntime),
     );
     if (key === undefined) {
       // No portable key for this call (see datasetCacheKey): run uncached.

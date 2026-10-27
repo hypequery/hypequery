@@ -43,6 +43,8 @@
   "devDependencies": {
     "@hypequery/clickhouse": "workspace:^",
     "@hypequery/datasets": "workspace:^",
+    "@hypequery/mcp": "workspace:^",
+    "@hypequery/serve": "workspace:^",
     "@types/node": "^20.11.30",
     "@types/pg": "^8.11.10",
     "pg": "^8.13.1",

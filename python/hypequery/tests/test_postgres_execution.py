@@ -267,3 +267,15 @@ def test_clients_plan_with_their_executors_dialect() -> None:
     result = client.execute(Orders, {"measures": ("orders",)}, context=ACME, use_cache=False)
     assert result.data == ({"orders": 3},)
     assert '"analytics"."orders"' in cursor.executed[0][0]
+
+
+def test_cache_keys_fold_the_engine_like_typescript() -> None:
+    from hypequery.datasets.utils.query_timezone import engine_identity, timezone_identity
+
+    identity = "0" * 64
+    assert engine_identity(identity, "clickhouse") == identity
+    # Computed by @hypequery/datasets' scopedDefinitionIdentity for the same inputs.
+    assert (
+        engine_identity(timezone_identity(identity, "America/New_York"), "postgres")
+        == "29ccaf47ab453fc3f9b2a95bd52d9b8960b7abab64bdc32863c064c6c89dbc3b"
+    )

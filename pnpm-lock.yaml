@@ -257,6 +257,12 @@ importers:
       '@hypequery/datasets':
         specifier: workspace:^
         version: link:../datasets
+      '@hypequery/mcp':
+        specifier: workspace:^
+        version: link:../mcp-server
+      '@hypequery/serve':
+        specifier: workspace:^
+        version: link:../serve
       '@types/node':
         specifier: ^20.11.30
         version: 20.19.31

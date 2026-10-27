@@ -156,7 +156,7 @@ class DefinitionDescriber {
  */
 export function localDefinitionIdentity(
   root: AnyDatasetInstance,
-  extra: { metric?: unknown; scope?: string; timezone?: string } = {},
+  extra: { metric?: unknown; scope?: string; timezone?: string; engine?: string } = {},
 ): string {
   const describer = new DefinitionDescriber();
   describer.reference(root);
@@ -166,6 +166,8 @@ export function localDefinitionIdentity(
     metric,
     scope: extra.scope ?? null,
     timezone: extra.timezone ?? null,
+    // Omitted for ClickHouse, so its keys are unchanged.
+    ...(extra.engine === undefined ? {} : { engine: extra.engine }),
   });
   return bytesToHex(sha256(new TextEncoder().encode(LOCAL_DEFINITION_DOMAIN + description)));
 }
@@ -184,9 +186,12 @@ export function scopedDefinitionIdentity(
   identity: string,
   scope: string | undefined,
   timezone?: string,
+  engine?: string,
 ): string {
   let folded = identity;
   if (scope !== undefined) folded = foldPartition(folded, 'hypequery.ts.cache-scope.v1', scope);
   if (timezone !== undefined) folded = foldPartition(folded, 'hypequery.ts.cache-timezone.v1', timezone);
+  // The same query on another engine reads other data: never share an entry.
+  if (engine !== undefined) folded = foldPartition(folded, 'hypequery.ts.cache-engine.v1', engine);
   return folded;
 }
