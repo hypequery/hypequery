@@ -42,6 +42,19 @@ class ClientQueryLimits(TypedDict):
     maxFilterValues: int
 
 
+class ClientFieldAnnotation(TypedDict, total=False):
+    label: str
+    description: str
+
+
+class ClientEndpointAnnotations(TypedDict, total=False):
+    """Presentation text only; excluded from schemaHash and never a capability."""
+
+    label: str
+    description: str
+    fields: dict[str, ClientFieldAnnotation]
+
+
 class ProtocolClientEndpoint(TypedDict):
     id: str
     kind: Literal["dataset", "metric"]
@@ -55,6 +68,7 @@ class ProtocolClientEndpoint(TypedDict):
     limits: ClientQueryLimits
     schemaHash: str
     defaultMeasures: NotRequired[list[str]]
+    annotations: NotRequired[ClientEndpointAnnotations]
 
 
 class ProtocolClientContract(TypedDict):

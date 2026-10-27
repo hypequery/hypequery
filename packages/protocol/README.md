@@ -84,7 +84,9 @@ and HTTP-backed MCP. Use `decodeProtocolClientContract(text)` at an untrusted JS
 text boundary (bounded, rejects duplicate members), or
 `validateProtocolClientContract(value)` for an already decoded signed object.
 `prepareProtocolClientContract(unsigned)` computes the domain-separated schema
-and view hashes and refuses preexisting hash fields.
+and view hashes and refuses preexisting hash fields. An endpoint's optional
+`annotations` (group and field labels/descriptions) are presentation text:
+they are covered by the view hash but not by the endpoint schema hash.
 
 `validateProtocolClientQuery(contract, endpointId, input, 'http' | 'mcp')` validates
 and normalizes the strict client profile. Its result contains the registered

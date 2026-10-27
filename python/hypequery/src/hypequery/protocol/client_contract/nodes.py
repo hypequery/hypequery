@@ -1,6 +1,7 @@
 """Client descriptor validation; no database or serving dependency."""
 
 from collections.abc import Callable
+from typing import cast
 
 from .errors import client_error
 from .primitives import (
@@ -12,9 +13,11 @@ from .primitives import (
     integer,
     name,
     names,
+    optional_shape,
     pointer,
     record,
     shape,
+    text,
     timezone,
 )
 
@@ -114,3 +117,34 @@ def limits(value: object, path: str) -> dict[str, object]:
         key: integer(node[key], low, high, pointer(path, key))
         for key, (low, high) in bounds.items()
     }
+
+
+def _annotation(value: object, path: str, keys: list[str]) -> dict[str, object]:
+    node = optional_shape(value, keys, path)
+    result: dict[str, object] = {}
+    if "label" in node:
+        result["label"] = text(node["label"], pointer(path, "label"))
+    if "description" in node:
+        result["description"] = text(node["description"], pointer(path, "description"))
+    return result
+
+
+def annotations(value: object, path: str) -> dict[str, object]:
+    """Presentation text; references to dimension/measure keys are checked with the endpoint's."""
+    result = _annotation(value, path, ["label", "description", "fields"])
+    node = cast(dict[str, object], value)
+    if "fields" in node:
+        fields_path = pointer(path, "fields")
+        entries = record(node["fields"], fields_path)
+        if len(entries) > 512:
+            client_error("HQ_CLIENT_LIMIT", fields_path)
+        if not entries:
+            client_error("HQ_CLIENT_SHAPE", fields_path)
+        described: dict[str, object] = {}
+        for key in sorted(entries):
+            name(key, fields_path, qualified=True)
+            described[key] = _annotation(
+                entries[key], pointer(fields_path, key), ["label", "description"]
+            )
+        result["fields"] = described
+    return result

@@ -102,6 +102,7 @@ from hypequery.serve import (
 orders = dataset(
     "orders",
     source="orders",
+    description="One row per customer order.",
     time_key="created_at",
     dimensions={
         "id": dimension.string(),
@@ -1687,6 +1688,13 @@ filter permissions and safe relationship aggregate rules are resolved directly
 from definitions, including filter aliases and filter-only fields. Physical
 sources, columns, SQL, tenancy configuration and arbitrary metadata are omitted.
 Base-dimension nullability is conservatively unknown; joined dimensions are nullable.
+
+`label` and `description` on the dataset and on advertised dimensions/measures
+are exported as each endpoint's `annotations`, which MCP agents and generated
+JSDoc read. Whitespace runs are folded to single spaces and blank text is
+omitted; text longer than 4096 UTF-8 bytes or with control characters fails
+export. Annotations are outside the endpoint schema hash, so rewording one does
+not produce `409 CLIENT_SCHEMA_CHANGED`.
 
 These definitions describe intended bindings and do not install HTTP routes.
 The host must supply final router/inclusion paths and trusted effective ceilings,

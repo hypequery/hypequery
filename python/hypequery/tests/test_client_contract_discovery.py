@@ -51,13 +51,16 @@ def authenticate(credential: Credential) -> Principal | None:
     return None
 
 
-def setup(*, max_bytes: int = 256 * 1024) -> tuple[FastAPI, Executor]:
+def setup(*, max_bytes: int = 256 * 1024, described: bool = False) -> tuple[FastAPI, Executor]:
     router = create_api(authenticate=authenticate, prefix="/api")
     dataset = Dataset(
         name="orders",
         source="private_source_sentinel",
+        description="Customer orders." if described else None,
         dimensions={"country": dimension.string(column="private_column")},
-        measures={"total": measure.count("country")},
+        measures={
+            "total": measure.count("country", label="Sales" if described else None),
+        },
     )
     executor = Executor()
     client = create_dataset_client(executor=executor)
@@ -124,6 +127,23 @@ def test_schema_identity_survives_authorized_projection_but_denial_still_wins() 
     )
     assert denied.status_code == 403
     assert executor.calls == []
+
+
+def test_authorized_view_carries_annotations_without_changing_the_pin() -> None:
+    app, _ = setup(described=True)
+    plain, _ = setup()
+    with TestClient(app) as http:
+        visible = http.get("/api/client-contract", headers={"Authorization": "Bearer metric"})
+    (endpoint,) = validate_protocol_client_contract(visible.json())["endpoints"]
+    assert endpoint["annotations"] == {
+        "description": "Customer orders.",
+        "fields": {"sales": {"label": "Sales"}},
+    }
+    assert endpoint["schemaHash"] == next(
+        item["schemaHash"]
+        for item in export_client_contract(plain)["contract"]["endpoints"]
+        if item["id"] == "sales"
+    )
 
 
 def test_unauthenticated_discovery_is_closed_and_oversize_is_not_truncated() -> None:

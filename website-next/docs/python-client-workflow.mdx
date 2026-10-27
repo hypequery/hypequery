@@ -22,6 +22,12 @@ with endpoint schema pins. Build exports do not grant permission. Python
 reauthorizes every request; a schema change returns 409 and requires an explicit
 rebuild/reconnect.
 
+Give datasets, dimensions and measures a `label` and `description`: the
+contract carries them as presentation annotations. `list_datasets` shows each
+dataset's own description to agents, `get_dataset_schema` includes field text,
+and `generate:client` emits it as JSDoc. Editing that text changes the view hash
+but not an endpoint's schema pin, so it never triggers a 409.
+
 The MCP CLI uses `--client-contract-url` for authorized Python HTTP discovery.
 The existing `--self-test --url` checks a hosted MCP endpoint. Host credentials
 belong in the environment, and one MCP process represents one backend principal.

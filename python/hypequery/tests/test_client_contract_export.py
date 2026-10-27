@@ -24,7 +24,12 @@ from hypequery.datasets import (
     measure,
 )
 from hypequery.datasets.formulas import divide
-from hypequery.protocol import ProtocolClientContractError, validate_protocol_client_query
+from hypequery.datasets.registry import DatasetRegistry
+from hypequery.protocol import (
+    ProtocolClientContract,
+    ProtocolClientContractError,
+    validate_protocol_client_query,
+)
 
 
 def orders(*, limits: DatasetLimits | None = None) -> Dataset:
@@ -246,3 +251,86 @@ def test_unknown_measure_conflicting_registry_and_invalid_profile_fail() -> None
         export_client_contract(
             [ClientEndpointDefinition(dataset, "/orders", ClientQueryProfile(), name="wrong")]
         )
+
+
+def described_registry(*, text: bool) -> tuple[Dataset, DatasetRegistry]:
+    """The same definitions with or without presentation text."""
+
+    def note(value: str) -> str | None:
+        return value if text else None
+
+    target = Dataset(
+        name="customers",
+        source="private_customers",
+        dimensions={
+            "id": dimension.number(),
+            "tier": dimension.string(description=note("Plan tier.")),
+        },
+        measures={"unique": measure.count_distinct("id", label=note("Customers"))},
+    )
+    dataset = Dataset(
+        name="orders",
+        source="private_orders",
+        label=note("Orders"),
+        description=note("One row per order.\n    Refunds are separate rows."),
+        dimensions={
+            "id": dimension.number(),
+            "country": dimension.string(label=note("Country"), description=note("   ")),
+        },
+        measures={
+            "total": measure.count("id", description=note("Orders placed.")),
+            "unlabelled": measure.count("id"),
+        },
+        relationships={"customer": belongs_to(target, from_field="id", to_field="id")},
+    )
+    return dataset, create_dataset_registry(dataset, target)
+
+
+def described_contract(*, text: bool) -> ProtocolClientContract:
+    dataset, registry = described_registry(text=text)
+    endpoints = [
+        ClientEndpointDefinition(dataset, "/orders", ClientQueryProfile(), related={"customer"}),
+        ClientEndpointDefinition(
+            dataset, "/metrics/total", ClientQueryProfile(), measure="total", name="placed"
+        ),
+    ]
+    return export_client_contract(endpoints, registry=registry)["contract"]
+
+
+def test_annotations_flow_from_definitions_outside_the_schema_hash() -> None:
+    contract = described_contract(text=True)
+    table, metric = sorted(contract["endpoints"], key=lambda e: e["kind"])
+    group = {"label": "Orders", "description": "One row per order. Refunds are separate rows."}
+    assert table["annotations"] == {
+        **group,
+        "fields": {
+            "country": {"label": "Country"},
+            "customer.tier": {"description": "Plan tier."},
+            "customer.unique": {"label": "Customers"},
+            "total": {"description": "Orders placed."},
+        },
+    }
+    assert metric["annotations"] == {
+        **group,
+        "fields": {"country": {"label": "Country"}, "placed": {"description": "Orders placed."}},
+    }
+    plain = described_contract(text=False)
+    assert all("annotations" not in endpoint for endpoint in plain["endpoints"])
+    assert [e["schemaHash"] for e in plain["endpoints"]] == [
+        e["schemaHash"] for e in contract["endpoints"]
+    ]
+    assert plain["contentHash"] != contract["contentHash"]
+
+
+@pytest.mark.parametrize("description", ["x" * 4097, "bell\u0007"])
+def test_overlong_or_control_annotation_text_fails_export(description: str) -> None:
+    dataset = Dataset(
+        name="orders",
+        source="private_orders",
+        description=description,
+        dimensions={"id": dimension.number()},
+    )
+    definition = ClientEndpointDefinition(dataset, "/orders", ClientQueryProfile())
+    with pytest.raises(ProtocolClientContractError) as error:
+        export_client_contract([definition])
+    assert error.value.path == "/endpoints/0/annotations/description"

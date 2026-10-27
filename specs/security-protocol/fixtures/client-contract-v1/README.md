@@ -3,7 +3,8 @@
 Normative vectors for [RFC 0018](../../rfc/0018-semantic-client-contract.md).
 The family is required by the TypeScript/Python conformance gates.
 
-- success.json pins build, metric-only, empty and narrowed signed contracts.
+- success.json pins build, metric-only, empty, narrowed and annotated signed contracts.
+  annotated is build plus endpoint annotations: same schemaHashes, new contentHash.
 - identities.json pins canonical complete documents and both identity domains.
 - rejections.json pins malformed descriptors, identity failures, safe messages
   and JSON Pointer paths, plus exact size/depth/count boundaries and text decoding.
@@ -19,7 +20,8 @@ implementations receive complete inputs and need no fixture-file access. A set
 array adds/replaces fields in a deep-copied base using RFC 6901 JSON Pointers;
 - appends an array element. Parents must exist. It never recomputes identities:
 malformed shape validation must precede identity validation. The runner's boundary
-generators expand only synthetic byte, depth, endpoint, descriptor and array-member counts.
+generators expand only synthetic byte, depth, endpoint, descriptor, annotation-field
+and array-member counts.
 Identity cases reuse the matching success value, as other fixture families do.
 
 The query compiler preserves fixed MCP tool names; empty target sets have required

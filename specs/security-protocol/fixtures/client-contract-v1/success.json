@@ -692,5 +692,319 @@
       ],
       "contentHash": "c350b9b6e0351acbbac7509bf5d889afa343b9fb5048d826265d8e9f5ef895d8"
     }
+  },
+  {
+    "id": "annotated",
+    "value": {
+      "kind": "hypequery-client-contract",
+      "version": 1,
+      "view": "build",
+      "endpoints": [
+        {
+          "id": "countries",
+          "kind": "dataset",
+          "dataset": "countries",
+          "path": "/api/v1/datasets/countries/query",
+          "dimensions": {
+            "country": {
+              "type": "string",
+              "wireType": "string",
+              "nullable": false,
+              "groupable": true,
+              "orderable": true
+            }
+          },
+          "measures": {},
+          "filters": {},
+          "time": null,
+          "defaultMeasures": [],
+          "metadata": false,
+          "limits": {
+            "defaultLimit": 100,
+            "maxLimit": 1000,
+            "maxOffset": 10000,
+            "maxDimensions": 50,
+            "maxMeasures": 0,
+            "maxPredicates": 0,
+            "maxOrderBy": 50,
+            "maxFilterValues": 1000
+          },
+          "annotations": {
+            "label": "Countries",
+            "description": "Reference list of supported countries."
+          },
+          "schemaHash": "9a5f50cd7564f283d2f0ee8f3f1cdc27731683c939e176bd25919a83d28d94ca"
+        },
+        {
+          "id": "orders",
+          "kind": "dataset",
+          "dataset": "orders",
+          "path": "/api/v1/datasets/orders/query",
+          "dimensions": {
+            "country": {
+              "type": "string",
+              "wireType": "string",
+              "nullable": false,
+              "groupable": true,
+              "orderable": true
+            },
+            "amount": {
+              "type": "number",
+              "wireType": "number-or-string",
+              "nullable": "unknown",
+              "groupable": true,
+              "orderable": true
+            },
+            "customer.tier": {
+              "type": "string",
+              "wireType": "string",
+              "nullable": true,
+              "groupable": true,
+              "orderable": true
+            },
+            "customer.active": {
+              "type": "boolean",
+              "wireType": "boolean",
+              "nullable": true,
+              "groupable": false,
+              "orderable": false
+            }
+          },
+          "measures": {
+            "revenue": {
+              "wireType": "string",
+              "nullable": true,
+              "having": true
+            },
+            "orderCount": {
+              "wireType": "string",
+              "nullable": true,
+              "having": true
+            },
+            "averageRevenue": {
+              "wireType": "string",
+              "nullable": true,
+              "having": true
+            },
+            "customer.unique": {
+              "wireType": "string",
+              "nullable": true,
+              "having": true
+            },
+            "latestLabel": {
+              "wireType": "string",
+              "nullable": true,
+              "having": false
+            }
+          },
+          "filters": {
+            "country": {
+              "type": "string",
+              "operators": [
+                "eq",
+                "in",
+                "like",
+                "neq",
+                "notIn"
+              ]
+            },
+            "amount": {
+              "type": "number",
+              "operators": [
+                "between",
+                "eq",
+                "gt",
+                "gte",
+                "in",
+                "lt",
+                "lte",
+                "neq",
+                "notIn"
+              ]
+            },
+            "customer.tier": {
+              "type": "string",
+              "operators": [
+                "eq",
+                "in"
+              ]
+            },
+            "customer.active": {
+              "type": "boolean",
+              "operators": [
+                "eq",
+                "neq"
+              ]
+            },
+            "paidStatus": {
+              "type": "string",
+              "operators": [
+                "eq"
+              ]
+            }
+          },
+          "time": {
+            "grains": [
+              "day",
+              "hour",
+              "month",
+              "week"
+            ],
+            "defaultTimezone": "UTC",
+            "timezone": true,
+            "periodFormat": "calendar-date-or-local-datetime-v1"
+          },
+          "defaultMeasures": [
+            "revenue",
+            "orderCount",
+            "latestLabel"
+          ],
+          "metadata": true,
+          "limits": {
+            "defaultLimit": 100,
+            "maxLimit": 1000,
+            "maxOffset": 10000,
+            "maxDimensions": 50,
+            "maxMeasures": 50,
+            "maxPredicates": 100,
+            "maxOrderBy": 50,
+            "maxFilterValues": 1000
+          },
+          "annotations": {
+            "label": "Orders",
+            "description": "One row per customer order.",
+            "fields": {
+              "country": {
+                "label": "Country"
+              },
+              "customer.tier": {
+                "description": "Tier of the ordering customer."
+              },
+              "revenue": {
+                "label": "Revenue",
+                "description": "Gross order value in €, before refunds."
+              }
+            }
+          },
+          "schemaHash": "88802c0d4798fd0758b7e7697f582b034afada967bfe0fdcb1cafd957144b1f3"
+        },
+        {
+          "id": "ordersRevenue",
+          "kind": "metric",
+          "dataset": "orders",
+          "path": "/api/v1/metrics/revenue",
+          "dimensions": {
+            "country": {
+              "type": "string",
+              "wireType": "string",
+              "nullable": false,
+              "groupable": true,
+              "orderable": true
+            },
+            "customer.tier": {
+              "type": "string",
+              "wireType": "string",
+              "nullable": true,
+              "groupable": true,
+              "orderable": true
+            },
+            "customer.active": {
+              "type": "boolean",
+              "wireType": "boolean",
+              "nullable": true,
+              "groupable": false,
+              "orderable": false
+            }
+          },
+          "measures": {
+            "revenue": {
+              "wireType": "string",
+              "nullable": true,
+              "having": false
+            }
+          },
+          "filters": {
+            "country": {
+              "type": "string",
+              "operators": [
+                "eq",
+                "in",
+                "like",
+                "neq",
+                "notIn"
+              ]
+            },
+            "amount": {
+              "type": "number",
+              "operators": [
+                "between",
+                "eq",
+                "gt",
+                "gte",
+                "in",
+                "lt",
+                "lte",
+                "neq",
+                "notIn"
+              ]
+            },
+            "customer.tier": {
+              "type": "string",
+              "operators": [
+                "eq",
+                "in"
+              ]
+            },
+            "customer.active": {
+              "type": "boolean",
+              "operators": [
+                "eq",
+                "neq"
+              ]
+            },
+            "paidStatus": {
+              "type": "string",
+              "operators": [
+                "eq"
+              ]
+            }
+          },
+          "time": {
+            "grains": [
+              "day",
+              "hour",
+              "month",
+              "week"
+            ],
+            "defaultTimezone": "UTC",
+            "timezone": true,
+            "periodFormat": "calendar-date-or-local-datetime-v1"
+          },
+          "metadata": true,
+          "limits": {
+            "defaultLimit": 20,
+            "maxLimit": 20,
+            "maxOffset": 10000,
+            "maxDimensions": 50,
+            "maxMeasures": 1,
+            "maxPredicates": 100,
+            "maxOrderBy": 50,
+            "maxFilterValues": 1000
+          },
+          "annotations": {
+            "label": "Orders",
+            "description": "One row per customer order.",
+            "fields": {
+              "revenue": {
+                "label": "Revenue",
+                "description": "Gross order value in €, before refunds."
+              }
+            }
+          },
+          "schemaHash": "e282fb74777e65328d87cfe5caa0349104630cd88137b1842289e0c83676a98d"
+        }
+      ],
+      "contentHash": "1cc64833994d5da761e9dae3b62992f66b6a270f01228ab97d91ebb74e54ae85"
+    }
   }
 ]

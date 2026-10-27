@@ -14,6 +14,8 @@ function authorized(endpoints = source.endpoints, view = 'authorized') {
     endpoints: endpoints.map(({ schemaHash: _hash, ...endpoint }: Record<string, unknown>) => endpoint),
   }).contract;
 }
+const annotated = JSON.parse(readFileSync(new URL('../../../specs/security-protocol/fixtures/client-contract-v1/success.json', import.meta.url), 'utf8'))
+  .find((item: { id: string }) => item.id === 'annotated').value;
 const contract = authorized();
 const url = 'https://python.example.test/mounted/client-contract';
 const args = { dataset: 'orders', dimensions: ['country'], measures: ['revenue'] };
@@ -103,6 +105,35 @@ describe('authorized HTTP MCP executor', () => {
     expect(profile.endpoints[0].kind).toBe('metric');
     expect(profile.endpoints[0]).not.toHaveProperty('path');
     expect((await executor.callTool('query_metric', { dataset: 'orders', metric: 'ordersRevenue' })).isError).toBeUndefined();
+  });
+
+  it('lists each group with its own backend description, keeping the generic text as fallback', async () => {
+    const view = authorized(annotated.endpoints);
+    const fetchFn = vi.fn(async (_url: unknown, init?: RequestInit) => init?.method === 'POST' ? json(rows) : json(view));
+    const executor = await createMCPHttpExecutor({ url, fetchFn: fetchFn as typeof fetch });
+    const list = (await executor.callTool('list_datasets')).structuredContent as any;
+    expect(list.datasets.map(({ name, label, description }: any) => ({ name, label, description }))).toEqual([
+      { name: 'countries', label: 'Countries', description: 'Reference list of supported countries.' },
+      { name: 'orders', label: 'Orders', description: 'One row per customer order.' },
+    ]);
+    const profile = (await executor.callTool('get_dataset_schema', { dataset: 'orders' })).structuredContent as any;
+    expect(profile).toMatchObject({ name: 'orders', label: 'Orders', description: 'One row per customer order.' });
+    expect(profile.endpoints.find((endpoint: any) => endpoint.id === 'ordersRevenue').annotations.fields.revenue)
+      .toEqual({ label: 'Revenue', description: 'Gross order value in €, before refunds.' });
+    // Annotations are outside schemaHash, so the execution pin is unchanged.
+    expect((await executor.callTool('query_dataset', args)).structuredContent).toEqual(rows);
+    const post = fetchFn.mock.calls.find(call => call[1]?.method === 'POST')!;
+    expect(new Headers(post[1]?.headers).get('x-hypequery-client-schema')).toBe(source.endpoints.find((endpoint: any) => endpoint.id === 'orders').schemaHash);
+
+    const metricOnly = authorized(annotated.endpoints.filter((endpoint: any) => endpoint.kind === 'metric'));
+    const metricExecutor = await createMCPHttpExecutor({ url, fetchFn: vi.fn(async () => json(metricOnly)) as typeof fetch });
+    expect(((await metricExecutor.callTool('list_datasets')).structuredContent as any).datasets[0])
+      .toMatchObject({ name: 'orders', description: 'One row per customer order.', queryable: false });
+
+    const plain = await createMCPHttpExecutor({ url, fetchFn: backend() as typeof fetch });
+    const plainList = (await plain.callTool('list_datasets')).structuredContent as any;
+    expect(plainList.datasets[0]).toMatchObject({ name: 'countries', description: 'Authorized client endpoints.' });
+    expect(plainList.datasets[0]).not.toHaveProperty('label');
   });
 
   it('keeps empty views uncallable and returns detached manifests', async () => {

@@ -38,6 +38,8 @@ from .cache_preimages import (
 from .client_contract import (
     CLIENT_ERROR_MESSAGES,
     ClientDimension,
+    ClientEndpointAnnotations,
+    ClientFieldAnnotation,
     ClientFilter,
     ClientMeasure,
     ClientQueryLimits,
@@ -244,6 +246,8 @@ __all__ = [
     "CanonicalValue",
     "CanonicalValueLimits",
     "ClientDimension",
+    "ClientEndpointAnnotations",
+    "ClientFieldAnnotation",
     "ClientFilter",
     "ClientMeasure",
     "ClientQueryLimits",
