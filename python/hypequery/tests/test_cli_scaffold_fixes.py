@@ -257,3 +257,21 @@ def test_output_elsewhere_still_uses_the_projects_selection(
     monkeypatch.chdir(project)
     assert main(["generate", "datasets", "--output", "generated/definitions.py"]) == 0
     assert calls == [{"tables": "orders", "exclude_tables": None}]
+
+
+def test_another_unrestricted_project_does_not_inherit_this_ones_selection(
+    tmp_path: Path, init_discovery: list[dict[str, Any]], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    restricted, unrestricted = tmp_path / "restricted", tmp_path / "unrestricted"
+    assert main(["init", str(restricted), "--tables", "orders"]) == 0
+    assert main(["init", str(unrestricted)]) == 0
+    calls: list[dict[str, Any]] = []
+
+    def discover(**kwargs: Any) -> Schema:
+        calls.append(kwargs)
+        return _schema(None, ORDERS, CUSTOMERS)
+
+    monkeypatch.setattr("hypequery.cli.commands.generate.discover_schema", discover)
+    monkeypatch.chdir(restricted)
+    main(["generate", "datasets", "--path", str(unrestricted), "--check"])
+    assert calls == [{"tables": None, "exclude_tables": None}]
