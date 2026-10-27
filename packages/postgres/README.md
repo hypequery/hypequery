@@ -42,4 +42,18 @@ Time measures validate their axis inside SQL (result limits, per-row fan-out, sk
 
 ## Results
 
-Results follow the hypequery value contract shared with ClickHouse. Measures are strings. 64-bit integers are never rounded. Time buckets render as `YYYY-MM-DD HH:MM:SS` (minute, hour, day) or `YYYY-MM-DD` (week and coarser).
+Results follow the hypequery value contract shared with ClickHouse:
+
+| Postgres type | Result | Note |
+|---|---|---|
+| `bigint` | string | never rounded, like ClickHouse's quoted 64-bit integers |
+| `integer`, `smallint`, `real`, `double precision` | number | |
+| `numeric` (including `SUM`/`AVG` results) | number | as ClickHouse writes Decimals to JSON: digits beyond a double's precision are lost; cast in raw `sql` if you need them exact |
+| `boolean` | boolean | |
+| `timestamptz` | `YYYY-MM-DD HH:MM:SS[.fff]` in UTC | the session runs in UTC |
+| `timestamp`, `date` | their wall-clock text | |
+| `uuid`, text types, `interval`, others | text | |
+| `json`, `jsonb` | parsed | |
+| one-dimensional arrays of the above | arrays | multi-dimensional arrays stay text |
+
+Dataset measures are serialized as strings, as on ClickHouse. Time buckets render as `YYYY-MM-DD HH:MM:SS` (minute, hour, day) or `YYYY-MM-DD` (week and coarser).

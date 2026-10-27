@@ -183,6 +183,21 @@ describe.skipIf(!url)('pg driver', () => {
     expect(await driver.query("SELECT current_setting('TimeZone') AS tz, $1::int AS n", [7])).toEqual([{ tz: 'UTC', n: 7 }]);
   });
 
+  it('returns arrays, numerics, uuids and timestamps in the ClickHouse result shape', async () => {
+    const driver = createPgDriver({ pool });
+    const [row] = await driver.query<Record<string, unknown>>(
+      `SELECT ARRAY[1, 2]::int[] AS ints, ARRAY['a b', 'c"d', NULL]::text[] AS texts, 12.50::numeric AS amount,
+        '00000000-0000-0000-0000-000000000001'::uuid AS id, '2026-01-02 10:05:07.5+00'::timestamptz AS at,
+        '{"k": [1]}'::jsonb AS doc, 9007199254740993::bigint AS big`,
+      [],
+    );
+    expect(row).toEqual({
+      ints: [1, 2], texts: ['a b', 'c"d', null], amount: 12.5,
+      id: '00000000-0000-0000-0000-000000000001', at: '2026-01-02 10:05:07.5',
+      doc: { k: [1] }, big: '9007199254740993',
+    });
+  });
+
   it('refuses a result beyond the row ceiling and anything but a query', async () => {
     const driver = createPgDriver({ pool, maxRows: 3 });
     expect(await driver.query('SELECT g FROM generate_series(1, 3) g ORDER BY g DESC', [])).toEqual([{ g: 3 }, { g: 2 }, { g: 1 }]);

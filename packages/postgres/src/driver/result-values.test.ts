@@ -23,6 +23,15 @@ describe('Postgres result values', () => {
     expect(parse(25, 'x')).toBe('x');
   });
 
+  it('parses one-dimensional arrays element by element', () => {
+    expect(parse(1007, '{1,2,NULL}')).toEqual([1, 2, null]);
+    expect(parse(1016, '{9007199254740993}')).toEqual(['9007199254740993']);
+    expect(parse(1009, '{a,"b c","NULL","q\\"x",NULL}')).toEqual(['a', 'b c', 'NULL', 'q"x', null]);
+    expect(parse(1009, '{}')).toEqual([]);
+    expect(parse(1007, '{{1,2},{3,4}}')).toBe('{{1,2},{3,4}}');
+    expect(parse(1185, '{"2026-01-02 10:05:07+00"}')).toEqual(['2026-01-02 10:05:07']);
+  });
+
   it('refuses binary results', () => {
     expect(() => resultValueTypes.getTypeParser(23, 'binary')).toThrow();
   });
