@@ -100,9 +100,9 @@ function normalizeFilters(
  * Semantic backends receive a source name, not SQL, so they cannot apply
  * `FINAL`. Running a final dataset there would count unmerged row versions.
  */
-function rejectFinalOnBackend(ds: Pick<AnyDatasetInstance, 'name' | 'final'>): void {
-  if (ds.final) {
-    throw new Error(`Dataset "${ds.name}" is declared final: true, which requires the queryBuilder execution path.`);
+function rejectFinalOnBackend(ds: Pick<AnyDatasetInstance, 'name' | 'rowResolution'>): void {
+  if (ds.rowResolution) {
+    throw new Error(`Dataset "${ds.name}" reads its source with FINAL, which requires the queryBuilder execution path.`);
   }
 }
 

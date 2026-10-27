@@ -1,5 +1,4 @@
 import { byName } from './utils/by-name.js';
-import { rowResolutionOf } from './utils/dataset-source.js';
 import { splitDatasetMeasures } from './utils/dataset-measures.js';
 import { filterExpression, metricExpression, metricDerivation } from './utils/protocol-metric-expressions.js';
 import {
@@ -149,7 +148,7 @@ export function buildProtocolDatasetContract(
     ...(dataset.description !== undefined ? { description: dataset.description } : {}),
     ...toProtocolSemanticMetadata(dataset),
     source: dataset.source,
-    ...(rowResolutionOf(dataset) === undefined ? {} : { rowResolution: { ...rowResolutionOf(dataset)! } }),
+    ...(dataset.rowResolution === undefined ? {} : { rowResolution: { ...dataset.rowResolution } }),
     ...(dataset.freshness !== undefined ? { freshness: { ...dataset.freshness } } : {}),
     ...(dataset.owner !== undefined ? { owner: dataset.owner } : {}),
     ...(dataset.defaults !== undefined

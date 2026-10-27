@@ -22,8 +22,9 @@ local semantic cache identity.
 ```
 
 `kind` must be `final`. Without `engine`, `{ "kind": "final" }` reads the source
-with `FINAL` and applies no other filter; no other key is allowed. This is how a
-code-first `final: true` dataset is published, and it rehydrates to exactly that.
+with `FINAL` and applies no other filter; no other key is allowed. Code-first
+datasets declare the same object, so publishing and rehydration are identity;
+the deprecated `final: true` is read as `{ "kind": "final" }`.
 `engine` is one of:
 
 - `replacing`: ReplacingMergeTree or its replicated form. The table's own sorting
@@ -40,7 +41,7 @@ semantics; this policy does not invent a deterministic tie-breaker. The engine's
 sorting key defines identity, including any partition behavior the server uses.
 
 The TypeScript ClickHouse planner maps a policy onto the dataset's `final`
-source path (the same one `final: true` uses): the source is read in place with
+source path: the source is read in place with
 `FINAL`, so SQL fields that name the database-qualified source stay valid. After
 `FINAL`, the deletion column must equal zero or the sign column must equal one;
 current ClickHouse already drops those rows, and the filter keeps older servers
@@ -59,8 +60,7 @@ a `readonly=1` profile that enables the option refuses these queries. Operators
 must keep the option off, or allow the setting, for resolved-row datasets. The
 planner never retries with raw rows.
 
-A code-first `final: true` dataset publishes as `{ "kind": "final" }`; naming the
-engine adds the deletion or sign filter for deletion columns the engine doesn't
+`{ "kind": "final" }` is the simple form; naming the engine adds the deletion or sign filter for deletion columns the engine doesn't
 declare and for older servers or unmatched cancel rows.
 
 SummingMergeTree and AggregatingMergeTree are deliberately unsupported by this

@@ -141,7 +141,7 @@ export function dataset<
     __type: 'dataset',
     name,
     source: config.source,
-    ...datasetRowResolution(config),
+    ...datasetRowResolution(name, config),
     description: config.description,
     ...snapshotSemanticMetadata(config),
     freshness: config.freshness === undefined ? undefined : { ...config.freshness },
@@ -167,13 +167,26 @@ export function dataset<
   return ds;
 }
 
+let warnedFinalDeprecated = false;
+
 /**
- * `final` and `rowResolution` on the instance. An engine-less policy is stored
- * as plain `final: true`, so a published `final: true` dataset rehydrates to
- * exactly what was authored.
+ * `rowResolution` on the instance, the one representation of row resolution.
+ * The deprecated `final: true` means `{ kind: 'final' }`; `final` stays on the
+ * instance, true whenever rows are resolved, for code that still reads it.
  */
-function datasetRowResolution(config: { final?: boolean; rowResolution?: RowResolution }) {
-  if (config.rowResolution === undefined) return config.final ? { final: true as const } : {};
-  const policy = validateProtocolRowResolution(config.rowResolution) as RowResolution;
-  return 'engine' in policy ? { final: true as const, rowResolution: policy } : { final: true as const };
+function datasetRowResolution(
+  name: string,
+  config: { final?: boolean; rowResolution?: RowResolution },
+): { final?: true; rowResolution?: RowResolution } {
+  if (config.rowResolution !== undefined)
+    return { final: true, rowResolution: validateProtocolRowResolution(config.rowResolution) as RowResolution };
+  if (!config.final) return {};
+  if (!warnedFinalDeprecated) {
+    warnedFinalDeprecated = true;
+    console.warn(
+      `[hypequery/datasets] Dataset "${name}": \`final: true\` is deprecated. `
+        + "Use `rowResolution: { kind: 'final' }`, which also names the engine when needed.",
+    );
+  }
+  return { final: true, rowResolution: { kind: 'final' } };
 }

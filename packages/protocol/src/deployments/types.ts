@@ -158,7 +158,7 @@ export interface ProtocolDatasetLimits {
 /** Explicit ClickHouse engine resolution; omitted means physical rows. */
 /**
  * RFC 0021. Without `engine`, the source is read with `FINAL` and nothing else
- * (a code-first `final: true`); with it, the engine's deletion or sign column
+ * (`rowResolution: { kind: 'final' }` in code); with it, the engine's deletion or sign column
  * also filters the resolved rows.
  */
 export type ProtocolRowResolution =

@@ -66,7 +66,7 @@ export interface DatasetSqlDialectRules extends DatasetSqlDialect {
   quoteQualifiedName(name: string): string;
   /**
    * A quoted table read with row-version resolution (ClickHouse `FINAL`), used
-   * for joined targets declared `final: true`. Omit it on engines without such
+   * for joined targets that declare `rowResolution`. Omit it on engines without such
    * a modifier; those datasets are then refused instead of read unresolved.
    */
   finalTable?(quotedSource: string): string;

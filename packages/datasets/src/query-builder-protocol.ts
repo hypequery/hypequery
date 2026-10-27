@@ -56,7 +56,7 @@ export interface QueryBuilderLike {
 
   /**
    * Optional: read the table source with ClickHouse `FINAL`. Needed only for
-   * datasets declared `final: true`; querying one through a builder without
+   * datasets that declare `rowResolution`; querying one through a builder without
    * it is refused rather than run without `FINAL`, which would count every
    * unmerged row version.
    */

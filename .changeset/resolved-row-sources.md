@@ -3,11 +3,14 @@
 '@hypequery/datasets': minor
 ---
 
-Add `rowResolution` to the deployment contract (RFC 0021) so versioned ClickHouse
-sources can be published. A dataset declaring it is read through the `final: true`
-source path, with `FINAL` in place and only current rows kept: the deletion column
-equal to zero (ReplacingMergeTree) or the sign column equal to one (collapsing
-engines), on base reads and on relationship targets. Deployment contracts preserve
-the policy on validation, hashing and rehydration. A code-first `final: true`
-dataset now survives publishing as `{ kind: 'final' }` and rehydrates to exactly
-`final: true`, with the same SQL and cache keys.
+Add `rowResolution` (RFC 0021), the one API for reading versioned ClickHouse
+sources, in code and in the deployment contract, so they can be published.
+`{ kind: 'final' }` reads the source with `FINAL`; naming the engine
+(`replacing` with `deletedColumn`, `collapsing`/`versioned-collapsing` with
+`signColumn`) also keeps only current rows, on base reads and relationship targets.
+Deployment contracts preserve the policy on validation, hashing and rehydration,
+so a published dataset reads exactly as it does locally.
+
+`final: true` is deprecated: it still works, is read as `rowResolution:
+{ kind: 'final' }`, and logs a one-time warning. Its result-cache keys change once,
+because they are now built from `rowResolution`.

@@ -1,23 +1,23 @@
-import type { AnyDatasetInstance, RowResolution } from '../types.js';
+import type { AnyDatasetInstance } from '../types.js';
 import type { QueryBuilderFactoryLike, QueryBuilderLike } from '../query-builder-protocol.js';
 import type { RelationshipBuilderContext } from './relationship-builder-plan.js';
 
 /**
  * The dataset's source table as a builder, read with `FINAL` when the dataset
- * is declared `final: true`. Every builder-path read of a dataset source goes
+ * declares `rowResolution`. Every builder-path read of a dataset source goes
  * through here so no query can skip row-version resolution.
  */
 export function datasetSourceBuilder(
   builderFactory: Pick<QueryBuilderFactoryLike, 'table'>,
-  ds: Pick<AnyDatasetInstance, 'name' | 'source' | 'final' | 'rowResolution'>,
+  ds: Pick<AnyDatasetInstance, 'name' | 'source' | 'rowResolution'>,
 ): QueryBuilderLike {
   const qb = builderFactory.table(ds.source);
-  if (!ds.final) {
+  if (!ds.rowResolution) {
     return qb;
   }
   if (typeof qb.final !== 'function') {
     throw new Error(
-      `Dataset "${ds.name}" is declared final: true, but the query builder does not implement final(). ` +
+      `Dataset "${ds.name}" reads its source with FINAL, but the query builder does not implement final(). ` +
       'Reading it without FINAL would count every unmerged row version, so the query is refused.',
     );
   }
@@ -42,10 +42,10 @@ export const FINAL_SAFETY_SETTINGS = { optimize_move_to_prewhere_if_final: 0 } a
  * a plain query never carries the pin.
  */
 export function queryReadsFinal(
-  ds: Pick<AnyDatasetInstance, 'final'>,
+  ds: Pick<AnyDatasetInstance, 'rowResolution'>,
   joinCtx: Pick<RelationshipBuilderContext, 'joins'> | undefined,
 ): boolean {
-  return Boolean(ds.final) || Boolean(joinCtx?.joins.some(join => join.final));
+  return Boolean(ds.rowResolution) || Boolean(joinCtx?.joins.some(join => join.final));
 }
 
 /**
@@ -72,15 +72,4 @@ export function currentRowPredicate(
   if (policy.engine === 'replacing')
     return policy.deletedColumn === undefined ? undefined : { column: policy.deletedColumn, value: 0 };
   return { column: policy.signColumn, value: 1 };
-}
-
-/**
- * The contract's form of a dataset's row resolution: its policy, or
- * `{ kind: 'final' }` for a plain `final: true`, so code-first `final` survives
- * publishing (RFC 0021).
- */
-export function rowResolutionOf(
-  ds: Pick<AnyDatasetInstance, 'final' | 'rowResolution'>,
-): RowResolution | undefined {
-  return ds.rowResolution ?? (ds.final ? { kind: 'final' } : undefined);
 }

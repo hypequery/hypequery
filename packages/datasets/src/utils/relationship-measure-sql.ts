@@ -43,10 +43,10 @@ export function relationshipJoinSource(target: AnyDatasetInstance, to: readonly 
 /** The target's quoted table, read with `FINAL` when the target dataset requires it. */
 function relationshipTargetTable(target: AnyDatasetInstance, dialect: DatasetSqlDialectRules): string {
   const quoted = dialect.quoteQualifiedName(target.source);
-  if (!target.final) return quoted;
+  if (!target.rowResolution) return quoted;
   if (!dialect.finalTable) {
     throw new Error(
-      `Dataset "${target.name}" is declared final: true, but the "${dialect.name}" SQL dialect has no FINAL ` +
+      `Dataset "${target.name}" reads its source with FINAL, but the "${dialect.name}" SQL dialect has no FINAL ` +
       'modifier, so it cannot be joined without counting unmerged row versions.',
     );
   }

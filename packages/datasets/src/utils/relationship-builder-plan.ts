@@ -108,7 +108,7 @@ export function buildRelationshipBuilderContext(
       to: relationship.to,
       keys,
       scope: datasetRowScope(target, context),
-      final: Boolean(target.final),
+      final: Boolean(target.rowResolution),
     });
   }
 

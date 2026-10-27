@@ -1,5 +1,4 @@
 import type { RowResolution } from './types.js';
-import { rowResolutionOf } from './utils/dataset-source.js';
 import type { ProtocolExpression } from '@hypequery/protocol';
 import { derivedMeasureCatalogExpression } from './utils/protocol-metric-expressions.js';
 import type { RelationshipKey } from './types.js';
@@ -265,7 +264,7 @@ export function getDatasetCatalog(dataset: DatasetCatalogSource): DatasetCatalog
     description: dataset.description,
     ...snapshotSemanticMetadata(dataset),
     source: dataset.source,
-    ...(rowResolutionOf(dataset) === undefined ? {} : { rowResolution: { ...rowResolutionOf(dataset)! } }),
+    ...(dataset.rowResolution === undefined ? {} : { rowResolution: { ...dataset.rowResolution } }),
     freshness: dataset.freshness,
     owner: dataset.owner,
     defaults: dataset.defaults,

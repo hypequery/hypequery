@@ -1,7 +1,7 @@
 /**
  * How a dataset's rows are resolved, as the deployment contract carries it
- * (RFC 0021). Implies `final: true`. `{ kind: 'final' }` is exactly `final: true`;
- * naming the engine also filters the resolved rows by its deletion or sign
+ * (RFC 0021). `{ kind: 'final' }` reads the source with `FINAL`, and is what the
+ * deprecated `final: true` means; naming the engine also filters the resolved rows by its deletion or sign
  * column, so only current rows remain.
  */
 export type RowResolution =
@@ -565,12 +565,16 @@ export interface DatasetConfig<
    * a CollapsingMergeTree. Without it, row versions that have not been merged
    * yet are each counted. Applies to every query on this dataset, to its
    * relationship-key checks, and to joins that target it.
+   *
+   * @deprecated Use `rowResolution: { kind: 'final' }`, which means the same and
+   * can also name the engine. `final: true` still works and is read as that.
    */
   final?: boolean;
   /**
-   * `final` with the engine named, as the deployment contract carries it, so
-   * the dataset can be published (RFC 0021). Keeps only rows whose deletion
-   * column is 0, or whose sign column is 1, after `FINAL`.
+   * Read the source with ClickHouse `FINAL` (RFC 0021), as code and as the
+   * deployment contract carries it. `{ kind: 'final' }` reads `FINAL` only;
+   * naming the engine also keeps only rows whose deletion column is 0, or whose
+   * sign column is 1, after `FINAL`.
    */
   rowResolution?: RowResolution;
   description?: string;
@@ -611,9 +615,13 @@ export interface DatasetInstance<
   __type: 'dataset';
   name: TDatasetName;
   source: string;
-  /** Source is read with `FINAL`; see `DatasetConfig.final`. */
+  /**
+   * True whenever `rowResolution` is set.
+   *
+   * @deprecated Read `rowResolution` instead.
+   */
   final?: boolean;
-  /** Set with `final`; see `DatasetConfig.rowResolution`. */
+  /** How the source's rows are resolved; see `DatasetConfig.rowResolution`. */
   rowResolution?: RowResolution;
   description?: string;
   examples?: readonly string[];

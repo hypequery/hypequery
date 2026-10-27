@@ -146,7 +146,6 @@ export function buildDatasetQuerySignature(
     target: ds.name,
     source: ds.source,
     // Omitted when false so existing datasets keep their cache keys.
-    ...(ds.final ? { final: true } : {}),
     ...(ds.rowResolution ? { rowResolution: ds.rowResolution } : {}),
     dimensions: query.dimensions ?? null,
     // `null` distinguishes the "all measures" default from an explicit [].
@@ -180,7 +179,6 @@ export function buildMetricQuerySignature(
     kind: 'metric',
     target: `${ref.dataset.name}.${ref.name}`,
     source: ref.dataset.source,
-    ...(ref.dataset.final ? { final: true } : {}),
     ...(ref.dataset.rowResolution ? { rowResolution: ref.dataset.rowResolution } : {}),
     metricKind: ref.spec.__type,
     dimensions: query.dimensions ?? null,
