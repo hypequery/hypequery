@@ -28,6 +28,7 @@ import {
 import {
   validateConnection,
   getTableCount,
+  isPostgresPrimary,
   getTables,
 } from '../utils/detect-database.js';
 import {
@@ -128,6 +129,10 @@ async function testPostgresConnection(url: string): Promise<{ hasValidConnection
   }
   const tableCount = await getTableCount('postgres');
   spinner.succeed(`Connected successfully (${tableCount} tables found)`);
+  if (await isPostgresPrimary()) {
+    logger.info('This is a primary database. Analytics queries run read-only with a 30s timeout and a row cap;');
+    logger.indent('for heavy dashboard or agent traffic, point DATABASE_URL at a read replica.');
+  }
   logger.newline();
   return { hasValidConnection: true, tableCount };
 }

@@ -1,6 +1,7 @@
 import type { PostgresDriver, PostgresQueryOptions } from './driver.js';
 import { resultValueTypes } from './result-values.js';
 import { toGuardError } from '../dialect/guard-errors.js';
+import { pinnedSearchPath } from '../utils/search-path.js';
 
 /** The subset of a node-postgres `PoolClient` the driver uses. */
 export interface PgClientLike {
@@ -39,6 +40,13 @@ export interface PgDriverOptions {
    * cursor and stops one row past the ceiling.
    */
   readonly maxRows?: number;
+  /**
+   * Pin `search_path` for every query to these schemas, ignoring the role's or
+   * connection's own setting. `pg_catalog` is always searched first and
+   * `pg_temp` last; list only schemas untrusted roles can't create objects in.
+   * Unset, unqualified names resolve through the session's `search_path`.
+   */
+  readonly searchPath?: readonly string[];
 }
 
 const DEFAULT_STATEMENT_TIMEOUT_MS = 30_000;
@@ -50,6 +58,8 @@ const CURSOR = '_hq_rows';
  * that pins the session settings hypequery's SQL relies on: UTC session time
  * zone, standard-conforming strings and a statement timeout. Statements use
  * the extended protocol, which refuses more than one statement per call.
+ * No setting outlives its transaction, as a transaction-mode pooler such as
+ * PgBouncer requires.
  */
 export function createPgDriver(options: PgDriverOptions): PostgresDriver {
   const timeout = options.statementTimeoutMs ?? DEFAULT_STATEMENT_TIMEOUT_MS;
@@ -65,6 +75,7 @@ export function createPgDriver(options: PgDriverOptions): PostgresDriver {
     `SET LOCAL statement_timeout = ${timeout}`,
     "SET LOCAL TimeZone = 'UTC'",
     'SET LOCAL standard_conforming_strings = on',
+    ...(options.searchPath ? [`SET LOCAL search_path = ${pinnedSearchPath(options.searchPath)}`] : []),
   ].join('; ');
 
   return {

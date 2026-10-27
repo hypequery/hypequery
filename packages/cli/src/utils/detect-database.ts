@@ -121,6 +121,22 @@ async function validatePostgres(): Promise<boolean> {
   }
 }
 
+/**
+ * Whether the configured Postgres is a primary (accepts writes) rather than a
+ * read replica; `undefined` when it can't be determined.
+ */
+export async function isPostgresPrimary(): Promise<boolean | undefined> {
+  const url = postgresUrlFromEnv();
+  if (!url) return undefined;
+  try {
+    const { rows } = await withPostgresClient(url, (client) =>
+      client.query<{ replica: boolean }>('SELECT pg_is_in_recovery() AS replica'));
+    return rows[0] ? !rows[0].replica : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 /** Tables a Postgres dataset may read, as `generate:datasets` names them. */
 async function getPostgresTables(): Promise<string[]> {
   const url = postgresUrlFromEnv();

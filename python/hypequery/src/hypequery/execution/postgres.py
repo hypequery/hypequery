@@ -5,8 +5,10 @@ connection. Install ``hypequery[postgres]`` to use it.
 
 Each query runs in its own read-only transaction that pins what the compiled
 SQL relies on: a UTC session zone (a zone-less ``timestamp`` is read as UTC),
-standard-conforming strings, and a server-side statement timeout from the
-compiled settings and deadline. Values travel as server-side parameters
+standard-conforming strings, a server-side statement timeout from the
+compiled settings and deadline, and optionally a pinned ``search_path``.
+Nothing outlives the transaction and no statement is prepared by name, as a
+transaction-mode pooler such as PgBouncer requires. Values travel as server-side parameters
 (``$n``, never interpolated), so a statement is exactly one statement.
 """
 
@@ -130,17 +132,40 @@ def _valid_value(value: object) -> bool:
 _READ_ONLY: Final = "SET TRANSACTION READ ONLY"
 
 
-def _setup_sql(timeout_ms: int) -> str:
-    """Transaction-local settings, in one statement (psycopg sends one per call).
+_SETUP_SQL: Final = (
+    "SELECT set_config('statement_timeout', %s, true), "
+    "set_config('TimeZone', 'UTC', true), "
+    "set_config('standard_conforming_strings', 'on', true), "
+    "set_config('search_path', coalesce(%s, current_setting('search_path')), true)"
+)
 
-    The timeout is an integer formatted with `:d`; nothing else reaches this text.
+
+def _setup(timeout_ms: int, search_path: str | None) -> tuple[str, list[object]]:
+    """Transaction-local settings in one bound statement (psycopg sends one per call)."""
+
+    return _SETUP_SQL, [str(timeout_ms), search_path]
+
+
+def pinned_search_path(schemas: Sequence[str]) -> str:
+    """The ``search_path`` value that pins name resolution to *schemas*.
+
+    ``pg_catalog`` comes first, so a function with a built-in's exact signature
+    in a listed schema can't replace the built-in, and ``pg_temp`` comes last,
+    so a temporary table can't shadow a source table. Postgres still weighs
+    overloads with other argument types from every listed schema, so list only
+    schemas that untrusted roles cannot create objects in.
     """
 
-    return (
-        f"SELECT set_config('statement_timeout', '{timeout_ms:d}', true), "
-        "set_config('TimeZone', 'UTC', true), "
-        "set_config('standard_conforming_strings', 'on', true)"
-    )
+    if isinstance(schemas, str):
+        raise TypeError("search_path must be a sequence of schema names, not a string.")
+    quoted: list[str] = []
+    for schema in schemas:
+        if type(schema) is not str or not schema or "\x00" in schema:
+            raise ValueError("search_path must list non-empty schema names.")
+        if schema in ("pg_catalog", "pg_temp"):
+            raise ValueError(f"search_path must not list {schema}; it is placed automatically.")
+        quoted.append(POSTGRES.quote(schema))
+    return ", ".join(["pg_catalog", *quoted, "pg_temp"])
 
 
 def _normalize(value: object) -> object:
@@ -216,10 +241,12 @@ class PostgresExecutor:
         connect: Callable[[], AbstractContextManager[psycopg.Connection[Any]]],
         *,
         cursor: Callable[[psycopg.Connection[Any]], Any] | None = None,
+        search_path: Sequence[str] | None = None,
     ) -> None:
         self._connect = connect
         #: Server-side `$n` binding; injectable for tests.
         self._cursor = cursor
+        self._search_path = None if search_path is None else pinned_search_path(search_path)
 
     def execute(self, compiled: CompiledQuery) -> QueryRows:
         import psycopg
@@ -237,9 +264,10 @@ class PostgresExecutor:
                     # Read-only: nothing to keep, so the transaction never commits.
                     with connection.transaction(force_rollback=True):
                         connection.execute(_READ_ONLY)
-                        connection.execute(_setup_sql(timeout_ms))
+                        connection.execute(*_setup(timeout_ms, self._search_path), prepare=False)
                         cursor = (self._cursor or psycopg.RawCursor)(connection)
-                        cursor.execute(compiled.sql, values)
+                        # Unnamed statements only, as a transaction-mode pooler requires.
+                        cursor.execute(compiled.sql, values, prepare=False)
                         rows = cursor.fetchmany(max_rows + 1)
                         description = cursor.description
                 finally:
@@ -284,9 +312,13 @@ class AsyncPostgresExecutor:
     dialect: PostgresDialect = POSTGRES
 
     def __init__(
-        self, connect: Callable[[], AbstractAsyncContextManager[psycopg.AsyncConnection[Any]]]
+        self,
+        connect: Callable[[], AbstractAsyncContextManager[psycopg.AsyncConnection[Any]]],
+        *,
+        search_path: Sequence[str] | None = None,
     ) -> None:
         self._connect = connect
+        self._search_path = None if search_path is None else pinned_search_path(search_path)
 
     async def execute(self, compiled: CompiledQuery) -> QueryRows:
         values, timeout_ms, max_rows = _arguments(compiled)
@@ -319,9 +351,9 @@ class AsyncPostgresExecutor:
                 connection.transaction(force_rollback=True),
             ):
                 await connection.execute(_READ_ONLY)
-                await connection.execute(_setup_sql(timeout_ms))
+                await connection.execute(*_setup(timeout_ms, self._search_path), prepare=False)
                 cursor = psycopg.AsyncRawCursor(connection)
-                await cursor.execute(compiled.sql, values)
+                await cursor.execute(compiled.sql, values, prepare=False)
                 rows = await cursor.fetchmany(max_rows + 1)
                 description = cursor.description
         except (CompiledQueryError, asyncio.CancelledError):
@@ -340,14 +372,17 @@ def create_postgres_executor(
     connection: PostgresConnection | str | None = None,
     *,
     pool: Any = None,
+    search_path: Sequence[str] | None = None,
 ) -> PostgresExecutor:
     """A blocking executor over a new connection per query, or *pool*'s connections.
 
     Pass a ``psycopg_pool.ConnectionPool`` as *pool* to reuse connections.
+    *search_path* pins name resolution for every query to those schemas (see
+    `pinned_search_path`); unset, the session's own ``search_path`` applies.
     """
 
     if pool is not None:
-        return PostgresExecutor(pool.connection)
+        return PostgresExecutor(pool.connection, search_path=search_path)
     import psycopg
 
     conninfo = _conninfo(connection)
@@ -357,19 +392,20 @@ def create_postgres_executor(
         with psycopg.connect(conninfo) as opened:
             yield opened
 
-    return PostgresExecutor(connect)
+    return PostgresExecutor(connect, search_path=search_path)
 
 
 async def create_async_postgres_executor(
     connection: PostgresConnection | str | None = None,
     *,
     pool: Any = None,
+    search_path: Sequence[str] | None = None,
 ) -> AsyncPostgresExecutor:
     """An async executor. Pass a ``psycopg_pool.AsyncConnectionPool`` as *pool* to reuse
-    connections."""
+    connections; *search_path* is as for `create_postgres_executor`."""
 
     if pool is not None:
-        return AsyncPostgresExecutor(pool.connection)
+        return AsyncPostgresExecutor(pool.connection, search_path=search_path)
     import psycopg
 
     conninfo = _conninfo(connection)
@@ -379,7 +415,7 @@ async def create_async_postgres_executor(
         async with await psycopg.AsyncConnection.connect(conninfo) as opened:
             yield opened
 
-    return AsyncPostgresExecutor(connect)
+    return AsyncPostgresExecutor(connect, search_path=search_path)
 
 
 def _conninfo(connection: PostgresConnection | str | None) -> str:

@@ -932,6 +932,17 @@ describe('init command - graceful failure handling', () => {
       expect(installScaffoldDependencies).toHaveBeenCalledWith('datasets', 'postgres');
     });
 
+    it('says when the database is a primary, and stays quiet on a replica', async () => {
+      vi.mocked(detectDb.isPostgresPrimary).mockResolvedValueOnce(true);
+      await initCommand({ database: 'postgres', allTables: true, noInteractive: true });
+      expect(vi.mocked(logger.info).mock.calls.flat().join('\n')).toMatch(/primary database/);
+
+      vi.mocked(logger.info).mockClear();
+      vi.mocked(detectDb.isPostgresPrimary).mockResolvedValueOnce(false);
+      await initCommand({ database: 'postgres', allTables: true, noInteractive: true });
+      expect(vi.mocked(logger.info).mock.calls.flat().join('\n')).not.toMatch(/primary database/);
+    });
+
     it('requires a Postgres URL in non-interactive mode', async () => {
       vi.stubEnv('DATABASE_URL', 'mysql://not-postgres');
       await expect(initCommand({ database: 'postgres', noInteractive: true })).rejects.toThrow(/Missing DATABASE_URL/);

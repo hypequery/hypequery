@@ -10,6 +10,7 @@ import { createPostgresQueryBuilder } from '@hypequery/postgres';
 const queryBuilder = createPostgresQueryBuilder({
   pool: new pg.Pool({ connectionString: process.env.DATABASE_URL }),
   statementTimeoutMs: 10_000, // default 30s; protects OLTP primaries
+  searchPath: ['analytics'],  // optional: pin search_path (pg_catalog first, pg_temp last)
 });
 
 const client = createDatasetClient({ queryBuilder });

@@ -126,9 +126,21 @@ Analytics queries share your app's database, so each one is constrained:
 - **Every value is bound** as a server-side parameter, never written into the SQL.
 - **Cancellation**: aborting a query (`AbortSignal`, or a Python deadline or cancellation) cancels it on the server.
 - **Indexes stay usable**: time filters compare the bare time-key column, and time-measure queries scan only the rows their window can read. An index on the time key applies.
+- **Concurrency** is the pool's: node-postgres `max` (or `psycopg_pool` `max_size`) caps how many analytics queries run at once, so a burst of dashboard or agent traffic waits for a connection instead of exhausting `max_connections`. In TypeScript, cancelling a query borrows one more pooled connection, so leave a spare.
+- **Poolers**: nothing outlives a query's transaction and no statement is prepared by name, as a transaction-mode pooler such as PgBouncer requires.
+
+To stop unqualified names resolving through the role's `search_path`, pin it. `pg_catalog` is searched first and `pg_temp` last; list only schemas that untrusted roles can't create objects in:
+
+<CodeBlock>
+```typescript
+createPostgresQueryBuilder({ pool, searchPath: ['analytics'] });
+```
+</CodeBlock>
+
+In Python, pass `search_path=("analytics",)` to `create_postgres_executor`.
 
 <Callout type="info">
-Point analytics at a read replica if you have one: pass a pool or connection string for the replica.
+Point analytics at a read replica if you have one: pass a pool or connection string for the replica. `hypequery init` tells you when the database it connects to is a primary.
 </Callout>
 
 ## Moving to ClickHouse

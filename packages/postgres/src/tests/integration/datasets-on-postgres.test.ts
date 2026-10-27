@@ -206,6 +206,23 @@ describe.skipIf(!url)('pg driver', () => {
     expect(() => createPgDriver({ pool, maxRows: 0 })).toThrow(/maxRows/);
   });
 
+  it('pins search_path when asked, with pg_catalog first and pg_temp last', async () => {
+    await pool.query('DROP SCHEMA IF EXISTS "Search Path" CASCADE');
+    await pool.query('CREATE SCHEMA "Search Path"');
+    await pool.query(`CREATE TABLE "Search Path".t AS SELECT 'pinned' AS v`);
+    try {
+      const pinned = createPgDriver({ pool, searchPath: ['Search Path'] });
+      expect(await pinned.query('SELECT v FROM t', [])).toEqual([{ v: 'pinned' }]);
+      expect(await pinned.query("SELECT current_setting('search_path') AS p", []))
+        .toEqual([{ p: 'pg_catalog, "Search Path", pg_temp' }]);
+      // Unpinned, the session's own search_path applies and the table isn't found.
+      await expect(createPgDriver({ pool }).query('SELECT v FROM t', [])).rejects.toThrow(/does not exist/);
+      expect(() => createPgDriver({ pool, searchPath: ['pg_catalog'] })).toThrow(/placed automatically/);
+    } finally {
+      await pool.query('DROP SCHEMA "Search Path" CASCADE');
+    }
+  });
+
   it('enforces the statement timeout and cancels on abort', async () => {
     await expect(createPgDriver({ pool, statementTimeoutMs: 50 }).query('SELECT pg_sleep(2)', [])).rejects.toThrow(/statement timeout/);
     const controller = new AbortController();

@@ -363,3 +363,30 @@ def test_cancellation_stops_the_query_on_the_server(postgres_executor: object) -
     with pytest.raises(CompiledQueryError) as expired:
         postgres_executor.execute(replace(sleeping, deadline=Deadline.after(0.3)))  # type: ignore[attr-defined]
     assert expired.value.category == "deadline-exceeded"
+
+
+@requires_postgres
+def test_a_pinned_search_path_resolves_unqualified_names() -> None:
+    from dataclasses import replace
+
+    import psycopg
+
+    assert POSTGRES_URL is not None
+    with psycopg.connect(POSTGRES_URL, autocommit=True) as connection:
+        connection.execute('DROP SCHEMA IF EXISTS "Py Search" CASCADE')
+        connection.execute('CREATE SCHEMA "Py Search"')
+        connection.execute("""CREATE TABLE "Py Search".t AS SELECT 'pinned' AS v""")
+    try:
+        base = plan_dataset_query(
+            Orders, _query({"measures": ("orders",)}), registry=REGISTRY, context=ACME,
+            dialect=POSTGRES,
+        )  # fmt: skip
+        probe = replace(base, sql="SELECT v, current_setting('search_path') AS p FROM t",
+                        parameters={})  # fmt: skip
+        pinned = create_postgres_executor(POSTGRES_URL, search_path=("Py Search",))
+        assert pinned.execute(probe).rows == (("pinned", 'pg_catalog, "Py Search", pg_temp'),)
+        with pytest.raises(CompiledQueryError):
+            create_postgres_executor(POSTGRES_URL).execute(probe)
+    finally:
+        with psycopg.connect(POSTGRES_URL, autocommit=True) as connection:
+            connection.execute('DROP SCHEMA "Py Search" CASCADE')

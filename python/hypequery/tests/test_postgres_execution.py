@@ -186,7 +186,8 @@ class _FakeCursor:
     executed: list[tuple[str, list[object]]] = field(default_factory=list)
     description: list[Any] = field(default_factory=list)
 
-    def execute(self, sql: str, values: list[object]) -> None:
+    def execute(self, sql: str, values: list[object], *, prepare: bool | None = None) -> None:
+        assert prepare is False
         self.executed.append((sql, values))
 
     def fetchmany(self, size: int) -> list[tuple[object, ...]]:
@@ -201,10 +202,14 @@ class _Column:
 @dataclass
 class _FakeConnection:
     statements: list[str] = field(default_factory=list)
+    arguments: list[object] = field(default_factory=list)
     rolled_back: bool = False
 
-    def execute(self, sql: str) -> None:
+    def execute(
+        self, sql: str, values: list[object] | None = None, *, prepare: bool | None = None
+    ) -> None:
         self.statements.append(sql)
+        self.arguments.append(values)
 
     @contextmanager
     def transaction(self, *, force_rollback: bool = False) -> Iterator[None]:
@@ -216,7 +221,9 @@ class _FakeConnection:
 
 
 def _executor(
-    rows: list[tuple[object, ...]], columns: tuple[str, ...]
+    rows: list[tuple[object, ...]],
+    columns: tuple[str, ...],
+    search_path: tuple[str, ...] | None = None,
 ) -> tuple[PostgresExecutor, _FakeConnection, _FakeCursor]:
     connection = _FakeConnection()
     cursor = _FakeCursor(rows, description=[_Column(name) for name in columns])
@@ -225,7 +232,8 @@ def _executor(
     def connect() -> Iterator[Any]:
         yield connection
 
-    return PostgresExecutor(connect, cursor=lambda _: cursor), connection, cursor
+    executor = PostgresExecutor(connect, cursor=lambda _: cursor, search_path=search_path)
+    return executor, connection, cursor
 
 
 def test_a_query_runs_read_only_in_a_rolled_back_transaction() -> None:
@@ -235,10 +243,19 @@ def test_a_query_runs_read_only_in_a_rolled_back_transaction() -> None:
     assert rows.columns == ("status", "orders")
     assert rows.rows == (("paid", 12),)
     assert connection.statements[0] == "SET TRANSACTION READ ONLY"
-    assert "statement_timeout', '30000'" in connection.statements[1]
     assert "'TimeZone', 'UTC'" in connection.statements[1]
+    assert connection.arguments[1] == ["30000", None]
     assert connection.rolled_back
     assert cursor.executed == [(compiled.sql, ["acme"])]
+
+
+def test_search_path_is_pinned_with_pg_catalog_first_and_pg_temp_last() -> None:
+    executor, connection, _ = _executor([(1,)], ("orders",), search_path=("analytics", 'a"b'))
+    executor.execute(_compiled(measures=("orders",)))
+    assert connection.arguments[1] == ["30000", 'pg_catalog, "analytics", "a""b", pg_temp']
+    for bad in (("pg_catalog",), ("",), "analytics"):
+        with pytest.raises((ValueError, TypeError)):
+            _executor([], (), search_path=bad)  # type: ignore[arg-type]
 
 
 def test_a_result_beyond_the_row_ceiling_is_refused() -> None:
