@@ -9,7 +9,7 @@ from asgiref.sync import iscoroutinefunction, markcoroutinefunction
 from django.http import HttpRequest, HttpResponseBase
 from django.utils.functional import SimpleLazyObject
 
-from .clients import async_tenant_client, tenant_client
+from .clients import AsyncRequestAnalytics, tenant_client
 
 _Handler = Callable[[HttpRequest], HttpResponseBase | Awaitable[HttpResponseBase]]
 
@@ -19,8 +19,9 @@ class HypequeryMiddleware:
 
     The client is built on first access, so a request that never queries pays
     nothing, and the tenant function runs after authentication middleware has
-    loaded the user. Sync views get the sync client; async views get the async
-    one. Place it after ``AuthenticationMiddleware``.
+    loaded the user. Sync views get the sync client; async views get an
+    :class:`AsyncRequestAnalytics` whose ``execute`` is awaited. Place it after
+    ``AuthenticationMiddleware``.
     """
 
     sync_capable = True
@@ -44,5 +45,9 @@ class HypequeryMiddleware:
         view_args: tuple[object, ...],
         view_kwargs: dict[str, object],
     ) -> None:
-        build = async_tenant_client if iscoroutinefunction(view_func) else tenant_client
-        request.analytics = SimpleLazyObject(lambda: build(request))
+        if iscoroutinefunction(view_func):
+            # The tenant function may query the database, so resolve it on the
+            # first await, off the event loop.
+            request.analytics = AsyncRequestAnalytics(request)
+        else:
+            request.analytics = SimpleLazyObject(lambda: tenant_client(request))

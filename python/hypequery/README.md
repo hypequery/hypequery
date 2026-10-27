@@ -503,9 +503,8 @@ def revenue(request):
 `request.analytics` is built on first access, bound to the tenant `TENANT`
 returns. With no tenant it is the unscoped client, and datasets with a
 `tenant_key` refuse to run. In an `async def` view the same attribute is the
-async client, so `await` its calls. `TENANT` is called synchronously, so in an
-async view it must not hit the database: load the user first
-(`await request.auser()`). `manage.py check` validates `HYPEQUERY` (bad import
+async client, so `await` its calls. There, `TENANT` runs through `sync_to_async` on
+the first query, so it may use the ORM just as in sync views. `manage.py check` validates `HYPEQUERY` (bad import
 paths, URLs, keys) without connecting. Outside a request, `get_client()` and
 `get_async_client()` return the process's clients. Other keys:
 `READONLY_POLICY`, `TIMEZONE`, `MAX_CONCURRENT`.

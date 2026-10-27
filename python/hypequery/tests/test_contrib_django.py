@@ -36,6 +36,7 @@ from django.core.asgi import get_asgi_application  # noqa: E402
 from django.http import HttpRequest, JsonResponse  # noqa: E402
 from django.test import AsyncClient, Client, override_settings  # noqa: E402
 from django.urls import path  # noqa: E402
+from django.utils.asyncio import async_unsafe  # noqa: E402
 
 from contrib_doubles import Built, install_executors  # noqa: E402
 from hypequery.contrib.django import (  # noqa: E402
@@ -50,6 +51,18 @@ from hypequery.contrib.django.conf import load_settings  # noqa: E402
 from hypequery.datasets import CompiledQueryError, TenantDatasetClient  # noqa: E402
 
 SECRET = "pa55word"  # noqa: S105 - a test credential
+
+
+CALLS: list[str] = []
+
+
+@async_unsafe("a tenant lookup that queries the database")  # type: ignore[untyped-decorator]
+def database_tenant_for(request: HttpRequest) -> str | None:
+    """Raises SynchronousOnlyOperation on the event loop, as an ORM query would."""
+
+    CALLS.append("tenant")
+    org: str | None = request.headers.get("X-Org")
+    return org
 
 
 def tenant_for(request: HttpRequest) -> str | None:
@@ -79,7 +92,9 @@ def idle_view(request: HttpRequest) -> JsonResponse:
 
 async def async_orders_view(request: HttpRequest) -> JsonResponse:
     result = await request.analytics.execute("orders", {"dimensions": ["status"]})
-    return JsonResponse({"data": list(result.data)})
+    again = await request.analytics.execute("orders", {"dimensions": ["status"]})
+    same = await request.analytics.client() is await request.analytics.client()
+    return JsonResponse({"data": list(result.data), "same": same and again.data == result.data})
 
 
 urlpatterns = [
@@ -126,7 +141,10 @@ def test_async_views_get_the_async_client(built: Built) -> None:
 
     response = asyncio.run(call())
     assert response.status_code == 200
-    assert json.loads(response.content) == {"data": [{"status": "paid", "orders": 3}]}
+    assert json.loads(response.content) == {
+        "data": [{"status": "paid", "orders": 3}],
+        "same": True,
+    }
     assert built.sync == []
     [executor] = built.async_
     assert executor.max_concurrent == 2
@@ -255,3 +273,18 @@ def test_mount_serve_splits_one_asgi_process() -> None:
     assert mounted.json() == {"root_path": "/analytics", "path": "/analytics/datasets/orders"}
     assert hosted.json() == {"ok": True}
     assert lifespan == [{"type": "lifespan.startup.complete"}]
+
+
+def test_async_views_resolve_a_database_backed_tenant_off_the_event_loop(built: Built) -> None:
+    hypequery = {**settings.HYPEQUERY, "TENANT": f"{__name__}.database_tenant_for"}
+    CALLS.clear()
+
+    async def call() -> Any:
+        return await AsyncClient().get("/async-orders", headers={"X-Org": "org_c"})
+
+    with override_settings(HYPEQUERY=hypequery):
+        response = asyncio.run(call())
+    assert response.status_code == 200, response.content
+    assert "org_c" in built.tenants()
+    # Two queries, one tenant lookup: the bound client is cached for the request.
+    assert CALLS == ["tenant"]

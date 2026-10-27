@@ -26,6 +26,7 @@ except ModuleNotFoundError as exc:  # pragma: no cover - exercised in a subproce
     ) from exc
 
 from .clients import (
+    AsyncRequestAnalytics,
     async_tenant_client,
     close_clients,
     get_async_client,
@@ -35,6 +36,7 @@ from .clients import (
 from .middleware import HypequeryMiddleware
 
 __all__ = [
+    "AsyncRequestAnalytics",
     "HypequeryMiddleware",
     "async_tenant_client",
     "close_clients",
