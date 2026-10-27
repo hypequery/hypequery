@@ -9,4 +9,4 @@ New package: run hypequery datasets on Postgres. Pass `createPostgresQueryBuilde
 - derived measures, `having` and relationship traversal
 - time measures (trailing, toDate, cumulative, shift) and formulas over them
 
-Results match ClickHouse, checked by a cross-engine parity suite over identical data. Division is floating point, `round` rounds half to even, NULLs sort last, weeks start on Sunday, and buckets stay distinct across DST transitions. Each query runs read-only with a statement timeout and is cancelled on abort.
+Results match ClickHouse, checked by a cross-engine parity suite over identical data. Division is floating point, `round` rounds half to even, NULLs sort last, weeks start on Sunday, and buckets stay distinct across DST transitions. Each query runs read-only with a statement timeout, through a server-side cursor that admits only a single query and refuses results over `maxRows` (default 100,000), and is cancelled on abort.

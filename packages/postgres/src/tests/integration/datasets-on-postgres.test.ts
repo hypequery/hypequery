@@ -174,9 +174,21 @@ describe.skipIf(!url)('pg driver', () => {
 
   it('runs statements read-only and one at a time', async () => {
     const driver = createPgDriver({ pool });
-    await expect(driver.query('CREATE TABLE should_not_exist (a int)', [])).rejects.toThrow(/read-only/);
+    // Only a query reaches the cursor; a SELECT that writes meets the read-only transaction.
+    await expect(driver.query('CREATE TABLE should_not_exist (a int)', [])).rejects.toThrow(/syntax error/);
+    await pool.query('CREATE SEQUENCE IF NOT EXISTS hq_ro_probe');
+    await expect(driver.query("SELECT nextval('hq_ro_probe')", [])).rejects.toThrow(/read-only/);
+    await pool.query('DROP SEQUENCE hq_ro_probe');
     await expect(driver.query('SELECT 1; SELECT 2', [])).rejects.toThrow(/multiple commands|cannot insert multiple/);
     expect(await driver.query("SELECT current_setting('TimeZone') AS tz, $1::int AS n", [7])).toEqual([{ tz: 'UTC', n: 7 }]);
+  });
+
+  it('refuses a result beyond the row ceiling and anything but a query', async () => {
+    const driver = createPgDriver({ pool, maxRows: 3 });
+    expect(await driver.query('SELECT g FROM generate_series(1, 3) g ORDER BY g DESC', [])).toEqual([{ g: 3 }, { g: 2 }, { g: 1 }]);
+    await expect(driver.query('SELECT g FROM generate_series(1, 4) g', [])).rejects.toThrow(/exceeds 3 rows/);
+    await expect(driver.query('DELETE FROM pg_class', [])).rejects.toThrow();
+    expect(() => createPgDriver({ pool, maxRows: 0 })).toThrow(/maxRows/);
   });
 
   it('enforces the statement timeout and cancels on abort', async () => {

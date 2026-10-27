@@ -33,9 +33,17 @@ export interface PgDriverOptions {
    * `sql` field can never write even if it slipped past validation.
    */
   readonly readOnly?: boolean;
+  /**
+   * The most rows one query may return (default 100,000). A larger result is
+   * refused rather than buffered: the statement runs through a server-side
+   * cursor and stops one row past the ceiling.
+   */
+  readonly maxRows?: number;
 }
 
 const DEFAULT_STATEMENT_TIMEOUT_MS = 30_000;
+const DEFAULT_MAX_ROWS = 100_000;
+const CURSOR = '_hq_rows';
 
 /**
  * Adapt a node-postgres pool. Each query runs in its own short transaction
@@ -47,6 +55,10 @@ export function createPgDriver(options: PgDriverOptions): PostgresDriver {
   const timeout = options.statementTimeoutMs ?? DEFAULT_STATEMENT_TIMEOUT_MS;
   if (!Number.isSafeInteger(timeout) || timeout < 0) {
     throw new Error('statementTimeoutMs must be a non-negative integer.');
+  }
+  const maxRows = options.maxRows ?? DEFAULT_MAX_ROWS;
+  if (!Number.isSafeInteger(maxRows) || maxRows < 1) {
+    throw new Error('maxRows must be a positive integer.');
   }
   const begin = [
     options.readOnly === false ? 'BEGIN' : 'BEGIN READ ONLY',
@@ -66,13 +78,18 @@ export function createPgDriver(options: PgDriverOptions): PostgresDriver {
         await client.query(begin);
         abortSignal?.addEventListener('abort', cancel, { once: true });
         abortSignal?.throwIfAborted();
-        const result = await client.query({
-          text: sql,
+        // A cursor admits exactly one SELECT or VALUES and lets the server stop
+        // one row past the ceiling instead of sending the whole result.
+        await client.query({
+          text: `DECLARE ${CURSOR} NO SCROLL CURSOR FOR ${sql}`,
           values: [...parameters],
-          types: resultValueTypes,
           queryMode: 'extended',
         });
+        const result = await client.query({ text: `FETCH FORWARD ${maxRows + 1} FROM ${CURSOR}`, types: resultValueTypes });
         await client.query('COMMIT');
+        if (result.rows.length > maxRows) {
+          throw new Error(`The query result is too large: it exceeds ${maxRows} rows.`);
+        }
         return result.rows as T[];
       } catch (error) {
         try {
