@@ -391,3 +391,18 @@ def test_client_results_carry_the_query_timezone() -> None:
     )
     explicit = DatasetQuery(dimensions=("status",), measures=(), timezone="America/New_York")
     assert client.execute(ORDERS, explicit).timezone == "America/New_York"
+
+
+def test_an_empty_driver_result_keeps_the_planned_columns_and_types() -> None:
+    # clickhouse-connect returns no column names when no rows match.
+    client = create_dataset_client(executor=_Executor((), ()), registry=REGISTRY)
+    result = client.execute(ORDERS, DatasetQuery(dimensions=("status",), measures=("orders",)))
+    assert (result.columns, result.column_types, result.data) == (
+        ("status", "orders"),
+        ("string", "integer"),
+        (),
+    )
+    pytest.importorskip("pandas")
+    frame = result.to_pandas()
+    assert list(frame.columns) == ["status", "orders"]
+    assert str(frame["orders"].dtype) == "Int64"

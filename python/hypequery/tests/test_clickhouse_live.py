@@ -533,3 +533,16 @@ def test_live_url_connection_thread_backed_async_and_typed_frames() -> None:
     assert frame["amount"].iloc[0] == 1.25
     assert str(frame["rows"].dtype) == "Int64"
     assert result.to_pandas(decimals="decimal")["amount"].iloc[0] == Decimal("1.25")
+
+    async def run_empty() -> DatasetQueryResult:
+        executor = create_async_from_sync_clickhouse_executor(connection)
+        try:
+            empty = query.model_copy(update={"filters": (eq("flag", False),)})
+            return await create_async_dataset_client(executor=executor).execute(typed, empty)
+        finally:
+            await executor.aclose()
+
+    # The driver reports no columns for an empty result; the planned ones stand in.
+    empty_frame = asyncio.run(run_empty()).to_pandas()
+    assert list(empty_frame.columns) == ["day", "flag", "amount", "rows"]
+    assert str(empty_frame["day"].dtype) == "datetime64[us, UTC]"

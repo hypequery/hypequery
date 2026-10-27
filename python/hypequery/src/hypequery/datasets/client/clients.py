@@ -199,6 +199,7 @@ class _DatasetClientBase:
             query=planned.query if execution.paginate else None,
             column_types=output_column_types(planned.dataset, planned.query, self._registry),
             timezone=planned.query.timezone or self._timezone,
+            planned_columns=output_columns(planned.dataset, planned.query),
         )
 
     def to_sql(

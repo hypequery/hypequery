@@ -137,6 +137,7 @@ def build_result(
     query: DatasetQuery | None = None,
     column_types: tuple[ResultColumnType, ...] = (),
     timezone: str = "UTC",
+    planned_columns: tuple[str, ...] = (),
 ) -> DatasetQueryResult:
     """Key positional rows by column name.
 
@@ -145,6 +146,10 @@ def build_result(
     """
 
     columns = tuple(rows.columns)
+    if not columns and not rows.rows:
+        # clickhouse-connect reports no column names for a result without rows;
+        # the planner knows what the statement selects.
+        columns = planned_columns
     pagination = None
     result_rows = rows.rows
     if query is not None and query.limit is not None:
