@@ -146,6 +146,7 @@ function rehydrateMeasure(
     ...snapshotSemanticMetadata(measure),
     aggregation: measure.aggregation,
     field: String(measure.field),
+    ...(measure.stateFunction !== undefined ? { stateFunction: measure.stateFunction } : {}),
     ...(measure.argField !== undefined ? { argField: String(measure.argField) } : {}),
     ...(measure.level !== undefined ? { level: measure.level } : {}),
     ...(measure.sql !== undefined

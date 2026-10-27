@@ -12,33 +12,23 @@
  * it must come from this list.
  */
 
+import {
+  PROTOCOL_AGGREGATE_STATE_FUNCTIONS,
+  PROTOCOL_APPROXIMATE_STATE_FUNCTIONS,
+  type ProtocolAggregateStateFunction,
+} from '@hypequery/protocol';
 import type { MeasureDefinition } from '../types.js';
 
-export const AGGREGATE_STATE_FUNCTIONS = [
-  'uniq',
-  'uniqExact',
-  'uniqCombined',
-  'uniqCombined64',
-  'uniqHLL12',
-  'uniqTheta',
-  'count',
-  'sum',
-  'avg',
-  'min',
-  'max',
-  'any',
-  'anyLast',
-  'groupBitmap',
-] as const;
+// One list, shared with the deployment contract (RFC 0022), so what can be
+// authored is exactly what can be published.
+export const AGGREGATE_STATE_FUNCTIONS = PROTOCOL_AGGREGATE_STATE_FUNCTIONS;
 
-export type AggregateStateFunction = (typeof AGGREGATE_STATE_FUNCTIONS)[number];
+export type AggregateStateFunction = ProtocolAggregateStateFunction;
 
 const STATE_FUNCTIONS: ReadonlySet<string> = new Set(AGGREGATE_STATE_FUNCTIONS);
 
 /** States whose merged value is an estimate. */
-const APPROXIMATE_STATE_FUNCTIONS: ReadonlySet<string> = new Set([
-  'uniq', 'uniqCombined', 'uniqCombined64', 'uniqHLL12', 'uniqTheta',
-]);
+const APPROXIMATE_STATE_FUNCTIONS: ReadonlySet<string> = new Set(PROTOCOL_APPROXIMATE_STATE_FUNCTIONS);
 
 /** States whose merged value is a count: 0, not NULL, over an empty population. */
 const COUNT_STATE_FUNCTIONS: ReadonlySet<string> = new Set([

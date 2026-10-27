@@ -168,7 +168,7 @@ importers:
         specifier: '>=2.13.0'
         version: link:../clickhouse
       '@hypequery/protocol':
-        specifier: ^0.22.0
+        specifier: ^0.23.0
         version: link:../protocol
       '@noble/hashes':
         specifier: ^2.4.0
@@ -218,7 +218,7 @@ importers:
   packages/mcp-server:
     dependencies:
       '@hypequery/datasets':
-        specifier: ^0.25.0
+        specifier: ^0.26.0
         version: link:../datasets
       '@hypequery/protocol':
         specifier: workspace:*
@@ -320,7 +320,7 @@ importers:
   packages/serve:
     dependencies:
       '@hypequery/datasets':
-        specifier: ^0.25.0
+        specifier: ^0.26.0
         version: link:../datasets
       jose:
         specifier: ^5.9.6

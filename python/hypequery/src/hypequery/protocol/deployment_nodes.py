@@ -6,9 +6,11 @@ import math
 from typing import Literal, cast
 
 from .deployment_primitives import (
+    AGGREGATE_STATE_FUNCTIONS,
     AGGREGATIONS,
     AGGREGATIONS_V3,
     APPROXIMATE_AGGREGATIONS,
+    APPROXIMATE_STATE_FUNCTIONS,
     FIELD_TYPES,
     GRAINS,
     GRAINS_V3,
@@ -175,6 +177,23 @@ def dimension(value: object, path: str, limits: ProtocolDeploymentLimits) -> dic
     return result
 
 
+def _merge_state_function(node: dict[str, object], merge: bool, path: str) -> str | None:
+    """A merge measure reads one stored state column, named with its function (RFC 0022)."""
+    state_function = node.get("stateFunction")
+    if merge != ("stateFunction" in node):
+        deployment_error("HQ_DEPLOYMENT_INVALID_VALUE", f"{path}.stateFunction")
+    if not merge:
+        return None
+    if type(state_function) is not str or state_function not in AGGREGATE_STATE_FUNCTIONS:
+        deployment_error("HQ_DEPLOYMENT_INVALID_VALUE", f"{path}.stateFunction")
+    if "sql" in node:
+        deployment_error("HQ_DEPLOYMENT_INVALID_VALUE", f"{path}.sql")
+    filters = node["filters"]
+    if type(filters) is list and filters:
+        deployment_error("HQ_DEPLOYMENT_INVALID_VALUE", f"{path}.filters")
+    return state_function
+
+
 def measure(
     value: object, path: str, limits: ProtocolDeploymentLimits, version: Literal[2, 3] = 2
 ) -> dict[str, object]:
@@ -186,6 +205,7 @@ def measure(
             "argField",
             "level",
             "sql",
+            "stateFunction",
             "label",
             "description",
             *SEMANTIC_METADATA_FIELDS,
@@ -198,8 +218,14 @@ def measure(
         AGGREGATIONS_V3 if version == 3 else AGGREGATIONS
     ):
         deployment_error("HQ_DEPLOYMENT_INVALID_VALUE", f"{path}.aggregation")
+    merge = aggregation == "merge"
+    state_function = _merge_state_function(node, merge, path)
     # The marker is not free: present, as `true`, exactly for an approximate aggregation.
-    approximate = aggregation in APPROXIMATE_AGGREGATIONS
+    # Contract 2 has no marker; consumers derive it from the state function.
+    approximate = version == 3 and (
+        aggregation in APPROXIMATE_AGGREGATIONS
+        or (merge and state_function in APPROXIMATE_STATE_FUNCTIONS)
+    )
     if "approximate" in node and node["approximate"] is not True:
         deployment_error("HQ_DEPLOYMENT_TYPE", f"{path}.approximate")
     if approximate != ("approximate" in node):
@@ -227,6 +253,8 @@ def measure(
             )
         ],
     }
+    if merge:
+        result["stateFunction"] = state_function
     if approximate:
         result["approximate"] = True
     if "argField" in node:

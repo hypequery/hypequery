@@ -1,0 +1,5 @@
+- `hypequery init` accepts `--tenant-column`, like `generate datasets`, so a tenant-scoped project needs one command.
+- `hypequery init` records `--tables` / `--exclude-tables` in `schema.json`, and `generate datasets` reuses that selection unless given `--tables`, `--exclude-tables` or the new `--all-tables`. Regenerating no longer widens a project to every table in the database.
+- The scaffold's `.env.example`, README and `app.py` match how discovery connected: `CLICKHOUSE_URL` when it was set, otherwise the host, port and TLS setting discovery used. Credentials stay placeholders.
+- "Possible tenant column" review notes name the `--tenant-column` flag that sets the key.
+- `generate datasets` and `export client-contract` print normalised paths.
