@@ -1,9 +1,7 @@
-"""hypequery.contrib.flask: config, tenant loader, per-request clients, Serve mount."""
+"""hypequery.contrib.flask: config, tenant loader and per-request clients."""
 
 from __future__ import annotations
 
-import json
-from collections.abc import MutableMapping
 from typing import Any
 
 import pytest
@@ -168,19 +166,3 @@ def test_a_tenant_scope_from_the_loader_is_used(built: Built) -> None:
     app = _app(hq)
     with app.test_request_context("/"):
         assert isinstance(hq.client, TenantDatasetClient)
-
-
-def test_mount_serve(built: Built, hq: Hypequery) -> None:
-    async def serve_app(scope: MutableMapping[str, Any], receive: Any, send: Any) -> None:
-        body = json.dumps({"root_path": scope["root_path"], "path": scope["path"]}).encode()
-        await send({"type": "http.response.start", "status": 200, "headers": []})
-        await send({"type": "http.response.body", "body": body})
-
-    app = _app(hq)
-    hq.mount_serve(app, serve_app, prefix="/hq")
-    client = app.test_client()
-    assert json.loads(client.get("/hq/datasets/orders").get_data()) == {
-        "root_path": "/hq",
-        "path": "/hq/datasets/orders",
-    }
-    assert client.get("/orders").status_code == 403
