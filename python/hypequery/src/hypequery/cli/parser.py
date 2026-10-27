@@ -27,6 +27,11 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     init.add_argument("--exclude-tables", help="comma-separated tables to omit")
     init.add_argument("--all-tables", action="store_true", help="inspect all tables (default)")
     init.add_argument(
+        "--tenant-column",
+        help="set tenant_key to this column on tables that have it "
+        "(requires a trusted runtime tenant scope)",
+    )
+    init.add_argument(
         "--skip-connection",
         action="store_true",
         help="explicit offline example; no schema discovery",
@@ -41,8 +46,17 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     destination = datasets.add_mutually_exclusive_group()
     destination.add_argument("--output", help="output file (default: datasets.py, as init creates)")
     destination.add_argument("--path", help="output directory containing datasets.py")
-    datasets.add_argument("--tables", help="comma-separated tables to inspect (default: all)")
+    datasets.add_argument(
+        "--tables",
+        help="comma-separated tables to inspect "
+        "(default: the selection recorded in schema.json, else all)",
+    )
     datasets.add_argument("--exclude-tables", help="comma-separated tables to omit")
+    datasets.add_argument(
+        "--all-tables",
+        action="store_true",
+        help="inspect every table, ignoring the selection recorded in schema.json",
+    )
     datasets.add_argument(
         "--tenant-column",
         help="set tenant_key to this column on tables that have it "
@@ -102,10 +116,14 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         args.directory = args.path if args.path is not None else args.directory or "."
         if args.all_tables and args.tables:
             parser.error("--all-tables cannot be combined with --tables")
-        if args.skip_connection and (args.tables or args.exclude_tables or args.all_tables):
-            parser.error("table selection requires a database connection")
+        if args.skip_connection and (
+            args.tables or args.exclude_tables or args.all_tables or args.tenant_column
+        ):
+            parser.error("table selection and --tenant-column require a database connection")
     if args.command == "generate" and args.force and (args.check or args.diff):
         parser.error("--force cannot be combined with --check or --diff")
+    if args.command == "generate" and args.all_tables and (args.tables or args.exclude_tables):
+        parser.error("--all-tables cannot be combined with --tables or --exclude-tables")
     if args.command == "export":
         if args.check and args.force:
             parser.error("--force cannot be combined with --check")

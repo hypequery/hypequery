@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import dataclasses
 import json
 import re
 from dataclasses import dataclass
@@ -22,6 +23,9 @@ class GeneratedDatasets:
     tables: tuple[str, ...]
     first_dimension: str
     first_count_measure: str
+    #: How the definitions were selected and scoped, for regeneration hints.
+    selection: dict[str, str] = dataclasses.field(default_factory=dict)
+    tenant_column: str | None = None
 
 
 def dimension_type(type_name: str) -> str | None:
@@ -207,7 +211,8 @@ def infer_dataset(
     if hints and tenant_key is None:
         warnings.append(
             f"{table.name}: possible tenant columns {', '.join(hints)}; "
-            "configure trusted tenant scope and tenant_key explicitly."
+            "configure trusted tenant scope, then set tenant_key with "
+            f"`--tenant-column {hints[0]}` (init or generate datasets --force)."
         )
 
     measures: list[MeasureSpec] = []
@@ -278,7 +283,12 @@ def render_datasets(specs: tuple[DatasetSpec, ...]) -> str:
     return "\n".join(lines)
 
 
-def generate_datasets(schema: Schema, *, tenant_column: str | None = None) -> GeneratedDatasets:
+def generate_datasets(
+    schema: Schema,
+    *,
+    tenant_column: str | None = None,
+    selection: dict[str, str] | None = None,
+) -> GeneratedDatasets:
     """Preserve source mappings, avoid collisions, and report unsupported fields.
 
     Only an explicit *tenant_column* sets ``tenant_key``; column-name matches are
@@ -305,11 +315,19 @@ def generate_datasets(schema: Schema, *, tenant_column: str | None = None) -> Ge
     return GeneratedDatasets(
         render_datasets(specs),
         json.dumps(
-            {"database": schema.database, "tables": snapshot, "warnings": warnings}, indent=2
+            {
+                "database": schema.database,
+                **({"selection": selection} if selection else {}),
+                "tables": snapshot,
+                "warnings": warnings,
+            },
+            indent=2,
         )
         + "\n",
         tuple(warnings),
         tuple(table.name for table in schema.tables),
         specs[0].fields[0].alias,
         specs[0].count.name,
+        selection or {},
+        tenant_column,
     )
