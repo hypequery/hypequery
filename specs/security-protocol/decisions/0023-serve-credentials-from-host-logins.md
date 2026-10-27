@@ -59,13 +59,15 @@ bearer token. Serve verifies the signature and expiry and never sees a cookie.
   - a POST endpoint, protected by the framework's own CSRF and login;
   - it builds the `Principal` from the same `TENANT` function the views use;
   - it returns `{"token": "...", "expiresAt": "..."}`.
-- React: `createHypequeryClient({ token: serveToken })`. `TokenInput` already
-  accepts an async function, but the client calls it on every request and does
-  not cache. So the proposal includes a small helper,
-  `createServeTokenProvider({ url, refreshBeforeMs: 30_000 })`. It caches the
-  token until shortly before `expiresAt`, shares one in-flight request between
-  concurrent callers, and drops the cached token on a 401. Without it, every
-  Serve request would first make a token request.
+- React: `TokenInput` already accepts an async function, but the client calls
+  it on every request and does not cache. So the proposal includes a small
+  helper, `createServeTokenProvider({ url, refreshBeforeMs: 30_000 })`, returning
+  `{ token, reset }`. `token` caches until shortly before `expiresAt` and shares
+  one in-flight request between concurrent callers. `reset` drops the cached
+  token. Wire both into the client, since only `onUnauthorized` sees a 401:
+  `createHypequeryClient({ token: serve.token, onUnauthorized: serve.reset })`,
+  so a rejected token is replaced and the request retried once. Without the
+  provider, every Serve request would first make a token request.
 - MCP: unchanged. It keeps using long-lived API keys from the host's own key
   table, or a token the host issues for it.
 
