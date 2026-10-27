@@ -1,3 +1,4 @@
+import type { RowResolution } from './types.js';
 import type { RelationshipKey } from './types.js';
 import { windowCatalogMetadata, type WindowCatalogMetadata } from './utils/window-catalog-metadata.js';
 import { sha256 } from '@noble/hashes/sha2.js';
@@ -89,6 +90,7 @@ export interface ContractDataset extends SemanticMetadata {
   name: string;
   description?: string;
   source: string;
+  rowResolution?: RowResolution;
   freshness?: DatasetFreshness;
   owner?: string;
   defaults?: DatasetDefaults;
@@ -162,6 +164,7 @@ function datasetToContract(catalog: DatasetCatalog, includeSql: boolean): Contra
     ...(catalog.description !== undefined ? { description: catalog.description } : {}),
     ...snapshotSemanticMetadata(catalog),
     source: catalog.source,
+    ...(catalog.rowResolution === undefined ? {} : { rowResolution: { ...catalog.rowResolution } }),
     ...(catalog.freshness !== undefined ? { freshness: { ...catalog.freshness } } : {}),
     ...(catalog.owner !== undefined ? { owner: catalog.owner } : {}),
     ...(catalog.defaults !== undefined

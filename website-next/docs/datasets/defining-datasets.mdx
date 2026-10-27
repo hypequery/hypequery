@@ -28,16 +28,16 @@ const Orders = dataset('orders', {
 
 `source` is the physical table or view name. The first `dataset()` argument is the logical dataset name. `tenantKey` and `timeKey` are physical column names used for runtime tenant isolation and time graining.
 
-## Versioned tables (`final`)
+## Versioned tables (`rowResolution`)
 
-ReplacingMergeTree and CollapsingMergeTree tables keep several rows per key until a background merge runs, and merges never finish on a schedule you control. Queried directly, a subscription with three status changes counts three times. Set `final: true` to read the source with `FINAL`, so every query sees one row per sorting key:
+ReplacingMergeTree and CollapsingMergeTree tables keep several rows per key until a background merge runs, and merges never finish on a schedule you control. Queried directly, a subscription with three status changes counts three times. Set `rowResolution` to read the source with `FINAL`, so every query sees one row per sorting key:
 
 <CodeBlock>
 ```typescript
 // ReplacingMergeTree(updated_at): one row per subscription status change
 export const Subscriptions = dataset('subscriptions', {
   source: 'saas.subscriptions',
-  final: true,
+  rowResolution: { kind: 'final' },
   dimensions: {
     status: dimension.string(),
   },
@@ -48,16 +48,35 @@ export const Subscriptions = dataset('subscriptions', {
 ```
 </CodeBlock>
 
-With `final: true`:
+With `rowResolution`:
 
 - Every query on the dataset reads `FROM saas.subscriptions FINAL`, including metric, derived and window queries.
 - Joins that target the dataset read it with `FINAL` too, so a versioned dimension table can't fan out or pick a stale row.
 - `checkRelationships` counts keys on the resolved rows.
 - For `ReplacingMergeTree(ver, is_deleted)`, rows whose latest version is deleted disappear. A plain `WHERE is_deleted = 0` can't do this, because it keeps a deleted key's earlier versions.
+- It survives publishing to a deployment contract (hypequery Cloud, MCP) unchanged: the published dataset reads exactly as it does locally.
+
+Name the engine to also keep only current rows after `FINAL`: rows whose deletion column is 0, for a deletion column the engine doesn't declare, or whose sign column is 1 in a collapsing table:
+
+<CodeBlock>
+```typescript
+export const Users = dataset('users', {
+  source: 'saas.users',
+  rowResolution: { kind: 'final', engine: 'replacing', deletedColumn: 'is_deleted' },
+  // For CollapsingMergeTree: { kind: 'final', engine: 'collapsing', signColumn: 'sign' }
+  dimensions: { id: dimension.string(), plan: dimension.string() },
+  measures: { users: measure.count('id') },
+});
+```
+</CodeBlock>
 
 `FINAL` makes queries do more work at read time. ClickHouse keeps it fast when the partition key separates keys and `do_not_merge_across_partitions_select_final` is enabled.
 
-A `final` dataset needs the query-builder execution path. Semantic backends and publishing to the deployment contract refuse it, rather than serving unresolved rows.
+Queries that read `FINAL` send `optimize_move_to_prewhere_if_final = 0`, the server default, so no filter can run before `FINAL` and match an older version of a row. A `readonly = 1` connection accepts it unless its profile turns that option on, in which case these queries are refused rather than answered from old rows.
+
+A dataset with `rowResolution` needs the query-builder execution path. Semantic backends refuse it rather than serving unresolved rows.
+
+`final: true` is the deprecated spelling of `rowResolution: { kind: 'final' }`. It still works, reads the same way and logs a one-time warning.
 
 ## Module pattern
 

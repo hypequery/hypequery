@@ -1,3 +1,6 @@
+import { queryReadsFinal, withFinalSafety } from './dataset-source.js';
+import { buildRelationshipBuilderContext } from './relationship-builder-plan.js';
+import { resolveDatasetSqlDialect } from './dataset-sql-dialect.js';
 import { queryMeasureDefinitions } from './relationship-measures.js';
 import type { DatasetCompilation, DatasetCompilationDescription, DatasetCompiledStatement } from '../dataset-compilation.js';
 import type { DatasetQueryExecutionOptions } from '../dataset-query.js';
@@ -42,12 +45,18 @@ export function prepareDatasetQuery(
   let execute: PreparedDatasetQuery['execute'];
   let plan: DatasetCompilationDescription['plan'];
   const abortSignal = options.context?.abortSignal;
+  // Raw-SQL plans lose builder settings, so they carry the FINAL pin in their SQL.
+  // Called after planning, which validates the query and its enforced constraints.
+  const readsFinal = () => queryReadsFinal(
+    dataset,
+    buildRelationshipBuilderContext(dataset, query, options.context, resolveDatasetSqlDialect(options.builderFactory)),
+  );
 
   if (selectedTimeMeasures(dataset, query).size) {
     plan = 'time';
     const planned = buildTimeMeasureDatasetSql(dataset, query, executionOptions);
-    const main = renderStatement(planned.statement);
-    const preflight = renderStatement(planned.preflight);
+    const main = withFinalSafety(readsFinal(), renderStatement(planned.statement));
+    const preflight = withFinalSafety(readsFinal(), renderStatement(planned.preflight));
     statement = main;
     preflightStatements.push(preflight);
     execute = async () => {
@@ -56,7 +65,8 @@ export function prepareDatasetQuery(
     };
   } else if (needsOuterDatasetQuery(dataset, query)) {
     plan = hasSelectedDerivedMeasure(dataset, query) ? 'derived' : 'aggregate';
-    statement = renderStatement(buildDerivedDatasetSql(dataset, query, executionOptions, buildDatasetQueryBuilder));
+    const derived = renderStatement(buildDerivedDatasetSql(dataset, query, executionOptions, buildDatasetQueryBuilder));
+    statement = withFinalSafety(readsFinal(), derived);
     execute = () => options.builderFactory.rawQuery(statement.sql, statement.parameters, { abortSignal });
   } else {
     plan = 'aggregate';

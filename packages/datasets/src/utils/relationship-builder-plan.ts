@@ -46,6 +46,8 @@ export interface ResolvedBuilderJoin {
   to: string;
   /** The target's own row scope (RFC 0020), applied in the join condition. */
   scope: RowScopePredicate[];
+  /** The target is read with `FINAL` (RFC 0021), so the query needs the PREWHERE pin. */
+  final: boolean;
 }
 
 export interface RelationshipBuilderContext {
@@ -106,6 +108,7 @@ export function buildRelationshipBuilderContext(
       to: relationship.to,
       keys,
       scope: datasetRowScope(target, context),
+      final: Boolean(target.rowResolution),
     });
   }
 

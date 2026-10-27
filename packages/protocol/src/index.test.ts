@@ -90,6 +90,7 @@ describe('@hypequery/protocol public surface', () => {
       'validateProtocolQueryEvent',
       'validateProtocolQueryImplementation',
       'validateProtocolSchema',
+      'validateProtocolRowResolution',
       'validateProtocolSemanticInvocation',
       'validateProtocolSemanticInvocationFailure',
       'validateProtocolSemanticInvocationResult',

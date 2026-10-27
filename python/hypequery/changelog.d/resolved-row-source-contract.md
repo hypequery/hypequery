@@ -1,0 +1,1 @@
+- Protocol deployment validation now preserves explicit `rowResolution` FINAL policies, including the engine-less `{"kind": "final"}` form, replacing soft-delete columns and collapsing sign columns, with the same strict grammar as TypeScript. This adds protocol representation only; Python code-first datasets do not yet author resolved sources.

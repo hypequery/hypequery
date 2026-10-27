@@ -2,7 +2,7 @@ import type { AnyDatasetInstance, ExecutionContext } from '../types.js';
 import type { QueryBuilderFactoryLike, QueryBuilderLike } from '../query-builder-protocol.js';
 import type { DatasetSqlDialectRules } from '../dataset-sql-dialect.js';
 import { resolveFilterField } from '../query-planner.js';
-import { datasetSourceBuilder } from './dataset-source.js';
+import { FINAL_SAFETY_SETTINGS, datasetSourceBuilder, queryReadsFinal } from './dataset-source.js';
 import { queryTimeFilter } from './query-timezone.js';
 import {
   applyRelationshipJoins,
@@ -35,6 +35,8 @@ export function scopedDatasetSource(options: ScopedDatasetSourceOptions): QueryB
   // Validators report this too; checked here so no path can skip it.
   assertEnforcedConstraints(ds, context);
   let qb = applyRelationshipJoins(datasetSourceBuilder(options.builderFactory, ds), joinCtx);
+  // A resolved join target is read with FINAL even when this dataset isn't.
+  if (queryReadsFinal(ds, joinCtx) && qb.settings) qb = qb.settings(FINAL_SAFETY_SETTINGS);
   qb = applyRowScope(qb, datasetRowScope(ds, context), column => qualifyBaseColumn(joinCtx, column));
   // Constraints are filters in the dataset's vocabulary, applied exactly as a
   // caller filter on the same field would be.

@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { createQueryBuilder } from '../../clickhouse/src/index.js';
 import {
   belongsTo,
@@ -12,6 +12,8 @@ import {
   nullIfZero,
 } from './index.js';
 import { createInMemoryBackend } from './in-memory-backend.js';
+import { buildProtocolDeploymentContract } from './protocol-deployment-adapter.js';
+import { rehydrateProtocolDatasets } from './protocol-rehydrate.js';
 import { buildDatasetQuerySignature } from './cache/query-signature.js';
 import { datasetCacheKey, metricCacheKey, resolveProtocolCacheKeySettings } from './cache/protocol-cache-keys.js';
 import type { QueryBuilderFactoryLike, QueryBuilderLike } from './query-builder-protocol.js';
@@ -116,7 +118,7 @@ describe('final: true datasets', () => {
     };
     const limited = createDatasetClient({ queryBuilder: withoutFinal });
     expect(() => limited.toSQL(Subscriptions, { measures: ['mrr'] })).toThrow(
-      'Dataset "subscriptions" is declared final: true, but the query builder does not implement final()',
+      'Dataset "subscriptions" reads its source with FINAL, but the query builder does not implement final()',
     );
     expect(limited.toSQL(RawSubscriptions, { measures: ['mrr'] })).not.toContain('FINAL');
   });
@@ -124,7 +126,7 @@ describe('final: true datasets', () => {
   it('refuses semantic backends, which cannot apply FINAL', async () => {
     const backend = createDatasetClient({ backend: createInMemoryBackend({ 'hq_saas.subscriptions': [] }) });
     await expect(async () => backend.execute(Subscriptions, { measures: ['mrr'] })).rejects.toThrow(
-      'Dataset "subscriptions" is declared final: true, which requires the queryBuilder execution path.',
+      'Dataset "subscriptions" reads its source with FINAL, which requires the queryBuilder execution path.',
     );
   });
 
@@ -137,7 +139,7 @@ describe('final: true datasets', () => {
     });
     const backend = createDatasetClient({ backend: createInMemoryBackend({ 'hq_saas.subscriptions': [], 'hq_saas.tenants': [] }) });
     await expect(async () => backend.execute(PlainSubscriptions, { dimensions: ['tenant.plan'], measures: ['mrr'] })).rejects.toThrow(
-      'Dataset "tenants" is declared final: true',
+      'Dataset "tenants" reads its source with FINAL',
     );
   });
 
@@ -171,10 +173,45 @@ describe('final: true datasets', () => {
     })).toThrow('final must be true or false.');
   });
 
-  it('refuses publishing to the deployment contract', () => {
-    expect(() => buildProtocolDatasetContract(Tenants)).toThrow(
-      'Dataset "tenants" is declared final: true, which the deployment contract cannot carry yet.',
-    );
+  it('is the deprecated spelling of rowResolution { kind: final }, and survives publishing', () => {
+    // One representation: final: true is read as rowResolution { kind: 'final' }.
+    expect(Tenants.rowResolution).toEqual({ kind: 'final' });
+    expect(Tenants.final).toBe(true);
+    expect(buildProtocolDatasetContract(Tenants).rowResolution).toEqual({ kind: 'final' });
+    const hydrated = rehydrateProtocolDatasets(buildProtocolDeploymentContract([Tenants]).datasets).tenants;
+    expect(hydrated.rowResolution).toEqual({ kind: 'final' });
+    expect(hydrated.final).toBe(true);
+    const client = createDatasetClient({ queryBuilder: createQueryBuilder({ host: 'http://127.0.0.1:8123' }) });
+    const query = { dimensions: ['plan'], measures: ['tenantCount'] };
+    expect(client.toSQL(hydrated, query)).toBe(client.toSQL(Tenants, query));
+    expect(client.toSQL(hydrated, query)).toContain('FROM hq_saas.tenants FINAL');
+    expect(buildDatasetQuerySignature(hydrated, query)).toBe(buildDatasetQuerySignature(Tenants, query));
+  });
+
+  it('matches rowResolution { kind: final } exactly: same SQL and cache key', () => {
+    const Explicit = dataset('tenants', { ...Tenants, final: undefined, rowResolution: { kind: 'final' } } as never);
+    const client = createDatasetClient({ queryBuilder: createQueryBuilder({ host: 'http://127.0.0.1:8123' }) });
+    const query = { dimensions: ['plan'], measures: ['tenantCount'] };
+    expect(client.toSQL(Explicit, query)).toBe(client.toSQL(Tenants, query));
+    expect(buildDatasetQuerySignature(Explicit, query)).toBe(buildDatasetQuerySignature(Tenants, query));
+  });
+
+  it('warns once that final: true is deprecated, and never for rowResolution', async () => {
+    vi.resetModules();
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      const fresh = await import('./index.js');
+      const define = (name: string, config: object) =>
+        fresh.dataset(name, { source: name, dimensions: { id: fresh.dimension.string() }, ...config } as never);
+      define('modern', { rowResolution: { kind: 'final' } });
+      expect(warn).not.toHaveBeenCalled();
+      define('legacy_a', { final: true });
+      define('legacy_b', { final: true });
+      expect(warn).toHaveBeenCalledTimes(1);
+      expect(String(warn.mock.calls[0]![0])).toContain("`final: true` is deprecated. Use `rowResolution: { kind: 'final' }`");
+    } finally {
+      warn.mockRestore();
+    }
   });
 
   it('separates result-cache keys by final, on the dataset and on a joined target', () => {
@@ -215,7 +252,7 @@ describe('final: true datasets', () => {
     const query = { dimensions: ['status'], measures: ['mrr'] };
     const finalKey = buildDatasetQuerySignature(Subscriptions, query);
     const rawKey = buildDatasetQuerySignature(RawSubscriptions, query);
-    expect(finalKey).toContain('"final":true');
+    expect(finalKey).toContain('"rowResolution":{"kind":"final"}');
     expect(rawKey).not.toContain('final');
   });
 });

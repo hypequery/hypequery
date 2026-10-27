@@ -113,5 +113,103 @@
         }
       ]
     }
+  },
+  {
+    "id": "resolved-rows-replacing",
+    "value": {
+      "kind": "hypequery-deployment",
+      "version": 2,
+      "datasets": [
+        {
+          "name": "users",
+          "source": "users",
+          "tenant": {
+            "kind": "not-required"
+          },
+          "dimensions": [],
+          "measures": [],
+          "filters": [],
+          "relationships": [],
+          "rowResolution": {
+            "kind": "final",
+            "engine": "replacing",
+            "deletedColumn": "is_deleted"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "id": "resolved-rows-final-only",
+    "value": {
+      "kind": "hypequery-deployment",
+      "version": 2,
+      "datasets": [
+        {
+          "name": "users",
+          "source": "users",
+          "tenant": {
+            "kind": "not-required"
+          },
+          "dimensions": [],
+          "measures": [],
+          "filters": [],
+          "relationships": [],
+          "rowResolution": {
+            "kind": "final"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "id": "resolved-rows-collapsing",
+    "value": {
+      "kind": "hypequery-deployment",
+      "version": 2,
+      "datasets": [
+        {
+          "name": "users",
+          "source": "users",
+          "tenant": {
+            "kind": "not-required"
+          },
+          "dimensions": [],
+          "measures": [],
+          "filters": [],
+          "relationships": [],
+          "rowResolution": {
+            "kind": "final",
+            "engine": "collapsing",
+            "signColumn": "sign"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "id": "resolved-rows-versioned-collapsing",
+    "value": {
+      "kind": "hypequery-deployment",
+      "version": 2,
+      "datasets": [
+        {
+          "name": "users",
+          "source": "users",
+          "tenant": {
+            "kind": "not-required"
+          },
+          "dimensions": [],
+          "measures": [],
+          "filters": [],
+          "relationships": [],
+          "rowResolution": {
+            "kind": "final",
+            "engine": "versioned-collapsing",
+            "signColumn": "sign"
+          }
+        }
+      ]
+    }
   }
 ]

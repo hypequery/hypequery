@@ -1,3 +1,13 @@
+/**
+ * How a dataset's rows are resolved, as the deployment contract carries it
+ * (RFC 0021). `{ kind: 'final' }` reads the source with `FINAL`, and is what the
+ * deprecated `final: true` means; naming the engine also filters the resolved rows by its deletion or sign
+ * column, so only current rows remain.
+ */
+export type RowResolution =
+  | { readonly kind: 'final' }
+  | { readonly kind: 'final'; readonly engine: 'replacing'; readonly deletedColumn?: string }
+  | { readonly kind: 'final'; readonly engine: 'collapsing' | 'versioned-collapsing'; readonly signColumn: string };
 import type { QueryableRelationshipMeasureNames, RelationshipMeasureDefinition } from './utils/relationship-measure-types.js';
 import type { DatasetFilterFor } from './utils/dataset-filter-types.js';
 import type { QueryBuilderFactoryInput } from './query-builder-protocol.js';
@@ -567,8 +577,18 @@ export interface DatasetConfig<
    * a CollapsingMergeTree. Without it, row versions that have not been merged
    * yet are each counted. Applies to every query on this dataset, to its
    * relationship-key checks, and to joins that target it.
+   *
+   * @deprecated Use `rowResolution: { kind: 'final' }`, which means the same and
+   * can also name the engine. `final: true` still works and is read as that.
    */
   final?: boolean;
+  /**
+   * Read the source with ClickHouse `FINAL` (RFC 0021), as code and as the
+   * deployment contract carries it. `{ kind: 'final' }` reads `FINAL` only;
+   * naming the engine also keeps only rows whose deletion column is 0, or whose
+   * sign column is 1, after `FINAL`.
+   */
+  rowResolution?: RowResolution;
   description?: string;
   freshness?: DatasetFreshness;
   owner?: string;
@@ -618,8 +638,14 @@ export interface DatasetInstance<
   __type: 'dataset';
   name: TDatasetName;
   source: string;
-  /** Source is read with `FINAL`; see `DatasetConfig.final`. */
+  /**
+   * True whenever `rowResolution` is set.
+   *
+   * @deprecated Read `rowResolution` instead.
+   */
   final?: boolean;
+  /** How the source's rows are resolved; see `DatasetConfig.rowResolution`. */
+  rowResolution?: RowResolution;
   description?: string;
   examples?: readonly string[];
   synonyms?: readonly string[];

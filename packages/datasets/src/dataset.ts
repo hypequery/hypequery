@@ -1,3 +1,5 @@
+import { validateProtocolRowResolution } from '@hypequery/protocol';
+import type { RowResolution } from './types.js';
 /**
  * dataset() — creates a typed semantic model over a physical table.
  *
@@ -173,7 +175,7 @@ export function dataset<
     __type: 'dataset',
     name,
     source: config.source,
-    ...(config.final ? { final: true } : {}),
+    ...datasetRowResolution(name, config),
     description: config.description,
     ...snapshotSemanticMetadata(config),
     freshness: config.freshness === undefined ? undefined : { ...config.freshness },
@@ -200,4 +202,28 @@ export function dataset<
   };
 
   return ds;
+}
+
+let warnedFinalDeprecated = false;
+
+/**
+ * `rowResolution` on the instance, the one representation of row resolution.
+ * The deprecated `final: true` means `{ kind: 'final' }`; `final` stays on the
+ * instance, true whenever rows are resolved, for code that still reads it.
+ */
+function datasetRowResolution(
+  name: string,
+  config: { final?: boolean; rowResolution?: RowResolution },
+): { final?: true; rowResolution?: RowResolution } {
+  if (config.rowResolution !== undefined)
+    return { final: true, rowResolution: validateProtocolRowResolution(config.rowResolution) as RowResolution };
+  if (!config.final) return {};
+  if (!warnedFinalDeprecated) {
+    warnedFinalDeprecated = true;
+    console.warn(
+      `[hypequery/datasets] Dataset "${name}": \`final: true\` is deprecated. `
+        + "Use `rowResolution: { kind: 'final' }`, which also names the engine when needed.",
+    );
+  }
+  return { final: true, rowResolution: { kind: 'final' } };
 }
