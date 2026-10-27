@@ -1506,8 +1506,8 @@ clamped to the endpoint and dataset caps. An extra row is fetched to compute
 
 Responses are `{ "data": [...] }`, or `{ "data": [...], "meta": {...} }` when
 `includeMeta: true` or `x-include-meta: true` is sent. Public metadata contains
-`requestId`, `timingMs`, `rowCount`, `pagination: { limit, offset, hasMore }`, and
-`cache: { hit }`. Non-null semantic measure values are strings on the HTTP
+`requestId`, `timingMs`, `rowCount`, `pagination: { limit, offset, hasMore }`, and,
+when the client has a result cache, `cache: { hit }`. Non-null semantic measure values are strings on the HTTP
 wire, matching TypeScript. Local Python client results keep their native values.
 
 `DiagnosticAccess(authorize=..., audit=...)` is an optional server-authored

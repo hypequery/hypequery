@@ -4,3 +4,4 @@
 - New `hypequery.contrib.flask` (`flask` extra): a `Hypequery` extension with `app.config` keys, a `tenant_loader`, per-request tenant-bound `client` / `async_client`, and `mount_serve()` for hypequery endpoints under a Flask app.
 - New `hypequery.contrib.sqlalchemy`: `executor_from_engine()` and `connection_from_engine()` point hypequery at a SQLAlchemy engine's ClickHouse server with hypequery's own clients.
 - New `create_async_from_sync_clickhouse_executor()`: a thread-backed async executor that needs only the `clickhouse` extra. `AsyncFromSyncClickHouseExecutor.close()` now also closes its driver clients.
+- Served query metadata omits `cache` when the dataset client has no result cache, matching TypeScript. It previously reported `{"hit": false}` on every query, which read as a cache miss.

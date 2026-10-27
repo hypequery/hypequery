@@ -4,10 +4,10 @@ Needs ``hypequery[flask,fastapi]``. Seed examples/seed.sql; set CLICKHOUSE_URL
 (or the CLICKHOUSE_* variables), HYPEQUERY_TENANT_A_TOKEN and
 HYPEQUERY_TENANT_B_TOKEN. Then:
 
-    curl -H "Authorization: Bearer $HYPEQUERY_TENANT_A_TOKEN" localhost:5000/revenue
+    curl -H "Authorization: Bearer $HYPEQUERY_TENANT_A_TOKEN" localhost:5001/revenue
     curl -X POST -H "Authorization: Bearer $HYPEQUERY_TENANT_A_TOKEN" \\
          -H "Content-Type: application/json" -d '{"dimensions":["country"]}' \\
-         localhost:5000/api/analytics/orders
+         localhost:5001/api/analytics/orders
 """
 
 from __future__ import annotations
@@ -69,4 +69,5 @@ def create_app(*, mount_serve: bool = True) -> Flask:
 
 
 if __name__ == "__main__":
-    create_app().run(port=5000)
+    # 5001, not Flask's default 5000: macOS's AirPlay receiver listens on 5000.
+    create_app().run(port=5001)

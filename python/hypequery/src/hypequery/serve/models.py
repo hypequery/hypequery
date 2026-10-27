@@ -71,7 +71,9 @@ class PublicQueryMeta(WireModel):
     timingMs: float  # noqa: N815
     rowCount: int  # noqa: N815
     pagination: PaginationMeta
-    cache: CacheMeta
+    #: Omitted when the client has no result cache, as TypeScript does: a bare
+    #: ``hit: false`` would read as a miss on every query.
+    cache: CacheMeta | None = None
 
 
 class QueryResponse(WireModel):

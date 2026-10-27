@@ -32,7 +32,9 @@ def public_response(
             pagination=PaginationMeta(
                 limit=pagination.limit, offset=pagination.offset, hasMore=pagination.has_more
             ),
-            cache=CacheMeta(hit=result.meta.cache == "hit"),
+            cache=(
+                None if result.meta.cache == "off" else CacheMeta(hit=result.meta.cache == "hit")
+            ),
         )
     # Every non-null semantic measure is a string on the shared HTTP wire.
     data = [

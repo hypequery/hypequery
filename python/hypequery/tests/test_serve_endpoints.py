@@ -157,7 +157,8 @@ def test_pagination_overfetch_and_public_metadata(async_client: bool) -> None:
     assert body["meta"]["pagination"] == {"limit": 2, "offset": 0, "hasMore": True}
     assert executor.seen[0].sql.endswith("LIMIT 3")
     assert body["meta"]["rowCount"] == 2
-    assert set(body["meta"]) == {"requestId", "rowCount", "timingMs", "pagination", "cache"}
+    # No result cache is configured, so no cache metadata is reported.
+    assert set(body["meta"]) == {"requestId", "rowCount", "timingMs", "pagination"}
     assert body["meta"]["requestId"] == response.headers["x-request-id"]
     assert response.headers["cache-control"] == "no-store"
     assert "private_" not in response.text
