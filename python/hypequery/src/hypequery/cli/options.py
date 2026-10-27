@@ -7,7 +7,21 @@ option is a type error in the command, not an AttributeError at run time.
 from __future__ import annotations
 
 import argparse
+import os
+from collections.abc import Mapping
 from dataclasses import dataclass
+
+
+def resolve_database(flag: str | None, environ: Mapping[str, str] | None = None) -> str:
+    """The engine to inspect: the flag, else Postgres when only a Postgres URL is set."""
+
+    if flag is not None:
+        return flag
+    environ = os.environ if environ is None else environ
+    if any(name.startswith("CLICKHOUSE_") and environ[name] for name in environ):
+        return "clickhouse"
+    url = environ.get("HYPEQUERY_POSTGRES_URL") or environ.get("DATABASE_URL") or ""
+    return "postgres" if url.startswith(("postgres://", "postgresql://")) else "clickhouse"
 
 
 @dataclass(frozen=True, slots=True)
@@ -16,6 +30,7 @@ class InitOptions:
     tables: str | None
     exclude_tables: str | None
     skip_connection: bool
+    database: str = "clickhouse"
 
 
 @dataclass(frozen=True, slots=True)
@@ -28,6 +43,7 @@ class GenerateDatasetsOptions:
     check: bool
     diff: bool
     force: bool
+    database: str = "clickhouse"
 
 
 @dataclass(frozen=True, slots=True)
@@ -59,6 +75,7 @@ def command_options(args: argparse.Namespace) -> CommandOptions:
             tables=args.tables,
             exclude_tables=args.exclude_tables,
             skip_connection=args.skip_connection,
+            database=resolve_database(args.database),
         )
     if args.command == "generate":
         return GenerateDatasetsOptions(
@@ -70,6 +87,7 @@ def command_options(args: argparse.Namespace) -> CommandOptions:
             check=args.check,
             diff=args.diff,
             force=args.force,
+            database=resolve_database(args.database),
         )
     if args.command == "export":
         return ExportClientContractOptions(

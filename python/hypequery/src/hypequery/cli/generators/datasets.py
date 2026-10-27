@@ -11,7 +11,7 @@ from hypequery.protocol.errors import ProtocolIdentifierError
 
 from ..errors import CliError
 from .count_measure import CountMeasure, suggest_count_measure
-from .schema import Schema, Table
+from .schema import Column, Schema, Table
 
 
 @dataclass(frozen=True)
@@ -24,8 +24,26 @@ class GeneratedDatasets:
     first_count_measure: str
 
 
-def dimension_type(type_name: str) -> str | None:
+#: Postgres `information_schema` data types and the dimension type each reads as.
+_POSTGRES_TYPES = {
+    **dict.fromkeys(
+        ("text", "character varying", "character", "uuid", "citext", "USER-DEFINED"), "string"
+    ),
+    **dict.fromkeys(
+        ("smallint", "integer", "bigint", "numeric", "real", "double precision"), "number"
+    ),
+    **dict.fromkeys(
+        ("date", "timestamp without time zone", "timestamp with time zone"), "timestamp"
+    ),
+    "boolean": "boolean",
+}
+
+
+def dimension_type(type_name: str, engine: str = "clickhouse") -> str | None:
     """Classify scalar types; nested types are never guessed to be scalar."""
+    if engine == "postgres":
+        # Arrays, JSON, intervals and other non-scalar types stay unsupported.
+        return _POSTGRES_TYPES.get(type_name.strip())
     value = type_name.strip()
     for _ in range(8):
         match = re.fullmatch(r"(?:Nullable|LowCardinality)\((.*)\)", value)
@@ -57,6 +75,13 @@ def is_nullable(type_name: str) -> bool:
             return False
         value = match[1].strip()
     return False
+
+
+def column_is_nullable(column: Column, engine: str = "clickhouse") -> bool:
+    """Catalog nullability where the engine reports it, else read from the type name."""
+    if column.nullable is not None:
+        return column.nullable
+    return is_nullable(column.type) if engine == "clickhouse" else True
 
 
 def field_name(column: str) -> str:
@@ -156,7 +181,12 @@ def _time_key(fields: tuple[FieldSpec, ...]) -> str | None:
 
 
 def infer_dataset(
-    table: Table, database: str, *, tenant_column: str | None, warnings: list[str]
+    table: Table,
+    database: str,
+    *,
+    tenant_column: str | None,
+    warnings: list[str],
+    engine: str = "clickhouse",
 ) -> DatasetSpec:
     """Infer one dataset from catalog metadata, appending review warnings in order."""
 
@@ -166,7 +196,7 @@ def infer_dataset(
     non_nullable: list[str] = []
     seen: set[str] = set()
     for column in table.columns:
-        kind = dimension_type(column.type)
+        kind = dimension_type(column.type, engine)
         alias = field_name(column.name)
         if kind is None or not is_identifier(column.name) or not is_identifier(alias):
             warnings.append(
@@ -179,7 +209,7 @@ def infer_dataset(
             )
         seen.add(alias)
         fields.append(FieldSpec(column.name, alias, kind))
-        if not is_nullable(column.type):
+        if not column_is_nullable(column, engine):
             non_nullable.append(alias)
     if not fields:
         raise CliError(f"Table {table.name!r} has no supported scalar dimensions.")
@@ -236,11 +266,14 @@ def infer_dataset(
     )
 
 
-def render_datasets(specs: tuple[DatasetSpec, ...]) -> str:
+_ENGINE_LABELS = {"clickhouse": "ClickHouse", "postgres": "Postgres"}
+
+
+def render_datasets(specs: tuple[DatasetSpec, ...], engine: str = "clickhouse") -> str:
     """Python source defining *specs*; every value is written with `repr`."""
 
     lines = [
-        "# Generated from ClickHouse catalog metadata; review suggested measures.",
+        f"# Generated from {_ENGINE_LABELS[engine]} catalog metadata; review suggested measures.",
         "from hypequery.datasets import dataset, dimension, measure",
         "",
         "datasets = {",
@@ -292,7 +325,13 @@ def generate_datasets(schema: Schema, *, tenant_column: str | None = None) -> Ge
         raise CliError("No tables selected.")
     warnings: list[str] = []
     specs = tuple(
-        infer_dataset(table, schema.database, tenant_column=tenant_column, warnings=warnings)
+        infer_dataset(
+            table,
+            schema.database,
+            tenant_column=tenant_column,
+            warnings=warnings,
+            engine=schema.engine,
+        )
         for table in schema.tables
     )
     snapshot = [
@@ -303,7 +342,7 @@ def generate_datasets(schema: Schema, *, tenant_column: str | None = None) -> Ge
         for table in schema.tables
     ]
     return GeneratedDatasets(
-        render_datasets(specs),
+        render_datasets(specs, schema.engine),
         json.dumps(
             {"database": schema.database, "tables": snapshot, "warnings": warnings}, indent=2
         )

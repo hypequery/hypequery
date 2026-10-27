@@ -27,11 +27,18 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     init.add_argument("--exclude-tables", help="comma-separated tables to omit")
     init.add_argument("--all-tables", action="store_true", help="inspect all tables (default)")
     init.add_argument(
+        "--database",
+        choices=("clickhouse", "postgres"),
+        help="database to inspect (default: postgres when only a Postgres URL is set)",
+    )
+    init.add_argument(
         "--skip-connection",
         action="store_true",
         help="explicit offline example; no schema discovery",
     )
-    generate = commands.add_parser("generate", help="generate Python definitions from ClickHouse")
+    generate = commands.add_parser(
+        "generate", help="generate Python definitions from ClickHouse or Postgres"
+    )
     targets = generate.add_subparsers(dest="target", required=True)
     datasets = targets.add_parser(
         "datasets",
@@ -47,6 +54,11 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         "--tenant-column",
         help="set tenant_key to this column on tables that have it "
         "(requires a trusted runtime tenant scope)",
+    )
+    datasets.add_argument(
+        "--database",
+        choices=("clickhouse", "postgres"),
+        help="database to inspect (default: postgres when only a Postgres URL is set)",
     )
     datasets.add_argument("--check", action="store_true", help="exit 1 on drift without writing")
     datasets.add_argument("--diff", action="store_true", help="show drift without writing; exit 1")

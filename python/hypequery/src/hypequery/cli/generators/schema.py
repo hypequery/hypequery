@@ -1,4 +1,4 @@
-"""Read-only ClickHouse schema discovery, independent of scaffold writes."""
+"""Read-only schema discovery (ClickHouse or Postgres), independent of scaffold writes."""
 
 from __future__ import annotations
 
@@ -23,7 +23,10 @@ _ROW_CAP = 100_000
 @dataclass(frozen=True)
 class Column:
     name: str
+    #: The engine's own type name, as its catalog reports it.
     type: str
+    #: Catalog nullability, for engines whose type names do not carry it.
+    nullable: bool | None = None
 
 
 @dataclass(frozen=True)
@@ -34,8 +37,10 @@ class Table:
 
 @dataclass(frozen=True)
 class Schema:
+    #: The ClickHouse database or Postgres schema the tables belong to.
     database: str
     tables: tuple[Table, ...]
+    engine: str = "clickhouse"
 
 
 class _Result(Protocol):
@@ -49,8 +54,14 @@ class _Client(Protocol):
     def close(self) -> None: ...
 
 
-def discover_schema(*, tables: str | None, exclude_tables: str | None) -> Schema:
+def discover_schema(
+    *, tables: str | None, exclude_tables: str | None, database: str = "clickhouse"
+) -> Schema:
     """Query catalog metadata only; credentials never enter generated files."""
+    if database == "postgres":
+        from .postgres_schema import discover_postgres_schema
+
+        return discover_postgres_schema(tables=tables, exclude_tables=exclude_tables)
     if find_spec("clickhouse_connect") is None:
         raise CliError('Schema discovery requires: pip install "hypequery[clickhouse]"')
     import clickhouse_connect
@@ -114,18 +125,7 @@ def read_schema(client: _Client, *, tables: str | None, exclude_tables: str | No
         # The LIMIT cut the list; discovering from part of it would be silently wrong.
         raise CliError("The database has more tables than discovery can list.")
     available = {str(row[0]) for row in rows if not str(row[0]).startswith(".inner")}
-    include = {name.strip() for name in tables.split(",") if name.strip()} if tables else available
-    exclude = (
-        {name.strip() for name in exclude_tables.split(",") if name.strip()}
-        if exclude_tables
-        else set()
-    )
-    missing = include - available
-    if missing:
-        raise CliError(f"Requested tables do not exist: {', '.join(sorted(missing))}")
-    selected = sorted(include - exclude)
-    if not selected:
-        raise CliError("No tables match the selection in this database.")
+    selected = select_tables(available, tables=tables, exclude_tables=exclude_tables)
     column_rows = client.query(
         "SELECT table, name, type FROM system.columns "
         "WHERE database = {database:String} AND table IN {tables:Array(String)} "
@@ -141,3 +141,22 @@ def read_schema(client: _Client, *, tables: str | None, exclude_tables: str | No
     if any(not columns for columns in grouped.values()):
         raise CliError("A selected table has no visible columns; check catalog permissions.")
     return Schema(database, tuple(Table(name, tuple(columns)) for name, columns in grouped.items()))
+
+
+def select_tables(
+    available: set[str], *, tables: str | None, exclude_tables: str | None
+) -> list[str]:
+    """Apply --tables and --exclude-tables, refusing names the catalog does not have."""
+    include = {name.strip() for name in tables.split(",") if name.strip()} if tables else available
+    exclude = (
+        {name.strip() for name in exclude_tables.split(",") if name.strip()}
+        if exclude_tables
+        else set()
+    )
+    missing = include - available
+    if missing:
+        raise CliError(f"Requested tables do not exist: {', '.join(sorted(missing))}")
+    selected = sorted(include - exclude)
+    if not selected:
+        raise CliError("No tables match the selection in this database.")
+    return selected

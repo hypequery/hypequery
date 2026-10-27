@@ -23,7 +23,9 @@ def run(options: GenerateDatasetsOptions) -> None:
         # Refuse before connecting, as with an unsafe output path.
         raise CliError("The tenant column is outside the SDK's supported identifier grammar.")
     current = output.read()
-    schema = discover_schema(tables=options.tables, exclude_tables=options.exclude_tables)
+    schema = discover_schema(
+        tables=options.tables, exclude_tables=options.exclude_tables, database=options.database
+    )
     generated = generate_datasets(schema, tenant_column=options.tenant_column)
     # Up-to-date, --diff and --check results must describe the file as it is now.
     output.ensure_unchanged()

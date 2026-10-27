@@ -127,7 +127,7 @@ def test_selection_and_invalid_flags(
         )
         == 0
     )
-    assert calls == [{"tables": "orders", "exclude_tables": "events"}]
+    assert calls == [{"tables": "orders", "exclude_tables": "events", "database": "clickhouse"}]
     for flag in ("--check", "--diff"):
         with pytest.raises(SystemExit) as exc:
             main(["generate", "datasets", "--force", flag])

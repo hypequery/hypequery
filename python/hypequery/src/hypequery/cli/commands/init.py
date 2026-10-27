@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from ..errors import CliError
 from ..options import InitOptions
 from ..scaffold import Scaffold
 from ..utils.next_steps import cd_prefix
@@ -12,6 +13,11 @@ from ..utils.templates import load_templates
 
 def run(options: InitOptions) -> None:
     scaffold = Scaffold(Path(options.directory))
+    if options.skip_connection and options.database == "postgres":
+        raise CliError(
+            "The offline example is ClickHouse-only; drop --skip-connection to scaffold "
+            "from your Postgres schema."
+        )
     if options.skip_connection:
         destination = scaffold.create()
         print("Created an offline orders example; no database schema was inspected.")
@@ -32,7 +38,9 @@ def run(options: InitOptions) -> None:
                 "README.md",
             ]
         )
-        schema = discover_schema(tables=options.tables, exclude_tables=options.exclude_tables)
+        schema = discover_schema(
+            tables=options.tables, exclude_tables=options.exclude_tables, database=options.database
+        )
         generated = generate_datasets(schema)
         destination = scaffold.create(schema_templates(load_templates(), schema, generated))
         print(f"Inspected {schema.database}: generated {len(generated.tables)} datasets.")
