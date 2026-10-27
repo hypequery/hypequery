@@ -227,6 +227,22 @@ type = "forbidden"
 source_modules = ["hypequery.protocol", "hypequery.datasets"]
 forbidden_modules = ["fastapi", "starlette", "uvicorn", "clickhouse_connect"]
 
+# Decision 0023: the serving core takes requests from any framework's adapter
+# and imports none of them. AnyIO (its worker pool) is a runtime, not a framework.
+[[tool.importlinter.contracts]]
+name = "The serve core stays framework-free"
+type = "forbidden"
+source_modules = ["hypequery.serve.core"]
+forbidden_modules = [
+  "fastapi",
+  "starlette",
+  "uvicorn",
+  "django",
+  "flask",
+  "werkzeug",
+  "asgiref",
+]
+
 [[tool.importlinter.contracts]]
 name = "Dataset SQL compilation stays independent of client orchestration and execution"
 type = "forbidden"

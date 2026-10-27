@@ -6,66 +6,40 @@ Every error a served route returns has the TypeScript shape:
 
 with `Cache-Control: no-store` and an `x-request-id`. The language-neutral
 fixtures in `specs/serve-http/fixtures/errors-v1` pin it for both
-implementations. Nothing raised by a driver, a provider, or unexpected code
-reaches a body: an unexpected exception is logged here, with its request id,
-and answered with a fixed sentence.
+implementations. The envelope and the mapping of query errors live in the
+framework-neutral core (`core/errors.py`); this module adds FastAPI's own
+exceptions to that mapping and renders the result as a Starlette response.
 """
 
 from __future__ import annotations
 
-import logging
 from collections.abc import Mapping
-from typing import Literal, TypeAlias
 
 from fastapi import HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from starlette.exceptions import HTTPException as StarletteHTTPException
-from starlette.responses import JSONResponse
+from starlette.responses import Response
 
-from ..datasets.planner import CompiledQueryError, CompiledQueryErrorCategory
+from .core.errors import (
+    UNEXPECTED_ERROR_MESSAGE,
+    ServeErrorType,
+    ServeHttpError,
+    request_validation_error,
+    use_error_class,
+)
+from .core.errors import as_serve_error as core_as_serve_error
+from .core.errors import error_response as core_error_response
 from .request_ids import ensure_request_id
+from .utils.starlette_bridge import starlette_response
 
-ServeErrorType: TypeAlias = Literal[
-    "VALIDATION_ERROR",
-    "UNAUTHORIZED",
-    "FORBIDDEN",
-    "QUERY_FAILURE",
-    "CLICKHOUSE_UNREACHABLE",
-    "RATE_LIMITED",
-    "NOT_FOUND",
-    "PAYLOAD_TOO_LARGE",
-    "GATEWAY_TIMEOUT",
-    "SERVICE_UNAVAILABLE",
-    "INTERNAL_SERVER_ERROR",
+__all__ = [
+    "UNEXPECTED_ERROR_MESSAGE",
+    "ServeError",
+    "ServeErrorType",
+    "as_serve_error",
+    "error_response",
+    "map_error",
 ]
-
-UNEXPECTED_ERROR_MESSAGE = "An unexpected error occurred"
-
-_log = logging.getLogger("hypequery.serve")
-
-#: RFC 0010 categories over HTTP. The message of a server-fault category is
-#: already fixed by `CompiledQueryError`; `internal` uses TypeScript's.
-_CATEGORIES: Mapping[CompiledQueryErrorCategory, tuple[int, ServeErrorType]] = {
-    "input-invalid": (400, "VALIDATION_ERROR"),
-    "unauthenticated": (401, "UNAUTHORIZED"),
-    "forbidden": (403, "FORBIDDEN"),
-    "tenant-required": (403, "FORBIDDEN"),
-    "not-found": (404, "NOT_FOUND"),
-    "too-large": (413, "PAYLOAD_TOO_LARGE"),
-    "aborted": (503, "SERVICE_UNAVAILABLE"),
-    "deadline-exceeded": (504, "GATEWAY_TIMEOUT"),
-    "unavailable": (503, "CLICKHOUSE_UNREACHABLE"),
-    "internal": (500, "INTERNAL_SERVER_ERROR"),
-}
-
-#: Every 5xx category answers with a fixed sentence, whatever the error
-#: carried: a server-side failure's text is for the log, not the caller.
-_SERVER_MESSAGES: Mapping[CompiledQueryErrorCategory, str] = {
-    "aborted": "The request was cancelled.",
-    "deadline-exceeded": "The query did not finish in time.",
-    "unavailable": "The query executor is unavailable.",
-    "internal": UNEXPECTED_ERROR_MESSAGE,
-}
 
 _STATUS_TYPES: Mapping[int, ServeErrorType] = {
     401: "UNAUTHORIZED",
@@ -77,14 +51,13 @@ _STATUS_TYPES: Mapping[int, ServeErrorType] = {
     504: "GATEWAY_TIMEOUT",
 }
 
-_LOCATIONS = frozenset(("body", "query", "path", "header", "cookie"))
 
-
-class ServeError(HTTPException):
+class ServeError(ServeHttpError, HTTPException):
     """Raise from an endpoint to return a specific canonical error.
 
     The counterpart of TypeScript's `ServeHttpError`. *message* is sent as
-    written, so it must be safe for the caller to read.
+    written, so it must be safe for the caller to read. It is also a FastAPI
+    `HTTPException`, so a plain FastAPI route answers it with its status.
     """
 
     def __init__(
@@ -96,10 +69,14 @@ class ServeError(HTTPException):
         details: Mapping[str, object] | None = None,
         headers: Mapping[str, str] | None = None,
     ) -> None:
-        super().__init__(status, detail=message, headers=dict(headers or {}))
-        self.type: ServeErrorType = type
+        HTTPException.__init__(self, status, detail=message, headers=dict(headers or {}))
+        self.type = type
         self.message = message
         self.details = dict(details) if details is not None else None
+
+
+# Everything the core raises is this class, so it stays an HTTPException.
+use_error_class(ServeError)
 
 
 def _status_type(status: int) -> ServeErrorType:
@@ -108,33 +85,13 @@ def _status_type(status: int) -> ServeErrorType:
     return "INTERNAL_SERVER_ERROR" if status >= 500 else "VALIDATION_ERROR"
 
 
-def _issues(error: RequestValidationError) -> list[dict[str, object]]:
-    issues: list[dict[str, object]] = []
-    for item in error.errors():
-        location = list(item.get("loc", ()))
-        if location and location[0] in _LOCATIONS:
-            location = location[1:]
-        # Only the path, a message, and a code: Pydantic's `input` and `ctx`
-        # echo submitted values and internal objects.
-        issues.append(
-            {"path": location, "message": str(item.get("msg", "")), "code": item.get("type")}
-        )
-    return issues
+def map_error(exc: BaseException, request_id: str | None) -> ServeHttpError:
+    """The canonical error for *exc*, FastAPI's exceptions included."""
 
-
-def as_serve_error(exc: BaseException, *, request: Request | None = None) -> ServeError:
-    """The canonical error for *exc*, logging anything unexpected."""
-
-    if isinstance(exc, ServeError):
+    if isinstance(exc, ServeHttpError):
         return exc
     if isinstance(exc, RequestValidationError):
-        return ServeError(
-            400, "VALIDATION_ERROR", "Request validation failed", details={"issues": _issues(exc)}
-        )
-    if isinstance(exc, CompiledQueryError):
-        status, kind = _CATEGORIES[exc.category]
-        message = _SERVER_MESSAGES.get(exc.category, exc.message)
-        return ServeError(status, kind, message)
+        return request_validation_error(exc.errors())
     # FastAPI's HTTPException subclasses Starlette's, which FastAPI itself
     # raises for a body it cannot parse; both are the route's chosen status.
     if isinstance(exc, StarletteHTTPException):
@@ -145,23 +102,18 @@ def as_serve_error(exc: BaseException, *, request: Request | None = None) -> Ser
         if exc.status_code >= 500 and exc.status_code not in _STATUS_TYPES:
             message = UNEXPECTED_ERROR_MESSAGE
         return ServeError(exc.status_code, kind, message, headers=exc.headers)
-    _log.error(
-        "Unhandled error in a served route (request_id=%s)",
-        ensure_request_id(request) if request is not None else None,
-        exc_info=exc,
-    )
-    return ServeError(500, "INTERNAL_SERVER_ERROR", UNEXPECTED_ERROR_MESSAGE)
+    return core_as_serve_error(exc, request_id=request_id)
 
 
-def error_response(request: Request, error: ServeError) -> JSONResponse:
+def as_serve_error(exc: BaseException, *, request: Request | None = None) -> ServeHttpError:
+    """The canonical error for *exc*, logging anything unexpected."""
+
+    return map_error(exc, ensure_request_id(request) if request is not None else None)
+
+
+def error_response(request: Request, error: ServeHttpError) -> Response:
     """Render *error* in the canonical envelope."""
 
-    body: dict[str, object] = {"type": error.type, "message": error.message}
-    if error.details is not None:
-        body["details"] = error.details
-    headers = {name.lower(): value for name, value in (error.headers or {}).items()}
-    headers["cache-control"] = "no-store"
-    # The profile's middleware replaces this with the authoritative id when it
-    # is installed; without it, an error still carries one.
-    headers["x-request-id"] = ensure_request_id(request)
-    return JSONResponse({"error": body}, status_code=error.status_code, headers=headers)
+    # The profile's middleware replaces the id with the authoritative one when
+    # it is installed; without it, an error still carries one.
+    return starlette_response(core_error_response(error, ensure_request_id(request)))

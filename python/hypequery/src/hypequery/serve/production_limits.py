@@ -7,10 +7,11 @@ import asyncio
 from fastapi import Request
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
+from .core.work import RequestWork
 from .errors import ServeError, as_serve_error, error_response
 from .production import ProductionProfile
 from .utils.production_context import set_production_profile
-from .utils.request_work import RequestWork, request_work
+from .utils.request_work import request_work
 
 
 class _ResponseTooLargeError(Exception):

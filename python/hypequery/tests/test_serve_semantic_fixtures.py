@@ -1,4 +1,4 @@
-"""Language-neutral semantic HTTP fixtures against Python's ASGI app."""
+"""Language-neutral semantic HTTP fixtures against Python's ASGI app and its core."""
 
 from __future__ import annotations
 
@@ -11,6 +11,7 @@ from typing import Any
 import pytest
 from fastapi.testclient import TestClient
 
+from core_transport import CoreClient
 from hypequery.datasets import (
     CompiledQuery,
     Dataset,
@@ -33,9 +34,15 @@ from hypequery.serve import (
     add_dataset_endpoint,
     add_discovery_endpoint,
     add_metric_endpoint,
+    bearer_token,
     create_app,
     create_router,
+    default_tenant_resolver,
 )
+from hypequery.serve.core import Api
+from hypequery.serve.core.authentication import Authentication
+from hypequery.serve.core.discovery import add_discovery_route
+from hypequery.serve.core.endpoints import DatasetEndpointCore, add_dataset_route
 
 FIXTURES = json.loads(
     (
@@ -59,7 +66,9 @@ class Executor:
         return Rows(columns, tuple(tuple(row[column] for column in columns) for row in rows))
 
 
-def app(case: dict[str, Any], production: bool = False) -> TestClient:
+def app(case: dict[str, Any], transport: str = "embedded") -> TestClient | CoreClient:
+    """The fixture app, served by FastAPI (with or without production) or the core."""
+
     config = FIXTURES["app"]
     dataset = Dataset(
         name=config["dataset"],
@@ -81,23 +90,37 @@ def app(case: dict[str, Any], production: bool = False) -> TestClient:
             tenant_id=principal.get("tenantId"),
         )
 
-    router = create_router(authenticate=authenticate)
     client = create_dataset_client(executor=Executor())
     policy = EndpointPolicy(
         tenant="required" if case.get("tenantRequired") else "optional",
         required_roles=frozenset(case.get("requiredRoles", [])),
         required_scopes=frozenset(case.get("requiredScopes", [])),
     )
-    add_dataset_endpoint(
-        router,
-        f"/datasets/{config['dataset']}/query",
-        dataset=dataset,
-        client=client,
-        policy=policy,
-    )
+    dataset_path = f"/datasets/{config['dataset']}/query"
+    metric_path = f"/metrics/{config['measure']}"
+    if transport == "core":
+        api = Api(
+            authentication=Authentication(authenticate, bearer_token(), default_tenant_resolver)
+        )
+        add_dataset_route(
+            api, dataset_path, DatasetEndpointCore(dataset=dataset, client=client, policy=policy)
+        )
+        add_dataset_route(
+            api,
+            metric_path,
+            DatasetEndpointCore(
+                dataset=dataset, measure=config["measure"], client=client, policy=policy
+            ),
+        )
+        add_discovery_route(
+            api, "/discovery", registry=create_dataset_registry(dataset), policy=policy
+        )
+        return CoreClient(api)
+    router = create_router(authenticate=authenticate)
+    add_dataset_endpoint(router, dataset_path, dataset=dataset, client=client, policy=policy)
     add_metric_endpoint(
         router,
-        f"/metrics/{config['measure']}",
+        metric_path,
         dataset=dataset,
         measure=config["measure"],
         client=client,
@@ -108,7 +131,7 @@ def app(case: dict[str, Any], production: bool = False) -> TestClient:
         create_app(
             router,
             security=HttpSecurity(allowed_hosts=("testserver",)),
-            production=ProductionProfile() if production else None,
+            production=ProductionProfile() if transport == "production" else None,
         )
     )
 
@@ -124,15 +147,18 @@ def assert_public(value: object) -> None:
 
 
 @pytest.mark.parametrize("case", FIXTURES["cases"], ids=[case["id"] for case in FIXTURES["cases"]])
-@pytest.mark.parametrize("production", [False, True], ids=["embedded", "production"])
-def test_semantic_v1(case: dict[str, Any], production: bool) -> None:
+# "core" runs the cases against `Api.handle` with no framework at all. Production
+# budgets are still FastAPI middleware (decision 0023 step 2), so the core runs
+# without a production profile.
+@pytest.mark.parametrize("transport", ["embedded", "production", "core"])
+def test_semantic_v1(case: dict[str, Any], transport: str) -> None:
     headers = dict(case.get("headers", {}))
     if case["credential"] != "none":
         credential = FIXTURES["app"]["credential"] + (
             "-wrong" if case["credential"] == "invalid" else ""
         )
         headers["Authorization"] = "Bearer " + credential
-    response = app(case, production).request(
+    response = app(case, transport).request(
         case["method"],
         case["path"],
         headers=headers,

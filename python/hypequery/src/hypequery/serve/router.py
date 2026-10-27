@@ -12,6 +12,10 @@ plain Starlette routes, host routes, mounts, static frontends, websockets, and
 `add_api_route`. Refusing them is what makes "authenticated by default" true of
 the whole router rather than of the routes that happened to be added one
 particular way.
+
+Hypequery's own endpoints (datasets, metrics, discovery) are served by the
+framework-neutral core: FastAPI documents them and resolves their dependencies,
+and the core reads, validates and answers the request (decision 0023, step 1).
 """
 
 # No `from __future__ import annotations`: FastAPI 0.115 cannot resolve string
@@ -19,107 +23,83 @@ particular way.
 # `_Guard.__call__`'s `request: Request` as a query parameter.
 from collections.abc import Awaitable, Callable, Coroutine, Sequence
 from typing import Any, NoReturn, TypeVar
+from weakref import WeakKeyDictionary
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Body, Depends, Request
 from fastapi.params import Depends as DependsParam
 from fastapi.routing import APIRoute
 from starlette.datastructures import MutableHeaders
 from starlette.responses import Response
 from starlette.types import Message, Receive, Scope, Send
 
-from ..datasets.planner import TenantScope
 from .auth import (
     Authenticator,
     CredentialTransport,
-    InvalidCredential,
-    Principal,
     RequestAuth,
     TenantResolver,
     bearer_token,
-    credential_presented,
     default_tenant_resolver,
-    misconfigured,
-    read_credential,
-    unauthenticated,
 )
 from .body_policy import DEFAULT_MAX_BODY_BYTES, enforce_body_policy
-from .client_contract import ClientEndpointRegistry
-from .errors import as_serve_error, error_response
+from .client_contract import FastAPIHost
+from .core.api import Api, Route
+from .core.authentication import Authentication
+from .core.client_contract import ClientEndpointRegistry
+from .core.messages import ServeRequest
+from .errors import as_serve_error, error_response, map_error
 from .rate_limit import RateLimit
-from .utils.provider_call import call_provider
 from .utils.scope_slot import ScopeSlot
+from .utils.starlette_bridge import request_state, serve_request, starlette_response
 
 _Endpoint = TypeVar("_Endpoint", bound=Callable[..., Any])
 
-#: Where a route leaves the auth context for its dependencies. Only this module
-#: holds the slot, and its key is not a string, so no middleware, header, or
-#: request state can put a context where `router.auth` will read one.
-_AUTH_SLOT: "ScopeSlot[dict[_Guard, RequestAuth]]" = ScopeSlot(dict)
-
-
-def _authenticated_by(request: Request) -> "dict[_Guard, RequestAuth]":
-    return _AUTH_SLOT.setdefault(request.scope, dict)
+#: The endpoints whose requests the core serves, with the API and route that
+#: serve them. FastAPI documents these routes and resolves their dependencies;
+#: the core reads, validates and answers the request.
+_CORE_ENDPOINTS: "WeakKeyDictionary[Callable[..., Any], tuple[Api, Route]]" = WeakKeyDictionary()
+#: The request as received, for the core route FastAPI is about to call. Only
+#: this module holds the slot.
+_CORE_REQUEST: ScopeSlot[ServeRequest] = ScopeSlot(ServeRequest)
 
 
 def authenticated_context(request: Request) -> RequestAuth | None:
-    """The `RequestAuth` a route established for *request*, if any."""
+    """The `RequestAuth` a route established for *request*, if any.
 
-    for auth in _authenticated_by(request).values():
-        if type(auth) is RequestAuth:
-            return auth
-    return None
+    Authentication results live in the request's core state, which only the
+    core's `Authentication` writes, so no middleware, header, or request state
+    can put a context where `router.auth` will read one.
+    """
+
+    return request_state(request).authenticated()
+
+
+def core_route_of(route: object) -> Route | None:
+    """The core route a FastAPI route is the documented face of, if any."""
+
+    endpoint = getattr(route, "endpoint", None)
+    found = _CORE_ENDPOINTS.get(endpoint) if callable(endpoint) else None
+    return found[1] if found is not None else None
+
+
+async def _empty_body() -> Message:
+    return {"type": "http.request", "body": b"", "more_body": False}
 
 
 class _Guard:
     """One router's authentication, usable as a FastAPI dependency.
 
-    Results are kept per guard, so an endpoint that depends on another
-    router's `auth` is authenticated by that router, never handed this one's
-    result.
+    It runs the core's `Authentication`, whose results are kept per request
+    and per router, so an endpoint that depends on another router's `auth` is
+    authenticated by that router, never handed this one's result.
     """
 
-    __slots__ = ("_authenticate", "_credentials", "_resolve_tenant")
+    __slots__ = ("_authentication",)
 
-    def __init__(
-        self,
-        authenticate: Authenticator,
-        credentials: CredentialTransport,
-        resolve_tenant: TenantResolver,
-    ) -> None:
-        self._authenticate = authenticate
-        self._credentials = credentials
-        self._resolve_tenant = resolve_tenant
+    def __init__(self, authentication: Authentication) -> None:
+        self._authentication = authentication
 
     async def __call__(self, request: Request) -> RequestAuth:
-        results = _authenticated_by(request)
-        cached = results.get(self)
-        if type(cached) is RequestAuth:
-            return cached
-        auth = await self._run(request)
-        results[self] = auth
-        return auth
-
-    async def _run(self, request: Request) -> RequestAuth:
-        presented = credential_presented(request, self._credentials)
-        credential = read_credential(request, self._credentials)
-        if credential is None:
-            raise unauthenticated(self._credentials, presented=presented)
-        try:
-            principal = await call_provider(
-                self._authenticate, credential, request, rejectable=True
-            )
-        except InvalidCredential:
-            raise unauthenticated(self._credentials, presented=True) from None
-        if principal is None:
-            raise unauthenticated(self._credentials, presented=True)
-        if type(principal) is not Principal:
-            raise misconfigured()
-        scope = await call_provider(self._resolve_tenant, principal, request)
-        if scope is not None and (
-            type(scope) is not TenantScope or scope.cross_tenant or len(scope.ids) != 1
-        ):
-            raise misconfigured()
-        return RequestAuth(principal=principal, tenant=scope)
+        return await self._authentication(serve_request(request), request_state(request))
 
 
 class _AuthenticatingRoute(APIRoute):
@@ -151,6 +131,7 @@ class _AuthenticatingRoute(APIRoute):
 
     def get_route_handler(self) -> Callable[[Request], Coroutine[Any, Any, Response]]:
         handler = super().get_route_handler()
+        served_by_core = self.endpoint in _CORE_ENDPOINTS
         dependencies = [d.dependency for d in self.dependencies]
         guards = [d for d in dependencies if isinstance(d, _Guard)]
         # FastAPI also allows Depends(RateLimit(...)) on endpoint parameters.
@@ -179,6 +160,11 @@ class _AuthenticatingRoute(APIRoute):
                     if not limit.can_run_before_body:
                         break
                     await limit(request)
+                if served_by_core:
+                    # FastAPI resolves the route's dependencies with no body;
+                    # the core then reads it under its own body policy.
+                    _CORE_REQUEST.set(request.scope, serve_request(request))
+                    return await handler(Request(request.scope, _empty_body))
                 return await handler(enforce_body_policy(request, max_body_bytes))
             except Exception as exc:
                 return error_response(request, as_serve_error(exc, request=request))
@@ -211,9 +197,14 @@ class ServeRouter(APIRouter):
         super().__init__(prefix=prefix, tags=list(tags or ()), route_class=route_class)
         self._auth_route_class = route_class
         self._public: set[Callable[..., Any]] = set()
-        self._guard = _Guard(authenticate, credentials, resolve_tenant)
+        self._api = Api(
+            authentication=Authentication(authenticate, credentials, resolve_tenant),
+            max_body_bytes=max_body_bytes,
+            error_mapper=map_error,
+        )
+        self._guard = _Guard(self._api.authentication)
         self._credential_header = credentials.header
-        self.client_endpoints = ClientEndpointRegistry(self._guard)
+        self.client_endpoints: ClientEndpointRegistry = self._api.client_endpoints
 
     @property
     def credential_header(self) -> str:
@@ -262,6 +253,50 @@ class ServeRouter(APIRouter):
         if endpoint not in self._public:
             guarded.insert(0, Depends(self._guard))
         super().add_api_route(path, endpoint, dependencies=guarded, **kwargs)
+
+    def _add_core_route(
+        self, path: str, route: Route, *, documented_input: Any = None, **kwargs: Any
+    ) -> None:
+        """Serve the core *route* at *path* on this router.
+
+        FastAPI documents it, with *documented_input* as its request body, and
+        resolves its dependencies; the core reads and validates the body and
+        answers. Internal to this package.
+        """
+
+        api = self._api
+        if route.path != self.prefix + path or route not in api.routes:
+            raise ValueError("a core route is served at its own API's path")
+
+        async def endpoint(request: Request) -> Response:
+            return await _serve_core_route(request, api, route)
+
+        if documented_input is not None:
+            # The default only keeps FastAPI from reading the body; the core
+            # requires one, and the schema says so.
+            async def endpoint_with_body(
+                request: Request,
+                payload: Any = Body(None),  # noqa: B008 - FastAPI's parameter declaration
+            ) -> Response:
+                return await _serve_core_route(request, api, route)
+
+            endpoint_with_body.__annotations__["payload"] = documented_input
+            kwargs["openapi_extra"] = {"requestBody": {"required": True}}
+            endpoint = endpoint_with_body
+        # FastAPI names the operation after its endpoint: keep the handler's.
+        endpoint.__name__ = endpoint.__qualname__ = route.handler.__name__
+        _CORE_ENDPOINTS[endpoint] = (api, route)
+        if route.public:
+            self.public(endpoint)
+        self.add_api_route(path, endpoint, methods=[route.method], **kwargs)
+
+    def _post_path_taken(self, path: str) -> bool:
+        """Whether a POST route on this router already serves *path* (prefix included)."""
+
+        return any(
+            getattr(route, "path", None) == path and "POST" in getattr(route, "methods", ())
+            for route in self.routes
+        )
 
     def include_router(self, *args: Any, **kwargs: Any) -> NoReturn:
         raise TypeError(
@@ -329,6 +364,14 @@ def create_api(
         tags=tags,
         max_body_bytes=max_body_bytes,
     )
+
+
+async def _serve_core_route(request: Request, api: Api, route: Route) -> Response:
+    received = _CORE_REQUEST.get(request.scope)
+    if received is None:
+        raise RuntimeError("a core route ran outside its authenticating route")
+    response = await api.dispatch(received, request_state(request), route, FastAPIHost(request))
+    return starlette_response(response)
 
 
 __all__ = ["ServeRouter", "create_api", "create_router"]

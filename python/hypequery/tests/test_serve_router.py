@@ -436,7 +436,7 @@ def test_another_routers_auth_is_checked_by_that_router() -> None:
 
 
 def cast_authenticator(router: ServeRouter) -> list[Credential]:
-    authenticate = router._guard._authenticate
+    authenticate = router._api.authentication.authenticate
     assert isinstance(authenticate, _Authenticator)
     return authenticate.seen
 

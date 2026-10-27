@@ -1,4 +1,4 @@
-"""Request body policy for served routes: JSON only, and bounded while it streams.
+"""Request body policy for FastAPI-served routes: JSON only, and bounded while it streams.
 
 A declared `Content-Length` over the limit is refused before a byte is read.
 Without one, the limit and JSON requirement are enforced as the body arrives,
@@ -10,50 +10,10 @@ from __future__ import annotations
 from fastapi import Request
 from starlette.types import Message
 
-from .errors import ServeError
+from .core.body import DEFAULT_MAX_BODY_BYTES, check_body_headers, require_json, too_large
+from .utils.starlette_bridge import request_headers
 
-#: The TypeScript Node adapter's default.
-DEFAULT_MAX_BODY_BYTES = 1_048_576
-
-_JSON = "application/json"
-
-
-def _refuse(status: int, message: str) -> ServeError:
-    return ServeError(status, "VALIDATION_ERROR", message)
-
-
-def _too_large(max_bytes: int) -> ServeError:
-    # TypeScript's Node adapter message. The limit is the server's own
-    # configuration, so stating it is not a leak, but there is no need to.
-    return ServeError(413, "PAYLOAD_TOO_LARGE", "Request body exceeds the configured size limit")
-
-
-def _declared_length(request: Request) -> int | None:
-    values = request.headers.getlist("content-length")
-    if not values:
-        return None
-    # Two lengths, or one that is not plain ASCII digits, is how request
-    # smuggling starts; refuse rather than pick an interpretation.
-    if len(values) != 1 or not values[0].isascii() or not values[0].isdigit():
-        raise _refuse(400, "The request has an invalid Content-Length.")
-    return int(values[0])
-
-
-def _require_identity_encoding(request: Request) -> None:
-    # The body limit counts bytes as they arrive; a compressed body would be
-    # measured before it expands, so none is accepted.
-    for value in request.headers.getlist("content-encoding"):
-        if any(coding.strip().lower() not in ("", "identity") for coding in value.split(",")):
-            raise _refuse(415, "Request bodies must not be content-encoded.")
-
-
-def _require_json(request: Request) -> None:
-    media_type, _, parameters = request.headers.get("content-type", "").partition(";")
-    if media_type.strip().lower() != _JSON:
-        raise _refuse(415, "Request bodies must be application/json.")
-    charset = parameters.strip().lower()
-    if charset and charset.replace(" ", "") not in ("charset=utf-8", 'charset="utf-8"'):
-        raise _refuse(415, "Request bodies must be UTF-8 JSON.")
+__all__ = ["DEFAULT_MAX_BODY_BYTES", "enforce_body_policy"]
 
 
 def enforce_body_policy(request: Request, max_bytes: int) -> Request:
@@ -61,16 +21,11 @@ def enforce_body_policy(request: Request, max_bytes: int) -> Request:
 
     Returns a request over the same scope whose `receive` refuses to deliver
     more than *max_bytes*. The route handler must use it in place of the
-    original.
+    original. Routes served by the core apply the same policy there.
     """
 
-    _require_identity_encoding(request)
-    declared = _declared_length(request)
-    if declared is not None and declared > max_bytes:
-        raise _too_large(max_bytes)
-    has_body = declared > 0 if declared is not None else "transfer-encoding" in request.headers
-    if has_body:
-        _require_json(request)
+    headers = request_headers(request)
+    has_body = check_body_headers(headers, max_bytes)
 
     upstream = request.receive
     received = 0
@@ -83,11 +38,11 @@ def enforce_body_policy(request: Request, max_bytes: int) -> Request:
             body = message.get("body", b"")
             if body and not checked_json:
                 # A body need not have Content-Length or Transfer-Encoding.
-                _require_json(request)
+                require_json(headers)
                 checked_json = True
             received += len(body)
             if received > max_bytes:
-                raise _too_large(max_bytes)
+                raise too_large()
         return message
 
     return Request(request.scope, bounded_receive)

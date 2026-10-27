@@ -1,155 +1,28 @@
-"""Router-owned semantic endpoint bindings and strict client execution preconditions."""
+"""Client contracts for routers and FastAPI applications.
+
+Bindings, strict validation and the export itself live in the core
+(`core/client_contract.py`). This module supplies what only the FastAPI
+application knows: which routers it serves and the path each route is served
+at once included, mounted, or shadowed by another route.
+"""
 
 from __future__ import annotations
 
-from collections.abc import Awaitable, Callable, Mapping, Sequence
-from dataclasses import dataclass, replace
+from collections.abc import Mapping, Sequence
 from typing import TYPE_CHECKING, Literal, cast
 
 from fastapi import FastAPI, Request
-from fastapi.routing import APIRoute, iter_route_contexts
+from fastapi.routing import APIRoute, RouteContext, iter_route_contexts
 
-from ..datasets import ClientEndpointDefinition, ClientQueryProfile, Dataset
-from ..datasets import export_client_contract as export_definition_contract
-from ..datasets.client import AsyncDatasetClient, DatasetClient
-from ..datasets.client_contract.export import export_registered_client_contract
-from ..datasets.registry import DatasetRegistry
-from ..protocol import (
-    PreparedProtocolClientContract,
-    ProtocolClientContractError,
-    validate_protocol_client_query,
-)
-from .auth import RequestAuth
-from .errors import ServeError
-from .policy import EndpointPolicy
-from .production import ProductionProfile
-from .utils.client_contract_view import client_contract_view
+from ..protocol import PreparedProtocolClientContract
+from .core.api import Route
+from .core.auth import RequestAuth
+from .core.client_contract import ClientEndpointRegistry, ClientPlacement, export_placements
+from .core.production import ProductionProfile
 from .utils.client_route_conflicts import client_route_conflicts
-from .utils.production_context import production_profile
 
 if TYPE_CHECKING:
     from .router import ServeRouter
-
-
-@dataclass(frozen=True, slots=True)
-class ClientEndpointBinding:
-    """Immutable registration metadata; the route closure owns execution state."""
-
-    dataset: Dataset
-    client: DatasetClient | AsyncDatasetClient
-    policy: EndpointPolicy
-    profile: ClientQueryProfile
-    handler: object
-    path: str
-    measure: str | None = None
-    name: str | None = None
-    route: object | None = None
-    related: frozenset[str] = frozenset()
-
-    def definition(
-        self, path: str, production: ProductionProfile | None
-    ) -> ClientEndpointDefinition:
-        maximum = min(
-            self.profile.max_limit, self.policy.max_limit, self.client.result_row_limit - 1
-        )
-        if production is not None:
-            maximum = min(maximum, production.max_result_rows - 1)
-        return ClientEndpointDefinition(
-            dataset=self.dataset,
-            path=path,
-            measure=self.measure,
-            name=self.name,
-            related=self.related,
-            profile=replace(
-                self.profile, max_limit=maximum, default_timezone=self.client.default_timezone
-            ),
-        )
-
-    def contract(
-        self, path: str, production: ProductionProfile | None, mount_path: str = ""
-    ) -> PreparedProtocolClientContract:
-        return export_definition_contract(
-            [self.definition(path, production)],
-            registry=self.client.registry,
-            mount_path=mount_path,
-        )
-
-    def validate(self, request: Request, payload: dict[str, object]) -> dict[str, object]:
-        """Called after current endpoint policy; no query is planned before this check."""
-        route = request.scope.get("route")
-        if not isinstance(route, APIRoute) or route is not self.route:
-            raise RuntimeError("client endpoint requires a trusted registered route")
-        mount = getattr(request.app.state, "hypequery_client_mount_path", "")
-        if type(mount) is not str:
-            raise RuntimeError("client mount path must be host configured")
-        paths = [
-            context.path
-            for context in iter_route_contexts(request.app.routes)
-            if context.original_route is route and context.path is not None
-        ]
-        if len(paths) != 1:
-            raise RuntimeError("client endpoint has ambiguous application inclusions")
-        contract = self.contract(paths[0], production_profile(request), mount)["contract"]
-        expected = request.headers.get("x-hypequery-client-schema")
-        if expected is not None and expected != contract["endpoints"][0]["schemaHash"]:
-            raise ServeError(
-                409,
-                "VALIDATION_ERROR",
-                "Client endpoint schema changed.",
-                details={"code": "CLIENT_SCHEMA_CHANGED"},
-            )
-        try:
-            body = validate_protocol_client_query(
-                contract, contract["endpoints"][0]["id"], payload
-            )["body"]
-            time = contract["endpoints"][0]["time"]
-            if time is not None:
-                body.setdefault("timezone", time["defaultTimezone"])
-            return body
-        except ProtocolClientContractError:
-            raise ServeError(400, "VALIDATION_ERROR", "Invalid client query.") from None
-
-
-class ClientEndpointRegistry:
-    """Owning registry for opted-in endpoints, frozen per installed binding."""
-
-    def __init__(self, guard: Callable[[Request], Awaitable[RequestAuth]] | None = None) -> None:
-        self._bindings: list[ClientEndpointBinding] = []
-        #: The owning router's authentication; discovery authenticates each source
-        #: with its own guard rather than trusting another router's result.
-        self.guard = guard
-
-    @property
-    def bindings(self) -> tuple[ClientEndpointBinding, ...]:
-        return tuple(self._bindings)
-
-    def check(self, binding: ClientEndpointBinding) -> None:
-        descriptor = binding.contract(binding.path, None)["contract"]["endpoints"][0]
-        for previous in self._bindings:
-            prior = previous.contract(previous.path, None)["contract"]["endpoints"][0]
-            if prior["id"] == descriptor["id"] or previous.path == binding.path:
-                raise ValueError("client endpoint IDs and paths must be unique")
-
-    def register(self, binding: ClientEndpointBinding) -> None:
-        self.check(binding)
-        self._bindings.append(binding)
-
-    def find(
-        self, route: object, *, authorized: bool = False, auth: RequestAuth | None = None
-    ) -> ClientEndpointBinding | None:
-        for binding in self._bindings:
-            if binding.route is not route:
-                continue
-            if authorized:
-                try:
-                    # Public routes run without authentication or a tenant.
-                    binding.policy.authorize(None if binding.policy.public else auth)
-                except ServeError as error:
-                    if error.status_code in (401, 403):
-                        return None
-                    raise
-            return binding
-        return None
 
 
 def client_registries(
@@ -160,16 +33,97 @@ def client_registries(
 
     if isinstance(source, ServeRouter):
         return (source.client_endpoints,)
-    owned: object = getattr(source.state, "hypequery_client_registries", None)
-    if owned is None and not routers:
-        raise ValueError("custom FastAPI exports require explicit Hypequery routers")
     if routers:
         return tuple(router.client_endpoints for router in routers)
+    return _owned_registries(source)
+
+
+def _owned_registries(app: FastAPI) -> tuple[ClientEndpointRegistry, ...]:
+    """The registries `create_app` stored on *app*."""
+
+    owned: object = getattr(app.state, "hypequery_client_registries", None)
+    if owned is None:
+        raise ValueError("custom FastAPI exports require explicit Hypequery routers")
     if type(owned) is not tuple or any(
         not isinstance(item, ClientEndpointRegistry) for item in owned
     ):
         raise ValueError("application client registries are misconfigured")
     return cast(tuple[ClientEndpointRegistry, ...], owned)
+
+
+def _placements(routes: Sequence[RouteContext]) -> list[ClientPlacement]:
+    """Every served POST API route, with its path and whether another route shadows it."""
+    from .router import core_route_of
+
+    placements: list[ClientPlacement] = []
+    for route in routes:
+        if (
+            not isinstance(route.original_route, APIRoute)
+            or route.path is None
+            or "POST" not in (route.methods or set())
+        ):
+            continue
+        core = core_route_of(route.original_route)
+        if core is None:
+            continue
+        placements.append(
+            ClientPlacement(
+                route=core, path=route.path, ambiguous=client_route_conflicts(route, routes)
+            )
+        )
+    return placements
+
+
+class FastAPIHost:
+    """Where a request's application serves the router's core routes."""
+
+    __slots__ = ("_request", "_routes")
+
+    def __init__(self, request: Request) -> None:
+        self._request = request
+        self._routes: list[RouteContext] | None = None
+
+    def _contexts(self) -> list[RouteContext]:
+        if self._routes is None:
+            self._routes = list(iter_route_contexts(self._request.app.routes))
+        return self._routes
+
+    @property
+    def mount_path(self) -> str:
+        mount = getattr(self._request.app.state, "hypequery_client_mount_path", "")
+        if type(mount) is not str:
+            raise RuntimeError("client mount path must be host configured")
+        return mount
+
+    @property
+    def production(self) -> ProductionProfile | None:
+        configured = getattr(self._request.app.state, "hypequery_production", None)
+        return configured if type(configured) is ProductionProfile else None
+
+    def path_of(self, route: Route) -> str:
+        from .router import core_route_of
+
+        served = self._request.scope.get("route")
+        if not isinstance(served, APIRoute) or core_route_of(served) is not route:
+            raise RuntimeError("client endpoint requires a trusted registered route")
+        paths = [
+            context.path
+            for context in self._contexts()
+            if context.original_route is served and context.path is not None
+        ]
+        if len(paths) != 1:
+            raise RuntimeError("client endpoint has ambiguous application inclusions")
+        return paths[0]
+
+    def registries(
+        self, sources: tuple[ClientEndpointRegistry, ...]
+    ) -> tuple[ClientEndpointRegistry, ...]:
+        return sources or _owned_registries(self._request.app)
+
+    def placements(
+        self, registries: tuple[ClientEndpointRegistry, ...]
+    ) -> Sequence[ClientPlacement]:
+        return _placements(self._contexts())
 
 
 def export_client_contract(
@@ -205,36 +159,11 @@ def export_client_contract(
         if mount_path is not None and mount_path != configured_mount:
             raise ValueError("application mount path must match its execution configuration")
         mount = configured_mount
-    definitions: list[tuple[ClientEndpointDefinition, DatasetRegistry | None]] = []
-    seen_paths: set[str] = set()
-    routes = list(iter_route_contexts(source.routes))
-    for route in routes:
-        if (
-            not isinstance(route.original_route, APIRoute)
-            or route.path is None
-            or "POST" not in (route.methods or set())
-        ):
-            continue
-        binding = next(
-            (
-                found
-                for registry in registries
-                if (
-                    found := registry.find(
-                        route.original_route,
-                        authorized=view == "authorized",
-                        auth=(auths or {}).get(registry),
-                    )
-                )
-                is not None
-            ),
-            None,
-        )
-        if binding is None:
-            continue
-        if route.path in seen_paths or client_route_conflicts(route, routes):
-            raise ValueError("client export refuses ambiguous POST route paths")
-        seen_paths.add(route.path)
-        definitions.append((binding.definition(route.path, production), binding.client.registry))
-    prepared = export_registered_client_contract(definitions, mount_path=mount)
-    return client_contract_view(prepared, view)
+    return export_placements(
+        registries,
+        _placements(list(iter_route_contexts(source.routes))),
+        production=production,
+        mount_path=mount,
+        view=view,
+        auths=auths,
+    )
