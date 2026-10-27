@@ -2,7 +2,7 @@ import { boundClientDescriptors } from './bounds.js';
 import { clientError } from './errors.js';
 import { CLIENT_CONTRACT_DOMAIN, CLIENT_SCHEMA_DOMAIN, clientDigest } from './codec.js';
 import { bool, choice, name, names, pointer, record, route, shape } from './primitives.js';
-import { dimension, fields, filter, limits, measure, time } from './nodes.js';
+import { annotations, dimension, fields, filter, limits, measure, time } from './nodes.js';
 import { clientCanonical, freezeClientData, snapshotClientData } from './safe-data.js';
 import type { PreparedProtocolClientContract, ProtocolClientContract, ProtocolClientEndpoint } from './types.js';
 
@@ -11,8 +11,9 @@ const ENDPOINT_FIELDS = ['id', 'kind', 'dataset', 'path', 'dimensions', 'measure
 function endpoint(input: unknown, path: string, signed: boolean): Record<string, unknown> {
   const raw = record(input, path);
   const kind = choice(raw.kind, ['dataset', 'metric'], pointer(path, 'kind'));
+  const annotated = Object.hasOwn(raw, 'annotations');
   const value = shape(raw, [...ENDPOINT_FIELDS, ...(kind === 'dataset' ? ['defaultMeasures'] : []),
-    ...(signed ? ['schemaHash'] : [])], path);
+    ...(annotated ? ['annotations'] : []), ...(signed ? ['schemaHash'] : [])], path);
   const id = name(value.id, pointer(path, 'id'));
   const dataset = name(value.dataset, pointer(path, 'dataset'));
   const result: Record<string, unknown> = {
@@ -25,6 +26,7 @@ function endpoint(input: unknown, path: string, signed: boolean): Record<string,
     limits: limits(value.limits, pointer(path, 'limits')),
   };
   if (kind === 'dataset') result.defaultMeasures = names(value.defaultMeasures, pointer(path, 'defaultMeasures'));
+  if (annotated) result.annotations = annotations(value.annotations, pointer(path, 'annotations'));
   if (signed) result.schemaHash = value.schemaHash;
   return result;
 }
@@ -45,6 +47,8 @@ function references(value: Record<string, unknown>, path: string): void {
     || defaults.length > item.limits.maxMeasures || item.limits.defaultLimit > item.limits.maxLimit) {
     clientError('HQ_CLIENT_REFERENCE', path);
   }
+  if (Object.keys(item.annotations?.fields ?? {}).some(key => !Object.hasOwn(item.dimensions, key)
+    && !Object.hasOwn(item.measures, key))) clientError('HQ_CLIENT_REFERENCE', path);
 }
 function contract(input: unknown, signed: boolean): PreparedProtocolClientContract {
   const raw = record(snapshotClientData(input), '');
@@ -64,7 +68,7 @@ function contract(input: unknown, signed: boolean): PreparedProtocolClientContra
   endpoints.forEach((item, index) => references(item, '/endpoints/' + index));
   endpoints.sort((a, b) => (a.id as string) < (b.id as string) ? -1 : (a.id as string) > (b.id as string) ? 1 : 0);
   for (const [index, item] of endpoints.entries()) {
-    const { schemaHash, limits: _limits, ...schema } = item;
+    const { schemaHash, limits: _limits, annotations: _annotations, ...schema } = item;
     const hash = clientDigest(CLIENT_SCHEMA_DOMAIN, schema);
     if (signed && schemaHash !== hash) clientError('HQ_CLIENT_IDENTITY', '/endpoints/' + index + '/schemaHash');
     item.schemaHash = hash;

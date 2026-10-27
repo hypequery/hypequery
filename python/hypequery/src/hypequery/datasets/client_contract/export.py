@@ -9,6 +9,7 @@ from ..constants import SUPPORTED_TIME_GRAINS
 from ..registry import DatasetRegistry
 from ..utils.derived_measures import base_measure_names
 from ..utils.measure_references import measure_stays_within
+from .annotations import endpoint_annotations
 from .fields import public_fields
 from .models import ClientEndpointDefinition
 
@@ -69,6 +70,11 @@ def endpoint_descriptor(
         node["defaultMeasures"] = [
             name for name in base_measure_names(dataset.measures) if name in measures
         ]
+    annotations = endpoint_annotations(
+        dataset, registry, dimensions, measures, metric=definition.measure
+    )
+    if annotations is not None:
+        node["annotations"] = annotations
     return node
 
 

@@ -29,6 +29,35 @@
     }
   },
   {
+    "id": "annotated-contract-query",
+    "contract": "annotated",
+    "endpoint": "orders",
+    "input": {},
+    "mode": "query",
+    "expected": {
+      "body": {
+        "dimensions": [],
+        "filters": [],
+        "orderBy": [],
+        "limit": 100,
+        "offset": 0,
+        "includeMeta": false,
+        "measures": [
+          "revenue",
+          "orderCount",
+          "latestLabel"
+        ],
+        "having": []
+      },
+      "selectedMeasures": [
+        "revenue",
+        "orderCount",
+        "latestLabel"
+      ],
+      "effectiveLimit": 100
+    }
+  },
+  {
     "id": "explicit-derived-and-related",
     "contract": "build",
     "endpoint": "orders",

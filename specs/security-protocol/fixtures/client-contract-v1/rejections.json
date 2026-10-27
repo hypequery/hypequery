@@ -450,6 +450,265 @@
     "message": "Client contract identity does not match."
   },
   {
+    "id": "annotation-not-object",
+    "base": "build",
+    "set": [
+      {
+        "path": "/endpoints/0/annotations",
+        "value": "Countries"
+      }
+    ],
+    "error": "HQ_CLIENT_SHAPE",
+    "path": "/endpoints/0/annotations",
+    "message": "Invalid client contract shape."
+  },
+  {
+    "id": "annotation-empty-object",
+    "base": "build",
+    "set": [
+      {
+        "path": "/endpoints/0/annotations",
+        "value": {}
+      }
+    ],
+    "error": "HQ_CLIENT_SHAPE",
+    "path": "/endpoints/0/annotations",
+    "message": "Invalid client contract shape."
+  },
+  {
+    "id": "annotation-unknown-field",
+    "base": "annotated",
+    "set": [
+      {
+        "path": "/endpoints/1/annotations/owner",
+        "value": "analytics"
+      }
+    ],
+    "error": "HQ_CLIENT_UNKNOWN_FIELD",
+    "path": "/endpoints/1/annotations",
+    "message": "Unknown client contract field."
+  },
+  {
+    "id": "annotation-empty-fields",
+    "base": "annotated",
+    "set": [
+      {
+        "path": "/endpoints/0/annotations/fields",
+        "value": {}
+      }
+    ],
+    "error": "HQ_CLIENT_SHAPE",
+    "path": "/endpoints/0/annotations/fields",
+    "message": "Invalid client contract shape."
+  },
+  {
+    "id": "annotation-empty-field-entry",
+    "base": "annotated",
+    "set": [
+      {
+        "path": "/endpoints/1/annotations/fields/country",
+        "value": {}
+      }
+    ],
+    "error": "HQ_CLIENT_SHAPE",
+    "path": "/endpoints/1/annotations/fields/country",
+    "message": "Invalid client contract shape."
+  },
+  {
+    "id": "annotation-unknown-field-entry-member",
+    "base": "annotated",
+    "set": [
+      {
+        "path": "/endpoints/1/annotations/fields/country/unit",
+        "value": "USD"
+      }
+    ],
+    "error": "HQ_CLIENT_UNKNOWN_FIELD",
+    "path": "/endpoints/1/annotations/fields/country",
+    "message": "Unknown client contract field."
+  },
+  {
+    "id": "annotation-non-string-label",
+    "base": "annotated",
+    "set": [
+      {
+        "path": "/endpoints/1/annotations/label",
+        "value": 7
+      }
+    ],
+    "error": "HQ_CLIENT_SHAPE",
+    "path": "/endpoints/1/annotations/label",
+    "message": "Invalid client contract shape."
+  },
+  {
+    "id": "annotation-blank-description",
+    "base": "annotated",
+    "set": [
+      {
+        "path": "/endpoints/1/annotations/description",
+        "value": " \u3000 "
+      }
+    ],
+    "error": "HQ_CLIENT_SHAPE",
+    "path": "/endpoints/1/annotations/description",
+    "message": "Invalid client contract shape."
+  },
+  {
+    "id": "annotation-byte-order-mark-only",
+    "base": "annotated",
+    "set": [
+      {
+        "path": "/endpoints/1/annotations/label",
+        "value": "\ufeff"
+      }
+    ],
+    "error": "HQ_CLIENT_SHAPE",
+    "path": "/endpoints/1/annotations/label",
+    "message": "Invalid client contract shape."
+  },
+  {
+    "id": "annotation-line-break",
+    "base": "annotated",
+    "set": [
+      {
+        "path": "/endpoints/1/annotations/description",
+        "value": "One row per\norder."
+      }
+    ],
+    "error": "HQ_CLIENT_SHAPE",
+    "path": "/endpoints/1/annotations/description",
+    "message": "Invalid client contract shape."
+  },
+  {
+    "id": "annotation-tab",
+    "base": "annotated",
+    "set": [
+      {
+        "path": "/endpoints/1/annotations/fields/revenue/label",
+        "value": "Gross\trevenue"
+      }
+    ],
+    "error": "HQ_CLIENT_SHAPE",
+    "path": "/endpoints/1/annotations/fields/revenue/label",
+    "message": "Invalid client contract shape."
+  },
+  {
+    "id": "annotation-c1-control",
+    "base": "annotated",
+    "set": [
+      {
+        "path": "/endpoints/1/annotations/label",
+        "value": "Orders\u0085"
+      }
+    ],
+    "error": "HQ_CLIENT_SHAPE",
+    "path": "/endpoints/1/annotations/label",
+    "message": "Invalid client contract shape."
+  },
+  {
+    "id": "annotation-text-4096-bytes",
+    "base": "annotated",
+    "set": [
+      {
+        "path": "/endpoints/1/annotations/description",
+        "value": "éééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééé"
+      }
+    ],
+    "error": "HQ_CLIENT_IDENTITY",
+    "path": "/contentHash",
+    "message": "Client contract identity does not match."
+  },
+  {
+    "id": "annotation-text-4097-bytes",
+    "base": "annotated",
+    "set": [
+      {
+        "path": "/endpoints/1/annotations/description",
+        "value": "ééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééa"
+      }
+    ],
+    "error": "HQ_CLIENT_SHAPE",
+    "path": "/endpoints/1/annotations/description",
+    "message": "Invalid client contract shape."
+  },
+  {
+    "id": "annotation-invalid-field-name",
+    "base": "annotated",
+    "set": [
+      {
+        "path": "/endpoints/1/annotations/fields/customer.next.tier",
+        "value": {
+          "label": "Tier"
+        }
+      }
+    ],
+    "error": "HQ_CLIENT_IDENTIFIER",
+    "path": "/endpoints/1/annotations/fields",
+    "message": "Invalid client contract identifier."
+  },
+  {
+    "id": "annotation-unknown-field-reference",
+    "base": "annotated",
+    "set": [
+      {
+        "path": "/endpoints/1/annotations/fields/missing",
+        "value": {
+          "label": "Missing"
+        }
+      }
+    ],
+    "error": "HQ_CLIENT_REFERENCE",
+    "path": "/endpoints/1",
+    "message": "Inconsistent client contract reference."
+  },
+  {
+    "id": "annotation-filter-alias-reference",
+    "base": "annotated",
+    "set": [
+      {
+        "path": "/endpoints/1/annotations/fields/paidStatus",
+        "value": {
+          "label": "Paid status"
+        }
+      }
+    ],
+    "error": "HQ_CLIENT_REFERENCE",
+    "path": "/endpoints/1",
+    "message": "Inconsistent client contract reference."
+  },
+  {
+    "id": "annotation-shape-precedes-reference",
+    "base": "annotated",
+    "set": [
+      {
+        "path": "/endpoints/1/defaultMeasures",
+        "value": [
+          "missing"
+        ]
+      },
+      {
+        "path": "/endpoints/1/annotations/description",
+        "value": ""
+      }
+    ],
+    "error": "HQ_CLIENT_SHAPE",
+    "path": "/endpoints/1/annotations/description",
+    "message": "Invalid client contract shape."
+  },
+  {
+    "id": "annotation-does-not-sign-schema",
+    "base": "annotated",
+    "set": [
+      {
+        "path": "/endpoints/1/annotations/description",
+        "value": "Reworded without a new schemaHash."
+      }
+    ],
+    "error": "HQ_CLIENT_IDENTITY",
+    "path": "/contentHash",
+    "message": "Client contract identity does not match."
+  },
+  {
     "id": "endpoints-256",
     "mode": "boundary",
     "generator": {
@@ -589,6 +848,28 @@
     },
     "error": "HQ_CLIENT_LIMIT",
     "path": "",
+    "message": "Client contract exceeds validation limits."
+  },
+  {
+    "id": "annotation-fields-512",
+    "mode": "boundary",
+    "generator": {
+      "type": "annotation-fields",
+      "count": 512
+    },
+    "error": "HQ_CLIENT_REFERENCE",
+    "path": "/endpoints/0",
+    "message": "Inconsistent client contract reference."
+  },
+  {
+    "id": "annotation-fields-513",
+    "mode": "boundary",
+    "generator": {
+      "type": "annotation-fields",
+      "count": 513
+    },
+    "error": "HQ_CLIENT_LIMIT",
+    "path": "/endpoints/0/annotations/fields",
     "message": "Client contract exceeds validation limits."
   }
 ]

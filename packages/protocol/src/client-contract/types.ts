@@ -32,6 +32,14 @@ export interface ClientQueryLimits {
   readonly maxOrderBy: number;
   readonly maxFilterValues: number;
 }
+export interface ClientFieldAnnotation {
+  readonly label?: string;
+  readonly description?: string;
+}
+/** Presentation text only; excluded from schemaHash and never a capability. */
+export interface ClientEndpointAnnotations extends ClientFieldAnnotation {
+  readonly fields?: Readonly<Record<string, ClientFieldAnnotation>>;
+}
 interface ClientEndpointBase {
   readonly id: string;
   readonly dataset: string;
@@ -42,6 +50,7 @@ interface ClientEndpointBase {
   readonly time: ClientTime | null;
   readonly metadata: boolean;
   readonly limits: ClientQueryLimits;
+  readonly annotations?: ClientEndpointAnnotations;
   readonly schemaHash: string;
 }
 export interface ClientDatasetEndpoint extends ClientEndpointBase {

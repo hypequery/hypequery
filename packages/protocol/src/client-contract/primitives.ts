@@ -12,6 +12,13 @@ export function record(input: unknown, path: string): ClientRecord {
   if (!input || typeof input !== 'object' || Array.isArray(input)) clientError('HQ_CLIENT_SHAPE', path);
   return input as ClientRecord;
 }
+/** Closed object whose listed members are all optional; at least one is required. */
+export function optionalShape(input: unknown, keys: readonly string[], path: string): ClientRecord {
+  const value = record(input, path);
+  if (Object.keys(value).some(key => !keys.includes(key))) clientError('HQ_CLIENT_UNKNOWN_FIELD', path);
+  if (!keys.some(key => Object.hasOwn(value, key))) clientError('HQ_CLIENT_SHAPE', path);
+  return value;
+}
 export function shape(input: unknown, keys: readonly string[], path: string): ClientRecord {
   const value = record(input, path);
   if (Object.keys(value).some(key => !keys.includes(key))) clientError('HQ_CLIENT_UNKNOWN_FIELD', path);
@@ -51,6 +58,17 @@ export function names(input: unknown, path: string, allowed?: readonly string[])
 export function route(input: unknown, path: string): string {
   if (typeof input !== 'string' || !/^\/(?:[A-Za-z0-9_~.-]+\/)*[A-Za-z0-9_~.-]+$/.test(input)
     || input.split('/').some(part => part === '.' || part === '..')) clientError('HQ_CLIENT_PATH', path);
+  return input;
+}
+const textEncoder = new TextEncoder();
+/** Deployment label/description rules: non-blank, control-free, at most 4096 UTF-8 bytes. */
+export function text(input: unknown, path: string): string {
+  if (typeof input !== 'string' || input.trim().length === 0 || input.length > 4096) clientError('HQ_CLIENT_SHAPE', path);
+  for (let index = 0; index < input.length; index++) {
+    const code = input.charCodeAt(index);
+    if (code <= 0x1f || (code >= 0x7f && code <= 0x9f)) clientError('HQ_CLIENT_SHAPE', path);
+  }
+  if (textEncoder.encode(input).byteLength > 4096) clientError('HQ_CLIENT_SHAPE', path);
   return input;
 }
 export function timezone(input: unknown, path: string): string {

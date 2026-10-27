@@ -66,6 +66,8 @@ class Dataset(DefinitionModel):
     filters: Mapping[str, FilterDefinition] = Field(default_factory=dict)
     relationships: Mapping[str, Relationship] = Field(default_factory=dict)
     limits: DatasetLimits | None = None
+    label: str | None = None
+    description: str | None = None
 
     @model_validator(mode="before")
     @classmethod
@@ -157,6 +159,8 @@ def dataset(
     time_key: str | None = None,
     time_grains: tuple[str, ...] | None = None,
     limits: DatasetLimits | None = None,
+    label: str | None = None,
+    description: str | None = None,
 ) -> Dataset:
     """Define a dataset, matching TypeScript's dataset authoring entrypoint.
 
@@ -173,6 +177,8 @@ def dataset(
         "time_key": time_key,
         "time_grains": time_grains,
         "limits": limits,
+        "label": label,
+        "description": description,
     }
     if filters is not None:
         options["filters"] = filters

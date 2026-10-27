@@ -6,6 +6,8 @@ import re
 from typing import cast
 
 from ..identifiers import parse_protocol_identifier
+from ..js_strings import is_js_blank
+from ..utf8 import exceeds_utf8_byte_limit
 from .errors import client_error
 from .timezone_names import CLIENT_TIMEZONE_NAMES
 
@@ -31,6 +33,27 @@ def shape(value: object, keys: list[str], path: str) -> dict[str, object]:
     if any(key not in output for key in keys):
         client_error("HQ_CLIENT_SHAPE", path)
     return output
+
+
+def optional_shape(value: object, keys: list[str], path: str) -> dict[str, object]:
+    """A closed object whose listed members are all optional; at least one is required."""
+    output = record(value, path)
+    if any(key not in keys for key in output):
+        client_error("HQ_CLIENT_UNKNOWN_FIELD", path)
+    if not any(key in output for key in keys):
+        client_error("HQ_CLIENT_SHAPE", path)
+    return output
+
+
+def text(value: object, path: str) -> str:
+    """Deployment label/description rules: non-blank, control-free, at most 4096 UTF-8 bytes."""
+    if type(value) is not str or is_js_blank(value) or len(value) > 4096:
+        client_error("HQ_CLIENT_SHAPE", path)
+    if any(ord(c) <= 0x1F or 0x7F <= ord(c) <= 0x9F for c in value):
+        client_error("HQ_CLIENT_SHAPE", path)
+    if exceeds_utf8_byte_limit(value, 4096):
+        client_error("HQ_CLIENT_SHAPE", path)
+    return value
 
 
 def choice(value: object, choices: list[str], path: str) -> str:

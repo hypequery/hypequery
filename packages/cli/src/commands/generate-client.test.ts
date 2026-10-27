@@ -111,6 +111,24 @@ describe('offline client generation', () => {
     expect(generated).toContain('["__proto__"]: { method:');
   });
 
+  it('emits backend annotations as escaped JSDoc without changing identities', () => {
+    const annotated = vectors.find((entry: { id: string }) => entry.id === 'annotated').value;
+    const generated = renderClientContract(annotated);
+    expect(generated).toContain('  /** Orders — One row per customer order. */\n  "dataset:orders":');
+    expect(generated).toContain('  /** Revenue — Gross order value in €, before refunds. */\n  "ordersRevenue":');
+    expect(generated).toContain('/** Tier of the ordering customer. */\nreadonly "customer.tier"?:');
+    // Only text differs: the routing manifest and endpoint pins match the unannotated build.
+    const manifest = (source: string) => source.slice(source.indexOf('export const clientManifest'), source.indexOf('export const clientContractHash'));
+    expect(manifest(generated)).toBe(manifest(renderClientContract(contract)));
+    const unsigned = structuredClone(annotated);
+    delete unsigned.contentHash;
+    for (const endpoint of unsigned.endpoints) delete endpoint.schemaHash;
+    unsigned.endpoints[0].annotations = { description: 'Ends early */ export const injected = 1; /*' };
+    const hostile = renderClientContract(prepareProtocolClientContract(unsigned).contract);
+    expect(hostile).toContain('/** Ends early *\\/ export const injected = 1; /* */');
+    expect(hostile).not.toMatch(/early \*\/ export/);
+  });
+
   it('reports only safe flags and bucketed endpoint counts', async () => {
     const { input, output } = await project();
     const record = vi.fn();
