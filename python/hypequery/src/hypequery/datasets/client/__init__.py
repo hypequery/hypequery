@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from ..utils.output_column_types import ResultColumnType
 from .clients import (
     AsyncDatasetClient,
     AsyncTenantDatasetClient,
@@ -11,6 +12,7 @@ from .clients import (
     create_async_dataset_client,
     create_dataset_client,
 )
+from .dataframes import DecimalMode
 from .inputs import DatasetTarget, QueryInput
 from .pagination import DEFAULT_PAGE_SIZE
 from .results import (
@@ -35,10 +37,12 @@ __all__ = [
     "DatasetQueryMeta",
     "DatasetQueryResult",
     "DatasetTarget",
+    "DecimalMode",
     "ExecuteOptions",
     "Pagination",
     "QueryExecutor",
     "QueryInput",
+    "ResultColumnType",
     "ResultRows",
     "ResultScalar",
     "TenantDatasetClient",

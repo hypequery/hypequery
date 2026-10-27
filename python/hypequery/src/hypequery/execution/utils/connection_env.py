@@ -10,6 +10,8 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import TypedDict
 
+from .connection_url import url_fields
+
 #: The variables read, and their defaults when unset or empty.
 ENVIRONMENT_DEFAULTS: Mapping[str, str] = {
     "CLICKHOUSE_HOST": "localhost",
@@ -17,6 +19,9 @@ ENVIRONMENT_DEFAULTS: Mapping[str, str] = {
     "CLICKHOUSE_USERNAME": "default",
     "CLICKHOUSE_PASSWORD": "",
 }
+
+#: Every variable CLICKHOUSE_URL stands in for.
+_FIELD_VARIABLES = (*ENVIRONMENT_DEFAULTS, "CLICKHOUSE_PORT", "CLICKHOUSE_SECURE")
 
 _TRUE = frozenset(("1", "true", "yes", "on"))
 _FALSE = frozenset(("0", "false", "no", "off"))
@@ -73,8 +78,23 @@ def control_fields(environ: Mapping[str, str]) -> ControlFields:
 
 
 def connection_fields(environ: Mapping[str, str]) -> ConnectionFields:
-    """Validated connection fields from *environ*."""
+    """Validated connection fields from *environ*.
 
+    ``CLICKHOUSE_URL`` replaces the field variables rather than merging with
+    them: two sources for one connection is how a deploy ends up half-pointed
+    at the wrong server.
+    """
+
+    url = environ.get("CLICKHOUSE_URL", "").strip()
+    if url:
+        conflicting = sorted(name for name in _FIELD_VARIABLES if environ.get(name))
+        if conflicting:
+            names = ", ".join(conflicting)
+            raise ValueError(f"CLICKHOUSE_URL cannot be combined with {names}; set only one")
+        try:
+            return url_fields(url)
+        except ValueError as exc:
+            raise ValueError(f"CLICKHOUSE_URL is invalid: {exc}") from None
     return {
         "host": _text(environ, "CLICKHOUSE_HOST"),
         "port": _port(environ),

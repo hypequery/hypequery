@@ -152,7 +152,8 @@ def test_semantic_v1(case: dict[str, Any], production: bool) -> None:
         assert body["meta"]["pagination"] == expected["pagination"]
         assert body["meta"]["rowCount"] == len(body["data"])
         assert isinstance(body["meta"]["timingMs"], (int, float))
-        assert body["meta"]["cache"] == {"hit": False}
+        # The fixture apps have no result cache, so none is reported.
+        assert "cache" not in body["meta"]
     if "errorType" in expected:
         assert body["error"]["type"] == expected["errorType"]
     if "discovery" in expected:
