@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 
+from ..utils.connection_scaffold import export_lines, replace_env_block
 from .datasets import GeneratedDatasets
 from .schema import Schema
 
@@ -32,7 +33,7 @@ DEV_TOKEN = os.environ["HYPEQUERY_DEV_TOKEN"]
 if not DEV_TOKEN:
     raise ValueError("HYPEQUERY_DEV_TOKEN must not be empty")
 
-# Reads CLICKHOUSE_HOST, _PORT, _DATABASE, _USERNAME, _PASSWORD and _SECURE.
+# Reads CLICKHOUSE_URL, or CLICKHOUSE_HOST, _PORT, _DATABASE, _USERNAME, _PASSWORD and _SECURE.
 executor = create_clickhouse_executor(ClickHouseConnection.from_env())
 registry = create_dataset_registry(*datasets.values())
 client = create_dataset_client(executor=executor, registry=registry)
@@ -55,12 +56,35 @@ app = create_app(
     development_docs=True,
 )
 """
-    result[".env.example"] = templates[".env.example"].replace(
-        "CLICKHOUSE_DATABASE=default", f"CLICKHOUSE_DATABASE={schema.database}"
+    result[".env.example"] = replace_env_block(
+        templates[".env.example"], schema.connection, schema.database
     )
     prefix = templates["README.md"].split("## Create sample data", 1)[0]
+    template_exports = "\n".join(
+        (
+            "export CLICKHOUSE_HOST=localhost",
+            "export CLICKHOUSE_PORT=8123",
+            "export CLICKHOUSE_DATABASE=default",
+            "export CLICKHOUSE_USERNAME=default",
+            "export CLICKHOUSE_PASSWORD='your-local-password'",
+        )
+    )
+    if template_exports not in prefix:
+        raise ValueError("README template no longer has the expected export block")
     prefix = prefix.replace(
-        "export CLICKHOUSE_DATABASE=default", f"export CLICKHOUSE_DATABASE={schema.database}"
+        template_exports, "\n".join(export_lines(schema.connection, schema.database))
+    )
+    regenerate = " ".join(
+        part
+        for part in (
+            "hypequery generate datasets",
+            f"--tables {generated.selection['tables']}" if "tables" in generated.selection else "",
+            f"--exclude-tables {generated.selection['excludeTables']}"
+            if "excludeTables" in generated.selection
+            else "",
+            f"--tenant-column {generated.tenant_column}" if generated.tenant_column else "",
+        )
+        if part
     )
     payload = json.dumps(
         {
@@ -105,15 +129,23 @@ curl -s -X POST http://127.0.0.1:8000/datasets/{generated.tables[0]}/query \\
   -d '{payload}'
 ```
 
-After schema changes, inspect drift with
-`hypequery generate datasets --diff` (exit 1 when different).
-Use `--check` in CI and `--force` to replace definitions after reviewing the diff.
-Repeat the original `--tables` / `--exclude-tables` selection when regenerating,
-and pass `--tenant-column <column>` to keep a `tenant_key` boundary.
+After schema changes, inspect drift with `{regenerate} --diff`
+(exit 1 when different). Use `--check` in CI and `--force` to replace
+definitions after reviewing the diff. The table selection given to init is
+recorded in `schema.json` and reused; pass `--all-tables` to drop it. Pass
+`--tenant-column <column>` on every regeneration to keep a `tenant_key` boundary.
+With a `tenant_key`, the tenant column also stays a dimension: tenant-scoped
+queries only ever see their own value, and cross-tenant analysis
+(`all_tenants()`) can still group by it.
 Regeneration replaces the whole definitions file, including custom measures and
 relationships. Review the diff first, or generate to a separate file and merge
 changes manually.
 `schema.json` records discovery at init time and is not refreshed by regeneration.
+Keep hand-written changes (relationships, custom measures) out of the generated
+file: regenerate into a separate module with `--output`, or review `--diff`
+before `--force`. `--output` also lets you choose a module name other than
+`datasets.py` if it collides with an installed package such as Hugging Face's
+`datasets`.
 Credentials are read from the
 environment at runtime; neither schema snapshots nor definitions contain them.
 """

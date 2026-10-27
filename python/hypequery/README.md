@@ -205,7 +205,12 @@ hypequery dev
 
 `hypequery init --path <directory>` (or a positional directory) inspects your
 configured ClickHouse database by default. Use `--tables` and `--exclude-tables`
-to choose tables. Generated definitions and an exact schema snapshot describe
+to choose tables, and `--tenant-column <column>` to set `tenant_key` on every
+table that has it. The selection is recorded in `schema.json`, and
+`hypequery generate datasets` reuses it unless given `--tables`,
+`--exclude-tables` or `--all-tables`. The scaffold's `.env.example` and README
+repeat how discovery connected (`CLICKHOUSE_URL`, or the host, port and TLS
+setting), without credentials. Generated definitions and an exact schema snapshot describe
 your actual tables; existing output paths are never overwritten. Install the
 `clickhouse` extra and export connection settings before running init.
 Only explicit `--skip-connection` generates the offline orders demo and `seed.sql`.

@@ -15,6 +15,7 @@ class InitOptions:
     directory: str
     tables: str | None
     exclude_tables: str | None
+    tenant_column: str | None
     skip_connection: bool
 
 
@@ -25,6 +26,7 @@ class GenerateDatasetsOptions:
     tables: str | None
     exclude_tables: str | None
     tenant_column: str | None
+    all_tables: bool
     check: bool
     diff: bool
     force: bool
@@ -58,6 +60,7 @@ def command_options(args: argparse.Namespace) -> CommandOptions:
             directory=args.directory,
             tables=args.tables,
             exclude_tables=args.exclude_tables,
+            tenant_column=args.tenant_column,
             skip_connection=args.skip_connection,
         )
     if args.command == "generate":
@@ -67,6 +70,7 @@ def command_options(args: argparse.Namespace) -> CommandOptions:
             tables=args.tables,
             exclude_tables=args.exclude_tables,
             tenant_column=args.tenant_column,
+            all_tables=args.all_tables,
             check=args.check,
             diff=args.diff,
             force=args.force,
