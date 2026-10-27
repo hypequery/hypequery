@@ -91,9 +91,10 @@ directly, so the protocol is tested once, without a server.
 | `hypequery.serve.start_server(api, ...)` | Standalone | uvicorn on `to_asgi_app`; `ProductionProfile` as today |
 
 FastAPI becomes one consumer among others. The `fastapi` extra shrinks to
-`uvicorn` for `start_server`/`hypequery dev`, plus FastAPI itself only for
-development OpenAPI docs (see open questions). `mount_serve` and the a2wsgi
-bridge from PR #771 are removed: Django and Flask serve the endpoints natively.
+`uvicorn` for `start_server`/`hypequery dev`. Development OpenAPI docs come from
+the core and need no FastAPI (resolved question 1). Django and Flask serve the
+endpoints natively; the `mount_serve`/a2wsgi stopgap was dropped from PR #771
+before release.
 
 ### 3. Auth strategies, matching TypeScript
 
@@ -150,8 +151,8 @@ it with `same_origin=False`. That replaces today's flat cookie ban.
    limits, removing the Starlette middleware.
 3. **Public `create_api` and `to_asgi_app`.** Remove `ServeRouter`/`create_app`;
    port `start_server` and `hypequery dev`; FastAPI becomes optional.
-4. **`to_wsgi_app`, Django `urls(api)` and Flask `blueprint(api)`.** Remove
-   `mount_serve` and a2wsgi.
+4. **`to_wsgi_app`, Django `urls(api)` and Flask `blueprint(api)`**, with
+   docs and examples showing React and MCP served from Django and Flask.
 5. **Auth:** `from_context` with the same-origin check, contrib `django_user` /
    `flask_session`, `jwt_strategy`, `analytics_token_issuer`, cross-language JWT
    fixtures, and the RFC 0009 amendment.
@@ -170,8 +171,8 @@ change no public API.
   verify across languages.
 - A large refactor of `hypequery.serve` before the first PyPI release. The
   conformance fixtures are the safety net.
-- PR #775 (lazy clients) still applies. PR #771's `mount_serve` helpers and
-  #773's scaffold text change in step 4/6.
+- PR #775 (lazy clients) still applies, and its lazy client is what the native
+  adapters hand their endpoints. #773's scaffolds gain native endpoints in step 6.
 
 ## Resolved questions
 
