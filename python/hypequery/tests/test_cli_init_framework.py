@@ -5,6 +5,7 @@ from __future__ import annotations
 import importlib.util
 import py_compile
 import sys
+from collections.abc import Iterator
 from pathlib import Path
 from types import ModuleType
 
@@ -48,6 +49,7 @@ def test_django_scaffold(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> 
     module = (project / "analytics.py").read_text()
     py_compile.compile(str(project / "analytics.py"), doraise=True)
     assert '"REGISTRY": "analytics.registry"' in module
+    assert "    import analytics\n" in module
     assert "Datasets are scoped by 'org_id'" in module
     pyproject = (project / "pyproject.toml").read_text()
     assert "hypequery[django]" in pyproject
@@ -62,18 +64,32 @@ def test_django_scaffold(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> 
     assert "hypequery dev" not in out
 
 
+@pytest.fixture
+def isolated_modules() -> Iterator[None]:
+    """Restore the app/datasets module entries a generated project's import replaces."""
+
+    names = ("app", "datasets")
+    saved = {name: sys.modules.pop(name) for name in names if name in sys.modules}
+    try:
+        yield
+    finally:
+        for name in names:
+            sys.modules.pop(name, None)
+        sys.modules.update(saved)
+
+
 def _load_flask_app(project: Path, monkeypatch: pytest.MonkeyPatch) -> ModuleType:
     monkeypatch.syspath_prepend(str(project))
-    for name in ("app", "datasets"):
-        sys.modules.pop(name, None)
     spec = importlib.util.spec_from_file_location("app", project / "app.py")
     assert spec is not None
     assert spec.loader is not None
     module = importlib.util.module_from_spec(spec)
+    sys.modules["app"] = module
     spec.loader.exec_module(module)
     return module
 
 
+@pytest.mark.usefixtures("isolated_modules")
 def test_flask_scaffold_runs_and_refuses_tenant_data_until_wired(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -116,3 +132,9 @@ def test_framework_files_are_preflighted(
     assert main(["init", str(project), "--framework", "django"]) == 1
     assert "analytics.py" in capsys.readouterr().err
     assert (project / "analytics.py").read_text() == "# mine\n"
+
+
+def test_the_generated_project_modules_do_not_leak() -> None:
+    # Runs after the Flask scaffold test in this module: its datasets module is gone.
+    leaked = sys.modules.get("datasets")
+    assert leaked is None or "project" not in str(getattr(leaked, "__file__", ""))

@@ -56,7 +56,9 @@ Add to settings.py:
 
 and to urls.py:
 
-    path("analytics/<str:dataset>", analytics.dataset_summary)
+    import analytics
+
+    urlpatterns = [..., path("analytics/<str:dataset>", analytics.dataset_summary)]
 
 The connection comes from CLICKHOUSE_URL, or CLICKHOUSE_HOST, _PORT, ...
 """
