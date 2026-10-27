@@ -12,7 +12,7 @@ flask = pytest.importorskip("flask")
 
 from flask import Flask, request  # noqa: E402
 
-from contrib_doubles import REGISTRY, Built, install_executors  # noqa: E402
+from contrib_doubles import REGISTRY, Built, install_executors, query  # noqa: E402
 from hypequery.contrib.flask import Hypequery  # noqa: E402
 from hypequery.datasets import CompiledQueryError, TenantDatasetClient  # noqa: E402
 
@@ -106,6 +106,7 @@ def test_constructor_form_and_import_string_registry(built: Built, hq: Hypequery
     extension = Hypequery(app)
     with app.test_request_context("/", headers={"X-Org": "org_a"}):
         assert extension.base_client.default_timezone == "Europe/Paris"
+        query(extension.base_client)
     assert built.sync[0].connection.secure is True
     assert built.sync[0].connection.readonly_policy == "profile"
     with app.test_request_context("/"):
@@ -128,8 +129,7 @@ def test_url_unset_reads_the_environment(
     ):
         monkeypatch.delenv(name, raising=False)
     app = _app(hq, HYPEQUERY_URL=None)
-    with app.app_context():
-        hq.base_client  # noqa: B018 - building is the point
+    query(hq.client_for(app))
     assert built.sync[0].connection.host == "env-host"
 
 
@@ -184,3 +184,14 @@ def test_mount_serve(built: Built, hq: Hypequery) -> None:
         "path": "/hq/datasets/orders",
     }
     assert client.get("/orders").status_code == 403
+
+
+def test_client_for_needs_no_app_context_and_does_not_connect(built: Built, hq: Hypequery) -> None:
+    app = _app(hq)
+    client = hq.client_for(app)
+    assert built.sync == []
+    with app.app_context():
+        assert hq.base_client is client
+    other = Flask("other")
+    with pytest.raises(RuntimeError, match="not initialised"):
+        hq.client_for(other)

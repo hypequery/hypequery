@@ -9,7 +9,7 @@ from typing import Any
 
 import pytest
 
-from contrib_doubles import REGISTRY, Built, install_executors
+from contrib_doubles import REGISTRY, Built, install_executors, query
 from hypequery.contrib.utils.asgi_mount import mount_asgi, validate_prefix
 from hypequery.contrib.utils.process_clients import ClientConfig, ProcessClients
 from hypequery.contrib.utils.tenant_value import bind_tenant_value
@@ -38,6 +38,10 @@ def test_sync_client_is_built_once_on_first_use(built: Built) -> None:
     first = clients.sync()
     assert clients.sync() is first
     assert first.default_timezone == "Europe/Paris"
+    # Building the client does not connect; the first query does.
+    assert built.sync == []
+    query(first)
+    query(first)
     assert len(built.sync) == 1
     assert built.sync[0].connection.host == "ch"
     clients.close()
@@ -61,8 +65,12 @@ def test_a_forked_child_rebuilds_without_closing_the_parents(
 ) -> None:
     clients = ProcessClients(lambda: CONFIG)
     parent = clients.sync()
+    query(parent)
     monkeypatch.setattr(os, "getpid", lambda: -1)
-    assert clients.sync() is not parent
+    child = clients.sync()
+    assert child is not parent
+    query(child)
+    assert len(built.sync) == 2
     assert built.sync[0].closed == 0
     monkeypatch.undo()
     # Back in "the parent", close() belongs to whichever pid owns the holder now.
@@ -227,3 +235,12 @@ def test_wsgi_mount_explains_a_missing_a2wsgi(monkeypatch: pytest.MonkeyPatch) -
     monkeypatch.setitem(sys.modules, "a2wsgi", None)
     with pytest.raises(ModuleNotFoundError, match=r"hypequery\[flask\]"):
         mount_wsgi(lambda environ, start: [], _recorder("m", []), prefix="/a")
+
+
+def test_a_closed_lazy_client_refuses_to_reconnect(built: Built) -> None:
+    clients = ProcessClients(lambda: CONFIG)
+    client = clients.sync()
+    clients.close()
+    with pytest.raises(RuntimeError, match="closed"):
+        query(client)
+    assert built.sync == []

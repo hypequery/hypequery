@@ -34,10 +34,10 @@ from ...datasets.utils.query_timezone import validate_timezone
 from ...execution import (
     AsyncFromSyncClickHouseExecutor,
     ClickHouseConnection,
-    ClickHouseExecutor,
     create_async_from_sync_clickhouse_executor,
     create_clickhouse_executor,
 )
+from .lazy_executor import LazyExecutor
 
 
 @dataclass(frozen=True, slots=True)
@@ -58,7 +58,7 @@ class ClientConfig:
 @dataclass(frozen=True, slots=True)
 class _Sync:
     client: DatasetClient
-    executor: ClickHouseExecutor
+    executor: LazyExecutor
 
 
 @dataclass(frozen=True, slots=True)
@@ -102,7 +102,10 @@ class ProcessClients:
             self._forget_parent()
             if self._sync is None:
                 config = self._config()
-                executor = create_clickhouse_executor(config.connection)
+                connection = config.connection
+                # Connects on the first query: building the client (and the
+                # endpoints that hold it) never touches ClickHouse.
+                executor = LazyExecutor(lambda: create_clickhouse_executor(connection))
                 client = create_dataset_client(
                     executor=executor, registry=config.registry, timezone=config.timezone
                 )

@@ -38,7 +38,7 @@ from django.test import AsyncClient, Client, override_settings  # noqa: E402
 from django.urls import path  # noqa: E402
 from django.utils.asyncio import async_unsafe  # noqa: E402
 
-from contrib_doubles import Built, install_executors  # noqa: E402
+from contrib_doubles import Built, install_executors, query  # noqa: E402
 from hypequery.contrib.django import (  # noqa: E402
     close_clients,
     get_async_client,
@@ -155,6 +155,7 @@ def test_async_views_get_the_async_client(built: Built) -> None:
 
 def test_process_clients_are_shared_and_closed(built: Built) -> None:
     assert get_client() is get_client()
+    query(get_client())
     request = HttpRequest()
     request.META["HTTP_X_ORG"] = "org_a"
     assert isinstance(tenant_client(request), TenantDatasetClient)
@@ -169,10 +170,12 @@ def test_process_clients_are_shared_and_closed(built: Built) -> None:
 
 
 def test_changing_the_setting_rebuilds_the_client(built: Built) -> None:
-    get_client()
-    with override_settings(HYPEQUERY={"URL": "clickhouse://other/db"}):
+    query(get_client())
+    with override_settings(
+        HYPEQUERY={"URL": "clickhouse://other/db", "REGISTRY": "contrib_doubles.REGISTRY"}
+    ):
         assert built.sync[0].closed == 1
-        get_client()
+        query(get_client())
         assert built.sync[1].connection.host == "other"
 
 
@@ -195,8 +198,8 @@ def test_url_unset_reads_the_environment(built: Built, monkeypatch: pytest.Monke
         "CLICKHOUSE_SECURE",
     ):
         monkeypatch.delenv(name, raising=False)
-    with override_settings(HYPEQUERY={}):
-        get_client()
+    with override_settings(HYPEQUERY={"REGISTRY": "contrib_doubles.REGISTRY"}):
+        query(get_client())
     assert (built.sync[0].connection.host, built.sync[0].connection.secure) == ("env-host", True)
 
 
@@ -290,3 +293,12 @@ def test_async_views_resolve_a_database_backed_tenant_off_the_event_loop(built: 
     assert "org_c" in built.tenants()
     # Two concurrent queries, one tenant lookup: the bound client is cached for the request.
     assert CALLS == ["tenant"]
+
+
+def test_getting_the_client_does_not_connect(built: Built) -> None:
+    """Serve endpoints installed at import time hold the client before ClickHouse is needed."""
+
+    client = get_client()
+    assert built.sync == []
+    query(client)
+    assert len(built.sync) == 1

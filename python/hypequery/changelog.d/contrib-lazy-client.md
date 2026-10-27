@@ -1,0 +1,1 @@
+- The Django and Flask integrations' process-wide client connects on its first query, not when it is created. `get_client()` (Django) and the new `hq.client_for(app)` (Flask, no app context needed) can be handed to hypequery's HTTP endpoints while the app is built, and the app starts even with ClickHouse down. A closed client refuses to reconnect.
