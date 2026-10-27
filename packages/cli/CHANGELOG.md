@@ -1,5 +1,13 @@
 # @hypequery/cli
 
+## 1.25.1
+
+### Patch Changes
+
+- Updated dependencies [ffc2610]
+  - @hypequery/protocol@0.22.0
+  - @hypequery/deployment@0.10.1
+
 ## 1.25.0
 
 ### Minor Changes
