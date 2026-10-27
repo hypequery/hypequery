@@ -1,7 +1,7 @@
 import { defineDatasetSqlDialectRules, type DatasetSqlDialectRules } from '@hypequery/datasets/internal';
 import { quotePostgresIdentifier, quotePostgresQualifiedName } from '../utils/identifiers.js';
 import { orderTerm } from '../compiler/compile-select.js';
-import { stripPostgresLiterals } from './strip-literals.js';
+import { PostgresLexError, stripPostgresLiterals } from './strip-literals.js';
 import {
   addTime, parseTimestamp, periodValue, subtractTime, timeDiff, toQueryTimezone, truncateTime, zonedTimeRules,
 } from './postgres-time-sql.js';
@@ -73,8 +73,8 @@ export const postgresDatasetSqlDialect: DatasetSqlDialectRules = defineDatasetSq
     let code: string;
     try {
       code = stripPostgresLiterals(sql);
-    } catch {
-      return 'unterminated-literal';
+    } catch (error) {
+      return error instanceof PostgresLexError && error.kind === 'ambiguous' ? 'ambiguous-literal' : 'unterminated-literal';
     }
     return STATEMENT_BREAKERS.test(code) ? 'statement-break' : undefined;
   },

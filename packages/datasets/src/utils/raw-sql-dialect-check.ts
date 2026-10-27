@@ -3,10 +3,14 @@ import type { AnyDatasetInstance } from '../types.js';
 import { clickhouseDatasetSqlDialect } from './clickhouse-dataset-sql-dialect.js';
 
 export function rawSqlErrorMessage(kind: 'dimension' | 'measure', name: string, error: DatasetRawSqlExpressionError): string {
-  return error === 'unterminated-literal'
-    ? `${kind} "${name}" sql has an unterminated quoted literal.`
-    : `${kind} "${name}" sql must be a single expression without statement terminators or `
-      + 'comments (";", "--", "/*") outside a quoted literal.';
+  if (error === 'unterminated-literal') return `${kind} "${name}" sql has an unterminated quoted literal.`;
+  if (error === 'ambiguous-literal') {
+    return `${kind} "${name}" sql uses a literal form whose boundaries this engine's lexer can't fix: `
+      + `"$" outside a quoted literal, a quote glued to a word ending in E, or an E'…' string continued by another. `
+      + `Use standard '…' strings and quote identifiers that contain "$".`;
+  }
+  return `${kind} "${name}" sql must be a single expression without statement terminators or `
+    + 'comments (";", "--", "/*") outside a quoted literal.';
 }
 
 const checked = new WeakMap<AnyDatasetInstance, WeakSet<DatasetSqlDialectRules>>();

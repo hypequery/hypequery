@@ -25,7 +25,11 @@ export interface DatasetSqlBoundParameter {
 }
 
 /** Why a raw `sql` expression is not one safe expression under a dialect's lexical rules. */
-export type DatasetRawSqlExpressionError = 'unterminated-literal' | 'statement-break';
+export type DatasetRawSqlExpressionError =
+  | 'unterminated-literal'
+  | 'statement-break'
+  /** A construct the engine's lexer can't place a literal boundary for unambiguously (Postgres `$`, glued `E'`). */
+  | 'ambiguous-literal';
 
 /** A wall-clock component read from a zoned timestamp. */
 export type DatasetSqlClockPart = 'Hour' | 'Minute' | 'Second';

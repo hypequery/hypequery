@@ -88,7 +88,7 @@ The TypeScript CLI covers every non-system schema; tables outside `public` becom
 | Derived measures and metrics | ✅ |
 | Relationships | ✅ |
 | Time measures: trailing, toDate, cumulative, shift, and formulas over them | ✅ (TypeScript) |
-| Raw `sql` dimensions and measures | ✅ checked by a Postgres-aware lexer |
+| Raw `sql` dimensions and measures | ✅ checked by a Postgres-aware lexer. Use standard `'…'` strings: `$` outside a quoted literal (dollar quotes, `$1`) is refused |
 | `measure.merge` (aggregate states) | ❌ ClickHouse only |
 | `final: true` datasets | ❌ ClickHouse only |
 

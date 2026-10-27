@@ -103,10 +103,21 @@ describe('Postgres datasets SQL rules', () => {
       ["'a;b' || x", undefined],
       ["'it''s; fine'", undefined],
       ["E'a\\';b'", undefined],
-      ['$$ ; -- $$ || x', undefined],
-      ['$tag$ ; $tag$', undefined],
+      ["x || E'a\\';b'", undefined],
+      ["1.E'a\\';b'", undefined],
       ['"weird;name"', undefined],
-      ['x = $1', undefined],
+      ['"ä" || \'ü;\'', undefined],
+      // `$` and glued or continued E'…' strings lex differently across
+      // Postgres versions and positions, so they are refused outright.
+      ['$$ ; -- $$ || x', 'ambiguous-literal'],
+      ['$tag$ ; $tag$', 'ambiguous-literal'],
+      ['x = $1', 'ambiguous-literal'],
+      ['ä$x$ ; $x$', 'ambiguous-literal'],
+      ["1E'\\' ' ; SELECT 1 --'", 'ambiguous-literal'],
+      // An E ending an identifier is part of it; the string is standard.
+      ["äE'\\' ; --'", 'unterminated-literal'],
+      ["date'2026-01-01'", undefined],
+      ["E'a'\n'\\' '; --'", 'ambiguous-literal'],
       ['1; DROP TABLE t', 'statement-break'],
       ['x -- comment', 'statement-break'],
       ['x /* c */', 'statement-break'],
@@ -114,7 +125,7 @@ describe('Postgres datasets SQL rules', () => {
       // the literal and the `;` is code.
       ["'a\\'; DROP TABLE t", 'statement-break'],
       ["'open", 'unterminated-literal'],
-      ['$q$ open', 'unterminated-literal'],
+      ['$q$ open', 'ambiguous-literal'],
     ])('%s', (sql, expected) => {
       expect(pg.rawSqlExpressionError(sql)).toBe(expected);
     });

@@ -29,7 +29,7 @@ const client = createDatasetClient({ queryBuilder });
 | Time grains in a query timezone (Sunday weeks, as on ClickHouse) | ✅ |
 | Derived measures, `having`, metrics | ✅ |
 | Relationships (single-match `LEFT JOIN LATERAL … LIMIT 1`) | ✅ |
-| Raw `sql` dimensions/measures | ✅ checked by a Postgres-aware lexer |
+| Raw `sql` dimensions/measures | ✅ checked by a Postgres-aware lexer; no `$` (dollar quotes, parameters) outside quoted literals |
 | Time measures: trailing, toDate, cumulative, shift, and formulas over them | ✅ |
 | `final: true` datasets, `measure.merge` | ❌ ClickHouse-only |
 
