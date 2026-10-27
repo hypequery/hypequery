@@ -1,0 +1,147 @@
+---
+title: Postgres
+description: Run hypequery datasets on Postgres. Define datasets once, query them on your app's Postgres today, and move to ClickHouse later with no change to the code that consumes them.
+---
+
+import { Callout } from 'fumadocs-ui/components/callout';
+import { CodeBlock } from 'fumadocs-ui/components/codeblock';
+
+Datasets run on Postgres as well as ClickHouse. Start on the database your app already has. When your data outgrows it, point the same datasets at ClickHouse. Your API, MCP tools and React hooks see the same results, in the same shapes.
+
+## TypeScript
+
+Install the engine and the `pg` driver:
+
+<CodeBlock>
+```bash
+npm install @hypequery/postgres @hypequery/datasets pg
+```
+</CodeBlock>
+
+Pass a Postgres query builder to `createDatasetClient`, exactly as you would a ClickHouse one:
+
+<CodeBlock>
+```typescript
+import pg from 'pg';
+import { createDatasetClient } from '@hypequery/datasets';
+import { createPostgresQueryBuilder } from '@hypequery/postgres';
+
+const db = createPostgresQueryBuilder({
+  pool: new pg.Pool({ connectionString: process.env.DATABASE_URL }),
+  statementTimeoutMs: 10_000, // default 30 s
+  maxRows: 50_000,            // default 100,000
+});
+
+const analytics = createDatasetClient({ queryBuilder: db });
+const result = await analytics.execute(Orders, { by: 'day', measures: ['revenue'] });
+```
+</CodeBlock>
+
+`pg` is not a dependency of `@hypequery/postgres`. Pass any node-postgres `Pool`, or implement the one-method `PostgresDriver` interface over another client.
+
+`createAPI({ queryBuilder: db, datasets })` serves the same datasets over HTTP and MCP. At startup it refuses any dataset Postgres cannot run; see [What runs on Postgres](#what-runs-on-postgres).
+
+## Python
+
+<CodeBlock>
+```bash
+pip install "hypequery[postgres]"
+```
+</CodeBlock>
+
+<CodeBlock>
+```python
+from hypequery.datasets import create_dataset_client
+from hypequery.execution import create_postgres_executor
+
+client = create_dataset_client(
+    executor=create_postgres_executor("postgresql://user@host/db"),  # or HYPEQUERY_POSTGRES_URL
+    registry=registry,
+)
+```
+</CodeBlock>
+
+The client compiles Postgres SQL because the executor runs Postgres. `create_async_postgres_executor` is the async equivalent. To reuse connections, pass a `psycopg_pool` pool as `pool=`.
+
+## Generate datasets from your schema
+
+Both CLIs read the Postgres catalog and write dataset definitions:
+
+<CodeBlock>
+```bash
+DATABASE_URL=postgres://user@host/db npx hypequery init --database postgres
+npx hypequery generate:datasets --database postgres --force   # after schema changes
+```
+</CodeBlock>
+
+The TypeScript CLI covers every non-system schema; tables outside `public` become `schema_table` datasets. It turns single-column foreign keys into `belongsTo` relationships. The Python CLI (`hypequery init --database postgres`) reads the current schema. Both suggest measures for numeric columns and report possible tenant columns for review, never applying them.
+
+## What runs on Postgres
+
+| Feature | Postgres |
+|---|---|
+| sum, count, countDistinct, avg, min, max | ✅ |
+| percentile, argMax / argMin, stddev, variance | ✅ |
+| approxCountDistinct | ✅ (exact count) |
+| Measure filters, segments, caller filters, `having` | ✅ |
+| Time grains in a query timezone | ✅ |
+| Derived measures and metrics | ✅ |
+| Relationships | ✅ |
+| Time measures: trailing, toDate, cumulative, shift, and formulas over them | ✅ (TypeScript) |
+| Raw `sql` dimensions and measures | ✅ checked by a Postgres-aware lexer |
+| `measure.merge` (aggregate states) | ❌ ClickHouse only |
+| `final: true` datasets | ❌ ClickHouse only |
+
+Every dataset query the [golden corpus](https://github.com/hypequery/hypequery/tree/main/packages/postgres/src/tests/golden-sql) covers, plus DST, sub-second and error-path cases, runs on both ClickHouse and Postgres over identical data and must return identical results.
+
+## Results match ClickHouse
+
+Postgres follows ClickHouse's semantics wherever the two databases differ:
+
+- **Division** is floating point, and division by zero gives null. Postgres would otherwise truncate integer division and raise an error.
+- **`round`** rounds half to even, as ClickHouse does for floats.
+- **NULLs** sort last in both directions.
+- **Weeks** start on Sunday, as datasets do on ClickHouse.
+- **Buckets** are computed on instants in the query timezone. The hour a DST fall-back repeats stays two buckets, and periods render as `YYYY-MM-DD HH:MM:SS` (minute, hour, day) or `YYYY-MM-DD` (week and coarser).
+- **Relationships** use a single-match join (`LEFT JOIN LATERAL … LIMIT 1`), so a duplicated key on the joined table can't inflate aggregates.
+
+| Postgres type | Result |
+|---|---|
+| `bigint` | string, never rounded |
+| `integer`, `real`, `double precision` | number |
+| `numeric` (including `SUM` and `AVG` results) | number. As with ClickHouse Decimals in JSON, digits beyond a double's precision are lost |
+| `timestamptz` | UTC wall-clock text |
+| `timestamp`, `date` | their wall-clock text (a zone-less `timestamp` is read as UTC) |
+| `json`, `jsonb` | parsed |
+| one-dimensional arrays | arrays |
+| `uuid`, text, `interval`, others | text |
+
+## Safe on your production database
+
+Analytics queries share your app's database, so each one is constrained:
+
+- It runs in its own **read-only** transaction, through a cursor that admits exactly one `SELECT`.
+- A **statement timeout** applies (30 seconds by default). In Python it comes from the query settings and deadline.
+- A **row ceiling** applies (100,000 by default). A larger result is refused rather than buffered.
+- **Every value is bound** as a server-side parameter, never written into the SQL.
+- **Cancellation**: aborting a query (`AbortSignal`, or a Python deadline or cancellation) cancels it on the server.
+- **Indexes stay usable**: time filters compare the bare time-key column, and time-measure queries scan only the rows their window can read. An index on the time key applies.
+
+<Callout type="info">
+Point analytics at a read replica if you have one: pass a pool or connection string for the replica.
+</Callout>
+
+## Moving to ClickHouse
+
+Load the same tables into ClickHouse, then swap the query builder:
+
+<CodeBlock>
+```typescript
+import { createQueryBuilder } from '@hypequery/clickhouse';
+
+const db = createQueryBuilder({ url, username, password, database });
+const analytics = createDatasetClient({ queryBuilder: db }); // datasets and callers unchanged
+```
+</CodeBlock>
+
+Dataset definitions, API routes, MCP tools, React hooks and result shapes stay the same. Your callers see the same results, now from ClickHouse. Result caches are keyed by engine, so entries from the two engines never mix.

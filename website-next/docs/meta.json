@@ -34,6 +34,7 @@
     "datasets/time-grains",
     "datasets/relationships",
     "datasets/execution",
+    "datasets/postgres",
     "datasets/caching",
     "datasets/multi-tenancy",
     "datasets/serve-integration",
