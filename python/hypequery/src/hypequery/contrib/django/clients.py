@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from typing import Any, Unpack
 
 from asgiref.sync import sync_to_async
@@ -90,17 +91,21 @@ class AsyncRequestAnalytics:
     event loop, so it happens on the first ``await``, not on attribute access.
     """
 
-    __slots__ = ("_client", "_request")
+    __slots__ = ("_client", "_lock", "_request")
 
     def __init__(self, request: HttpRequest) -> None:
         self._request = request
         self._client: AsyncDatasetClient | AsyncTenantDatasetClient | None = None
+        # Queries started together (asyncio.gather) wait for one tenant lookup.
+        self._lock = asyncio.Lock()
 
     async def client(self) -> AsyncDatasetClient | AsyncTenantDatasetClient:
         """The tenant-bound async client, resolved once per request."""
 
         if self._client is None:
-            self._client = await async_tenant_client(self._request)
+            async with self._lock:
+                if self._client is None:
+                    self._client = await async_tenant_client(self._request)
         return self._client
 
     async def execute(

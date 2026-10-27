@@ -91,8 +91,10 @@ def idle_view(request: HttpRequest) -> JsonResponse:
 
 
 async def async_orders_view(request: HttpRequest) -> JsonResponse:
-    result = await request.analytics.execute("orders", {"dimensions": ["status"]})
-    again = await request.analytics.execute("orders", {"dimensions": ["status"]})
+    result, again = await asyncio.gather(
+        request.analytics.execute("orders", {"dimensions": ["status"]}),
+        request.analytics.execute("orders", {"dimensions": ["status"]}),
+    )
     same = await request.analytics.client() is await request.analytics.client()
     return JsonResponse({"data": list(result.data), "same": same and again.data == result.data})
 
@@ -286,5 +288,5 @@ def test_async_views_resolve_a_database_backed_tenant_off_the_event_loop(built: 
         response = asyncio.run(call())
     assert response.status_code == 200, response.content
     assert "org_c" in built.tenants()
-    # Two queries, one tenant lookup: the bound client is cached for the request.
+    # Two concurrent queries, one tenant lookup: the bound client is cached for the request.
     assert CALLS == ["tenant"]
