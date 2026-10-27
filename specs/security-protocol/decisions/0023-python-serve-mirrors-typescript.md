@@ -1,8 +1,7 @@
 # 0023 — Python Serve mirrors TypeScript: a neutral core, framework adapters, host-context auth
 
-Status: **Proposed** (27 October 2026). Direction agreed; the open questions at the
-end need answers before implementation starts. Supersedes this record's earlier
-token-exchange-only draft.
+Status: **Accepted** (27 October 2026); open questions resolved below. Supersedes
+this record's earlier token-exchange-only draft.
 
 ## Context
 
@@ -174,14 +173,15 @@ change no public API.
 - PR #775 (lazy clients) still applies. PR #771's `mount_serve` helpers and
   #773's scaffold text change in step 4/6.
 
-## Open questions
+## Resolved questions
 
-1. **Development OpenAPI docs.** Generate OpenAPI from the core (as TypeScript's
-   `openapi.ts` does) and serve a static docs page, or keep FastAPI only for
-   `development_docs=True`?
-2. **JWT dependency.** PyJWT as a `jwt` extra, or a minimal HS256-only verifier
-   in core with JWKS behind the extra?
-3. **Django CSRF.** Is the same-origin check enough on its own, or should the
-   Django adapter also require Django's CSRF token? (The draft above says both.)
-4. **Naming parity.** Python's `create_api(authenticate=...)` today versus
-   TypeScript's `createAPI({ auth })`. Rename to `auth=` for parity?
+1. **Development OpenAPI docs come from the core.** OpenAPI is generated from the
+   endpoint definitions, as TypeScript's `openapi.ts` does, so FastAPI isn't
+   needed even for `development_docs=True`.
+2. **JWT via PyJWT, as a `jwt` extra.** No hand-written token cryptography. The
+   core imports it only when a JWT strategy or token issuer is created.
+3. **Context auth uses the same-origin check and Django's CSRF.** Django's
+   adapter leaves Django's CSRF middleware active (the React client sends
+   `X-CSRFToken`), and the core also applies the same-origin check.
+4. **`create_api(auth=...)`**, renamed from `authenticate=` for parity with
+   TypeScript's `createAPI({ auth })`. Pre-release, so there's no alias.
