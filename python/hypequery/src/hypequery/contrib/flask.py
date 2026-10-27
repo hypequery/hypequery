@@ -55,10 +55,8 @@ from ..datasets import (
     TenantDatasetClient,
 )
 from ..execution import ClickHouseConnection, ReadonlyPolicy
-from .utils.asgi_mount import ASGIApp
 from .utils.process_clients import ClientConfig, ProcessClients
 from .utils.tenant_value import TenantValue, bind_tenant_value
-from .utils.wsgi_mount import mount_wsgi
 
 TenantLoader = Callable[[], TenantValue]
 _Loader = TypeVar("_Loader", bound=TenantLoader)
@@ -166,17 +164,6 @@ class Hypequery:
         """Close the current app's clients now rather than at interpreter exit."""
 
         self._state().clients.close()
-
-    def mount_serve(self, app: Flask, serve_app: ASGIApp, *, prefix: str = "/analytics") -> None:
-        """Serve hypequery's HTTP endpoints (a FastAPI app) under *prefix* of *app*.
-
-        Wraps ``app.wsgi_app``. *serve_app* keeps its own authentication: it
-        reads credentials from a header, never from Flask's session cookie, and
-        its ``HttpSecurity(allowed_hosts=...)`` must include the host the Flask
-        app is reached on.
-        """
-
-        app.wsgi_app = mount_wsgi(app.wsgi_app, serve_app, prefix=prefix)  # type: ignore[method-assign,assignment]
 
 
 __all__ = ["Hypequery", "TenantLoader"]

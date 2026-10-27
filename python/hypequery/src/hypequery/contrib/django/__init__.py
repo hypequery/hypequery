@@ -10,8 +10,6 @@ Django's authentication middleware. Views then use ``request.analytics``::
         return JsonResponse({"data": list(result.data)})
 
 In an async view the same attribute is the async client, so ``await`` it.
-To serve hypequery's HTTP endpoints from the same ASGI process, see
-:func:`hypequery.contrib.django.asgi.mount_serve`.
 
 Requires ``hypequery[django]``.
 """

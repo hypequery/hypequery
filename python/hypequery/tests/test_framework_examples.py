@@ -135,12 +135,6 @@ def test_live_flask_example(seeded: str) -> None:
         ]
         assert http.get("/revenue").status_code == 401
         assert _sorted(_json(http.get("/revenue/daily", headers=A))["data"], "period") == DAILY_A
-        mounted = http.post(
-            "/api/analytics/orders", json={}, headers=A, base_url="http://localhost"
-        )
-        assert mounted.status_code == 200, mounted.get_data(as_text=True)
-        assert _json(mounted)["data"][0]["revenue"] == "30"
-        assert http.post("/api/analytics/orders", json={}).status_code == 401
     finally:
         with app.app_context():
             flask_app.hq.close()
@@ -166,26 +160,30 @@ def test_live_django_example(seeded: str) -> None:
 
             application = django_app.asgi_application()
 
-            async def over_asgi() -> tuple[httpx.Response, httpx.Response]:
+            async def over_asgi() -> httpx.Response:
                 transport = httpx.ASGITransport(app=application)
                 async with httpx.AsyncClient(
                     transport=transport, base_url="http://localhost"
                 ) as client:
-                    daily = await client.get("/revenue/daily", headers=A)
-                    mounted = await client.post("/api/analytics/orders", json={}, headers=B)
-                return daily, mounted
+                    return await client.get("/revenue/daily", headers=A)
 
-            daily, mounted = asyncio.run(over_asgi())
+            daily = asyncio.run(over_asgi())
             assert daily.status_code == 200, daily.text
             assert _sorted(daily.json()["data"], "period") == DAILY_A
-            assert mounted.status_code == 200, mounted.text
-            assert mounted.json()["data"][0]["revenue"] == "90"
         finally:
             close_clients()
 
 
-@pytest.mark.parametrize("name", ["examples.dataframes", "examples.sqlalchemy_engine"])
-def test_standalone_examples_do_not_need_fastapi(name: str) -> None:
+@pytest.mark.parametrize(
+    "name",
+    [
+        "examples.dataframes",
+        "examples.sqlalchemy_engine",
+        "examples.django_app",
+        "examples.flask_app",
+    ],
+)
+def test_framework_examples_do_not_need_fastapi(name: str) -> None:
     import subprocess
     import sys
     import textwrap
