@@ -398,18 +398,19 @@ result = client.for_tenant(tenant("acme")).execute(
 )
 frame = result.to_pandas()  # or result.to_polars(), result.to_arrow()
 frame.dtypes
-# period     datetime64[us, UTC]
+# period     datetime64[us, UTC]   (the query's timezone)
 # revenue                float64
 # orders                   Int64
 ```
 
 Column types come from the dataset definition, not from the values, so an
 empty result is typed too; `result.column_types` lists them. Timestamps become
-UTC datetimes, counts nullable 64-bit integers, other numbers floats (a number
-column holding only whole values stays an integer), and booleans nullable
-booleans. Integers beyond `Int64` become unsigned 64-bit columns, or exact
-decimals past `UInt64`. Pass `decimals="decimal"` to keep exact `Decimal` values instead of
-floats. A column whose type the definition cannot tell, such as `min` over a
+timezone-aware datetimes in the query's timezone (`result.timezone`, UTC unless
+the query or client sets one), so a `period` bucket keeps its local day. Counts
+become nullable 64-bit integers, other numbers floats (a number column holding
+only whole values stays an integer), and booleans nullable booleans. Integers
+beyond `Int64` become unsigned 64-bit columns, or exact decimals past `UInt64`.
+Pass `decimals="decimal"` to keep exact `Decimal` values instead of floats. A column whose type the definition cannot tell, such as `min` over a
 column no dimension describes, converts as returned.
 
 ## Result caching
@@ -465,6 +466,10 @@ The dataset client is a plain library: call it from a Django view or a Flask
 route like any other. `hypequery.contrib` adds what each framework lacks, a
 client per process that is created on first use and closed at exit, and a
 client per request that is already bound to the caller's tenant.
+
+Runnable versions of everything below live in `examples/`: `django_app.py`,
+`flask_app.py`, `dataframes.py` (pandas) and `sqlalchemy_engine.py`. Each runs
+against `examples/seed.sql`, and CI runs them against a live ClickHouse.
 
 ### Django
 

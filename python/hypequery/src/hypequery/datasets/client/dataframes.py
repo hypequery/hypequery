@@ -10,11 +10,13 @@ full one.
 from __future__ import annotations
 
 from collections.abc import Callable, Sequence
-from datetime import UTC, datetime
+from datetime import datetime, tzinfo
 from decimal import Decimal, InvalidOperation, localcontext
+from functools import partial
 from importlib import import_module
 from types import ModuleType
 from typing import TYPE_CHECKING, Any, Literal, TypeAlias, cast
+from zoneinfo import ZoneInfo
 
 from ..utils.output_column_types import ResultColumnType
 from .results import ResultScalar
@@ -48,13 +50,13 @@ def _require(module: str) -> ModuleType:
         ) from exc
 
 
-def _timestamp(value: ResultScalar) -> datetime:
+def _timestamp(value: ResultScalar, zone: tzinfo) -> datetime:
     if type(value) is not str:
         raise ValueError("expected an ISO date or datetime string")
     parsed = datetime.fromisoformat(value)
-    # A ClickHouse Date has no zone; it is a UTC calendar day here as it is in
-    # the query timezone's bucketing.
-    return parsed.replace(tzinfo=UTC) if parsed.tzinfo is None else parsed.astimezone(UTC)
+    # Time buckets (``period``) and dates have no offset: they are wall-clock
+    # values in the query's timezone. Instants arrive with one.
+    return parsed.replace(tzinfo=zone) if parsed.tzinfo is None else parsed.astimezone(zone)
 
 
 def _integer(value: ResultScalar) -> int:
@@ -90,7 +92,6 @@ def _boolean(value: ResultScalar) -> bool:
 
 
 _CONVERTERS: dict[_Kind, Callable[[ResultScalar], object]] = {
-    "timestamp": _timestamp,
     "integer": _integer,
     "float": _float,
     "decimal": _decimal,
@@ -154,13 +155,14 @@ def typed_columns(
 
     if decimals not in ("float", "decimal"):
         raise ValueError('decimals must be "float" or "decimal"')
+    zone = ZoneInfo(result.timezone)
     unknown: tuple[ResultColumnType, ...] = ("unknown",)
     declared = result.column_types or unknown * len(result.columns)
     columns: list[tuple[str, _Kind, list[object]]] = []
     for name, column_type in zip(result.columns, declared, strict=True):
         values = [row[name] for row in result.data]
         kind = _kind(column_type, values, decimals)
-        convert = _CONVERTERS.get(kind)
+        convert = partial(_timestamp, zone=zone) if kind == "timestamp" else _CONVERTERS.get(kind)
         if convert is None:
             columns.append((name, kind, list(values)))
             continue
@@ -179,7 +181,7 @@ def typed_columns(
 def to_pandas(result: DatasetQueryResult, *, decimals: DecimalMode = "float") -> pd.DataFrame:
     pandas: Any = _require("pandas")
     dtypes: dict[_Kind, object] = {
-        "timestamp": "datetime64[us, UTC]",
+        "timestamp": f"datetime64[us, {result.timezone}]",
         "integer": "Int64",
         "unsigned": "UInt64",
         "float": "float64",
@@ -197,7 +199,7 @@ def to_pandas(result: DatasetQueryResult, *, decimals: DecimalMode = "float") ->
 def to_polars(result: DatasetQueryResult, *, decimals: DecimalMode = "float") -> pl.DataFrame:
     polars: Any = _require("polars")
     dtypes: dict[_Kind, object] = {
-        "timestamp": polars.Datetime("us", "UTC"),
+        "timestamp": polars.Datetime("us", result.timezone),
         "integer": polars.Int64,
         "unsigned": polars.UInt64,
         "float": polars.Float64,
@@ -216,7 +218,7 @@ def to_polars(result: DatasetQueryResult, *, decimals: DecimalMode = "float") ->
 def to_arrow(result: DatasetQueryResult, *, decimals: DecimalMode = "float") -> pa.Table:
     pyarrow: Any = _require("pyarrow")
     dtypes: dict[_Kind, object] = {
-        "timestamp": pyarrow.timestamp("us", tz="UTC"),
+        "timestamp": pyarrow.timestamp("us", tz=result.timezone),
         "integer": pyarrow.int64(),
         "unsigned": pyarrow.uint64(),
         "float": pyarrow.float64(),

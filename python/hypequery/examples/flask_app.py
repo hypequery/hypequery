@@ -1,0 +1,72 @@
+"""Run: python -m examples.flask_app (from python/hypequery).
+
+Needs ``hypequery[flask,fastapi]``. Seed examples/seed.sql; set CLICKHOUSE_URL
+(or the CLICKHOUSE_* variables), HYPEQUERY_TENANT_A_TOKEN and
+HYPEQUERY_TENANT_B_TOKEN. Then:
+
+    curl -H "Authorization: Bearer $HYPEQUERY_TENANT_A_TOKEN" localhost:5000/revenue
+    curl -X POST -H "Authorization: Bearer $HYPEQUERY_TENANT_A_TOKEN" \\
+         -H "Content-Type: application/json" -d '{"dimensions":["country"]}' \\
+         localhost:5000/api/analytics/orders
+"""
+
+from __future__ import annotations
+
+from typing import Any
+
+from flask import Flask, abort, request
+
+from hypequery.contrib.flask import Hypequery
+
+from .utils.orders import organization_for
+
+hq = Hypequery()
+
+
+@hq.tenant_loader
+def current_tenant() -> str | None:
+    # In a real app: current_user.org_id if current_user.is_authenticated (Flask-Login).
+    return organization_for(request.headers.get("Authorization"))
+
+
+def create_app(*, mount_serve: bool = True) -> Flask:
+    app = Flask(__name__)
+    # HYPEQUERY_URL is unset, so the connection comes from CLICKHOUSE_URL or CLICKHOUSE_*.
+    app.config["HYPEQUERY_REGISTRY"] = "examples.utils.orders:registry"
+    hq.init_app(app)
+
+    @app.get("/revenue")
+    def revenue() -> Any:
+        """Revenue by country for the caller's organization only."""
+
+        if current_tenant() is None:
+            abort(401)
+        result = hq.client.execute(
+            "orders", {"dimensions": ["country"], "measures": ["revenue", "orderCount"]}
+        )
+        return {"data": list(result.data)}
+
+    @app.get("/revenue/daily")
+    async def revenue_by_day() -> Any:
+        if current_tenant() is None:
+            abort(401)
+        result = await hq.async_client.execute("orders", {"measures": ["revenue"], "by": "day"})
+        return {"data": list(result.data)}
+
+    if mount_serve:
+        # hypequery's own HTTP endpoints (a FastAPI app) under /api.
+        from . import multitenant_saas
+        from .utils.orders import principals
+        from .utils.server import application
+
+        serve_app = application(
+            datasets=(multitenant_saas.orders,),
+            install=multitenant_saas.install,
+            principals=principals(),
+        )
+        hq.mount_serve(app, serve_app, prefix="/api")
+    return app
+
+
+if __name__ == "__main__":
+    create_app().run(port=5000)

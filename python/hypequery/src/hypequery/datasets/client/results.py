@@ -82,18 +82,20 @@ class DatasetQueryResult:
     decimals, dates and datetimes are strings. ``column_types`` says what each
     column means, from the dataset definition; the ``to_*`` conversions use it
     to restore real dtypes. A result built without types converts every column
-    as returned.
+    as returned. ``timezone`` is the query's: time buckets such as ``period``
+    are wall-clock times there, and conversions present timestamps in it.
     """
 
     columns: tuple[str, ...]
     data: tuple[dict[str, ResultScalar], ...]
     meta: DatasetQueryMeta
     column_types: tuple[ResultColumnType, ...] = ()
+    timezone: str = "UTC"
 
     def to_pandas(self, *, decimals: DecimalMode = "float") -> pd.DataFrame:
         """A pandas DataFrame with typed columns. Requires ``hypequery[pandas]``.
 
-        Timestamps become UTC ``datetime64``, counts nullable ``Int64``, other
+        Timestamps become ``datetime64`` in the query's timezone, counts nullable ``Int64``, other
         numbers ``float64`` (or ``Decimal`` objects with ``decimals="decimal"``;
         a number column of whole values only stays ``Int64``), booleans
         nullable ``boolean``.
@@ -134,6 +136,7 @@ def build_result(
     *,
     query: DatasetQuery | None = None,
     column_types: tuple[ResultColumnType, ...] = (),
+    timezone: str = "UTC",
 ) -> DatasetQueryResult:
     """Key positional rows by column name.
 
@@ -159,4 +162,5 @@ def build_result(
             pagination=pagination,
         ),
         column_types=column_types if len(column_types) == len(columns) else (),
+        timezone=timezone,
     )

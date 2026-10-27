@@ -184,12 +184,14 @@ def _result(
     rows: tuple[tuple[ResultScalar, ...], ...] = ROWS,
     types: tuple[ResultColumnType, ...] = TYPES,
     columns: tuple[str, ...] = COLUMNS,
+    timezone: str = "UTC",
 ) -> DatasetQueryResult:
     return DatasetQueryResult(
         columns=columns,
         data=tuple(dict(zip(columns, row, strict=True)) for row in rows),
         meta=DatasetQueryMeta(query_id="q", row_count=len(rows), timing_ms=1.0),
         column_types=types,
+        timezone=timezone,
     )
 
 
@@ -351,3 +353,41 @@ def test_integers_beyond_uint64_become_exact_decimals() -> None:
     ]
     pytest.importorskip("pyarrow")
     assert result.to_arrow()["n"][0].as_py() == Decimal(huge)
+
+
+def test_timestamps_are_presented_in_the_query_timezone() -> None:
+    from zoneinfo import ZoneInfo
+
+    paris = ZoneInfo("Europe/Paris")
+    result = _result(
+        (("2026-01-01 00:00:00",), ("2026-02-01T00:00:00+00:00",), (None,)),
+        ("timestamp",),
+        ("period",),
+        timezone="Europe/Paris",
+    )
+    [(_, _, values)] = dataframes.typed_columns(result, "float")
+    # A bucket keeps its local midnight; an instant is converted, not relabelled.
+    assert values == [
+        datetime(2026, 1, 1, tzinfo=paris),
+        datetime(2026, 2, 1, 1, tzinfo=paris),
+        None,
+    ]
+    pd = pytest.importorskip("pandas")
+    frame = result.to_pandas()
+    assert str(frame["period"].dtype) == "datetime64[us, Europe/Paris]"
+    assert frame["period"].iloc[0] == pd.Timestamp("2025-12-31T23:00:00Z")
+    pl = pytest.importorskip("polars")
+    assert result.to_polars().schema["period"] == pl.Datetime("us", "Europe/Paris")
+    pa = pytest.importorskip("pyarrow")
+    assert result.to_arrow().schema.field("period").type == pa.timestamp("us", tz="Europe/Paris")
+
+
+def test_client_results_carry_the_query_timezone() -> None:
+    client = create_dataset_client(
+        executor=_Executor(("status",), (("paid",),)), registry=REGISTRY, timezone="Asia/Tokyo"
+    )
+    assert client.execute(ORDERS, DatasetQuery(dimensions=("status",), measures=())).timezone == (
+        "Asia/Tokyo"
+    )
+    explicit = DatasetQuery(dimensions=("status",), measures=(), timezone="America/New_York")
+    assert client.execute(ORDERS, explicit).timezone == "America/New_York"
