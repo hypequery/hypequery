@@ -101,6 +101,13 @@ def test_shared_success_fixtures() -> None:
         assert validate_protocol_deployment_contract(fixture["value"])
 
 
+@pytest.mark.parametrize("case", _fixtures("rejections.json"), ids=lambda case: str(case["id"]))
+def test_shared_rejection_fixtures(case: dict[str, object]) -> None:
+    with pytest.raises(ProtocolDeploymentError) as raised:
+        validate_protocol_deployment_contract(case["value"])
+    assert raised.value.code == case["error"]
+
+
 def test_shared_identity_fixtures_pin_canonical_bytes_and_hash() -> None:
     """Identity cases pin the canonical form of the success case they name."""
 

@@ -1412,5 +1412,258 @@
       ]
     },
     "error": "HQ_DEPLOYMENT_INVALID_IDENTIFIER"
+  },
+  {
+    "id": "merge-missing-state-function",
+    "value": {
+      "kind": "hypequery-deployment",
+      "version": 2,
+      "datasets": [
+        {
+          "name": "daily_active_users",
+          "source": "daily_active_users",
+          "tenant": {
+            "kind": "not-required"
+          },
+          "dimensions": [
+            {
+              "name": "day",
+              "type": "timestamp",
+              "source": {
+                "kind": "column",
+                "column": "day"
+              },
+              "filterable": true,
+              "groupable": true
+            }
+          ],
+          "measures": [
+            {
+              "name": "active_users",
+              "aggregation": "merge",
+              "field": "users",
+              "filters": []
+            }
+          ],
+          "filters": [],
+          "relationships": []
+        }
+      ]
+    },
+    "error": "HQ_DEPLOYMENT_INVALID_VALUE"
+  },
+  {
+    "id": "merge-unlisted-state-function",
+    "value": {
+      "kind": "hypequery-deployment",
+      "version": 2,
+      "datasets": [
+        {
+          "name": "daily_active_users",
+          "source": "daily_active_users",
+          "tenant": {
+            "kind": "not-required"
+          },
+          "dimensions": [
+            {
+              "name": "day",
+              "type": "timestamp",
+              "source": {
+                "kind": "column",
+                "column": "day"
+              },
+              "filterable": true,
+              "groupable": true
+            }
+          ],
+          "measures": [
+            {
+              "name": "active_users",
+              "aggregation": "merge",
+              "field": "users",
+              "filters": [],
+              "stateFunction": "quantile"
+            }
+          ],
+          "filters": [],
+          "relationships": []
+        }
+      ]
+    },
+    "error": "HQ_DEPLOYMENT_INVALID_VALUE"
+  },
+  {
+    "id": "merge-state-function-injection",
+    "value": {
+      "kind": "hypequery-deployment",
+      "version": 2,
+      "datasets": [
+        {
+          "name": "daily_active_users",
+          "source": "daily_active_users",
+          "tenant": {
+            "kind": "not-required"
+          },
+          "dimensions": [
+            {
+              "name": "day",
+              "type": "timestamp",
+              "source": {
+                "kind": "column",
+                "column": "day"
+              },
+              "filterable": true,
+              "groupable": true
+            }
+          ],
+          "measures": [
+            {
+              "name": "active_users",
+              "aggregation": "merge",
+              "field": "users",
+              "filters": [],
+              "stateFunction": "uniq(users)) OR 1=1 --"
+            }
+          ],
+          "filters": [],
+          "relationships": []
+        }
+      ]
+    },
+    "error": "HQ_DEPLOYMENT_INVALID_VALUE"
+  },
+  {
+    "id": "state-function-without-merge",
+    "value": {
+      "kind": "hypequery-deployment",
+      "version": 2,
+      "datasets": [
+        {
+          "name": "daily_active_users",
+          "source": "daily_active_users",
+          "tenant": {
+            "kind": "not-required"
+          },
+          "dimensions": [
+            {
+              "name": "day",
+              "type": "timestamp",
+              "source": {
+                "kind": "column",
+                "column": "day"
+              },
+              "filterable": true,
+              "groupable": true
+            }
+          ],
+          "measures": [
+            {
+              "name": "total",
+              "aggregation": "sum",
+              "field": "users",
+              "stateFunction": "sum",
+              "filters": []
+            }
+          ],
+          "filters": [],
+          "relationships": []
+        }
+      ]
+    },
+    "error": "HQ_DEPLOYMENT_INVALID_VALUE"
+  },
+  {
+    "id": "merge-with-filters",
+    "value": {
+      "kind": "hypequery-deployment",
+      "version": 2,
+      "datasets": [
+        {
+          "name": "daily_active_users",
+          "source": "daily_active_users",
+          "tenant": {
+            "kind": "not-required"
+          },
+          "dimensions": [
+            {
+              "name": "day",
+              "type": "timestamp",
+              "source": {
+                "kind": "column",
+                "column": "day"
+              },
+              "filterable": true,
+              "groupable": true
+            }
+          ],
+          "measures": [
+            {
+              "name": "active_users",
+              "aggregation": "merge",
+              "field": "users",
+              "filters": [
+                {
+                  "kind": "comparison",
+                  "operator": "eq",
+                  "left": {
+                    "kind": "reference",
+                    "name": "day"
+                  },
+                  "right": {
+                    "kind": "literal",
+                    "value": "2026-10-01"
+                  }
+                }
+              ],
+              "stateFunction": "uniq"
+            }
+          ],
+          "filters": [],
+          "relationships": []
+        }
+      ]
+    },
+    "error": "HQ_DEPLOYMENT_INVALID_VALUE"
+  },
+  {
+    "id": "merge-approximate-marker-in-v2",
+    "value": {
+      "kind": "hypequery-deployment",
+      "version": 2,
+      "datasets": [
+        {
+          "name": "daily_active_users",
+          "source": "daily_active_users",
+          "tenant": {
+            "kind": "not-required"
+          },
+          "dimensions": [
+            {
+              "name": "day",
+              "type": "timestamp",
+              "source": {
+                "kind": "column",
+                "column": "day"
+              },
+              "filterable": true,
+              "groupable": true
+            }
+          ],
+          "measures": [
+            {
+              "name": "active_users",
+              "aggregation": "merge",
+              "field": "users",
+              "filters": [],
+              "stateFunction": "uniq",
+              "approximate": true
+            }
+          ],
+          "filters": [],
+          "relationships": []
+        }
+      ]
+    },
+    "error": "HQ_DEPLOYMENT_UNKNOWN_FIELD"
   }
 ]

@@ -305,3 +305,10 @@ export type {
 } from './visibility/index.js';
 
 export { validateProtocolRowResolution } from './deployments/row-resolution.js';
+export {
+  PROTOCOL_AGGREGATE_STATE_FUNCTIONS,
+  PROTOCOL_APPROXIMATE_STATE_FUNCTIONS,
+  isApproximateStateFunction,
+  isProtocolAggregateStateFunction,
+  type ProtocolAggregateStateFunction,
+} from './deployments/aggregate-states.js';
