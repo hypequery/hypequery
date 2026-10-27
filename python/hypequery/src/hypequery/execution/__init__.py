@@ -10,6 +10,7 @@ from .clickhouse import (
     ClickHouseConnection,
     ClickHouseExecutor,
     create_async_clickhouse_executor,
+    create_async_from_sync_clickhouse_executor,
     create_clickhouse_executor,
 )
 from .readonly_settings import ReadonlyPolicy
@@ -23,5 +24,6 @@ __all__ = [
     "QueryRows",
     "ReadonlyPolicy",
     "create_async_clickhouse_executor",
+    "create_async_from_sync_clickhouse_executor",
     "create_clickhouse_executor",
 ]

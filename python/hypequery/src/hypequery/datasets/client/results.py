@@ -8,9 +8,17 @@ double that returns columns and rows.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Literal, Protocol, TypeAlias
+from typing import TYPE_CHECKING, Literal, Protocol, TypeAlias
 
 from ..planner import CompiledQuery, DatasetQuery
+from ..utils.output_column_types import ResultColumnType
+
+if TYPE_CHECKING:
+    import pandas as pd
+    import polars as pl
+    import pyarrow as pa
+
+    from .dataframes import DecimalMode
 
 #: A decoded cell. Matches the execution codec: decimals, UUIDs, dates, and
 #: datetimes arrive as strings so no precision is lost on the way out.
@@ -68,11 +76,48 @@ class DatasetQueryMeta:
 
 @dataclass(frozen=True, slots=True)
 class DatasetQueryResult:
-    """Rows keyed by column name, in the order the statement selected them."""
+    """Rows keyed by column name, in the order the statement selected them.
+
+    ``data`` keeps the JSON-safe scalars the driver boundary produces, so
+    decimals, dates and datetimes are strings. ``column_types`` says what each
+    column means, from the dataset definition; the ``to_*`` conversions use it
+    to restore real dtypes. A result built without types converts every column
+    as returned. ``timezone`` is the query's: time buckets such as ``period``
+    are wall-clock times there, and conversions present timestamps in it.
+    """
 
     columns: tuple[str, ...]
     data: tuple[dict[str, ResultScalar], ...]
     meta: DatasetQueryMeta
+    column_types: tuple[ResultColumnType, ...] = ()
+    timezone: str = "UTC"
+
+    def to_pandas(self, *, decimals: DecimalMode = "float") -> pd.DataFrame:
+        """A pandas DataFrame with typed columns. Requires ``hypequery[pandas]``.
+
+        Timestamps become ``datetime64`` in the query's timezone, counts nullable ``Int64``, other
+        numbers ``float64`` (or ``Decimal`` objects with ``decimals="decimal"``;
+        a number column of whole values only stays ``Int64``), booleans
+        nullable ``boolean``.
+        """
+
+        from .dataframes import to_pandas
+
+        return to_pandas(self, decimals=decimals)
+
+    def to_polars(self, *, decimals: DecimalMode = "float") -> pl.DataFrame:
+        """A polars DataFrame with typed columns. Requires ``hypequery[polars]``."""
+
+        from .dataframes import to_polars
+
+        return to_polars(self, decimals=decimals)
+
+    def to_arrow(self, *, decimals: DecimalMode = "float") -> pa.Table:
+        """A pyarrow Table with typed columns. Requires ``hypequery[arrow]``."""
+
+        from .dataframes import to_arrow
+
+        return to_arrow(self, decimals=decimals)
 
 
 @dataclass(frozen=True, slots=True)
@@ -90,6 +135,9 @@ def build_result(
     cache: CacheStatus = "off",
     *,
     query: DatasetQuery | None = None,
+    column_types: tuple[ResultColumnType, ...] = (),
+    timezone: str = "UTC",
+    planned_columns: tuple[str, ...] = (),
 ) -> DatasetQueryResult:
     """Key positional rows by column name.
 
@@ -98,6 +146,10 @@ def build_result(
     """
 
     columns = tuple(rows.columns)
+    if not columns and not rows.rows:
+        # clickhouse-connect reports no column names for a result without rows;
+        # the planner knows what the statement selects.
+        columns = planned_columns
     pagination = None
     result_rows = rows.rows
     if query is not None and query.limit is not None:
@@ -114,4 +166,6 @@ def build_result(
             cache=cache,
             pagination=pagination,
         ),
+        column_types=column_types if len(column_types) == len(columns) else (),
+        timezone=timezone,
     )
