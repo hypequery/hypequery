@@ -34,7 +34,7 @@ def _app(hq: Hypequery, **config: object) -> Flask:
     @app.get("/async-orders")
     async def async_orders() -> Any:
         result = await hq.async_client.execute("orders", {"dimensions": ["status"]})
-        return {"data": list(result.data)}
+        return {"data": list(result.data), "same": hq.async_client is hq.async_client}
 
     return app
 
@@ -79,9 +79,18 @@ def test_without_a_loader_the_client_is_unscoped(built: Built) -> None:
         assert hq.client is hq.base_client
 
 
-def test_async_routes_get_the_async_client(built: Built, hq: Hypequery) -> None:
+def test_async_routes_get_the_async_client(built: Built) -> None:
+    calls: list[str] = []
+    hq = Hypequery()
+
+    @hq.tenant_loader
+    def tenant() -> str | None:
+        calls.append("loaded")
+        return request.headers.get("X-Org")
+
     response = _app(hq).test_client().get("/async-orders", headers={"X-Org": "org_b"})
-    assert response.json == {"data": [{"status": "paid", "orders": 3}]}
+    assert response.json == {"data": [{"status": "paid", "orders": 3}], "same": True}
+    assert calls == ["loaded"]
     assert built.sync == []
     assert "org_b" in built.tenants()
 
@@ -131,6 +140,8 @@ def test_url_unset_reads_the_environment(
         ({"HYPEQUERY_URL": "clickhouse+native://ch"}, ValueError, "native protocol"),
         ({"HYPEQUERY_REGISTRY": "contrib_doubles:ORDERS"}, TypeError, "DatasetRegistry"),
         ({"HYPEQUERY_REGISTRY": "contrib_doubles:nowhere"}, ImportError, "nowhere"),
+        ({"HYPEQUERY_TIMEZONE": "Mars/Olympus"}, ValueError, "Invalid timezone"),
+        ({"HYPEQUERY_MAX_CONCURRENT": 0}, ValueError, "between 1 and 128"),
     ],
 )
 def test_init_app_validates_config(

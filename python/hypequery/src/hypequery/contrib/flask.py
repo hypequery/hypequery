@@ -39,6 +39,7 @@ except ModuleNotFoundError as exc:  # pragma: no cover - exercised in a subproce
         'hypequery.contrib.flask requires Flask. Install it with: pip install "hypequery[flask]"'
     ) from exc
 
+import asyncio
 from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any, TypeVar, cast
@@ -146,9 +147,20 @@ class Hypequery:
 
     @property
     def async_client(self) -> AsyncDatasetClient | AsyncTenantDatasetClient:
-        """The async client bound to this request's tenant, for ``async def`` views."""
+        """The async client bound to this request's tenant, for ``async def`` views.
 
-        return bind_tenant_value(self._state().clients.async_client(), self._tenant())
+        Built once per request, like :attr:`client`, so the tenant loader runs
+        once however many queries the view makes. The cache is keyed by event
+        loop, because the async client underneath belongs to one loop.
+        """
+
+        loop = asyncio.get_running_loop()
+        cached: Any = g.get("_hypequery_async_client")
+        if cached is None or cached[0] is not loop:
+            bound = bind_tenant_value(self._state().clients.async_client(), self._tenant())
+            cached = (loop, bound)
+            g._hypequery_async_client = cached
+        return cast(AsyncDatasetClient | AsyncTenantDatasetClient, cached[1])
 
     def close(self) -> None:
         """Close the current app's clients now rather than at interpreter exit."""

@@ -30,6 +30,7 @@ from ...datasets import (
     create_async_dataset_client,
     create_dataset_client,
 )
+from ...datasets.utils.query_timezone import validate_timezone
 from ...execution import (
     AsyncFromSyncClickHouseExecutor,
     ClickHouseConnection,
@@ -41,12 +42,17 @@ from ...execution import (
 
 @dataclass(frozen=True, slots=True)
 class ClientConfig:
-    """What a process-wide client is built from."""
+    """What a process-wide client is built from, validated before anything connects."""
 
     connection: ClickHouseConnection
     registry: DatasetRegistry | None = None
     timezone: str = "UTC"
     max_concurrent: int = 4
+
+    def __post_init__(self) -> None:
+        validate_timezone(self.timezone)
+        if type(self.max_concurrent) is not int or not 1 <= self.max_concurrent <= 128:
+            raise ValueError("max_concurrent must be an integer between 1 and 128")
 
 
 @dataclass(frozen=True, slots=True)

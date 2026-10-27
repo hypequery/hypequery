@@ -11,10 +11,10 @@ from __future__ import annotations
 
 from collections.abc import Callable, Sequence
 from datetime import UTC, datetime
-from decimal import Decimal, InvalidOperation
+from decimal import Decimal, InvalidOperation, localcontext
 from importlib import import_module
 from types import ModuleType
-from typing import TYPE_CHECKING, Any, Literal, TypeAlias
+from typing import TYPE_CHECKING, Any, Literal, TypeAlias, cast
 
 from ..utils.output_column_types import ResultColumnType
 from .results import ResultScalar
@@ -31,7 +31,9 @@ if TYPE_CHECKING:
 DecimalMode: TypeAlias = Literal["float", "decimal"]
 
 #: A column's storage kind once its values are known.
-_Kind: TypeAlias = Literal["string", "integer", "float", "decimal", "boolean", "timestamp", "raw"]
+_Kind: TypeAlias = Literal[
+    "string", "integer", "unsigned", "float", "decimal", "boolean", "timestamp", "raw"
+]
 
 _EXTRAS = {"pandas": "pandas", "polars": "polars", "pyarrow": "arrow"}
 
@@ -97,12 +99,39 @@ _CONVERTERS: dict[_Kind, Callable[[ResultScalar], object]] = {
 
 
 def _common_scale(values: list[object]) -> list[object]:
-    """Decimals at one scale: a typed column has one, and some libraries refuse a mix."""
+    """Decimals at one scale: a typed column has one, and some libraries refuse a mix.
+
+    Rescaling is exact, so the context's precision is raised to fit the widest
+    value; the default 28 digits would refuse a valid Decimal(38, s).
+    """
 
     present = [value for value in values if isinstance(value, Decimal)]
-    scale = max((-int(value.as_tuple().exponent) for value in present), default=0)
-    quantum = Decimal(1).scaleb(-max(scale, 0))
-    return [value.quantize(quantum) if isinstance(value, Decimal) else value for value in values]
+    scale = max([0, *(-int(value.as_tuple().exponent) for value in present)])
+    quantum = Decimal(1).scaleb(-scale)
+    digits = max((value.adjusted() + 1 + scale for value in present if value), default=1)
+    with localcontext() as context:
+        context.prec = max(context.prec, digits)
+        return [
+            value.quantize(quantum) if isinstance(value, Decimal) else value for value in values
+        ]
+
+
+#: What every library's signed and unsigned 64-bit integer columns hold.
+_INT64 = range(-(2**63), 2**63)
+_UINT64 = range(2**64)
+
+
+def _fits(values: list[object], bounds: range) -> bool:
+    return all(value is None or value in bounds for value in values)
+
+
+def _wide_integers(values: list[object]) -> tuple[_Kind, list[object]]:
+    """The lossless column for integers beyond Int64, as ClickHouse's wider types produce."""
+
+    if _fits(values, _UINT64):
+        return "unsigned", values
+    # Int128 and wider: exact decimals at scale 0.
+    return "decimal", [None if value is None else Decimal(cast(int, value)) for value in values]
 
 
 def _kind(
@@ -141,6 +170,8 @@ def typed_columns(
             raise ValueError(f"column {name!r} is declared {column_type}: {exc}") from None
         if kind == "decimal":
             converted = _common_scale(converted)
+        elif kind == "integer" and not _fits(converted, _INT64):
+            kind, converted = _wide_integers(converted)
         columns.append((name, kind, converted))
     return columns
 
@@ -150,6 +181,7 @@ def to_pandas(result: DatasetQueryResult, *, decimals: DecimalMode = "float") ->
     dtypes: dict[_Kind, object] = {
         "timestamp": "datetime64[us, UTC]",
         "integer": "Int64",
+        "unsigned": "UInt64",
         "float": "float64",
         "decimal": "object",
         "boolean": "boolean",
@@ -167,6 +199,7 @@ def to_polars(result: DatasetQueryResult, *, decimals: DecimalMode = "float") ->
     dtypes: dict[_Kind, object] = {
         "timestamp": polars.Datetime("us", "UTC"),
         "integer": polars.Int64,
+        "unsigned": polars.UInt64,
         "float": polars.Float64,
         "boolean": polars.Boolean,
         "string": polars.String,
@@ -185,6 +218,7 @@ def to_arrow(result: DatasetQueryResult, *, decimals: DecimalMode = "float") -> 
     dtypes: dict[_Kind, object] = {
         "timestamp": pyarrow.timestamp("us", tz="UTC"),
         "integer": pyarrow.int64(),
+        "unsigned": pyarrow.uint64(),
         "float": pyarrow.float64(),
         "boolean": pyarrow.bool_(),
         "string": pyarrow.string(),

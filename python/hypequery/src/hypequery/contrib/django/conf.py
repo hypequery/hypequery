@@ -89,17 +89,14 @@ def load_settings() -> HypequerySettings:
         raise ImproperlyConfigured("HYPEQUERY['TENANT'] must be a callable taking the request")
     timezone = raw.get("TIMEZONE", "UTC")
     max_concurrent = raw.get("MAX_CONCURRENT", 4)
-    if not isinstance(timezone, str):
-        raise ImproperlyConfigured("HYPEQUERY['TIMEZONE'] must be a string")
-    if type(max_concurrent) is not int:
-        raise ImproperlyConfigured("HYPEQUERY['MAX_CONCURRENT'] must be an integer")
     connection = _connection(raw, policy)
-    return HypequerySettings(
-        client=ClientConfig(
+    try:
+        client = ClientConfig(
             connection=connection,
             registry=registry,
             timezone=timezone,
             max_concurrent=max_concurrent,
-        ),
-        tenant=cast(TenantFunction | None, tenant),
-    )
+        )
+    except ValueError as exc:
+        raise ImproperlyConfigured(f"HYPEQUERY: {exc}") from exc
+    return HypequerySettings(client=client, tenant=cast(TenantFunction | None, tenant))

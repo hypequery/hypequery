@@ -407,7 +407,8 @@ Column types come from the dataset definition, not from the values, so an
 empty result is typed too; `result.column_types` lists them. Timestamps become
 UTC datetimes, counts nullable 64-bit integers, other numbers floats (a number
 column holding only whole values stays an integer), and booleans nullable
-booleans. Pass `decimals="decimal"` to keep exact `Decimal` values instead of
+booleans. Integers beyond `Int64` become unsigned 64-bit columns, or exact
+decimals past `UInt64`. Pass `decimals="decimal"` to keep exact `Decimal` values instead of
 floats. A column whose type the definition cannot tell, such as `min` over a
 column no dimension describes, converts as returned.
 

@@ -318,3 +318,36 @@ def test_a_missing_library_names_the_extra(
     with pytest.raises(ModuleNotFoundError, match=rf"hypequery\[{extra}\]") as caught:
         getattr(_result(), method)()
     assert module in str(caught.value)
+
+
+def test_exact_decimals_keep_values_wider_than_the_default_context() -> None:
+    wide = "12345678901234567890123456789012345.01"
+    result = _result(((wide,), ("0.1",)), ("number",), ("amount",))
+    [(_, kind, values)] = dataframes.typed_columns(result, "decimal")
+    assert kind == "decimal"
+    assert [str(value) for value in values] == [wide, "0.10"]
+    pa = pytest.importorskip("pyarrow")
+    assert pa.types.is_decimal(result.to_arrow(decimals="decimal").schema.field("amount").type)
+
+
+@pytest.mark.parametrize("declared", ["integer", "number"])
+def test_integers_beyond_int64_convert_losslessly(declared: ResultColumnType) -> None:
+    largest = 18446744073709551615
+    result = _result(((largest,), (None,)), (declared,), ("n",))
+    assert dataframes.typed_columns(result, "float") == [("n", "unsigned", [largest, None])]
+    pytest.importorskip("pandas")
+    assert result.to_pandas()["n"].iloc[0] == largest
+    pytest.importorskip("polars")
+    assert result.to_polars()["n"][0] == largest
+    pytest.importorskip("pyarrow")
+    assert result.to_arrow()["n"][0].as_py() == largest
+
+
+def test_integers_beyond_uint64_become_exact_decimals() -> None:
+    huge = -(2**100)
+    result = _result(((huge,), (1,)), ("integer",), ("n",))
+    assert dataframes.typed_columns(result, "float") == [
+        ("n", "decimal", [Decimal(huge), Decimal(1)])
+    ]
+    pytest.importorskip("pyarrow")
+    assert result.to_arrow()["n"][0].as_py() == Decimal(huge)
