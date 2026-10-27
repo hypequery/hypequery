@@ -20,8 +20,19 @@ class TableSelection:
     exclude_tables: str | None
 
     def snapshot(self) -> dict[str, str]:
-        recorded = {"tables": self.tables, "excludeTables": self.exclude_tables}
+        """The selection as recorded: names stripped and comma-joined, as discovery reads them."""
+
+        recorded = {
+            "tables": _canonical(self.tables),
+            "excludeTables": _canonical(self.exclude_tables),
+        }
         return {key: value for key, value in recorded.items() if value}
+
+
+def _canonical(names: str | None) -> str | None:
+    if names is None:
+        return None
+    return ",".join(name.strip() for name in names.split(",") if name.strip()) or None
 
 
 def recorded_selection(directory: Path) -> TableSelection | None:

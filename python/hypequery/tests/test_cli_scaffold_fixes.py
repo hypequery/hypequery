@@ -219,3 +219,41 @@ def test_printed_paths_are_normalised(
         f"dataset definitions: {tmp_path / 'defs.py'}" in out
     )
     assert "/a/../" not in out
+
+
+def test_a_selection_is_recorded_canonically_and_quoted(
+    tmp_path: Path, init_discovery: list[dict[str, Any]]
+) -> None:
+    project = tmp_path / "app"
+    assert main(["init", str(project), "--tables", " orders , customers "]) == 0
+    selection = json.loads((project / "schema.json").read_text())["selection"]
+    assert selection == {"tables": "orders,customers"}
+    readme = (project / "README.md").read_text()
+    assert "hypequery generate datasets --tables orders,customers --diff" in readme
+
+
+def test_the_readme_command_is_shell_quoted() -> None:
+    from hypequery.cli.generators.datasets import generate_datasets
+    from hypequery.cli.generators.project import schema_templates
+    from hypequery.cli.utils.templates import load_templates
+
+    generated = generate_datasets(_schema(None, ORDERS), selection={"excludeTables": "a b"})
+    readme = schema_templates(load_templates(), _schema(None, ORDERS), generated)["README.md"]
+    assert "--exclude-tables 'a b' --diff" in readme
+
+
+def test_output_elsewhere_still_uses_the_projects_selection(
+    tmp_path: Path, init_discovery: list[dict[str, Any]], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    project = tmp_path / "app"
+    assert main(["init", str(project), "--tables", "orders"]) == 0
+    calls: list[dict[str, Any]] = []
+
+    def discover(**kwargs: Any) -> Schema:
+        calls.append(kwargs)
+        return _schema(None, ORDERS)
+
+    monkeypatch.setattr("hypequery.cli.commands.generate.discover_schema", discover)
+    monkeypatch.chdir(project)
+    assert main(["generate", "datasets", "--output", "generated/definitions.py"]) == 0
+    assert calls == [{"tables": "orders", "exclude_tables": None}]
