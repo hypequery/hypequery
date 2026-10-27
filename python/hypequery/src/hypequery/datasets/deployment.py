@@ -132,8 +132,11 @@ def build_protocol_dataset_contract(
             dataset.relationships.items(), key=lambda item: portable_name_key(item[0])
         )
     ]
-    result: dict[str, object] = {
-        "name": dataset.name,
+    result: dict[str, object] = {"name": dataset.name}
+    # Contract datasets carry a description but no label, as in TypeScript.
+    if dataset.description is not None:
+        result["description"] = dataset.description
+    result |= {
         "source": dataset.source,
         "tenant": (
             {"kind": "required", "field": dataset.tenant_key}
