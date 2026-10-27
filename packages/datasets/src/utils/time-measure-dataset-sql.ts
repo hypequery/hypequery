@@ -13,6 +13,7 @@ import { assertRawSqlForDialect } from './raw-sql-dialect-check.js';
 import { StatementParameters, type PlannedStatement } from './statement-parameters.js';
 import { shiftBucketCtes } from './shift-measure-sql.js';
 import { buildTimeMeasureSourceSql } from './time-measure-source-sql.js';
+import { timeMeasureScanBounds } from './time-measure-scan-bounds.js';
 import { buildTimeMeasureAxisSql } from './time-measure-axis-sql.js';
 import { buildTimeMeasureValuesSql, windowMeasureRowsSql, windowScanStartSql } from './time-measure-values-sql.js';
 import { buildTimeMeasureResultSql } from './time-measure-result-sql.js';
@@ -58,7 +59,9 @@ export function buildTimeMeasureDatasetSql(
   }
   const baseNames = new Set([...needed].map(name => timeMeasures.get(name)?.measure ?? name));
 
-  const source = buildTimeMeasureSourceSql(ds, query, baseNames, axis.filters, options, parameters);
+  const source = buildTimeMeasureSourceSql(
+    ds, query, baseNames, axis.filters, options, parameters, timeMeasureScanBounds(ds, query, axis),
+  );
   const timeAxis = buildTimeMeasureAxisSql(parameters, source, axis, shifts);
   const shiftedInputs = new Map<string, ReturnType<typeof shiftBucketCtes>>();
   [...needed].forEach((name, index) => {

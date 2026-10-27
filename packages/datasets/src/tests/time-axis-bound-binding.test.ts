@@ -57,7 +57,9 @@ describe('time-measure axis bounds are bound, not inlined', () => {
       expect(statement.sql).not.toContain(LOWER);
       expect(statement.sql).not.toContain(UPPER);
       expect(statement.sql).toContain('parseDateTime64BestEffort(?, 9,');
-      expect(statement.parameters).toEqual([LOWER, UPPER]);
+      // The axis bounds follow the source scan's own bound instants, also bound.
+      expect(statement.parameters.slice(-2)).toEqual([LOWER, UPPER]);
+      expect(statement.parameters.slice(0, -2).every(value => typeof value === 'string' && !statement.sql.includes(value))).toBe(true);
       // ClickHouse executes the same statement it did when bounds were inlined.
       expect(substituteParameters(statement.sql, statement.parameters))
         .toContain(`parseDateTime64BestEffort('${LOWER}', 9,`);
@@ -67,7 +69,7 @@ describe('time-measure axis bounds are bound, not inlined', () => {
     expect(calls).toHaveLength(2);
     for (const call of calls) {
       expect(call.sql).not.toContain(LOWER);
-      expect(call.params).toEqual([LOWER, UPPER]);
+      expect(call.params.slice(-2)).toEqual([LOWER, UPPER]);
     }
   });
 
@@ -78,6 +80,6 @@ describe('time-measure axis bounds are bound, not inlined', () => {
       filters: [{ field: 'time', operator: 'gt', value: LOWER }, { field: 'time', operator: 'lt', value: UPPER }],
     } as never);
     expect(compilation.sql).not.toContain(LOWER);
-    expect(compilation.parameters).toEqual([LOWER, UPPER]);
+    expect(compilation.parameters.slice(-2)).toEqual([LOWER, UPPER]);
   });
 });

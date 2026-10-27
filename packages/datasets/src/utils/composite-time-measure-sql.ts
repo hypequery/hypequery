@@ -5,6 +5,7 @@ import type { TimeMeasureAxis } from './time-measure-axis.js';
 import { isDerivedMeasure, isWindowMeasure } from './dataset-measures.js';
 import { buildMeasureEvaluationGraph, evaluationFormula } from './measure-evaluation-graph.js';
 import { buildTimeMeasureSourceSql } from './time-measure-source-sql.js';
+import { timeMeasureScanBounds } from './time-measure-scan-bounds.js';
 import { buildTimeMeasureAxisSql } from './time-measure-axis-sql.js';
 import { timeMeasureContextCtes, timeMeasureContextGuard } from './time-measure-context-sql.js';
 import { timeMeasureLeafSql } from './time-measure-leaf-sql.js';
@@ -25,7 +26,9 @@ export function buildCompositeTimeMeasureSql(
   const graph = buildMeasureEvaluationGraph(queryMeasureDefinitions(ds, query.measures ?? []), query.measures ?? []);
   const leaves = graph.nodes.filter(node => !isDerivedMeasure(node.definition));
   const baseNames = new Set(leaves.map(node => isWindowMeasure(node.definition) ? node.definition.measure : node.name));
-  const source = buildTimeMeasureSourceSql(ds, query, baseNames, axis.filters, options, parameters);
+  const source = buildTimeMeasureSourceSql(
+    ds, query, baseNames, axis.filters, options, parameters, timeMeasureScanBounds(ds, query, axis),
+  );
   const timeAxis = buildTimeMeasureAxisSql(parameters, source, axis);
   const contexts = timeMeasureContextCtes(dialect, graph.contexts, axis);
   const inputs = leaves.map(node => {

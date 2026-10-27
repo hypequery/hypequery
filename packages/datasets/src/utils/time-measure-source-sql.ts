@@ -13,6 +13,7 @@ import { measureToAggregationSpec } from './dataset-normalization.js';
 import { applyFilteredAggregationExpression } from './filtered-aggregation-sql.js';
 import { assertNoRawSqlUnderJoins } from './sql-under-joins.js';
 import type { StatementParameters } from './statement-parameters.js';
+import type { TimeMeasureScanBounds } from './time-measure-scan-bounds.js';
 
 export interface TimeMeasureSqlDimension {
   name: string;
@@ -43,6 +44,7 @@ export function buildTimeMeasureSourceSql(
   filters: readonly MetricFilter[],
   options: DatasetQueryExecutionOptions,
   statement: StatementParameters,
+  scanBounds?: TimeMeasureScanBounds,
 ): TimeMeasureSqlSource {
   const { dialect } = statement;
   const bases: TimeMeasureSqlBase[] = [];
@@ -87,6 +89,19 @@ export function buildTimeMeasureSourceSql(
     const predicates = queryTimeFilter(dialect, ds, filter, resolveFilterField(ds, filter.field, joinCtx, dialect), query.timezone);
     for (const predicate of predicates) {
       raw = applyQueryTimePredicate(raw, predicate);
+    }
+  }
+  // Skip rows no output bucket can read; the planned SQL still filters exactly.
+  if (scanBounds) {
+    const time = resolveDimensionExpression(ds, ds.timeKey!, joinCtx, dialect);
+    const bounds: MetricFilter[] = [
+      ...(scanBounds.lower ? [{ field: ds.timeKey!, operator: 'gte' as const, value: scanBounds.lower }] : []),
+      { field: ds.timeKey!, operator: 'lt' as const, value: scanBounds.upper },
+    ];
+    for (const bound of bounds) {
+      for (const predicate of queryTimeFilter(dialect, ds, bound, time, query.timezone, { field: 'dimension' })) {
+        raw = applyQueryTimePredicate(raw, predicate);
+      }
     }
   }
   for (const filter of segmentFilters(ds, query.segments)) {

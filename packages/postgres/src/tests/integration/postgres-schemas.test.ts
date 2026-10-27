@@ -110,6 +110,22 @@ describe.skipIf(!url)('Postgres schemas', () => {
     })).toEqual([{ revenue }]);
   });
 
+  it('bounds the rows a time-measure query scans, through the time-key index', async () => {
+    const compilation = client.compileDataset(events('createdAt'), {
+      by: 'day', measures: ['rolling'], timezone: 'America/New_York',
+      filters: [{ field: 'at', operator: 'between', value: ['2026-01-01', '2026-01-03'] }],
+    } as never, tenant as never);
+    const connection = await pool.connect();
+    try {
+      await connection.query('SET enable_seqscan = off');
+      const { rows } = await connection.query(`EXPLAIN ${compilation.sql}`, [...compilation.parameters]);
+      expect(rows.map(row => row['QUERY PLAN']).join('\n')).toMatch(/Index Cond: .*"createdAt" >= .*"createdAt" < /s);
+    } finally {
+      await connection.query('RESET enable_seqscan');
+      connection.release();
+    }
+  });
+
   it('compares the bare time column, so its index applies', async () => {
     const compilation = client.compileDataset(events('createdAt'), {
       measures: ['revenue'], timezone: 'America/New_York',
