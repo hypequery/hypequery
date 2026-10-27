@@ -182,3 +182,25 @@ def test_live_django_example(seeded: str) -> None:
             assert mounted.json()["data"][0]["revenue"] == "90"
         finally:
             close_clients()
+
+
+@pytest.mark.parametrize("name", ["examples.dataframes", "examples.sqlalchemy_engine"])
+def test_standalone_examples_do_not_need_fastapi(name: str) -> None:
+    import subprocess
+    import sys
+    import textwrap
+
+    source = f"""
+        import sys
+
+        sys.modules["fastapi"] = None
+        import {name}
+        """
+    result = subprocess.run(
+        [sys.executable, "-c", textwrap.dedent(source)],
+        capture_output=True,
+        text=True,
+        check=False,
+        cwd=Path(__file__).parents[1],
+    )
+    assert result.returncode == 0, result.stderr
