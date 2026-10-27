@@ -247,7 +247,7 @@ pip install "hypequery[pandas]"   # or [polars], [arrow]
 | `clickhouse-async` | clickhouse-connect with aiohttp | `create_async_clickhouse_executor`; also covers everything `clickhouse` does |
 | `fastapi` | FastAPI, Starlette, uvicorn | `hypequery.serve` and `hypequery dev` |
 | `django` | Django, clickhouse-connect | `hypequery.contrib.django` |
-| `flask` | Flask, a2wsgi, clickhouse-connect | `hypequery.contrib.flask` |
+| `flask` | Flask, clickhouse-connect | `hypequery.contrib.flask` |
 | `pandas` / `polars` / `arrow` | that library | `result.to_pandas()` / `to_polars()` / `to_arrow()` |
 
 Combine them as needed, for example `"hypequery[fastapi,clickhouse-async]"`.
@@ -509,22 +509,6 @@ paths, URLs, keys) without connecting. Outside a request, `get_client()` and
 `get_async_client()` return the process's clients. Other keys:
 `READONLY_POLICY`, `TIMEZONE`, `MAX_CONCURRENT`.
 
-To serve hypequery's HTTP endpoints from the same ASGI process:
-
-```python
-# asgi.py
-from django.core.asgi import get_asgi_application
-from hypequery.contrib.django.asgi import mount_serve
-
-django_app = get_asgi_application()
-from analytics.serve import serve_app  # a hypequery.serve.create_app(...) app
-
-application = mount_serve(django_app, serve_app, prefix="/analytics")
-```
-
-Serve keeps its own authentication: it reads a bearer token or API key from a
-header, never Django's session cookie.
-
 ### Flask
 
 ```python
@@ -550,7 +534,6 @@ def create_app():
         result = hq.client.execute("orders", {"measures": ["revenue"]})
         return {"data": list(result.data)}
 
-    hq.mount_serve(app, serve_app, prefix="/analytics")  # optional
     return app
 ```
 
@@ -560,6 +543,15 @@ environment), `HYPEQUERY_REGISTRY`, `HYPEQUERY_READONLY_POLICY`,
 `HYPEQUERY_TIMEZONE`, `HYPEQUERY_MAX_CONCURRENT`. `init_app` validates them
 without connecting. The client is not closed in `teardown_appcontext`, which
 runs after every request; it lives for the process.
+
+### hypequery's HTTP endpoints
+
+These integrations run queries inside your Django views and Flask routes. The
+generated React hooks and the MCP bridge instead call hypequery's own HTTP
+endpoints (`hypequery.serve`), which today run as a separate FastAPI app; see
+"Serving with FastAPI". Native Django and Flask adapters for those endpoints,
+using your framework's login, are planned (decision 0023 in
+`specs/security-protocol/decisions`).
 
 ### Async views and shutdown
 
