@@ -7,7 +7,7 @@ import os
 
 import pytest
 
-from contrib_doubles import REGISTRY, Built, install_executors
+from contrib_doubles import REGISTRY, Built, install_executors, query
 from hypequery.contrib.utils.process_clients import ClientConfig, ProcessClients
 from hypequery.contrib.utils.tenant_value import bind_tenant_value
 from hypequery.datasets import DatasetClient, TenantDatasetClient
@@ -34,6 +34,10 @@ def test_sync_client_is_built_once_on_first_use(built: Built) -> None:
     first = clients.sync()
     assert clients.sync() is first
     assert first.default_timezone == "Europe/Paris"
+    # Building the client does not connect; the first query does.
+    assert built.sync == []
+    query(first)
+    query(first)
     assert len(built.sync) == 1
     assert built.sync[0].connection.host == "ch"
     clients.close()
@@ -57,8 +61,12 @@ def test_a_forked_child_rebuilds_without_closing_the_parents(
 ) -> None:
     clients = ProcessClients(lambda: CONFIG)
     parent = clients.sync()
+    query(parent)
     monkeypatch.setattr(os, "getpid", lambda: -1)
-    assert clients.sync() is not parent
+    child = clients.sync()
+    assert child is not parent
+    query(child)
+    assert len(built.sync) == 2
     assert built.sync[0].closed == 0
     monkeypatch.undo()
     # Back in "the parent", close() belongs to whichever pid owns the holder now.
@@ -117,3 +125,76 @@ def test_tenant_values_bind_or_pass_through(built: Built) -> None:
     with pytest.raises(TypeError, match="tenant id"):
         bind_tenant_value(client, 42)  # type: ignore[call-overload]
     assert isinstance(client, DatasetClient)
+
+
+def test_a_closed_lazy_client_refuses_to_reconnect(built: Built) -> None:
+    clients = ProcessClients(lambda: CONFIG)
+    client = clients.sync()
+    clients.close()
+    with pytest.raises(RuntimeError, match="closed"):
+        query(client)
+    assert built.sync == []
+
+
+class _Executor:
+    def __init__(self) -> None:
+        self.closed = 0
+
+    def execute(self, compiled: object) -> str:
+        return "rows"
+
+    def close(self) -> None:
+        self.closed += 1
+
+
+def test_overlapping_first_queries_connect_once() -> None:
+    import threading
+
+    from hypequery.contrib.utils.lazy_executor import LazyExecutor
+
+    started = threading.Event()
+    release = threading.Event()
+    connects: list[_Executor] = []
+
+    def connect() -> _Executor:
+        started.set()
+        release.wait(timeout=5)  # hold the first connect so the others overlap it
+        connects.append(_Executor())
+        return connects[-1]
+
+    lazy = LazyExecutor(connect)  # type: ignore[arg-type]
+    results: list[object] = []
+    threads = [
+        threading.Thread(target=lambda: results.append(lazy.execute(object())))  # type: ignore[arg-type]
+        for _ in range(8)
+    ]
+    for thread in threads:
+        thread.start()
+    assert started.wait(timeout=5)
+    release.set()
+    for thread in threads:
+        thread.join(timeout=5)
+    assert len(connects) == 1
+    assert results == ["rows"] * 8
+    assert lazy.connected
+
+
+def test_a_failed_connect_is_retried_by_the_next_query() -> None:
+    from hypequery.contrib.utils.lazy_executor import LazyExecutor
+
+    attempts: list[int] = []
+
+    def connect() -> _Executor:
+        attempts.append(1)
+        if len(attempts) == 1:
+            raise ConnectionError("ClickHouse is down")
+        return _Executor()
+
+    lazy = LazyExecutor(connect)  # type: ignore[arg-type]
+    with pytest.raises(ConnectionError):
+        lazy.execute(object())  # type: ignore[arg-type]
+    assert not lazy.connected
+    assert lazy.execute(object()) == "rows"  # type: ignore[arg-type,comparison-overlap]
+    assert len(attempts) == 2
+    lazy.close()
+    lazy.close()

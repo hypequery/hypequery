@@ -514,7 +514,9 @@ returns. With no tenant it is the unscoped client, and datasets with a
 async client, so `await` its calls. There, `TENANT` runs through `sync_to_async` on
 the first query, so it may use the ORM just as in sync views. `manage.py check` validates `HYPEQUERY` (bad import
 paths, URLs, keys) without connecting. Outside a request, `get_client()` and
-`get_async_client()` return the process's clients. Other keys:
+`get_async_client()` return the process's clients. `get_client()` does not
+connect until its first query, so modules can hold it at import time and the
+project starts even with ClickHouse down. Other keys:
 `READONLY_POLICY`, `TIMEZONE`, `MAX_CONCURRENT`.
 
 ### Flask
@@ -550,7 +552,15 @@ routes use `hq.async_client`. Config keys: `HYPEQUERY_URL` (else the
 environment), `HYPEQUERY_REGISTRY`, `HYPEQUERY_READONLY_POLICY`,
 `HYPEQUERY_TIMEZONE`, `HYPEQUERY_MAX_CONCURRENT`. `init_app` validates them
 without connecting. The client is not closed in `teardown_appcontext`, which
-runs after every request; it lives for the process.
+runs after every request; it lives for the process, and connects on its first
+query. Outside a request (CLI commands, background jobs, setup code in
+`create_app`), `hq.client_for(app)` returns the app's client with no app context
+and without connecting.
+
+A decorator on an `async def` route must itself be async-aware. A plain sync
+wrapper (a hand-written `login_required`, say) returns the route's coroutine
+unawaited, and Flask answers 500. Check `inspect.iscoroutinefunction(view)` and
+wrap with an `async def`, as Flask's own `ensure_sync` expects.
 
 ### hypequery's HTTP endpoints
 
