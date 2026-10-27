@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import shlex
 
 from ..utils.connection_scaffold import export_lines, replace_env_block
 from .datasets import GeneratedDatasets
@@ -92,11 +93,15 @@ app = create_app(
         part
         for part in (
             "hypequery generate datasets",
-            f"--tables {generated.selection['tables']}" if "tables" in generated.selection else "",
-            f"--exclude-tables {generated.selection['excludeTables']}"
+            f"--tables {shlex.quote(generated.selection['tables'])}"
+            if "tables" in generated.selection
+            else "",
+            f"--exclude-tables {shlex.quote(generated.selection['excludeTables'])}"
             if "excludeTables" in generated.selection
             else "",
-            f"--tenant-column {generated.tenant_column}" if generated.tenant_column else "",
+            f"--tenant-column {shlex.quote(generated.tenant_column)}"
+            if generated.tenant_column
+            else "",
         )
         if part
     )

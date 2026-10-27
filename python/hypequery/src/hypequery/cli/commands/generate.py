@@ -27,7 +27,9 @@ def run(options: GenerateDatasetsOptions) -> None:
     current = output.read()
     tables, exclude_tables = options.tables, options.exclude_tables
     if tables is None and exclude_tables is None and not options.all_tables:
-        recorded = recorded_selection(output.path.parent)
+        # The project's schema.json sits beside the default datasets.py; with
+        # --output elsewhere, the project is the directory the command runs in.
+        recorded = recorded_selection(output.path.parent) or recorded_selection(Path.cwd())
         if recorded is not None:
             tables, exclude_tables = recorded.tables, recorded.exclude_tables
             described = ", ".join(
