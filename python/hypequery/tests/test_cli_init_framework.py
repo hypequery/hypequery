@@ -107,7 +107,13 @@ def test_flask_scaffold_runs_and_refuses_tenant_data_until_wired(
     built = install_executors(monkeypatch)
     module = _load_flask_app(project, monkeypatch)
     http = module.app.test_client()
-    # orders has a tenant_key and the stub returns None: refused, not every tenant.
+    # Until signed_in is wired, nothing is served to anyone.
+    assert http.get("/analytics/lookups").status_code == 401
+    assert http.get("/analytics/orders").status_code == 401
+    assert built.sync == []
+    # Signed in, but the tenant stub still returns None: tenant-keyed data is
+    # refused rather than read for every tenant; tenant-free data is served.
+    monkeypatch.setattr(module, "signed_in", lambda: True)
     refused = http.get("/analytics/orders")
     assert (refused.status_code, refused.json) == (403, {"error": "tenant-required"})
     assert http.get("/analytics/lookups").status_code == 200

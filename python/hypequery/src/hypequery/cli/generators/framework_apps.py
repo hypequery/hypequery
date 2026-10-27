@@ -117,6 +117,18 @@ registry = create_dataset_registry(*datasets.values())
 hq = Hypequery()
 
 
+def signed_in() -> bool:
+    """Whether the request comes from a signed-in user.
+
+    False until this reads your login, e.g. Flask-Login's
+    ``current_user.is_authenticated``, so every analytics route answers 401
+    rather than serving data to anonymous callers. Tenant scoping is not a
+    login check: a dataset without a tenant_key answers anyone it reaches.
+    """
+
+    return False
+
+
 @hq.tenant_loader
 def current_tenant() -> str | None:
     """The tenant to scope this request to, or None.
@@ -137,6 +149,8 @@ def create_app() -> Flask:
     def dataset_summary(dataset: str) -> Any:
         """Every base measure of *dataset*, scoped to the request's tenant."""
 
+        if not signed_in():
+            return {{"error": "sign in first"}}, 401
         if dataset not in datasets:
             return {{"error": "unknown dataset"}}, 404
         try:
@@ -181,6 +195,7 @@ flask --app app run --port 5001
 
 Port 5001, because macOS's AirPlay receiver holds 5000. Open
 <http://127.0.0.1:5001/analytics/{first_dataset}>. Routes use `hq.client`, already
-scoped to the tenant `current_tenant` returns. It returns `None` until you wire it
-to your login, and tenant-scoped datasets refuse to run until then.
+scoped to the tenant `current_tenant` returns. Wire `signed_in` and `current_tenant`
+to your login first: until then every route answers 401, and tenant-scoped datasets
+also refuse to run without a tenant.
 """
