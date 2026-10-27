@@ -8,6 +8,7 @@ both for recording doubles so no test needs a ClickHouse server.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import Any
 
 import pytest
 
@@ -69,6 +70,12 @@ class Built:
             for compiled in executor.seen
             for value in compiled.parameter_values().values()
         ]
+
+
+def query(client: Any) -> None:
+    """Run one tenant-free query, which is what makes a lazy client connect."""
+
+    client.execute("open_stats", {"dimensions": ["status"]})
 
 
 def install_executors(monkeypatch: pytest.MonkeyPatch) -> Built:

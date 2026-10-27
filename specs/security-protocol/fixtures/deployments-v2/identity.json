@@ -28,5 +28,10 @@
     "id": "resolved-rows-versioned-collapsing",
     "canonical": "{\"datasets\":[{\"dimensions\":[],\"filters\":[],\"measures\":[],\"name\":\"users\",\"relationships\":[],\"rowResolution\":{\"engine\":\"versioned-collapsing\",\"kind\":\"final\",\"signColumn\":\"sign\"},\"source\":\"users\",\"tenant\":{\"kind\":\"not-required\"}}],\"kind\":\"hypequery-deployment\",\"version\":2}",
     "sha256": "d1391f36746a216d6fac7e4350c94bd7dec8dc6298e90033d2f476df1625ac6f"
+  },
+  {
+    "id": "merge-measures",
+    "canonical": "{\"datasets\":[{\"dimensions\":[{\"filterable\":true,\"groupable\":true,\"name\":\"day\",\"source\":{\"column\":\"day\",\"kind\":\"column\"},\"type\":\"timestamp\"}],\"filters\":[],\"measures\":[{\"aggregation\":\"merge\",\"field\":\"users\",\"filters\":[],\"name\":\"active_users\",\"stateFunction\":\"uniq\"},{\"aggregation\":\"merge\",\"field\":\"events\",\"filters\":[],\"name\":\"events\",\"stateFunction\":\"sum\"}],\"name\":\"daily_active_users\",\"relationships\":[],\"source\":\"daily_active_users\",\"tenant\":{\"kind\":\"not-required\"}}],\"kind\":\"hypequery-deployment\",\"version\":2}",
+    "sha256": "525e0df757d4056b1f370ae3666b56fc7ac9e18346506ade77a63b8968ba16da"
   }
 ]

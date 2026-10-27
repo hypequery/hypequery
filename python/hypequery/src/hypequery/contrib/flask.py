@@ -118,18 +118,31 @@ class Hypequery:
         self._tenant_loader = loader
         return loader
 
-    def _state(self) -> _State:
-        state = current_app.extensions.get(_EXTENSION)
+    def _state(self, app: Flask | None = None) -> _State:
+        state = (app if app is not None else current_app).extensions.get(_EXTENSION)
         if not isinstance(state, _State) or state.owner is not self:
             raise RuntimeError("this Hypequery extension is not initialised on the current app")
         return state
+
+    def client_for(self, app: Flask) -> DatasetClient:
+        """*app*'s process-wide client, without an app context.
+
+        For CLI commands, background jobs and setup code in ``create_app``. It
+        does not connect until its first query, so the app starts while
+        ClickHouse is down.
+        """
+
+        return self._state(app).clients.sync()
 
     def _tenant(self) -> TenantValue:
         return self._tenant_loader() if self._tenant_loader is not None else None
 
     @property
     def base_client(self) -> DatasetClient:
-        """The current app's process-wide sync client, not bound to any tenant."""
+        """The current app's process-wide sync client, not bound to any tenant.
+
+        It connects on its first query, not here.
+        """
 
         return self._state().clients.sync()
 

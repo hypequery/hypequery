@@ -40,7 +40,31 @@ AGGREGATIONS = frozenset(
         "percentile",
         "stddev",
         "variance",
+        "merge",
     )
+)
+# RFC 0022: functions whose stored states a `merge` measure finalizes. Only
+# non-parametric functions; the name is interpolated into SQL.
+AGGREGATE_STATE_FUNCTIONS = frozenset(
+    (
+        "uniq",
+        "uniqExact",
+        "uniqCombined",
+        "uniqCombined64",
+        "uniqHLL12",
+        "uniqTheta",
+        "count",
+        "sum",
+        "avg",
+        "min",
+        "max",
+        "any",
+        "anyLast",
+        "groupBitmap",
+    )
+)
+APPROXIMATE_STATE_FUNCTIONS = frozenset(
+    ("uniq", "uniqCombined", "uniqCombined64", "uniqHLL12", "uniqTheta")
 )
 OPERATORS = frozenset(("eq", "neq", "gt", "gte", "lt", "lte", "in", "notIn", "between", "like"))
 GRAINS = frozenset(("day", "week", "month", "quarter", "year"))
