@@ -59,8 +59,13 @@ bearer token. Serve verifies the signature and expiry and never sees a cookie.
   - a POST endpoint, protected by the framework's own CSRF and login;
   - it builds the `Principal` from the same `TENANT` function the views use;
   - it returns `{"token": "...", "expiresAt": "..."}`.
-- React: `createHypequeryClient({ token: () => fetchServeToken() })`. `TokenInput`
-  already accepts an async function, so tokens refresh without new client API.
+- React: `createHypequeryClient({ token: serveToken })`. `TokenInput` already
+  accepts an async function, but the client calls it on every request and does
+  not cache. So the proposal includes a small helper,
+  `createServeTokenProvider({ url, refreshBeforeMs: 30_000 })`. It caches the
+  token until shortly before `expiresAt`, shares one in-flight request between
+  concurrent callers, and drops the cached token on a 401. Without it, every
+  Serve request would first make a token request.
 - MCP: unchanged. It keeps using long-lived API keys from the host's own key
   table, or a token the host issues for it.
 
@@ -68,7 +73,8 @@ bearer token. Serve verifies the signature and expiry and never sees a cookie.
   0009. Works the same in the same process or across hosts, and for TypeScript
   Serve if the format is shared. The CSRF surface stays with the framework that
   already handles it, on a single POST endpoint.
-- Against: one extra request per token lifetime. hypequery owns a small token
+- Against: one extra request per token lifetime, given the caching provider
+  above (one per Serve request without it). hypequery owns a small token
   format (or adopts JWT; see open questions). Tokens can't be revoked before
   `exp`, so the TTL bounds exposure.
 
