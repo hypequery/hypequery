@@ -561,6 +561,15 @@ environment), `HYPEQUERY_REGISTRY`, `HYPEQUERY_READONLY_POLICY`,
 without connecting. The client is not closed in `teardown_appcontext`, which
 runs after every request; it lives for the process.
 
+### Results in your own views versus hypequery's endpoints
+
+A view that returns `result.data` as JSON sends the values the client returns:
+counts as integers, other numbers as floats or decimal strings. hypequery's
+HTTP endpoints, the generated React client and MCP send every measure as a
+string, matching TypeScript, so a count of `41321` arrives as `"41321"` there.
+Pick one shape per API, and convert with `result.to_pandas()` (or your own
+serializer) rather than relying on the in-process types matching the wire.
+
 ### Async views and shutdown
 
 Neither framework tells an application that the process is stopping, so an
@@ -1706,6 +1715,15 @@ with `error.type="VALIDATION_ERROR"`, `error.details.code="CLIENT_SCHEMA_CHANGED
 and a fixed safe message; no query is executed. Current limits still apply when
 the schema hash matches. Strict routes validate typed filters, selections,
 combined budgets and metadata before planning, and cannot enable SQL diagnostics.
+
+Two hashes are easy to confuse when debugging a 409. Each endpoint's
+`schemaHash` is what requests pin, and it is the same in the build export
+(`export client-contract`) and in the live, caller-scoped view at the discovery
+route. The whole document's `contentHash` differs between the two: the build
+view (`"view": "build"`) lists every endpoint, the live one (`"view":
+"authorized"`) only those the caller may use. The generated client's
+`clientContractHash` is the build `contentHash`; compare per-endpoint
+`schemaHash` values, not `contentHash`, to find a stale endpoint.
 Live caller-scoped discovery and frontend/MCP integration follow separately.
 
 ### Caller-scoped client discovery
