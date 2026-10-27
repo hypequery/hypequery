@@ -26,7 +26,8 @@ import { resolveCorsConfig } from "../cors.js";
 import { createExecuteQuery } from "./execute-query.js";
 import { createAPImethods } from "./api-builder.js";
 import { createCacheObservability, detectBuilderCache } from "../cache-observability.js";
-import { createDatasetClient, serializeSemanticContract, toQueryBuilderFactory } from "@hypequery/datasets";
+import { assertDatasetsSupported, createDatasetClient, serializeSemanticContract, toQueryBuilderFactory } from "@hypequery/datasets";
+import { resolveDatasetEntry } from "../semantic/datasets/utils/dataset-entry.js";
 import {
   createMetricEndpoint,
   createDatasetEndpoint,
@@ -264,6 +265,12 @@ export const createAPI = <
         'or provide it via context as `context: () => ({ db: queryBuilder })`.',
       );
     }
+
+    // Fail at setup, not on the first query, when the engine cannot run a dataset.
+    assertDatasetsSupported(
+      Object.values(datasetEntries).map(entry => resolveDatasetEntry(entry).dataset),
+      builderFactory,
+    );
 
     for (const [name, entry] of Object.entries(datasetEntries)) {
       assertSemanticKeyAvailable(queryEntries as Record<string, unknown>, `dataset:${name}`, "dataset");

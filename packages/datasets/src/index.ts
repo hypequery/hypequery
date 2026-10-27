@@ -222,6 +222,7 @@ export type {
 
 // Dataset client
 export { createDatasetClient } from './executor.js';
+export { assertDatasetsSupported, datasetQueryBuilderErrors } from './utils/dataset-engine-support.js';
 export type { DatasetSqlDialect } from './dataset-sql-dialect.js';
 export type { DatasetClient, CreateDatasetClientOptions } from './executor.js';
 
