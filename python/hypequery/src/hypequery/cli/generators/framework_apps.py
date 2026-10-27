@@ -171,8 +171,7 @@ python manage.py runserver
 ```
 
 Signed in, open `/analytics/{first_dataset}`. Views use `request.analytics`, a client
-already scoped to the user's tenant; async views get the async client. See the
-Django guide in the hypequery docs for mounting hypequery's HTTP endpoints too.
+already scoped to the user's tenant; async views get the async client.
 """
     return f"""## Run with Flask
 
