@@ -57,6 +57,8 @@ With `final: true`:
 
 `FINAL` makes queries do more work at read time. ClickHouse keeps it fast when the partition key separates keys and `do_not_merge_across_partitions_select_final` is enabled.
 
+Queries that read `FINAL` send `optimize_move_to_prewhere_if_final = 0`, the server default, so no filter can run before `FINAL` and match an older version of a row. A `readonly = 1` connection accepts it unless its profile turns that option on, in which case these queries are refused rather than answered from old rows.
+
 To publish a versioned dataset to a deployment contract (hypequery Cloud, MCP), name the engine with `rowResolution` instead of `final: true`. It reads the same way, and also keeps only current rows: not deleted, or positive in a collapsing table.
 
 ```ts

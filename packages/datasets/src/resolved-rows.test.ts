@@ -11,6 +11,7 @@ import { rehydrateProtocolDatasets } from './protocol-rehydrate.js';
 import { serializeSemanticContract } from './contract.js';
 import { buildDatasetQuerySignature } from './cache/query-signature.js';
 import { buildDatasetPlan } from './semantic-planner.js';
+import { buildDatasetQueryBuilder } from './utils/build-dataset-query-builder.js';
 
 const policy = { kind: 'final', engine: 'replacing', deletedColumn: 'is_deleted' } as const;
 const Users = dataset('users', {
@@ -72,6 +73,58 @@ describe('resolved row dataset sources', () => {
     expect(client.compileDataset(Collapsing, { measures: ['rows'] })).toMatchObject({
       sql: 'SELECT COUNT(id) AS `rows` FROM collapsing FINAL WHERE collapsing.sign = ?',
       parameters: [1],
+    });
+  });
+
+  describe('pins optimize_move_to_prewhere_if_final = 0 on every path that reads FINAL', () => {
+    const PIN = ' SETTINGS optimize_move_to_prewhere_if_final = 0';
+    const Plain = dataset('orders', { source: 'orders',
+      dimensions: { id: dimension.number(), user_id: dimension.number(), at: dimension.timestamp() },
+      timeKey: 'at', measures: { rows: measure.count('id') },
+      relationships: { user: belongsTo(() => Users, { from: 'user_id', to: 'id' }) },
+    });
+    // Runs nothing: records what reaches ClickHouse as SQL, where builder settings can't travel.
+    const recording = () => {
+      const factory = createQueryBuilder({ host: 'http://127.0.0.1:8123' });
+      const sent: string[] = [];
+      const capture = Object.assign(Object.create(Object.getPrototypeOf(factory)), factory, {
+        rawQuery: async (sql: string) => { sent.push(sql); return []; },
+      });
+      return { client: createDatasetClient({ queryBuilder: capture }), sent };
+    };
+    it('on builder queries over a resolved dataset or a resolved join target', () => {
+      const factory = createQueryBuilder({ host: 'http://127.0.0.1:8123' });
+      const settings = (ds: typeof Users | typeof Plain, query: object) =>
+        (buildDatasetQueryBuilder(ds, query, { builderFactory: factory } as never) as unknown as {
+          getQueryNode(): { settings?: Record<string, unknown> };
+        }).getQueryNode().settings;
+      expect(settings(Users, { measures: ['total'] })).toMatchObject({ optimize_move_to_prewhere_if_final: 0 });
+      expect(settings(Plain, { dimensions: ['user.amount'], measures: ['rows'] })).toMatchObject({ optimize_move_to_prewhere_if_final: 0 });
+      const Raw = dataset('raw', { source: 'raw', dimensions: { id: dimension.number() }, measures: { rows: measure.count('id') } });
+      expect(settings(Raw, { measures: ['rows'] })?.optimize_move_to_prewhere_if_final).toBeUndefined();
+    });
+    it('in the SQL of time, derived and derived-metric queries run through rawQuery', async () => {
+      const time = recording();
+      const Running = dataset('users', { source: 'analytics.users', rowResolution: policy, timeKey: 'at',
+        dimensions: Users.dimensions, measures: { total: measure.sum('amount'), running: measure.cumulative('total') } });
+      await time.client.execute(Running, { measures: ['running'], by: 'day', filters: [{ field: 'at', operator: 'between', value: ['2026-03-01T00:00:00Z', '2026-03-02T23:59:59Z'] }] });
+      expect(time.sent.length).toBeGreaterThanOrEqual(2);
+      for (const sql of time.sent) expect(sql.endsWith(PIN)).toBe(true);
+      const derived = recording();
+      const total = Users.metric('total', { measure: 'total' });
+      const rows = Users.metric('rows', { measure: 'count' });
+      const mean = Users.metric('mean', { uses: { total, rows }, formula: ({ total, rows }) => divide(total, rows) });
+      await derived.client.execute(mean, {});
+      expect(derived.sent).toHaveLength(1);
+      expect(derived.sent[0]!.endsWith(PIN)).toBe(true);
+      // A plain base whose join target is resolved gets the pin too.
+      const joined = recording();
+      const PlainTimed = dataset('orders', { source: 'orders', timeKey: 'at',
+        dimensions: Plain.dimensions, measures: { rows: measure.count('id'), running: measure.cumulative('rows') },
+        relationships: { user: belongsTo(() => Users, { from: 'user_id', to: 'id' }) } });
+      await joined.client.execute(PlainTimed, { dimensions: ['user.amount'], measures: ['running'], by: 'day', filters: [{ field: 'at', operator: 'between', value: ['2026-03-01T00:00:00Z', '2026-03-02T23:59:59Z'] }] });
+      expect(joined.sent.length).toBeGreaterThanOrEqual(2);
+      for (const sql of joined.sent) expect(sql.endsWith(PIN)).toBe(true);
     });
   });
 });

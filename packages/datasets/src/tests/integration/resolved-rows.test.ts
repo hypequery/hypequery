@@ -5,6 +5,7 @@ import { dimension } from '../../field.js';
 import { measure } from '../../measure.js';
 import { createDatasetClient } from '../../executor.js';
 import { belongsTo } from '../../relationships.js';
+import { divide } from '../../formulas.js';
 import { checkRelationships } from '../../relationship-check.js';
 import { buildProtocolDeploymentContract } from '../../protocol-deployment-adapter.js';
 import { rehydrateProtocolDatasets } from '../../protocol-rehydrate.js';
@@ -83,6 +84,14 @@ describe('resolved rows match independent FINAL totals on ClickHouse', () => {
     const roundtrip = rehydrateProtocolDatasets(buildProtocolDeploymentContract([Portable]).datasets).versions;
     const result = await client.execute(roundtrip, { measures: ['total'] }, context);
     expect(Number(result.data[0].total)).toBe(37);
+  });
+  it('runs derived metrics over current rows, with the safety setting in their SQL', async () => {
+    const total = Versions.metric('total', { measure: 'total' });
+    const rows = Versions.metric('rows', { measure: 'rows' });
+    const mean = Versions.metric('mean', { uses: { total, rows }, formula: ({ total, rows }) => divide(total, rows) });
+    const result = await client.execute(mean, {}, context);
+    expect(Number(result.data[0].mean)).toBe(18.5);
+    expect(result.meta.sql).toMatch(/SETTINGS optimize_move_to_prewhere_if_final = 0$/);
   });
   it.each([['resolved_rows_collapsing', 'collapsing'], ['resolved_rows_versioned_collapsing', 'versioned-collapsing']] as const)('resolves signs in %s', async (table, engine) => {
     const Collapsed = dataset('collapsed', { source: table, rowResolution: { kind: 'final', engine, signColumn: 'sign' }, dimensions: { id: dimension.number(), amount: dimension.number() }, measures: { total: measure.sum('amount'), rows: measure.count('id') } });

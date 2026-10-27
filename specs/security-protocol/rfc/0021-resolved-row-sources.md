@@ -45,10 +45,16 @@ and unmatched cancel rows from counting. Measure, dimension, tenant, row-scope,
 segment and user filters apply to the resolved rows. Relationship targets read
 `FINAL` with the same filter inside their match projection, before the join and
 before uniqueness checks. Derived/window/shift scans share the source path.
-ClickHouse applies `WHERE` after `FINAL` unless a profile enables
-`optimize_move_to_prewhere_if_final` (off by default), so no per-query settings
-are sent and `readonly=1` profiles can run these queries. The planner never
-retries with raw rows.
+ClickHouse applies `WHERE` after `FINAL` unless `optimize_move_to_prewhere_if_final`
+is enabled, which would let a filter match an older version. Every query that
+reads `FINAL` (on its own source or a relationship target) therefore sends
+`optimize_move_to_prewhere_if_final = 0`: as a builder setting, and in the SQL's
+own `SETTINGS` clause for statements run as raw SQL (time, derived-dataset and
+derived-metric queries). This is the server default. A `readonly=2` user, or a
+`readonly=1` user whose profile leaves the option at its default, accepts it;
+a `readonly=1` profile that enables the option refuses these queries. Operators
+must keep the option off, or allow the setting, for resolved-row datasets. The
+planner never retries with raw rows.
 
 A code-first dataset may declare `final: true` without naming the engine; it
 cannot be published to a deployment contract until it declares `rowResolution`.

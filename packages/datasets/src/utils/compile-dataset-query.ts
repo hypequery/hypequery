@@ -1,3 +1,4 @@
+import { withFinalSafety } from './dataset-source.js';
 import { queryMeasureDefinitions } from './relationship-measures.js';
 import type { DatasetCompilation, DatasetCompilationDescription, DatasetCompiledStatement } from '../dataset-compilation.js';
 import type { DatasetQueryExecutionOptions } from '../dataset-query.js';
@@ -42,8 +43,8 @@ export function prepareDatasetQuery(
   if (selectedTimeMeasures(dataset, query).size) {
     plan = 'time';
     const planned = buildTimeMeasureDatasetSql(dataset, query, executionOptions);
-    const main = renderStatement(planned.statement);
-    const preflight = renderStatement(planned.preflight);
+    const main = withFinalSafety(dataset, renderStatement(planned.statement));
+    const preflight = withFinalSafety(dataset, renderStatement(planned.preflight));
     statement = main;
     preflightStatements.push(preflight);
     execute = async () => {
@@ -52,7 +53,10 @@ export function prepareDatasetQuery(
     };
   } else if (needsOuterDatasetQuery(dataset, query)) {
     plan = hasSelectedDerivedMeasure(dataset, query) ? 'derived' : 'aggregate';
-    statement = renderStatement(buildDerivedDatasetSql(dataset, query, executionOptions, buildDatasetQueryBuilder));
+    statement = withFinalSafety(
+      dataset,
+      renderStatement(buildDerivedDatasetSql(dataset, query, executionOptions, buildDatasetQueryBuilder)),
+    );
     execute = () => options.builderFactory.rawQuery(statement.sql, statement.parameters, { abortSignal });
   } else {
     plan = 'aggregate';

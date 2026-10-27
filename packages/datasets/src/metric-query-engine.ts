@@ -1,4 +1,5 @@
 /** Metric validation, compilation orchestration and execution. */
+import { withFinalSafety } from './utils/dataset-source.js';
 import type { MetricRef, GrainedMetricRef, MetricQuery, MetricResult, ExecutionContext } from './types.js';
 import type { QueryBuilderFactoryLike, QueryBuilderFactoryInput } from './query-builder-protocol.js';
 import { toQueryBuilderFactory } from './query-builder-protocol.js';
@@ -131,7 +132,10 @@ export class MetricQueryEngine {
 
     if (spec.__type === 'derived_metric_spec') {
       // Derived metrics: build CTE via builder, outer query via string, execute via rawQuery
-      const { sql, parameters: params } = renderStatement(buildDerivedMetricSql(ref, spec, buildQuery, grain, activeBuilderFactory, context));
+      const { sql, parameters: params } = withFinalSafety(
+        ref.dataset,
+        renderStatement(buildDerivedMetricSql(ref, spec, buildQuery, grain, activeBuilderFactory, context)),
+      );
       const rows = await activeBuilderFactory.rawQuery<T>(sql, params, {
         abortSignal: context?.abortSignal,
       });

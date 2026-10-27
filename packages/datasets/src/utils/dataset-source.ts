@@ -20,15 +20,42 @@ export function datasetSourceBuilder(
       'Reading it without FINAL would count every unmerged row version, so the query is refused.',
     );
   }
-  // A filter moved to PREWHERE runs before FINAL and can match an older version
-  // of a row. The default already forbids that; pinning it also covers profiles
-  // that enable it. readonly = 1 accepts a setting equal to the profile's, and
-  // refuses it exactly where the profile is unsafe, so the query fails closed.
   const resolved = qb.final();
-  const safe = resolved.settings ? resolved.settings({ optimize_move_to_prewhere_if_final: 0 }) : resolved;
+  const safe = resolved.settings ? resolved.settings(FINAL_SAFETY_SETTINGS) : resolved;
   const current = currentRowPredicate(ds);
   // Qualified like every base column, so it stays unambiguous once joins are added.
   return current ? safe.where(`${ds.source}.${current.column}`, 'eq', current.value) : safe;
+}
+
+/**
+ * A filter moved to PREWHERE runs before `FINAL` and can match an older version
+ * of a row. The server default forbids that; pinning it also covers profiles
+ * that enable it. `readonly = 1` accepts a setting equal to the profile's and
+ * refuses it exactly where the profile is unsafe, so the query fails closed.
+ */
+export const FINAL_SAFETY_SETTINGS = { optimize_move_to_prewhere_if_final: 0 } as const;
+
+/** Whether a query over this dataset can read a source with `FINAL`: its own, or a join target's. */
+export function datasetReadsFinal(
+  ds: Pick<AnyDatasetInstance, 'final' | 'relationships'>,
+): boolean {
+  if (ds.final) return true;
+  return Object.values(ds.relationships ?? {}).some(
+    relationship => Boolean((relationship.target() as Partial<AnyDatasetInstance> | undefined)?.final),
+  );
+}
+
+/**
+ * The statement with `FINAL_SAFETY_SETTINGS` in its own SQL, for paths that run
+ * rendered SQL (`rawQuery`), where builder settings don't travel.
+ */
+export function withFinalSafety<T extends { sql: string }>(
+  ds: Pick<AnyDatasetInstance, 'final' | 'relationships'>,
+  statement: T,
+): T {
+  if (!datasetReadsFinal(ds)) return statement;
+  const pins = Object.entries(FINAL_SAFETY_SETTINGS).map(([name, value]) => `${name} = ${value}`);
+  return { ...statement, sql: `${statement.sql} SETTINGS ${pins.join(', ')}` };
 }
 
 /**
