@@ -9,6 +9,10 @@ import { createInMemoryBackend } from './in-memory-backend.js';
 import { getDatasetCatalog } from './catalog.js';
 import { serializeSemanticContract } from './contract.js';
 import { buildProtocolDeploymentContract } from './protocol-deployment-adapter.js';
+import { buildProtocolDatasetContract } from './protocol-adapter.js';
+import { rehydrateProtocolDatasets } from './protocol-rehydrate.js';
+import { validateProtocolDeploymentContract } from '@hypequery/protocol';
+import { createQueryBuilder } from '../../clickhouse/src/index.js';
 import { createRenderingBuilderFactory } from './tests/support/sql-equality-harness.js';
 import { AGGREGATE_STATE_FUNCTIONS } from './utils/aggregate-state-functions.js';
 import type { MeasureDefinition } from './types.js';
@@ -147,13 +151,35 @@ describe('merge measure catalogs and publishing', () => {
     expect(contract.datasets.dailyActiveUsers!.measures.activeUsers).toMatchObject({ stateFunction: 'uniq', approximate: true });
   });
 
-  it('refuses publishing to the deployment contract', () => {
+  it('publishes merge measures with their state function and rehydrates them (RFC 0022)', () => {
+    const client = createDatasetClient({ queryBuilder: createQueryBuilder({ host: 'http://127.0.0.1:8123' }) });
+    const Published = dataset('dau', {
+      source: 'dau',
+      dimensions: { day: dimension.timestamp() },
+      measures: {
+        users: measure.merge('uniq', 'users'),
+        exactUsers: measure.merge('uniqExact', 'users'),
+      },
+    });
+    const contract = buildProtocolDeploymentContract([Published]);
+    expect(validateProtocolDeploymentContract(contract)).toBeTruthy();
+    expect(contract.datasets[0]!.measures).toEqual(expect.arrayContaining([
+      expect.objectContaining({ name: 'users', aggregation: 'merge', stateFunction: 'uniq', field: 'users' }),
+      expect.objectContaining({ name: 'exactUsers', aggregation: 'merge', stateFunction: 'uniqExact' }),
+    ]));
+    const hydrated = rehydrateProtocolDatasets(contract.datasets).dau!;
+    expect(hydrated.measures.users).toMatchObject({ aggregation: 'merge', stateFunction: 'uniq', field: 'users' });
+    expect(client.toSQL(hydrated, { measures: ['users'] })).toContain('uniqMerge(users)');
+  });
+  it('refuses a published metric over a merge measure, which expressions cannot carry', () => {
     const Local = dataset('dau', {
       source: 'dau',
       dimensions: { day: dimension.timestamp() },
       measures: { users: measure.merge('uniqExact', 'users') },
     });
-    expect(() => buildProtocolDeploymentContract([Local]))
-      .toThrow(/Measure "dau\.users" uses merge, which cannot be published/);
+    const users = Local.metric('users', { measure: 'users' });
+    const endpoint = { access: { kind: 'authenticated', roles: [], scopes: [] }, tenant: { kind: 'not-required' } } as const;
+    expect(() => buildProtocolDatasetContract(Local, { metrics: { users }, metricEndpoints: { users: endpoint } }))
+      .toThrow(/uses merge, which a published metric cannot express/);
   });
 });

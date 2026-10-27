@@ -21,7 +21,7 @@ import type {
 } from './types.js';
 import { toProtocolSemanticMetadata } from './utils/protocol-semantic-metadata.js';
 import { assertPublishableTimeGrains, isPortableTimeGrain, requirePortableTimeGrain } from './utils/portable-grains.js';
-import { requirePortableAggregation } from './utils/portable-aggregations.js';
+import { requirePublishableMeasureAggregation } from './utils/portable-aggregations.js';
 import { assertNoPublishedSegments } from './utils/segments.js';
 
 export interface BuildProtocolDatasetContractOptions {
@@ -190,8 +190,9 @@ export function buildProtocolDatasetContract(
     })).sort(byName),
     measures: Object.entries(baseMeasures).map(([name, measure]) => ({
       name,
-      aggregation: requirePortableAggregation(measure.aggregation, `Measure "${dataset.name}.${name}"`),
+      aggregation: requirePublishableMeasureAggregation(measure.aggregation, `Measure "${dataset.name}.${name}"`),
       field: measure.field,
+      ...(measure.stateFunction !== undefined ? { stateFunction: measure.stateFunction } : {}),
       ...(measure.argField !== undefined ? { argField: measure.argField } : {}),
       ...(measure.level !== undefined ? { level: measure.level } : {}),
       ...(measure.sql !== undefined

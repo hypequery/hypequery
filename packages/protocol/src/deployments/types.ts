@@ -1,3 +1,4 @@
+import type { ProtocolAggregateStateFunction } from './aggregate-states.js';
 import type { ProtocolExpression, ProtocolQueryTimeGrain, ProtocolTimeGrain } from '../expressions/index.js';
 import type { ProtocolIdentifier, ProtocolQualifiedIdentifier } from '../identifiers/index.js';
 import type {
@@ -74,8 +75,14 @@ export interface ProtocolDatasetMeasure extends ProtocolSemanticMetadata {
   readonly name: ProtocolIdentifier;
   readonly aggregation:
     | 'sum' | 'count' | 'countDistinct' | 'avg' | 'min' | 'max'
-    | 'argMax' | 'argMin' | 'percentile' | 'stddev' | 'variance';
+    | 'argMax' | 'argMin' | 'percentile' | 'stddev' | 'variance'
+    | 'merge';
   readonly field: ProtocolQualifiedIdentifier;
+  /**
+   * `merge` only, and required there (RFC 0022): the function whose stored
+   * states `field` holds, finalized with `<stateFunction>Merge`.
+   */
+  readonly stateFunction?: ProtocolAggregateStateFunction;
   readonly argField?: ProtocolQualifiedIdentifier;
   readonly level?: number;
   readonly sql?: ProtocolSqlExpression;
