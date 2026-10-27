@@ -10,6 +10,7 @@ These end-to-end specs test each published package against a real ClickHouse dat
 | [MCP](./mcp-testing-spec.md) | Agent discovery and governed analytics tools over stdio |
 | [React](./react-testing-spec.md) | Typed hooks rendering live Serve data |
 | [Type safety](./semantic-type-safety-manifest-testing.md) | Semantic inference and static route manifests |
+| [Postgres](./postgres-datasets-testing-spec.md) | Datasets, the CLI and the surfaces on a real Postgres, against raw Postgres ground truth |
 
 ## Database setup
 
