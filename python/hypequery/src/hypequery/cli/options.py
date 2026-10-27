@@ -16,6 +16,7 @@ class InitOptions:
     tables: str | None
     exclude_tables: str | None
     tenant_column: str | None
+    framework: str
     skip_connection: bool
 
 
@@ -61,6 +62,7 @@ def command_options(args: argparse.Namespace) -> CommandOptions:
             tables=args.tables,
             exclude_tables=args.exclude_tables,
             tenant_column=args.tenant_column,
+            framework=args.framework,
             skip_connection=args.skip_connection,
         )
     if args.command == "generate":
