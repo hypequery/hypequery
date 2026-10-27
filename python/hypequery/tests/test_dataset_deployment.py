@@ -36,7 +36,7 @@ from hypequery.protocol import (
 )
 
 
-def _model() -> tuple[Dataset, Dataset]:
+def _model(*, label: str | None = None, description: str | None = None) -> tuple[Dataset, Dataset]:
     customers = Dataset(
         name="customers",
         source="analytics.customers",
@@ -53,6 +53,8 @@ def _model() -> tuple[Dataset, Dataset]:
         },
         measures={"revenue": measure(sum("amount"), filters=(eq("status", "paid"),))},
         relationships={"customer": belongs_to(customers, from_field="customer_id", to_field="id")},
+        label=label,
+        description=description,
     )
     return customers, orders
 
@@ -267,6 +269,31 @@ def test_contract_preserves_analytical_measures_sql_metadata_and_limits() -> Non
     assert cast(dict[str, object], measures["sql"]["sql"])["dependencies"] == ["net", "tax"]
     assert cast(dict[str, object], measures["untyped"]["sql"])["output"] == {"kind": "any"}
     assert cast(list[dict[str, object]], contract["filters"])[0]["description"] == "Status"
+
+
+def test_dataset_description_is_published_without_a_label() -> None:
+    customers, orders = _model()
+    _, described = _model(label="Orders", description="Paid orders")
+    contract = build_protocol_dataset_contract(described)
+    assert contract["description"] == "Paid orders"
+    assert "label" not in contract
+    assert "description" not in build_protocol_dataset_contract(orders)
+    registry = create_dataset_registry(customers, described)
+    deployment = build_protocol_deployment_contract(registry)
+    entries = {item["name"]: item for item in cast(list[dict[str, object]], deployment["datasets"])}
+    assert entries["orders"]["description"] == "Paid orders"
+    assert "description" not in entries["customers"]
+    plain = build_protocol_deployment_contract(create_dataset_registry(customers, orders))
+    assert (
+        prepare_protocol_deployment_contract(deployment).identity
+        != prepare_protocol_deployment_contract(plain).identity
+    )
+
+
+def test_deployment_contract_refuses_unpublishable_dataset_descriptions() -> None:
+    for description in ("   ", "line\nbreak", "x" * 4097):
+        with pytest.raises(ProtocolDeploymentError):
+            build_protocol_dataset_contract(_model(description=description)[1])
 
 
 def test_deployment_rejects_endpoints_for_unregistered_datasets() -> None:
