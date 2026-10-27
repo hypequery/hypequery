@@ -95,7 +95,7 @@ Every endpoint has these required members:
 A dataset endpoint additionally requires defaultMeasures. Any endpoint may
 carry the optional annotations member described below; it is the only optional
 endpoint member in this version. A metric endpoint
-forbids that member and has exactly one measure entry, whose key is its output
+forbids defaultMeasures and has exactly one measure entry, whose key is its output
 alias. Endpoint kind must be inspected before deciding this closed shape.
 
 Simple names follow RFC 0002. Dimension/measure/filter keys may contain one or

@@ -26,6 +26,7 @@ from ..planner import (
 )
 from ..planner.settings import tighten_query_settings
 from ..registry import DatasetRegistry
+from ..utils.output_column_types import output_column_types
 from ..utils.output_columns import output_columns
 from ..utils.query_timezone import validate_timezone
 from .inputs import DatasetTarget, QueryInput, coerce_query, resolve_dataset
@@ -186,8 +187,9 @@ class _DatasetClientBase:
             self._cache.put(execution.key, CachedRows(tuple(rows.columns), frozen))
         return self._finish(execution, rows, execution.status)
 
-    @staticmethod
-    def _finish(execution: _Execution, rows: ResultRows, status: CacheStatus) -> DatasetQueryResult:
+    def _finish(
+        self, execution: _Execution, rows: ResultRows, status: CacheStatus
+    ) -> DatasetQueryResult:
         planned = execution.planned
         return build_result(
             rows,
@@ -195,6 +197,9 @@ class _DatasetClientBase:
             (time.perf_counter() - execution.started) * 1000,
             status,
             query=planned.query if execution.paginate else None,
+            column_types=output_column_types(planned.dataset, planned.query, self._registry),
+            timezone=planned.query.timezone or self._timezone,
+            planned_columns=output_columns(planned.dataset, planned.query),
         )
 
     def to_sql(

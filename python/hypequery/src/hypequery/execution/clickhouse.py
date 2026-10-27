@@ -28,6 +28,7 @@ from .results import DriverResult, QueryRows, decode_result
 from .sync_cancellation import SyncCancellationMonitor
 from .utils.close_cancellation import cancels_on_close
 from .utils.connection_env import connection_fields, control_fields
+from .utils.connection_url import url_fields
 
 
 @dataclass(frozen=True, slots=True)
@@ -67,12 +68,42 @@ class ClickHouseConnection:
         ``_PASSWORD``, ``_SECURE``, ``_CONTROL_USERNAME`` and
         ``_CONTROL_PASSWORD``, defaulting to a local server.
 
+        ``CLICKHOUSE_URL`` may replace the first six, read as :meth:`from_url`
+        reads a URL; setting it alongside any of them is an error.
+
         An unset port lets the driver choose 8123, or 8443 when secure.
         """
 
         source = os.environ if environ is None else environ
         return cls(
             **connection_fields(source), **control_fields(source), readonly_policy=readonly_policy
+        )
+
+    @classmethod
+    def from_url(
+        cls,
+        url: str,
+        *,
+        readonly_policy: ReadonlyPolicy = "query",
+        control_username: str | None = None,
+        control_password: str = "",
+    ) -> Self:
+        """Read ``scheme://user:password@host:port/database``.
+
+        ``clickhouse://`` and ``http://`` are plain HTTP; ``clickhouses://`` and
+        ``https://`` are TLS. SQLAlchemy URLs for the HTTP interface also work
+        (``clickhousedb://`` and ``clickhouse+http://``), with ``?secure=true``
+        or ``?protocol=https`` choosing TLS. Native-protocol URLs
+        (``clickhouse+native://``) are refused: hypequery's server-side
+        parameters need the HTTP interface. User and password are
+        percent-decoded; an omitted database is ``default``.
+        """
+
+        return cls(
+            **url_fields(url),
+            readonly_policy=readonly_policy,
+            control_username=control_username,
+            control_password=control_password,
         )
 
 
@@ -469,11 +500,22 @@ class AsyncFromSyncClickHouseExecutor:
                 self._semaphore.release()
 
     def close(self) -> None:
-        """Stop admitting new work and release both bounded worker pools."""
+        """Stop admitting new work, release both worker pools, close the clients.
+
+        For shutdown without an event loop (``atexit``, a WSGI process). It does
+        not wait: a query still running on a worker fails as its client
+        closes. Prefer :meth:`aclose` where a loop is available.
+        """
 
         self._closed = True
         self._workers.shutdown(wait=False, cancel_futures=True)
         self._control_worker.shutdown(wait=False, cancel_futures=True)
+        closer = getattr(self._control, "close", None)
+        try:
+            self._sync.close()
+        finally:
+            if callable(closer):
+                closer()
 
     async def aclose(self) -> None:
         """Wait for workers, then close the supplied driver clients.
@@ -510,8 +552,8 @@ class AsyncFromSyncClickHouseExecutor:
         await self.aclose()
 
 
-def create_clickhouse_executor(connection: ClickHouseConnection) -> ClickHouseExecutor:
-    """Connect on demand. Install ``hypequery[clickhouse]`` first."""
+def _connect_sync(connection: ClickHouseConnection) -> tuple[_SyncClient, _SyncControlClient]:
+    """The query and control driver clients for *connection*."""
 
     try:
         from clickhouse_connect import get_client
@@ -528,10 +570,39 @@ def create_clickhouse_executor(connection: ClickHouseConnection) -> ClickHouseEx
         if client is not None:
             client.close()
         raise safe_driver_error(exc, "") from None
+    return cast(_SyncClient, client), cast(_SyncControlClient, control_client)
+
+
+def create_clickhouse_executor(connection: ClickHouseConnection) -> ClickHouseExecutor:
+    """Connect on demand. Install ``hypequery[clickhouse]`` first."""
+
+    client, control_client = _connect_sync(connection)
     return ClickHouseExecutor(
-        cast(_SyncClient, client),
+        client,
         readonly_policy=connection.readonly_policy,
-        control_client=cast(_SyncControlClient, control_client),
+        control_client=control_client,
+    )
+
+
+def create_async_from_sync_clickhouse_executor(
+    connection: ClickHouseConnection, *, max_concurrent: int = 4
+) -> AsyncFromSyncClickHouseExecutor:
+    """An async executor that runs the sync driver on bounded worker threads.
+
+    Needs only ``hypequery[clickhouse]``: there is no aiohttp session, so
+    nothing leaks when an application (Django, Flask) has no shutdown hook to
+    close it, and :meth:`AsyncFromSyncClickHouseExecutor.close` works without
+    an event loop. Its admission queue belongs to the event loop it first
+    waits on, so share one across requests only where they share a loop, as
+    under an ASGI server.
+    """
+
+    client, control_client = _connect_sync(connection)
+    return AsyncFromSyncClickHouseExecutor(
+        client,
+        control_client,
+        max_concurrent=max_concurrent,
+        readonly_policy=connection.readonly_policy,
     )
 
 

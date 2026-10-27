@@ -22,6 +22,7 @@ FLOORS: Mapping[str, float] = {
     "datasets": 95.0,
     "serve": 94.0,
     "cli": 90.0,
+    "contrib": 95.0,
     "execution": 84.0,
     "protocol": 84.0,
 }

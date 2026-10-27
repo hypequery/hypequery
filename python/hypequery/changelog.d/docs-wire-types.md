@@ -1,0 +1,1 @@
+- Docs: explain that per-endpoint `schemaHash` values (not the document `contentHash`) match between the build export and the live discovery view, and how measure values differ between in-process results and hypequery's HTTP wire.
