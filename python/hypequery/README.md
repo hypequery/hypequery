@@ -571,6 +571,17 @@ endpoints (`hypequery.serve`), which today run as a separate FastAPI app; see
 using your framework's login, are planned (decision 0023 in
 `specs/security-protocol/decisions`).
 
+### Results in your own views versus hypequery's endpoints
+
+A view that returns `result.data` as JSON sends the values the client returns:
+counts as integers, other numbers as floats or decimal strings. hypequery's
+HTTP endpoints, the generated React client and MCP send every non-null measure
+as a string, matching TypeScript; nulls stay null. A count of `41321` arrives
+as `"41321"` there. Pick one shape per API and serialize to it explicitly: to
+match hypequery's endpoints, convert non-null measures to strings and keep
+nulls. `result.to_pandas()` is for numeric analysis, not for matching the HTTP
+shape; by default it converts decimals to floats.
+
 ### Async views and shutdown
 
 Neither framework tells an application that the process is stopping, so an
@@ -1716,6 +1727,15 @@ with `error.type="VALIDATION_ERROR"`, `error.details.code="CLIENT_SCHEMA_CHANGED
 and a fixed safe message; no query is executed. Current limits still apply when
 the schema hash matches. Strict routes validate typed filters, selections,
 combined budgets and metadata before planning, and cannot enable SQL diagnostics.
+
+Two hashes are easy to confuse when debugging a 409. Each endpoint's
+`schemaHash` is what requests pin, and it is the same in the build export
+(`export client-contract`) and in the live, caller-scoped view at the discovery
+route. The whole document's `contentHash` differs between the two: the build
+view (`"view": "build"`) lists every endpoint, the live one (`"view":
+"authorized"`) only those the caller may use. The generated client's
+`clientContractHash` is the build `contentHash`; compare per-endpoint
+`schemaHash` values, not `contentHash`, to find a stale endpoint.
 Live caller-scoped discovery and frontend/MCP integration follow separately.
 
 ### Caller-scoped client discovery
