@@ -236,6 +236,8 @@ pip install hypequery
 pip install "hypequery[clickhouse]"
 pip install "hypequery[clickhouse-async]"
 pip install "hypequery[fastapi]"
+pip install "hypequery[django]"   # or [flask]
+pip install "hypequery[pandas]"   # or [polars], [arrow]
 ```
 
 | Extra | Adds | Needed for |
@@ -244,6 +246,9 @@ pip install "hypequery[fastapi]"
 | `clickhouse` | clickhouse-connect | `create_clickhouse_executor` and `hypequery init` / `generate` |
 | `clickhouse-async` | clickhouse-connect with aiohttp | `create_async_clickhouse_executor`; also covers everything `clickhouse` does |
 | `fastapi` | FastAPI, Starlette, uvicorn | `hypequery.serve` and `hypequery dev` |
+| `django` | Django, clickhouse-connect | `hypequery.contrib.django` |
+| `flask` | Flask, a2wsgi, clickhouse-connect | `hypequery.contrib.flask` |
+| `pandas` / `polars` / `arrow` | that library | `result.to_pandas()` / `to_polars()` / `to_arrow()` |
 
 Combine them as needed, for example `"hypequery[fastapi,clickhouse-async]"`.
 Without `clickhouse-async`, `create_async_clickhouse_executor` raises an error
@@ -254,7 +259,8 @@ The SDK is organised as:
 - `hypequery.protocol` for the language-neutral artifact contracts;
 - `hypequery.datasets` for dimensions, measures, metrics, and relationships;
 - `hypequery.execution` for sync and async ClickHouse execution;
-- `hypequery.serve` for a strict FastAPI router.
+- `hypequery.serve` for a strict FastAPI router;
+- `hypequery.contrib` for Django, Flask and SQLAlchemy glue.
 
 Python and TypeScript implement the same specifications and run against the same conformance fixtures. The goal is identical semantic and deployment artifacts across both languages, not a line-for-line port of the TypeScript runtime.
 
@@ -380,6 +386,31 @@ both a dimension and a measure is rejected.
 Catalog relationship entries list the safe names under `measures`, they are
 orderable, and discovery includes them. This matches `@hypequery/datasets`.
 
+## DataFrames
+
+Rows keep JSON-safe values: decimals, dates and datetimes are strings, so
+nothing loses precision on the way to an HTTP response. For analysis, convert a
+result with the extra for your library installed:
+
+```python
+result = client.for_tenant(tenant("acme")).execute(
+    "orders", {"measures": ["revenue", "orders"], "by": "month"}
+)
+frame = result.to_pandas()  # or result.to_polars(), result.to_arrow()
+frame.dtypes
+# period     datetime64[us, UTC]
+# revenue                float64
+# orders                   Int64
+```
+
+Column types come from the dataset definition, not from the values, so an
+empty result is typed too; `result.column_types` lists them. Timestamps become
+UTC datetimes, counts nullable 64-bit integers, other numbers floats (a number
+column holding only whole values stays an integer), and booleans nullable
+booleans. Pass `decimals="decimal"` to keep exact `Decimal` values instead of
+floats. A column whose type the definition cannot tell, such as `min` over a
+column no dimension describes, converts as returned.
+
 ## Result caching
 
 Pass a `ResultCache` to cache results. Keys follow RFC 0009 and RFC 0013: the
@@ -426,6 +457,134 @@ result.meta.cache  # "miss", then "hit" for the same request
 `CacheStore` is a small protocol (`get`, `set`), so a shared store such as
 Redis can be plugged in. Stores are called synchronously, including from the
 async client.
+
+## Django, Flask and SQLAlchemy
+
+The dataset client is a plain library: call it from a Django view or a Flask
+route like any other. `hypequery.contrib` adds what each framework lacks, a
+client per process that is created on first use and closed at exit, and a
+client per request that is already bound to the caller's tenant.
+
+### Django
+
+```python
+# settings.py
+INSTALLED_APPS = [..., "hypequery.contrib.django"]
+MIDDLEWARE = [
+    ...,
+    "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "hypequery.contrib.django.HypequeryMiddleware",
+]
+HYPEQUERY = {
+    "URL": None,  # None reads CLICKHOUSE_URL or the CLICKHOUSE_* variables
+    "REGISTRY": "analytics.datasets.registry",
+    "TENANT": "analytics.tenancy.tenant_for_request",
+}
+
+
+# analytics/tenancy.py
+def tenant_for_request(request):
+    user = request.user
+    return user.organization_id if user.is_authenticated else None
+
+
+# views.py
+def revenue(request):
+    result = request.analytics.execute("orders", {"measures": ["revenue"], "by": "month"})
+    return JsonResponse({"data": list(result.data)})
+```
+
+`request.analytics` is built on first access, bound to the tenant `TENANT`
+returns. With no tenant it is the unscoped client, and datasets with a
+`tenant_key` refuse to run. In an `async def` view the same attribute is the
+async client, so `await` its calls. `TENANT` is called synchronously, so in an
+async view it must not hit the database: load the user first
+(`await request.auser()`). `manage.py check` validates `HYPEQUERY` (bad import
+paths, URLs, keys) without connecting. Outside a request, `get_client()` and
+`get_async_client()` return the process's clients. Other keys:
+`READONLY_POLICY`, `TIMEZONE`, `MAX_CONCURRENT`.
+
+To serve hypequery's HTTP endpoints from the same ASGI process:
+
+```python
+# asgi.py
+from django.core.asgi import get_asgi_application
+from hypequery.contrib.django.asgi import mount_serve
+
+django_app = get_asgi_application()
+from analytics.serve import serve_app  # a hypequery.serve.create_app(...) app
+
+application = mount_serve(django_app, serve_app, prefix="/analytics")
+```
+
+Serve keeps its own authentication: it reads a bearer token or API key from a
+header, never Django's session cookie.
+
+### Flask
+
+```python
+from flask import Flask
+from flask_login import current_user
+from hypequery.contrib.flask import Hypequery
+
+hq = Hypequery()
+
+
+@hq.tenant_loader
+def current_tenant():
+    return current_user.org_id if current_user.is_authenticated else None
+
+
+def create_app():
+    app = Flask(__name__)
+    app.config["HYPEQUERY_REGISTRY"] = "analytics.datasets:registry"
+    hq.init_app(app)
+
+    @app.get("/revenue")
+    def revenue():
+        result = hq.client.execute("orders", {"measures": ["revenue"]})
+        return {"data": list(result.data)}
+
+    hq.mount_serve(app, serve_app, prefix="/analytics")  # optional
+    return app
+```
+
+`hq.client` is bound to the request's tenant once per request; `async def`
+routes use `hq.async_client`. Config keys: `HYPEQUERY_URL` (else the
+environment), `HYPEQUERY_REGISTRY`, `HYPEQUERY_READONLY_POLICY`,
+`HYPEQUERY_TIMEZONE`, `HYPEQUERY_MAX_CONCURRENT`. `init_app` validates them
+without connecting. The client is not closed in `teardown_appcontext`, which
+runs after every request; it lives for the process.
+
+### Async views and shutdown
+
+Neither framework tells an application that the process is stopping, so an
+aiohttp-based executor created there leaks its session at exit. The async
+client these integrations hand out runs the sync HTTP driver on worker threads
+(`create_async_from_sync_clickhouse_executor`) instead, and is closed by an
+`atexit` hook. Its admission queue belongs to one event loop, so the
+integrations keep one per live loop: one under an ASGI server, and one per
+in-flight request when a WSGI server runs async views, where every request gets
+a fresh loop. Clients are rebuilt in a forked worker rather than shared with
+the parent.
+
+### SQLAlchemy
+
+To point hypequery at the server a SQLAlchemy engine uses:
+
+```python
+from hypequery.contrib.sqlalchemy import executor_from_engine
+
+engine = create_engine("clickhousedb://reader:pw@ch:8123/analytics")
+client = create_dataset_client(executor=executor_from_engine(engine), registry=registry)
+```
+
+This reads the engine's URL and opens hypequery's own clients; it never
+borrows a pooled connection, so closing either side leaves the other alone.
+The engine must use the HTTP interface (`clickhousedb://` or
+`clickhouse+http://`). `clickhouse+native://` is refused: hypequery binds
+values as server-side parameters, which only the HTTP interface carries.
+`connection_from_engine(engine)` returns the `ClickHouseConnection` instead.
 
 ## Serving with FastAPI
 
@@ -630,6 +789,20 @@ rows = executor.execute(compiled_query).named_rows()
 executor.close()
 ```
 
+A connection can also come from a URL or the environment:
+
+```python
+ClickHouseConnection.from_url("clickhouses://reader:pw@ch.example.com/analytics")
+ClickHouseConnection.from_env()  # CLICKHOUSE_URL, or CLICKHOUSE_HOST, _PORT, ...
+```
+
+`clickhouse://` and `http://` are plain HTTP; `clickhouses://` and `https://`
+use TLS. SQLAlchemy URLs for the HTTP interface (`clickhousedb://`,
+`clickhouse+http://`) work too, with `?secure=true` or `?protocol=https` for
+TLS. User and password are percent-decoded. Setting `CLICKHOUSE_URL` together
+with any of the field variables is an error, and no error message repeats the
+URL.
+
 For async code, install `hypequery[clickhouse-async]` and await
 `create_async_clickhouse_executor(connection)` and `executor.execute(compiled_query)`.
 Call `await executor.aclose()` when the async executor is no longer needed.
@@ -648,15 +821,18 @@ The async executor limits concurrent queries per client to eight by default.
 the planner carries it into the compiled query. Caller cancellation and deadline
 expiry issue a separate `KILL QUERY` command using the server query ID. A
 cancelled ASGI task is treated as caller cancellation. For a synchronous driver
-used inside an async application, `AsyncFromSyncClickHouseExecutor` runs query
+used inside an async application, `AsyncFromSyncClickHouseExecutor` (built by
+`create_async_from_sync_clickhouse_executor(connection)`, which needs only the
+`clickhouse` extra) runs query
 work in a bounded worker pool with a separate control worker and supports the
 same cancellation contract. Create the driver clients it wraps with
 `autogenerate_session_id=False`, as the factories do: a clickhouse-connect
 client bound to a session refuses concurrent queries, so with the default
 client every query past the first fails while another is running. During
 application shutdown, call `await executor.aclose()` to wait for workers and
-close both supplied driver clients. `close()` stops admission immediately
-without waiting for workers.
+close both supplied driver clients. `close()` stops admission and closes the
+driver clients immediately without waiting for workers, for shutdown paths
+with no event loop.
 
 `ExecutionContext(deadline=Deadline.after(seconds))` bounds one execution;
 `Deadline` is exported by `hypequery.datasets`. A query that is still running

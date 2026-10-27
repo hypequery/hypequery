@@ -19,6 +19,8 @@ import subprocess
 import sys
 import textwrap
 
+import pytest
+
 
 def run_python(source: str) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
@@ -96,6 +98,38 @@ def test_serve_reports_missing_extra_actionably() -> None:
 
     assert result.returncode != 0
     assert "hypequery[fastapi]" in result.stderr, result.stderr
+
+
+def test_definition_imports_leave_dataframe_libraries_and_frameworks_alone() -> None:
+    result = run_python(
+        """
+        import sys
+
+        import hypequery.datasets
+        import hypequery.execution
+        import hypequery.contrib.sqlalchemy
+
+        optional = ("pandas", "polars", "pyarrow", "django", "flask", "a2wsgi", "sqlalchemy")
+        leaked = [m for m in optional if m in sys.modules]
+        assert not leaked, f"optional libraries leaked into a definition import: {leaked}"
+        assert "hypequery.contrib.django" not in sys.modules
+        """
+    )
+    assert result.returncode == 0, result.stderr
+
+
+@pytest.mark.parametrize(("module", "extra"), [("django", "django"), ("flask", "flask")])
+def test_contrib_reports_missing_framework_actionably(module: str, extra: str) -> None:
+    result = run_python(
+        f"""
+        import sys
+
+        sys.modules[{module!r}] = None
+        import hypequery.contrib.{module}
+        """
+    )
+    assert result.returncode != 0
+    assert f"hypequery[{extra}]" in result.stderr, result.stderr
 
 
 def test_version_matches_the_package_metadata() -> None:

@@ -16,6 +16,7 @@ from fastapi.testclient import TestClient
 from hypequery.datasets import (
     Dataset,
     DatasetQuery,
+    DatasetQueryResult,
     MemoryCacheStore,
     ResultCache,
     create_async_dataset_client,
@@ -34,6 +35,7 @@ from hypequery.execution import (
     ClickHouseConnection,
     ReadonlyPolicy,
     create_async_clickhouse_executor,
+    create_async_from_sync_clickhouse_executor,
     create_clickhouse_executor,
 )
 from hypequery.serve import (
@@ -489,3 +491,45 @@ def test_live_repeated_fall_back_hours_order_by_instant() -> None:
     ]
     assert rows["default"] == rows["asc"] == chronological
     assert rows["desc"] == chronological[::-1]
+
+
+@pytest.mark.skipif(
+    "HYPEQUERY_TEST_CLICKHOUSE_HOST" not in os.environ,
+    reason="live ClickHouse service is not configured",
+)
+def test_live_url_connection_thread_backed_async_and_typed_frames() -> None:
+    pd = pytest.importorskip("pandas")
+    typed = Dataset(
+        name="typed",
+        source="system.one",
+        dimensions={
+            "day": dimension("timestamp", sql="toDateTime('2026-01-02 03:04:05', 'UTC')"),
+            "flag": dimension("boolean", sql="dummy = 0"),
+        },
+        measures={
+            "amount": measure.sum("dummy", sql="toDecimal64(1.25, 2)"),
+            "rows": measure(count("dummy")),
+        },
+    )
+    query = DatasetQuery(dimensions=("day", "flag"), measures=("amount", "rows"))
+    plain = _connection()
+    url = f"clickhouse://default:{plain.password}@{plain.host}:{plain.port}/{plain.database}"
+    connection = ClickHouseConnection.from_url(url)
+
+    async def run() -> DatasetQueryResult:
+        executor = create_async_from_sync_clickhouse_executor(connection)
+        try:
+            return await create_async_dataset_client(executor=executor).execute(typed, query)
+        finally:
+            await executor.aclose()
+
+    result = asyncio.run(run())
+    assert result.data == (
+        {"day": "2026-01-02T03:04:05+00:00", "flag": True, "amount": "1.25", "rows": 1},
+    )
+    frame = result.to_pandas()
+    assert frame["day"].iloc[0] == pd.Timestamp("2026-01-02T03:04:05Z")
+    assert str(frame["amount"].dtype) == "float64"
+    assert frame["amount"].iloc[0] == 1.25
+    assert str(frame["rows"].dtype) == "Int64"
+    assert result.to_pandas(decimals="decimal")["amount"].iloc[0] == Decimal("1.25")
