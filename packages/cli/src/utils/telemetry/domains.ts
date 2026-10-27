@@ -11,7 +11,7 @@ export const OUTCOMES = ['success', 'failure', 'cancelled', 'interrupted'] as co
 export const DATABASES = ['clickhouse', 'chdb', 'postgres', 'bigquery', 'unknown'] as const;
 export const COMMANDS = [
   'init', 'dev', 'mcp', 'generate', 'generate:types', 'generate:datasets',
-  'generate:manifest', 'generate:client', 'login', 'logout', 'deploy', 'deployment:build',
+  'generate:manifest', 'generate:client', 'check', 'login', 'logout', 'deploy', 'deployment:build',
   'deployment:validate', 'deployment:release', 'deployment:submit', 'deployment:status',
   'pull', 'diff', 'help', 'version', 'telemetry', 'unknown',
 ] as const;
@@ -27,6 +27,7 @@ export const COMMAND_FLAGS = {
   'generate:datasets': ['--output', '--path', '--tables', '--exclude-tables', '--tenant-column', '--database', '--force', '--check', '--diff'],
   'generate:manifest': ['--output'],
   'generate:client': ['--output', '--check', '--force'],
+  check: ['--path', '--database', '--tenant'],
   login: ['--cloud-url', '--environment'],
   logout: [],
   deploy: ['--bundle-output', '--release-output', '--project', '--environment', '--no-source', '--endpoint', '--replace-restored', '--mcp-config'],
@@ -50,6 +51,7 @@ export const VALUE_FLAGS = {
   'generate:datasets': ['--output', '--path', '--tables', '--exclude-tables', '--tenant-column', '--database'],
   'generate:manifest': ['--output'],
   'generate:client': ['--output'],
+  check: ['--path', '--database', '--tenant'],
   login: ['--cloud-url', '--environment'],
   logout: [],
   deploy: ['--bundle-output', '--release-output', '--project', '--environment', '--endpoint'],

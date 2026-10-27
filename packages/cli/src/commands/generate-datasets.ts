@@ -10,7 +10,8 @@ import { telemetryErrorCode } from '../utils/telemetry/error-code.js';
 import path from 'node:path';
 import ora from 'ora';
 import { logger } from '../utils/logger.js';
-import { detectDatabase, getTableCount } from '../utils/detect-database.js';
+import { getTableCount } from '../utils/detect-database.js';
+import { resolveDatasetsDatabase } from '../utils/datasets-database.js';
 import { generateDatasets } from '../generators/dataset-generator.js';
 import { postgresIntrospector, postgresUrlFromEnv, withPostgresClient } from '../generators/introspection/postgres.js';
 import type { SchemaIntrospector } from '../generators/introspection/types.js';
@@ -90,7 +91,7 @@ export async function generateDatasetsCommand(options: GenerateDatasetsOptions =
 
   let database: 'clickhouse' | 'postgres';
   try {
-    database = await resolveDatasetsDatabase(options.database);
+    database = await resolveDatasetsDatabase(options.database, 'generate:datasets');
   } catch (error) {
     logger.error(error instanceof Error ? error.message : String(error));
     setCommandTelemetryError('validation_failed');
@@ -257,15 +258,6 @@ export async function generateDatasetsCommand(options: GenerateDatasetsOptions =
     logger.newline();
     exitWith(1, 'failure', telemetryErrorCode(error));
   }
-}
-
-/** The engine to introspect: the flag, else what the environment configures. */
-async function resolveDatasetsDatabase(flag: string | undefined): Promise<'clickhouse' | 'postgres'> {
-  if (flag === 'clickhouse' || flag === 'postgres') return flag;
-  if (flag !== undefined) {
-    throw new Error(`Unsupported database "${flag}" for generate:datasets. Use "clickhouse" or "postgres".`);
-  }
-  return (await detectDatabase()) === 'postgres' ? 'postgres' : 'clickhouse';
 }
 
 /** Run *work* with the Postgres introspector; ClickHouse uses the generator's default. */

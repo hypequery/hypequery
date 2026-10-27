@@ -144,6 +144,7 @@ describe('compiled CLI telemetry regression', () => {
     ['deployment:build', 'PRIVATE_SOURCE'], ['deployment:validate', 'PRIVATE_ARTIFACT'],
     ['deployment:release', 'PRIVATE_BUNDLE'], ['deployment:submit', 'PRIVATE_BUNDLE', '--release', 'PRIVATE_RELEASE'],
     ['deployment:status'], ['deploy', 'PRIVATE_SOURCE'], ['pull'], ['diff'], ['logout'],
+    ['check', 'PRIVATE_FILE', '--tenant', 'PRIVATE_TENANT'],
   ])('preserves failure/version behavior and emits once: %j', async (...args) => {
     const off = await run(args, 'off');
     const on = await run(args, 'debug');

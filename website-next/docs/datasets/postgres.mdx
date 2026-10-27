@@ -71,10 +71,11 @@ Both CLIs read the Postgres catalog and write dataset definitions:
 ```bash
 DATABASE_URL=postgres://user@host/db npx hypequery init --database postgres
 npx hypequery generate:datasets --database postgres --force   # after schema changes
+npx hypequery check analytics/api.ts                          # plan every dataset query with EXPLAIN
 ```
 </CodeBlock>
 
-The TypeScript CLI covers every non-system schema; tables outside `public` become `schema_table` datasets. It turns single-column foreign keys into `belongsTo` relationships. The Python CLI (`hypequery init --database postgres`) reads the current schema. Both suggest measures for numeric columns and report possible tenant columns for review, never applying them.
+`hypequery check` plans every dataset's queries with `EXPLAIN` without running them, so a renamed column fails in CI instead of at query time. It also warns when a large table is read by a filtered sequential scan. The TypeScript CLI covers every non-system schema; tables outside `public` become `schema_table` datasets. It turns single-column foreign keys into `belongsTo` relationships. The Python CLI (`hypequery init --database postgres`) reads the current schema. Both suggest measures for numeric columns and report possible tenant columns for review, never applying them.
 
 ## What runs on Postgres
 

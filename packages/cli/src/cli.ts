@@ -1,6 +1,7 @@
 import { Command } from 'commander';
 import { initCommand } from './commands/init.js';
 import { mcpCommand, type McpOptions } from './commands/mcp.js';
+import { checkCommand, type CheckOptions } from './commands/check.js';
 import { devCommand, type DevOptions } from './commands/dev.js';
 import { generateCommand, type GenerateOptions } from './commands/generate.js';
 import { generateDatasetsCommand, type GenerateDatasetsOptions } from './commands/generate-datasets.js';
@@ -177,6 +178,16 @@ program
   .option('--client-contract-url <url>', 'Bridge authorized HTTP client endpoints to MCP (Bearer key from HYPEQUERY_API_KEY)')
   .action(runCommand(async (file: string | undefined, options: McpOptions) => {
     await mcpCommand(file, options);
+  }));
+
+program
+  .command('check [file]')
+  .description('Plan every dataset\'s queries on the database with EXPLAIN, without running them')
+  .option('--path <path>', 'Analytics directory (loads <path>/api.ts or <path>/queries.ts)')
+  .option('--database <type>', 'clickhouse or postgres (detected from the environment by default)')
+  .option('--tenant <id>', 'Tenant id compiled into tenant-scoped queries (only planned)')
+  .action(runCommand(async (file: string | undefined, options: CheckOptions) => {
+    await checkCommand(file, options);
   }));
 
 // Generate command

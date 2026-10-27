@@ -141,7 +141,7 @@ Measure command adoption, onboarding drop-off and release reliability. Exactly o
 
 | Property | Presence | Allowed values | Question answered |
 | --- | --- | --- | --- |
-| `command` | Required | `init`, `dev`, `mcp`, `generate`, `generate:types`, `generate:datasets`, `generate:manifest`, `generate:client`, `login`, `logout`, `deploy`, `deployment:build`, `deployment:validate`, `deployment:release`, `deployment:submit`, `deployment:status`, `pull`, `diff`, `help`, `version`, `telemetry`, `unknown` | Which known command was requested? Raw unknown input is never retained. |
+| `command` | Required | `init`, `dev`, `mcp`, `generate`, `generate:types`, `generate:datasets`, `generate:manifest`, `generate:client`, `check`, `login`, `logout`, `deploy`, `deployment:build`, `deployment:validate`, `deployment:release`, `deployment:submit`, `deployment:status`, `pull`, `diff`, `help`, `version`, `telemetry`, `unknown` | Which known command was requested? Raw unknown input is never retained. |
 | `flags_used` | Required | Unique list of: `--path`, `--style`, `--database`, `--chdb-path`, `--auth`, `--all-tables`, `--tables`, `--exclude-tables`, `--no-example`, `--no-interactive`, `--force`, `--skip-connection`, `--port`, `--hostname`, `--no-watch`, `--no-cache`, `--cache`, `--redis-url`, `--open`, `--cors`, `--quiet`, `--tenant`, `--self-test`, `--url`, `--client-contract-url`, `--output`, `--tenant-column`, `--check`, `--diff`, `--cloud-url`, `--environment`, `--bundle-output`, `--release-output`, `--project`, `--no-source`, `--endpoint`, `--replace-restored`, `--mcp-config`, `--release`, `--no-telemetry`, `--help`, `--version` | Which documented flags are adopted? Canonical names only, never values. |
 | `outcome` | Required | `success`, `failure`, `cancelled`, `interrupted` | Which commands fail, succeed or are aborted? |
 | `duration_bucket` | Required | `<100ms`, `100ms-1s`, `1s-10s`, `10s-1m`, `1m-10m`, `10m-1h`, `1h+` | Which commands need performance work? |
@@ -257,6 +257,12 @@ Allowed `flags_used`: `--output`, `--no-telemetry`, `--help`, `--version`. The t
 | `endpoint_count_bucket` | Optional | `0`, `1`, `2-5`, `6-20`, `21-100`, `101+` | How much endpoint-based React integration is adopted? |
 | `custom_output` | Optional | `true`, `false` | Was a custom output location supplied? Never the path. |
 
+#### `cli_command_completed`: `check`
+
+Allowed `flags_used`: `--path`, `--database`, `--tenant`, `--no-telemetry`, `--help`, `--version`. The two type-generation aliases remain distinct command values.
+
+No additional properties.
+
 #### `cli_command_completed`: `login`
 
 Allowed `flags_used`: `--cloud-url`, `--environment`, `--no-telemetry`, `--help`, `--version`. The two type-generation aliases remain distinct command values.
@@ -341,7 +347,7 @@ Allowed `flags_used`: `--no-telemetry`, `--help`, `--version`. The two type-gene
 
 | Property | Presence | Allowed values | Question answered |
 | --- | --- | --- | --- |
-| `help_topic` | Optional | `root`, `init`, `dev`, `mcp`, `generate`, `generate:types`, `generate:datasets`, `generate:manifest`, `generate:client`, `login`, `logout`, `deploy`, `deployment:build`, `deployment:validate`, `deployment:release`, `deployment:submit`, `deployment:status`, `pull`, `diff`, `help`, `version`, `telemetry`, `unknown` | Which command help needs improvement? Unknown input becomes unknown. |
+| `help_topic` | Optional | `root`, `init`, `dev`, `mcp`, `generate`, `generate:types`, `generate:datasets`, `generate:manifest`, `generate:client`, `check`, `login`, `logout`, `deploy`, `deployment:build`, `deployment:validate`, `deployment:release`, `deployment:submit`, `deployment:status`, `pull`, `diff`, `help`, `version`, `telemetry`, `unknown` | Which command help needs improvement? Unknown input becomes unknown. |
 
 ### `cli_session_started`
 
@@ -427,7 +433,7 @@ Measure uncaught failures by stable class and code, with no messages or stacks.
 
 | Property | Presence | Allowed values | Question answered |
 | --- | --- | --- | --- |
-| `command` | Required | `init`, `dev`, `mcp`, `generate`, `generate:types`, `generate:datasets`, `generate:manifest`, `generate:client`, `login`, `logout`, `deploy`, `deployment:build`, `deployment:validate`, `deployment:release`, `deployment:submit`, `deployment:status`, `pull`, `diff`, `help`, `version`, `telemetry`, `unknown` | Which command crashed? |
+| `command` | Required | `init`, `dev`, `mcp`, `generate`, `generate:types`, `generate:datasets`, `generate:manifest`, `generate:client`, `check`, `login`, `logout`, `deploy`, `deployment:build`, `deployment:validate`, `deployment:release`, `deployment:submit`, `deployment:status`, `pull`, `diff`, `help`, `version`, `telemetry`, `unknown` | Which command crashed? |
 | `exception_class` | Required | `Error`, `TypeError`, `RangeError`, `SyntaxError`, `ReferenceError`, `URIError`, `EvalError`, `AggregateError`, `unknown` | Which built-in exception classes need investigation? |
 | `error_code` | Required | `unknown`, `connection_failed`, `auth_failed`, `entrypoint_not_found`, `compile_error`, `prompt_cancelled`, `validation_failed`, `cloud_network_error`, `cloud_rejected`, `not_installed`, `engine_error`, `no_tables`, `no_datasets`, `tenant_required`, `load_error`, `output_missing`, `output_out_of_date`, `unknown_command`, `unknown_option` | Which known failure caused the crash? |
 
