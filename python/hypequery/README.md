@@ -565,10 +565,12 @@ runs after every request; it lives for the process.
 
 A view that returns `result.data` as JSON sends the values the client returns:
 counts as integers, other numbers as floats or decimal strings. hypequery's
-HTTP endpoints, the generated React client and MCP send every measure as a
-string, matching TypeScript, so a count of `41321` arrives as `"41321"` there.
-Pick one shape per API, and convert with `result.to_pandas()` (or your own
-serializer) rather than relying on the in-process types matching the wire.
+HTTP endpoints, the generated React client and MCP send every non-null measure
+as a string, matching TypeScript; nulls stay null. A count of `41321` arrives
+as `"41321"` there. Pick one shape per API and serialize to it explicitly: to
+match hypequery's endpoints, convert non-null measures to strings and keep
+nulls. `result.to_pandas()` is for numeric analysis, not for matching the HTTP
+shape; by default it converts decimals to floats.
 
 ### Async views and shutdown
 
