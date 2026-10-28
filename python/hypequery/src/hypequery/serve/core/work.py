@@ -20,6 +20,11 @@ from anyio.to_thread import run_sync as run_in_worker
 _P = ParamSpec("_P")
 _T = TypeVar("_T")
 
+
+class _Skipped(Exception):  # noqa: N818 - internal signal, never escapes RequestWork
+    """Request-thread work skipped because its request was cancelled first."""
+
+
 #: The started flag of work that cannot be cancelled once handed over.
 _RUNNING = threading.Event()
 _RUNNING.set()
@@ -94,12 +99,18 @@ class RequestWork:
 
         def invoke() -> _T:
             # The request may have been cancelled before the thread got to it.
+            # An ordinary exception, so the runner settles its future with it:
+            # `CancelledError` would escape a host thread's job unsettled and
+            # leave this task, and the request's slot, waiting forever.
             if self.cancellation.is_set():
-                raise asyncio.CancelledError
+                raise _Skipped
             return function()
 
         async def run() -> _T:
-            return await runner(invoke)
+            try:
+                return await runner(invoke)
+            except _Skipped:
+                raise asyncio.CancelledError from None
 
         task = asyncio.create_task(run())
         self.tasks.add(task)

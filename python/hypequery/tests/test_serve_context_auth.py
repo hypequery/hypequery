@@ -339,3 +339,34 @@ def test_a_request_thread_extractor_holds_its_production_slot_until_it_returns()
         time.sleep(0.01)
     assert gate.active == 0
     assert serve_client("wsgi", api).get("/whoami").status_code == 200
+
+
+def test_request_thread_work_queued_past_cancellation_is_skipped_and_finishes() -> None:
+    """A tracked callback that starts after its request was cancelled must not hang."""
+
+    from hypequery.serve.core.work import RequestWork
+    from hypequery.serve.utils.serving_loop import RequestThread, serving_loop
+
+    busy = threading.Event()
+    release = threading.Event()
+    called: list[bool] = []
+
+    async def scenario(thread: RequestThread) -> bool:
+        work = RequestWork()
+
+        def block() -> None:
+            busy.set()
+            release.wait(5)
+
+        # The request's thread is busy, so the tracked callback waits in its queue.
+        blocker = asyncio.ensure_future(thread.call(block))
+        await asyncio.to_thread(busy.wait, 5)
+        task = work.start_on_thread(thread.call, lambda: called.append(True))
+        work.cancel()
+        release.set()
+        await blocker
+        await asyncio.wait_for(work.drain(), 5)
+        return task.cancelled()
+
+    assert serving_loop().run(scenario) is True
+    assert called == []
