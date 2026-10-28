@@ -41,6 +41,21 @@ Each tenant's token is its bearer credential for now; signing in with the
 app's own login (`from_context`) arrives with decision 0023 step 5. Query
 bodies cannot choose a tenant: the token decides it.
 
+In a real app, swap the token table for signed, short-lived JWTs (the `jwt`
+extra). The app mints one for the signed-in user from its own view, and the
+API verifies it, through `urls(api)` or `blueprint(api)` exactly as under ASGI:
+
+```python
+from hypequery.serve import analytics_token_issuer, create_api, jwt_strategy
+
+issue = analytics_token_issuer(SECRET, issuer="https://app.example.com", audience="analytics")
+api = create_api(
+    auth=jwt_strategy(secret=SECRET, issuer="https://app.example.com", audience="analytics"),
+    ...,
+)
+# In a logged-in view: return {"token": issue(str(user.id), tenant_id=user.org_id)}
+```
+
 ```bash
 curl -H "Authorization: Bearer $HYPEQUERY_TENANT_A_TOKEN" \
   -H "Content-Type: application/json" -d '{"measures": ["revenue"]}' \

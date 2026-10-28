@@ -66,6 +66,7 @@ clickhouse-async = [
 # from another ASGI server or framework needs no extra.
 server = ["uvicorn>=0.30.6", "h11>=0.16.0"]
 
+jwt = ["pyjwt[crypto]>=2.15.0", "cryptography>=50.0.0"]
 pandas = ["pandas>=2.3.3"]
 polars = ["polars>=1.0.0"]
 arrow = ["pyarrow>=23.0.1"]

@@ -247,6 +247,7 @@ pip install hypequery
 pip install "hypequery[clickhouse]"
 pip install "hypequery[clickhouse-async]"
 pip install "hypequery[server]"
+pip install "hypequery[jwt]"      # JWT auth for hypequery.serve
 pip install "hypequery[django]"   # or [flask]
 pip install "hypequery[pandas]"   # or [polars], [arrow]
 ```
@@ -257,6 +258,7 @@ pip install "hypequery[pandas]"   # or [polars], [arrow]
 | `clickhouse` | clickhouse-connect | `create_clickhouse_executor` and `hypequery init` / `generate` |
 | `clickhouse-async` | clickhouse-connect with aiohttp | `create_async_clickhouse_executor`; also covers everything `clickhouse` does |
 | `server` | uvicorn | `start_server` and `hypequery dev` |
+| `jwt` | PyJWT, cryptography | `jwt_strategy` and `analytics_token_issuer` |
 | `django` | Django, clickhouse-connect | `hypequery.contrib.django` |
 | `flask` | Flask, clickhouse-connect | `hypequery.contrib.flask` |
 | `pandas` / `polars` / `arrow` | that library | `result.to_pandas()` / `to_polars()` / `to_arrow()` |
@@ -684,7 +686,7 @@ from hypequery.serve import (
 
 
 async def authenticate(credential: Credential) -> Principal | None:
-    claims = await verify_jwt(credential.value)  # your code
+    claims = await verify_jwt(credential.value)  # your code; for JWTs see jwt_strategy
     if claims is None:
         return None
     return Principal(
@@ -769,6 +771,50 @@ Authenticated responses are always sent with `Cache-Control: no-store`. The
 API matches a route on its method and its path as sent, like TypeScript; an
 unknown path or method is `404 NOT_FOUND`, with no redirect for a trailing
 slash.
+
+### JWT authentication
+
+With the `jwt` extra, `jwt_strategy` is a ready-made authenticator for JWT
+bearer tokens. It is TypeScript's `createJwtStrategy`: the same claims, the
+same checks, and tokens either language mints verify in the other.
+
+```python
+from hypequery.serve import analytics_token_issuer, create_api, jwt_strategy, to_asgi_app
+
+# Tokens from an identity provider, verified against its published keys.
+api = create_api(
+    auth=jwt_strategy(
+        jwks_url="https://example.auth0.com/.well-known/jwks.json",
+        issuer="https://example.auth0.com/",
+        audience="https://api.example.com",
+    ),
+    datasets={"orders": orders},
+    client=client,
+)
+app = to_asgi_app(api)
+
+# Or tokens you mint for your own frontend, with a shared secret.
+issue_token = analytics_token_issuer(SECRET, audience="analytics")
+api = create_api(auth=jwt_strategy(secret=SECRET, audience="analytics"), ...)
+token = issue_token("user-1", tenant_id="acme", roles=["analyst"])
+```
+
+- **Claims map as in TypeScript**: `sub` is the subject, `org_id` the tenant,
+  `roles` the roles, and `scope` (space-separated) or `scopes` (an array) the
+  scopes. A token without `sub` is refused. Pass `map_claims=` to map claims
+  yourself; it returns a `Principal`, or `None` to refuse the token.
+- **Checks**: the signature; `issuer` and `audience` when you configure them;
+  `exp` and `nbf` when the token has them, with no clock skew unless you pass
+  `leeway=`. Algorithms default to HS256 for a secret and RS256 for a key set.
+  `alg: none` is never accepted, and a key set never verifies an HMAC token.
+- **Secrets** must be at least as long as the hash (32 bytes for HS256).
+- **Key sets** are fetched off the event loop, cached for 10 minutes, and
+  refetched for an unknown `kid` at most every 30 seconds. A fetch has a 5
+  second timeout, follows no redirects, and must use https except on
+  localhost. If the keys cannot be fetched the request gets a 503, not a 401.
+- **The issuer** mints HS256 tokens (HS384/HS512 with `algorithm=`) carrying
+  `sub`, `org_id`, `roles`, `iat`, `exp` (15 minutes by default, `expires_in=`)
+  and the configured `iss` and `aud`.
 
 ### HTTP security profile
 
