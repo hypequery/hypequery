@@ -21,6 +21,12 @@
         result = hq.client.execute("orders", {"measures": ["revenue"]})
         return {"data": list(result.data)}
 
+To serve hypequery's HTTP endpoints (for ``@hypequery/react`` and
+``@hypequery/mcp``) from the app itself, register :func:`blueprint` for an API
+from ``hypequery.serve.create_api``::
+
+    app.register_blueprint(blueprint(api), url_prefix="/api/analytics")
+
 Config keys: ``HYPEQUERY_URL`` (else ``CLICKHOUSE_URL`` / ``CLICKHOUSE_*``),
 ``HYPEQUERY_REGISTRY`` (object or import string), ``HYPEQUERY_READONLY_POLICY``,
 ``HYPEQUERY_TIMEZONE``, ``HYPEQUERY_MAX_CONCURRENT``.
@@ -44,7 +50,9 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any, TypeVar, cast
 
-from flask import Flask, current_app, g
+from flask import Blueprint, Flask, Request, Response, current_app, g, request
+from flask.blueprints import BlueprintSetupState
+from werkzeug.exceptions import RequestEntityTooLarge
 from werkzeug.utils import import_string
 
 from ..datasets import (
@@ -55,6 +63,22 @@ from ..datasets import (
     TenantDatasetClient,
 )
 from ..execution import ClickHouseConnection, ReadonlyPolicy
+from ..serve.client_contract import export_client_contract
+from ..serve.core.api import Api
+from ..serve.core.body import too_large
+from ..serve.core.messages import ServeRequest, ServeResponse
+from ..serve.utils.blocking import serve_blocking
+from ..serve.utils.response_head import response_body
+from ..serve.utils.serving_loop import RequestThread
+from ..serve.utils.thread_body import thread_body
+from ..serve.utils.wsgi_environ import (
+    body_length,
+    environ_client,
+    environ_headers,
+    environ_query,
+    request_target_path,
+)
+from .utils.mounted_path import mounted_path
 from .utils.process_clients import ClientConfig, ProcessClients
 from .utils.tenant_value import TenantValue, bind_tenant_value
 
@@ -179,4 +203,107 @@ class Hypequery:
         self._state().clients.close()
 
 
-__all__ = ["Hypequery", "TenantLoader"]
+#: The methods Flask registers the rules for; once registered, the rules accept
+#: every method, so the core answers any other with its own 404.
+_METHODS = ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"]
+#: The URL variable the catch-all rule captures the path below the prefix in.
+_PATH = "hypequery_path"
+
+
+def blueprint(api: Api, *, name: str = "hypequery", url_prefix: str | None = None) -> Blueprint:
+    """A blueprint serving *api*, registered below any prefix.
+
+    Every request below the prefix reaches the API, which answers it as the
+    core does, its 404s and CORS preflights included. The view is sync and
+    runs the core on the process's one serving loop while the request's
+    thread waits (`hypequery.serve.wsgi`); ``ServeRequest.raw`` is Flask's
+    `Request`. The body is read through ``request.stream``, lazily and bounded
+    by the API's body policy; a body over the app's ``MAX_CONTENT_LENGTH``
+    is refused as too large. Client contracts and discovery name the paths
+    the request was routed under, unless the API sets ``client_mount_path``.
+
+    When *api* serves strict client endpoints, their contract is checked now,
+    so a misconfiguration fails at startup rather than on the first request.
+    """
+
+    if not isinstance(api, Api):
+        raise TypeError("blueprint requires an Api from create_api")
+    if api.client_endpoints.bindings:
+        export_client_contract(api)
+
+    def hypequery_api(**values: str) -> Response:
+        # A prefix's own URL variables arrive here too.
+        current = cast(Request, request._get_current_object())  # type: ignore[attr-defined]
+        environ = current.environ
+        where = mounted_path(
+            current.script_root + current.path, values[_PATH], request_target_path(environ)
+        )
+
+        def build(thread: RequestThread) -> ServeRequest:
+            return ServeRequest(
+                method=current.method,
+                path=where.path,
+                query=environ_query(environ),
+                headers=environ_headers(environ),
+                body=thread_body(thread, _BodyStream(current).read, body_length(environ)),
+                client=environ_client(environ),
+                raw=current,
+            )
+
+        return _response(serve_blocking(api, build, mounted_at=where.mounted_at))
+
+    served = Blueprint(name, __name__, url_prefix=url_prefix)
+    served.add_url_rule("/", "api", hypequery_api, defaults={_PATH: ""}, methods=_METHODS)
+    served.add_url_rule(f"/<path:{_PATH}>", "api", hypequery_api, methods=_METHODS)
+    served.record(_accept_every_method)
+    return served
+
+
+def _accept_every_method(state: BlueprintSetupState) -> None:
+    """Let the blueprint's rules match any method, as the other adapters do.
+
+    Flask registers a rule for a fixed list of methods and answers any other
+    with its own HTML 405; the core answers an unknown method with its 404.
+    Werkzeug reads a rule's methods when matching, and None means any.
+    """
+
+    endpoint = f"{state.name_prefix}.{state.name}.api".lstrip(".")
+    for rule in state.app.url_map.iter_rules(endpoint):
+        rule.methods = None
+
+
+class _BodyStream:
+    """The request body, as Flask's own form parsing reads it.
+
+    A ``before_request`` hook that called ``request.get_data()`` or
+    ``get_json()`` has already drained ``request.stream`` and cached the
+    bytes, so those are read instead. The stream is resolved on the first
+    read: resolving it refuses a body over ``MAX_CONTENT_LENGTH``.
+    """
+
+    __slots__ = ("_request", "_stream")
+
+    def __init__(self, current: Request) -> None:
+        self._request = current
+        self._stream: Any = None
+
+    def read(self, size: int) -> bytes:
+        try:
+            if self._stream is None:
+                self._stream = self._request._get_stream_for_parsing()
+            data: bytes = self._stream.read(size)
+        except RequestEntityTooLarge:
+            raise too_large() from None
+        return data
+
+
+def _response(response: ServeResponse) -> Response:
+    reply = Response(response_body(response), status=response.status)
+    if "content-type" not in response.headers:
+        del reply.headers["Content-Type"]
+    for name, value in response.headers.items():
+        reply.headers[name] = value
+    return reply
+
+
+__all__ = ["Hypequery", "TenantLoader", "blueprint"]

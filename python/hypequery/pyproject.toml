@@ -241,6 +241,14 @@ forbidden_modules = [
   "asgiref",
 ]
 
+# Decision 0023: Django and Flask are served natively from contrib, through the
+# same sync adapter as any WSGI server; `hypequery.serve` imports neither.
+[[tool.importlinter.contracts]]
+name = "Serve imports no web framework; Django and Flask adapters live in contrib"
+type = "forbidden"
+source_modules = ["hypequery.serve"]
+forbidden_modules = ["fastapi", "starlette", "django", "flask", "werkzeug", "asgiref"]
+
 [[tool.importlinter.contracts]]
 name = "Dataset SQL compilation stays independent of client orchestration and execution"
 type = "forbidden"

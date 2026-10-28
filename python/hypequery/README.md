@@ -573,13 +573,57 @@ wrap with an `async def`, as Flask's own `ensure_sync` expects.
 
 These integrations run queries inside your Django views and Flask routes. The
 generated React hooks and the MCP bridge instead call hypequery's own HTTP
-endpoints (`hypequery.serve`); see "Serving over HTTP". Until the native
-Django and Flask adapters land, serve those endpoints beside your app: as their
-own process (`start_server`, or any ASGI server on `to_asgi_app(api)`), or, in
-Django under ASGI, by routing a path prefix to `to_asgi_app(api)` from your
-`asgi.py`. Native Django `urls(api)` and Flask `blueprint(api)` adapters, using
-your framework's login, are next (decision 0023 in
-`specs/security-protocol/decisions`).
+endpoints (`hypequery.serve`; see "Serving over HTTP"). Django and Flask serve
+those natively, with no second app and no FastAPI:
+
+```python
+# Django: urls.py
+from django.urls import include, path
+from hypequery.contrib.django import get_client, urls
+from hypequery.serve import create_api
+
+api = create_api(auth=authenticate, client=get_client(), datasets={"orders": orders})
+urlpatterns = [path("api/analytics/", include(urls(api)))]
+
+
+# Flask: in create_app()
+from hypequery.contrib.flask import blueprint
+
+api = create_api(auth=authenticate, client=hq.client_for(app), datasets={"orders": orders})
+app.register_blueprint(blueprint(api), url_prefix="/api/analytics")
+```
+
+Every request below the prefix reaches the API, which answers exactly as it
+does under any other adapter: authentication before the body, the body policy,
+security profile, request ids and the error envelope. `ServeRequest.raw` is the
+framework's request (`HttpRequest`, Flask's `Request`).
+
+- **One event loop.** Django's view is async under ASGI, running the API on
+  the server's loop, and sync under WSGI. Under WSGI, and in Flask, the API
+  runs on one event loop per process, started on its own thread at the first
+  request, while the request's thread waits. No loop is created per request,
+  and a threaded server (gunicorn `--threads`, waitress) serves requests
+  concurrently on it. Host code (your authenticator, a sync dataset client)
+  sees the request thread's context, so Flask's `request` and `g` work in it.
+- **Bodies** are read from the request's stream, lazily and bounded by
+  `max_body_bytes`; Django's `DATA_UPLOAD_MAX_MEMORY_SIZE` plays no part. In
+  Flask, a body over `MAX_CONTENT_LENGTH` is refused as too large. Some
+  servers receive the whole body before the application runs (Django's ASGI
+  handler, waitress), so cap request sizes at the server or proxy too.
+- **Any prefix works**, including one with URL variables. Client contracts and
+  discovery name the paths the request was routed under, unless
+  `create_api(client_mount_path=...)` names where the API is reached.
+- **CSRF.** The credential is a header (`Authorization: Bearer`, or an API key
+  header), which a browser never attaches on its own, so Django's views are
+  CSRF-exempt by design. Django's CSRF middleware stays installed for the rest
+  of the project. Using your framework's own login (`from_context`) comes next
+  (decision 0023 in `specs/security-protocol/decisions`), with Django's CSRF
+  enforced for it.
+
+`examples/django_app.py` and `examples/flask_app.py` serve the orders dataset
+this way, and `examples/README.md` points `@hypequery/react` and
+`@hypequery/mcp` at them. Any other WSGI framework or server uses
+`hypequery.serve.to_wsgi_app(api)`, and any ASGI one `to_asgi_app(api)`.
 
 ### Results in your own views versus hypequery's endpoints
 
@@ -674,7 +718,11 @@ app = to_asgi_app(api)  # uvicorn app:app, or mount it in another ASGI app
   (`host.mount("/analytics", to_asgi_app(api))`). It reads the request body
   lazily, cancels a query whose caller disconnects, and runs an optional
   `lifespan=` context at startup and shutdown; a mounted app's host runs its
-  own. `start_server(api)` runs a production profile under uvicorn, and
+  own. `to_wsgi_app(api)` is the WSGI application, for gunicorn, waitress or
+  any WSGI framework; it runs the API on one event loop per process. WSGI
+  never reports a caller who has gone, so there a query ends at its deadline.
+  Django and Flask serve the API natively: see "hypequery's HTTP endpoints".
+  `start_server(api)` runs a production profile under uvicorn, and
   `await api.handle(ServeRequest(...))` serves one request with no server.
 - **Endpoints.** `datasets={"name": dataset}` serves
   `POST /datasets/<name>/query`, and `metrics={"name": create_metric_endpoint(...)}`

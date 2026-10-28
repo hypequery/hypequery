@@ -5,6 +5,17 @@ Needs ``hypequery[flask]``. Seed examples/seed.sql; set CLICKHOUSE_URL
 HYPEQUERY_TENANT_B_TOKEN. Then:
 
     curl -H "Authorization: Bearer $HYPEQUERY_TENANT_A_TOKEN" localhost:5001/revenue
+
+The app also serves hypequery's own endpoints, for ``@hypequery/react`` and
+``@hypequery/mcp``, natively as a blueprint::
+
+    curl -H "Authorization: Bearer $HYPEQUERY_TENANT_A_TOKEN" \
+      -H "Content-Type: application/json" -d '{"measures": ["revenue"]}' \
+      localhost:5001/api/analytics/orders
+
+Run it with ``flask --app examples.flask_app run --port 5001`` or gunicorn:
+``gunicorn "examples.flask_app:create_app()" --threads 8``. See
+``examples/README.md`` for React and MCP.
 """
 
 from __future__ import annotations
@@ -13,8 +24,9 @@ from typing import Any
 
 from flask import Flask, abort, request
 
-from hypequery.contrib.flask import Hypequery
+from hypequery.contrib.flask import Hypequery, blueprint
 
+from .utils.analytics import MOUNT_PATH, analytics_api
 from .utils.orders import organization_for
 
 hq = Hypequery()
@@ -31,6 +43,9 @@ def create_app() -> Flask:
     # HYPEQUERY_URL is unset, so the connection comes from CLICKHOUSE_URL or CLICKHOUSE_*.
     app.config["HYPEQUERY_REGISTRY"] = "examples.utils.orders:registry"
     hq.init_app(app)
+    # POST /api/analytics/orders and GET /api/analytics/client-contract. The
+    # process client connects on the first query, not here.
+    app.register_blueprint(blueprint(analytics_api(hq.client_for(app))), url_prefix=MOUNT_PATH)
 
     @app.get("/revenue")
     def revenue() -> Any:

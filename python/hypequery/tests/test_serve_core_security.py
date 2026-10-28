@@ -1,12 +1,13 @@
-"""The core's HTTP security profile, and the ASGI adapter adding nothing to it.
+"""The core's HTTP security profile, and no adapter adding anything to it.
 
 Decision 0023 step 2 moved trusted hosts, proxy trust, CORS, rate limits and
 production budgets into the core, matching the FastAPI layer byte for byte;
 step 3 replaced that layer with the pure-ASGI adapter after a byte diff of the
 two over this matrix (identical but for header order, a trailing-slash
 redirect and percent-decoded routing, both pinned below). Every request below
-is sent both to `Api.handle` and through `to_asgi_app`, and the two answers
-must match: status, headers and body.
+is sent both to `Api.handle` and through every adapter (`to_asgi_app`,
+`to_wsgi_app`, Django's `urls` under WSGI and ASGI, Flask's `blueprint`), and
+the answers must match: status, headers and body.
 
 The CORS and trusted-host answers are also checked against an independent
 reference: Starlette's `CORSMiddleware` and `TrustedHostMiddleware`,
@@ -44,8 +45,8 @@ from hypequery.serve import (
     ServeRequest,
     ServeResponse,
     create_api,
-    to_asgi_app,
 )
+from serve_transports import TRANSPORTS, serve_client
 
 PROFILES = {
     "hosts": HttpSecurity(allowed_hosts=("testserver", "*.example.com", "[::1]")),
@@ -76,6 +77,9 @@ REQUESTS: list[tuple[str, str, dict[str, str]]] = [
     ("GET", "/public", {}),
     ("GET", "/missing", {}),
     ("POST", "/private", AUTH),
+    # Methods no route serves are the core's 404 under every adapter.
+    ("TRACE", "/private", AUTH),
+    ("PROPFIND", "/missing", AUTH),
     ("GET", "/private", {**AUTH, "x-request-id": "abc-1"}),
     ("GET", "/private", {**AUTH, "x-request-id": "not valid"}),
     ("GET", "/private", {**AUTH, "host": "evil.test"}),
@@ -153,11 +157,12 @@ def _answer(response: httpx.Response) -> tuple[int, dict[str, str], bytes]:
     return response.status_code, headers, response.content
 
 
+@pytest.mark.parametrize("transport", [name for name in TRANSPORTS if name != "core"])
 @pytest.mark.parametrize("peer", sorted(PEERS))
 @pytest.mark.parametrize("profile", sorted(PROFILES))
-def test_the_asgi_adapter_answers_as_the_core_does(profile: str, peer: str) -> None:
+def test_every_adapter_answers_as_the_core_does(profile: str, peer: str, transport: str) -> None:
     security = PROFILES[profile]
-    served = AsgiClient(to_asgi_app(_core(security)), client=PEERS[peer])
+    served = serve_client(transport, _core(security), client=PEERS[peer])
     core = CoreClient(_core(security), client=PEERS[peer])
     for method, path, headers in REQUESTS:
         expected = _answer(core.request(method, path, headers=headers))
@@ -178,8 +183,11 @@ def test_the_asgi_adapter_answers_as_the_core_does(profile: str, peer: str) -> N
         "/%70rivate",
     ],
 )
-def test_routing_matches_the_path_as_sent(path: str) -> None:
-    response = AsgiClient(to_asgi_app(_core(PROFILES["hosts"]))).get(path, headers=AUTH)
+@pytest.mark.parametrize("transport", [name for name in TRANSPORTS if name != "core"])
+def test_routing_matches_the_path_as_sent(path: str, transport: str) -> None:
+    # A WSGI server that passes the request target (gunicorn's RAW_URI) lets
+    # the sync adapters match it as sent too.
+    response = serve_client(transport, _core(PROFILES["hosts"])).get(path, headers=AUTH)
     assert response.status_code == 404
     assert response.json()["error"]["type"] == "NOT_FOUND"
 

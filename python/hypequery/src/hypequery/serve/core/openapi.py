@@ -47,12 +47,16 @@ _ERROR_SCHEMA: JsonSchemaValue = {
 _Mode = Literal["validation", "serialization"]
 
 
-def openapi_document(api: Api, info: OpenApiInfo | None = None) -> dict[str, object]:
+def openapi_document(
+    api: Api, info: OpenApiInfo | None = None, *, mount_path: str | None = None
+) -> dict[str, object]:
     """The OpenAPI 3.1 document for the routes *api* serves.
 
-    *info* overrides the API's own `create_api(openapi=...)`. Only the route
-    that serves a method and path is described, the first registered, as in
-    `Api.match`; a later route for the same method and path is never served.
+    *info* overrides the API's own `create_api(openapi=...)`. *mount_path*,
+    the server URL the paths are relative to, defaults to the API's
+    `client_mount_path`. Only the route that serves a method and path is
+    described, the first registered, as in `Api.match`; a later route for the
+    same method and path is never served.
     """
 
     info = info or api.openapi or OpenApiInfo()
@@ -90,8 +94,9 @@ def openapi_document(api: Api, info: OpenApiInfo | None = None) -> dict[str, obj
         "paths": paths,
         "components": components,
     }
-    if api.client_mount_path:
-        document["servers"] = [{"url": api.client_mount_path}]
+    server = api.client_mount_path if mount_path is None else mount_path
+    if server:
+        document["servers"] = [{"url": server}]
     return document
 
 
@@ -139,7 +144,7 @@ def add_docs_routes(api: Api) -> None:
     """
 
     async def openapi(call: Call) -> ServeResponse:
-        return ServeResponse.json(openapi_document(api))
+        return ServeResponse.json(openapi_document(api, mount_path=call.host.mount_path))
 
     page = docs_html("openapi.json", (api.openapi or OpenApiInfo()).title).encode("utf-8")
 

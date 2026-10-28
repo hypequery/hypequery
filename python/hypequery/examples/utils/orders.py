@@ -41,6 +41,12 @@ def organization_for(authorization: str | None) -> str | None:
     scheme, _, token = (authorization or "").partition(" ")
     if scheme.lower() != "bearer" or not token:
         return None
+    return organization_for_token(token)
+
+
+def organization_for_token(token: str) -> str | None:
+    """The organization a bearer token belongs to, if any."""
+
     for known, organization in tenant_tokens().items():
         if secrets.compare_digest(token, known):
             return organization
