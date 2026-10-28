@@ -12,9 +12,9 @@ applies, outermost first:
 4. CORS: off unless configured; a preflight is answered here, and an allowed
    origin's response carries the CORS headers.
 
-Request identifiers wrap all of them (`request_ids.py`). The answers match what
-the FastAPI layer's Starlette middleware sent byte for byte, so moving a policy
-into the core changes nothing on the wire.
+Request identifiers wrap all of them (`request_ids.py`). CORS answers as
+Starlette's `CORSMiddleware` (1.10) does, which tests use as an independent
+reference; hosts compare normalised (`utils/host_header.py`).
 """
 
 from __future__ import annotations
@@ -128,7 +128,7 @@ class HttpSecurity:
 
 
 def plain_text(text: str, status: int, headers: Mapping[str, str] | None = None) -> ServeResponse:
-    """A `text/plain` answer, headed as Starlette's `PlainTextResponse` heads one."""
+    """A `text/plain` answer with its length and a UTF-8 media type."""
 
     body = text.encode("utf-8")
     merged = {name.lower(): value for name, value in (headers or {}).items()}

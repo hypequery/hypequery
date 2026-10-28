@@ -3,9 +3,9 @@
 The core reads a request body at most once, and only for a route that takes
 input, after authentication. `AsgiBody.chunks` hands it the `http.request`
 messages as they arrive. Once the core no longer needs the body, which is
-whenever it first asks whether the caller is still there, a listener takes
-over `receive` and records `http.disconnect`, so a query whose caller has gone
-is cancelled without polling the transport.
+whenever it first waits for the caller to go, a listener takes over `receive`
+and sets an event on `http.disconnect`, so a query whose caller has gone is
+cancelled without polling the transport.
 """
 
 from __future__ import annotations
@@ -25,12 +25,12 @@ class ClientDisconnectedError(Exception):
 class AsgiBody:
     """One request's `receive`, shared by the body read and the disconnect listener."""
 
-    __slots__ = ("_disconnected", "_listener", "_receive", "_state")
+    __slots__ = ("_gone", "_listener", "_receive", "_state")
 
     def __init__(self, receive: Receive) -> None:
         self._receive = receive
         self._state: Literal["unread", "reading", "read", "released"] = "unread"
-        self._disconnected = False
+        self._gone = asyncio.Event()
         self._listener: asyncio.Task[None] | None = None
 
     async def chunks(self) -> AsyncIterator[bytes]:
@@ -42,7 +42,7 @@ class AsgiBody:
         while True:
             message = await self._receive()
             if message["type"] == "http.disconnect":
-                self._disconnected = True
+                self._gone.set()
                 self._state = "read"
                 raise ClientDisconnectedError
             if message["type"] != "http.request":
@@ -56,26 +56,28 @@ class AsgiBody:
             if chunk:
                 yield chunk
 
-    async def is_disconnected(self) -> bool:
-        """Whether the caller has gone. Never waits on the transport."""
+    @property
+    def disconnected(self) -> bool:
+        """Whether the caller is known to have gone."""
 
-        if self._disconnected:
-            return True
-        if self._state == "reading":
-            # The body is being read: its own receive will see a disconnect.
-            return False
-        if self._listener is None:
-            # The core asks only once it is done with the body, so whatever
+        return self._gone.is_set()
+
+    async def wait_disconnected(self) -> None:
+        """Return once the caller has gone; never polls the transport."""
+
+        if self._listener is None and self._state != "reading" and not self._gone.is_set():
+            # The core waits only once it is done with the body, so whatever
             # body remains unread is the caller's to discard, not the core's.
+            # While the body is being read, its own receive sees a disconnect.
             self._state = "released"
             self._listener = asyncio.create_task(self._listen())
-        return self._disconnected
+        await self._gone.wait()
 
     async def _listen(self) -> None:
         while True:
             message = await self._receive()
             if message["type"] == "http.disconnect":
-                self._disconnected = True
+                self._gone.set()
                 return
 
     async def close(self) -> None:

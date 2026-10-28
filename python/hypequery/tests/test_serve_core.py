@@ -344,8 +344,10 @@ def test_a_disconnected_caller_cancels_its_query() -> None:
             assert compiled.cancellation.is_set()
             return Rows(("total",), ((1,),))
 
-    async def disconnected() -> bool:
-        return started.is_set()
+    async def disconnected() -> None:
+        # The caller goes once the query has started.
+        while not started.is_set():
+            await asyncio.sleep(0.01)
 
     api = new_api()
     add_dataset_route(
@@ -359,7 +361,7 @@ def test_a_disconnected_caller_cancels_its_query() -> None:
         path=request.path,
         headers=request.headers,
         body=request.body,
-        is_disconnected=disconnected,
+        wait_disconnected=disconnected,
     )
     response, body = handle(api, request)
     assert response.status == 503

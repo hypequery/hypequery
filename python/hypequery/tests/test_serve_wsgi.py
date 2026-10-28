@@ -638,6 +638,21 @@ def test_closing_the_loop_cancels_what_runs_and_the_next_request_starts_another(
     assert WsgiClient(to_wsgi_app(_api())).get("/where", headers=[AUTH]).status_code == 200
 
 
+def test_no_loop_starts_after_interpreter_exit_closed_it(monkeypatch: pytest.MonkeyPatch) -> None:
+    serving.serving_loop()
+    monkeypatch.setattr(serving, "_exiting", False)
+    serving._close_at_exit()
+    try:
+        with pytest.raises(RuntimeError, match="exiting"):
+            serving.serving_loop()
+        # A late request fails instead of starting a loop nothing would close;
+        # the WSGI server answers it 500.
+        with pytest.raises(RuntimeError, match="exiting"):
+            WsgiClient(to_wsgi_app(_api())).get("/where", headers=[AUTH])
+    finally:
+        monkeypatch.setattr(serving, "_exiting", False)
+
+
 def test_a_forked_worker_starts_its_own_loop(monkeypatch: pytest.MonkeyPatch) -> None:
     # A real fork loses the parent's coverage data, so the fork is simulated:
     # the child sees another pid, and the at-fork hook resets the lock.

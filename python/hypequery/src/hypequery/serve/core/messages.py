@@ -90,8 +90,9 @@ class ServeRequest:
     *path* is the URL path as sent, percent-encoding intact, like TypeScript's
     `URL.pathname`. *client* is the transport peer, after any proxy handling
     the host already applied. *raw* is the framework's own request, for the
-    host's code; the core never reads it. *is_disconnected*, when given, lets
-    the core cancel a query whose caller has gone.
+    host's code; the core never reads it. *wait_disconnected*, when given,
+    returns once the caller has gone, and the core cancels the query it was
+    running for them; it is only awaited after the body has been read.
 
     *run_on_request_thread* is set by a sync host (WSGI, a Django or Flask
     sync view): it runs a blocking callable on the thread the host serves the
@@ -108,7 +109,7 @@ class ServeRequest:
     body: Body = b""
     client: tuple[str, int] | None = None
     raw: object = None
-    is_disconnected: Callable[[], Awaitable[bool]] | None = None
+    wait_disconnected: Callable[[], Awaitable[None]] | None = None
     run_on_request_thread: RequestThreadRunner | None = None
 
     def __post_init__(self) -> None:
