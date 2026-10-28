@@ -2,9 +2,15 @@
 
 A socket timeout bounds each receive, not the request: a server sending one
 byte just inside every timeout keeps a read alive indefinitely. A `Deadline`
-records every socket its requests open and, when it expires, shuts them down,
-which ends whatever receive is blocked, in the headers, a proxy's `CONNECT`
-reply or the body.
+holds a duplicate of every socket its requests open and, when it expires,
+shuts those connections down. That ends whatever receive is blocked: in the
+TLS handshake, a proxy's `CONNECT` reply, the headers or the body.
+
+It holds duplicates because TLS takes the socket over: wrapping detaches the
+original object, so shutting that one down would do nothing. A shutdown acts
+on the connection, not the descriptor, so the duplicate reaches it however it
+has since been wrapped, and as the Deadline owns the duplicate its descriptor
+cannot be reused by an unrelated socket meanwhile.
 """
 
 from __future__ import annotations
@@ -19,11 +25,15 @@ from typing import Any
 
 
 class Deadline:
-    """Shuts down every socket it tracks once *timeout* seconds have passed."""
+    """Shuts down every connection it tracks once *timeout* seconds have passed.
+
+    Use it as a context manager around the request; leaving it disarms the
+    timer and releases the duplicates.
+    """
 
     def __init__(self, timeout: float) -> None:
         self._lock = threading.Lock()
-        self._sockets: list[socket.socket] = []
+        self._duplicates: list[socket.socket] = []
         self.expired = False
         self._timer = threading.Timer(timeout, self._expire)
         self._timer.daemon = True
@@ -39,22 +49,27 @@ class Deadline:
         traceback: TracebackType | None,
     ) -> None:
         self._timer.cancel()
+        with self._lock:
+            duplicates, self._duplicates = self._duplicates, []
+        for duplicate in duplicates:
+            duplicate.close()
 
     def track(self, sock: socket.socket) -> socket.socket:
+        """Track *sock*'s connection; refused once the deadline has passed."""
+
         with self._lock:
-            if self.expired:
-                sock.close()
-                raise TimeoutError("the deadline passed while connecting")
-            self._sockets.append(sock)
-        return sock
+            if not self.expired:
+                self._duplicates.append(sock.dup())
+                return sock
+        sock.close()
+        raise TimeoutError("the deadline passed while connecting")
 
     def _expire(self) -> None:
         with self._lock:
             self.expired = True
-            sockets = list(self._sockets)
-        for sock in sockets:
-            with suppress(OSError):  # already closed
-                sock.shutdown(socket.SHUT_RDWR)
+            for duplicate in self._duplicates:
+                with suppress(OSError):  # the connection already ended
+                    duplicate.shutdown(socket.SHUT_RDWR)
 
 
 def _tracked(connection_class: Any, deadline: Deadline) -> Any:
@@ -64,8 +79,8 @@ def _tracked(connection_class: Any, deadline: Deadline) -> Any:
         def __init__(self, *args: Any, **kwargs: Any) -> None:
             super().__init__(*args, **kwargs)
             create = socket.create_connection
-            # The TCP socket, tracked before a proxy tunnel or TLS is set up
-            # on it, so the deadline covers those too.
+            # Tracked as soon as it connects, before a proxy tunnel or TLS
+            # is set up on it, so the deadline covers those too.
             self._create_connection = lambda *a, **k: deadline.track(create(*a, **k))
 
     return Tracked

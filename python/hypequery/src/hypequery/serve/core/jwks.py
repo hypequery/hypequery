@@ -6,7 +6,8 @@
   `cooldown` since the last successful fetch, so tokens with made-up `kid`s
   cannot make the server hammer the provider.
 - Concurrent requests share one fetch, across threads and event loops.
-- The fetch runs on its own thread, never on the event loop, one at a time.
+- The fetch runs on its own thread, never on the event loop, one at a time;
+  a fetch past its deadline is abandoned for a fresh one.
   It ends by `timeout`, however slowly the provider answers, is bounded by a
   response size limit, and follows no redirects. It goes through the proxy
   `urlopen` would use (`HTTPS_PROXY`, `NO_PROXY`), never for a loopback host.
@@ -35,6 +36,9 @@ from .utils.jwt_options import LOOPBACK_HOSTS
 
 #: A key set larger than this is refused. Providers publish a handful of keys.
 MAX_JWKS_BYTES = 512 * 1024
+#: Fetches past their deadline that may still hold a thread before a key set
+#: stops starting new ones. Only a fetch stuck resolving the host can get here.
+MAX_STUCK_FETCHES = 4
 _CHUNK_BYTES = 64 * 1024
 
 
@@ -113,9 +117,11 @@ class RemoteJwks:
         "_cache_max_age",
         "_cooldown",
         "_fetched_at",
+        "_fetching",
         "_keys",
         "_lock",
         "_pending",
+        "_pending_deadline",
         "_timeout",
         "url",
     )
@@ -129,6 +135,8 @@ class RemoteJwks:
         self._keys: list[dict[str, Any]] | None = None
         self._fetched_at = 0.0
         self._pending: Future[list[dict[str, Any]]] | None = None
+        self._pending_deadline = 0.0
+        self._fetching = 0
 
     async def keys(self) -> list[dict[str, Any]]:
         """The cached keys, fetched first when there are none or they are stale."""
@@ -147,44 +155,62 @@ class RemoteJwks:
             return self._keys is not None and _monotonic() < self._fetched_at + self._cooldown
 
     async def reload(self) -> list[dict[str, Any]]:
-        """Fetch the key set, joining a fetch already in flight."""
+        """Fetch the key set, joining a fetch already in flight.
 
-        pending = self._start()
+        A request waits no longer than the fetch it joined has left before
+        its deadline. The fetch ends itself by then; this bounds the wait
+        even where nothing can end it (name resolution blocks unbounded).
+        """
+
+        pending, deadline = self._start()
         try:
-            # The fetch bounds itself; this bounds the wait too, so a fetch
-            # stuck where no socket timeout reaches (name resolution) cannot
-            # hold the request. Later requests join that fetch rather than
-            # starting another, and fail the same way until it ends.
-            return await asyncio.wait_for(asyncio.wrap_future(pending), self._timeout * 2)
+            return await asyncio.wait_for(
+                asyncio.wrap_future(pending), max(0.0, deadline - _monotonic())
+            )
         except TimeoutError:
             raise JwksUnavailable("the key set took too long to fetch") from None
 
-    def _start(self) -> Future[list[dict[str, Any]]]:
+    def _start(self) -> tuple[Future[list[dict[str, Any]]], float]:
         with self._lock:
-            # One fetch at a time, however long it takes: every request joins
-            # it, so a slow provider costs one thread, never one per request.
-            if self._pending is not None:
-                return self._pending
+            now = _monotonic()
+            # One fetch at a time: every request joins the one in flight, so
+            # a slow provider costs one thread, never one per request.
+            if self._pending is not None and now < self._pending_deadline:
+                return self._pending, self._pending_deadline
+            # A fetch past its deadline is abandoned and a fresh one starts,
+            # but only while few are stuck: each holds a thread.
+            if self._fetching >= MAX_STUCK_FETCHES:
+                raise JwksUnavailable("earlier key-set fetches have not ended")
             pending: Future[list[dict[str, Any]]] = Future()
             # A running future cannot be cancelled, so one waiter giving up
             # (its client disconnected) does not cancel the fetch for the rest.
             pending.set_running_or_notify_cancel()
             self._pending = pending
+            self._pending_deadline = now + self._timeout
+            self._fetching += 1
         threading.Thread(
             target=self._fetch, args=(pending,), name="hypequery-jwks", daemon=True
         ).start()
-        return pending
+        return pending, now + self._timeout
 
     def _fetch(self, pending: Future[list[dict[str, Any]]]) -> None:
         try:
             keys = fetch_jwks(self.url, self._timeout)
         except BaseException as exc:
-            with self._lock:
-                self._pending = None
+            self._finished(pending, None)
             pending.set_exception(exc)
             return
-        with self._lock:
-            self._pending = None
-            self._keys = keys
-            self._fetched_at = _monotonic()
+        self._finished(pending, keys)
         pending.set_result(keys)
+
+    def _finished(
+        self, pending: Future[list[dict[str, Any]]], keys: list[dict[str, Any]] | None
+    ) -> None:
+        with self._lock:
+            self._fetching -= 1
+            if self._pending is pending:
+                self._pending = None
+            if keys is not None:
+                # Even from an abandoned fetch, a key set is a key set.
+                self._keys = keys
+                self._fetched_at = _monotonic()

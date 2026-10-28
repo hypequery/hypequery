@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import ssl
 import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -20,7 +21,7 @@ class _QuietServer(ThreadingHTTPServer):
 class JwksServer:
     """Serves `document` at any path; tests change it, and how it answers."""
 
-    def __init__(self, document: dict[str, Any]) -> None:
+    def __init__(self, document: dict[str, Any], *, tls: ssl.SSLContext | None = None) -> None:
         self.document: Any = document
         self.status = 200
         self.delay = 0.0
@@ -88,7 +89,11 @@ class JwksServer:
                 return
 
         self._http = _QuietServer(("127.0.0.1", 0), Handler)
-        self.url = f"http://127.0.0.1:{self._http.server_address[1]}/jwks.json"
+        scheme = "http"
+        if tls is not None:
+            self._http.socket = tls.wrap_socket(self._http.socket, server_side=True)
+            scheme = "https"
+        self.url = f"{scheme}://127.0.0.1:{self._http.server_address[1]}/jwks.json"
         self._thread = threading.Thread(target=self._http.serve_forever, daemon=True)
 
     def __enter__(self) -> JwksServer:

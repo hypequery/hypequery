@@ -10,16 +10,24 @@ from __future__ import annotations
 import asyncio
 import base64
 import http.client
+import ipaddress
 import socket
+import ssl
+import threading
 import time
 import warnings
 from collections.abc import Iterator, Mapping
-from datetime import timedelta
+from concurrent.futures import Future
+from datetime import UTC, datetime, timedelta
+from pathlib import Path
 from typing import Any
 
 import jwt
 import pytest
+from cryptography import x509
+from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
+from cryptography.x509.oid import NameOID
 
 from asgi_client import AsgiClient
 from core_transport import CoreClient
@@ -469,6 +477,85 @@ def test_a_dripping_key_set_is_cut_off_at_the_timeout(server: JwksServer) -> Non
     assert time.monotonic() - started < 1.5
 
 
+@pytest.fixture
+def tls_server(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[JwksServer]:
+    """A key set over TLS on 127.0.0.1, with a self-signed certificate the fetch trusts."""
+
+    key = _private_key()
+    name = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, "127.0.0.1")])
+    now = datetime.now(UTC)
+    certificate = (
+        x509.CertificateBuilder()
+        .subject_name(name)
+        .issuer_name(name)
+        .public_key(key.public_key())
+        .serial_number(x509.random_serial_number())
+        .not_valid_before(now - timedelta(minutes=1))
+        .not_valid_after(now + timedelta(hours=1))
+        .add_extension(
+            x509.SubjectAlternativeName([x509.IPAddress(ipaddress.ip_address("127.0.0.1"))]),
+            critical=False,
+        )
+        .add_extension(x509.BasicConstraints(ca=True, path_length=None), critical=True)
+        .sign(key, hashes.SHA256())
+    )
+    pem = certificate.public_bytes(serialization.Encoding.PEM)
+    (tmp_path / "cert.pem").write_bytes(pem)
+    (tmp_path / "key.pem").write_bytes(
+        key.private_bytes(
+            serialization.Encoding.PEM,
+            serialization.PrivateFormat.PKCS8,
+            serialization.NoEncryption(),
+        )
+    )
+    server_context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+    server_context.load_cert_chain(tmp_path / "cert.pem", tmp_path / "key.pem")
+
+    def trusting() -> ssl.SSLContext:
+        return ssl.create_default_context(cadata=pem.decode())
+
+    monkeypatch.setattr(ssl, "_create_default_https_context", trusting)
+    with JwksServer({"keys": [_jwk(RSA_1, "rsa-1", alg="RS256")]}, tls=server_context) as running:
+        yield running
+
+
+def test_an_https_key_set_is_fetched_with_its_certificate_checked(
+    tls_server: JwksServer,
+) -> None:
+    assert tls_server.url.startswith("https://")
+    assert fetch_jwks(tls_server.url, 5) == tls_server.document["keys"]
+
+
+@pytest.mark.parametrize("phase", ["body", "headers"])
+def test_a_dripping_https_key_set_is_cut_off_at_the_timeout(
+    tls_server: JwksServer, phase: str
+) -> None:
+    if phase == "body":
+        tls_server.drip = 0.02
+    else:
+        tls_server.drip_headers = 0.02
+    # Run where a regression fails the test instead of hanging the suite.
+    outcome: list[BaseException] = []
+
+    def fetch() -> None:
+        try:
+            fetch_jwks(tls_server.url, 0.3)
+        except BaseException as exc:
+            outcome.append(exc)
+
+    worker = threading.Thread(target=fetch, daemon=True)
+    worker.start()
+    worker.join(1.5)
+    assert not worker.is_alive(), "the HTTPS fetch outlived its deadline"
+    assert isinstance(outcome[0], JwksUnavailable)
+    assert "too long" in str(outcome[0])
+
+    strategy = jwt_strategy(jwks_url=tls_server.url, jwks_timeout=0.3)
+    started = time.monotonic()
+    assert _get(_core(strategy), _rs({"sub": "u"})).status_code == 503
+    assert time.monotonic() - started < 1.5
+
+
 def test_dripping_headers_are_cut_off_at_the_timeout(server: JwksServer) -> None:
     # The status line arrives, then a header one byte at a time: every
     # receive returns inside the socket timeout, but the request must not.
@@ -477,6 +564,21 @@ def test_dripping_headers_are_cut_off_at_the_timeout(server: JwksServer) -> None
     with pytest.raises(JwksUnavailable, match="too long"):
         fetch_jwks(server.url, 0.3)
     assert time.monotonic() - started < 1.5
+
+
+def test_a_deadline_reaches_a_socket_tls_has_taken_over() -> None:
+    # Wrapping a socket in TLS detaches the original object; the deadline
+    # must still end the connection the wrapper now owns.
+    near, far = socket.socketpair()
+    with far, Deadline(0.05) as deadline:
+        deadline.track(near)
+        taken_over = socket.socket(fileno=near.detach())
+        with taken_over:
+            taken_over.settimeout(5)
+            started = time.monotonic()
+            assert taken_over.recv(1) == b""
+            assert time.monotonic() - started < 1
+    assert deadline.expired
 
 
 def test_a_deadline_shuts_late_sockets_at_once() -> None:
@@ -602,6 +704,19 @@ def test_no_proxy_matches_the_host_and_port(
         assert server.paths == []
 
 
+def test_a_no_proxy_list_with_ports_does_not_break_fetching(
+    server: JwksServer, no_environment_proxies: pytest.MonkeyPatch
+) -> None:
+    no_environment_proxies.setenv("http_proxy", server.url.removesuffix("/jwks.json"))
+    no_environment_proxies.setenv("no_proxy", "idp.internal:8443,localhost")
+    url = "http://keys.example.test/jwks.json"
+    assert fetch_jwks(url, 5) == server.document["keys"]
+    assert server.paths == [url]
+    assert with_default_ports({"no": "idp.internal:8443,localhost"}) == {
+        "no": "idp.internal:8443,localhost"
+    }
+
+
 def test_proxies_get_their_own_scheme_default_port() -> None:
     assert with_default_ports(
         {
@@ -618,6 +733,9 @@ def test_proxies_get_their_own_scheme_default_port() -> None:
     }
     assert with_default_ports({"https": "socks5://proxy.internal"}) == {
         "https": "socks5://proxy.internal"
+    }
+    assert with_default_ports({"https": "http://proxy.internal:bad"}) == {
+        "https": "http://proxy.internal:bad"
     }
 
 
@@ -654,19 +772,72 @@ def test_a_refused_response_is_closed(server: JwksServer, monkeypatch: pytest.Mo
     assert responses[0].isclosed()
 
 
-def test_one_fetch_runs_at_a_time(monkeypatch: pytest.MonkeyPatch) -> None:
-    clock = [0.0]
-    monkeypatch.setattr(jwks, "_monotonic", lambda: clock[0])
+def _never_finishing(monkeypatch: pytest.MonkeyPatch) -> list[object]:
     started: list[object] = []
     monkeypatch.setattr(RemoteJwks, "_fetch", lambda self, pending: started.append(pending))
+    return started
+
+
+def test_requests_join_the_fetch_in_flight_until_its_deadline(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    clock = [0.0]
+    monkeypatch.setattr(jwks, "_monotonic", lambda: clock[0])
+    started = _never_finishing(monkeypatch)
     remote = RemoteJwks("https://idp.example.com/jwks", timeout=1, cache_max_age=60, cooldown=30)
 
-    first = remote._start()
-    clock[0] += 1000
-    # However long the fetch runs, requests join it rather than starting
-    # another thread.
-    assert remote._start() is first
-    assert len(started) == 1
+    first, deadline = remote._start()
+    assert deadline == 1.0
+    clock[0] = 0.9
+    assert remote._start() == (first, 1.0)
+    # Past its deadline the fetch is abandoned; the next request starts anew.
+    clock[0] = 1.0
+    second, deadline = remote._start()
+    assert second is not first
+    assert deadline == 2.0
+    assert len(started) == 2
+
+
+def test_stuck_fetches_are_capped(monkeypatch: pytest.MonkeyPatch) -> None:
+    clock = [0.0]
+    monkeypatch.setattr(jwks, "_monotonic", lambda: clock[0])
+    started = _never_finishing(monkeypatch)
+    remote = RemoteJwks("https://idp.example.com/jwks", timeout=1, cache_max_age=60, cooldown=30)
+    for _ in range(jwks.MAX_STUCK_FETCHES):
+        remote._start()
+        clock[0] += 1
+    with pytest.raises(JwksUnavailable, match="not ended"):
+        remote._start()
+    assert len(started) == jwks.MAX_STUCK_FETCHES
+
+
+def test_a_waiter_never_waits_past_the_fetch_deadline(monkeypatch: pytest.MonkeyPatch) -> None:
+    _never_finishing(monkeypatch)
+    remote = RemoteJwks("https://idp.example.com/jwks", timeout=0.4, cache_max_age=60, cooldown=0)
+
+    async def late_joiner() -> float:
+        first = asyncio.ensure_future(remote.reload())
+        await asyncio.sleep(0.2)
+        joined = time.monotonic()
+        with pytest.raises(JwksUnavailable, match="too long"):
+            await remote.reload()
+        with pytest.raises(JwksUnavailable):
+            await first
+        return time.monotonic() - joined
+
+    # The joiner waits for what the fetch had left, about 0.2 s, not 0.4 s.
+    assert asyncio.run(late_joiner()) < 0.35
+
+
+def test_an_abandoned_fetch_that_succeeds_still_stores_its_keys() -> None:
+    remote = RemoteJwks("https://idp.example.com/jwks", timeout=1, cache_max_age=60, cooldown=0)
+    current: Future[list[dict[str, Any]]] = Future()
+    remote._pending = current
+    remote._fetching = 2
+    remote._finished(Future(), [{"kty": "RSA"}])
+    assert remote._pending is current
+    assert remote._keys == [{"kty": "RSA"}]
+    assert remote._fetching == 1
 
 
 def test_key_selection_follows_jose() -> None:
