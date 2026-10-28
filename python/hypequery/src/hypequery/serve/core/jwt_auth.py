@@ -72,9 +72,9 @@ def _pyjwt(*, asymmetric: bool = False) -> ModuleType:
 class JwtStrategy:
     """Verifies a bearer JWT and maps its claims to a `Principal`.
 
-    It is an `Authenticator`: pass it as `authenticate=` (today's
-    `create_router`) or `auth=` (`create_api`). It reads the credential the
-    API's credential transport delivers, `bearer_token()` by default.
+    It is an `Authenticator`: pass it as `authenticate=` to `create_api` or
+    `create_router`. It reads the credential the API's credential transport
+    delivers, `bearer_token()` by default.
 
     A token that fails verification is refused with 401. A key set that
     cannot be fetched answers 503, because no token was judged.

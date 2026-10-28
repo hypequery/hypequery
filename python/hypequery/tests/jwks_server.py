@@ -24,6 +24,11 @@ class JwksServer:
         self.document: Any = document
         self.status = 200
         self.delay = 0.0
+        #: When set, the body is sent one byte per this many seconds, forever.
+        self.drip = 0.0
+        self.paths: list[str] = []
+        #: When False, no content-length: the body ends when the connection does.
+        self.length = True
         self.body: bytes | None = None
         self.headers: dict[str, str] = {}
         self.hits = 0
@@ -32,6 +37,10 @@ class JwksServer:
         class Handler(BaseHTTPRequestHandler):
             def do_GET(self) -> None:
                 server.hits += 1
+                server.paths.append(self.path)
+                if server.drip:
+                    self._drip()
+                    return
                 if server.delay:
                     time.sleep(server.delay)
                 body = (
@@ -41,11 +50,21 @@ class JwksServer:
                 )
                 self.send_response(server.status)
                 self.send_header("content-type", "application/json")
-                self.send_header("content-length", str(len(body)))
+                if server.length:
+                    self.send_header("content-length", str(len(body)))
                 for name, value in server.headers.items():
                     self.send_header(name, value)
                 self.end_headers()
                 self.wfile.write(body)
+
+            def _drip(self) -> None:
+                self.send_response(200)
+                self.send_header("content-length", str(10**6))
+                self.end_headers()
+                while True:
+                    time.sleep(server.drip)
+                    self.wfile.write(b" ")
+                    self.wfile.flush()
 
             def log_message(self, format: str, *args: object) -> None:  # noqa: A002
                 return

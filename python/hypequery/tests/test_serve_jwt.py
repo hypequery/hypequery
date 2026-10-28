@@ -8,9 +8,9 @@ cannot: configuration, the clock, key-set caching and fetch failures.
 from __future__ import annotations
 
 import asyncio
+import time
 import warnings
 from collections.abc import Iterator, Mapping
-from concurrent.futures import Future
 from datetime import timedelta
 from typing import Any
 
@@ -427,11 +427,43 @@ def test_an_unreachable_key_set_answers_503() -> None:
     assert _get(_core(strategy), _rs({"sub": "u"})).status_code == 503
 
 
-def test_a_slow_drip_body_is_cut_off(server: JwksServer, monkeypatch: pytest.MonkeyPatch) -> None:
-    ticks = iter([0.0, 100.0])
+def test_a_dripping_key_set_is_cut_off_at_the_timeout(server: JwksServer) -> None:
+    # One byte every 20 ms never trips a per-read socket timeout; the whole
+    # fetch must still end by the timeout.
+    server.drip = 0.02
+    started = time.monotonic()
+    with pytest.raises(JwksUnavailable, match="too long"):
+        fetch_jwks(server.url, 0.3)
+    assert time.monotonic() - started < 1.5
+
+    strategy = jwt_strategy(jwks_url=server.url, jwks_timeout=0.3)
+    started = time.monotonic()
+    assert _get(_core(strategy), _rs({"sub": "u"})).status_code == 503
+    assert time.monotonic() - started < 1.5
+
+
+def test_the_deadline_is_checked_before_every_read(
+    server: JwksServer, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    ticks = iter([0.0, 0.0, 100.0])
     monkeypatch.setattr(jwks, "_monotonic", lambda: next(ticks))
     with pytest.raises(JwksUnavailable, match="too long"):
         fetch_jwks(server.url, 5)
+
+
+def test_a_body_without_a_length_ends_with_the_connection(server: JwksServer) -> None:
+    server.length = False
+    assert fetch_jwks(server.url, 5) == server.document["keys"]
+
+
+def test_the_key_set_url_query_is_sent(server: JwksServer) -> None:
+    assert fetch_jwks(f"{server.url}?v=2", 5) == server.document["keys"]
+    assert server.paths == ["/jwks.json?v=2"]
+
+
+def test_https_key_sets_need_a_tls_server(server: JwksServer) -> None:
+    with pytest.raises(JwksUnavailable, match="could not be fetched"):
+        fetch_jwks(server.url.replace("http://", "https://"), 2)
 
 
 SMALL_RSA = _private_key(1024)
@@ -467,7 +499,7 @@ def test_imported_keys_are_reused(server: JwksServer) -> None:
     assert strategy._imported == imported
 
 
-def test_abandoned_fetches_are_replaced(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_one_fetch_runs_at_a_time(monkeypatch: pytest.MonkeyPatch) -> None:
     clock = [0.0]
     monkeypatch.setattr(jwks, "_monotonic", lambda: clock[0])
     started: list[object] = []
@@ -475,10 +507,11 @@ def test_abandoned_fetches_are_replaced(monkeypatch: pytest.MonkeyPatch) -> None
     remote = RemoteJwks("https://idp.example.com/jwks", timeout=1, cache_max_age=60, cooldown=30)
 
     first = remote._start()
+    clock[0] += 1000
+    # However long the fetch runs, requests join it rather than starting
+    # another thread.
     assert remote._start() is first
-    clock[0] += 3
-    assert remote._start() is not first
-    assert len(started) == 2
+    assert len(started) == 1
 
 
 def test_key_selection_follows_jose() -> None:
@@ -512,29 +545,6 @@ def test_a_fetch_that_never_finishes_times_out_the_wait(monkeypatch: pytest.Monk
     remote = RemoteJwks("https://idp.example.com/jwks", timeout=0.05, cache_max_age=60, cooldown=0)
     with pytest.raises(JwksUnavailable, match="too long"):
         asyncio.run(remote.reload())
-
-
-def test_an_abandoned_fetch_finishing_late_changes_nothing(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    outcomes: list[Any] = [[{"kty": "RSA"}], OSError("down")]
-
-    def fetch(url: str, timeout: float) -> list[dict[str, Any]]:
-        outcome = outcomes.pop(0)
-        if isinstance(outcome, Exception):
-            raise outcome
-        return outcome  # type: ignore[no-any-return]
-
-    monkeypatch.setattr(jwks, "fetch_jwks", fetch)
-    remote = RemoteJwks("https://idp.example.com/jwks", timeout=1, cache_max_age=60, cooldown=0)
-    current: Future[list[dict[str, Any]]] = Future()
-    remote._pending = current
-    for _ in range(2):
-        late: Future[list[dict[str, Any]]] = Future()
-        remote._fetch(late)
-        assert late.done()
-        assert remote._pending is current
-        assert remote._keys is None
 
 
 def test_the_imported_key_cache_is_bounded(server: JwksServer) -> None:
