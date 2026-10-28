@@ -512,16 +512,16 @@ def test_discovery_budget_and_invalid_endpoint_configuration_fail_at_startup() -
 
 
 def test_request_lifetime_propagates_disconnect_and_closes_watcher() -> None:
-    from fastapi import Request
+    from hypequery.serve.core.lifetime import RequestLifetime
+    from hypequery.serve.core.messages import ServeRequest
+    from hypequery.serve.core.work import RequestWork
 
-    from hypequery.serve.lifetime import RequestLifetime
-
-    async def receive() -> dict[str, Any]:
-        return {"type": "http.disconnect"}
+    async def disconnected() -> bool:
+        return True
 
     async def check() -> None:
-        request = Request({"type": "http", "method": "POST", "path": "/", "headers": []}, receive)
-        async with RequestLifetime(request) as lifetime:
+        request = ServeRequest(method="POST", path="/", is_disconnected=disconnected)
+        async with RequestLifetime(request, RequestWork()) as lifetime:
             await asyncio.sleep(0.01)
             assert lifetime.cancellation.is_set()
         assert not [task for task in asyncio.all_tasks() if task is not asyncio.current_task()]
@@ -531,27 +531,20 @@ def test_request_lifetime_propagates_disconnect_and_closes_watcher() -> None:
 
 @pytest.mark.parametrize("concurrency", [1, 50])
 def test_request_lifetime_exits_when_is_disconnected_absorbs_a_cancel(concurrency: int) -> None:
-    from fastapi import Request
+    from hypequery.serve.core.lifetime import RequestLifetime
+    from hypequery.serve.core.messages import ServeRequest
+    from hypequery.serve.core.work import RequestWork
 
-    from hypequery.serve.lifetime import RequestLifetime
-
-    class AbsorbingRequest(Request):
-        # Starlette's is_disconnected() awaits inside an already-cancelled
-        # anyio CancelScope, which can absorb a cancel aimed at the watcher.
-        async def is_disconnected(self) -> bool:
-            with suppress(asyncio.CancelledError):
-                await asyncio.sleep(0.02)
-            return False
-
-    async def receive() -> dict[str, Any]:
-        await asyncio.Event().wait()
-        raise AssertionError("unreachable")
+    # Starlette's is_disconnected() awaits inside an already-cancelled anyio
+    # CancelScope, which can absorb a cancel aimed at the watcher.
+    async def absorbing() -> bool:
+        with suppress(asyncio.CancelledError):
+            await asyncio.sleep(0.02)
+        return False
 
     async def one() -> None:
-        request = AbsorbingRequest(
-            {"type": "http", "method": "POST", "path": "/", "headers": []}, receive
-        )
-        async with RequestLifetime(request) as lifetime:
+        request = ServeRequest(method="POST", path="/", is_disconnected=absorbing)
+        async with RequestLifetime(request, RequestWork()) as lifetime:
             await asyncio.sleep(0.01)
         assert not lifetime.cancellation.is_set()
 

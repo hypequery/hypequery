@@ -29,6 +29,7 @@ from starlette.middleware.trustedhost import TrustedHostMiddleware
 from starlette.responses import PlainTextResponse, Response
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
+from .core.errors import not_found_message
 from .errors import ServeError, error_response
 from .request_ids import REQUEST_ID_SLOT, sanitize_correlation_id
 
@@ -248,13 +249,10 @@ def install_http_security(app: FastAPI, security: HttpSecurity) -> None:
 
 def _not_found_message(request: Request) -> str:
     # The path as the client sent it, percent-encoding intact, like the
-    # TypeScript router's URL pathname. Anything that is not short printable
-    # ASCII is not echoed.
+    # TypeScript router's URL pathname.
     raw = request.scope.get("raw_path")
     path = raw.decode("latin-1") if isinstance(raw, bytes) else request.url.path
-    if len(path) <= 2_048 and all(0x21 <= ord(char) <= 0x7E for char in path):
-        return f"No endpoint registered for {request.method} {path}"
-    return "No endpoint registered for this request"
+    return not_found_message(request.method, path)
 
 
 def _install_routing_errors(app: FastAPI) -> None:

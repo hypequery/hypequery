@@ -6,10 +6,8 @@ import inspect
 from collections.abc import Awaitable, Callable
 from typing import TypeVar
 
-from fastapi import Request
-
 from ..auth import InvalidCredential, unavailable
-from .request_work import run_sync
+from ..work import RequestWork, run_sync
 
 _Argument = TypeVar("_Argument")
 _Result = TypeVar("_Result")
@@ -23,7 +21,7 @@ def _is_async(provider: Callable[..., object]) -> bool:
 async def call_provider(
     provider: Callable[[_Argument], _Result | Awaitable[_Result]],
     argument: _Argument,
-    request: Request,
+    work: RequestWork,
     *,
     rejectable: bool = False,
 ) -> _Result:
@@ -34,7 +32,7 @@ async def call_provider(
     the caller to answer 401. Any other exception, even an HTTPException, is
     the provider failing.
 
-    A sync provider runs in the threadpool, as FastAPI runs a sync dependency:
+    A sync provider runs in the worker pool, as FastAPI runs a sync dependency:
     a token lookup that blocks must not stall every request on the loop.
     """
 
@@ -42,7 +40,7 @@ async def call_provider(
         if _is_async(provider):
             result = provider(argument)
         else:
-            result = await run_sync(request, provider, argument)
+            result = await run_sync(work, provider, argument)
         if inspect.isawaitable(result):
             return await result
         return result
