@@ -11,26 +11,11 @@ import pytest
 
 django = pytest.importorskip("django")
 
+from django_settings import configure_django  # noqa: E402
+
+configure_django()
+
 from django.conf import settings  # noqa: E402
-
-if not settings.configured:
-    settings.configure(
-        DEBUG=False,
-        SECRET_KEY="hypequery-tests",  # noqa: S106 - a test secret
-        ALLOWED_HOSTS=["testserver"],
-        ROOT_URLCONF=__name__,
-        INSTALLED_APPS=["hypequery.contrib.django"],
-        MIDDLEWARE=["hypequery.contrib.django.HypequeryMiddleware"],
-        HYPEQUERY={
-            "URL": "clickhouse://reader@ch/hq",
-            "REGISTRY": "contrib_doubles.REGISTRY",
-            "TENANT": f"{__name__}.tenant_for",
-            "TIMEZONE": "UTC",
-            "MAX_CONCURRENT": 2,
-        },
-    )
-    django.setup()
-
 from django.http import HttpRequest, JsonResponse  # noqa: E402
 from django.test import AsyncClient, Client, override_settings  # noqa: E402
 from django.urls import path  # noqa: E402

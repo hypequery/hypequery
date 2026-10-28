@@ -17,12 +17,13 @@ from .core.api import Api, ApiHost
 from .core.auth import RequestAuth
 from .core.client_contract import ClientEndpointRegistry, export_placements
 from .core.production import ProductionProfile
+from .wsgi import WsgiApp
 
 __all__ = ["export_client_contract"]
 
 
 def export_client_contract(
-    api: Api | AsgiApp,
+    api: Api | AsgiApp | WsgiApp,
     *,
     production: ProductionProfile | None = None,
     mount_path: str | None = None,
@@ -31,7 +32,8 @@ def export_client_contract(
 ) -> PreparedProtocolClientContract:
     """Export only the opted-in endpoints actually installed on *api*.
 
-    *api* is the API, or the `to_asgi_app` application serving it.
+    *api* is the API, or the `to_asgi_app` or `to_wsgi_app` application
+    serving it.
     *production* and *mount_path*, when given, must be the API's own: a
     contract never describes limits or paths its endpoints do not execute
     under. Proxy headers are never consulted. An authorized view checks each
@@ -39,7 +41,7 @@ def export_client_contract(
     when it was refused).
     """
 
-    if isinstance(api, AsgiApp):
+    if isinstance(api, AsgiApp | WsgiApp):
         api = api.api
     if not isinstance(api, Api):
         raise TypeError("export_client_contract requires an Api from create_api")

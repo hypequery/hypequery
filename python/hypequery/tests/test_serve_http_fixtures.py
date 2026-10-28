@@ -1,7 +1,9 @@
 """Runs the language-neutral serve HTTP error fixtures (specs/serve-http).
 
 Each case runs directly against the framework-neutral core's `Api.handle` and
-through the pure-ASGI adapter, each with and without a production profile.
+through every adapter (`serve_transports.py`): ASGI, WSGI, Django under WSGI
+and ASGI, and Flask, each with and without a production profile. Every
+adapter's answer must also match the core's byte for byte.
 
 `@hypequery/serve` runs the same file in `serve-http-fixtures.test.ts`. A
 divergence between the two is a bug in one of them or in the fixtures.
@@ -16,8 +18,6 @@ from typing import Any
 import pytest
 from pydantic import BaseModel, ConfigDict, TypeAdapter
 
-from asgi_client import AsgiClient
-from core_transport import CoreClient
 from hypequery.serve import (
     Api,
     Call,
@@ -28,8 +28,9 @@ from hypequery.serve import (
     RateLimit,
     ServeResponse,
     create_api,
-    to_asgi_app,
 )
+from serve_transports import TRANSPORTS as SERVED_BY
+from serve_transports import answer, serve_client
 
 FIXTURES = json.loads(
     (
@@ -37,7 +38,7 @@ FIXTURES = json.loads(
     ).read_text(encoding="utf-8")
 )
 CREDENTIAL = FIXTURES["app"]["credential"]
-TRANSPORTS = ["core", "core-production", "asgi", "asgi-production"]
+TRANSPORTS = [f"{name}{profile}" for name in SERVED_BY for profile in ("", "-production")]
 
 
 class _FailingStore:
@@ -85,14 +86,12 @@ def _api(production: bool = False) -> Api:
     return api
 
 
-def _client(transport: str) -> AsgiClient | CoreClient:
-    api = _api(transport.endswith("-production"))
-    if transport.startswith("core"):
-        return CoreClient(api)
-    return AsgiClient(to_asgi_app(api))
+def _client(transport: str) -> Any:
+    production = transport.endswith("-production")
+    return serve_client(transport.removesuffix("-production"), _api(production))
 
 
-def _send(client: AsgiClient | CoreClient, request: dict[str, Any]) -> Any:
+def _send(client: Any, request: dict[str, Any]) -> Any:
     headers = {}
     if request["credential"] == "valid":
         headers["Authorization"] = f"Bearer {CREDENTIAL}"
@@ -150,3 +149,12 @@ def test_errors_v1(case: dict[str, Any], caplog: pytest.LogCaptureFixture, trans
         assert all(isinstance(issue["message"], str) for issue in issues)
     for name, value in expected.get("headers", {}).items():
         assert response.headers.get(name) == value
+
+
+@pytest.mark.parametrize("case", FIXTURES["cases"], ids=[case["id"] for case in FIXTURES["cases"]])
+@pytest.mark.parametrize("transport", [name for name in TRANSPORTS if not name.startswith("core")])
+def test_every_adapter_answers_as_the_core_does(case: dict[str, Any], transport: str) -> None:
+    core = _client("core-production" if transport.endswith("-production") else "core")
+    served = _client(transport)
+    for request in case["requests"]:
+        assert answer(_send(served, request)) == answer(_send(core, request)), request

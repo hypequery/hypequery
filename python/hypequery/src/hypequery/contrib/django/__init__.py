@@ -11,6 +11,12 @@ Django's authentication middleware. Views then use ``request.analytics``::
 
 In an async view the same attribute is the async client, so ``await`` it.
 
+To serve hypequery's HTTP endpoints (for ``@hypequery/react`` and
+``@hypequery/mcp``) from the project itself, include :func:`urls` for an API
+from ``hypequery.serve.create_api``::
+
+    urlpatterns = [path("api/analytics/", include(urls(api)))]
+
 Requires ``hypequery[django]``.
 """
 
@@ -32,6 +38,7 @@ from .clients import (
     tenant_client,
 )
 from .middleware import HypequeryMiddleware
+from .views import urls
 
 __all__ = [
     "AsyncRequestAnalytics",
@@ -41,4 +48,5 @@ __all__ = [
     "get_async_client",
     "get_client",
     "tenant_client",
+    "urls",
 ]

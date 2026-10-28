@@ -2,9 +2,11 @@
 
 `create_api(...)` builds a framework-neutral `Api` whose `handle` serves one
 `ServeRequest`. Adapters put it on a transport: `to_asgi_app(api)` for uvicorn
-and any ASGI framework, `start_server(api)` for a standalone production
-process. Nothing here needs a web framework; running a server needs uvicorn,
-from the ``server`` extra.
+and any ASGI framework, `to_wsgi_app(api)` for gunicorn, waitress and any WSGI
+framework, `start_server(api)` for a standalone production process. Django and
+Flask serve it natively: `hypequery.contrib.django.urls(api)` and
+`hypequery.contrib.flask.blueprint(api)`. Nothing here needs a web framework;
+running `start_server` needs uvicorn, from the ``server`` extra.
 """
 
 from __future__ import annotations
@@ -49,6 +51,7 @@ from .production import ProductionProfile, run_production, start_server
 from .rate_limit import MemoryRateLimitStore, RateLimit, RateLimitKey, RateLimitStore
 from .request_ids import MAX_CORRELATION_ID_BYTES, sanitize_correlation_id
 from .security import CorsPolicy, HttpSecurity
+from .wsgi import WsgiApp, to_wsgi_app
 
 __all__ = [
     "DEFAULT_MAX_BODY_BYTES",
@@ -85,6 +88,7 @@ __all__ = [
     "ServeRequest",
     "ServeResponse",
     "TenantResolver",
+    "WsgiApp",
     "add_client_contract_endpoint",
     "add_dataset_endpoint",
     "add_discovery_endpoint",
@@ -103,4 +107,5 @@ __all__ = [
     "serve_dev",
     "start_server",
     "to_asgi_app",
+    "to_wsgi_app",
 ]

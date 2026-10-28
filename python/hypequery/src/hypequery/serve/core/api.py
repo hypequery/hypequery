@@ -256,11 +256,19 @@ class Api:
                 return route
         return None
 
-    async def handle(self, request: ServeRequest) -> ServeResponse:
+    async def handle(
+        self, request: ServeRequest, *, mounted_at: str | None = None
+    ) -> ServeResponse:
         """Serve *request* through the security profile, budgets and its route.
 
         A path or method no route serves is `404 NOT_FOUND`, as in TypeScript,
         never a 405 that would list a route's methods to an anonymous caller.
+
+        *mounted_at* is the prefix a host framework's router served the
+        request under, for an adapter mounted inside one (Django's URLconf, a
+        Flask blueprint): *request*'s path is below it, and client contracts
+        name paths under it. The API's `client_mount_path`, when set, takes
+        precedence, as trusted configuration of where the API is reached.
         """
 
         answered: list[ServeResponse] = []
@@ -268,10 +276,12 @@ class Api:
         async def keep(response: ServeResponse) -> None:
             answered.append(response)
 
-        await self.serve(request, keep)
+        await self.serve(request, keep, mounted_at=mounted_at)
         return answered[0]
 
-    async def serve(self, request: ServeRequest, respond: Responder) -> None:
+    async def serve(
+        self, request: ServeRequest, respond: Responder, *, mounted_at: str | None = None
+    ) -> None:
         """Serve *request* as `handle` does, handing the answer to *respond*.
 
         For an adapter that writes to a transport. With a production profile,
@@ -282,15 +292,16 @@ class Api:
         response has started, and the transport must close the connection.
         """
 
+        host = ApiHost(self, mounted_at)
         state = RequestState(request_id=new_request_id(), production=self.production)
 
         async def stamped(response: ServeResponse) -> None:
             await respond(with_request_ids(response, state.request_id, request.headers))
 
-        await self._secured(request, state, stamped)
+        await self._secured(request, state, host, stamped)
 
     async def _secured(
-        self, request: ServeRequest, state: RequestState, respond: Responder
+        self, request: ServeRequest, state: RequestState, host: ApiHost, respond: Responder
     ) -> None:
         if self._proxies is not None:
             client, _scheme = self._proxies.resolve(request.client, request.headers)
@@ -309,16 +320,18 @@ class Api:
                 return
             respond = cors.around(request.headers, respond)
         if self._gate is not None:
-            await self._gate.run(state, lambda: self._route(request, state), respond)
+            await self._gate.run(state, lambda: self._route(request, state, host), respond)
         else:
-            await respond(await self._route(request, state))
+            await respond(await self._route(request, state, host))
 
-    async def _route(self, request: ServeRequest, state: RequestState) -> ServeResponse:
+    async def _route(
+        self, request: ServeRequest, state: RequestState, host: ApiHost
+    ) -> ServeResponse:
         route = self.match(request.method, request.path)
         if route is None:
             error = serve_error(404, "NOT_FOUND", not_found_message(request.method, request.path))
             return error_response(error, state.request_id)
-        return await self.dispatch(request, state, route, ApiHost(self))
+        return await self.dispatch(request, state, route, host)
 
     async def dispatch(
         self, request: ServeRequest, state: RequestState, route: Route, host: RouteHost
@@ -349,16 +362,26 @@ class Api:
 
 
 class ApiHost:
-    """An API served on its own: every route at its registered path."""
+    """An API served on its own: every route at its registered path.
 
-    __slots__ = ("_api",)
+    *mounted_at* is the prefix a host framework's router served the request
+    under; the API's configured `client_mount_path` takes precedence.
+    """
 
-    def __init__(self, api: Api) -> None:
+    __slots__ = ("_api", "_mounted_at")
+
+    def __init__(self, api: Api, mounted_at: str | None = None) -> None:
+        if mounted_at is not None and (
+            type(mounted_at) is not str
+            or (mounted_at and (not mounted_at.startswith("/") or mounted_at.endswith("/")))
+        ):
+            raise ValueError("mounted_at must be empty or start with '/' and not end with one")
         self._api = api
+        self._mounted_at = mounted_at or ""
 
     @property
     def mount_path(self) -> str:
-        return self._api.client_mount_path
+        return self._api.client_mount_path or self._mounted_at
 
     @property
     def production(self) -> ProductionProfile | None:

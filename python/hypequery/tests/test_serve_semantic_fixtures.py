@@ -1,4 +1,8 @@
-"""Language-neutral semantic HTTP fixtures against Python's core and its ASGI adapter."""
+"""Language-neutral semantic HTTP fixtures against Python's core and every adapter.
+
+The adapters are those in `serve_transports.py`: ASGI, WSGI, Django under WSGI
+and ASGI, and Flask. Each must also answer as the core does.
+"""
 
 from __future__ import annotations
 
@@ -10,8 +14,6 @@ from typing import Any
 
 import pytest
 
-from asgi_client import AsgiClient
-from core_transport import CoreClient
 from hypequery.datasets import (
     CompiledQuery,
     Dataset,
@@ -35,8 +37,9 @@ from hypequery.serve import (
     add_discovery_endpoint,
     add_metric_endpoint,
     create_api,
-    to_asgi_app,
 )
+from serve_transports import TRANSPORTS as SERVED_BY
+from serve_transports import answer, serve_client
 
 FIXTURES = json.loads(
     (
@@ -60,8 +63,11 @@ class Executor:
         return Rows(columns, tuple(tuple(row[column] for column in columns) for row in rows))
 
 
-def app(case: dict[str, Any], transport: str = "core") -> AsgiClient | CoreClient:
-    """The fixture app, served by the core or its ASGI adapter, with or without production."""
+TRANSPORTS = [f"{name}{profile}" for name in SERVED_BY for profile in ("", "-production")]
+
+
+def app(case: dict[str, Any], transport: str = "core") -> Any:
+    """The fixture app, served by the core or an adapter, with or without production."""
 
     config = FIXTURES["app"]
     dataset = Dataset(
@@ -107,9 +113,7 @@ def app(case: dict[str, Any], transport: str = "core") -> AsgiClient | CoreClien
         policy=policy,
     )
     add_discovery_endpoint(api, registry=create_dataset_registry(dataset), policy=policy)
-    if transport.startswith("core"):
-        return CoreClient(api)
-    return AsgiClient(to_asgi_app(api))
+    return serve_client(transport.removesuffix("-production"), api)
 
 
 def assert_public(value: object) -> None:
@@ -122,23 +126,27 @@ def assert_public(value: object) -> None:
             assert_public(child)
 
 
-@pytest.mark.parametrize("case", FIXTURES["cases"], ids=[case["id"] for case in FIXTURES["cases"]])
-# "core" runs the cases against `Api.handle` with no server at all; "asgi"
-# serves them through `to_asgi_app`.
-@pytest.mark.parametrize("transport", ["core", "core-production", "asgi", "asgi-production"])
-def test_semantic_v1(case: dict[str, Any], transport: str) -> None:
+def send(case: dict[str, Any], transport: str) -> Any:
     headers = dict(case.get("headers", {}))
     if case["credential"] != "none":
         credential = FIXTURES["app"]["credential"] + (
             "-wrong" if case["credential"] == "invalid" else ""
         )
         headers["Authorization"] = "Bearer " + credential
-    response = app(case, transport).request(
+    return app(case, transport).request(
         case["method"],
         case["path"],
         headers=headers,
         **({"json": case["json"]} if "json" in case else {}),
     )
+
+
+@pytest.mark.parametrize("case", FIXTURES["cases"], ids=[case["id"] for case in FIXTURES["cases"]])
+# "core" runs the cases against `Api.handle` with no server at all; the others
+# serve them through an adapter.
+@pytest.mark.parametrize("transport", TRANSPORTS)
+def test_semantic_v1(case: dict[str, Any], transport: str) -> None:
+    response = send(case, transport)
     body = response.json()
     expected = case["expect"]
     assert response.status_code == expected["status"], response.text
@@ -159,3 +167,21 @@ def test_semantic_v1(case: dict[str, Any], transport: str) -> None:
         assert body["error"]["type"] == expected["errorType"]
     if "discovery" in expected:
         assert body == expected["discovery"]
+
+
+def _timeless(response: Any) -> tuple[int, dict[str, str], object]:
+    """`answer`, the body parsed, without its measured query time or request id."""
+
+    status, headers, content = answer(response)
+    body = json.loads(content)
+    if isinstance(body.get("meta"), dict):
+        body["meta"].pop("timingMs", None)
+        body["meta"].pop("requestId", None)
+    return status, headers, body
+
+
+@pytest.mark.parametrize("case", FIXTURES["cases"], ids=[case["id"] for case in FIXTURES["cases"]])
+@pytest.mark.parametrize("transport", [name for name in TRANSPORTS if not name.startswith("core")])
+def test_every_adapter_answers_as_the_core_does(case: dict[str, Any], transport: str) -> None:
+    core = "core-production" if transport.endswith("-production") else "core"
+    assert _timeless(send(case, transport)) == _timeless(send(case, core))

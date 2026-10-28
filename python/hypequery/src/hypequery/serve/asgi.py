@@ -27,14 +27,13 @@ import logging
 from collections.abc import Awaitable, Callable, MutableMapping
 from contextlib import AbstractAsyncContextManager
 from typing import Any
-from urllib.parse import parse_qsl
 
 from .core.api import Api
-from .core.errors import UNEXPECTED_ERROR_MESSAGE, error_response, serve_error
-from .core.messages import Headers, QueryParams, ServeRequest, ServeResponse
-from .core.request_ids import new_request_id
+from .core.messages import ServeRequest, ServeResponse
 from .utils.asgi_body import AsgiBody
-from .utils.asgi_scope import route_path
+from .utils.asgi_scope import route_path, scope_client, scope_headers, scope_query
+from .utils.fault import fault_response
+from .utils.response_head import response_body, response_headers
 
 __all__ = ["AsgiApp", "to_asgi_app"]
 
@@ -86,12 +85,7 @@ class AsgiApp:
                 # second status line would corrupt the connection, so the
                 # server must close it.
                 raise
-            # `serve` answers every route's failure itself; reaching here is
-            # a fault in the core, answered without a detail.
-            request_id = new_request_id()
-            _log.exception("Unhandled error serving a request (request_id=%s)", request_id)
-            error = serve_error(500, "INTERNAL_SERVER_ERROR", UNEXPECTED_ERROR_MESSAGE)
-            await _write(error_response(error, request_id), send)
+            await _write(fault_response(), send)
         finally:
             await body.close()
 
@@ -141,17 +135,13 @@ def to_asgi_app(api: Api, *, lifespan: Lifespan | None = None) -> AsgiApp:
 
 
 def _serve_request(scope: Scope, body: AsgiBody) -> ServeRequest:
-    client = scope.get("client")
-    query = scope.get("query_string", b"")
     return ServeRequest(
         method=scope["method"],
         path=route_path(scope),
-        query=QueryParams(parse_qsl(query.decode("latin-1"), keep_blank_values=True)),
-        headers=Headers(
-            (name.decode("latin-1"), value.decode("latin-1")) for name, value in scope["headers"]
-        ),
+        query=scope_query(scope),
+        headers=scope_headers(scope),
         body=body.chunks(),
-        client=(str(client[0]), int(client[1])) if client else None,
+        client=scope_client(scope),
         raw=scope,
         is_disconnected=body.is_disconnected,
     )
@@ -160,10 +150,7 @@ def _serve_request(scope: Scope, body: AsgiBody) -> ServeRequest:
 async def _write(response: ServeResponse, send: Send) -> None:
     headers = [
         (name.encode("latin-1"), value.encode("latin-1"))
-        for name, value in response.headers.items()
+        for name, value in response_headers(response)
     ]
-    bodiless = response.status < 200 or response.status in (204, 304)
-    if not bodiless and "content-length" not in response.headers:
-        headers.append((b"content-length", str(len(response.body)).encode("latin-1")))
     await send({"type": "http.response.start", "status": response.status, "headers": headers})
-    await send({"type": "http.response.body", "body": b"" if bodiless else response.body})
+    await send({"type": "http.response.body", "body": response_body(response)})
