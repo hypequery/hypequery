@@ -256,6 +256,7 @@ program
   .command('deployment:submit <bundle>')
   .description('Submit a prebuilt deployment bundle and release')
   .requiredOption('--release <path>', 'Target-bound release JSON path')
+  .option('--draft <name>', 'Save a named Cloud draft without publishing Production')
   .option(
     '--endpoint <url>',
     'HTTPS submission endpoint; requires HYPEQUERY_API_TOKEN',
@@ -287,6 +288,7 @@ program
   .option('--project <project>', 'Target project identifier (advanced override)')
   .option('--environment <environment>', 'Target environment identifier (advanced override)')
   .option('--no-source', 'Exclude project source files from the deployment bundle')
+  .option('--draft <name>', 'Save a named Cloud draft without publishing Production')
   .option(
     '--endpoint <url>',
     'HTTPS submission endpoint; requires HYPEQUERY_API_TOKEN',

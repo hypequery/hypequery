@@ -13,6 +13,7 @@ import {
   type DeploymentSubmissionResponse,
   type HttpDeploymentUploadTransportOptions,
 } from '../utils/deployment-upload.js';
+import { validateDraftDeploymentOptions } from '../utils/draft-deployment.js';
 import { logger } from '../utils/logger.js';
 import {
   type StoredCloudCredential,
@@ -36,6 +37,7 @@ export interface SubmitDeploymentOptions {
   release?: string;
   endpoint?: string;
   replaceRestored?: boolean;
+  draft?: string;
   /** Also print MCP client configuration for the hosted endpoint. */
   mcpConfig?: boolean;
 }
@@ -43,6 +45,7 @@ export interface SubmitDeploymentOptions {
 export interface DeployOptions {
   endpoint?: string;
   replaceRestored?: boolean;
+  draft?: string;
   project?: string;
   environment?: string;
   bundleOutput?: string;
@@ -135,6 +138,7 @@ export async function submitDeploymentCommand(
       + '--release analytics/hypequery-deployment.release.json',
     );
   }
+  validateDraftDeploymentOptions(options);
   const releasePath = requiredConfiguration(
     options.release,
     'Missing required --release <path>.',
@@ -169,7 +173,7 @@ export async function submitDeploymentCommand(
       'Release bundle identity does not match the verified deployment bundle.',
     );
   }
-  const live = await (dependencies.fetchLive ?? fetchLiveDeployment)({
+  const live = options.draft !== undefined ? null : await (dependencies.fetchLive ?? fetchLiveDeployment)({
     endpoint: deploymentEndpoint,
     token,
     target: release.release.target,
@@ -191,8 +195,20 @@ export async function submitDeploymentCommand(
       ? { expectedActivationRevision: live.active?.revision ?? null }
       : {}),
     ...(options.replaceRestored ? { replaceRestored: true } : {}),
+    ...(options.draft !== undefined ? { draft: options.draft } : {}),
   };
   const result = await createTransport(transportOptions).submit(bundle, release);
+  if (options.draft !== undefined) {
+    if (!result.draft || result.draft.name !== options.draft) {
+      throw new DeploymentUploadError('HQ_UPLOAD_INVALID_RESPONSE', 'Deployment service did not acknowledge the requested draft.');
+    }
+    logger.success(`Draft saved: ${result.draft.name}`);
+    logger.info(`Draft ID: ${result.draft.draftId}`);
+    logger.info(`Staging endpoint: ${result.draft.stagingUrl}`);
+    logger.info(`Release identity: ${result.releaseIdentity}`);
+    logger.info('Review and publish this draft in Cloud when ready.');
+    return result;
+  }
   logger.success(
     result.status === 'accepted'
       ? 'Deployment release accepted'
@@ -235,6 +251,7 @@ export async function deployCommand(
   options: DeployOptions = {},
   dependencies: DeployDependencies = {},
 ): Promise<DeploymentSubmissionResponse> {
+  validateDraftDeploymentOptions(options);
   if (!sourcePath) {
     throw new Error(
       'Missing Cloud publication module path.\n\n'
@@ -273,5 +290,6 @@ export async function deployCommand(
     endpoint: options.endpoint,
     replaceRestored: options.replaceRestored,
     mcpConfig: options.mcpConfig,
+    ...(options.draft !== undefined ? { draft: options.draft } : {}),
   }, dependencies);
 }

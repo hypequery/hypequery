@@ -125,6 +125,7 @@ describe('telemetry event contract', () => {
   it('normalizes known aliases and drops values, unknown flags and tokens after --', () => {
     expect(flagNames('generate', ['-o', '/private/output', '--tables=private', '--database', 'secret', '--unknown=secret', '--', '--path']))
       .toEqual(['--database', '--output', '--tables']);
+    expect(flagNames('deploy', ['--draft', 'PRIVATE_DRAFT_NAME'])).toEqual(['--draft']);
     expect(knownCommand('private-command')).toBe('unknown');
     expect(flagNames('unknown', ['--tables', 'secret', '--no-telemetry'])).toEqual(['--no-telemetry']);
     expect(flagNames('generate', ['-h'])).toEqual(['--help']);
