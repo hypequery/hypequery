@@ -13,8 +13,10 @@ Other composite columns (Array, Map, unnamed Tuple, geo, JSON) are left out
 with a comment in the generated file. Only date/time-typed columns are picked
 as `timeKey`, and `totalCount` counts a column that is actually a dimension.
 
-Fields whose camelCased names clash (for example a `geo_country` column and the
-`country` element of a `geo` tuple, or `fare_total` and `fareTotal`) no longer
-produce duplicate object keys. Columns keep their natural name, a tuple element
-or later column takes a numeric suffix (`geoCountry2`) with a comment saying
-why, and generated measures reference the resolved field names.
+Generated field names no longer clash. A field name is also its SQL alias,
+and ClickHouse resolves an alias before a column of the same name, so a field
+only takes a source column's name when it reads exactly that column. Otherwise
+it takes a numeric suffix (`fareTotal2`), with a comment saying why: with
+columns `fare_total` and `fareTotal`, the real `fareTotal` column keeps its
+name. Measure names (`totalCount`, `totalX`, `avgX`) follow the same rule, so a
+`count` column or a `fare`/`Fare` pair no longer produces duplicate keys.

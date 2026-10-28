@@ -14,7 +14,7 @@ import {
   namedTupleElements,
   type ScaffoldDimensionType,
 } from '../utils/clickhouse-dimension-type.js';
-import { uniqueNames } from '../utils/unique-names.js';
+import { createFieldNamer } from '../utils/field-namer.js';
 
 export interface DatasetGeneratorOptions {
   outputPath: string;
@@ -245,14 +245,20 @@ async function generateDatasetForTable(
     skippedColumns.push(column);
   }
 
-  // Columns keep their natural names; a tuple element that would clash with
-  // one (or an earlier field) takes a numeric suffix instead.
-  const naming = [...fields.filter((field) => !field.element), ...fields.filter((field) => field.element)];
-  uniqueNames(naming.map((field) => field.name)).forEach((name, index) => {
-    const field = naming[index];
+  // Field names are SQL aliases, so none may shadow a source column another
+  // field reads. A column spelled like its field keeps that name, then other
+  // columns, then tuple elements; a clash takes a numeric suffix instead.
+  const nameField = createFieldNamer(columns.map((column) => column.name));
+  const naming = [
+    ...fields.filter((field) => !field.element && field.name === field.column.name),
+    ...fields.filter((field) => !field.element && field.name !== field.column.name),
+    ...fields.filter((field) => field.element),
+  ];
+  for (const field of naming) {
+    const name = nameField(field.name, field.element ? undefined : field.column.name);
     if (name !== field.name) field.renamedFrom = field.name;
     field.name = name;
-  });
+  }
   const fieldNameByColumn = new Map(
     fields.filter((field) => !field.element).map((field) => [field.column.name, field.name]),
   );
@@ -271,7 +277,7 @@ async function generateDatasetForTable(
       const label = generateLabel(column.name);
       if (field.renamedFrom) {
         dimensionLines.push(
-          `    // ${field.element ? `${column.name}.${field.element}` : column.name} is ${field.name}: ${field.renamedFrom} is taken.`
+          `    // ${field.element ? `${column.name}.${field.element}` : column.name} is ${field.name}: ${field.renamedFrom} is taken by another field or column.`
         );
       }
       if (field.element) {
@@ -298,7 +304,7 @@ async function generateDatasetForTable(
 
   if (numericColumns.length > 0) {
     measureLines.push(`    // Count measures`);
-    measureLines.push(`    totalCount: measure.count('${countField}', { label: 'Total Count' }),`);
+    measureLines.push(`    ${nameField('totalCount')}: measure.count('${countField}', { label: 'Total Count' }),`);
     measureLines.push(``);
 
     for (const column of numericColumns) {
@@ -307,12 +313,12 @@ async function generateDatasetForTable(
       const label = generateLabel(column.name);
 
       measureLines.push(`    // ${label} measures`);
-      measureLines.push(`    total${measureSuffix}: measure.sum('${fieldName}', { label: 'Total ${label}' }),`);
-      measureLines.push(`    avg${measureSuffix}: measure.avg('${fieldName}', { label: 'Average ${label}' }),`);
+      measureLines.push(`    ${nameField(`total${measureSuffix}`)}: measure.sum('${fieldName}', { label: 'Total ${label}' }),`);
+      measureLines.push(`    ${nameField(`avg${measureSuffix}`)}: measure.avg('${fieldName}', { label: 'Average ${label}' }),`);
       measureLines.push(``);
     }
   } else if (countField) {
-    measureLines.push(`    totalCount: measure.count('${countField}', { label: 'Total Count' }),`);
+    measureLines.push(`    ${nameField('totalCount')}: measure.count('${countField}', { label: 'Total Count' }),`);
   }
 
   // Build the dataset definition

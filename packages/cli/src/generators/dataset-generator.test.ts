@@ -104,13 +104,15 @@ describe('generateDatasets', () => {
     expect(generated).not.toContain('measure.count({');
     // A column keeps its natural name over a tuple element, wherever it appears.
     expect(generated).toContain("geoCountry: dimension.string({ column: 'geo_country', label: 'Geo Country' })");
-    expect(generated).toContain('// geo.country is geoCountry2: geoCountry is taken.');
+    expect(generated).toContain('// geo.country is geoCountry2: geoCountry is taken by another field or column.');
     expect(generated).toContain(
       `geoCountry2: dimension.string({ sql: "tupleElement(geo, 'country')", dependencies: ['geo'], label: 'Geo Country' })`,
     );
-    expect(generated).toContain("fareTotal: dimension.number({ column: 'fare_total', label: 'Fare Total' })");
-    expect(generated).toContain('// fareTotal is fareTotal2: fareTotal is taken.');
-    expect(generated).toContain("fareTotal2: dimension.number({ column: 'fareTotal', label: 'FareTotal' })");
+    // A field name is a SQL alias: `fare_total` may not take the name of the real
+    // `fareTotal` column, or every expression reading fareTotal would read fare_total.
+    expect(generated).toContain("fareTotal: dimension.number({ label: 'FareTotal' })");
+    expect(generated).toContain('// fare_total is fareTotal2: fareTotal is taken by another field or column.');
+    expect(generated).toContain("fareTotal2: dimension.number({ column: 'fare_total', label: 'Fare Total' })");
     expect(generated).toContain("totalFareTotal: measure.sum('fareTotal'");
     expect(generated).toContain("totalFareTotal2: measure.sum('fareTotal2'");
     expect(generated).toContain(
@@ -241,6 +243,42 @@ describe('generateDatasets', () => {
 
     expect(result.contents).toContain("totalCount: measure.count('created'");
     expect(result.contents).not.toContain('timeKey:');
+  });
+
+  it('gives measures distinct names that shadow no column', async () => {
+    const injectedQuery = vi.fn(async ({ query }: { query: string }) => {
+      if (query === 'SHOW TABLES') {
+        return { json: async () => [{ name: 'events' }] };
+      }
+      if (query === 'DESCRIBE TABLE events') {
+        return {
+          json: async () => [
+            { name: 'name', type: 'String', default_type: '', default_expression: '' },
+            { name: 'count', type: 'UInt32', default_type: '', default_expression: '' },
+            { name: 'fare', type: 'Float64', default_type: '', default_expression: '' },
+            { name: 'Fare', type: 'Float64', default_type: '', default_expression: '' },
+            { name: 'avgFare', type: 'Float64', default_type: '', default_expression: '' },
+          ],
+        };
+      }
+      throw new Error(`Unexpected query: ${query}`);
+    });
+
+    const { contents } = await generateDatasets({
+      outputPath: 'unused.ts',
+      client: { query: injectedQuery },
+      writeOutput: false,
+    });
+
+    expect(contents).toContain("totalCount: measure.count('name'");
+    expect(contents).toContain("totalCount2: measure.sum('count'");
+    expect(contents).toContain("totalFare: measure.sum('fare'");
+    // The real avgFare column keeps its name, so the measure over fare moves aside.
+    expect(contents).toContain("avgFare2: measure.avg('fare'");
+    expect(contents).toContain("totalFare2: measure.sum('Fare'");
+    expect(contents).toContain("avgFare3: measure.avg('Fare'");
+    const keys = [...contents.matchAll(/^ {4}(\w+):/gm)].map((match) => match[1]);
+    expect(new Set(keys).size).toBe(keys.length);
   });
 
   it('never turns customer_id naming into active tenant enforcement', async () => {
