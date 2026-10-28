@@ -29,6 +29,7 @@ from weakref import WeakKeyDictionary
 from fastapi import APIRouter, Depends, Request
 from fastapi.params import Depends as DependsParam
 from fastapi.routing import APIRoute
+from fastapi.utils import is_body_allowed_for_status_code
 from starlette.datastructures import MutableHeaders
 from starlette.responses import Response
 from starlette.types import Message, Receive, Scope, Send
@@ -47,7 +48,7 @@ from .core.api import Api, Route
 from .core.authentication import Authentication
 from .core.body import receive_body
 from .core.client_contract import ClientEndpointRegistry
-from .core.messages import ServeRequest
+from .core.messages import ServeRequest, ServeResponse
 from .errors import as_serve_error, error_response, map_error
 from .rate_limit import RateLimit
 from .utils.scope_slot import ScopeSlot
@@ -298,13 +299,17 @@ class ServeRouter(APIRouter):
             async def endpoint_with_body(
                 request: Request, response: Response, payload: Any
             ) -> Response:
-                served = await _serve_core_route(request, api, route)
-                if served.status_code < 400:
-                    # What dependencies set on FastAPI's injected response
-                    # applies to a successful answer, as for a returned model.
-                    if response.status_code:
-                        served.status_code = response.status_code
-                    served.headers.raw.extend(response.headers.raw)
+                # FastAPI decoded and validated the body (the core bounded it
+                # first), including when host dependencies add body fields.
+                answer = await _dispatch_core(request, api, route, decoded=payload)
+                if answer.status >= 400:
+                    return starlette_response(answer)
+                # What dependencies set on FastAPI's injected response applies
+                # to a successful answer, as for a returned model.
+                status = response.status_code or answer.status
+                body = answer.body if is_body_allowed_for_status_code(status) else b""
+                served = starlette_response(replace(answer, status=status, body=body))
+                served.headers.raw.extend(response.headers.raw)
                 return served
 
             # Assigned whole, so the annotation holds under deferred evaluation too.
@@ -396,12 +401,19 @@ def create_api(
     )
 
 
-async def _serve_core_route(request: Request, api: Api, route: Route) -> Response:
+async def _dispatch_core(
+    request: Request, api: Api, route: Route, **decoded: object
+) -> ServeResponse:
     received = _CORE_REQUEST.get(request.scope)
     if received is None:
         raise RuntimeError("a core route ran outside its authenticating route")
-    response = await api.dispatch(received, request_state(request), route, FastAPIHost(request))
-    return starlette_response(response)
+    return await api.dispatch(
+        received, request_state(request), route, FastAPIHost(request), **decoded
+    )
+
+
+async def _serve_core_route(request: Request, api: Api, route: Route) -> Response:
+    return starlette_response(await _dispatch_core(request, api, route))
 
 
 __all__ = ["ServeRouter", "create_api", "create_router"]
