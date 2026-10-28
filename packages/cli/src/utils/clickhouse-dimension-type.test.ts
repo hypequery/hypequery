@@ -77,6 +77,13 @@ describe('namedTupleElements', () => {
     ]);
   });
 
+  it('keeps splitting elements after a literal with an escaped quote', () => {
+    expect(namedTupleElements("Tuple(status Enum8('can\\'t' = 1, 'ok' = 2), lat Float64)")).toEqual([
+      { name: 'status', type: 'string' },
+      { name: 'lat', type: 'number' },
+    ]);
+  });
+
   it('ignores unnamed tuples and other types', () => {
     expect(namedTupleElements('Tuple(Float64, Float64)')).toBeNull();
     expect(namedTupleElements("Tuple(DateTime64(3, 'UTC'), String)")).toBeNull();

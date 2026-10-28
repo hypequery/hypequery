@@ -57,6 +57,12 @@ describe('generateDatasets', () => {
               default_type: '',
               default_expression: '',
             },
+            {
+              name: 'events',
+              type: 'Array(Tuple(\n    kind String,\n    at DateTime))',
+              default_type: '',
+              default_expression: '',
+            },
             // Each of these is spelled like another field once camelCased.
             { name: 'geo_country', type: 'String', default_type: '', default_expression: '' },
             { name: 'fare_total', type: 'Float64', default_type: '', default_expression: '' },
@@ -120,6 +126,9 @@ describe('generateDatasets', () => {
     ]) {
       expect(generated).toContain(`// ${column} (${type}) is not included: no dimension type describes its values.`);
     }
+    expect(generated).toContain(
+      '// events (Array(Tuple( kind String, at DateTime))) is not included: no dimension type describes its values.',
+    );
     expect(generated).not.toMatch(/(?:pickupPoint|itemCounts|tags|attrs|route): dimension\./);
     expect(generated).not.toContain('PickupPoint measures');
     expect(generated).not.toContain('ItemCounts measures');

@@ -260,8 +260,10 @@ async function generateDatasetForTable(
   const dimensionLines: string[] = [];
   for (const column of columns) {
     if (skippedColumns.includes(column)) {
+      // ClickHouse can spell a nested type over several lines; keep the note on one comment line.
+      const type = column.type.replace(/\s+/g, ' ');
       dimensionLines.push(
-        `    // ${column.name} (${column.type}) is not included: no dimension type describes its values.`
+        `    // ${column.name} (${type}) is not included: no dimension type describes its values.`
       );
       continue;
     }
