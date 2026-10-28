@@ -5,9 +5,9 @@ stdin, ``{"rows": {"columns": [...], "rows": [[...]]}, "requests": [...]}``;
 prints ``[[status, body], ...]``. Each request is ``{"method", "path",
 "headers", "json", "signed_in", "csrf"}``; ``csrf`` sends a matching Django
 CSRF cookie and ``X-CSRFToken`` header, as the React client does. A fresh
-process because Django's settings can be configured once per process, and the projects' ``app`` and ``datasets``
-modules would shadow each other. ClickHouse is a double answering ``rows``;
-importing a project must not connect.
+process because Django's settings can be configured once per process, and the
+projects' ``app`` and ``datasets`` modules would shadow each other. ClickHouse
+is a double answering ``rows``; importing a project must not connect.
 """
 
 from __future__ import annotations
