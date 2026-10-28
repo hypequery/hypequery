@@ -294,6 +294,10 @@ def test_core_refuses_a_malformed_raw_host(host: str) -> None:
         (("*.example.com",), "a.b.example.com:8443", 200),
         (("*.example.com",), "example.com", 400),
         (("*.example.com",), "badexample.com", 400),
+        (("*.example.com.",), "api.example.com.", 200),
+        (("*.example.com.",), "api.example.com:8443", 200),
+        (("*.example.com",), "api.example.com.", 200),
+        (("*.example.com.",), "example.com.", 400),
         (("127.0.0.1",), "127.0.0.1:8000", 200),
     ],
 )

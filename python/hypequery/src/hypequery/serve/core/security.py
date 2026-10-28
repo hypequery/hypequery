@@ -159,7 +159,9 @@ def host_allowed(headers: Headers, allowed_hosts: tuple[str, ...]) -> bool:
         return False
     for pattern in allowed_hosts:
         if pattern.startswith("*."):
-            if host.endswith(pattern[1:]):
+            # Normalised like the request host, so `*.example.com.` still
+            # matches `api.example.com.`. Validation guarantees a domain here.
+            if host.endswith("." + (normalise_host(pattern[2:]) or "")):
                 return True
         elif host == normalise_host(pattern):
             return True
