@@ -1,4 +1,4 @@
-"""The application files `init --framework django|flask` writes instead of a FastAPI app.
+"""The application files `init --framework django|flask` writes instead of the ASGI app.
 
 Both use the framework integrations in ``hypequery.contrib`` and the generated
 ``datasets.py``. Their tenant function returns None until the user wires it to
@@ -15,7 +15,7 @@ FRAMEWORKS: tuple[Framework, ...] = ("fastapi", "django", "flask")
 
 #: The pyproject extras each framework needs; each includes the ClickHouse driver.
 EXTRAS: dict[Framework, str] = {
-    "fastapi": "fastapi,clickhouse",
+    "fastapi": "server,clickhouse",
     "django": "django",
     "flask": "flask",
 }

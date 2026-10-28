@@ -1,24 +1,20 @@
 """Dataset and measure-backed metric endpoints over the shared client.
 
 The query pipeline lives in the core (`core/endpoints.py`); this module installs
-it on a `ServeRouter`.
+it on an `Api`.
 """
 
 from __future__ import annotations
 
-from collections.abc import Iterable
-
-from fastapi import Request
+from collections.abc import Iterable, Sequence
 
 from ..datasets import ClientQueryProfile, Dataset
 from ..datasets.client import AsyncDatasetClient, DatasetClient
+from .core.api import Api
 from .core.endpoints import DatasetEndpointCore, DiagnosticAccess, add_dataset_route
+from .core.rate_limit import RateLimit
 from .events import QueryEvents
-from .models import DiagnosticQueryResponse, QueryRequest, QueryResponse
 from .policy import DEFAULT_ENDPOINT_POLICY, EndpointPolicy
-from .router import ServeRouter, authenticated_context
-from .utils.query_schema import endpoint_query_model
-from .utils.starlette_bridge import request_state, serve_request
 
 __all__ = [
     "DatasetEndpoint",
@@ -31,40 +27,21 @@ __all__ = [
 
 
 class DatasetEndpoint(DatasetEndpointCore):
-    """A dataset or metric endpoint, installed on a `ServeRouter`."""
+    """A dataset or metric endpoint, installed on an `Api`."""
 
-    async def execute(self, request: Request, payload: QueryRequest) -> QueryResponse:
-        """Run *payload* for *request*, as the installed route does."""
+    def install(self, api: Api, path: str, *, limits: Sequence[RateLimit] = ()) -> None:
+        """Serve this endpoint at `POST path`, under the API's base path.
 
-        return await self.query(
-            serve_request(request), request_state(request), authenticated_context(request), payload
-        )
+        *limits* apply to this route after the API's own.
+        """
 
-    def install(self, router: ServeRouter, path: str) -> None:
-        model = (
-            None
-            if self.client_profile is not None
-            else endpoint_query_model(self.dataset, metric=self.measure is not None)
-        )
-        route = add_dataset_route(
-            router._api,
-            router.prefix + path,
-            self,
-            input_model=model,
-            path_taken=router._post_path_taken,
-        )
-        router._add_core_route(
-            path,
-            route,
-            documented_input=dict[str, object] if model is None else model,
-            response_model=QueryResponse | DiagnosticQueryResponse,
-            response_model_exclude_none=True,
-            tags=["metrics" if self.measure else "datasets"],
-        )
+        if not isinstance(api, Api):
+            raise TypeError("an endpoint is installed on an Api from create_api")
+        add_dataset_route(api, path, self, limits=limits)
 
 
 def add_dataset_endpoint(
-    router: ServeRouter,
+    api: Api,
     path: str,
     *,
     dataset: Dataset,
@@ -74,6 +51,7 @@ def add_dataset_endpoint(
     events: QueryEvents | None = None,
     client_profile: ClientQueryProfile | None = None,
     include_related: Iterable[str] = (),
+    limits: Sequence[RateLimit] = (),
 ) -> None:
     """Register a bounded POST query endpoint, authenticated by default."""
 
@@ -85,11 +63,11 @@ def add_dataset_endpoint(
         events=events,
         client_profile=client_profile,
         include_related=include_related,
-    ).install(router, path)
+    ).install(api, path, limits=limits)
 
 
 def add_metric_endpoint(
-    router: ServeRouter,
+    api: Api,
     path: str,
     *,
     dataset: Dataset,
@@ -101,6 +79,7 @@ def add_metric_endpoint(
     events: QueryEvents | None = None,
     client_profile: ClientQueryProfile | None = None,
     include_related: Iterable[str] = (),
+    limits: Sequence[RateLimit] = (),
 ) -> None:
     """Register a metric fixed to one dataset measure (no formula metric surface yet)."""
 
@@ -114,7 +93,7 @@ def add_metric_endpoint(
         events=events,
         client_profile=client_profile,
         include_related=include_related,
-    ).install(router, path)
+    ).install(api, path, limits=limits)
 
 
 def create_dataset_endpoint(

@@ -1,4 +1,4 @@
-"""Language-neutral semantic HTTP fixtures against Python's ASGI app and its core."""
+"""Language-neutral semantic HTTP fixtures against Python's core and its ASGI adapter."""
 
 from __future__ import annotations
 
@@ -9,8 +9,8 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from fastapi.testclient import TestClient
 
+from asgi_client import AsgiClient
 from core_transport import CoreClient
 from hypequery.datasets import (
     CompiledQuery,
@@ -34,15 +34,9 @@ from hypequery.serve import (
     add_dataset_endpoint,
     add_discovery_endpoint,
     add_metric_endpoint,
-    bearer_token,
-    create_app,
-    create_router,
-    default_tenant_resolver,
+    create_api,
+    to_asgi_app,
 )
-from hypequery.serve.core import Api
-from hypequery.serve.core.authentication import Authentication
-from hypequery.serve.core.discovery import add_discovery_route
-from hypequery.serve.core.endpoints import DatasetEndpointCore, add_dataset_route
 
 FIXTURES = json.loads(
     (
@@ -66,8 +60,8 @@ class Executor:
         return Rows(columns, tuple(tuple(row[column] for column in columns) for row in rows))
 
 
-def app(case: dict[str, Any], transport: str = "embedded") -> TestClient | CoreClient:
-    """The fixture app, served by FastAPI or the core, with or without production."""
+def app(case: dict[str, Any], transport: str = "core") -> AsgiClient | CoreClient:
+    """The fixture app, served by the core or its ASGI adapter, with or without production."""
 
     config = FIXTURES["app"]
     dataset = Dataset(
@@ -96,46 +90,26 @@ def app(case: dict[str, Any], transport: str = "embedded") -> TestClient | CoreC
         required_roles=frozenset(case.get("requiredRoles", [])),
         required_scopes=frozenset(case.get("requiredScopes", [])),
     )
-    dataset_path = f"/datasets/{config['dataset']}/query"
-    metric_path = f"/metrics/{config['measure']}"
-    if transport.startswith("core"):
-        api = Api(
-            authentication=Authentication(authenticate, bearer_token(), default_tenant_resolver),
-            security=HttpSecurity(allowed_hosts=("testserver",)),
-            production=ProductionProfile() if transport == "core-production" else None,
-        )
-        add_dataset_route(
-            api, dataset_path, DatasetEndpointCore(dataset=dataset, client=client, policy=policy)
-        )
-        add_dataset_route(
-            api,
-            metric_path,
-            DatasetEndpointCore(
-                dataset=dataset, measure=config["measure"], client=client, policy=policy
-            ),
-        )
-        add_discovery_route(
-            api, "/discovery", registry=create_dataset_registry(dataset), policy=policy
-        )
-        return CoreClient(api)
-    router = create_router(authenticate=authenticate)
-    add_dataset_endpoint(router, dataset_path, dataset=dataset, client=client, policy=policy)
+    api = create_api(
+        auth=authenticate,
+        security=HttpSecurity(allowed_hosts=("testserver",)),
+        production=ProductionProfile() if transport.endswith("-production") else None,
+    )
+    add_dataset_endpoint(
+        api, f"/datasets/{config['dataset']}/query", dataset=dataset, client=client, policy=policy
+    )
     add_metric_endpoint(
-        router,
-        metric_path,
+        api,
+        f"/metrics/{config['measure']}",
         dataset=dataset,
         measure=config["measure"],
         client=client,
         policy=policy,
     )
-    add_discovery_endpoint(router, registry=create_dataset_registry(dataset), policy=policy)
-    return TestClient(
-        create_app(
-            router,
-            security=HttpSecurity(allowed_hosts=("testserver",)),
-            production=ProductionProfile() if transport == "production" else None,
-        )
-    )
+    add_discovery_endpoint(api, registry=create_dataset_registry(dataset), policy=policy)
+    if transport.startswith("core"):
+        return CoreClient(api)
+    return AsgiClient(to_asgi_app(api))
 
 
 def assert_public(value: object) -> None:
@@ -149,8 +123,9 @@ def assert_public(value: object) -> None:
 
 
 @pytest.mark.parametrize("case", FIXTURES["cases"], ids=[case["id"] for case in FIXTURES["cases"]])
-# "core" runs the cases against `Api.handle` with no framework at all.
-@pytest.mark.parametrize("transport", ["embedded", "production", "core", "core-production"])
+# "core" runs the cases against `Api.handle` with no server at all; "asgi"
+# serves them through `to_asgi_app`.
+@pytest.mark.parametrize("transport", ["core", "core-production", "asgi", "asgi-production"])
 def test_semantic_v1(case: dict[str, Any], transport: str) -> None:
     headers = dict(case.get("headers", {}))
     if case["credential"] != "none":

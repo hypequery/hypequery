@@ -5,9 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 import pytest
-from fastapi import FastAPI
-from fastapi.testclient import TestClient
 
+from asgi_client import AsgiClient
 from hypequery.datasets import (
     ClientQueryProfile,
     CompiledQuery,
@@ -20,20 +19,24 @@ from hypequery.datasets import (
     measure,
 )
 from hypequery.datasets.planner import query_settings
-from hypequery.protocol import ProtocolClientContractError
 from hypequery.serve import (
+    AsgiApp,
+    Call,
     Credential,
     EndpointPolicy,
     HttpSecurity,
     Principal,
     ProductionProfile,
+    ServeResponse,
     add_dataset_endpoint,
     add_metric_endpoint,
     create_api,
-    create_app,
     create_dataset_endpoint,
     export_client_contract,
+    to_asgi_app,
 )
+
+SECURITY = HttpSecurity(allowed_hosts=("testserver",))
 
 
 @dataclass(frozen=True)
@@ -59,7 +62,7 @@ def authenticate(credential: Credential) -> Principal | None:
     return None
 
 
-def setup(*, production: ProductionProfile | None = None) -> tuple[FastAPI, Executor]:
+def setup(*, production: ProductionProfile | None = None) -> tuple[AsgiApp, Executor]:
     dataset = Dataset(
         name="orders",
         source="private_orders",
@@ -69,23 +72,21 @@ def setup(*, production: ProductionProfile | None = None) -> tuple[FastAPI, Exec
     )
     executor = Executor()
     client = create_dataset_client(executor=executor, settings=query_settings(max_result_rows=8))
-    router = create_api(authenticate=authenticate, prefix="/api")
+    api = create_api(auth=authenticate, base_path="/api", security=SECURITY, production=production)
     add_dataset_endpoint(
-        router,
+        api,
         "/orders",
         dataset=dataset,
         client=client,
         policy=EndpointPolicy(max_limit=6, required_scopes=frozenset({"read"})),
         client_profile=ClientQueryProfile(default_limit=3, max_limit=10),
     )
-    return create_app(
-        router, security=HttpSecurity(allowed_hosts=("testserver",)), production=production
-    ), executor
+    return to_asgi_app(api), executor
 
 
 def test_registered_export_matches_runtime_limits_and_strict_requests() -> None:
     app, executor = setup(production=ProductionProfile(max_result_rows=5))
-    artifact = export_client_contract(app)
+    artifact = export_client_contract(app.api)
     endpoint = artifact["contract"]["endpoints"][0]
     assert endpoint["path"] == "/api/orders"
     assert endpoint["limits"]["maxLimit"] == 4
@@ -94,7 +95,7 @@ def test_registered_export_matches_runtime_limits_and_strict_requests() -> None:
         "Authorization": "Bearer reader",
         "X-Hypequery-Client-Schema": endpoint["schemaHash"],
     }
-    with TestClient(app) as http:
+    with AsgiClient(app) as http:
         result = http.post("/api/orders", json={"limit": 100, "includeMeta": True}, headers=headers)
     assert result.status_code == 200
     assert result.json()["meta"]["pagination"]["limit"] == 4
@@ -103,7 +104,7 @@ def test_registered_export_matches_runtime_limits_and_strict_requests() -> None:
 
 def test_auth_and_policy_precede_stale_schema_and_execution() -> None:
     app, executor = setup()
-    with TestClient(app) as http:
+    with AsgiClient(app) as http:
         for token, status in [(None, 401), ("viewer", 403), ("reader", 409)]:
             headers = {"X-Hypequery-Client-Schema": "stale"}
             if token:
@@ -128,23 +129,23 @@ def test_auth_and_policy_precede_stale_schema_and_execution() -> None:
 )
 def test_strict_input_rejected_before_planning(payload: dict[str, object]) -> None:
     app, executor = setup()
-    with TestClient(app) as http:
+    with AsgiClient(app) as http:
         result = http.post("/api/orders", json=payload, headers={"Authorization": "Bearer reader"})
     assert result.status_code == 400
     assert result.json()["error"]["message"] == "Invalid client query."
     assert executor.seen == []
 
 
-def test_metric_alias_and_custom_app_inclusion_prefix() -> None:
+def test_metric_alias_under_the_base_path() -> None:
     dataset = Dataset(
         name="orders",
         source="private_orders",
         dimensions={"country": dimension.string()},
         measures={"total": measure.count("country")},
     )
-    router = create_api(authenticate=authenticate, prefix="/api")
+    api = create_api(auth=authenticate, base_path="/v2/api")
     add_metric_endpoint(
-        router,
+        api,
         "/sales",
         dataset=dataset,
         client=create_dataset_client(executor=Executor()),
@@ -152,13 +153,11 @@ def test_metric_alias_and_custom_app_inclusion_prefix() -> None:
         name="sales",
         client_profile=ClientQueryProfile(),
     )
-    app = FastAPI()
-    app.include_router(router, prefix="/v2")
-    artifact = export_client_contract(app, routers=[router])
+    artifact = export_client_contract(api)
     endpoint = artifact["contract"]["endpoints"][0]
     assert endpoint["path"] == "/v2/api/sales"
     assert list(endpoint["measures"]) == ["sales"]
-    with TestClient(app) as http:
+    with AsgiClient(to_asgi_app(api)) as http:
         response = http.post(
             "/v2/api/sales",
             json={},
@@ -172,7 +171,7 @@ def test_metric_alias_and_custom_app_inclusion_prefix() -> None:
 
 
 def test_separate_clients_keep_their_own_relationship_targets() -> None:
-    router = create_api(authenticate=authenticate)
+    router = create_api(auth=authenticate)
     for name, attribute in (("orders", "tier"), ("invoices", "region")):
         customers = Dataset(
             name="customers",
@@ -197,8 +196,9 @@ def test_separate_clients_keep_their_own_relationship_targets() -> None:
             client_profile=ClientQueryProfile(),
             include_related={"customer"},
         )
-    app = create_app(router, security=HttpSecurity(allowed_hosts=("testserver",)))
-    endpoints = {item["id"]: item for item in export_client_contract(app)["contract"]["endpoints"]}
+    endpoints = {
+        item["id"]: item for item in export_client_contract(router)["contract"]["endpoints"]
+    }
     assert "customer.tier" in endpoints["orders"]["dimensions"]
     assert "customer.region" not in endpoints["orders"]["dimensions"]
     assert "customer.region" in endpoints["invoices"]["dimensions"]
@@ -206,19 +206,18 @@ def test_separate_clients_keep_their_own_relationship_targets() -> None:
 
 
 def test_legacy_endpoints_are_not_advertised() -> None:
-    router = create_api(authenticate=authenticate)
+    router = create_api(auth=authenticate, security=SECURITY)
     dataset = Dataset(
         name="orders", source="private_orders", dimensions={"country": dimension.string()}
     )
     add_dataset_endpoint(
         router, "/legacy", dataset=dataset, client=create_dataset_client(executor=Executor())
     )
-    app = create_app(router, security=HttpSecurity(allowed_hosts=("testserver",)))
-    assert export_client_contract(app)["contract"]["endpoints"] == []
+    assert export_client_contract(router)["contract"]["endpoints"] == []
 
 
 def test_duplicate_opt_in_install_fails_before_adding_route() -> None:
-    router = create_api(authenticate=authenticate)
+    router = create_api(auth=authenticate, security=SECURITY)
     dataset = Dataset(name="orders", source="private", dimensions={"country": dimension.string()})
     endpoint = create_dataset_endpoint(
         dataset=dataset,
@@ -238,7 +237,9 @@ def test_installation_snapshots_endpoint_and_mount_configuration() -> None:
         dimensions={"country": dimension.string()},
         measures={"total": measure.count("country")},
     )
-    router = create_api(authenticate=authenticate, prefix="/api")
+    router = create_api(
+        auth=authenticate, base_path="/api", security=SECURITY, client_mount_path="/edge"
+    )
     executor = Executor()
     endpoint = create_dataset_endpoint(
         dataset=dataset,
@@ -247,12 +248,9 @@ def test_installation_snapshots_endpoint_and_mount_configuration() -> None:
     )
     endpoint.install(router, "/orders")
     endpoint.dataset = Dataset(name="changed", source="wrong", dimensions={"x": dimension.string()})
-    app = create_app(
-        router, security=HttpSecurity(allowed_hosts=("testserver",)), client_mount_path="/edge"
-    )
-    descriptor = export_client_contract(app)["contract"]["endpoints"][0]
+    descriptor = export_client_contract(router)["contract"]["endpoints"][0]
     assert descriptor["path"] == "/edge/api/orders"
-    with TestClient(app) as http:
+    with AsgiClient(to_asgi_app(router)) as http:
         response = http.post(
             "/api/orders",
             json={},
@@ -265,30 +263,14 @@ def test_installation_snapshots_endpoint_and_mount_configuration() -> None:
     assert "private_orders" in executor.seen[0].sql
     assert "wrong" not in executor.seen[0].sql
     with pytest.raises(ValueError, match="mount path"):
-        export_client_contract(app, mount_path="/other")
-
-
-def test_ambiguous_application_inclusions_are_refused() -> None:
-    router = create_api(authenticate=authenticate)
-    dataset = Dataset(name="orders", source="private", dimensions={"country": dimension.string()})
-    add_dataset_endpoint(
-        router,
-        "/orders",
-        dataset=dataset,
-        client=create_dataset_client(executor=Executor()),
-        client_profile=ClientQueryProfile(),
-    )
-    app = FastAPI()
-    app.include_router(router, prefix="/one")
-    app.include_router(router, prefix="/two")
-    with pytest.raises(ProtocolClientContractError) as failure:
-        export_client_contract(app, routers=[router])
-    assert failure.value.code == "HQ_CLIENT_DUPLICATE"
+        export_client_contract(router, mount_path="/other")
+    with pytest.raises(ValueError, match="production profile"):
+        export_client_contract(router, production=ProductionProfile())
 
 
 def test_metric_override_and_integer_valued_json_limits() -> None:
     app, executor = setup()
-    with TestClient(app) as http:
+    with AsgiClient(app) as http:
         response = http.post(
             "/api/orders", json={"limit": 1.0}, headers={"Authorization": "Bearer reader"}
         )
@@ -309,7 +291,7 @@ def test_async_endpoints_use_the_same_contract_and_profile() -> None:
         dimensions={"country": dimension.string()},
         measures={"total": measure.count("country")},
     )
-    router = create_api(authenticate=authenticate)
+    router = create_api(auth=authenticate, security=SECURITY)
     add_dataset_endpoint(
         router,
         "/orders",
@@ -317,9 +299,8 @@ def test_async_endpoints_use_the_same_contract_and_profile() -> None:
         client=create_async_dataset_client(executor=AsyncExecutor()),
         client_profile=ClientQueryProfile(),
     )
-    app = create_app(router, security=HttpSecurity(allowed_hosts=("testserver",)))
-    descriptor = export_client_contract(app)["contract"]["endpoints"][0]
-    with TestClient(app) as http:
+    descriptor = export_client_contract(router)["contract"]["endpoints"][0]
+    with AsgiClient(to_asgi_app(router)) as http:
         response = http.post(
             "/orders",
             json={},
@@ -335,7 +316,12 @@ def test_async_endpoints_use_the_same_contract_and_profile() -> None:
 def test_schema_pin_header_is_allowed_through_configured_cors() -> None:
     from hypequery.serve import CorsPolicy
 
-    router = create_api(authenticate=authenticate)
+    router = create_api(
+        auth=authenticate,
+        security=HttpSecurity(
+            allowed_hosts=("testserver",), cors=CorsPolicy(origins=("https://frontend.example",))
+        ),
+    )
     dataset = Dataset(name="orders", source="private", dimensions={"country": dimension.string()})
     add_dataset_endpoint(
         router,
@@ -344,13 +330,7 @@ def test_schema_pin_header_is_allowed_through_configured_cors() -> None:
         client=create_dataset_client(executor=Executor()),
         client_profile=ClientQueryProfile(),
     )
-    app = create_app(
-        router,
-        security=HttpSecurity(
-            allowed_hosts=("testserver",), cors=CorsPolicy(origins=("https://frontend.example",))
-        ),
-    )
-    with TestClient(app) as http:
+    with AsgiClient(to_asgi_app(router)) as http:
         response = http.options(
             "/orders",
             headers={
@@ -367,9 +347,9 @@ def test_schema_pin_header_is_allowed_through_configured_cors() -> None:
 
 def test_matching_schema_pin_still_enforces_current_lower_limits() -> None:
     old, _ = setup()
-    pinned = export_client_contract(old)["contract"]["endpoints"][0]
+    pinned = export_client_contract(old.api)["contract"]["endpoints"][0]
     current, _ = setup(production=ProductionProfile(max_result_rows=3))
-    with TestClient(current) as http:
+    with AsgiClient(current) as http:
         response = http.post(
             "/api/orders",
             json={"limit": 100, "includeMeta": True},
@@ -382,29 +362,39 @@ def test_matching_schema_pin_still_enforces_current_lower_limits() -> None:
     assert response.json()["meta"]["pagination"]["limit"] == 2
 
 
-@pytest.mark.parametrize("kind", ["starlette", "catchall", "mount"])
-def test_custom_host_routes_cannot_shadow_a_client_endpoint(kind: str) -> None:
-    from starlette.responses import JSONResponse
-    from starlette.routing import Mount, Route
+def test_routes_cannot_shadow_a_client_endpoint() -> None:
+    async def other(call: Call) -> ServeResponse:
+        return ServeResponse.json({})
 
-    router = create_api(authenticate=authenticate)
-    dataset = Dataset(name="orders", source="private", dimensions={"country": dimension.string()})
-    add_dataset_endpoint(
-        router,
-        "/orders",
-        dataset=dataset,
-        client=create_dataset_client(executor=Executor()),
-        client_profile=ClientQueryProfile(),
+    dataset = Dataset(
+        name="orders",
+        source="private",
+        dimensions={"country": dimension.string()},
+        measures={"total": measure.count("country")},
     )
-    app = FastAPI()
-    if kind == "starlette":
-        app.router.routes.append(
-            Route("/orders", lambda request: JSONResponse({}), methods=["POST"])
+    client = create_dataset_client(executor=Executor())
+    # A route already serving the path is refused...
+    taken = create_api(auth=authenticate)
+    taken.add_route("POST", "/orders", other)
+    with pytest.raises(ValueError, match="already registered"):
+        add_dataset_endpoint(
+            taken, "/orders", dataset=dataset, client=client, client_profile=ClientQueryProfile()
         )
-    elif kind == "catchall":
-        app.post("/{path:path}")(lambda path: {})
-    else:
-        app.router.routes.append(Mount("/orders", app=FastAPI()))
-    app.include_router(router)
-    with pytest.raises(ValueError, match="ambiguous"):
-        export_client_contract(app, routers=[router])
+    # ...and one added later never serves it: the first route for a path does.
+    api = create_api(auth=authenticate, security=SECURITY)
+    add_dataset_endpoint(
+        api, "/orders", dataset=dataset, client=client, client_profile=ClientQueryProfile()
+    )
+    api.add_route("POST", "/orders", other)
+    descriptor = export_client_contract(api)["contract"]["endpoints"][0]
+    with AsgiClient(to_asgi_app(api)) as http:
+        response = http.post(
+            "/orders",
+            json={},
+            headers={
+                "Authorization": "Bearer reader",
+                "X-Hypequery-Client-Schema": descriptor["schemaHash"],
+            },
+        )
+    assert response.status_code == 200
+    assert response.json()["data"] == [{"total": "12"}]

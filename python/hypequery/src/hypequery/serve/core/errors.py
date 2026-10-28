@@ -14,7 +14,7 @@ and answered with a fixed sentence.
 from __future__ import annotations
 
 import logging
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Mapping, Sequence
 from typing import Literal, TypeAlias
 
 from ...datasets.planner import CompiledQueryError, CompiledQueryErrorCategory
@@ -65,13 +65,12 @@ _SERVER_MESSAGES: Mapping[CompiledQueryErrorCategory, str] = {
 _LOCATIONS = frozenset(("body", "query", "path", "header", "cookie"))
 
 
-class ServeHttpError(Exception):
-    """A canonical error, TypeScript's `ServeHttpError`.
+class ServeError(Exception):
+    """Raise from a handler to return a specific canonical error.
 
-    The core raises errors through `serve_error`, which builds the class the
-    serving layer registered with `use_error_class`. Until step 3 of decision
-    0023 that is `hypequery.serve.ServeError`, which is also a FastAPI
-    `HTTPException`, so every error the core raises is still one.
+    The counterpart of TypeScript's `ServeError`. *message* is sent as
+    written, so it must be safe for the caller to read; *headers* are added to
+    the error response.
     """
 
     status_code: int
@@ -97,18 +96,6 @@ class ServeHttpError(Exception):
         self.headers = dict(headers or {})
 
 
-_error_class: type[ServeHttpError] = ServeHttpError
-
-
-def use_error_class(error_class: type[ServeHttpError]) -> None:
-    """Have `serve_error` build *error_class*. Called once, by the serving layer."""
-
-    global _error_class
-    if not issubclass(error_class, ServeHttpError):
-        raise TypeError("the serve error class must subclass ServeHttpError")
-    _error_class = error_class
-
-
 def serve_error(
     status: int,
     type: ServeErrorType,  # noqa: A002 - the envelope's own field name
@@ -116,10 +103,10 @@ def serve_error(
     *,
     details: Mapping[str, object] | None = None,
     headers: Mapping[str, str] | None = None,
-) -> ServeHttpError:
+) -> ServeError:
     """A canonical error to raise. *message* is sent as written."""
 
-    return _error_class(status, type, message, details=details, headers=headers)
+    return ServeError(status, type, message, details=details, headers=headers)
 
 
 def validation_issues(
@@ -142,7 +129,7 @@ def validation_issues(
     return issues
 
 
-def request_validation_error(errors: Sequence[Mapping[str, object]]) -> ServeHttpError:
+def request_validation_error(errors: Sequence[Mapping[str, object]]) -> ServeError:
     """The canonical 400 for input that failed validation."""
 
     return serve_error(
@@ -153,10 +140,10 @@ def request_validation_error(errors: Sequence[Mapping[str, object]]) -> ServeHtt
     )
 
 
-def as_serve_error(exc: BaseException, *, request_id: str | None = None) -> ServeHttpError:
+def as_serve_error(exc: BaseException, *, request_id: str | None = None) -> ServeError:
     """The canonical error for *exc*, logging anything unexpected."""
 
-    if isinstance(exc, ServeHttpError):
+    if isinstance(exc, ServeError):
         return exc
     if isinstance(exc, CompiledQueryError):
         status, kind = _CATEGORIES[exc.category]
@@ -170,18 +157,7 @@ def as_serve_error(exc: BaseException, *, request_id: str | None = None) -> Serv
     return serve_error(500, "INTERNAL_SERVER_ERROR", UNEXPECTED_ERROR_MESSAGE)
 
 
-#: Maps whatever a route raised to its canonical error. The serving layer
-#: supplies one that also understands its framework's own exceptions.
-ErrorMapper = Callable[[BaseException, str], ServeHttpError]
-
-
-def map_error(exc: BaseException, request_id: str) -> ServeHttpError:
-    """The core's `ErrorMapper`."""
-
-    return as_serve_error(exc, request_id=request_id)
-
-
-def error_response(error: ServeHttpError, request_id: str) -> ServeResponse:
+def error_response(error: ServeError, request_id: str) -> ServeResponse:
     """Render *error* in the canonical envelope."""
 
     body: dict[str, object] = {"type": error.type, "message": error.message}

@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
+
 from ...protocol import ProtocolClientContractError
 from .api import Api, Call, Route
 from .auth import RequestAuth
 from .client_contract import ClientEndpointRegistry, export_placements
-from .errors import ServeHttpError, serve_error
+from .errors import ServeError, serve_error
 from .messages import ServeResponse
 from .policy import DEFAULT_ENDPOINT_POLICY, EndpointPolicy
 
@@ -15,7 +17,7 @@ async def target_auth(registry: ClientEndpointRegistry, call: Call) -> RequestAu
     """Authenticate the request with the registry's own API; None when refused."""
     try:
         return await registry.authentication(call.request, call.state)
-    except ServeHttpError as error:
+    except ServeError as error:
         if error.status_code in (401, 403):
             return None
         raise
@@ -28,6 +30,7 @@ def add_client_contract_route(
     sources: tuple[ClientEndpointRegistry, ...] = (),
     policy: EndpointPolicy = DEFAULT_ENDPOINT_POLICY,
     max_bytes: int = 256 * 1024,
+    tags: Sequence[str] = (),
 ) -> Route:
     """Serve a live view of *sources*, independently authorizing every target.
 
@@ -72,4 +75,4 @@ def add_client_contract_route(
             },
         )
 
-    return api.add_route("GET", path, discover, public=policy.public)
+    return api.add_route("GET", path, discover, public=policy.public, tags=tags)

@@ -18,7 +18,7 @@ def test_scaffold_new_directory_with_spaces(tmp_path: Path) -> None:
     assert {path.name for path in destination.iterdir()} == set(TEMPLATE_NAMES)
     ast.parse((destination / "app.py").read_text())
     project = tomllib.loads((destination / "pyproject.toml").read_text())
-    assert project["project"]["dependencies"][0].startswith("hypequery[fastapi,clickhouse]==")
+    assert project["project"]["dependencies"][0].startswith("hypequery[server,clickhouse]==")
     assert "__HYPEQUERY_VERSION__" not in (destination / "pyproject.toml").read_text()
     assert "not loaded automatically" in (destination / "README.md").read_text()
     assert "HYPEQUERY_DEV_TOKEN=\n" in (destination / ".env.example").read_text()

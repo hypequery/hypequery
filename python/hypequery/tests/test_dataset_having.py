@@ -9,8 +9,8 @@ from dataclasses import dataclass, field
 from unittest.mock import Mock
 
 import pytest
-from fastapi.testclient import TestClient
 
+from asgi_client import AsgiClient
 from hypequery.datasets import (
     CompiledQuery,
     Dataset,
@@ -42,8 +42,8 @@ from hypequery.serve import (
     Principal,
     add_dataset_endpoint,
     add_metric_endpoint,
-    create_app,
-    create_router,
+    create_api,
+    to_asgi_app,
 )
 
 Orders = Dataset(
@@ -194,16 +194,15 @@ def test_queries_with_conditions_bypass_the_result_cache() -> None:
     assert sum("HAVING" in compiled.sql for compiled in executor.seen) == 2
 
 
-def _app(executor: Executor) -> TestClient:
+def _app(executor: Executor) -> AsgiClient:
     def authenticate(credential: Credential) -> Principal | None:
         return Principal(subject="reader") if credential.value == "token" else None
 
     client = create_dataset_client(executor=executor)
-    router = create_router(authenticate=authenticate)
-    add_dataset_endpoint(router, "/orders", dataset=Orders, client=client)
-    add_metric_endpoint(router, "/revenue", dataset=Orders, measure="revenue", client=client)
-    app = create_app(router, security=HttpSecurity(allowed_hosts=("testserver",)))
-    return TestClient(app, headers={"Authorization": "Bearer token"})
+    api = create_api(auth=authenticate, security=HttpSecurity(allowed_hosts=("testserver",)))
+    add_dataset_endpoint(api, "/orders", dataset=Orders, client=client)
+    add_metric_endpoint(api, "/revenue", dataset=Orders, measure="revenue", client=client)
+    return AsgiClient(to_asgi_app(api), headers={"Authorization": "Bearer token"})
 
 
 def test_dataset_endpoints_forward_conditions_and_metric_endpoints_refuse_them() -> None:

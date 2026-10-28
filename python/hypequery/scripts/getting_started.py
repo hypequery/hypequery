@@ -4,7 +4,7 @@ The steps are the README's own code blocks, found by their
 ``<!-- getting-started: name -->`` markers, so the documented path cannot drift
 from the one that works. The script:
 
-1. installs a built wheel with the ``fastapi`` and ``clickhouse`` extras into a
+1. installs a built wheel with the ``server`` and ``clickhouse`` extras into a
    fresh virtual environment;
 2. runs the seed SQL in a scratch database;
 3. writes ``app.py`` and starts it with the README's run command;
@@ -102,7 +102,7 @@ def install(wheel: Path, venv: Path) -> Path:
     subprocess.run([uv, "venv", "--python", version, str(venv)], check=True)  # noqa: S603
     python = venv / "bin" / "python"
     subprocess.run(  # noqa: S603
-        [uv, "pip", "install", "--python", str(python), f"{wheel}[fastapi,clickhouse]"],
+        [uv, "pip", "install", "--python", str(python), f"{wheel}[server,clickhouse]"],
         check=True,
     )
     return python

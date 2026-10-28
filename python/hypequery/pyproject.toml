@@ -11,7 +11,7 @@ requires-python = ">=3.11"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 authors = [{ name = "Hypequery" }]
-keywords = ["clickhouse", "analytics", "semantic-layer", "datasets", "fastapi"]
+keywords = ["clickhouse", "analytics", "semantic-layer", "datasets", "asgi"]
 classifiers = [
   "Development Status :: 4 - Beta",
   "Intended Audience :: Developers",
@@ -20,7 +20,7 @@ classifiers = [
   "Programming Language :: Python :: 3.13",
   "Programming Language :: Python :: 3.14",
   "Framework :: Django",
-  "Framework :: FastAPI",
+  "Framework :: AsyncIO",
   "Framework :: Flask",
   "Framework :: Pydantic :: 2",
   "Topic :: Database",
@@ -29,17 +29,18 @@ classifiers = [
 
 # Definition-only use must stay framework-free. Nothing here may pull in a web
 # framework or a database driver; those are extras, enforced by importlinter.
+# AnyIO is an async runtime, not a framework: the serving core runs sync host
+# code on its worker threads, so `hypequery.serve` needs no extra at all.
 # Floors are measured minimums: each is the oldest release that installs from
-# wheels and passes the suite on its Python version. pydantic 2.9.2 is also
-# FastAPI 0.137+'s own floor. On Python 3.14, pydantic-core has no wheel before
-# pydantic 2.12.0, 2.12.0 rejects MetricRequest's `None` field overrides and
-# 2.12.1 is yanked, so 3.14 starts at 2.12.2. fastapi 0.137.2
-# introduced iter_route_contexts; clickhouse-connect 1.4.2 introduced named
-# driver errors the executor maps to categories; urllib3 2.8.0 fixes three
-# published advisories. Transitive floors close advisories the direct floors
-# would still admit: h11 0.16.0 (via uvicorn), anyio 4.14.2 (via starlette),
-# certifi 2026.10.19 (via clickhouse-connect) and idna 3.15 (via anyio and
-# aiohttp). The integration extras start at the first releases free of
+# wheels and passes the suite on its Python version. On Python 3.14,
+# pydantic-core has no wheel before pydantic 2.12.0, 2.12.0 rejects
+# MetricRequest's `None` field overrides and 2.12.1 is yanked, so 3.14 starts
+# at 2.12.2. anyio 4.14.2 is the first release free of published advisories;
+# clickhouse-connect 1.4.2 introduced named driver errors the executor maps to
+# categories; urllib3 2.8.0 fixes three published advisories. Transitive floors
+# close advisories the direct floors would still admit: h11 0.16.0 (via
+# uvicorn), certifi 2026.10.19 (via clickhouse-connect) and idna 3.15 (via
+# anyio and aiohttp). The integration extras start at the first releases free of
 # published advisories (django 5.2.17, flask 3.1.3, werkzeug 3.1.9, pyarrow
 # 23.0.1); pandas 2.3.3 is the first with Python 3.14 wheels; polars 1.0.0
 # and asgiref 3.8.1 (Django 5.2's own floor) pass the suite.
@@ -48,6 +49,8 @@ dependencies = [
     "pydantic>=2.9.2; python_version < '3.14'",
     "pydantic>=2.12.2; python_version >= '3.14'",
     "tzdata>=2025.2",
+    "anyio>=4.14.2",
+    "idna>=3.15",
 ]
 
 [project.optional-dependencies]
@@ -59,14 +62,9 @@ clickhouse-async = [
     "certifi>=2026.10.19",
     "idna>=3.15",
 ]
-fastapi = [
-    "fastapi>=0.137.2",
-    "starlette>=1.3.1",
-    "uvicorn>=0.30.6",
-    "h11>=0.16.0",
-    "anyio>=4.14.2",
-    "idna>=3.15",
-]
+# The uvicorn server behind `start_server` and `hypequery dev`. Serving an API
+# from another ASGI server or framework needs no extra.
+server = ["uvicorn>=0.30.6", "h11>=0.16.0"]
 
 pandas = ["pandas>=2.3.3"]
 polars = ["polars>=1.0.0"]
@@ -105,6 +103,10 @@ dev = [
   "ruff>=0.6",
   "import-linter>=2.0",
   "httpx>=0.27",
+  # Only a test oracle: its CORS and trusted-host middleware check the core's.
+  # Pinned to the release the FastAPI layer ran before the move; later
+  # releases parse a bracketed IPv6 Host differently.
+  "starlette==1.3.1",
   "packaging>=25",
   "towncrier==26.9.0",
   "sqlalchemy>=2.0",
@@ -193,11 +195,6 @@ fail_under = 88
 testpaths = ["tests"]
 pythonpath = ["."]
 addopts = "-q"
-filterwarnings = [
-  # Starlette is moving its test client to httpx2. The suite also drives apps
-  # through httpx directly (Client, ASGITransport), so migrate both together.
-  "ignore:Using `httpx` with `starlette.testclient` is deprecated",
-]
 
 # Import boundaries. These encode the layering the security roadmap requires:
 # protocol is the foundation, datasets builds on it, execution adapts compiled

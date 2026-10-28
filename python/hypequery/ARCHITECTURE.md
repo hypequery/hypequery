@@ -69,6 +69,32 @@ Keep intentional SQL changes separate from structural extraction.
 Python does not currently author TypeScript metric handles or named queries;
 extend the existing Python dataset compilation path when adding Python features.
 
+## Serving
+
+`hypequery.serve` mirrors TypeScript `packages/serve` (decision 0023).
+`create_api()` returns the framework-neutral `Api` from `serve/core/`, whose
+`handle(ServeRequest) -> ServeResponse` runs the whole pipeline: request ids,
+the `HttpSecurity` profile, production budgets, routing, authentication before
+the body, rate limits, the body policy, validation and the error envelope.
+Adapters only translate a transport's request and response:
+
+| Responsibility | Module under `src/hypequery/serve/` |
+| --- | --- |
+| The pipeline, routes and their order | `core/api.py` |
+| Requests and responses | `core/messages.py` |
+| Hosts, proxies and CORS; production budgets; rate limits | `core/security.py`, `core/production_limits.py`, `core/rate_limit.py` |
+| Dataset, metric and discovery endpoints | `core/endpoints.py`, `core/discovery.py`, `core/client_discovery.py` |
+| Development OpenAPI and docs | `core/openapi.py` |
+| The public factory and its declared endpoints | `api.py` |
+| The pure-ASGI adapter | `asgi.py`, `utils/asgi_body.py`, `utils/asgi_scope.py` |
+| uvicorn runners | `production.py`, `dev/` |
+
+The core imports no web framework (an import-linter contract), and neither
+does any adapter: an adapter for a framework lives beside it and maps that
+framework's request onto `ServeRequest`. Behaviour belongs in the core, so
+every adapter, and `Api.handle` called directly, answers the same bytes; the
+shared fixtures in `specs/serve-http` run against both.
+
 ## Verification
 
 Run `uv run pytest`, `uv run mypy`, `uv run ruff check .`,

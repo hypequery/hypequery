@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 import pytest
-from fastapi.testclient import TestClient
 
+from asgi_client import AsgiClient
 from hypequery.datasets import (
     Dataset,
     DatasetRegistry,
@@ -21,9 +21,11 @@ from hypequery.serve import (
     HttpSecurity,
     Principal,
     add_discovery_endpoint,
-    create_app,
-    create_router,
+    create_api,
+    to_asgi_app,
 )
+
+SECURITY = HttpSecurity(allowed_hosts=("testserver",))
 
 
 def authenticate(credential: Credential) -> Principal | None:
@@ -43,9 +45,9 @@ def registry() -> DatasetRegistry:
 
 
 def test_discovery_and_documentation_are_closed_by_default() -> None:
-    router = create_router(authenticate=authenticate)
-    add_discovery_endpoint(router, registry=registry())
-    client = TestClient(create_app(router, security=HttpSecurity(allowed_hosts=("testserver",))))
+    api = create_api(auth=authenticate, security=SECURITY)
+    add_discovery_endpoint(api, registry=registry())
+    client = AsgiClient(to_asgi_app(api))
     assert client.get("/discovery").status_code == 401
     response = client.get("/discovery", headers={"Authorization": "Bearer reader"})
     assert response.status_code == 200
@@ -53,34 +55,35 @@ def test_discovery_and_documentation_are_closed_by_default() -> None:
         assert marker not in response.text
     for path in ("/docs", "/redoc", "/openapi.json"):
         assert client.get(path).status_code == 404
+        assert client.get(path).json()["error"]["type"] == "NOT_FOUND"
 
 
 def test_public_discovery_and_development_docs_require_explicit_opt_in() -> None:
-    router = create_router(authenticate=authenticate)
-    add_discovery_endpoint(router, registry=registry(), policy=EndpointPolicy(public=True))
-    client = TestClient(
-        create_app(
-            router, security=HttpSecurity(allowed_hosts=("testserver",)), development_docs=True
-        )
-    )
+    api = create_api(auth=authenticate, security=SECURITY, development_docs=True)
+    add_discovery_endpoint(api, registry=registry(), policy=EndpointPolicy(public=True))
+    client = AsgiClient(to_asgi_app(api))
     assert client.get("/discovery").status_code == 200
-    assert client.get("/openapi.json").json()["paths"]["/discovery"]
+    document = client.get("/openapi.json").json()
+    assert "security" not in document["paths"]["/discovery"]["get"]
+    docs = client.get("/docs")
+    assert docs.headers["content-type"] == "text/html; charset=utf-8"
+    assert 'spec-url="openapi.json"' in docs.text
 
 
 def test_discovery_budget_and_policy_fail_at_startup() -> None:
-    router = create_router(authenticate=authenticate)
+    api = create_api(auth=authenticate)
     with pytest.raises(ValueError, match="byte budget"):
-        add_discovery_endpoint(router, registry=registry(), max_bytes=1)
+        add_discovery_endpoint(api, registry=registry(), max_bytes=1)
     with pytest.raises(ValueError, match="public"):
         EndpointPolicy(public=True, required_scopes=frozenset({"admin"}))
 
 
 def test_discovery_enforces_roles() -> None:
-    router = create_router(authenticate=authenticate)
+    api = create_api(auth=authenticate, security=SECURITY)
     add_discovery_endpoint(
-        router, registry=registry(), policy=EndpointPolicy(required_roles=frozenset({"admin"}))
+        api, registry=registry(), policy=EndpointPolicy(required_roles=frozenset({"admin"}))
     )
-    client = TestClient(create_app(router, security=HttpSecurity(allowed_hosts=("testserver",))))
+    client = AsgiClient(to_asgi_app(api))
     assert client.get("/discovery", headers={"Authorization": "Bearer reader"}).status_code == 403
 
 
@@ -97,17 +100,18 @@ def test_discovery_enforces_roles() -> None:
 def test_discovery_accepts_any_required_role_but_requires_all_scopes(
     roles: frozenset[str], scopes: frozenset[str], status: int
 ) -> None:
-    router = create_router(
-        authenticate=lambda credential: Principal(subject="alice", roles=roles, scopes=scopes)
+    api = create_api(
+        auth=lambda credential: Principal(subject="alice", roles=roles, scopes=scopes),
+        security=SECURITY,
     )
     add_discovery_endpoint(
-        router,
+        api,
         registry=registry(),
         policy=EndpointPolicy(
             required_roles=frozenset({"admin", "editor"}),
             required_scopes=frozenset({"catalog:read", "data:read"}),
         ),
     )
-    client = TestClient(create_app(router, security=HttpSecurity(allowed_hosts=("testserver",))))
+    client = AsgiClient(to_asgi_app(api))
     response = client.get("/discovery", headers={"Authorization": "Bearer reader"})
     assert response.status_code == status

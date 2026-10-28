@@ -1,39 +1,35 @@
 """Runs the language-neutral serve HTTP error fixtures (specs/serve-http).
 
-Each case runs through FastAPI and directly against the framework-neutral
-core's `Api.handle`, each with and without a production profile.
+Each case runs directly against the framework-neutral core's `Api.handle` and
+through the pure-ASGI adapter, each with and without a production profile.
 
 `@hypequery/serve` runs the same file in `serve-http-fixtures.test.ts`. A
 divergence between the two is a bug in one of them or in the fixtures.
 """
 
-# No `from __future__ import annotations`: FastAPI resolves endpoint
-# annotations at registration, and these endpoints close over local routers.
+from __future__ import annotations
+
 import json
 from pathlib import Path
 from typing import Any
 
 import pytest
-from fastapi import Depends, FastAPI
-from fastapi.testclient import TestClient
 from pydantic import BaseModel, ConfigDict, TypeAdapter
 
+from asgi_client import AsgiClient
 from core_transport import CoreClient
 from hypequery.serve import (
+    Api,
+    Call,
     Credential,
     HttpSecurity,
     Principal,
     ProductionProfile,
     RateLimit,
-    bearer_token,
-    create_app,
-    create_router,
-    default_tenant_resolver,
-    install_http_security,
+    ServeResponse,
+    create_api,
+    to_asgi_app,
 )
-from hypequery.serve.core import Api, Call, ServeResponse
-from hypequery.serve.core.authentication import Authentication
-from hypequery.serve.core.rate_limit import RateLimit as CoreRateLimit
 
 FIXTURES = json.loads(
     (
@@ -41,6 +37,7 @@ FIXTURES = json.loads(
     ).read_text(encoding="utf-8")
 )
 CREDENTIAL = FIXTURES["app"]["credential"]
+TRANSPORTS = ["core", "core-production", "asgi", "asgi-production"]
 
 
 class _FailingStore:
@@ -54,51 +51,8 @@ class _Validated(BaseModel):
     limit: float
 
 
-def _app(production: bool = False) -> FastAPI:
+def _api(production: bool = False) -> Api:
     """The fixture app described in cases.json, fresh for each case."""
-
-    def authenticate(credential: Credential) -> Principal | None:
-        return Principal(subject="alice") if credential.value == CREDENTIAL else None
-
-    router = create_router(authenticate=authenticate)
-
-    @router.get("/protected")
-    def protected() -> dict[str, bool]:
-        return {"ok": True}
-
-    @router.post("/validated")
-    def validated(payload: _Validated) -> dict[str, Any]:
-        return payload.model_dump()
-
-    @router.get("/boom")
-    def boom() -> None:
-        raise RuntimeError(FIXTURES["leakCanary"])
-
-    @router.get("/limited", dependencies=[Depends(RateLimit(max=1, window_seconds=60))])
-    def limited() -> dict[str, bool]:
-        return {"ok": True}
-
-    @router.get(
-        "/limiter-down",
-        dependencies=[Depends(RateLimit(store=_FailingStore(), fail_open=False))],
-    )
-    def limiter_down() -> dict[str, bool]:
-        return {"ok": True}
-
-    if production:
-        return create_app(
-            router,
-            security=HttpSecurity(allowed_hosts=("testserver",)),
-            production=ProductionProfile(),
-        )
-    app = FastAPI()
-    app.include_router(router)
-    install_http_security(app, HttpSecurity(allowed_hosts=("testserver",)))
-    return app
-
-
-def _core_api(production: bool = False) -> CoreClient:
-    """The fixture app on the framework-neutral core."""
 
     def authenticate(credential: Credential) -> Principal | None:
         return Principal(subject="alice") if credential.value == CREDENTIAL else None
@@ -113,25 +67,32 @@ def _core_api(production: bool = False) -> CoreClient:
     async def boom(call: Call) -> ServeResponse:
         raise RuntimeError(FIXTURES["leakCanary"])
 
-    api = Api(
-        authentication=Authentication(authenticate, bearer_token(), default_tenant_resolver),
+    api = create_api(
+        auth=authenticate,
         security=HttpSecurity(allowed_hosts=("testserver",)),
         production=ProductionProfile() if production else None,
     )
     api.add_route("GET", "/protected", ok)
     api.add_route("POST", "/validated", validated, input=TypeAdapter(_Validated))
     api.add_route("GET", "/boom", boom)
-    api.add_route("GET", "/limited", ok, limits=[CoreRateLimit(max=1, window_seconds=60)])
+    api.add_route("GET", "/limited", ok, limits=[RateLimit(max=1, window_seconds=60)])
     api.add_route(
         "GET",
         "/limiter-down",
         ok,
-        limits=[CoreRateLimit(store=_FailingStore(), fail_open=False)],
+        limits=[RateLimit(store=_FailingStore(), fail_open=False)],
     )
-    return CoreClient(api)
+    return api
 
 
-def _send(client: TestClient | CoreClient, request: dict[str, Any]) -> Any:
+def _client(transport: str) -> AsgiClient | CoreClient:
+    api = _api(transport.endswith("-production"))
+    if transport.startswith("core"):
+        return CoreClient(api)
+    return AsgiClient(to_asgi_app(api))
+
+
+def _send(client: AsgiClient | CoreClient, request: dict[str, Any]) -> Any:
     headers = {}
     if request["credential"] == "valid":
         headers["Authorization"] = f"Bearer {CREDENTIAL}"
@@ -145,13 +106,9 @@ def _send(client: TestClient | CoreClient, request: dict[str, Any]) -> Any:
 
 
 @pytest.mark.parametrize("case", FIXTURES["cases"], ids=[case["id"] for case in FIXTURES["cases"]])
-@pytest.mark.parametrize("transport", ["embedded", "production", "core", "core-production"])
+@pytest.mark.parametrize("transport", TRANSPORTS)
 def test_errors_v1(case: dict[str, Any], caplog: pytest.LogCaptureFixture, transport: str) -> None:
-    client: TestClient | CoreClient
-    if transport.startswith("core"):
-        client = _core_api(transport == "core-production")
-    else:
-        client = TestClient(_app(transport == "production"), raise_server_exceptions=False)
+    client = _client(transport)
     response = None
     for request in case["requests"]:
         response = _send(client, request)

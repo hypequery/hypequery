@@ -1,4 +1,4 @@
-"""Execution, policy, metadata, and discovery over real FastAPI HTTP routing."""
+"""Execution, policy, metadata, and discovery served through the ASGI adapter."""
 
 from __future__ import annotations
 
@@ -10,8 +10,8 @@ from dataclasses import dataclass, field
 from typing import Any
 
 import pytest
-from fastapi.testclient import TestClient
 
+from asgi_client import AsgiClient
 from hypequery.datasets import (
     AsyncDatasetClient,
     CompiledQuery,
@@ -42,11 +42,12 @@ from hypequery.serve import (
     add_discovery_endpoint,
     add_metric_endpoint,
     create_api,
-    create_app,
     create_dataset_endpoint,
     create_metric_endpoint,
-    create_router,
+    to_asgi_app,
 )
+
+SECURITY = HttpSecurity(allowed_hosts=("testserver",))
 
 
 @dataclass(frozen=True)
@@ -115,7 +116,7 @@ def app(
     diagnostics: DiagnosticAccess | None = None,
     events: QueryEvents | None = None,
     cors: CorsPolicy | None = None,
-) -> tuple[TestClient, Executor]:
+) -> tuple[AsgiClient, Executor]:
     executor = Executor()
     model = dataset(tenant=tenant, max_size=max_size)
     client = (
@@ -123,7 +124,9 @@ def app(
         if async_client
         else create_dataset_client(executor=executor)
     )
-    router = create_router(authenticate=authenticate)
+    router = create_api(
+        auth=authenticate, security=HttpSecurity(allowed_hosts=("testserver",), cors=cors)
+    )
     add_dataset_endpoint(
         router,
         "/datasets/orders/query",
@@ -137,10 +140,7 @@ def app(
         router, "/metrics/total", dataset=model, measure="total", client=client, policy=policy
     )
     add_discovery_endpoint(router, registry=create_dataset_registry(model))
-    application = create_app(
-        router, security=HttpSecurity(allowed_hosts=("testserver",), cors=cors)
-    )
-    return TestClient(application, raise_server_exceptions=False), executor
+    return AsgiClient(to_asgi_app(router), raise_server_exceptions=False), executor
 
 
 @pytest.mark.parametrize("async_client", [False, True])
@@ -225,13 +225,11 @@ def test_related_measures_serialize_without_changing_dimensions_or_local_results
     )
     assert native_result.data == (dict(zip((*dimensions, *measures), values, strict=True)),)
 
-    router = create_api(authenticate=authenticate)
+    router = create_api(auth=authenticate, security=SECURITY)
     add_dataset_endpoint(
         router, "/query", dataset=source, client=client, include_related={"target"}
     )
-    with TestClient(
-        create_app(router, security=HttpSecurity(allowed_hosts=("testserver",)))
-    ) as http:
+    with AsgiClient(to_asgi_app(router)) as http:
         response = http.post(
             "/query",
             headers={"Authorization": "Bearer reader"},
@@ -466,18 +464,14 @@ def test_event_success_failure_and_sink_failure_are_metadata_only() -> None:
 
 def test_dev_docs_enumerate_models_and_public_discovery_is_explicit() -> None:
     model = dataset()
-    router = create_router(authenticate=authenticate)
+    router = create_api(auth=authenticate, security=SECURITY, development_docs=True)
     add_dataset_endpoint(
         router, "/query", dataset=model, client=create_dataset_client(executor=Executor())
     )
     add_discovery_endpoint(
         router, registry=create_dataset_registry(model), policy=EndpointPolicy(public=True)
     )
-    client = TestClient(
-        create_app(
-            router, security=HttpSecurity(allowed_hosts=("testserver",)), development_docs=True
-        )
-    )
+    client = AsgiClient(to_asgi_app(router))
     assert client.get("/discovery").status_code == 200
     schema = client.get("/openapi.json").json()
     assert schema["components"]["schemas"]["QueryRequest"]["additionalProperties"] is False
@@ -502,7 +496,7 @@ def test_paginated_cache_never_reuses_non_overfetched_rows() -> None:
 
 
 def test_discovery_budget_and_invalid_endpoint_configuration_fail_at_startup() -> None:
-    router = create_router(authenticate=authenticate)
+    router = create_api(auth=authenticate, security=SECURITY)
     with pytest.raises(ValueError, match="byte budget"):
         add_discovery_endpoint(router, registry=create_dataset_registry(dataset()), max_bytes=1)
     with pytest.raises(ValueError, match="public"):
@@ -557,8 +551,8 @@ def test_request_lifetime_exits_when_is_disconnected_absorbs_a_cancel(concurrenc
 
 
 def test_handler_cancellation_reaches_executor_and_emits_aborted_event() -> None:
-    from fastapi import Request
-
+    from hypequery.serve.core.messages import ServeRequest
+    from hypequery.serve.core.state import RequestState
     from hypequery.serve.endpoints import DatasetEndpoint
     from hypequery.serve.models import QueryRequest
 
@@ -579,12 +573,11 @@ def test_handler_cancellation_reaches_executor_and_emits_aborted_event() -> None
         events=QueryEvents(target={"project": "sdk", "environment": "test"}, sink=records.append),
     )
 
-    async def receive() -> dict[str, Any]:
-        return {"type": "http.request", "body": b"", "more_body": False}
-
     async def check() -> None:
-        request = Request({"type": "http", "method": "POST", "path": "/", "headers": []}, receive)
-        task = asyncio.create_task(endpoint.execute(request, QueryRequest()))
+        state = RequestState(request_id="cancelled")
+        task = asyncio.create_task(
+            endpoint.query(ServeRequest(method="POST", path="/"), state, None, QueryRequest())
+        )
         await asyncio.sleep(0.01)
         task.cancel()
         with pytest.raises(asyncio.CancelledError):
@@ -592,9 +585,7 @@ def test_handler_cancellation_reaches_executor_and_emits_aborted_event() -> None
         assert executor.compiled is not None
         assert executor.compiled.cancellation is not None
         assert executor.compiled.cancellation.is_set()
-        from hypequery.serve.utils.request_work import request_work
-
-        await request_work(request).drain()
+        await state.work.drain()
         assert records[0]["errorCategory"] == "aborted"
         assert not [task for task in asyncio.all_tasks() if task is not asyncio.current_task()]
 
@@ -602,7 +593,7 @@ def test_handler_cancellation_reaches_executor_and_emits_aborted_event() -> None
 
 
 def test_named_metric_aliases_output_and_ordering() -> None:
-    router = create_router(authenticate=authenticate)
+    router = create_api(auth=authenticate, security=SECURITY)
     executor = Executor()
     add_metric_endpoint(
         router,
@@ -612,7 +603,7 @@ def test_named_metric_aliases_output_and_ordering() -> None:
         dataset=dataset(),
         client=create_dataset_client(executor=executor),
     )
-    client = TestClient(create_app(router, security=HttpSecurity(allowed_hosts=("testserver",))))
+    client = AsgiClient(to_asgi_app(router))
     response = client.post(
         "/metrics/orders",
         json={"orderBy": [{"field": "orders", "direction": "desc"}]},
@@ -625,7 +616,7 @@ def test_named_metric_aliases_output_and_ordering() -> None:
 
 @pytest.mark.parametrize("metric", [False, True])
 def test_created_endpoints_install_with_the_same_auth_policy(metric: bool) -> None:
-    api = create_api(authenticate=authenticate)
+    api = create_api(auth=authenticate, security=SECURITY)
     model = dataset()
     client = create_dataset_client(executor=Executor())
     policy = EndpointPolicy(required_scopes=frozenset({"read"}))
@@ -634,10 +625,10 @@ def test_created_endpoints_install_with_the_same_auth_policy(metric: bool) -> No
         if metric
         else create_dataset_endpoint(dataset=model, client=client, policy=policy)
     )
-    assert api.routes == []
+    assert api.routes == ()
     endpoint.install(api, "/query")
-    app = create_app(api, security=HttpSecurity(allowed_hosts=("testserver",)))
-    with TestClient(app) as http:
+    app = to_asgi_app(api)
+    with AsgiClient(app) as http:
         payload = {"dimensions": ["country"]}
         if not metric:
             payload["measures"] = ["total"]
@@ -697,7 +688,7 @@ def test_related_fields_need_the_endpoint_to_include_the_relationship(
     client = create_dataset_client(
         executor=executor, registry=create_dataset_registry(orders, shipments)
     )
-    router = create_router(authenticate=authenticate)
+    router = create_api(auth=authenticate, security=SECURITY)
     add_dataset_endpoint(router, "/orders", dataset=orders, client=client)
     add_dataset_endpoint(
         router, "/orders-shipped", dataset=orders, client=client, include_related={"shipment"}
@@ -709,7 +700,7 @@ def test_related_fields_need_the_endpoint_to_include_the_relationship(
         client=client,
         policy=EndpointPolicy(required_scopes=frozenset({"shipments:read"})),
     )
-    http = TestClient(create_app(router, security=HttpSecurity(allowed_hosts=("testserver",))))
+    http = AsgiClient(to_asgi_app(router))
     headers = {"Authorization": "Bearer reader"}
     assert http.post("/shipments", json={}, headers=headers).status_code == 403
     refused = http.post("/orders", json=body, headers=headers)
@@ -731,7 +722,7 @@ def test_the_client_contract_advertises_only_included_relationships() -> None:
     )
     contracts = {}
     for related in ((), ("shipment",)):
-        router = create_api(authenticate=authenticate)
+        router = create_api(auth=authenticate, security=SECURITY)
         add_dataset_endpoint(
             router,
             "/orders",
@@ -740,8 +731,8 @@ def test_the_client_contract_advertises_only_included_relationships() -> None:
             client_profile=ClientQueryProfile(),
             include_related=related,
         )
-        app_ = create_app(router, security=HttpSecurity(allowed_hosts=("testserver",)))
-        contracts[related] = export_client_contract(app_)["contract"]["endpoints"][0]
+        app_ = to_asgi_app(router)
+        contracts[related] = export_client_contract(app_.api)["contract"]["endpoints"][0]
     closed, opened = contracts[()], contracts[("shipment",)]
     assert set(closed["dimensions"]) == {"id", "country"}
     assert "shipment.shipped" not in closed["measures"]
@@ -786,7 +777,7 @@ def test_offline_export_matches_the_live_contract_for_a_dataset_with_relationshi
     registry = create_dataset_registry(orders, shipments)
     client = create_dataset_client(executor=Executor(), registry=registry)
     profile = ClientQueryProfile(default_limit=50, max_limit=100)
-    router = create_api(authenticate=authenticate)
+    router = create_api(auth=authenticate, security=SECURITY)
     add_dataset_endpoint(
         router,
         "/orders",
@@ -804,7 +795,7 @@ def test_offline_export_matches_the_live_contract_for_a_dataset_with_relationshi
         client_profile=profile,
         include_related=related,
     )
-    app_ = create_app(router, security=HttpSecurity(allowed_hosts=("testserver",)))
+    app_ = to_asgi_app(router)
     # Leave the offline default in place when the endpoint uses Serve's default.
     if related:
         definitions = [
@@ -817,7 +808,7 @@ def test_offline_export_matches_the_live_contract_for_a_dataset_with_relationshi
             ClientEndpointDefinition(orders, "/total", profile, measure="total"),
         ]
     offline = export_offline(definitions, registry=registry)["contract"]
-    live = export_client_contract(app_)["contract"]
+    live = export_client_contract(app_.api)["contract"]
     assert [e["schemaHash"] for e in offline["endpoints"]] == [
         e["schemaHash"] for e in live["endpoints"]
     ]
@@ -877,12 +868,12 @@ def test_a_measure_filtering_on_a_related_field_needs_the_relationship(
     client = create_dataset_client(
         executor=executor, registry=create_dataset_registry(orders, shipments)
     )
-    router = create_router(authenticate=authenticate)
+    router = create_api(auth=authenticate, security=SECURITY)
     add_dataset_endpoint(router, "/orders", dataset=orders, client=client)
     add_dataset_endpoint(
         router, "/orders-shipped", dataset=orders, client=client, include_related={"shipment"}
     )
-    http = TestClient(create_app(router, security=HttpSecurity(allowed_hosts=("testserver",))))
+    http = AsgiClient(to_asgi_app(router))
     headers = {"Authorization": "Bearer reader"}
     refused = http.post("/orders", json=body, headers=headers)
     assert refused.status_code == 400, refused.text
@@ -902,12 +893,12 @@ def test_an_omitted_measure_list_selects_only_the_measures_the_endpoint_serves()
     client = create_dataset_client(
         executor=executor, registry=create_dataset_registry(orders, shipments)
     )
-    router = create_router(authenticate=authenticate)
+    router = create_api(auth=authenticate, security=SECURITY)
     add_dataset_endpoint(router, "/orders", dataset=orders, client=client)
     add_dataset_endpoint(
         router, "/orders-shipped", dataset=orders, client=client, include_related={"shipment"}
     )
-    http = TestClient(create_app(router, security=HttpSecurity(allowed_hosts=("testserver",))))
+    http = AsgiClient(to_asgi_app(router))
     headers = {"Authorization": "Bearer reader"}
     for path in ("/orders", "/orders-shipped"):
         response = http.post(path, json={"dimensions": ["country"]}, headers=headers)
@@ -939,7 +930,7 @@ def test_the_client_contract_omits_measures_filtering_on_excluded_relationships(
     )
     measures = {}
     for related in ((), ("shipment",)):
-        router = create_api(authenticate=authenticate)
+        router = create_api(auth=authenticate, security=SECURITY)
         add_dataset_endpoint(
             router,
             "/orders",
@@ -948,9 +939,9 @@ def test_the_client_contract_omits_measures_filtering_on_excluded_relationships(
             client_profile=ClientQueryProfile(),
             include_related=related,
         )
-        app_ = create_app(router, security=HttpSecurity(allowed_hosts=("testserver",)))
+        app_ = to_asgi_app(router)
         measures[related] = set(
-            export_client_contract(app_)["contract"]["endpoints"][0]["measures"]
+            export_client_contract(app_.api)["contract"]["endpoints"][0]["measures"]
         )
     assert measures[()] == {"total"}
     assert {"total", "ups_orders", "ups_share", "shipment.shipped"} <= measures[("shipment",)]

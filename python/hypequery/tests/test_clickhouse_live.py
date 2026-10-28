@@ -11,8 +11,8 @@ from datetime import UTC, datetime
 from decimal import Decimal
 
 import pytest
-from fastapi.testclient import TestClient
 
+from asgi_client import AsgiClient
 from hypequery.datasets import (
     Dataset,
     DatasetQuery,
@@ -43,8 +43,8 @@ from hypequery.serve import (
     Principal,
     ProductionProfile,
     add_dataset_endpoint,
-    create_app,
-    create_router,
+    create_api,
+    to_asgi_app,
 )
 
 
@@ -71,17 +71,16 @@ def test_live_production_http_dataset() -> None:
         measures={"rows": measure(count("dummy"))},
     )
     executor = create_clickhouse_executor(_connection())
-    router = create_router(authenticate=lambda credential: Principal(subject="reader"))
+    api = create_api(
+        auth=lambda credential: Principal(subject="reader"),
+        security=HttpSecurity(allowed_hosts=("testserver",)),
+        production=ProductionProfile(max_result_rows=3, max_result_bytes=1024),
+    )
     add_dataset_endpoint(
-        router, "/query", dataset=dataset, client=create_dataset_client(executor=executor)
+        api, "/query", dataset=dataset, client=create_dataset_client(executor=executor)
     )
     try:
-        app = create_app(
-            router,
-            security=HttpSecurity(allowed_hosts=("testserver",)),
-            production=ProductionProfile(max_result_rows=3, max_result_bytes=1024),
-        )
-        with TestClient(app) as http:
+        with AsgiClient(to_asgi_app(api)) as http:
             response = http.post(
                 "/query",
                 headers={"Authorization": "Bearer test"},

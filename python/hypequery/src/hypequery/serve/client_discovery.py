@@ -2,33 +2,23 @@
 
 from __future__ import annotations
 
-from collections.abc import Sequence
-
+from .core.api import Api
 from .core.client_discovery import add_client_contract_route
 from .policy import DEFAULT_ENDPOINT_POLICY, EndpointPolicy
-from .router import ServeRouter
 
 
 def add_client_contract_endpoint(
-    router: ServeRouter,
+    api: Api,
     path: str = "/client-contract",
     *,
-    routers: Sequence[ServeRouter] = (),
     policy: EndpointPolicy = DEFAULT_ENDPOINT_POLICY,
     max_bytes: int = 256 * 1024,
 ) -> None:
-    """Register an authenticated live view, independently authorizing every target.
+    """Register an authenticated live view of *api*'s strict client endpoints.
 
-    Public discovery is explicit and projects only anonymous/public capabilities,
-    following ServeRouter's public-route authentication semantics. A custom
-    FastAPI host supplies the routers whose installed bindings may be projected.
+    Public discovery is explicit and projects only anonymous/public
+    capabilities, following the API's public-route authentication semantics.
     Build views and host configuration are never selectable from request input.
     """
-    route = add_client_contract_route(
-        router._api,
-        router.prefix + path,
-        sources=tuple(source.client_endpoints for source in routers),
-        policy=policy,
-        max_bytes=max_bytes,
-    )
-    router._add_core_route(path, route, tags=["discovery"])
+
+    add_client_contract_route(api, path, policy=policy, max_bytes=max_bytes, tags=("discovery",))

@@ -19,7 +19,7 @@ If you scaffolded with an unreleased SDK build, install that wheel first, then
 the project without dependencies:
 
 ```bash
-python -m pip install "/path/to/hypequery-__HYPEQUERY_VERSION__-py3-none-any.whl[fastapi,clickhouse]"
+python -m pip install "/path/to/hypequery-__HYPEQUERY_VERSION__-py3-none-any.whl[server,clickhouse]"
 python -m pip install -e . --no-deps
 ```
 
@@ -98,7 +98,7 @@ HTTP wire. Development docs are at <http://127.0.0.1:8000/docs>.
 
 ## Production
 
-`hypequery dev` is for local development. Create an app with
+`hypequery dev` is for local development. Create the API with
 `ProductionProfile`, disable development docs, supply trusted authentication,
 and use `start_server` behind your reverse proxy. See the SDK README's
 production-process section for the profile and explicit proxy-trust settings.

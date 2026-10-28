@@ -1,21 +1,16 @@
-"""FastAPI serving layer for Hypequery datasets.
+"""Serve hypequery datasets over HTTP, from any Python framework.
 
-Requires the ``fastapi`` extra. This module fails loudly and early rather than
-letting a missing optional dependency surface as a confusing error deeper in a
-request path.
+`create_api(...)` builds a framework-neutral `Api` whose `handle` serves one
+`ServeRequest`. Adapters put it on a transport: `to_asgi_app(api)` for uvicorn
+and any ASGI framework, `start_server(api)` for a standalone production
+process. Nothing here needs a web framework; running a server needs uvicorn,
+from the ``server`` extra.
 """
 
 from __future__ import annotations
 
-try:
-    import fastapi as _fastapi  # noqa: F401
-except ModuleNotFoundError as exc:  # pragma: no cover - exercised in a subprocess
-    raise ModuleNotFoundError(
-        "hypequery.serve requires the 'fastapi' extra. "
-        'Install it with: pip install "hypequery[fastapi]"'
-    ) from exc
-
-from .application import create_app
+from .api import create_api
+from .asgi import AsgiApp, to_asgi_app
 from .auth import (
     MAX_CREDENTIAL_LENGTH,
     Authenticator,
@@ -30,9 +25,13 @@ from .auth import (
     bearer_token,
     default_tenant_resolver,
 )
-from .body_policy import DEFAULT_MAX_BODY_BYTES
 from .client_contract import export_client_contract
 from .client_discovery import add_client_contract_endpoint
+from .core.api import Api, Call, Route
+from .core.body import DEFAULT_MAX_BODY_BYTES
+from .core.messages import Headers, QueryParams, ServeRequest, ServeResponse
+from .core.openapi import openapi_document
+from .core.openapi_info import OpenApiInfo
 from .dev import ExternalBindWarning, run_dev, serve_dev
 from .discovery import add_discovery_endpoint
 from .endpoints import (
@@ -48,15 +47,17 @@ from .events import QueryEvents
 from .policy import EndpointPolicy
 from .production import ProductionProfile, run_production, start_server
 from .rate_limit import MemoryRateLimitStore, RateLimit, RateLimitKey, RateLimitStore
-from .request_ids import MAX_CORRELATION_ID_BYTES, request_id, sanitize_correlation_id
-from .router import ServeRouter, create_api, create_router
-from .security import CorsPolicy, HttpSecurity, install_http_security
+from .request_ids import MAX_CORRELATION_ID_BYTES, sanitize_correlation_id
+from .security import CorsPolicy, HttpSecurity
 
 __all__ = [
     "DEFAULT_MAX_BODY_BYTES",
     "MAX_CORRELATION_ID_BYTES",
     "MAX_CREDENTIAL_LENGTH",
+    "Api",
+    "AsgiApp",
     "Authenticator",
+    "Call",
     "CorsPolicy",
     "Credential",
     "CredentialKind",
@@ -65,19 +66,24 @@ __all__ = [
     "DiagnosticAccess",
     "EndpointPolicy",
     "ExternalBindWarning",
+    "Headers",
     "HttpSecurity",
     "InvalidCredential",
     "MemoryRateLimitStore",
+    "OpenApiInfo",
     "Principal",
     "ProductionProfile",
     "QueryEvents",
+    "QueryParams",
     "RateLimit",
     "RateLimitKey",
     "RateLimitStore",
     "RequestAuth",
+    "Route",
     "ServeError",
     "ServeErrorType",
-    "ServeRouter",
+    "ServeRequest",
+    "ServeResponse",
     "TenantResolver",
     "add_client_contract_endpoint",
     "add_dataset_endpoint",
@@ -86,17 +92,15 @@ __all__ = [
     "api_key",
     "bearer_token",
     "create_api",
-    "create_app",
     "create_dataset_endpoint",
     "create_metric_endpoint",
-    "create_router",
     "default_tenant_resolver",
     "export_client_contract",
-    "install_http_security",
-    "request_id",
+    "openapi_document",
     "run_dev",
     "run_production",
     "sanitize_correlation_id",
     "serve_dev",
     "start_server",
+    "to_asgi_app",
 ]

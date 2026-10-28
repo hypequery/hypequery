@@ -1,7 +1,7 @@
 # Python releases
 
 The only functional Python distribution is `hypequery`. It includes the
-`hypequery` CLI, datasets, protocol, execution, and serving modules. FastAPI and
+`hypequery` CLI, datasets, protocol, execution, and serving modules. The uvicorn server and
 ClickHouse dependencies are extras. The other owned PyPI names are not published
 by this workflow. Python versions and changelog fragments are independent of npm
 Changesets and npm's `canary` dist-tag.
@@ -40,13 +40,13 @@ prerelease once the beta is published and never prefers the placeholder.
 
 ```bash
 # Beta: select the tested release, including the CLI and integration extras.
-pip install "hypequery[fastapi,clickhouse]==0.1.0b1"
+pip install "hypequery[server,clickhouse]==0.1.0b1"
 
 # Canary: copy the actual version from the workflow summary.
-pip install "hypequery[fastapi,clickhouse]==0.1.0.dev42001"
+pip install "hypequery[server,clickhouse]==0.1.0.dev42001"
 
 # Stable after the first functional stable release.
-pip install --upgrade "hypequery[fastapi,clickhouse]"
+pip install --upgrade "hypequery[server,clickhouse]"
 ```
 
 ## Integrated client qualification
@@ -243,7 +243,7 @@ Before pushing the tag:
    `python-clients-*` artifacts, and check their recorded source SHA. A
    rehearsal never publishes and does not exercise OIDC.
 3. **Consumer journey from registry pins.** In a fresh directory outside the
-   checkout, install the rehearsal wheel with `fastapi,clickhouse` and the npm
+   checkout, install the rehearsal wheel with `server,clickhouse` and the npm
    packages above by **registry version**, not tarballs. Run offline export,
    `generate:client`, `--check`, a strict frontend build, the browser bundle
    audit, the two-user browser journey and the MCP journey against an isolated
@@ -254,7 +254,7 @@ Before pushing the tag:
    [Publish the reviewed release](#publish-the-reviewed-release), and approve the
    `pypi` deployment if a reviewer is required.
 
-After publication, repeat step 3 with `hypequery[fastapi,clickhouse]==0.1.0b1`
+After publication, repeat step 3 with `hypequery[server,clickhouse]==0.1.0b1`
 from **PyPI**. Also check that `pip install hypequery` with no pin resolves to
 `0.1.0b1` rather than the `0.0.1.dev0` placeholder, and compare PyPI's file
 hashes and attestations with the `python-supply-chain` checksums. Keep the source

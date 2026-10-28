@@ -1,26 +1,26 @@
 """PYD-04: canonical errors and rate limiting, beyond the shared fixtures.
 
 The fixtures in specs/serve-http pin what TypeScript and Python share. These
-pin the Python-specific parts: how RFC 0010 categories and endpoint
-exceptions map onto the envelope, that routing errors are converted without
-taking over the application's own handlers, and the rate limiter's keying,
+pin the Python-specific parts: how RFC 0010 categories and handler exceptions
+map onto the envelope, routing errors, and the rate limiter's keying,
 ordering, and bounds.
 """
 
-# No `from __future__ import annotations`: FastAPI resolves endpoint
-# annotations at registration, and these endpoints close over local routers.
+from __future__ import annotations
+
 import logging
 import time
-from typing import Annotated, Any
+from collections.abc import AsyncIterator
+from typing import Any
 
 import pytest
-from fastapi import Body, Depends, FastAPI, HTTPException, Request
-from fastapi.testclient import TestClient
-from starlette.exceptions import HTTPException as StarletteHTTPException
-from starlette.responses import JSONResponse
+from pydantic import BaseModel, StrictInt, TypeAdapter
 
+from asgi_client import AsgiClient
 from hypequery.datasets import CompiledQueryError
 from hypequery.serve import (
+    Api,
+    Call,
     Credential,
     HttpSecurity,
     MemoryRateLimitStore,
@@ -28,14 +28,15 @@ from hypequery.serve import (
     RateLimit,
     RequestAuth,
     ServeError,
-    ServeRouter,
-    create_router,
-    install_http_security,
-    request_id,
+    ServeRequest,
+    ServeResponse,
+    create_api,
+    to_asgi_app,
 )
 from hypequery.serve.rate_limit import RateLimitCapacityError
 
 TOKENS = {"alice-token": "alice", "bob-token": "bob"}
+OBJECT: TypeAdapter[object] = TypeAdapter(dict[str, Any])
 
 
 def _authenticate(credential: Credential) -> Principal | None:
@@ -47,11 +48,20 @@ def _auth(token: str = "alice-token") -> dict[str, str]:  # noqa: S107 - a test 
     return {"Authorization": f"Bearer {token}"}
 
 
-def _client(router: ServeRouter, *, security: HttpSecurity | None = None) -> TestClient:
-    app = FastAPI()
-    app.include_router(router)
-    install_http_security(app, security or HttpSecurity(allowed_hosts=("testserver",)))
-    return TestClient(app, raise_server_exceptions=False)
+def _api(**options: Any) -> Api:
+    return create_api(
+        auth=options.pop("auth", _authenticate),
+        security=options.pop("security", HttpSecurity(allowed_hosts=("testserver",))),
+        **options,
+    )
+
+
+def _client(api: Api) -> AsgiClient:
+    return AsgiClient(to_asgi_app(api), raise_server_exceptions=False)
+
+
+async def _ok(call: Call) -> ServeResponse:
+    return ServeResponse.json({"ok": True})
 
 
 # --- mapping onto the envelope ---------------------------------------------
@@ -73,13 +83,12 @@ def _client(router: ServeRouter, *, security: HttpSecurity | None = None) -> Tes
     ],
 )
 def test_a_query_error_maps_to_its_canonical_status(category: Any, status: int, kind: str) -> None:
-    router = create_router(authenticate=_authenticate)
-
-    @router.get("/query")
-    def query() -> None:
+    async def query(call: Call) -> ServeResponse:
         raise CompiledQueryError(category, "Dataset field 'x' is not queryable.")
 
-    response = _client(router).get("/query", headers=_auth())
+    api = _api()
+    api.add_route("GET", "/query", query)
+    response = _client(api).get("/query", headers=_auth())
 
     assert response.status_code == status
     assert response.json()["error"]["type"] == kind
@@ -90,67 +99,20 @@ def test_a_query_error_maps_to_its_canonical_status(category: Any, status: int, 
         assert response.json()["error"]["message"] == "Dataset field 'x' is not queryable."
 
 
-def test_an_endpoint_http_error_keeps_only_a_string_message() -> None:
-    router = create_router(authenticate=_authenticate)
+def _body_api() -> Api:
+    async def echo(call: Call) -> ServeResponse:
+        assert isinstance(call.input, dict)
+        return ServeResponse.json({"keys": sorted(call.input)})
 
-    @router.get("/teapot")
-    def teapot() -> None:
-        raise HTTPException(403, detail="Reports are disabled for this account.")
-
-    @router.get("/structured")
-    def structured() -> None:
-        raise HTTPException(409, detail={"sql": "SELECT secret", "row": 7})
-
-    @router.get("/bad-gateway")
-    def bad_gateway() -> None:
-        raise HTTPException(502, detail="upstream 10.0.0.7 refused")
-
-    client = _client(router)
-
-    forbidden = client.get("/teapot", headers=_auth())
-    assert (forbidden.status_code, forbidden.json()["error"]) == (
-        403,
-        {"type": "FORBIDDEN", "message": "Reports are disabled for this account."},
-    )
-    conflict = client.get("/structured", headers=_auth())
-    assert conflict.status_code == 409
-    assert conflict.json()["error"]["type"] == "VALIDATION_ERROR"
-    assert "SELECT" not in conflict.text
-    gateway = client.get("/bad-gateway", headers=_auth())
-    assert gateway.json()["error"] == {
-        "type": "INTERNAL_SERVER_ERROR",
-        "message": "An unexpected error occurred",
-    }
-
-
-def test_a_starlette_http_error_is_mapped_like_fastapis() -> None:
-    router = create_router(authenticate=_authenticate)
-
-    @router.get("/conflict")
-    def conflict() -> None:
-        raise StarletteHTTPException(409, detail="The report is already running.")
-
-    response = _client(router).get("/conflict", headers=_auth())
-    assert (response.status_code, response.json()["error"]) == (
-        409,
-        {"type": "VALIDATION_ERROR", "message": "The report is already running."},
-    )
-
-
-def _body_router() -> ServeRouter:
-    router = create_router(authenticate=_authenticate)
-
-    @router.post("/echo")
-    def echo(payload: Annotated[dict[str, Any], Body()]) -> dict[str, Any]:
-        return {"keys": sorted(payload)}
-
-    return router
+    api = _api()
+    api.add_route("POST", "/echo", echo, input=OBJECT)
+    return api
 
 
 @pytest.mark.parametrize(
     ("content", "headers", "status"),
     [
-        # Not valid UTF-8: FastAPI's own parse error, which is caller input.
+        # Not valid UTF-8: a parse error, which is caller input.
         ('{"name": "caf\xe9"}'.encode("latin-1"), {}, {400}),
         # Nested past the recursion limit of Python 3.13 and earlier; 3.14's
         # decoder parses it, so either answer is fine as long as it is not 500.
@@ -166,7 +128,7 @@ def test_an_unreadable_body_is_caller_input_not_a_server_error(
     status: set[int],
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    client = _client(_body_router())
+    client = _client(_body_api())
     response = client.post(
         "/echo",
         content=content,
@@ -179,7 +141,7 @@ def test_an_unreadable_body_is_caller_input_not_a_server_error(
 
 
 def test_an_identity_content_encoding_is_accepted() -> None:
-    client = _client(_body_router())
+    client = _client(_body_api())
     response = client.post(
         "/echo",
         content=b'{"b": 1, "a": 2}',
@@ -189,10 +151,7 @@ def test_an_identity_content_encoding_is_accepted() -> None:
 
 
 def test_a_serve_error_is_sent_as_written() -> None:
-    router = create_router(authenticate=_authenticate)
-
-    @router.get("/custom")
-    def custom() -> None:
+    async def custom(call: Call) -> ServeResponse:
         raise ServeError(
             429,
             "RATE_LIMITED",
@@ -201,7 +160,9 @@ def test_a_serve_error_is_sent_as_written() -> None:
             headers={"Retry-After": "5"},
         )
 
-    response = _client(router).get("/custom", headers=_auth())
+    api = _api()
+    api.add_route("GET", "/custom", custom)
+    response = _client(api).get("/custom", headers=_auth())
 
     assert response.status_code == 429
     assert response.json() == {
@@ -212,11 +173,7 @@ def test_a_serve_error_is_sent_as_written() -> None:
 
 @pytest.mark.parametrize("security", [False, True])
 def test_error_headers_override_supplied_values_without_case_duplicates(security: bool) -> None:
-    router = create_router(authenticate=_authenticate)
-
-    @router.get("/headers")
-    @router.public
-    def endpoint() -> None:
+    async def endpoint(call: Call) -> ServeResponse:
         raise ServeError(
             429,
             "RATE_LIMITED",
@@ -229,11 +186,9 @@ def test_error_headers_override_supplied_values_without_case_duplicates(security
             },
         )
 
-    app = FastAPI()
-    app.include_router(router)
-    if security:
-        install_http_security(app, HttpSecurity(allowed_hosts=("testserver",)))
-    response = TestClient(app).get("/headers")
+    api = _api(security=HttpSecurity(allowed_hosts=("testserver",)) if security else None)
+    api.add_route("GET", "/headers", endpoint, public=True)
+    response = _client(api).get("/headers")
 
     assert response.status_code == 429
     assert response.headers.get_list("cache-control") == ["no-store"]
@@ -247,39 +202,37 @@ def test_an_unexpected_error_is_logged_with_its_request_id_and_not_sent(
     caplog: pytest.LogCaptureFixture,
     security: bool,
 ) -> None:
-    router = create_router(authenticate=_authenticate)
-    seen: list[str | None] = []
+    seen: list[str] = []
 
-    @router.get("/boom")
-    def boom(request: Request) -> None:
-        seen.append(request_id(request))
+    async def boom(call: Call) -> ServeResponse:
+        seen.append(call.state.request_id)
         raise RuntimeError("password=hunter2 at /srv/app.py")
 
-    app = FastAPI()
-    app.include_router(router)
-    if security:
-        install_http_security(app, HttpSecurity(allowed_hosts=("testserver",)))
+    api = _api(security=HttpSecurity(allowed_hosts=("testserver",)) if security else None)
+    api.add_route("GET", "/boom", boom)
     with caplog.at_level(logging.ERROR, logger="hypequery.serve"):
-        response = TestClient(app, raise_server_exceptions=False).get("/boom", headers=_auth())
+        response = _client(api).get("/boom", headers=_auth())
 
     assert response.status_code == 500
     assert "hunter2" not in response.text
-    if security:
-        assert response.headers["x-request-id"] == seen[0]
+    assert response.headers["x-request-id"] == seen[0]
     [record] = [r for r in caplog.records if r.name == "hypequery.serve"]
     assert record.exc_info is not None
     assert "hunter2" in str(record.exc_info[1])
     assert response.headers["x-request-id"] in record.getMessage()
 
 
+class _Limit(BaseModel):
+    value: StrictInt
+
+
 def test_validation_issues_never_echo_the_submitted_value() -> None:
-    router = create_router(authenticate=_authenticate)
+    async def limit(call: Call) -> ServeResponse:
+        return ServeResponse.json({})
 
-    @router.post("/limit")
-    def limit(value: Annotated[int, Body(embed=True)]) -> dict[str, int]:
-        return {"value": value}
-
-    response = _client(router).post("/limit", json={"value": "SECRET-INPUT"}, headers=_auth())
+    api = _api()
+    api.add_route("POST", "/limit", limit, input=TypeAdapter(_Limit))
+    response = _client(api).post("/limit", json={"value": "SECRET-INPUT"}, headers=_auth())
 
     assert response.status_code == 400
     assert response.json()["error"]["details"]["issues"][0]["path"] == ["value"]
@@ -290,13 +243,9 @@ def test_validation_issues_never_echo_the_submitted_value() -> None:
 
 
 def test_a_wrong_method_is_a_404_without_listing_methods() -> None:
-    router = create_router(authenticate=_authenticate)
-
-    @router.get("/only-get")
-    def only_get() -> dict[str, bool]:
-        return {"ok": True}
-
-    response = _client(router).post("/only-get")
+    api = _api()
+    api.add_route("GET", "/only-get", _ok)
+    response = _client(api).post("/only-get")
 
     assert response.status_code == 404
     assert response.json()["error"] == {
@@ -307,7 +256,7 @@ def test_a_wrong_method_is_a_404_without_listing_methods() -> None:
 
 
 def test_a_hostile_path_is_not_echoed() -> None:
-    response = _client(create_router(authenticate=_authenticate)).get("/caf%C3%A9/%0d%0aX:1")
+    response = _client(_api()).get("/caf%C3%A9/%0d%0aX:1")
 
     assert response.status_code == 404
     assert response.json()["error"]["message"] in (
@@ -317,47 +266,17 @@ def test_a_hostile_path_is_not_echoed() -> None:
     assert "\r" not in response.text
 
 
-def test_the_applications_own_http_errors_keep_their_handler() -> None:
-    app = FastAPI()
-
-    @app.exception_handler(StarletteHTTPException)
-    async def own(request: Request, exc: StarletteHTTPException) -> JSONResponse:
-        return JSONResponse({"own": exc.detail}, status_code=exc.status_code, headers=exc.headers)
-
-    @app.get("/thing")
-    def thing() -> None:
-        raise HTTPException(404, detail="no such thing")
-
-    @app.get("/method")
-    def method() -> None:
-        raise HTTPException(405, detail="chosen status", headers={"Allow": "PATCH"})
-
-    install_http_security(app, HttpSecurity(allowed_hosts=("testserver",)))
-    client = TestClient(app)
-
-    assert client.get("/thing").json() == {"own": "no such thing"}
-    assert client.get("/nowhere").json()["error"]["type"] == "NOT_FOUND"
-    wrong_method = client.post("/thing")
-    assert wrong_method.status_code == 405
-    assert wrong_method.json() == {"own": "Method Not Allowed"}
-    deliberate = client.get("/method")
-    assert deliberate.status_code == 405
-    assert deliberate.json() == {"own": "chosen status"}
-    assert deliberate.headers["allow"] == "PATCH"
-
-
 # --- rate limiting ----------------------------------------------------------
 
 
-def _limited(limit: RateLimit, calls: list[str]) -> ServeRouter:
-    router = create_router(authenticate=_authenticate)
-
-    @router.post("/limited", dependencies=[Depends(limit)])
-    def limited(payload: Annotated[dict[str, Any], Body()]) -> dict[str, bool]:
+def _limited(limit: RateLimit, calls: list[str]) -> Api:
+    async def limited(call: Call) -> ServeResponse:
         calls.append("ran")
-        return {"ok": True}
+        return ServeResponse.json({"ok": True})
 
-    return router
+    api = _api()
+    api.add_route("POST", "/limited", limited, input=OBJECT, limits=[limit])
+    return api
 
 
 def test_a_limit_counts_each_request_once() -> None:
@@ -370,56 +289,36 @@ def test_a_limit_counts_each_request_once() -> None:
     assert calls == ["ran", "ran"]
 
 
-def test_a_limited_request_reads_no_body_and_runs_nothing(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_a_limited_request_reads_no_body_and_runs_nothing() -> None:
+    import asyncio
+
+    from hypequery.serve import Headers
+
     calls: list[str] = []
-    client = _client(_limited(RateLimit(max=1, window_seconds=60), calls))
-    assert client.post("/limited", json={}, headers=_auth()).status_code == 200
-
+    api = _limited(RateLimit(max=1, window_seconds=60), calls)
     reads: list[str] = []
-    original = Request.body
 
-    async def spy(self: Request) -> bytes:
+    async def body(content: bytes) -> AsyncIterator[bytes]:
         reads.append("body")
-        return await original(self)
+        yield content
 
-    monkeypatch.setattr(Request, "body", spy)
-    response = client.post(
-        "/limited",
-        content=b'{"a": "' + b"x" * 500_000 + b'"}',
-        headers={**_auth(), "Content-Type": "application/json"},
-    )
+    def request(content: bytes) -> ServeRequest:
+        headers = [
+            ("host", "testserver"),
+            ("authorization", "Bearer alice-token"),
+            ("content-type", "application/json"),
+        ]
+        return ServeRequest(
+            method="POST", path="/limited", headers=Headers(headers), body=body(content)
+        )
 
-    assert response.status_code == 429
-    assert reads == []
+    assert asyncio.run(api.handle(request(b"{}"))).status == 200
+    assert reads == ["body"]
+    response = asyncio.run(api.handle(request(b'{"a": "' + b"x" * 500_000 + b'"}')))
+
+    assert response.status == 429
+    assert reads == ["body"]
     assert calls == ["ran"]
-
-
-def test_endpoint_parameter_limit_rejects_before_body_read(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    router = create_router(authenticate=_authenticate)
-    limit = RateLimit(max=1, window_seconds=60)
-
-    @router.post("/parameter")
-    def endpoint(
-        payload: Annotated[dict[str, Any], Body()],
-        limited: Annotated[None, Depends(limit)],
-    ) -> dict[str, bool]:
-        return {"ok": True}
-
-    client = _client(router)
-    assert client.post("/parameter", json={}, headers=_auth()).status_code == 200
-    reads: list[str] = []
-    original = Request.body
-
-    async def spy(self: Request) -> bytes:
-        reads.append("body")
-        return await original(self)
-
-    monkeypatch.setattr(Request, "body", spy)
-    response = client.post("/parameter", content=b"not JSON", headers=_auth())
-    assert response.status_code == 429
-    assert reads == []
 
 
 def test_each_principal_has_its_own_window() -> None:
@@ -430,61 +329,26 @@ def test_each_principal_has_its_own_window() -> None:
     assert client.post("/limited", json={}, headers=_auth("bob-token")).status_code == 200
 
 
-@pytest.mark.parametrize("placement", ["route", "parameter", "nested"])
-def test_custom_limit_keys_run_after_the_dependencies_that_prepare_state(placement: str) -> None:
-    router = create_router(authenticate=_authenticate)
-    events: list[str] = []
+def test_a_custom_key_sees_the_request_and_the_authenticated_caller() -> None:
+    seen: list[tuple[str, str | None]] = []
 
-    def account(request: Request) -> None:
-        events.append("account")
-        request.state.account = "account-a"
-
-    def key(request: Request, auth: RequestAuth | None) -> str:
-        events.append("key")
+    def key(request: ServeRequest, auth: RequestAuth | None) -> str:
         assert auth is not None
-        return str(request.state.account)
+        seen.append((request.path, request.headers.get("x-account")))
+        return request.headers.get("x-account") or auth.principal.subject
 
-    limit = RateLimit(max=1, key=key)
-
-    def nested(
-        prepared: Annotated[None, Depends(account)],
-        limited: Annotated[None, Depends(limit)],
-    ) -> None:
-        pass
-
-    if placement == "route":
-
-        @router.post("/custom", dependencies=[Depends(account), Depends(limit)])
-        def route_endpoint(payload: Annotated[dict[str, Any], Body()]) -> dict[str, bool]:
-            events.append("endpoint")
-            return {"ok": True}
-
-    elif placement == "parameter":
-
-        @router.post("/custom")
-        def parameter_endpoint(
-            payload: Annotated[dict[str, Any], Body()],
-            prepared: Annotated[None, Depends(account)],
-            limited: Annotated[None, Depends(limit)],
-        ) -> dict[str, bool]:
-            events.append("endpoint")
-            return {"ok": True}
-
-    else:
-
-        @router.post("/custom", dependencies=[Depends(nested)])
-        def nested_endpoint(payload: Annotated[dict[str, Any], Body()]) -> dict[str, bool]:
-            events.append("endpoint")
-            return {"ok": True}
-
-    client = _client(router)
-    assert client.post("/custom", json={}, headers=_auth()).status_code == 200
-    assert client.post("/custom", json={}, headers=_auth()).status_code == 429
-    assert events == ["account", "key", "endpoint", "account", "key"]
+    client = _client(_limited(RateLimit(max=1, key=key), []))
+    account_a = {**_auth(), "x-account": "a"}
+    assert client.post("/limited", json={}, headers=account_a).status_code == 200
+    assert client.post("/limited", json={}, headers=account_a).status_code == 429
+    assert (
+        client.post("/limited", json={}, headers={**_auth(), "x-account": "b"}).status_code == 200
+    )
+    assert seen == [("/limited", "a"), ("/limited", "a"), ("/limited", "b")]
 
 
 @pytest.mark.parametrize("custom_key", [False, True])
-def test_limits_run_in_dependency_order_without_consuming_later_quota_on_rejection(
+def test_limits_run_api_first_in_order_without_consuming_later_quota_on_rejection(
     custom_key: bool,
 ) -> None:
     events: list[str] = []
@@ -505,13 +369,10 @@ def test_limits_run_in_dependency_order_without_consuming_later_quota_on_rejecti
         key=(lambda request, auth: "account") if custom_key else None,
     )
     second = RateLimit(max=2, store=Store("second"))
-    router = create_router(authenticate=_authenticate)
+    api = _api(limits=[first])
+    api.add_route("GET", "/ordered", _ok, limits=[second])
 
-    @router.get("/ordered", dependencies=[Depends(first), Depends(second)])
-    def endpoint() -> dict[str, bool]:
-        return {"ok": True}
-
-    client = _client(router)
+    client = _client(api)
     assert client.get("/ordered", headers=_auth()).status_code == 200
     assert client.get("/ordered", headers=_auth()).status_code == 429
     assert events == ["first", "second", "first"]
@@ -521,27 +382,20 @@ def test_tenants_with_the_same_subject_have_separate_windows() -> None:
     def authenticate(credential: Credential) -> Principal:
         return Principal(subject="same-subject", tenant_id=credential.value)
 
-    router = create_router(authenticate=authenticate)
+    api = _api(auth=authenticate)
+    api.add_route("GET", "/limited", _ok, limits=[RateLimit(max=1, window_seconds=60)])
 
-    @router.get("/limited", dependencies=[Depends(RateLimit(max=1, window_seconds=60))])
-    def limited() -> dict[str, bool]:
-        return {"ok": True}
-
-    client = _client(router)
+    client = _client(api)
     assert client.get("/limited", headers=_auth("tenant-a")).status_code == 200
     assert client.get("/limited", headers=_auth("tenant-a")).status_code == 429
     assert client.get("/limited", headers=_auth("tenant-b")).status_code == 200
 
 
 def test_a_spoofed_forwarded_address_does_not_open_a_new_window() -> None:
-    router = create_router(authenticate=_authenticate)
+    api = _api()
+    api.add_route("GET", "/open", _ok, public=True, limits=[RateLimit(max=1, window_seconds=60)])
 
-    @router.get("/open", dependencies=[Depends(RateLimit(max=1, window_seconds=60))])
-    @router.public
-    def open_route() -> dict[str, bool]:
-        return {"ok": True}
-
-    client = _client(router)
+    client = _client(api)
 
     assert client.get("/open", headers={"X-Forwarded-For": "1.1.1.1"}).status_code == 200
     assert client.get("/open", headers={"X-Forwarded-For": "2.2.2.2"}).status_code == 429

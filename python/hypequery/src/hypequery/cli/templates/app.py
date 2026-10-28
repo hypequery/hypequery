@@ -8,8 +8,8 @@ from hypequery.serve import (
     HttpSecurity,
     Principal,
     create_api,
-    create_app,
     create_dataset_endpoint,
+    to_asgi_app,
 )
 
 orders = dataset(
@@ -44,11 +44,11 @@ def authenticate(credential: Credential) -> Principal | None:
     return None
 
 
-api = create_api(authenticate=authenticate)
-create_dataset_endpoint(dataset=orders, client=client).install(api, "/datasets/orders/query")
-
-app = create_app(
-    api,
+api = create_api(
+    auth=authenticate,
     security=HttpSecurity(allowed_hosts=("127.0.0.1", "localhost")),
     development_docs=True,
 )
+create_dataset_endpoint(dataset=orders, client=client).install(api, "/datasets/orders/query")
+
+app = to_asgi_app(api)

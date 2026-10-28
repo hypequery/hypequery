@@ -5,7 +5,8 @@ from pathlib import Path
 from typing import Protocol
 
 from examples.client_dashboard import api, definitions
-from fastapi.testclient import TestClient
+
+from asgi_client import AsgiClient
 
 
 class TutorialDatabase(Protocol):
@@ -19,7 +20,7 @@ def exercise_live_tutorial(admin: TutorialDatabase) -> None:
         for statement in seed.split(";"):
             if statement.strip():
                 admin.command(statement)
-    with TestClient(api.create_application(), base_url="http://localhost") as http:
+    with AsgiClient(api.create_application(), base_url="http://localhost") as http:
         for token, expected in (("tenant-a-test", Decimal(60)), ("tenant-b-test", Decimal(1000))):
             headers = {"Authorization": "Bearer " + token}
             contract = http.get("/v1/client-contract", headers=headers).json()
