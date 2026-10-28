@@ -8,6 +8,8 @@ cannot: configuration, the clock, key-set caching and fetch failures.
 from __future__ import annotations
 
 import asyncio
+import base64
+import http.client
 import time
 import warnings
 from collections.abc import Iterator, Mapping
@@ -34,6 +36,8 @@ from hypequery.serve import (
 )
 from hypequery.serve.core import Api, Call, ServeResponse, jwks, jwt_auth
 from hypequery.serve.core.jwks import JwksUnavailable, RemoteJwks, fetch_jwks
+from hypequery.serve.core.utils import http_proxy
+from hypequery.serve.core.utils.http_proxy import proxy_for, proxy_headers
 from hypequery.serve.core.utils.jwk_selection import matching_keys
 from jwks_server import JwksServer
 
@@ -519,6 +523,87 @@ def test_imported_keys_are_reused(server: JwksServer) -> None:
     imported = dict(strategy._imported)
     _verify(strategy, _rs({"sub": "v"}))
     assert strategy._imported == imported
+
+
+@pytest.fixture
+def no_environment_proxies(monkeypatch: pytest.MonkeyPatch) -> pytest.MonkeyPatch:
+    for name in ("http_proxy", "https_proxy", "no_proxy", "all_proxy"):
+        monkeypatch.delenv(name, raising=False)
+        monkeypatch.delenv(name.upper(), raising=False)
+    return monkeypatch
+
+
+def test_plain_http_key_sets_go_through_the_configured_proxy(
+    server: JwksServer, no_environment_proxies: pytest.MonkeyPatch
+) -> None:
+    proxy = server.url.removesuffix("/jwks.json").replace("http://", "http://ops:p%40ss@")
+    no_environment_proxies.setenv("http_proxy", proxy)
+
+    assert fetch_jwks("http://keys.example.test/jwks.json", 5) == server.document["keys"]
+    # An HTTP proxy is sent the absolute URL, with the proxy's credentials.
+    assert server.paths == ["http://keys.example.test/jwks.json"]
+    assert server.proxy_authorizations == ["Basic " + base64.b64encode(b"ops:p@ss").decode()]
+
+
+def test_https_key_sets_tunnel_through_the_configured_proxy(
+    server: JwksServer, no_environment_proxies: pytest.MonkeyPatch
+) -> None:
+    proxy = server.url.removesuffix("/jwks.json").replace("http://", "http://ops:pw@")
+    no_environment_proxies.setenv("https_proxy", proxy)
+
+    # The test proxy opens the tunnel but speaks no TLS through it.
+    with pytest.raises(JwksUnavailable, match="could not be fetched"):
+        fetch_jwks("https://keys.example.test/.well-known/jwks.json", 2)
+    assert server.paths == ["keys.example.test:443"]
+    assert server.proxy_authorizations == ["Basic " + base64.b64encode(b"ops:pw").decode()]
+
+
+def test_loopback_and_no_proxy_hosts_are_reached_directly(
+    server: JwksServer, no_environment_proxies: pytest.MonkeyPatch
+) -> None:
+    # A proxy that would refuse every connection.
+    no_environment_proxies.setenv("http_proxy", "http://127.0.0.1:9")
+    no_environment_proxies.setenv("https_proxy", "http://127.0.0.1:9")
+    no_environment_proxies.setenv("no_proxy", "idp.internal")
+    assert fetch_jwks(server.url, 5) == server.document["keys"]
+    assert proxy_for("https://idp.internal/jwks.json") is None
+    assert proxy_for("https://idp.example.com/jwks.json") is not None
+
+
+def test_proxy_urls_are_read_as_urlopen_reads_them(
+    no_environment_proxies: pytest.MonkeyPatch,
+) -> None:
+    no_environment_proxies.setenv("https_proxy", "proxy.internal:3128")
+    proxy = proxy_for("https://idp.example.com/jwks.json")
+    assert proxy is not None
+    assert (proxy.scheme, proxy.hostname, proxy.port) == ("http", "proxy.internal", 3128)
+    assert proxy_headers(proxy) == {}
+
+    no_environment_proxies.setenv("https_proxy", "https://proxy.internal:3128")
+    with pytest.raises(ValueError, match="http://"):
+        proxy_for("https://idp.example.com/jwks.json")
+    with pytest.raises(JwksUnavailable, match="proxy is not usable"):
+        fetch_jwks("https://idp.example.com/jwks.json", 1)
+
+    no_environment_proxies.setattr(http_proxy, "getproxies", dict)
+    assert proxy_for("https://idp.example.com/jwks.json") is None
+
+
+def test_a_refused_response_is_closed(server: JwksServer, monkeypatch: pytest.MonkeyPatch) -> None:
+    responses: list[http.client.HTTPResponse] = []
+    original = http.client.HTTPConnection.getresponse
+
+    def recording(self: http.client.HTTPConnection) -> http.client.HTTPResponse:
+        response = original(self)
+        responses.append(response)
+        return response
+
+    monkeypatch.setattr(http.client.HTTPConnection, "getresponse", recording)
+    server.status = 500
+    with pytest.raises(JwksUnavailable, match="answered 500"):
+        fetch_jwks(server.url, 5)
+    assert responses
+    assert responses[0].isclosed()
 
 
 def test_one_fetch_runs_at_a_time(monkeypatch: pytest.MonkeyPatch) -> None:

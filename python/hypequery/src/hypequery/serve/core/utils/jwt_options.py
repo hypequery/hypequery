@@ -18,7 +18,8 @@ HMAC_MIN_KEY_BYTES = {"HS256": 32, "HS384": 48, "HS512": 64}
 ASYMMETRIC_ALGORITHMS = frozenset(
     ("RS256", "RS384", "RS512", "PS256", "PS384", "PS512", "ES256", "ES384", "ES512", "EdDSA")
 )
-_LOOPBACK = frozenset(("localhost", "127.0.0.1", "::1"))
+#: Hosts a key set may be fetched from over plain http, and never through a proxy.
+LOOPBACK_HOSTS = frozenset(("localhost", "127.0.0.1", "::1"))
 
 
 def seconds(value: timedelta | float, name: str, *, minimum: float) -> float:
@@ -104,7 +105,7 @@ def check_jwks_url(url: object) -> str:
     parts = urlsplit(url)
     if not parts.hostname or parts.scheme not in ("https", "http"):
         raise ValueError("jwt_strategy: jwks_url must be an http(s) URL")
-    if parts.scheme == "http" and parts.hostname not in _LOOPBACK:
+    if parts.scheme == "http" and parts.hostname not in LOOPBACK_HOSTS:
         # Whoever can change the key set in transit can sign any token.
         raise ValueError("jwt_strategy: jwks_url must use https outside localhost")
     return url

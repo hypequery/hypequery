@@ -27,6 +27,8 @@ class JwksServer:
         #: When set, the body is sent one byte per this many seconds, forever.
         self.drip = 0.0
         self.paths: list[str] = []
+        #: The `Proxy-Authorization` each request carried, or None.
+        self.proxy_authorizations: list[str | None] = []
         #: When False, no content-length: the body ends when the connection does.
         self.length = True
         self.body: bytes | None = None
@@ -38,6 +40,7 @@ class JwksServer:
             def do_GET(self) -> None:
                 server.hits += 1
                 server.paths.append(self.path)
+                server.proxy_authorizations.append(self.headers.get("proxy-authorization"))
                 if server.drip:
                     self._drip()
                     return
@@ -56,6 +59,13 @@ class JwksServer:
                     self.send_header(name, value)
                 self.end_headers()
                 self.wfile.write(body)
+
+            def do_CONNECT(self) -> None:
+                # Accepts the tunnel, then speaks no TLS through it.
+                server.paths.append(self.path)
+                server.proxy_authorizations.append(self.headers.get("proxy-authorization"))
+                self.send_response(200)
+                self.end_headers()
 
             def _drip(self) -> None:
                 self.send_response(200)

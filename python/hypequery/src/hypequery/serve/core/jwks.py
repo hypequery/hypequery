@@ -8,7 +8,8 @@
 - Concurrent requests share one fetch, across threads and event loops.
 - The fetch runs on its own thread, never on the event loop, one at a time.
   It ends by `timeout`, however slowly the provider answers, is bounded by a
-  response size limit, and follows no redirects.
+  response size limit, and follows no redirects. It goes through the proxy
+  `urlopen` would use (`HTTPS_PROXY`, `NO_PROXY`), never for a loopback host.
 
 A failed fetch raises `JwksUnavailable`. The authenticator lets it escape, so
 the request is answered 503 (authentication unavailable), not 401: the token
@@ -26,6 +27,7 @@ from concurrent.futures import Future
 from typing import Any
 from urllib.parse import urlsplit
 
+from .utils.http_proxy import proxy_for, proxy_headers
 from .utils.json_body import parse_json
 
 #: A key set larger than this is refused. Providers publish a handful of keys.
@@ -50,13 +52,29 @@ def _within(sock: socket.socket, deadline: float) -> None:
     sock.settimeout(remaining)
 
 
-def _connection(url: str, timeout: float) -> tuple[http.client.HTTPConnection, str]:
+def _connection(url: str, timeout: float) -> tuple[http.client.HTTPConnection, str, dict[str, str]]:
+    """A connection for *url*, its request target, and any proxy headers."""
+
     parts = urlsplit(url)
     target = (parts.path or "/") + (f"?{parts.query}" if parts.query else "")
+    proxy = proxy_for(url)
     # The scheme was checked to be http or https when the URL was configured.
     # HTTPSConnection verifies the certificate and host name by default.
-    factory = http.client.HTTPSConnection if parts.scheme == "https" else http.client.HTTPConnection
-    return factory(parts.hostname or "", parts.port, timeout=timeout), target
+    if proxy is None:
+        factory = (
+            http.client.HTTPSConnection if parts.scheme == "https" else http.client.HTTPConnection
+        )
+        return factory(parts.hostname or "", parts.port, timeout=timeout), target, {}
+    headers = proxy_headers(proxy)
+    if parts.scheme == "https":
+        # Through a CONNECT tunnel, so TLS and its certificate check stay end
+        # to end with the key set's host.
+        tunnel = http.client.HTTPSConnection(proxy.hostname or "", proxy.port, timeout=timeout)
+        tunnel.set_tunnel(parts.hostname or "", parts.port, headers=headers)
+        return tunnel, target, {}
+    # Plain http goes to the proxy with the absolute URL as its target.
+    plain = http.client.HTTPConnection(proxy.hostname or "", proxy.port, timeout=timeout)
+    return plain, url, headers
 
 
 def fetch_jwks(url: str, timeout: float, max_bytes: int = MAX_JWKS_BYTES) -> list[dict[str, Any]]:
@@ -69,28 +87,34 @@ def fetch_jwks(url: str, timeout: float, max_bytes: int = MAX_JWKS_BYTES) -> lis
     """
 
     deadline = _monotonic() + timeout
-    connection, target = _connection(url, timeout)
+    try:
+        connection, target, proxy_auth = _connection(url, timeout)
+    except ValueError as exc:
+        raise JwksUnavailable("the key set's proxy is not usable") from exc
     try:
         connection.request(
-            "GET", target, headers={"Accept": "application/json", "User-Agent": "hypequery-jwks"}
+            "GET",
+            target,
+            headers={"Accept": "application/json", "User-Agent": "hypequery-jwks", **proxy_auth},
         )
         # Kept: the connection drops its reference once a response that
         # closes the connection arrives, but the response reads through it.
         sock = connection.sock
         _within(sock, deadline)
-        response = connection.getresponse()
-        if response.status != 200:
-            raise JwksUnavailable(f"the key set answered {response.status}")
-        body = bytearray()
-        # A response read to its end closes itself, and with it the socket.
-        while not response.isclosed():
-            _within(sock, deadline)
-            chunk = response.read1(_CHUNK_BYTES)
-            if not chunk:
-                break
-            body += chunk
-            if len(body) > max_bytes:
-                raise JwksUnavailable("the key set is too large")
+        # Closed on every exit, so a refused response never holds its socket.
+        with connection.getresponse() as response:
+            if response.status != 200:
+                raise JwksUnavailable(f"the key set answered {response.status}")
+            body = bytearray()
+            # A response read to its end closes itself, and with it the socket.
+            while not response.isclosed():
+                _within(sock, deadline)
+                chunk = response.read1(_CHUNK_BYTES)
+                if not chunk:
+                    break
+                body += chunk
+                if len(body) > max_bytes:
+                    raise JwksUnavailable("the key set is too large")
     except JwksUnavailable:
         raise
     except TimeoutError as exc:
