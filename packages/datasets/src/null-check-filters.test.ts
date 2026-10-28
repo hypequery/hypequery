@@ -83,6 +83,14 @@ describe('null-check filters (RFC 0023)', () => {
     await expect(execute([{ field: 'trial', operator: 'isNull', value: null }])).rejects.toThrow(/"isNull" takes no value/);
   });
 
+  it('keeps null checks opt-in for metric filters too', () => {
+    const CustomerCount = Customers.metric('customers', { measure: 'customers' });
+    expect(client.validate(CustomerCount, { filters: [{ field: 'plan', operator: 'isNull' } as never] }).errors.join('; '))
+      .toMatch(/does not allow operator "isNull"/);
+    expect(client.validate(CustomerCount, { filters: [{ field: 'churnedAt', operator: 'isNotNull' } as never] }).errors)
+      .toEqual([]);
+  });
+
   it('evaluates null checks in the in-memory backend', async () => {
     const memory = createDatasetClient({
       backend: createInMemoryBackend({
