@@ -46,6 +46,21 @@ describe('generateDatasets', () => {
             { name: 'duration_seconds', type: 'UInt32', default_type: '', default_expression: '' },
             { name: 'payment_type', type: "Enum8('card' = 1, 'cash' = 2)", default_type: '', default_expression: '' },
             { name: 'status', type: 'LowCardinality(String)', default_type: '', default_expression: '' },
+            { name: 'pickup_point', type: 'Point', default_type: '', default_expression: '' },
+            { name: 'item_counts', type: 'Array(Int32)', default_type: '', default_expression: '' },
+            { name: 'tags', type: 'Array(LowCardinality(String))', default_type: '', default_expression: '' },
+            { name: 'attrs', type: 'Map(String, UInt64)', default_type: '', default_expression: '' },
+            { name: 'route', type: 'Tuple(Float64, Float64)', default_type: '', default_expression: '' },
+            {
+              name: 'geo',
+              type: 'Tuple(country LowCardinality(String), lat Float64, cells Array(UInt64))',
+              default_type: '',
+              default_expression: '',
+            },
+            // Each of these is spelled like another field once camelCased.
+            { name: 'geo_country', type: 'String', default_type: '', default_expression: '' },
+            { name: 'fare_total', type: 'Float64', default_type: '', default_expression: '' },
+            { name: 'fareTotal', type: 'Float64', default_type: '', default_expression: '' },
           ],
         };
       }
@@ -81,6 +96,33 @@ describe('generateDatasets', () => {
     expect(generated).not.toContain("avgLongitude: measure.avg('longitude'");
     expect(generated).not.toContain("PaymentType measures");
     expect(generated).not.toContain('measure.count({');
+    // A column keeps its natural name over a tuple element, wherever it appears.
+    expect(generated).toContain("geoCountry: dimension.string({ column: 'geo_country', label: 'Geo Country' })");
+    expect(generated).toContain('// geo.country is geoCountry2: geoCountry is taken.');
+    expect(generated).toContain(
+      `geoCountry2: dimension.string({ sql: "tupleElement(geo, 'country')", dependencies: ['geo'], label: 'Geo Country' })`,
+    );
+    expect(generated).toContain("fareTotal: dimension.number({ column: 'fare_total', label: 'Fare Total' })");
+    expect(generated).toContain('// fareTotal is fareTotal2: fareTotal is taken.');
+    expect(generated).toContain("fareTotal2: dimension.number({ column: 'fareTotal', label: 'FareTotal' })");
+    expect(generated).toContain("totalFareTotal: measure.sum('fareTotal'");
+    expect(generated).toContain("totalFareTotal2: measure.sum('fareTotal2'");
+    expect(generated).toContain(
+      `geoLat: dimension.number({ sql: "tupleElement(geo, 'lat')", dependencies: ['geo'], label: 'Geo Lat' })`,
+    );
+    expect(generated).not.toContain('geoCells');
+    for (const [column, type] of [
+      ['pickup_point', 'Point'],
+      ['item_counts', 'Array(Int32)'],
+      ['tags', 'Array(LowCardinality(String))'],
+      ['attrs', 'Map(String, UInt64)'],
+      ['route', 'Tuple(Float64, Float64)'],
+    ]) {
+      expect(generated).toContain(`// ${column} (${type}) is not included: no dimension type describes its values.`);
+    }
+    expect(generated).not.toMatch(/(?:pickupPoint|itemCounts|tags|attrs|route): dimension\./);
+    expect(generated).not.toContain('PickupPoint measures');
+    expect(generated).not.toContain('ItemCounts measures');
 
     await writeFile(
       tsconfigPath,
@@ -163,6 +205,33 @@ describe('generateDatasets', () => {
 
     expect(result.contents).toContain("export const EventsDataset = dataset('events'");
     await expect(readFile(outputPath, 'utf8')).rejects.toMatchObject({ code: 'ENOENT' });
+  });
+
+  it('counts and keys time only on columns that become dimensions', async () => {
+    const injectedQuery = vi.fn(async ({ query }: { query: string }) => {
+      if (query === 'SHOW TABLES') {
+        return { json: async () => [{ name: 'events' }] };
+      }
+      if (query === 'DESCRIBE TABLE events') {
+        return {
+          json: async () => [
+            { name: 'seen_dates', type: 'Array(Date)', default_type: '', default_expression: '' },
+            { name: 'created', type: 'String', default_type: '', default_expression: '' },
+            { name: 'name', type: 'String', default_type: '', default_expression: '' },
+          ],
+        };
+      }
+      throw new Error(`Unexpected query: ${query}`);
+    });
+
+    const result = await generateDatasets({
+      outputPath: 'unused.ts',
+      client: { query: injectedQuery },
+      writeOutput: false,
+    });
+
+    expect(result.contents).toContain("totalCount: measure.count('created'");
+    expect(result.contents).not.toContain('timeKey:');
   });
 
   it('never turns customer_id naming into active tenant enforcement', async () => {

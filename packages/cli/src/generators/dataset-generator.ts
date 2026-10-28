@@ -9,6 +9,12 @@ import fs from 'fs/promises';
 import path from 'path';
 import type { TypeGenerationClickHouseClient } from '../typegen/index.js';
 import { getClickHouseClient } from '../utils/clickhouse-client.js';
+import {
+  clickHouseDimensionType,
+  namedTupleElements,
+  type ScaffoldDimensionType,
+} from '../utils/clickhouse-dimension-type.js';
+import { uniqueNames } from '../utils/unique-names.js';
 
 export interface DatasetGeneratorOptions {
   outputPath: string;
@@ -49,56 +55,23 @@ interface ColumnInfo {
   default_expression: string;
 }
 
-/**
- * Determine the dataset dimension type from a ClickHouse type
- */
-function clickhouseToDimensionType(chType: string): string {
-  const normalized = chType.toLowerCase();
+const SQL_IDENTIFIER = /^[A-Za-z_][A-Za-z0-9_]*$/;
 
-  // String types
-  if (normalized.includes('string') || normalized.includes('enum')) {
-    return 'string';
-  }
-
-  // Numeric types
-  if (
-    normalized.includes('int') ||
-    normalized.includes('float') ||
-    normalized.includes('double') ||
-    normalized.includes('decimal')
-  ) {
-    return 'number';
-  }
-
-  // Date/Time types
-  if (normalized.includes('date') || normalized.includes('datetime')) {
-    return 'timestamp';
-  }
-
-  // Boolean
-  if (normalized.includes('bool')) {
-    return 'boolean';
-  }
-
-  // Default to string for unknown types
-  return 'string';
+/** One generated dimension: a whole column, or one element of a named tuple column. */
+interface DimensionField {
+  column: ColumnInfo;
+  element?: string;
+  type: ScaffoldDimensionType;
+  name: string;
+  /** The natural name another field already holds. */
+  renamedFrom?: string;
 }
 
 /**
- * Check if a column is likely a timestamp column
+ * Whether a column can be the dataset's timeKey: its values are dates or times.
  */
 function isTimestampColumn(column: ColumnInfo): boolean {
-  const name = column.name.toLowerCase();
-  const type = column.type.toLowerCase();
-
-  return (
-    type.includes('date') ||
-    type.includes('datetime') ||
-    name.includes('timestamp') ||
-    name.includes('_at') ||
-    name === 'created' ||
-    name === 'updated'
-  );
+  return clickHouseDimensionType(column.type) === 'timestamp';
 }
 
 /**
@@ -123,14 +96,7 @@ function isTenantKeyCandidate(column: ColumnInfo): boolean {
  * Check if a column is numeric and suitable for measures
  */
 function isNumericColumn(column: ColumnInfo): boolean {
-  const type = column.type.toLowerCase();
-
-  return (
-    type.includes('int') ||
-    type.includes('float') ||
-    type.includes('double') ||
-    type.includes('decimal')
-  );
+  return clickHouseDimensionType(column.type) === 'number';
 }
 
 /**
@@ -254,20 +220,71 @@ async function generateDatasetForTable(
     });
   }
 
-  // Generate dimensions
+  // Generate dimensions. A named tuple becomes one dimension per scalar
+  // element; columns no dimension type describes are left out with a note.
+  const fields: DimensionField[] = [];
+  const skippedColumns: ColumnInfo[] = [];
+  for (const column of columns) {
+    const dimensionType = clickHouseDimensionType(column.type);
+    if (dimensionType) {
+      fields.push({ column, type: dimensionType, name: columnToCamelCase(column.name) });
+      continue;
+    }
+    const elements = SQL_IDENTIFIER.test(column.name) ? namedTupleElements(column.type) : null;
+    if (elements?.length) {
+      for (const element of elements) {
+        fields.push({
+          column,
+          element: element.name,
+          type: element.type,
+          name: columnToCamelCase(`${column.name}_${element.name}`),
+        });
+      }
+      continue;
+    }
+    skippedColumns.push(column);
+  }
+
+  // Columns keep their natural names; a tuple element that would clash with
+  // one (or an earlier field) takes a numeric suffix instead.
+  const naming = [...fields.filter((field) => !field.element), ...fields.filter((field) => field.element)];
+  uniqueNames(naming.map((field) => field.name)).forEach((name, index) => {
+    const field = naming[index];
+    if (name !== field.name) field.renamedFrom = field.name;
+    field.name = name;
+  });
+  const fieldNameByColumn = new Map(
+    fields.filter((field) => !field.element).map((field) => [field.column.name, field.name]),
+  );
+
   const dimensionLines: string[] = [];
   for (const column of columns) {
-    const fieldName = columnToCamelCase(column.name);
-    const dimensionType = clickhouseToDimensionType(column.type);
-    const label = generateLabel(column.name);
-
-    // Skip if column name === fieldName (no transformation needed)
-    if (column.name === fieldName) {
-      dimensionLines.push(`    ${fieldName}: dimension.${dimensionType}({ label: '${label}' }),`);
-    } else {
+    if (skippedColumns.includes(column)) {
       dimensionLines.push(
-        `    ${fieldName}: dimension.${dimensionType}({ column: '${column.name}', label: '${label}' }),`
+        `    // ${column.name} (${column.type}) is not included: no dimension type describes its values.`
       );
+      continue;
+    }
+    for (const field of fields.filter((candidate) => candidate.column === column)) {
+      const label = generateLabel(column.name);
+      if (field.renamedFrom) {
+        dimensionLines.push(
+          `    // ${field.element ? `${column.name}.${field.element}` : column.name} is ${field.name}: ${field.renamedFrom} is taken.`
+        );
+      }
+      if (field.element) {
+        dimensionLines.push(
+          `    ${field.name}: dimension.${field.type}({ sql: "tupleElement(${column.name}, '${field.element}')", ` +
+            `dependencies: ['${column.name}'], label: '${label} ${generateLabel(field.element)}' }),`
+        );
+      } else if (column.name === field.name) {
+        // No column option needed when the field is spelled like the column
+        dimensionLines.push(`    ${field.name}: dimension.${field.type}({ label: '${label}' }),`);
+      } else {
+        dimensionLines.push(
+          `    ${field.name}: dimension.${field.type}({ column: '${column.name}', label: '${label}' }),`
+        );
+      }
     }
   }
 
@@ -275,23 +292,25 @@ async function generateDatasetForTable(
   // dimensions because summing or averaging them is usually noise.
   const numericColumns = columns.filter(isMeasureCandidate);
   const measureLines: string[] = [];
+  const countField = fields[0]?.name;
 
   if (numericColumns.length > 0) {
     measureLines.push(`    // Count measures`);
-    measureLines.push(`    totalCount: measure.count('${columnToCamelCase(columns[0].name)}', { label: 'Total Count' }),`);
+    measureLines.push(`    totalCount: measure.count('${countField}', { label: 'Total Count' }),`);
     measureLines.push(``);
 
     for (const column of numericColumns) {
-      const fieldName = columnToCamelCase(column.name);
+      const fieldName = fieldNameByColumn.get(column.name)!;
+      const measureSuffix = fieldName.charAt(0).toUpperCase() + fieldName.slice(1);
       const label = generateLabel(column.name);
 
       measureLines.push(`    // ${label} measures`);
-      measureLines.push(`    total${tableToPascalCase(column.name)}: measure.sum('${fieldName}', { label: 'Total ${label}' }),`);
-      measureLines.push(`    avg${tableToPascalCase(column.name)}: measure.avg('${fieldName}', { label: 'Average ${label}' }),`);
+      measureLines.push(`    total${measureSuffix}: measure.sum('${fieldName}', { label: 'Total ${label}' }),`);
+      measureLines.push(`    avg${measureSuffix}: measure.avg('${fieldName}', { label: 'Average ${label}' }),`);
       measureLines.push(``);
     }
-  } else {
-    measureLines.push(`    totalCount: measure.count('${columnToCamelCase(columns[0].name)}', { label: 'Total Count' }),`);
+  } else if (countField) {
+    measureLines.push(`    totalCount: measure.count('${countField}', { label: 'Total Count' }),`);
   }
 
   // Build the dataset definition
