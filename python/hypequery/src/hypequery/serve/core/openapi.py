@@ -9,12 +9,13 @@ Both routes are public and exist only when an API is created with
 
 from __future__ import annotations
 
-from typing import Literal
+from typing import Literal, cast
 
 from pydantic import TypeAdapter
 from pydantic.json_schema import JsonSchemaValue
 
 from .api import Api, Call, Route
+from .auth import CredentialTransport
 from .jwt_auth import JwtStrategy
 from .messages import ServeResponse
 from .openapi_info import OpenApiInfo
@@ -128,7 +129,16 @@ def _operation(
 
 
 def _security_scheme(api: Api) -> dict[str, str]:
-    transport = api.authentication.credentials
+    context = api.authentication.context
+    if context is not None:
+        return {
+            "type": "apiKey",
+            "in": "cookie",
+            "name": context.session_cookie,
+            "description": "The host application's own session.",
+        }
+    # Every strategy but a context one reads a header credential.
+    transport = cast(CredentialTransport, api.authentication.credentials)
     if transport.kind == "bearer" and transport.header == "authorization":
         if isinstance(api.authentication.authenticate, JwtStrategy):
             return {"type": "http", "scheme": "bearer", "bearerFormat": "JWT"}

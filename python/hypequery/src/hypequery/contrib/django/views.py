@@ -22,10 +22,13 @@ request's thread waits (`hypequery.serve.wsgi`). ``ServeRequest.raw`` is the
 - Any prefix works, including one with URL parameters: client contracts and
   discovery name the paths the request was routed under, unless the API sets
   ``client_mount_path``, which then names where it is reached.
-- The views are CSRF-exempt: the API reads a credential from a header, which a
-  browser never attaches on its own, so a cross-site request cannot carry it.
-  Django's CSRF middleware stays installed for the rest of the project. An API
-  whose credential is the ``Cookie`` header is not exempt.
+- An API that reads a header credential (bearer, API key, JWT) is
+  CSRF-exempt: a browser never attaches that header on its own, so a
+  cross-site request cannot carry it. An API authenticated by the project's
+  own login (``auth=django_user(...)``, or any ``from_context`` strategy) is
+  not: Django's CSRF middleware checks its unsafe requests, so the page sends
+  the ``csrftoken`` cookie's value as ``X-CSRFToken`` (``@hypequery/react``'s
+  ``headers`` option), as well as the core's same-origin check.
 """
 
 from __future__ import annotations
@@ -120,7 +123,7 @@ def urls(api: Api) -> list[URLPattern]:
         hypequery_api,
         hypequery_api_async,
     )
-    if api.authentication.credentials.header != "cookie":
+    if api.authentication.context is None:
         views = (csrf_exempt(views[0]), csrf_exempt(views[1]))
     return [_ServePattern(*views)]
 
@@ -145,6 +148,7 @@ def _wsgi_request(request: HttpRequest, where: MountedPath, thread: RequestThrea
         body=thread_body(thread, read, length),
         client=environ_client(environ),
         raw=request,
+        run_on_request_thread=thread.call,
     )
 
 

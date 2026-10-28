@@ -25,6 +25,7 @@ from .core.auth import (
 )
 from .core.authentication import Authentication
 from .core.body import DEFAULT_MAX_BODY_BYTES
+from .core.context_auth import ContextStrategy
 from .core.discovery import add_discovery_route
 from .core.openapi import add_docs_routes
 from .core.openapi_info import OpenApiInfo
@@ -40,7 +41,7 @@ __all__ = ["create_api"]
 
 def create_api(
     *,
-    auth: Authenticator,
+    auth: Authenticator | ContextStrategy,
     credentials: CredentialTransport | None = None,
     tenant: TenantResolver | None = None,
     security: HttpSecurity | None = None,
@@ -63,13 +64,17 @@ def create_api(
     rejects a credential by returning None or raising `InvalidCredential`; any
     other exception is treated as authentication being unavailable. It may be
     sync or async. *credentials* is where the credential is read from,
-    `bearer_token()` by default. *tenant* maps a principal to its tenant
-    capability; by default a principal's `tenant_id` scopes the request and a
-    principal without one is tenant-free.
+    `bearer_token()` by default. Alternatively, *auth* is `from_context(...)`,
+    which reads the host app's own session from the request and takes no
+    *credentials*. *tenant* maps a principal to its tenant capability; by
+    default a principal's `tenant_id` scopes the request and a principal
+    without one is tenant-free.
 
-    *security* is the HTTP profile: trusted hosts, proxies and CORS.
+    *security* is the HTTP profile: trusted hosts, proxies and CORS; a
+    context strategy's same-origin check also trusts the CORS origins.
     *production* adds process budgets and is refused with development docs, a
-    cookie credential, or a proxy list that trusts every address.
+    context strategy without its same-origin check, or a proxy list that
+    trusts every address.
 
     *datasets* serves `POST /datasets/<name>/query` for each entry, and
     *metrics* serves `POST /metrics/<name>`. A dataset entry is a `Dataset`,
@@ -89,8 +94,11 @@ def create_api(
     application is mounted, for the paths a client contract names.
     """
 
-    if not callable(auth):
-        raise TypeError("create_api requires an auth callable")
+    context = auth if type(auth) is ContextStrategy else None
+    if context is None and not callable(auth):
+        raise TypeError("create_api requires an auth callable or a from_context strategy")
+    if context is not None and credentials is not None:
+        raise TypeError("a from_context strategy reads the host's session, not credentials")
     if tenant is not None and not callable(tenant):
         raise TypeError("tenant must be a callable resolver")
     if credentials is not None and type(credentials) is not CredentialTransport:
@@ -99,11 +107,14 @@ def create_api(
         raise TypeError("development_docs must be a boolean")
     if events is not None and type(events) is not QueryEvents:
         raise TypeError("events must be QueryEvents")
-    transport = credentials or bearer_token()
+    transport = None if context is not None else credentials or bearer_token()
     if production is not None:
-        _check_production(production, security, transport, development_docs)
+        _check_production(production, security, context, development_docs)
+    origins = security.cors.origins if type(security) is HttpSecurity and security.cors else ()
     api = Api(
-        authentication=Authentication(auth, transport, tenant or default_tenant_resolver),
+        authentication=Authentication(
+            auth, transport, tenant or default_tenant_resolver, origins=origins
+        ),
         max_body_bytes=max_body_bytes,
         client_mount_path=client_mount_path,
         security=security,
@@ -134,7 +145,7 @@ def create_api(
 def _check_production(
     production: ProductionProfile,
     security: HttpSecurity | None,
-    credentials: CredentialTransport,
+    context: ContextStrategy | None,
     development_docs: bool,
 ) -> None:
     if type(production) is not ProductionProfile:
@@ -143,8 +154,10 @@ def _check_production(
         raise ValueError("production requires an HttpSecurity naming its trusted hosts")
     if development_docs:
         raise ValueError("production disables development documentation")
-    if credentials.header == "cookie":
-        raise ValueError("production supports header credentials only, not cookies")
+    if context is not None and not context.same_origin:
+        # A session cookie rides along with any request a browser makes;
+        # without the check, any site could act as the signed-in user.
+        raise ValueError("production refuses from_context(same_origin=False)")
     if any(
         ipaddress.ip_network(proxy, strict=False).prefixlen == 0
         for proxy in security.trusted_proxies

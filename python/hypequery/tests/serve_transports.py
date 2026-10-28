@@ -5,7 +5,7 @@
 - ``wsgi``: `to_wsgi_app` (`WsgiClient`);
 - ``django-wsgi`` / ``django-asgi``: `hypequery.contrib.django.urls` in a
   Django project, served by Django's own WSGI and ASGI handlers, with Django's
-  CSRF middleware installed;
+  CSRF middleware installed unless ``csrf=False``;
 - ``flask``: `hypequery.contrib.flask.blueprint` registered on a Flask app.
 
 Each client sends ``Host: testserver`` from the peer ``testclient:50000``
@@ -44,7 +44,14 @@ class DjangoClient:
     """Requests to a Django project whose URLconf includes `urls(api)`."""
 
     def __init__(
-        self, api: Api, *, asgi: bool, client: tuple[str, int], prefix: str, raw_uri: bool
+        self,
+        api: Api,
+        *,
+        asgi: bool,
+        client: tuple[str, int],
+        prefix: str,
+        raw_uri: bool,
+        csrf: bool = True,
     ) -> None:
         from django.urls import include, path
 
@@ -61,7 +68,7 @@ class DjangoClient:
             urlconf.urlpatterns = urls(api)  # type: ignore[attr-defined]
         self._settings = {
             "ROOT_URLCONF": urlconf,
-            "MIDDLEWARE": ["django.middleware.csrf.CsrfViewMiddleware"],
+            "MIDDLEWARE": ["django.middleware.csrf.CsrfViewMiddleware"] if csrf else [],
             "ALLOWED_HOSTS": ["*"],
         }
         with self._overridden():
@@ -107,8 +114,13 @@ def serve_client(
     client: tuple[str, int] = PEER,
     prefix: str = "",
     raw_uri: bool = True,
+    csrf: bool = True,
 ) -> Any:
-    """A client for *api* served by *transport*."""
+    """A client for *api* served by *transport*.
+
+    *csrf* False leaves Django's CSRF middleware out, to test the core's own
+    checks on a context-authenticated API behind it.
+    """
 
     if prefix and transport not in ROUTED:
         raise ValueError(f"{transport} has no router to mount a prefix")
@@ -125,6 +137,7 @@ def serve_client(
             client=client,
             prefix=prefix,
             raw_uri=raw_uri,
+            csrf=csrf,
         )
     if transport == "flask":
         return WsgiClient(flask_app(api, prefix=prefix), client=client, raw_uri=raw_uri)

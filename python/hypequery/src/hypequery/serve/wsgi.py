@@ -83,6 +83,7 @@ class WsgiApp:
                 body=thread_body(thread, environ["wsgi.input"].read, body_length(environ)),
                 client=environ_client(environ),
                 raw=environ,
+                run_on_request_thread=thread.call,
             )
 
         response = serve_blocking(self.api, build)

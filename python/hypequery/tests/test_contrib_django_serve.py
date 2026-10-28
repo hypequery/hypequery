@@ -27,9 +27,10 @@ from hypequery.serve import (  # noqa: E402
     Call,
     Credential,
     Principal,
+    ServeRequest,
     ServeResponse,
-    api_key,
     create_api,
+    from_context,
 )
 from serve_transports import serve_client  # noqa: E402
 from wsgi_client import call, environ  # noqa: E402
@@ -92,15 +93,22 @@ def test_header_credentials_pass_django_csrf_checks() -> None:
     assert response.json() == {"input": {"x": 1}}
 
 
-def test_a_cookie_credential_is_left_to_django_csrf() -> None:
-    api = _api(credentials=api_key(header="cookie"))
+def test_a_context_strategy_is_left_to_django_csrf() -> None:
+    def signed_in(request: ServeRequest) -> Principal:
+        return Principal(subject="reader")
+
+    async def echo(call: Call) -> ServeResponse:
+        return ServeResponse.json({"input": call.input})
+
+    api = create_api(auth=from_context(signed_in))
+    api.add_route("POST", "/echo", echo, input=TypeAdapter(dict[str, object]))
     with _project(api, "django.middleware.csrf.CsrfViewMiddleware"):
         http = Client(enforce_csrf_checks=True)
         refused = http.post(
             "/api/echo",
             {"x": 1},
             content_type="application/json",
-            headers={"cookie": "session=reader"},
+            headers={"sec-fetch-site": "same-origin"},
         )
     assert refused.status_code == 403
     assert b"CSRF" in refused.content

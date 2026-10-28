@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>hypequery: same-origin React page</title>
+  <!-- React and @hypequery/react from a CDN, so the example needs no build. A real
+       app bundles them; the client configuration below is the same. -->
+  <script type="importmap">
+  {
+    "imports": {
+      "react": "https://esm.sh/react@19.2.0",
+      "react/": "https://esm.sh/react@19.2.0/",
+      "react-dom/client": "https://esm.sh/react-dom@19.2.0/client?external=react",
+      "@tanstack/react-query": "https://esm.sh/@tanstack/react-query@5.90.16?external=react",
+      "@hypequery/react": "https://esm.sh/@hypequery/react@0.7.1?external=react,@tanstack/react-query"
+    }
+  }
+  </script>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="module">
+    import React, { useState } from 'react';
+    import { createRoot } from 'react-dom/client';
+    import { QueryClient } from '@tanstack/react-query';
+    import { HypequeryProvider, createAnalyticsHooks, createHypequeryClient } from '@hypequery/react';
+
+    const h = React.createElement;
+
+    // Django's CSRF middleware checks every unsafe request a session makes; it
+    // reads the token from this header. Flask sets no such cookie, and an
+    // undefined header is not sent.
+    const csrfToken = () => document.cookie.match(/(?:^|; )csrftoken=([^;]*)/)?.[1];
+
+    // Same origin: no baseUrl host, no token. The browser sends the session
+    // cookie, and the API reads the app's own login.
+    const client = createHypequeryClient({
+      baseUrl: '/api/analytics',
+      manifest: { 'dataset:orders': { method: 'POST', path: 'orders' } },
+      headers: () => ({ 'X-CSRFToken': csrfToken() }),
+      cacheKey: 'example:session',
+    });
+    const queries = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const hooks = createAnalyticsHooks();
+
+    async function post(path, form) {
+      const response = await fetch(path, {
+        method: 'POST',
+        headers: { 'X-CSRFToken': csrfToken() ?? '' },
+        body: form,
+      });
+      // Signing in or out changes who the session is: refetch as them.
+      if (response.ok) await queries.resetQueries();
+      return response.ok;
+    }
+
+    function SignIn() {
+      const [failed, setFailed] = useState(false);
+      async function submit(event) {
+        event.preventDefault();
+        const ok = await post('/login', new FormData(event.currentTarget));
+        setFailed(!ok);
+      }
+      return h('form', { onSubmit: submit },
+        h('p', null, 'Sign in with your organization\'s token.'),
+        h('input', { name: 'token', type: 'password', required: true, autoComplete: 'off' }),
+        h('button', null, 'Sign in'),
+        failed && h('p', { role: 'alert' }, 'Sign-in failed.'));
+    }
+
+    function Revenue() {
+      const orders = hooks.useDataset('orders', { dimensions: ['country'], measures: ['revenue'] });
+      if (orders.error?.status === 401) return h(SignIn);
+      if (orders.error) return h('p', { role: 'alert' }, `HTTP ${orders.error.status}`);
+      if (!orders.data) return h('p', { role: 'status' }, 'Loading');
+      return h('section', null,
+        h('h2', null, 'Revenue by country'),
+        h('pre', { 'data-testid': 'orders' }, JSON.stringify(orders.data.data, null, 2)),
+        h('button', { onClick: () => post('/logout', null) }, 'Sign out'));
+    }
+
+    createRoot(document.getElementById('root')).render(
+      h(HypequeryProvider, { client, queryClient: queries },
+        h('main', null, h('h1', null, 'Orders'), h(Revenue))));
+  </script>
+</body>
+</html>

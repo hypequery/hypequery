@@ -1,11 +1,12 @@
 """Authentication for served endpoints: credentials, principals, and failures.
 
 The host application owns authentication; this module owns the boundary around
-it. A credential is read from one configured header and nowhere else, so a
-token in a query string, cookie, or body is never considered. The host's
+it. A header credential is read from one configured header and nowhere else, so
+a token in a query string, cookie, or body is never considered. The host's
 authenticator receives only that opaque credential, never the request, which is
 how RFC 0009's rule holds: request input beyond the credential contributes no
-role, scope, or tenant.
+role, scope, or tenant. The host's own session is read by a context strategy
+instead (`context_auth.py`), never as a header credential.
 
 Failures are fixed sentences. Whether a credential was missing, malformed, or
 rejected is not distinguished to the caller, and nothing a provider raised
@@ -59,6 +60,12 @@ class CredentialTransport:
             raise ValueError("a credential transport is 'bearer' or 'api-key'")
         if type(self.header) is not str or not _HEADER_NAME.fullmatch(self.header):
             raise ValueError("a credential header name is lowercase letters, digits, and '-'")
+        if self.header == "cookie":
+            # A browser attaches cookies to cross-site requests; a header
+            # credential is exempt from the same-origin check because it is not.
+            raise ValueError(
+                "a cookie is not a header credential; read the host's session with from_context"
+            )
 
 
 def bearer_token(*, header: str = "authorization") -> CredentialTransport:
@@ -164,18 +171,27 @@ def default_tenant_resolver(principal: Principal) -> TenantScope | None:
     return tenant(principal.tenant_id) if principal.tenant_id is not None else None
 
 
-def unauthenticated(transport: CredentialTransport, *, presented: bool) -> ServeError:
+def unauthenticated(transport: CredentialTransport | None, *, presented: bool) -> ServeError:
     """TypeScript's 401: "missing" when no credential was sent, else "invalid".
 
-    The caller knows which it was, so this tells them nothing new.
+    The caller knows which it was, so this tells them nothing new. *transport*
+    is None for a context strategy, whose caller has no header to retry with.
     """
 
     headers = {}
-    if transport.kind == "bearer" and transport.header == "authorization":
+    if transport is not None and transport.kind == "bearer" and transport.header == "authorization":
         headers["WWW-Authenticate"] = "Bearer"
     reason = "invalid_credentials" if presented else "missing_credentials"
     return serve_error(
         401, "UNAUTHORIZED", "Access denied", details={"reason": reason}, headers=headers
+    )
+
+
+def cross_origin_refused() -> ServeError:
+    """A context-authenticated unsafe request the browser did not mark same-origin."""
+
+    return serve_error(
+        403, "FORBIDDEN", "Cross-origin request refused.", details={"reason": "cross_origin"}
     )
 
 

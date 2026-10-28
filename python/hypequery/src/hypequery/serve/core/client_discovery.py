@@ -71,7 +71,7 @@ def add_client_contract_route(
             body,
             headers={
                 "cache-control": "no-store",
-                "vary": api.authentication.credentials.header,
+                "vary": api.authentication.vary,
             },
         )
 

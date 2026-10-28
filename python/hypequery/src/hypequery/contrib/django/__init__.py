@@ -17,6 +17,11 @@ from ``hypequery.serve.create_api``::
 
     urlpatterns = [path("api/analytics/", include(urls(api)))]
 
+Authenticate those endpoints with the project's own login, so a page it
+serves calls them with its session cookie and no token::
+
+    api = create_api(auth=django_user(lambda user: Principal(subject=str(user.pk))), ...)
+
 Requires ``hypequery[django]``.
 """
 
@@ -29,6 +34,7 @@ except ModuleNotFoundError as exc:  # pragma: no cover - exercised in a subproce
         'hypequery.contrib.django requires Django. Install it with: pip install "hypequery[django]"'
     ) from exc
 
+from .auth import UserPrincipal, django_user
 from .clients import (
     AsyncRequestAnalytics,
     async_tenant_client,
@@ -43,8 +49,10 @@ from .views import urls
 __all__ = [
     "AsyncRequestAnalytics",
     "HypequeryMiddleware",
+    "UserPrincipal",
     "async_tenant_client",
     "close_clients",
+    "django_user",
     "get_async_client",
     "get_client",
     "tenant_client",

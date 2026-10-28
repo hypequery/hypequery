@@ -83,6 +83,7 @@ Adapters only translate a transport's request and response:
 | The pipeline, routes and their order | `core/api.py` |
 | Requests and responses | `core/messages.py` |
 | Hosts, proxies and CORS; production budgets; rate limits | `core/security.py`, `core/production_limits.py`, `core/rate_limit.py` |
+| Authentication: header credentials, JWT, the host's session (`from_context`) and its same-origin check | `core/auth.py`, `core/authentication.py`, `core/jwt_auth.py`, `core/context_auth.py`, `core/utils/same_origin.py` |
 | Dataset, metric and discovery endpoints | `core/endpoints.py`, `core/discovery.py`, `core/client_discovery.py` |
 | Development OpenAPI and docs | `core/openapi.py` |
 | The public factory and its declared endpoints | `api.py` |
@@ -91,6 +92,7 @@ Adapters only translate a transport's request and response:
 | Serving sync hosts on one loop per process | `utils/serving_loop.py`, `utils/blocking.py`, `utils/thread_body.py` |
 | Writing a response; a fault in the core | `utils/response_head.py`, `utils/fault.py` |
 | Native Django and Flask adapters | `../contrib/django/views.py`, `../contrib/flask.py`, `../contrib/utils/mounted_path.py` |
+| Django and Flask login as `from_context` strategies | `../contrib/django/auth.py` (`django_user`), `../contrib/flask.py` (`flask_session`) |
 | uvicorn runners | `production.py`, `dev/` |
 
 The core imports no web framework (an import-linter contract), and neither does
@@ -106,7 +108,12 @@ per request. The first request starts one loop thread per process
 (`serving_loop.py`); each request's coroutine runs there, in a copy of the
 request thread's context, while that thread waits and performs the request's
 blocking reads when the coroutine asks (`RequestThread.call`). Code that must
-run on the request's own thread can use the same channel. The loop restarts in
+run on the request's own thread uses the same channel: a sync host sets
+`ServeRequest.run_on_request_thread`, and a sync `from_context` extractor runs
+there, so a Django user or a Flask-Login user is loaded on the thread whose
+database connection the framework manages. Like worker-pool work, it is tracked
+by the request's `RequestWork` (`core/work.py`), so a lookup still running
+after a 504 keeps its production slot until it returns. The loop restarts in
 each forked worker and stops at exit. Django under ASGI runs the core on the
 server's loop instead: `urls(api)` resolves to an async view when Django
 resolves the request on an event loop and to a sync view otherwise.
