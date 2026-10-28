@@ -7,6 +7,11 @@ two over this matrix (identical but for header order, a trailing-slash
 redirect and percent-decoded routing, both pinned below). Every request below
 is sent both to `Api.handle` and through `to_asgi_app`, and the two answers
 must match: status, headers and body.
+
+The CORS and trusted-host answers are also checked against an independent
+reference: Starlette's `CORSMiddleware` and `TrustedHostMiddleware`,
+configured as the FastAPI layer configured them before the move. Starlette is
+only that test oracle, never a dependency of `hypequery.serve`.
 """
 
 from __future__ import annotations
@@ -16,6 +21,13 @@ import threading
 
 import httpx
 import pytest
+from starlette.applications import Starlette
+from starlette.middleware import Middleware
+from starlette.middleware.cors import CORSMiddleware
+from starlette.middleware.trustedhost import TrustedHostMiddleware
+from starlette.requests import Request
+from starlette.responses import PlainTextResponse
+from starlette.routing import Route
 
 from asgi_client import AsgiClient
 from core_transport import CoreClient
@@ -170,6 +182,94 @@ def test_routing_matches_the_path_as_sent(path: str) -> None:
     response = AsgiClient(to_asgi_app(_core(PROFILES["hosts"]))).get(path, headers=AUTH)
     assert response.status_code == 404
     assert response.json()["error"]["type"] == "NOT_FOUND"
+
+
+#: Requests whose answer the CORS and trusted-host policies decide, on a public
+#: route, so authentication plays no part. Malformed raw `Host` values are
+#: hypequery's own check, not Starlette's, and are asserted separately below.
+REFERENCE_REQUESTS = [
+    (method, "/public", headers)
+    for method, path, headers in REQUESTS
+    if ((path == "/private" and method == "GET") or method == "OPTIONS")
+    and headers.get("host") not in ("testserver:99999", "test server")
+]
+
+
+def _starlette_reference(security: HttpSecurity) -> Starlette:
+    """The policies as Starlette's middleware applied them before the move to the core."""
+
+    async def ok(request: Request) -> PlainTextResponse:
+        return PlainTextResponse("ok")
+
+    middleware = [
+        Middleware(
+            TrustedHostMiddleware,
+            allowed_hosts=list(security.allowed_hosts),
+            www_redirect=False,
+        )
+    ]
+    cors = security.cors
+    if cors is not None:
+        middleware.append(
+            Middleware(
+                CORSMiddleware,
+                allow_origins=list(cors.origins),
+                allow_credentials=cors.allow_credentials,
+                allow_methods=list(cors.allow_methods),
+                allow_headers=list(cors.allow_headers),
+                expose_headers=["x-request-id", "x-correlation-id"],
+                max_age=cors.max_age,
+            )
+        )
+    return Starlette(routes=[Route("/public", ok, methods=["GET"])], middleware=middleware)
+
+
+def _core_reference(security: HttpSecurity) -> CoreClient:
+    async def ok(call: Call) -> ServeResponse:
+        return ServeResponse(
+            status=200, headers={"content-type": "text/plain; charset=utf-8"}, body=b"ok"
+        )
+
+    api = create_api(auth=_authenticate, security=security)
+    api.add_route("GET", "/public", ok, public=True)
+    return CoreClient(api)
+
+
+def _policy_answer(response: httpx.Response) -> tuple[int, list[tuple[str, str]], bytes]:
+    # Request ids are hypequery's, not Starlette's; the parity test covers them.
+    headers = [
+        (name, value)
+        for name, value in response.headers.multi_items()
+        if name not in ("x-request-id", "x-correlation-id", "content-length")
+    ]
+    return response.status_code, headers, response.content
+
+
+@pytest.mark.parametrize("profile", sorted(PROFILES))
+def test_core_security_matches_starlettes_middleware(profile: str) -> None:
+    security = PROFILES[profile]
+    reference = AsgiClient(_starlette_reference(security))
+    core = _core_reference(security)
+    for method, path, headers in REFERENCE_REQUESTS:
+        if method == "OPTIONS" and not (
+            security.cors is not None and "access-control-request-method" in headers
+        ):
+            # Not a preflight the policy answers: routing decides, and the two
+            # routers differ there (404 against Starlette's 405).
+            continue
+        expected = _policy_answer(reference.request(method, path, headers=headers))
+        assert _policy_answer(core.request(method, path, headers=headers)) == expected, (
+            method,
+            headers,
+        )
+
+
+@pytest.mark.parametrize("host", ["testserver:99999", "test server", "a:1:2", ""])
+def test_core_refuses_a_malformed_raw_host(host: str) -> None:
+    response = _core_reference(PROFILES["hosts"]).request("GET", "/public", headers={"host": host})
+    assert response.status_code == 400
+    assert response.text == "Invalid host header"
+    assert response.headers["content-type"] == "text/plain; charset=utf-8"
 
 
 def test_core_resolves_the_client_through_trusted_proxies_only() -> None:

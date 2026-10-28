@@ -59,6 +59,7 @@ if TYPE_CHECKING:
     from ..events import QueryEvents
     from .client_contract import ClientEndpointRegistry, ClientPlacement
 
+
 _METHODS = frozenset(("GET", "POST", "PUT", "PATCH", "DELETE"))
 
 
