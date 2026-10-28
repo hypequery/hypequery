@@ -90,7 +90,7 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     client_contract.add_argument(
         "--force", action="store_true", help="replace an existing artifact"
     )
-    dev = commands.add_parser("dev", help="serve a local app (requires the fastapi extra)")
+    dev = commands.add_parser("dev", help="serve a local app (requires the server extra)")
     dev.add_argument("app", nargs="?", default="app:app", help="import string (default: app:app)")
     dev.add_argument(
         "--hostname",

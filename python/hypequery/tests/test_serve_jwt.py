@@ -17,24 +17,22 @@ from typing import Any
 import jwt
 import pytest
 from cryptography.hazmat.primitives.asymmetric import rsa
-from fastapi import Depends, FastAPI
-from fastapi.testclient import TestClient
 
+from asgi_client import AsgiClient
 from core_transport import CoreClient
 from hypequery.serve import (
     Credential,
     InvalidCredential,
     JwtStrategy,
     Principal,
-    RequestAuth,
     analytics_token_issuer,
     bearer_token,
-    create_router,
-    default_tenant_resolver,
+    create_api,
     jwt_strategy,
+    openapi_document,
+    to_asgi_app,
 )
 from hypequery.serve.core import Api, Call, ServeResponse, jwks, jwt_auth
-from hypequery.serve.core.authentication import Authentication
 from hypequery.serve.core.jwks import JwksUnavailable, RemoteJwks, fetch_jwks
 from hypequery.serve.core.utils.jwk_selection import matching_keys
 from jwks_server import JwksServer
@@ -79,14 +77,18 @@ def server() -> Iterator[JwksServer]:
         yield running
 
 
-def _core(strategy: JwtStrategy) -> CoreClient:
+def _whoami_api(strategy: JwtStrategy) -> Api:
     async def whoami(call: Call) -> ServeResponse:
         assert call.auth is not None
         return ServeResponse.json({"subject": call.auth.principal.subject})
 
-    api = Api(authentication=Authentication(strategy, bearer_token(), default_tenant_resolver))
+    api = create_api(auth=strategy)
     api.add_route("GET", "/whoami", whoami)
-    return CoreClient(api)
+    return api
+
+
+def _core(strategy: JwtStrategy) -> CoreClient:
+    return CoreClient(_whoami_api(strategy))
 
 
 def _get(client: CoreClient, token: str) -> Any:
@@ -229,24 +231,44 @@ def test_through_the_core_a_refusal_is_401_and_a_failing_mapper_503() -> None:
     assert failing.status_code == 503
 
 
-def test_plugs_into_create_router() -> None:
+def test_serves_through_create_api_and_to_asgi_app() -> None:
     issue = analytics_token_issuer(SECRET, audience="analytics")
-    router = create_router(authenticate=jwt_strategy(secret=SECRET, audience="analytics"))
 
-    @router.get("/whoami")
-    # A default, not Annotated: this module's annotations are strings, and
-    # FastAPI could not resolve the local router from one.
-    def whoami(auth: RequestAuth = Depends(router.auth)) -> dict[str, str | None]:  # noqa: B008
-        return {"subject": auth.principal.subject, "tenant": auth.principal.tenant_id}
+    def to_principal(claims: Mapping[str, Any]) -> Principal:
+        return Principal(subject=claims["sub"], tenant_id=claims.get("org_id"))
 
-    app = FastAPI()
-    app.include_router(router)
-    client = TestClient(app)
+    for strategy in (
+        jwt_strategy(secret=SECRET, audience="analytics"),
+        jwt_strategy(secret=SECRET, audience="analytics", map_claims=to_principal),
+    ):
+        client = AsgiClient(to_asgi_app(_whoami_api(strategy)))
+        token = issue("alice", tenant_id="acme")
+        response = client.get("/whoami", headers={"Authorization": f"Bearer {token}"})
+        assert response.status_code == 200
+        assert response.json() == {"subject": "alice"}
+        missing = client.get("/whoami")
+        assert missing.status_code == 401
+        assert missing.json()["error"]["details"]["reason"] == "missing_credentials"
 
-    token = issue("alice", tenant_id="acme")
-    response = client.get("/whoami", headers={"Authorization": f"Bearer {token}"})
-    assert response.json() == {"subject": "alice", "tenant": "acme"}
-    assert client.get("/whoami").status_code == 401
+
+def test_openapi_describes_a_jwt_bearer_credential() -> None:
+    def opaque(credential: Credential) -> Principal | None:
+        return None
+
+    def scheme(api: Api) -> Any:
+        components: Any = openapi_document(api)["components"]
+        return components["securitySchemes"]["credential"]
+
+    assert scheme(_whoami_api(jwt_strategy(secret=SECRET))) == {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+    }
+    assert scheme(create_api(auth=opaque)) == {"type": "http", "scheme": "bearer"}
+    custom_header = create_api(
+        auth=jwt_strategy(secret=SECRET), credentials=bearer_token(header="x-token")
+    )
+    assert scheme(custom_header) == {"type": "apiKey", "in": "header", "name": "x-token"}
 
 
 # The issuer ----------------------------------------------------------------

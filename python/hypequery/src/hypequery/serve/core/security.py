@@ -21,7 +21,7 @@ from __future__ import annotations
 
 import ipaddress
 import re
-from collections.abc import Mapping
+from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass
 
 from .messages import Headers, ServeResponse
@@ -312,3 +312,13 @@ class Cors:
         if origin is None:
             return response
         return response.with_headers(self.response_headers(origin, response.headers.get("vary")))
+
+    def around(
+        self, headers: Headers, respond: Callable[[ServeResponse], Awaitable[None]]
+    ) -> Callable[[ServeResponse], Awaitable[None]]:
+        """*respond*, applying this policy to each answer to a request with *headers*."""
+
+        async def respond_with_cors(response: ServeResponse) -> None:
+            await respond(self.apply(response, headers))
+
+        return respond_with_cors

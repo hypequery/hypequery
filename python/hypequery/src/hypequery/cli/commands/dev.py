@@ -13,10 +13,8 @@ from ..utils.startup_errors import missing_environment_variable, quiet_driver_wa
 
 
 def run(options: DevOptions) -> None:
-    if any(find_spec(name) is None for name in ("fastapi", "uvicorn")):
-        raise CliError(
-            'dev requires serving dependencies. Install: pip install "hypequery[fastapi]"'
-        )
+    if find_spec("uvicorn") is None:
+        raise CliError('dev requires uvicorn. Install: pip install "hypequery[server]"')
 
     from uvicorn.importer import ImportFromStringError
 

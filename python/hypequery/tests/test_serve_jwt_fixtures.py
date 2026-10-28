@@ -26,12 +26,10 @@ from hypequery.serve import (
     InvalidCredential,
     JwtStrategy,
     analytics_token_issuer,
-    bearer_token,
-    default_tenant_resolver,
+    create_api,
     jwt_strategy,
 )
-from hypequery.serve.core import Api, Call, ServeResponse, jwt_auth
-from hypequery.serve.core.authentication import Authentication
+from hypequery.serve.core import Call, ServeResponse, jwt_auth
 from jwks_server import JwksServer
 
 FIXTURES: dict[str, Any] = json.loads(
@@ -73,7 +71,7 @@ def _client(strategy: JwtStrategy) -> CoreClient:
     async def whoami(call: Call) -> ServeResponse:
         return ServeResponse.json(_principal_json(call))
 
-    api = Api(authentication=Authentication(strategy, bearer_token(), default_tenant_resolver))
+    api = create_api(auth=strategy)
     api.add_route("GET", "/whoami", whoami)
     return CoreClient(api)
 

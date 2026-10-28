@@ -39,7 +39,7 @@ def _init(tmp_path: Path, *argv: str) -> Path:
 def test_fastapi_stays_the_default(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     project = _init(tmp_path)
     assert (project / "app.py").exists()
-    assert "hypequery[fastapi,clickhouse]" in (project / "pyproject.toml").read_text()
+    assert "hypequery[server,clickhouse]" in (project / "pyproject.toml").read_text()
     assert "Then run: cd" in capsys.readouterr().out
 
 

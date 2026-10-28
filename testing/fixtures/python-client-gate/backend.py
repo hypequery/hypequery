@@ -7,13 +7,10 @@ from examples.client_dashboard.api import install as install_tutorial
 from examples.client_dashboard.definitions import orders, profile
 from examples.utils.config import required_environment
 from examples.utils.server import application
-from fastapi import FastAPI, Request
 from gate_definitions import joined, profiles
 from gate_error_routes import ErrorRoutes
 from hypequery.datasets import ClientQueryProfile, DatasetClient, dataset, measure
-from hypequery.serve import EndpointPolicy, Principal, ServeRouter, add_dataset_endpoint
-from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
-from starlette.responses import JSONResponse, Response
+from hypequery.serve import Api, AsgiApp, EndpointPolicy, Principal, add_dataset_endpoint
 
 slow = dataset(
     "slow",
@@ -24,7 +21,7 @@ slow = dataset(
 )
 
 
-def install(api: ServeRouter, client: DatasetClient) -> None:
+def install(api: Api, client: DatasetClient) -> None:
     install_tutorial(api, client)
     ErrorRoutes().install(api)
     add_dataset_endpoint(
@@ -46,34 +43,60 @@ def install(api: ServeRouter, client: DatasetClient) -> None:
     )
 
 
-class FaultMiddleware(BaseHTTPMiddleware):
-    async def dispatch(
-        self, request: Request, call_next: RequestResponseEndpoint
-    ) -> Response:
-        fault = os.environ.get("HYPEQUERY_GATE_FAULT")
-        if fault == "mcp" and request.method == "POST":
-            return JSONResponse(
-                {"error": {"type": "SERVICE_UNAVAILABLE"}}, status_code=503
+class FaultMiddleware:
+    """A pure ASGI wrapper that injects one fault; the gate must detect it."""
+
+    def __init__(self, app: AsgiApp, fault: str) -> None:
+        self.app = app
+        self.fault = fault
+
+    async def __call__(self, scope, receive, send) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+        if self.fault == "mcp" and scope["method"] == "POST":
+            body = json.dumps({"error": {"type": "SERVICE_UNAVAILABLE"}}).encode()
+            await send(
+                {
+                    "type": "http.response.start",
+                    "status": 503,
+                    "headers": [
+                        (b"content-type", b"application/json"),
+                        (b"content-length", str(len(body)).encode()),
+                    ],
+                }
             )
-        response = await call_next(request)
-        if (
-            fault in {"wire", "related-wire"}
-            and response.status_code == 200
-            and request.url.path == ("/v1/orders" if fault == "wire" else "/v1/joined")
-        ):
-            body = b"".join([chunk async for chunk in response.body_iterator])
+            await send({"type": "http.response.body", "body": body})
+            return
+        target = "/v1/orders" if self.fault == "wire" else "/v1/joined"
+        if scope["path"] != target:
+            await self.app(scope, receive, send)
+            return
+        start: dict = {}
+        chunks: list[bytes] = []
+
+        async def capture(message) -> None:
+            if message["type"] == "http.response.start":
+                start.update(message)
+            elif message["type"] == "http.response.body":
+                chunks.append(message.get("body", b""))
+
+        await self.app(scope, receive, capture)
+        body = b"".join(chunks)
+        headers = [(name, value) for name, value in start["headers"] if name != b"content-length"]
+        if start["status"] == 200:
             value = json.loads(body)
-            field = "revenue" if fault == "wire" else "profile.total"
+            field = "revenue" if self.fault == "wire" else "profile.total"
             for row in value.get("data", []):
                 if row.get(field) is not None:
                     row[field] = float(row[field])
-            headers = dict(response.headers)
-            headers.pop("content-length", None)
-            return JSONResponse(value, headers=headers)
-        return response
+            body = json.dumps(value).encode()
+        headers.append((b"content-length", str(len(body)).encode()))
+        await send({**start, "headers": headers})
+        await send({"type": "http.response.body", "body": body})
 
 
-def app() -> FastAPI:
+def app():
     fault = os.environ.get("HYPEQUERY_GATE_FAULT")
     result = application(
         datasets=(orders, slow, joined, profiles),
@@ -94,5 +117,5 @@ def app() -> FastAPI:
         },
     )
     if fault in {"mcp", "wire", "related-wire"}:
-        result.add_middleware(FaultMiddleware)
+        return FaultMiddleware(result, fault)
     return result

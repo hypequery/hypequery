@@ -9,7 +9,8 @@ from pathlib import Path
 
 import pytest
 from examples import embedded_analytics, governed_agent, multitenant_saas
-from fastapi.testclient import TestClient
+
+from asgi_client import AsgiClient
 
 
 @pytest.mark.parametrize("module", [embedded_analytics, multitenant_saas, governed_agent])
@@ -84,7 +85,7 @@ def test_live_examples_seed_and_http_journeys(monkeypatch: pytest.MonkeyPatch) -
             (governed_agent.create_application, "/agent/revenue", "agent-test", "30"),
         ):
             app = factory()
-            with TestClient(app, base_url="http://localhost") as http:
+            with AsgiClient(app, base_url="http://localhost") as http:
                 headers = {"Authorization": "Bearer " + token}
                 assert http.get("/openapi.json", headers=headers).status_code == 404
                 assert http.post(path, json={}).status_code == 401
@@ -92,6 +93,8 @@ def test_live_examples_seed_and_http_journeys(monkeypatch: pytest.MonkeyPatch) -
                 assert response.status_code == 200, response.text
                 assert response.json()["data"][0]["revenue"] == expected
                 assert response.headers["cache-control"] == "no-store"
+                if path == "/analytics/orders" and factory is embedded_analytics.create_application:
+                    assert http.get("/health").json() == {"status": "ok"}
                 grouped = http.post(
                     path,
                     json={"dimensions": ["country"], "limit": 10000, "includeMeta": True},

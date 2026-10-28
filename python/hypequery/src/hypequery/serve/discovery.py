@@ -3,13 +3,13 @@
 from __future__ import annotations
 
 from ..datasets.registry import DatasetRegistry
+from .core.api import Api
 from .core.discovery import add_discovery_route
 from .policy import DEFAULT_ENDPOINT_POLICY, EndpointPolicy
-from .router import ServeRouter
 
 
 def add_discovery_endpoint(
-    router: ServeRouter,
+    api: Api,
     path: str = "/discovery",
     *,
     registry: DatasetRegistry,
@@ -18,7 +18,6 @@ def add_discovery_endpoint(
 ) -> None:
     """Freeze a bounded, physical-detail-free projection at registration."""
 
-    route = add_discovery_route(
-        router._api, router.prefix + path, registry=registry, policy=policy, max_bytes=max_bytes
+    add_discovery_route(
+        api, path, registry=registry, policy=policy, max_bytes=max_bytes, tags=("discovery",)
     )
-    router._add_core_route(path, route, tags=["discovery"])

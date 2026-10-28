@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
+
 from ...datasets.registry import DatasetRegistry
 from ..utils.discovery import public_discovery
 from .api import Api, Call, Route
@@ -16,6 +18,7 @@ def add_discovery_route(
     registry: DatasetRegistry,
     policy: EndpointPolicy = DEFAULT_ENDPOINT_POLICY,
     max_bytes: int = 256 * 1024,
+    tags: Sequence[str] = (),
 ) -> Route:
     """Freeze a bounded, physical-detail-free projection at registration."""
 
@@ -25,4 +28,4 @@ def add_discovery_route(
         policy.authorize(call.auth)
         return ServeResponse.json(projection)
 
-    return api.add_route("GET", path, discover, public=policy.public)
+    return api.add_route("GET", path, discover, public=policy.public, tags=tags)

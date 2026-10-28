@@ -46,22 +46,27 @@ def app():
         add_dataset_endpoint,
         add_metric_endpoint,
         create_api,
-        create_app,
+        to_asgi_app,
     )
     from sqlite_executor import BrowserFixtureExecutor
 
     executor = BrowserFixtureExecutor()
     client = create_dataset_client(executor=executor)
-    router = create_api(
-        prefix="/v1",
-        authenticate=lambda credential: {
+    api = create_api(
+        base_path="/v1",
+        client_mount_path="/mounted",
+        auth=lambda credential: {
             "browser-a": Principal(subject="alice", tenant_id="a"),
             "browser-b": Principal(subject="bob", tenant_id="b"),
         }.get(credential.value),
+        security=HttpSecurity(
+            allowed_hosts=("127.0.0.1",),
+            cors=CorsPolicy(origins=("http://127.0.0.1:8791",)),
+        ),
     )
     policy = EndpointPolicy(tenant="required")
     add_dataset_endpoint(
-        router,
+        api,
         "/orders",
         dataset=orders,
         client=client,
@@ -69,7 +74,7 @@ def app():
         client_profile=profile,
     )
     add_metric_endpoint(
-        router,
+        api,
         "/sales",
         dataset=orders,
         client=client,
@@ -78,15 +83,7 @@ def app():
         name="sales",
         client_profile=profile,
     )
-    add_client_contract_endpoint(router)
-    served = create_app(
-        router,
-        client_mount_path="/mounted",
-        security=HttpSecurity(
-            allowed_hosts=("127.0.0.1",),
-            cors=CorsPolicy(origins=("http://127.0.0.1:8791",)),
-        ),
-    )
+    add_client_contract_endpoint(api)
 
     @asynccontextmanager
     async def lifespan(_):
@@ -95,6 +92,7 @@ def app():
         finally:
             executor.close()
 
+    # FastAPI is only the host here: the API is mounted in it as plain ASGI.
     outer = FastAPI(lifespan=lifespan)
-    outer.mount("/mounted", served)
+    outer.mount("/mounted", to_asgi_app(api))
     return outer

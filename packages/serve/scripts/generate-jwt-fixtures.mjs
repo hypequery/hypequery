@@ -131,7 +131,7 @@ print(issue(o["subject"], tenant_id=o["tenantId"], roles=o["roles"]))
   return execFileSync(
     'uv',
     [
-      'run', '--project', 'python/hypequery', '--frozen', '--extra', 'jwt', '--extra', 'fastapi',
+      'run', '--project', 'python/hypequery', '--frozen', '--extra', 'jwt',
       'python', '-c', source,
       JSON.stringify({ secret: SECRET, ...issuerOptions, ...issuerClaims }),
     ],

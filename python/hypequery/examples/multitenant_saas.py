@@ -6,13 +6,12 @@ bearer token and {"dimensions":["country"]}. The server maps credentials to
 an opaque tenant capability; query bodies cannot choose an organization.
 """
 
-from fastapi import FastAPI
-
 from hypequery.datasets import DatasetClient, dataset, dimension, measure
 from hypequery.serve import (
+    Api,
+    AsgiApp,
     EndpointPolicy,
     Principal,
-    ServeRouter,
     create_dataset_endpoint,
     start_server,
 )
@@ -29,7 +28,7 @@ orders = dataset(
 )
 
 
-def install(api: ServeRouter, client: DatasetClient) -> None:
+def install(api: Api, client: DatasetClient) -> None:
     create_dataset_endpoint(
         dataset=orders,
         client=client,
@@ -39,7 +38,7 @@ def install(api: ServeRouter, client: DatasetClient) -> None:
     ).install(api, "/analytics/orders")
 
 
-def create_application() -> FastAPI:
+def create_application() -> AsgiApp:
     token_a = required_environment("HYPEQUERY_TENANT_A_TOKEN")
     token_b = required_environment("HYPEQUERY_TENANT_B_TOKEN")
     if token_a == token_b:

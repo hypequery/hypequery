@@ -22,7 +22,7 @@ uv build --project python/hypequery --out-dir "$HQ_TUTORIAL/artifacts"
 (cd python/hypequery && tar --exclude=__pycache__ --exclude=node_modules --exclude=client.generated.ts --exclude=contract.json --exclude=app.js --exclude=app.meta.json --exclude=package-lock.json -cf - examples/client_dashboard examples/utils examples/__init__.py) | (cd "$HQ_TUTORIAL/backend" && tar -xf -)
 HQ_WHEELS=("$HQ_TUTORIAL"/artifacts/*.whl)
 uv venv "$HQ_TUTORIAL/.venv"
-uv pip install --python "$HQ_TUTORIAL/.venv/bin/python" "${HQ_WHEELS[0]}[fastapi,clickhouse]"
+uv pip install --python "$HQ_TUTORIAL/.venv/bin/python" "${HQ_WHEELS[0]}[server,clickhouse]"
 cd "$HQ_TUTORIAL/backend"
 "$HQ_TUTORIAL/.venv/bin/python" -m hypequery export client-contract --factory examples.client_dashboard.definitions:build --output examples/client_dashboard/frontend/contract.json
 cd examples/client_dashboard/frontend

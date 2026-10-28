@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 import pytest
-from fastapi.testclient import TestClient
 from pydantic import ValidationError
 
+from asgi_client import AsgiClient
 from hypequery.datasets import (
     CachedRows,
     Dataset,
@@ -28,8 +28,8 @@ from hypequery.serve import (
     add_dataset_endpoint,
     add_discovery_endpoint,
     add_metric_endpoint,
-    create_app,
-    create_router,
+    create_api,
+    to_asgi_app,
 )
 
 
@@ -114,15 +114,15 @@ def test_http_restrictions_and_openapi() -> None:
     ds = events()
     executor = Executor()
     client = create_dataset_client(executor=executor)
-    router = create_router(authenticate=lambda credential: Principal(subject="reader"))
-    add_dataset_endpoint(router, "/dataset", dataset=ds, client=client)
-    add_metric_endpoint(router, "/metric", dataset=ds, client=client, measure="rows")
-    add_discovery_endpoint(router, registry=create_dataset_registry(ds))
-    with TestClient(
-        create_app(
-            router, development_docs=True, security=HttpSecurity(allowed_hosts=("testserver",))
-        )
-    ) as http:
+    api = create_api(
+        auth=lambda credential: Principal(subject="reader"),
+        development_docs=True,
+        security=HttpSecurity(allowed_hosts=("testserver",)),
+    )
+    add_dataset_endpoint(api, "/dataset", dataset=ds, client=client)
+    add_metric_endpoint(api, "/metric", dataset=ds, client=client, measure="rows")
+    add_discovery_endpoint(api, registry=create_dataset_registry(ds))
+    with AsgiClient(to_asgi_app(api)) as http:
         headers = {"Authorization": "Bearer test"}
         for path in ("/dataset", "/metric"):
             assert http.post(path, headers=headers, json={"by": "hour"}).status_code == 400

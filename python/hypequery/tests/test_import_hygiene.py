@@ -3,10 +3,11 @@
 These are acceptance criteria from the implementation plan, not stylistic
 preferences:
 
-* a minimal install must import without the FastAPI or driver extras;
+* a minimal install must import without the server or driver extras;
 * importing the package must perform no I/O — no sockets, no subprocesses;
-* ``hypequery.serve`` must fail with an actionable message when its extra is
-  absent, rather than a bare ``ModuleNotFoundError`` for ``fastapi``.
+* ``hypequery.serve`` needs no web framework at all: it imports and serves
+  with FastAPI, Starlette and uvicorn absent, and only running a server asks
+  for the ``server`` extra, with an actionable message.
 
 Each check runs in a subprocess because ``sys.modules`` in the test process is
 already polluted by the test runner itself.
@@ -14,7 +15,6 @@ already polluted by the test runner itself.
 
 from __future__ import annotations
 
-import importlib.util
 import subprocess
 import sys
 import textwrap
@@ -89,21 +89,79 @@ def test_import_performs_no_io() -> None:
     assert result.returncode == 0, result.stderr
 
 
-def test_serve_reports_missing_extra_actionably() -> None:
-    fastapi_installed = importlib.util.find_spec("fastapi") is not None
-    result = run_python("import hypequery.serve")
+def test_serve_needs_no_web_framework() -> None:
+    result = run_python(
+        """
+        import asyncio
+        import sys
 
-    if fastapi_installed:
-        assert result.returncode == 0, result.stderr
-        return
+        for name in ("fastapi", "starlette", "uvicorn", "django", "flask"):
+            sys.modules[name] = None
 
+        from hypequery.serve import (
+            Headers, ServeRequest, ServeResponse, create_api, to_asgi_app,
+        )
+
+        api = create_api(auth=lambda credential: None)
+
+        async def health(call):
+            return ServeResponse.json({"ok": True})
+
+        api.add_route("GET", "/health", health, public=True)
+        response = asyncio.run(api.handle(ServeRequest(method="GET", path="/health")))
+        assert response.status == 200, response
+        app = to_asgi_app(api)
+        sent = []
+
+        async def receive():
+            return {"type": "http.request", "body": b"", "more_body": False}
+
+        async def send(message):
+            sent.append(message)
+
+        scope = {"type": "http", "method": "GET", "path": "/health", "headers": []}
+        asyncio.run(app(scope, receive, send))
+        assert sent[0]["status"] == 200, sent
+        """
+    )
+    assert result.returncode == 0, result.stderr
+
+
+def test_serve_imports_no_framework() -> None:
+    result = run_python(
+        """
+        import sys
+
+        import hypequery.serve
+
+        leaked = [m for m in ("fastapi", "starlette", "uvicorn") if m in sys.modules]
+        assert not leaked, f"hypequery.serve imported a framework: {leaked}"
+        """
+    )
+    assert result.returncode == 0, result.stderr
+
+
+def test_running_a_server_reports_the_missing_extra_actionably() -> None:
+    result = run_python(
+        """
+        import sys
+
+        sys.modules["uvicorn"] = None
+        from hypequery.serve import HttpSecurity, ProductionProfile, create_api, start_server
+
+        api = create_api(
+            auth=lambda credential: None,
+            security=HttpSecurity(allowed_hosts=("localhost",)),
+            production=ProductionProfile(),
+        )
+        start_server(api)
+        """
+    )
     assert result.returncode != 0
-    assert "hypequery[fastapi]" in result.stderr, result.stderr
+    assert 'pip install "hypequery[server]"' in result.stderr, result.stderr
 
 
 def test_serve_imports_without_the_jwt_extra_and_jwt_helpers_ask_for_it() -> None:
-    if importlib.util.find_spec("fastapi") is None:
-        pytest.skip("hypequery.serve needs the fastapi extra")
     result = run_python(
         """
         import sys

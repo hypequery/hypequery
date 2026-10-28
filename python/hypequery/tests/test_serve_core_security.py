@@ -1,14 +1,17 @@
-"""The core's HTTP security profile answers exactly as the FastAPI layer does.
+"""The core's HTTP security profile, and the ASGI adapter adding nothing to it.
 
 Decision 0023 step 2 moved trusted hosts, proxy trust, CORS, rate limits and
-production budgets into the core. Every request below is sent both to a FastAPI
-application with the profile installed and to `Api.handle` with the same
-profile, and the two answers must match: status, headers and body.
+production budgets into the core, matching the FastAPI layer byte for byte;
+step 3 replaced that layer with the pure-ASGI adapter after a byte diff of the
+two over this matrix (identical but for header order, a trailing-slash
+redirect and percent-decoded routing, both pinned below). Every request below
+is sent both to `Api.handle` and through `to_asgi_app`, and the two answers
+must match: status, headers and body.
 
-Both of those now run the core's own policies, so the CORS and trusted-host
-answers are also checked against an independent reference: Starlette's
-`CORSMiddleware` and `TrustedHostMiddleware`, configured as the FastAPI layer
-configured them before the move.
+The CORS and trusted-host answers are also checked against an independent
+reference: Starlette's `CORSMiddleware` and `TrustedHostMiddleware`,
+configured as the FastAPI layer configured them before the move. Starlette is
+only that test oracle, never a dependency of `hypequery.serve`.
 """
 
 from __future__ import annotations
@@ -18,8 +21,6 @@ import threading
 
 import httpx
 import pytest
-from fastapi import Depends, FastAPI
-from fastapi.testclient import TestClient
 from starlette.applications import Starlette
 from starlette.middleware import Middleware
 from starlette.middleware.cors import CORSMiddleware
@@ -28,23 +29,23 @@ from starlette.requests import Request
 from starlette.responses import PlainTextResponse
 from starlette.routing import Route
 
+from asgi_client import AsgiClient
 from core_transport import CoreClient
 from hypequery.serve import (
+    Api,
+    Call,
     CorsPolicy,
     Credential,
+    Headers,
     HttpSecurity,
     Principal,
     ProductionProfile,
     RateLimit,
-    bearer_token,
-    create_router,
-    default_tenant_resolver,
-    install_http_security,
+    ServeRequest,
+    ServeResponse,
+    create_api,
+    to_asgi_app,
 )
-from hypequery.serve.core import Api, Call, ServeRequest, ServeResponse
-from hypequery.serve.core.authentication import Authentication
-from hypequery.serve.core.messages import Headers
-from hypequery.serve.core.rate_limit import RateLimit as CoreRateLimit
 
 PROFILES = {
     "hosts": HttpSecurity(allowed_hosts=("testserver", "*.example.com", "[::1]")),
@@ -131,43 +132,14 @@ def _authenticate(credential: Credential) -> Principal | None:
     return Principal(subject="alice") if credential.value == "token" else None
 
 
-def _fastapi(security: HttpSecurity) -> FastAPI:
-    router = create_router(authenticate=_authenticate)
-
-    @router.get("/private")
-    def private() -> dict[str, bool]:
-        return {"ok": True}
-
-    @router.get("/public")
-    @router.public
-    def public() -> dict[str, bool]:
-        return {"ok": True}
-
-    @router.get("/limited", dependencies=[Depends(RateLimit(max=1, window_seconds=60))])
-    @router.public
-    def limited() -> dict[str, bool]:
-        return {"ok": True}
-
-    app = FastAPI()
-    app.include_router(router)
-    install_http_security(app, security)
-    return app
-
-
 def _core(security: HttpSecurity, production: ProductionProfile | None = None) -> Api:
     async def ok(call: Call) -> ServeResponse:
         return ServeResponse.json({"ok": True})
 
-    api = Api(
-        authentication=Authentication(_authenticate, bearer_token(), default_tenant_resolver),
-        security=security,
-        production=production,
-    )
+    api = create_api(auth=_authenticate, security=security, production=production)
     api.add_route("GET", "/private", ok)
     api.add_route("GET", "/public", ok, public=True)
-    api.add_route(
-        "GET", "/limited", ok, public=True, limits=[CoreRateLimit(max=1, window_seconds=60)]
-    )
+    api.add_route("GET", "/limited", ok, public=True, limits=[RateLimit(max=1, window_seconds=60)])
     return api
 
 
@@ -183,17 +155,33 @@ def _answer(response: httpx.Response) -> tuple[int, dict[str, str], bytes]:
 
 @pytest.mark.parametrize("peer", sorted(PEERS))
 @pytest.mark.parametrize("profile", sorted(PROFILES))
-def test_core_security_matches_the_fastapi_layer(profile: str, peer: str) -> None:
+def test_the_asgi_adapter_answers_as_the_core_does(profile: str, peer: str) -> None:
     security = PROFILES[profile]
-    expected = TestClient(_fastapi(security), client=PEERS[peer])
+    served = AsgiClient(to_asgi_app(_core(security)), client=PEERS[peer])
     core = CoreClient(_core(security), client=PEERS[peer])
     for method, path, headers in REQUESTS:
-        fastapi_answer = _answer(expected.request(method, path, headers=headers))
-        assert _answer(core.request(method, path, headers=headers)) == fastapi_answer, (
+        expected = _answer(core.request(method, path, headers=headers))
+        assert _answer(served.request(method, path, headers=headers)) == expected, (
             method,
             path,
             headers,
         )
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        # FastAPI redirected this to /private (307); TypeScript serves it.
+        "/private/",
+        # FastAPI decoded the path before routing; the core matches it as sent,
+        # as TypeScript matches `URL.pathname`.
+        "/%70rivate",
+    ],
+)
+def test_routing_matches_the_path_as_sent(path: str) -> None:
+    response = AsgiClient(to_asgi_app(_core(PROFILES["hosts"]))).get(path, headers=AUTH)
+    assert response.status_code == 404
+    assert response.json()["error"]["type"] == "NOT_FOUND"
 
 
 #: Requests whose answer the CORS and trusted-host policies decide, on a public
@@ -242,10 +230,7 @@ def _core_reference(security: HttpSecurity) -> CoreClient:
             status=200, headers={"content-type": "text/plain; charset=utf-8"}, body=b"ok"
         )
 
-    api = Api(
-        authentication=Authentication(_authenticate, bearer_token(), default_tenant_resolver),
-        security=security,
-    )
+    api = create_api(auth=_authenticate, security=security)
     api.add_route("GET", "/public", ok, public=True)
     return CoreClient(api)
 
@@ -263,7 +248,7 @@ def _policy_answer(response: httpx.Response) -> tuple[int, list[tuple[str, str]]
 @pytest.mark.parametrize("profile", sorted(PROFILES))
 def test_core_security_matches_starlettes_middleware(profile: str) -> None:
     security = PROFILES[profile]
-    reference = TestClient(_starlette_reference(security))
+    reference = AsgiClient(_starlette_reference(security))
     core = _core_reference(security)
     for method, path, headers in REFERENCE_REQUESTS:
         if method == "OPTIONS" and not (
@@ -294,10 +279,7 @@ def test_core_resolves_the_client_through_trusted_proxies_only() -> None:
         seen.append(call.request.client)
         return ServeResponse.json({})
 
-    api = Api(
-        authentication=Authentication(_authenticate, bearer_token(), default_tenant_resolver),
-        security=PROFILES["proxies"],
-    )
+    api = create_api(auth=_authenticate, security=PROFILES["proxies"])
     api.add_route("GET", "/who", record, public=True)
     forwarded = {"x-forwarded-for": "1.2.3.4, 10.2.2.2"}
     CoreClient(api, client=("10.0.0.5", 1)).request("GET", "/who", headers=forwarded)
@@ -309,9 +291,7 @@ def test_core_resolves_the_client_through_trusted_proxies_only() -> None:
 
 
 def test_core_without_security_serves_any_host() -> None:
-    open_api = Api(
-        authentication=Authentication(_authenticate, bearer_token(), default_tenant_resolver)
-    )
+    open_api = create_api(auth=_authenticate)
 
     async def ok(call: Call) -> ServeResponse:
         return ServeResponse.json({"ok": True})

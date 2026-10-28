@@ -192,27 +192,25 @@ def test_serve_api_and_transport_names_preserve_runtime_checks() -> None:
     from hypequery.serve import (
         HttpSecurity,
         create_api,
-        create_app,
-        create_router,
         run_production,
         start_server,
     )
 
     # The TypeScript-matching names are the definitions; the others are aliases.
-    assert create_router is create_api
     assert create_api.__name__ == "create_api"
     assert run_production is start_server
     assert start_server.__name__ == "start_server"
-    app = create_app(
-        create_api(authenticate=lambda credential: None),
+    api = create_api(
+        auth=lambda credential: None,
         security=HttpSecurity(allowed_hosts=("testserver",)),
     )
     with pytest.raises(ValueError, match="ProductionProfile"):
-        start_server(app)
+        start_server(api)
 
 
 def test_serving_aliases_are_in_module_exports() -> None:
-    from hypequery.serve import dev, router
+    from hypequery.serve import api, asgi, dev
 
     assert {"run_dev", "serve_dev"} <= set(dev.__all__)
-    assert {"create_router", "create_api"} <= set(router.__all__)
+    assert api.__all__ == ["create_api"]
+    assert {"AsgiApp", "to_asgi_app"} <= set(asgi.__all__)

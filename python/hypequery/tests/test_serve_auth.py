@@ -1,44 +1,44 @@
-"""PYD-01: the serve router authenticates every endpoint unless declared public.
+"""PYD-01: an API authenticates every route unless the route is declared public.
 
 The acceptance criteria this pins:
-- an unauthenticated request to any endpoint fails closed by default, however
-  the endpoint was added and however the router is included;
+- an unauthenticated request to any route fails closed by default, and no
+  body byte is read before authentication;
 - nothing in a request other than the credential, whether headers, query,
-  body, cookies, or request state, can supply or alter the auth context or
-  the tenant.
+  body, or cookies, can supply or alter the auth context or the tenant.
 """
 
-# No `from __future__ import annotations`: FastAPI resolves endpoint
-# annotations at registration, and these endpoints close over local routers.
+from __future__ import annotations
+
 import asyncio
-import inspect
 import pickle
-from collections.abc import Callable
-from typing import Annotated, Any
+from collections.abc import AsyncIterator, Callable
+from typing import Any
 
 import pytest
-from fastapi import APIRouter, Body, Depends, FastAPI, Request
-from fastapi.routing import APIRoute
-from fastapi.testclient import TestClient
-from starlette.middleware.base import BaseHTTPMiddleware
-from starlette.responses import Response
+from pydantic import TypeAdapter
 
+from asgi_client import AsgiClient
 from hypequery.datasets import all_tenants, tenant, tenants
 from hypequery.serve import (
     MAX_CREDENTIAL_LENGTH,
+    Api,
+    Call,
     Credential,
+    Headers,
     InvalidCredential,
     Principal,
     RequestAuth,
-    ServeRouter,
+    ServeRequest,
+    ServeResponse,
     api_key,
     bearer_token,
-    create_router,
+    create_api,
+    to_asgi_app,
 )
-from hypequery.serve.router import _AuthenticatingRoute
 
 TOKEN = "good-token"  # noqa: S105 - a test credential
 ALICE = Principal(subject="alice", roles=frozenset({"analyst"}), tenant_id="acme")
+OBJECT: TypeAdapter[object] = TypeAdapter(dict[str, Any])
 
 
 class _Authenticator:
@@ -53,7 +53,8 @@ class _Authenticator:
         return self.principal if credential.value == TOKEN else None
 
 
-def _described(auth: RequestAuth) -> dict[str, Any]:
+def _described(auth: RequestAuth | None) -> dict[str, Any]:
+    assert auth is not None
     scope = auth.tenant
     return {
         "subject": auth.principal.subject,
@@ -61,14 +62,18 @@ def _described(auth: RequestAuth) -> dict[str, Any]:
     }
 
 
-def _app(router: ServeRouter) -> TestClient:
-    @router.get("/whoami")
-    def whoami(auth: Annotated[RequestAuth, Depends(router.auth)]) -> dict[str, Any]:
-        return _described(auth)
+async def _whoami(call: Call) -> ServeResponse:
+    return ServeResponse.json(_described(call.auth))
 
-    app = FastAPI()
-    app.include_router(router)
-    return TestClient(app)
+
+async def _ok(call: Call) -> ServeResponse:
+    return ServeResponse.json({"ok": True})
+
+
+def _app(api: Api) -> AsgiClient:
+    api.add_route("GET", "/whoami", _whoami)
+    api.add_route("POST", "/whoami", _whoami, input=OBJECT)
+    return AsgiClient(to_asgi_app(api))
 
 
 def _bearer(token: str = TOKEN) -> dict[str, str]:
@@ -80,7 +85,7 @@ def _bearer(token: str = TOKEN) -> dict[str, str]:
 
 def test_a_request_without_credentials_is_refused_before_the_authenticator() -> None:
     authenticator = _Authenticator()
-    client = _app(create_router(authenticate=authenticator))
+    client = _app(create_api(auth=authenticator))
 
     response = client.get("/whoami")
 
@@ -98,7 +103,7 @@ def test_a_request_without_credentials_is_refused_before_the_authenticator() -> 
 
 
 def test_a_valid_credential_reaches_the_endpoint_with_its_tenant() -> None:
-    client = _app(create_router(authenticate=_Authenticator()))
+    client = _app(create_api(auth=_Authenticator()))
 
     response = client.get("/whoami", headers=_bearer())
 
@@ -107,7 +112,7 @@ def test_a_valid_credential_reaches_the_endpoint_with_its_tenant() -> None:
 
 
 def test_the_bearer_scheme_is_case_insensitive() -> None:
-    client = _app(create_router(authenticate=_Authenticator()))
+    client = _app(create_api(auth=_Authenticator()))
 
     assert client.get("/whoami", headers={"Authorization": f"bearer {TOKEN}"}).status_code == 200
 
@@ -127,7 +132,7 @@ def test_the_bearer_scheme_is_case_insensitive() -> None:
 )
 def test_a_malformed_credential_never_reaches_the_authenticator(value: str) -> None:
     authenticator = _Authenticator()
-    client = _app(create_router(authenticate=authenticator))
+    client = _app(create_api(auth=authenticator))
 
     assert client.get("/whoami", headers={"Authorization": value}).status_code == 401
     assert authenticator.seen == []
@@ -135,7 +140,7 @@ def test_a_malformed_credential_never_reaches_the_authenticator(value: str) -> N
 
 def test_a_repeated_authorization_header_is_refused() -> None:
     authenticator = _Authenticator()
-    client = _app(create_router(authenticate=authenticator))
+    client = _app(create_api(auth=authenticator))
 
     response = client.get(
         "/whoami",
@@ -148,12 +153,12 @@ def test_a_repeated_authorization_header_is_refused() -> None:
 
 def test_a_credential_outside_the_configured_header_is_ignored() -> None:
     authenticator = _Authenticator()
-    client = _app(create_router(authenticate=authenticator))
-    client.cookies.set("authorization", f"Bearer {TOKEN}")
+    client = _app(create_api(auth=authenticator))
 
     for response in (
         client.get("/whoami", params={"access_token": TOKEN, "api_key": TOKEN}),
         client.get("/whoami", headers={"X-Api-Key": TOKEN}),
+        client.get("/whoami", headers={"Cookie": f"authorization=Bearer {TOKEN}"}),
     ):
         assert response.status_code == 401
     assert authenticator.seen == []
@@ -162,7 +167,7 @@ def test_a_credential_outside_the_configured_header_is_ignored() -> None:
 def test_a_rejected_credential_differs_from_a_missing_one_only_in_its_reason() -> None:
     # As in TypeScript serve. The caller knows whether it sent a credential,
     # so the reason tells it nothing new.
-    client = _app(create_router(authenticate=_Authenticator()))
+    client = _app(create_api(auth=_Authenticator()))
 
     missing = client.get("/whoami")
     rejected = client.get("/whoami", headers=_bearer("wrong"))
@@ -175,296 +180,108 @@ def test_a_rejected_credential_differs_from_a_missing_one_only_in_its_reason() -
         assert response.json()["error"]["message"] == missing.json()["error"]["message"]
 
 
-@pytest.mark.parametrize("method", ["get", "post", "put", "patch", "delete", "head", "options"])
+@pytest.mark.parametrize("method", ["GET", "POST", "PUT", "PATCH", "DELETE"])
 def test_every_method_is_authenticated(method: str) -> None:
-    router = create_router(authenticate=_Authenticator())
-    router.add_api_route("/any", lambda: {"ok": True}, methods=[method.upper()])
-    app = FastAPI()
-    app.include_router(router)
-    client = TestClient(app)
+    api = create_api(auth=_Authenticator())
+    api.add_route(method, "/any", _ok)
+    client = AsgiClient(to_asgi_app(api))
 
-    assert client.request(method.upper(), "/any").status_code == 401
-    assert client.request(method.upper(), "/any", headers=_bearer()).status_code == 200
+    assert client.request(method, "/any").status_code == 401
+    assert client.request(method, "/any", headers=_bearer()).status_code == 200
 
 
-def test_the_router_stays_authenticated_however_it_is_included() -> None:
-    router = create_router(authenticate=_Authenticator(), prefix="/hq")
-
-    @router.post("/query")
-    def query() -> dict[str, bool]:
-        return {"ok": True}
-
-    outer = APIRouter(prefix="/api")
-    outer.include_router(router)
-    app = FastAPI()
-    app.include_router(outer)
-    app.include_router(router, prefix="/v2")
-    client = TestClient(app)
-
-    for path in ("/api/hq/query", "/v2/hq/query"):
+def test_the_api_stays_authenticated_under_its_base_path_and_a_mount() -> None:
+    api = create_api(auth=_Authenticator(), base_path="/hq")
+    api.add_route("POST", "/query", _ok)
+    served = AsgiClient(to_asgi_app(api))
+    # Mounted as a host framework mounts an ASGI app: below a root_path.
+    mounted = AsgiClient(to_asgi_app(api), root_path="/api")
+    for client, path in ((served, "/hq/query"), (mounted, "/api/hq/query")):
         assert client.post(path).status_code == 401
         assert client.post(path, headers=_bearer()).status_code == 200
 
 
-def test_authentication_runs_before_the_endpoint_dependencies() -> None:
+def test_authentication_runs_before_the_handler() -> None:
     ran: list[str] = []
-    router = create_router(authenticate=_Authenticator())
 
-    def expensive() -> None:
-        ran.append("dependency")
+    async def work(call: Call) -> ServeResponse:
+        ran.append("handler")
+        return ServeResponse.json({"ok": True})
 
-    @router.get("/work", dependencies=[Depends(expensive)])
-    def work(_: Annotated[None, Depends(expensive)]) -> dict[str, bool]:
-        ran.append("endpoint")
-        return {"ok": True}
-
-    app = FastAPI()
-    app.include_router(router)
-    client = TestClient(app)
+    api = create_api(auth=_Authenticator())
+    api.add_route("GET", "/work", work)
+    client = AsgiClient(to_asgi_app(api))
 
     assert client.get("/work").status_code == 401
     assert ran == []
     assert client.get("/work", headers=_bearer()).status_code == 200
-    assert ran == ["dependency", "endpoint"]
+    assert ran == ["handler"]
 
 
 def test_authentication_runs_once_per_request() -> None:
     authenticator = _Authenticator()
-    client = _app(create_router(authenticate=authenticator))
+    client = _app(create_api(auth=authenticator))
 
     client.get("/whoami", headers=_bearer())
 
     assert len(authenticator.seen) == 1
 
 
-# --- public endpoints are an explicit opt-in ------------------------------
+# --- public routes are an explicit opt-in ---------------------------------
 
 
-def test_a_public_endpoint_needs_no_credentials() -> None:
-    router = create_router(authenticate=_Authenticator())
+def test_a_public_route_needs_no_credentials() -> None:
+    api = create_api(auth=_Authenticator())
+    api.add_route("GET", "/health", _ok, public=True)
+    api.add_route("GET", "/private", _ok)
+    client = AsgiClient(to_asgi_app(api))
 
-    @router.get("/health")
-    @router.public
-    def health() -> dict[str, str]:
-        return {"status": "ok"}
-
-    app = FastAPI()
-    app.include_router(router)
-
-    assert TestClient(app).get("/health").status_code == 200
-
-
-def test_marking_public_after_registering_leaves_the_route_authenticated() -> None:
-    router = create_router(authenticate=_Authenticator())
-
-    @router.public
-    @router.get("/health")
-    def health() -> dict[str, str]:
-        return {"status": "ok"}
-
-    app = FastAPI()
-    app.include_router(router)
-
-    assert TestClient(app).get("/health").status_code == 401
-
-
-def test_public_on_one_router_does_not_open_another() -> None:
-    first = create_router(authenticate=_Authenticator())
-    second = create_router(authenticate=_Authenticator())
-
-    def health() -> dict[str, str]:
-        return {"status": "ok"}
-
-    first.public(health)
-    first.add_api_route("/first", health)
-    second.add_api_route("/second", health)
-    app = FastAPI()
-    app.include_router(first)
-    app.include_router(second)
-    client = TestClient(app)
-
-    assert client.get("/first").status_code == 200
-    assert client.get("/second").status_code == 401
-
-
-# --- routes that would skip authentication are refused --------------------
-
-
-@pytest.mark.parametrize(
-    "register",
-    [
-        lambda r: r.include_router(APIRouter()),
-        lambda r: r.add_route("/raw", lambda request: Response()),
-        lambda r: r.mount("/static", FastAPI()),
-        lambda r: r.host("evil.test", FastAPI()),
-        lambda r: r.frontend("/", directory="."),
-        lambda r: r.add_websocket_route("/ws", lambda ws: None),
-        lambda r: r.add_api_websocket_route("/ws", lambda ws: None),
-        lambda r: r.websocket("/ws")(lambda ws: None),
-        lambda r: r.route("/raw")(lambda request: Response()),
-    ],
-)
-def test_registrations_that_skip_authentication_are_refused(
-    register: Callable[[ServeRouter], object],
-) -> None:
-    router = create_router(authenticate=_Authenticator())
-
-    with pytest.raises(TypeError):
-        register(router)
-
-
-def test_every_route_adding_method_of_the_installed_fastapi_is_guarded() -> None:
-    # A FastAPI release that adds a new way to register routes must fail here
-    # rather than quietly open an unauthenticated path.
-    writers = set()
-    for name, member in inspect.getmembers(APIRouter, inspect.isfunction):
-        try:
-            source = inspect.getsource(member)
-        except (OSError, TypeError):
-            continue
-        if "self.routes.append" in source or "self.routes.extend" in source:
-            writers.add(name)
-
-    assert "add_api_route" in writers
-    for name in writers:
-        assert name in vars(ServeRouter), f"ServeRouter does not guard APIRouter.{name}"
-
-
-def test_a_route_class_that_skips_early_authentication_is_refused() -> None:
-    router = create_router(authenticate=_Authenticator())
-
-    with pytest.raises(TypeError):
-        router.add_api_route("/x", dict, route_class_override=APIRoute)
-
-    class BypassRoute(_AuthenticatingRoute):
-        def get_route_handler(self) -> Any:
-            return APIRoute.get_route_handler(self)
-
-    with pytest.raises(TypeError):
-        router.add_api_route("/x", dict, route_class_override=BypassRoute)
-
-    router.route_class = BypassRoute
-    with pytest.raises(TypeError):
-        router.add_api_route("/x", dict)
-
-
-def test_the_auth_dependency_cannot_be_replaced() -> None:
-    router = create_router(authenticate=_Authenticator())
-
-    with pytest.raises(AttributeError):
-        router.auth = lambda: None  # type: ignore[misc,assignment]
+    assert client.get("/health").status_code == 200
+    assert "cache-control" not in client.get("/health").headers
+    assert client.get("/private").status_code == 401
 
 
 # --- nothing is read before authentication --------------------------------
 
 
-def _count_body_reads(monkeypatch: pytest.MonkeyPatch) -> list[str]:
+def _request(content: bytes, reads: list[str], headers: dict[str, str]) -> ServeRequest:
+    async def body() -> AsyncIterator[bytes]:
+        reads.append("body")
+        yield content
+
+    sent = {"host": "testserver", "content-type": "application/json", **headers}
+    return ServeRequest(method="POST", path="/hq/query", headers=Headers(sent.items()), body=body())
+
+
+def test_an_unauthenticated_body_is_never_read() -> None:
+    api = create_api(auth=_Authenticator(), base_path="/hq")
+    api.add_route("POST", "/query", _ok, input=OBJECT)
     reads: list[str] = []
-    for name in ("body", "json", "form"):
-        original = getattr(Request, name)
 
-        def spy(self: Request, *args: Any, _name: str = name, _original: Any = original) -> Any:
-            reads.append(_name)
-            return _original(self, *args)
-
-        monkeypatch.setattr(Request, name, spy)
-    return reads
-
-
-def test_an_unauthenticated_body_is_never_read(monkeypatch: pytest.MonkeyPatch) -> None:
-    router = create_router(authenticate=_Authenticator(), prefix="/hq")
-
-    @router.post("/query")
-    def query(payload: Annotated[dict[str, Any], Body()]) -> dict[str, bool]:
-        return {"ok": True}
-
-    outer = APIRouter(prefix="/api")
-    outer.include_router(router)
-    app = FastAPI()
-    app.include_router(router)
-    app.include_router(outer)
-    client = TestClient(app)
-    reads = _count_body_reads(monkeypatch)
-
-    for path in ("/hq/query", "/api/hq/query"):
-        for content in (b"{not json", b'{"a": "' + b"x" * 1_000_000 + b'"}'):
-            response = client.post(
-                path, content=content, headers={"Content-Type": "application/json"}
-            )
-            assert response.status_code == 401
+    for content in (b"{not json", b'{"a": "' + b"x" * 1_000_000 + b'"}'):
+        response = asyncio.run(api.handle(_request(content, reads, {})))
+        assert response.status == 401
     assert reads == []
 
-    authed = client.post("/hq/query", json={"a": 1}, headers=_bearer())
-    assert authed.status_code == 200
-    assert reads
+    authed = asyncio.run(api.handle(_request(b'{"a": 1}', reads, _bearer())))
+    assert authed.status == 200
+    assert reads == ["body"]
 
 
-def test_early_authentication_is_reused_by_the_endpoint() -> None:
+def test_early_authentication_is_reused_by_the_handler() -> None:
     authenticator = _Authenticator()
-    router = create_router(authenticate=authenticator)
+    client = _app(create_api(auth=authenticator))
 
-    @router.post("/whoami")
-    def whoami(
-        auth: Annotated[RequestAuth, Depends(router.auth)],
-        payload: Annotated[dict[str, Any], Body()],
-    ) -> dict[str, Any]:
-        return _described(auth)
-
-    app = FastAPI()
-    app.include_router(router)
-
-    response = TestClient(app).post("/whoami", json={}, headers=_bearer())
+    response = client.post("/whoami", json={}, headers=_bearer())
     assert response.json() == {"subject": "alice", "tenants": ["acme"]}
     assert len(authenticator.seen) == 1
-
-
-def test_another_routers_auth_is_checked_by_that_router() -> None:
-    first = create_router(authenticate=_Authenticator())
-    second = create_router(authenticate=_Authenticator(Principal(subject="bob")))
-    second_seen = cast_authenticator(second)
-
-    @first.get("/both")
-    def both(auth: Annotated[RequestAuth, Depends(second.auth)]) -> dict[str, Any]:
-        return _described(auth)
-
-    app = FastAPI()
-    app.include_router(first)
-
-    response = TestClient(app).get("/both", headers=_bearer())
-    assert response.json() == {"subject": "bob", "tenants": None}
-    assert len(second_seen) == 1
-
-
-def cast_authenticator(router: ServeRouter) -> list[Credential]:
-    authenticate = router._api.authentication.authenticate
-    assert isinstance(authenticate, _Authenticator)
-    return authenticate.seen
 
 
 # --- nothing in the request can forge the context -------------------------
 
 
-class _ForgeState(BaseHTTPMiddleware):
-    async def dispatch(self, request: Request, call_next: Any) -> Response:
-        forged = RequestAuth(principal=Principal(subject="mallory"), tenant=tenant("globex"))
-        request.state.auth = forged
-        request.state.tenant = tenant("globex")
-        request.scope["auth"] = forged
-        response: Response = await call_next(request)
-        return response
-
-
 def test_request_input_cannot_supply_the_auth_context_or_tenant() -> None:
-    router = create_router(authenticate=_Authenticator())
-
-    @router.post("/whoami")
-    def whoami(auth: Annotated[RequestAuth, Depends(router.auth)]) -> dict[str, Any]:
-        return _described(auth)
-
-    app = FastAPI()
-    app.add_middleware(_ForgeState)
-    app.include_router(router)
-    client = TestClient(app)
+    client = _app(create_api(auth=_Authenticator()))
 
     forged = client.post("/whoami", json={"tenant": "globex", "subject": "mallory"})
     assert forged.status_code == 401
@@ -481,7 +298,7 @@ def test_request_input_cannot_supply_the_auth_context_or_tenant() -> None:
 
 def test_the_authenticator_sees_only_the_credential() -> None:
     authenticator = _Authenticator()
-    client = _app(create_router(authenticate=authenticator))
+    client = _app(create_api(auth=authenticator))
 
     client.get("/whoami", headers={**_bearer(), "X-Tenant-Id": "globex"})
 
@@ -498,7 +315,7 @@ def test_an_async_authenticator_is_awaited() -> None:
         await asyncio.sleep(0)
         return ALICE if credential.value == TOKEN else None
 
-    client = _app(create_router(authenticate=authenticate))
+    client = _app(create_api(auth=authenticate))
 
     assert client.get("/whoami", headers=_bearer()).status_code == 200
     assert client.get("/whoami", headers=_bearer("wrong")).status_code == 401
@@ -521,7 +338,7 @@ def test_a_sync_provider_runs_off_the_event_loop() -> None:
     def resolve(principal: Principal) -> None:
         on_loop.append(running_on_loop())
 
-    client = _app(create_router(authenticate=authenticate, resolve_tenant=resolve))
+    client = _app(create_api(auth=authenticate, tenant=resolve))
 
     assert client.get("/whoami", headers=_bearer()).status_code == 200
     assert on_loop == [False, False]
@@ -531,7 +348,7 @@ def test_an_authenticator_can_reject_by_raising_invalid_credential() -> None:
     def authenticate(credential: Credential) -> Principal:
         raise InvalidCredential("signature verification failed")
 
-    client = _app(create_router(authenticate=authenticate))
+    client = _app(create_api(auth=authenticate))
     response = client.get("/whoami", headers=_bearer())
 
     assert response.status_code == 401
@@ -543,7 +360,7 @@ def test_invalid_credential_from_a_resolver_is_a_provider_failure() -> None:
     def resolve(principal: Principal) -> None:
         raise InvalidCredential
 
-    client = _app(create_router(authenticate=_Authenticator(), resolve_tenant=resolve))
+    client = _app(create_api(auth=_Authenticator(), tenant=resolve))
 
     assert client.get("/whoami", headers=_bearer()).status_code == 503
 
@@ -552,7 +369,7 @@ def test_a_failing_authenticator_fails_closed_without_detail() -> None:
     def authenticate(credential: Credential) -> Principal | None:
         raise RuntimeError(f"jwks fetch failed for {credential.value} at 10.0.0.7")
 
-    client = _app(create_router(authenticate=authenticate))
+    client = _app(create_api(auth=authenticate))
     response = client.get("/whoami", headers=_bearer())
 
     assert response.status_code == 503
@@ -569,7 +386,7 @@ def test_a_failing_authenticator_fails_closed_without_detail() -> None:
 def test_an_authenticator_returning_anything_but_a_principal_fails_closed(
     returned: object,
 ) -> None:
-    client = _app(create_router(authenticate=lambda credential: returned))  # type: ignore[arg-type,return-value]
+    client = _app(create_api(auth=lambda credential: returned))  # type: ignore[arg-type,return-value]
 
     response = client.get("/whoami", headers=_bearer())
 
@@ -582,7 +399,7 @@ def test_an_authenticator_returning_anything_but_a_principal_fails_closed(
 
 def test_a_principal_without_a_tenant_is_tenant_free() -> None:
     authenticator = _Authenticator(Principal(subject="bot"))
-    client = _app(create_router(authenticate=authenticator))
+    client = _app(create_api(auth=authenticator))
 
     assert client.get("/whoami", headers=_bearer()).json() == {"subject": "bot", "tenants": None}
 
@@ -591,17 +408,13 @@ def test_a_custom_tenant_resolver_decides_the_tenant() -> None:
     async def resolve(principal: Principal) -> Any:
         return tenant(f"org-of-{principal.subject}")
 
-    client = _app(create_router(authenticate=_Authenticator(), resolve_tenant=resolve))
+    client = _app(create_api(auth=_Authenticator(), tenant=resolve))
 
     assert client.get("/whoami", headers=_bearer()).json()["tenants"] == ["org-of-alice"]
 
 
 def test_a_resolver_can_return_a_single_tenant_set() -> None:
-    client = _app(
-        create_router(
-            authenticate=_Authenticator(), resolve_tenant=lambda principal: tenants(("a",))
-        )
-    )
+    client = _app(create_api(auth=_Authenticator(), tenant=lambda principal: tenants(("a",))))
 
     assert client.get("/whoami", headers=_bearer()).json()["tenants"] == ["a"]
 
@@ -611,7 +424,7 @@ def test_a_resolver_can_return_a_single_tenant_set() -> None:
 )
 def test_a_resolver_requires_one_named_tenant(resolved: object) -> None:
     client = _app(
-        create_router(authenticate=_Authenticator(), resolve_tenant=lambda principal: resolved)  # type: ignore[arg-type,return-value]
+        create_api(auth=_Authenticator(), tenant=lambda principal: resolved)  # type: ignore[arg-type,return-value]
     )
 
     response = client.get("/whoami", headers=_bearer())
@@ -627,7 +440,7 @@ def test_a_failing_resolver_fails_closed() -> None:
     def resolve(principal: Principal) -> None:
         raise LookupError("tenant table unavailable")
 
-    client = _app(create_router(authenticate=_Authenticator(), resolve_tenant=resolve))
+    client = _app(create_api(auth=_Authenticator(), tenant=resolve))
 
     response = client.get("/whoami", headers=_bearer())
     assert response.status_code == 503
@@ -639,7 +452,7 @@ def test_a_failing_resolver_fails_closed() -> None:
 
 def test_an_api_key_is_read_from_its_header_only() -> None:
     authenticator = _Authenticator()
-    client = _app(create_router(authenticate=authenticator, credentials=api_key()))
+    client = _app(create_api(auth=authenticator, credentials=api_key()))
 
     assert client.get("/whoami", headers=_bearer()).status_code == 401
     missing = client.get("/whoami")
@@ -651,7 +464,7 @@ def test_an_api_key_is_read_from_its_header_only() -> None:
 @pytest.mark.parametrize("value", ["has space", "tab\there", "é-unicode"])
 def test_an_api_key_outside_visible_ascii_is_refused(value: str) -> None:
     authenticator = _Authenticator()
-    client = _app(create_router(authenticate=authenticator, credentials=api_key()))
+    client = _app(create_api(auth=authenticator, credentials=api_key()))
 
     assert client.get("/whoami", headers={"X-Api-Key": value.encode()}).status_code == 401
     assert authenticator.seen == []
@@ -689,12 +502,16 @@ def test_auth_types_reject_invalid_values(build: Callable[[], object]) -> None:
         build()
 
 
-def test_create_router_validates_its_configuration() -> None:
+def test_create_api_validates_its_configuration() -> None:
     with pytest.raises(TypeError):
-        create_router(authenticate="not callable")  # type: ignore[arg-type]
+        create_api(auth="not callable")  # type: ignore[arg-type]
     with pytest.raises(TypeError):
-        create_router(authenticate=_Authenticator(), resolve_tenant="nope")  # type: ignore[arg-type]
+        create_api(auth=_Authenticator(), tenant="nope")  # type: ignore[arg-type]
     with pytest.raises(TypeError):
-        create_router(authenticate=_Authenticator(), credentials="bearer")  # type: ignore[arg-type]
+        create_api(auth=_Authenticator(), openapi="docs")  # type: ignore[arg-type]
+    with pytest.raises(ValueError, match="base_path"):
+        create_api(auth=_Authenticator(), base_path="/trailing/")
+    with pytest.raises(TypeError):
+        create_api(auth=_Authenticator(), credentials="bearer")  # type: ignore[arg-type]
     with pytest.raises(ValueError, match="header name"):
         bearer_token(header="Authorization: x")
