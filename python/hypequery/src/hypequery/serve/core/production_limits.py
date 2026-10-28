@@ -1,11 +1,10 @@
 """A production profile's process budgets: admission, request duration, response bytes.
 
 `ProductionGate` owns admission. A request takes a slot when it starts and keeps
-it until the work it started has finished, so a 504 that releases the caller
-does not free capacity while host code is still running on a worker thread.
-`Api.handle` serves through `ProductionGate.run`; an adapter that has to bound
-a whole application, routes the core does not serve included, uses `admit` and
-`release` around its own buffering.
+it until its answer has been written and the work it started has finished, so
+neither a 504 that releases the caller nor a caller that will not read its
+answer frees capacity while host code or the write is still running.
+`Api.serve` runs every request through `ProductionGate.run`.
 """
 
 from __future__ import annotations
@@ -13,7 +12,7 @@ from __future__ import annotations
 import asyncio
 from collections.abc import Awaitable, Callable
 
-from .errors import ServeHttpError, error_response, serve_error
+from .errors import ServeError, error_response, serve_error
 from .messages import ServeResponse
 from .production import ProductionProfile
 from .state import RequestState
@@ -24,15 +23,15 @@ TIMED_OUT = "The query did not finish in time."
 TOO_LARGE = "The response exceeds its byte limit."
 
 
-def at_capacity() -> ServeHttpError:
+def at_capacity() -> ServeError:
     return serve_error(503, "SERVICE_UNAVAILABLE", AT_CAPACITY)
 
 
-def timed_out() -> ServeHttpError:
+def timed_out() -> ServeError:
     return serve_error(504, "GATEWAY_TIMEOUT", TIMED_OUT)
 
 
-def too_large() -> ServeHttpError:
+def too_large() -> ServeError:
     return serve_error(413, "PAYLOAD_TOO_LARGE", TOO_LARGE)
 
 
@@ -78,26 +77,39 @@ class ProductionGate:
             self.active -= 1
 
     async def run(
-        self, state: RequestState, serve: Callable[[], Awaitable[ServeResponse]]
-    ) -> ServeResponse:
-        """Serve one request within the profile's budgets.
+        self,
+        state: RequestState,
+        serve: Callable[[], Awaitable[ServeResponse]],
+        respond: Callable[[ServeResponse], Awaitable[None]],
+    ) -> None:
+        """Serve one request within the profile's budgets, answering through *respond*.
 
         Over capacity is `503`; over the deadline is `504`, with the request's
         work cancelled; a body over the byte ceiling is `413`, so no oversized
-        response ever reaches the wire.
+        response ever reaches the wire. The slot is held, and the deadline
+        runs, until *respond* has finished. A deadline that passes while
+        *respond* is writing raises `TimeoutError`: a second status line
+        would corrupt the connection, so the transport must close it.
         """
 
         if not self.admit():
-            return error_response(at_capacity(), state.request_id)
+            await respond(error_response(at_capacity(), state.request_id))
+            return
+        committed = False
         try:
             try:
                 async with asyncio.timeout(self.profile.timeout_seconds):
                     response = await serve()
+                    if len(response.body) > self.profile.max_result_bytes:
+                        response = error_response(too_large(), state.request_id)
+                    committed = True
+                    await respond(response)
             except TimeoutError:
                 state.work.cancel()
-                return error_response(timed_out(), state.request_id)
-            if len(response.body) > self.profile.max_result_bytes:
-                return error_response(too_large(), state.request_id)
-            return response
+                if committed:
+                    raise
+                await respond(error_response(timed_out(), state.request_id))
         finally:
+            # A 504 releases the caller, but still-running host code keeps
+            # its admission slot until its threads have stopped.
             self.release(state.work)

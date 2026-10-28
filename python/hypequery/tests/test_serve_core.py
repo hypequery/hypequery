@@ -4,10 +4,11 @@ The shared HTTP fixtures already run against the core (see
 `test_serve_http_fixtures.py` and `test_serve_semantic_fixtures.py`). These
 tests pin the core's own pipeline: request ids, routing, authenticate-before-
 body, the body policy over streamed bodies, cancellation on disconnect, and
-strict client endpoints served without FastAPI.
+strict client endpoints served without a web framework.
 """
 
-# No `from __future__ import annotations`: one test registers FastAPI endpoints.
+from __future__ import annotations
+
 import asyncio
 import json
 import threading
@@ -17,8 +18,6 @@ from dataclasses import dataclass
 from typing import Any
 
 import pytest
-from fastapi import Depends, FastAPI, HTTPException
-from fastapi.testclient import TestClient
 from pydantic import BaseModel, TypeAdapter
 
 from hypequery.datasets import (
@@ -35,9 +34,7 @@ from hypequery.serve import (
     EndpointPolicy,
     Principal,
     ServeError,
-    add_dataset_endpoint,
     bearer_token,
-    create_api,
     default_tenant_resolver,
 )
 from hypequery.serve.core import Api, Call, Headers, QueryParams, ServeRequest, ServeResponse
@@ -46,12 +43,7 @@ from hypequery.serve.core.authentication import Authentication
 from hypequery.serve.core.client_contract import export_placements
 from hypequery.serve.core.client_discovery import add_client_contract_route
 from hypequery.serve.core.endpoints import DatasetEndpointCore, add_dataset_route
-from hypequery.serve.core.errors import (
-    ServeHttpError,
-    serve_error,
-    use_error_class,
-    validation_issues,
-)
+from hypequery.serve.core.errors import serve_error, validation_issues
 
 TOKEN = {"authorization": "Bearer reader"}
 
@@ -293,16 +285,12 @@ def test_an_undecodable_or_failing_body_is_a_parse_error() -> None:
 # --- errors ----------------------------------------------------------------------
 
 
-def test_core_errors_are_the_public_serve_error_and_still_http_exceptions() -> None:
+def test_core_errors_are_the_public_serve_error() -> None:
     error = serve_error(403, "FORBIDDEN", "Access denied")
     assert type(error) is ServeError
-    assert isinstance(error, HTTPException)
-    assert isinstance(error, ServeHttpError)
     with pytest.raises(ServeError) as raised:
         EndpointPolicy().authorize(None)
     assert raised.value.status_code == 401
-    with pytest.raises(TypeError):
-        use_error_class(ValueError)  # type: ignore[arg-type]
 
 
 def test_unexpected_errors_are_logged_with_the_request_id_and_never_shown(
@@ -433,48 +421,8 @@ def test_a_client_path_already_served_by_post_is_refused() -> None:
         )
 
 
-# --- the FastAPI layer still runs FastAPI's dependencies -----------------------------
-
-
-def test_fastapi_dependencies_still_guard_core_served_routes() -> None:
-    calls: list[str] = []
-
-    def audit() -> None:
-        calls.append("audit")
-
-    def refuse() -> None:
-        raise HTTPException(403, detail="Blocked by the host.")
-
-    router = create_api(authenticate=authenticate)
-    add_dataset_endpoint(
-        router, "/orders", dataset=orders(), client=create_dataset_client(executor=Executor())
-    )
-    app = FastAPI()
-    app.include_router(router, dependencies=[Depends(audit)])
-    http = TestClient(app)
-    response = http.post("/orders", json={}, headers={"Authorization": "Bearer reader"})
-    assert response.status_code == 200, response.text
-    assert calls == ["audit"]
-    assert http.post("/orders", json={}).status_code == 401
-    assert calls == ["audit"]
-
-    app.dependency_overrides[audit] = refuse
-    response = http.post("/orders", json={}, headers={"Authorization": "Bearer reader"})
-    assert response.status_code == 403
-    assert response.json()["error"]["message"] == "Blocked by the host."
-
-
-def test_a_core_route_is_documented_only_at_its_own_path() -> None:
-    router = create_api(authenticate=authenticate, prefix="/api")
-    route = router._api.add_route("GET", "/api/x", echo)
-    with pytest.raises(ValueError, match="own API"):
-        router._add_core_route("/y", route)
-    with pytest.raises(ValueError, match="own API"):
-        router._add_core_route("/x", new_api().add_route("GET", "/api/x", echo))
-
-
 def test_the_neutral_error_and_issue_paths() -> None:
-    error = ServeHttpError(
+    error = ServeError(
         429, "RATE_LIMITED", "Slow down", details={"retry": 1}, headers={"Retry-After": "1"}
     )
     assert (error.status_code, error.type, error.message) == (429, "RATE_LIMITED", "Slow down")
@@ -524,41 +472,3 @@ def test_client_discovery_fails_closed_when_a_target_cannot_be_checked_or_export
     )
     assert response.status == 503
     assert body["error"]["message"] == "Client discovery is unavailable."
-
-
-def test_host_dependencies_see_the_body_and_shape_the_response() -> None:
-    from fastapi import Request, Response
-
-    seen: list[object] = []
-
-    async def reads_json(request: Request) -> None:
-        seen.append(await request.json())
-
-    def stamps(response: Response) -> None:
-        response.headers["x-host"] = "yes"
-        response.set_cookie("visited", "1")
-        response.status_code = 202
-
-    router = create_api(authenticate=authenticate)
-    add_dataset_endpoint(
-        router, "/orders", dataset=orders(), client=create_dataset_client(executor=Executor())
-    )
-    app = FastAPI()
-    app.include_router(router, dependencies=[Depends(reads_json), Depends(stamps)])
-    http = TestClient(app)
-    response = http.post(
-        "/orders", json={"measures": ["total"]}, headers={"Authorization": "Bearer reader"}
-    )
-    assert response.status_code == 202, response.text
-    assert response.json() == {"data": [{"total": "3"}]}
-    assert response.headers["x-host"] == "yes"
-    assert response.cookies["visited"] == "1"
-    assert response.headers["cache-control"] == "no-store"
-    assert seen == [{"measures": ["total"]}]
-
-    # A failed query is an error, whatever the dependencies set.
-    response = http.post(
-        "/orders", json={"measures": ["nope"]}, headers={"Authorization": "Bearer reader"}
-    )
-    assert response.status_code == 400
-    assert "x-host" not in response.headers

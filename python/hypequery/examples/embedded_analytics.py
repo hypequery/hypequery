@@ -8,13 +8,14 @@ credentials instead of this token table, carrying the user's organization as
 the principal's tenant.
 """
 
-from fastapi import FastAPI
-
 from hypequery.datasets import DatasetClient, dataset, dimension, measure
 from hypequery.serve import (
+    Api,
+    AsgiApp,
+    Call,
     EndpointPolicy,
     Principal,
-    ServeRouter,
+    ServeResponse,
     create_dataset_endpoint,
     start_server,
 )
@@ -37,7 +38,7 @@ orders = dataset(
 )
 
 
-def install(api: ServeRouter, client: DatasetClient) -> None:
+def install(api: Api, client: DatasetClient) -> None:
     create_dataset_endpoint(
         dataset=orders,
         client=client,
@@ -46,9 +47,14 @@ def install(api: ServeRouter, client: DatasetClient) -> None:
         ),
     ).install(api, "/analytics/orders")
 
+    async def health(call: Call) -> ServeResponse:
+        return ServeResponse.json({"status": "ok"})
 
-def create_application() -> FastAPI:
-    app = application(
+    api.add_route("GET", "/health", health, public=True)
+
+
+def create_application() -> AsgiApp:
+    return application(
         datasets=(orders,),
         install=install,
         principals={
@@ -59,12 +65,6 @@ def create_application() -> FastAPI:
             )
         },
     )
-
-    @app.get("/health")
-    def health() -> dict[str, str]:
-        return {"status": "ok"}
-
-    return app
 
 
 if __name__ == "__main__":

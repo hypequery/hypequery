@@ -13,12 +13,10 @@ first, it applies:
 4. matching on method and path, then the route's pipeline.
 
 `Api.dispatch` is the route's pipeline for a route an adapter has already
-matched; the FastAPI layer uses it while its own middleware applies steps 1-3
-around the routes the core does not serve, through the same policies
-(decision 0023, step 2). A route's pipeline, in order:
+matched. A route's pipeline, in order:
 
 1. authentication, unless the route is public, before any body byte is read;
-2. the route's rate limits, still before the body is read;
+2. the API's rate limits, then the route's, still before the body is read;
 3. the body policy's header checks (encoding, declared length, media type);
 4. for a route that takes input, the bounded body read, JSON decoding and
    validation;
@@ -40,7 +38,7 @@ from pydantic import TypeAdapter
 from .auth import RequestAuth
 from .authentication import Authentication
 from .body import DEFAULT_MAX_BODY_BYTES, check_body_headers, read_input
-from .errors import ErrorMapper, error_response, map_error, not_found_message, serve_error
+from .errors import as_serve_error, error_response, not_found_message, serve_error
 from .messages import ServeRequest, ServeResponse
 from .production import ProductionProfile
 from .production_limits import ProductionGate
@@ -58,6 +56,7 @@ from .security import (
 from .state import RequestState
 
 if TYPE_CHECKING:
+    from ..events import QueryEvents
     from .client_contract import ClientEndpointRegistry, ClientPlacement
 
 _METHODS = frozenset(("GET", "POST", "PUT", "PATCH", "DELETE"))
@@ -78,6 +77,8 @@ class Call:
 
 
 Handler = Callable[[Call], Awaitable[ServeResponse]]
+#: Receives a request's answer: an adapter's writer, or `Api.handle`'s capture.
+Responder = Callable[[ServeResponse], Awaitable[None]]
 
 
 @dataclass(frozen=True, slots=True, eq=False)
@@ -91,6 +92,18 @@ class Route:
     input: TypeAdapter[object] | None = None
     #: Rate limits, applied in order after authentication and before the body.
     limits: tuple[RateLimit, ...] = ()
+    #: For the development OpenAPI document: the response schema, a short
+    #: summary and tags. A route with ``documented=False`` is left out of it.
+    output: TypeAdapter[object] | None = None
+    summary: str | None = None
+    tags: tuple[str, ...] = ()
+    documented: bool = True
+
+    @property
+    def name(self) -> str:
+        """The handler's name, which names the route's OpenAPI operation."""
+
+        return getattr(self.handler, "__name__", "route")
 
 
 class RouteHost(Protocol):
@@ -134,9 +147,11 @@ class Api:
         authentication: Authentication,
         max_body_bytes: int = DEFAULT_MAX_BODY_BYTES,
         client_mount_path: str = "",
-        error_mapper: ErrorMapper = map_error,
         security: HttpSecurity | None = None,
         production: ProductionProfile | None = None,
+        base_path: str = "",
+        limits: Sequence[RateLimit] = (),
+        events: QueryEvents | None = None,
     ) -> None:
         from .client_contract import ClientEndpointRegistry
 
@@ -150,14 +165,23 @@ class Api:
             raise TypeError("security must be an HttpSecurity or None")
         if production is not None and type(production) is not ProductionProfile:
             raise TypeError("production must be a ProductionProfile or None")
+        if type(base_path) is not str or (
+            base_path and (not base_path.startswith("/") or base_path.endswith("/"))
+        ):
+            raise ValueError("base_path must be empty or start with '/' and not end with one")
+        if not all(isinstance(limit, RateLimit) for limit in limits):
+            raise TypeError("API limits must be RateLimit instances")
         self.authentication = authentication
         self.max_body_bytes = max_body_bytes
         self.client_mount_path = client_mount_path
         self.client_endpoints = ClientEndpointRegistry(authentication)
-        self._error_mapper = error_mapper
         self._routes: list[Route] = []
         self.security = security
         self.production = production
+        self.base_path = base_path
+        self.limits = tuple(limits)
+        #: The query-event sink of every endpoint installed without its own.
+        self.events = events
         self._proxies = (
             ProxyTrust(security.trusted_proxies)
             if security is not None and security.trusted_proxies
@@ -179,8 +203,20 @@ class Api:
         public: bool = False,
         input: TypeAdapter[object] | None = None,  # noqa: A002 - the route's input
         limits: Sequence[RateLimit] = (),
+        output: TypeAdapter[object] | None = None,
+        summary: str | None = None,
+        tags: Sequence[str] = (),
+        documented: bool = True,
     ) -> Route:
-        """Add a route. As in FastAPI, the first route for a method and path serves it."""
+        """Add a route at `base_path + path`; the first route for a method and path serves it.
+
+        *handler* receives a `Call` and returns a `ServeResponse`. A route
+        authenticates its caller unless *public*. A route with *input* reads
+        the body, decodes it as JSON and validates it against that schema
+        before the handler runs; any other route never reads the body.
+        *output*, *summary* and *tags* describe the route in the development
+        OpenAPI document.
+        """
 
         if method not in _METHODS:
             raise ValueError(f"unsupported route method {method!r}")
@@ -190,13 +226,19 @@ class Api:
             raise TypeError("public must be a boolean")
         if not all(isinstance(limit, RateLimit) for limit in limits):
             raise TypeError("route limits must be RateLimit instances")
+        if not all(type(tag) is str for tag in tags) or isinstance(tags, str):
+            raise TypeError("route tags must be strings")
         route = Route(
             method=method,
-            path=path,
+            path=self.base_path + path,
             handler=handler,
             public=public,
             input=input,
             limits=tuple(limits),
+            output=output,
+            summary=summary,
+            tags=tuple(tags),
+            documented=documented,
         )
         self._routes.append(route)
         return route
@@ -214,11 +256,35 @@ class Api:
         never a 405 that would list a route's methods to an anonymous caller.
         """
 
-        state = RequestState(request_id=new_request_id(), production=self.production)
-        response = await self._secured(request, state)
-        return with_request_ids(response, state.request_id, request.headers)
+        answered: list[ServeResponse] = []
 
-    async def _secured(self, request: ServeRequest, state: RequestState) -> ServeResponse:
+        async def keep(response: ServeResponse) -> None:
+            answered.append(response)
+
+        await self.serve(request, keep)
+        return answered[0]
+
+    async def serve(self, request: ServeRequest, respond: Responder) -> None:
+        """Serve *request* as `handle` does, handing the answer to *respond*.
+
+        For an adapter that writes to a transport. With a production profile,
+        *respond* runs inside the request's admission slot and deadline, so a
+        caller that will not read its answer cannot hold a response outside
+        the server's concurrency or past its timeout. When the deadline
+        passes while *respond* is writing, `TimeoutError` propagates: the
+        response has started, and the transport must close the connection.
+        """
+
+        state = RequestState(request_id=new_request_id(), production=self.production)
+
+        async def stamped(response: ServeResponse) -> None:
+            await respond(with_request_ids(response, state.request_id, request.headers))
+
+        await self._secured(request, state, stamped)
+
+    async def _secured(
+        self, request: ServeRequest, state: RequestState, respond: Responder
+    ) -> None:
         if self._proxies is not None:
             client, _scheme = self._proxies.resolve(request.client, request.headers)
             if client != request.client:
@@ -227,15 +293,18 @@ class Api:
             raw_host_valid(request.headers)
             and host_allowed(request.headers, self.security.allowed_hosts)
         ):
-            return plain_text(INVALID_HOST, 400)
+            await respond(plain_text(INVALID_HOST, 400))
+            return
         cors = self._cors
-        if cors is not None and cors.is_preflight(request.method, request.headers):
-            return cors.preflight(request.headers)
+        if cors is not None:
+            if cors.is_preflight(request.method, request.headers):
+                await respond(cors.preflight(request.headers))
+                return
+            respond = cors.around(request.headers, respond)
         if self._gate is not None:
-            response = await self._gate.run(state, lambda: self._route(request, state))
+            await self._gate.run(state, lambda: self._route(request, state), respond)
         else:
-            response = await self._route(request, state)
-        return cors.apply(response, request.headers) if cors is not None else response
+            await respond(await self._route(request, state))
 
     async def _route(self, request: ServeRequest, state: RequestState) -> ServeResponse:
         route = self.match(request.method, request.path)
@@ -255,7 +324,7 @@ class Api:
             auth = (
                 state.authenticated() if route.public else await self.authentication(request, state)
             )
-            for limit in route.limits:
+            for limit in (*self.limits, *route.limits):
                 await limit.check(request, auth, route.path)
             checked_json = check_body_headers(request.headers, self.max_body_bytes)
             payload = None
@@ -265,7 +334,8 @@ class Api:
                 )
             response = await route.handler(Call(request, state, auth, payload, host))
         except Exception as exc:
-            return error_response(self._error_mapper(exc, state.request_id), state.request_id)
+            error = as_serve_error(exc, request_id=state.request_id)
+            return error_response(error, state.request_id)
         if not route.public:
             response = response.with_headers({"cache-control": "no-store"})
         return response

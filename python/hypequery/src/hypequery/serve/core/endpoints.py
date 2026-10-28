@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 import copy
 import time
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass, replace
 from typing import cast
 
@@ -41,6 +41,7 @@ from .lifetime import RequestLifetime
 from .messages import ServeRequest, ServeResponse
 from .policy import DEFAULT_ENDPOINT_POLICY, EndpointPolicy
 from .production import ProductionProfile
+from .rate_limit import RateLimit
 from .state import RequestState
 from .work import run_sync
 
@@ -263,16 +264,20 @@ def add_dataset_route(
     endpoint: DatasetEndpointCore,
     *,
     input_model: type[BaseModel] | None = None,
-    path_taken: Callable[[str], bool] | None = None,
+    limits: Sequence[RateLimit] = (),
 ) -> Route:
     """Serve *endpoint* at `POST path` on *api*.
 
     A strict client endpoint snapshots the endpoint as installed and refuses a
-    path already served by POST; *path_taken* lets a host that also serves its
-    own routes say which paths those are. Other endpoints validate their body
-    against *input_model*, by default the endpoint's own query model.
+    path already served by POST. Other endpoints validate their body against
+    *input_model*, by default the endpoint's own query model. An endpoint
+    without query events of its own reports to the API's.
     """
 
+    if endpoint.events is None and api.events is not None:
+        endpoint = copy.copy(endpoint)
+        endpoint.events = api.events
+    tags = ("metrics" if endpoint.measure else "datasets",)
     if endpoint.client_profile is None:
         return api.add_route(
             "POST",
@@ -286,23 +291,24 @@ def add_dataset_route(
                     or endpoint_query_model(endpoint.dataset, metric=endpoint.measure is not None)
                 ),
             ),
+            limits=limits,
+            output=cast(TypeAdapter[object], _RESPONSE),
+            tags=tags,
         )
     target = copy.copy(endpoint)
+    served_at = api.base_path + path
     binding = ClientEndpointBinding(
         dataset=target.dataset,
         client=target.client,
         policy=target.policy,
         profile=endpoint.client_profile,
-        path=path,
+        path=served_at,
         measure=target.measure,
         name=target.name,
         related=target.include_related,
     )
     api.client_endpoints.check(binding)
-    taken = path_taken or (
-        lambda candidate: any(r.path == candidate and r.method == "POST" for r in api.routes)
-    )
-    if taken(path):
+    if any(route.path == served_at and route.method == "POST" for route in api.routes):
         raise ValueError("client endpoint path is already registered")
     model = MetricRequest if target.measure is not None else QueryRequest
 
@@ -312,7 +318,14 @@ def add_dataset_route(
         return await target.respond(call, model.model_validate(body))
 
     route = api.add_route(
-        "POST", path, client_query, public=target.policy.public, input=_CLIENT_INPUT
+        "POST",
+        path,
+        client_query,
+        public=target.policy.public,
+        input=_CLIENT_INPUT,
+        limits=limits,
+        output=cast(TypeAdapter[object], _RESPONSE),
+        tags=tags,
     )
     installed = replace(binding, route=route)
     api.client_endpoints.register(installed)

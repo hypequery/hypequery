@@ -7,8 +7,6 @@ import secrets
 from collections.abc import AsyncIterator, Callable, Mapping
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
-
 from hypequery.datasets import (
     Dataset,
     DatasetClient,
@@ -17,14 +15,15 @@ from hypequery.datasets import (
 )
 from hypequery.execution import ClickHouseExecutor, create_clickhouse_executor
 from hypequery.serve import (
+    Api,
+    AsgiApp,
     CorsPolicy,
     Credential,
     HttpSecurity,
     Principal,
     ProductionProfile,
-    ServeRouter,
     create_api,
-    create_app,
+    to_asgi_app,
 )
 
 from .config import connection
@@ -50,7 +49,7 @@ class ExecutorLifetime:
         self.executor = executor
 
     @asynccontextmanager
-    async def lifespan(self, app: FastAPI) -> AsyncIterator[None]:
+    async def lifespan(self) -> AsyncIterator[None]:
         try:
             yield
         finally:
@@ -61,19 +60,17 @@ def application(
     *,
     datasets: tuple[Dataset, ...],
     principals: Mapping[str, Principal],
-    install: Callable[[ServeRouter, DatasetClient], None],
+    install: Callable[[Api, DatasetClient], None],
     cors_origins: tuple[str, ...] = (),
-) -> FastAPI:
+) -> AsgiApp:
     authenticator = TokenAuthenticator(principals)
     executor = create_clickhouse_executor(connection())
     try:
         client = create_dataset_client(
             executor=executor, registry=create_dataset_registry(*datasets)
         )
-        api = create_api(authenticate=authenticator)
-        install(api, client)
-        app = create_app(
-            api,
+        api = create_api(
+            auth=authenticator,
             security=HttpSecurity(
                 allowed_hosts=("localhost", "127.0.0.1"),
                 cors=CorsPolicy(origins=cors_origins) if cors_origins else None,
@@ -86,8 +83,8 @@ def application(
                 max_concurrency=8,
             ),
         )
-        app.router.lifespan_context = ExecutorLifetime(executor).lifespan
-        return app
+        install(api, client)
+        return to_asgi_app(api, lifespan=ExecutorLifetime(executor).lifespan)
     except Exception:
         executor.close()
         raise

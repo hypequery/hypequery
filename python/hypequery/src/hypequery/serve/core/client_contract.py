@@ -19,7 +19,7 @@ from ...protocol import (
 from ..utils.client_contract_view import client_contract_view
 from .auth import RequestAuth
 from .authentication import Authentication
-from .errors import ServeHttpError, serve_error
+from .errors import ServeError, serve_error
 from .policy import EndpointPolicy
 from .production import ProductionProfile
 
@@ -129,7 +129,7 @@ class ClientEndpointRegistry:
                 try:
                     # Public routes run without authentication or a tenant.
                     binding.policy.authorize(None if binding.policy.public else auth)
-                except ServeHttpError as error:
+                except ServeError as error:
                     if error.status_code in (401, 403):
                         return None
                     raise

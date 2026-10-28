@@ -1,28 +1,32 @@
-"""The supported Uvicorn runner for a production profile."""
+"""The supported uvicorn runner for a production profile (the `server` extra)."""
 
 from __future__ import annotations
 
-from fastapi import FastAPI
-
+from .asgi import AsgiApp, to_asgi_app
+from .core.api import Api
 from .core.production import ProductionProfile
+from .utils.uvicorn_server import import_uvicorn
 
 
-def start_server(app: FastAPI) -> None:
-    """Run an app created with ``create_app(..., production=profile)``.
+def start_server(app: Api | AsgiApp) -> None:
+    """Serve an API created with ``create_api(..., production=profile)``.
 
-    One worker per process: a process manager may run multiple instances, each
-    with its own admission ceiling. TLS belongs to the trusted reverse proxy.
+    *app* is the API, or its `to_asgi_app` application when it has a
+    lifespan. One worker per process: a process manager may run multiple
+    instances, each with its own admission ceiling. TLS belongs to the trusted
+    reverse proxy.
     """
-    profile = getattr(app.state, "hypequery_production", None)
-    if type(profile) is not ProductionProfile:
-        raise ValueError("start_server requires an application with a ProductionProfile")
-    if app.debug or app.docs_url or app.redoc_url or app.openapi_url:
-        raise ValueError("production disables debug and documentation routes")
-    # Lazy: importing definitions or building an app never starts a server.
-    import uvicorn
 
+    asgi = to_asgi_app(app) if isinstance(app, Api) else app
+    if not isinstance(asgi, AsgiApp):
+        raise TypeError("start_server requires an Api or its to_asgi_app application")
+    profile = asgi.api.production
+    if type(profile) is not ProductionProfile:
+        raise ValueError("start_server requires an API created with a ProductionProfile")
+    # Lazy: importing definitions or building an API never starts a server.
+    uvicorn = import_uvicorn()
     uvicorn.run(
-        app,
+        asgi,
         host=profile.host,
         port=profile.port,
         workers=1,
@@ -35,6 +39,7 @@ def start_server(app: FastAPI) -> None:
         timeout_graceful_shutdown=profile.timeout_seconds + 5,
         backlog=128,
         ws="none",
+        lifespan="on",
     )
 
 

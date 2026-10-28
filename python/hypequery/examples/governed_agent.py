@@ -6,13 +6,12 @@ agent gateway holds the token, GETs /discovery and POSTs /agent/revenue with
 The agent receives aggregate results and logical schema, with no SQL execution tool.
 """
 
-from fastapi import FastAPI
-
 from hypequery.datasets import DatasetClient, create_dataset_registry, dataset, dimension, measure
 from hypequery.serve import (
+    Api,
+    AsgiApp,
     EndpointPolicy,
     Principal,
-    ServeRouter,
     add_discovery_endpoint,
     create_metric_endpoint,
     start_server,
@@ -35,14 +34,14 @@ policy = EndpointPolicy(
 )
 
 
-def install(api: ServeRouter, client: DatasetClient) -> None:
+def install(api: Api, client: DatasetClient) -> None:
     create_metric_endpoint(
         dataset=analytics, measure="revenue", client=client, policy=policy
     ).install(api, "/agent/revenue")
     add_discovery_endpoint(api, registry=create_dataset_registry(analytics), policy=policy)
 
 
-def create_application() -> FastAPI:
+def create_application() -> AsgiApp:
     return application(
         datasets=(analytics,),
         install=install,

@@ -1,9 +1,9 @@
 """Drive the framework-neutral serving core directly, with no HTTP server.
 
-`CoreClient` speaks the slice of `TestClient`'s interface the shared HTTP
-fixture tests use, so one test body checks both the FastAPI application and
-`Api.handle`. Like `TestClient`, it sends `Host: testserver` unless told
-otherwise, from the peer address `testclient:50000`.
+`CoreClient` speaks the slice of `AsgiClient`'s interface the shared HTTP
+fixture tests use, so one test body checks both `Api.handle` and the ASGI
+adapter. Like `AsgiClient`, it sends `Host: testserver` unless told otherwise,
+from the peer address `testclient:50000`.
 """
 
 from __future__ import annotations

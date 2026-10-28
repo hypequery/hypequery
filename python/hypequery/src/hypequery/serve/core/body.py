@@ -13,7 +13,7 @@ from collections.abc import AsyncIterable
 
 from pydantic import TypeAdapter, ValidationError
 
-from .errors import ServeHttpError, request_validation_error, serve_error
+from .errors import ServeError, request_validation_error, serve_error
 from .messages import Headers, ServeRequest
 
 #: The TypeScript Node adapter's default.
@@ -22,11 +22,11 @@ DEFAULT_MAX_BODY_BYTES = 1_048_576
 _JSON = "application/json"
 
 
-def _refuse(status: int, message: str) -> ServeHttpError:
+def _refuse(status: int, message: str) -> ServeError:
     return serve_error(status, "VALIDATION_ERROR", message)
 
 
-def too_large() -> ServeHttpError:
+def too_large() -> ServeError:
     # TypeScript's Node adapter message. The limit is the server's own
     # configuration, so stating it is not a leak, but there is no need to.
     return serve_error(413, "PAYLOAD_TOO_LARGE", "Request body exceeds the configured size limit")
@@ -106,7 +106,7 @@ async def read_body(request: ServeRequest, max_bytes: int, *, checked_json: bool
 async def _read_or_refuse(request: ServeRequest, max_bytes: int, *, checked_json: bool) -> bytes:
     try:
         return await read_body(request, max_bytes, checked_json=checked_json)
-    except ServeHttpError:
+    except ServeError:
         raise
     except Exception as exc:
         # FastAPI's answer to a body it could not receive.

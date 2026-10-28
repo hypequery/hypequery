@@ -20,7 +20,7 @@ from dataclasses import dataclass
 from typing import Literal, NoReturn, TypeAlias
 
 from ...datasets.planner import TenantScope, tenant
-from .errors import UNEXPECTED_ERROR_MESSAGE, ServeHttpError, serve_error
+from .errors import UNEXPECTED_ERROR_MESSAGE, ServeError, serve_error
 from .messages import Headers
 
 #: Generous for a JWT, small enough that a header cannot be used to make the
@@ -164,7 +164,7 @@ def default_tenant_resolver(principal: Principal) -> TenantScope | None:
     return tenant(principal.tenant_id) if principal.tenant_id is not None else None
 
 
-def unauthenticated(transport: CredentialTransport, *, presented: bool) -> ServeHttpError:
+def unauthenticated(transport: CredentialTransport, *, presented: bool) -> ServeError:
     """TypeScript's 401: "missing" when no credential was sent, else "invalid".
 
     The caller knows which it was, so this tells them nothing new.
@@ -179,11 +179,11 @@ def unauthenticated(transport: CredentialTransport, *, presented: bool) -> Serve
     )
 
 
-def unavailable() -> ServeHttpError:
+def unavailable() -> ServeError:
     return serve_error(503, "SERVICE_UNAVAILABLE", "Authentication is unavailable.")
 
 
-def misconfigured() -> ServeHttpError:
+def misconfigured() -> ServeError:
     return serve_error(500, "INTERNAL_SERVER_ERROR", UNEXPECTED_ERROR_MESSAGE)
 
 

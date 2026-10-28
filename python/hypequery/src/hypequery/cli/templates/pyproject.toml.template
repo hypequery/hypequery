@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "hypequery-project"
 version = "0.1.0"
 requires-python = ">=3.11"
-dependencies = ["hypequery[fastapi,clickhouse]==__HYPEQUERY_VERSION__"]
+dependencies = ["hypequery[server,clickhouse]==__HYPEQUERY_VERSION__"]
 
 [tool.setuptools]
 py-modules = ["app"]

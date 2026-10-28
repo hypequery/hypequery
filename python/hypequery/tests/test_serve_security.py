@@ -1,90 +1,81 @@
 """PYD-03: the HTTP security profile, one control at a time.
 
-Router controls are always on: bounded JSON bodies and `no-store` on
-authenticated responses. Application controls come from `HttpSecurity`:
-trusted hosts, CORS, proxy trust, and request identifiers. A configuration
-that cannot be safe fails when it is built.
+API controls are always on: bounded JSON bodies, `no-store` on authenticated
+responses and request identifiers. Transport controls come from
+`HttpSecurity`: trusted hosts, CORS and proxy trust. A configuration that
+cannot be safe fails when it is built.
 """
 
-# No `from __future__ import annotations`: FastAPI resolves endpoint
-# annotations at registration, and these endpoints close over local routers.
+from __future__ import annotations
+
 import asyncio
 import re
-from collections.abc import Callable
-from typing import Annotated, Any
+from collections.abc import AsyncIterator, Callable
+from typing import Any
 
 import httpx
 import pytest
-from fastapi import Body, Depends, FastAPI, HTTPException, Request
-from fastapi.testclient import TestClient
-from starlette.responses import JSONResponse
+from pydantic import TypeAdapter
 
+from asgi_client import AsgiClient
 from hypequery.serve import (
     MAX_CORRELATION_ID_BYTES,
+    AsgiApp,
+    Call,
     CorsPolicy,
     Credential,
+    Headers,
     HttpSecurity,
     Principal,
-    RequestAuth,
-    create_router,
-    install_http_security,
-    request_id,
+    ServeError,
+    ServeResponse,
+    create_api,
     sanitize_correlation_id,
+    to_asgi_app,
 )
+from hypequery.serve.core.security import ProxyTrust
 
 TOKEN = "good-token"  # noqa: S105 - a test credential
 AUTH = {"Authorization": f"Bearer {TOKEN}"}
 REQUEST_ID = re.compile(r"[0-9a-f]{32}")
+OBJECT: TypeAdapter[object] = TypeAdapter(dict[str, Any])
 
 
 def _authenticate(credential: Credential) -> Principal | None:
     return Principal(subject="alice", tenant_id="acme") if credential.value == TOKEN else None
 
 
-def _app(security: HttpSecurity | None = None, *, max_body_bytes: int = 64) -> FastAPI:
-    router = create_router(authenticate=_authenticate, max_body_bytes=max_body_bytes)
+def _app(security: HttpSecurity | None = None, *, max_body_bytes: int = 64) -> AsgiApp:
+    api = create_api(auth=_authenticate, security=security, max_body_bytes=max_body_bytes)
 
-    @router.post("/echo")
-    def echo(
-        auth: Annotated[RequestAuth, Depends(router.auth)],
-        payload: Annotated[dict[str, Any], Body()],
-    ) -> dict[str, Any]:
-        return payload
+    async def echo(call: Call) -> ServeResponse:
+        return ServeResponse.json(call.input)
 
-    @router.get("/cacheable")
-    def cacheable() -> JSONResponse:
-        return JSONResponse({"ok": True}, headers={"Cache-Control": "public, max-age=3600"})
+    async def cacheable(call: Call) -> ServeResponse:
+        return ServeResponse.json({"ok": True}, headers={"Cache-Control": "public, max-age=3600"})
 
-    @router.get("/error")
-    def error() -> None:
-        raise HTTPException(403, detail="private error")
+    async def error(call: Call) -> ServeResponse:
+        raise ServeError(403, "FORBIDDEN", "private error")
 
-    @router.post("/public-echo")
-    @router.public
-    def public_echo(payload: Annotated[dict[str, Any], Body()]) -> dict[str, Any]:
-        return payload
-
-    @router.get("/ids")
-    @router.public
-    def ids(request: Request) -> JSONResponse:
-        return JSONResponse(
+    async def ids(call: Call) -> ServeResponse:
+        return ServeResponse.json(
             {
-                "request_id": request_id(request),
-                "client": request.client and request.client.host,
-                "scheme": request.url.scheme,
+                "request_id": call.state.request_id,
+                "client": call.request.client and call.request.client[0],
             },
             headers={"x-request-id": "set-by-handler", "x-correlation-id": "set-by-handler"},
         )
 
-    app = FastAPI()
-    app.include_router(router)
-    if security is not None:
-        install_http_security(app, security)
-    return app
+    api.add_route("POST", "/echo", echo, input=OBJECT)
+    api.add_route("GET", "/cacheable", cacheable)
+    api.add_route("GET", "/error", error)
+    api.add_route("POST", "/public-echo", echo, public=True, input=OBJECT)
+    api.add_route("GET", "/ids", ids, public=True)
+    return to_asgi_app(api)
 
 
 def _asgi(
-    app: FastAPI,
+    app: AsgiApp,
     headers: list[tuple[str, str]],
     *,
     client: tuple[str, int] = ("203.0.113.9", 5000),
@@ -105,7 +96,7 @@ SECURE = HttpSecurity(allowed_hosts=("api.test", "testserver"))
 
 
 def test_a_declared_oversized_body_is_refused_after_authentication() -> None:
-    client = TestClient(_app())
+    client = AsgiClient(_app())
     body = b'{"a": "' + b"x" * 100 + b'"}'
 
     anonymous = client.post("/echo", content=body, headers={"Content-Type": "application/json"})
@@ -119,9 +110,9 @@ def test_a_declared_oversized_body_is_refused_after_authentication() -> None:
 
 
 def test_a_streamed_body_is_counted_without_a_content_length() -> None:
-    client = TestClient(_app())
+    client = AsgiClient(_app())
 
-    def chunks() -> Any:
+    async def chunks() -> AsyncIterator[bytes]:
         yield b'{"a": "'
         yield b"x" * 100
         yield b'"}'
@@ -145,7 +136,7 @@ def test_a_streamed_body_is_counted_without_a_content_length() -> None:
     ],
 )
 def test_a_body_that_is_not_utf8_json_is_refused(content_type: str) -> None:
-    client = TestClient(_app())
+    client = AsgiClient(_app())
     headers = {**AUTH, "Content-Type": content_type} if content_type else AUTH
 
     response = client.post("/echo", content=b'{"a": 1}', headers=headers)
@@ -157,7 +148,7 @@ def test_a_body_that_is_not_utf8_json_is_refused(content_type: str) -> None:
     ["application/json", "Application/JSON; charset=UTF-8", "application/json;charset=utf-8"],
 )
 def test_utf8_json_is_accepted(content_type: str) -> None:
-    client = TestClient(_app())
+    client = AsgiClient(_app())
 
     response = client.post(
         "/echo", content=b'{"a": 1}', headers={**AUTH, "Content-Type": content_type}
@@ -167,7 +158,7 @@ def test_utf8_json_is_accepted(content_type: str) -> None:
 
 
 def _raw(
-    app: FastAPI,
+    app: AsgiApp,
     path: str,
     headers: list[tuple[bytes, bytes]],
     body: bytes = b"",
@@ -224,7 +215,7 @@ def test_a_headerless_body_still_requires_json() -> None:
 
 
 def test_public_routes_have_the_body_policy_but_keep_their_cache_headers() -> None:
-    client = TestClient(_app())
+    client = AsgiClient(_app())
 
     assert (
         client.post(
@@ -244,7 +235,7 @@ def test_public_routes_have_the_body_policy_but_keep_their_cache_headers() -> No
 
 
 def test_an_authenticated_response_is_never_stored() -> None:
-    client = TestClient(_app())
+    client = AsgiClient(_app())
 
     for response in (
         client.get("/cacheable", headers=AUTH),
@@ -255,24 +246,24 @@ def test_an_authenticated_response_is_never_stored() -> None:
 
 
 def test_an_authenticated_endpoint_error_is_never_stored() -> None:
-    response = TestClient(_app()).get("/error", headers=AUTH)
+    response = AsgiClient(_app()).get("/error", headers=AUTH)
 
     assert response.status_code == 403
     assert response.headers["cache-control"] == "no-store"
 
-    validation_error = TestClient(_app()).post(
+    validation_error = AsgiClient(_app()).post(
         "/echo", content=b"{", headers={**AUTH, "Content-Type": "application/json"}
     )
-    # 400, not FastAPI's 422: the canonical envelope matches TypeScript serve.
+    # 400, not 422: the canonical envelope matches TypeScript serve.
     assert validation_error.status_code == 400
     assert validation_error.json()["error"]["type"] == "VALIDATION_ERROR"
     assert validation_error.headers["cache-control"] == "no-store"
 
 
-def test_create_router_validates_the_body_limit() -> None:
+def test_create_api_validates_the_body_limit() -> None:
     for bad in (0, -1, 1.5, True):
         with pytest.raises(ValueError, match="max_body_bytes"):
-            create_router(authenticate=_authenticate, max_body_bytes=bad)  # type: ignore[arg-type]
+            create_api(auth=_authenticate, max_body_bytes=bad)  # type: ignore[arg-type]
 
 
 # --- configuration fails when it is built ---------------------------------
@@ -307,9 +298,9 @@ def test_an_unsafe_configuration_fails_at_construction(build: Callable[[], objec
         build()
 
 
-def test_install_requires_a_profile() -> None:
+def test_an_api_requires_a_profile_object() -> None:
     with pytest.raises(TypeError):
-        install_http_security(FastAPI(), {"allowed_hosts": ("api.test",)})  # type: ignore[arg-type]
+        create_api(auth=_authenticate, security={"allowed_hosts": ("api.test",)})  # type: ignore[arg-type]
 
 
 # --- trusted hosts --------------------------------------------------------
@@ -325,7 +316,7 @@ def test_a_request_for_another_host_is_refused() -> None:
 
 
 @pytest.mark.parametrize("host", [b"api.test:443evil.test", b"api.test:99999", b"api.test:bad"])
-def test_a_malformed_host_is_refused_before_starlette_parses_it(host: bytes) -> None:
+def test_a_malformed_host_is_refused(host: bytes) -> None:
     app = _app(HttpSecurity(allowed_hosts=("api.test",)))
 
     assert _asgi(app, [("Host", host.decode("ascii"))]).status_code == 400
@@ -343,7 +334,7 @@ def test_a_refused_host_is_not_redirected() -> None:
 
 
 def test_cors_is_off_unless_configured() -> None:
-    client = TestClient(_app(SECURE))
+    client = AsgiClient(_app(SECURE))
 
     response = client.get("/ids", headers={"Origin": "https://app.test"})
     preflight = client.options(
@@ -356,7 +347,7 @@ def test_cors_is_off_unless_configured() -> None:
 
 def test_cors_answers_only_listed_origins() -> None:
     policy = CorsPolicy(origins=("https://app.test",), allow_credentials=True)
-    client = TestClient(_app(HttpSecurity(allowed_hosts=("testserver",), cors=policy)))
+    client = AsgiClient(_app(HttpSecurity(allowed_hosts=("testserver",), cors=policy)))
 
     allowed = client.get("/ids", headers={"Origin": "https://app.test"})
     assert allowed.headers["access-control-allow-origin"] == "https://app.test"
@@ -380,7 +371,7 @@ def test_cors_answers_only_listed_origins() -> None:
 
 
 def test_every_response_carries_a_fresh_server_request_id() -> None:
-    client = TestClient(_app(SECURE))
+    client = AsgiClient(_app(SECURE))
 
     responses = [
         client.get("/ids", headers=AUTH),
@@ -403,7 +394,7 @@ def test_a_refused_host_still_gets_a_request_id() -> None:
 
 
 def test_a_caller_request_id_is_only_ever_a_correlation_id() -> None:
-    client = TestClient(_app(SECURE))
+    client = AsgiClient(_app(SECURE))
 
     response = client.get("/ids", headers={"X-Request-ID": "trace-123:abc/def"})
 
@@ -447,16 +438,17 @@ def test_a_repeated_request_id_is_dropped() -> None:
 
 
 def test_a_handler_cannot_replace_the_request_ids() -> None:
-    response = TestClient(_app(SECURE)).get("/ids")
+    response = AsgiClient(_app(SECURE)).get("/ids")
 
     assert response.headers.get_list("x-request-id") == [response.json()["request_id"]]
     assert "x-correlation-id" not in response.headers
 
 
-def test_request_id_is_none_without_the_profile() -> None:
-    response = TestClient(_app()).get("/ids")
+def test_requests_have_an_id_without_the_profile() -> None:
+    response = AsgiClient(_app()).get("/ids")
 
-    assert response.json()["request_id"] is None
+    assert response.json()["request_id"] == response.headers["x-request-id"]
+    assert REQUEST_ID.fullmatch(response.headers["x-request-id"])
 
 
 # --- proxy trust ----------------------------------------------------------
@@ -471,7 +463,6 @@ def test_forwarded_headers_from_an_untrusted_client_are_ignored() -> None:
         client=("203.0.113.9", 5000),
     )
     assert response.json()["client"] == "203.0.113.9"
-    assert response.json()["scheme"] == "http"
 
 
 def test_a_trusted_proxy_supplies_the_nearest_untrusted_address() -> None:
@@ -489,7 +480,9 @@ def test_a_trusted_proxy_supplies_the_nearest_untrusted_address() -> None:
         client=("10.0.0.3", 5000),
     )
     assert response.json()["client"] == "198.51.100.7"
-    assert response.json()["scheme"] == "https"
+    trust = ProxyTrust(("10.0.0.0/8",))
+    forwarded = Headers([("x-forwarded-for", "198.51.100.7"), ("x-forwarded-proto", "https")])
+    assert trust.resolve(("10.0.0.3", 5000), forwarded)[1] == "https"
 
 
 def test_proxy_trust_is_off_by_default() -> None:
@@ -503,12 +496,9 @@ def test_proxy_trust_is_off_by_default() -> None:
 
 @pytest.mark.parametrize("proto", ["javascript", "HTTPS, http", "ftp"])
 def test_a_trusted_proxy_cannot_set_an_unknown_scheme(proto: str) -> None:
-    app = _app(HttpSecurity(allowed_hosts=("api.test",), trusted_proxies=("10.0.0.3",)))
-
-    response = _asgi(
-        app, [("Host", "api.test"), ("X-Forwarded-Proto", proto)], client=("10.0.0.3", 5000)
-    )
-    assert response.json()["scheme"] == "http"
+    trust = ProxyTrust(("10.0.0.3",))
+    _, scheme = trust.resolve(("10.0.0.3", 5000), Headers([("x-forwarded-proto", proto)]))
+    assert scheme is None
 
 
 @pytest.mark.parametrize("forwarded", ["unknown", "_hidden", "[2001:db8::1]:443", "1.2.3.4:80"])

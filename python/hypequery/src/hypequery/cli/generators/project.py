@@ -30,7 +30,7 @@ def schema_templates(
     result["pyproject.toml"] = (
         templates["pyproject.toml"]
         .replace('py-modules = ["app"]', f'py-modules = ["{module}", "datasets"]')
-        .replace("hypequery[fastapi,clickhouse]", f"hypequery[{EXTRAS[framework]}]")
+        .replace("hypequery[server,clickhouse]", f"hypequery[{EXTRAS[framework]}]")
     )
     result["datasets.py"] = generated.source
     result["schema.json"] = generated.snapshot
@@ -41,7 +41,7 @@ from datasets import datasets
 from hypequery.datasets import create_dataset_client, create_dataset_registry
 from hypequery.execution import ClickHouseConnection, create_clickhouse_executor
 from hypequery.serve import (
-    Credential, HttpSecurity, Principal, create_api, create_app, create_dataset_endpoint,
+    Credential, HttpSecurity, Principal, create_api, create_dataset_endpoint, to_asgi_app,
 )
 
 DEV_TOKEN = os.environ["HYPEQUERY_DEV_TOKEN"]
@@ -60,16 +60,16 @@ def authenticate(credential: Credential) -> Principal | None:
     return None
 
 
-api = create_api(authenticate=authenticate)
+api = create_api(
+    auth=authenticate,
+    security=HttpSecurity(allowed_hosts=("127.0.0.1", "localhost")),
+    development_docs=True,
+)
 for name, definition in datasets.items():
     endpoint = create_dataset_endpoint(dataset=definition, client=client)
     endpoint.install(api, f"/datasets/{name}/query")
 
-app = create_app(
-    api,
-    security=HttpSecurity(allowed_hosts=("127.0.0.1", "localhost")),
-    development_docs=True,
-)
+app = to_asgi_app(api)
 """
     result[".env.example"] = replace_env_block(
         templates[".env.example"], schema.connection, schema.database
@@ -150,7 +150,7 @@ curl -s -X POST http://127.0.0.1:8000/datasets/{generated.tables[0]}/query \\
                 "print(secrets.token_urlsafe(32))')\"\n",
                 "",
             )
-            .replace("[fastapi,clickhouse]", f"[{EXTRAS[framework]}]")
+            .replace("[server,clickhouse]", f"[{EXTRAS[framework]}]")
             .replace(
                 "Do not commit credentials. The token is for local development; use your real\n"
                 "authentication and a production profile before exposing the app to users.",

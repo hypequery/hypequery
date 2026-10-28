@@ -60,7 +60,7 @@ class InstalledCli:
         self._run([uv, "venv", "--python", sys.executable, str(self.venv)])
         requirement = str(self.artifact)
         if not self.minimal:
-            requirement += "[fastapi,clickhouse]"
+            requirement += "[server,clickhouse]"
         self._run([uv, "pip", "install", "--python", str(self.python), requirement])
 
     def verify_commands(self) -> None:
@@ -128,6 +128,8 @@ assert 'not loaded automatically' in Path('README.md').read_text()
 from importlib.util import find_spec
 optional = ('fastapi', 'starlette', 'uvicorn', 'clickhouse_connect')
 assert all(find_spec(name) is None for name in optional)
+# Serving needs no web framework: only running uvicorn needs an extra.
+import hypequery.serve
 """,
                 ]
             )
@@ -142,7 +144,7 @@ assert all(find_spec(name) is None for name in optional)
             )
             require(result.returncode == 1, "Missing extras must exit with status 1")
             require(
-                'pip install "hypequery[fastapi]"' in result.stderr,
+                'pip install "hypequery[server]"' in result.stderr,
                 "Missing extras need an install hint",
             )
             require("Traceback" not in result.stderr, "Missing extras must not print a traceback")

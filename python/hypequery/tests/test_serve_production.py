@@ -8,16 +8,14 @@ import subprocess
 import sys
 import threading
 import time
-from collections.abc import AsyncIterator
+from collections.abc import MutableMapping
 from dataclasses import dataclass, field
+from typing import Any
 
 import httpx
 import pytest
-from fastapi import FastAPI, Request
-from fastapi.testclient import TestClient
-from starlette.responses import StreamingResponse
-from starlette.types import Message, Receive, Scope, Send
 
+from asgi_client import AsgiClient
 from hypequery.datasets import (
     CompiledQuery,
     Dataset,
@@ -33,17 +31,22 @@ from hypequery.datasets.cache import MemoryCacheStore, ResultCache
 from hypequery.datasets.client import ResultScalar
 from hypequery.datasets.planner import query_settings
 from hypequery.serve import (
+    Api,
+    Call,
     Credential,
     HttpSecurity,
     Principal,
     ProductionProfile,
+    ServeResponse,
     add_dataset_endpoint,
     api_key,
-    create_app,
-    create_router,
+    create_api,
     run_production,
+    to_asgi_app,
 )
-from hypequery.serve.production_limits import ProductionLimitsMiddleware
+from hypequery.serve.core.work import run_sync
+
+Message = MutableMapping[str, Any]
 
 SECURITY = HttpSecurity(allowed_hosts=("testserver",))
 HEADERS = {"Authorization": "Bearer test"}
@@ -78,23 +81,32 @@ def test_invalid_profile_fails_at_startup(options: dict[str, object]) -> None:
 
 
 def test_production_docs_cookie_and_proxy_misuse_fails_at_startup() -> None:
-    router = create_router(authenticate=authenticate)
     with pytest.raises(ValueError, match="documentation"):
-        create_app(router, security=SECURITY, production=ProductionProfile(), development_docs=True)
+        create_api(
+            auth=authenticate,
+            security=SECURITY,
+            production=ProductionProfile(),
+            development_docs=True,
+        )
     with pytest.raises(ValueError, match="proxy"):
-        create_app(
-            router,
+        create_api(
+            auth=authenticate,
             security=HttpSecurity(allowed_hosts=("testserver",), trusted_proxies=("0.0.0.0/0",)),
             production=ProductionProfile(),
         )
     with pytest.raises(ValueError, match="cookies"):
-        create_app(
-            create_router(authenticate=authenticate, credentials=api_key(header="cookie")),
+        create_api(
+            auth=authenticate,
+            credentials=api_key(header="cookie"),
             security=SECURITY,
             production=ProductionProfile(),
         )
+    with pytest.raises(ValueError, match="trusted hosts"):
+        create_api(auth=authenticate, production=ProductionProfile())
     with pytest.raises(ValueError, match="ProductionProfile"):
-        run_production(FastAPI())
+        run_production(create_api(auth=authenticate, security=SECURITY))
+    with pytest.raises(TypeError, match="to_asgi_app"):
+        run_production(object())  # type: ignore[arg-type]
     assert ProductionProfile(host="0.0.0.0", allow_external_bind=True).host == "0.0.0.0"  # noqa: S104
     assert ProductionProfile(host="::1").host == "::1"
 
@@ -122,13 +134,19 @@ DATASET = Dataset(
 )
 
 
+def _production_api(
+    profile: ProductionProfile, *, auth: Any = authenticate, security: HttpSecurity = SECURITY
+) -> Api:
+    return create_api(auth=auth, security=security, production=profile)
+
+
 def test_query_budgets_tighten_client_settings_and_reserve_pagination_probe() -> None:
     executor = Executor()
     client = create_dataset_client(executor=executor, settings=query_settings(max_threads=1))
-    router = create_router(authenticate=authenticate)
-    add_dataset_endpoint(router, "/query", dataset=DATASET, client=client)
     profile = ProductionProfile(max_result_rows=3, max_result_bytes=1024, timeout_seconds=2)
-    with TestClient(create_app(router, security=SECURITY, production=profile)) as http:
+    api = _production_api(profile)
+    add_dataset_endpoint(api, "/query", dataset=DATASET, client=client)
+    with AsgiClient(to_asgi_app(api)) as http:
         response = http.post(
             "/query",
             headers=HEADERS,
@@ -156,21 +174,22 @@ def test_query_budgets_tighten_client_settings_and_reserve_pagination_probe() ->
 def test_capacity_rejects_without_queue_and_recovers_after_failure() -> None:
     async def run() -> None:
         started, release = asyncio.Event(), asyncio.Event()
-        router = create_router(authenticate=authenticate)
 
-        @router.get("/hold")
-        async def hold() -> None:
+        async def hold(call: Call) -> ServeResponse:
             started.set()
             await release.wait()
             raise ValueError("PRIVATE_FAILURE")
 
-        @router.get("/ok")
-        async def ok() -> dict[str, bool]:
-            return {"ok": True}
+        async def ok(call: Call) -> ServeResponse:
+            return ServeResponse.json({"ok": True})
 
-        app = create_app(router, security=SECURITY, production=ProductionProfile(max_concurrency=1))
+        api = _production_api(ProductionProfile(max_concurrency=1))
+        api.add_route("GET", "/hold", hold)
+        api.add_route("GET", "/ok", ok)
         async with httpx.AsyncClient(
-            transport=httpx.ASGITransport(app=app), base_url="http://testserver", headers=HEADERS
+            transport=httpx.ASGITransport(app=to_asgi_app(api)),
+            base_url="http://testserver",
+            headers=HEADERS,
         ) as http:
             task = asyncio.create_task(http.get("/hold"))
             await asyncio.wait_for(started.wait(), 2)
@@ -200,17 +219,11 @@ def test_total_timeout_cancels_executor_and_releases_capacity() -> None:
             return Rows()
 
     executor = SlowExecutor()
-    router = create_router(authenticate=authenticate)
+    api = _production_api(ProductionProfile(timeout_seconds=1, max_concurrency=1))
     add_dataset_endpoint(
-        router, "/query", dataset=DATASET, client=create_async_dataset_client(executor=executor)
+        api, "/query", dataset=DATASET, client=create_async_dataset_client(executor=executor)
     )
-    with TestClient(
-        create_app(
-            router,
-            security=SECURITY,
-            production=ProductionProfile(timeout_seconds=1, max_concurrency=1),
-        )
-    ) as http:
+    with AsgiClient(to_asgi_app(api)) as http:
         response = http.post("/query", headers=HEADERS, json={"measures": ["rows"]})
         assert response.status_code == 504
         assert response.json()["error"]["type"] == "GATEWAY_TIMEOUT"
@@ -221,44 +234,18 @@ def test_total_timeout_cancels_executor_and_releases_capacity() -> None:
         assert http.get("/unknown").status_code == 404
 
 
-def test_oversized_chunked_response_returns_one_canonical_error() -> None:
-    router = create_router(authenticate=authenticate)
+def test_an_oversized_response_returns_one_canonical_error() -> None:
+    async def large(call: Call) -> ServeResponse:
+        return ServeResponse.json({"rows": "PRIVATE_ROW" * 120})
 
-    @router.get("/large")
-    async def large() -> StreamingResponse:
-        async def chunks() -> AsyncIterator[bytes]:
-            yield b"PRIVATE_ROW" * 60
-            yield b"PRIVATE_ROW" * 60
-
-        return StreamingResponse(chunks(), media_type="application/json")
-
-    with TestClient(
-        create_app(router, security=SECURITY, production=ProductionProfile(max_result_bytes=1024))
-    ) as http:
+    api = _production_api(ProductionProfile(max_result_bytes=1024))
+    api.add_route("GET", "/large", large)
+    with AsgiClient(to_asgi_app(api)) as http:
         response = http.get("/large", headers=HEADERS)
         assert response.status_code == 413
         assert response.json()["error"]["type"] == "PAYLOAD_TOO_LARGE"
         assert "PRIVATE_ROW" not in response.text
         assert response.headers["cache-control"] == "no-store"
-        assert response.headers["x-request-id"]
-
-
-def test_response_generation_failure_discards_buffered_rows() -> None:
-    router = create_router(authenticate=authenticate)
-
-    @router.get("/broken")
-    async def broken() -> StreamingResponse:
-        async def chunks() -> AsyncIterator[bytes]:
-            yield b"PRIVATE_ROW"
-            raise RuntimeError("PRIVATE_DRIVER")
-
-        return StreamingResponse(chunks())
-
-    with TestClient(create_app(router, security=SECURITY, production=ProductionProfile())) as http:
-        response = http.get("/broken", headers=HEADERS)
-        assert response.status_code == 500
-        assert response.json()["error"]["type"] == "INTERNAL_SERVER_ERROR"
-        assert "PRIVATE" not in response.text
         assert response.headers["x-request-id"]
 
 
@@ -274,13 +261,11 @@ def test_timeout_signals_sync_executor_running_in_threadpool() -> None:
             stopped.set()
             return Rows()
 
-    router = create_router(authenticate=authenticate)
+    api = _production_api(ProductionProfile(timeout_seconds=1))
     add_dataset_endpoint(
-        router, "/query", dataset=DATASET, client=create_dataset_client(executor=BlockingExecutor())
+        api, "/query", dataset=DATASET, client=create_dataset_client(executor=BlockingExecutor())
     )
-    with TestClient(
-        create_app(router, security=SECURITY, production=ProductionProfile(timeout_seconds=1))
-    ) as http:
+    with AsgiClient(to_asgi_app(api)) as http:
         response = http.post("/query", headers=HEADERS, json={"measures": ["rows"]})
         assert response.status_code == 504
         assert stopped.wait(2)
@@ -297,16 +282,14 @@ def test_cached_rows_cannot_bypass_response_byte_ceiling() -> None:
     executor = LargeExecutor()
     cache = ResultCache(store=MemoryCacheStore(), project="test", environment="ci", ttl_seconds=60)
     dataset = Dataset(name="orders", source="orders", dimensions={"country": dimension("string")})
-    router = create_router(authenticate=authenticate)
+    api = _production_api(ProductionProfile(max_result_bytes=1024))
     add_dataset_endpoint(
-        router,
+        api,
         "/query",
         dataset=dataset,
         client=create_dataset_client(executor=executor, cache=cache),
     )
-    with TestClient(
-        create_app(router, security=SECURITY, production=ProductionProfile(max_result_bytes=1024))
-    ) as http:
+    with AsgiClient(to_asgi_app(api)) as http:
         for _ in range(2):
             response = http.post("/query", headers=HEADERS, json={"dimensions": ["country"]})
             assert response.status_code == 413
@@ -315,12 +298,15 @@ def test_cached_rows_cannot_bypass_response_byte_ceiling() -> None:
 
 
 def test_stalled_response_send_times_out_without_second_status_and_releases_slot() -> None:
+    async def ok(call: Call) -> ServeResponse:
+        return ServeResponse.json({"ok": True})
+
+    api = _production_api(ProductionProfile(timeout_seconds=1))
+    api.add_route("GET", "/ok", ok, public=True)
+    app = to_asgi_app(api)
+
     async def run() -> None:
         messages: list[Message] = []
-
-        async def app(scope: Scope, receive: Receive, send: Send) -> None:
-            await send({"type": "http.response.start", "status": 200, "headers": []})
-            await send({"type": "http.response.body", "body": b"ok"})
 
         async def receive() -> Message:
             return {"type": "http.disconnect"}
@@ -330,44 +316,48 @@ def test_stalled_response_send_times_out_without_second_status_and_releases_slot
             if message["type"] == "http.response.body":
                 await asyncio.sleep(100)
 
-        middleware = ProductionLimitsMiddleware(app, ProductionProfile(timeout_seconds=1))
+        scope = {
+            "type": "http",
+            "method": "GET",
+            "path": "/ok",
+            "raw_path": b"/ok",
+            "query_string": b"",
+            "headers": [(b"host", b"testserver")],
+            "client": ("127.0.0.1", 1),
+        }
         with pytest.raises(TimeoutError):
-            await middleware({"type": "http"}, receive, send)
+            await app(scope, receive, send)
         assert [
             message["status"] for message in messages if message["type"] == "http.response.start"
         ] == [200]
-        assert middleware.active == 0
+        assert api._gate is not None
+        assert api._gate.active == 0
 
     asyncio.run(run())
 
 
 @pytest.mark.parametrize("trusted", [False, True])
 def test_production_proxy_policy(trusted: bool) -> None:
-    router = create_router(authenticate=authenticate)
-
-    @router.get("/peer")
-    async def peer(request: Request) -> dict[str, str]:
-        assert request.client is not None
-        return {"host": request.client.host, "scheme": request.url.scheme}
+    async def peer(call: Call) -> ServeResponse:
+        assert call.request.client is not None
+        return ServeResponse.json({"host": call.request.client[0]})
 
     security = HttpSecurity(
         allowed_hosts=("testserver",), trusted_proxies=("127.0.0.1",) if trusted else ()
     )
+    api = _production_api(ProductionProfile(), security=security)
+    api.add_route("GET", "/peer", peer)
 
     async def run() -> None:
-        app = create_app(router, security=security, production=ProductionProfile())
         async with httpx.AsyncClient(
-            transport=httpx.ASGITransport(app=app, client=("127.0.0.1", 123)),
+            transport=httpx.ASGITransport(app=to_asgi_app(api), client=("127.0.0.1", 123)),
             base_url="http://testserver",
         ) as http:
             response = await http.get(
                 "/peer",
                 headers={**HEADERS, "X-Forwarded-For": "192.0.2.1", "X-Forwarded-Proto": "https"},
             )
-            assert response.json() == {
-                "host": "192.0.2.1" if trusted else "127.0.0.1",
-                "scheme": "https" if trusted else "http",
-            }
+            assert response.json() == {"host": "192.0.2.1" if trusted else "127.0.0.1"}
 
     asyncio.run(run())
 
@@ -377,18 +367,18 @@ def test_real_production_runner_keeps_docs_closed_and_ignores_spoofed_proxy() ->
         probe.bind(("127.0.0.1", 0))
         port = probe.getsockname()[1]
     source = """
-from fastapi import Request
 from hypequery.serve import (
-    ProductionProfile, Principal, HttpSecurity, create_router, create_app, run_production,
+    ProductionProfile, Principal, HttpSecurity, ServeResponse, create_api, run_production,
 )
-router = create_router(authenticate=lambda credential:
-    Principal(subject="reader") if credential.value == "test" else None)
-@router.get("/peer")
-async def peer(request: Request):
-    return {"client": request.client.host, "scheme": request.url.scheme}
-app = create_app(router, security=HttpSecurity(allowed_hosts=("127.0.0.1",)),
-                 production=ProductionProfile(port=PORT))
-run_production(app)
+api = create_api(
+    auth=lambda credential: Principal(subject="reader") if credential.value == "test" else None,
+    security=HttpSecurity(allowed_hosts=("127.0.0.1",)),
+    production=ProductionProfile(port=PORT),
+)
+async def peer(call):
+    return ServeResponse.json({"client": call.request.client[0]})
+api.add_route("GET", "/peer", peer)
+run_production(api)
 """.replace("PORT", str(port))
     process = subprocess.Popen(
         [sys.executable, "-c", source], stdout=subprocess.PIPE, stderr=subprocess.PIPE
@@ -409,7 +399,7 @@ run_production(app)
                 "/peer",
                 headers={**HEADERS, "X-Forwarded-For": "192.0.2.1", "X-Forwarded-Proto": "https"},
             )
-            assert response.json() == {"client": "127.0.0.1", "scheme": "http"}
+            assert response.json() == {"client": "127.0.0.1"}
             assert "server" not in response.headers
             assert http.get("/docs").status_code == 404
     finally:
@@ -447,19 +437,16 @@ def test_sync_deadline_returns_promptly_and_retains_capacity_until_worker_stops(
                     finished.set()
             return Rows()
 
-    router = create_router(authenticate=blocked_auth)
-    add_dataset_endpoint(
-        router, "/query", dataset=DATASET, client=create_dataset_client(executor=BlockingExecutor())
+    api = _production_api(
+        ProductionProfile(timeout_seconds=1, max_concurrency=1), auth=blocked_auth
     )
-    application = create_app(
-        router,
-        security=SECURITY,
-        production=ProductionProfile(timeout_seconds=1, max_concurrency=1),
+    add_dataset_endpoint(
+        api, "/query", dataset=DATASET, client=create_dataset_client(executor=BlockingExecutor())
     )
 
     async def run() -> None:
         async with httpx.AsyncClient(
-            transport=httpx.ASGITransport(app=application), base_url="http://testserver"
+            transport=httpx.ASGITransport(app=to_asgi_app(api)), base_url="http://testserver"
         ) as http:
             try:
                 started = time.monotonic()
@@ -490,9 +477,6 @@ def test_sync_deadline_returns_promptly_and_retains_capacity_until_worker_stops(
 
 def test_expired_queued_work_is_cancelled_before_a_thread_pool_token_is_available() -> None:
     import anyio.to_thread
-    from starlette.concurrency import run_in_threadpool
-
-    from hypequery.serve.utils.request_work import request_work, run_sync
 
     started = threading.Event()
     release = threading.Event()
@@ -502,43 +486,34 @@ def test_expired_queued_work_is_cancelled_before_a_thread_pool_token_is_availabl
         started.set()
         release.wait(5)
 
+    async def queued(call: Call) -> ServeResponse:
+        try:
+            await run_sync(call.state.work, calls.append, "expired work")
+        except asyncio.CancelledError:
+            cleanup = call.state.work.start_cleanup(calls.append, "failure telemetry")
+            assert cleanup is None
+            raise
+        return ServeResponse.json({})
+
+    api = _production_api(ProductionProfile(timeout_seconds=1, max_concurrency=1))
+    api.add_route("GET", "/queued", queued, public=True)
+
     async def run() -> None:
         limiter = anyio.to_thread.current_default_thread_limiter()
         original_tokens = limiter.total_tokens
         limiter.total_tokens = 1
-        occupier = asyncio.create_task(run_in_threadpool(occupy_pool))
+        occupier = asyncio.create_task(anyio.to_thread.run_sync(occupy_pool))
         try:
             while not started.is_set():
                 await asyncio.sleep(0.01)
-
-            async def app(scope: Scope, receive: Receive, send: Send) -> None:
-                request = Request(scope)
-                try:
-                    await run_sync(request, calls.append, "expired work")
-                except asyncio.CancelledError:
-                    cleanup = request_work(request).start_cleanup(calls.append, "failure telemetry")
-                    assert cleanup is None
-                    raise
-                await send({"type": "http.response.start", "status": 200, "headers": []})
-                await send({"type": "http.response.body", "body": b"ok"})
-
-            async def receive() -> Message:
-                return {"type": "http.request", "body": b"", "more_body": False}
-
-            messages: list[Message] = []
-
-            async def send(message: Message) -> None:
-                messages.append(message)
-
-            middleware = ProductionLimitsMiddleware(
-                app, ProductionProfile(timeout_seconds=1, max_concurrency=1)
-            )
-            await middleware(
-                {"type": "http", "method": "GET", "path": "/", "headers": []}, receive, send
-            )
-            assert messages[0]["status"] == 504
+            async with httpx.AsyncClient(
+                transport=httpx.ASGITransport(app=to_asgi_app(api)), base_url="http://testserver"
+            ) as http:
+                response = await http.get("/queued")
+            assert response.status_code == 504
             await asyncio.sleep(0.05)
-            assert middleware.active == 0
+            assert api._gate is not None
+            assert api._gate.active == 0
             assert calls == []
             assert not release.is_set()
         finally:

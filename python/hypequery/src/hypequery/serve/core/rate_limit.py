@@ -19,17 +19,16 @@ import math
 import threading
 import time
 from collections.abc import Awaitable, Callable
-from typing import Any, Protocol, runtime_checkable
+from typing import Protocol, runtime_checkable
 
 from .auth import RequestAuth
 from .errors import serve_error
+from .messages import ServeRequest
 
 DEFAULT_MESSAGE = "Too many requests, please try again later"
 
 #: Picks the caller to count a request against, or None to leave it unlimited.
-#: The request is the adapter's: a `ServeRequest` in the core, the framework's
-#: own request in the FastAPI layer. Both carry `client` and `headers`.
-RateLimitKey = Callable[[Any, RequestAuth | None], str | None]
+RateLimitKey = Callable[[ServeRequest, RequestAuth | None], str | None]
 
 
 @runtime_checkable
@@ -86,7 +85,7 @@ class MemoryRateLimitStore:
                 del self._windows[key]
 
 
-def default_key(request: Any, auth: RequestAuth | None) -> str | None:
+def default_key(request: ServeRequest, auth: RequestAuth | None) -> str | None:
     """The principal if authenticated, else the client address."""
 
     if auth is not None:
@@ -97,7 +96,6 @@ def default_key(request: Any, auth: RequestAuth | None) -> str | None:
         identity = f"{len(tenant)}:{tenant}{auth.principal.subject}"
         digest = hashlib.sha256(identity.encode("utf-8")).hexdigest()
         return f"principal:{digest[:32]}"
-    # A `(host, port)` pair from either adapter: Starlette's address is one too.
     client = request.client
     return f"client:{client[0]}" if client is not None and client[0] else None
 
@@ -133,13 +131,7 @@ class RateLimit:
         self._headers = headers
         self._message = message
 
-    @property
-    def can_run_before_body(self) -> bool:
-        """Whether the key needs only the route's already-established context."""
-
-        return self._key is default_key
-
-    async def check(self, request: Any, auth: RequestAuth | None, path: str) -> None:
+    async def check(self, request: ServeRequest, auth: RequestAuth | None, path: str) -> None:
         """Count *request* against this limit on *path*; raise when it is exhausted."""
 
         caller = self._key(request, auth)

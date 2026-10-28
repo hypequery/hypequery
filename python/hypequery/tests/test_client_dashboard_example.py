@@ -9,8 +9,8 @@ from pathlib import Path
 
 import pytest
 from examples.client_dashboard import api, definitions
-from fastapi.testclient import TestClient
 
+from asgi_client import AsgiClient
 from hypequery.protocol import validate_protocol_client_query
 from hypequery.serve import export_client_contract
 
@@ -53,7 +53,7 @@ def test_tutorial_installed_contract_matches_offline_schema(
     app = api.create_application()
     installed = export_client_contract(app)["contract"]
     assert installed == definitions.build()["contract"]
-    with TestClient(app, base_url="http://localhost") as http:
+    with AsgiClient(app, base_url="http://localhost") as http:
         assert http.get("/v1/client-contract").status_code == 401
         response = http.get("/v1/client-contract", headers={"Authorization": "Bearer token-a"})
         assert response.status_code == 200
