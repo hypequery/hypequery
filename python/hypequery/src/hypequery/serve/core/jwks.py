@@ -118,7 +118,9 @@ class RemoteJwks:
         "_cooldown",
         "_fetched_at",
         "_fetching",
+        "_generation",
         "_keys",
+        "_keys_generation",
         "_lock",
         "_pending",
         "_pending_deadline",
@@ -137,6 +139,10 @@ class RemoteJwks:
         self._pending: Future[list[dict[str, Any]]] | None = None
         self._pending_deadline = 0.0
         self._fetching = 0
+        #: Each fetch's number, in the order they started, and the number of
+        #: the fetch whose keys are cached.
+        self._generation = 0
+        self._keys_generation = 0
 
     async def keys(self) -> list[dict[str, Any]]:
         """The cached keys, fetched first when there are none or they are stale."""
@@ -188,29 +194,40 @@ class RemoteJwks:
             self._pending = pending
             self._pending_deadline = now + self._timeout
             self._fetching += 1
+            self._generation += 1
+            generation = self._generation
         threading.Thread(
-            target=self._fetch, args=(pending,), name="hypequery-jwks", daemon=True
+            target=self._fetch, args=(pending, generation), name="hypequery-jwks", daemon=True
         ).start()
         return pending, now + self._timeout
 
-    def _fetch(self, pending: Future[list[dict[str, Any]]]) -> None:
+    def _fetch(self, pending: Future[list[dict[str, Any]]], generation: int) -> None:
         try:
             keys = fetch_jwks(self.url, self._timeout)
         except BaseException as exc:
-            self._finished(pending, None)
+            self._finished(pending, generation, None)
             pending.set_exception(exc)
             return
-        self._finished(pending, keys)
+        self._finished(pending, generation, keys)
         pending.set_result(keys)
 
     def _finished(
-        self, pending: Future[list[dict[str, Any]]], keys: list[dict[str, Any]] | None
+        self,
+        pending: Future[list[dict[str, Any]]],
+        generation: int,
+        keys: list[dict[str, Any]] | None,
     ) -> None:
         with self._lock:
             self._fetching -= 1
-            if self._pending is pending:
+            current = self._pending is pending
+            if current:
                 self._pending = None
-            if keys is not None:
-                # Even from an abandoned fetch, a key set is a key set.
+            # Only the fetch in flight updates the cache, and never with keys
+            # older than those cached. An abandoned fetch finishing late may
+            # carry the set from before a rotation; storing it would refuse
+            # tokens signed with the new key, and restart the cooldown that
+            # would let the cache recover. Its own waiters still get its keys.
+            if keys is not None and current and generation > self._keys_generation:
                 self._keys = keys
+                self._keys_generation = generation
                 self._fetched_at = _monotonic()

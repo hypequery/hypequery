@@ -17,7 +17,6 @@ import threading
 import time
 import warnings
 from collections.abc import Iterator, Mapping
-from concurrent.futures import Future
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
@@ -774,7 +773,9 @@ def test_a_refused_response_is_closed(server: JwksServer, monkeypatch: pytest.Mo
 
 def _never_finishing(monkeypatch: pytest.MonkeyPatch) -> list[object]:
     started: list[object] = []
-    monkeypatch.setattr(RemoteJwks, "_fetch", lambda self, pending: started.append(pending))
+    monkeypatch.setattr(
+        RemoteJwks, "_fetch", lambda self, pending, generation: started.append(pending)
+    )
     return started
 
 
@@ -829,15 +830,61 @@ def test_a_waiter_never_waits_past_the_fetch_deadline(monkeypatch: pytest.Monkey
     assert asyncio.run(late_joiner()) < 0.35
 
 
-def test_an_abandoned_fetch_that_succeeds_still_stores_its_keys() -> None:
-    remote = RemoteJwks("https://idp.example.com/jwks", timeout=1, cache_max_age=60, cooldown=0)
-    current: Future[list[dict[str, Any]]] = Future()
-    remote._pending = current
-    remote._fetching = 2
-    remote._finished(Future(), [{"kty": "RSA"}])
-    assert remote._pending is current
-    assert remote._keys == [{"kty": "RSA"}]
-    assert remote._fetching == 1
+def test_an_abandoned_fetch_finishing_late_never_replaces_newer_keys(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    clock = [0.0]
+    monkeypatch.setattr(jwks, "_monotonic", lambda: clock[0])
+    # Each fetch returns its key set only when the test releases it.
+    releases = [threading.Event(), threading.Event()]
+    key_sets = [[{"kid": "before-rotation"}], [{"kid": "after-rotation"}]]
+    calls: list[int] = []
+
+    def fetch(url: str, timeout: float) -> list[dict[str, Any]]:
+        index = len(calls)
+        calls.append(index)
+        releases[index].wait()
+        return key_sets[index]
+
+    monkeypatch.setattr(jwks, "fetch_jwks", fetch)
+    remote = RemoteJwks("https://idp.example.com/jwks", timeout=1, cache_max_age=600, cooldown=30)
+
+    abandoned, _ = remote._start()
+    clock[0] = 1.0  # past the first fetch's deadline
+    replacement, _ = remote._start()
+    clock[0] = 2.0
+    releases[1].set()
+    assert replacement.result(5) == key_sets[1]
+    assert (remote._keys, remote._fetched_at) == (key_sets[1], 2.0)
+
+    clock[0] = 3.0
+    releases[0].set()
+    # Its own waiters get its result; the cache and the cooldown do not.
+    assert abandoned.result(5) == key_sets[0]
+    assert (remote._keys, remote._fetched_at) == (key_sets[1], 2.0)
+    assert remote._fetching == 0
+
+
+def test_an_abandoned_fetch_never_fills_the_cache(monkeypatch: pytest.MonkeyPatch) -> None:
+    clock = [0.0]
+    monkeypatch.setattr(jwks, "_monotonic", lambda: clock[0])
+    release = threading.Event()
+
+    def fetch(url: str, timeout: float) -> list[dict[str, Any]]:
+        release.wait()
+        return [{"kid": "late"}]
+
+    monkeypatch.setattr(jwks, "fetch_jwks", fetch)
+    remote = RemoteJwks("https://idp.example.com/jwks", timeout=1, cache_max_age=600, cooldown=30)
+    abandoned, _ = remote._start()
+    clock[0] = 1.0
+    # The replacement is in flight (and never finishes in this test).
+    monkeypatch.setattr(RemoteJwks, "_fetch", lambda self, pending, generation: None)
+    remote._start()
+
+    release.set()
+    assert abandoned.result(5) == [{"kid": "late"}]
+    assert remote._keys is None
 
 
 def test_key_selection_follows_jose() -> None:
@@ -867,7 +914,7 @@ def test_key_sets_need_cryptography(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_a_fetch_that_never_finishes_times_out_the_wait(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(RemoteJwks, "_fetch", lambda self, pending: None)
+    monkeypatch.setattr(RemoteJwks, "_fetch", lambda self, pending, generation: None)
     remote = RemoteJwks("https://idp.example.com/jwks", timeout=0.05, cache_max_age=60, cooldown=0)
     with pytest.raises(JwksUnavailable, match="too long"):
         asyncio.run(remote.reload())
