@@ -3,11 +3,23 @@
 - Status: Accepted
 - Accepted: 2026-09-28
 - Version: capability contract 1, cache preimage 1
+- Amended 2026-10-28: the request-input construction rule states what both
+  runtimes enforce
+  ([decision 0023 §4](../decisions/0023-python-serve-mirrors-typescript.md))
 
 Acceptance freezes capability contract 1 and cache preimage 1. Changing a
 capability class, a construction rule, the tenant fingerprint derivation, the
 preimage fields or normalization, the validation order, or a stable code now
 requires a new version, not an edit.
+
+The 2026-10-28 amendment restates the request-input construction rule without
+changing the contract. The earlier wording named "the opaque credentials passed
+to the authenticator" as the only request input an authenticator could read.
+TypeScript's `fromContext` strategy already read the host's session through the
+framework request, and Python's `from_context` (decision 0023) does the same.
+The invariant is unchanged: identity comes only from trusted host code, never
+from data a caller can choose, and the tenant still comes only from the
+principal.
 
 ## Summary
 
@@ -60,9 +72,15 @@ target, and the access time — never a client-writable log line.
 - Capabilities are created only by trusted server components: the
   authenticator, the tenant resolver, and control-plane authorization.
 - The authenticator's principal is the sole source of role and scope
-  assertions. Request input — headers, query parameters, bodies, or tokens
-  beyond the opaque credentials passed to the authenticator — MUST NOT
-  contribute roles, scopes, tenant identity, or administrative status.
+  assertions. Hypequery itself MUST NOT derive roles, scopes, tenant
+  identity, or administrative status from request input.
+- Only the host's auth strategy, which is trusted host code, may derive the
+  principal from the request. It may verify a credential (a bearer token, an
+  API key, a signed JWT) or read the host's own server-side session state
+  through the original framework request. It is the authenticator in this
+  RFC's sense.
+- Query bodies, endpoint inputs, and client-contract fields MUST NOT select
+  or change a tenant, scope, or role, whatever the auth strategy.
 - Tenant identity is established only by the tenant resolver from the
   authenticated principal and the deployment's declared tenant policy. There is
   no ambient, default, or inherited tenant context.

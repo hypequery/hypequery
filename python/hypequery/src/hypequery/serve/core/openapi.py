@@ -15,6 +15,7 @@ from pydantic import TypeAdapter
 from pydantic.json_schema import JsonSchemaValue
 
 from .api import Api, Call, Route
+from .jwt_auth import JwtStrategy
 from .messages import ServeResponse
 from .openapi_info import OpenApiInfo
 from .utils.docs_html import docs_html
@@ -124,6 +125,8 @@ def _operation(
 def _security_scheme(api: Api) -> dict[str, str]:
     transport = api.authentication.credentials
     if transport.kind == "bearer" and transport.header == "authorization":
+        if isinstance(api.authentication.authenticate, JwtStrategy):
+            return {"type": "http", "scheme": "bearer", "bearerFormat": "JWT"}
         return {"type": "http", "scheme": "bearer"}
     return {"type": "apiKey", "in": "header", "name": transport.header}
 

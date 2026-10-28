@@ -1,0 +1,394 @@
+{
+  "version": 1,
+  "secret": "hypequery-jwt-v1-fixture-secret-not-for-production-use",
+  "jwks": {
+    "keys": [
+      {
+        "kty": "RSA",
+        "n": "kcMvI2iUzJH3YMh35MHOTro66GhoELk98ny9qwNr379Qpj-SKpFFFar9-5sExlgu9cG_3G4UqTQY40rw0CUgCd6udlUP07gGt_l6oSSQEqmbiU8YNwUZP7PTkzUBqtrkcjLB3wqr_SXWqzjRs4G19ZZz46JNR8ZjQYlTx95FJF9MzybHcrRmEOlyy_ZMAt7b360T8b6EiCU8laKrErPW0xVf7_pX6bbO-r6R-fev3dZxLGQolsZkEDMw8hC5fyOmY5wkd8nCcW-4TXhCRqWRUURUGJ09O8euzW1cBVdpWJEnthU6A5KsFEhcA6UcGsi3dD3eLonlVUAHfH38HRzV7Q",
+        "e": "AQAB",
+        "kid": "rsa-1",
+        "alg": "RS256",
+        "use": "sig"
+      },
+      {
+        "kty": "RSA",
+        "n": "z9ZGtPALilWKWVkypbBV1Hb0ME0L0_HrzVpHmOTsTuKnMr4Bbw24533HlwJ69Z8csEPYA8ooD0eaZsyHz0rW0Pib_wZoSF1EZoa_Nk4f4cKtW75x90O_093XT7JArRN1ukZSm4TaSaPNscbeFRYV3LHweN9v2i-jkn0BMcsMZ4XO-jtiYt8AU5rUC1dYi2y5G8H1bkwNpX-8576Dqstf-nd1jgd1HhpYqFBig7jCfVUbAKKNeeYFIvVVw5RX2cQNlJErXJ-bwypTj0DYCkO6Swz57u9aWS8wpdfj1DO9XCNbVPxwqyPrlc81nrvZtjnznS3KREt_8m5_4iliX-we9w",
+        "e": "AQAB",
+        "kid": "rsa-2",
+        "use": "sig"
+      },
+      {
+        "kty": "EC",
+        "x": "-pxbAruTjTPYPPQFMG1Vj0owOS3bghivrUvl7D0QzZQ",
+        "y": "npjYbI_rHglnNOD_e5599ckfGbK_xlr6pIGqDf4vuZg",
+        "crv": "P-256",
+        "kid": "ec-1",
+        "alg": "ES256",
+        "use": "sig"
+      }
+    ]
+  },
+  "verifiers": {
+    "secret": {
+      "key": "secret",
+      "issuer": "https://issuer.hypequery.test/",
+      "audience": "https://api.hypequery.test"
+    },
+    "secret-open": {
+      "key": "secret"
+    },
+    "secret-multi": {
+      "key": "secret",
+      "issuer": [
+        "https://other-issuer.hypequery.test/",
+        "https://issuer.hypequery.test/"
+      ],
+      "audience": [
+        "https://other-api.hypequery.test",
+        "https://api.hypequery.test"
+      ]
+    },
+    "jwks": {
+      "key": "jwks",
+      "issuer": "https://issuer.hypequery.test/",
+      "audience": "https://api.hypequery.test"
+    },
+    "jwks-es256": {
+      "key": "jwks",
+      "issuer": "https://issuer.hypequery.test/",
+      "audience": "https://api.hypequery.test",
+      "algorithms": [
+        "ES256"
+      ]
+    }
+  },
+  "refusal": {
+    "status": 401,
+    "type": "UNAUTHORIZED",
+    "message": "Access denied",
+    "details": {
+      "reason": "invalid_credentials"
+    }
+  },
+  "issuer": {
+    "issuedAt": 1767225600,
+    "options": {
+      "issuer": "https://issuer.hypequery.test/",
+      "audience": "https://api.hypequery.test",
+      "expiresInSeconds": 2335219200
+    },
+    "claims": {
+      "subject": "user-1",
+      "tenantId": "acme",
+      "roles": [
+        "analyst"
+      ]
+    },
+    "payload": {
+      "org_id": "acme",
+      "roles": [
+        "analyst"
+      ],
+      "sub": "user-1",
+      "iat": 1767225600,
+      "exp": 4102444800,
+      "iss": "https://issuer.hypequery.test/",
+      "aud": "https://api.hypequery.test"
+    },
+    "tokens": {
+      "typescript": "eyJhbGciOiJIUzI1NiJ9.eyJvcmdfaWQiOiJhY21lIiwicm9sZXMiOlsiYW5hbHlzdCJdLCJzdWIiOiJ1c2VyLTEiLCJpYXQiOjE3NjcyMjU2MDAsImV4cCI6NDEwMjQ0NDgwMCwiaXNzIjoiaHR0cHM6Ly9pc3N1ZXIuaHlwZXF1ZXJ5LnRlc3QvIiwiYXVkIjoiaHR0cHM6Ly9hcGkuaHlwZXF1ZXJ5LnRlc3QifQ.AYyQd6YF7thl2WKKfS7lgGjZjMmIZQNsudud-5tFfoE",
+      "python": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJvcmdfaWQiOiJhY21lIiwicm9sZXMiOlsiYW5hbHlzdCJdLCJzdWIiOiJ1c2VyLTEiLCJpYXQiOjE3NjcyMjU2MDAsImV4cCI6NDEwMjQ0NDgwMCwiaXNzIjoiaHR0cHM6Ly9pc3N1ZXIuaHlwZXF1ZXJ5LnRlc3QvIiwiYXVkIjoiaHR0cHM6Ly9hcGkuaHlwZXF1ZXJ5LnRlc3QifQ.wfHK7U6KZvzbHO5faCfb1cO98fXz9o3Zg8p0hm9gJPw"
+    }
+  },
+  "accept": [
+    {
+      "id": "typescript-issuer",
+      "verifier": "secret",
+      "token": "eyJhbGciOiJIUzI1NiJ9.eyJvcmdfaWQiOiJhY21lIiwicm9sZXMiOlsiYW5hbHlzdCJdLCJzdWIiOiJ1c2VyLTEiLCJpYXQiOjE3NjcyMjU2MDAsImV4cCI6NDEwMjQ0NDgwMCwiaXNzIjoiaHR0cHM6Ly9pc3N1ZXIuaHlwZXF1ZXJ5LnRlc3QvIiwiYXVkIjoiaHR0cHM6Ly9hcGkuaHlwZXF1ZXJ5LnRlc3QifQ.AYyQd6YF7thl2WKKfS7lgGjZjMmIZQNsudud-5tFfoE",
+      "principal": {
+        "subject": "user-1",
+        "tenantId": "acme",
+        "roles": [
+          "analyst"
+        ],
+        "scopes": []
+      }
+    },
+    {
+      "id": "python-issuer",
+      "verifier": "secret",
+      "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJvcmdfaWQiOiJhY21lIiwicm9sZXMiOlsiYW5hbHlzdCJdLCJzdWIiOiJ1c2VyLTEiLCJpYXQiOjE3NjcyMjU2MDAsImV4cCI6NDEwMjQ0NDgwMCwiaXNzIjoiaHR0cHM6Ly9pc3N1ZXIuaHlwZXF1ZXJ5LnRlc3QvIiwiYXVkIjoiaHR0cHM6Ly9hcGkuaHlwZXF1ZXJ5LnRlc3QifQ.wfHK7U6KZvzbHO5faCfb1cO98fXz9o3Zg8p0hm9gJPw",
+      "principal": {
+        "subject": "user-1",
+        "tenantId": "acme",
+        "roles": [
+          "analyst"
+        ],
+        "scopes": []
+      }
+    },
+    {
+      "id": "scope-string",
+      "verifier": "secret",
+      "token": "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ1c2VyLTEiLCJpc3MiOiJodHRwczovL2lzc3Vlci5oeXBlcXVlcnkudGVzdC8iLCJhdWQiOiJodHRwczovL2FwaS5oeXBlcXVlcnkudGVzdCIsImlhdCI6MTc2NzIyNTYwMCwiZXhwIjo0MTAyNDQ0ODAwLCJyb2xlcyI6WyJhZG1pbiIsImFuYWx5c3QiXSwic2NvcGUiOiJyZWFkOm1ldHJpY3MgIHdyaXRlOm1ldHJpY3MifQ.9lUG0EZTBI3oV8yFWJnqE8oyKL6kSry8Uv31W3fEZx8",
+      "principal": {
+        "subject": "user-1",
+        "tenantId": null,
+        "roles": [
+          "admin",
+          "analyst"
+        ],
+        "scopes": [
+          "read:metrics",
+          "write:metrics"
+        ]
+      }
+    },
+    {
+      "id": "scopes-array-and-wrong-types-dropped",
+      "verifier": "secret",
+      "token": "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ1c2VyLTEiLCJpc3MiOiJodHRwczovL2lzc3Vlci5oeXBlcXVlcnkudGVzdC8iLCJhdWQiOiJodHRwczovL2FwaS5oeXBlcXVlcnkudGVzdCIsImlhdCI6MTc2NzIyNTYwMCwiZXhwIjo0MTAyNDQ0ODAwLCJvcmdfaWQiOjQyLCJyb2xlcyI6WyJhZG1pbiIsN10sInNjb3BlcyI6WyJhIiwxLCJiIl19.2r8V9CdAv9Axl3yjs6WYH3IF95dihe5k9SwxzzbHpBE",
+      "principal": {
+        "subject": "user-1",
+        "tenantId": null,
+        "roles": [
+          "admin"
+        ],
+        "scopes": [
+          "a",
+          "b"
+        ]
+      }
+    },
+    {
+      "id": "scope-wins-over-scopes",
+      "verifier": "secret",
+      "token": "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ1c2VyLTEiLCJpc3MiOiJodHRwczovL2lzc3Vlci5oeXBlcXVlcnkudGVzdC8iLCJhdWQiOiJodHRwczovL2FwaS5oeXBlcXVlcnkudGVzdCIsImlhdCI6MTc2NzIyNTYwMCwiZXhwIjo0MTAyNDQ0ODAwLCJzY29wZSI6ImEiLCJzY29wZXMiOlsiYiJdfQ.BhBT_RuB4rqgznsD8f1LAEjhbSlb-BY-KTN30rRr5pk",
+      "principal": {
+        "subject": "user-1",
+        "tenantId": null,
+        "roles": [],
+        "scopes": [
+          "a"
+        ]
+      }
+    },
+    {
+      "id": "null-scope-falls-back-to-scopes",
+      "verifier": "secret",
+      "token": "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ1c2VyLTEiLCJpc3MiOiJodHRwczovL2lzc3Vlci5oeXBlcXVlcnkudGVzdC8iLCJhdWQiOiJodHRwczovL2FwaS5oeXBlcXVlcnkudGVzdCIsImlhdCI6MTc2NzIyNTYwMCwiZXhwIjo0MTAyNDQ0ODAwLCJzY29wZSI6bnVsbCwic2NvcGVzIjpbImIiXX0.Z2--zpoREOpRw0yqyZSoMwV1hvDg6iOZhd-P_h6-TW4",
+      "principal": {
+        "subject": "user-1",
+        "tenantId": null,
+        "roles": [],
+        "scopes": [
+          "b"
+        ]
+      }
+    },
+    {
+      "id": "audience-array-contains-expected",
+      "verifier": "secret",
+      "token": "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ1c2VyLTEiLCJpc3MiOiJodHRwczovL2lzc3Vlci5oeXBlcXVlcnkudGVzdC8iLCJhdWQiOlsiaHR0cHM6Ly9vdGhlci1hcGkuaHlwZXF1ZXJ5LnRlc3QiLCJodHRwczovL2FwaS5oeXBlcXVlcnkudGVzdCJdLCJpYXQiOjE3NjcyMjU2MDAsImV4cCI6NDEwMjQ0NDgwMH0.kQYKBSjLgGDAbrMeO_NZ4oPBsIGUi92gv9nM5C1jJyU",
+      "principal": {
+        "subject": "user-1",
+        "tenantId": null,
+        "roles": [],
+        "scopes": []
+      }
+    },
+    {
+      "id": "one-of-several-issuers-and-audiences",
+      "verifier": "secret-multi",
+      "token": "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ1c2VyLTEiLCJpc3MiOiJodHRwczovL2lzc3Vlci5oeXBlcXVlcnkudGVzdC8iLCJhdWQiOiJodHRwczovL2FwaS5oeXBlcXVlcnkudGVzdCIsImlhdCI6MTc2NzIyNTYwMCwiZXhwIjo0MTAyNDQ0ODAwfQ.8w4jDkJf4P5U0Zgm3i3VwK6nPfSUJXcASsqPhJhrCm4",
+      "principal": {
+        "subject": "user-1",
+        "tenantId": null,
+        "roles": [],
+        "scopes": []
+      }
+    },
+    {
+      "id": "unchecked-issuer-audience-and-no-exp",
+      "verifier": "secret-open",
+      "note": "Pins current behaviour: with no issuer or audience configured neither is checked, and exp is not required. See README.",
+      "token": "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ1c2VyLTEiLCJpc3MiOiJodHRwczovL290aGVyLWlzc3Vlci5oeXBlcXVlcnkudGVzdC8iLCJhdWQiOiJodHRwczovL290aGVyLWFwaS5oeXBlcXVlcnkudGVzdCJ9.N7GIhfW1Ey3tebUQajGuL3aWF2bEauOuQ31GUAlk6rc",
+      "principal": {
+        "subject": "user-1",
+        "tenantId": null,
+        "roles": [],
+        "scopes": []
+      }
+    },
+    {
+      "id": "iat-in-the-future",
+      "verifier": "secret",
+      "note": "iat is type-checked but not compared with the clock, as jose does.",
+      "token": "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ1c2VyLTEiLCJpc3MiOiJodHRwczovL2lzc3Vlci5oeXBlcXVlcnkudGVzdC8iLCJhdWQiOiJodHRwczovL2FwaS5oeXBlcXVlcnkudGVzdCIsImlhdCI6NDEwMjQ0NDc5OSwiZXhwIjo0MTAyNDQ0ODAwLCJuYmYiOjE3NjcyMjU2MDB9.NXNEwzkBT5pjMR9aJGstwu4jY4R6VvZjycOTnXKfb7Q",
+      "principal": {
+        "subject": "user-1",
+        "tenantId": null,
+        "roles": [],
+        "scopes": []
+      }
+    },
+    {
+      "id": "jwks-rs256-by-kid",
+      "verifier": "jwks",
+      "token": "eyJhbGciOiJSUzI1NiIsImtpZCI6InJzYS0xIn0.eyJzdWIiOiJ1c2VyLTEiLCJpc3MiOiJodHRwczovL2lzc3Vlci5oeXBlcXVlcnkudGVzdC8iLCJhdWQiOiJodHRwczovL2FwaS5oeXBlcXVlcnkudGVzdCIsImlhdCI6MTc2NzIyNTYwMCwiZXhwIjo0MTAyNDQ0ODAwLCJvcmdfaWQiOiJhY21lIiwic2NvcGUiOiJyZWFkOm1ldHJpY3MifQ.dFXzbBwy-KJNgqF1HRX_dJY4wFs1v5iQF1JKR34HoogTutxHMe4dfKHLBCyBdHdsALjQ3JRC4yVsfkzR40whRD9yiCDLOOgHgW-7DTHJ8mC3HMHyoIwz6-CglwJd_beZ6jRikwhuvd2_ZUiRyCRF-pmeavhOq65I5xe7K4mmbRdvQAueFLrxi8kTtVCeGTl8dwnTPXwwtBS5Ld-yMXAdUvsUGB_q8olMPIYzSX-TLnYZyzQBgYzfmSvKH9DwBPZdLvnODxH9iaii3htVulyKQQsgPL8ICIPiKXFsi_vwNaQHT1BPv6EW2YA8Hx8QfcpNlmZRa2fliipVzXYqN-MqCA",
+      "principal": {
+        "subject": "user-1",
+        "tenantId": "acme",
+        "roles": [],
+        "scopes": [
+          "read:metrics"
+        ]
+      }
+    },
+    {
+      "id": "jwks-key-without-alg",
+      "verifier": "jwks",
+      "token": "eyJhbGciOiJSUzI1NiIsImtpZCI6InJzYS0yIn0.eyJzdWIiOiJ1c2VyLTEiLCJpc3MiOiJodHRwczovL2lzc3Vlci5oeXBlcXVlcnkudGVzdC8iLCJhdWQiOiJodHRwczovL2FwaS5oeXBlcXVlcnkudGVzdCIsImlhdCI6MTc2NzIyNTYwMCwiZXhwIjo0MTAyNDQ0ODAwfQ.yTDDPsvmEbFgth61O2B4enATTc9-tqQ-POaCtGm4DwK2ZZ7fgNd1vpDMI4tfgMUe8sAFpO-R5v0fh2vaVxpohXyz1vdlu4gzWs0Co1tfMWrVQd2D0KIvnvoJk43lJ_Hw7SY6rYFYeQb8irKLCy6jLtN4-uw4It04tudQv2364km1Wyy0fymFI9fXhNsJfmRbRmd9WPAgdhjqnm5rBRsgUAmoImlOt64YTyQ39MXMuGbINJhyPy4qIsYlsnZkudR09qE6Qix-X6okMsNcuIoTG42KvSMW50Y-FwIB1A5US-bk2h6B5Np5pzDvMjkDFlTLBxdFWK26wkqTEEEaIJANvA",
+      "principal": {
+        "subject": "user-1",
+        "tenantId": null,
+        "roles": [],
+        "scopes": []
+      }
+    },
+    {
+      "id": "jwks-es256-single-candidate-without-kid",
+      "verifier": "jwks-es256",
+      "token": "eyJhbGciOiJFUzI1NiJ9.eyJzdWIiOiJ1c2VyLTEiLCJpc3MiOiJodHRwczovL2lzc3Vlci5oeXBlcXVlcnkudGVzdC8iLCJhdWQiOiJodHRwczovL2FwaS5oeXBlcXVlcnkudGVzdCIsImlhdCI6MTc2NzIyNTYwMCwiZXhwIjo0MTAyNDQ0ODAwfQ.1z-IgAbl3HC1rPMJoVgH4Wu7qXabPywMy28UtkbZRoPtrTZygVjurwMskCzWUf0NQ2UsbbS0IxZQrv5kcMXnBg",
+      "principal": {
+        "subject": "user-1",
+        "tenantId": null,
+        "roles": [],
+        "scopes": []
+      }
+    }
+  ],
+  "reject": [
+    {
+      "id": "expired",
+      "verifier": "secret",
+      "token": "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ1c2VyLTEiLCJpc3MiOiJodHRwczovL2lzc3Vlci5oeXBlcXVlcnkudGVzdC8iLCJhdWQiOiJodHRwczovL2FwaS5oeXBlcXVlcnkudGVzdCIsImlhdCI6MTc2NzIyNTYwMCwiZXhwIjoxNzY3MjI5MjAwfQ.DMa4htfXe4BG6DiUf0QqsNgxB_dWSmRLQRN3sluipYA"
+    },
+    {
+      "id": "not-yet-valid",
+      "verifier": "secret",
+      "token": "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ1c2VyLTEiLCJpc3MiOiJodHRwczovL2lzc3Vlci5oeXBlcXVlcnkudGVzdC8iLCJhdWQiOiJodHRwczovL2FwaS5oeXBlcXVlcnkudGVzdCIsImlhdCI6MTc2NzIyNTYwMCwiZXhwIjo0MTAyNDQ0ODAwLCJuYmYiOjQxMDI0NDQ4MDB9.QXTkxTguedY2tl6xCqF5Sp1kCz_PL-ILJ0hk_8a7JUY"
+    },
+    {
+      "id": "wrong-audience",
+      "verifier": "secret",
+      "token": "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ1c2VyLTEiLCJpc3MiOiJodHRwczovL2lzc3Vlci5oeXBlcXVlcnkudGVzdC8iLCJhdWQiOiJodHRwczovL290aGVyLWFwaS5oeXBlcXVlcnkudGVzdCIsImlhdCI6MTc2NzIyNTYwMCwiZXhwIjo0MTAyNDQ0ODAwfQ.pxy2mfwPNBBOAIUu6HVFbqoYj6-ORsg_GQOVpwVis9Y"
+    },
+    {
+      "id": "missing-audience",
+      "verifier": "secret",
+      "token": "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ1c2VyLTEiLCJpc3MiOiJodHRwczovL2lzc3Vlci5oeXBlcXVlcnkudGVzdC8iLCJpYXQiOjE3NjcyMjU2MDAsImV4cCI6NDEwMjQ0NDgwMH0.A4dCOIUJM2nsjp_ouWMfqidH4JECKRK6vfrLyjoZ_wk"
+    },
+    {
+      "id": "wrong-issuer",
+      "verifier": "secret",
+      "token": "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ1c2VyLTEiLCJpc3MiOiJodHRwczovL290aGVyLWlzc3Vlci5oeXBlcXVlcnkudGVzdC8iLCJhdWQiOiJodHRwczovL2FwaS5oeXBlcXVlcnkudGVzdCIsImlhdCI6MTc2NzIyNTYwMCwiZXhwIjo0MTAyNDQ0ODAwfQ.99eYaXUfMO3nblIWm51EBYx0ZlAQDc_fMiTytGlgpVg"
+    },
+    {
+      "id": "missing-issuer",
+      "verifier": "secret",
+      "token": "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ1c2VyLTEiLCJhdWQiOiJodHRwczovL2FwaS5oeXBlcXVlcnkudGVzdCIsImlhdCI6MTc2NzIyNTYwMCwiZXhwIjo0MTAyNDQ0ODAwfQ.8oRC86CLq0wP4J-qyXkPHKARg2mpWZ0sKxZhq0EJdC4"
+    },
+    {
+      "id": "alg-none-secret",
+      "verifier": "secret",
+      "token": "eyJhbGciOiJub25lIn0.eyJzdWIiOiJ1c2VyLTEiLCJpc3MiOiJodHRwczovL2lzc3Vlci5oeXBlcXVlcnkudGVzdC8iLCJhdWQiOiJodHRwczovL2FwaS5oeXBlcXVlcnkudGVzdCIsImlhdCI6MTc2NzIyNTYwMCwiZXhwIjo0MTAyNDQ0ODAwfQ."
+    },
+    {
+      "id": "alg-none-jwks",
+      "verifier": "jwks",
+      "token": "eyJhbGciOiJub25lIn0.eyJzdWIiOiJ1c2VyLTEiLCJpc3MiOiJodHRwczovL2lzc3Vlci5oeXBlcXVlcnkudGVzdC8iLCJhdWQiOiJodHRwczovL2FwaS5oeXBlcXVlcnkudGVzdCIsImlhdCI6MTc2NzIyNTYwMCwiZXhwIjo0MTAyNDQ0ODAwfQ."
+    },
+    {
+      "id": "hs256-signed-with-the-rsa-public-key",
+      "verifier": "jwks",
+      "token": "eyJhbGciOiJIUzI1NiIsImtpZCI6InJzYS0xIn0.eyJzdWIiOiJ1c2VyLTEiLCJpc3MiOiJodHRwczovL2lzc3Vlci5oeXBlcXVlcnkudGVzdC8iLCJhdWQiOiJodHRwczovL2FwaS5oeXBlcXVlcnkudGVzdCIsImlhdCI6MTc2NzIyNTYwMCwiZXhwIjo0MTAyNDQ0ODAwfQ.7BWYAjgNdVwo85mrp9c2n8DOAkKVU_BuQjRQL9cGKJQ"
+    },
+    {
+      "id": "rs256-for-a-secret-verifier",
+      "verifier": "secret",
+      "token": "eyJhbGciOiJSUzI1NiIsImtpZCI6InJzYS0xIn0.eyJzdWIiOiJ1c2VyLTEiLCJpc3MiOiJodHRwczovL2lzc3Vlci5oeXBlcXVlcnkudGVzdC8iLCJhdWQiOiJodHRwczovL2FwaS5oeXBlcXVlcnkudGVzdCIsImlhdCI6MTc2NzIyNTYwMCwiZXhwIjo0MTAyNDQ0ODAwfQ.NNrIFGH7gtC6arKvT4WYNN6TbRTGrgJXEN1P562P5Rmjr7CeOCfeiC-s_5sWLU7fhjTEIX-o5tT9bweKmZKQTEArTgXxUvZDARAaxWB23yV6gDhQFLNe23zzopkM4CMuiWY03opv1AFMGNknSz4aN7NwBHH5nk5aHJ83BW-JlxB34tCfso_wqSy-PXic8Hhjb2KAyLniYASAxJieHrDsVfyxPdTJo9nuV-n1aoxE_jpifb11WqDx2pmBu-nA--osff9ZWObeEx-vsZ_kfz5v0w6FxRZ21Ab9Ye67PZifZvnog3UeZ8JzieQB2a9o1cRR_8_wfDAACcOGzknI2lRAKg"
+    },
+    {
+      "id": "es256-for-an-rs256-verifier",
+      "verifier": "jwks",
+      "token": "eyJhbGciOiJFUzI1NiIsImtpZCI6ImVjLTEifQ.eyJzdWIiOiJ1c2VyLTEiLCJpc3MiOiJodHRwczovL2lzc3Vlci5oeXBlcXVlcnkudGVzdC8iLCJhdWQiOiJodHRwczovL2FwaS5oeXBlcXVlcnkudGVzdCIsImlhdCI6MTc2NzIyNTYwMCwiZXhwIjo0MTAyNDQ0ODAwfQ.JX1IxfRVNT_GAj8QvQoyh06eeUsrW0LWOGAyH78vBSn01s_eZMpW7BoL6AF-W5zfATtcdbCO50FIZIYk4STlZg"
+    },
+    {
+      "id": "bad-signature-hs256",
+      "verifier": "secret",
+      "token": "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ1c2VyLTEiLCJpc3MiOiJodHRwczovL2lzc3Vlci5oeXBlcXVlcnkudGVzdC8iLCJhdWQiOiJodHRwczovL2FwaS5oeXBlcXVlcnkudGVzdCIsImlhdCI6MTc2NzIyNTYwMCwiZXhwIjo0MTAyNDQ0ODAwfQ.Aw4jDkJf4P5U0Zgm3i3VwK6nPfSUJXcASsqPhJhrCm4"
+    },
+    {
+      "id": "bad-signature-rs256",
+      "verifier": "jwks",
+      "token": "eyJhbGciOiJSUzI1NiIsImtpZCI6InJzYS0xIn0.eyJzdWIiOiJ1c2VyLTEiLCJpc3MiOiJodHRwczovL2lzc3Vlci5oeXBlcXVlcnkudGVzdC8iLCJhdWQiOiJodHRwczovL2FwaS5oeXBlcXVlcnkudGVzdCIsImlhdCI6MTc2NzIyNTYwMCwiZXhwIjo0MTAyNDQ0ODAwfQ.nEJTh92ohWUpiotJj4I0dPTexuWXIUWC7QvvKcZ4BVIMlbe5nL0sWybaNKVH9pFspphBm1kD6QE2KJY2-H4JBwRSfdqTFb8WMb93JpK7QhzHpSmSr2qE3RwPtmqdJx4En-jM-mZQO-Pybn0sTWm-XnMwkAeLKy8V1Nm2C5JYB1Yii4MC9ga3PdFb5TO6eKJk_6g1sOxcHAhdI6_-KUkDQdGXvBbNiRC4EeFEfKSIyBSfkO-TnicuQyPh7zQqG693PEjZpAgECswxkQ_FuvFXl5dqWEv9H0WjPOwJg5jPUBAmnJkuH068Fznu-ptgyQedYatNeupWkoKY39oJqx25Gg"
+    },
+    {
+      "id": "wrong-secret",
+      "verifier": "secret",
+      "token": "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ1c2VyLTEiLCJpc3MiOiJodHRwczovL2lzc3Vlci5oeXBlcXVlcnkudGVzdC8iLCJhdWQiOiJodHRwczovL2FwaS5oeXBlcXVlcnkudGVzdCIsImlhdCI6MTc2NzIyNTYwMCwiZXhwIjo0MTAyNDQ0ODAwfQ.agA18yXo6mOJBpDVQ2Uzd4d_YB_TiH_hupuN890_ImA"
+    },
+    {
+      "id": "unknown-kid",
+      "verifier": "jwks",
+      "token": "eyJhbGciOiJSUzI1NiIsImtpZCI6InJzYS11bmtub3duIn0.eyJzdWIiOiJ1c2VyLTEiLCJpc3MiOiJodHRwczovL2lzc3Vlci5oeXBlcXVlcnkudGVzdC8iLCJhdWQiOiJodHRwczovL2FwaS5oeXBlcXVlcnkudGVzdCIsImlhdCI6MTc2NzIyNTYwMCwiZXhwIjo0MTAyNDQ0ODAwfQ.V7sToF1W71lu_vdVuLsLOp3ju5btaVC96xX5Qx595fw4zviZYCLvk-fhmV1EyPOULeqEWGFMvHPQW2Z1asCVRh8A5UrKPnFdJGcFIbehagjAAPlHL3rB2xn6B-0VAgOFV9_bCceobfP1YJQO1QgiBbhtlGPpueUtzJIYIRTKdDcFsX3mVIZ635JrYeT5mxgBWHWwfbP3xoEwkxpcEpz1VpNiRWzfwRfRqq6P2wRFstzT3ICvOKZQ4fiVvHWJo5ZLaNgajA64-9CjHjR0V23UPuCLp2bYKg4nv-c65rLSuti68a1tbDJDRjcaeV_S04nrD67z9OKV_MCYLv6Zi9rNzw"
+    },
+    {
+      "id": "several-candidate-keys-without-kid",
+      "verifier": "jwks",
+      "token": "eyJhbGciOiJSUzI1NiJ9.eyJzdWIiOiJ1c2VyLTEiLCJpc3MiOiJodHRwczovL2lzc3Vlci5oeXBlcXVlcnkudGVzdC8iLCJhdWQiOiJodHRwczovL2FwaS5oeXBlcXVlcnkudGVzdCIsImlhdCI6MTc2NzIyNTYwMCwiZXhwIjo0MTAyNDQ0ODAwfQ.Q-N1dlRND7t_KERNrr9JSgOhU4cS42sWUTDBE_yicOaHXBo6ved8lQg2gMJoWVvFiicvd66lSk31O7yyXVjv4qGQVGhf21KWNdiFQX35AdpH0rLRKtCNM55AXNTSnPeTeODwWYeuvXQAYHeJ5GxmOh0X5HkIaHRKltIRQ_3AIUtGIt1oVWf3lg0dWuMZSnCoA9kK9LNXc46pL4LkIRfu08Y0pFnnga4xuYvy0mZZuPC7MyguY9QS_0aBYtP_LqYP1oY6_N2VfUcj_03pJjkuEQ_Q8ZNSNu1HNDSIlOBbqzP0BEDPs-w5DYe3pAG48oOR_DtUE3owYtohbW1GFakDyw"
+    },
+    {
+      "id": "exp-is-a-string",
+      "verifier": "secret",
+      "token": "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ1c2VyLTEiLCJpc3MiOiJodHRwczovL2lzc3Vlci5oeXBlcXVlcnkudGVzdC8iLCJhdWQiOiJodHRwczovL2FwaS5oeXBlcXVlcnkudGVzdCIsImlhdCI6MTc2NzIyNTYwMCwiZXhwIjoiNDEwMjQ0NDgwMCJ9.1N1C6kihVeXznqQGqCviRuirokFJVRIJS1NTsJTE5cQ"
+    },
+    {
+      "id": "iat-is-a-string",
+      "verifier": "secret",
+      "token": "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ1c2VyLTEiLCJpc3MiOiJodHRwczovL2lzc3Vlci5oeXBlcXVlcnkudGVzdC8iLCJhdWQiOiJodHRwczovL2FwaS5oeXBlcXVlcnkudGVzdCIsImlhdCI6IjE3NjcyMjU2MDAiLCJleHAiOjQxMDI0NDQ4MDB9.Az1qDnTx9X-loTtZ5gJKbgFzYTjRMhb2XCkhnhuDoyA"
+    },
+    {
+      "id": "nbf-is-null",
+      "verifier": "secret",
+      "token": "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ1c2VyLTEiLCJpc3MiOiJodHRwczovL2lzc3Vlci5oeXBlcXVlcnkudGVzdC8iLCJhdWQiOiJodHRwczovL2FwaS5oeXBlcXVlcnkudGVzdCIsImlhdCI6MTc2NzIyNTYwMCwiZXhwIjo0MTAyNDQ0ODAwLCJuYmYiOm51bGx9.1jAAeqqHBQQKUmxhu4v3ePriMHJNIIr9QN85QHZCvrI"
+    },
+    {
+      "id": "exp-is-true",
+      "verifier": "secret",
+      "token": "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ1c2VyLTEiLCJpc3MiOiJodHRwczovL2lzc3Vlci5oeXBlcXVlcnkudGVzdC8iLCJhdWQiOiJodHRwczovL2FwaS5oeXBlcXVlcnkudGVzdCIsImlhdCI6MTc2NzIyNTYwMCwiZXhwIjp0cnVlfQ.n3p40ptpJgtLzQXDddjBbyjyWXS_9jHStW2BrtlrziM"
+    },
+    {
+      "id": "exp-is-infinity",
+      "verifier": "secret",
+      "token": "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ1c2VyLTEiLCJpc3MiOiJodHRwczovL2lzc3Vlci5oeXBlcXVlcnkudGVzdC8iLCJhdWQiOiJodHRwczovL2FwaS5oeXBlcXVlcnkudGVzdCIsImV4cCI6SW5maW5pdHl9.GmOYjjW5RbarYnZop6JN9b2hvZe3-vQ2yOZt4pnB0k8"
+    },
+    {
+      "id": "payload-not-an-object",
+      "verifier": "secret",
+      "token": "eyJhbGciOiJIUzI1NiJ9.WyJ1c2VyLTEiXQ.jztETKGjT-xoFOExTJwDJnKV4witka6hNOGuVZsfJZw"
+    },
+    {
+      "id": "unknown-critical-header",
+      "verifier": "secret",
+      "token": "eyJhbGciOiJIUzI1NiIsImNyaXQiOlsiaHEtZXh0Il0sImhxLWV4dCI6dHJ1ZX0.eyJzdWIiOiJ1c2VyLTEiLCJpc3MiOiJodHRwczovL2lzc3Vlci5oeXBlcXVlcnkudGVzdC8iLCJhdWQiOiJodHRwczovL2FwaS5oeXBlcXVlcnkudGVzdCIsImlhdCI6MTc2NzIyNTYwMCwiZXhwIjo0MTAyNDQ0ODAwfQ.C8OxP-fkHd83ldqHOt7G7flGW61tM7GefQAONVZUWwI"
+    },
+    {
+      "id": "not-a-jwt",
+      "verifier": "secret",
+      "token": "not-a-jwt"
+    }
+  ]
+}
