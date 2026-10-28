@@ -204,7 +204,7 @@ REFERENCE_REQUESTS = [
 
 
 def _starlette_reference(security: HttpSecurity) -> Starlette:
-    """The policies as Starlette's middleware applied them before the move to the core."""
+    """The policies as Starlette's own CORS and trusted-host middleware apply them."""
 
     async def ok(request: Request) -> PlainTextResponse:
         return PlainTextResponse("ok")
@@ -278,6 +278,40 @@ def test_core_refuses_a_malformed_raw_host(host: str) -> None:
     assert response.status_code == 400
     assert response.text == "Invalid host header"
     assert response.headers["content-type"] == "text/plain; charset=utf-8"
+
+
+@pytest.mark.parametrize(
+    ("allowed", "host", "status"),
+    [
+        (("[::1]",), "[::1]", 200),
+        (("[::1]",), "[::1]:8000", 200),
+        (("[::1]",), "[0:0::1]:8000", 200),
+        (("[2001:db8::1]",), "[2001:DB8::1]", 200),
+        (("[::1]",), "[::2]:8000", 400),
+        (("[::1]",), "[not:an:address]", 400),
+        (("api.example.com",), "API.Example.com", 200),
+        (("api.example.com",), "api.example.com.:443", 200),
+        (("*.example.com",), "a.b.example.com:8443", 200),
+        (("*.example.com",), "example.com", 400),
+        (("*.example.com",), "badexample.com", 400),
+        (("*.example.com.",), "api.example.com.", 200),
+        (("*.example.com.",), "api.example.com:8443", 200),
+        (("*.example.com",), "api.example.com.", 200),
+        (("*.example.com.",), "example.com.", 400),
+        (("127.0.0.1",), "127.0.0.1:8000", 200),
+    ],
+)
+def test_core_allowed_hosts_compare_normalised_hosts(
+    allowed: tuple[str, ...], host: str, status: int
+) -> None:
+    client = _core_reference(HttpSecurity(allowed_hosts=allowed))
+    assert client.request("GET", "/public", headers={"host": host}).status_code == status
+
+
+@pytest.mark.parametrize("host", ["[::1", "[nope]", "[1.2.3.4]", "*.[::1]", "."])
+def test_allowed_hosts_refuse_entries_that_are_not_hosts(host: str) -> None:
+    with pytest.raises(ValueError, match="allowed host"):
+        HttpSecurity(allowed_hosts=(host,))
 
 
 def test_core_resolves_the_client_through_trusted_proxies_only() -> None:
