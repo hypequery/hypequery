@@ -196,7 +196,8 @@ Next steps: [add tenant isolation](#serving-over-http), relationships
 
 ## Python CLI
 
-Install `hypequery[server,clickhouse]` for the complete onboarding path, then:
+Install `hypequery[server,clickhouse]` for the complete onboarding path (the
+`django` or `flask` extra instead for those scaffolds), then:
 
 ```bash
 hypequery init --path my-analytics
@@ -208,10 +209,7 @@ hypequery dev
 `hypequery init --path <directory>` (or a positional directory) inspects your
 configured ClickHouse database by default. Use `--tables` and `--exclude-tables`
 to choose tables, and `--tenant-column <column>` to set `tenant_key` on every
-table that has it. `--framework django` or `--framework flask` writes an
-`analytics.py` for an existing Django project, or a Flask `app.py`, using
-`hypequery.contrib` instead of the standalone ASGI app. Until you wire them to your
-login, they refuse anonymous requests and their tenant function returns `None`. The selection is recorded in `schema.json`, and
+table that has it. The selection is recorded in `schema.json`, and
 `hypequery generate datasets` reuses it unless given `--tables`,
 `--exclude-tables` or `--all-tables`. The scaffold's `.env.example` and README
 repeat how discovery connected (`CLICKHOUSE_URL`, or the host, port and TLS
@@ -219,6 +217,24 @@ setting), without credentials. Generated definitions and an exact schema snapsho
 your actual tables; existing output paths are never overwritten. Install the
 `clickhouse` extra and export connection settings before running init.
 Only explicit `--skip-connection` generates the offline orders demo and `seed.sql`.
+
+`--framework` chooses the application written beside `datasets.py`; every
+choice also works with `--skip-connection`:
+
+| `--framework` | Writes | Run with |
+| --- | --- | --- |
+| `standalone` (default) | `app.py`: `create_api` served as plain ASGI, no web framework | `hypequery dev` |
+| `django` | a small Django project (`settings.py`, `urls.py`, `manage.py`) and `analytics.py` | `python manage.py runserver` |
+| `flask` | a Flask `app.py` | `flask --app app run` |
+
+The Django and Flask apps serve hypequery's endpoints natively (`urls(api)`,
+`blueprint(api)`) twice: at `/api/analytics` behind the framework's own login
+(`django_user`, `flask_session`) with the same-origin check, for
+`@hypequery/react` on pages the app serves, and at `/api/agents` behind a
+bearer token, for `@hypequery/mcp` and scripts. Until you wire them to your
+login, Flask's session API refuses everyone, and tenant-scoped datasets refuse
+signed-in Django users. The generated README walks through both. To mount the
+standalone API in FastAPI, Starlette or Litestar instead, mount `app`.
 
 `hypequery dev [module:app]` defaults to `app:app` on `127.0.0.1:8000` with reload
 enabled. Use `--no-watch`, `--hostname` or `-p`/`--port` to change those options.

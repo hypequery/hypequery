@@ -7,14 +7,7 @@ import shlex
 
 from ..utils.connection_scaffold import export_lines, replace_env_block
 from .datasets import GeneratedDatasets
-from .framework_apps import (
-    APP_MODULE,
-    EXTRAS,
-    Framework,
-    django_module,
-    flask_module,
-    readme_section,
-)
+from .framework_apps import Framework, apply_framework, readme_section, with_extras
 from .schema import Schema
 
 
@@ -22,57 +15,14 @@ def schema_templates(
     templates: dict[str, str],
     schema: Schema,
     generated: GeneratedDatasets,
-    framework: Framework = "fastapi",
+    framework: Framework = "standalone",
 ) -> dict[str, str]:
-    result = templates.copy()
+    result = apply_framework(templates, framework, generated.tenant_column)
     result.pop("seed.sql")
-    module = APP_MODULE[framework]
-    result["pyproject.toml"] = (
-        templates["pyproject.toml"]
-        .replace('py-modules = ["app"]', f'py-modules = ["{module}", "datasets"]')
-        .replace("hypequery[server,clickhouse]", f"hypequery[{EXTRAS[framework]}]")
-    )
     result["datasets.py"] = generated.source
     result["schema.json"] = generated.snapshot
-    result["app.py"] = """import os
-import secrets
-
-from datasets import datasets
-from hypequery.datasets import create_dataset_client, create_dataset_registry
-from hypequery.execution import ClickHouseConnection, create_clickhouse_executor
-from hypequery.serve import (
-    Credential, HttpSecurity, Principal, create_api, create_dataset_endpoint, to_asgi_app,
-)
-
-DEV_TOKEN = os.environ["HYPEQUERY_DEV_TOKEN"]
-if not DEV_TOKEN:
-    raise ValueError("HYPEQUERY_DEV_TOKEN must not be empty")
-
-# Reads CLICKHOUSE_URL, or CLICKHOUSE_HOST, _PORT, _DATABASE, _USERNAME, _PASSWORD and _SECURE.
-executor = create_clickhouse_executor(ClickHouseConnection.from_env())
-registry = create_dataset_registry(*datasets.values())
-client = create_dataset_client(executor=executor, registry=registry)
-
-
-def authenticate(credential: Credential) -> Principal | None:
-    if secrets.compare_digest(credential.value, DEV_TOKEN):
-        return Principal(subject="developer")
-    return None
-
-
-api = create_api(
-    auth=authenticate,
-    security=HttpSecurity(allowed_hosts=("127.0.0.1", "localhost")),
-    development_docs=True,
-)
-for name, definition in datasets.items():
-    endpoint = create_dataset_endpoint(dataset=definition, client=client)
-    endpoint.install(api, f"/datasets/{name}/query")
-
-app = to_asgi_app(api)
-"""
     result[".env.example"] = replace_env_block(
-        templates[".env.example"], schema.connection, schema.database
+        result[".env.example"], schema.connection, schema.database
     )
     prefix = templates["README.md"].split("## Create sample data", 1)[0]
     template_exports = "\n".join(
@@ -129,34 +79,13 @@ curl -s -X POST http://127.0.0.1:8000/datasets/{generated.tables[0]}/query \\
   -d '{payload}'
 ```
 """
-        if framework == "fastapi"
-        else readme_section(framework, generated.tables[0])
+        if framework == "standalone"
+        else readme_section(
+            framework, generated.tables[0], payload, tenant_column=generated.tenant_column
+        )
     )
-    if framework != "fastapi":
-        result.pop("app.py")
-        result[f"{module}.py"] = (
-            django_module(generated.tenant_column)
-            if framework == "django"
-            else flask_module(generated.tenant_column)
-        )
-        result[".env.example"] = result[".env.example"].replace("HYPEQUERY_DEV_TOKEN=\n", "")
-        prefix = (
-            prefix.replace(
-                "Export your\nconnection settings and create a development token in your shell:",
-                "Export your\nconnection settings in your shell:",
-            )
-            .replace(
-                "export HYPEQUERY_DEV_TOKEN=\"$(python -c 'import secrets; "
-                "print(secrets.token_urlsafe(32))')\"\n",
-                "",
-            )
-            .replace("[server,clickhouse]", f"[{EXTRAS[framework]}]")
-            .replace(
-                "Do not commit credentials. The token is for local development; use your real\n"
-                "authentication and a production profile before exposing the app to users.",
-                "Do not commit credentials.",
-            )
-        )
+    if framework != "standalone":
+        prefix = with_extras(prefix, framework)
     result["README.md"] = (
         prefix
         + f"""## Generated datasets

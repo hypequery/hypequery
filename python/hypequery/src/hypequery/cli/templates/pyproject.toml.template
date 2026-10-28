@@ -9,4 +9,4 @@ requires-python = ">=3.11"
 dependencies = ["hypequery[server,clickhouse]==__HYPEQUERY_VERSION__"]
 
 [tool.setuptools]
-py-modules = ["app"]
+py-modules = ["app", "datasets"]

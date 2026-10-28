@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import cast
 
 from ..errors import CliError
-from ..generators.framework_apps import APP_MODULE, RUN_COMMAND, Framework
+from ..generators.framework_apps import FILES, RUN_COMMAND, Framework, offline_templates
 from ..options import InitOptions
 from ..scaffold import Scaffold
 from ..utils.next_steps import cd_prefix
@@ -18,7 +18,7 @@ def run(options: InitOptions) -> None:
     framework = cast(Framework, options.framework)
     scaffold = Scaffold(Path(options.directory))
     if options.skip_connection:
-        destination = scaffold.create()
+        destination = scaffold.create(offline_templates(load_templates(), framework))
         print("Created an offline orders example; no database schema was inspected.")
     else:
         from ..generators.datasets import generate_datasets, is_identifier
@@ -28,10 +28,9 @@ def run(options: InitOptions) -> None:
         if options.tenant_column is not None and not is_identifier(options.tenant_column):
             raise CliError("The tenant column is outside the SDK's supported identifier grammar.")
         # Refuse collisions before making a database connection.
-        module = f"{APP_MODULE[framework]}.py"
         scaffold.preflight(
             [
-                module,
+                *FILES[framework],
                 "datasets.py",
                 "schema.json",
                 "pyproject.toml",
@@ -52,15 +51,8 @@ def run(options: InitOptions) -> None:
         for warning in generated.warnings:
             print(f"Review: {warning}")
     print(f"Created Python dataset project in {destination}")
-    needs = "serving credentials" if framework == "fastapi" else "connection settings"
     print(
-        f"Next: follow README.md to install dependencies, configure {needs} "
+        "Next: follow README.md to install dependencies, configure serving credentials "
         "and review dataset definitions."
     )
-    if framework == "django":
-        print(
-            "Then: add datasets.py and analytics.py to your Django project and follow "
-            "README.md for the settings and URL."
-        )
-    else:
-        print(f"Then run: {cd_prefix(destination)}{RUN_COMMAND[framework]}")
+    print(f"Then run: {cd_prefix(destination)}{RUN_COMMAND[framework]}")

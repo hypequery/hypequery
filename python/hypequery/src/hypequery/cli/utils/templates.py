@@ -5,7 +5,15 @@ from __future__ import annotations
 from importlib.metadata import version
 from importlib.resources import files
 
-TEMPLATE_NAMES = ("pyproject.toml", "app.py", ".env.example", ".gitignore", "README.md", "seed.sql")
+TEMPLATE_NAMES = (
+    "pyproject.toml",
+    "app.py",
+    "datasets.py",
+    ".env.example",
+    ".gitignore",
+    "README.md",
+    "seed.sql",
+)
 
 
 def load_templates() -> dict[str, str]:

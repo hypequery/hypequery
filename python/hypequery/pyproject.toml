@@ -167,6 +167,9 @@ max-complexity = 15
 python_version = "3.11"
 strict = true
 files = ["src", "tests", "scripts", "examples"]
+# The scaffold templates import the generated project's own modules (datasets,
+# analytics); tests/test_cli_init_framework.py imports and serves each one.
+exclude = ["^src/hypequery/cli/templates/"]
 warn_unreachable = true
 # Public signatures must not leak Any; see the PR rules in the plan.
 disallow_any_generics = true
