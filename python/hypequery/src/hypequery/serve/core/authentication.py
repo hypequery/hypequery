@@ -8,6 +8,8 @@ host's own session from the request (`context_auth.py`).
 from __future__ import annotations
 
 from collections.abc import Iterable
+from dataclasses import replace
+from functools import partial
 from typing import cast
 
 from ...datasets.planner import TenantScope
@@ -29,6 +31,7 @@ from .messages import ServeRequest
 from .state import RequestState
 from .utils.provider_call import call_provider
 from .utils.same_origin import same_origin_allowed, trusted_origins
+from .work import run_on_thread
 
 
 class Authentication:
@@ -126,13 +129,16 @@ class Authentication:
             request.method, request.headers, self.trusted
         ):
             raise cross_origin_refused()
+        runner = request.run_on_request_thread
+        if runner is not None:
+            # Whatever the extractor runs on the request's thread, through
+            # this or through `request.run_on_request_thread` itself, holds
+            # the request's production slot until it returns.
+            runner = partial(run_on_thread, state.work, runner)
+            request = replace(request, run_on_request_thread=runner)
         try:
             principal = await call_provider(
-                strategy.extract,
-                request,
-                state.work,
-                rejectable=True,
-                thread=request.run_on_request_thread,
+                strategy.extract, request, state.work, rejectable=True, thread=runner
             )
         except InvalidCredential:
             raise unauthenticated(None, presented=True) from None

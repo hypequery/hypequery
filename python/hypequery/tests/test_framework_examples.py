@@ -300,6 +300,67 @@ def test_live_django_example(seeded: str) -> None:
 
 
 @pytest.mark.parametrize(
+    ("sec_fetch_site", "origin", "accepted"),
+    [
+        ("same-origin", None, True),
+        ("none", None, True),
+        ("same-site", None, False),
+        ("cross-site", "http://localhost", False),
+        (None, "http://localhost", True),
+        (None, "http://evil.example", False),
+        (None, "null", False),
+        (None, None, False),
+    ],
+)
+def test_the_flask_example_refuses_a_sign_in_from_another_site(
+    monkeypatch: pytest.MonkeyPatch, sec_fetch_site: str | None, origin: str | None, accepted: bool
+) -> None:
+    """Login CSRF: another site's form must not swap the victim's session."""
+
+    pytest.importorskip("flask")
+    from examples import flask_app
+    from examples.utils.login import same_origin_form
+
+    for name, token in TOKENS.items():
+        monkeypatch.setenv(name, token)
+    headers = {
+        name: value
+        for name, value in (("Sec-Fetch-Site", sec_fetch_site), ("Origin", origin))
+        if value is not None
+    }
+    http = flask_app.create_app().test_client()
+    response = http.post("/login", data={"token": "tenant-a-test"}, headers=headers)
+    assert response.status_code == (204 if accepted else 403)
+    assert ("session=" in response.headers.get("Set-Cookie", "")) is accepted
+    assert same_origin_form(sec_fetch_site, origin, "http://localhost") is accepted
+
+
+def test_the_django_example_sign_in_is_csrf_checked(monkeypatch: pytest.MonkeyPatch) -> None:
+    pytest.importorskip("django")
+    from django.test import Client, override_settings
+    from examples import django_app
+
+    from django_settings import migrated
+
+    for name, token in TOKENS.items():
+        monkeypatch.setenv(name, token)
+    django_app.configure()
+    migrated()
+    keys = ("ROOT_URLCONF", "MIDDLEWARE", "HYPEQUERY", "ALLOWED_HOSTS")
+    with override_settings(**{key: django_app.SETTINGS[key] for key in keys}):
+        browser = Client(enforce_csrf_checks=True)
+        refused = browser.post("/login", {"token": "tenant-a-test"}, headers=SAME_ORIGIN)
+        assert refused.status_code == 403
+        assert b"CSRF" in refused.content
+        browser.get("/")
+        token = browser.cookies["csrftoken"].value
+        signed_in = browser.post(
+            "/login", {"token": "tenant-a-test"}, headers={"X-CSRFToken": token}
+        )
+        assert signed_in.status_code == 204
+
+
+@pytest.mark.parametrize(
     "name",
     [
         "examples.dataframes",

@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import asyncio
 import threading
+import time
 from typing import Any
 
 import pytest
@@ -29,6 +30,7 @@ from hypequery.serve import (
     HttpSecurity,
     InvalidCredential,
     Principal,
+    ProductionProfile,
     ServeRequest,
     ServeResponse,
     api_key,
@@ -293,3 +295,47 @@ def test_openapi_and_discovery_describe_a_session() -> None:
     }
     assert api.authentication.vary == "cookie"
     assert api.authentication.credentials is None
+
+
+def test_a_request_thread_extractor_holds_its_production_slot_until_it_returns() -> None:
+    """A sync host's session lookup past the deadline: 504, and the slot stays taken."""
+
+    started = threading.Event()
+    release = threading.Event()
+
+    def extract(request: ServeRequest) -> Principal:
+        if not release.is_set():
+            started.set()
+            release.wait(10)
+        return READER
+
+    api = create_api(
+        auth=from_context(extract),
+        security=SECURITY,
+        production=ProductionProfile(max_concurrency=1, timeout_seconds=1),
+    )
+
+    async def whoami(call: Call) -> ServeResponse:
+        return ServeResponse.json({"ok": True})
+
+    api.add_route("GET", "/whoami", whoami)
+    gate: Any = api._gate
+    client = serve_client("wsgi", api)
+    answers: list[int] = []
+    first = threading.Thread(target=lambda: answers.append(client.get("/whoami").status_code))
+    first.start()
+    try:
+        assert started.wait(5)
+        time.sleep(1.5)  # past the deadline: the core has answered 504
+        assert gate.active == 1
+        # The lookup still runs on the first request's thread: no second slot.
+        assert serve_client("wsgi", api).get("/whoami").status_code == 503
+    finally:
+        release.set()
+        first.join(10)
+    assert answers == [504]
+    deadline = time.monotonic() + 5
+    while gate.active and time.monotonic() < deadline:
+        time.sleep(0.01)
+    assert gate.active == 0
+    assert serve_client("wsgi", api).get("/whoami").status_code == 200

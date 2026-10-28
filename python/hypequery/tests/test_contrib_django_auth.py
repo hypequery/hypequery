@@ -11,6 +11,7 @@ from __future__ import annotations
 import asyncio
 import itertools
 import threading
+import time
 from typing import Any
 
 import pytest
@@ -32,7 +33,9 @@ from hypequery.contrib.django import django_user, urls  # noqa: E402
 from hypequery.serve import (  # noqa: E402
     Api,
     Call,
+    HttpSecurity,
     Principal,
+    ProductionProfile,
     ServeResponse,
     create_api,
     openapi_document,
@@ -228,3 +231,47 @@ def test_django_user_validates_and_names_the_session_cookie() -> None:
     assert strategy.same_origin is False
     document: Any = openapi_document(_api(ToPrincipal()))
     assert document["components"]["securitySchemes"]["credential"]["name"] == "sessionid"
+
+
+def test_a_slow_user_lookup_holds_its_production_slot_until_it_returns() -> None:
+    """`django_user` uses the request thread directly; that work is tracked too."""
+
+    started = threading.Event()
+    release = threading.Event()
+
+    def to_principal(user: Any) -> Principal:
+        if not release.is_set():
+            started.set()
+            release.wait(10)
+        return Principal(subject=user.username)
+
+    async def whoami(call: Call) -> ServeResponse:
+        return ServeResponse.json({"ok": True})
+
+    api = create_api(
+        auth=django_user(to_principal),
+        security=HttpSecurity(allowed_hosts=("testserver",)),
+        production=ProductionProfile(max_concurrency=1, timeout_seconds=1),
+    )
+    api.add_route("GET", "/whoami", whoami)
+    gate: Any = api._gate
+    user = _user()
+    answers: list[int] = []
+    with _project(api):
+        first_client = Client()
+        first_client.force_login(user)
+        first = threading.Thread(
+            target=lambda: answers.append(first_client.get("/api/whoami").status_code)
+        )
+        first.start()
+        try:
+            assert started.wait(5)
+            time.sleep(1.5)
+            assert gate.active == 1
+            second = Client()
+            second.force_login(user)
+            assert second.get("/api/whoami").status_code == 503
+        finally:
+            release.set()
+            first.join(10)
+    assert answers == [504]

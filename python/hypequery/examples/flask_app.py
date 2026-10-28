@@ -45,6 +45,7 @@ from .utils.analytics import (
     principal_for,
     principal_for_organization,
 )
+from .utils.login import same_origin_form
 from .utils.orders import organization_for, organization_for_token
 
 hq = Hypequery()
@@ -90,8 +91,12 @@ def create_app() -> Flask:
         """The stand-in login: an organization's token signs in its session."""
 
         # Flask has no CSRF protection of its own: accept sign-ins from this
-        # origin's page only, as the API's same-origin check does.
-        if request.headers.get("Sec-Fetch-Site") not in ("same-origin", None):
+        # app's own page only, as the API's same-origin check does.
+        if not same_origin_form(
+            request.headers.get("Sec-Fetch-Site"),
+            request.headers.get("Origin"),
+            request.host_url.removesuffix("/"),
+        ):
             abort(403)
         organization = organization_for_token(request.form.get("token", ""))
         if organization is None:

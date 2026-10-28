@@ -111,7 +111,9 @@ blocking reads when the coroutine asks (`RequestThread.call`). Code that must
 run on the request's own thread uses the same channel: a sync host sets
 `ServeRequest.run_on_request_thread`, and a sync `from_context` extractor runs
 there, so a Django user or a Flask-Login user is loaded on the thread whose
-database connection the framework manages. The loop restarts in
+database connection the framework manages. Like worker-pool work, it is tracked
+by the request's `RequestWork` (`core/work.py`), so a lookup still running
+after a 504 keeps its production slot until it returns. The loop restarts in
 each forked worker and stops at exit. Django under ASGI runs the core on the
 server's loop instead: `urls(api)` resolves to an async view when Django
 resolves the request on an event loop and to a sync view otherwise.

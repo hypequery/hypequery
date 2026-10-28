@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import asyncio
 import threading
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from contextlib import suppress
 from typing import Any, ParamSpec, TypeVar
 
@@ -19,6 +19,10 @@ from anyio.to_thread import run_sync as run_in_worker
 
 _P = ParamSpec("_P")
 _T = TypeVar("_T")
+
+#: The started flag of work that cannot be cancelled once handed over.
+_RUNNING = threading.Event()
+_RUNNING.set()
 
 
 class RequestWork:
@@ -78,6 +82,31 @@ class RequestWork:
         task.add_done_callback(self._finished)
         return task
 
+    def start_on_thread(
+        self, runner: Callable[[Callable[[], _T]], Awaitable[_T]], function: Callable[[], _T]
+    ) -> asyncio.Task[_T]:
+        """Run *function* through a sync host's request-thread *runner*, tracked.
+
+        Like a worker, the thread cannot be interrupted: the task is never
+        cancelled, and stays in `tasks` until *function* has returned, so a
+        production slot is held until then.
+        """
+
+        def invoke() -> _T:
+            # The request may have been cancelled before the thread got to it.
+            if self.cancellation.is_set():
+                raise asyncio.CancelledError
+            return function()
+
+        async def run() -> _T:
+            return await runner(invoke)
+
+        task = asyncio.create_task(run())
+        self.tasks.add(task)
+        self._states[task] = (_RUNNING, True)
+        task.add_done_callback(self._finished)
+        return task
+
     def cancel(self) -> None:
         self.cancellation.set()
         for task, (started, cleanup) in tuple(self._states.items()):
@@ -110,3 +139,17 @@ async def run_sync(
     # Cancelling the HTTP waiter returns promptly; the worker remains tracked
     # until it finishes, so production admission cannot exceed its work budget.
     return await asyncio.shield(work.start_sync(function, *args, **kwargs))
+
+
+async def run_on_thread(
+    work: RequestWork,
+    runner: Callable[[Callable[[], _T]], Awaitable[_T]],
+    function: Callable[[], _T],
+) -> _T:
+    """Run *function* on a sync host's request thread, tracked by *work*.
+
+    Cancelling the waiter returns promptly; *function* keeps its production
+    slot until it returns, as `run_sync`'s workers do.
+    """
+
+    return await asyncio.shield(work.start_on_thread(runner, function))

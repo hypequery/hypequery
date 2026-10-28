@@ -118,7 +118,11 @@ def page(request: HttpRequest) -> HttpResponse:
 
 
 def sign_in(request: HttpRequest) -> HttpResponse:
-    """The stand-in login: an organization's token signs in its user."""
+    """The stand-in login: an organization's token signs in its user.
+
+    Not CSRF-exempt: Django's CSRF middleware refuses a post another site's
+    page submits, which would otherwise swap in the attacker's session.
+    """
 
     from django.contrib.auth.models import User
 
