@@ -549,6 +549,40 @@ def test_request_lifetime_exits_when_the_waiter_absorbs_a_cancel(concurrency: in
     asyncio.run(check())
 
 
+def test_a_waiter_failing_after_the_request_is_collected_and_logged(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    from hypequery.serve.core.lifetime import RequestLifetime
+    from hypequery.serve.core.messages import ServeRequest
+    from hypequery.serve.core.work import RequestWork
+
+    unhandled: list[dict[str, Any]] = []
+
+    async def failing() -> None:
+        try:
+            await asyncio.sleep(1)
+        except asyncio.CancelledError:
+            await asyncio.sleep(0.01)
+            raise RuntimeError("cleanup failed") from None
+
+    async def check() -> None:
+        asyncio.get_running_loop().set_exception_handler(
+            lambda loop, context: unhandled.append(context)
+        )
+        request = ServeRequest(method="POST", path="/", wait_disconnected=failing)
+        async with RequestLifetime(request, RequestWork()):
+            await asyncio.sleep(0.01)
+        await asyncio.sleep(0.05)
+
+    with caplog.at_level("ERROR", logger="hypequery.serve"):
+        asyncio.run(check())
+    import gc
+
+    gc.collect()
+    assert "disconnect waiter failed" in caplog.text
+    assert not [context for context in unhandled if "never retrieved" in context["message"]]
+
+
 def test_request_lifetime_waits_without_polling() -> None:
     from hypequery.serve.core.lifetime import RequestLifetime
     from hypequery.serve.core.messages import ServeRequest

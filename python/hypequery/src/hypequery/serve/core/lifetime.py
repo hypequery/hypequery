@@ -3,10 +3,13 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 from collections.abc import Awaitable, Callable
 
 from .messages import ServeRequest
 from .work import RequestWork
+
+_log = logging.getLogger("hypequery.serve")
 
 
 class RequestLifetime:
@@ -39,7 +42,9 @@ class RequestLifetime:
                 self._work.cancel()
         finally:
             # Neither is awaited after cancelling: a host's waiter that absorbs
-            # the cancel must not hold the request open.
+            # the cancel must not hold the request open. Whatever it raises
+            # later is still collected and logged, not left unretrieved.
+            gone.add_done_callback(_collect_waiter)
             gone.cancel()
             stopped.cancel()
 
@@ -54,3 +59,13 @@ class RequestLifetime:
         self._stopped.set()
         if self._watcher:
             await self._watcher
+
+
+def _collect_waiter(task: asyncio.Future[None]) -> None:
+    """Retrieve a finished disconnect waiter's outcome, logging a failure."""
+
+    if task.cancelled():
+        return
+    error = task.exception()
+    if error is not None:
+        _log.error("A disconnect waiter failed after its request ended", exc_info=error)
