@@ -27,7 +27,12 @@ def response_body(response: ServeResponse) -> bytes:
 
 
 def status_line(status: int) -> str:
-    """The WSGI status, `"200 OK"`; a code with no standard phrase keeps its number."""
+    """The WSGI status, `"200 OK"`; a code with no standard phrase keeps its number.
+
+    The phrase is the running Python's `HTTPStatus` table, as wsgiref and
+    Django write it, so it can differ between versions (3.13 renamed 413 to
+    "Content Too Large"). Clients act on the code alone.
+    """
 
     try:
         return f"{status} {HTTPStatus(status).phrase}"

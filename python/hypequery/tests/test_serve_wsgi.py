@@ -11,6 +11,7 @@ import os
 import threading
 from collections.abc import Iterator
 from concurrent.futures import ThreadPoolExecutor
+from http import HTTPStatus
 from socketserver import ThreadingMixIn
 from typing import Any
 from wsgiref.simple_server import WSGIRequestHandler, WSGIServer, make_server
@@ -390,7 +391,9 @@ def test_a_failing_stream_is_caller_input() -> None:
 
 def test_status_lines_and_headers_are_written_as_wsgi_expects() -> None:
     assert status_line(200) == "200 OK"
-    assert status_line(413) == "413 Request Entity Too Large"
+    # The phrase is the running Python's, as wsgiref and Django write it: 3.13
+    # renamed 413 to "Content Too Large". Clients read only the code.
+    assert status_line(413) == f"413 {HTTPStatus(413).phrase}"
     assert status_line(599) == "599 "
     assert response_headers(ServeResponse(204, {"x": "1"}, b"")) == [("x", "1")]
     assert response_headers(ServeResponse(200, {"x": "1"}, b"ab")) == [
