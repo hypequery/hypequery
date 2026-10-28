@@ -22,6 +22,7 @@ from .auth import (
     TenantResolver,
     credential_presented,
     cross_origin_refused,
+    default_tenant_resolver,
     misconfigured,
     read_credential,
     unauthenticated,
@@ -95,7 +96,11 @@ class Authentication:
             principal = await self._from_context(self.context, request, state)
         else:
             principal = await self._from_credential(request, state)
-        scope = await call_provider(self.resolve_tenant, principal, state.work)
+        if self.resolve_tenant is default_tenant_resolver:
+            # Pure and instant: not worth a worker thread on every request.
+            scope = default_tenant_resolver(principal)
+        else:
+            scope = await call_provider(self.resolve_tenant, principal, state.work)
         if scope is not None and (
             type(scope) is not TenantScope or scope.cross_tenant or len(scope.ids) != 1
         ):

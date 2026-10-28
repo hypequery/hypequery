@@ -19,6 +19,9 @@ request's thread waits (`hypequery.serve.wsgi`). ``ServeRequest.raw`` is the
   ``DATA_UPLOAD_MAX_MEMORY_SIZE`` plays no part. Under ASGI, Django's handler
   has received the whole body before any view runs, so cap request sizes at
   the server or proxy too.
+- An API without an ``HttpSecurity`` has its ``Host`` header checked against
+  ``ALLOWED_HOSTS`` before it runs, whatever middleware the project has; one
+  with an ``HttpSecurity`` checks its own ``allowed_hosts``.
 - Any prefix works, including one with URL parameters: client contracts and
   discovery name the paths the request was routed under, unless the API sets
   ``client_mount_path``, which then names where it is reached.
@@ -48,7 +51,7 @@ from ...serve.core.messages import ServeRequest, ServeResponse
 from ...serve.utils.asgi_scope import raw_scope_path, scope_client, scope_headers, scope_query
 from ...serve.utils.blocking import serve_blocking
 from ...serve.utils.fault import answer
-from ...serve.utils.response_head import response_body
+from ...serve.utils.response_head import framework_response
 from ...serve.utils.serving_loop import RequestThread
 from ...serve.utils.thread_body import CHUNK_BYTES, thread_body
 from ...serve.utils.wsgi_environ import (
@@ -107,7 +110,7 @@ def urls(api: Api) -> list[URLPattern]:
         export_client_contract(api)
 
     def hypequery_api(request: HttpRequest, **kwargs: Any) -> HttpResponse:
-        where = _where(request, kwargs[_PATH])
+        where = _where(api, request, kwargs[_PATH])
 
         def build(thread: RequestThread) -> ServeRequest:
             return _wsgi_request(request, where, thread)
@@ -115,7 +118,7 @@ def urls(api: Api) -> list[URLPattern]:
         return _response(serve_blocking(api, build, mounted_at=where.mounted_at))
 
     async def hypequery_api_async(request: HttpRequest, **kwargs: Any) -> HttpResponse:
-        where = _where(request, kwargs[_PATH])
+        where = _where(api, request, kwargs[_PATH])
         response = await answer(api, _asgi_request(request, where), mounted_at=where.mounted_at)
         return _response(response)
 
@@ -128,7 +131,12 @@ def urls(api: Api) -> list[URLPattern]:
     return [_ServePattern(*views)]
 
 
-def _where(request: HttpRequest, below: str) -> MountedPath:
+def _where(api: Api, request: HttpRequest, below: str) -> MountedPath:
+    if api.security is None:
+        # An API without an HttpSecurity checks no host itself, and Django
+        # applies ALLOWED_HOSTS only when something calls get_host(), which
+        # without CommonMiddleware nothing would. DisallowedHost answers 400.
+        request.get_host()
     scope = getattr(request, "scope", None)
     raw = raw_scope_path(scope) if scope is not None else request_target_path(request.META)
     return mounted_path(request.path, below, raw)
@@ -173,9 +181,4 @@ async def _buffered_body(request: HttpRequest) -> AsyncIterator[bytes]:
 
 
 def _response(response: ServeResponse) -> HttpResponse:
-    reply = HttpResponse(response_body(response), status=response.status)
-    if "content-type" not in response.headers:
-        del reply["Content-Type"]
-    for name, value in response.headers.items():
-        reply[name] = value
-    return reply
+    return framework_response(response, lambda body, status: HttpResponse(body, status=status))

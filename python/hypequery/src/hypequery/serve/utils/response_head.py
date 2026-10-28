@@ -2,9 +2,19 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from http import HTTPStatus
+from typing import Any, Protocol, TypeVar
 
 from ..core.messages import ServeResponse
+
+
+class _FrameworkResponse(Protocol):
+    @property
+    def headers(self) -> Any: ...
+
+
+_Reply = TypeVar("_Reply", bound=_FrameworkResponse)
 
 
 def bodiless(status: int) -> bool:
@@ -38,3 +48,19 @@ def status_line(status: int) -> str:
         return f"{status} {HTTPStatus(status).phrase}"
     except ValueError:
         return f"{status} "
+
+
+def framework_response(response: ServeResponse, build: Callable[[bytes, int], _Reply]) -> _Reply:
+    """*response* as a framework's own response object, made by `build(body, status)`.
+
+    Django's `HttpResponse` and Flask's `Response` both add a default
+    `Content-Type`; it is removed when the core sent none, so a bodiless or
+    plain answer is not mislabelled. The framework sets `Content-Length`.
+    """
+
+    reply = build(response_body(response), response.status)
+    if "content-type" not in response.headers:
+        del reply.headers["Content-Type"]
+    for name, value in response.headers.items():
+        reply.headers[name] = value
+    return reply

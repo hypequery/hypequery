@@ -109,7 +109,7 @@ async def _read_or_refuse(request: ServeRequest, max_bytes: int, *, checked_json
     except ServeError:
         raise
     except Exception as exc:
-        # FastAPI's answer to a body it could not receive.
+        # The answer to a body that could not be received (FastAPI's wording).
         raise _refuse(400, "There was an error parsing the body") from exc
 
 
@@ -125,8 +125,8 @@ async def read_input(
 ) -> object:
     """The body, decoded as JSON and validated against *schema*.
 
-    Errors carry FastAPI's locations and wording, so moving a route into the
-    core changes no response.
+    Errors keep the issue locations and wording the earlier FastAPI layer used,
+    so clients see the same validation errors as before.
     """
 
     raw = await _read_or_refuse(request, max_bytes, checked_json=checked_json)

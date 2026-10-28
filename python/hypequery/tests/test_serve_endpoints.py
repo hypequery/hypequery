@@ -510,11 +510,11 @@ def test_request_lifetime_propagates_disconnect_and_closes_watcher() -> None:
     from hypequery.serve.core.messages import ServeRequest
     from hypequery.serve.core.work import RequestWork
 
-    async def disconnected() -> bool:
-        return True
+    async def disconnected() -> None:
+        return None
 
     async def check() -> None:
-        request = ServeRequest(method="POST", path="/", is_disconnected=disconnected)
+        request = ServeRequest(method="POST", path="/", wait_disconnected=disconnected)
         async with RequestLifetime(request, RequestWork()) as lifetime:
             await asyncio.sleep(0.01)
             assert lifetime.cancellation.is_set()
@@ -524,28 +524,86 @@ def test_request_lifetime_propagates_disconnect_and_closes_watcher() -> None:
 
 
 @pytest.mark.parametrize("concurrency", [1, 50])
-def test_request_lifetime_exits_when_is_disconnected_absorbs_a_cancel(concurrency: int) -> None:
+def test_request_lifetime_exits_when_the_waiter_absorbs_a_cancel(concurrency: int) -> None:
     from hypequery.serve.core.lifetime import RequestLifetime
     from hypequery.serve.core.messages import ServeRequest
     from hypequery.serve.core.work import RequestWork
 
-    # Starlette's is_disconnected() awaits inside an already-cancelled anyio
-    # CancelScope, which can absorb a cancel aimed at the watcher.
-    async def absorbing() -> bool:
+    # A host's waiter may swallow the cancel aimed at it; leaving the request
+    # must not wait for it.
+    async def absorbing() -> None:
         with suppress(asyncio.CancelledError):
-            await asyncio.sleep(0.02)
-        return False
+            await asyncio.sleep(0.2)
+        await asyncio.sleep(0.2)
 
     async def one() -> None:
-        request = ServeRequest(method="POST", path="/", is_disconnected=absorbing)
+        request = ServeRequest(method="POST", path="/", wait_disconnected=absorbing)
         async with RequestLifetime(request, RequestWork()) as lifetime:
             await asyncio.sleep(0.01)
         assert not lifetime.cancellation.is_set()
 
     async def check() -> None:
-        async with asyncio.timeout(2):
+        async with asyncio.timeout(0.15):
             await asyncio.gather(*(one() for _ in range(concurrency)))
-        assert not [task for task in asyncio.all_tasks() if task is not asyncio.current_task()]
+
+    asyncio.run(check())
+
+
+def test_a_waiter_failing_after_the_request_is_collected_and_logged(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    from hypequery.serve.core.lifetime import RequestLifetime
+    from hypequery.serve.core.messages import ServeRequest
+    from hypequery.serve.core.work import RequestWork
+
+    unhandled: list[dict[str, Any]] = []
+
+    async def failing() -> None:
+        try:
+            await asyncio.sleep(1)
+        except asyncio.CancelledError:
+            await asyncio.sleep(0.01)
+            raise RuntimeError("cleanup failed") from None
+
+    async def check() -> None:
+        asyncio.get_running_loop().set_exception_handler(
+            lambda loop, context: unhandled.append(context)
+        )
+        request = ServeRequest(method="POST", path="/", wait_disconnected=failing)
+        async with RequestLifetime(request, RequestWork()):
+            await asyncio.sleep(0.01)
+        await asyncio.sleep(0.05)
+
+    with caplog.at_level("ERROR", logger="hypequery.serve"):
+        asyncio.run(check())
+    import gc
+
+    gc.collect()
+    assert "disconnect waiter failed" in caplog.text
+    assert not [context for context in unhandled if "never retrieved" in context["message"]]
+
+
+def test_request_lifetime_waits_without_polling() -> None:
+    from hypequery.serve.core.lifetime import RequestLifetime
+    from hypequery.serve.core.messages import ServeRequest
+    from hypequery.serve.core.work import RequestWork
+
+    calls: list[int] = []
+    gone = asyncio.Event()
+
+    async def wait_disconnected() -> None:
+        calls.append(1)
+        await gone.wait()
+
+    async def check() -> None:
+        request = ServeRequest(method="POST", path="/", wait_disconnected=wait_disconnected)
+        async with RequestLifetime(request, RequestWork()) as lifetime:
+            await asyncio.sleep(0.3)
+            assert not lifetime.cancellation.is_set()
+            gone.set()
+            await asyncio.sleep(0.01)
+            assert lifetime.cancellation.is_set()
+        assert calls == [1]
 
     asyncio.run(check())
 
