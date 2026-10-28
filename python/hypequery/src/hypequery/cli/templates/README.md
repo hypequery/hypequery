@@ -6,8 +6,7 @@ The generated `pyproject.toml` pins the SDK version used to scaffold this projec
 ## Install
 
 From this generated project directory, create an environment and install the
-project. This installs the pinned SDK from PyPI with the serving and ClickHouse
-extras:
+project. This installs the pinned SDK from PyPI with the extras it needs:
 
 ```bash
 python -m venv .venv

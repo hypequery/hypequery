@@ -7,6 +7,8 @@ import sys
 from collections.abc import Sequence
 from importlib.metadata import version
 
+from .generators.framework_apps import FRAMEWORKS
+
 
 def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
@@ -28,9 +30,11 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     init.add_argument("--all-tables", action="store_true", help="inspect all tables (default)")
     init.add_argument(
         "--framework",
-        choices=("fastapi", "django", "flask"),
-        default="fastapi",
-        help="application to scaffold beside datasets.py (default: fastapi)",
+        choices=FRAMEWORKS,
+        default="standalone",
+        help="application to scaffold beside datasets.py: a standalone ASGI app served by "
+        "hypequery dev, or a Django or Flask app serving hypequery's endpoints natively "
+        "(default: standalone)",
     )
     init.add_argument(
         "--tenant-column",
@@ -126,8 +130,6 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
             args.tables or args.exclude_tables or args.all_tables or args.tenant_column
         ):
             parser.error("table selection and --tenant-column require a database connection")
-        if args.skip_connection and args.framework != "fastapi":
-            parser.error("--framework requires a database connection; omit --skip-connection")
     if args.command == "generate" and args.force and (args.check or args.diff):
         parser.error("--force cannot be combined with --check or --diff")
     if args.command == "generate" and args.all_tables and (args.tables or args.exclude_tables):
