@@ -16,8 +16,7 @@ export function PatternCallout() {
             >
               Read why
             </Link>{' '}
-            Uber, Cloudflare, and Instacart each built their own analytics layer on ClickHouse, so every team and every tool
-            answers from the same governed definitions.
+            Uber, Cloudflare, and Instacart each built their own analytics layer on ClickHouse. hypequery gives you that layer as code you own.
           </p>
         </div>
       </div>

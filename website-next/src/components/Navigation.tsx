@@ -33,7 +33,7 @@ export default function Navigation({ hasBanner = false }: { hasBanner?: boolean 
         >
           GitHub
         </a>
-        <DeployWaitlist location="nav" compactLabel className="inline-flex min-h-9 items-center gap-1.5 whitespace-nowrap rounded-lg bg-accent px-3 text-xs font-semibold text-white transition hover:opacity-85 dark:text-[#0c0e14]" />
+        <DeployWaitlist location="nav" className="inline-flex min-h-9 items-center gap-1.5 whitespace-nowrap rounded-lg bg-accent px-3 text-xs font-semibold text-white transition hover:opacity-85 dark:text-[#0c0e14]" />
         </div>
       </div>
     </nav>

@@ -1,21 +1,31 @@
 'use client';
 
-import { useState } from 'react';
-import { Code2, Sparkles } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { useInView } from 'motion/react';
+import { Cloud, Code2 } from 'lucide-react';
 import { trackUmamiEvent } from '@/lib/umami';
 import { AiAuthoringPanel } from './AiAuthoring';
 import { DatasetQuickstartPanel } from './DatasetQuickstart';
 
+// The first path is the default tab. Cloud, where AI drafts the model, is waitlist-only.
 const PATHS = [
-  { id: 'ai', title: 'With AI', detail: 'Describe your business in cloud', badge: 'Early access', Icon: Sparkles },
+  { id: 'cloud', title: 'In cloud', detail: 'Drafted with AI, reviewed by you', badge: 'Early access', Icon: Cloud },
   { id: 'code', title: 'In code', detail: 'TypeScript or Python, in your repo', badge: 'Open source', Icon: Code2 },
 ] as const;
 
 type PathId = (typeof PATHS)[number]['id'];
 
-/** The two ways to build the analytics layer. Both publish the same kind of model to cloud. */
+/** The two ways to build the analytics layer. Both produce the same model, reviewed like code. */
 export function BuildYourWay() {
-  const [active, setActive] = useState<PathId>('ai');
+  const [active, setActive] = useState<PathId>(PATHS[0].id);
+  const sectionRef = useRef<HTMLElement>(null);
+  const inView = useInView(sectionRef, { once: true, amount: 0.3 });
+
+  // Tab events only fire on a switch, so log the default tab once it's seen. Without this the
+  // default path never shows up in the data and the comparison is skewed.
+  useEffect(() => {
+    if (inView) trackUmamiEvent('build_path_view', { path: PATHS[0].id, page: '/' });
+  }, [inView]);
 
   const select = (id: PathId) => {
     if (id === active) return;
@@ -33,12 +43,12 @@ export function BuildYourWay() {
   };
 
   return (
-    <section aria-labelledby="build-your-way-title" className="overflow-x-clip">
+    <section ref={sectionRef} aria-labelledby="build-your-way-title" className="overflow-x-clip">
       <div className="mx-auto max-w-[1280px] px-5 pt-14 sm:px-8 sm:pt-20">
-        <div className="max-w-[680px]">
-          <h2 id="build-your-way-title" className="home-section-title text-text">Build it with AI, or write it in code</h2>
-          <p className="mt-4 text-sm leading-6 text-text-muted sm:text-base">
-            Have AI draft your semantic layer for you in hypequery cloud, or write it in TypeScript or Python. Run it wherever you like: in your own backend, or on cloud.
+        <div>
+          <h2 id="build-your-way-title" className="home-section-title text-text max-sm:text-[min(5.6vw,2rem)]!">Model your data in code or in cloud</h2>
+          <p className="mt-4 max-w-[680px] text-sm leading-6 text-text-muted sm:text-base">
+            Your semantic model can be managed in your codebase or in cloud, drafted with AI. Either way, it&apos;s the same model.
           </p>
         </div>
 
@@ -80,7 +90,7 @@ export function BuildYourWay() {
                 inert={!selected}
                 className={`[grid-area:1/1] ${selected ? '' : 'invisible'}`}
               >
-                {id === 'ai' ? <AiAuthoringPanel /> : <DatasetQuickstartPanel />}
+                {id === 'code' ? <DatasetQuickstartPanel /> : <AiAuthoringPanel />}
               </div>
             );
           })}

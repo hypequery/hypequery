@@ -1,0 +1,222 @@
+---
+title: Getting started
+description: Serve hypequery datasets over HTTP from any Python framework, authenticated by default.
+---
+
+import { CodeBlock } from 'fumadocs-ui/components/codeblock';
+
+`hypequery.serve` turns your datasets into HTTP endpoints. As with TypeScript's `createAPI`, `create_api(...)` returns
+an API that needs no web framework. An adapter puts it on a server: run it with uvicorn, mount it in FastAPI or
+Starlette, serve it from gunicorn, or serve it natively from [Django](/docs/python/django) or
+[Flask](/docs/python/flask).
+
+Every route requires authentication unless you explicitly make it public. The tenant always comes from the
+authenticated caller, never from the request.
+
+## Install
+
+<CodeBlock>
+```bash
+pip install "hypequery[clickhouse,server]"
+```
+</CodeBlock>
+
+The `server` extra adds uvicorn, for `hypequery dev` and `start_server`. Serving from another ASGI server, a WSGI
+server, Django or Flask needs no extra.
+
+## Serve a dataset
+
+<CodeBlock>
+```python
+# app.py
+from hypequery.datasets import create_async_dataset_client
+from hypequery.execution import ClickHouseConnection, create_async_from_sync_clickhouse_executor
+from hypequery.serve import (
+    Credential,
+    EndpointPolicy,
+    HttpSecurity,
+    Principal,
+    create_api,
+    create_dataset_endpoint,
+    to_asgi_app,
+)
+
+from datasets import orders  # your dataset definitions
+
+executor = create_async_from_sync_clickhouse_executor(ClickHouseConnection.from_env())
+client = create_async_dataset_client(executor=executor)
+
+
+async def authenticate(credential: Credential) -> Principal | None:
+    claims = await verify_token(credential.value)  # your token verification
+    if claims is None:
+        return None
+    return Principal(
+        subject=claims["sub"],
+        scopes=frozenset(claims.get("scope", "").split()),
+        tenant_id=claims.get("org_id"),
+    )
+
+
+policy = EndpointPolicy(required_scopes=frozenset({"analytics:read"}), tenant="required")
+api = create_api(
+    auth=authenticate,
+    datasets={"orders": create_dataset_endpoint(dataset=orders, client=client, policy=policy)},
+    security=HttpSecurity(allowed_hosts=("analytics.example.com",)),
+)
+app = to_asgi_app(api)
+```
+</CodeBlock>
+
+`datasets={"orders": ...}` serves `POST /datasets/orders/query`, and `GET /discovery` lists the served datasets. A
+plain `Dataset` works too (`datasets={"orders": orders}` with `client=client`), under the default policy. Endpoints
+take a sync or an async dataset client; a sync one runs on worker threads. To verify
+JWTs, use [`jwt_strategy`](/docs/python/authentication#jwt) as `auth=` instead of writing your own.
+
+## Run it
+
+<CodeBlock>
+```bash
+hypequery dev app:app        # local development, with reload
+uvicorn app:app              # or any ASGI server
+```
+</CodeBlock>
+
+For a standalone production process, use [`start_server`](/docs/python/production). To put the API inside an
+application you already run, see [Mount in any ASGI or WSGI app](#mount-in-any-asgi-or-wsgi-app).
+
+## Query it
+
+<CodeBlock>
+```bash
+curl -X POST https://analytics.example.com/datasets/orders/query \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"dimensions": ["country"], "measures": ["revenue"], "limit": 10}'
+```
+</CodeBlock>
+
+<CodeBlock>
+```json
+{ "data": [{ "country": "NZ", "revenue": "1200.5" }] }
+```
+</CodeBlock>
+
+Requests and responses use the same shape as the TypeScript Serve runtime, pinned by shared HTTP fixtures that run
+against both implementations in CI.
+
+These endpoints serve applications over HTTP. To give React apps generated, type-safe hooks and AI agents MCP tools
+over the same endpoints, install them with a client profile; see [React and MCP clients](/docs/python/client-endpoints).
+
+## Defaults
+
+- **Authenticated by default.** Authentication runs before the body is read, so an anonymous caller cannot make the
+  server read or parse anything.
+- **Strict bodies.** Bodies must be `application/json` with no charset or `charset=utf-8`, and not content-encoded:
+  gzip and other encodings get `415`. A body that isn't valid JSON, including invalid UTF-8, gets `400`. Bodies are
+  capped at 1 MiB, counted as they arrive; set the cap with `create_api(max_body_bytes=...)`.
+- **No caching of private data.** Authenticated responses are sent with `Cache-Control: no-store`.
+- **Exact routing.** A route matches on its method and its path as sent, as in TypeScript. An unknown path or method
+  is `404 NOT_FOUND`, with no redirect for a trailing slash.
+- **Docs closed.** No `/docs` or `/openapi.json` is served unless you pass `development_docs=True`, for deliberate
+  development documentation. The OpenAPI 3.1 document is generated from the routes' own schemas, so no web framework
+  is needed for it; `openapi_document(api)` returns it directly.
+
+## Endpoints at other paths
+
+`datasets=` and `metrics=` serve the conventional TypeScript paths. To serve an endpoint anywhere else, add it to the
+API:
+
+<CodeBlock>
+```python
+from hypequery.serve import add_dataset_endpoint, add_discovery_endpoint, add_metric_endpoint
+
+api = create_api(auth=authenticate, security=HttpSecurity(allowed_hosts=("analytics.example.com",)))
+add_dataset_endpoint(api, "/v1/orders", dataset=orders, client=client, policy=policy)
+add_metric_endpoint(api, "/v1/revenue", dataset=orders, measure="revenue", client=client, policy=policy)
+add_discovery_endpoint(api, registry=registry)
+```
+</CodeBlock>
+
+`create_api(base_path="/analytics")` serves every route under a prefix.
+
+## Add your own routes
+
+A handler is an `async` function that receives a `Call` and returns a `ServeResponse`. `call.auth` is the
+authenticated caller, and the route is authenticated unless you pass `public=True`:
+
+<CodeBlock>
+```python
+from hypequery.serve import Call, ServeError, ServeResponse
+
+
+async def top_countries(call: Call) -> ServeResponse:
+    if call.auth.tenant is None:
+        raise ServeError(403, "FORBIDDEN", "This report needs a tenant")
+    scoped = client.for_tenant(call.auth.tenant)
+    query = {"dimensions": ["country"], "measures": ["revenue"], "limit": 5}
+    result = await scoped.execute("orders", query)
+    return ServeResponse.json({"data": list(result.data)})
+
+
+async def health(call: Call) -> ServeResponse:
+    return ServeResponse.json({"status": "ok"})
+
+
+api.add_route("POST", "/reports/top-countries", top_countries)
+api.add_route("GET", "/health", health, public=True)
+```
+</CodeBlock>
+
+A route never reads the body unless you pass `input=` a Pydantic `TypeAdapter`. Then the body is read and validated
+under the body policy first, and the result is `call.input`. `call.state.request_id` is the request's id. Use an
+async dataset client in handlers, as above: a sync `execute` would block the event loop.
+
+## Mount in any ASGI or WSGI app
+
+`to_asgi_app(api)` is a pure ASGI application, and `to_wsgi_app(api)` a WSGI one. Mount either under a prefix in the
+application you already have:
+
+<CodeBlock>
+```python
+# FastAPI
+from fastapi import FastAPI
+
+host = FastAPI()
+host.mount("/analytics", to_asgi_app(api))
+```
+</CodeBlock>
+
+<CodeBlock>
+```python
+# Starlette
+from starlette.applications import Starlette
+from starlette.routing import Mount
+
+host = Starlette(routes=[Mount("/analytics", app=to_asgi_app(api))])
+```
+</CodeBlock>
+
+<CodeBlock>
+```python
+# gunicorn, waitress or any WSGI framework
+from hypequery.serve import to_wsgi_app
+
+application = to_wsgi_app(api)  # gunicorn app:application
+```
+</CodeBlock>
+
+- **ASGI.** The app reads the body lazily and cancels a query whose caller disconnects. Pass
+  `to_asgi_app(api, lifespan=...)` to run a startup and shutdown context, for example to close the executor; when
+  mounted, the host application runs its own lifespan instead.
+- **WSGI.** The API runs on one event loop per process, started on its own thread at the first request, while each
+  request's thread waits. A threaded server (gunicorn `--threads`, waitress) serves requests concurrently on it. WSGI
+  never reports a caller who has gone, so there a query ends at its deadline.
+- **Django and Flask** serve the API natively, with no second application: `urls(api)` and `blueprint(api)`. See
+  [Django](/docs/python/django#serve-hypequerys-endpoints) and [Flask](/docs/python/flask#serve-hypequerys-endpoints).
+- **Paths.** Client contracts and discovery name the paths the request was routed under. If a proxy in front changes
+  them, pass `create_api(client_mount_path=...)` with the path browsers call.
+- **Security.** Without `security=`, the API checks no `Host` header and sends no CORS headers. Leave it out only when
+  the host application in front of it does both. See [HTTP security](/docs/python/http-security).
+
+`await api.handle(ServeRequest(...))` serves one request with no server at all, which is useful in tests.

@@ -13,8 +13,8 @@ statement to an executor, and returns rows keyed by column name.
 from hypequery.datasets import create_dataset_client
 from hypequery.execution import ClickHouseConnection, create_clickhouse_executor
 
-# Reads CLICKHOUSE_HOST, _PORT, _DATABASE, _USERNAME, _PASSWORD and _SECURE,
-# or pass host=..., username=..., password=..., database=... explicitly.
+# Reads CLICKHOUSE_URL, or CLICKHOUSE_HOST, _PORT, _DATABASE, _USERNAME, _PASSWORD and
+# _SECURE; or pass host=..., username=..., password=..., database=... explicitly.
 executor = create_clickhouse_executor(ClickHouseConnection.from_env())
 analytics = create_dataset_client(executor=executor)
 ```
@@ -24,6 +24,33 @@ The client does not own the executor, so call `executor.close()` when your appli
 connects as soon as it is called, so create the executor in your app's startup rather than at import time if the app
 must start while ClickHouse is down. In a FastAPI app, close it from the app's lifespan. For async code, use
 `create_async_dataset_client` with an async executor and `await analytics.execute(...)`.
+
+In Django and Flask, let the [Django](/docs/python/django) or [Flask](/docs/python/flask) integration own the client:
+those frameworks have no shutdown hook, and the integrations create, close and tenant-bind it for you.
+
+## Connecting
+
+<CodeBlock>
+```python
+ClickHouseConnection(host="ch.internal", database="analytics", username="reader", password=password)
+ClickHouseConnection.from_url("clickhouses://reader:pw@ch.example.com/analytics")
+ClickHouseConnection.from_env()
+```
+</CodeBlock>
+
+| URL | Connects with |
+| --- | --- |
+| `clickhouse://`, `http://` | Plain HTTP (port 8123 by default) |
+| `clickhouses://`, `https://` | TLS (port 8443 by default) |
+| `clickhousedb://`, `clickhouse+http://` | SQLAlchemy URLs for the HTTP interface; `?secure=true` or `?protocol=https` for TLS |
+
+The path is the database (`default` when omitted), and the user and password are percent-decoded. Native-protocol URLs
+such as `clickhouse+native://` are refused: hypequery sends values as server-side parameters, which only the HTTP
+interface carries. No error message repeats the URL.
+
+`from_env()` reads `CLICKHOUSE_URL` when it is set, and `CLICKHOUSE_HOST`, `_PORT`, `_DATABASE`, `_USERNAME`,
+`_PASSWORD` and `_SECURE` otherwise. Setting both is an error. To reuse a SQLAlchemy engine's server, see
+[SQLAlchemy](/docs/python/sqlalchemy).
 
 ## Client methods
 
@@ -97,3 +124,6 @@ Value types differ from the HTTP wire, where every measure is a string:
 - floating-point results come back as `float`;
 - `Decimal` values come back as `str`, to keep their precision;
 - timestamps come back as ISO 8601 strings.
+
+For analysis, `result.to_pandas()`, `to_polars()` and `to_arrow()` restore real types from the dataset definition. See
+[pandas, Polars and Arrow](/docs/python/dataframes).

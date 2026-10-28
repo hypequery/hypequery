@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { marketing } from '@/components/ui/marketing';
 import Navigation from '@/components/Navigation';
 import Footer from '@/components/Footer';
 import CodeWindow from '@/components/CodeWindow';
@@ -132,25 +133,25 @@ export default function ClickHouseTypeScriptPage() {
   return (
     <>
       <Navigation />
-      <main className="min-h-screen bg-bg pt-28 text-text">
-        <section className="relative overflow-hidden border-b border-border">
-          <div className="relative mx-auto max-w-7xl px-4 py-20 lg:px-6">
-            <p className="text-xs font-semibold uppercase tracking-[0.3em] text-accent">
+      <main className="min-h-screen bg-bg pt-[62px] text-text">
+        <section className="border-b border-border">
+          <div className={`${marketing.container} pb-14 pt-12 sm:pb-16 sm:pt-16`}>
+            <p className={marketing.eyebrow}>
               ClickHouse TypeScript
             </p>
-            <h1 className="mt-4 max-w-5xl text-4xl font-semibold tracking-tight text-text sm:text-6xl">
+            <h1 className={`mt-5 max-w-[980px] ${marketing.heroTitle}`}>
               ClickHouse with TypeScript
             </h1>
-            <p className="mt-6 max-w-3xl text-lg leading-8 text-text-muted">
+            <p className={`mt-5 max-w-[700px] ${marketing.heroLead}`}>
               The annoying part of using ClickHouse from TypeScript is not writing SQL. It is keeping runtime types, query code, and API surfaces aligned as the codebase grows. hypequery gives you generated schema types and a reusable query layer so that work does not keep getting rebuilt by hand.
             </p>
-            <div className="mt-8 flex flex-wrap gap-4">
+            <div className="mt-7 flex flex-wrap items-center gap-3">
               <Link
                 href="/docs/quick-start"
                 data-umami-event="cta_click"
                 data-umami-event-target="docs_quick_start"
                 data-umami-event-location="hero_primary"
-                className="bg-text px-6 py-3 text-sm font-semibold text-bg transition hover:opacity-90"
+                className={marketing.primaryButton}
               >
                 Start with hypequery
               </Link>
@@ -159,50 +160,50 @@ export default function ClickHouseTypeScriptPage() {
                 data-umami-event="cta_click"
                 data-umami-event-target="clickhouse_schema"
                 data-umami-event-location="hero_secondary"
-                className="border border-border-strong px-6 py-3 text-sm font-semibold text-text transition hover:bg-bg-alt"
+                className={marketing.secondaryButton}
               >
                 Generate schema types
               </Link>
             </div>
             <div className="mt-10 grid gap-4 sm:grid-cols-3">
-              <div className="rounded-lg border border-border bg-bg-card p-5 shadow-card">
-                <p className="text-xs uppercase tracking-[0.2em] text-text-dim">Core benefit</p>
-                <p className="mt-2 text-xl font-semibold text-text">Generated schema types</p>
+              <div className="rounded-xl border border-border bg-bg-card p-5 shadow-card">
+                <p className="font-mono text-xs text-text-dim">Core benefit</p>
+                <p className="mt-2 text-lg font-medium tracking-tight text-text">Generated schema types</p>
               </div>
-              <div className="rounded-lg border border-border bg-bg-card p-5 shadow-card">
-                <p className="text-xs uppercase tracking-[0.2em] text-text-dim">Execution model</p>
-                <p className="mt-2 text-xl font-semibold text-text">Local or HTTP</p>
+              <div className="rounded-xl border border-border bg-bg-card p-5 shadow-card">
+                <p className="font-mono text-xs text-text-dim">Execution model</p>
+                <p className="mt-2 text-lg font-medium tracking-tight text-text">Local or HTTP</p>
               </div>
-              <div className="rounded-lg border border-border bg-bg-card p-5 shadow-card">
-                <p className="text-xs uppercase tracking-[0.2em] text-text-dim">Best fit</p>
-                <p className="mt-2 text-xl font-semibold text-text">Analytics-heavy TypeScript apps</p>
+              <div className="rounded-xl border border-border bg-bg-card p-5 shadow-card">
+                <p className="font-mono text-xs text-text-dim">Best fit</p>
+                <p className="mt-2 text-lg font-medium tracking-tight text-text">Analytics-heavy TypeScript apps</p>
               </div>
             </div>
           </div>
         </section>
 
-        <section className="mx-auto max-w-7xl px-4 py-16 lg:px-6">
+        <section className={`${marketing.container} py-14 sm:py-20`}>
           <div className="grid gap-6 lg:grid-cols-3">
             {problems.map((problem) => (
-              <div key={problem.title} className="rounded-lg border border-border bg-bg-card p-6 shadow-card">
-                <h2 className="text-xl font-semibold text-text">{problem.title}</h2>
-                <p className="mt-4 text-sm leading-7 text-text-muted">{problem.copy}</p>
+              <div key={problem.title} className={marketing.card}>
+                <h2 className={marketing.cardTitle}>{problem.title}</h2>
+                <p className="mt-4 text-sm leading-6 text-text-muted">{problem.copy}</p>
               </div>
             ))}
           </div>
         </section>
 
-        <section className="border-y border-border bg-bg-alt/60">
-          <div className="mx-auto max-w-7xl px-4 py-16 lg:px-6">
+        <section className={marketing.band}>
+          <div className={`${marketing.container} py-14 sm:py-20`}>
             <div className="grid gap-10 lg:grid-cols-[1.1fr_0.9fr]">
               <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.25em] text-accent">
+                <p className={marketing.eyebrow}>
                   How hypequery helps
                 </p>
-              <h2 className="mt-3 text-3xl font-semibold text-text">
+              <h2 className={`mt-3 ${marketing.sectionTitle}`}>
                 A ClickHouse TypeScript workflow built for reusable analytics
               </h2>
-              <p className="mt-5 text-base leading-8 text-text-muted">
+              <p className="mt-4 text-sm leading-6 text-text-muted sm:text-base">
                 Instead of hand-writing TypeScript interfaces and copying SQL into route handlers, jobs, and dashboards, you generate schema types from ClickHouse and define the query once. That definition can run locally or be served over HTTP without drifting from the source query.
               </p>
                 <ul className="mt-8 space-y-3 text-sm text-text">
@@ -214,13 +215,13 @@ export default function ClickHouseTypeScriptPage() {
                   ))}
                 </ul>
               </div>
-              <div className="rounded-lg border border-border bg-bg-card p-6 shadow-card">
-                <p className="text-xs uppercase tracking-[0.25em] text-text-dim">Step 1</p>
-                <h3 className="mt-3 text-xl font-semibold text-text">
+              <div className={marketing.card}>
+                <p className="font-mono text-xs text-text-dim">Step 1</p>
+                <h3 className={`mt-3 ${marketing.cardTitle}`}>
                   Generate schema types from ClickHouse
                 </h3>
                 <CodeWindow code={schemaCode} filename="generate-schema.sh" language="bash" className="mt-4" />
-                <p className="mt-4 text-sm leading-7 text-text-muted">
+                <p className="mt-4 text-sm leading-6 text-text-muted">
                   This is where the ClickHouse TypeScript workflow becomes reliable. Runtime types like
                   `DateTime`, `UInt64`, `Nullable`, and `Decimal` get mapped correctly instead of being guessed.
                 </p>
@@ -229,21 +230,21 @@ export default function ClickHouseTypeScriptPage() {
           </div>
         </section>
 
-        <section className="mx-auto max-w-7xl px-4 py-16 lg:px-6">
+        <section className={`${marketing.container} py-14 sm:py-20`}>
           <div className="grid gap-8 lg:grid-cols-[0.95fr_1.05fr]">
             <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.25em] text-accent">
+                <p className={marketing.eyebrow}>
                 Step 2
               </p>
-              <h2 className="mt-3 text-3xl font-semibold text-text">
+              <h2 className={`mt-3 ${marketing.sectionTitle}`}>
                 Define typed ClickHouse queries once
               </h2>
-              <p className="mt-5 text-base leading-8 text-text-muted">
+              <p className="mt-4 text-sm leading-6 text-text-muted sm:text-base">
                 hypequery lets you model analytics queries in TypeScript and reuse them across product surfaces.
                 That means the same query definition can power a dashboard, an API route, a job, or an internal tool
                 without duplicating logic.
               </p>
-              <div className="mt-8 space-y-4 text-sm leading-7 text-text-muted">
+              <div className="mt-8 space-y-4 text-sm leading-6 text-text-muted">
                 <p>
                   This is the difference between “ClickHouse client in TypeScript” and a real ClickHouse analytics
                   backend in TypeScript. You are not just running queries. You are defining typed contracts that can
@@ -257,60 +258,60 @@ export default function ClickHouseTypeScriptPage() {
                 </p>
               </div>
             </div>
-            <div className="rounded-lg border border-border bg-bg-card p-6 shadow-card">
+            <div className={marketing.card}>
               <CodeWindow code={queryCode} filename="analytics-api.ts" className="mt-0" />
             </div>
           </div>
         </section>
 
-        <section className="border-y border-border bg-bg-alt/60">
-          <div className="mx-auto max-w-7xl px-4 py-16 lg:px-6">
-            <p className="text-xs font-semibold uppercase tracking-[0.25em] text-text-dim">Why teams search for this</p>
-            <h2 className="mt-3 text-3xl font-semibold text-text">
+        <section className={marketing.band}>
+          <div className={`${marketing.container} py-14 sm:py-20`}>
+            <p className="font-mono text-xs text-text-dim">Why teams search for this</p>
+            <h2 className={`mt-3 ${marketing.sectionTitle}`}>
               Common ClickHouse TypeScript problems this page should solve
             </h2>
             <div className="mt-10 grid gap-6 md:grid-cols-2">
-              <div className="rounded-lg border border-border bg-bg-card p-6 shadow-card">
-                <h3 className="text-xl font-semibold text-text">
+              <div className={marketing.card}>
+                <h3 className={marketing.cardTitle}>
                   ClickHouse query builder for TypeScript
                 </h3>
-                <p className="mt-3 text-sm leading-7 text-text-muted">
+                <p className="mt-3 text-sm leading-6 text-text-muted">
                   If you want a ClickHouse query builder with real TypeScript support, the key question is not just syntax.
                   It is whether the builder understands ClickHouse runtime types and can be reused across your app.
                 </p>
               </div>
-              <div className="rounded-lg border border-border bg-bg-card p-6 shadow-card">
-                <h3 className="text-xl font-semibold text-text">
+              <div className={marketing.card}>
+                <h3 className={marketing.cardTitle}>
                   ClickHouse types in TypeScript
                 </h3>
-                <p className="mt-3 text-sm leading-7 text-text-muted">
+                <p className="mt-3 text-sm leading-6 text-text-muted">
                   DateTime, UInt64, Decimal, and Nullable columns are where most silent bugs start. If that is your main
                   pain point, read <Link href="/blog/clickhouse-typescript-type-problem" className="text-accent hover:opacity-70">the type problem guide</Link>.
                 </p>
               </div>
-              <div className="rounded-lg border border-border bg-bg-card p-6 shadow-card">
-                <h3 className="text-xl font-semibold text-text">
+              <div className={marketing.card}>
+                <h3 className={marketing.cardTitle}>
                   Reusable analytics APIs in TypeScript
                 </h3>
-                <p className="mt-3 text-sm leading-7 text-text-muted">
+                <p className="mt-3 text-sm leading-6 text-text-muted">
                   Teams often start with raw queries and then realize they need typed APIs, internal analytics services,
                   or OpenAPI docs on top. hypequery is optimized for that step-up in complexity.
                 </p>
               </div>
-              <div className="rounded-lg border border-border bg-bg-card p-6 shadow-card">
-                <h3 className="text-xl font-semibold text-text">
+              <div className={marketing.card}>
+                <h3 className={marketing.cardTitle}>
                   Alternatives to hand-written query types
                 </h3>
-                <p className="mt-3 text-sm leading-7 text-text-muted">
+                <p className="mt-3 text-sm leading-6 text-text-muted">
                   Hand-maintained interfaces drift. Generated schema types plus typed query definitions remove that drift
                   from the system instead of relying on discipline alone.
                 </p>
               </div>
-              <div className="rounded-lg border border-border bg-bg-card p-6 shadow-card">
-                <h3 className="text-xl font-semibold text-text">
+              <div className={marketing.card}>
+                <h3 className={marketing.cardTitle}>
                   How do I use ClickHouse with TypeScript?
                 </h3>
-                <p className="mt-3 text-sm leading-7 text-text-muted">
+                <p className="mt-3 text-sm leading-6 text-text-muted">
                   Start by introspecting the live schema. Generate TypeScript types from that schema. Build queries against those types. Then decide where the query needs to run: inline, behind an endpoint, or in a dashboard. That is the workflow hypequery makes easier.
                 </p>
               </div>
@@ -318,9 +319,9 @@ export default function ClickHouseTypeScriptPage() {
           </div>
         </section>
 
-        <section className="mx-auto max-w-7xl px-4 py-16 lg:px-6">
-          <p className="text-xs font-semibold uppercase tracking-[0.25em] text-accent">Further reading</p>
-          <h2 className="mt-3 text-3xl font-semibold text-text">
+        <section className={`${marketing.container} py-14 sm:py-20`}>
+          <p className={marketing.eyebrow}>Further reading</p>
+          <h2 className={`mt-3 ${marketing.sectionTitle}`}>
             Compare approaches and go deeper
           </h2>
           <div className="mt-10 grid gap-6 lg:grid-cols-3">
@@ -328,11 +329,11 @@ export default function ClickHouseTypeScriptPage() {
               <Link
                 key={item.href}
                 href={item.href}
-                className="group rounded-lg border border-border bg-bg-card p-6 transition hover:-translate-y-1 hover:border-border-strong hover:shadow-card"
+                className="group rounded-xl border border-border bg-bg-card p-6 transition hover:-translate-y-0.5 hover:border-border-strong hover:shadow-card"
               >
-                <h3 className="text-xl font-semibold text-text">{item.title}</h3>
-                <p className="mt-3 text-sm leading-7 text-text-muted">{item.description}</p>
-                <p className="mt-6 text-xs font-semibold uppercase tracking-[0.2em] text-accent group-hover:opacity-70">
+                <h3 className={marketing.cardTitle}>{item.title}</h3>
+                <p className="mt-3 text-sm leading-6 text-text-muted">{item.description}</p>
+                <p className="mt-5 inline-flex items-center gap-1.5 text-xs font-medium text-accent group-hover:opacity-70">
                   Open article
                 </p>
               </Link>
@@ -343,35 +344,35 @@ export default function ClickHouseTypeScriptPage() {
               <Link
                 key={item.href}
                 href={item.href}
-                className="group rounded-lg border border-border bg-bg-card p-5 transition hover:border-border-strong hover:shadow-card"
+                className="group rounded-xl border border-border bg-bg-card p-5 transition hover:-translate-y-0.5 hover:border-border-strong hover:shadow-card"
               >
-                <h3 className="text-lg font-semibold text-text">{item.title}</h3>
-                <p className="mt-3 text-sm leading-7 text-text-muted">{item.description}</p>
+                <h3 className="text-lg font-medium tracking-tight text-text">{item.title}</h3>
+                <p className="mt-3 text-sm leading-6 text-text-muted">{item.description}</p>
               </Link>
             ))}
           </div>
         </section>
 
-        <section className="mx-auto max-w-7xl px-4 pb-20 lg:px-6">
-          <div className="rounded-lg border border-border-strong bg-bg-card p-8 shadow-card md:flex md:items-center md:justify-between md:gap-8">
+        <section className={`${marketing.container} pb-20`}>
+          <div className="rounded-xl border border-border-strong bg-bg-card p-8 shadow-card md:flex md:items-center md:justify-between md:gap-8">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.25em] text-accent">
+              <p className={marketing.eyebrow}>
                 Next step
               </p>
-              <h2 className="mt-3 text-2xl font-semibold text-text">
+              <h2 className="mt-3 text-2xl font-normal tracking-[-0.03em] text-text">
                 Start with hypequery on one real ClickHouse query
               </h2>
-              <p className="mt-3 max-w-2xl text-sm leading-7 text-text-muted">
+              <p className="mt-3 max-w-2xl text-sm leading-6 text-text-muted">
                 Generate schema types, define your first typed query, and prove the workflow on your actual ClickHouse schema before expanding further.
               </p>
             </div>
-            <div className="mt-6 flex gap-3 md:mt-0">
+            <div className="mt-6 flex shrink-0 flex-wrap gap-3 md:mt-0">
               <Link
                 href="/docs/quick-start"
                 data-umami-event="cta_click"
                 data-umami-event-target="docs_quick_start"
                 data-umami-event-location="next_step_primary"
-                className="inline-flex items-center bg-text px-5 py-3 text-sm font-semibold text-bg transition hover:opacity-90"
+                className={marketing.primaryButton}
               >
                 Start with hypequery
               </Link>
@@ -380,7 +381,7 @@ export default function ClickHouseTypeScriptPage() {
                 data-umami-event="cta_click"
                 data-umami-event-target="clickhouse_schema"
                 data-umami-event-location="next_step_secondary"
-                className="inline-flex items-center border border-border-strong px-5 py-3 text-sm font-semibold text-text transition hover:bg-bg-alt"
+                className={marketing.secondaryButton}
               >
                 Generate schema types
               </Link>

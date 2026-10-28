@@ -53,7 +53,7 @@ export default function ClickHouseMultiTenantAnalyticsPage() {
     <ClickhousePillarPage
       eyebrow="ClickHouse Multi-Tenant Analytics"
       title="Build multi-tenant ClickHouse analytics without trusting every query author"
-      description="SaaS analytics breaks when tenant isolation is a convention instead of a system property. hypequery lets you inject tenant filters automatically so reusable ClickHouse queries stay safely scoped across APIs, dashboards, and internal tooling."
+      description="SaaS analytics breaks when tenant isolation is a convention instead of a system property. hypequery lets you inject tenant filters automatically so reusable ClickHouse queries stay safely scoped across APIs, dashboards, AI agents, and internal tooling."
       primaryCta={{ href: '/docs/multi-tenancy', label: 'Open multi-tenancy docs' }}
       secondaryCta={{ href: '/use-cases/multi-tenant-saas', label: 'See the SaaS use case' }}
       stats={[

@@ -5,20 +5,30 @@ description: Request and response shapes, pagination, and discovery for Python d
 
 import { CodeBlock } from 'fumadocs-ui/components/codeblock';
 
-`add_dataset_endpoint` registers a `POST` endpoint that runs semantic queries against one dataset through your
-dataset client (sync or async).
+A dataset endpoint is a `POST` endpoint that runs semantic queries against one dataset through your dataset client
+(sync or async). Serve it at the conventional path with `create_api(datasets=...)`, or at any path with
+`add_dataset_endpoint`:
 
 <CodeBlock>
 ```python
-add_dataset_endpoint(
-    router,
-    "/datasets/orders/query",
-    dataset=orders,
-    client=client,
-    policy=EndpointPolicy(tenant="required", max_limit=500),
+from hypequery.serve import EndpointPolicy, add_dataset_endpoint, create_api, create_dataset_endpoint
+
+policy = EndpointPolicy(tenant="required", max_limit=500)
+
+# POST /datasets/orders/query
+api = create_api(
+    auth=authenticate,
+    datasets={"orders": create_dataset_endpoint(dataset=orders, client=client, policy=policy)},
 )
+
+# or at a path of your choosing
+add_dataset_endpoint(api, "/v1/orders", dataset=orders, client=client, policy=policy)
 ```
 </CodeBlock>
+
+A metric endpoint fixes one measure: `create_metric_endpoint(dataset=orders, measure="revenue", client=client)`,
+served with `create_api(metrics={"revenue": ...})` at `POST /metrics/revenue`, or with `add_metric_endpoint(api, path,
+...)`.
 
 ## Request body
 
@@ -55,14 +65,7 @@ endpoint's policy is enough to read the related data:
 
 <CodeBlock>
 ```python
-add_dataset_endpoint(
-    router,
-    "/datasets/orders/query",
-    dataset=orders,
-    client=client,
-    policy=policy,
-    include_related={"customer"},
-)
+create_dataset_endpoint(dataset=orders, client=client, policy=policy, include_related={"customer"})
 ```
 </CodeBlock>
 
@@ -84,6 +87,7 @@ add_dataset_endpoint(
 </CodeBlock>
 
 - `meta` is included only when the body sets `includeMeta: true` or the request sends `x-include-meta: true`.
+- `meta.cache` appears only when the dataset client has a result cache; without one it is omitted, as in TypeScript.
 - Non-null measure values are strings on the wire, matching TypeScript. Local Python client results keep native
   values.
 
@@ -94,16 +98,17 @@ fetches one extra row to compute `hasMore`, then drops it from the returned data
 
 ## Discovery
 
-`add_discovery_endpoint` publishes a logical catalog of your registered datasets at `/discovery`:
+`create_api` serves `GET /discovery` whenever it serves `datasets=` or `metrics=`: a logical catalog of their
+datasets. Pass `discovery=EndpointPolicy(...)` to change who may read it, or `discovery=False` to leave it out. To
+publish a registry's catalog at another path, use `add_discovery_endpoint`:
 
 <CodeBlock>
 ```python
-add_discovery_endpoint(router, registry=registry)
+add_discovery_endpoint(api, "/v1/discovery", registry=registry)
 ```
 </CodeBlock>
 
-- It requires authentication by default. Pass `policy=EndpointPolicy(public=True)` only for intentionally public
-  discovery.
+- It requires authentication by default. Pass `EndpointPolicy(public=True)` only for intentionally public discovery.
 - The catalog matches TypeScript's `/discovery` projection. Physical tables, columns, SQL, tenant policy, and tenant
   values never appear in it.
 - Its size is capped at 256 KiB by default (`max_bytes=`), checked at startup.

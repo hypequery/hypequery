@@ -51,6 +51,9 @@ create_async_dataset_client(*, executor, registry=None, settings=QuerySettings(.
 The default settings are read-only, `max_execution_time` 30 seconds, `max_result_rows` 100,000, `max_result_bytes` 64 MiB and `max_threads` 4.
 
 Results come back as `DatasetQueryResult`, with `DatasetQueryMeta` and `Pagination` alongside the rows.
+`column_types` gives each column's `ResultColumnType` (`string`, `number`, `integer`, `boolean`, `timestamp` or
+`unknown`) from the dataset definition, and `timezone` the query's timezone. `to_pandas()`, `to_polars()` and
+`to_arrow()` take `decimals="float"` or `"decimal"`; see [pandas, Polars and Arrow](/docs/python/dataframes).
 
 ## Relationship checks
 

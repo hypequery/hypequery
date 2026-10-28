@@ -7,6 +7,7 @@ import { ProductExplainer } from '@/components/home/ProductExplainer';
 import { PatternCallout } from '@/components/home/PatternCallout';
 import { BuildYourWay } from '@/components/home/BuildYourWay';
 import { CloudWorkflow } from '@/components/home/CloudWorkflow';
+import { RunsWhereYourAppRuns } from '@/components/home/RunsWhereYourAppRuns';
 import { StaticCode } from '@/components/home/StaticCode';
 
 // The definition behind the explainer diagram: orders, scoped by tenant, joined to customers.
@@ -57,7 +58,7 @@ const softwareSchema = {
   applicationCategory: 'DeveloperApplication',
   operatingSystem: 'Cross-platform',
   description:
-    'The analytics layer for ClickHouse. Ship embedded dashboards, chat, and AI agents that answer from one definition of your metrics, built with AI or in TypeScript and Python.',
+    'The analytics layer for ClickHouse, in your codebase. Define metrics once in TypeScript or Python and serve them to dashboards, APIs, and AI agents, in your own backend or on hypequery cloud.',
   softwareVersion: 'latest',
   codeRepository: 'https://github.com/hypequery/hypequery',
   programmingLanguage: ['TypeScript', 'Python'],
@@ -84,12 +85,13 @@ export default function Home() {
       <main className="pt-[104px]">
         <Hero />
         <PatternCallout />
-        {/* Hero (what it is) → proof → every interface (what it powers) → build it (how)
-            → production features (can I trust it) → change safely (what happens next) → CTA. */}
+        {/* Hero (what it is) → proof → every interface (what it powers) → runs in your stack (where it lives)
+            → build it (how) → production features (can I trust it) → change safely (what happens next) → CTA. */}
         <ProductExplainer
           modelCode={<StaticCode code={MODEL_CODE} />}
           dashboardCode={<StaticCode code={DASHBOARD_CODE} lang="tsx" className="text-[10.5px]!" />}
         />
+        <RunsWhereYourAppRuns />
         <BuildYourWay />
         <FeatureGrid />
         <CloudWorkflow />

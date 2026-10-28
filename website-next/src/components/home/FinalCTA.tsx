@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { marketing } from '../ui/marketing';
 import { DeployWaitlist } from './DeployWaitlist';
 import { SetupCommand } from './SetupCommand';
 
@@ -9,16 +10,16 @@ export function FinalCTA() {
         Ship your analytics layer today
       </h2>
       <p className="mt-3.5 text-body text-text-muted max-w-[560px] mx-auto text-pretty">
-        Build your analytics layer with AI or in code, and host it on hypequery cloud.
+        Start open source in your own backend. Move to hypequery cloud when you want it hosted.
       </p>
       <div className="mt-8 flex flex-wrap items-center justify-center gap-4">
-        <DeployWaitlist location="final" className="inline-flex min-h-12 items-center gap-3 rounded-lg bg-accent px-5 text-sm font-semibold text-white transition hover:-translate-y-0.5 hover:opacity-90 dark:text-[#0c0e14]" />
         <Link
           href="/docs/quick-start"
-          className="inline-flex min-h-12 items-center rounded-lg border border-border-strong bg-bg-card px-5 text-sm font-semibold text-text transition hover:-translate-y-0.5 hover:border-text"
+          className={marketing.primaryButton}
         >
-          Start open source
+          Get started <span aria-hidden="true">→</span>
         </Link>
+        <DeployWaitlist location="final" className={marketing.secondaryButton} />
       </div>
       <SetupCommand className="mt-4 justify-center" />
     </section>

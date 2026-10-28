@@ -69,6 +69,7 @@ export default function ClickHousePythonPage() {
       description="A driver gets rows out of ClickHouse. hypequery gives your Python code shared definitions on top: measures, dimensions, relationships, and tenant rules you define once and query by name from jobs, notebooks, and FastAPI services."
       primaryCta={{ href: '/docs/python/quick-start', label: 'Start with Python' }}
       secondaryCta={{ href: '/clickhouse-fastapi', label: 'See the FastAPI guide' }}
+      language="python"
       stats={[
         { label: 'Python', value: '3.11+' },
         { label: 'Execution', value: 'Sync and async ClickHouse' },
@@ -172,8 +173,10 @@ export default function ClickHousePythonPage() {
       relatedPillars={[
         { href: '/clickhouse-fastapi', label: 'ClickHouse FastAPI' },
         { href: '/python-semantic-layer', label: 'Python semantic layer' },
-        { href: '/clickhouse-semantic-layer', label: 'ClickHouse semantic layer' },
-        { href: '/clickhouse-typescript', label: 'ClickHouse TypeScript' },
+        { href: '/clickhouse-django', label: 'ClickHouse with Django' },
+        { href: '/clickhouse-flask', label: 'ClickHouse with Flask' },
+        { href: '/clickhouse-pandas', label: 'ClickHouse to pandas' },
+        { href: '/clickhouse-sqlalchemy', label: 'ClickHouse with SQLAlchemy' },
       ]}
       nextStep={{
         eyebrow: 'Next step',

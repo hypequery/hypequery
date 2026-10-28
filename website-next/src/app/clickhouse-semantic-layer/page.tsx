@@ -3,26 +3,30 @@ import Link from 'next/link';
 import CodeHighlight from '@/components/CodeHighlight';
 import Footer from '@/components/Footer';
 import Navigation from '@/components/Navigation';
+import { OpenSourceBadge } from '@/components/home/OpenSourceBadge';
+import { SetupCommand } from '@/components/home/SetupCommand';
+import { DeployWaitlist } from '@/components/home/DeployWaitlist';
+import { marketing } from '@/components/ui/marketing';
 import { absoluteUrl, ogImage } from '@/lib/site';
 
 export const metadata: Metadata = {
-  title: 'ClickHouse Semantic Layer in TypeScript',
+  title: 'ClickHouse Semantic Layer in TypeScript and Python',
   description:
-    'Define a ClickHouse semantic layer in TypeScript with typed datasets, tenant keys, time keys, and reusable delivery across APIs, jobs, and dashboards.',
+    'Define a ClickHouse semantic layer in TypeScript or Python with typed datasets, tenant keys, and time keys. Serve it to APIs, dashboards, and AI agents from your own backend, or on hypequery cloud.',
   alternates: {
     canonical: absoluteUrl('/clickhouse-semantic-layer'),
   },
   openGraph: {
-    images: ogImage('ClickHouse Semantic Layer in TypeScript'),
+    images: ogImage('ClickHouse Semantic Layer in TypeScript and Python'),
     type: 'website',
     url: absoluteUrl('/clickhouse-semantic-layer'),
-    title: 'ClickHouse Semantic Layer in TypeScript | hypequery',
+    title: 'ClickHouse Semantic Layer in TypeScript and Python | hypequery',
     description:
       'A code-first ClickHouse semantic layer for TypeScript teams. No YAML, no separate platform, no service to run.',
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'ClickHouse Semantic Layer in TypeScript | hypequery',
+    title: 'ClickHouse Semantic Layer in TypeScript and Python | hypequery',
     description:
       'Model ClickHouse tables once in TypeScript and reuse the same typed definitions across APIs, jobs, and dashboards.',
   },
@@ -62,14 +66,17 @@ await analytics.execute(Orders, {
 const payoffCode = `import { createDatasetClient } from '@hypequery/datasets';
 import { initServe } from '@hypequery/serve';
 import { db } from './client';
-import { Orders, revenue } from './datasets';
-
-const authStrategy = async ({ request }) => ({
-  tenantId: request.headers['x-tenant-id'] as string,
-});
+import { Orders } from './datasets';
 
 const { serve } = initServe({
-  auth: authStrategy,
+  // read the tenant from verified auth in production
+  auth: async ({ request }) => ({
+    tenantId: request.headers['x-tenant-id'],
+  }),
+  tenant: {
+    extract: (auth) => auth.tenantId,
+    required: true,
+  },
   context: () => ({ db }),
 });
 
@@ -77,37 +84,36 @@ export const analytics = createDatasetClient({ queryBuilder: db });
 
 export const api = serve({
   queryBuilder: db,
-  metrics: { revenue },
   datasets: { orders: Orders },
-  tenant: {
-    extract: (auth) => auth.tenantId,
-    required: true,
-  },
 });`;
 
 const consumerCode = `// backend or worker
 await analytics.execute(
-  revenue,
-  { dimensions: ['status'] },
+  Orders,
+  { dimensions: ['status'], measures: ['revenue'] },
   { runtime: { tenant: { id: tenantId } } },
 );
 
 // HTTP
-await fetch('/api/analytics/metrics/revenue', {
+await fetch('/api/analytics/datasets/orders/query', {
   method: 'POST',
-  body: JSON.stringify({ dimensions: ['status'] }),
+  body: JSON.stringify({ dimensions: ['status'], measures: ['revenue'] }),
 });
 
 // React
-const { data } = useMetric('revenue', {
+const { data } = useDataset('orders', {
   dimensions: ['status'],
-});`;
+  measures: ['revenue'],
+});
+
+// AI agents, over MCP
+//   npx hypequery mcp --tenant acme`;
 
 const comparisonRows = [
   {
     label: 'Lives in',
     detail: 'Where the semantic layer physically runs',
-    hypequery: 'Your TypeScript codebase',
+    hypequery: 'Your codebase, in TypeScript or Python',
     platform: 'Separate service / platform',
     hypequeryYes: true,
     platformYes: false,
@@ -115,7 +121,7 @@ const comparisonRows = [
   {
     label: 'Language',
     detail: 'How you author metrics and dimensions',
-    hypequery: 'TypeScript',
+    hypequery: 'TypeScript or Python',
     platform: 'YAML / modeling DSLs',
     hypequeryYes: true,
     platformYes: false,
@@ -123,7 +129,7 @@ const comparisonRows = [
   {
     label: 'Types',
     detail: 'Compile-time safety from schema to response',
-    hypequery: 'End-to-end TypeScript contracts',
+    hypequery: 'Typed contracts from schema to response',
     platform: 'Limited or external to app code',
     hypequeryYes: true,
     platformYes: false,
@@ -139,7 +145,7 @@ const comparisonRows = [
   {
     label: 'Operate',
     detail: 'What you deploy and maintain in production',
-    hypequery: 'A library in your stack',
+    hypequery: 'A library in your stack, or hosted on hypequery cloud',
     platform: 'A platform to run',
     hypequeryYes: true,
     platformYes: false,
@@ -180,7 +186,7 @@ function Verdict({ yes }: { yes: boolean }) {
 
 function CodeCard({ title, code }: { title: string; code: string }) {
   return (
-    <div className="overflow-hidden rounded-lg border border-border-strong bg-bg-card shadow-card">
+    <div className="overflow-hidden rounded-xl border border-border-strong bg-bg-card shadow-card">
       <div className="flex items-center gap-1.5 border-b border-border bg-bg-alt/60 px-4 py-3">
         <span className="h-2.5 w-2.5 rounded-full bg-[#ff5f56]" />
         <span className="h-2.5 w-2.5 rounded-full bg-[#ffbd2e]" />
@@ -209,8 +215,8 @@ function SectionIntro({
 }) {
   return (
     <div className="mb-10">
-      {eyebrow ? <p className="font-mono text-eyebrow text-accent mb-3.5">{eyebrow}</p> : null}
-      <h2 className="text-h2 text-text max-w-[780px] text-balance">{title}</h2>
+      {eyebrow ? <p className={`mb-3.5 ${marketing.eyebrow}`}>{eyebrow}</p> : null}
+      <h2 className={`max-w-[780px] text-balance ${marketing.sectionTitle}`}>{title}</h2>
       <div className="mt-3.5 max-w-[700px] space-y-4 text-body text-text-muted text-pretty">{children}</div>
     </div>
   );
@@ -220,39 +226,43 @@ export default function ClickHouseSemanticLayerPage() {
   return (
     <div className="min-h-screen bg-bg text-text">
       <Navigation />
-      <main className="pt-[98px]">
-        <section className="mx-auto max-w-[1280px] px-8 pt-[120px] pb-14">
-          <p className="font-mono text-eyebrow text-accent mb-4">ClickHouse semantic layer</p>
-          <h1 className="text-display text-text max-w-[980px] text-balance">
-            The ClickHouse semantic layer you define in TypeScript
+      <main className="pt-[62px]">
+        <section className={`${marketing.container} pb-14 pt-12 sm:pt-16`}>
+          <div className="flex flex-wrap items-center gap-3">
+            <OpenSourceBadge />
+            <p className={marketing.eyebrow}>ClickHouse semantic layer</p>
+          </div>
+          <h1 className={`mt-5 max-w-[980px] text-balance ${marketing.heroTitle}`}>
+            The ClickHouse semantic layer you define in TypeScript or Python
           </h1>
-          <p className="mt-[22px] text-body-lg text-text-muted max-w-[720px] text-pretty">
-            Model your table once — tenant key, time key, typed fields — and every semantic query inherits it. Across your APIs, jobs, and dashboards. No YAML. No separate platform. No service to run.
+          <p className={`mt-5 max-w-[700px] text-pretty ${marketing.heroLead}`}>
+            Model your table once — tenant key, time key, typed fields — and every query inherits it, across your APIs, dashboards, and AI agents. No YAML. Run it in your own backend, or on hypequery cloud.
           </p>
-          <div className="mt-7 flex flex-wrap gap-2.5">
-            <Link
-              href="/docs/datasets/overview"
-              data-umami-event="cta_click"
-              data-umami-event-target="docs_datasets_overview"
-              data-umami-event-location="hero_primary"
-              className="bg-text text-bg px-5 py-3 text-[13.5px] font-semibold rounded transition hover:opacity-90 hover:-translate-y-px"
-            >
-              Read the datasets docs →
-            </Link>
+          <div className="mt-7 flex flex-wrap items-center gap-3">
             <Link
               href="/docs/quick-start"
               data-umami-event="cta_click"
               data-umami-event-target="docs_quick_start"
-              data-umami-event-location="hero_secondary"
-              className="bg-transparent text-text px-5 py-3 text-[13.5px] font-semibold rounded border border-border-strong transition hover:border-text hover:bg-bg-alt"
+              data-umami-event-location="hero_primary"
+              className={marketing.primaryButton}
             >
-              Get started →
+              Get started <span aria-hidden="true">→</span>
+            </Link>
+            <Link
+              href="/docs/datasets/overview"
+              data-umami-event="cta_click"
+              data-umami-event-target="docs_datasets_overview"
+              data-umami-event-location="hero_secondary"
+              className={marketing.secondaryButton}
+            >
+              Read the datasets docs
             </Link>
           </div>
+          <SetupCommand className="mt-4" />
         </section>
 
-        <section className="mx-auto max-w-[1280px] px-8 pt-[72px] pb-6">
-          <SectionIntro title="Your semantic layer is a TypeScript file.">
+        <section className={`${marketing.container} pb-6 pt-[72px]`}>
+          <SectionIntro title="Your semantic layer is a file in your repo.">
             <p>
               A dataset declares your table, its tenant key, its time key, dimensions, and measures — once. Semantic queries built on it carry tenant and time context automatically when runtime tenancy is active. Change the definition; downstream usage follows the same typed contract.
             </p>
@@ -260,18 +270,18 @@ export default function ClickHouseSemanticLayerPage() {
           <CodeCard title="datasets/orders.ts" code={datasetCode} />
         </section>
 
-        <section className="mx-auto max-w-[1280px] px-8 pt-[96px] pb-6">
-          <SectionIntro title="A semantic layer doesn't have to be a platform.">
+        <section className={`${marketing.container} pb-6 pt-[96px]`}>
+          <SectionIntro title="A semantic layer doesn't have to be a separate platform.">
             <p>
               The standard answer to “ClickHouse semantic layer” is Cube or dbt MetricFlow — a separate service, modeled outside your application stack, run alongside your code. That is the right tool when centralized BI metrics for non-engineers is the job.
             </p>
             <p>
-              For a TypeScript team shipping product features, it is often the wrong shape. Your semantic layer should live in your codebase, your types, and your deploys. Datasets put it there: one definition, governed everywhere, without adopting a separate platform.
+              For a team shipping product features, it is often the wrong shape. Your semantic layer should live in your codebase, your types, and your deploys. Datasets put it there: one definition, in TypeScript or Python, governed everywhere. Run it in your own backend, or let hypequery cloud host the same definitions.
             </p>
           </SectionIntro>
         </section>
 
-        <section className="mx-auto max-w-[1280px] px-8 pt-[96px] pb-6">
+        <section className={`${marketing.container} pb-6 pt-[96px]`}>
           <div className="grid gap-8 lg:grid-cols-[0.9fr_1.1fr] lg:items-start">
             <SectionIntro title="Multi-tenancy you can't forget.">
               <p>
@@ -285,10 +295,10 @@ export default function ClickHouseSemanticLayerPage() {
           </div>
         </section>
 
-        <section className="mx-auto max-w-[1280px] px-8 pt-[96px] pb-6">
+        <section className={`${marketing.container} pb-6 pt-[96px]`}>
           <SectionIntro title="One definition. Every consumer.">
             <p>
-              Register the dataset and its metrics directly. The same definition feeds server code, a validated HTTP route, a typed React hook, and governed MCP tools without redefining what revenue means.
+              Register the dataset once. The same definition feeds server code, a validated HTTP route, a typed React hook, and governed MCP tools, without redefining what revenue means.
             </p>
           </SectionIntro>
           <div className="grid gap-4 lg:grid-cols-2">
@@ -297,13 +307,13 @@ export default function ClickHouseSemanticLayerPage() {
           </div>
         </section>
 
-        <section className="mx-auto max-w-[1280px] px-8 pt-[96px] pb-6">
+        <section className={`${marketing.container} pb-6 pt-[96px]`}>
           <SectionIntro title="hypequery vs Cube / dbt MetricFlow">
             <p>
-              Both shapes can be correct. The question is whether you want a TypeScript semantic layer inside your product codebase, or a separate metrics platform for centralized BI.
+              Both shapes can be correct. The question is whether you want a semantic layer inside your product codebase, or a separate metrics platform for centralized BI.
             </p>
           </SectionIntro>
-          <div className="overflow-hidden rounded-lg border border-border-strong bg-bg-card shadow-card">
+          <div className="overflow-hidden rounded-xl border border-border-strong bg-bg-card shadow-card">
             <div className="hidden grid-cols-[160px_1fr_1fr] gap-4 border-b border-border bg-bg-alt/60 px-5 py-3 font-mono text-[11px] font-bold uppercase tracking-[0.12em] text-text-dim md:grid">
               <span>Decision</span>
               <span>hypequery</span>
@@ -343,36 +353,27 @@ export default function ClickHouseSemanticLayerPage() {
           </div>
         </section>
 
-        <section className="mx-auto max-w-[1280px] px-8 py-20 text-center">
-          <p className="font-mono text-eyebrow text-accent mb-3.5">Next step</p>
-          <h2 className="text-h1 text-text max-w-[780px] mx-auto text-balance">
+        <section className={`${marketing.container} py-20 text-center`}>
+          <p className={`mb-3.5 ${marketing.eyebrow}`}>Next step</p>
+          <h2 className={`mx-auto max-w-[780px] text-balance ${marketing.sectionTitle}`}>
             Define your first dataset in 30 seconds.
           </h2>
-          <p className="mt-[18px] mx-auto inline-block">
-            <span className="font-mono text-[15px] text-text bg-bg-alt border border-border-strong px-3.5 py-2 rounded">
-              npx @hypequery/cli init
-            </span>
+          <p className="mx-auto mt-3.5 max-w-[560px] text-body text-pretty text-text-muted">
+            Start open source in your own backend. Move to hypequery cloud when you want it hosted.
           </p>
-          <div className="mt-8 flex flex-wrap justify-center gap-2.5">
+          <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
             <Link
               href="/docs/quick-start"
               data-umami-event="cta_click"
               data-umami-event-target="docs_quick_start"
               data-umami-event-location="footer_primary"
-              className="bg-text text-bg px-5 py-3 text-[13.5px] font-semibold rounded transition hover:opacity-90 hover:-translate-y-px"
+              className={marketing.primaryButton}
             >
-              Get started →
+              Get started <span aria-hidden="true">→</span>
             </Link>
-            <Link
-              href="/docs/datasets/overview"
-              data-umami-event="cta_click"
-              data-umami-event-target="docs_datasets_overview"
-              data-umami-event-location="footer_secondary"
-              className="bg-transparent text-text px-5 py-3 text-[13.5px] font-semibold rounded border border-border-strong transition hover:border-text hover:bg-bg-alt"
-            >
-              Read the datasets docs →
-            </Link>
+            <DeployWaitlist location="semantic-layer-final" className={marketing.secondaryButton} />
           </div>
+          <SetupCommand className="mt-4 justify-center" />
         </section>
       </main>
       <Footer />

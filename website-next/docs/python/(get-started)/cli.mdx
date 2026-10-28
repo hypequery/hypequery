@@ -10,7 +10,7 @@ CLI. Install the serving and ClickHouse extras for the full onboarding path:
 
 <CodeBlock>
 ```bash
-pip install "hypequery[fastapi,clickhouse]"
+pip install "hypequery[server,clickhouse]"
 export CLICKHOUSE_HOST=localhost CLICKHOUSE_USERNAME=default CLICKHOUSE_PASSWORD=... CLICKHOUSE_DATABASE=analytics
 hypequery init --path my-analytics
 cd my-analytics
@@ -25,7 +25,8 @@ without the extras. Exit codes are `0` for success, `1` for a runtime failure an
 
 Creates a project from your live schema: `datasets.py` with one dataset per table, a `schema.json` snapshot, an
 `app.py` serving authenticated endpoints, a `pyproject.toml`, a `README.md` and a `.env.example`. Existing files are
-never overwritten.
+never overwritten. The `.env.example` and README repeat how discovery connected: `CLICKHOUSE_URL` if it was set,
+otherwise the host, port and TLS setting that worked, with credentials left as placeholders.
 
 | Option | Description |
 | --- | --- |
@@ -33,7 +34,22 @@ never overwritten.
 | `--tables a,b` | Only inspect these tables (default: all) |
 | `--exclude-tables a,b` | Skip these tables |
 | `--all-tables` | Inspect every table (the default) |
+| `--tenant-column <column>` | Set `tenant_key` on tables that have this column, as `generate datasets` does |
+| `--framework standalone\|django\|flask` | The application to write beside `datasets.py` (default `standalone`); see below |
 | `--skip-connection` | Write the offline orders example and `seed.sql` instead of inspecting a database |
+
+| `--framework` | Writes | Run with |
+| --- | --- | --- |
+| `standalone` (default) | `app.py`: an API from `create_api`, served as plain ASGI with no web framework | `hypequery dev` |
+| `django` | A small Django project (`settings.py`, `urls.py`, `manage.py`) and `analytics.py` | `python manage.py runserver` |
+| `flask` | A Flask `app.py` | `flask --app app run` |
+
+The Django and Flask apps serve hypequery's endpoints natively ([`urls(api)`](/docs/python/django#serve-hypequerys-endpoints),
+[`blueprint(api)`](/docs/python/flask#serve-hypequerys-endpoints)) twice: at `/api/analytics` behind the framework's
+own login with the same-origin check, for `@hypequery/react` on pages the app serves, and at `/api/agents` behind a
+bearer token, for `@hypequery/mcp` and scripts. Until you wire them to your login, Flask's session API refuses
+everyone, and tenant-scoped datasets refuse signed-in Django users. The generated README walks through both. Every
+choice also works with `--skip-connection`.
 
 Schema discovery reads only `system.tables` and `system.columns` for the current database, so the user needs
 `SHOW` and `SELECT` on it. A read-only user works, whether its profile sets `readonly = 1` or `2`. If discovery fails,
@@ -52,7 +68,8 @@ Regenerates `datasets.py` from the current schema. Also spelled `generate:datase
 | --- | --- |
 | `--output <file>` | Output file (default `datasets.py`) |
 | `--path <dir>` | Output directory containing `datasets.py` |
-| `--tables`, `--exclude-tables` | Table selection, as for `init` |
+| `--tables`, `--exclude-tables` | Table selection, as for `init`. Without them, the selection `init` was given (recorded in `schema.json`) is reused |
+| `--all-tables` | Inspect every table, ignoring a recorded selection |
 | `--tenant-column <column>` | Set `tenant_key` on tables that have this column; reports tables that do not |
 | `--check` | Exit 1 if the file would change, without writing |
 | `--diff` | Show the drift without writing; exit 1 if any |
@@ -62,18 +79,18 @@ Replacement is atomic and preserves the file's permissions. Use `--check` in CI 
 
 ## `hypequery dev`
 
-Serves a local app with uvicorn. Requires the `fastapi` extra.
+Serves a local app with uvicorn. Requires the `server` extra.
 
 | Option | Description |
 | --- | --- |
-| `[app]` | Import string, default `app:app`, resolved from the working directory |
+| `[app]` | Import string, default `app:app`, resolved from the working directory. It names an `Api` from `create_api` or its `to_asgi_app` application |
 | `--hostname`, `--host <addr>` | Bind address, default `127.0.0.1`. Binding beyond loopback prints a warning |
 | `-p`, `--port <port>` | Port, default `8000` |
 | `--reload` / `--no-watch` (`--no-reload`) | Reload on file changes; on by default |
 
-The dev runner is not hardened for a network. Apps built with a `ProductionProfile` are refused here; run those with
-`start_server` behind a reverse proxy instead. Startup failures are reported without their traceback so credentials in
-an exception never reach the terminal.
+The dev runner is not hardened for a network. APIs created with a `ProductionProfile` are refused here; run those
+with [`start_server`](/docs/python/production) behind a reverse proxy instead. Startup failures are reported without
+their traceback so credentials in an exception never reach the terminal.
 
 ## `hypequery export client-contract`
 

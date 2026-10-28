@@ -32,7 +32,7 @@ export const metadata: Metadata = {
     default: "hypequery | The analytics layer for ClickHouse",
     template: "%s | hypequery",
   },
-  description: "The analytics layer for ClickHouse. Ship embedded dashboards, chat, and AI agents that answer from one definition of your metrics, built with AI or in TypeScript and Python.",
+  description: "The analytics layer for ClickHouse, in your codebase. Define metrics once in TypeScript or Python and serve them to dashboards, APIs, and AI agents, in your own backend or on hypequery cloud.",
   alternates: {
     canonical: absoluteUrl('/'),
   },
@@ -40,18 +40,20 @@ export const metadata: Metadata = {
     type: 'website',
     url: absoluteUrl('/'),
     title: 'hypequery | The analytics layer for ClickHouse',
-    description: 'The analytics layer for ClickHouse. Ship embedded dashboards, chat, and AI agents that answer from one definition of your metrics, built with AI or in TypeScript and Python.',
+    description: 'The analytics layer for ClickHouse, in your codebase. Define metrics once in TypeScript or Python and serve them to dashboards, APIs, and AI agents, in your own backend or on hypequery cloud.',
     siteName: 'hypequery',
   },
   twitter: {
     card: 'summary_large_image',
     title: 'hypequery | The analytics layer for ClickHouse',
-    description: 'The analytics layer for ClickHouse. Ship embedded dashboards, chat, and AI agents that answer from one definition of your metrics, built with AI or in TypeScript and Python.',
+    description: 'The analytics layer for ClickHouse, in your codebase. Define metrics once in TypeScript or Python and serve them to dashboards, APIs, and AI agents, in your own backend or on hypequery cloud.',
   },
   manifest: "/site.webmanifest",
   icons: {
     icon: [
       { url: "/favicon.ico", sizes: "any" },
+      // The logo mark on a white tile.
+      { url: "/favicon.svg", type: "image/svg+xml" },
       { url: "/favicon-32x32.png", type: "image/png", sizes: "32x32" },
       { url: "/favicon-48x48.png", type: "image/png", sizes: "48x48" },
       { url: "/icon.png", type: "image/png", sizes: "500x500" },
@@ -71,7 +73,7 @@ const organizationSchema = {
   logo: {
     '@type': 'ImageObject',
     url: absoluteUrl('/logo.png').toString(),
-    width: 1472,
+    width: 1378,
     height: 400,
   },
   sameAs: [

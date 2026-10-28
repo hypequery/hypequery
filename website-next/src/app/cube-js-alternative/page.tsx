@@ -51,7 +51,7 @@ export default function CubeJsAlternativePage() {
     <ClickhousePillarPage
       eyebrow="Cube.js Alternative"
       title="Looking for a Cube.js alternative for ClickHouse?"
-      description="Cube is good at what it does. It's also a lot: a server to deploy, a cache layer to run, and a modelling language to learn. If you're a TypeScript team shipping ClickHouse-backed product features, hypequery covers the part you actually use — typed queries, typed APIs, and React hooks — as a plain library in your own repo."
+      description="Cube is good at what it does. It's also a lot: a server to deploy, a cache layer to run, and a modelling language to learn. If you're shipping ClickHouse-backed product features, hypequery covers the part you actually use — typed datasets, APIs, React hooks, and MCP tools — as code in your own repo, in TypeScript or Python."
       primaryCta={{ href: '/docs/quick-start', label: 'Start with hypequery' }}
       secondaryCta={{ href: '/compare/hypequery-vs-cube', label: 'Read the full comparison' }}
       stats={[
@@ -168,7 +168,7 @@ export default function CubeJsAlternativePage() {
         {
           title: 'Open source Cube.js alternative',
           copy:
-            'hypequery is free and open source. Nothing is gated behind a hosted tier — the query builder, serving layer, OpenAPI generation, and React hooks are all in the packages.',
+            'hypequery is free and open source under Apache 2.0. Everything you need to run it in your own backend — the query builder, datasets, serving layer, OpenAPI generation, React hooks, and MCP — is in the packages. hypequery cloud is optional hosting for the same model.',
         },
         {
           title: 'Cube.js alternative without extra infrastructure',

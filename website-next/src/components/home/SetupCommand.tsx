@@ -9,11 +9,11 @@ const LANGUAGES = [
   { id: 'python', label: 'Python', Icon: SiPython, color: 'text-[#3776ab]', command: 'pip install "hypequery[clickhouse]"' },
 ] as const;
 
-type Language = (typeof LANGUAGES)[number]['id'];
+export type Language = (typeof LANGUAGES)[number]['id'];
 
 /** The setup command, with a switch between the TypeScript and Python SDKs. */
-export function SetupCommand({ className = '' }: { className?: string }) {
-  const [language, setLanguage] = useState<Language>('typescript');
+export function SetupCommand({ className = '', defaultLanguage = 'typescript' }: { className?: string; defaultLanguage?: Language }) {
+  const [language, setLanguage] = useState<Language>(defaultLanguage);
   const active = LANGUAGES.find((option) => option.id === language) ?? LANGUAGES[0];
 
   return (
