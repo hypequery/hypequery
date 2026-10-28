@@ -11,3 +11,13 @@ __pycache__/
 reports/
 coverage.json
 .hypothesis/
+# Local state that must never reach an sdist: coverage data holds absolute
+# paths from the machine that ran the tests; .env files and databases hold
+# credentials and user data.
+.coverage
+.coverage.*
+htmlcov/
+.env
+.env.*
+!.env.example
+*.sqlite3

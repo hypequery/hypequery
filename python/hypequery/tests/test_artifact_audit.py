@@ -93,6 +93,18 @@ def test_rejects_missing_py_typed(tmp_path: Path) -> None:
         "hypequery-0.1.0/src/__pycache__/mod.pyc",
         "hypequery-0.1.0/.env",
         "hypequery-0.1.0/node_modules/left-pad/index.js",
+        # Coverage data records absolute paths from the machine that ran the
+        # tests; a local build once shipped it.
+        "hypequery-0.1.0/.coverage",
+        "hypequery-0.1.0/.coverage.host.1234.567890",
+        "hypequery-0.1.0/coverage.json",
+        "hypequery-0.1.0/htmlcov/index.html",
+        "hypequery-0.1.0/reports/audit.json",
+        "hypequery-0.1.0/.env.local",
+        "hypequery-0.1.0/examples/.envrc",
+        "hypequery-0.1.0/examples/db.sqlite3",
+        "hypequery-0.1.0/tests/certs/server.pem",
+        "hypequery-0.1.0/.pypirc",
     ],
 )
 def test_rejects_stray_files(tmp_path: Path, stray: str) -> None:
@@ -120,11 +132,14 @@ def test_errors_when_artifacts_absent(tmp_path: Path) -> None:
     "missing",
     [
         "app.py",
+        "datasets.py",
         "pyproject.toml.template",
         ".env.example",
         ".gitignore",
         "README.md",
         "seed.sql",
+        "django/settings.py",
+        "flask/app.py",
     ],
 )
 def test_rejects_missing_scaffold_resource(tmp_path: Path, artifact: str, missing: str) -> None:
@@ -143,3 +158,24 @@ def test_allows_frontend_example_gitignore(tmp_path: Path) -> None:
     entries["hypequery-0.1.0/examples/client_dashboard/frontend/.gitignore"] = b"node_modules/\n"
     dist = _build(tmp_path, _good_wheel_entries(), entries)
     assert audit.main(["audit", str(dist)]) == 0
+
+
+def test_rejects_stray_files_in_the_wheel(tmp_path: Path) -> None:
+    entries = _good_wheel_entries()
+    entries["hypequery/.coverage"] = b"junk"
+    dist = _build(tmp_path, entries, _good_sdist_entries())
+    assert audit.main(["audit", str(dist)]) == 1
+
+
+def test_built_sdist_excludes_local_state() -> None:
+    """The build itself leaves local state out, not only the audit."""
+
+    import tomllib
+
+    root = Path(__file__).resolve().parents[1]
+    excluded = tomllib.loads((root / "pyproject.toml").read_text(encoding="utf-8"))["tool"][
+        "hatch"
+    ]["build"]["targets"]["sdist"]["exclude"]
+    assert {".coverage", ".coverage.*", "coverage.json", "htmlcov", "reports", ".env"} <= set(
+        excluded
+    )

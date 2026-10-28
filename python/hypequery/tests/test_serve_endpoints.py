@@ -339,6 +339,34 @@ def test_invalid_requests_never_execute(payload: dict[str, Any]) -> None:
     assert not executor.seen
 
 
+@pytest.mark.parametrize(
+    "body",
+    [
+        # Each was a 500: the driver could not encode a lone surrogate, and a
+        # deeply nested value overflowed the filter validator's recursion.
+        rb'{"filters": [{"field": "country", "operator": "eq", "value": "\ud800"}]}',
+        b'{"filters": [{"field": "country", "operator": "in", "value": '
+        + b"[" * 900
+        + b"]" * 900
+        + b"}]}",
+    ],
+    ids=["lone-surrogate", "deep"],
+)
+def test_unusable_json_never_executes_or_logs_a_server_error(
+    body: bytes, caplog: pytest.LogCaptureFixture
+) -> None:
+    client, executor = app()
+    response = client.post(
+        "/datasets/orders/query",
+        headers={"Authorization": "Bearer reader", "Content-Type": "application/json"},
+        content=body,
+    )
+    assert response.status_code == 400, response.text
+    assert response.json()["error"]["details"]["issues"][0]["code"] == "json_invalid"
+    assert not executor.seen
+    assert not caplog.records
+
+
 def test_authentication_precedes_parsing_and_policy_denies_execution() -> None:
     client, executor = app(
         policy=EndpointPolicy(required_roles=frozenset({"admin"}), tenant="required")
