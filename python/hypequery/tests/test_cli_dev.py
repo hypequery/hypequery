@@ -225,22 +225,36 @@ def test_missing_app_dependency_hint_uses_exception_name(
 
 
 @pytest.mark.parametrize(
-    ("category", "hint"),
+    ("category", "code", "hint"),
     [
-        ("unauthenticated", "CLICKHOUSE_USERNAME and CLICKHOUSE_PASSWORD"),
-        ("unavailable", "CLICKHOUSE_HOST, CLICKHOUSE_PORT and CLICKHOUSE_SECURE"),
-        ("not-found", "CLICKHOUSE_DATABASE"),
-        ("forbidden", "grants and readonly profile"),
-        ("internal", "CLICKHOUSE_* environment"),
+        (
+            "unavailable",
+            "HQ_EXECUTOR_CREDENTIALS_REJECTED",
+            "CLICKHOUSE_USERNAME and CLICKHOUSE_PASSWORD",
+        ),
+        ("unavailable", None, "CLICKHOUSE_HOST, CLICKHOUSE_PORT and CLICKHOUSE_SECURE"),
+        ("unavailable", "HQ_EXECUTOR_DATABASE_MISSING", "CLICKHOUSE_DATABASE"),
+        ("unavailable", "HQ_EXECUTOR_ACCESS_DENIED", "grants and readonly profile"),
+        ("unavailable", "HQ_EXECUTOR_READONLY_MISCONFIGURED", "readonly_policy"),
+        ("internal", None, "CLICKHOUSE_* environment"),
     ],
 )
 def test_clickhouse_startup_failure_names_the_setting_to_check(
-    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], category: str, hint: str
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    category: str,
+    code: str | None,
+    hint: str,
 ) -> None:
     from hypequery.datasets.planner import CompiledQueryError
 
     def fail(*args: object, **kwargs: object) -> None:
-        raise CompiledQueryError(cast(Any, category), "private-password-do-not-print")
+        raise CompiledQueryError(
+            cast(Any, category),
+            "private-password-do-not-print",
+            code=cast(Any, code),
+            diagnostic="private-password-do-not-print",
+        )
 
     monkeypatch.setattr("hypequery.serve.run_dev", fail)
     assert main(["dev"]) == 1

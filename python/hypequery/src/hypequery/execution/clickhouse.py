@@ -173,7 +173,7 @@ def _driver_failure(
     """The public error for a failed driver call, never the driver's own text.
 
     Readonly guidance outranks the generic mapping because it is the one
-    failure an operator can fix from the message alone.
+    failure an operator can fix from the diagnostic alone.
     """
 
     guidance = readonly_setting_error(exc, policy, compiled.query_id)
