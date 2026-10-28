@@ -51,6 +51,7 @@ from dataclasses import dataclass
 from typing import Any, TypeVar, cast
 
 from flask import Blueprint, Flask, Request, Response, current_app, g, request
+from flask.blueprints import BlueprintSetupState
 from werkzeug.exceptions import RequestEntityTooLarge
 from werkzeug.utils import import_string
 
@@ -202,7 +203,8 @@ class Hypequery:
         self._state().clients.close()
 
 
-#: Every method the core may serve or refuse itself; Werkzeug adds HEAD.
+#: The methods Flask registers the rules for; once registered, the rules accept
+#: every method, so the core answers any other with its own 404.
 _METHODS = ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"]
 #: The URL variable the catch-all rule captures the path below the prefix in.
 _PATH = "hypequery_path"
@@ -243,7 +245,7 @@ def blueprint(api: Api, *, name: str = "hypequery", url_prefix: str | None = Non
                 path=where.path,
                 query=environ_query(environ),
                 headers=environ_headers(environ),
-                body=thread_body(thread, lambda size: _read(current, size), body_length(environ)),
+                body=thread_body(thread, _BodyStream(current).read, body_length(environ)),
                 client=environ_client(environ),
                 raw=current,
             )
@@ -253,14 +255,46 @@ def blueprint(api: Api, *, name: str = "hypequery", url_prefix: str | None = Non
     served = Blueprint(name, __name__, url_prefix=url_prefix)
     served.add_url_rule("/", "api", hypequery_api, defaults={_PATH: ""}, methods=_METHODS)
     served.add_url_rule(f"/<path:{_PATH}>", "api", hypequery_api, methods=_METHODS)
+    served.record(_accept_every_method)
     return served
 
 
-def _read(current: Request, size: int) -> bytes:
-    try:
-        return current.stream.read(size)
-    except RequestEntityTooLarge:
-        raise too_large() from None
+def _accept_every_method(state: BlueprintSetupState) -> None:
+    """Let the blueprint's rules match any method, as the other adapters do.
+
+    Flask registers a rule for a fixed list of methods and answers any other
+    with its own HTML 405; the core answers an unknown method with its 404.
+    Werkzeug reads a rule's methods when matching, and None means any.
+    """
+
+    endpoint = f"{state.name_prefix}.{state.name}.api".lstrip(".")
+    for rule in state.app.url_map.iter_rules(endpoint):
+        rule.methods = None
+
+
+class _BodyStream:
+    """The request body, as Flask's own form parsing reads it.
+
+    A ``before_request`` hook that called ``request.get_data()`` or
+    ``get_json()`` has already drained ``request.stream`` and cached the
+    bytes, so those are read instead. The stream is resolved on the first
+    read: resolving it refuses a body over ``MAX_CONTENT_LENGTH``.
+    """
+
+    __slots__ = ("_request", "_stream")
+
+    def __init__(self, current: Request) -> None:
+        self._request = current
+        self._stream: Any = None
+
+    def read(self, size: int) -> bytes:
+        try:
+            if self._stream is None:
+                self._stream = self._request._get_stream_for_parsing()
+            data: bytes = self._stream.read(size)
+        except RequestEntityTooLarge:
+            raise too_large() from None
+        return data
 
 
 def _response(response: ServeResponse) -> Response:

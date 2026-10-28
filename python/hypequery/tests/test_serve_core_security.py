@@ -77,6 +77,9 @@ REQUESTS: list[tuple[str, str, dict[str, str]]] = [
     ("GET", "/public", {}),
     ("GET", "/missing", {}),
     ("POST", "/private", AUTH),
+    # Methods no route serves are the core's 404 under every adapter.
+    ("TRACE", "/private", AUTH),
+    ("PROPFIND", "/missing", AUTH),
     ("GET", "/private", {**AUTH, "x-request-id": "abc-1"}),
     ("GET", "/private", {**AUTH, "x-request-id": "not valid"}),
     ("GET", "/private", {**AUTH, "host": "evil.test"}),

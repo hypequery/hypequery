@@ -135,3 +135,26 @@ def test_a_core_response_without_a_content_type_gets_none_from_flask() -> None:
     response = app.test_client().get("/empty")
     assert response.status_code == 200
     assert "Content-Type" not in response.headers
+
+
+def test_a_body_a_hook_already_read_is_still_served() -> None:
+    app = _app(_api(), MAX_CONTENT_LENGTH=1000)
+
+    @app.before_request
+    def inspect() -> None:
+        if flask.request.is_json:
+            assert flask.request.get_json()["x"] == 3
+
+    response = app.test_client().post("/analytics/echo", json={"x": 3}, headers=AUTH)
+    assert response.status_code == 200, response.get_data()
+    assert response.get_json() == {"input": {"x": 3}}
+
+
+def test_any_method_below_the_prefix_reaches_the_core_and_none_outside_it() -> None:
+    http = _app(_api()).test_client()
+    for method in ("TRACE", "PROPFIND"):
+        below = http.open("/analytics/echo", method=method, headers=AUTH)
+        assert below.status_code == 404
+        assert below.get_json()["error"]["type"] == "NOT_FOUND"
+    # The app's own routes keep Flask's method handling.
+    assert http.open("/own", method="TRACE").status_code == 405
