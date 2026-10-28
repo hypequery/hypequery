@@ -3,8 +3,9 @@
 Run as ``python scaffold_driver.py <framework> <project>`` with a JSON spec on
 stdin, ``{"rows": {"columns": [...], "rows": [[...]]}, "requests": [...]}``;
 prints ``[[status, body], ...]``. Each request is ``{"method", "path",
-"headers", "json", "signed_in"}``. A fresh process because Django's settings
-can be configured once per process, and the projects' ``app`` and ``datasets``
+"headers", "json", "signed_in", "csrf"}``; ``csrf`` sends a matching Django
+CSRF cookie and ``X-CSRFToken`` header, as the React client does. A fresh
+process because Django's settings can be configured once per process, and the projects' ``app`` and ``datasets``
 modules would shadow each other. ClickHouse is a double answering ``rows``;
 importing a project must not connect.
 """
@@ -90,22 +91,30 @@ def django(requests: list[dict[str, Any]], rows: QueryRows) -> list[Reply]:
 
     django.setup()
     call_command("migrate", verbosity=0, interactive=False)
+    from django.conf import settings
     from django.contrib.auth.models import User
-    from django.test import Client
+    from django.middleware.csrf import get_token
+    from django.test import Client, RequestFactory
 
     user, _ = User.objects.get_or_create(username="analyst")
     replies = []
     for request in requests:
-        http = Client(HTTP_HOST="localhost")
+        # As a browser is: Django's CSRF middleware checks every unsafe request.
+        http = Client(HTTP_HOST="localhost", enforce_csrf_checks=True)
         if request.get("signed_in"):
             http.force_login(user)
+        headers = dict(request.get("headers", {}))
+        if request.get("csrf"):
+            token = get_token(RequestFactory().get("/"))
+            http.cookies[settings.CSRF_COOKIE_NAME] = token
+            headers["X-CSRFToken"] = token
         body = request.get("json")
         response = http.generic(
             request["method"],
             request["path"],
             json.dumps(body) if body is not None else "",
             content_type="application/json",
-            headers=request.get("headers", {}),
+            headers=headers,
         )
         replies.append((response.status_code, _body(response.content)))
     return replies

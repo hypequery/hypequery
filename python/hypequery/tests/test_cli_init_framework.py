@@ -180,19 +180,25 @@ def test_django_scaffold_serves_both_apis(tmp_path: Path) -> None:
         "django",
         project,
         [
+            # The agents' API takes a header credential, so it needs no CSRF token.
             _post("/api/agents/orders", headers=TOKEN),
             _post("/api/agents/orders"),
             _post("/api/agents/orders", headers={"Authorization": "Bearer wrong"}),
             _get("/api/agents/client-contract", headers=TOKEN),
-            # Django's own login, with the same-origin check.
-            _post("/api/analytics/orders", headers=SAME_ORIGIN, signed_in=True),
-            _post("/api/analytics/orders", headers=SAME_ORIGIN),
+            # Django's own login, with the same-origin check and Django's CSRF.
+            _post("/api/analytics/orders", headers=SAME_ORIGIN, signed_in=True, csrf=True),
+            _post("/api/analytics/orders", headers=SAME_ORIGIN, csrf=True),
             _post(
-                "/api/analytics/orders", headers={"Sec-Fetch-Site": "cross-site"}, signed_in=True
+                "/api/analytics/orders",
+                headers={"Sec-Fetch-Site": "cross-site"},
+                signed_in=True,
+                csrf=True,
             ),
             # A token is not a session.
-            _post("/api/analytics/orders", headers={**TOKEN, **SAME_ORIGIN}),
+            _post("/api/analytics/orders", headers={**TOKEN, **SAME_ORIGIN}, csrf=True),
             _get("/analytics/orders", signed_in=True),
+            # Without the CSRF token, Django refuses a signed-in POST itself.
+            _post("/api/analytics/orders", headers=SAME_ORIGIN, signed_in=True),
         ],
     )
     assert replies[0] == (200, SERVED_REVENUE)
@@ -204,6 +210,15 @@ def test_django_scaffold_serves_both_apis(tmp_path: Path) -> None:
     assert replies[6][1]["error"]["details"] == {"reason": "cross_origin"}
     assert replies[7][0] == 401
     assert replies[8] == (200, {"data": [{"revenue": "760.75", "orderCount": 5}]})
+    # Django's CSRF failure page, not the API's envelope: the middleware answered.
+    assert replies[9][0] == 403
+    assert "CSRF" in str(replies[9][1])
+
+
+def test_django_scaffold_keeps_csrf_protection(tmp_path: Path) -> None:
+    project = _init(tmp_path, "--skip-connection", "--framework", "django")
+    settings = (project / "settings.py").read_text()
+    assert "django.middleware.csrf.CsrfViewMiddleware" in settings
 
 
 def test_django_scaffold_refuses_tenant_data_until_wired(tmp_path: Path) -> None:
@@ -212,9 +227,9 @@ def test_django_scaffold_refuses_tenant_data_until_wired(tmp_path: Path) -> None
     rows = {"columns": ["totalCount"], "rows": [[3]]}
     count = {"measures": ["totalCount"]}
     requests = [
-        _post("/api/analytics/orders", count, headers=SAME_ORIGIN, signed_in=True),
+        _post("/api/analytics/orders", count, headers=SAME_ORIGIN, signed_in=True, csrf=True),
         _post("/api/agents/orders", count, headers=TOKEN),
-        _post("/api/analytics/lookups", count, headers=SAME_ORIGIN, signed_in=True),
+        _post("/api/analytics/lookups", count, headers=SAME_ORIGIN, signed_in=True, csrf=True),
         _get("/analytics/orders", signed_in=True),
     ]
     refused = _serve("django", project, requests, rows)
