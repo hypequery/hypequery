@@ -3,8 +3,12 @@ import type { CanonicalValue } from '../values/index.js';
 
 export type ProtocolBinaryOperator = 'add' | 'subtract' | 'multiply' | 'divide';
 export type ProtocolFunctionName = 'nullIfZero' | 'coalesce' | 'round' | 'floor' | 'ceil';
-export type ProtocolComparisonOperator =
+/** Comparison operators that compare `left` with a `right` value. */
+export type ProtocolValueComparisonOperator =
   | 'eq' | 'neq' | 'gt' | 'gte' | 'lt' | 'lte' | 'in' | 'notIn' | 'between' | 'like';
+/** Comparison operators that test `left` for NULL and take no `right` (RFC 0023). */
+export type ProtocolNullCheckOperator = 'isNull' | 'isNotNull';
+export type ProtocolComparisonOperator = ProtocolValueComparisonOperator | ProtocolNullCheckOperator;
 /**
  * Every aggregation any supported expression extension accepts.
  * `approxCountDistinct` is extension 2 (RFC 0015); the validator rejects it
@@ -31,9 +35,14 @@ export type ProtocolExpression =
     }
   | {
       readonly kind: 'comparison';
-      readonly operator: ProtocolComparisonOperator;
+      readonly operator: ProtocolValueComparisonOperator;
       readonly left: ProtocolExpression;
       readonly right: ProtocolExpression;
+    }
+  | {
+      readonly kind: 'comparison';
+      readonly operator: ProtocolNullCheckOperator;
+      readonly left: ProtocolExpression;
     }
   | {
       readonly kind: 'logical';

@@ -31,7 +31,8 @@ kinds MUST be rejected.
 - `call`: one of `nullIfZero`, `coalesce`, `round`, `floor`, or `ceil`, with
   its fixed-arity `args` array. `round` accepts one or two arguments.
 - `comparison`: one of `eq`, `neq`, `gt`, `gte`, `lt`, `lte`, `in`, `notIn`,
-  `between`, or `like`, with `left` and `right`.
+  `between`, or `like`, with `left` and `right`; or `isNull` or `isNotNull`,
+  with `left` only ([RFC 0023](./0023-null-check-comparisons.md)).
 - `logical`: `and` or `or` with at least two `operands`, or `not` with one
   `operand`.
 - `aggregate`: one of `sum`, `count`, `countDistinct`, `avg`, `min`, `max`,

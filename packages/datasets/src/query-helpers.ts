@@ -41,6 +41,16 @@ export function like<const TField extends string>(field: TField, value: string):
   return createFilter(field, 'like', value);
 }
 
+/** Rows where `field` is NULL (RFC 0023); takes no value. */
+export function isNull<const TField extends string>(field: TField): MetricFilter<TField, never, 'isNull'> {
+  return { field, operator: 'isNull' };
+}
+
+/** Rows where `field` is not NULL (RFC 0023); takes no value. */
+export function isNotNull<const TField extends string>(field: TField): MetricFilter<TField, never, 'isNotNull'> {
+  return { field, operator: 'isNotNull' };
+}
+
 export function asc<const TField extends string>(field: TField): MetricOrderBy<TField> {
   return { field, direction: 'asc' };
 }
@@ -60,6 +70,8 @@ export const filter = {
   notInList,
   between,
   like,
+  isNull,
+  isNotNull,
 } as const;
 
 export const order = {

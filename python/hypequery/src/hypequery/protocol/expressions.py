@@ -41,7 +41,23 @@ from .identifiers import (
 from .values import validate_canonical_value
 
 _BINARY = frozenset(("add", "subtract", "multiply", "divide"))
-_COMPARISONS = frozenset(("eq", "neq", "gt", "gte", "lt", "lte", "in", "notIn", "between", "like"))
+_COMPARISONS = frozenset(
+    (
+        "eq",
+        "neq",
+        "gt",
+        "gte",
+        "lt",
+        "lte",
+        "in",
+        "notIn",
+        "between",
+        "like",
+        "isNull",
+        "isNotNull",
+    )
+)
+_NULL_CHECKS = frozenset(("isNull", "isNotNull"))
 _AGGREGATIONS = frozenset(
     (
         "sum",
@@ -206,16 +222,7 @@ def _validate_expression(
                 function=cast(ProtocolFunctionName, function), args=validated
             )
         if kind == "comparison":
-            _exact_fields(value, ("kind", "operator", "left", "right"), (), path)
-            operator = _string(value["operator"], f"{path}.operator")
-            if operator not in _COMPARISONS:
-                expression_error("HQ_EXPRESSION_INVALID_OPERATOR", f"{path}.operator")
-            left = _validate_expression(value["left"], f"{path}.left", depth + 1, state)
-            right = _validate_expression(value["right"], f"{path}.right", depth + 1, state)
-            _validate_comparison_operands(operator, right, f"{path}.right")
-            return ProtocolComparisonExpression(
-                operator=cast(ProtocolComparisonOperator, operator), left=left, right=right
-            )
+            return _validate_comparison(value, path, depth, state)
         if kind == "logical":
             return _validate_logical(value, path, depth, state)
         if kind == "aggregate":
@@ -223,6 +230,31 @@ def _validate_expression(
         expression_error("HQ_EXPRESSION_UNKNOWN_KIND", f"{path}.kind")
     finally:
         state.active.remove(id(value))
+
+
+def _validate_comparison(
+    value: dict[str, object], path: str, depth: int, state: _State
+) -> ProtocolComparisonExpression:
+    # A null check tests ``left`` alone (RFC 0023); a right-hand value is refused.
+    null_check = type(value.get("operator")) is str and value["operator"] in _NULL_CHECKS
+    if null_check and "right" in value:
+        expression_error("HQ_EXPRESSION_INVALID_ARITY", f"{path}.right")
+    required = ("kind", "operator", "left") if null_check else ("kind", "operator", "left", "right")
+    _exact_fields(value, required, (), path)
+    operator = _string(value["operator"], f"{path}.operator")
+    if operator not in _COMPARISONS:
+        expression_error("HQ_EXPRESSION_INVALID_OPERATOR", f"{path}.operator")
+    if null_check:
+        return ProtocolComparisonExpression(
+            operator=cast(ProtocolComparisonOperator, operator),
+            left=_validate_expression(value["left"], f"{path}.left", depth + 1, state),
+        )
+    left = _validate_expression(value["left"], f"{path}.left", depth + 1, state)
+    right = _validate_expression(value["right"], f"{path}.right", depth + 1, state)
+    _validate_comparison_operands(operator, right, f"{path}.right")
+    return ProtocolComparisonExpression(
+        operator=cast(ProtocolComparisonOperator, operator), left=left, right=right
+    )
 
 
 def _validate_logical(

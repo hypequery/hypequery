@@ -239,6 +239,7 @@ describe('datasetGuidePrompt', () => {
     expect(text).toContain('`notIn`: Not in list');
     expect(text).toContain('`between`: Between two values');
     expect(text).toContain('`like`: Pattern match');
+    expect(text).toContain('`isNull` / `isNotNull`: Field is (not) NULL; omit `value`');
   });
 
   it('should include all time grains in general guide', () => {

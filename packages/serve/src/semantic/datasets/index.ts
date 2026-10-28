@@ -31,6 +31,8 @@ export {
   notInList,
   between,
   like,
+  isNull,
+  isNotNull,
   asc,
   desc,
   filter,

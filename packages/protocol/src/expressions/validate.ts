@@ -6,6 +6,7 @@ import {
 import { ProtocolValueError, validateCanonicalValue } from '../values/index.js';
 import { expressionError } from './errors.js';
 import { resolveExpressionLimits } from './limits.js';
+import { isProtocolNullCheckOperator } from './null-checks.js';
 import type {
   ProtocolAggregation,
   ProtocolExpression,
@@ -25,7 +26,9 @@ interface State {
 }
 
 const BINARY = new Set(['add', 'subtract', 'multiply', 'divide']);
-const COMPARISONS = new Set(['eq', 'neq', 'gt', 'gte', 'lt', 'lte', 'in', 'notIn', 'between', 'like']);
+const COMPARISONS = new Set([
+  'eq', 'neq', 'gt', 'gte', 'lt', 'lte', 'in', 'notIn', 'between', 'like', 'isNull', 'isNotNull',
+]);
 const AGGREGATIONS_V1: ReadonlySet<ProtocolAggregation> = new Set<ProtocolAggregation>([
   'sum', 'count', 'countDistinct', 'avg', 'min', 'max',
   'argMax', 'argMin', 'percentile', 'stddev', 'variance',
@@ -166,9 +169,19 @@ function validateExpression(input: unknown, path: string, depth: number, state: 
         }) as ProtocolExpression;
       }
       case 'comparison': {
-        exactFields(value, ['kind', 'operator', 'left', 'right'], [], path);
+        // A null check tests `left` alone (RFC 0023); a right-hand value is refused.
+        const nullCheck = isProtocolNullCheckOperator(value.operator);
+        if (nullCheck && Object.hasOwn(value, 'right')) expressionError('HQ_EXPRESSION_INVALID_ARITY', `${path}.right`);
+        exactFields(value, nullCheck ? ['kind', 'operator', 'left'] : ['kind', 'operator', 'left', 'right'], [], path);
         const operator = stringValue(value.operator, `${path}.operator`);
         if (!COMPARISONS.has(operator)) expressionError('HQ_EXPRESSION_INVALID_OPERATOR', `${path}.operator`);
+        if (nullCheck) {
+          return freezeRecord({
+            kind,
+            operator,
+            left: validateExpression(value.left, `${path}.left`, depth + 1, state),
+          }) as ProtocolExpression;
+        }
         const left = validateExpression(value.left, `${path}.left`, depth + 1, state);
         const right = validateExpression(value.right, `${path}.right`, depth + 1, state);
         validateComparisonOperands(operator, right, `${path}.right`);

@@ -47,6 +47,10 @@ function compareFilter(actual: unknown, filter: MetricFilter): boolean {
       return typeof actual === 'string'
         && typeof filter.value === 'string'
         && actual.includes(filter.value.replaceAll('%', ''));
+    case 'isNull':
+      return actual === null || actual === undefined;
+    case 'isNotNull':
+      return actual !== null && actual !== undefined;
     default:
       return false;
   }

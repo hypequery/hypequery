@@ -132,8 +132,8 @@ describe('portable dataset expressions', () => {
     ]);
     expect(ids.filter(id => id.startsWith('comparison-')).sort()).toEqual([
       'comparison-between', 'comparison-eq', 'comparison-gt', 'comparison-gte',
-      'comparison-in', 'comparison-like', 'comparison-lt', 'comparison-lte',
-      'comparison-neq', 'comparison-notIn',
+      'comparison-in', 'comparison-isNotNull', 'comparison-isNull', 'comparison-like',
+      'comparison-lt', 'comparison-lte', 'comparison-neq', 'comparison-notIn',
     ]);
     expect(ids.filter(id => id.startsWith('aggregate-') && id !== 'aggregate-median-normalized').sort())
       .toEqual([
@@ -146,6 +146,17 @@ describe('portable dataset expressions', () => {
       .map(fixture => (fixture.value as { by?: string } | undefined)?.by)
       .filter((grain): grain is string => grain !== undefined);
     expect([...new Set(grains)].sort()).toEqual(['day', 'month', 'quarter', 'week', 'year']);
+  });
+
+  it('keeps a null check to its left operand (RFC 0023)', () => {
+    const validated = validateProtocolExpression({
+      kind: 'comparison', operator: 'isNotNull', left: { kind: 'reference', name: 'churned_at' },
+    });
+    expect(validated).toEqual({ kind: 'comparison', operator: 'isNotNull', left: { kind: 'reference', name: 'churned_at' } });
+    expect(Object.hasOwn(validated, 'right')).toBe(false);
+    expectExpressionError(() => validateProtocolExpression({
+      kind: 'comparison', operator: 'isNull', left: { kind: 'reference', name: 'churned_at' }, right: undefined,
+    }), 'HQ_EXPRESSION_INVALID_ARITY');
   });
 
   it('returns detached, deeply immutable snapshots', () => {

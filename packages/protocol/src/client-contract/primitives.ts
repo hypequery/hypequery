@@ -4,7 +4,7 @@ import { clientError } from './errors.js';
 export type ClientRecord = Record<string, unknown>;
 export const CLIENT_FIELD_TYPES = ['string', 'number', 'boolean', 'timestamp'] as const;
 export const CLIENT_GRAINS = ['minute', 'hour', 'day', 'week', 'month', 'quarter', 'year'] as const;
-export const CLIENT_OPERATORS = ['eq', 'neq', 'gt', 'gte', 'lt', 'lte', 'in', 'notIn', 'between', 'like'];
+export const CLIENT_OPERATORS = ['eq', 'neq', 'gt', 'gte', 'lt', 'lte', 'in', 'notIn', 'between', 'like', 'isNull', 'isNotNull'];
 export function pointer(path: string, key: string | number): string {
   return path + '/' + String(key).replaceAll('~', '~0').replaceAll('/', '~1');
 }

@@ -29,6 +29,10 @@ function predicates(endpoint: ProtocolClientEndpoint, having: boolean): ZodTypeA
   return union(definitions.flatMap(([key, field]) => field.operators.map(operator => {
     const scalar = field.type === 'number' ? z.number().finite()
       : field.type === 'boolean' ? z.boolean() : z.string();
+    // A null check names no value (RFC 0023).
+    if (operator === 'isNull' || operator === 'isNotNull') {
+      return z.object({ [having ? 'measure' : 'field']: z.literal(key), operator: z.literal(operator) }).strict();
+    }
     const value = operator === 'between' ? z.tuple([scalar, scalar])
       : operator === 'in' || operator === 'notIn' ? z.array(scalar).min(1).max(endpoint.limits.maxFilterValues)
         : scalar;

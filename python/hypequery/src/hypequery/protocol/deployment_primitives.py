@@ -66,7 +66,22 @@ AGGREGATE_STATE_FUNCTIONS = frozenset(
 APPROXIMATE_STATE_FUNCTIONS = frozenset(
     ("uniq", "uniqCombined", "uniqCombined64", "uniqHLL12", "uniqTheta")
 )
-OPERATORS = frozenset(("eq", "neq", "gt", "gte", "lt", "lte", "in", "notIn", "between", "like"))
+OPERATORS = frozenset(
+    (
+        "eq",
+        "neq",
+        "gt",
+        "gte",
+        "lt",
+        "lte",
+        "in",
+        "notIn",
+        "between",
+        "like",
+        "isNull",
+        "isNotNull",
+    )
+)
 GRAINS = frozenset(("day", "week", "month", "quarter", "year"))
 # Deployment contract 3 (RFC 0015).
 AGGREGATIONS_V3 = AGGREGATIONS | {"approxCountDistinct"}

@@ -257,5 +257,117 @@
         }
       ]
     }
+  },
+  {
+    "id": "null-checks",
+    "value": {
+      "kind": "hypequery-deployment",
+      "version": 2,
+      "datasets": [
+        {
+          "name": "customers",
+          "source": "customers",
+          "tenant": {
+            "kind": "not-required"
+          },
+          "dimensions": [
+            {
+              "name": "plan",
+              "type": "string",
+              "source": {
+                "kind": "column",
+                "column": "plan"
+              },
+              "filterable": true,
+              "groupable": true
+            },
+            {
+              "name": "churnedAt",
+              "type": "timestamp",
+              "source": {
+                "kind": "column",
+                "column": "churned_at"
+              },
+              "filterable": true,
+              "groupable": true
+            },
+            {
+              "name": "trial",
+              "type": "boolean",
+              "source": {
+                "kind": "column",
+                "column": "trial"
+              },
+              "filterable": true,
+              "groupable": true
+            }
+          ],
+          "measures": [
+            {
+              "name": "churnedCustomers",
+              "aggregation": "count",
+              "field": "id",
+              "filters": [
+                {
+                  "kind": "comparison",
+                  "operator": "isNotNull",
+                  "left": {
+                    "kind": "reference",
+                    "name": "churned_at"
+                  }
+                }
+              ]
+            },
+            {
+              "name": "activeCustomers",
+              "aggregation": "count",
+              "field": "id",
+              "filters": [
+                {
+                  "kind": "comparison",
+                  "operator": "isNull",
+                  "left": {
+                    "kind": "reference",
+                    "name": "churned_at"
+                  }
+                },
+                {
+                  "kind": "comparison",
+                  "operator": "eq",
+                  "left": {
+                    "kind": "reference",
+                    "name": "trial"
+                  },
+                  "right": {
+                    "kind": "literal",
+                    "value": false
+                  }
+                }
+              ]
+            }
+          ],
+          "filters": [
+            {
+              "name": "churnedAt",
+              "field": "churnedAt",
+              "operators": [
+                "gte",
+                "isNotNull",
+                "isNull"
+              ]
+            },
+            {
+              "name": "trial",
+              "field": "trial",
+              "operators": [
+                "eq",
+                "isNull"
+              ]
+            }
+          ],
+          "relationships": []
+        }
+      ]
+    }
   }
 ]

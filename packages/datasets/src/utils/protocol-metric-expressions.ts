@@ -47,6 +47,10 @@ export function filterExpression(filter: MetricFilter): ProtocolExpression {
     kind: 'reference',
     name: parseProtocolQualifiedIdentifier(filter.field),
   };
+  // A null check carries no right operand (RFC 0023).
+  if (filter.operator === 'isNull' || filter.operator === 'isNotNull') {
+    return { kind: 'comparison', operator: filter.operator, left } satisfies ProtocolComparisonExpression;
+  }
   const right: ProtocolLiteralExpression = {
     kind: 'literal',
     value: canonicalValue(filter.value),
