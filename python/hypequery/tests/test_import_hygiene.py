@@ -39,7 +39,8 @@ def test_core_import_does_not_pull_optional_dependencies() -> None:
         import hypequery
 
         assert hypequery.__version__
-        leaked = [m for m in ("fastapi", "starlette", "uvicorn", "clickhouse_connect")
+        leaked = [m for m in ("fastapi", "starlette", "uvicorn", "clickhouse_connect",
+                              "jwt", "cryptography")
                   if m in sys.modules]
         assert not leaked, f"optional dependencies leaked into a core import: {leaked}"
         """
@@ -98,6 +99,34 @@ def test_serve_reports_missing_extra_actionably() -> None:
 
     assert result.returncode != 0
     assert "hypequery[fastapi]" in result.stderr, result.stderr
+
+
+def test_serve_imports_without_the_jwt_extra_and_jwt_helpers_ask_for_it() -> None:
+    if importlib.util.find_spec("fastapi") is None:
+        pytest.skip("hypequery.serve needs the fastapi extra")
+    result = run_python(
+        """
+        import sys
+
+        sys.modules["jwt"] = None
+        import hypequery.serve
+        import hypequery.serve.core.jwt_auth
+        from hypequery.serve import analytics_token_issuer, jwt_strategy
+
+        assert "cryptography" not in sys.modules
+        for make in (
+            lambda: jwt_strategy(secret="x" * 32),
+            lambda: analytics_token_issuer("x" * 32),
+        ):
+            try:
+                make()
+            except ModuleNotFoundError as exc:
+                assert 'pip install "hypequery[jwt]"' in str(exc), exc
+            else:
+                raise AssertionError("JWT helpers must ask for the jwt extra")
+        """
+    )
+    assert result.returncode == 0, result.stderr
 
 
 def test_definition_imports_leave_dataframe_libraries_and_frameworks_alone() -> None:
