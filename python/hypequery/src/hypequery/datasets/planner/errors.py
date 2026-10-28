@@ -34,6 +34,16 @@ CapabilityDenialCode: TypeAlias = Literal[
     "HQ_CAPABILITY_TENANT_MISMATCH",
 ]
 
+#: Why an executor reported a server fault, for the server's own log and the
+#: CLI. The database refusing the *server's* configured identity is the
+#: server's fault, never the caller's, so these never travel in the envelope.
+ExecutorFailureCode: TypeAlias = Literal[
+    "HQ_EXECUTOR_CREDENTIALS_REJECTED",
+    "HQ_EXECUTOR_ACCESS_DENIED",
+    "HQ_EXECUTOR_DATABASE_MISSING",
+    "HQ_EXECUTOR_READONLY_MISCONFIGURED",
+]
+
 #: Categories whose cause is the server or a dependency. Their messages are
 #: fixed here rather than taken from whatever raised, because adapter text is
 #: exactly what must not reach a caller.
@@ -69,11 +79,13 @@ class CompiledQueryError(Exception):
     a fixed sentence, and the detail belongs in a privileged diagnostic, never
     in the envelope.
 
-    `code` is set on RFC 0009 capability denials. It is not part of the
-    envelope, so `to_data()` never carries it.
+    `code` is set on RFC 0009 capability denials and on executor server
+    faults; `diagnostic` is an operator-facing sentence for the server log and
+    the traceback. Neither is part of the envelope, so `to_data()` never
+    carries them.
     """
 
-    __slots__ = ("code", "failure")
+    __slots__ = ("code", "diagnostic", "failure")
 
     def __init__(
         self,
@@ -81,12 +93,18 @@ class CompiledQueryError(Exception):
         message: str,
         *,
         query_id: str | None = None,
-        code: CapabilityDenialCode | None = None,
+        code: CapabilityDenialCode | ExecutorFailureCode | None = None,
+        diagnostic: str | None = None,
     ) -> None:
         self.code = code
+        self.diagnostic = diagnostic
         safe = _SERVER_FAULT_MESSAGES[category] if category in _SERVER_FAULT else message
         self.failure = CompiledQueryFailure(category=category, message=safe, query_id=query_id)
         super().__init__(f"{category}: {safe}")
+        if diagnostic is not None:
+            # A traceback shows notes but str() does not, so a script's
+            # operator still sees the reason without it reaching an envelope.
+            self.add_note(diagnostic)
 
     @property
     def category(self) -> CompiledQueryErrorCategory:

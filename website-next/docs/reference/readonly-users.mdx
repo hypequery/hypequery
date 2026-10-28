@@ -77,6 +77,11 @@ executor = create_clickhouse_executor(
 
 The same connection option works with `create_async_clickhouse_executor`.
 
+A readonly mismatch, like ClickHouse rejecting the connection's credentials or
+grants, is the server's fault, not the caller's. The executor reports it as
+`unavailable`, so `hypequery.serve` answers `503` with a fixed message and
+writes the reason, with the request id, to the `hypequery.serve` log.
+
 Cancellation and deadlines still stop queries on the server for both levels,
 because the executor cancels with `KILL QUERY`, which read-only users may run.
 

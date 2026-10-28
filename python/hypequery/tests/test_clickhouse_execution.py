@@ -143,18 +143,22 @@ def test_result_codec_is_closed() -> None:
     [
         (OperationalError("password=secret value='secret'"), "unavailable"),
         (ProgrammingError("SELECT 'secret'"), "internal"),
-        (ProgrammingError("secret", name="NOT_ENOUGH_PRIVILEGES"), "forbidden"),
+        (ProgrammingError("secret", name="NOT_ENOUGH_PRIVILEGES"), "unavailable"),
         (ProgrammingError("secret", name="TOO_MANY_ROWS_OR_BYTES"), "too-large"),
         # ClickHouse reports a wrong password under REQUIRED_PASSWORD (194), not
-        # AUTHENTICATION_FAILED (516); every credential refusal is unauthenticated.
+        # AUTHENTICATION_FAILED (516). The server's credentials being refused is
+        # a server fault, never the caller's: see test_executor_server_faults.
         (
             ProgrammingError("secret: password is incorrect", name="REQUIRED_PASSWORD"),
-            "unauthenticated",
+            "unavailable",
         ),
-        (ProgrammingError("secret", name="WRONG_PASSWORD"), "unauthenticated"),
-        (ProgrammingError("secret", name="UNKNOWN_USER"), "unauthenticated"),
-        (ProgrammingError("secret", name="AUTHENTICATION_FAILED"), "unauthenticated"),
-        (ProgrammingError("Database secret does not exist", name="UNKNOWN_DATABASE"), "not-found"),
+        (ProgrammingError("secret", name="WRONG_PASSWORD"), "unavailable"),
+        (ProgrammingError("secret", name="UNKNOWN_USER"), "unavailable"),
+        (ProgrammingError("secret", name="AUTHENTICATION_FAILED"), "unavailable"),
+        (
+            ProgrammingError("Database secret does not exist", name="UNKNOWN_DATABASE"),
+            "unavailable",
+        ),
     ],
 )
 def test_driver_error_is_redacted(failure: Exception, category: str) -> None:
@@ -269,7 +273,8 @@ def test_profile_policy_preserves_a_stricter_planner_limit() -> None:
 def test_profile_policy_requires_verified_readonly_user(client: SyncClient) -> None:
     with pytest.raises(CompiledQueryError) as exc:
         ClickHouseExecutor(cast(Any, client), readonly_policy="profile").execute(compiled())
-    assert exc.value.category == "forbidden"
+    assert exc.value.category == "unavailable"
+    assert exc.value.code == "HQ_EXECUTOR_READONLY_MISCONFIGURED"
     assert client.calls == []
 
 
@@ -284,8 +289,9 @@ def test_profile_policy_requires_verified_readonly_user(client: SyncClient) -> N
 def test_readonly_error_guides_only_for_our_own_setting(readonly: Exception) -> None:
     with pytest.raises(CompiledQueryError) as exc:
         ClickHouseExecutor(SyncClient(readonly)).execute(compiled())
-    assert exc.value.category == "forbidden"
-    assert "readonly_policy='profile'" in exc.value.message
+    assert exc.value.category == "unavailable"
+    assert exc.value.diagnostic is not None
+    assert "readonly_policy='profile'" in exc.value.diagnostic
 
     other = ProgrammingError(
         "Cannot modify 'secret_setting' setting in readonly mode.", name="READONLY"
@@ -317,9 +323,10 @@ def test_readonly_user_refusing_our_limits_gets_guidance(
     client.result = limit
     with pytest.raises(CompiledQueryError) as exc:
         ClickHouseExecutor(cast(Any, client), readonly_policy=policy).execute(compiled())
-    assert exc.value.category == "forbidden"
-    assert "readonly = 2" in exc.value.message
-    assert "max_" not in exc.value.message
+    assert exc.value.category == "unavailable"
+    assert exc.value.diagnostic is not None
+    assert "readonly = 2" in exc.value.diagnostic
+    assert "max_" not in exc.value.diagnostic
 
 
 @pytest.mark.parametrize(
