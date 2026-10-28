@@ -2,7 +2,8 @@
 
 `CoreClient` speaks the slice of `TestClient`'s interface the shared HTTP
 fixture tests use, so one test body checks both the FastAPI application and
-`Api.handle`.
+`Api.handle`. Like `TestClient`, it sends `Host: testserver` unless told
+otherwise, from the peer address `testclient:50000`.
 """
 
 from __future__ import annotations
@@ -17,8 +18,9 @@ from hypequery.serve.core import Api, Headers, ServeRequest
 
 
 class CoreClient:
-    def __init__(self, api: Api) -> None:
+    def __init__(self, api: Api, *, client: tuple[str, int] = ("testclient", 50000)) -> None:
         self.api = api
+        self.client = client
 
     def request(
         self,
@@ -30,13 +32,17 @@ class CoreClient:
         content: bytes | None = None,
     ) -> httpx.Response:
         sent = [(name.lower(), value) for name, value in (headers or {}).items()]
+        if not any(name == "host" for name, _ in sent):
+            sent.insert(0, ("host", "testserver"))
         body = content or b""
         if json is not None:
             body = _encode(json)
             sent.append(("content-type", "application/json"))
         if body:
             sent.append(("content-length", str(len(body))))
-        request = ServeRequest(method=method, path=path, headers=Headers(sent), body=body)
+        request = ServeRequest(
+            method=method, path=path, headers=Headers(sent), body=body, client=self.client
+        )
         response = asyncio.run(self.api.handle(request))
         return httpx.Response(
             response.status, headers=list(response.headers.items()), content=response.body
