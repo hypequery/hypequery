@@ -3,12 +3,12 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import contextvars
 import io
 import logging
 import os
 import threading
-import warnings
 from collections.abc import Iterator
 from concurrent.futures import ThreadPoolExecutor
 from socketserver import ThreadingMixIn
@@ -111,8 +111,12 @@ class Endless:
         return b"x" * size
 
 
-def _post(app: WsgiApp, stream: Any, headers: list[tuple[str, str]], **extra: Any) -> httpx.Response:
-    built = environ("POST", "/echo", headers=[("host", "testserver"), *headers], input_stream=stream)
+def _post(
+    app: WsgiApp, stream: Any, headers: list[tuple[str, str]], **extra: Any
+) -> httpx.Response:
+    built = environ(
+        "POST", "/echo", headers=[("host", "testserver"), *headers], input_stream=stream
+    )
     built.update(extra)
     return call(app, built)
 
@@ -144,6 +148,30 @@ def test_headers_come_from_http_variables_and_the_cgi_body_variables() -> None:
     ]
     # CGI servers set the body variables empty when a request has no body.
     assert environ_headers({"CONTENT_TYPE": "", "CONTENT_LENGTH": ""}).items() == ()
+
+
+@pytest.mark.parametrize(
+    ("variables", "host"),
+    [
+        ({"HTTP_HOST": "api.test", "SERVER_NAME": "internal"}, "api.test"),
+        ({"SERVER_NAME": "testserver", "SERVER_PORT": "80"}, "testserver"),
+        ({"SERVER_NAME": "testserver", "SERVER_PORT": "8000"}, "testserver:8000"),
+        (
+            {"SERVER_NAME": "api.test", "SERVER_PORT": "443", "wsgi.url_scheme": "https"},
+            "api.test",
+        ),
+        (
+            {"SERVER_NAME": "api.test", "SERVER_PORT": "80", "wsgi.url_scheme": "https"},
+            "api.test:80",
+        ),
+        ({"SERVER_NAME": "api.test"}, "api.test"),
+        ({}, None),
+    ],
+)
+def test_a_request_without_host_is_addressed_to_the_server(
+    variables: dict[str, str], host: str | None
+) -> None:
+    assert environ_headers(variables).getlist("host") == ([host] if host else [])
 
 
 def test_a_repeated_header_stays_the_one_value_the_server_joined() -> None:
@@ -569,36 +597,33 @@ def test_closing_the_loop_cancels_what_runs_and_the_next_request_starts_another(
     serving.close_serving_loop()
     waiter.join(5)
     assert [type(exc).__name__ for exc in outcome] == ["CancelledError"]
-    assert first.closed and first.loop.is_closed()
+    assert first.closed
+    assert first.loop.is_closed()
     first.close()  # closing twice is harmless
     second = serving.serving_loop()
     assert second is not first
     assert WsgiClient(to_wsgi_app(_api())).get("/where", headers=[AUTH]).status_code == 200
 
 
-@pytest.mark.skipif(not hasattr(os, "fork"), reason="fork is POSIX-only")
-def test_a_forked_worker_starts_its_own_loop() -> None:
-    app = to_wsgi_app(_api())
-    parent = WsgiClient(app).get("/where", headers=[AUTH]).json()["loop"]
-    read, write = os.pipe()
-    with warnings.catch_warnings():
-        # Python 3.12+ warns that forking a threaded process can deadlock.
-        warnings.simplefilter("ignore", DeprecationWarning)
-        pid = os.fork()
-    if pid == 0:  # pragma: no cover - the child reports through the pipe
-        try:
-            response = WsgiClient(app).get("/where", headers=[AUTH])
-            served = response.json()["loop"] if response.status_code == 200 else 0
-            os.write(write, b"ok" if served and served != parent else b"bad")
-        finally:
-            os._exit(0)
-    os.close(write)
-    _, status = os.waitpid(pid, 0)
-    assert os.read(read, 8) == b"ok"
-    os.close(read)
-    assert status == 0
-
-
+def test_a_forked_worker_starts_its_own_loop(monkeypatch: pytest.MonkeyPatch) -> None:
+    # A real fork loses the parent's coverage data, so the fork is simulated:
+    # the child sees another pid, and the at-fork hook resets the lock.
+    # (gunicorn --preload is exercised for real in the smoke tests.)
+    parent = serving.serving_loop()
+    monkeypatch.setattr(os, "getpid", lambda: parent.pid + 1)
+    serving._forget_parent_loop()
+    child = serving.serving_loop()
+    assert child is not parent
+    assert child.pid == parent.pid + 1
+    assert WsgiClient(to_wsgi_app(_api())).get("/where", headers=[AUTH]).json()["loop"] == id(
+        child.loop
+    )
+    # The child never closes the parent's loop.
+    serving.close_serving_loop()
+    assert not parent.closed
+    monkeypatch.undo()
+    assert serving.serving_loop() is not child
+    parent.close()
 
 
 # --- a real threaded server -----------------------------------------------
@@ -653,3 +678,41 @@ def test_a_threaded_server_serves_concurrent_requests(served: str) -> None:
         headers={"authorization": "Bearer reader", "content-type": "application/json"},
     )
     assert too_large.status_code == 413
+
+
+def test_a_failing_coroutine_raises_on_the_request_thread() -> None:
+    loop = ServingLoop()
+
+    async def fail(thread: RequestThread) -> None:
+        raise LookupError("from the loop")
+
+    try:
+        with pytest.raises(LookupError, match="from the loop"):
+            loop.run(fail)
+    finally:
+        loop.close()
+
+
+def test_a_job_finishing_after_its_coroutine_was_cancelled_is_dropped() -> None:
+    loop = ServingLoop()
+    release = threading.Event()
+
+    def slow() -> bytes:
+        release.wait(5)
+        return b"late"
+
+    async def serve(thread: RequestThread) -> str:
+        job = asyncio.ensure_future(thread.call(slow))
+        await asyncio.sleep(0)
+        job.cancel()
+        release.set()
+        with contextlib.suppress(asyncio.CancelledError):
+            await job
+        # Let the late result reach the loop and find its future done.
+        await asyncio.sleep(0.05)
+        return "dropped"
+
+    try:
+        assert loop.run(serve) == "dropped"
+    finally:
+        loop.close()

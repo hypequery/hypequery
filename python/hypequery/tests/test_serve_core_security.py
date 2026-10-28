@@ -45,7 +45,6 @@ from hypequery.serve import (
     ServeRequest,
     ServeResponse,
     create_api,
-    to_asgi_app,
 )
 from serve_transports import TRANSPORTS, serve_client
 

@@ -30,6 +30,22 @@ def _json(response: Any) -> Any:
     return response.get_json()
 
 
+def _assert_serves_hypequery_endpoints(post: Any, get: Any) -> None:
+    """The example's native hypequery endpoints, as React and MCP call them."""
+
+    from examples.utils.analytics import build
+
+    query = {"measures": ["revenue"]}
+    assert post("/api/analytics/orders", query, A) == (200, [{"revenue": "30"}])
+    assert post("/api/analytics/orders", query, B) == (200, [{"revenue": "90"}])
+    assert post("/api/analytics/orders", query, {})[0] == 401
+    live = get("/api/analytics/client-contract", A)
+    # The offline export a frontend is generated from pins the served schema.
+    offline = build()["contract"]["endpoints"]
+    assert [endpoint["path"] for endpoint in live["endpoints"]] == ["/api/analytics/orders"]
+    assert live["endpoints"][0]["schemaHash"] == offline[0]["schemaHash"]
+
+
 def _sorted(rows: list[dict[str, Any]], key: str) -> list[dict[str, Any]]:
     return sorted(rows, key=lambda row: row[key])
 
@@ -41,6 +57,7 @@ def _sorted(rows: list[dict[str, Any]], key: str) -> list[dict[str, Any]]:
         "examples.flask_app",
         "examples.dataframes",
         "examples.sqlalchemy_engine",
+        "examples.utils.analytics",
     ],
 )
 def test_framework_examples_import_without_credentials_or_connections(
@@ -135,6 +152,14 @@ def test_live_flask_example(seeded: str) -> None:
         ]
         assert http.get("/revenue").status_code == 401
         assert _sorted(_json(http.get("/revenue/daily", headers=A))["data"], "period") == DAILY_A
+
+        def post(url: str, body: Any, headers: dict[str, str]) -> tuple[int, Any]:
+            response = http.post(url, json=body, headers=headers)
+            return response.status_code, (response.get_json() or {}).get("data")
+
+        _assert_serves_hypequery_endpoints(
+            post, lambda url, headers: http.get(url, headers=headers).get_json()
+        )
     finally:
         with app.app_context():
             flask_app.hq.close()
@@ -170,6 +195,27 @@ def test_live_django_example(seeded: str) -> None:
             daily = asyncio.run(over_asgi())
             assert daily.status_code == 200, daily.text
             assert _sorted(daily.json()["data"], "period") == DAILY_A
+
+            def post(url: str, body: Any, headers: dict[str, str]) -> tuple[int, Any]:
+                response = http.post(url, body, content_type="application/json", headers=headers)
+                return response.status_code, response.json().get("data")
+
+            _assert_serves_hypequery_endpoints(
+                post, lambda url, headers: http.get(url, headers=headers).json()
+            )
+
+            async def over_asgi_api() -> httpx.Response:
+                transport = httpx.ASGITransport(app=application)
+                async with httpx.AsyncClient(
+                    transport=transport, base_url="http://localhost"
+                ) as client:
+                    return await client.post(
+                        "/api/analytics/orders", json={"measures": ["revenue"]}, headers=B
+                    )
+
+            served = asyncio.run(over_asgi_api())
+            assert served.status_code == 200, served.text
+            assert served.json()["data"] == [{"revenue": "90"}]
         finally:
             close_clients()
 

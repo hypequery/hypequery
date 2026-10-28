@@ -18,8 +18,10 @@ def scope_headers(scope: Mapping[str, Any]) -> Headers:
 
 
 def scope_query(scope: Mapping[str, Any]) -> QueryParams:
-    query: bytes = scope.get("query_string", b"")
-    return QueryParams(parse_qsl(query.decode("latin-1"), keep_blank_values=True))
+    query: bytes | str = scope.get("query_string", b"")
+    # Django's AsyncClient builds its scope with a str here.
+    text = query.decode("latin-1") if isinstance(query, bytes) else query
+    return QueryParams(parse_qsl(text, keep_blank_values=True))
 
 
 def scope_client(scope: Mapping[str, Any]) -> tuple[str, int] | None:

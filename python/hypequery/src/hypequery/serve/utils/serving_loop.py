@@ -102,7 +102,7 @@ class ServingLoop:
         self._loop = asyncio.new_event_loop()
         self._closed = False
         self._thread = threading.Thread(
-            target=self._loop.run_forever, name="hypequery-serve", daemon=True
+            target=self._loop.run_forever, name="hypequery.serving-loop", daemon=True
         )
         self._thread.start()
 

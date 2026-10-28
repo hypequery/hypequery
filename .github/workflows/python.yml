@@ -238,7 +238,7 @@ jobs:
         run: |
           uv pip compile pyproject.toml --all-extras --resolution lowest-direct --output-file /tmp/python-floors.txt --quiet
           uv pip install --requirement /tmp/python-floors.txt
-      - run: uv run --no-sync pytest tests/test_serve_auth.py tests/test_serve_security.py tests/test_serve_errors.py tests/test_serve_http_fixtures.py tests/test_serve_discovery.py tests/test_serve_endpoints.py tests/test_serve_semantic_fixtures.py tests/test_serve_production.py tests/test_serve_dev.py tests/test_cli_dev.py tests/test_serve_core_security.py tests/test_serve_asgi.py tests/test_serve_create_api.py
+      - run: uv run --no-sync pytest tests/test_serve_auth.py tests/test_serve_security.py tests/test_serve_errors.py tests/test_serve_http_fixtures.py tests/test_serve_discovery.py tests/test_serve_endpoints.py tests/test_serve_semantic_fixtures.py tests/test_serve_production.py tests/test_serve_dev.py tests/test_cli_dev.py tests/test_serve_core_security.py tests/test_serve_asgi.py tests/test_serve_create_api.py tests/test_serve_wsgi.py tests/test_serve_native_adapters.py tests/test_contrib_django_serve.py tests/test_contrib_flask_serve.py
 
   getting-started:
     # PYE-01 acceptance: the README's Getting started path, run as written from

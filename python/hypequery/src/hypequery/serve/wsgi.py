@@ -12,7 +12,9 @@ threads run concurrently on the loop.
 - The body is read from ``wsgi.input`` lazily, by the waiting thread, only for
   a route that takes input and only after authentication, and no further than
   the body policy allows: ``CONTENT_LENGTH`` bytes, or to the end of a chunked
-  body the server frames itself (``wsgi.input_terminated``).
+  body the server frames itself (``wsgi.input_terminated``). A server that
+  receives whole bodies before calling the application (waitress) needs its
+  own size limit as well.
 - Headers come from ``HTTP_*``, ``CONTENT_TYPE`` and ``CONTENT_LENGTH``; the
   peer from ``REMOTE_ADDR``. The path is matched as sent when the server passes
   the request target (``RAW_URI`` or ``REQUEST_URI``), else as ``PATH_INFO``.

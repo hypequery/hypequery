@@ -6,8 +6,23 @@ HYPEQUERY_TENANT_B_TOKEN. Then:
 
     curl -H "Authorization: Bearer $HYPEQUERY_TENANT_A_TOKEN" localhost:8000/revenue
 
+The project also serves hypequery's own endpoints, for ``@hypequery/react`` and
+``@hypequery/mcp``, natively from its URLconf (``examples/django_urls.py``)::
+
+    curl -H "Authorization: Bearer $HYPEQUERY_TENANT_A_TOKEN" \
+      -H "Content-Type: application/json" -d '{"measures": ["revenue"]}' \
+      localhost:8000/api/analytics/orders
+
+Under gunicorn (WSGI)::
+
+    gunicorn "examples.django_app:wsgi_application()" --threads 8
+
+or uvicorn (ASGI): ``uvicorn "examples.django_app:asgi_application" --factory``.
+Both serve the same views; see ``examples/README.md`` for React and MCP.
+
 A single-file Django project. In a real project the ``SETTINGS`` below live in
-settings.py, the views in views.py, and ``asgi_application`` in asgi.py.
+settings.py, the views in views.py, the URLconf in urls.py, and the
+applications in wsgi.py and asgi.py.
 """
 
 from __future__ import annotations
@@ -17,7 +32,6 @@ from typing import Any
 
 from django.conf import settings
 from django.http import HttpRequest, JsonResponse
-from django.urls import path
 
 from .utils.orders import organization_for
 
@@ -25,9 +39,13 @@ SETTINGS: dict[str, Any] = {
     "DEBUG": True,
     "SECRET_KEY": "example-only-not-secret",
     "ALLOWED_HOSTS": ["localhost", "127.0.0.1", "testserver"],
-    "ROOT_URLCONF": __name__,
+    "ROOT_URLCONF": "examples.django_urls",
     "INSTALLED_APPS": ["hypequery.contrib.django"],
-    "MIDDLEWARE": ["hypequery.contrib.django.HypequeryMiddleware"],
+    "MIDDLEWARE": [
+        # hypequery's views are CSRF-exempt: their credential is a header.
+        "django.middleware.csrf.CsrfViewMiddleware",
+        "hypequery.contrib.django.HypequeryMiddleware",
+    ],
     "HYPEQUERY": {
         "URL": None,  # read CLICKHOUSE_URL or CLICKHOUSE_* from the environment
         "REGISTRY": "examples.utils.orders.registry",
@@ -61,9 +79,6 @@ async def revenue_by_day(request: HttpRequest) -> JsonResponse:
     return JsonResponse({"data": list(result.data)})
 
 
-urlpatterns = [path("revenue", revenue), path("revenue/daily", revenue_by_day)]
-
-
 def configure() -> None:
     """Apply ``SETTINGS`` once per process, then set Django up."""
 
@@ -72,6 +87,15 @@ def configure() -> None:
 
         settings.configure(**SETTINGS)
         django.setup()
+
+
+def wsgi_application() -> Any:
+    """The project as a WSGI app, for gunicorn or waitress."""
+
+    configure()
+    from django.core.wsgi import get_wsgi_application
+
+    return get_wsgi_application()
 
 
 def asgi_application() -> Any:

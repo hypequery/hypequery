@@ -15,6 +15,7 @@ transports that have a router.
 
 from __future__ import annotations
 
+import importlib.util
 import types
 from typing import Any
 
@@ -25,9 +26,15 @@ from core_transport import CoreClient
 from hypequery.serve import Api, to_asgi_app, to_wsgi_app
 from wsgi_client import WsgiClient
 
-TRANSPORTS = ["core", "asgi", "wsgi", "django-wsgi", "django-asgi", "flask"]
+_INSTALLED = {name: importlib.util.find_spec(name) is not None for name in ("django", "flask")}
+#: Every transport whose framework is installed (CI's quality jobs install all).
+TRANSPORTS = [
+    name
+    for name in ["core", "asgi", "wsgi", "django-wsgi", "django-asgi", "flask"]
+    if _INSTALLED.get(name.partition("-")[0], True)
+]
 #: The transports a framework's router mounts below a prefix.
-ROUTED = ["django-wsgi", "django-asgi", "flask"]
+ROUTED = [name for name in ["django-wsgi", "django-asgi", "flask"] if name in TRANSPORTS]
 PEER = ("testclient", 50000)
 
 _counter = 0
@@ -40,8 +47,8 @@ class DjangoClient:
         self, api: Api, *, asgi: bool, client: tuple[str, int], prefix: str, raw_uri: bool
     ) -> None:
         from django.urls import include, path
-        from django_settings import configure_django
 
+        from django_settings import configure_django
         from hypequery.contrib.django import urls
 
         global _counter

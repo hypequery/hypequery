@@ -16,7 +16,9 @@ request's thread waits (`hypequery.serve.wsgi`). ``ServeRequest.raw`` is the
 
 - The body is read through the request's stream, lazily and bounded by the
   API's body policy; ``request.body`` is never touched, so
-  ``DATA_UPLOAD_MAX_MEMORY_SIZE`` plays no part.
+  ``DATA_UPLOAD_MAX_MEMORY_SIZE`` plays no part. Under ASGI, Django's handler
+  has received the whole body before any view runs, so cap request sizes at
+  the server or proxy too.
 - Any prefix works, including one with URL parameters: client contracts and
   discovery name the paths the request was routed under, unless the API sets
   ``client_mount_path``, which then names where it is reached.

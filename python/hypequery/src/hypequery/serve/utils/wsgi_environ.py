@@ -19,8 +19,18 @@ from ..core.messages import Headers, QueryParams
 _CGI_HEADERS = {"CONTENT_TYPE": "content-type", "CONTENT_LENGTH": "content-length"}
 
 
+#: The port a scheme implies, left out of a host built from the server's name.
+_DEFAULT_PORTS = {"http": "80", "https": "443"}
+
+
 def environ_headers(environ: Mapping[str, Any]) -> Headers:
-    """The request headers, names lowercased and ``_`` read as ``-``."""
+    """The request headers, names lowercased and ``_`` read as ``-``.
+
+    A request without ``Host`` (HTTP/1.0, or a test client such as Django's)
+    is addressed to the server itself: as PEP 3333 reconstructs the URL, its
+    host is ``SERVER_NAME``, with ``SERVER_PORT`` unless the scheme implies it.
+    Both are the server's configuration, not the caller's.
+    """
 
     headers: list[tuple[str, str]] = []
     for key, value in environ.items():
@@ -30,6 +40,12 @@ def environ_headers(environ: Mapping[str, Any]) -> Headers:
                 headers.append((_CGI_HEADERS[key], value))
         elif key.startswith("HTTP_") and key[5:] not in _CGI_HEADERS:
             headers.append((key[5:].replace("_", "-").lower(), value))
+    if "HTTP_HOST" not in environ and environ.get("SERVER_NAME"):
+        host = str(environ["SERVER_NAME"])
+        port = str(environ.get("SERVER_PORT", ""))
+        if port and port != _DEFAULT_PORTS.get(environ.get("wsgi.url_scheme", "http")):
+            host = f"{host}:{port}"
+        headers.append(("host", host))
     return Headers(headers)
 
 
