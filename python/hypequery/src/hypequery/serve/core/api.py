@@ -60,6 +60,9 @@ from .state import RequestState
 if TYPE_CHECKING:
     from .client_contract import ClientEndpointRegistry, ClientPlacement
 
+#: `dispatch` reads and validates the body itself unless given its decoded input.
+_NOT_DECODED = object()
+
 _METHODS = frozenset(("GET", "POST", "PUT", "PATCH", "DELETE"))
 
 
@@ -245,9 +248,20 @@ class Api:
         return await self.dispatch(request, state, route, ApiHost(self))
 
     async def dispatch(
-        self, request: ServeRequest, state: RequestState, route: Route, host: RouteHost
+        self,
+        request: ServeRequest,
+        state: RequestState,
+        route: Route,
+        host: RouteHost,
+        *,
+        decoded: object = _NOT_DECODED,
     ) -> ServeResponse:
-        """Run *route*'s pipeline for a request an adapter has already matched."""
+        """Run *route*'s pipeline for a request an adapter has already matched.
+
+        An adapter whose framework already decoded the body and validated it
+        against `route.input`, under the body policy, passes the result as
+        *decoded*; the core then does not read the body again.
+        """
 
         try:
             # A public route sees only what the host already established for
@@ -259,7 +273,9 @@ class Api:
                 await limit.check(request, auth, route.path)
             checked_json = check_body_headers(request.headers, self.max_body_bytes)
             payload = None
-            if route.input is not None:
+            if route.input is not None and decoded is not _NOT_DECODED:
+                payload = decoded
+            elif route.input is not None:
                 payload = await read_input(
                     request, route.input, self.max_body_bytes, checked_json=checked_json
                 )

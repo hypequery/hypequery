@@ -562,3 +562,41 @@ def test_host_dependencies_see_the_body_and_shape_the_response() -> None:
     )
     assert response.status_code == 400
     assert "x-host" not in response.headers
+
+
+def test_host_body_fields_embed_the_query_and_no_body_statuses_stay_empty() -> None:
+    from fastapi import Body, Response
+
+    reasons: list[str] = []
+
+    def audited(reason: str = Body(...)) -> None:
+        reasons.append(reason)
+
+    def no_content(response: Response) -> None:
+        response.status_code = 204
+
+    router = create_api(authenticate=authenticate)
+    add_dataset_endpoint(
+        router, "/orders", dataset=orders(), client=create_dataset_client(executor=Executor())
+    )
+    app = FastAPI()
+    app.include_router(router, dependencies=[Depends(audited)])
+    http = TestClient(app)
+    reader = {"Authorization": "Bearer reader"}
+    # With a host body field, FastAPI embeds the query under its parameter name.
+    response = http.post(
+        "/orders", json={"payload": {"measures": ["total"]}, "reason": "audit"}, headers=reader
+    )
+    assert response.status_code == 200, response.text
+    assert response.json() == {"data": [{"total": "3"}]}
+    assert reasons == ["audit"]
+    response = http.post("/orders", json={"payload": {"bogus": 1}, "reason": "x"}, headers=reader)
+    assert response.status_code == 400
+    assert response.json()["error"]["details"]["issues"][0]["path"] == ["payload", "bogus"]
+
+    empty = FastAPI()
+    empty.include_router(router, dependencies=[Depends(no_content)])
+    response = TestClient(empty).post("/orders", json={}, headers=reader)
+    assert response.status_code == 204
+    assert response.content == b""
+    assert "content-length" not in response.headers
