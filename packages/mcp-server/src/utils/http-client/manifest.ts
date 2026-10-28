@@ -5,14 +5,14 @@ import { resultSchema } from '../../tools/utils/result-schema.js';
 
 const profileOutput = resultSchema({
   type: 'object', additionalProperties: false, required: ['name', 'queryable', 'endpoints'],
-  properties: { name: { type: 'string' }, queryable: { type: 'boolean' }, endpoints: { type: 'array', items: { type: 'object' } } },
+  properties: { name: { type: 'string' }, label: { type: 'string' }, description: { type: 'string' }, queryable: { type: 'boolean' }, endpoints: { type: 'array', items: { type: 'object' } } },
 });
 const listOutput = resultSchema({
   type: 'object', additionalProperties: false, required: ['datasets', 'total'],
   properties: {
     datasets: { type: 'array', items: { type: 'object', additionalProperties: false,
       required: ['name', 'description', 'queryable', 'dimensionCount', 'measureCount', 'metricCount'],
-      properties: { name: { type: 'string' }, description: { type: 'string' }, queryable: { type: 'boolean' },
+      properties: { name: { type: 'string' }, label: { type: 'string' }, description: { type: 'string' }, queryable: { type: 'boolean' },
         dimensionCount: { type: 'integer', minimum: 0 }, measureCount: { type: 'integer', minimum: 0 }, metricCount: { type: 'integer', minimum: 0 } },
     } }, total: { type: 'integer', minimum: 0 },
   },
@@ -38,11 +38,11 @@ export function clientHttpManifest(schemas: ClientContractQuerySchemas, authoriz
   const manifest = buildMCPToolManifest(schemas);
   for (const tool of manifest.tools) {
     if (tool.name === 'get_dataset_schema') {
-      tool.description = 'Inspect authorized endpoint profiles for a dataset group. Each endpoint retains its own permissions and defaults.';
+      tool.description = 'Inspect authorized endpoint profiles for a dataset group. Each endpoint retains its own permissions and defaults; annotations carry backend-authored field labels and descriptions.';
       tool.inputSchema = { type: 'object', additionalProperties: false, properties: { dataset: { type: 'string' } }, required: ['dataset'] };
       tool.outputSchema = profileOutput;
     } else if (tool.name === 'list_datasets') {
-      tool.description = 'List authorized dataset groups, including metric-only groups whose queryable flag is false.';
+      tool.description = 'List authorized dataset groups with their descriptions, including metric-only groups whose queryable flag is false.';
       tool.inputSchema = { type: 'object', additionalProperties: false, properties: {} };
       tool.outputSchema = listOutput;
     } else tool.outputSchema = queryOutput;

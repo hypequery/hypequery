@@ -1,4 +1,4 @@
-import { datasetSourceBuilder } from './dataset-source.js';
+import { scopedDatasetSource } from './scoped-dataset-source.js';
 import { semanticQuerySyntaxErrors, semanticOrderDirection } from './semantic-query-syntax.js';
 /** Metric SQL compilation; factory selection and execution belong to the client. */
 import { resolveDatasetSqlDialect } from './dataset-sql-dialect.js';
@@ -10,23 +10,18 @@ import {
   buildDimensionSelectionPlan,
   resolveDimensionExpression,
   resolveFilterField,
-  resolveTenantFilterColumn,
 } from '../query-planner.js';
 import { queryTimeFilter } from './query-timezone.js';
 import { StatementParameters, type PlannedStatement } from './statement-parameters.js';
 import { formulaExpressionSql } from './derived-measure-sql.js';
 import { isTenantScopedFilter } from './metric-handle.js';
-import { getRuntimeTenantPredicate } from './tenant-runtime.js';
-import {
-  applyRelationshipJoins,
-  buildRelationshipBuilderContext,
-  qualifyBaseColumn,
-} from './relationship-builder-plan.js';
+import { buildRelationshipBuilderContext } from './relationship-builder-plan.js';
 import { segmentFilters } from './segments.js';
 import type { DerivedMetricSpec } from '../types.js';
 import { validateSQLIdentifier } from '../sql-utils.js';
 import { isQualifiedField } from './relationship-fields.js';
 import { validateDerivedCteGrouping } from './derived-cte-validation.js';
+import { datasetOnTimeKey } from './dataset-time-keys.js';
 
 export function buildDerivedMetricSql(
   ref: MetricRef,
@@ -40,12 +35,11 @@ export function buildDerivedMetricSql(
   if (syntaxErrors.length) throw new Error(syntaxErrors.join('; '));
   const dialect = resolveDatasetSqlDialect(builderFactory);
   assertRawSqlForDialect(ref.dataset, dialect);
-  const ds = ref.dataset;
+  const ds = datasetOnTimeKey(ref.dataset, query.timeKey);
   const joinCtx = buildRelationshipBuilderContext(ds, query, context, dialect);
 
   // Build the CTE inner query using the builder
-  let cteBuilder: QueryBuilderLike = datasetSourceBuilder(builderFactory, ds);
-  cteBuilder = applyRelationshipJoins(cteBuilder, joinCtx);
+  let cteBuilder: QueryBuilderLike = scopedDatasetSource({ builderFactory, ds, context, joinCtx, dialect, timezone: query.timezone });
   const { selectParts, groupByParts } = buildDimensionSelectionPlan(
     ds,
     query.dimensions ?? [],
@@ -82,11 +76,6 @@ export function buildDerivedMetricSql(
   }
 
   // Filters on CTE
-  const tenantColumn = resolveTenantFilterColumn(ds, context);
-  const tenantPredicate = getRuntimeTenantPredicate(context);
-  if (tenantPredicate && tenantColumn) {
-    cteBuilder = cteBuilder.where(qualifyBaseColumn(joinCtx, tenantColumn), tenantPredicate.operator, tenantPredicate.value);
-  }
   for (const filter of query.filters ?? []) {
     if (isTenantScopedFilter(ds, filter, context)) {
       throw new Error(

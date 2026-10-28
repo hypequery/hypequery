@@ -8,5 +8,30 @@
     "id": "composite-relationship-keys",
     "canonical": "{\"datasets\":[{\"dimensions\":[],\"filters\":[],\"measures\":[],\"name\":\"customers\",\"relationships\":[],\"source\":\"customers\",\"tenant\":{\"kind\":\"not-required\"}},{\"dimensions\":[],\"filters\":[],\"measures\":[],\"name\":\"orders\",\"relationships\":[{\"from\":\"customer_id\",\"keys\":[{\"from\":\"customer_id\",\"to\":\"id\"},{\"from\":\"region_code\",\"to\":\"region\"}],\"kind\":\"belongsTo\",\"name\":\"customer\",\"queryable\":true,\"target\":\"customers\",\"to\":\"id\"}],\"source\":\"orders\",\"tenant\":{\"kind\":\"not-required\"}}],\"kind\":\"hypequery-deployment\",\"version\":2}",
     "sha256": "3c0b6f845c890832ff88170b473c659892339f0ae74de6271f3232be4b50f841"
+  },
+  {
+    "id": "resolved-rows-replacing",
+    "canonical": "{\"datasets\":[{\"dimensions\":[],\"filters\":[],\"measures\":[],\"name\":\"users\",\"relationships\":[],\"rowResolution\":{\"deletedColumn\":\"is_deleted\",\"engine\":\"replacing\",\"kind\":\"final\"},\"source\":\"users\",\"tenant\":{\"kind\":\"not-required\"}}],\"kind\":\"hypequery-deployment\",\"version\":2}",
+    "sha256": "0c46e71aa427fb41adafb01008f5b747934edfad94308ea8513aff2a7c08a0e5"
+  },
+  {
+    "id": "resolved-rows-final-only",
+    "canonical": "{\"datasets\":[{\"dimensions\":[],\"filters\":[],\"measures\":[],\"name\":\"users\",\"relationships\":[],\"rowResolution\":{\"kind\":\"final\"},\"source\":\"users\",\"tenant\":{\"kind\":\"not-required\"}}],\"kind\":\"hypequery-deployment\",\"version\":2}",
+    "sha256": "6739f29f0931ee983b721213f9e290e9c9a7548195fbe190a4a913296360e23c"
+  },
+  {
+    "id": "resolved-rows-collapsing",
+    "canonical": "{\"datasets\":[{\"dimensions\":[],\"filters\":[],\"measures\":[],\"name\":\"users\",\"relationships\":[],\"rowResolution\":{\"engine\":\"collapsing\",\"kind\":\"final\",\"signColumn\":\"sign\"},\"source\":\"users\",\"tenant\":{\"kind\":\"not-required\"}}],\"kind\":\"hypequery-deployment\",\"version\":2}",
+    "sha256": "22ed69eda4f470ee9063426a1e6387d9af534f51e4053fff7ddfda8263dbb702"
+  },
+  {
+    "id": "resolved-rows-versioned-collapsing",
+    "canonical": "{\"datasets\":[{\"dimensions\":[],\"filters\":[],\"measures\":[],\"name\":\"users\",\"relationships\":[],\"rowResolution\":{\"engine\":\"versioned-collapsing\",\"kind\":\"final\",\"signColumn\":\"sign\"},\"source\":\"users\",\"tenant\":{\"kind\":\"not-required\"}}],\"kind\":\"hypequery-deployment\",\"version\":2}",
+    "sha256": "d1391f36746a216d6fac7e4350c94bd7dec8dc6298e90033d2f476df1625ac6f"
+  },
+  {
+    "id": "merge-measures",
+    "canonical": "{\"datasets\":[{\"dimensions\":[{\"filterable\":true,\"groupable\":true,\"name\":\"day\",\"source\":{\"column\":\"day\",\"kind\":\"column\"},\"type\":\"timestamp\"}],\"filters\":[],\"measures\":[{\"aggregation\":\"merge\",\"field\":\"users\",\"filters\":[],\"name\":\"active_users\",\"stateFunction\":\"uniq\"},{\"aggregation\":\"merge\",\"field\":\"events\",\"filters\":[],\"name\":\"events\",\"stateFunction\":\"sum\"}],\"name\":\"daily_active_users\",\"relationships\":[],\"source\":\"daily_active_users\",\"tenant\":{\"kind\":\"not-required\"}}],\"kind\":\"hypequery-deployment\",\"version\":2}",
+    "sha256": "525e0df757d4056b1f370ae3666b56fc7ac9e18346506ade77a63b8968ba16da"
   }
 ]

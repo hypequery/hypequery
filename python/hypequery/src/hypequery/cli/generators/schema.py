@@ -33,9 +33,21 @@ class Table:
 
 
 @dataclass(frozen=True)
+class ConnectionSummary:
+    """How discovery connected, minus credentials, so the scaffold can repeat it."""
+
+    host: str
+    port: int | None
+    secure: bool
+    #: Whether the settings came from ``CLICKHOUSE_URL`` rather than the field variables.
+    from_url: bool
+
+
+@dataclass(frozen=True)
 class Schema:
     database: str
     tables: tuple[Table, ...]
+    connection: ConnectionSummary | None = None
 
 
 class _Result(Protocol):
@@ -70,14 +82,21 @@ def discover_schema(*, tables: str | None, exclude_tables: str | None) -> Schema
                 send_receive_timeout=15,
             ),
         )
-        return read_schema(client, tables=tables, exclude_tables=exclude_tables)
+        schema = read_schema(client, tables=tables, exclude_tables=exclude_tables)
+        summary = ConnectionSummary(
+            host=fields["host"],
+            port=fields["port"],
+            secure=fields["secure"],
+            from_url=bool(os.environ.get("CLICKHOUSE_URL", "").strip()),
+        )
+        return Schema(schema.database, schema.tables, summary)
     except CliError:
         raise
     except Exception as exc:
         from hypequery.execution.errors import safe_driver_error
 
-        category = safe_driver_error(exc, "").category
-        raise CliError(f"Cannot inspect ClickHouse. {clickhouse_hint(category)}") from exc
+        error = safe_driver_error(exc, "")
+        raise CliError(f"Cannot inspect ClickHouse. {clickhouse_hint(error)}") from exc
     finally:
         if client is not None:
             with suppress(Exception):

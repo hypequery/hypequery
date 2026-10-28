@@ -1,6 +1,6 @@
 # hypequery for Python
 
-A Python semantic layer for ClickHouse datasets, metrics, multi-tenant analytics, and FastAPI serving.
+A Python semantic layer for ClickHouse datasets, metrics, multi-tenant analytics, and HTTP serving from any Python framework.
 
 > **Beta (0.1.0b1).** Datasets, execution, Serve, generated React clients and
 > HTTP-backed MCP are tested end to end from the installed package. APIs may still
@@ -11,13 +11,14 @@ A Python semantic layer for ClickHouse datasets, metrics, multi-tenant analytics
 
 The [complete client tutorial](https://github.com/hypequery/hypequery/blob/main/python/hypequery/examples/client_dashboard/README.md) shares one
 Python definition across authorized HTTP, generated React types and MCP stdio.
-Its preparation script uses an installed wheel and packed Node packages outside
-the checkout. Matching npm features remain in the development release stack;
-currently published packages may not support the complete journey yet.
+It works with the published npm packages (`@hypequery/cli` 1.25+,
+`@hypequery/react` 0.7+ and `@hypequery/mcp` 0.10+). Its preparation script
+builds the same journey from a checkout, using an installed wheel and packed
+Node packages outside the repository.
 
 ## Schema-backed Python CLI
 
-Install `hypequery[fastapi,clickhouse]`, export your `CLICKHOUSE_*` connection
+Install `hypequery[server,clickhouse]`, export your `CLICKHOUSE_*` connection
 settings, then run `hypequery init --path analytics --tables orders,customers`.
 The default inspects actual catalog metadata and generates `datasets.py`, a
 `schema.json` snapshot, and authenticated endpoints for selected tables.
@@ -43,18 +44,18 @@ Existing output paths are never overwritten. See the
 
 From zero to a served dataset. You need Python 3.11+ and a ClickHouse server.
 
-**1. Install** with the FastAPI and ClickHouse extras:
+**1. Install** with the server and ClickHouse extras:
 
 ```bash
-pip install "hypequery[fastapi,clickhouse]"
+pip install "hypequery[server,clickhouse]"
 ```
 
 That covers the synchronous executor this guide uses. For the native async
 executor (`create_async_clickhouse_executor`), install
-`"hypequery[fastapi,clickhouse-async]"` instead.
+`"hypequery[server,clickhouse-async]"` instead.
 
 To try an unreleased build, install from a checkout of this repository instead:
-`pip install "./python/hypequery[fastapi,clickhouse]"`.
+`pip install "./python/hypequery[server,clickhouse]"`.
 
 **2. Create sample data.** Run this in `clickhouse client` (or any SQL console)
 against your database:
@@ -93,14 +94,15 @@ from hypequery.serve import (
     Credential,
     HttpSecurity,
     Principal,
-    create_dataset_endpoint,
-    create_app,
     create_api,
+    create_dataset_endpoint,
+    to_asgi_app,
 )
 
 orders = dataset(
     "orders",
     source="orders",
+    description="One row per customer order.",
     time_key="created_at",
     dimensions={
         "id": dimension.string(),
@@ -135,14 +137,14 @@ def authenticate(credential: Credential) -> Principal | None:
     return None
 
 
-api = create_api(authenticate=authenticate)
-create_dataset_endpoint(dataset=orders, client=client).install(api, "/datasets/orders/query")
-
-app = create_app(
-    api,
+api = create_api(
+    auth=authenticate,
     security=HttpSecurity(allowed_hosts=("127.0.0.1", "localhost")),
     development_docs=True,
 )
+create_dataset_endpoint(dataset=orders, client=client).install(api, "/datasets/orders/query")
+
+app = to_asgi_app(api)
 ```
 
 **4. Run the development server** from the directory containing `app.py`:
@@ -156,10 +158,11 @@ python -m hypequery.serve.dev app:app --reload
 
 The development runner listens on `127.0.0.1:8000` only. Binding anywhere else
 (`--host 0.0.0.0`) works but raises an `ExternalBindWarning`: the runner is
-not hardened for a network. It refuses apps created with a `ProductionProfile`;
+not hardened for a network. It refuses APIs created with a `ProductionProfile`;
 run those with [`start_server`](#production-process). From Python, call
-`serve_dev(app)` or `serve_dev("app:app", reload=True)`
-(`run_dev` remains available for compatibility).
+`serve_dev(api)` or `serve_dev("app:app", reload=True)`
+(`run_dev` remains available for compatibility). `app` is a plain ASGI
+application, so any ASGI server runs it too: `uvicorn app:app`.
 
 **5. Query it:**
 
@@ -186,14 +189,15 @@ A request without the token gets `401`. Interactive docs are at
 <http://127.0.0.1:8000/docs> because the app opts in with
 `development_docs=True`; production apps keep them closed.
 
-Next steps: [add tenant isolation](#serving-with-fastapi), relationships
+Next steps: [add tenant isolation](#serving-over-http), relationships
 ([dataset definitions](#dataset-definitions)), and the
 [production profile](#production-process) before deploying.
 `scripts/getting_started.py` runs this walkthrough end to end in CI.
 
 ## Python CLI
 
-Install `hypequery[fastapi,clickhouse]` for the complete onboarding path, then:
+Install `hypequery[server,clickhouse]` for the complete onboarding path (the
+`django` or `flask` extra instead for those scaffolds), then:
 
 ```bash
 hypequery init --path my-analytics
@@ -204,17 +208,41 @@ hypequery dev
 
 `hypequery init --path <directory>` (or a positional directory) inspects your
 configured ClickHouse database by default. Use `--tables` and `--exclude-tables`
-to choose tables. Generated definitions and an exact schema snapshot describe
+to choose tables, and `--tenant-column <column>` to set `tenant_key` on every
+table that has it. The selection is recorded in `schema.json`, and
+`hypequery generate datasets` reuses it unless given `--tables`,
+`--exclude-tables` or `--all-tables`. The scaffold's `.env.example` and README
+repeat how discovery connected (`CLICKHOUSE_URL`, or the host, port and TLS
+setting), without credentials. Generated definitions and an exact schema snapshot describe
 your actual tables; existing output paths are never overwritten. Install the
 `clickhouse` extra and export connection settings before running init.
 Only explicit `--skip-connection` generates the offline orders demo and `seed.sql`.
 
+`--framework` chooses the application written beside `datasets.py`; every
+choice also works with `--skip-connection`:
+
+| `--framework` | Writes | Run with |
+| --- | --- | --- |
+| `standalone` (default) | `app.py`: `create_api` served as plain ASGI, no web framework | `hypequery dev` |
+| `django` | a small Django project (`settings.py`, `urls.py`, `manage.py`) and `analytics.py` | `python manage.py runserver` |
+| `flask` | a Flask `app.py` | `flask --app app run` |
+
+The Django and Flask apps serve hypequery's endpoints natively (`urls(api)`,
+`blueprint(api)`) twice: at `/api/analytics` behind the framework's own login
+(`django_user`, `flask_session`) with the same-origin check, for
+`@hypequery/react` on pages the app serves, and at `/api/agents` behind a
+bearer token, for `@hypequery/mcp` and scripts. Until you wire them to your
+login, Flask's session API refuses everyone, and tenant-scoped datasets refuse
+signed-in Django users. The generated README walks through both. To mount the
+standalone API in FastAPI, Starlette or Litestar instead, mount `app`.
+
 `hypequery dev [module:app]` defaults to `app:app` on `127.0.0.1:8000` with reload
 enabled. Use `--no-watch`, `--hostname` or `-p`/`--port` to change those options.
-`--no-reload` and `--host` remain supported aliases. Serving
-requires the `fastapi` extra; apps using ClickHouse also need `clickhouse`.
-The command retains the development runner's external-bind warning and refuses
-production-profile apps. Use `start_server` for production serving.
+`--no-reload` and `--host` remain supported aliases. The target is an API from
+`create_api` or its `to_asgi_app` application. Serving requires the `server`
+extra (uvicorn); apps using ClickHouse also need `clickhouse`. The command
+retains the development runner's external-bind warning and refuses
+production-profile APIs. Use `start_server` for production serving.
 
 `hypequery --help`, `hypequery init --help`, `hypequery dev --help` and
 `hypequery --version` (also `-V`) work without extras.
@@ -234,17 +262,26 @@ for the SDK and pending beta features.
 pip install hypequery
 pip install "hypequery[clickhouse]"
 pip install "hypequery[clickhouse-async]"
-pip install "hypequery[fastapi]"
+pip install "hypequery[server]"
+pip install "hypequery[jwt]"      # JWT auth for hypequery.serve
+pip install "hypequery[django]"   # or [flask]
+pip install "hypequery[pandas]"   # or [polars], [arrow]
 ```
 
 | Extra | Adds | Needed for |
 |---|---|---|
-| (none) | pydantic | defining datasets, planning, `to_sql()`, protocol artifacts |
+| (none) | pydantic, anyio | defining datasets, planning, `to_sql()`, protocol artifacts, and `hypequery.serve` under any ASGI server |
 | `clickhouse` | clickhouse-connect | `create_clickhouse_executor` and `hypequery init` / `generate` |
 | `clickhouse-async` | clickhouse-connect with aiohttp | `create_async_clickhouse_executor`; also covers everything `clickhouse` does |
-| `fastapi` | FastAPI, Starlette, uvicorn | `hypequery.serve` and `hypequery dev` |
+| `server` | uvicorn | `start_server` and `hypequery dev` |
+| `jwt` | PyJWT, cryptography | `jwt_strategy` and `analytics_token_issuer` |
+| `django` | Django, clickhouse-connect | `hypequery.contrib.django` |
+| `flask` | Flask, clickhouse-connect | `hypequery.contrib.flask` |
+| `pandas` / `polars` / `arrow` | that library | `result.to_pandas()` / `to_polars()` / `to_arrow()` |
 
-Combine them as needed, for example `"hypequery[fastapi,clickhouse-async]"`.
+Combine them as needed, for example `"hypequery[server,clickhouse-async]"`.
+`hypequery.serve` needs no web framework: FastAPI, Starlette and Litestar apps
+mount an API as plain ASGI.
 Without `clickhouse-async`, `create_async_clickhouse_executor` raises an error
 naming the extra to install.
 
@@ -253,7 +290,8 @@ The SDK is organised as:
 - `hypequery.protocol` for the language-neutral artifact contracts;
 - `hypequery.datasets` for dimensions, measures, metrics, and relationships;
 - `hypequery.execution` for sync and async ClickHouse execution;
-- `hypequery.serve` for a strict FastAPI router.
+- `hypequery.serve` for a framework-neutral, authenticated HTTP API and its ASGI adapter;
+- `hypequery.contrib` for Django, Flask and SQLAlchemy glue.
 
 Python and TypeScript implement the same specifications and run against the same conformance fixtures. The goal is identical semantic and deployment artifacts across both languages, not a line-for-line port of the TypeScript runtime.
 
@@ -379,6 +417,33 @@ both a dimension and a measure is rejected.
 Catalog relationship entries list the safe names under `measures`, they are
 orderable, and discovery includes them. This matches `@hypequery/datasets`.
 
+## DataFrames
+
+Rows keep JSON-safe values: decimals, dates and datetimes are strings, so
+nothing loses precision on the way to an HTTP response. For analysis, convert a
+result with the extra for your library installed:
+
+```python
+result = client.for_tenant(tenant("acme")).execute(
+    "orders", {"measures": ["revenue", "orders"], "by": "month"}
+)
+frame = result.to_pandas()  # or result.to_polars(), result.to_arrow()
+frame.dtypes
+# period     datetime64[us, UTC]   (the query's timezone)
+# revenue                float64
+# orders                   Int64
+```
+
+Column types come from the dataset definition, not from the values, so an
+empty result is typed too; `result.column_types` lists them. Timestamps become
+timezone-aware datetimes in the query's timezone (`result.timezone`, UTC unless
+the query or client sets one), so a `period` bucket keeps its local day. Counts
+become nullable 64-bit integers, other numbers floats (a number column holding
+only whole values stays an integer), and booleans nullable booleans. Integers
+beyond `Int64` become unsigned 64-bit columns, or exact decimals past `UInt64`.
+Pass `decimals="decimal"` to keep exact `Decimal` values instead of floats. A column whose type the definition cannot tell, such as `min` over a
+column no dimension describes, converts as returned.
+
 ## Result caching
 
 Pass a `ResultCache` to cache results. Keys follow RFC 0009 and RFC 0013: the
@@ -426,21 +491,278 @@ result.meta.cache  # "miss", then "hit" for the same request
 Redis can be plugged in. Stores are called synchronously, including from the
 async client.
 
-## Serving with FastAPI
+## Django, Flask and SQLAlchemy
 
-`hypequery.serve` (the `fastapi` extra) provides the router hypequery endpoints
-are served from. Every route on it requires authentication unless you
-explicitly mark it public:
+The dataset client is a plain library: call it from a Django view or a Flask
+route like any other. `hypequery.contrib` adds what each framework lacks, a
+client per process that is created on first use and closed at exit, and a
+client per request that is already bound to the caller's tenant.
+
+Runnable versions of everything below live in `examples/`: `django_app.py`,
+`flask_app.py`, `dataframes.py` (pandas) and `sqlalchemy_engine.py`. Each runs
+against `examples/seed.sql`, and CI runs them against a live ClickHouse.
+
+### Django
 
 ```python
-from typing import Annotated
+# settings.py
+INSTALLED_APPS = [..., "hypequery.contrib.django"]
+MIDDLEWARE = [
+    ...,
+    "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "hypequery.contrib.django.HypequeryMiddleware",
+]
+HYPEQUERY = {
+    "URL": None,  # None reads CLICKHOUSE_URL or the CLICKHOUSE_* variables
+    "REGISTRY": "analytics.datasets.registry",
+    "TENANT": "analytics.tenancy.tenant_for_request",
+}
 
-from fastapi import Depends, FastAPI
-from hypequery.serve import Credential, Principal, RequestAuth, create_api
+
+# analytics/tenancy.py
+def tenant_for_request(request):
+    user = request.user
+    return user.organization_id if user.is_authenticated else None
+
+
+# views.py
+def revenue(request):
+    result = request.analytics.execute("orders", {"measures": ["revenue"], "by": "month"})
+    return JsonResponse({"data": list(result.data)})
+```
+
+`request.analytics` is built on first access, bound to the tenant `TENANT`
+returns. With no tenant it is the unscoped client, and datasets with a
+`tenant_key` refuse to run. In an `async def` view the same attribute is the
+async client, so `await` its calls. There, `TENANT` runs through `sync_to_async` on
+the first query, so it may use the ORM just as in sync views. `manage.py check` validates `HYPEQUERY` (bad import
+paths, URLs, keys) without connecting. Outside a request, `get_client()` and
+`get_async_client()` return the process's clients. `get_client()` does not
+connect until its first query, so modules can hold it at import time and the
+project starts even with ClickHouse down. Other keys:
+`READONLY_POLICY`, `TIMEZONE`, `MAX_CONCURRENT`.
+
+### Flask
+
+```python
+from flask import Flask
+from flask_login import current_user
+from hypequery.contrib.flask import Hypequery
+
+hq = Hypequery()
+
+
+@hq.tenant_loader
+def current_tenant():
+    return current_user.org_id if current_user.is_authenticated else None
+
+
+def create_app():
+    app = Flask(__name__)
+    app.config["HYPEQUERY_REGISTRY"] = "analytics.datasets:registry"
+    hq.init_app(app)
+
+    @app.get("/revenue")
+    def revenue():
+        result = hq.client.execute("orders", {"measures": ["revenue"]})
+        return {"data": list(result.data)}
+
+    return app
+```
+
+`hq.client` is bound to the request's tenant once per request; `async def`
+routes use `hq.async_client`. Config keys: `HYPEQUERY_URL` (else the
+environment), `HYPEQUERY_REGISTRY`, `HYPEQUERY_READONLY_POLICY`,
+`HYPEQUERY_TIMEZONE`, `HYPEQUERY_MAX_CONCURRENT`. `init_app` validates them
+without connecting. The client is not closed in `teardown_appcontext`, which
+runs after every request; it lives for the process, and connects on its first
+query. Outside a request (CLI commands, background jobs, setup code in
+`create_app`), `hq.client_for(app)` returns the app's client with no app context
+and without connecting.
+
+A decorator on an `async def` route must itself be async-aware. A plain sync
+wrapper (a hand-written `login_required`, say) returns the route's coroutine
+unawaited, and Flask answers 500. Check `inspect.iscoroutinefunction(view)` and
+wrap with an `async def`, as Flask's own `ensure_sync` expects.
+
+### hypequery's HTTP endpoints
+
+These integrations run queries inside your Django views and Flask routes. The
+generated React hooks and the MCP bridge instead call hypequery's own HTTP
+endpoints (`hypequery.serve`; see "Serving over HTTP"). Django and Flask serve
+those natively, with no second app and no FastAPI:
+
+```python
+# Django: urls.py
+from django.urls import include, path
+from hypequery.contrib.django import get_client, urls
+from hypequery.serve import create_api
+
+api = create_api(auth=authenticate, client=get_client(), datasets={"orders": orders})
+urlpatterns = [path("api/analytics/", include(urls(api)))]
+
+
+# Flask: in create_app()
+from hypequery.contrib.flask import blueprint
+
+api = create_api(auth=authenticate, client=hq.client_for(app), datasets={"orders": orders})
+app.register_blueprint(blueprint(api), url_prefix="/api/analytics")
+```
+
+Every request below the prefix reaches the API, which answers exactly as it
+does under any other adapter: authentication before the body, the body policy,
+security profile, request ids and the error envelope. `ServeRequest.raw` is the
+framework's request (`HttpRequest`, Flask's `Request`).
+
+- **One event loop.** Django's view is async under ASGI, running the API on
+  the server's loop, and sync under WSGI. Under WSGI, and in Flask, the API
+  runs on one event loop per process, started on its own thread at the first
+  request, while the request's thread waits. No loop is created per request,
+  and a threaded server (gunicorn `--threads`, waitress) serves requests
+  concurrently on it. Host code (your authenticator, a sync dataset client)
+  sees the request thread's context, so Flask's `request` and `g` work in it.
+- **Bodies** are read from the request's stream, lazily and bounded by
+  `max_body_bytes`; Django's `DATA_UPLOAD_MAX_MEMORY_SIZE` plays no part. In
+  Flask, a body over `MAX_CONTENT_LENGTH` is refused as too large. Some
+  servers receive the whole body before the application runs (Django's ASGI
+  handler, waitress), so cap request sizes at the server or proxy too.
+- **Any prefix works**, including one with URL variables. Client contracts and
+  discovery name the paths the request was routed under, unless
+  `create_api(client_mount_path=...)` names where the API is reached.
+- **CSRF.** A header credential (`Authorization: Bearer`, an API key header,
+  a JWT) is one a browser never attaches on its own, so Django's views for it
+  are CSRF-exempt. Django's CSRF middleware stays installed for the rest of
+  the project, and checks an API that uses the project's own login (below).
+
+#### Your own login, with no token
+
+A React page served by the same app can call the endpoints with the session
+the user already has, as TypeScript's `fromContext` does. `django_user` and
+`flask_session` read it:
+
+```python
+# Django: the user from AuthenticationMiddleware (sync and async views).
+from hypequery.contrib.django import django_user
+
+api = create_api(
+    auth=django_user(lambda user: Principal(subject=str(user.pk), tenant_id=str(user.org_id))),
+    client=get_client(),
+    datasets={"orders": orders},
+)
+
+# Flask: Flask-Login's current_user when the app uses it, else the session.
+from hypequery.contrib.flask import flask_session
+
+api = create_api(
+    auth=flask_session(lambda user: Principal(subject=user.get_id(), tenant_id=user.org_id)),
+    ...,
+)
+```
+
+The mapping receives a signed-in user only; an anonymous one is answered
+`401`. Under WSGI and in Flask it runs on the request's own thread, so the
+ORM, Flask-Login's user loader and thread-local database sessions behave as
+in your views; under Django ASGI the user is loaded through the async ORM.
+Both are built on `hypequery.serve.from_context(extract)`, whose `extract`
+receives the `ServeRequest` and reads the session from `request.raw`, for any
+other framework.
+
+A session cookie is sent by the browser, not the page, so these APIs are
+protected against cross-site request forgery:
+
+- **The same-origin check** (`same_origin=True`, the default) refuses a
+  `POST`, `PUT`, `PATCH` or `DELETE` with `403 FORBIDDEN` unless the browser
+  marks it `Sec-Fetch-Site: same-origin` (or `none`), or its `Origin` is one
+  your `HttpSecurity(cors=CorsPolicy(origins=...))` names. It runs in the
+  core, under every adapter. A browser without Fetch Metadata (Safari before
+  16.4) sends only `Origin`: list your own origin in the CORS policy to serve
+  it. A production profile refuses `same_origin=False`.
+- **Django's CSRF middleware** also checks these requests: the page sends the
+  `csrftoken` cookie's value as `X-CSRFToken`, read per request (signing in
+  rotates it). With `@hypequery/react`:
+
+  ```ts
+  const csrfToken = () => document.cookie.match(/(?:^|; )csrftoken=([^;]*)/)?.[1];
+  const client = createHypequeryClient({
+    baseUrl: '/api/analytics',
+    headers: () => ({ 'X-CSRFToken': csrfToken() }),
+  });
+  ```
+
+  A view rendering the page sets the cookie (`get_token(request)` or
+  `@ensure_csrf_cookie`). Django's own `403` page answers a missing token.
+  Flask has no CSRF middleware; the same-origin check is its protection.
+
+The tenant still comes only from the principal: no header, query parameter or
+body field can choose it.
+
+`examples/django_app.py` and `examples/flask_app.py` serve the orders dataset
+both ways, behind their own login for a same-origin React page and behind a
+bearer token for `@hypequery/mcp`; `examples/README.md` walks through them. Any other WSGI framework or server uses
+`hypequery.serve.to_wsgi_app(api)`, and any ASGI one `to_asgi_app(api)`.
+
+### Results in your own views versus hypequery's endpoints
+
+A view that returns `result.data` as JSON sends the values the client returns:
+counts as integers, other numbers as floats or decimal strings. hypequery's
+HTTP endpoints, the generated React client and MCP send every non-null measure
+as a string, matching TypeScript; nulls stay null. A count of `41321` arrives
+as `"41321"` there. Pick one shape per API and serialize to it explicitly: to
+match hypequery's endpoints, convert non-null measures to strings and keep
+nulls. `result.to_pandas()` is for numeric analysis, not for matching the HTTP
+shape; by default it converts decimals to floats.
+
+### Async views and shutdown
+
+Neither framework tells an application that the process is stopping, so an
+aiohttp-based executor created there leaks its session at exit. The async
+client these integrations hand out runs the sync HTTP driver on worker threads
+(`create_async_from_sync_clickhouse_executor`) instead, and is closed by an
+`atexit` hook. Its admission queue belongs to one event loop, so the
+integrations keep one per live loop: one under an ASGI server, and one per
+in-flight request when a WSGI server runs async views, where every request gets
+a fresh loop. Clients are rebuilt in a forked worker rather than shared with
+the parent.
+
+### SQLAlchemy
+
+To point hypequery at the server a SQLAlchemy engine uses:
+
+```python
+from hypequery.contrib.sqlalchemy import executor_from_engine
+
+engine = create_engine("clickhousedb://reader:pw@ch:8123/analytics")
+client = create_dataset_client(executor=executor_from_engine(engine), registry=registry)
+```
+
+This reads the engine's URL and opens hypequery's own clients; it never
+borrows a pooled connection, so closing either side leaves the other alone.
+The engine must use the HTTP interface (`clickhousedb://` or
+`clickhouse+http://`). `clickhouse+native://` is refused: hypequery binds
+values as server-side parameters, which only the HTTP interface carries.
+`connection_from_engine(engine)` returns the `ClickHouseConnection` instead.
+
+## Serving over HTTP
+
+`hypequery.serve` builds an HTTP API that needs no web framework. As in
+TypeScript's `createAPI`, `create_api(...)` returns a transport-agnostic `Api`;
+an adapter puts it on a server. Every route requires authentication unless you
+explicitly make it public:
+
+```python
+from hypequery.serve import (
+    Call,
+    Credential,
+    HttpSecurity,
+    Principal,
+    ServeResponse,
+    create_api,
+    to_asgi_app,
+)
 
 
 async def authenticate(credential: Credential) -> Principal | None:
-    claims = await verify_jwt(credential.value)  # your code
+    claims = await verify_jwt(credential.value)  # your code; for JWTs see jwt_strategy
     if claims is None:
         return None
     return Principal(
@@ -450,57 +772,68 @@ async def authenticate(credential: Credential) -> Principal | None:
     )
 
 
-router = create_api(authenticate=authenticate)
+api = create_api(
+    auth=authenticate,
+    client=client,  # a dataset client
+    datasets={"trips": trips},  # POST /datasets/trips/query
+    security=HttpSecurity(allowed_hosts=("api.example.com",)),
+)
 
 
-@router.post("/trips")
-async def trips(auth: Annotated[RequestAuth, Depends(router.auth)], body: dict) -> dict:
-    # Runs as the request's tenant only. A tenant-free request is refused.
-    scoped = client.for_tenant(auth.tenant)
-    return (await scoped.execute("trips", body)).data
+async def health(call: Call) -> ServeResponse:
+    return ServeResponse.json({"status": "ok"})
 
 
-@router.get("/health")
-@router.public
-def health() -> dict[str, str]:
-    return {"status": "ok"}
+api.add_route("GET", "/health", health, public=True)
 
-
-app = FastAPI()
-app.include_router(router)
+app = to_asgi_app(api)  # uvicorn app:app, or mount it in another ASGI app
 ```
 
+- **Serving.** `to_asgi_app(api)` is a pure ASGI application: run it with
+  uvicorn or any ASGI server, or mount it in FastAPI, Starlette or Litestar
+  (`host.mount("/analytics", to_asgi_app(api))`). It reads the request body
+  lazily, cancels a query whose caller disconnects, and runs an optional
+  `lifespan=` context at startup and shutdown; a mounted app's host runs its
+  own. `to_wsgi_app(api)` is the WSGI application, for gunicorn, waitress or
+  any WSGI framework; it runs the API on one event loop per process. WSGI
+  never reports a caller who has gone, so there a query ends at its deadline.
+  Django and Flask serve the API natively: see "hypequery's HTTP endpoints".
+  `start_server(api)` runs a production profile under uvicorn, and
+  `await api.handle(ServeRequest(...))` serves one request with no server.
+- **Endpoints.** `datasets={"name": dataset}` serves
+  `POST /datasets/<name>/query`, and `metrics={"name": create_metric_endpoint(...)}`
+  serves `POST /metrics/<name>`, as in TypeScript. With either, `GET /discovery`
+  lists their datasets, authenticated by default (`discovery=False` leaves it
+  out). `add_dataset_endpoint(api, path, ...)` and the other `add_*` functions
+  serve endpoints at any other path; `base_path=` prefixes every route.
+- **Your own routes.** `api.add_route(method, path, handler)` serves a
+  handler that receives a `Call` (the request, the caller's `call.auth` and
+  `call.state.request_id`) and returns a `ServeResponse`. Pass `input=` a
+  Pydantic `TypeAdapter` to have the body read and validated first, as
+  `call.input`; without it the body is never read.
 - **Credentials** are read from one header: `Authorization: Bearer <token>`
   by default, or `create_api(credentials=api_key())` for `X-Api-Key`.
   Query strings, cookies, and bodies are never read. A repeated,
   oversized, or malformed header is refused before your authenticator runs.
-- **Your authenticator** receives only the opaque `Credential`, never the
-  request, and returns a `Principal`. To reject a credential, return `None`
-  or raise `InvalidCredential`. Wrap your token library's errors in it:
-  anything else that escapes is treated as authentication being down and
-  answered with a fixed 503. The exception never reaches the response. The
-  authenticator may be sync (run in the threadpool) or async.
+  To use your app's own login instead, pass `auth=from_context(extract)` (see
+  "Your own login, with no token").
+- **Your authenticator** (`auth=`) receives only the opaque `Credential`,
+  never the request, and returns a `Principal`. To reject a credential,
+  return `None` or raise `InvalidCredential`. Wrap your token library's
+  errors in it: anything else that escapes is treated as authentication being
+  down and answered with a fixed 503. The exception never reaches the
+  response. The authenticator may be sync (run in a worker thread) or async.
 - **Authentication runs before the body is read**, so an unauthenticated
-  caller cannot make the server parse JSON or spool an upload.
+  caller cannot make the server read or parse anything.
 - **The tenant** comes from the principal: `tenant_id` scopes the request, and
-  a principal without one is tenant-free. Pass `resolve_tenant=` to decide it
-  yourself. A resolver must return a single-tenant scope or `None`; it cannot
-  grant `tenants()` with multiple identifiers or `all_tenants()`. No header, query
-  parameter, body field, or request state can supply or change the tenant.
-- **Public routes** need `@router.public` *below* the route decorator. In the
-  other order the route stays authenticated.
-- **Routes that would skip authentication are refused.** That covers plain
-  Starlette routes, host routes, mounts, static frontends, websockets, and
-  `include_router` on this router. Include other routers in the application
-  instead. Custom route classes are refused because they could bypass
-  authentication before body parsing.
-- **Application-level dependencies run first.** Anything passed as
-  `FastAPI(dependencies=...)` or `include_router(router, dependencies=...)`
-  runs before this router authenticates, so keep those free of work you
-  would not do for an anonymous caller.
+  a principal without one is tenant-free. Pass `tenant=` a resolver to decide
+  it yourself. A resolver must return a single-tenant scope or `None`; it
+  cannot grant `tenants()` with multiple identifiers or `all_tenants()`. No
+  header, query parameter, or body field can supply or change the tenant.
+- **Public routes** are an explicit `public=True` on the route, or
+  `EndpointPolicy(public=True)` on an endpoint.
 
-Every route on the router also has a fixed body policy, applied after
-authentication:
+Every route also has a fixed body policy, applied after authentication:
 - bodies must be `application/json` with no charset or `charset=utf-8`,
   otherwise `415`;
 - a `Content-Encoding` other than `identity` (gzip, br, ...) gets `415`: the
@@ -512,18 +845,65 @@ authentication:
   around the cap;
 - a repeated or non-numeric `Content-Length` gets `400`.
 
-Authenticated responses are always sent with `Cache-Control: no-store`.
+Authenticated responses are always sent with `Cache-Control: no-store`. The
+API matches a route on its method and its path as sent, like TypeScript; an
+unknown path or method is `404 NOT_FOUND`, with no redirect for a trailing
+slash.
+
+### JWT authentication
+
+With the `jwt` extra, `jwt_strategy` is a ready-made authenticator for JWT
+bearer tokens. It is TypeScript's `createJwtStrategy`: the same claims, the
+same checks, and tokens either language mints verify in the other.
+
+```python
+from hypequery.serve import analytics_token_issuer, create_api, jwt_strategy, to_asgi_app
+
+# Tokens from an identity provider, verified against its published keys.
+api = create_api(
+    auth=jwt_strategy(
+        jwks_url="https://example.auth0.com/.well-known/jwks.json",
+        issuer="https://example.auth0.com/",
+        audience="https://api.example.com",
+    ),
+    datasets={"orders": orders},
+    client=client,
+)
+app = to_asgi_app(api)
+
+# Or tokens you mint for your own frontend, with a shared secret.
+issue_token = analytics_token_issuer(SECRET, audience="analytics")
+api = create_api(auth=jwt_strategy(secret=SECRET, audience="analytics"), ...)
+token = issue_token("user-1", tenant_id="acme", roles=["analyst"])
+```
+
+- **Claims map as in TypeScript**: `sub` is the subject, `org_id` the tenant,
+  `roles` the roles, and `scope` (space-separated) or `scopes` (an array) the
+  scopes. A token without `sub` is refused. Pass `map_claims=` to map claims
+  yourself; it returns a `Principal`, or `None` to refuse the token.
+- **Checks**: the signature; `issuer` and `audience` when you configure them;
+  `exp` and `nbf` when the token has them, with no clock skew unless you pass
+  `leeway=`. Algorithms default to HS256 for a secret and RS256 for a key set.
+  `alg: none` is never accepted, and a key set never verifies an HMAC token.
+- **Secrets** must be at least as long as the hash (32 bytes for HS256).
+- **Key sets** are fetched off the event loop, cached for 10 minutes, and
+  refetched for an unknown `kid` at most every 30 seconds. A fetch has a 5
+  second timeout, follows no redirects, and must use https except on
+  localhost. If the keys cannot be fetched the request gets a 503, not a 401.
+- **The issuer** mints HS256 tokens (HS384/HS512 with `algorithm=`) carrying
+  `sub`, `org_id`, `roles`, `iat`, `exp` (15 minutes by default, `expires_in=`)
+  and the configured `iss` and `aud`.
 
 ### HTTP security profile
 
-Wrap the application with `install_http_security`:
+Pass `security=` to `create_api`:
 
 ```python
-from hypequery.serve import CorsPolicy, HttpSecurity, install_http_security
+from hypequery.serve import CorsPolicy, HttpSecurity, create_api
 
-install_http_security(
-    app,
-    HttpSecurity(
+api = create_api(
+    auth=authenticate,
+    security=HttpSecurity(
         allowed_hosts=("api.example.com",),
         cors=CorsPolicy(origins=("https://app.example.com",), allow_credentials=True),
         trusted_proxies=("10.0.0.0/8",),
@@ -531,24 +911,23 @@ install_http_security(
 )
 ```
 
-- **Hosts.** `allowed_hosts` is required and must name hosts; `*` is refused.
-  A request for any other `Host` gets `400` and is never redirected.
+- **Hosts.** `allowed_hosts` must name hosts; `*` is refused. A request for
+  any other `Host` gets `400` and is never redirected. Without `security`, an
+  API checks no host: leave it out only when the host application in front of
+  it does.
 - **CORS** is off unless `cors` is set. Origins must be exact
   `scheme://host[:port]` values. Credentialed CORS with `*` fails when the
   policy is built, as do wildcard methods or headers.
   Default allowed request headers include `X-Include-Meta`, used by React's
   infinite-query hooks to request pagination metadata.
-- **Proxies.** `X-Forwarded-For` and `X-Forwarded-Proto` are honoured only
-  from `trusted_proxies`. The client is the nearest forwarded address that
-  isn't itself a trusted proxy. By default no proxy is trusted. A trusted
-  proxy must replace a client's `X-Forwarded-Proto` header with the scheme it
-  observed; forwarding a caller-supplied value lets the caller spoof it.
+- **Proxies.** `X-Forwarded-For` is honoured only from `trusted_proxies`. The
+  client is the nearest forwarded address that isn't itself a trusted proxy.
+  By default no proxy is trusted.
 - **Request ids.** Every response carries a server-generated `x-request-id`,
-  which `request_id(request)` returns inside a handler. A caller's
-  `X-Request-ID` is never authoritative. If it is short printable ASCII, it
-  is echoed back as `x-correlation-id`; otherwise it is dropped. That covers
-  control characters, whitespace, look-alike letters, and values over 200
-  bytes.
+  which a handler reads as `call.state.request_id`. A caller's `X-Request-ID`
+  is never authoritative. If it is short printable ASCII, it is echoed back as
+  `x-correlation-id`; otherwise it is dropped. That covers control
+  characters, whitespace, look-alike letters, and values over 200 bytes.
 
 ### Errors
 
@@ -563,12 +942,9 @@ Every error response is sent with `Cache-Control: no-store` and an
 [`specs/serve-http`](https://github.com/hypequery/hypequery/blob/main/specs/serve-http/fixtures/errors-v1/README.md) pin the
 envelope for both languages.
 
-- **What an endpoint raises:**
+- **What a handler raises:**
   - `ServeError(status, type, message)` is sent as written, like TypeScript's
     `ServeHttpError`;
-  - an `HTTPException`, FastAPI's or Starlette's, keeps its status and, when
-    `detail` is a string, that message. A 4xx status without its own type
-    becomes `VALIDATION_ERROR`;
   - a `CompiledQueryError` maps its RFC 0010 category to a status and type,
     for example a missed deadline becomes `504 GATEWAY_TIMEOUT`;
   - anything else is logged to the `hypequery.serve` logger with its request
@@ -576,30 +952,26 @@ envelope for both languages.
 
   A server-side failure's own text never reaches the body.
 - **Validation errors** are `400 VALIDATION_ERROR` with
-  `details.issues[].path`, as in TypeScript, not FastAPI's 422. The submitted
-  values are never echoed back.
-- **No matching route:** with `install_http_security`, an unknown path or a
-  wrong method gets `404 NOT_FOUND`. Your application's own `HTTPException`
-  handler, if it registered one first, still handles everything else.
+  `details.issues[].path`, as in TypeScript. The submitted values are never
+  echoed back.
 
 ### Rate limiting
 
-Add a `RateLimit` to a route as a dependency:
+Add a `RateLimit` to every route, or to one:
 
 ```python
-from fastapi import Depends
-from hypequery.serve import RateLimit
+from hypequery.serve import RateLimit, add_dataset_endpoint, create_api
 
-@router.post("/trips", dependencies=[Depends(RateLimit(max=60, window_seconds=60))])
-async def trips(...): ...
+api = create_api(auth=authenticate, limits=[RateLimit(max=600, window_seconds=60)])
+add_dataset_endpoint(
+    api, "/trips", dataset=trips, client=client, limits=[RateLimit(max=60, window_seconds=60)]
+)
 ```
 
-It counts each request once. With the default key it runs after authentication
-and before the body is read, so a limited caller costs neither a parse nor a
-query. Custom `key` callbacks run in FastAPI's dependency order, after body
-parsing, so earlier dependencies can prepare `request.state`. Limits declared
-after a custom-key limit also retain that order. The defaults
-match TypeScript:
+It counts each request once, after authentication and before the body is
+read, so a limited caller costs neither a parse nor a query. The API's limits
+run before the route's, in order. A custom `key(request, auth)` receives the
+`ServeRequest` and the caller. The defaults match TypeScript:
 - the caller is the authenticated principal, or else the client address, as
   set by `HttpSecurity(trusted_proxies=...)` and never by a header the caller
   chose;
@@ -629,6 +1001,20 @@ rows = executor.execute(compiled_query).named_rows()
 executor.close()
 ```
 
+A connection can also come from a URL or the environment:
+
+```python
+ClickHouseConnection.from_url("clickhouses://reader:pw@ch.example.com/analytics")
+ClickHouseConnection.from_env()  # CLICKHOUSE_URL, or CLICKHOUSE_HOST, _PORT, ...
+```
+
+`clickhouse://` and `http://` are plain HTTP; `clickhouses://` and `https://`
+use TLS. SQLAlchemy URLs for the HTTP interface (`clickhousedb://`,
+`clickhouse+http://`) work too, with `?secure=true` or `?protocol=https` for
+TLS. User and password are percent-decoded. Setting `CLICKHOUSE_URL` together
+with any of the field variables is an error, and no error message repeats the
+URL.
+
 For async code, install `hypequery[clickhouse-async]` and await
 `create_async_clickhouse_executor(connection)` and `executor.execute(compiled_query)`.
 Call `await executor.aclose()` when the async executor is no longer needed.
@@ -647,15 +1033,18 @@ The async executor limits concurrent queries per client to eight by default.
 the planner carries it into the compiled query. Caller cancellation and deadline
 expiry issue a separate `KILL QUERY` command using the server query ID. A
 cancelled ASGI task is treated as caller cancellation. For a synchronous driver
-used inside an async application, `AsyncFromSyncClickHouseExecutor` runs query
+used inside an async application, `AsyncFromSyncClickHouseExecutor` (built by
+`create_async_from_sync_clickhouse_executor(connection)`, which needs only the
+`clickhouse` extra) runs query
 work in a bounded worker pool with a separate control worker and supports the
 same cancellation contract. Create the driver clients it wraps with
 `autogenerate_session_id=False`, as the factories do: a clickhouse-connect
 client bound to a session refuses concurrent queries, so with the default
 client every query past the first fails while another is running. During
 application shutdown, call `await executor.aclose()` to wait for workers and
-close both supplied driver clients. `close()` stops admission immediately
-without waiting for workers.
+close both supplied driver clients. `close()` stops admission and closes the
+driver clients immediately without waiting for workers, for shutdown paths
+with no event loop.
 
 `ExecutionContext(deadline=Deadline.after(seconds))` bounds one execution;
 `Deadline` is exported by `hypequery.datasets`. A query that is still running
@@ -1244,9 +1633,9 @@ For dataset coverage, CI gates, and remaining gaps, see the
 ## Serve dataset and metric endpoints
 
 Register endpoints over `create_dataset_client` (or
-`create_async_dataset_client`) and build an app with docs closed by default:
+`create_async_dataset_client`) on an API, whose docs are closed by default:
 
-Register `add_discovery_endpoint(router, registry=registry)` to publish a bounded
+Register `add_discovery_endpoint(api, registry=registry)` to publish a bounded
 logical catalog at `/discovery`. It authenticates by default and accepts an
 `EndpointPolicy` for role, scope and tenant requirements. Any listed role grants
 role access; all listed scopes are required. Explicitly pass
@@ -1261,17 +1650,17 @@ from hypequery.serve import (
     add_dataset_endpoint,
     add_discovery_endpoint,
     add_metric_endpoint,
-    create_app,
     create_api,
+    to_asgi_app,
 )
 
 # authenticate is your host's credential lookup. It returns a Principal whose
 # roles, scopes and tenant_id come from trusted server-side identity data.
-router = create_api(authenticate=authenticate)
+api = create_api(auth=authenticate, security=HttpSecurity(allowed_hosts=("analytics.example.com",)))
 policy = EndpointPolicy(required_scopes=frozenset({"analytics:read"}), tenant="required")
-add_dataset_endpoint(router, "/datasets/orders/query", dataset=orders, client=client, policy=policy)
+add_dataset_endpoint(api, "/datasets/orders/query", dataset=orders, client=client, policy=policy)
 add_metric_endpoint(
-    router,
+    api,
     "/metrics/order_count",
     dataset=orders,
     measure="count",
@@ -1279,8 +1668,8 @@ add_metric_endpoint(
     client=client,
     policy=policy,
 )
-add_discovery_endpoint(router, registry=registry)
-app = create_app(router, security=HttpSecurity(allowed_hosts=("analytics.example.com",)))
+add_discovery_endpoint(api, registry=registry)
+app = to_asgi_app(api)
 ```
 
 An endpoint serves its own dataset's fields only. Its policy says who may read
@@ -1290,7 +1679,7 @@ field therefore need an explicit opt-in, per relationship:
 
 ```python
 add_dataset_endpoint(
-    router,
+    api,
     "/datasets/orders/query",
     dataset=orders,
     client=client,
@@ -1324,8 +1713,8 @@ clamped to the endpoint and dataset caps. An extra row is fetched to compute
 
 Responses are `{ "data": [...] }`, or `{ "data": [...], "meta": {...} }` when
 `includeMeta: true` or `x-include-meta: true` is sent. Public metadata contains
-`requestId`, `timingMs`, `rowCount`, `pagination: { limit, offset, hasMore }`, and
-`cache: { hit }`. Non-null semantic measure values are strings on the HTTP
+`requestId`, `timingMs`, `rowCount`, `pagination: { limit, offset, hasMore }`, and,
+when the client has a result cache, `cache: { hit }`. Non-null semantic measure values are strings on the HTTP
 wire, matching TypeScript. Local Python client results keep their native values.
 
 `DiagnosticAccess(authorize=..., audit=...)` is an optional server-authored
@@ -1335,7 +1724,8 @@ only after the audit callback succeeds. It contains redacted debug `sql`, never
 bound values or raw tenant ids. Metadata opt-in alone grants no access.
 
 `QueryEvents(target={"project": "my-project", "environment": "production"},
-sink=...)` is an optional endpoint setting. The synchronous host sink receives
+sink=...)` is an optional endpoint setting; `create_api(events=...)` sets it
+for every endpoint that has none of its own. The synchronous host sink receives
 validated RFC 0011 events containing identifiers, outcome, duration, and row
 count or canonical failure category; never request bodies, rows, SQL, credentials
 or tenant values. Sink failures do not fail queries.
@@ -1344,10 +1734,12 @@ Discovery is authenticated unless explicitly registered with
 `EndpointPolicy(public=True)`. Its logical catalog matches TypeScript's
 `/discovery` projection and has a 256 KiB default budget enforced at startup.
 It carries no physical sources, columns, SQL, tenant policy or values.
-`create_app` disables `/docs`, `/redoc`, and `/openapi.json`; use
-`development_docs=True` only for deliberate development documentation. When
-embedding the router in an existing FastAPI app, the host owns that app's docs
-policy.
+An API serves no `/docs` or `/openapi.json` unless created with
+`development_docs=True`, for deliberate development documentation only. The
+OpenAPI 3.1 document is generated from the routes' own Pydantic schemas, as
+TypeScript's is from its endpoint definitions, so no web framework is needed
+for it; `openapi=OpenApiInfo(title=..., version=...)` describes it, and
+`openapi_document(api)` returns it directly.
 
 ### Production process
 
@@ -1356,8 +1748,8 @@ Use the validated production profile and runner for a standalone service:
 ```python
 from hypequery.serve import ProductionProfile, start_server
 
-app = create_app(
-    router,
+api = create_api(
+    auth=authenticate,
     security=HttpSecurity(
         allowed_hosts=("analytics.example.com",),
         trusted_proxies=("127.0.0.1",),
@@ -1371,12 +1763,12 @@ app = create_app(
 )
 
 if __name__ == "__main__":
-    start_server(app)
+    start_server(api)  # or start_server(to_asgi_app(api, lifespan=...))
 ```
 
 The runner binds to `127.0.0.1:8000` by default. An IP address outside loopback
 requires `allow_external_bind=True`, for example when binding within a container.
-It runs one Uvicorn worker per process, with reload, access logging, server headers
+It needs the `server` extra and runs one uvicorn worker per process, with reload, access logging, server headers
 and WebSockets disabled; keep-alive is five seconds and graceful shutdown allows
 the request timeout plus five seconds. A process manager can run multiple
 instances; concurrency limits apply independently to each instance.
@@ -1387,16 +1779,18 @@ all-address networks. The runner disables Uvicorn's own forwarded-header handlin
 so application policy sees the original peer and controls proxy trust once.
 See [Uvicorn settings](https://www.uvicorn.org/settings/) for transport details.
 
-Production rejects debug, reload, development docs and cookie credential
-transports at startup. Authentication uses explicit bearer/API-key headers;
-cookie authentication and its required CSRF/session policy are unsupported.
-The host authenticator must validate those header credentials independently of
-cookies. Hosts embedding the router in another app own equivalent process and
-documentation safeguards.
+Production requires an `HttpSecurity`, and rejects debug, reload, development
+docs, and `from_context(..., same_origin=False)` when the API is created. A
+header credential (bearer, API key, JWT) is never read from a cookie; the
+host's session is read only by a `from_context` strategy, with its same-origin
+check. The profile's budgets apply
+wherever the API is served; a host that mounts it in another app owns that
+app's process safeguards.
 
 Excess in-flight requests receive canonical `503 SERVICE_UNAVAILABLE` without
 queuing. The request timeout covers authentication, body reading, query execution,
-response generation and sending; expiry cancels the handler and signals the
+response generation and sending, and the admission slot is held until the
+response is written; expiry cancels the handler and signals the
 dataset executor. Before response headers are sent it returns canonical
 `504 GATEWAY_TIMEOUT`; a stalled send after headers closes the connection.
 The HTTP deadline returns promptly even when a synchronous query or authentication
@@ -1423,8 +1817,8 @@ CI tests the real runner, startup refusals, capacity recovery, synchronous and
 asynchronous cancellation, cache/response limits and proxy trust. The same shared
 HTTP fixtures run with and without the production profile, and live ClickHouse
 CI tests the production HTTP query path. The declared direct dependency floors
-(pydantic 2.9.2, raised to 2.12.2 on Python 3.14; FastAPI 0.137.2; Starlette
-1.3.1; Uvicorn 0.30.6; clickhouse-connect 1.4.2) are installed from wheels and
+(pydantic 2.9.2, raised to 2.12.2 on Python 3.14; anyio 4.14.2; uvicorn 0.30.6;
+clickhouse-connect 1.4.2) are installed from wheels and
 tested on every supported Python, as well as the locked versions.
 
 Run both implementations' shared HTTP gates after building TypeScript packages:
@@ -1436,7 +1830,7 @@ pnpm conformance:serve
 ### Definition-only client artifacts
 
 The base install can prepare an RFC 0018 build artifact for frontend/MCP tooling
-without importing FastAPI or constructing a database executor:
+without importing a server or constructing a database executor:
 
 ```python
 from hypequery.datasets import (
@@ -1485,11 +1879,18 @@ from definitions, including filter aliases and filter-only fields. Physical
 sources, columns, SQL, tenancy configuration and arbitrary metadata are omitted.
 Base-dimension nullability is conservatively unknown; joined dimensions are nullable.
 
+`label` and `description` on the dataset and on advertised dimensions/measures
+are exported as each endpoint's `annotations`, which MCP agents and generated
+JSDoc read. Whitespace runs are folded to single spaces and blank text is
+omitted; text longer than 4096 UTF-8 bytes or with control characters fails
+export. Annotations are outside the endpoint schema hash, so rewording one does
+not produce `409 CLIENT_SCHEMA_CHANGED`.
+
 These definitions describe intended bindings and do not install HTTP routes.
-The host must supply final router/inclusion paths and trusted effective ceilings,
+The host must supply final mount paths and trusted effective ceilings,
 reserving the pagination probe row from process/client row budgets, and enforce
 the advertised strict client profile. Dataset ceilings can only lower the
-profile. Router-owned registration, authorized discovery and the export CLI are
+profile. API-owned registration, authorized discovery and the export CLI are
 separate integrations; this SDK does not infer deployment paths or permission.
 
 ### Registered client endpoints
@@ -1507,16 +1908,17 @@ add_dataset_endpoint(
     client=client,
     client_profile=ClientQueryProfile(default_limit=100, max_limit=1000),
 )
-# After create_app(api, security=..., production=...) has resolved configuration:
-artifact = export_client_contract(app)
+artifact = export_client_contract(api)  # or the to_asgi_app application
 ```
 
-Application export resolves actual FastAPI inclusion prefixes and intersects
-profile, dataset, endpoint policy, client and production ceilings, reserving the
-pagination probe row. For a custom FastAPI host pass `routers=[api]`; for a mounted
-child created by `create_app`, configure its external `client_mount_path` there.
-Proxy headers never determine artifact paths. Ambiguous route registrations fail
-closed. Legacy routes keep their input behavior and are omitted from this export.
+The export names each endpoint's path under the API's `base_path` and
+intersects profile, dataset, endpoint policy, client and production ceilings,
+reserving the pagination probe row. For an API mounted inside another
+application, configure its external `create_api(client_mount_path=...)`.
+Proxy headers never determine artifact paths. A strict endpoint refuses a path
+another POST route already serves. Legacy routes keep their input behavior and
+are omitted from this export. `to_asgi_app` exports the contract once when it
+builds the app, so a misconfiguration fails at startup.
 
 Consumers can send the endpoint's `schemaHash` in `X-Hypequery-Client-Schema`.
 Authentication and current endpoint policy run first. A stale pin returns HTTP 409
@@ -1524,16 +1926,25 @@ with `error.type="VALIDATION_ERROR"`, `error.details.code="CLIENT_SCHEMA_CHANGED
 and a fixed safe message; no query is executed. Current limits still apply when
 the schema hash matches. Strict routes validate typed filters, selections,
 combined budgets and metadata before planning, and cannot enable SQL diagnostics.
+
+Two hashes are easy to confuse when debugging a 409. Each endpoint's
+`schemaHash` is what requests pin, and it is the same in the build export
+(`export client-contract`) and in the live, caller-scoped view at the discovery
+route. The whole document's `contentHash` differs between the two: the build
+view (`"view": "build"`) lists every endpoint, the live one (`"view":
+"authorized"`) only those the caller may use. The generated client's
+`clientContractHash` is the build `contentHash`; compare per-endpoint
+`schemaHash` values, not `contentHash`, to find a stale endpoint.
 Live caller-scoped discovery and frontend/MCP integration follow separately.
 
 ### Caller-scoped client discovery
 
-Install live discovery before constructing the application:
+Install live discovery on the API:
 
 ```python
 from hypequery.serve import add_client_contract_endpoint
 
-add_client_contract_endpoint(api)  # GET /client-contract, plus the router prefix
+add_client_contract_endpoint(api)  # GET /client-contract, under the base path
 ```
 
 The route authenticates by default and independently applies each installed strict
@@ -1543,7 +1954,6 @@ a dataset query target. A valid principal with no targets receives an empty view
 Responses are `no-store` and vary by credential transport. The default 256 KiB
 response budget fails closed rather than silently dropping capabilities.
 
-For a custom FastAPI host, configure `routers=[api]` when adding discovery.
 Public discovery requires explicit `policy=EndpointPolicy(public=True)` and follows
 public-route semantics: it advertises anonymous/public targets only. Query parameters
 cannot select a build view, principal, tenant or deployment path. A discovered

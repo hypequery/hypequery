@@ -1,0 +1,76 @@
+# RFC 0021: Explicit resolved-row dataset sources
+
+- Status: Proposed
+- Version: source resolution 1
+
+A dataset's `source` remains a physical identifier. Optional `rowResolution`
+changes its row population; omission retains physical-row semantics. This field
+is supported in dataset contracts and deployment versions 2 and 3. Older
+implementations reject the unknown field; consumers must upgrade together rather
+than strip it or silently fall back. It participates in deployment identity and
+local semantic cache identity.
+
+```json
+{
+  "source": "users",
+  "rowResolution": {
+    "kind": "final",
+    "engine": "replacing",
+    "deletedColumn": "is_deleted"
+  }
+}
+```
+
+`kind` must be `final`. Without `engine`, `{ "kind": "final" }` reads the source
+with `FINAL` and applies no other filter; no other key is allowed. Code-first
+datasets declare the same object, so publishing and rehydration are identity;
+the deprecated `final: true` is read as `{ "kind": "final" }`.
+`engine` is one of:
+
+- `replacing`: ReplacingMergeTree or its replicated form. The table's own sorting
+  key and version arguments select the latest row. Optional `deletedColumn` names
+  a Boolean/0-or-1 deletion marker; only resolved rows equal to zero survive.
+- `collapsing` or `versioned-collapsing`: corresponding CollapsingMergeTree family,
+  including replicated forms. Required `signColumn` names the engine's sign column;
+  only surviving positive rows are current state. Cancellation pairs resolve first.
+
+Column names are portable identifiers. Unknown keys fail closed. Authors must
+verify these engine families/columns against metadata; a policy is explicit
+configuration, not engine detection. Version ties retain ClickHouse's own FINAL
+semantics; this policy does not invent a deterministic tie-breaker. The engine's
+sorting key defines identity, including any partition behavior the server uses.
+
+The TypeScript ClickHouse planner maps a policy onto the dataset's `final`
+source path: the source is read in place with
+`FINAL`, so SQL fields that name the database-qualified source stay valid. After
+`FINAL`, the deletion column must equal zero or the sign column must equal one;
+current ClickHouse already drops those rows, and the filter keeps older servers
+and unmatched cancel rows from counting. Measure, dimension, tenant, row-scope,
+segment and user filters apply to the resolved rows. Relationship targets read
+`FINAL` with the same filter inside their match projection, before the join and
+before uniqueness checks. Derived/window/shift scans share the source path.
+ClickHouse applies `WHERE` after `FINAL` unless `optimize_move_to_prewhere_if_final`
+is enabled, which would let a filter match an older version. Every query that
+reads `FINAL` (its own source, or a relationship target it joins) therefore sends
+`optimize_move_to_prewhere_if_final = 0`: as a builder setting, and in the SQL's
+own `SETTINGS` clause for statements run as raw SQL (time, derived-dataset and
+derived-metric queries). This is the server default. A `readonly=2` user, or a
+`readonly=1` user whose profile leaves the option at its default, accepts it;
+a `readonly=1` profile that enables the option refuses these queries. Operators
+must keep the option off, or allow the setting, for resolved-row datasets. The
+planner never retries with raw rows.
+
+`{ "kind": "final" }` is the simple form; naming the engine adds the deletion or sign filter for deletion columns the engine doesn't
+declare and for older servers or unmatched cancel rows.
+
+SummingMergeTree and AggregatingMergeTree are deliberately unsupported by this
+policy: FINAL merging does not turn aggregate states into ordinary scalar
+measures. ArgMax source reconstruction, as-of history and general merge-state
+measures remain separate extensions. Non-ClickHouse SQL dialects and the frozen
+semantic-backend path reject a resolved-row dataset. Python validates/encodes the
+portable policy but does not yet expose code-first dataset authoring for it.
+
+Portable fixtures live in `fixtures/deployments-v2/`. Executable ClickHouse
+reconciliation is in `packages/datasets/src/tests/integration/resolved-rows.test.ts`:
+physical duplicate versions, soft deletion, mutable tenant/plan values, joined
+targets, time scans, deployment rehydration, and both collapsing families.

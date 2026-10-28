@@ -1,3 +1,4 @@
+import { validateProtocolRowResolution } from './row-resolution.js';
 import { ProtocolExpressionError, validateProtocolExpression } from '../expressions/index.js';
 import type { ProtocolExpression } from '../expressions/index.js';
 import {
@@ -11,6 +12,7 @@ import { DeploymentErrorCollector, attempt, collectErrors } from './collect.js';
 import { deploymentError } from './errors.js';
 import { expressionReferences, isSegmentPredicate, isSegmentReference } from './segments.js';
 import { resolveDeploymentLimits } from './limits.js';
+import { isApproximateStateFunction, isProtocolAggregateStateFunction } from './aggregate-states.js';
 import type {
   ProtocolAccessPolicy,
   ProtocolDatasetContract,
@@ -44,10 +46,16 @@ type ContractVersion = 2 | 3;
 const textEncoder = new TextEncoder();
 const AGGREGATIONS = new Set([
   'sum', 'count', 'countDistinct', 'avg', 'min', 'max',
-  'argMax', 'argMin', 'percentile', 'stddev', 'variance',
+  'argMax', 'argMin', 'percentile', 'stddev', 'variance', 'merge',
 ]);
 const AGGREGATIONS_V3 = new Set([...AGGREGATIONS, 'approxCountDistinct']);
 const APPROXIMATE_AGGREGATIONS = new Set(['approxCountDistinct']);
+/** A base measure whose value is an estimate: approxCountDistinct, or a merge of estimated states. */
+function isApproximateMeasure(value: DataRecord): boolean {
+  return APPROXIMATE_AGGREGATIONS.has(value.aggregation as string)
+    || (value.aggregation === 'merge' && typeof value.stateFunction === 'string'
+      && isApproximateStateFunction(value.stateFunction));
+}
 const OPERATORS = new Set([
   'eq', 'neq', 'gt', 'gte', 'lt', 'lte', 'in', 'notIn', 'between', 'like',
 ]);
@@ -384,7 +392,7 @@ function validateMeasure(
     value,
     ['name', 'aggregation', 'field', 'filters'],
     [
-      'argField', 'level', 'sql', 'label', 'description', ...SEMANTIC_METADATA_FIELDS,
+      'argField', 'level', 'sql', 'stateFunction', 'label', 'description', ...SEMANTIC_METADATA_FIELDS,
       ...(version === 3 ? ['approximate'] : []),
     ],
     path,
@@ -393,8 +401,21 @@ function validateMeasure(
     || !(version === 3 ? AGGREGATIONS_V3 : AGGREGATIONS).has(value.aggregation)) {
     deploymentError('HQ_DEPLOYMENT_INVALID_VALUE', `${path}.aggregation`);
   }
+  // A merge measure reads one stored state column, named with its function (RFC 0022).
+  const merge = value.aggregation === 'merge';
+  if (merge !== (value.stateFunction !== undefined)) {
+    deploymentError('HQ_DEPLOYMENT_INVALID_VALUE', `${path}.stateFunction`);
+  }
+  if (merge && !isProtocolAggregateStateFunction(value.stateFunction)) {
+    deploymentError('HQ_DEPLOYMENT_INVALID_VALUE', `${path}.stateFunction`);
+  }
+  if (merge && value.sql !== undefined) deploymentError('HQ_DEPLOYMENT_INVALID_VALUE', `${path}.sql`);
+  if (merge && Array.isArray(value.filters) && value.filters.length > 0) {
+    deploymentError('HQ_DEPLOYMENT_INVALID_VALUE', `${path}.filters`);
+  }
   // The marker is not free: present, as `true`, exactly for an approximate aggregation.
-  const approximate = APPROXIMATE_AGGREGATIONS.has(value.aggregation);
+  // Contract 2 has no marker; consumers derive it from the state function.
+  const approximate = version === 3 && isApproximateMeasure(value);
   if (value.approximate !== undefined && value.approximate !== true) {
     deploymentError('HQ_DEPLOYMENT_TYPE', `${path}.approximate`);
   }
@@ -422,6 +443,7 @@ function validateMeasure(
         `${path}.filters[${index}]`,
       ))),
   };
+  if (merge) result.stateFunction = value.stateFunction;
   if (approximate) result.approximate = true;
   if (value.argField !== undefined) result.argField = identifier(value.argField, `${path}.argField`, true);
   if (value.level !== undefined) result.level = value.level;
@@ -854,7 +876,7 @@ function validateDataset(
       'name', 'source', 'tenant', 'dimensions', 'measures', filtersKey, 'metrics', 'relationships',
     ],
     [
-      'description', 'freshness', 'owner', 'defaults',
+      'description', 'freshness', 'owner', 'defaults', 'rowResolution',
       ...SEMANTIC_METADATA_FIELDS,
       'timeField', 'limits', 'endpoint',
       ...(version === 3 ? ['segments'] : []),
@@ -913,6 +935,9 @@ function validateDataset(
       ),
       issues,
     ));
+  }
+  if (value.rowResolution !== undefined) {
+    result.rowResolution = field(() => validateProtocolRowResolution(value.rowResolution, `${path}.rowResolution`));
   }
   if (value.timeField !== undefined) {
     result.timeField = field(() => identifier(value.timeField, `${path}.timeField`, true));
@@ -1136,7 +1161,7 @@ function validateDeploymentDataset(
       version === 3 ? 'allowedFilters' : 'filters', 'relationships',
     ],
     [
-      'description', 'freshness', 'owner', 'defaults',
+      'description', 'freshness', 'owner', 'defaults', 'rowResolution',
       ...SEMANTIC_METADATA_FIELDS, 'timeField', 'limits', 'endpoint',
       ...(version === 3 ? ['segments'] : []),
     ], path, issues);

@@ -20,7 +20,7 @@ _reported = False
 def is_refused_kill(exc: Exception) -> bool:
     """True when the control connection lacks the privilege to cancel."""
 
-    return isinstance(exc, CompiledQueryError) and exc.category == "forbidden"
+    return isinstance(exc, CompiledQueryError) and exc.code == "HQ_EXECUTOR_ACCESS_DENIED"
 
 
 def report_refused_kill() -> None:

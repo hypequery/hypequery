@@ -1,5 +1,33 @@
 # @hypequery/protocol
 
+## 0.23.0
+
+### Minor Changes
+
+- 5c6c96c: Publish `measure.merge` measures to the deployment contract (RFC 0022). A base
+  measure may use `aggregation: 'merge'` with a `stateFunction` from the shared
+  allowlist (now exported by `@hypequery/protocol`); it takes no filters or `sql`,
+  and in contract 3 carries `approximate: true` exactly for estimating states.
+  Deployments rehydrate merge measures, so hosted runtimes can serve
+  pre-aggregated tables. A metric over a merge measure is still refused, because
+  the expression grammar has no merge aggregate.
+
+## 0.22.0
+
+### Minor Changes
+
+- ffc2610: Add `rowResolution` (RFC 0021), the one API for reading versioned ClickHouse
+  sources, in code and in the deployment contract, so they can be published.
+  `{ kind: 'final' }` reads the source with `FINAL`; naming the engine
+  (`replacing` with `deletedColumn`, `collapsing`/`versioned-collapsing` with
+  `signColumn`) also keeps only current rows, on base reads and relationship targets.
+  Deployment contracts preserve the policy on validation, hashing and rehydration,
+  so a published dataset reads exactly as it does locally.
+
+  `final: true` is deprecated: it still works, is read as `rowResolution:
+{ kind: 'final' }`, and logs a one-time warning. Its result-cache keys change once,
+  because they are now built from `rowResolution`.
+
 ## 0.21.0
 
 ### Minor Changes

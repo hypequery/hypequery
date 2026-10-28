@@ -146,6 +146,7 @@ function rehydrateMeasure(
     ...snapshotSemanticMetadata(measure),
     aggregation: measure.aggregation,
     field: String(measure.field),
+    ...(measure.stateFunction !== undefined ? { stateFunction: measure.stateFunction } : {}),
     ...(measure.argField !== undefined ? { argField: String(measure.argField) } : {}),
     ...(measure.level !== undefined ? { level: measure.level } : {}),
     ...(measure.sql !== undefined
@@ -418,6 +419,7 @@ export function rehydrateProtocolDatasets(
     const name = String(contract.name);
     const instance = dataset(name, {
       source: contract.source,
+      ...(contract.rowResolution === undefined ? {} : { rowResolution: contract.rowResolution }),
       ...snapshotSemanticMetadata(contract),
       ...(contract.description !== undefined ? { description: contract.description } : {}),
       ...(contract.owner !== undefined ? { owner: contract.owner } : {}),

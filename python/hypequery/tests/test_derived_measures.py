@@ -9,9 +9,9 @@ from pathlib import Path
 from typing import cast
 
 import pytest
-from fastapi.testclient import TestClient
 from pydantic import ValidationError
 
+from asgi_client import AsgiClient
 from hypequery.datasets import (
     CachedRows,
     Dataset,
@@ -57,8 +57,8 @@ from hypequery.serve import (
     add_dataset_endpoint,
     add_discovery_endpoint,
     add_metric_endpoint,
-    create_app,
-    create_router,
+    create_api,
+    to_asgi_app,
 )
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -170,16 +170,15 @@ class Executor:
 
 def test_derived_http_and_discovery() -> None:
     ds = orders()
-    router = create_router(
-        authenticate=lambda credential: Principal(subject="reader", tenant_id="a")
+    api = create_api(
+        auth=lambda credential: Principal(subject="reader", tenant_id="a"),
+        security=HttpSecurity(allowed_hosts=("testserver",)),
     )
     client = create_dataset_client(executor=Executor())
-    add_dataset_endpoint(router, "/query", dataset=ds, client=client)
-    add_metric_endpoint(router, "/average", dataset=ds, client=client, measure="average")
-    add_discovery_endpoint(router, registry=create_dataset_registry(ds))
-    with TestClient(
-        create_app(router, security=HttpSecurity(allowed_hosts=("testserver",)))
-    ) as http:
+    add_dataset_endpoint(api, "/query", dataset=ds, client=client)
+    add_metric_endpoint(api, "/average", dataset=ds, client=client, measure="average")
+    add_discovery_endpoint(api, registry=create_dataset_registry(ds))
+    with AsgiClient(to_asgi_app(api)) as http:
         headers = {"Authorization": "Bearer test"}
         assert (
             http.post("/query", headers=headers, json={"measures": ["average"]}).status_code == 200

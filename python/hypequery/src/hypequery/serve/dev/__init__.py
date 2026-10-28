@@ -1,11 +1,12 @@
 """Local development runner: loopback by default, loud about anything else.
 
-``run_dev`` serves an app built with ``create_app`` for local work. It listens
+``run_dev`` serves an API built with ``create_api`` for local work. It listens
 on ``127.0.0.1:8000`` unless told otherwise and warns when bound beyond
 loopback. It is not hardened for a network: use ``start_server`` behind a
 reverse proxy for anything other people can reach.
 
-From a shell, ``python -m hypequery.serve.dev app:app`` does the same.
+From a shell, ``python -m hypequery.serve.dev app:app`` does the same. Serving
+needs uvicorn, from the ``server`` extra.
 """
 
 from __future__ import annotations
@@ -14,12 +15,12 @@ import json
 import os
 import sys
 import warnings
-from typing import cast
-
-from fastapi import FastAPI
 
 from ...execution.utils.driver_loggers import apply_driver_log_levels, driver_log_levels
+from ..asgi import AsgiApp, to_asgi_app
+from ..core.api import Api
 from ..utils.bind_address import is_loopback
+from ..utils.uvicorn_server import import_uvicorn
 
 _RELOAD_TARGET = "HYPEQUERY_DEV_RELOAD_TARGET"
 
@@ -28,15 +29,23 @@ class ExternalBindWarning(UserWarning):
     """The development server is reachable from beyond this machine."""
 
 
-def _check_app(app: object) -> None:
-    if not isinstance(app, FastAPI):
-        raise TypeError("run_dev requires a FastAPI app or an import string 'module:attribute'")
-    if getattr(app.state, "hypequery_production", None) is not None:
+def _check_app(app: object) -> AsgiApp:
+    """*app* as the ASGI application to serve, refusing what run_dev may not serve."""
+
+    if isinstance(app, Api):
+        app = to_asgi_app(app)
+    if not isinstance(app, AsgiApp):
+        raise TypeError(
+            "run_dev requires an Api, its to_asgi_app application, "
+            "or an import string 'module:attribute'"
+        )
+    if app.api.production is not None:
         raise ValueError("this app was created with a ProductionProfile; run it with start_server")
+    return app
 
 
 def run_dev(
-    app: FastAPI | str,
+    app: Api | AsgiApp | str,
     *,
     host: str = "127.0.0.1",
     port: int = 8000,
@@ -44,9 +53,10 @@ def run_dev(
 ) -> None:
     """Serve *app* for local development.
 
-    *app* is a FastAPI app or an import string such as ``"app:app"``, resolved
-    from the working directory. ``reload=True`` restarts on file changes and
-    needs an import string, because a new process must import the app again.
+    *app* is an API, its `to_asgi_app` application, or an import string such
+    as ``"app:app"`` naming either, resolved from the working directory.
+    ``reload=True`` restarts on file changes and needs an import string,
+    because a new process must import the app again.
     """
 
     if type(host) is not str:
@@ -63,16 +73,14 @@ def run_dev(
             ExternalBindWarning,
             stacklevel=2,
         )
-    if not isinstance(app, str):
-        _check_app(app)
-        if reload:
-            raise ValueError("reload=True requires an import string such as 'app:app'")
+    target: AsgiApp | str = app if isinstance(app, str) else _check_app(app)
+    if not isinstance(app, str) and reload:
+        raise ValueError("reload=True requires an import string such as 'app:app'")
     # Lazy: importing this module never starts or imports a server.
-    import uvicorn
+    uvicorn = import_uvicorn()
 
     saved_path = list(sys.path)
     saved_target = os.environ.get(_RELOAD_TARGET)
-    target: FastAPI | str = app
     try:
         if isinstance(app, str):
             # Fail fast in this process, then re-check in every reload worker:
@@ -103,7 +111,7 @@ def run_dev(
             os.environ[_RELOAD_TARGET] = saved_target
 
 
-def _import_app(spec: str, app_dir: str, *, redact_errors: bool = False) -> FastAPI:
+def _import_app(spec: str, app_dir: str, *, redact_errors: bool = False) -> AsgiApp:
     """Import *spec* from *app_dir*, and refuse what run_dev may not serve.
 
     *app_dir* stays on the path while the app is served, for its lazy imports;
@@ -124,11 +132,10 @@ def _import_app(spec: str, app_dir: str, *, redact_errors: bool = False) -> Fast
         raise RuntimeError(
             "App reload failed; check its code, dependencies and environment."
         ) from None
-    _check_app(app)
-    return cast(FastAPI, app)
+    return _check_app(app)
 
 
-def _reload_app() -> FastAPI:
+def _reload_app() -> AsgiApp:
     """Uvicorn factory for reload workers: import and check the target app."""
 
     app_dir, spec, *rest = json.loads(os.environ[_RELOAD_TARGET])

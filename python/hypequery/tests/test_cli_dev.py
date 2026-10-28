@@ -16,6 +16,11 @@ import pytest
 
 from hypequery.cli import main
 
+MINIMAL_APP = (
+    "from hypequery.serve import create_api, to_asgi_app\n"
+    "app = to_asgi_app(create_api(auth=lambda c: None, development_docs=True))\n"
+)
+
 
 @pytest.mark.parametrize("reload", [True, False])
 @pytest.mark.parametrize(
@@ -40,14 +45,14 @@ def test_missing_extra_has_install_hint(
 ) -> None:
     monkeypatch.setattr("hypequery.cli.commands.dev.find_spec", lambda name: None)
     assert main(["dev"]) == 1
-    assert 'pip install "hypequery[fastapi]"' in capsys.readouterr().err
+    assert 'pip install "hypequery[server]"' in capsys.readouterr().err
 
 
 @pytest.mark.parametrize("reload", [True, False])
 def test_production_app_and_bad_import_exit_promptly(tmp_path: Path, reload: bool) -> None:
     (tmp_path / "production.py").write_text(
         "from hypequery.serve import *\n"
-        "app = create_app(create_router(authenticate=lambda c: None), "
+        "app = create_api(auth=lambda c: None, "
         "security=HttpSecurity(allowed_hosts=('127.0.0.1',)), production=ProductionProfile())\n"
     )
     for target, message in (("production:app", "start_server"), ("missing:app", "Cannot import")):
@@ -85,11 +90,12 @@ def test_real_server_reload_and_interrupt(tmp_path: Path, reload: bool) -> None:
         port = probe.getsockname()[1]
     app = tmp_path / "app.py"
     source = (
-        "from fastapi import FastAPI\n"
-        "app = FastAPI()\n"
-        "@app.get('/revision')\n"
-        "def revision():\n"
-        "    return {'revision': 'first'}\n"
+        "from hypequery.serve import ServeResponse, create_api, to_asgi_app\n"
+        "api = create_api(auth=lambda c: None)\n"
+        "async def revision(call):\n"
+        "    return ServeResponse.json({'revision': 'first'})\n"
+        "api.add_route('GET', '/revision', revision, public=True)\n"
+        "app = to_asgi_app(api)\n"
     )
     app.write_text(source)
     args = [sys.executable, "-m", "hypequery", "dev", "--port", str(port)]
@@ -142,7 +148,7 @@ def test_real_server_reload_and_interrupt(tmp_path: Path, reload: bool) -> None:
 
 
 def test_occupied_port_fails(tmp_path: Path) -> None:
-    (tmp_path / "app.py").write_text("from fastapi import FastAPI\napp = FastAPI()\n")
+    (tmp_path / "app.py").write_text(MINIMAL_APP)
     with socket.socket() as occupied:
         occupied.bind(("127.0.0.1", 0))
         occupied.listen()
@@ -219,22 +225,36 @@ def test_missing_app_dependency_hint_uses_exception_name(
 
 
 @pytest.mark.parametrize(
-    ("category", "hint"),
+    ("category", "code", "hint"),
     [
-        ("unauthenticated", "CLICKHOUSE_USERNAME and CLICKHOUSE_PASSWORD"),
-        ("unavailable", "CLICKHOUSE_HOST, CLICKHOUSE_PORT and CLICKHOUSE_SECURE"),
-        ("not-found", "CLICKHOUSE_DATABASE"),
-        ("forbidden", "grants and readonly profile"),
-        ("internal", "CLICKHOUSE_* environment"),
+        (
+            "unavailable",
+            "HQ_EXECUTOR_CREDENTIALS_REJECTED",
+            "CLICKHOUSE_USERNAME and CLICKHOUSE_PASSWORD",
+        ),
+        ("unavailable", None, "CLICKHOUSE_HOST, CLICKHOUSE_PORT and CLICKHOUSE_SECURE"),
+        ("unavailable", "HQ_EXECUTOR_DATABASE_MISSING", "CLICKHOUSE_DATABASE"),
+        ("unavailable", "HQ_EXECUTOR_ACCESS_DENIED", "grants and readonly profile"),
+        ("unavailable", "HQ_EXECUTOR_READONLY_MISCONFIGURED", "readonly_policy"),
+        ("internal", None, "CLICKHOUSE_* environment"),
     ],
 )
 def test_clickhouse_startup_failure_names_the_setting_to_check(
-    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], category: str, hint: str
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    category: str,
+    code: str | None,
+    hint: str,
 ) -> None:
     from hypequery.datasets.planner import CompiledQueryError
 
     def fail(*args: object, **kwargs: object) -> None:
-        raise CompiledQueryError(cast(Any, category), "private-password-do-not-print")
+        raise CompiledQueryError(
+            cast(Any, category),
+            "private-password-do-not-print",
+            code=cast(Any, code),
+            diagnostic="private-password-do-not-print",
+        )
 
     monkeypatch.setattr("hypequery.serve.run_dev", fail)
     assert main(["dev"]) == 1
@@ -268,7 +288,7 @@ def test_reload_worker_errors_do_not_echo_credentials(tmp_path: Path, error: str
         probe.bind(("127.0.0.1", 0))
         port = probe.getsockname()[1]
     app = tmp_path / "app.py"
-    app.write_text("from fastapi import FastAPI\napp = FastAPI()\n")
+    app.write_text(MINIMAL_APP)
     with (tmp_path / "server.log").open("w+") as log:
         process = subprocess.Popen(
             [sys.executable, "-m", "hypequery", "dev", "--port", str(port)],
@@ -299,6 +319,9 @@ def test_reload_worker_errors_do_not_echo_credentials(tmp_path: Path, error: str
                     break
                 if process.poll() is not None or time.monotonic() >= deadline:
                     pytest.fail(f"reload failure was not reported safely: {output}")
+                # StatReload records its mtime baseline on its first scan, which can land
+                # after the edit above. Bumping the mtime makes a later scan see a change.
+                os.utime(app)
                 time.sleep(0.1)
         finally:
             if process.poll() is None:

@@ -1,7 +1,8 @@
-import type { ClientDimension, ClientFilter, ClientMeasure, ClientQueryLimits, ClientTime } from './types.js';
+import type { ClientDimension, ClientEndpointAnnotations, ClientFieldAnnotation, ClientFilter, ClientMeasure,
+  ClientQueryLimits, ClientTime } from './types.js';
 import { clientError } from './errors.js';
 import { bool, choice, CLIENT_FIELD_TYPES, CLIENT_GRAINS, CLIENT_OPERATORS,
-  integer, name, names, pointer, record, shape, timezone } from './primitives.js';
+  integer, name, names, optionalShape, pointer, record, shape, text, timezone } from './primitives.js';
 
 export function dimension(input: unknown, path: string): ClientDimension {
   const value = shape(input, ['type', 'wireType', 'nullable', 'groupable', 'orderable'], path);
@@ -61,4 +62,30 @@ export function limits(input: unknown, path: string): ClientQueryLimits {
     result[key] = integer(value[key], low, high, pointer(path, key));
   }
   return result as unknown as ClientQueryLimits;
+}
+function annotation(input: unknown, path: string, keys: readonly string[]): Record<string, unknown> {
+  const value = optionalShape(input, keys, path);
+  const result: Record<string, unknown> = Object.create(null);
+  if (Object.hasOwn(value, 'label')) result.label = text(value.label, pointer(path, 'label'));
+  if (Object.hasOwn(value, 'description')) result.description = text(value.description, pointer(path, 'description'));
+  return result;
+}
+/** Presentation text; references to dimension/measure keys are checked with the endpoint's. */
+export function annotations(input: unknown, path: string): ClientEndpointAnnotations {
+  const result = annotation(input, path, ['label', 'description', 'fields']);
+  const value = input as Record<string, unknown>;
+  if (Object.hasOwn(value, 'fields')) {
+    const fieldsPath = pointer(path, 'fields');
+    const entries = record(value.fields, fieldsPath);
+    const keys = Object.keys(entries);
+    if (keys.length > 512) clientError('HQ_CLIENT_LIMIT', fieldsPath);
+    if (keys.length === 0) clientError('HQ_CLIENT_SHAPE', fieldsPath);
+    const described: Record<string, ClientFieldAnnotation> = Object.create(null);
+    for (const key of keys.sort()) {
+      name(key, fieldsPath, true);
+      described[key] = annotation(entries[key], pointer(fieldsPath, key), ['label', 'description']);
+    }
+    result.fields = described;
+  }
+  return result;
 }

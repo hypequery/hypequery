@@ -1,7 +1,7 @@
 import type { DatasetSqlDialectRules } from '../dataset-sql-dialect.js';
 import type { WindowMeasureDefinition } from '../types.js';
 import type { TimeMeasureAxis } from './time-measure-axis.js';
-import type { TimeMeasureSqlBase, TimeMeasureSqlDimension } from './time-measure-source-sql.js';
+import { sourceTimezoneSql, type TimeMeasureSqlBase, type TimeMeasureSqlDimension } from './time-measure-source-sql.js';
 import { calendarBucketGuardSql } from './time-axis-calendar-guard.js';
 import { shiftRangePredicateSql } from './shift-measure-sql.js';
 import { isCountAggregation } from './count-aggregations.js';
@@ -32,7 +32,8 @@ export function timeMeasureLeafSql(dialect: DatasetSqlDialectRules, id: number, 
     };
   }
   const lower = window?.trailing ? dialect.subtractTime('_hq_eval_end', window.trailing.amount, window.trailing.unit)
-    : window?.toDate ? dialect.truncateTime('_hq_eval_period', window.toDate) : '_hq_eval_lower';
+    // Keep the to-date start zoned: a calendar Date would bucket in server time.
+    : window?.toDate ? dialect.truncateTimeInZone('_hq_eval_period', window.toDate, sourceTimezoneSql(dialect)) : '_hq_eval_lower';
   const upper = window ? '_hq_eval_end' : '_hq_eval_upper';
   const lowerInclusive = window ? '1' : '_hq_lower_inclusive';
   const upperInclusive = window ? '0' : '_hq_upper_inclusive';

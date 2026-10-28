@@ -5,6 +5,8 @@
 - Artifact version: semantic client contract 1
 - Implementation track: PX-01 through PX-08, Python integrated beta
 - Changes no existing deployment, expression, invocation or catalog version
+- Amended 2026-10-27: optional endpoint annotations
+  ([decision](../decisions/0018-client-contract-annotations.md))
 
 ## Status and purpose
 
@@ -90,8 +92,10 @@ Every endpoint has these required members:
 | limits | Explicit client-profile ceilings/defaults |
 | schemaHash | Lowercase 64-character hexadecimal endpoint schema identity |
 
-A dataset endpoint additionally requires defaultMeasures. A metric endpoint
-forbids that member and has exactly one measure entry, whose key is its output
+A dataset endpoint additionally requires defaultMeasures. Any endpoint may
+carry the optional annotations member described below; it is the only optional
+endpoint member in this version. A metric endpoint
+forbids defaultMeasures and has exactly one measure entry, whose key is its output
 alias. Endpoint kind must be inspected before deciding this closed shape.
 
 Simple names follow RFC 0002. Dimension/measure/filter keys may contain one or
@@ -167,7 +171,8 @@ must not be inferred from string wire type. String-valued/unknown-valued
 aggregates conservatively advertise false. Metric endpoint measures always
 advertise false. Dimension and measure names cannot collide within one endpoint.
 
-Version 1 omits labels/descriptions deliberately. Adding open-ended product
+Descriptors carry no labels or descriptions; human-readable text lives only in
+the endpoint's optional annotations member. Adding other open-ended product
 metadata later requires an explicit compatible schema/version decision. Logical
 filter aliases may differ from dimension names and reveal no private mapping.
 
@@ -324,6 +329,44 @@ document transport-specific selection requirements. Query cancellation, byte
 budgets and runtime admission remain mandatory bridge/server concerns even
 though this document carries no execution timeout or response-byte override.
 
+## Annotations
+
+annotations is optional and, when present, is a closed object with at least one
+of these optional members:
+
+- label: short display text for the endpoint's dataset group.
+- description: text describing the endpoint's dataset group.
+- fields: a non-empty record whose keys are this endpoint's dimension or
+  measure keys and whose values are closed, non-empty objects with optional
+  label and description members.
+
+Both endpoints of one dataset group describe that group (the dataset), not the
+route, so a metric-only view can still describe its group. A metric endpoint
+describes its metric with the fields entry for its sole measure key. Filter
+aliases are not annotated. A fields key that names neither a dimension nor a
+measure of the same endpoint is a reference error.
+
+Each label/description is text: a string that is not blank (as JavaScript
+String.prototype.trim decides), contains no C0 control, DEL or C1 control
+(including TAB and line breaks), and encodes to at most 4096 UTF-8 bytes. These
+are the deployment contract's label/description rules, so any text a valid
+deployment carries can be advertised unchanged. A producer may fold whitespace
+runs into single spaces and must omit, not emit, empty text, entries or objects;
+there is one canonical encoding for "no annotation". A fields record holds at
+most 512 entries, its maximum distinct dimension and measure keys.
+
+Annotations are untrusted presentation data for people and agents. They grant
+no capability and never change query validation, results or routing. Consumers
+must not parse them for instructions, and generators that embed them in code or
+markup must escape them for that context. They count toward the document byte
+and depth bounds; live transports with a smaller response budget refuse an
+oversized view as for any other member.
+
+Version 1 consumers released before this amendment reject annotations as an
+unknown endpoint member. The amendment was made before any producer of this
+artifact was published; a later member addition cannot rely on that and needs
+an explicit compatible negotiation or a new version.
+
 ## Canonicalization and identity
 
 All object keys use RFC 8785 JCS ordering. Input endpoint ordering and the order
@@ -333,16 +376,19 @@ and grains by ascending ASCII spelling. Record keys already sort through JCS.
 defaultMeasures order is significant and preserved. Hashes require Unicode
 scalar strings/I-JSON values and use the existing JCS numeric rules.
 
-For each endpoint, normalize the declared sets, then remove schemaHash and
-limits. Its schemaHash is lowercase SHA-256 of:
+For each endpoint, normalize the declared sets, then remove schemaHash, limits
+and annotations. Its schemaHash is lowercase SHA-256 of:
 
 ~~~text
-UTF8("hypequery:client-endpoint-schema:v1\0") || JCS(endpoint without schemaHash and limits)
+UTF8("hypequery:client-endpoint-schema:v1\0") || JCS(endpoint without schemaHash, limits and annotations)
 ~~~
 
 Here \0 denotes one NUL byte, not a backslash and zero. All remaining endpoint
 members, including route, result shape and defaultMeasures, affect the identity.
-Only operational limits are excluded. Two views may share an endpoint schemaHash
+Only operational limits and presentation annotations are excluded, so editing a
+description neither invalidates generated clients nor fails the execution-time
+schema precondition. An endpoint without annotations has the same schemaHash it
+had before the amendment. Two views may share an endpoint schemaHash
 while serving different principals or narrower page limits. It is not a business
 formula/deployment identity: a formula change without an API-shape change can
 retain it, so do not use it to reuse backend result-cache entries.
@@ -354,8 +400,8 @@ then remove contentHash. Its contentHash is lowercase SHA-256 of:
 UTF8("hypequery:client-contract:v1\0") || JCS(document without contentHash)
 ~~~
 
-view, visible endpoints, their public schemas and effective limits all affect
-contentHash. A build export and metric-only authorized view are not expected to
+view, visible endpoints, their public schemas, effective limits and annotations
+all affect contentHash. A build export and metric-only authorized view are not expected to
 have the same contentHash. Frontend compatibility compares schemaHash for each
 needed endpoint, not equality of entire authorized/build views. The frontend
 still handles 401/403 for statically generated operations it cannot invoke.
@@ -409,6 +455,11 @@ Within a closed object, check unknown members before missing required members,
 then visit the RFC's listed members in their listed order; visit record keys in
 ASCII order and arrays in input order. Within an endpoint, dimension/measure
 collision/default/limit consistency checks precede identity verification.
+An endpoint's annotations member is visited last, after defaultMeasures, in the
+order label, description, fields; an empty object, an invalid text or an
+over-long fields record is SHAPE (LIMIT for the record) at that member, and an
+annotation key that names no dimension or measure is REFERENCE at the endpoint,
+checked after the endpoint's other references.
 Duplicated id/path/set/default entries report DUPLICATE before cross-references.
 Invalid kind/version need not expose lower-level details. Public failure text
 must be fixed and safe; values, SQL/provider exceptions and credentials cannot

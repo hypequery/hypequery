@@ -2,17 +2,14 @@
 
 from __future__ import annotations
 
-from fastapi import Request
-from starlette.responses import JSONResponse
-
 from ..datasets.registry import DatasetRegistry
+from .core.api import Api
+from .core.discovery import add_discovery_route
 from .policy import DEFAULT_ENDPOINT_POLICY, EndpointPolicy
-from .router import ServeRouter, authenticated_context
-from .utils.discovery import public_discovery
 
 
 def add_discovery_endpoint(
-    router: ServeRouter,
+    api: Api,
     path: str = "/discovery",
     *,
     registry: DatasetRegistry,
@@ -21,12 +18,6 @@ def add_discovery_endpoint(
 ) -> None:
     """Freeze a bounded, physical-detail-free projection at registration."""
 
-    projection = public_discovery(registry, max_bytes)
-
-    async def discover(request: Request) -> JSONResponse:
-        policy.authorize(authenticated_context(request))
-        return JSONResponse(projection)
-
-    if policy.public:
-        router.public(discover)
-    router.add_api_route(path, discover, methods=["GET"], tags=["discovery"])
+    add_discovery_route(
+        api, path, registry=registry, policy=policy, max_bytes=max_bytes, tags=("discovery",)
+    )

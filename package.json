@@ -43,7 +43,7 @@
     "changeset": "changeset",
     "release:version": "changeset version && pnpm install --lockfile-only --no-frozen-lockfile",
     "release:publish": "changeset publish",
-    "conformance:serve": "pnpm --filter @hypequery/serve exec vitest run src/serve-http-fixtures.test.ts src/serve-semantic-fixtures.test.ts && uv run --project python/hypequery --frozen --extra fastapi pytest python/hypequery/tests/test_serve_http_fixtures.py python/hypequery/tests/test_serve_semantic_fixtures.py",
+    "conformance:serve": "pnpm --filter @hypequery/serve exec vitest run src/serve-http-fixtures.test.ts src/serve-semantic-fixtures.test.ts src/serve-jwt-fixtures.test.ts && uv run --project python/hypequery --frozen --extra jwt pytest python/hypequery/tests/test_serve_http_fixtures.py python/hypequery/tests/test_serve_semantic_fixtures.py python/hypequery/tests/test_serve_jwt_fixtures.py",
     "smoke:client-artifacts": "bash scripts/smoke-client-artifacts.sh"
   },
   "devDependencies": {

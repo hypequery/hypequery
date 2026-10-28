@@ -1,4 +1,7 @@
 /** Metric validation, compilation orchestration and execution. */
+import { queryReadsFinal, withFinalSafety } from './utils/dataset-source.js';
+import { buildRelationshipBuilderContext } from './utils/relationship-builder-plan.js';
+import { resolveDatasetSqlDialect } from './utils/dataset-sql-dialect.js';
 import type { MetricRef, GrainedMetricRef, MetricQuery, MetricResult, ExecutionContext } from './types.js';
 import type { QueryBuilderFactoryLike, QueryBuilderFactoryInput } from './query-builder-protocol.js';
 import { toQueryBuilderFactory } from './query-builder-protocol.js';
@@ -131,7 +134,13 @@ export class MetricQueryEngine {
 
     if (spec.__type === 'derived_metric_spec') {
       // Derived metrics: build CTE via builder, outer query via string, execute via rawQuery
-      const { sql, parameters: params } = renderStatement(buildDerivedMetricSql(ref, spec, buildQuery, grain, activeBuilderFactory, context));
+      const planned = renderStatement(buildDerivedMetricSql(ref, spec, buildQuery, grain, activeBuilderFactory, context));
+      // After planning, which validates the query; rawQuery drops builder settings.
+      const readsFinal = queryReadsFinal(
+        ref.dataset,
+        buildRelationshipBuilderContext(ref.dataset, buildQuery, context, resolveDatasetSqlDialect(activeBuilderFactory)),
+      );
+      const { sql, parameters: params } = withFinalSafety(readsFinal, planned);
       const rows = await activeBuilderFactory.rawQuery<T>(sql, params, {
         abortSignal: context?.abortSignal,
       });

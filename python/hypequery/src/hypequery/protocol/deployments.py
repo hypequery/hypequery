@@ -49,11 +49,13 @@ from .deployment_primitives import (
 )
 from .deployment_v3_nodes import segment, time_measure
 from .errors import deployment_error
+from .row_resolution import row_resolution
 
 _ContractVersion = Literal[2, 3]
 
 _METRIC_KINDS = frozenset(("metric", "derived-metric", "grained-metric"))
 _DATASET_OPTIONAL = (
+    "rowResolution",
     "description",
     "freshness",
     "owner",
@@ -348,6 +350,8 @@ def _dataset(
                 cast(dict[str, object], result["tenant"]),
             ),
         )
+    if "rowResolution" in node:
+        result["rowResolution"] = row_resolution(node["rowResolution"], f"{path}.rowResolution")
     if "timeField" in node:
         result["timeField"] = identifier(node["timeField"], f"{path}.timeField", qualified=True)
     optional_text(node, "description", result, path, limits)

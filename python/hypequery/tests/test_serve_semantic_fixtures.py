@@ -1,4 +1,8 @@
-"""Language-neutral semantic HTTP fixtures against Python's ASGI app."""
+"""Language-neutral semantic HTTP fixtures against Python's core and every adapter.
+
+The adapters are those in `serve_transports.py`: ASGI, WSGI, Django under WSGI
+and ASGI, and Flask. Each must also answer as the core does.
+"""
 
 from __future__ import annotations
 
@@ -9,7 +13,6 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from fastapi.testclient import TestClient
 
 from hypequery.datasets import (
     CompiledQuery,
@@ -33,9 +36,10 @@ from hypequery.serve import (
     add_dataset_endpoint,
     add_discovery_endpoint,
     add_metric_endpoint,
-    create_app,
-    create_router,
+    create_api,
 )
+from serve_transports import TRANSPORTS as SERVED_BY
+from serve_transports import answer, serve_client
 
 FIXTURES = json.loads(
     (
@@ -59,7 +63,12 @@ class Executor:
         return Rows(columns, tuple(tuple(row[column] for column in columns) for row in rows))
 
 
-def app(case: dict[str, Any], production: bool = False) -> TestClient:
+TRANSPORTS = [f"{name}{profile}" for name in SERVED_BY for profile in ("", "-production")]
+
+
+def app(case: dict[str, Any], transport: str = "core") -> Any:
+    """The fixture app, served by the core or an adapter, with or without production."""
+
     config = FIXTURES["app"]
     dataset = Dataset(
         name=config["dataset"],
@@ -81,36 +90,30 @@ def app(case: dict[str, Any], production: bool = False) -> TestClient:
             tenant_id=principal.get("tenantId"),
         )
 
-    router = create_router(authenticate=authenticate)
     client = create_dataset_client(executor=Executor())
     policy = EndpointPolicy(
         tenant="required" if case.get("tenantRequired") else "optional",
         required_roles=frozenset(case.get("requiredRoles", [])),
         required_scopes=frozenset(case.get("requiredScopes", [])),
     )
+    api = create_api(
+        auth=authenticate,
+        security=HttpSecurity(allowed_hosts=("testserver",)),
+        production=ProductionProfile() if transport.endswith("-production") else None,
+    )
     add_dataset_endpoint(
-        router,
-        f"/datasets/{config['dataset']}/query",
-        dataset=dataset,
-        client=client,
-        policy=policy,
+        api, f"/datasets/{config['dataset']}/query", dataset=dataset, client=client, policy=policy
     )
     add_metric_endpoint(
-        router,
+        api,
         f"/metrics/{config['measure']}",
         dataset=dataset,
         measure=config["measure"],
         client=client,
         policy=policy,
     )
-    add_discovery_endpoint(router, registry=create_dataset_registry(dataset), policy=policy)
-    return TestClient(
-        create_app(
-            router,
-            security=HttpSecurity(allowed_hosts=("testserver",)),
-            production=ProductionProfile() if production else None,
-        )
-    )
+    add_discovery_endpoint(api, registry=create_dataset_registry(dataset), policy=policy)
+    return serve_client(transport.removesuffix("-production"), api)
 
 
 def assert_public(value: object) -> None:
@@ -123,21 +126,27 @@ def assert_public(value: object) -> None:
             assert_public(child)
 
 
-@pytest.mark.parametrize("case", FIXTURES["cases"], ids=[case["id"] for case in FIXTURES["cases"]])
-@pytest.mark.parametrize("production", [False, True], ids=["embedded", "production"])
-def test_semantic_v1(case: dict[str, Any], production: bool) -> None:
+def send(case: dict[str, Any], transport: str) -> Any:
     headers = dict(case.get("headers", {}))
     if case["credential"] != "none":
         credential = FIXTURES["app"]["credential"] + (
             "-wrong" if case["credential"] == "invalid" else ""
         )
         headers["Authorization"] = "Bearer " + credential
-    response = app(case, production).request(
+    return app(case, transport).request(
         case["method"],
         case["path"],
         headers=headers,
         **({"json": case["json"]} if "json" in case else {}),
     )
+
+
+@pytest.mark.parametrize("case", FIXTURES["cases"], ids=[case["id"] for case in FIXTURES["cases"]])
+# "core" runs the cases against `Api.handle` with no server at all; the others
+# serve them through an adapter.
+@pytest.mark.parametrize("transport", TRANSPORTS)
+def test_semantic_v1(case: dict[str, Any], transport: str) -> None:
+    response = send(case, transport)
     body = response.json()
     expected = case["expect"]
     assert response.status_code == expected["status"], response.text
@@ -152,8 +161,27 @@ def test_semantic_v1(case: dict[str, Any], production: bool) -> None:
         assert body["meta"]["pagination"] == expected["pagination"]
         assert body["meta"]["rowCount"] == len(body["data"])
         assert isinstance(body["meta"]["timingMs"], (int, float))
-        assert body["meta"]["cache"] == {"hit": False}
+        # The fixture apps have no result cache, so none is reported.
+        assert "cache" not in body["meta"]
     if "errorType" in expected:
         assert body["error"]["type"] == expected["errorType"]
     if "discovery" in expected:
         assert body == expected["discovery"]
+
+
+def _timeless(response: Any) -> tuple[int, dict[str, str], object]:
+    """`answer`, the body parsed, without its measured query time or request id."""
+
+    status, headers, content = answer(response)
+    body = json.loads(content)
+    if isinstance(body.get("meta"), dict):
+        body["meta"].pop("timingMs", None)
+        body["meta"].pop("requestId", None)
+    return status, headers, body
+
+
+@pytest.mark.parametrize("case", FIXTURES["cases"], ids=[case["id"] for case in FIXTURES["cases"]])
+@pytest.mark.parametrize("transport", [name for name in TRANSPORTS if not name.startswith("core")])
+def test_every_adapter_answers_as_the_core_does(case: dict[str, Any], transport: str) -> None:
+    core = "core-production" if transport.endswith("-production") else "core"
+    assert _timeless(send(case, transport)) == _timeless(send(case, core))

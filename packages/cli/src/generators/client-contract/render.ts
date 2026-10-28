@@ -1,4 +1,5 @@
-import { validateProtocolClientContract, type ClientDimension, type ProtocolClientEndpoint } from '@hypequery/protocol';
+import { validateProtocolClientContract, type ClientDimension, type ClientFieldAnnotation, type ProtocolClientEndpoint } from '@hypequery/protocol';
+import { docComment } from './doc-comments.js';
 import { clientInputType, literal } from './input-types.js';
 
 function dimensionType(definition: ClientDimension): string {
@@ -7,9 +8,11 @@ function dimensionType(definition: ClientDimension): string {
 }
 
 function endpointType(endpoint: ProtocolClientEndpoint): string {
+  const fields = endpoint.annotations?.fields ?? {};
   const dimensions = Object.keys(endpoint.dimensions).sort().filter(key => endpoint.dimensions[key].groupable)
-    .map(key => `readonly ${literal(key)}?: ${dimensionType(endpoint.dimensions[key])};`);
-  const measures = Object.keys(endpoint.measures).sort().map(key => `readonly ${literal(key)}?: string | null;`);
+    .map(key => `${docComment(fields[key])}readonly ${literal(key)}?: ${dimensionType(endpoint.dimensions[key])};`);
+  const measures = Object.keys(endpoint.measures).sort()
+    .map(key => `${docComment(fields[key])}readonly ${literal(key)}?: string | null;`);
   // The physical time column may be nullable; the descriptor makes no non-null guarantee.
   const row = `{ ${[...dimensions, ...measures, ...(endpoint.time ? ['readonly period?: string | null;'] : [])].join('\n')} }`;
   const semantic = {
@@ -22,6 +25,12 @@ function endpointType(endpoint: ProtocolClientEndpoint): string {
     output: { data: ${row}[]; meta?: ClientResponseMeta | null };
     readonly __hypequeryClientSemantic?: ${JSON.stringify(semantic)};
   }`;
+}
+
+/** A metric documents itself through its sole measure; a dataset through its group text. */
+function endpointDoc(endpoint: ProtocolClientEndpoint): ClientFieldAnnotation | undefined {
+  const metric = endpoint.kind === 'metric' ? endpoint.annotations?.fields?.[Object.keys(endpoint.measures)[0]] : undefined;
+  return metric ?? endpoint.annotations;
 }
 
 /** Data-only generator: no API module evaluation, credentials, drivers or server dependencies. */
@@ -39,7 +48,7 @@ export interface ClientResponseMeta {
   cache?: { hit: boolean };
 }
 export type ClientApi = {
-${entries.map(({ endpoint, key }) => `  ${literal(key)}: ${endpointType(endpoint)};`).join('\n')}
+${entries.map(({ endpoint, key }) => `${docComment(endpointDoc(endpoint), '  ')}  ${literal(key)}: ${endpointType(endpoint)};`).join('\n')}
 };
 export const clientManifest = {
 ${entries.map(({ endpoint, key }) => `  [${literal(key)}]: { method: 'POST', path: ${literal(endpoint.path)}, schemaHash: ${literal(endpoint.schemaHash)} },`).join('\n')}

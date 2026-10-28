@@ -69,6 +69,60 @@ Keep intentional SQL changes separate from structural extraction.
 Python does not currently author TypeScript metric handles or named queries;
 extend the existing Python dataset compilation path when adding Python features.
 
+## Serving
+
+`hypequery.serve` mirrors TypeScript `packages/serve` (decision 0023).
+`create_api()` returns the framework-neutral `Api` from `serve/core/`, whose
+`handle(ServeRequest) -> ServeResponse` runs the whole pipeline: request ids,
+the `HttpSecurity` profile, production budgets, routing, authentication before
+the body, rate limits, the body policy, validation and the error envelope.
+Adapters only translate a transport's request and response:
+
+| Responsibility | Module under `src/hypequery/serve/` |
+| --- | --- |
+| The pipeline, routes and their order | `core/api.py` |
+| Requests and responses | `core/messages.py` |
+| Hosts, proxies and CORS; production budgets; rate limits | `core/security.py`, `core/production_limits.py`, `core/rate_limit.py` |
+| Authentication: header credentials, JWT, the host's session (`from_context`) and its same-origin check | `core/auth.py`, `core/authentication.py`, `core/jwt_auth.py`, `core/context_auth.py`, `core/utils/same_origin.py` |
+| Dataset, metric and discovery endpoints | `core/endpoints.py`, `core/discovery.py`, `core/client_discovery.py` |
+| Development OpenAPI and docs | `core/openapi.py` |
+| The public factory and its declared endpoints | `api.py` |
+| The pure-ASGI adapter | `asgi.py`, `utils/asgi_body.py`, `utils/asgi_scope.py` |
+| The WSGI adapter | `wsgi.py`, `utils/wsgi_environ.py` |
+| Serving sync hosts on one loop per process | `utils/serving_loop.py`, `utils/blocking.py`, `utils/thread_body.py` |
+| Writing a response; a fault in the core | `utils/response_head.py`, `utils/fault.py` |
+| Native Django and Flask adapters | `../contrib/django/views.py`, `../contrib/flask.py`, `../contrib/utils/mounted_path.py` |
+| Django and Flask login as `from_context` strategies | `../contrib/django/auth.py` (`django_user`), `../contrib/flask.py` (`flask_session`) |
+| uvicorn runners | `production.py`, `dev/` |
+
+The core imports no web framework (an import-linter contract), and neither does
+the rest of `hypequery.serve` (another). The Django and Flask adapters live in
+`hypequery.contrib`, beside each framework's other integrations, and map that
+framework's request onto `ServeRequest`. Behaviour belongs in the core, so
+every adapter, and `Api.handle` called directly, answers the same bytes; the
+shared fixtures in `specs/serve-http` and the security matrix run against
+`Api.handle` and every adapter (`tests/serve_transports.py`).
+
+Sync hosts (a WSGI server, Django under WSGI, Flask) never run an event loop
+per request. The first request starts one loop thread per process
+(`serving_loop.py`); each request's coroutine runs there, in a copy of the
+request thread's context, while that thread waits and performs the request's
+blocking reads when the coroutine asks (`RequestThread.call`). Code that must
+run on the request's own thread uses the same channel: a sync host sets
+`ServeRequest.run_on_request_thread`, and a sync `from_context` extractor runs
+there, so a Django user or a Flask-Login user is loaded on the thread whose
+database connection the framework manages. Like worker-pool work, it is tracked
+by the request's `RequestWork` (`core/work.py`), so a lookup still running
+after a 504 keeps its production slot until it returns. The loop restarts in
+each forked worker and stops at exit. Django under ASGI runs the core on the
+server's loop instead: `urls(api)` resolves to an async view when Django
+resolves the request on an event loop and to a sync view otherwise.
+
+A framework router hands the core the path below its prefix, as sent, and the
+prefix it routed through (`Api.handle(..., mounted_at=...)`); client contracts
+and discovery name paths under that prefix unless the API's
+`client_mount_path` says otherwise.
+
 ## Verification
 
 Run `uv run pytest`, `uv run mypy`, `uv run ruff check .`,

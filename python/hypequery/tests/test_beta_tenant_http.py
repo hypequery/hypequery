@@ -6,8 +6,8 @@ import os
 import secrets
 
 import pytest
-from fastapi.testclient import TestClient
 
+from asgi_client import AsgiClient
 from hypequery.datasets import (
     AsyncDatasetClient,
     Dataset,
@@ -37,8 +37,8 @@ from hypequery.serve import (
     add_dataset_endpoint,
     add_discovery_endpoint,
     add_metric_endpoint,
-    create_app,
-    create_router,
+    create_api,
+    to_asgi_app,
 )
 
 
@@ -82,7 +82,11 @@ def test_live_tenant_http_joins_cache_and_denials(asynchronous: bool) -> None:
     )
     registry = create_dataset_registry(orders, customer)
     cache = ResultCache(store=MemoryCacheStore(), ttl_seconds=60)
-    router = create_router(authenticate=authenticate)
+    router = create_api(
+        auth=authenticate,
+        security=HttpSecurity(allowed_hosts=("testserver",)),
+        production=ProductionProfile(),
+    )
     policy = EndpointPolicy(tenant="required", required_scopes=frozenset({"analytics:read"}))
     admin.command(f"CREATE DATABASE {database}")
     try:
@@ -103,19 +107,17 @@ def test_live_tenant_http_joins_cache_and_denials(asynchronous: bool) -> None:
             f"INSERT INTO {database}.beta_http_customers VALUES "  # noqa: S608 - generated name
             "(1, 'B_ONLY', 'b'), (1, 'A_ONLY', 'a')"
         )
-        app = create_app(
-            router,
-            security=HttpSecurity(allowed_hosts=("testserver",)),
-            production=ProductionProfile(),
-        )
-        with TestClient(app) as http:
-            assert http.portal is not None
+        with AsgiClient(to_asgi_app(router)) as http:
             executor: AsyncClickHouseExecutor | ClickHouseExecutor
             client: AsyncDatasetClient | DatasetClient
             if asynchronous:
-                executor = http.portal.call(create_async_clickhouse_executor, connection)
+                # Created on the serving loop, which its connections belong to.
+                async_executor: AsyncClickHouseExecutor = http.call(
+                    create_async_clickhouse_executor, connection
+                )
+                executor = async_executor
                 client = create_async_dataset_client(
-                    executor=executor, registry=registry, cache=cache
+                    executor=async_executor, registry=registry, cache=cache
                 )
             else:
                 executor = create_clickhouse_executor(connection)
@@ -133,7 +135,6 @@ def test_live_tenant_http_joins_cache_and_denials(asynchronous: bool) -> None:
                     router, "/metric", dataset=orders, measure="total", client=client, policy=policy
                 )
                 add_discovery_endpoint(router, registry=registry, policy=policy)
-                app.include_router(router)
                 payload = {
                     "dimensions": ["customer.label"],
                     "measures": ["total", "customer.unique"],
@@ -180,7 +181,7 @@ def test_live_tenant_http_joins_cache_and_denials(asynchronous: bool) -> None:
                         assert response.headers["cache-control"] == "no-store"
             finally:
                 if isinstance(executor, AsyncClickHouseExecutor):
-                    http.portal.call(executor.aclose)
+                    http.call(executor.aclose)
                 else:
                     executor.close()
     finally:

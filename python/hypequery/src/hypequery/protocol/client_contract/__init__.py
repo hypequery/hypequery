@@ -8,6 +8,8 @@ from .errors import (
 )
 from .models import (
     ClientDimension,
+    ClientEndpointAnnotations,
+    ClientFieldAnnotation,
     ClientFilter,
     ClientMeasure,
     ClientQueryLimits,
@@ -23,6 +25,8 @@ from .validate import prepare_protocol_client_contract, validate_protocol_client
 __all__ = [
     "CLIENT_ERROR_MESSAGES",
     "ClientDimension",
+    "ClientEndpointAnnotations",
+    "ClientFieldAnnotation",
     "ClientFilter",
     "ClientMeasure",
     "ClientQueryLimits",

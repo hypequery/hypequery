@@ -1,3 +1,13 @@
+/**
+ * How a dataset's rows are resolved, as the deployment contract carries it
+ * (RFC 0021). `{ kind: 'final' }` reads the source with `FINAL`, and is what the
+ * deprecated `final: true` means; naming the engine also filters the resolved rows by its deletion or sign
+ * column, so only current rows remain.
+ */
+export type RowResolution =
+  | { readonly kind: 'final' }
+  | { readonly kind: 'final'; readonly engine: 'replacing'; readonly deletedColumn?: string }
+  | { readonly kind: 'final'; readonly engine: 'collapsing' | 'versioned-collapsing'; readonly signColumn: string };
 import type { QueryableRelationshipMeasureNames, RelationshipMeasureDefinition } from './utils/relationship-measure-types.js';
 import type { DatasetFilterFor } from './utils/dataset-filter-types.js';
 import type { QueryBuilderFactoryInput } from './query-builder-protocol.js';
@@ -386,6 +396,11 @@ export interface MetricQuery {
   limit?: number;
   offset?: number;
   by?: TimeGrain;
+  /**
+   * Time axis for `by` and for window and shift measures: the dataset's
+   * `timeKey` or one of its `timeKeys`. Defaults to `timeKey`.
+   */
+  timeKey?: string;
   /** IANA timezone for buckets and local time-key bounds; overrides the client default. */
   timezone?: string;
 }
@@ -405,6 +420,11 @@ export interface DatasetQuery {
   limit?: number;
   offset?: number;
   by?: TimeGrain;
+  /**
+   * Time axis for `by` and for window and shift measures: the dataset's
+   * `timeKey` or one of its `timeKeys`. Defaults to `timeKey`.
+   */
+  timeKey?: string;
   /** IANA timezone for buckets and local time-key bounds; overrides the client default. */
   timezone?: string;
 }
@@ -463,6 +483,14 @@ export type SemanticTenantRuntime =
 export interface SemanticExecutionRuntime {
   builderFactory?: QueryBuilderFactoryInput;
   tenant?: SemanticTenantRuntime;
+  /**
+   * RFC 0019 enforced constraints: comparisons on the queried dataset's
+   * declared filters or one-hop relationship fields, ANDed with the caller's
+   * filters. Resolve them from trusted context (the authenticated principal),
+   * never from caller input. A constraint the dataset cannot enforce refuses
+   * the call.
+   */
+  constraints?: MetricFilter[];
 }
 
 export interface ExecutionContext {
@@ -538,6 +566,8 @@ export interface DatasetConfig<
   TRelationships extends Record<string, RelationshipDefinition> = Record<string, never>,
   TSegments extends Record<string, SegmentDefinition> = Record<string, SegmentDefinition>,
   TFilters extends SemanticFiltersDefinition | undefined = SemanticFiltersDefinition,
+  TTimeKey extends string | undefined = string | undefined,
+  TTimeKeys extends readonly string[] = readonly string[],
 > extends SemanticMetadata {
   source: string;
   /**
@@ -547,14 +577,33 @@ export interface DatasetConfig<
    * a CollapsingMergeTree. Without it, row versions that have not been merged
    * yet are each counted. Applies to every query on this dataset, to its
    * relationship-key checks, and to joins that target it.
+   *
+   * @deprecated Use `rowResolution: { kind: 'final' }`, which means the same and
+   * can also name the engine. `final: true` still works and is read as that.
    */
   final?: boolean;
+  /**
+   * Read the source with ClickHouse `FINAL` (RFC 0021), as code and as the
+   * deployment contract carries it. `{ kind: 'final' }` reads `FINAL` only;
+   * naming the engine also keeps only rows whose deletion column is 0, or whose
+   * sign column is 1, after `FINAL`.
+   */
+  rowResolution?: RowResolution;
   description?: string;
   freshness?: DatasetFreshness;
   owner?: string;
   defaults?: DatasetDefaults;
   tenantKey?: string;
-  timeKey?: string;
+  /** The default time axis: what `by` buckets on when a query selects no `timeKey`. */
+  timeKey?: TTimeKey;
+  /**
+   * Further time axes a query may select with `query.timeKey`, such as
+   * `shipped_at` beside a `created_at` default. Each is a dimension name or a
+   * column, like `timeKey`, and requires `timeKey` to be set. The selected
+   * axis drives grains, window and shift measures, and their time-range
+   * checks; `timeGrains` applies to every axis.
+   */
+  timeKeys?: TTimeKeys;
   /**
    * Restricts the time grains this dataset supports. Defaults to every grain
    * the planner can bucket on. Use it, for example, to refuse `minute` and
@@ -583,12 +632,20 @@ export interface DatasetInstance<
   TDerivedMeasures extends Record<string, DerivedMeasureDefinition> = Record<string, DerivedMeasureDefinition>,
   TSegments extends Record<string, SegmentDefinition> = Record<string, SegmentDefinition>,
   TFilters extends SemanticFiltersDefinition = SemanticFiltersDefinition,
+  TTimeKey extends string | undefined = string | undefined,
+  TTimeKeys extends string = string,
 > {
   __type: 'dataset';
   name: TDatasetName;
   source: string;
-  /** Source is read with `FINAL`; see `DatasetConfig.final`. */
+  /**
+   * True whenever `rowResolution` is set.
+   *
+   * @deprecated Read `rowResolution` instead.
+   */
   final?: boolean;
+  /** How the source's rows are resolved; see `DatasetConfig.rowResolution`. */
+  rowResolution?: RowResolution;
   description?: string;
   examples?: readonly string[];
   synonyms?: readonly string[];
@@ -600,7 +657,9 @@ export interface DatasetInstance<
   sensitivity?: SemanticSensitivity;
   defaults?: DatasetDefaults;
   tenantKey?: string;
-  timeKey?: string;
+  timeKey?: TTimeKey;
+  /** Alternate time axes, excluding `timeKey`; see `DatasetConfig.timeKeys`. */
+  timeKeys?: readonly TTimeKeys[];
   timeGrains?: readonly TimeGrain[];
   dimensions: TDimensions;
   /** All declared measures: base aggregates, formulas, and time windows. */
@@ -615,11 +674,11 @@ export interface DatasetInstance<
   metric<TName extends string>(
     metricName: TName,
     metricConfig: BaseMetricConfig<BaseMeasures<TMeasures>>,
-  ): BaseMetricRef<TDatasetName, TName, DatasetInstance<TDimensions, TMeasures, TRelationships, TDatasetName, TDerivedMeasures, TSegments, TFilters>>;
+  ): BaseMetricRef<TDatasetName, TName, DatasetInstance<TDimensions, TMeasures, TRelationships, TDatasetName, TDerivedMeasures, TSegments, TFilters, TTimeKey, TTimeKeys>>;
   metric<TName extends string>(
     metricName: TName,
     metricConfig: DerivedMetricConfig<TDatasetName>,
-  ): DerivedMetricRef<TDatasetName, TName, DatasetInstance<TDimensions, TMeasures, TRelationships, TDatasetName, TDerivedMeasures, TSegments, TFilters>>;
+  ): DerivedMetricRef<TDatasetName, TName, DatasetInstance<TDimensions, TMeasures, TRelationships, TDatasetName, TDerivedMeasures, TSegments, TFilters, TTimeKey, TTimeKeys>>;
 }
 
 export interface DatasetRegistryInstance {
@@ -736,6 +795,14 @@ export type DatasetSegmentNames<TDataset extends DatasetInstance<any, any, any, 
   keyof TDataset['segments'] & string;
 
 /**
+ * Time axes a query may select with `timeKey`: the dataset's `timeKey` and its
+ * `timeKeys`. `never` when the dataset declares no time axis.
+ */
+export type DatasetTimeKeyNames<TDataset extends DatasetInstance<any, any, any, any>> =
+  | Exclude<TDataset['timeKey'], undefined>
+  | (NonNullable<TDataset['timeKeys']> extends readonly (infer TKey)[] ? TKey & string : never);
+
+/**
  * Fields a result can be ordered by. This is the selection-independent superset
  * (every dimension + measure, plus the synthetic `period` column for grained
  * queries); the runtime validator additionally requires the field to be selected.
@@ -761,6 +828,11 @@ export interface DatasetQueryFor<TDataset extends DatasetInstance<any, any, any,
   limit?: number;
   offset?: number;
   by?: TimeGrain;
+  /**
+   * Time axis for `by` and for window and shift measures: the dataset's
+   * `timeKey` or one of its `timeKeys`. Defaults to `timeKey`.
+   */
+  timeKey?: DatasetTimeKeyNames<TDataset>;
   /** IANA timezone for buckets and local time-key bounds; overrides the client default. */
   timezone?: string;
   includeMeta?: boolean;
@@ -824,6 +896,11 @@ export interface MetricQueryFor<
   limit?: number;
   offset?: number;
   by?: TimeGrain;
+  /**
+   * Time axis for `by` and for window and shift measures: the dataset's
+   * `timeKey` or one of its `timeKeys`. Defaults to `timeKey`.
+   */
+  timeKey?: DatasetTimeKeyNames<TDataset>;
   /** IANA timezone for buckets and local time-key bounds; overrides the client default. */
   timezone?: string;
   includeMeta?: boolean;

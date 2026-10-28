@@ -1,12 +1,11 @@
 """Authenticated ClickHouse API. Construction owns the executor lifetime."""
 
-from fastapi import FastAPI
-
 from hypequery.datasets import DatasetClient
 from hypequery.serve import (
+    Api,
+    AsgiApp,
     EndpointPolicy,
     Principal,
-    ServeRouter,
     add_client_contract_endpoint,
     add_dataset_endpoint,
     add_metric_endpoint,
@@ -17,7 +16,7 @@ from ..utils.server import application
 from .definitions import orders, profile
 
 
-def install(api: ServeRouter, client: DatasetClient) -> None:
+def install(api: Api, client: DatasetClient) -> None:
     policy = EndpointPolicy(tenant="required", required_scopes=frozenset({"analytics:read"}))
     add_dataset_endpoint(
         api, "/v1/orders", dataset=orders, client=client, policy=policy, client_profile=profile
@@ -35,7 +34,7 @@ def install(api: ServeRouter, client: DatasetClient) -> None:
     add_client_contract_endpoint(api, "/v1/client-contract", policy=policy)
 
 
-def create_application() -> FastAPI:
+def create_application() -> AsgiApp:
     token_a = required_environment("HYPEQUERY_TENANT_A_TOKEN")
     token_b = required_environment("HYPEQUERY_TENANT_B_TOKEN")
     if token_a == token_b:

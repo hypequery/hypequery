@@ -29,6 +29,7 @@ from .errors import (
     CompiledQueryError,
     CompiledQueryErrorCategory,
     CompiledQueryFailure,
+    ExecutorFailureCode,
 )
 from .identifiers import (
     SafeIdentifier,
@@ -61,6 +62,7 @@ __all__ = [
     "DatasetQuery",
     "Deadline",
     "ExecutionContext",
+    "ExecutorFailureCode",
     "QuerySettings",
     "SafeIdentifier",
     "SafeQualifiedIdentifier",

@@ -46,6 +46,10 @@ A few rules hold across all three:
 - A contract describes capabilities; it does not grant permission. Python authenticates and authorizes every request.
 - Every request carries its endpoint's schema hash. When Python definitions change, stale clients get
   `409 CLIENT_SCHEMA_CHANGED` instead of data in an unexpected shape. Regenerate and redeploy; nothing updates itself.
+- A `label` and `description` on datasets, dimensions and measures travel in the contract as presentation annotations.
+  `list_datasets` shows each dataset's description to agents, `get_dataset_schema` includes field text, and
+  `generate:client` emits it as JSDoc. Editing that text changes the view hash but not an endpoint's schema pin, so it
+  never triggers a 409.
 - One MCP process acts as one backend principal. Browser code uses user-scoped credentials and a fresh client and cache
   scope per login.
 

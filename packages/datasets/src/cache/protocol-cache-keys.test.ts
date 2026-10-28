@@ -292,6 +292,26 @@ describe('protocol cache keys', () => {
     }
   });
 
+  it('partitions by alternate time axis, and the default keeps the default key', () => {
+    const Orders = dataset('orders', {
+      source: 'analytics.orders',
+      timeKey: 'createdAt',
+      timeKeys: ['shippedAt'],
+      dimensions: { createdAt: dimension.timestamp({ column: 'created_at' }), shippedAt: dimension.timestamp({ column: 'shipped_at' }) },
+      measures: { revenue: measure.sum('value') },
+    });
+    for (const options of [{ secret: SECRET }, { secret: SECRET, definitionIdentity: 'd'.repeat(64) }]) {
+      const settings = resolveProtocolCacheKeySettings(options, false);
+      const key = (timeKey?: string) => datasetCacheKey(
+        settings, Orders, { by: 'day', measures: ['revenue'], timeKey }, undefined, undefined,
+      );
+      expect(key('createdAt')).toMatch(KEY);
+      expect(key('createdAt')).toBe(key(undefined));
+      expect(key('shippedAt')).toMatch(KEY);
+      expect(key('shippedAt')).not.toBe(key(undefined));
+    }
+  });
+
   it('derives the same key as the Python SDK for the same release, query, and tenant', () => {
     // Pinned in python/hypequery/tests/test_dataset_cache.py as well. If this
     // changes, the two languages no longer share entries.

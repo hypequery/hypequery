@@ -238,6 +238,7 @@ export type {
   PreparedProtocolDeploymentContractV3,
   ProtocolAccessPolicy,
   ProtocolDatasetContract,
+  ProtocolRowResolution,
   ProtocolDatasetDefaults,
   ProtocolDatasetDimension,
   ProtocolDatasetFieldSource,
@@ -302,3 +303,12 @@ export type {
   ProtocolVisibleDatasetFields,
   ProtocolVisibleFields,
 } from './visibility/index.js';
+
+export { validateProtocolRowResolution } from './deployments/row-resolution.js';
+export {
+  PROTOCOL_AGGREGATE_STATE_FUNCTIONS,
+  PROTOCOL_APPROXIMATE_STATE_FUNCTIONS,
+  isApproximateStateFunction,
+  isProtocolAggregateStateFunction,
+  type ProtocolAggregateStateFunction,
+} from './deployments/aggregate-states.js';

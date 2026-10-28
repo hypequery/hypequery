@@ -19,7 +19,7 @@ from ...datasets.planner.resolution import (
 from ...datasets.utils.derived_measures import base_measure_names
 from ...datasets.utils.measure_references import measure_filter_fields, measure_stays_within
 from ...datasets.utils.relationship_names import checked_relationship_names
-from ..errors import ServeError
+from ..core.errors import serve_error
 
 
 def checked_related(dataset: Dataset, include_related: Iterable[str]) -> frozenset[str]:
@@ -68,14 +68,14 @@ def refuse_unlisted_related(
     ]
     for name in requested:
         if _refused(dataset, name, include_related):
-            raise ServeError(
+            raise serve_error(
                 400, "VALIDATION_ERROR", f'Field "{name}" is not available on this endpoint.'
             )
     # A measure's fixed filters join their relationship too.
     for measure in selected_measure_names(dataset, query):
         for name in measure_filter_fields(dataset, measure):
             if _refused(dataset, name, include_related):
-                raise ServeError(
+                raise serve_error(
                     400,
                     "VALIDATION_ERROR",
                     f'Measure "{measure}" filters on "{name}", which is not available on '

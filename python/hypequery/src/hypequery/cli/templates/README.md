@@ -5,27 +5,22 @@ The generated `pyproject.toml` pins the SDK version used to scaffold this projec
 
 ## Install
 
-Before the first PyPI release, build the SDK wheel in the SDK checkout used to
-install the CLI (in a separate shell):
-
-```bash
-cd /path/to/hypequery/python/hypequery
-uv build --wheel
-```
-
-From this generated project directory, create an environment and install that
-artifact with the serving and ClickHouse extras. Replace the checkout path:
+From this generated project directory, create an environment and install the
+project. This installs the pinned SDK from PyPI with the extras it needs:
 
 ```bash
 python -m venv .venv
 source .venv/bin/activate
-export HYPEQUERY_WHEEL=/path/to/hypequery/python/hypequery/dist/hypequery-__HYPEQUERY_VERSION__-py3-none-any.whl
-python -m pip install "$HYPEQUERY_WHEEL[fastapi,clickhouse]"
-python -m pip install -e . --no-deps
+python -m pip install -e .
 ```
 
-Once the SDK version pinned in `pyproject.toml` is published on PyPI, use
-`python -m pip install -e .` in the environment instead.
+If you scaffolded with an unreleased SDK build, install that wheel first, then
+the project without dependencies:
+
+```bash
+python -m pip install "/path/to/hypequery-__HYPEQUERY_VERSION__-py3-none-any.whl[server,clickhouse]"
+python -m pip install -e . --no-deps
+```
 
 ## Configure
 
@@ -102,7 +97,7 @@ HTTP wire. Development docs are at <http://127.0.0.1:8000/docs>.
 
 ## Production
 
-`hypequery dev` is for local development. Create an app with
+`hypequery dev` is for local development. Create the API with
 `ProductionProfile`, disable development docs, supply trusted authentication,
 and use `start_server` behind your reverse proxy. See the SDK README's
 production-process section for the profile and explicit proxy-trust settings.

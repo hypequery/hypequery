@@ -12,9 +12,9 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 import pytest
-from fastapi.testclient import TestClient
 from pydantic import ValidationError
 
+from asgi_client import AsgiClient
 from hypequery.datasets import (
     CachedRows,
     ClientQueryProfile,
@@ -40,9 +40,9 @@ from hypequery.serve import (
     Principal,
     add_dataset_endpoint,
     add_metric_endpoint,
-    create_app,
-    create_router,
+    create_api,
     export_client_contract,
+    to_asgi_app,
 )
 from hypequery.serve.models import MetricRequest, QueryRequest
 
@@ -272,15 +272,17 @@ def test_live_period_form_matches_the_shared_typescript_fixture() -> None:
             assert [row["period"] for row in result.data] == [case["period"]], case
 
 
-def _endpoint_client() -> tuple[RecordingExecutor, TestClient]:
+def _endpoint_client() -> tuple[RecordingExecutor, AsgiClient]:
     executor = RecordingExecutor()
     cache = ResultCache(store=MemoryCacheStore(), ttl_seconds=60, secret=b"b" * 32)
     client = create_dataset_client(executor=executor, timezone="Asia/Tokyo", cache=cache)
-    router = create_router(authenticate=lambda credential: Principal(subject="reader"))
-    add_dataset_endpoint(router, "/dataset", dataset=dataset(), client=client)
-    add_metric_endpoint(router, "/metric", dataset=dataset(), client=client, measure="rows")
-    app = create_app(router, security=HttpSecurity(allowed_hosts=("testserver",)))
-    return executor, TestClient(app, headers={"Authorization": "Bearer test"})
+    api = create_api(
+        auth=lambda credential: Principal(subject="reader"),
+        security=HttpSecurity(allowed_hosts=("testserver",)),
+    )
+    add_dataset_endpoint(api, "/dataset", dataset=dataset(), client=client)
+    add_metric_endpoint(api, "/metric", dataset=dataset(), client=client, measure="rows")
+    return executor, AsgiClient(to_asgi_app(api), headers={"Authorization": "Bearer test"})
 
 
 @pytest.mark.parametrize("path", ["/dataset", "/metric"])
@@ -359,18 +361,20 @@ def test_live_nullable_period_survives_strict_http(grain: str, function: str) ->
             dimensions={},
             measures={"rows": measure.count("id")},
         )
-        router = create_router(authenticate=lambda _: Principal(subject="reader"))
+        api = create_api(
+            auth=lambda _: Principal(subject="reader"),
+            security=HttpSecurity(allowed_hosts=("testserver",)),
+        )
         add_dataset_endpoint(
-            router,
+            api,
             "/query",
             dataset=events,
             client=create_dataset_client(executor=executor),
             client_profile=ClientQueryProfile(),
         )
-        app = create_app(router, security=HttpSecurity(allowed_hosts=("testserver",)))
-        contract = export_client_contract(app)["contract"]
+        contract = export_client_contract(api)["contract"]
         schema_hash = contract["endpoints"][0]["schemaHash"]
-        with TestClient(app) as http:
+        with AsgiClient(to_asgi_app(api)) as http:
             response = http.post(
                 "/query",
                 headers={"Authorization": "Bearer test", "X-Hypequery-Client-Schema": schema_hash},

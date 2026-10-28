@@ -1,1 +1,0 @@
-- Refuse integer filter values outside ±2**53 on number fields with `input-invalid`. Number filters bind as `Float64`, which can't hold larger integers exactly, so ClickHouse compared a rounded value and an exact `UInt64` or `Int64` id silently matched nothing. Declare a large id as `dimension.string()` to filter it exactly.

@@ -1,4 +1,4 @@
-import { datasetSourceBuilder } from './dataset-source.js';
+import { scopedDatasetSource } from './scoped-dataset-source.js';
 import { relationshipMeasureExpressions } from './relationship-measure-sql.js';
 import { measureToAggregationSpec } from './dataset-normalization.js';
 import { applyAggregationSpec } from '../query-planner.js';
@@ -18,47 +18,44 @@ import {
   buildDimensionSelectionPlan,
   resolveDimensionExpression,
   resolveFilterField,
-  resolveTenantFilterColumn,
 } from '../query-planner.js';
 import { validateDatasetQueryInput } from './dataset-query-validation.js';
-import { getRuntimeTenantPredicate } from './tenant-runtime.js';
-import {
-  applyRelationshipJoins,
-  buildRelationshipBuilderContext,
-  qualifyBaseColumn,
-} from './relationship-builder-plan.js';
+import { buildRelationshipBuilderContext } from './relationship-builder-plan.js';
 import {
   hasSelectedDerivedMeasure,
 } from './dataset-derived-query.js';
 import { segmentFilters } from './segments.js';
+import { datasetOnTimeKey } from './dataset-time-keys.js';
 
 import type { DatasetQueryExecutionOptions } from '../dataset-query.js';
 
 export function buildDatasetQueryBuilder(
-  ds: AnyDatasetInstance,
+  dataset: AnyDatasetInstance,
   query: DatasetQuery,
   options: DatasetQueryExecutionOptions,
 ): QueryBuilderLike {
-  if (selectedTimeMeasures(ds, query).size) {
+  if (selectedTimeMeasures(dataset, query).size) {
     throw new Error('A time-based dataset query needs the time-measure SQL planner; use createDatasetClient().toSQL().');
   }
-  if (hasSelectedDerivedMeasure(ds, query)) {
+  if (hasSelectedDerivedMeasure(dataset, query)) {
     throw new Error('A derived dataset query needs the outer SQL projection; use createDatasetClient().toSQL().');
   }
   if (query.having?.length) {
     throw new Error('A dataset query with having needs the outer SQL projection; use createDatasetClient().toSQL().');
   }
-  const validation = validateDatasetQueryInput(ds, query, options.context);
+  const validation = validateDatasetQueryInput(dataset, query, options.context);
   if (!validation.valid) {
     throw new Error(`Invalid dataset query: ${validation.errors.join('; ')}`);
   }
+  const ds = datasetOnTimeKey(dataset, query.timeKey);
 
   const dialect = resolveDatasetSqlDialect(options.builderFactory);
   assertRawSqlForDialect(ds, dialect);
   const joinCtx = buildRelationshipBuilderContext(ds, query, options.context, dialect);
 
-  let qb = datasetSourceBuilder(options.builderFactory, ds);
-  qb = applyRelationshipJoins(qb, joinCtx);
+  let qb = scopedDatasetSource({
+    builderFactory: options.builderFactory, ds, context: options.context, joinCtx, dialect, timezone: query.timezone,
+  });
   const { selectParts, groupByParts } = buildDimensionSelectionPlan(ds, query.dimensions ?? [], query.by, joinCtx, query.timezone, dialect);
   const measureNames = query.measures ?? baseMeasureNames(ds.measures);
 
@@ -77,12 +74,6 @@ export function buildDatasetQueryBuilder(
     const definition = getBaseMeasure(ds.measures, measureName);
     if (!definition) throw new Error(`Measure "${measureName}" is not a base measure.`);
     qb = applyMeasureDefinition(qb, ds, measureName, definition, joinCtx, dialect);
-  }
-
-  const tenantColumn = resolveTenantFilterColumn(ds, options.context);
-  const tenantPredicate = getRuntimeTenantPredicate(options.context);
-  if (tenantPredicate && tenantColumn) {
-    qb = qb.where(qualifyBaseColumn(joinCtx, tenantColumn), tenantPredicate.operator, tenantPredicate.value);
   }
 
   for (const filter of query.filters ?? []) {

@@ -15,6 +15,8 @@ from typing import Literal, TypeAlias
 
 from hypequery.datasets.planner import SETTING_DEFINITIONS, CompiledQueryError
 
+from .errors import server_fault
+
 ReadonlyPolicy: TypeAlias = Literal["query", "profile"]
 
 
@@ -54,11 +56,11 @@ def wire_settings(
         return _without_readonly(settings) if level in ("1", "2") else dict(settings)
 
     if level not in ("1", "2"):
-        raise CompiledQueryError(
-            "forbidden",
+        raise server_fault(
+            "HQ_EXECUTOR_READONLY_MISCONFIGURED",
             "readonly_policy='profile' requires a ClickHouse user whose profile enforces "
             "readonly = 1 or 2.",
-            query_id=query_id,
+            query_id,
         )
     return _without_readonly(settings)
 
@@ -89,8 +91,9 @@ def readonly_setting_error(
 
     A user whose profile sets ``readonly = 1`` may not change any setting, so
     the planner's limits are refused one by one; that is the failure an
-    operator can fix from the message alone. The refused setting's name is not
-    echoed: the guidance is the same for all of them.
+    operator can fix from the diagnostic alone. The refused setting's name is
+    not echoed: the guidance is the same for all of them. It is the server's
+    configuration that is wrong, so the caller sees only a server fault.
     """
 
     setting = _refused_setting(exc)
@@ -99,16 +102,16 @@ def readonly_setting_error(
     if setting == "readonly":
         if policy != "query":
             return None
-        return CompiledQueryError(
-            "forbidden",
+        return server_fault(
+            "HQ_EXECUTOR_READONLY_MISCONFIGURED",
             "ClickHouse rejected HypeQuery's readonly setting. Use readonly_policy='profile' "
             "only when the ClickHouse user profile enforces readonly = 1 or 2.",
-            query_id=query_id,
+            query_id,
         )
-    return CompiledQueryError(
-        "forbidden",
+    return server_fault(
+        "HQ_EXECUTOR_READONLY_MISCONFIGURED",
         "ClickHouse rejected HypeQuery's per-query limits: the connected user is readonly = 1, "
         "which forbids changing any setting. Use a user whose profile sets readonly = 2 "
         "(settings may change, data may not).",
-        query_id=query_id,
+        query_id,
     )

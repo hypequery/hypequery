@@ -1,3 +1,4 @@
+import type { RowResolution } from './types.js';
 import type { RelationshipKey } from './types.js';
 import { windowCatalogMetadata, type WindowCatalogMetadata } from './utils/window-catalog-metadata.js';
 import { sha256 } from '@noble/hashes/sha2.js';
@@ -89,11 +90,13 @@ export interface ContractDataset extends SemanticMetadata {
   name: string;
   description?: string;
   source: string;
+  rowResolution?: RowResolution;
   freshness?: DatasetFreshness;
   owner?: string;
   defaults?: DatasetDefaults;
   tenantKey?: string;
   timeKey?: string;
+  timeKeys?: string[];
   requiresTenant: boolean;
   supportedGrains: string[];
   dimensions: Record<string, ContractDimension>;
@@ -161,6 +164,7 @@ function datasetToContract(catalog: DatasetCatalog, includeSql: boolean): Contra
     ...(catalog.description !== undefined ? { description: catalog.description } : {}),
     ...snapshotSemanticMetadata(catalog),
     source: catalog.source,
+    ...(catalog.rowResolution === undefined ? {} : { rowResolution: { ...catalog.rowResolution } }),
     ...(catalog.freshness !== undefined ? { freshness: { ...catalog.freshness } } : {}),
     ...(catalog.owner !== undefined ? { owner: catalog.owner } : {}),
     ...(catalog.defaults !== undefined
@@ -177,6 +181,7 @@ function datasetToContract(catalog: DatasetCatalog, includeSql: boolean): Contra
       : {}),
     ...(catalog.tenantKey !== undefined ? { tenantKey: catalog.tenantKey } : {}),
     ...(catalog.timeKey !== undefined ? { timeKey: catalog.timeKey } : {}),
+    ...(catalog.timeKeys?.length ? { timeKeys: uniqueSorted(catalog.timeKeys) } : {}),
     requiresTenant: catalog.requiresTenant,
     supportedGrains: uniqueSorted(catalog.supportedGrains),
     dimensions: sortedRecord(

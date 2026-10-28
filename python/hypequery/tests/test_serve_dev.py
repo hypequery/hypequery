@@ -14,27 +14,29 @@ from pathlib import Path
 import httpx
 import pytest
 import uvicorn
-from fastapi import FastAPI
 
 from hypequery.serve import (
+    AsgiApp,
     ExternalBindWarning,
     HttpSecurity,
     Principal,
     ProductionProfile,
-    create_app,
-    create_router,
+    create_api,
     run_dev,
+    to_asgi_app,
 )
 from hypequery.serve.dev import _RELOAD_TARGET, _reload_app
 from hypequery.serve.dev.__main__ import main
 from hypequery.serve.utils.bind_address import is_loopback
 
 
-def _app(*, production: ProductionProfile | None = None) -> FastAPI:
-    router = create_router(authenticate=lambda credential: Principal(subject="dev"))
-    return create_app(
-        router, security=HttpSecurity(allowed_hosts=("127.0.0.1",)), production=production
+def _app(*, production: ProductionProfile | None = None) -> AsgiApp:
+    api = create_api(
+        auth=lambda credential: Principal(subject="dev"),
+        security=HttpSecurity(allowed_hosts=("127.0.0.1",)),
+        production=production,
     )
+    return to_asgi_app(api)
 
 
 @pytest.fixture
@@ -59,6 +61,16 @@ def test_defaults_to_loopback_without_warning(
     assert options["proxy_headers"] is False
     assert options["server_header"] is False
     assert options["workers"] == 1
+
+
+def test_serves_an_api_through_its_asgi_app(
+    served: list[tuple[object, dict[str, object]]],
+) -> None:
+    api = _app().api
+    run_dev(api)
+    target, _ = served[0]
+    assert isinstance(target, AsgiApp)
+    assert target.api is api
 
 
 @pytest.mark.parametrize("host", ["localhost", "::1", "127.0.0.2"])
@@ -106,7 +118,9 @@ def test_refuses_production_apps_and_non_apps(
 ) -> None:
     with pytest.raises(ValueError, match="start_server"):
         run_dev(_app(production=ProductionProfile()))
-    with pytest.raises(TypeError, match="FastAPI"):
+    with pytest.raises(ValueError, match="start_server"):
+        run_dev(_app(production=ProductionProfile()).api)
+    with pytest.raises(TypeError, match="to_asgi_app"):
         run_dev(object())  # type: ignore[arg-type]
     assert served == []
 
@@ -114,11 +128,11 @@ def test_refuses_production_apps_and_non_apps(
 def _write_module(tmp_path: Path, name: str, production: bool) -> None:
     profile = "production=ProductionProfile()" if production else "production=None"
     (tmp_path / f"{name}.py").write_text(
-        "from hypequery.serve import HttpSecurity, Principal, ProductionProfile, create_app,"
-        " create_router\n"
-        "router = create_router(authenticate=lambda credential: Principal(subject='dev'))\n"
-        "app = create_app(router, security=HttpSecurity(allowed_hosts=('127.0.0.1',)),"
-        f" {profile})\n"
+        "from hypequery.serve import HttpSecurity, Principal, ProductionProfile, create_api,"
+        " to_asgi_app\n"
+        "api = create_api(auth=lambda credential: Principal(subject='dev'),"
+        f" security=HttpSecurity(allowed_hosts=('127.0.0.1',)), {profile})\n"
+        "app = to_asgi_app(api)\n"
     )
 
 
@@ -133,7 +147,10 @@ def test_import_string_resolves_from_the_working_directory(
     monkeypatch.setattr(sys, "path", list(sys.path))
     path_before = list(sys.path)
     run_dev("devapp_plain:app")
-    assert isinstance(served[0][0], FastAPI)
+    assert isinstance(served[0][0], AsgiApp)
+    run_dev("devapp_plain:api")
+    assert isinstance(served[1][0], AsgiApp)
+    served.pop()
     assert sys.path == path_before
     with pytest.raises(ValueError, match="start_server"):
         run_dev("devapp_production:app")
@@ -169,7 +186,7 @@ def test_reload_workers_refuse_production_apps(
     _write_module(tmp_path, "devapp_reload_production", production=True)
     monkeypatch.setattr(sys, "path", list(sys.path))
     monkeypatch.setenv(_RELOAD_TARGET, json.dumps([str(tmp_path), "devapp_reload_plain:app"]))
-    assert isinstance(_reload_app(), FastAPI)
+    assert isinstance(_reload_app(), AsgiApp)
     monkeypatch.setenv(_RELOAD_TARGET, json.dumps([str(tmp_path), "devapp_reload_production:app"]))
     with pytest.raises(ValueError, match="start_server"):
         _reload_app()
@@ -193,7 +210,7 @@ def test_reload_workers_keep_the_callers_driver_log_levels(
     # The worker is a new process; its driver logger starts at the default.
     driver.setLevel(logging.NOTSET)
     monkeypatch.setenv(_RELOAD_TARGET, targets[0])
-    assert isinstance(_reload_app(), FastAPI)
+    assert isinstance(_reload_app(), AsgiApp)
     assert driver.level == logging.ERROR
 
 
@@ -222,10 +239,10 @@ def test_real_dev_server_serves_docs_on_loopback(tmp_path: Path) -> None:
         probe.bind(("127.0.0.1", 0))
         port = probe.getsockname()[1]
     (tmp_path / "devapp.py").write_text(
-        "from hypequery.serve import HttpSecurity, Principal, create_app, create_router\n"
-        "router = create_router(authenticate=lambda credential: Principal(subject='dev'))\n"
-        "app = create_app(router, security=HttpSecurity(allowed_hosts=('127.0.0.1',)),"
-        " development_docs=True)\n"
+        "from hypequery.serve import HttpSecurity, Principal, create_api, to_asgi_app\n"
+        "api = create_api(auth=lambda credential: Principal(subject='dev'),"
+        " security=HttpSecurity(allowed_hosts=('127.0.0.1',)), development_docs=True)\n"
+        "app = to_asgi_app(api)\n"
     )
     process = subprocess.Popen(
         [sys.executable, "-m", "hypequery.serve.dev", "devapp:app", "--port", str(port)],
@@ -246,6 +263,7 @@ def test_real_dev_server_serves_docs_on_loopback(tmp_path: Path) -> None:
                     time.sleep(0.05)
             assert response.status_code == 200
             assert "server" not in response.headers
+            assert http.get("/openapi.json").json()["openapi"] == "3.1.0"
     finally:
         process.terminate()
         try:

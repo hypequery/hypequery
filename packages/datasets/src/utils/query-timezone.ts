@@ -3,6 +3,7 @@ import type { AnyDatasetInstance, MetricFilter, MetricFilterOperator } from '../
 import { resolveDimensionFieldType, resolveFilterFieldType } from './filter-field-type.js';
 import { instantWallClock, parseTimestampInstant } from './timestamp-instants.js';
 import { mixedInstantListError } from '../validation.js';
+import { datasetTimeKeys } from './dataset-time-keys.js';
 
 /** Named zones only: reject fixed offsets, invalid zones, and SQL fragments. */
 export function isQueryTimezone(value: unknown): value is string {
@@ -33,13 +34,12 @@ export function queryTimeSql(dialect: DatasetSqlDialectRules, expression: string
   return dialect.toQueryTimezone(expression, canonicalTimezone(timezone));
 }
 
-/** True when a local filter field reads the dataset's time-key column. */
+/** True when a local filter field reads one of the dataset's time-axis columns. */
 export function isTimeKeyFilter(ds: AnyDatasetInstance, field: string): boolean {
   if (!ds.timeKey || field.includes('.')) return false;
   const resolved = ds.filters[field]?.field ?? field;
   const column = ds.dimensions[resolved]?.column ?? resolved;
-  const timeColumn = ds.dimensions[ds.timeKey]?.column ?? ds.timeKey;
-  return column === timeColumn;
+  return datasetTimeKeys(ds).some(timeKey => (ds.dimensions[timeKey]?.column ?? timeKey) === column);
 }
 
 /** Apply the query zone to time-key predicates, including semantic filter aliases. */

@@ -3,19 +3,22 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 import os
 import threading
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import replace
 from datetime import UTC, datetime
 from decimal import Decimal
+from typing import Any, cast
 
 import pytest
-from fastapi.testclient import TestClient
 
+from asgi_client import AsgiClient
 from hypequery.datasets import (
     Dataset,
     DatasetQuery,
+    DatasetQueryResult,
     MemoryCacheStore,
     ResultCache,
     create_async_dataset_client,
@@ -34,6 +37,7 @@ from hypequery.execution import (
     ClickHouseConnection,
     ReadonlyPolicy,
     create_async_clickhouse_executor,
+    create_async_from_sync_clickhouse_executor,
     create_clickhouse_executor,
 )
 from hypequery.serve import (
@@ -41,8 +45,8 @@ from hypequery.serve import (
     Principal,
     ProductionProfile,
     add_dataset_endpoint,
-    create_app,
-    create_router,
+    create_api,
+    to_asgi_app,
 )
 
 
@@ -69,17 +73,16 @@ def test_live_production_http_dataset() -> None:
         measures={"rows": measure(count("dummy"))},
     )
     executor = create_clickhouse_executor(_connection())
-    router = create_router(authenticate=lambda credential: Principal(subject="reader"))
+    api = create_api(
+        auth=lambda credential: Principal(subject="reader"),
+        security=HttpSecurity(allowed_hosts=("testserver",)),
+        production=ProductionProfile(max_result_rows=3, max_result_bytes=1024),
+    )
     add_dataset_endpoint(
-        router, "/query", dataset=dataset, client=create_dataset_client(executor=executor)
+        api, "/query", dataset=dataset, client=create_dataset_client(executor=executor)
     )
     try:
-        app = create_app(
-            router,
-            security=HttpSecurity(allowed_hosts=("testserver",)),
-            production=ProductionProfile(max_result_rows=3, max_result_bytes=1024),
-        )
-        with TestClient(app) as http:
+        with AsgiClient(to_asgi_app(api)) as http:
             response = http.post(
                 "/query",
                 headers={"Authorization": "Bearer test"},
@@ -343,7 +346,8 @@ def test_live_profile_policy_rejects_unrestricted_user() -> None:
     try:
         with pytest.raises(CompiledQueryError) as exc:
             reader.execute(_query(1, "Int64"))
-        assert exc.value.category == "forbidden"
+        assert exc.value.category == "unavailable"
+        assert exc.value.code == "HQ_EXECUTOR_READONLY_MISCONFIGURED"
     finally:
         reader.close()
 
@@ -352,7 +356,7 @@ def test_live_profile_policy_rejects_unrestricted_user() -> None:
         try:
             with pytest.raises(CompiledQueryError) as exc:
                 await async_reader.execute(_query(1, "Int64"))
-            assert exc.value.category == "forbidden"
+            assert exc.value.category == "unavailable"
         finally:
             await async_reader.aclose()
 
@@ -489,3 +493,203 @@ def test_live_repeated_fall_back_hours_order_by_instant() -> None:
     ]
     assert rows["default"] == rows["asc"] == chronological
     assert rows["desc"] == chronological[::-1]
+
+
+@pytest.mark.skipif(
+    "HYPEQUERY_TEST_CLICKHOUSE_HOST" not in os.environ,
+    reason="live ClickHouse service is not configured",
+)
+def test_live_url_connection_thread_backed_async_and_typed_frames() -> None:
+    pd = pytest.importorskip("pandas")
+    typed = Dataset(
+        name="typed",
+        source="system.one",
+        dimensions={
+            "day": dimension("timestamp", sql="toDateTime('2026-01-02 03:04:05', 'UTC')"),
+            "flag": dimension("boolean", sql="dummy = 0"),
+        },
+        measures={
+            "amount": measure.sum("dummy", sql="toDecimal64(1.25, 2)"),
+            "rows": measure(count("dummy")),
+        },
+    )
+    query = DatasetQuery(dimensions=("day", "flag"), measures=("amount", "rows"))
+    plain = _connection()
+    url = f"clickhouse://default:{plain.password}@{plain.host}:{plain.port}/{plain.database}"
+    connection = ClickHouseConnection.from_url(url)
+
+    async def run() -> DatasetQueryResult:
+        executor = create_async_from_sync_clickhouse_executor(connection)
+        try:
+            return await create_async_dataset_client(executor=executor).execute(typed, query)
+        finally:
+            await executor.aclose()
+
+    result = asyncio.run(run())
+    assert result.data == (
+        {"day": "2026-01-02T03:04:05+00:00", "flag": True, "amount": "1.25", "rows": 1},
+    )
+    frame = result.to_pandas()
+    assert frame["day"].iloc[0] == pd.Timestamp("2026-01-02T03:04:05Z")
+    assert str(frame["amount"].dtype) == "float64"
+    assert frame["amount"].iloc[0] == 1.25
+    assert str(frame["rows"].dtype) == "Int64"
+    assert result.to_pandas(decimals="decimal")["amount"].iloc[0] == Decimal("1.25")
+
+    async def run_empty() -> DatasetQueryResult:
+        executor = create_async_from_sync_clickhouse_executor(connection)
+        try:
+            empty = query.model_copy(update={"filters": (eq("flag", False),)})
+            return await create_async_dataset_client(executor=executor).execute(typed, empty)
+        finally:
+            await executor.aclose()
+
+    # The driver reports no columns for an empty result; the planned ones stand in.
+    empty_frame = asyncio.run(run_empty()).to_pandas()
+    assert list(empty_frame.columns) == ["day", "flag", "amount", "rows"]
+    assert str(empty_frame["day"].dtype) == "datetime64[us, UTC]"
+
+
+def _admin() -> object:
+    from clickhouse_connect import get_client
+
+    connection = _connection()
+    return get_client(
+        host=connection.host,
+        port=connection.port,
+        username=connection.username,
+        password=connection.password,
+    )
+
+
+@pytest.mark.skipif(
+    "HYPEQUERY_TEST_CLICKHOUSE_HOST" not in os.environ,
+    reason="live ClickHouse service is not configured",
+)
+def test_live_wrong_server_password_is_a_server_fault() -> None:
+    """A wrong configured password is the server's fault, never the caller's 401."""
+
+    wrong = replace(_connection(), password="hypequery-wrong-password")  # noqa: S106
+
+    def check(error: CompiledQueryError) -> None:
+        assert error.category == "unavailable"
+        assert error.code == "HQ_EXECUTOR_CREDENTIALS_REJECTED"
+        assert error.message == "The query executor is unavailable."
+        assert error.diagnostic is not None
+        assert "hypequery-wrong-password" not in error.diagnostic
+
+    with pytest.raises(CompiledQueryError) as caught:
+        create_clickhouse_executor(wrong)
+    check(caught.value)
+    with pytest.raises(CompiledQueryError) as caught:
+        create_async_from_sync_clickhouse_executor(wrong)
+    check(caught.value)
+    with pytest.raises(CompiledQueryError) as caught:
+        asyncio.run(create_async_clickhouse_executor(wrong))
+    check(caught.value)
+
+
+@pytest.mark.skipif(
+    "HYPEQUERY_TEST_CLICKHOUSE_HOST" not in os.environ,
+    reason="live ClickHouse service is not configured",
+)
+def test_live_rotated_server_password_is_a_503_not_a_401(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """The password changes under a running server: callers see 503, the log the reason."""
+
+    connection = _connection()
+    username = "hypequery_rotated_password"
+    password = f"{connection.password}_rotated"
+    admin = cast(Any, _admin())
+    dataset = Dataset(
+        name="one",
+        source="system.one",
+        dimensions={"dummy": dimension("number")},
+        measures={"rows": measure(count("dummy"))},
+    )
+    try:
+        admin.command(f"DROP USER IF EXISTS {username}")
+        admin.command(f"CREATE USER {username} IDENTIFIED BY '{password}'")
+        executor = create_clickhouse_executor(
+            replace(connection, username=username, password=password)
+        )
+        try:
+            admin.command(f"ALTER USER {username} IDENTIFIED BY '{password}_changed'")
+            api = create_api(
+                auth=lambda credential: Principal(subject="reader"),
+                security=HttpSecurity(allowed_hosts=("testserver",)),
+            )
+            add_dataset_endpoint(
+                api, "/query", dataset=dataset, client=create_dataset_client(executor=executor)
+            )
+            with (
+                caplog.at_level(logging.ERROR, logger="hypequery.serve"),
+                AsgiClient(to_asgi_app(api)) as http,
+            ):
+                response = http.post(
+                    "/query",
+                    headers={"Authorization": "Bearer test"},
+                    json={"measures": ["rows"], "limit": 1},
+                )
+        finally:
+            executor.close()
+    finally:
+        admin.command(f"DROP USER IF EXISTS {username}")
+        admin.close()
+
+    assert response.status_code == 503, response.text
+    assert response.json() == {
+        "error": {
+            "type": "CLICKHOUSE_UNREACHABLE",
+            "message": "The query executor is unavailable.",
+        }
+    }
+    assert "ClickHouse" not in response.text
+    logged = [r.getMessage() for r in caplog.records if r.name == "hypequery.serve"]
+    assert any(
+        f"request_id={response.headers['x-request-id']}" in line
+        and "HQ_EXECUTOR_CREDENTIALS_REJECTED" in line
+        for line in logged
+    ), logged
+    assert all(password not in line for line in logged)
+
+
+@pytest.mark.skipif(
+    "HYPEQUERY_TEST_CLICKHOUSE_HOST" not in os.environ,
+    reason="live ClickHouse service is not configured",
+)
+def test_live_missing_grant_is_a_server_fault() -> None:
+    """ACCESS_DENIED from ClickHouse is the server user's grants, not the caller's access."""
+
+    connection = _connection()
+    database = "hypequery_no_grant"
+    username = "hypequery_no_grant_reader"
+    password = f"{connection.password}_no_grant"
+    admin = cast(Any, _admin())
+    try:
+        admin.command(f"DROP USER IF EXISTS {username}")
+        admin.command(f"DROP DATABASE IF EXISTS {database}")
+        admin.command(f"CREATE DATABASE {database}")
+        admin.command(f"CREATE TABLE {database}.secret (id UInt8) ENGINE=Memory")
+        admin.command(f"CREATE USER {username} IDENTIFIED BY '{password}'")
+        reader = create_clickhouse_executor(
+            replace(connection, username=username, password=password)
+        )
+        try:
+            with pytest.raises(CompiledQueryError) as caught:
+                reader.execute(
+                    CompiledQuery(
+                        sql="SELECT count() FROM hypequery_no_grant.secret", parameters={}
+                    )
+                )
+        finally:
+            reader.close()
+    finally:
+        admin.command(f"DROP USER IF EXISTS {username}")
+        admin.command(f"DROP DATABASE IF EXISTS {database}")
+        admin.close()
+
+    assert caught.value.category == "unavailable"
+    assert caught.value.code == "HQ_EXECUTOR_ACCESS_DENIED"
+    assert caught.value.message == "The query executor is unavailable."

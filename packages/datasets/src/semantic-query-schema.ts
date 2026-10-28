@@ -19,6 +19,7 @@ import { zodToProtocolSchema } from './protocol-schema-adapter.js';
 import { compareStrings, stableStringify, uniqueSorted } from './utils/canonical-json.js';
 import { zodToDraft7JsonSchema } from './utils/zod-json-schema.js';
 import type { AnyZodSchema } from './utils/zod-schema-version.js';
+import { datasetTimeKeys } from './utils/dataset-time-keys.js';
 
 export interface SemanticQuerySchemaLimits {
   defaultResultSize?: number;
@@ -39,6 +40,12 @@ export interface SemanticQuerySchemaOptions extends SemanticQuerySchemaLimits {
    * protocol does not carry post-aggregation conditions yet.
    */
   having?: boolean;
+  /**
+   * Accept a `timeKey` selection on datasets that declare alternate time axes.
+   * Off by default, like `having`: enable it only on surfaces that pass the
+   * field through to the dataset client.
+   */
+  timeKey?: boolean;
   /** Include Serve's opt-in result metadata flag. */
   includeMeta?: boolean;
   /** Require at least one dimension or measure for dataset queries. */
@@ -285,6 +292,13 @@ function queryShape(
       ? z.number().int().nonnegative()
       : z.number().int().nonnegative().max(limits.maxOffset)).optional(),
     [grainField]: fieldEnum(grains).optional(),
+    // Only datasets with more than one axis accept the field, so every other
+    // schema and manifest hash is unchanged.
+    ...(options.timeKey && grains.length > 0 && datasetTimeKeys(catalog).length > 1 ? {
+      timeKey: fieldEnum(datasetTimeKeys(catalog)).optional().describe(
+        `Time axis for the grain and time-based measures. Defaults to ${catalog.timeKey}.`,
+      ),
+    } : {}),
     timezone: z.string().max(100).refine(isQueryTimezone, 'Use an IANA timezone such as UTC or America/New_York.').optional(),
     ...(options.includeMeta ? { includeMeta: z.boolean().optional() } : {}),
   };

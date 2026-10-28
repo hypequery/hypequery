@@ -1,3 +1,4 @@
+import type { ProtocolAggregateStateFunction } from './aggregate-states.js';
 import type { ProtocolExpression, ProtocolQueryTimeGrain, ProtocolTimeGrain } from '../expressions/index.js';
 import type { ProtocolIdentifier, ProtocolQualifiedIdentifier } from '../identifiers/index.js';
 import type {
@@ -74,8 +75,14 @@ export interface ProtocolDatasetMeasure extends ProtocolSemanticMetadata {
   readonly name: ProtocolIdentifier;
   readonly aggregation:
     | 'sum' | 'count' | 'countDistinct' | 'avg' | 'min' | 'max'
-    | 'argMax' | 'argMin' | 'percentile' | 'stddev' | 'variance';
+    | 'argMax' | 'argMin' | 'percentile' | 'stddev' | 'variance'
+    | 'merge';
   readonly field: ProtocolQualifiedIdentifier;
+  /**
+   * `merge` only, and required there (RFC 0022): the function whose stored
+   * states `field` holds, finalized with `<stateFunction>Merge`.
+   */
+  readonly stateFunction?: ProtocolAggregateStateFunction;
   readonly argField?: ProtocolQualifiedIdentifier;
   readonly level?: number;
   readonly sql?: ProtocolSqlExpression;
@@ -155,10 +162,22 @@ export interface ProtocolDatasetLimits {
   readonly maxResultSize?: number;
 }
 
+/** Explicit ClickHouse engine resolution; omitted means physical rows. */
+/**
+ * RFC 0021. Without `engine`, the source is read with `FINAL` and nothing else
+ * (`rowResolution: { kind: 'final' }` in code); with it, the engine's deletion or sign column
+ * also filters the resolved rows.
+ */
+export type ProtocolRowResolution =
+  | { readonly kind: 'final' }
+  | { readonly kind: 'final'; readonly engine: 'replacing'; readonly deletedColumn?: ProtocolIdentifier }
+  | { readonly kind: 'final'; readonly engine: 'collapsing' | 'versioned-collapsing'; readonly signColumn: ProtocolIdentifier };
+
 export interface ProtocolDatasetContract extends ProtocolSemanticMetadata {
   readonly name: ProtocolIdentifier;
   readonly description?: string;
   readonly source: string;
+  readonly rowResolution?: ProtocolRowResolution;
   readonly freshness?: ProtocolDatasetFreshness;
   readonly owner?: string;
   readonly defaults?: ProtocolDatasetDefaults;

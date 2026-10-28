@@ -16,6 +16,7 @@ import type {
   SemanticAggregationPlan,
   SemanticDimensionPlan,
   SemanticJoinPlan,
+  SemanticTenantPredicate,
 } from './semantic-plan.js';
 import {
   getMetricGrain,
@@ -24,9 +25,10 @@ import {
 } from './utils/metric-handle.js';
 import { validateDatasetQuery } from './dataset-query.js';
 import { isSupportedTimeGrain } from './constants.js';
-import { getRuntimeTenantPredicate } from './utils/tenant-runtime.js';
+import { datasetRowScope, runtimeConstraints } from './utils/row-scope.js';
 import { isQualifiedField, resolveQualifiedField } from './utils/relationship-fields.js';
 import { segmentFilters } from './utils/segments.js';
+import { selectsAlternateTimeKey } from './utils/dataset-time-keys.js';
 
 function resolveField(ds: AnyDatasetInstance, field: string): string {
   const dimension = ds.dimensions[field];
@@ -99,10 +101,37 @@ function normalizeFilters(
  * Semantic backends receive a source name, not SQL, so they cannot apply
  * `FINAL`. Running a final dataset there would count unmerged row versions.
  */
-function rejectFinalOnBackend(ds: Pick<AnyDatasetInstance, 'name' | 'final'>): void {
-  if (ds.final) {
-    throw new Error(`Dataset "${ds.name}" is declared final: true, which requires the queryBuilder execution path.`);
+function rejectFinalOnBackend(ds: Pick<AnyDatasetInstance, 'name' | 'rowResolution'>): void {
+  if (ds.rowResolution) {
+    throw new Error(`Dataset "${ds.name}" reads its source with FINAL, which requires the queryBuilder execution path.`);
   }
+}
+
+/**
+ * The frozen plan protocol has no field for enforced constraints. Dropping
+ * them would run the call unrestricted, so it is refused instead.
+ */
+function rejectConstraintsOnBackend(context?: ExecutionContext): void {
+  if (runtimeConstraints(context).length > 0) {
+    throw new Error('Enforced constraints require the queryBuilder execution path.');
+  }
+}
+
+/**
+ * The dataset's row scope as the plan's single tenant predicate. The plan
+ * protocol carries at most one, so a wider scope is refused, never truncated.
+ */
+function planRowScope(
+  ds: AnyDatasetInstance,
+  context?: ExecutionContext,
+): SemanticTenantPredicate | undefined {
+  const scope = datasetRowScope(ds, context);
+  if (scope.length > 1) {
+    throw new Error(`Dataset "${ds.name}" has more than one row predicate, which requires the queryBuilder execution path.`);
+  }
+  if (scope.length === 0) return undefined;
+  const { column, ...predicate } = scope[0];
+  return { field: column, ...predicate };
 }
 
 function collectJoins(
@@ -121,7 +150,6 @@ function collectJoins(
     return undefined;
   }
 
-  const tenantPredicate = getRuntimeTenantPredicate(context);
   const joins = new Map<string, SemanticJoinPlan>();
   for (const name of referenced) {
     const { relationshipName, relationship, target } = resolveQualifiedPlanField(ds, name);
@@ -136,9 +164,7 @@ function collectJoins(
       from: relationship.from,
       to: relationship.to,
       type: 'left',
-      tenant: tenantPredicate && target.tenantKey
-        ? { field: target.tenantKey, ...tenantPredicate }
-        : undefined,
+      tenant: planRowScope(target, context),
     });
   }
   return Array.from(joins.values());
@@ -172,14 +198,6 @@ function aggregationForMeasure(
     level: measure.level,
     filters: normalizeFilters(ds, measure.filters),
   };
-}
-
-function tenantForContext(ds: AnyDatasetInstance, context?: ExecutionContext) {
-  const tenantPredicate = getRuntimeTenantPredicate(context);
-  if (!tenantPredicate || !ds.tenantKey) {
-    return undefined;
-  }
-  return { field: ds.tenantKey, ...tenantPredicate };
 }
 
 function grainForQuery(ds: AnyDatasetInstance, unit: MetricQuery['by'] | undefined) {
@@ -218,7 +236,7 @@ function aggregatePlan(
     orderBy: query.orderBy,
     limit: query.limit,
     offset: query.offset,
-    tenant: tenantForContext(ds, context),
+    tenant: planRowScope(ds, context),
     joins: collectJoins(ds, query.dimensions, query.filters, query.orderBy, context),
   };
 }
@@ -229,8 +247,10 @@ export function buildDatasetPlan(
   context?: ExecutionContext,
 ): PlanNode {
   rejectFinalOnBackend(ds);
+  rejectConstraintsOnBackend(context);
   if ((query.measures ?? []).some(name => name.includes('.'))) throw new Error('Relationship measures require the queryBuilder execution path.');
   if (query.timezone !== undefined) throw new Error('Execution timezone requires the queryBuilder execution path.');
+  if (selectsAlternateTimeKey(ds, query.timeKey)) throw new Error('Alternate time keys require the queryBuilder execution path.');
   rejectTimeMeasuresOnBackend(ds, query);
   if ((query.measures ?? []).some(name => getDerivedMeasure(ds.measures, name) !== undefined)) {
     throw new Error('Derived dataset measures require the queryBuilder execution path.');
@@ -347,7 +367,9 @@ export function buildMetricPlan(
   const errors = protocolMetricCapabilityErrors(metric, query);
   if (errors.length) throw new Error(`Invalid metric query: ${errors.join('; ')}`);
   const ref = getMetricRef(metric as MetricHandle);
+  if (selectsAlternateTimeKey(ref.dataset, query.timeKey)) throw new Error('Alternate time keys require the queryBuilder execution path.');
   rejectFinalOnBackend(ref.dataset);
+  rejectConstraintsOnBackend(context);
   const grain = getMetricGrain(metric as MetricHandle, query);
   const plannedQuery = { ...query, by: grain };
 

@@ -1,1 +1,0 @@
-- The `embedded_analytics` example is now tenant-scoped. Its dataset declares `tenant_key="org_id"`, the endpoint requires a tenant, and the example token belongs to organization "a". Previously every caller saw every organization's orders.

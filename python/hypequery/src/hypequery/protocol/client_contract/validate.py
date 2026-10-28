@@ -6,7 +6,7 @@ from .bounds import bound_client_descriptors
 from .codec import CLIENT_CONTRACT_DOMAIN, CLIENT_SCHEMA_DOMAIN, client_digest
 from .errors import client_error
 from .models import PreparedProtocolClientContract, ProtocolClientContract, ProtocolClientEndpoint
-from .nodes import dimension, fields, filter_descriptor, limits, measure, time
+from .nodes import annotations, dimension, fields, filter_descriptor, limits, measure, time
 from .primitives import boolean, choice, name, names, pointer, record, route, shape
 from .safe_data import client_canonical, snapshot_client_data
 
@@ -27,11 +27,13 @@ ENDPOINT_FIELDS = [
 def _endpoint(value: object, path: str, *, signed: bool) -> dict[str, object]:
     raw = record(value, path)
     kind = choice(raw.get("kind"), ["dataset", "metric"], pointer(path, "kind"))
+    annotated = "annotations" in raw
     node = shape(
         raw,
         [
             *ENDPOINT_FIELDS,
             *(["defaultMeasures"] if kind == "dataset" else []),
+            *(["annotations"] if annotated else []),
             *(["schemaHash"] if signed else []),
         ],
         path,
@@ -50,6 +52,8 @@ def _endpoint(value: object, path: str, *, signed: bool) -> dict[str, object]:
     }
     if kind == "dataset":
         result["defaultMeasures"] = names(node["defaultMeasures"], pointer(path, "defaultMeasures"))
+    if annotated:
+        result["annotations"] = annotations(node["annotations"], pointer(path, "annotations"))
     if signed:
         result["schemaHash"] = node["schemaHash"]
     return result
@@ -76,6 +80,9 @@ def _references(value: dict[str, object], path: str) -> None:
         len(defaults) > item["limits"]["maxMeasures"]
         or item["limits"]["defaultLimit"] > item["limits"]["maxLimit"]
     ):
+        client_error("HQ_CLIENT_REFERENCE", path)
+    described = item.get("annotations", {}).get("fields", {})
+    if any(key not in item["dimensions"] and key not in item["measures"] for key in described):
         client_error("HQ_CLIENT_REFERENCE", path)
 
 
@@ -111,7 +118,11 @@ def _contract(value: object, *, signed: bool) -> PreparedProtocolClientContract:
         _references(item, "/endpoints/" + str(index))
     endpoints.sort(key=lambda item: cast(str, item["id"]))
     for index, item in enumerate(endpoints):
-        schema = {key: entry for key, entry in item.items() if key not in ("schemaHash", "limits")}
+        schema = {
+            key: entry
+            for key, entry in item.items()
+            if key not in ("schemaHash", "limits", "annotations")
+        }
         digest = client_digest(CLIENT_SCHEMA_DOMAIN, schema)
         if signed and item["schemaHash"] != digest:
             client_error("HQ_CLIENT_IDENTITY", "/endpoints/" + str(index) + "/schemaHash")

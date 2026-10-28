@@ -6,8 +6,9 @@ Python wheel, installs fresh tarballs outside the checkout without optional
 ClickHouse peers, and compiles a strict public TypeScript consumer without
 `skipLibCheck`. The SDK's Fetch type names require ES2022/DOM plus Node types.
 
-A loopback backend starts on port 8792 using the installed wheel and minimum
-FastAPI/uvicorn versions. A real MCP SDK client connects through the in-memory
+A loopback backend starts on port 8792 using the installed wheel, under uvicorn,
+mounted as plain ASGI in a FastAPI host app (pinned in the script; hypequery
+itself needs no FastAPI). A real MCP SDK client connects through the in-memory
 MCP transport to the HTTP executor. The fixture checks four tools, a metric
 alias, nullable grouping, metadata, successive pagination offsets, distinct
 principal/tenant results and refusal of SQL/context overrides. The script stops

@@ -22,6 +22,12 @@ from getting_started import BUDGET_SECONDS, clickhouse
 
 from .checks import require
 
+#: Each `init --framework` choice besides standalone, and the app files it writes.
+FRAMEWORK_FILES = {
+    "django": ("analytics.py", "urls.py", "settings.py", "manage.py"),
+    "flask": ("app.py",),
+}
+
 
 class InstalledCli:
     def __init__(self, root: Path, artifact: Path, *, minimal: bool) -> None:
@@ -60,7 +66,7 @@ class InstalledCli:
         self._run([uv, "venv", "--python", sys.executable, str(self.venv)])
         requirement = str(self.artifact)
         if not self.minimal:
-            requirement += "[fastapi,clickhouse]"
+            requirement += "[server,clickhouse,django,flask]"
         self._run([uv, "pip", "install", "--python", str(self.python), requirement])
 
     def verify_commands(self) -> None:
@@ -119,6 +125,13 @@ assert 'not loaded automatically' in Path('README.md').read_text()
             ],
             cwd=self.project,
         )
+        for framework, files in FRAMEWORK_FILES.items():
+            project = self.root / f"{framework} example"
+            self._run(
+                [str(self.cli), "init", "--skip-connection", "--framework", framework, str(project)]
+            )
+            for name in (*files, "datasets.py"):
+                compile((project / name).read_text(), name, "exec")
         if self.minimal:
             self._run(
                 [
@@ -128,6 +141,8 @@ assert 'not loaded automatically' in Path('README.md').read_text()
 from importlib.util import find_spec
 optional = ('fastapi', 'starlette', 'uvicorn', 'clickhouse_connect')
 assert all(find_spec(name) is None for name in optional)
+# Serving needs no web framework: only running uvicorn needs an extra.
+import hypequery.serve
 """,
                 ]
             )
@@ -142,7 +157,7 @@ assert all(find_spec(name) is None for name in optional)
             )
             require(result.returncode == 1, "Missing extras must exit with status 1")
             require(
-                'pip install "hypequery[fastapi]"' in result.stderr,
+                'pip install "hypequery[server]"' in result.stderr,
                 "Missing extras need an install hint",
             )
             require("Traceback" not in result.stderr, "Missing extras must not print a traceback")
@@ -157,6 +172,8 @@ assert all(find_spec(name) is None for name in optional)
                 if statement.strip():
                     clickhouse(statement, database=database)
             self._serve()
+            for framework in FRAMEWORK_FILES:
+                self._serve_framework(framework)
             self.project = self.root / "discovered analytics"
             self._run([str(self.cli), "init", "--path", str(self.project), "--tables", "orders"])
             require(
@@ -277,6 +294,20 @@ print(json.dumps({'data': [{'nonNullCount': str(non_null_count)}]}))
             schema_path="/datasets/nullable_events/query",
         )
 
+    def _serve_framework(self, framework: str) -> None:
+        """Run the framework's offline example under its own server and query it."""
+
+        self.project = self.root / f"{framework} example"
+        with socket.socket() as probe:
+            probe.bind(("127.0.0.1", 0))
+            port = str(probe.getsockname()[1])
+        if framework == "django":
+            self._run([str(self.python), "manage.py", "migrate", "-v", "0"], cwd=self.project)
+            command = [str(self.python), "manage.py", "runserver", port, "--noreload"]
+        else:
+            command = [str(self.python), "-m", "flask", "--app", "app", "run", "--port", port]
+        self._serve(command=command, port=int(port), query_path="/api/agents/orders")
+
     def _schema_ground_truth(self, *, regenerated: bool = False) -> dict[str, object]:
         result = self._run(
             [
@@ -318,14 +349,24 @@ finally:
         schema_expected: dict[str, object] | None = None,
         schema_query: dict[str, object] | None = None,
         schema_path: str = "/datasets/orders/query",
+        command: list[str] | None = None,
+        port: int | None = None,
+        query_path: str | None = None,
     ) -> None:
-        with socket.socket() as probe:
-            probe.bind(("127.0.0.1", 0))
-            port = probe.getsockname()[1]
+        """Start the project's server and check the README's query against it.
+
+        By default the server is `hypequery dev`; a framework scaffold passes
+        its own *command*, listening on *port*, and the *query_path* it serves.
+        """
+
+        if port is None:
+            with socket.socket() as probe:
+                probe.bind(("127.0.0.1", 0))
+                port = probe.getsockname()[1]
         base = f"http://127.0.0.1:{port}"
         with (self.root / "server.log").open("w+") as log:
             process = subprocess.Popen(  # noqa: S603
-                [str(self.cli), "dev", "--port", str(port)],
+                command or [str(self.cli), "dev", "--port", str(port)],
                 cwd=self.project,
                 env=self.env,
                 stdout=log,
@@ -334,7 +375,7 @@ finally:
                 start_new_session=True,
             )
             try:
-                self._wait(process, base)
+                self._wait(process, base, "/docs" if command is None else query_path or "/")
                 readme = (self.project / "README.md").read_text()
                 query_match = re.search(r"-d '([^']+)'", readme)
                 expected_match = re.search(r"```json\n(.*?)```", readme, re.S)
@@ -351,7 +392,7 @@ finally:
                     expected_match[1] if expected_match else "{}"
                 )
                 request = urllib.request.Request(  # noqa: S310 - URL is fixed to loopback HTTP
-                    f"{base}{schema_path}",
+                    f"{base}{query_path or schema_path}",
                     data=json.dumps(query).encode(),
                     headers={
                         "Content-Type": "application/json",
@@ -384,15 +425,21 @@ finally:
                         log.seek(0)
                         print(log.read(), file=sys.stderr)
 
-    def _wait(self, process: subprocess.Popen[str], base: str) -> None:
+    def _wait(self, process: subprocess.Popen[str], base: str, path: str) -> None:
+        """Wait until *path* answers: 200 for the dev server's docs, any status otherwise."""
+
         until = time.monotonic() + 60
         while time.monotonic() < until:
             if process.poll() is not None:
                 raise RuntimeError("CLI server exited during startup")
             try:
-                with urllib.request.urlopen(f"{base}/docs", timeout=1) as response:  # noqa: S310
+                with urllib.request.urlopen(f"{base}{path}", timeout=1) as response:  # noqa: S310
                     if response.status == 200:
                         return
+            except urllib.error.HTTPError:
+                if path != "/docs":
+                    return
+                time.sleep(0.1)
             except (urllib.error.URLError, ConnectionError):
                 time.sleep(0.1)
         raise RuntimeError("CLI server did not become ready within 60 seconds")

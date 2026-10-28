@@ -11,7 +11,7 @@ requires-python = ">=3.11"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 authors = [{ name = "Hypequery" }]
-keywords = ["clickhouse", "analytics", "semantic-layer", "datasets", "fastapi"]
+keywords = ["clickhouse", "analytics", "semantic-layer", "datasets", "asgi"]
 classifiers = [
   "Development Status :: 4 - Beta",
   "Intended Audience :: Developers",
@@ -19,27 +19,38 @@ classifiers = [
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
   "Programming Language :: Python :: 3.14",
+  "Framework :: Django",
+  "Framework :: AsyncIO",
+  "Framework :: Flask",
+  "Framework :: Pydantic :: 2",
   "Topic :: Database",
   "Typing :: Typed",
 ]
 
 # Definition-only use must stay framework-free. Nothing here may pull in a web
 # framework or a database driver; those are extras, enforced by importlinter.
+# AnyIO is an async runtime, not a framework: the serving core runs sync host
+# code on its worker threads, so `hypequery.serve` needs no extra at all.
 # Floors are measured minimums: each is the oldest release that installs from
-# wheels and passes the suite on its Python version. pydantic 2.9.2 is also
-# FastAPI 0.137+'s own floor. On Python 3.14, pydantic-core has no wheel before
-# pydantic 2.12.0, 2.12.0 rejects MetricRequest's `None` field overrides and
-# 2.12.1 is yanked, so 3.14 starts at 2.12.2. fastapi 0.137.2
-# introduced iter_route_contexts; clickhouse-connect 1.4.2 introduced named
-# driver errors the executor maps to categories; urllib3 2.8.0 fixes three
-# published advisories. Transitive floors close advisories the direct floors
-# would still admit: h11 0.16.0 (via uvicorn), anyio 4.14.2 (via starlette),
-# certifi 2026.10.19 (via clickhouse-connect) and idna 3.15 (via anyio and
-# aiohttp). CI's floor jobs install exactly these.
+# wheels and passes the suite on its Python version. On Python 3.14,
+# pydantic-core has no wheel before pydantic 2.12.0, 2.12.0 rejects
+# MetricRequest's `None` field overrides and 2.12.1 is yanked, so 3.14 starts
+# at 2.12.2. anyio 4.14.2 is the first release free of published advisories;
+# clickhouse-connect 1.4.2 introduced named driver errors the executor maps to
+# categories; urllib3 2.8.0 fixes three published advisories. Transitive floors
+# close advisories the direct floors would still admit: h11 0.16.0 (via
+# uvicorn), certifi 2026.10.19 (via clickhouse-connect) and idna 3.15 (via
+# anyio and aiohttp). The integration extras start at the first releases free of
+# published advisories (django 5.2.17, flask 3.1.3, werkzeug 3.1.9, pyarrow
+# 23.0.1); pandas 2.3.3 is the first with Python 3.14 wheels; polars 1.0.0
+# and asgiref 3.8.1 (Django 5.2's own floor) pass the suite.
+# CI's floor jobs install exactly these.
 dependencies = [
     "pydantic>=2.9.2; python_version < '3.14'",
     "pydantic>=2.12.2; python_version >= '3.14'",
     "tzdata>=2025.2",
+    "anyio>=4.14.2",
+    "idna>=3.15",
 ]
 
 [project.optional-dependencies]
@@ -51,13 +62,27 @@ clickhouse-async = [
     "certifi>=2026.10.19",
     "idna>=3.15",
 ]
-fastapi = [
-    "fastapi>=0.137.2",
-    "starlette>=1.3.1",
-    "uvicorn>=0.30.6",
-    "h11>=0.16.0",
-    "anyio>=4.14.2",
-    "idna>=3.15",
+# The uvicorn server behind `start_server` and `hypequery dev`. Serving an API
+# from another ASGI server or framework needs no extra.
+server = ["uvicorn>=0.30.6", "h11>=0.16.0"]
+
+jwt = ["pyjwt[crypto]>=2.15.0", "cryptography>=50.0.0"]
+pandas = ["pandas>=2.3.3"]
+polars = ["polars>=1.0.0"]
+arrow = ["pyarrow>=23.0.1"]
+django = [
+    "django>=5.2.17",
+    "asgiref>=3.8.1",
+    "clickhouse-connect>=1.4.2",
+    "urllib3>=2.8.0",
+    "certifi>=2026.10.19",
+]
+flask = [
+    "flask[async]>=3.1.3",
+    "werkzeug>=3.1.9",
+    "clickhouse-connect>=1.4.2",
+    "urllib3>=2.8.0",
+    "certifi>=2026.10.19",
 ]
 
 [project.scripts]
@@ -67,6 +92,8 @@ hypequery = "hypequery.cli:main"
 Homepage = "https://hypequery.com"
 Repository = "https://github.com/hypequery/hypequery"
 Issues = "https://github.com/hypequery/hypequery/issues"
+Documentation = "https://github.com/hypequery/hypequery/tree/main/python/hypequery#readme"
+Changelog = "https://github.com/hypequery/hypequery/blob/main/python/hypequery/CHANGELOG.md"
 
 [dependency-groups]
 dev = [
@@ -77,8 +104,13 @@ dev = [
   "ruff>=0.6",
   "import-linter>=2.0",
   "httpx>=0.27",
+  # Only a test oracle: its CORS and trusted-host middleware check the core's.
+  # 1.10 is the release whose Vary and IPv6 Host handling the core matches.
+  "starlette>=1.10",
   "packaging>=25",
   "towncrier==26.9.0",
+  "sqlalchemy>=2.0",
+  "flask-login>=0.6.3",
 ]
 
 [tool.hatch.build.targets.wheel]
@@ -135,9 +167,21 @@ max-complexity = 15
 python_version = "3.11"
 strict = true
 files = ["src", "tests", "scripts", "examples"]
+# The scaffold templates import the generated project's own modules (datasets,
+# analytics); tests/test_cli_init_framework.py imports and serves each one.
+exclude = ["^src/hypequery/cli/templates/"]
 warn_unreachable = true
 # Public signatures must not leak Any; see the PR rules in the plan.
 disallow_any_generics = true
+
+# Optional integrations ship no usable types for Python 3.11 (Django, pandas and
+# pyarrow have none; numpy's, reached through polars, need 3.12 syntax). Their
+# objects type as Any at the integration boundary only.
+[[tool.mypy.overrides]]
+module = ["django.*", "flask_login.*", "pandas.*", "pyarrow.*", "numpy.*", "polars.*"]
+ignore_missing_imports = true
+follow_imports = "skip"
+follow_imports_for_stubs = true
 
 [tool.coverage.run]
 branch = true
@@ -155,11 +199,6 @@ fail_under = 88
 testpaths = ["tests"]
 pythonpath = ["."]
 addopts = "-q"
-filterwarnings = [
-  # Starlette is moving its test client to httpx2. The suite also drives apps
-  # through httpx directly (Client, ASGITransport), so migrate both together.
-  "ignore:Using `httpx` with `starlette.testclient` is deprecated",
-]
 
 # Import boundaries. These encode the layering the security roadmap requires:
 # protocol is the foundation, datasets builds on it, execution adapts compiled
@@ -172,9 +211,10 @@ root_package = "hypequery"
 include_external_packages = true
 
 [[tool.importlinter.contracts]]
-name = "Layered: cli -> serve -> execution -> datasets -> protocol"
+name = "Layered: contrib -> cli -> serve -> execution -> datasets -> protocol"
 type = "layers"
 layers = [
+  "hypequery.contrib",
   "hypequery.cli",
   "hypequery.serve",
   "hypequery.execution",
@@ -187,6 +227,30 @@ name = "protocol and datasets stay framework-free and driver-free"
 type = "forbidden"
 source_modules = ["hypequery.protocol", "hypequery.datasets"]
 forbidden_modules = ["fastapi", "starlette", "uvicorn", "clickhouse_connect"]
+
+# Decision 0023: the serving core takes requests from any framework's adapter
+# and imports none of them. AnyIO (its worker pool) is a runtime, not a framework.
+[[tool.importlinter.contracts]]
+name = "The serve core stays framework-free"
+type = "forbidden"
+source_modules = ["hypequery.serve.core"]
+forbidden_modules = [
+  "fastapi",
+  "starlette",
+  "uvicorn",
+  "django",
+  "flask",
+  "werkzeug",
+  "asgiref",
+]
+
+# Decision 0023: Django and Flask are served natively from contrib, through the
+# same sync adapter as any WSGI server; `hypequery.serve` imports neither.
+[[tool.importlinter.contracts]]
+name = "Serve imports no web framework; Django and Flask adapters live in contrib"
+type = "forbidden"
+source_modules = ["hypequery.serve"]
+forbidden_modules = ["fastapi", "starlette", "django", "flask", "werkzeug", "asgiref"]
 
 [[tool.importlinter.contracts]]
 name = "Dataset SQL compilation stays independent of client orchestration and execution"

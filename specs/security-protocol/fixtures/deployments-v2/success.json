@@ -113,5 +113,149 @@
         }
       ]
     }
+  },
+  {
+    "id": "resolved-rows-replacing",
+    "value": {
+      "kind": "hypequery-deployment",
+      "version": 2,
+      "datasets": [
+        {
+          "name": "users",
+          "source": "users",
+          "tenant": {
+            "kind": "not-required"
+          },
+          "dimensions": [],
+          "measures": [],
+          "filters": [],
+          "relationships": [],
+          "rowResolution": {
+            "kind": "final",
+            "engine": "replacing",
+            "deletedColumn": "is_deleted"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "id": "resolved-rows-final-only",
+    "value": {
+      "kind": "hypequery-deployment",
+      "version": 2,
+      "datasets": [
+        {
+          "name": "users",
+          "source": "users",
+          "tenant": {
+            "kind": "not-required"
+          },
+          "dimensions": [],
+          "measures": [],
+          "filters": [],
+          "relationships": [],
+          "rowResolution": {
+            "kind": "final"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "id": "resolved-rows-collapsing",
+    "value": {
+      "kind": "hypequery-deployment",
+      "version": 2,
+      "datasets": [
+        {
+          "name": "users",
+          "source": "users",
+          "tenant": {
+            "kind": "not-required"
+          },
+          "dimensions": [],
+          "measures": [],
+          "filters": [],
+          "relationships": [],
+          "rowResolution": {
+            "kind": "final",
+            "engine": "collapsing",
+            "signColumn": "sign"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "id": "resolved-rows-versioned-collapsing",
+    "value": {
+      "kind": "hypequery-deployment",
+      "version": 2,
+      "datasets": [
+        {
+          "name": "users",
+          "source": "users",
+          "tenant": {
+            "kind": "not-required"
+          },
+          "dimensions": [],
+          "measures": [],
+          "filters": [],
+          "relationships": [],
+          "rowResolution": {
+            "kind": "final",
+            "engine": "versioned-collapsing",
+            "signColumn": "sign"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "id": "merge-measures",
+    "value": {
+      "kind": "hypequery-deployment",
+      "version": 2,
+      "datasets": [
+        {
+          "name": "daily_active_users",
+          "source": "daily_active_users",
+          "tenant": {
+            "kind": "not-required"
+          },
+          "dimensions": [
+            {
+              "name": "day",
+              "type": "timestamp",
+              "source": {
+                "kind": "column",
+                "column": "day"
+              },
+              "filterable": true,
+              "groupable": true
+            }
+          ],
+          "measures": [
+            {
+              "name": "active_users",
+              "aggregation": "merge",
+              "field": "users",
+              "filters": [],
+              "stateFunction": "uniq"
+            },
+            {
+              "name": "events",
+              "aggregation": "merge",
+              "stateFunction": "sum",
+              "field": "events",
+              "filters": []
+            }
+          ],
+          "filters": [],
+          "relationships": []
+        }
+      ]
+    }
   }
 ]

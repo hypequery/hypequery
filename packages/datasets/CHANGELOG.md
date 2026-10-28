@@ -1,5 +1,67 @@
 # @hypequery/datasets
 
+## 0.26.0
+
+### Minor Changes
+
+- 5c6c96c: Publish `measure.merge` measures to the deployment contract (RFC 0022). A base
+  measure may use `aggregation: 'merge'` with a `stateFunction` from the shared
+  allowlist (now exported by `@hypequery/protocol`); it takes no filters or `sql`,
+  and in contract 3 carries `approximate: true` exactly for estimating states.
+  Deployments rehydrate merge measures, so hosted runtimes can serve
+  pre-aggregated tables. A metric over a merge measure is still refused, because
+  the expression grammar has no merge aggregate.
+
+### Patch Changes
+
+- Updated dependencies [5c6c96c]
+  - @hypequery/protocol@0.23.0
+
+## 0.25.0
+
+### Minor Changes
+
+- 3492dc9: Add enforced constraints to `createDatasetClient`: `context.runtime.constraints` takes RFC 0019 comparisons (a declared filter or a one-hop `relationship.field`) resolved from trusted context. They are ANDed onto every read of the dataset's source, in every query shape: aggregate, derived, `having`, window, shift, metrics, derived metrics and relationship joins. A constraint the dataset can't enforce refuses the call without describing the constraint. Constraints share the dataset's `maxFilters` ceiling with the caller (at most 32 per call), enter the result-cache key, and are refused on the deprecated semantic-backend path rather than dropped. The runtime tenant and constraints are now applied at a single source-scoping step (RFC 0020). Queries without constraints generate identical SQL and keep their cache keys.
+- 18257df: Datasets can declare more than one time axis. `timeKey` stays the default; list the others in `timeKeys`, then select one per query with `timeKey`, on dataset and metric queries alike:
+
+  ```ts
+  const Orders = dataset("orders", {
+    source: "orders",
+    timeKey: "createdAt",
+    timeKeys: ["shippedAt"],
+    dimensions: {
+      /* ... */
+    },
+    measures: { revenue: measure.sum("amount") },
+  });
+
+  await client.execute(Orders, {
+    measures: ["revenue"],
+    by: "month",
+    timeKey: "shippedAt",
+  });
+  ```
+
+  Typed queries narrow `timeKey` to the dataset's declared axes, so a misspelled axis is a compile error (exported as `DatasetTimeKeyNames`). The selected axis drives grains, window and shift measures, and their bounded-range checks. Timezone-free filters on any declared axis use the query timezone. The result cache keys an alternate axis separately; queries on the default axis keep their existing keys. Catalogs and contracts publish `timeKeys` only when a dataset declares alternates. `buildDatasetInputSchema` / `buildMetricInputSchema` take a new opt-in `timeKey` option, which Serve endpoints and `generateDatasetTools` enable, so other schemas and manifest hashes are unchanged. The deprecated `backend` path rejects alternate axes.
+
+- ffc2610: Add `rowResolution` (RFC 0021), the one API for reading versioned ClickHouse
+  sources, in code and in the deployment contract, so they can be published.
+  `{ kind: 'final' }` reads the source with `FINAL`; naming the engine
+  (`replacing` with `deletedColumn`, `collapsing`/`versioned-collapsing` with
+  `signColumn`) also keeps only current rows, on base reads and relationship targets.
+  Deployment contracts preserve the policy on validation, hashing and rehydration,
+  so a published dataset reads exactly as it does locally.
+
+  `final: true` is deprecated: it still works, is read as `rowResolution:
+{ kind: 'final' }`, and logs a one-time warning. Its result-cache keys change once,
+  because they are now built from `rowResolution`.
+
+### Patch Changes
+
+- db271b2: Fix to-date measures returning `null` on every row in a non-UTC query timezone when they are reached through a nested derived measure (the composite time-measure plan). The to-date start is now kept in the query timezone instead of the server's.
+- Updated dependencies [ffc2610]
+  - @hypequery/protocol@0.22.0
+
 ## 0.24.0
 
 ### Minor Changes

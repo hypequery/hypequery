@@ -56,11 +56,13 @@ export interface QueryBuilderLike {
 
   /**
    * Optional: read the table source with ClickHouse `FINAL`. Needed only for
-   * datasets declared `final: true`; querying one through a builder without
+   * datasets that declare `rowResolution`; querying one through a builder without
    * it is refused rather than run without `FINAL`, which would count every
    * unmerged row version.
    */
   final?(): QueryBuilderLike;
+  /** Query-level ClickHouse settings, sent with the query. */
+  settings?(opts: Record<string, string | number | boolean>): QueryBuilderLike;
 
   // Joins. Relationship traversal uses `leftAnyJoin`; `leftJoin` stays part
   // of the protocol for builder compatibility.

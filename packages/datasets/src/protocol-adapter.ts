@@ -21,7 +21,7 @@ import type {
 } from './types.js';
 import { toProtocolSemanticMetadata } from './utils/protocol-semantic-metadata.js';
 import { assertPublishableTimeGrains, isPortableTimeGrain, requirePortableTimeGrain } from './utils/portable-grains.js';
-import { requirePortableAggregation } from './utils/portable-aggregations.js';
+import { requirePublishableMeasureAggregation } from './utils/portable-aggregations.js';
 import { assertNoPublishedSegments } from './utils/segments.js';
 
 export interface BuildProtocolDatasetContractOptions {
@@ -130,12 +130,6 @@ export function buildProtocolDatasetContract(
   }
   assertNoPublishedSegments(dataset);
   assertPublishableTimeGrains(dataset);
-  if (dataset.final) {
-    throw new Error(
-      `Dataset "${dataset.name}" is declared final: true, which the deployment contract cannot carry yet. ` +
-      'Publishing it would serve the source without FINAL and count unmerged row versions.',
-    );
-  }
   const metrics = Object.entries(options.metrics ?? {})
     .filter(([, metric]) => (
       metric.__type === 'grained_metric_ref' ? metric.metric : metric
@@ -154,6 +148,7 @@ export function buildProtocolDatasetContract(
     ...(dataset.description !== undefined ? { description: dataset.description } : {}),
     ...toProtocolSemanticMetadata(dataset),
     source: dataset.source,
+    ...(dataset.rowResolution === undefined ? {} : { rowResolution: { ...dataset.rowResolution } }),
     ...(dataset.freshness !== undefined ? { freshness: { ...dataset.freshness } } : {}),
     ...(dataset.owner !== undefined ? { owner: dataset.owner } : {}),
     ...(dataset.defaults !== undefined
@@ -195,8 +190,9 @@ export function buildProtocolDatasetContract(
     })).sort(byName),
     measures: Object.entries(baseMeasures).map(([name, measure]) => ({
       name,
-      aggregation: requirePortableAggregation(measure.aggregation, `Measure "${dataset.name}.${name}"`),
+      aggregation: requirePublishableMeasureAggregation(measure.aggregation, `Measure "${dataset.name}.${name}"`),
       field: measure.field,
+      ...(measure.stateFunction !== undefined ? { stateFunction: measure.stateFunction } : {}),
       ...(measure.argField !== undefined ? { argField: measure.argField } : {}),
       ...(measure.level !== undefined ? { level: measure.level } : {}),
       ...(measure.sql !== undefined

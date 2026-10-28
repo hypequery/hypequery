@@ -1,3 +1,5 @@
+import { validateProtocolRowResolution } from '@hypequery/protocol';
+import type { RowResolution } from './types.js';
 /**
  * dataset() — creates a typed semantic model over a physical table.
  *
@@ -14,6 +16,7 @@
  *   source: "orders",
  *   tenantKey: "tenant_id",
  *   timeKey: "created_at",
+ *   timeKeys: ["shipped_at"],
  *   dimensions: {
  *     id: dimension.string(),
  *     status: dimension.string({ label: "Order Status" }),
@@ -68,6 +71,8 @@ import { validateSemanticMetadata } from './utils/semantic-metadata-validation.j
 import { derivedMeasuresView, getBaseMeasure } from './utils/dataset-measures.js';
 import { normalizeSegments } from './utils/segments.js';
 
+// Inferred calls: an omitted timeKey or timeKeys narrows to "none", so a
+// query's timeKey is checked against exactly the declared axes.
 export function dataset<
   TDatasetName extends string,
   TDimensions extends Record<string, DimensionDefinition>,
@@ -75,10 +80,41 @@ export function dataset<
   TRelationships extends Record<string, RelationshipDefinition> = Record<string, never>,
   const TSegments extends Record<string, SegmentDefinition> = {},
   const TFilters extends SemanticFiltersDefinition | undefined = SemanticFiltersDefinition | undefined,
+  const TTimeKey extends string | undefined = undefined,
+  const TTimeKeys extends readonly string[] = readonly [],
 >(
   name: TDatasetName,
-  config: DatasetConfig<TDimensions, TDefinitions, TRelationships, TSegments, TFilters>,
-): DatasetInstance<TDimensions, TDefinitions, TRelationships, TDatasetName, DerivedMeasures<TDefinitions>, TSegments, NormalizedDatasetFilters<TDimensions, TFilters>> {
+  config: DatasetConfig<TDimensions, TDefinitions, TRelationships, TSegments, TFilters, TTimeKey, TTimeKeys>,
+): DatasetInstance<TDimensions, TDefinitions, TRelationships, TDatasetName, DerivedMeasures<TDefinitions>, TSegments, NormalizedDatasetFilters<TDimensions, TFilters>, TTimeKey, TTimeKeys[number]>;
+// Calls that pass leading type arguments explicitly get these defaults, not
+// inference, so the time axes default broad: such definitions keep compiling
+// and their queries accept any string timeKey, as before.
+export function dataset<
+  TDatasetName extends string,
+  TDimensions extends Record<string, DimensionDefinition>,
+  TDefinitions extends Record<string, DatasetMeasureDefinition> = {},
+  TRelationships extends Record<string, RelationshipDefinition> = Record<string, never>,
+  const TSegments extends Record<string, SegmentDefinition> = {},
+  const TFilters extends SemanticFiltersDefinition | undefined = SemanticFiltersDefinition | undefined,
+  const TTimeKey extends string | undefined = string | undefined,
+  const TTimeKeys extends readonly string[] = readonly string[],
+>(
+  name: TDatasetName,
+  config: DatasetConfig<TDimensions, TDefinitions, TRelationships, TSegments, TFilters, TTimeKey, TTimeKeys>,
+): DatasetInstance<TDimensions, TDefinitions, TRelationships, TDatasetName, DerivedMeasures<TDefinitions>, TSegments, NormalizedDatasetFilters<TDimensions, TFilters>, TTimeKey, TTimeKeys[number]>;
+export function dataset<
+  TDatasetName extends string,
+  TDimensions extends Record<string, DimensionDefinition>,
+  TDefinitions extends Record<string, DatasetMeasureDefinition> = {},
+  TRelationships extends Record<string, RelationshipDefinition> = Record<string, never>,
+  const TSegments extends Record<string, SegmentDefinition> = {},
+  const TFilters extends SemanticFiltersDefinition | undefined = SemanticFiltersDefinition | undefined,
+  const TTimeKey extends string | undefined = string | undefined,
+  const TTimeKeys extends readonly string[] = readonly string[],
+>(
+  name: TDatasetName,
+  config: DatasetConfig<TDimensions, TDefinitions, TRelationships, TSegments, TFilters, TTimeKey, TTimeKeys>,
+): DatasetInstance<TDimensions, TDefinitions, TRelationships, TDatasetName, DerivedMeasures<TDefinitions>, TSegments, NormalizedDatasetFilters<TDimensions, TFilters>, TTimeKey, TTimeKeys[number]> {
   // Structural validation runs before anything is normalized, so an invalid
   // model fails at definition time rather than on the first query that reaches
   // the broken part of it.
@@ -92,7 +128,7 @@ export function dataset<
   const relationships = normalizeRelationships(config.relationships, config.source);
 
   type TMeasures = BaseMeasures<TDefinitions>;
-  type ThisDataset = DatasetInstance<TDimensions, TDefinitions, TRelationships, TDatasetName, DerivedMeasures<TDefinitions>, TSegments, NormalizedDatasetFilters<TDimensions, TFilters>>;
+  type ThisDataset = DatasetInstance<TDimensions, TDefinitions, TRelationships, TDatasetName, DerivedMeasures<TDefinitions>, TSegments, NormalizedDatasetFilters<TDimensions, TFilters>, TTimeKey, TTimeKeys[number]>;
   function metric<TName extends string>(
     metricName: TName,
     metricConfig: BaseMetricConfig<TMeasures>,
@@ -139,7 +175,7 @@ export function dataset<
     __type: 'dataset',
     name,
     source: config.source,
-    ...(config.final ? { final: true } : {}),
+    ...datasetRowResolution(name, config),
     description: config.description,
     ...snapshotSemanticMetadata(config),
     freshness: config.freshness === undefined ? undefined : { ...config.freshness },
@@ -150,6 +186,9 @@ export function dataset<
     },
     tenantKey: config.tenantKey,
     timeKey: config.timeKey,
+    ...(config.timeKeys === undefined || config.timeKeys.length === 0
+      ? {}
+      : { timeKeys: Object.freeze(config.timeKeys.filter(key => key !== config.timeKey)) }),
     ...(config.timeGrains === undefined ? {} : { timeGrains: Object.freeze([...config.timeGrains]) }),
     dimensions,
     measures,
@@ -163,4 +202,28 @@ export function dataset<
   };
 
   return ds;
+}
+
+let warnedFinalDeprecated = false;
+
+/**
+ * `rowResolution` on the instance, the one representation of row resolution.
+ * The deprecated `final: true` means `{ kind: 'final' }`; `final` stays on the
+ * instance, true whenever rows are resolved, for code that still reads it.
+ */
+function datasetRowResolution(
+  name: string,
+  config: { final?: boolean; rowResolution?: RowResolution },
+): { final?: true; rowResolution?: RowResolution } {
+  if (config.rowResolution !== undefined)
+    return { final: true, rowResolution: validateProtocolRowResolution(config.rowResolution) as RowResolution };
+  if (!config.final) return {};
+  if (!warnedFinalDeprecated) {
+    warnedFinalDeprecated = true;
+    console.warn(
+      `[hypequery/datasets] Dataset "${name}": \`final: true\` is deprecated. `
+        + "Use `rowResolution: { kind: 'final' }`, which also names the engine when needed.",
+    );
+  }
+  return { final: true, rowResolution: { kind: 'final' } };
 }

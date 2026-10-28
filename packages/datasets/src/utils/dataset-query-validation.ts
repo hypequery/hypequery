@@ -23,15 +23,24 @@ import {
   validateRelationshipTenantRuntime,
 } from './relationship-validation.js';
 import { segmentSelectionErrors } from './segments.js';
+import { enforcedConstraintErrors } from './enforced-constraints.js';
 import { analyzeTimeMeasureAxis } from './time-measure-axis.js';
 import { datasetHavingErrors } from './dataset-having.js';
+import { datasetOnTimeKey, selectedTimeKeyError } from './dataset-time-keys.js';
 
 export function validateDatasetQueryInput(
-  ds: AnyDatasetInstance,
+  dataset: AnyDatasetInstance,
   query: DatasetQuery,
   context?: ExecutionContext,
 ): ValidationResult {
-  const errors: string[] = [...semanticQuerySyntaxErrors(query), ...queryTimezoneErrors(query.timezone)];
+  // Validate against the selected time axis, so grain and window checks see it.
+  const timeKeyError = selectedTimeKeyError(dataset, query.timeKey);
+  const ds = timeKeyError ? dataset : datasetOnTimeKey(dataset, query.timeKey);
+  const errors: string[] = [
+    ...semanticQuerySyntaxErrors(query),
+    ...queryTimezoneErrors(query.timezone),
+    ...(timeKeyError ? [timeKeyError] : []),
+  ];
   const dimensionNames = Object.keys(ds.dimensions);
   const measureNames = Object.keys(ds.measures);
   const selectedDimensions = query.dimensions ?? [];
@@ -56,6 +65,7 @@ export function validateDatasetQueryInput(
   if (relationshipTenantError) {
     errors.push(relationshipTenantError);
   }
+  errors.push(...enforcedConstraintErrors(ds, context, query.filters?.length ?? 0));
 
   if (selectedDimensions.length === 0 && selectedMeasures.length === 0) {
     errors.push(`Dataset "${ds.name}" query must select at least one dimension or measure.`);

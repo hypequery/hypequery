@@ -15,7 +15,9 @@ import type {
   MetricRef,
 } from '../types.js';
 import { getMetricGrain, getMetricRef, type MetricHandle } from '../utils/metric-handle.js';
+import { runtimeConstraints } from '../utils/row-scope.js';
 import { localDefinitionIdentity, scopedDefinitionIdentity } from './definition-identity.js';
+import { selectsAlternateTimeKey } from '../utils/dataset-time-keys.js';
 
 /** Namespace defaults, so caching works without any configuration. */
 export const DEFAULT_CACHE_PROJECT = 'hypequery';
@@ -135,10 +137,23 @@ function filterNode(filter: MetricFilter): Record<string, unknown> {
   };
 }
 
-function sharedQueryFields(query: DatasetQuery | MetricQuery): Record<string, unknown> {
+/**
+ * The call's filters as the preimage sees them: the caller's, then the
+ * enforced constraints (RFC 0020). Constraints change rows, so they must
+ * change the key; the preimage sorts and dedupes filters, so a constraint and
+ * an identical caller filter (which yield the same rows) share an entry.
+ */
+function effectiveFilters(query: DatasetQuery | MetricQuery, context: ExecutionContext | undefined) {
+  const constraints = runtimeConstraints(context);
+  if (constraints.length === 0) return query.filters;
+  return [...(query.filters ?? []), ...constraints];
+}
+
+function sharedQueryFields(query: DatasetQuery | MetricQuery, context: ExecutionContext | undefined): Record<string, unknown> {
+  const filters = effectiveFilters(query, context);
   return {
     ...(query.dimensions !== undefined ? { dimensions: [...query.dimensions] } : {}),
-    ...(query.filters !== undefined ? { filters: query.filters.map(filterNode) } : {}),
+    ...(filters !== undefined ? { filters: filters.map(filterNode) } : {}),
     ...(query.segments !== undefined ? { segments: [...query.segments] } : {}),
     ...(query.orderBy !== undefined
       ? { orderBy: query.orderBy.map(({ field, direction }) => ({ field, direction })) }
@@ -192,6 +207,14 @@ function partitionTimezone(query: DatasetQuery | MetricQuery): string | undefine
   return query.timezone === 'UTC' ? undefined : query.timezone;
 }
 
+/**
+ * RFC 0009's normalized query has no time axis either. An alternate axis is
+ * folded in like the timezone; the default, named or omitted, folds in nothing.
+ */
+function partitionTimeKey(root: AnyDatasetInstance, query: DatasetQuery | MetricQuery): string | undefined {
+  return selectsAlternateTimeKey(root, query.timeKey) ? query.timeKey : undefined;
+}
+
 function definitionFor(
   settings: ProtocolCacheKeySettings,
   root: AnyDatasetInstance,
@@ -200,9 +223,10 @@ function definitionFor(
   metric?: unknown,
 ): string {
   const timezone = partitionTimezone(query);
+  const timeKey = partitionTimeKey(root, query);
   return settings.definitionIdentity !== undefined
-    ? scopedDefinitionIdentity(settings.definitionIdentity, scope, timezone)
-    : localDefinitionIdentity(root, { metric, scope, timezone });
+    ? scopedDefinitionIdentity(settings.definitionIdentity, scope, timezone, timeKey)
+    : localDefinitionIdentity(root, { metric, scope, timezone, timeKey });
 }
 
 /**
@@ -225,7 +249,7 @@ export function datasetCacheKey(
     const wire = {
       kind: 'dataset',
       dataset: ds.name,
-      ...sharedQueryFields(query),
+      ...sharedQueryFields(query, context),
       ...(query.measures !== undefined ? { measures: [...query.measures] } : {}),
       ...(query.by !== undefined ? { by: query.by } : {}),
     };
@@ -251,7 +275,7 @@ export function metricCacheKey(
       kind: 'metric',
       dataset: ref.dataset.name,
       metric: ref.name,
-      ...sharedQueryFields(query),
+      ...sharedQueryFields(query, context),
       ...(grain !== undefined ? { by: grain } : {}),
     };
     const definition = definitionFor(settings, ref.dataset, scope, query, ref.spec);

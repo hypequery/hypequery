@@ -1,4 +1,0 @@
-- Ship the Apache-2.0 `LICENSE` file in the wheel and sdist, and leave a stale internal review document out of the sdist.
-- Raise transitive minimum versions that the direct floors still admitted with published advisories: `h11>=0.16.0` (via uvicorn) and `anyio>=4.14.2` (via Starlette) in the `fastapi` extra, `certifi>=2026.10.19` (via clickhouse-connect) in both ClickHouse extras, and `idna>=3.15` (via anyio and aiohttp) in the `fastapi` and `clickhouse-async` extras.
-- `create_async_clickhouse_executor` now raises `ModuleNotFoundError` naming `hypequery[clickhouse-async]` when aiohttp is missing. With only `hypequery[clickhouse]` installed, it previously failed with an opaque `internal` error.
-- Rewrite the README's beta notice for PyPI, where the old relative link was broken. Document what each install extra is for, including `clickhouse-async`.

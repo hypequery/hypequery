@@ -8,6 +8,7 @@ import type {
 import { createHooks, type CreateHooksConfig } from './createHooks.js';
 import { HttpError } from './errors.js';
 import type { ExtractNames, QueryInput, QueryOutput, QueryOutputForInput } from './types.js';
+import type { WithPageMeta } from './utils/response-meta.js';
 
 type DatasetKey<Name extends string> = `dataset:${Name}`;
 type DatasetNamesFromApi<Api> =
@@ -28,6 +29,12 @@ type QueryOptions<Api, Key extends ExtractNames<Api>> = Omit<
     QueryOutput<Api, Key>,
     QueryKey<Key, QueryInput<Api, Key>>
   >,
+  'queryKey' | 'queryFn'
+>;
+
+/** Query options whose `select` receives the projected response; `TData` is what `select` returns. */
+type ProjectedQueryOptions<Api, Key extends ExtractNames<Api>, TProjected, TData> = Omit<
+  TanstackUseQueryOptions<TProjected, HttpError, TData, QueryKey<Key, QueryInput<Api, Key>>>,
   'queryKey' | 'queryFn'
 >;
 
@@ -64,11 +71,15 @@ export function createAnalyticsHooks<
   function useMetric<Name extends MetricName>(
     ...args: QueryInput<Api, Name> extends never ? [name: Name, options?: QueryOptions<Api, Name>] : never
   ): UseQueryResult<QueryOutput<Api, Name>, HttpError>;
-  function useMetric<Name extends MetricName, const TInput extends QueryInput<Api, Name>>(
+  function useMetric<
+    Name extends MetricName,
+    const TInput extends QueryInput<Api, Name>,
+    TData = QueryOutputForInput<Api, Name, TInput>,
+  >(
     name: Name,
     input: TInput,
-    options?: QueryOptions<Api, Name>,
-  ): UseQueryResult<QueryOutputForInput<Api, Name, TInput>, HttpError>;
+    options?: ProjectedQueryOptions<Api, Name, QueryOutputForInput<Api, Name, TInput>, TData>,
+  ): UseQueryResult<TData, HttpError>;
   function useMetric(
     ...args: any[]
   ): UseQueryResult<any, HttpError> {
@@ -84,11 +95,17 @@ export function createAnalyticsHooks<
   function useDataset<
     Name extends DatasetNamesFromApi<Api>,
     const TInput extends QueryInput<Api, Extract<ExtractNames<Api>, DatasetKey<Name>>>,
+    TData = QueryOutputForInput<Api, Extract<ExtractNames<Api>, DatasetKey<Name>>, TInput>,
   >(
     name: Name,
     input: TInput,
-    options?: QueryOptions<Api, Extract<ExtractNames<Api>, DatasetKey<Name>>>,
-  ): UseQueryResult<QueryOutputForInput<Api, Extract<ExtractNames<Api>, DatasetKey<Name>>, TInput>, HttpError>;
+    options?: ProjectedQueryOptions<
+      Api,
+      Extract<ExtractNames<Api>, DatasetKey<Name>>,
+      QueryOutputForInput<Api, Extract<ExtractNames<Api>, DatasetKey<Name>>, TInput>,
+      TData
+    >,
+  ): UseQueryResult<TData, HttpError>;
   function useDataset(
     ...args: any[]
   ): UseQueryResult<any, HttpError> {
@@ -100,9 +117,9 @@ export function createAnalyticsHooks<
   function useInfiniteMetric<Name extends MetricName, const TInput extends QueryInput<Api, Name>>(
     name: Name,
     input: TInput,
-    options?: InfiniteQueryOptions<Api, Name, QueryOutputForInput<Api, Name, TInput>>,
+    options?: InfiniteQueryOptions<Api, Name, WithPageMeta<QueryOutputForInput<Api, Name, TInput>>>,
   ): UseInfiniteQueryResult<
-    InfiniteData<QueryOutputForInput<Api, Name, TInput>, number>,
+    InfiniteData<WithPageMeta<QueryOutputForInput<Api, Name, TInput>>, number>,
     HttpError
   > {
     return (hooks.useInfiniteQuery as any)(name, input, options);
@@ -117,11 +134,11 @@ export function createAnalyticsHooks<
     options?: InfiniteQueryOptions<
       Api,
       Extract<ExtractNames<Api>, DatasetKey<Name>>,
-      QueryOutputForInput<Api, Extract<ExtractNames<Api>, DatasetKey<Name>>, TInput>
+      WithPageMeta<QueryOutputForInput<Api, Extract<ExtractNames<Api>, DatasetKey<Name>>, TInput>>
     >,
   ): UseInfiniteQueryResult<
     InfiniteData<
-      QueryOutputForInput<Api, Extract<ExtractNames<Api>, DatasetKey<Name>>, TInput>,
+      WithPageMeta<QueryOutputForInput<Api, Extract<ExtractNames<Api>, DatasetKey<Name>>, TInput>>,
       number
     >,
     HttpError
