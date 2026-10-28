@@ -130,6 +130,7 @@ ${datasetList.map((name) => `- ${name}`).join('\n')}
 - \`notIn\`: Not in list
 - \`between\`: Between two values
 - \`like\`: Pattern match
+- \`isNull\` / \`isNotNull\`: Field is (not) NULL; omit \`value\`, and only where the filter lists the operator
 
 ## Time Grains
 - \`day\`: Daily aggregation

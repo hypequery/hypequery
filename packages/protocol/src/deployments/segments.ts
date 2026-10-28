@@ -7,13 +7,15 @@ import type { ProtocolExpression } from '../expressions/index.js';
 import type { ProtocolDatasetDimension, ProtocolDatasetTenantPolicy } from './types.js';
 
 /**
- * True for a comparison between references and literals, or a logical tree
+ * True for a comparison between references and literals (a null check has
+ * only `left`), or a logical tree
  * whose leaves are all such comparisons. Aggregates, arithmetic, and calls are
  * excluded: a segment selects rows by their own dimension values.
  */
 export function isSegmentPredicate(expression: ProtocolExpression): boolean {
   if (expression.kind === 'comparison') {
-    return isSegmentOperand(expression.left) && isSegmentOperand(expression.right);
+    return isSegmentOperand(expression.left)
+      && (!('right' in expression) || isSegmentOperand(expression.right));
   }
   if (expression.kind !== 'logical') return false;
   return expression.operator === 'not'
@@ -33,8 +35,11 @@ export function expressionReferences(expression: ProtocolExpression): string[] {
     case 'literal':
       return [];
     case 'binary':
-    case 'comparison':
       return [...expressionReferences(expression.left), ...expressionReferences(expression.right)];
+    case 'comparison':
+      return 'right' in expression
+        ? [...expressionReferences(expression.left), ...expressionReferences(expression.right)]
+        : expressionReferences(expression.left);
     case 'call':
       return expression.args.flatMap(expressionReferences);
     case 'logical':

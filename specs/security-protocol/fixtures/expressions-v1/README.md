@@ -12,3 +12,5 @@ Generators have these language-neutral meanings:
 - `logical-operands` creates one logical `and` node containing `count` distinct copies of that literal expression.
 - `logical-tree` creates a logical `and` root with ten logical `and` groups. The first nine groups contain 100 distinct literal expressions and the tenth contains `lastGroupItems`. The resulting expression has exactly `911 + lastGroupItems` nodes.
 - `unsafe-accessor` is host-model conditional under RFC 0012 and exposes a reference's `name` through an accessor rather than a data property.
+
+RFC 0023 added the null checks: the `comparison-isNull`, `comparison-isNotNull` and `null-check-*` success cases and the `dataset-null-check-filters` query, and rejections for a null check with a `right` operand (including a `null` literal), one without `left`, and a value comparison without `right`.

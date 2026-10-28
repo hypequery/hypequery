@@ -26,7 +26,7 @@ export function measure(input: unknown, path: string): ClientMeasure {
 export function filter(input: unknown, path: string): ClientFilter {
   const value = shape(input, ['type', 'operators'], path);
   const type = choice(value.type, CLIENT_FIELD_TYPES, pointer(path, 'type'));
-  const allowed = type === 'boolean' ? ['eq', 'neq', 'in', 'notIn']
+  const allowed = type === 'boolean' ? ['eq', 'neq', 'in', 'notIn', 'isNull', 'isNotNull']
     : type === 'number' ? CLIENT_OPERATORS.filter(item => item !== 'like') : CLIENT_OPERATORS;
   const operators = names(value.operators, pointer(path, 'operators'), allowed);
   if (operators.length === 0) clientError('HQ_CLIENT_SHAPE', pointer(path, 'operators'));

@@ -28,13 +28,17 @@ _WINDOW_FRAMES = ("trailing", "toDate", "cumulative")
 
 
 def _is_segment_predicate(expression: dict[str, object]) -> bool:
-    """A comparison between references and literals, or a logical tree of them."""
+    """A comparison between references and literals, or a logical tree of them.
+
+    A null check (RFC 0023) has only ``left``.
+    """
 
     kind = expression.get("kind")
     if kind == "comparison":
         return all(
             cast(dict[str, object], expression[side]).get("kind") in ("reference", "literal")
             for side in ("left", "right")
+            if side in expression
         )
     if kind != "logical":
         return False

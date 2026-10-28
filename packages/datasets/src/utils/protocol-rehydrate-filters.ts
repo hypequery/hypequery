@@ -4,7 +4,7 @@ import type { MetricFilter } from '../types.js';
 /**
  * A measure's fixed filters cross the contract boundary as RFC 0003
  * expressions. `protocol-adapter.ts` only ever emits `reference <op> literal`
- * for them, so this inverts exactly that shape and refuses anything else rather
+ * (or `reference isNull` / `isNotNull`) for them, so this inverts exactly that shape and refuses anything else rather
  * than partially interpreting an expression it cannot faithfully rebuild.
  */
 export function rehydrateMeasureFilter(
@@ -12,6 +12,11 @@ export function rehydrateMeasureFilter(
   unsupported: () => Error,
 ): MetricFilter {
   if (expression.kind !== 'comparison') throw unsupported();
+  if (!('right' in expression)) {
+    // A null check (RFC 0023): `reference isNull`, with no value to unwrap.
+    if (expression.left.kind !== 'reference') throw unsupported();
+    return { field: String(expression.left.name), operator: expression.operator };
+  }
   const { left, right, operator } = expression;
   if (left.kind !== 'reference' || right.kind !== 'literal') throw unsupported();
   return {

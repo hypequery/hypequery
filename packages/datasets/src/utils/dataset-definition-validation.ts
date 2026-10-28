@@ -34,7 +34,7 @@ import type {
 import { escapeRegExp, isSafeSQLIdentifier, stripSqlLiterals } from '../sql-utils.js';
 import { clickhouseDatasetSqlDialect } from './clickhouse-dataset-sql-dialect.js';
 import { rawSqlErrorMessage } from './raw-sql-dialect-check.js';
-import { SEMANTIC_FILTER_OPERATORS, isSemanticFilterOperator } from '../constants.js';
+import { SEMANTIC_FILTER_OPERATORS, SEMANTIC_NULL_CHECK_OPERATORS, isSemanticFilterOperator } from '../constants.js';
 import { validateDerivedMeasures } from './derived-measure-validation.js';
 import { isDerivedMeasure, isWindowMeasure, isShiftMeasure } from './dataset-measures.js';
 import { validateWindowMeasures } from './window-measure-validation.js';
@@ -184,7 +184,7 @@ function assertSemanticOperator(
     fail(
       datasetName,
       `${context} uses unsupported operator "${String(operator)}". ` +
-      `Supported: ${SEMANTIC_FILTER_OPERATORS.join(', ')}.`,
+      `Supported: ${[...SEMANTIC_FILTER_OPERATORS, ...SEMANTIC_NULL_CHECK_OPERATORS].join(', ')}.`,
     );
   }
 }

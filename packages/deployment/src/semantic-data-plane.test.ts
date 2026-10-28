@@ -89,7 +89,7 @@ function orders() {
       { name: 'orderCount', aggregation: 'count', field: 'status', filters: [] },
     ],
     filters: [
-      { name: 'status', field: 'status', operators: ['eq', 'in'] },
+      { name: 'status', field: 'status', operators: ['eq', 'in', 'isNull'] },
       { name: 'tenantId', field: 'tenantId', operators: ['eq'] },
     ],
     relationships: [{
@@ -374,6 +374,20 @@ describe('semantic data plane', () => {
 
     expect(await filter('eq')).toBe('accepted');
     expect(await filter('like')).toBe('input-invalid');
+  });
+
+  it('accepts a listed null check, which has no compared value (RFC 0023)', async () => {
+    const { plane: dataPlane } = plane();
+    const filter = (operator: string) => categoryOf(() => dataPlane.invoke({
+      invocation: invocation({
+        ...DATASET_QUERY,
+        filters: [{ kind: 'comparison', operator, left: { kind: 'reference', name: 'status' } }],
+      }),
+      credentials: 'token',
+    }));
+
+    expect(await filter('isNull')).toBe('accepted');
+    expect(await filter('isNotNull')).toBe('input-invalid');
   });
 
   it('rejects a filter whose compared value is not a literal', async () => {

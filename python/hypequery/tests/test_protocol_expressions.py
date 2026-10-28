@@ -7,6 +7,7 @@ import pytest
 
 from hypequery.protocol import (
     ProtocolCallExpression,
+    ProtocolComparisonExpression,
     ProtocolDatasetQuery,
     ProtocolExpressionError,
     ProtocolExpressionLimits,
@@ -70,6 +71,24 @@ def test_validates_and_serializes_immutable_detached_expression_models() -> None
     frozen_value = cast(object, literal.value)
     with pytest.raises(TypeError):
         cast(dict[str, object], frozen_value)["late"] = True
+
+
+def test_null_check_has_no_right_operand() -> None:
+    """RFC 0023: ``isNull``/``isNotNull`` keep only ``left``, and refuse a value."""
+
+    source: dict[str, object] = {
+        "kind": "comparison",
+        "operator": "isNotNull",
+        "left": {"kind": "reference", "name": "churned_at"},
+    }
+    expression = validate_protocol_expression(source)
+    assert isinstance(expression, ProtocolComparisonExpression)
+    assert expression.right is None
+    assert expression_to_data(expression) == source
+
+    with pytest.raises(ProtocolExpressionError) as raised:
+        validate_protocol_expression({**source, "right": _literal(None)})
+    assert raised.value.code == "HQ_EXPRESSION_INVALID_ARITY"
 
 
 def test_semantic_query_model_preserves_absent_and_empty_collections() -> None:

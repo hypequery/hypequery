@@ -1,4 +1,5 @@
 import { resolveRelationshipReference } from './relationship-measures.js';
+import { filterAllowsOperator } from './filter-operator-policy.js';
 /**
  * Shared validation for relationship-qualified filters, used by both the
  * dataset-query and metric-query validators.
@@ -94,7 +95,7 @@ export function validateQualifiedFilter(
     || definition.field !== targetDimensionName) {
     return `Filter "${filter.field}" is not exposed by target dataset "${target.name}".`;
   }
-  if (definition.operators && !definition.operators.includes(filter.operator)) {
+  if (!filterAllowsOperator(definition, filter.operator)) {
     return `Filter "${filter.field}" does not allow operator "${filter.operator}".`;
   }
 

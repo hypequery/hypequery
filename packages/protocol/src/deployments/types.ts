@@ -97,6 +97,7 @@ export interface ProtocolDatasetFilter extends ProtocolSemanticMetadata {
   readonly operators: readonly (
     | 'eq' | 'neq' | 'gt' | 'gte' | 'lt' | 'lte'
     | 'in' | 'notIn' | 'between' | 'like'
+    | 'isNull' | 'isNotNull'
   )[];
   readonly label?: string;
   readonly description?: string;

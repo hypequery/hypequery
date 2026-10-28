@@ -186,9 +186,9 @@ Allowed operators by logical type:
 
 | Type | Operators |
 | --- | --- |
-| string or timestamp | eq, neq, gt, gte, lt, lte, in, notIn, between, like |
-| number | eq, neq, gt, gte, lt, lte, in, notIn, between |
-| boolean | eq, neq, in, notIn |
+| string or timestamp | eq, neq, gt, gte, lt, lte, in, notIn, between, like, isNull, isNotNull |
+| number | eq, neq, gt, gte, lt, lte, in, notIn, between, isNull, isNotNull |
+| boolean | eq, neq, in, notIn, isNull, isNotNull |
 
 An empty filters record advertises no query filters. An empty operators array
 is invalid; it must never widen to every operator. Remove a non-queryable filter
@@ -207,8 +207,9 @@ require a non-empty homogeneous array bounded by maxFilterValues. between
 requires exactly two values of the declared logical category. Order is preserved
 in value arrays; neither the contract compiler nor transport sorts query input.
 An alias names only a filter unless it is independently a dimension/measure.
-Filter nullability does not derive from dimension nullability; null-valued
-comparisons require a future explicit operator extension.
+Filter nullability does not derive from dimension nullability. isNull and
+isNotNull ([RFC 0023](./0023-null-check-comparisons.md)) are that explicit
+extension: their filters have exactly field and operator, and no value.
 
 ## Time and result periods
 

@@ -6,7 +6,7 @@ from typing import Literal, cast
 
 from .errors import ProtocolClientContractError, client_error
 from .models import ClientQueryPlan, ProtocolClientEndpoint
-from .primitives import integer, record, shape, timezone
+from .primitives import NULL_CHECK_OPERATORS, integer, record, shape, timezone
 from .safe_data import snapshot_client_data
 from .validate import validate_protocol_client_contract
 
@@ -47,7 +47,10 @@ def _filters(endpoint: ProtocolClientEndpoint, source: dict[str, object]) -> lis
     caps = endpoint["limits"]
     filters = _array(source.get("filters", []), caps["maxPredicates"])
     for item in filters:
-        condition = shape(item, ["field", "operator", "value"], "")
+        # A null check names no value (RFC 0023); one carrying `value` fails.
+        null_check = record(item, "").get("operator") in NULL_CHECK_OPERATORS
+        keys = ["field", "operator"] if null_check else ["field", "operator", "value"]
+        condition = shape(item, keys, "")
         field = condition["field"]
         if type(field) is not str or field not in endpoint["filters"]:
             client_error("HQ_CLIENT_QUERY")
@@ -55,7 +58,10 @@ def _filters(endpoint: ProtocolClientEndpoint, source: dict[str, object]) -> lis
         operator = condition["operator"]
         if type(operator) is not str or operator not in definition["operators"]:
             client_error("HQ_CLIENT_QUERY")
-        _predicate_value(condition["value"], definition["type"], operator, caps["maxFilterValues"])
+        if not null_check:
+            _predicate_value(
+                condition["value"], definition["type"], operator, caps["maxFilterValues"]
+            )
     return filters
 
 

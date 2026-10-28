@@ -1006,5 +1006,85 @@
       ],
       "contentHash": "1cc64833994d5da761e9dae3b62992f66b6a270f01228ab97d91ebb74e54ae85"
     }
+  },
+  {
+    "id": "null-checks",
+    "value": {
+      "kind": "hypequery-client-contract",
+      "version": 1,
+      "view": "build",
+      "endpoints": [
+        {
+          "id": "customers",
+          "kind": "dataset",
+          "dataset": "customers",
+          "path": "/api/v1/datasets/customers/query",
+          "dimensions": {
+            "plan": {
+              "type": "string",
+              "wireType": "string",
+              "nullable": true,
+              "groupable": true,
+              "orderable": true
+            }
+          },
+          "measures": {
+            "customerCount": {
+              "wireType": "string",
+              "nullable": true,
+              "having": true
+            }
+          },
+          "filters": {
+            "churnedAt": {
+              "type": "timestamp",
+              "operators": [
+                "gte",
+                "isNotNull",
+                "isNull"
+              ]
+            },
+            "plan": {
+              "type": "string",
+              "operators": [
+                "eq",
+                "isNull"
+              ]
+            },
+            "seats": {
+              "type": "number",
+              "operators": [
+                "isNotNull"
+              ]
+            },
+            "trial": {
+              "type": "boolean",
+              "operators": [
+                "eq",
+                "isNotNull",
+                "isNull"
+              ]
+            }
+          },
+          "time": null,
+          "metadata": false,
+          "limits": {
+            "defaultLimit": 100,
+            "maxLimit": 1000,
+            "maxOffset": 10000,
+            "maxDimensions": 50,
+            "maxMeasures": 50,
+            "maxPredicates": 100,
+            "maxOrderBy": 50,
+            "maxFilterValues": 1000
+          },
+          "defaultMeasures": [
+            "customerCount"
+          ],
+          "schemaHash": "67821b626e7688afa43c6598893a736854b658924e4564361b1db8bcd1f3192d"
+        }
+      ],
+      "contentHash": "08e3b75129b0f8c528d7dc25ba19ecf7472b5ef2a152655d3181c21e41f2e5c1"
+    }
   }
 ]

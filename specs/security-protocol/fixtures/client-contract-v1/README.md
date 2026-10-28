@@ -29,3 +29,8 @@ never-valued routing fields. JSON Schema pins structural types; call-time semant
 validation additionally enforces selected fields, uniqueness, portable timezones
 and combined predicate budgets. No artifact identity authenticates a principal or
 certifies an endpoint's execution implementation.
+
+RFC 0023 added the `null-checks` contract, whose filters advertise isNull and
+isNotNull on every logical type, with value-free accepted queries and rejections
+for a null check carrying a value (null included), one the filter does not
+advertise, and a value operator without a value.

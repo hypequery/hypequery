@@ -13,7 +13,22 @@ from .timezone_names import CLIENT_TIMEZONE_NAMES
 
 FIELD_TYPES = ["string", "number", "boolean", "timestamp"]
 GRAINS = ["minute", "hour", "day", "week", "month", "quarter", "year"]
-OPERATORS = ["eq", "neq", "gt", "gte", "lt", "lte", "in", "notIn", "between", "like"]
+OPERATORS = [
+    "eq",
+    "neq",
+    "gt",
+    "gte",
+    "lt",
+    "lte",
+    "in",
+    "notIn",
+    "between",
+    "like",
+    "isNull",
+    "isNotNull",
+]
+#: Operators that test a field for NULL and carry no value (RFC 0023).
+NULL_CHECK_OPERATORS = ("isNull", "isNotNull")
 
 
 def pointer(path: str, key: str | int) -> str:
