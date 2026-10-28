@@ -4,7 +4,8 @@
 first, it applies:
 
 1. request ids: a server-generated `x-request-id` on every response, and a
-   caller's own id echoed only as `x-correlation-id`, after validation;
+   caller's own id echoed only as `x-correlation-id`, after validation; and
+   the baseline security headers (`utils/security_headers.py`);
 2. with an `HttpSecurity`, proxy trust, the raw `Host` check, trusted hosts and
    CORS (`security.py`): a preflight is answered there, and every other
    response to an allowed origin carries the CORS headers;
@@ -55,6 +56,7 @@ from .security import (
     raw_host_valid,
 )
 from .state import RequestState
+from .utils.security_headers import with_security_headers
 
 if TYPE_CHECKING:
     from ..events import QueryEvents
@@ -296,7 +298,8 @@ class Api:
         state = RequestState(request_id=new_request_id(), production=self.production)
 
         async def stamped(response: ServeResponse) -> None:
-            await respond(with_request_ids(response, state.request_id, request.headers))
+            identified = with_request_ids(response, state.request_id, request.headers)
+            await respond(with_security_headers(identified))
 
         await self._secured(request, state, host, stamped)
 
@@ -311,7 +314,7 @@ class Api:
             raw_host_valid(request.headers)
             and host_allowed(request.headers, self.security.allowed_hosts)
         ):
-            await respond(plain_text(INVALID_HOST, 400))
+            await respond(plain_text(INVALID_HOST, 400, {"cache-control": "no-store"}))
             return
         cors = self._cors
         if cors is not None:

@@ -42,8 +42,10 @@ classifiers = [
 # uvicorn), certifi 2026.10.19 (via clickhouse-connect) and idna 3.15 (via
 # anyio and aiohttp). The integration extras start at the first releases free of
 # published advisories (django 5.2.17, flask 3.1.3, werkzeug 3.1.9, pyarrow
-# 23.0.1); pandas 2.3.3 is the first with Python 3.14 wheels; polars 1.0.0
-# and asgiref 3.8.1 (Django 5.2's own floor) pass the suite.
+# 23.0.1), and so do their transitive floors: sqlparse 0.6.0 (Django admits
+# 0.3.1) and jinja2 3.1.6 (Flask admits 3.1.2); pandas 2.3.3 is the first with
+# Python 3.14 wheels; polars 1.0.0 and asgiref 3.8.1 (Django 5.2's own floor)
+# pass the suite.
 # CI's floor jobs install exactly these.
 dependencies = [
     "pydantic>=2.9.2; python_version < '3.14'",
@@ -73,6 +75,7 @@ arrow = ["pyarrow>=23.0.1"]
 django = [
     "django>=5.2.17",
     "asgiref>=3.8.1",
+    "sqlparse>=0.6.0",
     "clickhouse-connect>=1.4.2",
     "urllib3>=2.8.0",
     "certifi>=2026.10.19",
@@ -80,6 +83,7 @@ django = [
 flask = [
     "flask[async]>=3.1.3",
     "werkzeug>=3.1.9",
+    "jinja2>=3.1.6",
     "clickhouse-connect>=1.4.2",
     "urllib3>=2.8.0",
     "certifi>=2026.10.19",
@@ -118,7 +122,20 @@ packages = ["src/hypequery"]
 
 [tool.hatch.build.targets.sdist]
 # A point-in-time review of an earlier PR; it describes no shipped behaviour.
-exclude = ["TESTING_REVIEW.md"]
+# The rest is local state that .gitignore also lists, excluded here as well so
+# a build from a working checkout cannot pick it up: coverage data (absolute
+# paths from the machine that ran the tests), reports, env files and databases.
+# scripts/audit_artifacts.py refuses an sdist that contains any of it.
+exclude = [
+  "TESTING_REVIEW.md",
+  ".coverage",
+  ".coverage.*",
+  "coverage.json",
+  "htmlcov",
+  "reports",
+  ".env",
+  "*.sqlite3",
+]
 
 [tool.hatch.build]
 # Include dotfiles used by the project template despite VCS ignore rules.
