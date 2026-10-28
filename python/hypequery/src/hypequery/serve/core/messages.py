@@ -11,12 +11,15 @@ from __future__ import annotations
 
 from collections.abc import AsyncIterable, Awaitable, Callable, Iterable, Iterator, Mapping
 from dataclasses import dataclass, field
+from typing import Any
 
 from .utils.json_body import render_json
 
 #: The request body: bytes the adapter already holds, or chunks it streams.
 #: The core reads either at most once, bounded by the body policy.
 Body = bytes | AsyncIterable[bytes]
+#: Runs a blocking callable on the thread a sync host serves the request on.
+RequestThreadRunner = Callable[[Callable[[], Any]], Awaitable[Any]]
 
 
 class _MultiValues:
@@ -89,6 +92,13 @@ class ServeRequest:
     the host already applied. *raw* is the framework's own request, for the
     host's code; the core never reads it. *is_disconnected*, when given, lets
     the core cancel a query whose caller has gone.
+
+    *run_on_request_thread* is set by a sync host (WSGI, a Django or Flask
+    sync view): it runs a blocking callable on the thread the host serves the
+    request on, while the core waits on its loop. Host code that reads the
+    host's per-thread state, such as a Django user loaded through the ORM or a
+    Flask-Login user from a thread-local database session, runs there. It is
+    None under an async host, whose request has no thread of its own.
     """
 
     method: str
@@ -99,6 +109,7 @@ class ServeRequest:
     client: tuple[str, int] | None = None
     raw: object = None
     is_disconnected: Callable[[], Awaitable[bool]] | None = None
+    run_on_request_thread: RequestThreadRunner | None = None
 
     def __post_init__(self) -> None:
         if type(self.query) is not QueryParams or type(self.headers) is not Headers:

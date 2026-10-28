@@ -4,16 +4,18 @@ from __future__ import annotations
 
 import inspect
 from collections.abc import Awaitable, Callable
+from functools import partial
 from typing import TypeVar
 
 from ..auth import InvalidCredential, unavailable
+from ..messages import RequestThreadRunner
 from ..work import RequestWork, run_sync
 
 _Argument = TypeVar("_Argument")
 _Result = TypeVar("_Result")
 
 
-def _is_async(provider: Callable[..., object]) -> bool:
+def is_async_callable(provider: Callable[..., object]) -> bool:
     call = getattr(provider, "__call__", None)  # noqa: B004 - a callable instance's method
     return inspect.iscoroutinefunction(provider) or inspect.iscoroutinefunction(call)
 
@@ -24,6 +26,7 @@ async def call_provider(
     work: RequestWork,
     *,
     rejectable: bool = False,
+    thread: RequestThreadRunner | None = None,
 ) -> _Result:
     """Run a host provider, failing closed and silent if it raises.
 
@@ -33,12 +36,16 @@ async def call_provider(
     the provider failing.
 
     A sync provider runs in the worker pool, as FastAPI runs a sync dependency:
-    a token lookup that blocks must not stall every request on the loop.
+    a token lookup that blocks must not stall every request on the loop. With
+    *thread*, a sync host's request-thread runner, it runs on the request's
+    own thread instead, where the host's per-thread state lives.
     """
 
     try:
-        if _is_async(provider):
+        if is_async_callable(provider):
             result = provider(argument)
+        elif thread is not None:
+            result = await thread(partial(provider, argument))
         else:
             result = await run_sync(work, provider, argument)
         if inspect.isawaitable(result):

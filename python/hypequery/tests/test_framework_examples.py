@@ -15,6 +15,7 @@ import pytest
 
 TOKENS = {"HYPEQUERY_TENANT_A_TOKEN": "tenant-a-test", "HYPEQUERY_TENANT_B_TOKEN": "tenant-b-test"}
 A = {"Authorization": "Bearer tenant-a-test"}
+SAME_ORIGIN = {"Sec-Fetch-Site": "same-origin"}
 B = {"Authorization": "Bearer tenant-b-test"}
 BY_COUNTRY_A = [
     {"country": "DE", "revenue": 20.0, "orderCount": 1},
@@ -31,19 +32,39 @@ def _json(response: Any) -> Any:
 
 
 def _assert_serves_hypequery_endpoints(post: Any, get: Any) -> None:
-    """The example's native hypequery endpoints, as React and MCP call them."""
+    """The example's token-authenticated hypequery endpoints, as MCP calls them."""
+
+    query = {"measures": ["revenue"]}
+    assert post("/api/agents/orders", query, A) == (200, [{"revenue": "30"}])
+    assert post("/api/agents/orders", query, B) == (200, [{"revenue": "90"}])
+    assert post("/api/agents/orders", query, {})[0] == 401
+    # A token is not a session: the React page's API refuses it.
+    assert post("/api/analytics/orders", query, {**A, **SAME_ORIGIN})[0] == 401
+    live = get("/api/agents/client-contract", A)
+    assert [endpoint["path"] for endpoint in live["endpoints"]] == ["/api/agents/orders"]
+
+
+def _assert_serves_the_session(post: Any, get: Any, sign_in: Any, sign_out: Any) -> None:
+    """The React page's endpoints: the app's own login, with no token."""
 
     from examples.utils.analytics import build
 
     query = {"measures": ["revenue"]}
-    assert post("/api/analytics/orders", query, A) == (200, [{"revenue": "30"}])
-    assert post("/api/analytics/orders", query, B) == (200, [{"revenue": "90"}])
-    assert post("/api/analytics/orders", query, {})[0] == 401
-    live = get("/api/analytics/client-contract", A)
-    # The offline export a frontend is generated from pins the served schema.
+    assert post("/api/analytics/orders", query, SAME_ORIGIN)[0] == 401
+    assert sign_in("not-a-token") == 401
+    assert sign_in("tenant-a-test") == 204
+    assert post("/api/analytics/orders", query, SAME_ORIGIN) == (200, [{"revenue": "30"}])
+    # The core's same-origin check: an unsafe request the browser did not mark.
+    assert post("/api/analytics/orders", query, {})[0] == 403
+    live = get("/api/analytics/client-contract", {})
+    # The offline export the page's client is generated from pins the served schema.
     offline = build()["contract"]["endpoints"]
     assert [endpoint["path"] for endpoint in live["endpoints"]] == ["/api/analytics/orders"]
     assert live["endpoints"][0]["schemaHash"] == offline[0]["schemaHash"]
+    assert sign_out() == 204
+    assert post("/api/analytics/orders", query, SAME_ORIGIN)[0] == 401
+    assert sign_in("tenant-b-test") == 204
+    assert post("/api/analytics/orders", query, SAME_ORIGIN) == (200, [{"revenue": "90"}])
 
 
 def _sorted(rows: list[dict[str, Any]], key: str) -> list[dict[str, Any]]:
@@ -157,9 +178,26 @@ def test_live_flask_example(seeded: str) -> None:
             response = http.post(url, json=body, headers=headers)
             return response.status_code, (response.get_json() or {}).get("data")
 
-        _assert_serves_hypequery_endpoints(
-            post, lambda url, headers: http.get(url, headers=headers).get_json()
-        )
+        def get(url: str, headers: dict[str, str]) -> Any:
+            return http.get(url, headers=headers).get_json()
+
+        _assert_serves_hypequery_endpoints(post, get)
+        assert b"@hypequery/react" in http.get("/").data
+
+        def sign_in(token: str) -> int:
+            return http.post("/login", data={"token": token}, headers=SAME_ORIGIN).status_code
+
+        def sign_out() -> int:
+            return http.post("/logout", headers=SAME_ORIGIN).status_code
+
+        _assert_serves_the_session(post, get, sign_in, sign_out)
+        # The app's own routes take the session too.
+        assert http.get("/revenue").get_json()["data"] == [
+            {"country": "US", "revenue": 90.0, "orderCount": 1}
+        ]
+        # Sign-in is refused from another site's page.
+        cross_site = {"Sec-Fetch-Site": "cross-site"}
+        assert http.post("/login", data={"token": "x"}, headers=cross_site).status_code == 403
     finally:
         with app.app_context():
             flask_app.hq.close()
@@ -171,9 +209,11 @@ def test_live_django_example(seeded: str) -> None:
     from django.test import Client, override_settings
     from examples import django_app
 
+    from django_settings import migrated
     from hypequery.contrib.django import close_clients
 
     django_app.configure()
+    migrated()
     keys = ("ROOT_URLCONF", "MIDDLEWARE", "HYPEQUERY", "ALLOWED_HOSTS")
     with override_settings(**{key: django_app.SETTINGS[key] for key in keys}):
         try:
@@ -200,9 +240,48 @@ def test_live_django_example(seeded: str) -> None:
                 response = http.post(url, body, content_type="application/json", headers=headers)
                 return response.status_code, response.json().get("data")
 
-            _assert_serves_hypequery_endpoints(
-                post, lambda url, headers: http.get(url, headers=headers).json()
+            def get(url: str, headers: dict[str, str]) -> Any:
+                return http.get(url, headers=headers).json()
+
+            _assert_serves_hypequery_endpoints(post, get)
+
+            # The React page's session, with Django's CSRF checks enforced.
+            browser = Client(enforce_csrf_checks=True)
+            assert b"@hypequery/react" in browser.get("/").content
+
+            def csrf() -> dict[str, str]:
+                # Read per request, as the page does: signing in rotates the token.
+                return {"X-CSRFToken": browser.cookies["csrftoken"].value}
+
+            def session_post(url: str, body: Any, headers: dict[str, str]) -> tuple[int, Any]:
+                response = browser.post(
+                    url, body, content_type="application/json", headers={**csrf(), **headers}
+                )
+                return response.status_code, response.json().get("data")
+
+            def session_get(url: str, headers: dict[str, str]) -> Any:
+                return browser.get(url, headers=headers).json()
+
+            def sign_in(token: str) -> int:
+                return int(browser.post("/login", {"token": token}, headers=csrf()).status_code)
+
+            def sign_out() -> int:
+                return int(browser.post("/logout", headers=csrf()).status_code)
+
+            _assert_serves_the_session(session_post, session_get, sign_in, sign_out)
+            # Django's CSRF middleware checks the session API: no token, refused.
+            refused = browser.post(
+                "/api/analytics/orders",
+                {"measures": ["revenue"]},
+                content_type="application/json",
+                headers=SAME_ORIGIN,
             )
+            assert refused.status_code == 403
+            assert b"CSRF" in refused.content
+            # The project's own views take the session too.
+            assert browser.get("/revenue").json()["data"] == [
+                {"country": "US", "revenue": 90.0, "orderCount": 1}
+            ]
 
             async def over_asgi_api() -> httpx.Response:
                 transport = httpx.ASGITransport(app=application)
@@ -210,7 +289,7 @@ def test_live_django_example(seeded: str) -> None:
                     transport=transport, base_url="http://localhost"
                 ) as client:
                     return await client.post(
-                        "/api/analytics/orders", json={"measures": ["revenue"]}, headers=B
+                        "/api/agents/orders", json={"measures": ["revenue"]}, headers=B
                     )
 
             served = asyncio.run(over_asgi_api())

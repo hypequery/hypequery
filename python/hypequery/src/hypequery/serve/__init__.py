@@ -18,6 +18,8 @@ from .auth import (
     AnalyticsTokenIssuer,
     Authenticator,
     ClaimsMapper,
+    ContextExtractor,
+    ContextStrategy,
     Credential,
     CredentialKind,
     CredentialTransport,
@@ -30,6 +32,7 @@ from .auth import (
     api_key,
     bearer_token,
     default_tenant_resolver,
+    from_context,
     jwt_strategy,
 )
 from .client_contract import export_client_contract
@@ -68,6 +71,8 @@ __all__ = [
     "Authenticator",
     "Call",
     "ClaimsMapper",
+    "ContextExtractor",
+    "ContextStrategy",
     "CorsPolicy",
     "Credential",
     "CredentialKind",
@@ -109,6 +114,7 @@ __all__ = [
     "create_metric_endpoint",
     "default_tenant_resolver",
     "export_client_contract",
+    "from_context",
     "jwt_strategy",
     "openapi_document",
     "run_dev",

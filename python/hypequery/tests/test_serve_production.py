@@ -37,10 +37,12 @@ from hypequery.serve import (
     HttpSecurity,
     Principal,
     ProductionProfile,
+    ServeRequest,
     ServeResponse,
     add_dataset_endpoint,
     api_key,
     create_api,
+    from_context,
     run_production,
     to_asgi_app,
 )
@@ -61,7 +63,6 @@ def authenticate(credential: Credential) -> Principal | None:
     [
         {"debug": True},
         {"reload": True},
-        {"cookie_auth": True},
         {"host": "0.0.0.0"},  # noqa: S104 - verify rejection, no socket is opened
         {"host": "::"},
         {"host": "localhost"},
@@ -80,7 +81,7 @@ def test_invalid_profile_fails_at_startup(options: dict[str, object]) -> None:
         ProductionProfile(**options)  # type: ignore[arg-type]
 
 
-def test_production_docs_cookie_and_proxy_misuse_fails_at_startup() -> None:
+def test_production_docs_and_proxy_misuse_fails_at_startup() -> None:
     with pytest.raises(ValueError, match="documentation"):
         create_api(
             auth=authenticate,
@@ -94,13 +95,6 @@ def test_production_docs_cookie_and_proxy_misuse_fails_at_startup() -> None:
             security=HttpSecurity(allowed_hosts=("testserver",), trusted_proxies=("0.0.0.0/0",)),
             production=ProductionProfile(),
         )
-    with pytest.raises(ValueError, match="cookies"):
-        create_api(
-            auth=authenticate,
-            credentials=api_key(header="cookie"),
-            security=SECURITY,
-            production=ProductionProfile(),
-        )
     with pytest.raises(ValueError, match="trusted hosts"):
         create_api(auth=authenticate, production=ProductionProfile())
     with pytest.raises(ValueError, match="ProductionProfile"):
@@ -109,6 +103,33 @@ def test_production_docs_cookie_and_proxy_misuse_fails_at_startup() -> None:
         run_production(object())  # type: ignore[arg-type]
     assert ProductionProfile(host="0.0.0.0", allow_external_bind=True).host == "0.0.0.0"  # noqa: S104
     assert ProductionProfile(host="::1").host == "::1"
+
+
+def _signed_in(request: ServeRequest) -> Principal:
+    return Principal(subject="reader")
+
+
+def test_production_accepts_context_auth_only_with_its_same_origin_check() -> None:
+    """Decision 0023 §5: the same-origin rule replaces the flat cookie ban."""
+
+    api = create_api(
+        auth=from_context(_signed_in), security=SECURITY, production=ProductionProfile()
+    )
+    assert api.authentication.context is not None
+    assert api.authentication.context.same_origin is True
+    with pytest.raises(ValueError, match="same_origin=False"):
+        create_api(
+            auth=from_context(_signed_in, same_origin=False),
+            security=SECURITY,
+            production=ProductionProfile(),
+        )
+    # Without production, a host may turn the check off.
+    assert create_api(auth=from_context(_signed_in, same_origin=False), security=SECURITY)
+    # A cookie is never a header credential, in production or not.
+    with pytest.raises(ValueError, match="from_context"):
+        api_key(header="cookie")
+    with pytest.raises(TypeError):
+        ProductionProfile(cookie_auth=False)  # type: ignore[call-arg]
 
 
 @dataclass(frozen=True)

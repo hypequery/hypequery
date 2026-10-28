@@ -1,7 +1,7 @@
 """Authentication for served endpoints: credentials, principals, and failures.
 
 Defined in the framework-neutral core (`core/auth.py`, `core/authentication.py`,
-`core/jwt_auth.py`) and re-exported here.
+`core/context_auth.py`, `core/jwt_auth.py`) and re-exported here.
 """
 
 from __future__ import annotations
@@ -23,6 +23,7 @@ from .core.auth import (
     unauthenticated,
     unavailable,
 )
+from .core.context_auth import ContextExtractor, ContextStrategy, from_context
 from .core.jwt_auth import (
     AnalyticsTokenIssuer,
     ClaimsMapper,
@@ -36,6 +37,8 @@ __all__ = [
     "AnalyticsTokenIssuer",
     "Authenticator",
     "ClaimsMapper",
+    "ContextExtractor",
+    "ContextStrategy",
     "Credential",
     "CredentialKind",
     "CredentialTransport",
@@ -48,6 +51,7 @@ __all__ = [
     "api_key",
     "bearer_token",
     "default_tenant_resolver",
+    "from_context",
     "jwt_strategy",
     "misconfigured",
     "unauthenticated",

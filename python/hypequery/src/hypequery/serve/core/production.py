@@ -10,7 +10,7 @@ from ...datasets.planner.settings import QuerySettings, query_settings
 
 @dataclass(frozen=True, slots=True)
 class ProductionProfile:
-    """Per-process ceilings. Cookie authentication is deliberately unsupported.
+    """Per-process ceilings.
 
     ``max_result_rows`` includes the one-row pagination probe. Bind beyond
     loopback only by explicitly setting ``allow_external_bind``.
@@ -21,7 +21,6 @@ class ProductionProfile:
     allow_external_bind: bool = False
     debug: bool = False
     reload: bool = False
-    cookie_auth: bool = False
     max_concurrency: int = 32
     timeout_seconds: int = 30
     max_result_rows: int = 10_001
@@ -29,15 +28,11 @@ class ProductionProfile:
     max_threads: int = 4
 
     def __post_init__(self) -> None:
-        for name in ("allow_external_bind", "debug", "reload", "cookie_auth"):
+        for name in ("allow_external_bind", "debug", "reload"):
             if type(getattr(self, name)) is not bool:
                 raise TypeError(f"{name} must be a boolean")
         if self.debug or self.reload:
             raise ValueError("production disables debug and reload")
-        if self.cookie_auth:
-            raise ValueError(
-                "production supports header credentials only; cookie auth is unsupported"
-            )
         if type(self.host) is not str:
             raise TypeError("host must be an IP address string")
         address = ipaddress.ip_address(self.host)

@@ -613,16 +613,76 @@ framework's request (`HttpRequest`, Flask's `Request`).
 - **Any prefix works**, including one with URL variables. Client contracts and
   discovery name the paths the request was routed under, unless
   `create_api(client_mount_path=...)` names where the API is reached.
-- **CSRF.** The credential is a header (`Authorization: Bearer`, or an API key
-  header), which a browser never attaches on its own, so Django's views are
-  CSRF-exempt by design. Django's CSRF middleware stays installed for the rest
-  of the project. Using your framework's own login (`from_context`) comes next
-  (decision 0023 in `specs/security-protocol/decisions`), with Django's CSRF
-  enforced for it.
+- **CSRF.** A header credential (`Authorization: Bearer`, an API key header,
+  a JWT) is one a browser never attaches on its own, so Django's views for it
+  are CSRF-exempt. Django's CSRF middleware stays installed for the rest of
+  the project, and checks an API that uses the project's own login (below).
+
+#### Your own login, with no token
+
+A React page served by the same app can call the endpoints with the session
+the user already has, as TypeScript's `fromContext` does. `django_user` and
+`flask_session` read it:
+
+```python
+# Django: the user from AuthenticationMiddleware (sync and async views).
+from hypequery.contrib.django import django_user
+
+api = create_api(
+    auth=django_user(lambda user: Principal(subject=str(user.pk), tenant_id=str(user.org_id))),
+    client=get_client(),
+    datasets={"orders": orders},
+)
+
+# Flask: Flask-Login's current_user when the app uses it, else the session.
+from hypequery.contrib.flask import flask_session
+
+api = create_api(
+    auth=flask_session(lambda user: Principal(subject=user.get_id(), tenant_id=user.org_id)),
+    ...,
+)
+```
+
+The mapping receives a signed-in user only; an anonymous one is answered
+`401`. Under WSGI and in Flask it runs on the request's own thread, so the
+ORM, Flask-Login's user loader and thread-local database sessions behave as
+in your views; under Django ASGI the user is loaded through the async ORM.
+Both are built on `hypequery.serve.from_context(extract)`, whose `extract`
+receives the `ServeRequest` and reads the session from `request.raw`, for any
+other framework.
+
+A session cookie is sent by the browser, not the page, so these APIs are
+protected against cross-site request forgery:
+
+- **The same-origin check** (`same_origin=True`, the default) refuses a
+  `POST`, `PUT`, `PATCH` or `DELETE` with `403 FORBIDDEN` unless the browser
+  marks it `Sec-Fetch-Site: same-origin` (or `none`), or its `Origin` is one
+  your `HttpSecurity(cors=CorsPolicy(origins=...))` names. It runs in the
+  core, under every adapter. A browser without Fetch Metadata (Safari before
+  16.4) sends only `Origin`: list your own origin in the CORS policy to serve
+  it. A production profile refuses `same_origin=False`.
+- **Django's CSRF middleware** also checks these requests: the page sends the
+  `csrftoken` cookie's value as `X-CSRFToken`, read per request (signing in
+  rotates it). With `@hypequery/react`:
+
+  ```ts
+  const csrfToken = () => document.cookie.match(/(?:^|; )csrftoken=([^;]*)/)?.[1];
+  const client = createHypequeryClient({
+    baseUrl: '/api/analytics',
+    headers: () => ({ 'X-CSRFToken': csrfToken() }),
+  });
+  ```
+
+  A view rendering the page sets the cookie (`get_token(request)` or
+  `@ensure_csrf_cookie`). Django's own `403` page answers a missing token.
+  Flask has no CSRF middleware; the same-origin check is its protection.
+
+The tenant still comes only from the principal: no header, query parameter or
+body field can choose it.
 
 `examples/django_app.py` and `examples/flask_app.py` serve the orders dataset
-this way, and `examples/README.md` points `@hypequery/react` and
-`@hypequery/mcp` at them. Any other WSGI framework or server uses
+both ways, behind their own login for a same-origin React page and behind a
+bearer token for `@hypequery/mcp`; `examples/README.md` walks through them. Any other WSGI framework or server uses
 `hypequery.serve.to_wsgi_app(api)`, and any ASGI one `to_asgi_app(api)`.
 
 ### Results in your own views versus hypequery's endpoints
@@ -739,6 +799,8 @@ app = to_asgi_app(api)  # uvicorn app:app, or mount it in another ASGI app
   by default, or `create_api(credentials=api_key())` for `X-Api-Key`.
   Query strings, cookies, and bodies are never read. A repeated,
   oversized, or malformed header is refused before your authenticator runs.
+  To use your app's own login instead, pass `auth=from_context(extract)` (see
+  "Your own login, with no token").
 - **Your authenticator** (`auth=`) receives only the opaque `Credential`,
   never the request, and returns a `Principal`. To reject a credential,
   return `None` or raise `InvalidCredential`. Wrap your token library's
@@ -1702,10 +1764,10 @@ so application policy sees the original peer and controls proxy trust once.
 See [Uvicorn settings](https://www.uvicorn.org/settings/) for transport details.
 
 Production requires an `HttpSecurity`, and rejects debug, reload, development
-docs and cookie credential transports when the API is created. Authentication
-uses explicit bearer/API-key headers; cookie authentication and its required
-CSRF/session policy are unsupported. The host authenticator must validate
-those header credentials independently of cookies. The profile's budgets apply
+docs, and `from_context(..., same_origin=False)` when the API is created. A
+header credential (bearer, API key, JWT) is never read from a cookie; the
+host's session is read only by a `from_context` strategy, with its same-origin
+check. The profile's budgets apply
 wherever the API is served; a host that mounts it in another app owns that
 app's process safeguards.
 

@@ -27,6 +27,12 @@ from ``hypequery.serve.create_api``::
 
     app.register_blueprint(blueprint(api), url_prefix="/api/analytics")
 
+Authenticate those endpoints with the app's own login (Flask-Login's
+``current_user``, or the ``session``), so a page it serves calls them with its
+session cookie and no token::
+
+    api = create_api(auth=flask_session(lambda user: Principal(subject=user.get_id())), ...)
+
 Config keys: ``HYPEQUERY_URL`` (else ``CLICKHOUSE_URL`` / ``CLICKHOUSE_*``),
 ``HYPEQUERY_REGISTRY`` (object or import string), ``HYPEQUERY_READONLY_POLICY``,
 ``HYPEQUERY_TIMEZONE``, ``HYPEQUERY_MAX_CONCURRENT``.
@@ -50,7 +56,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any, TypeVar, cast
 
-from flask import Blueprint, Flask, Request, Response, current_app, g, request
+from flask import Blueprint, Flask, Request, Response, current_app, g, request, session
 from flask.blueprints import BlueprintSetupState
 from werkzeug.exceptions import RequestEntityTooLarge
 from werkzeug.utils import import_string
@@ -65,7 +71,9 @@ from ..datasets import (
 from ..execution import ClickHouseConnection, ReadonlyPolicy
 from ..serve.client_contract import export_client_contract
 from ..serve.core.api import Api
+from ..serve.core.auth import Principal
 from ..serve.core.body import too_large
+from ..serve.core.context_auth import ContextStrategy
 from ..serve.core.messages import ServeRequest, ServeResponse
 from ..serve.utils.blocking import serve_blocking
 from ..serve.utils.response_head import response_body
@@ -83,6 +91,9 @@ from .utils.process_clients import ClientConfig, ProcessClients
 from .utils.tenant_value import TenantValue, bind_tenant_value
 
 TenantLoader = Callable[[], TenantValue]
+#: Maps Flask-Login's signed-in user, or the session when the app does not use
+#: Flask-Login, to its principal; None refuses the request.
+SessionPrincipal = Callable[[Any], Principal | None]
 _Loader = TypeVar("_Loader", bound=TenantLoader)
 
 _EXTENSION = "hypequery"
@@ -248,6 +259,7 @@ def blueprint(api: Api, *, name: str = "hypequery", url_prefix: str | None = Non
                 body=thread_body(thread, _BodyStream(current).read, body_length(environ)),
                 client=environ_client(environ),
                 raw=current,
+                run_on_request_thread=thread.call,
             )
 
         return _response(serve_blocking(api, build, mounted_at=where.mounted_at))
@@ -306,4 +318,39 @@ def _response(response: ServeResponse) -> Response:
     return reply
 
 
-__all__ = ["Hypequery", "TenantLoader", "blueprint"]
+def flask_session(to_principal: SessionPrincipal, *, same_origin: bool = True) -> ContextStrategy:
+    """A `from_context` strategy reading the app's own login, for `create_api(auth=...)`.
+
+    When Flask-Login is set up on the app, *to_principal* receives
+    ``current_user`` and runs only for a signed-in user; an anonymous one is
+    answered 401. Otherwise it receives ``session`` and returns None when
+    nobody is signed in. It runs on the request's own thread, inside the
+    request context, as the app's views do, so a user loader's thread-local
+    database session is the request's. *same_origin* is `from_context`'s
+    check. Use it with `blueprint`.
+    """
+
+    if not callable(to_principal):
+        raise TypeError("flask_session requires a to_principal callable")
+    return ContextStrategy(_FlaskSession(to_principal), same_origin)
+
+
+class _FlaskSession:
+    __slots__ = ("_to_principal",)
+
+    def __init__(self, to_principal: SessionPrincipal) -> None:
+        self._to_principal = to_principal
+
+    def __call__(self, served: ServeRequest) -> Principal | None:
+        if not isinstance(served.raw, Request):
+            raise TypeError("flask_session reads requests served by hypequery.contrib.flask")
+        # Flask-Login's init_app sets `login_manager` on the app.
+        if getattr(current_app, "login_manager", None) is not None:
+            from flask_login import current_user
+
+            user = current_user._get_current_object()
+            return self._to_principal(user) if user.is_authenticated else None
+        return self._to_principal(session._get_current_object())  # type: ignore[attr-defined]
+
+
+__all__ = ["Hypequery", "SessionPrincipal", "TenantLoader", "blueprint", "flask_session"]

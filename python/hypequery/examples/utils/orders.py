@@ -1,9 +1,10 @@
 """The orders dataset and a stand-in login shared by the framework examples.
 
-The framework examples resolve the tenant from a bearer token so they run
-without a user database. A real Django or Flask app reads it from the logged-in
-user instead (``request.user`` or Flask-Login's ``current_user``); the shape of
-the integration is the same.
+The framework examples' stand-in login: each organization signs in with its
+tenant token, and its bearer callers present the same token. A real Django or
+Flask app signs users in with its own login and reads the organization from
+the user (``request.user`` or Flask-Login's ``current_user``); the shape of the
+integration is the same.
 """
 
 from __future__ import annotations
@@ -23,6 +24,8 @@ orders = dataset(
     measures={"revenue": measure.sum("amount"), "orderCount": measure.count("id")},
 )
 registry = create_dataset_registry(orders)
+#: The example's organizations; each signs in with its tenant token.
+ORGANIZATIONS = ("a", "b")
 
 
 def tenant_tokens() -> dict[str, str]:

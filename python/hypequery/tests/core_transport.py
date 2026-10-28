@@ -48,6 +48,12 @@ class CoreClient:
             response.status, headers=list(response.headers.items()), content=response.body
         )
 
+    def get(self, path: str, **kwargs: Any) -> httpx.Response:
+        return self.request("GET", path, **kwargs)
+
+    def post(self, path: str, **kwargs: Any) -> httpx.Response:
+        return self.request("POST", path, **kwargs)
+
 
 def _encode(value: Any) -> bytes:
     return json.dumps(value).encode("utf-8")
