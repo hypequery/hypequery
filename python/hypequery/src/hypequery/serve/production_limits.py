@@ -1,4 +1,9 @@
-"""Bound admission, total request duration and buffered response bytes."""
+"""Bound admission, total request duration and buffered response bytes.
+
+The budgets and admission are the core's (`core/production_limits.py`); this
+middleware applies them to every route of a FastAPI application, buffering
+whatever the application sends so no oversized response reaches the wire.
+"""
 
 from __future__ import annotations
 
@@ -7,8 +12,8 @@ import asyncio
 from fastapi import Request
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
-from .core.work import RequestWork
-from .errors import ServeError, as_serve_error, error_response
+from .core.production_limits import ProductionGate, at_capacity, timed_out, too_large
+from .errors import as_serve_error, error_response
 from .production import ProductionProfile
 from .utils.production_context import set_production_profile
 from .utils.request_work import request_work
@@ -22,27 +27,21 @@ class ProductionLimitsMiddleware:
     def __init__(self, app: ASGIApp, profile: ProductionProfile) -> None:
         self.app = app
         self.profile = profile
-        self.active = 0
-        self._draining: set[asyncio.Task[None]] = set()
+        self.gate = ProductionGate(profile)
 
-    async def _release_after_work(self, work: RequestWork) -> None:
-        try:
-            await work.drain()
-        finally:
-            self.active -= 1
+    @property
+    def active(self) -> int:
+        """Requests holding an admission slot, their draining work included."""
+
+        return self.gate.active
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         if scope["type"] != "http":
             await self.app(scope, receive, send)
             return
-        if self.active >= self.profile.max_concurrency:
-            await error_response(
-                Request(scope),
-                ServeError(503, "SERVICE_UNAVAILABLE", "The server is at capacity."),
-            )(scope, receive, send)
+        if not self.gate.admit():
+            await error_response(Request(scope), at_capacity())(scope, receive, send)
             return
-        # No await between check and increment: admission is atomic on the loop.
-        self.active += 1
         set_production_profile(scope, self.profile)
         work = request_work(Request(scope))
         start: Message | None = None
@@ -79,15 +78,9 @@ class ProductionLimitsMiddleware:
                     # The transport must close a stalled partial response.
                     # A second status line would corrupt the HTTP connection.
                     raise
-                await error_response(
-                    Request(scope),
-                    ServeError(504, "GATEWAY_TIMEOUT", "The query did not finish in time."),
-                )(scope, receive, send)
+                await error_response(Request(scope), timed_out())(scope, receive, send)
             except _ResponseTooLargeError:
-                await error_response(
-                    Request(scope),
-                    ServeError(413, "PAYLOAD_TOO_LARGE", "The response exceeds its byte limit."),
-                )(scope, receive, send)
+                await error_response(Request(scope), too_large())(scope, receive, send)
             except Exception as exc:
                 if committed:
                     raise
@@ -96,12 +89,6 @@ class ProductionLimitsMiddleware:
                     scope, receive, send
                 )
         finally:
-            work.cancel()
-            if work.tasks:
-                # A 504 releases the HTTP caller, but still-running host code
-                # keeps its admission slot until its threads have stopped.
-                draining = asyncio.create_task(self._release_after_work(work))
-                self._draining.add(draining)
-                draining.add_done_callback(self._draining.discard)
-            else:
-                self.active -= 1
+            # A 504 releases the HTTP caller, but still-running host code
+            # keeps its admission slot until its threads have stopped.
+            self.gate.release(work)

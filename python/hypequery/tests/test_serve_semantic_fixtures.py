@@ -67,7 +67,7 @@ class Executor:
 
 
 def app(case: dict[str, Any], transport: str = "embedded") -> TestClient | CoreClient:
-    """The fixture app, served by FastAPI (with or without production) or the core."""
+    """The fixture app, served by FastAPI or the core, with or without production."""
 
     config = FIXTURES["app"]
     dataset = Dataset(
@@ -98,9 +98,11 @@ def app(case: dict[str, Any], transport: str = "embedded") -> TestClient | CoreC
     )
     dataset_path = f"/datasets/{config['dataset']}/query"
     metric_path = f"/metrics/{config['measure']}"
-    if transport == "core":
+    if transport.startswith("core"):
         api = Api(
-            authentication=Authentication(authenticate, bearer_token(), default_tenant_resolver)
+            authentication=Authentication(authenticate, bearer_token(), default_tenant_resolver),
+            security=HttpSecurity(allowed_hosts=("testserver",)),
+            production=ProductionProfile() if transport == "core-production" else None,
         )
         add_dataset_route(
             api, dataset_path, DatasetEndpointCore(dataset=dataset, client=client, policy=policy)
@@ -147,10 +149,8 @@ def assert_public(value: object) -> None:
 
 
 @pytest.mark.parametrize("case", FIXTURES["cases"], ids=[case["id"] for case in FIXTURES["cases"]])
-# "core" runs the cases against `Api.handle` with no framework at all. Production
-# budgets are still FastAPI middleware (decision 0023 step 2), so the core runs
-# without a production profile.
-@pytest.mark.parametrize("transport", ["embedded", "production", "core"])
+# "core" runs the cases against `Api.handle` with no framework at all.
+@pytest.mark.parametrize("transport", ["embedded", "production", "core", "core-production"])
 def test_semantic_v1(case: dict[str, Any], transport: str) -> None:
     headers = dict(case.get("headers", {}))
     if case["credential"] != "none":

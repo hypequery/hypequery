@@ -1,7 +1,7 @@
 """Runs the language-neutral serve HTTP error fixtures (specs/serve-http).
 
-Each case runs through FastAPI, with and without a production profile, and
-directly against the framework-neutral core's `Api.handle`.
+Each case runs through FastAPI and directly against the framework-neutral
+core's `Api.handle`, each with and without a production profile.
 
 `@hypequery/serve` runs the same file in `serve-http-fixtures.test.ts`. A
 divergence between the two is a bug in one of them or in the fixtures.
@@ -33,6 +33,7 @@ from hypequery.serve import (
 )
 from hypequery.serve.core import Api, Call, ServeResponse
 from hypequery.serve.core.authentication import Authentication
+from hypequery.serve.core.rate_limit import RateLimit as CoreRateLimit
 
 FIXTURES = json.loads(
     (
@@ -96,13 +97,13 @@ def _app(production: bool = False) -> FastAPI:
     return app
 
 
-def _core_api() -> CoreClient:
-    """The fixture app on the framework-neutral core, without its rate-limited routes."""
+def _core_api(production: bool = False) -> CoreClient:
+    """The fixture app on the framework-neutral core."""
 
     def authenticate(credential: Credential) -> Principal | None:
         return Principal(subject="alice") if credential.value == CREDENTIAL else None
 
-    async def protected(call: Call) -> ServeResponse:
+    async def ok(call: Call) -> ServeResponse:
         return ServeResponse.json({"ok": True})
 
     async def validated(call: Call) -> ServeResponse:
@@ -112,16 +113,22 @@ def _core_api() -> CoreClient:
     async def boom(call: Call) -> ServeResponse:
         raise RuntimeError(FIXTURES["leakCanary"])
 
-    api = Api(authentication=Authentication(authenticate, bearer_token(), default_tenant_resolver))
-    api.add_route("GET", "/protected", protected)
+    api = Api(
+        authentication=Authentication(authenticate, bearer_token(), default_tenant_resolver),
+        security=HttpSecurity(allowed_hosts=("testserver",)),
+        production=ProductionProfile() if production else None,
+    )
+    api.add_route("GET", "/protected", ok)
     api.add_route("POST", "/validated", validated, input=TypeAdapter(_Validated))
     api.add_route("GET", "/boom", boom)
+    api.add_route("GET", "/limited", ok, limits=[CoreRateLimit(max=1, window_seconds=60)])
+    api.add_route(
+        "GET",
+        "/limiter-down",
+        ok,
+        limits=[CoreRateLimit(store=_FailingStore(), fail_open=False)],
+    )
     return CoreClient(api)
-
-
-#: Rate limits are still FastAPI dependencies; they move into the core with
-#: decision 0023's step 2, and these cases then run against it too.
-_FASTAPI_ONLY_CASES = frozenset(("rate-limited", "rate-limiter-unavailable"))
 
 
 def _send(client: TestClient | CoreClient, request: dict[str, Any]) -> Any:
@@ -138,13 +145,11 @@ def _send(client: TestClient | CoreClient, request: dict[str, Any]) -> Any:
 
 
 @pytest.mark.parametrize("case", FIXTURES["cases"], ids=[case["id"] for case in FIXTURES["cases"]])
-@pytest.mark.parametrize("transport", ["embedded", "production", "core"])
+@pytest.mark.parametrize("transport", ["embedded", "production", "core", "core-production"])
 def test_errors_v1(case: dict[str, Any], caplog: pytest.LogCaptureFixture, transport: str) -> None:
     client: TestClient | CoreClient
-    if transport == "core":
-        if case["id"] in _FASTAPI_ONLY_CASES:
-            pytest.skip("rate limits move into the core in decision 0023 step 2")
-        client = _core_api()
+    if transport.startswith("core"):
+        client = _core_api(transport == "core-production")
     else:
         client = TestClient(_app(transport == "production"), raise_server_exceptions=False)
     response = None
