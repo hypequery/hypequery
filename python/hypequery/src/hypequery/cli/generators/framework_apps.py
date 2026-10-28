@@ -199,10 +199,16 @@ Port 5001, because macOS's AirPlay receiver holds 5000.
     )
     module = "analytics.py" if django else "app.py"
     scoped = (
-        f"The datasets are scoped by `{tenant_column}`, and the token's principal has no "
-        "tenant, so the token API refuses them until `principal_for_token` gives one.\n\n"
+        f"The datasets are scoped by `{tenant_column}`: the token reads the tenant in "
+        "`HYPEQUERY_DEV_TENANT`, and without one the token API refuses them.\n\n"
         if tenant_column
         else ""
+    )
+    token_env = (
+        f"`HYPEQUERY_DEV_TOKEN` and `HYPEQUERY_DEV_TENANT` (one of your `{tenant_column}` "
+        "values) set"
+        if tenant_column
+        else "`HYPEQUERY_DEV_TOKEN` set"
     )
     answer = f"\n```json\n{response}\n```\n" if response else ""
     existing = (
@@ -229,7 +235,7 @@ hypequery's endpoints are served by the app itself, twice:
 {_endpoints_row("agents", "`Authorization: Bearer $HYPEQUERY_DEV_TOKEN`", AGENTS_FOR)}
 {_endpoints_row("analytics", login, "`@hypequery/react` on pages the app serves")}
 
-From another shell with `HYPEQUERY_DEV_TOKEN` set:
+From another shell with {token_env}:
 
 ```bash
 curl --fail-with-body -s {base}/api/agents/{dataset} \\
