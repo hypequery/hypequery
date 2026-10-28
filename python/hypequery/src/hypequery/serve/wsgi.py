@@ -22,6 +22,13 @@ threads run concurrently on the loop.
   its own deadline (a `ProductionProfile`'s timeout), or when the server
   interrupts the waiting thread. The server writes the response after the
   admission slot is released, under its own timeouts.
+- Nor can a read of ``wsgi.input`` be interrupted without corrupting the
+  connection. When the deadline passes during a stalled upload, the core
+  answers 504 and asks for nothing more, but the read already in flight (at
+  most 64 KiB) returns only when its bytes arrive or the server's socket gives
+  up. As for any WSGI application, put a proxy that buffers request bodies in
+  front (nginx does by default), or use a server that receives the whole body
+  before calling the application (waitress).
 
 Run it with gunicorn (``gunicorn app:app --threads 8``) or waitress, or mount
 it in a WSGI framework, below a prefix (Werkzeug's ``DispatcherMiddleware``):

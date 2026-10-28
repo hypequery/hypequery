@@ -9,6 +9,7 @@ import io
 import logging
 import os
 import threading
+import time
 from collections.abc import Iterator
 from concurrent.futures import ThreadPoolExecutor
 from http import HTTPStatus
@@ -24,7 +25,9 @@ from hypequery.serve import (
     Api,
     Call,
     Credential,
+    HttpSecurity,
     Principal,
+    ProductionProfile,
     ServeRequest,
     ServeResponse,
     WsgiApp,
@@ -375,6 +378,33 @@ def test_a_body_that_ends_early_is_caller_input() -> None:
     response = _post(to_wsgi_app(_api()), stream, [AUTH, JSON, ("content-length", "100")])
     assert response.status_code == 400
     assert response.json()["error"]["message"] == "There was an error parsing the body"
+
+
+def test_a_stalled_upload_ends_at_the_deadline_after_its_one_read_in_flight() -> None:
+    # WSGI gives no way to interrupt a read of `wsgi.input` without corrupting
+    # the connection; the server's own read timeout bounds that one read. The
+    # deadline answers 504 and stops every read after it.
+    class Stalled:
+        def __init__(self) -> None:
+            self.reads = 0
+
+        def read(self, size: int = -1) -> bytes:
+            self.reads += 1
+            time.sleep(1.5)
+            return b'{"x"'
+
+    stream = Stalled()
+    api = _api(
+        security=HttpSecurity(allowed_hosts=("testserver",)),
+        production=ProductionProfile(timeout_seconds=1),
+    )
+    started = time.monotonic()
+    response = _post(to_wsgi_app(api), stream, [AUTH, JSON, ("content-length", "100000")])
+    elapsed = time.monotonic() - started
+    assert response.status_code == 504
+    assert response.json()["error"]["type"] == "GATEWAY_TIMEOUT"
+    assert stream.reads == 1
+    assert 1.4 < elapsed < 3
 
 
 def test_a_failing_stream_is_caller_input() -> None:
