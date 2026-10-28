@@ -26,7 +26,8 @@ from .core.auth import (
 from .core.authentication import Authentication
 from .core.body import DEFAULT_MAX_BODY_BYTES
 from .core.discovery import add_discovery_route
-from .core.openapi import OpenApiInfo, add_docs_routes
+from .core.openapi import add_docs_routes
+from .core.openapi_info import OpenApiInfo
 from .core.policy import DEFAULT_ENDPOINT_POLICY, EndpointPolicy
 from .core.production import ProductionProfile
 from .core.rate_limit import RateLimit
@@ -96,8 +97,6 @@ def create_api(
         raise TypeError("credentials must come from bearer_token() or api_key()")
     if type(development_docs) is not bool:
         raise TypeError("development_docs must be a boolean")
-    if openapi is not None and type(openapi) is not OpenApiInfo:
-        raise TypeError("openapi must be an OpenApiInfo")
     if events is not None and type(events) is not QueryEvents:
         raise TypeError("events must be QueryEvents")
     transport = credentials or bearer_token()
@@ -112,6 +111,7 @@ def create_api(
         base_path=base_path,
         limits=limits,
         events=events,
+        openapi=openapi,
     )
     served = _semantic_endpoints(api, client, datasets or {}, metrics or {})
     if served and discovery is not False:
@@ -127,7 +127,7 @@ def create_api(
             tags=("discovery",),
         )
     if development_docs:
-        add_docs_routes(api, openapi)
+        add_docs_routes(api)
     return api
 
 

@@ -40,6 +40,7 @@ from .authentication import Authentication
 from .body import DEFAULT_MAX_BODY_BYTES, check_body_headers, read_input
 from .errors import as_serve_error, error_response, not_found_message, serve_error
 from .messages import ServeRequest, ServeResponse
+from .openapi_info import OpenApiInfo
 from .production import ProductionProfile
 from .production_limits import ProductionGate
 from .rate_limit import RateLimit
@@ -153,6 +154,7 @@ class Api:
         base_path: str = "",
         limits: Sequence[RateLimit] = (),
         events: QueryEvents | None = None,
+        openapi: OpenApiInfo | None = None,
     ) -> None:
         from .client_contract import ClientEndpointRegistry
 
@@ -172,6 +174,8 @@ class Api:
             raise ValueError("base_path must be empty or start with '/' and not end with one")
         if not all(isinstance(limit, RateLimit) for limit in limits):
             raise TypeError("API limits must be RateLimit instances")
+        if openapi is not None and type(openapi) is not OpenApiInfo:
+            raise TypeError("openapi must be an OpenApiInfo")
         self.authentication = authentication
         self.max_body_bytes = max_body_bytes
         self.client_mount_path = client_mount_path
@@ -183,6 +187,8 @@ class Api:
         self.limits = tuple(limits)
         #: The query-event sink of every endpoint installed without its own.
         self.events = events
+        #: Describes the development OpenAPI document.
+        self.openapi = openapi
         self._proxies = (
             ProxyTrust(security.trusted_proxies)
             if security is not None and security.trusted_proxies

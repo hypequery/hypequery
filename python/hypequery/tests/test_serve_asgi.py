@@ -321,6 +321,19 @@ def test_a_failing_lifespan_reports_without_detail(
     assert "SECRET-DSN" in caplog.text
 
 
+def test_a_lifespan_factory_that_raises_is_a_failed_startup(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    def lifespan() -> Any:
+        raise RuntimeError("SECRET-CONFIG")
+
+    with caplog.at_level(logging.ERROR, logger="hypequery.serve"):
+        sent = _lifespan(to_asgi_app(create_api(auth=_authenticate), lifespan=lifespan))
+    assert [message["type"] for message in sent] == ["lifespan.startup.failed"]
+    assert "SECRET" not in sent[0]["message"]
+    assert "SECRET-CONFIG" in caplog.text
+
+
 def test_a_websocket_is_closed_and_other_scopes_refused() -> None:
     app = to_asgi_app(create_api(auth=_authenticate))
     sent: list[Message] = []

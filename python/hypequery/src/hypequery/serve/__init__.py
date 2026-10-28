@@ -30,7 +30,8 @@ from .client_discovery import add_client_contract_endpoint
 from .core.api import Api, Call, Route
 from .core.body import DEFAULT_MAX_BODY_BYTES
 from .core.messages import Headers, QueryParams, ServeRequest, ServeResponse
-from .core.openapi import OpenApiInfo, openapi_document
+from .core.openapi import openapi_document
+from .core.openapi_info import OpenApiInfo
 from .dev import ExternalBindWarning, run_dev, serve_dev
 from .discovery import add_discovery_endpoint
 from .endpoints import (

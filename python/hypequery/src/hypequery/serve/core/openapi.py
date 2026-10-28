@@ -9,7 +9,6 @@ Both routes are public and exist only when an API is created with
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from typing import Literal
 
 from pydantic import TypeAdapter
@@ -17,6 +16,7 @@ from pydantic.json_schema import JsonSchemaValue
 
 from .api import Api, Call, Route
 from .messages import ServeResponse
+from .openapi_info import OpenApiInfo
 from .utils.docs_html import docs_html
 from .utils.operation_ids import operation_id, operation_summary
 
@@ -43,30 +43,22 @@ _ERROR_SCHEMA: JsonSchemaValue = {
 }
 
 
-@dataclass(frozen=True, slots=True)
-class OpenApiInfo:
-    """The document's `info`, TypeScript's `OpenApiOptions`."""
-
-    title: str = "hypequery API"
-    version: str = "1.0.0"
-    description: str | None = None
-
-    def __post_init__(self) -> None:
-        for name in ("title", "version"):
-            if type(getattr(self, name)) is not str:
-                raise TypeError(f"OpenApiInfo {name} must be a string")
-        if self.description is not None and type(self.description) is not str:
-            raise TypeError("OpenApiInfo description must be a string or None")
-
-
 _Mode = Literal["validation", "serialization"]
 
 
 def openapi_document(api: Api, info: OpenApiInfo | None = None) -> dict[str, object]:
-    """The OpenAPI 3.1 document for *api*'s documented routes."""
+    """The OpenAPI 3.1 document for the routes *api* serves.
 
-    info = info or OpenApiInfo()
-    routes = [route for route in api.routes if route.documented]
+    *info* overrides the API's own `create_api(openapi=...)`. Only the route
+    that serves a method and path is described, the first registered, as in
+    `Api.match`; a later route for the same method and path is never served.
+    """
+
+    info = info or api.openapi or OpenApiInfo()
+    served: dict[tuple[str, str], Route] = {}
+    for route in api.routes:
+        served.setdefault((route.method, route.path), route)
+    routes = [route for route in served.values() if route.documented]
     inputs: list[tuple[int, _Mode, TypeAdapter[object]]] = []
     for index, route in enumerate(routes):
         if route.input is not None:
@@ -136,7 +128,7 @@ def _security_scheme(api: Api) -> dict[str, str]:
     return {"type": "apiKey", "in": "header", "name": transport.header}
 
 
-def add_docs_routes(api: Api, info: OpenApiInfo | None = None) -> None:
+def add_docs_routes(api: Api) -> None:
     """Serve `GET /openapi.json` and `GET /docs` on *api*, publicly.
 
     The document is built per request, so it describes routes added after
@@ -144,9 +136,9 @@ def add_docs_routes(api: Api, info: OpenApiInfo | None = None) -> None:
     """
 
     async def openapi(call: Call) -> ServeResponse:
-        return ServeResponse.json(openapi_document(api, info))
+        return ServeResponse.json(openapi_document(api))
 
-    page = docs_html("openapi.json", (info or OpenApiInfo()).title).encode("utf-8")
+    page = docs_html("openapi.json", (api.openapi or OpenApiInfo()).title).encode("utf-8")
 
     async def docs(call: Call) -> ServeResponse:
         return ServeResponse(

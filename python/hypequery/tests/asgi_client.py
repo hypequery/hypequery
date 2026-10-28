@@ -127,9 +127,21 @@ class AsgiClient:
             self.app({"type": "lifespan", "asgi": {"version": "3.0"}}, received.get, send)
         )
         await received.put({"type": "lifespan.startup"})
-        message = await sent.get()
+        message = await self._answer(sent)
         if message["type"] != "lifespan.startup.complete":
             raise RuntimeError(message.get("message", "lifespan startup failed"))
+
+    async def _answer(self, sent: asyncio.Queue[_Message]) -> _Message:
+        """The app's next lifespan message, or a failure if it returned without one."""
+
+        assert self._lifespan_task is not None
+        answer = asyncio.ensure_future(sent.get())
+        await asyncio.wait({answer, self._lifespan_task}, return_when=asyncio.FIRST_COMPLETED)
+        if answer.done():
+            return answer.result()
+        answer.cancel()
+        self._lifespan_task.result()  # re-raise what ended the app, if anything
+        raise RuntimeError("the app returned without answering its lifespan")
 
     async def _shutdown(self) -> None:
         if self._lifespan is None or self._lifespan_task is None:
@@ -137,7 +149,7 @@ class AsgiClient:
         received, sent = self._lifespan
         self._lifespan = None
         await received.put({"type": "lifespan.shutdown"})
-        message = await sent.get()
+        message = await self._answer(sent)
         await self._lifespan_task
         if message["type"] != "lifespan.shutdown.complete":
             raise RuntimeError(message.get("message", "lifespan shutdown failed"))

@@ -97,8 +97,10 @@ class AsgiApp:
 
     async def _lifespan(self, receive: Receive, send: Send) -> None:
         await receive()  # lifespan.startup
-        context = self.lifespan() if self.lifespan is not None else None
+        context = None
         try:
+            # The factory runs here too: one that raises is a failed startup.
+            context = self.lifespan() if self.lifespan is not None else None
             if context is not None:
                 await context.__aenter__()
         except Exception:

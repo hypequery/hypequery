@@ -292,6 +292,43 @@ def test_the_document_includes_routes_added_later_and_omits_its_own() -> None:
     assert list(_client(api).get("/openapi.json").json()["paths"]["/late"]) == ["put"]
 
 
+def test_a_direct_export_uses_the_apis_own_description() -> None:
+    info = OpenApiInfo(title="Orders", version="2.0.0")
+    api = create_api(auth=_authenticate, openapi=info)
+    assert openapi_document(api)["info"] == {"title": "Orders", "version": "2.0.0"}
+    override = OpenApiInfo(title="Other")
+    assert openapi_document(api, override)["info"] == {"title": "Other", "version": "1.0.0"}
+
+
+def test_only_the_route_that_serves_a_method_and_path_is_described() -> None:
+    class Second(BaseModel):
+        other: str
+
+    async def first(call: Call) -> ServeResponse:
+        return ServeResponse.json({})
+
+    async def second(call: Call) -> ServeResponse:
+        return ServeResponse.json({})
+
+    api = create_api(auth=_authenticate)
+    api.add_route("POST", "/orders", first, input=TypeAdapter(Echo))
+    api.add_route("POST", "/orders", second, input=TypeAdapter(Second))
+    api.add_route("GET", "/hidden", first, documented=False)
+    api.add_route("GET", "/hidden", second)
+    document = openapi_document(api)
+    paths = document["paths"]
+    assert isinstance(paths, dict)
+    assert paths["/orders"]["post"]["operationId"] == "first_orders_post"
+    assert paths["/orders"]["post"]["requestBody"]["content"]["application/json"]["schema"] == {
+        "$ref": "#/components/schemas/Echo"
+    }
+    # A hidden route that serves the path is not replaced by a later one.
+    assert "/hidden" not in paths
+    assert "Second" not in str(document)
+    with pytest.raises(TypeError, match="OpenApiInfo"):
+        create_api(auth=_authenticate, openapi="docs")  # type: ignore[arg-type]
+
+
 def test_development_docs_are_closed_by_default() -> None:
     api = create_api(auth=_authenticate, security=HttpSecurity(allowed_hosts=("testserver",)))
     http = _client(api)
