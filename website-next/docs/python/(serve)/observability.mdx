@@ -7,22 +7,22 @@ import { CodeBlock } from 'fumadocs-ui/components/codeblock';
 
 ## Query events
 
-Pass `events=QueryEvents(...)` to an endpoint to receive one event per query:
+Pass `events=QueryEvents(...)` to `create_api` to receive one event per query from every endpoint, or to one
+endpoint to override it:
 
 <CodeBlock>
 ```python
-from hypequery.serve import QueryEvents
+from hypequery.serve import QueryEvents, create_api
 
 
 def sink(event) -> None:
     logger.info("hypequery query", extra={"event": event})  # your logging or metrics pipeline
 
 
-add_dataset_endpoint(
-    router,
-    "/datasets/orders/query",
-    dataset=orders,
+api = create_api(
+    auth=authenticate,
     client=client,
+    datasets={"orders": orders},
     events=QueryEvents(target={"project": "acme", "environment": "production"}, sink=sink),
 )
 ```
@@ -40,7 +40,7 @@ Generated SQL is not returned by default, even with `includeMeta`. To let truste
 
 <CodeBlock>
 ```python
-from hypequery.serve import DiagnosticAccess, Principal
+from hypequery.serve import DiagnosticAccess, Principal, create_dataset_endpoint
 
 
 def authorize(principal: Principal) -> bool:
@@ -51,18 +51,17 @@ def audit(principal: Principal, request_id: str) -> None:
     audit_log.write(principal.subject, request_id)  # your audit trail
 
 
-add_dataset_endpoint(
-    router,
-    "/datasets/orders/query",
+endpoint = create_dataset_endpoint(
     dataset=orders,
     client=client,
     diagnostics=DiagnosticAccess(authorize=authorize, audit=audit),
 )
+api = create_api(auth=authenticate, datasets={"orders": endpoint})
 ```
 </CodeBlock>
 
 Only a principal your `authorize` callback approves receives a separate `diagnostics` object, and only after `audit`
-succeeds. It contains redacted SQL, never bound values or raw tenant ids. Both callbacks run in the threadpool.
+succeeds. It contains redacted SQL, never bound values or raw tenant ids. Both callbacks run on worker threads.
 
 ## Request ids
 

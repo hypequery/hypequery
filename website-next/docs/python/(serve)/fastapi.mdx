@@ -1,130 +1,110 @@
 ---
-title: Getting started
-description: Serve hypequery datasets over HTTP with an authenticated-by-default FastAPI router.
+title: FastAPI
+description: Mount hypequery's authenticated dataset endpoints in a FastAPI app, and query datasets from your own routes.
 ---
 
 import { CodeBlock } from 'fumadocs-ui/components/codeblock';
 
-`hypequery.serve` turns your datasets into HTTP endpoints on a FastAPI router. Every route requires authentication
-unless you explicitly mark it public, and the tenant always comes from the authenticated caller, never from the request.
+hypequery's HTTP API needs no web framework, so a FastAPI app mounts it like any other ASGI application. Your
+FastAPI routes keep your own authentication and dependencies; the mounted endpoints authenticate every request
+themselves, before the body is read, and take the tenant from the caller.
 
 ## Install
 
 <CodeBlock>
 ```bash
-pip install "hypequery[clickhouse,fastapi]"
+pip install "hypequery[clickhouse]" fastapi uvicorn
 ```
 </CodeBlock>
 
-## Serve a dataset
+hypequery has no FastAPI dependency. Install FastAPI and your ASGI server as you normally would.
+
+## Mount the API
 
 <CodeBlock>
 ```python
-from hypequery.datasets import create_dataset_client, create_dataset_registry
-from hypequery.serve import (
-    Credential,
-    EndpointPolicy,
-    HttpSecurity,
-    Principal,
-    add_dataset_endpoint,
-    add_discovery_endpoint,
-    create_app,
-    create_router,
-)
+# main.py
+from contextlib import asynccontextmanager
 
-from .datasets import orders
-from .executor import executor
+from fastapi import FastAPI
+from hypequery.datasets import create_async_dataset_client
+from hypequery.execution import ClickHouseConnection, create_async_from_sync_clickhouse_executor
+from hypequery.serve import CorsPolicy, HttpSecurity, create_api, jwt_strategy, to_asgi_app
 
-registry = create_dataset_registry(orders)
-client = create_dataset_client(executor=executor, registry=registry)
+from analytics.datasets import orders
 
+executor = create_async_from_sync_clickhouse_executor(ClickHouseConnection.from_env())
+client = create_async_dataset_client(executor=executor)
 
-async def authenticate(credential: Credential) -> Principal | None:
-    claims = await verify_jwt(credential.value)  # your token verification
-    if claims is None:
-        return None
-    return Principal(
-        subject=claims["sub"],
-        scopes=frozenset(claims.get("scope", "").split()),
-        tenant_id=claims.get("org_id"),
-    )
-
-
-router = create_router(authenticate=authenticate)
-add_dataset_endpoint(
-    router,
-    "/datasets/orders/query",
-    dataset=orders,
+api = create_api(
+    auth=jwt_strategy(
+        jwks_url="https://example.auth0.com/.well-known/jwks.json",
+        issuer="https://example.auth0.com/",
+        audience="https://api.example.com",
+    ),
     client=client,
-    policy=EndpointPolicy(required_scopes=frozenset({"analytics:read"}), tenant="required"),
+    datasets={"orders": orders},
+    security=HttpSecurity(
+        allowed_hosts=("api.example.com",),
+        cors=CorsPolicy(origins=("https://app.example.com",)),
+    ),
 )
-add_discovery_endpoint(router, registry=registry)
 
-app = create_app(router, security=HttpSecurity(allowed_hosts=("analytics.example.com",)))
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    yield
+    await executor.aclose()
+
+
+app = FastAPI(lifespan=lifespan)
+app.mount("/analytics", to_asgi_app(api))
 ```
 </CodeBlock>
 
-Run it with any ASGI server, or with [`run_production`](/docs/python/production) for a hardened standalone process.
+`POST /analytics/datasets/orders/query` and `GET /analytics/discovery` are now served by hypequery, and every other
+path by FastAPI.
 
-## Query it
+- **Lifespan.** A mounted application's own lifespan does not run, so close the executor in FastAPI's, as above.
+- **Security.** The `HttpSecurity` profile applies to the mounted paths only. FastAPI's own routes keep whatever
+  middleware the FastAPI app installs.
+- **Paths.** Client contracts and discovery name the paths requests are routed under, `/analytics/...` here. Behind a
+  proxy that rewrites paths, pass `create_api(client_mount_path=...)` with the path browsers call.
+- **OpenAPI.** The mounted endpoints are not FastAPI routes, so they don't appear in FastAPI's `/docs`. Pass
+  `create_api(development_docs=True)` to serve hypequery's own `/analytics/docs` while developing.
 
-<CodeBlock>
-```bash
-curl -X POST https://analytics.example.com/datasets/orders/query \
-  -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"dimensions": ["country"], "measures": ["revenue"], "limit": 10}'
-```
-</CodeBlock>
+The same works in Starlette with `Mount("/analytics", app=to_asgi_app(api))`, and in any ASGI framework that mounts
+applications. See [Mount in any ASGI or WSGI app](/docs/python/serving#mount-in-any-asgi-or-wsgi-app).
 
-<CodeBlock>
-```json
-{ "data": [{ "country": "NZ", "revenue": "1200.5" }] }
-```
-</CodeBlock>
+## Query from your own routes
 
-Requests and responses use the same shape as the TypeScript Serve runtime, pinned by shared HTTP fixtures that run
-against both implementations in CI.
-
-These endpoints serve applications over HTTP. To give React apps generated, type-safe hooks and AI agents MCP tools
-over the same endpoints, install them with a client profile; see [React and MCP clients](/docs/python/client-endpoints).
-Agents connect through the Node `hypequery mcp` bridge; there is no native Python MCP server.
-
-## Defaults
-
-- **Authenticated by default.** Authentication runs before the body is read, so an anonymous caller cannot make the
-  server parse JSON.
-- **Strict bodies.** Bodies must be `application/json` with no charset or `charset=utf-8`, and not content-encoded:
-  gzip and other encodings get `415`. A body that isn't valid JSON, including invalid UTF-8, gets `400`. Bodies are
-  capped at 1 MiB, counted as they arrive; set the cap with `create_router(max_body_bytes=...)`.
-- **No caching of private data.** Authenticated responses are sent with `Cache-Control: no-store`.
-- **Docs closed.** `create_app` disables `/docs`, `/redoc`, and `/openapi.json`. Pass `development_docs=True` only
-  for deliberate development documentation.
-
-## Add your own routes
-
-The router is a regular FastAPI router. Use `router.auth` to get the authenticated principal and tenant:
+In your FastAPI routes, use the dataset client directly. Bind it to the tenant your own authentication established,
+so every query is filtered to that tenant:
 
 <CodeBlock>
 ```python
 from typing import Annotated
 
 from fastapi import Depends
-from hypequery.serve import RequestAuth
+from hypequery.datasets import tenant
 
 
-@router.post("/reports/top-countries")
-def top_countries(auth: Annotated[RequestAuth, Depends(router.auth)]) -> dict:
-    scoped = client.for_tenant(auth.tenant)
-    result = scoped.execute("orders", {"dimensions": ["country"], "measures": ["revenue"], "limit": 5})
-    return {"data": result.data}
-
-
-@router.get("/health")
-@router.public
-def health() -> dict[str, str]:
-    return {"status": "ok"}
+@app.get("/reports/top-countries")
+async def top_countries(org_id: Annotated[str, Depends(current_org_id)]) -> dict:  # your dependency
+    scoped = client.for_tenant(tenant(org_id))
+    result = await scoped.execute(
+        "orders", {"dimensions": ["country"], "measures": ["revenue"], "limit": 5}
+    )
+    return {"data": list(result.data)}
 ```
 </CodeBlock>
 
-`@router.public` must sit *below* the route decorator. In the other order the route stays authenticated.
+A route like this returns the values the client returns: counts as integers, other numbers as floats or decimal
+strings. hypequery's HTTP endpoints, the generated React client and MCP send every non-null measure as a string, so
+pick one shape per API.
+
+## Without FastAPI
+
+If FastAPI only hosts the mounted API, you don't need it: serve `to_asgi_app(api)` directly with uvicorn, or run a
+hardened standalone process with [`start_server`](/docs/python/production). See
+[Getting started](/docs/python/serving).

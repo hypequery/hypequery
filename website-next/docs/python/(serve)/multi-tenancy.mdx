@@ -10,21 +10,22 @@ request state can supply or change it.
 
 ## Where the tenant comes from
 
-By default, `Principal.tenant_id` scopes the request, and a principal without one is tenant-free. Pass
-`resolve_tenant` to decide it yourself:
+By default, `Principal.tenant_id` scopes the request, and a principal without one is tenant-free. With
+[`jwt_strategy`](/docs/python/authentication#jwt), that is the token's `org_id` claim. Pass `tenant=` to decide it
+yourself:
 
 <CodeBlock>
 ```python
 from hypequery.datasets import tenant
-from hypequery.serve import Principal, create_router
+from hypequery.serve import Principal, create_api
 
 
-def resolve_tenant(principal: Principal):
+def tenant_for(principal: Principal):
     org_id = lookup_org(principal.subject)  # your code
     return tenant(org_id) if org_id else None
 
 
-router = create_router(authenticate=authenticate, resolve_tenant=resolve_tenant)
+api = create_api(auth=authenticate, tenant=tenant_for, client=client, datasets={"orders": orders})
 ```
 </CodeBlock>
 
@@ -35,13 +36,12 @@ A resolver must return a single-tenant scope or `None`. It cannot grant `tenants
 
 <CodeBlock>
 ```python
-add_dataset_endpoint(
-    router,
-    "/datasets/orders/query",
-    dataset=orders,
-    client=client,
-    policy=EndpointPolicy(tenant="required"),
+from hypequery.serve import EndpointPolicy, create_dataset_endpoint
+
+endpoint = create_dataset_endpoint(
+    dataset=orders, client=client, policy=EndpointPolicy(tenant="required")
 )
+api = create_api(auth=authenticate, datasets={"orders": endpoint})
 ```
 </CodeBlock>
 
@@ -61,16 +61,18 @@ Bind the client to the request's tenant before querying:
 
 <CodeBlock>
 ```python
-from typing import Annotated
-
-from fastapi import Depends
-from hypequery.serve import RequestAuth
+from hypequery.serve import Call, ServeError, ServeResponse
 
 
-@router.post("/reports/top-countries")
-def top_countries(auth: Annotated[RequestAuth, Depends(router.auth)]) -> dict:
-    scoped = client.for_tenant(auth.tenant)
-    return {"data": scoped.execute("orders", {"dimensions": ["country"], "measures": ["revenue"]}).data}
+async def top_countries(call: Call) -> ServeResponse:
+    if call.auth.tenant is None:
+        raise ServeError(403, "FORBIDDEN", "This report needs a tenant")
+    scoped = client.for_tenant(call.auth.tenant)  # an async dataset client
+    result = await scoped.execute("orders", {"dimensions": ["country"], "measures": ["revenue"]})
+    return ServeResponse.json({"data": list(result.data)})
+
+
+api.add_route("POST", "/reports/top-countries", top_countries)
 ```
 </CodeBlock>
 

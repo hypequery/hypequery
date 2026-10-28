@@ -1,0 +1,196 @@
+---
+title: Flask
+description: A Flask extension with app.config, a tenant loader, per-request tenant-bound clients, and hypequery's endpoints as a blueprint.
+---
+
+import { CodeBlock } from 'fumadocs-ui/components/codeblock';
+
+`hypequery.contrib.flask` is a Flask extension. It reads its connection from `app.config` or the environment, and
+`hq.client` gives each request a dataset client bound to that request's tenant.
+
+## Install
+
+<CodeBlock>
+```bash
+pip install "hypequery[flask]"
+```
+</CodeBlock>
+
+The `flask` extra includes the ClickHouse driver and Flask's async support.
+
+## Set up the extension
+
+<CodeBlock>
+```python
+from flask import Flask
+from flask_login import current_user
+from hypequery.contrib.flask import Hypequery
+
+hq = Hypequery()
+
+
+@hq.tenant_loader
+def current_tenant():
+    return current_user.org_id if current_user.is_authenticated else None
+
+
+def create_app():
+    app = Flask(__name__)
+    app.config["HYPEQUERY_REGISTRY"] = "analytics.datasets:registry"
+    hq.init_app(app)
+
+    @app.get("/revenue")
+    def revenue():
+        result = hq.client.execute("orders", {"dimensions": ["country"], "measures": ["revenue"]})
+        return {"data": list(result.data)}
+
+    return app
+```
+</CodeBlock>
+
+`Hypequery(app)` works too if you don't use an app factory.
+
+| Config key | Default | Meaning |
+| --- | --- | --- |
+| `HYPEQUERY_URL` | `None` | A ClickHouse URL. `None` reads `CLICKHOUSE_URL` or `CLICKHOUSE_HOST`, `_PORT`, ... |
+| `HYPEQUERY_REGISTRY` | `None` | Your `DatasetRegistry`, or an import string such as `"analytics.datasets:registry"` |
+| `HYPEQUERY_READONLY_POLICY` | `"query"` | See [read-only policy](/docs/python/reference/execution-api#results-and-read-only-policy) |
+| `HYPEQUERY_TIMEZONE` | `"UTC"` | The default query timezone |
+| `HYPEQUERY_MAX_CONCURRENT` | `4` | Concurrent queries per event loop for the async client |
+
+`init_app` validates these without connecting, so a bad URL, registry path or timezone fails at startup.
+
+## Clients
+
+| Attribute | Returns |
+| --- | --- |
+| `hq.client` | The sync client bound to this request's tenant, built once per request |
+| `hq.async_client` | The async client bound to this request's tenant, for `async def` routes |
+| `hq.base_client` | The app's process-wide client, not bound to any tenant |
+
+The tenant loader runs inside the request, so it can read `flask.request`, `g` or Flask-Login's `current_user`. It
+returns a tenant id, a `TenantScope`, or `None`. With `None`, the client is unscoped and any dataset with a
+`tenant_key` refuses to run.
+
+<CodeBlock>
+```python
+@app.get("/revenue/daily")
+async def revenue_by_day():
+    result = await hq.async_client.execute("orders", {"measures": ["revenue"], "by": "day"})
+    return {"data": list(result.data)}
+```
+</CodeBlock>
+
+## Connections and shutdown
+
+The client lives for the process: it is created on first use, connects on its first query, is closed at interpreter
+exit, and is rebuilt in a forked worker. It is deliberately not closed in `teardown_appcontext`, which runs after every
+request. Call `hq.close()` inside an app context to close it sooner, for example in tests.
+
+A decorator on an `async def` route must itself be async-aware. A plain sync wrapper, such as a hand-written
+`login_required`, returns the route's coroutine unawaited and Flask answers 500. Check
+`inspect.iscoroutinefunction(view)` and wrap with an `async def`.
+
+The async client runs the sync HTTP driver on worker threads, so it needs no aiohttp session. Flask runs each async
+route on its own event loop; the extension keeps one client per live loop and closes it once that loop ends.
+
+Outside a request (CLI commands, background jobs, setup code in `create_app`), `hq.client_for(app)` returns the app's
+client with no app context. It does not connect until the first query, so the app starts even while ClickHouse is down.
+
+## Serve hypequery's endpoints
+
+The generated React hooks and the MCP bridge call hypequery's own HTTP endpoints. Flask serves them natively as a
+blueprint, with no second application and no FastAPI: build the API with [`create_api`](/docs/python/serving) and
+register `blueprint(api)` under any prefix.
+
+<CodeBlock>
+```python
+from flask import Flask
+from hypequery.contrib.flask import Hypequery, blueprint
+from hypequery.serve import create_api, jwt_strategy
+
+from analytics.datasets import orders
+
+hq = Hypequery()
+
+
+def create_app():
+    app = Flask(__name__)
+    app.config["HYPEQUERY_REGISTRY"] = "analytics.datasets:registry"
+    hq.init_app(app)
+
+    api = create_api(
+        auth=jwt_strategy(secret=app.config["ANALYTICS_JWT_SECRET"], audience="analytics"),
+        client=hq.client_for(app),
+        datasets={"orders": orders},  # POST /api/analytics/datasets/orders/query
+    )
+    app.register_blueprint(blueprint(api), url_prefix="/api/analytics")
+    return app
+```
+</CodeBlock>
+
+Every request below the prefix reaches the API, which answers exactly as it does under any other adapter:
+authentication before the body, the body policy, the [security profile](/docs/python/http-security), request ids and
+the error envelope. `ServeRequest.raw` is Flask's `Request`.
+
+- **One event loop.** The view is sync. The API runs on one event loop per process, started on its own thread at the
+  first request, while the request's thread waits. A threaded server (gunicorn `--threads`, waitress) serves requests
+  concurrently on it. Your authenticator and a sync dataset client see the request thread's context, so Flask's
+  `request` and `g` work in them.
+- **Bodies** are read from `request.stream`, lazily and bounded by `create_api(max_body_bytes=...)`. A body over
+  `MAX_CONTENT_LENGTH` is refused as too large.
+- **Any prefix works**, including one with URL variables. Client contracts and discovery name the paths the request
+  was routed under.
+
+Then point the React hooks and the MCP bridge at the prefix; see [React and MCP clients](/docs/python/client-endpoints).
+
+### Your own login, with no token
+
+A React page served by your Flask app can call the endpoints with the session the user already has. With Flask-Login,
+`flask_session` passes your mapping the `current_user`:
+
+<CodeBlock>
+```python
+from hypequery.contrib.flask import blueprint, flask_session
+from hypequery.serve import Principal, create_api
+
+api = create_api(
+    auth=flask_session(lambda user: Principal(subject=user.get_id(), tenant_id=user.org_id)),
+    client=hq.client_for(app),
+    datasets={"orders": orders},
+)
+app.register_blueprint(blueprint(api), url_prefix="/api/analytics")
+```
+</CodeBlock>
+
+The mapping receives a signed-in user only; an anonymous one gets `401`. Without Flask-Login, the mapping receives
+Flask's `session` instead and returns `None` when nobody is signed in:
+
+<CodeBlock>
+```python
+def from_session(session) -> Principal | None:
+    user_id = session.get("user_id")
+    return Principal(subject=user_id, tenant_id=session["org_id"]) if user_id else None
+
+
+api = create_api(auth=flask_session(from_session), client=hq.client_for(app), datasets={"orders": orders})
+```
+</CodeBlock>
+
+Either way it runs on the request's own thread, so Flask-Login's user loader and thread-local database sessions behave
+as in your routes.
+
+A session cookie rides along with any request the browser makes. Flask has no CSRF middleware, so the
+[same-origin check](/docs/python/authentication#your-apps-own-login) is the protection: an unsafe method (`POST`,
+`PUT`, `PATCH`, `DELETE`) gets `403` unless the browser marks the request same-origin, or its `Origin` is in your CORS
+policy. Keep it on (`same_origin=True`, the default).
+
+For agents and other non-browser callers, serve a second API with a header credential (`jwt_strategy` or `api_key`)
+under another prefix. The tenant always comes from the principal either way.
+
+## Runnable example
+
+[`examples/flask_app.py`](https://github.com/hypequery/hypequery/blob/main/python/hypequery/examples/flask_app.py) has
+a sync route, an async route, and hypequery's endpoints served through `blueprint(api)` both behind the Flask login
+(for a same-origin React page) and behind a bearer token (for `@hypequery/mcp`). It runs against a live ClickHouse in
+CI.

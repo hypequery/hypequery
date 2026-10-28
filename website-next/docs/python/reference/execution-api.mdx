@@ -8,7 +8,7 @@ Importing `hypequery.execution` does not import the driver or open a connection.
 | Install | Gives you |
 | --- | --- |
 | `pip install "hypequery[clickhouse]"` | The sync executor |
-| `pip install "hypequery[clickhouse-async]"` | The async executor, and everything `clickhouse` gives |
+| `pip install "hypequery[clickhouse-async]"` | The aiohttp-based async executor, and everything `clickhouse` gives |
 
 ## Executors
 
@@ -16,9 +16,11 @@ Importing `hypequery.execution` does not import the driver or open a connection.
 | --- | --- |
 | `create_clickhouse_executor(connection)` | A `ClickHouseExecutor`. Connects when called |
 | `create_async_clickhouse_executor(connection)` | An `AsyncClickHouseExecutor` running up to 8 queries at once. Connects when awaited |
-| `AsyncFromSyncClickHouseExecutor(client, control_client, *, max_concurrent=4)` | A bounded worker bridge for apps that already have a synchronous driver client. Create both clients with `autogenerate_session_id=False` |
+| `create_async_from_sync_clickhouse_executor(connection, *, max_concurrent=4)` | An `AsyncFromSyncClickHouseExecutor` running the sync driver on worker threads. Needs only the `clickhouse` extra and no aiohttp. Its admission queue belongs to the event loop it first waits on |
+| `AsyncFromSyncClickHouseExecutor(client, control_client, *, max_concurrent=4)` | A bounded worker bridge for apps that already have a synchronous driver client. Create both clients with `autogenerate_session_id=False`. `aclose()` waits for workers; `close()` closes without waiting, for shutdown without an event loop |
 | `ClickHouseConnection(host="localhost", port=None, database="default", username="default", password="", secure=False, readonly_policy="query", control_username=None, control_password="")` | Connection fields; passwords never appear in its `repr` |
-| `ClickHouseConnection.from_env(environ=None, *, readonly_policy="query")` | Read `CLICKHOUSE_HOST`, `_PORT`, `_DATABASE`, `_USERNAME`, `_PASSWORD`, `_SECURE`, `_CONTROL_USERNAME` and `_CONTROL_PASSWORD` |
+| `ClickHouseConnection.from_env(environ=None, *, readonly_policy="query")` | Read `CLICKHOUSE_URL` or `CLICKHOUSE_HOST`, `_PORT`, `_DATABASE`, `_USERNAME`, `_PASSWORD`, `_SECURE` (not both), plus `_CONTROL_USERNAME` and `_CONTROL_PASSWORD` |
+| `ClickHouseConnection.from_url(url, *, readonly_policy="query", control_username=None, control_password="")` | Read `clickhouse://`, `clickhouses://`, `http(s)://`, `clickhousedb://` or `clickhouse+http://` URLs. See [Connecting](/docs/python/datasets/execution#connecting) |
 
 Pass the executor to `create_dataset_client(executor=...)` or `create_async_dataset_client(executor=...)`.
 

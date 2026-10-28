@@ -1,18 +1,21 @@
 ---
 title: Production
-description: Run Python Serve as a hardened standalone process.
+description: Run Python Serve as a hardened standalone process, with per-process budgets wherever it is served.
 ---
 
 import { CodeBlock } from 'fumadocs-ui/components/codeblock';
 
-Use `ProductionProfile` and `run_production` to run the app as a standalone service with validated settings:
+A `ProductionProfile` sets process budgets: admission, request deadlines and result sizes. `start_server` runs an API
+created with one as a hardened standalone process:
 
 <CodeBlock>
 ```python
-from hypequery.serve import HttpSecurity, ProductionProfile, create_app, run_production
+from hypequery.serve import HttpSecurity, ProductionProfile, create_api, start_server
 
-app = create_app(
-    router,
+api = create_api(
+    auth=authenticate,
+    client=client,
+    datasets={"orders": orders},
     security=HttpSecurity(
         allowed_hosts=("analytics.example.com",),
         trusted_proxies=("127.0.0.1",),
@@ -26,19 +29,26 @@ app = create_app(
 )
 
 if __name__ == "__main__":
-    run_production(app)
+    start_server(api)
 ```
 </CodeBlock>
 
+`start_server` needs the `server` extra (`pip install "hypequery[server]"`). `run_production` is the same function.
+To close an executor at shutdown, pass the ASGI app with a lifespan:
+`start_server(to_asgi_app(api, lifespan=...))`.
+
 ## Process
 
-- Binds to `127.0.0.1:8000` by default (`host=`, `port=`). Binding outside loopback, for example inside a container,
-  requires `allow_external_bind=True`.
-- Runs one Uvicorn worker per process with reload, access logging, server headers, and WebSockets disabled. Use a
+- Binds to `127.0.0.1:8000` by default (`ProductionProfile(host=..., port=...)`). Binding outside loopback, for
+  example inside a container, requires `allow_external_bind=True`.
+- Runs one uvicorn worker per process with reload, access logging, server headers, and WebSockets disabled. Use a
   process manager to run several instances; limits apply per instance.
 - Terminate TLS at a reverse proxy and list its addresses in `HttpSecurity.trusted_proxies`. Production rejects
-  all-address networks.
-- Debug, reload, development docs, and cookie credentials are rejected at startup.
+  all-address networks, and uvicorn's own forwarded-header handling is turned off so proxy trust is decided once.
+- `create_api` refuses a production profile without an `HttpSecurity`, with development docs, or with
+  `from_context(..., same_origin=False)`. A header credential (bearer, API key, JWT) is never read from a cookie; your
+  app's session is read only by a `from_context` strategy, with its same-origin check. `hypequery dev` refuses to run
+  a production API.
 
 ## Limits
 
@@ -53,7 +63,13 @@ if __name__ == "__main__":
 Time, row, byte, and thread ceilings are passed into the compiled query and intersected with stricter client
 settings. Responses are buffered under the byte ceiling, so this profile does not provide streaming exports.
 
-## Embedding in an existing app
+A request that times out keeps its admission slot until the work it started has stopped, so timed-out requests can't
+pile up. Work still waiting for a worker thread is cancelled before your code starts. Synchronous executors must
+honor the cancellation signal: the ClickHouse executor does, through its control connection, but Python cannot stop
+arbitrary code already running in a thread.
 
-If you mount the router in your own FastAPI app instead, your app owns equivalent safeguards: process settings, the
-docs policy, and timeouts.
+## Mounted in another app
+
+The profile's budgets apply wherever the API is served, including when it is mounted in another application or
+served through the Django and Flask adapters. The host application owns its own process settings and safeguards for
+everything else it serves.

@@ -5,15 +5,15 @@ description: Allowed hosts, CORS, trusted proxies, and request ids for Python Se
 
 import { CodeBlock } from 'fumadocs-ui/components/codeblock';
 
-`create_app(router, security=...)` installs the HTTP security profile. To add it to an existing FastAPI app instead,
-call `install_http_security(app, security)`.
+Pass `security=` to `create_api`. The profile applies wherever the API is served: under uvicorn, mounted in another
+application, or through the Django and Flask adapters.
 
 <CodeBlock>
 ```python
-from hypequery.serve import CorsPolicy, HttpSecurity, create_app
+from hypequery.serve import CorsPolicy, HttpSecurity, create_api
 
-app = create_app(
-    router,
+api = create_api(
+    auth=authenticate,
     security=HttpSecurity(
         allowed_hosts=("api.example.com",),
         cors=CorsPolicy(origins=("https://app.example.com",), allow_credentials=True),
@@ -23,10 +23,18 @@ app = create_app(
 ```
 </CodeBlock>
 
+Without `security=`, the API checks no `Host` header and sends no CORS headers. Leave it out only when the
+application in front of it does both. A [production profile](/docs/python/production) requires it.
+
 ## Allowed hosts
 
-`allowed_hosts` is required and must name hosts; `*` is refused. A request for any other `Host` gets `400` and is
-never redirected.
+`allowed_hosts` must name hosts; `*` is refused. A request for any other `Host` gets `400` and is never redirected.
+
+- `*.example.com` allows any subdomain of `example.com`, but not `example.com` itself.
+- Names compare case-insensitively and without a trailing dot.
+- IPv6 addresses are written in brackets and compare in their compressed form, so `[::1]` allows `[::1]:8000` and
+  `[0:0::1]`.
+- An entry that isn't a host, such as `[nope]`, is refused when the profile is built.
 
 ## CORS
 
@@ -36,6 +44,8 @@ CORS is off unless `cors` is set.
 - Credentialed CORS with a wildcard origin is refused when the policy is built, as are wildcard methods or headers.
 - Defaults: methods `GET` and `POST`; headers `Authorization`, `Content-Type`, `X-Request-ID`, `X-Include-Meta`, and
   `X-Hypequery-Client-Schema`; `max_age` 600 seconds.
+- Every response varies on `Origin`, and preflight answers also on the requested method and headers, so a shared cache
+  never serves one origin's answer to another.
 
 ## Trusted proxies
 
@@ -47,9 +57,8 @@ caller's value lets the caller spoof it.
 
 ## Request ids
 
-- Every response carries a server-generated `x-request-id`. Read it in a handler with `request_id(request)`. This
-  needs `create_app` or `install_http_security`: a router included in a plain FastAPI app adds the id to its error
-  responses only.
+- Every response carries a server-generated `x-request-id`. A handler reads it as `call.state.request_id`; endpoint
+  responses also return it as `meta.requestId`.
 - A caller's `X-Request-ID` is never authoritative. It is echoed back as `x-correlation-id` only when it is at most
   200 bytes, starts with a letter or digit, and uses only letters, digits, `.`, `_`, `:`, `/` and `-`. Anything else
   is dropped.

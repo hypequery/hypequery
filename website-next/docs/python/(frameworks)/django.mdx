@@ -1,0 +1,233 @@
+---
+title: Django
+description: Settings, a tenant-bound request.analytics in every view, clients for tasks and commands, and hypequery's endpoints served natively.
+---
+
+import { CodeBlock } from 'fumadocs-ui/components/codeblock';
+
+`hypequery.contrib.django` gives every Django view a dataset client that is already bound to the signed-in
+user's tenant. Keep the Django ORM for your transactional database; query ClickHouse through named measures and
+dimensions.
+
+## Install
+
+<CodeBlock>
+```bash
+pip install "hypequery[django]"
+```
+</CodeBlock>
+
+The `django` extra includes the ClickHouse driver.
+
+## Configure
+
+<CodeBlock>
+```python
+# settings.py
+INSTALLED_APPS = [
+    # ...
+    "hypequery.contrib.django",
+]
+
+MIDDLEWARE = [
+    # ...
+    "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "hypequery.contrib.django.HypequeryMiddleware",
+]
+
+HYPEQUERY = {
+    "URL": None,  # None reads CLICKHOUSE_URL, or CLICKHOUSE_HOST, _PORT, ...
+    "REGISTRY": "analytics.datasets.registry",
+    "TENANT": "analytics.tenancy.tenant_for_request",
+}
+```
+</CodeBlock>
+
+<CodeBlock>
+```python
+# analytics/tenancy.py
+def tenant_for_request(request):
+    user = request.user
+    return user.organization_id if user.is_authenticated else None
+```
+</CodeBlock>
+
+| Key | Default | Meaning |
+| --- | --- | --- |
+| `URL` | `None` | A ClickHouse URL such as `clickhouses://reader:pw@host/analytics`. `None` reads the environment |
+| `REGISTRY` | `None` | Your `DatasetRegistry`, or a dotted path to it |
+| `TENANT` | `None` | A function, or dotted path, taking the request and returning a tenant id, a `TenantScope`, or `None` |
+| `READONLY_POLICY` | `"query"` | See [read-only policy](/docs/python/reference/execution-api#results-and-read-only-policy) |
+| `TIMEZONE` | `"UTC"` | The default query timezone |
+| `MAX_CONCURRENT` | `4` | Concurrent queries per event loop for the async client |
+
+`manage.py check` validates the setting (import paths, URL, timezone, values) without connecting to ClickHouse,
+and reports problems as `hypequery.E001`. Errors never repeat the URL or a password.
+
+## Query from a view
+
+<CodeBlock>
+```python
+from django.contrib.auth.decorators import login_required
+from django.http import JsonResponse
+
+
+@login_required
+def revenue_by_country(request):
+    result = request.analytics.execute(
+        "orders", {"dimensions": ["country"], "measures": ["revenue"], "by": "month"}
+    )
+    return JsonResponse({"data": list(result.data)})
+```
+</CodeBlock>
+
+`request.analytics` is built the first time a view uses it, so requests that never query pay nothing. It is bound
+to the tenant `TENANT` returns: every query is filtered to that tenant, and a view cannot widen it. When `TENANT`
+returns `None`, the client is unscoped and any dataset with a `tenant_key` refuses to run.
+
+In an `async def` view, the same attribute is an awaitable client with the same `execute`:
+
+<CodeBlock>
+```python
+async def revenue_by_day(request):
+    result = await request.analytics.execute("orders", {"measures": ["revenue"], "by": "day"})
+    return JsonResponse({"data": list(result.data)})
+```
+</CodeBlock>
+
+In async views, `TENANT` runs through `sync_to_async` on the first query, off the event loop, so it may use the ORM
+(`request.user.membership`) just as in sync views. It runs once per request. `await request.analytics.client()`
+returns the bound async client itself, for `validate` or `to_sql`.
+
+## Outside a request
+
+Celery tasks, management commands and shell sessions use the process's client and bind a tenant explicitly:
+
+<CodeBlock>
+```python
+from hypequery.contrib.django import get_client
+from hypequery.datasets import tenant
+
+report = get_client().for_tenant(tenant(organization_id)).execute("orders", {"measures": ["revenue"]})
+```
+</CodeBlock>
+
+| Function | Returns |
+| --- | --- |
+| `get_client()` | The process's sync client, unscoped |
+| `get_async_client()` | The async client for the running event loop, unscoped |
+| `tenant_client(request)` / `await async_tenant_client(request)` | The tenant-bound sync or async client for a request |
+| `close_clients()` | Closes everything this process opened |
+
+## Connections and shutdown
+
+Django has no shutdown hook, so the integration manages connections for you. Each process creates its client on
+first use, closes it at interpreter exit, and rebuilds it in a forked worker (gunicorn, uWSGI) rather than sharing
+the parent's sockets.
+
+The async client runs the sync HTTP driver on worker threads, so no aiohttp session is left open at exit. Under an
+ASGI server (uvicorn, daphne) there is one per process. When a WSGI server runs async views, Django gives each request
+its own event loop, so each in-flight async request gets its own client, closed once its loop has ended. Prefer ASGI
+for async views.
+
+Changing `HYPEQUERY` with `override_settings` in a test closes the old clients and rebuilds from the new value.
+
+## Serve hypequery's endpoints
+
+The generated React hooks and the MCP bridge call hypequery's own HTTP endpoints. Django serves them natively, with no
+second application and no FastAPI: build the API with [`create_api`](/docs/python/serving) and include `urls(api)`
+below any prefix.
+
+<CodeBlock>
+```python
+# urls.py
+from django.conf import settings
+from django.urls import include, path
+from hypequery.contrib.django import get_client, urls
+from hypequery.serve import create_api, jwt_strategy
+
+from analytics.datasets import orders
+
+api = create_api(
+    auth=jwt_strategy(secret=settings.ANALYTICS_JWT_SECRET, audience="analytics"),
+    client=get_client(),
+    datasets={"orders": orders},  # POST /api/analytics/datasets/orders/query
+)
+
+urlpatterns = [
+    # ...
+    path("api/analytics/", include(urls(api))),
+]
+```
+</CodeBlock>
+
+Every request below the prefix reaches the API, which answers exactly as it does under any other adapter:
+authentication before the body, the body policy, the [security profile](/docs/python/http-security), request ids and
+the error envelope. `ServeRequest.raw` is the `HttpRequest`.
+
+- **Sync and async.** The view is async under ASGI, running the API on the server's loop, and sync under WSGI, where
+  the API runs on one event loop per process while the request's thread waits. No loop is created per request.
+- **Bodies** are read from the request's stream, lazily and bounded by `create_api(max_body_bytes=...)`;
+  `DATA_UPLOAD_MAX_MEMORY_SIZE` plays no part. Django's ASGI handler receives the whole body before the view runs, so
+  cap request sizes at the server or proxy too.
+- **Any prefix works**, including one with URL variables. Client contracts and discovery name the paths the request
+  was routed under.
+- **CSRF.** A header credential (`Authorization: Bearer`, an API key or a JWT) is one a browser never attaches on its
+  own, so the views for it are CSRF-exempt. Django's CSRF middleware stays installed for the rest of your project, and
+  checks an API that uses your own login (below).
+
+Then point the React hooks and the MCP bridge at the prefix; see [React and MCP clients](/docs/python/client-endpoints).
+
+### Your own login, with no token
+
+A React page served by your Django app can call the endpoints with the session the user already has. `django_user`
+reads `request.user` from `AuthenticationMiddleware`:
+
+<CodeBlock>
+```python
+from hypequery.contrib.django import django_user, get_client, urls
+from hypequery.serve import Principal, create_api
+
+api = create_api(
+    auth=django_user(lambda user: Principal(subject=str(user.pk), tenant_id=str(user.org_id))),
+    client=get_client(),
+    datasets={"orders": orders},
+)
+```
+</CodeBlock>
+
+The mapping receives a signed-in user only; an anonymous one gets `401`. Under WSGI it runs on the request's own
+thread, so the ORM behaves as in your views; under ASGI the user is loaded through the async ORM.
+
+A session cookie rides along with any request the browser makes, so two checks protect these endpoints from
+cross-site requests:
+
+- **The same-origin check** refuses an unsafe method (`POST`, `PUT`, `PATCH`, `DELETE`) with `403` unless the browser
+  marks the request same-origin, or its `Origin` is in your CORS policy. See
+  [your app's own login](/docs/python/authentication#your-apps-own-login).
+- **Django's CSRF middleware** checks them too. The page sends the `csrftoken` cookie's value as `X-CSRFToken`, read
+  per request because signing in rotates it. With `@hypequery/react`:
+
+<CodeBlock>
+```ts
+const csrfToken = () => document.cookie.match(/(?:^|; )csrftoken=([^;]*)/)?.[1];
+
+const client = createHypequeryClient({
+  baseUrl: '/api/analytics',
+  headers: () => ({ 'X-CSRFToken': csrfToken() }),
+});
+```
+</CodeBlock>
+
+A view rendering the page sets the cookie (`get_token(request)` or `@ensure_csrf_cookie`). A missing token gets
+Django's own `403` page.
+
+For agents and other non-browser callers, serve a second API with a header credential (`jwt_strategy` or `api_key`)
+under another prefix. The tenant always comes from the principal either way.
+
+## Runnable example
+
+[`examples/django_app.py`](https://github.com/hypequery/hypequery/blob/main/python/hypequery/examples/django_app.py)
+is a single-file Django project with a sync view, an async view, and hypequery's endpoints served through `urls(api)`
+both behind the Django login (for a same-origin React page) and behind a bearer token (for `@hypequery/mcp`). It runs
+against a live ClickHouse in CI.

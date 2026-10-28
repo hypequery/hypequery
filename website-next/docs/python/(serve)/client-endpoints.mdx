@@ -19,8 +19,8 @@ The Python side needs no Node process. Generating the React client and running t
 
 ## 1. Declare client endpoints
 
-Keep datasets and client endpoint declarations in a module that imports nothing from FastAPI, a database driver or
-your credentials. The export command imports it, so it must be cheap and side-effect free.
+Keep datasets and client endpoint declarations in a module that imports nothing from `hypequery.serve`, a database
+driver or your credentials. The export command imports it, so it must be cheap and side-effect free.
 
 <CodeBlock>
 ```python
@@ -102,17 +102,23 @@ from hypequery.serve import (
     add_dataset_endpoint,
     add_metric_endpoint,
     create_api,
-    create_app,
+    to_asgi_app,
 )
 
-from .auth import authenticate  # your credential lookup, returning a Principal
+from .auth import authenticate  # your credential lookup, or jwt_strategy(...)
 from .definitions import RELATED, orders, profile, registry
 
 executor = create_clickhouse_executor(ClickHouseConnection.from_env())
 client = create_dataset_client(executor=executor, registry=registry)
 policy = EndpointPolicy(tenant="required", required_scopes=frozenset({"analytics:read"}))
 
-api = create_api(authenticate=authenticate)
+api = create_api(
+    auth=authenticate,
+    security=HttpSecurity(
+        allowed_hosts=("analytics.example.com",),
+        cors=CorsPolicy(origins=("https://app.example.com",)),
+    ),
+)
 add_dataset_endpoint(
     api, "/v1/orders", dataset=orders, client=client, policy=policy,
     client_profile=profile, include_related=RELATED,
@@ -123,18 +129,15 @@ add_metric_endpoint(
 )
 add_client_contract_endpoint(api, "/v1/client-contract", policy=policy)
 
-app = create_app(
-    api,
-    security=HttpSecurity(
-        allowed_hosts=("analytics.example.com",),
-        cors=CorsPolicy(origins=("https://app.example.com",)),
-    ),
-)
+app = to_asgi_app(api)
 ```
 </CodeBlock>
 
-`CorsPolicy` already allows the `X-Hypequery-Client-Schema` header that generated clients send. Close the executor when
-the application shuts down; see [FastAPI](/docs/python/fastapi).
+`CorsPolicy` already allows the `X-Hypequery-Client-Schema` header that generated clients send. The same API can be
+served from [Django](/docs/python/django#serve-hypequerys-endpoints) with `urls(api)` or
+[Flask](/docs/python/flask#serve-hypequerys-endpoints) with `blueprint(api)` instead of `to_asgi_app`. Strict client
+endpoints are checked when the adapter is created, so a mismatch fails at startup. Close the executor at shutdown, for
+example with `to_asgi_app(api, lifespan=...)`.
 
 <Callout type="warn" title="Keep both sides in step">
   The schema hash covers the path, profile and related fields. If `related=` and `include_related=` (or the paths)
@@ -160,14 +163,15 @@ python -m hypequery export client-contract \
 Run it from the directory that makes `analytics` importable. Use `--check` in CI to fail when definitions changed
 but the committed contract did not, and `--force` to replace an existing file. See [Python CLI](/docs/python/cli).
 
-Alternatively, export from the configured application with `hypequery.serve.export_client_contract(app)`. It resolves
-the real FastAPI paths and the effective limits, and produces the same build contract as `build()` above.
+Alternatively, export from the configured API with `hypequery.serve.export_client_contract(api)` (the API, or its
+`to_asgi_app` or `to_wsgi_app` application). It uses the installed paths and effective limits, and produces the same
+build contract as `build()` above.
 
 The live `/v1/client-contract` route returns a different, **authorized** view for the calling principal. That view is
 for MCP and discovery; `generate:client` refuses it, because a build must come from the definition owner.
 
-If the app is mounted under a prefix, pass it as `mount_path=` to `export_client_contract(...)` and as
-`client_mount_path=` to `create_app(...)` so exported paths match the URLs browsers call.
+If the API is mounted under a prefix, pass it as `mount_path=` to `export_client_contract(...)` and as
+`client_mount_path=` to `create_api(...)` so exported paths match the URLs browsers call.
 
 Then generate the React client in the frontend project, as described in
 [React: datasets served from Python](/docs/react/getting-started#datasets-served-from-python):
@@ -221,7 +225,10 @@ Types describe what the server accepts; Python still authorizes, validates and c
 | Deployed server ahead of a running frontend | The server answers `409 CLIENT_SCHEMA_CHANGED`; rebuild and redeploy the frontend |
 
 Each request carries its endpoint's schema hash in `X-Hypequery-Client-Schema`, so a stale client never receives data in
-a shape its types don't describe. Neither the hooks nor the MCP bridge automatically adopts a changed contract: the hooks
+a shape its types don't describe. When debugging a 409, compare per-endpoint `schemaHash` values: they are identical in
+the exported contract and the live discovery route. The document-level `contentHash` (and the generated
+`clientContractHash`) always differs between the two, because the build view lists every endpoint and the live view
+only those the caller may use. Neither the hooks nor the MCP bridge automatically adopts a changed contract: the hooks
 keep their generated types, and the bridge re-reads the live contract but refuses one that changed
 (`MCP_STALE_CONTRACT`) until you restart it.
 
