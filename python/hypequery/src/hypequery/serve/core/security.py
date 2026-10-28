@@ -25,12 +25,10 @@ from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass
 
 from .messages import Headers, ServeResponse
+from .utils.host_header import normalise_host, request_host
 
 _ORIGIN = re.compile(r"https?://[a-z0-9.-]+(:[0-9]{1,5})?|https?://\[[0-9a-f:.]+\](:[0-9]{1,5})?")
 _HOST = re.compile(r"(\*\.)?[a-z0-9.-]+|\[[0-9a-f:.]+\]")
-#: A raw `Host` value: a name or bracketed IPv6 address, then an optional port.
-#: Header values are latin-1 decoded, so this matches the same bytes as before.
-_REQUEST_HOST = re.compile(r"(?:[A-Za-z0-9.-]+|\[[0-9A-Fa-f:.]+\])(?::([0-9]{1,5}))?")
 
 #: Every CORS-enabled response exposes the request identifiers to the browser.
 EXPOSED_HEADERS = ("x-request-id", "x-correlation-id")
@@ -39,12 +37,23 @@ _SAFELISTED_HEADERS = frozenset(("Accept", "Accept-Language", "Content-Language"
 
 INVALID_HOST = "Invalid host header"
 
+#: What a preflight answer depends on, so caches keep one answer per request.
+_PREFLIGHT_VARY = (
+    "Origin, Access-Control-Request-Method, Access-Control-Request-Headers, "
+    "Access-Control-Request-Private-Network"
+)
+
 
 def _validate_hosts(hosts: object) -> tuple[str, ...]:
     if type(hosts) is not tuple or not hosts:
         raise ValueError("allowed_hosts must be a non-empty tuple of host names")
     for host in hosts:
-        if type(host) is not str or host == "*" or not _HOST.fullmatch(host):
+        if (
+            type(host) is not str
+            or host == "*"
+            or not _HOST.fullmatch(host)
+            or normalise_host(host.removeprefix("*.")) is None
+        ):
             raise ValueError(
                 f"allowed host {host!r} is not a lowercase host name, "
                 "'*.domain' pattern, or bracketed IPv6 address; '*' is not accepted"
@@ -132,22 +141,29 @@ def raw_host_valid(headers: Headers) -> bool:
     """Exactly one `Host` header, well formed, with a port no higher than 65535."""
 
     hosts = headers.getlist("host")
-    match = _REQUEST_HOST.fullmatch(hosts[0]) if len(hosts) == 1 else None
-    return match is not None and (match[1] is None or int(match[1]) <= 65535)
+    return len(hosts) == 1 and request_host(hosts[0]) is not None
 
 
 def host_allowed(headers: Headers, allowed_hosts: tuple[str, ...]) -> bool:
     """Whether the request's `Host`, without its port, is one of *allowed_hosts*.
 
-    `*.example.com` allows any name ending `.example.com`. As before, there is
-    no `www.` redirect: a host not listed is refused.
+    Hosts compare normalised (`utils/host_header.py`): names case-insensitively
+    and without a trailing dot, IPv6 literals in compressed form, so
+    `[0:0::1]:8000` is allowed by `[::1]`. `*.example.com` allows any name
+    ending `.example.com`, but not `example.com` itself. There is no `www.`
+    redirect: a host not listed is refused.
     """
 
-    host = (headers.get("host") or "").split(":")[0]
-    return any(
-        host == pattern or (pattern.startswith("*") and host.endswith(pattern[1:]))
-        for pattern in allowed_hosts
-    )
+    host = request_host(headers.get("host") or "")
+    if host is None:
+        return False
+    for pattern in allowed_hosts:
+        if pattern.startswith("*."):
+            if host.endswith(pattern[1:]):
+                return True
+        elif host == normalise_host(pattern):
+            return True
+    return False
 
 
 def _is_ip(value: str) -> bool:
@@ -205,10 +221,14 @@ class ProxyTrust:
 class Cors:
     """A `CorsPolicy` applied to requests and responses.
 
-    Behaves as Starlette's `CORSMiddleware` with explicit methods and headers,
-    the request identifiers exposed, and no origin regex or private-network
-    access: a preflight is answered `200 OK` or `400 Disallowed CORS ...`, and a
-    response to an allowed origin names that origin and varies on it.
+    Behaves as Starlette's `CORSMiddleware` (1.10) with explicit methods and
+    headers, the request identifiers exposed, and no origin regex or
+    private-network access: a preflight is answered `200 OK` or `400 Disallowed
+    CORS ...`, and a response to an allowed origin names that origin.
+
+    Every answer varies on what decided it, whether or not the request carried
+    an `Origin`, so a shared cache never serves one origin's answer to another
+    or a same-origin answer to a cross-origin request.
     """
 
     __slots__ = (
@@ -237,11 +257,9 @@ class Cors:
         simple["Access-Control-Expose-Headers"] = ", ".join(EXPOSED_HEADERS)
         self._simple_headers = simple
 
-        preflight: dict[str, str] = {}
-        if self._preflight_explicit_origin:
-            # The origin itself is added per preflight, when it is allowed.
-            preflight["Vary"] = "Origin"
-        else:
+        preflight: dict[str, str] = {"Vary": _PREFLIGHT_VARY}
+        if not self._preflight_explicit_origin:
+            # Otherwise the origin itself is added per preflight, when allowed.
             preflight["Access-Control-Allow-Origin"] = "*"
         preflight["Access-Control-Allow-Methods"] = ", ".join(policy.allow_methods)
         preflight["Access-Control-Max-Age"] = str(policy.max_age)
@@ -289,29 +307,29 @@ class Cors:
             return plain_text("Disallowed CORS " + ", ".join(failures), 400, answer)
         return plain_text("OK", 200, answer)
 
-    def response_headers(self, origin: str, existing_vary: str | None) -> dict[str, str]:
+    def response_headers(self, origin: str | None, existing_vary: str | None) -> dict[str, str]:
         """The headers a response to a request from *origin* gains, lowercase names.
 
-        Set in this order on top of the response's own; `vary` gains `Origin`
-        when the response names the origin.
+        Set in this order on top of the response's own. A request without an
+        `Origin` gains only `Vary: Origin`; *existing_vary* is kept before it.
         """
 
-        updates = {name.lower(): value for name, value in self._simple_headers.items()}
-        explicit = (self._allow_all_origins and self._allow_credentials) or (
-            not self._allow_all_origins and self._allowed_origin(origin)
-        )
-        if explicit:
-            updates["access-control-allow-origin"] = origin
-            updates["vary"] = f"{existing_vary}, Origin" if existing_vary is not None else "Origin"
+        updates: dict[str, str] = {}
+        if origin is not None:
+            updates.update((name.lower(), value) for name, value in self._simple_headers.items())
+            explicit = (self._allow_all_origins and self._allow_credentials) or (
+                not self._allow_all_origins and self._allowed_origin(origin)
+            )
+            if explicit:
+                updates["access-control-allow-origin"] = origin
+        updates["vary"] = f"{existing_vary}, Origin" if existing_vary else "Origin"
         return updates
 
     def apply(self, response: ServeResponse, headers: Headers) -> ServeResponse:
         """*response* to a request carrying *headers*, with this policy's headers."""
 
-        origin = headers.get("origin")
-        if origin is None:
-            return response
-        return response.with_headers(self.response_headers(origin, response.headers.get("vary")))
+        updates = self.response_headers(headers.get("origin"), response.headers.get("vary"))
+        return response.with_headers(updates)
 
     def around(
         self, headers: Headers, respond: Callable[[ServeResponse], Awaitable[None]]
