@@ -558,11 +558,12 @@ def test_request_lifetime_exits_when_the_waiter_absorbs_a_cancel(concurrency: in
     from hypequery.serve.core.work import RequestWork
 
     # A host's waiter may swallow the cancel aimed at it; leaving the request
-    # must not wait for it.
+    # must not wait for it. It would hold each request for 10 seconds, far
+    # beyond the bound below, which leaves room for a slow CI runner.
     async def absorbing() -> None:
         with suppress(asyncio.CancelledError):
-            await asyncio.sleep(0.2)
-        await asyncio.sleep(0.2)
+            await asyncio.sleep(10)
+        await asyncio.sleep(10)
 
     async def one() -> None:
         request = ServeRequest(method="POST", path="/", wait_disconnected=absorbing)
@@ -571,7 +572,7 @@ def test_request_lifetime_exits_when_the_waiter_absorbs_a_cancel(concurrency: in
         assert not lifetime.cancellation.is_set()
 
     async def check() -> None:
-        async with asyncio.timeout(0.15):
+        async with asyncio.timeout(3):
             await asyncio.gather(*(one() for _ in range(concurrency)))
 
     asyncio.run(check())
