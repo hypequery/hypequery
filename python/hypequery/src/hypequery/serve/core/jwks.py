@@ -20,15 +20,18 @@ from __future__ import annotations
 
 import asyncio
 import http.client
-import socket
 import threading
 import time
+import urllib.error
+import urllib.request
 from concurrent.futures import Future
 from typing import Any
 from urllib.parse import urlsplit
 
-from .utils.http_proxy import proxy_for, proxy_headers
+from .utils.http_deadline import Deadline, DeadlineHTTPHandler, DeadlineHTTPSHandler, NoRedirects
+from .utils.http_proxy import with_default_ports
 from .utils.json_body import parse_json
+from .utils.jwt_options import LOOPBACK_HOSTS
 
 #: A key set larger than this is refused. Providers publish a handful of keys.
 MAX_JWKS_BYTES = 512 * 1024
@@ -43,88 +46,56 @@ def _monotonic() -> float:
     return time.monotonic()
 
 
-def _within(sock: socket.socket, deadline: float) -> None:
-    """Let the next socket operation wait only until *deadline*."""
-
-    remaining = deadline - _monotonic()
-    if remaining <= 0:
-        raise JwksUnavailable("the key set took too long to fetch")
-    sock.settimeout(remaining)
-
-
-def _connection(url: str, timeout: float) -> tuple[http.client.HTTPConnection, str, dict[str, str]]:
-    """A connection for *url*, its request target, and any proxy headers."""
-
-    parts = urlsplit(url)
-    target = (parts.path or "/") + (f"?{parts.query}" if parts.query else "")
-    proxy = proxy_for(url)
-    # The scheme was checked to be http or https when the URL was configured.
-    # HTTPSConnection verifies the certificate and host name by default.
-    if proxy is None:
-        factory = (
-            http.client.HTTPSConnection if parts.scheme == "https" else http.client.HTTPConnection
-        )
-        return factory(parts.hostname or "", parts.port, timeout=timeout), target, {}
-    headers = proxy_headers(proxy)
-    if parts.scheme == "https":
-        # Through a CONNECT tunnel, so TLS and its certificate check stay end
-        # to end with the key set's host.
-        tunnel = http.client.HTTPSConnection(proxy.hostname or "", proxy.port, timeout=timeout)
-        tunnel.set_tunnel(parts.hostname or "", parts.port, headers=headers)
-        return tunnel, target, {}
-    # Plain http goes to the proxy with the absolute URL as its target.
-    plain = http.client.HTTPConnection(proxy.hostname or "", proxy.port, timeout=timeout)
-    return plain, url, headers
+def _opener(url: str, deadline: Deadline) -> urllib.request.OpenerDirector:
+    # urllib chooses the proxy: HTTPS_PROXY / HTTP_PROXY, NO_PROXY (host or
+    # host:port), the system settings, and a CONNECT tunnel for https, so
+    # TLS and its certificate check stay end to end. A loopback host is
+    # always reached directly.
+    host = urlsplit(url).hostname
+    proxies = {} if host in LOOPBACK_HOSTS else with_default_ports(urllib.request.getproxies())
+    return urllib.request.build_opener(
+        urllib.request.ProxyHandler(proxies),
+        DeadlineHTTPHandler(deadline),
+        DeadlineHTTPSHandler(deadline),
+        NoRedirects,
+    )
 
 
 def fetch_jwks(url: str, timeout: float, max_bytes: int = MAX_JWKS_BYTES) -> list[dict[str, Any]]:
     """The keys of the key set at *url*. Blocking; run it off the event loop.
 
-    The whole fetch, from connecting to the last byte, ends by *timeout*:
-    before each read the socket may wait only for what remains, and each read
-    takes what one receive returns, so a server that drips bytes cannot keep
-    it open. Redirects are not followed, as jose follows none.
+    The whole fetch, from connecting to the last byte, ends by *timeout*,
+    however slowly the server or a proxy answers. Redirects are not followed,
+    as jose follows none.
     """
 
-    deadline = _monotonic() + timeout
+    deadline = Deadline(timeout)
+    # The scheme was checked to be http or https when the URL was configured.
+    request = urllib.request.Request(  # noqa: S310
+        url, headers={"Accept": "application/json", "User-Agent": "hypequery-jwks"}
+    )
     try:
-        connection, target, proxy_auth = _connection(url, timeout)
-    except ValueError as exc:
-        raise JwksUnavailable("the key set's proxy is not usable") from exc
-    try:
-        connection.request(
-            "GET",
-            target,
-            headers={"Accept": "application/json", "User-Agent": "hypequery-jwks", **proxy_auth},
-        )
-        # Kept: the connection drops its reference once a response that
-        # closes the connection arrives, but the response reads through it.
-        sock = connection.sock
-        _within(sock, deadline)
-        # Closed on every exit, so a refused response never holds its socket.
-        with connection.getresponse() as response:
+        with deadline, _opener(url, deadline).open(request, timeout=timeout) as response:
             if response.status != 200:
                 raise JwksUnavailable(f"the key set answered {response.status}")
             body = bytearray()
-            # A response read to its end closes itself, and with it the socket.
-            while not response.isclosed():
-                _within(sock, deadline)
-                chunk = response.read1(_CHUNK_BYTES)
-                if not chunk:
-                    break
+            while chunk := response.read1(_CHUNK_BYTES):
                 body += chunk
                 if len(body) > max_bytes:
                     raise JwksUnavailable("the key set is too large")
     except JwksUnavailable:
         raise
-    except TimeoutError as exc:
-        raise JwksUnavailable("the key set took too long to fetch") from exc
+    except urllib.error.HTTPError as exc:
+        exc.close()  # its response holds the socket
+        raise JwksUnavailable(f"the key set answered {exc.code}") from None
     except (OSError, ValueError, http.client.HTTPException) as exc:
-        # Timeouts and refused connections are OSErrors; a truncated body is
+        # Timeouts and refused connections are OSErrors; a body cut short is
         # an HTTPException.
+        if deadline.expired or isinstance(exc, TimeoutError):
+            raise JwksUnavailable("the key set took too long to fetch") from exc
         raise JwksUnavailable("the key set could not be fetched") from exc
-    finally:
-        connection.close()
+    if deadline.expired:
+        raise JwksUnavailable("the key set took too long to fetch")
     try:
         document = parse_json(bytes(body))
     except (ValueError, RecursionError) as exc:

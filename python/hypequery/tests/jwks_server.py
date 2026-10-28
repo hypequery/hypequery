@@ -26,6 +26,8 @@ class JwksServer:
         self.delay = 0.0
         #: When set, the body is sent one byte per this many seconds, forever.
         self.drip = 0.0
+        #: When set, a header is sent one byte per this many seconds, forever.
+        self.drip_headers = 0.0
         self.paths: list[str] = []
         #: The `Proxy-Authorization` each request carried, or None.
         self.proxy_authorizations: list[str | None] = []
@@ -44,6 +46,12 @@ class JwksServer:
                 if server.drip:
                     self._drip()
                     return
+                if server.drip_headers:
+                    self.wfile.write(b"HTTP/1.0 200 OK\r\nX-Slow: ")
+                    while True:
+                        time.sleep(server.drip_headers)
+                        self.wfile.write(b"x")
+                        self.wfile.flush()
                 if server.delay:
                     time.sleep(server.delay)
                 body = (

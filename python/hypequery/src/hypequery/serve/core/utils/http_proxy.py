@@ -1,42 +1,28 @@
-"""The outbound proxy for a URL, chosen as `urllib.request` chooses it.
-
-`HTTPS_PROXY`, `HTTP_PROXY` and `NO_PROXY` (and, on macOS and Windows, the
-system settings) apply, as they do to `urlopen`. A loopback host is always
-reached directly.
-"""
+"""Outbound proxies for a key-set fetch, as `urllib.request` reads them."""
 
 from __future__ import annotations
 
-import base64
-from urllib.parse import SplitResult, unquote, urlsplit
-from urllib.request import getproxies, proxy_bypass
+from collections.abc import Mapping
+from urllib.parse import urlsplit
 
-from .jwt_options import LOOPBACK_HOSTS
+_DEFAULT_PORTS = {"http": 80, "https": 443}
 
 
-def proxy_for(url: str) -> SplitResult | None:
-    """The proxy to reach *url* through, or None to connect directly.
+def with_default_ports(proxies: Mapping[str, str]) -> dict[str, str]:
+    """*proxies* (as `getproxies()` returns them) with each proxy's port explicit.
 
-    Raises ValueError for a proxy that is not a plain `http://` proxy, the
-    only kind a tunnel can be opened through.
+    urllib connects to a port-less proxy on the *target's* default port, so an
+    `http://proxy` serving an https URL is dialled on 443. A proxy URL's own
+    scheme decides its port: 80 for `http://`, which is also what a proxy
+    without a scheme is.
     """
 
-    host = urlsplit(url).hostname or ""
-    if host in LOOPBACK_HOSTS or proxy_bypass(host):
-        return None
-    configured = getproxies().get(urlsplit(url).scheme)
-    if not configured:
-        return None
-    proxy = urlsplit(configured if "://" in configured else f"http://{configured}")
-    if proxy.scheme != "http" or not proxy.hostname:
-        raise ValueError("a key-set proxy must be an http:// URL")
-    return proxy
-
-
-def proxy_headers(proxy: SplitResult) -> dict[str, str]:
-    """`Proxy-Authorization` for a proxy URL carrying credentials."""
-
-    if proxy.username is None:
-        return {}
-    pair = f"{unquote(proxy.username)}:{unquote(proxy.password or '')}"
-    return {"Proxy-Authorization": "Basic " + base64.b64encode(pair.encode()).decode("ascii")}
+    explicit = {}
+    for scheme, proxy in proxies.items():
+        url = proxy if "://" in proxy else f"http://{proxy}"
+        parts = urlsplit(url)
+        default = _DEFAULT_PORTS.get(parts.scheme)
+        if parts.hostname and parts.port is None and default is not None:
+            url = parts._replace(netloc=f"{parts.netloc}:{default}").geturl()
+        explicit[scheme] = url
+    return explicit

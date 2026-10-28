@@ -10,6 +10,7 @@ from __future__ import annotations
 import asyncio
 import base64
 import http.client
+import socket
 import time
 import warnings
 from collections.abc import Iterator, Mapping
@@ -36,8 +37,8 @@ from hypequery.serve import (
 )
 from hypequery.serve.core import Api, Call, ServeResponse, jwks, jwt_auth
 from hypequery.serve.core.jwks import JwksUnavailable, RemoteJwks, fetch_jwks
-from hypequery.serve.core.utils import http_proxy
-from hypequery.serve.core.utils.http_proxy import proxy_for, proxy_headers
+from hypequery.serve.core.utils.http_deadline import Deadline
+from hypequery.serve.core.utils.http_proxy import with_default_ports
 from hypequery.serve.core.utils.jwk_selection import matching_keys
 from jwks_server import JwksServer
 
@@ -468,13 +469,25 @@ def test_a_dripping_key_set_is_cut_off_at_the_timeout(server: JwksServer) -> Non
     assert time.monotonic() - started < 1.5
 
 
-def test_the_deadline_is_checked_before_every_read(
-    server: JwksServer, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    ticks = iter([0.0, 0.0, 100.0])
-    monkeypatch.setattr(jwks, "_monotonic", lambda: next(ticks))
+def test_dripping_headers_are_cut_off_at_the_timeout(server: JwksServer) -> None:
+    # The status line arrives, then a header one byte at a time: every
+    # receive returns inside the socket timeout, but the request must not.
+    server.drip_headers = 0.02
+    started = time.monotonic()
     with pytest.raises(JwksUnavailable, match="too long"):
-        fetch_jwks(server.url, 5)
+        fetch_jwks(server.url, 0.3)
+    assert time.monotonic() - started < 1.5
+
+
+def test_a_deadline_shuts_late_sockets_at_once() -> None:
+    deadline = Deadline(0.01)
+    with deadline:
+        time.sleep(0.1)
+    assert deadline.expired
+    late = socket.socket()
+    with pytest.raises(TimeoutError):
+        deadline.track(late)
+    assert late.fileno() == -1
 
 
 def test_a_body_without_a_length_ends_with_the_connection(server: JwksServer) -> None:
@@ -558,35 +571,70 @@ def test_https_key_sets_tunnel_through_the_configured_proxy(
     assert server.proxy_authorizations == ["Basic " + base64.b64encode(b"ops:pw").decode()]
 
 
-def test_loopback_and_no_proxy_hosts_are_reached_directly(
+def test_loopback_hosts_are_reached_directly(
     server: JwksServer, no_environment_proxies: pytest.MonkeyPatch
 ) -> None:
     # A proxy that would refuse every connection.
     no_environment_proxies.setenv("http_proxy", "http://127.0.0.1:9")
-    no_environment_proxies.setenv("https_proxy", "http://127.0.0.1:9")
-    no_environment_proxies.setenv("no_proxy", "idp.internal")
     assert fetch_jwks(server.url, 5) == server.document["keys"]
-    assert proxy_for("https://idp.internal/jwks.json") is None
-    assert proxy_for("https://idp.example.com/jwks.json") is not None
 
 
-def test_proxy_urls_are_read_as_urlopen_reads_them(
+@pytest.mark.parametrize(
+    ("no_proxy", "proxied"),
+    [("keys.example.test:8443", False), ("keys.example.test:9443", True)],
+)
+def test_no_proxy_matches_the_host_and_port(
+    server: JwksServer,
     no_environment_proxies: pytest.MonkeyPatch,
+    no_proxy: str,
+    proxied: bool,
 ) -> None:
-    no_environment_proxies.setenv("https_proxy", "proxy.internal:3128")
-    proxy = proxy_for("https://idp.example.com/jwks.json")
-    assert proxy is not None
-    assert (proxy.scheme, proxy.hostname, proxy.port) == ("http", "proxy.internal", 3128)
-    assert proxy_headers(proxy) == {}
+    no_environment_proxies.setenv("http_proxy", server.url.removesuffix("/jwks.json"))
+    no_environment_proxies.setenv("no_proxy", no_proxy)
+    url = "http://keys.example.test:8443/jwks.json"
+    if proxied:
+        assert fetch_jwks(url, 5) == server.document["keys"]
+        assert server.paths == [url]
+    else:
+        # Reached directly, so the made-up host does not resolve.
+        with pytest.raises(JwksUnavailable):
+            fetch_jwks(url, 5)
+        assert server.paths == []
 
-    no_environment_proxies.setenv("https_proxy", "https://proxy.internal:3128")
-    with pytest.raises(ValueError, match="http://"):
-        proxy_for("https://idp.example.com/jwks.json")
-    with pytest.raises(JwksUnavailable, match="proxy is not usable"):
-        fetch_jwks("https://idp.example.com/jwks.json", 1)
 
-    no_environment_proxies.setattr(http_proxy, "getproxies", dict)
-    assert proxy_for("https://idp.example.com/jwks.json") is None
+def test_proxies_get_their_own_scheme_default_port() -> None:
+    assert with_default_ports(
+        {
+            "https": "http://proxy.internal",
+            "http": "proxy.internal",
+            "ftp": "http://ops:pw@proxy.internal:3128",
+            "all": "https://secure-proxy.internal",
+        }
+    ) == {
+        "https": "http://proxy.internal:80",
+        "http": "http://proxy.internal:80",
+        "ftp": "http://ops:pw@proxy.internal:3128",
+        "all": "https://secure-proxy.internal:443",
+    }
+    assert with_default_ports({"https": "socks5://proxy.internal"}) == {
+        "https": "socks5://proxy.internal"
+    }
+
+
+def test_a_port_less_proxy_is_dialled_on_port_80(
+    no_environment_proxies: pytest.MonkeyPatch, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    dialled: list[tuple[str, int]] = []
+
+    def refuse(address: tuple[str, int], *args: object, **kwargs: object) -> socket.socket:
+        dialled.append(address)
+        raise ConnectionRefusedError
+
+    monkeypatch.setattr(socket, "create_connection", refuse)
+    no_environment_proxies.setenv("https_proxy", "http://proxy.internal")
+    with pytest.raises(JwksUnavailable):
+        fetch_jwks("https://idp.example.com/jwks.json", 2)
+    assert dialled == [("proxy.internal", 80)]
 
 
 def test_a_refused_response_is_closed(server: JwksServer, monkeypatch: pytest.MonkeyPatch) -> None:
