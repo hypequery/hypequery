@@ -95,8 +95,8 @@ def discover_schema(*, tables: str | None, exclude_tables: str | None) -> Schema
     except Exception as exc:
         from hypequery.execution.errors import safe_driver_error
 
-        category = safe_driver_error(exc, "").category
-        raise CliError(f"Cannot inspect ClickHouse. {clickhouse_hint(category)}") from exc
+        error = safe_driver_error(exc, "")
+        raise CliError(f"Cannot inspect ClickHouse. {clickhouse_hint(error)}") from exc
     finally:
         if client is not None:
             with suppress(Exception):

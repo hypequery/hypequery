@@ -58,8 +58,8 @@ def run(options: DevOptions) -> None:
         ) from exc
     except CompiledQueryError as exc:
         # The executor factory raises these while the app module connects; the
-        # category is safe and tells a developer which setting to look at.
-        raise CliError(f"App could not start. {clickhouse_hint(exc.category)}") from exc
+        # code and category are safe and tell a developer which setting to check.
+        raise CliError(f"App could not start. {clickhouse_hint(exc)}") from exc
     except KeyError as exc:
         name = missing_environment_variable(exc)
         if name is None:

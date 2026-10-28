@@ -148,6 +148,16 @@ def as_serve_error(exc: BaseException, *, request_id: str | None = None) -> Serv
     if isinstance(exc, CompiledQueryError):
         status, kind = _CATEGORIES[exc.category]
         message = _SERVER_MESSAGES.get(exc.category, exc.message)
+        if exc.diagnostic is not None:
+            # The caller sees a fixed sentence; the operator needs the reason,
+            # such as the database rejecting the server's own credentials.
+            _log.error(
+                "Query execution failed (request_id=%s, query_id=%s, code=%s): %s",
+                request_id,
+                exc.query_id,
+                exc.code,
+                exc.diagnostic,
+            )
         return serve_error(status, kind, message)
     _log.error(
         "Unhandled error in a served route (request_id=%s)",
