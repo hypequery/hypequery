@@ -280,11 +280,11 @@ describe('analytical measures on the query-builder path', () => {
       measures: ['p95Amount', 'latestAmount', 'amountStddev'],
     });
 
-    expect(sql).toContain('quantile(0.95)(amount) AS `p95Amount`');
+    expect(sql).toContain('quantile(0.95)(orders.amount) AS `p95Amount`');
     // createdAt resolves to its physical column
-    expect(sql).toContain('argMax(amount, created_at) AS `latestAmount`');
-    expect(sql).toContain('stddevSamp(amount) AS `amountStddev`');
-    expect(sql).toContain('GROUP BY status');
+    expect(sql).toContain('argMax(orders.amount, orders.created_at) AS `latestAmount`');
+    expect(sql).toContain('stddevSamp(orders.amount) AS `amountStddev`');
+    expect(sql).toContain('GROUP BY `status`');
   });
 
   it('wraps filtered percentile in a NULL-fallback condition', () => {
@@ -292,7 +292,7 @@ describe('analytical measures on the query-builder path', () => {
     const client = createDatasetClient({ queryBuilder: factory });
 
     const sql = client.toSQL(Orders, { measures: ['completedP95'] });
-    expect(sql).toContain("quantile(0.95)(if((status = 'completed'), amount, NULL)) AS `completedP95`");
+    expect(sql).toContain("quantile(0.95)(if((orders.status = 'completed'), orders.amount, NULL)) AS `completedP95`");
   });
 
   it('rejects measure filters on argMax at planning time', () => {

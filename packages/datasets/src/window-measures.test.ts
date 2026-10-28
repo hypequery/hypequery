@@ -89,7 +89,7 @@ describe('RFC 0015 window measure authoring', () => {
     expect(ds.derivedMeasures.revenueRatio).toBe(ds.measures.revenueRatio);
     expect(ds.metric('totalRevenue', { measure: 'revenue' }).contract().measures).toEqual(['revenue']);
     const client = createDatasetClient({ queryBuilder: createRenderingBuilderFactory() });
-    expect(client.toSQL(ds, {})).toBe('SELECT SUM(amount) AS `revenue` FROM orders');
+    expect(client.toSQL(ds, {})).toBe('SELECT SUM(orders.amount) AS `revenue` FROM orders');
     expect(client.toSQL(ds, { measures: ['revenueRatio'] })).toContain('NULLIF');
     // JavaScript callers cannot turn a non-aggregate definition into a metric.
     // @ts-expect-error Deliberately invalid input exercises JavaScript runtime validation.

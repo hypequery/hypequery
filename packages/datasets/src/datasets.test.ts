@@ -462,9 +462,9 @@ describe("dataset query helpers", () => {
       },
     });
 
-    expect(builder.toSQLWithParams().sql).toContain('SELECT status, SUM(if((status = \'completed\'), amount, 0)) AS `completedRevenue` FROM orders');
-    expect(builder.toSQLWithParams().sql).toContain('WHERE tenant_id = ? AND country = ?');
-    expect(builder.toSQLWithParams().sql).toContain('GROUP BY status');
+    expect(builder.toSQLWithParams().sql).toContain('SELECT orders.status AS `status`, SUM(if((orders.status = \'completed\'), orders.amount, 0)) AS `completedRevenue` FROM orders');
+    expect(builder.toSQLWithParams().sql).toContain('WHERE orders.tenant_id = ? AND orders.country = ?');
+    expect(builder.toSQLWithParams().sql).toContain('GROUP BY `status`');
     expect(builder.toSQLWithParams().sql).toContain('ORDER BY `completedRevenue` DESC');
     expect(builder.toSQLWithParams().sql).toContain('LIMIT 5');
   });
@@ -478,7 +478,7 @@ describe("dataset query helpers", () => {
     });
 
     expect(result.data).toEqual([{ revenue: '42' }]);
-    expect(result.meta?.sql).toContain('SUM(amount) AS `revenue`');
+    expect(result.meta?.sql).toContain('SUM(orders.amount) AS `revenue`');
   });
 
   it("forwards semantic cancellation to query-builder execution", async () => {
@@ -873,8 +873,8 @@ describe("MetricQueryEngine", () => {
         dimensions: ["country"],
       }, TENANT_CONTEXT);
 
-      expect(sql).toContain("SELECT country, SUM(amount) AS `totalRevenue` FROM orders");
-      expect(sql).toContain("GROUP BY country");
+      expect(sql).toContain("SELECT orders.country AS `country`, SUM(orders.amount) AS `totalRevenue` FROM orders");
+      expect(sql).toContain("GROUP BY `country`");
     });
 
     it("injects tenant WHERE clause", () => {
@@ -887,7 +887,7 @@ describe("MetricQueryEngine", () => {
         },
       });
 
-      expect(sql).toContain("WHERE tenant_id = ?");
+      expect(sql).toContain("WHERE orders.tenant_id = ?");
     });
 
     it("applies user filters", () => {
@@ -918,8 +918,8 @@ describe("MetricQueryEngine", () => {
         dimensions: ["country"],
       }, TENANT_CONTEXT);
 
-      expect(sql).toContain("SUM(if((status = 'completed'), amount, 0)) AS `completedRevenue`");
-      expect(sql).toContain("GROUP BY country");
+      expect(sql).toContain("SUM(if((orders.status = 'completed'), orders.amount, 0)) AS `completedRevenue`");
+      expect(sql).toContain("GROUP BY `country`");
     });
 
     it("keeps backslashes and quotes inside filtered measure literals", () => {
@@ -928,7 +928,7 @@ describe("MetricQueryEngine", () => {
         filters: [eq('status', "x\\' OR 1=1 --")],
       }, 'amount', undefined, clickhouseDatasetSqlDialect);
 
-      expect(expression).toBe("if((status = 'x\\\\'' OR 1=1 --'), amount, 0)");
+      expect(expression).toBe("if((orders.status = 'x\\\\'' OR 1=1 --'), amount, 0)");
     });
 
     it("resolves column aliases for countDistinct metrics", () => {
@@ -937,7 +937,7 @@ describe("MetricQueryEngine", () => {
         dimensions: ["country"],
       }, TENANT_CONTEXT);
 
-      expect(sql).toContain("COUNT(DISTINCT customer_id) AS `uniqueCustomers`");
+      expect(sql).toContain("COUNT(DISTINCT orders.customer_id) AS `uniqueCustomers`");
       expect(sql).not.toContain("COUNT(DISTINCT customerId)");
     });
   });
@@ -948,7 +948,7 @@ describe("MetricQueryEngine", () => {
       const monthly = totalRevenue.by("month");
       const sql = analytics.toSQL(monthly, {}, TENANT_CONTEXT);
 
-      expect(sql).toContain("toStartOfMonth(toDateTime64(created_at, 9, 'UTC')) AS `period`");
+      expect(sql).toContain("toStartOfMonth(toDateTime64(orders.created_at, 9, 'UTC')) AS `period`");
       expect(sql).toContain("GROUP BY `period`");
       expect(sql).toContain("ORDER BY `period`");
     });
@@ -957,7 +957,7 @@ describe("MetricQueryEngine", () => {
       const analytics = new MetricQueryEngine({ builderFactory: createMockBuilderFactory() });
       const sql = analytics.toSQL(totalRevenue, { by: "week" }, TENANT_CONTEXT);
 
-      expect(sql).toContain("toStartOfWeek(toDateTime64(created_at, 9, 'UTC')) AS `period`");
+      expect(sql).toContain("toStartOfWeek(toDateTime64(orders.created_at, 9, 'UTC')) AS `period`");
     });
 
     it("rejects conflicting query.by on grained metrics", () => {
@@ -978,11 +978,11 @@ describe("MetricQueryEngine", () => {
       }, TENANT_CONTEXT);
 
       expect(sql).toContain("WITH base AS");
-      expect(sql).toContain("SUM(amount) AS `totalRevenue`");
-      expect(sql).toContain("COUNT(id) AS `orderCount`");
+      expect(sql).toContain("SUM(orders.amount) AS `totalRevenue`");
+      expect(sql).toContain("COUNT(orders.id) AS `orderCount`");
       expect(sql).toContain("FROM base");
-      expect(sql).toContain("(`totalRevenue` / NULLIF(`orderCount`, 0)) AS `avgOrderValue`");
-      expect(sql).not.toContain("SELECT `country`, (`totalRevenue` / NULLIF(`orderCount`, 0)) AS `avgOrderValue`, `totalRevenue`, `orderCount` FROM base");
+      expect(sql).toContain("(toFloat64(`totalRevenue`) / NULLIF(`orderCount`, 0)) AS `avgOrderValue`");
+      expect(sql).not.toContain("SELECT `country`, (toFloat64(`totalRevenue`) / NULLIF(`orderCount`, 0)) AS `avgOrderValue`, `totalRevenue`, `orderCount` FROM base");
     });
 
     it("does not emit GROUP BY for ungrouped derived metrics", () => {
@@ -1199,7 +1199,7 @@ describe("MetricQueryEngine", () => {
         { country: "US", totalRevenue: "5000" },
         { country: "DE", totalRevenue: "3000" },
       ]);
-      expect(result.meta.sql).toContain("SUM(amount) AS `totalRevenue`");
+      expect(result.meta.sql).toContain("SUM(orders.amount) AS `totalRevenue`");
     });
 
     it("executes dataset queries through the semantic analytics", async () => {
@@ -1215,7 +1215,7 @@ describe("MetricQueryEngine", () => {
         { country: "US", totalRevenue: 5000 },
         { country: "DE", totalRevenue: 3000 },
       ]);
-      expect(result.meta.sql).toContain("SELECT country, SUM(amount) AS `revenue` FROM orders");
+      expect(result.meta.sql).toContain("SELECT orders.country AS `country`, SUM(orders.amount) AS `revenue` FROM orders");
     });
 
     it("generates and validates dataset queries", () => {
@@ -1232,7 +1232,7 @@ describe("MetricQueryEngine", () => {
       }, TENANT_CONTEXT);
 
       expect(validation.valid).toBe(true);
-      expect(sql).toContain("GROUP BY country");
+      expect(sql).toContain("GROUP BY `country`");
     });
   });
 
@@ -1538,13 +1538,13 @@ describe("dataset SQL generation matrix", () => {
       ],
     }, TENANT_CONTEXT);
 
-    expect(sql).toContain("SELECT country_code AS `country`, upper(country_code) AS `countryUpper`");
-    expect(sql).toContain("SUM(amount) AS `revenue`");
-    expect(sql).toContain("COUNT(id) AS `orderCount`");
-    expect(sql).toContain("COUNT(DISTINCT customer_id) AS `uniqueCustomers`");
-    expect(sql).toContain("AVG(amount) AS `averageAmount`");
-    expect(sql).toContain("MIN(amount) AS `minAmount`");
-    expect(sql).toContain("MAX(amount) AS `maxAmount`");
+    expect(sql).toContain("SELECT orders.country_code AS `country`, upper(country_code) AS `countryUpper`");
+    expect(sql).toContain("SUM(orders.amount) AS `revenue`");
+    expect(sql).toContain("COUNT(orders.id) AS `orderCount`");
+    expect(sql).toContain("COUNT(DISTINCT orders.customer_id) AS `uniqueCustomers`");
+    expect(sql).toContain("AVG(orders.amount) AS `averageAmount`");
+    expect(sql).toContain("MIN(orders.amount) AS `minAmount`");
+    expect(sql).toContain("MAX(orders.amount) AS `maxAmount`");
     expect(sql).toContain("SUM(amount * 1.2) AS `taxedRevenue`");
     expect(sql).toContain("GROUP BY `country`, `countryUpper`");
   });
@@ -1565,11 +1565,11 @@ describe("dataset SQL generation matrix", () => {
       },
     });
 
-    expect(sql).toContain("toStartOfMonth(toDateTime64(created_at, 9, 'UTC')) AS `period`");
+    expect(sql).toContain("toStartOfMonth(toDateTime64(orders.created_at, 9, 'UTC')) AS `period`");
     expect(sql).toContain("status");
-    expect(sql).toContain("SUM(if((status = 'completed') AND (amount > 10), amount, 0)) AS `completedRevenue`");
-    expect(sql).toContain("WHERE tenant_id = ? AND country_code = ?");
-    expect(sql).toContain("GROUP BY `period`, status");
+    expect(sql).toContain("SUM(if((orders.status = 'completed') AND (orders.amount > 10), orders.amount, 0)) AS `completedRevenue`");
+    expect(sql).toContain("WHERE orders.tenant_id = ? AND orders.country_code = ?");
+    expect(sql).toContain("GROUP BY `period`, `status`");
     expect(sql).toContain("ORDER BY `completedRevenue` DESC");
     expect(sql).toContain("LIMIT 50 OFFSET 10");
   });
@@ -1599,7 +1599,7 @@ describe("dataset SQL generation matrix", () => {
     expect(sql).toContain("amount <= ?");
     expect(sql).toContain("country_code IN (?)");
     expect(sql).toContain("status NOT IN (?)");
-    expect(sql).toContain("toDateTime64(created_at, 9, 'UTC') BETWEEN ? AND ?");
+    expect(sql).toContain("toDateTime64(orders.created_at, 9, 'UTC') BETWEEN ? AND ?");
     expect(sql).toContain("status LIKE ?");
   });
 
@@ -1694,10 +1694,10 @@ describe("dataset SQL generation matrix", () => {
     }, TENANT_CONTEXT);
 
     expect(sql).toContain('WITH base AS (SELECT');
-    expect(sql).toContain('SUM(amount) AS `revenue`');
-    expect(sql).toContain('COUNT(id) AS `orderCount`');
-    expect(sql).toContain('WHERE tenant_id = ? GROUP BY `period`, status)');
-    expect(sql).toContain('SELECT `period`, `status`, (`revenue` / NULLIF(`orderCount`, 0)) AS `averageOrderValue`, `revenue` FROM base');
+    expect(sql).toContain('SUM(orders.amount) AS `revenue`');
+    expect(sql).toContain('COUNT(orders.id) AS `orderCount`');
+    expect(sql).toContain('WHERE orders.tenant_id = ? GROUP BY `period`, `status`)');
+    expect(sql).toContain('SELECT `period`, `status`, (toFloat64(`revenue`) / NULLIF(`orderCount`, 0)) AS `averageOrderValue`, `revenue` FROM base');
     expect(sql).toContain('ORDER BY `averageOrderValue` DESC LIMIT 10 OFFSET 5');
     expect(sql.indexOf('LIMIT 10')).toBeGreaterThan(sql.indexOf('FROM base'));
   });
@@ -1716,7 +1716,7 @@ describe("dataset SQL generation matrix", () => {
 
     expect(rawQuery).toHaveBeenCalledOnce();
     const sql = rawQuery.mock.calls[0][0] as string;
-    expect(sql).toContain('SELECT `status`, (`revenue` / NULLIF(`orderCount`, 0)) AS `averageOrderValue` FROM base LIMIT 2');
+    expect(sql).toContain('SELECT `status`, (toFloat64(`revenue`) / NULLIF(`orderCount`, 0)) AS `averageOrderValue` FROM base LIMIT 2');
     expect(sql).not.toContain('LIMIT 2)');
     expect(result.data).toEqual([{ status: 'paid', averageOrderValue: '5' }]);
     expect(result.meta.pagination).toEqual({ limit: 1, offset: 0, hasMore: true });
@@ -1743,7 +1743,7 @@ describe("dataset SQL generation matrix", () => {
     });
     const analytics = createDatasetClient({ queryBuilder: createSqlBuilderFactory() });
     expect(analytics.toSQL(ConstructorOrders, { measures: ['constructor'] }))
-      .toBe('SELECT SUM(amount) AS `constructor` FROM orders');
+      .toBe('SELECT SUM(orders.amount) AS `constructor` FROM orders');
   });
 
   it('escapes backslashes in derived formula string literals', () => {

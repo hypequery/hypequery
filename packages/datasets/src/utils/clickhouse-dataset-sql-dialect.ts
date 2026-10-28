@@ -140,6 +140,10 @@ export const clickhouseDatasetSqlDialect: DatasetSqlDialectRules = Object.freeze
   formulaBinary(operator, left, right) {
     const symbol = BINARY_OPERATORS[operator];
     if (!symbol) throw new Error('Formula contains an unsupported binary operator.');
+    // Decimal division keeps the dividend's scale and truncates, so the average
+    // of 2.00 over 3 rows would be 0.66 before any ROUND. Integer division already
+    // returns Float64; a Float64 dividend makes decimals match.
+    if (operator === 'divide') return `(toFloat64(${left}) ${symbol} ${right})`;
     return `(${left} ${symbol} ${right})`;
   },
   formulaFunction(name, args) {

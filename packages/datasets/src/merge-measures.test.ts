@@ -46,12 +46,12 @@ const client = createDatasetClient({ queryBuilder: createRenderingBuilderFactory
 describe('merge measures', () => {
   it('renders the -Merge combinator on the query-builder path', () => {
     expect(client.toSQL(DailyActiveUsers, { measures: ['activeUsers', 'events'], dimensions: ['tenantId'] }))
-      .toMatch(/uniqMerge\(users\) AS `activeUsers`.*SUM\(events\) AS `events`/);
+      .toMatch(/uniqMerge\(hq_saas\.daily_active_users\.users\) AS `activeUsers`.*SUM\(hq_saas\.daily_active_users\.events\) AS `events`/);
   });
 
   it('feeds derived measures', () => {
     const sql = client.toSQL(DailyActiveUsers, { measures: ['eventsPerUser'] });
-    expect(sql).toContain('uniqExactMerge(users_exact)');
+    expect(sql).toContain('uniqExactMerge(hq_saas.daily_active_users.users_exact)');
   });
 
   it('merges states across a trailing window, which is what makes weekly uniques correct', () => {
@@ -169,7 +169,7 @@ describe('merge measure catalogs and publishing', () => {
     ]));
     const hydrated = rehydrateProtocolDatasets(contract.datasets).dau!;
     expect(hydrated.measures.users).toMatchObject({ aggregation: 'merge', stateFunction: 'uniq', field: 'users' });
-    expect(client.toSQL(hydrated, { measures: ['users'] })).toContain('uniqMerge(users)');
+    expect(client.toSQL(hydrated, { measures: ['users'] })).toContain('uniqMerge(dau.users)');
   });
   it('refuses a published metric over a merge measure, which expressions cannot carry', () => {
     const Local = dataset('dau', {

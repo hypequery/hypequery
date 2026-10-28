@@ -20,7 +20,7 @@
 import { datasetSourceBuilder } from './utils/dataset-source.js';
 import type { AnyDatasetInstance, ExecutionContext } from './types.js';
 import { toQueryBuilderFactory, type QueryBuilderFactoryInput } from './query-builder-protocol.js';
-import { validateTenantRuntime } from './utils/tenant-runtime.js';
+import { joinsWithinTenant, validateTenantRuntime } from './utils/tenant-runtime.js';
 import { applyRowScope, datasetRowScope } from './utils/row-scope.js';
 import { resolveDatasetSqlDialect } from './utils/dataset-sql-dialect.js';
 import {
@@ -76,9 +76,14 @@ export async function checkRelationships(
       throw new Error(`Cannot check relationship "${entry.relationship}": ${tenantError}`);
     }
 
+    // Joins then match keys within each tenant, so a key reused by another
+    // tenant is not a duplicate; count (key, tenant) pairs instead.
+    const distinctColumns = joinsWithinTenant(ds, entry.target, options.context)
+      ? [...(entry.columns ?? [entry.column]), entry.target.tenantKey as string]
+      : entry.columns;
     let qb = datasetSourceBuilder(factory, entry.target)
       .count(entry.column, ROWS_ALIAS)
-      .countDistinct(entry.columns ? dialect.packRow(entry.columns) : entry.column, KEYS_ALIAS);
+      .countDistinct(distinctColumns ? dialect.packRow(distinctColumns) : entry.column, KEYS_ALIAS);
     if (entry.columns) {
       for (const column of entry.columns) qb = qb.where(column, 'isNotNull', undefined);
     }

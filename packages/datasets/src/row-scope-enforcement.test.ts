@@ -145,7 +145,7 @@ describe('row scope: every query shape applies the tenant and enforced constrain
     const sql = client.toSQL(Orders, { measures: ['revenue'] } as never, {
       runtime: { tenant: { scope: 'all' }, constraints: [CONSTRAINT] },
     });
-    expect(sql).toContain('WHERE sales_channel = ?');
+    expect(sql).toContain('WHERE analytics.orders.sales_channel = ?');
     expect(sql).not.toContain('tenant_id');
   });
 

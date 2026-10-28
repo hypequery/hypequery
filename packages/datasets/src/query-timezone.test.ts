@@ -15,12 +15,12 @@ describe('public execution timezone', () => {
     const utc = createDatasetClient({ queryBuilder });
     const tokyo = createDatasetClient({ queryBuilder, timezone: 'Asia/Tokyo' });
     const query = { by: 'day' as const, filters: [{ field: 'range', operator: 'gte' as const, value: '2026-01-02' }] };
-    expect(utc.toSQL(Events, query)).toContain("toDateTime64(event_at, 9, 'UTC')");
-    expect(tokyo.toSQL(Events, query)).toContain("toDateTime64(event_at, 9, 'Asia/Tokyo')");
+    expect(utc.toSQL(Events, query)).toContain("toDateTime64(events.event_at, 9, 'UTC')");
+    expect(tokyo.toSQL(Events, query)).toContain("toDateTime64(events.event_at, 9, 'Asia/Tokyo')");
     expect(tokyo.toSQL(Events, { ...query, timezone: 'America/New_York' }))
-      .toContain("toDateTime64(event_at, 9, 'America/New_York')");
+      .toContain("toDateTime64(events.event_at, 9, 'America/New_York')");
     expect(tokyo.toSQL(Events.metric('revenue', { measure: 'revenue' }).by('day'), { timezone: 'UTC' }))
-      .toContain("toDateTime64(event_at, 9, 'UTC')");
+      .toContain("toDateTime64(events.event_at, 9, 'UTC')");
     expect(tokyo.validate(Events, { ...query, timezone: 'Bad/Zone' }).valid).toBe(false);
     expect(query).not.toHaveProperty('timezone');
   });

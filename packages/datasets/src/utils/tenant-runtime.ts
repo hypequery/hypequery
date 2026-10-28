@@ -36,6 +36,27 @@ export function isCrossTenantRuntime(context?: ExecutionContext): boolean {
   return !!tenant && typeof tenant === 'object' && 'scope' in tenant && tenant.scope === 'all';
 }
 
+/**
+ * Whether a join from `base` to `target` must also match their tenant keys.
+ * One tenant pins both sides to the same id already. A scope over several
+ * tenants, or all of them, admits every scoped tenant's target rows, so a key
+ * reused across tenants would otherwise match another tenant's row.
+ */
+export function joinsWithinTenant(
+  base: Pick<AnyDatasetInstance, 'tenantKey'>,
+  target: Pick<AnyDatasetInstance, 'tenantKey'>,
+  context?: ExecutionContext,
+): boolean {
+  if (!base.tenantKey || !target.tenantKey) {
+    return false;
+  }
+  const predicate = getRuntimeTenantPredicate(context);
+  if (predicate) {
+    return predicate.operator === 'in' && predicate.value.length > 1;
+  }
+  return isCrossTenantRuntime(context);
+}
+
 export function hasTenantRuntime(context?: ExecutionContext): boolean {
   return !!getRuntimeTenantPredicate(context) || isCrossTenantRuntime(context);
 }
