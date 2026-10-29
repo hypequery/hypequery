@@ -40,7 +40,13 @@
     { "id": "aggregate-variance", "value": { "kind": "aggregate", "aggregation": "variance", "field": "amount" } },
     { "id": "limit-depth-16", "generator": { "type": "nested-not", "depth": 15 } },
     { "id": "limit-nodes-1000", "generator": { "type": "logical-tree", "lastGroupItems": 89 } },
-    { "id": "limit-items-100", "generator": { "type": "logical-operands", "count": 100 } }
+    { "id": "limit-items-100", "generator": { "type": "logical-operands", "count": 100 } },
+    { "id": "comparison-isNull", "value": { "kind": "comparison", "operator": "isNull", "left": { "kind": "reference", "name": "churned_at" } } },
+    { "id": "comparison-isNotNull", "value": { "kind": "comparison", "operator": "isNotNull", "left": { "kind": "reference", "name": "churned_at" } } },
+    { "id": "null-check-qualified-boolean", "value": { "kind": "comparison", "operator": "isNotNull", "left": { "kind": "reference", "name": "customer.active" } } },
+    { "id": "null-check-call-operand", "value": { "kind": "comparison", "operator": "isNull", "left": { "kind": "call", "function": "nullIfZero", "args": [{ "kind": "reference", "name": "seats" }] } } },
+    { "id": "null-check-negated", "value": { "kind": "logical", "operator": "not", "operand": { "kind": "comparison", "operator": "isNull", "left": { "kind": "reference", "name": "churned_at" } } } },
+    { "id": "null-check-aggregate-filter", "value": { "kind": "aggregate", "aggregation": "count", "field": "id", "filters": [{ "kind": "comparison", "operator": "isNotNull", "left": { "kind": "reference", "name": "churned_at" } }] } }
   ],
   "queries": [
     { "id": "dataset-all-query-features", "value": { "kind": "dataset", "dataset": "orders", "dimensions": ["status", "customer.country"], "measures": ["revenue", "orders"], "filters": [{ "kind": "comparison", "operator": "eq", "left": { "kind": "reference", "name": "status" }, "right": { "kind": "literal", "value": "paid" } }], "orderBy": [{ "field": "customer.country", "direction": "asc" }, { "field": "revenue", "direction": "desc" }], "limit": 100, "offset": 0, "by": "quarter", "includeMeta": true } },
@@ -48,6 +54,7 @@
     { "id": "query-safe-integer-maximum", "value": { "kind": "dataset", "dataset": "orders", "limit": 9007199254740991, "offset": 9007199254740991 } },
     { "id": "grain-day", "value": { "kind": "dataset", "dataset": "orders", "by": "day" } },
     { "id": "grain-month", "value": { "kind": "dataset", "dataset": "orders", "by": "month" } },
-    { "id": "grain-year", "value": { "kind": "dataset", "dataset": "orders", "by": "year", "limit": 0 } }
+    { "id": "grain-year", "value": { "kind": "dataset", "dataset": "orders", "by": "year", "limit": 0 } },
+    { "id": "dataset-null-check-filters", "value": { "kind": "dataset", "dataset": "customers", "measures": ["customers"], "filters": [{ "kind": "comparison", "operator": "isNotNull", "left": { "kind": "reference", "name": "churned_at" } }, { "kind": "logical", "operator": "or", "operands": [{ "kind": "comparison", "operator": "isNull", "left": { "kind": "reference", "name": "plan" } }, { "kind": "comparison", "operator": "eq", "left": { "kind": "reference", "name": "plan" }, "right": { "kind": "literal", "value": "free" } }] }] } }
   ]
 }

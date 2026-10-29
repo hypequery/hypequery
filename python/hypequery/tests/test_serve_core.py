@@ -44,6 +44,7 @@ from hypequery.serve.core.client_contract import export_placements
 from hypequery.serve.core.client_discovery import add_client_contract_route
 from hypequery.serve.core.endpoints import DatasetEndpointCore, add_dataset_route
 from hypequery.serve.core.errors import serve_error, validation_issues
+from hypequery.serve.core.utils.json_body import MAX_BODY_DEPTH, BodyJsonError, parse_body_json
 
 TOKEN = {"authorization": "Bearer reader"}
 
@@ -282,6 +283,51 @@ def test_an_undecodable_or_failing_body_is_a_parse_error() -> None:
         assert error["error"]["message"] == "There was an error parsing the body"
 
 
+@pytest.mark.parametrize(
+    ("body", "reason"),
+    [
+        # A lone surrogate, which no UTF-8 encoder (so no driver) can send on.
+        (b'{"value": "\\ud800"}', "a string is not valid Unicode"),
+        (b'{"\\udfff": 1}', "a string is not valid Unicode"),
+        # JSON.parse refuses these; Python's json would read them.
+        (b'{"value": NaN}', "NaN is not JSON"),
+        (b'{"value": -Infinity}', "-Infinity is not JSON"),
+        # Validators walk a body recursively: past the limit is caller input,
+        # not a server error with a thousand-frame traceback in the log.
+        (b'{"value": ' + b"[" * 64 + b"]" * 64 + b"}", "nested too deeply"),
+        (b"[" * 5_000 + b"]" * 5_000, "nested too deeply"),
+    ],
+    ids=["lone-surrogate", "lone-surrogate-key", "nan", "infinity", "deep", "deeper"],
+)
+def test_unusable_json_is_a_validation_error_not_a_server_error(
+    body: bytes, reason: str, caplog: pytest.LogCaptureFixture
+) -> None:
+    headers = {**TOKEN, "content-type": "application/json"}
+    response, error = handle(echo_api(max_body_bytes=1 << 20), post("/echo", headers, body))
+    assert response.status == 400
+    assert error["error"]["details"]["issues"] == [
+        {"path": [], "message": f"JSON decode error: {reason}", "code": "json_invalid"}
+    ]
+    assert not caplog.records
+
+
+def test_a_body_is_read_as_utf8_only() -> None:
+    headers = {**TOKEN, "content-type": "application/json"}
+    for body in ('{"value": 1}'.encode("utf-16"), '{"value": 1}'.encode("utf-32")):
+        response, error = handle(echo_api(), post("/echo", headers, body))
+        assert response.status == 400
+        assert error["error"]["message"] == "There was an error parsing the body"
+
+
+def test_json_nested_to_the_limit_is_accepted() -> None:
+    nested = b"[" * MAX_BODY_DEPTH + b"]" * MAX_BODY_DEPTH
+    assert parse_body_json(nested) is not None
+    with pytest.raises(BodyJsonError):
+        parse_body_json(b"[" + nested + b"]")
+    # A surrogate pair is one character; only a lone surrogate is refused.
+    assert parse_body_json(rb'{"caf\u00e9": "\ud83d\ude00"}') == {"caf\u00e9": "\U0001f600"}
+
+
 # --- errors ----------------------------------------------------------------------
 
 
@@ -344,8 +390,10 @@ def test_a_disconnected_caller_cancels_its_query() -> None:
             assert compiled.cancellation.is_set()
             return Rows(("total",), ((1,),))
 
-    async def disconnected() -> bool:
-        return started.is_set()
+    async def disconnected() -> None:
+        # The caller goes once the query has started.
+        while not started.is_set():
+            await asyncio.sleep(0.01)
 
     api = new_api()
     add_dataset_route(
@@ -359,7 +407,7 @@ def test_a_disconnected_caller_cancels_its_query() -> None:
         path=request.path,
         headers=request.headers,
         body=request.body,
-        is_disconnected=disconnected,
+        wait_disconnected=disconnected,
     )
     response, body = handle(api, request)
     assert response.status == 503

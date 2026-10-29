@@ -1,8 +1,10 @@
 """Track synchronous request work independently from the cancelled HTTP waiter.
 
-Sync host code and sync clients run on AnyIO's default worker threads, the same
-pool Starlette uses, so a sync query and a sync FastAPI endpoint share one
-capacity. AnyIO is an async runtime, not a web framework, so the core may use it.
+Sync host code and sync clients run on AnyIO's default worker threads, so a
+sync query and a sync authenticator share one capacity, as do sync handlers of
+any ASGI framework built on AnyIO. A sync host (WSGI, Django, Flask) can run
+work on the request's own thread instead (`run_on_thread`). AnyIO is an async
+runtime, not a web framework, so the core may use it.
 """
 
 from __future__ import annotations

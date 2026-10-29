@@ -23,6 +23,8 @@ import {
   validateRelationshipTenantRuntime,
 } from './relationship-validation.js';
 import { segmentSelectionErrors } from './segments.js';
+import { filterAllowsOperator } from './filter-operator-policy.js';
+import { SEMANTIC_FILTER_OPERATORS } from '../constants.js';
 import { enforcedConstraintErrors } from './enforced-constraints.js';
 import { analyzeTimeMeasureAxis } from './time-measure-axis.js';
 import { datasetHavingErrors } from './dataset-having.js';
@@ -119,9 +121,9 @@ export function validateDatasetQueryInput(
       }
 
       const filterDefinition = ds.filters[filter.field];
-      if (filterDefinition?.operators && !filterDefinition.operators.includes(filter.operator)) {
+      if (!filterAllowsOperator(filterDefinition, filter.operator)) {
         errors.push(
-          `Filter "${filter.field}" does not allow operator "${filter.operator}". Allowed: ${filterDefinition.operators.join(', ')}`,
+          `Filter "${filter.field}" does not allow operator "${filter.operator}". Allowed: ${(filterDefinition?.operators ?? SEMANTIC_FILTER_OPERATORS).join(', ')}`,
         );
         continue;
       }

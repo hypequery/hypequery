@@ -20,19 +20,48 @@ from pathlib import Path
 
 # Files that must never reach PyPI, matched per path component.
 FORBIDDEN_NAMES = frozenset(
-    {".env", ".venv", "node_modules", "__pycache__", ".DS_Store", ".git", ".hypothesis"}
+    {
+        ".env",
+        ".venv",
+        "node_modules",
+        "__pycache__",
+        ".DS_Store",
+        ".git",
+        ".hypothesis",
+        # Test and release byproducts: coverage data records absolute paths
+        # from the machine that ran the tests.
+        "coverage.json",
+        "htmlcov",
+        "reports",
+        # Credentials.
+        ".pypirc",
+        ".netrc",
+        "id_rsa",
+        "id_ed25519",
+    }
 )
+#: Name prefixes and suffixes that must never reach PyPI. `.env.example` is
+#: the scaffold's template and holds no values.
+FORBIDDEN_PREFIXES = (".coverage", ".env")
+ALLOWED_NAMES = frozenset({".env.example"})
+FORBIDDEN_SUFFIXES = (".sqlite3", ".db", ".pem", ".key", ".p12", ".pfx")
 
 # Everything the package needs in order to be usable and typed.
 REQUIRED_TEMPLATE_ENTRIES = tuple(
     f"hypequery/cli/templates/{name}"
     for name in (
         "app.py",
+        "datasets.py",
         "pyproject.toml.template",
         ".env.example",
         ".gitignore",
         "README.md",
         "seed.sql",
+        "django/analytics.py",
+        "django/manage.py",
+        "django/settings.py",
+        "django/urls.py",
+        "flask/app.py",
     )
 )
 REQUIRED_WHEEL_ENTRIES = (
@@ -46,7 +75,13 @@ REQUIRED_WHEEL_ENTRIES = (
 
 def _is_forbidden(path: str) -> str | None:
     for part in Path(path).parts:
-        if part in FORBIDDEN_NAMES:
+        if part in ALLOWED_NAMES:
+            continue
+        if (
+            part in FORBIDDEN_NAMES
+            or part.startswith(FORBIDDEN_PREFIXES)
+            or part.endswith(FORBIDDEN_SUFFIXES)
+        ):
             return part
         # Tool caches: .mypy_cache, .ruff_cache, .import_linter_cache, ...
         if part.startswith(".") and part.endswith("_cache"):

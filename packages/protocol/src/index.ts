@@ -52,7 +52,9 @@ export {
 
 export {
   DEFAULT_PROTOCOL_EXPRESSION_LIMITS,
+  PROTOCOL_NULL_CHECK_OPERATORS,
   ProtocolExpressionError,
+  isProtocolNullCheckOperator,
   validateProtocolExpression,
   validateProtocolSemanticQuery,
 } from './expressions/index.js';
@@ -90,10 +92,12 @@ export type {
   ProtocolExpressionOptions,
   ProtocolFunctionName,
   ProtocolMetricQuery,
+  ProtocolNullCheckOperator,
   ProtocolOrderBy,
   ProtocolSemanticQuery,
   ProtocolQueryTimeGrain,
   ProtocolTimeGrain,
+  ProtocolValueComparisonOperator,
 } from './expressions/index.js';
 
 export type {

@@ -28,6 +28,9 @@ const OPERATORS: Record<string, string> = {
 
 function condition(column: string, operator: string, value: unknown): string {
   const rendered = OPERATORS[operator] ?? operator.toUpperCase();
+  if (operator === 'isNull' || operator === 'isNotNull') {
+    return `${column} IS ${operator === 'isNull' ? '' : 'NOT '}NULL`;
+  }
   if (operator === 'between' && Array.isArray(value)) {
     return `${column} BETWEEN ${literal(value[0])} AND ${literal(value[1])}`;
   }

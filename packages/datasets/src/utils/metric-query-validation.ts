@@ -13,6 +13,8 @@ import { validateQualifiedFilter, validateRelationshipTenantRuntime } from './re
 import { segmentSelectionErrors } from './segments.js';
 import { datasetOnTimeKey, selectedTimeKeyError } from './dataset-time-keys.js';
 import { enforcedConstraintErrors } from './enforced-constraints.js';
+import { filterAllowsOperator } from './filter-operator-policy.js';
+import { SEMANTIC_FILTER_OPERATORS } from '../constants.js';
 
 export function validateMetricQueryInput(
   metric: MetricHandle,
@@ -82,9 +84,9 @@ export function validateMetricQueryInput(
     }
 
     const filterDefinition = ds.filters[filter.field];
-    if (filterDefinition?.operators && !filterDefinition.operators.includes(filter.operator)) {
+    if (!filterAllowsOperator(filterDefinition, filter.operator)) {
       errors.push(
-        `Filter "${filter.field}" does not allow operator "${filter.operator}". Allowed: ${filterDefinition.operators.join(', ')}`,
+        `Filter "${filter.field}" does not allow operator "${filter.operator}". Allowed: ${(filterDefinition?.operators ?? SEMANTIC_FILTER_OPERATORS).join(', ')}`,
       );
       continue;
     }

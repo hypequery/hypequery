@@ -9,12 +9,11 @@
  * runtime context scopes.
  */
 
-import { SEMANTIC_FILTER_OPERATORS } from '../constants.js';
+import { isSemanticFilterOperator } from '../constants.js';
 import type { AnyDatasetInstance, DimensionDefinition, MetricFilter, SegmentDefinition } from '../types.js';
 import { validateFilterValue } from '../validation.js';
 
 const SEGMENT_NAME = /^[A-Za-z_][A-Za-z0-9_]*$/;
-const OPERATORS: ReadonlySet<string> = new Set(SEMANTIC_FILTER_OPERATORS);
 
 interface SegmentOwner {
   readonly tenantKey?: string;
@@ -45,14 +44,17 @@ export function normalizeSegments(
       if (owner.tenantKey !== undefined && (column === owner.tenantKey || filter.field === owner.tenantKey)) {
         fail(name, `"${filter.field}" is the tenant column, which only runtime tenant scoping may constrain.`);
       }
-      if (!OPERATORS.has(filter.operator)) fail(name, `unsupported operator "${String(filter.operator)}".`);
+      if (!isSemanticFilterOperator(filter.operator)) fail(name, `unsupported operator "${String(filter.operator)}".`);
       const valueError = validateFilterValue(filter, dimension!.fieldType);
       if (valueError) fail(name, valueError);
     }
     result.push([name, Object.freeze({
       filters: Object.freeze(segment.filters.map(filter => Object.freeze({
         ...filter,
-        value: Array.isArray(filter.value) ? Object.freeze([...filter.value]) : filter.value,
+        // A null check (RFC 0023) has no value to copy.
+        ...(filter.value === undefined ? {} : {
+          value: Array.isArray(filter.value) ? Object.freeze([...filter.value]) : filter.value,
+        }),
       }))) as MetricFilter[],
       ...(segment.label !== undefined ? { label: segment.label } : {}),
       ...(segment.description !== undefined ? { description: segment.description } : {}),

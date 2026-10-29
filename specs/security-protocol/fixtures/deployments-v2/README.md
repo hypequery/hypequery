@@ -16,3 +16,7 @@ before being recorded; none of them changed either implementation's behaviour.
 
 RFC 0016 added composite relationship keys: the `composite-relationship-keys`
 success and identity cases, and the `relationship-keys-*` rejections.
+
+RFC 0023 added null checks: the `null-checks` success and identity cases (measure
+filters and filter operator lists), and rejections for a null check with a
+`right` operand, a value comparison without one, and an unknown operator.

@@ -71,6 +71,8 @@ PROFILES = {
 PEERS = {"direct": ("testclient", 50000), "via-proxy": ("10.0.0.5", 1)}
 
 AUTH = {"authorization": "Bearer token"}
+#: Headers every core response carries that Starlette's middleware does not send.
+HYPEQUERY_HEADERS = ("x-content-type-options", "content-security-policy", "cache-control")
 REQUESTS: list[tuple[str, str, dict[str, str]]] = [
     ("GET", "/private", {}),
     ("GET", "/private", AUTH),
@@ -244,11 +246,12 @@ def _core_reference(security: HttpSecurity) -> CoreClient:
 
 
 def _policy_answer(response: httpx.Response) -> tuple[int, list[tuple[str, str]], bytes]:
-    # Request ids are hypequery's, not Starlette's; the parity test covers them.
+    # Request ids and the baseline security headers are hypequery's, not
+    # Starlette's; the parity and security-header tests cover them.
     headers = [
         (name, value)
         for name, value in response.headers.multi_items()
-        if name not in ("x-request-id", "x-correlation-id", "content-length")
+        if name not in ("x-request-id", "x-correlation-id", "content-length", *HYPEQUERY_HEADERS)
     ]
     return response.status_code, headers, response.content
 

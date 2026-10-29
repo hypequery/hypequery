@@ -14,3 +14,5 @@ This family accompanies accepted RFC 0015. It covers what deployment contract 3 
 The rules that depend on the query grain are consumer checks at query time, not contract rules, so this family does not cover them. These are whole-bucket intervals, `toDate` coarser than the grain, the 1,000-bucket bound, and the required time range.
 
 Every case was generated with, and checked against, the TypeScript reference implementation. The Python implementation also passes every case.
+
+RFC 0023 added null checks: the `null-checks` success and identity case (measure filters, allowed-filter operators and a segment predicate) and rejections for a segment or measure-filter null check with a `right` operand.

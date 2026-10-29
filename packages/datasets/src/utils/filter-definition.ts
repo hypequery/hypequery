@@ -1,9 +1,9 @@
-import type { MetricFilter, MetricFilterOperator } from '../types.js';
+import type { MetricFilter, MetricValueFilterOperator } from '../types.js';
 
 export function createFilter<
   const TField extends string,
   const TValue,
-  TOperator extends MetricFilterOperator,
+  TOperator extends MetricValueFilterOperator,
 >(field: TField, operator: TOperator, value: TValue): MetricFilter<TField, TValue, TOperator> {
-  return { field, operator, value };
+  return { field, operator, value } as MetricFilter<TField, TValue, TOperator>;
 }

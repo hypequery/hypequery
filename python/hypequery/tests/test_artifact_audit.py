@@ -9,6 +9,8 @@ from __future__ import annotations
 
 import importlib.util
 import io
+import shutil
+import subprocess
 import tarfile
 import zipfile
 from pathlib import Path
@@ -93,6 +95,18 @@ def test_rejects_missing_py_typed(tmp_path: Path) -> None:
         "hypequery-0.1.0/src/__pycache__/mod.pyc",
         "hypequery-0.1.0/.env",
         "hypequery-0.1.0/node_modules/left-pad/index.js",
+        # Coverage data records absolute paths from the machine that ran the
+        # tests; a local build once shipped it.
+        "hypequery-0.1.0/.coverage",
+        "hypequery-0.1.0/.coverage.host.1234.567890",
+        "hypequery-0.1.0/coverage.json",
+        "hypequery-0.1.0/htmlcov/index.html",
+        "hypequery-0.1.0/reports/audit.json",
+        "hypequery-0.1.0/.env.local",
+        "hypequery-0.1.0/examples/.envrc",
+        "hypequery-0.1.0/examples/db.sqlite3",
+        "hypequery-0.1.0/tests/certs/server.pem",
+        "hypequery-0.1.0/.pypirc",
     ],
 )
 def test_rejects_stray_files(tmp_path: Path, stray: str) -> None:
@@ -120,11 +134,14 @@ def test_errors_when_artifacts_absent(tmp_path: Path) -> None:
     "missing",
     [
         "app.py",
+        "datasets.py",
         "pyproject.toml.template",
         ".env.example",
         ".gitignore",
         "README.md",
         "seed.sql",
+        "django/settings.py",
+        "flask/app.py",
     ],
 )
 def test_rejects_missing_scaffold_resource(tmp_path: Path, artifact: str, missing: str) -> None:
@@ -143,3 +160,73 @@ def test_allows_frontend_example_gitignore(tmp_path: Path) -> None:
     entries["hypequery-0.1.0/examples/client_dashboard/frontend/.gitignore"] = b"node_modules/\n"
     dist = _build(tmp_path, _good_wheel_entries(), entries)
     assert audit.main(["audit", str(dist)]) == 0
+
+
+def test_rejects_stray_files_in_the_wheel(tmp_path: Path) -> None:
+    entries = _good_wheel_entries()
+    entries["hypequery/.coverage"] = b"junk"
+    dist = _build(tmp_path, entries, _good_sdist_entries())
+    assert audit.main(["audit", str(dist)]) == 1
+
+
+#: Local state a working checkout accumulates, none of which may reach an sdist.
+LOCAL_STATE = (
+    ".coverage",
+    ".coverage.host.1234.567890",
+    "coverage.json",
+    ".env",
+    ".env.local",
+    ".venv/lib/x.py",
+    ".pytest_cache/v/cache/lastfailed",
+    ".mypy_cache/x.json",
+    "htmlcov/index.html",
+    "reports/audit.json",
+    "dist/hypequery-0.0.0.tar.gz",
+    "db.sqlite3",
+    "src/hypequery/__pycache__/x.pyc",
+)
+
+
+UV = shutil.which("uv")
+
+
+@pytest.mark.skipif(UV is None, reason="building an sdist needs uv")
+def test_built_sdist_excludes_local_state(tmp_path: Path) -> None:
+    """A real build of a checkout full of local state leaves all of it out.
+
+    The package is copied with representative local files beside it, built
+    with `uv build --sdist`, and the archive must hold none of them, keep the
+    scaffold's `.env.example`, and pass the audit.
+    """
+
+    root = Path(__file__).resolve().parents[1]
+    package = tmp_path / "hypequery"
+    package.mkdir()
+    for name in ("pyproject.toml", "README.md", "LICENSE", ".gitignore"):
+        shutil.copy2(root / name, package / name)
+    shutil.copytree(
+        root / "src", package / "src", ignore=shutil.ignore_patterns("__pycache__", "*.pyc")
+    )
+    for name in LOCAL_STATE:
+        path = package / name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("local state\n", encoding="utf-8")
+    (package / ".env.example").write_text("CLICKHOUSE_PASSWORD=\n", encoding="utf-8")
+
+    dist = tmp_path / "dist"
+    assert UV is not None
+    subprocess.run(
+        [UV, "build", "--sdist", "--out-dir", str(dist), str(package)],
+        check=True,
+        capture_output=True,
+        timeout=300,
+    )
+    (sdist,) = dist.glob("*.tar.gz")
+    with tarfile.open(sdist) as archive:
+        names = {"/".join(Path(name).parts[1:]) for name in archive.getnames()}
+
+    leaked = [name for name in LOCAL_STATE if name in names or name.split("/")[0] in names]
+    assert leaked == []
+    assert ".env.example" in names
+    assert "src/hypequery/cli/templates/.env.example" in names
+    assert audit.audit_sdist(sdist) == []

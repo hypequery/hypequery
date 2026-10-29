@@ -36,6 +36,7 @@ export {
 export {
   eq, neq, gt, gte, lt, lte,
   inList, notInList, between, like,
+  isNull, isNotNull,
   asc, desc,
   filter, order,
 } from './query-helpers.js';
@@ -271,7 +272,9 @@ export { toQueryBuilderFactory } from './query-builder-protocol.js';
 export { validateSQLIdentifier, isSafeSQLIdentifier, quoteSQLIdentifier } from './sql-utils.js';
 
 // Constants
-export { GRAIN_FUNCTIONS, SEMANTIC_FILTER_OPERATORS, SEMANTIC_HAVING_OPERATORS, SUPPORTED_TIME_GRAINS } from './constants.js';
+export {
+  GRAIN_FUNCTIONS, SEMANTIC_FILTER_OPERATORS, SEMANTIC_HAVING_OPERATORS, SEMANTIC_NULL_CHECK_OPERATORS, SUPPORTED_TIME_GRAINS,
+} from './constants.js';
 
 // Types
 export type {
@@ -306,6 +309,8 @@ export type {
   MetricContract,
   MetricFilter,
   MetricFilterOperator,
+  MetricNullCheckOperator,
+  MetricValueFilterOperator,
   MetricOrderBy,
   MetricQuery,
   DatasetQuery,

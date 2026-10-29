@@ -126,3 +126,14 @@ def body_length(environ: Mapping[str, Any]) -> int | None:
     if declared:
         return int(declared) if declared.isascii() and declared.isdigit() else 0
     return None if environ.get("wsgi.input_terminated") else 0
+
+
+def environ_route_path(environ: Mapping[str, Any]) -> str:
+    """The path below ``SCRIPT_NAME``, percent-encoding intact when the server says."""
+
+    raw = request_target_path(environ)
+    if raw is not None:
+        below = path_below(raw, decoded_path(environ, "SCRIPT_NAME"))
+        if below is not None:
+            return below
+    return decoded_path(environ) or "/"

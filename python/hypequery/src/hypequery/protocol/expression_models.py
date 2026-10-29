@@ -14,8 +14,10 @@ from .values import CanonicalValue
 ProtocolBinaryOperator: TypeAlias = Literal["add", "subtract", "multiply", "divide"]
 ProtocolFunctionName: TypeAlias = Literal["nullIfZero", "coalesce", "round", "floor", "ceil"]
 ProtocolComparisonOperator: TypeAlias = Literal[
-    "eq", "neq", "gt", "gte", "lt", "lte", "in", "notIn", "between", "like"
+    "eq", "neq", "gt", "gte", "lt", "lte", "in", "notIn", "between", "like", "isNull", "isNotNull"
 ]
+#: Comparison operators that test ``left`` for NULL and take no ``right`` (RFC 0023).
+ProtocolNullCheckOperator: TypeAlias = Literal["isNull", "isNotNull"]
 ProtocolAggregation: TypeAlias = Literal[
     "sum",
     "count",
@@ -100,7 +102,8 @@ class ProtocolCallExpression:
 class ProtocolComparisonExpression:
     operator: ProtocolComparisonOperator
     left: ProtocolExpression
-    right: ProtocolExpression
+    #: ``None`` exactly for the null checks ``isNull`` and ``isNotNull``.
+    right: ProtocolExpression | None = None
     kind: Literal["comparison"] = dataclass_field(init=False, default="comparison")
 
 
@@ -217,12 +220,14 @@ def expression_to_data(expression: ProtocolExpression) -> dict[str, object]:
             "args": [expression_to_data(item) for item in expression.args],
         }
     if isinstance(expression, ProtocolComparisonExpression):
-        return {
+        comparison: dict[str, object] = {
             "kind": "comparison",
             "operator": expression.operator,
             "left": expression_to_data(expression.left),
-            "right": expression_to_data(expression.right),
         }
+        if expression.right is not None:
+            comparison["right"] = expression_to_data(expression.right)
+        return comparison
     if isinstance(expression, ProtocolLogicalExpression):
         key = "operand" if expression.operator == "not" else "operands"
         value: object = (

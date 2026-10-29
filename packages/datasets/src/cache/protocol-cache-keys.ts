@@ -120,6 +120,11 @@ function canonicalLiteral(value: unknown): CanonicalValue {
 }
 
 function filterNode(filter: MetricFilter): Record<string, unknown> {
+  const left = { kind: 'reference', name: filter.field };
+  // A null check has no value, so its node has no right operand (RFC 0023).
+  if (filter.operator === 'isNull' || filter.operator === 'isNotNull') {
+    return { kind: 'comparison', operator: filter.operator, left };
+  }
   let literal: CanonicalValue;
   if (filter.operator === 'between' && Array.isArray(filter.value)) {
     // RFC 0003 bounds are a two-item tuple; in/notIn take an array.
@@ -132,7 +137,7 @@ function filterNode(filter: MetricFilter): Record<string, unknown> {
   return {
     kind: 'comparison',
     operator: filter.operator,
-    left: { kind: 'reference', name: filter.field },
+    left,
     right: { kind: 'literal', value: literal },
   };
 }

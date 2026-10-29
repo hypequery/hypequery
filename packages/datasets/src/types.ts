@@ -349,20 +349,38 @@ export interface MetricContract {
   tenantScoped: boolean;
 }
 
-export interface MetricFilter<
+/**
+ * A comparison of `field` with `value`, or a null check on `field`.
+ *
+ * `isNull` and `isNotNull` take no value (RFC 0023): a filter using one omits
+ * `value`, and validation rejects one that sets it.
+ */
+export type MetricFilter<
   TField extends string = string,
   TValue = unknown,
   TOperator extends MetricFilterOperator = MetricFilterOperator,
-> {
-  field: TField;
-  operator: TOperator;
-  value: TValue;
-}
+> =
+  | ([Exclude<TOperator, MetricNullCheckOperator>] extends [never] ? never : {
+    field: TField;
+    operator: Exclude<TOperator, MetricNullCheckOperator>;
+    value: TValue;
+  })
+  | ([Extract<TOperator, MetricNullCheckOperator>] extends [never] ? never : {
+    field: TField;
+    operator: Extract<TOperator, MetricNullCheckOperator>;
+    value?: undefined;
+  });
 
-export type MetricFilterOperator = 'eq' | 'neq' | 'gt' | 'gte' | 'lt' | 'lte' | 'in' | 'notIn' | 'between' | 'like';
+/** Operators that compare a field with a value. */
+export type MetricValueFilterOperator = 'eq' | 'neq' | 'gt' | 'gte' | 'lt' | 'lte' | 'in' | 'notIn' | 'between' | 'like';
+
+/** Operators that test a field for NULL and take no value (RFC 0023). */
+export type MetricNullCheckOperator = 'isNull' | 'isNotNull';
+
+export type MetricFilterOperator = MetricValueFilterOperator | MetricNullCheckOperator;
 
 /** Operators a `having` condition may apply to an aggregated measure value. */
-export type DatasetHavingOperator = Exclude<MetricFilterOperator, 'like'>;
+export type DatasetHavingOperator = Exclude<MetricValueFilterOperator, 'like'>;
 
 /**
  * A condition on an aggregated measure value, applied after grouping (SQL

@@ -42,5 +42,13 @@
       "ordersRevenue": "e282fb74777e65328d87cfe5caa0349104630cd88137b1842289e0c83676a98d"
     },
     "sha256": "1cc64833994d5da761e9dae3b62992f66b6a270f01228ab97d91ebb74e54ae85"
+  },
+  {
+    "id": "null-checks",
+    "canonical": "{\"contentHash\":\"08e3b75129b0f8c528d7dc25ba19ecf7472b5ef2a152655d3181c21e41f2e5c1\",\"endpoints\":[{\"dataset\":\"customers\",\"defaultMeasures\":[\"customerCount\"],\"dimensions\":{\"plan\":{\"groupable\":true,\"nullable\":true,\"orderable\":true,\"type\":\"string\",\"wireType\":\"string\"}},\"filters\":{\"churnedAt\":{\"operators\":[\"gte\",\"isNotNull\",\"isNull\"],\"type\":\"timestamp\"},\"plan\":{\"operators\":[\"eq\",\"isNull\"],\"type\":\"string\"},\"seats\":{\"operators\":[\"isNotNull\"],\"type\":\"number\"},\"trial\":{\"operators\":[\"eq\",\"isNotNull\",\"isNull\"],\"type\":\"boolean\"}},\"id\":\"customers\",\"kind\":\"dataset\",\"limits\":{\"defaultLimit\":100,\"maxDimensions\":50,\"maxFilterValues\":1000,\"maxLimit\":1000,\"maxMeasures\":50,\"maxOffset\":10000,\"maxOrderBy\":50,\"maxPredicates\":100},\"measures\":{\"customerCount\":{\"having\":true,\"nullable\":true,\"wireType\":\"string\"}},\"metadata\":false,\"path\":\"/api/v1/datasets/customers/query\",\"schemaHash\":\"67821b626e7688afa43c6598893a736854b658924e4564361b1db8bcd1f3192d\",\"time\":null}],\"kind\":\"hypequery-client-contract\",\"version\":1,\"view\":\"build\"}",
+    "endpointHashes": {
+      "customers": "67821b626e7688afa43c6598893a736854b658924e4564361b1db8bcd1f3192d"
+    },
+    "sha256": "08e3b75129b0f8c528d7dc25ba19ecf7472b5ef2a152655d3181c21e41f2e5c1"
   }
 ]
