@@ -295,6 +295,18 @@ def test_a_comment_over_the_contract_limit_is_shortened_with_a_warning(tmp_path:
     build_protocol_deployment_contract(create_dataset_registry(model))
 
 
+def test_a_comment_the_contract_reads_as_blank_gives_no_description(tmp_path: Path) -> None:
+    # Python's strip keeps U+FEFF; the contract's JavaScript trim removes it.
+    schema = Schema(
+        "analytics",
+        (Table("events", (Column("id", "UInt64", " \ufeff "),), "\ufeff"),),
+    )
+    generated = generate_datasets(schema)
+    assert "description=" not in generated.source
+    model = _load(generated.source, tmp_path)["events"]
+    build_protocol_deployment_contract(create_dataset_registry(model))
+
+
 def test_a_schema_without_comments_generates_as_before() -> None:
     generated = generate_datasets(fixture_schema())
     assert "description=" not in generated.source
