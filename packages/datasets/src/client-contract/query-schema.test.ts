@@ -4,7 +4,7 @@ import { buildClientContractQuerySchemas } from './query-schema.js';
 const directory = new URL('../../../../specs/security-protocol/fixtures/client-contract-v1/', import.meta.url);
 const success = JSON.parse(readFileSync(new URL('success.json', directory), 'utf8')) as {id: string; value: unknown}[];
 const queries = [...JSON.parse(readFileSync(new URL('queries.json', directory), 'utf8')), ...JSON.parse(readFileSync(new URL('query-rejections.json', directory), 'utf8'))] as {
-  id: string; contract: string; endpoint: string; input: Record<string, unknown>; error?: string; transport?: string;
+  id: string; contract: string; endpoint: string; input: Record<string, unknown>; error?: string; path?: string; transport?: string;
 }[];
 const compiled = Object.fromEntries(success.map(item => [item.id, buildClientContractQuerySchemas(item.value)]));
 describe('client descriptor query compiler', () => {
@@ -12,6 +12,11 @@ describe('client descriptor query compiler', () => {
     const schemas = compiled[test.contract];
     const schema = test.transport === 'mcp' ? schemas.queryDataset : schemas.endpoints.get(test.endpoint)?.http;
     expect(schema?.safeParse(test.input).success ?? false).toBe(!test.error);
+  });
+  it.each(queries.filter(test => test.error && test.transport !== 'mcp' && compiled[test.contract].endpoints.has(test.endpoint)))('reports where $id failed', test => {
+    const result = compiled[test.contract].endpoints.get(test.endpoint)?.http.safeParse(test.input);
+    const expected = test.path!.split('/').slice(1).map(part => /^\d+$/.test(part) ? Number(part) : part);
+    expect(result?.error?.issues.map(issue => issue.path)).toEqual([expected]);
   });
   it('keeps metric-only groups uncallable as datasets', () => {
     const schemas = compiled['metric-only'];

@@ -80,6 +80,15 @@ describe('authorized HTTP MCP executor', () => {
     expect(fetchFn).toHaveBeenCalledTimes(1);
   });
 
+  it('names the argument that failed, never the value sent', async () => {
+    const executor = await createMCPHttpExecutor({ url, fetchFn: backend() as typeof fetch });
+    const message = async (input: object) => (await executor.callTool('query_dataset', input)).structuredContent as any;
+    expect((await message({ ...args, dimensions: ['country', 'country'] })).error.message).toBe('Invalid client query at /dimensions/1.');
+    expect((await message({ ...args, filters: [{ field: 'amount', operator: 'eq', value: 'PRIVATE' }] })).error.message).toBe('Invalid client query at /filters/0/value.');
+    expect((await message({ ...args, grain: 'minute' })).error.message).toBe('Invalid client query at /grain.');
+    expect(JSON.stringify(await message({ ...args, sql: 'PRIVATE_SQL' }))).not.toContain('PRIVATE');
+  });
+
   it('does not invoke argument getters or expose reflection exceptions', async () => {
     const fetchFn = backend();
     const executor = await createMCPHttpExecutor({ url, fetchFn: fetchFn as typeof fetch });

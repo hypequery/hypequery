@@ -11,56 +11,61 @@ from .safe_data import snapshot_client_data
 from .validate import validate_protocol_client_contract
 
 
-def _array(value: object, maximum: int) -> list[object]:
+def _array(value: object, maximum: int, path: str) -> list[object]:
     if type(value) is not list:
-        client_error("HQ_CLIENT_QUERY")
+        client_error("HQ_CLIENT_QUERY", path)
     result = cast(list[object], value)
     if len(result) > maximum:
-        client_error("HQ_CLIENT_QUERY")
+        client_error("HQ_CLIENT_QUERY", path)
     return result
 
 
-def _strings(value: object, allowed: list[str], maximum: int) -> list[str]:
-    items = _array(value, maximum)
-    if any(type(item) is not str or item not in allowed for item in items):
-        client_error("HQ_CLIENT_QUERY")
-    result = cast(list[str], items)
-    if len(set(result)) != len(result):
-        client_error("HQ_CLIENT_QUERY")
-    return result
+def _strings(value: object, allowed: list[str], maximum: int, path: str) -> list[str]:
+    items = _array(value, maximum, path)
+    seen: set[str] = set()
+    for index, item in enumerate(items):
+        if type(item) is not str or item not in allowed or item in seen:
+            client_error("HQ_CLIENT_QUERY", f"{path}/{index}")
+        seen.add(item)
+    return cast(list[str], items)
 
 
-def _predicate_value(value: object, kind: str, operator: str, maximum: int) -> None:
+def _predicate_value(value: object, kind: str, operator: str, maximum: int, path: str) -> None:
     values = (
-        _array(value, 2 if operator == "between" else maximum)
+        _array(value, 2 if operator == "between" else maximum, path)
         if operator in ("between", "in", "notIn")
         else [value]
     )
     if not values or (operator == "between" and len(values) != 2):
-        client_error("HQ_CLIENT_QUERY")
+        client_error("HQ_CLIENT_QUERY", path)
     expected = (int, float) if kind == "number" else ((bool,) if kind == "boolean" else (str,))
     if any(type(item) not in expected for item in values):
-        client_error("HQ_CLIENT_QUERY")
+        client_error("HQ_CLIENT_QUERY", path)
 
 
 def _filters(endpoint: ProtocolClientEndpoint, source: dict[str, object]) -> list[object]:
     caps = endpoint["limits"]
-    filters = _array(source.get("filters", []), caps["maxPredicates"])
-    for item in filters:
+    filters = _array(source.get("filters", []), caps["maxPredicates"], "/filters")
+    for index, item in enumerate(filters):
+        path = f"/filters/{index}"
         # A null check names no value (RFC 0023); one carrying `value` fails.
-        null_check = record(item, "").get("operator") in NULL_CHECK_OPERATORS
+        null_check = record(item, path).get("operator") in NULL_CHECK_OPERATORS
         keys = ["field", "operator"] if null_check else ["field", "operator", "value"]
-        condition = shape(item, keys, "")
+        condition = shape(item, keys, path)
         field = condition["field"]
         if type(field) is not str or field not in endpoint["filters"]:
-            client_error("HQ_CLIENT_QUERY")
+            client_error("HQ_CLIENT_QUERY", f"{path}/field")
         definition = endpoint["filters"][field]
         operator = condition["operator"]
         if type(operator) is not str or operator not in definition["operators"]:
-            client_error("HQ_CLIENT_QUERY")
+            client_error("HQ_CLIENT_QUERY", f"{path}/operator")
         if not null_check:
             _predicate_value(
-                condition["value"], definition["type"], operator, caps["maxFilterValues"]
+                condition["value"],
+                definition["type"],
+                operator,
+                caps["maxFilterValues"],
+                f"{path}/value",
             )
     return filters
 
@@ -72,20 +77,33 @@ def _having(
     filter_count: int,
 ) -> list[object]:
     caps = endpoint["limits"]
-    having = _array(source.get("having", []), caps["maxPredicates"] - filter_count)
-    for item in having:
-        condition = shape(item, ["measure", "operator", "value"], "")
+    having = _array(source.get("having", []), caps["maxPredicates"] - filter_count, "/having")
+    for index, item in enumerate(having):
+        path = f"/having/{index}"
+        condition = shape(item, ["measure", "operator", "value"], path)
         field = condition["measure"]
         operator = condition["operator"]
         if (
             type(field) is not str
             or field not in selected
             or (not endpoint["measures"][field]["having"])
-            or type(operator) is not str
-            or operator not in ("eq", "neq", "gt", "gte", "lt", "lte", "between", "in", "notIn")
         ):
-            client_error("HQ_CLIENT_QUERY")
-        _predicate_value(condition["value"], "number", operator, caps["maxFilterValues"])
+            client_error("HQ_CLIENT_QUERY", f"{path}/measure")
+        if type(operator) is not str or operator not in (
+            "eq",
+            "neq",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "between",
+            "in",
+            "notIn",
+        ):
+            client_error("HQ_CLIENT_QUERY", f"{path}/operator")
+        _predicate_value(
+            condition["value"], "number", operator, caps["maxFilterValues"], f"{path}/value"
+        )
     return having
 
 
@@ -95,22 +113,20 @@ def _order(
     dimensions: list[str],
     selected: list[str],
 ) -> list[object]:
-    order_by = _array(source.get("orderBy", []), endpoint["limits"]["maxOrderBy"])
+    order_by = _array(source.get("orderBy", []), endpoint["limits"]["maxOrderBy"], "/orderBy")
     allowed = [key for key in dimensions if endpoint["dimensions"][key]["orderable"]]
     allowed.extend(selected)
     if "by" in source:
         allowed.append("period")
     ordered: set[str] = set()
-    for item in order_by:
-        order = shape(item, ["field", "direction"], "")
+    for index, item in enumerate(order_by):
+        path = f"/orderBy/{index}"
+        order = shape(item, ["field", "direction"], path)
         field = order["field"]
-        if (
-            type(field) is not str
-            or field not in allowed
-            or field in ordered
-            or (order["direction"] not in ("asc", "desc"))
-        ):
-            client_error("HQ_CLIENT_QUERY")
+        if type(field) is not str or field not in allowed or field in ordered:
+            client_error("HQ_CLIENT_QUERY", f"{path}/field")
+        if order["direction"] not in ("asc", "desc"):
+            client_error("HQ_CLIENT_QUERY", f"{path}/direction")
         ordered.add(field)
     return order_by
 
@@ -124,6 +140,7 @@ def _body(
     time = endpoint["time"]
     if time is not None:
         keys.extend(["by", *(["timezone"] if time["timezone"] else [])])
+    # An unknown member is reported at the root: its name is submitted data.
     if any(key not in keys for key in source):
         client_error("HQ_CLIENT_QUERY")
     caps = endpoint["limits"]
@@ -131,6 +148,7 @@ def _body(
         source.get("dimensions", []),
         [key for key, field in endpoint["dimensions"].items() if field["groupable"]],
         caps["maxDimensions"],
+        "/dimensions",
     )
     selected = (
         list(endpoint["measures"])
@@ -139,6 +157,7 @@ def _body(
             source.get("measures", endpoint["defaultMeasures"]),
             list(endpoint["measures"]),
             caps["maxMeasures"],
+            "/measures",
         )
     )
     if not dimensions and not selected and "by" not in source:
@@ -148,7 +167,7 @@ def _body(
     if "by" in source and (
         time is None or type(source["by"]) is not str or source["by"] not in time["grains"]
     ):
-        client_error("HQ_CLIENT_QUERY")
+        client_error("HQ_CLIENT_QUERY", "/by")
     if "timezone" in source:
         timezone(source["timezone"], "/timezone")
     order_by = _order(endpoint, source, dimensions, selected)
@@ -161,9 +180,9 @@ def _body(
     )
     offset = integer(source.get("offset", 0), 0, caps["maxOffset"], "/offset")
     if "includeMeta" in source and type(source["includeMeta"]) is not bool:
-        client_error("HQ_CLIENT_QUERY")
+        client_error("HQ_CLIENT_QUERY", "/includeMeta")
     if source.get("includeMeta") is True and not endpoint["metadata"]:
-        client_error("HQ_CLIENT_QUERY")
+        client_error("HQ_CLIENT_QUERY", "/includeMeta")
     body: dict[str, object] = {
         "dimensions": dimensions,
         "filters": filters,
@@ -217,4 +236,8 @@ def validate_protocol_client_query(
             client_error("HQ_CLIENT_QUERY")
         return _body(endpoint, source, transport)
     except ProtocolClientContractError as error:
-        client_error("HQ_CLIENT_QUERY", error.path)
+        # An agent names the time grain `grain`; point at the member it sent.
+        path = error.path
+        if transport == "mcp" and (path == "/by" or path.startswith("/by/")):
+            path = "/grain" + path[3:]
+        client_error("HQ_CLIENT_QUERY", path)

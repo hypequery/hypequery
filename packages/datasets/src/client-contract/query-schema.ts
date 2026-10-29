@@ -1,10 +1,11 @@
 import {
-  validateProtocolClientContract, validateProtocolClientQuery,
+  ProtocolClientContractError, validateProtocolClientContract, validateProtocolClientQuery,
   type ProtocolClientContract, type ProtocolClientEndpoint,
 } from '@hypequery/protocol';
 import { z, type ZodTypeAny } from 'zod';
 import { toSemanticJsonSchema, type CanonicalSemanticQuerySchemas } from '../semantic-query-schema.js';
 import type { JsonSchema } from '../tools.js';
+import { pointerSegments } from '../utils/json-pointer-segments.js';
 
 export interface ClientEndpointQuerySchema {
   readonly endpoint: ProtocolClientEndpoint;
@@ -71,8 +72,9 @@ function endpointSchema(contract: ProtocolClientContract, endpoint: ProtocolClie
   // without invoking accessors, so a hostile getter cannot escape safeParse.
   return z.preprocess((input, context) => {
     try { validateProtocolClientQuery(contract, endpoint.id, input, transport); }
-    catch {
-      context.addIssue({ code: z.ZodIssueCode.custom, message: 'Invalid client query.' });
+    catch (error) {
+      context.addIssue({ code: z.ZodIssueCode.custom, message: 'Invalid client query.',
+        path: error instanceof ProtocolClientContractError ? pointerSegments(error.path) : [] });
       return z.NEVER;
     }
     return input;

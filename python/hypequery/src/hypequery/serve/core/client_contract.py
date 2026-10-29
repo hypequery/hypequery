@@ -19,7 +19,7 @@ from ...protocol import (
 from ..utils.client_contract_view import client_contract_view
 from .auth import RequestAuth
 from .authentication import Authentication
-from .errors import ServeError, serve_error
+from .errors import ServeError, client_query_error, serve_error
 from .policy import EndpointPolicy
 from .production import ProductionProfile
 
@@ -91,8 +91,8 @@ class ClientEndpointBinding:
             if time is not None:
                 body.setdefault("timezone", time["defaultTimezone"])
             return body
-        except ProtocolClientContractError:
-            raise serve_error(400, "VALIDATION_ERROR", "Invalid client query.") from None
+        except ProtocolClientContractError as error:
+            raise client_query_error(error.path, error.code) from None
 
 
 class ClientEndpointRegistry:
