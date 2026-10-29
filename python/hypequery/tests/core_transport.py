@@ -18,9 +18,12 @@ from hypequery.serve.core import Api, Headers, ServeRequest
 
 
 class CoreClient:
-    def __init__(self, api: Api, *, client: tuple[str, int] = ("testclient", 50000)) -> None:
+    def __init__(
+        self, api: Api, *, client: tuple[str, int] = ("testclient", 50000), scheme: str = "http"
+    ) -> None:
         self.api = api
         self.client = client
+        self.scheme = scheme
 
     def request(
         self,
@@ -41,7 +44,12 @@ class CoreClient:
         if body:
             sent.append(("content-length", str(len(body))))
         request = ServeRequest(
-            method=method, path=path, headers=Headers(sent), body=body, client=self.client
+            method=method,
+            path=path,
+            headers=Headers(sent),
+            body=body,
+            client=self.client,
+            scheme=self.scheme,
         )
         response = asyncio.run(self.api.handle(request))
         return httpx.Response(

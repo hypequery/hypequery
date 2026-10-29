@@ -9,7 +9,7 @@
 - ``flask``: `hypequery.contrib.flask.blueprint` registered on a Flask app.
 
 Each client sends ``Host: testserver`` from the peer ``testclient:50000``
-unless told otherwise. *prefix* mounts the API below a URL prefix, for the
+over *scheme* (``http`` unless told otherwise). *prefix* mounts the API below a URL prefix, for the
 transports that have a router.
 """
 
@@ -52,6 +52,8 @@ class DjangoClient:
         prefix: str,
         raw_uri: bool,
         csrf: bool = True,
+        scheme: str = "http",
+        settings: dict[str, Any] | None = None,
     ) -> None:
         from django.urls import include, path
 
@@ -70,16 +72,21 @@ class DjangoClient:
             "ROOT_URLCONF": urlconf,
             "MIDDLEWARE": ["django.middleware.csrf.CsrfViewMiddleware"] if csrf else [],
             "ALLOWED_HOSTS": ["*"],
+            **(settings or {}),
         }
         with self._overridden():
             if asgi:
                 from django.core.handlers.asgi import ASGIHandler
 
-                self._client: AsgiClient | WsgiClient = AsgiClient(ASGIHandler(), client=client)
+                self._client: AsgiClient | WsgiClient = AsgiClient(
+                    ASGIHandler(), client=client, base_url=f"{scheme}://testserver"
+                )
             else:
                 from django.core.handlers.wsgi import WSGIHandler
 
-                self._client = WsgiClient(WSGIHandler(), client=client, raw_uri=raw_uri)
+                self._client = WsgiClient(
+                    WSGIHandler(), client=client, raw_uri=raw_uri, scheme=scheme
+                )
 
     def _overridden(self) -> Any:
         from django.test import override_settings
@@ -115,6 +122,7 @@ def serve_client(
     prefix: str = "",
     raw_uri: bool = True,
     csrf: bool = True,
+    scheme: str = "http",
 ) -> Any:
     """A client for *api* served by *transport*.
 
@@ -125,11 +133,11 @@ def serve_client(
     if prefix and transport not in ROUTED:
         raise ValueError(f"{transport} has no router to mount a prefix")
     if transport == "core":
-        return CoreClient(api, client=client)
+        return CoreClient(api, client=client, scheme=scheme)
     if transport == "asgi":
-        return AsgiClient(to_asgi_app(api), client=client)
+        return AsgiClient(to_asgi_app(api), client=client, base_url=f"{scheme}://testserver")
     if transport == "wsgi":
-        return WsgiClient(to_wsgi_app(api), client=client, raw_uri=raw_uri)
+        return WsgiClient(to_wsgi_app(api), client=client, raw_uri=raw_uri, scheme=scheme)
     if transport in ("django-wsgi", "django-asgi"):
         return DjangoClient(
             api,
@@ -138,9 +146,12 @@ def serve_client(
             prefix=prefix,
             raw_uri=raw_uri,
             csrf=csrf,
+            scheme=scheme,
         )
     if transport == "flask":
-        return WsgiClient(flask_app(api, prefix=prefix), client=client, raw_uri=raw_uri)
+        return WsgiClient(
+            flask_app(api, prefix=prefix), client=client, raw_uri=raw_uri, scheme=scheme
+        )
     raise ValueError(f"unknown transport {transport!r}")
 
 

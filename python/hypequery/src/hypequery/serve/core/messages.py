@@ -109,10 +109,10 @@ class ServeRequest:
     headers: Headers = field(default_factory=Headers)
     body: Body = b""
     client: tuple[str, int] | None = None
-    scheme: str = "http"
     raw: object = None
     wait_disconnected: Callable[[], Awaitable[None]] | None = None
     run_on_request_thread: RequestThreadRunner | None = None
+    scheme: str = "http"
 
     def __post_init__(self) -> None:
         if type(self.query) is not QueryParams or type(self.headers) is not Headers:

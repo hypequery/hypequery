@@ -300,6 +300,50 @@ def test_the_own_origin_is_the_scheme_and_host(
     assert same_origin_allowed("POST", headers, frozenset(), scheme) is accepted
 
 
+@pytest.mark.parametrize("transport", TRANSPORTS)
+def test_every_adapter_passes_its_scheme_to_the_own_origin_check(transport: str) -> None:
+    client = serve_client(transport, _api(Session()), csrf=False, scheme="https")
+    own = client.post("/whoami", headers={"origin": "https://testserver"}, json={})
+    assert own.status_code == 200
+    downgraded = client.post("/whoami", headers={"origin": "http://testserver"}, json={})
+    assert downgraded.status_code == 403
+
+
+@pytest.mark.parametrize("transport", [name for name in TRANSPORTS if name.startswith("django")])
+def test_django_secure_proxy_ssl_header_sets_the_scheme(transport: str) -> None:
+    from serve_transports import PEER, DjangoClient
+
+    client = DjangoClient(
+        _api(Session()),
+        asgi=transport == "django-asgi",
+        client=PEER,
+        prefix="",
+        raw_uri=True,
+        csrf=False,
+        settings={"SECURE_PROXY_SSL_HEADER": ("HTTP_X_FORWARDED_PROTO", "https")},
+    )
+    headers = {"origin": "https://testserver", "x-forwarded-proto": "https"}
+    assert client.post("/whoami", headers=headers, json={}).status_code == 200
+    # Without the setting Django ignores the header, and the scheme stays http.
+    plain = serve_client(transport, _api(Session()), csrf=False)
+    assert plain.post("/whoami", headers=headers, json={}).status_code == 403
+
+
+@pytest.mark.skipif("flask" not in TRANSPORTS, reason="flask is not installed")
+def test_flask_proxy_fix_sets_the_scheme() -> None:
+    from werkzeug.middleware.proxy_fix import ProxyFix
+
+    from serve_transports import flask_app
+    from wsgi_client import WsgiClient
+
+    app = flask_app(_api(Session()))
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1)  # type: ignore[method-assign]
+    headers = {"origin": "https://testserver", "x-forwarded-proto": "https"}
+    assert WsgiClient(app).post("/whoami", headers=headers, json={}).status_code == 200
+    plain = WsgiClient(flask_app(_api(Session())))
+    assert plain.post("/whoami", headers=headers, json={}).status_code == 403
+
+
 def test_a_trusted_proxy_supplies_the_own_origins_scheme() -> None:
     security = HttpSecurity(allowed_hosts=("app.example",), trusted_proxies=("10.0.0.0/8",))
     behind = {"host": "app.example", "origin": "https://app.example", "x-forwarded-proto": "https"}
