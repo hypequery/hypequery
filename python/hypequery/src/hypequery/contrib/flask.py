@@ -76,7 +76,7 @@ from ..serve.core.body import too_large
 from ..serve.core.context_auth import ContextStrategy
 from ..serve.core.messages import ServeRequest, ServeResponse
 from ..serve.utils.blocking import serve_blocking
-from ..serve.utils.response_head import response_body
+from ..serve.utils.response_head import framework_response
 from ..serve.utils.serving_loop import RequestThread
 from ..serve.utils.thread_body import thread_body
 from ..serve.utils.wsgi_environ import (
@@ -310,12 +310,7 @@ class _BodyStream:
 
 
 def _response(response: ServeResponse) -> Response:
-    reply = Response(response_body(response), status=response.status)
-    if "content-type" not in response.headers:
-        del reply.headers["Content-Type"]
-    for name, value in response.headers.items():
-        reply.headers[name] = value
-    return reply
+    return framework_response(response, lambda body, status: Response(body, status=status))
 
 
 def flask_session(to_principal: SessionPrincipal, *, same_origin: bool = True) -> ContextStrategy:

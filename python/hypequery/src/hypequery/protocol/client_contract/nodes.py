@@ -59,7 +59,7 @@ def filter_descriptor(value: object, path: str) -> dict[str, object]:
     node = shape(value, ["type", "operators"], path)
     kind = choice(node["type"], FIELD_TYPES, pointer(path, "type"))
     allowed = (
-        ["eq", "neq", "in", "notIn"]
+        ["eq", "neq", "in", "notIn", "isNull", "isNotNull"]
         if kind == "boolean"
         else ([item for item in OPERATORS if item != "like"] if kind == "number" else OPERATORS)
     )

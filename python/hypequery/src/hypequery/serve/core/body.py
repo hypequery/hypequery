@@ -3,7 +3,9 @@
 A declared `Content-Length` over the limit is refused before a byte is read.
 Without one, the limit and JSON requirement are enforced as the body arrives,
 so leaving the header off is not a way around either check. A body is read
-only by a route that takes input, and only after authentication.
+only by a route that takes input, and only after authentication. It must be
+UTF-8 JSON as `JSON.parse` reads it, nested no deeper than `MAX_BODY_DEPTH`
+(`utils/json_body.py`).
 """
 
 from __future__ import annotations
@@ -15,6 +17,7 @@ from pydantic import TypeAdapter, ValidationError
 
 from .errors import ServeError, request_validation_error, serve_error
 from .messages import Headers, ServeRequest
+from .utils.json_body import BodyJsonError, parse_body_json
 
 #: The TypeScript Node adapter's default.
 DEFAULT_MAX_BODY_BYTES = 1_048_576
@@ -109,7 +112,7 @@ async def _read_or_refuse(request: ServeRequest, max_bytes: int, *, checked_json
     except ServeError:
         raise
     except Exception as exc:
-        # FastAPI's answer to a body it could not receive.
+        # The answer to a body that could not be received (FastAPI's wording).
         raise _refuse(400, "There was an error parsing the body") from exc
 
 
@@ -125,16 +128,21 @@ async def read_input(
 ) -> object:
     """The body, decoded as JSON and validated against *schema*.
 
-    Errors carry FastAPI's locations and wording, so moving a route into the
-    core changes no response.
+    Errors keep the issue locations and wording the earlier FastAPI layer used,
+    so clients see the same validation errors as before.
     """
 
     raw = await _read_or_refuse(request, max_bytes, checked_json=checked_json)
     try:
-        value = json.loads(raw) if raw else None
+        value = parse_body_json(raw) if raw else None
     except json.JSONDecodeError as exc:
         raise request_validation_error(
             [{"type": "json_invalid", "loc": ("body", exc.pos), "msg": "JSON decode error"}]
+        ) from None
+    except BodyJsonError as exc:
+        # Answered here, as caller input: not a 500 from a validator or driver.
+        raise request_validation_error(
+            [{"type": "json_invalid", "loc": ("body",), "msg": f"JSON decode error: {exc.reason}"}]
         ) from None
     except Exception as exc:
         raise _refuse(400, "There was an error parsing the body") from exc

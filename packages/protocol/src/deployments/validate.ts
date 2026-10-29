@@ -57,7 +57,7 @@ function isApproximateMeasure(value: DataRecord): boolean {
       && isApproximateStateFunction(value.stateFunction));
 }
 const OPERATORS = new Set([
-  'eq', 'neq', 'gt', 'gte', 'lt', 'lte', 'in', 'notIn', 'between', 'like',
+  'eq', 'neq', 'gt', 'gte', 'lt', 'lte', 'in', 'notIn', 'between', 'like', 'isNull', 'isNotNull',
 ]);
 const GRAINS = new Set(['day', 'week', 'month', 'quarter', 'year']);
 const GRAINS_V3 = new Set(['minute', 'hour', ...GRAINS]);

@@ -45,6 +45,10 @@ function renderMeasureFilterCondition(
 
       return `${field} BETWEEN ${literal(filter.value[0])} AND ${literal(filter.value[1])}`;
     }
+    case 'isNull':
+      return `${field} IS NULL`;
+    case 'isNotNull':
+      return `${field} IS NOT NULL`;
   }
 }
 

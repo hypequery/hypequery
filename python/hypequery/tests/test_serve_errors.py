@@ -33,7 +33,7 @@ from hypequery.serve import (
     create_api,
     to_asgi_app,
 )
-from hypequery.serve.rate_limit import RateLimitCapacityError
+from hypequery.serve.core.rate_limit import RateLimitCapacityError
 
 TOKENS = {"alice-token": "alice", "bob-token": "bob"}
 OBJECT: TypeAdapter[object] = TypeAdapter(dict[str, Any])

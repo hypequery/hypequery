@@ -409,8 +409,10 @@ const MAX_LOGICAL_OPERANDS = 100;
 function childExpressions(expression: ProtocolExpression): readonly ProtocolExpression[] {
   switch (expression.kind) {
     case 'binary':
-    case 'comparison':
       return [expression.left, expression.right];
+    case 'comparison':
+      // A null check (RFC 0023) has no right operand.
+      return 'right' in expression ? [expression.left, expression.right] : [expression.left];
     case 'logical':
       return 'operands' in expression ? expression.operands : [expression.operand];
     case 'call':

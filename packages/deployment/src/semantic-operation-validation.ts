@@ -117,8 +117,9 @@ function narrowResolvedToVisible(allowed: Resolved, visible: ProtocolVisibleData
  * gap, and only a violation raised here reports it as one.
  */
 function comparisonField(expression: ProtocolExpression): { field: string; operator: string } | null {
-  if (expression.kind !== 'comparison') return null;
-  if (expression.left.kind !== 'reference' || expression.right.kind !== 'literal') return null;
+  if (expression.kind !== 'comparison' || expression.left.kind !== 'reference') return null;
+  // A null check (RFC 0023) has no right operand; any other comparison needs a literal one.
+  if ('right' in expression && expression.right.kind !== 'literal') return null;
   return { field: String(expression.left.name), operator: expression.operator };
 }
 

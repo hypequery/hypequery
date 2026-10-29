@@ -179,6 +179,8 @@ declare global {
   const notInList: typeof hq.notInList;
   const between: typeof hq.between;
   const like: typeof hq.like;
+  const isNull: typeof hq.isNull;
+  const isNotNull: typeof hq.isNotNull;
   const asc: typeof hq.asc;
   const desc: typeof hq.desc;
   const divide: typeof hq.divide;

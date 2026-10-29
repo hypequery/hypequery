@@ -3,6 +3,7 @@ import type { ProtocolClientEndpoint } from './types.js';
 import { validateProtocolClientContract } from './validate.js';
 import { record, shape, integer, timezone } from './primitives.js';
 import { freezeClientData, snapshotClientData } from './safe-data.js';
+import { isProtocolNullCheckOperator } from '../expressions/null-checks.js';
 
 export interface ClientQueryPlan {
   readonly endpoint: ProtocolClientEndpoint;
@@ -43,11 +44,13 @@ function bodyFor(endpoint: ProtocolClientEndpoint, source: Record<string, unknow
   if (!dimensions.length && !selectedMeasures.length && source.by === undefined) clientError('HQ_CLIENT_QUERY');
   const filters = array(source.filters === undefined ? [] : source.filters, caps.maxPredicates);
   for (const item of filters) {
-    const filter = shape(item, ['field', 'operator', 'value'], '');
+    // A null check names no value (RFC 0023), so one carrying `value` fails as an unknown member.
+    const nullCheck = isProtocolNullCheckOperator(record(item, '').operator);
+    const filter = shape(item, nullCheck ? ['field', 'operator'] : ['field', 'operator', 'value'], '');
     if (typeof filter.field !== 'string' || !Object.hasOwn(endpoint.filters, filter.field)) clientError('HQ_CLIENT_QUERY');
     const definition = endpoint.filters[filter.field];
     if (typeof filter.operator !== 'string' || !definition.operators.includes(filter.operator)) clientError('HQ_CLIENT_QUERY');
-    predicateValue(filter.value, definition.type, filter.operator, caps.maxFilterValues);
+    if (!nullCheck) predicateValue(filter.value, definition.type, filter.operator, caps.maxFilterValues);
   }
   const having = array(source.having === undefined ? [] : source.having, caps.maxPredicates - filters.length);
   for (const item of having) {

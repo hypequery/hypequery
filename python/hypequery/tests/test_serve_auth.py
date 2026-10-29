@@ -102,6 +102,31 @@ def test_a_request_without_credentials_is_refused_before_the_authenticator() -> 
     assert authenticator.seen == []
 
 
+def test_the_default_tenant_resolver_runs_inline(monkeypatch: pytest.MonkeyPatch) -> None:
+    # It is pure: a worker thread per request would only queue it behind queries.
+    from hypequery.serve.core.work import RequestWork
+
+    started: list[object] = []
+    monkeypatch.setattr(
+        RequestWork, "start_sync", lambda self, function, *a, **k: started.append(function)
+    )
+
+    async def authenticate(credential: Credential) -> Principal | None:
+        return ALICE if credential.value == TOKEN else None
+
+    api = create_api(auth=authenticate)
+    api.add_route("GET", "/whoami", _whoami)
+    request = ServeRequest(
+        method="GET",
+        path="/whoami",
+        headers=Headers([("authorization", f"Bearer {TOKEN}")]),
+    )
+    response = asyncio.run(api.handle(request))
+
+    assert response.status == 200
+    assert started == []
+
+
 def test_a_valid_credential_reaches_the_endpoint_with_its_tenant() -> None:
     client = _app(create_api(auth=_Authenticator()))
 

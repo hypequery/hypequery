@@ -8,6 +8,7 @@ from ..core.api import Api
 from ..core.errors import UNEXPECTED_ERROR_MESSAGE, error_response, serve_error
 from ..core.messages import ServeRequest, ServeResponse
 from ..core.request_ids import new_request_id
+from ..core.utils.security_headers import with_security_headers
 
 _log = logging.getLogger("hypequery.serve")
 
@@ -22,7 +23,7 @@ def fault_response() -> ServeResponse:
     request_id = new_request_id()
     _log.exception("Unhandled error serving a request (request_id=%s)", request_id)
     error = serve_error(500, "INTERNAL_SERVER_ERROR", UNEXPECTED_ERROR_MESSAGE)
-    return error_response(error, request_id)
+    return with_security_headers(error_response(error, request_id))
 
 
 async def answer(

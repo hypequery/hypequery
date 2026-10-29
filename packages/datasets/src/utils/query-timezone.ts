@@ -104,7 +104,9 @@ export function queryTimeFilter(
     ? queryTimeSql(dialect, expression, timezone)
     : expression;
   const local: QueryTimePredicate = { expression: localExpression, operator: filter.operator, value: filter.value };
-  if (fieldType !== 'timestamp' || filter.operator === 'like') return [local];
+  // A null check has no value to read in any zone.
+  if (fieldType !== 'timestamp' || filter.operator === 'like'
+    || filter.operator === 'isNull' || filter.operator === 'isNotNull') return [local];
 
   const values = Array.isArray(filter.value) ? filter.value : [filter.value];
   const instants = values.map(parseTimestampInstant);

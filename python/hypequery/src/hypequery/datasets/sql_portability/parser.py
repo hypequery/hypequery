@@ -56,7 +56,8 @@ _MAX_LOGICAL_OPERANDS = 100
 def _child_expressions(expression: dict[str, object]) -> list[object]:
     kind = expression["kind"]
     if kind in ("binary", "comparison"):
-        return [expression["left"], expression["right"]]
+        # A null check (RFC 0023) is a comparison without ``right``.
+        return [expression[side] for side in ("left", "right") if side in expression]
     if kind == "logical":
         if "operands" in expression:
             return cast(list[object], expression["operands"])

@@ -3,6 +3,7 @@ import type {
   DimensionDefinition,
   MetricFilter,
   MetricFilterOperator,
+  MetricValueFilterOperator,
   RelationshipDefinition,
   SemanticFilterDefinition,
   SemanticFiltersDefinition,
@@ -13,14 +14,24 @@ export type NormalizedDatasetFilters<
   TDimensions extends Record<string, DimensionDefinition>,
   TFilters extends SemanticFiltersDefinition | undefined,
 > = TFilters extends SemanticFiltersDefinition ? TFilters : {
-  [K in keyof TDimensions as TDimensions[K] extends { filterable: false } ? never : K]: SemanticFilterDefinition & {
-    field: K & string;
-  };
+  [K in keyof TDimensions as TDimensions[K] extends { filterable: false } ? never : K]:
+    Omit<SemanticFilterDefinition, 'operators'> & {
+      field: K & string;
+      /** Generated filters list no operators, so they admit no null checks (RFC 0023). */
+      operators?: undefined;
+    };
 };
 
+// Null checks (RFC 0023) are opt-in: a filter known to have no operator list
+// admits only the value operators. A widened definition, whose list may or may
+// not be present, keeps every operator and leaves the check to runtime.
 type FilterOperators<TDefinition> = TDefinition extends {
   operators: readonly (infer TOperator extends MetricFilterOperator)[];
-} ? TOperator : MetricFilterOperator;
+} ? TOperator
+  : TDefinition extends { operators?: infer TList }
+    ? [NonNullable<TList>] extends [never] ? MetricValueFilterOperator : MetricFilterOperator
+    // No `operators` member at all (a weak-type mismatch above).
+    : MetricValueFilterOperator;
 
 type LocalFilterFor<TFilters extends SemanticFiltersDefinition> = {
   [K in keyof TFilters & string]: K extends `${string}.${string}`

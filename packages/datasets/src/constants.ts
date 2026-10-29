@@ -2,7 +2,7 @@
  * Shared constants for semantic layer implementation.
  */
 
-import type { DatasetHavingOperator, MetricFilter, TimeGrain } from './types.js';
+import type { DatasetHavingOperator, MetricFilter, MetricNullCheckOperator, TimeGrain } from './types.js';
 
 /**
  * Maps time grain to ClickHouse date truncation functions.
@@ -25,7 +25,10 @@ export const GRAIN_FUNCTIONS: Record<TimeGrain, string> = {
 export const SUPPORTED_TIME_GRAINS: TimeGrain[] = ['minute', 'hour', 'day', 'week', 'month', 'quarter', 'year'];
 
 /**
- * The filter operators accepted by semantic dataset and metric inputs.
+ * The filter operators accepted by semantic dataset and metric inputs, and the
+ * operators a filter allows when its definition lists none. The null checks in
+ * {@link SEMANTIC_NULL_CHECK_OPERATORS} are accepted too, but a caller filter
+ * may use one only when its definition lists it (RFC 0023).
  */
 export const SEMANTIC_FILTER_OPERATORS = [
   'eq',
@@ -40,7 +43,22 @@ export const SEMANTIC_FILTER_OPERATORS = [
   'like',
 ] as const satisfies readonly MetricFilter['operator'][];
 
-const FILTER_OPERATORS: ReadonlySet<string> = new Set(SEMANTIC_FILTER_OPERATORS);
+/**
+ * Operators that test a field for NULL and take no value (RFC 0023). Measure
+ * and segment filters may use them freely; a caller filter only when its
+ * definition's `operators` list names them.
+ */
+export const SEMANTIC_NULL_CHECK_OPERATORS = [
+  'isNull',
+  'isNotNull',
+] as const satisfies readonly MetricNullCheckOperator[];
+
+const FILTER_OPERATORS: ReadonlySet<string> = new Set([...SEMANTIC_FILTER_OPERATORS, ...SEMANTIC_NULL_CHECK_OPERATORS]);
+
+/** True for `isNull` and `isNotNull`, the filter operators without a value. */
+export function isNullCheckFilterOperator(operator: unknown): operator is MetricNullCheckOperator {
+  return operator === 'isNull' || operator === 'isNotNull';
+}
 
 /**
  * Narrowing guard for a runtime-provided filter operator. Query builders accept

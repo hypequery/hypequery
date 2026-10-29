@@ -74,9 +74,8 @@ export function parseToolArgs<T = any>(schema: z.ZodType, toolName: string, args
 export function toMetricFilters(
   filters: Array<{ field: string; operator: MetricFilter['operator']; value?: unknown }> = [],
 ): MetricFilter[] {
-  return filters.map(filter => ({
-    field: filter.field,
-    operator: filter.operator,
-    value: filter.value,
-  }));
+  // A null check (RFC 0023) carries no value, so none is copied onto it.
+  return filters.map(filter => (filter.value === undefined
+    ? { field: filter.field, operator: filter.operator }
+    : { field: filter.field, operator: filter.operator, value: filter.value }) as MetricFilter);
 }

@@ -178,16 +178,16 @@ def test_the_body_reader_is_read_once_and_never_after_release() -> None:
         reading = body.chunks()
         assert await reading.__anext__() == b"a"
         # While the core reads, the body's own receive watches for a disconnect.
-        assert await body.is_disconnected() is False
+        assert body.disconnected is False
         assert [chunk async for chunk in reading] == [b"b"]
         with pytest.raises(RuntimeError):
             await body.chunks().__anext__()
         await body.close()
 
         released = AsgiBody(receive)
-        assert await released.is_disconnected() is False
-        await asyncio.sleep(0)
-        assert await released.is_disconnected() is True
+        async with asyncio.timeout(1):
+            await released.wait_disconnected()
+        assert released.disconnected is True
         with pytest.raises(RuntimeError):
             await released.chunks().__anext__()
         await released.close()

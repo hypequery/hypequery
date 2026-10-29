@@ -116,7 +116,16 @@ export function validateFilterValue(filter: MetricFilter, fieldType: FieldType):
       return filter.value.every(value => matchesFieldType(fieldType, value))
         ? null
         : typeError(filter, fieldType, true);
+    case 'isNull':
+    case 'isNotNull': {
+      // Any field type may be NULL; the check itself takes no value (RFC 0023).
+      // Runtime input is untyped, so read the value the types say is absent.
+      const value: unknown = (filter as { value?: unknown }).value;
+      return value === undefined
+        ? null
+        : `"${filter.operator}" takes no value for field "${filter.field}"; omit "value".`;
+    }
     default:
-      return `Unsupported semantic filter operator "${String(filter.operator)}".`;
+      return `Unsupported semantic filter operator "${String((filter as { operator: unknown }).operator)}".`;
   }
 }

@@ -1665,5 +1665,460 @@
       ]
     },
     "error": "HQ_DEPLOYMENT_UNKNOWN_FIELD"
+  },
+  {
+    "id": "measure-filter-null-check-with-right",
+    "value": {
+      "kind": "hypequery-deployment",
+      "version": 2,
+      "datasets": [
+        {
+          "name": "customers",
+          "source": "customers",
+          "tenant": {
+            "kind": "not-required"
+          },
+          "dimensions": [
+            {
+              "name": "plan",
+              "type": "string",
+              "source": {
+                "kind": "column",
+                "column": "plan"
+              },
+              "filterable": true,
+              "groupable": true
+            },
+            {
+              "name": "churnedAt",
+              "type": "timestamp",
+              "source": {
+                "kind": "column",
+                "column": "churned_at"
+              },
+              "filterable": true,
+              "groupable": true
+            },
+            {
+              "name": "trial",
+              "type": "boolean",
+              "source": {
+                "kind": "column",
+                "column": "trial"
+              },
+              "filterable": true,
+              "groupable": true
+            }
+          ],
+          "measures": [
+            {
+              "name": "churnedCustomers",
+              "aggregation": "count",
+              "field": "id",
+              "filters": [
+                {
+                  "kind": "comparison",
+                  "operator": "isNotNull",
+                  "left": {
+                    "kind": "reference",
+                    "name": "churned_at"
+                  },
+                  "right": {
+                    "kind": "literal",
+                    "value": null
+                  }
+                }
+              ]
+            },
+            {
+              "name": "activeCustomers",
+              "aggregation": "count",
+              "field": "id",
+              "filters": [
+                {
+                  "kind": "comparison",
+                  "operator": "isNull",
+                  "left": {
+                    "kind": "reference",
+                    "name": "churned_at"
+                  }
+                },
+                {
+                  "kind": "comparison",
+                  "operator": "eq",
+                  "left": {
+                    "kind": "reference",
+                    "name": "trial"
+                  },
+                  "right": {
+                    "kind": "literal",
+                    "value": false
+                  }
+                }
+              ]
+            }
+          ],
+          "filters": [
+            {
+              "name": "churnedAt",
+              "field": "churnedAt",
+              "operators": [
+                "gte",
+                "isNotNull",
+                "isNull"
+              ]
+            },
+            {
+              "name": "trial",
+              "field": "trial",
+              "operators": [
+                "eq",
+                "isNull"
+              ]
+            }
+          ],
+          "relationships": []
+        }
+      ]
+    },
+    "error": "HQ_DEPLOYMENT_INVALID_VALUE"
+  },
+  {
+    "id": "measure-filter-null-check-with-value-right",
+    "value": {
+      "kind": "hypequery-deployment",
+      "version": 2,
+      "datasets": [
+        {
+          "name": "customers",
+          "source": "customers",
+          "tenant": {
+            "kind": "not-required"
+          },
+          "dimensions": [
+            {
+              "name": "plan",
+              "type": "string",
+              "source": {
+                "kind": "column",
+                "column": "plan"
+              },
+              "filterable": true,
+              "groupable": true
+            },
+            {
+              "name": "churnedAt",
+              "type": "timestamp",
+              "source": {
+                "kind": "column",
+                "column": "churned_at"
+              },
+              "filterable": true,
+              "groupable": true
+            },
+            {
+              "name": "trial",
+              "type": "boolean",
+              "source": {
+                "kind": "column",
+                "column": "trial"
+              },
+              "filterable": true,
+              "groupable": true
+            }
+          ],
+          "measures": [
+            {
+              "name": "churnedCustomers",
+              "aggregation": "count",
+              "field": "id",
+              "filters": [
+                {
+                  "kind": "comparison",
+                  "operator": "isNotNull",
+                  "left": {
+                    "kind": "reference",
+                    "name": "churned_at"
+                  },
+                  "right": {
+                    "kind": "literal",
+                    "value": "1971-01-01"
+                  }
+                }
+              ]
+            },
+            {
+              "name": "activeCustomers",
+              "aggregation": "count",
+              "field": "id",
+              "filters": [
+                {
+                  "kind": "comparison",
+                  "operator": "isNull",
+                  "left": {
+                    "kind": "reference",
+                    "name": "churned_at"
+                  }
+                },
+                {
+                  "kind": "comparison",
+                  "operator": "eq",
+                  "left": {
+                    "kind": "reference",
+                    "name": "trial"
+                  },
+                  "right": {
+                    "kind": "literal",
+                    "value": false
+                  }
+                }
+              ]
+            }
+          ],
+          "filters": [
+            {
+              "name": "churnedAt",
+              "field": "churnedAt",
+              "operators": [
+                "gte",
+                "isNotNull",
+                "isNull"
+              ]
+            },
+            {
+              "name": "trial",
+              "field": "trial",
+              "operators": [
+                "eq",
+                "isNull"
+              ]
+            }
+          ],
+          "relationships": []
+        }
+      ]
+    },
+    "error": "HQ_DEPLOYMENT_INVALID_VALUE"
+  },
+  {
+    "id": "measure-filter-value-comparison-without-right",
+    "value": {
+      "kind": "hypequery-deployment",
+      "version": 2,
+      "datasets": [
+        {
+          "name": "customers",
+          "source": "customers",
+          "tenant": {
+            "kind": "not-required"
+          },
+          "dimensions": [
+            {
+              "name": "plan",
+              "type": "string",
+              "source": {
+                "kind": "column",
+                "column": "plan"
+              },
+              "filterable": true,
+              "groupable": true
+            },
+            {
+              "name": "churnedAt",
+              "type": "timestamp",
+              "source": {
+                "kind": "column",
+                "column": "churned_at"
+              },
+              "filterable": true,
+              "groupable": true
+            },
+            {
+              "name": "trial",
+              "type": "boolean",
+              "source": {
+                "kind": "column",
+                "column": "trial"
+              },
+              "filterable": true,
+              "groupable": true
+            }
+          ],
+          "measures": [
+            {
+              "name": "churnedCustomers",
+              "aggregation": "count",
+              "field": "id",
+              "filters": [
+                {
+                  "kind": "comparison",
+                  "operator": "isNotNull",
+                  "left": {
+                    "kind": "reference",
+                    "name": "churned_at"
+                  }
+                }
+              ]
+            },
+            {
+              "name": "activeCustomers",
+              "aggregation": "count",
+              "field": "id",
+              "filters": [
+                {
+                  "kind": "comparison",
+                  "operator": "isNull",
+                  "left": {
+                    "kind": "reference",
+                    "name": "churned_at"
+                  }
+                },
+                {
+                  "kind": "comparison",
+                  "operator": "eq",
+                  "left": {
+                    "kind": "reference",
+                    "name": "trial"
+                  }
+                }
+              ]
+            }
+          ],
+          "filters": [
+            {
+              "name": "churnedAt",
+              "field": "churnedAt",
+              "operators": [
+                "gte",
+                "isNotNull",
+                "isNull"
+              ]
+            },
+            {
+              "name": "trial",
+              "field": "trial",
+              "operators": [
+                "eq",
+                "isNull"
+              ]
+            }
+          ],
+          "relationships": []
+        }
+      ]
+    },
+    "error": "HQ_DEPLOYMENT_INVALID_VALUE"
+  },
+  {
+    "id": "filter-unknown-null-operator",
+    "value": {
+      "kind": "hypequery-deployment",
+      "version": 2,
+      "datasets": [
+        {
+          "name": "customers",
+          "source": "customers",
+          "tenant": {
+            "kind": "not-required"
+          },
+          "dimensions": [
+            {
+              "name": "plan",
+              "type": "string",
+              "source": {
+                "kind": "column",
+                "column": "plan"
+              },
+              "filterable": true,
+              "groupable": true
+            },
+            {
+              "name": "churnedAt",
+              "type": "timestamp",
+              "source": {
+                "kind": "column",
+                "column": "churned_at"
+              },
+              "filterable": true,
+              "groupable": true
+            },
+            {
+              "name": "trial",
+              "type": "boolean",
+              "source": {
+                "kind": "column",
+                "column": "trial"
+              },
+              "filterable": true,
+              "groupable": true
+            }
+          ],
+          "measures": [
+            {
+              "name": "churnedCustomers",
+              "aggregation": "count",
+              "field": "id",
+              "filters": [
+                {
+                  "kind": "comparison",
+                  "operator": "isNotNull",
+                  "left": {
+                    "kind": "reference",
+                    "name": "churned_at"
+                  }
+                }
+              ]
+            },
+            {
+              "name": "activeCustomers",
+              "aggregation": "count",
+              "field": "id",
+              "filters": [
+                {
+                  "kind": "comparison",
+                  "operator": "isNull",
+                  "left": {
+                    "kind": "reference",
+                    "name": "churned_at"
+                  }
+                },
+                {
+                  "kind": "comparison",
+                  "operator": "eq",
+                  "left": {
+                    "kind": "reference",
+                    "name": "trial"
+                  },
+                  "right": {
+                    "kind": "literal",
+                    "value": false
+                  }
+                }
+              ]
+            }
+          ],
+          "filters": [
+            {
+              "name": "churnedAt",
+              "field": "churnedAt",
+              "operators": [
+                "isNotNull",
+                "isEmpty"
+              ]
+            },
+            {
+              "name": "trial",
+              "field": "trial",
+              "operators": [
+                "eq",
+                "isNull"
+              ]
+            }
+          ],
+          "relationships": []
+        }
+      ]
+    },
+    "error": "HQ_DEPLOYMENT_INVALID_VALUE"
   }
 ]

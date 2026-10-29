@@ -11,7 +11,7 @@ import {
   type DatasetCatalogSource,
   type MetricCatalogEntry,
 } from './catalog.js';
-import { SEMANTIC_FILTER_OPERATORS, SEMANTIC_HAVING_OPERATORS } from './constants.js';
+import { isNullCheckFilterOperator, SEMANTIC_FILTER_OPERATORS, SEMANTIC_HAVING_OPERATORS } from './constants.js';
 import type { JsonSchema } from './tools.js';
 import type { AnyDatasetInstance } from './types.js';
 import type { ProtocolSchema } from '@hypequery/protocol';
@@ -145,13 +145,22 @@ function filterSchema(
   relationshipOperators: ReadonlyMap<string, string[]>,
 ): ZodTypeAny {
   const filterValue = z.unknown().refine(value => value !== undefined, 'Required');
-  const variants: ZodTypeAny[] = uniqueSorted(fields).map((field) => z.object({
-    field: z.literal(field),
-    operator: relationshipOperators.has(field)
-      ? fieldEnum(relationshipOperators.get(field) ?? [])
-      : fieldEnum(catalog.filters[field]?.operators ?? [...SEMANTIC_FILTER_OPERATORS]),
-    value: filterValue,
-  }).strict());
+  // A null check takes no value (RFC 0023), so it gets its own value-free shape.
+  const variants: ZodTypeAny[] = uniqueSorted(fields).flatMap((field) => {
+    const operators = relationshipOperators.has(field)
+      ? relationshipOperators.get(field) ?? []
+      : catalog.filters[field]?.operators ?? [...SEMANTIC_FILTER_OPERATORS];
+    const valueOperators = operators.filter(operator => !isNullCheckFilterOperator(operator));
+    const nullChecks = operators.filter(isNullCheckFilterOperator);
+    return [
+      ...(valueOperators.length > 0 || nullChecks.length === 0
+        ? [z.object({ field: z.literal(field), operator: fieldEnum(valueOperators), value: filterValue }).strict()]
+        : []),
+      ...(nullChecks.length > 0
+        ? [z.object({ field: z.literal(field), operator: fieldEnum(nullChecks) }).strict()]
+        : []),
+    ];
+  });
 
   if (variants.length === 0) {
     return z.object({

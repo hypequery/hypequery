@@ -51,12 +51,10 @@ from .utils.serving_loop import RequestThread
 from .utils.thread_body import thread_body
 from .utils.wsgi_environ import (
     body_length,
-    decoded_path,
     environ_client,
     environ_headers,
     environ_query,
-    path_below,
-    request_target_path,
+    environ_route_path,
 )
 
 __all__ = ["WsgiApp", "to_wsgi_app"]
@@ -77,7 +75,7 @@ class WsgiApp:
         def build(thread: RequestThread) -> ServeRequest:
             return ServeRequest(
                 method=environ["REQUEST_METHOD"],
-                path=_route_path(environ),
+                path=environ_route_path(environ),
                 query=environ_query(environ),
                 headers=environ_headers(environ),
                 body=thread_body(thread, environ["wsgi.input"].read, body_length(environ)),
@@ -105,14 +103,3 @@ def to_wsgi_app(api: Api) -> WsgiApp:
 
         export_client_contract(api)
     return WsgiApp(api)
-
-
-def _route_path(environ: Environ) -> str:
-    """The path below ``SCRIPT_NAME``, percent-encoding intact when the server says."""
-
-    raw = request_target_path(environ)
-    if raw is not None:
-        below = path_below(raw, decoded_path(environ, "SCRIPT_NAME"))
-        if below is not None:
-            return below
-    return decoded_path(environ) or "/"

@@ -182,6 +182,34 @@ def test_django_test_clients_reach_the_api_sync_and_async() -> None:
     assert asynchronous.json() == {"input": {"x": 5}}
 
 
+def test_allowed_hosts_is_checked_without_common_middleware() -> None:
+    # The project has no CommonMiddleware, which would otherwise call
+    # get_host(), and the API has no HttpSecurity of its own.
+    with _project(_api()):
+        sync = Client(raise_request_exception=False).post(
+            "/api/echo",
+            {"x": 1},
+            content_type="application/json",
+            headers={**AUTH, "host": "evil.example"},
+        )
+
+        async def post() -> Any:
+            return await AsyncClient(raise_request_exception=False).post(
+                "/api/echo",
+                {"x": 1},
+                content_type="application/json",
+                headers={**AUTH, "host": "evil.example"},
+            )
+
+        asynchronous = asyncio.run(post())
+        allowed = Client().post(
+            "/api/echo", {"x": 1}, content_type="application/json", headers=AUTH
+        )
+    assert sync.status_code == 400
+    assert asynchronous.status_code == 400
+    assert allowed.status_code == 200
+
+
 def test_a_core_response_without_a_content_type_gets_none_from_django() -> None:
     async def empty(call: Call) -> ServeResponse:
         return ServeResponse(status=200, headers={}, body=b"")

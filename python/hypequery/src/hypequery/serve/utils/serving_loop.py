@@ -15,7 +15,8 @@ cancelled.
 
 The loop starts on first use in each process, so every worker a preloading
 server forks starts its own, and it stops at interpreter exit, cancelling
-whatever is still running.
+whatever is still running. A request arriving after that is refused rather
+than starting a loop nothing would close.
 """
 
 from __future__ import annotations
@@ -199,6 +200,9 @@ async def _drain() -> None:
 _lock = threading.Lock()
 _current: ServingLoop | None = None
 _registered = False
+#: Set once interpreter exit has closed the loop: no new one is started then,
+#: since nothing would ever close it.
+_exiting = False
 
 
 def serving_loop() -> ServingLoop:
@@ -206,12 +210,21 @@ def serving_loop() -> ServingLoop:
 
     global _current, _registered
     with _lock:
+        if _exiting:
+            raise RuntimeError("the process is exiting; its serving loop has stopped")
         if _current is None or _current.closed or _current.pid != os.getpid():
             _current = ServingLoop()
             if not _registered:
-                atexit.register(close_serving_loop)
+                atexit.register(_close_at_exit)
                 _registered = True
         return _current
+
+
+def _close_at_exit() -> None:
+    global _exiting
+    with _lock:
+        _exiting = True
+    close_serving_loop()
 
 
 def close_serving_loop() -> None:
@@ -227,9 +240,10 @@ def close_serving_loop() -> None:
 def _forget_parent_loop() -> None:
     # A forked child has the parent's loop object but not its thread, and may
     # have been forked while another thread held the lock.
-    global _current, _lock
+    global _current, _lock, _exiting
     _lock = threading.Lock()
     _current = None
+    _exiting = False
 
 
 if hasattr(os, "register_at_fork"):

@@ -19,7 +19,7 @@ from .auth import CredentialTransport
 from .jwt_auth import JwtStrategy
 from .messages import ServeResponse
 from .openapi_info import OpenApiInfo
-from .utils.docs_html import docs_html
+from .utils.docs_html import DOCS_POLICY, docs_html
 from .utils.operation_ids import operation_id, operation_summary
 
 OPENAPI_PATH = "/openapi.json"
@@ -160,7 +160,14 @@ def add_docs_routes(api: Api) -> None:
 
     async def docs(call: Call) -> ServeResponse:
         return ServeResponse(
-            status=200, headers={"content-type": "text/html; charset=utf-8"}, body=page
+            status=200,
+            headers={
+                "content-type": "text/html; charset=utf-8",
+                "content-security-policy": DOCS_POLICY,
+                # The CDN learns nothing about where the docs are served.
+                "referrer-policy": "no-referrer",
+            },
+            body=page,
         )
 
     api.add_route("GET", OPENAPI_PATH, openapi, public=True, documented=False)

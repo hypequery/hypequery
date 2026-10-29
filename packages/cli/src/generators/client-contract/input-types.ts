@@ -7,6 +7,10 @@ export const names = (values: readonly string[]): string => union([...values].so
 function predicate(field: string, definition: ClientFilter, having = false): string[] {
   const scalar = definition.type === 'number' ? 'number' : definition.type === 'boolean' ? 'boolean' : 'string';
   return [...definition.operators].sort().map(operator => {
+    // A null check names no value (RFC 0023).
+    if (operator === 'isNull' || operator === 'isNotNull') {
+      return `{ readonly ${having ? 'measure' : 'field'}: ${literal(field)}; readonly operator: ${literal(operator)} }`;
+    }
     const value = operator === 'between' ? `readonly [${scalar}, ${scalar}]`
       : operator === 'in' || operator === 'notIn' ? `readonly [${scalar}, ...${scalar}[]]` : scalar;
     return `{ readonly ${having ? 'measure' : 'field'}: ${literal(field)}; readonly operator: ${literal(operator)}; readonly value: ${value} }`;

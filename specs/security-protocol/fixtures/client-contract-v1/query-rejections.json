@@ -2110,5 +2110,110 @@
     "mode": "query",
     "path": "/limit",
     "message": "Invalid client query."
+  },
+  {
+    "id": "null-check-with-value-rejected",
+    "contract": "null-checks",
+    "endpoint": "customers",
+    "input": {
+      "filters": [
+        {
+          "field": "churnedAt",
+          "operator": "isNotNull",
+          "value": "2026-01-01"
+        }
+      ]
+    },
+    "error": "HQ_CLIENT_QUERY",
+    "mode": "query",
+    "path": "",
+    "message": "Invalid client query."
+  },
+  {
+    "id": "null-check-with-null-value-rejected",
+    "contract": "null-checks",
+    "endpoint": "customers",
+    "input": {
+      "filters": [
+        {
+          "field": "plan",
+          "operator": "isNull",
+          "value": null
+        }
+      ]
+    },
+    "error": "HQ_CLIENT_QUERY",
+    "mode": "query",
+    "path": "",
+    "message": "Invalid client query."
+  },
+  {
+    "id": "null-check-with-boolean-value-rejected",
+    "contract": "null-checks",
+    "endpoint": "customers",
+    "input": {
+      "filters": [
+        {
+          "field": "trial",
+          "operator": "isNull",
+          "value": true
+        }
+      ]
+    },
+    "error": "HQ_CLIENT_QUERY",
+    "mode": "query",
+    "path": "",
+    "message": "Invalid client query."
+  },
+  {
+    "id": "null-check-not-advertised",
+    "contract": "null-checks",
+    "endpoint": "customers",
+    "input": {
+      "filters": [
+        {
+          "field": "plan",
+          "operator": "isNotNull"
+        }
+      ]
+    },
+    "error": "HQ_CLIENT_QUERY",
+    "mode": "query",
+    "path": "",
+    "message": "Invalid client query."
+  },
+  {
+    "id": "null-check-not-advertised-by-build",
+    "contract": "build",
+    "endpoint": "orders",
+    "input": {
+      "filters": [
+        {
+          "field": "country",
+          "operator": "isNull"
+        }
+      ]
+    },
+    "error": "HQ_CLIENT_QUERY",
+    "mode": "query",
+    "path": "",
+    "message": "Invalid client query."
+  },
+  {
+    "id": "value-operator-without-value-rejected",
+    "contract": "null-checks",
+    "endpoint": "customers",
+    "input": {
+      "filters": [
+        {
+          "field": "churnedAt",
+          "operator": "gte"
+        }
+      ]
+    },
+    "error": "HQ_CLIENT_QUERY",
+    "mode": "query",
+    "path": "",
+    "message": "Invalid client query."
   }
 ]
