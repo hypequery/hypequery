@@ -39,6 +39,26 @@ describe('checkClientOutputPath', () => {
     await expect(checkClientOutputPath(path.join(root, 'client.ts'))).rejects.toThrow('must be a regular file, not a symbolic link.');
   });
 
+  it('suggests the file a symlinked output points to', async () => {
+    const root = await directory();
+    await writeFile(path.join(root, 'real.ts'), '');
+    await symlink(path.join(root, 'real.ts'), path.join(root, 'client.ts'));
+    await expect(checkClientOutputPath(path.join(root, 'client.ts'))).rejects.toThrow(`Use the path it points to instead: ${path.join(root, 'real.ts')}`);
+  });
+
+  it('suggests nothing when a link points to the wrong kind of entry', async () => {
+    const root = await directory();
+    await writeFile(path.join(root, 'real.txt'), '');
+    await symlink(path.join(root, 'real.txt'), path.join(root, 'to-file'));
+    await mkdir(path.join(root, 'folder'));
+    await symlink(path.join(root, 'folder'), path.join(root, 'client.ts'));
+    const belowFile = checkClientOutputPath(path.join(root, 'to-file', 'client.ts'));
+    await expect(belowFile).rejects.toThrow(`${path.join(root, 'to-file')} is a symbolic link.`);
+    await expect(checkClientOutputPath(path.join(root, 'to-file', 'client.ts'))).rejects.not.toThrow('Use the path');
+    await expect(checkClientOutputPath(path.join(root, 'client.ts'))).rejects.toThrow('must be a regular file, not a symbolic link.');
+    await expect(checkClientOutputPath(path.join(root, 'client.ts'))).rejects.not.toThrow('Use the path');
+  });
+
   it('names a dangling symlink without suggesting a path', async () => {
     const root = await directory();
     await symlink(path.join(root, 'missing'), path.join(root, 'link'));

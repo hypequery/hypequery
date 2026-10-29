@@ -1,5 +1,5 @@
 import { constants } from 'node:fs';
-import { lstat, open, realpath } from 'node:fs/promises';
+import { lstat, open, realpath, stat } from 'node:fs/promises';
 import path from 'node:path';
 
 /** Refuse filesystem indirection for generated output and its existing ancestors. */
@@ -26,13 +26,20 @@ export async function checkClientOutputPath(filePath: string): Promise<void> {
   }
 }
 
-/** Name the link, and the same output without it, e.g. /tmp → /private/tmp on macOS. */
+/**
+ * Name the link, and the same output without it, e.g. /tmp → /private/tmp on macOS.
+ * The path is suggested only when the link resolves to what that position needs:
+ * a directory above the output, a regular file at the output itself.
+ */
 async function throughLink(filePath: string, target: string, link: string): Promise<Error> {
   const message = link === target
     ? `Client output ${filePath} must be a regular file, not a symbolic link.`
     : `Client output ${filePath} must be a regular file under ordinary directories: ${link} is a symbolic link.`;
   try {
-    const resolved = path.join(await realpath(link), path.relative(link, target));
+    const real = await realpath(link);
+    const info = await stat(real);
+    if (link === target ? !info.isFile() : !info.isDirectory()) return new Error(message);
+    const resolved = path.join(real, path.relative(link, target));
     return new Error(`${message} Use the path it points to instead: ${resolved}`);
   } catch {
     return new Error(message);
