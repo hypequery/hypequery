@@ -12,10 +12,10 @@ export function record(input: unknown, path: string): ClientRecord {
   if (!input || typeof input !== 'object' || Array.isArray(input)) clientError('HQ_CLIENT_SHAPE', path);
   return input as ClientRecord;
 }
-/** The error's path names the first unlisted member, so a reader can see which one. */
+/** The error keeps the shared fixtures' parent path and names the first unlisted member as `field`. */
 function rejectUnknownField(value: ClientRecord, keys: readonly string[], path: string): void {
   const unknown = Object.keys(value).find(key => !keys.includes(key));
-  if (unknown !== undefined) clientError('HQ_CLIENT_UNKNOWN_FIELD', pointer(path, unknown));
+  if (unknown !== undefined) clientError('HQ_CLIENT_UNKNOWN_FIELD', path, unknown);
 }
 /** Closed object whose listed members are all optional; at least one is required. */
 export function optionalShape(input: unknown, keys: readonly string[], path: string): ClientRecord {

@@ -68,11 +68,11 @@ describe('client contract vectors', () => {
     expect(result.endpoints[0].path).not.toBe('/changed');
     expect(Object.isFrozen(result.endpoints[0].dimensions.country)).toBe(true);
   });
-  it('names the first unknown member in the error path', () => {
+  it('names the first unknown member as field, keeping the parent path', () => {
     const input = structuredClone(contracts.build) as Data;
     (input.endpoints as Data[])[1].futureField = true;
     expect(() => validateProtocolClientContract(input)).toThrowError(expect.objectContaining({
-      code: 'HQ_CLIENT_UNKNOWN_FIELD', path: '/endpoints/1/futureField',
+      code: 'HQ_CLIENT_UNKNOWN_FIELD', path: '/endpoints/1', field: 'futureField',
     }));
   });
   it('refuses supplied unsigned identities', () => {
