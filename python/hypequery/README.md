@@ -1923,7 +1923,9 @@ The export names each endpoint's path under the API's `base_path` and
 intersects profile, dataset, endpoint policy, client and production ceilings,
 reserving the pagination probe row. For an API mounted inside another
 application, configure its external `create_api(client_mount_path=...)`.
-Proxy headers never determine artifact paths. A strict endpoint refuses a path
+Proxy headers never determine artifact paths, nor do ASGI's `root_path` and
+WSGI's `SCRIPT_NAME`: the first request served below a prefix that differs from
+`client_mount_path` logs a warning on `hypequery.serve` naming the setting. A strict endpoint refuses a path
 another POST route already serves. Legacy routes keep their input behavior and
 are omitted from this export. `to_asgi_app` exports the contract once when it
 builds the app, so a misconfiguration fails at startup.
