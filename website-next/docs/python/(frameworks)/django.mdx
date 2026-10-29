@@ -69,6 +69,7 @@ and reports problems as `hypequery.E001`. Errors never repeat the URL or a passw
 <CodeBlock>
 ```python
 from django.contrib.auth.decorators import login_required
+from django.shortcuts import render
 from django.http import JsonResponse
 
 
@@ -225,6 +226,7 @@ with `@ensure_csrf_cookie`, or render a template with `{% csrf_token %}`:
 <CodeBlock>
 ```python
 from django.contrib.auth.decorators import login_required
+from django.shortcuts import render
 from django.views.decorators.csrf import ensure_csrf_cookie
 
 
