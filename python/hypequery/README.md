@@ -334,9 +334,10 @@ executor.close()
 
 A target is a `Dataset` or the name of a registered dataset. The registry also
 resolves relationship targets, so pass one when a query traverses a
-relationship. A query can also be a plain mapping (for example a request body);
-it is validated strictly and unknown keys are rejected. The tenant always comes
-from the trusted `ExecutionContext`, never from the query.
+relationship. A query can also be a plain mapping with `DatasetQuery`'s field
+names (`order_by`, not the HTTP wire's `orderBy`); it is validated strictly and
+unknown keys are rejected. The tenant always comes from the trusted
+`ExecutionContext`, never from the query.
 
 In a request handler, bind the client to the tenant your auth layer resolved
 and pass that on instead of the client itself:
@@ -345,6 +346,11 @@ and pass that on instead of the client itself:
 scoped = client.for_tenant(tenant(principal.org_id))
 scoped.execute("trips", request_body)
 ```
+
+`request_body` here is your own handler's JSON, with the same field names. To
+serve the HTTP wire format (`orderBy`, `includeMeta`) that `@hypequery/react`
+and generated clients send, mount hypequery's endpoints instead (`create_api`,
+`urls(api)` or `blueprint(api)`).
 
 A tenant-bound client has only `execute`, `validate`, and `to_sql`. Every
 query runs as the bound tenant. A context naming a different tenant is refused
