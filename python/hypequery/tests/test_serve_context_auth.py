@@ -337,7 +337,7 @@ def test_flask_proxy_fix_sets_the_scheme() -> None:
     from wsgi_client import WsgiClient
 
     app = flask_app(_api(Session()))
-    app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1)  # type: ignore[method-assign]
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1)
     headers = {"origin": "https://testserver", "x-forwarded-proto": "https"}
     assert WsgiClient(app).post("/whoami", headers=headers, json={}).status_code == 200
     plain = WsgiClient(flask_app(_api(Session())))
