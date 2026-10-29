@@ -94,7 +94,9 @@ def test_discovery_records_how_it_connected(monkeypatch: pytest.MonkeyPatch) -> 
         monkeypatch.delenv(name, raising=False)
     monkeypatch.setenv("CLICKHOUSE_URL", "clickhouses://u:secret@ch.example.com:9440/analytics")
     found = discovery.discover_schema(tables=None, exclude_tables=None)
-    assert found.connection == ConnectionSummary("ch.example.com", 9440, True, from_url=True)
+    assert found.connection == ConnectionSummary(
+        "ch.example.com", 9440, True, from_url=True, default_user=False
+    )
 
 
 def test_init_sets_the_tenant_column(tmp_path: Path, init_discovery: list[dict[str, Any]]) -> None:
@@ -330,3 +332,39 @@ def test_tenant_column_and_no_tenant_column_conflict() -> None:
     with pytest.raises(SystemExit) as exc:
         main(["generate", "datasets", "--tenant-column", "org_id", "--no-tenant-column"])
     assert exc.value.code == 2
+
+
+def test_scaffold_never_suggests_default_for_another_user() -> None:
+    from hypequery.cli.utils.connection_scaffold import env_lines, export_lines
+
+    reader = ConnectionSummary("ch.internal", 8123, False, from_url=False, default_user=False)
+    # Init ran as a reader: `default` would quietly connect as another user.
+    assert "CLICKHOUSE_USERNAME=your-clickhouse-user" in env_lines(reader, "analytics")
+    assert "export CLICKHOUSE_USERNAME=your-clickhouse-user" in export_lines(reader, "analytics")
+    default = ConnectionSummary("ch.internal", 8123, False, from_url=False)
+    assert "CLICKHOUSE_USERNAME=default" in env_lines(default, "analytics")
+
+
+def test_discovery_records_only_whether_it_used_the_default_user(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import clickhouse_connect
+
+    from hypequery.cli.generators import schema as discovery
+
+    class _Client:
+        def close(self) -> None:
+            pass
+
+    monkeypatch.setattr(clickhouse_connect, "get_client", lambda **_: _Client())
+    monkeypatch.setattr(discovery, "read_schema", lambda client, **_: _schema(None))
+    monkeypatch.delenv("CLICKHOUSE_URL", raising=False)
+    monkeypatch.setenv("CLICKHOUSE_USERNAME", "analytics_reader")
+    found = discovery.discover_schema(tables=None, exclude_tables=None)
+    assert found.connection is not None
+    assert not found.connection.default_user
+    assert "analytics_reader" not in repr(found.connection)
+    monkeypatch.delenv("CLICKHOUSE_USERNAME")
+    found = discovery.discover_schema(tables=None, exclude_tables=None)
+    assert found.connection is not None
+    assert found.connection.default_user

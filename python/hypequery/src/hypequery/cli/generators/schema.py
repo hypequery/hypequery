@@ -41,6 +41,9 @@ class ConnectionSummary:
     secure: bool
     #: Whether the settings came from ``CLICKHOUSE_URL`` rather than the field variables.
     from_url: bool
+    #: Whether discovery connected as ClickHouse's ``default`` user. Any other
+    #: user's name stays out of generated files, like the password.
+    default_user: bool = True
 
 
 @dataclass(frozen=True)
@@ -88,6 +91,7 @@ def discover_schema(*, tables: str | None, exclude_tables: str | None) -> Schema
             port=fields["port"],
             secure=fields["secure"],
             from_url=bool(os.environ.get("CLICKHOUSE_URL", "").strip()),
+            default_user=fields["username"] == "default",
         )
         return Schema(schema.database, schema.tables, summary)
     except CliError:
