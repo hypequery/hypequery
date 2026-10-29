@@ -3,6 +3,7 @@ title: Flask
 description: A Flask extension with app.config, a tenant loader, per-request tenant-bound clients, and hypequery's endpoints as a blueprint.
 ---
 
+import { Callout } from 'fumadocs-ui/components/callout';
 import { CodeBlock } from 'fumadocs-ui/components/codeblock';
 
 `hypequery.contrib.flask` is a Flask extension. It reads its connection from `app.config` or the environment, and
@@ -141,6 +142,9 @@ the error envelope. `ServeRequest.raw` is Flask's `Request`.
   `MAX_CONTENT_LENGTH` is refused as too large.
 - **Any prefix works**, including one with URL variables. Client contracts and discovery name the paths the request
   was routed under.
+- **CSRF.** A header credential (`Authorization: Bearer`, an API key or a JWT) is one a browser never attaches on its
+  own, so a blueprint for it is exempt from Flask-WTF's `CSRFProtect`, whether you set that up before or after
+  registering the blueprint. `CSRFProtect` keeps checking the rest of your app, and an API on your own login (below).
 
 Then point the React hooks and the MCP bridge at the prefix; see [React and MCP clients](/docs/python/client-endpoints).
 
@@ -180,10 +184,33 @@ api = create_api(auth=flask_session(from_session), client=hq.client_for(app), da
 Either way it runs on the request's own thread, so Flask-Login's user loader and thread-local database sessions behave
 as in your routes.
 
-A session cookie rides along with any request the browser makes. Flask has no CSRF middleware, so the
-[same-origin check](/docs/python/authentication#your-apps-own-login) is the protection: an unsafe method (`POST`,
-`PUT`, `PATCH`, `DELETE`) gets `403` unless the browser marks the request same-origin, or its `Origin` is in your CORS
-policy. Keep it on (`same_origin=True`, the default).
+A session cookie rides along with any request the browser makes, so these endpoints are protected from cross-site
+requests:
+
+- **The [same-origin check](/docs/python/authentication#your-apps-own-login)** refuses an unsafe method (`POST`,
+  `PUT`, `PATCH`, `DELETE`) with `403` unless the browser marks the request same-origin, or its `Origin` is the
+  request's own or in your CORS policy. Keep it on (`same_origin=True`, the default). Without Flask-WTF, it is the
+  protection.
+- **Flask-WTF's `CSRFProtect`**, if your app uses it, checks them too. Render the token into the page that hosts
+  React (`{{ csrf_meta_tag() }}`) and send it as `X-CSRFToken`:
+
+<CodeBlock>
+```ts
+const csrfToken = () => document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content;
+const client = createHypequeryClient({
+  baseUrl: '/api/analytics',
+  headers: () => ({ 'X-CSRFToken': csrfToken() }),
+});
+```
+</CodeBlock>
+
+Without the token, Flask-WTF answers before hypequery does, with its own HTML `400`.
+
+<Callout type="info">
+Running Flask and another app on `127.0.0.1` at once? Browsers don't separate cookies by port, so two local apps share
+any cookie with the same name. Give each its own `SESSION_COOKIE_NAME`, or open one on `localhost` and the other on
+`127.0.0.1`.
+</Callout>
 
 For agents and other non-browser callers, serve a second API with a header credential (`jwt_strategy` or `api_key`)
 under another prefix. The tenant always comes from the principal either way.

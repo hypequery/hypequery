@@ -113,7 +113,8 @@ api = create_api(auth=authenticate, credentials=api_key(), client=client, datase
 
 Query strings, cookies, and bodies are never read. A repeated, oversized, or malformed header is refused before your
 authenticator runs. A browser never attaches these headers on its own, so header credentials need no CSRF protection,
-and the [Django](/docs/python/django#serve-hypequerys-endpoints) adapter's views for them are CSRF-exempt. To use a
+and the [Django](/docs/python/django#serve-hypequerys-endpoints) adapter's views and
+[Flask](/docs/python/flask#serve-hypequerys-endpoints) blueprint for them are CSRF-exempt. To use a
 session cookie instead, see [your app's own login](#your-apps-own-login).
 
 ## Your app's own login

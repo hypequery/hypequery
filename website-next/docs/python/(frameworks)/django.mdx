@@ -3,6 +3,7 @@ title: Django
 description: Settings, a tenant-bound request.analytics in every view, clients for tasks and commands, and hypequery's endpoints served natively.
 ---
 
+import { Callout } from 'fumadocs-ui/components/callout';
 import { CodeBlock } from 'fumadocs-ui/components/codeblock';
 
 `hypequery.contrib.django` gives every Django view a dataset client that is already bound to the signed-in
@@ -238,6 +239,12 @@ def dashboard(request):
 
 Without the cookie, Django's CSRF middleware answers before hypequery does: every `POST` gets Django's own HTML `403`,
 even from a signed-out user, so your frontend sees neither hypequery's JSON error nor a `401`.
+
+<Callout type="info">
+Running Django and another app on `127.0.0.1` at once? Browsers don't separate cookies by port, so two local apps share
+`sessionid`, `csrftoken`, and any other cookie with the same name. Set `SESSION_COOKIE_NAME` and `CSRF_COOKIE_NAME`
+per project, or open one on `localhost` and the other on `127.0.0.1`.
+</Callout>
 
 For agents and other non-browser callers, serve a second API with a header credential (`jwt_strategy` or `api_key`)
 under another prefix. The tenant always comes from the principal either way.
