@@ -4,7 +4,7 @@ import { useRef, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { motion, useReducedMotion } from 'motion/react';
 import * as Popover from '@radix-ui/react-popover';
-import { ArrowUpRight, ChevronDown, Cloud, Code2, Database, RotateCcw, Send } from 'lucide-react';
+import { ArrowUpRight, ChevronDown, Cloud, Code2, Database, Send } from 'lucide-react';
 import { SiClaude, SiClickhouse, SiGooglegemini, SiModelcontextprotocol, SiPython, SiReact, SiTypescript } from 'react-icons/si';
 import { RiOpenaiFill } from 'react-icons/ri';
 import { AppChat, ClaudeTerminal, useAiAnswers } from './AiAnswers';
@@ -62,10 +62,10 @@ export function ProductExplainer({ modelCode, dashboardCode }: { modelCode: Reac
     : 'M0 65C20 60 25 70 45 60S75 35 95 42S130 58 150 42S175 25 195 33S225 18 250 25S280 15 300 18';
 
   return (
-    <section aria-labelledby="product-explainer-title" className="overflow-x-clip mx-auto max-w-[1280px] px-5 pb-12 pt-14 sm:px-8 sm:pt-20">
+    <section aria-labelledby="product-explainer-title" className="overflow-x-clip mx-auto max-w-[1280px] px-5 pt-14 sm:px-8 sm:pt-20">
       <motion.div variants={ENTRANCE} initial={reducedMotion ? false : "hidden"} whileInView="visible" viewport={{ once: true, amount: 0.2 }} custom={0} className="mx-auto max-w-[660px] text-center">
         <h2 id="product-explainer-title" className="home-section-title text-text">One model behind every answer</h2>
-        <p className="mx-auto mt-4 max-w-[570px] text-sm leading-6 text-text-muted sm:text-base">Your dashboards, embedded AI chat and agents like Claude all query the same published model.</p>
+        <p className="mx-auto mt-4 max-w-[570px] text-sm leading-6 text-text-muted sm:text-base">Your dashboards, embedded AI chat and agents like Claude all query the same model, with the same tenant rules.</p>
       </motion.div>
 
       <motion.div variants={ENTRANCE} initial={reducedMotion ? false : "hidden"} whileInView="visible" viewport={{ once: true, amount: 0.2 }} custom={0.06} className="relative mt-9 h-[290px] sm:mt-12" role="figure" aria-label="ClickHouse tables flow into a shared hypequery model, then into dashboards, chat, and MCP agents">
@@ -117,13 +117,13 @@ export function ProductExplainer({ modelCode, dashboardCode }: { modelCode: Reac
       <div ref={answersRef} className="grid border-border md:grid-cols-3 md:divide-x md:divide-border md:border-t">
         <motion.article variants={ENTRANCE} initial={reducedMotion ? false : "hidden"} whileInView="visible" viewport={{ once: true, amount: 0.15 }} custom={0.0} onMouseEnter={() => setActiveConnection(3)} onMouseLeave={() => setActiveConnection(null)} onFocusCapture={() => setActiveConnection(3)} onBlurCapture={() => setActiveConnection(null)} className="explainer-consumer min-w-0 pb-7 md:pr-6 md:pt-7 lg:pr-8">
           <div className="explainer-link md:hidden" aria-hidden="true" />
-          <div className="flex items-center gap-2.5"><SiReact className="h-5 w-5 text-[#339db6]" aria-hidden="true" /><h3 className="text-xl font-medium tracking-tight text-text">Embedded dashboards</h3>
+          <div className="flex items-center gap-2.5"><SiReact className="h-5 w-5 text-[#339db6]" aria-hidden="true" /><h3 className="text-xl font-medium tracking-tight text-text">Embedded analytics</h3>
             <div role="group" aria-label="Dashboard example view" className="ml-auto inline-flex rounded-md border border-border p-0.5 text-[10.5px]">
               {(['preview', 'code'] as const).map((view) => (
                 <button key={view} type="button" aria-pressed={dashboardView === view} onClick={() => setDashboardView(view)} className={`rounded px-2 py-0.5 font-medium capitalize transition ${dashboardView === view ? 'bg-bg-alt text-text' : 'text-text-muted hover:text-text'}`}>{view}</button>
               ))}
             </div></div>
-          <p className="mt-3 max-w-[350px] text-sm leading-6 text-text-muted">Build with typed React hooks and your own components.</p>
+          <p className="mt-3 max-w-[350px] text-sm leading-6 text-text-muted">Ship embedded analytics with typed React hooks and your own components.</p>
           {dashboardView === 'code' ? (
             <div className={`explainer-preview mt-6 flex flex-col overflow-hidden rounded-xl border border-border bg-bg-card shadow-card ${PREVIEW_HEIGHT}`}>
               <div className="border-b border-border px-4 py-3 font-mono text-[10px] text-text-dim">components/RevenueByCountry.tsx</div>
@@ -178,18 +178,6 @@ export function ProductExplainer({ modelCode, dashboardCode }: { modelCode: Reac
           </div>
           <Link href="/docs/mcp/overview" aria-label="Read more about MCP agents" className="explainer-read-more mt-5 inline-flex items-center gap-1.5 text-xs font-medium text-text-muted">Read more <ArrowUpRight className="h-3 w-3" aria-hidden="true" /></Link>
         </motion.article>
-      </div>
-      <div className="flex justify-end">
-        <button
-          type="button"
-          onClick={answers.replay}
-          aria-label="Replay the chat and agent examples"
-          tabIndex={answers.done ? 0 : -1}
-          aria-hidden={!answers.done}
-          className={`rounded-md p-1.5 text-text-dim transition hover:text-text ${answers.done ? 'opacity-100' : 'pointer-events-none opacity-0'}`}
-        >
-          <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" />
-        </button>
       </div>
     </section>
   );

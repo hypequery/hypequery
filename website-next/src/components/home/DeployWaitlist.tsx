@@ -26,12 +26,10 @@ const AUTHORING_OPTIONS = [
 type Status = 'idle' | 'sending' | 'sent' | 'error';
 
 /** A button that opens the shared waitlist dialog. `location` records where it was opened from. */
-export function DeployWaitlist({ location, className, compactLabel = false }: { location: string; className?: string; compactLabel?: boolean }) {
+export function DeployWaitlist({ location, className }: { location: string; className?: string }) {
   return (
     <button type="button" className={className} onClick={() => window.dispatchEvent(new CustomEvent(OPEN_EVENT, { detail: location }))}>
-      {compactLabel
-        ? <><span className="nav-desktop-only">Get cloud access <span aria-hidden="true">→</span></span><span className="nav-mobile-only">Cloud access</span></>
-        : <>Get cloud access <span aria-hidden="true">→</span></>}
+      Join the cloud waitlist
     </button>
   );
 }
@@ -73,7 +71,7 @@ export function WaitlistDialog() {
     <dialog ref={dialogRef} aria-labelledby="waitlist-title" className="m-auto max-h-[calc(100dvh-2rem)] w-[min(100%-2rem,560px)] overflow-hidden rounded-2xl border border-border-strong bg-bg-card p-0 text-left text-base font-normal text-text shadow-2xl backdrop:bg-black/40" onClick={(event) => { if (event.target === dialogRef.current) dialogRef.current.close(); }}>
       <div className="flex max-h-[calc(100dvh-2rem-2px)] flex-col">
         <div className="flex shrink-0 items-start justify-between gap-4 px-6 pt-6 sm:px-8 sm:pt-8">
-          <h2 id="waitlist-title" className="text-2xl font-semibold tracking-tight">{status === 'sent' ? "You're on the list." : 'Get early access to deploy.'}</h2>
+          <h2 id="waitlist-title" className="text-2xl font-semibold tracking-tight">{status === 'sent' ? "You're on the list." : 'Get early access to hypequery cloud.'}</h2>
           <button type="button" aria-label="Close waitlist form" className="text-text-muted" onClick={() => dialogRef.current?.close()}>✕</button>
         </div>
         {status === 'sent' ? (
@@ -83,7 +81,7 @@ export function WaitlistDialog() {
           </div>
         ) : (
           <>
-            <p className="mt-3 shrink-0 px-6 text-sm leading-6 text-text-muted sm:px-8">Cloud deployment is coming soon. Join the waitlist and we&apos;ll reach out when your project can go live.</p>
+            <p className="mt-3 shrink-0 px-6 text-sm leading-6 text-text-muted sm:px-8">Cloud hosts the same model you run in your backend, with a managed API and MCP server, versions, and rollback. We&apos;re letting teams in a few at a time. Join the waitlist and we&apos;ll reach out when your project can go live.</p>
             <form action={FORM_ACTION} method="POST" onSubmit={handleSubmit} className="mt-6 flex min-h-0 flex-col">
               <div className="overflow-y-auto px-6 pb-6 sm:px-8">
               <label htmlFor="waitlist-email" className="text-sm font-semibold">Work email</label>

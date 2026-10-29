@@ -82,7 +82,7 @@ export default function ClickHouseJSPage() {
     <ClickhousePillarPage
       eyebrow="ClickHouse JS"
       title="The JavaScript query builder built for ClickHouse"
-      description="This page is for teams starting from plain JavaScript or TypeScript and wondering how far the raw ClickHouse client really gets them. hypequery keeps the connection layer, but adds schema-driven query code so the rest of the app is not built on casts and copied SQL."
+      description="The raw ClickHouse client gets rows back. hypequery keeps that connection and adds schema-generated types and composable query code, so the rest of your app isn't built on casts and copied SQL."
       primaryCta={{ href: '/docs/quick-start', label: 'Start with hypequery' }}
       secondaryCta={{ href: '/compare/hypequery-vs-clickhouse-client', label: 'Compare vs @clickhouse/client' }}
       stats={[

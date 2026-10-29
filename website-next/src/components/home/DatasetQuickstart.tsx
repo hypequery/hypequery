@@ -10,7 +10,7 @@ import { BACKEND_EXAMPLES, CLOUD_COMMANDS, CLOUD_EXAMPLES, DATASET_EXAMPLES } fr
 const CODE_STEPS = [
   { id: 'dataset', title: 'Define & query', copy: 'Define measures and dimensions, then query them.' },
   { id: 'backend', title: 'Run in your backend', copy: 'Call it from your Hono or FastAPI routes, in the same process.' },
-  { id: 'cloud', title: 'Publish to cloud', copy: 'Deploy with one command for a hosted REST API and MCP server.' },
+  { id: 'cloud', title: 'Publish to cloud', copy: 'When you want it hosted: one command for a managed REST API and MCP server. Early access.' },
 ] as const;
 
 /** The "In code" tab of the build section: the editable example, running in your backend, then deploying to cloud. */
@@ -25,7 +25,7 @@ export function DatasetQuickstartPanel() {
   return (
     <div className="grid items-start gap-10 max-md:grid-cols-[minmax(0,1fr)] md:grid-cols-[minmax(0,400px)_minmax(0,1fr)] md:gap-12 lg:gap-16">
       <div>
-        <h3 className="text-2xl font-normal tracking-[-0.03em] text-text">Write your model in code. Ship it in your own backend, or push to our cloud.</h3>
+        <h3 className="text-2xl font-normal tracking-[-0.03em] text-text">Write your model in code. Run it in your own backend, or publish it to cloud.</h3>
         <p className="mt-3 max-w-[520px] text-sm leading-6 text-text-muted sm:text-base">
           Define datasets in TypeScript or Python, next to your app code, and review them in pull requests.
         </p>
@@ -65,7 +65,7 @@ export function DatasetQuickstartPanel() {
           })}
         </div>
         <div className="mt-8">
-          <Link href="/docs/quick-start" className="inline-flex min-h-11 items-center gap-3 rounded-lg border border-border-strong bg-bg-card px-5 text-sm font-semibold text-text transition hover:-translate-y-0.5 hover:border-text">Start open source <ArrowRight className="h-4 w-4" aria-hidden="true" /></Link>
+          <Link href="/docs/quick-start" className="inline-flex min-h-11 items-center gap-3 rounded-lg bg-accent px-5 text-sm font-semibold text-white transition hover:-translate-y-0.5 hover:opacity-90 dark:text-[#0c0e14]">Get started <ArrowRight className="h-4 w-4" aria-hidden="true" /></Link>
         </div>
       </div>
       <div id="dataset-example-panel" role="tabpanel" aria-labelledby={`dataset-step-${example}`} className="dataset-quickstart-panel flex h-[592px] flex-col overflow-hidden rounded-xl border border-border bg-bg-card shadow-card md:h-[632px]">
@@ -89,7 +89,7 @@ export function DatasetQuickstartPanel() {
             <CodeHighlight key={`cloud-cli-${language}`} code={CLOUD_COMMANDS[language]} language="bash" className="[&_code]:text-[11px] [&_code]:leading-[1.75] sm:[&_code]:text-xs" />
           </>}
         </div>
-        <p className="border-t border-border px-5 py-3 text-[11px] leading-5 text-text-muted sm:px-6">{isCloud ? 'Cloud access is required. Login selects your project and environment.' : isBackend ? 'Reuses your connected analytics client and orders dataset.' : 'Uses an existing orders table and a connected analytics client.'}</p>
+        <p className="border-t border-border px-5 py-3 text-[11px] leading-5 text-text-muted sm:px-6">{isCloud ? 'Cloud is in early access. Login selects your project and environment.' : isBackend ? 'Reuses your connected analytics client and orders dataset.' : 'Uses an existing orders table and a connected analytics client.'}</p>
       </div>
     </div>
   );

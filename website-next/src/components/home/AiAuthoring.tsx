@@ -12,7 +12,7 @@ import { useTimeline } from './useTimeline';
 const STEPS = [
   ['Connect ClickHouse', 'Read-only access. Credentials are encrypted and never shown to the assistant.'],
   ['Describe your business', 'Say what you sell, who will query the data, and who should see what.'],
-  ['Review and publish', 'It drafts datasets, measures, and tenant rules. Publish, and your API and MCP go live.'],
+  ['Review and publish', 'Check each definition and correct anything off, then publish. Your API and MCP serve the reviewed version.'],
 ] as const;
 
 // The onboarding chat from the cloud design: context first, then a draft model, then v1.
@@ -453,8 +453,8 @@ export function AiAuthoringPanel() {
       <div>
         <h3 className="text-2xl font-normal tracking-[-0.03em] text-text">Describe your business. Cloud drafts the model.</h3>
         <p className="mt-3 max-w-[520px] text-sm leading-6 text-text-muted sm:text-base">
-          Connect ClickHouse, answer two questions, and review what it drafts. Ask your first question minutes later,
-          right in cloud.
+          Connect ClickHouse, and draft datasets, measures, and tenant rules with AI. You review every
+          definition before anything goes live. In early access.
         </p>
         <ol className="mt-7 space-y-5">
           {STEPS.map(([title, copy], index) => (
@@ -468,7 +468,7 @@ export function AiAuthoringPanel() {
           ))}
         </ol>
         <div className="mt-8">
-          <DeployWaitlist location="build-ai" className="inline-flex min-h-11 items-center gap-3 rounded-lg bg-accent px-5 text-sm font-semibold text-white transition hover:-translate-y-0.5 hover:opacity-90 dark:text-[#0c0e14]" />
+          <DeployWaitlist location="build-ai" className="inline-flex min-h-11 items-center rounded-lg border border-border-strong bg-bg-card px-5 text-sm font-semibold text-text transition hover:-translate-y-0.5 hover:border-text" />
         </div>
       </div>
 

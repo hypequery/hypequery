@@ -80,10 +80,9 @@ import { api } from './analytics/queries';
 import { verifyJwt } from './lib/auth';
 
 const app = express();
-app.use(express.json());
 
 // Auth middleware — verify JWT and attach tenant to request
-app.use('/analytics', async (req, res, next) => {
+app.use('/api/analytics', async (req, res, next) => {
   const token = req.headers.authorization?.replace('Bearer ', '');
   if (!token) return res.status(401).json({ error: 'Unauthorized' });
 
@@ -96,19 +95,22 @@ app.use('/analytics', async (req, res, next) => {
   }
 });
 
-// Mount the generated handler under /analytics
-app.use('/analytics', createNodeHandler(api.handler));
+// Mount the generated handler on its base path (/api/analytics by default).
+// Register it before express.json(): hypequery reads the request body itself.
+app.all('/api/analytics/{*path}', createNodeHandler(api.handler));
+
+app.use(express.json()); // for the rest of your app
 
 // OpenAPI spec and Swagger UI are generated automatically
-// GET /analytics/openapi.json
-// GET /analytics/docs
+// GET /api/analytics/openapi.json
+// GET /api/analytics/docs
 
 // Existing Express routes continue to work unchanged
 app.get('/health', (_req, res) => res.json({ status: 'ok' }));
 
 app.listen(3000, () => {
   console.log('Server running on http://localhost:3000');
-  console.log('Analytics docs at http://localhost:3000/analytics/docs');
+  console.log('Analytics docs at http://localhost:3000/api/analytics/docs');
 });`;
 
 export default function ClickHouseExpressPage() {
@@ -165,16 +167,16 @@ export default function ClickHouseExpressPage() {
         eyebrow: 'Express integration',
         title: 'Mount analytics routes alongside your existing Express server',
         description:
-          'createNodeHandler(api.handler) returns a Node-compatible request handler. You mount it on a path like /analytics alongside your existing routes. The analytics handler does not interfere with the rest of the Express app — it handles its own validation, error responses, and documentation.',
+          'createNodeHandler(api.handler) returns a Node-compatible request handler. You mount it on its base path, /api/analytics by default, alongside your existing routes. The analytics handler does not interfere with the rest of the Express app — it handles its own validation, error responses, and documentation.',
         paragraphs: [
           'Auth middleware runs before the analytics middleware and attaches tenant context to the request. The initServe() context factory reads that context and makes it available to all query definitions. One auth change propagates to every analytics endpoint.',
-          'The generated OpenAPI spec is available at /analytics/openapi.json. Use it to generate TypeScript client types for your frontend, validate integration tests against the schema, or import it into API gateway tooling.',
+          'The generated OpenAPI spec is available at /api/analytics/openapi.json. Use it to generate TypeScript client types for your frontend, validate integration tests against the schema, or import it into API gateway tooling.',
         ],
         codePanel: {
           eyebrow: 'Express server',
           title: 'Full Express server with mounted analytics routes',
           description:
-            'Existing routes are untouched. The analytics handler mounts on /analytics with auth applied upstream. OpenAPI docs are available immediately after startup.',
+            'Existing routes are untouched. The analytics handler mounts on /api/analytics with auth applied upstream. OpenAPI docs are available immediately after startup.',
           code: fullServerCode,
         },
       }}

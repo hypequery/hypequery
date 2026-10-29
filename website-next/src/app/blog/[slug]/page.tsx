@@ -209,7 +209,7 @@ export default async function BlogPostPage({
       logo: {
         '@type': 'ImageObject',
         url: absoluteUrl('/logo.png').toString(),
-        width: 1472,
+        width: 1378,
         height: 400,
       },
     },

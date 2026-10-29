@@ -52,7 +52,7 @@ export default function ClickHouseAnalyticsPage() {
     <ClickhousePillarPage
       eyebrow="ClickHouse Analytics"
       title="Turn ClickHouse into a reusable analytics layer instead of a pile of raw queries"
-      description="This page is about what happens after the first few queries work. The database is fast, but the same metrics start showing up in route handlers, exports, dashboards, and internal tools. hypequery gives those queries one place to live so the codebase stops forking the same logic."
+      description="Once the first few queries work, the same metrics start showing up in route handlers, exports, dashboards, and internal tools. hypequery gives each one a single definition, in TypeScript or Python, in the codebase you already have. Dashboards, APIs, and AI agents all answer from it."
       primaryCta={{ href: '/docs/quick-start', label: 'Start with hypequery' }}
       secondaryCta={{ href: '/blog/the-analytics-language-layer-why-real-time-data-needs-typed-apis-not-just-faster-databases', label: 'Read the architecture essay' }}
       stats={[

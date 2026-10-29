@@ -30,6 +30,8 @@ const footerColumns: Array<{ title: string; links: FooterLink[] }> = [
       { label: 'ClickHouse React', href: '/clickhouse-react' },
       { label: 'ClickHouse Node.js', href: '/clickhouse-nodejs' },
       { label: 'ClickHouse Python', href: '/clickhouse-python' },
+      { label: 'ClickHouse FastAPI', href: '/clickhouse-fastapi' },
+      { label: 'ClickHouse Django', href: '/clickhouse-django' },
       { label: 'ClickHouse MCP', href: '/clickhouse-mcp' },
       { label: 'GitHub', href: 'https://github.com/hypequery/hypequery', external: true },
     ],

@@ -23,14 +23,15 @@ export const metadata: Metadata = {
   },
 };
 
-const routerCode = `from hypequery.serve import (
+const routerCode = `from fastapi import FastAPI
+from hypequery.serve import (
     Credential,
     EndpointPolicy,
     HttpSecurity,
     Principal,
     add_dataset_endpoint,
-    create_app,
-    create_router,
+    create_api,
+    to_asgi_app,
 )
 
 
@@ -45,23 +46,27 @@ async def authenticate(credential: Credential) -> Principal | None:
     )
 
 
-router = create_router(authenticate=authenticate)
+api = create_api(
+    auth=authenticate,
+    security=HttpSecurity(allowed_hosts=("analytics.example.com",)),
+)
 add_dataset_endpoint(
-    router,
+    api,
     "/datasets/orders/query",
     dataset=orders,
     client=analytics,
     policy=EndpointPolicy(required_scopes=frozenset({"analytics:read"}), tenant="required"),
 )
 
-app = create_app(router, security=HttpSecurity(allowed_hosts=("analytics.example.com",)))`;
+app = FastAPI()  # your existing app and routes
+app.mount("/analytics", to_asgi_app(api))`;
 
-const requestCode = `curl -X POST https://analytics.example.com/datasets/orders/query \\
+const requestCode = `curl -X POST https://analytics.example.com/analytics/datasets/orders/query \\
   -H "Authorization: Bearer $TOKEN" \\
   -H "Content-Type: application/json" \\
   -d '{"dimensions": ["country"], "measures": ["revenue"], "limit": 10}'
 
-# {"data": [{"country": "NZ", "revenue": "1200.5"}]}
+# {"data": [{"country": "NZ", "revenue": "1200.50"}]}
 
 # Without a token:
 # 401 {"error": {"type": "UNAUTHORIZED", "message": "Access denied", ...}}`;
@@ -74,8 +79,9 @@ export default function ClickHouseFastAPIPage() {
       description="Most FastAPI analytics endpoints are the same code repeated: parse filters, build SQL, add the tenant, check permissions, shape errors. hypequery serves your ClickHouse datasets as authenticated, tenant-scoped endpoints, so the route stops being where the analytics logic lives."
       primaryCta={{ href: '/docs/python/fastapi', label: 'Read the FastAPI guide' }}
       secondaryCta={{ href: '/clickhouse-python', label: 'ClickHouse with Python' }}
+      language="python"
       stats={[
-        { label: 'Framework', value: 'FastAPI router' },
+        { label: 'Framework', value: 'Mounted in FastAPI' },
         { label: 'Auth', value: 'Bearer tokens or API keys' },
         { label: 'Default', value: 'Authenticated, docs closed' },
       ]}
@@ -98,9 +104,9 @@ export default function ClickHouseFastAPIPage() {
       ]}
       solutionSection={{
         eyebrow: 'Serve',
-        title: 'Register a dataset as an endpoint on an authenticated router',
+        title: 'Register a dataset as an authenticated endpoint, then mount it',
         description:
-          'Every route on the router requires authentication unless you mark it public, and authentication runs before the body is read. The tenant always comes from the authenticated principal.',
+          'Every route on the API requires authentication unless you mark it public, and authentication runs before the body is read. The tenant always comes from the authenticated principal.',
         bullets: [
           'Bearer token or API key credentials, verified by your own authenticator',
           'Per-endpoint roles, scopes, and tenant requirements',
@@ -109,7 +115,7 @@ export default function ClickHouseFastAPIPage() {
           'Rate limiting, allowed hosts, CORS, trusted proxies, and request ids',
         ],
         codePanel: {
-          eyebrow: 'Router',
+          eyebrow: 'API',
           title: 'A tenant-scoped dataset endpoint',
           description: '`orders` and `analytics` are the dataset and client from your Python model.',
           code: routerCode,
@@ -140,7 +146,7 @@ export default function ClickHouseFastAPIPage() {
         {
           title: 'Fits your existing app',
           copy:
-            'The router is a FastAPI router. Add your own routes next to the generated ones and use the authenticated principal in them.',
+            'The API is a plain ASGI app, so it mounts under a prefix in your existing FastAPI app. Your own routes stay exactly as they are.',
         },
         {
           title: 'Security defaults',
@@ -183,8 +189,9 @@ export default function ClickHouseFastAPIPage() {
       relatedPillars={[
         { href: '/clickhouse-python', label: 'ClickHouse Python' },
         { href: '/python-semantic-layer', label: 'Python semantic layer' },
-        { href: '/clickhouse-multi-tenant-analytics', label: 'Multi-tenant analytics' },
-        { href: '/clickhouse-rest-api', label: 'ClickHouse REST API' },
+        { href: '/clickhouse-python-multi-tenant', label: 'Python multi-tenancy' },
+        { href: '/fastapi-react-analytics', label: 'FastAPI + React' },
+        { href: '/clickhouse-python-mcp', label: 'MCP for Python backends' },
       ]}
       nextStep={{
         eyebrow: 'Next step',

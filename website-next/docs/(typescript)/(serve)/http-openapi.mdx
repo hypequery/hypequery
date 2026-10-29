@@ -126,8 +126,10 @@ import { api } from './analytics/queries';
 
 const app = express();
 
-// Mount hypequery at /api/analytics
-app.use('/api/analytics', createNodeHandler(api.handler));
+// Mount hypequery on its base path (/api/analytics by default). Use app.all, not
+// app.use: app.use strips the prefix, so hypequery would not see its routes.
+// Register it before express.json(), because hypequery reads the request body itself.
+app.all('/api/analytics/{*path}', createNodeHandler(api.handler)); // Express 4: '/api/analytics/*'
 
 app.listen(3000);
 ```

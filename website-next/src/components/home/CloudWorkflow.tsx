@@ -6,7 +6,7 @@ import { motion, useInView, useReducedMotion } from 'motion/react';
 import { Check } from 'lucide-react';
 import { CloudHeader, CloudRail, ConnectButton, Slash, VersionSwitch, type CloudPage } from './CloudAppFrame';
 
-// Screens from the cloud chat redesign: drafts, review and publish, deployments, and logs.
+// Screens from the cloud chat redesign: chat, drafts, review and publish, and deployments.
 
 const AUTO_ADVANCE_MS = 7000;
 
@@ -45,6 +45,73 @@ function Table({ head, rows, align }: { head: string[]; rows: React.ReactNode[][
         ))}
       </tbody>
     </table>
+  );
+}
+
+function ChatScreen() {
+  const countries = [
+    ['United States', '+$31,240', 52],
+    ['Germany', '+$14,105', 24],
+    ['United Kingdom', '+$9,870', 16],
+    ['France', '+$6,412', 11],
+    ['Japan', '−$1,774', 3],
+  ] as const;
+
+  return (
+    <div className="mx-auto h-full max-w-[720px] space-y-4 max-md:p-4 md:p-6">
+      <div className="ml-auto max-w-[80%] rounded-2xl rounded-br-md bg-bg-alt px-4 py-2.5 text-[12.5px] leading-5 text-text">
+        Which countries drove revenue growth in September?
+      </div>
+      <div className="flex gap-3">
+        <Avatar />
+        <div className="min-w-0 flex-1 space-y-3 text-[11.5px]">
+          <div className="space-y-1.5">
+            {[
+              ['Queried orders.revenue by country', 'Sep vs Aug 2026'],
+              ['Scoped to tenant', 'org_id = acme'],
+            ].map(([step, detail]) => (
+              <div key={step} className="flex items-center gap-2">
+                <Check className="h-3 w-3 text-accent" aria-hidden="true" />
+                <span className="text-text">{step}</span>
+                <span className="font-mono text-[10.5px] text-text-dim max-md:hidden">{detail}</span>
+              </div>
+            ))}
+          </div>
+          <p className="text-[12.5px] leading-5 text-text">
+            Revenue grew <span className="font-medium">$59,853 (+4.5%)</span> to $1,401,930. The United States drove over half of it,
+            and Japan was the only country to dip.
+          </p>
+          <div className="overflow-hidden rounded-lg border border-border bg-bg">
+            <div className="flex items-center justify-between border-b border-border px-3 py-2">
+              <span className="font-medium text-text">Revenue change by country</span>
+              <span className="text-[10.5px] text-text-dim">Sep vs Aug</span>
+            </div>
+            <div className="space-y-2 px-3 py-3">
+              {countries.map(([country, change, share], index) => (
+                <div key={country} className="grid grid-cols-[minmax(0,104px)_minmax(0,1fr)_64px] items-center gap-3">
+                  <span className="truncate text-text">{country}</span>
+                  <span className="h-2 overflow-hidden rounded-full bg-bg-alt">
+                    <motion.span
+                      className={`block h-full rounded-full ${change.startsWith('−') ? 'bg-[#ef4444]/60' : 'bg-accent'}`}
+                      initial={{ width: 0 }}
+                      animate={{ width: `${share}%` }}
+                      transition={{ duration: 0.6, delay: 0.2 + index * 0.06, ease: [0.22, 1, 0.36, 1] }}
+                    />
+                  </span>
+                  <span className="text-right font-mono text-text">{change}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="flex flex-wrap items-center gap-2 text-[10.5px] text-text-muted">
+            <span>Answered from Published v42</span>
+            <span className="rounded border border-border px-1.5 py-0.5 font-mono">orders.revenue</span>
+            <span className="rounded border border-border px-1.5 py-0.5 font-mono">orders.country</span>
+            <span className="ml-auto text-text-dim max-md:hidden">View query</span>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -257,66 +324,6 @@ function DeploymentsScreen() {
   );
 }
 
-function LogsScreen() {
-  const rows = [
-    ['12:41:08', 200, 'orders · net_revenue by month', 'Chat · LR', '184 ms', '3'],
-    ['12:40:51', 200, 'orders · net_revenue by customer.channel', 'Chat · LR', '242 ms', '4'],
-    ['12:38:02', 400, 'orders · gross_margin_legacy by sku', 'API test key · finance-dashboard', '9 ms', '–'],
-    ['12:31:44', 200, 'orders · avg_order_value by month', 'Validation', '131 ms', '3'],
-    ['12:29:10', 200, 'orders · revenue, refunds by month', 'Chat · LR', '201 ms', '3'],
-    ['12:18:37', 200, 'customers · customer_count by channel', 'Chat · LR', '88 ms', '4'],
-  ] as const;
-
-  return (
-    <div className="grid h-full content-start md:grid-cols-[minmax(0,1fr)_260px]">
-      <div className="min-w-0 max-md:p-4 md:p-5">
-        <div className="text-[11px] text-text-dim">Requests against draft net-revenue · last 30 min</div>
-        <div className="mt-3 grid grid-cols-3 gap-2">
-          {[['Requests', '41'], ['Errors', '1'], ['p95 latency', '242 ms']].map(([label, value]) => (
-            <div key={label} className="rounded-lg border border-border bg-bg px-3 py-2">
-              <div className="text-[10.5px] text-text-muted">{label}</div>
-              <div className="text-base font-medium text-text">{value}</div>
-            </div>
-          ))}
-        </div>
-        <div className="mt-4 overflow-hidden rounded-lg border border-border bg-bg">
-          {rows.map(([time, status, query, source, duration, count], index) => (
-            <div key={time} className={`${index > 3 ? 'max-md:hidden ' : ''}grid items-center gap-2.5 max-md:grid-cols-[52px_32px_minmax(0,1fr)] md:grid-cols-[58px_34px_minmax(0,1fr)_minmax(0,0.8fr)_50px_18px] border-b border-border px-3 py-2 font-mono text-[10.5px] last:border-b-0 ${status === 400 ? 'bg-[#ef4444]/[0.06]' : ''}`}>
-              <span className="text-text-dim">{time}</span>
-              <span className={`rounded px-1 text-center ${status === 200 ? 'bg-[#22c55e]/15 text-[#16a34a]' : 'bg-[#ef4444]/15 text-[#dc2626]'}`}>{status}</span>
-              <span className="truncate text-text">{query}</span>
-              <span className="truncate font-sans text-text-muted max-md:hidden">{source}</span>
-              <span className="text-right text-text-muted max-md:hidden">{duration}</span>
-              <span className="text-right text-text-muted max-md:hidden">{count}</span>
-            </div>
-          ))}
-        </div>
-      </div>
-      <div className="space-y-3 border-border bg-bg-alt/30 p-4 text-[11.5px] max-md:border-t md:border-l">
-        <div className="flex items-center gap-2">
-          <span className="rounded bg-[#ef4444]/15 px-1 font-mono text-[10.5px] text-[#dc2626]">400</span>
-          <span className="truncate font-mono text-text">gross_margin_legacy by sku</span>
-        </div>
-        <div className="rounded-lg border border-[#ef4444]/30 bg-[#ef4444]/[0.06] p-3 leading-4">
-          <div className="font-medium text-[#dc2626]">Unknown measure gross_margin_legacy</div>
-          <p className="mt-1 text-text-muted">
-            This draft removes it, and finance-dashboard still asks for it. Once you publish, it will get this error on
-            Published too.
-          </p>
-          <div className="mt-2.5 flex gap-2 text-[11px]">
-            <span className="rounded-md border border-border bg-bg-card px-2 py-1 text-text">See it in Review</span>
-            <span className="rounded-md border border-border bg-bg-card px-2 py-1 text-text">Ask chat to fix</span>
-          </div>
-        </div>
-        <div className="space-y-1 font-mono text-[10.5px] text-text-muted max-md:hidden">
-          <div><span className="text-text-dim">Tenant </span>org_id = acme-eu</div>
-          <div><span className="text-text-dim">Trace </span>tr_8f21c2a9</div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 function PageTitle({ children }: { children: React.ReactNode }) {
   return <span className="whitespace-nowrap text-[13.5px] font-semibold text-text max-md:hidden">{children}</span>;
 }
@@ -339,8 +346,24 @@ const SCREENS: {
   Screen: () => React.JSX.Element;
 }[] = [
   {
+    id: 'chat',
+    title: 'Chat to your data',
+    copy: 'Ask in plain English. Every answer comes from your published measures, scoped to the tenant, with the query one click away.',
+    page: 'chat',
+    crumbs: (
+      <>
+        <VersionSwitch draft={false} name="Published" detail="v42" />
+        <Slash className="max-md:hidden" />
+        <PageTitle>Chat</PageTitle>
+        <Subtitle>answers from Published v42</Subtitle>
+      </>
+    ),
+    actions: null,
+    Screen: ChatScreen,
+  },
+  {
     id: 'draft',
-    title: 'Make the change',
+    title: 'Change with AI',
     copy: 'Ask in chat, or push from the CLI or CI. In a draft, it compiles and runs test queries before anything goes live.',
     page: 'chat',
     crumbs: (
@@ -394,21 +417,6 @@ const SCREENS: {
     actions: null,
     Screen: DeploymentsScreen,
   },
-  {
-    id: 'logs',
-    title: 'Catch breaking requests',
-    copy: 'Every request against a draft is logged, so a dashboard that still needs a removed measure shows up first.',
-    page: 'logs',
-    crumbs: (
-      <>
-        <VersionSwitch draft name="net-revenue" detail="Draft" />
-        <Slash className="max-md:hidden" />
-        <PageTitle>Logs</PageTitle>
-      </>
-    ),
-    actions: null,
-    Screen: LogsScreen,
-  },
 ];
 
 export function CloudWorkflow() {
@@ -460,9 +468,9 @@ export function CloudWorkflow() {
 
   return (
     <section aria-labelledby="cloud-workflow-title" className="mx-auto max-w-[1280px] px-5 pb-4 pt-14 sm:px-8 sm:pt-20">
-      <h2 id="cloud-workflow-title" className="home-section-title max-w-[960px] text-text">Make changes with confidence</h2>
-      <p className="mt-4 max-w-[600px] text-sm leading-6 text-text-muted sm:text-base">
-        Ask for a change in chat, edit it in code, or push from the CLI. Ship it straight away, or open a draft first, see how the numbers move, and roll back in one click.
+      <h2 id="cloud-workflow-title" className="home-section-title max-w-[960px] text-text">Go live in minutes with hypequery cloud</h2>
+      <p className="mt-4 max-w-[680px] text-sm leading-6 text-text-muted sm:text-base">
+        Cloud turns your model into a hosted API and MCP server the moment you publish. Update the model in one click, and roll it back just as fast.
       </p>
 
       <div ref={ref} className="grid max-lg:mt-8 max-lg:gap-5 lg:mt-10 lg:grid-cols-[300px_minmax(0,1fr)] lg:gap-6">

@@ -68,6 +68,7 @@ export default function PythonSemanticLayerPage() {
       description="hypequery is an open-source semantic layer for ClickHouse that lives in your codebase. Define what revenue, buyers, and enterprise customers mean as Python code, then query those definitions from any part of your app, with tenant isolation enforced on every query."
       primaryCta={{ href: '/docs/python/datasets/overview', label: 'Read the datasets docs' }}
       secondaryCta={{ href: '/clickhouse-python', label: 'ClickHouse with Python' }}
+      language="python"
       stats={[
         { label: 'Model format', value: 'Python code' },
         { label: 'Runtime', value: 'Inside your app' },
@@ -177,7 +178,9 @@ export default function PythonSemanticLayerPage() {
         { href: '/clickhouse-python', label: 'ClickHouse Python' },
         { href: '/clickhouse-fastapi', label: 'ClickHouse FastAPI' },
         { href: '/clickhouse-semantic-layer', label: 'ClickHouse semantic layer' },
-        { href: '/clickhouse-multi-tenant-analytics', label: 'Multi-tenant analytics' },
+        { href: '/clickhouse-python-multi-tenant', label: 'Python multi-tenancy' },
+        { href: '/clickhouse-pandas', label: 'ClickHouse to pandas' },
+        { href: '/clickhouse-python-mcp', label: 'MCP for Python backends' },
       ]}
       nextStep={{
         eyebrow: 'Next step',
