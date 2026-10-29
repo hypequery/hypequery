@@ -88,8 +88,9 @@ class ServeRequest:
     """One HTTP request, as an adapter presents it to the core.
 
     *path* is the URL path as sent, percent-encoding intact, like TypeScript's
-    `URL.pathname`. *client* is the transport peer, after any proxy handling
-    the host already applied. *raw* is the framework's own request, for the
+    `URL.pathname`. *client* is the transport peer, and *scheme* (``http`` or
+    ``https``) the scheme the request arrived with, both after any proxy
+    handling the host already applied. *raw* is the framework's own request, for the
     host's code; the core never reads it. *wait_disconnected*, when given,
     returns once the caller has gone, and the core cancels the query it was
     running for them; it is only awaited after the body has been read.
@@ -108,6 +109,7 @@ class ServeRequest:
     headers: Headers = field(default_factory=Headers)
     body: Body = b""
     client: tuple[str, int] | None = None
+    scheme: str = "http"
     raw: object = None
     wait_disconnected: Callable[[], Awaitable[None]] | None = None
     run_on_request_thread: RequestThreadRunner | None = None
@@ -115,6 +117,8 @@ class ServeRequest:
     def __post_init__(self) -> None:
         if type(self.query) is not QueryParams or type(self.headers) is not Headers:
             raise TypeError("ServeRequest takes QueryParams and Headers")
+        if type(self.scheme) is not str:
+            raise TypeError("ServeRequest.scheme must be a string")
 
 
 @dataclass(frozen=True, slots=True)

@@ -155,6 +155,8 @@ def _wsgi_request(request: HttpRequest, where: MountedPath, thread: RequestThrea
         headers=environ_headers(environ),
         body=thread_body(thread, read, length),
         client=environ_client(environ),
+        # Django's, so SECURE_PROXY_SSL_HEADER applies.
+        scheme=request.scheme,
         raw=request,
         run_on_request_thread=thread.call,
     )
@@ -171,6 +173,7 @@ def _asgi_request(request: HttpRequest, where: MountedPath) -> ServeRequest:
         headers=scope_headers(scope),
         body=_buffered_body(request),
         client=scope_client(scope),
+        scheme=request.scheme,
         raw=request,
     )
 
