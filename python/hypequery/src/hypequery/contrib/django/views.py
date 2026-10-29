@@ -31,7 +31,9 @@ request's thread waits (`hypequery.serve.wsgi`). ``ServeRequest.raw`` is the
   own login (``auth=django_user(...)``, or any ``from_context`` strategy) is
   not: Django's CSRF middleware checks its unsafe requests, so the page sends
   the ``csrftoken`` cookie's value as ``X-CSRFToken`` (``@hypequery/react``'s
-  ``headers`` option), as well as the core's same-origin check.
+  ``headers`` option), as well as the core's same-origin check. The view
+  serving that page must set the cookie (``ensure_csrf_cookie``, `auth.py`);
+  without it Django's own HTML ``403`` answers first.
 """
 
 from __future__ import annotations
