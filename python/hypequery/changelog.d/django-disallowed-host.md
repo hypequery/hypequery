@@ -1,0 +1,1 @@
+- `hypequery.contrib.django.urls` answers a `Host` outside `ALLOWED_HOSTS` as the core answers one, `400 Invalid host header` as plain text, instead of Django's HTML `DisallowedHost` page (the technical page under `DEBUG`). It is still logged to `django.security.DisallowedHost`.

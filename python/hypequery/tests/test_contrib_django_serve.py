@@ -205,9 +205,27 @@ def test_allowed_hosts_is_checked_without_common_middleware() -> None:
         allowed = Client().post(
             "/api/echo", {"x": 1}, content_type="application/json", headers=AUTH
         )
-    assert sync.status_code == 400
-    assert asynchronous.status_code == 400
+    for refused in (sync, asynchronous):
+        # The core's refusal, not Django's HTML (or DEBUG technical) page.
+        assert refused.status_code == 400
+        assert refused["Content-Type"] == "text/plain; charset=utf-8"
+        assert refused.content == b"Invalid host header"
+        assert refused["Cache-Control"] == "no-store"
+        assert refused["X-Content-Type-Options"] == "nosniff"
     assert allowed.status_code == 200
+
+
+def test_a_disallowed_host_is_logged_as_django_logs_it(caplog: pytest.LogCaptureFixture) -> None:
+    with _project(_api()), caplog.at_level("ERROR", logger="django.security.DisallowedHost"):
+        Client().post(
+            "/api/echo",
+            {"x": 1},
+            content_type="application/json",
+            headers={**AUTH, "host": "evil.example"},
+        )
+    [record] = [r for r in caplog.records if r.name == "django.security.DisallowedHost"]
+    assert "evil.example" in record.getMessage()
+    assert record.status_code == 400  # type: ignore[attr-defined]
 
 
 def test_a_core_response_without_a_content_type_gets_none_from_django() -> None:
