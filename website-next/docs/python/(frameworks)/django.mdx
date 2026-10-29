@@ -203,7 +203,7 @@ A session cookie rides along with any request the browser makes, so two checks p
 cross-site requests:
 
 - **The same-origin check** refuses an unsafe method (`POST`, `PUT`, `PATCH`, `DELETE`) with `403` unless the browser
-  marks the request same-origin, or its `Origin` is in your CORS policy. See
+  marks the request same-origin, or its `Origin` is the request's own or in your CORS policy. See
   [your app's own login](/docs/python/authentication#your-apps-own-login).
 - **Django's CSRF middleware** checks them too. The page sends the `csrftoken` cookie's value as `X-CSRFToken`, read
   per request because signing in rotates it. With `@hypequery/react`:
@@ -219,8 +219,24 @@ const client = createHypequeryClient({
 ```
 </CodeBlock>
 
-A view rendering the page sets the cookie (`get_token(request)` or `@ensure_csrf_cookie`). A missing token gets
-Django's own `403` page.
+The view that serves the page must set the cookie, which Django only does when a response used the token. Decorate it
+with `@ensure_csrf_cookie`, or render a template with `{% csrf_token %}`:
+
+<CodeBlock>
+```python
+from django.contrib.auth.decorators import login_required
+from django.views.decorators.csrf import ensure_csrf_cookie
+
+
+@login_required
+@ensure_csrf_cookie
+def dashboard(request):
+    return render(request, "dashboard.html")
+```
+</CodeBlock>
+
+Without the cookie, Django's CSRF middleware answers before hypequery does: every `POST` gets Django's own HTML `403`,
+even from a signed-out user, so your frontend sees neither hypequery's JSON error nor a `401`.
 
 For agents and other non-browser callers, serve a second API with a header credential (`jwt_strategy` or `api_key`)
 under another prefix. The tenant always comes from the principal either way.

@@ -143,9 +143,10 @@ Django and Flask have ready-made versions: [`django_user`](/docs/python/django#y
 A browser sends a session cookie with any request to your site, including one another site triggers, so
 `from_context` checks where unsafe requests come from. With `same_origin=True` (the default), a `POST`, `PUT`, `PATCH`
 or `DELETE` gets `403 FORBIDDEN` unless the browser marks it `Sec-Fetch-Site: same-origin` (or `none`), or its
-`Origin` is one your `HttpSecurity(cors=CorsPolicy(origins=...))` names. The check runs in the core, under every
-adapter. A browser without Fetch Metadata (Safari before 16.4) sends only `Origin`, so list your own origin in the
-CORS policy to serve it. A [production profile](/docs/python/production) refuses `same_origin=False`.
+`Origin` is the request's own (its scheme and `Host`) or one your `HttpSecurity(cors=CorsPolicy(origins=...))` names.
+The check runs in the core, under every adapter. A browser without Fetch Metadata (Safari before 16.4) sends only
+`Origin`, which matches when the page and the API share an origin. Behind a proxy that terminates TLS, list it in
+`trusted_proxies` so its `X-Forwarded-Proto` makes the request's scheme `https`. A [production profile](/docs/python/production) refuses `same_origin=False`.
 
 ## Roles and scopes per endpoint
 
