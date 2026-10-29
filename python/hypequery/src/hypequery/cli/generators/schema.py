@@ -24,12 +24,16 @@ _ROW_CAP = 100_000
 class Column:
     name: str
     type: str
+    #: The column's ClickHouse ``COMMENT``; empty when it has none.
+    comment: str = ""
 
 
 @dataclass(frozen=True)
 class Table:
     name: str
     columns: tuple[Column, ...]
+    #: The table's ClickHouse ``COMMENT``; empty when it has none.
+    comment: str = ""
 
 
 @dataclass(frozen=True)
@@ -124,7 +128,7 @@ def read_schema(client: _Client, *, tables: str | None, exclude_tables: str | No
     ).result_rows
     database = str(database_rows[0][0])
     rows = client.query(
-        "SELECT name FROM system.tables WHERE database = {database:String} "
+        "SELECT name, comment FROM system.tables WHERE database = {database:String} "
         "ORDER BY name LIMIT 100001",
         parameters={"database": database},
         settings=settings,
@@ -132,7 +136,8 @@ def read_schema(client: _Client, *, tables: str | None, exclude_tables: str | No
     if len(rows) > _ROW_CAP:
         # The LIMIT cut the list; discovering from part of it would be silently wrong.
         raise CliError("The database has more tables than discovery can list.")
-    available = {str(row[0]) for row in rows if not str(row[0]).startswith(".inner")}
+    comments = {str(row[0]): str(row[1]).strip() for row in rows}
+    available = {name for name in comments if not name.startswith(".inner")}
     include = {name.strip() for name in tables.split(",") if name.strip()} if tables else available
     exclude = (
         {name.strip() for name in exclude_tables.split(",") if name.strip()}
@@ -146,7 +151,7 @@ def read_schema(client: _Client, *, tables: str | None, exclude_tables: str | No
     if not selected:
         raise CliError("No tables match the selection in this database.")
     column_rows = client.query(
-        "SELECT table, name, type FROM system.columns "
+        "SELECT table, name, type, comment FROM system.columns "
         "WHERE database = {database:String} AND table IN {tables:Array(String)} "
         "ORDER BY table, position LIMIT 100001",
         parameters={"database": database, "tables": selected},
@@ -155,8 +160,11 @@ def read_schema(client: _Client, *, tables: str | None, exclude_tables: str | No
     if len(column_rows) > _ROW_CAP:
         raise CliError("Schema exceeds the discovery limit; select fewer tables with --tables.")
     grouped: dict[str, list[Column]] = {name: [] for name in selected}
-    for table, name, type_name in column_rows:
-        grouped[str(table)].append(Column(str(name), str(type_name)))
+    for table, name, type_name, comment in column_rows:
+        grouped[str(table)].append(Column(str(name), str(type_name), str(comment).strip()))
     if any(not columns for columns in grouped.values()):
         raise CliError("A selected table has no visible columns; check catalog permissions.")
-    return Schema(database, tuple(Table(name, tuple(columns)) for name, columns in grouped.items()))
+    return Schema(
+        database,
+        tuple(Table(name, tuple(columns), comments[name]) for name, columns in grouped.items()),
+    )

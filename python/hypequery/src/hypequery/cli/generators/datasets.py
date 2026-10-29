@@ -11,6 +11,7 @@ from hypequery.datasets.validation import validate_identifier
 from hypequery.protocol.errors import ProtocolIdentifierError
 
 from ..errors import CliError
+from ..utils.catalog_comment import MAX_DESCRIPTION_BYTES, description_from_comment
 from .count_measure import CountMeasure, suggest_count_measure
 from .schema import Schema, Table
 
@@ -122,6 +123,8 @@ class FieldSpec:
     column: str
     alias: str
     kind: str
+    #: The column's ClickHouse comment, written as the dimension's description.
+    description: str = ""
 
 
 @dataclass(frozen=True, slots=True)
@@ -138,6 +141,8 @@ class DatasetSpec:
 
     table: str
     source: str
+    #: The table's ClickHouse comment, written as the dataset's description.
+    description: str
     time_key: str | None
     tenant_key: str | None
     fields: tuple[FieldSpec, ...]
@@ -157,6 +162,16 @@ def _time_key(fields: tuple[FieldSpec, ...]) -> str | None:
     if "created_at" in timestamps:
         return "created_at"
     return timestamps[0] if len(timestamps) == 1 else None
+
+
+def _description(comment: str, where: str, warnings: list[str]) -> str:
+    description, shortened = description_from_comment(comment)
+    if shortened:
+        warnings.append(
+            f"{where}: comment longer than {MAX_DESCRIPTION_BYTES} bytes; "
+            "its description was shortened."
+        )
+    return description
 
 
 def infer_dataset(
@@ -182,7 +197,14 @@ def infer_dataset(
                 f"Semantic name collision in {table.name!r}: {alias!r}; rename or map explicitly."
             )
         seen.add(alias)
-        fields.append(FieldSpec(column.name, alias, kind))
+        fields.append(
+            FieldSpec(
+                column.name,
+                alias,
+                kind,
+                _description(column.comment, f"{table.name}.{column.name}", warnings),
+            )
+        )
         if not is_nullable(column.type):
             non_nullable.append(alias)
     if not fields:
@@ -232,6 +254,7 @@ def infer_dataset(
     return DatasetSpec(
         table=table.name,
         source=f"{database}.{table.name}",
+        description=_description(table.comment, table.name, warnings),
         time_key=time_key,
         tenant_key=tenant_key,
         fields=tuple(fields),
@@ -258,6 +281,8 @@ def render_datasets(specs: tuple[DatasetSpec, ...]) -> str:
                 f"        source={spec.source!r},",
             ]
         )
+        if spec.description:
+            lines.append(f"        description={spec.description!r},")
         if spec.time_key:
             lines.append(f"        time_key={spec.time_key!r},")
         if spec.tenant_key:
@@ -265,7 +290,9 @@ def render_datasets(specs: tuple[DatasetSpec, ...]) -> str:
         lines.append("        dimensions={")
         lines.extend(
             f"            {field.alias!r}: dimension.{field.kind}"
-            f"(column={field.column!r}, label={_label(field.column)!r}),"
+            f"(column={field.column!r}, label={_label(field.column)!r}"
+            + (f", description={field.description!r}" if field.description else "")
+            + "),"
             for field in spec.fields
         )
         lines.extend(["        },", "        measures={"])
@@ -305,10 +332,19 @@ def generate_datasets(
         infer_dataset(table, schema.database, tenant_column=tenant_column, warnings=warnings)
         for table in schema.tables
     )
+    # Comments are recorded only where set, so a schema without any snapshots as before.
     snapshot = [
         {
             "table": table.name,
-            "columns": [{"name": column.name, "type": column.type} for column in table.columns],
+            **({"comment": table.comment} if table.comment else {}),
+            "columns": [
+                {
+                    "name": column.name,
+                    "type": column.type,
+                    **({"comment": column.comment} if column.comment else {}),
+                }
+                for column in table.columns
+            ],
         }
         for table in schema.tables
     ]

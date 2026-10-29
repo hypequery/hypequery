@@ -214,7 +214,10 @@ table that has it. The selection is recorded in `schema.json`, and
 `--exclude-tables` or `--all-tables`. The scaffold's `.env.example` and README
 repeat how discovery connected (`CLICKHOUSE_URL`, or the host, port and TLS
 setting), without credentials. Generated definitions and an exact schema snapshot describe
-your actual tables; existing output paths are never overwritten. Install the
+your actual tables; existing output paths are never overwritten. A table's or
+column's ClickHouse `COMMENT` becomes its dataset's or dimension's
+`description`, which client contracts and MCP agents see; whitespace is
+collapsed to single spaces to fit the deployment contract. Install the
 `clickhouse` extra and export connection settings before running init.
 Only explicit `--skip-connection` generates the offline orders demo and `seed.sql`.
 

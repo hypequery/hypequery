@@ -218,8 +218,8 @@ class Client:
         if "currentDatabase" in query:
             return Result([("analytics",)])
         if "system.tables" in query:
-            return Result([("orders",), ("users",), (".inner.hidden",)])
-        return Result([("orders", "id", "String")])
+            return Result([("orders", " Customer orders "), ("users", ""), (".inner.hidden", "")])
+        return Result([("orders", "id", "String", "Order identifier")])
 
     def close(self) -> None:
         pass
@@ -234,13 +234,80 @@ def test_table_selection_is_exact_and_parameterized() -> None:
         read_schema(client, tables="missing", exclude_tables=None)
 
 
+def test_discovery_reads_table_and_column_comments() -> None:
+    schema = read_schema(Client(), tables="orders", exclude_tables=None)
+    assert schema.tables == (
+        Table("orders", (Column("id", "String", "Order identifier"),), "Customer orders"),
+    )
+
+
+def test_comments_become_descriptions_agents_see(tmp_path: Path) -> None:
+    schema = Schema(
+        "analytics",
+        (
+            Table(
+                "orders",
+                (
+                    Column("order_id", "UInt64", "Unique order number"),
+                    Column("status", "String", "Lifecycle state: \"paid\", 'refunded'"),
+                    Column("amount", "Decimal(18, 2)"),
+                ),
+                "One row per customer order.\nRefunds are separate rows.",
+            ),
+        ),
+    )
+    generated = generate_datasets(schema)
+    model = _load(generated.source, tmp_path)["orders"]
+    # A contract description has no newline, so whitespace runs become one space.
+    assert model.description == "One row per customer order. Refunds are separate rows."
+    assert model.dimensions["orderId"].description == "Unique order number"
+    assert model.dimensions["status"].description == "Lifecycle state: \"paid\", 'refunded'"
+    assert model.dimensions["amount"].description is None
+    contract = build_protocol_deployment_contract(create_dataset_registry(model))
+    dataset = cast(list[dict[str, object]], contract["datasets"])[0]
+    assert dataset["description"] == "One row per customer order. Refunds are separate rows."
+    # The snapshot keeps the catalog's comment as it is.
+    snapshot = json.loads(generated.snapshot)["tables"][0]
+    assert snapshot["comment"] == "One row per customer order.\nRefunds are separate rows."
+    assert snapshot["columns"][0] == {
+        "name": "order_id",
+        "type": "UInt64",
+        "comment": "Unique order number",
+    }
+    assert snapshot["columns"][2] == {"name": "amount", "type": "Decimal(18, 2)"}
+
+
+def test_a_comment_over_the_contract_limit_is_shortened_with_a_warning(tmp_path: Path) -> None:
+    schema = Schema(
+        "analytics",
+        (Table("events", (Column("id", "UInt64", "\x00\t  "),), "é" * 3_000),),
+    )
+    generated = generate_datasets(schema)
+    model = _load(generated.source, tmp_path)["events"]
+    assert model.description is not None
+    assert model.description.endswith("…")
+    assert len(model.description.encode("utf-8")) <= 4_096
+    # A comment of only whitespace and controls gives no description.
+    assert model.dimensions["id"].description is None
+    assert "events: comment longer than 4096 bytes; its description was shortened." in (
+        generated.warnings
+    )
+    build_protocol_deployment_contract(create_dataset_registry(model))
+
+
+def test_a_schema_without_comments_generates_as_before() -> None:
+    generated = generate_datasets(fixture_schema())
+    assert "description=" not in generated.source
+    assert "comment" not in generated.snapshot
+
+
 def test_discovery_refuses_a_table_list_cut_by_its_limit() -> None:
     class ManyTables(Client):
         def query(
             self, query: str, *, parameters: dict[str, object], settings: dict[str, int]
         ) -> Result:
             if "system.tables" in query:
-                return Result([(f"t{index}",) for index in range(100_001)])
+                return Result([(f"t{index}", "") for index in range(100_001)])
             return super().query(query, parameters=parameters, settings=settings)
 
     with pytest.raises(CliError, match="more tables than discovery can list"):
