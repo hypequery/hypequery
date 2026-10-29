@@ -1087,7 +1087,8 @@ and `CLICKHOUSE_CONTROL_PASSWORD`. If ClickHouse refuses a `KILL`, the
 executor logs one error naming these fixes on the
 `hypequery.execution.cancellation` logger and stops asking. The query then
 runs until `max_execution_time`, and the caller still gets `aborted` or
-`deadline-exceeded`. The native async executor needs the grant less, since its
+`deadline-exceeded`, though a synchronous caller gets it only once ClickHouse
+stops the query: its driver call cannot return early. The native async executor needs the grant less, since its
 driver also asks ClickHouse to cancel a readonly query when the connection
 closes.
 
