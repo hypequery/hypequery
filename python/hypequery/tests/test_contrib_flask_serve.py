@@ -158,3 +158,57 @@ def test_any_method_below_the_prefix_reaches_the_core_and_none_outside_it() -> N
         assert below.get_json()["error"]["type"] == "NOT_FOUND"
     # The app's own routes keep Flask's method handling.
     assert http.open("/own", method="TRACE").status_code == 405
+
+
+def test_a_bad_csrf_argument_is_refused() -> None:
+    with pytest.raises(TypeError, match="CSRFProtect"):
+        blueprint(_api(), csrf=object())  # type: ignore[arg-type]
+
+
+def test_flask_wtf_exempts_a_header_credential_api_and_checks_a_session_one() -> None:
+    flask_wtf = pytest.importorskip("flask_wtf")
+    from hypequery.contrib.flask import flask_session
+
+    async def echo(call: Call) -> ServeResponse:
+        return ServeResponse.json({"input": call.input})
+
+    app = Flask("hypequery_flask_csrf")
+    app.secret_key = "test"  # noqa: S105 - a test app
+    csrf = flask_wtf.CSRFProtect(app)
+
+    @app.get("/token")
+    def token() -> Any:
+        return {"token": flask_wtf.csrf.generate_csrf()}
+
+    session_api = create_api(auth=flask_session(lambda s: Principal(subject="user")))
+    session_api.add_route("POST", "/echo", echo, input=TypeAdapter(dict[str, object]))
+    app.register_blueprint(blueprint(_api(), csrf=csrf), url_prefix="/agents")
+    app.register_blueprint(
+        blueprint(session_api, name="session", csrf=csrf), url_prefix="/analytics"
+    )
+    # Without the exemption Flask-WTF's own 400 would answer before the core.
+    app.register_blueprint(blueprint(_api(), name="unexempted"), url_prefix="/plain")
+    with app.test_client() as client:
+        agents = client.post("/agents/echo", headers=AUTH, json={"a": 1})
+        assert agents.status_code == 200
+        assert agents.get_json() == {"input": {"a": 1}}
+        plain = client.post("/plain/echo", headers=AUTH, json={"a": 1})
+        assert plain.status_code == 400
+        assert b"CSRF token" in plain.data
+        # The session API is checked by Flask-WTF (no token: its 400), and by
+        # the core's same-origin check once a token is sent.
+        checked = client.post(
+            "/analytics/echo", headers={"Sec-Fetch-Site": "same-origin"}, json={"a": 1}
+        )
+        assert checked.status_code == 400
+        assert b"CSRF token" in checked.data
+        issued = client.get("/token").get_json()["token"]
+        allowed = client.post(
+            "/analytics/echo",
+            headers={"Sec-Fetch-Site": "same-origin", "X-CSRFToken": issued},
+            json={"a": 1},
+        )
+        assert allowed.status_code == 200
+        forged = client.post("/analytics/echo", headers={"X-CSRFToken": issued}, json={"a": 1})
+        assert forged.status_code == 403
+        assert forged.get_json()["error"]["details"]["reason"] == "cross_origin"

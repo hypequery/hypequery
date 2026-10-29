@@ -631,8 +631,9 @@ framework's request (`HttpRequest`, Flask's `Request`).
   `create_api(client_mount_path=...)` names where the API is reached.
 - **CSRF.** A header credential (`Authorization: Bearer`, an API key header,
   a JWT) is one a browser never attaches on its own, so Django's views for it
-  are CSRF-exempt. Django's CSRF middleware stays installed for the rest of
-  the project, and checks an API that uses the project's own login (below).
+  are CSRF-exempt, and `blueprint(api, csrf=csrf)` exempts it from Flask-WTF's
+  `CSRFProtect`. Both stay installed for the rest of the app, and check an API
+  that uses the app's own login (below).
 
 #### Your own login, with no token
 
@@ -691,7 +692,12 @@ protected against cross-site request forgery:
 
   A view rendering the page sets the cookie (`get_token(request)` or
   `@ensure_csrf_cookie`). Django's own `403` page answers a missing token.
-  Flask has no CSRF middleware; the same-origin check is its protection.
+- **Flask-WTF**, when the app uses it, checks them too. Pass its
+  `CSRFProtect` to every blueprint: `blueprint(api, csrf=csrf)` exempts an
+  API reading a header credential (otherwise Flask-WTF's `400` answers every
+  `POST` before the API runs) and leaves a session-authenticated one checked,
+  so the page sends `csrf_token()` as `X-CSRFToken`. Without Flask-WTF, the
+  same-origin check is Flask's protection.
 
 The tenant still comes only from the principal: no header, query parameter or
 body field can choose it.

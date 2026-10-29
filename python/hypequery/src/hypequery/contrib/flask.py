@@ -27,6 +27,10 @@ from ``hypequery.serve.create_api``::
 
     app.register_blueprint(blueprint(api), url_prefix="/api/analytics")
 
+With Flask-WTF, pass its ``CSRFProtect`` as ``blueprint(api, csrf=csrf)``, so a
+header-credential API is exempt from its check and a session one stays
+checked.
+
 Authenticate those endpoints with the app's own login (Flask-Login's
 ``current_user``, or the ``session``), so a page it serves calls them with its
 session cookie and no token::
@@ -54,7 +58,7 @@ except ModuleNotFoundError as exc:  # pragma: no cover - exercised in a subproce
 import asyncio
 from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any, TypeVar, cast
+from typing import Any, Protocol, TypeVar, cast
 
 from flask import Blueprint, Flask, Request, Response, current_app, g, request, session
 from flask.blueprints import BlueprintSetupState
@@ -91,6 +95,14 @@ from .utils.process_clients import ClientConfig, ProcessClients
 from .utils.tenant_value import TenantValue, bind_tenant_value
 
 TenantLoader = Callable[[], TenantValue]
+
+
+class CsrfProtection(Protocol):
+    """What `blueprint` needs of Flask-WTF's ``CSRFProtect``: ``exempt``."""
+
+    def exempt(self, view: Any) -> Any: ...
+
+
 #: Maps Flask-Login's signed-in user, or the session when the app does not use
 #: Flask-Login, to its principal; None refuses the request.
 SessionPrincipal = Callable[[Any], Principal | None]
@@ -221,7 +233,13 @@ _METHODS = ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"]
 _PATH = "hypequery_path"
 
 
-def blueprint(api: Api, *, name: str = "hypequery", url_prefix: str | None = None) -> Blueprint:
+def blueprint(
+    api: Api,
+    *,
+    name: str = "hypequery",
+    url_prefix: str | None = None,
+    csrf: CsrfProtection | None = None,
+) -> Blueprint:
     """A blueprint serving *api*, registered below any prefix.
 
     Every request below the prefix reaches the API, which answers it as the
@@ -233,12 +251,24 @@ def blueprint(api: Api, *, name: str = "hypequery", url_prefix: str | None = Non
     is refused as too large. Client contracts and discovery name the paths
     the request was routed under, unless the API sets ``client_mount_path``.
 
+    *csrf* is the app's Flask-WTF ``CSRFProtect``, when the app uses one. Its
+    ``before_request`` check would otherwise answer every ``POST`` below the
+    prefix with its own ``400`` before the API runs. An API reading a header
+    credential (bearer, API key, JWT) is exempted from it, as the Django
+    adapter exempts its views: a browser never attaches that header on its
+    own, so a cross-site request cannot carry it. An API authenticated by the
+    app's own login (`flask_session`, or any `from_context` strategy) stays
+    checked, as well as by the core's same-origin check: the page sends
+    Flask-WTF's token as ``X-CSRFToken``.
+
     When *api* serves strict client endpoints, their contract is checked now,
     so a misconfiguration fails at startup rather than on the first request.
     """
 
     if not isinstance(api, Api):
         raise TypeError("blueprint requires an Api from create_api")
+    if csrf is not None and not callable(getattr(csrf, "exempt", None)):
+        raise TypeError("csrf must be Flask-WTF's CSRFProtect (an object with an exempt method)")
     if api.client_endpoints.bindings:
         export_client_contract(api)
 
@@ -268,6 +298,8 @@ def blueprint(api: Api, *, name: str = "hypequery", url_prefix: str | None = Non
     served.add_url_rule("/", "api", hypequery_api, defaults={_PATH: ""}, methods=_METHODS)
     served.add_url_rule(f"/<path:{_PATH}>", "api", hypequery_api, methods=_METHODS)
     served.record(_accept_every_method)
+    if csrf is not None and api.authentication.context is None:
+        csrf.exempt(served)
     return served
 
 
@@ -348,4 +380,11 @@ class _FlaskSession:
         return self._to_principal(session._get_current_object())  # type: ignore[attr-defined]
 
 
-__all__ = ["Hypequery", "SessionPrincipal", "TenantLoader", "blueprint", "flask_session"]
+__all__ = [
+    "CsrfProtection",
+    "Hypequery",
+    "SessionPrincipal",
+    "TenantLoader",
+    "blueprint",
+    "flask_session",
+]

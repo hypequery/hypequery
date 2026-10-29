@@ -115,6 +115,7 @@ dev = [
   "towncrier==26.9.0",
   "sqlalchemy>=2.0",
   "flask-login>=0.6.3",
+  "flask-wtf>=1.2",
 ]
 
 [tool.hatch.build.targets.wheel]
