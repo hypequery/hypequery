@@ -235,6 +235,14 @@ def blueprint(api: Api, *, name: str = "hypequery", url_prefix: str | None = Non
 
     When *api* serves strict client endpoints, their contract is checked now,
     so a misconfiguration fails at startup rather than on the first request.
+
+    An API that reads a header credential (bearer, API key, JWT) is exempt
+    from Flask-WTF's ``CSRFProtect``, whether it is set up before or after the
+    blueprint is registered: a browser never attaches that header on its own,
+    so a cross-site request cannot carry it. An API authenticated by the app's
+    own login (``auth=flask_session(...)``, or any ``from_context`` strategy)
+    is not: ``CSRFProtect`` checks its unsafe requests, so the page sends the
+    token as ``X-CSRFToken``, as well as the core's same-origin check.
     """
 
     if not isinstance(api, Api):
@@ -268,6 +276,8 @@ def blueprint(api: Api, *, name: str = "hypequery", url_prefix: str | None = Non
     served.add_url_rule("/", "api", hypequery_api, defaults={_PATH: ""}, methods=_METHODS)
     served.add_url_rule(f"/<path:{_PATH}>", "api", hypequery_api, methods=_METHODS)
     served.record(_accept_every_method)
+    if api.authentication.context is None:
+        served.record(_exempt_from_csrf_protect)
     return served
 
 
@@ -282,6 +292,33 @@ def _accept_every_method(state: BlueprintSetupState) -> None:
     endpoint = f"{state.name_prefix}.{state.name}.api".lstrip(".")
     for rule in state.app.url_map.iter_rules(endpoint):
         rule.methods = None
+
+
+def _exempt_from_csrf_protect(state: BlueprintSetupState) -> None:
+    """Exempt the blueprint from Flask-WTF's ``CSRFProtect``, if the app has one.
+
+    ``CSRFProtect.init_app`` stores itself as ``app.extensions["csrf"]`` and
+    checks requests in an app ``before_request`` hook, skipping blueprints
+    passed to its ``exempt``. Set up before this registration, it is exempted
+    now; set up after, its hook is registered after this one, which exempts
+    the blueprint first.
+    """
+
+    app = state.app
+    served = state.blueprint
+
+    def exempt() -> bool:
+        mark = getattr(app.extensions.get("csrf"), "exempt", None)
+        if mark is not None:
+            mark(served)
+        return mark is not None
+
+    if exempt():
+        return
+
+    @app.before_request
+    def exempt_hypequery_blueprint() -> None:
+        exempt()
 
 
 class _BodyStream:

@@ -115,6 +115,7 @@ dev = [
   "towncrier==26.9.0",
   "sqlalchemy>=2.0",
   "flask-login>=0.6.3",
+  "flask-wtf>=1.2",
 ]
 
 [tool.hatch.build.targets.wheel]
@@ -195,7 +196,7 @@ disallow_any_generics = true
 # pyarrow have none; numpy's, reached through polars, need 3.12 syntax). Their
 # objects type as Any at the integration boundary only.
 [[tool.mypy.overrides]]
-module = ["django.*", "flask_login.*", "pandas.*", "pyarrow.*", "numpy.*", "polars.*"]
+module = ["django.*", "flask_login.*", "flask_wtf.*", "pandas.*", "pyarrow.*", "numpy.*", "polars.*"]
 ignore_missing_imports = true
 follow_imports = "skip"
 follow_imports_for_stubs = true
