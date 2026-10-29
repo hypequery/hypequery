@@ -1,10 +1,14 @@
-"""The table selection init was given, recorded in schema.json for regeneration.
+"""The table selection and tenant column init was given, recorded in schema.json.
 
 Regenerating without repeating ``--tables`` used to widen a project created
 from a few tables to every table in the database. When init is given
 ``--tables`` or ``--exclude-tables``, it records them in ``schema.json``;
 regeneration reuses them unless told otherwise. A project initialised from
 every table records nothing, so new tables keep appearing on regeneration.
+
+``--tenant-column`` is recorded the same way: regenerating without repeating it
+used to drop every ``tenant_key``, leaving datasets that serve all tenants'
+rows once the replaced definitions were forced over.
 """
 
 from __future__ import annotations
@@ -35,14 +39,25 @@ def _canonical(names: str | None) -> str | None:
     return ",".join(name.strip() for name in names.split(",") if name.strip()) or None
 
 
-def recorded_selection(directory: Path) -> TableSelection | None:
-    """The selection recorded in *directory*/schema.json, or None."""
-
+def _recorded(directory: Path) -> dict[str, object]:
     try:
         document = json.loads((directory / "schema.json").read_text(encoding="utf-8"))
     except (OSError, ValueError):
-        return None
-    selection = document.get("selection") if isinstance(document, dict) else None
+        return {}
+    return document if isinstance(document, dict) else {}
+
+
+def recorded_tenant_column(directory: Path) -> str | None:
+    """The tenant column recorded in *directory*/schema.json, or None."""
+
+    column = _recorded(directory).get("tenantColumn")
+    return column if isinstance(column, str) and column else None
+
+
+def recorded_selection(directory: Path) -> TableSelection | None:
+    """The selection recorded in *directory*/schema.json, or None."""
+
+    selection = _recorded(directory).get("selection")
     if not isinstance(selection, dict):
         return None
     tables = selection.get("tables")

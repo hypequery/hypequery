@@ -27,6 +27,7 @@ class GenerateDatasetsOptions:
     tables: str | None
     exclude_tables: str | None
     tenant_column: str | None
+    no_tenant_column: bool
     all_tables: bool
     check: bool
     diff: bool
@@ -72,6 +73,7 @@ def command_options(args: argparse.Namespace) -> CommandOptions:
             tables=args.tables,
             exclude_tables=args.exclude_tables,
             tenant_column=args.tenant_column,
+            no_tenant_column=args.no_tenant_column,
             all_tables=args.all_tables,
             check=args.check,
             diff=args.diff,

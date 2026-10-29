@@ -275,3 +275,58 @@ def test_another_unrestricted_project_does_not_inherit_this_ones_selection(
     monkeypatch.chdir(restricted)
     main(["generate", "datasets", "--path", str(unrestricted), "--check"])
     assert calls == [{"tables": None, "exclude_tables": None}]
+
+
+def test_regeneration_keeps_the_tenant_column_init_was_given(
+    tmp_path: Path,
+    init_discovery: list[dict[str, Any]],
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    project = tmp_path / "app"
+    assert main(["init", str(project), "--tenant-column", "org_id"]) == 0
+    assert json.loads((project / "schema.json").read_text())["tenantColumn"] == "org_id"
+    monkeypatch.setattr(
+        "hypequery.cli.commands.generate.discover_schema",
+        lambda **_: _schema(None, ORDERS, CUSTOMERS),
+    )
+    capsys.readouterr()
+    # Without the flag, regeneration used to drop every tenant_key.
+    assert main(["generate", "datasets", "--path", str(project), "--check"]) == 0
+    out = capsys.readouterr().out
+    assert "tenant column init recorded in schema.json (--tenant-column org_id)" in out
+    assert "up to date" in out
+
+    assert main(["generate", "datasets", "--path", str(project), "--no-tenant-column"]) == 1
+    assert (
+        main(["generate", "datasets", "--path", str(project), "--no-tenant-column", "--force"]) == 0
+    )
+    assert "tenant_key" not in (project / "datasets.py").read_text()
+    assert "tenant_key" in capsys.readouterr().err
+
+
+def test_an_unscoped_init_records_no_tenant_column(
+    tmp_path: Path, init_discovery: list[dict[str, Any]]
+) -> None:
+    project = tmp_path / "app"
+    assert main(["init", str(project)]) == 0
+    assert "tenantColumn" not in json.loads((project / "schema.json").read_text())
+
+
+def test_a_tampered_recorded_tenant_column_is_refused_before_discovery(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    (tmp_path / "schema.json").write_text('{"tenantColumn": "org id"}')
+    calls: list[dict[str, Any]] = []
+    monkeypatch.setattr(
+        "hypequery.cli.commands.generate.discover_schema", lambda **kwargs: calls.append(kwargs)
+    )
+    assert main(["generate", "datasets", "--path", str(tmp_path)]) == 1
+    assert "identifier grammar" in capsys.readouterr().err
+    assert calls == []
+
+
+def test_tenant_column_and_no_tenant_column_conflict() -> None:
+    with pytest.raises(SystemExit) as exc:
+        main(["generate", "datasets", "--tenant-column", "org_id", "--no-tenant-column"])
+    assert exc.value.code == 2
