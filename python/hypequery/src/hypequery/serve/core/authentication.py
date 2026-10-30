@@ -131,7 +131,7 @@ class Authentication:
         # Before the host's session is read: a forged request learns nothing,
         # and costs no session lookup.
         if strategy.same_origin and not same_origin_allowed(
-            request.method, request.headers, self.trusted
+            request.method, request.headers, self.trusted, request.scheme
         ):
             raise cross_origin_refused()
         runner = request.run_on_request_thread

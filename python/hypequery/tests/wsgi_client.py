@@ -32,6 +32,7 @@ def environ(
     script_name: str = "",
     raw_uri: bool = True,
     input_stream: Any = None,
+    scheme: str = "http",
 ) -> dict[str, Any]:
     """The environ for one request; *url* is the target below *script_name*."""
 
@@ -43,12 +44,12 @@ def environ(
         "PATH_INFO": unquote_to_bytes(path).decode("latin-1"),
         "QUERY_STRING": query,
         "SERVER_NAME": "testserver",
-        "SERVER_PORT": "80",
+        "SERVER_PORT": "443" if scheme == "https" else "80",
         "SERVER_PROTOCOL": "HTTP/1.1",
         "REMOTE_ADDR": client[0],
         "REMOTE_PORT": str(client[1]),
         "wsgi.version": (1, 0),
-        "wsgi.url_scheme": "http",
+        "wsgi.url_scheme": scheme,
         "wsgi.input": input_stream if input_stream is not None else io.BytesIO(body),
         "wsgi.errors": sys.stderr,
         "wsgi.multithread": True,
@@ -92,11 +93,13 @@ class WsgiClient:
         client: tuple[str, int] = ("testclient", 50000),
         script_name: str = "",
         raw_uri: bool = True,
+        scheme: str = "http",
     ) -> None:
         self.app = app
         self.client = client
         self.script_name = script_name
         self.raw_uri = raw_uri
+        self.scheme = scheme
 
     def request(
         self,
@@ -127,6 +130,7 @@ class WsgiClient:
                 client=self.client,
                 script_name=self.script_name,
                 raw_uri=self.raw_uri,
+                scheme=self.scheme,
             ),
         )
 

@@ -258,6 +258,8 @@ def blueprint(api: Api, *, name: str = "hypequery", url_prefix: str | None = Non
                 headers=environ_headers(environ),
                 body=thread_body(thread, _BodyStream(current).read, body_length(environ)),
                 client=environ_client(environ),
+                # Flask's, so a ProxyFix the app installs applies.
+                scheme=current.scheme,
                 raw=current,
                 run_on_request_thread=thread.call,
             )
