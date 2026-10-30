@@ -38,22 +38,25 @@ const revenue = orders.metric('revenue', { measure: 'revenue' });
 type Assert<T extends true> = T;
 type Equal<A, B> = (<T>() => T extends A ? 1 : 2) extends (<T>() => T extends B ? 1 : 2) ? true : false;
 type Names = Assert<Equal<DatasetFilterNames<typeof orders>,
-  'state' | 'amount' | 'customer.country' | 'customer.tier' | 'profile.country' | 'profile.tier'>>;
+  | 'state' | 'amount' | 'status'
+  | 'customer.country' | 'customer.tier' | 'customer.hidden'
+  | 'profile.country' | 'profile.tier' | 'profile.hidden'>>;
 const names: Names = true;
 void names;
 const good: DatasetQueryFor<typeof orders> = { filters: [eq('state', 'paid'), gte('amount', 2), eq('customer.tier', 'enterprise')] };
+// Filterable dimensions stay filterable alongside declared filters.
+const backing: DatasetQueryFor<typeof orders> = { filters: [eq('status', 'paid'), eq('customer.hidden', 'x')] };
+void backing;
 const metricGood: MetricQueryFor<typeof orders, 'revenue'> = good;
 void metricGood;
-// @ts-expect-error use the allowlist alias, not its backing dimension
-const hidden: DatasetFilterFor<typeof orders> = eq('status', 'paid');
+// @ts-expect-error a dimension's own filter keeps the operators declared on its field
+const hidden: DatasetFilterFor<typeof orders> = like('status', '%paid%');
 // @ts-expect-error restricted operators survive helper inference
 const wrongOperator: DatasetFilterFor<typeof orders> = like('state', '%paid%');
 // @ts-expect-error local policies are field-specific
 const wrongAmountOperator: DatasetFilterFor<typeof orders> = eq('amount', 1);
 // @ts-expect-error relationship target operator policy is preserved
 const wrongRelatedOperator: DatasetFilterFor<typeof orders> = gte('customer.country', 'US');
-// @ts-expect-error target dimensions absent from its allowlist stay hidden
-const hiddenRelated: DatasetFilterFor<typeof orders> = eq('customer.hidden', 'x');
 // @ts-expect-error aliases to other target dimensions are not queryable over relationships
 const aliasRelated: DatasetFilterFor<typeof orders> = eq('customer.alias', 'US');
 // @ts-expect-error SQL dimensions cannot be traversed
@@ -62,7 +65,23 @@ const sqlRelated: DatasetFilterFor<typeof orders> = eq('customer.computed', 'US'
 const manyRelated: DatasetFilterFor<typeof orders> = eq('items.country', 'US');
 // @ts-expect-error multi-hop paths are unsupported
 const multiHop: DatasetFilterFor<typeof orders> = eq('customer.profile.country', 'US');
-void [hidden, wrongOperator, wrongAmountOperator, wrongRelatedOperator, hiddenRelated, aliasRelated, sqlRelated, manyRelated, multiHop];
+void [hidden, wrongOperator, wrongAmountOperator, wrongRelatedOperator, aliasRelated, sqlRelated, manyRelated, multiHop];
+
+const partial = dataset('partial', {
+  source: 'partial',
+  dimensions: { plan: dimension.string(), region: dimension.string(), secret: dimension.string({ filterable: false }) },
+  filters: { plan_filter: { __type: 'filter_definition', field: 'plan', operators: ['eq', 'isNull'] } },
+});
+type PartialNames = Assert<Equal<DatasetFilterNames<typeof partial>, 'plan_filter' | 'plan' | 'region'>>;
+const partialNames: PartialNames = true;
+void partialNames;
+const planNull: DatasetFilterFor<typeof partial> = { field: 'plan', operator: 'isNull' };
+void planNull;
+// @ts-expect-error an undeclared dimension's filter admits no null checks
+const regionNull: DatasetFilterFor<typeof partial> = { field: 'region', operator: 'isNull' };
+// @ts-expect-error declared filters do not expose filterable false dimensions
+const partialSecret: DatasetFilterFor<typeof partial> = eq('secret', 'x');
+void [regionNull, partialSecret];
 
 const automatic = dataset('automatic', { source: 'automatic', dimensions: {
   status: dimension.string(), secret: dimension.string({ filterable: false }),
@@ -74,10 +93,10 @@ void automaticQuery;
 const secret: DatasetFilterFor<typeof automatic> = eq('secret', 'x');
 void secret;
 const empty = dataset('empty', { source: 'empty', dimensions: { status: dimension.string() }, filters: {} });
-const emptyQuery: DatasetQueryFor<typeof empty> = { filters: [] };
+const emptyQuery: DatasetQueryFor<typeof empty> = { filters: [eq('status', 'x')] };
 void emptyQuery;
-// @ts-expect-error an explicit empty map disables local filters
-const emptyFilter: DatasetFilterFor<typeof empty> = eq('status', 'x');
+// @ts-expect-error an explicit empty map still admits no null checks by default
+const emptyFilter: DatasetFilterFor<typeof empty> = { field: 'status', operator: 'isNull' };
 void emptyFilter;
 const defaultParent = dataset('parent', { source: 'parent', dimensions: {}, relationships: {
   child: belongsTo(() => automatic, { from: 'id', to: 'id' }),
@@ -106,8 +125,8 @@ void legacy;
 const client = createDatasetClient({ queryBuilder: {} as never });
 client.execute(orders, good);
 client.execute(revenue, { filters: [eq('profile.country', 'US')] });
-// @ts-expect-error dataset execution rejects hidden names
-client.execute(orders, { filters: [eq('status', 'paid')] });
+// @ts-expect-error dataset execution rejects unknown names
+client.execute(orders, { filters: [eq('runtime_field', 'paid')] });
 // @ts-expect-error metric execution rejects disallowed operators
 client.execute(revenue, { filters: [like('state', '%paid%')] });
 // Explicit result-row calls retain the shipped dynamic-query escape hatch.
@@ -116,8 +135,8 @@ client.validate(orders, { filters: [eq('runtime_field', 'x')] });
 
 declare const metricHandle: typeof revenue | ReturnType<typeof revenue.by>;
 client.execute(metricHandle, { filters: [eq('state', 'paid')] });
-// @ts-expect-error a union metric handle preserves its filter allowlist too
-client.execute(metricHandle, { filters: [eq('status', 'paid')] });
+// @ts-expect-error a union metric handle preserves its filter policies too
+client.execute(metricHandle, { filters: [like('status', '%paid%')] });
 
 // Existing partially explicit generic calls may still author filter policies.
 dataset<'explicit', { status: ReturnType<typeof dimension.string> }>('explicit', {

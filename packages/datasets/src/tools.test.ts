@@ -147,6 +147,8 @@ describe('semantic dataset tools', () => {
     expect(tool.parameters.properties?.filters.items?.anyOf?.map(
       variant => variant.properties?.field.const,
     )).toEqual([
+      'amount',
+      'createdAt',
       'customer.country',
       'customer.id',
       'status',

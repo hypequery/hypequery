@@ -156,6 +156,6 @@ dimensions: {
 ```
 </CodeBlock>
 
-Most dimensions can omit these options. By default, dimensions are available for filtering and grouping. Set `filterable: false` to remove a dimension from the automatically generated filter set.
+Most dimensions can omit these options. By default, dimensions are available for filtering and grouping. Set `filterable: false` to stop callers filtering on a dimension. Declaring `filters` on the dataset does not change this: declared filters are added to the filterable dimensions.
 
 `groupable` records the intended grouping behavior on the dimension definition. Use it to communicate stricter query intent to generated docs, UIs, or integration layers.
