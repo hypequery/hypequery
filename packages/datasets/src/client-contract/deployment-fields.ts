@@ -9,8 +9,11 @@ import type {
   ProtocolExpression,
 } from '@hypequery/protocol';
 
-const BOOLEAN_OPERATORS = new Set(['eq', 'neq', 'in', 'notIn', 'isNull', 'isNotNull']);
+// As Python's builder: booleans compare by equality and membership only.
+const BOOLEAN_OPERATORS = new Set(['eq', 'neq', 'in', 'notIn']);
 const ORDERED_AGGREGATIONS = new Set(['min', 'max', 'argMin', 'argMax']);
+/** Stored states whose merged value is the stored value itself, which may not be a number. */
+const ORDERED_STATES = new Set(['min', 'max', 'any', 'anyLast']);
 
 /** Local fields have unknown nullability; the client contract says so rather than guess. */
 export function dimensionDescriptor(dimension: ProtocolDatasetDimension): ClientDimension {
@@ -25,7 +28,11 @@ export function dimensionDescriptor(dimension: ProtocolDatasetDimension): Client
 
 /** `having` compares numbers, so ordered aggregations over non-numeric fields can't take it. */
 export function measureDescriptor(dataset: ProtocolDeploymentDataset, measure: ProtocolDeploymentMeasure): ClientMeasure {
-  if ('kind' in measure || !ORDERED_AGGREGATIONS.has(measure.aggregation)) {
+  if ('kind' in measure) return { wireType: 'string', nullable: true, having: true };
+  if (measure.aggregation === 'merge') {
+    return { wireType: 'string', nullable: true, having: !ORDERED_STATES.has(String(measure.stateFunction)) };
+  }
+  if (!ORDERED_AGGREGATIONS.has(measure.aggregation)) {
     return { wireType: 'string', nullable: true, having: true };
   }
   const dimension = dataset.dimensions.find(item => item.name as string === measure.field as string);

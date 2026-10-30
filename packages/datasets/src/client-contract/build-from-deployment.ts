@@ -39,6 +39,11 @@ function endpointDescriptor(
   profile: ReturnType<typeof resolveClientContractProfile>,
 ): Record<string, unknown> {
   const { dimensions, measures, filters } = publicFields(dataset);
+  // Rows carry the time bucket as `period`, so a field of that name would collide.
+  if (dataset.timeField !== undefined && (Object.hasOwn(dimensions, 'period') || Object.hasOwn(measures, 'period'))) {
+    throw new Error(`Client export: dataset "${dataset.name}" has a field named "period", which its time bucket uses. Rename it.`);
+  }
+  const limits = clientQueryLimits(dataset, profile);
   const annotations = endpointAnnotations(dataset, Object.keys(dimensions), Object.keys(measures));
   return {
     id: dataset.name,
@@ -49,7 +54,7 @@ function endpointDescriptor(
     measures,
     filters,
     metadata: true,
-    limits: clientQueryLimits(dataset, profile),
+    limits,
     // Deployment contract 2 carries day-and-longer grains only.
     time: dataset.timeField === undefined ? null : {
       grains: [...PORTABLE_TIME_GRAINS],
@@ -58,9 +63,12 @@ function endpointDescriptor(
       periodFormat: 'calendar-date-or-local-datetime-v1',
     },
     // An endpoint's default selection is the base measures it can serve.
+    // Capped at the measure budget, so a dataset with more base measures than
+    // it may select at once still exports instead of failing the contract.
     defaultMeasures: dataset.measures
       .filter(measure => !('kind' in measure) && Object.hasOwn(measures, measure.name))
-      .map(measure => measure.name),
+      .map(measure => measure.name)
+      .slice(0, limits.maxMeasures),
     ...(annotations ? { annotations } : {}),
   };
 }

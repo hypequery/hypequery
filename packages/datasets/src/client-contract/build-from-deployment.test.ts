@@ -78,7 +78,8 @@ describe('buildClientContract', () => {
     const [orders] = buildClientContract(deployment).contract.endpoints;
     expect(Object.keys(orders.filters).sort()).toEqual(['amount', 'paid', 'status']);
     expect(orders.filters.status.operators).toEqual(['eq', 'in', 'like']);
-    expect(orders.filters.paid.operators).toEqual(['eq', 'isNull']);
+    // As Python: booleans compare by equality only.
+    expect(orders.filters.paid.operators).toEqual(['eq']);
     expect(orders.filters.amount.operators).toEqual(['gte']);
   });
 
@@ -113,6 +114,27 @@ describe('buildClientContract', () => {
     expect(authorized.contract.endpoints[0].schemaHash).toBe(build.contract.endpoints[0].schemaHash);
     expect(authorized.contentHash).not.toBe(build.contentHash);
     expect(buildClientContract(deployment, { view: 'authorized', include: () => false }).contract.endpoints).toEqual([]);
+  });
+
+  it('caps default measures at the measure budget and names a period field clash', () => {
+    const Many = dataset('many', {
+      source: 'many',
+      timeKey: 'created_at',
+      dimensions: { createdAt: dimension.timestamp({ column: 'created_at' }), amount: dimension.number() },
+      measures: { a: measure.sum('amount'), b: measure.count('amount'), c: measure.max('amount') },
+      limits: { maxMeasures: 2 },
+    });
+    const [many] = buildClientContract(publishToCloud({ access, datasets: { many: Many } })).contract.endpoints;
+    if (many.kind !== 'dataset') throw new Error('expected a dataset endpoint');
+    expect(many.defaultMeasures).toHaveLength(2);
+
+    const Clash = dataset('clash', {
+      source: 'clash',
+      timeKey: 'created_at',
+      dimensions: { createdAt: dimension.timestamp({ column: 'created_at' }), period: dimension.string() },
+    });
+    expect(() => buildClientContract(publishToCloud({ access, datasets: { clash: Clash } })))
+      .toThrow('"clash" has a field named "period"');
   });
 
   it('refuses an untrusted mount path', () => {
