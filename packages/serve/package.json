@@ -43,7 +43,7 @@
     "types": "tsc --project tsconfig.json --noEmit"
   },
   "dependencies": {
-    "jose": "^5.9.6",
+    "jose": "^6.2.13",
     "openapi-typescript": "^7.13.0",
     "zod": "^4.6.6",
     "zod-to-json-schema": "^3.25.2",
