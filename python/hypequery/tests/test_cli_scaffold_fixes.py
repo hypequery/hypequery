@@ -368,3 +368,36 @@ def test_discovery_records_only_whether_it_used_the_default_user(
     found = discovery.discover_schema(tables=None, exclude_tables=None)
     assert found.connection is not None
     assert found.connection.default_user
+
+
+@pytest.mark.parametrize("framework", ["standalone", "django", "flask"])
+@pytest.mark.parametrize("offline", [True, False])
+def test_every_generated_readme_names_the_cancellation_grant(
+    tmp_path: Path, init_discovery: list[dict[str, Any]], framework: str, offline: bool
+) -> None:
+    project = tmp_path / "app"
+    flags = ["--skip-connection"] if offline else []
+    assert main(["init", str(project), "--framework", framework, *flags]) == 0
+    readme = (project / "README.md").read_text()
+    assert readme.count("GRANT SELECT ON system.processes") == 1
+    assert readme.endswith("until `max_execution_time`.\n")
+
+
+@pytest.mark.parametrize("recorded", ["false", "123", '""', "null", '["org_id"]'])
+def test_an_unusable_recorded_tenant_column_is_refused_not_dropped(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    recorded: str,
+) -> None:
+    (tmp_path / "schema.json").write_text(f'{{"tenantColumn": {recorded}}}')
+    calls: list[dict[str, Any]] = []
+    monkeypatch.setattr(
+        "hypequery.cli.commands.generate.discover_schema",
+        lambda **kwargs: calls.append(kwargs) or _schema(None, ORDERS),
+    )
+    assert main(["generate", "datasets", "--path", str(tmp_path), "--force"]) == 1
+    assert "unusable tenantColumn" in capsys.readouterr().err
+    assert calls == []
+    # An explicit choice still works.
+    assert main(["generate", "datasets", "--path", str(tmp_path), "--no-tenant-column"]) == 0

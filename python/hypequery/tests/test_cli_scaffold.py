@@ -80,7 +80,8 @@ def test_write_failure_rolls_back_files_and_new_directories(
     # Simulate a resource write failing after an earlier file was created.
     monkeypatch.setattr(
         "hypequery.cli.commands.init.load_templates",
-        lambda: {"first.txt": "created", "missing/file.txt": "will fail"},
+        # Every template set has a README, which the renderer appends notes to.
+        lambda: {"first.txt": "created", "missing/file.txt": "will fail", "README.md": ""},
     )
     assert main(["init", "--skip-connection", str(destination)]) == 1
     assert not destination.exists()

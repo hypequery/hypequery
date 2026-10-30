@@ -17,6 +17,8 @@ import json
 from dataclasses import dataclass
 from pathlib import Path
 
+from ..errors import CliError
+
 
 @dataclass(frozen=True, slots=True)
 class TableSelection:
@@ -48,10 +50,22 @@ def _recorded(directory: Path) -> dict[str, object]:
 
 
 def recorded_tenant_column(directory: Path) -> str | None:
-    """The tenant column recorded in *directory*/schema.json, or None."""
+    """The tenant column recorded in *directory*/schema.json, or None when none is.
 
-    column = _recorded(directory).get("tenantColumn")
-    return column if isinstance(column, str) and column else None
+    Only an absent member means none: reading an unusable one as absent would
+    regenerate tenant-scoped definitions without their ``tenant_key``.
+    """
+
+    document = _recorded(directory)
+    if "tenantColumn" not in document:
+        return None
+    column = document["tenantColumn"]
+    if not isinstance(column, str) or not column:
+        raise CliError(
+            "schema.json records an unusable tenantColumn; fix it, or pass "
+            "--tenant-column or --no-tenant-column."
+        )
+    return column
 
 
 def recorded_selection(directory: Path) -> TableSelection | None:

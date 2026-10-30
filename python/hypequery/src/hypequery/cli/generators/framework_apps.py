@@ -20,6 +20,8 @@ import secrets
 from importlib.resources import files
 from typing import Literal, TypeAlias
 
+from .readme_notes import with_notes
+
 Framework: TypeAlias = Literal["standalone", "django", "flask"]
 FRAMEWORKS: tuple[Framework, ...] = ("standalone", "django", "flask")
 
@@ -114,14 +116,16 @@ def offline_templates(templates: dict[str, str], framework: Framework) -> dict[s
 
     result = apply_framework(templates, framework, None)
     if framework == "standalone":
+        result["README.md"] = with_notes(result["README.md"])
         return result
     prefix, serve = templates["README.md"].split("## Serve and query", 1)
     payload = re.search(r"-d '([^']+)'", serve)
     response = re.search(r"```json\n(.*?)\n```", serve, re.S)
     if payload is None or response is None:
         raise ValueError("README template no longer has the example query and response")
-    result["README.md"] = with_extras(prefix, framework) + readme_section(
-        framework, "orders", payload[1], tenant_column=None, response=response[1]
+    result["README.md"] = with_notes(
+        with_extras(prefix, framework)
+        + readme_section(framework, "orders", payload[1], tenant_column=None, response=response[1])
     )
     return result
 

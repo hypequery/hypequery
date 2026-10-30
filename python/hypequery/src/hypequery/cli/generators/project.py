@@ -8,6 +8,7 @@ import shlex
 from ..utils.connection_scaffold import export_lines, replace_env_block
 from .datasets import GeneratedDatasets
 from .framework_apps import Framework, apply_framework, readme_section, with_extras
+from .readme_notes import with_notes
 from .schema import Schema
 
 
@@ -98,7 +99,7 @@ curl -s -X POST http://127.0.0.1:8000/datasets/{generated.tables[0]}/query \\
     )
     if framework != "standalone":
         prefix = with_extras(prefix, framework)
-    result["README.md"] = (
+    result["README.md"] = with_notes(
         prefix
         + f"""## Generated datasets
 
@@ -122,8 +123,9 @@ not inferred; configure them explicitly before exposing this API.
 After schema changes, inspect drift with `{regenerate} --diff`
 (exit 1 when different). Use `--check` in CI and `--force` to replace
 definitions after reviewing the diff. The table selection given to init is
-recorded in `schema.json` and reused; pass `--all-tables` to drop it. Pass
-`--tenant-column <column>` on every regeneration to keep a `tenant_key` boundary.
+recorded in `schema.json` and reused; pass `--all-tables` to drop it. So is
+`--tenant-column`, which keeps the `tenant_key` boundary; `--no-tenant-column`
+drops it.
 With a `tenant_key`, the tenant column also stays a dimension: tenant-scoped
 queries only ever see their own value, and cross-tenant analysis
 (`all_tenants()`) can still group by it.

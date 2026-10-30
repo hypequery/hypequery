@@ -101,10 +101,3 @@ HTTP wire. Development docs are at <http://127.0.0.1:8000/docs>.
 `ProductionProfile`, disable development docs, supply trusted authentication,
 and use `start_server` behind your reverse proxy. See the SDK README's
 production-process section for the profile and explicit proxy-trust settings.
-
-Timeouts and cancelled requests stop their query with `KILL QUERY`. A
-read-only ClickHouse user needs `GRANT SELECT ON system.processes TO <user>`
-for that, or set `CLICKHOUSE_CONTROL_USERNAME` to a user that also has
-`KILL QUERY` (see `.env.example`). Without either, the
-`hypequery.execution.cancellation` logger reports it once, and timed-out
-queries keep running, and keep a worker busy, until `max_execution_time`.

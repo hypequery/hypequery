@@ -1,7 +1,8 @@
 - `hypequery init --tenant-column` records the column in `schema.json`, and
   `hypequery generate datasets` reuses it unless given `--tenant-column` or the
   new `--no-tenant-column`. Regenerating without repeating the flag used to
-  drop every `tenant_key`.
+  drop every `tenant_key`. An unusable recorded value is refused before
+  discovery rather than read as no tenant column.
 - A strict client endpoint's `400 Invalid client query.` now carries
   `details.issues[].path`, the member or item that failed (for example
   `["filters", 0, "value"]`), as the README promised. Paths name contract
@@ -16,6 +17,7 @@
   `client_mount_path`, naming the setting. Contract paths still never follow a
   prefix the server or a proxy reports.
 - Docs: a query mapping passed to `client.execute` uses `DatasetQuery`'s field
-  names (`order_by`, not the HTTP wire's `orderBy`); the scaffold README says
-  timeouts need `SELECT ON system.processes` or a control user; a synchronous
+  names (`order_by`, not the HTTP wire's `orderBy`); every scaffold README
+  (standalone, Django and Flask, offline or from your schema) says timeouts
+  need `SELECT ON system.processes` or a control user; a synchronous
   caller gets `deadline-exceeded` only once ClickHouse stops the query.
