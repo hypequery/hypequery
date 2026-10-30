@@ -1,6 +1,7 @@
 import Footer from '@/components/Footer';
 import Navigation from '@/components/Navigation';
 import { absoluteUrl } from '@/lib/site';
+import { getPostBySlug } from '@/lib/blog-cms';
 import { AnnouncementBanner, Hero, FinalCTA } from '@/components/home';
 import { FeatureGrid } from '@/components/home/FeatureGrid';
 import { ProductExplainer } from '@/components/home/ProductExplainer';
@@ -73,16 +74,21 @@ const softwareSchema = {
   publisher: { '@id': absoluteUrl('/#organization').toString() },
 };
 
-export default function Home() {
+// The banner links here, so it shows only once the post is published.
+const LAUNCH_POST_SLUG = 'introducing-hypequery-python';
+
+export default async function Home() {
+  const launchPost = await getPostBySlug(LAUNCH_POST_SLUG);
+
   return (
     <div className="min-h-screen bg-bg text-text">
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(softwareSchema) }}
       />
-      <AnnouncementBanner />
-      <Navigation hasBanner />
-      <main className="pt-[104px]">
+      {launchPost && <AnnouncementBanner href={`/blog/${LAUNCH_POST_SLUG}`} />}
+      <Navigation hasBanner={Boolean(launchPost)} />
+      <main className={launchPost ? 'pt-[104px]' : 'pt-[62px]'}>
         <Hero />
         <PatternCallout />
         {/* Hero (what it is) → proof → every interface (what it powers) → runs in your stack (where it lives)
