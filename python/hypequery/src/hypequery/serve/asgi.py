@@ -148,6 +148,7 @@ def _serve_request(scope: Scope, body: AsgiBody) -> ServeRequest:
         headers=scope_headers(scope),
         body=body.chunks(),
         client=scope_client(scope),
+        scheme=scope.get("scheme", "http"),
         raw=scope,
         wait_disconnected=body.wait_disconnected,
     )

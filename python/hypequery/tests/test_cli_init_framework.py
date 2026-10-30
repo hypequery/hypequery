@@ -155,7 +155,10 @@ def test_django_scaffold(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> 
     readme = (project / "README.md").read_text()
     assert "## Run with Django" in readme
     assert "/api/agents/orders" in readme
-    assert "the token API refuses them" in readme
+    # The app reads the tenant at startup: the export precedes the server command.
+    tenant = readme.index("export HYPEQUERY_DEV_TENANT=")
+    assert tenant < readme.index("python manage.py runserver")
+    assert "or the token API answers `403`" in readme
     assert "[server,clickhouse]" not in readme
     assert "DJANGO_SECRET_KEY=" in (project / ".env.example").read_text()
     assert "db.sqlite3" in (project / ".gitignore").read_text()

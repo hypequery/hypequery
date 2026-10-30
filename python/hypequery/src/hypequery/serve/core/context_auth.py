@@ -12,8 +12,9 @@ from the principal.
 A session cookie is attached by the browser, not by the page, so a context
 strategy is exposed to cross-site request forgery where a header credential
 is not. With ``same_origin=True``, the default, the core refuses an unsafe
-method unless the browser marks it same-origin or it comes from an origin the
-CORS policy names (`utils/same_origin.py`); every adapter gets the check.
+method unless the browser marks it same-origin, its ``Origin`` is the
+request's own, or it comes from an origin the CORS policy names
+(`utils/same_origin.py`); every adapter gets the check.
 """
 
 from __future__ import annotations
@@ -62,7 +63,8 @@ def from_context(extract: ContextExtractor, *, same_origin: bool = True) -> Cont
 
     With *same_origin* (the default), unsafe methods are refused with 403
     unless ``Sec-Fetch-Site`` is ``same-origin`` or ``none``, or ``Origin`` is
-    in the API's ``HttpSecurity.cors.origins``. A production profile refuses
+    the request's own (its scheme and ``Host``) or in the API's
+    ``HttpSecurity.cors.origins``. A production profile refuses
     ``same_origin=False``. `hypequery.contrib.django.django_user` and
     `hypequery.contrib.flask.flask_session` build *extract* for Django and
     Flask.

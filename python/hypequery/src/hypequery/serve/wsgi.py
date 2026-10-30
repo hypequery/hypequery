@@ -85,6 +85,7 @@ class WsgiApp:
                 headers=environ_headers(environ),
                 body=thread_body(thread, environ["wsgi.input"].read, body_length(environ)),
                 client=environ_client(environ),
+                scheme=environ.get("wsgi.url_scheme", "http"),
                 raw=environ,
                 run_on_request_thread=thread.call,
             )

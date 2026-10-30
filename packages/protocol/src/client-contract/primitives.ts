@@ -12,16 +12,21 @@ export function record(input: unknown, path: string): ClientRecord {
   if (!input || typeof input !== 'object' || Array.isArray(input)) clientError('HQ_CLIENT_SHAPE', path);
   return input as ClientRecord;
 }
+/** The error keeps the shared fixtures' parent path and names the first unlisted member as `field`. */
+function rejectUnknownField(value: ClientRecord, keys: readonly string[], path: string): void {
+  const unknown = Object.keys(value).find(key => !keys.includes(key));
+  if (unknown !== undefined) clientError('HQ_CLIENT_UNKNOWN_FIELD', path, unknown);
+}
 /** Closed object whose listed members are all optional; at least one is required. */
 export function optionalShape(input: unknown, keys: readonly string[], path: string): ClientRecord {
   const value = record(input, path);
-  if (Object.keys(value).some(key => !keys.includes(key))) clientError('HQ_CLIENT_UNKNOWN_FIELD', path);
+  rejectUnknownField(value, keys, path);
   if (!keys.some(key => Object.hasOwn(value, key))) clientError('HQ_CLIENT_SHAPE', path);
   return value;
 }
 export function shape(input: unknown, keys: readonly string[], path: string): ClientRecord {
   const value = record(input, path);
-  if (Object.keys(value).some(key => !keys.includes(key))) clientError('HQ_CLIENT_UNKNOWN_FIELD', path);
+  rejectUnknownField(value, keys, path);
   if (keys.some(key => !Object.hasOwn(value, key))) clientError('HQ_CLIENT_SHAPE', path);
   return value;
 }
