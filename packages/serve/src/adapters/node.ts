@@ -64,22 +64,10 @@ const resolveRequestBody = async (
 
   // A body parser (express.json(), NestJS, koa-bodyparser, ...) already read
   // the stream. Use what it left on req.body; it has applied its own limit.
-  const preParsed = readPreParsedBody(req);
-  if (preParsed.kind === "parsed") {
-    // A JSON string the parser decoded is still held to the adapter's limit.
-    if (
-      typeof preParsed.value === "string" &&
-      bodyLimit > 0 &&
-      Buffer.byteLength(preParsed.value, "utf8") > bodyLimit
-    ) {
-      throw payloadTooLarge();
-    }
-    return preParsed.value;
-  }
+  const preParsed = readPreParsedBody(req, bodyLimit);
+  if (preParsed.kind === "too-large") throw payloadTooLarge();
+  if (preParsed.kind === "parsed") return preParsed.value;
   if (preParsed.kind === "raw") {
-    if (bodyLimit > 0 && preParsed.buffer.length > bodyLimit) {
-      throw payloadTooLarge();
-    }
     return parseRequestBody(preParsed.buffer, contentType);
   }
 

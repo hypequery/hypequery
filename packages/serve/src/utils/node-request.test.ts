@@ -1,5 +1,5 @@
 import type { IncomingMessage } from "http";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import {
   declaresRequestBody,
@@ -67,13 +67,13 @@ describe("readPreParsedBody", () => {
     expect(readPreParsedBody(rawText)).toEqual({ kind: "raw", buffer: Buffer.from('{"n":1}') });
   });
 
-  it("treats a string as raw text when its length cannot be compared", () => {
+  it("parses JSON object text once when its length cannot be compared", () => {
     // Chunked: no content-length, so express.text()'s raw JSON must still be parsed.
     const chunked = mockRequest({
       body: '{"n":1}',
       headers: { "content-type": "application/json", "transfer-encoding": "chunked" },
     });
-    expect(readPreParsedBody(chunked)).toEqual({ kind: "raw", buffer: Buffer.from('{"n":1}') });
+    expect(readPreParsedBody(chunked)).toEqual({ kind: "parsed", value: { n: 1 } });
 
     // Compressed: content-length counts the gzip bytes, not the inflated text.
     const compressed = mockRequest({
@@ -84,7 +84,7 @@ describe("readPreParsedBody", () => {
         "content-length": "27",
       },
     });
-    expect(readPreParsedBody(compressed)).toEqual({ kind: "raw", buffer: Buffer.from('{"n":1}') });
+    expect(readPreParsedBody(compressed)).toEqual({ kind: "parsed", value: { n: 1 } });
   });
 
   it("keeps a decoded JSON string as a string when its length cannot be compared", () => {
@@ -96,6 +96,22 @@ describe("readPreParsedBody", () => {
       for (const body of ["123", "true", "null", "plain text", "{not json"]) {
         expect(readPreParsedBody(mockRequest({ body, headers }))).toEqual({ kind: "parsed", value: body });
       }
+    }
+  });
+
+  it("refuses an over-limit body before parsing any of it", () => {
+    const parse = vi.spyOn(JSON, "parse");
+    try {
+      const chunked = mockRequest({
+        body: `{"n":"${"x".repeat(20)}"}`,
+        headers: { "content-type": "application/json", "transfer-encoding": "chunked" },
+      });
+      expect(readPreParsedBody(chunked, 10)).toEqual({ kind: "too-large" });
+      expect(readPreParsedBody(mockRequest({ body: Buffer.alloc(11) }), 10)).toEqual({ kind: "too-large" });
+      expect(readPreParsedBody(mockRequest({ body: "x".repeat(11) }), 10)).toEqual({ kind: "too-large" });
+      expect(parse).not.toHaveBeenCalled();
+    } finally {
+      parse.mockRestore();
     }
   });
 

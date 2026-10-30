@@ -41,20 +41,22 @@ export const declaresRequestBody = (req: IncomingMessage): boolean => {
 
 export type PreParsedBody =
   | { kind: "none" }
+  | { kind: "too-large" }
   | { kind: "raw"; buffer: Buffer }
   | { kind: "parsed"; value: unknown };
 
 /**
- * True when a string `req.body` is a JSON value that a parser already decoded
- * (`express.json({ strict: false })` turns `"123"` into the string `123`)
- * rather than the raw text of the request (`express.text()`).
+ * How to read a string `req.body` on a JSON request: as raw text, or as a JSON
+ * value a parser already decoded (`express.json({ strict: false })` turns
+ * `"123"` into the string `123`) and must not be parsed again.
  *
  * Raw text has exactly the byte length the client declared, and a decoded
  * JSON string is at least two bytes shorter because its quotes are gone, so
  * the lengths decide whenever they can be compared. A chunked body declares no
  * length, and a compressed one declares the compressed length; then the text
- * decides: raw text that is a JSON object or array is what an endpoint takes,
- * while a decoded string is kept as a string, so `"123"` never becomes `123`.
+ * decides: raw text that is a JSON object or array is what an endpoint takes
+ * (and is returned already parsed), while a decoded string is kept as a
+ * string, so `"123"` never becomes `123`.
  *
  * Supported limitation: without a comparable length, raw text that is a bare
  * JSON primitive (`express.text()` given `123`, `true` or `null`) cannot be
@@ -62,45 +64,59 @@ export type PreParsedBody =
  * primitive behind `express.text()` should receive a declared-length body, or
  * sit behind `express.json()` instead.
  */
-const isDecodedJsonString = (req: IncomingMessage, body: string): boolean => {
-  const contentType = req.headers["content-type"];
-  if (typeof contentType !== "string" || !contentType.includes("application/json")) {
-    return false;
-  }
+const readJsonString = (
+  req: IncomingMessage,
+  body: string,
+  byteLength: number,
+): PreParsedBody => {
   const encoding = req.headers["content-encoding"];
   const declared = req.headers["content-length"];
   const comparable =
     (encoding === undefined || encoding.trim().toLowerCase() === "identity") &&
     declared !== undefined &&
     /^\d+$/.test(declared);
-  if (comparable) return Number(declared) !== Buffer.byteLength(body, "utf8");
-  return !isJsonObjectText(body);
+  if (comparable) {
+    return Number(declared) === byteLength
+      ? { kind: "raw", buffer: Buffer.from(body, "utf8") }
+      : { kind: "parsed", value: body };
+  }
+  const value = parseJsonObjectText(body);
+  return { kind: "parsed", value: value === undefined ? body : value };
 };
 
-/** True when *text* is a JSON document whose value is an object or array. */
-const isJsonObjectText = (text: string): boolean => {
+/** The object or array *text* encodes as JSON, or undefined for anything else. */
+const parseJsonObjectText = (text: string): object | undefined => {
   const first = text.trimStart()[0];
-  if (first !== "{" && first !== "[") return false;
+  if (first !== "{" && first !== "[") return undefined;
   try {
     const value: unknown = JSON.parse(text);
-    return typeof value === "object" && value !== null;
+    return typeof value === "object" && value !== null ? value : undefined;
   } catch {
-    return false;
+    return undefined;
   }
 };
 
 /**
- * The body an upstream parser left on `req.body`. Strings and Buffers
- * (express.text(), express.raw()) are returned as raw bytes so the adapter can
- * apply its own size limit and content-type parsing; anything else, including
- * a JSON string a JSON parser already decoded, is used as-is.
+ * The body an upstream parser left on `req.body`, held to *bodyLimit* bytes
+ * (0 for none) before any of it is parsed. Buffers and strings
+ * (express.raw(), express.text()) are raw bytes for the adapter's own
+ * content-type parsing, except a string on a JSON request that a JSON parser
+ * already decoded (`readJsonString`); anything else is used as-is.
  */
-export const readPreParsedBody = (req: IncomingMessage): PreParsedBody => {
+export const readPreParsedBody = (req: IncomingMessage, bodyLimit = 0): PreParsedBody => {
   const { body } = req as FrameworkRequest;
   if (body === undefined) return { kind: "none" };
-  if (Buffer.isBuffer(body)) return { kind: "raw", buffer: body };
-  if (typeof body === "string" && !isDecodedJsonString(req, body)) {
-    return { kind: "raw", buffer: Buffer.from(body, "utf8") };
+  if (Buffer.isBuffer(body)) {
+    return bodyLimit > 0 && body.length > bodyLimit
+      ? { kind: "too-large" }
+      : { kind: "raw", buffer: body };
   }
-  return { kind: "parsed", value: body };
+  if (typeof body !== "string") return { kind: "parsed", value: body };
+  const byteLength = Buffer.byteLength(body, "utf8");
+  if (bodyLimit > 0 && byteLength > bodyLimit) return { kind: "too-large" };
+  const contentType = req.headers["content-type"];
+  if (typeof contentType === "string" && contentType.includes("application/json")) {
+    return readJsonString(req, body, byteLength);
+  }
+  return { kind: "raw", buffer: Buffer.from(body, "utf8") };
 };
