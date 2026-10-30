@@ -4,11 +4,13 @@ import { useRef, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { motion, useReducedMotion } from 'motion/react';
 import * as Popover from '@radix-ui/react-popover';
-import { ArrowUpRight, Braces, ChevronDown, Cloud, Code2, Database } from 'lucide-react';
+import { ArrowUpRight, Braces, Check, ChevronDown, Cloud, Code2, Database, MessagesSquare } from 'lucide-react';
 import { SiClaude, SiClickhouse, SiGooglegemini, SiModelcontextprotocol, SiOpenapiinitiative, SiPython, SiReact, SiTypescript } from 'react-icons/si';
 import { RiOpenaiFill } from 'react-icons/ri';
-import { ClaudeTerminal, useAiAnswers } from './AiAnswers';
+import { AppChat, ClaudeTerminal, useAiAnswers } from './AiAnswers';
+import { DeployWaitlist } from './DeployWaitlist';
 import { HypequeryMascotIcon } from '../HypequeryMascotIcon';
+import { marketing } from '../ui/marketing';
 import './ProductExplainer.css';
 
 const CONNECTIONS = [
@@ -197,10 +199,32 @@ ${countries.map(([country, value]) => `  { "country": "${country}", "revenue": "
           <Link href="/docs/mcp/overview" aria-label="Read more about MCP agents" className="explainer-read-more mt-5 inline-flex items-center gap-1.5 text-xs font-medium text-text-muted">Read more <ArrowUpRight className="h-3 w-3" aria-hidden="true" /></Link>
         </motion.article>
       </div>
-      <p className="mt-2 border-t border-border pt-5 text-center text-xs leading-5 text-text-muted md:mt-0">
-        Also from the same model: <a href="#runs-where-title" className="font-medium text-text underline decoration-border underline-offset-2 hover:decoration-accent">jobs, reports and notebooks</a> in TypeScript or Python
-        <span className="mx-2 text-text-dim" aria-hidden="true">·</span>
-        Embedded chat for your customers <span className="ml-1 rounded-full border border-border px-2 py-0.5 text-[10px] text-text-muted">Coming soon</span>
+      <motion.div variants={ENTRANCE} initial={reducedMotion ? false : "hidden"} whileInView="visible" viewport={{ once: true, amount: 0.2 }} custom={0.08} className="mt-4 grid overflow-hidden rounded-2xl border border-border bg-bg-card/40 md:mt-2 md:grid-cols-[0.9fr_1.1fr]">
+        <div className="flex flex-col justify-center p-6 sm:p-8">
+          <div className="flex items-center gap-2.5"><MessagesSquare className="h-5 w-5 text-accent" aria-hidden="true" /><h3 className="text-xl font-medium tracking-tight text-text">Embedded chat</h3><span className="rounded-full border border-accent/40 bg-accent-soft px-2 py-0.5 text-[10px] font-medium text-accent">Coming soon</span></div>
+          <p className="mt-3 max-w-[440px] text-sm leading-6 text-text-muted">Let your customers ask questions about their own data, inside your app. Chat answers from the same model as your dashboards, APIs and agents: the same question gets the same number everywhere.</p>
+          <ul className="mt-5 space-y-2.5 text-sm text-text">
+            {[
+              'Scoped to the signed-in customer, by the tenant rules you already set',
+              'Answers with charts and tables, not just text',
+              'Only the datasets and fields you publish',
+            ].map((item) => <li key={item} className="flex gap-2.5"><Check className="mt-0.5 h-4 w-4 shrink-0 text-accent" aria-hidden="true" /><span>{item}</span></li>)}
+          </ul>
+          <div className="mt-6 flex flex-wrap items-center gap-3">
+            <DeployWaitlist location="home-embedded-chat" className={`${marketing.secondaryButton} min-h-10 text-xs`} />
+            <span className="text-xs text-text-dim">Part of hypequery cloud</span>
+          </div>
+        </div>
+        <div className="border-t border-border bg-bg-alt/60 p-4 sm:p-6 md:border-l md:border-t-0">
+          <div className={PREVIEW_HEIGHT}>
+            <div style={{ zoom: PANEL_SCALE, height: PANEL_HEIGHT }}>
+              <AppChat elapsed={answers.elapsed} reduced={answers.reduced} className="h-full" />
+            </div>
+          </div>
+        </div>
+      </motion.div>
+      <p className="mt-5 text-center text-xs leading-5 text-text-muted">
+        Server code uses the same model directly: <a href="#runs-where-title" className="font-medium text-text underline decoration-border underline-offset-2 hover:decoration-accent">jobs, reports and notebooks</a> in TypeScript or Python.
       </p>
     </section>
   );
