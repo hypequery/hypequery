@@ -392,10 +392,12 @@ def test_an_unusable_recorded_tenant_column_is_refused_not_dropped(
 ) -> None:
     (tmp_path / "schema.json").write_text(f'{{"tenantColumn": {recorded}}}')
     calls: list[dict[str, Any]] = []
-    monkeypatch.setattr(
-        "hypequery.cli.commands.generate.discover_schema",
-        lambda **kwargs: calls.append(kwargs) or _schema(None, ORDERS),
-    )
+
+    def discover(**kwargs: Any) -> Schema:
+        calls.append(kwargs)
+        return _schema(None, ORDERS)
+
+    monkeypatch.setattr("hypequery.cli.commands.generate.discover_schema", discover)
     assert main(["generate", "datasets", "--path", str(tmp_path), "--force"]) == 1
     assert "unusable tenantColumn" in capsys.readouterr().err
     assert calls == []
