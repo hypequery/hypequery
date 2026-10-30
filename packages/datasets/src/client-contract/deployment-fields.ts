@@ -100,16 +100,17 @@ export function publicFields(dataset: ProtocolDeploymentDataset): {
   const measures = Object.fromEntries(dataset.measures
     .filter(measure => measureFilterFields(dataset, measure.name).every(field => !field.includes('.')))
     .map(measure => [measure.name, measureDescriptor(dataset, measure)]));
-  const filters: Record<string, ClientFilter> = {};
-  for (const filter of dataset.filters) {
-    if (filter.field.includes('.')) continue;
+  // Built with Object.fromEntries, as above: assigning a key such as
+  // `__proto__` would set the prototype instead of adding an entry.
+  const filters = Object.fromEntries(dataset.filters.flatMap((filter): [string, ClientFilter][] => {
+    if (filter.field.includes('.')) return [];
     const dimension = dataset.dimensions.find(item => item.name as string === filter.field as string);
     if (dimension === undefined) {
       throw new Error(`Client export: filter "${dataset.name}.${filter.name}" references unknown dimension "${filter.field}".`);
     }
-    if (!requestFilter(dataset, dimension)) continue;
+    if (!requestFilter(dataset, dimension)) return [];
     const descriptor = filterDescriptor(dimension, filter);
-    if (descriptor) filters[filter.name] = descriptor;
-  }
+    return descriptor ? [[filter.name, descriptor]] : [];
+  }));
   return { dimensions, measures, filters };
 }

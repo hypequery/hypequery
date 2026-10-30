@@ -44,6 +44,21 @@ function endpointDescriptor(
     throw new Error(`Client export: dataset "${dataset.name}" has a field named "period", which its time bucket uses. Rename it.`);
   }
   const limits = clientQueryLimits(dataset, profile);
+  // An endpoint's default selection is the base measures it can serve, capped
+  // at the dataset's own measure limit so a dataset with more base measures
+  // than it may select at once still exports. The selection is hashed, so a
+  // host budget never trims it: a budget-only change must not move the schema
+  // hash a generated client pins. A budget too small for it is refused.
+  const defaultMeasures = dataset.measures
+    .filter(measure => !('kind' in measure) && Object.hasOwn(measures, measure.name))
+    .map(measure => measure.name)
+    .slice(0, dataset.limits?.maxMeasures);
+  if (defaultMeasures.length > limits.maxMeasures) {
+    throw new Error(
+      `Client export: dataset "${dataset.name}" selects ${defaultMeasures.length} measures by default, `
+      + `more than the host's measure budget of ${limits.maxMeasures}. Raise the budget, or set the dataset's limits.maxMeasures.`,
+    );
+  }
   const annotations = endpointAnnotations(dataset, Object.keys(dimensions), Object.keys(measures));
   return {
     id: dataset.name,
@@ -62,13 +77,7 @@ function endpointDescriptor(
       timezone: true,
       periodFormat: 'calendar-date-or-local-datetime-v1',
     },
-    // An endpoint's default selection is the base measures it can serve.
-    // Capped at the measure budget, so a dataset with more base measures than
-    // it may select at once still exports instead of failing the contract.
-    defaultMeasures: dataset.measures
-      .filter(measure => !('kind' in measure) && Object.hasOwn(measures, measure.name))
-      .map(measure => measure.name)
-      .slice(0, limits.maxMeasures),
+    defaultMeasures,
     ...(annotations ? { annotations } : {}),
   };
 }

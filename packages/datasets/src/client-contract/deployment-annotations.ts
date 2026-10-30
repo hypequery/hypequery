@@ -24,15 +24,15 @@ export function endpointAnnotations(
   dimensions: readonly string[],
   measures: readonly string[],
 ): ClientEndpointAnnotations | undefined {
-  const fields: Record<string, ClientFieldAnnotation> = {};
   const advertised = [
     ...dataset.dimensions.filter(item => dimensions.includes(item.name)),
     ...dataset.measures.filter(item => measures.includes(item.name)),
   ];
-  for (const definition of advertised) {
+  // Object.fromEntries defines each name as an own key, `__proto__` included.
+  const fields: Record<string, ClientFieldAnnotation> = Object.fromEntries(advertised.flatMap(definition => {
     const node = fieldAnnotation(definition);
-    if (node) fields[definition.name] = node;
-  }
+    return node ? [[definition.name, node]] : [];
+  }));
   const description = annotationText(dataset.description);
   const result: ClientEndpointAnnotations = {
     ...(description !== undefined ? { description } : {}),

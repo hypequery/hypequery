@@ -127,6 +127,11 @@ describe('buildClientContract', () => {
     const [many] = buildClientContract(publishToCloud({ access, datasets: { many: Many } })).contract.endpoints;
     if (many.kind !== 'dataset') throw new Error('expected a dataset endpoint');
     expect(many.defaultMeasures).toHaveLength(2);
+    // A host's measure budget never trims the hashed default selection: it fits, or export stops.
+    const roomy = buildClientContract(publishToCloud({ access, datasets: { many: Many } }), { profile: { maxMeasures: 50 } });
+    expect(roomy.contract.endpoints[0]!.schemaHash).toBe(many.schemaHash);
+    expect(() => buildClientContract(publishToCloud({ access, datasets: { many: Many } }), { profile: { maxMeasures: 1 } }))
+      .toThrow('more than the host\'s measure budget of 1');
 
     const Clash = dataset('clash', {
       source: 'clash',
@@ -135,6 +140,19 @@ describe('buildClientContract', () => {
     });
     expect(() => buildClientContract(publishToCloud({ access, datasets: { clash: Clash } })))
       .toThrow('"clash" has a field named "period"');
+  });
+
+  it('exports a field named __proto__ as an ordinary entry', () => {
+    const contract = JSON.parse(JSON.stringify(deployment)) as typeof deployment;
+    const orders = contract.datasets.find(item => item.name === 'orders')!;
+    (orders as { dimensions: unknown[] }).dimensions.push(JSON.parse(
+      '{"name":"__proto__","type":"string","source":{"kind":"column","column":"proto"},"filterable":true,"groupable":true,"description":"Odd"}',
+    ));
+    (orders as { filters: unknown[] }).filters.push(JSON.parse('{"name":"__proto__","field":"__proto__","operators":["eq"]}'));
+    const [endpoint] = buildClientContract(contract).contract.endpoints.filter(item => item.id === 'orders');
+    if (endpoint?.kind !== 'dataset') throw new Error('expected a dataset endpoint');
+    expect(Object.hasOwn(endpoint.filters, '__proto__')).toBe(true);
+    expect(Object.hasOwn(endpoint.annotations?.fields ?? {}, '__proto__')).toBe(true);
   });
 
   it('refuses an untrusted mount path', () => {
