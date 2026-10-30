@@ -166,7 +166,6 @@ export function ProductExplainer({ modelCode, dashboardCode }: { modelCode: Reac
           <div className={`explainer-preview mt-6 flex flex-col overflow-hidden rounded-xl border border-border bg-bg-card font-mono text-[10.5px] leading-[1.5] shadow-card ${PREVIEW_HEIGHT}`} aria-label={`Illustrative API request and response for ${latest ? 'September' : 'August'} revenue by country`}>
             <div className="border-b border-border px-4 py-2.5">
               <div><span className="font-semibold text-accent">POST</span> <span className="text-text">/api/analytics/datasets/orders/query</span></div>
-              <div className="text-text-dim">Authorization: Bearer •••••••• <span className="text-text-muted">{'// tenant: acme'}</span></div>
             </div>
             <pre className="m-0 border-b border-border px-4 py-2.5 text-text-muted">{`{
   "dimensions": ["country"],
