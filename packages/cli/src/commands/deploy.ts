@@ -297,6 +297,9 @@ export async function deployCommand(
     ...(options.draft !== undefined ? { draft: options.draft } : {}),
   }, dependencies);
   // A draft isn't live, so the client keeps matching Production.
+  if (options.client !== undefined && options.draft !== undefined) {
+    logger.info(`${options.client} was not regenerated: drafts are not live, so the client keeps matching the live release.`);
+  }
   if (options.client !== undefined && options.draft === undefined) {
     try {
       await (dependencies.generateClient ?? generateClientCommand)(undefined, {
@@ -313,7 +316,12 @@ export async function deployCommand(
         `Deployed, but ${options.client} was not regenerated: `
         + (error instanceof Error ? error.message : String(error)),
       );
-      logger.indent(`Run \`hypequery generate:client --cloud --output ${options.client} --force\` to retry.`);
+      const flags = [
+        ['--project', options.project],
+        ['--environment', options.environment],
+        ['--endpoint', options.endpoint],
+      ].flatMap(([flag, value]) => value === undefined ? [] : [` ${flag} ${value}`]).join('');
+      logger.indent(`Run \`hypequery generate:client --cloud --output ${options.client} --force${flags}\` to retry.`);
     }
   }
   return result;

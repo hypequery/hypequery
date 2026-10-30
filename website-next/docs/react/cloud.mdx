@@ -112,3 +112,26 @@ if (error instanceof ClientSchemaChangedError) {
   `generate:client --cloud` and the `409` check need a Cloud release that serves
   client contracts. If yours doesn't yet, the command says so and writes nothing.
 </Callout>
+
+`generate:client` only overwrites files it generated, and refuses a release whose
+datasets are served under a path prefix. That happens when a dataset path
+collides with a reserved Cloud path such as `/mcp`; rename the path and deploy
+again.
+
+## Hand it to your coding agent
+
+Paste this into Claude Code, Cursor or another coding agent in your app's repo:
+
+```text
+Connect this React app to our hypequery Cloud datasets.
+1. Install @hypequery/react and @tanstack/react-query.
+2. Run `npx hypequery generate:client --cloud --output src/hypequery-client.ts`
+   (run `npx hypequery login` first if it asks). Don't edit the generated file.
+3. Create src/analytics.ts with createAnalyticsHooks<ClientApi>({ baseUrl: clientBaseUrl,
+   manifest: clientManifest, token: () => getUserToken() }), importing from the generated file.
+4. getUserToken must return the signed-in user's end-user token: our auth provider's JWT if
+   hypequery Cloud is set up to trust it, otherwise a token our backend mints from
+   POST <clientBaseUrl>/embed/tokens with a server API key. Never put an hqgw_ key in browser code.
+5. Wrap the app in HypequeryProvider and replace one chart with useDataset to prove it works.
+6. Add `npx hypequery generate:client --cloud --output src/hypequery-client.ts --check` to CI.
+```

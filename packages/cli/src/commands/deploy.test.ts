@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 const mockVerifyDeploymentBundle = vi.hoisted(() => vi.fn());
 const mockLoggerWarn = vi.hoisted(() => vi.fn());
 const mockLoggerIndent = vi.hoisted(() => vi.fn());
+const mockLoggerInfo = vi.hoisted(() => vi.fn());
 
 vi.mock('../utils/deployment-bundle.js', () => ({
   verifyDeploymentBundle: mockVerifyDeploymentBundle,
@@ -16,7 +17,7 @@ vi.mock('../utils/deployment-bundle.js', () => ({
 vi.mock('../utils/logger.js', () => ({
   logger: {
     success: vi.fn(),
-    info: vi.fn(),
+    info: mockLoggerInfo,
     warn: mockLoggerWarn,
     newline: vi.fn(),
     indent: mockLoggerIndent,
@@ -186,14 +187,18 @@ describe('deploy command', () => {
 
     // A draft isn't live: the client keeps matching Production.
     generateClient.mockClear();
+    mockLoggerInfo.mockClear();
     await deployCommand('analytics/cloud.ts', { client: 'src/hypequery-client.ts', draft: 'next' }, dependencies(generateClient));
     expect(generateClient).not.toHaveBeenCalled();
+    expect(mockLoggerInfo).toHaveBeenCalledWith(expect.stringContaining('drafts are not live'));
 
     mockLoggerWarn.mockClear();
+    mockLoggerIndent.mockClear();
     const failing = vi.fn(async () => { throw new Error('Cloud has no client contract'); });
-    const result = await deployCommand('analytics/cloud.ts', { client: 'src/hypequery-client.ts' }, dependencies(failing));
+    const result = await deployCommand('analytics/cloud.ts', { client: 'src/hypequery-client.ts', project: 'acme', environment: 'staging' }, dependencies(failing));
     expect(result.status).toBe('accepted');
     expect(mockLoggerWarn).toHaveBeenCalledWith(expect.stringContaining('src/hypequery-client.ts was not regenerated'));
+    expect(mockLoggerIndent).toHaveBeenCalledWith(expect.stringContaining('--force --project acme --environment staging`'));
   });
 
   it('supports explicit outputs and target overrides in one-command mode', async () => {

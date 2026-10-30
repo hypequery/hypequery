@@ -197,7 +197,7 @@ export function createHypequeryClient<Api extends ApiContract = ApiContract>(
       if (isClientSchemaChanged(response.status, errorBody)) {
         throw new ClientSchemaChangedError(
           `${method} ${finalUrl}: the endpoint changed since this client was generated. `
-          + 'Regenerate it with `hypequery generate:client` and review the changes.',
+          + 'Regenerate it with `hypequery generate:client --cloud --force` (or from your contract file) and review the changes.',
           errorBody,
         );
       }
