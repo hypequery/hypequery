@@ -47,17 +47,24 @@ export type PreParsedBody =
 /**
  * True when a string `req.body` is a JSON value that a parser already decoded
  * (`express.json({ strict: false })` turns `"123"` into the string `123`)
- * rather than the raw text of the request. Raw text always has the byte length
- * the client declared; a decoded JSON string is at least two bytes shorter
- * because its quotes are gone.
+ * rather than the raw text of the request. Raw text has exactly the byte
+ * length the client declared; a decoded JSON string is at least two bytes
+ * shorter because its quotes are gone. Without a declared length to compare
+ * (a chunked body) or with a content encoding (the declared length is of the
+ * compressed bytes), nothing shows a string was decoded, so it is raw text.
  */
 const isDecodedJsonString = (req: IncomingMessage, body: string): boolean => {
   const contentType = req.headers["content-type"];
   if (typeof contentType !== "string" || !contentType.includes("application/json")) {
     return false;
   }
-  const length = Number(req.headers["content-length"]);
-  return !(Number.isFinite(length) && length === Buffer.byteLength(body, "utf8"));
+  const encoding = req.headers["content-encoding"];
+  if (encoding !== undefined && encoding.trim().toLowerCase() !== "identity") {
+    return false;
+  }
+  const declared = req.headers["content-length"];
+  if (declared === undefined || !/^\d+$/.test(declared)) return false;
+  return Number(declared) !== Buffer.byteLength(body, "utf8");
 };
 
 /**

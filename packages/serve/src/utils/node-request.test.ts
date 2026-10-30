@@ -66,4 +66,24 @@ describe("readPreParsedBody", () => {
     });
     expect(readPreParsedBody(rawText)).toEqual({ kind: "raw", buffer: Buffer.from('{"n":1}') });
   });
+
+  it("treats a string as raw text when its length cannot be compared", () => {
+    // Chunked: no content-length, so express.text()'s raw JSON must still be parsed.
+    const chunked = mockRequest({
+      body: '{"n":1}',
+      headers: { "content-type": "application/json", "transfer-encoding": "chunked" },
+    });
+    expect(readPreParsedBody(chunked)).toEqual({ kind: "raw", buffer: Buffer.from('{"n":1}') });
+
+    // Compressed: content-length counts the gzip bytes, not the inflated text.
+    const compressed = mockRequest({
+      body: '{"n":1}',
+      headers: {
+        "content-type": "application/json",
+        "content-encoding": "gzip",
+        "content-length": "27",
+      },
+    });
+    expect(readPreParsedBody(compressed)).toEqual({ kind: "raw", buffer: Buffer.from('{"n":1}') });
+  });
 });

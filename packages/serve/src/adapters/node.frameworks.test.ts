@@ -88,6 +88,43 @@ describe("createNodeHandler with Express 5", () => {
     expect(await response.json()).toEqual([{ n: 3 }]);
   });
 
+  it("parses a chunked body left as text by express.text()", async () => {
+    const app = express();
+    app.use(express.text({ type: "*/*" }));
+    app.all("/api/analytics/{*path}", createNodeHandler(api.handler));
+    const base = await listen(app);
+
+    // A streamed body is sent chunked, with no content-length.
+    const body = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(new TextEncoder().encode('{"n":'));
+        controller.enqueue(new TextEncoder().encode("4}"));
+        controller.close();
+      },
+    });
+    const response = await fetch(`${base}${echoPath}`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body,
+      duplex: "half",
+    } as RequestInit);
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual([{ n: 4 }]);
+  });
+
+  it("keeps a JSON string decoded by express.json({ strict: false }) within the body limit", async () => {
+    const app = express();
+    app.use(express.json({ strict: false }));
+    app.use(
+      "/api/analytics",
+      createNodeHandler(api.handler, { bodyLimit: 10 }),
+    );
+    const base = await listen(app);
+
+    const response = await postEcho(base, JSON.stringify("x".repeat(20)));
+    expect(response.status).toBe(413);
+  });
+
   it("applies the body limit to a raw body left by express.raw()", async () => {
     const app = express();
     app.use(express.raw({ type: "*/*" }));
