@@ -21,7 +21,12 @@ request's thread waits (`hypequery.serve.wsgi`). ``ServeRequest.raw`` is the
   the server or proxy too.
 - An API without an ``HttpSecurity`` has its ``Host`` header checked against
   ``ALLOWED_HOSTS`` before it runs, whatever middleware the project has; one
-  with an ``HttpSecurity`` checks its own ``allowed_hosts``.
+  with an ``HttpSecurity`` checks its own ``allowed_hosts``. Either way a
+  disallowed host the view refuses is answered as the core answers one,
+  ``400 Invalid host header`` as plain text, not with Django's HTML page; the
+  first is still logged to ``django.security.DisallowedHost``. Middleware that
+  checks the host before the view runs (``CommonMiddleware`` calls
+  ``get_host()``) still gets Django's own answer.
 - Any prefix works, including one with URL parameters: client contracts and
   discovery name the paths the request was routed under, unless the API sets
   ``client_mount_path``, which then names where it is reached.
@@ -39,9 +44,11 @@ request's thread waits (`hypequery.serve.wsgi`). ``ServeRequest.raw`` is the
 from __future__ import annotations
 
 import asyncio
+import logging
 from collections.abc import AsyncIterator, Awaitable, Callable
 from typing import Any
 
+from django.core.exceptions import DisallowedHost
 from django.http import HttpRequest, HttpResponse
 from django.urls import URLPattern
 from django.urls.resolvers import RegexPattern, ResolverMatch
@@ -49,7 +56,10 @@ from django.views.decorators.csrf import csrf_exempt
 
 from ...serve.client_contract import export_client_contract
 from ...serve.core.api import Api
-from ...serve.core.messages import ServeRequest, ServeResponse
+from ...serve.core.messages import Headers, ServeRequest, ServeResponse
+from ...serve.core.request_ids import new_request_id, with_request_ids
+from ...serve.core.security import INVALID_HOST, plain_text
+from ...serve.core.utils.security_headers import with_security_headers
 from ...serve.utils.asgi_scope import raw_scope_path, scope_client, scope_headers, scope_query
 from ...serve.utils.blocking import serve_blocking
 from ...serve.utils.fault import answer
@@ -69,6 +79,9 @@ __all__ = ["urls"]
 
 #: The URL keyword the catch-all pattern captures the path below the prefix in.
 _PATH = "hypequery_path"
+
+#: The logger Django's own handler reports a disallowed host to.
+_DISALLOWED_HOST_LOG = logging.getLogger("django.security.DisallowedHost")
 
 
 class _ServePattern(URLPattern):  # type: ignore[misc]
@@ -112,7 +125,10 @@ def urls(api: Api) -> list[URLPattern]:
         export_client_contract(api)
 
     def hypequery_api(request: HttpRequest, **kwargs: Any) -> HttpResponse:
-        where = _where(api, request, kwargs[_PATH])
+        refused = _refused_host(api, request)
+        if refused is not None:
+            return refused
+        where = _where(request, kwargs[_PATH])
 
         def build(thread: RequestThread) -> ServeRequest:
             return _wsgi_request(request, where, thread)
@@ -120,7 +136,10 @@ def urls(api: Api) -> list[URLPattern]:
         return _response(serve_blocking(api, build, mounted_at=where.mounted_at))
 
     async def hypequery_api_async(request: HttpRequest, **kwargs: Any) -> HttpResponse:
-        where = _where(api, request, kwargs[_PATH])
+        refused = _refused_host(api, request)
+        if refused is not None:
+            return refused
+        where = _where(request, kwargs[_PATH])
         response = await answer(api, _asgi_request(request, where), mounted_at=where.mounted_at)
         return _response(response)
 
@@ -133,12 +152,35 @@ def urls(api: Api) -> list[URLPattern]:
     return [_ServePattern(*views)]
 
 
-def _where(api: Api, request: HttpRequest, below: str) -> MountedPath:
-    if api.security is None:
-        # An API without an HttpSecurity checks no host itself, and Django
-        # applies ALLOWED_HOSTS only when something calls get_host(), which
-        # without CommonMiddleware nothing would. DisallowedHost answers 400.
+def _refused_host(api: Api, request: HttpRequest) -> HttpResponse | None:
+    """The core's answer to a host outside ``ALLOWED_HOSTS``, for an API that checks none.
+
+    An API without an HttpSecurity checks no host itself, and Django applies
+    ALLOWED_HOSTS only when something calls get_host(), which without
+    CommonMiddleware nothing would. Left to Django, DisallowedHost becomes its
+    HTML 400 page (the technical page under DEBUG); the core answers plain
+    text, with the same request ids, so a JSON client sees the same refusal
+    under every adapter. It is logged as Django's handler logs it.
+    """
+
+    if api.security is not None:
+        return None
+    try:
         request.get_host()
+    except DisallowedHost as error:
+        _DISALLOWED_HOST_LOG.error(str(error), extra={"status_code": 400, "request": request})
+        refusal = plain_text(INVALID_HOST, 400, {"cache-control": "no-store"})
+        identified = with_request_ids(refusal, new_request_id(), _headers(request))
+        return _response(with_security_headers(identified))
+    return None
+
+
+def _headers(request: HttpRequest) -> Headers:
+    scope = getattr(request, "scope", None)
+    return scope_headers(scope) if scope is not None else environ_headers(request.META)
+
+
+def _where(request: HttpRequest, below: str) -> MountedPath:
     scope = getattr(request, "scope", None)
     raw = raw_scope_path(scope) if scope is not None else request_target_path(request.META)
     return mounted_path(request.path, below, raw)
