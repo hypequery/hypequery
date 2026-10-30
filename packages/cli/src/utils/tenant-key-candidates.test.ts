@@ -31,6 +31,26 @@ const contract = {
       endpoint: { ...served, tenant: { kind: 'required', mode: 'auto-inject', column: 'org_id' } },
     }),
     dataset('unserved', { dimensions: [dimension('account_id')], endpoint: undefined }),
+    dataset('qualified', {
+      dimensions: [
+        dimension('buyer', 'qualified.customer_id'),
+        {
+          name: 'account',
+          type: 'string',
+          source: { kind: 'sql-expression', dialect: 'clickhouse', sql: 'lower(org_id)', output: {}, dependencies: ['org_id'] },
+          filterable: true,
+          groupable: true,
+        },
+      ],
+    }),
+    // A dimension named like a customer column over another physical column, and a
+    // related table's customer column: neither is a column tenantKey could name.
+    dataset('aliased', {
+      dimensions: [dimension('tenant_id', 'organization_ref')],
+      measures: [{ name: 'tenants', aggregation: 'countDistinct', field: 'tenant_id' }],
+      filters: [{ name: 'account', field: 'customer.account_id', operators: ['eq'] }],
+      relationships: [{ name: 'customer', kind: 'belongsTo', target: 'customers', from: 'customer_ref', to: 'id' }],
+    }),
   ],
 } as unknown as ProtocolDeploymentContract;
 
@@ -44,6 +64,7 @@ describe('tenant key candidates', () => {
     expect(unscopedTenantCandidates(contract)).toEqual([
       { dataset: 'orders', columns: ['Customer_ID'] },
       { dataset: 'seats', columns: ['workspace_id', 'company_id'] },
+      { dataset: 'qualified', columns: ['customer_id', 'org_id'] },
     ]);
   });
 });
