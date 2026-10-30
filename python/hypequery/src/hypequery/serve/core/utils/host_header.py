@@ -34,7 +34,15 @@ def request_host(value: str) -> str | None:
     A port above 65535 is malformed.
     """
 
+    authority = request_authority(value)
+    return None if authority is None else authority[0]
+
+
+def request_authority(value: str) -> tuple[str, int | None] | None:
+    """The normalised host and the port *value* names, or None when malformed."""
+
     match = _REQUEST_HOST.fullmatch(value)
     if match is None or (match[2] is not None and int(match[2]) > 65535):
         return None
-    return normalise_host(match[1])
+    host = normalise_host(match[1])
+    return None if host is None else (host, None if match[2] is None else int(match[2]))

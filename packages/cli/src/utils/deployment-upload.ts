@@ -13,9 +13,12 @@ import {
   type VerifiedDeploymentBundle,
 } from './deployment-bundle.js';
 import { logger } from './logger.js';
-import type { DeploymentSubmissionResponse } from '@hypequery/deployment';
+import type { DeploymentSubmissionResponse as BaseDeploymentSubmissionResponse } from '@hypequery/deployment';
+import { parseDraftDeploymentResult, validateDraftDeploymentOptions, type DraftDeploymentResult } from './draft-deployment.js';
 
-export type { DeploymentSubmissionResponse } from '@hypequery/deployment';
+export type DeploymentSubmissionResponse = BaseDeploymentSubmissionResponse & {
+  readonly draft?: DraftDeploymentResult;
+};
 
 const SHA256_PATTERN = /^[0-9a-f]{64}$/;
 const MAX_RESPONSE_BYTES = 64 * 1024;
@@ -69,6 +72,7 @@ export interface HttpDeploymentUploadTransportOptions {
   readonly token: string;
   readonly expectedActivationRevision?: string | null;
   readonly replaceRestored?: boolean;
+  readonly draft?: string;
   readonly timeoutMs?: number;
   readonly fetch?: DeploymentFetch;
 }
@@ -371,6 +375,7 @@ function validateSubmissionResponse(
   bundleIdentity: string,
   releaseIdentity: string,
   status: number,
+  expectedDraft?: { name: string; endpoint: string; project: string },
 ): DeploymentSubmissionResponse {
   const value = exactRecord(input, [
     'kind',
@@ -378,8 +383,11 @@ function validateSubmissionResponse(
     'status',
     'releaseIdentity',
     'bundleIdentity',
+    ...(expectedDraft ? ['draft'] : []),
   ]);
+  const draft = expectedDraft && value ? parseDraftDeploymentResult(value.draft, expectedDraft) : undefined;
   if (!value
+    || (expectedDraft && !draft)
     || value.kind !== 'hypequery-deployment-submission'
     || value.version !== 1
     || (value.status !== 'accepted' && value.status !== 'already-exists')
@@ -401,6 +409,7 @@ function validateSubmissionResponse(
     status: value.status,
     releaseIdentity: value.releaseIdentity,
     bundleIdentity: value.bundleIdentity,
+    ...(draft ? { draft } : {}),
   });
 }
 
@@ -448,6 +457,10 @@ const defaultFetch: DeploymentFetch = async (input, init) => (
 export function createHttpDeploymentUploadTransport(
   options: HttpDeploymentUploadTransportOptions,
 ): DeploymentUploadTransport {
+  validateDraftDeploymentOptions(options);
+  if (options.draft !== undefined && options.expectedActivationRevision !== undefined) {
+    configurationError('Draft uploads cannot specify an expected Production activation revision.');
+  }
   const endpoint = endpointUrl(options.endpoint);
   const token = bearerToken(options.token);
   const timeoutMs = timeout(options.timeoutMs);
@@ -482,6 +495,7 @@ export function createHttpDeploymentUploadTransport(
             'Idempotency-Key': preparedRelease.identity,
             'X-HypeQuery-Bundle-Identity': manifest.identity,
             'X-HypeQuery-Release-Identity': preparedRelease.identity,
+            ...(options.draft !== undefined ? { 'X-HypeQuery-Draft-Name': options.draft } : {}),
             ...(options.expectedActivationRevision !== undefined
               ? {
                   'X-HypeQuery-Expected-Activation-Revision':
@@ -538,6 +552,7 @@ export function createHttpDeploymentUploadTransport(
         manifest.identity,
         preparedRelease.identity,
         response.status,
+        options.draft !== undefined ? { name: options.draft, endpoint, project: preparedRelease.release.target.project } : undefined,
       );
     },
   };

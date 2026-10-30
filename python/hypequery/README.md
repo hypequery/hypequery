@@ -214,7 +214,10 @@ table that has it. The selection is recorded in `schema.json`, and
 `--exclude-tables` or `--all-tables`. The scaffold's `.env.example` and README
 repeat how discovery connected (`CLICKHOUSE_URL`, or the host, port and TLS
 setting), without credentials. Generated definitions and an exact schema snapshot describe
-your actual tables; existing output paths are never overwritten. Install the
+your actual tables; existing output paths are never overwritten. A table's or
+column's ClickHouse `COMMENT` becomes its dataset's or dimension's
+`description`, which client contracts and MCP agents see; whitespace is
+collapsed to single spaces to fit the deployment contract. Install the
 `clickhouse` extra and export connection settings before running init.
 Only explicit `--skip-connection` generates the offline orders demo and `seed.sql`.
 
@@ -630,9 +633,11 @@ framework's request (`HttpRequest`, Flask's `Request`).
   discovery name the paths the request was routed under, unless
   `create_api(client_mount_path=...)` names where the API is reached.
 - **CSRF.** A header credential (`Authorization: Bearer`, an API key header,
-  a JWT) is one a browser never attaches on its own, so Django's views for it
-  are CSRF-exempt. Django's CSRF middleware stays installed for the rest of
-  the project, and checks an API that uses the project's own login (below).
+  a JWT) is one a browser never attaches on its own, so Django's views and
+  Flask's blueprint for it are CSRF-exempt, Flask's from Flask-WTF's
+  `CSRFProtect` whether it is set up before or after the blueprint. Django's
+  CSRF middleware and `CSRFProtect` stay in place for the rest of the app, and
+  check an API that uses the app's own login (below).
 
 #### Your own login, with no token
 
@@ -691,7 +696,11 @@ protected against cross-site request forgery:
 
   A view rendering the page sets the cookie (`get_token(request)` or
   `@ensure_csrf_cookie`). Django's own `403` page answers a missing token.
-  Flask has no CSRF middleware; the same-origin check is its protection.
+- **Flask-WTF's `CSRFProtect`**, when the app uses it, checks them the same
+  way: the page sends `generate_csrf()`'s token (rendered into the page, for
+  example with `csrf_meta_tag()`) as `X-CSRFToken`, and Flask-WTF's own `400`
+  answers a missing one. Without Flask-WTF, the same-origin check is Flask's
+  protection.
 
 The tenant still comes only from the principal: no header, query parameter or
 body field can choose it.

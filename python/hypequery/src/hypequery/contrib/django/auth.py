@@ -14,6 +14,21 @@ A page served by the same project then calls the endpoints with its session
 cookie and no token. Django's ``SessionMiddleware`` and
 ``AuthenticationMiddleware`` must run for the API's URLs, and its CSRF
 middleware checks unsafe requests (`views.py`).
+
+The page sends the ``csrftoken`` cookie's value as ``X-CSRFToken``, so the
+view that serves the page must set that cookie: Django sets it only when a
+response used the token. Decorate that view with
+``django.views.decorators.csrf.ensure_csrf_cookie``, or render a template
+with ``{% csrf_token %}``::
+
+    @login_required
+    @ensure_csrf_cookie
+    def dashboard(request):
+        return render(request, "dashboard.html")
+
+Without the cookie, Django's CSRF middleware answers ``403`` with its own HTML
+page before hypequery runs, even for a signed-out user, so the frontend sees
+neither hypequery's JSON error nor a ``401``.
 """
 
 from __future__ import annotations

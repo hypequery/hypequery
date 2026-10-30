@@ -1,7 +1,7 @@
 import path from 'node:path';
 import { decodeProtocolClientContract } from '@hypequery/protocol';
 import { renderClientContract } from '../generators/client-contract/render.js';
-import { checkClientOutputPath, readClientArtifact, readClientOutput } from '../utils/client-contract-file.js';
+import { checkClientOutputPath, describeClientContractError, readClientArtifact, readClientOutput } from '../utils/client-contract-file.js';
 import { writeGeneratedFileAtomically } from '../utils/generated-file.js';
 import { logger } from '../utils/logger.js';
 import { updateCommandTelemetry, setCommandTelemetryError } from '../utils/telemetry/command-context.js';
@@ -17,7 +17,13 @@ export async function generateClientCommand(artifact: string, options: GenerateC
   if (input === output) throw new Error('Client input and output must be different files.');
   await checkClientOutputPath(output);
   const current = await readClientOutput(output);
-  const contract = decodeProtocolClientContract(await readClientArtifact(input));
+  const text = await readClientArtifact(input);
+  let contract: ReturnType<typeof decodeProtocolClientContract>;
+  try {
+    contract = decodeProtocolClientContract(text);
+  } catch (error) {
+    throw describeClientContractError(error);
+  }
   if (contract.view !== 'build') throw new Error('Client generation requires a build view exported by the definition owner.');
   const contents = renderClientContract(contract);
   if (Buffer.byteLength(contents) > 16 * 1_048_576) throw new Error('Generated client exceeds the 16 MiB output limit.');

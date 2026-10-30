@@ -15,10 +15,22 @@ import {
   serializeResponseBody,
 } from "./utils.js";
 import { adapterErrorHeaders } from "../utils/error-headers.js";
+import {
+  declaresRequestBody,
+  isNodeBodyConsumed,
+  readPreParsedBody,
+  resolveNodeRequestUrl,
+} from "../utils/node-request.js";
 
 const DEFAULT_REQUEST_TIMEOUT = 30_000; // 30 seconds
 const DEFAULT_BODY_LIMIT = 1_048_576; // 1 MB
 const DEFAULT_GRACEFUL_SHUTDOWN_TIMEOUT = 10_000; // 10 seconds
+
+const payloadTooLarge = () => {
+  const error = new Error("Request body too large");
+  (error as any).code = "PAYLOAD_TOO_LARGE";
+  return error;
+};
 
 const readRequestBody = async (
   req: IncomingMessage,
@@ -32,9 +44,7 @@ const readRequestBody = async (
     totalLength += buf.length;
 
     if (bodyLimit > 0 && totalLength > bodyLimit) {
-      const error = new Error("Request body too large");
-      (error as any).code = "PAYLOAD_TOO_LARGE";
-      throw error;
+      throw payloadTooLarge();
     }
 
     chunks.push(buf);
@@ -43,16 +53,55 @@ const readRequestBody = async (
   return Buffer.concat(chunks);
 };
 
+const resolveRequestBody = async (
+  req: IncomingMessage,
+  bodyLimit: number,
+  contentType: string | undefined,
+): Promise<unknown> => {
+  if (!isNodeBodyConsumed(req)) {
+    return parseRequestBody(await readRequestBody(req, bodyLimit), contentType);
+  }
+
+  // A body parser (express.json(), NestJS, koa-bodyparser, ...) already read
+  // the stream. Use what it left on req.body; it has applied its own limit.
+  const preParsed = readPreParsedBody(req);
+  if (preParsed.kind === "parsed") return preParsed.value;
+  if (preParsed.kind === "raw") {
+    if (bodyLimit > 0 && preParsed.buffer.length > bodyLimit) {
+      throw payloadTooLarge();
+    }
+    return parseRequestBody(preParsed.buffer, contentType);
+  }
+
+  if (declaresRequestBody(req)) {
+    // The body is gone and nothing exposed it. Fail loudly rather than
+    // validating an empty body and returning a misleading 400.
+    throw {
+      status: 500,
+      body: {
+        error: {
+          type: "INTERNAL_SERVER_ERROR",
+          message:
+            "The request body was consumed before the hypequery handler ran. " +
+            "Register the handler before body-parsing middleware, or set " +
+            "req.body to the parsed body (for Fastify: request.raw.body = request.body).",
+        },
+      },
+    } satisfies ServeResponse;
+  }
+
+  return undefined;
+};
+
 const buildServeRequest = async (
   req: IncomingMessage,
   bodyLimit: number,
 ): Promise<ServeRequest> => {
   const method = (req.method ?? "GET").toUpperCase() as HttpMethod;
-  const url = new URL(req.url ?? "/", "http://localhost");
-  const bodyBuffer = await readRequestBody(req, bodyLimit);
+  const url = new URL(resolveNodeRequestUrl(req), "http://localhost");
   const headers = normalizeHeaders(req.headers);
   const contentType = headers["content-type"] ?? headers["Content-Type"];
-  const body = await parseRequestBody(bodyBuffer, contentType);
+  const body = await resolveRequestBody(req, bodyLimit, contentType);
 
   return {
     method,

@@ -96,6 +96,15 @@ describe('offline client generation', () => {
     expect(decodeProtocolClientContract(await readFile(input, 'utf8')).contentHash).toBe(contract.contentHash);
   });
 
+  it('names an unknown contract field and suggests upgrading the CLI', async () => {
+    const { input, output } = await project();
+    await writeFile(input, JSON.stringify({ ...contract, endpoints: [{ ...contract.endpoints[0], newerField: {} }, ...contract.endpoints.slice(1)] }));
+    await expect(generateClientCommand(input, { output })).rejects.toThrow(
+      'Unknown client contract field at /endpoints/0/newerField (HQ_CLIENT_UNKNOWN_FIELD). The contract may come from a newer hypequery than this CLI; upgrade @hypequery/cli.',
+    );
+    await expect(stat(output)).rejects.toMatchObject({ code: 'ENOENT' });
+  });
+
   it('refuses conflicting flags', async () => {
     const { input, output } = await project();
     await expect(generateClientCommand(input, { output, check: true, force: true })).rejects.toThrow('--force');

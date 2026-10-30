@@ -814,6 +814,20 @@ wheels = [
 ]
 
 [[package]]
+name = "flask-wtf"
+version = "1.3.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "flask" },
+    { name = "itsdangerous" },
+    { name = "wtforms" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/91/f1/605a56d4ea217b307f3e6f4d663e0351253d85d841edc93ba559f0648e19/flask_wtf-1.3.0.tar.gz", hash = "sha256:61d5dabc50c3df885c297dcbd80810443a5d632106c8a69cab8ce740f0cdd7cc", size = 50414, upload-time = "2026-04-23T07:41:55.096Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/14/d2/97adf2ec7af95522573e6dd5493ee84792d0fbfb2def010c4a581b8d6e5e/flask_wtf-1.3.0-py3-none-any.whl", hash = "sha256:dc5e3a4ce97f75c47bf6c1c72ad2c3b7bdf579a2ed13aebcc5d3d81fe2571160", size = 13959, upload-time = "2026-04-23T07:41:53.828Z" },
+]
+
+[[package]]
 name = "frozenlist"
 version = "1.8.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1106,6 +1120,7 @@ server = [
 dev = [
     { name = "coverage" },
     { name = "flask-login" },
+    { name = "flask-wtf" },
     { name = "httpx" },
     { name = "hypothesis" },
     { name = "import-linter" },
@@ -1159,6 +1174,7 @@ provides-extras = ["clickhouse", "clickhouse-async", "server", "jwt", "pandas", 
 dev = [
     { name = "coverage", specifier = ">=7.10" },
     { name = "flask-login", specifier = ">=0.6.3" },
+    { name = "flask-wtf", specifier = ">=1.2" },
     { name = "httpx", specifier = ">=0.27" },
     { name = "hypothesis", specifier = ">=6.100" },
     { name = "import-linter", specifier = ">=2.0" },
@@ -2692,6 +2708,18 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/a4/34/4dd12fc8bb7d61c91467ec3efe415ffa7d5456f799954b40c5bbaeae470e/werkzeug-3.1.9.tar.gz", hash = "sha256:55ca7c70a75689be937aa27f8ff4b018f06ff4838fc73045560bf0f5a1291060", size = 940188, upload-time = "2026-09-27T18:33:41.637Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/a1/38/df03f564f43cec2684823f3cccae1a652ee7face1cbaa76fb223096e64d7/werkzeug-3.1.9-py3-none-any.whl", hash = "sha256:6392e50c78460ba618e5b21f08a71f59c99ce99cdc6cf6e3dd7e6ccca8754fab", size = 228700, upload-time = "2026-09-27T18:33:39.685Z" },
+]
+
+[[package]]
+name = "wtforms"
+version = "3.3.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "markupsafe" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/ef/5b/588dc20774f4cebeac23908a87e493f2f6fb2a4c54756675cd59afb8cc72/wtforms-3.3.1.tar.gz", hash = "sha256:9d10ccb5740290c9ae6673522d87bcae3b669cf0cb4e4584aee229b4694af10c", size = 172349, upload-time = "2026-10-24T07:19:37.624Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/a6/67/0f56cd0f8ac699259476fc9a520aa6b09b0e7e4da776f91c48f6965dc486/wtforms-3.3.1-py3-none-any.whl", hash = "sha256:2f4728ef3f67173c22590e60e845937598af7455474330fdb84354a609d67ec1", size = 171964, upload-time = "2026-10-24T07:19:35.892Z" },
 ]
 
 [[package]]
