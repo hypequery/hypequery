@@ -33,6 +33,10 @@ client = create_dataset_client(executor=executor, registry=registry)
 
 def authenticate(credential: Credential) -> Principal | None:
     if secrets.compare_digest(credential.value, DEV_TOKEN):
+        # This principal has no tenant, so datasets with a tenant_key refuse it
+        # with 403 "requires runtime tenant scoping". To test one tenant locally:
+        #     return Principal(subject="developer", tenant_id="org_123")
+        # Before real users, replace this check so the tenant comes from them.
         return Principal(subject="developer")
     return None
 

@@ -100,6 +100,36 @@ def test_standalone_is_the_default(tmp_path: Path, capsys: pytest.CaptureFixture
     assert "Then run: cd" in capsys.readouterr().out
 
 
+def test_standalone_readme_explains_tenant_scoping(tmp_path: Path) -> None:
+    project = _init(tmp_path, "--tenant-column", "org_id")
+    readme = (project / "README.md").read_text()
+    assert "The datasets are scoped by `org_id`" in readme
+    fix = 'return Principal(subject="developer", tenant_id="org_123")'
+    assert fix in readme
+    assert fix in (project / "app.py").read_text()
+    count = {"measures": ["totalCount"]}
+    rows = {"columns": ["totalCount"], "rows": [[5]]}
+    refused = _serve(
+        "standalone", project, [_post("/datasets/orders/query", count, headers=TOKEN)], rows
+    )
+    assert refused[0][0] == 403
+    assert "requires runtime tenant scoping" in json.dumps(refused[0][1])
+    # The README's fix, applied to the line it names, lets the query run.
+    scoped = _serve(
+        "standalone",
+        project,
+        [_post("/datasets/orders/query", count, headers=TOKEN)],
+        rows,
+        edit={"app.py": ('        return Principal(subject="developer")', f"        {fix}")},
+    )
+    assert scoped == [(200, {"data": [{"totalCount": "5"}]})]
+
+
+def test_standalone_readme_omits_tenant_guidance_without_a_tenant(tmp_path: Path) -> None:
+    readme = (_init(tmp_path) / "README.md").read_text()
+    assert "requires runtime" not in readme
+
+
 def test_the_framework_choices_are_named_for_what_they_write() -> None:
     with pytest.raises(SystemExit) as exc:
         main(["init", "--framework", "fastapi", "--skip-connection"])

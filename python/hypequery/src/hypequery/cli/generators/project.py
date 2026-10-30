@@ -66,6 +66,23 @@ def schema_templates(
         "\n".join(f"- {warning}" for warning in generated.warnings)
         or "No unsupported columns or ambiguous time keys were found."
     )
+    scoped = (
+        f"""
+The datasets are scoped by `{generated.tenant_column}`, and the development token's
+principal has no tenant, so queries answer `403 FORBIDDEN` ("requires runtime
+tenant scoping") until `authenticate` in `app.py` gives it one. For local
+testing, return a principal for one tenant:
+
+```python
+return Principal(subject="developer", tenant_id="org_123")
+```
+
+Before real users, replace the token check with your own authentication so the
+tenant comes from the signed-in user.
+"""
+        if generated.tenant_column
+        else ""
+    )
     run_section = (
         f"""## Run and query
 
@@ -78,7 +95,7 @@ curl -s -X POST http://127.0.0.1:8000/datasets/{generated.tables[0]}/query \\
   -H "Content-Type: application/json" \\
   -d '{payload}'
 ```
-"""
+{scoped}"""
         if framework == "standalone"
         else readme_section(
             framework, generated.tables[0], payload, tenant_column=generated.tenant_column

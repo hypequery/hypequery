@@ -1,0 +1,1 @@
+- `hypequery init --tenant-column` (standalone): the generated README now explains why queries answer `403 FORBIDDEN` ("requires runtime tenant scoping") and how to give the development token's principal a tenant in `app.py`, which also carries a commented hint. The default stays fail-closed.
