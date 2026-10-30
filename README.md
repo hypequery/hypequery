@@ -9,7 +9,7 @@
 
 <p align="center"><strong>The analytics layer for ClickHouse.</strong></p>
 
-Define your metrics once, in the codebase you already have. Dashboards, APIs, and AI agents all answer from that one definition. Run it in your own backend, or on hypequery cloud.
+Define your metrics once, in the codebase you already have. Dashboards, APIs, and AI agents all answer from that one definition. Run it in your own backend today. A hosted option, hypequery cloud, is coming soon.
 
 hypequery is open source, with SDKs for TypeScript and Python. Model datasets, dimensions, and measures in code, query them by name with tenant isolation built in, then serve them as authenticated HTTP endpoints, typed React hooks, and MCP tools for agents. There's no separate BI server and no YAML project.
 

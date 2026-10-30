@@ -5,6 +5,7 @@ description: Command cheatsheet for the hypequery CLI
 ---
 
 import { CodeBlock } from 'fumadocs-ui/components/codeblock';
+import { Callout } from 'fumadocs-ui/components/callout';
 
 <div class="prose">
 
@@ -72,7 +73,7 @@ npx hypequery dev
 | `hypequery generate` | Rebuild `analytics/schema.ts` from your current ClickHouse schema |
 | `hypequery generate:types` | Alias for `hypequery generate` |
 | `hypequery generate:datasets` | Generate dataset (semantic layer) definitions from your ClickHouse schema |
-| `hypequery deploy <cloud>` | Build, release, and deploy a dataset-only Cloud publication, then print where it is served |
+| `hypequery deploy <cloud>` | Build, release, and deploy a dataset-only Cloud publication, then print where it is served (hypequery cloud is not live yet) |
 | `hypequery mcp [file]` | Serve this project's datasets to an MCP client over stdio, or check an endpoint with `--self-test` |
 | `hypequery deployment:validate <artifact>` | Verify a deployment bundle or validate contract JSON and report its identity |
 | `hypequery help [command]` | Show help for the CLI or a specific command |
@@ -347,6 +348,11 @@ npx @hypequery/cli generate:datasets --path analytics --check
 </CodeBlock>
 
 ## `hypequery deploy <cloud>`
+
+<Callout type="warn" title="hypequery cloud is not live yet">
+  `hypequery deploy` and the other Cloud commands need a Cloud account, which you can't create yet. They are
+  documented ahead of launch. Join the waitlist from the [homepage](/).
+</Callout>
 
 Builds the publication module, prepares a release for the logged-in target,
 and submits it. Once Cloud accepts the release, the CLI prints where it's

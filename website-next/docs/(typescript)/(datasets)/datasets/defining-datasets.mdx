@@ -54,7 +54,7 @@ With `rowResolution`:
 - Joins that target the dataset read it with `FINAL` too, so a versioned dimension table can't fan out or pick a stale row.
 - `checkRelationships` counts keys on the resolved rows.
 - For `ReplacingMergeTree(ver, is_deleted)`, rows whose latest version is deleted disappear. A plain `WHERE is_deleted = 0` can't do this, because it keeps a deleted key's earlier versions.
-- It survives publishing to a deployment contract (hypequery Cloud, MCP) unchanged: the published dataset reads exactly as it does locally.
+- It survives publishing to a deployment contract (MCP, or hypequery Cloud once it launches) unchanged: the published dataset reads exactly as it does locally.
 
 Name the engine to also keep only current rows after `FINAL`: rows whose deletion column is 0, for a deletion column the engine doesn't declare, or whose sign column is 1 in a collapsing table:
 
