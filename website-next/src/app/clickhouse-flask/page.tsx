@@ -114,7 +114,7 @@ export default function ClickHouseFlaskPage() {
         description:
           'Results convert to typed pandas, Polars or Arrow frames using the dataset definition, so an export route is a few lines and its numbers match the dashboard.',
         paragraphs: [
-          '`pip install "hypequery[flask,pandas]"`. Decimals become floats by default; pass `decimals="decimal"` to keep them exact.',
+          '`pip install "hypequery[flask,pandas]==0.1.0b1"`. Decimals become floats by default; pass `decimals="decimal"` to keep them exact.',
           'For typed React hooks or the MCP bridge, hypequery’s HTTP endpoints run as their own service today; a native Flask blueprint that uses your Flask login is on the way.',
         ],
         codePanel: {

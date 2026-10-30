@@ -21,7 +21,7 @@ Today we are launching the **hypequery for Python beta**: the same code-first se
 You define datasets in Python: the dimensions people can group by, the measures they can aggregate, the relationships between tables, and the tenant rules every query must follow. Then you query those definitions by name from jobs, notebooks, and services, serve them over HTTP from the framework you already use (FastAPI, Django, Flask, or any ASGI or WSGI app) with authentication on by default, and use the same definitions from generated, type-safe React hooks and from AI agents over MCP.
 
 ```bash
-pip install "hypequery[clickhouse]"
+pip install "hypequery[clickhouse]==0.1.0b1"
 ```
 
 This is a beta (`0.1.0b1`): the APIs may still change before 1.0, so pin the version you deploy.

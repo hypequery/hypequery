@@ -33,7 +33,7 @@ if __name__ == "__main__":
 ```
 </CodeBlock>
 
-`start_server` needs the `server` extra (`pip install "hypequery[server]"`). `run_production` is the same function.
+`start_server` needs the `server` extra (`pip install "hypequery[server]==0.1.0b1"`). `run_production` is the same function.
 To close an executor at shutdown, pass the ASGI app with a lifespan:
 `start_server(to_asgi_app(api, lifespan=...))`.
 

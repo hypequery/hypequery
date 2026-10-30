@@ -10,7 +10,7 @@ CLI. Install the serving and ClickHouse extras for the full onboarding path:
 
 <CodeBlock>
 ```bash
-pip install "hypequery[server,clickhouse]"
+pip install "hypequery[server,clickhouse]==0.1.0b1"
 export CLICKHOUSE_HOST=localhost CLICKHOUSE_USERNAME=default CLICKHOUSE_PASSWORD=... CLICKHOUSE_DATABASE=analytics
 hypequery init --path my-analytics
 cd my-analytics
