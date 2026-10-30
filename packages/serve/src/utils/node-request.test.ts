@@ -49,4 +49,21 @@ describe("readPreParsedBody", () => {
     const buffer = Buffer.from("raw");
     expect(readPreParsedBody(mockRequest({ body: buffer }))).toEqual({ kind: "raw", buffer });
   });
+
+  it("keeps a JSON string that express.json({ strict: false }) already decoded", () => {
+    // The client sent `"123"` (5 bytes); the parser left the string `123`.
+    const decoded = mockRequest({
+      body: "123",
+      headers: { "content-type": "application/json", "content-length": "5" },
+    });
+    expect(readPreParsedBody(decoded)).toEqual({ kind: "parsed", value: "123" });
+
+    // express.text({ type: "application/json" }) leaves the raw text, whose
+    // length matches what the client declared.
+    const rawText = mockRequest({
+      body: '{"n":1}',
+      headers: { "content-type": "application/json", "content-length": "7" },
+    });
+    expect(readPreParsedBody(rawText)).toEqual({ kind: "raw", buffer: Buffer.from('{"n":1}') });
+  });
 });

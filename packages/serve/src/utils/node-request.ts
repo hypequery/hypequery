@@ -45,16 +45,32 @@ export type PreParsedBody =
   | { kind: "parsed"; value: unknown };
 
 /**
+ * True when a string `req.body` is a JSON value that a parser already decoded
+ * (`express.json({ strict: false })` turns `"123"` into the string `123`)
+ * rather than the raw text of the request. Raw text always has the byte length
+ * the client declared; a decoded JSON string is at least two bytes shorter
+ * because its quotes are gone.
+ */
+const isDecodedJsonString = (req: IncomingMessage, body: string): boolean => {
+  const contentType = req.headers["content-type"];
+  if (typeof contentType !== "string" || !contentType.includes("application/json")) {
+    return false;
+  }
+  const length = Number(req.headers["content-length"]);
+  return !(Number.isFinite(length) && length === Buffer.byteLength(body, "utf8"));
+};
+
+/**
  * The body an upstream parser left on `req.body`. Strings and Buffers
  * (express.text(), express.raw()) are returned as raw bytes so the adapter can
- * apply its own size limit and content-type parsing; anything else is already
- * parsed and is used as-is.
+ * apply its own size limit and content-type parsing; anything else, including
+ * a JSON string a JSON parser already decoded, is used as-is.
  */
 export const readPreParsedBody = (req: IncomingMessage): PreParsedBody => {
   const { body } = req as FrameworkRequest;
   if (body === undefined) return { kind: "none" };
   if (Buffer.isBuffer(body)) return { kind: "raw", buffer: body };
-  if (typeof body === "string") {
+  if (typeof body === "string" && !isDecodedJsonString(req, body)) {
     return { kind: "raw", buffer: Buffer.from(body, "utf8") };
   }
   return { kind: "parsed", value: body };
