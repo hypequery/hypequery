@@ -28,6 +28,7 @@ import {
   buildDeploymentCommand,
   prepareDeploymentReleaseCommand,
 } from './deployment.js';
+import { generateClientCommand } from './generate-client.js';
 
 const MAX_RELEASE_FILE_BYTES = 16 * 1024;
 const DEFAULT_BUNDLE_PATH = 'analytics/hypequery-deployment';
@@ -52,6 +53,8 @@ export interface DeployOptions {
   releaseOutput?: string;
   source?: boolean;
   mcpConfig?: boolean;
+  /** Regenerate this typed client file from the new live release. */
+  client?: string;
 }
 
 export interface SubmitDeploymentDependencies {
@@ -66,6 +69,7 @@ export interface DeployDependencies extends SubmitDeploymentDependencies {
   readonly buildDeployment?: typeof buildDeploymentCommand;
   readonly prepareDeploymentRelease?: typeof prepareDeploymentReleaseCommand;
   readonly submitDeployment?: typeof submitDeploymentCommand;
+  readonly generateClient?: typeof generateClientCommand;
 }
 
 async function readReleaseFile(releasePath: string): Promise<unknown> {
@@ -285,11 +289,32 @@ export async function deployCommand(
     loadCredential: dependencies.loadCredential,
     outputFlagLabel: '--release-output',
   });
-  return submit(bundlePath, {
+  const result = await submit(bundlePath, {
     release: releasePath,
     endpoint: options.endpoint,
     replaceRestored: options.replaceRestored,
     mcpConfig: options.mcpConfig,
     ...(options.draft !== undefined ? { draft: options.draft } : {}),
   }, dependencies);
+  // A draft isn't live, so the client keeps matching Production.
+  if (options.client !== undefined && options.draft === undefined) {
+    try {
+      await (dependencies.generateClient ?? generateClientCommand)(undefined, {
+        cloud: true,
+        output: options.client,
+        force: true,
+        endpoint: options.endpoint,
+        project: options.project,
+        environment: options.environment,
+      }, dependencies);
+    } catch (error) {
+      // The release is live either way; say how to catch the client up.
+      logger.warn(
+        `Deployed, but ${options.client} was not regenerated: `
+        + (error instanceof Error ? error.message : String(error)),
+      );
+      logger.indent(`Run \`hypequery generate:client --cloud --output ${options.client} --force\` to retry.`);
+    }
+  }
+  return result;
 }

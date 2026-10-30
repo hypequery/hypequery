@@ -2,7 +2,7 @@ export { createHooks, queryOptions } from './createHooks.js';
 export { createAnalyticsHooks } from './analyticsHooks.js';
 export { createHypequeryClient } from './client.js';
 export { HypequeryProvider, useHypequeryClient } from './provider.js';
-export { HttpError } from './errors.js';
+export { ClientSchemaChangedError, HttpError } from './errors.js';
 export type { QueryInput, QueryOutput, QueryOutputForInput, HttpMethod } from './types.js';
 export type { CreateHooksConfig } from './createHooks.js';
 export type {

@@ -33,8 +33,13 @@ function endpointDoc(endpoint: ProtocolClientEndpoint): ClientFieldAnnotation | 
   return metric ?? endpoint.annotations;
 }
 
+export interface RenderClientContractOptions {
+  /** Where the endpoints are served; emitted as `clientBaseUrl` (its origin, since paths are absolute). */
+  readonly baseUrl?: string;
+}
+
 /** Data-only generator: no API module evaluation, credentials, drivers or server dependencies. */
-export function renderClientContract(source: unknown): string {
+export function renderClientContract(source: unknown, options: RenderClientContractOptions = {}): string {
   const contract = validateProtocolClientContract(source);
   const endpoints = [...contract.endpoints].sort((a, b) => a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
   const entries = endpoints.map(endpoint => ({ endpoint, key: endpoint.kind === 'dataset' ? `dataset:${endpoint.id}` : endpoint.id }));
@@ -54,5 +59,5 @@ export const clientManifest = {
 ${entries.map(({ endpoint, key }) => `  [${literal(key)}]: { method: 'POST', path: ${literal(endpoint.path)}, schemaHash: ${literal(endpoint.schemaHash)} },`).join('\n')}
 } as const;
 export const clientContractHash = ${literal(contract.contentHash)} as const;
-`;
+${options.baseUrl === undefined ? '' : `export const clientBaseUrl = ${literal(new URL(options.baseUrl).origin)} as const;\n`}`;
 }

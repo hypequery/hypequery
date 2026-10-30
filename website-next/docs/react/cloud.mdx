@@ -1,0 +1,114 @@
+---
+title: Connect React to hypequery Cloud
+description: Typed hooks on published Cloud datasets, with each customer seeing only their own rows
+---
+
+import { Callout } from 'fumadocs-ui/components/callout';
+import { Step, Steps } from 'fumadocs-ui/components/steps';
+
+Once your datasets are published to hypequery Cloud, a React app can query them
+with typed hooks. You don't write route config or types by hand, and you don't
+need a server proxy.
+
+<Steps>
+  <Step>
+    ### Generate the client from the live release
+
+    ```bash
+    npm install @hypequery/react @tanstack/react-query
+    npx hypequery login            # once per machine: picks the project and environment
+    npx hypequery generate:client --cloud --output src/hypequery-client.ts
+    ```
+
+    This writes:
+
+    - `ClientApi`: the types of every published dataset.
+    - `clientManifest`: each dataset's route and schema hash.
+    - `clientBaseUrl`: where the environment is served, such as
+      `https://acme-production.hypequery.app`.
+
+    Commit the file. To keep it current:
+
+    - `hypequery deploy analytics/cloud.ts --client src/hypequery-client.ts`
+      regenerates it every time you publish.
+    - `npx hypequery generate:client --cloud --output src/hypequery-client.ts --check`
+      fails CI when it has drifted.
+  </Step>
+
+  <Step>
+    ### Create the hooks with your user's token
+
+    ```tsx
+    // src/analytics.ts
+    import { createAnalyticsHooks } from '@hypequery/react';
+    import { clientBaseUrl, clientManifest, type ClientApi } from './hypequery-client';
+
+    export const { useDataset } = createAnalyticsHooks<ClientApi>({
+      baseUrl: clientBaseUrl,
+      manifest: clientManifest,
+      token: () => getUserToken(),
+    });
+    ```
+
+    `getUserToken` returns a short-lived **end-user token**. Never put an API key
+    (`hqgw_…`) in browser code: Cloud answers browsers only for end-user tokens.
+    The token is one of:
+
+    - **Your own JWT** (Clerk, Auth0, Supabase, Cognito or any JWKS issuer).
+      Register the issuer for the environment and name the claim that holds the
+      customer ID. The browser then sends the token your auth provider already
+      gives it, with no backend code.
+    - **A hypequery token minted by your backend.** Your server checks who is
+      signed in, then calls `POST https://<environment>.hypequery.app/embed/tokens`
+      with a server API key and `{ "subject", "tenantId", "permissionSet" }`, and
+      returns the `token`. The customer must be registered in the environment's
+      tenant registry.
+
+    Either way, the customer comes from the signed token, so a user only ever sees
+    their own customer's rows. Add your app's origin to the environment's allowed
+    origins (`http://localhost:3000` for development).
+  </Step>
+
+  <Step>
+    ### Query
+
+    ```tsx
+    import { useDataset } from './analytics';
+
+    export function RevenueByCountry() {
+      const { data, error, isLoading } = useDataset('orders', {
+        dimensions: ['country'],
+        measures: ['revenue'],
+      });
+      if (isLoading) return <p>Loading…</p>;
+      if (error) return <p>{error.message}</p>;
+      return <pre>{JSON.stringify(data?.data, null, 2)}</pre>;
+    }
+    ```
+
+    Dataset names, dimensions and measures type-check against the live release.
+    Wrap the app in `HypequeryProvider`, or in your own `QueryClientProvider`, as
+    in [Getting Started](/docs/react/getting-started).
+  </Step>
+</Steps>
+
+## When the model changes
+
+Each request carries the schema hash its endpoint was generated from. If a
+publish changes an endpoint, Cloud refuses requests from the old client with
+`409 CLIENT_SCHEMA_CHANGED`, and the hook's `error` is a
+`ClientSchemaChangedError`, which is still an `HttpError`. Regenerate the client,
+review the type errors, and redeploy your app:
+
+```tsx
+import { ClientSchemaChangedError } from '@hypequery/react';
+
+if (error instanceof ClientSchemaChangedError) {
+  // Ship a build with a regenerated client; retrying won't help.
+}
+```
+
+<Callout type="info">
+  `generate:client --cloud` and the `409` check need a Cloud release that serves
+  client contracts. If yours doesn't yet, the command says so and writes nothing.
+</Callout>
