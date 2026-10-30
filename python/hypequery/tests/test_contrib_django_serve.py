@@ -190,7 +190,7 @@ def test_allowed_hosts_is_checked_without_common_middleware() -> None:
             "/api/echo",
             {"x": 1},
             content_type="application/json",
-            headers={**AUTH, "host": "evil.example"},
+            headers={**AUTH, "host": "evil.example", "x-request-id": "trace-1"},
         )
 
         async def post() -> Any:
@@ -198,7 +198,7 @@ def test_allowed_hosts_is_checked_without_common_middleware() -> None:
                 "/api/echo",
                 {"x": 1},
                 content_type="application/json",
-                headers={**AUTH, "host": "evil.example"},
+                headers={**AUTH, "host": "evil.example", "x-request-id": "trace-1"},
             )
 
         asynchronous = asyncio.run(post())
@@ -212,6 +212,8 @@ def test_allowed_hosts_is_checked_without_common_middleware() -> None:
         assert refused.content == b"Invalid host header"
         assert refused["Cache-Control"] == "no-store"
         assert refused["X-Content-Type-Options"] == "nosniff"
+        assert len(refused["X-Request-Id"]) == 32
+        assert refused["X-Correlation-Id"] == "trace-1"
     assert allowed.status_code == 200
 
 
