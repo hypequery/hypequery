@@ -4,10 +4,10 @@ import { useRef, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { motion, useReducedMotion } from 'motion/react';
 import * as Popover from '@radix-ui/react-popover';
-import { ArrowUpRight, ChevronDown, Cloud, Code2, Database, Send } from 'lucide-react';
-import { SiClaude, SiClickhouse, SiGooglegemini, SiModelcontextprotocol, SiPython, SiReact, SiTypescript } from 'react-icons/si';
+import { ArrowUpRight, Braces, ChevronDown, Cloud, Code2, Database } from 'lucide-react';
+import { SiClaude, SiClickhouse, SiGooglegemini, SiModelcontextprotocol, SiOpenapiinitiative, SiPython, SiReact, SiTypescript } from 'react-icons/si';
 import { RiOpenaiFill } from 'react-icons/ri';
-import { AppChat, ClaudeTerminal, useAiAnswers } from './AiAnswers';
+import { ClaudeTerminal, useAiAnswers } from './AiAnswers';
 import { HypequeryMascotIcon } from '../HypequeryMascotIcon';
 import './ProductExplainer.css';
 
@@ -65,10 +65,10 @@ export function ProductExplainer({ modelCode, dashboardCode }: { modelCode: Reac
     <section aria-labelledby="product-explainer-title" className="overflow-x-clip mx-auto max-w-[1280px] px-5 pt-14 sm:px-8 sm:pt-20">
       <motion.div variants={ENTRANCE} initial={reducedMotion ? false : "hidden"} whileInView="visible" viewport={{ once: true, amount: 0.2 }} custom={0} className="mx-auto max-w-[660px] text-center">
         <h2 id="product-explainer-title" className="home-section-title text-text">One model behind every answer</h2>
-        <p className="mx-auto mt-4 max-w-[570px] text-sm leading-6 text-text-muted sm:text-base">Your dashboards, embedded AI chat and agents like Claude all query the same model, with the same tenant rules.</p>
+        <p className="mx-auto mt-4 max-w-[570px] text-sm leading-6 text-text-muted sm:text-base">Your dashboards, APIs and agents like Claude all query the same model, with the same tenant rules.</p>
       </motion.div>
 
-      <motion.div variants={ENTRANCE} initial={reducedMotion ? false : "hidden"} whileInView="visible" viewport={{ once: true, amount: 0.2 }} custom={0.06} className="relative mt-9 h-[290px] sm:mt-12" role="figure" aria-label="ClickHouse tables flow into a shared hypequery model, then into dashboards, chat, and MCP agents">
+      <motion.div variants={ENTRANCE} initial={reducedMotion ? false : "hidden"} whileInView="visible" viewport={{ once: true, amount: 0.2 }} custom={0.06} className="relative mt-9 h-[290px] sm:mt-12" role="figure" aria-label="ClickHouse tables flow into a shared hypequery model, then into dashboards, APIs, and MCP agents">
         <div className="absolute inset-x-0 -top-1 flex items-center justify-center gap-2 text-[11px] text-text-muted">
           <SiClickhouse className="h-3.5 w-3.5 text-[#d6a500]" aria-hidden="true" />
           <span>ClickHouse Cloud, chDB, or self-hosted</span>
@@ -153,13 +153,31 @@ export function ProductExplainer({ modelCode, dashboardCode }: { modelCode: Reac
         </motion.article>
         <motion.article variants={ENTRANCE} initial={reducedMotion ? false : "hidden"} whileInView="visible" viewport={{ once: true, amount: 0.15 }} custom={0.06} onMouseEnter={() => setActiveConnection(4)} onMouseLeave={() => setActiveConnection(null)} onFocusCapture={() => setActiveConnection(4)} onBlurCapture={() => setActiveConnection(null)} className="explainer-consumer min-w-0 pb-7 md:px-6 md:pt-7 lg:px-8">
           <div className="explainer-link md:hidden" aria-hidden="true" />
-          <div className="flex items-center gap-2.5"><Send className="h-4.5 w-4.5 text-accent" aria-hidden="true" /><h3 className="text-xl font-medium tracking-tight text-text">Embedded chat</h3><span className="ml-auto rounded-full border border-border px-2 py-0.5 text-[10px] font-normal text-text-muted">Coming soon</span></div>
-          <p className="mt-3 max-w-[350px] text-sm leading-6 text-text-muted">Let customers ask questions about their own data, inside your app.</p>
-          <div className={`explainer-preview mt-6 ${PREVIEW_HEIGHT}`}>
-            <div style={{ zoom: PANEL_SCALE, height: PANEL_HEIGHT }}>
-              <AppChat elapsed={answers.elapsed} reduced={answers.reduced} className="h-full" />
+          <div className="flex items-center gap-2.5"><Braces className="h-5 w-5 text-accent" aria-hidden="true" /><h3 className="text-xl font-medium tracking-tight text-text">APIs</h3><div className="framework-logo-cluster ml-auto flex shrink-0 items-center pl-1" aria-label="Served from TypeScript or Python, with OpenAPI">
+            {([
+              ['TypeScript', SiTypescript, 'text-[#3178c6]'],
+              ['Python', SiPython, 'text-[#3776ab]'],
+              ['OpenAPI', SiOpenapiinitiative, 'text-[#6ba539]'],
+            ] as const).map(([name, Icon, color]) => <span key={name} title={name} data-tooltip={name} aria-label={name} className={`logo-tooltip framework-logo inline-flex h-7 w-7 items-center justify-center rounded-full border-2 border-bg bg-bg-card shadow-card ${color}`}><Icon className="h-4 w-4" aria-hidden="true" /></span>)}
+          </div></div>
+          <p className="mt-3 max-w-[350px] text-sm leading-6 text-text-muted">Every dataset is an authenticated endpoint with OpenAPI, for any frontend, mobile app or service.</p>
+          <div className={`explainer-preview mt-6 flex flex-col overflow-hidden rounded-xl border border-border bg-bg-card font-mono text-[10.5px] leading-[1.5] shadow-card ${PREVIEW_HEIGHT}`} aria-label={`Illustrative API request and response for ${latest ? 'September' : 'August'} revenue by country`}>
+            <div className="border-b border-border px-4 py-2.5">
+              <div><span className="font-semibold text-accent">POST</span> <span className="text-text">/api/analytics/datasets/orders/query</span></div>
+              <div className="text-text-dim">Authorization: Bearer •••••••• <span className="text-text-muted">{'// tenant: acme'}</span></div>
             </div>
+            <pre className="m-0 border-b border-border px-4 py-2.5 text-text-muted">{`{
+  "dimensions": ["country"],
+  "measures": ["revenue"],
+  "filters": [{ "field": "month",
+    "operator": "eq", "value": "${latest ? '2026-09' : '2026-08'}" }]
+}`}</pre>
+            <div className="flex items-center gap-2 px-4 pt-2.5"><span className="rounded bg-[#27c93f]/15 px-1.5 py-px font-semibold text-[#1f9d55] dark:text-[#4ade80]">200 OK</span><span className="text-text-dim">application/json</span></div>
+            <pre key={period} className="explainer-result m-0 min-h-0 flex-1 overflow-hidden px-4 pb-2.5 pt-1.5 text-text">{`{ "data": [
+${countries.map(([country, value]) => `  { "country": "${country}", "revenue": "${value}.00" }`).join(',\n')}
+] }`}</pre>
           </div>
+          <Link href="/docs/http-openapi" aria-label="Read more about serving datasets over HTTP" className="explainer-read-more mt-5 inline-flex items-center gap-1.5 text-xs font-medium text-text-muted">Read more <ArrowUpRight className="h-3 w-3" aria-hidden="true" /></Link>
         </motion.article>
         <motion.article variants={ENTRANCE} initial={reducedMotion ? false : "hidden"} whileInView="visible" viewport={{ once: true, amount: 0.15 }} custom={0.12} onMouseEnter={() => setActiveConnection(5)} onMouseLeave={() => setActiveConnection(null)} onFocusCapture={() => setActiveConnection(5)} onBlurCapture={() => setActiveConnection(null)} className="explainer-consumer min-w-0 pb-7 md:pl-6 md:pt-7 lg:pl-8">
           <div className="explainer-link md:hidden" aria-hidden="true" />
@@ -179,6 +197,11 @@ export function ProductExplainer({ modelCode, dashboardCode }: { modelCode: Reac
           <Link href="/docs/mcp/overview" aria-label="Read more about MCP agents" className="explainer-read-more mt-5 inline-flex items-center gap-1.5 text-xs font-medium text-text-muted">Read more <ArrowUpRight className="h-3 w-3" aria-hidden="true" /></Link>
         </motion.article>
       </div>
+      <p className="mt-2 border-t border-border pt-5 text-center text-xs leading-5 text-text-muted md:mt-0">
+        Also from the same model: <a href="#runs-where-title" className="font-medium text-text underline decoration-border underline-offset-2 hover:decoration-accent">jobs, reports and notebooks</a> in TypeScript or Python
+        <span className="mx-2 text-text-dim" aria-hidden="true">·</span>
+        Embedded chat for your customers <span className="ml-1 rounded-full border border-border px-2 py-0.5 text-[10px] text-text-muted">Coming soon</span>
+      </p>
     </section>
   );
 }
