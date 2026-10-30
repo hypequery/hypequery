@@ -17,6 +17,7 @@ import {
   loadCloudCredential,
   type StoredCloudCredential,
 } from '../utils/cloud-credential-store.js';
+import { unscopedTenantCandidates } from '../utils/tenant-key-candidates.js';
 
 export interface BuildDeploymentOptions {
   bundleOutput?: string;
@@ -39,6 +40,18 @@ export interface PrepareDeploymentReleaseDependencies {
 }
 
 const DEFAULT_BUNDLE_OUTPUT = 'analytics/hypequery-deployment';
+
+/** Name datasets that would show every customer's rows; Cloud asks the same in Customer access. */
+function warnUnscopedTenantCandidates(contract: ProtocolDeploymentContract): void {
+  for (const { dataset, columns } of unscopedTenantCandidates(contract)) {
+    logger.warn(
+      `Dataset "${dataset}" has a customer column (${columns.join(', ')}) but no tenantKey, `
+      + 'so every caller can read every customer\'s rows.',
+    );
+    logger.indent(`If each customer should see only their own rows, add tenantKey: '${columns[0]}' to the dataset.`);
+    logger.indent('If it is shared on purpose, confirm that in Cloud under Customer access.');
+  }
+}
 
 export async function buildDeploymentCommand(
   sourcePath: string | undefined,
@@ -76,6 +89,7 @@ export async function buildDeploymentCommand(
   );
   logger.info(`Bundle identity: ${bundle.identity}`);
   logger.info(`Deployment identity: ${prepared.identity}`);
+  warnUnscopedTenantCandidates(prepared.contract);
   return prepared.contract;
 }
 
