@@ -1,1 +1,0 @@
-- Protocol deployment validation now accepts `merge` measures with a `stateFunction` from the allowlist (RFC 0022), with the same rules as TypeScript: no filters or `sql`, and in contract 3 an `approximate` marker exactly for estimating states. This adds protocol representation only; Python code-first datasets do not yet author merge measures.
