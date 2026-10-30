@@ -98,4 +98,20 @@ describe("readPreParsedBody", () => {
       }
     }
   });
+
+  it("documents the limit: raw primitive text without a comparable length stays a string", () => {
+    // express.text({ type: "application/json" }) of a chunked `123` is
+    // indistinguishable from a decoded string; it is kept as the string.
+    const chunked = mockRequest({
+      body: "123",
+      headers: { "content-type": "application/json", "transfer-encoding": "chunked" },
+    });
+    expect(readPreParsedBody(chunked)).toEqual({ kind: "parsed", value: "123" });
+    // With a declared length the same raw text is recognised and parsed.
+    const declared = mockRequest({
+      body: "123",
+      headers: { "content-type": "application/json", "content-length": "3" },
+    });
+    expect(readPreParsedBody(declared)).toEqual({ kind: "raw", buffer: Buffer.from("123") });
+  });
 });

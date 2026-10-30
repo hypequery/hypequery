@@ -55,6 +55,12 @@ export type PreParsedBody =
  * length, and a compressed one declares the compressed length; then the text
  * decides: raw text that is a JSON object or array is what an endpoint takes,
  * while a decoded string is kept as a string, so `"123"` never becomes `123`.
+ *
+ * Supported limitation: without a comparable length, raw text that is a bare
+ * JSON primitive (`express.text()` given `123`, `true` or `null`) cannot be
+ * told from a decoded string and stays a string. An endpoint taking a
+ * primitive behind `express.text()` should receive a declared-length body, or
+ * sit behind `express.json()` instead.
  */
 const isDecodedJsonString = (req: IncomingMessage, body: string): boolean => {
   const contentType = req.headers["content-type"];
