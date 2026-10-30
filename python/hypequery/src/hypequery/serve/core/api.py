@@ -307,9 +307,9 @@ class Api:
         self, request: ServeRequest, state: RequestState, host: ApiHost, respond: Responder
     ) -> None:
         if self._proxies is not None:
-            client, _scheme = self._proxies.resolve(request.client, request.headers)
-            if client != request.client:
-                request = replace(request, client=client)
+            client, scheme = self._proxies.resolve(request.client, request.headers)
+            if client != request.client or (scheme is not None and scheme != request.scheme):
+                request = replace(request, client=client, scheme=scheme or request.scheme)
         if self.security is not None and not (
             raw_host_valid(request.headers)
             and host_allowed(request.headers, self.security.allowed_hosts)

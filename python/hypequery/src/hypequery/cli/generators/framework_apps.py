@@ -180,7 +180,10 @@ Port 5001, because macOS's AirPlay receiver holds 5000.
     session = (
         "takes the session of a user signed in at `/admin/`, with no token. "
         "Django's CSRF middleware also checks it: send the `csrftoken` cookie's value "
-        "as an `X-CSRFToken` header."
+        "as an `X-CSRFToken` header. The page that hosts your frontend must set that "
+        "cookie: render it from a template that uses `{% csrf_token %}`, or decorate its "
+        "view with `ensure_csrf_cookie`. Without the cookie, Django answers its own HTML "
+        "`403` before hypequery runs, even for a signed-out user."
         if django
         else "takes the app's session (or Flask-Login's `current_user`), with no token."
     )

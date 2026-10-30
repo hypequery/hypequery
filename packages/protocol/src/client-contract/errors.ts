@@ -15,13 +15,16 @@ export type ProtocolClientContractErrorCode = keyof typeof CLIENT_ERROR_MESSAGES
 export class ProtocolClientContractError extends TypeError {
   readonly code: ProtocolClientContractErrorCode;
   readonly path: string;
-  constructor(code: ProtocolClientContractErrorCode, path = '') {
+  /** For `HQ_CLIENT_UNKNOWN_FIELD`, the first member at `path` this version doesn't know. */
+  readonly field?: string;
+  constructor(code: ProtocolClientContractErrorCode, path = '', field?: string) {
     super(CLIENT_ERROR_MESSAGES[code]);
     this.name = 'ProtocolClientContractError';
     this.code = code;
     this.path = path;
+    if (field !== undefined) this.field = field;
   }
 }
-export function clientError(code: ProtocolClientContractErrorCode, path = ''): never {
-  throw new ProtocolClientContractError(code, path);
+export function clientError(code: ProtocolClientContractErrorCode, path = '', field?: string): never {
+  throw new ProtocolClientContractError(code, path, field);
 }

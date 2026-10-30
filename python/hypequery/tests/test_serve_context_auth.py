@@ -99,6 +99,14 @@ MATRIX: list[tuple[str, dict[str, str], bool]] = [
     ("POST", {"origin": "null"}, False),
     ("POST", {"origin": TRUSTED + ":443"}, False),
     ("POST", {"sec-fetch-site": "Same-Origin"}, False),
+    # The request's own origin (http://testserver on every transport), for a
+    # browser without Fetch Metadata.
+    ("POST", {"origin": "http://testserver"}, True),
+    ("POST", {"origin": "http://testserver:80"}, True),
+    ("POST", {"origin": "https://testserver"}, False),
+    ("POST", {"origin": "http://testserver:8000"}, False),
+    ("POST", {"origin": "http://testserver.evil.example"}, False),
+    ("POST", {"origin": "testserver"}, False),
     ("PUT", {}, False),
     ("PUT", {"sec-fetch-site": "same-origin"}, True),
     ("PATCH", {}, False),
@@ -261,11 +269,89 @@ def test_a_repeated_header_is_not_believed() -> None:
     trusted = trusted_origins((TRUSTED,))
     repeated_site = Headers([("sec-fetch-site", "same-origin"), ("sec-fetch-site", "none")])
     repeated_origin = Headers([("origin", TRUSTED), ("origin", TRUSTED)])
-    assert not same_origin_allowed("POST", repeated_site, trusted)
-    assert not same_origin_allowed("POST", repeated_origin, trusted)
-    assert same_origin_allowed("HEAD", Headers(), trusted)
-    assert same_origin_allowed("OPTIONS", Headers(), trusted)
+    repeated_host = Headers(
+        [("origin", "http://a.example"), ("host", "a.example"), ("host", "b.example")]
+    )
+    assert not same_origin_allowed("POST", repeated_site, trusted, "http")
+    assert not same_origin_allowed("POST", repeated_origin, trusted, "http")
+    assert not same_origin_allowed("POST", repeated_host, trusted, "http")
+    assert same_origin_allowed("HEAD", Headers(), trusted, "http")
+    assert same_origin_allowed("OPTIONS", Headers(), trusted, "http")
     assert trusted_origins(("*",)) == frozenset()
+
+
+@pytest.mark.parametrize(
+    ("origin", "host", "scheme", "accepted"),
+    [
+        ("https://app.example", "app.example", "https", True),
+        ("https://app.example", "app.example:443", "https", True),
+        ("https://app.example:8443", "app.example:8443", "https", True),
+        ("https://app.example", "app.example", "http", False),
+        ("http://[::1]:8000", "[0:0::1]:8000", "http", True),
+        ("http://APP.example", "app.example.", "http", True),
+        ("http://app.example", "app.example:99999", "http", False),
+        ("ftp://app.example", "app.example", "ftp", False),
+    ],
+)
+def test_the_own_origin_is_the_scheme_and_host(
+    origin: str, host: str, scheme: str, accepted: bool
+) -> None:
+    headers = Headers([("origin", origin), ("host", host)])
+    assert same_origin_allowed("POST", headers, frozenset(), scheme) is accepted
+
+
+@pytest.mark.parametrize("transport", TRANSPORTS)
+def test_every_adapter_passes_its_scheme_to_the_own_origin_check(transport: str) -> None:
+    client = serve_client(transport, _api(Session()), csrf=False, scheme="https")
+    own = client.post("/whoami", headers={"origin": "https://testserver"}, json={})
+    assert own.status_code == 200
+    downgraded = client.post("/whoami", headers={"origin": "http://testserver"}, json={})
+    assert downgraded.status_code == 403
+
+
+@pytest.mark.parametrize("transport", [name for name in TRANSPORTS if name.startswith("django")])
+def test_django_secure_proxy_ssl_header_sets_the_scheme(transport: str) -> None:
+    from serve_transports import PEER, DjangoClient
+
+    client = DjangoClient(
+        _api(Session()),
+        asgi=transport == "django-asgi",
+        client=PEER,
+        prefix="",
+        raw_uri=True,
+        csrf=False,
+        settings={"SECURE_PROXY_SSL_HEADER": ("HTTP_X_FORWARDED_PROTO", "https")},
+    )
+    headers = {"origin": "https://testserver", "x-forwarded-proto": "https"}
+    assert client.post("/whoami", headers=headers, json={}).status_code == 200
+    # Without the setting Django ignores the header, and the scheme stays http.
+    plain = serve_client(transport, _api(Session()), csrf=False)
+    assert plain.post("/whoami", headers=headers, json={}).status_code == 403
+
+
+@pytest.mark.skipif("flask" not in TRANSPORTS, reason="flask is not installed")
+def test_flask_proxy_fix_sets_the_scheme() -> None:
+    from werkzeug.middleware.proxy_fix import ProxyFix
+
+    from serve_transports import flask_app
+    from wsgi_client import WsgiClient
+
+    app = flask_app(_api(Session()))
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1)
+    headers = {"origin": "https://testserver", "x-forwarded-proto": "https"}
+    assert WsgiClient(app).post("/whoami", headers=headers, json={}).status_code == 200
+    plain = WsgiClient(flask_app(_api(Session())))
+    assert plain.post("/whoami", headers=headers, json={}).status_code == 403
+
+
+def test_a_trusted_proxy_supplies_the_own_origins_scheme() -> None:
+    security = HttpSecurity(allowed_hosts=("app.example",), trusted_proxies=("10.0.0.0/8",))
+    behind = {"host": "app.example", "origin": "https://app.example", "x-forwarded-proto": "https"}
+    proxied = CoreClient(_api(Session(), security=security), client=("10.0.0.5", 40000))
+    assert proxied.post("/whoami", headers=behind, json={}).status_code == 200
+    # From a peer that is not a trusted proxy, the forwarded scheme is ignored.
+    direct = CoreClient(_api(Session(), security=security), client=("203.0.113.9", 40000))
+    assert direct.post("/whoami", headers=behind, json={}).status_code == 403
 
 
 def test_from_context_and_create_api_validate_their_arguments() -> None:
