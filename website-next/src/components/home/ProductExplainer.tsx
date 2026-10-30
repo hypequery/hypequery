@@ -22,7 +22,7 @@ const CONNECTIONS = [
   'M600 150 C600 225 1000 190 1000 290',
 ];
 
-// The left and right curves from the model out to the dashboard and agent cards.
+// The left and right curves from the model out to the API and agent cards.
 const SIDE_OUTPUTS = [3, 5];
 
 const ENTRANCE = {
@@ -119,6 +119,33 @@ export function ProductExplainer({ modelCode, dashboardCode }: { modelCode: Reac
       <div ref={answersRef} className="grid border-border md:grid-cols-3 md:divide-x md:divide-border md:border-t">
         <motion.article variants={ENTRANCE} initial={reducedMotion ? false : "hidden"} whileInView="visible" viewport={{ once: true, amount: 0.15 }} custom={0.0} onMouseEnter={() => setActiveConnection(3)} onMouseLeave={() => setActiveConnection(null)} onFocusCapture={() => setActiveConnection(3)} onBlurCapture={() => setActiveConnection(null)} className="explainer-consumer min-w-0 pb-7 md:pr-6 md:pt-7 lg:pr-8">
           <div className="explainer-link md:hidden" aria-hidden="true" />
+          <div className="flex items-center gap-2.5"><Braces className="h-5 w-5 text-accent" aria-hidden="true" /><h3 className="text-xl font-medium tracking-tight text-text">APIs</h3><div className="framework-logo-cluster ml-auto flex shrink-0 items-center pl-1" aria-label="Served from TypeScript or Python, with OpenAPI">
+            {([
+              ['TypeScript', SiTypescript, 'text-[#3178c6]'],
+              ['Python', SiPython, 'text-[#3776ab]'],
+              ['OpenAPI', SiOpenapiinitiative, 'text-[#6ba539]'],
+            ] as const).map(([name, Icon, color]) => <span key={name} title={name} data-tooltip={name} aria-label={name} className={`logo-tooltip framework-logo inline-flex h-7 w-7 items-center justify-center rounded-full border-2 border-bg bg-bg-card shadow-card ${color}`}><Icon className="h-4 w-4" aria-hidden="true" /></span>)}
+          </div></div>
+          <p className="mt-3 max-w-[350px] text-sm leading-6 text-text-muted">Every dataset is an authenticated endpoint with OpenAPI, for any frontend, mobile app or service.</p>
+          <div className={`explainer-preview mt-6 flex flex-col overflow-hidden rounded-xl border border-border bg-bg-card font-mono text-[10.5px] leading-[1.5] shadow-card ${PREVIEW_HEIGHT}`} aria-label={`Illustrative API request and response for ${latest ? 'September' : 'August'} revenue by country`}>
+            <div className="border-b border-border px-4 py-2.5">
+              <div><span className="font-semibold text-accent">POST</span> <span className="text-text">/api/analytics/datasets/orders/query</span></div>
+            </div>
+            <pre className="m-0 border-b border-border px-4 py-2.5 text-text-muted">{`{
+  "dimensions": ["country"],
+  "measures": ["revenue"],
+  "filters": [{ "field": "month",
+    "operator": "eq", "value": "${latest ? '2026-09' : '2026-08'}" }]
+}`}</pre>
+            <div className="flex items-center gap-2 px-4 pt-2.5"><span className="rounded bg-[#27c93f]/15 px-1.5 py-px font-semibold text-[#1f9d55] dark:text-[#4ade80]">200 OK</span><span className="text-text-dim">application/json</span></div>
+            <pre key={period} className="explainer-result m-0 min-h-0 flex-1 overflow-hidden px-4 pb-2.5 pt-1.5 text-text">{`{ "data": [
+${countries.map(([country, value]) => `  { "country": "${country}", "revenue": "${value}.00" }`).join(',\n')}
+] }`}</pre>
+          </div>
+          <Link href="/docs/http-openapi" aria-label="Read more about serving datasets over HTTP" className="explainer-read-more mt-5 inline-flex items-center gap-1.5 text-xs font-medium text-text-muted">Read more <ArrowUpRight className="h-3 w-3" aria-hidden="true" /></Link>
+        </motion.article>
+        <motion.article variants={ENTRANCE} initial={reducedMotion ? false : "hidden"} whileInView="visible" viewport={{ once: true, amount: 0.15 }} custom={0.06} onMouseEnter={() => setActiveConnection(4)} onMouseLeave={() => setActiveConnection(null)} onFocusCapture={() => setActiveConnection(4)} onBlurCapture={() => setActiveConnection(null)} className="explainer-consumer min-w-0 pb-7 md:px-6 md:pt-7 lg:px-8">
+          <div className="explainer-link md:hidden" aria-hidden="true" />
           <div className="flex items-center gap-2.5"><SiReact className="h-5 w-5 text-[#339db6]" aria-hidden="true" /><h3 className="text-xl font-medium tracking-tight text-text">Embedded analytics</h3>
             <div role="group" aria-label="Dashboard example view" className="ml-auto inline-flex rounded-md border border-border p-0.5 text-[10.5px]">
               {(['preview', 'code'] as const).map((view) => (
@@ -152,33 +179,6 @@ export function ProductExplainer({ modelCode, dashboardCode }: { modelCode: Reac
           </div>
           )}
           <Link href="/docs/react/getting-started" aria-label="Read more about React dashboards" className="explainer-read-more mt-5 inline-flex items-center gap-1.5 text-xs font-medium text-text-muted">Read more <ArrowUpRight className="h-3 w-3" aria-hidden="true" /></Link>
-        </motion.article>
-        <motion.article variants={ENTRANCE} initial={reducedMotion ? false : "hidden"} whileInView="visible" viewport={{ once: true, amount: 0.15 }} custom={0.06} onMouseEnter={() => setActiveConnection(4)} onMouseLeave={() => setActiveConnection(null)} onFocusCapture={() => setActiveConnection(4)} onBlurCapture={() => setActiveConnection(null)} className="explainer-consumer min-w-0 pb-7 md:px-6 md:pt-7 lg:px-8">
-          <div className="explainer-link md:hidden" aria-hidden="true" />
-          <div className="flex items-center gap-2.5"><Braces className="h-5 w-5 text-accent" aria-hidden="true" /><h3 className="text-xl font-medium tracking-tight text-text">APIs</h3><div className="framework-logo-cluster ml-auto flex shrink-0 items-center pl-1" aria-label="Served from TypeScript or Python, with OpenAPI">
-            {([
-              ['TypeScript', SiTypescript, 'text-[#3178c6]'],
-              ['Python', SiPython, 'text-[#3776ab]'],
-              ['OpenAPI', SiOpenapiinitiative, 'text-[#6ba539]'],
-            ] as const).map(([name, Icon, color]) => <span key={name} title={name} data-tooltip={name} aria-label={name} className={`logo-tooltip framework-logo inline-flex h-7 w-7 items-center justify-center rounded-full border-2 border-bg bg-bg-card shadow-card ${color}`}><Icon className="h-4 w-4" aria-hidden="true" /></span>)}
-          </div></div>
-          <p className="mt-3 max-w-[350px] text-sm leading-6 text-text-muted">Every dataset is an authenticated endpoint with OpenAPI, for any frontend, mobile app or service.</p>
-          <div className={`explainer-preview mt-6 flex flex-col overflow-hidden rounded-xl border border-border bg-bg-card font-mono text-[10.5px] leading-[1.5] shadow-card ${PREVIEW_HEIGHT}`} aria-label={`Illustrative API request and response for ${latest ? 'September' : 'August'} revenue by country`}>
-            <div className="border-b border-border px-4 py-2.5">
-              <div><span className="font-semibold text-accent">POST</span> <span className="text-text">/api/analytics/datasets/orders/query</span></div>
-            </div>
-            <pre className="m-0 border-b border-border px-4 py-2.5 text-text-muted">{`{
-  "dimensions": ["country"],
-  "measures": ["revenue"],
-  "filters": [{ "field": "month",
-    "operator": "eq", "value": "${latest ? '2026-09' : '2026-08'}" }]
-}`}</pre>
-            <div className="flex items-center gap-2 px-4 pt-2.5"><span className="rounded bg-[#27c93f]/15 px-1.5 py-px font-semibold text-[#1f9d55] dark:text-[#4ade80]">200 OK</span><span className="text-text-dim">application/json</span></div>
-            <pre key={period} className="explainer-result m-0 min-h-0 flex-1 overflow-hidden px-4 pb-2.5 pt-1.5 text-text">{`{ "data": [
-${countries.map(([country, value]) => `  { "country": "${country}", "revenue": "${value}.00" }`).join(',\n')}
-] }`}</pre>
-          </div>
-          <Link href="/docs/http-openapi" aria-label="Read more about serving datasets over HTTP" className="explainer-read-more mt-5 inline-flex items-center gap-1.5 text-xs font-medium text-text-muted">Read more <ArrowUpRight className="h-3 w-3" aria-hidden="true" /></Link>
         </motion.article>
         <motion.article variants={ENTRANCE} initial={reducedMotion ? false : "hidden"} whileInView="visible" viewport={{ once: true, amount: 0.15 }} custom={0.12} onMouseEnter={() => setActiveConnection(5)} onMouseLeave={() => setActiveConnection(null)} onFocusCapture={() => setActiveConnection(5)} onBlurCapture={() => setActiveConnection(null)} className="explainer-consumer min-w-0 pb-7 md:pl-6 md:pt-7 lg:pl-8">
           <div className="explainer-link md:hidden" aria-hidden="true" />
