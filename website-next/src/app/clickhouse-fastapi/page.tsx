@@ -55,7 +55,9 @@ add_dataset_endpoint(
     "/datasets/orders/query",
     dataset=orders,
     client=analytics,
-    policy=EndpointPolicy(required_scopes=frozenset({"analytics:read"}), tenant="required"),
+    policy=EndpointPolicy(
+        required_scopes=frozenset({"analytics:read"}), tenant="required"
+    ),
 )
 
 app = FastAPI()  # your existing app and routes

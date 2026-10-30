@@ -24,7 +24,10 @@ const sideBySideCode = `from sqlalchemy import func, select
 
 # SQLAlchemy: you write the query, every time
 stmt = (
-    select(orders_table.c.status, func.sum(orders_table.c.amount).label("revenue"))
+    select(
+        orders_table.c.status,
+        func.sum(orders_table.c.amount).label("revenue"),
+    )
     .where(orders_table.c.org_id == org_id)  # don't forget this one
     .group_by(orders_table.c.status)
 )

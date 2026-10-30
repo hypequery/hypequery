@@ -26,16 +26,16 @@ export const metadata: Metadata = {
 };
 
 const builderCode = `// types generated from your live ClickHouse schema
-import type { DB } from "./generated-schema"
+import type { DB } from './generated-schema';
 
 const rows = await db
-  .table("orders")
-  .select("total_revenue", "order_date")
-  .where("status", "=", "completed")
-  .where("tenant_id", "=", tenantId)
-  .groupBy("order_date")
-  .orderBy("order_date", "DESC")
-  .execute()
+  .table('orders')
+  .select('total_revenue', 'order_date')
+  .where('status', '=', 'completed')
+  .where('tenant_id', '=', tenantId)
+  .groupBy('order_date')
+  .orderBy('order_date', 'DESC')
+  .execute();
 
 // rows: { total_revenue: string; order_date: string }[]
 // correct — matches what ClickHouse actually returns`;

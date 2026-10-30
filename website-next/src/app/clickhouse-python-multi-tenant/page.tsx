@@ -62,7 +62,9 @@ add_dataset_endpoint(
     "/datasets/orders/query",
     dataset=orders,
     client=analytics,
-    policy=EndpointPolicy(tenant="required"),  # tenant-free callers are refused
+    policy=EndpointPolicy(
+        tenant="required"
+    ),  # tenant-free callers are refused
 )
 # Mount api in FastAPI, Django, Flask, or any ASGI or WSGI server.`;
 

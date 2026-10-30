@@ -31,7 +31,11 @@ npx @hypequery/cli generate --output ./src/schema.ts
 # UInt64   -> string
 # Nullable -> T | null`;
 
-const queryCode = `import { createQueryBuilder, rawAs, selectExpr } from '@hypequery/clickhouse';
+const queryCode = `import {
+  createQueryBuilder,
+  rawAs,
+  selectExpr,
+} from '@hypequery/clickhouse';
 import type { IntrospectedSchema } from './schema';
 
 const db = createQueryBuilder<IntrospectedSchema>({

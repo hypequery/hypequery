@@ -97,11 +97,7 @@ export function DashboardPage() {
         {viewsLoading ? (
           <Skeleton />
         ) : (
-          <LineChart
-            data={views ?? []}
-            xKey="date"
-            yKey="views"
-          />
+          <LineChart data={views ?? []} xKey="date" yKey="views" />
         )}
       </section>
       <section>

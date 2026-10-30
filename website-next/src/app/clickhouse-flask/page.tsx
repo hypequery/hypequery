@@ -55,8 +55,12 @@ from flask import Response
 @app.get("/reports/revenue.csv")
 def revenue_csv():
     # Scoped by the tenant loader, typed by the dataset definition
-    result = hq.client.execute("orders", {"measures": ["revenue"], "by": "day"})
-    frame = result.to_pandas()  # period: datetime64[us, UTC], revenue: float64
+    result = hq.client.execute(
+        "orders", {"measures": ["revenue"], "by": "day"}
+    )
+    frame = (
+        result.to_pandas()
+    )  # period: datetime64[us, UTC], revenue: float64
     buffer = io.StringIO()
     frame.to_csv(buffer, index=False)
     return Response(buffer.getvalue(), mimetype="text/csv")`;

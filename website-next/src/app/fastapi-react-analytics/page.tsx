@@ -35,15 +35,23 @@ orders = dataset(
     source="orders",
     tenant_key="org_id",
     time_key="created_at",
-    dimensions={"status": dimension.string(), "country": dimension.string()},
-    measures={"revenue": measure.sum("amount"), "orderCount": measure.count("order_id")},
+    dimensions={
+        "status": dimension.string(),
+        "country": dimension.string(),
+    },
+    measures={
+        "revenue": measure.sum("amount"),
+        "orderCount": measure.count("order_id"),
+    },
 )
 profile = ClientQueryProfile(default_limit=50, max_limit=500)
 
 
 def build():
     """Factory for \`python -m hypequery export client-contract\`."""
-    return export_client_contract([ClientEndpointDefinition(orders, "/v1/orders", profile)])`;
+    return export_client_contract(
+        [ClientEndpointDefinition(orders, "/v1/orders", profile)]
+    )`;
 
 const reactCode = `# 1. Export the contract from Python (add --check in CI)
 python -m hypequery export client-contract \\
@@ -51,7 +59,8 @@ python -m hypequery export client-contract \\
   --output web/client-contract.json
 
 # 2. Generate a typed React client in the frontend
-npx hypequery generate:client client-contract.json --output src/hypequery-client.ts
+npx hypequery generate:client client-contract.json \\
+  --output src/hypequery-client.ts
 
 # 3. Use it in a component
 #   const { data } = useDataset('orders', {

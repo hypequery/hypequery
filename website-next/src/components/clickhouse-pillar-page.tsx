@@ -2,6 +2,7 @@ import Link from 'next/link';
 import Navigation from '@/components/Navigation';
 import Footer from '@/components/Footer';
 import CodeWindow from '@/components/CodeWindow';
+import { RichText } from '@/components/RichText';
 import { DeployWaitlist } from '@/components/home/DeployWaitlist';
 import { OpenSourceBadge } from '@/components/home/OpenSourceBadge';
 import { SetupCommand, type Language } from '@/components/home/SetupCommand';
@@ -128,7 +129,7 @@ export function ClickhousePillarPage({
             <h1 className={`mt-5 max-w-[980px] ${marketing.heroTitle}`}>
               {title}
             </h1>
-            <p className={`mt-5 max-w-[700px] ${marketing.heroLead}`}>{description}</p>
+            <p className={`mt-5 max-w-[700px] ${marketing.heroLead}`}><RichText text={description} /></p>
             <div className="mt-7 flex flex-wrap items-center gap-3">
               <Link
                 href={primaryCta.href}
@@ -167,8 +168,8 @@ export function ClickhousePillarPage({
           <div className="grid gap-6 lg:grid-cols-3">
             {problems.map((problem) => (
               <div key={problem.title} className={marketing.card}>
-                <h2 className={marketing.cardTitle}>{problem.title}</h2>
-                <p className="mt-3 text-sm leading-6 text-text-muted">{problem.copy}</p>
+                <h2 className={marketing.cardTitle}><RichText text={problem.title} /></h2>
+                <p className="mt-3 text-sm leading-6 text-text-muted"><RichText text={problem.copy} /></p>
               </div>
             ))}
           </div>
@@ -176,7 +177,7 @@ export function ClickhousePillarPage({
 
         <section className={marketing.band}>
           <div className={`${marketing.container} py-14 sm:py-20`}>
-            <div className="grid gap-10 lg:grid-cols-[1.1fr_0.9fr]">
+            <div className="grid gap-10 lg:grid-cols-[0.7fr_1.3fr]">
               <div>
                 <p className={marketing.eyebrow}>
                   {solutionSection.eyebrow}
@@ -184,10 +185,10 @@ export function ClickhousePillarPage({
                 <h2 className={`mt-3 ${marketing.sectionTitle}`}>
                   {solutionSection.title}
                 </h2>
-                <p className="mt-4 text-sm leading-6 text-text-muted sm:text-base">{solutionSection.description}</p>
+                <p className="mt-4 text-sm leading-6 text-text-muted sm:text-base"><RichText text={solutionSection.description} /></p>
                 {solutionSection.paragraphs?.map((paragraph) => (
                   <p key={paragraph} className="mt-4 text-sm leading-6 text-text-muted">
-                    {paragraph}
+                    <RichText text={paragraph} />
                   </p>
                 ))}
                 {solutionSection.bullets ? (
@@ -195,7 +196,7 @@ export function ClickhousePillarPage({
                     {solutionSection.bullets.map((bullet) => (
                       <li key={bullet} className="flex gap-3">
                         <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-accent" />
-                        <span>{bullet}</span>
+                        <span><RichText text={bullet} /></span>
                       </li>
                     ))}
                   </ul>
@@ -207,7 +208,7 @@ export function ClickhousePillarPage({
                     {solutionSection.codePanel.eyebrow}
                   </p>
                   <h3 className={`mt-3 ${marketing.cardTitle}`}>
-                    {solutionSection.codePanel.title}
+                    <RichText text={solutionSection.codePanel.title} />
                   </h3>
                   <CodeWindow
                     code={solutionSection.codePanel.code}
@@ -216,7 +217,7 @@ export function ClickhousePillarPage({
                     className="mt-4"
                   />
                   <p className="mt-4 text-sm leading-6 text-text-muted">
-                    {solutionSection.codePanel.description}
+                    <RichText text={solutionSection.codePanel.description} />
                   </p>
                 </div>
               ) : null}
@@ -225,7 +226,7 @@ export function ClickhousePillarPage({
         </section>
 
         <section className={`${marketing.container} py-14 sm:py-20`}>
-          <div className="grid gap-8 lg:grid-cols-[0.95fr_1.05fr]">
+          <div className="grid gap-8 lg:grid-cols-[0.7fr_1.3fr]">
             <div>
               <p className={marketing.eyebrow}>
                 {implementationSection.eyebrow}
@@ -233,10 +234,10 @@ export function ClickhousePillarPage({
               <h2 className={`mt-3 ${marketing.sectionTitle}`}>
                 {implementationSection.title}
               </h2>
-              <p className="mt-4 text-sm leading-6 text-text-muted sm:text-base">{implementationSection.description}</p>
+              <p className="mt-4 text-sm leading-6 text-text-muted sm:text-base"><RichText text={implementationSection.description} /></p>
               {implementationSection.paragraphs?.map((paragraph) => (
                 <p key={paragraph} className="mt-4 text-sm leading-6 text-text-muted">
-                  {paragraph}
+                  <RichText text={paragraph} />
                 </p>
               ))}
               {implementationSection.bullets ? (
@@ -244,7 +245,7 @@ export function ClickhousePillarPage({
                   {implementationSection.bullets.map((bullet) => (
                     <li key={bullet} className="flex gap-3">
                       <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-accent" />
-                      <span>{bullet}</span>
+                      <span><RichText text={bullet} /></span>
                     </li>
                   ))}
                 </ul>
@@ -256,7 +257,7 @@ export function ClickhousePillarPage({
                   {implementationSection.codePanel.eyebrow}
                 </p>
                 <h3 className={`mt-3 ${marketing.cardTitle}`}>
-                  {implementationSection.codePanel.title}
+                  <RichText text={implementationSection.codePanel.title} />
                 </h3>
                 <CodeWindow
                   code={implementationSection.codePanel.code}
@@ -265,7 +266,7 @@ export function ClickhousePillarPage({
                   className="mt-4"
                 />
                 <p className="mt-4 text-sm leading-6 text-text-muted">
-                  {implementationSection.codePanel.description}
+                  <RichText text={implementationSection.codePanel.description} />
                 </p>
               </div>
             ) : null}
@@ -278,7 +279,7 @@ export function ClickhousePillarPage({
               {comparisonTable.eyebrow}
             </p>
             <h2 className={`mt-3 ${marketing.sectionTitle}`}>{comparisonTable.title}</h2>
-            <p className="mt-4 max-w-3xl text-sm leading-6 text-text-muted sm:text-base">{comparisonTable.description}</p>
+            <p className="mt-4 max-w-3xl text-sm leading-6 text-text-muted sm:text-base"><RichText text={comparisonTable.description} /></p>
             <div className="mt-8 overflow-x-auto rounded-xl border border-border bg-bg-card shadow-card">
               <table className="w-full min-w-[640px] border-collapse text-left text-sm">
                 <thead>
@@ -295,10 +296,10 @@ export function ClickhousePillarPage({
                 <tbody>
                   {comparisonTable.rows.map((row) => (
                     <tr key={row.label} className="border-b border-border last:border-b-0">
-                      <td className="px-5 py-4 align-top text-sm font-medium text-text">{row.label}</td>
-                      <td className="px-5 py-4 align-top text-sm leading-6 text-text-muted">{row.competitor}</td>
+                      <td className="px-5 py-4 align-top text-sm font-medium text-text"><RichText text={row.label} /></td>
+                      <td className="px-5 py-4 align-top text-sm leading-6 text-text-muted"><RichText text={row.competitor} /></td>
                       <td className="bg-accent-soft px-5 py-4 align-top text-sm leading-6 text-text">
-                        {row.hypequery}
+                        <RichText text={row.hypequery} />
                       </td>
                     </tr>
                   ))}
@@ -306,7 +307,7 @@ export function ClickhousePillarPage({
               </table>
             </div>
             {comparisonTable.footnote ? (
-              <p className="mt-4 text-xs leading-5 text-text-dim">{comparisonTable.footnote}</p>
+              <p className="mt-4 text-xs leading-5 text-text-dim"><RichText text={comparisonTable.footnote} /></p>
             ) : null}
           </section>
         ) : null}
@@ -322,8 +323,8 @@ export function ClickhousePillarPage({
             <div className="mt-10 grid gap-6 md:grid-cols-2">
               {searchIntentCards.map((item) => (
                 <div key={item.title} className={marketing.card}>
-                  <h3 className={marketing.cardTitle}>{item.title}</h3>
-                  <p className="mt-3 text-sm leading-6 text-text-muted">{item.copy}</p>
+                  <h3 className={marketing.cardTitle}><RichText text={item.title} /></h3>
+                  <p className="mt-3 text-sm leading-6 text-text-muted"><RichText text={item.copy} /></p>
                 </div>
               ))}
             </div>
@@ -344,8 +345,8 @@ export function ClickhousePillarPage({
                     href={item.href}
                     className="group rounded-xl border border-border bg-bg-card p-6 transition hover:-translate-y-0.5 hover:border-border-strong hover:shadow-card"
                   >
-                    <h3 className={marketing.cardTitle}>{item.title}</h3>
-                    <p className="mt-3 text-sm leading-6 text-text-muted">{item.description}</p>
+                    <h3 className={marketing.cardTitle}><RichText text={item.title} /></h3>
+                    <p className="mt-3 text-sm leading-6 text-text-muted"><RichText text={item.description} /></p>
                     <p className="mt-5 inline-flex items-center gap-1.5 text-xs font-medium text-accent group-hover:opacity-70">
                       Open guide <span aria-hidden="true">→</span>
                     </p>
@@ -377,7 +378,7 @@ export function ClickhousePillarPage({
                 {nextStep.eyebrow}
               </p>
               <h2 className="mt-3 text-2xl font-normal tracking-[-0.03em] text-text">{nextStep.title}</h2>
-              <p className="mt-3 max-w-2xl text-sm leading-6 text-text-muted">{nextStep.description}</p>
+              <p className="mt-3 max-w-2xl text-sm leading-6 text-text-muted"><RichText text={nextStep.description} /></p>
               {/* The same two paths as the homepage: open source today, cloud when you want it hosted. */}
               <p className="mt-4 text-xs leading-5 text-text-dim">
                 Open source, and it runs in your own backend. Want it hosted?{' '}

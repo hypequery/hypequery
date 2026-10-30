@@ -29,7 +29,9 @@ const realtimeQueryCode = `// analytics/realtime-queries.ts
 import { createQueryBuilder } from '@hypequery/clickhouse';
 import type { Schema } from './schema';
 
-const db = createQueryBuilder<Schema>({ /* connection config */ });
+const db = createQueryBuilder<Schema>({
+  /* connection config */
+});
 
 export async function getLiveMetrics(tenantId: string) {
   return db
@@ -62,7 +64,10 @@ export async function getEventRate(tenantId: string, windowMinutes = 30) {
 }
 
 function minutesAgo(n: number): string {
-  return new Date(Date.now() - n * 60_000).toISOString().replace('T', ' ').slice(0, 19);
+  return new Date(Date.now() - n * 60_000)
+    .toISOString()
+    .replace('T', ' ')
+    .slice(0, 19);
 }`;
 
 const pollingAndStreamingCode = `// React polling with hypequery hooks
@@ -79,15 +84,31 @@ export function LiveMetricsPanel({ tenantId }: { tenantId: string }) {
   const { data, isLoading } = useQuery(
     'liveMetrics',
     { tenantId },
-    { refetchInterval: 5_000 },   // TanStack Query option passed through
+    { refetchInterval: 5_000 }, // TanStack Query option passed through
   );
 
   return (
     <div className="grid grid-cols-4 gap-4">
-      <MetricCard label="Events / 5 min" value={data?.events_last_5m ?? '—'} loading={isLoading} />
-      <MetricCard label="Active users"   value={data?.active_users ?? '—'}   loading={isLoading} />
-      <MetricCard label="Sessions"       value={data?.active_sessions ?? '—'} loading={isLoading} />
-      <MetricCard label="Avg latency ms" value={data?.avg_latency ?? '—'}    loading={isLoading} />
+      <MetricCard
+        label="Events / 5 min"
+        value={data?.events_last_5m ?? '—'}
+        loading={isLoading}
+      />
+      <MetricCard
+        label="Active users"
+        value={data?.active_users ?? '—'}
+        loading={isLoading}
+      />
+      <MetricCard
+        label="Sessions"
+        value={data?.active_sessions ?? '—'}
+        loading={isLoading}
+      />
+      <MetricCard
+        label="Avg latency ms"
+        value={data?.avg_latency ?? '—'}
+        loading={isLoading}
+      />
     </div>
   );
 }
@@ -101,8 +122,10 @@ export async function GET(req: Request) {
   const stream = new ReadableStream({
     async start(controller) {
       const send = async () => {
-        const data = await getLiveMetrics(tenantId);   // same hypequery call
-        controller.enqueue(encoder.encode(\`data: \${JSON.stringify(data)}\n\n\`));
+        const data = await getLiveMetrics(tenantId); // same hypequery call
+        controller.enqueue(
+          encoder.encode(\`data: \${JSON.stringify(data)}\\n\\n\`),
+        );
       };
       await send();
       const interval = setInterval(send, 5_000);
@@ -111,7 +134,10 @@ export async function GET(req: Request) {
   });
 
   return new Response(stream, {
-    headers: { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache' },
+    headers: {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+    },
   });
 }`;
 

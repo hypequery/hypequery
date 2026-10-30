@@ -50,7 +50,11 @@ export const revenueByDay = query({
   query: async ({ ctx, input }) =>
     ctx.db
       .table('orders')
-      .select(['order_date', 'sum(total) as revenue', 'count() as order_count'])
+      .select([
+        'order_date',
+        'sum(total) as revenue',
+        'count() as order_count',
+      ])
       .where('tenant_id', 'eq', ctx.tenantId)
       .where('order_date', 'gte', input.startDate)
       .where('order_date', 'lte', input.endDate)

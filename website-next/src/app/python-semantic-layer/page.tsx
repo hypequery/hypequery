@@ -23,7 +23,13 @@ export const metadata: Metadata = {
   },
 };
 
-const modelCode = `from hypequery.datasets import Dataset, belongs_to, dimension, filter, measure
+const modelCode = `from hypequery.datasets import (
+    Dataset,
+    belongs_to,
+    dimension,
+    filter,
+    measure,
+)
 
 customers = Dataset(
     name="customers",
@@ -35,18 +41,30 @@ orders = Dataset(
     name="orders",
     source="orders",
     tenant_key="tenant_id",
-    dimensions={"country": dimension("string"), "status": dimension("string")},
+    dimensions={
+        "country": dimension("string"),
+        "status": dimension("string"),
+    },
     measures={
         "revenue": measure.sum("amount", label="Revenue"),
-        "us_revenue": measure.sum("amount", filters=(filter.eq("country", "US"),)),
+        "us_revenue": measure.sum(
+            "amount", filters=(filter.eq("country", "US"),)
+        ),
         "buyers": measure.count_distinct("customer_id"),
     },
     relationships={
-        "customer": belongs_to(customers, from_field="customer_id", to_field="id"),
+        "customer": belongs_to(
+            customers, from_field="customer_id", to_field="id"
+        ),
     },
 )`;
 
-const useCode = `from hypequery.datasets import DatasetQuery, create_dataset_client, create_dataset_registry, tenant
+const useCode = `from hypequery.datasets import (
+    DatasetQuery,
+    create_dataset_client,
+    create_dataset_registry,
+    tenant,
+)
 
 analytics = create_dataset_client(
     executor=executor,
@@ -57,7 +75,9 @@ analytics = create_dataset_client(
 scoped = analytics.for_tenant(tenant(org_id))
 scoped.execute(
     "orders",
-    DatasetQuery(dimensions=("customer.tier",), measures=("revenue", "buyers")),
+    DatasetQuery(
+        dimensions=("customer.tier",), measures=("revenue", "buyers")
+    ),
 )`;
 
 export default function PythonSemanticLayerPage() {

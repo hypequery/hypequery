@@ -22,27 +22,30 @@ export const metadata: Metadata = {
 
 const viewCode = `# settings.py
 INSTALLED_APPS = [..., "hypequery.contrib.django"]
-MIDDLEWARE = [..., "django.contrib.auth.middleware.AuthenticationMiddleware",
-              "hypequery.contrib.django.HypequeryMiddleware"]
+MIDDLEWARE = [
+    ...,
+    "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "hypequery.contrib.django.HypequeryMiddleware",
+]
+# The ClickHouse connection comes from CLICKHOUSE_URL.
 HYPEQUERY = {
-    "REGISTRY": "analytics.datasets.registry",          # your datasets
-    "TENANT": "analytics.tenancy.tenant_for_request",   # request -> organization
-}                                                      # connection: CLICKHOUSE_URL
-
+    "REGISTRY": "analytics.datasets.registry",  # your datasets
+    "TENANT": "analytics.tenancy.tenant_for_request",  # request -> org
+}
 
 # analytics/tenancy.py
 def tenant_for_request(request):
-    return request.user.organization_id if request.user.is_authenticated else None
-
+    if request.user.is_authenticated:
+        return request.user.organization_id
+    return None
 
 # analytics/views.py
 from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
 
-
 @login_required
 def revenue_by_status(request):
-    # request.analytics is already scoped to the signed-in user's organization
+    # Already scoped to the signed-in user's organization
     result = request.analytics.execute(
         "orders", {"dimensions": ["status"], "measures": ["revenue"]}
     )
@@ -58,8 +61,10 @@ from hypequery.datasets import tenant
 def monthly_report(organization_id):
     # The same definitions and process-wide client the views use;
     # outside a request, the tenant is passed explicitly.
-    result = get_client().for_tenant(tenant(organization_id)).execute(
-        "orders", {"dimensions": ["status"], "measures": ["revenue"], "by": "month"}
+    client = get_client().for_tenant(tenant(organization_id))
+    result = client.execute(
+        "orders",
+        {"dimensions": ["status"], "measures": ["revenue"], "by": "month"},
     )
     return result.to_pandas().to_csv(index=False)`;
 

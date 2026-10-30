@@ -27,11 +27,17 @@ const serveCode = `from hypequery.serve import (
     create_api,
 )
 
-policy = EndpointPolicy(tenant="required", required_scopes=frozenset({"analytics:read"}))
+policy = EndpointPolicy(
+    tenant="required", required_scopes=frozenset({"analytics:read"})
+)
 api = create_api(auth=authenticate)
 
 add_dataset_endpoint(
-    api, "/v1/orders", dataset=orders, client=client, policy=policy,
+    api,
+    "/v1/orders",
+    dataset=orders,
+    client=client,
+    policy=policy,
     client_profile=profile,
 )
 # The authorized catalog the MCP bridge reads

@@ -32,9 +32,9 @@ const result = await client.query({
           WHERE tenant_id = {tenant_id: String}
           GROUP BY order_date\`,
   query_params: { tenant_id: ctx.tenantId },
-})
+});
 
-const rows = await result.json()
+const rows = await result.json();
 // rows: { data: any[] } — no types, no safety`;
 
 const hypequerCode = `// hypequery — generated from your ClickHouse schema
@@ -44,7 +44,7 @@ const rows = await db
   .where('tenant_id', 'eq', ctx.tenantId)
   .groupBy('order_date')
   .orderBy('order_date', 'DESC')
-  .execute()
+  .execute();
 
 // rows: { order_date: string; revenue: string }[]
 // correct ClickHouse-to-JS type mappings, always`;

@@ -37,7 +37,8 @@ const usageDashboard = query({
   query: async ({ ctx }) =>
     ctx.db
       .table('events')
-      .where('tenant_id', 'eq', ctx.tenantId) // part of the default query path
+      // part of the default query path
+      .where('tenant_id', 'eq', ctx.tenantId)
       .groupBy(['event_name', 'date'])
       .count('id', 'total')
       .orderBy('date', 'DESC')
@@ -59,13 +60,7 @@ function AnalyticsDashboard() {
 
   if (isLoading) return <Skeleton />;
 
-  return (
-    <BarChart
-      data={data ?? []}
-      xKey="date"
-      yKey="total"
-    />
-  );
+  return <BarChart data={data ?? []} xKey="date" yKey="total" />;
 }`;
 
 export default function ClickHouseSaasAnalyticsPage() {

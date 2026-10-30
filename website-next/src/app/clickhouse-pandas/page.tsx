@@ -22,7 +22,10 @@ export const metadata: Metadata = {
 
 const notebookCode = `# pip install "hypequery[clickhouse,pandas]==0.1.0b1"
 from hypequery.datasets import create_dataset_client, tenant
-from hypequery.execution import ClickHouseConnection, create_clickhouse_executor
+from hypequery.execution import (
+    ClickHouseConnection,
+    create_clickhouse_executor,
+)
 
 from analytics.datasets import registry  # the definitions your app uses
 
@@ -35,7 +38,7 @@ result = analytics.for_tenant(tenant("org_123")).execute(
     "orders", {"measures": ["revenue", "order_count"], "by": "month"}
 )
 
-df = result.to_pandas()   # or result.to_polars(), result.to_arrow()`;
+df = result.to_pandas()  # or result.to_polars(), result.to_arrow()`;
 
 const typesCode = `df.dtypes
 # period         datetime64[us, UTC]
@@ -52,8 +55,11 @@ result.to_pandas(decimals="decimal")
 # Internal analysis across every customer has to say so explicitly:
 from hypequery.datasets import ExecutionContext, all_tenants
 
-analytics.execute("orders", {"measures": ["revenue"], "by": "month"},
-                  context=ExecutionContext(tenant=all_tenants())).to_pandas()`;
+analytics.execute(
+    "orders",
+    {"measures": ["revenue"], "by": "month"},
+    context=ExecutionContext(tenant=all_tenants()),
+).to_pandas()`;
 
 export default function ClickHousePandasPage() {
   return (

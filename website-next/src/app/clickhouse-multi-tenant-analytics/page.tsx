@@ -42,10 +42,7 @@ const api = serve({
 
 const queryCode = `const accountRevenue = query({
   query: ({ ctx }) =>
-    ctx.db
-      .table('orders')
-      .sum('amount', 'revenue')
-      .execute(),
+    ctx.db.table('orders').sum('amount', 'revenue').execute(),
 });`;
 
 export default function ClickHouseMultiTenantAnalyticsPage() {

@@ -57,7 +57,10 @@ const openApiOutput = `// GET /openapi.json — generated automatically
               "schema": {
                 "type": "object",
                 "properties": {
-                  "period": { "type": "string", "enum": ["7d", "30d", "90d"] },
+                  "period": {
+                    "type": "string",
+                    "enum": ["7d", "30d", "90d"]
+                  },
                   "region": { "type": "string" }
                 },
                 "required": ["period"]

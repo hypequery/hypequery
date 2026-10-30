@@ -41,8 +41,17 @@ orders = Dataset(
     },
 )`;
 
-const queryCode = `from hypequery.datasets import DatasetQuery, ExecutionContext, create_dataset_client, filter, tenant
-from hypequery.execution import ClickHouseConnection, create_clickhouse_executor
+const queryCode = `from hypequery.datasets import (
+    DatasetQuery,
+    ExecutionContext,
+    create_dataset_client,
+    filter,
+    tenant,
+)
+from hypequery.execution import (
+    ClickHouseConnection,
+    create_clickhouse_executor,
+)
 
 executor = create_clickhouse_executor(
     ClickHouseConnection(host="localhost", database="analytics")
@@ -106,7 +115,7 @@ export default function ClickHousePythonPage() {
         codePanel: {
           eyebrow: 'Dataset',
           title: 'A ClickHouse table with named measures',
-          description: 'Import `sum`, `min`, and `max` under aliases so they do not shadow the Python built-ins.',
+          description: 'Aggregations live on `measure` (`measure.sum`, `measure.count`), so nothing shadows a Python built-in.',
           code: datasetCode,
         },
       }}
