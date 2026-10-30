@@ -164,8 +164,9 @@ def dataset(
 ) -> Dataset:
     """Define a dataset, matching TypeScript's dataset authoring entrypoint.
 
-    Keyword arguments use Python spelling. Omitting filters keeps automatic
-    dimension filters; an explicit empty mapping disables them.
+    Keyword arguments use Python spelling. Declared filters add to the
+    dimensions marked filterable rather than replacing them (RFC 0024); set
+    ``filterable=False`` on a dimension to keep it out of filters.
     """
     options: dict[str, object] = {
         "name": name,

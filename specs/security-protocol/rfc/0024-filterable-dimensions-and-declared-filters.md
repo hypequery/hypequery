@@ -56,5 +56,5 @@ generated dataset input schema, and the TypeScript filter types.
 Queries accept more filters: one that was refused as an unknown filter field
 may now run. A provider that relied on declared filters to hide a dimension
 must mark it `filterable: false`. An explicit empty `filters` map no longer
-disables filtering. The Python implementation still treats declared filters
-as the allowlist and needs the same change to keep parity.
+disables filtering. TypeScript (`effectiveFilters`) and Python
+(`effective_filters`) apply the same rule.
