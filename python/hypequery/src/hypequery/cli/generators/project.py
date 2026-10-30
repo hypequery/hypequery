@@ -68,16 +68,16 @@ def schema_templates(
     )
     scoped = (
         f"""
-The datasets are scoped by `{generated.tenant_column}`, and the development token's
+The datasets are scoped by `{generated.tenant_column}`, and the open API's developer
 principal has no tenant, so queries answer `403 FORBIDDEN` ("requires runtime
-tenant scoping") until `authenticate` in `app.py` gives it one. For local
+tenant scoping") until `developer` in `app.py` gives it one. For local
 testing, return a principal for one tenant:
 
 ```python
 return Principal(subject="developer", tenant_id="org_123")
 ```
 
-Before real users, replace the token check with your own authentication so the
+Before real users, replace the open `auth` with real authentication so the
 tenant comes from the signed-in user.
 """
         if generated.tenant_column
@@ -91,10 +91,14 @@ this project queries your existing tables. Start the server with `hypequery dev`
 
 ```bash
 curl -s -X POST http://127.0.0.1:8000/datasets/{generated.tables[0]}/query \\
-  -H "Authorization: Bearer $HYPEQUERY_DEV_TOKEN" \\
   -H "Content-Type: application/json" \\
   -d '{payload}'
 ```
+
+The API is open: `app.py` answers every request as one developer, with no
+token, for local development only. Before deploying, replace its `auth` with
+real authentication (`jwt_strategy` from the `jwt` extra, `from_context`
+reading your host app's login, or your own credential check).
 {scoped}"""
         if framework == "standalone"
         else readme_section(
