@@ -379,3 +379,45 @@ describe('deployment upload transport', () => {
     });
   });
 });
+
+describe('named draft transport', () => {
+  const draftId = '11111111-1111-4111-8111-111111111111';
+  const endpoint = 'https://cloud.test/v1/deployments/submissions';
+  const draft = { draftId, name: 'revenue', stagingUrl: `/api/gateway/project-1/draft/${draftId}` };
+  it('sends the named draft header and accepts its scoped staging response', async () => {
+    const bundle = await verifiedBundle();
+    const release = releaseFor(bundle.identity);
+    const fetch: DeploymentFetch = vi.fn(async (_url, init) => {
+      expect(init.headers['X-HypeQuery-Draft-Name']).toBe('revenue');
+      expect(init.headers['X-HypeQuery-Expected-Activation-Revision']).toBeUndefined();
+      await consumeBody(init.body);
+      return jsonResponse({ ...submission(bundle.identity, release.identity), draft });
+    });
+    const result = await createHttpDeploymentUploadTransport({ endpoint, token: 'token', draft: 'revenue', fetch }).submit(bundle, release);
+    expect(result.draft).toEqual({ ...draft, stagingUrl: `https://cloud.test${draft.stagingUrl}` });
+  });
+  it.each([
+    null,
+    { ...draft, name: 'other' },
+    { ...draft, draftId: 'not-a-uuid' },
+    { ...draft, stagingUrl: 'https://evil.test/steal' },
+    { ...draft, stagingUrl: `/api/gateway/other-project/draft/${draftId}` },
+    { ...draft, stagingUrl: `/api/gateway/project-1/draft/${draftId}?secret=x` },
+    { ...draft, extra: true },
+  ])('rejects an invalid draft acknowledgment: %j', async (responseDraft) => {
+    const bundle = await verifiedBundle();
+    const release = releaseFor(bundle.identity);
+    const transport = createHttpDeploymentUploadTransport({ endpoint, token: 'token', draft: 'revenue', fetch: async () => jsonResponse({ ...submission(bundle.identity, release.identity), ...(responseDraft ? { draft: responseDraft } : {}) }) });
+    await expect(transport.submit(bundle, release)).rejects.toMatchObject({ code: 'HQ_UPLOAD_INVALID_RESPONSE' });
+  });
+  it('rejects unexpected draft responses on ordinary Production submissions', async () => {
+    const bundle = await verifiedBundle();
+    const release = releaseFor(bundle.identity);
+    const transport = createHttpDeploymentUploadTransport({ endpoint, token: 'token', fetch: async () => jsonResponse({ ...submission(bundle.identity, release.identity), draft }) });
+    await expect(transport.submit(bundle, release)).rejects.toMatchObject({ code: 'HQ_UPLOAD_INVALID_RESPONSE' });
+  });
+  it('rejects draft uploads carrying a Production CAS or restored replacement', () => {
+    expect(() => createHttpDeploymentUploadTransport({ endpoint, token: 'token', draft: 'revenue', replaceRestored: true })).toThrow('--replace-restored');
+    expect(() => createHttpDeploymentUploadTransport({ endpoint, token: 'token', draft: 'revenue', expectedActivationRevision: null })).toThrow('activation revision');
+  });
+});

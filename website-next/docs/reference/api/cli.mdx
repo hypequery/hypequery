@@ -375,7 +375,28 @@ operand in a deployable formula`. See
 | `--mcp-config` | Also print MCP client configuration for the hosted endpoint. It reads the key from `${HYPEQUERY_API_KEY}` and never contains a credential |
 | `--project`, `--environment` | Override the target from `hypequery login` |
 | `--replace-restored` | Replace a live release that was restored from history |
+| `--draft <name>` | Save or update a named code draft without publishing Production |
 | `--no-source` | Leave project source files out of the bundle |
+
+### Named code drafts
+
+```bash
+npx hypequery deploy analytics/cloud.ts --draft revenue-update
+# A prebuilt bundle supports the same option:
+npx hypequery deployment:submit analytics/hypequery-deployment --release analytics/hypequery-deployment.release.json --draft revenue-update
+```
+
+Use lowercase letters, numbers and single hyphens, up to 64 characters. Reusing
+that name updates the same draft in the target project. The CLI prints its draft
+ID and staging endpoint, then stops; it does not print Production connection
+configuration or change the active release. `--draft` cannot be combined with
+`--replace-restored`.
+
+Review and test the saved model in Cloud before publishing it. Uploading again
+does not silently advance a stale draft's Production base. If Production has
+changed, incorporate those changes in your repository, upload to the same draft,
+and explicitly refresh its base in Cloud before reviewing publication again.
+This option requires a Cloud service that supports named code draft uploads.
 
 ## `hypequery deployment:status`
 

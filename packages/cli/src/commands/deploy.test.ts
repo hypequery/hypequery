@@ -710,3 +710,42 @@ describe('deploy command', () => {
     });
   });
 });
+
+describe('code draft uploads', () => {
+  it('forwards a named draft through the build and release pipeline', async () => {
+    const submitDeployment = vi.fn(async () => ({ kind: 'hypequery-deployment-submission' as const, version: 1 as const, status: 'accepted' as const, bundleIdentity: BUNDLE_IDENTITY, releaseIdentity: '1'.repeat(64) }));
+    await deployCommand('cloud.ts', { draft: 'revenue' }, {
+      env: CI_ENVIRONMENT,
+      buildDeployment: vi.fn(async () => bundle.contract),
+      prepareDeploymentRelease: vi.fn(async () => prepareProtocolDeploymentReleaseEnvelope({ kind: 'hypequery-deployment-release', version: 1, bundleIdentity: BUNDLE_IDENTITY, target: { project: 'project-1', environment: 'production' } }).release),
+      submitDeployment,
+    });
+    expect(submitDeployment).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({ draft: 'revenue' }), expect.any(Object));
+  });
+  beforeEach(() => { vi.clearAllMocks(); mockVerifyDeploymentBundle.mockResolvedValue(bundle); });
+  it('skips Production preflight and endpoints, returning only the draft staging result', async () => {
+    const release = await releaseFile();
+    const draft = { name: 'revenue', draftId: '11111111-1111-4111-8111-111111111111', stagingUrl: 'https://deploy.example.test/api/gateway/project-1/draft/11111111-1111-4111-8111-111111111111' };
+    const fetchLive = vi.fn();
+    const fetchEndpoints = vi.fn();
+    const createTransport = vi.fn(() => ({ submit: vi.fn(async () => ({ kind: 'hypequery-deployment-submission' as const, version: 1 as const, status: 'accepted' as const, bundleIdentity: BUNDLE_IDENTITY, releaseIdentity: release.identity, draft })) }));
+    const result = await submitDeploymentCommand('dist/bundle', { release: release.path, draft: 'revenue', mcpConfig: true }, { env: CI_ENVIRONMENT, createTransport, fetchLive, fetchEndpoints });
+    expect(result.draft).toEqual(draft);
+    expect(createTransport).toHaveBeenCalledWith({ endpoint: CI_ENVIRONMENT.HYPEQUERY_DEPLOYMENT_ENDPOINT, token: 'secret-token', draft: 'revenue' });
+    expect(fetchLive).not.toHaveBeenCalled();
+    expect(fetchEndpoints).not.toHaveBeenCalled();
+    expect(mockLoggerIndent).not.toHaveBeenCalled();
+  });
+  it.each(['', 'Upper', 'two--hyphens', '../escape', 'a'.repeat(65)])('rejects invalid draft names before building or authenticating: %s', async (draft) => {
+    const buildDeployment = vi.fn();
+    const loadCredential = vi.fn();
+    await expect(deployCommand('cloud.ts', { draft }, { buildDeployment, loadCredential })).rejects.toThrow('--draft');
+    expect(buildDeployment).not.toHaveBeenCalled();
+    expect(loadCredential).not.toHaveBeenCalled();
+  });
+  it('rejects restored replacement on a draft before authenticating', async () => {
+    const loadCredential = vi.fn();
+    await expect(submitDeploymentCommand('bundle', { release: 'release.json', draft: 'revenue', replaceRestored: true }, { loadCredential })).rejects.toThrow('--replace-restored');
+    expect(loadCredential).not.toHaveBeenCalled();
+  });
+});

@@ -282,6 +282,7 @@
             "--endpoint",
             "--replace-restored",
             "--mcp-config",
+            "--draft",
             "--release",
             "--no-telemetry",
             "--help",
@@ -1561,7 +1562,8 @@
       "--no-source",
       "--endpoint",
       "--replace-restored",
-      "--mcp-config"
+      "--mcp-config",
+      "--draft"
     ],
     "deployment:build": [
       "--bundle-output",
@@ -1576,7 +1578,8 @@
     "deployment:submit": [
       "--release",
       "--endpoint",
-      "--replace-restored"
+      "--replace-restored",
+      "--draft"
     ],
     "deployment:status": [
       "--project",
