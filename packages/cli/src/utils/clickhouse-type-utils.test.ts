@@ -16,6 +16,13 @@ describe('clickhouse type utilities', () => {
     ]);
   });
 
+  it('does not end a quoted literal at a backslash-escaped quote', () => {
+    expect(splitTopLevelArgs("Enum8('can\\'t' = 1, 'ok' = 2), Float64")).toEqual([
+      "Enum8('can\\'t' = 1, 'ok' = 2)",
+      'Float64',
+    ]);
+  });
+
   it('unwraps matching type wrappers', () => {
     expect(unwrapType('Nullable(String)', 'Nullable')).toBe('String');
     expect(unwrapType('String', 'Nullable')).toBeNull();
