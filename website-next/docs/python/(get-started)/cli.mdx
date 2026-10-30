@@ -14,7 +14,21 @@ pip install "hypequery[server,clickhouse]==0.1.0b1"
 export CLICKHOUSE_HOST=localhost CLICKHOUSE_USERNAME=default CLICKHOUSE_PASSWORD=... CLICKHOUSE_DATABASE=analytics
 hypequery init --path my-analytics
 cd my-analytics
+# The generated app authenticates with a local development token
+export HYPEQUERY_DEV_TOKEN="$(python -c 'import secrets; print(secrets.token_urlsafe(32))')"
 hypequery dev
+```
+</CodeBlock>
+
+Then, from another shell with the same `HYPEQUERY_DEV_TOKEN`, query a generated dataset (the README `init` writes
+shows the call for your own tables):
+
+<CodeBlock>
+```bash
+curl -s -X POST http://127.0.0.1:8000/datasets/orders/query \
+  -H "Authorization: Bearer $HYPEQUERY_DEV_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"dimensions": ["status"], "measures": ["totalCount"]}'
 ```
 </CodeBlock>
 
@@ -54,6 +68,21 @@ choice also works with `--skip-connection`.
 Schema discovery reads only `system.tables` and `system.columns` for the current database, so the user needs
 `SHOW` and `SELECT` on it. A read-only user works, whether its profile sets `readonly = 1` or `2`. If discovery fails,
 the message names what to check: credentials, host and port, the database, or grants.
+
+### Tenant-scoped datasets
+
+With `--tenant-column`, each dataset gets a `tenant_key`, and every query must run for one tenant. The generated
+development token has no tenant, so queries answer `403 FORBIDDEN` ("requires runtime tenant scoping") until you give
+it one. For local testing, set it in `app.py` (`principal_for_token` in the Django and Flask apps):
+
+<CodeBlock>
+```python
+return Principal(subject="developer", tenant_id="org_123")
+```
+</CodeBlock>
+
+Before real users, replace the token check with your own authentication so the tenant comes from the signed-in user.
+See [Multi-tenancy](/docs/python/multi-tenancy).
 
 Physical names map to the same camelCase semantic names as the TypeScript CLI. Numeric value columns get suggested
 `sum` and `avg` measures; ids and coordinates stay dimensions. Unsupported columns and likely tenant columns are
