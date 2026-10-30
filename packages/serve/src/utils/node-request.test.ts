@@ -86,4 +86,16 @@ describe("readPreParsedBody", () => {
     });
     expect(readPreParsedBody(compressed)).toEqual({ kind: "raw", buffer: Buffer.from('{"n":1}') });
   });
+
+  it("keeps a decoded JSON string as a string when its length cannot be compared", () => {
+    // express.json({ strict: false }) inflated a gzip `"123"` into the string `123`.
+    for (const headers of [
+      { "content-type": "application/json", "content-encoding": "gzip", "content-length": "25" },
+      { "content-type": "application/json", "transfer-encoding": "chunked" },
+    ]) {
+      for (const body of ["123", "true", "null", "plain text", "{not json"]) {
+        expect(readPreParsedBody(mockRequest({ body, headers }))).toEqual({ kind: "parsed", value: body });
+      }
+    }
+  });
 });
