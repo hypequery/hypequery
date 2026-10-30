@@ -1,6 +1,8 @@
 import { constants } from 'node:fs';
 import { lstat, open } from 'node:fs/promises';
 import path from 'node:path';
+import { ProtocolClientContractError } from '@hypequery/protocol';
+import { pointer } from './json-pointer.js';
 
 /** Refuse filesystem indirection for generated output and its existing ancestors. */
 export async function checkClientOutputPath(filePath: string): Promise<void> {
@@ -47,4 +49,18 @@ export async function readClientOutput(filePath: string): Promise<string | undef
     if ((error as NodeJS.ErrnoException).code === 'ENOENT') return undefined;
     throw error;
   }
+}
+
+/**
+ * Say where a client contract is invalid. An unknown field usually means the
+ * contract was exported by a newer hypequery than this CLI understands.
+ */
+export function describeClientContractError(error: unknown): unknown {
+  if (!(error instanceof ProtocolClientContractError)) return error;
+  const at = error.field === undefined ? error.path : pointer(error.path, error.field);
+  const where = at ? ` at ${at}` : '';
+  const hint = error.code === 'HQ_CLIENT_UNKNOWN_FIELD'
+    ? ' The contract may come from a newer hypequery than this CLI; upgrade @hypequery/cli.'
+    : '';
+  return new Error(`${error.message.replace(/\.$/, '')}${where} (${error.code}).${hint}`, { cause: error });
 }
