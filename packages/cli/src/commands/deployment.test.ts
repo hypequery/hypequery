@@ -132,6 +132,10 @@ describe('deployment commands', () => {
         measures: [],
         filters: [],
         relationships: [],
+        endpoint: {
+          access: { kind: 'public' },
+          tenant: tenantKey ? { kind: 'required', mode: 'auto-inject', column: 'tenant_id' } : { kind: 'not-required' },
+        },
       }],
     });
     const { logger } = await import('../utils/logger.js');

@@ -48,8 +48,8 @@ function warnUnscopedTenantCandidates(contract: ProtocolDeploymentContract): voi
       `Dataset "${dataset}" has a customer column (${columns.join(', ')}) but no tenantKey, `
       + 'so every caller can read every customer\'s rows.',
     );
-    logger.indent(`If each customer should see only their own rows, add tenantKey: '${columns[0]}' to the dataset.`);
-    logger.indent('If it is shared on purpose, confirm that in Cloud under Customer access.');
+    logger.indent(`If each customer should see only their own rows, set tenantKey: '${columns[0]}' on the dataset and deploy again.`);
+    logger.indent('If every customer may read all of it, mark it shared when Cloud asks during onboarding, or under Customer access.');
   }
 }
 
