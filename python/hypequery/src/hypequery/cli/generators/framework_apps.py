@@ -201,17 +201,19 @@ Port 5001, because macOS's AirPlay receiver holds 5000.
         "the user's `tenant_id`"
     )
     module = "analytics.py" if django else "app.py"
+    # The app reads the tenant at import, so it belongs in the server's shell.
     scoped = (
-        f"The datasets are scoped by `{tenant_column}`: the token reads the tenant in "
-        "`HYPEQUERY_DEV_TENANT`, and without one the token API refuses them.\n\n"
+        f"""The datasets are scoped by `{tenant_column}`, so the development token reads
+one tenant. The app reads it at startup: export it in the server's shell before
+running it, and restart after changing it, or the token API answers `403`.
+
+```bash
+export HYPEQUERY_DEV_TENANT='one of your {tenant_column} values'
+```
+
+"""
         if tenant_column
         else ""
-    )
-    token_env = (
-        f"`HYPEQUERY_DEV_TOKEN` and `HYPEQUERY_DEV_TENANT` (one of your `{tenant_column}` "
-        "values) set"
-        if tenant_column
-        else "`HYPEQUERY_DEV_TOKEN` set"
     )
     answer = f"\n```json\n{response}\n```\n" if response else ""
     existing = (
@@ -230,7 +232,7 @@ into it, the `api/` entries of `urls.py` into your URLconf, and the lines of
     )
     return f"""## Run with {"Django" if django else "Flask"}
 
-{run}
+{scoped}{run}
 hypequery's endpoints are served by the app itself, twice:
 
 | Endpoints | Authenticated by | For |
@@ -238,7 +240,7 @@ hypequery's endpoints are served by the app itself, twice:
 {_endpoints_row("agents", "`Authorization: Bearer $HYPEQUERY_DEV_TOKEN`", AGENTS_FOR)}
 {_endpoints_row("analytics", login, "`@hypequery/react` on pages the app serves")}
 
-From another shell with {token_env}:
+From another shell with `HYPEQUERY_DEV_TOKEN` set:
 
 ```bash
 curl --fail-with-body -s {base}/api/agents/{dataset} \\
@@ -247,7 +249,7 @@ curl --fail-with-body -s {base}/api/agents/{dataset} \\
   -d '{payload}'
 ```
 {answer}
-{scoped}A request without the token returns `401`. Measure values are strings on the
+A request without the token returns `401`. Measure values are strings on the
 HTTP wire.
 
 **The session API** {session} It refuses a cross-site request with `403`

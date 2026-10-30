@@ -84,9 +84,9 @@ export async function checkRelationships(
     let qb = datasetSourceBuilder(factory, entry.target)
       .count(entry.column, ROWS_ALIAS)
       .countDistinct(distinctColumns ? dialect.packRow(distinctColumns) : entry.column, KEYS_ALIAS);
-    if (entry.columns) {
-      for (const column of entry.columns) qb = qb.where(column, 'isNotNull', undefined);
-    }
+    // count() skips a NULL key but a packed row counts it, so filter NULL keys
+    // out of both: under a multi-tenant scope one would cancel a duplicate.
+    for (const column of entry.columns ?? [entry.column]) qb = qb.where(column, 'isNotNull', undefined);
     qb = applyRowScope(qb, datasetRowScope(entry.target, options.context));
 
     const [row] = await qb.execute<Record<string, unknown>>({

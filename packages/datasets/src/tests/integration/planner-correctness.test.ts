@@ -13,6 +13,7 @@ import { TEST_CONNECTION_CONFIG, insertRows, runSql } from '../../../../../testi
 
 const customersTable = 'correctness_customers';
 const ordersTable = 'correctness_orders';
+const nullKeysTable = 'correctness_null_keys';
 
 const Customers = dataset('correctnessCustomers', {
   source: customersTable,
@@ -46,6 +47,19 @@ const Orders = dataset('correctnessOrders', {
   relationships: { customer: belongsTo(() => Customers, { from: 'customer_id', to: 'id' }) },
 });
 
+// c1 is duplicated within tenant a, beside a NULL key that never joins.
+const NullKeyCustomers = dataset('correctnessNullKeyCustomers', {
+  source: nullKeysTable,
+  tenantKey: 'tenant_id',
+  dimensions: { name: dimension.string() },
+});
+const NullKeyOrders = dataset('correctnessNullKeyOrders', {
+  source: ordersTable,
+  tenantKey: 'tenant_id',
+  dimensions: { id: dimension.string() },
+  relationships: { customer: belongsTo(() => NullKeyCustomers, { from: 'customer_id', to: 'id' }) },
+});
+
 const db = createQueryBuilder({
   host: TEST_CONNECTION_CONFIG.host,
   username: TEST_CONNECTION_CONFIG.user,
@@ -58,6 +72,12 @@ const tenantA = { runtime: { tenant: { id: 'a' } } };
 describe('planner correctness against ClickHouse', () => {
   beforeAll(async () => {
     await runSql(`CREATE TABLE ${customersTable} (tenant_id String, id String, name String) ENGINE = MergeTree ORDER BY tuple()`);
+    await runSql(`CREATE TABLE ${nullKeysTable} (tenant_id String, id Nullable(String), name String) ENGINE = MergeTree ORDER BY tuple()`);
+    await insertRows(nullKeysTable, [
+      { tenant_id: 'a', id: 'c1', name: 'First' },
+      { tenant_id: 'a', id: 'c1', name: 'Second' },
+      { tenant_id: 'a', id: null, name: 'Unkeyed' },
+    ]);
     await runSql(`CREATE TABLE ${ordersTable} (tenant_id String, id String, customer_id String, country String, status String, amount Decimal(12, 2)) ENGINE = MergeTree ORDER BY tuple()`);
     // Customer c1 exists in both tenants; a join on the key alone mixes them.
     await insertRows(customersTable, [
@@ -76,7 +96,7 @@ describe('planner correctness against ClickHouse', () => {
   });
 
   afterAll(async () => {
-    for (const table of [ordersTable, customersTable]) await runSql(`DROP TABLE IF EXISTS ${table}`);
+    for (const table of [ordersTable, customersTable, nullKeysTable]) await runSql(`DROP TABLE IF EXISTS ${table}`);
   });
 
   it.each([
@@ -99,6 +119,15 @@ describe('planner correctness against ClickHouse', () => {
     for (const tenant of [{ id: 'a' }, { in: ['a', 'b'] }, { scope: 'all' as const }]) {
       expect(await checkRelationships(Orders, { queryBuilder: db, context: { runtime: { tenant } } }))
         .toEqual({ ok: true, checked: ['customer'], issues: [] });
+    }
+  });
+
+  it('still reports a duplicate key beside a NULL key in every scope', async () => {
+    // count() skips the NULL key; a (key, tenant) pair must not count it either.
+    for (const tenant of [{ id: 'a' }, { in: ['a', 'b'] }, { scope: 'all' as const }]) {
+      const result = await checkRelationships(NullKeyOrders, { queryBuilder: db, context: { runtime: { tenant } } });
+      expect(result.ok).toBe(false);
+      expect(result.issues).toHaveLength(1);
     }
   });
 
