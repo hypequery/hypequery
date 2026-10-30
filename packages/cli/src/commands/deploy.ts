@@ -14,6 +14,7 @@ import {
   type HttpDeploymentUploadTransportOptions,
 } from '../utils/deployment-upload.js';
 import { validateDraftDeploymentOptions } from '../utils/draft-deployment.js';
+import { shellQuote } from '../utils/shell-quote.js';
 import { logger } from '../utils/logger.js';
 import {
   type StoredCloudCredential,
@@ -320,8 +321,10 @@ export async function deployCommand(
         ['--project', options.project],
         ['--environment', options.environment],
         ['--endpoint', options.endpoint],
-      ].flatMap(([flag, value]) => value === undefined ? [] : [` ${flag} ${value}`]).join('');
-      logger.indent(`Run \`hypequery generate:client --cloud --output ${options.client} --force${flags}\` to retry.`);
+      ].flatMap(([flag, value]) => value === undefined ? [] : [` ${flag} ${shellQuote(value)}`]).join('');
+      logger.indent(
+        `Run \`hypequery generate:client --cloud --output ${shellQuote(options.client)} --force${flags}\` to retry.`,
+      );
     }
   }
   return result;

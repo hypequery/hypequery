@@ -195,10 +195,12 @@ describe('deploy command', () => {
     mockLoggerWarn.mockClear();
     mockLoggerIndent.mockClear();
     const failing = vi.fn(async () => { throw new Error('Cloud has no client contract'); });
-    const result = await deployCommand('analytics/cloud.ts', { client: 'src/hypequery-client.ts', project: 'acme', environment: 'staging' }, dependencies(failing));
+    const result = await deployCommand('analytics/cloud.ts', { client: 'src/generated clients/client.ts', project: 'acme', environment: 'staging' }, dependencies(failing));
     expect(result.status).toBe('accepted');
-    expect(mockLoggerWarn).toHaveBeenCalledWith(expect.stringContaining('src/hypequery-client.ts was not regenerated'));
-    expect(mockLoggerIndent).toHaveBeenCalledWith(expect.stringContaining('--force --project acme --environment staging`'));
+    expect(mockLoggerWarn).toHaveBeenCalledWith(expect.stringContaining('src/generated clients/client.ts was not regenerated'));
+    expect(mockLoggerIndent).toHaveBeenCalledWith(
+      expect.stringContaining("--output 'src/generated clients/client.ts' --force --project acme --environment staging`"),
+    );
   });
 
   it('supports explicit outputs and target overrides in one-command mode', async () => {

@@ -5,7 +5,11 @@
 export async function readCapped(response: Response, maxBytes: number): Promise<Uint8Array> {
   const tooLarge = () => new Error(`The response exceeds ${maxBytes} bytes.`);
   const declared = Number(response.headers.get('content-length'));
-  if (Number.isFinite(declared) && declared > maxBytes) throw tooLarge();
+  if (Number.isFinite(declared) && declared > maxBytes) {
+    // Release the connection rather than leave the body unread.
+    await response.body?.cancel();
+    throw tooLarge();
+  }
   if (!response.body) return new Uint8Array(await response.arrayBuffer());
   const reader = response.body.getReader();
   const chunks: Uint8Array[] = [];

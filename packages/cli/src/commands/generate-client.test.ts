@@ -213,10 +213,13 @@ describe('client generation from the live Cloud release', () => {
   it('refuses an oversized contract before and while reading it', async () => {
     const { output } = await project();
     const fetchEndpoints = vi.fn(async () => undefined);
-    const declared = new Response('{}', { headers: { 'content-length': String(2 * 1_048_576) } });
+    const cancel = vi.fn();
+    const declared = new Response(new ReadableStream({ cancel }), { headers: { 'content-length': String(2 * 1_048_576) } });
     await expect(generateClientCommand(undefined, { cloud: true, output, ...target }, {
       env, fetchEndpoints, fetch: vi.fn(async () => declared),
     })).rejects.toThrow('exceeds');
+    // The connection is released, not left with an unread body.
+    expect(cancel).toHaveBeenCalled();
     const streamed = new Response(new ReadableStream({
       start(controller) {
         controller.enqueue(new Uint8Array(1_048_576));
