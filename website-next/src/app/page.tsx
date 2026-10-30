@@ -6,7 +6,6 @@ import { AnnouncementBanner, Hero, FinalCTA } from '@/components/home';
 import { FeatureGrid } from '@/components/home/FeatureGrid';
 import { ProductExplainer } from '@/components/home/ProductExplainer';
 import { PatternCallout } from '@/components/home/PatternCallout';
-import { BuildYourWay } from '@/components/home/BuildYourWay';
 import { CloudWorkflow } from '@/components/home/CloudWorkflow';
 import { RunsWhereYourAppRuns } from '@/components/home/RunsWhereYourAppRuns';
 import { StaticCode } from '@/components/home/StaticCode';
@@ -92,13 +91,13 @@ export default async function Home() {
         <Hero />
         <PatternCallout />
         {/* Hero (what it is) → proof → every interface (what it powers) → runs in your stack (where it lives)
-            → build it (how) → production features (can I trust it) → change safely (what happens next) → CTA. */}
+            → production features (can I trust it) → change safely (what happens next) → CTA.
+            BuildYourWay (model in code or in cloud) is off the page until cloud launches. */}
         <ProductExplainer
           modelCode={<StaticCode code={MODEL_CODE} />}
           dashboardCode={<StaticCode code={DASHBOARD_CODE} lang="tsx" className="text-[10.5px]!" />}
         />
         <RunsWhereYourAppRuns />
-        <BuildYourWay />
         <FeatureGrid />
         <CloudWorkflow />
         <FinalCTA />
