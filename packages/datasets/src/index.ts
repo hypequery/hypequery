@@ -121,6 +121,9 @@ export type { BuildProtocolDeploymentContractOptions } from './protocol-deployme
 export { rehydrateProtocolDeploymentContract } from './protocol-rehydrate.js';
 export type { BuildProtocolDatasetContractOptions } from './protocol-adapter.js';
 export { publishToCloud } from './cloud-publishing.js';
+export { buildClientContract } from './client-contract/build-from-deployment.js';
+export type { BuildClientContractOptions } from './client-contract/build-from-deployment.js';
+export type { ClientContractProfile } from './client-contract/deployment-profile.js';
 export type { CloudPublishingOptions } from './cloud-publishing.js';
 
 // Portable native execution of a semantic invocation (decision 0005).

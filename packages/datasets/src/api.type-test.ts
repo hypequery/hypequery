@@ -4,6 +4,7 @@ import {
   assertDeployable,
   between,
   buildCanonicalSemanticQuerySchemas,
+  buildClientContract,
   buildProtocolDeploymentContract,
   createDatasetClient,
   dataset,
@@ -226,6 +227,19 @@ const _cloudPublication = publishToCloud({
 type _CloudPublicationHasDatasets = Assert<
   Equal<typeof _cloudPublication['kind'], 'hypequery-deployment'>
 >;
+
+const _clientContract = buildClientContract(_cloudPublication, {
+  view: 'authorized',
+  profile: { maxLimit: 100, defaultTimezone: 'UTC' },
+  include: dataset => dataset.tenant.kind === 'not-required',
+});
+type _ClientContractIsSigned = Assert<
+  Equal<typeof _clientContract.contract['kind'], 'hypequery-client-contract'>
+>;
+// @ts-expect-error a client contract is built from a deployment contract, not a dataset
+buildClientContract(Orders);
+// @ts-expect-error views are build or authorized
+buildClientContract(_cloudPublication, { view: 'public' });
 
 type _PublishedDatasetAliasesAreLiteral = Assert<
   Equal<keyof typeof _publishedDatasets, 'orders' | 'accounts'>
