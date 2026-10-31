@@ -68,10 +68,11 @@ def schema_templates(
     )
     scoped = (
         f"""
-The datasets are scoped by `{generated.tenant_column}`, and the open API's developer
-principal has no tenant, so queries answer `403 FORBIDDEN` ("requires runtime
-tenant scoping") until `developer` in `app.py` gives it one. For local
-testing, return a principal for one tenant:
+Datasets generated from tables containing `{generated.tenant_column}` are tenant-scoped.
+The open API's developer principal has no tenant, so queries to those datasets answer
+`403 FORBIDDEN` ("requires runtime tenant scoping") until `developer` in `app.py`
+gives it one. Tables without that column remain unscoped. For local testing, return a
+principal for one tenant:
 
 ```python
 return Principal(subject="developer", tenant_id="org_123")

@@ -105,7 +105,8 @@ def test_standalone_is_the_default(tmp_path: Path, capsys: pytest.CaptureFixture
 def test_standalone_readme_explains_tenant_scoping(tmp_path: Path) -> None:
     project = _init(tmp_path, "--tenant-column", "org_id")
     readme = (project / "README.md").read_text()
-    assert "The datasets are scoped by `org_id`" in readme
+    assert "Datasets generated from tables containing `org_id` are tenant-scoped" in readme
+    assert "Tables without that column remain unscoped" in readme
     fix = 'return Principal(subject="developer", tenant_id="org_123")'
     assert fix in readme
     assert fix in (project / "app.py").read_text()
