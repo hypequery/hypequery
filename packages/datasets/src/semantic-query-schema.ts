@@ -103,6 +103,14 @@ function resolveCatalog(source: SemanticQuerySchemaSource): DatasetCatalog {
     : getDatasetCatalog(source);
 }
 
+function localFilterPolicy(
+  source: SemanticQuerySchemaSource,
+): Readonly<Record<string, FilterPolicy>> {
+  return isDatasetCatalog(source)
+    ? effectiveFilters(source)
+    : effectiveFilters(source);
+}
+
 function relationshipFilterPolicy(source: SemanticQuerySchemaSource): ReadonlyMap<string, string[]> {
   const fields = new Map<string, string[]>();
   // A serialized catalog has no target filter allowlist. Do not infer one
@@ -202,6 +210,7 @@ function queryShape(
   metricName: string | undefined,
   options: SemanticQuerySchemaOptions,
   relationshipOperators: ReadonlyMap<string, string[]>,
+  localFilters: Readonly<Record<string, FilterPolicy>> = effectiveFilters(catalog),
   metric?: SemanticMetricQueryContract,
   localRelationshipFields: string[] = [],
 ): Record<string, ZodTypeAny> {
@@ -230,7 +239,6 @@ function queryShape(
         ...Object.keys(catalog.dimensions).filter(isGroupable),
         ...relationshipFields.filter(isGroupable),
       ]);
-  const localFilters = effectiveFilters(catalog);
   const localFilterNames = Object.keys(localFilters);
   const localFilterSet = new Set(localFilterNames);
   // A metric's own filter list stays authoritative: a hosted catalog may narrow it.
@@ -322,7 +330,11 @@ export function buildDatasetInputSchema(
   options: SemanticQuerySchemaOptions = {},
 ): ZodTypeAny {
   const schema = z.object(queryShape(
-    resolveCatalog(dataset), undefined, options, relationshipFilterPolicy(dataset),
+    resolveCatalog(dataset),
+    undefined,
+    options,
+    relationshipFilterPolicy(dataset),
+    localFilterPolicy(dataset),
   )).strict();
   if (options.requireSelection === false) return schema;
   return requireSelection(schema);
@@ -344,6 +356,7 @@ export function buildMetricInputSchema(
     metricName,
     options,
     relationshipFilterPolicy(dataset),
+    localFilterPolicy(dataset),
     metric,
     localRelationshipFields,
   )).strict();

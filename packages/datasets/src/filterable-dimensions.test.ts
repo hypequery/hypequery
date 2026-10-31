@@ -142,6 +142,27 @@ describe('filterable dimensions alongside declared filters', () => {
     expect(parse({ field: 'planInfo.region', operator: 'isNull' })).toBe(false);
   });
 
+  it('keeps default operators when one alias omits its operator list', () => {
+    const MixedAliases = dataset('mixedAliases', {
+      source: 'mixed_aliases',
+      dimensions: { status: dimension.string() },
+      measures: { rows: measure.count() },
+      filters: {
+        status_default: { __type: 'filter_definition', field: 'status' },
+        status_null: { __type: 'filter_definition', field: 'status', operators: ['isNull'] },
+      },
+    });
+    const schema = buildDatasetInputSchema(MixedAliases);
+    const query = (operator: string, value?: string) => ({
+      measures: ['rows'],
+      filters: [{ field: 'status', operator, ...(value === undefined ? {} : { value }) }],
+    });
+
+    expect(schema.safeParse(query('eq', 'active')).success).toBe(true);
+    expect(schema.safeParse(query('isNull')).success).toBe(false);
+    expect(validateDatasetQuery(MixedAliases, query('isNull') as never).valid).toBe(false);
+  });
+
   it('builds the schema from a serialized catalog too', () => {
     const schema = buildDatasetInputSchema(getDatasetCatalog(Accounts));
     const parse = (filter: Record<string, unknown>) => schema.safeParse({ measures: ['accounts'], filters: [filter] }).success;
