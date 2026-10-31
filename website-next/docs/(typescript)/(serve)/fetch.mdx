@@ -1,0 +1,36 @@
+---
+layout: ../../../layouts/DocsLayout.astro
+title: Fetch Runtime Integration
+description: Mount hypequery inside Hono, Cloudflare Workers, Bun, or any Fetch-based runtime using the fetch adapter.
+---
+
+import { CodeBlock } from 'fumadocs-ui/components/codeblock';
+
+This guide assumes you already have:
+
+- a typed `db` client
+- an `analytics/queries.ts` file exporting `api`
+- at least one routed query
+
+If not, start with [Quick Start](/docs/quick-start).
+
+Use this pattern in Hono, Cloudflare Workers, Deno, Bun, Remix, and similar runtimes:
+
+<CodeBlock>
+```typescript
+import { Hono } from 'hono';
+import { api } from './analytics/queries.js';
+import { createFetchHandler } from '@hypequery/serve';
+
+const app = new Hono();
+const hypequery = createFetchHandler(api.handler);
+
+app.all('/api/analytics/*', (c) => hypequery(c.req.raw));
+```
+</CodeBlock>
+
+## Notes
+
+- Keep the mounted prefix aligned with the `basePath` used in `initServe()`.
+- Use `api.run(...)` when you want in-process execution instead of HTTP.
+- Export the handler directly in runtimes that do not need an extra router layer.

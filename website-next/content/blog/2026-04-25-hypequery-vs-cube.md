@@ -1,8 +1,8 @@
 ---
 title: "hypequery vs Cube: Code-First vs Configuration-First Analytics"
-description: "Cube is a semantic layer and analytics platform. hypequery is a lightweight TypeScript query layer. Here is when each is the right choice for ClickHouse."
+description: "Cube is a semantic layer and analytics platform. hypequery is a code-first analytics layer that lives in your codebase. Here is when each is the right choice for ClickHouse."
 seoTitle: "hypequery vs Cube for ClickHouse — Analytics Layer Comparison"
-seoDescription: "Cube is a full semantic layer. hypequery is a lightweight TypeScript-first alternative. Compare both for ClickHouse analytics and find the right fit."
+seoDescription: "Cube is a full semantic layer platform. hypequery is a code-first analytics layer in TypeScript or Python. Compare both for ClickHouse analytics and find the right fit."
 pubDate: 2026-04-25
 heroImage: ""
 slug: hypequery-vs-cube
@@ -11,7 +11,7 @@ status: published
 
 Cube (formerly Cube.js) is a semantic layer platform: central metric definitions, multiple consumption surfaces, and access control around them. It supports ClickHouse and has a much broader analytics-platform scope than hypequery.
 
-hypequery is not trying to be that category. It is a TypeScript-first ClickHouse query layer: schema generation, a composable query builder, typed HTTP APIs, and React hooks. The center of gravity is product code, not a separate analytics platform.
+hypequery is not trying to be that category. It is an analytics layer that lives in your codebase, in TypeScript or Python: typed datasets, a composable query builder, typed HTTP APIs, React hooks, and MCP tools for agents. The center of gravity is product code, not a separate analytics platform. You run it in your own backend, or on hypequery cloud if you want it hosted.
 
 So this is less a feature checklist than a fit question. The tools solve adjacent problems for different team shapes.
 

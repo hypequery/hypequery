@@ -1,0 +1,84 @@
+---
+title: Quick start
+description: Define a ClickHouse dataset in Python and run your first semantic query.
+---
+
+import { CodeBlock } from 'fumadocs-ui/components/codeblock';
+
+Install the SDK with the ClickHouse executor:
+
+<CodeBlock>
+```bash
+pip install "hypequery[clickhouse]==0.1.0b1"
+```
+</CodeBlock>
+
+Then define a dataset, create a client, and query it:
+
+<CodeBlock>
+```python
+from hypequery.datasets import (
+    Dataset,
+    DatasetQuery,
+    ExecutionContext,
+    create_dataset_client,
+    dimension,
+    filter,
+    measure,
+    tenant,
+)
+from hypequery.execution import ClickHouseConnection, create_clickhouse_executor
+
+# Reads CLICKHOUSE_HOST, _PORT, _DATABASE, _USERNAME, _PASSWORD and _SECURE.
+executor = create_clickhouse_executor(ClickHouseConnection.from_env())
+analytics = create_dataset_client(executor=executor)
+
+orders = Dataset(
+    name="orders",
+    source="orders",
+    tenant_key="tenant_id",
+    time_key="created_at",
+    dimensions={
+        "id": dimension("number"),
+        "tenant_id": dimension("string"),
+        "status": dimension("string"),
+        "country": dimension("string"),
+        "created_at": dimension("timestamp"),
+    },
+    measures={
+        "revenue": measure.sum("amount"),
+        "order_count": measure.count("id"),
+    },
+)
+
+by_country = analytics.execute(
+    orders,
+    DatasetQuery(
+        dimensions=("country",),
+        measures=("revenue", "order_count"),
+        filters=(filter.eq("status", "completed"),),
+        limit=10,
+    ),
+    context=ExecutionContext(tenant=tenant("org_123")),
+)
+by_country.data  # rows keyed by column name
+
+executor.close()
+```
+</CodeBlock>
+
+The query selects semantic names (`country`, `revenue`) and hypequery generates parameterized ClickHouse SQL. Because
+the dataset declares a `tenant_key`, every query must run with a tenant in its `ExecutionContext`, and hypequery adds
+the tenant predicate for you.
+
+Aggregations live on the `measure` namespace (`measure.sum`, `measure.count`, ...) and filter helpers on `filter`
+(`filter.eq`, `filter.between`, ...), so nothing shadows a Python built-in. `ClickHouseConnection.from_env()` reads the
+`CLICKHOUSE_*` environment variables; pass `host`, `username`, `password` and `database` explicitly instead if you prefer.
+
+## Next steps
+
+- [Python CLI](/docs/python/cli): scaffold a project from your live schema with `hypequery init`
+- [Datasets overview](/docs/python/datasets/overview)
+- [Measures](/docs/python/datasets/measures)
+- [Multi-tenancy](/docs/python/datasets/multi-tenancy)
+- [React and MCP clients](/docs/python/client-endpoints): serve these datasets to type-safe React hooks and AI agents

@@ -1,0 +1,38 @@
+---
+title: Feature status
+description: What the Python SDK supports today compared with TypeScript.
+---
+
+The Python SDK is in beta. This table tracks coverage against the TypeScript packages.
+
+| Feature | TypeScript | Python |
+| --- | --- | --- |
+| Dimensions and base measures | Available | Available |
+| Filtered measures | Available | Available |
+| Relationships (`belongs_to`, `has_one`, `has_many`) | Available | Available |
+| Time grains | Available | Available, including per-dataset `time_grains` restriction |
+| Sync and async execution | Available | Available |
+| Result caching and multi-tenancy | Available | Available |
+| Dataset catalog | Available | Available |
+| Typed DataFrames (`to_pandas`, `to_polars`, `to_arrow`) | Not applicable | Available |
+| Framework integrations | Next.js, Node.js, Vite guides | Django, Flask, SQLAlchemy (`hypequery.contrib`) |
+| `approxCountDistinct` measures | Available | Planned |
+| `measure.merge` over `AggregatingMergeTree` state columns | Available | Planned |
+| `final: true` for `ReplacingMergeTree` / `CollapsingMergeTree` sources | Available | Planned |
+| Derived measures | Available | Available (`measure.derived` with `formula.*`) |
+| Window measures (trailing, to-date, cumulative) | Available | Planned |
+| Period comparisons (`shift`) | Available | Planned |
+| Segments | Available | Planned |
+| Relationship checks | Available | Available (`check_relationships`) |
+| Cloud publishing | Not yet | hypequery cloud is not live. Bundle export works today (`write_dataset_bundle`); one-step publish is planned |
+| MCP server for AI agents | Available | Through the Node `hypequery mcp` bridge over the server's live client contract ([setup](/docs/python/client-endpoints)); no native Python server |
+| Tool generation for agents | Available | Under consideration |
+| Serve: auth, CORS, rate limiting, errors | Available | Available |
+| Serve: JWT strategy and token issuer | Available | Available (`jwt_strategy`, `analytics_token_issuer`; tokens verify across languages) |
+| Serve: your app's own login (`fromContext`) | Available | Available (`from_context`, `django_user`, `flask_session`) |
+| Serve adapters | Fetch, Node, Vercel | ASGI, WSGI, native Django and Flask (`to_asgi_app`, `to_wsgi_app`, `urls`, `blueprint`) |
+| Serve: dataset query endpoints and discovery | Available | Available |
+| CLI (`init`, `generate datasets`, `dev`, `export client-contract`) | Available | Available |
+| Generated React hooks | Available | Available via exported client contracts and `generate:client` ([setup](/docs/python/client-endpoints)) |
+| Query builder | Available | Not planned |
+| Named metrics | Available | Not planned. Use metric endpoints or derived measures |

@@ -1,0 +1,137 @@
+---
+title: Python CLI
+description: Scaffold a Python dataset project from your ClickHouse schema, regenerate definitions, serve locally, and export client contracts.
+---
+
+import { CodeBlock } from 'fumadocs-ui/components/codeblock';
+
+The `hypequery` command ships with the Python package and needs no Node tooling. `python -m hypequery` runs the same
+CLI. Install the serving and ClickHouse extras for the full onboarding path:
+
+<CodeBlock>
+```bash
+pip install "hypequery[server,clickhouse]==0.1.0b1"
+export CLICKHOUSE_HOST=localhost CLICKHOUSE_USERNAME=default CLICKHOUSE_PASSWORD=... CLICKHOUSE_DATABASE=analytics
+hypequery init --path my-analytics
+cd my-analytics
+# The generated app authenticates with a local development token
+export HYPEQUERY_DEV_TOKEN="$(python -c 'import secrets; print(secrets.token_urlsafe(32))')"
+hypequery dev
+```
+</CodeBlock>
+
+Then, from another shell with the same `HYPEQUERY_DEV_TOKEN`, query a generated dataset (the README `init` writes
+shows the call for your own tables):
+
+<CodeBlock>
+```bash
+curl -s -X POST http://127.0.0.1:8000/datasets/orders/query \
+  -H "Authorization: Bearer $HYPEQUERY_DEV_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"dimensions": ["status"], "measures": ["totalCount"]}'
+```
+</CodeBlock>
+
+`hypequery --help`, `hypequery <command> --help`, `hypequery help <command>` and `hypequery --version` (or `-V`) work
+without the extras. Exit codes are `0` for success, `1` for a runtime failure and `2` for invalid usage.
+
+## `hypequery init`
+
+Creates a project from your live schema: `datasets.py` with one dataset per table, a `schema.json` snapshot, an
+`app.py` serving authenticated endpoints, a `pyproject.toml`, a `README.md` and a `.env.example`. Existing files are
+never overwritten. The `.env.example` and README repeat how discovery connected: `CLICKHOUSE_URL` if it was set,
+otherwise the host, port and TLS setting that worked, with credentials left as placeholders.
+
+| Option | Description |
+| --- | --- |
+| `[directory]` or `--path <dir>` | Destination; defaults to the current directory |
+| `--tables a,b` | Only inspect these tables (default: all) |
+| `--exclude-tables a,b` | Skip these tables |
+| `--all-tables` | Inspect every table (the default) |
+| `--tenant-column <column>` | Set `tenant_key` on tables that have this column, as `generate datasets` does |
+| `--framework standalone\|django\|flask` | The application to write beside `datasets.py` (default `standalone`); see below |
+| `--skip-connection` | Write the offline orders example and `seed.sql` instead of inspecting a database |
+
+| `--framework` | Writes | Run with |
+| --- | --- | --- |
+| `standalone` (default) | `app.py`: an API from `create_api`, served as plain ASGI with no web framework | `hypequery dev` |
+| `django` | A small Django project (`settings.py`, `urls.py`, `manage.py`) and `analytics.py` | `python manage.py runserver` |
+| `flask` | A Flask `app.py` | `flask --app app run` |
+
+The Django and Flask apps serve hypequery's endpoints natively ([`urls(api)`](/docs/python/django#serve-hypequerys-endpoints),
+[`blueprint(api)`](/docs/python/flask#serve-hypequerys-endpoints)) twice: at `/api/analytics` behind the framework's
+own login with the same-origin check, for `@hypequery/react` on pages the app serves, and at `/api/agents` behind a
+bearer token, for `@hypequery/mcp` and scripts. Until you wire them to your login, Flask's session API refuses
+everyone, and tenant-scoped datasets refuse signed-in Django users. The generated README walks through both. Every
+choice also works with `--skip-connection`.
+
+Schema discovery reads only `system.tables` and `system.columns` for the current database, so the user needs
+`SHOW` and `SELECT` on it. A read-only user works, whether its profile sets `readonly = 1` or `2`. If discovery fails,
+the message names what to check: credentials, host and port, the database, or grants.
+
+### Tenant-scoped datasets
+
+With `--tenant-column`, each dataset gets a `tenant_key`, and every query must run for one tenant. The generated
+development token has no tenant, so queries answer `403 FORBIDDEN` ("requires runtime tenant scoping") until you give
+it one. For local testing, set it in `app.py` (`principal_for_token` in the Django and Flask apps):
+
+<CodeBlock>
+```python
+return Principal(subject="developer", tenant_id="org_123")
+```
+</CodeBlock>
+
+Before real users, replace the token check with your own authentication so the tenant comes from the signed-in user.
+See [Multi-tenancy](/docs/python/multi-tenancy).
+
+Physical names map to the same camelCase semantic names as the TypeScript CLI. Numeric value columns get suggested
+`sum` and `avg` measures; ids and coordinates stay dimensions. Unsupported columns and likely tenant columns are
+reported, and nothing is written to the database. Review the generated semantics and configure tenant isolation
+explicitly before serving real data.
+
+## `hypequery generate datasets`
+
+Regenerates `datasets.py` from the current schema. Also spelled `generate:datasets`, as in the TypeScript CLI.
+
+| Option | Description |
+| --- | --- |
+| `--output <file>` | Output file (default `datasets.py`) |
+| `--path <dir>` | Output directory containing `datasets.py` |
+| `--tables`, `--exclude-tables` | Table selection, as for `init`. Without them, the selection `init` was given (recorded in `schema.json`) is reused |
+| `--all-tables` | Inspect every table, ignoring a recorded selection |
+| `--tenant-column <column>` | Set `tenant_key` on tables that have this column; reports tables that do not |
+| `--check` | Exit 1 if the file would change, without writing |
+| `--diff` | Show the drift without writing; exit 1 if any |
+| `--force` | Replace the existing file; warns when it removes a configured `tenant_key` |
+
+Replacement is atomic and preserves the file's permissions. Use `--check` in CI to catch schema drift.
+
+## `hypequery dev`
+
+Serves a local app with uvicorn. Requires the `server` extra.
+
+| Option | Description |
+| --- | --- |
+| `[app]` | Import string, default `app:app`, resolved from the working directory. It names an `Api` from `create_api` or its `to_asgi_app` application |
+| `--hostname`, `--host <addr>` | Bind address, default `127.0.0.1`. Binding beyond loopback prints a warning |
+| `-p`, `--port <port>` | Port, default `8000` |
+| `--reload` / `--no-watch` (`--no-reload`) | Reload on file changes; on by default |
+
+The dev runner is not hardened for a network. APIs created with a `ProductionProfile` are refused here; run those
+with [`start_server`](/docs/python/production) behind a reverse proxy instead. Startup failures are reported without
+their traceback so credentials in an exception never reach the terminal.
+
+## `hypequery export client-contract`
+
+Writes the canonical client contract that generated React hooks and the MCP bridge consume, without starting a server
+or connecting to a database.
+
+| Option | Description |
+| --- | --- |
+| `--factory module:factory` | Zero-argument factory returning the definition-only metadata (required) |
+| `--output <file>` | Output file, default `client-contract.json`; `-` for stdout |
+| `--stdout` | Write canonical JSON only to stdout |
+| `--check` | Exit 1 if the artifact would change, without writing |
+| `--force` | Replace an existing artifact |
+
+See [Python datasets, React and MCP](/docs/python-client-workflow) for the end-to-end workflow.

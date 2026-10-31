@@ -1,78 +1,42 @@
 'use client';
 
-import React, { useState } from 'react';
 import Link from 'next/link';
-import CodeHighlight from '@/components/CodeHighlight';
-import { trackUmamiEvent } from '@/lib/umami';
-import { AI_CONTEXT, HERO_SNIPPETS, HERO_TABS } from './constants';
-import { InstallCommand } from './InstallCommand';
+import { DeployWaitlist } from './DeployWaitlist';
+import { SetupCommand } from './SetupCommand';
+import { SiClickhouse } from 'react-icons/si';
+import { Inter } from 'next/font/google';
+import { NpmDownloadsBadge } from './NpmDownloadsBadge';
+import { OpenSourceBadge } from './OpenSourceBadge';
+import { marketing } from '../ui/marketing';
+
+// ClickHouse's wordmark is set in Inter; load just the bold weight for it.
+const clickhouseWordmark = Inter({ subsets: ['latin'], weight: '700', display: 'swap' });
 
 export function Hero() {
-  const [aiContextCopied, setAiContextCopied] = useState(false);
-
-  const handleCopyAiContext = () => {
-    navigator.clipboard.writeText(AI_CONTEXT);
-    trackUmamiEvent('copy_ai_context', { location: 'hero', page: '/' });
-    setAiContextCopied(true);
-    setTimeout(() => setAiContextCopied(false), 2000);
-  };
-
   return (
-    <section className="mx-auto max-w-[1280px] px-8 pt-[140px] pb-16 flex flex-col items-center text-center">
-      <h1 className="text-display text-text max-w-[1000px] text-balance">
-        Ship type-safe analytics on <em className="not-italic text-accent">ClickHouse.</em>
-      </h1>
-
-      <p className="mt-[22px] text-body-lg text-text-muted max-w-[660px] text-pretty">
-        Define queries, metrics, and dimensions inside the backend you already have. Expose them as typed APIs, React hooks, or MCP tools for your AI agents.
-      </p>
-
-      <div className="flex gap-2.5 mt-7 flex-wrap justify-center">
-        <Link
-          href="/docs/quick-start"
-          onClick={() => trackUmamiEvent('cta_click', { target: 'docs_quick_start', location: 'hero', page: '/' })}
-          className="bg-text text-bg px-5 py-3 text-[13.5px] font-semibold rounded transition hover:opacity-90 hover:-translate-y-px"
-        >
-          Get started in 30s →
-        </Link>
-        <button
-          onClick={handleCopyAiContext}
-          className="relative inline-flex items-center gap-2 bg-bg-card border border-border-strong text-text px-5 py-3 text-[13.5px] font-semibold rounded transition hover:border-text hover:-translate-y-px"
-        >
-          <svg
-            className="w-4 h-4"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-          </svg>
-          Copy AI Context
-          {aiContextCopied && (
-            <span className="absolute -top-8 left-1/2 -translate-x-1/2 px-2 py-1 bg-text text-bg text-xs font-sans font-medium rounded whitespace-nowrap">
-              Copied!
+    <section className="mx-auto max-w-[1280px] px-5 pb-8 pt-8 sm:px-8 sm:pt-10">
+      <div>
+        <div className="flex flex-wrap items-center gap-2">
+          <NpmDownloadsBadge />
+          <OpenSourceBadge />
+        </div>
+        <h1 className="mt-5 text-[clamp(2.25rem,4.6vw,4rem)] font-normal leading-[1.04] tracking-[-0.05em] text-text">The analytics layer for{' '}
+          <span className="ml-[0.18em] inline-flex items-center gap-[0.14em] whitespace-nowrap align-[-0.06em]">
+            {/* ClickHouse yellow on a black tile, like its app icon, so the brand colour shows in light mode too. */}
+            <span className="flex h-[0.86em] w-[0.86em] shrink-0 items-center justify-center rounded-[0.16em] bg-[#161517]" aria-hidden="true">
+              <SiClickhouse className="h-[0.6em] w-[0.6em] text-[#faff69]" />
             </span>
-          )}
-        </button>
+            <span className={`${clickhouseWordmark.className} font-bold tracking-[-0.045em]`}>ClickHouse</span>
+          </span>
+        </h1>
+        <p className="text-body-lg mt-5 max-w-[660px] text-text-muted">Define your metrics once, in the codebase you already have. Dashboards, APIs, and AI agents all answer from that one definition. Run it in your own backend, or on hypequery cloud.</p>
+        {/* Lead with what works today: the open-source path. Cloud is waitlist-only, so it's the second button. */}
+        <div className="mt-7 flex flex-wrap items-center gap-3">
+          <Link href="/docs/quick-start" className={marketing.primaryButton}>Get started <span aria-hidden="true">→</span></Link>
+          <DeployWaitlist location="hero" className={marketing.secondaryButton} />
+        </div>
+        <SetupCommand className="mt-4" />
       </div>
-
-      <div className="mt-5 flex flex-wrap items-center justify-center gap-2.5">
-        <a
-          href="https://www.npmjs.com/package/@hypequery/clickhouse"
-          target="_blank"
-          rel="noreferrer"
-          className="inline-flex items-center rounded-[100px]  p-1 transition hover:border-border-strong hover:-translate-y-px"
-        >
-          <img
-            src="https://img.shields.io/npm/dm/%40hypequery%2Fclickhouse?style=flat-square&label=npm%20downloads&labelColor=111827&color=3a3f8c"
-            alt="npm downloads for @hypequery/clickhouse"
-            className="h-6 rounded-[100px]"
-          />
-        </a>
-      </div>
-
-      <InstallCommand className="mt-8" />
-
     </section>
   );
 }

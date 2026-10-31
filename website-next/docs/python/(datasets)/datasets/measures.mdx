@@ -1,0 +1,89 @@
+---
+title: Measures
+description: Define aggregations such as revenue, counts, averages, minimums, and maximums in Python.
+---
+
+import { CodeBlock } from 'fumadocs-ui/components/codeblock';
+
+Measures are aggregations over fields in a dataset. Each helper on the `measure` namespace takes the field and
+optional `label`, `description`, and `filters` keyword arguments.
+
+<CodeBlock>
+```python
+from hypequery.datasets import measure
+
+measures = {
+    "revenue": measure.sum(
+        "amount",
+        label="Revenue",
+        description="Total order amount before refunds.",
+    ),
+    "order_count": measure.count("id"),
+    "unique_customers": measure.count_distinct("customer_id"),
+    "average_amount": measure.avg("amount"),
+    "min_amount": measure.min("amount"),
+    "max_amount": measure.max("amount"),
+}
+```
+</CodeBlock>
+
+## Aggregations
+
+`measure.sum`, `measure.count`, `measure.count_distinct`, `measure.avg`, `measure.min`, `measure.max`,
+`measure.median`, `measure.percentile(field, level)`, `measure.stddev`, `measure.variance`,
+`measure.arg_max(field, by)`, and `measure.arg_min(field, by)`.
+
+`stddev` and `variance` are **sample** statistics (`stddevSamp`, `varSamp`).
+`median` and `percentile` use ClickHouse's approximate `quantile`, so expect small
+differences from an exact calculation on large inputs. `count_distinct` is exact
+(`uniqExact`).
+
+Over HTTP, every non-null measure value is a string, as in TypeScript. The local
+Python client returns integer counts as `int`, floating-point results as `float`,
+and `Decimal` sums as `str`, so check the type before doing arithmetic.
+
+## Filtered measures
+
+Pass `filters` to aggregate only matching rows:
+
+<CodeBlock>
+```python
+from hypequery.datasets import filter, measure
+
+measures = {
+    "us_revenue": measure.sum("amount", filters=(filter.eq("country", "US"),)),
+}
+```
+</CodeBlock>
+
+Filtered measures are not supported on `arg_max` and `arg_min`.
+
+## Derived measures
+
+A derived measure combines other measures of the same dataset with a formula. Build the formula with the `formula`
+namespace and wrap it in `measure.derived`:
+
+<CodeBlock>
+```python
+from hypequery.datasets import formula, measure
+
+measures = {
+    "revenue": measure.sum("amount"),
+    "order_count": measure.count("id"),
+    "average_order_value": measure.derived(
+        formula.divide("revenue", formula.null_if_zero("order_count")),
+        label="Average order value",
+    ),
+}
+```
+</CodeBlock>
+
+Formula helpers: `formula.add`, `formula.subtract`, `formula.multiply`, `formula.divide`, `formula.null_if_zero`,
+`formula.coalesce`, `formula.round(value, decimals=0)`, `formula.floor`, and `formula.ceil`. Operands are measure
+names or numeric literals. Derived measures are selected, filtered with `having`, and published like any other
+measure.
+
+## Not yet in Python
+
+Window measures (trailing, to-date, cumulative), period comparisons (`shift`), segments, and
+`approx_count_distinct` are TypeScript only for now. See [Feature status](/docs/python/feature-status).

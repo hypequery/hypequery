@@ -39,11 +39,13 @@ import type { Schema } from './schema';
 //   count: string;        // UInt64 in ClickHouse, string in TypeScript
 // }
 //
-// Parse DateTime strings explicitly at the chart layer and keep timezone handling deliberate.
+// Parse DateTime strings at the chart layer and handle timezones there.
 
-const db = createQueryBuilder<Schema>({ /* connection config */ });
+const db = createQueryBuilder<Schema>({
+  /* connection config */
+});
 
-// toStartOfDay is ClickHouse-native — returns a DateTime truncated to midnight
+// toStartOfDay is ClickHouse-native: a DateTime truncated to midnight
 // groupBy the alias, not the expression, to avoid repeating it
 export async function getDailyMetrics(opts: {
   tenantId: string;
@@ -53,7 +55,7 @@ export async function getDailyMetrics(opts: {
   return db
     .table('events')
     .select(
-      'toStartOfDay(created_at) as day',    // ClickHouse date truncation
+      'toStartOfDay(created_at) as day', // ClickHouse date truncation
       'count() as events',
       'uniq(user_id) as active_users',
       'sum(revenue_cents) as revenue',
@@ -68,7 +70,7 @@ export async function getDailyMetrics(opts: {
 
 // Return type inferred from the query —
 // { day: string; events: string; active_users: string; revenue: string }[]
-// All numeric aggregates are strings because ClickHouse UInt64/Decimal → string.`;
+// Numeric aggregates are strings: ClickHouse UInt64/Decimal → string.`;
 
 const reusableTimeRangeCode = `// analytics/time-range-queries.ts — composable time-range pattern
 import { initServe } from '@hypequery/serve';
@@ -80,45 +82,60 @@ type Granularity = 'minute' | 'hour' | 'day' | 'week';
 // Map granularity to the appropriate ClickHouse date function
 const granularityFn: Record<Granularity, string> = {
   minute: 'toStartOfMinute',
-  hour:   'toStartOfHour',
-  day:    'toStartOfDay',
-  week:   'toStartOfWeek',
+  hour: 'toStartOfHour',
+  day: 'toStartOfDay',
+  week: 'toStartOfWeek',
 };
 
 // Reusable preset time ranges — avoids duplicating these across every query
-function presetRange(preset: '1h' | '24h' | '7d' | '30d'): { start: string; end: string } {
+function presetRange(preset: '1h' | '24h' | '7d' | '30d'): {
+  start: string;
+  end: string;
+} {
   const now = new Date();
-  const msMap = { '1h': 3_600_000, '24h': 86_400_000, '7d': 604_800_000, '30d': 2_592_000_000 };
-  const start = new Date(now.getTime() - msMap[preset]).toISOString().replace('T', ' ').slice(0, 19);
+  const msMap = {
+    '1h': 3_600_000,
+    '24h': 86_400_000,
+    '7d': 604_800_000,
+    '30d': 2_592_000_000,
+  };
+  const start = new Date(now.getTime() - msMap[preset])
+    .toISOString()
+    .replace('T', ' ')
+    .slice(0, 19);
   const end = now.toISOString().replace('T', ' ').slice(0, 19);
   return { start, end };
 }
 
 const { query, serve } = initServe({
-  context: (req) => ({ db, tenantId: req.headers['x-tenant-id'] as string }),
+  context: (req) => ({
+    db,
+    tenantId: req.headers['x-tenant-id'] as string,
+  }),
 });
 
 export const timeSeries = query({
   input: z.object({
     granularity: z.enum(['minute', 'hour', 'day', 'week']).default('day'),
-    preset:      z.enum(['1h', '24h', '7d', '30d']).optional(),
-    startDate:   z.string().optional(),
-    endDate:     z.string().optional(),
-    metric:      z.enum(['events', 'users', 'revenue']).default('events'),
+    preset: z.enum(['1h', '24h', '7d', '30d']).optional(),
+    startDate: z.string().optional(),
+    endDate: z.string().optional(),
+    metric: z.enum(['events', 'users', 'revenue']).default('events'),
   }),
   query: ({ ctx, input }) => {
-    const { start, end } =
-      input.preset
-        ? presetRange(input.preset)
-        : { start: input.startDate!, end: input.endDate! };
+    const { start, end } = input.preset
+      ? presetRange(input.preset)
+      : { start: input.startDate!, end: input.endDate! };
 
     const truncFn = granularityFn[input.granularity];
 
     // Select the right aggregation based on the requested metric
     const metricSelect =
-      input.metric === 'events'  ? 'count() as value' :
-      input.metric === 'users'   ? 'uniq(user_id) as value' :
-      /* revenue */                'sum(revenue_cents) as value';
+      input.metric === 'events'
+        ? 'count() as value'
+        : input.metric === 'users'
+        ? 'uniq(user_id) as value'
+        : /* revenue */ 'sum(revenue_cents) as value';
 
     return ctx.db
       .table('events')

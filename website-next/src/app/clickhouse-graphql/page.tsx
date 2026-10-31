@@ -47,7 +47,7 @@ export const resolvers = {
       args: { startDate: string; endDate: string },
       ctx: { tenantId: string },
     ) => {
-      // Return type: { order_date: string; revenue: string; order_count: string }[]
+      // { order_date: string; revenue: string; order_count: string }[]
       // Matches GraphQL schema — no manual bridging or casting needed
       return db
         .table('orders')
@@ -90,16 +90,23 @@ const typeDefs = \`#graphql
 
 const resolvers = {
   Query: {
-    activeUsers: async (_: unknown, args: { windowDays: number }, ctx: { tenantId: string }) => {
+    activeUsers: async (
+      _: unknown,
+      args: { windowDays: number },
+      ctx: { tenantId: string },
+    ) => {
       const start = new Date(Date.now() - args.windowDays * 86_400_000)
         .toISOString()
         .replace('T', ' ')
         .slice(0, 19);
 
-      // hypequery infers column types from schema — no manual interface needed
+      // Column types are inferred from the schema, no manual interface
       return db
         .table('events')
-        .select(['toStartOfDay(timestamp) as day', 'uniq(user_id) as active_users'])
+        .select([
+          'toStartOfDay(timestamp) as day',
+          'uniq(user_id) as active_users',
+        ])
         .where('tenant_id', 'eq', ctx.tenantId)
         .where('timestamp', 'gte', start)
         .groupBy(['day'])
@@ -107,7 +114,11 @@ const resolvers = {
         .execute();
     },
 
-    topEvents: async (_: unknown, args: { limit?: number }, ctx: { tenantId: string }) => {
+    topEvents: async (
+      _: unknown,
+      args: { limit?: number },
+      ctx: { tenantId: string },
+    ) => {
       return db
         .table('events')
         .select(['event_name', 'count() as occurrences'])

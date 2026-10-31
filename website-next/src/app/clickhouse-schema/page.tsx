@@ -34,19 +34,19 @@ const outputCode = `// generated schema.ts — always reflects your live ClickHo
 
 export interface DB {
   orders: {
-    id: string;           // UUID → string
-    total: string;        // Decimal(18,4) → string (preserves precision)
-    created_at: string;   // DateTime → string (ClickHouse format)
-    tenant_id: string;    // String
-    status: string;       // LowCardinality(String) → string
+    id: string; // UUID → string
+    total: string; // Decimal(18,4) → string (preserves precision)
+    created_at: string; // DateTime → string (ClickHouse format)
+    tenant_id: string; // String
+    status: string; // LowCardinality(String) → string
     user_id: string | null; // Nullable(String) → string | null
-    quantity: number;     // UInt32 → number
-    amount: string;       // UInt64 → string (avoids JS precision loss)
+    quantity: number; // UInt32 → number
+    amount: string; // UInt64 → string (avoids JS precision loss)
   };
   events: {
     event_name: string;
     occurred_at: string;
-    properties: string;   // JSON → string
+    properties: string; // JSON → string
     session_id: string | null;
   };
 }`;

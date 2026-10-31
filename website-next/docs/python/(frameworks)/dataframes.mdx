@@ -1,0 +1,78 @@
+---
+title: pandas, Polars and Arrow
+description: Convert dataset results to typed DataFrames, with column types taken from your dataset definitions.
+---
+
+import { CodeBlock } from 'fumadocs-ui/components/codeblock';
+
+Result rows keep JSON-safe values: decimals, dates and datetimes are strings, so nothing loses precision on the way
+to an HTTP response. For analysis, convert a result to a DataFrame. The column types come from the dataset
+definition, not from guessing at values.
+
+## Install
+
+<CodeBlock>
+```bash
+pip install "hypequery[clickhouse,pandas]==0.1.0b1"   # or polars, arrow
+```
+</CodeBlock>
+
+## Convert a result
+
+<CodeBlock>
+```python
+from hypequery.datasets import create_dataset_client, tenant
+from hypequery.execution import ClickHouseConnection, create_clickhouse_executor
+
+with create_clickhouse_executor(ClickHouseConnection.from_env()) as executor:
+    client = create_dataset_client(executor=executor, registry=registry)
+    result = client.for_tenant(tenant("acme")).execute(
+        "orders", {"measures": ["revenue", "orders"], "by": "day"}
+    )
+
+frame = result.to_pandas()   # or result.to_polars(), result.to_arrow()
+frame.dtypes
+# period     datetime64[us, UTC]
+# revenue                float64
+# orders                   Int64
+```
+</CodeBlock>
+
+`result.column_types` lists the type of each column, and an empty result gets the same types.
+
+| Column | pandas | Polars | Arrow |
+| --- | --- | --- | --- |
+| Time bucket (`period`) and `timestamp` dimensions | `datetime64[us, <tz>]` | `Datetime("us", <tz>)` | `timestamp("us", tz=<tz>)` |
+| `count`, `countDistinct` | `Int64` (nullable) | `Int64` | `int64` |
+| Other numbers | `float64` | `Float64` | `float64` |
+| Numbers with `decimals="decimal"` | `Decimal` objects | `Decimal` | `decimal128` |
+| `boolean` dimensions | `boolean` (nullable) | `Boolean` | `bool` |
+| `string` dimensions | string | `String` | `string` |
+
+`<tz>` is the query's timezone, `result.timezone`: UTC unless the query or client sets one. Time buckets are
+wall-clock times in that timezone, so a daily `period` keeps its local midnight.
+
+A number column holding only whole values stays an integer column. Integers beyond `Int64` become unsigned 64-bit
+columns, or exact decimals past `UInt64`. A column the definition cannot type, such as `min` over a column no
+dimension describes, converts as returned.
+
+## Exact decimals
+
+Floats suit most analysis. To keep ClickHouse `Decimal` values exact, pass `decimals="decimal"`:
+
+<CodeBlock>
+```python
+frame = result.to_pandas(decimals="decimal")
+frame["revenue"].iloc[0]  # Decimal('1234.50')
+```
+</CodeBlock>
+
+## Notebooks and scripts
+
+The conversions need only the dataset client, so they work the same in a notebook, a script, a Django view or a
+Celery task. Bind a tenant with `for_tenant` for customer-facing numbers, the same as anywhere else.
+
+## Runnable example
+
+[`examples/dataframes.py`](https://github.com/hypequery/hypequery/blob/main/python/hypequery/examples/dataframes.py)
+prints one organization's daily revenue as a typed DataFrame.

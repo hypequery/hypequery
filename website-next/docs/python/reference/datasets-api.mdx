@@ -1,0 +1,85 @@
+---
+title: hypequery.datasets
+description: Reference for the dataset definition, query, client, cache and catalog API.
+---
+
+Everything on this page imports from `hypequery.datasets`. Importing it needs only `pydantic`; no database driver or web framework is loaded.
+
+## Defining datasets
+
+| Export | Signature | Purpose |
+| --- | --- | --- |
+| `Dataset` | `Dataset(*, name, source, dimensions, measures={}, filters={}, relationships=…, tenant_key=None, time_key=None, time_grains=None, limits=None)` | A normalized semantic model over one physical source |
+| `dataset` | `dataset(name, *, source, dimensions, measures=None, filters=None, relationships=None, tenant_key=None, time_key=None, time_grains=None, limits=None)` | Keyword helper matching TypeScript's `dataset()` entrypoint |
+| `dimension` | `dimension.string(**options)`, `.number`, `.boolean`, `.timestamp`; also `dimension(field_type, **options)` | A typed dimension. Options: `label`, `description`, `column`, `sql`, `dependencies`, `filterable`, `groupable` |
+| `measure` | `measure.<aggregation>(field, *, label, description, filters)` | A measure; see the aggregations below |
+| `measure.derived` | `measure.derived(formula, *, label, description)` | A `DerivedMeasure` computed from other measures |
+| `DatasetLimits` | `DatasetLimits(*, max_dimensions, max_measures, max_filters, max_result_size)` | Optional per-dataset query limits |
+| `belongs_to`, `has_one`, `has_many` | `belongs_to(target, *, from_field, to_field)` | Relationships. `has_many` is metadata-only |
+
+### Aggregations
+
+`measure.count`, `measure.count_distinct`, `measure.sum`, `measure.avg`, `measure.min`, `measure.max`, `measure.median`, `measure.stddev`, `measure.variance`, `measure.percentile(field, level)`, `measure.arg_min(field, by)` and `measure.arg_max(field, by)`. Each returns a `Measure`.
+
+### Formulas
+
+`formula.add`, `formula.subtract`, `formula.multiply`, `formula.divide`, `formula.coalesce`, `formula.null_if_zero`, `formula.round`, `formula.floor` and `formula.ceil` build `Formula` values for `measure.derived`. `compile_formula` compiles one to a protocol expression.
+
+## Querying
+
+| Export | Purpose |
+| --- | --- |
+| `DatasetQuery(*, dimensions=(), measures=None, filters=(), having=(), by=None, order_by=(), limit=None, offset=None, timezone=None)` | A grouped aggregation over one dataset |
+| `Filter`, `FilterOperator` | A filter on a dimension. Operators: `eq`, `neq`, `gt`, `gte`, `lt`, `lte`, `in`, `notIn`, `between`, `like` |
+| `filter.eq`, `filter.neq`, `filter.gt`, `filter.gte`, `filter.lt`, `filter.lte`, `filter.in_list`, `filter.not_in_list`, `filter.between`, `filter.like` | Filter helpers |
+| `HavingCondition` | A condition on an aggregated measure value, applied after grouping |
+| `Order`, `order.asc`, `order.desc` | Result ordering |
+| `ExecutionContext(tenant=None, deadline=None, cancellation=None, correlation_id=None, settings=None)` | What a trusted caller supplies alongside a query |
+| `tenant(id)`, `tenants((id, …))`, `all_tenants()` | Tenant scopes for an execution |
+
+Supported time grains: `minute`, `hour`, `day`, `week`, `month`, `quarter`, `year`.
+
+## Clients
+
+```python
+create_dataset_client(*, executor, registry=None, settings=QuerySettings(...), cache=None, timezone="UTC") -> DatasetClient
+create_async_dataset_client(*, executor, registry=None, settings=QuerySettings(...), cache=None, timezone="UTC") -> AsyncDatasetClient
+```
+
+`DatasetClient` and `AsyncDatasetClient` expose `execute`, `to_sql`, `validate` and `for_tenant`. `for_tenant` returns a `TenantDatasetClient` (or `AsyncTenantDatasetClient`) bound to one tenant.
+
+The default settings are read-only, `max_execution_time` 30 seconds, `max_result_rows` 100,000, `max_result_bytes` 64 MiB and `max_threads` 4.
+
+Results come back as `DatasetQueryResult`, with `DatasetQueryMeta` and `Pagination` alongside the rows.
+`column_types` gives each column's `ResultColumnType` (`string`, `number`, `integer`, `boolean`, `timestamp` or
+`unknown`) from the dataset definition, and `timezone` the query's timezone. `to_pandas()`, `to_polars()` and
+`to_arrow()` take `decimals="float"` or `"decimal"`; see [pandas, Polars and Arrow](/docs/python/dataframes).
+
+## Relationship checks
+
+`check_relationships(dataset, *, executor, registry, context=None, relationships=None)` and `check_relationships_async(...)` verify that to-one relationship target keys are unique within the trusted tenant scope and return a `CheckRelationshipsResult` listing duplicate keys. Nothing runs unless you call them.
+
+## Registry and catalog
+
+| Export | Purpose |
+| --- | --- |
+| `create_dataset_registry(*datasets)` | A registry holding datasets by name |
+| `get_dataset_catalog(dataset, *, registry)` | Catalog metadata for one dataset |
+| `get_dataset_catalogs(registry)` | Every registered dataset's catalog, keyed by dataset name |
+| `get_queryable_relationship_fields`, `get_groupable_relationship_fields` | Fields reachable through relationships |
+
+## Caching
+
+| Export | Purpose |
+| --- | --- |
+| `ResultCache(*, store, ttl_seconds, project="hypequery", environment="default", secret=None, key_version=1, definition_identity=None)` | Cache configuration for one namespace |
+| `CacheStore` | The store protocol |
+| `MemoryCacheStore(*, max_entries=1000)` | Thread-safe, bounded, in-process LRU store |
+
+## Deployment bundles
+
+`prepare_dataset_bundle(registry, *, endpoints=None)` assembles canonical bundle bytes without touching the filesystem. `write_dataset_bundle(output_directory, registry, *, endpoints=None)` writes a new bundle and refuses to replace an existing one.
+
+## Client contracts
+
+`ClientQueryProfile(default_limit=..., max_limit=..., ...)` opts a served endpoint into the strict client contract that generated React hooks and the MCP bridge consume. `export_client_contract(definitions, *, registry=None, mount_path="")` produces the canonical contract from definition-only metadata; `hypequery export client-contract` does the same from the command line. See [Python datasets, React and MCP](/docs/python-client-workflow).

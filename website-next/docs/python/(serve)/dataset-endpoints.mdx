@@ -1,0 +1,114 @@
+---
+title: Dataset endpoints
+description: Request and response shapes, pagination, and discovery for Python dataset endpoints.
+---
+
+import { CodeBlock } from 'fumadocs-ui/components/codeblock';
+
+A dataset endpoint is a `POST` endpoint that runs semantic queries against one dataset through your dataset client
+(sync or async). Serve it at the conventional path with `create_api(datasets=...)`, or at any path with
+`add_dataset_endpoint`:
+
+<CodeBlock>
+```python
+from hypequery.serve import EndpointPolicy, add_dataset_endpoint, create_api, create_dataset_endpoint
+
+policy = EndpointPolicy(tenant="required", max_limit=500)
+
+# POST /datasets/orders/query
+api = create_api(
+    auth=authenticate,
+    datasets={"orders": create_dataset_endpoint(dataset=orders, client=client, policy=policy)},
+)
+
+# or at a path of your choosing
+add_dataset_endpoint(api, "/v1/orders", dataset=orders, client=client, policy=policy)
+```
+</CodeBlock>
+
+A metric endpoint fixes one measure: `create_metric_endpoint(dataset=orders, measure="revenue", client=client)`,
+served with `create_api(metrics={"revenue": ...})` at `POST /metrics/revenue`, or with `add_metric_endpoint(api, path,
+...)`.
+
+## Request body
+
+<CodeBlock>
+```json
+{
+  "dimensions": ["country"],
+  "measures": ["revenue"],
+  "filters": [{ "field": "status", "operator": "eq", "value": "completed" }],
+  "orderBy": [{ "field": "revenue", "direction": "desc" }],
+  "by": "month",
+  "limit": 10,
+  "offset": 0,
+  "includeMeta": true
+}
+```
+</CodeBlock>
+
+The body is validated strictly:
+
+- unknown fields are rejected with `400 VALIDATION_ERROR`;
+- numbers and booleans are not coerced from strings;
+- attempts to supply a tenant, SQL, settings, roles, or scopes are refused.
+
+Omitting `measures` selects the dataset's default measures; `"measures": []` selects none. `timezone` (an IANA name)
+is also accepted.
+
+## Related fields
+
+An endpoint's policy says who may call it, not who may read the datasets its relationships reach. So fields from
+related datasets are off by default: `customer.country`, related measures, and named filters defined on a related
+field are refused with `400 VALIDATION_ERROR` and left out of the client contract. Opt in per relationship when this
+endpoint's policy is enough to read the related data:
+
+<CodeBlock>
+```python
+create_dataset_endpoint(dataset=orders, client=client, policy=policy, include_related={"customer"})
+```
+</CodeBlock>
+
+## Response
+
+<CodeBlock>
+```json
+{
+  "data": [{ "country": "NZ", "revenue": "1200.5" }],
+  "meta": {
+    "requestId": "…",
+    "timingMs": 12,
+    "rowCount": 1,
+    "pagination": { "limit": 10, "offset": 0, "hasMore": false },
+    "cache": { "hit": false }
+  }
+}
+```
+</CodeBlock>
+
+- `meta` is included only when the body sets `includeMeta: true` or the request sends `x-include-meta: true`.
+- `meta.cache` appears only when the dataset client has a result cache; without one it is omitted, as in TypeScript.
+- Non-null measure values are strings on the wire, matching TypeScript. Local Python client results keep native
+  values.
+
+## Pagination
+
+Page sizes default to 1,000 and are clamped to the endpoint's `max_limit` and the dataset's limits. The endpoint
+fetches one extra row to compute `hasMore`, then drops it from the returned data and row count.
+
+## Discovery
+
+`create_api` serves `GET /discovery` whenever it serves `datasets=` or `metrics=`: a logical catalog of their
+datasets. Pass `discovery=EndpointPolicy(...)` to change who may read it, or `discovery=False` to leave it out. To
+publish a registry's catalog at another path, use `add_discovery_endpoint`:
+
+<CodeBlock>
+```python
+add_discovery_endpoint(api, "/v1/discovery", registry=registry)
+```
+</CodeBlock>
+
+- It requires authentication by default. Pass `EndpointPolicy(public=True)` only for intentionally public discovery.
+- The catalog matches TypeScript's `/discovery` projection. Physical tables, columns, SQL, tenant policy, and tenant
+  values never appear in it.
+- Its size is capped at 256 KiB by default (`max_bytes=`), checked at startup.

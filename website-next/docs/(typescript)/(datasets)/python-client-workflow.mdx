@@ -1,0 +1,58 @@
+---
+title: Python datasets, React and MCP
+description: One Python semantic definition shared by generated React hooks and an HTTP-backed MCP bridge.
+---
+
+import { CodeBlock } from 'fumadocs-ui/components/codeblock';
+
+Datasets defined and served in Python can power the same `@hypequery/react` hooks and `hypequery mcp` tools as a
+TypeScript backend. Python owns SQL, authentication, tenant resolution and endpoint policy. React and MCP only see a
+**client contract**: the endpoints a client may call, with their fields, operators, limits and schema hashes.
+
+| Step | Where | Command or API |
+| --- | --- | --- |
+| Declare and serve client endpoints | Python | `ClientEndpointDefinition`, `add_dataset_endpoint(..., client_profile=...)`, `add_metric_endpoint`, `add_client_contract_endpoint` |
+| Export the build contract | Python | `python -m hypequery export client-contract --factory module:build` |
+| Generate typed hooks | Frontend | `npx hypequery generate:client client-contract.json` |
+| Query from React | Frontend | `createAnalyticsHooks<ClientApi>({ manifest: clientManifest, ... })` |
+| Connect agents | Anywhere Node runs | `npx hypequery mcp --client-contract-url https://…/v1/client-contract` |
+
+<CodeBlock>
+```bash
+# Python project
+python -m hypequery export client-contract --factory analytics.definitions:build --output web/client-contract.json
+
+# Frontend project, where the contract was written
+cd web
+npm install @hypequery/react @tanstack/react-query
+npm install -D @hypequery/cli
+npx hypequery generate:client client-contract.json --output src/hypequery-client.ts
+```
+</CodeBlock>
+
+The guides for each side:
+
+- [Python: React and MCP clients](/docs/python/client-endpoints) covers definitions, installing endpoints with a client
+  profile, exporting, mount prefixes, what the generated types guarantee, and keeping clients in sync.
+- [React: datasets served from Python](/docs/react/getting-started#datasets-served-from-python) covers generating the
+  client, per-login clients and cache scope, schema changes and result types.
+- [MCP: datasets served from Python](/docs/mcp/overview#datasets-served-from-python) covers the bridge's URL rules,
+  credentials, `--self-test` and client configuration.
+
+A few rules hold across all three:
+
+- The build contract comes from the definition owner: the offline export or `hypequery.serve.export_client_contract(app)`.
+  The live `/v1/client-contract` route returns the caller's authorized view, which only the MCP bridge consumes.
+- A contract describes capabilities; it does not grant permission. Python authenticates and authorizes every request.
+- Every request carries its endpoint's schema hash. When Python definitions change, stale clients get
+  `409 CLIENT_SCHEMA_CHANGED` instead of data in an unexpected shape. Regenerate and redeploy; nothing updates itself.
+- A `label` and `description` on datasets, dimensions and measures travel in the contract as presentation annotations.
+  `list_datasets` shows each dataset's description to agents, `get_dataset_schema` includes field text, and
+  `generate:client` emits it as JSDoc. Editing that text changes the view hash but not an endpoint's schema pin, so it
+  never triggers a 409.
+- One MCP process acts as one backend principal. Browser code uses user-scoped credentials and a fresh client and cache
+  scope per login.
+
+Python serving needs no Node process; generating the React client and running the MCP bridge do. There is no native
+Python MCP server. A runnable two-tenant example with a React app and MCP checks is in
+[`examples/client_dashboard`](https://github.com/hypequery/hypequery/tree/main/python/hypequery/examples/client_dashboard).

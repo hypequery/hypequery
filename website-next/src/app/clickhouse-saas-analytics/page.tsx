@@ -37,7 +37,8 @@ const usageDashboard = query({
   query: async ({ ctx }) =>
     ctx.db
       .table('events')
-      .where('tenant_id', 'eq', ctx.tenantId) // part of the default query path
+      // part of the default query path
+      .where('tenant_id', 'eq', ctx.tenantId)
       .groupBy(['event_name', 'date'])
       .count('id', 'total')
       .orderBy('date', 'DESC')
@@ -59,13 +60,7 @@ function AnalyticsDashboard() {
 
   if (isLoading) return <Skeleton />;
 
-  return (
-    <BarChart
-      data={data ?? []}
-      xKey="date"
-      yKey="total"
-    />
-  );
+  return <BarChart data={data ?? []} xKey="date" yKey="total" />;
 }`;
 
 export default function ClickHouseSaasAnalyticsPage() {
@@ -73,7 +68,7 @@ export default function ClickHouseSaasAnalyticsPage() {
     <ClickhousePillarPage
       eyebrow="ClickHouse SaaS Analytics"
       title="Embed customer-facing analytics in your SaaS product with ClickHouse"
-      description="This is the point where analytics becomes product surface, not just internal reporting. You need tenant scoping that is hard to bypass, a stable API for the UI, and one query path that can serve dashboards, exports, and internal support views without splitting into separate implementations."
+      description="Once analytics is part of your product, you need tenant scoping that's hard to bypass, a stable API for the UI, and one definition behind dashboards, exports, support views, and AI agents. hypequery gives you that in the codebase you already have."
       primaryCta={{ href: '/docs/quick-start', label: 'Start with hypequery' }}
       secondaryCta={{ href: '/clickhouse-multi-tenant-analytics', label: 'See multi-tenant guide' }}
       stats={[

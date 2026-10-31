@@ -1,0 +1,63 @@
+---
+title: Rate limiting
+description: Limit request rates per caller on Python Serve routes.
+---
+
+import { CodeBlock } from 'fumadocs-ui/components/codeblock';
+
+Add a `RateLimit` to every route, or to one:
+
+<CodeBlock>
+```python
+from hypequery.serve import RateLimit, add_dataset_endpoint, create_api
+
+api = create_api(auth=authenticate, limits=[RateLimit(max=600, window_seconds=60)])
+add_dataset_endpoint(
+    api,
+    "/datasets/orders/query",
+    dataset=orders,
+    client=client,
+    limits=[RateLimit(max=60, window_seconds=60)],
+)
+```
+</CodeBlock>
+
+Your own routes take `limits=` too: `api.add_route("POST", "/reports/export", export, limits=[...])`.
+
+A limit counts each request once, after authentication and before the body is read, so a limited caller costs neither
+a parse nor a query. The API's limits run before the route's, in order.
+
+## Defaults
+
+The defaults match TypeScript:
+
+- **Caller identity** is the authenticated principal, or else the client address set by
+  `HttpSecurity(trusted_proxies=...)`, never a header the caller chose.
+- **Exhaustion** answers `429 RATE_LIMITED` with `Retry-After` and `X-RateLimit-*` headers.
+- **Store failures** let the request through. Pass `fail_open=False` to answer `503` instead.
+
+## Custom keys
+
+Pass `key=` to group callers differently, for example by tenant. The key function receives the `ServeRequest` and the
+caller's `RequestAuth` (or `None`), and returns a string:
+
+<CodeBlock>
+```python
+def per_tenant(request, auth):
+    return f"tenant:{auth.tenant.ids[0]}" if auth and auth.tenant else None
+
+
+RateLimit(max=1_000, window_seconds=60, key=per_tenant)
+```
+</CodeBlock>
+
+A key function that returns `None` leaves that request unlimited. The default key does the same for an
+unauthenticated request with no client address. Return a fixed key instead if such requests must still be counted.
+
+## Stores
+
+`MemoryRateLimitStore` is the default. It holds up to 100,000 callers (`max_keys=`). When every slot has an active
+window, a new caller receives `503` until a slot expires; active counters are never reset to make room.
+
+For several processes, pass a `store` with an async `hit(key, window_seconds)` method backed by shared storage such
+as Redis.

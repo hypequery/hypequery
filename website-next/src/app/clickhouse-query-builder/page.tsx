@@ -26,16 +26,16 @@ export const metadata: Metadata = {
 };
 
 const builderCode = `// types generated from your live ClickHouse schema
-import type { DB } from "./generated-schema"
+import type { DB } from './generated-schema';
 
 const rows = await db
-  .table("orders")
-  .select("total_revenue", "order_date")
-  .where("status", "=", "completed")
-  .where("tenant_id", "=", tenantId)
-  .groupBy("order_date")
-  .orderBy("order_date", "DESC")
-  .execute()
+  .table('orders')
+  .select('total_revenue', 'order_date')
+  .where('status', '=', 'completed')
+  .where('tenant_id', '=', tenantId)
+  .groupBy('order_date')
+  .orderBy('order_date', 'DESC')
+  .execute();
 
 // rows: { total_revenue: string; order_date: string }[]
 // correct — matches what ClickHouse actually returns`;
@@ -73,7 +73,7 @@ export default function ClickHouseQueryBuilderPage() {
     <ClickhousePillarPage
       eyebrow="ClickHouse Query Builder"
       title="The TypeScript-first ClickHouse query builder"
-      description="This page is about writing the query itself: selecting columns, filtering, grouping, and composing something you can keep in a real codebase. hypequery gives you typed schema access and native ClickHouse ergonomics without forcing everything through raw SQL strings."
+      description="Select columns, filter, group, and compose queries you can keep in a real codebase. hypequery gives you typed schema access and native ClickHouse functions, without pushing everything through raw SQL strings."
       primaryCta={{ href: '/docs/quick-start', label: 'Start with hypequery' }}
       secondaryCta={{ href: '/blog/clickhouse-query-builder-typescript', label: 'Compare your options' }}
       stats={[

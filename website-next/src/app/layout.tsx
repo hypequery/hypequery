@@ -5,6 +5,7 @@ import { RootProvider } from "fumadocs-ui/provider/next";
 import DefaultSearchDialog from "@/components/search";
 import CookieConsentBanner from "@/components/CookieConsent";
 import UmamiScript from "@/components/UmamiScript";
+import { WaitlistDialog } from "@/components/home/DeployWaitlist";
 import { absoluteUrl, siteUrl } from "@/lib/site";
 import { THEME_STORAGE_KEY } from "@/lib/theme";
 
@@ -28,29 +29,31 @@ const displayFont = Space_Grotesk({
 export const metadata: Metadata = {
   metadataBase: siteUrl,
   title: {
-    default: "hypequery | The TypeScript Analytics Layer for ClickHouse",
+    default: "hypequery | The analytics layer for ClickHouse",
     template: "%s | hypequery",
   },
-  description: "Define ClickHouse metrics once in TypeScript, then reuse them across APIs, jobs, dashboards, and AI agents.",
+  description: "The analytics layer for ClickHouse, in your codebase. Define metrics once in TypeScript or Python and serve them to dashboards, APIs, and AI agents, in your own backend or on hypequery cloud.",
   alternates: {
     canonical: absoluteUrl('/'),
   },
   openGraph: {
     type: 'website',
     url: absoluteUrl('/'),
-    title: 'hypequery | The TypeScript Analytics Layer for ClickHouse',
-    description: 'Define ClickHouse metrics once in TypeScript, then reuse them across APIs, jobs, dashboards, and AI agents.',
+    title: 'hypequery | The analytics layer for ClickHouse',
+    description: 'The analytics layer for ClickHouse, in your codebase. Define metrics once in TypeScript or Python and serve them to dashboards, APIs, and AI agents, in your own backend or on hypequery cloud.',
     siteName: 'hypequery',
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'hypequery | The TypeScript Analytics Layer for ClickHouse',
-    description: 'Define ClickHouse metrics once in TypeScript, then reuse them across APIs, jobs, dashboards, and AI agents.',
+    title: 'hypequery | The analytics layer for ClickHouse',
+    description: 'The analytics layer for ClickHouse, in your codebase. Define metrics once in TypeScript or Python and serve them to dashboards, APIs, and AI agents, in your own backend or on hypequery cloud.',
   },
   manifest: "/site.webmanifest",
   icons: {
     icon: [
       { url: "/favicon.ico", sizes: "any" },
+      // The logo mark on a white tile.
+      { url: "/favicon.svg", type: "image/svg+xml" },
       { url: "/favicon-32x32.png", type: "image/png", sizes: "32x32" },
       { url: "/favicon-48x48.png", type: "image/png", sizes: "48x48" },
       { url: "/icon.png", type: "image/png", sizes: "500x500" },
@@ -70,7 +73,7 @@ const organizationSchema = {
   logo: {
     '@type': 'ImageObject',
     url: absoluteUrl('/logo.png').toString(),
-    width: 1472,
+    width: 1378,
     height: 400,
   },
   sameAs: [
@@ -148,6 +151,7 @@ export default function RootLayout({
           }}
         >
           {children}
+          <WaitlistDialog />
         </RootProvider>
         <CookieConsentBanner gaMeasurementId={gaMeasurementId} />
       </body>

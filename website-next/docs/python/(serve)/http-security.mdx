@@ -1,0 +1,64 @@
+---
+title: HTTP security
+description: Allowed hosts, CORS, trusted proxies, and request ids for Python Serve.
+---
+
+import { CodeBlock } from 'fumadocs-ui/components/codeblock';
+
+Pass `security=` to `create_api`. The profile applies wherever the API is served: under uvicorn, mounted in another
+application, or through the Django and Flask adapters.
+
+<CodeBlock>
+```python
+from hypequery.serve import CorsPolicy, HttpSecurity, create_api
+
+api = create_api(
+    auth=authenticate,
+    security=HttpSecurity(
+        allowed_hosts=("api.example.com",),
+        cors=CorsPolicy(origins=("https://app.example.com",), allow_credentials=True),
+        trusted_proxies=("10.0.0.0/8",),
+    ),
+)
+```
+</CodeBlock>
+
+Without `security=`, the API checks no `Host` header and sends no CORS headers. Leave it out only when the
+application in front of it does both. A [production profile](/docs/python/production) requires it.
+
+## Allowed hosts
+
+`allowed_hosts` must name hosts; `*` is refused. A request for any other `Host` gets `400` and is never redirected.
+
+- `*.example.com` allows any subdomain of `example.com`, but not `example.com` itself.
+- Names compare case-insensitively and without a trailing dot.
+- IPv6 addresses are written in brackets and compare in their compressed form, so `[::1]` allows `[::1]:8000` and
+  `[0:0::1]`.
+- An entry that isn't a host, such as `[nope]`, is refused when the profile is built.
+
+## CORS
+
+CORS is off unless `cors` is set.
+
+- Origins must be exact `scheme://host[:port]` values.
+- Credentialed CORS with a wildcard origin is refused when the policy is built, as are wildcard methods or headers.
+- Defaults: methods `GET` and `POST`; headers `Authorization`, `Content-Type`, `X-Request-ID`, `X-Include-Meta`, and
+  `X-Hypequery-Client-Schema`; `max_age` 600 seconds.
+- Every response varies on `Origin`, and preflight answers also on the requested method and headers, so a shared cache
+  never serves one origin's answer to another.
+
+## Trusted proxies
+
+`X-Forwarded-For` and `X-Forwarded-Proto` are honored only from `trusted_proxies`. The client address is the nearest
+forwarded address that isn't itself a trusted proxy. By default no proxy is trusted.
+
+A trusted proxy must replace any caller-supplied `X-Forwarded-Proto` with the scheme it observed; forwarding the
+caller's value lets the caller spoof it.
+
+## Request ids
+
+- Every response carries a server-generated `x-request-id`. A handler reads it as `call.state.request_id`; endpoint
+  responses also return it as `meta.requestId`.
+- A caller's `X-Request-ID` is never authoritative. It is echoed back as `x-correlation-id` only when it is at most
+  200 bytes, starts with a letter or digit, and uses only letters, digits, `.`, `_`, `:`, `/` and `-`. Anything else
+  is dropped.

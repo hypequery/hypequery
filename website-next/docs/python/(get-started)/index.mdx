@@ -1,0 +1,64 @@
+---
+title: Python SDK
+description: The hypequery Python SDK for ClickHouse datasets, served over HTTP from any Python framework.
+---
+
+import { Callout } from 'fumadocs-ui/components/callout';
+import { CodeBlock } from 'fumadocs-ui/components/codeblock';
+
+<Callout type="warn" title="Beta">
+  The Python SDK is in beta (0.1.0b1). Its APIs may still change before 1.0, so pin the version you deploy.
+</Callout>
+
+The Python SDK lets you define a semantic layer over ClickHouse (datasets with dimensions, measures, and
+relationships) and query it from Python, with tenant isolation and result caching built in, then serve it over HTTP
+with an authenticated-by-default API that runs under any ASGI or WSGI server, mounts in FastAPI or Starlette, and is
+served natively from Django and Flask.
+
+The same served endpoints can feed generated, type-safe React hooks (`@hypequery/react`) and AI agents through the
+`hypequery mcp` bridge, so the frontend and agents use the definitions Python owns. See
+[React and MCP clients](/docs/python/client-endpoints).
+
+Python and TypeScript implement the same specifications and run against the same conformance fixtures, so equivalent
+definitions produce identical semantic and deployment artifacts. The APIs are idiomatic to each language rather than
+line-for-line ports. The Python SDK does not include the TypeScript query builder.
+
+## Install
+
+Install the SDK with optional extras for each executor and for serving:
+
+<CodeBlock>
+```bash
+pip install "hypequery==0.1.0b1"
+pip install "hypequery[clickhouse]==0.1.0b1"        # sync ClickHouse executor
+pip install "hypequery[clickhouse-async]==0.1.0b1"  # async ClickHouse executor
+pip install "hypequery[server]==0.1.0b1"            # uvicorn, for hypequery dev and start_server
+pip install "hypequery[jwt]==0.1.0b1"               # JWT authentication
+pip install "hypequery[django]==0.1.0b1"            # Django integration (or [flask])
+pip install "hypequery[pandas]==0.1.0b1"            # typed DataFrames (or [polars], [arrow])
+```
+</CodeBlock>
+
+Python 3.11 or later is required.
+
+## Packages
+
+| Module | Purpose |
+| --- | --- |
+| `hypequery.datasets` | Dimensions, measures, relationships, the dataset client, caching, and the catalog |
+| `hypequery.execution` | Sync and async ClickHouse executors |
+| `hypequery.serve` | An authenticated-by-default HTTP API with ASGI and WSGI adapters, JWT auth, CORS and rate limiting |
+| `hypequery.contrib` | [Django](/docs/python/django), [Flask](/docs/python/flask) and [SQLAlchemy](/docs/python/sqlalchemy) integrations, including native Django and Flask serving |
+| `hypequery` CLI | `hypequery init`, `generate datasets`, `dev` and `export client-contract`; see [Python CLI](/docs/python/cli) |
+| `hypequery.protocol` | The language-neutral artifact contracts shared with TypeScript |
+
+## Next steps
+
+- [Quick start](/docs/python/quick-start): define a dataset and run a query.
+- [Python CLI](/docs/python/cli): scaffold a project from your ClickHouse schema and serve it locally.
+- [Serve over HTTP](/docs/python/serving): expose datasets as authenticated HTTP endpoints, from any framework.
+- [Django](/docs/python/django), [Flask](/docs/python/flask) and [FastAPI](/docs/python/fastapi): a tenant-bound
+  client in every view, and hypequery's endpoints served from your app.
+- [pandas, Polars and Arrow](/docs/python/dataframes): results as typed DataFrames.
+- [React and MCP clients](/docs/python/client-endpoints): generated React hooks and agent tools over the same endpoints.
+- [Feature status](/docs/python/feature-status): what is available in Python today compared with TypeScript.

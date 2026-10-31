@@ -1,0 +1,110 @@
+---
+title: FastAPI
+description: Mount hypequery's authenticated dataset endpoints in a FastAPI app, and query datasets from your own routes.
+---
+
+import { CodeBlock } from 'fumadocs-ui/components/codeblock';
+
+hypequery's HTTP API needs no web framework, so a FastAPI app mounts it like any other ASGI application. Your
+FastAPI routes keep your own authentication and dependencies; the mounted endpoints authenticate every request
+themselves, before the body is read, and take the tenant from the caller.
+
+## Install
+
+<CodeBlock>
+```bash
+pip install "hypequery[clickhouse]==0.1.0b1" fastapi uvicorn
+```
+</CodeBlock>
+
+hypequery has no FastAPI dependency. Install FastAPI and your ASGI server as you normally would.
+
+## Mount the API
+
+<CodeBlock>
+```python
+# main.py
+from contextlib import asynccontextmanager
+
+from fastapi import FastAPI
+from hypequery.datasets import create_async_dataset_client
+from hypequery.execution import ClickHouseConnection, create_async_from_sync_clickhouse_executor
+from hypequery.serve import CorsPolicy, HttpSecurity, create_api, jwt_strategy, to_asgi_app
+
+from analytics.datasets import orders
+
+executor = create_async_from_sync_clickhouse_executor(ClickHouseConnection.from_env())
+client = create_async_dataset_client(executor=executor)
+
+api = create_api(
+    auth=jwt_strategy(
+        jwks_url="https://example.auth0.com/.well-known/jwks.json",
+        issuer="https://example.auth0.com/",
+        audience="https://api.example.com",
+    ),
+    client=client,
+    datasets={"orders": orders},
+    security=HttpSecurity(
+        allowed_hosts=("api.example.com",),
+        cors=CorsPolicy(origins=("https://app.example.com",)),
+    ),
+)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    yield
+    await executor.aclose()
+
+
+app = FastAPI(lifespan=lifespan)
+app.mount("/analytics", to_asgi_app(api))
+```
+</CodeBlock>
+
+`POST /analytics/datasets/orders/query` and `GET /analytics/discovery` are now served by hypequery, and every other
+path by FastAPI.
+
+- **Lifespan.** A mounted application's own lifespan does not run, so close the executor in FastAPI's, as above.
+- **Security.** The `HttpSecurity` profile applies to the mounted paths only. FastAPI's own routes keep whatever
+  middleware the FastAPI app installs.
+- **Paths.** Client contracts and discovery name the paths requests are routed under, `/analytics/...` here. Behind a
+  proxy that rewrites paths, pass `create_api(client_mount_path=...)` with the path browsers call.
+- **OpenAPI.** The mounted endpoints are not FastAPI routes, so they don't appear in FastAPI's `/docs`. Pass
+  `create_api(development_docs=True)` to serve hypequery's own `/analytics/docs` while developing.
+
+The same works in Starlette with `Mount("/analytics", app=to_asgi_app(api))`, and in any ASGI framework that mounts
+applications. See [Mount in any ASGI or WSGI app](/docs/python/serving#mount-in-any-asgi-or-wsgi-app).
+
+## Query from your own routes
+
+In your FastAPI routes, use the dataset client directly. Bind it to the tenant your own authentication established,
+so every query is filtered to that tenant:
+
+<CodeBlock>
+```python
+from typing import Annotated
+
+from fastapi import Depends
+from hypequery.datasets import tenant
+
+
+@app.get("/reports/top-countries")
+async def top_countries(org_id: Annotated[str, Depends(current_org_id)]) -> dict:  # your dependency
+    scoped = client.for_tenant(tenant(org_id))
+    result = await scoped.execute(
+        "orders", {"dimensions": ["country"], "measures": ["revenue"], "limit": 5}
+    )
+    return {"data": list(result.data)}
+```
+</CodeBlock>
+
+A route like this returns the values the client returns: counts as integers, other numbers as floats or decimal
+strings. hypequery's HTTP endpoints, the generated React client and MCP send every non-null measure as a string, so
+pick one shape per API.
+
+## Without FastAPI
+
+If FastAPI only hosts the mounted API, you don't need it: serve `to_asgi_app(api)` directly with uvicorn, or run a
+hardened standalone process with [`start_server`](/docs/python/production). See
+[Getting started](/docs/python/serving).

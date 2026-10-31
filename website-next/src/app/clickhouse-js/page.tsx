@@ -32,9 +32,9 @@ const result = await client.query({
           WHERE tenant_id = {tenant_id: String}
           GROUP BY order_date\`,
   query_params: { tenant_id: ctx.tenantId },
-})
+});
 
-const rows = await result.json()
+const rows = await result.json();
 // rows: { data: any[] } — no types, no safety`;
 
 const hypequerCode = `// hypequery — generated from your ClickHouse schema
@@ -44,7 +44,7 @@ const rows = await db
   .where('tenant_id', 'eq', ctx.tenantId)
   .groupBy('order_date')
   .orderBy('order_date', 'DESC')
-  .execute()
+  .execute();
 
 // rows: { order_date: string; revenue: string }[]
 // correct ClickHouse-to-JS type mappings, always`;
@@ -82,7 +82,7 @@ export default function ClickHouseJSPage() {
     <ClickhousePillarPage
       eyebrow="ClickHouse JS"
       title="The JavaScript query builder built for ClickHouse"
-      description="This page is for teams starting from plain JavaScript or TypeScript and wondering how far the raw ClickHouse client really gets them. hypequery keeps the connection layer, but adds schema-driven query code so the rest of the app is not built on casts and copied SQL."
+      description="The raw ClickHouse client gets rows back. hypequery keeps that connection and adds schema-generated types and composable query code, so the rest of your app isn't built on casts and copied SQL."
       primaryCta={{ href: '/docs/quick-start', label: 'Start with hypequery' }}
       secondaryCta={{ href: '/compare/hypequery-vs-clickhouse-client', label: 'Compare vs @clickhouse/client' }}
       stats={[

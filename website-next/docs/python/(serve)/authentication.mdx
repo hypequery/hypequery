@@ -1,0 +1,191 @@
+---
+title: Authentication
+description: Authenticate Python Serve requests with JWTs, bearer tokens or API keys, and require roles and scopes per endpoint.
+---
+
+import { CodeBlock } from 'fumadocs-ui/components/codeblock';
+
+Every route on an API from `create_api` authenticates the request before its body is read. `auth=` turns the request's
+credential into a `Principal`: use `jwt_strategy` for JWTs, your app's own login with `from_context`, or your own
+authenticator.
+
+## JWT
+
+With the `jwt` extra, `jwt_strategy` verifies JWT bearer tokens. It is TypeScript's `createJwtStrategy`: the same
+claims and checks, and tokens either language mints verify in the other.
+
+<CodeBlock>
+```bash
+pip install "hypequery[jwt]==0.1.0b1"
+```
+</CodeBlock>
+
+<CodeBlock>
+```python
+from hypequery.serve import create_api, jwt_strategy
+
+# Tokens from an identity provider, verified against its published keys.
+api = create_api(
+    auth=jwt_strategy(
+        jwks_url="https://example.auth0.com/.well-known/jwks.json",
+        issuer="https://example.auth0.com/",
+        audience="https://api.example.com",
+    ),
+    client=client,
+    datasets={"orders": orders},
+)
+```
+</CodeBlock>
+
+To mint tokens for your own frontend, sign them with a shared secret and verify them with the same secret:
+
+<CodeBlock>
+```python
+from hypequery.serve import analytics_token_issuer, create_api, jwt_strategy
+
+issue_token = analytics_token_issuer(SECRET, audience="analytics")
+api = create_api(auth=jwt_strategy(secret=SECRET, audience="analytics"), client=client, datasets={"orders": orders})
+
+# In your login or session endpoint:
+token = issue_token("user-1", tenant_id="acme", roles=["analyst"])
+```
+</CodeBlock>
+
+- **Claims map as in TypeScript.** `sub` is the subject, `org_id` the tenant, `roles` the roles, and `scope`
+  (space-separated) or `scopes` (an array) the scopes. A token without `sub` is refused. Pass `map_claims=` to map
+  claims yourself; it returns a `Principal`, or `None` to refuse the token.
+- **Checks.** The signature is always verified. `issuer` and `audience` are checked when you configure them, and `exp`
+  and `nbf` when the token has them, with no clock skew unless you pass `leeway=`. Algorithms default to HS256 for a
+  secret and RS256 for a key set. `alg: none` is never accepted, and a key set never verifies an HMAC token.
+- **Secrets** must be at least as long as the hash: 32 bytes for HS256.
+- **Key sets** are fetched off the event loop and cached for 10 minutes, and refetched for an unknown `kid` at most
+  every 30 seconds. A fetch has a 5-second timeout, follows no redirects, honours your proxy settings, and must use
+  https except on localhost. If the keys can't be fetched, the request gets `503`, not `401`.
+- **Issued tokens** are HS256 (HS384 or HS512 with `algorithm=`), carrying `sub`, `org_id`, `roles`, `iat`, `exp` (15
+  minutes by default, `expires_in=`) and the configured `iss` and `aud`.
+
+## Your own authenticator
+
+<CodeBlock>
+```python
+from hypequery.serve import Credential, InvalidCredential, Principal, create_api
+
+
+async def authenticate(credential: Credential) -> Principal | None:
+    try:
+        claims = await verify_token(credential.value)  # your token verification
+    except TokenError as exc:
+        raise InvalidCredential() from exc
+    return Principal(
+        subject=claims["sub"],
+        roles=frozenset(claims.get("roles", [])),
+        scopes=frozenset(claims.get("scope", "").split()),
+        tenant_id=claims.get("org_id"),
+    )
+
+
+api = create_api(auth=authenticate, client=client, datasets={"orders": orders})
+```
+</CodeBlock>
+
+- The authenticator receives only the opaque `Credential`, never the request. It can be sync (run on a worker thread)
+  or async.
+- To reject a credential, return `None` or raise `InvalidCredential`. Callers get `401 UNAUTHORIZED`.
+- Wrap your token library's errors in `InvalidCredential`. Any other exception is treated as authentication being
+  down and answered with a fixed `503`; the exception text never reaches the response.
+
+## Credential transports
+
+Credentials are read from exactly one header:
+
+| Transport | Header |
+| --- | --- |
+| `bearer_token()` (default) | `Authorization: Bearer <token>` |
+| `api_key()` | `X-Api-Key: <key>` |
+
+<CodeBlock>
+```python
+from hypequery.serve import api_key
+
+api = create_api(auth=authenticate, credentials=api_key(), client=client, datasets={"orders": orders})
+```
+</CodeBlock>
+
+Query strings, cookies, and bodies are never read. A repeated, oversized, or malformed header is refused before your
+authenticator runs. A browser never attaches these headers on its own, so header credentials need no CSRF protection,
+and the [Django](/docs/python/django#serve-hypequerys-endpoints) adapter's views and
+[Flask](/docs/python/flask#serve-hypequerys-endpoints) blueprint for them are CSRF-exempt. To use a
+session cookie instead, see [your app's own login](#your-apps-own-login).
+
+## Your app's own login
+
+A page served by the same application can call the endpoints with the session its user already has, with no token,
+as TypeScript's `fromContext` does. `from_context(extract)` receives the `ServeRequest` and reads the session from
+`request.raw`, the framework's own request. It returns a `Principal`, or `None` for a request that isn't signed in
+(answered `401`), and may be sync or async.
+
+<CodeBlock>
+```python
+from hypequery.serve import Principal, create_api, from_context
+
+
+def signed_in(request) -> Principal | None:
+    user = current_user_of(request.raw)  # your framework's session lookup
+    return Principal(subject=user.id, tenant_id=user.org_id) if user else None
+
+
+api = create_api(auth=from_context(signed_in), client=client, datasets={"orders": orders})
+```
+</CodeBlock>
+
+Django and Flask have ready-made versions: [`django_user`](/docs/python/django#your-own-login-with-no-token) and
+[`flask_session`](/docs/python/flask#your-own-login-with-no-token).
+
+A browser sends a session cookie with any request to your site, including one another site triggers, so
+`from_context` checks where unsafe requests come from. With `same_origin=True` (the default), a `POST`, `PUT`, `PATCH`
+or `DELETE` gets `403 FORBIDDEN` unless the browser marks it `Sec-Fetch-Site: same-origin` (or `none`), or its
+`Origin` is the request's own (its scheme and `Host`) or one your `HttpSecurity(cors=CorsPolicy(origins=...))` names.
+The check runs in the core, under every adapter. A browser without Fetch Metadata (Safari before 16.4) sends only
+`Origin`, which matches when the page and the API share an origin. Behind a proxy that terminates TLS, list it in
+`trusted_proxies` so its `X-Forwarded-Proto` makes the request's scheme `https`. A [production profile](/docs/python/production) refuses `same_origin=False`.
+
+## Roles and scopes per endpoint
+
+<CodeBlock>
+```python
+from hypequery.serve import EndpointPolicy, create_dataset_endpoint
+
+policy = EndpointPolicy(
+    required_roles=frozenset({"analyst", "admin"}),
+    required_scopes=frozenset({"analytics:read"}),
+)
+api = create_api(
+    auth=authenticate,
+    datasets={"orders": create_dataset_endpoint(dataset=orders, client=client, policy=policy)},
+)
+```
+</CodeBlock>
+
+- Any listed role grants access (OR).
+- All listed scopes are required (AND).
+- A caller that fails either check gets `403 FORBIDDEN`.
+
+## Public routes
+
+A route is public only when you say so: `public=True` on your own route, or `EndpointPolicy(public=True)` on an
+endpoint.
+
+<CodeBlock>
+```python
+from hypequery.serve import Call, ServeResponse
+
+
+async def health(call: Call) -> ServeResponse:
+    return ServeResponse.json({"status": "ok"})
+
+
+api.add_route("GET", "/health", health, public=True)
+```
+</CodeBlock>
+
+A public route is not authenticated, so `call.auth` is usually `None` there.

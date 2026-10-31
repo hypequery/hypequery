@@ -18,6 +18,11 @@ const nextConfig: NextConfig = {
         permanent: true,
       })),
       {
+        source: '/docs/roadmap',
+        destination: '/docs/changelog',
+        permanent: true,
+      },
+      {
         source: '/docs/installation',
         destination: '/docs/quick-start',
         permanent: true,
