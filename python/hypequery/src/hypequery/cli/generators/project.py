@@ -67,14 +67,20 @@ def schema_templates(
         "\n".join(f"- {warning}" for warning in generated.warnings)
         or "No unsupported columns or ambiguous time keys were found."
     )
-    tenant_note = (
+    scoped = (
         f"""
-The datasets are scoped by `{generated.tenant_column}`, so the development token
-reads one tenant: set it before starting the server, or every query answers 403.
+Datasets generated from tables containing `{generated.tenant_column}` are tenant-scoped.
+The open API's developer principal has no tenant, so queries to those datasets answer
+`403 FORBIDDEN` ("requires runtime tenant scoping") until `developer` in `app.py`
+gives it one. Tables without that column remain unscoped. For local testing, return a
+principal for one tenant:
 
-```bash
-export HYPEQUERY_DEV_TENANT='one of your {generated.tenant_column} values'
+```python
+return Principal(subject="developer", tenant_id="org_123")
 ```
+
+Before real users, replace the open `auth` with real authentication so the
+tenant comes from the signed-in user.
 """
         if generated.tenant_column
         else ""
@@ -84,14 +90,18 @@ export HYPEQUERY_DEV_TENANT='one of your {generated.tenant_column} values'
 
 Use the same connection settings as schema discovery. No seed data is needed;
 this project queries your existing tables. Start the server with `hypequery dev`.
-{tenant_note}
+
 ```bash
 curl -s -X POST http://127.0.0.1:8000/datasets/{generated.tables[0]}/query \\
-  -H "Authorization: Bearer $HYPEQUERY_DEV_TOKEN" \\
   -H "Content-Type: application/json" \\
   -d '{payload}'
 ```
-"""
+
+The API is open: `app.py` answers every request as one developer, with no
+token, for local development only. Before deploying, replace its `auth` with
+real authentication (`jwt_strategy` from the `jwt` extra, `from_context`
+reading your host app's login, or your own credential check).
+{scoped}"""
         if framework == "standalone"
         else readme_section(
             framework, generated.tables[0], payload, tenant_column=generated.tenant_column

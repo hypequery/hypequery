@@ -104,6 +104,7 @@ def apply_framework(
     secret = "DJANGO_SECRET_KEY" if framework == "django" else "FLASK_SECRET_KEY"
     result[".env.example"] = (
         templates[".env.example"]
+        + "HYPEQUERY_DEV_TOKEN=\n"
         + f"# Signs sessions; the development fallback is not for deployment.\n{secret}=\n"
     )
     if framework == "django":
@@ -130,11 +131,30 @@ def offline_templates(templates: dict[str, str], framework: Framework) -> dict[s
     return result
 
 
+#: The README line creating the development token; a shell command, not a secret.
+_TOKEN_EXPORT = (
+    "export HYPEQUERY_DEV_TOKEN="  # noqa: S105
+    "\"$(python -c 'import secrets; print(secrets.token_urlsafe(32))')\"\n"
+)
+
+
 def with_extras(readme: str, framework: Framework) -> str:
+    """The base README for *framework*: its extras, and the token its agents API takes."""
+
     template = "[server,clickhouse]"
-    if template not in readme:
-        raise ValueError("README template no longer names the standalone extras")
-    return readme.replace(template, f"[{EXTRAS[framework]}]")
+    configure = ("connection settings in your shell:", "```\n\nDo not commit credentials.\n")
+    if template not in readme or any(part not in readme for part in configure):
+        raise ValueError("README template no longer has the expected install and configure text")
+    return (
+        readme.replace(template, f"[{EXTRAS[framework]}]")
+        .replace(configure[0], "connection settings and create a development token in your shell:")
+        .replace(
+            configure[1],
+            _TOKEN_EXPORT
+            + "```\n\nDo not commit credentials. The token is for local development; use your "
+            "real\nauthentication before exposing the app to users.\n",
+        )
+    )
 
 
 AGENTS_FOR = "`@hypequery/mcp`, scripts, curl"

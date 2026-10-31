@@ -51,8 +51,13 @@ def run(options: InitOptions) -> None:
         for warning in generated.warnings:
             print(f"Review: {warning}")
     print(f"Created Python dataset project in {destination}")
+    credentials = (
+        "set your connection settings (the API is open for local development)"
+        if framework == "standalone"
+        else "configure serving credentials"
+    )
     print(
-        "Next: follow README.md to install dependencies, configure serving credentials "
+        f"Next: follow README.md to install dependencies, {credentials} "
         "and review dataset definitions."
     )
     print(f"Then run: {cd_prefix(destination)}{RUN_COMMAND[framework]}")

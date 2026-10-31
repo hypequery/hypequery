@@ -25,7 +25,7 @@ python -m pip install -e . --no-deps
 ## Configure
 
 `.env.example` is a reference; it is **not loaded automatically**. Export your
-connection settings and create a development token in your shell:
+connection settings in your shell:
 
 ```bash
 export CLICKHOUSE_HOST=localhost
@@ -33,11 +33,9 @@ export CLICKHOUSE_PORT=8123
 export CLICKHOUSE_DATABASE=default
 export CLICKHOUSE_USERNAME=default
 export CLICKHOUSE_PASSWORD='your-local-password'
-export HYPEQUERY_DEV_TOKEN="$(python -c 'import secrets; print(secrets.token_urlsafe(32))')"
 ```
 
-Do not commit credentials. The token is for local development; use your real
-authentication and a production profile before exposing the app to users.
+Do not commit credentials.
 
 ## Create sample data
 
@@ -79,11 +77,10 @@ If your older preview SDK does not yet provide `dev`, start it with
 
 This serves `app:app` on `127.0.0.1:8000` with file reload enabled. Use
 `--no-reload` to disable reload, or `--port 8001` for a different port. From
-another shell with `HYPEQUERY_DEV_TOKEN` set:
+another shell:
 
 ```bash
 curl --fail-with-body -s http://127.0.0.1:8000/datasets/orders/query \
-  -H "Authorization: Bearer $HYPEQUERY_DEV_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"dimensions":["country"],"measures":["revenue","orderCount"],"filters":[{"field":"status","operator":"eq","value":"paid"}],"orderBy":[{"field":"revenue","direction":"desc"}]}'
 ```
@@ -92,12 +89,15 @@ curl --fail-with-body -s http://127.0.0.1:8000/datasets/orders/query \
 {"data":[{"country":"US","revenue":"310.25","orderCount":"1"},{"country":"NZ","revenue":"200.50","orderCount":"2"},{"country":"AU","revenue":"200.00","orderCount":"1"}]}
 ```
 
-A request without the token returns `401`. Measure values are strings on the
-HTTP wire. Development docs are at <http://127.0.0.1:8000/docs>.
+The API is open: `app.py` answers every request as one developer, with no
+token, for local development only. Measure values are strings on the HTTP wire.
+Development docs are at <http://127.0.0.1:8000/docs>.
 
 ## Production
 
 `hypequery dev` is for local development. Create the API with
-`ProductionProfile`, disable development docs, supply trusted authentication,
+`ProductionProfile`, disable development docs, replace the open `auth` in
+`app.py` with real authentication (`jwt_strategy` from the `jwt` extra,
+`from_context` reading your host app's login, or your own credential check),
 and use `start_server` behind your reverse proxy. See the SDK README's
 production-process section for the profile and explicit proxy-trust settings.

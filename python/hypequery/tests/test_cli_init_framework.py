@@ -97,7 +97,38 @@ def test_standalone_is_the_default(tmp_path: Path, capsys: pytest.CaptureFixture
     assert pyproject["tool"]["setuptools"]["py-modules"] == ["app", "datasets"]
     assert "import fastapi" not in (project / "app.py").read_text()
     assert "from fastapi" not in (project / "app.py").read_text()
-    assert "Then run: cd" in capsys.readouterr().out
+    out = capsys.readouterr().out
+    assert "Then run: cd" in out
+    assert "the API is open for local development" in out
+
+
+def test_standalone_readme_explains_tenant_scoping(tmp_path: Path) -> None:
+    project = _init(tmp_path, "--tenant-column", "org_id")
+    readme = (project / "README.md").read_text()
+    assert "Datasets generated from tables containing `org_id` are tenant-scoped" in readme
+    assert "Tables without that column remain unscoped" in readme
+    fix = 'return Principal(subject="developer", tenant_id="org_123")'
+    assert fix in readme
+    assert fix in (project / "app.py").read_text()
+    count = {"measures": ["totalCount"]}
+    rows = {"columns": ["totalCount"], "rows": [[5]]}
+    refused = _serve("standalone", project, [_post("/datasets/orders/query", count)], rows)
+    assert refused[0][0] == 403
+    assert "requires runtime tenant scoping" in json.dumps(refused[0][1])
+    # The README's fix, applied to the line it names, lets the query run.
+    scoped = _serve(
+        "standalone",
+        project,
+        [_post("/datasets/orders/query", count)],
+        rows,
+        edit={"app.py": ('    return Principal(subject="developer")', f"    {fix}")},
+    )
+    assert scoped == [(200, {"data": [{"totalCount": "5"}]})]
+
+
+def test_standalone_readme_omits_tenant_guidance_without_a_tenant(tmp_path: Path) -> None:
+    readme = (_init(tmp_path) / "README.md").read_text()
+    assert "requires runtime" not in readme
 
 
 def test_the_framework_choices_are_named_for_what_they_write() -> None:
@@ -116,7 +147,10 @@ def test_offline_examples_exist_for_every_framework(
     readme = (project / "README.md").read_text()
     # The example query and the seed's answer to it, for every framework.
     assert '"orderCount":"2"' in readme
-    assert "HYPEQUERY_DEV_TOKEN=\n" in (project / ".env.example").read_text()
+    # Only the frameworks' agents API takes a token; the standalone API is open.
+    has_token = "HYPEQUERY_DEV_TOKEN=\n" in (project / ".env.example").read_text()
+    assert has_token == (framework != "standalone")
+    assert ("HYPEQUERY_DEV_TOKEN" in readme) == (framework != "standalone")
     assert "Created an offline orders example" in capsys.readouterr().out
 
 
@@ -126,14 +160,12 @@ def test_offline_standalone_serves_its_dataset(tmp_path: Path) -> None:
         "standalone",
         project,
         [
-            _post("/datasets/orders/query", headers=TOKEN),
             _post("/datasets/orders/query"),
+            # Cross-site, as from another page in a browser: the API is open on loopback.
+            _post("/datasets/orders/query", headers={"Sec-Fetch-Site": "cross-site"}),
         ],
     )
-    assert replies == [
-        (200, SERVED_REVENUE),
-        (401, replies[1][1]),
-    ]
+    assert replies == [(200, SERVED_REVENUE), (200, SERVED_REVENUE)]
 
 
 def test_django_scaffold(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
@@ -256,7 +288,9 @@ def test_flask_scaffold(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> N
     project = _init(tmp_path, "--framework", "flask", "--tenant-column", "org_id")
     py_compile.compile(str(project / "app.py"), doraise=True)
     assert "set tenant_id to the signed-in user's" in (project / "app.py").read_text()
-    assert "Then run: cd" in capsys.readouterr().out
+    out = capsys.readouterr().out
+    assert "Then run: cd" in out
+    assert "configure serving credentials" in out
     assert "hypequery[flask]" in (project / "pyproject.toml").read_text()
     readme = (project / "README.md").read_text()
     assert "flask --app app run --port 5001" in readme

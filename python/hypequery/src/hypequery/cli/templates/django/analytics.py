@@ -58,10 +58,10 @@ def principal_for_user(user: Any) -> Principal:
 def principal_for_token(credential: Credential) -> Principal | None:
     """Who a bearer token queries as, for `@hypequery/mcp`, scripts and curl.
 
-    Accepts HYPEQUERY_DEV_TOKEN, and no token when it is unset. Replace this
-    with your own credential check, or ``jwt_strategy`` from the ``jwt``
-    extra, before production. Its principal's tenant is HYPEQUERY_DEV_TENANT;
-    without one, datasets with a tenant_key refuse it.
+    Accepts HYPEQUERY_DEV_TOKEN as the bearer token, and refuses every token
+    while it is unset. Replace this with your own credential check, or
+    ``jwt_strategy`` from the ``jwt`` extra, before production. Its principal
+    uses HYPEQUERY_DEV_TENANT; without one, datasets with a tenant_key refuse it.
     """
 
     if DEV_TOKEN and secrets.compare_digest(credential.value, DEV_TOKEN):
