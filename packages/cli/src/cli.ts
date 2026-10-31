@@ -209,12 +209,16 @@ program
   }));
 
 program
-  .command('generate:client <contract>')
-  .description('Generate browser-safe TypeScript API types and routes from a client contract JSON file')
+  .command('generate:client [contract]')
+  .description('Generate browser-safe TypeScript API types and routes from a client contract JSON file or the live Cloud release')
   .option('-o, --output <path>', 'Output TypeScript file (default: analytics/hypequery-client.ts)')
   .option('--check', 'Check for drift without writing')
   .option('--force', 'Replace an existing output file')
-  .action(runCommand(async (contract: string, options: GenerateClientOptions) => {
+  .option('--cloud', 'Use the live Cloud release of the target from `hypequery login`')
+  .option('--project <project>', 'With --cloud: target project identifier (advanced override)')
+  .option('--environment <environment>', 'With --cloud: target environment identifier (advanced override)')
+  .option('--endpoint <url>', 'With --cloud: HTTPS submission endpoint; requires HYPEQUERY_API_TOKEN')
+  .action(runCommand(async (contract: string | undefined, options: GenerateClientOptions) => {
     await generateClientCommand(contract, options);
   }));
 
@@ -298,6 +302,7 @@ program
     'Intentionally replace a restored live release',
   )
   .option('--mcp-config', 'Also print MCP client configuration for the hosted endpoint')
+  .option('--client <path>', 'Regenerate this typed client file from the new live release')
   .action(runCommand(async (source: string, options: DeployOptions) => {
     await deployCommand(source, options);
   }));

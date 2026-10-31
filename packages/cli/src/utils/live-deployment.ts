@@ -50,7 +50,7 @@ export type LiveDeploymentFetch = typeof fetch;
 export function liveUrl(
   endpoint: string,
   target: ProtocolDeploymentReleaseTarget,
-  resource: 'state' | 'source' | 'endpoints',
+  resource: 'state' | 'source' | 'endpoints' | 'client-contract',
 ): string | undefined {
   const url = new URL(endpoint);
   if (!/\/v1\/deployments\/submissions\/?$/.test(url.pathname)) {

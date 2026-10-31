@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 const mockVerifyDeploymentBundle = vi.hoisted(() => vi.fn());
 const mockLoggerWarn = vi.hoisted(() => vi.fn());
 const mockLoggerIndent = vi.hoisted(() => vi.fn());
+const mockLoggerInfo = vi.hoisted(() => vi.fn());
 
 vi.mock('../utils/deployment-bundle.js', () => ({
   verifyDeploymentBundle: mockVerifyDeploymentBundle,
@@ -16,7 +17,7 @@ vi.mock('../utils/deployment-bundle.js', () => ({
 vi.mock('../utils/logger.js', () => ({
   logger: {
     success: vi.fn(),
-    info: vi.fn(),
+    info: mockLoggerInfo,
     warn: mockLoggerWarn,
     newline: vi.fn(),
     indent: mockLoggerIndent,
@@ -149,6 +150,57 @@ describe('deploy command', () => {
       expect.objectContaining({ loadCredential }),
     );
     expect(result.status).toBe('accepted');
+  });
+
+  it('regenerates the typed client after a live publish, and only warns when that fails', async () => {
+    const submission = {
+      kind: 'hypequery-deployment-submission' as const,
+      version: 1 as const,
+      status: 'accepted' as const,
+      releaseIdentity: '1'.repeat(64),
+      bundleIdentity: BUNDLE_IDENTITY,
+    };
+    const dependencies = (generateClient: NonNullable<DeployDependencies['generateClient']>) => ({
+      env: {},
+      loadCredential: vi.fn(async () => storedCredential()),
+      buildDeployment: vi.fn(async () => bundle.contract),
+      prepareDeploymentRelease: vi.fn(async () => prepareProtocolDeploymentReleaseEnvelope({
+        kind: 'hypequery-deployment-release',
+        version: 1,
+        bundleIdentity: BUNDLE_IDENTITY,
+        target: { project: 'project-1', environment: 'production' },
+      }).release),
+      submitDeployment: vi.fn(async () => submission),
+      generateClient,
+    }) as DeployDependencies;
+
+    const generateClient = vi.fn(async () => {});
+    await deployCommand('analytics/cloud.ts', { client: 'src/hypequery-client.ts' }, dependencies(generateClient));
+    expect(generateClient).toHaveBeenCalledWith(undefined, {
+      cloud: true,
+      output: 'src/hypequery-client.ts',
+      force: true,
+      endpoint: undefined,
+      project: undefined,
+      environment: undefined,
+    }, expect.anything());
+
+    // A draft isn't live: the client keeps matching Production.
+    generateClient.mockClear();
+    mockLoggerInfo.mockClear();
+    await deployCommand('analytics/cloud.ts', { client: 'src/hypequery-client.ts', draft: 'next' }, dependencies(generateClient));
+    expect(generateClient).not.toHaveBeenCalled();
+    expect(mockLoggerInfo).toHaveBeenCalledWith(expect.stringContaining('drafts are not live'));
+
+    mockLoggerWarn.mockClear();
+    mockLoggerIndent.mockClear();
+    const failing = vi.fn(async () => { throw new Error('Cloud has no client contract'); });
+    const result = await deployCommand('analytics/cloud.ts', { client: 'src/generated clients/client.ts', project: 'acme', environment: 'staging' }, dependencies(failing));
+    expect(result.status).toBe('accepted');
+    expect(mockLoggerWarn).toHaveBeenCalledWith(expect.stringContaining('src/generated clients/client.ts was not regenerated'));
+    expect(mockLoggerIndent).toHaveBeenCalledWith(
+      expect.stringContaining("--output 'src/generated clients/client.ts' --force --project acme --environment staging`"),
+    );
   });
 
   it('supports explicit outputs and target overrides in one-command mode', async () => {
