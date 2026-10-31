@@ -67,7 +67,7 @@
   "dependencies": {
     "@clickhouse/client": "^1.24.1",
     "@clickhouse/client-common": "^1.23.0",
-    "dotenv": "^18.0.8"
+    "dotenv": "^18.0.9"
   },
   "peerDependencies": {
     "@clickhouse/client-web": "^0.2.0 || ^1.0.0",
