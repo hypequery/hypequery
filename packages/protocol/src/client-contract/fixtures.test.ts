@@ -14,7 +14,7 @@ const success = fixtures<{ id: string; value: Data }[]>('success.json');
 const contracts = Object.fromEntries(success.map(item => [item.id, item.value]));
 const identities = fixtures<{ id: string; canonical: string; sha256: string }[]>('identities.json');
 const negative = fixtures<{ id: string; base: string; set: { path: string; value: unknown }[]; error: string }[]>('rejections.json').filter(item => item.base !== undefined);
-type QueryCase = { id: string; contract: string; endpoint: string; input: Data; error?: string; transport?: 'http' | 'mcp'; http?: Data };
+type QueryCase = { id: string; contract: string; endpoint: string; input: Data; error?: string; path?: string; transport?: 'http' | 'mcp'; http?: Data };
 const queries = [...fixtures<QueryCase[]>('queries.json'), ...fixtures<QueryCase[]>('query-rejections.json')];
 function unsigned(input: Data): Data {
   const result = structuredClone(input);
@@ -51,7 +51,7 @@ describe('client contract vectors', () => {
   });
   it.each(queries)('queries: $id', test => {
     const execute = () => validateProtocolClientQuery(contracts[test.contract], test.endpoint, test.input, test.transport);
-    if (test.error) expect(execute).toThrowError(expect.objectContaining({ code: 'HQ_CLIENT_QUERY' }));
+    if (test.error) expect(execute).toThrowError(expect.objectContaining({ code: 'HQ_CLIENT_QUERY', path: test.path }));
     else {
       const result = execute();
       if (test.http) expect(result.body).toMatchObject(test.http);

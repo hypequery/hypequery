@@ -42,7 +42,10 @@ def env_lines(summary: ConnectionSummary | None, database: str) -> list[str]:
         f"CLICKHOUSE_PORT={port}",
         f"CLICKHOUSE_SECURE={'true' if secure else 'false'}",
         f"CLICKHOUSE_DATABASE={database}",
-        "CLICKHOUSE_USERNAME=default",
+        # A placeholder fails loudly; `default` would quietly connect as a
+        # different, usually broader, user than the one discovery used.
+        "CLICKHOUSE_USERNAME="
+        + ("default" if summary is None or summary.default_user else "your-clickhouse-user"),
         "CLICKHOUSE_PASSWORD=",
     ]
 

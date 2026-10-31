@@ -209,9 +209,10 @@ hypequery dev
 `hypequery init --path <directory>` (or a positional directory) inspects your
 configured ClickHouse database by default. Use `--tables` and `--exclude-tables`
 to choose tables, and `--tenant-column <column>` to set `tenant_key` on every
-table that has it. The selection is recorded in `schema.json`, and
-`hypequery generate datasets` reuses it unless given `--tables`,
-`--exclude-tables` or `--all-tables`. The scaffold's `.env.example` and README
+table that has it. The selection and tenant column are recorded in
+`schema.json`, and `hypequery generate datasets` reuses them unless given
+`--tables`, `--exclude-tables` or `--all-tables`, and `--tenant-column` or
+`--no-tenant-column`. The scaffold's `.env.example` and README
 repeat how discovery connected (`CLICKHOUSE_URL`, or the host, port and TLS
 setting), without credentials. Generated definitions and an exact schema snapshot describe
 your actual tables; existing output paths are never overwritten. A table's or
@@ -336,9 +337,10 @@ executor.close()
 
 A target is a `Dataset` or the name of a registered dataset. The registry also
 resolves relationship targets, so pass one when a query traverses a
-relationship. A query can also be a plain mapping (for example a request body);
-it is validated strictly and unknown keys are rejected. The tenant always comes
-from the trusted `ExecutionContext`, never from the query.
+relationship. A query can also be a plain mapping with `DatasetQuery`'s field
+names (`order_by`, not the HTTP wire's `orderBy`); it is validated strictly and
+unknown keys are rejected. The tenant always comes from the trusted
+`ExecutionContext`, never from the query.
 
 In a request handler, bind the client to the tenant your auth layer resolved
 and pass that on instead of the client itself:
@@ -347,6 +349,11 @@ and pass that on instead of the client itself:
 scoped = client.for_tenant(tenant(principal.org_id))
 scoped.execute("trips", request_body)
 ```
+
+`request_body` here is your own handler's JSON, with the same field names. To
+serve the HTTP wire format (`orderBy`, `includeMeta`) that `@hypequery/react`
+and generated clients send, mount hypequery's endpoints instead (`create_api`,
+`urls(api)` or `blueprint(api)`).
 
 A tenant-bound client has only `execute`, `validate`, and `to_sql`. Every
 query runs as the bound tenant. A context naming a different tenant is refused
@@ -1089,7 +1096,8 @@ and `CLICKHOUSE_CONTROL_PASSWORD`. If ClickHouse refuses a `KILL`, the
 executor logs one error naming these fixes on the
 `hypequery.execution.cancellation` logger and stops asking. The query then
 runs until `max_execution_time`, and the caller still gets `aborted` or
-`deadline-exceeded`. The native async executor needs the grant less, since its
+`deadline-exceeded`, though a synchronous caller gets it only once ClickHouse
+stops the query: its driver call cannot return early. The native async executor needs the grant less, since its
 driver also asks ClickHouse to cancel a readonly query when the connection
 closes.
 
@@ -1924,7 +1932,9 @@ The export names each endpoint's path under the API's `base_path` and
 intersects profile, dataset, endpoint policy, client and production ceilings,
 reserving the pagination probe row. For an API mounted inside another
 application, configure its external `create_api(client_mount_path=...)`.
-Proxy headers never determine artifact paths. A strict endpoint refuses a path
+Proxy headers never determine artifact paths, nor do ASGI's `root_path` and
+WSGI's `SCRIPT_NAME`: the first request served below a prefix that differs from
+`client_mount_path` logs a warning on `hypequery.serve` naming the setting. A strict endpoint refuses a path
 another POST route already serves. Legacy routes keep their input behavior and
 are omitted from this export. `to_asgi_app` exports the contract once when it
 builds the app, so a misconfiguration fails at startup.

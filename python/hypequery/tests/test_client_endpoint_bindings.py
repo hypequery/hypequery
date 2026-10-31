@@ -116,23 +116,31 @@ def test_auth_and_policy_precede_stale_schema_and_execution() -> None:
 
 
 @pytest.mark.parametrize(
-    "payload",
+    ("payload", "path"),
     [
-        {"filters": None},
-        {"limit": True},
-        {"timezone": "UTC"},
-        {"orderBy": [{"field": "country", "direction": "asc"}]},
-        {"tenant": "secret"},
-        {"segments": []},
-        {"sql": "secret"},
+        ({"filters": None}, ["filters"]),
+        ({"limit": True}, ["limit"]),
+        ({"timezone": "UTC"}, []),
+        ({"orderBy": [{"field": "country", "direction": "asc"}]}, ["orderBy", 0, "field"]),
+        ({"tenant": "secret"}, []),
+        ({"segments": []}, []),
+        ({"sql": "secret"}, []),
     ],
 )
-def test_strict_input_rejected_before_planning(payload: dict[str, object]) -> None:
+def test_strict_input_rejected_before_planning(
+    payload: dict[str, object], path: list[object]
+) -> None:
     app, executor = setup()
     with AsgiClient(app) as http:
         result = http.post("/api/orders", json=payload, headers={"Authorization": "Bearer reader"})
     assert result.status_code == 400
-    assert result.json()["error"]["message"] == "Invalid client query."
+    error = result.json()["error"]
+    assert error["message"] == "Invalid client query."
+    # Where it failed, never what was sent: an unknown member is reported at the root.
+    assert error["details"] == {
+        "issues": [{"path": path, "message": "Invalid client query.", "code": "HQ_CLIENT_QUERY"}]
+    }
+    assert "secret" not in result.text
     assert executor.seen == []
 
 

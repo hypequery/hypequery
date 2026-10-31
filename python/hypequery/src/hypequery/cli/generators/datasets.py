@@ -354,6 +354,7 @@ def generate_datasets(
             {
                 "database": schema.database,
                 **({"selection": selection} if selection else {}),
+                **({"tenantColumn": tenant_column} if tenant_column else {}),
                 "tables": snapshot,
                 "warnings": warnings,
             },

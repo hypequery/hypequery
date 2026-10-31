@@ -33,7 +33,8 @@ threads run concurrently on the loop.
 Run it with gunicorn (``gunicorn app:app --threads 8``) or waitress, or mount
 it in a WSGI framework, below a prefix (Werkzeug's ``DispatcherMiddleware``):
 the path is matched below ``SCRIPT_NAME``. Client contracts name paths under
-the API's ``client_mount_path``, never under a prefix a server or proxy sets.
+the API's ``client_mount_path``, never under a prefix a server or proxy sets;
+the first request below a different ``SCRIPT_NAME`` logs a warning saying so.
 The loop stops at interpreter exit; each worker a preloading server forks
 starts its own.
 """
@@ -49,6 +50,7 @@ from .utils.blocking import serve_blocking
 from .utils.response_head import response_body, response_headers, status_line
 from .utils.serving_loop import RequestThread
 from .utils.thread_body import thread_body
+from .utils.unconfigured_mount import UnconfiguredMount
 from .utils.wsgi_environ import (
     body_length,
     environ_client,
@@ -66,12 +68,15 @@ StartResponse = Callable[..., Any]
 class WsgiApp:
     """The WSGI application serving one `Api`. Build it with `to_wsgi_app`."""
 
-    __slots__ = ("api",)
+    __slots__ = ("_mount", "api")
 
     def __init__(self, api: Api) -> None:
         self.api = api
+        self._mount = UnconfiguredMount()
 
     def __call__(self, environ: Environ, start_response: StartResponse) -> Iterable[bytes]:
+        self._mount.check(self.api, environ.get("SCRIPT_NAME") or "")
+
         def build(thread: RequestThread) -> ServeRequest:
             return ServeRequest(
                 method=environ["REQUEST_METHOD"],

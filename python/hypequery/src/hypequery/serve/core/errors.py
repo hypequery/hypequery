@@ -140,6 +140,25 @@ def request_validation_error(errors: Sequence[Mapping[str, object]]) -> ServeErr
     )
 
 
+def client_query_error(pointer: str, code: str) -> ServeError:
+    """The canonical 400 for a strict client query, naming where it failed.
+
+    *pointer* is the validator's RFC 6901 pointer: member names the contract
+    defines and item indexes, never a submitted value.
+    """
+
+    path: list[object] = [
+        int(part) if part.isdigit() else part.replace("~1", "/").replace("~0", "~")
+        for part in pointer.split("/")[1:]
+    ]
+    return serve_error(
+        400,
+        "VALIDATION_ERROR",
+        "Invalid client query.",
+        details={"issues": [{"path": path, "message": "Invalid client query.", "code": code}]},
+    )
+
+
 def as_serve_error(exc: BaseException, *, request_id: str | None = None) -> ServeError:
     """The canonical error for *exc*, logging anything unexpected."""
 

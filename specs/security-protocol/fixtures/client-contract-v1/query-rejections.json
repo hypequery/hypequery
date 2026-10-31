@@ -22,7 +22,7 @@
     },
     "error": "HQ_CLIENT_QUERY",
     "mode": "query",
-    "path": "",
+    "path": "/dimensions/0",
     "message": "Invalid client query."
   },
   {
@@ -36,7 +36,7 @@
     },
     "error": "HQ_CLIENT_QUERY",
     "mode": "query",
-    "path": "",
+    "path": "/dimensions/0",
     "message": "Invalid client query."
   },
   {
@@ -57,7 +57,7 @@
     },
     "error": "HQ_CLIENT_QUERY",
     "mode": "query",
-    "path": "",
+    "path": "/filters/0/value",
     "message": "Invalid client query."
   },
   {
@@ -75,7 +75,7 @@
     },
     "error": "HQ_CLIENT_QUERY",
     "mode": "query",
-    "path": "",
+    "path": "/filters/0/value",
     "message": "Invalid client query."
   },
   {
@@ -93,7 +93,7 @@
     },
     "error": "HQ_CLIENT_QUERY",
     "mode": "query",
-    "path": "",
+    "path": "/filters/0/value",
     "message": "Invalid client query."
   },
   {
@@ -111,7 +111,7 @@
     },
     "error": "HQ_CLIENT_QUERY",
     "mode": "query",
-    "path": "",
+    "path": "/filters/0/value",
     "message": "Invalid client query."
   },
   {
@@ -129,7 +129,7 @@
     },
     "error": "HQ_CLIENT_QUERY",
     "mode": "query",
-    "path": "",
+    "path": "/filters/0/operator",
     "message": "Invalid client query."
   },
   {
@@ -141,7 +141,7 @@
     },
     "error": "HQ_CLIENT_QUERY",
     "mode": "query",
-    "path": "",
+    "path": "/by",
     "message": "Invalid client query."
   },
   {
@@ -162,7 +162,7 @@
     },
     "error": "HQ_CLIENT_QUERY",
     "mode": "query",
-    "path": "",
+    "path": "/having/0/measure",
     "message": "Invalid client query."
   },
   {
@@ -183,7 +183,7 @@
     },
     "error": "HQ_CLIENT_QUERY",
     "mode": "query",
-    "path": "",
+    "path": "/having/0/measure",
     "message": "Invalid client query."
   },
   {
@@ -262,7 +262,7 @@
     },
     "error": "HQ_CLIENT_QUERY",
     "mode": "query",
-    "path": "",
+    "path": "/includeMeta",
     "message": "Invalid client query."
   },
   {
@@ -320,7 +320,7 @@
     },
     "error": "HQ_CLIENT_QUERY",
     "mode": "query",
-    "path": "",
+    "path": "/orderBy/0/field",
     "message": "Invalid client query."
   },
   {
@@ -368,7 +368,7 @@
       "dimensions": null
     },
     "error": "HQ_CLIENT_QUERY",
-    "path": "",
+    "path": "/dimensions",
     "message": "Invalid client query."
   },
   {
@@ -380,7 +380,7 @@
       "measures": null
     },
     "error": "HQ_CLIENT_QUERY",
-    "path": "",
+    "path": "/measures",
     "message": "Invalid client query."
   },
   {
@@ -392,7 +392,7 @@
       "filters": null
     },
     "error": "HQ_CLIENT_QUERY",
-    "path": "",
+    "path": "/filters",
     "message": "Invalid client query."
   },
   {
@@ -404,7 +404,7 @@
       "having": null
     },
     "error": "HQ_CLIENT_QUERY",
-    "path": "",
+    "path": "/having",
     "message": "Invalid client query."
   },
   {
@@ -416,7 +416,7 @@
       "orderBy": null
     },
     "error": "HQ_CLIENT_QUERY",
-    "path": "",
+    "path": "/orderBy",
     "message": "Invalid client query."
   },
   {
@@ -452,7 +452,7 @@
       "by": null
     },
     "error": "HQ_CLIENT_QUERY",
-    "path": "",
+    "path": "/by",
     "message": "Invalid client query."
   },
   {
@@ -476,7 +476,7 @@
       "includeMeta": null
     },
     "error": "HQ_CLIENT_QUERY",
-    "path": "",
+    "path": "/includeMeta",
     "message": "Invalid client query."
   },
   {
@@ -491,7 +491,7 @@
       ]
     },
     "error": "HQ_CLIENT_QUERY",
-    "path": "",
+    "path": "/dimensions/1",
     "message": "Invalid client query."
   },
   {
@@ -506,7 +506,7 @@
       ]
     },
     "error": "HQ_CLIENT_QUERY",
-    "path": "",
+    "path": "/measures/1",
     "message": "Invalid client query."
   },
   {
@@ -1050,7 +1050,7 @@
       ]
     },
     "error": "HQ_CLIENT_QUERY",
-    "path": "",
+    "path": "/having",
     "message": "Invalid client query."
   },
   {
@@ -2070,7 +2070,7 @@
       ]
     },
     "error": "HQ_CLIENT_QUERY",
-    "path": "",
+    "path": "/filters/0/value",
     "message": "Invalid client query."
   },
   {
@@ -2091,7 +2091,7 @@
       ]
     },
     "error": "HQ_CLIENT_QUERY",
-    "path": "",
+    "path": "/orderBy/1/field",
     "message": "Invalid client query."
   },
   {
@@ -2112,6 +2112,23 @@
     "message": "Invalid client query."
   },
   {
+    "id": "mcp-unsupported-grain",
+    "contract": "build",
+    "endpoint": "orders",
+    "transport": "mcp",
+    "input": {
+      "dataset": "orders",
+      "measures": [
+        "revenue"
+      ],
+      "grain": "minute"
+    },
+    "error": "HQ_CLIENT_QUERY",
+    "mode": "query",
+    "path": "/grain",
+    "message": "Invalid client query."
+  },
+  {
     "id": "null-check-with-value-rejected",
     "contract": "null-checks",
     "endpoint": "customers",
@@ -2126,7 +2143,7 @@
     },
     "error": "HQ_CLIENT_QUERY",
     "mode": "query",
-    "path": "",
+    "path": "/filters/0",
     "message": "Invalid client query."
   },
   {
@@ -2144,7 +2161,7 @@
     },
     "error": "HQ_CLIENT_QUERY",
     "mode": "query",
-    "path": "",
+    "path": "/filters/0",
     "message": "Invalid client query."
   },
   {
@@ -2162,7 +2179,7 @@
     },
     "error": "HQ_CLIENT_QUERY",
     "mode": "query",
-    "path": "",
+    "path": "/filters/0",
     "message": "Invalid client query."
   },
   {
@@ -2179,7 +2196,7 @@
     },
     "error": "HQ_CLIENT_QUERY",
     "mode": "query",
-    "path": "",
+    "path": "/filters/0/operator",
     "message": "Invalid client query."
   },
   {
@@ -2196,7 +2213,7 @@
     },
     "error": "HQ_CLIENT_QUERY",
     "mode": "query",
-    "path": "",
+    "path": "/filters/0/operator",
     "message": "Invalid client query."
   },
   {
@@ -2213,7 +2230,7 @@
     },
     "error": "HQ_CLIENT_QUERY",
     "mode": "query",
-    "path": "",
+    "path": "/filters/0",
     "message": "Invalid client query."
   }
 ]

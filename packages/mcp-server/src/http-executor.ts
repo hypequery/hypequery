@@ -1,5 +1,5 @@
 import { buildClientContractQuerySchemas, type ClientContractQuerySchemas } from '@hypequery/datasets/schemas';
-import { decodeProtocolClientContract, validateProtocolClientQuery, type ClientQueryPlan, type ProtocolClientContract } from '@hypequery/protocol';
+import { decodeProtocolClientContract, ProtocolClientContractError, validateProtocolClientQuery, type ClientQueryPlan, type ProtocolClientContract } from '@hypequery/protocol';
 import type { CallToolResult, GetPromptResult, ListPromptsResult, ListToolsResult } from '@modelcontextprotocol/sdk/types.js';
 import type { MCPToolExecutor } from './executor.js';
 import { MCPToolError } from './errors.js';
@@ -111,7 +111,11 @@ export class HypequeryMCPHttpExecutor implements MCPToolExecutor {
     if (!endpoint) throw new MCPToolError('MCP_INVALID_ARGUMENTS', 'Invalid client query target.');
     try {
       return validateProtocolClientQuery(this.schemas.contract, endpoint.id, input, 'mcp');
-    } catch { throw new MCPToolError('MCP_INVALID_ARGUMENTS', 'Invalid client query.'); }
+    } catch (error) {
+      // The pointer names a contract member or an index, never a submitted value.
+      const path = error instanceof ProtocolClientContractError ? error.path : '';
+      throw new MCPToolError('MCP_INVALID_ARGUMENTS', path ? `Invalid client query at ${path}.` : 'Invalid client query.');
+    }
   }
 
   async callTool(name: string, args?: Record<string, unknown>, signal?: AbortSignal): Promise<CallToolResult> {
