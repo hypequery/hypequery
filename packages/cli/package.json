@@ -37,7 +37,7 @@
     "@hypequery/protocol": "workspace:*",
     "chalk": "^6.0.1",
     "commander": "^15.0.0",
-    "dotenv": "^18.0.8",
+    "dotenv": "^18.0.9",
     "esbuild": "^0.28.2",
     "open": "^11.0.4",
     "ora": "^9.4.1",

@@ -52,7 +52,7 @@
   },
   "dependencies": {
     "@hypequery/datasets": "^0.27.0",
-    "@modelcontextprotocol/sdk": "^1.32.1",
+    "@modelcontextprotocol/sdk": "^1.32.2",
     "zod": "^4.6.6",
     "@hypequery/protocol": "workspace:*"
   },
