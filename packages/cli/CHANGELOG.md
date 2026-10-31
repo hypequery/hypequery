@@ -1,5 +1,18 @@
 # @hypequery/cli
 
+## 1.28.0
+
+### Minor Changes
+
+- 0f1f056: `hypequery generate:client --cloud` generates typed React routes and types from the live Cloud release of the target chosen with `hypequery login` (or `--project`, `--environment` and `--endpoint` with `HYPEQUERY_API_TOKEN`). The file also exports `clientBaseUrl`, the origin the environment is served from. `deploy --client <path>` regenerates that file after each live publish; if regeneration fails, the deploy still succeeds and the CLI prints the command to retry.
+
+### Patch Changes
+
+- a7cf856: `hypequery deploy` and `deployment:build` warn when a served dataset has a customer-like column (`tenant_id`, `org_id`, `organization_id`, `organisation_id`, `account_id`, `customer_id`, `workspace_id` or `company_id`) in a dimension, measure or filter, and neither the dataset nor its endpoint is scoped by tenant. Without that, every caller can read every customer's rows. The warning names the `tenantKey` line to add, or says to mark the dataset shared in Cloud. The `cloud.ts` scaffold now explains what empty roles and scopes allow.
+- Updated dependencies [17ffe2b]
+  - @hypequery/protocol@0.24.2
+  - @hypequery/deployment@0.11.2
+
 ## 1.27.0
 
 ### Minor Changes

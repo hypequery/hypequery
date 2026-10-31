@@ -1,5 +1,44 @@
 # @hypequery/datasets
 
+## 0.28.0
+
+### Minor Changes
+
+- 4847c9c: Add `buildClientContract(deployment, options)`, which turns a deployment contract (for example `publishToCloud`'s output) into a hashed client contract that `hypequery generate:client` reads. It follows the Python builder's rules: unknown nullability for local fields, tenant-key filters never advertised, operators narrowed by field type, portable time grains, and limits narrowed by each dataset. Relationship fields are not exported yet. Hosts pass their own routes, query ceilings and default timezone; `view: 'authorized'` with `include` marks a caller's view; `include` filters whole datasets only, so field-level narrowing stays with the host. Only datasets with an endpoint are exported, and a dataset with a field named `period` alongside a time field is rejected.
+
+### Patch Changes
+
+- 17ffe2b: Strict client-query rejections say where they failed. `validateProtocolClientQuery`
+  now sets a JSON Pointer on every `HQ_CLIENT_QUERY` error (`/filters/0/value`,
+  `/orderBy/1/field`, `/grain` for agents) instead of the root for most of them.
+  Pointers name contract members and item indexes only; an unknown member is still
+  reported at the root because its name is submitted data. The shared conformance
+  fixtures pin the pointers for TypeScript and Python.
+
+  The typed endpoint schemas from `buildClientContractQuerySchemas` carry the pointer
+  as the zod issue path, and the MCP HTTP bridge names it in its error message
+  (`Invalid client query at /filters/0/value.`).
+
+- 2b5ff4e: Three planner fixes that change results:
+
+  - Base dataset columns are always qualified with the dataset source, not only
+    when a relationship join is present. ClickHouse resolves an output alias
+    before a column of the same name, so a dimension `status` reading column
+    `country` captured a filter or selection on the real `status` column (silent
+    wrong rows), and a measure named like its column (`amount: measure.sum('amount')`)
+    broke any other measure or filter on that column with `ILLEGAL_AGGREGATION`.
+  - Under a runtime scope of several tenants (`{ in: [...] }`) or all tenants
+    (`{ scope: 'all' }`), relationship joins also match the tenant keys, so a key
+    reused by another tenant no longer joins that tenant's row. `checkRelationships`
+    counts (key, tenant) pairs under those scopes to match. Single-tenant SQL is
+    unchanged.
+  - Formula `divide` casts the dividend to Float64. Decimal division kept the
+    dividend's scale and truncated, so `round(divide(revenue, nullIfZero(orders)), 2)`
+    could come out one cent low and a Decimal share such as 0.685 read 0.68.
+
+- Updated dependencies [17ffe2b]
+  - @hypequery/protocol@0.24.2
+
 ## 0.27.0
 
 ### Minor Changes
