@@ -165,7 +165,7 @@ describe('enforced constraints fail closed', () => {
 
   it.each([
     ['an unknown field', [{ field: 'secret', operator: 'eq', value: 'x' }]],
-    ['an undeclared filter on a real dimension', [{ field: 'amount', operator: 'eq', value: 1 }]],
+    ['a null check on an undeclared dimension', [{ field: 'amount', operator: 'isNull' }]],
     ['a disallowed operator', [{ field: 'channel', operator: 'like', value: '%' }]],
     ['an unsupported operator', [{ field: 'channel', operator: 'raw', value: '1=1' }]],
     ['a wrong value type', [{ field: 'channel', operator: 'in', value: 'web' }]],

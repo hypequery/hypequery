@@ -393,8 +393,11 @@ def test_a_timestamp_like_pattern_is_not_read_as_an_instant() -> None:
     )
 
 
-def test_a_request_cannot_filter_on_an_unexposed_dimension() -> None:
-    dataset = _trips(filters={"vendor": FilterDefinition(field="vendor")})
+def test_a_request_cannot_filter_on_a_non_filterable_dimension() -> None:
+    dataset = _trips(
+        dimensions={"vendor": dimension("string"), "fare": dimension("number", filterable=False)},
+        filters={"vendor": FilterDefinition(field="vendor")},
+    )
     assert (
         _category(dataset, DatasetQuery(measures=("trips",), filters=(eq("fare", 1),)))
         == "input-invalid"
@@ -638,7 +641,7 @@ def test_a_related_filter_must_be_exposed_by_the_target_dataset() -> None:
     customers = Dataset(
         name="customers",
         source="analytics.customers",
-        dimensions={"secret": dimension("string"), "tier": dimension("string")},
+        dimensions={"secret": dimension("string", filterable=False), "tier": dimension("string")},
         filters={"tier": FilterDefinition(field="tier")},
     )
     trips = _trips(

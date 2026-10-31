@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from ...query_helpers import Filter
+from ...utils.effective_filters import effective_filters
 from ..aliases import BASE_ALIAS
 from ..context import TenantScope
 from ..errors import CompiledQueryError
@@ -63,11 +64,11 @@ class FilterFeature(CompilerFeature):
         if is_qualified(field):
             resolved = resolve_qualified_field(dataset, field, registry=compiler.registry)
             dimension = resolved.dimension
-            definition = resolved.target.filters.get(resolved.dimension_name)
+            definition = effective_filters(resolved.target).get(resolved.dimension_name)
             exposed = definition is not None and definition.field == resolved.dimension_name
         else:
             dimension = require_dimension(dataset, field)
-            definition = dataset.filters.get(filter_value.field)
+            definition = effective_filters(dataset).get(filter_value.field)
             exposed = definition is not None
         if request_filter:
             if not exposed:
