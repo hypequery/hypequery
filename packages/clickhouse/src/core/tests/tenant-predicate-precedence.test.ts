@@ -40,7 +40,7 @@ describe('a trusted expression cannot widen a tenant predicate', () => {
       { runtime: { tenant: { id: 'tenant_123' } } },
     );
 
-    expect(sql).toContain('WHERE tenant_id = ? AND (is_active OR is_public) = ?');
+    expect(sql).toContain('WHERE orders.tenant_id = ? AND (is_active OR is_public) = ?');
   });
 
   it('groups an OR-bearing filter column so the tenant predicate still binds', () => {

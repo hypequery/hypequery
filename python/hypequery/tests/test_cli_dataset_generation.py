@@ -91,8 +91,8 @@ def test_generated_definitions_compile_and_preserve_source_schema(tmp_path: Path
     assert set(model.measures) == {"totalCount", "totalNetAmount", "avgNetAmount"}
     compiled = plan_dataset_query(model, DatasetQuery(measures=("totalCount", "totalNetAmount")))
     # order_id is Nullable, so the row count uses the first non-nullable column.
-    assert "count(`net_amount`)" in compiled.sql
-    assert "sum(`net_amount`)" in compiled.sql
+    assert "count(`__hq_base`.`net_amount`)" in compiled.sql
+    assert "sum(`__hq_base`.`net_amount`)" in compiled.sql
     assert "`analytics`.`order_events`" in compiled.sql
     assert len(generated.warnings) == 2
     snapshot = json.loads(generated.snapshot)
@@ -147,7 +147,7 @@ def test_nullable_count_is_named_honestly_and_scaffold_query_uses_it(tmp_path: P
     payload = json.loads(readme.split("  -d '", 1)[1].split("'", 1)[0])
     assert payload["measures"] == ["nonNullCount"]
     assert (
-        "count(`user_id`)"
+        "count(`__hq_base`.`user_id`)"
         in plan_dataset_query(model, DatasetQuery(measures=("nonNullCount",))).sql
     )
 

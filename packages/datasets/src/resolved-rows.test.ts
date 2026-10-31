@@ -24,7 +24,7 @@ const client = createDatasetClient({ queryBuilder: createQueryBuilder({ host: 'h
 describe('resolved row dataset sources', () => {
   it('reads the source in place with FINAL and keeps only rows that are not deleted', () => {
     const statement = client.compileDataset(Users, { measures: ['total'], filters: [{ field: 'amount', operator: 'gt', value: 10 }] });
-    expect(statement.sql).toBe('SELECT SUM(amount) AS `total` FROM analytics.users FINAL WHERE analytics.users.is_deleted = ? AND amount > ?');
+    expect(statement.sql).toBe('SELECT SUM(analytics.users.amount) AS `total` FROM analytics.users FINAL WHERE analytics.users.is_deleted = ? AND analytics.users.amount > ?');
     expect(statement.parameters).toEqual([0, 10]);
     expect(Users.final).toBe(true);
     expect(Users.source).toBe('analytics.users');
@@ -71,7 +71,7 @@ describe('resolved row dataset sources', () => {
   it('collapsing policies apply the sign test after FINAL', () => {
     const Collapsing = dataset('collapsing', { source: 'collapsing', dimensions: { id: dimension.number() }, rowResolution: { kind: 'final', engine: 'collapsing', signColumn: 'sign' }, measures: { rows: measure.count('id') } });
     expect(client.compileDataset(Collapsing, { measures: ['rows'] })).toMatchObject({
-      sql: 'SELECT COUNT(id) AS `rows` FROM collapsing FINAL WHERE collapsing.sign = ?',
+      sql: 'SELECT COUNT(collapsing.id) AS `rows` FROM collapsing FINAL WHERE collapsing.sign = ?',
       parameters: [1],
     });
   });

@@ -24,6 +24,7 @@ from hypequery.serve import (
     Authenticator,
     ContextStrategy,
     Credential,
+    EndpointPolicy,
     Principal,
     add_client_contract_endpoint,
     add_dataset_endpoint,
@@ -33,6 +34,8 @@ from hypequery.serve import (
 registry = create_dataset_registry(*datasets.values())
 #: For local development only: see principal_for_token.
 DEV_TOKEN = os.environ.get("HYPEQUERY_DEV_TOKEN", "")
+#: The tenant the token reads, for datasets with a tenant_key; unset, it reads none of them.
+DEV_TENANT = os.environ.get("HYPEQUERY_DEV_TENANT") or None
 
 
 def tenant_of(user: Any) -> str | None:
@@ -57,12 +60,12 @@ def principal_for_token(credential: Credential) -> Principal | None:
 
     Accepts HYPEQUERY_DEV_TOKEN, and no token when it is unset. Replace this
     with your own credential check, or ``jwt_strategy`` from the ``jwt``
-    extra, before production. Its principal has no tenant, so datasets with a
-    tenant_key refuse it.
+    extra, before production. Its principal's tenant is HYPEQUERY_DEV_TENANT;
+    without one, datasets with a tenant_key refuse it.
     """
 
     if DEV_TOKEN and secrets.compare_digest(credential.value, DEV_TOKEN):
-        return Principal(subject="developer")
+        return Principal(subject="developer", tenant_id=DEV_TENANT)
     return None
 
 
@@ -87,6 +90,9 @@ def analytics_api(client: DatasetClient, *, auth: Authenticator | ContextStrateg
             dataset=definition,
             client=client,
             client_profile=ClientQueryProfile(),
+            # A tenant-scoped dataset needs a principal with a tenant, and is left
+            # out of the client contract of one without.
+            policy=EndpointPolicy(tenant="required" if definition.tenant_key else "optional"),
         )
     add_client_contract_endpoint(api)
     return api

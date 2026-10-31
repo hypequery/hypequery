@@ -51,7 +51,7 @@ class FilterFeature(CompilerFeature):
             # name may have a different column or SQL expression; never use it as
             # the authorization predicate.
             tenant_column = safe_identifier(dataset.tenant_key, what="tenant key").sql
-            column = f"{BASE_ALIAS.sql}.{tenant_column}" if compiler.joins_active else tenant_column
+            column = f"{BASE_ALIAS.sql}.{tenant_column}"
             where.append(tenant_predicate(compiler.binder, column, scope))
 
     def predicate(self, filter_value: Filter, *, request_filter: bool = False) -> str:

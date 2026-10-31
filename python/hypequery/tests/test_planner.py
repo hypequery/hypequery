@@ -126,8 +126,8 @@ def test_a_plain_aggregation_selects_groups_and_aliases() -> None:
         _trips(), DatasetQuery(dimensions=("vendor",), measures=("trips",))
     )
     assert compiled.sql == (
-        "SELECT `vendor` AS `vendor`, count(`id`) AS `trips` "
-        "FROM `analytics`.`trips` GROUP BY `vendor`"
+        "SELECT `__hq_base`.`vendor` AS `vendor`, count(`__hq_base`.`id`) AS `trips` "
+        "FROM `analytics`.`trips` AS `__hq_base` GROUP BY `vendor`"
     )
     assert compiled.operation == "query"
     assert compiled.parameters == {}
@@ -135,8 +135,8 @@ def test_a_plain_aggregation_selects_groups_and_aliases() -> None:
 
 def test_omitting_measures_selects_every_measure() -> None:
     compiled = plan_dataset_query(_trips(), DatasetQuery(dimensions=("vendor",)))
-    assert "count(`id`) AS `trips`" in compiled.sql
-    assert "sum(`total_amount`) AS `revenue`" in compiled.sql
+    assert "count(`__hq_base`.`id`) AS `trips`" in compiled.sql
+    assert "sum(`__hq_base`.`total_amount`) AS `revenue`" in compiled.sql
 
 
 def test_a_dimension_column_override_is_used() -> None:
@@ -146,7 +146,7 @@ def test_a_dimension_column_override_is_used() -> None:
 
 def test_a_time_grain_selects_and_orders_by_period() -> None:
     compiled = plan_dataset_query(_trips(), DatasetQuery(by="month", measures=("trips",)))
-    bucket = "toStartOfMonth(toDateTime64(`pickup_datetime`, 9, {p0:String}))"
+    bucket = "toStartOfMonth(toDateTime64(`__hq_base`.`pickup_datetime`, 9, {p0:String}))"
     # RFC 0015's result form is ClickHouse's own text for the bucket; group on the value.
     assert f"toString({bucket}) AS `period`" in compiled.sql
     # Order by the bucket, not its text: on a daylight-saving fall-back day two
@@ -164,7 +164,7 @@ def test_an_explicit_period_order_sorts_by_the_bucket_instant(direction: str) ->
             order_by=(asc("period") if direction == "asc" else desc("period"),),
         ),
     )
-    bucket = "toStartOfHour(toDateTime64(`pickup_datetime`, 9, {p0:String}))"
+    bucket = "toStartOfHour(toDateTime64(`__hq_base`.`pickup_datetime`, 9, {p0:String}))"
     assert compiled.sql.endswith(f"ORDER BY {bucket} {direction.upper()}")
 
 
@@ -205,7 +205,7 @@ def test_a_trusted_expression_cannot_reach_past_its_own_operand(expression: str)
     assert f"({expression}\n)" in compiled.sql
     # The clauses after the expression, the tenant predicate above all, survive.
     assert "FROM `analytics`.`trips`" in compiled.sql
-    assert "WHERE `tenant_id` = {p0:String}" in compiled.sql
+    assert "WHERE `__hq_base`.`tenant_id` = {p0:String}" in compiled.sql
 
 
 def test_a_trusted_measure_expression_is_contained_too() -> None:
@@ -221,7 +221,7 @@ def test_a_trusted_measure_expression_is_contained_too() -> None:
         context=ExecutionContext(tenant=tenant("acme")),
     )
     assert "sum((amount -- note\n))" in compiled.sql
-    assert "WHERE `tenant_id` = {p0:String}" in compiled.sql
+    assert "WHERE `__hq_base`.`tenant_id` = {p0:String}" in compiled.sql
 
 
 def test_pagination_renders_from_bounded_integers() -> None:
@@ -480,16 +480,49 @@ def test_a_measure_filter_alone_activates_its_relationship_join(
     )
 
 
-def test_base_columns_are_qualified_only_when_a_join_is_present() -> None:
+def test_base_columns_are_always_qualified() -> None:
     trips, customers = _related()
     registry = create_dataset_registry(trips, customers)
     plain = plan_dataset_query(trips, DatasetQuery(dimensions=("vendor",)), registry=registry)
     joined = plan_dataset_query(
         trips, DatasetQuery(dimensions=("vendor", "customer.country")), registry=registry
     )
-    assert "`vendor` AS `vendor`" in plain.sql
-    assert BASE_ALIAS.sql not in plain.sql
+    assert f"FROM `analytics`.`trips` AS {BASE_ALIAS.sql}" in plain.sql
+    assert f"{BASE_ALIAS.sql}.`vendor` AS `vendor`" in plain.sql
     assert f"{BASE_ALIAS.sql}.`vendor` AS `vendor`" in joined.sql
+
+
+def test_an_output_alias_never_captures_a_column_of_the_same_name() -> None:
+    # ClickHouse resolves a bare name to an output alias before a column, so an
+    # unqualified `status` below would read `country`, and `amount` would read
+    # the sum (an aggregate inside an aggregate).
+    orders = Dataset(
+        name="orders",
+        source="orders",
+        dimensions={
+            "status": dimension.string(column="country"),
+            "orderStatus": dimension.string(column="status"),
+            "orderAmount": dimension.number(column="amount"),
+        },
+        measures={"amount": measure.sum("amount"), "largest": measure.max("amount")},
+    )
+    compiled = plan_dataset_query(
+        orders,
+        DatasetQuery(
+            dimensions=("status", "orderStatus"),
+            measures=("amount", "largest"),
+            filters=(
+                eq("orderStatus", "paid"),
+                Filter(field="orderAmount", operator="gt", value=1),
+            ),
+        ),
+    )
+    assert compiled.sql.startswith(
+        "SELECT `__hq_base`.`country` AS `status`, `__hq_base`.`status` AS `orderStatus`, "
+        "sum(`__hq_base`.`amount`) AS `amount`, max(`__hq_base`.`amount`) AS `largest` "
+        "FROM `orders` AS `__hq_base` "
+        "WHERE `__hq_base`.`status` = {p0:String} AND `__hq_base`.`amount` > {p1:Float64}"
+    )
 
 
 def test_a_has_many_relationship_cannot_be_joined() -> None:
@@ -666,7 +699,7 @@ def test_a_proven_tenant_becomes_a_bound_predicate() -> None:
         DatasetQuery(measures=("trips",)),
         context=ExecutionContext(tenant=tenant("acme")),
     )
-    assert "WHERE `tenant_id` = {p0:String}" in compiled.sql
+    assert "WHERE `__hq_base`.`tenant_id` = {p0:String}" in compiled.sql
     assert compiled.parameter_values() == {"p0": "acme"}
 
 
@@ -684,7 +717,7 @@ def test_tenant_predicate_always_uses_the_physical_key(tenant_dimension: Dimensi
         DatasetQuery(measures=("trips",)),
         context=ExecutionContext(tenant=tenant("acme")),
     )
-    assert "WHERE `tenant_id` = {p0:String}" in compiled.sql
+    assert "WHERE `__hq_base`.`tenant_id` = {p0:String}" in compiled.sql
     assert "public_tag" not in compiled.sql
     assert "'acme'" not in compiled.sql
 
@@ -700,8 +733,9 @@ def test_sql_backed_filter_cannot_widen_the_tenant_scope() -> None:
         DatasetQuery(measures=("trips",), filters=(eq("active_or_public", True),)),
         context=ExecutionContext(tenant=tenant("acme")),
     )
-    assert "WHERE (active OR is_public\n) = {p0:Bool} AND `tenant_id` = {p1:String}" in (
-        compiled.sql
+    assert (
+        "WHERE (active OR is_public\n) = {p0:Bool} AND `__hq_base`.`tenant_id` = {p1:String}"
+        in compiled.sql
     )
 
 
@@ -711,7 +745,7 @@ def test_a_tenant_set_binds_as_an_array() -> None:
         DatasetQuery(measures=("trips",)),
         context=ExecutionContext(tenant=tenants(("acme", "globex"))),
     )
-    assert "WHERE `tenant_id` IN {p0:Array(String)}" in compiled.sql
+    assert "WHERE `__hq_base`.`tenant_id` IN {p0:Array(String)}" in compiled.sql
 
 
 def test_a_cross_tenant_scope_adds_no_predicate() -> None:
@@ -1008,9 +1042,9 @@ def test_the_interpolation_check_script_passes() -> None:
 @pytest.mark.parametrize(
     ("aggregation", "expected"),
     [
-        ("argMax", "argMax(`fare`, `pickup_datetime`)"),
-        ("argMin", "argMin(`fare`, `pickup_datetime`)"),
-        ("percentile", "quantile(0.95)(`fare`)"),
+        ("argMax", "argMax(`__hq_base`.`fare`, `__hq_base`.`pickup_datetime`)"),
+        ("argMin", "argMin(`__hq_base`.`fare`, `__hq_base`.`pickup_datetime`)"),
+        ("percentile", "quantile(0.95)(`__hq_base`.`fare`)"),
     ],
 )
 def test_analytical_aggregates_resolve_physical_columns(aggregation: str, expected: str) -> None:

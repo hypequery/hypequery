@@ -66,12 +66,24 @@ def schema_templates(
         "\n".join(f"- {warning}" for warning in generated.warnings)
         or "No unsupported columns or ambiguous time keys were found."
     )
+    tenant_note = (
+        f"""
+The datasets are scoped by `{generated.tenant_column}`, so the development token
+reads one tenant: set it before starting the server, or every query answers 403.
+
+```bash
+export HYPEQUERY_DEV_TENANT='one of your {generated.tenant_column} values'
+```
+"""
+        if generated.tenant_column
+        else ""
+    )
     run_section = (
         f"""## Run and query
 
 Use the same connection settings as schema discovery. No seed data is needed;
 this project queries your existing tables. Start the server with `hypequery dev`.
-
+{tenant_note}
 ```bash
 curl -s -X POST http://127.0.0.1:8000/datasets/{generated.tables[0]}/query \\
   -H "Authorization: Bearer $HYPEQUERY_DEV_TOKEN" \\

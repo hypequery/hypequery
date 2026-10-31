@@ -43,8 +43,8 @@ describe('reserved-word names are quoted wherever the planner aliases them', () 
     const sql = client.toSQL(Events, { by: 'day', dimensions: ['group', 'order'], measures: ['rows', 'end'], orderBy: [{ field: 'end', direction: 'desc' }] });
     expect(sql).toContain('group_name AS `group`');
     expect(sql).toContain('upper(order_code) AS `order`');
-    expect(sql).toContain('COUNT(value) AS `rows`');
-    expect(sql).toContain('SUM(value) AS `end`');
+    expect(sql).toContain('COUNT(events.value) AS `rows`');
+    expect(sql).toContain('SUM(events.value) AS `end`');
     expect(sql).toContain('AS `period`');
     expect(sql).toMatch(/GROUP BY `period`, `group`, `order`/);
     expect(sql).toContain('ORDER BY `end` DESC');
@@ -53,7 +53,7 @@ describe('reserved-word names are quoted wherever the planner aliases them', () 
   it('derived measure path', () => {
     const sql = client.toSQL(Events, { dimensions: ['group'], measures: ['window'] });
     expect(sql).toContain('AS `rows`');
-    expect(sql).toContain('(`end` / NULLIF(`rows`, 0)) AS `window`');
+    expect(sql).toContain('(toFloat64(`end`) / NULLIF(`rows`, 0)) AS `window`');
   });
 
   it('metric paths', () => {
@@ -61,8 +61,8 @@ describe('reserved-word names are quoted wherever the planner aliases them', () 
     expect(base).toContain('AS `rowsMetric`');
     expect(base).toContain('ORDER BY `group` ASC');
     const derived = client.toSQL(Ratio as never, { dimensions: ['group'], orderBy: [{ field: 'range', direction: 'desc' }] } as never);
-    expect(derived).toContain('SUM(value) AS `end`');
-    expect(derived).toContain('SELECT `group`, (`end` / NULLIF(`rows`, 0)) AS `range` FROM base');
+    expect(derived).toContain('SUM(events.value) AS `end`');
+    expect(derived).toContain('SELECT `group`, (toFloat64(`end`) / NULLIF(`rows`, 0)) AS `range` FROM base');
     expect(derived).toContain('ORDER BY `range` DESC');
   });
 

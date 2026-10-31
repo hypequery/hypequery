@@ -20,7 +20,7 @@ from .base import CompilerFeature
 if TYPE_CHECKING:
     from ..compiler import DatasetQueryCompiler
 
-_FORMULA_OPERATORS = {"add": "+", "subtract": "-", "multiply": "*", "divide": "/"}
+_FORMULA_OPERATORS = {"add": "+", "subtract": "-", "multiply": "*"}
 _FORMULA_FUNCTIONS = {"coalesce": "COALESCE", "round": "ROUND", "floor": "FLOOR", "ceil": "CEIL"}
 
 
@@ -145,6 +145,8 @@ class MeasureFeature(CompilerFeature):
             return binder.bind(formula.value, literal_parameter_type(formula.value))
         if isinstance(formula, FormulaBinary):
             left, right = self._formula_sql(formula.left), self._formula_sql(formula.right)
+            if formula.operator == "divide":
+                return self.compiler.dialect.divide(left, right)
             return f"({left} {_FORMULA_OPERATORS[formula.operator]} {right})"
         if formula.name == "round":
             decimals = cast(FormulaLiteral, formula.args[1])

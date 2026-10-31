@@ -39,7 +39,7 @@ export function resolveDimensionExpression(
     assertNoRawSqlUnderJoins('dimension', dimensionName, definition.sql, joinCtx);
     return definition.sql;
   }
-  return qualifyBaseColumn(joinCtx, definition?.column ?? dimensionName);
+  return qualifyBaseColumn(joinCtx, definition?.column ?? dimensionName, ds.source);
 }
 
 export function resolveFilterField(
