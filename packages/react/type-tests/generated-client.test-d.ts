@@ -1,4 +1,4 @@
-import { createAnalyticsHooks, createHypequeryClient, type QueryOutputForInput } from '../src/index.js';
+import { ClientSchemaChangedError, createAnalyticsHooks, createHypequeryClient, HttpError, type QueryOutputForInput } from '../src/index.js';
 import { clientManifest, type ClientApi, type ClientResponseMeta } from './client-contract.generated.js';
 import type { Expect, Equal } from '@type-challenges/utils';
 
@@ -116,3 +116,8 @@ createHypequeryClient<ClientApi>({ baseUrl: '/api', manifest: clientManifest });
 hooks.useDataset('orders', { filters: [{ field: 'amount', operator: 'eq', value: '1' }] });
 // @ts-expect-error Metric has no measure-selection override.
 hooks.useMetric('ordersRevenue', { measures: ['revenue'] });
+
+// Stale generated clients get a typed error that existing HttpError handlers still catch.
+const stale = new ClientSchemaChangedError('changed', {});
+export type _StaleIsHttpError = Expect<Equal<typeof stale extends HttpError ? true : false, true>>;
+export type _StaleStatus = Expect<Equal<typeof stale['status'], number>>;

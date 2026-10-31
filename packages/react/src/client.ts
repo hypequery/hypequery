@@ -1,5 +1,6 @@
 import { clientSchemaHeaders } from './utils/client-schema-headers.js';
-import { HttpError } from './errors.js';
+import { ClientSchemaChangedError, HttpError } from './errors.js';
+import { isClientSchemaChanged } from './utils/client-schema-changed.js';
 
 export type ApiContract = Record<string, { input: any; output: any }>;
 
@@ -193,6 +194,13 @@ export function createHypequeryClient<Api extends ApiContract = ApiContract>(
     }
     if (!response.ok) {
       const errorBody = await parseResponse(response);
+      if (isClientSchemaChanged(response.status, errorBody)) {
+        throw new ClientSchemaChangedError(
+          `${method} ${finalUrl}: the endpoint changed since this client was generated. `
+          + 'Regenerate it with `hypequery generate:client --cloud --force` (or from your contract file) and review the changes.',
+          errorBody,
+        );
+      }
       throw new HttpError(
         `${method} request to ${finalUrl} failed with status ${response.status}`,
         response.status,

@@ -273,16 +273,18 @@
             "--tenant-column",
             "--check",
             "--diff",
-            "--cloud-url",
+            "--cloud",
+            "--project",
             "--environment",
+            "--endpoint",
+            "--cloud-url",
             "--bundle-output",
             "--release-output",
-            "--project",
             "--no-source",
-            "--endpoint",
             "--replace-restored",
             "--mcp-config",
             "--draft",
+            "--client",
             "--release",
             "--no-telemetry",
             "--help",
@@ -1547,7 +1549,11 @@
     "generate:client": [
       "--output",
       "--check",
-      "--force"
+      "--force",
+      "--cloud",
+      "--project",
+      "--environment",
+      "--endpoint"
     ],
     "login": [
       "--cloud-url",
@@ -1563,7 +1569,8 @@
       "--endpoint",
       "--replace-restored",
       "--mcp-config",
-      "--draft"
+      "--draft",
+      "--client"
     ],
     "deployment:build": [
       "--bundle-output",

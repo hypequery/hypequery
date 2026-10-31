@@ -56,7 +56,7 @@ class Rows:
 
 class Executor:
     def execute(self, compiled: CompiledQuery) -> Rows:
-        columns = tuple(re.findall(r" AS `([^`]+)`", compiled.sql))
+        columns = tuple(re.findall(r" AS `([^`]+)`", compiled.sql.split(" FROM ", 1)[0]))
         match = re.search(r"LIMIT (\d+)(?: OFFSET (\d+))?$", compiled.sql)
         assert match
         rows = FIXTURES["app"]["rows"][int(match[2] or 0) :][: int(match[1])]

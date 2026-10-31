@@ -164,7 +164,7 @@ describe('deployment authored and rehydrated parity', () => {
     const portableSql = portable.toSQL(rebuilt, query, context);
 
     expect(portableSql).toBe(localSql);
-    expect(localSql).toContain('GROUP BY `period`, status');
+    expect(localSql).toContain('GROUP BY `period`, `status`');
     expect(localSql).toContain('tenant_id');
     expect(localSql).toContain('NULLIF(`orders`, 0)');
     expect(localSql).toContain('ORDER BY `averageOrderValue` DESC LIMIT 5 OFFSET 1');
@@ -256,9 +256,9 @@ describe('contract-to-catalog rehydration', () => {
     // The formula, written in the aliases the contract carried, over an
     // intermediate aggregate whose columns are those same aliases. Nothing here
     // came from a customer module.
-    expect(sql).toContain('(`revenue` / NULLIF(`orders`, 0)) AS `averageOrderValue`');
-    expect(sql).toContain('SUM(amount) AS `revenue`');
-    expect(sql).toContain('COUNT(order_id) AS `orders`');
+    expect(sql).toContain('(toFloat64(`revenue`) / NULLIF(`orders`, 0)) AS `averageOrderValue`');
+    expect(sql).toContain('SUM(analytics.orders.amount) AS `revenue`');
+    expect(sql).toContain('COUNT(analytics.orders.order_id) AS `orders`');
     expect(sql).toContain('analytics.orders');
     expect(sql).toContain('tenant_acme');
   });

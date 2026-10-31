@@ -4,6 +4,7 @@ import { relationshipJoinSource } from './relationship-measure-sql.js';
 import type { DatasetSqlDialectRules } from '../dataset-sql-dialect.js';
 import { clickhouseDatasetSqlDialect } from './clickhouse-dataset-sql-dialect.js';
 import { resolveRelationshipReference } from './relationship-measures.js';
+import { joinsWithinTenant } from './tenant-runtime.js';
 /**
  * Query-builder-path planning for to-one relationship joins.
  *
@@ -98,7 +99,11 @@ export function buildRelationshipBuilderContext(
     const measureNames = (query.measures ?? [])
       .filter(name => name.startsWith(`${relationshipName}.`))
       .map(name => name.slice(relationshipName.length + 1));
-    const keys = relationshipKeys(relationship);
+    const authoredKeys = relationshipKeys(relationship);
+    // Under a scope of several tenants, a key reused by another tenant must not match.
+    const keys = joinsWithinTenant(ds, target, context)
+      ? [...authoredKeys, { from: ds.tenantKey as string, to: target.tenantKey as string }]
+      : authoredKeys;
     const projected = relationshipJoinSource(target, keys.map(key => key.to), measureNames, dialect);
     joinByRelationship.set(relationshipName, {
       relationship: relationshipName,
@@ -120,12 +125,18 @@ export function buildRelationshipBuilderContext(
   };
 }
 
-/** Qualifies a base physical column with the base source when joins are active. */
+/**
+ * Qualifies a base physical column with the base source. Always qualified:
+ * ClickHouse resolves an output alias before a column of the same name, so a
+ * bare `status` could read a dimension aliased `status`, and a bare `amount`
+ * inside another aggregate could read a measure aliased `amount`.
+ */
 export function qualifyBaseColumn(
   ctx: RelationshipBuilderContext | undefined,
   column: string,
+  source: string,
 ): string {
-  return ctx ? `${ctx.baseSource}.${column}` : column;
+  return `${ctx ? ctx.baseSource : source}.${column}`;
 }
 
 /**

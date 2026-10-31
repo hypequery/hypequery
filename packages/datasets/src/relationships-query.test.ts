@@ -662,15 +662,15 @@ describe('relationship joins on the query-builder path', () => {
   it('still runs non-relationship queries on a builder without leftAnyJoin', () => {
     const client = createDatasetClient({ queryBuilder: createJoinMockBuilderFactory({ anyJoin: false }) });
     expect(client.toSQL(Orders, { dimensions: ['status'], measures: ['revenue'] }))
-      .toBe('SELECT status, SUM(amount) AS `revenue` FROM orders GROUP BY status');
+      .toBe('SELECT orders.status AS `status`, SUM(orders.amount) AS `revenue` FROM orders GROUP BY `status`');
   });
 
-  it('leaves non-join queries unqualified (no regression)', () => {
+  it('qualifies base columns on non-join queries too', () => {
     const sql = builderClient().toSQL(Orders, {
       dimensions: ['status'],
       measures: ['revenue'],
     });
-    expect(sql).toBe('SELECT status, SUM(amount) AS `revenue` FROM orders GROUP BY status');
+    expect(sql).toBe('SELECT orders.status AS `status`, SUM(orders.amount) AS `revenue` FROM orders GROUP BY `status`');
   });
 
   it('rejects a SQL-backed base dimension combined with a join', () => {

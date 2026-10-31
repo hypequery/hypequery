@@ -5,6 +5,9 @@ import { datasets } from './datasets.js';
 
 export const cloud = publishToCloud({
   datasets,
+  // Empty roles and scopes still require authentication, but let any
+  // authenticated caller read every dataset. A dataset without tenantKey shows
+  // every customer's rows; review both in Cloud under Customer access.
   access: { roles: [], scopes: [] },
 });
 `;

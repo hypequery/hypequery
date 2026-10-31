@@ -40,7 +40,9 @@ class FieldFeature(CompilerFeature):
                 )
             return trusted_expression(dimension.sql)
         column_sql = safe_identifier(physical_column(compiler.dataset, name), what="column").sql
-        return f"{BASE_ALIAS.sql}.{column_sql}" if compiler.joins_active else column_sql
+        # Always qualified: ClickHouse resolves an output alias before a column of the
+        # same name, so a bare `status` could read a dimension aliased `status`.
+        return f"{BASE_ALIAS.sql}.{column_sql}"
 
     def field_sql(self, name: str) -> str:
         """The SQL for any queryable field, base or relationship-qualified."""

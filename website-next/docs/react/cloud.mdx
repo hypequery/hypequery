@@ -1,0 +1,152 @@
+---
+title: Connect React to hypequery Cloud
+description: Typed hooks on published Cloud datasets, with each customer seeing only their own rows
+---
+
+import { Callout } from 'fumadocs-ui/components/callout';
+import { Step, Steps } from 'fumadocs-ui/components/steps';
+
+Once your datasets are published to hypequery Cloud, a React app can query them
+with typed hooks. You don't write route config or types by hand, and you don't
+need a server proxy.
+
+<Steps>
+  <Step>
+    ### Generate the client from the live release
+
+    ```bash
+    npm install @hypequery/react @tanstack/react-query
+    npx hypequery login            # once per machine: picks the project and environment
+    npx hypequery generate:client --cloud --output src/hypequery-client.ts
+    ```
+
+    This writes:
+
+    - `ClientApi`: the types of every published dataset.
+    - `clientManifest`: each dataset's route and schema hash.
+    - `clientBaseUrl`: where the environment is served, such as
+      `https://acme-production.hypequery.app`.
+
+    Commit the file. To keep it current:
+
+    - `hypequery deploy analytics/cloud.ts --client src/hypequery-client.ts`
+      regenerates it every time you publish.
+    - `npx hypequery generate:client --cloud --output src/hypequery-client.ts --check`
+      fails CI when it has drifted.
+  </Step>
+
+  <Step>
+    ### Give each signed-in user their own client
+
+    ```tsx
+    // src/analytics.tsx
+    import { useMemo, type ReactNode } from 'react';
+    import { createAnalyticsHooks, createHypequeryClient, HypequeryProvider } from '@hypequery/react';
+    import { clientBaseUrl, clientManifest, type ClientApi } from './hypequery-client';
+
+    // Hooks without a fixed client read the one HypequeryProvider supplies.
+    export const { useDataset } = createAnalyticsHooks<ClientApi>();
+
+    export function AnalyticsProvider({ userId, children }: { userId: string; children: ReactNode }) {
+      const client = useMemo(
+        () => createHypequeryClient<ClientApi>({
+          baseUrl: clientBaseUrl,
+          manifest: clientManifest,
+          token: () => getUserToken(),
+        }),
+        [userId],
+      );
+      // Keyed by user: signing in as someone else starts an empty cache.
+      return <HypequeryProvider key={userId} client={client}>{children}</HypequeryProvider>;
+    }
+    ```
+
+    Render `AnalyticsProvider` inside your sign-in boundary, with the signed-in
+    user's ID. Cached results belong to one client, so one user never sees
+    another's rows after switching accounts without a reload.
+
+    `getUserToken` returns a short-lived **end-user token**. Never put an API key
+    (`hqgw_…`) in browser code: Cloud answers browsers only for end-user tokens.
+    The token is one of:
+
+    - **Your own JWT** (Clerk, Auth0, Supabase, Cognito or any JWKS issuer).
+      Register the issuer for the environment and name the claim that holds the
+      customer ID. The browser then sends the token your auth provider already
+      gives it, with no backend code.
+    - **A hypequery token minted by your backend.** Your server checks who is
+      signed in, then calls `POST https://<environment>.hypequery.app/embed/tokens`
+      with a server API key and `{ "subject", "tenantId", "permissionSet" }`, and
+      returns the `token`. The customer must be registered in the environment's
+      tenant registry.
+
+    Either way, the customer comes from the signed token, so a user only ever sees
+    their own customer's rows. Add your app's origin to the environment's allowed
+    origins (`http://localhost:3000` for development).
+  </Step>
+
+  <Step>
+    ### Query
+
+    ```tsx
+    import { useDataset } from './analytics';
+
+    export function RevenueByCountry() {
+      const { data, error, isLoading } = useDataset('orders', {
+        dimensions: ['country'],
+        measures: ['revenue'],
+      });
+      if (isLoading) return <p>Loading…</p>;
+      if (error) return <p>{error.message}</p>;
+      return <pre>{JSON.stringify(data?.data, null, 2)}</pre>;
+    }
+    ```
+
+    Dataset names, dimensions and measures type-check against the live release.
+  </Step>
+</Steps>
+
+## When the model changes
+
+Each request carries the schema hash its endpoint was generated from. If a
+publish changes an endpoint, Cloud refuses requests from the old client with
+`409 CLIENT_SCHEMA_CHANGED`, and the hook's `error` is a
+`ClientSchemaChangedError`, which is still an `HttpError`. Regenerate the client,
+review the type errors, and redeploy your app:
+
+```tsx
+import { ClientSchemaChangedError } from '@hypequery/react';
+
+if (error instanceof ClientSchemaChangedError) {
+  // Ship a build with a regenerated client; retrying won't help.
+}
+```
+
+<Callout type="info">
+  `generate:client --cloud` and the `409` check need a Cloud release that serves
+  client contracts. If yours doesn't yet, the command says so and writes nothing.
+</Callout>
+
+`generate:client` only overwrites files it generated, and refuses a release whose
+datasets are served under a path prefix. That happens when a dataset path
+collides with a reserved Cloud path such as `/mcp`; rename the path and deploy
+again.
+
+## Hand it to your coding agent
+
+Paste this into Claude Code, Cursor or another coding agent in your app's repo:
+
+```text
+Connect this React app to our hypequery Cloud datasets.
+1. Install @hypequery/react and @tanstack/react-query.
+2. Run `npx hypequery generate:client --cloud --output src/hypequery-client.ts`
+   (run `npx hypequery login` first if it asks). Don't edit the generated file.
+3. Create src/analytics.tsx: export useDataset from createAnalyticsHooks<ClientApi>() with no config,
+   and an AnalyticsProvider that builds createHypequeryClient<ClientApi>({ baseUrl: clientBaseUrl,
+   manifest: clientManifest, token: () => getUserToken() }) per signed-in user and renders
+   <HypequeryProvider key={userId} client={client}>, so switching accounts never reuses cached rows.
+4. getUserToken must return the signed-in user's end-user token: our auth provider's JWT if
+   hypequery Cloud is set up to trust it, otherwise a token our backend mints from
+   POST <clientBaseUrl>/embed/tokens with a server API key. Never put an hqgw_ key in browser code.
+5. Render AnalyticsProvider inside the sign-in boundary and replace one chart with useDataset to prove it works.
+6. Add `npx hypequery generate:client --cloud --output src/hypequery-client.ts --check` to CI.
+```

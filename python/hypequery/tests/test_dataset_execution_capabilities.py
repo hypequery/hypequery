@@ -101,7 +101,7 @@ def test_python_feature_support(entry: dict[str, object]) -> None:
             DatasetQuery(measures=("doubleRevenue",)),
             context=ExecutionContext(tenant=tenant("acme")),
         )
-        assert "sum(`amount`) + sum(`amount`)" in compiled.sql
+        assert "sum(`__hq_base`.`amount`) + sum(`__hq_base`.`amount`)" in compiled.sql
         build_protocol_deployment_contract(create_dataset_registry(derived_dataset))
         assert support == {"local": True, "publish": True}
         return

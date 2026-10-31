@@ -112,7 +112,10 @@ def test_planning_has_aggregate_dependencies_and_selected_having_only() -> None:
         having=(HavingCondition(measure="average", operator="gt", value=2),),
     )
     compiled = plan_dataset_query(orders(), query, context=ExecutionContext(tenant=tenant("a")))
-    assert "(sum(`amount`) / NULLIF(count(`amount`), 0)) AS `average`" in compiled.sql
+    assert (
+        "(toFloat64(sum(`__hq_base`.`amount`)) / NULLIF(count(`__hq_base`.`amount`), 0)) "
+        "AS `average`"
+    ) in compiled.sql
     assert "sumIf(" in compiled.sql
     assert " HAVING " in compiled.sql
     assert " GROUP BY `category`" in compiled.sql
@@ -380,9 +383,9 @@ def test_other_formula_operations_and_bound_literals() -> None:
         DatasetQuery(measures=tuple(definitions)),
         context=ExecutionContext(tenant=tenant("a")),
     )
-    assert "CEIL(sum(`amount`))" in compiled.sql
-    assert "FLOOR(sum(`amount`))" in compiled.sql
-    assert "COALESCE(sum(`amount`), NULL)" in compiled.sql
+    assert "CEIL(sum(`__hq_base`.`amount`))" in compiled.sql
+    assert "FLOOR(sum(`__hq_base`.`amount`))" in compiled.sql
+    assert "COALESCE(sum(`__hq_base`.`amount`), NULL)" in compiled.sql
     assert 100 in compiled.parameter_values().values()
     assert "100" not in compiled.sql
 
