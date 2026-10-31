@@ -1,5 +1,11 @@
 # @hypequery/react
 
+## 0.8.0
+
+### Minor Changes
+
+- 0f1f056: Requests from a generated client that the server refuses with `409 CLIENT_SCHEMA_CHANGED` now throw `ClientSchemaChangedError`, a subclass of `HttpError`, whose message says to regenerate the client.
+
 ## 0.7.1
 
 ### Patch Changes
