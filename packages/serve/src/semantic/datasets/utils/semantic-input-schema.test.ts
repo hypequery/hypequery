@@ -71,7 +71,7 @@ describe('relationship-aware semantic input schemas', () => {
     expect(result.success).toBe(true);
   });
 
-  it('does not advertise dimensions as filterable when a dataset opts out of filters', () => {
+  it('advertises filterable dimensions when a dataset has no declared filters', () => {
     const NoFilters = dataset('orders_no_filters', {
       source: 'orders',
       dimensions: { status: dimension.string() },
@@ -82,12 +82,12 @@ describe('relationship-aware semantic input schemas', () => {
     });
     const schema = buildDatasetInputSchema(NoFilters);
 
-    // The runtime validator rejects unqualified filters not declared in
-    // ds.filters, so the schema must not advertise them either.
+    // Declared filters add aliases and operator restrictions; they do not
+    // replace dimensions that are filterable by default.
     expect(schema.safeParse({
       dimensions: ['customer.country'],
       filters: [{ field: 'status', operator: 'eq', value: 'x' }],
-    }).success).toBe(false);
+    }).success).toBe(true);
     expect(schema.safeParse({
       dimensions: ['customer.country'],
       filters: [{ field: 'customer.country', operator: 'eq', value: 'US' }],
