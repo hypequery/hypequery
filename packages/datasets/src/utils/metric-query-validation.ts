@@ -15,6 +15,7 @@ import { datasetOnTimeKey, selectedTimeKeyError } from './dataset-time-keys.js';
 import { enforcedConstraintErrors } from './enforced-constraints.js';
 import { filterAllowsOperator } from './filter-operator-policy.js';
 import { SEMANTIC_FILTER_OPERATORS } from '../constants.js';
+import { effectiveFilters } from './effective-filters.js';
 
 export function validateMetricQueryInput(
   metric: MetricHandle,
@@ -27,7 +28,8 @@ export function validateMetricQueryInput(
   if (timeKeyError) errors.push(timeKeyError);
   const ds = timeKeyError ? ref.dataset : datasetOnTimeKey(ref.dataset, query.timeKey);
   const dimensionNames = Object.keys(ds.dimensions);
-  const filterNames = Object.keys(ds.filters);
+  const filters = effectiveFilters(ds);
+  const filterNames = Object.keys(filters);
   const grain = getMetricGrain(metric, query);
   const orderableFields = new Set<string>([
     ...(query.dimensions ?? []),
@@ -83,7 +85,7 @@ export function validateMetricQueryInput(
       continue;
     }
 
-    const filterDefinition = ds.filters[filter.field];
+    const filterDefinition = filters[filter.field];
     if (!filterAllowsOperator(filterDefinition, filter.operator)) {
       errors.push(
         `Filter "${filter.field}" does not allow operator "${filter.operator}". Allowed: ${(filterDefinition?.operators ?? SEMANTIC_FILTER_OPERATORS).join(', ')}`,
@@ -91,7 +93,7 @@ export function validateMetricQueryInput(
       continue;
     }
 
-    const resolvedField = ds.filters[filter.field]?.field ?? filter.field;
+    const resolvedField = filterDefinition.field;
     if (isTenantScopedFilter(ds, filter, context)) {
       errors.push(
         `Cannot filter on tenant field "${filter.field}" when runtime tenancy enforcement is active.`,

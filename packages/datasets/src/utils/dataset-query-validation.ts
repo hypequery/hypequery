@@ -29,6 +29,7 @@ import { enforcedConstraintErrors } from './enforced-constraints.js';
 import { analyzeTimeMeasureAxis } from './time-measure-axis.js';
 import { datasetHavingErrors } from './dataset-having.js';
 import { datasetOnTimeKey, selectedTimeKeyError } from './dataset-time-keys.js';
+import { effectiveFilters } from './effective-filters.js';
 
 export function validateDatasetQueryInput(
   dataset: AnyDatasetInstance,
@@ -52,7 +53,8 @@ export function validateDatasetQueryInput(
       errors.push(`Output "${name}" cannot be selected as both a dimension and a measure. Select one or give the definitions distinct names.`);
     }
   }
-  const filterNames = Object.keys(ds.filters);
+  const filters = effectiveFilters(ds);
+  const filterNames = Object.keys(filters);
   const orderableFields = new Set<string>([
     ...selectedDimensions,
     ...selectedMeasures,
@@ -120,7 +122,7 @@ export function validateDatasetQueryInput(
         continue;
       }
 
-      const filterDefinition = ds.filters[filter.field];
+      const filterDefinition = filters[filter.field];
       if (!filterAllowsOperator(filterDefinition, filter.operator)) {
         errors.push(
           `Filter "${filter.field}" does not allow operator "${filter.operator}". Allowed: ${(filterDefinition?.operators ?? SEMANTIC_FILTER_OPERATORS).join(', ')}`,
@@ -128,7 +130,7 @@ export function validateDatasetQueryInput(
         continue;
       }
 
-      const resolvedField = ds.filters[filter.field]?.field ?? filter.field;
+      const resolvedField = filterDefinition.field;
       const resolvedDimension = ds.dimensions[resolvedField];
       const resolvedColumn = resolvedDimension?.sql
         ? undefined

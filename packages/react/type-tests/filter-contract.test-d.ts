@@ -39,12 +39,13 @@ hooks.useMetric('revenue', { filters: [eq('profile.tier', 'enterprise')] });
 hooks.useInfiniteDataset('orders', { filters: [eq('state', 'paid')], limit: 10 });
 hooks.useInfiniteMetric('revenue', { filters: [eq('customer.country', 'US')], limit: 10 });
 hooks.useQuery('dataset:orders', { filters: [eq('state', 'paid')] });
-// @ts-expect-error hook generic inference must not widen the allowlist
-hooks.useDataset('orders', { filters: [eq('status', 'paid')] });
+hooks.useDataset('orders', { filters: [eq('status', 'paid'), eq('customer.hidden', 'x')] });
+// @ts-expect-error hook generic inference must not widen declared operators
+hooks.useDataset('orders', { filters: [like('status', '%paid%')] });
 // @ts-expect-error metric hooks retain operator restrictions
 hooks.useMetric('revenue', { filters: [like('state', '%paid%')] });
-// @ts-expect-error infinite dataset hooks reject hidden relationship fields
-hooks.useInfiniteDataset('orders', { filters: [eq('customer.hidden', 'x')] });
+// @ts-expect-error infinite dataset hooks reject SQL relationship fields
+hooks.useInfiniteDataset('orders', { filters: [eq('customer.computed', 'x')] });
 // @ts-expect-error infinite metric hooks reject hasMany traversal
 hooks.useInfiniteMetric('revenue', { filters: [eq('items.country', 'US')] });
 // @ts-expect-error ordinary query hooks retain semantic filter contracts

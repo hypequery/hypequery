@@ -373,7 +373,8 @@ describe('relationship-qualified validation', () => {
       dimensions: {
         id: dimension.number(),
         tier: dimension.string(),
-        secret: dimension.string(),
+        region: dimension.string(),
+        secret: dimension.string({ filterable: false }),
       },
       filters: { tier: { __type: 'filter_definition', field: 'tier', operators: ['eq'] } },
     });
@@ -398,10 +399,15 @@ describe('relationship-qualified validation', () => {
       measures: ['count'],
       filters: [{ field: 'customer.tier', operator: 'eq', value: 'gold' }],
     });
+    const undeclared = validateDatasetQuery(RestrictedOrders, {
+      measures: ['count'],
+      filters: [{ field: 'customer.region', operator: 'like', value: '%' }],
+    });
 
     expect(hidden.valid).toBe(false);
     expect(disallowed.valid).toBe(false);
     expect(allowed.valid).toBe(true);
+    expect(undeclared.valid).toBe(true);
   });
 
   it('rejects explicit filters on a joined target tenant column under runtime tenancy', () => {

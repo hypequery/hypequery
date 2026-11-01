@@ -36,14 +36,17 @@ type Api = InferApiType<typeof api>;
 const goodDataset: Api['dataset:orders']['input'] = { filters: [eq('state', 'paid'), eq('customer.country', 'US')] };
 const goodMetric: Api['revenue']['input'] = { filters: [eq('profile.tier', 'enterprise')] };
 void [goodDataset, goodMetric];
-// @ts-expect-error InferApiType retains the local allowlist
-const badDataset: Api['dataset:orders']['input'] = { filters: [eq('status', 'paid')] };
+// Filterable dimensions stay filterable alongside declared filters.
+const backingDataset: Api['dataset:orders']['input'] = { filters: [eq('status', 'paid'), eq('customer.hidden', 'x')] };
+void backingDataset;
+// @ts-expect-error InferApiType keeps the operators declared on a dimension's field
+const badDataset: Api['dataset:orders']['input'] = { filters: [like('status', '%paid%')] };
 // @ts-expect-error InferApiType retains per-field operator restrictions
 const badMetric: Api['revenue']['input'] = { filters: [like('state', '%paid%')] };
 void [badDataset, badMetric];
 api.run('dataset:orders', { input: goodDataset });
 api.run('revenue', { input: goodMetric });
 // @ts-expect-error API execution retains relationship filter policy
-api.run('dataset:orders', { input: { filters: [eq('customer.hidden', 'x')] } });
+api.run('dataset:orders', { input: { filters: [eq('customer.computed', 'x')] } });
 // @ts-expect-error API execution retains metric filter policy
 api.run('revenue', { input: { filters: [eq('amount', 1)] } });
