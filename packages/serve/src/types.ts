@@ -385,6 +385,8 @@ export type QueryRuntimeContext<
   auth: TAuth | null;
   locals: Record<string, unknown>;
   setCacheTtl: (ttlMs: number | null) => void;
+  /** Extracted tenant ID when a `tenant` config is active and resolved one. */
+  tenantId?: string;
 } & TContext;
 
 export interface QueryResolverArgs<

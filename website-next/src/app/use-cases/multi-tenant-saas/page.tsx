@@ -21,31 +21,30 @@ export const metadata: Metadata = {
   },
 };
 
-const authCode = `import { createApiKeyStrategy, createAuthSystem } from '@hypequery/serve';
+const authCode = `import { createApiKeyStrategy } from '@hypequery/serve';
 
-const { useAuth, TypedAuth } = createAuthSystem({
-  defaultAuth: { authenticated: false },
-});
-
-type AppAuth = typeof TypedAuth & { tenantId?: 'acme' | 'globex' };
+type AppAuth = {
+  tenantId: 'acme' | 'globex';
+  roles: Array<'admin' | 'viewer'>;
+};
 
 export const authStrategy = createApiKeyStrategy<AppAuth>({
   validate: (key) => {
-    if (key === 'acme-key') return { authenticated: true, tenantId: 'acme', roles: ['admin'] };
-    if (key === 'globex-key') return { authenticated: true, tenantId: 'globex', roles: ['viewer'] };
-    return { authenticated: false };
+    if (key === 'acme-key') return { tenantId: 'acme', roles: ['admin'] };
+    if (key === 'globex-key') return { tenantId: 'globex', roles: ['viewer'] };
+    return null;
   },
 });`;
-
-const tenantCode = `const { define, query } = initServe({
+const tenantCode = `const { query, serve } = initServe<() => { db: typeof db }, AppAuth>({
+  auth: authStrategy,
   tenant: {
-    extract: (ctx) => ctx.auth?.tenantId,
+    extract: (auth) => auth.tenantId,
     column: 'tenant_id',
-    required: false,
+    mode: 'auto-inject',
+    required: true,
   },
-  context: async () => ({ db }),
+  context: () => ({ db }),
 });`;
-
 const roleCode = `revenueByPlan: query
   .describe('MRR by plan (admin only)')
   .requireRole('admin')
@@ -58,11 +57,12 @@ const roleCode = `revenueByPlan: query
       .table('analytics.subscription_mrr')
       .innerJoin(
         'analytics.users',
+        'user_id',
         'analytics.users.user_id',
-        'analytics.subscription_mrr.user_id',
       )
+      .select(['analytics.users.plan'])
       .sum('mrr', 'total_mrr')
-      .groupBy(['plan'])
+      .groupBy(['analytics.users.plan'])
       .execute()
   )`;
 
