@@ -2,6 +2,7 @@ import { isSemanticFilterOperator } from '../constants.js';
 import type { AnyDatasetInstance, ExecutionContext, MetricFilter } from '../types.js';
 import { validateFilterValue } from '../validation.js';
 import { filterAllowsOperator } from './filter-operator-policy.js';
+import { effectiveFilters } from './effective-filters.js';
 import { isQualifiedField, resolveQualifiedField } from './relationship-fields.js';
 import { validateQualifiedFilter } from './relationship-validation.js';
 
@@ -16,10 +17,11 @@ function constraintError(ds: AnyDatasetInstance, constraint: unknown, context?: 
     if (!resolveQualifiedField(ds, filter.field)?.resolved) return true;
     return validateQualifiedFilter(ds, filter, context) !== null;
   }
-  if (!Object.hasOwn(ds.filters, filter.field)) return true;
-  const definition = ds.filters[filter.field];
+  const filters = effectiveFilters(ds);
+  if (!Object.hasOwn(filters, filter.field)) return true;
+  const definition = filters[filter.field];
   if (!filterAllowsOperator(definition, filter.operator)) return true;
-  const fieldType = ds.dimensions[definition.field ?? filter.field]?.fieldType;
+  const fieldType = ds.dimensions[definition.field]?.fieldType;
   return !!fieldType && validateFilterValue(filter, fieldType) !== null;
 }
 

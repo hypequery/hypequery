@@ -1,5 +1,6 @@
 import { resolveRelationshipReference } from './relationship-measures.js';
 import { filterAllowsOperator } from './filter-operator-policy.js';
+import { effectiveFilters } from './effective-filters.js';
 /**
  * Shared validation for relationship-qualified filters, used by both the
  * dataset-query and metric-query validators.
@@ -87,10 +88,10 @@ export function validateQualifiedFilter(
     return `Cannot filter on tenant field "${filter.field}" when runtime tenancy enforcement is active.`;
   }
 
-  // A relationship does not turn every target dimension into an exposed
-  // filter. Apply the target's explicit or generated filter allowlist and
-  // operator policy. An explicit filter can override filterable: false.
-  const definition = target.filters[targetDimensionName];
+  // A relationship exposes the target's filters named after a dimension:
+  // its filterable dimensions, and declared filters, which can override
+  // filterable: false. A filter alias is not reachable through the hop.
+  const definition = effectiveFilters(target)[targetDimensionName];
   if (!definition
     || definition.field !== targetDimensionName) {
     return `Filter "${filter.field}" is not exposed by target dataset "${target.name}".`;

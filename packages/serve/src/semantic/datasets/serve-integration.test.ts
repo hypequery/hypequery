@@ -1444,7 +1444,12 @@ describe("Serve integration — metrics", () => {
       expect(schema.properties.measures.items.enum).toEqual(
         expect.arrayContaining(["revenue", "count"]),
       );
-      expect(schema.properties.filters.items.properties.field.enum).toEqual(["status"]);
+      const filterItems = schema.properties.filters.items;
+      const filterFields = (filterItems.anyOf ?? [filterItems])
+        .flatMap((variant: any) => variant.properties.field.enum);
+      expect(filterFields).toEqual(expect.arrayContaining([
+        "id", "customerId", "country", "status", "amount", "createdAt",
+      ]));
     });
   });
 

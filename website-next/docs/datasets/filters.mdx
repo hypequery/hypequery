@@ -180,13 +180,13 @@ const Orders = dataset('orders', {
 ```
 </CodeBlock>
 
-With this contract, `status` is the only exposed filter field, and only the listed operators are allowed. TypeScript checks these names and operators in dataset and metric execution, Serve API inputs, and React hooks, including infinite-query hooks. The filter helpers preserve their operator literals, so `eq('status', 'completed')` works with an `eq`-only policy.
+With this contract, `status` allows only the listed operators, and `country` is still filterable with the default operators. Declared filters add to the dimensions marked `filterable`; they do not replace them. TypeScript checks these names and operators in dataset and metric execution, Serve API inputs, and React hooks, including infinite-query hooks. The filter helpers preserve their operator literals, so `eq('status', 'completed')` works with an `eq`-only policy.
 
-Use `DatasetQueryFor<typeof Orders>` or `MetricQueryFor<typeof Orders, 'revenue'>` when storing query inputs in variables. `DatasetFilterNames<typeof Orders>` describes the exposed names, and `DatasetFilterFor<typeof Orders>` describes the field/operator pairs. A filter's name is the key in the allowlist, which may differ from its backing dimension.
+Use `DatasetQueryFor<typeof Orders>` or `MetricQueryFor<typeof Orders, 'revenue'>` when storing query inputs in variables. `DatasetFilterNames<typeof Orders>` describes the exposed names, and `DatasetFilterFor<typeof Orders>` describes the field/operator pairs. A declared filter's name is its key in `filters`, which may differ from its backing dimension. A dimension named directly takes the operators of the filters declared on it, so declaring `planFilter` on `plan` with `operators: ['eq']` also limits `plan` to `eq`.
 
 `isNull` and `isNotNull` are opt-in for query filters: a filter allows them only when its `operators` list names them, as in `operators: ['gte', 'isNull', 'isNotNull']`. Measure filters and segments can use them without a list.
 
-Omitting `filters` generates an allowlist from dimensions with `filterable !== false`; an explicit empty map disables local filters. One-hop `belongsTo` and `hasOne` filters follow the target dataset's allowlist and operator policy. SQL-backed target dimensions, `hasMany`, and multi-hop paths remain unavailable.
+Every dimension with `filterable !== false` is filterable, whether or not `filters` is declared; set `filterable: false` to remove one, or declare a filter to expose a `filterable: false` dimension under its own policy. One-hop `belongsTo` and `hasOne` filters reach the target's filterable dimensions and the filters it declares under a dimension's name, with the target's operator policy. SQL-backed target dimensions, `hasMany`, and multi-hop paths remain unavailable.
 
 Keep dataset definitions inferred to retain their literal policies. Broad `DatasetInstance` or `SemanticFiltersDefinition` annotations lose that information. Explicit result-row generic calls retain the legacy dynamic-query contract. Filter values and runtime tenant restrictions continue to be validated when the query runs.
 
