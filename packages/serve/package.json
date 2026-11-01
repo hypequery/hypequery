@@ -43,7 +43,7 @@
     "types": "tsc --project tsconfig.json --noEmit"
   },
   "dependencies": {
-    "jose": "^6.2.13",
+    "jose": "^6.2.14",
     "openapi-typescript": "^7.13.0",
     "zod": "^4.6.6",
     "zod-to-json-schema": "^3.25.2",
@@ -65,7 +65,7 @@
     "@types/express": "^5.0.6",
     "@types/node": "^20.11.30",
     "@vitest/coverage-v8": "^5.0.5",
-    "express": "^5.2.1",
+    "express": "^5.3.0",
     "fastify": "^5.12.7",
     "tsx": "^4.23.15",
     "typescript": "^6.0.3",
