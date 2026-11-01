@@ -23,9 +23,7 @@ export const metadata: Metadata = {
 
 const authCode = `import { createApiKeyStrategy, createAuthSystem } from '@hypequery/serve';
 
-const { useAuth, TypedAuth } = createAuthSystem({
-  defaultAuth: { authenticated: false },
-});
+const { useAuth, TypedAuth } = createAuthSystem<'admin' | 'viewer'>();
 
 type AppAuth = typeof TypedAuth & { tenantId?: 'acme' | 'globex' };
 
