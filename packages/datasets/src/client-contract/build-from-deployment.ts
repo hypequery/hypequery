@@ -23,6 +23,20 @@ export interface BuildClientContractOptions {
   readonly view?: 'build' | 'authorized';
   /** Which published datasets to advertise; every one by default. */
   readonly include?: (dataset: ProtocolDeploymentDataset) => boolean;
+  /**
+   * Request features the host executes beyond the portable semantic query.
+   * A deployment normally runs on that query, which has neither `having` nor
+   * a per-request `timezone`, so both stay off unless the host turns them on;
+   * advertising one the host drops would return the wrong rows.
+   */
+  readonly capabilities?: ClientContractCapabilities;
+}
+
+export interface ClientContractCapabilities {
+  /** Accepts `having` predicates on measures. */
+  readonly having?: boolean;
+  /** Accepts a per-request `timezone` for time buckets. */
+  readonly timezone?: boolean;
 }
 
 function endpointPath(dataset: ProtocolDeploymentDataset, options: BuildClientContractOptions): string {
@@ -38,7 +52,7 @@ function endpointDescriptor(
   options: BuildClientContractOptions,
   profile: ReturnType<typeof resolveClientContractProfile>,
 ): Record<string, unknown> {
-  const { dimensions, measures, filters } = publicFields(dataset);
+  const { dimensions, measures, filters } = publicFields(dataset, options.capabilities?.having === true);
   // Rows carry the time bucket as `period`, so a field of that name would collide.
   if (dataset.timeField !== undefined && (Object.hasOwn(dimensions, 'period') || Object.hasOwn(measures, 'period'))) {
     throw new Error(`Client export: dataset "${dataset.name}" has a field named "period", which its time bucket uses. Rename it.`);
@@ -74,7 +88,7 @@ function endpointDescriptor(
     time: dataset.timeField === undefined ? null : {
       grains: [...PORTABLE_TIME_GRAINS],
       defaultTimezone: profile.defaultTimezone,
-      timezone: true,
+      timezone: options.capabilities?.timezone === true,
       periodFormat: 'calendar-date-or-local-datetime-v1',
     },
     defaultMeasures,
