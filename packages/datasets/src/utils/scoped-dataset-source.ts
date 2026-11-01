@@ -37,7 +37,7 @@ export function scopedDatasetSource(options: ScopedDatasetSourceOptions): QueryB
   let qb = applyRelationshipJoins(datasetSourceBuilder(options.builderFactory, ds), joinCtx);
   // A resolved join target is read with FINAL even when this dataset isn't.
   if (queryReadsFinal(ds, joinCtx) && qb.settings) qb = qb.settings(FINAL_SAFETY_SETTINGS);
-  qb = applyRowScope(qb, datasetRowScope(ds, context), column => qualifyBaseColumn(joinCtx, column));
+  qb = applyRowScope(qb, datasetRowScope(ds, context), column => qualifyBaseColumn(joinCtx, column, ds.source));
   // Constraints are filters in the dataset's vocabulary, applied exactly as a
   // caller filter on the same field would be.
   for (const constraint of runtimeConstraints(context)) {

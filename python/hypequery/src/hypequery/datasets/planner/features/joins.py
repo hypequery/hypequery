@@ -2,14 +2,14 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 from ...dataset import Dataset
 from ...derived_measures import DerivedMeasure
 from ...relationships import Relationship
 from ..aliases import BASE_ALIAS
 from ..identifiers import SafeIdentifier, safe_identifier, safe_qualified_identifier
-from ..predicates import tenant_predicate
+from ..predicates import joins_within_tenant, tenant_predicate
 from ..query_node import JoinNode
 from ..query_validation import resolve_tenant_scope
 from ..resolution import physical_column, resolve_qualified_field
@@ -68,8 +68,19 @@ class JoinFeature(CompilerFeature):
             condition += " AND " + tenant_predicate(
                 self.compiler.binder, f"{alias.sql}.{tenant_column.sql}", target_scope
             )
+        condition += self._same_tenant_condition(alias, target)
         self.compiler.node.joins.append(JoinNode(target_source, alias, condition))
         return alias
+
+    def _same_tenant_condition(self, alias: SafeIdentifier, target: Dataset) -> str:
+        """Match each base row only to the target rows of its own tenant."""
+
+        base = self.compiler.dataset
+        if not joins_within_tenant(base, target, self.compiler.context.tenant):
+            return ""
+        base_column = safe_identifier(cast(str, base.tenant_key), what="tenant key").sql
+        target_column = safe_identifier(cast(str, target.tenant_key), what="tenant key").sql
+        return f" AND {BASE_ALIAS.sql}.{base_column} = {alias.sql}.{target_column}"
 
     def _measure_join_source(self, relationship_name: str, target: Dataset) -> str:
         """The target as a projection whose marker is non-null only on a match.

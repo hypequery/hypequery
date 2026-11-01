@@ -70,11 +70,10 @@ describe('composite relationships against ClickHouse', () => {
   });
   it('checks combined uniqueness and ignores partially NULL target keys', async () => {
     expect(await checkRelationships(Sources, { queryBuilder: db, context })).toEqual({ ok: true, checked: ['customer', 'profile'], issues: [] });
+    // Key (1, EU) is in both tenants. Across all tenants the join matches within
+    // each row's own tenant, so a key reused by another tenant is no duplicate.
     const all = await checkRelationships(Sources, { queryBuilder: db, context: { runtime: { tenant: { scope: 'all' } } } });
-    expect(all.issues).toEqual([
-      expect.objectContaining({ relationship: 'customer', columns: ['id', 'region'], rows: 3, distinctKeys: 2 }),
-      expect.objectContaining({ relationship: 'profile', columns: ['customer', 'region'], rows: 3, distinctKeys: 2 }),
-    ]);
+    expect(all).toEqual({ ok: true, checked: ['customer', 'profile'], issues: [] });
   });
   it('joins hasOne composite keys across differing column types', async () => {
     const { data } = await client.execute(Sources, { dimensions: ['profile.segment'], measures: ['revenue'], orderBy: [{ field: 'revenue', direction: 'asc' }] }, context);

@@ -394,23 +394,25 @@ finally:
                 request = urllib.request.Request(  # noqa: S310 - URL is fixed to loopback HTTP
                     f"{base}{query_path or schema_path}",
                     data=json.dumps(query).encode(),
-                    headers={
-                        "Content-Type": "application/json",
-                        "Authorization": f"Bearer {self.env['HYPEQUERY_DEV_TOKEN']}",
-                    },
+                    headers={"Content-Type": "application/json"},
                 )
+                # The standalone API is open for local development; a framework
+                # scaffold's agents API takes the development token.
+                if command is not None:
+                    request.add_header("Authorization", f"Bearer {self.env['HYPEQUERY_DEV_TOKEN']}")
                 with urllib.request.urlopen(request, timeout=30) as response:  # noqa: S310
                     require(
                         json.load(response) == expected,
                         "Query response differs from generated README",
                     )
-                del request.headers["Authorization"]
-                try:
-                    urllib.request.urlopen(request, timeout=10).close()  # noqa: S310
-                except urllib.error.HTTPError as exc:
-                    require(exc.code == 401, "Unauthenticated query must return 401")
-                else:
-                    raise RuntimeError("Unauthenticated request was accepted")
+                if command is not None:
+                    del request.headers["Authorization"]
+                    try:
+                        urllib.request.urlopen(request, timeout=10).close()  # noqa: S310
+                    except urllib.error.HTTPError as exc:
+                        require(exc.code == 401, "Unauthenticated query must return 401")
+                    else:
+                        raise RuntimeError("Unauthenticated request was accepted")
             finally:
                 try:
                     self._stop(process)

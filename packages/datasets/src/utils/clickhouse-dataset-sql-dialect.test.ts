@@ -127,7 +127,7 @@ describe('ClickHouse datasets SQL rules', () => {
     expect(ch.formulaBinary('add', 'a', 'b')).toBe('(a + b)');
     expect(ch.formulaBinary('subtract', 'a', 'b')).toBe('(a - b)');
     expect(ch.formulaBinary('multiply', 'a', 'b')).toBe('(a * b)');
-    expect(ch.formulaBinary('divide', 'a', 'b')).toBe('(a / b)');
+    expect(ch.formulaBinary('divide', 'a', 'b')).toBe('(toFloat64(a) / b)');
     expect(() => ch.formulaBinary('modulo' as never, 'a', 'b')).toThrow(/unsupported binary operator/);
     expect(ch.formulaFunction('nullIfZero', ['a'])).toBe('NULLIF(a, 0)');
     expect(ch.formulaFunction('coalesce', ['a', '0'])).toBe('COALESCE(a, 0)');

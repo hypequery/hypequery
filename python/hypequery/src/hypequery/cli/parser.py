@@ -67,10 +67,16 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         action="store_true",
         help="inspect every table, ignoring the selection recorded in schema.json",
     )
-    datasets.add_argument(
+    tenant = datasets.add_mutually_exclusive_group()
+    tenant.add_argument(
         "--tenant-column",
         help="set tenant_key to this column on tables that have it "
-        "(requires a trusted runtime tenant scope)",
+        "(default: the column recorded in schema.json; requires a trusted runtime tenant scope)",
+    )
+    tenant.add_argument(
+        "--no-tenant-column",
+        action="store_true",
+        help="set no tenant_key, ignoring the tenant column recorded in schema.json",
     )
     datasets.add_argument("--check", action="store_true", help="exit 1 on drift without writing")
     datasets.add_argument("--diff", action="store_true", help="show drift without writing; exit 1")

@@ -94,7 +94,9 @@ def test_discovery_records_how_it_connected(monkeypatch: pytest.MonkeyPatch) -> 
         monkeypatch.delenv(name, raising=False)
     monkeypatch.setenv("CLICKHOUSE_URL", "clickhouses://u:secret@ch.example.com:9440/analytics")
     found = discovery.discover_schema(tables=None, exclude_tables=None)
-    assert found.connection == ConnectionSummary("ch.example.com", 9440, True, from_url=True)
+    assert found.connection == ConnectionSummary(
+        "ch.example.com", 9440, True, from_url=True, default_user=False
+    )
 
 
 def test_init_sets_the_tenant_column(tmp_path: Path, init_discovery: list[dict[str, Any]]) -> None:
@@ -275,3 +277,129 @@ def test_another_unrestricted_project_does_not_inherit_this_ones_selection(
     monkeypatch.chdir(restricted)
     main(["generate", "datasets", "--path", str(unrestricted), "--check"])
     assert calls == [{"tables": None, "exclude_tables": None}]
+
+
+def test_regeneration_keeps_the_tenant_column_init_was_given(
+    tmp_path: Path,
+    init_discovery: list[dict[str, Any]],
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    project = tmp_path / "app"
+    assert main(["init", str(project), "--tenant-column", "org_id"]) == 0
+    assert json.loads((project / "schema.json").read_text())["tenantColumn"] == "org_id"
+    monkeypatch.setattr(
+        "hypequery.cli.commands.generate.discover_schema",
+        lambda **_: _schema(None, ORDERS, CUSTOMERS),
+    )
+    capsys.readouterr()
+    # Without the flag, regeneration used to drop every tenant_key.
+    assert main(["generate", "datasets", "--path", str(project), "--check"]) == 0
+    out = capsys.readouterr().out
+    assert "tenant column init recorded in schema.json (--tenant-column org_id)" in out
+    assert "up to date" in out
+
+    assert main(["generate", "datasets", "--path", str(project), "--no-tenant-column"]) == 1
+    assert (
+        main(["generate", "datasets", "--path", str(project), "--no-tenant-column", "--force"]) == 0
+    )
+    assert "tenant_key" not in (project / "datasets.py").read_text()
+    assert "tenant_key" in capsys.readouterr().err
+
+
+def test_an_unscoped_init_records_no_tenant_column(
+    tmp_path: Path, init_discovery: list[dict[str, Any]]
+) -> None:
+    project = tmp_path / "app"
+    assert main(["init", str(project)]) == 0
+    assert "tenantColumn" not in json.loads((project / "schema.json").read_text())
+
+
+def test_a_tampered_recorded_tenant_column_is_refused_before_discovery(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    (tmp_path / "schema.json").write_text('{"tenantColumn": "org id"}')
+    calls: list[dict[str, Any]] = []
+    monkeypatch.setattr(
+        "hypequery.cli.commands.generate.discover_schema", lambda **kwargs: calls.append(kwargs)
+    )
+    assert main(["generate", "datasets", "--path", str(tmp_path)]) == 1
+    assert "identifier grammar" in capsys.readouterr().err
+    assert calls == []
+
+
+def test_tenant_column_and_no_tenant_column_conflict() -> None:
+    with pytest.raises(SystemExit) as exc:
+        main(["generate", "datasets", "--tenant-column", "org_id", "--no-tenant-column"])
+    assert exc.value.code == 2
+
+
+def test_scaffold_never_suggests_default_for_another_user() -> None:
+    from hypequery.cli.utils.connection_scaffold import env_lines, export_lines
+
+    reader = ConnectionSummary("ch.internal", 8123, False, from_url=False, default_user=False)
+    # Init ran as a reader: `default` would quietly connect as another user.
+    assert "CLICKHOUSE_USERNAME=your-clickhouse-user" in env_lines(reader, "analytics")
+    assert "export CLICKHOUSE_USERNAME=your-clickhouse-user" in export_lines(reader, "analytics")
+    default = ConnectionSummary("ch.internal", 8123, False, from_url=False)
+    assert "CLICKHOUSE_USERNAME=default" in env_lines(default, "analytics")
+
+
+def test_discovery_records_only_whether_it_used_the_default_user(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import clickhouse_connect
+
+    from hypequery.cli.generators import schema as discovery
+
+    class _Client:
+        def close(self) -> None:
+            pass
+
+    monkeypatch.setattr(clickhouse_connect, "get_client", lambda **_: _Client())
+    monkeypatch.setattr(discovery, "read_schema", lambda client, **_: _schema(None))
+    monkeypatch.delenv("CLICKHOUSE_URL", raising=False)
+    monkeypatch.setenv("CLICKHOUSE_USERNAME", "analytics_reader")
+    found = discovery.discover_schema(tables=None, exclude_tables=None)
+    assert found.connection is not None
+    assert not found.connection.default_user
+    assert "analytics_reader" not in repr(found.connection)
+    monkeypatch.delenv("CLICKHOUSE_USERNAME")
+    found = discovery.discover_schema(tables=None, exclude_tables=None)
+    assert found.connection is not None
+    assert found.connection.default_user
+
+
+@pytest.mark.parametrize("framework", ["standalone", "django", "flask"])
+@pytest.mark.parametrize("offline", [True, False])
+def test_every_generated_readme_names_the_cancellation_grant(
+    tmp_path: Path, init_discovery: list[dict[str, Any]], framework: str, offline: bool
+) -> None:
+    project = tmp_path / "app"
+    flags = ["--skip-connection"] if offline else []
+    assert main(["init", str(project), "--framework", framework, *flags]) == 0
+    readme = (project / "README.md").read_text()
+    assert readme.count("GRANT SELECT ON system.processes") == 1
+    assert readme.endswith("until `max_execution_time`.\n")
+
+
+@pytest.mark.parametrize("recorded", ["false", "123", '""', "null", '["org_id"]'])
+def test_an_unusable_recorded_tenant_column_is_refused_not_dropped(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    recorded: str,
+) -> None:
+    (tmp_path / "schema.json").write_text(f'{{"tenantColumn": {recorded}}}')
+    calls: list[dict[str, Any]] = []
+
+    def discover(**kwargs: Any) -> Schema:
+        calls.append(kwargs)
+        return _schema(None, ORDERS)
+
+    monkeypatch.setattr("hypequery.cli.commands.generate.discover_schema", discover)
+    assert main(["generate", "datasets", "--path", str(tmp_path), "--force"]) == 1
+    assert "unusable tenantColumn" in capsys.readouterr().err
+    assert calls == []
+    # An explicit choice still works.
+    assert main(["generate", "datasets", "--path", str(tmp_path), "--no-tenant-column"]) == 0

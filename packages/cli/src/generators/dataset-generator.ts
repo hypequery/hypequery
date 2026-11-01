@@ -15,6 +15,7 @@ import {
   type ScaffoldDimensionType,
 } from '../utils/clickhouse-dimension-type.js';
 import { createFieldNamer } from '../utils/field-namer.js';
+import { isTenantKeyCandidateName } from '../utils/tenant-key-candidates.js';
 
 export interface DatasetGeneratorOptions {
   outputPath: string;
@@ -74,22 +75,8 @@ function isTimestampColumn(column: ColumnInfo): boolean {
   return clickHouseDimensionType(column.type) === 'timestamp';
 }
 
-/**
- * Check if a column name is worth presenting as a possible tenant key.
- *
- * A naming match is never enough to activate tenant enforcement. `tenantKey`
- * is a security boundary that must be chosen explicitly by the application.
- */
 function isTenantKeyCandidate(column: ColumnInfo): boolean {
-  const name = column.name.toLowerCase();
-
-  return (
-    name === 'tenant_id' ||
-    name === 'organization_id' ||
-    name === 'org_id' ||
-    name === 'account_id' ||
-    name === 'customer_id'
-  );
+  return isTenantKeyCandidateName(column.name);
 }
 
 /**

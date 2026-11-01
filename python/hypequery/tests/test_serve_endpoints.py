@@ -68,7 +68,7 @@ class Executor:
         match = re.search(r"LIMIT (\d+)(?: OFFSET (\d+))?$", compiled.sql)
         assert match
         limit, offset = int(match[1]), int(match[2] or 0)
-        columns = tuple(re.findall(r" AS `([^`]+)`", compiled.sql))
+        columns = tuple(re.findall(r" AS `([^`]+)`", compiled.sql.split(" FROM ", 1)[0]))
         values: dict[str, ResultScalar] = {"country": "US", "total": 10}
         rows = tuple(tuple(values.get(name, 1) for name in columns) for _ in range(3))
         return Rows(columns, rows[offset : offset + limit])

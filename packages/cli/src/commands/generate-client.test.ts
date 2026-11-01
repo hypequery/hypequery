@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { decodeProtocolClientContract, prepareProtocolClientContract } from '@hypequery/protocol';
 import { generateClientCommand } from './generate-client.js';
-import { renderClientContract } from '../generators/client-contract/render.js';
+import { GENERATED_CLIENT_HEADER, renderClientContract } from '../generators/client-contract/render.js';
 import { flagNames } from '../utils/telemetry/flags.js';
 import { TelemetryInvocation } from '../utils/telemetry/invocation.js';
 import { CommandLifecycle } from '../utils/telemetry/lifecycle.js';
@@ -60,11 +60,12 @@ describe('offline client generation', () => {
     await generateClientCommand(input, { output });
     await generateClientCommand(input, { output, check: true });
     expect(process.exitCode).toBe(0);
-    await writeFile(output, 'hand edited');
+    const handEdited = `${GENERATED_CLIENT_HEADER} hand edited`;
+    await writeFile(output, handEdited);
     await chmod(output, 0o600);
     await expect(generateClientCommand(input, { output })).rejects.toThrow('Refusing');
     await generateClientCommand(input, { output, check: true });
-    expect(await readFile(output, 'utf8')).toBe('hand edited');
+    expect(await readFile(output, 'utf8')).toBe(handEdited);
     expect(process.exitCode).toBe(1);
     await generateClientCommand(input, { output, force: true });
     expect((await stat(output)).mode & 0o777).toBe(0o600);
@@ -151,5 +152,97 @@ describe('offline client generation', () => {
     expect(event.properties).toMatchObject({ mode: 'write', endpoint_count_bucket: '2-5', custom_output: true });
     expect(JSON.stringify(event)).not.toMatch(/PRIVATE|orders|countries|schemaHash/);
     expect(flagNames('generate:client', [input, '--output', '--force', '--check'])).toEqual(['--check', '--output']);
+  });
+});
+
+describe('client generation from the live Cloud release', () => {
+  const env = {
+    HYPEQUERY_DEPLOYMENT_ENDPOINT: 'https://cloud.example.test/v1/deployments/submissions',
+    HYPEQUERY_API_TOKEN: 'hqdp_token',
+  };
+  const target = { project: 'acme', environment: 'production' };
+
+  it('fetches the target contract with the deployment credential and records where it is served', async () => {
+    const { output } = await project();
+    const fetch = vi.fn(async () => new Response(JSON.stringify(contract)));
+    const fetchEndpoints = vi.fn(async () => ({
+      active: true,
+      rest: { baseUrl: 'https://acme-production.hypequery.app/', datasets: [] },
+      mcp: { url: 'https://acme-production.hypequery.app/mcp' },
+    }));
+    await generateClientCommand(undefined, { cloud: true, output, ...target }, { env, fetch, fetchEndpoints });
+
+    const [url, init] = fetch.mock.calls[0] as unknown as [string, RequestInit];
+    expect(url).toBe('https://cloud.example.test/v1/deployments/targets/acme/production/client-contract');
+    expect(init.headers).toMatchObject({ Authorization: 'Bearer hqdp_token' });
+    expect(init.redirect).toBe('error');
+    const generated = await readFile(output, 'utf8');
+    expect(generated).toBe(`${renderClientContract(contract)}export const clientBaseUrl = "https://acme-production.hypequery.app" as const;\n`);
+  });
+
+  it('names what to do when Cloud has no contract or refuses the credential', async () => {
+    const { output } = await project();
+    const fetchEndpoints = vi.fn(async () => undefined);
+    await expect(generateClientCommand(undefined, { cloud: true, output, ...target }, {
+      env, fetchEndpoints, fetch: vi.fn(async () => new Response('', { status: 404 })),
+    })).rejects.toThrow('publish a release first');
+    await expect(generateClientCommand(undefined, { cloud: true, output, ...target }, {
+      env, fetchEndpoints, fetch: vi.fn(async () => new Response('', { status: 401 })),
+    })).rejects.toThrow('hypequery login');
+  });
+
+  it('refuses a base URL the generated client cannot call', async () => {
+    const { output } = await project();
+    const fetch = vi.fn(async () => new Response(JSON.stringify(contract)));
+    const served = (baseUrl: string | undefined) => vi.fn(async () => baseUrl === undefined ? undefined : ({
+      active: true,
+      rest: { baseUrl, datasets: [] },
+      mcp: { url: 'https://acme-production.hypequery.app/mcp' },
+    }));
+    await expect(generateClientCommand(undefined, { cloud: true, output, ...target }, { env, fetch, fetchEndpoints: served(undefined) }))
+      .rejects.toThrow('no base URL');
+    await expect(generateClientCommand(undefined, { cloud: true, output, ...target }, {
+      env, fetch, fetchEndpoints: served('https://cloud.example.test/api/gateway/acme/production/execute'),
+    })).rejects.toThrow('Rename that endpoint path');
+    await expect(generateClientCommand(undefined, { cloud: true, output, ...target }, {
+      env, fetch, fetchEndpoints: served('http://acme-production.hypequery.app'),
+    })).rejects.toThrow('not https');
+    await expect(stat(output)).rejects.toMatchObject({ code: 'ENOENT' });
+  });
+
+  it('refuses an oversized contract before and while reading it', async () => {
+    const { output } = await project();
+    const fetchEndpoints = vi.fn(async () => undefined);
+    const cancel = vi.fn();
+    const declared = new Response(new ReadableStream({ cancel }), { headers: { 'content-length': String(2 * 1_048_576) } });
+    await expect(generateClientCommand(undefined, { cloud: true, output, ...target }, {
+      env, fetchEndpoints, fetch: vi.fn(async () => declared),
+    })).rejects.toThrow('exceeds');
+    // The connection is released, not left with an unread body.
+    expect(cancel).toHaveBeenCalled();
+    const streamed = new Response(new ReadableStream({
+      start(controller) {
+        controller.enqueue(new Uint8Array(1_048_576));
+        controller.enqueue(new Uint8Array(1));
+        controller.close();
+      },
+    }));
+    await expect(generateClientCommand(undefined, { cloud: true, output, ...target }, {
+      env, fetchEndpoints, fetch: vi.fn(async () => streamed),
+    })).rejects.toThrow('exceeds');
+  });
+
+  it('never overwrites a file it did not generate, even with --force', async () => {
+    const { input, output } = await project();
+    await writeFile(output, 'export const mine = 1;');
+    await expect(generateClientCommand(input, { output, force: true })).rejects.toThrow('not generated by hypequery');
+    expect(await readFile(output, 'utf8')).toBe('export const mine = 1;');
+  });
+
+  it('takes a contract file or --cloud, and Cloud options only with --cloud', async () => {
+    const { input, output } = await project();
+    await expect(generateClientCommand(input, { cloud: true, output })).rejects.toThrow('not both');
+    await expect(generateClientCommand(undefined, { output })).rejects.toThrow('--cloud for the live Cloud release');
+    await expect(generateClientCommand(input, { output, project: 'acme' })).rejects.toThrow('only with --cloud');
   });
 });

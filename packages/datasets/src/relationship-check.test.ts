@@ -141,7 +141,7 @@ describe('checkRelationships', () => {
       relationships: ['profile'],
     });
     expect(queries).toHaveLength(1);
-    expect(queries[0]!.where).toEqual([['tenant_id', 'in', ['t1', 't2']]]);
+    expect(queries[0]!.where).toEqual([['order_id', 'isNotNull', undefined], ['tenant_id', 'in', ['t1', 't2']]]);
   });
 
   it('requires tenant runtime for a tenant-scoped target', async () => {

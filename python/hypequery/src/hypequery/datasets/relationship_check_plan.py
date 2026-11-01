@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Literal
+from typing import Literal, cast
 
 from .dataset import Dataset
 from .planner.admission import check_execution_admission
@@ -12,7 +12,7 @@ from .planner.context import ExecutionContext, effective_deadline
 from .planner.dialects import CLICKHOUSE, SqlDialect
 from .planner.identifiers import safe_identifier, safe_qualified_identifier
 from .planner.parameters import ParameterBinder
-from .planner.predicates import tenant_predicate
+from .planner.predicates import joins_within_tenant, tenant_predicate
 from .planner.query_validation import resolve_tenant_scope
 from .planner.settings import DEFAULT_QUERY_SETTINGS, tighten_query_settings
 from .registry import DatasetRegistry
@@ -63,11 +63,17 @@ def plan_relationship_checks(
         if target.tenant_key is not None and scope is not None:
             tenant_column = safe_identifier(target.tenant_key, what="tenant key").sql
             predicates.append(tenant_predicate(binder, tenant_column, scope))
+        # The planner then matches keys within each tenant, so a key reused by
+        # another tenant is not a duplicate; count (tenant, key) pairs instead.
+        distinct = quoted
+        if joins_within_tenant(dataset, target, context.tenant):
+            target_tenant = safe_identifier(cast(str, target.tenant_key), what="tenant key").sql
+            distinct = [*quoted, target_tenant]
         source = safe_qualified_identifier(target.source, what="dataset source").sql
         # Every part is a validated identifier, a dialect constant or a placeholder.
         sql = (
             f"SELECT {dialect.row_count()} AS `__hq_rows`, "  # noqa: S608
-            f"{dialect.distinct_count(quoted)} AS `__hq_keys` "
+            f"{dialect.distinct_count(distinct)} AS `__hq_keys` "
             f"FROM {source} WHERE " + " AND ".join(predicates)
         )
         compiled = CompiledQuery(

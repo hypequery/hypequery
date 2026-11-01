@@ -85,7 +85,7 @@ def test_zone_bound_and_local_filter_interpretation() -> None:
         ),
     )
     assert "America/New_York" not in query.sql
-    assert "toStartOfDay(toDateTime64(`occurred_at`, 9, {p0:String}))" in query.sql
+    assert "toStartOfDay(toDateTime64(`__hq_base`.`occurred_at`, 9, {p0:String}))" in query.sql
     assert query.parameter_values() == {"p0": "America/New_York", "p1": "2026-03-08T00:00:00-05:00"}
     assert time_filter_value("2026-03-08T07:00:00Z", "America/New_York") == "2026-03-08T07:00:00Z"
     assert (

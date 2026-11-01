@@ -20,6 +20,8 @@ import secrets
 from importlib.resources import files
 from typing import Literal, TypeAlias
 
+from .readme_notes import with_notes
+
 Framework: TypeAlias = Literal["standalone", "django", "flask"]
 FRAMEWORKS: tuple[Framework, ...] = ("standalone", "django", "flask")
 
@@ -102,6 +104,7 @@ def apply_framework(
     secret = "DJANGO_SECRET_KEY" if framework == "django" else "FLASK_SECRET_KEY"
     result[".env.example"] = (
         templates[".env.example"]
+        + "HYPEQUERY_DEV_TOKEN=\n"
         + f"# Signs sessions; the development fallback is not for deployment.\n{secret}=\n"
     )
     if framework == "django":
@@ -114,23 +117,44 @@ def offline_templates(templates: dict[str, str], framework: Framework) -> dict[s
 
     result = apply_framework(templates, framework, None)
     if framework == "standalone":
+        result["README.md"] = with_notes(result["README.md"])
         return result
     prefix, serve = templates["README.md"].split("## Serve and query", 1)
     payload = re.search(r"-d '([^']+)'", serve)
     response = re.search(r"```json\n(.*?)\n```", serve, re.S)
     if payload is None or response is None:
         raise ValueError("README template no longer has the example query and response")
-    result["README.md"] = with_extras(prefix, framework) + readme_section(
-        framework, "orders", payload[1], tenant_column=None, response=response[1]
+    result["README.md"] = with_notes(
+        with_extras(prefix, framework)
+        + readme_section(framework, "orders", payload[1], tenant_column=None, response=response[1])
     )
     return result
 
 
+#: The README line creating the development token; a shell command, not a secret.
+_TOKEN_EXPORT = (
+    "export HYPEQUERY_DEV_TOKEN="  # noqa: S105
+    "\"$(python -c 'import secrets; print(secrets.token_urlsafe(32))')\"\n"
+)
+
+
 def with_extras(readme: str, framework: Framework) -> str:
+    """The base README for *framework*: its extras, and the token its agents API takes."""
+
     template = "[server,clickhouse]"
-    if template not in readme:
-        raise ValueError("README template no longer names the standalone extras")
-    return readme.replace(template, f"[{EXTRAS[framework]}]")
+    configure = ("connection settings in your shell:", "```\n\nDo not commit credentials.\n")
+    if template not in readme or any(part not in readme for part in configure):
+        raise ValueError("README template no longer has the expected install and configure text")
+    return (
+        readme.replace(template, f"[{EXTRAS[framework]}]")
+        .replace(configure[0], "connection settings and create a development token in your shell:")
+        .replace(
+            configure[1],
+            _TOKEN_EXPORT
+            + "```\n\nDo not commit credentials. The token is for local development; use your "
+            "real\nauthentication before exposing the app to users.\n",
+        )
+    )
 
 
 AGENTS_FOR = "`@hypequery/mcp`, scripts, curl"
@@ -201,9 +225,17 @@ Port 5001, because macOS's AirPlay receiver holds 5000.
         "the user's `tenant_id`"
     )
     module = "analytics.py" if django else "app.py"
+    # The app reads the tenant at import, so it belongs in the server's shell.
     scoped = (
-        f"The datasets are scoped by `{tenant_column}`, and the token's principal has no "
-        "tenant, so the token API refuses them until `principal_for_token` gives one.\n\n"
+        f"""The datasets are scoped by `{tenant_column}`, so the development token reads
+one tenant. The app reads it at startup: export it in the server's shell before
+running it, and restart after changing it, or the token API answers `403`.
+
+```bash
+export HYPEQUERY_DEV_TENANT='one of your {tenant_column} values'
+```
+
+"""
         if tenant_column
         else ""
     )
@@ -224,7 +256,7 @@ into it, the `api/` entries of `urls.py` into your URLconf, and the lines of
     )
     return f"""## Run with {"Django" if django else "Flask"}
 
-{run}
+{scoped}{run}
 hypequery's endpoints are served by the app itself, twice:
 
 | Endpoints | Authenticated by | For |
@@ -241,7 +273,7 @@ curl --fail-with-body -s {base}/api/agents/{dataset} \\
   -d '{payload}'
 ```
 {answer}
-{scoped}A request without the token returns `401`. Measure values are strings on the
+A request without the token returns `401`. Measure values are strings on the
 HTTP wire.
 
 **The session API** {session} It refuses a cross-site request with `403`

@@ -49,6 +49,10 @@ class SqlDialect(Protocol):
         """*column* read as an instant in the bound zone."""
         ...
 
+    def divide(self, left: str, right: str) -> str:
+        """*left* divided by *right* without truncating to either operand's scale."""
+        ...
+
     def not_null(self, expression: str) -> str: ...
 
     def match_marker(self, alias: str) -> str:

@@ -31,8 +31,8 @@ describe('independent metric compilers', () => {
     }, context);
     expect(sql).toContain("country = 'US'");
     expect(sql).toContain("tenant = 't1'");
-    expect(sql).toContain('GROUP BY country');
-    expect(sql).toContain('SELECT country,');
+    expect(sql).toContain('GROUP BY `country`');
+    expect(sql).toContain('SELECT sales.country AS `country`,');
     expect(sql).toContain('ORDER BY `average` DESC LIMIT 10 OFFSET 2');
   });
 

@@ -1,6 +1,6 @@
 {
   "name": "@hypequery/mcp",
-  "version": "0.11.0",
+  "version": "0.11.1",
   "description": "Governed ClickHouse MCP server for semantic metrics, datasets, Claude, Cursor, and AI agents",
   "keywords": [
     "mcp",

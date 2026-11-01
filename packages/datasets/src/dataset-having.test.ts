@@ -82,7 +82,7 @@ describe('dataset having conditions', () => {
         having: [{ measure: 'averageOrderValue', operator: 'gte', value: 50 }],
       }, TENANT);
       const [, where] = sql.split(' FROM base WHERE ');
-      expect(where).toBe('((`revenue` / NULLIF(`orders`, 0))) >= ?');
+      expect(where).toBe('((toFloat64(`revenue`) / NULLIF(`orders`, 0))) >= ?');
     });
 
     it('keeps ordering and limits outside the condition', () => {

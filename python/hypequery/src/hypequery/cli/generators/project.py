@@ -8,6 +8,7 @@ import shlex
 from ..utils.connection_scaffold import export_lines, replace_env_block
 from .datasets import GeneratedDatasets
 from .framework_apps import Framework, apply_framework, readme_section, with_extras
+from .readme_notes import with_notes
 from .schema import Schema
 
 
@@ -66,6 +67,24 @@ def schema_templates(
         "\n".join(f"- {warning}" for warning in generated.warnings)
         or "No unsupported columns or ambiguous time keys were found."
     )
+    scoped = (
+        f"""
+Datasets generated from tables containing `{generated.tenant_column}` are tenant-scoped.
+The open API's developer principal has no tenant, so queries to those datasets answer
+`403 FORBIDDEN` ("requires runtime tenant scoping") until `developer` in `app.py`
+gives it one. Tables without that column remain unscoped. For local testing, return a
+principal for one tenant:
+
+```python
+return Principal(subject="developer", tenant_id="org_123")
+```
+
+Before real users, replace the open `auth` with real authentication so the
+tenant comes from the signed-in user.
+"""
+        if generated.tenant_column
+        else ""
+    )
     run_section = (
         f"""## Run and query
 
@@ -74,11 +93,15 @@ this project queries your existing tables. Start the server with `hypequery dev`
 
 ```bash
 curl -s -X POST http://127.0.0.1:8000/datasets/{generated.tables[0]}/query \\
-  -H "Authorization: Bearer $HYPEQUERY_DEV_TOKEN" \\
   -H "Content-Type: application/json" \\
   -d '{payload}'
 ```
-"""
+
+The API is open: `app.py` answers every request as one developer, with no
+token, for local development only. Before deploying, replace its `auth` with
+real authentication (`jwt_strategy` from the `jwt` extra, `from_context`
+reading your host app's login, or your own credential check).
+{scoped}"""
         if framework == "standalone"
         else readme_section(
             framework, generated.tables[0], payload, tenant_column=generated.tenant_column
@@ -86,7 +109,7 @@ curl -s -X POST http://127.0.0.1:8000/datasets/{generated.tables[0]}/query \\
     )
     if framework != "standalone":
         prefix = with_extras(prefix, framework)
-    result["README.md"] = (
+    result["README.md"] = with_notes(
         prefix
         + f"""## Generated datasets
 
@@ -110,8 +133,9 @@ not inferred; configure them explicitly before exposing this API.
 After schema changes, inspect drift with `{regenerate} --diff`
 (exit 1 when different). Use `--check` in CI and `--force` to replace
 definitions after reviewing the diff. The table selection given to init is
-recorded in `schema.json` and reused; pass `--all-tables` to drop it. Pass
-`--tenant-column <column>` on every regeneration to keep a `tenant_key` boundary.
+recorded in `schema.json` and reused; pass `--all-tables` to drop it. So is
+`--tenant-column`, which keeps the `tenant_key` boundary; `--no-tenant-column`
+drops it.
 With a `tenant_key`, the tenant column also stays a dimension: tenant-scoped
 queries only ever see their own value, and cross-tenant analysis
 (`all_tenants()`) can still group by it.

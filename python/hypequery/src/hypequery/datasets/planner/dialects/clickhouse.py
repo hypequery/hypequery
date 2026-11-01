@@ -110,6 +110,12 @@ class ClickHouseDialect:
     def in_time_zone(self, column: str, zone_placeholder: str) -> str:
         return f"toDateTime64({column}, 9, {zone_placeholder})"
 
+    def divide(self, left: str, right: str) -> str:
+        # Decimal division keeps the dividend's scale and truncates, so the
+        # average of 2.00 over 3 rows would be 0.66 before any ROUND. Integer
+        # division already returns Float64; a Float64 dividend makes decimals match.
+        return f"(toFloat64({left}) / {right})"
+
     def not_null(self, expression: str) -> str:
         return f"isNotNull({expression})"
 

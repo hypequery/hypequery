@@ -4,7 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { PropsWithChildren } from 'react';
 import { createHypequeryClient } from './client.js';
 import { createAnalyticsHooks } from './analyticsHooks.js';
-import { HttpError } from './errors.js';
+import { ClientSchemaChangedError, HttpError } from './errors.js';
 
 const hash = 'a'.repeat(64);
 const metricHash = 'b'.repeat(64);
@@ -52,7 +52,12 @@ describe('generated client routes', () => {
     const fetchFn = vi.fn().mockResolvedValue(response(body, 409));
     const onUnauthorized = vi.fn();
     const client = createHypequeryClient({ baseUrl: '/api', manifest, fetchFn, onUnauthorized });
-    await expect(client.request('ordersRevenue', {})).rejects.toMatchObject({ status: 409, body });
+    const failure = await client.request('ordersRevenue', {}).catch((error: unknown) => error);
+    expect(failure).toMatchObject({ status: 409, body });
+    // A typed error that says how to fix it, still an HttpError for existing handlers.
+    expect(failure).toBeInstanceOf(ClientSchemaChangedError);
+    expect(failure).toBeInstanceOf(HttpError);
+    expect((failure as Error).message).toContain('hypequery generate:client');
     expect(fetchFn).toHaveBeenCalledTimes(1);
     expect(onUnauthorized).not.toHaveBeenCalled();
     expect(manifest.ordersRevenue.schemaHash).toBe(metricHash);

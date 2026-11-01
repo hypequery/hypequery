@@ -1,1 +1,0 @@
-- The Django and Flask integrations' process-wide client connects on its first query, not when it is created. Modules can hold `get_client()` (Django) or the new `hq.client_for(app)` (Flask, no app context needed) at import time, and the app starts even with ClickHouse down. A closed client refuses to reconnect.

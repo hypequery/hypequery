@@ -82,7 +82,7 @@ describe('timestamp filter binding', () => {
     const instant = compile(utc, { measures: ['orderCount'], filters: [{ field: 'createdAt', operator: 'gte', value: '2026-02-01T00:00:00Z' }] });
     const naive = compile(utc, { measures: ['orderCount'], filters: [{ field: 'createdAt', operator: 'gte', value: '2026-02-01 00:00:00' }] });
     expect(instant).toEqual(naive);
-    expect(instant.sql).toContain("toDateTime64(created_at, 9, 'UTC') >= ?");
+    expect(instant.sql).toContain("toDateTime64(orders.created_at, 9, 'UTC') >= ?");
     expect(instant.parameters).toEqual(['acme', '2026-02-01 00:00:00']);
   });
 
@@ -93,7 +93,7 @@ describe('timestamp filter binding', () => {
     ['2026-02-01T09:00:00+09:00', '2026-02-01 00:00:00'],
   ])('rewrites the instant %s to %s on the time key', (value, bound) => {
     expect(where(utc, 'createdAt', 'gte', value)).toEqual({
-      predicate: "toDateTime64(created_at, 9, 'UTC') >= ?",
+      predicate: "toDateTime64(orders.created_at, 9, 'UTC') >= ?",
       parameters: [bound],
     });
   });
@@ -101,11 +101,11 @@ describe('timestamp filter binding', () => {
   it.each(['2026-02-01T00:00:00', '2026-02-01 00:00:00', '2026-02-01', '2026-02-01T00:00:00.5'])(
     'binds the offset-free form %s unchanged in the query zone', value => {
       expect(where(utc, 'createdAt', 'gte', value)).toEqual({
-        predicate: "toDateTime64(created_at, 9, 'UTC') >= ?",
+        predicate: "toDateTime64(orders.created_at, 9, 'UTC') >= ?",
         parameters: [value],
       });
       expect(where(tokyo, 'createdAt', 'gte', value)).toEqual({
-        predicate: "toDateTime64(created_at, 9, 'Asia/Tokyo') >= ?",
+        predicate: "toDateTime64(orders.created_at, 9, 'Asia/Tokyo') >= ?",
         parameters: [value],
       });
     },
@@ -113,22 +113,22 @@ describe('timestamp filter binding', () => {
 
   it('compares an instant in UTC whatever the query zone', () => {
     expect(where(tokyo, 'createdAt', 'gte', '2026-02-01T00:00:00Z')).toEqual({
-      predicate: "toDateTime64(created_at, 9, 'UTC') >= ?",
+      predicate: "toDateTime64(orders.created_at, 9, 'UTC') >= ?",
       parameters: ['2026-02-01 00:00:00'],
     });
     expect(where(tokyo, 'createdAt', 'in', ['2026-02-01T00:00:00Z', '2026-02-02T00:00:00.5Z'])).toEqual({
-      predicate: "toDateTime64(created_at, 9, 'UTC') IN (?, ?)",
+      predicate: "toDateTime64(orders.created_at, 9, 'UTC') IN (?, ?)",
       parameters: ['2026-02-01 00:00:00', '2026-02-02 00:00:00.5'],
     });
   });
 
   it('keeps an instant bound absolute when a range mixes it with a local bound', () => {
     expect(where(tokyo, 'createdAt', 'between', ['2026-02-01', '2026-02-01T00:00:00Z'])).toEqual({
-      predicate: "toDateTime64(created_at, 9, 'Asia/Tokyo') >= ? AND toDateTime64(created_at, 9, 'UTC') <= ?",
+      predicate: "toDateTime64(orders.created_at, 9, 'Asia/Tokyo') >= ? AND toDateTime64(orders.created_at, 9, 'UTC') <= ?",
       parameters: ['2026-02-01', '2026-02-01 00:00:00'],
     });
     expect(where(tokyo, 'createdAt', 'between', ['2026-02-01T00:00:00Z', '2026-03-01'])).toEqual({
-      predicate: "toDateTime64(created_at, 9, 'UTC') >= ? AND toDateTime64(created_at, 9, 'Asia/Tokyo') <= ?",
+      predicate: "toDateTime64(orders.created_at, 9, 'UTC') >= ? AND toDateTime64(orders.created_at, 9, 'Asia/Tokyo') <= ?",
       parameters: ['2026-02-01 00:00:00', '2026-03-01'],
     });
     // The repeated autumn hour: instants an hour apart must not bind alike.
@@ -142,11 +142,11 @@ describe('timestamp filter binding', () => {
 
   it('splits a mixed exclusion list so each member keeps its own zone', () => {
     expect(where(tokyo, 'createdAt', 'notIn', ['2026-02-01', '2026-02-01T00:00:00Z'])).toEqual({
-      predicate: "toDateTime64(created_at, 9, 'Asia/Tokyo') NOT IN (?) AND toDateTime64(created_at, 9, 'UTC') NOT IN (?)",
+      predicate: "toDateTime64(orders.created_at, 9, 'Asia/Tokyo') NOT IN (?) AND toDateTime64(orders.created_at, 9, 'UTC') NOT IN (?)",
       parameters: ['2026-02-01', '2026-02-01 00:00:00'],
     });
     expect(where(tokyo, 'shippedAt', 'notIn', ['2026-02-01 00:00:00', '2026-02-02T00:00:00Z'])).toEqual({
-      predicate: "shipped_at NOT IN (?) AND toDateTime64(shipped_at, 9, 'UTC') NOT IN (?)",
+      predicate: "orders.shipped_at NOT IN (?) AND toDateTime64(orders.shipped_at, 9, 'UTC') NOT IN (?)",
       parameters: ['2026-02-01 00:00:00', '2026-02-02 00:00:00'],
     });
   });
@@ -167,23 +167,23 @@ describe('timestamp filter binding', () => {
       segments: { mixed: { filters: [{ field: 'shippedAt', operator: 'in', value: mixed }] } },
     })).toThrow(/cannot mix instants/);
     expect(where(tokyo, 'shippedAt', 'in', ['2026-02-01 00:00:00', '2026-02-02 00:00:00'])).toEqual({
-      predicate: 'shipped_at IN (?, ?)',
+      predicate: 'orders.shipped_at IN (?, ?)',
       parameters: ['2026-02-01 00:00:00', '2026-02-02 00:00:00'],
     });
   });
 
   it('converts a non-time-key timestamp column only when its value is an instant', () => {
-    expect(where(tokyo, 'shippedAt', 'lt', '2026-02-01')).toEqual({ predicate: 'shipped_at < ?', parameters: ['2026-02-01'] });
+    expect(where(tokyo, 'shippedAt', 'lt', '2026-02-01')).toEqual({ predicate: 'orders.shipped_at < ?', parameters: ['2026-02-01'] });
     expect(where(tokyo, 'shippedAt', 'lt', '2026-02-01T00:00:00Z')).toEqual({
-      predicate: "toDateTime64(shipped_at, 9, 'UTC') < ?",
+      predicate: "toDateTime64(orders.shipped_at, 9, 'UTC') < ?",
       parameters: ['2026-02-01 00:00:00'],
     });
   });
 
   it('never rewrites a string value or a like pattern that merely looks like an instant', () => {
-    expect(where(utc, 'country', 'eq', '2026-02-01T00:00:00Z')).toEqual({ predicate: 'country = ?', parameters: ['2026-02-01T00:00:00Z'] });
+    expect(where(utc, 'country', 'eq', '2026-02-01T00:00:00Z')).toEqual({ predicate: 'orders.country = ?', parameters: ['2026-02-01T00:00:00Z'] });
     expect(where(utc, 'createdAt', 'like', '2026-02-01T00:00:00Z')).toEqual({
-      predicate: "toDateTime64(created_at, 9, 'UTC') LIKE ?",
+      predicate: "toDateTime64(orders.created_at, 9, 'UTC') LIKE ?",
       parameters: ['2026-02-01T00:00:00Z'],
     });
   });
@@ -197,14 +197,14 @@ describe('timestamp filter binding', () => {
   it('rewrites instants on the metric, derived, time-measure and segment paths', () => {
     const rendering = createDatasetClient({ queryBuilder: createRenderingBuilderFactory(), timezone: 'Asia/Tokyo' });
     const filters = [{ field: 'createdAt' as const, operator: 'gte' as const, value: '2026-02-01T00:00:00Z' }];
-    const bound = "toDateTime64(created_at, 9, 'UTC') >= '2026-02-01 00:00:00'";
+    const bound = "toDateTime64(orders.created_at, 9, 'UTC') >= '2026-02-01 00:00:00'";
 
     expect(rendering.toSQL(Orders.metric('orderCount', { measure: 'orderCount' }), { filters }, context)).toContain(bound);
     expect(rendering.toSQL(Orders, { measures: ['averageOrder'], filters }, context)).toContain(bound);
     expect(rendering.toSQL(Orders, { measures: ['orderCount'], segments: ['sinceFebruary'] }, context)).toContain(bound);
     // A segment names the string dimension, not the alias that shadows it.
     expect(rendering.toSQL(Orders, { measures: ['orderCount'], segments: ['isoStatus'] }, context))
-      .toContain("status = '2026-02-01T00:00:00Z'");
+      .toContain("orders.status = '2026-02-01T00:00:00Z'");
     expect(rendering.toSQL(Orders, { measures: ['orderCount'], filters: [{ field: 'status', operator: 'gte', value: '2026-02-01T00:00:00Z' }] }, context))
       .toContain(bound);
 
@@ -215,6 +215,6 @@ describe('timestamp filter binding', () => {
         { field: 'shippedAt', operator: 'lt', value: '2026-02-15T00:00:00Z' },
       ],
     }, context);
-    expect(running).toContain("toDateTime64(shipped_at, 9, 'UTC') < '2026-02-15 00:00:00'");
+    expect(running).toContain("toDateTime64(orders.shipped_at, 9, 'UTC') < '2026-02-15 00:00:00'");
   });
 });

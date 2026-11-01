@@ -21,7 +21,8 @@ def test_scaffold_new_directory_with_spaces(tmp_path: Path) -> None:
     assert project["project"]["dependencies"][0].startswith("hypequery[server,clickhouse]==")
     assert "__HYPEQUERY_VERSION__" not in (destination / "pyproject.toml").read_text()
     assert "not loaded automatically" in (destination / "README.md").read_text()
-    assert "HYPEQUERY_DEV_TOKEN=\n" in (destination / ".env.example").read_text()
+    # The standalone API is open for local development: no token to set.
+    assert "HYPEQUERY_DEV_TOKEN" not in (destination / ".env.example").read_text()
 
 
 def test_scaffold_defaults_to_current_directory(
@@ -80,7 +81,8 @@ def test_write_failure_rolls_back_files_and_new_directories(
     # Simulate a resource write failing after an earlier file was created.
     monkeypatch.setattr(
         "hypequery.cli.commands.init.load_templates",
-        lambda: {"first.txt": "created", "missing/file.txt": "will fail"},
+        # Every template set has a README, which the renderer appends notes to.
+        lambda: {"first.txt": "created", "missing/file.txt": "will fail", "README.md": ""},
     )
     assert main(["init", "--skip-connection", str(destination)]) == 1
     assert not destination.exists()

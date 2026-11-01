@@ -12,6 +12,7 @@
     "mcp/safety",
     "---React---",
     "react/getting-started",
+    "react/cloud",
     "react/using-queries",
     "react/advanced-patterns"
   ]

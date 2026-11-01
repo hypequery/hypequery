@@ -85,9 +85,9 @@ def test_conditions_read_the_aggregate_expression_after_grouping() -> None:
         limit=10,
     )
     assert re.search(
-        r"GROUP BY `customerId` HAVING sum\(`amount`\) > \{p(\d+):Float64\} AND "
-        r"sumIf\(`amount`, `status` = \{p0:String\}\) BETWEEN \{p\d+:Float64\} AND "
-        r"\{p\d+:Float64\} ORDER BY `revenue` DESC LIMIT 10\Z",
+        r"GROUP BY `customerId` HAVING sum\(`__hq_base`.`amount`\) > \{p(\d+):Float64\} AND "
+        r"sumIf\(`__hq_base`.`amount`, `__hq_base`.`status` = \{p0:String\}\) "
+        r"BETWEEN \{p\d+:Float64\} AND \{p\d+:Float64\} ORDER BY `revenue` DESC LIMIT 10\Z",
         compiled.sql,
     )
     values = [parameter.value for parameter in compiled.parameters.values()]
@@ -111,12 +111,12 @@ def test_every_operator_binds_its_values(operator: str, value: object, fragment:
     compiled = _plan(
         measures=("orders",), having=({"measure": "orders", "operator": operator, "value": value},)
     )
-    assert f"HAVING count(`customer_id`) {fragment}" in compiled.sql
+    assert f"HAVING count(`__hq_base`.`customer_id`) {fragment}" in compiled.sql
 
 
 def test_conditions_apply_to_the_default_measure_selection() -> None:
     compiled = _plan(having=({"measure": "orders", "operator": "gt", "value": 1},))
-    assert "HAVING count(`customer_id`) > " in compiled.sql
+    assert "HAVING count(`__hq_base`.`customer_id`) > " in compiled.sql
 
 
 @pytest.mark.parametrize(
@@ -214,7 +214,7 @@ def test_dataset_endpoints_forward_conditions_and_metric_endpoints_refuse_them()
     }
     response = http.post("/orders", json=body)
     assert response.status_code == 200, response.text
-    assert "HAVING sum(`amount`) >= {p0:Float64}" in executor.seen[-1].sql
+    assert "HAVING sum(`__hq_base`.`amount`) >= {p0:Float64}" in executor.seen[-1].sql
 
     invalid = http.post(
         "/orders",

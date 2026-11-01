@@ -741,9 +741,9 @@ describe("Serve integration — metrics", () => {
       );
 
       expect(factory._calls['select']).toBeDefined();
-      expect(factory._calls['select'][0][0]).toContain('country');
-      expect(factory._calls['sum']).toContainEqual(['amount', '`totalRevenue`']);
-      expect(factory._calls['where']).toContainEqual(['status', 'eq', 'completed']);
+      expect(factory._calls['select'][0][0]).toContain('orders.country AS `country`');
+      expect(factory._calls['sum']).toContainEqual(['orders.amount', '`totalRevenue`']);
+      expect(factory._calls['where']).toContainEqual(['orders.status', 'eq', 'completed']);
       expect(factory._calls['limit']).toContainEqual([10]);
     });
 
@@ -763,7 +763,7 @@ describe("Serve integration — metrics", () => {
       );
 
       expect(factory._calls['select']).toBeDefined();
-      expect(factory._calls['select'][0][0]).toContain("toStartOfMonth(toDateTime64(created_at, 9, 'UTC')) AS `period`");
+      expect(factory._calls['select'][0][0]).toContain("toStartOfMonth(toDateTime64(orders.created_at, 9, 'UTC')) AS `period`");
     });
 
     it("supports grained metric refs in createAPI", async () => {
@@ -782,7 +782,7 @@ describe("Serve integration — metrics", () => {
       );
 
       expect(factory._calls['select']).toBeDefined();
-      expect(factory._calls['select'][0][0]).toContain("toStartOfMonth(toDateTime64(created_at, 9, 'UTC')) AS `period`");
+      expect(factory._calls['select'][0][0]).toContain("toStartOfMonth(toDateTime64(orders.created_at, 9, 'UTC')) AS `period`");
       expect(factory._calls['orderBy']).toContainEqual(['`period`', 'ASC']);
     });
 
@@ -851,8 +851,8 @@ describe("Serve integration — metrics", () => {
 
       expect(response.status).toBe(200);
       expect(factory._calls['select']).toBeDefined();
-      expect(factory._calls['select'][0][0]).toContain("toStartOfMonth(toDateTime64(created_at, 9, 'UTC')) AS `period`");
-      expect(factory._calls['select'][0][0]).toContain('country');
+      expect(factory._calls['select'][0][0]).toContain("toStartOfMonth(toDateTime64(orders.created_at, 9, 'UTC')) AS `period`");
+      expect(factory._calls['select'][0][0]).toContain('orders.country AS `country`');
       expect(factory._calls['orderBy']).toContainEqual(['`period`', 'ASC']);
       expect(factory._calls['limit']).toContainEqual([12]);
     });
@@ -879,9 +879,9 @@ describe("Serve integration — metrics", () => {
       expect(response.status).toBe(200);
       expect(factory._calls['select']).toBeDefined();
       const selectArgs = factory._calls['select'].flat(2);
-      expect(selectArgs).toContain("toStartOfMonth(toDateTime64(created_at, 9, 'UTC')) AS `period`");
-      expect(selectArgs).toContain('country_code AS `countryCode`');
-      expect(factory._calls['where']).toContainEqual(["toDateTime64(created_at, 9, 'UTC')", 'gte', '2025-01-01']);
+      expect(selectArgs).toContain("toStartOfMonth(toDateTime64(orders.created_at, 9, 'UTC')) AS `period`");
+      expect(selectArgs).toContain('orders.country_code AS `countryCode`');
+      expect(factory._calls['where']).toContainEqual(["toDateTime64(orders.created_at, 9, 'UTC')", 'gte', '2025-01-01']);
     });
   });
 
@@ -1041,7 +1041,7 @@ describe("Serve integration — metrics", () => {
       );
 
       expect(response.status).toBe(200);
-      expect(factory._calls['where']).toContainEqual(['tenant_id', 'eq', 'tenant-123']);
+      expect(factory._calls['where']).toContainEqual(['orders.tenant_id', 'eq', 'tenant-123']);
     });
 
     it("falls back to the dataset tenantKey when tenant isolation is enabled without tenant.column", async () => {
@@ -1073,7 +1073,7 @@ describe("Serve integration — metrics", () => {
       );
 
       expect(response.status).toBe(200);
-      expect(factory._calls['where']).toContainEqual(['tenant_id', 'eq', 'tenant-123']);
+      expect(factory._calls['where']).toContainEqual(['orders.tenant_id', 'eq', 'tenant-123']);
     });
 
     it("rejects explicit tenant filters on metric endpoints when runtime tenancy is active", async () => {
@@ -1141,7 +1141,7 @@ describe("Serve integration — metrics", () => {
       );
 
       expect(response.status).toBe(200);
-      expect(factory._calls['where']).toContainEqual(['tenant_id', 'eq', 'tenant-123']);
+      expect(factory._calls['where']).toContainEqual(['orders.tenant_id', 'eq', 'tenant-123']);
       expect(factory._calls['where']).not.toContainEqual(['organization_id', 'eq', 'tenant-123']);
     });
 
@@ -1533,7 +1533,7 @@ describe("Serve integration — metrics", () => {
       expect(factory._calls['table']).toBeDefined();
       expect(factory._calls['table'][0]).toEqual(['orders']);
       expect(factory._calls['sum']).toBeDefined();
-      expect(factory._calls['sum'][0]).toEqual(['amount', '`totalRevenue`']);
+      expect(factory._calls['sum'][0]).toEqual(['orders.amount', '`totalRevenue`']);
     });
 
     it("passes filters through builder.where()", async () => {
@@ -1555,7 +1555,7 @@ describe("Serve integration — metrics", () => {
       );
 
       expect(factory._calls['where']).toBeDefined();
-      expect(factory._calls['where'][0]).toEqual(['status', 'eq', 'completed']);
+      expect(factory._calls['where'][0]).toEqual(['orders.status', 'eq', 'completed']);
     });
 
     it("rejects disallowed metric filter operators before builder execution", async () => {
@@ -1598,7 +1598,7 @@ describe("Serve integration — metrics", () => {
       // Should select with toStartOfMonth expression
       expect(factory._calls['select']).toBeDefined();
       const selectArgs = factory._calls['select'][0][0];
-      expect(selectArgs).toContain("toStartOfMonth(toDateTime64(created_at, 9, 'UTC')) AS `period`");
+      expect(selectArgs).toContain("toStartOfMonth(toDateTime64(orders.created_at, 9, 'UTC')) AS `period`");
     });
 
     it("applies order/limit/offset via builder methods", async () => {
@@ -1660,7 +1660,7 @@ describe("Serve integration — metrics", () => {
       expect(response.status).toBe(200);
       // tenant filter should go through builder.where()
       expect(factory._calls['where']).toBeDefined();
-      expect(factory._calls['where'][0]).toEqual(['tenant_id', 'eq', 'tenant-123']);
+      expect(factory._calls['where'][0]).toEqual(['orders.tenant_id', 'eq', 'tenant-123']);
     });
 
     it("handles derived metrics via builder for CTE + rawQuery for outer", async () => {
@@ -1736,10 +1736,10 @@ describe("Serve integration — metrics", () => {
         { country: "DE", revenue: "3000", count: "8" },
       ]);
       expect(factory._calls['table'][0]).toEqual(['orders']);
-      expect(factory._calls['select'][0][0]).toContain('country');
-      expect(factory._calls['sum']).toContainEqual(['amount', '`revenue`']);
-      expect(factory._calls['count']).toContainEqual(['id', '`count`']);
-      expect(factory._calls['groupBy'][0][0]).toContain('country');
+      expect(factory._calls['select'][0][0]).toContain('orders.country AS `country`');
+      expect(factory._calls['sum']).toContainEqual(['orders.amount', '`revenue`']);
+      expect(factory._calls['count']).toContainEqual(['orders.id', '`count`']);
+      expect(factory._calls['groupBy'][0][0]).toContain('`country`');
     });
 
     it("preserves omitted measures as the all-measures dataset query", async () => {
@@ -1760,8 +1760,8 @@ describe("Serve integration — metrics", () => {
       );
 
       expect(response.status).toBe(200);
-      expect(factory._calls['sum']).toContainEqual(['amount', '`revenue`']);
-      expect(factory._calls['count']).toContainEqual(['id', '`count`']);
+      expect(factory._calls['sum']).toContainEqual(['orders.amount', '`revenue`']);
+      expect(factory._calls['count']).toContainEqual(['orders.id', '`count`']);
     });
 
     it("returns request validation errors for invalid dataset fields", async () => {
@@ -1820,9 +1820,9 @@ describe("Serve integration — metrics", () => {
         { period: "2025-01-01", countryCode: "DE", revenue: "3000" },
       ]);
       const selectArgs = factory._calls['select'][0][0];
-      expect(selectArgs).toContain("toStartOfMonth(toDateTime64(created_at, 9, 'UTC')) AS `period`");
-      expect(selectArgs).toContain('country_code AS `countryCode`');
-      expect(factory._calls['sum']).toContainEqual(['amount', '`revenue`']);
+      expect(selectArgs).toContain("toStartOfMonth(toDateTime64(orders.created_at, 9, 'UTC')) AS `period`");
+      expect(selectArgs).toContain('orders.country_code AS `countryCode`');
+      expect(factory._calls['sum']).toContainEqual(['orders.amount', '`revenue`']);
       expect(factory._calls['groupBy'][0][0]).toContain('`period`');
       expect(factory._calls['groupBy'][0][0]).toContain('`countryCode`');
     });
@@ -1852,7 +1852,7 @@ describe("Serve integration — metrics", () => {
       expect(semanticBody(response).data).toEqual([
         { countryCode: "US", revenue: "5000" },
       ]);
-      expect(factory._calls['where']).toContainEqual(["toDateTime64(created_at, 9, 'UTC')", 'gte', '2025-01-01']);
+      expect(factory._calls['where']).toContainEqual(["toDateTime64(orders.created_at, 9, 'UTC')", 'gte', '2025-01-01']);
     });
 
     it("applies dataset order/limit/offset via builder methods", async () => {
@@ -2098,7 +2098,7 @@ describe("Serve integration — metrics", () => {
       );
 
       expect(response.status).toBe(200);
-      expect(factory._calls['where']).toContainEqual(['tenant_id', 'eq', 'tenant-123']);
+      expect(factory._calls['where']).toContainEqual(['orders.tenant_id', 'eq', 'tenant-123']);
     });
 
     it("falls back to the dataset tenantKey for dataset tenant isolation without tenant.column", async () => {
@@ -2135,7 +2135,7 @@ describe("Serve integration — metrics", () => {
       );
 
       expect(response.status).toBe(200);
-      expect(factory._calls['where']).toContainEqual(['tenant_id', 'eq', 'tenant-123']);
+      expect(factory._calls['where']).toContainEqual(['orders.tenant_id', 'eq', 'tenant-123']);
     });
 
     it("rejects empty dataset queries instead of falling back to raw table selection", async () => {

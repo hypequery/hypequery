@@ -101,6 +101,7 @@ def test_query(test: dict[str, object]) -> None:
         with pytest.raises(ProtocolClientContractError) as failure:
             validate_protocol_client_query(contract, endpoint, test["input"], transport)
         assert failure.value.code == "HQ_CLIENT_QUERY"
+        assert failure.value.path == test["path"]
     else:
         plan = validate_protocol_client_query(contract, endpoint, test["input"], transport)
         for key, value in cast(dict[str, object], test.get("http", {})).items():

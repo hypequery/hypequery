@@ -106,5 +106,5 @@ class DatasetQueryCompiler:
         self.ordering.paginate()
 
         self.node.source = safe_qualified_identifier(self.dataset.source, what="dataset source").sql
-        self.node.base_alias = BASE_ALIAS if self.joins_active else None
+        self.node.base_alias = BASE_ALIAS
         return DatasetSql(self.dialect.render_select(self.node), self.binder.parameters)

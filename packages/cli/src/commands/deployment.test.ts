@@ -118,6 +118,38 @@ describe('deployment commands', () => {
   });
 
 
+  it('warns when a published dataset has a customer column but no tenant key', async () => {
+    const scoped = (tenantKey: boolean) => ({
+      ...contract,
+      datasets: [{
+        name: 'orders',
+        source: 'orders',
+        tenant: tenantKey ? { kind: 'required', field: 'tenant_id' } : { kind: 'not-required' },
+        dimensions: [{
+          name: 'tenant_id', type: 'string', source: { kind: 'column', column: 'tenant_id' },
+          filterable: true, groupable: true,
+        }],
+        measures: [],
+        filters: [],
+        relationships: [],
+        endpoint: {
+          access: { kind: 'public' },
+          tenant: tenantKey ? { kind: 'required', mode: 'auto-inject', column: 'tenant_id' } : { kind: 'not-required' },
+        },
+      }],
+    });
+    const { logger } = await import('../utils/logger.js');
+
+    mockLoadCloudPublication.mockResolvedValue(scoped(false));
+    await buildDeploymentCommand('analytics/cloud.ts', { source: false });
+    expect(logger.warn).toHaveBeenCalledWith(expect.stringContaining('Dataset "orders" has a customer column (tenant_id) but no tenantKey'));
+
+    vi.mocked(logger.warn).mockClear();
+    mockLoadCloudPublication.mockResolvedValue(scoped(true));
+    await buildDeploymentCommand('analytics/cloud.ts', { source: false });
+    expect(logger.warn).not.toHaveBeenCalled();
+  });
+
   it('rejects non-dataset Cloud contracts', async () => {
     mockLoadCloudPublication.mockResolvedValue({ ...contract, queries: [{ name: 'legacy' }] });
     await expect(buildDeploymentCommand('analytics/cloud.ts')).rejects.toThrow('datasets only');

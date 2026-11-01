@@ -4,7 +4,164 @@
 
 <!-- towncrier release notes start -->
 
-## 0.1.0b1 (2026-10-26)
+## 0.1.0b1 (2026-10-30)
+
+- `hypequery init --framework standalone|django|flask` chooses the application
+  written beside `datasets.py` (decision 0023 step 6). `standalone`, the
+  default, is `app.py`: an API from `create_api`, served as plain ASGI by
+  `hypequery dev` with no web framework. It replaces the `fastapi` choice,
+  which wrote the same app; to use FastAPI, mount `app` in it.
+- `--framework django` writes a small runnable Django project (`settings.py`,
+  `urls.py`, `manage.py`) and `analytics.py`; `--framework flask` writes a
+  Flask `app.py`. Both serve hypequery's endpoints natively (`urls(api)`,
+  `blueprint(api)`) twice: at `/api/analytics` behind the framework's own
+  login (`django_user`, `flask_session`) with the same-origin check, and
+  Django's CSRF middleware, for `@hypequery/react`; and at `/api/agents` behind
+  a bearer token (`HYPEQUERY_DEV_TOKEN` in development), for `@hypequery/mcp`.
+  Each also has a view or route of its own on the per-request client. Until
+  wired to a login, Flask's session API and route answer 401, and
+  tenant-scoped datasets refuse signed-in Django users. Pyproject extras are
+  `django` or `flask`; the README covers secrets, hosts, `jwt_strategy` and
+  moving the pieces into an existing Django project.
+- `--framework` works with `--skip-connection`: each framework gets the
+  offline orders example, with `datasets.py` and `seed.sql`. The standalone
+  example's dataset now lives in `datasets.py` too.
+
+- `hypequery init` accepts `--tenant-column`, like `generate datasets`, so a tenant-scoped project needs one command.
+- `hypequery init` records `--tables` / `--exclude-tables` in `schema.json`, and `generate datasets` reuses that selection unless given `--tables`, `--exclude-tables` or the new `--all-tables`. Regenerating no longer widens a project to every table in the database.
+- The scaffold's `.env.example`, README and `app.py` match how discovery connected: `CLICKHOUSE_URL` when it was set, otherwise the host, port and TLS setting discovery used. Credentials stay placeholders.
+- "Possible tenant column" review notes name the `--tenant-column` flag that sets the key.
+- `generate datasets` and `export client-contract` print normalised paths.
+
+- Add `label` and `description` to `Dataset` and `dataset(...)`. Client-contract
+  exports and live discovery now advertise dataset, dimension and measure
+  label/description as optional endpoint `annotations` (RFC 0018 amendment), so
+  MCP agents listing datasets see each dataset's own description. Whitespace runs
+  are folded and blank text is omitted; text over 4096 UTF-8 bytes or containing
+  control characters fails export. Annotations are excluded from `schemaHash`,
+  so editing a description does not trigger `CLIENT_SCHEMA_CHANGED`. Pair with
+  `@hypequery/mcp`/`@hypequery/cli` releases that understand annotations.
+
+- The Django and Flask integrations' process-wide client connects on its first query, not when it is created. Modules can hold `get_client()` (Django) or the new `hq.client_for(app)` (Flask, no app context needed) at import time, and the app starts even with ClickHouse down. A closed client refuses to reconnect.
+
+- Publish a dataset's `description` in deployment contracts and bundles, matching
+  TypeScript. The contract has no dataset-level label, so `Dataset.label` is not
+  published there. Descriptions follow the existing deployment text rules: blank,
+  multi-line, control-character or over-4096-byte text fails the export.
+
+- Docs: `django_user`'s page must set Django's `csrftoken` cookie
+  (`ensure_csrf_cookie`, or a template using `{% csrf_token %}`), or Django
+  answers its own HTML `403` before hypequery runs. The `django_user` and
+  `urls` docstrings and the `--framework django` scaffold's README now say so.
+
+- `hypequery.contrib.django.urls` answers a `Host` outside `ALLOWED_HOSTS` as the core answers one, `400 Invalid host header` as plain text, instead of Django's HTML `DisallowedHost` page (the technical page under `DEBUG`). It carries the core's `x-request-id` (and a valid caller id as `x-correlation-id`) and is still logged to `django.security.DisallowedHost`. A host refused by middleware before the view runs, such as `CommonMiddleware`, still gets Django's own response.
+
+- Docs: explain that per-endpoint `schemaHash` values (not the document `contentHash`) match between the build export and the live discovery view, and how measure values differ between in-process results and hypequery's HTTP wire.
+
+- When ClickHouse rejects the server's own connection, the error is now a server fault instead of the caller's. A wrong password or unknown user (`AUTHENTICATION_FAILED`, `UNKNOWN_USER`, `WRONG_PASSWORD`, `REQUIRED_PASSWORD`, `IP_ADDRESS_NOT_ALLOWED`, `USER_EXPIRED`), a missing grant (`ACCESS_DENIED`, `DATABASE_ACCESS_DENIED`, `NOT_ENOUGH_PRIVILEGES`), a missing database (`UNKNOWN_DATABASE`) and a readonly-profile mismatch all raise `CompiledQueryError("unavailable")`, which `hypequery.serve` answers with `503 CLICKHOUSE_UNREACHABLE` and the fixed message "The query executor is unavailable.". Before, they answered `401 UNAUTHORIZED`, `403 FORBIDDEN` or `404 NOT_FOUND` with text that named ClickHouse. That sent browser and agent clients into re-login loops for a fault only an operator can fix. RFC 0010 keeps `unauthenticated` and `forbidden` for the authentication layer.
+- `CompiledQueryError` has two new fields that never appear in the envelope: `code` (for example `HQ_EXECUTOR_CREDENTIALS_REJECTED`, `HQ_EXECUTOR_ACCESS_DENIED`, `HQ_EXECUTOR_DATABASE_MISSING` or `HQ_EXECUTOR_READONLY_MISCONFIGURED`) and `diagnostic`, a sentence for operators. `hypequery.serve` logs both to the `hypequery.serve` logger with the request id and query id. The readonly guidance that used to be the error message is now the `diagnostic`. CLI hints are keyed by `code`.
+
+- `hypequery.contrib.flask.blueprint` exempts an API that reads a header credential (bearer, API key, JWT) from Flask-WTF's `CSRFProtect`, whether `CSRFProtect` is set up before or after the blueprint is registered. A blueprint for an API on the app's own login (`flask_session`) is still checked, so the page sends the token as `X-CSRFToken`.
+
+- `ClickHouseConnection.from_url()` reads `clickhouse://`, `clickhouses://`, `http(s)://` and SQLAlchemy HTTP-interface URLs (`clickhousedb://`, `clickhouse+http://`); `from_env()` (and the CLI) also read `CLICKHOUSE_URL`, which cannot be combined with the field variables. Native-protocol URLs are refused with an explanation, and no error repeats the URL.
+- Dataset results carry `column_types` from the dataset definition and convert to typed DataFrames with `to_pandas()`, `to_polars()` and `to_arrow()` (new `pandas`, `polars` and `arrow` extras). Timestamps become timezone-aware datetimes in the query timezone, counts nullable integers, numbers floats or, with `decimals="decimal"`, exact decimals.
+- New `hypequery.contrib.django` (`django` extra): `HYPEQUERY` settings validated by `manage.py check`, a per-process client closed at exit, and middleware giving each request a lazily built, tenant-bound `request.analytics` (in async views, an awaitable client whose tenant function runs off the event loop, so it may use the ORM).
+- New `hypequery.contrib.flask` (`flask` extra): a `Hypequery` extension with `app.config` keys, a `tenant_loader`, and per-request tenant-bound `client` / `async_client`.
+- New `hypequery.contrib.sqlalchemy`: `executor_from_engine()` and `connection_from_engine()` point hypequery at a SQLAlchemy engine's ClickHouse server with hypequery's own clients.
+- New `create_async_from_sync_clickhouse_executor()`: a thread-backed async executor that needs only the `clickhouse` extra. `AsyncFromSyncClickHouseExecutor.close()` now also closes its driver clients.
+- Served query metadata omits `cache` when the dataset client has no result cache, matching TypeScript. It previously reported `{"hit": false}` on every query, which read as a cache miss.
+
+- `hypequery init` and `hypequery generate datasets` write a table's ClickHouse `COMMENT` as the dataset's `description=` and a column's as the dimension's, so client contracts and MCP agents describe datasets from the catalog instead of a generic fallback. Whitespace runs become one space and control characters are dropped to fit the deployment contract; a comment over 4096 bytes is shortened with a review warning. `schema.json` records the comments, only where set.
+
+- Protocol deployment validation now accepts `merge` measures with a `stateFunction` from the allowlist (RFC 0022), with the same rules as TypeScript: no filters or `sql`, and in contract 3 an `approximate` marker exactly for estimating states. This adds protocol representation only; Python code-first datasets do not yet author merge measures.
+
+- Protocol validation accepts the `isNull` and `isNotNull` comparisons (RFC 0023), with the same rules as TypeScript: an expression comparison has `left` and no `right`, deployment filter operator lists and client contract filters may name them on any type, and a client query filter using one has no `value`. A value on them is rejected. This adds protocol representation only; Python code-first datasets do not yet author null-check filters.
+
+- Protocol deployment validation now preserves explicit `rowResolution` FINAL policies, including the engine-less `{"kind": "final"}` form, replacing soft-delete columns and collapsing sign columns, with the same strict grammar as TypeScript. This adds protocol representation only; Python code-first datasets do not yet author resolved sources.
+
+- `ServeRequest.scheme`, used by the same-origin check's own-origin
+  comparison, is filled in by every adapter (by Django and Flask themselves, so
+  `SECURE_PROXY_SSL_HEADER` and `ProxyFix` apply); a trusted proxy's
+  `X-Forwarded-Proto` overrides it.
+
+- Every response from `hypequery.serve` now carries
+  `X-Content-Type-Options: nosniff` and
+  `Content-Security-Policy: default-src 'none'; frame-ancestors 'none'`; a
+  route that sets its own policy keeps it. The `Invalid host header` refusal is
+  sent with `Cache-Control: no-store`.
+- The development docs page (`development_docs=True`) loads an exact Redoc
+  release checked by Subresource Integrity, instead of whatever `redoc@2`
+  currently is, under a Content-Security-Policy that allows only that script,
+  and sends `Referrer-Policy: no-referrer`.
+- A request body must be UTF-8 JSON as `JSON.parse` reads it: `NaN` and
+  `Infinity`, strings holding a lone surrogate (`"\ud800"`) and nesting deeper
+  than 64 levels are refused with `400 VALIDATION_ERROR`. A lone surrogate in a
+  filter value, and a deeply nested one, used to fail as a `500`; UTF-16 and
+  UTF-32 bodies are no longer guessed at.
+- The `django` extra requires `sqlparse>=0.6.0` and the `flask` extra
+  `jinja2>=3.1.6`, the first releases free of published advisories; Django and
+  Flask themselves admit older ones.
+- The sdist no longer picks up local coverage data, reports, `.env` files or
+  SQLite databases from the checkout it is built in, and the release artifact
+  audit refuses an archive that contains them.
+
+- `hypequery.serve` no longer needs FastAPI (decision 0023 step 3). `create_api(auth=...)` returns a framework-neutral `Api`, modelled on TypeScript's `createAPI`: `auth=` (renamed from `authenticate=`), `credentials=`, `tenant=` (renamed from `resolve_tenant=`), `security=`, `production=`, `limits=`, `events=`, `base_path=` (replacing `prefix=`), `max_body_bytes=`, `development_docs=`, `openapi=` and `client_mount_path=`. `datasets={"name": dataset}` serves `POST /datasets/<name>/query`, `metrics={"name": create_metric_endpoint(...)}` serves `POST /metrics/<name>`, and with either `GET /discovery` is served, authenticated by default. `api.add_route(method, path, handler)` serves your own routes; `await api.handle(ServeRequest(...))` serves a request with no server.
+- New `to_asgi_app(api, lifespan=...)`: a pure ASGI application with no Starlette, for uvicorn and any ASGI server, or to mount in FastAPI, Starlette or Litestar. It streams the request body lazily under the body policy, cancels a query whose caller disconnects, runs the optional lifespan context and closes websockets. With a production profile, writing the response is inside the request's admission slot and deadline.
+- Development OpenAPI (3.1) and docs come from the routes' own Pydantic schemas (`openapi_document(api)`, `OpenApiInfo`): `GET /openapi.json` and a Redoc page at `GET /docs`, as in TypeScript. `/redoc` is gone.
+- `start_server(api)`, `run_dev(api)` and `hypequery dev` run an API or its `to_asgi_app` application on uvicorn. The `fastapi` extra is replaced by `server`, which installs only uvicorn; `hypequery.serve` itself needs no extra (anyio is now a base dependency).
+- Removed, before the first PyPI release: `ServeRouter`, `create_router`, `create_app`, `install_http_security`, `request_id(request)` (read `call.state.request_id`), the `RateLimit` FastAPI dependency (pass `limits=` instead) and the `routers=` arguments of `export_client_contract` and `add_client_contract_endpoint`. `export_client_contract` takes the API or its ASGI application. `ServeError` is no longer a FastAPI `HTTPException`.
+- Routing matches the path as sent, as TypeScript does: a trailing slash is `404 NOT_FOUND` instead of FastAPI's `307` redirect, and a percent-encoded path no longer matches its decoded route. Every other answer is byte-identical to the FastAPI layer's, header order aside.
+
+- `hypequery.serve.from_context(extract)` authenticates with the host app's own login, as TypeScript's `fromContext` does: `create_api(auth=from_context(extract))` hands `extract` the `ServeRequest`, which reads the session from `request.raw` and returns a `Principal` or None (401). A same-origin React page then calls the endpoints with its session cookie and no token. With `same_origin=True`, the default, the core refuses `POST`, `PUT`, `PATCH` and `DELETE` with `403 FORBIDDEN` unless `Sec-Fetch-Site` is `same-origin` or `none`, `Origin` is the request's own origin (its scheme and `Host`, as Django's CSRF check compares them), or `Origin` is in the API's `HttpSecurity.cors.origins`, under every adapter. A browser without Fetch Metadata (Safari before 16.4) calling its own site needs no `CorsPolicy` entry. A sync extractor runs on the request's own thread under WSGI, Django and Flask (`ServeRequest.run_on_request_thread`).
+- `hypequery.contrib.django.django_user(to_principal)` and `hypequery.contrib.flask.flask_session(to_principal)` build these strategies. `django_user` reads `request.user`, through the async ORM in async views; `flask_session` reads Flask-Login's `current_user` when the app uses Flask-Login, else `session`. Django's `urls(api)` leaves Django's CSRF middleware active for them, so the page sends `X-CSRFToken`; header credentials (bearer, API key, JWT) stay CSRF-exempt.
+- Production now accepts `from_context` and refuses `from_context(..., same_origin=False)`, replacing the flat cookie ban: `ProductionProfile(cookie_auth=...)` is removed, and `bearer_token`/`api_key` refuse the `cookie` header in any profile.
+- The Django and Flask examples serve their API behind their own login for a same-origin React page, and behind a bearer token at `/api/agents` for the MCP bridge.
+
+- `jwt_strategy` and `analytics_token_issuer` in `hypequery.serve`, with a new `jwt` extra (PyJWT and cryptography). `jwt_strategy(secret=... | jwks_url=..., issuer=, audience=)` is an authenticator for `create_api` that verifies JWT bearer tokens and maps `sub`, `org_id`, `roles` and `scope`/`scopes` to the `Principal`, as TypeScript's `createJwtStrategy` does. `analytics_token_issuer(secret)` mints the short-lived tokens `createAnalyticsTokenIssuer` mints. Tokens from either language verify in the other; shared fixtures (`specs/serve-http/fixtures/jwt-v1`) pin which tokens both accept and refuse. Key sets are fetched off the event loop with a timeout and cached; an unreachable key set answers 503. Python is stricter than TypeScript in a few places: it refuses tokens without `sub`, HMAC secrets shorter than the hash, and `http` key-set URLs outside localhost.
+
+- Django's `urls(api)` now checks the request's `Host` against `ALLOWED_HOSTS`
+  itself, so an API without an `HttpSecurity` is protected even in a project
+  without `CommonMiddleware`.
+- `ServeRequest.is_disconnected` is replaced by `wait_disconnected`, an
+  awaitable that returns once the caller has gone. The core no longer polls for
+  disconnection every 50 ms per running query.
+- The default tenant resolver runs inline instead of on a worker thread for
+  every authenticated request.
+- A WSGI, Django or Flask request arriving after interpreter exit has stopped
+  the serving loop is refused instead of starting a loop that is never closed.
+- Removed the re-export modules `hypequery.serve.security`,
+  `hypequery.serve.rate_limit`, `hypequery.serve.request_ids` and
+  `hypequery.serve.errors`; import those names from `hypequery.serve`.
+
+- Django and Flask serve hypequery's HTTP endpoints natively, for
+  `@hypequery/react` and `@hypequery/mcp`, with no FastAPI and no second app
+  (decision 0023 step 4). `hypequery.contrib.django.urls(api)` returns URL
+  patterns to `include()` below any prefix: the view is async under ASGI and
+  sync under WSGI, `ServeRequest.raw` is the `HttpRequest`, and the body is
+  read from the request's stream, bounded by the API's body policy rather than
+  `DATA_UPLOAD_MAX_MEMORY_SIZE`. An API whose credential is a header (bearer,
+  API key, JWT) is CSRF-exempt; one on the site's own login (`django_user`)
+  stays under Django's CSRF middleware, so the page sends `X-CSRFToken`.
+  `hypequery.contrib.flask.blueprint(api)` returns a blueprint to register
+  below any `url_prefix`; `raw` is Flask's request, and host code runs in the
+  request's Flask context. Client contracts and discovery name the paths a
+  request was routed under, unless `client_mount_path` is set.
+- `hypequery.serve.to_wsgi_app(api)` serves an API to gunicorn, waitress or any
+  WSGI framework. Sync hosts run the API on one event loop per process, on its
+  own thread, while the request's thread waits and reads the body for it, so
+  no loop is created per request and threaded servers serve requests
+  concurrently. The loop restarts in each forked worker and stops at exit.
+- `Api.handle` and `Api.serve` take `mounted_at=`, the prefix a host
+  framework's router served the request under, for adapters mounted inside one.
+
+- `HttpSecurity(allowed_hosts=...)` now matches bracketed IPv6 literals (`[::1]`
+  allows `[::1]:8000` and `[0:0::1]`), compares names case-insensitively and
+  ignores a trailing dot. An allowed host that is not a valid host, such as
+  `[nope]`, is refused when the profile is built.
+- With CORS configured, every response carries `Vary: Origin`, including
+  responses to requests without an `Origin`, and preflight answers also vary on
+  `Access-Control-Request-Method`, `-Headers` and `-Private-Network`. This
+  keeps shared caches from serving one origin's answer to another.
 
 - Avoid terminating the process holding a dataset regeneration lock on Windows.
 - Give the ClickHouse installation hint only when that driver is the missing app dependency, including when the executor factory reports it.

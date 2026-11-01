@@ -147,9 +147,9 @@ describe('MCP query tools SQL integration', () => {
     });
 
     const response = parseToolResponse(result);
-    expect(response.meta.sql).toContain("toStartOfMonth(toDateTime64(created_at, 9, 'UTC')) AS `period`");
-    expect(response.meta.sql).toContain("SUM(if((status = 'completed'), amount, 0)) AS `completedRevenue`");
-    expect(response.meta.sql).toContain('WHERE tenant_id = ? AND status = ?');
+    expect(response.meta.sql).toContain("toStartOfMonth(toDateTime64(orders.created_at, 9, 'UTC')) AS `period`");
+    expect(response.meta.sql).toContain("SUM(if((orders.status = 'completed'), orders.amount, 0)) AS `completedRevenue`");
+    expect(response.meta.sql).toContain('WHERE orders.tenant_id = ? AND orders.status = ?');
     expect(response.meta.sql).toContain('ORDER BY `completedRevenue` DESC');
     // Dataset execution over-fetches one row to derive pagination.hasMore.
     expect(response.meta.sql).toContain('LIMIT 26 OFFSET 5');
@@ -176,8 +176,8 @@ describe('MCP query tools SQL integration', () => {
     const response = JSON.parse(result.content[0].text) as {
       meta: { sql?: string; rowCount: number };
     };
-    expect(response.meta.sql).toContain('SELECT country_code AS `country`, SUM(amount) AS `totalRevenue` FROM orders');
-    expect(response.meta.sql).toContain('WHERE tenant_id = ?');
+    expect(response.meta.sql).toContain('SELECT orders.country_code AS `country`, SUM(orders.amount) AS `totalRevenue` FROM orders');
+    expect(response.meta.sql).toContain('WHERE orders.tenant_id = ?');
     expect(response.meta.sql).toContain('GROUP BY `country`');
   });
 

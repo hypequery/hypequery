@@ -17,8 +17,11 @@ into a `ServeRequest`, serves it with `Api.serve` and writes the
 Run it with uvicorn (`uvicorn app:app`), or mount it in another application:
 Starlette and FastAPI with `app.mount("/analytics", to_asgi_app(api))`,
 Litestar, Quart or Django's ASGI handler likewise. A mounted app is served
-below the mount's `root_path`. Most frameworks do not forward `lifespan` to a
-mounted app, so its host runs any startup and shutdown of its own.
+below the mount's `root_path`. Client contracts name paths under the API's
+`client_mount_path`, never `root_path`, which a proxy can set; the first
+request below a different prefix logs a warning saying so. Most frameworks do
+not forward `lifespan` to a mounted app, so its host runs any startup and
+shutdown of its own.
 """
 
 from __future__ import annotations
@@ -34,6 +37,7 @@ from .utils.asgi_body import AsgiBody
 from .utils.asgi_scope import route_path, scope_client, scope_headers, scope_query
 from .utils.fault import fault_response
 from .utils.response_head import response_body, response_headers
+from .utils.unconfigured_mount import UnconfiguredMount
 
 __all__ = ["AsgiApp", "to_asgi_app"]
 
@@ -50,11 +54,12 @@ _log = logging.getLogger("hypequery.serve")
 class AsgiApp:
     """The ASGI application serving one `Api`. Build it with `to_asgi_app`."""
 
-    __slots__ = ("api", "lifespan")
+    __slots__ = ("_mount", "api", "lifespan")
 
     def __init__(self, api: Api, lifespan: Lifespan | None = None) -> None:
         self.api = api
         self.lifespan = lifespan
+        self._mount = UnconfiguredMount()
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         kind = scope["type"]
@@ -69,6 +74,7 @@ class AsgiApp:
             raise ValueError(f"unsupported ASGI scope type {kind!r}")
 
     async def _http(self, scope: Scope, receive: Receive, send: Send) -> None:
+        self._mount.check(self.api, scope.get("root_path") or "")
         body = AsgiBody(receive)
         started = False
 

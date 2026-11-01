@@ -37,12 +37,25 @@ npx hypequery init \
 | `hypequery dev` | Local API, docs, and hot reload |
 | `hypequery generate` | Fresh TypeScript types from ClickHouse or chDB |
 | `hypequery generate:datasets` | Dataset definitions scaffolded from tables |
-| `hypequery generate:client` | TypeScript API types and routes from a Python client contract |
+| `hypequery generate:client` | TypeScript API types and routes from a Python client contract or the live Cloud release (`--cloud`) |
 | `hypequery generate:manifest` | A browser-safe route manifest for React hooks |
 | `hypequery pull` / `diff` | Live source inspection and comparison |
 | `hypequery deployment:status` | Live release and Cloud-provided connection URLs |
 
 Non-interactive ClickHouse commands read `CLICKHOUSE_URL`, `CLICKHOUSE_DATABASE`, `CLICKHOUSE_USERNAME`, and `CLICKHOUSE_PASSWORD`.
+
+## Generate a client for Cloud datasets
+
+After `hypequery login`, generate typed React routes and types from the live
+Cloud release, or have every publish regenerate them:
+
+```bash
+npx hypequery generate:client --cloud --output src/hypequery-client.ts
+npx hypequery deploy analytics/cloud.ts --client src/hypequery-client.ts
+```
+
+The file also exports `clientBaseUrl`. See
+[Connect React to hypequery Cloud](https://hypequery.com/docs/react/cloud).
 
 ## Generate a client for Python endpoints
 
