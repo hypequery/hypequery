@@ -39,7 +39,7 @@ Create a `JoinRelationships` registry during app startup:
 <CodeBlock>
 <Pre>
 ```typescript
-import { createQueryBuilder, JoinRelationships } from '@hypequery/clickhouse';
+import { createQueryBuilder, JoinRelationships, QueryBuilder } from '@hypequery/clickhouse';
 import type { Schema } from './generated-schema';
 
 const relationships = new JoinRelationships<Schema>();
@@ -52,7 +52,7 @@ relationships.define('orderCustomer', {
   type: 'LEFT',
 });
 
-createQueryBuilder.setJoinRelationships(relationships);
+QueryBuilder.setJoinRelationships(relationships);
 
 export const db = createQueryBuilder<Schema>({
   url: process.env.CLICKHOUSE_URL!,
@@ -202,7 +202,7 @@ String-based registry lookups remain convenient for reuse, but their widening is
 
 ## Initialization requirements
 
-Call `createQueryBuilder.setJoinRelationships(...)` before using `withRelation()`.
+Call `QueryBuilder.setJoinRelationships(...)` before using `withRelation()`.
 
 If relationships are not registered, hypequery throws:
 

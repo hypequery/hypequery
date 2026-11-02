@@ -26,11 +26,9 @@ from hypequery.contrib.flask import Hypequery
 
 hq = Hypequery()
 
-
 @hq.tenant_loader
 def current_tenant():
     return current_user.org_id if current_user.is_authenticated else None
-
 
 def create_app():
     app = Flask(__name__)
@@ -50,7 +48,6 @@ def create_app():
 const exportCode = `import io
 
 from flask import Response
-
 
 @app.get("/reports/revenue.csv")
 def revenue_csv():

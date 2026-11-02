@@ -22,9 +22,7 @@ const result = await analytics.execute(orders, {
   dimensions: ['country'],
   measures: ['revenue', 'orderCount'],
 });`,
-  python: `from hypequery.datasets import (
-    Dataset, avg, count, count_distinct, dimension, measure, sum as sum_,
-)
+  python: `from hypequery.datasets import Dataset, dimension, measure
 from .client import analytics
 
 orders = Dataset(
@@ -37,10 +35,10 @@ orders = Dataset(
         "status": dimension("string"),
     },
     measures={
-        "revenue": measure(sum_("amount")),
-        "order_count": measure(count("id")),
-        "customers": measure(count_distinct("customer_id")),
-        "avg_order_value": measure(avg("amount")),
+        "revenue": measure.sum("amount"),
+        "order_count": measure.count("id"),
+        "customers": measure.count_distinct("customer_id"),
+        "avg_order_value": measure.avg("amount"),
     },
 )
 

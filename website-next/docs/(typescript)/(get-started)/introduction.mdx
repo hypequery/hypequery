@@ -1,16 +1,22 @@
 ---
-title: Introduction
+title: TypeScript SDK
 description: Build a type-safe ClickHouse analytics backend with a TypeScript query builder, semantic datasets, multi-tenant APIs, React hooks, and MCP tools.
 ---
 
+import { Callout } from 'fumadocs-ui/components/callout';
 import { CodeBlock } from 'fumadocs-ui/components/codeblock';
 import { Book, Braces, GitBranch, Zap } from 'lucide-react';
 
-# A TypeScript semantic layer for ClickHouse
+<Callout title="Using Python?">
+  The [Python SDK](/docs/python) implements the same datasets and Serve protocol, and the same React hooks and MCP
+  server work against it. New to hypequery? Start at the [docs home](/docs).
+</Callout>
 
-hypequery gives TypeScript teams one place to define ClickHouse analytics and reuse them in backend code, HTTP APIs, React dashboards, and MCP tools for AI agents. It is an open-source library that runs inside your application—not a hosted BI platform or a separate semantic-layer server.
+# The TypeScript SDK
 
-Start with the type-safe query builder when a query is local. Add a dataset when dimensions, measures, metrics, tenant isolation, and time grains become shared product meaning. Add Serve, React, or MCP only when another consumer needs the same contract.
+The TypeScript SDK gives you one place to define ClickHouse analytics and reuse them in backend code, HTTP APIs, React dashboards, and MCP tools for AI agents. It is an open-source library that runs inside your application—not a hosted BI platform or a separate semantic-layer server.
+
+Define a dataset when dimensions, measures, metrics, tenant isolation, and time grains are shared product meaning, and use the type-safe query builder for queries that stay local. Add Serve, React, or MCP only when another consumer needs the same contract.
 
 ## The canonical dataset
 

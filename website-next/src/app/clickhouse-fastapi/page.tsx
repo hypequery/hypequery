@@ -25,15 +25,9 @@ export const metadata: Metadata = {
 
 const routerCode = `from fastapi import FastAPI
 from hypequery.serve import (
-    Credential,
-    EndpointPolicy,
-    HttpSecurity,
-    Principal,
-    add_dataset_endpoint,
-    create_api,
-    to_asgi_app,
+    Credential, EndpointPolicy, HttpSecurity, Principal,
+    add_dataset_endpoint, create_api, to_asgi_app,
 )
-
 
 async def authenticate(credential: Credential) -> Principal | None:
     claims = await verify_jwt(credential.value)  # your token verification
@@ -44,7 +38,6 @@ async def authenticate(credential: Credential) -> Principal | None:
         scopes=frozenset(claims.get("scope", "").split()),
         tenant_id=claims.get("org_id"),
     )
-
 
 api = create_api(
     auth=authenticate,
@@ -189,6 +182,8 @@ export default function ClickHouseFastAPIPage() {
         },
       ]}
       relatedPillars={[
+        { href: '/clickhouse-flask', label: 'ClickHouse Flask' },
+        { href: '/clickhouse-django', label: 'ClickHouse Django' },
         { href: '/clickhouse-python', label: 'ClickHouse Python' },
         { href: '/python-semantic-layer', label: 'Python semantic layer' },
         { href: '/clickhouse-python-multi-tenant', label: 'Python multi-tenancy' },

@@ -12,7 +12,7 @@ import { absoluteUrl, ogImage } from '@/lib/site';
 export const metadata: Metadata = {
   title: 'ClickHouse Semantic Layer in TypeScript and Python',
   description:
-    'Define a ClickHouse semantic layer in TypeScript or Python with typed datasets, tenant keys, and time keys. Serve it to APIs, dashboards, and AI agents from your own backend, or on hypequery cloud.',
+    'Define a ClickHouse semantic layer in TypeScript or Python with typed datasets, tenant keys, and time keys. Serve it to APIs, dashboards, and AI agents from your own backend.',
   alternates: {
     canonical: absoluteUrl('/clickhouse-semantic-layer'),
   },
@@ -67,12 +67,11 @@ const payoffCode = `import { createDatasetClient } from '@hypequery/datasets';
 import { initServe } from '@hypequery/serve';
 import { db } from './client';
 import { Orders } from './datasets';
+import { verifyAuth } from './auth'; // your session or JWT check
 
 const { serve } = initServe({
-  // read the tenant from verified auth in production
-  auth: async ({ request }) => ({
-    tenantId: request.headers['x-tenant-id'],
-  }),
+  // the tenant comes from the verified session, never from the request
+  auth: verifyAuth,
   tenant: {
     extract: (auth) => auth.tenantId,
     required: true,
@@ -145,7 +144,7 @@ const comparisonRows = [
   {
     label: 'Operate',
     detail: 'What you deploy and maintain in production',
-    hypequery: 'A library in your stack, or hosted on hypequery cloud',
+    hypequery: 'A library in your stack (a hosted option is coming soon)',
     platform: 'A platform to run',
     hypequeryYes: true,
     platformYes: false,
@@ -236,13 +235,13 @@ export default function ClickHouseSemanticLayerPage() {
             The ClickHouse semantic layer you define in TypeScript or Python
           </h1>
           <p className={`mt-5 max-w-[700px] text-pretty ${marketing.heroLead}`}>
-            Model your table once — tenant key, time key, typed fields — and every query inherits it, across your APIs, dashboards, and AI agents. No YAML. Run it in your own backend, or on hypequery cloud.
+            Model your table once — tenant key, time key, typed fields — and every query inherits it, across your APIs, dashboards, and AI agents. No YAML. Run it in your own backend.
           </p>
           <div className="mt-7 flex flex-wrap items-center gap-3">
             <Link
-              href="/docs/quick-start"
+              href="/docs"
               data-umami-event="cta_click"
-              data-umami-event-target="docs_quick_start"
+              data-umami-event-target="docs_home"
               data-umami-event-location="hero_primary"
               className={marketing.primaryButton}
             >
@@ -259,6 +258,12 @@ export default function ClickHouseSemanticLayerPage() {
             </Link>
           </div>
           <SetupCommand className="mt-4" />
+          <p className="mt-4 text-sm text-text-muted">
+            Working in Python?{' '}
+            <Link href="/python-semantic-layer" className="font-medium text-text underline decoration-border underline-offset-2 hover:decoration-accent">
+              See the Python semantic layer
+            </Link>
+          </p>
         </section>
 
         <section className={`${marketing.container} pb-6 pt-[72px]`}>
@@ -359,13 +364,13 @@ export default function ClickHouseSemanticLayerPage() {
             Define your first dataset in 30 seconds.
           </h2>
           <p className="mx-auto mt-3.5 max-w-[560px] text-body text-pretty text-text-muted">
-            Start open source in your own backend. Move to hypequery cloud when you want it hosted.
+            Start open source in your own backend. A hosted option, hypequery cloud, is coming soon.
           </p>
           <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
             <Link
-              href="/docs/quick-start"
+              href="/docs"
               data-umami-event="cta_click"
-              data-umami-event-target="docs_quick_start"
+              data-umami-event-target="docs_home"
               data-umami-event-location="footer_primary"
               className={marketing.primaryButton}
             >

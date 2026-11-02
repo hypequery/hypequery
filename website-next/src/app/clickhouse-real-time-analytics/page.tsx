@@ -36,12 +36,12 @@ const db = createQueryBuilder<Schema>({
 export async function getLiveMetrics(tenantId: string) {
   return db
     .table('events')
-    .select(
+    .select([
       'count() as events_last_5m',
       'uniq(user_id) as active_users',
       'uniq(session_id) as active_sessions',
       'avg(response_time_ms) as avg_latency',
-    )
+    ])
     .where('tenant_id', 'eq', tenantId)
     .where('created_at', 'gte', minutesAgo(5))
     .execute();
@@ -51,11 +51,11 @@ export async function getLiveMetrics(tenantId: string) {
 export async function getEventRate(tenantId: string, windowMinutes = 30) {
   return db
     .table('events')
-    .select(
+    .select([
       'toStartOfMinute(created_at) as minute',
       'count() as events',
       'uniq(user_id) as users',
-    )
+    ])
     .where('tenant_id', 'eq', tenantId)
     .where('created_at', 'gte', minutesAgo(windowMinutes))
     .groupBy('minute')

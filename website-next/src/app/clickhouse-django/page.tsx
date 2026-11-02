@@ -56,7 +56,6 @@ from celery import shared_task
 from hypequery.contrib.django import get_client
 from hypequery.datasets import tenant
 
-
 @shared_task
 def monthly_report(organization_id):
     # The same definitions and process-wide client the views use;
@@ -145,6 +144,7 @@ export default function ClickHouseDjangoPage() {
         { href: '/docs/python/dataframes', title: 'pandas, Polars and Arrow', description: 'Typed DataFrames for reports and exports.' },
       ]}
       relatedPillars={[
+        { href: '/clickhouse-sqlalchemy', label: 'ClickHouse SQLAlchemy' },
         { href: '/clickhouse-python', label: 'ClickHouse with Python' },
         { href: '/clickhouse-flask', label: 'ClickHouse with Flask' },
         { href: '/clickhouse-python-multi-tenant', label: 'Python multi-tenancy' },

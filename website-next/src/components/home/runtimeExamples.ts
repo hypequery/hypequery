@@ -13,11 +13,14 @@ export type RuntimeExample = {
   detail: string;
   language: RuntimeLanguage;
   code: string;
+  /** Where to read more: the framework's guide page, or its docs page when there is no guide. */
+  guide: { href: string; label: string };
 };
 
 export const RUNTIME_EXAMPLES: RuntimeExample[] = [
   {
     id: 'nextjs',
+    guide: { href: '/clickhouse-nextjs', label: 'ClickHouse with Next.js' },
     name: 'Next.js',
     detail: 'Route handler',
     language: 'typescript',
@@ -34,6 +37,7 @@ export const OPTIONS = handler;`,
   },
   {
     id: 'react-router',
+    guide: { href: '/docs/fetch', label: 'Fetch handler docs' },
     name: 'React Router',
     detail: 'Resource route',
     language: 'typescript',
@@ -48,6 +52,7 @@ export const action = ({ request }: { request: Request }) => handler(request);`,
   },
   {
     id: 'sveltekit',
+    guide: { href: '/docs/fetch', label: 'Fetch handler docs' },
     name: 'SvelteKit',
     detail: 'Server route',
     language: 'typescript',
@@ -63,6 +68,7 @@ export const fallback: RequestHandler = ({ request }) => handler(request);`,
   },
   {
     id: 'express',
+    guide: { href: '/clickhouse-express', label: 'ClickHouse with Express' },
     name: 'Express',
     detail: 'Beside your routes',
     language: 'typescript',
@@ -83,6 +89,7 @@ app.listen(3000);`,
   },
   {
     id: 'fastify',
+    guide: { href: '/docs/nodejs', label: 'Node.js handler docs' },
     name: 'Fastify',
     detail: 'Encapsulated plugin',
     language: 'typescript',
@@ -108,6 +115,7 @@ await app.listen({ port: 3000 });`,
   },
   {
     id: 'hono',
+    guide: { href: '/clickhouse-hono', label: 'ClickHouse with Hono' },
     name: 'Hono',
     detail: 'Catch-all route',
     language: 'typescript',
@@ -125,6 +133,7 @@ export default app;`,
   },
   {
     id: 'workers',
+    guide: { href: '/docs/fetch', label: 'Fetch handler docs' },
     name: 'Cloudflare Workers',
     detail: 'Fetch handler',
     language: 'typescript',
@@ -138,6 +147,7 @@ export default {
   },
   {
     id: 'bun-deno',
+    guide: { href: '/docs/fetch', label: 'Fetch handler docs' },
     name: 'Bun and Deno',
     detail: 'Built-in servers',
     language: 'typescript',
@@ -154,6 +164,7 @@ Deno.serve({ port: 3000 }, handler);`,
   },
   {
     id: 'node-jobs',
+    guide: { href: '/clickhouse-nodejs', label: 'ClickHouse with Node.js' },
     name: 'Node jobs',
     detail: 'In-process, no HTTP',
     language: 'typescript',
@@ -172,6 +183,7 @@ const { data } = await analytics.execute(
   },
   {
     id: 'fastapi',
+    guide: { href: '/clickhouse-fastapi', label: 'ClickHouse with FastAPI' },
     name: 'FastAPI',
     detail: 'Mounted ASGI app',
     language: 'python',
@@ -193,6 +205,7 @@ app.mount("/api/analytics", to_asgi_app(api))`,
   },
   {
     id: 'django',
+    guide: { href: '/clickhouse-django', label: 'ClickHouse with Django' },
     name: 'Django',
     detail: 'URLconf, sync or async',
     language: 'python',
@@ -211,6 +224,7 @@ urlpatterns = [
   },
   {
     id: 'flask',
+    guide: { href: '/clickhouse-flask', label: 'ClickHouse with Flask' },
     name: 'Flask',
     detail: 'Blueprint',
     language: 'python',
@@ -232,6 +246,7 @@ app.register_blueprint(blueprint(api), url_prefix="/api/analytics")`,
   },
   {
     id: 'starlette',
+    guide: { href: '/docs/python/serving', label: 'Serving docs' },
     name: 'Starlette',
     detail: 'Mount',
     language: 'python',
@@ -249,6 +264,7 @@ app = Starlette(routes=[
   },
   {
     id: 'servers',
+    guide: { href: '/docs/python/production', label: 'Production docs' },
     name: 'Uvicorn, Gunicorn',
     detail: 'Any ASGI or WSGI server',
     language: 'python',
@@ -262,6 +278,7 @@ wsgi = to_wsgi_app(api)  # gunicorn analytics.server:wsgi`,
   },
   {
     id: 'notebooks',
+    guide: { href: '/clickhouse-pandas', label: 'ClickHouse with pandas' },
     name: 'Notebooks and jobs',
     detail: 'Straight into pandas',
     language: 'python',

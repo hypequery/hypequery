@@ -31,12 +31,13 @@ const honoRouteCode = `import { Hono } from 'hono';
 import { zValidator } from '@hono/zod-validator';
 import { z } from 'zod';
 import { db } from '@/lib/clickhouse';
+import { verifyJwt } from './auth'; // your JWT verification
 
 const app = new Hono<{ Variables: { tenantId: string } }>();
 
-// Auth middleware — extract tenant from JWT or header
+// Auth middleware: the tenant comes from the verified token, never the request
 app.use('/analytics/*', async (c, next) => {
-  const tenantId = c.req.header('x-tenant-id') ?? '';
+  const { tenantId } = await verifyJwt(c.req.header('authorization'));
   c.set('tenantId', tenantId);
   await next();
 });
@@ -74,7 +75,8 @@ import { zValidator } from '@hono/zod-validator';
 import { z } from 'zod';
 import { db } from '@/lib/clickhouse';
 
-const analyticsRoutes = new Hono()
+// The auth middleware sets tenantId from the verified token
+const analyticsRoutes = new Hono<{ Variables: { tenantId: string } }>()
   .get(
     '/active-users',
     zValidator(
@@ -83,7 +85,7 @@ const analyticsRoutes = new Hono()
     ),
     async (c) => {
       const { windowDays } = c.req.valid('query');
-      const tenantId = c.req.header('x-tenant-id') ?? '';
+      const tenantId = c.get('tenantId');
       const start = new Date(Date.now() - windowDays * 86_400_000)
         .toISOString()
         .replace('T', ' ')
@@ -91,10 +93,7 @@ const analyticsRoutes = new Hono()
 
       const rows = await db
         .table('events')
-        .select([
-          'toStartOfDay(timestamp) as day',
-          'uniq(user_id) as users',
-        ])
+        .select(['toStartOfDay(timestamp) as day', 'uniq(user_id) as users'])
         .where('tenant_id', 'eq', tenantId)
         .where('timestamp', 'gte', start)
         .groupBy(['day'])
@@ -108,7 +107,7 @@ const analyticsRoutes = new Hono()
     zValidator('query', z.object({ limit: z.coerce.number().default(10) })),
     async (c) => {
       const { limit } = c.req.valid('query');
-      const tenantId = c.req.header('x-tenant-id') ?? '';
+      const tenantId = c.get('tenantId');
 
       const rows = await db
         .table('events')

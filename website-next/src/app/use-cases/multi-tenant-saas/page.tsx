@@ -22,19 +22,16 @@ export const metadata: Metadata = {
   },
 };
 
-const authCode = `import { createApiKeyStrategy, createAuthSystem } from '@hypequery/serve';
+const authCode = `import { createApiKeyStrategy } from '@hypequery/serve';
 
-const { useAuth, TypedAuth } = createAuthSystem({
-  defaultAuth: { authenticated: false },
-});
+type AppAuth = { tenantId: 'acme' | 'globex'; roles: string[] };
 
-type AppAuth = typeof TypedAuth & { tenantId?: 'acme' | 'globex' };
-
+// Each API key maps to exactly one tenant; unknown keys get a 401
 export const authStrategy = createApiKeyStrategy<AppAuth>({
   validate: (key) => {
-    if (key === 'acme-key') return { authenticated: true, tenantId: 'acme', roles: ['admin'] };
-    if (key === 'globex-key') return { authenticated: true, tenantId: 'globex', roles: ['viewer'] };
-    return { authenticated: false };
+    if (key === 'acme-key') return { tenantId: 'acme', roles: ['admin'] };
+    if (key === 'globex-key') return { tenantId: 'globex', roles: ['viewer'] };
+    return null;
   },
 });`;
 

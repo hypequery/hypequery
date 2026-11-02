@@ -143,10 +143,10 @@ class RedisCacheProvider implements CacheProvider<string> {
 
   async get(key: string) {
     const raw = await this.client.get(key);
-    return raw ? (JSON.parse(raw) as CacheEntry) : null;
+    return raw ? (JSON.parse(raw) as CacheEntry<string>) : null;
   }
 
-  async set(key: string, entry: CacheEntry) {
+  async set(key: string, entry: CacheEntry<string>) {
     await this.client.set(key, JSON.stringify(entry), 'PX', entry.cacheTimeMs ?? entry.ttlMs);
   }
 

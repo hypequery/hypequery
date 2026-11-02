@@ -12,55 +12,54 @@ That creates a few predictable problems:
 - the same metric gets reimplemented in slightly different ways
 - changes require updating SQL in multiple places
 - there is no single source of truth for analytics logic
-- type safety usually stops at the application boundary and does not extend into analytics queries
+- tenant filters are repeated by hand in every query, and one missing `WHERE` leaks a customer's data
 - analytics definitions are harder to review, version, and evolve with confidence
 
-Semantic layers try to solve this, but often introduce a new system to learn, deploy, and keep in sync with your application.
+Semantic layers try to solve this, but often introduce a new system to learn, deploy, and keep in sync with your
+application.
 
 ## The idea
 
-hypequery takes a different approach:
+hypequery takes a different approach: analytics should live in your application code. Not in a separate platform, not
+in YAML configs, not in dashboards.
 
-analytics should live in your application code.
-
-Not in a separate platform. Not in YAML configs. Not in dashboards.
-
-If your backend is TypeScript, your analytics layer should be too.
+Your analytics layer should be written in the language your backend already uses, reviewed in the same pull requests,
+and deployed with the same app.
 
 ## What hypequery is
 
-hypequery is a ClickHouse-first, TypeScript-native semantic layer that runs inside your application.
-
-It starts as a typed query builder and scales into reusable query definitions and optional runtime delivery — without forcing you into a separate system.
+hypequery is an open-source, ClickHouse-first semantic layer that runs inside your application, with SDKs for
+TypeScript and Python.
 
 With hypequery, you can:
 
-build typed ClickHouse queries directly in your codebase
-define reusable metrics and dimensions as stable contracts
-expose those contracts via APIs, docs, and auth — only when needed
+- define datasets once: dimensions, measures, relationships, time grains, and tenant rules
+- query them by name from jobs, reports, notebooks, and your own routes
+- serve them as authenticated HTTP endpoints with OpenAPI, mounted in the framework you already run
+- connect typed React hooks for dashboards and an MCP server for AI agents to those endpoints
 
-All without introducing another service to deploy or maintain.
+All without introducing another service to deploy or maintain. TypeScript and Python implement the same
+specifications, so a team can define datasets in either language and use the same React hooks and MCP tools.
 
-What hypequery is not
+## What hypequery is not
 
 hypequery is intentionally narrow in scope:
 
-not an ORM
-not a generic multi-database abstraction
-not a hosted platform
-
-It is designed specifically for ClickHouse analytics in TypeScript applications.
+- not an ORM
+- not a generic multi-database abstraction
+- not a BI tool or a GUI-based semantic layer
+- not a separate server you have to run (a hosted option, [hypequery cloud](/docs/cloud), is planned but not live yet)
 
 ## When hypequery fits well
 
 Use hypequery when:
 
 - your analytics database is ClickHouse
-- your application code is in TypeScript
-- analytics queries need to live in more than one place
-- you want stronger type safety around query construction and query interfaces
+- your backend is TypeScript or Python
+- analytics queries need to live in more than one place: dashboards, APIs, jobs, or agents
+- you serve analytics to customers and need tenant isolation you can trust
 - you want analytics logic in normal version-controlled application code
-- you want HTTP exposure, docs, or runtime features to stay optional
+- you want HTTP exposure, React hooks, or MCP tools to stay optional
 
 ## When hypequery is a poor fit
 
@@ -69,34 +68,33 @@ hypequery is probably the wrong tool when:
 - you do not use ClickHouse
 - you only need ad hoc SQL exploration
 - you want a GUI-based semantic layer instead of code
-- you need a managed hosted analytics platform
+- you need a managed hosted analytics platform today
 
 ## How it compares
 
 ### Versus direct SQL
 
-hypequery is a better fit when the same query needs reuse, type safety, reviewability, and a stable interface.
+hypequery is a better fit when the same query needs reuse, tenant scoping, reviewability, and a stable interface.
 
 Raw SQL is still fine for one-off exploration or very local query logic.
 
-### Versus generic query builders
+### Versus database drivers and query builders
 
-Generic query builders are better for broad CRUD and multi-database work.
+Drivers such as `@clickhouse/client` and `clickhouse-connect`, and generic query builders, are better for ad hoc
+queries, CRUD, and multi-database work.
 
-hypequery is better when the problem is specifically ClickHouse analytics and you want ClickHouse-first behavior rather than a lowest-common-denominator abstraction.
+hypequery is better when the problem is shared analytics meaning on ClickHouse: named measures, tenant rules, and one
+definition that every consumer queries. In TypeScript it also includes a type-safe ClickHouse query builder for local
+queries.
 
 ### Versus semantic layers
 
-Semantic layers are a better fit when you need a broader cross-tool or cross-database platform.
+Standalone semantic layers are a better fit when you need a broad cross-tool or cross-database platform.
 
-hypequery is a better fit when you want application-embedded analytics in TypeScript without adopting a separate config-heavy system.
+hypequery is a better fit when you want the semantic layer embedded in your application, in TypeScript or Python,
+without adopting a separate config-heavy system.
 
-## The core idea
+## Next steps
 
-hypequery keeps analytics close to application code:
-
-- define queries in TypeScript
-- reuse them where they matter
-- add runtime delivery only when you actually need it
-
-Read [Core Concepts](/docs/core-concepts) for the builder, reusable query definition, and runtime layers.
+- [Core concepts](/docs/core-concepts): datasets, serving, and clients, and how they relate.
+- Start in [TypeScript](/docs/quick-start) or [Python](/docs/python/quick-start).

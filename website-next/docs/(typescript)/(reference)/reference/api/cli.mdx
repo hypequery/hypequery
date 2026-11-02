@@ -102,7 +102,7 @@ global flag still take precedence.
 
 The first matching setting wins: `--no-telemetry`, `DO_NOT_TRACK=1`,
 `HYPEQUERY_TELEMETRY_DISABLED=1`, test environments (`VITEST` or `NODE_ENV=test`)
-and Hypequery's own GitHub Actions CI, then the saved preference. The default
+and hypequery's own GitHub Actions CI, then the saved preference. The default
 preference is enabled, including in customer CI. Unavailable or corrupt settings
 disable telemetry for that invocation. An explicit `enable` or `disable` can repair
 corrupt settings; a failed save reports an error and the temporary opt-out options.

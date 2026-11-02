@@ -1,6 +1,6 @@
 ---
 title: Configuration
-description: Configure the Hypequery MCP server with datasets and a dataset client.
+description: Configure the hypequery MCP server with datasets and a dataset client.
 ---
 
 import { Callout } from 'fumadocs-ui/components/callout';
@@ -90,5 +90,5 @@ measures: {
 Use an absolute path when configuring desktop clients. Relative paths depend on the client's launch directory and are a common source of connection failures.
 
 <Callout type="warn">
-  MCP stdio uses stdout for protocol messages. The Hypequery MCP CLI redirects `console.log`, `console.info`, and `console.debug` to stderr so config logs do not corrupt the MCP stream.
+  MCP stdio uses stdout for protocol messages. The hypequery MCP CLI redirects `console.log`, `console.info`, and `console.debug` to stderr so config logs do not corrupt the MCP stream.
 </Callout>

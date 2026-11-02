@@ -27,8 +27,7 @@ const setupCode = `import { createQueryBuilder } from '@hypequery/clickhouse';
 import type { DB } from './schema'; // generated from your ClickHouse schema
 
 const db = createQueryBuilder<DB>({
-  host: process.env.CLICKHOUSE_HOST!,
-  port: 8123,
+  url: process.env.CLICKHOUSE_URL!, // e.g. http://localhost:8123
   username: process.env.CLICKHOUSE_USER!,
   password: process.env.CLICKHOUSE_PASSWORD!,
   database: 'analytics',
@@ -43,7 +42,7 @@ import { z } from 'zod';
 const app = express();
 
 const { query, serve } = initServe({
-  context: (req) => ({ db, userId: req.user?.id }),
+  context: () => ({ db }),
 });
 
 const pageViews = query({

@@ -42,11 +42,7 @@ orders = Dataset(
 )`;
 
 const queryCode = `from hypequery.datasets import (
-    DatasetQuery,
-    ExecutionContext,
-    create_dataset_client,
-    filter,
-    tenant,
+    DatasetQuery, ExecutionContext, create_dataset_client, filter, tenant,
 )
 from hypequery.execution import (
     ClickHouseConnection,
@@ -158,6 +154,16 @@ export default function ClickHousePythonPage() {
         },
       ]}
       readingLinks={[
+        {
+          href: '/fastapi-react-analytics',
+          title: 'FastAPI and React analytics',
+          description: 'Typed React hooks on the endpoints your Python app serves.',
+        },
+        {
+          href: '/compare/hypequery-vs-clickhouse-connect',
+          title: 'hypequery vs clickhouse-connect',
+          description: 'When to keep the driver for ad hoc SQL, and when shared datasets earn their place.',
+        },
         {
           href: '/clickhouse-fastapi',
           title: 'ClickHouse FastAPI',

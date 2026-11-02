@@ -39,18 +39,13 @@ orders = Dataset(
 
 const serveCode = `from hypequery.datasets import tenant
 from hypequery.serve import (
-    EndpointPolicy,
-    HttpSecurity,
-    Principal,
-    add_dataset_endpoint,
+    EndpointPolicy, HttpSecurity, Principal, add_dataset_endpoint,
     create_api,
 )
-
 
 def resolve_tenant(principal: Principal):
     org_id = lookup_org(principal.subject)  # your code
     return tenant(org_id) if org_id else None
-
 
 api = create_api(
     auth=authenticate,

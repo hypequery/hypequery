@@ -44,7 +44,7 @@ const db = createQueryBuilder<DB>({ host: process.env.CLICKHOUSE_HOST });
 // fully typed — autocomplete on table names, column names, and return values
 const orders = await db
   .table('orders')
-  .select('id', 'total', 'created_at')
+  .select(['id', 'total', 'created_at'])
   .where('tenant_id', 'eq', tenantId)
   .where('status', 'eq', 'completed')
   .orderBy('created_at', 'DESC')
@@ -170,6 +170,7 @@ export default function ClickHouseOrmPage() {
         },
       ]}
       relatedPillars={[
+        { href: '/clickhouse-sqlalchemy', label: 'ClickHouse SQLAlchemy' },
         { href: '/clickhouse-typescript', label: 'ClickHouse TypeScript' },
         { href: '/clickhouse-query-builder', label: 'ClickHouse Query Builder' },
         { href: '/clickhouse-schema', label: 'ClickHouse Schema' },

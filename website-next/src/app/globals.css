@@ -676,3 +676,14 @@ html[data-theme="dark"] .static-code .shiki, html[data-theme="dark"] .static-cod
 @media (prefers-reduced-motion: reduce) {
   .mascot-blinking-eyes { animation: none; }
 }
+
+/* Docs tables wider than the column (on phones, most of them) scroll sideways instead of
+   clipping their right-hand columns. Overflow only applies to block boxes, so narrow
+   screens lay the table out as a block; wider screens keep the normal table layout. */
+@media (max-width: 767px) {
+  .prose table {
+    display: block;
+    max-width: 100%;
+    overflow-x: auto;
+  }
+}

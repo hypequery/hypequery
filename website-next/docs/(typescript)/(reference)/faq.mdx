@@ -11,11 +11,15 @@ import { Accordion, Accordions } from 'fumadocs-ui/components/accordion';
 
 <Accordions type="single">
   <Accordion title="What is hypequery?">
-    hypequery is a code-first analytics layer for ClickHouse. It gives TypeScript teams a typed query builder, reusable query definitions, and an optional serve runtime for HTTP, docs, and framework handlers.
+    hypequery is an open-source analytics layer for ClickHouse that runs inside your application. You define datasets (dimensions, measures, relationships, and tenant rules) once in code, then query them by name, serve them over HTTP, and connect React dashboards and AI agents to them. See the [docs home](/docs).
+  </Accordion>
+
+  <Accordion title="Which languages does hypequery support?">
+    TypeScript and Python. The TypeScript SDK is stable and also includes a type-safe query builder. The [Python SDK](/docs/python) is in beta: it covers datasets, Serve for FastAPI, Django, Flask, and any ASGI or WSGI server, and the CLI. Both implement the same specifications, so the same React hooks and MCP server work against either.
   </Accordion>
 
   <Accordion title="Is hypequery production-ready?">
-    Yes. hypequery is used in production environments for typed, reusable analytics queries.
+    The TypeScript packages are used in production. The Python SDK is in beta (0.1.0b1): its APIs may still change before 1.0, so pin the version you deploy.
   </Accordion>
 
   <Accordion title="What databases does hypequery support?">
@@ -23,7 +27,11 @@ import { Accordion, Accordions } from 'fumadocs-ui/components/accordion';
   </Accordion>
 
   <Accordion title="Is hypequery open source?">
-    Yes. hypequery is open source and available on GitHub.
+    Yes. hypequery is open source under Apache 2.0 and available on [GitHub](https://github.com/hypequery/hypequery).
+  </Accordion>
+
+  <Accordion title="Is there a hosted version?">
+    Not yet. [hypequery cloud](/docs/cloud), a hosted option that serves your datasets as REST and MCP endpoints, is planned but not live. You can join the waitlist from the homepage. Today, hypequery runs in your own backend.
   </Accordion>
 </Accordions>
 
@@ -35,7 +43,7 @@ import { Accordion, Accordions } from 'fumadocs-ui/components/accordion';
   </Accordion>
 
   <Accordion title="How do I handle mutations (INSERT/UPDATE/DELETE)?">
-    hypequery is optimized for analytics workloads. For mutations, use `rawQuery()`.
+    Inserts have a type-safe API: row shapes come from your schema and are checked at compile time. See [Inserts](/docs/query-building/inserts). hypequery is built for analytics, so for `UPDATE` and `DELETE` (ClickHouse mutations) use `rawQuery()`.
   </Accordion>
 
   <Accordion title="Does hypequery support ClickHouse materialized views?">
@@ -55,7 +63,7 @@ import { Accordion, Accordions } from 'fumadocs-ui/components/accordion';
   </Accordion>
 
   <Accordion title="Can I use React hooks without serve?">
-    No. React hooks require the serve runtime because they target HTTP routes generated from your API surface.
+    No. React hooks call HTTP endpoints, so they need a served API. That API can be TypeScript (`@hypequery/serve`) or Python (`hypequery.serve`); see [React with a Python backend](/docs/react/getting-started#datasets-served-from-python).
   </Accordion>
 
   <Accordion title="Do React hooks work with Next.js?">
@@ -79,7 +87,7 @@ import { Accordion, Accordions } from 'fumadocs-ui/components/accordion';
 
 <Accordions type="single">
   <Accordion title="Where can I deploy hypequery?">
-    Anywhere Node.js runs, including serverless platforms, containers, traditional servers, and compatible edge runtimes.
+    The TypeScript SDK runs anywhere Node.js runs, including serverless platforms, containers, traditional servers, and compatible edge runtimes such as Bun, Deno, and Cloudflare Workers. The Python SDK runs in any ASGI or WSGI server, or inside Django, Flask, or FastAPI.
   </Accordion>
 
   <Accordion title="Do I need to run the hypequery dev server in production?">

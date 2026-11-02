@@ -21,9 +21,7 @@ export const metadata: Metadata = {
 };
 
 const serveCode = `from hypequery.serve import (
-    EndpointPolicy,
-    add_client_contract_endpoint,
-    add_dataset_endpoint,
+    EndpointPolicy, add_client_contract_endpoint, add_dataset_endpoint,
     create_api,
 )
 

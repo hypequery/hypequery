@@ -23,13 +23,7 @@ export const metadata: Metadata = {
   },
 };
 
-const modelCode = `from hypequery.datasets import (
-    Dataset,
-    belongs_to,
-    dimension,
-    filter,
-    measure,
-)
+const modelCode = `from hypequery.datasets import Dataset, belongs_to, dimension, filter, measure
 
 customers = Dataset(
     name="customers",
@@ -55,20 +49,16 @@ orders = Dataset(
     relationships={
         "customer": belongs_to(
             customers, from_field="customer_id", to_field="id"
-        ),
+        )
     },
 )`;
 
 const useCode = `from hypequery.datasets import (
-    DatasetQuery,
-    create_dataset_client,
-    create_dataset_registry,
-    tenant,
+    DatasetQuery, create_dataset_client, create_dataset_registry, tenant,
 )
 
 analytics = create_dataset_client(
-    executor=executor,
-    registry=create_dataset_registry(orders, customers),
+    executor=executor, registry=create_dataset_registry(orders, customers)
 )
 
 # In a request handler: bind to the caller's tenant first.
@@ -169,6 +159,11 @@ export default function PythonSemanticLayerPage() {
       ]}
       readingLinks={[
         {
+          href: '/compare/hypequery-vs-clickhouse-connect',
+          title: 'hypequery vs clickhouse-connect',
+          description: 'When to keep the driver for ad hoc SQL, and when shared datasets earn their place.',
+        },
+        {
           href: '/docs/python/datasets/defining-datasets',
           title: 'Defining datasets',
           description: 'The Python dataset model and its fields.',
@@ -195,6 +190,8 @@ export default function PythonSemanticLayerPage() {
         },
       ]}
       relatedPillars={[
+        { href: '/clickhouse-flask', label: 'ClickHouse Flask' },
+        { href: '/clickhouse-django', label: 'ClickHouse Django' },
         { href: '/clickhouse-python', label: 'ClickHouse Python' },
         { href: '/clickhouse-fastapi', label: 'ClickHouse FastAPI' },
         { href: '/clickhouse-semantic-layer', label: 'ClickHouse semantic layer' },

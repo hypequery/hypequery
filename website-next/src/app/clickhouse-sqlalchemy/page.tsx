@@ -49,8 +49,7 @@ engine = create_engine("clickhousedb://user:password@host:8123/analytics")
 # hypequery opens its own HTTP clients for the engine's server;
 # it never borrows a connection from the engine's pool.
 analytics = create_dataset_client(
-    executor=executor_from_engine(engine),
-    registry=registry,
+    executor=executor_from_engine(engine), registry=registry
 )`;
 
 export default function ClickHouseSqlAlchemyPage() {

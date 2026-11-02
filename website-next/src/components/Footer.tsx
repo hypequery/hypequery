@@ -15,7 +15,7 @@ const footerColumns: Array<{ title: string; links: FooterLink[] }> = [
     links: [
       { label: 'Home', href: '/' },
       { label: 'Docs', href: '/docs' },
-      { label: 'Quick Start', href: '/docs/quick-start' },
+      { label: 'Python SDK', href: '/docs/python' },
       { label: 'Query builder', href: '/clickhouse-query-builder' },
       { label: 'Semantic Layer', href: '/clickhouse-semantic-layer' },
       { label: 'Schema Types', href: '/clickhouse-schema' },
@@ -32,8 +32,8 @@ const footerColumns: Array<{ title: string; links: FooterLink[] }> = [
       { label: 'ClickHouse Python', href: '/clickhouse-python' },
       { label: 'ClickHouse FastAPI', href: '/clickhouse-fastapi' },
       { label: 'ClickHouse Django', href: '/clickhouse-django' },
+      { label: 'ClickHouse Flask', href: '/clickhouse-flask' },
       { label: 'ClickHouse MCP', href: '/clickhouse-mcp' },
-      { label: 'GitHub', href: 'https://github.com/hypequery/hypequery', external: true },
     ],
   },
   {

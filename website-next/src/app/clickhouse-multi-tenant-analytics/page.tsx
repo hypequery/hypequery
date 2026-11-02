@@ -136,6 +136,11 @@ export default function ClickHouseMultiTenantAnalyticsPage() {
       ]}
       readingLinks={[
         {
+          href: '/clickhouse-python-multi-tenant',
+          title: 'Multi-tenant analytics in Python',
+          description: 'The same tenant isolation for a Django, Flask, or FastAPI backend.',
+        },
+        {
           href: '/docs/multi-tenancy',
           title: 'Multi-tenancy documentation',
           description: 'The detailed configuration guide for tenant extraction and auto-injection.',
@@ -161,6 +166,7 @@ export default function ClickHouseMultiTenantAnalyticsPage() {
         { href: '/clickhouse-nextjs', label: 'ClickHouse Next.js' },
         { href: '/clickhouse-react', label: 'ClickHouse React' },
         { href: '/clickhouse-typescript', label: 'ClickHouse TypeScript' },
+        { href: '/clickhouse-python', label: 'ClickHouse Python' },
       ]}
       nextStep={{
         eyebrow: 'Next step',

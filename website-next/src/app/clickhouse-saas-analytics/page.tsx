@@ -3,15 +3,15 @@ import { ClickhousePillarPage } from '@/components/clickhouse-pillar-page';
 import { absoluteUrl, ogImage } from '@/lib/site';
 
 export const metadata: Metadata = {
-  title: 'ClickHouse SaaS Analytics — Multi-Tenant TypeScript Layer',
+  title: 'ClickHouse SaaS Analytics — A Multi-Tenant Analytics Layer',
   description:
     'Build customer-facing ClickHouse analytics with tenant-scoped query definitions, typed APIs, and dashboard delivery that does not fork per surface.',
   alternates: { canonical: absoluteUrl('/clickhouse-saas-analytics') },
   openGraph: {
-    images: ogImage('ClickHouse SaaS Analytics — Multi-Tenant TypeScript Layer'),
+    images: ogImage('ClickHouse SaaS Analytics — A Multi-Tenant Analytics Layer'),
     type: 'website',
     url: absoluteUrl('/clickhouse-saas-analytics'),
-    title: 'ClickHouse SaaS Analytics — Multi-Tenant TypeScript Layer | hypequery',
+    title: 'ClickHouse SaaS Analytics — A Multi-Tenant Analytics Layer | hypequery',
     description:
       'Embed customer-facing analytics in your SaaS product. hypequery wraps ClickHouse with tenant isolation, typed REST APIs, and React hooks.',
   },
@@ -24,28 +24,32 @@ export const metadata: Metadata = {
 };
 
 const tenantCode = `import { initServe } from '@hypequery/serve';
+import { verifyAuth } from './auth'; // your JWT or API key check
 
 const { query, serve } = initServe({
-  // inject tenant from JWT or API key on every request
-  context: (req) => ({
-    db,
-    tenantId: verifyJwt(req.headers.authorization).tenantId,
-  }),
+  context: () => ({ db }),
 });
 
 const usageDashboard = query({
   query: async ({ ctx }) =>
     ctx.db
       .table('events')
-      // part of the default query path
-      .where('tenant_id', 'eq', ctx.tenantId)
       .groupBy(['event_name', 'date'])
       .count('id', 'total')
       .orderBy('date', 'DESC')
       .execute(),
 });
 
-const app = serve({ queries: { usageDashboard } });`;
+export const api = serve({
+  // The tenant comes from the verified token, and every query is scoped to it
+  auth: verifyAuth,
+  tenant: {
+    extract: (auth) => auth.tenantId,
+    column: 'tenant_id',
+    mode: 'auto-inject',
+  },
+  queries: { usageDashboard },
+});`;
 
 const reactCode = `import { createHooks } from '@hypequery/react';
 import { InferApiType } from '@hypequery/serve';
@@ -153,6 +157,11 @@ export default function ClickHouseSaasAnalyticsPage() {
         },
       ]}
       readingLinks={[
+        {
+          href: '/clickhouse-python-multi-tenant',
+          title: 'Multi-tenant analytics in Python',
+          description: 'The same tenant-scoped datasets, served from a Python backend.',
+        },
         {
           href: '/clickhouse-multi-tenant-analytics',
           title: 'ClickHouse multi-tenant analytics',

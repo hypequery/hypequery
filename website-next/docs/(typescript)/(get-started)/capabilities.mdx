@@ -1,14 +1,14 @@
 ---
-title: What hypequery supports today
+title: What the TypeScript SDK supports today
 description: Current capability matrix for the ClickHouse TypeScript query builder, semantic datasets, Serve APIs, React hooks, and MCP tools.
 ---
 
 import { Callout } from 'fumadocs-ui/components/callout';
 import { CodeBlock } from 'fumadocs-ui/components/codeblock';
 
-# What hypequery supports today
+# What the TypeScript SDK supports today
 
-This page records the shipped surface of hypequery as of **21 August 2026**. It is a capability matrix, not a roadmap: “native” means a public typed method exists, “expression” means the feature is supported through an explicit SQL expression inside an otherwise typed query, and “semantic” means it can be declared and executed through `@hypequery/datasets`.
+This page records the shipped surface of the TypeScript packages; the [changelog](/docs/changelog) lists what changed since. For Python, see [Python feature status](/docs/python/feature-status). It is a capability matrix, not a roadmap: “native” means a public typed method exists, “expression” means the feature is supported through an explicit SQL expression inside an otherwise typed query, and “semantic” means it can be declared and executed through `@hypequery/datasets`.
 
 <Callout type="info" title="Short version">
   `argMax`, `argMin`, percentiles, median, standard deviation, variance, `final()`, `limitBy()`, array joins, `PREWHERE`, CTEs, and window expressions are supported today. The tables below show the exact public syntax.
@@ -146,11 +146,17 @@ const statistics = await db
 | Named measures and base metrics | Shipped |
 | Derived metric formulas | Shipped |
 | Measure-level filters | Shipped |
-| Minute, hour, day, week, month, quarter, and year grains | Shipped |
+| Window measures: running totals (`cumulative`) and trailing windows (`trailing`) | Shipped |
+| Period comparisons (`shift`) and period-to-date (`toDate`) | Shipped |
+| Approximate distinct counts and pre-aggregated state merges (`approxCountDistinct`, `merge`) | Shipped |
+| Named segments | Shipped |
+| Filters on dimensions or on declared filters with operator allowlists, including `isNull` and `isNotNull` | Shipped |
+| Minute, hour, day, week, month, quarter, and year grains, with a query timezone | Shipped |
 | Runtime tenant isolation with fail-closed scope | Shipped |
 | Dataset queries with selected dimensions and measures | Shipped |
 | Metric queries with dimensions, filters, order, limit, and offset | Shipped |
-| One-hop `belongsTo` / `hasOne` dimension traversal | Shipped |
+| One-hop `belongsTo` / `hasOne` traversal for related dimensions and base measures | Shipped |
+| `hasMany` relationships | Metadata only (not traversed, so aggregates never fan out) |
 | Semantic catalogs and stable contracts | Shipped |
 | OpenAI, AI SDK, and MCP tool schema generation | Shipped |
 | Semantic result caching and pagination metadata | Shipped |
@@ -171,6 +177,7 @@ measure.argMax('status', 'createdAt')
 measure.argMin('status', 'createdAt')
 measure.stddev('amount')
 measure.variance('amount')
+measure.approxCountDistinct('customerId')
 ```
 </CodeBlock>
 
@@ -182,9 +189,9 @@ measure.variance('amount')
 
 | Surface | Shipped capabilities |
 | --- | --- |
-| `@hypequery/serve` | In-process execution, HTTP routes, zod validation, OpenAPI, auth, roles/scopes, tenant injection, CORS, rate limiting, observability, Node and Fetch adapters |
-| `@hypequery/react` | Typed named-query hooks, metric hooks, dataset hooks, mutations, infinite queries, route manifests, per-request auth headers, one-time 401 refresh |
-| `@hypequery/mcp` | Dataset discovery, schema introspection, named metric queries, ad hoc dataset queries, generated JSON schemas, host-controlled tenant scope, stdio transport |
+| `@hypequery/serve` | In-process execution, HTTP routes, zod validation, OpenAPI, API key and JWT auth (`createJwtStrategy`), host-session auth (`fromContext`), short-lived analytics tokens, roles/scopes, tenant injection, client contracts, CORS, rate limiting, observability, Node and Fetch adapters |
+| `@hypequery/react` | Typed named-query hooks, metric hooks, dataset hooks, mutations, infinite queries, route manifests, generated clients for TypeScript or Python APIs, per-session clients with `HypequeryProvider`, per-request auth headers, one-time 401 refresh |
+| `@hypequery/mcp` | Dataset discovery, schema introspection, named metric queries, ad hoc dataset queries, generated JSON schemas, host-controlled tenant scope, stdio transport, and a bridge to any served API through its client contract, TypeScript or Python |
 
 ## A complete current dataset
 
@@ -226,4 +233,4 @@ export const Orders = dataset('orders', {
 
 ## Keep this page current
 
-When a public capability is added or renamed, update this matrix in the same pull request as the implementation and package README. Use the [changelog](/docs/changelog) for release-by-release history and the [roadmap](/docs/roadmap) for work that has not shipped.
+When a public capability is added or renamed, update this matrix in the same pull request as the implementation and package README. Use the [changelog](/docs/changelog) for release-by-release history. For the Python SDK, see [Python feature status](/docs/python/feature-status).

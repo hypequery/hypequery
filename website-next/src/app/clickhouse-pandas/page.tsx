@@ -132,6 +132,11 @@ export default function ClickHousePandasPage() {
         { title: 'Polars or Arrow?', copy: '`result.to_polars()` and `result.to_arrow()` use the same column types. Install `hypequery[polars]` or `hypequery[arrow]`.' },
       ]}
       readingLinks={[
+        {
+          href: '/compare/hypequery-vs-clickhouse-connect',
+          title: 'hypequery vs clickhouse-connect',
+          description: 'When to keep the driver for ad hoc SQL, and when shared datasets earn their place.',
+        },
         { href: '/docs/python/dataframes', title: 'pandas, Polars and Arrow', description: 'Column types, timezones, and exact decimals.' },
         { href: '/docs/python/quick-start', title: 'Python quick start', description: 'Install hypequery and define your first dataset.' },
         { href: '/docs/python/datasets/time-grains', title: 'Time grains', description: 'Bucket measures by day, week, or month.' },

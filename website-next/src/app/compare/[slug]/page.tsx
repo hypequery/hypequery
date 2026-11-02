@@ -7,6 +7,7 @@ import PageWrapper from '@/components/PageWrapper';
 import MarkdownContent from '@/components/MarkdownContent';
 import RelatedContent from '@/components/RelatedContent';
 import { getPostBySlug } from '@/lib/blog';
+import { compareLinksFor } from '@/lib/compare-links';
 import { absoluteUrl, ogImage } from '@/lib/site';
 import { compareArticles } from '@/data/compare-articles';
 import { comparePageBySlug, comparePages } from '@/data/compare-pages';
@@ -141,23 +142,7 @@ export default async function ComparePage({
       url: absoluteUrl('/').toString(),
     },
   };
-  const relatedLinks = [
-    {
-      href: '/docs/quick-start',
-      title: 'Quick start',
-      description: 'Move from evaluation to implementation with generated schema types and your first typed query.',
-    },
-    {
-      href: '/clickhouse-typescript',
-      title: 'ClickHouse TypeScript',
-      description: 'The broader workflow for reusable queries, HTTP APIs, and runtime type safety.',
-    },
-    {
-      href: '/compare',
-      title: 'Compare more options',
-      description: 'Return to the comparison hub if you want to evaluate the other path next.',
-    },
-  ];
+  const links = compareLinksFor(comparePage.slug);
 
   return (
     <PageWrapper>
@@ -174,19 +159,19 @@ export default async function ComparePage({
             </p>
 	            <div className="mt-7 flex flex-wrap items-center gap-3">
               <Link
-                href="/docs/quick-start"
+                href={links.primary.href}
                 data-umami-event="cta_click"
-                data-umami-event-target="docs_quick_start"
+                data-umami-event-target={links.primary.target}
                 data-umami-event-location="hero_primary"
                 className={marketing.primaryButton}
               >
-                Start with the quick start
+                {links.primary.label}
               </Link>
               <Link
-                href="/clickhouse-query-builder"
+                href={links.secondary.href}
                 className={marketing.secondaryButton}
               >
-                See the query builder
+                {links.secondary.label}
               </Link>
               <Link
                 href="/compare"
@@ -298,26 +283,26 @@ export default async function ComparePage({
 	              </p>
               <div className="mt-6 flex flex-wrap gap-3">
                 <Link
-                  href="/docs/quick-start"
+                  href={links.primary.href}
                   data-umami-event="cta_click"
-                  data-umami-event-target="docs_quick_start"
+                  data-umami-event-target={links.primary.target}
                   data-umami-event-location="article_body"
                   className={marketing.primaryButton}
                 >
-                  Open quick start
+                  {links.primary.label}
                 </Link>
                 <Link
-                  href="/clickhouse-typescript"
+                  href={links.body.href}
                   className={marketing.secondaryButton}
                 >
-                  ClickHouse TypeScript
+                  {links.body.label}
                 </Link>
               </div>
             </div>
             <RelatedContent
               eyebrow="Related content"
               title="Continue into implementation"
-              links={relatedLinks}
+              links={links.related}
             />
           </div>
         </section>
@@ -339,28 +324,27 @@ export default async function ComparePage({
             <div>
               <p className="font-mono text-xs text-accent">Next step</p>
               <h2 className="mt-3 text-2xl font-normal tracking-[-0.03em] text-text">
-                Move from evaluation into a typed ClickHouse workflow
+                {links.nextStep.title}
               </h2>
               <p className="mt-3 max-w-2xl text-sm leading-6 text-text-muted">
-                Generate schema types, define your first reusable query, and decide whether it should run locally or
-                over HTTP.
+                {links.nextStep.description}
               </p>
             </div>
             <div className="mt-6 flex shrink-0 flex-wrap gap-3 md:mt-0">
               <Link
-                href="/docs/quick-start"
+                href={links.primary.href}
                 data-umami-event="cta_click"
-                data-umami-event-target="docs_quick_start"
+                data-umami-event-target={links.primary.target}
                 data-umami-event-location="next_step_primary"
                 className={marketing.primaryButton}
               >
-                Open quick start
+                {links.primary.label}
               </Link>
               <Link
-                href="/clickhouse-typescript"
+                href={links.body.href}
                 className={marketing.secondaryButton}
               >
-                ClickHouse TypeScript
+                {links.body.label}
               </Link>
             </div>
           </div>

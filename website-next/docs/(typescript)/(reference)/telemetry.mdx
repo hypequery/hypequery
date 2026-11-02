@@ -4,7 +4,7 @@ description: Inspect and control anonymous CLI usage telemetry preferences
 ---
 
 The CLI collects pseudonymous usage telemetry by default and sends it to
-Hypequery's first-party ingest endpoint (`https://hypequery.com/api/telemetry`).
+hypequery's first-party ingest endpoint (`https://hypequery.com/api/telemetry`).
 Events never contain code, SQL, names, paths or credentials; the event reference
 below lists every field. To audit locally, set `HYPEQUERY_TELEMETRY_DEBUG=1`:
 valid event envelopes are printed to stderr and nothing is sent. Set
@@ -23,7 +23,7 @@ environment variables or the global flag.
 
 To disable for one invocation, pass `--no-telemetry` before or after the command,
 or set `DO_NOT_TRACK=1` or `HYPEQUERY_TELEMETRY_DISABLED=1`. These take precedence
-over saved preferences. Test environments and Hypequery's own CI also disable
+over saved preferences. Test environments and hypequery's own CI also disable
 telemetry; customer CI follows the saved preference, which defaults to enabled.
 
 Settings are stored in `telemetry.json` in the CLI config directory. They contain

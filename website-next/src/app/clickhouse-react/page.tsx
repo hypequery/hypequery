@@ -137,6 +137,11 @@ export default function ClickHouseReactPage() {
       ]}
       readingLinks={[
         {
+          href: '/fastapi-react-analytics',
+          title: 'React with a Python backend',
+          description: 'Typed React hooks on datasets served from FastAPI, Django, or Flask.',
+        },
+        {
           href: '/docs/react/getting-started',
           title: 'React getting started',
           description: 'Set up the hook layer and provider wiring.',

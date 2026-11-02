@@ -30,7 +30,7 @@ import type { DB } from './generated-schema';
 
 const rows = await db
   .table('orders')
-  .select('total_revenue', 'order_date')
+  .select(['total_revenue', 'order_date'])
   .where('status', '=', 'completed')
   .where('tenant_id', '=', tenantId)
   .groupBy('order_date')

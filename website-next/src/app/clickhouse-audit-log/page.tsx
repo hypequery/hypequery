@@ -66,7 +66,7 @@ export async function queryAuditLog(opts: {
 }) {
   let q = db
     .table('audit_log')
-    .select(
+    .select([
       'id',
       'actor_id',
       'actor_type',
@@ -76,7 +76,7 @@ export async function queryAuditLog(opts: {
       'ip_address',
       'metadata',
       'created_at',
-    )
+    ])
     .where('tenant_id', 'eq', opts.tenantId)
     .where('created_at', 'gte', opts.startDate)
     .where('created_at', 'lte', opts.endDate);
@@ -97,13 +97,10 @@ const auditApiCode = `// analytics/audit-log-api.ts
 import { initServe } from '@hypequery/serve';
 import { db } from '@/lib/clickhouse';
 import { z } from 'zod';
+import { verifyAuth } from './auth'; // your session or JWT check
 
 const { query, serve } = initServe({
-  // Tenant isolation applied once — every query below is automatically scoped
-  context: (req) => ({
-    db,
-    tenantId: req.headers['x-tenant-id'] as string,
-  }),
+  context: () => ({ db }),
 });
 
 const auditEvents = query({
@@ -119,7 +116,7 @@ const auditEvents = query({
   query: ({ ctx, input }) => {
     let q = ctx.db
       .table('audit_log')
-      .select(
+      .select([
         'id',
         'actor_id',
         'actor_type',
@@ -128,9 +125,8 @@ const auditEvents = query({
         'resource_id',
         'ip_address',
         'created_at',
-      )
+      ])
       // enforced in the shared query path
-      .where('tenant_id', 'eq', ctx.tenantId)
       .where('created_at', 'gte', input.startDate)
       .where('created_at', 'lte', input.endDate);
 
@@ -158,16 +154,24 @@ const auditSummary = query({
   query: ({ ctx, input }) =>
     ctx.db
       .table('audit_log')
-      .select('action', 'actor_type', 'count() as event_count')
-      .where('tenant_id', 'eq', ctx.tenantId)
+      .select(['action', 'actor_type', 'count() as event_count'])
       .where('created_at', 'gte', input.startDate)
       .where('created_at', 'lte', input.endDate)
-      .groupBy('action', 'actor_type')
+      .groupBy(['action', 'actor_type'])
       .orderBy('event_count', 'DESC')
       .execute(),
 });
 
-export const api = serve({ queries: { auditEvents, auditSummary } });
+export const api = serve({
+  // The tenant comes from the verified session, and every query is scoped to it
+  auth: verifyAuth,
+  tenant: {
+    extract: (auth) => auth.tenantId,
+    column: 'tenant_id',
+    mode: 'auto-inject',
+  },
+  queries: { auditEvents, auditSummary },
+});
 
 function decodeCursor(cursor: string): [string, string] {
   const [ts, id] = Buffer.from(cursor, 'base64').toString().split(':');

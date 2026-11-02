@@ -25,12 +25,10 @@ export const metadata: Metadata = {
 
 const defineCode = `import { initServe } from '@hypequery/serve';
 import { z } from 'zod';
+import { verifyAuth } from './auth'; // your session or JWT check
 
 const { query, serve } = initServe({
-  context: (req) => ({
-    db,
-    tenantId: req.headers['x-tenant-id'] as string,
-  }),
+  context: () => ({ db }),
 });
 
 // define your analytics query once
@@ -42,12 +40,22 @@ export const revenueByDay = query({
   query: async ({ ctx, input }) =>
     ctx.db
       .table('orders')
-      .where('tenant_id', 'eq', ctx.tenantId)
       .where('created_at', 'gte', input.from)
       .where('created_at', 'lte', input.to)
       .groupBy(['order_date'])
       .sum('total', 'revenue')
       .execute(),
+});
+
+export const api = serve({
+  // The tenant comes from the verified session, and every query is scoped to it
+  auth: verifyAuth,
+  tenant: {
+    extract: (auth) => auth.tenantId,
+    column: 'tenant_id',
+    mode: 'auto-inject',
+  },
+  queries: { revenueByDay },
 });`;
 
 const serveCode = `// serve all queries as typed REST endpoints

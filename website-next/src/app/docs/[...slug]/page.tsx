@@ -9,6 +9,7 @@ import { notFound } from 'next/navigation';
 import { LLMCopyButton, ViewOptions } from '@/components/page-actions';
 import type { Metadata } from 'next';
 import { absoluteUrl, ogImage } from '@/lib/site';
+import { docsSectionLabel } from '@/lib/docs-section-label';
 
 export async function generateMetadata({
   params,
@@ -22,7 +23,11 @@ export async function generateMetadata({
     return {};
   }
 
-  const title = typeof page.data.title === 'string' ? page.data.title : 'Documentation';
+  const pageTitle = typeof page.data.title === 'string' ? page.data.title : 'Documentation';
+  // TypeScript, Python, and Cloud share page names (Measures, Quick start), so the browser and search
+  // title carries the section; the sidebar keeps the short name.
+  const section = docsSectionLabel(page.url);
+  const title = section ? `${pageTitle} · ${section}` : pageTitle;
   const description = page.data.description ?? 'Documentation for hypequery.';
 
   return {

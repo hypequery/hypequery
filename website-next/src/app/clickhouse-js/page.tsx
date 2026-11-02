@@ -40,7 +40,7 @@ const rows = await result.json();
 const hypequerCode = `// hypequery — generated from your ClickHouse schema
 const rows = await db
   .table('orders')
-  .select('order_date', 'revenue')
+  .select(['order_date', 'revenue'])
   .where('tenant_id', 'eq', ctx.tenantId)
   .groupBy('order_date')
   .orderBy('order_date', 'DESC')

@@ -41,7 +41,7 @@ const db = createQueryBuilder<IntrospectedSchema>({
 const dailySignups = await db
   .table('events')
   .select([selectExpr('toStartOfDay(created_at)', 'day')])
-  .distinctCount('user_id', 'signups')
+  .countDistinct('user_id', 'signups')
   .where('event_type', 'eq', 'signup')
   .groupBy('day')
   .orderBy('day', 'DESC')

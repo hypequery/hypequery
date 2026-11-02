@@ -54,12 +54,13 @@ export async function getDailyMetrics(opts: {
 }) {
   return db
     .table('events')
-    .select(
-      'toStartOfDay(created_at) as day', // ClickHouse date truncation
+    .select([
+      'toStartOfDay(created_at) as day',
+      // ClickHouse date truncation
       'count() as events',
       'uniq(user_id) as active_users',
       'sum(revenue_cents) as revenue',
-    )
+    ])
     .where('tenant_id', 'eq', opts.tenantId)
     .where('created_at', 'gte', opts.startDate)
     .where('created_at', 'lte', opts.endDate)
@@ -76,6 +77,7 @@ const reusableTimeRangeCode = `// analytics/time-range-queries.ts — composable
 import { initServe } from '@hypequery/serve';
 import { db } from '@/lib/clickhouse';
 import { z } from 'zod';
+import { verifyAuth } from './auth'; // your session or JWT check
 
 type Granularity = 'minute' | 'hour' | 'day' | 'week';
 
@@ -108,10 +110,7 @@ function presetRange(preset: '1h' | '24h' | '7d' | '30d'): {
 }
 
 const { query, serve } = initServe({
-  context: (req) => ({
-    db,
-    tenantId: req.headers['x-tenant-id'] as string,
-  }),
+  context: () => ({ db }),
 });
 
 export const timeSeries = query({
@@ -139,8 +138,7 @@ export const timeSeries = query({
 
     return ctx.db
       .table('events')
-      .select(\`\${truncFn}(created_at) as period\`, metricSelect)
-      .where('tenant_id', 'eq', ctx.tenantId)
+      .select([\`\${truncFn}(created_at) as period\`, metricSelect])
       .where('created_at', 'gte', start)
       .where('created_at', 'lte', end)
       .groupBy('period')
@@ -149,7 +147,16 @@ export const timeSeries = query({
   },
 });
 
-export const api = serve({ queries: { timeSeries } });`;
+export const api = serve({
+  // The tenant comes from the verified session, and every query is scoped to it
+  auth: verifyAuth,
+  tenant: {
+    extract: (auth) => auth.tenantId,
+    column: 'tenant_id',
+    mode: 'auto-inject',
+  },
+  queries: { timeSeries },
+});`;
 
 export default function ClickHouseTimeSeriesPage() {
   return (

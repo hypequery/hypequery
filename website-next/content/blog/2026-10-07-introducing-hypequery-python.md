@@ -152,11 +152,11 @@ df = (
 )
 ```
 
-There is also an SQLAlchemy helper that reuses your engine's ClickHouse connection, and `to_polars()` and `to_arrow()` alongside `to_pandas()`.
+There is also an [SQLAlchemy helper](/clickhouse-sqlalchemy) that reuses your engine's ClickHouse connection, and `to_polars()` and `to_arrow()` alongside `to_pandas()`. For a walkthrough per framework, see [ClickHouse with Django](/clickhouse-django), [Flask](/clickhouse-flask), and [pandas](/clickhouse-pandas).
 
 ## Type-safe React hooks and AI agents
 
-Endpoints installed with a client profile also publish a **client contract**: the fields, operators, and limits each endpoint accepts. Export it from your definitions, and the Node CLI turns it into a typed client for the same `@hypequery/react` hooks TypeScript backends use:
+Endpoints installed with a client profile also publish a **client contract**: the fields, operators, and limits each endpoint accepts. Export it from your definitions, and the Node CLI turns it into a typed client for the same `@hypequery/react` hooks TypeScript backends use ([full walkthrough](/fastapi-react-analytics)):
 
 ```bash
 python -m hypequery export client-contract --factory analytics.definitions:build --output web/client-contract.json
@@ -174,7 +174,7 @@ const { data } = useDataset('orders', {
 
 Misspell a field, filter a number with a string, or ask for a dimension the endpoint doesn't expose, and TypeScript stops the build. If the Python definitions change after the frontend is built, the server answers `409` instead of returning data in a shape the types don't describe.
 
-The same endpoints serve AI agents. `hypequery mcp --client-contract-url` connects Claude, Cursor, or any MCP client to the authorized endpoints for one principal, so agents query the governed definitions, never raw SQL.
+The same endpoints serve AI agents. `hypequery mcp --client-contract-url` connects Claude, Cursor, or any MCP client to the authorized endpoints for one principal, so agents query the governed definitions, never raw SQL. See [ClickHouse MCP from Python](/clickhouse-python-mcp).
 
 ## One model, two languages
 
@@ -193,5 +193,7 @@ The Python SDK covers datasets, derived measures, relationships, execution, cach
 - [Django](/docs/python/django), [Flask](/docs/python/flask), and [FastAPI](/docs/python/fastapi): framework guides
 - [React and MCP clients](/docs/python/client-endpoints): typed React hooks and agent tools over the same endpoints
 - [ClickHouse with Python](/clickhouse-python): how hypequery fits next to your driver
+- [hypequery vs clickhouse-connect](/compare/hypequery-vs-clickhouse-connect): when to keep the driver, and when shared datasets earn their place
+- [Python semantic layer](/python-semantic-layer) and [multi-tenant analytics in Python](/clickhouse-python-multi-tenant)
 
 hypequery is open source under the Apache 2.0 license. If you try it, we would love to hear what you build.

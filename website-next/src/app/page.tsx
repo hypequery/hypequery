@@ -58,7 +58,7 @@ const softwareSchema = {
   applicationCategory: 'DeveloperApplication',
   operatingSystem: 'Cross-platform',
   description:
-    'The analytics layer for ClickHouse, in your codebase. Define metrics once in TypeScript or Python and serve them to dashboards, APIs, and AI agents, in your own backend or on hypequery cloud.',
+    'The analytics layer for ClickHouse, in your codebase. Define metrics once in TypeScript or Python and serve them to dashboards, APIs, and AI agents, in your own backend. A hosted option, hypequery cloud, is coming soon.',
   softwareVersion: 'latest',
   codeRepository: 'https://github.com/hypequery/hypequery',
   programmingLanguage: ['TypeScript', 'Python'],
@@ -67,7 +67,7 @@ const softwareSchema = {
     price: '0',
     priceCurrency: 'USD',
   },
-  softwareHelp: absoluteUrl('/docs/introduction').toString(),
+  softwareHelp: absoluteUrl('/docs').toString(),
   downloadUrl: 'https://www.npmjs.com/package/@hypequery/clickhouse',
   author: { '@id': absoluteUrl('/#organization').toString() },
   publisher: { '@id': absoluteUrl('/#organization').toString() },

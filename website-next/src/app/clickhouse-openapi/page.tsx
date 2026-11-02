@@ -182,6 +182,11 @@ export default function ClickHouseOpenApiPage() {
       ]}
       readingLinks={[
         {
+          href: '/clickhouse-fastapi',
+          title: 'ClickHouse with FastAPI',
+          description: 'Python APIs get the same generated OpenAPI documents.',
+        },
+        {
           href: '/clickhouse-rest-api',
           title: 'ClickHouse REST API',
           description: 'The full guide to serving ClickHouse queries as typed HTTP endpoints with @hypequery/serve.',
@@ -207,6 +212,7 @@ export default function ClickHouseOpenApiPage() {
         { href: '/clickhouse-query-builder', label: 'ClickHouse Query Builder' },
         { href: '/clickhouse-react', label: 'ClickHouse React' },
         { href: '/clickhouse-typescript', label: 'ClickHouse TypeScript' },
+        { href: '/clickhouse-python', label: 'ClickHouse Python' },
       ]}
       nextStep={{
         eyebrow: 'Next step',

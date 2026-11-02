@@ -202,7 +202,7 @@ export const comparePages: ComparePageConfig[] = [
       {
         question: 'Can hypequery and Cube be used together?',
         answer:
-          'Yes — some teams use Cube for the data team and BI layer, and hypequery for product-facing analytics features where TypeScript integration and engineering velocity matter more.',
+          'Yes — some teams use Cube for the data team and BI layer, and hypequery for product-facing analytics features where application integration and engineering velocity matter more.',
       },
     ],
   },
@@ -263,7 +263,7 @@ export const comparePages: ComparePageConfig[] = [
     rows: [
       {
         label: 'Product shape',
-        hypequery: 'Managed ClickHouse database plus an open-source TypeScript application layer',
+        hypequery: 'Managed ClickHouse database plus an open-source application layer in TypeScript or Python',
         alternative: 'Managed analytics backend with data sources, Pipes, endpoints, and tokens',
       },
       {
@@ -288,7 +288,7 @@ export const comparePages: ComparePageConfig[] = [
       },
       {
         label: 'Best fit',
-        hypequery: 'TypeScript product teams that want direct ClickHouse control',
+        hypequery: 'TypeScript or Python product teams that want direct ClickHouse control',
         alternative: 'Teams that want the shortest managed path from ingestion to a hosted data API',
       },
     ],
@@ -352,7 +352,7 @@ export const comparePages: ComparePageConfig[] = [
       {
         question: 'When should I choose hypequery?',
         answer:
-          'Choose hypequery when you already run ClickHouse and want schema-generated TypeScript types, query definitions, and served endpoints inside your own application codebase.',
+          'Choose hypequery when you already run ClickHouse and want schema-generated datasets and served endpoints inside your own application codebase, in TypeScript or Python.',
       },
     ],
   },
@@ -380,7 +380,7 @@ export const comparePages: ComparePageConfig[] = [
       },
       {
         label: 'Scope',
-        hypequery: 'Actively maintained TypeScript packages inside your application',
+        hypequery: 'Actively maintained TypeScript and Python packages inside your application',
         alternative: 'Archived framework code can inform migration but should not be a new dependency',
       },
     ],
@@ -407,7 +407,7 @@ export const comparePages: ComparePageConfig[] = [
     href: '/compare/hypequery-vs-dbt',
     title: 'hypequery vs dbt',
     verdict:
-      'dbt transforms data inside ClickHouse on a schedule. hypequery serves ClickHouse data to applications at request time with generated TypeScript types. Most teams comparing them are really deciding where the transformation boundary sits — and many end up using both.',
+      'dbt transforms data inside ClickHouse on a schedule. hypequery serves ClickHouse data to applications at request time, from TypeScript or Python. Most teams comparing them are really deciding where the transformation boundary sits — and many end up using both.',
     rows: [
       {
         label: 'Job',
@@ -416,7 +416,7 @@ export const comparePages: ComparePageConfig[] = [
       },
       {
         label: 'Language',
-        hypequery: 'TypeScript with schema-generated types',
+        hypequery: 'TypeScript or Python, generated from the live schema',
         alternative: 'SQL with Jinja templating',
       },
       {

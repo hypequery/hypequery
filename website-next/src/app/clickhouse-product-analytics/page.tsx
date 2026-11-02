@@ -37,11 +37,11 @@ const db = createQueryBuilder<Schema>({
 // Daily active users — uniq() is ClickHouse-native
 const dau = await db
   .table('events')
-  .select(
+  .select([
     'toStartOfDay(created_at) as date',
     'uniq(user_id) as active_users',
     'count() as event_count',
-  )
+  ])
   .where('created_at', 'gte', '2026-04-01')
   .where('created_at', 'lte', '2026-04-30')
   .where('tenant_id', 'eq', tenantId)
@@ -52,14 +52,14 @@ const dau = await db
 // Funnel — windowFunnel is ClickHouse-native
 const funnelQuery = await db
   .table('events')
-  .select(
+  .select([
     'user_id',
     \`windowFunnel(86400)('created_at',
       name = 'signup',
       name = 'onboarding_complete',
       name = 'first_purchase'
     ) AS funnel_step\`,
-  )
+  ])
   .where('created_at', 'gte', '2026-04-01')
   .where('tenant_id', 'eq', tenantId)
   .groupBy('user_id')
@@ -69,12 +69,10 @@ const analyticsApiCode = `// analytics/product-analytics.ts
 import { initServe } from '@hypequery/serve';
 import { db } from '@/lib/clickhouse';
 import { z } from 'zod';
+import { verifyAuth } from './auth'; // your session or JWT check
 
 const { query, serve } = initServe({
-  context: (req) => ({
-    db,
-    tenantId: req.headers['x-tenant-id'] as string,
-  }),
+  context: () => ({ db }),
 });
 
 export const dau = query({
@@ -82,11 +80,10 @@ export const dau = query({
   query: ({ ctx, input }) =>
     ctx.db
       .table('events')
-      .select(
+      .select([
         'toStartOfDay(created_at) as date',
         'uniq(user_id) as active_users',
-      )
-      .where('tenant_id', 'eq', ctx.tenantId)
+      ])
       .where('created_at', 'gte', input.startDate)
       .where('created_at', 'lte', input.endDate)
       .groupBy('date')
@@ -99,36 +96,29 @@ export const retention = query({
     cohortDate: z.string(),
     days: z.number().int().min(1).max(90),
   }),
+  // events carries signup_date and days_since_signup (e.g. from a
+  // materialized view), so every input is a bound parameter, not SQL text
   query: ({ ctx, input }) =>
     ctx.db
       .table('events')
-      .select(
-        'toDate(created_at) as activity_date',
-        'uniq(user_id) as retained_users',
-        \`dateDiff('day', '\${input.cohortDate}', toDate(created_at))\` +
-          ' as day_offset',
-      )
-      .where('tenant_id', 'eq', ctx.tenantId)
-      .where(
-        'user_id',
-        'in',
-        ctx.db
-          .table('events')
-          .select('user_id')
-          .where('toDate(created_at)', 'eq', input.cohortDate)
-          .where('tenant_id', 'eq', ctx.tenantId),
-      )
-      .where(
-        'created_at',
-        'lte',
-        \`addDays('\${input.cohortDate}', \${input.days})\`,
-      )
-      .groupBy('activity_date', 'day_offset')
-      .orderBy('day_offset', 'ASC')
+      .select(['days_since_signup', 'uniq(user_id) as retained_users'])
+      .where('signup_date', 'eq', input.cohortDate)
+      .where('days_since_signup', 'lte', input.days)
+      .groupBy(['days_since_signup'])
+      .orderBy('days_since_signup', 'ASC')
       .execute(),
 });
 
-export const api = serve({ queries: { dau, retention } });`;
+export const api = serve({
+  // The tenant comes from the verified session, and every query is scoped to it
+  auth: verifyAuth,
+  tenant: {
+    extract: (auth) => auth.tenantId,
+    column: 'tenant_id',
+    mode: 'auto-inject',
+  },
+  queries: { dau, retention },
+});`;
 
 export default function ClickHouseProductAnalyticsPage() {
   return (

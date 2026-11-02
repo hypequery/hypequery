@@ -1,19 +1,19 @@
 ---
 title: Overview
-description: Expose Hypequery datasets and metrics to AI agents through the Model Context Protocol.
+description: Expose hypequery datasets and metrics to AI agents through the Model Context Protocol.
 ---
 
 import { Callout } from 'fumadocs-ui/components/callout';
 import { CodeBlock } from 'fumadocs-ui/components/codeblock';
 
-`@hypequery/mcp` exposes your Hypequery semantic layer through the Model Context Protocol. Agents can discover datasets, inspect schema metadata, query named metrics, and run governed dataset queries without receiving raw SQL access.
+`@hypequery/mcp` exposes your hypequery semantic layer through the Model Context Protocol. Agents can discover datasets, inspect schema metadata, query named metrics, and run governed dataset queries without receiving raw SQL access.
 
 Use MCP when you want an agent to work inside a constrained analytics vocabulary:
 
 - expose only the datasets you register
 - expose only named metrics you attach to those datasets
 - let agents inspect dimensions, labels, descriptions, filters, tenant keys, and time keys
-- execute through the same `createDatasetClient` path used by the rest of your app
+- execute through the same dataset client the rest of your app uses, whether that app is TypeScript or Python ([Python backends](#datasets-served-from-python) connect over HTTP)
 - avoid handing an LLM a direct SQL console
 
 <Callout type="info">

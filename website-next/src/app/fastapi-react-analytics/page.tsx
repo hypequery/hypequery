@@ -22,12 +22,8 @@ export const metadata: Metadata = {
 
 const definitionsCode = `# analytics/definitions.py — no FastAPI, driver, or credentials imported
 from hypequery.datasets import (
-    ClientEndpointDefinition,
-    ClientQueryProfile,
-    dataset,
-    dimension,
-    export_client_contract,
-    measure,
+    ClientEndpointDefinition, ClientQueryProfile, dataset, dimension,
+    export_client_contract, measure,
 )
 
 orders = dataset(
@@ -35,17 +31,13 @@ orders = dataset(
     source="orders",
     tenant_key="org_id",
     time_key="created_at",
-    dimensions={
-        "status": dimension.string(),
-        "country": dimension.string(),
-    },
+    dimensions={"status": dimension.string(), "country": dimension.string()},
     measures={
         "revenue": measure.sum("amount"),
         "orderCount": measure.count("order_id"),
     },
 )
 profile = ClientQueryProfile(default_limit=50, max_limit=500)
-
 
 def build():
     """Factory for \`python -m hypequery export client-contract\`."""

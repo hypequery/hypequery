@@ -3,15 +3,15 @@ import { ClickhousePillarPage } from '@/components/clickhouse-pillar-page';
 import { absoluteUrl, ogImage } from '@/lib/site';
 
 export const metadata: Metadata = {
-  title: 'Cube.js Alternative for ClickHouse — Code-First TypeScript Layer',
+  title: 'Cube.js Alternative for ClickHouse — A Code-First Semantic Layer',
   description:
-    'Looking for a Cube.js alternative for ClickHouse? hypequery replaces the Cube server, Redis cache, and YAML modelling with a typed TypeScript library that lives in your codebase.',
+    'A Cube.js alternative for ClickHouse with no Cube server, Redis cache, or YAML: hypequery is a TypeScript or Python library that lives in your codebase.',
   alternates: { canonical: absoluteUrl('/cube-js-alternative') },
   openGraph: {
-    images: ogImage('Cube.js Alternative for ClickHouse — Code-First TypeScript Layer'),
+    images: ogImage('Cube.js Alternative for ClickHouse — A Code-First Semantic Layer'),
     type: 'website',
     url: absoluteUrl('/cube-js-alternative'),
-    title: 'Cube.js Alternative for ClickHouse — Code-First TypeScript Layer | hypequery',
+    title: 'Cube.js Alternative for ClickHouse — A Code-First Semantic Layer | hypequery',
     description:
       'If Cube feels like too much infrastructure for a ClickHouse-backed product, hypequery gives you typed queries, APIs, and React hooks with no separate server to run.',
   },
@@ -19,7 +19,7 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: 'Cube.js Alternative for ClickHouse | hypequery',
     description:
-      'Replace the Cube server, cache layer, and YAML schema with a typed TypeScript library built for ClickHouse.',
+      'Replace the Cube server, cache layer, and YAML schema with a TypeScript or Python library built for ClickHouse.',
   },
 };
 
@@ -55,8 +55,8 @@ export default function CubeJsAlternativePage() {
       primaryCta={{ href: '/docs/quick-start', label: 'Start with hypequery' }}
       secondaryCta={{ href: '/compare/hypequery-vs-cube', label: 'Read the full comparison' }}
       stats={[
-        { label: 'Infrastructure', value: 'None — npm library' },
-        { label: 'Modelling', value: 'TypeScript, not YAML' },
+        { label: 'Infrastructure', value: 'None — npm or PyPI library' },
+        { label: 'Modelling', value: 'TypeScript or Python, not YAML' },
         { label: 'Best fit', value: 'ClickHouse-backed product features' },
       ]}
       problems={[
@@ -78,13 +78,13 @@ export default function CubeJsAlternativePage() {
       ]}
       solutionSection={{
         eyebrow: 'The alternative',
-        title: 'A code-first typed layer instead of a semantic layer platform',
+        title: 'A semantic layer in your codebase instead of a platform',
         description:
-          'hypequery replaces the Cube server with a library. Types come from your live ClickHouse schema, queries are TypeScript, and serving them as APIs is one function call — no separate deployment, cache cluster, or modelling language.',
+          'hypequery replaces the Cube server with a library. Datasets are code in TypeScript or Python, generated from your live ClickHouse schema, and serving them as APIs is one function call — no separate deployment, cache cluster, or modelling language. The examples below are TypeScript.',
         bullets: [
           'Generate TypeScript types from your live ClickHouse schema — no YAML modelling layer',
           'Define metrics as typed, composable query builder code in your own repo',
-          'Serve queries as REST endpoints with validation and OpenAPI docs via @hypequery/serve',
+          'Serve datasets as REST endpoints with validation and OpenAPI docs, from Node or from FastAPI, Django, and Flask',
           'Consume the same typed contracts in React with generated hooks',
           'Ship it like any other code change — no Cube deployment to coordinate',
         ],
@@ -123,12 +123,12 @@ export default function CubeJsAlternativePage() {
           {
             label: 'Runs as',
             competitor: 'Separate API server plus Cube Store or Redis cache',
-            hypequery: 'A library inside your existing Node.js app',
+            hypequery: 'A library inside your existing Node.js or Python app',
           },
           {
             label: 'Data modelling',
             competitor: 'Cubes, measures, and dimensions in YAML or JS config',
-            hypequery: 'TypeScript query code, checked against your real schema',
+            hypequery: 'TypeScript or Python datasets, generated from your real schema',
           },
           {
             label: 'Response types',
@@ -173,12 +173,12 @@ export default function CubeJsAlternativePage() {
         {
           title: 'Cube.js alternative without extra infrastructure',
           copy:
-            'The most common reason teams go looking for an alternative is operational weight. hypequery has no server component: it runs inside your existing Node.js application and talks straight to ClickHouse.',
+            'The most common reason teams go looking for an alternative is operational weight. hypequery has no server component: it runs inside your existing Node.js or Python application and talks straight to ClickHouse.',
         },
         {
-          title: 'Semantic layer for ClickHouse in TypeScript',
+          title: 'Semantic layer for ClickHouse in TypeScript or Python',
           copy:
-            'If your metric definitions should live in TypeScript next to the code that uses them — with compile-time checking against the real schema — that’s the workflow hypequery is built around.',
+            'If your metric definitions should live next to the code that uses them, reviewed in pull requests, that’s the workflow hypequery is built around. TypeScript and Python implement the same specification, so both serve the same React hooks and MCP tools.',
         },
         {
           title: 'When Cube is still the right answer',
@@ -198,6 +198,11 @@ export default function CubeJsAlternativePage() {
           description: 'How a code-first semantic layer works when ClickHouse is the only database that matters.',
         },
         {
+          href: '/python-semantic-layer',
+          title: 'Python semantic layer',
+          description: 'The same datasets, defined and served from Python with FastAPI, Django, or Flask.',
+        },
+        {
           href: '/clickhouse-rest-api',
           title: 'ClickHouse REST API',
           description: 'How @hypequery/serve turns query definitions into validated, documented endpoints.',
@@ -210,6 +215,7 @@ export default function CubeJsAlternativePage() {
       ]}
       relatedPillars={[
         { href: '/clickhouse-typescript', label: 'ClickHouse TypeScript' },
+        { href: '/clickhouse-python', label: 'ClickHouse Python' },
         { href: '/clickhouse-semantic-layer', label: 'ClickHouse Semantic Layer' },
         { href: '/tinybird-alternative', label: 'Tinybird Alternative' },
         { href: '/moosestack-alternative', label: 'MooseStack Alternative' },

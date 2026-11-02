@@ -32,7 +32,7 @@ export function Hero() {
         <p className="text-body-lg mt-5 max-w-[660px] text-text-muted">Define your metrics once, in the codebase you already have. Dashboards, APIs, and AI agents all answer from that one definition. Run it in your own backend, or on hypequery cloud.</p>
         {/* Lead with what works today: the open-source path. Cloud is waitlist-only, so it's the second button. */}
         <div className="mt-7 flex flex-wrap items-center gap-3">
-          <Link href="/docs/quick-start" className={marketing.primaryButton}>Get started <span aria-hidden="true">→</span></Link>
+          <Link href="/docs" className={marketing.primaryButton}>Get started <span aria-hidden="true">→</span></Link>
           <DeployWaitlist location="hero" className={marketing.secondaryButton} />
         </div>
         <SetupCommand className="mt-4" />

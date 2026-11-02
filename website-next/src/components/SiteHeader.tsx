@@ -99,7 +99,7 @@ export default function SiteHeader() {
               GitHub
             </a>
             <Link
-              href="/docs/quick-start"
+              href="/docs"
               className="inline-flex w-fit items-center justify-center bg-indigo-500 px-4 py-2 font-mono text-sm font-semibold text-white"
               onClick={() => setMobileOpen(false)}
             >

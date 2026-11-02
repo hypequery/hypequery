@@ -1,6 +1,6 @@
 {
   "title": "Python",
-  "description": "Datasets \u00b7 beta",
+  "description": "Datasets, Serve, CLI \u00b7 beta",
   "root": "language",
   "pages": [
     "---Get started---",

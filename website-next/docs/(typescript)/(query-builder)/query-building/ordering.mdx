@@ -543,7 +543,7 @@ async function browseProducts(category: string, page: number) {
 
 ```typescript
 const domains = await db.table('users')
-  .select([selectExpr('splitByChar(\\'@\\', email)[2]', 'domain')])
+  .select([selectExpr("splitByChar('@', email)[2]", 'domain')])
   .distinct()
   .orderBy('domain', 'ASC')
   .execute();

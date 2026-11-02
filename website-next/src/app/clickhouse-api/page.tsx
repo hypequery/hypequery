@@ -25,12 +25,10 @@ export const metadata: Metadata = {
 
 const defineCode = `import { initServe } from '@hypequery/serve';
 import { z } from 'zod';
+import { verifyAuth } from './auth'; // your session or JWT check
 
 const { query, serve } = initServe({
-  context: (req) => ({
-    db,
-    tenantId: req.headers['x-tenant-id'] as string,
-  }),
+  context: () => ({ db }),
 });
 
 export const activeUsers = query({
@@ -41,11 +39,21 @@ export const activeUsers = query({
   query: ({ ctx, input }) =>
     ctx.db
       .table('events')
-      .where('tenant_id', 'eq', ctx.tenantId)
       .where('created_at', 'gte', input.from)
       .where('created_at', 'lte', input.to)
-      .distinctCount('user_id', 'active_users')
+      .countDistinct('user_id', 'active_users')
       .execute(),
+});
+
+export const api = serve({
+  // The tenant comes from the verified session, and every query is scoped to it
+  auth: verifyAuth,
+  tenant: {
+    extract: (auth) => auth.tenantId,
+    column: 'tenant_id',
+    mode: 'auto-inject',
+  },
+  queries: { activeUsers },
 });`;
 
 const serveCode = `const api = serve({

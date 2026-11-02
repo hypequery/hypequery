@@ -1,6 +1,8 @@
 'use client';
 
 import { useState, type ComponentType, type KeyboardEvent } from 'react';
+import Link from 'next/link';
+import { ArrowRight } from 'lucide-react';
 import {
   SiBun,
   SiCloudflareworkers,
@@ -134,6 +136,10 @@ export function RunsWhereYourAppRuns() {
               className="[&_code]:leading-[1.8] max-sm:[&_code]:text-[12px] sm:[&_code]:text-[13px]"
             />
           </div>
+          <Link href={active.guide.href} className="flex items-center justify-between gap-3 border-t border-border px-5 py-3 text-xs font-medium text-text-muted transition hover:text-text sm:px-6">
+            {active.guide.label}
+            <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
+          </Link>
         </div>
       </div>
     </section>

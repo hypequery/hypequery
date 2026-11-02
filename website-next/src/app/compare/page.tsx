@@ -6,14 +6,14 @@ import { comparePages } from '@/data/compare-pages';
 import { absoluteUrl, ogImage } from '@/lib/site';
 
 export const metadata: Metadata = {
-  title: 'Compare Hypequery',
+  title: 'Compare hypequery',
   description:
     'Compare hypequery against the main ClickHouse TypeScript options and start from the tradeoff closest to your current stack.',
   alternates: {
     canonical: absoluteUrl('/compare'),
   },
   openGraph: {
-    images: ogImage('Compare Hypequery'),
+    images: ogImage('Compare hypequery'),
     type: 'website',
     url: absoluteUrl('/compare'),
     title: 'Compare hypequery | ClickHouse TypeScript Tradeoffs',
