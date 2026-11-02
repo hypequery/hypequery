@@ -4,6 +4,91 @@
 
 <!-- towncrier release notes start -->
 
+## 0.1.0b2 (2026-11-02)
+
+- `hypequery init` is guided in a terminal, as the TypeScript CLI is. It asks
+  for whatever its flags leave unset: where to create the project; how to
+  reach ClickHouse (the connection already in your environment, or a URL and
+  credentials typed in, with the password hidden, used only to read the schema
+  and never written to a file); which tables, when the database has more than
+  ten; the tenant column, when one looks like a tenant id; and which app to
+  scaffold, defaulting to FastAPI, Django or Flask when it finds one. A failed
+  connection offers to try again, change the details, or create the offline
+  example. It ends with the same choices as flags. Every flag answers its
+  question, and `--no-interactive`, a `CI` environment variable, or input that
+  is not a terminal skip the questions and keep the previous behavior.
+- The `hypequery` CLI loads `.env.local` and `.env` from the directory it runs
+  in, as the TypeScript CLI does. A variable already set wins over both files.
+  The library and generated apps still read only the real environment;
+  `hypequery.cli.load_env_files(directory)` applies the same rules in your own
+  scripts, such as the scaffold README's seed step.
+- When init can't reach ClickHouse, the message names `CLICKHOUSE_URL` as well
+  as the host settings and suggests `--skip-connection`, and the driver's own
+  "Unexpected Http Driver Exception" log line no longer reaches the terminal.
+- `hypequery init --framework fastapi` scaffolds a FastAPI `app.py`: the
+  bearer-token agents API mounted at `/api/agents`, and `/analytics/<dataset>`,
+  a route of your own that refuses everyone until its `current_principal`
+  dependency reads your login. The project depends on `fastapi` directly;
+  hypequery adds no FastAPI extra.
+
+- Declaring `filters` on a dataset no longer makes its other dimensions
+  unfilterable (RFC 0024), matching TypeScript. Callers may filter on every
+  declared filter and every dimension not marked `filterable=False`. A
+  dimension's own filter takes the operators of the filters declared on its
+  field, so declaring `plan_filter` on `plan` with `operators=("eq",)` also
+  limits `plan` to `eq`. Relationship filters reach every filterable, non-SQL
+  dimension of a `belongs_to` or `has_one` target. An explicit empty
+  `filters={}` no longer disables filtering; mark a dimension
+  `filterable=False` to keep it out. Catalogs, client contracts and
+  deployment contracts are unchanged.
+
+- Base dataset columns are always qualified (`__hq_base`), not only when a
+  relationship join is present. ClickHouse resolves an output alias before a
+  column of the same name, so a dimension `status` reading column `country`
+  captured a filter or selection on the real `status` column (silent wrong
+  rows), and a measure named like its column (`amount=measure.sum("amount")`)
+  broke any other measure or filter on that column.
+- Under `tenants(...)` with several tenants or `all_tenants()`, relationship
+  joins also match the tenant keys, so a key reused by another tenant no longer
+  joins that tenant's row. `check_relationships` counts (key, tenant) pairs
+  under those scopes to match. Single-tenant SQL is unchanged.
+- Formula `divide` casts the dividend to Float64. Decimal division kept the
+  dividend's scale and truncated, so `round(divide("revenue",
+  null_if_zero("orders")), 2)` could come out one cent low.
+- `hypequery init --tenant-column` scaffolds answer their README's first query:
+  the development token reads the tenant in `HYPEQUERY_DEV_TENANT` (added to
+  `.env.example` and the README), and endpoints over tenant-scoped datasets use
+  `EndpointPolicy(tenant="required")`, so a principal without a tenant gets a
+  clear 403 and its client contract leaves them out.
+
+- `hypequery init --tenant-column` records the column in `schema.json`, and
+  `hypequery generate datasets` reuses it unless given `--tenant-column` or the
+  new `--no-tenant-column`. Regenerating without repeating the flag used to
+  drop every `tenant_key`. An unusable recorded value is refused before
+  discovery rather than read as no tenant column.
+- A strict client endpoint's `400 Invalid client query.` now carries
+  `details.issues[].path`, the member or item that failed (for example
+  `["filters", 0, "value"]`), as the README promised. Paths name contract
+  members and indexes only; an unknown member is reported at the root, and no
+  submitted value is echoed.
+- Scaffolds discovered as a user other than `default` no longer suggest
+  `CLICKHOUSE_USERNAME=default` in `.env.example` and the README, which would
+  quietly connect as a different, usually broader, user. They show a
+  placeholder; the real name stays out of generated files, like the password.
+- `to_asgi_app` and `to_wsgi_app` log one warning on `hypequery.serve` when
+  served below a `root_path` or `SCRIPT_NAME` that differs from
+  `client_mount_path`, naming the setting. Contract paths still never follow a
+  prefix the server or a proxy reports.
+- Docs: a query mapping passed to `client.execute` uses `DatasetQuery`'s field
+  names (`order_by`, not the HTTP wire's `orderBy`); every scaffold README
+  (standalone, Django and Flask, offline or from your schema) says timeouts
+  need `SELECT ON system.processes` or a control user; a synchronous
+  caller gets `deadline-exceeded` only once ClickHouse stops the query.
+
+- `hypequery init` (standalone): the generated API is now open for local development, like the TypeScript scaffold. `app.py` authenticates every request as one developer with `from_context(..., same_origin=False)`, so `hypequery dev` answers curl without a token, and `HYPEQUERY_DEV_TOKEN` is no longer required or listed in `.env.example`. The README and `app.py` say to add real authentication (`jwt_strategy`, `from_context` with the host's login, or a credential check) before deploying; a `ProductionProfile` refuses the open API and `hypequery dev` still warns when bound beyond loopback. Django and Flask scaffolds keep their bearer token for `/api/agents`.
+- `hypequery init --tenant-column` (standalone): the README now explains why queries answer `403 FORBIDDEN` ("requires runtime tenant scoping") and shows the one-line local fix, `Principal(subject="developer", tenant_id="...")`; `app.py` carries the same hint. Tenant-scoped datasets stay fail-closed by default.
+- Django and Flask scaffolds: `principal_for_token`'s docstring now says it refuses every token while `HYPEQUERY_DEV_TOKEN` is unset.
+
 ## 0.1.0b1 (2026-10-30)
 
 - `hypequery init --framework standalone|django|flask` chooses the application
