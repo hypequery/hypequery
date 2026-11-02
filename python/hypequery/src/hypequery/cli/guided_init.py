@@ -324,7 +324,7 @@ def _ask_tenant(
 ) -> str | None:
     """The tenant column to scope datasets by, offered only when one looks likely."""
 
-    from .generators.datasets import is_identifier
+    from .generators.datasets import TENANT_HINTS, is_identifier
 
     counts = {
         column: [table for table in found if table in selected]
@@ -333,7 +333,8 @@ def _ask_tenant(
     counts = {column: found for column, found in counts.items() if found}
     if not counts:
         return None
-    column = max(counts, key=lambda name: (len(counts[name]), name == "tenant_id"))
+    # Most tables first; on a tie, the stronger name (tenant_id over customer_id).
+    column = max(counts, key=lambda name: (len(counts[name]), -TENANT_HINTS.index(name.lower())))
     found = len(counts[column])
     choice = prompter.choose(
         f"{column} on {found} table{'s' if found != 1 else ''} looks like a tenant id. "

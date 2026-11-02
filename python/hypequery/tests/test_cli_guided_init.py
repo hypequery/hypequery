@@ -594,3 +594,18 @@ def test_the_seed_step_reads_env_files(tmp_path: Path) -> None:
     assert ". ./.env" not in readme
     assert "ClickHouseConnection.from_env()" in readme
     assert 'os.environ["CLICKHOUSE_HOST"]' not in readme
+
+
+def test_a_tie_suggests_the_stronger_tenant_name(
+    tmp_path: Path, catalog: Callable[..., list[Mapping[str, str]]]
+) -> None:
+    tied = CatalogOverview(
+        "analytics",
+        ("customers", "orders"),
+        {"customer_id": ("customers", "orders"), "org_id": ("customers", "orders")},
+    )
+    catalog(tied)
+    script = Script("", "", "", "", "")  # folder, use env, tenant, framework, create
+    guided = run_guide(script, tmp_path, environ={"CLICKHOUSE_HOST": "ch.example"})
+    assert "org_id on 2 tables" in script.text
+    assert guided.options.tenant_column == "org_id"
