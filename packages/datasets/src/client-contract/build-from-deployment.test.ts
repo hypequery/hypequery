@@ -87,6 +87,17 @@ describe('buildClientContract', () => {
     expect(orders.time?.timezone).toBe(true);
   });
 
+  it('enables each capability on its own', () => {
+    const [havingOnly] = buildClientContract(deployment, { capabilities: { having: true } }).contract.endpoints;
+    expect(havingOnly.measures.revenue.having).toBe(true);
+    expect(havingOnly.time?.timezone).toBe(false);
+    const [timezoneOnly] = buildClientContract(deployment, { capabilities: { timezone: true } }).contract.endpoints;
+    expect(Object.values(timezoneOnly.measures).some(measure => measure.having)).toBe(false);
+    expect(timezoneOnly.time?.timezone).toBe(true);
+    // Each capability is part of the hashed schema a generated client pins.
+    expect(havingOnly.schemaHash).not.toBe(timezoneOnly.schemaHash);
+  });
+
   it('never lets a request name the tenant, and narrows operators by type', () => {
     const [orders] = buildClientContract(deployment).contract.endpoints;
     expect(Object.keys(orders.filters).sort()).toEqual(['amount', 'paid', 'status']);

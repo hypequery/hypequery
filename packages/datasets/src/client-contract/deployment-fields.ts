@@ -8,6 +8,7 @@ import type {
   ProtocolDeploymentMeasure,
   ProtocolExpression,
 } from '@hypequery/protocol';
+import type { ClientContractCapabilities } from './build-from-deployment.js';
 
 // As Python's builder: booleans compare by equality and membership only.
 const BOOLEAN_OPERATORS = new Set(['eq', 'neq', 'in', 'notIn']);
@@ -39,9 +40,9 @@ function havingAllowed(dataset: ProtocolDeploymentDataset, measure: ProtocolDepl
 export function measureDescriptor(
   dataset: ProtocolDeploymentDataset,
   measure: ProtocolDeploymentMeasure,
-  having: boolean,
+  capabilities: ClientContractCapabilities,
 ): ClientMeasure {
-  return { wireType: 'string', nullable: true, having: having && havingAllowed(dataset, measure) };
+  return { wireType: 'string', nullable: true, having: capabilities.having === true && havingAllowed(dataset, measure) };
 }
 
 export function filterDescriptor(dimension: ProtocolDatasetDimension, filter: ProtocolDatasetFilter): ClientFilter | null {
@@ -96,7 +97,7 @@ function measureFilterFields(dataset: ProtocolDeploymentDataset, name: string): 
  * exported yet, matching Python's default (`related=()`), so a measure whose
  * fixed filters cross a relationship is left out rather than advertised.
  */
-export function publicFields(dataset: ProtocolDeploymentDataset, having: boolean): {
+export function publicFields(dataset: ProtocolDeploymentDataset, capabilities: ClientContractCapabilities): {
   dimensions: Record<string, ClientDimension>;
   measures: Record<string, ClientMeasure>;
   filters: Record<string, ClientFilter>;
@@ -104,7 +105,7 @@ export function publicFields(dataset: ProtocolDeploymentDataset, having: boolean
   const dimensions = Object.fromEntries(dataset.dimensions.map(dimension => [dimension.name, dimensionDescriptor(dimension)]));
   const measures = Object.fromEntries(dataset.measures
     .filter(measure => measureFilterFields(dataset, measure.name).every(field => !field.includes('.')))
-    .map(measure => [measure.name, measureDescriptor(dataset, measure, having)]));
+    .map(measure => [measure.name, measureDescriptor(dataset, measure, capabilities)]));
   // Built with Object.fromEntries, as above: assigning a key such as
   // `__proto__` would set the prototype instead of adding an entry.
   const filters = Object.fromEntries(dataset.filters.flatMap((filter): [string, ClientFilter][] => {

@@ -52,7 +52,8 @@ function endpointDescriptor(
   options: BuildClientContractOptions,
   profile: ReturnType<typeof resolveClientContractProfile>,
 ): Record<string, unknown> {
-  const { dimensions, measures, filters } = publicFields(dataset, options.capabilities?.having === true);
+  const capabilities = options.capabilities ?? {};
+  const { dimensions, measures, filters } = publicFields(dataset, capabilities);
   // Rows carry the time bucket as `period`, so a field of that name would collide.
   if (dataset.timeField !== undefined && (Object.hasOwn(dimensions, 'period') || Object.hasOwn(measures, 'period'))) {
     throw new Error(`Client export: dataset "${dataset.name}" has a field named "period", which its time bucket uses. Rename it.`);
@@ -88,7 +89,7 @@ function endpointDescriptor(
     time: dataset.timeField === undefined ? null : {
       grains: [...PORTABLE_TIME_GRAINS],
       defaultTimezone: profile.defaultTimezone,
-      timezone: options.capabilities?.timezone === true,
+      timezone: capabilities.timezone === true,
       periodFormat: 'calendar-date-or-local-datetime-v1',
     },
     defaultMeasures,

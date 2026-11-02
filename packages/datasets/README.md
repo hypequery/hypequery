@@ -115,6 +115,23 @@ for module boundaries and verification requirements, and the
 
 Apache-2.0.
 
+## Client contracts from a deployment
+
+`buildClientContract(deployment, options)` turns a deployment contract (for
+example `publishToCloud`'s output) into the hashed client contract
+`hypequery generate:client` reads. A deployment runs on the portable semantic
+query, which has no `having` and no per-request `timezone`, so neither is
+advertised by default. A host that executes them opts in:
+
+```ts
+buildClientContract(deployment, {
+  capabilities: { having: true, timezone: true },
+});
+```
+
+Capabilities are part of each endpoint's `schemaHash`; changing them means
+regenerating clients.
+
 ## Public client descriptor schemas
 
 `buildClientContractQuerySchemas(contract)` validates an RFC 0018 signed client
