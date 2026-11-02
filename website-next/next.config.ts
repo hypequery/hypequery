@@ -18,6 +18,16 @@ const nextConfig: NextConfig = {
         permanent: true,
       })),
       {
+        source: '/docs/python-client-workflow',
+        destination: '/docs/python/client-endpoints',
+        permanent: true,
+      },
+      {
+        source: '/docs/react/cloud',
+        destination: '/docs/cloud/react',
+        permanent: true,
+      },
+      {
         source: '/docs/roadmap',
         destination: '/docs/changelog',
         permanent: true,

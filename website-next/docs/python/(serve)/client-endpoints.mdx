@@ -10,12 +10,16 @@ A Python backend can feed the same `@hypequery/react` hooks and `hypequery mcp` 
 Python keeps ownership of SQL, authentication and the tenant. The frontend and the agent only ever see a **client
 contract**: a JSON description of each endpoint's fields, operators, limits and schema hash.
 
-1. Declare which endpoints clients may call, in a definition-only module.
-2. Install those endpoints with a strict client profile.
-3. Export the contract, then generate a typed React client from it with the Node CLI.
-4. Point the MCP bridge at the server's live discovery route.
+| Step | Where | Command or API |
+| --- | --- | --- |
+| [1. Declare client endpoints](#1-declare-client-endpoints) | Python | `ClientEndpointDefinition` in a definition-only module |
+| [2. Install the endpoints](#2-install-the-endpoints) | Python | `add_dataset_endpoint(..., client_profile=...)`, `add_metric_endpoint`, `add_client_contract_endpoint` |
+| [3. Export the contract](#3-export-the-contract) | Python, then frontend | `python -m hypequery export client-contract`, then `npx hypequery generate:client` |
+| [4. Connect MCP](#4-connect-mcp) | Anywhere Node runs | `npx hypequery mcp --client-contract-url https://…/v1/client-contract` |
 
-The Python side needs no Node process. Generating the React client and running the MCP bridge do.
+The Python side needs no Node process. Generating the React client and running the MCP bridge do; there is no native
+Python MCP server. On the frontend, see [React: datasets served from Python](/docs/react/getting-started#datasets-served-from-python)
+for per-login clients, cache scope and result types.
 
 ## 1. Declare client endpoints
 
@@ -214,7 +218,13 @@ Generated hooks are checked against the contract at compile time:
   null`; timestamps are strings. Base dimensions include `null`, because the contract does not declare columns
   non-nullable.
 
-Types describe what the server accepts; Python still authorizes, validates and clamps every request.
+Types describe what the server accepts; a contract describes capabilities and grants no permission. Python still
+authorizes, validates and clamps every request.
+
+A `label` and `description` on datasets, dimensions and measures travel in the contract as presentation annotations:
+`list_datasets` shows each dataset's description to agents, `get_dataset_schema` includes field text, and
+`generate:client` emits it as JSDoc. Editing that text changes the view hash but not an endpoint's schema pin, so it
+never triggers a 409.
 
 ## Keeping clients in sync
 

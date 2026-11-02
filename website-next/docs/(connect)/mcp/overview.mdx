@@ -111,48 +111,15 @@ Desktop and Cursor configuration.
 
 ## Standalone server
 
-Use `@hypequery/mcp` directly when you don't have a Serve API, or want a dedicated config file for the agent.
-
-### Install
+Use `@hypequery/mcp` directly when you don't have a Serve API, or want a dedicated config file for the agent:
 
 <CodeBlock>
 ```bash
 npm install @hypequery/mcp @hypequery/datasets @hypequery/clickhouse
-# or
-pnpm add @hypequery/mcp @hypequery/datasets @hypequery/clickhouse
-```
-</CodeBlock>
-
-### Config
-
-Create an ESM config file that exports `datasets` and `analytics`.
-
-<CodeBlock>
-```javascript
-// mcp-config.mjs
-import { createQueryBuilder } from '@hypequery/clickhouse';
-import { createDatasetClient, publishDatasets } from '@hypequery/datasets';
-import { Orders } from './datasets/orders.js';
-
-const db = createQueryBuilder({
-  url: process.env.CLICKHOUSE_URL,
-  username: process.env.CLICKHOUSE_USER,
-  password: process.env.CLICKHOUSE_PASSWORD,
-  database: process.env.CLICKHOUSE_DATABASE,
-});
-
-export const datasets = publishDatasets()
-  .publish(Orders)
-  .build();
-
-export const analytics = createDatasetClient({ queryBuilder: db });
-```
-</CodeBlock>
-
-Run the MCP server with the config file path:
-
-<CodeBlock>
-```bash
 npx hypequery-mcp --config ./mcp-config.mjs
 ```
 </CodeBlock>
+
+The config file exports `datasets` and an `analytics` dataset client; [Configuration](/docs/mcp/configuration) shows a
+minimal one, publishing several datasets, and the metadata agents see. To register the server with Claude Desktop or
+Cursor, see [Clients](/docs/mcp/clients).

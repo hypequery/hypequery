@@ -10,7 +10,7 @@
     "mcp/safety",
     "---React---",
     "react/getting-started",
-    "react/cloud",
+    "[With hypequery cloud](/docs/cloud/react)",
     "react/using-queries",
     "react/advanced-patterns"
   ]

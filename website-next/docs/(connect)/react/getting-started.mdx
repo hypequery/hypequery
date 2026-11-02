@@ -191,24 +191,11 @@ it exports a **client contract**: a JSON description of each endpoint's fields,
 limits and schema hash. Generate a typed client file from it, then pass that file's
 API type and route map to the hooks.
 
-**1. Export the contract** from the Python project. Offline, put a zero-argument,
-definition-only factory in a module, one that returns
-`export_client_contract(...)` from `hypequery.datasets` and opens no connections,
-and run the Python CLI from the project directory:
-
-<CodeBlock>
-<Pre>
-```bash
-python -m hypequery export client-contract --factory client_contract:build --output client-contract.json
-```
-</Pre>
-</CodeBlock>
-
-Or export it from the configured application with
-`hypequery.serve.export_client_contract(app)`; both produce the same build contract.
-Don't generate from the live `/v1/client-contract` route: it returns the caller's
-**authorized** view for MCP and discovery, and `generate:client` refuses it. See
-[Python: React and MCP clients](/docs/python/client-endpoints) for the backend setup.
+**1. Export the contract** from the Python project, with
+`python -m hypequery export client-contract` or `hypequery.serve.export_client_contract(app)`. Export the build contract,
+not the live `/v1/client-contract` route, which returns the caller's authorized view and which `generate:client`
+refuses. [Python: React and MCP clients](/docs/python/client-endpoints#3-export-the-contract) covers the factory and the
+backend setup.
 
 **2. Generate the client** in the React app. `generate:client` lives in the Node
 CLI, so install it as a dev dependency first; `npx hypequery` alone will not find it:
