@@ -504,8 +504,15 @@ def test_discover_catalog_reads_tables_and_tenant_columns(
                 return Result([("analytics",)])
             if "system.tables" in query:
                 return Result([("customers",), ("orders",)])
-            assert parameters["hints"] == ["org_id", "tenant_id"]
-            return Result([("org_id", "customers"), ("org_id", "orders")])
+            assert "hints" not in parameters  # every column, matched in Python
+            return Result(
+                [
+                    ("id", "customers"),
+                    ("org_id", "customers"),
+                    ("id", "orders"),
+                    ("org_id", "orders"),
+                ]
+            )
 
         def close(self) -> None:
             pass
@@ -518,8 +525,49 @@ def test_discover_catalog_reads_tables_and_tenant_columns(
     monkeypatch.setattr(schema_module, "_catalog_settings", lambda _client: {})
     overview = schema_module.discover_catalog(environ={}, tenant_hints=("tenant_id", "org_id"))
     assert overview == CatalogOverview(
-        "analytics", ("customers", "orders"), {"org_id": ("customers", "orders")}
+        "analytics",
+        ("customers", "orders"),
+        {"org_id": ("customers", "orders")},
+        {"customers": ("id", "org_id"), "orders": ("id", "org_id")},
     )
+
+
+def test_discover_catalog_with_too_many_columns_reads_only_the_hints(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class Result:
+        def __init__(self, rows: list[tuple[object, ...]]) -> None:
+            self.result_rows = rows
+
+    queries: list[dict[str, object]] = []
+
+    class Client:
+        def query(
+            self, query: str, *, parameters: dict[str, object], settings: dict[str, int]
+        ) -> Result:
+            if "currentDatabase" in query:
+                return Result([("analytics",)])
+            if "system.tables" in query:
+                return Result([("orders",)])
+            queries.append(parameters)
+            if "hints" in parameters:
+                return Result([("org_id", "orders")])
+            return Result([("id", "orders"), ("org_id", "orders"), ("amount", "orders")])
+
+        def close(self) -> None:
+            pass
+
+    @contextmanager
+    def connected(_environ: Mapping[str, str]) -> Iterator[tuple[Client, dict[str, object]]]:
+        yield Client(), {}
+
+    monkeypatch.setattr(schema_module, "_connected", connected)
+    monkeypatch.setattr(schema_module, "_catalog_settings", lambda _client: {})
+    monkeypatch.setattr(schema_module, "_ROW_CAP", 2)
+    overview = schema_module.discover_catalog(environ={}, tenant_hints=("org_id",))
+    assert [sorted(q) for q in queries] == [["database"], ["database", "hints"]]
+    assert overview.tenant_columns == {"org_id": ("orders",)}
+    assert overview.columns == {}  # unknown, so the typed-in column goes unchecked
 
 
 # --- review fixes --------------------------------------------------------------------------
@@ -555,7 +603,7 @@ def test_discover_catalog_keeps_the_column_spelling(monkeypatch: pytest.MonkeyPa
             if "system.tables" in query:
                 return Result([("orders",)])
             seen.update(parameters)
-            return Result([("Org_ID", "orders")])
+            return Result([("id", "orders"), ("Org_ID", "orders")])
 
         def close(self) -> None:
             pass
@@ -567,7 +615,7 @@ def test_discover_catalog_keeps_the_column_spelling(monkeypatch: pytest.MonkeyPa
     monkeypatch.setattr(schema_module, "_connected", connected)
     monkeypatch.setattr(schema_module, "_catalog_settings", lambda _client: {})
     overview = schema_module.discover_catalog(environ={}, tenant_hints=("ORG_ID",))
-    assert seen["hints"] == ["org_id"]
+    assert seen == {"database": "analytics"}
     # The generator matches tenant_key on the exact name, so the suggestion keeps it.
     assert overview.tenant_columns == {"Org_ID": ("orders",)}
 
@@ -609,3 +657,35 @@ def test_a_tie_suggests_the_stronger_tenant_name(
     guided = run_guide(script, tmp_path, environ={"CLICKHOUSE_HOST": "ch.example"})
     assert "org_id on 2 tables" in script.text
     assert guided.options.tenant_column == "org_id"
+
+
+def test_the_folder_re_ask_never_defaults_to_the_clashing_one(tmp_path: Path) -> None:
+    (tmp_path / "analytics").mkdir()
+    (tmp_path / "analytics" / "datasets.py").write_text("")
+    # folder (default analytics, taken), offline, framework, folder again (accept), create
+    script = Script("", "", "", "", "")
+    guided = run_guide(script, tmp_path)
+    assert "Where should we create the project instead? [analytics-2]: " in script.prompts
+    assert guided.options.directory == "analytics-2"
+
+
+def test_a_typed_tenant_column_is_checked_against_the_selected_tables(
+    tmp_path: Path, catalog: Callable[..., list[Mapping[str, str]]]
+) -> None:
+    known = CatalogOverview(
+        SMALL.database,
+        SMALL.tables,
+        SMALL.tenant_columns,
+        {"customers": ("id", "org_id"), "lookups": ("code",), "orders": ("id", "org_id")},
+    )
+    catalog(known, known)
+    environ = {"CLICKHOUSE_HOST": "ch.example"}
+    # Decline the warning once, then pick a real column.
+    script = Script("", "", "2", "acount_id", "n", "org_id", "", "")
+    guided = run_guide(script, tmp_path, environ=environ)
+    assert "None of the selected tables has a column named acount_id" in script.text
+    assert "Use acount_id anyway? [y/N]: " in script.prompts
+    assert guided.options.tenant_column == "org_id"
+    # Or insist, when the column is known to exist elsewhere.
+    insisted = run_guide(Script("", "", "2", "acount_id", "y", "", ""), tmp_path, environ=environ)
+    assert insisted.options.tenant_column == "acount_id"

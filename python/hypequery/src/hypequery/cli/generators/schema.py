@@ -6,7 +6,7 @@ import logging
 import os
 from collections.abc import Iterable, Iterator, Mapping
 from contextlib import contextmanager, suppress
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from importlib.util import find_spec
 from typing import Protocol, cast
 
@@ -102,14 +102,17 @@ class CatalogOverview:
     tables: tuple[str, ...]
     #: Tenant-looking column, spelled as in ClickHouse -> the tables that have it.
     tenant_columns: dict[str, tuple[str, ...]]
+    #: Table -> its column names, to check a typed-in tenant column against; empty when
+    #: the database has more columns than discovery lists, which leaves it unchecked.
+    columns: dict[str, tuple[str, ...]] = field(default_factory=dict)
 
 
 def discover_catalog(
     *, environ: Mapping[str, str] | None = None, tenant_hints: Iterable[str] = ()
 ) -> CatalogOverview:
-    """Table names and tenant-looking columns, read without the full column list."""
+    """Table names, tenant-looking columns and (within a cap) each table's column names."""
 
-    hints = sorted(set(tenant_hints))
+    hints = {hint.lower() for hint in tenant_hints}
     with _connected(os.environ if environ is None else environ) as (client, _):
         settings = _catalog_settings(client)
         database = str(
@@ -125,23 +128,36 @@ def discover_catalog(
         ).result_rows
         if len(names) > _ROW_CAP:
             raise CliError("The database has more tables than discovery can list.")
+        # Match hints case-insensitively but keep the column's real spelling: the
+        # generator sets tenant_key only on an exact name, so a lowercased `Org_ID`
+        # would silently drop the tenant isolation the user chose.
         tenant_columns: dict[str, list[str]] = {}
-        if hints:
-            # Match hints case-insensitively but keep the column's real spelling: the
-            # generator sets tenant_key only on an exact name, so a lowercased `Org_ID`
-            # would silently drop the tenant isolation the user chose.
+        columns: dict[str, list[str]] = {}
+        rows = client.query(
+            "SELECT name, table FROM system.columns WHERE database = {database:String} "
+            "ORDER BY table, position LIMIT 100001",
+            parameters={"database": database},
+            settings=settings,
+        ).result_rows
+        if len(rows) > _ROW_CAP:
+            # Too many to hold; read only the tenant-looking columns and skip the rest.
             rows = client.query(
                 "SELECT name, table FROM system.columns WHERE database = {database:String} "
                 "AND lower(name) IN {hints:Array(String)} ORDER BY table LIMIT 100001",
-                parameters={"database": database, "hints": [hint.lower() for hint in hints]},
+                parameters={"database": database, "hints": sorted(hints)},
                 settings=settings,
             ).result_rows
+        else:
             for column, table in rows:
+                columns.setdefault(str(table), []).append(str(column))
+        for column, table in rows:
+            if str(column).lower() in hints:
                 tenant_columns.setdefault(str(column), []).append(str(table))
         return CatalogOverview(
             database,
             tuple(str(row[0]) for row in names),
             {column: tuple(tables) for column, tables in tenant_columns.items()},
+            {table: tuple(found) for table, found in columns.items()},
         )
 
 

@@ -108,7 +108,7 @@ def guide(
     tenant_column = options.tenant_column
     if catalog is not None and tenant_column is None:
         selected = selected_tables(catalog.tables, tables, options.exclude_tables)
-        tenant_column = _ask_tenant(prompter, catalog.tenant_columns, selected)
+        tenant_column = _ask_tenant(prompter, catalog, selected)
 
     framework = options.framework
     if framework is None:
@@ -319,16 +319,14 @@ def selected_tables(
     return (names(tables) if tables else set(available)) - names(exclude_tables)
 
 
-def _ask_tenant(
-    prompter: Prompter, tenant_columns: Mapping[str, tuple[str, ...]], selected: set[str]
-) -> str | None:
+def _ask_tenant(prompter: Prompter, catalog: CatalogOverview, selected: set[str]) -> str | None:
     """The tenant column to scope datasets by, offered only when one looks likely."""
 
     from .generators.datasets import TENANT_HINTS, is_identifier
 
     counts = {
         column: [table for table in found if table in selected]
-        for column, found in tenant_columns.items()
+        for column, found in catalog.tenant_columns.items()
     }
     counts = {column: found for column, found in counts.items() if found}
     if not counts:
@@ -351,9 +349,21 @@ def _ask_tenant(
         return column
     while True:
         other = prompter.text("Tenant column")
-        if other and is_identifier(other):
-            return other
-        prompter.say("Enter a column name, such as account_id.")
+        if not other or not is_identifier(other):
+            prompter.say("Enter a column name, such as account_id.")
+            continue
+        # The generator only sets tenant_key on tables that have the column, so a typo
+        # here would quietly produce a project with no tenant isolation at all.
+        if catalog.columns and not any(
+            other in catalog.columns.get(table, ()) for table in selected
+        ):
+            prompter.say(
+                f"None of the selected tables has a column named {other}; they would all be "
+                "generated without tenant isolation."
+            )
+            if not prompter.confirm(f"Use {other} anyway?", False):
+                continue
+        return other
 
 
 def _ask_framework(prompter: Prompter, cwd: Path) -> Framework:
@@ -400,8 +410,20 @@ def _free_directory(
         if not clashes:
             break
         prompter.say(f"{directory} already has {', '.join(clashes)}.")
-        directory = prompter.text("Where should we create the project instead?", "analytics")
+        # Suggest a folder init can write to; Enter on the clashing one would only loop.
+        suggestion = _free_name(cwd, names, taken=directory)
+        directory = prompter.text("Where should we create the project instead?", suggestion)
+        directory = directory or suggestion or "analytics"
     return directory
+
+
+def _free_name(cwd: Path, names: list[str], *, taken: str) -> str:
+    """``analytics``, or the first ``analytics-N`` that is neither *taken* nor occupied."""
+
+    for candidate in ("analytics", *(f"analytics-{n}" for n in range(2, 10))):
+        if candidate != taken and not any((cwd / candidate / name).exists() for name in names):
+            return candidate
+    return ""
 
 
 def _summarise(
