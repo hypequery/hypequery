@@ -14,7 +14,7 @@ dimensions.
 
 <CodeBlock>
 ```bash
-pip install "hypequery[django,jwt]==0.1.0b1"
+pip install "hypequery[django,jwt]==0.1.0b2"
 ```
 </CodeBlock>
 
@@ -255,3 +255,6 @@ under another prefix. The tenant always comes from the principal either way.
 is a single-file Django project with a sync view, an async view, and hypequery's endpoints served through `urls(api)`
 both behind the Django login (for a same-origin React page) and behind a bearer token (for `@hypequery/mcp`). It runs
 against a live ClickHouse in CI.
+
+To start from your own schema instead, `hypequery init --framework django` writes a small Django project with datasets
+for your tables and both APIs wired the same way. See [Python CLI](/docs/python/cli#applications).

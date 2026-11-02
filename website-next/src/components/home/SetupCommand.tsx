@@ -6,7 +6,7 @@ import { InstallCommand } from './InstallCommand';
 
 const LANGUAGES = [
   { id: 'typescript', label: 'TypeScript', Icon: SiTypescript, color: 'text-[#3178c6]', command: 'npx @hypequery/cli init' },
-  { id: 'python', label: 'Python', Icon: SiPython, color: 'text-[#3776ab]', command: 'pip install "hypequery[clickhouse]"' },
+  { id: 'python', label: 'Python', Icon: SiPython, color: 'text-[#3776ab]', command: 'pip install "hypequery[server,clickhouse]" && hypequery init' },
 ] as const;
 
 export type Language = (typeof LANGUAGES)[number]['id'];

@@ -7,7 +7,7 @@ import { Callout } from 'fumadocs-ui/components/callout';
 import { CodeBlock } from 'fumadocs-ui/components/codeblock';
 
 <Callout type="warn" title="Beta">
-  The Python SDK is in beta (0.1.0b1). Its APIs may still change before 1.0, so pin the version you deploy.
+  The Python SDK is in beta (0.1.0b2). Its APIs may still change before 1.0, so pin the version you deploy.
 </Callout>
 
 The Python SDK lets you define a semantic layer over ClickHouse (datasets with dimensions, measures, and
@@ -29,13 +29,13 @@ Install the SDK with optional extras for each executor and for serving:
 
 <CodeBlock>
 ```bash
-pip install "hypequery==0.1.0b1"
-pip install "hypequery[clickhouse]==0.1.0b1"        # sync ClickHouse executor
-pip install "hypequery[clickhouse-async]==0.1.0b1"  # async ClickHouse executor
-pip install "hypequery[server]==0.1.0b1"            # uvicorn, for hypequery dev and start_server
-pip install "hypequery[jwt]==0.1.0b1"               # JWT authentication
-pip install "hypequery[django]==0.1.0b1"            # Django integration (or [flask])
-pip install "hypequery[pandas]==0.1.0b1"            # typed DataFrames (or [polars], [arrow])
+pip install "hypequery==0.1.0b2"
+pip install "hypequery[clickhouse]==0.1.0b2"        # sync ClickHouse executor
+pip install "hypequery[clickhouse-async]==0.1.0b2"  # async ClickHouse executor
+pip install "hypequery[server]==0.1.0b2"            # uvicorn, for hypequery dev and start_server
+pip install "hypequery[jwt]==0.1.0b2"               # JWT authentication
+pip install "hypequery[django]==0.1.0b2"            # Django integration (or [flask])
+pip install "hypequery[pandas]==0.1.0b2"            # typed DataFrames (or [polars], [arrow])
 ```
 </CodeBlock>
 
@@ -54,8 +54,8 @@ Python 3.11 or later is required.
 
 ## Next steps
 
-- [Quick start](/docs/python/quick-start): define a dataset and run a query.
-- [Python CLI](/docs/python/cli): scaffold a project from your ClickHouse schema and serve it locally.
+- [Quick start](/docs/python/quick-start): generate datasets from your schema with `hypequery init`, or define one by hand.
+- [Python CLI](/docs/python/cli): guided setup from your ClickHouse schema, with a standalone, FastAPI, Django or Flask app.
 - [Serve over HTTP](/docs/python/serving): expose datasets as authenticated HTTP endpoints, from any framework.
 - [Django](/docs/python/django), [Flask](/docs/python/flask) and [FastAPI](/docs/python/fastapi): a tenant-bound
   client in every view, and hypequery's endpoints served from your app.

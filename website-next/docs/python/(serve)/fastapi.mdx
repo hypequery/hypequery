@@ -13,7 +13,7 @@ themselves, before the body is read, and take the tenant from the caller.
 
 <CodeBlock>
 ```bash
-pip install "hypequery[clickhouse,jwt]==0.1.0b1" fastapi uvicorn
+pip install "hypequery[clickhouse,jwt]==0.1.0b2" fastapi uvicorn
 ```
 </CodeBlock>
 
@@ -108,3 +108,10 @@ pick one shape per API.
 If FastAPI only hosts the mounted API, you don't need it: serve `to_asgi_app(api)` directly with uvicorn, or run a
 hardened standalone process with [`start_server`](/docs/python/production). See
 [Getting started](/docs/python/serving).
+
+## Start from a generated project
+
+`hypequery init --framework fastapi` writes a FastAPI `app.py` with datasets for your tables: the API mounted at
+`/api/agents` behind a development bearer token, and `/analytics/<dataset>`, a route of your own behind a
+`current_principal` dependency that refuses everyone until you wire it to your login. Run it with
+`uvicorn app:app --reload`. See [Python CLI](/docs/python/cli#applications).

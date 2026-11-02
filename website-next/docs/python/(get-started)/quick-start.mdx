@@ -1,84 +1,392 @@
 ---
 title: Quick start
-description: Define a ClickHouse dataset in Python and run your first semantic query.
+description: Generate datasets from your ClickHouse schema with the Python CLI, or define them in your own code, then query and serve them.
 ---
 
+import { Callout } from 'fumadocs-ui/components/callout';
 import { CodeBlock } from 'fumadocs-ui/components/codeblock';
+import { Step, Steps } from 'fumadocs-ui/components/steps';
+import { Tab, Tabs } from 'fumadocs-ui/components/tabs';
 
-Install the SDK with the ClickHouse executor:
+<Callout type="info" title="The Python SDK is in beta">
+  `0.1.0b2` implements the same datasets and Serve protocol as TypeScript, and the same React hooks and MCP server work
+  against it. Its APIs may still change before 1.0, so pin the version you deploy.
+</Callout>
+
+## Choose your route
+
+This page has two paths:
+
+* **Route 1: Scaffold a project** if you want a working API over your tables as quickly as possible
+* **Route 2: Datasets in your code** if you want to add a semantic layer to an existing Python codebase
+
+Both routes can be exposed over HTTP with [Serve](#optional-expose-over-http-with-serve) when you need named endpoints,
+validation, docs, or OpenAPI.
+
+## Route 1: Scaffold a project [#route-1-scaffold-a-project]
+
+<Steps>
+  <Step>
+    Install the package
+
+    <Tabs items={['pip', 'uv']} defaultIndex={0}>
+      <Tab value="pip" label="pip">
+        <CodeBlock>
+          ```bash
+          pip install "hypequery[server,clickhouse]==0.1.0b2"
+          ```
+        </CodeBlock>
+      </Tab>
+
+      <Tab value="uv" label="uv">
+        <CodeBlock>
+          ```bash
+          uv add "hypequery[server,clickhouse]==0.1.0b2"
+          ```
+        </CodeBlock>
+      </Tab>
+    </Tabs>
+
+    The `clickhouse` extra adds the driver; `server` adds uvicorn, for `hypequery dev`.
+  </Step>
+
+  <Step>
+    Create the project
+
+    <CodeBlock>
+      ```bash
+      hypequery init analytics
+      ```
+    </CodeBlock>
+
+    In a terminal, `init` asks how to reach ClickHouse: the settings in your environment or a `.env` file, or a URL and
+    credentials you type, which it uses only to read the schema and never writes to a file. Then it asks which tables to
+    include when there are more than ten, whether to scope datasets by a tenant column, and which app to scaffold:
+    standalone, FastAPI, Django or Flask.
+
+    It writes one dataset per table to `analytics/datasets.py`, with the app beside it, and a README for your tables.
+  </Step>
+
+  <Step>
+    Serve it and run a query
+
+    <CodeBlock>
+      ```bash
+      cd analytics
+      hypequery dev
+      ```
+    </CodeBlock>
+
+    From another shell, query one of your datasets. Swap in one of your own tables and its columns; the generated README
+    shows the exact call.
+
+    <CodeBlock>
+      ```bash
+      curl -s -X POST http://127.0.0.1:8000/datasets/orders/query \
+        -H "Content-Type: application/json" \
+        -d '{"dimensions": ["status"], "measures": ["totalCount"]}'
+      ```
+    </CodeBlock>
+
+    The standalone app's API is open for local development, with no token. Interactive docs are at
+    `http://127.0.0.1:8000/docs`.
+  </Step>
+</Steps>
+
+If that is all you need, continue with the [Python CLI](/docs/python/cli) for every option and the framework apps, or
+review the generated definitions with the [Datasets overview](/docs/python/datasets/overview).
+
+## Route 2: Datasets in your code
+
+In this route you define a **dataset**, a semantic model over a ClickHouse table, once, then query it by selecting
+dimensions and measures. The same definition powers ad hoc rollups, calculated measures, and (optionally) governed HTTP
+endpoints.
+
+<Steps>
+  <Step>
+    Install the package
+
+    <Tabs items={['pip', 'uv']} defaultIndex={0}>
+      <Tab value="pip" label="pip">
+        <CodeBlock>
+          ```bash
+          pip install "hypequery[clickhouse]==0.1.0b2"
+          ```
+        </CodeBlock>
+      </Tab>
+
+      <Tab value="uv" label="uv">
+        <CodeBlock>
+          ```bash
+          uv add "hypequery[clickhouse]==0.1.0b2"
+          ```
+        </CodeBlock>
+      </Tab>
+    </Tabs>
+  </Step>
+
+  <Step>
+    Configure your ClickHouse env vars
+
+    Create `.env`:
+
+    <CodeBlock>
+      ```bash
+      CLICKHOUSE_HOST=example.clickhouse.cloud
+      CLICKHOUSE_PORT=8443
+      CLICKHOUSE_SECURE=true
+      CLICKHOUSE_DATABASE=default
+      CLICKHOUSE_USERNAME=cli_user
+      CLICKHOUSE_PASSWORD=super-secret
+      ```
+    </CodeBlock>
+
+    The `hypequery` CLI reads `.env.local` and `.env` from the folder you run it in; a variable already set in your shell
+    wins. `CLICKHOUSE_URL` (`https://user:password@host:8443/database`) can replace all six, but not be combined with
+    them.
+  </Step>
+
+  <Step>
+    Generate dataset definitions
+
+    Use the CLI to introspect ClickHouse and write dataset definitions from your live schema:
+
+    <CodeBlock>
+      ```bash
+      hypequery generate datasets
+      ```
+    </CodeBlock>
+
+    This writes `datasets.py`, with one dataset per table in a `datasets` mapping keyed by table name. Re-run it when your
+    schema changes (`--diff` shows the drift first), then curate the generated dimensions and measures so the semantic
+    names match your product language.
+  </Step>
+
+  <Step>
+    Create a dataset client
+
+    The client plans and validates semantic queries, and the executor runs the SQL it generates on ClickHouse.
+
+    <CodeBlock>
+      ```python
+      # client.py
+      from pathlib import Path
+
+      from hypequery.cli import load_env_files
+      from hypequery.datasets import create_dataset_client
+      from hypequery.execution import ClickHouseConnection, create_clickhouse_executor
+
+      # Fill unset variables from .env.local and .env, as the hypequery CLI does.
+      load_env_files(Path.cwd())
+
+      executor = create_clickhouse_executor(ClickHouseConnection.from_env())
+      analytics = create_dataset_client(executor=executor)
+      ```
+    </CodeBlock>
+
+    Your code reads only the real environment unless you call `load_env_files`; in production, set the variables as
+    environment variables or secrets instead.
+  </Step>
+
+  <Step>
+    Review or customize a dataset
+
+    The generated file gives you a starting point. A curated dataset maps a source table to typed dimensions and
+    measures, plus optional tenant and time keys:
+
+    <CodeBlock>
+      ```python
+      # datasets.py
+      from hypequery.datasets import dataset, dimension, measure
+
+      orders = dataset(
+          "orders",
+          source="orders",
+          tenant_key="tenant_id",
+          time_key="created_at",
+          dimensions={
+              "id": dimension.number(),
+              "status": dimension.string(),
+              "country": dimension.string(),
+              "createdAt": dimension.timestamp(column="created_at"),
+          },
+          measures={
+              "revenue": measure.sum("amount"),
+              "orderCount": measure.count("id"),
+          },
+      )
+
+      datasets = {"orders": orders}
+      ```
+    </CodeBlock>
+  </Step>
+
+  <Step>
+    Query the dataset
+
+    Select any combination of dimensions and measures. `execute` validates the request, generates parameterized SQL,
+    runs it, and returns rows plus metadata. Because the dataset has a `tenant_key`, every query runs for one tenant,
+    and hypequery adds the tenant predicate for you.
+
+    <CodeBlock>
+      ```python
+      from hypequery.datasets import DatasetQuery, ExecutionContext, filter, order, tenant
+
+      from client import analytics
+      from datasets import orders
+
+      by_country = analytics.execute(
+          orders,
+          DatasetQuery(
+              dimensions=("country",),
+              measures=("revenue", "orderCount"),
+              filters=(filter.eq("status", "completed"),),
+              order_by=(order.desc("revenue"),),
+              limit=10,
+          ),
+          context=ExecutionContext(tenant=tenant("org_123")),
+      )
+
+      print(by_country.data)
+      ```
+    </CodeBlock>
+  </Step>
+
+  <Step>
+    Add calculated measures
+
+    When a value is calculated from other measures, declare it as a **derived measure** on the dataset and select it by
+    name like any other measure.
+
+    <CodeBlock>
+      ```python
+      # datasets.py
+      from hypequery.datasets import dataset, dimension, formula, measure
+
+      orders = dataset(
+          "orders",
+          source="orders",
+          tenant_key="tenant_id",
+          time_key="created_at",
+          dimensions={
+              "id": dimension.number(),
+              "status": dimension.string(),
+              "country": dimension.string(),
+              "createdAt": dimension.timestamp(column="created_at"),
+          },
+          measures={
+              "revenue": measure.sum("amount"),
+              "orderCount": measure.count("id"),
+              "averageOrderValue": measure.derived(
+                  formula.divide("revenue", formula.null_if_zero("orderCount")),
+              ),
+          },
+      )
+
+      datasets = {"orders": orders}
+      ```
+    </CodeBlock>
+
+    <CodeBlock>
+      ```python
+      aov_by_country = analytics.execute(
+          orders,
+          DatasetQuery(
+              dimensions=("country",),
+              measures=("averageOrderValue",),
+              filters=(filter.eq("status", "completed"),),
+              order_by=(order.desc("averageOrderValue"),),
+              limit=10,
+          ),
+          context=ExecutionContext(tenant=tenant("org_123")),
+      )
+      ```
+    </CodeBlock>
+  </Step>
+</Steps>
+
+If that is all you need, continue with the [Datasets overview](/docs/python/datasets/overview), or dig into
+[Dimensions](/docs/python/datasets/dimensions) and [Measures](/docs/python/datasets/measures).
+
+## Optional: expose over HTTP with Serve
+
+Both routes stay in-process until you need an HTTP boundary. `hypequery.serve` turns datasets into authenticated
+endpoints with validation, docs and OpenAPI, as plain ASGI that any Python server or framework can host. Route 1's
+project already has one in `app.py`. Add the `server` extra for `hypequery dev`:
 
 <CodeBlock>
 ```bash
-pip install "hypequery[clickhouse]==0.1.0b1"
+pip install "hypequery[server,clickhouse]==0.1.0b2"
 ```
 </CodeBlock>
 
-Then define a dataset, create a client, and query it:
+### Serve datasets
+
+Create an API, install a query endpoint for each dataset, and expose it as an ASGI app:
 
 <CodeBlock>
 ```python
-from hypequery.datasets import (
-    Dataset,
-    DatasetQuery,
-    ExecutionContext,
-    create_dataset_client,
-    dimension,
-    filter,
-    measure,
-    tenant,
-)
-from hypequery.execution import ClickHouseConnection, create_clickhouse_executor
-
-# Reads CLICKHOUSE_HOST, _PORT, _DATABASE, _USERNAME, _PASSWORD and _SECURE.
-executor = create_clickhouse_executor(ClickHouseConnection.from_env())
-analytics = create_dataset_client(executor=executor)
-
-orders = Dataset(
-    name="orders",
-    source="orders",
-    tenant_key="tenant_id",
-    time_key="created_at",
-    dimensions={
-        "id": dimension("number"),
-        "tenant_id": dimension("string"),
-        "status": dimension("string"),
-        "country": dimension("string"),
-        "created_at": dimension("timestamp"),
-    },
-    measures={
-        "revenue": measure.sum("amount"),
-        "order_count": measure.count("id"),
-    },
+# app.py
+from hypequery.serve import (
+    HttpSecurity,
+    Principal,
+    ServeRequest,
+    create_api,
+    create_dataset_endpoint,
+    from_context,
+    to_asgi_app,
 )
 
-by_country = analytics.execute(
-    orders,
-    DatasetQuery(
-        dimensions=("country",),
-        measures=("revenue", "order_count"),
-        filters=(filter.eq("status", "completed"),),
-        limit=10,
-    ),
-    context=ExecutionContext(tenant=tenant("org_123")),
-)
-by_country.data  # rows keyed by column name
+from client import analytics
+from datasets import datasets
 
-executor.close()
+
+def developer(request: ServeRequest) -> Principal:
+    # Open for local development: every request queries as one developer, for one tenant.
+    # Replace auth with real authentication (jwt_strategy, or your app's login) before deploying.
+    return Principal(subject="developer", tenant_id="org_123")
+
+
+api = create_api(
+    auth=from_context(developer, same_origin=False),
+    security=HttpSecurity(allowed_hosts=("127.0.0.1", "localhost")),
+    development_docs=True,
+)
+for name, definition in datasets.items():
+    create_dataset_endpoint(dataset=definition, client=analytics).install(
+        api, f"/datasets/{name}/query"
+    )
+
+app = to_asgi_app(api)
 ```
 </CodeBlock>
 
-The query selects semantic names (`country`, `revenue`) and hypequery generates parameterized ClickHouse SQL. Because
-the dataset declares a `tenant_key`, every query must run with a tenant in its `ExecutionContext`, and hypequery adds
-the tenant predicate for you.
+This generates `POST /datasets/orders/query` for flexible same-dataset rollups. Endpoints validate dimensions, measures,
+filters, time grains, and ordering against the definition, and take the tenant from the principal, never from the
+request. See [Dataset endpoints](/docs/python/dataset-endpoints) for per-endpoint auth, caching, and limits, and
+[Authentication](/docs/python/authentication) for real users.
 
-Aggregations live on the `measure` namespace (`measure.sum`, `measure.count`, ...) and filter helpers on `filter`
-(`filter.eq`, `filter.between`, ...), so nothing shadows a Python built-in. `ClickHouseConnection.from_env()` reads the
-`CLICKHOUSE_*` environment variables; pass `host`, `username`, `password` and `database` explicitly instead if you prefer.
+To serve from an app you already have, mount the same API in [FastAPI](/docs/python/fastapi), or serve it natively from
+[Django](/docs/python/django) or [Flask](/docs/python/flask).
 
-## Next steps
+### Consume from React and agents
 
-- [Python CLI](/docs/python/cli): scaffold a project from your live schema with `hypequery init`
-- [Datasets overview](/docs/python/datasets/overview)
-- [Measures](/docs/python/datasets/measures)
-- [Multi-tenancy](/docs/python/datasets/multi-tenancy)
-- [React and MCP clients](/docs/python/client-endpoints): serve these datasets to type-safe React hooks and AI agents
+The same React hooks and MCP server as TypeScript work against a Python API. Declare client endpoints, export their
+contract with `hypequery export client-contract`, and generate a typed client from it; see
+[React and MCP clients](/docs/python/client-endpoints).
+
+### Preview docs and routes [#preview-docs-and-routes]
+
+Start the dev server against `app.py`:
+
+<CodeBlock>
+```bash
+hypequery dev
+```
+</CodeBlock>
+
+With `development_docs=True`, the API exposes:
+
+* docs at `http://127.0.0.1:8000/docs`
+* OpenAPI at `http://127.0.0.1:8000/openapi.json`
+* your routes, such as `http://127.0.0.1:8000/datasets/orders/query`

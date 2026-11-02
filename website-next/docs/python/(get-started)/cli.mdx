@@ -6,41 +6,91 @@ description: Scaffold a Python dataset project from your ClickHouse schema, rege
 import { CodeBlock } from 'fumadocs-ui/components/codeblock';
 
 The `hypequery` command ships with the Python package and needs no Node tooling. `python -m hypequery` runs the same
-CLI. Install the serving and ClickHouse extras for the full onboarding path:
+CLI. Install the serving and ClickHouse extras for the full onboarding path, then run `init` in a terminal:
 
 <CodeBlock>
 ```bash
-pip install "hypequery[server,clickhouse]==0.1.0b1"
-export CLICKHOUSE_HOST=localhost CLICKHOUSE_USERNAME=default CLICKHOUSE_PASSWORD=... CLICKHOUSE_DATABASE=analytics
-hypequery init --path my-analytics
-cd my-analytics
-# The generated app authenticates with a local development token
-export HYPEQUERY_DEV_TOKEN="$(python -c 'import secrets; print(secrets.token_urlsafe(32))')"
+pip install "hypequery[server,clickhouse]==0.1.0b2"
+hypequery init analytics
+```
+</CodeBlock>
+
+`init` asks how to reach ClickHouse and which app to scaffold, then writes datasets for your tables into `analytics/`.
+Start the API it created:
+
+<CodeBlock>
+```bash
+cd analytics
 hypequery dev
 ```
 </CodeBlock>
 
-Then, from another shell with the same `HYPEQUERY_DEV_TOKEN`, query a generated dataset (the README `init` writes
-shows the call for your own tables):
+From another shell, query one of your datasets (the README `init` writes shows the call for your own tables):
 
 <CodeBlock>
 ```bash
 curl -s -X POST http://127.0.0.1:8000/datasets/orders/query \
-  -H "Authorization: Bearer $HYPEQUERY_DEV_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"dimensions": ["status"], "measures": ["totalCount"]}'
 ```
 </CodeBlock>
 
+The standalone app's API is open for local development: every request queries as one developer, with no token. Before
+deploying, replace its `auth` with real authentication (see [Authentication](/docs/python/authentication)).
+
 `hypequery --help`, `hypequery <command> --help`, `hypequery help <command>` and `hypequery --version` (or `-V`) work
 without the extras. Exit codes are `0` for success, `1` for a runtime failure and `2` for invalid usage.
 
+## Connection settings and `.env`
+
+The CLI reads `CLICKHOUSE_URL`, or `CLICKHOUSE_HOST`, `_PORT`, `_DATABASE`, `_USERNAME`, `_PASSWORD` and `_SECURE`. Like
+the TypeScript CLI, it also loads `.env.local` and then `.env` from the folder you run it in, so the settings can live
+in a gitignored file:
+
+<CodeBlock>
+```bash
+# .env
+CLICKHOUSE_HOST=localhost
+CLICKHOUSE_PORT=8123
+CLICKHOUSE_DATABASE=analytics
+CLICKHOUSE_USERNAME=default
+CLICKHOUSE_PASSWORD=your-password
+```
+</CodeBlock>
+
+A variable already set in your shell wins over both files. Only the CLI reads them (`init`, `generate datasets` and
+`dev`): the library and the apps `init` generates read the real environment, so in production set these as environment
+variables or secrets. To apply the same rules in a script of your own, call
+`hypequery.cli.load_env_files(Path.cwd())` before `ClickHouseConnection.from_env()`.
+
 ## `hypequery init`
 
-Creates a project from your live schema: `datasets.py` with one dataset per table, a `schema.json` snapshot, an
-`app.py` serving authenticated endpoints, a `pyproject.toml`, a `README.md` and a `.env.example`. Existing files are
-never overwritten. The `.env.example` and README repeat how discovery connected: `CLICKHOUSE_URL` if it was set,
-otherwise the host, port and TLS setting that worked, with credentials left as placeholders.
+Creates a project from your live schema: `datasets.py` with one dataset per table, a `schema.json` snapshot, the
+application you choose, a `pyproject.toml`, a `README.md` and a `.env.example`. Existing files are never overwritten.
+The `.env.example` and README repeat how discovery connected: `CLICKHOUSE_URL` if it was set, otherwise the host, port
+and TLS setting that worked, with credentials left as placeholders.
+
+### Guided setup
+
+In a terminal, `init` asks for whatever its options leave unset, in this order:
+
+1. **Where** to create the project (a new `analytics` folder when the current one isn't empty).
+2. **How to reach ClickHouse**: the connection already in your environment or `.env`, or a URL, username, password
+   (hidden as you type) and database. Typed-in details are used only to read the schema and are never written to a
+   file; `init` prints the `.env` lines to save, with the password left for you. If the connection fails, you can try
+   again, change the details, or create the offline example instead.
+3. **Which tables**, only when the database has more than ten.
+4. **The tenant column**, only when one looks like a tenant id (`tenant_id`, `organization_id`, `org_id`, `account_id`
+   or `customer_id`): use it, pick another column, or skip tenant isolation.
+5. **Which app** to scaffold: standalone, FastAPI, Django or Flask. The default follows your project: Django when
+   there is a `manage.py`, otherwise whichever of the three your `pyproject.toml` or `requirements.txt` names.
+
+It then shows a summary and the same choices as one command, for example
+`hypequery init analytics --no-interactive --framework fastapi --tenant-column org_id`, and asks before writing
+anything. Every option answers its question. `--no-interactive`, a `CI` environment variable, or input that isn't a
+terminal skip the questions entirely, and unset options take their defaults.
+
+### Options
 
 | Option | Description |
 | --- | --- |
@@ -49,21 +99,34 @@ otherwise the host, port and TLS setting that worked, with credentials left as p
 | `--exclude-tables a,b` | Skip these tables |
 | `--all-tables` | Inspect every table (the default) |
 | `--tenant-column <column>` | Set `tenant_key` on tables that have this column, as `generate datasets` does |
-| `--framework standalone\|django\|flask` | The application to write beside `datasets.py` (default `standalone`); see below |
+| `--framework standalone\|fastapi\|django\|flask` | The application to write beside `datasets.py` (default `standalone`); see below |
 | `--skip-connection` | Write the offline orders example and `seed.sql` instead of inspecting a database |
+| `--no-interactive` | Never ask questions, even in a terminal |
+
+### Applications
 
 | `--framework` | Writes | Run with |
 | --- | --- | --- |
 | `standalone` (default) | `app.py`: an API from `create_api`, served as plain ASGI with no web framework | `hypequery dev` |
+| `fastapi` | A FastAPI `app.py` that mounts the API, and a route of your own | `uvicorn app:app --reload` |
 | `django` | A small Django project (`settings.py`, `urls.py`, `manage.py`) and `analytics.py` | `python manage.py runserver` |
-| `flask` | A Flask `app.py` | `flask --app app run` |
+| `flask` | A Flask `app.py` | `flask --app app run --port 5001` |
 
-The Django and Flask apps serve hypequery's endpoints natively ([`urls(api)`](/docs/python/django#serve-hypequerys-endpoints),
-[`blueprint(api)`](/docs/python/flask#serve-hypequerys-endpoints)) twice: at `/api/analytics` behind the framework's
-own login with the same-origin check, for `@hypequery/react` on pages the app serves, and at `/api/agents` behind a
-bearer token, for `@hypequery/mcp` and scripts. Until you wire them to your login, Flask's session API refuses
-everyone, and tenant-scoped datasets refuse signed-in Django users. The generated README walks through both. Every
-choice also works with `--skip-connection`.
+The standalone API is open for local development, as above. The framework apps authenticate:
+
+- **Django and Flask** serve hypequery's endpoints natively ([`urls(api)`](/docs/python/django#serve-hypequerys-endpoints),
+  [`blueprint(api)`](/docs/python/flask#serve-hypequerys-endpoints)) twice: at `/api/analytics` behind the framework's
+  own login with the same-origin check, for `@hypequery/react` on pages the app serves, and at `/api/agents` behind a
+  bearer token, for `@hypequery/mcp` and scripts. Until you wire them to your login, Flask's session API refuses
+  everyone, and tenant-scoped datasets refuse signed-in Django users.
+- **FastAPI** has no login of its own, so its app [mounts](/docs/python/fastapi) the bearer-token API at `/api/agents`
+  and adds `/analytics/<dataset>`, a route of your own that queries as whoever its `current_principal` dependency
+  returns. It refuses everyone until you wire that to your login. The project depends on `fastapi` directly; hypequery
+  has no FastAPI extra.
+
+The bearer token is `HYPEQUERY_DEV_TOKEN`, a local development token you set in the shell that runs the app. Their servers
+don't load `.env` for you (Flask does only with python-dotenv installed), so export the connection settings there too. The generated README walks through
+each app. Every choice also works with `--skip-connection`.
 
 Schema discovery reads only `system.tables` and `system.columns` for the current database, so the user needs
 `SHOW` and `SELECT` on it. A read-only user works, whether its profile sets `readonly = 1` or `2`. If discovery fails,
@@ -71,9 +134,9 @@ the message names what to check: credentials, host and port, the database, or gr
 
 ### Tenant-scoped datasets
 
-With `--tenant-column`, each dataset gets a `tenant_key`, and every query must run for one tenant. The generated
-development token has no tenant, so queries answer `403 FORBIDDEN` ("requires runtime tenant scoping") until you give
-it one. For local testing, set it in `app.py` (`principal_for_token` in the Django and Flask apps):
+With `--tenant-column`, each dataset gets a `tenant_key`, and every query must run for one tenant. The standalone
+app's developer principal has no tenant, so queries answer `403 FORBIDDEN` ("requires runtime tenant scoping") until
+you give it one. For local testing, return one from `developer` in `app.py`:
 
 <CodeBlock>
 ```python
@@ -81,7 +144,9 @@ return Principal(subject="developer", tenant_id="org_123")
 ```
 </CodeBlock>
 
-Before real users, replace the token check with your own authentication so the tenant comes from the signed-in user.
+In the FastAPI, Django and Flask apps, the development token reads the tenant in `HYPEQUERY_DEV_TENANT` instead: export
+it in the app's shell before starting it. Before real users, replace the open API or the token check with your own
+authentication so the tenant comes from the signed-in user.
 See [Multi-tenancy](/docs/python/multi-tenancy).
 
 Physical names map to the same camelCase semantic names as the TypeScript CLI. Numeric value columns get suggested
@@ -134,4 +199,4 @@ or connecting to a database.
 | `--check` | Exit 1 if the artifact would change, without writing |
 | `--force` | Replace an existing artifact |
 
-See [Python datasets, React and MCP](/docs/python-client-workflow) for the end-to-end workflow.
+See [React and MCP clients](/docs/python/client-endpoints) for the end-to-end workflow.

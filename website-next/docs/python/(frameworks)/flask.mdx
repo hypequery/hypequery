@@ -13,7 +13,7 @@ import { CodeBlock } from 'fumadocs-ui/components/codeblock';
 
 <CodeBlock>
 ```bash
-pip install "hypequery[flask,jwt]==0.1.0b1"
+pip install "hypequery[flask,jwt]==0.1.0b2"
 ```
 </CodeBlock>
 
@@ -221,3 +221,6 @@ under another prefix. The tenant always comes from the principal either way.
 a sync route, an async route, and hypequery's endpoints served through `blueprint(api)` both behind the Flask login
 (for a same-origin React page) and behind a bearer token (for `@hypequery/mcp`). It runs against a live ClickHouse in
 CI.
+
+To start from your own schema instead, `hypequery init --framework flask` writes a Flask `app.py` with datasets for your
+tables and both APIs wired the same way. See [Python CLI](/docs/python/cli#applications).

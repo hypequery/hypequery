@@ -20,7 +20,7 @@ export const metadata: Metadata = {
   twitter: { card: 'summary_large_image', title: `${TITLE} | hypequery`, description: DESCRIPTION },
 };
 
-const notebookCode = `# pip install "hypequery[clickhouse,pandas]==0.1.0b1"
+const notebookCode = `# pip install "hypequery[clickhouse,pandas]==0.1.0b2"
 from hypequery.datasets import create_dataset_client, tenant
 from hypequery.execution import (
     ClickHouseConnection,

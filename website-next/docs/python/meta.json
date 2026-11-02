@@ -3,7 +3,6 @@
   "pages": [
     "---Get started---",
     "(get-started)/index",
-    "(get-started)/quick-start",
     "(get-started)/cli",
     "(get-started)/feature-status",
     "---Datasets---",
