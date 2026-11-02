@@ -47,18 +47,25 @@ Scaffolding and the dev command never seed it automatically. Repeating the seed
 inserts the sample rows again. Use a fresh scratch database for the exact example
 response below. You can use a SQL console or Python:
 
+This plain Python script reads only the environment, so load `.env` into your
+shell first if you keep the settings there:
+
 ```bash
+set -a; [ -f .env ] && . ./.env; set +a
 python - <<'PY'
-import os
 from pathlib import Path
 import clickhouse_connect
+from hypequery.execution import ClickHouseConnection
 
+# Reads CLICKHOUSE_URL, or CLICKHOUSE_HOST, _PORT, _DATABASE, _USERNAME, _PASSWORD and _SECURE.
+connection = ClickHouseConnection.from_env()
 client = clickhouse_connect.get_client(
-    host=os.environ["CLICKHOUSE_HOST"],
-    port=int(os.environ["CLICKHOUSE_PORT"]),
-    database=os.environ["CLICKHOUSE_DATABASE"],
-    username=os.environ["CLICKHOUSE_USERNAME"],
-    password=os.environ["CLICKHOUSE_PASSWORD"],
+    host=connection.host,
+    port=connection.port,
+    database=connection.database,
+    username=connection.username,
+    password=connection.password,
+    secure=connection.secure,
 )
 try:
     for statement in Path("seed.sql").read_text().split(";"):

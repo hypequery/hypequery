@@ -100,7 +100,7 @@ class CatalogOverview:
 
     database: str
     tables: tuple[str, ...]
-    #: Tenant-looking column name -> the tables that have it.
+    #: Tenant-looking column, spelled as in ClickHouse -> the tables that have it.
     tenant_columns: dict[str, tuple[str, ...]]
 
 
@@ -127,10 +127,13 @@ def discover_catalog(
             raise CliError("The database has more tables than discovery can list.")
         tenant_columns: dict[str, list[str]] = {}
         if hints:
+            # Match hints case-insensitively but keep the column's real spelling: the
+            # generator sets tenant_key only on an exact name, so a lowercased `Org_ID`
+            # would silently drop the tenant isolation the user chose.
             rows = client.query(
-                "SELECT lower(name), table FROM system.columns WHERE database = {database:String} "
+                "SELECT name, table FROM system.columns WHERE database = {database:String} "
                 "AND lower(name) IN {hints:Array(String)} ORDER BY table LIMIT 100001",
-                parameters={"database": database, "hints": hints},
+                parameters={"database": database, "hints": [hint.lower() for hint in hints]},
                 settings=settings,
             ).result_rows
             for column, table in rows:

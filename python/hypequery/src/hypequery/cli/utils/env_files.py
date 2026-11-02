@@ -55,9 +55,18 @@ def parse_env(text: str) -> list[tuple[str, str]]:
 
 
 def _value(raw: str) -> str:
-    if len(raw) >= 2 and raw[0] == raw[-1] == "'":
-        return raw[1:-1]
-    if len(raw) >= 2 and raw[0] == raw[-1] == '"':
-        return re.sub(r"\\(.)", lambda m: _ESCAPES.get(m.group(1), "\\" + m.group(1)), raw[1:-1])
-    # Unquoted: " #" starts a comment, as in shells and python-dotenv.
+    """The value after ``=``: quoted values end at their closing quote, so a trailing
+    ``# comment`` is dropped rather than leaving the quotes in the value."""
+
+    if raw[:1] == "'":
+        end = raw.find("'", 1)
+        if end != -1:
+            return raw[1:end]
+    elif raw[:1] == '"':
+        match = re.match(r'"((?:[^"\\]|\\.)*)"', raw)
+        if match is not None:
+            return re.sub(
+                r"\\(.)", lambda m: _ESCAPES.get(m.group(1), "\\" + m.group(1)), match.group(1)
+            )
+    # Unquoted (or an unclosed quote): " #" starts a comment, as in shells and python-dotenv.
     return re.split(r"\s+#", raw, maxsplit=1)[0].strip()

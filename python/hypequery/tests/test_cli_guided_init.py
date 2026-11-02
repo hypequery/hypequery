@@ -221,7 +221,9 @@ def test_offline_path_with_every_default(tmp_path: Path) -> None:
     assert guided.options.skip_connection
     assert guided.options.framework == "standalone"
     assert guided.environ is None
-    assert "hypequery init . --framework standalone --skip-connection" in script.text
+    assert (
+        "hypequery init . --no-interactive --framework standalone --skip-connection" in script.text
+    )
 
 
 def test_a_non_empty_folder_suggests_a_subfolder(tmp_path: Path) -> None:
@@ -395,7 +397,8 @@ def test_equivalent_command_quotes_its_values() -> None:
         options(directory="my project", framework="django", tables="a,b", tenant_column="org_id")
     )
     assert command == (
-        "hypequery init 'my project' --framework django --tables a,b --tenant-column org_id"
+        "hypequery init 'my project' --no-interactive --framework django --tables a,b "
+        "--tenant-column org_id"
     )
 
 
@@ -517,3 +520,76 @@ def test_discover_catalog_reads_tables_and_tenant_columns(
     assert overview == CatalogOverview(
         "analytics", ("customers", "orders"), {"org_id": ("customers", "orders")}
     )
+
+
+# --- review fixes --------------------------------------------------------------------------
+
+
+def test_quoted_env_values_drop_trailing_comments() -> None:
+    text = """A="secret" # local
+B='single quoted' # note
+C="say \\"hi\\"" # escaped quotes
+D="unclosed # stays as text up to the comment
+"""
+    assert dict(parse_env(text)) == {
+        "A": "secret",
+        "B": "single quoted",
+        "C": 'say "hi"',
+        "D": '"unclosed',
+    }
+
+
+def test_discover_catalog_keeps_the_column_spelling(monkeypatch: pytest.MonkeyPatch) -> None:
+    class Result:
+        def __init__(self, rows: list[tuple[object, ...]]) -> None:
+            self.result_rows = rows
+
+    seen: dict[str, object] = {}
+
+    class Client:
+        def query(
+            self, query: str, *, parameters: dict[str, object], settings: dict[str, int]
+        ) -> Result:
+            if "currentDatabase" in query:
+                return Result([("analytics",)])
+            if "system.tables" in query:
+                return Result([("orders",)])
+            seen.update(parameters)
+            return Result([("Org_ID", "orders")])
+
+        def close(self) -> None:
+            pass
+
+    @contextmanager
+    def connected(_environ: Mapping[str, str]) -> Iterator[tuple[Client, dict[str, object]]]:
+        yield Client(), {}
+
+    monkeypatch.setattr(schema_module, "_connected", connected)
+    monkeypatch.setattr(schema_module, "_catalog_settings", lambda _client: {})
+    overview = schema_module.discover_catalog(environ={}, tenant_hints=("ORG_ID",))
+    assert seen["hints"] == ["org_id"]
+    # The generator matches tenant_key on the exact name, so the suggestion keeps it.
+    assert overview.tenant_columns == {"Org_ID": ("orders",)}
+
+
+def test_the_tenant_question_follows_the_final_table_selection(
+    tmp_path: Path, catalog: Callable[..., list[Mapping[str, str]]]
+) -> None:
+    only_on_excluded = CatalogOverview("analytics", ("events", "orders"), {"org_id": ("events",)})
+    catalog(only_on_excluded, MANY)
+    environ = {"CLICKHOUSE_HOST": "ch.example"}
+    excluded = Script("", "", "", "")  # folder, use env, framework, create
+    guided = run_guide(excluded, tmp_path, environ=environ, exclude_tables="events")
+    assert "looks like a tenant id" not in excluded.text
+    assert guided.options.tenant_column is None
+    spaced = Script("", "", "", "", "")  # folder, use env, tenant, framework, create
+    run_guide(spaced, tmp_path, environ=environ, tables="t01, t02")
+    assert "tenant_id on 2 tables" in spaced.text
+
+
+def test_the_seed_step_reads_env_files(tmp_path: Path) -> None:
+    assert main(["init", str(tmp_path / "project"), "--skip-connection", "--no-interactive"]) == 0
+    readme = (tmp_path / "project" / "README.md").read_text()
+    assert "set -a; [ -f .env ] && . ./.env; set +a" in readme
+    assert "ClickHouseConnection.from_env()" in readme
+    assert 'os.environ["CLICKHOUSE_HOST"]' not in readme

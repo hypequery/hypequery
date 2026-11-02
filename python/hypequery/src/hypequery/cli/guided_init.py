@@ -107,7 +107,8 @@ def guide(
 
     tenant_column = options.tenant_column
     if catalog is not None and tenant_column is None:
-        tenant_column = _ask_tenant(prompter, catalog.tenant_columns, tables)
+        selected = selected_tables(catalog.tables, tables, options.exclude_tables)
+        tenant_column = _ask_tenant(prompter, catalog.tenant_columns, selected)
 
     framework = options.framework
     if framework is None:
@@ -150,7 +151,7 @@ def env_lines(typed: TypedConnection) -> list[str]:
 def equivalent_command(options: InitOptions) -> str:
     """The same choices as flags, to repeat without questions or in CI."""
 
-    parts = ["hypequery", "init", options.directory or "."]
+    parts = ["hypequery", "init", options.directory or ".", "--no-interactive"]
     if options.framework:
         parts += ["--framework", options.framework]
     if options.skip_connection:
@@ -307,16 +308,26 @@ def _ask_tables(prompter: Prompter, database: str, names: tuple[str, ...]) -> st
         return ",".join(dict.fromkeys(chosen))
 
 
+def selected_tables(
+    available: tuple[str, ...], tables: str | None, exclude_tables: str | None
+) -> set[str]:
+    """The tables init will generate, read as discovery reads ``--tables``/``--exclude-tables``."""
+
+    def names(value: str | None) -> set[str]:
+        return {name.strip() for name in (value or "").split(",") if name.strip()}
+
+    return (names(tables) if tables else set(available)) - names(exclude_tables)
+
+
 def _ask_tenant(
-    prompter: Prompter, tenant_columns: Mapping[str, tuple[str, ...]], tables: str | None
+    prompter: Prompter, tenant_columns: Mapping[str, tuple[str, ...]], selected: set[str]
 ) -> str | None:
     """The tenant column to scope datasets by, offered only when one looks likely."""
 
     from .generators.datasets import is_identifier
 
-    selected = set(tables.split(",")) if tables else None
     counts = {
-        column: [table for table in found if selected is None or table in selected]
+        column: [table for table in found if table in selected]
         for column, found in tenant_columns.items()
     }
     counts = {column: found for column, found in counts.items() if found}
