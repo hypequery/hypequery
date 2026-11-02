@@ -200,10 +200,10 @@ Use object-style auth fields when a reusable query definition should enforce acc
 import { createAuthSystem, initServe } from '@hypequery/serve';
 import { db } from './client';
 
-const { useAuth, TypedAuth } = createAuthSystem({
-  roles: ['admin', 'editor'] as const,
-  scopes: ['read:data', 'write:data'] as const,
-});
+const { useAuth, TypedAuth } = createAuthSystem<
+  'admin' | 'editor',
+  'read:data' | 'write:data'
+>();
 
 type AppAuth = typeof TypedAuth;
 
@@ -259,16 +259,16 @@ Semantics:
 
 ## Typed authorization with `createAuthSystem`
 
-Use `createAuthSystem(...)` when you want compile-time safety for roles and scopes.
+Use `createAuthSystem<Roles, Scopes>()` when you want compile-time safety for roles and scopes.
 
 <CodeBlock>
 ```typescript
 import { createAuthSystem, initServe } from '@hypequery/serve';
 
-const { useAuth, TypedAuth } = createAuthSystem({
-  roles: ['admin', 'editor'] as const,
-  scopes: ['read:data', 'write:data'] as const,
-});
+const { useAuth, TypedAuth } = createAuthSystem<
+  'admin' | 'editor',
+  'read:data' | 'write:data'
+>();
 
 type AppAuth = typeof TypedAuth;
 

@@ -1,6 +1,6 @@
 {
   "name": "@hypequery/serve",
-  "version": "0.24.2",
+  "version": "0.24.4",
   "description": "Code-first TypeScript runtime for validated ClickHouse analytics APIs, OpenAPI, auth, and tenancy",
   "keywords": [
     "clickhouse",
@@ -43,11 +43,11 @@
     "types": "tsc --project tsconfig.json --noEmit"
   },
   "dependencies": {
-    "jose": "^6.2.13",
+    "jose": "^6.2.14",
     "openapi-typescript": "^7.13.0",
     "zod": "^4.6.6",
     "zod-to-json-schema": "^3.25.2",
-    "@hypequery/datasets": "^0.28.0"
+    "@hypequery/datasets": "^0.29.0"
   },
   "peerDependencies": {
     "tsx": "^4.0.0",

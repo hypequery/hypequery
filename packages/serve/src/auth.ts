@@ -484,11 +484,11 @@ export type TypedAuthContext<
  * ```ts
  * import { createAuthSystem, initServe } from '@hypequery/serve';
  *
- * // Define your roles and scopes up front
- * const { useAuth, TypedAuth } = createAuthSystem({
- *   roles: ['admin', 'editor', 'viewer'] as const,
- *   scopes: ['read:metrics', 'write:metrics', 'delete:metrics'] as const,
- * });
+ * // Define your roles and scopes up front as type parameters
+ * const { useAuth, TypedAuth } = createAuthSystem<
+ *   'admin' | 'editor' | 'viewer',
+ *   'read:metrics' | 'write:metrics' | 'delete:metrics'
+ * >();
  *
  * // Extract the typed auth type for use with initServe
  * type AppAuth = typeof TypedAuth;
