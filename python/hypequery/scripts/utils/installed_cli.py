@@ -120,7 +120,7 @@ ast.parse(Path('app.py').read_text())
 tomllib.loads(Path('pyproject.toml').read_text())
 assert Path('.env.example').is_file()
 assert Path('.gitignore').is_file()
-assert 'not loaded automatically' in Path('README.md').read_text()
+assert 'Copy `.env.example` to `.env`' in Path('README.md').read_text()
 """,
             ],
             cwd=self.project,
