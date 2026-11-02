@@ -35,7 +35,6 @@ from hypequery.serve import (
 )
 
 # Reads CLICKHOUSE_URL, or CLICKHOUSE_HOST, _PORT, _DATABASE, _USERNAME, _PASSWORD and _SECURE.
-# The client connects on its first query, not here.
 executor = create_clickhouse_executor(ClickHouseConnection.from_env())
 registry = create_dataset_registry(*datasets.values())
 client = create_dataset_client(executor=executor, registry=registry)

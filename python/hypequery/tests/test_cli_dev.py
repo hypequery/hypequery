@@ -333,3 +333,23 @@ def test_reload_worker_errors_do_not_echo_credentials(tmp_path: Path, error: str
                     process.wait(timeout=5)
         log.seek(0)
         assert "private-password" not in log.read()
+
+
+@pytest.mark.parametrize("reload", [True, False])
+def test_an_app_that_is_not_hypequerys_names_its_own_server(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    reload: bool,
+) -> None:
+    """`init --framework fastapi|flask|django` apps run under their own servers, not dev."""
+
+    (tmp_path / "app.py").write_text(
+        "async def app(scope, receive, send):\n    raise AssertionError('never served')\n"
+    )
+    monkeypatch.chdir(tmp_path)
+    assert main(["dev", *(["--no-watch"] if not reload else [])]) == 1
+    stderr = capsys.readouterr().err
+    assert "dev serves hypequery's own API" in stderr
+    assert "uvicorn app:app --reload" in stderr
+    assert "never served" not in stderr
