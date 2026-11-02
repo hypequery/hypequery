@@ -24,8 +24,10 @@ python -m pip install -e . --no-deps
 
 ## Configure
 
-`.env.example` is a reference; it is **not loaded automatically**. Export your
-connection settings in your shell:
+Copy `.env.example` to `.env` and fill in your password. `.env` is gitignored.
+The `hypequery` CLI (`hypequery dev`, `hypequery generate datasets`) reads
+`.env.local` and `.env` from the folder you run it in; a variable already set
+in your shell wins over both files. You can also export the settings instead:
 
 ```bash
 export CLICKHOUSE_HOST=localhost
@@ -35,7 +37,8 @@ export CLICKHOUSE_USERNAME=default
 export CLICKHOUSE_PASSWORD='your-local-password'
 ```
 
-Do not commit credentials.
+Your app itself reads only the real environment, so in production set these as
+environment variables or secrets, not a file. Do not commit credentials.
 
 ## Create sample data
 

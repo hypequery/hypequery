@@ -200,11 +200,22 @@ Install `hypequery[server,clickhouse]` for the complete onboarding path (the
 `django` or `flask` extra instead for those scaffolds), then:
 
 ```bash
-hypequery init --path my-analytics
-cd my-analytics
-# Follow the generated README to configure serving credentials and review definitions.
-hypequery dev
+hypequery init
 ```
+
+In a terminal, `hypequery init` asks for whatever its flags leave unset: where
+to create the project, how to reach ClickHouse (from your environment, or a URL
+and credentials typed in and used only to read the schema), which tables when
+the database has more than ten, the tenant column when one looks likely, and
+which app to scaffold (standalone, Django or Flask, defaulting to the one it
+finds). It ends with the same choices as flags, e.g.
+`hypequery init analytics --framework django --tenant-column org_id`. Every
+flag answers its question; `--no-interactive`, a `CI` environment variable, or
+input that is not a terminal skips the questions entirely and uses the defaults.
+
+Then `cd` into the project and run `hypequery dev`. The CLI reads `.env.local`
+and `.env` from the folder you run it in, so connection settings can live in a
+gitignored `.env`; variables already set in your shell win over both files.
 
 `hypequery init --path <directory>` (or a positional directory) inspects your
 configured ClickHouse database by default. Use `--tables` and `--exclude-tables`
@@ -219,7 +230,7 @@ your actual tables; existing output paths are never overwritten. A table's or
 column's ClickHouse `COMMENT` becomes its dataset's or dimension's
 `description`, which client contracts and MCP agents see; whitespace is
 collapsed to single spaces to fit the deployment contract. Install the
-`clickhouse` extra and export connection settings before running init.
+`clickhouse` extra and set connection settings (exported, or in `.env`) before running init.
 Only explicit `--skip-connection` generates the offline orders demo and `seed.sql`.
 
 `--framework` chooses the application written beside `datasets.py`; every

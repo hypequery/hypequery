@@ -47,6 +47,27 @@ MODULES: dict[Framework, tuple[str, ...]] = {
 }
 
 #: What `init` tells the user to run next.
+#: Files every connected project writes beside its framework's own (offline adds seed.sql).
+PROJECT_FILES = (
+    "datasets.py",
+    "schema.json",
+    "pyproject.toml",
+    ".env.example",
+    ".gitignore",
+    "README.md",
+)
+
+
+def project_files(framework: Framework, *, offline: bool) -> list[str]:
+    """Every path init writes for *framework*, for the overwrite check before writing."""
+
+    if offline:
+        from ..utils.templates import load_templates
+
+        return list(offline_templates(load_templates(), framework))
+    return [*FILES[framework], *PROJECT_FILES]
+
+
 RUN_COMMAND: dict[Framework, str] = {
     "standalone": "hypequery dev",
     "django": "python manage.py migrate && python manage.py runserver",
@@ -142,17 +163,26 @@ def with_extras(readme: str, framework: Framework) -> str:
     """The base README for *framework*: its extras, and the token its agents API takes."""
 
     template = "[server,clickhouse]"
-    configure = ("connection settings in your shell:", "```\n\nDo not commit credentials.\n")
+    configure = ("You can also export the settings instead:", "```\n\nYour app itself reads")
     if template not in readme or any(part not in readme for part in configure):
         raise ValueError("README template no longer has the expected install and configure text")
+    runner = (
+        "Django's development server doesn't read `.env`"
+        if framework == "django"
+        else "Flask's development server reads `.env` only when python-dotenv is installed"
+    )
     return (
         readme.replace(template, f"[{EXTRAS[framework]}]")
-        .replace(configure[0], "connection settings and create a development token in your shell:")
+        .replace(
+            configure[0],
+            f"{runner}, so export the settings and a development token in the shell you run "
+            "it from:",
+        )
         .replace(
             configure[1],
             _TOKEN_EXPORT
-            + "```\n\nDo not commit credentials. The token is for local development; use your "
-            "real\nauthentication before exposing the app to users.\n",
+            + "```\n\nThe token is for local development; use your real authentication before\n"
+            "exposing the app to users. Your app itself reads",
         )
     )
 

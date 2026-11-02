@@ -113,7 +113,8 @@ def measure_candidate(name: str) -> bool:
 #: Measures suggested for each numeric value column: name prefix, aggregation, label.
 _NUMERIC_MEASURES = (("total", "sum", "Total"), ("avg", "avg", "Average"))
 #: Column names that suggest tenancy. Reported for review, never applied.
-_TENANT_HINTS = frozenset(("tenant_id", "organization_id", "org_id", "account_id", "customer_id"))
+#: Column names that usually hold a tenant id; init suggests them as the tenant key.
+TENANT_HINTS = frozenset(("tenant_id", "organization_id", "org_id", "account_id", "customer_id"))
 
 
 @dataclass(frozen=True, slots=True)
@@ -229,7 +230,7 @@ def infer_dataset(
             f"{table.name}: no {tenant_column!r} column, so tenant isolation was not "
             "applied; set tenant_key to the correct column before serving tenant requests."
         )
-    hints = [field.column for field in fields if field.column.lower() in _TENANT_HINTS]
+    hints = [field.column for field in fields if field.column.lower() in TENANT_HINTS]
     if hints and tenant_key is None:
         warnings.append(
             f"{table.name}: possible tenant columns {', '.join(hints)}; "

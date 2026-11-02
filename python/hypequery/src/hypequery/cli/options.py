@@ -12,12 +12,17 @@ from dataclasses import dataclass
 
 @dataclass(frozen=True, slots=True)
 class InitOptions:
-    directory: str
+    #: ``None`` when not given: guided init asks, otherwise the current directory.
+    directory: str | None
     tables: str | None
     exclude_tables: str | None
     tenant_column: str | None
-    framework: str
+    #: ``None`` when not given: guided init asks, otherwise ``standalone``.
+    framework: str | None
     skip_connection: bool
+    all_tables: bool = False
+    #: Whether init may ask questions; only in a terminal, and never when CI is set.
+    interactive: bool = True
 
 
 @dataclass(frozen=True, slots=True)
@@ -65,6 +70,8 @@ def command_options(args: argparse.Namespace) -> CommandOptions:
             tenant_column=args.tenant_column,
             framework=args.framework,
             skip_connection=args.skip_connection,
+            all_tables=args.all_tables,
+            interactive=not args.no_interactive,
         )
     if args.command == "generate":
         return GenerateDatasetsOptions(
