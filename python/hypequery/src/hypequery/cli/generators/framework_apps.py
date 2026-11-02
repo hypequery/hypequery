@@ -4,13 +4,16 @@
   as plain ASGI by ``hypequery dev``, with no web framework;
 - ``django``: a small runnable Django project (``settings.py``, ``urls.py``,
   ``manage.py``) whose ``analytics.py`` holds what hypequery needs;
-- ``flask``: a Flask ``app.py``.
+- ``flask``: a Flask ``app.py``;
+- ``fastapi``: a FastAPI ``app.py``.
 
 The Django and Flask apps serve hypequery's endpoints natively (``urls(api)``,
 ``blueprint(api)``) twice: behind the framework's own login with the
 same-origin check, for ``@hypequery/react``, and behind a bearer token, for
-``@hypequery/mcp``. Their login mappings refuse tenant-scoped data until the
-user wires them, rather than reading every tenant.
+``@hypequery/mcp``. FastAPI has no login of its own, so its app mounts the
+bearer-token API (``app.mount(..., to_asgi_app(api))``) and leaves the user's
+login to a dependency of the app's own route. Every login mapping refuses
+tenant-scoped data until the user wires it, rather than reading every tenant.
 """
 
 from __future__ import annotations
@@ -22,12 +25,21 @@ from typing import Literal, TypeAlias
 
 from .readme_notes import with_notes
 
-Framework: TypeAlias = Literal["standalone", "django", "flask"]
-FRAMEWORKS: tuple[Framework, ...] = ("standalone", "django", "flask")
+Framework: TypeAlias = Literal["standalone", "fastapi", "django", "flask"]
+FRAMEWORKS: tuple[Framework, ...] = ("standalone", "fastapi", "django", "flask")
+#: How the CLI names each framework to the user.
+NAMES: dict[Framework, str] = {
+    "standalone": "standalone",
+    "fastapi": "FastAPI",
+    "django": "Django",
+    "flask": "Flask",
+}
 
 #: The pyproject extras each framework needs; each includes the ClickHouse driver.
 EXTRAS: dict[Framework, str] = {
     "standalone": "server,clickhouse",
+    # uvicorn and the driver; FastAPI itself is a dependency of the project, see FASTAPI.
+    "fastapi": "server,clickhouse",
     "django": "django",
     "flask": "flask",
 }
@@ -35,6 +47,7 @@ EXTRAS: dict[Framework, str] = {
 #: The application files each framework writes, beside datasets.py.
 FILES: dict[Framework, tuple[str, ...]] = {
     "standalone": ("app.py",),
+    "fastapi": ("app.py",),
     "django": ("analytics.py", "urls.py", "settings.py", "manage.py"),
     "flask": ("app.py",),
 }
@@ -42,13 +55,40 @@ FILES: dict[Framework, tuple[str, ...]] = {
 #: The modules the generated pyproject installs.
 MODULES: dict[Framework, tuple[str, ...]] = {
     "standalone": ("app", "datasets"),
+    "fastapi": ("app", "datasets"),
     "django": ("analytics", "datasets"),
     "flask": ("app", "datasets"),
 }
 
+#: The FastAPI requirement a fastapi project adds: hypequery has no FastAPI extra,
+#: because serving an API from any ASGI framework needs none.
+FASTAPI = "fastapi>=0.115"
+
+#: Files every connected project writes beside its framework's own (offline adds seed.sql).
+PROJECT_FILES = (
+    "datasets.py",
+    "schema.json",
+    "pyproject.toml",
+    ".env.example",
+    ".gitignore",
+    "README.md",
+)
+
+
+def project_files(framework: Framework, *, offline: bool) -> list[str]:
+    """Every path init writes for *framework*, for the overwrite check before writing."""
+
+    if offline:
+        from ..utils.templates import load_templates
+
+        return list(offline_templates(load_templates(), framework))
+    return [*FILES[framework], *PROJECT_FILES]
+
+
 #: What `init` tells the user to run next.
 RUN_COMMAND: dict[Framework, str] = {
     "standalone": "hypequery dev",
+    "fastapi": "uvicorn app:app --reload",
     "django": "python manage.py migrate && python manage.py runserver",
     "flask": "flask --app app run --port 5001",
 }
@@ -94,19 +134,27 @@ def apply_framework(
         return templates.copy()
     result = templates.copy()
     modules = ", ".join(f'"{module}"' for module in MODULES[framework])
-    result["pyproject.toml"] = (
+    pyproject = (
         templates["pyproject.toml"]
         .replace('py-modules = ["app", "datasets"]', f"py-modules = [{modules}]")
         .replace("hypequery[server,clickhouse]", f"hypequery[{EXTRAS[framework]}]")
     )
+    if framework == "fastapi":
+        dependencies = re.search(r"^dependencies = \[(.*)\]$", pyproject, re.M)
+        if dependencies is None:
+            raise ValueError("pyproject template no longer has a one-line dependencies list")
+        pyproject = pyproject.replace(
+            dependencies[0], f'dependencies = [{dependencies[1]}, "{FASTAPI}"]'
+        )
+    result["pyproject.toml"] = pyproject
     result.pop("app.py")
     result.update(framework_files(framework, tenant_column))
-    secret = "DJANGO_SECRET_KEY" if framework == "django" else "FLASK_SECRET_KEY"
-    result[".env.example"] = (
-        templates[".env.example"]
-        + "HYPEQUERY_DEV_TOKEN=\n"
-        + f"# Signs sessions; the development fallback is not for deployment.\n{secret}=\n"
-    )
+    result[".env.example"] = templates[".env.example"] + "HYPEQUERY_DEV_TOKEN=\n"
+    if framework != "fastapi":
+        secret = "DJANGO_SECRET_KEY" if framework == "django" else "FLASK_SECRET_KEY"
+        result[".env.example"] += (
+            f"# Signs sessions; the development fallback is not for deployment.\n{secret}=\n"
+        )
     if framework == "django":
         result[".gitignore"] = templates[".gitignore"] + "db.sqlite3\n"
     return result
@@ -142,22 +190,36 @@ def with_extras(readme: str, framework: Framework) -> str:
     """The base README for *framework*: its extras, and the token its agents API takes."""
 
     template = "[server,clickhouse]"
-    configure = ("connection settings in your shell:", "```\n\nDo not commit credentials.\n")
+    configure = ("You can also export the settings instead:", "```\n\nYour app itself reads")
     if template not in readme or any(part not in readme for part in configure):
         raise ValueError("README template no longer has the expected install and configure text")
+    runner = {
+        "django": "Django's development server doesn't read `.env`",
+        "flask": "Flask's development server reads `.env` only when python-dotenv is installed",
+        "fastapi": "uvicorn reads `.env` only with `--env-file` and python-dotenv installed",
+    }[framework]
+    # The unreleased-wheel install skips the project's dependencies, FastAPI among them.
+    extras = f"[{EXTRAS[framework]}]"
+    if framework == "fastapi":
+        extras += f'" "{FASTAPI}'
     return (
-        readme.replace(template, f"[{EXTRAS[framework]}]")
-        .replace(configure[0], "connection settings and create a development token in your shell:")
+        readme.replace(template, extras)
+        .replace(
+            configure[0],
+            f"{runner}, so export the settings and a development token in the shell you run "
+            "it from:",
+        )
         .replace(
             configure[1],
             _TOKEN_EXPORT
-            + "```\n\nDo not commit credentials. The token is for local development; use your "
-            "real\nauthentication before exposing the app to users.\n",
+            + "```\n\nThe token is for local development; use your real authentication before\n"
+            "exposing the app to users. Your app itself reads",
         )
     )
 
 
 AGENTS_FOR = "`@hypequery/mcp`, scripts, curl"
+_BEARER = "`Authorization: Bearer $HYPEQUERY_DEV_TOKEN`"
 
 
 def _endpoints_row(prefix: str, authenticated_by: str, purpose: str) -> str:
@@ -173,7 +235,7 @@ def readme_section(
     tenant_column: str | None,
     response: str | None = None,
 ) -> str:
-    """The README section on running a Django or Flask scaffold and querying it.
+    """The README section on running a framework scaffold and querying it.
 
     *payload* is the example query's JSON body, and *response* the answer the
     offline example's seed data gives it.
@@ -240,6 +302,8 @@ export HYPEQUERY_DEV_TENANT='one of your {tenant_column} values'
         else ""
     )
     answer = f"\n```json\n{response}\n```\n" if response else ""
+    if framework == "fastapi":
+        return _fastapi_section(dataset, payload, scoped=scoped, answer=answer)
     existing = (
         """
 To use an existing Django project instead, copy `datasets.py` and `analytics.py`
@@ -261,7 +325,7 @@ hypequery's endpoints are served by the app itself, twice:
 
 | Endpoints | Authenticated by | For |
 | --- | --- | --- |
-{_endpoints_row("agents", "`Authorization: Bearer $HYPEQUERY_DEV_TOKEN`", AGENTS_FOR)}
+{_endpoints_row("agents", _BEARER, AGENTS_FOR)}
 {_endpoints_row("analytics", login, "`@hypequery/react` on pages the app serves")}
 
 From another shell with `HYPEQUERY_DEV_TOKEN` set:
@@ -287,3 +351,46 @@ HTTP wire.
   `jwt_strategy` from the `jwt` extra (`pip install "hypequery[jwt]"`);
 - {deploy}.
 {existing}"""
+
+
+def _fastapi_section(dataset: str, payload: str, *, scoped: str, answer: str) -> str:
+    """The FastAPI scaffold's README section: one mounted API, and a route of your own."""
+
+    return f"""## Run with FastAPI
+
+{scoped}```bash
+uvicorn app:app --reload
+```
+
+hypequery's endpoints are an ASGI app of their own, mounted in yours:
+
+| Endpoints | Authenticated by | For |
+| --- | --- | --- |
+{_endpoints_row("agents", _BEARER, AGENTS_FOR)}
+
+From another shell with `HYPEQUERY_DEV_TOKEN` set:
+
+```bash
+curl --fail-with-body -s http://127.0.0.1:8000/api/agents/{dataset} \\
+  -H "Authorization: Bearer $HYPEQUERY_DEV_TOKEN" \\
+  -H "Content-Type: application/json" \\
+  -d '{payload}'
+```
+{answer}
+A request without the token returns `401`. Measure values are strings on the
+HTTP wire.
+
+`/analytics/<dataset>` is a route of your own, querying through `client` as the
+principal its `current_principal` dependency returns. To serve your users'
+browsers, give another API an `auth` that verifies their tokens, such as
+`jwt_strategy` from the `jwt` extra, and mount it beside `/api/agents`.
+
+**Before real users:**
+
+- `current_principal` in `app.py` returns `None` until you wire it to your
+  login, so `/analytics` refuses everyone; give its principal the user's
+  `tenant_id`;
+- replace `principal_for_token` in `app.py` with your own credential check, or
+  `jwt_strategy` from the `jwt` extra (`pip install "hypequery[jwt]"`);
+- add your domain to `SECURITY`'s allowed hosts.
+"""

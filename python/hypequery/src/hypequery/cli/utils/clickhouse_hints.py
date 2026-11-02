@@ -18,14 +18,15 @@ _CODE_HINTS = {
         "ClickHouse denied access; check the user's grants and readonly profile."
     ),
     "HQ_EXECUTOR_READONLY_MISCONFIGURED": (
-        "ClickHouse refused HypeQuery's readonly settings; check the user's readonly profile "
+        "ClickHouse refused hypequery's readonly settings; check the user's readonly profile "
         "and readonly_policy."
     ),
 }
 
 _CATEGORY_HINTS = {
     "unavailable": (
-        "ClickHouse is unreachable; check CLICKHOUSE_HOST, CLICKHOUSE_PORT and CLICKHOUSE_SECURE."
+        "ClickHouse is unreachable; check CLICKHOUSE_URL, or CLICKHOUSE_HOST, CLICKHOUSE_PORT "
+        "and CLICKHOUSE_SECURE."
     ),
 }
 

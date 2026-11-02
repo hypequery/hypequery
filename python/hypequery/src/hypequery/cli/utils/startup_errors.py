@@ -19,6 +19,29 @@ def missing_environment_variable(exc: BaseException) -> str | None:
     return name if isinstance(name, str) and _ENV_NAME.fullmatch(name) else None
 
 
+#: What `init --framework` writes besides hypequery's own API, and how each runs.
+_OWN_SERVERS = (
+    "uvicorn app:app --reload for FastAPI, flask --app app run for Flask, or "
+    "python manage.py runserver for Django"
+)
+
+
+def app_start_failure(exc: BaseException) -> str:
+    """A safe message for an app that failed to start, never echoing the error itself.
+
+    ``run_dev`` refuses an import string that names anything but hypequery's own
+    API, such as the FastAPI, Flask or Django app ``init --framework`` writes: those
+    run under their own servers, so say which.
+    """
+
+    if isinstance(exc, TypeError) and str(exc).startswith("run_dev requires an Api"):
+        return (
+            "dev serves hypequery's own API (create_api or to_asgi_app). Run this app with "
+            f"its own server instead: {_OWN_SERVERS}."
+        )
+    return "App could not start; check its code, dependencies and environment."
+
+
 def quiet_driver_warnings() -> None:
     """Keep driver warnings out of the terminal; their errors still show.
 

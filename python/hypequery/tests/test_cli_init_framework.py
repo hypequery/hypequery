@@ -1,4 +1,4 @@
-"""`hypequery init --framework standalone|django|flask` scaffolds.
+"""`hypequery init --framework standalone|fastapi|django|flask` scaffolds.
 
 Each generated app is imported and served in a fresh process
 (`scaffold_driver.py`), with ClickHouse replaced by a double.
@@ -133,11 +133,11 @@ def test_standalone_readme_omits_tenant_guidance_without_a_tenant(tmp_path: Path
 
 def test_the_framework_choices_are_named_for_what_they_write() -> None:
     with pytest.raises(SystemExit) as exc:
-        main(["init", "--framework", "fastapi", "--skip-connection"])
+        main(["init", "--framework", "starlette", "--skip-connection"])
     assert exc.value.code == 2
 
 
-@pytest.mark.parametrize("framework", ["standalone", "django", "flask"])
+@pytest.mark.parametrize("framework", ["standalone", "fastapi", "django", "flask"])
 def test_offline_examples_exist_for_every_framework(
     tmp_path: Path, framework: str, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -345,3 +345,89 @@ def test_framework_files_are_preflighted(
     assert main(["init", str(project), "--skip-connection", "--framework", "django"]) == 1
     assert (project / "urls.py").read_text() == "# mine\n"
     assert not (project / "analytics.py").exists()
+
+
+def test_fastapi_scaffold(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    project = _init(tmp_path, "--framework", "fastapi", "--tenant-column", "org_id")
+    py_compile.compile(str(project / "app.py"), doraise=True)
+    assert "set tenant_id to the signed-in user's" in (project / "app.py").read_text()
+    out = capsys.readouterr().out
+    assert "uvicorn app:app --reload" in out
+    assert "configure serving credentials" in out
+    pyproject = tomllib.loads((project / "pyproject.toml").read_text())
+    dependencies = pyproject["project"]["dependencies"]
+    assert dependencies[0].startswith("hypequery[server,clickhouse]==")
+    assert dependencies[1] == "fastapi>=0.115"
+    assert pyproject["tool"]["setuptools"]["py-modules"] == ["app", "datasets"]
+    readme = (project / "README.md").read_text()
+    assert "## Run with FastAPI" in readme
+    assert "http://127.0.0.1:8000/api/agents/orders" in readme
+    assert "export HYPEQUERY_DEV_TENANT=" in readme
+    # The unreleased-wheel install skips the project's dependencies, so it names FastAPI.
+    assert '[server,clickhouse]" "fastapi>=0.115"' in readme
+    env = (project / ".env.example").read_text()
+    assert "HYPEQUERY_DEV_TOKEN=\n" in env
+    assert "SECRET_KEY" not in env
+
+
+def test_fastapi_scaffold_serves_the_agents_api_and_its_own_route(tmp_path: Path) -> None:
+    pytest.importorskip("fastapi")
+    project = _init(tmp_path, "--skip-connection", "--framework", "fastapi")
+    requests = [
+        _post("/api/agents/orders", headers=TOKEN),
+        _post("/api/agents/orders"),
+        _get("/api/agents/client-contract", headers=TOKEN),
+        _get("/analytics/orders"),
+        _get("/analytics/missing"),
+    ]
+    # Until current_principal reads a login, the app's own route serves no one.
+    unwired = _serve("fastapi", project, requests)
+    assert unwired[0] == (200, SERVED_REVENUE)
+    assert unwired[1][0] == 401
+    # The contract names the paths under the mount, as a client calls them.
+    assert [endpoint["path"] for endpoint in unwired[2][1]["endpoints"]] == ["/api/agents/orders"]
+    assert [status for status, _ in unwired[3:]] == [401, 401]
+    wired = _serve(
+        "fastapi",
+        project,
+        requests,
+        edit={
+            "app.py": (
+                "    return None\n\n\n# The agents API",
+                '    return Principal(subject="analyst")\n\n\n# The agents API',
+            )
+        },
+    )
+    assert wired[3] == (200, {"data": [{"revenue": "760.75", "orderCount": 5}]})
+    assert wired[4][0] == 404
+
+
+def test_fastapi_scaffold_scopes_its_own_route_by_tenant(tmp_path: Path) -> None:
+    pytest.importorskip("fastapi")
+    project = _init(tmp_path, "--framework", "fastapi", "--tenant-column", "org_id")
+    count = {"measures": ["totalCount"]}
+    rows = {"columns": ["totalCount"], "rows": [[5]]}
+    requests = [_get("/analytics/orders"), _post("/api/agents/orders", count, headers=TOKEN)]
+    untenanted = _serve(
+        "fastapi",
+        project,
+        requests,
+        rows,
+        edit={"app.py": ("    return None\n\n\n#", '    return Principal(subject="a")\n\n\n#')},
+    )
+    # A tenant-scoped dataset refuses a principal without a tenant, on both paths.
+    assert [status for status, _ in untenanted] == [403, 403]
+    scoped = _serve(
+        "fastapi",
+        project,
+        requests[:1],
+        rows,
+        edit={
+            # The first edit stays in the project, so this one replaces it.
+            "app.py": (
+                '    return Principal(subject="a")\n',
+                '    return Principal(subject="a", tenant_id="acme")\n',
+            )
+        },
+    )
+    assert scoped == [(200, {"data": [{"totalCount": 5}]})]

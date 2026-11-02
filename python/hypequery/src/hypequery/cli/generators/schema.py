@@ -2,13 +2,15 @@
 
 from __future__ import annotations
 
+import logging
 import os
-from contextlib import suppress
-from dataclasses import dataclass
+from collections.abc import Iterable, Iterator, Mapping
+from contextlib import contextmanager, suppress
+from dataclasses import dataclass, field
 from importlib.util import find_spec
 from typing import Protocol, cast
 
-from hypequery.execution.utils.connection_env import connection_fields
+from hypequery.execution.utils.connection_env import ConnectionFields, connection_fields
 
 from ..errors import CliError
 from ..utils.clickhouse_hints import clickhouse_hint
@@ -68,47 +70,160 @@ class _Client(Protocol):
     def close(self) -> None: ...
 
 
-def discover_schema(*, tables: str | None, exclude_tables: str | None) -> Schema:
-    """Query catalog metadata only; credentials never enter generated files."""
-    if find_spec("clickhouse_connect") is None:
-        raise CliError('Schema discovery requires: pip install "hypequery[clickhouse]"')
-    import clickhouse_connect
+def discover_schema(
+    *,
+    tables: str | None,
+    exclude_tables: str | None,
+    environ: Mapping[str, str] | None = None,
+) -> Schema:
+    """Query catalog metadata only; credentials never enter generated files.
 
-    try:
-        fields = connection_fields(os.environ)
-    except ValueError as exc:
-        # The parser's messages name the variable and never echo its value.
-        raise CliError(str(exc)) from exc
-    client: _Client | None = None
-    try:
-        client = cast(
-            _Client,
-            clickhouse_connect.get_client(
-                **fields,
-                connect_timeout=5,
-                send_receive_timeout=15,
-            ),
-        )
+    *environ* holds the ``CLICKHOUSE_*`` connection settings, defaulting to the
+    process environment; guided init passes the details someone typed in.
+    """
+    settings_source = os.environ if environ is None else environ
+    with _connected(settings_source) as (client, fields):
         schema = read_schema(client, tables=tables, exclude_tables=exclude_tables)
         summary = ConnectionSummary(
             host=fields["host"],
             port=fields["port"],
             secure=fields["secure"],
-            from_url=bool(os.environ.get("CLICKHOUSE_URL", "").strip()),
+            from_url=bool(settings_source.get("CLICKHOUSE_URL", "").strip()),
             default_user=fields["username"] == "default",
         )
         return Schema(schema.database, schema.tables, summary)
+
+
+@dataclass(frozen=True)
+class CatalogOverview:
+    """What guided init asks about: the tables, and columns that look like tenant ids."""
+
+    database: str
+    tables: tuple[str, ...]
+    #: Tenant-looking column, spelled as in ClickHouse -> the tables that have it.
+    tenant_columns: dict[str, tuple[str, ...]]
+    #: Table -> its column names, to check a typed-in tenant column against; empty when
+    #: the database has more columns than discovery lists, which leaves it unchecked.
+    columns: dict[str, tuple[str, ...]] = field(default_factory=dict)
+
+
+def discover_catalog(
+    *, environ: Mapping[str, str] | None = None, tenant_hints: Iterable[str] = ()
+) -> CatalogOverview:
+    """Table names, tenant-looking columns and (within a cap) each table's column names."""
+
+    hints = {hint.lower() for hint in tenant_hints}
+    with _connected(os.environ if environ is None else environ) as (client, _):
+        settings = _catalog_settings(client)
+        database = str(
+            client.query("SELECT currentDatabase()", parameters={}, settings=settings).result_rows[
+                0
+            ][0]
+        )
+        names = client.query(
+            "SELECT name FROM system.tables WHERE database = {database:String} "
+            "AND NOT startsWith(name, '.inner') ORDER BY name LIMIT 100001",
+            parameters={"database": database},
+            settings=settings,
+        ).result_rows
+        if len(names) > _ROW_CAP:
+            raise CliError("The database has more tables than discovery can list.")
+        # Match hints case-insensitively but keep the column's real spelling: the
+        # generator sets tenant_key only on an exact name, so a lowercased `Org_ID`
+        # would silently drop the tenant isolation the user chose.
+        tenant_columns: dict[str, list[str]] = {}
+        columns: dict[str, list[str]] = {}
+        rows = client.query(
+            "SELECT name, table FROM system.columns WHERE database = {database:String} "
+            "ORDER BY table, position LIMIT 100001",
+            parameters={"database": database},
+            settings=settings,
+        ).result_rows
+        if len(rows) > _ROW_CAP:
+            # Too many to hold; read only the tenant-looking columns and skip the rest.
+            rows = client.query(
+                "SELECT name, table FROM system.columns WHERE database = {database:String} "
+                "AND lower(name) IN {hints:Array(String)} ORDER BY table LIMIT 100001",
+                parameters={"database": database, "hints": sorted(hints)},
+                settings=settings,
+            ).result_rows
+        else:
+            for column, table in rows:
+                columns.setdefault(str(table), []).append(str(column))
+        for column, table in rows:
+            if str(column).lower() in hints:
+                tenant_columns.setdefault(str(column), []).append(str(table))
+        return CatalogOverview(
+            database,
+            tuple(str(row[0]) for row in names),
+            {column: tuple(tables) for column, tables in tenant_columns.items()},
+            {table: tuple(found) for table, found in columns.items()},
+        )
+
+
+class DiscoveryConnectionError(CliError):
+    """ClickHouse could not be reached or refused the connection."""
+
+
+@contextmanager
+def _connected(environ: Mapping[str, str]) -> Iterator[tuple[_Client, ConnectionFields]]:
+    """A catalog client for *environ*'s settings, closed afterwards.
+
+    Driver failures become a safe message naming the setting to check; the
+    driver's own text, which can hold URLs or values, is never shown.
+    """
+    if find_spec("clickhouse_connect") is None:
+        raise CliError('Schema discovery requires: pip install "hypequery[clickhouse]"')
+    import clickhouse_connect
+
+    try:
+        fields = connection_fields(environ)
+    except ValueError as exc:
+        # The parser's messages name the variable and never echo its value.
+        raise CliError(str(exc)) from exc
+    client: _Client | None = None
+    try:
+        with _quiet_driver():
+            client = cast(
+                _Client,
+                clickhouse_connect.get_client(
+                    **fields,
+                    connect_timeout=5,
+                    send_receive_timeout=15,
+                ),
+            )
+            yield client, fields
     except CliError:
         raise
     except Exception as exc:
         from hypequery.execution.errors import safe_driver_error
 
         error = safe_driver_error(exc, "")
-        raise CliError(f"Cannot inspect ClickHouse. {clickhouse_hint(error)}") from exc
+        message = f"Cannot inspect ClickHouse. {clickhouse_hint(error)}"
+        raise DiscoveryConnectionError(message) from exc
     finally:
         if client is not None:
             with suppress(Exception):
                 client.close()
+
+
+@contextmanager
+def _quiet_driver() -> Iterator[None]:
+    """Keep the driver's own log lines ("Unexpected Http Driver Exception") off the terminal.
+
+    The CLI reports a failure once, as a safe hint. With no handler configured,
+    Python would print the driver's warnings through ``logging.lastResort``.
+    """
+    logger = logging.getLogger("clickhouse_connect")
+    handler = logging.NullHandler()
+    propagate = logger.propagate
+    logger.addHandler(handler)
+    logger.propagate = False
+    try:
+        yield
+    finally:
+        logger.removeHandler(handler)
+        logger.propagate = propagate
 
 
 def _catalog_settings(client: _Client) -> dict[str, int]:

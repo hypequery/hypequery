@@ -24,8 +24,10 @@ python -m pip install -e . --no-deps
 
 ## Configure
 
-`.env.example` is a reference; it is **not loaded automatically**. Export your
-connection settings in your shell:
+Copy `.env.example` to `.env` and fill in your password. `.env` is gitignored.
+The `hypequery` CLI (`hypequery dev`, `hypequery generate datasets`) reads
+`.env.local` and `.env` from the folder you run it in; a variable already set
+in your shell wins over both files. You can also export the settings instead:
 
 ```bash
 export CLICKHOUSE_HOST=localhost
@@ -35,7 +37,8 @@ export CLICKHOUSE_USERNAME=default
 export CLICKHOUSE_PASSWORD='your-local-password'
 ```
 
-Do not commit credentials.
+Your app itself reads only the real environment, so in production set these as
+environment variables or secrets, not a file. Do not commit credentials.
 
 ## Create sample data
 
@@ -46,16 +49,23 @@ response below. You can use a SQL console or Python:
 
 ```bash
 python - <<'PY'
-import os
 from pathlib import Path
 import clickhouse_connect
+from hypequery.cli import load_env_files
+from hypequery.execution import ClickHouseConnection
 
+# Fill unset variables from .env.local and .env, as the hypequery CLI does; exported
+# settings win. Reads CLICKHOUSE_URL, or CLICKHOUSE_HOST, _PORT, _DATABASE, _USERNAME,
+# _PASSWORD and _SECURE.
+load_env_files(Path.cwd())
+connection = ClickHouseConnection.from_env()
 client = clickhouse_connect.get_client(
-    host=os.environ["CLICKHOUSE_HOST"],
-    port=int(os.environ["CLICKHOUSE_PORT"]),
-    database=os.environ["CLICKHOUSE_DATABASE"],
-    username=os.environ["CLICKHOUSE_USERNAME"],
-    password=os.environ["CLICKHOUSE_PASSWORD"],
+    host=connection.host,
+    port=connection.port,
+    database=connection.database,
+    username=connection.username,
+    password=connection.password,
+    secure=connection.secure,
 )
 try:
     for statement in Path("seed.sql").read_text().split(";"):

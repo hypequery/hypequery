@@ -9,7 +9,11 @@ from hypequery.datasets.planner import CompiledQueryError
 from ..errors import CliError
 from ..options import DevOptions
 from ..utils.clickhouse_hints import clickhouse_hint
-from ..utils.startup_errors import missing_environment_variable, quiet_driver_warnings
+from ..utils.startup_errors import (
+    app_start_failure,
+    missing_environment_variable,
+    quiet_driver_warnings,
+)
 
 
 def run(options: DevOptions) -> None:
@@ -69,6 +73,4 @@ def run(options: DevOptions) -> None:
         raise CliError(f"App could not start: set the {name} environment variable.") from exc
     except Exception as exc:
         # User app and driver errors may contain URLs, SQL or credentials.
-        raise CliError(
-            "App could not start; check its code, dependencies and environment."
-        ) from exc
+        raise CliError(app_start_failure(exc)) from exc

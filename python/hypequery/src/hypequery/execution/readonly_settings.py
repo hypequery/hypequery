@@ -87,7 +87,7 @@ def _refused_setting(exc: Exception) -> str | None:
 def readonly_setting_error(
     exc: Exception, policy: ReadonlyPolicy, query_id: str
 ) -> CompiledQueryError | None:
-    """Give guidance only for rejection of HypeQuery's own settings.
+    """Give guidance only for rejection of hypequery's own settings.
 
     A user whose profile sets ``readonly = 1`` may not change any setting, so
     the planner's limits are refused one by one; that is the failure an
@@ -104,13 +104,13 @@ def readonly_setting_error(
             return None
         return server_fault(
             "HQ_EXECUTOR_READONLY_MISCONFIGURED",
-            "ClickHouse rejected HypeQuery's readonly setting. Use readonly_policy='profile' "
+            "ClickHouse rejected hypequery's readonly setting. Use readonly_policy='profile' "
             "only when the ClickHouse user profile enforces readonly = 1 or 2.",
             query_id,
         )
     return server_fault(
         "HQ_EXECUTOR_READONLY_MISCONFIGURED",
-        "ClickHouse rejected HypeQuery's per-query limits: the connected user is readonly = 1, "
+        "ClickHouse rejected hypequery's per-query limits: the connected user is readonly = 1, "
         "which forbids changing any setting. Use a user whose profile sets readonly = 2 "
         "(settings may change, data may not).",
         query_id,

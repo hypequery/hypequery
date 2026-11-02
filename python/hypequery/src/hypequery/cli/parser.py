@@ -31,10 +31,9 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     init.add_argument(
         "--framework",
         choices=FRAMEWORKS,
-        default="standalone",
         help="application to scaffold beside datasets.py: a standalone ASGI app served by "
-        "hypequery dev, or a Django or Flask app serving hypequery's endpoints natively "
-        "(default: standalone)",
+        "hypequery dev, a FastAPI app mounting it, or a Django or Flask app serving "
+        "hypequery's endpoints natively (default: standalone)",
     )
     init.add_argument(
         "--tenant-column",
@@ -45,6 +44,12 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         "--skip-connection",
         action="store_true",
         help="explicit offline example; no schema discovery",
+    )
+    init.add_argument(
+        "--no-interactive",
+        action="store_true",
+        help="never ask questions, even in a terminal; unset options take their defaults "
+        "(also when CI is set or input is not a terminal)",
     )
     generate = commands.add_parser("generate", help="generate Python definitions from ClickHouse")
     targets = generate.add_subparsers(dest="target", required=True)
@@ -129,7 +134,8 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     if args.command == "init":
         if args.directory is not None and args.path is not None:
             parser.error("use either --path or a positional directory")
-        args.directory = args.path if args.path is not None else args.directory or "."
+        # None means "not given": guided init asks, and otherwise it is the current directory.
+        args.directory = args.path if args.path is not None else args.directory
         if args.all_tables and args.tables:
             parser.error("--all-tables cannot be combined with --tables")
         if args.skip_connection and (
