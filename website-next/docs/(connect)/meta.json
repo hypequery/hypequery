@@ -1,7 +1,5 @@
 {
   "title": "Connect",
-  "description": "React, MCP and agents",
-  "root": "language",
   "pages": [
     "---MCP---",
     "mcp/overview",

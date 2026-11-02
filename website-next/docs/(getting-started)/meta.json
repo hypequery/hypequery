@@ -1,0 +1,9 @@
+{
+  "title": "Getting started",
+  "defaultOpen": true,
+  "pages": [
+    "[Overview](/docs)",
+    "why-hypequery",
+    "core-concepts"
+  ]
+}

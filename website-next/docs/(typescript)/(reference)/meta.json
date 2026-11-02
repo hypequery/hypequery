@@ -1,8 +1,5 @@
 {
   "title": "Reference",
-  "description": "API, CLI, ClickHouse behavior and changelog",
-  "icon": "BookOpen",
-  "root": true,
   "pages": [
     "reference/api",
     "reference/packages",

@@ -1,7 +1,5 @@
 {
-  "title": "TypeScript",
-  "description": "The full toolkit",
-  "root": "language",
+  "title": "TypeScript SDK",
   "pages": [
     "(get-started)",
     "(query-builder)",

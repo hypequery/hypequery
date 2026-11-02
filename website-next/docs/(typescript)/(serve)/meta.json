@@ -1,8 +1,5 @@
 {
   "title": "Serve",
-  "description": "Expose queries and datasets over HTTP",
-  "icon": "Server",
-  "root": true,
   "pages": [
     "embedded-runtime",
     "---Security---",

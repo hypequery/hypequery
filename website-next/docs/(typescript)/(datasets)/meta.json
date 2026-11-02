@@ -1,8 +1,5 @@
 {
   "title": "Datasets",
-  "description": "Semantic layer for ClickHouse in TypeScript",
-  "icon": "Layers",
-  "root": true,
   "pages": [
     "datasets/overview",
     "python-client-workflow",

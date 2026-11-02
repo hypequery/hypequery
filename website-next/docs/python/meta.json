@@ -1,7 +1,5 @@
 {
-  "title": "Python",
-  "description": "Datasets, Serve, CLI \u00b7 beta",
-  "root": "language",
+  "title": "Python SDK",
   "pages": [
     "---Get started---",
     "(get-started)/index",

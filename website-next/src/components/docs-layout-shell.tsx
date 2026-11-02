@@ -2,56 +2,45 @@
 
 import { useMemo } from 'react';
 import { DocsLayout } from 'fumadocs-ui/layouts/notebook';
-import { getLayoutTabs, type LayoutTab } from 'fumadocs-ui/layouts/shared';
 import type { Folder, Node, Root } from 'fumadocs-core/page-tree';
 import { HypequeryMascotIcon } from './HypequeryMascotIcon';
-import { Plug } from 'lucide-react';
+import { PersistedFolderLabel } from './docs-sidebar-folder-state';
+import { Plug, Rocket } from 'lucide-react';
 import { SiPython, SiTypescript } from 'react-icons/si';
 import { baseOptions } from '@/lib/layout.shared';
 
-// Icons for the switcher, keyed by each root's title (TypeScript, Python, Cloud, Connect).
-const LANGUAGE_ICONS: Record<string, React.ReactNode> = {
-  TypeScript: <SiTypescript color="#3178C6" />,
-  Python: <SiPython color="#3776AB" />,
-  Cloud: <HypequeryMascotIcon className="size-4 scale-125 text-fd-primary" />,
+// Icons for the top-level sections, keyed by their meta.json titles. Folders
+// nested inside a section have none.
+const SECTION_ICONS: Record<string, React.ReactNode> = {
+  'Getting started': <Rocket className="text-fd-primary" />,
+  'TypeScript SDK': <SiTypescript color="#3178C6" />,
+  'Python SDK': <SiPython color="#3776AB" />,
   Connect: <Plug className="text-fd-primary" />,
+  Cloud: <HypequeryMascotIcon className="size-4 scale-125 text-fd-primary" />,
 };
 
-function withIcon(tab: LayoutTab): LayoutTab {
-  return {
-    ...tab,
-    title: (
-      <span className="inline-flex items-center gap-1.5 [&_svg]:size-3.5">
-        {tab.icon}
-        {tab.title}
-      </span>
-    ),
-  };
-}
-
-function firstPageUrl(nodes: Node[]): string | undefined {
-  for (const node of nodes) {
-    if (node.type === 'page' && !node.external) return node.url;
-    if (node.type === 'folder') {
-      const url = node.index?.url ?? firstPageUrl(node.children);
-      if (url) return url;
-    }
-  }
-  return undefined;
-}
-
 /**
- * Language roots (`"root": "language"` in meta.json) hold only tab folders, so
- * Fumadocs cannot derive a URL for them. Build their switcher entries here,
- * pointing at the first page in each language.
+ * One sidebar for every section: Getting started first, then each SDK and
+ * product, each a collapsible folder. Only Getting started opens by default
+ * (its meta.json sets defaultOpen), and each folder remembers whether it is
+ * open for the browser session.
  */
-function languageTabs(tree: Root): LayoutTab[] {
-  return tree.children.flatMap((node) => {
-    if (node.type !== 'folder' || typeof node.root !== 'string') return [];
-    const url = firstPageUrl(node.children);
-    if (!url) return [];
-    const icon = typeof node.name === 'string' ? LANGUAGE_ICONS[node.name] : undefined;
-    return [{ title: node.name, icon: icon ?? node.icon, description: node.description, url, $folder: node as Folder }];
+function withSections(nodes: Node[], depth = 0): Node[] {
+  return nodes.map((node) => {
+    if (node.type !== 'folder') return node;
+    const id = node.$id ?? (typeof node.name === 'string' ? node.name : String(depth));
+    const icon = depth === 0 && typeof node.name === 'string' ? SECTION_ICONS[node.name] : undefined;
+    const folder: Folder = {
+      ...node,
+      icon,
+      name: (
+        <PersistedFolderLabel id={id}>
+          {node.name}
+        </PersistedFolderLabel>
+      ),
+      children: withSections(node.children, depth + 1),
+    };
+    return folder;
   });
 }
 
@@ -62,20 +51,12 @@ export function DocsLayoutShell({
   children: React.ReactNode;
   tree: Root;
 }) {
-  const tabs = useMemo(
-    () => [
-      ...languageTabs(tree),
-      ...getLayoutTabs(tree, { transform: withIcon }).filter((tab) => tab.$folder?.root === true),
-    ],
-    [tree]
-  );
+  const sidebarTree = useMemo<Root>(() => ({ ...tree, children: withSections(tree.children) }), [tree]);
 
   return (
     <DocsLayout
       {...baseOptions()}
-      tree={tree}
-      tabs={tabs}
-      tabMode="navbar"
+      tree={sidebarTree}
       themeSwitch={{ enabled: true }}
       githubUrl={'https://github.com/hypequery/hypequery'}
     >
