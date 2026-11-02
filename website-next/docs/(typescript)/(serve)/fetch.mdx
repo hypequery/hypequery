@@ -1,36 +1,108 @@
 ---
-layout: ../../../layouts/DocsLayout.astro
 title: Fetch Runtime Integration
-description: Mount hypequery inside Hono, Cloudflare Workers, Bun, or any Fetch-based runtime using the fetch adapter.
+description: Mount hypequery in Hono, Cloudflare Workers, Bun, Deno, React Router, SvelteKit, or any Fetch-based runtime.
 ---
 
 import { CodeBlock } from 'fumadocs-ui/components/codeblock';
 
-This guide assumes you already have:
+This guide assumes you already have a Serve `api`, exported here from `analytics/api.ts`. If not, start with the
+[Quick Start](/docs/quick-start).
 
-- a typed `db` client
-- an `analytics/queries.ts` file exporting `api`
-- at least one routed query
+`createFetchHandler(api.handler)` turns the API into a function from a Fetch `Request` to a `Response`, so any runtime
+or framework that hands you a `Request` can serve it. Mount it under the same prefix as the `basePath` you gave
+`initServe()`.
 
-If not, start with [Quick Start](/docs/quick-start).
-
-Use this pattern in Hono, Cloudflare Workers, Deno, Bun, Remix, and similar runtimes:
+## Hono
 
 <CodeBlock>
 ```typescript
+// app.ts
 import { Hono } from 'hono';
-import { api } from './analytics/queries.js';
 import { createFetchHandler } from '@hypequery/serve';
+import { api } from './analytics/api.js';
 
 const app = new Hono();
 const hypequery = createFetchHandler(api.handler);
 
 app.all('/api/analytics/*', (c) => hypequery(c.req.raw));
+
+export default app;
+```
+</CodeBlock>
+
+To run Hono on Node.js, see [Node.js](/docs/nodejs).
+
+## Cloudflare Workers
+
+Export the handler as the Worker's `fetch`:
+
+<CodeBlock>
+```typescript
+// src/worker.ts
+import { createFetchHandler } from '@hypequery/serve';
+import { api } from './analytics/api.js';
+
+export default {
+  fetch: createFetchHandler(api.handler),
+};
+```
+</CodeBlock>
+
+## Bun and Deno
+
+Both built-in servers take a Fetch handler directly:
+
+<CodeBlock>
+```typescript
+import { createFetchHandler } from '@hypequery/serve';
+import { api } from './analytics/api.js';
+
+const handler = createFetchHandler(api.handler);
+
+// Bun
+Bun.serve({ port: 3000, fetch: handler });
+
+// Deno
+Deno.serve({ port: 3000 }, handler);
+```
+</CodeBlock>
+
+## React Router
+
+In React Router v7 (and Remix), a resource route's `loader` answers `GET` and its `action` every other method:
+
+<CodeBlock>
+```typescript
+// app/routes/api.analytics.$.ts
+import { createFetchHandler } from '@hypequery/serve';
+import { api } from '~/analytics/api';
+
+const handler = createFetchHandler(api.handler);
+
+export const loader = ({ request }: { request: Request }) => handler(request);
+export const action = ({ request }: { request: Request }) => handler(request);
+```
+</CodeBlock>
+
+## SvelteKit
+
+A catch-all server route with `fallback` answers every method:
+
+<CodeBlock>
+```typescript
+// src/routes/api/analytics/[...path]/+server.ts
+import type { RequestHandler } from './$types';
+import { createFetchHandler } from '@hypequery/serve';
+import { api } from '$lib/analytics/api';
+
+const handler = createFetchHandler(api.handler);
+
+export const fallback: RequestHandler = ({ request }) => handler(request);
 ```
 </CodeBlock>
 
 ## Notes
 
 - Keep the mounted prefix aligned with the `basePath` used in `initServe()`.
-- Use `api.run(...)` when you want in-process execution instead of HTTP.
-- Export the handler directly in runtimes that do not need an extra router layer.
+- Use `api.run(...)` when you want in-process execution instead of HTTP; see [Embedded runtime](/docs/embedded-runtime).
+- For Next.js, see [Next.js](/docs/nextjs). For Express, Fastify, or a plain Node.js server, see [Node.js](/docs/nodejs).

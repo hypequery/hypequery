@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, type ComponentType, type KeyboardEvent } from 'react';
+import type { ComponentType } from 'react';
 import Link from 'next/link';
 import { ArrowRight } from 'lucide-react';
 import {
@@ -21,7 +21,6 @@ import {
   SiSvelte,
   SiTypescript,
 } from 'react-icons/si';
-import CodeHighlight from '@/components/CodeHighlight';
 import { trackUmamiEvent } from '@/lib/umami';
 import { RUNTIME_EXAMPLES, type RuntimeLanguage } from './runtimeExamples';
 
@@ -48,28 +47,8 @@ const GROUPS: Array<{ language: RuntimeLanguage; label: string; Icon: ComponentT
   { language: 'python', label: 'Python', Icon: SiPython },
 ];
 
-/** "Runs where your app runs": every framework we support on the left, its code on the right. */
+/** "Runs where your app runs": every framework we support, each linking to its docs. */
 export function RunsWhereYourAppRuns() {
-  const [activeId, setActiveId] = useState(RUNTIME_EXAMPLES[0].id);
-  const active = RUNTIME_EXAMPLES.find((example) => example.id === activeId) ?? RUNTIME_EXAMPLES[0];
-
-  const select = (id: string) => {
-    if (id === activeId) return;
-    setActiveId(id);
-    trackUmamiEvent('runtime_tab', { runtime: id, page: '/' });
-  };
-
-  // One tab list across both groups, so arrow keys move through every framework in order.
-  const onKeyDown = (event: KeyboardEvent, index: number) => {
-    const step: Record<string, number> = { ArrowDown: 1, ArrowRight: 1, ArrowUp: -1, ArrowLeft: -1 };
-    if (!(event.key in step) && event.key !== 'Home' && event.key !== 'End') return;
-    event.preventDefault();
-    const count = RUNTIME_EXAMPLES.length;
-    const next = event.key === 'Home' ? 0 : event.key === 'End' ? count - 1 : (index + step[event.key] + count) % count;
-    select(RUNTIME_EXAMPLES[next].id);
-    document.getElementById(`runtime-tab-${RUNTIME_EXAMPLES[next].id}`)?.focus();
-  };
-
   return (
     <section aria-labelledby="runs-where-title" className="mx-auto max-w-[1280px] px-5 pt-14 sm:px-8 sm:pt-20">
       <div className="max-w-[720px]">
@@ -80,67 +59,40 @@ export function RunsWhereYourAppRuns() {
         </p>
       </div>
 
-      <div className="mt-10 grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)]">
-        <div role="tablist" aria-label="Frameworks" aria-orientation="vertical" className="space-y-6">
-          {GROUPS.map(({ language, label, Icon: GroupIcon }) => (
-            <div key={language}>
-              <p className="flex items-center gap-2 font-mono text-xs text-text-muted">
-                <GroupIcon className={`h-3.5 w-3.5 ${language === 'typescript' ? 'text-[#3178c6]' : 'text-[#3776ab]'}`} aria-hidden="true" />
-                {label}
-              </p>
-              <div className="mt-2 grid gap-2 max-sm:grid-cols-2 sm:grid-cols-3">
-                {RUNTIME_EXAMPLES.filter((example) => example.language === language).map((example) => {
-                  const index = RUNTIME_EXAMPLES.indexOf(example);
-                  const selected = example.id === active.id;
-                  const Icon = ICONS[example.id];
-                  return (
-                    <button
-                      key={example.id}
-                      id={`runtime-tab-${example.id}`}
-                      type="button"
-                      role="tab"
-                      aria-selected={selected}
-                      aria-controls="runtime-panel"
-                      tabIndex={selected ? 0 : -1}
-                      onClick={() => select(example.id)}
-                      onKeyDown={(event) => onKeyDown(event, index)}
-                      className={`flex h-full w-full flex-col items-start gap-2 rounded-xl border p-3 text-left transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent ${selected ? 'border-accent bg-accent-soft' : 'border-border bg-bg-card hover:border-border-strong'}`}
+      <div className="mt-10 grid gap-8 lg:grid-cols-2">
+        {GROUPS.map(({ language, label, Icon: GroupIcon }) => (
+          <div key={language}>
+            <p className="flex items-center gap-2 font-mono text-xs text-text-muted">
+              <GroupIcon className={`h-3.5 w-3.5 ${language === 'typescript' ? 'text-[#3178c6]' : 'text-[#3776ab]'}`} aria-hidden="true" />
+              {label}
+            </p>
+            <ul className="mt-2 grid gap-2 max-sm:grid-cols-2 sm:grid-cols-3">
+              {RUNTIME_EXAMPLES.filter((example) => example.language === language).map((example) => {
+                const Icon = ICONS[example.id];
+                return (
+                  <li key={example.id}>
+                    <Link
+                      href={example.href}
+                      onClick={() => trackUmamiEvent('runtime_link', { runtime: example.id, page: '/' })}
+                      className="group flex h-full w-full flex-col items-start gap-2 rounded-xl border border-border bg-bg-card p-3 text-left transition hover:border-border-strong focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
                     >
-                      <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border ${selected ? 'border-accent/40 bg-bg-card text-accent' : 'border-border text-text-muted'}`}>
-                        <Icon className="h-3.5 w-3.5" aria-hidden="true" />
+                      <span className="flex w-full items-center justify-between">
+                        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-border text-text-muted group-hover:text-text">
+                          <Icon className="h-3.5 w-3.5" aria-hidden="true" />
+                        </span>
+                        <ArrowRight className="h-3.5 w-3.5 text-text-muted opacity-0 transition group-hover:opacity-100" aria-hidden="true" />
                       </span>
                       <span className="w-full min-w-0">
                         <span className="block truncate text-sm font-medium text-text">{example.name}</span>
                         <span className="mt-0.5 block text-[11px] leading-4 text-text-muted">{example.detail}</span>
                       </span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          ))}
-        </div>
-
-        <div
-          id="runtime-panel"
-          role="tabpanel"
-          aria-labelledby={`runtime-tab-${active.id}`}
-          className="flex min-w-0 flex-col overflow-hidden rounded-xl border border-border bg-bg-card shadow-card"
-        >
-          {/* Fixed height so switching frameworks never moves the page. */}
-          <div className="min-h-0 overflow-y-auto bg-bg-alt/50 max-sm:p-5 sm:p-6 max-lg:h-[380px] lg:flex-1">
-            <CodeHighlight
-              key={active.id}
-              code={active.code}
-              language={active.language}
-              className="[&_code]:leading-[1.8] max-sm:[&_code]:text-[12px] sm:[&_code]:text-[13px]"
-            />
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
           </div>
-          <Link href={active.guide.href} className="flex items-center justify-between gap-3 border-t border-border px-5 py-3 text-xs font-medium text-text-muted transition hover:text-text sm:px-6">
-            {active.guide.label}
-            <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
-          </Link>
-        </div>
+        ))}
       </div>
     </section>
   );

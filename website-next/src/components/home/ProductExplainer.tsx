@@ -212,9 +212,6 @@ ${countries.map(([country, value]) => `  { "country": "${country}", "revenue": "
           </div>
         </div>
       </motion.div>
-      <p className="mt-5 text-center text-xs leading-5 text-text-muted">
-        Server code uses the same model directly: <a href="#runs-where-title" className="font-medium text-text underline decoration-border underline-offset-2 hover:decoration-accent">jobs, reports and notebooks</a> in TypeScript or Python.
-      </p>
     </section>
   );
 }

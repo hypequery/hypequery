@@ -1,19 +1,74 @@
 ---
-layout: ../../../layouts/DocsLayout.astro
 title: Node.js
-description: Run hypequery behind a dedicated Node.js server using Hono.
+description: Mount hypequery in Express or Fastify, or run it behind a dedicated Node.js server with Hono.
 ---
 
 import { Step, Steps } from 'fumadocs-ui/components/steps';
 import { CodeBlock } from 'fumadocs-ui/components/codeblock';
 
-This guide assumes you already have:
+This guide assumes you already have a Serve `api`, exported here from `analytics/api.ts`. If not, start with the
+[Quick Start](/docs/quick-start).
 
-- a typed `db` client
-- an `analytics/queries.ts` file exporting `api`
-- at least one routed query
+`createNodeHandler(api.handler)` serves the API from Node's own request and response objects, so it mounts in Express,
+Fastify, or a bare `http` server. hypequery reads the request body itself, so keep your framework's body parser off
+its routes.
 
-If not, start with [Quick Start](/docs/quick-start).
+## Express
+
+Register the handler before `express.json()`:
+
+<CodeBlock>
+```typescript
+// server.ts
+import express from 'express';
+import { createNodeHandler } from '@hypequery/serve';
+import { api } from './analytics/api.js';
+
+const app = express();
+
+// Register before express.json(): hypequery reads the request body itself.
+app.all('/api/analytics/{*path}', createNodeHandler(api.handler));
+
+app.use(express.json());
+app.get('/health', (_req, res) => res.send('ok'));
+
+app.listen(3000);
+```
+</CodeBlock>
+
+`{*path}` is Express 5's wildcard; on Express 4, use `'/api/analytics/*'`.
+
+## Fastify
+
+Mount it in an encapsulated plugin that leaves the body unparsed, and hand the raw request and response to hypequery:
+
+<CodeBlock>
+```typescript
+// server.ts
+import Fastify from 'fastify';
+import { createNodeHandler } from '@hypequery/serve';
+import { api } from './analytics/api.js';
+
+const app = Fastify();
+const hypequery = createNodeHandler(api.handler);
+
+app.register(async (scope) => {
+  // Leave the body stream for hypequery to read.
+  scope.removeAllContentTypeParsers();
+  scope.addContentTypeParser('*', (_req, _body, done) => done(null));
+  scope.all('/api/analytics/*', (req, reply) => {
+    reply.hijack();
+    hypequery(req.raw, reply.raw);
+  });
+});
+
+await app.listen({ port: 3000 });
+```
+</CodeBlock>
+
+The plugin's parser settings apply only inside it, so the rest of your Fastify app keeps its JSON parsing.
+
+## A dedicated server with Hono
 
 <Steps>
 <Step>
@@ -38,7 +93,7 @@ Create `src/app.ts`:
 <CodeBlock>
 ```typescript
 import { Hono } from 'hono';
-import { api } from '../analytics/queries.js';
+import { api } from '../analytics/api.js';
 import { createFetchHandler } from '@hypequery/serve';
 
 const hypequery = createFetchHandler(api.handler);
