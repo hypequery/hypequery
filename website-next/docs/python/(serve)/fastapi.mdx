@@ -13,7 +13,7 @@ themselves, before the body is read, and take the tenant from the caller.
 
 <CodeBlock>
 ```bash
-pip install "hypequery[clickhouse]==0.1.0b1" fastapi uvicorn
+pip install "hypequery[clickhouse,jwt]==0.1.0b1" fastapi uvicorn
 ```
 </CodeBlock>
 
@@ -93,7 +93,7 @@ from hypequery.datasets import tenant
 async def top_countries(org_id: Annotated[str, Depends(current_org_id)]) -> dict:  # your dependency
     scoped = client.for_tenant(tenant(org_id))
     result = await scoped.execute(
-        "orders", {"dimensions": ["country"], "measures": ["revenue"], "limit": 5}
+        orders, {"dimensions": ["country"], "measures": ["revenue"], "limit": 5}
     )
     return {"data": list(result.data)}
 ```

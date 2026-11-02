@@ -121,7 +121,7 @@ export default function ClickHouseDjangoPage() {
           'Outside a request, `get_client()` returns the process-wide client and you bind the tenant explicitly. Reports, exports and scheduled jobs use the same definitions as your views, and `to_pandas()` turns results into typed DataFrames.',
         paragraphs: [
           'The client connects on its first query, is closed when the process exits, and is rebuilt in each forked worker, so gunicorn and Celery prefork pools are safe.',
-          'For typed React hooks or the MCP bridge, hypequery’s HTTP endpoints run as their own service today; native Django endpoints that use your Django login are on the way.',
+          'For typed React hooks or the MCP bridge, mount hypequery’s HTTP endpoints in your URLconf with `urls(api)`: no second service, and the session API uses your Django login.',
         ],
         codePanel: {
           eyebrow: 'tasks.py',

@@ -113,14 +113,18 @@ At least one dimension or measure must be specified, otherwise the query is reje
 
 ## Other query arguments
 
-Besides `dimensions`, `measures`, `filters`, `orderBy`, `by`, `limit` and `offset`, the query tools accept:
+Besides `dimensions`, `measures`, `filters`, `orderBy`, `grain`, `limit` and `offset`, the query tools accept:
 
 - `having`: conditions on aggregated measure values (`query_dataset`);
 - `timezone`: an IANA zone for time buckets and offset-free timestamps;
-- `includeMeta`: return `meta` with the request id, row count and pagination;
-- `orderBy` on `period` when `by` sets a time grain.
+- `orderBy` on `period` when `grain` sets a time grain.
 
-`query_dataset` without `measures` selects the dataset's default measures.
+Two arguments depend on how the server runs:
+
+| | Local datasets (`hypequery mcp`) | Bridging a backend (`--client-contract-url`) |
+| --- | --- | --- |
+| `includeMeta` | Rejected | Returns `meta` with the request id, row count and pagination |
+| `query_dataset` without `measures` | No measures: dimensions only | The endpoint's default measures |
 
 ## Pagination
 
