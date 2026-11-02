@@ -237,7 +237,7 @@ def test_uses_the_environment_connection(
 ) -> None:
     seen = catalog(SMALL)
     environ = {"CLICKHOUSE_HOST": "ch.example", "CLICKHOUSE_PASSWORD": "env-secret"}
-    script = Script("", "", "", "2", "")  # folder, use env, tenant yes, django, create
+    script = Script("", "", "", "3", "")  # folder, use env, tenant yes, django, create
     guided = run_guide(script, tmp_path, environ=environ)
     assert seen == [environ]
     assert guided.environ is environ
@@ -360,6 +360,7 @@ def test_flags_answer_their_questions(
         ({"manage.py": ""}, "django"),
         ({"pyproject.toml": 'dependencies = ["Flask>=3"]'}, "flask"),
         ({"requirements.txt": "django==5.2\n"}, "django"),
+        ({"requirements.txt": "fastapi[standard]\nuvicorn\n"}, "fastapi"),
         ({}, "standalone"),
     ],
 )
@@ -370,6 +371,8 @@ def test_the_framework_default_follows_the_project(
         (tmp_path / name).write_text(content)
     script = Script("out", "", "", "")  # folder, offline, framework default, create
     assert run_guide(script, tmp_path).options.framework == expected
+    if expected == "fastapi":
+        assert "Found a FastAPI project here." in script.text
 
 
 def test_a_folder_that_would_be_overwritten_is_asked_again(tmp_path: Path) -> None:

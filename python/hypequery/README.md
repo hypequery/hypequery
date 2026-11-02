@@ -197,7 +197,8 @@ Next steps: [add tenant isolation](#serving-over-http), relationships
 ## Python CLI
 
 Install `hypequery[server,clickhouse]` for the complete onboarding path (the
-`django` or `flask` extra instead for those scaffolds), then:
+`django` or `flask` extra instead for those scaffolds, and `fastapi` beside it
+for the FastAPI one), then:
 
 ```bash
 hypequery init
@@ -207,8 +208,8 @@ In a terminal, `hypequery init` asks for whatever its flags leave unset: where
 to create the project, how to reach ClickHouse (from your environment, or a URL
 and credentials typed in and used only to read the schema), which tables when
 the database has more than ten, the tenant column when one looks likely, and
-which app to scaffold (standalone, Django or Flask, defaulting to the one it
-finds). It ends with the same choices as flags, e.g.
+which app to scaffold (standalone, FastAPI, Django or Flask, defaulting to the
+one it finds). It ends with the same choices as flags, e.g.
 `hypequery init analytics --framework django --tenant-column org_id`. Every
 flag answers its question; `--no-interactive`, a `CI` environment variable, or
 input that is not a terminal skips the questions entirely and uses the defaults.
@@ -239,6 +240,7 @@ choice also works with `--skip-connection`:
 | `--framework` | Writes | Run with |
 | --- | --- | --- |
 | `standalone` (default) | `app.py`: `create_api` served as plain ASGI, no web framework | `hypequery dev` |
+| `fastapi` | a FastAPI `app.py` mounting the API, and a route of your own | `uvicorn app:app --reload` |
 | `django` | a small Django project (`settings.py`, `urls.py`, `manage.py`) and `analytics.py` | `python manage.py runserver` |
 | `flask` | a Flask `app.py` | `flask --app app run` |
 
@@ -248,8 +250,15 @@ The Django and Flask apps serve hypequery's endpoints natively (`urls(api)`,
 `@hypequery/react` on pages the app serves, and at `/api/agents` behind a
 bearer token, for `@hypequery/mcp` and scripts. Until you wire them to your
 login, Flask's session API refuses everyone, and tenant-scoped datasets refuse
-signed-in Django users. The generated README walks through both. To mount the
-standalone API in FastAPI, Starlette or Litestar instead, mount `app`.
+signed-in Django users. The generated README walks through both.
+
+FastAPI has no login of its own, so the FastAPI app mounts the bearer-token API
+at `/api/agents` (`app.mount("/api/agents", to_asgi_app(api))`) and adds
+`/analytics/<dataset>`, a route of your own that queries as the principal its
+`current_principal` dependency returns; that refuses everyone until you wire it
+to your login. The generated project depends on `fastapi` itself: hypequery
+has no FastAPI extra, because mounting needs none. Starlette and Litestar apps
+can mount the standalone `app` the same way.
 
 `hypequery dev [module:app]` defaults to `app:app` on `127.0.0.1:8000` with reload
 enabled. Use `--no-watch`, `--hostname` or `-p`/`--port` to change those options.

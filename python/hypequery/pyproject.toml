@@ -116,6 +116,8 @@ dev = [
   "sqlalchemy>=2.0",
   "flask-login>=0.6.3",
   "flask-wtf>=1.2",
+  # Only for serving the `init --framework fastapi` scaffold in tests.
+  "fastapi>=0.115",
 ]
 
 [tool.hatch.build.targets.wheel]

@@ -61,6 +61,7 @@ REQUIRED_TEMPLATE_ENTRIES = tuple(
         "django/manage.py",
         "django/settings.py",
         "django/urls.py",
+        "fastapi/app.py",
         "flask/app.py",
     )
 )

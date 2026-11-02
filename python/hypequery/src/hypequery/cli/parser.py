@@ -32,8 +32,8 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         "--framework",
         choices=FRAMEWORKS,
         help="application to scaffold beside datasets.py: a standalone ASGI app served by "
-        "hypequery dev, or a Django or Flask app serving hypequery's endpoints natively "
-        "(default: standalone)",
+        "hypequery dev, a FastAPI app mounting it, or a Django or Flask app serving "
+        "hypequery's endpoints natively (default: standalone)",
     )
     init.add_argument(
         "--tenant-column",

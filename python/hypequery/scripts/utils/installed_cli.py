@@ -24,6 +24,7 @@ from .checks import require
 
 #: Each `init --framework` choice besides standalone, and the app files it writes.
 FRAMEWORK_FILES = {
+    "fastapi": ("app.py",),
     "django": ("analytics.py", "urls.py", "settings.py", "manage.py"),
     "flask": ("app.py",),
 }
@@ -64,10 +65,11 @@ class InstalledCli:
         if uv is None:
             raise RuntimeError("uv is required to verify artifacts")
         self._run([uv, "venv", "--python", sys.executable, str(self.venv)])
-        requirement = str(self.artifact)
+        requirements = [str(self.artifact)]
         if not self.minimal:
-            requirement += "[server,clickhouse,django,flask]"
-        self._run([uv, "pip", "install", "--python", str(self.python), requirement])
+            # FastAPI is the fastapi scaffold's own dependency: hypequery has no extra for it.
+            requirements = [f"{self.artifact}[server,clickhouse,django,flask]", "fastapi>=0.115"]
+        self._run([uv, "pip", "install", "--python", str(self.python), *requirements])
 
     def verify_commands(self) -> None:
         metadata = self._run(
@@ -304,6 +306,8 @@ print(json.dumps({'data': [{'nonNullCount': str(non_null_count)}]}))
         if framework == "django":
             self._run([str(self.python), "manage.py", "migrate", "-v", "0"], cwd=self.project)
             command = [str(self.python), "manage.py", "runserver", port, "--noreload"]
+        elif framework == "fastapi":
+            command = [str(self.python), "-m", "uvicorn", "app:app", "--port", port]
         else:
             command = [str(self.python), "-m", "flask", "--app", "app", "run", "--port", port]
         self._serve(command=command, port=int(port), query_path="/api/agents/orders")

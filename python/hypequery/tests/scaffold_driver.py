@@ -148,8 +148,9 @@ def main() -> None:
     rows = QueryRows(
         tuple(spec["rows"]["columns"]), tuple(tuple(row) for row in spec["rows"]["rows"])
     )
-    serve = {"standalone": standalone, "django": django, "flask": flask}[framework]
-    print(json.dumps(serve(spec["requests"], rows)))
+    # Both are ASGI apps importing the executor factory, so one driver serves both.
+    serve = {"standalone": standalone, "fastapi": standalone, "django": django, "flask": flask}
+    print(json.dumps(serve[framework](spec["requests"], rows)))
 
 
 if __name__ == "__main__":

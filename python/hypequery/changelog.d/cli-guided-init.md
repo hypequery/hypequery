@@ -4,7 +4,7 @@
   credentials typed in, with the password hidden, used only to read the schema
   and never written to a file); which tables, when the database has more than
   ten; the tenant column, when one looks like a tenant id; and which app to
-  scaffold, defaulting to Django or Flask when it finds one. A failed
+  scaffold, defaulting to FastAPI, Django or Flask when it finds one. A failed
   connection offers to try again, change the details, or create the offline
   example. It ends with the same choices as flags. Every flag answers its
   question, and `--no-interactive`, a `CI` environment variable, or input that
@@ -17,3 +17,8 @@
 - When init can't reach ClickHouse, the message names `CLICKHOUSE_URL` as well
   as the host settings and suggests `--skip-connection`, and the driver's own
   "Unexpected Http Driver Exception" log line no longer reaches the terminal.
+- `hypequery init --framework fastapi` scaffolds a FastAPI `app.py`: the
+  bearer-token agents API mounted at `/api/agents`, and `/analytics/<dataset>`,
+  a route of your own that refuses everyone until its `current_principal`
+  dependency reads your login. The project depends on `fastapi` directly;
+  hypequery adds no FastAPI extra.

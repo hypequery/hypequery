@@ -20,7 +20,7 @@ from typing import TYPE_CHECKING, TextIO, cast
 from urllib.parse import urlsplit
 
 from .errors import CliError
-from .generators.framework_apps import FRAMEWORKS, Framework, project_files
+from .generators.framework_apps import FRAMEWORKS, NAMES, Framework, project_files
 from .options import InitOptions
 from .utils.prompts import Prompter, SetupCancelledError
 
@@ -32,6 +32,7 @@ TABLE_QUESTION_THRESHOLD = 10
 
 _FRAMEWORK_LABELS: dict[Framework, str] = {
     "standalone": "Standalone API, served by hypequery dev (no web framework)",
+    "fastapi": "FastAPI: mount hypequery's endpoints in a FastAPI app",
     "django": "Django: serve hypequery's endpoints from your Django project",
     "flask": "Flask: serve hypequery's endpoints from a Flask app",
 }
@@ -369,7 +370,7 @@ def _ask_tenant(prompter: Prompter, catalog: CatalogOverview, selected: set[str]
 def _ask_framework(prompter: Prompter, cwd: Path) -> Framework:
     detected = _detect_framework(cwd)
     if detected != "standalone":
-        prompter.say(f"Found a {detected.capitalize()} project here.")
+        prompter.say(f"Found a {NAMES[detected]} project here.")
     return prompter.choose(
         "Which app should we scaffold beside your datasets?",
         [(framework, _FRAMEWORK_LABELS[framework]) for framework in FRAMEWORKS],
@@ -388,6 +389,8 @@ def _detect_framework(cwd: Path) -> Framework:
             continue
     if "django" in text:
         return "django"
+    if "fastapi" in text:
+        return "fastapi"
     if "flask" in text:
         return "flask"
     return "standalone"
