@@ -52,7 +52,7 @@ export default function ClickHouseAnalyticsPage() {
     <ClickhousePillarPage
       eyebrow="ClickHouse Analytics"
       title="Turn ClickHouse into a reusable analytics layer instead of a pile of raw queries"
-      description="This page is about what happens after the first few queries work. The database is fast, but the same metrics start showing up in route handlers, exports, dashboards, and internal tools. hypequery gives those queries one place to live so the codebase stops forking the same logic."
+      description="Once the first few queries work, the same metrics start showing up in route handlers, exports, dashboards, and internal tools. hypequery gives each one a single definition, in TypeScript or Python, in the codebase you already have. Dashboards, APIs, and AI agents all answer from it."
       primaryCta={{ href: '/docs/quick-start', label: 'Start with hypequery' }}
       secondaryCta={{ href: '/blog/the-analytics-language-layer-why-real-time-data-needs-typed-apis-not-just-faster-databases', label: 'Read the architecture essay' }}
       stats={[
@@ -84,7 +84,7 @@ export default function ClickHouseAnalyticsPage() {
           'The main shift is simple: stop treating analytics queries as loose implementation detail. Generate the schema, define the query once, and make that definition the thing other parts of the product call.',
         bullets: [
           'Generate schema types from ClickHouse so query code matches runtime reality',
-          'Define named queries in TypeScript instead of scattering SQL strings',
+          'Define named datasets in TypeScript or Python instead of scattering SQL strings',
           'Call those definitions locally or expose them over HTTP when needed',
           'Keep input validation and response typing next to the query itself',
           'Add new consumers without rewriting the underlying metric logic',
@@ -123,7 +123,7 @@ export default function ClickHouseAnalyticsPage() {
         {
           title: 'What this is not',
           copy:
-            'This is not a huge BI platform and it is not trying to be. It is a code-first way to stop duplicating analytics logic inside a TypeScript application.',
+            'This is not a huge BI platform and it is not trying to be. It is a code-first way to stop duplicating analytics logic inside a TypeScript or Python application.',
         },
         {
           title: 'What teams actually gain',
@@ -137,6 +137,11 @@ export default function ClickHouseAnalyticsPage() {
         },
       ]}
       readingLinks={[
+        {
+          href: '/clickhouse-python',
+          title: 'ClickHouse with Python',
+          description: 'The same datasets and APIs for Python backends and notebooks.',
+        },
         {
           href: '/clickhouse-semantic-layer',
           title: 'ClickHouse semantic layer alternative',
@@ -161,6 +166,7 @@ export default function ClickHouseAnalyticsPage() {
       relatedPillars={[
         { href: '/clickhouse-semantic-layer', label: 'ClickHouse Semantic Layer' },
         { href: '/clickhouse-typescript', label: 'ClickHouse TypeScript' },
+        { href: '/clickhouse-python', label: 'ClickHouse Python' },
         { href: '/clickhouse-nextjs', label: 'ClickHouse Next.js' },
         { href: '/clickhouse-react', label: 'ClickHouse React' },
         { href: '/clickhouse-multi-tenant-analytics', label: 'ClickHouse Multi-Tenant Analytics' },

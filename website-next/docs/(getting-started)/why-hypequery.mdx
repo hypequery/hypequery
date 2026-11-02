@@ -1,0 +1,100 @@
+---
+title: Why hypequery
+description: What hypequery is for, who it fits, and when to choose it.
+---
+
+## The problem
+
+Analytics logic often ends up spread across API routes, background jobs, dashboards, notebooks, and internal tools.
+
+That creates a few predictable problems:
+
+- the same metric gets reimplemented in slightly different ways
+- changes require updating SQL in multiple places
+- there is no single source of truth for analytics logic
+- tenant filters are repeated by hand in every query, and one missing `WHERE` leaks a customer's data
+- analytics definitions are harder to review, version, and evolve with confidence
+
+Semantic layers try to solve this, but often introduce a new system to learn, deploy, and keep in sync with your
+application.
+
+## The idea
+
+hypequery takes a different approach: analytics should live in your application code. Not in a separate platform, not
+in YAML configs, not in dashboards.
+
+Your analytics layer should be written in the language your backend already uses, reviewed in the same pull requests,
+and deployed with the same app.
+
+## What hypequery is
+
+hypequery is an open-source, ClickHouse-first semantic layer that runs inside your application, with SDKs for
+TypeScript and Python.
+
+With hypequery, you can:
+
+- define datasets once: dimensions, measures, relationships, time grains, and tenant rules
+- query them by name from jobs, reports, notebooks, and your own routes
+- serve them as authenticated HTTP endpoints with OpenAPI, mounted in the framework you already run
+- connect typed React hooks for dashboards and an MCP server for AI agents to those endpoints
+
+All without introducing another service to deploy or maintain. TypeScript and Python implement the same
+specifications, so a team can define datasets in either language and use the same React hooks and MCP tools.
+
+## What hypequery is not
+
+hypequery is intentionally narrow in scope:
+
+- not an ORM
+- not a generic multi-database abstraction
+- not a BI tool or a GUI-based semantic layer
+- not a separate server you have to run (a hosted option, [hypequery cloud](/docs/cloud), is planned but not live yet)
+
+## When hypequery fits well
+
+Use hypequery when:
+
+- your analytics database is ClickHouse
+- your backend is TypeScript or Python
+- analytics queries need to live in more than one place: dashboards, APIs, jobs, or agents
+- you serve analytics to customers and need tenant isolation you can trust
+- you want analytics logic in normal version-controlled application code
+- you want HTTP exposure, React hooks, or MCP tools to stay optional
+
+## When hypequery is a poor fit
+
+hypequery is probably the wrong tool when:
+
+- you do not use ClickHouse
+- you only need ad hoc SQL exploration
+- you want a GUI-based semantic layer instead of code
+- you need a managed hosted analytics platform today
+
+## How it compares
+
+### Versus direct SQL
+
+hypequery is a better fit when the same query needs reuse, tenant scoping, reviewability, and a stable interface.
+
+Raw SQL is still fine for one-off exploration or very local query logic.
+
+### Versus database drivers and query builders
+
+Drivers such as `@clickhouse/client` and `clickhouse-connect`, and generic query builders, are better for ad hoc
+queries, CRUD, and multi-database work.
+
+hypequery is better when the problem is shared analytics meaning on ClickHouse: named measures, tenant rules, and one
+definition that every consumer queries. In TypeScript it also includes a type-safe ClickHouse query builder for local
+queries.
+
+### Versus semantic layers
+
+Standalone semantic layers are a better fit when you need a broad cross-tool or cross-database platform.
+
+hypequery is a better fit when you want the semantic layer embedded in your application, in TypeScript or Python,
+without adopting a separate config-heavy system.
+
+## Next steps
+
+- [Core concepts](/docs/core-concepts): datasets, serving, and clients, and how they relate.
+- Start in [TypeScript](/docs/quick-start) or [Python](/docs/python/quick-start).

@@ -8,7 +8,7 @@ export default function PageWrapper({ children }: { children: ReactNode }) {
   return (
     <>
       <Navigation />
-      <main className="min-h-screen bg-bg pt-28 text-text">
+      <main className="min-h-screen bg-bg pt-[62px] text-text">
         {children}
       </main>
       <Footer />

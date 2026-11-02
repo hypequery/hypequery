@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { marketing } from '@/components/ui/marketing';
 import PageWrapper from '@/components/PageWrapper';
 import CodeWindow from '@/components/CodeWindow';
 import { absoluteUrl, ogImage } from '@/lib/site';
@@ -82,24 +83,24 @@ export default function InternalProductApisUseCasePage() {
   return (
     <PageWrapper>
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema) }} />
-        <section className="relative overflow-hidden border-b border-border">
-          <div className="relative mx-auto max-w-7xl px-4 py-20 lg:px-6">
-            <p className="text-xs font-semibold uppercase tracking-[0.3em] text-accent">
+        <section className="border-b border-border">
+          <div className={`${marketing.container} pb-14 pt-12 sm:pb-16 sm:pt-16`}>
+            <p className={marketing.eyebrow}>
               Use Case
             </p>
-            <h1 className="mt-4 max-w-4xl text-4xl font-semibold tracking-tight text-text sm:text-6xl">
+            <h1 className={`mt-5 max-w-[980px] ${marketing.heroTitle}`}>
               Internal product APIs with embedded ClickHouse analytics
             </h1>
-            <p className="mt-6 max-w-3xl text-lg leading-8 text-text-muted">
+            <p className={`mt-5 max-w-[700px] ${marketing.heroLead}`}>
               This is the migration path for teams that already have a backend and do not want to split it into a separate analytics service on day one. Keep the existing routes, move the query logic onto a shared path, and expose more only when it earns its place.
             </p>
-            <div className="mt-8 flex flex-wrap gap-4">
+            <div className="mt-7 flex flex-wrap items-center gap-3">
               <Link
                 href="/docs/quick-start"
                 data-umami-event="cta_click"
                 data-umami-event-target="docs_quick_start"
                 data-umami-event-location="hero_primary"
-                className="bg-text px-6 py-3 text-sm font-semibold text-bg transition hover:opacity-90"
+                className={marketing.primaryButton}
               >
                 Start with this pattern
               </Link>
@@ -108,7 +109,7 @@ export default function InternalProductApisUseCasePage() {
                 data-umami-event="cta_click"
                 data-umami-event-target="book_call"
                 data-umami-event-location="hero_secondary"
-                className="border border-border-strong px-6 py-3 text-sm font-semibold text-text transition hover:bg-bg-alt"
+                className={marketing.secondaryButton}
                 target="_blank"
                 rel="noopener noreferrer"
               >
@@ -116,67 +117,67 @@ export default function InternalProductApisUseCasePage() {
               </a>
             </div>
             <div className="mt-10 grid gap-4 sm:grid-cols-3">
-              <div className="rounded-lg border border-border bg-bg-card p-5 shadow-card">
-                <p className="text-xs uppercase tracking-[0.2em] text-text-dim">Contract impact</p>
-                <p className="mt-2 text-xl font-semibold text-text">Zero endpoint breakage</p>
+              <div className="rounded-xl border border-border bg-bg-card p-5 shadow-card">
+                <p className="font-mono text-xs text-text-dim">Contract impact</p>
+                <p className="mt-2 text-lg font-medium tracking-tight text-text">Zero endpoint breakage</p>
               </div>
-              <div className="rounded-lg border border-border bg-bg-card p-5 shadow-card">
-                <p className="text-xs uppercase tracking-[0.2em] text-text-dim">Execution model</p>
-                <p className="mt-2 text-xl font-semibold text-text">In-process + routed</p>
+              <div className="rounded-xl border border-border bg-bg-card p-5 shadow-card">
+                <p className="font-mono text-xs text-text-dim">Execution model</p>
+                <p className="mt-2 text-lg font-medium tracking-tight text-text">In-process + routed</p>
               </div>
-              <div className="rounded-lg border border-border bg-bg-card p-5 shadow-card">
-                <p className="text-xs uppercase tracking-[0.2em] text-text-dim">Migration style</p>
-                <p className="mt-2 text-xl font-semibold text-text">Endpoint-by-endpoint</p>
+              <div className="rounded-xl border border-border bg-bg-card p-5 shadow-card">
+                <p className="font-mono text-xs text-text-dim">Migration style</p>
+                <p className="mt-2 text-lg font-medium tracking-tight text-text">Endpoint-by-endpoint</p>
               </div>
             </div>
           </div>
         </section>
 
-        <section className="mx-auto max-w-7xl px-4 py-16 lg:px-6">
+        <section className={`${marketing.container} py-14 sm:py-20`}>
           <div className="grid gap-6 md:grid-cols-3">
-	            <div className="rounded-lg border border-border bg-bg-card p-6 shadow-card">
-	              <h2 className="text-lg font-semibold text-text">Keep route contracts stable</h2>
-	              <p className="mt-3 text-sm leading-7 text-text-muted">
+	            <div className={marketing.card}>
+	              <h2 className="text-lg font-medium tracking-tight text-text">Keep route contracts stable</h2>
+	              <p className="mt-3 text-sm leading-6 text-text-muted">
 	                Existing consumers do not need to notice the migration while you move analytics logic behind an internal path.
 	              </p>
 	            </div>
-	            <div className="rounded-lg border border-border bg-bg-card p-6 shadow-card">
-	              <h2 className="text-lg font-semibold text-text">Use one query definition</h2>
-	              <p className="mt-3 text-sm leading-7 text-text-muted">
+	            <div className={marketing.card}>
+	              <h2 className="text-lg font-medium tracking-tight text-text">Use one query definition</h2>
+	              <p className="mt-3 text-sm leading-6 text-text-muted">
 	                Let handlers call `api.run(...)` directly and expose the same definition over HTTP only where it is genuinely useful.
 	              </p>
 	            </div>
-	            <div className="rounded-lg border border-border bg-bg-card p-6 shadow-card">
-	              <h2 className="text-lg font-semibold text-text">Scale rollout safely</h2>
-	              <p className="mt-3 text-sm leading-7 text-text-muted">
+	            <div className={marketing.card}>
+	              <h2 className="text-lg font-medium tracking-tight text-text">Scale rollout safely</h2>
+	              <p className="mt-3 text-sm leading-6 text-text-muted">
 	                Start with one endpoint or one response shape, see what sticks, then widen the internal surface deliberately.
 	              </p>
 	            </div>
           </div>
         </section>
 
-        <section className="border-y border-border bg-bg-alt/60">
-          <div className="mx-auto max-w-7xl px-4 py-16 lg:px-6">
-          <h2 className="text-3xl font-semibold text-text">Implementation flow</h2>
+        <section className={marketing.band}>
+          <div className={`${marketing.container} py-14 sm:py-20`}>
+          <h2 className={marketing.sectionTitle}>Implementation flow</h2>
             <div className="mt-8 grid gap-6 md:grid-cols-3">
-              <div className="rounded-lg border border-border bg-bg-card p-6 shadow-card">
-                <p className="text-xs uppercase tracking-[0.2em] text-accent">Step 1</p>
-                <h3 className="mt-3 text-lg font-semibold text-text">Mount internal routes</h3>
-	                <p className="mt-3 text-sm leading-7 text-text-muted">
+              <div className={marketing.card}>
+                <p className={marketing.eyebrow}>Step 1</p>
+                <h3 className="mt-3 text-lg font-medium tracking-tight text-text">Mount internal routes</h3>
+	                <p className="mt-3 text-sm leading-6 text-text-muted">
 	                  Mount the analytics handler beside the routes you already run instead of restructuring the whole backend first.
 	                </p>
               </div>
-              <div className="rounded-lg border border-border bg-bg-card p-6 shadow-card">
-                <p className="text-xs uppercase tracking-[0.2em] text-accent">Step 2</p>
-                <h3 className="mt-3 text-lg font-semibold text-text">Compose in endpoints</h3>
-	                <p className="mt-3 text-sm leading-7 text-text-muted">
+              <div className={marketing.card}>
+                <p className={marketing.eyebrow}>Step 2</p>
+                <h3 className="mt-3 text-lg font-medium tracking-tight text-text">Compose in endpoints</h3>
+	                <p className="mt-3 text-sm leading-6 text-text-muted">
 	                  Pull analytics into existing business responses without turning every route into bespoke query code.
 	                </p>
               </div>
-              <div className="rounded-lg border border-border bg-bg-card p-6 shadow-card">
-                <p className="text-xs uppercase tracking-[0.2em] text-accent">Step 3</p>
-                <h3 className="mt-3 text-lg font-semibold text-text">Reuse query logic</h3>
-	                <p className="mt-3 text-sm leading-7 text-text-muted">
+              <div className={marketing.card}>
+                <p className={marketing.eyebrow}>Step 3</p>
+                <h3 className="mt-3 text-lg font-medium tracking-tight text-text">Reuse query logic</h3>
+	                <p className="mt-3 text-sm leading-6 text-text-muted">
 	                  Keep one typed source of truth whether the query is called directly or exposed under an internal path.
 	                </p>
               </div>
@@ -184,56 +185,56 @@ export default function InternalProductApisUseCasePage() {
           </div>
         </section>
 
-        <section className="mx-auto max-w-7xl px-4 py-16 lg:px-6">
-	          <h2 className="text-2xl font-semibold text-text">Works with your existing routes</h2>
-	          <p className="mt-3 text-lg leading-8 text-text-muted">
+        <section className={`${marketing.container} py-14 sm:py-20`}>
+	          <h2 className="text-2xl font-normal tracking-[-0.03em] text-text">Works with your existing routes</h2>
+	          <p className="mt-3 text-body text-text-muted">
 	            The route tree stays yours. Add the analytics surface where it fits instead of adopting a separate service boundary immediately.
 	          </p>
           <CodeWindow code={routesCode} filename="routes.ts" className="mt-6" />
         </section>
 
-        <section className="mx-auto max-w-7xl px-4 pb-16 lg:px-6">
-          <h2 className="text-2xl font-semibold text-text">
+        <section className={`${marketing.container} pb-14 sm:pb-20`}>
+          <h2 className="text-2xl font-normal tracking-[-0.03em] text-text">
             Compose analytics directly in business endpoints
           </h2>
-	          <p className="mt-3 text-lg leading-8 text-text-muted">
+	          <p className="mt-3 text-body text-text-muted">
 	            Use `api.run(...)` when a product response needs analytics context but does not need another network hop inside the same backend.
 	          </p>
           <CodeWindow code={composeCode} filename="products.ts" className="mt-6" />
         </section>
 
-        <section className="mx-auto max-w-7xl px-4 pb-16 lg:px-6">
-          <h2 className="text-2xl font-semibold text-text">
+        <section className={`${marketing.container} pb-14 sm:pb-20`}>
+          <h2 className="text-2xl font-normal tracking-[-0.03em] text-text">
             Define once, reuse everywhere
           </h2>
-	          <p className="mt-3 text-lg leading-8 text-text-muted">
+	          <p className="mt-3 text-body text-text-muted">
 	            The same definition can back an internal route and an in-process call, which is the whole point of this adoption path.
 	          </p>
           <CodeWindow code={defineOnceCode} filename="analytics/api.ts" className="mt-6" />
         </section>
 
-        <section className="mx-auto max-w-7xl px-4 pb-16 lg:px-6">
+        <section className={`${marketing.container} pb-14 sm:pb-20`}>
           <div className="rounded-lg border border-border-strong bg-bg-card p-8 shadow-card md:flex md:items-center md:justify-between md:gap-6">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.25em] text-accent">
+              <p className={marketing.eyebrow}>
                 Ready to implement
               </p>
-	              <h2 className="mt-3 text-2xl font-semibold text-text">
+	              <h2 className="mt-3 text-2xl font-normal tracking-[-0.03em] text-text">
 	                Use this as your first production migration path
 	              </h2>
-	              <ul className="mt-4 space-y-2 text-sm leading-7 text-text-muted">
+	              <ul className="mt-4 space-y-2 text-sm leading-6 text-text-muted">
 	                <li>Keep existing consumer contracts intact</li>
 	                <li>Move the query logic into one typed definition</li>
 	                <li>Expose more surface area only when the team actually needs it</li>
 	              </ul>
 	            </div>
-            <div className="mt-6 flex gap-3 md:mt-0">
+            <div className="mt-6 flex shrink-0 flex-wrap gap-3 md:mt-0">
               <Link
                 href="/docs/quick-start"
                 data-umami-event="cta_click"
                 data-umami-event-target="docs_quick_start"
                 data-umami-event-location="next_step_primary"
-                className="inline-flex items-center bg-text px-5 py-3 text-sm font-semibold text-bg transition hover:opacity-90"
+                className={marketing.primaryButton}
               >
                 Open quick start
               </Link>
@@ -242,7 +243,7 @@ export default function InternalProductApisUseCasePage() {
                 data-umami-event="cta_click"
                 data-umami-event-target="use_cases_multi_tenant_saas"
                 data-umami-event-location="next_step_secondary"
-                className="inline-flex items-center border border-border-strong px-5 py-3 text-sm font-semibold text-text transition hover:bg-bg-alt"
+                className={marketing.secondaryButton}
               >
                 Next: Multi-tenant
               </Link>

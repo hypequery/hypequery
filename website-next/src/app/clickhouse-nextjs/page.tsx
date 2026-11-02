@@ -53,7 +53,7 @@ export default function ClickHouseNextJsPage() {
     <ClickhousePillarPage
       eyebrow="ClickHouse Next.js"
       title="Build ClickHouse analytics into Next.js without duplicating query logic"
-      description="This page is about the App Router split: some analytics should run directly in server components, some should be exposed to browser clients, and you do not want those two paths to invent different versions of the same query."
+      description="In the App Router, some analytics run in server components and some are fetched from the browser. hypequery gives both paths one query definition, so they never invent different versions of the same number."
       primaryCta={{ href: '/docs/nextjs', label: 'Open the Next.js guide' }}
       secondaryCta={{ href: '/blog/building-dashboards-clickhouse-hypequery-nextjs', label: 'Read the dashboard article' }}
       stats={[

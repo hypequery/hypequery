@@ -14,7 +14,7 @@ function sectionOf(url: string): string {
   return parts.length > 1 ? parts[0] : 'Guides';
 }
 
-const SECTION_ORDER = ['Guides', 'query-building', 'datasets', 'mcp', 'react', 'reference'];
+const SECTION_ORDER = ['Guides', 'query-building', 'datasets', 'python', 'mcp', 'react', 'reference', 'cloud'];
 
 const SECTION_TITLES: Record<string, string> = {
   Guides: 'Guides',
@@ -23,6 +23,8 @@ const SECTION_TITLES: Record<string, string> = {
   mcp: 'MCP',
   react: 'React',
   reference: 'Reference',
+  python: 'Python SDK (beta)',
+  cloud: 'Cloud (not live yet: planned hosted service, no sign-up available)',
 };
 
 export function GET() {
@@ -49,7 +51,7 @@ export function GET() {
   const lines: string[] = [
     '# hypequery',
     '',
-    '> Type-safe analytics layer for ClickHouse: a typed query builder, a semantic datasets layer, an HTTP/OpenAPI serve runtime, React hooks, and an MCP server for agents.',
+    '> The analytics layer for ClickHouse, in your codebase. Open-source SDKs for TypeScript and Python (beta): semantic datasets, an HTTP/OpenAPI serve runtime, typed React hooks, and an MCP server for agents. TypeScript also includes a type-safe ClickHouse query builder. hypequery cloud, a hosted option, is not live yet.',
     '',
     'Each link below points to the clean Markdown version of the page. The full corpus is available at /llms-full.txt.',
     '',

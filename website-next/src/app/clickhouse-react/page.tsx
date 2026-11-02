@@ -51,7 +51,7 @@ export default function ClickHouseReactPage() {
     <ClickhousePillarPage
       eyebrow="ClickHouse React"
       title="Use ClickHouse in React with typed hooks instead of custom fetch glue"
-      description="This page starts where the server pages stop. The query already exists on the backend. The React problem is how components consume it without rebuilding request helpers, cache logic, and response types over and over."
+      description="Your query already lives on the backend. hypequery's typed hooks let components use it directly, without rebuilding request helpers, cache logic, and response types for every chart."
       primaryCta={{ href: '/docs/react/getting-started', label: 'Open React docs' }}
       secondaryCta={{ href: '/docs/react/using-queries', label: 'See hook usage examples' }}
       stats={[
@@ -136,6 +136,11 @@ export default function ClickHouseReactPage() {
         },
       ]}
       readingLinks={[
+        {
+          href: '/fastapi-react-analytics',
+          title: 'React with a Python backend',
+          description: 'Typed React hooks on datasets served from FastAPI, Django, or Flask.',
+        },
         {
           href: '/docs/react/getting-started',
           title: 'React getting started',

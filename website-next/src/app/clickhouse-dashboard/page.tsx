@@ -29,12 +29,10 @@ const queryDefinitionCode = `// analytics/dashboard-queries.ts
 import { initServe } from '@hypequery/serve';
 import { db } from '@/lib/clickhouse';
 import { z } from 'zod';
+import { verifyAuth } from './auth'; // your session or JWT check
 
 const { query, serve } = initServe({
-  context: (req) => ({
-    db,
-    tenantId: req.headers['x-tenant-id'] as string,
-  }),
+  context: () => ({ db }),
 });
 
 export const pageViews = query({
@@ -46,8 +44,7 @@ export const pageViews = query({
   query: ({ ctx, input }) =>
     ctx.db
       .table('page_events')
-      .select('toStartOfDay(created_at) as date', 'count() as views')
-      .where('tenant_id', 'eq', ctx.tenantId)
+      .select(['toStartOfDay(created_at) as date', 'count() as views'])
       .where('created_at', 'gte', input.startDate)
       .where('created_at', 'lte', input.endDate)
       .groupBy('date')
@@ -60,15 +57,23 @@ export const topPages = query({
   query: ({ ctx, input }) =>
     ctx.db
       .table('page_events')
-      .select('path', 'count() as views', 'uniq(session_id) as sessions')
-      .where('tenant_id', 'eq', ctx.tenantId)
+      .select(['path', 'count() as views', 'uniq(session_id) as sessions'])
       .groupBy('path')
       .orderBy('views', 'DESC')
       .limit(input.limit)
       .execute(),
 });
 
-export const api = serve({ queries: { pageViews, topPages } });`;
+export const api = serve({
+  // The tenant comes from the verified session, and every query is scoped to it
+  auth: verifyAuth,
+  tenant: {
+    extract: (auth) => auth.tenantId,
+    column: 'tenant_id',
+    mode: 'auto-inject',
+  },
+  queries: { pageViews, topPages },
+});`;
 
 const dashboardComponentCode = `// components/DashboardPage.tsx
 import { createHooks } from '@hypequery/react';
@@ -97,11 +102,7 @@ export function DashboardPage() {
         {viewsLoading ? (
           <Skeleton />
         ) : (
-          <LineChart
-            data={views ?? []}
-            xKey="date"
-            yKey="views"
-          />
+          <LineChart data={views ?? []} xKey="date" yKey="views" />
         )}
       </section>
       <section>

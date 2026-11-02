@@ -13,7 +13,7 @@ export const metadata: Metadata = {
     url: absoluteUrl('/tinybird-alternative'),
     title: 'Tinybird Alternative — Typed ClickHouse APIs on Your Own Infrastructure | hypequery',
     description:
-      'Keep your data in your own ClickHouse and build the API layer in TypeScript. Open source, schema-generated types, no usage-based pricing.',
+      'Keep your data in your own ClickHouse and build the API layer in TypeScript or Python. Open source, schema-generated datasets, no usage-based pricing.',
   },
   twitter: {
     card: 'summary_large_image',
@@ -29,14 +29,16 @@ npx @hypequery/cli generate --output ./src/schema.ts
 
 # your data never moves — the API layer comes to it`;
 
-const serveCode = `import { serve } from '@hypequery/serve';
+const serveCode = `import { initServe } from '@hypequery/serve';
+
+const { serve } = initServe({ context: () => ({ db }) });
 
 // what a Tinybird "Pipe" becomes: a typed endpoint in your repo
-const app = serve({
+const api = serve({
   queries: { revenueByDay, activeUsers, topProducts },
 });
 
-app.listen(3000);
+api.start({ port: 3000 });
 
 // POST /revenueByDay
 // body: { from: "2026-01-01", to: "2026-07-03" }
@@ -126,7 +128,7 @@ export default function TinybirdAlternativePage() {
           {
             label: 'Query definitions',
             competitor: 'SQL Pipes in Tinybird’s workflow',
-            hypequery: 'TypeScript in your repo, reviewed like any other code',
+            hypequery: 'TypeScript or Python in your repo, reviewed like any other code',
           },
           {
             label: 'TypeScript types',
@@ -186,6 +188,11 @@ export default function TinybirdAlternativePage() {
       ]}
       readingLinks={[
         {
+          href: '/clickhouse-fastapi',
+          title: 'ClickHouse with FastAPI',
+          description: 'Build the same authenticated analytics APIs from a Python backend.',
+        },
+        {
           href: '/compare/hypequery-vs-tinybird',
           title: 'hypequery vs Tinybird',
           description: 'The full comparison: infrastructure, pricing model, type safety, and code ownership.',
@@ -208,6 +215,7 @@ export default function TinybirdAlternativePage() {
       ]}
       relatedPillars={[
         { href: '/clickhouse-typescript', label: 'ClickHouse TypeScript' },
+        { href: '/clickhouse-python', label: 'ClickHouse Python' },
         { href: '/clickhouse-rest-api', label: 'ClickHouse REST API' },
         { href: '/cube-js-alternative', label: 'Cube.js Alternative' },
         { href: '/moosestack-alternative', label: 'MooseStack Alternative' },

@@ -1,0 +1,115 @@
+---
+title: hypequery.serve
+description: Reference for Python Serve, the framework-neutral HTTP API and its adapters.
+---
+
+import { Callout } from 'fumadocs-ui/components/callout';
+
+<Callout type="info">
+  `hypequery.serve` needs no web framework. `start_server` and `hypequery dev` need uvicorn, from the `server` extra;
+  `jwt_strategy` and `analytics_token_issuer` need the `jwt` extra.
+</Callout>
+
+## Building an API
+
+| Export | Signature | Purpose |
+| --- | --- | --- |
+| `create_api` | `create_api(*, auth, credentials=None, tenant=None, security=None, production=None, client=None, datasets=None, metrics=None, discovery=True, limits=(), events=None, base_path="", max_body_bytes=1048576, development_docs=False, openapi=None, client_mount_path="")` | TypeScript's `createAPI`. Returns an `Api`; `auth` maps a `Credential` to a `Principal` or `None` |
+| `Api.add_route` | `add_route(method, path, handler, *, public=False, input=None, limits=(), output=None, summary=None, tags=(), documented=True)` | Your own route. `handler` is an async function from `Call` to `ServeResponse` |
+| `Api.handle` | `await api.handle(request)` | Serve one `ServeRequest` with no server, as in tests |
+| `Call` | `request`, `state`, `auth`, `input`, `host` | What a handler receives. `call.state.request_id` is the request's id |
+| `ServeRequest`, `ServeResponse`, `Headers`, `QueryParams` | | The framework-neutral request and response. `ServeResponse.json(value, status=200, headers=None)` builds a JSON answer |
+| `OpenApiInfo`, `openapi_document(api)` | | Describe and return the development OpenAPI 3.1 document |
+
+## Serving
+
+| Export | Signature | Purpose |
+| --- | --- | --- |
+| `to_asgi_app` | `to_asgi_app(api, *, lifespan=None)` | A pure ASGI application, for uvicorn and for mounting in FastAPI, Starlette or any ASGI framework |
+| `to_wsgi_app` | `to_wsgi_app(api)` | A WSGI application, for gunicorn, waitress or any WSGI framework |
+| `hypequery.contrib.django.urls` | `urls(api)` | URL patterns serving the API natively from Django, for `include()` below any prefix |
+| `hypequery.contrib.flask.blueprint` | `blueprint(api, *, name="hypequery", url_prefix=None)` | A blueprint serving the API natively from Flask |
+| `start_server` (alias `run_production`) | `start_server(api_or_asgi_app)` | Run an API created with `production=ProductionProfile(...)` under uvicorn |
+| `serve_dev` (alias `run_dev`) | `serve_dev(app, *, host="127.0.0.1", port=8000, reload=False)` | Local development runner for an `Api`, its ASGI app, or an import string; `hypequery dev` wraps it |
+
+## Endpoints
+
+| Export | Purpose |
+| --- | --- |
+| `create_dataset_endpoint(*, dataset, client, policy=EndpointPolicy(), diagnostics=None, events=None, client_profile=None, include_related=())` | A dataset query endpoint, for `create_api(datasets=...)` or `.install(api, path)` |
+| `create_metric_endpoint(*, dataset, measure, name=None, client, policy=…, …)` | A metric fixed to one dataset measure, for `create_api(metrics=...)` |
+| `add_dataset_endpoint(api, path, *, dataset, client, …, limits=())` | Create and serve a dataset endpoint at `path` |
+| `add_metric_endpoint(api, path, *, dataset, measure, …, limits=())` | Create and serve a metric endpoint at `path` |
+| `add_discovery_endpoint(api, path="/discovery", *, registry, policy=…, max_bytes=262144)` | A frozen projection of the registry, with no physical details |
+| `add_client_contract_endpoint(api, path="/client-contract", *, policy=…, max_bytes=262144)` | Caller-scoped discovery of the API's strict client endpoints |
+| `export_client_contract(api, *, production=None, mount_path=None)` | The build contract of the installed client endpoints; `api` may be the `Api` or its ASGI or WSGI app |
+| `DiagnosticAccess(authorize, audit)` | Opt-in, audited SQL diagnostics for trusted callers |
+
+## Authentication
+
+| Export | Purpose |
+| --- | --- |
+| `jwt_strategy(*, secret=None, jwks_url=None, issuer=None, audience=None, algorithms=None, leeway=0, map_claims=None, …)` | Verify JWT bearer tokens, as TypeScript's `createJwtStrategy` does. Needs the `jwt` extra |
+| `analytics_token_issuer(secret, *, expires_in=timedelta(minutes=15), issuer=None, audience=None, algorithm="HS256")` | Mint tokens that either language's `jwt_strategy` accepts |
+| `from_context(extract, *, same_origin=True)` | Authenticate with your app's own login: `extract(request)` reads the session from `request.raw`. TypeScript's `fromContext` |
+| `hypequery.contrib.django.django_user(to_principal, *, same_origin=True)` | `from_context` for Django's `request.user` |
+| `hypequery.contrib.flask.flask_session(to_principal, *, same_origin=True)` | `from_context` for Flask-Login's `current_user`, or else Flask's session |
+| `api_key(*, header="x-api-key")` | Read a bare API key from a header |
+| `bearer_token(*, header="authorization")` | Read `Bearer <token>` as RFC 6750 defines it |
+| `Credential`, `CredentialKind`, `CredentialTransport` | What was presented and how it was read |
+| `Principal` | The authenticated caller, with `subject`, `roles`, `scopes` and `tenant_id` |
+| `default_tenant_resolver(principal)` | Scope the request to the principal's `tenant_id`, or to no tenant |
+| `InvalidCredential`, `RequestAuth`, `Authenticator`, `TenantResolver`, `JwtStrategy`, `AnalyticsTokenIssuer`, `ClaimsMapper`, `ContextStrategy`, `ContextExtractor` | Types, and the error to raise for bad credentials |
+
+## Policy
+
+`EndpointPolicy(public=False, required_roles=frozenset(), required_scopes=frozenset(), tenant="optional", max_limit=1000)`
+
+`tenant` is `"required"`, `"optional"` or `"forbidden"`.
+
+## HTTP security
+
+| Export | Purpose |
+| --- | --- |
+| `HttpSecurity(allowed_hosts, cors=None, trusted_proxies=())` | The HTTP profile for a served API |
+| `CorsPolicy(origins, allow_credentials=False, allow_methods=("GET", "POST"), allow_headers=("Authorization", "Content-Type", "X-Request-ID", "X-Include-Meta", "X-Hypequery-Client-Schema"), max_age=600)` | Cross-origin access. With no policy, no CORS headers are sent |
+| `DEFAULT_MAX_BODY_BYTES` | The default request body limit |
+
+## Rate limiting
+
+`RateLimit(*, max=100, window_seconds=60, key=None, store=None, fail_open=True, headers=True, message=…)` is a
+fixed-window limit, for `create_api(limits=...)`, an endpoint's `limits=` or a route's. `MemoryRateLimitStore` is the
+in-process store, and `RateLimitStore` is the protocol for your own. `RateLimitKey` types the key function, which
+receives the `ServeRequest` and the caller's `RequestAuth`.
+
+## Production
+
+`ProductionProfile(host="127.0.0.1", port=8000, allow_external_bind=False, debug=False, reload=False, max_concurrency=32, timeout_seconds=30, max_result_rows=10001, max_result_bytes=8388608, max_threads=4)`
+sets per-process ceilings. `create_api` refuses it without an `HttpSecurity`, with development docs, or with
+`from_context(..., same_origin=False)`.
+
+## Errors
+
+Raise `ServeError(status, type, message, *, details=None, headers=None)` from a handler to return a specific canonical
+error. `type` is a `ServeErrorType`:
+
+| Type | Meaning |
+| --- | --- |
+| `VALIDATION_ERROR` | The request failed validation |
+| `UNAUTHORIZED` | Missing or invalid credentials |
+| `FORBIDDEN` | Authenticated, but not allowed |
+| `NOT_FOUND` | Unknown route or resource |
+| `PAYLOAD_TOO_LARGE` | The body exceeded the limit |
+| `RATE_LIMITED` | The rate limit was exceeded |
+| `QUERY_FAILURE` | The query failed |
+| `CLICKHOUSE_UNREACHABLE` | ClickHouse could not be reached |
+| `GATEWAY_TIMEOUT` | The query timed out |
+| `SERVICE_UNAVAILABLE` | The service cannot take the request |
+| `INTERNAL_SERVER_ERROR` | An unexpected failure |
+
+## Events and request IDs
+
+`QueryEvents(*, target, sink)` emits query events to a sink, for `create_api(events=...)` or one endpoint's
+`events=`. A handler reads the server-generated request id as `call.state.request_id`.
+`sanitize_correlation_id(value)` validates a caller's correlation id before it is echoed, and
+`MAX_CORRELATION_ID_BYTES` is its bound.

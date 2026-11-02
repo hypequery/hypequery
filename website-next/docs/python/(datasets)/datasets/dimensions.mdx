@@ -1,0 +1,54 @@
+---
+title: Dimensions
+description: Define typed fields for selecting, grouping, and filtering dataset queries in Python.
+---
+
+import { CodeBlock } from 'fumadocs-ui/components/codeblock';
+
+Dimensions are the non-aggregated fields in a dataset. They are the fields callers can select, group by, filter on,
+and order by.
+
+The key is the semantic API name. The first argument is the field type, and keyword options map the field to
+ClickHouse.
+
+<CodeBlock>
+```python
+from hypequery.datasets import dimension
+
+dimensions = {
+    "id": dimension("string"),
+    "status": dimension("string", label="Status"),
+    "is_trial": dimension("boolean", column="is_trial"),
+    "created_at": dimension("timestamp", column="created_at"),
+}
+```
+</CodeBlock>
+
+With that definition, callers use the semantic names:
+
+<CodeBlock>
+```python
+analytics.execute(
+    orders,
+    DatasetQuery(dimensions=("status", "created_at"), measures=("revenue",)),
+)
+```
+</CodeBlock>
+
+## Types
+
+| ClickHouse types | Dimension type |
+| --- | --- |
+| `String`, `LowCardinality(String)`, `Enum`, `UUID` | `"string"` |
+| `UInt64`, `Int32`, `Float64`, `Decimal` | `"number"` |
+| `Bool` or boolean-style `UInt8` flags | `"boolean"` |
+| `Date`, `DateTime`, `DateTime64` | `"timestamp"` |
+
+## Options
+
+| Option | Purpose |
+| --- | --- |
+| `column` | The ClickHouse column, when it differs from the semantic name |
+| `label`, `description` | Human-readable metadata for catalogs and tools |
+| `sql`, `dependencies` | A SQL expression instead of a column |
+| `filterable`, `groupable` | Set to `False` to stop callers filtering or grouping by the field. Both are allowed by default |

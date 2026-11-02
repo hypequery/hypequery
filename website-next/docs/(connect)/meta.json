@@ -1,0 +1,17 @@
+{
+  "title": "Connect",
+  "pages": [
+    "---MCP---",
+    "mcp/overview",
+    "mcp/configuration",
+    "mcp/tools",
+    "mcp/clients",
+    "mcp/programmatic",
+    "mcp/safety",
+    "---React---",
+    "react/getting-started",
+    "[With hypequery cloud](/docs/cloud/react)",
+    "react/using-queries",
+    "react/advanced-patterns"
+  ]
+}

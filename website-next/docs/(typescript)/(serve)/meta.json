@@ -1,0 +1,20 @@
+{
+  "title": "Serve",
+  "pages": [
+    "embedded-runtime",
+    "---Security---",
+    "authentication",
+    "multi-tenancy",
+    "cors",
+    "rate-limiting",
+    "---Runtime---",
+    "runtime-features",
+    "http-openapi",
+    "observability",
+    "---Framework setup---",
+    "vite",
+    "nextjs",
+    "nodejs",
+    "fetch"
+  ]
+}

@@ -13,7 +13,7 @@ export const metadata: Metadata = {
     url: absoluteUrl('/moosestack-alternative'),
     title: 'MooseStack EOL Alternative | hypequery',
     description:
-      'MooseStack is no longer actively maintained. Move its application-facing ClickHouse analytics layer to actively maintained TypeScript packages.',
+      'MooseStack is no longer actively maintained. Move its application-facing ClickHouse analytics layer to actively maintained TypeScript or Python packages.',
   },
   twitter: {
     card: 'summary_large_image',
@@ -55,7 +55,7 @@ export default function MooseStackAlternativePage() {
       }}
       stats={[
         { label: 'MooseStack status', value: 'End of life' },
-        { label: 'hypequery model', value: 'Open-source TypeScript' },
+        { label: 'hypequery model', value: 'Open-source TypeScript or Python' },
         { label: 'Migration style', value: 'Incremental' },
       ]}
       problems={[
@@ -167,7 +167,7 @@ export default function MooseStackAlternativePage() {
         {
           title: 'Typed ClickHouse replacement',
           copy:
-            'hypequery covers the application-facing TypeScript layer with generated schema types and ClickHouse-native queries.',
+            'hypequery covers the application-facing layer in TypeScript, with generated schema types and ClickHouse-native queries, or in Python, with datasets served from FastAPI, Django, or Flask.',
         },
         {
           title: 'Governed AI-agent analytics',
@@ -176,6 +176,11 @@ export default function MooseStackAlternativePage() {
         },
       ]}
       readingLinks={[
+        {
+          href: '/clickhouse-python',
+          title: 'ClickHouse with Python',
+          description: 'Moose had Python users too: the same datasets, defined and served from Python.',
+        },
         {
           href: '/blog/migrating-moosestack-to-hypequery',
           title: 'MooseStack migration guide',
@@ -199,6 +204,7 @@ export default function MooseStackAlternativePage() {
       ]}
       relatedPillars={[
         { href: '/clickhouse-typescript', label: 'ClickHouse TypeScript' },
+        { href: '/clickhouse-python', label: 'ClickHouse Python' },
         { href: '/clickhouse-semantic-layer', label: 'ClickHouse Semantic Layer' },
         { href: '/clickhouse-mcp', label: 'ClickHouse MCP' },
         { href: '/clickhouse-multi-tenant-analytics', label: 'Multi-tenant Analytics' },

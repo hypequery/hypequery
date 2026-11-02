@@ -1,0 +1,96 @@
+---
+title: FAQ
+description: Frequently asked questions about hypequery
+---
+
+import { Accordion, Accordions } from 'fumadocs-ui/components/accordion';
+
+# Frequently Asked Questions
+
+## General
+
+<Accordions type="single">
+  <Accordion title="What is hypequery?">
+    hypequery is an open-source analytics layer for ClickHouse that runs inside your application. You define datasets (dimensions, measures, relationships, and tenant rules) once in code, then query them by name, serve them over HTTP, and connect React dashboards and AI agents to them. See the [docs home](/docs).
+  </Accordion>
+
+  <Accordion title="Which languages does hypequery support?">
+    TypeScript and Python. The TypeScript SDK is stable and also includes a type-safe query builder. The [Python SDK](/docs/python) is in beta: it covers datasets, Serve for FastAPI, Django, Flask, and any ASGI or WSGI server, and the CLI. Both implement the same specifications, so the same React hooks and MCP server work against either.
+  </Accordion>
+
+  <Accordion title="Is hypequery production-ready?">
+    The TypeScript packages are used in production. The Python SDK is in beta (0.1.0b2): its APIs may still change before 1.0, so pin the version you deploy.
+  </Accordion>
+
+  <Accordion title="What databases does hypequery support?">
+    Currently ClickHouse only.
+  </Accordion>
+
+  <Accordion title="Is hypequery open source?">
+    Yes. hypequery is open source under Apache 2.0 and available on [GitHub](https://github.com/hypequery/hypequery).
+  </Accordion>
+
+  <Accordion title="Is there a hosted version?">
+    Not yet. [hypequery cloud](/docs/cloud), a hosted option that serves your datasets as REST and MCP endpoints, is planned but not live. You can join the waitlist from the homepage. Today, hypequery runs in your own backend.
+  </Accordion>
+</Accordions>
+
+## Usage
+
+<Accordions type="single">
+  <Accordion title="Can I use raw SQL?">
+    Yes. Use `raw()` for SQL fragments or `rawQuery()` when you need a full raw SQL query.
+  </Accordion>
+
+  <Accordion title="How do I handle mutations (INSERT/UPDATE/DELETE)?">
+    Inserts have a type-safe API: row shapes come from your schema and are checked at compile time. See [Inserts](/docs/query-building/inserts). hypequery is built for analytics, so for `UPDATE` and `DELETE` (ClickHouse mutations) use `rawQuery()`.
+  </Accordion>
+
+  <Accordion title="Does hypequery support ClickHouse materialized views?">
+    Yes. Treat materialized views as regular tables in your generated schema.
+  </Accordion>
+
+  <Accordion title="How do I handle NULL values?">
+    Use `isNull` and `isNotNull` operators in the query builder.
+  </Accordion>
+</Accordions>
+
+## React Hooks
+
+<Accordions type="single">
+  <Accordion title="Do I need React hooks?">
+    No. `@hypequery/react` is optional and only needed for React applications.
+  </Accordion>
+
+  <Accordion title="Can I use React hooks without serve?">
+    No. React hooks call HTTP endpoints, so they need a served API. That API can be TypeScript (`@hypequery/serve`) or Python (`hypequery.serve`); see [React with a Python backend](/docs/react/getting-started#datasets-served-from-python).
+  </Accordion>
+
+  <Accordion title="Do React hooks work with Next.js?">
+    Yes. See the [Next.js guide](/docs/nextjs).
+  </Accordion>
+</Accordions>
+
+## Performance & Caching
+
+<Accordions type="single">
+  <Accordion title="Does hypequery support caching?">
+    Yes. hypequery supports query-result caching at the query builder layer with strategies such as `cache-first`, `network-first`, and `stale-while-revalidate`.
+  </Accordion>
+
+  <Accordion title="Can I stream large result sets?">
+    Yes. Use `stream()` or `streamForEach()`.
+  </Accordion>
+</Accordions>
+
+## Deployment
+
+<Accordions type="single">
+  <Accordion title="Where can I deploy hypequery?">
+    The TypeScript SDK runs anywhere Node.js runs, including serverless platforms, containers, traditional servers, and compatible edge runtimes such as Bun, Deno, and Cloudflare Workers. The Python SDK runs in any ASGI or WSGI server, or inside Django, Flask, or FastAPI.
+  </Accordion>
+
+  <Accordion title="Do I need to run the hypequery dev server in production?">
+    No. `hypequery dev` is only for local development. In production, use `api.run()` for in-process execution or mount `api.handler` / call `api.start()` for HTTP delivery.
+  </Accordion>
+</Accordions>

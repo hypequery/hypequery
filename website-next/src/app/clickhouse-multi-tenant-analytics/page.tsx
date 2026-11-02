@@ -42,10 +42,7 @@ const api = serve({
 
 const queryCode = `const accountRevenue = query({
   query: ({ ctx }) =>
-    ctx.db
-      .table('orders')
-      .sum('amount', 'revenue')
-      .execute(),
+    ctx.db.table('orders').sum('amount', 'revenue').execute(),
 });`;
 
 export default function ClickHouseMultiTenantAnalyticsPage() {
@@ -53,7 +50,7 @@ export default function ClickHouseMultiTenantAnalyticsPage() {
     <ClickhousePillarPage
       eyebrow="ClickHouse Multi-Tenant Analytics"
       title="Build multi-tenant ClickHouse analytics without trusting every query author"
-      description="SaaS analytics breaks when tenant isolation is a convention instead of a system property. hypequery lets you inject tenant filters automatically so reusable ClickHouse queries stay safely scoped across APIs, dashboards, and internal tooling."
+      description="SaaS analytics breaks when tenant isolation is a convention instead of a system property. hypequery lets you inject tenant filters automatically so reusable ClickHouse queries stay safely scoped across APIs, dashboards, AI agents, and internal tooling."
       primaryCta={{ href: '/docs/multi-tenancy', label: 'Open multi-tenancy docs' }}
       secondaryCta={{ href: '/use-cases/multi-tenant-saas', label: 'See the SaaS use case' }}
       stats={[
@@ -139,6 +136,11 @@ export default function ClickHouseMultiTenantAnalyticsPage() {
       ]}
       readingLinks={[
         {
+          href: '/clickhouse-python-multi-tenant',
+          title: 'Multi-tenant analytics in Python',
+          description: 'The same tenant isolation for a Django, Flask, or FastAPI backend.',
+        },
+        {
           href: '/docs/multi-tenancy',
           title: 'Multi-tenancy documentation',
           description: 'The detailed configuration guide for tenant extraction and auto-injection.',
@@ -164,6 +166,7 @@ export default function ClickHouseMultiTenantAnalyticsPage() {
         { href: '/clickhouse-nextjs', label: 'ClickHouse Next.js' },
         { href: '/clickhouse-react', label: 'ClickHouse React' },
         { href: '/clickhouse-typescript', label: 'ClickHouse TypeScript' },
+        { href: '/clickhouse-python', label: 'ClickHouse Python' },
       ]}
       nextStep={{
         eyebrow: 'Next step',

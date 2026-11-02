@@ -1,0 +1,8 @@
+.npm-download-tooltip { width: min(320px, calc(100vw - 40px)); }
+.npm-download-tooltip::before { content: ''; position: absolute; inset: -9px 0 auto; height: 9px; }
+.npm-download-tooltip:not([hidden]) { animation: npm-tooltip-in 140ms ease-out; }
+@keyframes npm-tooltip-in {
+  from { opacity: 0; transform: translateY(-3px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@media (prefers-reduced-motion: reduce) { .npm-download-tooltip:not([hidden]) { animation: none; } }

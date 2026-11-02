@@ -1,0 +1,16 @@
+{
+  "title": "Reference",
+  "pages": [
+    "reference/api",
+    "reference/packages",
+    "reference/connection",
+    "reference/inside-the-query-builder",
+    "reference/clickhouse-behavior",
+    "reference/readonly-users",
+    "reference/trust-boundaries",
+    "---Resources---",
+    "telemetry",
+    "changelog",
+    "faq"
+  ]
+}

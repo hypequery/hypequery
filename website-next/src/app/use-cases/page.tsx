@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { marketing } from '@/components/ui/marketing';
 import PageWrapper from '@/components/PageWrapper';
 import { absoluteUrl, ogImage } from '@/lib/site';
 
@@ -64,36 +65,36 @@ export default function UseCasesPage() {
   return (
     <PageWrapper>
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema) }} />
-        <section className="relative overflow-hidden border-b border-border">
-          <div className="relative mx-auto max-w-7xl px-4 py-20 lg:px-6">
-            <p className="text-xs font-semibold uppercase tracking-[0.3em] text-accent">
+        <section className="border-b border-border">
+          <div className={`${marketing.container} pb-14 pt-12 sm:pb-16 sm:pt-16`}>
+            <p className={marketing.eyebrow}>
               Use Cases
             </p>
-            <h1 className="mt-4 text-4xl font-semibold tracking-tight text-text sm:text-6xl">
+            <h1 className={`mt-5 max-w-[980px] ${marketing.heroTitle}`}>
               ClickHouse analytics use cases for product APIs and SaaS
             </h1>
-            <p className="mt-6 max-w-3xl text-lg leading-8 text-text-muted">
+            <p className={`mt-5 max-w-[700px] ${marketing.heroLead}`}>
               These are the two adoption paths that show up most often: teams layering analytics into an existing backend, and teams shipping customer-facing analytics with tenant boundaries that need to hold up in production.
             </p>
             <div className="mt-10 grid gap-4 sm:grid-cols-3">
-              <div className="rounded-lg border border-border bg-bg-card p-5 shadow-card">
-                <p className="text-xs uppercase tracking-[0.2em] text-text-dim">Adoption path</p>
-                <p className="mt-2 text-2xl font-semibold text-text">Incremental</p>
+              <div className="rounded-xl border border-border bg-bg-card p-5 shadow-card">
+                <p className="font-mono text-xs text-text-dim">Adoption path</p>
+                <p className="mt-2 text-2xl font-normal tracking-[-0.03em] text-text">Incremental</p>
               </div>
-              <div className="rounded-lg border border-border bg-bg-card p-5 shadow-card">
-                <p className="text-xs uppercase tracking-[0.2em] text-text-dim">Source of truth</p>
-                <p className="mt-2 text-2xl font-semibold text-text">Typed queries</p>
+              <div className="rounded-xl border border-border bg-bg-card p-5 shadow-card">
+                <p className="font-mono text-xs text-text-dim">Source of truth</p>
+                <p className="mt-2 text-2xl font-normal tracking-[-0.03em] text-text">Typed queries</p>
               </div>
-              <div className="rounded-lg border border-border bg-bg-card p-5 shadow-card">
-                <p className="text-xs uppercase tracking-[0.2em] text-text-dim">Runtime model</p>
-                <p className="mt-2 text-2xl font-semibold text-text">In-process or HTTP</p>
+              <div className="rounded-xl border border-border bg-bg-card p-5 shadow-card">
+                <p className="font-mono text-xs text-text-dim">Runtime model</p>
+                <p className="mt-2 text-2xl font-normal tracking-[-0.03em] text-text">In-process or HTTP</p>
               </div>
             </div>
           </div>
         </section>
 
-        <section className="mx-auto max-w-7xl px-4 py-20 lg:px-6">
-          <p className="text-xs font-semibold uppercase tracking-[0.25em] text-accent">
+        <section className={`${marketing.container} py-20`}>
+          <p className={marketing.eyebrow}>
             Use Cases
           </p>
           <h2 className="mt-3 text-3xl font-semibold tracking-tight text-text sm:text-4xl">
@@ -106,11 +107,11 @@ export default function UseCasesPage() {
                 href={item.href}
                 className="group rounded-lg border border-border bg-bg-card p-8 transition duration-200 hover:-translate-y-1 hover:border-border-strong hover:shadow-card"
               >
-                <p className="text-sm font-semibold uppercase tracking-[0.2em] text-accent">
+                <p className="font-mono text-sm text-accent">
                   {item.label}
                 </p>
-                <h3 className="mt-3 text-2xl font-semibold text-text">{item.title}</h3>
-                <p className="mt-4 text-base leading-7 text-text-muted">{item.description}</p>
+                <h3 className="mt-3 text-2xl font-normal tracking-[-0.03em] text-text">{item.title}</h3>
+                <p className="mt-4 text-base leading-6 text-text-muted">{item.description}</p>
                 <ul className="mt-6 space-y-2 text-sm text-text">
                   {item.points.map((point) => (
                     <li key={point} className="flex gap-3">
@@ -119,7 +120,7 @@ export default function UseCasesPage() {
                     </li>
                   ))}
                 </ul>
-	                <p className="mt-7 text-sm font-semibold uppercase tracking-[0.2em] text-accent transition group-hover:opacity-70">
+	                <p className="mt-7 font-mono text-sm text-accent transition group-hover:opacity-70">
 	                  Open use case
 	                </p>
 	              </Link>
@@ -127,42 +128,42 @@ export default function UseCasesPage() {
 	          </div>
 	        </section>
 
-	        <section className="border-y border-border bg-bg-alt/60">
-	          <div className="mx-auto grid max-w-7xl gap-8 px-4 py-16 lg:grid-cols-3 lg:px-6">
+	        <section className={marketing.band}>
+	          <div className={`${marketing.container} grid gap-8 py-14 sm:py-20 lg:grid-cols-3`}>
 	            <div>
-	              <p className="text-xs font-semibold uppercase tracking-[0.25em] text-text-dim">Step 01</p>
-	              <h3 className="mt-3 text-xl font-semibold text-text">Pick one repeated query</h3>
-	              <p className="mt-3 text-sm leading-7 text-text-muted">
+	              <p className="font-mono text-xs text-text-dim">Step 01</p>
+	              <h3 className={`mt-3 ${marketing.cardTitle}`}>Pick one repeated query</h3>
+	              <p className="mt-3 text-sm leading-6 text-text-muted">
 	                Start with analytics logic that already appears in more than one place in your codebase.
 	              </p>
 	            </div>
 	            <div>
-	              <p className="text-xs font-semibold uppercase tracking-[0.25em] text-text-dim">Step 02</p>
-	              <h3 className="mt-3 text-xl font-semibold text-text">Put it on a shared path</h3>
-	              <p className="mt-3 text-sm leading-7 text-text-muted">
+	              <p className="font-mono text-xs text-text-dim">Step 02</p>
+	              <h3 className={`mt-3 ${marketing.cardTitle}`}>Put it on a shared path</h3>
+	              <p className="mt-3 text-sm leading-6 text-text-muted">
 	                Either call it in-process from the backend you already run or expose it under a controlled internal API path.
 	              </p>
 	            </div>
 	            <div>
-	              <p className="text-xs font-semibold uppercase tracking-[0.25em] text-text-dim">Step 03</p>
-	              <h3 className="mt-3 text-xl font-semibold text-text">Expand only after it proves useful</h3>
-	              <p className="mt-3 text-sm leading-7 text-text-muted">
+	              <p className="font-mono text-xs text-text-dim">Step 03</p>
+	              <h3 className={`mt-3 ${marketing.cardTitle}`}>Expand only after it proves useful</h3>
+	              <p className="mt-3 text-sm leading-6 text-text-muted">
 	                Let more consumers depend on the same definition instead of minting new one-off query copies.
 	              </p>
 	            </div>
 	          </div>
 	        </section>
 
-        <section className="mx-auto max-w-7xl px-4 py-16 lg:px-6">
-          <div className="rounded-lg border border-border-strong bg-bg-card p-8 shadow-card md:flex md:items-center md:justify-between md:gap-8">
+        <section className={`${marketing.container} py-14 sm:py-20`}>
+          <div className="rounded-xl border border-border-strong bg-bg-card p-8 shadow-card md:flex md:items-center md:justify-between md:gap-8">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.25em] text-accent">
+              <p className={marketing.eyebrow}>
                 Next step
               </p>
-	              <h3 className="mt-3 text-2xl font-semibold text-text">
+	              <h3 className="mt-3 text-2xl font-normal tracking-[-0.03em] text-text">
 	                Start with the use case closest to your current architecture
 	              </h3>
-	              <p className="mt-3 max-w-2xl text-sm leading-7 text-text-muted">
+	              <p className="mt-3 max-w-2xl text-sm leading-6 text-text-muted">
 	                Do not start by adopting everything at once. Pick the path that matches your existing backend shape and replace one real query first.
 	              </p>
 	            </div>
@@ -172,7 +173,7 @@ export default function UseCasesPage() {
                 data-umami-event="cta_click"
                 data-umami-event-target="docs_quick_start"
                 data-umami-event-location="next_step_primary"
-                className="inline-flex items-center bg-text px-6 py-3 text-sm font-semibold text-bg transition hover:opacity-90"
+                className={marketing.primaryButton}
               >
                 Open quick start
               </Link>

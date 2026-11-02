@@ -1,0 +1,79 @@
+---
+title: Multi-tenancy
+description: Scope every Python Serve request to the authenticated tenant.
+---
+
+import { CodeBlock } from 'fumadocs-ui/components/codeblock';
+
+The tenant for a request always comes from the authenticated principal. No header, query parameter, body field, or
+request state can supply or change it.
+
+## Where the tenant comes from
+
+By default, `Principal.tenant_id` scopes the request, and a principal without one is tenant-free. With
+[`jwt_strategy`](/docs/python/authentication#jwt), that is the token's `org_id` claim. Pass `tenant=` to decide it
+yourself:
+
+<CodeBlock>
+```python
+from hypequery.datasets import tenant
+from hypequery.serve import Principal, create_api
+
+
+def tenant_for(principal: Principal):
+    org_id = lookup_org(principal.subject)  # your code
+    return tenant(org_id) if org_id else None
+
+
+api = create_api(auth=authenticate, tenant=tenant_for, client=client, datasets={"orders": orders})
+```
+</CodeBlock>
+
+A resolver must return a single-tenant scope or `None`. It cannot grant `tenants()` with multiple identifiers or
+`all_tenants()`.
+
+## Require a tenant per endpoint
+
+<CodeBlock>
+```python
+from hypequery.serve import EndpointPolicy, create_dataset_endpoint
+
+endpoint = create_dataset_endpoint(
+    dataset=orders, client=client, policy=EndpointPolicy(tenant="required")
+)
+api = create_api(auth=authenticate, datasets={"orders": endpoint})
+```
+</CodeBlock>
+
+| `tenant` | Behavior |
+| --- | --- |
+| `"required"` | Tenant-free callers are refused |
+| `"optional"` (default) | The request runs with the caller's tenant, if any |
+| `"forbidden"` | Only tenant-free callers are allowed |
+
+When the dataset declares a `tenant_key`, the query adds the tenant predicate automatically, as in
+[dataset multi-tenancy](/docs/python/datasets/multi-tenancy). A request body that tries to set a tenant is rejected
+with `400 VALIDATION_ERROR`.
+
+## In your own routes
+
+Bind the client to the request's tenant before querying:
+
+<CodeBlock>
+```python
+from hypequery.serve import Call, ServeError, ServeResponse
+
+
+async def top_countries(call: Call) -> ServeResponse:
+    if call.auth.tenant is None:
+        raise ServeError(403, "FORBIDDEN", "This report needs a tenant")
+    scoped = client.for_tenant(call.auth.tenant)  # an async dataset client
+    result = await scoped.execute("orders", {"dimensions": ["country"], "measures": ["revenue"]})
+    return ServeResponse.json({"data": list(result.data)})
+
+
+api.add_route("POST", "/reports/top-countries", top_countries)
+```
+</CodeBlock>
+
+A tenant-bound client runs every query as that tenant, and refuses a context naming a different one.

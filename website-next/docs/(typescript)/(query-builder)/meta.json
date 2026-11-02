@@ -1,0 +1,12 @@
+{
+  "title": "Query Builder",
+  "pages": [
+    "---Queries---",
+    "...query-building",
+    "---Reuse---",
+    "re-using-queries",
+    "schemas",
+    "---Connections---",
+    "chdb"
+  ]
+}

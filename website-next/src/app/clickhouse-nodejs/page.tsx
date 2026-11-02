@@ -27,8 +27,7 @@ const setupCode = `import { createQueryBuilder } from '@hypequery/clickhouse';
 import type { DB } from './schema'; // generated from your ClickHouse schema
 
 const db = createQueryBuilder<DB>({
-  host: process.env.CLICKHOUSE_HOST!,
-  port: 8123,
+  url: process.env.CLICKHOUSE_URL!, // e.g. http://localhost:8123
   username: process.env.CLICKHOUSE_USER!,
   password: process.env.CLICKHOUSE_PASSWORD!,
   database: 'analytics',
@@ -43,7 +42,7 @@ import { z } from 'zod';
 const app = express();
 
 const { query, serve } = initServe({
-  context: (req) => ({ db, userId: req.user?.id }),
+  context: () => ({ db }),
 });
 
 const pageViews = query({
@@ -61,14 +60,14 @@ const pageViews = query({
 });
 
 const api = serve({ queries: { pageViews } });
-app.use('/analytics', createNodeHandler(api.handler));`;
+app.all('/api/analytics/{*path}', createNodeHandler(api.handler));`;
 
 export default function ClickHouseNodejsPage() {
   return (
     <ClickhousePillarPage
       eyebrow="ClickHouse Node.js"
       title="Use ClickHouse from Node.js without hand-maintained query types"
-      description="This page is narrower than the JavaScript page. It is about the backend reality: scripts, workers, Express servers, and the point where a query needs to become a reusable API instead of another helper buried in a service file."
+      description="Scripts, workers, and Express servers all end up querying ClickHouse. hypequery gives them generated types and one place for each query, so a helper buried in a service file can become a typed API when it needs to."
       primaryCta={{ href: '/docs/quick-start', label: 'Start with hypequery' }}
       secondaryCta={{ href: '/clickhouse-rest-api', label: 'See the REST API' }}
       stats={[

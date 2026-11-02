@@ -14,7 +14,8 @@ export type ComparePageConfig = {
     | 'hypequery-vs-typeorm'
     | 'hypequery-vs-metabase'
     | 'hypequery-vs-clickhouse-http'
-    | 'hypequery-vs-raw-sql';
+    | 'hypequery-vs-raw-sql'
+    | 'hypequery-vs-clickhouse-connect';
   href: string;
   title: string;
   verdict: string;
@@ -174,21 +175,21 @@ export const comparePages: ComparePageConfig[] = [
     href: '/compare/hypequery-vs-cube',
     title: 'hypequery vs Cube',
     verdict:
-      'Cube is a semantic layer platform for centralized metrics. hypequery is a lighter code-first TypeScript layer for product engineers building ClickHouse-backed features. They solve different problems.',
+      'Cube is a semantic layer platform for centralized metrics. hypequery is a lighter, code-first analytics layer that lives in your codebase, in TypeScript or Python, for product engineers building ClickHouse-backed features. They solve different problems.',
     rows: [
       {
         label: 'Best for',
-        hypequery: 'Product engineers building ClickHouse features in TypeScript',
+        hypequery: 'Product engineers building ClickHouse features in TypeScript or Python',
         alternative: 'Centralised metrics for BI tools and multiple consumers',
       },
       {
         label: 'Setup',
-        hypequery: 'npm install — no separate infrastructure',
+        hypequery: 'A package install, no separate infrastructure. Optional hosting on hypequery cloud',
         alternative: 'Separate Cube server, Redis cache, config management',
       },
       {
         label: 'Workflow',
-        hypequery: 'Fully code-first — lives in your TypeScript codebase',
+        hypequery: 'Fully code-first — lives in your codebase, in TypeScript or Python',
         alternative: 'Config-first YAML/JS schema outside your app codebase',
       },
     ],
@@ -201,7 +202,7 @@ export const comparePages: ComparePageConfig[] = [
       {
         question: 'Can hypequery and Cube be used together?',
         answer:
-          'Yes — some teams use Cube for the data team and BI layer, and hypequery for product-facing analytics features where TypeScript integration and engineering velocity matter more.',
+          'Yes — some teams use Cube for the data team and BI layer, and hypequery for product-facing analytics features where application integration and engineering velocity matter more.',
       },
     ],
   },
@@ -210,7 +211,7 @@ export const comparePages: ComparePageConfig[] = [
     href: '/compare/hypequery-vs-tinybird',
     title: 'hypequery vs Tinybird',
     verdict:
-      'Tinybird is a managed ClickHouse platform with a built-in API layer. hypequery is the better fit when your data needs to stay in your own infrastructure and your team wants TypeScript-first, schema-generated types with full code ownership.',
+      'Tinybird is a managed ClickHouse platform with a built-in API layer. hypequery is the better fit when your data needs to stay in your own ClickHouse and your team wants the analytics layer as code it owns, in TypeScript or Python.',
     rows: [
       {
         label: 'Infrastructure',
@@ -224,7 +225,7 @@ export const comparePages: ComparePageConfig[] = [
       },
       {
         label: 'Code ownership',
-        hypequery: 'Queries live in your TypeScript codebase',
+        hypequery: 'Definitions live in your codebase, in TypeScript or Python',
         alternative: 'SQL Pipes defined in Tinybird UI',
       },
       {
@@ -242,7 +243,7 @@ export const comparePages: ComparePageConfig[] = [
       {
         question: 'Does hypequery replace Tinybird?',
         answer:
-          'Not directly — they solve the same problem differently. Tinybird is a managed platform that handles ClickHouse infrastructure, auth, and caching for you. hypequery is a TypeScript library you add to your own project, assuming you already run ClickHouse. If you want zero ops and are comfortable with your data living in a third-party platform, Tinybird is compelling. If you want data sovereignty, schema-generated TypeScript types, and code-first control, hypequery is the better fit.',
+          'Not directly — they solve the same problem differently. Tinybird is a managed platform that handles ClickHouse infrastructure, auth, and caching for you. hypequery is an open-source library you add to your own project, assuming you already run ClickHouse. If you want zero ops and are comfortable with your data living in a third-party platform, Tinybird is compelling. If you want someone else to run the layer but keep the data in your own ClickHouse, hypequery cloud (in early access) hosts the same definitions. If you want data sovereignty, schema-generated TypeScript types, and code-first control, hypequery is the better fit.',
       },
       {
         question: 'When should I choose Tinybird over hypequery?',
@@ -262,7 +263,7 @@ export const comparePages: ComparePageConfig[] = [
     rows: [
       {
         label: 'Product shape',
-        hypequery: 'Managed ClickHouse database plus an open-source TypeScript application layer',
+        hypequery: 'Managed ClickHouse database plus an open-source application layer in TypeScript or Python',
         alternative: 'Managed analytics backend with data sources, Pipes, endpoints, and tokens',
       },
       {
@@ -287,7 +288,7 @@ export const comparePages: ComparePageConfig[] = [
       },
       {
         label: 'Best fit',
-        hypequery: 'TypeScript product teams that want direct ClickHouse control',
+        hypequery: 'TypeScript or Python product teams that want direct ClickHouse control',
         alternative: 'Teams that want the shortest managed path from ingestion to a hosted data API',
       },
     ],
@@ -314,11 +315,11 @@ export const comparePages: ComparePageConfig[] = [
     href: '/compare/cube-vs-tinybird-vs-hypequery',
     title: 'Cube vs Tinybird vs hypequery',
     verdict:
-      'Cube, Tinybird, and hypequery all put an API layer between ClickHouse and applications, but they have different shapes: semantic layer platform, managed analytics service, and open-source TypeScript library.',
+      'Cube, Tinybird, and hypequery all put an API layer between ClickHouse and applications, but they have different shapes: semantic layer platform, managed analytics service, and an open-source analytics layer in your codebase.',
     rows: [
       {
         label: 'Shape',
-        hypequery: 'Open-source TypeScript library inside your app',
+        hypequery: 'Open-source library inside your app, in TypeScript or Python',
         alternative: 'Cube is a semantic layer platform; Tinybird is a managed analytics backend',
       },
       {
@@ -333,7 +334,7 @@ export const comparePages: ComparePageConfig[] = [
       },
       {
         label: 'Best fit',
-        hypequery: 'TypeScript product teams with an existing ClickHouse',
+        hypequery: 'Product teams with an existing ClickHouse, in TypeScript or Python',
         alternative: 'Cube for shared BI semantics; Tinybird for zero-ops hosted analytics APIs',
       },
     ],
@@ -351,7 +352,7 @@ export const comparePages: ComparePageConfig[] = [
       {
         question: 'When should I choose hypequery?',
         answer:
-          'Choose hypequery when you already run ClickHouse and want schema-generated TypeScript types, query definitions, and served endpoints inside your own application codebase.',
+          'Choose hypequery when you already run ClickHouse and want schema-generated datasets and served endpoints inside your own application codebase, in TypeScript or Python.',
       },
     ],
   },
@@ -379,7 +380,7 @@ export const comparePages: ComparePageConfig[] = [
       },
       {
         label: 'Scope',
-        hypequery: 'Actively maintained TypeScript packages inside your application',
+        hypequery: 'Actively maintained TypeScript and Python packages inside your application',
         alternative: 'Archived framework code can inform migration but should not be a new dependency',
       },
     ],
@@ -406,7 +407,7 @@ export const comparePages: ComparePageConfig[] = [
     href: '/compare/hypequery-vs-dbt',
     title: 'hypequery vs dbt',
     verdict:
-      'dbt transforms data inside ClickHouse on a schedule. hypequery serves ClickHouse data to applications at request time with generated TypeScript types. Most teams comparing them are really deciding where the transformation boundary sits — and many end up using both.',
+      'dbt transforms data inside ClickHouse on a schedule. hypequery serves ClickHouse data to applications at request time, from TypeScript or Python. Most teams comparing them are really deciding where the transformation boundary sits — and many end up using both.',
     rows: [
       {
         label: 'Job',
@@ -415,7 +416,7 @@ export const comparePages: ComparePageConfig[] = [
       },
       {
         label: 'Language',
-        hypequery: 'TypeScript with schema-generated types',
+        hypequery: 'TypeScript or Python, generated from the live schema',
         alternative: 'SQL with Jinja templating',
       },
       {
@@ -456,7 +457,7 @@ export const comparePages: ComparePageConfig[] = [
     rows: [
       {
         label: 'Best for',
-        hypequery: 'TypeScript teams who want to own the analytics layer as code',
+        hypequery: 'Teams who want to own the analytics layer as code, in TypeScript or Python',
         alternative: 'Teams who want managed APIs and drop-in dashboard components',
       },
       {
@@ -688,6 +689,64 @@ export const comparePages: ComparePageConfig[] = [
         "answer": "Partly. FINAL, LIMIT BY, CTEs, and array joins are first-class builder methods. Window functions are not — you express them with selectExpr('... OVER (...)', 'alias'). The builder is honest about its edges and hands you raw SQL where it stops."
       }
     ]
+  },
+  {
+    slug: 'hypequery-vs-clickhouse-connect',
+    href: '/compare/hypequery-vs-clickhouse-connect',
+    title: 'hypequery vs clickhouse-connect',
+    verdict:
+      'clickhouse-connect is the official Python driver: it runs the SQL you write. hypequery runs on top of it and adds shared measures, request validation, and tenant isolation. Use the driver for raw SQL and inserts, and hypequery for the numbers your product shares.',
+    primaryLabel: 'hypequery',
+    alternativeLabel: 'clickhouse-connect',
+    rows: [
+      {
+        label: 'What it is',
+        hypequery: 'A semantic layer in Python, built on clickhouse-connect',
+        alternative: 'The official ClickHouse Python driver',
+      },
+      {
+        label: 'You write',
+        hypequery: 'Datasets: measures, dimensions, tenant key',
+        alternative: 'SQL strings with server-side parameters',
+      },
+      {
+        label: 'Tenant isolation',
+        hypequery: 'Added to every query; fails closed without a tenant',
+        alternative: 'Your responsibility in each query',
+      },
+      {
+        label: 'HTTP and agents',
+        hypequery: 'FastAPI endpoints, typed React hooks, MCP bridge',
+        alternative: 'None; build your own API',
+      },
+      {
+        label: 'Results',
+        hypequery: 'Rows as dicts; decimals and dates as strings',
+        alternative: 'Native types, NumPy, pandas, and Arrow',
+      },
+      {
+        label: 'Inserts',
+        hypequery: 'Not supported; read-only queries',
+        alternative: 'Fast bulk inserts',
+      },
+    ],
+    faq: [
+      {
+        question: 'Does hypequery replace clickhouse-connect?',
+        answer:
+          'No. hypequery uses clickhouse-connect to talk to ClickHouse. It replaces the analytics SQL you would otherwise write and maintain by hand, not the driver.',
+      },
+      {
+        question: 'When should I use clickhouse-connect directly?',
+        answer:
+          'For inserts, schema changes, one-off scripts, and data science work where you want `query_df` or Arrow output for arbitrary SQL. Use hypequery when the same measure is queried from several places or by customers.',
+      },
+      {
+        question: 'Can they share a connection?',
+        answer:
+          'Yes. `ClickHouseExecutor` accepts an existing clickhouse-connect client, so you can reuse one you already create.',
+      },
+    ],
   },
 ];
 

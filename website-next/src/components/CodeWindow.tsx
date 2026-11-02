@@ -23,8 +23,9 @@ export default function CodeWindow({
         <span className="h-2.5 w-2.5 rounded-full bg-[#27c93f]" />
         <span className="ml-2 font-mono text-[11px] tracking-[0.03em] text-text-dim dark:text-slate-400">{filename}</span>
       </div>
-      <div className="bg-bg-alt px-4 pb-4 dark:bg-[#07090F]">
-        <CodeHighlight code={code} language={language} />
+      {/* Long examples scroll inside the panel instead of stretching the page. */}
+      <div className="max-h-[720px] overflow-y-auto bg-bg-alt px-4 py-4 [scrollbar-width:thin] dark:bg-[#07090F]">
+        <CodeHighlight code={code} language={language} className="text-[13px]! leading-6" />
       </div>
     </div>
   );

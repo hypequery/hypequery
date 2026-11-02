@@ -1,0 +1,221 @@
+---
+title: Caching
+description: Cache semantic query results under opaque, tenant-safe keys.
+---
+
+import { CodeBlock } from 'fumadocs-ui/components/codeblock';
+
+The dataset client can cache query results so repeated semantic queries do not hit ClickHouse. Each entry is identified by everything that can change its rows: dimensions, measures, filters, segments, ordering, pagination, time grain, timezone, the dataset definitions, the tenant, and any explicit cache scope. Two different queries never share an entry, and two tenants never share one. See [Cache keys and secrets](#cache-keys-and-secrets) for what a store actually sees.
+
+This is the semantic-layer cache in `@hypequery/datasets`, keyed by what a query *means*. It is independent of [query caching](/docs/query-building/caching) in `@hypequery/clickhouse`, which caches raw `execute()` results on the typed query builder.
+
+## Enable caching on the client
+
+Pass `cache` to `createDatasetClient` to set a default TTL for every query.
+
+<CodeBlock>
+```typescript
+import { createDatasetClient } from '@hypequery/datasets';
+import { createQueryBuilder } from '@hypequery/clickhouse';
+
+const db = createQueryBuilder({
+  url: process.env.CLICKHOUSE_URL!,
+  username: process.env.CLICKHOUSE_USER!,
+  password: process.env.CLICKHOUSE_PASSWORD!,
+  database: process.env.CLICKHOUSE_DATABASE!,
+});
+
+const analytics = createDatasetClient({
+  queryBuilder: db,
+  cache: {
+    ttlMs: 60_000,
+    staleWhileRevalidateMs: 300_000,
+  },
+});
+```
+</CodeBlock>
+
+- `ttlMs` — how long a result is served as fresh.
+- `staleWhileRevalidateMs` — an optional window after the TTL during which the stale result is returned immediately while a background refresh repopulates the entry.
+- Errors are never cached, and concurrent identical queries share a single execution.
+
+## Per-call overrides
+
+Every `execute` call can override or bypass the cache through the execution context.
+
+<CodeBlock>
+```typescript
+// Opt a single call into caching (works even without client-level cache config).
+await analytics.execute(Orders, { dimensions: ['country'], measures: ['revenue'] }, {
+  cache: { ttlMs: 30_000 },
+});
+
+// Bypass the cache for one call.
+await analytics.execute(Orders, { dimensions: ['country'], measures: ['revenue'] }, {
+  cache: false,
+});
+
+// Skip the read but store the fresh result (force refresh).
+await analytics.execute(Orders, { dimensions: ['country'], measures: ['revenue'] }, {
+  cache: { mode: 'refresh' },
+});
+```
+</CodeBlock>
+
+`mode: 'refresh'` needs a TTL to write under — either a per-call `ttlMs` or a client-level `cache.ttlMs`. If neither is configured the call executes uncached and logs a one-time warning, so a config drift never fails requests but does not go undiagnosed. A refresh always runs its own execution, even when an identical query is already in flight.
+
+## Cache metadata
+
+Results that went through the cache carry `meta.cache`.
+
+<CodeBlock>
+```typescript
+const result = await analytics.execute(Orders, {
+  dimensions: ['country'],
+  measures: ['revenue'],
+}, {
+  cache: { ttlMs: 60_000 },
+});
+
+result.meta?.cache;
+// { hit: true, ageMs: 1200 } — served fresh from the cache
+// { hit: true, ageMs: 65000, stale: true } — served stale, refreshing in background
+// { hit: false } — executed and stored
+```
+</CodeBlock>
+
+## Serve endpoints
+
+Dataset endpoints registered with a `cache` value cache results server-side with that TTL, in addition to emitting `Cache-Control` headers.
+
+<CodeBlock>
+```typescript
+export const api = serve({
+  queryBuilder: db,
+  datasets: {
+    orders: {
+      dataset: Orders,
+      cache: 60_000,
+    },
+  },
+});
+```
+</CodeBlock>
+
+Repeated identical requests within the TTL are served from the cache without querying ClickHouse. Because tenant scope is part of the cache key, runtime tenancy stays isolated: each tenant only ever sees entries for its own scope.
+
+## Custom stores
+
+The default store is an in-process LRU (500 entries). For multi-instance deployments, provide a shared store implementing `SemanticCacheStore` — three methods, sync or async. Here is a Redis-backed store using a Redis client such as [ioredis](https://github.com/redis/ioredis):
+
+<CodeBlock>
+```typescript
+import {
+  createDatasetClient,
+  type SemanticCacheEntry,
+  type SemanticCacheStore,
+} from '@hypequery/datasets';
+
+interface RedisLike {
+  get(key: string): Promise<string | null>;
+  set(key: string, value: string, mode: 'PX', ttlMs: number): Promise<unknown>;
+  del(key: string): Promise<unknown>;
+}
+
+declare const redis: RedisLike;
+
+const TTL_MS = 60_000;
+const SWR_MS = 300_000;
+
+const redisStore: SemanticCacheStore = {
+  async get(key): Promise<SemanticCacheEntry | undefined> {
+    const raw = await redis.get(key);
+    return raw ? JSON.parse(raw) : undefined;
+  },
+  async set(key, entry) {
+    // Expire in Redis once the entry can never be served again. Freshness
+    // within that window is decided by the client from `storedAt`, so the
+    // Redis expiry is only garbage collection.
+    await redis.set(key, JSON.stringify(entry), 'PX', TTL_MS + SWR_MS);
+  },
+  async delete(key) {
+    await redis.del(key);
+  },
+};
+
+const cachedAnalytics = createDatasetClient({
+  queryBuilder: db,
+  cache: {
+    ttlMs: TTL_MS,
+    staleWhileRevalidateMs: SWR_MS,
+    store: redisStore,
+    // The same 32+ random bytes on every instance, so they share entries.
+    secret: Buffer.from(process.env.HYPEQUERY_CACHE_SECRET!, 'hex'),
+    environment: 'production',
+  },
+});
+```
+</CodeBlock>
+
+Behavior to rely on when writing a store:
+
+- Entries are opaque `{ value, storedAt }` objects; freshness is always decided by the client from `storedAt` and the effective TTL, so per-call TTL overrides work against shared entries. Give the store-side expiry (Redis `PX` above) at least `ttlMs + staleWhileRevalidateMs`.
+- Store failures are non-fatal: a failed `get` is treated as a cache miss and a failed `set` is dropped, so a Redis outage degrades to "no caching" instead of failing queries.
+- Concurrent identical queries are deduplicated per process even while an async `get` is in flight — a burst of the same query does one store read and at most one execution per instance.
+- Keys are short opaque strings (`hq1.<version>.<namespace>.<mac>`, at most 128 bytes) and never contain query details. Do not parse them.
+- Values are plain rows plus `meta` and survive `JSON.stringify` round-trips.
+
+## Cache keys and secrets
+
+A store never sees what was queried. Each key is an HMAC over a canonical description of the query (RFC 0009 and RFC 0013), for example:
+
+<CodeBlock>
+```text
+hq1.1.QZmJzTyhPUpRooLespx4XQ.uDrSq4MwQ-yttsrzdpCHbiGutMxHn2LM8sf2T0boN3k
+```
+</CodeBlock>
+
+Tenant ids, filter values, and table names never appear in a key, so they never reach `SCAN` output, slow logs, eviction logs, or metric labels. Keys contain no data themselves, but cached values are the result rows, so protect a shared store the way you protect the data.
+
+The key's secret is optional:
+
+- **Without `secret`**, the client generates a random one for its lifetime. Nothing needs configuring, and keys are just as opaque, but entries are shared only within that client and do not survive a restart. That is all the default in-memory store needs.
+- **With a shared store** such as Redis, set `secret` to the same 32+ random bytes on every instance, for example `openssl rand -hex 32` kept in your secret manager. Without it, instances keep separate entries, and the client warns once at startup.
+- Use a different secret per environment, and set `environment` (default `'default'`) and `project` (default `'hypequery'`) to match your deployment.
+- To rotate the secret, change it and increment `keyVersion`. Entries under the old key become unreachable and expire, so the cache starts cold.
+- An empty or short secret fails when the client is created, so a missing environment variable fails loudly rather than silently caching nothing.
+
+Keys are derived exactly as in the Python SDK. A TypeScript and a Python service serving the same release share entries when they use the same secret, namespace, and `definitionIdentity`: the deployed bundle identity, which both SDKs accept.
+
+## Cache scopes
+
+A cache key describes the query, not the connection it runs against. When the same semantic query can resolve against different data sources, partition entries with `scope`:
+
+<CodeBlock>
+```typescript
+import {
+  createDatasetClient,
+  type QueryBuilderFactoryLike,
+  type SemanticCacheStore,
+} from '@hypequery/datasets';
+
+declare const euDb: QueryBuilderFactoryLike;
+declare const replicaDb: QueryBuilderFactoryLike;
+declare const redisStore: SemanticCacheStore;
+
+// Client-level: namespace clients that share one store (e.g. one Redis
+// serving several warehouses), so identical queries never collide.
+const euAnalytics = createDatasetClient({
+  queryBuilder: euDb,
+  cache: { ttlMs: 60_000, store: redisStore, scope: 'warehouse-eu' },
+});
+
+// Per-call: required when overriding the query builder at runtime. Without a
+// scope, calls that pass `runtime.builderFactory` skip the cache entirely,
+// because the key alone cannot tell two data sources apart.
+await analytics.execute(Orders, { dimensions: ['country'], measures: ['revenue'] }, {
+  runtime: { builderFactory: replicaDb },
+  cache: { scope: 'replica-2' },
+});
+```
+</CodeBlock>

@@ -1,0 +1,61 @@
+---
+title: SQLAlchemy
+description: Point hypequery at the ClickHouse server your SQLAlchemy engine already uses.
+---
+
+import { CodeBlock } from 'fumadocs-ui/components/codeblock';
+
+If your app already reaches ClickHouse through SQLAlchemy, keep the engine for your own SQL and point hypequery at the
+same server for governed, tenant-scoped measures.
+
+## From an engine
+
+<CodeBlock>
+```python
+from sqlalchemy import create_engine
+from hypequery.contrib.sqlalchemy import executor_from_engine
+from hypequery.datasets import create_dataset_client, tenant
+
+engine = create_engine("clickhousedb://reader:pw@ch.internal:8123/analytics")
+
+executor = executor_from_engine(engine)
+analytics = create_dataset_client(executor=executor, registry=registry)
+result = analytics.for_tenant(tenant("acme")).execute("orders", {"measures": ["revenue"]})
+```
+</CodeBlock>
+
+`executor_from_engine` reads the engine's URL and opens hypequery's own HTTP clients. It never borrows a connection
+from the engine's pool: a borrowed connection would stay checked out for the life of the process, and closing the
+executor would close SQLAlchemy's client. Close the executor and dispose of the engine independently.
+`connection_from_engine(engine)` returns the `ClickHouseConnection` instead, for an async executor or your own
+settings. Both accept an engine or a SQLAlchemy `URL`, and neither imports SQLAlchemy.
+
+## Supported dialects
+
+| Engine URL | Works |
+| --- | --- |
+| `clickhousedb://` (clickhouse-connect's dialect) | Yes. `?secure=true` or `?protocol=https` for TLS |
+| `clickhouse+http://` (clickhouse-sqlalchemy's HTTP driver) | Yes. `?protocol=https` for TLS |
+| `clickhouse+native://`, `clickhouse+asynch://` | No |
+
+hypequery sends values as ClickHouse server-side parameters (`{p0:String}`), which only the HTTP interface carries.
+A native-protocol engine is refused with an explanation. Use an HTTP-interface URL for hypequery, usually port 8123
+or 8443. Of the engine URL's query parameters, only `secure` and `protocol` are read; the rest are the dialect's own.
+
+## The same URL without SQLAlchemy
+
+<CodeBlock>
+```python
+from hypequery.execution import ClickHouseConnection
+
+ClickHouseConnection.from_url("clickhousedb://reader:pw@ch.internal:8123/analytics")
+ClickHouseConnection.from_url("clickhouses://reader:pw@ch.example.com/analytics")
+```
+</CodeBlock>
+
+See [Execution](/docs/python/datasets/execution#connecting) for every URL form and `CLICKHOUSE_URL`.
+
+## Runnable example
+
+[`examples/sqlalchemy_engine.py`](https://github.com/hypequery/hypequery/blob/main/python/hypequery/examples/sqlalchemy_engine.py)
+computes one total through raw SQLAlchemy SQL and through a dataset, from one engine.

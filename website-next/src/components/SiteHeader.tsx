@@ -42,7 +42,7 @@ export default function SiteHeader() {
           className="font-mono text-[18px] font-bold tracking-[-0.02em] text-white sm:text-[19px]"
           onClick={() => setMobileOpen(false)}
         >
-          &gt; hypequery
+          hypequery
         </Link>
         {isDesktopNav ? (
           <nav className="flex items-center gap-6">
@@ -99,7 +99,7 @@ export default function SiteHeader() {
               GitHub
             </a>
             <Link
-              href="/docs/quick-start"
+              href="/docs"
               className="inline-flex w-fit items-center justify-center bg-indigo-500 px-4 py-2 font-mono text-sm font-semibold text-white"
               onClick={() => setMobileOpen(false)}
             >

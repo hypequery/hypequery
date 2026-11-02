@@ -28,9 +28,9 @@ const handWrittenCode = `// Raw client + hand-written types:
 import { createClient } from '@clickhouse/client';
 
 interface OrderRow {
-  id: number;        // actually a UUID string
-  total: number;     // actually Decimal(18,4) — arrives as a string
-  created_at: Date;  // actually DateTime — arrives as a string
+  id: number; // actually a UUID string
+  total: number; // actually Decimal(18,4) — arrives as a string
+  created_at: Date; // actually DateTime — arrives as a string
 }
 
 const clickhouse = createClient({ url: process.env.CLICKHOUSE_URL });

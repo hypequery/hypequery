@@ -73,7 +73,10 @@ export const analyticsRouter = router({
 
       return db
         .table('events')
-        .select(['toStartOfDay(timestamp) as day', 'uniq(user_id) as active_users'])
+        .select([
+          'toStartOfDay(timestamp) as day',
+          'uniq(user_id) as active_users',
+        ])
         .where('tenant_id', 'eq', ctx.tenantId)
         .where('timestamp', 'gte', start)
         .groupBy(['day'])
@@ -93,13 +96,7 @@ export function ActiveUsersChart() {
   // data is typed: { day: string; active_users: string }[]
   if (isLoading) return <Spinner />;
 
-  return (
-    <LineChart
-      data={data ?? []}
-      xKey="day"
-      yKey="active_users"
-    />
-  );
+  return <LineChart data={data ?? []} xKey="day" yKey="active_users" />;
 }`;
 
 export default function ClickHouseTrpcPage() {

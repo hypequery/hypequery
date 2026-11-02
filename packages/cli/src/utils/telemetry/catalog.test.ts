@@ -27,7 +27,7 @@ function sampleProperties(fields: Fields): Record<string, unknown> {
 
 describe('telemetry event contract', () => {
   it('keeps the generated public event reference synchronized', async () => {
-    const page = await readFile(fileURLToPath(new URL('../../../../../website-next/docs/telemetry.mdx', import.meta.url)), 'utf8');
+    const page = await readFile(fileURLToPath(new URL('../../../../../website-next/docs/(typescript)/(reference)/telemetry.mdx', import.meta.url)), 'utf8');
     expect(page.split('{/* telemetry-catalog */}\n\n')[1]).toBe(renderTelemetryCatalog());
   });
 

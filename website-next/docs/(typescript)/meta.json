@@ -1,0 +1,10 @@
+{
+  "title": "TypeScript SDK",
+  "pages": [
+    "(get-started)",
+    "(query-builder)",
+    "(datasets)",
+    "(serve)",
+    "(reference)"
+  ]
+}

@@ -1,0 +1,296 @@
+---
+title: Core concepts
+description: Datasets, serving, and clients in hypequery, and where the TypeScript query builder fits.
+---
+
+import { CodeBlock } from 'fumadocs-ui/components/codeblock';
+import { Tab, Tabs } from 'fumadocs-ui/components/tabs';
+
+hypequery has three concepts, and they work the same way in TypeScript and Python:
+
+- **datasets**: the semantic layer, where analytics meaning is defined once
+- **serving**: authenticated HTTP endpoints for those datasets, when another consumer needs them
+- **clients**: typed React hooks and the MCP server, which query the served endpoints
+
+TypeScript also ships a **type-safe ClickHouse query builder** for queries that only live in one place.
+
+| Concept | Use it when | TypeScript | Python |
+| --- | --- | --- | --- |
+| Datasets | The same dimensions and measures are used in more than one place | `@hypequery/datasets` | `hypequery.datasets` |
+| Serving | A frontend, service, or agent needs the datasets over HTTP | `@hypequery/serve` | `hypequery.serve` |
+| Clients | A React dashboard or an AI agent consumes them | `@hypequery/react`, `@hypequery/mcp` | the same packages, against a Python API |
+| Query builder | A query is local to one place | `@hypequery/clickhouse` | not available |
+
+## 1. Datasets (semantic layer)
+
+Datasets turn table semantics into reusable analytics definitions. This is where you define:
+
+- **dimensions** such as `country`, `status`, and `created_at`
+- **measures** such as user counts and revenue
+- shared filters, tenant keys, and time keys
+
+A dataset describes a source table, and a dataset client runs semantic queries against that definition: you ask for
+dimensions and measures by name, and hypequery writes the ClickHouse SQL.
+
+<Tabs items={['TypeScript', 'Python']} groupId="language" persist>
+<Tab value="TypeScript">
+```ts
+import {
+  createDatasetClient,
+  dataset,
+  dimension,
+  eq,
+  measure,
+} from '@hypequery/datasets';
+import { createQueryBuilder } from '@hypequery/clickhouse';
+
+const db = createQueryBuilder({
+  url: process.env.CLICKHOUSE_URL!,
+  username: process.env.CLICKHOUSE_USER!,
+  password: process.env.CLICKHOUSE_PASSWORD!,
+  database: process.env.CLICKHOUSE_DATABASE!,
+});
+
+const analytics = createDatasetClient({ queryBuilder: db });
+
+export const Users = dataset('users', {
+  source: 'users',
+  timeKey: 'created_at',
+  dimensions: {
+    id: dimension.string(),
+    email: dimension.string(),
+    status: dimension.string(),
+    createdAt: dimension.timestamp({ column: 'created_at' }),
+  },
+  measures: {
+    userCount: measure.count('id'),
+    activeUserCount: measure.count('id', {
+      filters: [eq('status', 'active')],
+    }),
+  },
+});
+
+const result = await analytics.execute(Users, {
+  dimensions: ['status'],
+  measures: ['userCount', 'activeUserCount'],
+  limit: 10,
+});
+```
+</Tab>
+<Tab value="Python">
+```python
+from hypequery.datasets import (
+    Dataset,
+    DatasetQuery,
+    create_dataset_client,
+    dimension,
+    filter,
+    measure,
+)
+from hypequery.execution import ClickHouseConnection, create_clickhouse_executor
+
+analytics = create_dataset_client(
+    executor=create_clickhouse_executor(ClickHouseConnection.from_env())
+)
+
+users = Dataset(
+    name="users",
+    source="users",
+    time_key="created_at",
+    dimensions={
+        "id": dimension("string"),
+        "email": dimension("string"),
+        "status": dimension("string"),
+        "created_at": dimension("timestamp"),
+    },
+    measures={
+        "user_count": measure.count("id"),
+        "active_user_count": measure.count(
+            "id", filters=(filter.eq("status", "active"),)
+        ),
+    },
+)
+
+result = analytics.execute(
+    users,
+    DatasetQuery(
+        dimensions=("status",),
+        measures=("user_count", "active_user_count"),
+        limit=10,
+    ),
+)
+```
+</Tab>
+</Tabs>
+
+The same semantics can now be reused across APIs, dashboards, background jobs, notebooks, and agent-facing tools
+without rewriting SQL.
+
+## 2. Serving (optional)
+
+Serving is a delivery layer for datasets. Add it when you need:
+
+- HTTP routes for a frontend, a mobile app, or another service
+- validation, authentication, and tenant scoping on every request
+- generated OpenAPI documents
+- an endpoint for React hooks or the MCP server
+
+<Tabs items={['TypeScript', 'Python']} groupId="language" persist>
+<Tab value="TypeScript">
+```ts
+import { initServe } from '@hypequery/serve';
+import { db } from './client';
+import { Users } from './datasets/users';
+
+const { serve } = initServe({
+  context: () => ({ db }),
+});
+
+export const api = serve({
+  datasets: { users: Users },
+  queryBuilder: db,
+});
+```
+</Tab>
+<Tab value="Python">
+```python
+from hypequery.serve import Credential, Principal, create_api, to_asgi_app
+
+from analytics.datasets import users
+
+
+async def authenticate(credential: Credential) -> Principal | None:
+    return await verify_token(credential.value)  # your token check
+
+
+api = create_api(auth=authenticate, client=analytics, datasets={"users": users})
+app = to_asgi_app(api)  # or urls(api) in Django, blueprint(api) in Flask
+```
+</Tab>
+</Tabs>
+
+Serving does not introduce a new query language. It exposes the same dataset definitions through an application
+surface, mounted in the framework you already run.
+
+## 3. Clients
+
+Typed [React hooks](/docs/react/getting-started) query served datasets from a dashboard, and the
+[MCP server](/docs/mcp/overview) exposes them to AI agents as bounded tools. Both work the same whether the API is
+written in TypeScript or Python.
+
+## The query builder (TypeScript)
+
+The TypeScript SDK also includes a type-safe ClickHouse query builder. Use it for queries that live in one place,
+where a dataset would be more structure than you need:
+
+<CodeBlock>
+```ts
+import { createQueryBuilder } from '@hypequery/clickhouse';
+import type { IntrospectedSchema } from './generated-schema';
+
+const db = createQueryBuilder<IntrospectedSchema>({
+  url: process.env.CLICKHOUSE_URL!,
+  username: process.env.CLICKHOUSE_USER!,
+  password: process.env.CLICKHOUSE_PASSWORD!,
+  database: process.env.CLICKHOUSE_DATABASE!,
+});
+
+const latestUsers = await db
+  .table('users')
+  .select(['id', 'email', 'created_at'])
+  .where('status', 'eq', 'active')
+  .orderBy('created_at', 'DESC')
+  .limit(10)
+  .execute();
+```
+</CodeBlock>
+
+### One example, three stages
+
+#### Stage 1 — local query
+
+<CodeBlock>
+```ts
+const activeUsers = await db
+  .table('users')
+  .select(['id', 'created_at'])
+  .where('status', 'eq', 'active')
+  .execute();
+```
+</CodeBlock>
+
+#### Stage 2 — dataset
+
+<CodeBlock>
+```ts
+import { dataset, dimension, eq, measure } from '@hypequery/datasets';
+
+export const Users = dataset('users', {
+  source: 'users',
+  timeKey: 'created_at',
+  dimensions: {
+    id: dimension.string(),
+    createdAt: dimension.timestamp({ column: 'created_at' }),
+  },
+  measures: {
+    activeUsers: measure.count('id', {
+      filters: [eq('status', 'active')],
+    }),
+  },
+});
+```
+</CodeBlock>
+
+#### Stage 3 — runtime
+
+<CodeBlock>
+```ts
+export const api = serve({
+  datasets: { users: Users },
+  queryBuilder: db,
+});
+```
+</CodeBlock>
+
+You can also expose hand-authored builder queries through the same runtime:
+
+<CodeBlock>
+```ts
+const { query, serve } = initServe({
+  context: () => ({ db }),
+});
+
+const latestActiveUsers = query({
+  query: ({ ctx }) =>
+    ctx.db
+      .table('users')
+      .select(['id', 'email', 'created_at'])
+      .where('status', 'eq', 'active')
+      .orderBy('created_at', 'DESC')
+      .limit(10)
+      .execute(),
+});
+
+export const api = serve({
+  queries: { latestActiveUsers },
+  datasets: { users: Users },
+  queryBuilder: db,
+});
+```
+</CodeBlock>
+
+## When to move between layers
+
+**Define a dataset when:**
+
+- the same dimensions, measures, or filters appear in more than one place
+- metrics need a single definition
+- queries must be scoped to a tenant
+
+**Add serving when:**
+
+- datasets should be reachable over HTTP
+- you need validation or auth
+- a React dashboard or an AI agent needs them
+
+In TypeScript, if a query only lives in one place, the query builder on its own is often enough.

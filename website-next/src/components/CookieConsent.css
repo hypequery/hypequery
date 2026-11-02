@@ -61,6 +61,58 @@
   border: 1px solid var(--border);
 }
 
+/* Keep the first consent prompt compact and tucked into the corner. */
+#cc-main .cm {
+  max-width: 20rem;
+}
+
+#cc-main .cm--bottom.cm--right {
+  bottom: 1rem;
+  left: auto;
+  right: 1rem;
+}
+
+#cc-main .cm__texts {
+  padding-top: 0.75rem;
+}
+
+#cc-main .cm__title,
+#cc-main .cm__desc {
+  padding-left: 1rem;
+  padding-right: 1rem;
+}
+
+#cc-main .cm__title {
+  font-size: 0.95rem;
+}
+
+#cc-main .cm__desc {
+  font-size: 0.78rem;
+  line-height: 1.4;
+  padding-bottom: 0.75rem;
+}
+
+#cc-main .cm__btns,
+#cc-main .cm__links {
+  padding: 0.75rem 1rem;
+}
+
+#cc-main .cm__btn {
+  font-size: 0.78rem;
+  min-height: 34px;
+  padding: 0.4em 0.75em;
+}
+
+@media screen and (max-width: 640px) {
+  #cc-main .cm {
+    bottom: 0.75rem;
+    left: auto;
+    right: 0.75rem;
+    max-width: min(20rem, calc(100vw - 1.5rem));
+    top: auto;
+  }
+}
+
 /*
  * In dark mode the accent is a light lavender, so the primary button needs
  * dark text for contrast (and a lighter hover instead of darker).

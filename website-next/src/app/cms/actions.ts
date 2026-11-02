@@ -80,6 +80,7 @@ export async function savePostAction(
       publishedAt: getString(formData, 'publishedAt'),
     });
 
+    revalidatePath('/');
     revalidatePath('/blog');
     revalidatePath(`/blog/${saved.slug}`);
     revalidatePath('/cms');
