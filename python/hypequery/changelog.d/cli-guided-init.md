@@ -11,7 +11,9 @@
   is not a terminal skip the questions and keep the previous behavior.
 - The `hypequery` CLI loads `.env.local` and `.env` from the directory it runs
   in, as the TypeScript CLI does. A variable already set wins over both files.
-  The library and generated apps still read only the real environment.
+  The library and generated apps still read only the real environment;
+  `hypequery.cli.load_env_files(directory)` applies the same rules in your own
+  scripts, such as the scaffold README's seed step.
 - When init can't reach ClickHouse, the message names `CLICKHOUSE_URL` as well
   as the host settings and suggests `--skip-connection`, and the driver's own
   "Unexpected Http Driver Exception" log line no longer reaches the terminal.

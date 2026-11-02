@@ -590,6 +590,7 @@ def test_the_tenant_question_follows_the_final_table_selection(
 def test_the_seed_step_reads_env_files(tmp_path: Path) -> None:
     assert main(["init", str(tmp_path / "project"), "--skip-connection", "--no-interactive"]) == 0
     readme = (tmp_path / "project" / "README.md").read_text()
-    assert "set -a; [ -f .env ] && . ./.env; set +a" in readme
+    assert "load_env_files(Path.cwd())" in readme
+    assert ". ./.env" not in readme
     assert "ClickHouseConnection.from_env()" in readme
     assert 'os.environ["CLICKHOUSE_HOST"]' not in readme
