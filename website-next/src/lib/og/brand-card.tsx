@@ -25,7 +25,7 @@ function LogoMark({ size }: { size: number }) {
 }
 
 export function BrandCard({ title, eyebrow }: { title: string; eyebrow?: string }) {
-  const fontSize = title.length > 70 ? 52 : title.length > 40 ? 62 : 72;
+  const fontSize = title.length > 55 ? 54 : title.length > 36 ? 64 : 72;
 
   return (
     <div
@@ -54,7 +54,8 @@ export function BrandCard({ title, eyebrow }: { title: string; eyebrow?: string 
           fontWeight: 700,
           lineHeight: 1.12,
           letterSpacing: -1.5,
-          maxWidth: 1000,
+          maxWidth: 1024,
+          textWrap: 'balance',
         }}
       >
         {title}
