@@ -21,10 +21,10 @@ Today we are launching the **hypequery for Python beta**: the same code-first se
 You define datasets in Python: the dimensions people can group by, the measures they can aggregate, the relationships between tables, and the tenant rules every query must follow. Then you query those definitions by name from jobs, notebooks, and services, serve them over HTTP from the framework you already use (FastAPI, Django, Flask, or any ASGI or WSGI app) with authentication on by default, and use the same definitions from generated, type-safe React hooks and from AI agents over MCP.
 
 ```bash
-pip install "hypequery[clickhouse]==0.1.0b1"
+pip install "hypequery[clickhouse]==0.1.0b2"
 ```
 
-This is a beta (`0.1.0b1`): the APIs may still change before 1.0, so pin the version you deploy.
+This is a beta (`0.1.0b2`): the APIs may still change before 1.0, so pin the version you deploy.
 
 ## Why Python
 
@@ -156,12 +156,17 @@ There is also an [SQLAlchemy helper](/clickhouse-sqlalchemy) that reuses your en
 
 ## Type-safe React hooks and AI agents
 
-Endpoints installed with a client profile also publish a **client contract**: the fields, operators, and limits each endpoint accepts. Export it from your definitions, and the Node CLI turns it into a typed client for the same `@hypequery/react` hooks TypeScript backends use ([full walkthrough](/fastapi-react-analytics)):
+Your frontend can call these endpoints through the same `@hypequery/react` hooks TypeScript backends use, fully typed. It takes two steps: export a **client contract** from Python (a JSON file listing the fields, operators, and limits each endpoint accepts), then generate a typed client from it in your frontend ([full walkthrough](/fastapi-react-analytics)):
 
 ```bash
+# In your Python project: export the contract
 python -m hypequery export client-contract --factory analytics.definitions:build --output web/client-contract.json
-cd web && npx hypequery generate:client client-contract.json --output src/hypequery-client.ts
+
+# In your frontend: generate the typed client
+npx hypequery generate:client client-contract.json
 ```
+
+Here, `build` is a small function in your definitions module that lists the endpoints to publish. You commit the contract like any other file, and `--check` fails CI when the definitions change but the contract doesn't.
 
 ```tsx
 const { data } = useDataset('orders', {
