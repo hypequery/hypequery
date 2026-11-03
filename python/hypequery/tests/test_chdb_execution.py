@@ -354,6 +354,7 @@ def test_an_array_result_is_refused_as_from_a_server(executor: ChdbExecutor) -> 
     assert exc.value.category == "internal"
 
 
+@needs_chdb
 @pytest.mark.parametrize(
     ("value", "kind"),
     [
