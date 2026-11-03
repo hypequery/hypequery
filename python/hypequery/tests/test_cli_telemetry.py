@@ -88,6 +88,10 @@ def _events(stderr: str) -> list[dict[str, Any]]:
         (["export", "client-contract", "--factory", "a:b"], "export:client-contract"),
         (["--no-telemetry", "telemetry", "status"], "telemetry"),
         (["PRIVATE-command"], "unknown"),
+        (["--version", "init"], "version"),
+        (["-V", "dev", "--port", "1"], "version"),
+        (["--help", "init"], "help"),
+        (["init", "--path", "--version"], "init"),
     ],
 )
 def test_commands_are_attributed_from_argv(argv: list[str], command: str) -> None:
@@ -103,6 +107,8 @@ def test_flags_are_canonical_names_and_values_are_never_read() -> None:
     ]
     assert flags_used("unknown", ["x", "--tables", "a"]) == []
     assert has_unknown_option("init", ["init", "--bogus"])
+    assert not has_unknown_option("dev", ["dev", "--port", "-1"])
+    assert not has_unknown_option("dev", ["dev", "app:app", "--", "--bogus"])
     assert not has_unknown_option("init", ["init", "--path", "out", "--no-telemetry"])
 
 
@@ -110,6 +116,8 @@ def test_help_topics_and_suggestions_are_known_commands_only() -> None:
     assert help_topic(["help", "dev"]) == "dev"
     assert help_topic(["export", "client-contract", "--help"]) == "export:client-contract"
     assert help_topic(["help", "PRIVATE"]) == "root"
+    assert help_topic(["help", "telemetry"]) == "telemetry"
+    assert help_topic(["--help", "init"]) == "root"
     assert suggested_command(["genrate"]) == "generate:datasets"
     assert suggested_command(["PRIVATE-command"]) is None
 
@@ -294,6 +302,9 @@ def test_debug_mode_prints_one_valid_event_without_raw_input(tmp_path: Path) -> 
         (["init", "--bogus"], {"command": "init", "error_code": "unknown_option"}),
         (["help", "dev"], {"command": "help", "help_topic": "dev", "outcome": "success"}),
         (["--version"], {"command": "version", "outcome": "success"}),
+        (["--version", "init"], {"command": "version", "outcome": "success"}),
+        (["dev", "--port", "-1"], {"command": "dev", "error_code": "usage_error"}),
+        (["help", "telemetry"], {"command": "help", "help_topic": "telemetry"}),
     ],
 )
 def test_rejected_and_informational_invocations_are_attributed(
@@ -372,6 +383,33 @@ def test_detached_delivery_and_kill_switch(
     _run(["--version"], env, tmp_path)
     time.sleep(0.5)
     assert len(handler.bodies) == 1  # This version no longer sends.
+
+
+def test_sender_ignores_a_local_hypequery_package(
+    tmp_path: Path, ingest: tuple[str, type[_Ingest]]
+) -> None:
+    url, handler = ingest
+    checkout = tmp_path / "checkout"
+    (checkout / "hypequery").mkdir(parents=True)
+    marker = tmp_path / "ran"
+    (checkout / "hypequery" / "__init__.py").write_text(f"open({str(marker)!r}, 'w').close()\n")
+    env = _clean_env(tmp_path / "config", HYPEQUERY_TELEMETRY_URL=url)
+    executable = Path(sys.executable).with_name("hypequery")
+    result = subprocess.run(
+        [str(executable), "--version"],
+        capture_output=True,
+        text=True,
+        env=env,
+        cwd=checkout,
+        check=False,
+        timeout=60,
+    )
+    assert result.returncode == 0, result.stderr
+    deadline = time.monotonic() + 15
+    while not handler.bodies and time.monotonic() < deadline:
+        time.sleep(0.05)
+    assert handler.bodies  # The installed sender delivered the batch...
+    assert not marker.exists()  # ...without importing the checkout's package.
 
 
 def test_unreachable_endpoint_never_delays_or_changes_the_command(tmp_path: Path) -> None:

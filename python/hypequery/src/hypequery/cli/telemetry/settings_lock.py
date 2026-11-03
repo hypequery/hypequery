@@ -28,10 +28,32 @@ def _host_hash() -> str:
     return hashlib.sha256(socket.gethostname().encode()).hexdigest()[:12]
 
 
+def _windows_process_is_alive(pid: int) -> bool:
+    # os.kill(pid, 0) sends CTRL_C_EVENT on Windows, so ask the kernel instead.
+    import ctypes
+    from ctypes import wintypes
+
+    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)  # type: ignore[attr-defined,unused-ignore]
+    kernel32.OpenProcess.restype = wintypes.HANDLE
+    handle = kernel32.OpenProcess(0x1000, False, pid)  # PROCESS_QUERY_LIMITED_INFORMATION
+    if not handle:
+        # ERROR_INVALID_PARAMETER: no such process. Anything else (access denied) exists.
+        return bool(ctypes.get_last_error() != 87)  # type: ignore[attr-defined,unused-ignore]
+    try:
+        code = wintypes.DWORD()
+        if not kernel32.GetExitCodeProcess(handle, ctypes.byref(code)):
+            return True
+        return code.value == 259  # STILL_ACTIVE
+    finally:
+        kernel32.CloseHandle(handle)
+
+
 def _process_is_alive(pid: int) -> bool:
     if sys.platform == "win32":
-        # os.kill(pid, 0) sends CTRL_C_EVENT on Windows; assume alive (fail closed).
-        return True
+        try:
+            return _windows_process_is_alive(pid)
+        except (OSError, AttributeError):
+            return True  # Fail closed: never take a lock we cannot check.
     try:
         os.kill(pid, 0)
     except ProcessLookupError:

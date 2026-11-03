@@ -38,7 +38,7 @@
         "generate:datasets": {},
         "export:client-contract": {},
         "help": {
-          "help_topic": { "kind": "enum", "description": "Which command help needs improvement?", "values": ["root", "init", "dev", "generate:datasets", "export:client-contract"], "optional": true }
+          "help_topic": { "kind": "enum", "description": "Which command help needs improvement?", "values": ["root", "init", "dev", "generate:datasets", "export:client-contract", "telemetry"], "optional": true }
         },
         "version": {},
         "unknown": {

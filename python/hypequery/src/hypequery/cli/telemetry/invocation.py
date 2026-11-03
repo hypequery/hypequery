@@ -37,44 +37,75 @@ _VALUE_FLAGS = {
 }
 
 
-def _positionals(argv: Sequence[str]) -> list[str]:
-    found, skip = [], False
+def _tokens(argv: Sequence[str]) -> list[tuple[str, bool]]:
+    """``(canonical option, True)`` or ``(positional, False)`` in order.
+
+    Option values are skipped, never returned, and parsing stops at ``--``.
+    """
+
+    tokens: list[tuple[str, bool]] = []
+    skip = False
     for arg in argv:
         if skip:
             skip = False
-        elif arg == "--":
+            continue
+        if arg == "--":
             break
-        elif arg.startswith("-"):
-            skip = _ALIASES.get(arg, arg) in _VALUE_FLAGS
+        if arg.startswith("-"):
+            name = arg.split("=", 1)[0]
+            name = _ALIASES.get(name, name)
+            tokens.append((name, True))
+            skip = name in _VALUE_FLAGS and "=" not in arg
         else:
-            found.append(arg)
-    return found
+            tokens.append((arg, False))
+    return tokens
+
+
+def _positionals(argv: Sequence[str]) -> list[str]:
+    return [item for item, is_option in _tokens(argv) if not is_option]
+
+
+def _root_exit(argv: Sequence[str]) -> str | None:
+    """``--help``/``--version`` before any command: argparse exits from the root parser."""
+
+    for item, is_option in _tokens(argv):
+        if not is_option:
+            return None
+        if item == "--help":
+            return "help"
+        if item == "--version":
+            return "version"
+    return None
 
 
 def requested_command(argv: Sequence[str]) -> str:
     """The catalog command argv asks for: ``unknown`` for anything unregistered."""
 
+    root = _root_exit(argv)
+    if root:
+        return root
     positionals = _positionals(argv)
-    options = argv[: argv.index("--")] if "--" in argv else argv
     if not positionals:
-        return "version" if any(a in ("-V", "--version") for a in options) else "help"
+        return "help"
     command = _TOP_LEVEL.get(positionals[0], "unknown")
-    if command not in ("unknown", "telemetry") and any(a in ("-h", "--help") for a in options):
+    options = {item for item, is_option in _tokens(argv) if is_option}
+    if command not in ("unknown", "telemetry") and "--help" in options:
         return "help"  # `hypequery dev --help` is help about dev, as in the TypeScript CLI.
     return command
 
 
+_HELP_TOPICS = ("init", "dev", "generate:datasets", "export:client-contract", "telemetry")
+
+
 def help_topic(argv: Sequence[str]) -> str:
+    if _root_exit(argv):
+        return "root"
     positionals = _positionals(argv)
     topic = positionals[1] if positionals[:1] == ["help"] and len(positionals) > 1 else None
     if topic is None and positionals and positionals[0] != "help":
         topic = positionals[0]  # `hypequery dev --help`
-    command = _TOP_LEVEL.get(topic or "", "root" if topic is None else "unknown")
-    return (
-        command
-        if command in ("root", "init", "dev", "generate:datasets", "export:client-contract")
-        else "root"
-    )
+    command = _TOP_LEVEL.get(topic or "")
+    return command if command in _HELP_TOPICS else "root"
 
 
 def suggested_command(argv: Sequence[str]) -> str | None:
@@ -91,27 +122,9 @@ def flags_used(command: str, argv: Sequence[str]) -> list[str]:
     """Canonical documented flag names only; values are skipped, never read."""
 
     allowed = {*contract()["COMMAND_FLAGS"].get(command, []), *contract()["GLOBAL_FLAGS"]}
-    flags, skip = set(), False
-    for arg in argv:
-        if skip:
-            skip = False
-            continue
-        if arg == "--":
-            break
-        if not arg.startswith("-"):
-            continue
-        name = _ALIASES.get(arg.split("=", 1)[0], arg.split("=", 1)[0])
-        if name in allowed:
-            flags.add(name)
-        skip = name in _VALUE_FLAGS and "=" not in arg
-    return sorted(flags)
+    return sorted({item for item, is_option in _tokens(argv) if is_option and item in allowed})
 
 
 def has_unknown_option(command: str, argv: Sequence[str]) -> bool:
     allowed = {*contract()["COMMAND_FLAGS"].get(command, []), *contract()["GLOBAL_FLAGS"]}
-    return any(
-        arg.startswith("-")
-        and arg != "--"
-        and _ALIASES.get(arg.split("=", 1)[0], arg.split("=", 1)[0]) not in allowed
-        for arg in argv
-    )
+    return any(is_option and item not in allowed for item, is_option in _tokens(argv))

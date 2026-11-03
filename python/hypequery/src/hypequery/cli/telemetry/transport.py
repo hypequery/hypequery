@@ -59,8 +59,11 @@ def dispatch(endpoint: str, events: list[dict[str, Any]]) -> None:
         if sys.platform == "win32":
             flags = subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP
             options = {"creationflags": flags}
+        # -P and a private working directory keep the checkout off sys.path, so
+        # the sender imports the installed package, never a local `hypequery/`.
         subprocess.Popen(  # noqa: S603 - our own module, fixed argv
-            [sys.executable, "-m", "hypequery.cli.telemetry.sender", str(directory)],
+            [sys.executable, "-P", "-m", "hypequery.cli.telemetry.sender", str(directory)],
+            cwd=directory,
             stdin=subprocess.DEVNULL,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,

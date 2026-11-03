@@ -1950,7 +1950,8 @@
                 "init",
                 "dev",
                 "generate:datasets",
-                "export:client-contract"
+                "export:client-contract",
+                "telemetry"
               ],
               "optional": true
             }
