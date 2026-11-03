@@ -55,6 +55,7 @@ orders = Dataset(
 )`;
 
 const consumersCode = `from hypequery.datasets import (
+    ClientQueryProfile,
     MemoryCacheStore,
     ResultCache,
     create_dataset_client,
@@ -62,7 +63,16 @@ const consumersCode = `from hypequery.datasets import (
     tenant,
 )
 from hypequery.execution import ClickHouseConnection, create_clickhouse_executor
-from hypequery.serve import create_api, jwt_strategy, to_asgi_app
+from hypequery.serve import (
+    EndpointPolicy,
+    add_client_contract_endpoint,
+    add_dataset_endpoint,
+    create_api,
+    jwt_strategy,
+    to_asgi_app,
+)
+
+from analytics.datasets import customers, orders
 
 analytics = create_dataset_client(
     executor=create_clickhouse_executor(ClickHouseConnection.from_env()),
@@ -85,16 +95,25 @@ report = analytics.for_tenant(tenant("org_123")).execute(
     },
 )
 
-# 2. The same datasets over HTTP, for React hooks and MCP tools
+# 2. The same report over HTTP, for React hooks and MCP tools
 api = create_api(
     auth=jwt_strategy(
         jwks_url="https://example.auth0.com/.well-known/jwks.json",
         issuer="https://example.auth0.com/",
         audience="https://api.example.com",
-    ),
-    client=analytics,
-    datasets={"orders": orders, "customers": customers},
+    )
 )
+policy = EndpointPolicy(tenant="required")
+add_dataset_endpoint(
+    api,
+    "/v1/orders",
+    dataset=orders,
+    client=analytics,
+    policy=policy,
+    client_profile=ClientQueryProfile(default_limit=50, max_limit=500),
+    include_related=("customer",),
+)
+add_client_contract_endpoint(api, "/v1/client-contract", policy=policy)
 app = to_asgi_app(api)  # or app.mount("/analytics", ...) in FastAPI`;
 
 export default function ClickHousePythonAnalyticsPage() {
@@ -151,7 +170,7 @@ export default function ClickHousePythonAnalyticsPage() {
           'Query measures by name with a time grain, and hypequery plans parameterized ClickHouse SQL with the join and the tenant predicate on both tables. Serve the same datasets over HTTP when a dashboard or agent needs them.',
         paragraphs: [
           'Results are cached under opaque, tenant-keyed entries, so a dashboard reloading the same chart does not rescan ClickHouse, and two customers never share an entry.',
-          'The HTTP endpoints authenticate every request and take the tenant from the caller, not the request body. The same endpoints feed type-safe React hooks and MCP tools, with no extra query code.',
+          'The HTTP endpoint authenticates every request and takes the tenant from the caller, not the request body. `include_related` lets callers group by `customer.plan` over HTTP, and `client_profile` plus the client-contract route are what generated React hooks and the MCP bridge read. See React and MCP clients for exporting the contract.',
         ],
         codePanel: {
           eyebrow: 'Consumers',
@@ -184,6 +203,7 @@ export default function ClickHousePythonAnalyticsPage() {
         { href: '/docs/python/datasets/relationships', title: 'Relationships', description: 'Group and filter by fields on related datasets.' },
         { href: '/docs/python/datasets/caching', title: 'Caching', description: 'Tenant-safe result caching with opaque keys.' },
         { href: '/docs/python/serving', title: 'Serving', description: 'Authenticated HTTP endpoints from any ASGI or WSGI app.' },
+        { href: '/docs/python/client-endpoints', title: 'React and MCP clients', description: 'Export the client contract for typed React hooks and the MCP bridge.' },
         { href: '/fastapi-react-analytics', title: 'FastAPI and React analytics', description: 'Typed React hooks on the endpoints your Python app serves.' },
         { href: '/docs/python/feature-status', title: 'Python feature status', description: 'What ships in the beta, and what is TypeScript-only for now.' },
       ]}
