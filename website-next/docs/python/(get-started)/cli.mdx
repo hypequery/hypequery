@@ -163,7 +163,8 @@ explicitly before serving real data.
 
 - The app opens the chDB database at `--chdb-path` (default `analytics.chdb`), relative to `app.py`, with
   `create_chdb_executor`. There are no connection settings, and the project installs the `chdb` extra.
-- If the database exists, `init` reads its tables as it would a server's and records the path in `schema.json`.
+- The path is recorded in the project's `pyproject.toml` (`[tool.hypequery] chdb-path`) for `generate datasets`.
+- If the database exists, `init` reads its tables as it would a server's.
 - If it doesn't, `init` writes the orders example, and its README seeds the database from `seed.sql`. `init` never
   creates the database itself.
 - chDB scaffolds the `standalone` and `fastapi` apps. The Django and Flask integrations connect to a ClickHouse server,
@@ -187,7 +188,7 @@ Regenerates `datasets.py` from the current schema. Also spelled `generate:datase
 
 Replacement is atomic and preserves the file's permissions. Use `--check` in CI to catch schema drift.
 
-`generate datasets` reads a chDB database when given `--database chdb` or `--chdb-path`, when `schema.json` records
+`generate datasets` reads a chDB database when given `--database chdb` or `--chdb-path`, when `pyproject.toml` records
 one, or when the project has an `analytics.chdb` directory and neither `CLICKHOUSE_URL` nor `CLICKHOUSE_HOST` is set.
 chDB lets one process open a database at a time, so stop `hypequery dev` before regenerating.
 

@@ -103,7 +103,7 @@ hypequery init analytics --chdb-path ../warehouse.chdb
 ```
 </CodeBlock>
 
-`init` records the path in `schema.json`, so `hypequery generate datasets` reads the same database again. chDB
+`init` records the path in the project's `pyproject.toml` (`[tool.hypequery] chdb-path`), so `hypequery generate datasets` reads the same database again. chDB
 scaffolds the standalone and FastAPI apps; the Django and Flask integrations connect to a ClickHouse server. See the
 [CLI reference](/docs/python/cli#embedded-clickhouse-chdb).
 
