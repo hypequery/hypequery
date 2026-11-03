@@ -156,7 +156,7 @@ There is also an [SQLAlchemy helper](/clickhouse-sqlalchemy) that reuses your en
 
 ## Type-safe React hooks and AI agents
 
-Your frontend can call these endpoints through the same `@hypequery/react` hooks TypeScript backends use, fully typed. It takes two steps: export a **client contract** from Python (a JSON file listing the fields, operators, and limits each endpoint accepts), then generate a typed client from it in your frontend ([full walkthrough](/fastapi-react-analytics)):
+Install your endpoints with a `client_profile`, and your frontend can call them through the same `@hypequery/react` hooks TypeScript backends use, fully typed. It takes two steps: export a **client contract** from Python (a JSON file listing the fields, operators, and limits each endpoint accepts), then generate a typed client from it in your frontend ([full walkthrough](/fastapi-react-analytics)):
 
 ```bash
 # In your Python project: export the contract
