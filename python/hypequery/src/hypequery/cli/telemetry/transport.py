@@ -46,15 +46,20 @@ def wire_event(event: str, properties: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def dispatch(endpoint: str, events: list[dict[str, Any]]) -> None:
-    """Write the batch to a private temporary directory and start the sender."""
+def dispatch(endpoint: str, events: list[dict[str, Any]], settings: Path | None) -> None:
+    """Write the batch to a private temporary directory and start the sender.
+
+    *settings* is the CLI's settings directory, made absolute here: the sender
+    runs from the temporary directory, where a relative path would differ.
+    """
 
     body = json.dumps({"api_key": API_KEY, "batch": events}, separators=(",", ":"))
     directory = Path(tempfile.mkdtemp(prefix=BATCH_DIRECTORY_PREFIX))
     try:
         descriptor = os.open(directory / BATCH_FILE, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
         with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
-            json.dump({"endpoint": endpoint, "body": body}, handle)
+            settings_directory = str(settings.absolute()) if settings else None
+            json.dump({"endpoint": endpoint, "body": body, "settings": settings_directory}, handle)
         options: dict[str, Any] = {"start_new_session": True}
         if sys.platform == "win32":
             flags = subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP

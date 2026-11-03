@@ -363,7 +363,8 @@ def test_detached_delivery_and_kill_switch(
 ) -> None:
     url, handler = ingest
     config = tmp_path / "config"
-    env = _clean_env(config, HYPEQUERY_TELEMETRY_URL=url)
+    # Relative, as users may set it: the sender must still update this directory.
+    env = _clean_env(Path("config"), HYPEQUERY_TELEMETRY_URL=url)
     result = _run(["--version"], env, tmp_path)
     assert result.returncode == 0
     assert result.stderr == ""

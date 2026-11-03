@@ -28,7 +28,7 @@ from .invocation import (
 )
 from .opt_out import resolve_state
 from .project import project_id
-from .settings import SettingsStore
+from .settings import SettingsStore, config_directory
 from .transport import DEFAULT_ENDPOINT, dispatch, telemetry_endpoint, wire_event
 
 TELEMETRY_DOCS_URL = "https://hypequery.com/docs/telemetry"
@@ -164,7 +164,7 @@ class CommandTelemetry:
                 self._environ.get("HYPEQUERY_TELEMETRY_URL") or DEFAULT_ENDPOINT
             )
             if endpoint:
-                dispatch(endpoint, [event])
+                dispatch(endpoint, [event], config_directory(self._environ))
         except Exception:  # noqa: S110 - telemetry never affects the command
             pass
 

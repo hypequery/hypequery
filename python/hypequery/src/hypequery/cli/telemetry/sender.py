@@ -47,8 +47,9 @@ def send(directory: str | None) -> None:
             status = response.status
     except urllib.error.HTTPError as error:
         status = error.code
-    if status == 410:
-        SettingsStore().disable_version(version("hypequery"))
+    settings = batch.get("settings")
+    if status == 410 and isinstance(settings, str) and Path(settings).is_absolute():
+        SettingsStore({"HYPEQUERY_CONFIG_DIR": settings}).disable_version(version("hypequery"))
 
 
 if __name__ == "__main__":
