@@ -193,6 +193,7 @@ export default function PythonSemanticLayerPage() {
         { href: '/clickhouse-flask', label: 'ClickHouse Flask' },
         { href: '/clickhouse-django', label: 'ClickHouse Django' },
         { href: '/clickhouse-python', label: 'ClickHouse Python' },
+        { href: '/clickhouse-python-analytics', label: 'ClickHouse Python analytics' },
         { href: '/clickhouse-fastapi', label: 'ClickHouse FastAPI' },
         { href: '/clickhouse-semantic-layer', label: 'ClickHouse semantic layer' },
         { href: '/clickhouse-python-multi-tenant', label: 'Python multi-tenancy' },

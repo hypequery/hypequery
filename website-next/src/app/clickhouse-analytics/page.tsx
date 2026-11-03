@@ -167,6 +167,7 @@ export default function ClickHouseAnalyticsPage() {
         { href: '/clickhouse-semantic-layer', label: 'ClickHouse Semantic Layer' },
         { href: '/clickhouse-typescript', label: 'ClickHouse TypeScript' },
         { href: '/clickhouse-python', label: 'ClickHouse Python' },
+        { href: '/clickhouse-python-analytics', label: 'ClickHouse Python Analytics' },
         { href: '/clickhouse-nextjs', label: 'ClickHouse Next.js' },
         { href: '/clickhouse-react', label: 'ClickHouse React' },
         { href: '/clickhouse-multi-tenant-analytics', label: 'ClickHouse Multi-Tenant Analytics' },
