@@ -1154,10 +1154,11 @@ from a server's:
   database, and opening another path fails until they are all closed.
 - An in-memory database is discarded when its last connection closes.
 - A connection runs one query at a time, and a running query cannot be
-  stopped. The executor brings the query's `max_execution_time` forward to
-  the caller's deadline, so a deadline ends it on time either way. Only the
-  async executor returns to a cancelled caller at once; a synchronous
-  `execute()` waits until the running query finishes or reaches that limit.
+  stopped. The executor shortens the query's `max_execution_time` to the
+  caller's remaining time, rounded up to whole seconds with a one-second
+  minimum. Only the async executor returns promptly on cancellation or
+  deadline expiry; a synchronous `execute()` waits until the running query
+  finishes or reaches that limit, which can be after the caller's deadline.
 - chDB publishes wheels for Linux and macOS only.
 
 ## Canonical protocol values
