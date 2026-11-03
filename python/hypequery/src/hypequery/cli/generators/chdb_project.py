@@ -41,8 +41,9 @@ CHDB_NOTES = """
 chDB runs ClickHouse inside the app's process. One process at a time can open
 the database directory: stop the app before seeding or running
 `hypequery generate datasets`, and run one server process, not several workers.
-A running query cannot be cancelled; timeouts return to the caller at once and
-the query stops at its `max_execution_time`.
+A running query cannot be cancelled: it stops at its `max_execution_time`, which
+hypequery brings forward to the request's deadline, so a request that times
+out still ends on time.
 """
 
 
