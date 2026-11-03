@@ -6,10 +6,13 @@ database runs in a subprocess, as the CLI and the app do in real use.
 
 from __future__ import annotations
 
+import ast
 import json
+import shutil
 import subprocess
 import sys
 import textwrap
+import tomllib
 from importlib.util import find_spec
 from pathlib import Path
 
@@ -299,3 +302,37 @@ def test_guided_init_reads_the_database_in_the_folder_it_settles_on(
     guided = run_guide(script, tmp_path, database="chdb")
     assert guided.options.directory == "elsewhere"
     assert read == [tmp_path / "elsewhere" / "analytics.chdb"]
+
+
+@pytest.mark.parametrize("path", ["😀.chdb", "données/été.chdb", 'q"uote\\d.chdb'])
+def test_any_path_reads_back_exactly_from_generated_files(tmp_path: Path, path: str) -> None:
+    project = tmp_path / "project"
+    assert main(["init", str(project), "--chdb-path", path, "--no-interactive"]) == 0
+    pyproject = tomllib.loads((project / "pyproject.toml").read_text(encoding="utf-8"))
+    assert pyproject["tool"]["hypequery"]["chdb-path"] == path
+    app = ast.parse((project / "app.py").read_text(encoding="utf-8"))
+    constants = [node.value for node in ast.walk(app) if isinstance(node, ast.Constant)]
+    assert constants.count(path) == 1
+
+
+GIT = shutil.which("git")
+
+
+@pytest.mark.skipif(GIT is None, reason="git is not installed")
+@pytest.mark.parametrize(
+    "path", ["data[2026].chdb", "#notes.chdb", "!keep.chdb", "a*b?.chdb", "trailing .chdb "]
+)
+def test_the_database_directory_is_really_ignored(tmp_path: Path, path: str) -> None:
+    def ignored(name: str) -> bool:
+        check = [str(GIT), "check-ignore", "-q", name]
+        return subprocess.run(check, cwd=project, check=False).returncode == 0
+
+    project = tmp_path / "project"
+    assert main(["init", str(project), "--chdb-path", path, "--no-interactive"]) == 0
+    subprocess.run([str(GIT), "init", "-q"], cwd=project, check=True)
+    for directory in (path, "kept.chdb"):
+        (project / directory).mkdir(parents=True)
+        (project / directory / "data.bin").write_text("")
+    assert ignored(f"{path}/data.bin")
+    # The pattern names that directory only, not every path its characters could match.
+    assert not ignored("kept.chdb/data.bin")
