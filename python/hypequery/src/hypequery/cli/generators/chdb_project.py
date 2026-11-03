@@ -10,11 +10,11 @@ connect to a ClickHouse server.
 
 from __future__ import annotations
 
-import json
 import re
 from pathlib import PurePosixPath
 
 from ..errors import CliError
+from ..utils.generated_literals import gitignore_directory, quoted
 from ..utils.markdown_sections import markdown_sections
 from .framework_apps import NAMES, TOKEN_EXPORT, Framework
 from .readme_notes import CANCELLATION
@@ -59,8 +59,8 @@ def chdb_path_literal(path: str) -> str:
     """The app's expression for *path*: beside app.py when relative, else as given."""
 
     if PurePosixPath(path).is_absolute() or re.match(r"^[A-Za-z]:[\\/]", path):
-        return json.dumps(path)
-    return f"str(Path(__file__).parent / {json.dumps(path)})"
+        return quoted(path)
+    return f"str(Path(__file__).parent / {quoted(path)})"
 
 
 def _app(source: str, path: str) -> str:
@@ -121,7 +121,7 @@ python - <<'PY'
 from pathlib import Path
 import chdb
 
-connection = chdb.connect({json.dumps(path)})
+connection = chdb.connect({quoted(path)})
 try:
     for statement in Path("seed.sql").read_text().split(";"):
         if statement.strip():
@@ -169,10 +169,10 @@ def chdb_templates(templates: dict[str, str], framework: Framework, path: str) -
         + "\n[tool.hypequery]\n"
         "# The embedded chDB database app.py opens and `hypequery generate datasets` reads,\n"
         "# relative to this file.\n"
-        f"chdb-path = {json.dumps(path)}\n"
+        f"chdb-path = {quoted(path)}\n"
     )
     result[".env.example"] = _env_example(templates[".env.example"])
     if not PurePosixPath(path).is_absolute() and ".." not in PurePosixPath(path).parts:
-        result[".gitignore"] = templates[".gitignore"] + f"{PurePosixPath(path).as_posix()}/\n"
+        result[".gitignore"] = templates[".gitignore"] + gitignore_directory(path) + "\n"
     result["README.md"] = _readme(templates["README.md"], framework, path)
     return result
