@@ -2,17 +2,23 @@
 
 from __future__ import annotations
 
+import os
 import sys
 from difflib import unified_diff
 from pathlib import Path
 
 from ..errors import CliError
+from ..generators.chdb_project import DEFAULT_CHDB_PATH
 from ..generators.datasets import generate_datasets, is_identifier
 from ..generators.schema import discover_schema
 from ..options import GenerateDatasetsOptions
 from ..utils.display_path import display_path
 from ..utils.generated_file import GeneratedFile
-from ..utils.recorded_selection import recorded_selection, recorded_tenant_column
+from ..utils.recorded_selection import (
+    recorded_chdb_path,
+    recorded_selection,
+    recorded_tenant_column,
+)
 from ..utils.tenant_settings import configures_tenant
 
 
@@ -55,7 +61,9 @@ def run(options: GenerateDatasetsOptions) -> None:
     if tenant_column is not None and not is_identifier(tenant_column):
         # Refuse before connecting, as with an unsafe output path.
         raise CliError("The tenant column is outside the SDK's supported identifier grammar.")
-    schema = discover_schema(tables=tables, exclude_tables=exclude_tables)
+    schema = discover_schema(
+        tables=tables, exclude_tables=exclude_tables, chdb_path=_chdb_path(options, project)
+    )
     generated = generate_datasets(schema, tenant_column=tenant_column)
     # Up-to-date, --diff and --check results must describe the file as it is now.
     output.ensure_unchanged()
@@ -101,3 +109,36 @@ def run(options: GenerateDatasetsOptions) -> None:
             file=sys.stderr,
         )
     print("Review suggested measures and access policy before serving these datasets.")
+
+
+def _chdb_path(options: GenerateDatasetsOptions, project: Path) -> Path | None:
+    """The chDB database to read, or ``None`` for the ClickHouse server.
+
+    An explicit ``--chdb-path`` is relative to the current directory; a path
+    schema.json records is relative to the project it describes.
+    """
+
+    if options.database == "clickhouse":
+        return None
+    if options.chdb_path is not None:
+        return Path(options.chdb_path)
+    recorded = recorded_chdb_path(project)
+    if recorded is not None:
+        print(
+            f"Using the chDB database init recorded in schema.json ({recorded}); "
+            "pass --chdb-path or --database clickhouse to change it."
+        )
+        return project / recorded
+    default = project / DEFAULT_CHDB_PATH
+    if options.database == "chdb":
+        return default
+    # As in the TypeScript CLI, configured ClickHouse settings win over a local database.
+    if default.is_dir() and not (
+        os.environ.get("CLICKHOUSE_URL") or os.environ.get("CLICKHOUSE_HOST")
+    ):
+        print(
+            f"Using the chDB database at {display_path(default)}; set CLICKHOUSE_URL or "
+            "pass --database clickhouse to read a ClickHouse server instead."
+        )
+        return default
+    return None
