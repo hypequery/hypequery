@@ -286,6 +286,7 @@ for the SDK and pending beta features.
 pip install hypequery
 pip install "hypequery[clickhouse]"
 pip install "hypequery[clickhouse-async]"
+pip install "hypequery[chdb]"     # embedded ClickHouse, no server
 pip install "hypequery[server]"
 pip install "hypequery[jwt]"      # JWT auth for hypequery.serve
 pip install "hypequery[django]"   # or [flask]
@@ -297,6 +298,7 @@ pip install "hypequery[pandas]"   # or [polars], [arrow]
 | (none) | pydantic, anyio | defining datasets, planning, `to_sql()`, protocol artifacts, and `hypequery.serve` under any ASGI server |
 | `clickhouse` | clickhouse-connect | `create_clickhouse_executor` and `hypequery init` / `generate` |
 | `clickhouse-async` | clickhouse-connect with aiohttp | `create_async_clickhouse_executor`; also covers everything `clickhouse` does |
+| `chdb` | chDB (Linux and macOS) | `create_chdb_executor`: embedded ClickHouse in-process, no server |
 | `server` | uvicorn | `start_server` and `hypequery dev` |
 | `jwt` | PyJWT, cryptography | `jwt_strategy` and `analytics_token_issuer` |
 | `django` | Django, clickhouse-connect | `hypequery.contrib.django` |
@@ -1120,6 +1122,42 @@ runs until `max_execution_time`, and the caller still gets `aborted` or
 stops the query: its driver call cannot return early. The native async executor needs the grant less, since its
 driver also asks ClickHouse to cancel a readonly query when the connection
 closes.
+
+## Embedded ClickHouse (chDB)
+
+With the `chdb` extra, the same datasets run on [chDB](https://github.com/chdb-io/chdb),
+the ClickHouse engine embedded in your Python process: no server, no
+credentials, and the same compiled SQL the ClickHouse executors send. Use it
+for tests and CI, local development against a file or an in-memory database,
+or a serverless function.
+
+```python
+from hypequery.datasets import create_dataset_client
+from hypequery.execution import create_chdb_executor
+
+executor = create_chdb_executor("./analytics.chdb")  # or create_chdb_executor() for in-memory
+client = create_dataset_client(executor=executor)
+```
+
+`create_chdb_executor(path, database="default")` opens *path*, a directory that
+keeps its tables between runs, or `":memory:"` (the default). Unqualified
+dataset sources resolve in `database`. Swap in `create_clickhouse_executor` to
+point the same code at a ClickHouse server. `create_async_chdb_executor` is the
+async form.
+
+Results match the ClickHouse executors': Decimals as strings with their scale,
+timestamps as UTC instants, and values bound as typed query parameters. Every
+query is read-only and carries the planner's limits. chDB's own rules differ
+from a server's:
+
+- A process holds one chDB path at a time. Every connection to it shares one
+  database, and opening another path fails until they are all closed.
+- An in-memory database is discarded when its last connection closes.
+- A connection runs one query at a time, and a running query cannot be
+  stopped. Cancellation and deadlines return to the caller at once; the query
+  itself ends at `max_execution_time`, which the executor brings forward to
+  the caller's deadline.
+- chDB publishes wheels for Linux and macOS only.
 
 ## Canonical protocol values
 
