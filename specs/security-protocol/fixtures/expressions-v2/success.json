@@ -6,6 +6,7 @@
     { "id": "aggregate-v1-registry-unchanged", "value": { "kind": "aggregate", "aggregation": "percentile", "field": "amount", "level": 0.95 } }
   ],
   "queries": [
+    {"id": "having-relationship-measure", "value": {"kind": "dataset", "dataset": "orders", "dimensions": ["customer.country"], "measures": ["customer.customerCount"], "having": [{"measure": "customer.customerCount", "operator": "gte", "value": 10}], "by": "hour", "timezone": "Asia/Tokyo"}},
     { "id": "grain-minute", "value": { "kind": "dataset", "dataset": "events", "by": "minute" } },
     { "id": "grain-hour", "value": { "kind": "metric", "dataset": "events", "metric": "sessions", "by": "hour" } },
     { "id": "segments-dataset", "value": { "kind": "dataset", "dataset": "orders", "measures": ["revenue"], "filters": [], "segments": ["enterprise", "activeLast30Days"], "orderBy": [{ "field": "revenue", "direction": "desc" }] } },

@@ -8,6 +8,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from typing import Literal, TypeVar, cast
 
+from .client_contract.timezone_names import CLIENT_TIMEZONE_NAMES
 from .errors import ProtocolIdentifierError, ProtocolValueError, expression_error
 from .expression_models import (
     DEFAULT_PROTOCOL_EXPRESSION_LIMITS,
@@ -23,6 +24,8 @@ from .expression_models import (
     ProtocolExpressionExtension,
     ProtocolExpressionLimits,
     ProtocolFunctionName,
+    ProtocolHavingCondition,
+    ProtocolHavingOperator,
     ProtocolLiteralExpression,
     ProtocolLogicalExpression,
     ProtocolMetricQuery,
@@ -58,6 +61,7 @@ _COMPARISONS = frozenset(
     )
 )
 _NULL_CHECKS = frozenset(("isNull", "isNotNull"))
+_HAVING_COMPARISONS = frozenset(("eq", "neq", "gt", "gte", "lt", "lte"))
 _AGGREGATIONS = frozenset(
     (
         "sum",
@@ -419,10 +423,12 @@ def validate_protocol_semantic_query(
             *(() if metric else ("measures",)),
             "filters",
             *(("segments",) if v2 else ()),
+            *(() if metric else ("having",)),
             "orderBy",
             "limit",
             "offset",
             "by",
+            "timezone",
             "includeMeta",
         )
         _exact_fields(
@@ -447,6 +453,7 @@ def validate_protocol_semantic_query(
             )
         filters = _predicate_array(value, state)
         segments = _segment_array(value, state)
+        having = None if metric else _having_array(value, measures, v2, state)
         order_by = _order_array(value, state)
         limit = _query_integer(value, "limit")
         offset = _query_integer(value, "offset")
@@ -456,6 +463,13 @@ def validate_protocol_semantic_query(
             if raw_grain not in (_GRAINS_V2 if v2 else _GRAINS):
                 expression_error("HQ_EXPRESSION_INVALID_QUERY", "$.by")
             grain = cast(ProtocolQueryTimeGrain, raw_grain)
+        timezone: str | None = None
+        if "timezone" in value:
+            timezone = _string(value["timezone"], "$.timezone")
+            # RFC 0018's pinned registry, so every implementation accepts the
+            # same names regardless of the host's zoneinfo build (RFC 0025).
+            if timezone not in CLIENT_TIMEZONE_NAMES:
+                expression_error("HQ_EXPRESSION_INVALID_QUERY", "$.timezone")
         include_meta: bool | None = None
         if "includeMeta" in value:
             if type(value["includeMeta"]) is not bool:
@@ -473,6 +487,7 @@ def validate_protocol_semantic_query(
                 by=grain,
                 include_meta=include_meta,
                 segments=segments,
+                timezone=timezone,
             )
         return ProtocolDatasetQuery(
             dataset=dataset,
@@ -485,6 +500,8 @@ def validate_protocol_semantic_query(
             by=grain,
             include_meta=include_meta,
             segments=segments,
+            having=having,
+            timezone=timezone,
         )
     finally:
         state.active.remove(id(value))
@@ -532,6 +549,82 @@ def _segment_array(
                 expression_error("HQ_EXPRESSION_INVALID_QUERY", path)
             seen.add(name)
             result.append(name)
+        return tuple(result)
+
+
+def _finite_number(value: object, path: str) -> int | float:
+    # Booleans are not numbers, matching JavaScript's ``typeof value === "number"``.
+    if type(value) is int:
+        try:
+            float(value)
+        except OverflowError:
+            # JavaScript reads an integer this large as Infinity.
+            expression_error("HQ_EXPRESSION_INVALID_QUERY", path)
+        return value
+    if type(value) is not float or not math.isfinite(value):
+        expression_error("HQ_EXPRESSION_INVALID_QUERY", path)
+    return value
+
+
+def _number_list(
+    value: object, path: str, state: _State, *, between: bool
+) -> tuple[int | float, ...]:
+    with _array_items(value, path, state) as items:
+        # Length before items, as the reference implementation checks.
+        if len(items) != 2 if between else len(items) == 0:
+            expression_error("HQ_EXPRESSION_INVALID_QUERY", path)
+        return tuple(_finite_number(item, f"{path}[{index}]") for index, item in enumerate(items))
+
+
+def _having_array(
+    source: dict[str, object],
+    measures: tuple[ProtocolQualifiedIdentifier, ...] | None,
+    qualified: bool,
+    state: _State,
+) -> tuple[ProtocolHavingCondition, ...] | None:
+    """RFC 0025 ``having``: numeric conditions on measures the query selects.
+
+    Selection is checked here rather than left to execution so every
+    implementation refuses the same queries.
+    """
+
+    if "having" not in source:
+        return None
+    selected = frozenset(measures or ())
+    with _array_items(source["having"], "$.having", state) as items:
+        result: list[ProtocolHavingCondition] = []
+        for index, item in enumerate(items):
+            path = f"$.having[{index}]"
+            record = _record(item, path)
+            _exact_fields(record, ("measure", "operator", "value"), (), path)
+            measure = (
+                _qualified_identifier(record["measure"], f"{path}.measure")
+                if qualified
+                else cast(
+                    ProtocolQualifiedIdentifier,
+                    _simple_identifier(record["measure"], f"{path}.measure"),
+                )
+            )
+            if measure not in selected:
+                expression_error("HQ_EXPRESSION_INVALID_QUERY", f"{path}.measure")
+            operator = _string(record["operator"], f"{path}.operator")
+            value_path = f"{path}.value"
+            number: int | float | tuple[int | float, ...]
+            if operator in _HAVING_COMPARISONS:
+                number = _finite_number(record["value"], value_path)
+            elif operator in ("between", "in", "notIn"):
+                number = _number_list(
+                    record["value"], value_path, state, between=operator == "between"
+                )
+            else:
+                expression_error("HQ_EXPRESSION_INVALID_QUERY", f"{path}.operator")
+            result.append(
+                ProtocolHavingCondition(
+                    measure=measure,
+                    operator=cast(ProtocolHavingOperator, operator),
+                    value=number,
+                )
+            )
         return tuple(result)
 
 
