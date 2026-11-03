@@ -31,9 +31,10 @@ Importing `hypequery.execution` does not import the driver or open a connection.
 | `create_async_chdb_executor(path=":memory:", *, database="default")` | An `AsyncChdbExecutor` running the same executor on one worker thread |
 | `ChdbExecutor(connection)` / `AsyncChdbExecutor(connection)` | Wrap a connection from `chdb.connect()` or a `chdb.session.Session`. `close()` closes it |
 
-A chDB connection runs one query at a time and can't stop a running one, so cancellation and deadlines return to the
-caller at once and the query ends at its `max_execution_time`, brought forward to the caller's deadline. A process
-holds one chDB path at a time. See [Embedded ClickHouse (chDB)](/docs/python/datasets/chdb).
+A chDB connection runs one query at a time and can't stop a running one. Its `max_execution_time` is brought forward
+to the caller's deadline, so deadlines end on time. The async executor returns a cancelled caller at once; a
+synchronous `execute()` waits until the running query finishes or reaches that limit. A process holds one chDB path
+at a time. See [Embedded ClickHouse (chDB)](/docs/python/datasets/chdb).
 
 Pass the executor to `create_dataset_client(executor=...)` or `create_async_dataset_client(executor=...)`.
 

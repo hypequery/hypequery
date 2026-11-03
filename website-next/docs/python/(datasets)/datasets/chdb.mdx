@@ -77,9 +77,10 @@ differently because the engine runs in your process:
   than several workers.
 - **One query at a time.** A chDB connection runs one query at a time; others wait their turn. A caller whose
   deadline expires while waiting fails without starting.
-- **No mid-query cancellation.** A running chDB query can't be killed. Cancellation and deadlines still return to the
-  caller at once with `aborted` or `deadline-exceeded`, and the executor brings the query's `max_execution_time`
-  forward to the caller's deadline so the engine stops it there.
+- **No mid-query cancellation.** A running chDB query can't be killed. The executor brings the query's
+  `max_execution_time` forward to the caller's deadline, so a deadline ends it on time with `deadline-exceeded`.
+  Cancellation differs by executor: `create_async_chdb_executor` returns `aborted` to the caller at once while the
+  query runs on, but a synchronous `execute()` waits until the running query finishes or reaches its time limit.
 
 ## Scaffold a project on chDB
 
