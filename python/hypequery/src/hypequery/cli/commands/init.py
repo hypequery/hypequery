@@ -95,7 +95,6 @@ def _create(options: InitOptions, environ: Mapping[str, str] | None) -> Path:
             schema,
             tenant_column=options.tenant_column,
             selection=selection,
-            chdb_path=chdb_path,
         )
         templates = schema_templates(load_templates(), schema, generated, framework)
         if chdb_path is not None:

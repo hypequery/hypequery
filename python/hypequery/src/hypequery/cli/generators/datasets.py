@@ -319,13 +319,11 @@ def generate_datasets(
     *,
     tenant_column: str | None = None,
     selection: dict[str, str] | None = None,
-    chdb_path: str | None = None,
 ) -> GeneratedDatasets:
     """Preserve source mappings, avoid collisions, and report unsupported fields.
 
     Only an explicit *tenant_column* sets ``tenant_key``; column-name matches are
-    reported for review and never become policy. *chdb_path* records the
-    embedded database init read, for regeneration to read again.
+    reported for review and never become policy.
     """
     if tenant_column is not None and not is_identifier(tenant_column):
         raise CliError("The tenant column is outside the SDK's supported identifier grammar.")
@@ -359,7 +357,6 @@ def generate_datasets(
         json.dumps(
             {
                 "database": schema.database,
-                **({"chdbPath": chdb_path} if chdb_path else {}),
                 **({"selection": selection} if selection else {}),
                 **({"tenantColumn": tenant_column} if tenant_column else {}),
                 "tables": snapshot,

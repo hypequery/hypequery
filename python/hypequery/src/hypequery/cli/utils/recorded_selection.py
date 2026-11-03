@@ -81,17 +81,3 @@ def recorded_selection(directory: Path) -> TableSelection | None:
     if tables is None and exclude is None:
         return None
     return TableSelection(tables, exclude)
-
-
-def recorded_chdb_path(directory: Path) -> str | None:
-    """The chDB database path recorded in *directory*/schema.json, relative to it."""
-
-    document = _recorded(directory)
-    if "chdbPath" not in document:
-        return None
-    path = document["chdbPath"]
-    if not isinstance(path, str) or not path:
-        raise CliError(
-            "schema.json records an unusable chdbPath; fix it, or pass --database and --chdb-path."
-        )
-    return path
