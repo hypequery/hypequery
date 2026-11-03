@@ -17,6 +17,7 @@ from ..generators.framework_apps import RUN_COMMAND, Framework, offline_template
 from ..guided_init import TypedConnection, can_guide, env_lines, guide
 from ..options import InitOptions
 from ..scaffold import Scaffold
+from ..telemetry import cancel_command_telemetry, update_command_telemetry
 from ..utils.next_steps import cd_prefix
 from ..utils.prompts import Prompter, SetupCancelledError
 from ..utils.recorded_selection import TableSelection
@@ -26,11 +27,13 @@ from ..utils.templates import load_templates
 def run(options: InitOptions) -> None:
     environ: Mapping[str, str] | None = None
     typed: TypedConnection | None = None
-    if can_guide(options):
+    interactive = can_guide(options)
+    if interactive:
         try:
             guided = guide(options, Prompter(), cwd=Path.cwd(), environ=os.environ)
         except SetupCancelledError:
             print("\nSetup cancelled; nothing was created.")
+            cancel_command_telemetry()
             return
         options, environ, typed = guided.options, guided.environ, guided.typed
     options = replace(
@@ -38,6 +41,7 @@ def run(options: InitOptions) -> None:
         directory=options.directory or ".",
         framework=options.framework or "standalone",
     )
+    update_command_telemetry(framework=options.framework, interactive=interactive)
     destination = _create(options, environ)
     if typed is not None:
         print(

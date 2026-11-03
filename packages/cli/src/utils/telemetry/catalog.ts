@@ -40,7 +40,7 @@ const generation = {
   custom_output: optional(output),
 } as const;
 
-const INSTRUMENTED = ['init', 'dev', 'mcp', 'generate', 'generate:types', 'generate:datasets', 'generate:manifest', 'generate:client', 'help'] as const;
+const INSTRUMENTED = ['init', 'dev', 'mcp', 'generate', 'generate:types', 'generate:datasets', 'generate:manifest', 'generate:client', 'help', 'unknown'] as const;
 
 /** Command-specific completion fields; absence means that stage was not reached. */
 export const COMMAND_PROPERTIES = {
@@ -99,6 +99,7 @@ export const COMMAND_PROPERTIES = {
   // Other commands report only the common completion fields until they are
   // instrumented; each instrumentation change adds its command's fields here.
   ...Object.fromEntries(COMMANDS.filter(command => !(INSTRUMENTED as readonly string[]).includes(command)).map(command => [command, {}])) as Record<Exclude<typeof COMMANDS[number], typeof INSTRUMENTED[number]>, Record<string, never>>,
+  unknown: { suggested_command: optional(enumeration('Which command was a mistyped invocation closest to? Only the CLI\'s own suggestion, never the raw input.', COMMANDS.filter(command => command !== 'unknown'))) },
   help: { help_topic: optional(enumeration('Which command help needs improvement? Unknown input becomes unknown.', ['root', ...COMMANDS])) },
 } as const satisfies Record<typeof COMMANDS[number], Fields>;
 
