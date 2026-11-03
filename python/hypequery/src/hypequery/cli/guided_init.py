@@ -95,7 +95,16 @@ def guide(
     connection: Mapping[str, str] | None = None
     typed: TypedConnection | None = None
     catalog = None
-    if options.database == "chdb":
+    chdb = options.database == "chdb"
+    framework = options.framework
+    if chdb:
+        # The database path is relative to the project, so the folder is settled
+        # before the database is read: moving it later would read another one.
+        if framework is None:
+            framework = _ask_framework(prompter, cwd, CHDB_FRAMEWORKS)
+        directory = _free_directory(
+            prompter, cwd, directory, framework, offline=None, asked=options.directory is None
+        )
         if not options.skip_connection:
             catalog = _chdb_catalog(prompter, cwd / directory, options.chdb_path)
     elif not options.skip_connection:
@@ -115,23 +124,21 @@ def guide(
         selected = selected_tables(catalog.tables, tables, options.exclude_tables)
         tenant_column = _ask_tenant(prompter, catalog, selected)
 
-    framework = options.framework
     if framework is None:
-        framework = _ask_framework(
-            prompter, cwd, CHDB_FRAMEWORKS if options.database == "chdb" else FRAMEWORKS
-        )
+        framework = _ask_framework(prompter, cwd)
 
     offline = catalog is None
-    directory = _free_directory(
-        prompter, cwd, directory, framework, offline=offline, asked=options.directory is None
-    )
+    if not chdb:
+        directory = _free_directory(
+            prompter, cwd, directory, framework, offline=offline, asked=options.directory is None
+        )
 
     result = replace(
         options,
         directory=directory,
         framework=framework,
-        # A new chDB database is the offline example; init decides that itself.
-        skip_connection=offline and options.database != "chdb",
+        # With chDB, init itself writes the example when the database is new.
+        skip_connection=options.skip_connection if chdb else offline,
         tables=tables,
         tenant_column=tenant_column,
     )
@@ -435,12 +442,18 @@ def _free_directory(
     directory: str,
     framework: str,
     *,
-    offline: bool,
+    offline: bool | None,
     asked: bool,
 ) -> str:
-    """A destination init can write to; re-asks only when the folder came from a question."""
+    """A destination init can write to; re-asks only when the folder came from a question.
 
-    names = project_files(cast(Framework, framework), offline=offline)
+    *offline* ``None`` checks the files of either project, for when it isn't known yet.
+    """
+
+    kind = cast(Framework, framework)
+    choices = (True, False) if offline is None else (offline,)
+    written = (name for each in choices for name in project_files(kind, offline=each))
+    names = list(dict.fromkeys(written))
     while asked:
         clashes = [name for name in names if (cwd / directory / name).exists()]
         if not clashes:

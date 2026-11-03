@@ -14,11 +14,8 @@ from ..generators.schema import discover_schema
 from ..options import GenerateDatasetsOptions
 from ..utils.display_path import display_path
 from ..utils.generated_file import GeneratedFile
-from ..utils.recorded_selection import (
-    recorded_chdb_path,
-    recorded_selection,
-    recorded_tenant_column,
-)
+from ..utils.project_config import recorded_chdb_path
+from ..utils.recorded_selection import recorded_selection, recorded_tenant_column
 from ..utils.tenant_settings import configures_tenant
 
 
@@ -62,7 +59,7 @@ def run(options: GenerateDatasetsOptions) -> None:
         # Refuse before connecting, as with an unsafe output path.
         raise CliError("The tenant column is outside the SDK's supported identifier grammar.")
     schema = discover_schema(
-        tables=tables, exclude_tables=exclude_tables, chdb_path=_chdb_path(options, project)
+        tables=tables, exclude_tables=exclude_tables, chdb_path=_chdb_path(options, output.path)
     )
     generated = generate_datasets(schema, tenant_column=tenant_column)
     # Up-to-date, --diff and --check results must describe the file as it is now.
@@ -111,21 +108,23 @@ def run(options: GenerateDatasetsOptions) -> None:
     print("Review suggested measures and access policy before serving these datasets.")
 
 
-def _chdb_path(options: GenerateDatasetsOptions, project: Path) -> Path | None:
+def _chdb_path(options: GenerateDatasetsOptions, output: Path) -> Path | None:
     """The chDB database to read, or ``None`` for the ClickHouse server.
 
-    An explicit ``--chdb-path`` is relative to the current directory; a path
-    schema.json records is relative to the project it describes.
+    An explicit ``--chdb-path`` is relative to the current directory. A path
+    pyproject.toml records is relative to that project: the output's
+    directory when it has one, else the current directory.
     """
 
     if options.database == "clickhouse":
         return None
     if options.chdb_path is not None:
         return Path(options.chdb_path)
+    project = output.parent if (output.parent / "pyproject.toml").exists() else Path.cwd()
     recorded = recorded_chdb_path(project)
     if recorded is not None:
         print(
-            f"Using the chDB database init recorded in schema.json ({recorded}); "
+            f"Using the chDB database init recorded in pyproject.toml ({recorded}); "
             "pass --chdb-path or --database clickhouse to change it."
         )
         return project / recorded

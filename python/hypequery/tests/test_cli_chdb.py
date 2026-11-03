@@ -17,6 +17,8 @@ import pytest
 
 from hypequery.cli import main
 from hypequery.cli.commands import generate as generate_command
+from hypequery.cli.generators import schema as schema_module
+from hypequery.cli.generators.schema import CatalogOverview
 from hypequery.cli.options import GenerateDatasetsOptions
 from test_cli_guided_init import Script, run_guide
 
@@ -130,8 +132,7 @@ def test_the_example_seeds_serves_and_regenerates_from_chdb(tmp_path: Path) -> N
         {"country": "AU", "revenue": "200.00", "orderCount": 1},
     ]
     regenerated = hypequery("generate", "datasets", "--diff", cwd=project)
-    assert "Using the chDB database at " in regenerated.stdout
-    assert "analytics.chdb; set CLICKHOUSE_URL" in regenerated.stdout
+    assert "recorded in pyproject.toml (analytics.chdb)" in regenerated.stdout
     assert "'orders': dataset(" in regenerated.stdout
 
 
@@ -156,15 +157,15 @@ def test_init_reads_an_existing_database_and_generate_reuses_it(tmp_path: Path) 
     )  # fmt: skip
     assert init.returncode == 0, init.stderr
     project = tmp_path / "project"
+    assert 'chdb-path = "../shared.chdb"' in (project / "pyproject.toml").read_text()
     snapshot = json.loads((project / "schema.json").read_text())
-    assert snapshot["chdbPath"] == "../shared.chdb"
     assert [table["table"] for table in snapshot["tables"]] == ["events"]
     assert "tenant_key='org_id'" in (project / "datasets.py").read_text()
     # A database outside the project is not the project's to ignore.
     assert "shared.chdb" not in (project / ".gitignore").read_text()
     check = hypequery("generate", "datasets", "--check", cwd=project)
     assert check.returncode == 0, check.stderr
-    assert "Using the chDB database init recorded in schema.json" in check.stdout
+    assert "Using the chDB database init recorded in pyproject.toml" in check.stdout
 
 
 @needs_chdb
@@ -222,16 +223,20 @@ def _generate_options(**overrides: object) -> GenerateDatasetsOptions:
 def test_clickhouse_settings_win_over_a_local_database(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    # No pyproject.toml records a path, so a project analytics.chdb is the candidate.
     (tmp_path / "analytics.chdb").mkdir()
+    monkeypatch.chdir(tmp_path)
     monkeypatch.delenv("CLICKHOUSE_URL", raising=False)
     monkeypatch.delenv("CLICKHOUSE_HOST", raising=False)
+    output = tmp_path / "datasets.py"
+    local = tmp_path / "analytics.chdb"
     choose = generate_command._chdb_path
-    assert choose(_generate_options(), tmp_path) == tmp_path / "analytics.chdb"
-    assert choose(_generate_options(database="clickhouse"), tmp_path) is None
+    assert choose(_generate_options(), output) == local
+    assert choose(_generate_options(database="clickhouse"), output) is None
     monkeypatch.setenv("CLICKHOUSE_HOST", "ch.example")
-    assert choose(_generate_options(), tmp_path) is None
-    assert choose(_generate_options(database="chdb"), tmp_path) == tmp_path / "analytics.chdb"
-    assert choose(_generate_options(chdb_path="x.chdb"), tmp_path) == Path("x.chdb")
+    assert choose(_generate_options(), output) is None
+    assert choose(_generate_options(database="chdb"), output) == local
+    assert choose(_generate_options(chdb_path="x.chdb"), output) == Path("x.chdb")
 
 
 def test_guided_init_with_chdb_offers_only_the_apps_it_can_serve(tmp_path: Path) -> None:
@@ -244,3 +249,53 @@ def test_guided_init_with_chdb_offers_only_the_apps_it_can_serve(tmp_path: Path)
     assert "Django" not in script.text
     assert "ClickHouse URL" not in script.text
     assert "--database chdb" in script.text
+
+
+@needs_chdb
+def test_a_custom_path_for_a_new_database_is_regenerated_from(tmp_path: Path) -> None:
+    project = tmp_path / "project"
+    assert main(["init", str(project), "--chdb-path", "data/db.chdb", "--no-interactive"]) == 0
+    assert 'chdb-path = "data/db.chdb"' in (project / "pyproject.toml").read_text()
+    seeded = python(readme_seed(project), cwd=project)
+    assert seeded.returncode == 0, seeded.stderr
+    assert (project / "data" / "db.chdb").is_dir()
+    regenerated = hypequery("generate", "datasets", "--diff", cwd=project)
+    assert "recorded in pyproject.toml (data/db.chdb)" in regenerated.stdout
+    assert "'orders': dataset(" in regenerated.stdout
+
+
+def _fake_catalog(monkeypatch: pytest.MonkeyPatch) -> list[Path | None]:
+    read: list[Path | None] = []
+
+    def fake(*, chdb_path: Path | None = None, **_: object) -> CatalogOverview:
+        read.append(chdb_path)
+        return CatalogOverview("default", ("events",), {})
+
+    monkeypatch.setattr(schema_module, "discover_catalog", fake)
+    return read
+
+
+def test_guided_init_keeps_an_explicit_skip_connection(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    (tmp_path / "analytics.chdb").mkdir()
+    read = _fake_catalog(monkeypatch)
+    script = Script("", "", "")  # folder, framework, create
+    guided = run_guide(script, tmp_path, database="chdb", skip_connection=True)
+    assert guided.options.skip_connection
+    assert read == []
+
+
+def test_guided_init_reads_the_database_in_the_folder_it_settles_on(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    (tmp_path / "notes.txt").write_text("")
+    (tmp_path / "analytics").mkdir()
+    (tmp_path / "analytics" / "app.py").write_text("")
+    (tmp_path / "elsewhere" / "analytics.chdb").mkdir(parents=True)
+    read = _fake_catalog(monkeypatch)
+    # folder (default analytics), framework, the clash's new folder, create
+    script = Script("", "", "elsewhere", "")
+    guided = run_guide(script, tmp_path, database="chdb")
+    assert guided.options.directory == "elsewhere"
+    assert read == [tmp_path / "elsewhere" / "analytics.chdb"]

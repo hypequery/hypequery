@@ -162,8 +162,13 @@ def chdb_templates(templates: dict[str, str], framework: Framework, path: str) -
     require_chdb_framework(framework)
     result = templates.copy()
     result["app.py"] = _app(templates["app.py"], path)
-    result["pyproject.toml"] = templates["pyproject.toml"].replace(
-        "hypequery[server,clickhouse]", "hypequery[server,chdb]"
+    pyproject = templates["pyproject.toml"]
+    result["pyproject.toml"] = (
+        pyproject.replace("hypequery[server,clickhouse]", "hypequery[server,chdb]")
+        + "\n[tool.hypequery]\n"
+        "# The embedded chDB database app.py opens and `hypequery generate datasets` reads,\n"
+        "# relative to this file.\n"
+        f"chdb-path = {json.dumps(path)}\n"
     )
     result[".env.example"] = _env_example(templates[".env.example"])
     if not PurePosixPath(path).is_absolute() and ".." not in PurePosixPath(path).parts:
