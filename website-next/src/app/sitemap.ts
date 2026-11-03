@@ -32,6 +32,7 @@ const staticRoutes = [
   '/clickhouse-schema',
   '/clickhouse-typescript',
   '/clickhouse-python',
+  '/clickhouse-python-analytics',
   '/clickhouse-fastapi',
   '/python-semantic-layer',
   '/clickhouse-python-multi-tenant',
