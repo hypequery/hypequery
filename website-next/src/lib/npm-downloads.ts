@@ -6,9 +6,13 @@ export const NPM_BADGE_PACKAGES = ['@hypequery/clickhouse', '@hypequery/datasets
 
 export type NpmDownloadCounts = number[] | null;
 
+// The badge is optional; the homepage must never wait on npm longer than this.
+const NPM_TIMEOUT_MS = 3000;
+
 async function fetchMonthlyDownloads(name: string): Promise<number> {
   const response = await fetch(`https://api.npmjs.org/downloads/point/last-month/${name}`, {
     next: { revalidate: 3600 },
+    signal: AbortSignal.timeout(NPM_TIMEOUT_MS),
   });
   if (!response.ok) throw new Error(`npm download count unavailable for ${name}`);
   const data: { downloads?: number } = await response.json();
