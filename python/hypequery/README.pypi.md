@@ -32,8 +32,15 @@ Python 3.11 or later. Extras: `clickhouse-async`, `server`, `jwt`, `django`,
 
 ```python
 from hypequery.datasets import (
-    DatasetQuery, ExecutionContext, create_dataset_client,
-    dataset, dimension, filter, measure, order, tenant,
+    DatasetQuery,
+    ExecutionContext,
+    create_dataset_client,
+    dataset,
+    dimension,
+    filter,
+    measure,
+    order,
+    tenant,
 )
 from hypequery.execution import ClickHouseConnection, create_clickhouse_executor
 
@@ -82,13 +89,20 @@ The API is plain ASGI, so it mounts in FastAPI, Starlette or any ASGI app, and
 is served natively from Django and Flask. Every endpoint authenticates before
 reading the body and takes the tenant from the caller.
 
+```bash
+pip install "hypequery[clickhouse,jwt]" fastapi uvicorn
+```
+
 ```python
 from fastapi import FastAPI
 from hypequery.serve import HttpSecurity, create_api, jwt_strategy, to_asgi_app
 
 api = create_api(
-    auth=jwt_strategy(jwks_url="https://example.auth0.com/.well-known/jwks.json",
-                      issuer="https://example.auth0.com/", audience="https://api.example.com"),
+    auth=jwt_strategy(
+        jwks_url="https://example.auth0.com/.well-known/jwks.json",
+        issuer="https://example.auth0.com/",
+        audience="https://api.example.com",
+    ),
     client=analytics,
     datasets={"orders": orders},
     security=HttpSecurity(allowed_hosts=("api.example.com",)),
