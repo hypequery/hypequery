@@ -119,9 +119,10 @@ Apache-2.0.
 
 `buildClientContract(deployment, options)` turns a deployment contract (for
 example `publishToCloud`'s output) into the hashed client contract
-`hypequery generate:client` reads. A deployment runs on the portable semantic
-query, which has no `having` and no per-request `timezone`, so neither is
-advertised by default. A host that executes them opts in:
+`hypequery generate:client` reads. `having` and a per-request `timezone` are
+off unless the host's route passes them through to the data plane, since a
+route that builds its operation from a fixed list of fields would drop them.
+A host that passes them through opts in:
 
 ```ts
 buildClientContract(deployment, {

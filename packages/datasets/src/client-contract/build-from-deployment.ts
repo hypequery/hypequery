@@ -24,10 +24,10 @@ export interface BuildClientContractOptions {
   /** Which published datasets to advertise; every one by default. */
   readonly include?: (dataset: ProtocolDeploymentDataset) => boolean;
   /**
-   * Request features the host executes beyond the portable semantic query.
-   * A deployment normally runs on that query, which has neither `having` nor
-   * a per-request `timezone`, so both stay off unless the host turns them on;
-   * advertising one the host drops would return the wrong rows.
+   * Request features the host's route passes through to the data plane. A
+   * route may build its operation from a fixed list of fields and drop the
+   * rest, so `having` and a per-request `timezone` stay off unless the host
+   * turns them on; advertising one the host drops would return the wrong rows.
    */
   readonly capabilities?: ClientContractCapabilities;
 }
