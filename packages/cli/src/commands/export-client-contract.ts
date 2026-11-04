@@ -4,6 +4,7 @@ import { logger } from '../utils/logger.js';
 import { canonicalClientContract } from '../utils/client-contract-canonical.js';
 import { checkClientOutputPath, describeClientContractError, readClientOutput } from '../utils/client-contract-file.js';
 import { writeGeneratedFileAtomically } from '../utils/generated-file.js';
+import { withStdoutToStderr } from '../utils/stdout-to-stderr.js';
 
 export interface ExportClientContractOptions {
   output?: string;
@@ -31,17 +32,22 @@ export async function exportClientContractCommand(
   }
   if (options.force && options.check) throw new Error('--force cannot be combined with --check.');
 
-  const api = await loadApiModule(apiPath);
-  if (!api || typeof api.clientContract !== 'function') {
-    throw new Error(
-      `Invalid API module: ${apiPath}\n\n`
-      + 'The exported API must provide a clientContract() method. Export the value returned by '
-      + 'createAPI() from @hypequery/serve, and upgrade @hypequery/serve if it has none.',
-    );
-  }
+  // With --stdout, the API module's own startup logs go to stderr so the output stays valid JSON.
+  const exported = async () => {
+    const api = await loadApiModule(apiPath);
+    if (!api || typeof api.clientContract !== 'function') {
+      throw new Error(
+        `Invalid API module: ${apiPath}\n\n`
+        + 'The exported API must provide a clientContract() method. Export the value returned by '
+        + 'createAPI() from @hypequery/serve, and upgrade @hypequery/serve if it has none.',
+      );
+    }
+    return api.clientContract();
+  };
+  const contract = options.stdout ? await withStdoutToStderr(exported) : await exported();
   let canonical: string;
   try {
-    canonical = canonicalClientContract(api.clientContract());
+    canonical = canonicalClientContract(contract);
   } catch (error) {
     throw describeClientContractError(error);
   }

@@ -68,6 +68,20 @@ describe('export:client-contract', () => {
     await expect(exportClientContractCommand(apiFile, { stdout: true, check: true })).rejects.toThrow(/--stdout/);
   });
 
+  it('keeps the API module\'s startup logs off stdout', async () => {
+    const root = await directory();
+    const noisy = path.join(root, 'noisy-api.mjs');
+    const { api } = await import('../../type-tests/fixtures/serve-client-api.js');
+    const prepared = api.clientContract();
+    await writeFile(noisy, `console.log('PRIVATE startup log');\nexport const api = { handler: async () => ({}), clientContract: () => (${JSON.stringify(prepared)}) };\n`);
+    const stdout = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
+    const stderr = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    await exportClientContractCommand(noisy, { stdout: true });
+    expect(stdout.mock.calls).toEqual([[prepared.canonical]]);
+    expect(stderr).toHaveBeenCalledWith('PRIVATE startup log');
+    expect(console.log).not.toBe(console.error);
+  });
+
   it('refuses an API without clientContract() and a contract whose identities were edited', async () => {
     const root = await directory();
     const legacy = path.join(root, 'legacy-api.mjs');

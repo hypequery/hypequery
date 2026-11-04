@@ -31,13 +31,16 @@ export function datasetDimensionDescriptor(dimension: DimensionDefinition): Clie
  * measures need a time axis the client profile does not carry, so they, and
  * formulas over them, are not advertised.
  */
-export function servableMeasure(dataset: AnyDatasetInstance, name: string, seen = new Set<string>()): boolean {
-  if (!Object.hasOwn(dataset.measures, name) || seen.has(name)) return false;
+export function servableMeasure(dataset: AnyDatasetInstance, name: string, path = new Set<string>()): boolean {
+  // `path` holds only the current chain, so a measure used twice is not a cycle.
+  if (!Object.hasOwn(dataset.measures, name) || path.has(name)) return false;
   const measure = dataset.measures[name];
   if (isBaseMeasure(measure)) return true;
   if (!isDerivedMeasure(measure)) return false;
-  seen.add(name);
-  return Object.values(measure.uses).every(use => servableMeasure(dataset, use, seen));
+  path.add(name);
+  const servable = Object.values(measure.uses).every(use => servableMeasure(dataset, use, path));
+  path.delete(name);
+  return servable;
 }
 
 /** `having` compares numbers, so ordered aggregations over non-numeric fields can't take it. */

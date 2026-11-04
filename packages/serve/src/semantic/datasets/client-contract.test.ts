@@ -62,6 +62,15 @@ describe('api.clientContract()', () => {
     expect(orders.limits).toMatchObject({ maxLimit: 250, defaultLimit: 250 });
   });
 
+  it('keeps the POST route when api.route() serves an endpoint under another method', async () => {
+    const target = api();
+    target.route('/orders-by-get', target.queries['dataset:orders'], { method: 'GET' });
+    const orders = target.clientContract().contract.endpoints.find(endpoint => endpoint.id === 'orders')!;
+    expect(orders.path).toBe('/api/analytics/datasets/orders/query');
+    const response = await target.handler(request(orders.path, { 'x-hypequery-client-schema': orders.schemaHash }, { dimensions: ['country'] }));
+    expect(response.status).toBe(200);
+  });
+
   it('refuses a dataset registered under another name, and a malformed mount path', () => {
     expect(() => api({ datasets: { sales: Orders } }).clientContract()).toThrow(/datasets entry "sales" serves dataset "orders"/);
     expect(() => api({ metrics: { revenue: totalRevenue } }).clientContract()).toThrow(/metrics entry "revenue" serves metric "totalRevenue"/);

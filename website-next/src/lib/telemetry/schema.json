@@ -224,6 +224,7 @@
             "generate:datasets",
             "generate:manifest",
             "generate:client",
+            "export:client-contract",
             "login",
             "logout",
             "deploy",
@@ -277,6 +278,7 @@
             "--project",
             "--environment",
             "--endpoint",
+            "--stdout",
             "--cloud-url",
             "--bundle-output",
             "--release-output",
@@ -876,6 +878,7 @@
             "optional": true
           }
         },
+        "export:client-contract": {},
         "login": {},
         "logout": {},
         "deploy": {},
@@ -903,6 +906,7 @@
               "generate:datasets",
               "generate:manifest",
               "generate:client",
+              "export:client-contract",
               "login",
               "logout",
               "deploy",
@@ -1426,6 +1430,7 @@
             "generate:datasets",
             "generate:manifest",
             "generate:client",
+            "export:client-contract",
             "login",
             "logout",
             "deploy",
@@ -1554,6 +1559,12 @@
       "--project",
       "--environment",
       "--endpoint"
+    ],
+    "export:client-contract": [
+      "--output",
+      "--stdout",
+      "--check",
+      "--force"
     ],
     "login": [
       "--cloud-url",

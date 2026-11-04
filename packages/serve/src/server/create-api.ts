@@ -103,7 +103,12 @@ export const createAPI = <
   // Dataset and metric endpoints in registration order; each is exported at the
   // path the manifest names, so it resolves through `api` once that exists.
   const clientBindings: ClientEndpointBinding[] = [];
-  const manifestPath = (key: string) => api.manifest()[key]!.path!;
+  // Client contract routes are POST. An `api.route()` override with another
+  // method can't be advertised, but the endpoint's own POST route stays live.
+  const clientPath = (key: string, routePath: string) => {
+    const entry = api.manifest()[key];
+    return entry?.method === 'POST' && entry.path ? entry.path : applyBasePath(basePath, routePath);
+  };
   const globalMiddlewares: ServeMiddleware<any, any, TContext, TAuth>[] = [
     ...((config.middlewares ?? []) as ServeMiddleware<any, any, TContext, TAuth>[]),
   ];
@@ -267,7 +272,7 @@ export const createAPI = <
           dataset: metric.dataset,
           metric,
           name,
-          path: manifestPath(name),
+          path: clientPath(name, routePath),
           profile: endpointClientProfile(metric.dataset, maxLimit),
         };
       });
@@ -320,7 +325,7 @@ export const createAPI = <
         }
         return {
           dataset: served,
-          path: manifestPath(`dataset:${name}`),
+          path: clientPath(`dataset:${name}`, routePath),
           profile: endpointClientProfile(served, maxLimit),
         };
       });

@@ -85,6 +85,27 @@ describe('buildDatasetClientContract', () => {
     expect(metric.annotations?.fields?.totalRevenue).toEqual({ label: 'Total revenue', description: 'Gross revenue' });
   });
 
+  it('advertises a formula that uses another formula more than once', () => {
+    const Shared = dataset('shared', {
+      source: 'shared',
+      dimensions: { amount: dimension.number() },
+      measures: {
+        revenue: measure.sum('amount'),
+        orders: measure.count('amount'),
+        average: measure.derived({
+          uses: { revenue: 'revenue', orders: 'orders' },
+          formula: ({ revenue, orders }) => divide(revenue, nullIfZero(orders)),
+        }),
+        averageRatio: measure.derived({
+          uses: { left: 'average', right: 'average' },
+          formula: ({ left, right }) => divide(left, nullIfZero(right)),
+        }),
+      },
+    });
+    const [shared] = buildDatasetClientContract([{ dataset: Shared, path: '/shared' }]).contract.endpoints;
+    expect(Object.keys(shared.measures).sort()).toEqual(['average', 'averageRatio', 'orders', 'revenue']);
+  });
+
   it('folds annotation whitespace and keeps annotations out of the schema hash', () => {
     const [orders] = buildDatasetClientContract([{ dataset: Orders, path: '/orders' }]).contract.endpoints;
     expect(orders.annotations).toEqual({
