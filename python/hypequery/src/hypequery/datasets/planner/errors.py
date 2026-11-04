@@ -96,9 +96,14 @@ class CompiledQueryError(Exception):
         code: CapabilityDenialCode | ExecutorFailureCode | None = None,
         diagnostic: str | None = None,
     ) -> None:
+        server_fault = category in _SERVER_FAULT
+        if server_fault and diagnostic is None and message:
+            # The message a server fault is raised with is the only record of
+            # why; keep it for the operator rather than dropping it.
+            diagnostic = message
         self.code = code
         self.diagnostic = diagnostic
-        safe = _SERVER_FAULT_MESSAGES[category] if category in _SERVER_FAULT else message
+        safe = _SERVER_FAULT_MESSAGES[category] if server_fault else message
         self.failure = CompiledQueryFailure(category=category, message=safe, query_id=query_id)
         super().__init__(f"{category}: {safe}")
         if diagnostic is not None:
