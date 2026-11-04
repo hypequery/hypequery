@@ -17,8 +17,9 @@ const CODE_BY_CATEGORY: Record<ProtocolSemanticInvocationFailureCategory, MCPToo
   forbidden: 'MCP_UNAUTHORIZED',
   'tenant-required': 'MCP_UNAUTHORIZED',
   'stale-activation': 'MCP_STALE_CONTRACT',
-  // The data plane cancels a query that runs past its deadline.
-  cancelled: 'MCP_QUERY_TIMEOUT',
+  // RFC 0014: the caller aborted the call. A host that knows its own deadline
+  // expired reports MCP_QUERY_TIMEOUT itself.
+  cancelled: 'MCP_REQUEST_CANCELLED',
   'budget-exceeded': 'MCP_RESULT_TOO_LARGE',
   'configuration-invalid': 'MCP_EXECUTION_FAILED',
   'unsupported-capability': 'MCP_EXECUTION_FAILED',

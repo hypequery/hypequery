@@ -25,7 +25,7 @@ describe('semantic data-plane failures as MCP tool errors', () => {
       ['tenant-required', 'MCP_UNAUTHORIZED', 'unauthorized', false],
       ['forbidden', 'MCP_UNAUTHORIZED', 'unauthorized', false],
       ['stale-activation', 'MCP_STALE_CONTRACT', 'stale_contract', false],
-      ['cancelled', 'MCP_QUERY_TIMEOUT', 'budget', false],
+      ['cancelled', 'MCP_REQUEST_CANCELLED', 'budget', false],
       ['budget-exceeded', 'MCP_RESULT_TOO_LARGE', 'budget', false],
       ['executor-unavailable', 'MCP_EXECUTION_FAILED', 'internal', false],
     ] as const;
