@@ -186,6 +186,10 @@ max-complexity = 15
 "src/hypequery/protocol/deployments.py" = ["C901"]
 "src/hypequery/protocol/values.py" = ["C901"]
 "src/hypequery/datasets/utils/derived_measures.py" = ["C901"]
+# marimo notebooks: a cell displays its last bare expression (B018), receives
+# names defined in other cells as parameters (N803), and the dataset API names a
+# helper `filter` (A004).
+"examples/marimo_*.py" = ["B018", "N803", "A004"]
 
 [tool.mypy]
 python_version = "3.11"
@@ -193,7 +197,9 @@ strict = true
 files = ["src", "tests", "scripts", "examples"]
 # The scaffold templates import the generated project's own modules (datasets,
 # analytics); tests/test_cli_init_framework.py imports and serves each one.
-exclude = ["^src/hypequery/cli/templates/"]
+# marimo notebooks are self-contained scripts (PEP 723 deps: marimo, altair) whose
+# cells marimo generates as untyped functions.
+exclude = ["^src/hypequery/cli/templates/", "^examples/marimo_"]
 warn_unreachable = true
 # Public signatures must not leak Any; see the PR rules in the plan.
 disallow_any_generics = true
