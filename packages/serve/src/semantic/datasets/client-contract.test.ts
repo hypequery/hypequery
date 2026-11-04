@@ -64,6 +64,7 @@ describe('api.clientContract()', () => {
 
   it('refuses a dataset registered under another name, and a malformed mount path', () => {
     expect(() => api({ datasets: { sales: Orders } }).clientContract()).toThrow(/datasets entry "sales" serves dataset "orders"/);
+    expect(() => api({ metrics: { revenue: totalRevenue } }).clientContract()).toThrow(/metrics entry "revenue" serves metric "totalRevenue"/);
     expect(() => api({ clientContract: { mountPath: 'edge/' } })).toThrow(/mountPath/);
   });
 

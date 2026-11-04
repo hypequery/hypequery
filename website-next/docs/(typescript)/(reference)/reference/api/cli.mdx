@@ -364,7 +364,7 @@ Writes the build view of a TypeScript serve API's [client contract](/docs/react/
 - **`--check`** – Do not write; exit non-zero when the file is missing or out of date
 - **`--force`** – Atomically replace an existing contract file
 
-It refuses to overwrite an existing file without `--force`. The output is the same canonical JSON Python's `hypequery export client-contract` writes for an equivalent definition.
+It refuses to overwrite an existing file without `--force`, and refuses an API with no dataset or metric endpoints, since named queries are not part of a client contract. The output is the same canonical JSON Python's `hypequery export client-contract` writes for an equivalent definition.
 
 ## `hypequery deploy <cloud>`
 

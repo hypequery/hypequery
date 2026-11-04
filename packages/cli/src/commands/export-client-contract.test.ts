@@ -73,6 +73,12 @@ describe('export:client-contract', () => {
     const legacy = path.join(root, 'legacy-api.mjs');
     await writeFile(legacy, 'export const api = { handler: async () => ({}), manifest: () => ({}) };\n');
     await expect(exportClientContractCommand(legacy, { stdout: true })).rejects.toThrow(/clientContract\(\) method/);
+    const empty = path.join(root, 'empty-api.mjs');
+    const { contract: { kind, version, view } } = (await import('../../type-tests/fixtures/serve-client-api.js')).api.clientContract();
+    const { prepareProtocolClientContract } = await import('@hypequery/protocol');
+    const emptyContract = JSON.stringify(prepareProtocolClientContract({ kind, version, view, endpoints: [] }));
+    await writeFile(empty, `export const api = { handler: async () => ({}), clientContract: () => (${emptyContract}) };\n`);
+    await expect(exportClientContractCommand(empty, { stdout: true })).rejects.toThrow(/no endpoints/);
     const { api } = await import('../../type-tests/fixtures/serve-client-api.js');
     const prepared = api.clientContract();
     expect(() => canonicalClientContract({ ...prepared, contentHash: '0'.repeat(64) })).toThrow(/identities do not match/);

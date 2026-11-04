@@ -255,6 +255,14 @@ export const createAPI = <
       const clientEndpoint = createClientEndpointBinding(clientMountPath, () => {
         // A fixed grain always returns a period, which the contract cannot say.
         if (metric.__type === 'grained_metric_ref') return undefined;
+        // Rows carry the value under the metric's name and React keys the hook
+        // by the entry's key; as in Python's create_api, the two are one name.
+        if (metric.name !== name) {
+          throw new Error(
+            `Client export: metrics entry "${name}" serves metric "${metric.name}". `
+            + `Register it under its own name to export a client contract.`,
+          );
+        }
         return {
           dataset: metric.dataset,
           metric,

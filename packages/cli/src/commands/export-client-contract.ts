@@ -45,6 +45,13 @@ export async function exportClientContractCommand(
   } catch (error) {
     throw describeClientContractError(error);
   }
+  if (canonical.includes('"endpoints":[]')) {
+    // Nothing to generate from; Python's export refuses this too.
+    throw new Error(
+      'The client contract has no endpoints. Register datasets or measure-backed metrics with createAPI '
+      + '({ datasets, metrics }); named queries are not part of a client contract.',
+    );
+  }
   if (options.stdout) {
     process.stdout.write(canonical);
     return;
