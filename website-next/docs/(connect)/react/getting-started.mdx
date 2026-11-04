@@ -184,6 +184,45 @@ function App() {
 </Pre>
 </CodeBlock>
 
+## Datasets served from TypeScript in another repo
+
+When the frontend can't import the API module, `InferApiType` has nothing to infer
+from. Export the API's **client contract** instead: a JSON description of each
+dataset and metric endpoint's fields, limits, full path and schema hash.
+
+**1. Export the contract** in the backend repo and commit it, or publish it as a
+build artifact:
+
+<CodeBlock>
+<Pre>
+```bash
+npx hypequery export:client-contract analytics/api.ts --output client-contract.json
+```
+</Pre>
+</CodeBlock>
+
+The module must export the value `createAPI()` returns, as `api` or as the default
+export. `api.clientContract()` returns the same contract in code. Paths include
+`basePath`. If the API is mounted below a prefix, for example
+`app.use('/analytics', toNodeHandler(api))`, set `clientContract: { mountPath: '/analytics' }`
+in `createAPI` so the contract names the paths browsers call. Run the command with
+`--check` in CI to fail when the committed contract is stale.
+
+The contract advertises dataset fields, base and derived measures, and metrics.
+Window and shift measures, relationship fields and metrics with a fixed grain
+(`metric.by('month')`) are not in it yet. Query those through the other paths above.
+
+**2. Generate the client and create the hooks** in the React app, exactly as for
+Python below: `npx hypequery generate:client client-contract.json --output src/hypequery-client.ts`,
+then pass `clientManifest` and `ClientApi` to `createAnalyticsHooks`.
+
+Requests from the generated client send each endpoint's schema hash. TypeScript serve
+answers a stale hash with `409 CLIENT_SCHEMA_CHANGED`, and holds a matching request to
+the contract's strict query profile, as Python does. Requests without the header,
+such as those from `InferApiType` hooks, are served as before. Browsers calling another
+origin need `X-Hypequery-Client-Schema` in the CORS allow-list, which the default
+`cors: true` settings include.
+
 ## Datasets served from Python
 
 A Python backend (`hypequery.serve`) has no TypeScript API type to infer. Instead,
@@ -274,7 +313,7 @@ token resolver returns does **not** invalidate cached data.
 ### When the server's contract changes
 
 Every request sends its endpoint's schema hash in `X-Hypequery-Client-Schema`.
-If the Python definitions have changed since the client was generated, the server
+If the server's definitions have changed since the client was generated, the server
 answers `409` with `details.code` `CLIENT_SCHEMA_CHANGED` instead of returning data
 in a shape your types don't describe. The hooks do not fetch a new contract. Export
 it again, regenerate the client, and review the type errors.

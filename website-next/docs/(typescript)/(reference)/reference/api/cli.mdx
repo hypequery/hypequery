@@ -73,6 +73,7 @@ npx hypequery dev
 | `hypequery generate` | Rebuild `analytics/schema.ts` from your current ClickHouse schema |
 | `hypequery generate:types` | Alias for `hypequery generate` |
 | `hypequery generate:datasets` | Generate dataset (semantic layer) definitions from your ClickHouse schema |
+| `hypequery export:client-contract <api>` | Export a TypeScript serve API's client contract for `hypequery generate:client` |
 | `hypequery deploy <cloud>` | Build, release, and deploy a dataset-only Cloud publication, then print where it is served (hypequery cloud is not live yet) |
 | `hypequery mcp [file]` | Serve this project's datasets to an MCP client over stdio, or check an endpoint with `--self-test` |
 | `hypequery deployment:validate <artifact>` | Verify a deployment bundle or validate contract JSON and report its identity |
@@ -346,6 +347,24 @@ npx @hypequery/cli generate:datasets --path analytics --diff
 npx @hypequery/cli generate:datasets --path analytics --check
 ```
 </CodeBlock>
+
+## `hypequery export:client-contract <api>`
+
+<CodeBlock>
+```bash
+npx hypequery export:client-contract analytics/api.ts --output client-contract.json
+```
+</CodeBlock>
+
+Writes the build view of a TypeScript serve API's [client contract](/docs/react/getting-started#datasets-served-from-typescript-in-another-repo): every dataset endpoint and measure-backed metric endpoint, with typed fields, full paths and schema hashes. A React app in another repository turns it into typed hooks with `hypequery generate:client`. The module must export the value `createAPI()` returns, as `api` or as the default export; the command calls its `api.clientContract()`, checks the result's identities, and connects to no database.
+
+**Options:**
+- **`-o, --output <file>`** – Where to write the contract. Defaults to `client-contract.json`
+- **`--stdout`** – Write only the canonical contract to stdout
+- **`--check`** – Do not write; exit non-zero when the file is missing or out of date
+- **`--force`** – Atomically replace an existing contract file
+
+It refuses to overwrite an existing file without `--force`. The output is the same canonical JSON Python's `hypequery export client-contract` writes for an equivalent definition.
 
 ## `hypequery deploy <cloud>`
 

@@ -44,6 +44,8 @@ const api = serve({
 
 CORS is a runtime-wide setting, so it applies to every endpoint the runtime serves — hand-written queries as well as auto-generated `datasets` endpoints.
 
+`cors: true` allows the `Content-Type`, `Authorization`, `X-Request-ID` and `X-Hypequery-Client-Schema` request headers. A custom `allowedHeaders` list replaces them. Keep `X-Hypequery-Client-Schema` in it if browsers use a client generated with `hypequery generate:client`, which sends that header on every request.
+
 When `credentials: true`, `origin` must be an explicit origin string, allowlist, or validation function. Wildcard or omitted origins are rejected so authenticated responses cannot be exposed to arbitrary sites.
 
 ## When to use it
