@@ -12,31 +12,29 @@ contract**: a JSON description of each endpoint's fields, operators, limits and 
 
 | Step | Where | Command or API |
 | --- | --- | --- |
-| [1. Declare client endpoints](#1-declare-client-endpoints) | Python | `ClientEndpointDefinition` in a definition-only module |
-| [2. Install the endpoints](#2-install-the-endpoints) | Python | `add_dataset_endpoint(..., client_profile=...)`, `add_metric_endpoint`, `add_client_contract_endpoint` |
-| [3. Export the contract](#3-export-the-contract) | Python, then frontend | `python -m hypequery export client-contract`, then `npx hypequery generate:client` |
+| [1. Declare datasets](#1-declare-datasets) | Python | Datasets and a `ClientQueryProfile` |
+| [2. Install the endpoints](#2-install-the-endpoints) | Python | `create_api(..., client_profile=...)`, or `add_dataset_endpoint(..., client_profile=...)` and `add_metric_endpoint` |
+| [3. Export the contract](#3-export-the-contract) | Python, then frontend | `python -m hypequery export client-contract --factory analytics.api:api`, then `npx hypequery generate:client` |
 | [4. Connect MCP](#4-connect-mcp) | Anywhere Node runs | `npx hypequery mcp --client-contract-url https://…/v1/client-contract` |
 
 The Python side needs no Node process. Generating the React client and running the MCP bridge do; there is no native
 Python MCP server. On the frontend, see [React: datasets served from Python](/docs/react/getting-started#datasets-served-from-python)
 for per-login clients, cache scope and result types.
 
-## 1. Declare client endpoints
+## 1. Declare datasets
 
-Keep datasets and client endpoint declarations in a module that imports nothing from `hypequery.serve`, a database
-driver or your credentials. The export command imports it, so it must be cheap and side-effect free.
+Datasets are ordinary [dataset definitions](/docs/python/datasets/overview). A `ClientQueryProfile` sets the default
+and maximum page size clients may request; dataset limits and the endpoint policy can only lower it.
 
 <CodeBlock>
 ```python
 # analytics/definitions.py
 from hypequery.datasets import (
-    ClientEndpointDefinition,
     ClientQueryProfile,
     belongs_to,
     create_dataset_registry,
     dataset,
     dimension,
-    export_client_contract,
     measure,
 )
 
@@ -65,33 +63,15 @@ orders = dataset(
 
 registry = create_dataset_registry(orders, customers)
 profile = ClientQueryProfile(default_limit=50, max_limit=500)
-RELATED = frozenset({"customer"})
-
-
-def build():
-    """Zero-argument factory for `hypequery export client-contract`."""
-    return export_client_contract(
-        [
-            ClientEndpointDefinition(orders, "/v1/orders", profile, related=RELATED),
-            ClientEndpointDefinition(orders, "/v1/revenue", profile, measure="revenue", name="revenue"),
-        ],
-        registry=registry,
-    )
 ```
 </CodeBlock>
 
-- `ClientEndpointDefinition(dataset, path, profile)` describes a dataset endpoint. Add `measure=` (and optionally
-  `name=`, the metric ID and output alias) for a metric endpoint fixed to one measure.
-- `ClientQueryProfile` sets the default and maximum page size clients may request. Dataset limits and the endpoint
-  policy can only lower it.
-- Related fields (`customer.country`, related measures) are left out unless `related=` names the relationship.
-- Pass a `registry` when definitions reach other datasets through relationships.
-
 ## 2. Install the endpoints
 
-Install each endpoint with `client_profile=` at the **same path** the definition declares, and pass the same
-relationships as `include_related=`. Add `add_client_contract_endpoint` for live discovery, and allow your frontend's
-origin with `CorsPolicy`:
+An endpoint is in the client contract when it is installed with a client profile. `create_api(client_profile=...)`
+applies one to every `Dataset` in `datasets=`; an endpoint from `create_dataset_endpoint` or `create_metric_endpoint`
+takes its own `client_profile=`. Add `add_client_contract_endpoint` for live discovery, and allow your frontend's origin
+with `CorsPolicy`:
 
 <CodeBlock>
 ```python
@@ -103,14 +83,13 @@ from hypequery.serve import (
     EndpointPolicy,
     HttpSecurity,
     add_client_contract_endpoint,
-    add_dataset_endpoint,
-    add_metric_endpoint,
     create_api,
+    create_metric_endpoint,
     to_asgi_app,
 )
 
 from .auth import authenticate  # your credential lookup, or jwt_strategy(...)
-from .definitions import RELATED, orders, profile, registry
+from .definitions import orders, profile, registry
 
 executor = create_clickhouse_executor(ClickHouseConnection.from_env())
 client = create_dataset_client(executor=executor, registry=registry)
@@ -122,14 +101,14 @@ api = create_api(
         allowed_hosts=("analytics.example.com",),
         cors=CorsPolicy(origins=("https://app.example.com",)),
     ),
-)
-add_dataset_endpoint(
-    api, "/v1/orders", dataset=orders, client=client, policy=policy,
-    client_profile=profile, include_related=RELATED,
-)
-add_metric_endpoint(
-    api, "/v1/revenue", dataset=orders, client=client, policy=policy,
-    measure="revenue", name="revenue", client_profile=profile,
+    client=client,
+    datasets={"orders": orders},  # POST /datasets/orders/query
+    metrics={  # POST /metrics/revenue
+        "revenue": create_metric_endpoint(
+            dataset=orders, measure="revenue", client=client, policy=policy, client_profile=profile
+        ),
+    },
+    client_profile=profile,
 )
 add_client_contract_endpoint(api, "/v1/client-contract", policy=policy)
 
@@ -137,45 +116,97 @@ app = to_asgi_app(api)
 ```
 </CodeBlock>
 
+- A metric's key in `metrics=` is its name: its ID in the contract (and so its React hook key), the output alias of its
+  measure, and its path. `create_metric_endpoint(..., name=...)` may only repeat the key.
+- A `Dataset` entry is served under the default policy. For another policy, or for related fields, pass an endpoint:
+  `create_dataset_endpoint(dataset=orders, client=client, policy=policy, client_profile=profile,
+  include_related={"customer"})`. Related fields (`customer.country`, related measures) are left out unless
+  `include_related=` names the relationship.
+- To choose your own paths, install endpoints with `add_dataset_endpoint(api, "/v1/orders", ..., client_profile=...)`
+  and `add_metric_endpoint(api, "/v1/revenue", ..., name="revenue", client_profile=...)`.
+
 `CorsPolicy` already allows the `X-Hypequery-Client-Schema` header that generated clients send. The same API can be
 served from [Django](/docs/python/django#serve-hypequerys-endpoints) with `urls(api)` or
 [Flask](/docs/python/flask#serve-hypequerys-endpoints) with `blueprint(api)` instead of `to_asgi_app`. Strict client
 endpoints are checked when the adapter is created, so a mismatch fails at startup. Close the executor at shutdown, for
 example with `to_asgi_app(api, lifespan=...)`.
 
-<Callout type="warn" title="Keep both sides in step">
-  The schema hash covers the path, profile and related fields. If `related=` and `include_related=` (or the paths)
-  differ, the exported contract does not match the live endpoint, and every request from the generated client gets
-  `409 CLIENT_SCHEMA_CHANGED`.
-</Callout>
-
-Endpoints installed **without** `client_profile` keep their ordinary request handling and are left out of client
-contracts.
+Endpoints installed **without** a client profile keep their ordinary request handling and are left out of client
+contracts, so they get no generated hooks.
 
 ## 3. Export the contract
 
-Export from the definition module, without starting a server or opening a connection:
+Export from the installed API, so the contract always names the paths and limits the API serves. `--factory` names the
+API (or its `to_asgi_app` or `to_wsgi_app` application), or a zero-argument function that returns it:
 
 <CodeBlock>
 ```bash
 python -m hypequery export client-contract \
-  --factory analytics.definitions:build \
+  --factory analytics.api:api \
   --output web/client-contract.json
 ```
 </CodeBlock>
 
-Run it from the directory that makes `analytics` importable. Use `--check` in CI to fail when definitions changed
-but the committed contract did not, and `--force` to replace an existing file. See [Python CLI](/docs/python/cli).
+Run it from the directory that makes `analytics` importable. Use `--check` in CI to fail when the API changed but the
+committed contract did not, and `--force` to replace an existing file. See [Python CLI](/docs/python/cli). In code,
+`hypequery.serve.export_client_contract(api)` returns the same contract.
 
-Alternatively, export from the configured API with `hypequery.serve.export_client_contract(api)` (the API, or its
-`to_asgi_app` or `to_wsgi_app` application). It uses the installed paths and effective limits, and produces the same
-build contract as `build()` above.
+An export that would contain no endpoints fails, naming every dataset and metric route installed without a client
+profile:
+
+<CodeBlock>
+```text
+hypequery: The client contract has no endpoints: POST /datasets/orders/query has no client_profile. Pass
+client_profile= to create_api for Dataset entries, or to create_dataset_endpoint, create_metric_endpoint or the add_*
+functions.
+```
+</CodeBlock>
+
+The export imports your module but never queries. Django's `get_client()` and Flask's `client_for(app)` connect on
+their first query, so their APIs export with no database reachable; see the [Django](/docs/python/django#typed-react-hooks)
+and [Flask](/docs/python/flask#typed-react-hooks) guides. `create_clickhouse_executor` connects when it is called, so an
+API module that calls it at import needs ClickHouse to answer during the export.
+
+### Exporting without importing the API
+
+Where importing the API is not possible, for example in a CI job with no database or secrets, export from
+definition-only metadata instead. Each `ClientEndpointDefinition` must repeat the path and relationships its endpoint is
+installed with:
+
+<CodeBlock>
+```python
+# analytics/contract.py
+from hypequery.datasets import ClientEndpointDefinition, export_client_contract
+
+from .definitions import orders, profile, registry
+
+
+def build():
+    """Zero-argument factory for `hypequery export client-contract --factory analytics.contract:build`."""
+    return export_client_contract(
+        [
+            ClientEndpointDefinition(orders, "/datasets/orders/query", profile),
+            ClientEndpointDefinition(orders, "/metrics/revenue", profile, measure="revenue", name="revenue"),
+        ],
+        registry=registry,
+    )
+```
+</CodeBlock>
+
+Add `related=` for the relationships an endpoint passes as `include_related=`. Keep this module free of
+`hypequery.serve`, database drivers and credentials.
+
+<Callout type="warn" title="Keep both sides in step">
+  The schema hash covers the path, profile and related fields. If a definition's path or `related=` differs from the
+  installed endpoint's, the exported contract does not match the live endpoint, and every request from the generated
+  client gets `409 CLIENT_SCHEMA_CHANGED`. Exporting from the installed API avoids this.
+</Callout>
 
 The live `/v1/client-contract` route returns a different, **authorized** view for the calling principal. That view is
 for MCP and discovery; `generate:client` refuses it, because a build must come from the definition owner.
 
-If the API is mounted under a prefix, pass it as `mount_path=` to `export_client_contract(...)` and as
-`client_mount_path=` to `create_api(...)` so exported paths match the URLs browsers call.
+If the API is mounted under a prefix, set `client_mount_path=` on `create_api(...)` (or `mount_path=` for
+definition-only exports) so exported paths match the URLs browsers call.
 
 Then generate the React client in the frontend project, as described in
 [React: datasets served from Python](/docs/react/getting-started#datasets-served-from-python):

@@ -838,7 +838,9 @@ app = to_asgi_app(api)  # uvicorn app:app, or mount it in another ASGI app
   `await api.handle(ServeRequest(...))` serves one request with no server.
 - **Endpoints.** `datasets={"name": dataset}` serves
   `POST /datasets/<name>/query`, and `metrics={"name": create_metric_endpoint(...)}`
-  serves `POST /metrics/<name>`, as in TypeScript. With either, `GET /discovery`
+  serves `POST /metrics/<name>`, as in TypeScript; a metric's key is its name,
+  so its rows and client contract call it `name`. `client_profile=` puts every
+  `Dataset` entry in the client contract. With either, `GET /discovery`
   lists their datasets, authenticated by default (`discovery=False` leaves it
   out). `add_dataset_endpoint(api, path, ...)` and the other `add_*` functions
   serve endpoints at any other path; `base_path=` prefixes every route.
@@ -1932,7 +1934,8 @@ separate integrations; this SDK does not infer deployment paths or permission.
 
 ### Registered client endpoints
 
-Opt in to the strict client profile when installing a dataset or metric route:
+Opt in to the strict client profile when installing a dataset or metric route,
+or for every `Dataset` entry with `create_api(..., client_profile=...)`:
 
 ```python
 from hypequery.datasets import ClientQueryProfile
@@ -1956,7 +1959,8 @@ Proxy headers never determine artifact paths, nor do ASGI's `root_path` and
 WSGI's `SCRIPT_NAME`: the first request served below a prefix that differs from
 `client_mount_path` logs a warning on `hypequery.serve` naming the setting. A strict endpoint refuses a path
 another POST route already serves. Legacy routes keep their input behavior and
-are omitted from this export. `to_asgi_app` exports the contract once when it
+are omitted from this export; a build export with no client endpoints at all
+raises `ValueError` naming them. `to_asgi_app` exports the contract once when it
 builds the app, so a misconfiguration fails at startup.
 
 Consumers can send the endpoint's `schemaHash` in `X-Hypequery-Client-Schema`.
@@ -2000,9 +2004,19 @@ contract describes capabilities; query authentication and policy still apply.
 
 ### Offline export command
 
-Put a zero-argument definition-only factory in a project module. It should return
-`export_client_contract(...)` from `hypequery.datasets`, or its signed `contract`
-member. Then run the Python CLI from that project directory:
+Point `--factory` at the installed API, `module:api` (or its `to_asgi_app` or
+`to_wsgi_app` application, or a zero-argument function returning one), and the
+CLI exports its build view: the contract cannot drift from the routes it serves.
+The export imports the module but runs no query; Django's `get_client()` and
+Flask's `client_for(app)` connect on first query, so they need no database.
+
+```bash
+python -m hypequery export client-contract --factory analytics.api:api
+```
+
+Alternatively, put a zero-argument definition-only factory in a project module.
+It should return `export_client_contract(...)` from `hypequery.datasets`, or its
+signed `contract` member. Then run the Python CLI from that project directory:
 
 ```bash
 python -m hypequery export client-contract --factory client_contract:build

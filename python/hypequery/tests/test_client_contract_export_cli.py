@@ -255,11 +255,15 @@ def test_factory_loader_restores_process_state(
     source = """
 import sys
 import logging
-from hypequery.datasets import export_client_contract
+from hypequery.datasets import ClientEndpointDefinition, ClientQueryProfile, Dataset
+from hypequery.datasets import dimension, export_client_contract
 logging.root.addHandler(logging.StreamHandler(sys.stderr))
 print("TEMPORARY_CHATTER")
 def build():
-    return export_client_contract([])
+    orders = Dataset(name="orders", source="orders", dimensions={"country": dimension.string()})
+    return export_client_contract(
+        [ClientEndpointDefinition(orders, "/orders", ClientQueryProfile())]
+    )
 """
     (tmp_path / "restore_factory.py").write_text(source)
     monkeypatch.chdir(tmp_path)
@@ -269,10 +273,96 @@ def build():
     previous_handlers = list(logging.root.handlers)
     previous_disable = logging.root.manager.disable
     artifact = load_client_contract_factory("restore_factory:build")
-    assert json.loads(artifact)["endpoints"] == []
+    assert [item["id"] for item in json.loads(artifact)["endpoints"]] == ["orders"]
     assert sys.path == previous_path
     assert sys.dont_write_bytecode == previous_bytecode
     assert sys.stdout is previous_out
     assert sys.stderr is previous_err
     assert logging.root.handlers == previous_handlers
     assert logging.root.manager.disable == previous_disable
+
+
+INSTALLED = """
+from hypequery.datasets import ClientQueryProfile, Dataset, create_dataset_client, dimension
+from hypequery.serve import create_api, to_asgi_app, to_wsgi_app
+
+class Executor:
+    def execute(self, compiled):
+        raise AssertionError("an export never queries")
+
+orders = Dataset(
+    name="orders", source="PHYSICAL_SECRET", dimensions={"country": dimension.string()}
+)
+client = create_dataset_client(executor=Executor())
+
+def create(profile=ClientQueryProfile()):
+    return create_api(
+        auth=lambda credential: None,
+        client=client,
+        datasets={"orders": orders},
+        client_profile=profile,
+        client_mount_path="/api",
+    )
+
+api = create()
+asgi = to_asgi_app(api)
+wsgi = to_wsgi_app(create())
+unprofiled = create(None)
+"""
+
+
+@pytest.mark.parametrize("attribute", ["api", "asgi", "wsgi", "create"])
+def test_the_installed_api_exports_its_build_view(tmp_path: Path, attribute: str) -> None:
+    prepare(tmp_path, INSTALLED)
+    result = run_cli(
+        tmp_path,
+        "export",
+        "client-contract",
+        "--factory",
+        f"contract_factory:{attribute}",
+        "--stdout",
+    )
+    assert result.returncode == 0, result.stderr
+    contract = validate_protocol_client_contract(json.loads(result.stdout))
+    assert contract["view"] == "build"
+    assert [(item["id"], item["path"]) for item in contract["endpoints"]] == [
+        ("orders", "/api/datasets/orders/query")
+    ]
+    assert "PHYSICAL_SECRET" not in result.stdout
+
+
+def test_an_api_with_no_profiled_endpoint_fails_naming_them(tmp_path: Path) -> None:
+    prepare(tmp_path, INSTALLED)
+    result = run_cli(
+        tmp_path, "export", "client-contract", "--factory", "contract_factory:unprofiled"
+    )
+    assert result.returncode == 1
+    assert "POST /api/datasets/orders/query has no client_profile" in result.stderr
+    assert "Traceback" not in result.stderr
+    assert not (tmp_path / "client-contract.json").exists()
+
+
+def test_an_empty_contract_fails(tmp_path: Path) -> None:
+    prepare(
+        tmp_path,
+        "from hypequery.datasets import export_client_contract\n"
+        "def build():\n    return export_client_contract([])\n",
+    )
+    result = run_cli(tmp_path, "export", "client-contract", "--factory", "contract_factory:build")
+    assert result.returncode == 1
+    assert "The client contract has no endpoints" in result.stderr
+    assert not (tmp_path / "client-contract.json").exists()
+
+
+def test_an_installed_api_is_recognized_and_exported_in_process() -> None:
+    from hypequery.cli.errors import CliError
+    from hypequery.cli.utils.installed_api import export_installed_contract, installed_api
+    from hypequery.serve import create_api, to_asgi_app, to_wsgi_app
+
+    api = create_api(auth=lambda _credential: None)
+    assert installed_api(api) is api
+    assert installed_api(to_asgi_app(api)) is api
+    assert installed_api(to_wsgi_app(api)) is api
+    assert installed_api({"contract": {}}) is None
+    with pytest.raises(CliError, match="no dataset or metric endpoints"):
+        export_installed_contract(api)

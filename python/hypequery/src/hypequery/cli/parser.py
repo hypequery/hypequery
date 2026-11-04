@@ -92,7 +92,10 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         "client-contract", help="export a signed client contract"
     )
     client_contract.add_argument(
-        "--factory", required=True, help="explicit zero-argument definition factory: module:factory"
+        "--factory",
+        required=True,
+        help="module:attribute naming your API, or a zero-argument factory returning it "
+        "or a contract",
     )
     output = client_contract.add_mutually_exclusive_group()
     output.add_argument(

@@ -49,9 +49,9 @@ snapshot references. Store screenshots/traces under `output/playwright/`.
    unexpected JavaScript errors, CORS failures and failed successful-query
    requests fail the journey.
 
-The fixture's pure `fixture:build` imports neither FastAPI nor a database driver.
-The server installs the same dataset/metric definitions behind an explicit mount
-and tenant-required policy. Generated types/routes contain no backend import or
+The fixture's `fixture:build` returns the installed API, so the exported contract
+comes from the same endpoints the server mounts, behind an explicit mount and
+tenant-required policy; it imports neither FastAPI nor a database driver. Generated types/routes contain no backend import or
 physical source/tenant configuration. Source fixtures live in
 `testing/fixtures/python-client-browser/`.
 
