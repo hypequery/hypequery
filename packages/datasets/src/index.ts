@@ -295,6 +295,7 @@ export type {
   DerivedMeasureOptions,
   DerivedMeasureUses,
   InferDimensionType,
+  DimensionResultValue,
   RelationshipKind,
   RelationshipDefinition,
   RelationshipKey,
