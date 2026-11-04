@@ -12,7 +12,11 @@ from .generators.framework_apps import FRAMEWORKS
 
 def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        prog="hypequery", description="Author and serve Python datasets."
+        prog="hypequery",
+        description="Author and serve Python datasets.",
+        # No abbreviations: `--no-tel` must not pass as the opt-out below, which
+        # is matched by its full name before parsing.
+        allow_abbrev=False,
     )
     parser.add_argument(
         "-V", "--version", action="version", version=f"hypequery {version('hypequery')}"

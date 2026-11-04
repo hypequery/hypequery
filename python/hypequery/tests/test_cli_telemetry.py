@@ -316,6 +316,23 @@ def test_rejected_and_informational_invocations_are_attributed(
     assert "PRIVATE" not in json.dumps(event)
 
 
+def test_an_abbreviated_opt_out_is_refused_rather_than_ignored(tmp_path: Path) -> None:
+    # argparse would otherwise accept `--no-tel` as `--no-telemetry` while the
+    # opt-out, matched by its full name, stayed off: a command that looks opted
+    # out but still reports.
+    env = _clean_env(tmp_path / "config", HYPEQUERY_TELEMETRY_DEBUG="1")
+    result = _run(["--no-tel", "init", "--path", "PRIVATE-project"], env, tmp_path)
+    assert result.returncode == 2
+    assert "unrecognized arguments: --no-tel" in result.stderr
+    assert not (tmp_path / "PRIVATE-project").exists()
+    [event] = _events(result.stderr)
+    assert {"command": "init", "error_code": "unknown_option"}.items() <= event[
+        "properties"
+    ].items()
+    assert "PRIVATE" not in json.dumps(event)
+    assert _events(_run(["--no-telemetry", "init", "--help"], env, tmp_path).stderr) == []
+
+
 def test_telemetry_commands_and_opt_outs_emit_nothing(tmp_path: Path) -> None:
     env = _clean_env(tmp_path / "config", HYPEQUERY_TELEMETRY_DEBUG="1")
     disabled = _run(["telemetry", "disable"], env, tmp_path)
