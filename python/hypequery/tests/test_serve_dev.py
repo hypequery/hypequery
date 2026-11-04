@@ -219,34 +219,49 @@ def test_reload_supervisor_releases_embedded_databases(
 ) -> None:
     # A chDB database directory is held by one process. The supervisor only
     # checks the app; the worker it starts must be able to open the database.
+    # What the caller itself had open is not the supervisor's to close.
     import weakref
 
     from hypequery.execution import chdb
 
     monkeypatch.setattr(chdb, "_OPEN_EXECUTORS", weakref.WeakSet())
-    (tmp_path / "devapp_chdb.py").write_text(
-        "from hypequery.execution.chdb import ChdbExecutor\n"
-        "from hypequery.serve import HttpSecurity, Principal, create_api, to_asgi_app\n"
-        "class Connection:\n"
-        "    closed = 0\n"
-        "    def query(self, sql, fmt='JSONCompact', *, params=None):\n"
-        "        raise AssertionError('never queried')\n"
-        "    def close(self):\n"
-        "        Connection.closed += 1\n"
-        "executor = ChdbExecutor(Connection())\n"
-        "api = create_api(auth=lambda credential: Principal(subject='dev'),"
-        " security=HttpSecurity(allowed_hosts=('127.0.0.1',)))\n"
-        "app = to_asgi_app(api)\n"
-    )
+
+    class CallerConnection:
+        closed = 0
+
+        def query(self, sql: str, fmt: str = "JSONCompact", *, params: object = None) -> object:
+            raise AssertionError("never queried")
+
+        def close(self) -> None:
+            CallerConnection.closed += 1
+
+    callers_own = chdb.ChdbExecutor(CallerConnection())
+    for name in ("devapp_chdb_reload", "devapp_chdb_serve"):
+        (tmp_path / f"{name}.py").write_text(
+            "from hypequery.execution.chdb import ChdbExecutor\n"
+            "from hypequery.serve import HttpSecurity, Principal, create_api, to_asgi_app\n"
+            "class Connection:\n"
+            "    closed = 0\n"
+            "    def query(self, sql, fmt='JSONCompact', *, params=None):\n"
+            "        raise AssertionError('never queried')\n"
+            "    def close(self):\n"
+            "        Connection.closed += 1\n"
+            "executor = ChdbExecutor(Connection())\n"
+            "api = create_api(auth=lambda credential: Principal(subject='dev'),"
+            " security=HttpSecurity(allowed_hosts=('127.0.0.1',)))\n"
+            "app = to_asgi_app(api)\n"
+        )
     monkeypatch.chdir(tmp_path)
     monkeypatch.setattr(sys, "path", list(sys.path))
-    run_dev("devapp_chdb:app")
-    connection = sys.modules["devapp_chdb"].Connection
+    run_dev("devapp_chdb_reload:app", reload=True)
+    assert served[0][0] == "hypequery.serve.dev:_reload_app"
+    assert sys.modules["devapp_chdb_reload"].Connection.closed == 1
+    assert CallerConnection.closed == 0
     # Served in this process, the database stays open.
-    assert connection.closed == 0
-    run_dev("devapp_chdb:app", reload=True)
-    assert connection.closed == 1
-    assert served[1][0] == "hypequery.serve.dev:_reload_app"
+    run_dev("devapp_chdb_serve:app")
+    assert sys.modules["devapp_chdb_serve"].Connection.closed == 0
+    callers_own.close()
+    assert CallerConnection.closed == 1
 
 
 def test_module_entry_point_passes_options(
