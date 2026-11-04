@@ -214,6 +214,41 @@ def test_reload_workers_keep_the_callers_driver_log_levels(
     assert driver.level == logging.ERROR
 
 
+def test_reload_supervisor_releases_embedded_databases(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, served: list[tuple[object, dict[str, object]]]
+) -> None:
+    # A chDB database directory is held by one process. The supervisor only
+    # checks the app; the worker it starts must be able to open the database.
+    import weakref
+
+    from hypequery.execution import chdb
+
+    monkeypatch.setattr(chdb, "_OPEN_EXECUTORS", weakref.WeakSet())
+    (tmp_path / "devapp_chdb.py").write_text(
+        "from hypequery.execution.chdb import ChdbExecutor\n"
+        "from hypequery.serve import HttpSecurity, Principal, create_api, to_asgi_app\n"
+        "class Connection:\n"
+        "    closed = 0\n"
+        "    def query(self, sql, fmt='JSONCompact', *, params=None):\n"
+        "        raise AssertionError('never queried')\n"
+        "    def close(self):\n"
+        "        Connection.closed += 1\n"
+        "executor = ChdbExecutor(Connection())\n"
+        "api = create_api(auth=lambda credential: Principal(subject='dev'),"
+        " security=HttpSecurity(allowed_hosts=('127.0.0.1',)))\n"
+        "app = to_asgi_app(api)\n"
+    )
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(sys, "path", list(sys.path))
+    run_dev("devapp_chdb:app")
+    connection = sys.modules["devapp_chdb"].Connection
+    # Served in this process, the database stays open.
+    assert connection.closed == 0
+    run_dev("devapp_chdb:app", reload=True)
+    assert connection.closed == 1
+    assert served[1][0] == "hypequery.serve.dev:_reload_app"
+
+
 def test_module_entry_point_passes_options(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

@@ -16,6 +16,7 @@ import os
 import sys
 import warnings
 
+from ...execution.chdb import close_open_chdb_executors
 from ...execution.utils.driver_loggers import apply_driver_log_levels, driver_log_levels
 from ..asgi import AsgiApp, to_asgi_app
 from ..core.api import Api
@@ -88,6 +89,9 @@ def run_dev(
             # ``_reload_app`` rather than the user's import string.
             target = _import_app(app, os.getcwd())
             if reload:
+                # The worker serves, not this process: release what the check
+                # opened. A chDB database directory is held by one process.
+                close_open_chdb_executors()
                 os.environ[_RELOAD_TARGET] = json.dumps([os.getcwd(), app, driver_log_levels()])
                 target = f"{__name__}:_reload_app"
         uvicorn.run(
