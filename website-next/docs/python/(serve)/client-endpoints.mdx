@@ -84,6 +84,7 @@ from hypequery.serve import (
     HttpSecurity,
     add_client_contract_endpoint,
     create_api,
+    create_dataset_endpoint,
     create_metric_endpoint,
     to_asgi_app,
 )
@@ -101,14 +102,16 @@ api = create_api(
         allowed_hosts=("analytics.example.com",),
         cors=CorsPolicy(origins=("https://app.example.com",)),
     ),
-    client=client,
-    datasets={"orders": orders},  # POST /datasets/orders/query
+    datasets={  # POST /datasets/orders/query
+        "orders": create_dataset_endpoint(
+            dataset=orders, client=client, policy=policy, client_profile=profile
+        ),
+    },
     metrics={  # POST /metrics/revenue
         "revenue": create_metric_endpoint(
             dataset=orders, measure="revenue", client=client, policy=policy, client_profile=profile
         ),
     },
-    client_profile=profile,
 )
 add_client_contract_endpoint(api, "/v1/client-contract", policy=policy)
 
@@ -118,10 +121,12 @@ app = to_asgi_app(api)
 
 - A metric's key in `metrics=` is its name: its ID in the contract (and so its React hook key), the output alias of its
   measure, and its path. `create_metric_endpoint(..., name=...)` may only repeat the key.
-- A `Dataset` entry is served under the default policy. For another policy, or for related fields, pass an endpoint:
-  `create_dataset_endpoint(dataset=orders, client=client, policy=policy, client_profile=profile,
-  include_related={"customer"})`. Related fields (`customer.country`, related measures) are left out unless
-  `include_related=` names the relationship.
+- Every route here takes the same `policy`, so a caller needs the `analytics:read` scope for the orders query, the
+  metric and the contract alike. When the default policy is enough, a bare `Dataset` is shorter:
+  `datasets={"orders": orders}` with `create_api(..., client=client, client_profile=profile)` serves it under the
+  default policy and puts it in the contract.
+- Related fields (`customer.country`, related measures) are left out unless the endpoint names the relationship:
+  `create_dataset_endpoint(..., include_related={"customer"})`.
 - To choose your own paths, install endpoints with `add_dataset_endpoint(api, "/v1/orders", ..., client_profile=...)`
   and `add_metric_endpoint(api, "/v1/revenue", ..., name="revenue", client_profile=...)`.
 
