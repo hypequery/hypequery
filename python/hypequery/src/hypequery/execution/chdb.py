@@ -17,6 +17,7 @@ from __future__ import annotations
 import asyncio
 import threading
 import weakref
+from collections.abc import Collection
 from concurrent.futures import ThreadPoolExecutor
 from types import TracebackType
 from typing import Protocol, Self
@@ -120,16 +121,24 @@ class ChdbExecutor:
         self.close()
 
 
-def close_open_chdb_executors() -> int:
-    """Close every chDB executor open in this process; how many were closed.
+def open_chdb_executors() -> set[ChdbExecutor]:
+    """The chDB executors open in this process, for :func:`close_chdb_executors_opened_since`."""
 
-    A chDB database directory is held by one process at a time. A process that
-    imports an app only to check it, such as the development server's reload
-    supervisor, calls this so the process that serves the app can open the
-    database. The async executor's connection is closed through its sync one.
+    return set(_OPEN_EXECUTORS)
+
+
+def close_chdb_executors_opened_since(before: Collection[ChdbExecutor]) -> int:
+    """Close the chDB executors opened since *before*; how many were closed.
+
+    *before* is an earlier :func:`open_chdb_executors`; executors in it stay
+    open. A chDB database directory is held by one process at a time, so a
+    process that imports an app only to check it, such as the development
+    server's reload supervisor, closes what the import opened for the process
+    that serves the app, and nothing its caller opened. The async executor's
+    connection is closed through its sync one.
     """
 
-    executors = list(_OPEN_EXECUTORS)
+    executors = [executor for executor in _OPEN_EXECUTORS if executor not in before]
     for executor in executors:
         executor.close()
     return len(executors)
