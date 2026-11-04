@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import asyncio
 import threading
+import weakref
 from concurrent.futures import ThreadPoolExecutor
 from types import TracebackType
 from typing import Protocol, Self
@@ -32,6 +33,10 @@ from .utils.settings_clause import settings_clause, within_deadline
 
 #: chDB's own name for a database that lives only as long as the process.
 IN_MEMORY = ":memory:"
+
+#: Executors open in this process, so a process that imported an app only to
+#: check it can release its database for the process that serves it.
+_OPEN_EXECUTORS: weakref.WeakSet[ChdbExecutor] = weakref.WeakSet()
 
 
 class _ChdbResult(Protocol):
@@ -64,6 +69,7 @@ class ChdbExecutor:
     def __init__(self, connection: _ChdbConnection) -> None:
         self._connection = connection
         self._lock = threading.Lock()
+        _OPEN_EXECUTORS.add(self)
 
     def execute(self, compiled: CompiledQuery) -> QueryRows:
         parameters, settings = query_arguments(compiled)
@@ -97,6 +103,7 @@ class ChdbExecutor:
     def close(self) -> None:
         """Close the chDB connection; an in-memory database goes with the last one."""
 
+        _OPEN_EXECUTORS.discard(self)
         closer = getattr(self._connection, "close", None)
         if callable(closer):
             closer()
@@ -111,6 +118,21 @@ class ChdbExecutor:
         traceback: TracebackType | None,
     ) -> None:
         self.close()
+
+
+def close_open_chdb_executors() -> int:
+    """Close every chDB executor open in this process; how many were closed.
+
+    A chDB database directory is held by one process at a time. A process that
+    imports an app only to check it, such as the development server's reload
+    supervisor, calls this so the process that serves the app can open the
+    database. The async executor's connection is closed through its sync one.
+    """
+
+    executors = list(_OPEN_EXECUTORS)
+    for executor in executors:
+        executor.close()
+    return len(executors)
 
 
 class AsyncChdbExecutor:

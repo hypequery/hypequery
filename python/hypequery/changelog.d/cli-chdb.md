@@ -7,3 +7,7 @@
   `--chdb-path`, the path init records in `pyproject.toml`, or a project `analytics.chdb`
   when no ClickHouse server is configured, and says plainly when another
   process such as `hypequery dev` has the database open.
+- `hypequery dev` serves a chDB project with reload, its default: the
+  supervisor that checks the app before starting the worker now closes the
+  database it opened doing so, since chDB holds a database directory for one
+  process at a time (`run_dev(reload=True)` does the same).

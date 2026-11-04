@@ -9,13 +9,16 @@ from __future__ import annotations
 import ast
 import json
 import shutil
+import socket
 import subprocess
 import sys
 import textwrap
+import time
 import tomllib
 from importlib.util import find_spec
 from pathlib import Path
 
+import httpx
 import pytest
 
 from hypequery.cli import main
@@ -137,6 +140,53 @@ def test_the_example_seeds_serves_and_regenerates_from_chdb(tmp_path: Path) -> N
     regenerated = hypequery("generate", "datasets", "--diff", cwd=project)
     assert "recorded in pyproject.toml (analytics.chdb)" in regenerated.stdout
     assert "'orders': dataset(" in regenerated.stdout
+
+
+@needs_chdb
+def test_hypequery_dev_serves_a_chdb_project_with_reload(tmp_path: Path) -> None:
+    # `hypequery dev` reloads by default, so a worker process serves the app.
+    # The supervisor checks the app first; that check must not keep the
+    # database open, or the worker cannot open it and the server never answers.
+    project = tmp_path / "project"
+    assert main(["init", str(project), "--database", "chdb", "--no-interactive"]) == 0
+    seeded = python(readme_seed(project), cwd=project)
+    assert seeded.returncode == 0, seeded.stderr
+    with socket.socket() as probe:
+        probe.bind(("127.0.0.1", 0))
+        port = probe.getsockname()[1]
+    server = subprocess.Popen(
+        [sys.executable, "-m", "hypequery", "dev", "--port", str(port)],
+        cwd=project,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        env={"PATH": "/usr/bin:/bin", "CI": "1"},
+    )
+    try:
+        with httpx.Client(base_url=f"http://127.0.0.1:{port}", timeout=5) as http:
+            until = time.monotonic() + 90
+            while True:
+                try:
+                    response = http.post(
+                        "/datasets/orders/query", json={"measures": ["revenue", "orderCount"]}
+                    )
+                    break
+                except httpx.TransportError:
+                    # Also a connect timeout: the supervisor listens, no worker answers.
+                    if server.poll() is not None or time.monotonic() >= until:
+                        _, stderr = server.communicate(timeout=5)
+                        pytest.fail(f"hypequery dev did not start: {stderr}")
+                    time.sleep(0.1)
+            assert response.status_code == 200, response.text
+            [row] = response.json()["data"]
+            assert set(row) == {"revenue", "orderCount"}
+    finally:
+        server.terminate()
+        try:
+            server.communicate(timeout=10)
+        except subprocess.TimeoutExpired:
+            server.kill()
+            server.communicate()
 
 
 @needs_chdb
