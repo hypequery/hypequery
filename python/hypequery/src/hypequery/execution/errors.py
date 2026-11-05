@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import re
+
 from hypequery.datasets.planner import CompiledQueryError, ExecutorFailureCode
 
 #: RFC 0010: only the authentication layer may say a caller's credentials were
@@ -46,6 +48,42 @@ def server_fault(code: ExecutorFailureCode, diagnostic: str, query_id: str) -> C
     )
 
 
+def server_error_for(name: str, query_id: str) -> CompiledQueryError | None:
+    """The public error for a named ClickHouse server error, if it has one.
+
+    *name* is ClickHouse's own error-code name, which the HTTP driver and chDB
+    both report. ``None`` leaves the failure to the caller's fallback.
+    """
+
+    if name in CREDENTIAL_ERRORS:
+        return server_fault(
+            "HQ_EXECUTOR_CREDENTIALS_REJECTED",
+            f"ClickHouse rejected the server's configured credentials ({name}); "
+            "check the connection's username and password.",
+            query_id,
+        )
+    if name in PRIVILEGE_ERRORS:
+        return server_fault(
+            "HQ_EXECUTOR_ACCESS_DENIED",
+            f"ClickHouse denied the server's configured user ({name}); check the user's grants.",
+            query_id,
+        )
+    if name == "UNKNOWN_DATABASE":
+        return server_fault(
+            "HQ_EXECUTOR_DATABASE_MISSING",
+            "The configured ClickHouse database does not exist (UNKNOWN_DATABASE); "
+            "check the connection's database.",
+            query_id,
+        )
+    if name in ("TIMEOUT_EXCEEDED", "QUERY_WAS_CANCELLED"):
+        return CompiledQueryError("deadline-exceeded", "The query timed out.", query_id=query_id)
+    # ClickHouse 26 reports a result-limit breach as code 396
+    # TOO_MANY_ROWS_OR_BYTES; older servers used the two separate names.
+    if name in ("TOO_MANY_ROWS", "TOO_MANY_BYTES", "TOO_MANY_ROWS_OR_BYTES"):
+        return CompiledQueryError("too-large", "The query result is too large.", query_id=query_id)
+    return None
+
+
 def safe_driver_error(exc: Exception, query_id: str) -> CompiledQueryError:
     from clickhouse_connect.driver.exceptions import (
         Error,
@@ -53,39 +91,27 @@ def safe_driver_error(exc: Exception, query_id: str) -> CompiledQueryError:
     )
 
     if isinstance(exc, Error):
-        if exc.name in CREDENTIAL_ERRORS:
-            return server_fault(
-                "HQ_EXECUTOR_CREDENTIALS_REJECTED",
-                f"ClickHouse rejected the server's configured credentials ({exc.name}); "
-                "check the connection's username and password.",
-                query_id,
-            )
-        if exc.name in PRIVILEGE_ERRORS:
-            return server_fault(
-                "HQ_EXECUTOR_ACCESS_DENIED",
-                f"ClickHouse denied the server's configured user ({exc.name}); "
-                "check the user's grants.",
-                query_id,
-            )
-        if exc.name == "UNKNOWN_DATABASE":
-            return server_fault(
-                "HQ_EXECUTOR_DATABASE_MISSING",
-                "The configured ClickHouse database does not exist (UNKNOWN_DATABASE); "
-                "check the connection's database.",
-                query_id,
-            )
-        if exc.name in ("TIMEOUT_EXCEEDED", "QUERY_WAS_CANCELLED"):
-            return CompiledQueryError(
-                "deadline-exceeded", "The query timed out.", query_id=query_id
-            )
-        # ClickHouse 26 reports a result-limit breach as code 396
-        # TOO_MANY_ROWS_OR_BYTES; older servers used the two separate names.
-        if exc.name in ("TOO_MANY_ROWS", "TOO_MANY_BYTES", "TOO_MANY_ROWS_OR_BYTES"):
-            return CompiledQueryError(
-                "too-large", "The query result is too large.", query_id=query_id
-            )
+        mapped = server_error_for(exc.name, query_id) if exc.name else None
+        if mapped is not None:
+            return mapped
         if isinstance(exc, OperationalError):
             return CompiledQueryError("unavailable", "", query_id=query_id)
     if isinstance(exc, (ConnectionError, TimeoutError, OSError)):
         return CompiledQueryError("unavailable", "", query_id=query_id)
+    return CompiledQueryError("internal", "", query_id=query_id)
+
+
+# chDB reports a failure as text ending "... (UNKNOWN_TABLE)", sometimes
+# repeating the code after a "(version ...)" suffix; the last name is the code.
+_CHDB_ERROR_NAME = re.compile(r"\(([A-Z][A-Z0-9_]+)\)")
+
+
+def chdb_driver_error(exc: Exception, query_id: str) -> CompiledQueryError:
+    """The public error for a failed chDB query, never chDB's own text."""
+
+    if isinstance(exc, RuntimeError):
+        names = _CHDB_ERROR_NAME.findall(str(exc))
+        mapped = server_error_for(names[-1], query_id) if names else None
+        if mapped is not None:
+            return mapped
     return CompiledQueryError("internal", "", query_id=query_id)

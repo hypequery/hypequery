@@ -75,10 +75,10 @@ const groupedDatasetResult = hooks.useDataset('orders', {
   by: 'month',
 });
 const groupedDatasetRow = groupedDatasetResult.data?.data[0];
-const groupedCountry: string | undefined = groupedDatasetRow?.country;
+const groupedCountry: string | null | undefined = groupedDatasetRow?.country;
 const groupedRevenue: string | null | undefined = groupedDatasetRow?.revenue;
 const groupedOrderCount: string | null | undefined = groupedDatasetRow?.orderCount;
-const groupedPeriod: string | undefined = groupedDatasetRow?.period;
+const groupedPeriod: string | null | undefined = groupedDatasetRow?.period;
 void groupedCountry;
 void groupedRevenue;
 void groupedOrderCount;
@@ -88,7 +88,7 @@ const relatedDatasetResult = hooks.useDataset('orders', {
   dimensions: ['customer.country'] as const,
   measures: ['revenue'] as const,
 });
-const relatedCountry: string | undefined =
+const relatedCountry: string | null | undefined =
   relatedDatasetResult.data?.data[0]?.['customer.country'];
 void relatedCountry;
 
@@ -100,7 +100,7 @@ const metricResult = hooks.useMetric('revenue', {
 });
 const metricRow = metricResult.data?.data[0];
 const metricRevenue: string | null | undefined = metricRow?.revenue;
-const metricCountry: string | undefined = metricRow?.country;
+const metricCountry: string | null | undefined = metricRow?.country;
 
 // @ts-expect-error metric values are strings, not numbers
 const metricRevenueAsNumber: number | undefined = metricRow?.revenue;
@@ -111,7 +111,7 @@ void metricCountry;
 const relatedMetricResult = hooks.useMetric('revenue', {
   dimensions: ['customer.country'] as const,
 });
-const relatedMetricCountry: string | undefined =
+const relatedMetricCountry: string | null | undefined =
   relatedMetricResult.data?.data[0]?.['customer.country'];
 void relatedMetricCountry;
 

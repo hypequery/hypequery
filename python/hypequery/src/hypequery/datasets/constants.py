@@ -43,6 +43,9 @@ SEMANTIC_FILTER_OPERATORS: Final[tuple[FilterOperator, ...]] = (
 #: Null checks (RFC 0023). Opt-in: a filter accepts one only when its
 #: `operators` list names it, so they are never part of the default list.
 SEMANTIC_NULL_CHECK_OPERATORS: Final[tuple[FilterOperator, ...]] = ("isNull", "isNotNull")
+#: Aggregate states that merge to the stored value itself, which may be a string or a
+#: date: their measures cannot feed `having` or arithmetic formulas.
+ORDERED_MERGE_STATES: Final[frozenset[str]] = frozenset(("min", "max", "any", "anyLast"))
 
 #: The operators accepted by dataset `having` conditions; mirrors
 #: `SEMANTIC_HAVING_OPERATORS` in `packages/datasets/src/constants.ts`.

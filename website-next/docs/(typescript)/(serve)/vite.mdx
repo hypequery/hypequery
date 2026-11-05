@@ -47,18 +47,38 @@ export default defineConfig({
 
 ### Generate typed React hooks
 
+Generate the route manifest, so the hooks know each endpoint's method and path:
+
+<CodeBlock>
+```bash
+npm install @hypequery/react @tanstack/react-query
+npm install -D @hypequery/cli
+npx hypequery generate:manifest api/queries.ts --output src/lib/hypequery-manifest.json
+```
+</CodeBlock>
+
 Create `src/lib/hypequery.ts`:
 
 <CodeBlock>
 ```typescript
 import { createHooks } from '@hypequery/react';
-import type { ApiDefinition } from '../../api/queries';
+import type { InferApiType } from '@hypequery/serve';
+import type { api } from '../../api/queries';
+import manifest from './hypequery-manifest.json';
 
-export const { useQuery, useMutation } = createHooks<ApiDefinition>({
-  baseUrl: '/api',
+type Api = InferApiType<typeof api>;
+
+export const { useQuery, useMutation } = createHooks<Api>({
+  baseUrl: '/api/analytics',
+  manifest,
 });
 ```
 </CodeBlock>
+
+Both server imports are `import type`, so no server code reaches the Vite bundle. Serve mounts routes under
+`/api/analytics` by default, which the `/api` proxy above forwards. Re-run `generate:manifest` when you add or
+re-route a query. Projects created by `hypequery init` also export `ApiDefinition`, the same
+`InferApiType<typeof api>` type.
 
 </Step>
 

@@ -50,5 +50,14 @@
       "customers": "67821b626e7688afa43c6598893a736854b658924e4564361b1db8bcd1f3192d"
     },
     "sha256": "08e3b75129b0f8c528d7dc25ba19ecf7472b5ef2a152655d3181c21e41f2e5c1"
+  },
+  {
+    "id": "no-timezone",
+    "canonical": "{\"contentHash\":\"7e965ee72556e981f87001371b73422280f58917657d58037086e57353e1a632\",\"endpoints\":[{\"dataset\":\"events\",\"dimensions\":{\"kind\":{\"groupable\":false,\"nullable\":false,\"orderable\":false,\"type\":\"string\",\"wireType\":\"string\"}},\"filters\":{},\"id\":\"eventCount\",\"kind\":\"metric\",\"limits\":{\"defaultLimit\":100,\"maxDimensions\":50,\"maxFilterValues\":1000,\"maxLimit\":1000,\"maxMeasures\":1,\"maxOffset\":10000,\"maxOrderBy\":50,\"maxPredicates\":100},\"measures\":{\"eventCount\":{\"having\":false,\"nullable\":true,\"wireType\":\"string\"}},\"metadata\":false,\"path\":\"/api/v1/metrics/eventCount/query\",\"schemaHash\":\"eba151897045d0b2766ac375612b3a87eb98964b35f054edba00874c3549ef59\",\"time\":{\"defaultTimezone\":\"UTC\",\"grains\":[\"day\"],\"periodFormat\":\"calendar-date-or-local-datetime-v1\",\"timezone\":false}},{\"dataset\":\"events\",\"defaultMeasures\":[\"eventCount\"],\"dimensions\":{\"kind\":{\"groupable\":false,\"nullable\":false,\"orderable\":false,\"type\":\"string\",\"wireType\":\"string\"}},\"filters\":{\"kind\":{\"operators\":[\"eq\"],\"type\":\"string\"}},\"id\":\"events\",\"kind\":\"dataset\",\"limits\":{\"defaultLimit\":100,\"maxDimensions\":50,\"maxFilterValues\":1000,\"maxLimit\":1000,\"maxMeasures\":50,\"maxOffset\":10000,\"maxOrderBy\":50,\"maxPredicates\":100},\"measures\":{\"eventCount\":{\"having\":true,\"nullable\":true,\"wireType\":\"string\"}},\"metadata\":false,\"path\":\"/api/v1/datasets/events/query\",\"schemaHash\":\"65eeea2b0e72ab216bc092ed11104b372f2a36b7497330d833f7443e314f1cd0\",\"time\":{\"defaultTimezone\":\"UTC\",\"grains\":[\"day\",\"month\"],\"periodFormat\":\"calendar-date-or-local-datetime-v1\",\"timezone\":false}}],\"kind\":\"hypequery-client-contract\",\"version\":1,\"view\":\"build\"}",
+    "endpointHashes": {
+      "eventCount": "eba151897045d0b2766ac375612b3a87eb98964b35f054edba00874c3549ef59",
+      "events": "65eeea2b0e72ab216bc092ed11104b372f2a36b7497330d833f7443e314f1cd0"
+    },
+    "sha256": "7e965ee72556e981f87001371b73422280f58917657d58037086e57353e1a632"
   }
 ]

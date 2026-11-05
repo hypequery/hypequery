@@ -8,12 +8,13 @@ from collections.abc import AsyncIterator, Callable, Mapping
 from contextlib import asynccontextmanager
 
 from hypequery.datasets import (
+    CompiledQuery,
     Dataset,
     DatasetClient,
     create_dataset_client,
     create_dataset_registry,
 )
-from hypequery.execution import ClickHouseExecutor, create_clickhouse_executor
+from hypequery.execution import ClickHouseExecutor, QueryRows, create_clickhouse_executor
 from hypequery.serve import (
     Api,
     AsgiApp,
@@ -56,6 +57,32 @@ class ExecutorLifetime:
             await asyncio.to_thread(self.executor.close)
 
 
+class ExportOnlyExecutor:
+    """Stands in for ClickHouse in an API built only to export its client contract."""
+
+    def execute(self, compiled: CompiledQuery) -> QueryRows:
+        raise RuntimeError("This API only exports its client contract; it runs no queries")
+
+
+def _create_api(
+    auth: Callable[[Credential], Principal | None], cors_origins: tuple[str, ...]
+) -> Api:
+    return create_api(
+        auth=auth,
+        security=HttpSecurity(
+            allowed_hosts=("localhost", "127.0.0.1"),
+            cors=CorsPolicy(origins=cors_origins) if cors_origins else None,
+        ),
+        production=ProductionProfile(
+            max_result_rows=101,
+            max_result_bytes=1 << 20,
+            timeout_seconds=10,
+            max_threads=2,
+            max_concurrency=8,
+        ),
+    )
+
+
 def application(
     *,
     datasets: tuple[Dataset, ...],
@@ -69,22 +96,29 @@ def application(
         client = create_dataset_client(
             executor=executor, registry=create_dataset_registry(*datasets)
         )
-        api = create_api(
-            auth=authenticator,
-            security=HttpSecurity(
-                allowed_hosts=("localhost", "127.0.0.1"),
-                cors=CorsPolicy(origins=cors_origins) if cors_origins else None,
-            ),
-            production=ProductionProfile(
-                max_result_rows=101,
-                max_result_bytes=1 << 20,
-                timeout_seconds=10,
-                max_threads=2,
-                max_concurrency=8,
-            ),
-        )
+        api = _create_api(authenticator, cors_origins)
         install(api, client)
         return to_asgi_app(api, lifespan=ExecutorLifetime(executor).lifespan)
     except Exception:
         executor.close()
         raise
+
+
+def contract_api(
+    *,
+    datasets: tuple[Dataset, ...],
+    install: Callable[[Api, DatasetClient], None],
+    cors_origins: tuple[str, ...] = (),
+) -> Api:
+    """The API `application` serves, with no credentials or connection.
+
+    For `hypequery export client-contract`: the contract comes from the same
+    `install`, so it cannot drift from the routes the application serves.
+    """
+
+    client = create_dataset_client(
+        executor=ExportOnlyExecutor(), registry=create_dataset_registry(*datasets)
+    )
+    api = _create_api(lambda _credential: None, cors_origins)
+    install(api, client)
+    return api

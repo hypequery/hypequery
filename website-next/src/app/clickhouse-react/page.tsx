@@ -26,13 +26,16 @@ export const metadata: Metadata = {
 };
 
 const hooksCode = `import { createHooks } from '@hypequery/react';
-import { InferApiType } from '@hypequery/serve';
+import type { InferApiType } from '@hypequery/serve';
 import type { api } from '@/analytics/queries';
+// npx hypequery generate:manifest analytics/queries.ts --output analytics/hypequery-manifest.json
+import manifest from '@/analytics/hypequery-manifest.json';
 
 type Api = InferApiType<typeof api>;
 
 export const { useQuery, useMutation } = createHooks<Api>({
   baseUrl: '/api/analytics',
+  manifest,
 });`;
 
 const componentCode = `export function RevenueChart() {
