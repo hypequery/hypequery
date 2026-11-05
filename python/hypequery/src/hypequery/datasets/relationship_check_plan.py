@@ -16,6 +16,7 @@ from .planner.predicates import joins_within_tenant, tenant_predicate
 from .planner.query_validation import resolve_tenant_scope
 from .planner.settings import DEFAULT_QUERY_SETTINGS, tighten_query_settings
 from .registry import DatasetRegistry
+from .utils.resolved_rows import current_row_predicate
 
 
 @dataclass(frozen=True, slots=True)
@@ -70,11 +71,19 @@ def plan_relationship_checks(
             target_tenant = safe_identifier(cast(str, target.tenant_key), what="tenant key").sql
             distinct = [*quoted, target_tenant]
         source = safe_qualified_identifier(target.source, what="dataset source").sql
+        settings_clause = ""
+        if target.row_resolution is not None:
+            # Uniqueness is a property of the current rows, not of every version.
+            source = dialect.resolved_source(source)
+            current = current_row_predicate(target)
+            if current is not None:
+                predicates.insert(0, current)
+            settings_clause = f" SETTINGS {dialect.resolved_rows_settings()}"
         # Every part is a validated identifier, a dialect constant or a placeholder.
         sql = (
             f"SELECT {dialect.row_count()} AS `__hq_rows`, "  # noqa: S608
             f"{dialect.distinct_count(distinct)} AS `__hq_keys` "
-            f"FROM {source} WHERE " + " AND ".join(predicates)
+            f"FROM {source} WHERE " + " AND ".join(predicates) + settings_clause
         )
         compiled = CompiledQuery(
             sql=sql,

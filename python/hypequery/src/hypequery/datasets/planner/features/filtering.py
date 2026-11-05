@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from ...query_helpers import Filter
 from ...utils.effective_filters import effective_filters
+from ...utils.resolved_rows import current_row_predicate
 from ..aliases import BASE_ALIAS
 from ..context import TenantScope
 from ..errors import CompiledQueryError
@@ -32,6 +33,10 @@ class FilterFeature(CompilerFeature):
 
         compiler = self.compiler
         dataset, where = compiler.dataset, compiler.node.where
+        current = current_row_predicate(dataset)
+        if current is not None:
+            # Every other filter, the tenant's included, applies to current rows only.
+            where.append(f"{BASE_ALIAS.sql}.{current}")
         for filter_value in compiler.query.filters:
             field = resolve_filter_field(dataset, filter_value.field)
             if scope is not None and self._filters_a_tenant_column(field):

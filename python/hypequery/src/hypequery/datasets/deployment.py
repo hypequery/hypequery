@@ -139,8 +139,10 @@ def build_protocol_dataset_contract(
     # Contract datasets carry a description but no label, as in TypeScript.
     if dataset.description is not None:
         result["description"] = dataset.description
+    result["source"] = dataset.source
+    if dataset.row_resolution is not None:
+        result["rowResolution"] = dataset.row_resolution.to_protocol()
     result |= {
-        "source": dataset.source,
         "tenant": (
             {"kind": "required", "field": dataset.tenant_key}
             if dataset.tenant_key is not None

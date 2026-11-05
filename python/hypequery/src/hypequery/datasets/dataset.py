@@ -15,6 +15,7 @@ from .immutability import freeze_mapping
 from .measures import Measure
 from .query_helpers import FilterOperator
 from .relationships import Relationship
+from .row_resolution import RowResolution
 from .utils.derived_measures import validate_derived_measures
 from .validation import (
     validate_identifier,
@@ -68,6 +69,8 @@ class Dataset(DefinitionModel):
     limits: DatasetLimits | None = None
     label: str | None = None
     description: str | None = None
+    #: Read the source with FINAL, so superseded row versions never count (RFC 0021).
+    row_resolution: RowResolution | None = None
 
     @model_validator(mode="before")
     @classmethod
@@ -161,12 +164,15 @@ def dataset(
     limits: DatasetLimits | None = None,
     label: str | None = None,
     description: str | None = None,
+    row_resolution: RowResolution | None = None,
 ) -> Dataset:
     """Define a dataset, matching TypeScript's dataset authoring entrypoint.
 
     Keyword arguments use Python spelling. Declared filters add to the
     dimensions marked filterable rather than replacing them (RFC 0024); set
     ``filterable=False`` on a dimension to keep it out of filters.
+    ``row_resolution`` reads a ReplacingMergeTree or CollapsingMergeTree source
+    with ``FINAL``: ``row_resolution=resolved_rows.replacing(deleted_column="is_deleted")``.
     """
     options: dict[str, object] = {
         "name": name,
@@ -180,6 +186,7 @@ def dataset(
         "limits": limits,
         "label": label,
         "description": description,
+        "row_resolution": row_resolution,
     }
     if filters is not None:
         options["filters"] = filters

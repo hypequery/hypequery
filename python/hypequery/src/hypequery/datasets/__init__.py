@@ -99,6 +99,7 @@ from .relationships import (
     has_many,
     has_one,
 )
+from .row_resolution import RowResolution, resolved_rows
 from .sql_portability import (
     DEFAULT_SQL_PORTABILITY_LIMITS,
     SqlPortabilityFailure,
@@ -170,6 +171,7 @@ __all__ = [
     "RelationshipKind",
     "ResultCache",
     "ResultColumnType",
+    "RowResolution",
     "SqlPortabilityFailure",
     "SqlPortabilityIssue",
     "SqlPortabilityIssueCode",
@@ -210,6 +212,7 @@ __all__ = [
     "order",
     "plan_dataset_query",
     "prepare_dataset_bundle",
+    "resolved_rows",
     "serialize_semantic_contract",
     "tenant",
     "tenants",

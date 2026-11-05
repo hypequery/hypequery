@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, cast
 from ...dataset import Dataset
 from ...derived_measures import DerivedMeasure
 from ...relationships import Relationship
+from ...utils.resolved_rows import current_row_predicate
 from ..aliases import BASE_ALIAS
 from ..identifiers import SafeIdentifier, safe_identifier, safe_qualified_identifier
 from ..predicates import joins_within_tenant, tenant_predicate
@@ -24,12 +25,14 @@ _MATCH_MARKER = "_hq_match"
 class JoinFeature(CompilerFeature):
     """Adds each relationship's join once and remembers how to read a match."""
 
-    __slots__ = ("_joined", "match_markers")
+    __slots__ = ("_joined", "match_markers", "reads_resolved_rows")
 
     def __init__(self, compiler: DatasetQueryCompiler) -> None:
         super().__init__(compiler)
         self._joined: set[str] = set()
         self.match_markers: dict[str, SafeIdentifier] = {}
+        #: Whether a joined target is read with its rows resolved (FINAL).
+        self.reads_resolved_rows = False
 
     def joined_column(self, name: str) -> str:
         """The joined column a qualified field selects, adding its join once."""
@@ -119,6 +122,15 @@ class JoinFeature(CompilerFeature):
         self.match_markers[relationship_name] = safe_identifier(marker, what="match marker")
         projection = [safe_identifier(column, what="column").sql for column in unique]
         projection.append(compiler.dialect.match_marker(self.match_markers[relationship_name].sql))
-        source = safe_qualified_identifier(target.source, what="dataset source")
+        source = safe_qualified_identifier(target.source, what="dataset source").sql
+        where = ""
+        if target.row_resolution is not None:
+            # Resolved before the join, so a superseded or deleted target row never
+            # matches (RFC 0021).
+            self.reads_resolved_rows = True
+            source = compiler.dialect.resolved_source(source)
+            current = current_row_predicate(target)
+            if current is not None:
+                where = f" WHERE {current}"
         # Every part is a validated identifier or a constant; no value reaches it.
-        return f"(SELECT {', '.join(projection)} FROM {source.sql})"  # noqa: S608
+        return f"(SELECT {', '.join(projection)} FROM {source}{where})"  # noqa: S608
