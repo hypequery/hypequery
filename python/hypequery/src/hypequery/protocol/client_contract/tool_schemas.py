@@ -5,6 +5,11 @@ fixture `specs/mcp/tool-schemas-v1.json` pins both languages to the same
 schemas. They are structural only: execution must still run
 `validate_protocol_client_query(..., transport="mcp")`, which checks
 selected-field dependencies, uniqueness and combined budgets.
+
+An MCP server compiles these from the MCP client profile of its authorized
+contract, not the raw contract: the profile (`mcpClientProfile` in
+`@hypequery/mcp`) clamps `maxLimit` and `maxFilterValues` to at most 1000 and
+to the host's query limits, then re-prepares the contract.
 """
 
 from __future__ import annotations

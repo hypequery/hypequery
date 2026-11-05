@@ -7345,5 +7345,420 @@
       ],
       "additionalProperties": false
     }
+  },
+  "no-timezone": {
+    "manifestHash": "7e965ee72556e981f87001371b73422280f58917657d58037086e57353e1a632",
+    "query_dataset": {
+      "type": "object",
+      "properties": {
+        "dimensions": {
+          "maxItems": 50,
+          "type": "array",
+          "items": {
+            "not": {}
+          }
+        },
+        "filters": {
+          "maxItems": 100,
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "field": {
+                "type": "string",
+                "const": "kind"
+              },
+              "operator": {
+                "type": "string",
+                "const": "eq"
+              },
+              "value": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "field",
+              "operator",
+              "value"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "orderBy": {
+          "maxItems": 50,
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "field": {
+                "type": "string",
+                "enum": [
+                  "eventCount",
+                  "period"
+                ]
+              },
+              "direction": {
+                "type": "string",
+                "enum": [
+                  "asc",
+                  "desc"
+                ]
+              }
+            },
+            "required": [
+              "field",
+              "direction"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "limit": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1000
+        },
+        "offset": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 10000
+        },
+        "includeMeta": {
+          "type": "boolean",
+          "const": false
+        },
+        "measures": {
+          "maxItems": 50,
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "eventCount"
+            ]
+          }
+        },
+        "having": {
+          "maxItems": 100,
+          "type": "array",
+          "items": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "measure": {
+                    "type": "string",
+                    "const": "eventCount"
+                  },
+                  "operator": {
+                    "type": "string",
+                    "const": "eq"
+                  },
+                  "value": {
+                    "type": "number"
+                  }
+                },
+                "required": [
+                  "measure",
+                  "operator",
+                  "value"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "measure": {
+                    "type": "string",
+                    "const": "eventCount"
+                  },
+                  "operator": {
+                    "type": "string",
+                    "const": "neq"
+                  },
+                  "value": {
+                    "type": "number"
+                  }
+                },
+                "required": [
+                  "measure",
+                  "operator",
+                  "value"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "measure": {
+                    "type": "string",
+                    "const": "eventCount"
+                  },
+                  "operator": {
+                    "type": "string",
+                    "const": "gt"
+                  },
+                  "value": {
+                    "type": "number"
+                  }
+                },
+                "required": [
+                  "measure",
+                  "operator",
+                  "value"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "measure": {
+                    "type": "string",
+                    "const": "eventCount"
+                  },
+                  "operator": {
+                    "type": "string",
+                    "const": "gte"
+                  },
+                  "value": {
+                    "type": "number"
+                  }
+                },
+                "required": [
+                  "measure",
+                  "operator",
+                  "value"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "measure": {
+                    "type": "string",
+                    "const": "eventCount"
+                  },
+                  "operator": {
+                    "type": "string",
+                    "const": "lt"
+                  },
+                  "value": {
+                    "type": "number"
+                  }
+                },
+                "required": [
+                  "measure",
+                  "operator",
+                  "value"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "measure": {
+                    "type": "string",
+                    "const": "eventCount"
+                  },
+                  "operator": {
+                    "type": "string",
+                    "const": "lte"
+                  },
+                  "value": {
+                    "type": "number"
+                  }
+                },
+                "required": [
+                  "measure",
+                  "operator",
+                  "value"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "measure": {
+                    "type": "string",
+                    "const": "eventCount"
+                  },
+                  "operator": {
+                    "type": "string",
+                    "const": "in"
+                  },
+                  "value": {
+                    "minItems": 1,
+                    "maxItems": 1000,
+                    "type": "array",
+                    "items": {
+                      "type": "number"
+                    }
+                  }
+                },
+                "required": [
+                  "measure",
+                  "operator",
+                  "value"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "measure": {
+                    "type": "string",
+                    "const": "eventCount"
+                  },
+                  "operator": {
+                    "type": "string",
+                    "const": "notIn"
+                  },
+                  "value": {
+                    "minItems": 1,
+                    "maxItems": 1000,
+                    "type": "array",
+                    "items": {
+                      "type": "number"
+                    }
+                  }
+                },
+                "required": [
+                  "measure",
+                  "operator",
+                  "value"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "measure": {
+                    "type": "string",
+                    "const": "eventCount"
+                  },
+                  "operator": {
+                    "type": "string",
+                    "const": "between"
+                  },
+                  "value": {
+                    "type": "array",
+                    "items": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "type": "number"
+                      }
+                    ],
+                    "additionalItems": false,
+                    "minItems": 2,
+                    "maxItems": 2
+                  }
+                },
+                "required": [
+                  "measure",
+                  "operator",
+                  "value"
+                ],
+                "additionalProperties": false
+              }
+            ]
+          }
+        },
+        "grain": {
+          "type": "string",
+          "enum": [
+            "day",
+            "month"
+          ]
+        },
+        "dataset": {
+          "type": "string",
+          "const": "events"
+        }
+      },
+      "required": [
+        "dataset"
+      ],
+      "additionalProperties": false
+    },
+    "query_metric": {
+      "type": "object",
+      "properties": {
+        "dimensions": {
+          "maxItems": 50,
+          "type": "array",
+          "items": {
+            "not": {}
+          }
+        },
+        "filters": {
+          "maxItems": 100,
+          "type": "array",
+          "items": {
+            "not": {}
+          }
+        },
+        "orderBy": {
+          "maxItems": 50,
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "field": {
+                "type": "string",
+                "enum": [
+                  "eventCount",
+                  "period"
+                ]
+              },
+              "direction": {
+                "type": "string",
+                "enum": [
+                  "asc",
+                  "desc"
+                ]
+              }
+            },
+            "required": [
+              "field",
+              "direction"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "limit": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1000
+        },
+        "offset": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 10000
+        },
+        "includeMeta": {
+          "type": "boolean",
+          "const": false
+        },
+        "grain": {
+          "type": "string",
+          "enum": [
+            "day"
+          ]
+        },
+        "dataset": {
+          "type": "string",
+          "const": "events"
+        },
+        "metric": {
+          "type": "string",
+          "const": "eventCount"
+        }
+      },
+      "required": [
+        "dataset",
+        "metric"
+      ],
+      "additionalProperties": false
+    }
   }
 }
