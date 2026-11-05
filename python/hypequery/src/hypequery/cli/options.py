@@ -64,8 +64,20 @@ class SkillOptions:
     check: bool
 
 
+@dataclass(frozen=True, slots=True)
+class TelemetryOptions:
+    action: str
+    #: ``--no-telemetry`` was passed, so ``status`` reports this invocation's opt-out.
+    flag_disabled: bool = False
+
+
 CommandOptions = (
-    InitOptions | GenerateDatasetsOptions | DevOptions | ExportClientContractOptions | SkillOptions
+    InitOptions
+    | GenerateDatasetsOptions
+    | DevOptions
+    | ExportClientContractOptions
+    | TelemetryOptions
+    | SkillOptions
 )
 
 
@@ -108,4 +120,6 @@ def command_options(args: argparse.Namespace) -> CommandOptions:
         return DevOptions(app=args.app, host=args.host, port=args.port, reload=args.reload)
     if args.command == "skill":
         return SkillOptions(agent=args.agent, scope=args.scope, force=args.force, check=args.check)
+    if args.command == "telemetry":
+        return TelemetryOptions(action=args.action, flag_disabled=args.no_telemetry)
     raise ValueError(f"unknown command {args.command!r}")

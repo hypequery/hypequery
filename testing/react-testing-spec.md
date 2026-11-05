@@ -167,8 +167,8 @@ Point at a protected route returning 401; `onUnauthorized` fires, (e.g. refreshe
 ### R5.6 — Auto-config Option A (share server module)
 `createHooks<Api>({ baseUrl:'/api/hypequery', api })` — pass the `api` object directly; method metadata extracted automatically (reads `manifest()`). Works when the client can import the server bundle (Next.js variant §7). **Pass:** no manual `config`/`manifest` needed.
 
-### R5.7 — Auto-config Option B (config endpoint)
-Server: `app.get('/api/hypequery-config', () => Response.json(extractClientConfig(api)))` (serve spec S13.1). Client: fetch it once, then `createHooks<Api>({ baseUrl, config })`. **Pass:** hooks resolve methods from the fetched config; `getHypequeryHooks()` memoizes the promise.
+### R5.7 — Auto-config Option B (manifest endpoint)
+Server: `app.get('/api/hypequery-manifest', () => Response.json(api.manifest()))`. Client: fetch it once, build `createHypequeryClient<Api>({ baseUrl, manifest })`, render it in `HypequeryProvider`, and call hooks from `createHooks<Api>()` (no config). **Pass:** hooks reach every route, including ones moved with `api.route(...)`, with the server's method. The deprecated `extractClientConfig(api)` (serve spec S13.1) passed as `config` must behave identically.
 
 ---
 

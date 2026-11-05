@@ -48,7 +48,7 @@ export default async function BlogPage({
   const displayedPosts = posts.slice(startIndex, endIndex);
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-24 pt-28 lg:px-8">
+    <div className="mx-auto max-w-6xl px-4 pb-24 pt-8 lg:px-8">
       <div className="mb-10 text-center p-6 rounded-3xl">
         <p className="text-sm uppercase tracking-[0.2em] text-indigo-500 mb-3">
           Insights

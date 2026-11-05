@@ -47,7 +47,7 @@ const activeUsers = query({
 
 const openApiOutput = `// GET /openapi.json — generated automatically
 {
-  "openapi": "3.0.0",
+  "openapi": "3.1.0",
   "paths": {
     "/activeUsers": {
       "post": {
@@ -100,7 +100,7 @@ export default function ClickHouseOpenApiPage() {
       primaryCta={{ href: '/docs/quick-start', label: 'Start with hypequery' }}
       secondaryCta={{ href: '/clickhouse-rest-api', label: 'See the REST API' }}
       stats={[
-        { label: 'Spec format', value: 'OpenAPI 3.0' },
+        { label: 'Spec format', value: 'OpenAPI 3.1' },
         { label: 'Source', value: 'Derived from query types' },
         { label: 'UI', value: 'Swagger included' },
       ]}
@@ -129,7 +129,7 @@ export default function ClickHouseOpenApiPage() {
         bullets: [
           'Request body schema derived from your Zod input definition',
           'Response schema derived from ClickHouse-generated TypeScript types',
-          'Full OpenAPI 3.0 spec available at /openapi.json',
+          'Full OpenAPI 3.1 spec available at /openapi.json',
           'Interactive Swagger UI available at /docs',
           'Spec changes when the query definition changes, not on a separate docs schedule',
         ],

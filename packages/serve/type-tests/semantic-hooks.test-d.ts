@@ -7,6 +7,7 @@
 
 import { createAPI } from '../src/server/create-api.js';
 import type { InferAPIType, InferApiType } from '../src/types.js';
+import type { DimensionResultValue } from '../src/index.js';
 import { belongsTo, dataset, dimension, measure } from '@hypequery/datasets';
 
 const Customers = dataset('customers', {
@@ -185,3 +186,12 @@ createAPI({
 // @ts-expect-error Query inputs cannot grant diagnostic access.
 const requestDiagnostics: MetricInput = { trustedDiagnostics: true };
 void requestDiagnostics;
+
+// --- Serve re-exports the dimension wire-value type from @hypequery/datasets ----
+// Numeric dimensions may arrive as quoted Int64 strings, and any dimension may be null.
+const wireAmount: DimensionResultValue<typeof Orders.dimensions.amount> = '18446744073709551615';
+const wireCountry: DimensionResultValue<typeof Orders.dimensions.country> = null;
+void [wireAmount, wireCountry];
+// @ts-expect-error - a string dimension is never a number
+const wireCountryAsNumber: DimensionResultValue<typeof Orders.dimensions.country> = 1;
+void wireCountryAsNumber;

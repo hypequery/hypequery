@@ -43,7 +43,7 @@ const datasetResult = datasetHooks.useDataset('orders', {
   measures: ['revenue'],
 });
 const datasetRow = datasetResult.data?.data[0];
-const datasetStatus: string | undefined = datasetRow?.status;
+const datasetStatus: string | null | undefined = datasetRow?.status;
 const datasetRevenue: string | null | undefined = datasetRow?.revenue;
 void datasetStatus;
 void datasetRevenue;
@@ -69,7 +69,7 @@ void unknownMetricKey;
 const metricHooks = createAnalyticsHooks<MetricsApi>({ baseUrl: '/api' });
 const metricResult = metricHooks.useMetric('totalRevenue', { dimensions: ['status'] });
 const metricRow = metricResult.data?.data[0];
-const metricStatus: string | undefined = metricRow?.status;
+const metricStatus: string | null | undefined = metricRow?.status;
 const metricValue: string | null | undefined = metricRow?.totalRevenue;
 void metricStatus;
 void metricValue;
