@@ -260,6 +260,8 @@ def test_a_database_another_process_holds_is_reported_actionably(tmp_path: Path)
     assert held.returncode == 1
     assert "Only one process can use it at a time" in held.stderr
     assert "hypequery dev" in held.stderr
+    # chDB's engine writes its raw lock exception to stderr; the CLI keeps it out.
+    assert "DB::Exception" not in held.stderr
 
 
 def test_a_missing_database_refuses_schema_options(tmp_path: Path) -> None:

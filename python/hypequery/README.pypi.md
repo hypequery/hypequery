@@ -26,7 +26,8 @@ pip install "hypequery[clickhouse]"
 ```
 
 Python 3.11 or later. Extras: `clickhouse-async`, `server`, `jwt`, `django`,
-`flask`, `pandas`, `polars`, `arrow`.
+`flask`, `pandas`, `polars`, `arrow`, and `chdb` to run on embedded ClickHouse
+with no server (Linux and macOS).
 
 ## Define a dataset and query it
 

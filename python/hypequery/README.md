@@ -2,7 +2,7 @@
 
 A Python semantic layer for ClickHouse datasets, metrics, multi-tenant analytics, and HTTP serving from any Python framework.
 
-> **Beta (0.1.0b2).** Datasets, execution, Serve, generated React clients and
+> **Beta (0.1.0b3).** Datasets, execution, Serve, generated React clients and
 > HTTP-backed MCP are tested end to end from the installed package. APIs may still
 > change before 1.0. Please report problems on
 > [GitHub](https://github.com/hypequery/hypequery/issues).

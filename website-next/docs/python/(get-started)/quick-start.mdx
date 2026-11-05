@@ -9,7 +9,7 @@ import { Step, Steps } from 'fumadocs-ui/components/steps';
 import { Tab, Tabs } from 'fumadocs-ui/components/tabs';
 
 <Callout type="info" title="The Python SDK is in beta">
-  `0.1.0b2` implements the same datasets and Serve protocol as TypeScript, and the same React hooks and MCP server work
+  `0.1.0b3` implements the same datasets and Serve protocol as TypeScript, and the same React hooks and MCP server work
   against it. Its APIs may still change before 1.0, so pin the version you deploy.
 </Callout>
 
@@ -23,6 +23,10 @@ This page has two paths:
 Both routes can be exposed over HTTP with [Serve](#optional-expose-over-http-with-serve) when you need named endpoints,
 validation, docs, or OpenAPI.
 
+No ClickHouse server to hand? Route 1 also runs on [embedded ClickHouse (chDB)](/docs/python/datasets/chdb), in your
+process with no server or credentials: `pip install "hypequery[server,chdb]==0.1.0b3"`, then
+`hypequery init analytics --database chdb`.
+
 ## Route 1: Scaffold a project [#route-1-scaffold-a-project]
 
 <Steps>
@@ -33,7 +37,7 @@ validation, docs, or OpenAPI.
       <Tab value="pip" label="pip">
         <CodeBlock>
           ```bash
-          pip install "hypequery[server,clickhouse]==0.1.0b2"
+          pip install "hypequery[server,clickhouse]==0.1.0b3"
           ```
         </CodeBlock>
       </Tab>
@@ -41,7 +45,7 @@ validation, docs, or OpenAPI.
       <Tab value="uv" label="uv">
         <CodeBlock>
           ```bash
-          uv add "hypequery[server,clickhouse]==0.1.0b2"
+          uv add "hypequery[server,clickhouse]==0.1.0b3"
           ```
         </CodeBlock>
       </Tab>
@@ -110,7 +114,7 @@ endpoints.
       <Tab value="pip" label="pip">
         <CodeBlock>
           ```bash
-          pip install "hypequery[clickhouse]==0.1.0b2"
+          pip install "hypequery[clickhouse]==0.1.0b3"
           ```
         </CodeBlock>
       </Tab>
@@ -118,7 +122,7 @@ endpoints.
       <Tab value="uv" label="uv">
         <CodeBlock>
           ```bash
-          uv add "hypequery[clickhouse]==0.1.0b2"
+          uv add "hypequery[clickhouse]==0.1.0b3"
           ```
         </CodeBlock>
       </Tab>
@@ -316,7 +320,7 @@ project already has one in `app.py`. Add the `server` extra for `hypequery dev`:
 
 <CodeBlock>
 ```bash
-pip install "hypequery[server,clickhouse]==0.1.0b2"
+pip install "hypequery[server,clickhouse]==0.1.0b3"
 ```
 </CodeBlock>
 
