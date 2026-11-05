@@ -1,4 +1,4 @@
-"""Serve an API's client contract to AI agents over MCP stdio."""
+"""Serve an API's client contract to AI agents over MCP stdio or Streamable HTTP."""
 
 from __future__ import annotations
 
@@ -13,6 +13,7 @@ import anyio
 
 from ..errors import CliError
 from ..options import McpOptions
+from ..utils.mcp_http import MCP_SERVER_KEY_VARIABLE, McpHttpSettings, mcp_http_settings
 from ..utils.mcp_setup import app_lifespan, load_api, mcp_server_config, request_headers
 
 if TYPE_CHECKING:
@@ -50,6 +51,9 @@ def run(options: McpOptions) -> None:
         return
     if not options.self_test and find_spec("mcp") is None:
         raise CliError('mcp requires the MCP SDK. Install: pip install "hypequery[mcp]"')
+    if options.http:
+        _serve_http(options, headers)
+        return
 
     from hypequery.mcp import (
         ApiContractBackend,
@@ -114,5 +118,108 @@ def run(options: McpOptions) -> None:
 
         print("hypequery MCP serving over stdio.", file=sys.stderr)
         await serve_stdio(create_mcp_server(executor))
+
+    anyio.run(main)
+
+
+def _http_settings(options: McpOptions) -> McpHttpSettings:
+    return mcp_http_settings(
+        port=options.port,
+        host=options.host,
+        allowed_hosts=options.allowed_hosts,
+        allowed_origins=options.allowed_origins,
+        resource=options.resource,
+        authorization_servers=options.authorization_servers,
+        required_scopes=options.required_scopes,
+        env=os.environ,
+    )
+
+
+def _serve_http(options: McpOptions, headers: dict[str, str]) -> None:
+    """``--http``: a static key for one principal, or the Api's own auth per caller."""
+
+    settings = _http_settings(options)
+
+    import uvicorn
+
+    from hypequery.mcp import (
+        ApiAuthenticator,
+        ApiExecutorFactory,
+        HttpExecutorFactory,
+        McpAuthenticator,
+        ProtectedResource,
+        check_resource_audience,
+        create_mcp_asgi_app,
+        static_key_authenticator,
+    )
+    from hypequery.mcp.server import ExecutorFactory
+
+    resource = (
+        ProtectedResource(
+            resource=settings.resource,
+            authorization_servers=settings.authorization_servers,
+            scopes_supported=settings.required_scopes,
+            required_scopes=settings.required_scopes,
+        )
+        if settings.resource
+        else None
+    )
+    lifespan: Lifespan | None = None
+    authenticate: McpAuthenticator
+    factory: ExecutorFactory
+    if options.client_contract_url is not None:
+        if settings.static_key is None:
+            raise CliError(
+                f"--client-contract-url --http serves one backend principal; set "
+                f"{MCP_SERVER_KEY_VARIABLE} for its callers. The backend credential stays "
+                "HYPEQUERY_API_KEY or --header and is never forwarded from callers."
+            )
+        authenticate = static_key_authenticator(settings.static_key)
+        try:
+            factory = HttpExecutorFactory(options.client_contract_url, headers=headers)
+        except ValueError as exc:
+            raise CliError(str(exc)) from None
+        described = "an authorized HTTP client contract"
+    else:
+        loaded = load_api(options.app or "app:api")
+        lifespan = loaded.lifespan
+        if settings.static_key is not None:
+            # One principal: callers share the backend credential from --header/HYPEQUERY_API_KEY.
+            authenticate = static_key_authenticator(settings.static_key)
+            factory = ApiExecutorFactory(loaded.api, headers=headers)
+        else:
+            try:
+                authenticate = ApiAuthenticator(loaded.api)
+                check_resource_audience(authenticate, resource)
+            except ValueError as exc:
+                raise CliError(str(exc)) from None
+            factory = ApiExecutorFactory(loaded.api)
+        described = "the API's authorized endpoints"
+
+    try:
+        app = create_mcp_asgi_app(
+            factory,
+            authenticate,
+            allowed_hosts=settings.allowed_hosts,
+            allowed_origins=settings.allowed_origins,
+            protected_resource=resource,
+        )
+    except (TypeError, ValueError) as exc:
+        raise CliError(str(exc)) from None
+
+    async def main() -> None:
+        async with app_lifespan(lifespan):
+            print(
+                f"hypequery MCP serving {described} on "
+                f"http://{settings.host}:{settings.port}/mcp "
+                f"(Host: {', '.join(settings.allowed_hosts)})",
+                file=sys.stderr,
+            )
+            if resource is not None:
+                print(f"OAuth metadata: {resource.metadata_url}", file=sys.stderr)
+            config = uvicorn.Config(
+                app, host=settings.host, port=settings.port, log_level="warning"
+            )
+            await uvicorn.Server(config).serve()
 
     anyio.run(main)

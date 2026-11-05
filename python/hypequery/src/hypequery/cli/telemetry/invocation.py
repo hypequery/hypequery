@@ -41,6 +41,11 @@ _VALUE_FLAGS = {
     "--project",
     "--agent",
     "--scope",
+    "--allowed-hosts",
+    "--allowed-origins",
+    "--resource",
+    "--authorization-servers",
+    "--required-scopes",
 }
 
 
