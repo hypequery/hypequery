@@ -270,6 +270,112 @@ def test_client_metrics_never_wrap_a_time_measure(metric: str) -> None:
     add_metric_endpoint(api, "/plain", dataset=SALES, measure=metric, client=client)
 
 
+# -- composite shifts: a shift over a window, a formula or another shift -------
+
+COMPOSITE = sales(
+    aov=measure.derived(divide("revenue", null_if_zero("buyers"))),
+    priorAov=measure.shift("aov", 1, "year"),
+    priorRolling=measure.shift("rolling7", 1, "year"),
+    priorRunning=measure.shift("running", 1, "year"),
+    twice=measure.shift("priorAov", 1, "year"),
+    growth=measure.derived(divide("aov", null_if_zero("priorAov"))),
+)
+
+
+def composite_sql(*measures: str, **query: object) -> str:
+    fields: dict[str, object] = {"by": "day", "filters": JANUARY, **query}
+    return plan_dataset_query(COMPOSITE, DatasetQuery(measures=measures, **fields)).sql  # type: ignore[arg-type]
+
+
+def test_a_shift_may_wrap_any_measure() -> None:
+    assert COMPOSITE.measures["twice"] == measure.shift("priorAov", 1, "year")
+    # A window still wraps a base measure.
+    with pytest.raises(ValueError, match="must wrap a base measure"):
+        sales(nested=measure.trailing("lastWeek", 7, "day"))
+    with pytest.raises(ValueError, match='references missing measure "absent"'):
+        sales(prior=measure.shift("absent", 1, "year"))
+
+
+@pytest.mark.parametrize(
+    "measures",
+    [
+        {
+            "current": measure.derived(divide("prior", 2)),
+            "prior": measure.shift("current", 1, "year"),
+        },
+        {"loop": measure.shift("loop", 1, "year")},
+        {"a": measure.shift("b", 1, "year"), "b": measure.shift("a", 1, "year")},
+    ],
+)
+def test_mixed_shift_and_formula_cycles_are_rejected(measures: dict[str, AnyMeasure]) -> None:
+    with pytest.raises(ValueError, match="dependency cycle"):
+        sales(**measures)
+
+
+def test_formulas_over_nested_shifts_still_need_numeric_inputs() -> None:
+    with pytest.raises(ValueError, match="numeric measure"):
+        sales(
+            latestStatus=measure.max("channel"),
+            previous=measure.shift("latestStatus", 1, "day"),
+            twice=measure.shift("previous", 1, "day"),
+            ratio=measure.derived(divide("twice", "revenue")),
+        )
+
+
+def test_flat_shifts_keep_the_flat_statement() -> None:
+    statement = composite_sql("revenue", "lastWeek", "weekOverWeek")
+    assert "_hq_context" not in statement
+    assert "_hq_shift_ranges" in statement
+
+
+def test_a_shifted_formula_evaluates_its_inputs_in_a_shifted_context() -> None:
+    statement = composite_sql("aov", "priorAov")
+    assert "_hq_context0 AS" in statement
+    assert re.search(r"_hq_context1 AS \(SELECT p\._hq_period, subtractYears\(", statement)
+    assert "FROM _hq_context0 AS p)" in statement
+    # The ratio divides aggregates in each context, after both are joined on.
+    assert len(re.findall(r"_hq_formula\d+ AS \(SELECT \*, ", statement)) == 2
+    assert "_hq_scanned" not in statement
+
+
+def test_shifts_of_shifts_chain_contexts_and_share_equal_ones() -> None:
+    statement = composite_sql("twice", "priorAov", "priorRolling")
+    # priorAov and priorRolling share one year-back context; twice adds a second.
+    assert "FROM _hq_context1 AS p)" in statement
+    assert "_hq_context3 AS" not in statement
+
+
+def test_a_shifted_window_reads_whole_buckets_of_its_context() -> None:
+    statement = composite_sql("priorRolling")
+    assert re.search(r"_hq_ranges\d+ AS \(SELECT _hq_period, subtractDays\(_hq_eval_end", statement)
+    # Cumulative history is looked up at each shifted bucket's end.
+    cumulative = composite_sql("priorRunning", dimensions=("channel",))
+    assert "LEFT ASOF JOIN" in cumulative
+    assert "s.* EXCEPT (_hq_eval_end, _hq_partition)" in cumulative
+
+
+def test_a_formula_over_a_formula_is_planned() -> None:
+    statement = composite_sql("growth")
+    assert "_hq_formula" in statement
+    assert "`growth`" in statement
+
+
+def test_composite_grains_check_every_wrapped_window() -> None:
+    with pytest.raises(CompiledQueryError, match='"rolling7" must span whole "month"'):
+        composite_sql("priorRolling", by="month")
+
+
+def test_the_catalog_intersects_wrapper_and_dependency_grains() -> None:
+    catalog = get_dataset_catalog(COMPOSITE, registry=create_dataset_registry(COMPOSITE))
+    measures: dict[str, dict[str, object]] = dict(catalog["measures"])  # type: ignore[arg-type]
+    assert measures["priorRolling"]["supportedGrains"] == ["hour", "day", "week"]
+    # A shifted window inherits its base measure's aggregation; a shifted formula has none.
+    assert measures["priorRolling"]["aggregation"] == "sum"
+    assert "aggregation" not in measures["priorAov"]
+    assert measures["twice"]["kind"] == "shift"
+    assert catalog["derivedMeasures"]["growth"]["requiresTimeRange"] is True
+
+
 def test_formulas_refuse_a_shift_of_a_merge_that_may_not_be_a_number() -> None:
     with pytest.raises(ValueError, match="numeric measure"):
         sales(

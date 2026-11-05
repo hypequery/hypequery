@@ -135,7 +135,7 @@ The dataset needs a `time_key`, and a window wraps a base measure, not a derived
 
 ## Period comparisons
 
-`measure.shift` evaluates a base measure over an earlier bucket. Combine it with a derived measure for growth:
+`measure.shift` evaluates a measure over an earlier bucket. Combine it with a derived measure for growth:
 
 <CodeBlock>
 ```python
@@ -153,6 +153,27 @@ measures = {
 }
 ```
 </CodeBlock>
+
+A shift can also wrap a window, a derived measure or another shift. The wrapped measure is recalculated over the
+earlier interval rather than shifted after the fact: a prior-year year-to-date restarts on 1 January of the earlier
+year, and a shifted ratio divides the earlier period's totals:
+
+<CodeBlock>
+```python
+measures = {
+    "revenue": measure.sum("amount"),
+    "orders": measure.count("order_id"),
+    "revenue_ytd": measure.to_date("revenue", "year"),
+    "revenue_ytd_last_year": measure.shift("revenue_ytd", 1, "year"),
+    "aov": measure.derived(formula.divide("revenue", formula.null_if_zero("orders"))),
+    "aov_last_year": measure.shift("aov", 1, "year"),
+    "aov_two_years_ago": measure.shift("aov_last_year", 1, "year"),
+}
+```
+</CodeBlock>
+
+A shift cannot read itself, directly or through a formula. Its catalog grains are the ones both the shift and the
+measure it wraps support.
 
 Calendar shifts keep the calendar date, clamping month ends: one month before 31 March is 29 February in a leap
 year.
@@ -178,5 +199,4 @@ the result limit and 1,000 buckets per row, and it cannot use `having`. Results 
 SDKs run the shared corpus in `specs/datasets/time-measures-corpus-v1.json`.
 
 Window and shift measures are not advertised to [client endpoints](/docs/python/client-endpoints), and publishing a
-dataset that defines them needs deployment contract 3. A shift of a derived, window or already-shifted measure is
-TypeScript only for now. See [Feature status](/docs/python/feature-status).
+dataset that defines them needs deployment contract 3.

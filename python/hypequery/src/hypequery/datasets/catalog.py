@@ -32,6 +32,7 @@ from .utils.definition_projection import (
     relationship_node,
 )
 from .utils.derived_measures import derived_measure_node
+from .utils.inherited_measures import inherited_base_measure
 from .utils.relationship_fields import (
     list_groupable_relationship_fields,
     list_queryable_relationship_fields,
@@ -176,8 +177,8 @@ def _time_measure_entry(
 ) -> MeasureCatalogEntry:
     """The base measure's entry with the window's own text and time metadata."""
 
-    base = dataset.measures[measure.measure]
-    entry: dict[str, object] = dict(_measure_entry(base)) if isinstance(base, Measure) else {}
+    base = inherited_base_measure(dataset.measures, measure.measure)
+    entry: dict[str, object] = dict(_measure_entry(base)) if base is not None else {}
     for key in ("label", "description"):
         entry.pop(key, None)
     if is_approximate_measure(dataset.measures, name):

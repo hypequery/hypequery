@@ -16,6 +16,15 @@ resolved rows, segments and joins apply unchanged. The statement shape:
     _hq_values   the skeleton with every measure joined on
     _hq_result   values, plus a guard branch that always validates the axis
 
+A composite query, one that shifts a window, a formula or another shift, or
+whose formula reads a formula, is planned as TypeScript's
+`composite-time-measure-sql.ts` plans it instead. Each shift opens an
+evaluation context: `_hq_contextN` maps every output bucket to the interval
+its inputs are evaluated over. Each base or window input (a leaf) aggregates
+in its context and is joined onto the skeleton in turn (`_hq_evaluatedN`);
+formulas then run in dependency order (`_hq_formulaN`), so a shifted ratio
+divides shifted aggregates rather than aggregating ratios.
+
 A statement validates its own axis: the guard branch runs even when no rows
 match, so no separate preflight statement is needed (TypeScript also runs one
 first, which only fails faster).
@@ -28,8 +37,14 @@ from dataclasses import dataclass
 from ...derived_measures import DerivedMeasure
 from ...formulas import Formula
 from ...measures import Measure
-from ...time_measures import ShiftMeasure, WindowMeasure
+from ...time_measures import MeasureTimeInterval, ShiftMeasure, WindowMeasure
 from ...utils.derived_measures import formula_references
+from ...utils.measure_dependencies import measure_dependency_names
+from ...utils.measure_evaluation_graph import (
+    EvaluationContext,
+    EvaluationNode,
+    build_measure_evaluation_graph,
+)
 from ...utils.time_axis import TimeAxis, analyze_time_axis, calendar_shift_at_fine_grain
 from ..aliases import BASE_ALIAS, PERIOD_ALIAS
 from ..context import TenantScope
@@ -77,6 +92,20 @@ class _Shift:
     source_times_sql: str
 
 
+@dataclass(frozen=True, slots=True)
+class _Leaf:
+    """A composite query's base or window input, aggregated in its context."""
+
+    node: EvaluationNode
+    ctes: list[str]
+    #: The rows the input reads, whose dimension values the skeleton includes.
+    population: str
+    aggregate: str
+    cumulative: bool
+    guard: str
+    count: bool
+
+
 def _is_count(measure: Measure) -> bool:
     return measure.aggregation in _COUNTS or (
         measure.aggregation == "merge" and measure.state_function in _COUNT_STATES
@@ -105,9 +134,31 @@ class TimeMeasureFeature(CompilerFeature):
             definition = measures.get(name)
             if isinstance(definition, WindowMeasure | ShiftMeasure):
                 found[name] = definition
+                # A shift may wrap a window or another shift.
+                pending.append(definition.measure)
             elif isinstance(definition, DerivedMeasure):
                 pending.extend(formula_references(definition.formula))
         return list(found.items())
+
+    def _composite(self) -> bool:
+        """Whether TypeScript plans the query with evaluation contexts.
+
+        So when a shift wraps anything but a base measure, or a formula reads a
+        formula. Every other query keeps the flat statement below.
+        """
+
+        measures = self.compiler.dataset.measures
+        for name in measure_dependency_names(measures, self.compiler.query.measures or ()):
+            definition = measures[name]
+            if isinstance(definition, ShiftMeasure):
+                if not isinstance(measures.get(definition.measure), Measure):
+                    return True
+            elif isinstance(definition, DerivedMeasure) and any(
+                isinstance(measures.get(reference), DerivedMeasure)
+                for reference in formula_references(definition.formula)
+            ):
+                return True
+        return False
 
     def _needed(self) -> list[str]:
         """Selected non-derived measures, then every derived measure's inputs."""
@@ -119,15 +170,8 @@ class TimeMeasureFeature(CompilerFeature):
             definition = measures.get(name)
             if not isinstance(definition, DerivedMeasure):
                 continue
-            for reference in formula_references(definition.formula):
-                if isinstance(measures.get(reference), DerivedMeasure):
-                    raise CompiledQueryError(
-                        "input-invalid",
-                        f'Derived measure "{name}" reads derived measure "{reference}": nested '
-                        "formulas over window or shift measures are not supported in Python "
-                        "yet. Reference the window, shift or base measures directly.",
-                    )
-                needed.append(reference)
+            # A formula reading a formula is composite, planned elsewhere.
+            needed.extend(formula_references(definition.formula))
         return list(dict.fromkeys(needed))
 
     # -- validation --------------------------------------------------------
@@ -169,6 +213,8 @@ class TimeMeasureFeature(CompilerFeature):
         dialect, dataset = compiler.dialect, compiler.dataset
         chosen = self.selected()
         axis = self._axis(chosen)
+        if self._composite():
+            return self._composite_statement(axis, scope)
         windows = {name: d for name, d in chosen if isinstance(d, WindowMeasure)}
         shifts = {name: d for name, d in chosen if isinstance(d, ShiftMeasure)}
         needed = self._needed()
@@ -531,11 +577,18 @@ class TimeMeasureFeature(CompilerFeature):
     # -- shifts ------------------------------------------------------------
 
     def _shift_bound(self, point: str, anchor: str, shift: ShiftMeasure, grain: str) -> str:
-        dialect = self.compiler.dialect
         interval = shift.interval
         if not calendar_shift_at_fine_grain(interval, grain):
-            return dialect.subtract_time(point, interval.amount, interval.unit)
-        # Anchored: the point keeps its day offset within its shifted bucket.
+            return self.compiler.dialect.subtract_time(point, interval.amount, interval.unit)
+        return self._anchored_shift(point, anchor, interval)
+
+    def _anchored_shift(self, point: str, anchor: str, interval: MeasureTimeInterval) -> str:
+        """A point shifted with its bucket: it keeps its day offset from *anchor*.
+
+        TypeScript's `anchoredCalendarShiftSql`.
+        """
+
+        dialect = self.compiler.dialect
         shifted_point = dialect.subtract_time(point, interval.amount, interval.unit)
         shifted_anchor = dialect.subtract_time(anchor, interval.amount, interval.unit)
         days = (
@@ -586,16 +639,33 @@ class TimeMeasureFeature(CompilerFeature):
     def _shift_series_guard(self, shift: ShiftMeasure, grain: str) -> str:
         """Reject DST normalization that moves a shifted sub-day bucket's wall time."""
 
-        if not calendar_shift_at_fine_grain(shift.interval, grain) or grain not in _SUB_DAY:
-            return "0"
         dialect = self.compiler.dialect
-        interval = shift.interval
         end = dialect.add_time("_hq_period", 1, grain)
-        period, lower, upper = (
+        return self._wall_time_guard(
+            shift.interval,
+            grain,
+            "_hq_series CROSS JOIN _hq_bounds",
             "_hq_period",
             dialect.greatest("_hq_period", "_hq_lower"),
             dialect.least(end, "_hq_upper"),
+            end,
         )
+
+    def _wall_time_guard(
+        self,
+        interval: MeasureTimeInterval,
+        grain: str,
+        source: str,
+        period: str,
+        lower: str,
+        upper: str,
+        end: str,
+    ) -> str:
+        """TypeScript's `shiftWallTimeGuardSql`, over *source*'s buckets."""
+
+        if not calendar_shift_at_fine_grain(interval, grain) or grain not in _SUB_DAY:
+            return "0"
+        dialect = self.compiler.dialect
 
         def changes(point: str) -> str:
             moved = dialect.subtract_time(point, interval.amount, interval.unit)
@@ -612,7 +682,7 @@ class TimeMeasureFeature(CompilerFeature):
             f"{dialect.count_if(changed)} > 0",
             "Calendar shift lands on a nonexistent local time; use a UTC query timezone.",
         )
-        return f"(SELECT {guard} FROM _hq_series CROSS JOIN _hq_bounds)"  # noqa: S608
+        return f"(SELECT {guard} FROM {source})"  # noqa: S608
 
     def _shift_ctes(self, shift: ShiftMeasure, axis: TimeAxis, index: int) -> _Shift:
         """Map each output bucket to its earlier range, keeping duplicate source rows."""
@@ -654,6 +724,292 @@ class TimeMeasureFeature(CompilerFeature):
             source_times_sql=f"SELECT r._hq_time FROM _hq_source{join}",  # noqa: S608
         )
 
+    # -- composite ---------------------------------------------------------
+
+    def _composite_statement(self, axis: TimeAxis, scope: TenantScope | None) -> str:
+        """Aggregate each leaf in its evaluation context, then evaluate formulas.
+
+        TypeScript's `buildCompositeTimeMeasureSql`.
+        """
+
+        compiler = self.compiler
+        dialect = compiler.dialect
+        graph = build_measure_evaluation_graph(
+            compiler.dataset.measures, compiler.query.measures or ()
+        )
+        leaves = [node for node in graph.nodes if not isinstance(node.definition, DerivedMeasure)]
+        base_names = list(
+            dict.fromkeys(
+                node.definition.measure if isinstance(node.definition, WindowMeasure) else node.name
+                for node in leaves
+            )
+        )
+        dimensions, bases, source_ctes, row = self._source(axis, base_names, scope)
+        axis_ctes, axis_guard, range_guard, _ = self._axis_ctes(axis, row, [])
+        contexts = self._context_ctes(graph.contexts, axis)
+        keys = [alias for _, alias in dimensions]
+        inputs: list[_Leaf] = []
+        for node in leaves:
+            window = node.definition if isinstance(node.definition, WindowMeasure) else None
+            base_name = window.measure if window is not None else node.name
+            base = next(item for item in bases if item.name == base_name)
+            inputs.append(self._leaf(node, base, window, axis, keys))
+
+        populations = " UNION ALL ".join(
+            f"SELECT {', '.join(keys)} FROM {entry.population}"  # noqa: S608 - internal aliases
+            for entry in inputs
+        )
+        combinations = (
+            f" CROSS JOIN (SELECT DISTINCT {', '.join(keys)} FROM ({populations}))"  # noqa: S608
+            " AS _hq_combinations"
+            if keys
+            else ""
+        )
+        ctes = [
+            *source_ctes,
+            *axis_ctes,
+            *contexts,
+            *(cte for entry in inputs for cte in entry.ctes),
+            f"_hq_skeleton AS (SELECT * FROM _hq_series{combinations})",  # noqa: S608
+        ]
+        previous = "_hq_skeleton"
+        for entry in inputs:
+            index = entry.node.id
+            output, following = f"_hq_value{index}", f"_hq_evaluated{index}"
+            column = f"coalesce(m.{output}, 0)" if entry.count else f"m.{output}"
+            if entry.cumulative:
+                # Each bucket reads the running total at its context's end.
+                partition = dialect.pack_row([f"s.{key}" for key in keys] or ["0"])
+                lookup = f"_hq_lookup{index}"
+                ctes.append(
+                    f"{lookup} AS (SELECT s.*, c._hq_eval_end, {partition} AS _hq_partition "  # noqa: S608
+                    f"FROM {previous} AS s INNER JOIN _hq_context{entry.node.context} AS c "
+                    "ON s._hq_period = c._hq_period)"
+                )
+                kept = dialect.select_all_except("s", ["_hq_eval_end", "_hq_partition"])
+                ctes.append(
+                    f"{following} AS (SELECT {kept}, {column} AS {output} "  # noqa: S608
+                    f"FROM {lookup} AS s {dialect.asof_left_join} {entry.aggregate} AS m "
+                    "ON s._hq_partition = m._hq_partition AND s._hq_eval_end > m._hq_time)"
+                )
+            else:
+                condition = [
+                    "s._hq_period = m._hq_period",
+                    *(dialect.is_not_distinct_from(f"s.{key}", f"m.{key}") for key in keys),
+                ]
+                ctes.append(
+                    f"{following} AS (SELECT s.*, {column} AS {output} FROM {previous} AS s "  # noqa: S608
+                    f"LEFT JOIN {entry.aggregate} AS m ON {' AND '.join(condition)})"
+                )
+            previous = following
+        for node in graph.nodes:
+            if not isinstance(node.definition, DerivedMeasure):
+                continue
+            # Each reference reads its input node's column, in this node's context.
+            references = {
+                name: SafeIdentifier(f"_hq_value{index}").sql for name, index in node.inputs.items()
+            }
+            formula = formula_sql(
+                node.definition.formula, references.__getitem__, compiler.binder, dialect
+            )
+            following = f"_hq_formula{node.id}"
+            output = SafeIdentifier(f"_hq_value{node.id}").sql
+            ctes.append(f"{following} AS (SELECT *, {formula} AS {output} FROM {previous})")  # noqa: S608
+            previous = following
+        projections = [
+            "v._hq_period AS period",
+            *(f"v.{alias} AS {SafeIdentifier(name).sql}" for name, alias in dimensions),
+            *(
+                f"v._hq_value{index} AS {SafeIdentifier(name).sql}"
+                for name, index in graph.outputs.items()
+            ),
+        ]
+        ctes.append(f"_hq_values AS (SELECT {', '.join(projections)} FROM {previous} AS v)")  # noqa: S608
+        guard = " + ".join(
+            [
+                axis_guard,
+                range_guard,
+                *(self._context_guard(context, axis) for context in graph.contexts),
+                *(entry.guard for entry in inputs),
+            ]
+        )
+        return self._result(dimensions, ctes, guard, evaluated=True)
+
+    def _context_ctes(self, contexts: tuple[EvaluationContext, ...], axis: TimeAxis) -> list[str]:
+        """Each output bucket and the interval a context evaluates it over.
+
+        TypeScript's `timeMeasureContextCtes`. Context 0 is the bucket itself,
+        clipped to the caller's bounds; a shifted context moves its parent's.
+        """
+
+        dialect, grain = self.compiler.dialect, axis.grain
+        end = dialect.add_time("_hq_period", 1, grain)
+        ctes = [
+            "_hq_context0 AS (SELECT _hq_period, _hq_period AS _hq_eval_period, "  # noqa: S608
+            f"{end} AS _hq_eval_end, "
+            f"{dialect.greatest('_hq_period', '_hq_lower')} AS _hq_eval_lower, "
+            f"{dialect.least(end, '_hq_upper')} AS _hq_eval_upper, "
+            f"(_hq_period > _hq_lower OR {int(axis.lower_inclusive)}) AS _hq_lower_inclusive, "
+            f"(_hq_upper < {end} AND {int(axis.upper_inclusive)}) AS _hq_upper_inclusive "
+            "FROM _hq_series CROSS JOIN _hq_bounds)"
+        ]
+        for context in contexts[1:]:
+            interval = context.interval
+            if interval is None:
+                raise CompiledQueryError("internal", "A shifted context has no interval.")
+            calendar = calendar_shift_at_fine_grain(interval, grain)
+
+            def shift(column: str, interval: MeasureTimeInterval = interval) -> str:
+                return dialect.subtract_time(f"p.{column}", interval.amount, interval.unit)
+
+            def bound(
+                column: str, interval: MeasureTimeInterval = interval, calendar: bool = calendar
+            ) -> str:
+                # Partial bounds stay inside the shifted bucket.
+                if calendar:
+                    return self._anchored_shift(f"p.{column}", "p._hq_eval_period", interval)
+                return shift(column)
+
+            period = shift("_hq_eval_period")
+            shifted_end = dialect.add_time(period, 1, grain) if calendar else shift("_hq_eval_end")
+            upper = dialect.if_else(
+                "p._hq_eval_upper = p._hq_eval_end", shifted_end, bound("_hq_eval_upper")
+            )
+            ctes.append(
+                f"_hq_context{context.id} AS (SELECT p._hq_period, "  # noqa: S608
+                f"{period} AS _hq_eval_period, {shifted_end} AS _hq_eval_end, "
+                f"{bound('_hq_eval_lower')} AS _hq_eval_lower, {upper} AS _hq_eval_upper, "
+                "p._hq_lower_inclusive, p._hq_upper_inclusive "
+                f"FROM _hq_context{context.parent} AS p)"
+            )
+        return ctes
+
+    def _context_guard(self, context: EvaluationContext, axis: TimeAxis) -> str:
+        """Reject a context whose buckets skip a local calendar bucket or wall time."""
+
+        grain = axis.grain
+        calendar = self._calendar_guard("_hq_eval_period", "1", grain)
+        wall_time = (
+            "0"
+            if context.interval is None
+            else self._wall_time_guard(
+                context.interval,
+                grain,
+                f"_hq_context{context.parent} AS p",
+                "p._hq_eval_period",
+                "p._hq_eval_lower",
+                "p._hq_eval_upper",
+                "p._hq_eval_end",
+            )
+        )
+        return (
+            f"(SELECT coalesce(max({calendar}), 0) FROM _hq_context{context.id})"  # noqa: S608
+            f" + {wall_time}"
+        )
+
+    def _leaf(
+        self,
+        node: EvaluationNode,
+        base: _Base,
+        window: WindowMeasure | None,
+        axis: TimeAxis,
+        keys: list[str],
+    ) -> _Leaf:
+        """One base or window input aggregated per bucket of its context.
+
+        TypeScript's `timeMeasureLeafSql`. Rows are matched to buckets by
+        membership, so distinct counts, averages and duplicate rows keep their
+        meaning.
+        """
+
+        dialect, grain = self.compiler.dialect, axis.grain
+        index, context = node.id, node.context
+        ranges, rows, aggregate = f"_hq_ranges{index}", f"_hq_rows{index}", f"_hq_leaf{index}"
+        output = f"_hq_value{index}"
+        group = ", ".join(["_hq_period", *keys])
+        expression = dialect.window_aggregate(base.measure, base.column, base.arg)
+        count = _is_count(base.measure)
+        if window is not None and window.cumulative:
+            population, partial = f"_hq_history{index}", f"_hq_partial{index}"
+            aggregation = base.measure.aggregation
+            operation = "sum" if aggregation == "count" else aggregation
+            partition = dialect.pack_row(keys or ["0"])
+            history_group = ", ".join(["_hq_time", *keys])
+            frame = (
+                "PARTITION BY _hq_partition ORDER BY _hq_time "
+                "ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW"
+            )
+            return _Leaf(
+                node=node,
+                ctes=[
+                    f"{population} AS (SELECT * FROM _hq_source WHERE _hq_time < "  # noqa: S608
+                    f"(SELECT max(_hq_eval_end) FROM _hq_context{context}))",
+                    f"{partial} AS (SELECT {history_group}, {partition} AS _hq_partition, "  # noqa: S608
+                    f"{dialect.to_nullable(expression)} AS _hq_partial FROM {population} "
+                    f"GROUP BY {history_group})",
+                    f"{aggregate} AS (SELECT _hq_time, _hq_partition, "  # noqa: S608
+                    f"{dialect.reaggregate(operation, '_hq_partial')} OVER ({frame}) AS {output} "
+                    f"FROM {partial})",
+                ],
+                population=population,
+                aggregate=aggregate,
+                cumulative=True,
+                guard="0",
+                count=count,
+            )
+        if window is not None and window.trailing is not None:
+            lower = dialect.subtract_time(
+                "_hq_eval_end", window.trailing.amount, window.trailing.unit
+            )
+        elif window is not None and window.to_date is not None:
+            # Keep the to-date start zoned: a calendar Date would bucket in server time.
+            lower = dialect.start_of_in_zone(
+                "_hq_eval_period", window.to_date, self._source_timezone()
+            )
+        else:
+            lower = "_hq_eval_lower"
+        upper = "_hq_eval_end" if window is not None else "_hq_eval_upper"
+        lower_inclusive = "1" if window is not None else "_hq_lower_inclusive"
+        upper_inclusive = "0" if window is not None else "_hq_upper_inclusive"
+        first = dialect.start_of("_hq_scan_lower", grain)
+        last = dialect.start_of("_hq_scan_upper", grain)
+        partial_upper = dialect.if_else(
+            f"_hq_scan_upper > {last} OR _hq_scan_upper_inclusive", "1", "0"
+        )
+        buckets = dialect.greatest(
+            "0", f"{dialect.time_diff(grain, first, last)} + {partial_upper}"
+        )
+        fanout = dialect.guard(f"{buckets} > 1000", _FANOUT_ERROR) if window is not None else "0"
+        guard = f"{fanout} + {self._calendar_guard(first, f'{buckets} + {fanout}', grain)}"
+        predicate = self._range_predicate(
+            "r._hq_time",
+            "b._hq_scan_lower",
+            "b._hq_scan_upper",
+            "b._hq_scan_lower_inclusive",
+            "b._hq_scan_upper_inclusive",
+        )
+        source_period = dialect.add_time(first, dialect.series_index(f"{buckets} + {guard}"), grain)
+        return _Leaf(
+            node=node,
+            ctes=[
+                f"{ranges} AS (SELECT _hq_period, {lower} AS _hq_scan_lower, "  # noqa: S608
+                f"{upper} AS _hq_scan_upper, {lower_inclusive} AS _hq_scan_lower_inclusive, "
+                f"{upper_inclusive} AS _hq_scan_upper_inclusive FROM _hq_context{context})",
+                f"_hq_keys{index} AS (SELECT *, {source_period} AS _hq_source_period "  # noqa: S608
+                f"FROM {ranges})",
+                f"{rows} AS (SELECT r.*, b._hq_period FROM _hq_source AS r "  # noqa: S608
+                f"INNER JOIN _hq_keys{index} AS b ON {dialect.start_of('r._hq_time', grain)} = "
+                f"b._hq_source_period WHERE {predicate})",
+                f"{aggregate} AS (SELECT {group}, {dialect.to_nullable(expression)} AS {output} "  # noqa: S608
+                f"FROM {rows} GROUP BY {group})",
+            ],
+            population=rows,
+            aggregate=aggregate,
+            cumulative=False,
+            guard=f"(SELECT coalesce(max({guard}), 0) FROM {ranges})",  # noqa: S608
+            count=count,
+        )
+
     # -- result ------------------------------------------------------------
 
     def _formula(self, formula: Formula) -> str:
@@ -664,7 +1020,16 @@ class TimeMeasureFeature(CompilerFeature):
             formula, lambda name: SafeIdentifier(name).sql, compiler.binder, compiler.dialect
         )
 
-    def _result(self, dimensions: list[tuple[str, str]], ctes: list[str], guard: str) -> str:
+    def _result(
+        self,
+        dimensions: list[tuple[str, str]],
+        ctes: list[str],
+        guard: str,
+        *,
+        evaluated: bool = False,
+    ) -> str:
+        """Project, order and paginate `_hq_values`; *evaluated* when formulas already ran."""
+
         compiler = self.compiler
         dialect, dataset, query = compiler.dialect, compiler.dataset, compiler.query
         selected = list(query.measures or ())
@@ -672,7 +1037,7 @@ class TimeMeasureFeature(CompilerFeature):
         projections = [period, *(SafeIdentifier(name).sql for name, _ in dimensions)]
         for name in selected:
             definition = dataset.measures.get(name)
-            if isinstance(definition, DerivedMeasure):
+            if isinstance(definition, DerivedMeasure) and not evaluated:
                 projections.append(
                     f"{self._formula(definition.formula)} AS {SafeIdentifier(name).sql}"
                 )
