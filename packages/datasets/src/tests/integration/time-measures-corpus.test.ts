@@ -86,8 +86,16 @@ describe('window and shift corpus against ClickHouse', () => {
   for (const testCase of corpus.cases) {
     it(testCase.name, async () => {
       const actual = await run(testCase);
-      if (updating) testCase.expected = actual;
-      else expect(actual).toEqual(testCase.expected);
+      if (updating) {
+        testCase.expected = actual;
+        return;
+      }
+      expect(actual).toEqual(testCase.expected);
+      // toEqual ignores key order, but column order is part of the result, as Python checks.
+      if ('rows' in testCase.expected) {
+        expect((actual as { rows: object[] }).rows.map(row => Object.keys(row)))
+          .toEqual(testCase.expected.rows.map((row: object) => Object.keys(row)));
+      }
     });
   }
 });
