@@ -88,6 +88,8 @@ def _measure(entry: MeasureCatalogEntry, *, include_sql: bool) -> dict[str, obje
     for key in ("label", "description"):
         if key in entry:
             result[key] = entry[key]
+    if entry.get("approximate"):
+        result["approximate"] = True
     return result
 
 

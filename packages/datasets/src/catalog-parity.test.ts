@@ -59,6 +59,7 @@ const Orders = dataset('orders', {
     revenue: measure.sum('amount', { label: 'Revenue' }),
     orderCount: measure.count('id'),
     uniqueCustomers: measure.countDistinct('customerId'),
+    approxCustomers: measure.approxCountDistinct('customerId'),
     topStatus: measure.argMax('status', 'amount'),
     p95Amount: measure.percentile('amount', 0.95),
     paidRevenue: measure.sum('amount', {

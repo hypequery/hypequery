@@ -14,6 +14,7 @@ from .dataset import Dataset
 from .deployment_values import filter_expression
 from .derived_measures import DerivedMeasure
 from .dimensions import DimensionType
+from .measures import Measure
 from .registry import DatasetRegistry
 from .relationships import Relationship
 from .utils.definition_projection import (
@@ -169,6 +170,14 @@ def validate_deployable(dataset: Dataset) -> None:
     dataset and measure (``orders.doubled: ...``) instead of a contract path.
     """
 
+    for name, definition in dataset.measures.items():
+        if isinstance(definition, Measure) and definition.aggregation == "approxCountDistinct":
+            # Mirrors TypeScript's `requirePublishableMeasureAggregation`.
+            raise ValueError(
+                f"{dataset.name}.{name} uses approxCountDistinct, which cannot be published yet: "
+                "approximate aggregations need deployment contract 3 (RFC 0015). Use it for "
+                "local queries, or publish countDistinct instead."
+            )
     for name, issue in deployable_measure_issues(dataset.measures):
         raise ValueError(f"{dataset.name}.{name}: {issue}")
 

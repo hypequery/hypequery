@@ -37,6 +37,8 @@ _AGGREGATE_FUNCTIONS: Final = {
     "sum": "sum",
     "count": "count",
     "countDistinct": "uniqExact",
+    # An estimate (HyperLogLog-style adaptive sampling); catalogs mark it approximate.
+    "approxCountDistinct": "uniq",
     "avg": "avg",
     "min": "min",
     "max": "max",

@@ -49,7 +49,7 @@ def _measure_type(dataset: Dataset, measure: Measure | DerivedMeasure) -> Result
     if isinstance(measure, DerivedMeasure):
         return "number"
     aggregation = measure.aggregation
-    if aggregation in ("count", "countDistinct"):
+    if aggregation in ("count", "countDistinct", "approxCountDistinct"):
         return "integer"
     if aggregation in ("min", "max", "argMax", "argMin"):
         # These return a value of the measured field itself.

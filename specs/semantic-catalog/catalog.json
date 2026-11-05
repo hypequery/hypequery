@@ -165,6 +165,12 @@
         "field": "customerId",
         "filterCount": 0
       },
+      "approxCustomers": {
+        "aggregation": "approxCountDistinct",
+        "field": "customerId",
+        "filterCount": 0,
+        "approximate": true
+      },
       "topStatus": {
         "aggregation": "argMax",
         "field": "status",
@@ -268,6 +274,7 @@
       "revenue",
       "orderCount",
       "uniqueCustomers",
+      "approxCustomers",
       "topStatus",
       "p95Amount",
       "paidRevenue",
