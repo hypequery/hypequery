@@ -12,6 +12,7 @@ from hypequery.datasets import (
     Dataset,
     DatasetQuery,
     ExecutionContext,
+    FilterDefinition,
     Segment,
     belongs_to,
     create_dataset_client,
@@ -137,3 +138,25 @@ def test_served_requests_select_segments_by_name() -> None:
 
     request = QueryRequest.model_validate({"measures": ["orders"], "segments": ["paid"]})
     assert request.semantic(limit=10).segments == ("paid",)
+
+
+def test_a_segment_reads_its_dimension_not_a_filter_of_the_same_name() -> None:
+    # The caller filter "status" stands for the channel dimension; a segment on
+    # "status" still means the status dimension it was validated against.
+    aliased = dataset(
+        "orders",
+        source="orders",
+        dimensions={"status": dimension.string(), "channel": dimension.string()},
+        measures={"orders": measure.count("status")},
+        filters={"status": FilterDefinition(field="channel")},
+        segments={"paid": segment(filter.eq("status", "paid"))},
+    )
+    client = create_dataset_client(executor=_Executor())
+    statement = client.to_sql(aliased, DatasetQuery(measures=("orders",), segments=("paid",)))
+    assert "`__hq_base`.`status` = <p0:String>" in statement
+    assert "`channel` =" not in statement
+    # A caller filter still follows the declared alias.
+    filtered = client.to_sql(
+        aliased, DatasetQuery(measures=("orders",), filters=(filter.eq("status", "web"),))
+    )
+    assert "`__hq_base`.`channel` = <p0:String>" in filtered

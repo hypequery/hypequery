@@ -14,6 +14,7 @@ from hypequery.datasets import (
     Dataset,
     DatasetQuery,
     DerivedMeasure,
+    FilterDefinition,
     Measure,
     create_dataset_registry,
     dataset,
@@ -185,3 +186,51 @@ def test_client_endpoints_and_deployment_leave_time_measures_out() -> None:
     assert set(measures) == {"revenue", "buyers"}
     with pytest.raises(ValueError, match="rolling7"):
         build_protocol_deployment_contract(create_dataset_registry(SALES))
+
+
+def _restricted(**options: object) -> Dataset:
+    return dataset(
+        "sales",
+        source="sales",
+        time_key="sold_at",
+        measures={"revenue": measure.sum("amount"), "rolling7": MEASURES["rolling7"]},
+        **options,  # type: ignore[arg-type]
+    )
+
+
+@pytest.mark.parametrize(
+    ("restricted", "message"),
+    [
+        (
+            _restricted(
+                dimensions={"soldAt": dimension.timestamp(column="sold_at", filterable=False)}
+            ),
+            "not exposed",
+        ),
+        (
+            _restricted(
+                dimensions={"soldAt": dimension.timestamp(column="sold_at")},
+                filters={"soldAt": FilterDefinition(field="soldAt", operators=("eq",))},
+            ),
+            "does not allow gte",
+        ),
+    ],
+)
+def test_time_bounds_follow_the_datasets_filter_rules(restricted: Dataset, message: str) -> None:
+    # A plain query refuses these filters; the window's time bounds must too.
+    with pytest.raises(CompiledQueryError, match=message):
+        plan_dataset_query(
+            restricted, DatasetQuery(measures=("rolling7",), by="day", filters=JANUARY)
+        )
+
+
+@pytest.mark.parametrize(
+    "wrapper", [measure.shift("latestStatus", 1, "day"), measure.trailing("latestStatus", 7, "day")]
+)
+def test_formulas_over_windows_and_shifts_need_numeric_inputs(wrapper: AnyMeasure) -> None:
+    with pytest.raises(ValueError, match="numeric measure"):
+        sales(
+            latestStatus=measure.max("channel"),
+            previous=wrapper,
+            ratio=measure.derived(divide("previous", "revenue")),
+        )
