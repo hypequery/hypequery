@@ -8,6 +8,7 @@ import type {
   ProtocolDeploymentMeasure,
   ProtocolExpression,
 } from '@hypequery/protocol';
+import type { ClientContractCapabilities } from './build-from-deployment.js';
 
 // As Python's builder: booleans compare by equality and membership only.
 const BOOLEAN_OPERATORS = new Set(['eq', 'neq', 'in', 'notIn']);
@@ -27,16 +28,21 @@ export function dimensionDescriptor(dimension: ProtocolDatasetDimension): Client
 }
 
 /** `having` compares numbers, so ordered aggregations over non-numeric fields can't take it. */
-export function measureDescriptor(dataset: ProtocolDeploymentDataset, measure: ProtocolDeploymentMeasure): ClientMeasure {
-  if ('kind' in measure) return { wireType: 'string', nullable: true, having: true };
-  if (measure.aggregation === 'merge') {
-    return { wireType: 'string', nullable: true, having: !ORDERED_STATES.has(String(measure.stateFunction)) };
-  }
-  if (!ORDERED_AGGREGATIONS.has(measure.aggregation)) {
-    return { wireType: 'string', nullable: true, having: true };
-  }
+function havingAllowed(dataset: ProtocolDeploymentDataset, measure: ProtocolDeploymentMeasure): boolean {
+  if ('kind' in measure) return true;
+  if (measure.aggregation === 'merge') return !ORDERED_STATES.has(String(measure.stateFunction));
+  if (!ORDERED_AGGREGATIONS.has(measure.aggregation)) return true;
   const dimension = dataset.dimensions.find(item => item.name as string === measure.field as string);
-  return { wireType: 'string', nullable: true, having: dimension?.type === 'number' };
+  return dimension?.type === 'number';
+}
+
+/** Every measure's value is a decimal string; `having` only where the host executes it and it compares numbers. */
+export function measureDescriptor(
+  dataset: ProtocolDeploymentDataset,
+  measure: ProtocolDeploymentMeasure,
+  capabilities: ClientContractCapabilities,
+): ClientMeasure {
+  return { wireType: 'string', nullable: true, having: capabilities.having === true && havingAllowed(dataset, measure) };
 }
 
 export function filterDescriptor(dimension: ProtocolDatasetDimension, filter: ProtocolDatasetFilter): ClientFilter | null {
@@ -91,7 +97,7 @@ function measureFilterFields(dataset: ProtocolDeploymentDataset, name: string): 
  * exported yet, matching Python's default (`related=()`), so a measure whose
  * fixed filters cross a relationship is left out rather than advertised.
  */
-export function publicFields(dataset: ProtocolDeploymentDataset): {
+export function publicFields(dataset: ProtocolDeploymentDataset, capabilities: ClientContractCapabilities): {
   dimensions: Record<string, ClientDimension>;
   measures: Record<string, ClientMeasure>;
   filters: Record<string, ClientFilter>;
@@ -99,7 +105,7 @@ export function publicFields(dataset: ProtocolDeploymentDataset): {
   const dimensions = Object.fromEntries(dataset.dimensions.map(dimension => [dimension.name, dimensionDescriptor(dimension)]));
   const measures = Object.fromEntries(dataset.measures
     .filter(measure => measureFilterFields(dataset, measure.name).every(field => !field.includes('.')))
-    .map(measure => [measure.name, measureDescriptor(dataset, measure)]));
+    .map(measure => [measure.name, measureDescriptor(dataset, measure, capabilities)]));
   // Built with Object.fromEntries, as above: assigning a key such as
   // `__proto__` would set the prototype instead of adding an entry.
   const filters = Object.fromEntries(dataset.filters.flatMap((filter): [string, ClientFilter][] => {
