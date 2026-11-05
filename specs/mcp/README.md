@@ -1,28 +1,22 @@
 # MCP parity snapshots
 
-Snapshots that pin the TypeScript and Python MCP schema compilers to the same
-output, so a Python MCP server can advertise the same tools as `@hypequery/mcp`.
-Python has no MCP server yet; today a Python API reaches agents through
-`@hypequery/mcp`'s HTTP executor. The snapshots are generated from the
+Snapshots that keep `@hypequery/mcp` and a Python MCP server advertising the
+same tools. They are generated from the
 [client-contract-v1](../security-protocol/fixtures/client-contract-v1/) success
 contracts and live here, outside that conformance family, because they are
 snapshots rather than case arrays.
 
 - `tool-schemas-v1.json`: per success contract, the `query_dataset` and
   `query_metric` MCP input JSON Schemas and manifest hash (RFC 0018 MCP
-  projection), compiled from the contract as given. TypeScript generates it
-  (`vitest -u` in `packages/datasets`); Python asserts the same bytes.
+  projection). TypeScript generates it (`vitest -u` in `packages/datasets`);
+  Python asserts the same bytes.
 
-The snapshot pins the compiler, not what a server advertises. `@hypequery/mcp`
-first narrows the contract with `mcpClientProfile`
-(`packages/mcp-server/src/utils/http-client/profile.ts`): it lowers each
-endpoint's limits to the host's configured query limits and to at most 1000
-rows and filter values, then re-prepares the contract. When that lowers any
-limit, the advertised schemas and manifest hash differ from the backend's; when
-every limit already fits, they are the same. A Python server must apply the
-same profile before compiling, or a backend whose limits exceed the host's
-would get larger limits and a different manifest hash than the Node server
-advertises.
+The snapshot pins the compiler on the raw contract. A server does not compile
+that directly: like `@hypequery/mcp` (`mcpClientProfile`), it first applies the
+MCP client profile, which clamps `maxLimit` and `maxFilterValues` to at most
+1000 and to the host's query limits and re-prepares the contract. So a served
+manifest's limits and `manifestHash` can differ from these, and the authorized
+contract's `contentHash` is advertised separately.
 
 Regenerate deliberately and review the diff: a change here changes what every
 MCP client of both servers sees.
