@@ -6,12 +6,16 @@ import os
 import sys
 from importlib.util import find_spec
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import anyio
 
 from ..errors import CliError
 from ..options import McpOptions
-from ..utils.mcp_setup import load_api, mcp_server_config, request_headers
+from ..utils.mcp_setup import app_lifespan, load_api, mcp_server_config, request_headers
+
+if TYPE_CHECKING:
+    from ...serve.asgi import Lifespan
 
 
 def _project(options: McpOptions) -> Path:
@@ -55,20 +59,26 @@ def run(options: McpOptions) -> None:
     )
 
     backend: ContractBackend
+    lifespan: Lifespan | None = None
     if options.client_contract_url is not None:
         try:
             backend = HttpContractBackend(options.client_contract_url, headers=headers)
         except ValueError as exc:
             raise CliError(str(exc)) from None
     else:
-        api = load_api(options.app or "app:api")
+        loaded = load_api(options.app or "app:api")
+        lifespan = loaded.lifespan
         try:
-            backend = ApiContractBackend(api, headers=headers)
+            backend = ApiContractBackend(loaded.api, headers=headers)
         except ValueError as exc:
             # A setup mistake, such as an API without a client-contract endpoint.
             raise CliError(str(exc)) from None
 
     async def main() -> None:
+        async with app_lifespan(lifespan):
+            await serve()
+
+    async def serve() -> None:
         try:
             executor = await ClientContractExecutor.create(backend)
         except McpToolError as exc:

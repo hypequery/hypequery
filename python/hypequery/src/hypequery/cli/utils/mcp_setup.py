@@ -6,11 +6,13 @@ import importlib
 import json
 import re
 import sys
-from collections.abc import Mapping, Sequence
-from contextlib import redirect_stdout
+from collections.abc import AsyncIterator, Mapping, Sequence
+from contextlib import asynccontextmanager, redirect_stdout
+from dataclasses import dataclass
 from pathlib import Path
 
 from ...serve import Api
+from ...serve.asgi import AsgiApp, Lifespan
 from ..errors import CliError
 
 API_KEY_VARIABLE = "HYPEQUERY_API_KEY"
@@ -41,7 +43,15 @@ def request_headers(values: Sequence[str], env: Mapping[str, str]) -> dict[str, 
     return headers
 
 
-def load_api(target: str) -> Api:
+@dataclass(frozen=True, slots=True)
+class LoadedApp:
+    """The served `Api`, and the lifespan its ASGI app would run around it."""
+
+    api: Api
+    lifespan: Lifespan | None = None
+
+
+def load_api(target: str) -> LoadedApp:
     """Import *target* (``module:attribute``) from the current directory as an `Api`.
 
     The import writes to stderr: stdout belongs to the MCP protocol.
@@ -74,7 +84,31 @@ def load_api(target: str) -> Api:
     api = getattr(value, "api", value)
     if not isinstance(api, Api):
         raise CliError(f"{target} is not a hypequery Api (from create_api) or its ASGI app.")
-    return api
+    # An ASGI app's lifespan opens what its endpoints share (an executor, a
+    # pool), so the MCP server runs it too, as a web server would.
+    return LoadedApp(api, value.lifespan if isinstance(value, AsgiApp) else None)
+
+
+@asynccontextmanager
+async def app_lifespan(factory: Lifespan | None) -> AsyncIterator[None]:
+    """Enter the app's lifespan for the server's life, as an ASGI server does."""
+
+    if factory is None:
+        yield
+        return
+    try:
+        context = factory()
+        await context.__aenter__()
+    except Exception:
+        # Project code may put URLs, SQL or credentials in its errors.
+        raise CliError("The app's lifespan failed to start; check its dependencies.") from None
+    try:
+        yield
+    except BaseException as exc:
+        if not await context.__aexit__(type(exc), exc, exc.__traceback__):
+            raise
+    else:
+        await context.__aexit__(None, None, None)
 
 
 def mcp_server_config(

@@ -210,3 +210,51 @@ def test_env_files_are_read_from_the_project_for_mcp(
     assert env_root(["mcp", f"--project={project}"]) == project.resolve()
     assert env_root(["mcp", "--project", str(launch / "missing")]) == Path.cwd()
     assert env_root(["dev", "--project", str(project)]) == Path.cwd()
+
+
+LIFESPAN_APP = """
+from contextlib import asynccontextmanager
+
+import app as base
+from hypequery.serve import to_asgi_app
+
+events = []
+
+
+@asynccontextmanager
+async def lifespan():
+    events.append("startup")
+    yield
+    events.append("shutdown")
+    print("lifespan:" + ",".join(events), file=__import__("sys").stderr)
+
+
+app = to_asgi_app(base.api, lifespan=lifespan)
+"""
+
+
+def test_an_asgi_apps_lifespan_runs_around_the_server(
+    project: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    (project / "served.py").write_text(LIFESPAN_APP)
+    assert main(["mcp", "served:app", "--self-test"]) == 0
+    assert "lifespan:startup,shutdown" in capsys.readouterr().err
+
+
+def test_a_failing_lifespan_is_a_setup_error(
+    project: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    (project / "broken.py").write_text(
+        "from contextlib import asynccontextmanager\n"
+        "import app as base\n"
+        "from hypequery.serve import to_asgi_app\n"
+        "@asynccontextmanager\n"
+        "async def lifespan():\n"
+        "    raise RuntimeError('postgres://user:SECRET@db')\n"
+        "    yield\n"
+        "app = to_asgi_app(base.api, lifespan=lifespan)\n"
+    )
+    assert main(["mcp", "broken:app", "--self-test"]) == 1
+    error = capsys.readouterr().err
+    assert "lifespan failed to start" in error
+    assert "SECRET" not in error

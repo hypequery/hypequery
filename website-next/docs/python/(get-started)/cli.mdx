@@ -233,7 +233,7 @@ errors as `@hypequery/mcp`. Needs the `mcp` extra: `pip install "hypequery[mcp]"
 
 | Option | Description |
 | --- | --- |
-| `module:api` | The `Api` from `create_api`, or its `to_asgi_app` app, served in-process (default `app:api`) |
+| `module:api` | The `Api` from `create_api`, or its `to_asgi_app` app, served in-process (default `app:api`). An app's `lifespan` runs around the server |
 | `--client-contract-url <url>` | Bridge a deployed API's discovery route instead (HTTPS; plain HTTP only on loopback) |
 | `--header 'Name: value'` | A header sent with every call, such as a credential (repeatable) |
 | `--project <dir>` | Directory to import the app from (default: current) |
