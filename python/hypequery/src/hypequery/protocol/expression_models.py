@@ -33,6 +33,12 @@ ProtocolAggregation: TypeAlias = Literal[
     # Expression extension 2 (RFC 0015); rejected under extension 1.
     "approxCountDistinct",
 ]
+#: Scalar operators a ``having`` condition may use (RFC 0025).
+ProtocolHavingComparisonOperator: TypeAlias = Literal["eq", "neq", "gt", "gte", "lt", "lte"]
+#: Every ``having`` operator: the scalar comparisons plus the list forms.
+ProtocolHavingOperator: TypeAlias = (
+    ProtocolHavingComparisonOperator | Literal["between", "in", "notIn"]
+)
 ProtocolTimeGrain: TypeAlias = Literal["day", "week", "month", "quarter", "year"]
 # Every grain a query may carry; ``minute`` and ``hour`` are extension 2.
 ProtocolQueryTimeGrain: TypeAlias = Literal[
@@ -142,6 +148,19 @@ class ProtocolOrderBy:
 
 
 @dataclass(frozen=True, slots=True)
+class ProtocolHavingCondition:
+    """A condition on a selected measure's aggregated value (SQL ``HAVING``, RFC 0025).
+
+    ``value`` is a finite number for ``eq``..``lte``, a pair for ``between``,
+    and a non-empty tuple for ``in``/``notIn``.
+    """
+
+    measure: ProtocolQualifiedIdentifier
+    operator: ProtocolHavingOperator
+    value: int | float | tuple[int | float, ...]
+
+
+@dataclass(frozen=True, slots=True)
 class ProtocolDatasetQuery:
     dataset: ProtocolIdentifier
     dimensions: tuple[ProtocolQualifiedIdentifier, ...] | None = None
@@ -154,6 +173,10 @@ class ProtocolDatasetQuery:
     by: ProtocolQueryTimeGrain | None = None
     include_meta: bool | None = None
     segments: tuple[ProtocolIdentifier, ...] | None = None
+    #: AND-combined, applied after grouping; each names a selected measure (RFC 0025).
+    having: tuple[ProtocolHavingCondition, ...] | None = None
+    #: RFC 0018 registry zone for grains and time-key bounds; absent means UTC (RFC 0025).
+    timezone: str | None = None
     kind: Literal["dataset"] = dataclass_field(init=False, default="dataset")
 
 
@@ -169,6 +192,8 @@ class ProtocolMetricQuery:
     by: ProtocolQueryTimeGrain | None = None
     include_meta: bool | None = None
     segments: tuple[ProtocolIdentifier, ...] | None = None
+    #: RFC 0018 registry zone for grains and time-key bounds; absent means UTC (RFC 0025).
+    timezone: str | None = None
     kind: Literal["metric"] = dataclass_field(init=False, default="metric")
 
 
@@ -264,11 +289,20 @@ def semantic_query_to_data(query: ProtocolSemanticQuery) -> dict[str, object]:
         result["filters"] = [expression_to_data(item) for item in query.filters]
     if query.segments is not None:
         result["segments"] = list(query.segments)
+    if isinstance(query, ProtocolDatasetQuery) and query.having is not None:
+        result["having"] = [
+            {
+                "measure": item.measure,
+                "operator": item.operator,
+                "value": list(item.value) if type(item.value) is tuple else item.value,
+            }
+            for item in query.having
+        ]
     if query.order_by is not None:
         result["orderBy"] = [
             {"field": item.field, "direction": item.direction} for item in query.order_by
         ]
-    for key in ("limit", "offset", "by"):
+    for key in ("limit", "offset", "by", "timezone"):
         value = getattr(query, key)
         if value is not None:
             result[key] = value
