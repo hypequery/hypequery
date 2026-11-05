@@ -72,12 +72,14 @@ function minutesAgo(n: number): string {
 
 const pollingAndStreamingCode = `// React polling with hypequery hooks
 import { createHooks } from '@hypequery/react';
-import { InferApiType } from '@hypequery/serve';
+import type { InferApiType } from '@hypequery/serve';
 import type { api } from '@/analytics/realtime-queries';
+// npx hypequery generate:manifest analytics/realtime-queries.ts --output analytics/hypequery-manifest.json
+import manifest from '@/analytics/hypequery-manifest.json';
 
 type Api = InferApiType<typeof api>;
 
-const { useQuery } = createHooks<Api>({ baseUrl: '/api/analytics' });
+const { useQuery } = createHooks<Api>({ baseUrl: '/api/analytics', manifest });
 
 // Polling pattern — refetch every 5 s via TanStack Query
 export function LiveMetricsPanel({ tenantId }: { tenantId: string }) {
