@@ -283,3 +283,21 @@ def test_lifespan_output_and_shutdown_failures_stay_off_stdout(
     assert "closing pool" in captured.err
     assert "failed to shut down cleanly" in captured.err
     assert "SECRET" not in captured.err
+
+
+def test_discovery_output_never_reaches_stdout(
+    project: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    # The authenticator runs during discovery, before stdio_server claims stdout.
+    (project / "chatty.py").write_text(
+        (project / "app.py")
+        .read_text()
+        .replace(
+            "def authenticate(credential: Credential):\n",
+            "def authenticate(credential: Credential):\n    print('auth chatter')\n",
+        )
+    )
+    assert main(["mcp", "chatty:api", "--self-test"]) == 0
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    assert "auth chatter" in captured.err

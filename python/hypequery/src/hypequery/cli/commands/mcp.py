@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 import sys
+from contextlib import redirect_stdout
 from importlib.util import find_spec
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -80,7 +81,10 @@ def run(options: McpOptions) -> None:
 
     async def serve() -> None:
         try:
-            executor = await ClientContractExecutor.create(backend)
+            # Discovery runs the app's authentication and tenant resolution before
+            # stdio_server claims stdout, so its prints go to stderr here too.
+            with redirect_stdout(sys.stderr):
+                executor = await ClientContractExecutor.create(backend)
         except McpToolError as exc:
             # The executor's messages never echo a URL, credential or backend body.
             raise CliError(f"Could not read the client contract: {exc.message}") from None
