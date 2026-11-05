@@ -148,6 +148,12 @@ Tool failures use a stable structured envelope:
 Unclassified backend failures are redacted to `MCP_EXECUTION_FAILED`; database
 error details and physical SQL are not copied into agent-facing errors.
 
+A hosted server can add `retryAfterSeconds`, `relist` and `reason` (its own
+stable code) to an error, and refuse a call over a rate limit with
+`MCP_RATE_LIMITED`. `mcpToolErrorFromSemanticFailure` maps a semantic
+data-plane failure to these fields, and `createMCPErrorResponse` returns it in
+the published envelope.
+
 ## Safer than raw SQL access
 
 - Tool schemas come from your TypeScript semantic layer.
