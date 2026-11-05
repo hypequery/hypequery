@@ -37,6 +37,7 @@ from .cache_preimages import (
 )
 from .client_contract import (
     CLIENT_ERROR_MESSAGES,
+    ClientContractToolSchemas,
     ClientDimension,
     ClientEndpointAnnotations,
     ClientFieldAnnotation,
@@ -50,6 +51,7 @@ from .client_contract import (
     ProtocolClientContractError,
     ProtocolClientContractErrorCode,
     ProtocolClientEndpoint,
+    build_client_contract_tool_schemas,
     decode_protocol_client_contract,
     prepare_protocol_client_contract,
     validate_protocol_client_contract,
@@ -245,6 +247,7 @@ __all__ = [
     "UNSET",
     "CanonicalValue",
     "CanonicalValueLimits",
+    "ClientContractToolSchemas",
     "ClientDimension",
     "ClientEndpointAnnotations",
     "ClientFieldAnnotation",
@@ -344,6 +347,7 @@ __all__ = [
     "SchemaDefault",
     "TaggedValue",
     "array_value",
+    "build_client_contract_tool_schemas",
     "build_protocol_cache_preimage",
     "bytes_value",
     "date_value",

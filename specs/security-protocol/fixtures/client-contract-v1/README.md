@@ -11,6 +11,9 @@ The family is required by the TypeScript/Python conformance gates.
 - queries.json pins accepted strict HTTP/MCP input and complete normalized output.
 - query-rejections.json pins invalid selections, types, nulls, operators and budgets.
 - relations.json pins cross-view schema stability and query-target visibility.
+- tool-schemas.json pins, per success contract, the `query_dataset` and
+  `query_metric` MCP input JSON Schemas and manifest hash. TypeScript generates
+  it (`vitest -u` in `packages/datasets`); Python asserts the same bytes.
 - timezone-names.txt is the case-sensitive portable timezone registry. Runtime
   package registries must match it; aliases are retained verbatim in identities.
 
