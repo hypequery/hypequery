@@ -4,7 +4,11 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
-from ...protocol import ProtocolClientContractError
+from ...protocol import (
+    CLIENT_CONTRACT_FEATURES_HEADER,
+    ProtocolClientContractError,
+    accepts_client_field_metadata,
+)
 from .api import Api, Call, Route
 from .auth import RequestAuth
 from .client_contract import ClientEndpointRegistry, export_placements
@@ -37,7 +41,9 @@ def add_client_contract_route(
     Public discovery is explicit and projects only anonymous/public
     capabilities. With no *sources*, the host decides which registries it
     serves. Build views and host configuration are never selectable from
-    request input.
+    request input. Field vocabulary is advertised only to a request whose
+    ``x-hypequery-client-features`` header names ``field-metadata``: older
+    consumers reject those annotation members.
     """
     if type(max_bytes) is not int or not 1 <= max_bytes <= 1_048_576:
         raise ValueError("max_bytes must be an integer between 1 and 1048576")
@@ -59,6 +65,9 @@ def add_client_contract_route(
                 mount_path=call.host.mount_path,
                 view="authorized",
                 auths=auths,
+                field_metadata=accepts_client_field_metadata(
+                    call.request.headers.get(CLIENT_CONTRACT_FEATURES_HEADER)
+                ),
             )
         except ProtocolClientContractError:
             raise serve_error(
@@ -71,7 +80,7 @@ def add_client_contract_route(
             body,
             headers={
                 "cache-control": "no-store",
-                "vary": api.authentication.vary,
+                "vary": f"{api.authentication.vary}, {CLIENT_CONTRACT_FEATURES_HEADER}",
             },
         )
 

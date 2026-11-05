@@ -1,3 +1,4 @@
+import { CLIENT_CONTRACT_FEATURES, CLIENT_CONTRACT_FEATURES_HEADER } from '@hypequery/protocol';
 import { MCPExecutionBudgetError, MCPToolError } from '../../errors.js';
 
 export type BackendHeaders = Record<string, string> | (() => Record<string, string> | Promise<Record<string, string>>);
@@ -27,6 +28,8 @@ export async function backendRequest(
     const headers = new Headers(configured);
     headers.set('accept', 'application/json');
     if (body) headers.set('content-type', 'application/json');
+    // Discovery: this bridge validates field metadata, so ask for it.
+    else headers.set(CLIENT_CONTRACT_FEATURES_HEADER, CLIENT_CONTRACT_FEATURES);
     if (schemaHash) headers.set('x-hypequery-client-schema', schemaHash);
     signal.throwIfAborted();
     return await backend.fetchFn(url.href, {

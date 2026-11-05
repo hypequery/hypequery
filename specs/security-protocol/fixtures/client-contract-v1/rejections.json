@@ -519,8 +519,8 @@
     "base": "annotated",
     "set": [
       {
-        "path": "/endpoints/1/annotations/fields/country/unit",
-        "value": "USD"
+        "path": "/endpoints/1/annotations/fields/country/owner",
+        "value": "analytics"
       }
     ],
     "error": "HQ_CLIENT_UNKNOWN_FIELD",
@@ -702,6 +702,489 @@
       {
         "path": "/endpoints/1/annotations/description",
         "value": "Reworded without a new schemaHash."
+      }
+    ],
+    "error": "HQ_CLIENT_IDENTITY",
+    "path": "/contentHash",
+    "message": "Client contract identity does not match."
+  },
+  {
+    "id": "field-metadata-synonyms-not-array",
+    "base": "field-metadata",
+    "set": [
+      {
+        "path": "/endpoints/1/annotations/fields/revenue/synonyms",
+        "value": "sales"
+      }
+    ],
+    "error": "HQ_CLIENT_SHAPE",
+    "path": "/endpoints/1/annotations/fields/revenue/synonyms",
+    "message": "Invalid client contract shape."
+  },
+  {
+    "id": "field-metadata-empty-synonyms",
+    "base": "field-metadata",
+    "set": [
+      {
+        "path": "/endpoints/1/annotations/fields/revenue/synonyms",
+        "value": []
+      }
+    ],
+    "error": "HQ_CLIENT_SHAPE",
+    "path": "/endpoints/1/annotations/fields/revenue/synonyms",
+    "message": "Invalid client contract shape."
+  },
+  {
+    "id": "field-metadata-non-string-example",
+    "base": "field-metadata",
+    "set": [
+      {
+        "path": "/endpoints/1/annotations/fields/country/examples",
+        "value": [
+          "DE",
+          7
+        ]
+      }
+    ],
+    "error": "HQ_CLIENT_SHAPE",
+    "path": "/endpoints/1/annotations/fields/country/examples/1",
+    "message": "Invalid client contract shape."
+  },
+  {
+    "id": "field-metadata-blank-synonym",
+    "base": "field-metadata",
+    "set": [
+      {
+        "path": "/endpoints/1/annotations/fields/country/synonyms",
+        "value": [
+          "market",
+          " \u3000 "
+        ]
+      }
+    ],
+    "error": "HQ_CLIENT_SHAPE",
+    "path": "/endpoints/1/annotations/fields/country/synonyms/1",
+    "message": "Invalid client contract shape."
+  },
+  {
+    "id": "field-metadata-line-break-example",
+    "base": "field-metadata",
+    "set": [
+      {
+        "path": "/endpoints/1/annotations/fields/country/examples",
+        "value": [
+          "Côte\nd’Ivoire"
+        ]
+      }
+    ],
+    "error": "HQ_CLIENT_SHAPE",
+    "path": "/endpoints/1/annotations/fields/country/examples/0",
+    "message": "Invalid client contract shape."
+  },
+  {
+    "id": "field-metadata-duplicate-example",
+    "base": "field-metadata",
+    "set": [
+      {
+        "path": "/endpoints/1/annotations/fields/country/examples",
+        "value": [
+          "DE",
+          "FR",
+          "DE"
+        ]
+      }
+    ],
+    "error": "HQ_CLIENT_DUPLICATE",
+    "path": "/endpoints/1/annotations/fields/country/examples",
+    "message": "Duplicate client contract entry."
+  },
+  {
+    "id": "field-metadata-synonyms-100",
+    "base": "field-metadata",
+    "set": [
+      {
+        "path": "/endpoints/1/annotations/fields/revenue/synonyms",
+        "value": [
+          "synonym 0",
+          "synonym 1",
+          "synonym 2",
+          "synonym 3",
+          "synonym 4",
+          "synonym 5",
+          "synonym 6",
+          "synonym 7",
+          "synonym 8",
+          "synonym 9",
+          "synonym 10",
+          "synonym 11",
+          "synonym 12",
+          "synonym 13",
+          "synonym 14",
+          "synonym 15",
+          "synonym 16",
+          "synonym 17",
+          "synonym 18",
+          "synonym 19",
+          "synonym 20",
+          "synonym 21",
+          "synonym 22",
+          "synonym 23",
+          "synonym 24",
+          "synonym 25",
+          "synonym 26",
+          "synonym 27",
+          "synonym 28",
+          "synonym 29",
+          "synonym 30",
+          "synonym 31",
+          "synonym 32",
+          "synonym 33",
+          "synonym 34",
+          "synonym 35",
+          "synonym 36",
+          "synonym 37",
+          "synonym 38",
+          "synonym 39",
+          "synonym 40",
+          "synonym 41",
+          "synonym 42",
+          "synonym 43",
+          "synonym 44",
+          "synonym 45",
+          "synonym 46",
+          "synonym 47",
+          "synonym 48",
+          "synonym 49",
+          "synonym 50",
+          "synonym 51",
+          "synonym 52",
+          "synonym 53",
+          "synonym 54",
+          "synonym 55",
+          "synonym 56",
+          "synonym 57",
+          "synonym 58",
+          "synonym 59",
+          "synonym 60",
+          "synonym 61",
+          "synonym 62",
+          "synonym 63",
+          "synonym 64",
+          "synonym 65",
+          "synonym 66",
+          "synonym 67",
+          "synonym 68",
+          "synonym 69",
+          "synonym 70",
+          "synonym 71",
+          "synonym 72",
+          "synonym 73",
+          "synonym 74",
+          "synonym 75",
+          "synonym 76",
+          "synonym 77",
+          "synonym 78",
+          "synonym 79",
+          "synonym 80",
+          "synonym 81",
+          "synonym 82",
+          "synonym 83",
+          "synonym 84",
+          "synonym 85",
+          "synonym 86",
+          "synonym 87",
+          "synonym 88",
+          "synonym 89",
+          "synonym 90",
+          "synonym 91",
+          "synonym 92",
+          "synonym 93",
+          "synonym 94",
+          "synonym 95",
+          "synonym 96",
+          "synonym 97",
+          "synonym 98",
+          "synonym 99"
+        ]
+      }
+    ],
+    "error": "HQ_CLIENT_IDENTITY",
+    "path": "/contentHash",
+    "message": "Client contract identity does not match."
+  },
+  {
+    "id": "field-metadata-synonyms-101",
+    "base": "field-metadata",
+    "set": [
+      {
+        "path": "/endpoints/1/annotations/fields/revenue/synonyms",
+        "value": [
+          "synonym 0",
+          "synonym 1",
+          "synonym 2",
+          "synonym 3",
+          "synonym 4",
+          "synonym 5",
+          "synonym 6",
+          "synonym 7",
+          "synonym 8",
+          "synonym 9",
+          "synonym 10",
+          "synonym 11",
+          "synonym 12",
+          "synonym 13",
+          "synonym 14",
+          "synonym 15",
+          "synonym 16",
+          "synonym 17",
+          "synonym 18",
+          "synonym 19",
+          "synonym 20",
+          "synonym 21",
+          "synonym 22",
+          "synonym 23",
+          "synonym 24",
+          "synonym 25",
+          "synonym 26",
+          "synonym 27",
+          "synonym 28",
+          "synonym 29",
+          "synonym 30",
+          "synonym 31",
+          "synonym 32",
+          "synonym 33",
+          "synonym 34",
+          "synonym 35",
+          "synonym 36",
+          "synonym 37",
+          "synonym 38",
+          "synonym 39",
+          "synonym 40",
+          "synonym 41",
+          "synonym 42",
+          "synonym 43",
+          "synonym 44",
+          "synonym 45",
+          "synonym 46",
+          "synonym 47",
+          "synonym 48",
+          "synonym 49",
+          "synonym 50",
+          "synonym 51",
+          "synonym 52",
+          "synonym 53",
+          "synonym 54",
+          "synonym 55",
+          "synonym 56",
+          "synonym 57",
+          "synonym 58",
+          "synonym 59",
+          "synonym 60",
+          "synonym 61",
+          "synonym 62",
+          "synonym 63",
+          "synonym 64",
+          "synonym 65",
+          "synonym 66",
+          "synonym 67",
+          "synonym 68",
+          "synonym 69",
+          "synonym 70",
+          "synonym 71",
+          "synonym 72",
+          "synonym 73",
+          "synonym 74",
+          "synonym 75",
+          "synonym 76",
+          "synonym 77",
+          "synonym 78",
+          "synonym 79",
+          "synonym 80",
+          "synonym 81",
+          "synonym 82",
+          "synonym 83",
+          "synonym 84",
+          "synonym 85",
+          "synonym 86",
+          "synonym 87",
+          "synonym 88",
+          "synonym 89",
+          "synonym 90",
+          "synonym 91",
+          "synonym 92",
+          "synonym 93",
+          "synonym 94",
+          "synonym 95",
+          "synonym 96",
+          "synonym 97",
+          "synonym 98",
+          "synonym 99",
+          "synonym 100"
+        ]
+      }
+    ],
+    "error": "HQ_CLIENT_LIMIT",
+    "path": "/endpoints/1/annotations/fields/revenue/synonyms",
+    "message": "Client contract exceeds validation limits."
+  },
+  {
+    "id": "field-metadata-example-4096-bytes",
+    "base": "field-metadata",
+    "set": [
+      {
+        "path": "/endpoints/1/annotations/fields/country/examples",
+        "value": [
+          "éééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééé"
+        ]
+      }
+    ],
+    "error": "HQ_CLIENT_IDENTITY",
+    "path": "/contentHash",
+    "message": "Client contract identity does not match."
+  },
+  {
+    "id": "field-metadata-example-4097-bytes",
+    "base": "field-metadata",
+    "set": [
+      {
+        "path": "/endpoints/1/annotations/fields/country/examples",
+        "value": [
+          "ééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééx"
+        ]
+      }
+    ],
+    "error": "HQ_CLIENT_SHAPE",
+    "path": "/endpoints/1/annotations/fields/country/examples/0",
+    "message": "Invalid client contract shape."
+  },
+  {
+    "id": "field-metadata-blank-format",
+    "base": "field-metadata",
+    "set": [
+      {
+        "path": "/endpoints/1/annotations/fields/revenue/format",
+        "value": ""
+      }
+    ],
+    "error": "HQ_CLIENT_SHAPE",
+    "path": "/endpoints/1/annotations/fields/revenue/format",
+    "message": "Invalid client contract shape."
+  },
+  {
+    "id": "field-metadata-non-string-unit",
+    "base": "field-metadata",
+    "set": [
+      {
+        "path": "/endpoints/1/annotations/fields/revenue/unit",
+        "value": 1
+      }
+    ],
+    "error": "HQ_CLIENT_SHAPE",
+    "path": "/endpoints/1/annotations/fields/revenue/unit",
+    "message": "Invalid client contract shape."
+  },
+  {
+    "id": "field-metadata-unit-c1-control",
+    "base": "field-metadata",
+    "set": [
+      {
+        "path": "/endpoints/1/annotations/fields/orderCount/unit",
+        "value": "orders\u0085"
+      }
+    ],
+    "error": "HQ_CLIENT_SHAPE",
+    "path": "/endpoints/1/annotations/fields/orderCount/unit",
+    "message": "Invalid client contract shape."
+  },
+  {
+    "id": "field-metadata-format-4097-bytes",
+    "base": "field-metadata",
+    "set": [
+      {
+        "path": "/endpoints/1/annotations/fields/amount/format",
+        "value": "ééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééx"
+      }
+    ],
+    "error": "HQ_CLIENT_SHAPE",
+    "path": "/endpoints/1/annotations/fields/amount/format",
+    "message": "Invalid client contract shape."
+  },
+  {
+    "id": "field-metadata-lowercase-currency",
+    "base": "field-metadata",
+    "set": [
+      {
+        "path": "/endpoints/1/annotations/fields/revenue/currency",
+        "value": "eur"
+      }
+    ],
+    "error": "HQ_CLIENT_SHAPE",
+    "path": "/endpoints/1/annotations/fields/revenue/currency",
+    "message": "Invalid client contract shape."
+  },
+  {
+    "id": "field-metadata-long-currency",
+    "base": "field-metadata",
+    "set": [
+      {
+        "path": "/endpoints/1/annotations/fields/revenue/currency",
+        "value": "EURO"
+      }
+    ],
+    "error": "HQ_CLIENT_SHAPE",
+    "path": "/endpoints/1/annotations/fields/revenue/currency",
+    "message": "Invalid client contract shape."
+  },
+  {
+    "id": "field-metadata-numeric-currency",
+    "base": "field-metadata",
+    "set": [
+      {
+        "path": "/endpoints/1/annotations/fields/revenue/currency",
+        "value": 978
+      }
+    ],
+    "error": "HQ_CLIENT_SHAPE",
+    "path": "/endpoints/1/annotations/fields/revenue/currency",
+    "message": "Invalid client contract shape."
+  },
+  {
+    "id": "field-metadata-unknown-member",
+    "base": "field-metadata",
+    "set": [
+      {
+        "path": "/endpoints/1/annotations/fields/revenue/sensitivity",
+        "value": "internal"
+      }
+    ],
+    "error": "HQ_CLIENT_UNKNOWN_FIELD",
+    "path": "/endpoints/1/annotations/fields/revenue",
+    "message": "Unknown client contract field."
+  },
+  {
+    "id": "field-metadata-not-on-endpoint",
+    "base": "field-metadata",
+    "set": [
+      {
+        "path": "/endpoints/1/annotations/synonyms",
+        "value": [
+          "sales orders"
+        ]
+      }
+    ],
+    "error": "HQ_CLIENT_UNKNOWN_FIELD",
+    "path": "/endpoints/1/annotations",
+    "message": "Unknown client contract field."
+  },
+  {
+    "id": "field-metadata-does-not-sign-schema",
+    "base": "field-metadata",
+    "set": [
+      {
+        "path": "/endpoints/1/annotations/fields/revenue/synonyms",
+        "value": [
+          "sales"
+        ]
       }
     ],
     "error": "HQ_CLIENT_IDENTITY",

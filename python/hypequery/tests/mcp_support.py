@@ -65,11 +65,14 @@ def orders() -> Dataset:
         tenant_key="tenant_id",
         description="Customer orders.",
         dimensions={
-            "country": dimension.string(column="private_country"),
+            "country": dimension.string(column="private_country", synonyms=("market",)),
             "status": dimension.string(),
             "amount": dimension.number(groupable=False),
         },
-        measures={"total": measure.count("status"), "revenue": measure.sum("amount")},
+        measures={
+            "total": measure.count("status"),
+            "revenue": measure.sum("amount", format="#,##0.00", currency="USD"),
+        },
     )
 
 

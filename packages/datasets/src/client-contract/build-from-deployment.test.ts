@@ -1,4 +1,4 @@
-import { decodeProtocolClientContract } from '@hypequery/protocol';
+import { decodeProtocolClientContract, withoutClientFieldMetadata } from '@hypequery/protocol';
 import { describe, expect, it } from 'vitest';
 import { belongsTo, dataset, dimension, divide, eq, measure, nullIfZero, publishToCloud } from '../index.js';
 import { buildClientContract } from './build-from-deployment.js';
@@ -113,6 +113,31 @@ describe('buildClientContract', () => {
       description: 'One row per order.',
       fields: { revenue: { description: 'Gross revenue' }, status: { label: 'Order status' } },
     });
+  });
+
+  it('advertises field metadata only when asked, without moving any schemaHash', () => {
+    const Sales = dataset('sales', {
+      source: 'sales',
+      dimensions: {
+        region: dimension.string({ synonyms: ['market', ' market ', 'territory'], examples: ['EMEA', 'APAC'] }),
+        amount: dimension.number({ format: '#,##0.00', currency: 'EUR' }),
+      },
+      measures: {
+        revenue: measure.sum('amount', { label: 'Revenue', unit: ' euro ', synonyms: ['sales', 'turnover'] }),
+      },
+    });
+    const published = publishToCloud({ access, datasets: { sales: Sales } });
+    const plain = buildClientContract(published);
+    const rich = buildClientContract(published, { fieldMetadata: true });
+    expect(plain.contract.endpoints[0].annotations).toEqual({ fields: { revenue: { label: 'Revenue' } } });
+    // Lists keep the deployment's order (it sorts them), folded and de-duplicated; text is folded.
+    expect(rich.contract.endpoints[0].annotations).toEqual({ fields: {
+      amount: { format: '#,##0.00', currency: 'EUR' },
+      region: { synonyms: ['market', 'territory'], examples: ['APAC', 'EMEA'] },
+      revenue: { label: 'Revenue', unit: 'euro', synonyms: ['sales', 'turnover'] },
+    } });
+    expect(rich.contract.endpoints[0].schemaHash).toBe(plain.contract.endpoints[0].schemaHash);
+    expect(withoutClientFieldMetadata(rich).contentHash).toBe(plain.contentHash);
   });
 
   it('round-trips through the signed contract decoder that generate:client uses', () => {

@@ -38,7 +38,7 @@ export function clientHttpManifest(schemas: ClientContractQuerySchemas, authoriz
   const manifest = buildMCPToolManifest(schemas);
   for (const tool of manifest.tools) {
     if (tool.name === 'get_dataset_schema') {
-      tool.description = 'Inspect authorized endpoint profiles for a dataset group. Each endpoint retains its own permissions and defaults; annotations carry backend-authored field labels and descriptions.';
+      tool.description = 'Inspect authorized endpoint profiles for a dataset group. Each endpoint retains its own permissions and defaults; annotations carry backend-authored field labels, descriptions, synonyms, example values, formats, units and currencies.';
       tool.inputSchema = { type: 'object', additionalProperties: false, properties: { dataset: { type: 'string' } }, required: ['dataset'] };
       tool.outputSchema = profileOutput;
     } else if (tool.name === 'list_datasets') {
