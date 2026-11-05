@@ -2,7 +2,7 @@
 # requires-python = ">=3.11"
 # dependencies = [
 #     "marimo>=0.25",
-#     "hypequery[chdb,pandas]",
+#     "hypequery[chdb,pandas]>=0.1.0b3",
 #     "altair>=5",
 # ]
 # ///
@@ -90,7 +90,7 @@ def _():
 @app.cell
 def _(mo, row_count):
     mo.md(
-        f"**{row_count} orders** across three tenants, five countries and ten months, "
+        f"**{row_count} orders** across three tenants, five countries and eleven months, "
         "all in memory."
     )
     return
