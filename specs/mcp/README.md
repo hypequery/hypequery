@@ -17,10 +17,12 @@ The snapshot pins the compiler, not what a server advertises. `@hypequery/mcp`
 first narrows the contract with `mcpClientProfile`
 (`packages/mcp-server/src/utils/http-client/profile.ts`): it lowers each
 endpoint's limits to the host's configured query limits and to at most 1000
-rows and filter values, then re-prepares the contract, so its manifest hash
-differs from the backend's. A Python server must apply the same profile before
-compiling, or it will advertise larger limits and a different manifest hash
-than the Node server for the same backend.
+rows and filter values, then re-prepares the contract. When that lowers any
+limit, the advertised schemas and manifest hash differ from the backend's; when
+every limit already fits, they are the same. A Python server must apply the
+same profile before compiling, or a backend whose limits exceed the host's
+would get larger limits and a different manifest hash than the Node server
+advertises.
 
 Regenerate deliberately and review the diff: a change here changes what every
 MCP client of both servers sees.

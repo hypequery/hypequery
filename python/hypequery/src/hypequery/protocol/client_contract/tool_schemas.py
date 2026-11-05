@@ -9,9 +9,10 @@ selected-field dependencies, uniqueness and combined budgets.
 This compiles the contract it is given. An MCP server does not advertise the
 backend's contract as is: `@hypequery/mcp` first narrows it with
 `mcpClientProfile`, lowering each endpoint's limits to the host's query limits
-and to at most 1000 rows and filter values, and re-prepares it, which changes
-the manifest hash. A server built on this must apply the same profile first to
-advertise what the Node server does.
+and to at most 1000 rows and filter values, and re-prepares it. When a limit is
+lowered the schemas and manifest hash change; when every limit already fits,
+they match the backend's. A server built on this must apply the same profile
+first to advertise what the Node server does.
 """
 
 from __future__ import annotations
