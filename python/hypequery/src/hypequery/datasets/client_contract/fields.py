@@ -28,9 +28,15 @@ def dimension_descriptor(dimension: Dimension, *, related: bool = False) -> Clie
     }
 
 
+_ORDERED_STATES = frozenset(("min", "max", "any", "anyLast"))
+
+
 def numeric_measure(dataset: Dataset, measure: Measure | DerivedMeasure) -> bool:
     if isinstance(measure, DerivedMeasure):
         return True
+    if measure.aggregation == "merge":
+        # These states merge to the stored value itself, which may not be a number.
+        return measure.state_function not in _ORDERED_STATES
     if measure.aggregation in ("min", "max", "argMin", "argMax"):
         dimension = dataset.dimensions.get(measure.field)
         return dimension is not None and dimension.field_type == "number"
