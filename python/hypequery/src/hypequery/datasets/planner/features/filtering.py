@@ -37,10 +37,10 @@ class FilterFeature(CompilerFeature):
 
         compiler = self.compiler
         dataset, where = compiler.dataset, compiler.node.where
-        current = current_row_predicate(dataset)
+        current = current_row_predicate(dataset, BASE_ALIAS)
         if current is not None:
             # Every other filter, the tenant's included, applies to current rows only.
-            where.append(f"{BASE_ALIAS.sql}.{current}")
+            where.append(current)
         for filter_value in compiler.query.filters if filters is None else filters:
             field = resolve_filter_field(dataset, filter_value.field)
             if scope is not None and self._filters_a_tenant_column(field):
@@ -66,7 +66,7 @@ class FilterFeature(CompilerFeature):
                     "input-invalid",
                     f'Unknown segment "{name}" on dataset "{dataset.name}". Available: {known}',
                 )
-            where.extend(self.predicate(item) for item in declared.filters)
+            where.extend(self.predicate(item, as_dimension=True) for item in declared.filters)
 
         if scope is not None and dataset.tenant_key is not None:
             # tenant_key names a physical source column. A dimension of the same
@@ -76,12 +76,22 @@ class FilterFeature(CompilerFeature):
             column = f"{BASE_ALIAS.sql}.{tenant_column}"
             where.append(tenant_predicate(compiler.binder, column, scope))
 
-    def predicate(self, filter_value: Filter, *, request_filter: bool = False) -> str:
-        """One predicate, with every value bound rather than written."""
+    def predicate(
+        self, filter_value: Filter, *, request_filter: bool = False, as_dimension: bool = False
+    ) -> str:
+        """One predicate, with every value bound rather than written.
+
+        *as_dimension* reads the field as a dimension name, as a segment's fields
+        are validated, never through a declared filter of the same name.
+        """
 
         compiler = self.compiler
         dataset, fields, binder = compiler.dataset, compiler.fields, compiler.binder
-        field = resolve_filter_field(dataset, filter_value.field)
+        field = (
+            filter_value.field
+            if as_dimension
+            else resolve_filter_field(dataset, filter_value.field)
+        )
         if is_qualified(field):
             resolved = resolve_qualified_field(dataset, field, registry=compiler.registry)
             dimension = resolved.dimension

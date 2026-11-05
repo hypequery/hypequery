@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from ...protocol import ClientDimension, ClientFilter, ClientMeasure
+from ..constants import SEMANTIC_NULL_CHECK_OPERATORS
 from ..dataset import Dataset, FilterDefinition
 from ..derived_measures import DerivedMeasure
 from ..dimensions import Dimension
@@ -44,7 +45,12 @@ def measure_descriptor(dataset: Dataset, measure: Measure | DerivedMeasure) -> C
 def filter_descriptor(dimension: Dimension, definition: FilterDefinition) -> ClientFilter | None:
     allowed = filter_operators(definition)
     if dimension.field_type == "boolean":
-        allowed = [op for op in allowed if op in ("eq", "neq", "in", "notIn")]
+        # Null checks stay: a boolean column can hold NULL (RFC 0023).
+        allowed = [
+            op
+            for op in allowed
+            if op in ("eq", "neq", "in", "notIn", *SEMANTIC_NULL_CHECK_OPERATORS)
+        ]
     elif dimension.field_type == "number":
         allowed = [op for op in allowed if op != "like"]
     if not allowed:

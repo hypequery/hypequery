@@ -137,7 +137,10 @@ def test_a_plain_dataset_is_unchanged() -> None:
 
 def test_a_joined_target_resolves_before_the_join() -> None:
     statement = sql(EVENTS, DatasetQuery(dimensions=("user.plan",), measures=("events",)))
-    assert "FROM `app`.`users` FINAL WHERE `is_deleted` = 0)" in statement
+    assert (
+        "FROM `app`.`users` AS `__hq_resolved` FINAL WHERE `__hq_resolved`.`is_deleted` = 0)"
+        in statement
+    )
     # The base source is not resolved, but the statement still pins the setting.
     assert "FROM `app`.`events` AS `__hq_base` LEFT ANY JOIN" in statement
     assert statement.endswith(PIN)
@@ -147,8 +150,34 @@ def test_a_joined_target_resolves_before_the_join() -> None:
 
 def test_relationship_key_checks_count_current_rows() -> None:
     (check,) = plan_relationship_checks(EVENTS, REGISTRY, ACME, None)
-    assert "FROM `app`.`users` FINAL WHERE `is_deleted` = 0 AND" in check.compiled.sql
+    assert (
+        "FROM `app`.`users` AS `__hq_resolved` FINAL WHERE `__hq_resolved`.`is_deleted` = 0 AND"
+        in check.compiled.sql
+    )
     assert check.compiled.sql.endswith(PIN)
+
+
+@pytest.mark.parametrize("column", ["_hq_match", "__hq_rows", "__hq_keys"])
+def test_the_current_row_column_never_reads_an_output_alias(column: str) -> None:
+    # The join projects a `_hq_match` marker and the key check aggregates into
+    # `__hq_rows`/`__hq_keys`; an unqualified policy column would read those.
+    target = users(resolved_rows.replacing(deleted_column=column))
+    events = dataset(
+        "events",
+        source="app.events",
+        tenant_key="tenant_id",
+        dimensions={"userId": dimension.string(column="user_id"), "kind": dimension.string()},
+        measures={"events": measure.count("kind")},
+        relationships={"user": belongs_to(target, from_field="user_id", to_field="id")},
+    )
+    registry = create_dataset_registry(target, events)
+    client = create_dataset_client(executor=_Executor(), registry=registry)
+    statement = client.to_sql(
+        events, DatasetQuery(dimensions=("user.plan",), measures=("events",)), context=ACME
+    )
+    assert f"WHERE `__hq_resolved`.`{column}` = 0)" in statement
+    (check,) = plan_relationship_checks(events, registry, ACME, None)
+    assert f"WHERE `__hq_resolved`.`{column}` = 0 AND" in check.compiled.sql
 
 
 def test_catalog_contract_deployment_and_cache_identity_carry_the_policy() -> None:
