@@ -132,6 +132,33 @@ def route(value: object, path: str) -> str:
     return result
 
 
+#: At most this many synonyms or examples per field, the deployment contract's metadata ceiling.
+ANNOTATION_LIST_ITEMS = 100
+_CURRENCY = re.compile(r"[A-Z]{3}\Z", re.ASCII)
+
+
+def text_list(value: object, path: str) -> list[str]:
+    """A non-empty, duplicate-free list of annotation text, in producer order."""
+    if type(value) is not list:
+        client_error("HQ_CLIENT_SHAPE", path)
+    items = cast(list[object], value)
+    if len(items) > ANNOTATION_LIST_ITEMS:
+        client_error("HQ_CLIENT_LIMIT", path)
+    if not items:
+        client_error("HQ_CLIENT_SHAPE", path)
+    result = [text(item, pointer(path, index)) for index, item in enumerate(items)]
+    if len(set(result)) != len(result):
+        client_error("HQ_CLIENT_DUPLICATE", path)
+    return result
+
+
+def currency(value: object, path: str) -> str:
+    """An ISO 4217-shaped code: three uppercase ASCII letters."""
+    if type(value) is not str or _CURRENCY.match(value) is None:
+        client_error("HQ_CLIENT_SHAPE", path)
+    return value
+
+
 def timezone(value: object, path: str) -> str:
     if type(value) is not str or value not in CLIENT_TIMEZONE_NAMES:
         client_error("HQ_CLIENT_SHAPE", path)

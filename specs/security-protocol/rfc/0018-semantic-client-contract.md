@@ -7,6 +7,8 @@
 - Changes no existing deployment, expression, invocation or catalog version
 - Amended 2026-10-27: optional endpoint annotations
   ([decision](../decisions/0018-client-contract-annotations.md))
+- Amended 2026-11-05: negotiated field metadata in annotations
+  ([decision](../decisions/0018-client-contract-field-metadata.md))
 
 ## Status and purpose
 
@@ -347,7 +349,7 @@ of these optional members:
 - description: text describing the endpoint's dataset group.
 - fields: a non-empty record whose keys are this endpoint's dimension or
   measure keys and whose values are closed, non-empty objects with optional
-  label and description members.
+  label and description members, plus the field metadata members below.
 
 Both endpoints of one dataset group describe that group (the dataset), not the
 route, so a metric-only view can still describe its group. A metric endpoint
@@ -375,6 +377,41 @@ Version 1 consumers released before this amendment reject annotations as an
 unknown endpoint member. The amendment was made before any producer of this
 artifact was published; a later member addition cannot rely on that and needs
 an explicit compatible negotiation or a new version.
+
+### Field metadata
+
+A fields entry may also carry the deployment contract's agent-facing vocabulary
+for that field:
+
+- synonyms: other names people use for the field.
+- examples: example values.
+- format: display format text, such as `#,##0.00`.
+- unit: unit text, such as `euro` or `orders`.
+- currency: an ISO 4217-shaped code, exactly three uppercase ASCII letters.
+
+synonyms and examples are non-empty arrays of at most 100 distinct items, kept
+in producer order; each item, format and unit follow the text rules above. A
+non-array or empty list and a non-string item are shape errors, a 101st item a
+limit error and a repeated item a duplicate error. An entry may carry field
+metadata without a label or description. Endpoint-level annotations carry no
+field metadata, and other deployment metadata (sensitivity, timezone) is not
+advertised. These bounds are the deployment contract's, so any valid deployed
+vocabulary can be advertised; producers fold item whitespace, drop blank items
+and keep the first of repeated items.
+
+Field metadata is negotiated, because consumers released before this amendment
+reject it as an unknown field member. A consumer that validates it names the
+`field-metadata` token in the `x-hypequery-client-features` request header of a
+live discovery request. Tokens are comma-separated, compared case-insensitively
+after trimming spaces and tabs; unknown tokens are ignored and a header value
+over 256 characters names no features. A producer emits field metadata only to
+a request naming the token, and otherwise serves the same view with every field
+metadata member removed (and entries, fields records and annotations that become
+empty omitted). The two views share every schemaHash and differ in contentHash.
+A response that depends on the header lists it in Vary. Offline build exports
+omit field metadata unless their producer is explicitly asked to include it.
+Field metadata is presentation data under the same rules as label and
+description.
 
 ## Canonicalization and identity
 

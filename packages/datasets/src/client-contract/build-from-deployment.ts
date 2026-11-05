@@ -30,6 +30,14 @@ export interface BuildClientContractOptions {
    * turns them on; advertising one the host drops would return the wrong rows.
    */
   readonly capabilities?: ClientContractCapabilities;
+  /**
+   * Also advertise each field's synonyms, examples, format, unit and currency
+   * in its annotations. Validators released before these members existed reject
+   * them, so a live discovery route turns this on only for a request whose
+   * `x-hypequery-client-features` header asks for them
+   * (`acceptsClientFieldMetadata` from `@hypequery/protocol`). Off by default.
+   */
+  readonly fieldMetadata?: boolean;
 }
 
 export interface ClientContractCapabilities {
@@ -74,7 +82,9 @@ function endpointDescriptor(
       + `more than the host's measure budget of ${limits.maxMeasures}. Raise the budget, or set the dataset's limits.maxMeasures.`,
     );
   }
-  const annotations = endpointAnnotations(dataset, Object.keys(dimensions), Object.keys(measures));
+  const annotations = endpointAnnotations(
+    dataset, Object.keys(dimensions), Object.keys(measures), options.fieldMetadata === true,
+  );
   return {
     id: dataset.name,
     kind: 'dataset',

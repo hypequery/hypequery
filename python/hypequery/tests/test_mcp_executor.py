@@ -140,6 +140,12 @@ def test_discovery_tools_describe_the_authorized_groups() -> None:
     assert [e["id"] for e in endpoints] == ["orders", "ordersTotal"]
     # Paths and schema hashes are backend plumbing, not agent-facing.
     assert all("path" not in e and "schemaHash" not in e for e in endpoints)
+    # Discovery asks for field metadata, so the vocabulary reaches the agent.
+    annotations = cast(dict[str, dict[str, object]], endpoints[0]["annotations"])
+    assert annotations["fields"] == {
+        "country": {"synonyms": ["market"]},
+        "revenue": {"format": "#,##0.00", "currency": "USD"},
+    }
     assert (
         error_code(call(executor, "get_dataset_schema", {"dataset": "secret"})) == "MCP_NOT_FOUND"
     )

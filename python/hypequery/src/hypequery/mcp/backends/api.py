@@ -11,6 +11,7 @@ import json
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 
+from ...protocol import CLIENT_CONTRACT_FEATURES, CLIENT_CONTRACT_FEATURES_HEADER
 from ...serve import Api
 from ...serve.core.messages import Headers, ServeRequest
 from ..errors import McpToolError
@@ -102,9 +103,10 @@ class ApiContractBackend:
         )
 
     async def discover(self, max_bytes: int) -> BackendResponse:
-        return await self._send(
-            "GET", self._discovery, b"", resolve_headers(self.headers), max_bytes
-        )
+        headers = resolve_headers(self.headers)
+        # This executor validates field metadata, so it asks for it.
+        headers[CLIENT_CONTRACT_FEATURES_HEADER] = CLIENT_CONTRACT_FEATURES
+        return await self._send("GET", self._discovery, b"", headers, max_bytes)
 
     async def query(
         self, path: str, body: Mapping[str, object], schema_hash: str, max_bytes: int

@@ -200,7 +200,8 @@ def client_tool_manifest(
                 "description": (
                     "Inspect authorized endpoint profiles for a dataset group. Each endpoint "
                     "retains its own permissions and defaults; annotations carry "
-                    "backend-authored field labels and descriptions."
+                    "backend-authored field labels, descriptions, synonyms, example values, "
+                    "formats, units and currencies."
                 ),
                 "inputSchema": {
                     "type": "object",

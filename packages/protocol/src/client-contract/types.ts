@@ -32,12 +32,26 @@ export interface ClientQueryLimits {
   readonly maxOrderBy: number;
   readonly maxFilterValues: number;
 }
-export interface ClientFieldAnnotation {
+/** Label and description: the presentation text an endpoint group and each field may carry. */
+export interface ClientAnnotationText {
   readonly label?: string;
   readonly description?: string;
 }
+/**
+ * Field presentation metadata. Besides text, a field may carry the deployment
+ * contract's agent-facing vocabulary: synonyms and example values, a display
+ * format, a unit and an ISO 4217 currency code. Producers emit the vocabulary
+ * only to consumers that ask for it (`CLIENT_CONTRACT_FIELD_METADATA_FEATURE`).
+ */
+export interface ClientFieldAnnotation extends ClientAnnotationText {
+  readonly synonyms?: readonly string[];
+  readonly examples?: readonly string[];
+  readonly format?: string;
+  readonly unit?: string;
+  readonly currency?: string;
+}
 /** Presentation text only; excluded from schemaHash and never a capability. */
-export interface ClientEndpointAnnotations extends ClientFieldAnnotation {
+export interface ClientEndpointAnnotations extends ClientAnnotationText {
   readonly fields?: Readonly<Record<string, ClientFieldAnnotation>>;
 }
 interface ClientEndpointBase {
