@@ -1175,7 +1175,10 @@ from a server's:
   caller's remaining time, rounded up to whole seconds with a one-second
   minimum. Only the async executor returns promptly on cancellation or
   deadline expiry; a synchronous `execute()` waits until the running query
-  finishes or reaches that limit, which can be after the caller's deadline.
+  finishes or reaches that limit, which can be after the caller's deadline,
+  and one queued behind a running query notices cancellation only when its
+  turn comes or its deadline passes. Closing an executor waits for a running
+  query too.
 - chDB publishes wheels for Linux and macOS only.
 
 ## Canonical protocol values
