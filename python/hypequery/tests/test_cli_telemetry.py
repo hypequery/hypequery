@@ -88,6 +88,7 @@ def _events(stderr: str) -> list[dict[str, Any]]:
         (["export", "client-contract", "--factory", "a:b"], "export:client-contract"),
         (["--no-telemetry", "telemetry", "status"], "telemetry"),
         (["mcp", "app:api", "--project", "PRIVATE", "--self-test"], "mcp"),
+        (["skill", "install", "--agent", "claude"], "skill"),
         (["PRIVATE-command"], "unknown"),
         (["--version", "init"], "version"),
         (["-V", "dev", "--port", "1"], "version"),
@@ -110,6 +111,10 @@ def test_flags_are_canonical_names_and_values_are_never_read() -> None:
     # Header and project values are never read, even when they look like flags.
     argv = ["mcp", "--header", "--self-test", "--project=/PRIVATE", "--print-config"]
     assert flags_used("mcp", argv) == ["--header", "--print-config", "--project"]
+    # The agent and scope values are never read, so "--check" here is a value.
+    assert flags_used(
+        "skill", ["skill", "install", "--agent", "--check", "--scope", "user", "--force"]
+    ) == ["--agent", "--force", "--scope"]
     assert has_unknown_option("init", ["init", "--bogus"])
     assert not has_unknown_option("dev", ["dev", "--port", "-1"])
     assert not has_unknown_option("dev", ["dev", "app:app", "--", "--bogus"])

@@ -244,6 +244,18 @@ errors as `@hypequery/mcp`. Needs the `mcp` extra: `pip install "hypequery[mcp]"
 an agent gets exactly the endpoints, fields and tenant that credential's principal may use. See
 [MCP: datasets served from Python](/docs/mcp/overview#datasets-served-from-python).
 
+## `hypequery skill install`
+
+Writes hypequery's agent skills where coding agents load them: `hypequery-datasets` (authoring datasets) and
+`hypequery-query` (querying through MCP or HTTP). Works on the base install.
+
+| Option | Description |
+| --- | --- |
+| `--agent <agent>` | `claude` (`.claude/skills/`), `cursor` or `codex` (both read `.agents/skills/`), or `all` (default) |
+| `--scope <scope>` | `project` (default) or `user` (your home directory) |
+| `--check` | Exit 1 if a skill is missing or out of date, without writing |
+| `--force` | Replace skills that were edited or are out of date |
+
 ## `hypequery telemetry`
 
 The CLI collects pseudonymous usage telemetry by default, as the TypeScript CLI does, to show which commands,
