@@ -147,8 +147,49 @@ the error envelope. `ServeRequest.raw` is Flask's `Request`.
   registering the blueprint. `CSRFProtect` keeps checking the rest of your app, and an API on your own login (below).
 
 Then point the React hooks and the MCP bridge at the prefix; see [React and MCP clients](/docs/python/client-endpoints).
-For typed hooks from `hypequery generate:client`, install each endpoint with a `client_profile` and set
-`client_mount_path` to the prefix, as in the example below. A bare `Dataset` is left out of the client contract.
+
+### Typed React hooks
+
+Generated hooks come from the API's client contract, which lists only endpoints installed with a client profile.
+Pass `client_profile=` to put every `Dataset` entry in it, and `client_mount_path=` with the blueprint's prefix, so the
+contract's paths are the URLs browsers call. Keep the API on the app, so the export can find it:
+
+<CodeBlock>
+```python
+from hypequery.datasets import ClientQueryProfile
+
+
+def create_app():
+    # ... as above
+    api = create_api(
+        auth=jwt_strategy(secret=app.config["ANALYTICS_JWT_SECRET"], audience="analytics"),
+        client=hq.client_for(app),
+        datasets={"orders": orders},
+        client_profile=ClientQueryProfile(default_limit=50, max_limit=500),
+        client_mount_path="/api/analytics",
+    )
+    app.register_blueprint(blueprint(api), url_prefix="/api/analytics")
+    app.extensions["analytics_api"] = api
+    return app
+
+
+def analytics_api():
+    """For `hypequery export client-contract`."""
+    return create_app().extensions["analytics_api"]
+```
+</CodeBlock>
+
+`client_for(app)` connects on its first query, so the export needs no database. Here `myapp` is the module that
+defines `create_app`:
+
+<CodeBlock>
+```bash
+python -m hypequery export client-contract --factory myapp:analytics_api --output web/client-contract.json
+```
+</CodeBlock>
+
+Then run `npx hypequery generate:client` on the file, as in
+[React and MCP clients](/docs/python/client-endpoints#3-export-the-contract).
 
 ### Your own login, with no token
 
@@ -159,19 +200,13 @@ A React page served by your Flask app can call the endpoints with the session th
 ```python
 from hypequery.contrib.flask import blueprint, flask_session
 from hypequery.datasets import ClientQueryProfile
-from hypequery.serve import Principal, create_api, create_dataset_endpoint
-
-client = hq.client_for(app)
-# A client profile puts the endpoint in the contract `hypequery generate:client` reads.
-orders_endpoint = create_dataset_endpoint(
-    dataset=orders, client=client, client_profile=ClientQueryProfile(default_limit=50, max_limit=500),
-)
+from hypequery.serve import Principal, create_api
 
 api = create_api(
     auth=flask_session(lambda user: Principal(subject=user.get_id(), tenant_id=user.org_id)),
-    client=client,
-    datasets={"orders": orders_endpoint},
-    # The blueprint's prefix, so the contract's paths are the ones browsers call.
+    client=hq.client_for(app),
+    datasets={"orders": orders},
+    client_profile=ClientQueryProfile(default_limit=50, max_limit=500),  # for typed hooks
     client_mount_path="/api/analytics",
 )
 app.register_blueprint(blueprint(api), url_prefix="/api/analytics")
@@ -190,8 +225,9 @@ def from_session(session) -> Principal | None:
 
 api = create_api(
     auth=flask_session(from_session),
-    client=client,
-    datasets={"orders": orders_endpoint},
+    client=hq.client_for(app),
+    datasets={"orders": orders},
+    client_profile=ClientQueryProfile(default_limit=50, max_limit=500),
     client_mount_path="/api/analytics",
 )
 ```

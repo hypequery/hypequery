@@ -17,6 +17,7 @@ from .core.api import Api, ApiHost
 from .core.auth import RequestAuth
 from .core.client_contract import ClientEndpointRegistry, export_placements
 from .core.production import ProductionProfile
+from .utils.empty_client_export import empty_export_message
 from .wsgi import WsgiApp
 
 __all__ = ["export_client_contract"]
@@ -33,7 +34,9 @@ def export_client_contract(
     """Export only the opted-in endpoints actually installed on *api*.
 
     *api* is the API, or the `to_asgi_app` or `to_wsgi_app` application
-    serving it.
+    serving it. A build view with no endpoints is refused, naming the dataset
+    and metric routes installed without a client profile: generated hooks
+    from it would have nothing to call.
     *production* and *mount_path*, when given, must be the API's own: a
     contract never describes limits or paths its endpoints do not execute
     under. Proxy headers are never consulted. An authorized view checks each
@@ -53,9 +56,12 @@ def export_client_contract(
         raise ValueError("an API's mount path must match its execution configuration")
     host = ApiHost(api)
     registries = host.registries(())
+    placements = host.placements(registries)
+    if view == "build" and not placements:
+        raise ValueError(empty_export_message(api))
     return export_placements(
         registries,
-        host.placements(registries),
+        placements,
         production=api.production,
         mount_path=api.client_mount_path,
         view=view,

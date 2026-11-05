@@ -210,15 +210,19 @@ their traceback so credentials in an exception never reach the terminal.
 ## `hypequery export client-contract`
 
 Writes the canonical client contract that generated React hooks and the MCP bridge consume, without starting a server
-or connecting to a database.
+or running a query.
 
 | Option | Description |
 | --- | --- |
-| `--factory module:factory` | Zero-argument factory returning the definition-only metadata (required) |
+| `--factory module:attribute` | Your API (from `create_api`, `to_asgi_app` or `to_wsgi_app`), or a zero-argument function returning it or a definition-only contract (required) |
 | `--output <file>` | Output file, default `client-contract.json`; `-` for stdout |
 | `--stdout` | Write canonical JSON only to stdout |
 | `--check` | Exit 1 if the artifact would change, without writing |
 | `--force` | Replace an existing artifact |
+
+An API exports the endpoints installed with a client profile. An export with no endpoints fails, and from an API it
+names the dataset and metric routes that have no profile. See [React and MCP clients](/docs/python/client-endpoints) for
+the end-to-end workflow.
 
 See [React and MCP clients](/docs/python/client-endpoints) for the end-to-end workflow.
 
