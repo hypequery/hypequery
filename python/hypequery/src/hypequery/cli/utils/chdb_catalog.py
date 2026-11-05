@@ -59,12 +59,12 @@ def chdb_catalog(path: Path) -> Iterator[ChdbCatalogClient]:
     at a mistyped path.
     """
 
+    if not path.is_dir():
+        raise CliError(f"There is no chDB database at {path}.")
     try:
         import chdb
     except ModuleNotFoundError as exc:
         raise CliError('Reading a chDB database requires: pip install "hypequery[chdb]"') from exc
-    if not path.is_dir():
-        raise CliError(f"There is no chDB database at {path}.")
     try:
         connection: _Connection = chdb.connect(str(path))
     except Exception as exc:

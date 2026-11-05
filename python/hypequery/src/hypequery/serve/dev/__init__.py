@@ -15,6 +15,7 @@ import json
 import os
 import sys
 import warnings
+from types import ModuleType
 
 from ...execution.chdb import open_chdb_executors, release_chdb_databases_opened_since
 from ...execution.utils.driver_loggers import apply_driver_log_levels, driver_log_levels
@@ -121,26 +122,53 @@ def _check_for_worker(spec: str, app_dir: str) -> None:
     The worker imports the app itself; this process imports it only to fail
     fast. chDB holds an on-disk database for one process, so the executors
     that import opened are closed, with any opened earlier on the same
-    database. An app this process had already imported is imported afresh for
-    the check, so that its database is found, and the earlier module is put
-    back afterwards. Executors on other databases stay open.
+    database. Project modules this process had already imported, the app and
+    any helper beside it, are imported afresh for the check, so that the
+    database they open is found, and the earlier modules are put back
+    afterwards. Executors on other databases stay open.
     """
 
-    module = spec.partition(":")[0]
-
-    def owned(name: str) -> bool:
-        return name == module or name.startswith(f"{module}.")
-
-    cached = {name: sys.modules.pop(name) for name in list(sys.modules) if owned(name)}
+    cached = _project_modules(spec, app_dir)
+    for name in cached:
+        del sys.modules[name]
     before = open_chdb_executors()
     try:
         _import_app(spec, app_dir)
     finally:
         release_chdb_databases_opened_since(before)
         if cached:
-            for name in [name for name in sys.modules if owned(name)]:
+            for name in _project_modules(spec, app_dir):
                 del sys.modules[name]
             sys.modules.update(cached)
+
+
+def _project_modules(spec: str, app_dir: str) -> dict[str, ModuleType]:
+    """The loaded modules that are the project's: the app's and those from *app_dir*.
+
+    Installed packages under *app_dir*, such as a virtualenv's, and hypequery
+    itself are not the project's.
+    """
+
+    module = spec.partition(":")[0]
+    root = os.path.realpath(app_dir) + os.sep
+    installed = tuple(os.path.realpath(prefix) + os.sep for prefix in {sys.prefix, sys.base_prefix})
+
+    def is_project(name: str, loaded: ModuleType) -> bool:
+        if name == module or name.startswith(f"{module}."):
+            return True
+        if name == "hypequery" or name.startswith("hypequery."):
+            return False
+        file = getattr(loaded, "__file__", None)
+        if not isinstance(file, str):
+            return False
+        path = os.path.realpath(file)
+        return (
+            path.startswith(root)
+            and not path.startswith(installed)
+            and f"{os.sep}site-packages{os.sep}" not in path
+        )
+
+    return {name: loaded for name, loaded in list(sys.modules.items()) if is_project(name, loaded)}
 
 
 def _import_app(spec: str, app_dir: str, *, redact_errors: bool = False) -> AsgiApp:

@@ -55,10 +55,16 @@ def require_chdb_framework(framework: Framework) -> None:
         )
 
 
+def _is_absolute(path: str) -> bool:
+    """Whether *path* is absolute on POSIX or Windows (``C:\\...``)."""
+
+    return PurePosixPath(path).is_absolute() or re.match(r"^[A-Za-z]:[\\/]", path) is not None
+
+
 def chdb_path_literal(path: str) -> str:
     """The app's expression for *path*: beside app.py when relative, else as given."""
 
-    if PurePosixPath(path).is_absolute() or re.match(r"^[A-Za-z]:[\\/]", path):
+    if _is_absolute(path):
         return quoted(path)
     return f"str(Path(__file__).parent / {quoted(path)})"
 
@@ -172,7 +178,7 @@ def chdb_templates(templates: dict[str, str], framework: Framework, path: str) -
         f"chdb-path = {quoted(path)}\n"
     )
     result[".env.example"] = _env_example(templates[".env.example"])
-    if not PurePosixPath(path).is_absolute() and ".." not in PurePosixPath(path).parts:
+    if not _is_absolute(path) and ".." not in PurePosixPath(path).parts:
         result[".gitignore"] = templates[".gitignore"] + gitignore_directory(path) + "\n"
     result["README.md"] = _readme(templates["README.md"], framework, path)
     return result

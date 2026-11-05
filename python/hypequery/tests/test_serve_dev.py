@@ -275,13 +275,34 @@ def test_reload_supervisor_releases_embedded_databases(
     assert closed() == ["analytics.chdb"] * 3
     assert sys.modules["devapp_chdb_imported"] is imported
 
+    # The same when the already-imported app gets its executor from a helper.
+    (tmp_path / "devapp_db_helper.py").write_text(
+        "from hypequery.execution import create_chdb_executor\n"
+        "executor = create_chdb_executor('helper.chdb')\n"
+    )
+    (tmp_path / "devapp_chdb_helper.py").write_text(
+        "from devapp_db_helper import executor\n"
+        "from hypequery.serve import HttpSecurity, Principal, create_api, to_asgi_app\n"
+        "api = create_api(auth=lambda credential: Principal(subject='dev'),"
+        " security=HttpSecurity(allowed_hosts=('127.0.0.1',)))\n"
+        "app = to_asgi_app(api)\n"
+    )
+    helper_app = importlib.import_module("devapp_chdb_helper")
+    helper = sys.modules["devapp_db_helper"]
+    run_dev("devapp_chdb_helper:app", reload=True)
+    assert closed() == ["analytics.chdb"] * 3 + ["helper.chdb"] * 2
+    assert sys.modules["devapp_chdb_helper"] is helper_app
+    assert sys.modules["devapp_db_helper"] is helper
+
     # Served in this process, the database stays open.
     run_dev("devapp_chdb_served:app")
-    assert closed() == ["analytics.chdb"] * 3
+    assert closed() == ["analytics.chdb"] * 3 + ["helper.chdb"] * 2
     assert not direct_connection.closed
     for executor in (other, in_memory, direct):
         executor.close()
-    assert sorted(closed()) == sorted([*["analytics.chdb"] * 3, "other.chdb", ":memory:"])
+    assert sorted(closed()) == sorted(
+        [*["analytics.chdb"] * 3, *["helper.chdb"] * 2, "other.chdb", ":memory:"]
+    )
     assert direct_connection.closed
 
 
