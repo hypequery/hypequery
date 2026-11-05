@@ -232,7 +232,8 @@ The CLI collects pseudonymous usage telemetry by default, as the TypeScript CLI 
 Python versions and installers to prioritise. Each invocation sends one `python_cli_command_completed` event: the
 command, the documented flags used (names only, never values), the outcome, a duration bucket, and install context
 such as the package and Python versions, OS, the installer recorded for the package (pip, uv, poetry, ...), and which
-optional integrations are installed. Events never contain code, SQL, table or column names, paths or credentials.
+optional integrations are installed. For `init`, it also records the furthest setup step reached and whether connecting
+to ClickHouse worked, failed or was skipped. Events never contain code, SQL, table or column names, paths or credentials.
 Telemetry is sent by a detached process after the command exits, so it never delays or changes a command.
 
 <CodeBlock>

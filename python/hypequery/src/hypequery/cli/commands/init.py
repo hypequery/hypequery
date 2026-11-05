@@ -18,7 +18,7 @@ from ..generators.framework_apps import RUN_COMMAND, Framework, offline_template
 from ..guided_init import TypedConnection, can_guide, env_lines, guide
 from ..options import InitOptions
 from ..scaffold import Scaffold
-from ..telemetry import cancel_command_telemetry, update_command_telemetry
+from ..telemetry import InitFunnel, cancel_command_telemetry, update_command_telemetry
 from ..utils.next_steps import cd_prefix
 from ..utils.prompts import Prompter, SetupCancelledError
 from ..utils.recorded_selection import TableSelection
@@ -28,10 +28,11 @@ from ..utils.templates import load_templates
 def run(options: InitOptions) -> None:
     environ: Mapping[str, str] | None = None
     typed: TypedConnection | None = None
+    funnel = InitFunnel()
     interactive = can_guide(options)
     if interactive:
         try:
-            guided = guide(options, Prompter(), cwd=Path.cwd(), environ=os.environ)
+            guided = guide(options, Prompter(), cwd=Path.cwd(), environ=os.environ, funnel=funnel)
         except SetupCancelledError:
             print("\nSetup cancelled; nothing was created.")
             cancel_command_telemetry()
@@ -43,7 +44,7 @@ def run(options: InitOptions) -> None:
         framework=options.framework or "standalone",
     )
     update_command_telemetry(framework=options.framework, interactive=interactive)
-    destination = _create(options, environ)
+    destination = _create(options, environ, funnel)
     if typed is not None:
         print(
             f"Add your connection to {destination / '.env'} (gitignored) so hypequery dev "
@@ -52,9 +53,10 @@ def run(options: InitOptions) -> None:
         for line in env_lines(typed):
             print(f"  {line}")
     _next_steps(destination, cast(Framework, options.framework), chdb=options.database == "chdb")
+    funnel.reach("completed")
 
 
-def _create(options: InitOptions, environ: Mapping[str, str] | None) -> Path:
+def _create(options: InitOptions, environ: Mapping[str, str] | None, funnel: InitFunnel) -> Path:
     framework = cast(Framework, options.framework)
     scaffold = Scaffold(Path(cast(str, options.directory)))
     chdb_path = _chdb_path(options, framework)
@@ -74,6 +76,7 @@ def _create(options: InitOptions, environ: Mapping[str, str] | None) -> Path:
             "out to get the orders example."
         )
     if options.skip_connection or (database_dir is not None and not database_dir.is_dir()):
+        funnel.offline()
         templates = offline_templates(load_templates(), framework)
         if chdb_path is not None:
             templates = chdb_templates(templates, framework, chdb_path)
@@ -102,9 +105,11 @@ def _create(options: InitOptions, environ: Mapping[str, str] | None) -> Path:
                 chdb_path=database_dir,
             )
         except DiscoveryConnectionError as exc:
+            funnel.connection_failed()
             raise DiscoveryConnectionError(
                 f"{exc} To create the project without a database, add --skip-connection."
             ) from exc
+        funnel.connected()
         selection = TableSelection(options.tables, options.exclude_tables).snapshot()
         generated = generate_datasets(
             schema,

@@ -287,6 +287,8 @@ def test_debug_mode_prints_one_valid_event_without_raw_input(tmp_path: Path) -> 
     assert properties["command"] == "init"
     assert properties["framework"] == "standalone"
     assert properties["interactive"] is False
+    assert properties["stage_reached"] == "completed"
+    assert properties["connection_result"] == "skipped"
     assert properties["outcome"] == "success"
     assert properties["flags_used"] == ["--no-interactive", "--path", "--skip-connection"]
     assert "PRIVATE" not in json.dumps(event)

@@ -32,7 +32,9 @@
       "variants": {
         "init": {
           "framework": { "kind": "enum", "description": "Which application scaffold is adopted?", "values": ["standalone", "fastapi", "django", "flask"], "optional": true },
-          "interactive": { "kind": "boolean", "description": "How much onboarding is guided?", "optional": true }
+          "interactive": { "kind": "boolean", "description": "How much onboarding is guided?", "optional": true },
+          "stage_reached": { "kind": "enum", "description": "Where does onboarding stop?", "values": ["started", "connection_tested", "framework_selected", "confirmed", "completed"], "optional": true },
+          "connection_result": { "kind": "enum", "description": "Where does connection setup fail?", "values": ["ok", "failed", "skipped"], "optional": true }
         },
         "dev": {},
         "generate:datasets": {},

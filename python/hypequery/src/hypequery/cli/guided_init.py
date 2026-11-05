@@ -23,6 +23,7 @@ from .errors import CliError
 from .generators.chdb_project import CHDB_FRAMEWORKS, DEFAULT_CHDB_PATH
 from .generators.framework_apps import FRAMEWORKS, NAMES, Framework, project_files
 from .options import InitOptions
+from .telemetry import InitFunnel
 from .utils.prompts import Prompter, SetupCancelledError
 
 if TYPE_CHECKING:
@@ -79,9 +80,11 @@ def guide(
     *,
     cwd: Path,
     environ: Mapping[str, str],
+    funnel: InitFunnel | None = None,
 ) -> GuidedInit:
     """The options with every unanswered question asked; raises ``SetupCancelledError`` on quit."""
 
+    funnel = InitFunnel() if funnel is None else funnel
     say = prompter.say
     say("Let's set up your Python dataset project. Press Enter to accept the [default].")
     say()
@@ -102,13 +105,16 @@ def guide(
         # before the database is read: moving it later would read another one.
         if framework is None:
             framework = _ask_framework(prompter, cwd, CHDB_FRAMEWORKS)
+        funnel.reach("framework_selected")
         directory = _free_directory(
             prompter, cwd, directory, framework, offline=None, asked=options.directory is None
         )
         if not options.skip_connection:
             catalog = _chdb_catalog(prompter, cwd / directory, options.chdb_path)
     elif not options.skip_connection:
-        connection, typed, catalog = _connect(prompter, environ)
+        connection, typed, catalog = _connect(prompter, environ, funnel)
+    if catalog is not None:
+        funnel.connected()
 
     tables = options.tables
     if (
@@ -126,6 +132,7 @@ def guide(
 
     if framework is None:
         framework = _ask_framework(prompter, cwd)
+    funnel.reach("framework_selected")
 
     offline = catalog is None
     if not chdb:
@@ -145,6 +152,7 @@ def guide(
     _summarise(prompter, result, catalog, typed)
     if not prompter.confirm("Create the project?", True):
         raise SetupCancelledError
+    funnel.reach("confirmed")
     return GuidedInit(result, connection, typed)
 
 
@@ -185,7 +193,7 @@ def equivalent_command(options: InitOptions) -> str:
 
 
 def _connect(
-    prompter: Prompter, environ: Mapping[str, str]
+    prompter: Prompter, environ: Mapping[str, str], funnel: InitFunnel
 ) -> tuple[Mapping[str, str] | None, TypedConnection | None, CatalogOverview | None]:
     """Settings that reach ClickHouse, with its catalog; all ``None`` for the offline example."""
 
@@ -195,6 +203,7 @@ def _connect(
     say = prompter.say
     if find_spec("clickhouse_connect") is None:
         say('Reading your schema needs the ClickHouse driver: pip install "hypequery[clickhouse]"')
+        funnel.connection_failed()
         if prompter.confirm("Create the offline example project instead?", True):
             return None, None, None
         raise SetupCancelledError
@@ -219,6 +228,7 @@ def _connect(
         try:
             catalog = discover_catalog(environ=candidate, tenant_hints=TENANT_HINTS)
         except CliError as exc:
+            funnel.connection_failed()
             say(str(exc))
             action = prompter.choose(
                 "What next?",
