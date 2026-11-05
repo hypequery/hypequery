@@ -88,6 +88,6 @@ describe('shared MCP tool schema fixture', () => {
       query_metric: compiled[item.id].queryMetricJsonSchema,
     }]));
     await expect(`${JSON.stringify(manifest, null, 2)}\n`)
-      .toMatchFileSnapshot(new URL('tool-schemas.json', directory).pathname);
+      .toMatchFileSnapshot(new URL('../../../../specs/mcp/tool-schemas-v1.json', import.meta.url).pathname);
   });
 });

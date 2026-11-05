@@ -1,7 +1,7 @@
 """MCP query-tool JSON Schemas compiled from a client contract (RFC 0018).
 
 Mirrors `buildClientContractQuerySchemas` in `@hypequery/datasets`. The shared
-fixture `client-contract-v1/tool-schemas.json` pins both languages to the same
+fixture `specs/mcp/tool-schemas-v1.json` pins both languages to the same
 schemas. They are structural only: execution must still run
 `validate_protocol_client_query(..., transport="mcp")`, which checks
 selected-field dependencies, uniqueness and combined budgets.

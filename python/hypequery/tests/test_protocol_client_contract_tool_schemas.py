@@ -18,7 +18,8 @@ DIRECTORY = (
 )
 SUCCESS = cast(list[dict[str, object]], json.loads((DIRECTORY / "success.json").read_text()))
 EXPECTED = cast(
-    dict[str, dict[str, object]], json.loads((DIRECTORY / "tool-schemas.json").read_text())
+    dict[str, dict[str, object]],
+    json.loads((DIRECTORY.parents[2] / "mcp/tool-schemas-v1.json").read_text()),
 )
 
 
