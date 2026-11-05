@@ -56,7 +56,7 @@ const datasetResult = hooks.useDataset('orders', {
   measures: ['revenue'] as const,
 });
 const datasetRow = datasetResult.data?.data[0];
-const datasetCountry: string | undefined = datasetRow?.country;
+const datasetCountry: string | null | undefined = datasetRow?.country;
 // Measure values are normalized strings, with SQL NULL preserved.
 const datasetRevenue: string | null | undefined = datasetRow?.revenue;
 void datasetCountry;
@@ -78,7 +78,7 @@ const grainedResult = hooks.useDataset('orders', {
   measures: ['revenue'] as const,
   by: 'month',
 });
-const grainedPeriod: string | undefined = grainedResult.data?.data[0]?.period;
+const grainedPeriod: string | null | undefined = grainedResult.data?.data[0]?.period;
 void grainedPeriod;
 
 // --- Metric rows carry the metric value plus selected dimensions ---------------
@@ -87,7 +87,7 @@ const metricResult = hooks.useMetric('totalRevenue', {
 });
 const metricRow = metricResult.data?.data[0];
 const metricValue: string | null | undefined = metricRow?.totalRevenue;
-const metricCountry: string | undefined = metricRow?.country;
+const metricCountry: string | null | undefined = metricRow?.country;
 void metricValue;
 void metricCountry;
 
@@ -101,7 +101,7 @@ const infiniteDatasetResult = hooks.useInfiniteDataset('orders', {
   limit: 50,
 });
 const infiniteDatasetRow = infiniteDatasetResult.data?.pages[0]?.data[0];
-const infiniteDatasetCountry: string | undefined = infiniteDatasetRow?.country;
+const infiniteDatasetCountry: string | null | undefined = infiniteDatasetRow?.country;
 const infiniteDatasetRevenue: string | null | undefined = infiniteDatasetRow?.revenue;
 void infiniteDatasetCountry;
 void infiniteDatasetRevenue;
@@ -116,7 +116,7 @@ const infiniteGrainedResult = hooks.useInfiniteDataset('orders', {
   by: 'month',
   limit: 50,
 });
-const infiniteGrainedPeriod: string | undefined =
+const infiniteGrainedPeriod: string | null | undefined =
   infiniteGrainedResult.data?.pages[0]?.data[0]?.period;
 void infiniteGrainedPeriod;
 
@@ -126,7 +126,7 @@ const infiniteMetricResult = hooks.useInfiniteMetric('totalRevenue', {
 });
 const infiniteMetricRow = infiniteMetricResult.data?.pages[0]?.data[0];
 const infiniteMetricValue: string | null | undefined = infiniteMetricRow?.totalRevenue;
-const infiniteMetricCountry: string | undefined = infiniteMetricRow?.country;
+const infiniteMetricCountry: string | null | undefined = infiniteMetricRow?.country;
 void infiniteMetricValue;
 void infiniteMetricCountry;
 
