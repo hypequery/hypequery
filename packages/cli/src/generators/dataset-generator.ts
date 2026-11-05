@@ -16,6 +16,13 @@ import {
 } from '../utils/clickhouse-dimension-type.js';
 import { createFieldNamer } from '../utils/field-namer.js';
 import { isTenantKeyCandidateName } from '../utils/tenant-key-candidates.js';
+import { aggregateColumnOf, type AggregateColumn } from '../utils/clickhouse-aggregate-column.js';
+import { parseEngineMetadata, type EngineMetadata } from '../utils/clickhouse-engine-metadata.js';
+import {
+  isPreAggregatedFamily,
+  mergeMeasurePrefix,
+  rowResolutionScaffold,
+} from '../utils/engine-dataset-scaffold.js';
 
 export interface DatasetGeneratorOptions {
   outputPath: string;
@@ -137,6 +144,10 @@ function tableToPascalCase(tableName: string): string {
     .join('');
 }
 
+function pascal(name: string): string {
+  return name.charAt(0).toUpperCase() + name.slice(1);
+}
+
 /**
  * Convert column name to camelCase for field name
  */
@@ -161,7 +172,8 @@ function generateLabel(columnName: string): string {
 async function generateDatasetForTable(
   client: TypeGenerationClickHouseClient,
   tableName: string,
-  tenantColumn?: string
+  tenantColumn?: string,
+  engine?: EngineMetadata,
 ): Promise<{ code: string; warnings: DatasetGenerationWarning[] }> {
   // Get column information
   const columnsQuery = await client.query({
@@ -250,8 +262,23 @@ async function generateDatasetForTable(
     fields.filter((field) => !field.element).map((field) => [field.column.name, field.name]),
   );
 
+  // Pre-aggregated tables hold partial aggregates per row: AggregateFunction
+  // states read with -Merge, SimpleAggregateFunction values with their own
+  // function, and no row count. Versioned engines read with FINAL.
+  const aggregateColumns = new Map<ColumnInfo, AggregateColumn>();
+  for (const column of columns) {
+    const aggregate = aggregateColumnOf(column.type);
+    if (aggregate) aggregateColumns.set(column, aggregate);
+  }
+  const preAggregated = isPreAggregatedFamily(engine?.family)
+    || [...aggregateColumns.values()].some((aggregate) => aggregate.kind === 'state');
+  const rowResolution = rowResolutionScaffold(engine);
+  const engineColumns = new Set(rowResolution?.engineColumns ?? []);
+
   const dimensionLines: string[] = [];
   for (const column of columns) {
+    // Aggregate states are measures, noted with the measures below.
+    if (aggregateColumns.get(column)?.kind === 'state') continue;
     if (skippedColumns.includes(column)) {
       // ClickHouse can spell a nested type over several lines; keep the note on one comment line.
       const type = column.type.replace(/\s+/g, ' ');
@@ -285,11 +312,50 @@ async function generateDatasetForTable(
 
   // Generate measures for numeric value columns only. IDs and coordinates stay
   // dimensions because summing or averaging them is usually noise.
-  const numericColumns = columns.filter(isMeasureCandidate);
+  // Engine bookkeeping columns (version, sign, is_deleted) are never summed.
+  const numericColumns = columns.filter(
+    (column) => isMeasureCandidate(column) && !engineColumns.has(column.name),
+  );
   const measureLines: string[] = [];
   const countField = fields[0]?.name;
 
-  if (numericColumns.length > 0) {
+  if (preAggregated) {
+    measureLines.push(`    // Each row holds partial aggregates, so a row count is not an event count.`);
+    for (const column of columns) {
+      const aggregate = aggregateColumns.get(column);
+      const label = generateLabel(column.name);
+      if (aggregate?.kind === 'state') {
+        if (!aggregate.stateFunction || !SQL_IDENTIFIER.test(column.name)) {
+          const type = column.type.replace(/\s+/g, ' ');
+          measureLines.push(
+            `    // ${column.name} (${type}) is not included: no merge measure reads ${aggregate.function} states.`
+          );
+          continue;
+        }
+        const prefix = mergeMeasurePrefix(aggregate.stateFunction);
+        const name = nameField(`${prefix.name}${pascal(columnToCamelCase(column.name))}`);
+        measureLines.push(
+          `    ${name}: measure.merge('${aggregate.stateFunction}', '${column.name}', { label: '${prefix.label} ${label}' }),`
+        );
+        continue;
+      }
+      const fieldName = fieldNameByColumn.get(column.name);
+      if (!fieldName || !numericColumns.includes(column)) continue;
+      // A SimpleAggregateFunction column is read with its own function. A
+      // SummingMergeTree sums its value columns on merge; other plain columns
+      // keep an arbitrary row's value, so no measure describes them.
+      const fn = aggregate?.kind === 'simple'
+        ? aggregate.function
+        : engine?.family === 'SummingMergeTree' && (!engine.summingColumns || engine.summingColumns.includes(column.name))
+          ? 'sum'
+          : undefined;
+      if (fn !== 'sum' && fn !== 'min' && fn !== 'max') continue;
+      const prefix = fn === 'sum' ? { name: 'total', label: 'Total' } : { name: fn, label: fn === 'min' ? 'Min' : 'Max' };
+      measureLines.push(
+        `    ${nameField(`${prefix.name}${pascal(fieldName)}`)}: measure.${fn}('${fieldName}', { label: '${prefix.label} ${label}' }),`
+      );
+    }
+  } else if (numericColumns.length > 0) {
     measureLines.push(`    // Count measures`);
     measureLines.push(`    ${nameField('totalCount')}: measure.count('${countField}', { label: 'Total Count' }),`);
     measureLines.push(``);
@@ -313,6 +379,10 @@ async function generateDatasetForTable(
   const configLines: string[] = [];
 
   configLines.push(`  source: '${tableName}',`);
+
+  if (rowResolution) {
+    configLines.push(...rowResolution.lines);
+  }
 
   if (timeKeyColumn) {
     configLines.push(`  timeKey: '${timeKeyColumn.name}',`);
@@ -345,6 +415,24 @@ ${configLines.join('\n')}
 }
 
 /**
+ * Each table's engine in the current database, which decides whether its rows
+ * need FINAL or hold partial aggregates. Tables are scaffolded as plain
+ * MergeTree when the engines can't be read.
+ */
+async function readTableEngines(client: TypeGenerationClickHouseClient): Promise<Map<string, EngineMetadata>> {
+  try {
+    const result = await client.query({
+      query: 'SELECT name, engine, engine_full FROM system.tables WHERE database = currentDatabase()',
+      format: 'JSONEachRow',
+    });
+    const rows = await result.json() as unknown as Array<{ name: string; engine: string; engine_full: string }>;
+    return new Map(rows.map((row) => [row.name, parseEngineMetadata(row.engine, row.engine_full)]));
+  } catch {
+    return new Map();
+  }
+}
+
+/**
  * Generate dataset definitions from ClickHouse schema
  */
 export async function generateDatasets(options: DatasetGeneratorOptions) {
@@ -373,12 +461,14 @@ export async function generateDatasets(options: DatasetGeneratorOptions) {
     throw new Error('No tables found matching the specified criteria');
   }
 
+  const engines = await readTableEngines(client);
+
   // Generate dataset definitions
   const datasetDefinitions: string[] = [];
   const warnings: DatasetGenerationWarning[] = [];
 
   for (const table of tables) {
-    const generated = await generateDatasetForTable(client, table.name, options.tenantColumn);
+    const generated = await generateDatasetForTable(client, table.name, options.tenantColumn, engines.get(table.name));
     datasetDefinitions.push(generated.code);
     warnings.push(...generated.warnings);
   }

@@ -386,4 +386,151 @@ describe('generateDatasets', () => {
       }),
     ]);
   });
+
+  it('reads versioned and pre-aggregated engines the way ClickHouse stores them', async () => {
+    const columns: Record<string, Array<{ name: string; type: string }>> = {
+      orders: [
+        { name: 'id', type: 'UInt64' },
+        { name: 'status', type: 'LowCardinality(String)' },
+        { name: 'amount', type: 'Decimal(12, 2)' },
+        { name: 'created_at', type: 'DateTime' },
+        { name: 'version', type: 'UInt32' },
+        { name: 'is_deleted', type: 'UInt8' },
+      ],
+      sessions: [
+        { name: 'session_id', type: 'String' },
+        { name: 'duration', type: 'UInt32' },
+        { name: 'sign', type: 'Int8' },
+      ],
+      daily_rollup: [
+        { name: 'day', type: 'Date' },
+        { name: 'orders', type: 'AggregateFunction(count)' },
+        { name: 'revenue_cents', type: 'AggregateFunction(sum, UInt64)' },
+        { name: 'buyers', type: 'AggregateFunction(uniq, UInt64)' },
+        { name: 'p90_latency', type: 'AggregateFunction(quantile(0.9), Float64)' },
+        { name: 'peak_amount', type: 'SimpleAggregateFunction(max, Float64)' },
+        { name: 'last_status', type: 'SimpleAggregateFunction(anyLast, String)' },
+      ],
+      daily_totals: [
+        { name: 'day', type: 'Date' },
+        { name: 'amount', type: 'Float64' },
+        { name: 'tax', type: 'Float64' },
+      ],
+      events: [
+        { name: 'id', type: 'UInt64' },
+        { name: 'value', type: 'Float64' },
+      ],
+    };
+    const engines = [
+      { name: 'orders', engine: 'SharedReplacingMergeTree', engine_full: "SharedReplacingMergeTree('/clickhouse/{uuid}/{shard}', '{replica}', version, is_deleted) ORDER BY id" },
+      { name: 'sessions', engine: 'CollapsingMergeTree', engine_full: 'CollapsingMergeTree(sign) ORDER BY session_id' },
+      { name: 'daily_rollup', engine: 'AggregatingMergeTree', engine_full: 'AggregatingMergeTree ORDER BY day' },
+      { name: 'daily_totals', engine: 'SummingMergeTree', engine_full: 'SummingMergeTree(amount) ORDER BY day' },
+      { name: 'events', engine: 'MergeTree', engine_full: 'MergeTree ORDER BY id' },
+    ];
+    const injectedQuery = vi.fn(async ({ query }: { query: string }) => {
+      if (query === 'SHOW TABLES') {
+        return { json: async () => Object.keys(columns).map((name) => ({ name })) };
+      }
+      if (query.startsWith('SELECT name, engine, engine_full FROM system.tables')) {
+        return { json: async () => engines };
+      }
+      const table = /^DESCRIBE TABLE (\w+)$/.exec(query)?.[1];
+      if (table && columns[table]) {
+        return {
+          json: async () => columns[table]!.map((column) => ({ ...column, default_type: '', default_expression: '' })),
+        };
+      }
+      throw new Error(`Unexpected query: ${query}`);
+    });
+    const workdir = await mkdtemp(path.join(tmpdir(), 'hq-dataset-engines-'));
+    const outputPath = path.join(workdir, 'generated.ts');
+    const tsconfigPath = path.join(workdir, 'tsconfig.json');
+    const repoRoot = path.resolve(__dirname, '../../../..');
+
+    const { contents } = await generateDatasets({ outputPath, client: { query: injectedQuery } });
+    const section = (table: string) => {
+      const start = contents.indexOf(`dataset('${table}'`);
+      return contents.slice(start, contents.indexOf('});', start));
+    };
+
+    // Versioned engines read with FINAL; their bookkeeping columns are never summed.
+    const orders = section('orders');
+    expect(orders).toContain("rowResolution: { kind: 'final', engine: 'replacing', deletedColumn: 'is_deleted' },");
+    expect(orders).toContain("totalCount: measure.count('id'");
+    expect(orders).toContain("totalAmount: measure.sum('amount'");
+    expect(orders).not.toMatch(/measure\.\w+\('(?:version|isDeleted)'/);
+    const sessions = section('sessions');
+    expect(sessions).toContain("rowResolution: { kind: 'final', engine: 'collapsing', signColumn: 'sign' },");
+    expect(sessions).toContain("totalDuration: measure.sum('duration'");
+    expect(sessions).not.toMatch(/measure\.\w+\('sign'/);
+
+    // Aggregate states merge; no row count; simple aggregates use their own function.
+    const rollup = section('daily_rollup');
+    expect(rollup).not.toContain('rowResolution');
+    expect(rollup).not.toContain('measure.count(');
+    expect(rollup).toContain("totalOrders: measure.merge('count', 'orders', { label: 'Total Orders' }),");
+    expect(rollup).toContain("totalRevenueCents: measure.merge('sum', 'revenue_cents', { label: 'Total Revenue Cents' }),");
+    expect(rollup).toContain("uniqueBuyers: measure.merge('uniq', 'buyers', { label: 'Unique Buyers' }),");
+    expect(rollup).toContain(
+      '// p90_latency (AggregateFunction(quantile(0.9), Float64)) is not included: no merge measure reads quantile(0.9) states.',
+    );
+    expect(rollup).toContain("maxPeakAmount: measure.max('peakAmount', { label: 'Max Peak Amount' }),");
+    expect(rollup).not.toContain('no dimension type describes');
+    expect(rollup).not.toMatch(/measure\.(?:sum|avg)\(/);
+
+    // SummingMergeTree sums only its summing columns, and never averages or counts rows.
+    const totals = section('daily_totals');
+    expect(totals).toContain("totalAmount: measure.sum('amount', { label: 'Total Amount' }),");
+    expect(totals).not.toMatch(/measure\.\w+\('tax'/);
+    expect(totals).not.toMatch(/measure\.(?:count|avg)\(/);
+
+    // A plain MergeTree is unchanged.
+    const events = section('events');
+    expect(events).not.toContain('rowResolution');
+    expect(events).toContain("totalCount: measure.count('id'");
+    expect(events).toContain("avgValue: measure.avg('value'");
+
+    await writeFile(
+      tsconfigPath,
+      JSON.stringify({
+        compilerOptions: {
+          target: 'ES2022',
+          module: 'NodeNext',
+          moduleResolution: 'NodeNext',
+          strict: true,
+          skipLibCheck: true,
+          noEmit: true,
+          paths: {
+            '@hypequery/datasets': [path.join(repoRoot, 'packages/datasets/src/index.ts')],
+          },
+        },
+        include: [outputPath],
+      }, null, 2),
+    );
+    await execFileAsync(
+      path.join(repoRoot, 'packages/cli/node_modules/.bin/tsc'),
+      ['--project', tsconfigPath],
+      { cwd: repoRoot },
+    );
+  }, TSC_TIMEOUT_MS);
+
+  it('scaffolds plain MergeTree datasets when table engines cannot be read', async () => {
+    const injectedQuery = vi.fn(async ({ query }: { query: string }) => {
+      if (query === 'SHOW TABLES') return { json: async () => [{ name: 'events' }] };
+      if (query === 'DESCRIBE TABLE events') {
+        return { json: async () => [{ name: 'id', type: 'UInt64', default_type: '', default_expression: '' }] };
+      }
+      throw new Error('Not enough privileges');
+    });
+
+    const { contents } = await generateDatasets({
+      outputPath: 'unused.ts',
+      client: { query: injectedQuery },
+      writeOutput: false,
+    });
+
+    expect(contents).toContain("totalCount: measure.count('id'");
+    expect(contents).not.toContain('rowResolution');
+  });
 });
