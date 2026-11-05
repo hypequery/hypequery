@@ -8,6 +8,10 @@ from __future__ import annotations
 
 import argparse
 from dataclasses import dataclass
+from typing import Literal, TypeAlias
+
+#: Where the datasets' tables live: a ClickHouse server, or embedded chDB.
+Database: TypeAlias = Literal["clickhouse", "chdb"]
 
 
 @dataclass(frozen=True, slots=True)
@@ -23,6 +27,9 @@ class InitOptions:
     all_tables: bool = False
     #: Whether init may ask questions; only in a terminal, and never when CI is set.
     interactive: bool = True
+    database: Database = "clickhouse"
+    #: The chDB database directory, relative to the project; ``None`` for the default.
+    chdb_path: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -37,6 +44,10 @@ class GenerateDatasetsOptions:
     check: bool
     diff: bool
     force: bool
+    #: ``None`` when not given: chDB when init recorded a path in pyproject.toml
+    #: or a project ``analytics.chdb`` exists with no server configured, else ClickHouse.
+    database: Database | None = None
+    chdb_path: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -56,7 +67,40 @@ class ExportClientContractOptions:
     force: bool
 
 
-CommandOptions = InitOptions | GenerateDatasetsOptions | DevOptions | ExportClientContractOptions
+@dataclass(frozen=True, slots=True)
+class McpOptions:
+    app: str | None
+    client_contract_url: str | None
+    headers: tuple[str, ...]
+    project: str | None
+    self_test: bool
+    print_config: bool
+
+
+@dataclass(frozen=True, slots=True)
+class SkillOptions:
+    agent: str
+    scope: str
+    force: bool
+    check: bool
+
+
+@dataclass(frozen=True, slots=True)
+class TelemetryOptions:
+    action: str
+    #: ``--no-telemetry`` was passed, so ``status`` reports this invocation's opt-out.
+    flag_disabled: bool = False
+
+
+CommandOptions = (
+    InitOptions
+    | GenerateDatasetsOptions
+    | DevOptions
+    | ExportClientContractOptions
+    | TelemetryOptions
+    | McpOptions
+    | SkillOptions
+)
 
 
 def command_options(args: argparse.Namespace) -> CommandOptions:
@@ -72,6 +116,8 @@ def command_options(args: argparse.Namespace) -> CommandOptions:
             skip_connection=args.skip_connection,
             all_tables=args.all_tables,
             interactive=not args.no_interactive,
+            database=args.database or "clickhouse",
+            chdb_path=args.chdb_path,
         )
     if args.command == "generate":
         return GenerateDatasetsOptions(
@@ -85,6 +131,8 @@ def command_options(args: argparse.Namespace) -> CommandOptions:
             check=args.check,
             diff=args.diff,
             force=args.force,
+            database=args.database,
+            chdb_path=args.chdb_path,
         )
     if args.command == "export":
         return ExportClientContractOptions(
@@ -96,4 +144,17 @@ def command_options(args: argparse.Namespace) -> CommandOptions:
         )
     if args.command == "dev":
         return DevOptions(app=args.app, host=args.host, port=args.port, reload=args.reload)
+    if args.command == "mcp":
+        return McpOptions(
+            app=args.app,
+            client_contract_url=args.client_contract_url,
+            headers=tuple(args.header),
+            project=args.project,
+            self_test=args.self_test,
+            print_config=args.print_config,
+        )
+    if args.command == "skill":
+        return SkillOptions(agent=args.agent, scope=args.scope, force=args.force, check=args.check)
+    if args.command == "telemetry":
+        return TelemetryOptions(action=args.action, flag_disabled=args.no_telemetry)
     raise ValueError(f"unknown command {args.command!r}")

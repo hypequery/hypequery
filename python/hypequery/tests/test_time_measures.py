@@ -268,3 +268,12 @@ def test_client_metrics_never_wrap_a_time_measure(metric: str) -> None:
         )
     # Without a client profile the request can carry the grain and range.
     add_metric_endpoint(api, "/plain", dataset=SALES, measure=metric, client=client)
+
+
+def test_formulas_refuse_a_shift_of_a_merge_that_may_not_be_a_number() -> None:
+    with pytest.raises(ValueError, match="numeric measure"):
+        sales(
+            stored=measure.merge("any", "stored_state"),
+            previous=measure.shift("stored", 1, "day"),
+            ratio=measure.derived(divide("previous", "revenue")),
+        )

@@ -237,6 +237,7 @@
             "help",
             "version",
             "telemetry",
+            "skill",
             "unknown"
           ]
         },
@@ -286,6 +287,8 @@
             "--draft",
             "--client",
             "--release",
+            "--agent",
+            "--scope",
             "--no-telemetry",
             "--help",
             "--version"
@@ -888,7 +891,38 @@
         "diff": {},
         "version": {},
         "telemetry": {},
-        "unknown": {},
+        "skill": {},
+        "unknown": {
+          "suggested_command": {
+            "kind": "enum",
+            "description": "Which command was a mistyped invocation closest to? Only the CLI's own suggestion, never the raw input.",
+            "values": [
+              "init",
+              "dev",
+              "mcp",
+              "generate",
+              "generate:types",
+              "generate:datasets",
+              "generate:manifest",
+              "generate:client",
+              "login",
+              "logout",
+              "deploy",
+              "deployment:build",
+              "deployment:validate",
+              "deployment:release",
+              "deployment:submit",
+              "deployment:status",
+              "pull",
+              "diff",
+              "help",
+              "version",
+              "telemetry",
+              "skill"
+            ],
+            "optional": true
+          }
+        },
         "help": {
           "help_topic": {
             "kind": "enum",
@@ -916,6 +950,7 @@
               "help",
               "version",
               "telemetry",
+              "skill",
               "unknown"
             ],
             "optional": true
@@ -1439,6 +1474,7 @@
             "help",
             "version",
             "telemetry",
+            "skill",
             "unknown"
           ]
         },
@@ -1605,6 +1641,12 @@
       "--environment",
       "--endpoint"
     ],
+    "skill": [
+      "--agent",
+      "--scope",
+      "--force",
+      "--check"
+    ],
     "help": [],
     "version": [],
     "telemetry": [],
@@ -1655,6 +1697,403 @@
       },
       "maxLength": 80,
       "description": "Numeric major (1–3 digits), or `unknown`"
+    }
+  },
+  "PYTHON": {
+    "COMMON_PROPERTIES": {
+      "schema_version": {
+        "kind": "enum",
+        "description": "Which event contract does this payload use?",
+        "values": [
+          1
+        ]
+      },
+      "cli_version": {
+        "kind": "format",
+        "description": "Which Python package releases are in use?",
+        "format": "pep440_version"
+      },
+      "python_version": {
+        "kind": "format",
+        "description": "Which Python major.minor releases need support?",
+        "format": "major_minor"
+      },
+      "os": {
+        "kind": "enum",
+        "description": "Which operating systems need support?",
+        "values": [
+          "darwin",
+          "linux",
+          "win32",
+          "freebsd",
+          "unknown"
+        ]
+      },
+      "arch": {
+        "kind": "enum",
+        "description": "Which CPU architectures need support?",
+        "values": [
+          "arm64",
+          "x64",
+          "ia32",
+          "arm",
+          "ppc64",
+          "s390x",
+          "riscv64",
+          "unknown"
+        ]
+      },
+      "is_ci": {
+        "kind": "boolean",
+        "description": "How much usage happens in CI?"
+      },
+      "ci_name": {
+        "kind": "enum",
+        "description": "Which CI providers need support?",
+        "values": [
+          "none",
+          "github_actions",
+          "gitlab",
+          "circleci",
+          "buildkite",
+          "jenkins",
+          "vercel",
+          "netlify",
+          "azure",
+          "bitbucket",
+          "teamcity",
+          "travis",
+          "codebuild",
+          "unknown"
+        ]
+      },
+      "is_tty": {
+        "kind": "boolean",
+        "description": "How much usage is interactive?"
+      },
+      "is_docker": {
+        "kind": "boolean",
+        "description": "How much usage runs in containers?"
+      },
+      "is_wsl": {
+        "kind": "boolean",
+        "description": "How much usage runs in WSL?"
+      },
+      "installer": {
+        "kind": "enum",
+        "description": "Which installers put the package on disk? Read from the distribution's INSTALLER record.",
+        "values": [
+          "pip",
+          "uv",
+          "poetry",
+          "pdm",
+          "pipenv",
+          "conda",
+          "hatch",
+          "unknown"
+        ]
+      },
+      "environment": {
+        "kind": "enum",
+        "description": "Is the package installed in a virtual environment, conda, or system Python?",
+        "values": [
+          "venv",
+          "conda",
+          "system"
+        ]
+      },
+      "invoked_via": {
+        "kind": "enum",
+        "description": "How is the CLI invoked?",
+        "values": [
+          "console_script",
+          "module",
+          "uvx",
+          "pipx",
+          "unknown"
+        ]
+      },
+      "integrations": {
+        "kind": "enum_list",
+        "description": "Which optional integrations are installed? Detected without importing them.",
+        "values": [
+          "clickhouse_connect",
+          "uvicorn",
+          "fastapi",
+          "django",
+          "flask",
+          "pandas",
+          "polars",
+          "pyarrow"
+        ]
+      },
+      "install_id": {
+        "kind": "format",
+        "description": "Count active installations without hardware or account identifiers. Shared with the TypeScript CLI on the same machine.",
+        "format": "uuid"
+      },
+      "project_id": {
+        "kind": "format",
+        "description": "Count active projects across installations; omit when no signal exists.",
+        "format": "hash",
+        "optional": true
+      },
+      "session_id": {
+        "kind": "format",
+        "description": "Group events from the same invocation.",
+        "format": "uuid"
+      },
+      "is_first_run": {
+        "kind": "boolean",
+        "description": "How many installations are new?"
+      }
+    },
+    "EVENT_CATALOG": {
+      "python_cli_command_completed": {
+        "purpose": "Measure Python CLI adoption, onboarding and reliability. Exactly once per invocation; never emitted for telemetry commands.",
+        "properties": {
+          "command": {
+            "kind": "enum",
+            "description": "Which known command was requested? Raw unknown input is never retained.",
+            "values": [
+              "init",
+              "dev",
+              "generate:datasets",
+              "export:client-contract",
+              "mcp",
+              "skill",
+              "help",
+              "version",
+              "unknown"
+            ]
+          },
+          "flags_used": {
+            "kind": "enum_list",
+            "description": "Which documented flags are adopted? Canonical names only, never values.",
+            "values": [
+              "--path",
+              "--tables",
+              "--exclude-tables",
+              "--all-tables",
+              "--framework",
+              "--tenant-column",
+              "--no-tenant-column",
+              "--skip-connection",
+              "--no-interactive",
+              "--output",
+              "--check",
+              "--diff",
+              "--force",
+              "--factory",
+              "--stdout",
+              "--hostname",
+              "--port",
+              "--reload",
+              "--no-watch",
+              "--client-contract-url",
+              "--header",
+              "--project",
+              "--self-test",
+              "--print-config",
+              "--agent",
+              "--scope",
+              "--no-telemetry",
+              "--help",
+              "--version"
+            ]
+          },
+          "outcome": {
+            "kind": "enum",
+            "description": "Which commands fail, succeed or are aborted?",
+            "values": [
+              "success",
+              "failure",
+              "cancelled",
+              "interrupted"
+            ]
+          },
+          "duration_bucket": {
+            "kind": "enum",
+            "description": "Which commands need performance work?",
+            "values": [
+              "<100ms",
+              "100ms-1s",
+              "1s-10s",
+              "10s-1m",
+              "1m-10m",
+              "10m-1h",
+              "1h+"
+            ]
+          },
+          "error_code": {
+            "kind": "enum",
+            "description": "Which known failures need reliability work?",
+            "values": [
+              "unknown",
+              "usage_error",
+              "unknown_command",
+              "unknown_option",
+              "command_error",
+              "connection_failed",
+              "missing_dependency",
+              "uncaught_exception"
+            ],
+            "optional": true
+          }
+        },
+        "variants": {
+          "init": {
+            "framework": {
+              "kind": "enum",
+              "description": "Which application scaffold is adopted?",
+              "values": [
+                "standalone",
+                "fastapi",
+                "django",
+                "flask"
+              ],
+              "optional": true
+            },
+            "interactive": {
+              "kind": "boolean",
+              "description": "How much onboarding is guided?",
+              "optional": true
+            }
+          },
+          "dev": {},
+          "generate:datasets": {},
+          "export:client-contract": {},
+          "mcp": {},
+          "skill": {},
+          "help": {
+            "help_topic": {
+              "kind": "enum",
+              "description": "Which command help needs improvement?",
+              "values": [
+                "root",
+                "init",
+                "dev",
+                "generate:datasets",
+                "export:client-contract",
+                "mcp",
+                "skill",
+                "telemetry"
+              ],
+              "optional": true
+            }
+          },
+          "version": {},
+          "unknown": {
+            "suggested_command": {
+              "kind": "enum",
+              "description": "Which command was a mistyped invocation closest to? A known command name only, never the raw input.",
+              "values": [
+                "init",
+                "dev",
+                "generate:datasets",
+                "export:client-contract",
+                "mcp",
+                "skill",
+                "help",
+                "telemetry"
+              ],
+              "optional": true
+            }
+          }
+        }
+      }
+    },
+    "COMMAND_FLAGS": {
+      "init": [
+        "--path",
+        "--tables",
+        "--exclude-tables",
+        "--all-tables",
+        "--framework",
+        "--tenant-column",
+        "--skip-connection",
+        "--no-interactive"
+      ],
+      "dev": [
+        "--hostname",
+        "--port",
+        "--reload",
+        "--no-watch"
+      ],
+      "generate:datasets": [
+        "--output",
+        "--path",
+        "--tables",
+        "--exclude-tables",
+        "--all-tables",
+        "--tenant-column",
+        "--no-tenant-column",
+        "--check",
+        "--diff",
+        "--force"
+      ],
+      "export:client-contract": [
+        "--factory",
+        "--output",
+        "--stdout",
+        "--check",
+        "--force"
+      ],
+      "mcp": [
+        "--client-contract-url",
+        "--header",
+        "--project",
+        "--self-test",
+        "--print-config"
+      ],
+      "skill": [
+        "--agent",
+        "--scope",
+        "--force",
+        "--check"
+      ],
+      "help": [],
+      "version": [],
+      "unknown": []
+    },
+    "GLOBAL_FLAGS": [
+      "--no-telemetry",
+      "--help",
+      "--version"
+    ],
+    "VALUE_FORMATS": {
+      "uuid": {
+        "pattern": {
+          "source": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+          "flags": "i"
+        },
+        "maxLength": 36,
+        "description": "Random UUID v4 (36 characters)"
+      },
+      "hash": {
+        "pattern": {
+          "source": "^[0-9a-f]{64}$",
+          "flags": ""
+        },
+        "maxLength": 64,
+        "description": "64 lowercase hexadecimal characters (salted SHA-256)"
+      },
+      "pep440_version": {
+        "pattern": {
+          "source": "^(?:unknown|\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}(?:(?:a|b|rc)\\d{1,3})?(?:\\.post\\d{1,3})?(?:\\.dev\\d{1,14})?)$",
+          "flags": ""
+        },
+        "maxLength": 40,
+        "description": "PEP 440 major.minor.patch with optional a/b/rc, post and dev parts, or `unknown`"
+      },
+      "major_minor": {
+        "pattern": {
+          "source": "^(?:unknown|\\d{1,3}\\.\\d{1,3})$",
+          "flags": ""
+        },
+        "maxLength": 7,
+        "description": "Numeric major.minor (1–3 digits per component), or `unknown`"
+      }
     }
   }
 }

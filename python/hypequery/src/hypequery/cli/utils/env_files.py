@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import os
 import re
-from collections.abc import MutableMapping
+from collections.abc import MutableMapping, Sequence
 from pathlib import Path
 
 #: Most specific first: earlier files win because nothing already set is replaced.
@@ -70,3 +70,25 @@ def _value(raw: str) -> str:
             )
     # Unquoted (or an unclosed quote): " #" starts a comment, as in shells and python-dotenv.
     return re.split(r"\s+#", raw, maxsplit=1)[0].strip()
+
+
+def env_root(argv: Sequence[str]) -> Path:
+    """Where `.env` files are read for *argv*, decided before parsing.
+
+    The launch directory, as in the TypeScript CLI, except that `mcp --project`
+    reads the project's: an MCP client launches the server from anywhere, and
+    the project's settings must win. Read from raw arguments so `.env` (and a
+    telemetry opt-out in it) loads before parsing.
+    """
+
+    positionals = [arg for arg in argv if not arg.startswith("-")]
+    if positionals[:1] == ["mcp"]:
+        for index, arg in enumerate(argv):
+            project = None
+            if arg == "--project" and index + 1 < len(argv):
+                project = argv[index + 1]
+            elif arg.startswith("--project="):
+                project = arg.split("=", 1)[1]
+            if project is not None and Path(project).is_dir():
+                return Path(project).resolve()
+    return Path.cwd()

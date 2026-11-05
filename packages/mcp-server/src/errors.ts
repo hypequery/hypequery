@@ -8,6 +8,7 @@ export type MCPToolErrorCode =
   | 'MCP_QUERY_TIMEOUT'
   | 'MCP_RESULT_TOO_LARGE'
   | 'MCP_CATALOG_TOO_LARGE'
+  | 'MCP_RATE_LIMITED'
   | 'MCP_EXECUTION_FAILED';
 
 export type MCPToolErrorCategory =
@@ -29,6 +30,27 @@ export interface MCPErrorDetails {
   message: string;
   retryable: boolean;
   correctable: boolean;
+  /** Seconds to wait before retrying, when the host knows (a rate limit, an outage). */
+  retryAfterSeconds?: number;
+  /** The caller must re-read discovery (`list_datasets`, schemas) before retrying. */
+  relist?: boolean;
+  /**
+   * The host's own stable code for this failure, such as a semantic data
+   * plane's `HQ_SEMANTIC_TENANT_REQUIRED` or a gateway's quota code. `code`
+   * stays the portable classification; this lets an agent tell two failures
+   * with the same `code` apart without parsing the message.
+   */
+  reason?: string;
+}
+
+/** Optional host details an `MCPToolError` carries into its envelope. */
+export interface MCPToolErrorOptions {
+  category?: MCPToolErrorCategory;
+  retryable?: boolean;
+  correctable?: boolean;
+  retryAfterSeconds?: number;
+  relist?: boolean;
+  reason?: string;
 }
 
 function defaultErrorMetadata(code: MCPToolErrorCode): Omit<MCPErrorDetails, 'code' | 'message'> {
@@ -49,6 +71,7 @@ function defaultErrorMetadata(code: MCPToolErrorCode): Omit<MCPErrorDetails, 'co
     case 'MCP_CATALOG_TOO_LARGE':
       return { category: 'budget', retryable: false, correctable: false };
     case 'MCP_QUERY_TIMEOUT':
+    case 'MCP_RATE_LIMITED':
       return { category: 'budget', retryable: true, correctable: false };
     case 'MCP_EXECUTION_FAILED':
       return { category: 'internal', retryable: true, correctable: false };
@@ -60,15 +83,14 @@ export class MCPToolError extends Error {
   readonly category: MCPToolErrorCategory;
   readonly retryable: boolean;
   readonly correctable: boolean;
+  readonly retryAfterSeconds?: number;
+  readonly relist?: boolean;
+  readonly reason?: string;
 
   constructor(
     code: MCPToolErrorCode,
     message: string,
-    options: {
-      category?: MCPToolErrorCategory;
-      retryable?: boolean;
-      correctable?: boolean;
-    } = {},
+    options: MCPToolErrorOptions = {},
   ) {
     super(message);
     const defaults = defaultErrorMetadata(code);
@@ -77,6 +99,14 @@ export class MCPToolError extends Error {
     this.category = options.category ?? defaults.category;
     this.retryable = options.retryable ?? defaults.retryable;
     this.correctable = options.correctable ?? defaults.correctable;
+    if (options.retryAfterSeconds !== undefined) {
+      if (!Number.isFinite(options.retryAfterSeconds) || options.retryAfterSeconds < 0) {
+        throw new RangeError('retryAfterSeconds must be a finite, non-negative number');
+      }
+      this.retryAfterSeconds = options.retryAfterSeconds;
+    }
+    if (options.relist !== undefined) this.relist = options.relist;
+    if (options.reason !== undefined) this.reason = options.reason;
   }
 }
 
@@ -119,6 +149,9 @@ export function classifyMCPToolError(error: unknown): MCPErrorDetails {
       message: error.message,
       retryable: error.retryable,
       correctable: error.correctable,
+      ...(error.retryAfterSeconds === undefined ? {} : { retryAfterSeconds: error.retryAfterSeconds }),
+      ...(error.relist === undefined ? {} : { relist: error.relist }),
+      ...(error.reason === undefined ? {} : { reason: error.reason }),
     };
   }
 

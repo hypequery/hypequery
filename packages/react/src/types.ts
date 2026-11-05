@@ -26,12 +26,18 @@ type SemanticInfo<Api, Name extends ExtractNames<Api>> =
     ? NonNullable<Info>
     : never;
 
-type DimensionValue<TDefinition> =
+// Dimension values are passed through from ClickHouse JSON unnormalized. The
+// built-in adapter quotes Int64 and wider integers as strings, and Nullable
+// columns yield null. A dataset declares neither column types nor nullability,
+// so numeric dimensions are `number | string` and every dimension may be null,
+// matching the wire types `generate:client` emits.
+type DimensionValue<TDefinition> = (
   TDefinition extends { fieldType: 'string' } ? string :
-  TDefinition extends { fieldType: 'number' } ? number :
+  TDefinition extends { fieldType: 'number' } ? number | string :
   TDefinition extends { fieldType: 'boolean' } ? boolean :
   TDefinition extends { fieldType: 'timestamp' } ? string :
-  unknown;
+  unknown
+) | null;
 
 type SelectedDimensions<TDimensions, TInput> =
   TInput extends { dimensions: readonly (infer TName)[] }
@@ -43,8 +49,9 @@ type SelectedMeasures<TMeasures, TInput> =
     ? Extract<TName, KnownStringKeys<TMeasures>>
     : KnownStringKeys<TMeasures>;
 
+// The bucket of a nullable time column is null, as on the generated path.
 type PeriodSelection<TInput> = TInput extends { by: string }
-  ? { period?: string }
+  ? { period?: string | null }
   : {};
 
 type WithTypedData<TOutput, TRow> = Omit<TOutput, 'data'> & {

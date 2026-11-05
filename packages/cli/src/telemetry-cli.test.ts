@@ -154,6 +154,17 @@ describe('compiled CLI telemetry regression', () => {
     expect(JSON.stringify(on.events)).not.toContain('PRIVATE');
   }, 10_000);
 
+  it('attributes invocations Commander rejects to the requested command', async () => {
+    const completed = async (args: string[]) => (await run(args, 'debug')).events.find(event => event.event === 'cli_command_completed')?.properties;
+    expect(await completed(['dev', '--bogus'])).toMatchObject({ command: 'dev', outcome: 'failure', error_code: 'unknown_option' });
+    expect(await completed(['generate:types', '--bogus', '-o', 'PRIVATE.ts'])).toMatchObject({ command: 'generate:types', flags_used: ['--output'], error_code: 'unknown_option' });
+    expect(await completed(['generate:dataset'])).toMatchObject({ command: 'unknown', suggested_command: 'generate:datasets', error_code: 'unknown_command' });
+    const typo = await completed(['PRIVATE-command']);
+    expect(typo).toMatchObject({ command: 'unknown', error_code: 'unknown_command' });
+    expect(typo).not.toHaveProperty('suggested_command');
+    expect(JSON.stringify(typo)).not.toContain('PRIVATE');
+  }, 20_000);
+
   it('never emits on telemetry disable or with the global opt-out, even in debug mode', async () => {
     expect((await run(['telemetry', 'disable'], 'debug')).events).toHaveLength(0);
     await run(['telemetry', 'enable'], 'off');

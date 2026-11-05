@@ -54,6 +54,19 @@ These are semantic dimension types, not a full mirror of every ClickHouse physic
 
 The query builder can still use precise generated ClickHouse schema types. Datasets expose a smaller semantic model for analytics, validation, docs, and integrations.
 
+### Dimension values in result rows
+
+Dimension values come back as ClickHouse returns them, so result row types are wider than the helper type:
+
+| Dimension type | Result row value |
+| --- | --- |
+| `dimension.string()` | `string \| null` |
+| `dimension.number()` | `number \| string \| null` |
+| `dimension.boolean()` | `boolean \| null` |
+| `dimension.timestamp()` | `string \| null` |
+
+Numeric dimensions include `string` because the built-in adapter returns `Int64`, `UInt64` and wider integers as JSON strings to keep their precision. Every dimension includes `null` because `Nullable` columns return SQL `NULL`. The `period` column of a grained query is `string | null` for the same reason. Convert with `Number(value)` or `BigInt(value)` where you need a number. The `DimensionResultValue<typeof dimension>` type describes these values.
+
 ## Options
 
 Every dimension helper accepts the same options object:
