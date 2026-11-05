@@ -217,51 +217,72 @@ def test_reload_workers_keep_the_callers_driver_log_levels(
 def test_reload_supervisor_releases_embedded_databases(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, served: list[tuple[object, dict[str, object]]]
 ) -> None:
-    # A chDB database directory is held by one process. The supervisor only
-    # checks the app; the worker it starts must be able to open the database.
-    # What the caller itself had open is not the supervisor's to close.
+    # chDB holds an on-disk database for one process. The supervisor only
+    # checks the app; the worker it starts must be able to open the database,
+    # also when this process had already imported the app. Executors on other
+    # databases are the caller's business and stay open.
+    import importlib
     import weakref
 
     from hypequery.execution import chdb
 
-    monkeypatch.setattr(chdb, "_OPEN_EXECUTORS", weakref.WeakSet())
-
-    class CallerConnection:
-        closed = 0
+    class Connection:
+        def __init__(self, path: str) -> None:
+            self.path = path
+            self.closed = False
 
         def query(self, sql: str, fmt: str = "JSONCompact", *, params: object = None) -> object:
             raise AssertionError("never queried")
 
         def close(self) -> None:
-            CallerConnection.closed += 1
+            self.closed = True
 
-    callers_own = chdb.ChdbExecutor(CallerConnection())
-    for name in ("devapp_chdb_reload", "devapp_chdb_serve"):
+    connections: list[Connection] = []
+
+    def connect(path: str, database: str) -> Connection:
+        connections.append(Connection(path))
+        return connections[-1]
+
+    monkeypatch.setattr(chdb, "_OPEN_EXECUTORS", weakref.WeakKeyDictionary())
+    monkeypatch.setattr(chdb, "_connect", connect)
+    for name in ("devapp_chdb_fresh", "devapp_chdb_imported", "devapp_chdb_served"):
         (tmp_path / f"{name}.py").write_text(
-            "from hypequery.execution.chdb import ChdbExecutor\n"
+            "from hypequery.execution import create_chdb_executor\n"
             "from hypequery.serve import HttpSecurity, Principal, create_api, to_asgi_app\n"
-            "class Connection:\n"
-            "    closed = 0\n"
-            "    def query(self, sql, fmt='JSONCompact', *, params=None):\n"
-            "        raise AssertionError('never queried')\n"
-            "    def close(self):\n"
-            "        Connection.closed += 1\n"
-            "executor = ChdbExecutor(Connection())\n"
+            "executor = create_chdb_executor('analytics.chdb')\n"
             "api = create_api(auth=lambda credential: Principal(subject='dev'),"
             " security=HttpSecurity(allowed_hosts=('127.0.0.1',)))\n"
             "app = to_asgi_app(api)\n"
         )
     monkeypatch.chdir(tmp_path)
-    monkeypatch.setattr(sys, "path", list(sys.path))
-    run_dev("devapp_chdb_reload:app", reload=True)
+    monkeypatch.setattr(sys, "path", [str(tmp_path), *sys.path])
+    other = chdb.create_chdb_executor("other.chdb")
+    in_memory = chdb.create_async_chdb_executor(":memory:")
+    direct_connection = Connection("direct")
+    direct = chdb.ChdbExecutor(direct_connection)
+
+    def closed() -> list[str]:
+        return [connection.path for connection in connections if connection.closed]
+
+    run_dev("devapp_chdb_fresh:app", reload=True)
     assert served[0][0] == "hypequery.serve.dev:_reload_app"
-    assert sys.modules["devapp_chdb_reload"].Connection.closed == 1
-    assert CallerConnection.closed == 0
+    assert closed() == ["analytics.chdb"]
+
+    imported = importlib.import_module("devapp_chdb_imported")
+    assert closed() == ["analytics.chdb"]
+    run_dev("devapp_chdb_imported:app", reload=True)
+    # Checked through a fresh import, and the earlier copy's database released too.
+    assert closed() == ["analytics.chdb"] * 3
+    assert sys.modules["devapp_chdb_imported"] is imported
+
     # Served in this process, the database stays open.
-    run_dev("devapp_chdb_serve:app")
-    assert sys.modules["devapp_chdb_serve"].Connection.closed == 0
-    callers_own.close()
-    assert CallerConnection.closed == 1
+    run_dev("devapp_chdb_served:app")
+    assert closed() == ["analytics.chdb"] * 3
+    assert not direct_connection.closed
+    for executor in (other, in_memory, direct):
+        executor.close()
+    assert sorted(closed()) == sorted([*["analytics.chdb"] * 3, "other.chdb", ":memory:"])
+    assert direct_connection.closed
 
 
 def test_module_entry_point_passes_options(
