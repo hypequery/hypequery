@@ -14,6 +14,7 @@ _TOP_LEVEL = {
     "generate": "generate:datasets",
     "generate:datasets": "generate:datasets",
     "export": "export:client-contract",
+    "mcp": "mcp",
     "help": "help",
     "telemetry": "telemetry",
 }
@@ -34,6 +35,9 @@ _VALUE_FLAGS = {
     "--factory",
     "--hostname",
     "--port",
+    "--client-contract-url",
+    "--header",
+    "--project",
 }
 
 
@@ -94,7 +98,7 @@ def requested_command(argv: Sequence[str]) -> str:
     return command
 
 
-_HELP_TOPICS = ("init", "dev", "generate:datasets", "export:client-contract", "telemetry")
+_HELP_TOPICS = ("init", "dev", "generate:datasets", "export:client-contract", "mcp", "telemetry")
 
 
 def help_topic(argv: Sequence[str]) -> str:
