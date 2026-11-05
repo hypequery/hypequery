@@ -15,18 +15,21 @@ from mcp.server.stdio import stdio_server
 from mcp.shared.exceptions import MCPError
 
 from .. import __version__
-from .errors import McpToolError, classify_mcp_tool_error, format_mcp_tool_error
+from .errors import classify_mcp_tool_error
 from .executor import ClientContractExecutor
 
 SERVER_NAME = "hypequery-mcp-server"
 
 
-def _protocol_error(error: McpToolError) -> MCPError:
-    return MCPError(
-        types.INTERNAL_ERROR,
-        format_mcp_tool_error(error),
-        data={"error": dict(classify_mcp_tool_error(error))},
-    )
+def _protocol_error(error: Exception) -> MCPError:
+    """A JSON-RPC error carrying only the classified, public details of *error*.
+
+    Anything but an `McpToolError` becomes the generic failure, so a backend's
+    or driver's message never reaches the agent.
+    """
+
+    details = classify_mcp_tool_error(error)
+    return MCPError(types.INTERNAL_ERROR, details["message"], data={"error": dict(details)})
 
 
 def create_mcp_server(
@@ -39,7 +42,7 @@ def create_mcp_server(
     ) -> types.ListToolsResult:
         try:
             return types.ListToolsResult.model_validate(await executor.list_tools())
-        except McpToolError as error:
+        except Exception as error:
             raise _protocol_error(error) from None
 
     async def call_tool(_context: Any, params: types.CallToolRequestParams) -> types.CallToolResult:
@@ -52,7 +55,7 @@ def create_mcp_server(
     ) -> types.ListPromptsResult:
         try:
             return types.ListPromptsResult.model_validate(await executor.list_prompts())
-        except McpToolError as error:
+        except Exception as error:
             raise _protocol_error(error) from None
 
     async def get_prompt(
@@ -62,7 +65,7 @@ def create_mcp_server(
             return types.GetPromptResult.model_validate(
                 await executor.get_prompt(params.name, params.arguments)
             )
-        except McpToolError as error:
+        except Exception as error:
             raise _protocol_error(error) from None
 
     return Server(

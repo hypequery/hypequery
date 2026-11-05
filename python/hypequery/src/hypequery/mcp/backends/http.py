@@ -9,6 +9,7 @@ bridge adds no HTTP client dependency.
 
 from __future__ import annotations
 
+import http.client
 import json
 import urllib.error
 import urllib.request
@@ -20,10 +21,11 @@ from urllib.parse import SplitResult, urlsplit, urlunsplit
 
 import anyio
 
+from ...serve.core.utils.http_deadline import NoRedirects
+from ...serve.core.utils.http_proxy import with_default_ports
+from ...serve.core.utils.jwt_options import LOOPBACK_HOSTS
 from ..errors import McpToolError
 from .base import BackendHeaders, BackendResponse, resolve_headers
-
-_LOOPBACK = ("localhost", "127.0.0.1", "::1")
 
 
 def _bad_url() -> NoReturn:
@@ -43,7 +45,7 @@ def backend_url(value: str) -> SplitResult:
         _bad_url()
     if (
         hostname is None
-        or not (url.scheme == "https" or (url.scheme == "http" and hostname in _LOOPBACK))
+        or not (url.scheme == "https" or (url.scheme == "http" and hostname in LOOPBACK_HOSTS))
         or url.username is not None
         or url.password is not None
         or url.query
@@ -55,20 +57,12 @@ def backend_url(value: str) -> SplitResult:
     return url
 
 
-class _RefuseRedirects(urllib.request.HTTPRedirectHandler):
-    def redirect_request(
-        self,
-        req: urllib.request.Request,
-        fp: IO[bytes],
-        code: int,
-        msg: str,
-        headers: Message,
-        newurl: str,
-    ) -> None:
-        return None
-
-
-_OPENER = urllib.request.build_opener(_RefuseRedirects)
+def _opener(hostname: str | None) -> urllib.request.OpenerDirector:
+    # urllib honours HTTPS_PROXY / HTTP_PROXY / NO_PROXY and tunnels https with
+    # CONNECT, so TLS stays end to end. A loopback backend is reached directly:
+    # plain HTTP through a proxy would hand it the credential in cleartext.
+    proxies = {} if hostname in LOOPBACK_HOSTS else with_default_ports(urllib.request.getproxies())
+    return urllib.request.build_opener(urllib.request.ProxyHandler(proxies), NoRedirects)
 
 
 def _read(stream: IO[bytes], headers: Message, status: int, max_bytes: int) -> BackendResponse:
@@ -101,12 +95,14 @@ class HttpContractBackend:
             url, data=body, headers=dict(headers), method="POST" if body is not None else "GET"
         )
         try:
-            with _OPENER.open(request, timeout=self.timeout_seconds) as response:
+            opener = _opener(urlsplit(url).hostname)
+            with opener.open(request, timeout=self.timeout_seconds) as response:
                 return _read(response, response.headers, response.status, max_bytes)
         except urllib.error.HTTPError as error:
             with error:
                 return BackendResponse(error.code, error.headers.get("content-type"))
-        except (OSError, ValueError):
+        except (OSError, ValueError, http.client.HTTPException):
+            # Refused, timed out, or a malformed answer; never echo what it said.
             raise McpToolError(
                 "MCP_EXECUTION_FAILED", "Backend request failed.", retryable=True
             ) from None

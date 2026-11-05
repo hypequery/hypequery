@@ -18,11 +18,20 @@ class _Command(Protocol):
     def run(self, options: Any) -> None: ...
 
 
+def _env_root(args: Any) -> Path:
+    project = getattr(args, "project", None) if args.command == "mcp" else None
+    if project is not None and Path(project).is_dir():
+        return Path(project).resolve()
+    return Path.cwd()
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     """Dispatch a command; argparse owns help and usage-error exit codes."""
     args = parse_args(argv)
-    # Like the TypeScript CLI: the launch directory's .env files fill in unset variables.
-    load_env_files(Path.cwd())
+    # Like the TypeScript CLI: the launch directory's .env files fill in unset
+    # variables. `mcp --project` reads the project's instead: an MCP client
+    # launches it from anywhere, and the project's settings must win.
+    load_env_files(_env_root(args))
     try:
         command = cast(_Command, import_module(f"hypequery.cli.commands.{args.command}"))
         command.run(command_options(args))

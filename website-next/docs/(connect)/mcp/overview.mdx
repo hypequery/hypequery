@@ -96,8 +96,8 @@ Each tool call goes through `Api.handle` in the same process, so authentication,
 endpoint policy, rate limits and tenant resolution are exactly the ones an HTTP
 caller meets, without running a server. The `hypequery init` scaffolds already
 publish a client contract; in your own API, give endpoints
-`client_profile=ClientQueryProfile()`. If the API has no
-`add_client_contract_endpoint` route, the server adds one at `/client-contract`.
+`client_profile=ClientQueryProfile()` and call `add_client_contract_endpoint(api)`;
+the server reads that route and never changes the API.
 
 To reach an API that is already deployed instead, bridge its discovery route:
 

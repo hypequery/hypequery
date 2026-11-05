@@ -147,3 +147,40 @@ def test_discovery_urls_must_be_https_without_credentials_query_or_fragment(url:
 @pytest.mark.parametrize("host", ["localhost", "127.0.0.1", "[::1]"])
 def test_plain_http_is_allowed_only_on_loopback(host: str) -> None:
     HttpContractBackend(f"http://{host}:8000/client-contract")
+
+
+def test_a_loopback_backend_is_reached_directly_whatever_the_proxy(
+    origin: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # A proxy would receive the bearer token in cleartext; this one does not exist.
+    monkeypatch.setenv("HTTP_PROXY", "http://127.0.0.1:9")
+    monkeypatch.setenv("http_proxy", "http://127.0.0.1:9")
+    monkeypatch.delenv("NO_PROXY", raising=False)
+    monkeypatch.delenv("no_proxy", raising=False)
+    executor = connect(origin + "/client-contract")
+    assert executor.contract["endpoints"]
+
+
+def test_a_malformed_answer_is_a_safe_failure() -> None:
+    import socket
+
+    listener = socket.socket()
+    listener.bind(("127.0.0.1", 0))
+    listener.listen(1)
+
+    def answer() -> None:
+        connection, _ = listener.accept()
+        connection.recv(65536)
+        connection.sendall(b"HTTP/1.1 2xx secret-token-abc\r\n\r\n")
+        connection.close()
+
+    thread = threading.Thread(target=answer, daemon=True)
+    thread.start()
+    backend = HttpContractBackend(
+        f"http://127.0.0.1:{listener.getsockname()[1]}/client-contract", timeout_seconds=5
+    )
+    with pytest.raises(McpToolError) as raised:
+        asyncio.run(ClientContractExecutor.create(backend))
+    listener.close()
+    assert raised.value.code == "MCP_EXECUTION_FAILED"
+    assert "secret" not in raised.value.message

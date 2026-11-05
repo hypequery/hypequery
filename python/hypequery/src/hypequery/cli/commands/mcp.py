@@ -11,7 +11,6 @@ import anyio
 
 from ..errors import CliError
 from ..options import McpOptions
-from ..utils.env_files import load_env_files
 from ..utils.mcp_setup import load_api, mcp_server_config, request_headers
 
 
@@ -22,8 +21,6 @@ def _project(options: McpOptions) -> Path:
     if not project.is_dir():
         raise CliError(f"--project {options.project} is not a directory.")
     os.chdir(project)
-    # An MCP client launches this from anywhere: read the project's own .env too.
-    load_env_files(project)
     return project
 
 
@@ -31,6 +28,12 @@ def run(options: McpOptions) -> None:
     project = _project(options)
     headers = request_headers(options.headers, os.environ)
     if options.print_config:
+        if options.headers:
+            # A printed config would either lose the header or leak its value.
+            raise CliError(
+                "--print-config cannot carry --header; put the credential in "
+                "HYPEQUERY_API_KEY, which the config reads from the client's environment."
+            )
         print(
             mcp_server_config(
                 app=options.app,
@@ -66,6 +69,12 @@ def run(options: McpOptions) -> None:
         except McpToolError as exc:
             # The executor's messages never echo a URL, credential or backend body.
             raise CliError(f"Could not read the client contract: {exc.message}") from None
+        except Exception:
+            # Project code may put URLs, SQL or credentials in its errors.
+            raise CliError(
+                "Could not read the client contract; check the app, its dependencies "
+                "and environment."
+            ) from None
         endpoints = executor.contract["endpoints"]
         if options.self_test:
             queryable = sum(1 for e in endpoints if e["kind"] == "dataset")

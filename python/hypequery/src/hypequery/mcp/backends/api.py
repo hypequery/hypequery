@@ -11,7 +11,7 @@ import json
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 
-from ...serve import Api, add_client_contract_endpoint
+from ...serve import Api
 from ...serve.core.messages import Headers, ServeRequest
 from ..errors import McpToolError
 from .base import BackendHeaders, BackendResponse, resolve_headers
@@ -21,13 +21,24 @@ _DISCOVERY_MODULE = "hypequery.serve.core.client_discovery"
 
 
 def discovery_path(api: Api) -> str:
-    """The path *api* serves its client contract at, registering one if it has none."""
+    """The path *api* serves its authenticated client contract at.
 
-    for route in api.routes:
-        if route.method == "GET" and getattr(route.handler, "__module__", "") == _DISCOVERY_MODULE:
-            return route.path
-    add_client_contract_endpoint(api)
-    return api.routes[-1].path
+    A public discovery route projects only anonymous capabilities, so an
+    authenticated one is preferred. The API is never changed: a route added
+    here would go live wherever the same API is also served over HTTP.
+    """
+
+    routes = [
+        route
+        for route in api.routes
+        if route.method == "GET" and getattr(route.handler, "__module__", "") == _DISCOVERY_MODULE
+    ]
+    if not routes:
+        raise ValueError(
+            "The API serves no client contract; call add_client_contract_endpoint(api) "
+            "and give its endpoints client_profile=ClientQueryProfile()."
+        )
+    return min(routes, key=lambda route: route.public).path
 
 
 def request_host(api: Api) -> str:

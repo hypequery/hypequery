@@ -97,7 +97,8 @@ def _json_text(response: BackendResponse) -> str:
     if response.oversized:
         raise result_too_large("Backend response exceeds its byte limit.")
     try:
-        return response.body.decode("utf-8")
+        # Like TextDecoder: one leading byte-order mark is not part of the JSON.
+        return response.body.decode("utf-8-sig")
     except UnicodeDecodeError:
         raise McpToolError(
             "MCP_EXECUTION_FAILED", "Backend response could not be read.", retryable=False

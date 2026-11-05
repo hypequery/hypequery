@@ -30,6 +30,12 @@ def request_headers(values: Sequence[str], env: Mapping[str, str]) -> dict[str, 
             raise CliError("Use --header 'Name: value'.")
         headers[name.lower()] = content
     key = env.get(API_KEY_VARIABLE, "").strip()
+    if key.startswith("${"):
+        # A client that does not expand variables passed the printed placeholder.
+        raise CliError(
+            f"{API_KEY_VARIABLE} is the unexpanded placeholder {key}; set the key itself "
+            "in the MCP client's env."
+        )
     if key and "authorization" not in headers:
         headers["authorization"] = f"Bearer {key}"
     return headers
@@ -44,7 +50,11 @@ def load_api(target: str) -> Api:
     if len(target) > 512 or not _TARGET.fullmatch(target):
         raise CliError("Use module:attribute for the API, such as app:api.")
     module_name, attribute = target.split(":")
-    sys.path.insert(0, str(Path.cwd()))
+    # The project stays importable: auth callables and handlers may import its
+    # modules lazily, during a tool call, long after this import.
+    project = str(Path.cwd())
+    if project not in sys.path:
+        sys.path.insert(0, project)
     try:
         with redirect_stdout(sys.stderr):
             value = getattr(importlib.import_module(module_name), attribute)
@@ -61,8 +71,6 @@ def load_api(target: str) -> Api:
     except Exception as exc:
         # Project code may put URLs, SQL or credentials in its errors.
         raise CliError("App import failed; check its dependencies and environment.") from exc
-    finally:
-        sys.path.remove(str(Path.cwd()))
     api = getattr(value, "api", value)
     if not isinstance(api, Api):
         raise CliError(f"{target} is not a hypequery Api (from create_api) or its ASGI app.")

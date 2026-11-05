@@ -27,8 +27,14 @@ def _record(value: object, allowed: Sequence[str] | None = None) -> dict[str, ob
     return value
 
 
-def _integer(value: object, minimum: int = 0) -> bool:
-    return type(value) is int and minimum <= value <= 2**53 - 1
+def _integer_value(value: object) -> int | None:
+    """*value* as an integer the way JavaScript reads JSON: `2.0` is 2, `true` is not."""
+
+    if type(value) is int:
+        return value
+    if type(value) is float and value.is_integer():
+        return int(value)
+    return None
 
 
 def _string(value: object) -> bool:
@@ -95,19 +101,20 @@ def _check_meta(meta: object, rows: int, plan: ClientQueryPlan) -> None:
         or not 0 < len(request_id) <= 1024  # type: ignore[arg-type]
         or not _number(timing)
         or timing < 0  # type: ignore[operator]
-        or record.get("rowCount") != rows
-        or type(record.get("rowCount")) is not int
+        or _integer_value(record.get("rowCount")) != rows
     ):
         raise _invalid()
     pagination = _record(record.get("pagination"), ("limit", "offset", "hasMore"))
-    limit = pagination.get("limit")
+    limit = _integer_value(pagination.get("limit"))
+    offset = _integer_value(pagination.get("offset"))
     has_more = pagination.get("hasMore")
     if (
-        not _integer(limit, 1)
-        or limit > plan["effectiveLimit"]  # type: ignore[operator]
-        or pagination.get("offset") != plan["body"].get("offset")
+        limit is None
+        or not 1 <= limit <= plan["effectiveLimit"]
+        or offset is None
+        or offset != plan["body"].get("offset")
         or type(has_more) is not bool
-        or rows > limit  # type: ignore[operator]
+        or rows > limit
         or (has_more and rows != limit)
     ):
         raise _invalid()

@@ -35,6 +35,7 @@ class Rows:
 
 class Executor:
     def execute(self, compiled):
+        print("query-time chatter that must not reach the MCP stdout")
         columns = tuple(re.findall(r" AS `([^`]+)`", compiled.sql.split(" FROM ", 1)[0]))
         values = {"country": "US", "total": 7}
         return Rows(columns, (tuple(values[name] for name in columns),))
@@ -124,6 +125,39 @@ def test_configuration_errors_are_actionable(
 ) -> None:
     assert main(argv) == 1
     assert message in capsys.readouterr().err
+
+
+def test_print_config_refuses_a_header_it_would_drop_or_leak(
+    project: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    assert main(["mcp", "--header", "X-Api-Key: k", "--print-config"]) == 1
+    error = capsys.readouterr().err
+    assert "HYPEQUERY_API_KEY" in error
+    assert " k" not in error.split("--header")[0]
+
+
+def test_an_unexpanded_key_placeholder_is_refused(
+    project: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.setenv("HYPEQUERY_API_KEY", "${HYPEQUERY_API_KEY}")
+    assert main(["mcp", "--self-test"]) == 1
+    assert "unexpanded placeholder" in capsys.readouterr().err
+
+
+def test_the_projects_env_wins_over_the_launch_directory(
+    project: Path, tmp_path_factory: pytest.TempPathFactory, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    launch = tmp_path_factory.mktemp("launch")
+    (launch / ".env").write_text("HYPEQUERY_API_KEY=wrong\n")
+    (project / ".env").write_text("HYPEQUERY_API_KEY=secret\n")
+    monkeypatch.delenv("HYPEQUERY_API_KEY")
+    monkeypatch.chdir(launch)
+    assert main(["mcp", "app:api", "--project", str(project), "--self-test"]) == 0
+
+
+def test_the_project_stays_importable_after_loading(project: Path) -> None:
+    assert main(["mcp", "app:api", "--self-test"]) == 0
+    assert str(project) in sys.path
 
 
 def test_an_app_and_a_url_are_exclusive() -> None:

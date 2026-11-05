@@ -64,8 +64,9 @@ def test_the_guide_prompt_is_served_and_unknown_prompts_are_protocol_errors() ->
             assert [prompt.name for prompt in prompts.prompts] == ["dataset_guide"]
             guide = await client.get_prompt("dataset_guide")
             assert guide.messages[0].role == "user"
-            with pytest.raises(MCPError, match="MCP_NOT_FOUND"):
+            with pytest.raises(MCPError, match="Client guide not found") as raised:
                 await client.get_prompt("other")
+            assert raised.value.data["error"]["code"] == "MCP_NOT_FOUND"
 
     asyncio.run(session())
 

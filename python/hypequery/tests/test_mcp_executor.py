@@ -69,7 +69,8 @@ class _NoBackend:
 
 SUCCESS = cast(list[dict[str, object]], json.loads((FIXTURES / "success.json").read_text()))
 MANIFESTS = cast(
-    dict[str, dict[str, object]], json.loads((FIXTURES.parents[2] / "mcp/bridge-manifests-v1.json").read_text())
+    dict[str, dict[str, object]],
+    json.loads((FIXTURES.parents[2] / "mcp/bridge-manifests-v1.json").read_text()),
 )
 
 
@@ -338,11 +339,22 @@ def test_a_mounted_api_routes_contract_paths_below_its_prefix() -> None:
     assert len(backend.seen) == 1
 
 
-def test_an_api_without_discovery_gets_one_registered() -> None:
+def test_an_api_without_discovery_is_refused_and_left_unchanged() -> None:
     api, _ = build_api(discovery=False)
+    routes = api.routes
+    with pytest.raises(ValueError, match="add_client_contract_endpoint"):
+        ApiContractBackend(api, headers=READER)
+    assert api.routes == routes
+
+
+def test_an_authenticated_discovery_route_is_preferred_to_a_public_one() -> None:
+    from hypequery.serve import EndpointPolicy, add_client_contract_endpoint
+
+    api, _ = build_api(discovery=False)
+    add_client_contract_endpoint(api, "/public-contract", policy=EndpointPolicy(public=True))
+    add_client_contract_endpoint(api)
     executor = run(lambda: ClientContractExecutor.create(ApiContractBackend(api, headers=READER)))
     assert [e["id"] for e in executor.contract["endpoints"]] == ["orders", "ordersTotal"]
-    assert [r.path for r in api.routes if r.method == "GET"] == ["/client-contract"]
 
 
 def test_only_a_served_api_is_accepted() -> None:
