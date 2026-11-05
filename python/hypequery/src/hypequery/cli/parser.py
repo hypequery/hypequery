@@ -167,6 +167,7 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     dev.set_defaults(reload=True)
     mcp = _add_mcp(commands)
     skill = _add_skill(commands)
+    demo = _add_demo(commands)
     telemetry = commands.add_parser(
         "telemetry", help="show or change anonymous usage telemetry settings"
     )
@@ -177,7 +178,7 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     help_command.add_argument(
         "topic",
         nargs="?",
-        choices=("init", "dev", "generate", "export", "mcp", "skill", "telemetry"),
+        choices=("init", "dev", "generate", "export", "mcp", "skill", "demo", "telemetry"),
     )
     args = parser.parse_args(arguments)
     args.no_telemetry = no_telemetry
@@ -190,6 +191,7 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
             "export": export,
             "mcp": mcp,
             "skill": skill,
+            "demo": demo,
             "telemetry": telemetry,
         }
         topics[args.topic].print_help()
@@ -265,6 +267,39 @@ def _add_mcp(
         help="print an mcpServers entry for Claude, Cursor or another MCP client and exit",
     )
     return mcp
+
+
+def _add_demo(
+    commands: argparse._SubParsersAction[argparse.ArgumentParser],
+) -> argparse.ArgumentParser:
+    demo = commands.add_parser(
+        "demo",
+        help="try a sample semantic layer on embedded ClickHouse, served over MCP stdio "
+        "(requires the chdb and mcp extras)",
+        description="Create a sample shop database on embedded ClickHouse (chDB) in a "
+        "temporary directory and serve its datasets to an AI agent over MCP stdio. "
+        "No server, no configuration and no network; the database is deleted on exit.",
+    )
+    demo.add_argument(
+        "--tenant",
+        # hypequery.cli.demo.api.TENANTS, kept literal so parsing imports nothing.
+        choices=("acme", "globex"),
+        default="acme",
+        help="the tenant the agent is signed in as (default: acme)",
+    )
+    mode = demo.add_mutually_exclusive_group()
+    mode.add_argument(
+        "--self-test",
+        action="store_true",
+        help="answer the demo's questions in the terminal and exit, without serving "
+        "(needs only the chdb extra)",
+    )
+    mode.add_argument(
+        "--print-config",
+        action="store_true",
+        help="print an mcpServers entry for Claude Code, Cursor or another MCP client and exit",
+    )
+    return demo
 
 
 def _validate_mcp(parser: argparse.ArgumentParser, args: argparse.Namespace) -> None:
