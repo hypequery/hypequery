@@ -40,6 +40,10 @@ SEMANTIC_FILTER_OPERATORS: Final[tuple[FilterOperator, ...]] = (
     "like",
 )
 
+#: Null checks (RFC 0023). Opt-in: a filter accepts one only when its
+#: `operators` list names it, so they are never part of the default list.
+SEMANTIC_NULL_CHECK_OPERATORS: Final[tuple[FilterOperator, ...]] = ("isNull", "isNotNull")
+
 #: The operators accepted by dataset `having` conditions; mirrors
 #: `SEMANTIC_HAVING_OPERATORS` in `packages/datasets/src/constants.ts`.
 SEMANTIC_HAVING_OPERATORS: Final[tuple[HavingOperator, ...]] = (

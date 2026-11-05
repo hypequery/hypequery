@@ -50,7 +50,8 @@ python -m hypequery export client-contract \\
   --factory analytics.definitions:build \\
   --output web/client-contract.json
 
-# 2. Generate a typed React client in the frontend
+# 2. Generate a typed React client in the frontend (web/)
+cd web && npm install -D @hypequery/cli
 npx hypequery generate:client client-contract.json \\
   --output src/hypequery-client.ts
 

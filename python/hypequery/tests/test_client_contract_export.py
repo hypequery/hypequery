@@ -334,3 +334,21 @@ def test_overlong_or_control_annotation_text_fails_export(description: str) -> N
     with pytest.raises(ProtocolClientContractError) as error:
         export_client_contract([definition])
     assert error.value.path == "/endpoints/0/annotations/description"
+
+
+def test_boolean_filters_keep_explicitly_allowed_null_checks() -> None:
+    dataset = Dataset(
+        name="orders",
+        source="orders",
+        dimensions={"active": dimension.boolean()},
+        measures={"count": measure.count("active")},
+        filters={
+            "active": FilterDefinition(field="active", operators=("eq", "isNull")),
+            "unset": FilterDefinition(field="active", operators=("isNull", "isNotNull")),
+        },
+    )
+    definition = ClientEndpointDefinition(dataset, "/api/orders", ClientQueryProfile())
+    filters = export_client_contract([definition])["contract"]["endpoints"][0]["filters"]
+    assert filters["active"] == {"type": "boolean", "operators": ["eq", "isNull"]}
+    # A filter allowing only null checks is advertised, not dropped.
+    assert filters["unset"] == {"type": "boolean", "operators": ["isNotNull", "isNull"]}

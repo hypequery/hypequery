@@ -2,6 +2,7 @@ import Footer from '@/components/Footer';
 import Navigation from '@/components/Navigation';
 import { absoluteUrl } from '@/lib/site';
 import { getPostBySlug } from '@/lib/blog-cms';
+import { getNpmDownloadCounts } from '@/lib/npm-downloads';
 import { AnnouncementBanner, Hero, FinalCTA } from '@/components/home';
 import { FeatureGrid } from '@/components/home/FeatureGrid';
 import { ProductExplainer } from '@/components/home/ProductExplainer';
@@ -77,7 +78,7 @@ const softwareSchema = {
 const LAUNCH_POST_SLUG = 'introducing-hypequery-python';
 
 export default async function Home() {
-  const launchPost = await getPostBySlug(LAUNCH_POST_SLUG);
+  const [launchPost, npmDownloads] = await Promise.all([getPostBySlug(LAUNCH_POST_SLUG), getNpmDownloadCounts()]);
 
   return (
     <div className="min-h-screen bg-bg text-text">
@@ -88,7 +89,7 @@ export default async function Home() {
       {launchPost && <AnnouncementBanner href={`/blog/${LAUNCH_POST_SLUG}`} />}
       <Navigation hasBanner={Boolean(launchPost)} />
       <main className={launchPost ? 'pt-[104px]' : 'pt-[62px]'}>
-        <Hero />
+        <Hero npmDownloads={npmDownloads} />
         <PatternCallout />
         {/* Hero (what it is) → proof → every interface (what it powers) → runs in your stack (where it lives)
             → production features (can I trust it) → change safely (what happens next) → CTA.

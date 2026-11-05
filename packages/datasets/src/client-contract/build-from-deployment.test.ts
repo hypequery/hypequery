@@ -54,7 +54,7 @@ describe('buildClientContract', () => {
       dataset: 'orders',
       path: '/api/analytics/datasets/orders/query',
       metadata: true,
-      time: { grains: ['day', 'month', 'quarter', 'week', 'year'], defaultTimezone: 'UTC', timezone: true },
+      time: { grains: ['day', 'month', 'quarter', 'week', 'year'], defaultTimezone: 'UTC', timezone: false },
       limits: { defaultLimit: 500, maxLimit: 500, maxMeasures: 10, maxDimensions: 100 },
     });
     expect(orders.schemaHash).toMatch(/^[0-9a-f]{64}$/);
@@ -62,24 +62,48 @@ describe('buildClientContract', () => {
       type: 'number', wireType: 'number-or-string', nullable: 'unknown', groupable: true, orderable: true,
     });
     expect(orders.dimensions.paid.wireType).toBe('boolean');
-    // Ordered aggregations over strings can't be compared in `having`; the
-    // relationship-filtered measure isn't advertised while relationships aren't.
+    // The portable semantic query has no `having`, so none is advertised by
+    // default; the relationship-filtered measure isn't advertised while
+    // relationships aren't.
+    expect(orders.measures).toEqual({
+      revenue: { wireType: 'string', nullable: true, having: false },
+      orders: { wireType: 'string', nullable: true, having: false },
+      latestStatus: { wireType: 'string', nullable: true, having: false },
+      average: { wireType: 'string', nullable: true, having: false },
+    });
+    if (orders.kind !== 'dataset') throw new Error('expected a dataset endpoint');
+    expect([...orders.defaultMeasures].sort()).toEqual(['latestStatus', 'orders', 'revenue']);
+  });
+
+  it('advertises having and a request timezone only when the host executes them', () => {
+    const [orders] = buildClientContract(deployment, { capabilities: { having: true, timezone: true } }).contract.endpoints;
+    // Ordered aggregations over strings can't be compared in `having`.
     expect(orders.measures).toEqual({
       revenue: { wireType: 'string', nullable: true, having: true },
       orders: { wireType: 'string', nullable: true, having: true },
       latestStatus: { wireType: 'string', nullable: true, having: false },
       average: { wireType: 'string', nullable: true, having: true },
     });
-    if (orders.kind !== 'dataset') throw new Error('expected a dataset endpoint');
-    expect([...orders.defaultMeasures].sort()).toEqual(['latestStatus', 'orders', 'revenue']);
+    expect(orders.time?.timezone).toBe(true);
+  });
+
+  it('enables each capability on its own', () => {
+    const [havingOnly] = buildClientContract(deployment, { capabilities: { having: true } }).contract.endpoints;
+    expect(havingOnly.measures.revenue.having).toBe(true);
+    expect(havingOnly.time?.timezone).toBe(false);
+    const [timezoneOnly] = buildClientContract(deployment, { capabilities: { timezone: true } }).contract.endpoints;
+    expect(Object.values(timezoneOnly.measures).some(measure => measure.having)).toBe(false);
+    expect(timezoneOnly.time?.timezone).toBe(true);
+    // Each capability is part of the hashed schema a generated client pins.
+    expect(havingOnly.schemaHash).not.toBe(timezoneOnly.schemaHash);
   });
 
   it('never lets a request name the tenant, and narrows operators by type', () => {
     const [orders] = buildClientContract(deployment).contract.endpoints;
     expect(Object.keys(orders.filters).sort()).toEqual(['amount', 'paid', 'status']);
     expect(orders.filters.status.operators).toEqual(['eq', 'in', 'like']);
-    // As Python: booleans compare by equality only.
-    expect(orders.filters.paid.operators).toEqual(['eq']);
+    // As Python: booleans compare by equality, and keep null checks (RFC 0023).
+    expect(orders.filters.paid.operators).toEqual(['eq', 'isNull']);
     expect(orders.filters.amount.operators).toEqual(['gte']);
   });
 

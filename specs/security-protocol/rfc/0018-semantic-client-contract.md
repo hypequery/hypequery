@@ -116,6 +116,14 @@ variable name or URL segment does not define an export identity. Multiple routes
 to one underlying dataset need explicit distinct logical export bindings; a
 producer must not let duplicate ids overwrite one another.
 
+A producer convenience may declare one name for both. As in TypeScript's
+createAPI metrics map, a Python create_api(metrics={key: ...}) key is the
+metric's declared name: its id, its output alias and its /metrics/<key> path
+segment. The id still comes from that declaration, not from parsing the path,
+and a metric endpoint created with a different explicit name is refused rather
+than exported under either. Endpoints installed at an explicit path keep their
+independent name.
+
 Routes in this version are POST. Path must match
 /(?:[A-Za-z0-9_~.-]+/)*[A-Za-z0-9_~.-]+, with no dot-only navigation segment
 (one dot or two dots).

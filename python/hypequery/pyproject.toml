@@ -4,14 +4,19 @@ build-backend = "hatchling.build"
 
 [project]
 name = "hypequery"
-version = "0.1.0b2"
+version = "0.1.0b3"
 description = "Type-safe ClickHouse semantic layer and serving for Python."
-readme = "README.md"
+# PyPI shows README.pypi.md: a short pitch with one sample. README.md is the
+# full guide, and scripts/getting_started.py runs its code blocks in CI.
+readme = "README.pypi.md"
 requires-python = ">=3.11"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 authors = [{ name = "Hypequery" }]
-keywords = ["clickhouse", "analytics", "semantic-layer", "datasets", "asgi"]
+keywords = [
+  "clickhouse", "analytics", "semantic-layer", "semantic layer", "metrics", "datasets",
+  "multi-tenant", "fastapi", "django", "flask", "asgi", "mcp", "pandas", "polars", "arrow",
+]
 classifiers = [
   "Development Status :: 4 - Beta",
   "Intended Audience :: Developers",
@@ -20,10 +25,13 @@ classifiers = [
   "Programming Language :: Python :: 3.13",
   "Programming Language :: Python :: 3.14",
   "Framework :: Django",
+  "Framework :: FastAPI",
   "Framework :: AsyncIO",
   "Framework :: Flask",
   "Framework :: Pydantic :: 2",
   "Topic :: Database",
+  "Topic :: Scientific/Engineering :: Information Analysis",
+  "Topic :: Software Development :: Libraries :: Python Modules",
   "Typing :: Typed",
 ]
 
@@ -100,7 +108,7 @@ hypequery = "hypequery.cli:main"
 Homepage = "https://hypequery.com"
 Repository = "https://github.com/hypequery/hypequery"
 Issues = "https://github.com/hypequery/hypequery/issues"
-Documentation = "https://github.com/hypequery/hypequery/tree/main/python/hypequery#readme"
+Documentation = "https://hypequery.com/docs/python"
 Changelog = "https://github.com/hypequery/hypequery/blob/main/python/hypequery/CHANGELOG.md"
 
 [dependency-groups]

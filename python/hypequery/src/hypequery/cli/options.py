@@ -67,7 +67,20 @@ class ExportClientContractOptions:
     force: bool
 
 
-CommandOptions = InitOptions | GenerateDatasetsOptions | DevOptions | ExportClientContractOptions
+@dataclass(frozen=True, slots=True)
+class TelemetryOptions:
+    action: str
+    #: ``--no-telemetry`` was passed, so ``status`` reports this invocation's opt-out.
+    flag_disabled: bool = False
+
+
+CommandOptions = (
+    InitOptions
+    | GenerateDatasetsOptions
+    | DevOptions
+    | ExportClientContractOptions
+    | TelemetryOptions
+)
 
 
 def command_options(args: argparse.Namespace) -> CommandOptions:
@@ -111,4 +124,6 @@ def command_options(args: argparse.Namespace) -> CommandOptions:
         )
     if args.command == "dev":
         return DevOptions(app=args.app, host=args.host, port=args.port, reload=args.reload)
+    if args.command == "telemetry":
+        return TelemetryOptions(action=args.action, flag_disabled=args.no_telemetry)
     raise ValueError(f"unknown command {args.command!r}")

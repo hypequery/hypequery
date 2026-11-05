@@ -74,9 +74,9 @@ async function assertDatasetProjection() {
   });
   const row = result.data[0]!;
 
-  // Dimensions keep their declared type; non-null measure values are strings,
-  // while SQL NULL remains null.
-  type _Country = Assert<Equal<typeof row.country, string | undefined>>;
+  // Dimensions may be null (Nullable columns); non-null measure values are
+  // strings, while SQL NULL remains null.
+  type _Country = Assert<Equal<typeof row.country, string | null | undefined>>;
   type _Revenue = Assert<Equal<typeof row.revenue, string | null | undefined>>;
 
   // @ts-expect-error measure values are strings, not numbers
@@ -99,7 +99,7 @@ async function assertRelationshipProjection() {
   });
   const row = result.data[0]!;
 
-  type _CustomerCountry = Assert<Equal<typeof row['customer.country'], string | undefined>>;
+  type _CustomerCountry = Assert<Equal<typeof row['customer.country'], string | null | undefined>>;
 
   type _HasManyExcluded = Assert<
     Equal<Extract<DatasetDimensionNames<typeof Orders>, 'items.sku'>, never>
@@ -156,7 +156,7 @@ async function assertPeriodProjection() {
     by: 'month',
   });
   const row = result.data[0]!;
-  type _Period = Assert<Equal<typeof row.period, string | undefined>>;
+  type _Period = Assert<Equal<typeof row.period, string | null | undefined>>;
 }
 
 async function assertMetricProjection() {
@@ -164,7 +164,7 @@ async function assertMetricProjection() {
     dimensions: ['country'] as const,
   });
   const row = result.data[0]!;
-  type _Country = Assert<Equal<typeof row.country, string | undefined>>;
+  type _Country = Assert<Equal<typeof row.country, string | null | undefined>>;
   type _Revenue = Assert<Equal<typeof row.revenue, string | null | undefined>>;
 
   // @ts-expect-error metric values are strings, not numbers
@@ -183,20 +183,20 @@ async function assertMetricPeriodProjection() {
     by: 'month',
   });
   const row = result.data[0]!;
-  type _Period = Assert<Equal<typeof row.period, string | undefined>>;
+  type _Period = Assert<Equal<typeof row.period, string | null | undefined>>;
 }
 
-// The projection-independent row types make the same string choice.
+// The projection-independent row types follow the same wire-value rules.
 function assertBroadRowTypes() {
   const datasetRow = {} as DatasetRow<typeof Orders>;
-  type _NumberDimension = Assert<Equal<typeof datasetRow.amount, number | undefined>>;
+  type _NumberDimension = Assert<Equal<typeof datasetRow.amount, number | string | null | undefined>>;
   type _Revenue = Assert<Equal<typeof datasetRow.revenue, string | null | undefined>>;
   type _OrderCount = Assert<Equal<typeof datasetRow.orderCount, string | null | undefined>>;
-  type _Period = Assert<Equal<typeof datasetRow.period, string | undefined>>;
+  type _Period = Assert<Equal<typeof datasetRow.period, string | null | undefined>>;
 
   const metricRow = {} as MetricRow<typeof Orders, 'revenue'>;
   type _MetricValue = Assert<Equal<typeof metricRow.revenue, string | null | undefined>>;
-  type _MetricCountry = Assert<Equal<typeof metricRow.country, string | undefined>>;
+  type _MetricCountry = Assert<Equal<typeof metricRow.country, string | null | undefined>>;
 }
 
 void assertDatasetProjection;

@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { createHmac } from 'node:crypto';
 import { test } from 'node:test';
 import fixture from './published-canary.fixture.json';
+import pythonFixture from './python-cli.fixture.json';
 import { handleTelemetry } from './handler';
 import { telemetryConfig } from './config';
 import { forwardTelemetry, posthogBatch } from './forward';
@@ -85,6 +86,32 @@ test('returns 410 only for validated explicitly disabled versions', async () => 
   assert.equal((await handle(request(), () => assert.fail('scheduled'), disabled)).status, 410);
   assert.equal((await handle(request({}), () => assert.fail('scheduled'), disabled)).status, 400);
   assert.equal((await handle(request(), () => {}, { ...env, TELEMETRY_DISABLED_CLI_VERSIONS: '1.0.0' })).status, 202);
+});
+
+test('accepts Python CLI events against the Python contract only', async () => {
+  assert.equal((await handle(request(pythonFixture), () => {}, env)).status, 202);
+  const mutations: ((body: typeof pythonFixture) => void)[] = [
+    body => { Object.assign(body.batch[0].properties, { node_version: '22.1' }); },
+    body => { Object.assign(body.batch[0].properties, { path: '/private' }); },
+    body => { body.batch[0].properties.command = 'login'; },
+    body => { Object.assign(body.batch[0].properties, { flags_used: ['--style'] }); },
+    body => { body.batch[0].properties.installer = 'private-tool'; },
+    body => { body.batch[0].properties.cli_version = '1.0.0-canary'; },
+    body => { body.batch[0].event = 'cli_command_completed'; },
+    body => { Object.assign(body.batch[1].properties, { suggested_command: 'frobnicate' }); },
+  ];
+  for (const mutate of mutations) {
+    const body = structuredClone(pythonFixture);
+    mutate(body);
+    assert.equal((await handle(request(body), () => assert.fail('scheduled'), env)).status, 400);
+  }
+});
+
+test('keeps the Python kill switch separate from the TypeScript one', async () => {
+  const version = pythonFixture.batch[0].properties.cli_version;
+  assert.equal((await handle(request(pythonFixture), () => assert.fail('scheduled'), { ...env, TELEMETRY_DISABLED_PYTHON_CLI_VERSIONS: version })).status, 410);
+  assert.equal((await handle(request(pythonFixture), () => {}, { ...env, TELEMETRY_DISABLED_CLI_VERSIONS: version })).status, 202);
+  assert.equal((await handle(request(), () => {}, { ...env, TELEMETRY_DISABLED_PYTHON_CLI_VERSIONS: fixture.batch[0].properties.cli_version })).status, 202);
 });
 
 test('accepts the 32-event boundary and rejects the next streamed byte at 64 KiB', async () => {

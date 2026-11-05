@@ -16,7 +16,7 @@ from typing import Final, Literal, NoReturn, TypeAlias
 from ._jcs import serialize_jcs
 from .cache_keys import MAX_CACHE_KEY_PREIMAGE_BYTES, MIN_CACHE_KEY_SECRET_BYTES
 from .errors import ProtocolExpressionError
-from .expression_models import semantic_query_to_data
+from .expression_models import ProtocolDatasetQuery, semantic_query_to_data
 from .expressions import validate_protocol_semantic_query
 from .utf8 import encode_utf8
 
@@ -88,6 +88,14 @@ def _normalize_query(source: object) -> dict[str, object]:
         validated = validate_protocol_semantic_query(source, extension=2)
     except ProtocolExpressionError:
         # The expression code is not surfaced, so this family's set stays closed.
+        _fail("HQ_CACHE_PREIMAGE_INVALID_QUERY")
+    # RFC 0025 fields stay outside the RFC 0009 preimage, so a query using them
+    # has no portable key rather than one that collides with a query without
+    # them. ``having`` runs uncached; a zone is folded into the definition
+    # identity by the caller, and UTC (the default) folds nothing.
+    if isinstance(validated, ProtocolDatasetQuery) and validated.having:
+        _fail("HQ_CACHE_PREIMAGE_INVALID_QUERY")
+    if validated.timezone is not None and validated.timezone != "UTC":
         _fail("HQ_CACHE_PREIMAGE_INVALID_QUERY")
     query = semantic_query_to_data(validated)
     # AND-combined, so order cannot change rows; identical filters collapse.

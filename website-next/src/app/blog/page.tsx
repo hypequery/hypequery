@@ -3,6 +3,8 @@ import type { Metadata } from 'next';
 import { getPosts } from '@/lib/blog';
 import { absoluteUrl, ogImage } from '@/lib/site';
 import { comparePageBySlug } from '@/data/compare-pages';
+import Newsletter from '@/components/Newsletter';
+import { blogAuthorName } from '@/lib/blog-author';
 
 export async function generateMetadata({
   searchParams,
@@ -46,7 +48,7 @@ export default async function BlogPage({
   const displayedPosts = posts.slice(startIndex, endIndex);
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-24 pt-28 lg:px-8">
+    <div className="mx-auto max-w-6xl px-4 pb-24 pt-8 lg:px-8">
       <div className="mb-10 text-center p-6 rounded-3xl">
         <p className="text-sm uppercase tracking-[0.2em] text-indigo-500 mb-3">
           Insights
@@ -56,6 +58,11 @@ export default async function BlogPage({
         </h1>
         <p className="mt-4 text-lg text-gray-600 dark:text-gray-300">
           Deep dives, architecture notes, and product guidance from the hypequery team.
+        </p>
+        <p className="mt-3 text-sm text-gray-500 dark:text-gray-400">
+          <a href="/blog/rss.xml" className="underline underline-offset-2 hover:text-gray-900 dark:hover:text-gray-100">RSS feed</a>
+          <span aria-hidden="true"> · </span>
+          <a href="#newsletter" className="underline underline-offset-2 hover:text-gray-900 dark:hover:text-gray-100">Newsletter</a>
         </p>
       </div>
 
@@ -70,6 +77,8 @@ export default async function BlogPage({
                   day: 'numeric',
                 })}
               </time>
+              <span aria-hidden="true">·</span>
+              <span>{blogAuthorName(post.data.author)}</span>
             </div>
             <h2 className="mt-3 text-2xl font-bold text-gray-900 dark:text-gray-100">
               <Link
@@ -95,6 +104,8 @@ export default async function BlogPage({
           </article>
         ))}
       </div>
+
+      <Newsletter className="mt-16" />
 
       {totalPages > 1 && (
         <div className="mt-12 flex justify-center gap-4">

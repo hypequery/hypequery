@@ -75,10 +75,10 @@ class FilterFeature(CompilerFeature):
                 raise CompiledQueryError(
                     "input-invalid", f'Filter "{filter_value.field}" is not exposed by its dataset.'
                 )
-            if (
-                definition is not None
-                and definition.operators is not None
-                and filter_value.operator not in definition.operators
+            allowed = None if definition is None else definition.operators
+            if (allowed is not None and filter_value.operator not in allowed) or (
+                # Null checks are opt-in: the default allowlist never includes them.
+                allowed is None and filter_value.is_null_check
             ):
                 raise CompiledQueryError(
                     "input-invalid",
@@ -86,6 +86,10 @@ class FilterFeature(CompilerFeature):
                 )
         validate_filter_value(filter_value, dimension.field_type)
         column = fields.field_sql(field)
+        if filter_value.is_null_check:
+            # No value is read, so a time key is not converted to the query timezone.
+            keyword = "IS NULL" if filter_value.operator == "isNull" else "IS NOT NULL"
+            return f"{column} {keyword}"
         if fields.is_time_field(field):
             column = fields.time_sql(column)
         clickhouse_type = fields.filter_type(field)

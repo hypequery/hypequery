@@ -40,6 +40,8 @@ const footerColumns: Array<{ title: string; links: FooterLink[] }> = [
     title: 'Company',
     links: [
       { label: 'Blog', href: '/blog' },
+      { label: 'Newsletter', href: '/blog#newsletter' },
+      { label: 'RSS', href: '/blog/rss.xml' },
       { label: 'Use Cases', href: '/use-cases' },
       { label: 'Internal Product APIs', href: '/use-cases/internal-product-apis' },
       { label: 'Multi-Tenant SaaS', href: '/use-cases/multi-tenant-saas' },

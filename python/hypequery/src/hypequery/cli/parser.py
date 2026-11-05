@@ -35,12 +35,24 @@ def _check_database_options(parser: argparse.ArgumentParser, args: argparse.Name
 
 def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        prog="hypequery", description="Author and serve Python datasets."
+        prog="hypequery",
+        description="Author and serve Python datasets.",
+        # No abbreviations: `--no-tel` must not pass as the opt-out below, which
+        # is matched by its full name before parsing.
+        allow_abbrev=False,
     )
     parser.add_argument(
         "-V", "--version", action="version", version=f"hypequery {version('hypequery')}"
     )
+    parser.add_argument(
+        "--no-telemetry",
+        action="store_true",
+        help="disable anonymous usage telemetry for this invocation (accepted anywhere)",
+    )
     arguments = list(sys.argv[1:] if argv is None else argv)
+    # Like the TypeScript CLI, the global opt-out is accepted anywhere on the line.
+    no_telemetry = "--no-telemetry" in arguments
+    arguments = [argument for argument in arguments if argument != "--no-telemetry"]
     if arguments[:1] == ["generate:datasets"]:
         # Accept the TypeScript CLI's spelling as an alias.
         arguments[:1] = ["generate", "datasets"]
@@ -119,7 +131,10 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         "client-contract", help="export a signed client contract"
     )
     client_contract.add_argument(
-        "--factory", required=True, help="explicit zero-argument definition factory: module:factory"
+        "--factory",
+        required=True,
+        help="module:attribute naming your API, or a zero-argument factory returning it "
+        "or a contract",
     )
     output = client_contract.add_mutually_exclusive_group()
     output.add_argument(
@@ -150,13 +165,28 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         "--no-watch", "--no-reload", dest="reload", action="store_false", help="disable reload"
     )
     dev.set_defaults(reload=True)
+    telemetry = commands.add_parser(
+        "telemetry", help="show or change anonymous usage telemetry settings"
+    )
+    telemetry.add_argument(
+        "action", nargs="?", default="status", choices=("status", "enable", "disable")
+    )
     help_command = commands.add_parser("help", help="show help for a command")
-    help_command.add_argument("topic", nargs="?", choices=("init", "dev", "generate", "export"))
+    help_command.add_argument(
+        "topic", nargs="?", choices=("init", "dev", "generate", "export", "telemetry")
+    )
     args = parser.parse_args(arguments)
+    args.no_telemetry = no_telemetry
     if args.command == "help":
-        {None: parser, "init": init, "dev": dev, "generate": generate, "export": export}[
-            args.topic
-        ].print_help()
+        topics: dict[str | None, argparse.ArgumentParser] = {
+            None: parser,
+            "init": init,
+            "dev": dev,
+            "generate": generate,
+            "export": export,
+            "telemetry": telemetry,
+        }
+        topics[args.topic].print_help()
         parser.exit()
     if args.command == "init":
         if args.directory is not None and args.path is not None:

@@ -52,12 +52,14 @@ export const api = serve({
 });`;
 
 const reactCode = `import { createHooks } from '@hypequery/react';
-import { InferApiType } from '@hypequery/serve';
+import type { InferApiType } from '@hypequery/serve';
 import type { api } from '@/analytics/usage-queries';
+// npx hypequery generate:manifest analytics/usage-queries.ts --output analytics/hypequery-manifest.json
+import manifest from '@/analytics/hypequery-manifest.json';
 
 type Api = InferApiType<typeof api>;
 
-const { useQuery } = createHooks<Api>({ baseUrl: '/api/analytics' });
+const { useQuery } = createHooks<Api>({ baseUrl: '/api/analytics', manifest });
 
 function AnalyticsDashboard() {
   const { data, isLoading } = useQuery('usageDashboard', {});

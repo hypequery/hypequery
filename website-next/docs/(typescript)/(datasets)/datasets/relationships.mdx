@@ -100,7 +100,7 @@ const result = await analytics.execute(Orders, {
   orderBy: [{ field: 'customer.country', direction: 'asc' }],
 });
 
-// Rows are typed: result.data[0]['customer.country'] is string | undefined
+// Rows are typed: result.data[0]['customer.country'] is string | null | undefined
 ```
 </CodeBlock>
 

@@ -21,6 +21,21 @@ npx hypequery generate:manifest analytics/api.ts \
   --output src/generated/hypequery-manifest.json
 ```
 
+Export the API's type from the server module. The examples below import it with
+`import type`, which is erased at build time, so no server code reaches the
+browser bundle:
+
+```ts
+// server/api.ts
+import type { InferApiType } from '@hypequery/serve';
+
+export const api = serve({ /* queries, metrics, datasets */ });
+export type AnalyticsApi = InferApiType<typeof api>;
+```
+
+A Python API or a hypequery cloud release has no TypeScript type to import; use
+`hypequery generate:client` instead (see [Use Python datasets](#use-python-datasets)).
+
 ## Configure Once With `HypequeryProvider`
 
 For hosted APIs and generated clients, create hooks without transport

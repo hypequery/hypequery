@@ -48,7 +48,7 @@ export const api = serve({
 });
 
 // Optional: expose the query at a custom path/method.
-// Without this, the query is already reachable at POST /queries/revenue.
+// Without this, the query is already reachable at GET /api/analytics/queries/revenue.
 api.route('/revenue', api.queries.revenue, { method: 'POST' });
 ```
 </Pre>
@@ -65,20 +65,20 @@ npx hypequery dev src/analytics/queries.ts
 </Pre>
 </CodeBlock>
 
-> `hypequery dev` spins up the same HTTP server your `api.handler` uses. Every registered query is reachable at `POST /queries/<key>` automatically; `api.route(...)` is only needed when you want a custom path or method (like the `/revenue` route above). In production you can do the equivalent by calling `await api.start({ port })`, or by embedding `api.handler` inside your own framework/server if you don't want to rely on the CLI entry point.
+> `hypequery dev` spins up the same HTTP server your `api.handler` uses. Every registered query is reachable at `<basePath>/queries/<key>` automatically, using its method (`GET` unless the query sets one). `basePath` defaults to `/api/analytics`, and `api.route(...)` is only needed when you want a custom path or method (like the `/revenue` route above, served at `/api/analytics/revenue`). In production you can do the equivalent by calling `await api.start({ port })`, or by embedding `api.handler` inside your own framework/server if you don't want to rely on the CLI entry point.
 
 **3. Call your API:**
 
 <CodeBlock>
 <Pre>
 ```bash
-curl -X POST http://localhost:4000/revenue
+curl -X POST http://localhost:4000/api/analytics/revenue
 # {"total": 125000, "count": 450}
 ```
 </Pre>
 </CodeBlock>
 
-That's it! Your query is now available as an HTTP endpoint with auto-generated OpenAPI docs at `http://localhost:4000/docs`.
+That's it! Your query is now available as an HTTP endpoint with auto-generated OpenAPI docs at `http://localhost:4000/api/analytics/docs`. `hypequery dev` prints both URLs when it starts.
 
 ## Deployment Models
 
@@ -201,12 +201,12 @@ export default function handler(request: Request) {
 
 ## OpenAPI Documentation
 
-Auto-generated OpenAPI specs are available at `/openapi.json`:
+Auto-generated OpenAPI specs are available at `<basePath>/openapi.json`:
 
 <CodeBlock>
 <Pre>
 ```bash
-curl http://localhost:4000/openapi.json
+curl http://localhost:4000/api/analytics/openapi.json
 ```
 </Pre>
 </CodeBlock>
@@ -229,6 +229,14 @@ const api = serve({
 ```
 </Pre>
 </CodeBlock>
+
+### OpenAPI and typed clients
+
+The document describes each endpoint's request schema, including the dimensions, measures and filters a dataset
+accepts, so it works with API tooling and client generators for other languages. Dataset response rows are described
+generically, because their fields depend on what each request selects. For typed React hooks, use
+`@hypequery/react` with `InferApiType` and `hypequery generate:manifest` instead; see
+[React: choose how your hooks get their types](/docs/react/getting-started#choose-how-your-hooks-get-their-types).
 
 ## Semantic dataset endpoints
 
@@ -283,7 +291,7 @@ Semantic endpoints support offset pagination. Send `limit` and `offset` in the r
 <CodeBlock>
 <Pre>
 ```bash
-curl -X POST http://localhost:4000/datasets/orders/query \
+curl -X POST http://localhost:4000/api/analytics/datasets/orders/query \
   -H 'content-type: application/json' \
   -d '{ "dimensions": ["country"], "measures": ["revenue"], "limit": 50, "offset": 50 }'
 ```
@@ -299,7 +307,7 @@ Semantic endpoints return `{ data }` by default. Opt into public metadata (timin
 <CodeBlock>
 <Pre>
 ```bash
-curl -X POST http://localhost:4000/datasets/orders/query \
+curl -X POST http://localhost:4000/api/analytics/datasets/orders/query \
   -H 'content-type: application/json' \
   -H 'x-include-meta: true' \
   -d '{ "dimensions": ["country"], "measures": ["revenue"], "limit": 10 }'
@@ -311,7 +319,7 @@ Generated SQL and internal tenant IDs are omitted by default. To retain them on 
 
 ## Documentation UI
 
-Serve interactive API documentation from the built-in `/docs` route, or customize the generated page with `serve({ docs: ... })`:
+Serve interactive API documentation from the built-in `<basePath>/docs` route, or customize the generated page with `serve({ docs: ... })`:
 
 <CodeBlock>
 <Pre>
@@ -328,7 +336,7 @@ const api = serve({
 </Pre>
 </CodeBlock>
 
-The runtime will expose that UI at `/docs` automatically once routes are registered.
+The runtime will expose that UI at `<basePath>/docs` (`/api/analytics/docs` by default) automatically once routes are registered.
 
 If you want to host the docs HTML yourself, use the exported helper:
 
@@ -338,7 +346,7 @@ If you want to host the docs HTML yourself, use the exported helper:
 import { buildDocsHtml } from '@hypequery/serve';
 
 app.get('/docs', (req, res) => {
-  res.send(buildDocsHtml('/openapi.json', {
+  res.send(buildDocsHtml('/api/analytics/openapi.json', {
     title: 'My API Docs',
     subtitle: 'Analytics runtime',
     darkMode: true,

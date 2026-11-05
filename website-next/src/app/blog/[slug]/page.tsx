@@ -8,6 +8,8 @@ import type { Metadata } from 'next';
 import { getPosts } from '@/lib/blog';
 import { absoluteUrl } from '@/lib/site';
 import { comparePageBySlug } from '@/data/compare-pages';
+import Newsletter from '@/components/Newsletter';
+import { DEFAULT_BLOG_AUTHOR, blogAuthorName } from '@/lib/blog-author';
 
 export async function generateStaticParams() {
   const posts = await getPosts();
@@ -195,12 +197,7 @@ export default async function BlogPostPage({
     },
     author: data.author
       ? { '@type': 'Person', name: data.author }
-      : {
-          '@type': 'Person',
-          name: 'Luke Reilly',
-          url: 'https://github.com/lureilly1',
-          sameAs: ['https://dev.to/lureilly1', 'https://medium.com/@lureilly1'],
-        },
+      : { '@type': 'Person', ...DEFAULT_BLOG_AUTHOR },
     publisher: {
       '@type': 'Organization',
       '@id': absoluteUrl('/#organization').toString(),
@@ -216,7 +213,7 @@ export default async function BlogPostPage({
   };
 
   return (
-    <div className="mx-auto max-w-4xl px-4 py-24 pt-28 lg:px-8">
+    <div className="mx-auto max-w-4xl px-4 pb-24 pt-8 lg:px-8">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(articleSchema) }} />
       <div className="mb-8">
         <Link
@@ -230,16 +227,26 @@ export default async function BlogPostPage({
 
       <article>
         <div className="mb-8">
-          <time
-            dateTime={publishDate ?? ''}
-            className="text-sm text-gray-500 dark:text-gray-400"
-          >
-            {new Date(publishDate ?? '1970-01-01T00:00:00.000Z').toLocaleDateString('en-US', {
-              year: 'numeric',
-              month: 'long',
-              day: 'numeric',
-            })}
-          </time>
+          <div className="flex flex-wrap items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
+            <time dateTime={publishDate ?? ''}>
+              {new Date(publishDate ?? '1970-01-01T00:00:00.000Z').toLocaleDateString('en-US', {
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric',
+              })}
+            </time>
+            <span aria-hidden="true">·</span>
+            {data.author ? (
+              <span>By {blogAuthorName(data.author)}</span>
+            ) : (
+              <span>
+                By{' '}
+                <a href={DEFAULT_BLOG_AUTHOR.url} rel="author noreferrer" target="_blank" className="underline underline-offset-2 hover:text-gray-900 dark:hover:text-gray-100">
+                  {DEFAULT_BLOG_AUTHOR.name}
+                </a>
+              </span>
+            )}
+          </div>
           <h1 className="mt-3 text-4xl font-bold tracking-tight text-gray-900 dark:text-gray-100 sm:text-5xl">
             {data.title}
           </h1>
@@ -253,6 +260,7 @@ export default async function BlogPostPage({
         <div className="prose prose-gray dark:prose-invert max-w-none">
           <MarkdownContent content={content} />
         </div>
+        <Newsletter className="mt-14" />
         <RelatedContent links={relatedLinks} />
       </article >
     </div >
