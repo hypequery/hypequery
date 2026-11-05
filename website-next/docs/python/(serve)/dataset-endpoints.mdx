@@ -28,7 +28,8 @@ add_dataset_endpoint(api, "/v1/orders", dataset=orders, client=client, policy=po
 
 A metric endpoint fixes one measure: `create_metric_endpoint(dataset=orders, measure="revenue", client=client)`,
 served with `create_api(metrics={"revenue": ...})` at `POST /metrics/revenue`, or with `add_metric_endpoint(api, path,
-...)`.
+...)`. In `metrics=`, the key names the metric: `metrics={"sales": ...}` serves `POST /metrics/sales`, and its rows and
+client contract call the measure `sales`.
 
 ## Request body
 

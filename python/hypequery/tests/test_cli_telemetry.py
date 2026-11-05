@@ -87,6 +87,7 @@ def _events(stderr: str) -> list[dict[str, Any]]:
         (["generate:datasets"], "generate:datasets"),
         (["export", "client-contract", "--factory", "a:b"], "export:client-contract"),
         (["--no-telemetry", "telemetry", "status"], "telemetry"),
+        (["mcp", "app:api", "--project", "PRIVATE", "--self-test"], "mcp"),
         (["skill", "install", "--agent", "claude"], "skill"),
         (["PRIVATE-command"], "unknown"),
         (["--version", "init"], "version"),
@@ -107,6 +108,9 @@ def test_flags_are_canonical_names_and_values_are_never_read() -> None:
         "--tables",
     ]
     assert flags_used("unknown", ["x", "--tables", "a"]) == []
+    # Header and project values are never read, even when they look like flags.
+    argv = ["mcp", "--header", "--self-test", "--project=/PRIVATE", "--print-config"]
+    assert flags_used("mcp", argv) == ["--header", "--print-config", "--project"]
     # The agent and scope values are never read, so "--check" here is a value.
     assert flags_used(
         "skill", ["skill", "install", "--agent", "--check", "--scope", "user", "--force"]
@@ -464,15 +468,13 @@ def test_every_classified_command_has_a_complete_contract_entry(tmp_path: Path) 
     for name in _TOP_LEVEL.values():
         assert name in suggestions, name
 
-    telemetry = CommandTelemetry(
-        ["skill", "install", "--check"], environ=_clean_env(tmp_path), cwd=tmp_path
-    )
+    telemetry = CommandTelemetry(["mcp", "--self-test"], environ=_clean_env(tmp_path), cwd=tmp_path)
     telemetry.begin()
     assert telemetry._common is not None
     event = {
         **telemetry._common,
-        "command": "skill",
-        "flags_used": ["--check"],
+        "command": "mcp",
+        "flags_used": ["--self-test"],
         "outcome": "success",
         "duration_bucket": "<100ms",
     }

@@ -152,6 +152,11 @@
         }
       },
       "measures": {
+        "approxCustomers": {
+          "aggregation": "approxCountDistinct",
+          "field": "customerId",
+          "approximate": true
+        },
         "orderCount": {
           "aggregation": "count",
           "field": "id"
@@ -232,5 +237,5 @@
       }
     }
   },
-  "contentHash": "0e2d882db072516f4965019031f8a7db56f0a25518fba5a1a15bb32f30fa453d"
+  "contentHash": "241419921eead8f3f8275c83d85e1ca691b91765df27b6d9194a2ef5f954f4a0"
 }

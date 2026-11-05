@@ -1,7 +1,8 @@
 """Planner answers against a live ClickHouse, compared with hand-written SQL.
 
 Each case is one the SQL text alone would not catch: how ClickHouse resolves a
-name, joins a reused key, or divides a Decimal.
+name, joins a reused key, or divides a Decimal. Every case runs on a ClickHouse
+server when one is configured, and on embedded chDB when it is installed.
 """
 
 from __future__ import annotations
@@ -9,6 +10,8 @@ from __future__ import annotations
 import os
 from collections.abc import Iterator
 from decimal import Decimal
+from importlib.util import find_spec
+from typing import Any
 
 import pytest
 
@@ -29,12 +32,12 @@ from hypequery.datasets import (
 from hypequery.datasets.formulas import divide, null_if_zero
 from hypequery.datasets.formulas import round as round_
 from hypequery.datasets.query_helpers import Filter, eq
-from hypequery.execution import ClickHouseConnection, create_clickhouse_executor
-
-pytestmark = pytest.mark.skipif(
-    "HYPEQUERY_TEST_CLICKHOUSE_HOST" not in os.environ,
-    reason="live ClickHouse service is not configured",
+from hypequery.execution import (
+    ClickHouseConnection,
+    create_chdb_executor,
+    create_clickhouse_executor,
 )
+from hypequery.execution.utils.json_compact import decode_json_compact
 
 DATABASE = "hq_planner_correctness"
 
@@ -69,16 +72,52 @@ orders = Dataset(
 REGISTRY = create_dataset_registry(customers, orders)
 
 
-@pytest.fixture(scope="module")
-def admin() -> Iterator[object]:
-    import clickhouse_connect
+class ChdbAdmin:
+    """The two calls the setup and ground truth make, on an embedded chDB connection."""
 
-    client = clickhouse_connect.get_client(
-        host=os.environ["HYPEQUERY_TEST_CLICKHOUSE_HOST"],
-        port=int(os.environ.get("HYPEQUERY_TEST_CLICKHOUSE_PORT", "8123")),
-        username="default",
-        password=os.environ["HYPEQUERY_TEST_CLICKHOUSE_PASSWORD"],
-    )
+    def __init__(self) -> None:
+        import chdb
+
+        self._connection = chdb.connect(":memory:")
+
+    def command(self, sql: str) -> None:
+        self._connection.query(sql)
+
+    def query(self, sql: str) -> object:
+        return decode_json_compact(
+            self._connection.query(
+                sql + " SETTINGS output_format_json_quote_decimals = 1", "JSONCompact"
+            ).bytes(),
+            "truth",
+        )
+
+    def close(self) -> None:
+        self._connection.close()
+
+
+@pytest.fixture(scope="module", params=["clickhouse", "chdb"])
+def backend(request: pytest.FixtureRequest) -> str:
+    if request.param == "clickhouse" and "HYPEQUERY_TEST_CLICKHOUSE_HOST" not in os.environ:
+        pytest.skip("live ClickHouse service is not configured")
+    if request.param == "chdb" and find_spec("chdb") is None:
+        pytest.skip("chdb is not installed")
+    return str(request.param)
+
+
+@pytest.fixture(scope="module")
+def admin(backend: str) -> Iterator[object]:
+    client: Any
+    if backend == "chdb":
+        client = ChdbAdmin()
+    else:
+        import clickhouse_connect
+
+        client = clickhouse_connect.get_client(
+            host=os.environ["HYPEQUERY_TEST_CLICKHOUSE_HOST"],
+            port=int(os.environ.get("HYPEQUERY_TEST_CLICKHOUSE_PORT", "8123")),
+            username="default",
+            password=os.environ["HYPEQUERY_TEST_CLICKHOUSE_PASSWORD"],
+        )
     client.command("DROP DATABASE IF EXISTS hq_planner_correctness")
     client.command("CREATE DATABASE hq_planner_correctness")
     client.command(
@@ -103,10 +142,16 @@ def admin() -> Iterator[object]:
     )
     yield client
     client.command("DROP DATABASE IF EXISTS hq_planner_correctness")
+    client.close()
 
 
 @pytest.fixture(scope="module")
-def executor(admin: object) -> Iterator[object]:
+def executor(backend: str, admin: object) -> Iterator[object]:
+    if backend == "chdb":
+        # The admin connection stays open, so the in-memory database outlives setup.
+        with create_chdb_executor(database=DATABASE) as embedded:
+            yield embedded
+        return
     executor = create_clickhouse_executor(
         ClickHouseConnection(
             host=os.environ["HYPEQUERY_TEST_CLICKHOUSE_HOST"],

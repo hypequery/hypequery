@@ -221,7 +221,10 @@ def test_legacy_endpoints_are_not_advertised() -> None:
     add_dataset_endpoint(
         router, "/legacy", dataset=dataset, client=create_dataset_client(executor=Executor())
     )
-    assert export_client_contract(router)["contract"]["endpoints"] == []
+    with pytest.raises(
+        ValueError, match=r"^The client contract has no endpoints: POST /legacy has"
+    ):
+        export_client_contract(router)
 
 
 def test_duplicate_opt_in_install_fails_before_adding_route() -> None:

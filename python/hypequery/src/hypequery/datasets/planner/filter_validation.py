@@ -39,6 +39,9 @@ def validate_filter_value(filter_value: Filter, field_type: DimensionType) -> No
     operator = filter_value.operator
     value = filter_value.value
     name = filter_value.field
+    if filter_value.is_null_check:
+        # Every type can hold NULL, and there is no value to check.
+        return
     if operator in ("in", "notIn", "between"):
         if type(value) not in (list, tuple):
             raise CompiledQueryError("input-invalid", f'Filter "{name}" needs a list of values.')

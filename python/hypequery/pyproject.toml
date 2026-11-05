@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "hypequery"
-version = "0.1.0b2"
+version = "0.1.0b3"
 description = "Type-safe ClickHouse semantic layer and serving for Python."
 # PyPI shows README.pypi.md: a short pitch with one sample. README.md is the
 # full guide, and scripts/getting_started.py runs its code blocks in CI.
@@ -72,6 +72,10 @@ clickhouse-async = [
     "certifi>=2026.10.19",
     "idna>=3.15",
 ]
+# Embedded ClickHouse: the engine runs in-process, with no server. chDB 4.4.0
+# is the oldest release the executor is tested against; its native engine
+# (chdb-core) ships wheels for Linux and macOS only.
+chdb = ["chdb>=4.4.0"]
 # The uvicorn server behind `start_server` and `hypequery dev`. Serving an API
 # from another ASGI server or framework needs no extra.
 server = ["uvicorn>=0.30.6", "h11>=0.16.0"]
@@ -96,6 +100,11 @@ flask = [
     "urllib3>=2.8.0",
     "certifi>=2026.10.19",
 ]
+
+# The official MCP SDK behind `hypequery mcp` and `hypequery.mcp.serve_stdio`.
+# 2.3.0 is the release the server is built and tested against; its own floors
+# (pydantic 2.12, starlette, uvicorn) are why it has a floor job of its own.
+mcp = ["mcp>=2.3.0,<3"]
 
 [project.scripts]
 hypequery = "hypequery.cli:main"
@@ -201,6 +210,8 @@ exclude = ["^src/hypequery/cli/templates/"]
 warn_unreachable = true
 # Public signatures must not leak Any; see the PR rules in the plan.
 disallow_any_generics = true
+# chDB ships types, but its connect() wrapper is unannotated.
+untyped_calls_exclude = ["chdb"]
 
 # Optional integrations ship no usable types for Python 3.11 (Django, pandas and
 # pyarrow have none; numpy's, reached through polars, need 3.12 syntax). Their
@@ -239,11 +250,12 @@ root_package = "hypequery"
 include_external_packages = true
 
 [[tool.importlinter.contracts]]
-name = "Layered: contrib -> cli -> serve -> execution -> datasets -> protocol"
+name = "Layered: contrib -> cli -> mcp -> serve -> execution -> datasets -> protocol"
 type = "layers"
 layers = [
   "hypequery.contrib",
   "hypequery.cli",
+  "hypequery.mcp",
   "hypequery.serve",
   "hypequery.execution",
   "hypequery.datasets",
@@ -254,7 +266,7 @@ layers = [
 name = "protocol and datasets stay framework-free and driver-free"
 type = "forbidden"
 source_modules = ["hypequery.protocol", "hypequery.datasets"]
-forbidden_modules = ["fastapi", "starlette", "uvicorn", "clickhouse_connect"]
+forbidden_modules = ["fastapi", "starlette", "uvicorn", "clickhouse_connect", "chdb"]
 
 # Decision 0023: the serving core takes requests from any framework's adapter
 # and imports none of them. AnyIO (its worker pool) is a runtime, not a framework.
@@ -279,6 +291,27 @@ name = "Serve imports no web framework; Django and Flask adapters live in contri
 type = "forbidden"
 source_modules = ["hypequery.serve"]
 forbidden_modules = ["fastapi", "starlette", "django", "flask", "werkzeug", "asgiref"]
+
+# The MCP SDK is optional and heavy (it brings starlette and uvicorn): only
+# the protocol adapter imports it, so the executor and both backends work, and
+# test, without it.
+[[tool.importlinter.contracts]]
+name = "Only hypequery.mcp.server imports the MCP SDK"
+type = "forbidden"
+source_modules = [
+  "hypequery.protocol",
+  "hypequery.datasets",
+  "hypequery.execution",
+  "hypequery.serve",
+  "hypequery.mcp.backends",
+  "hypequery.mcp.budgets",
+  "hypequery.mcp.errors",
+  "hypequery.mcp.executor",
+  "hypequery.mcp.manifest",
+  "hypequery.mcp.responses",
+  "hypequery.mcp.utils",
+]
+forbidden_modules = ["mcp", "mcp_types"]
 
 [[tool.importlinter.contracts]]
 name = "Dataset SQL compilation stays independent of client orchestration and execution"

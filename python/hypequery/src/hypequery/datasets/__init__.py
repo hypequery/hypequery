@@ -38,6 +38,7 @@ from .client import (
 from .client_contract import ClientEndpointDefinition, ClientQueryProfile, export_client_contract
 from .constants import (
     SEMANTIC_FILTER_OPERATORS,
+    SEMANTIC_NULL_CHECK_OPERATORS,
     SUPPORTED_TIME_GRAINS,
     is_supported_time_grain,
 )
@@ -114,6 +115,7 @@ __all__ = [
     "DEFAULT_SQL_PORTABILITY_LIMITS",
     "SEMANTIC_CONTRACT_VERSION",
     "SEMANTIC_FILTER_OPERATORS",
+    "SEMANTIC_NULL_CHECK_OPERATORS",
     "SUPPORTED_TIME_GRAINS",
     "Aggregation",
     "AggregationType",

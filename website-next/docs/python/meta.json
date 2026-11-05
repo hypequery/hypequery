@@ -16,6 +16,7 @@
     "(datasets)/datasets/relationships",
     "---Running queries---",
     "(datasets)/datasets/execution",
+    "(datasets)/datasets/chdb",
     "(datasets)/datasets/caching",
     "(datasets)/datasets/multi-tenancy",
     "---Frameworks---",
