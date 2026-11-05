@@ -15,6 +15,10 @@ from ...datasets import ClientQueryProfile, Dataset
 from ...datasets.client import AsyncDatasetClient, DatasetClient, DatasetQueryResult
 from ...datasets.planner import CompiledQueryError, DatasetQuery, Deadline, ExecutionContext
 from ...datasets.planner.resolution import selected_measure_names
+from ...datasets.utils.time_measure_catalog import (
+    CLIENT_TIME_MEASURE_REFUSAL,
+    uses_time_measure,
+)
 from ...datasets.validation import validate_identifier
 from ..events import QueryEvents
 from ..models import (
@@ -108,6 +112,9 @@ class DatasetEndpointCore:
         self.include_related = checked_related(dataset, include_related)
         if measure is not None:
             refuse_unservable_metric(dataset, measure, self.include_related)
+            if client_profile is not None and uses_time_measure(dataset.measures, measure):
+                # Its client contract could not express the time range it needs.
+                raise ValueError(f"metric measure {measure!r}: {CLIENT_TIME_MEASURE_REFUSAL}")
         self._default_measures = default_measures(dataset, self.include_related)
 
     async def query(

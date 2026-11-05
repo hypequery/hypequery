@@ -9,6 +9,7 @@ from ..constants import SUPPORTED_TIME_GRAINS
 from ..registry import DatasetRegistry
 from ..utils.derived_measures import base_measure_names
 from ..utils.measure_references import measure_stays_within
+from ..utils.time_measure_catalog import CLIENT_TIME_MEASURE_REFUSAL, uses_time_measure
 from .annotations import endpoint_annotations
 from .fields import public_fields
 from .models import ClientEndpointDefinition
@@ -43,6 +44,12 @@ def endpoint_descriptor(
             raise ValueError(
                 f"metric measure {definition.measure!r} filters through a relationship "
                 "missing from related"
+            )
+        if uses_time_measure(dataset.measures, definition.measure):
+            # The client profile cannot express the `by` grain and time range
+            # these need, so the planner would refuse every call.
+            raise ValueError(
+                f"metric measure {definition.measure!r}: {CLIENT_TIME_MEASURE_REFUSAL}"
             )
         # The public metric ID is its output alias, matching DatasetEndpoint/MetricAlias.
         measures = {name: {"wireType": "string", "nullable": True, "having": False}}

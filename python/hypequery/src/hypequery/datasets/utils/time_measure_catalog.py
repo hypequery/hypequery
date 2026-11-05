@@ -9,6 +9,11 @@ from ..time_measures import ShiftMeasure, WindowMeasure
 from .derived_measures import formula_references
 from .time_axis import supports_shift_grain, window_grain_error
 
+#: Why a client endpoint refuses a metric that is, or reads, a window or shift.
+CLIENT_TIME_MEASURE_REFUSAL = (
+    "client endpoints do not serve window or shift measures, which need a bounded time range"
+)
+
 
 def time_measure_metadata(definition: WindowMeasure | ShiftMeasure) -> dict[str, object]:
     if isinstance(definition, ShiftMeasure):

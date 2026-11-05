@@ -6,19 +6,24 @@ Results are checked against ClickHouse in `test_clickhouse_features_live.py`.
 from __future__ import annotations
 
 import re
+from typing import Never
 
 import pytest
 from pydantic import ValidationError
 
 from hypequery.datasets import (
+    ClientEndpointDefinition,
+    ClientQueryProfile,
     Dataset,
     DatasetQuery,
     DerivedMeasure,
     FilterDefinition,
     Measure,
+    create_dataset_client,
     create_dataset_registry,
     dataset,
     dimension,
+    export_client_contract,
     filter,  # noqa: A004
     measure,
 )
@@ -29,6 +34,12 @@ from hypequery.datasets.formulas import divide, null_if_zero
 from hypequery.datasets.planner import CompiledQueryError, plan_dataset_query
 from hypequery.datasets.query_helpers import HavingCondition
 from hypequery.datasets.time_measures import ShiftMeasure, WindowMeasure
+
+
+class _Executor:
+    def execute(self, compiled: object) -> Never:
+        raise AssertionError("planning only")
+
 
 AnyMeasure = Measure | DerivedMeasure | WindowMeasure | ShiftMeasure
 MEASURES: dict[str, AnyMeasure] = {
@@ -234,3 +245,26 @@ def test_formulas_over_windows_and_shifts_need_numeric_inputs(wrapper: AnyMeasur
             previous=wrapper,
             ratio=measure.derived(divide("previous", "revenue")),
         )
+
+
+@pytest.mark.parametrize("metric", ["rolling7", "lastWeek", "weekOverWeek"])
+def test_client_metrics_never_wrap_a_time_measure(metric: str) -> None:
+    from hypequery.serve import add_metric_endpoint, create_api
+
+    with pytest.raises(ValueError, match="window or shift"):
+        export_client_contract(
+            [ClientEndpointDefinition(SALES, "/metric", ClientQueryProfile(), measure=metric)]
+        )
+    api = create_api(auth=lambda credential: None)
+    client = create_dataset_client(executor=_Executor())
+    with pytest.raises(ValueError, match="window or shift"):
+        add_metric_endpoint(
+            api,
+            "/metric",
+            dataset=SALES,
+            measure=metric,
+            client=client,
+            client_profile=ClientQueryProfile(),
+        )
+    # Without a client profile the request can carry the grain and range.
+    add_metric_endpoint(api, "/plain", dataset=SALES, measure=metric, client=client)

@@ -507,6 +507,26 @@ def test_windows_bucket_in_the_query_timezone(admin: object, client: object) -> 
     assert actual == [(str(d), _number(str(a)), _number(str(b))) for d, a, b in expected]
 
 
+def test_to_date_starts_at_the_local_calendar_boundary(admin: object, client: object) -> None:
+    # Web sales land at 10:00 UTC, which is local midnight of the next day in
+    # Kiritimati (UTC+14); a UTC month boundary would drop 1 February's sale.
+    zone = "Pacific/Kiritimati"
+    february = (filter.gte("soldAt", "2026-02-01"), filter.lt("soldAt", "2026-02-04"))
+    result = client.execute(  # type: ignore[attr-defined]
+        sales, DatasetQuery(measures=("monthToDate",), by="day", filters=february, timezone=zone)
+    )
+    expected = _truth(
+        admin,
+        f"SELECT d, sumIf(amount, toStartOfMonth(sold_at, '{zone}') = toStartOfMonth(d) "  # noqa: S608 - test-authored SQL
+        f"AND toDate(sold_at, '{zone}') <= d) "
+        "FROM (SELECT toDate('2026-02-01') + number AS d FROM numbers(3)) AS days "
+        "CROSS JOIN hq_feature_port.sales GROUP BY d ORDER BY d",
+    )
+    actual = [(row["period"][:10], _number(str(row["monthToDate"]))) for row in result.data]
+    assert actual == [(str(d), _number(str(total))) for d, total in expected]
+    assert float(actual[0][1]) > 0
+
+
 def test_an_unbounded_window_query_is_refused(client: object) -> None:
     from hypequery.datasets.planner import CompiledQueryError
 
