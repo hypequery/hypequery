@@ -83,6 +83,8 @@ def _measure(entry: MeasureCatalogEntry, *, include_sql: bool) -> dict[str, obje
         result["argField"] = entry["argField"]
     if "level" in entry:
         result["level"] = _number(entry["level"])
+    if "stateFunction" in entry:
+        result["stateFunction"] = entry["stateFunction"]
     if include_sql and "sql" in entry:
         result["sql"] = normalize_sql(entry["sql"])
     for key in ("label", "description"):

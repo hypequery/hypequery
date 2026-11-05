@@ -6,6 +6,7 @@ from collections.abc import Mapping
 
 from hypequery.protocol.expression_models import expression_to_data
 
+from ..constants import ORDERED_MERGE_STATES
 from ..derived_measures import DerivedMeasure
 from ..dimensions import Dimension
 from ..formulas import (
@@ -134,6 +135,10 @@ def validate_derived_measures(
                 raise ValueError("Derived measure requires a formula over local measures")
             stats = (dependency_depth + 1, nodes)
             visiting.remove(name)
+        elif definition.aggregation == "merge":
+            # The state column's value type is unknown, and these states merge to it.
+            if definition.state_function in ORDERED_MERGE_STATES:
+                raise ValueError("Derived formula input must be a numeric measure")
         elif definition.aggregation in ("min", "max", "argMin", "argMax"):
             dimension = dimensions.get(definition.field)
             if dimension is None or dimension.field_type != "number":
