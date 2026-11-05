@@ -164,7 +164,8 @@ export interface TenantConfig<TAuth extends AuthContext = AuthContext> {
 
   /**
    * Column name for tenant filtering (e.g., 'organization_id', 'tenant_id').
-   * When specified with mode='auto-inject', provides tenant-scoped query helpers.
+   * Query builders in context are scoped to it under mode='auto-inject', which
+   * is the default whenever a column is set.
    * @example
    * column: 'organization_id'
    */
@@ -174,7 +175,7 @@ export interface TenantConfig<TAuth extends AuthContext = AuthContext> {
    * Tenant isolation mode.
    * - 'auto-inject': Provides tenant-scoped query helpers in context (recommended)
    * - 'manual': Developer must manually filter queries (for complex cases)
-   * @default 'manual'
+   * @default 'auto-inject' when `column` is set, otherwise 'manual'
    */
   mode?: 'auto-inject' | 'manual';
 

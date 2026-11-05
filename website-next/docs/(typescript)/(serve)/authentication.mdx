@@ -117,11 +117,14 @@ app.get('/api/analytics/token', requireUser, async (req, res) => {
       userId: req.user.id,
       tenantId: req.user.orgId,
       roles: req.user.roles,
+      scopes: ['read:data'],
     }),
   });
 });
 ```
 </CodeBlock>
+
+`scopes` is written as the standard space-separated `scope` claim, so tokens can satisfy `requiredScopes`.
 
 ## Custom strategies
 

@@ -21,7 +21,7 @@ import type {
   MaybePromise,
   ServeSchema,
 } from './types.js';
-import { warnTenantMisconfiguration } from './tenant.js';
+import { resolveTenantMode, warnTenantMisconfiguration } from './tenant.js';
 import { applySemanticTenantRuntime } from './semantic/utils/tenant-runtime.js';
 import { generateRequestId, validateCorrelationId } from './utils.js';
 import { withNoStoreErrorHeaders } from './utils/error-headers.js';
@@ -504,7 +504,7 @@ export const executeEndpoint = async <
 
       if (tenantId) {
         context.tenantId = tenantId;
-        const mode = activeTenantConfig.mode ?? 'manual';
+        const mode = resolveTenantMode(activeTenantConfig);
         const column = activeTenantConfig.column;
         applySemanticTenantRuntime(context as Record<string, unknown> & { tenantId?: string }, {
           queryKey: endpoint.key,
@@ -518,7 +518,7 @@ export const executeEndpoint = async <
           queryKey: endpoint.key,
           hasTenantConfig: true,
           hasTenantId: false,
-          mode: activeTenantConfig.mode,
+          mode: resolveTenantMode(activeTenantConfig),
         });
       }
     }

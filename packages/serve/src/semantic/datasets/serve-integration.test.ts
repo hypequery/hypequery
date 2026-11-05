@@ -390,6 +390,56 @@ describe("Serve integration — metrics", () => {
       ).toThrow("queryBuilder");
     });
 
+    it("reads the query builder from a context function's db", async () => {
+      const factory = createMockBuilderFactory();
+      const api = createAPI({
+        context: () => ({ db: factory }),
+        metrics: { totalRevenue },
+        datasets: { orders: Orders },
+      });
+
+      const metric = await api.handler(
+        createRequest({ path: "/metrics/totalRevenue", method: "POST", body: { dimensions: ["country"] } })
+      );
+      const data = await api.handler(
+        createRequest({ path: "/datasets/orders/query", method: "POST", body: { dimensions: ["country"], measures: ["revenue"] } })
+      );
+
+      expect(metric.status).toBe(200);
+      expect(data.status).toBe(200);
+    });
+
+    it("rejects a request whose context function returns no db", async () => {
+      const base = createMockBuilderFactory();
+      let executions = 0;
+      const factory = {
+        ...base,
+        table: (name: string) => {
+          const builder = base.table(name);
+          const execute = builder.execute.bind(builder);
+          builder.execute = (...args: Parameters<typeof execute>) => {
+            executions += 1;
+            return execute(...args);
+          };
+          return builder;
+        },
+      };
+      const api = createAPI({
+        context: ({ request }) => (request.headers["x-db"] ? { db: factory } : {}),
+        metrics: { totalRevenue },
+      });
+      const request = (headers: Record<string, string>) => api.handler(
+        createRequest({ path: "/metrics/totalRevenue", method: "POST", body: { dimensions: ["country"] }, headers })
+      );
+
+      expect((await request({ "x-db": "1" })).status).toBe(200);
+      const missing = await request({});
+
+      // Never falls back to the builder an earlier request supplied.
+      expect(missing.status).toBe(500);
+      expect(executions).toBe(1);
+    });
+
     it("creates API with metric endpoints", () => {
       const api = createAPI({
         metrics: { totalRevenue, orderCount },
@@ -2370,6 +2420,31 @@ describe("semantic endpoint result caching", () => {
     expect(getExecutions()).toBe(1);
     expect(semanticBody(second).data).toEqual(semanticBody(first).data);
 
+    const secondMeta = semanticBody(second).meta as { cache?: { hit: boolean } } | undefined;
+    expect(secondMeta?.cache).toMatchObject({ hit: true });
+  });
+
+  it("caches when the query builder comes from a context function", async () => {
+    const { factory, getExecutions } = createExecutionCountingFactory();
+    const api = createAPI({
+      context: () => ({ db: factory }),
+      metrics: {
+        totalRevenue: { metric: totalRevenue, cache: 60_000 },
+      },
+    });
+
+    const request = () => api.handler(
+      createRequest({
+        path: "/metrics/totalRevenue",
+        method: "POST",
+        body: { dimensions: ["country"], includeMeta: true },
+      })
+    );
+
+    expect((await request()).status).toBe(200);
+    const second = await request();
+
+    expect(getExecutions()).toBe(1);
     const secondMeta = semanticBody(second).meta as { cache?: { hit: boolean } } | undefined;
     expect(secondMeta?.cache).toMatchObject({ hit: true });
   });

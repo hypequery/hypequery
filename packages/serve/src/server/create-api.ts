@@ -35,6 +35,7 @@ import {
 } from "../semantic/datasets/index.js";
 import { attachServeMcpSource } from "./mcp-source.js";
 import { attachSemanticQueryBuilder, extractQueryBuilderFromContext } from "../semantic/query-builder-context.js";
+import { createContextQueryBuilder, type ContextQueryBuilder } from "./context-query-builder.js";
 
 const assertSemanticKeyAvailable = (
   queryEntries: Record<string, unknown>,
@@ -109,6 +110,10 @@ export const createAPI = <
   let resolvedQueryBuilder = explicitQueryBuilder;
   let extractedFromContext = false;
 
+  // With a context function the builder only exists per request; semantic
+  // endpoints wire up against a stand-in bound to the first request's `ctx.db`.
+  let contextQueryBuilder: ContextQueryBuilder | undefined;
+
   if (!resolvedQueryBuilder && baseContextFactory && (config.metrics || config.datasets)) {
     // If context is a static object (not a function), we can extract queryBuilder synchronously
     if (typeof baseContextFactory !== "function") {
@@ -116,6 +121,9 @@ export const createAPI = <
       if (resolvedQueryBuilder) {
         extractedFromContext = true;
       }
+    } else {
+      contextQueryBuilder = createContextQueryBuilder();
+      resolvedQueryBuilder = contextQueryBuilder.builder;
     }
   }
 
@@ -143,7 +151,13 @@ export const createAPI = <
           if (maybeQueryBuilder) {
             return attachSemanticQueryBuilder(
               { ...(baseContext as TContext) },
-              maybeQueryBuilder,
+              contextQueryBuilder ? contextQueryBuilder.resolve(maybeQueryBuilder) : maybeQueryBuilder,
+            ) as TContext;
+          }
+          if (contextQueryBuilder) {
+            return attachSemanticQueryBuilder(
+              { ...(baseContext as TContext) },
+              contextQueryBuilder.missing,
             ) as TContext;
           }
         }
@@ -340,7 +354,7 @@ export const createAPI = <
   // do; bare factories report no builder layer).
   const cacheObservability = createCacheObservability({
     getSemanticClient: () => sharedAnalytics,
-    getBuilderCache: () => detectBuilderCache(resolvedQueryBuilder),
+    getBuilderCache: () => detectBuilderCache(contextQueryBuilder?.current() ?? resolvedQueryBuilder),
   });
 
   const api = createAPImethods<TQueries, TContext, TAuth>(
