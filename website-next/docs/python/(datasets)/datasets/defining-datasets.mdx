@@ -46,6 +46,63 @@ A dataset can include:
 - `filters`
 - `relationships`
 - `limits`
+- `row_resolution`
+- `segments`
 
 See [Dimensions](/docs/python/datasets/dimensions), [Measures](/docs/python/datasets/measures), and
 [Relationships](/docs/python/datasets/relationships) for the main building blocks.
+
+## Row resolution
+
+`ReplacingMergeTree` and `CollapsingMergeTree` tables hold superseded and cancelled rows until a background merge
+removes them, so a plain `SELECT` over-counts. `row_resolution` reads only the current rows:
+
+<CodeBlock>
+```python
+from hypequery.datasets import dataset, resolved_rows
+
+accounts = dataset(
+    "accounts",
+    source="accounts",  # ReplacingMergeTree(version, is_deleted)
+    row_resolution=resolved_rows.replacing(deleted_column="is_deleted"),
+    dimensions={...},
+    measures={...},
+)
+```
+</CodeBlock>
+
+- `resolved_rows.final()`: `FROM accounts FINAL`.
+- `resolved_rows.replacing(deleted_column=...)`: `FINAL`, and also drops rows where the deleted column is `1`.
+- `resolved_rows.collapsing(sign_column=...)` and `resolved_rows.versioned_collapsing(sign_column=...)`: `FINAL`,
+  keeping rows whose sign is `1`.
+
+Relationship joins to a resolved dataset read its resolved rows too. `FINAL` costs more than a plain read, so use it
+only on sources that need it. For pre-aggregated state tables, see
+[aggregate states](/docs/python/datasets/measures#aggregate-states).
+
+## Segments
+
+A segment is a named, author-defined row filter that callers select by name instead of rebuilding it:
+
+<CodeBlock>
+```python
+from hypequery.datasets import DatasetQuery, dataset, filter, segment
+
+orders = dataset(
+    "orders",
+    source="orders",
+    dimensions={...},
+    measures={...},
+    segments={
+        "paid": segment(filter.eq("status", "paid"), label="Paid orders"),
+        "unrefunded": segment(filter.is_null("refunded_at")),
+    },
+)
+
+DatasetQuery(measures=("revenue",), segments=("paid", "unrefunded"))
+```
+</CodeBlock>
+
+Selected segments are AND-ed with the query's filters. A segment may use any of the dataset's own dimensions,
+including ones callers cannot filter on, but not a relationship field or the tenant column. Catalogs list each
+segment's label and description, never its filters. Served requests select segments with `"segments": ["paid"]`.

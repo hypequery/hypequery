@@ -23,7 +23,7 @@ The Python SDK is in beta. This table tracks coverage against the TypeScript pac
 | `final: true` for `ReplacingMergeTree` / `CollapsingMergeTree` sources | Available | Available as `row_resolution=resolved_rows.replacing(deleted_column=...)` (or `.final()`, `.collapsing(sign_column=...)`, `.versioned_collapsing(...)`) |
 | Derived measures | Available | Available (`measure.derived` with `formula.*`) |
 | Window measures (trailing, to-date, cumulative) | Available | Available locally (`measure.trailing("revenue", 7, "day")`, `measure.to_date(...)`, `measure.cumulative(...)`) with a `by` grain and one bounded time range; not advertised to client endpoints; publishing needs deployment contract 3 |
-| Period comparisons (`shift`) | Available | Available locally (`measure.shift("revenue", 1, "month")`, and derived measures over shifts); same limits as window measures |
+| Period comparisons (`shift`) | Available | Available locally (`measure.shift("revenue", 1, "month")`, and derived measures over shifts); same limits as window measures. Shifting a derived, window or shifted measure is TypeScript only |
 | Segments | Available | Available locally (`dataset(segments={"paid": segment(filter.eq(...))})`, `DatasetQuery(segments=...)`); publishing needs deployment contract 3, like TypeScript |
 | Relationship checks | Available | Available (`check_relationships`) |
 | Cloud publishing | Not yet | hypequery cloud is not live. Bundle export works today (`write_dataset_bundle`); one-step publish is planned |

@@ -447,6 +447,43 @@ both a dimension and a measure is rejected.
 Catalog relationship entries list the safe names under `measures`, they are
 orderable, and discovery includes them. This matches `@hypequery/datasets`.
 
+### ClickHouse-native measures and sources
+
+```python
+from hypequery.datasets import dataset, filter, measure, resolved_rows, segment
+
+events = dataset(
+    "events",
+    source="events",  # ReplacingMergeTree(version, is_deleted)
+    time_key="event_time",
+    row_resolution=resolved_rows.replacing(deleted_column="is_deleted"),
+    dimensions={...},
+    measures={
+        "revenue": measure.sum("amount"),
+        "visitors": measure.approx_count_distinct("user_id"),  # uniq
+        "revenue_7d": measure.trailing("revenue", 7, "day"),
+        "revenue_mtd": measure.to_date("revenue", "month"),
+        "revenue_last_year": measure.shift("revenue", 1, "year"),
+    },
+    segments={"paid": segment(filter.eq("status", "paid"))},
+)
+```
+
+- `row_resolution` reads `ReplacingMergeTree` / `CollapsingMergeTree` sources
+  with `FINAL`, so superseded and cancelled rows never count.
+- `measure.merge("uniq", "users_state")` finalizes `AggregatingMergeTree`
+  state columns.
+- `approx_count_distinct` uses `uniq` and is marked `approximate` in catalogs.
+- Window (`trailing`, `to_date`, `cumulative`) and `shift` measures need a
+  `by` grain and one bounded time range. Every bucket is returned, and results
+  match `@hypequery/datasets` on the shared corpus in
+  `specs/datasets/time-measures-corpus-v1.json`.
+- Segments are named row filters callers select with
+  `DatasetQuery(segments=("paid",))`.
+
+Approximate counts, segments, windows and shifts plan and run locally, but
+publishing them needs deployment contract 3, as in TypeScript.
+
 ## DataFrames
 
 Rows keep JSON-safe values: decimals, dates and datetimes are strings, so

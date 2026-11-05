@@ -66,7 +66,7 @@ Which operators a field accepts depends on its type:
 | `boolean` | `eq`, `neq`, `in`, `notIn` |
 
 - `in` and `notIn` need a non-empty list, and `between` needs exactly two values.
-- There is no null operator.
+- `isNull` and `isNotNull` are opt-in: see [Null checks](#null-checks).
 - Values must match the field type: numbers for number fields, `True`/`False` for booleans, strings for strings.
 - Integers on a number field must be within ±2**53. Number filters compare as `Float64`, which can't hold larger integers exactly, so declare a large id as `dimension.string()` to filter it exactly.
 
@@ -76,6 +76,26 @@ A timestamp value is an ISO 8601 date or date-time string: `"2026-01-31"`,
 - An offset-free value on the dataset's time key is read in the query's time zone.
 - `datetime` objects and anything else, including impossible dates such as
   `"2026-02-30"`, are refused as `input-invalid` before the query runs.
+
+## Null checks
+
+`filter.is_null("churned_at")` and `filter.is_not_null("churned_at")` compile to `IS NULL` and `IS NOT NULL`, with
+no value. Callers may use them only on a named filter that lists them, so adding a null check never changes what an
+existing filter accepts:
+
+<CodeBlock>
+```python
+from hypequery.datasets import FilterDefinition, filter
+
+filters = {
+    "churned_at": FilterDefinition(field="churned_at", operators=("gte", "isNull", "isNotNull")),
+}
+
+DatasetQuery(measures=("customers",), filters=(filter.is_null("churned_at"),))
+```
+</CodeBlock>
+
+Measure filters and segments, which you author, can use null checks freely.
 
 ## Named filters
 
