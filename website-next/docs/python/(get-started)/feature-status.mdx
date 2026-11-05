@@ -18,7 +18,7 @@ The Python SDK is in beta. This table tracks coverage against the TypeScript pac
 | Dataset catalog | Available | Available |
 | Typed DataFrames (`to_pandas`, `to_polars`, `to_arrow`) | Not applicable | Available |
 | Framework integrations | Next.js, Node.js, Vite guides | Django, Flask, SQLAlchemy (`hypequery.contrib`) |
-| `approxCountDistinct` measures | Available | Planned |
+| `approxCountDistinct` measures | Available | Available locally (`measure.approx_count_distinct`, ClickHouse `uniq`, marked `approximate` in catalogs); publishing needs deployment contract 3, like TypeScript |
 | `measure.merge` over `AggregatingMergeTree` state columns | Available | Planned |
 | `final: true` for `ReplacingMergeTree` / `CollapsingMergeTree` sources | Available | Planned |
 | Derived measures | Available | Available (`measure.derived` with `formula.*`) |

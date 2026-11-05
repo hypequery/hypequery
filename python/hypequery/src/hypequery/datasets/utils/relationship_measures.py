@@ -23,7 +23,7 @@ from ..relationships import Relationship
 
 #: Aggregates whose result is unchanged when an input row repeats.
 DUPLICATE_INSENSITIVE_AGGREGATIONS: Final[frozenset[str]] = frozenset(
-    ("countDistinct", "min", "max", "argMax", "argMin")
+    ("countDistinct", "approxCountDistinct", "min", "max", "argMax", "argMin")
 )
 
 
