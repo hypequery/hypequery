@@ -20,10 +20,12 @@ from .models import (
     ProtocolClientEndpoint,
 )
 from .query import validate_protocol_client_query
+from .tool_schemas import ClientContractToolSchemas, build_client_contract_tool_schemas
 from .validate import prepare_protocol_client_contract, validate_protocol_client_contract
 
 __all__ = [
     "CLIENT_ERROR_MESSAGES",
+    "ClientContractToolSchemas",
     "ClientDimension",
     "ClientEndpointAnnotations",
     "ClientFieldAnnotation",
@@ -37,6 +39,7 @@ __all__ = [
     "ProtocolClientContractError",
     "ProtocolClientContractErrorCode",
     "ProtocolClientEndpoint",
+    "build_client_contract_tool_schemas",
     "decode_protocol_client_contract",
     "prepare_protocol_client_contract",
     "validate_protocol_client_contract",
