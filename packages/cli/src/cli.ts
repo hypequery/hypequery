@@ -170,12 +170,20 @@ program
 
 program
   .command('mcp [file]')
-  .description('Serve local datasets or authorized HTTP client endpoints over MCP stdio')
+  .description('Serve local datasets or authorized HTTP client endpoints over MCP (stdio, or Streamable HTTP with --http)')
   .option('--path <path>', 'Analytics directory (loads <path>/api.ts or <path>/queries.ts)')
   .option('--tenant <id>', 'Trusted tenant applied to every tenant-scoped dataset')
   .option('--self-test', 'Check the entrypoint and exit without speaking MCP')
   .option('--url <url>', 'With --self-test: check a hosted MCP endpoint (key from HYPEQUERY_API_KEY)')
   .option('--client-contract-url <url>', 'Bridge authorized HTTP client endpoints to MCP (Bearer key from HYPEQUERY_API_KEY)')
+  .option('--http', 'Serve over Streamable HTTP instead of stdio (callers send HYPEQUERY_MCP_KEY, or defineServe auth)')
+  .option('--port <port>', 'With --http: port to listen on (default 3333)')
+  .option('--host <address>', 'With --http: interface to bind (default 127.0.0.1)')
+  .option('--allowed-hosts <names>', 'With --http: comma-separated Host names to answer (default: loopback)')
+  .option('--allowed-origins <origins>', 'With --http: comma-separated browser origins allowed to call')
+  .option('--resource <url>', 'With --http: OAuth resource URL; tokens must name it as their audience')
+  .option('--authorization-servers <urls>', 'With --resource: comma-separated authorization server issuer URLs')
+  .option('--required-scopes <scopes>', 'With --resource: comma-separated scopes every caller must hold')
   .action(runCommand(async (file: string | undefined, options: McpOptions) => {
     await mcpCommand(file, options);
   }));
