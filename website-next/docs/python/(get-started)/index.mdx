@@ -25,7 +25,8 @@ pip install "hypequery[clickhouse]==0.1.0b2"
 
 Python 3.11 or later. Add extras as you need them: `server` for the dev runner, `jwt` for token auth, `django` or
 `flask` for native serving, `pandas`, `polars` or `arrow` for DataFrames, `clickhouse-async` for the async executor.
-No ClickHouse server to hand? An embedded chDB executor, with no server and no credentials, lands in the next beta.
+No ClickHouse server to hand? An [embedded chDB executor](/docs/python/datasets/chdb), with no server and no credentials,
+ships in the next beta.
 
 ## Define a dataset and query it
 
@@ -80,7 +81,8 @@ print(result.data)
 </CodeBlock>
 
 `ClickHouseConnection.from_env()` reads `CLICKHOUSE_HOST`, `CLICKHOUSE_PORT`, `CLICKHOUSE_DATABASE`,
-`CLICKHOUSE_USERNAME` and `CLICKHOUSE_PASSWORD`, or a single `CLICKHOUSE_URL`. Already have tables?
+`CLICKHOUSE_USERNAME`, `CLICKHOUSE_PASSWORD` and `CLICKHOUSE_SECURE` (set it to `true` for TLS, as ClickHouse Cloud
+needs), or a single `CLICKHOUSE_URL`. Already have tables?
 [`hypequery init`](/docs/python/cli) introspects your schema and writes the dataset definitions for you.
 
 ## Serve it over HTTP
