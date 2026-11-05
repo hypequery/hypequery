@@ -75,6 +75,7 @@ npx hypequery dev
 | `hypequery generate:datasets` | Generate dataset (semantic layer) definitions from your ClickHouse schema |
 | `hypequery deploy <cloud>` | Build, release, and deploy a dataset-only Cloud publication, then print where it is served (hypequery cloud is not live yet) |
 | `hypequery mcp [file]` | Serve this project's datasets to an MCP client over stdio, or check an endpoint with `--self-test` |
+| `hypequery skill install` | Install hypequery's agent skills for Claude Code, Cursor and Codex |
 | `hypequery deployment:validate <artifact>` | Verify a deployment bundle or validate contract JSON and report its identity |
 | `hypequery help [command]` | Show help for the CLI or a specific command |
 | `hypequery telemetry [status\|enable\|disable]` | Inspect or change anonymous usage telemetry preferences |
@@ -447,6 +448,28 @@ running the check; the command never takes the key as an argument.
 ```bash
 npx hypequery mcp --self-test --url https://<environment-slug>.hypequery.app/mcp
 ```
+
+## `hypequery skill install`
+
+Writes hypequery's agent skills where coding agents load them, so Claude Code, Cursor and Codex know how to author
+datasets and query them without guessing the API:
+
+- `hypequery-datasets`: defining datasets, measures, tenancy and relationships in TypeScript or Python.
+- `hypequery-query`: answering questions through the MCP tools or HTTP endpoints instead of writing SQL.
+
+```bash
+npx hypequery skill install
+```
+
+| Option | Description |
+| --- | --- |
+| `--agent <agent>` | `claude` (`.claude/skills/`), `cursor` or `codex` (both read `.agents/skills/`), or `all` (default) |
+| `--scope <scope>` | `project` (default, the current directory) or `user` (your home directory, for every project) |
+| `--check` | Exit 1 if a skill is missing or out of date, without writing; useful in CI |
+| `--force` | Replace skills that were edited or are out of date |
+
+Re-running is safe: up-to-date skills are left alone, and an edited skill is never replaced without `--force`. The
+Python CLI has the same command: `hypequery skill install`.
 
 ## Environment variables
 

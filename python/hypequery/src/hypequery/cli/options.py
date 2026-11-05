@@ -56,7 +56,17 @@ class ExportClientContractOptions:
     force: bool
 
 
-CommandOptions = InitOptions | GenerateDatasetsOptions | DevOptions | ExportClientContractOptions
+@dataclass(frozen=True, slots=True)
+class SkillOptions:
+    agent: str
+    scope: str
+    force: bool
+    check: bool
+
+
+CommandOptions = (
+    InitOptions | GenerateDatasetsOptions | DevOptions | ExportClientContractOptions | SkillOptions
+)
 
 
 def command_options(args: argparse.Namespace) -> CommandOptions:
@@ -96,4 +106,6 @@ def command_options(args: argparse.Namespace) -> CommandOptions:
         )
     if args.command == "dev":
         return DevOptions(app=args.app, host=args.host, port=args.port, reload=args.reload)
+    if args.command == "skill":
+        return SkillOptions(agent=args.agent, scope=args.scope, force=args.force, check=args.check)
     raise ValueError(f"unknown command {args.command!r}")

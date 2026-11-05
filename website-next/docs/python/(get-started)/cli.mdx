@@ -200,3 +200,15 @@ or connecting to a database.
 | `--force` | Replace an existing artifact |
 
 See [React and MCP clients](/docs/python/client-endpoints) for the end-to-end workflow.
+
+## `hypequery skill install`
+
+Writes hypequery's agent skills where coding agents load them: `hypequery-datasets` (authoring datasets) and
+`hypequery-query` (querying through MCP or HTTP). Works on the base install.
+
+| Option | Description |
+| --- | --- |
+| `--agent <agent>` | `claude` (`.claude/skills/`), `cursor` or `codex` (both read `.agents/skills/`), or `all` (default) |
+| `--scope <scope>` | `project` (default) or `user` (your home directory) |
+| `--check` | Exit 1 if a skill is missing or out of date, without writing |
+| `--force` | Replace skills that were edited or are out of date |

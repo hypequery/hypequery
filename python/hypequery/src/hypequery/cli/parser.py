@@ -123,13 +123,21 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         "--no-watch", "--no-reload", dest="reload", action="store_false", help="disable reload"
     )
     dev.set_defaults(reload=True)
+    skill = _add_skill(commands)
     help_command = commands.add_parser("help", help="show help for a command")
-    help_command.add_argument("topic", nargs="?", choices=("init", "dev", "generate", "export"))
+    help_command.add_argument(
+        "topic", nargs="?", choices=("init", "dev", "generate", "export", "skill")
+    )
     args = parser.parse_args(arguments)
     if args.command == "help":
-        {None: parser, "init": init, "dev": dev, "generate": generate, "export": export}[
-            args.topic
-        ].print_help()
+        {
+            None: parser,
+            "init": init,
+            "dev": dev,
+            "generate": generate,
+            "export": export,
+            "skill": skill,
+        }[args.topic].print_help()
         parser.exit()
     if args.command == "init":
         if args.directory is not None and args.path is not None:
@@ -151,6 +159,40 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
             parser.error("--force cannot be combined with --check")
         if (args.stdout or args.output == "-") and (args.check or args.force):
             parser.error("stdout export cannot be combined with --check or --force")
+    if args.command == "skill" and args.check and args.force:
+        parser.error("--force cannot be combined with --check")
     if args.command == "dev" and not 0 < args.port < 65536:
         parser.error("--port must be between 1 and 65535")
     return args
+
+
+def _add_skill(
+    commands: argparse._SubParsersAction[argparse.ArgumentParser],
+) -> argparse.ArgumentParser:
+    skill = commands.add_parser(
+        "skill",
+        help="install hypequery agent skills for Claude Code, Cursor and Codex",
+        description="Write hypequery's agent skills (authoring datasets, querying them) "
+        "where coding agents load them: .claude/skills for Claude Code, .agents/skills "
+        "for Cursor and Codex.",
+    )
+    skill.add_argument("action", choices=("install",))
+    skill.add_argument(
+        "--agent",
+        choices=("claude", "cursor", "codex", "all"),
+        default="all",
+        help="which agent to install for (default: all)",
+    )
+    skill.add_argument(
+        "--scope",
+        choices=("project", "user"),
+        default="project",
+        help="this project (default) or your home directory, for every project",
+    )
+    skill.add_argument(
+        "--force", action="store_true", help="replace skills that were edited or are out of date"
+    )
+    skill.add_argument(
+        "--check", action="store_true", help="exit 1 if a skill is missing or out of date"
+    )
+    return skill
