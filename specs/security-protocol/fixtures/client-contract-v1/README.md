@@ -3,7 +3,9 @@
 Normative vectors for [RFC 0018](../../rfc/0018-semantic-client-contract.md).
 The family is required by the TypeScript/Python conformance gates.
 
-- success.json pins build, metric-only, empty, narrowed and annotated signed contracts.
+- success.json pins build, metric-only, empty, narrowed, annotated, null-checks and
+  no-timezone signed contracts. no-timezone has time axes without a caller timezone
+  and no groupable dimensions.
   annotated is build plus endpoint annotations: same schemaHashes, new contentHash.
 - identities.json pins canonical complete documents and both identity domains.
 - rejections.json pins malformed descriptors, identity failures, safe messages
