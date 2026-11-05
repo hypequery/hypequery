@@ -380,9 +380,10 @@ class TimeMeasureFeature(CompilerFeature):
         calendar_guard = self._calendar_guard(
             "_hq_first", f"{count} + {limit_guard} + {range_guard}", grain
         )
-        # A zero-row scalar reads the column type without scanning the source.
-        empty_row = f"(SELECT {row} FROM _hq_raw LIMIT 0)"  # noqa: S608 - internal aliases
-        physical_time = dialect.row_element(empty_row, 1)
+        # A zero-row scalar reads the column type without scanning the source. It
+        # selects the time element, not the row: ClickHouse before 26 refuses an
+        # empty scalar subquery of a tuple, which cannot be Nullable.
+        physical_time = f"(SELECT {dialect.row_element(row, 1)} FROM _hq_raw LIMIT 0)"  # noqa: S608
         physical_guard = (
             dialect.guard(
                 dialect.is_date_only_type(physical_time),
