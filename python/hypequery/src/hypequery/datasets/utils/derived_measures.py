@@ -82,7 +82,7 @@ def literal_parameter_type(value: bool | int | float) -> str:
 
 
 def validate_derived_measures(
-    measures: Mapping[str, Measure | DerivedMeasure], dimensions: Mapping[str, Dimension]
+    measures: Mapping[str, object], dimensions: Mapping[str, Dimension]
 ) -> None:
     visiting: set[str] = set()
     # Memoize full dependency depth and expanded size, not just completion.
@@ -134,7 +134,12 @@ def validate_derived_measures(
                 raise ValueError("Derived measure requires a formula over local measures")
             stats = (dependency_depth + 1, nodes)
             visiting.remove(name)
-        elif definition.aggregation in ("min", "max", "argMin", "argMax"):
+        elif isinstance(definition, Measure) and definition.aggregation in (
+            "min",
+            "max",
+            "argMin",
+            "argMax",
+        ):
             dimension = dimensions.get(definition.field)
             if dimension is None or dimension.field_type != "number":
                 raise ValueError("Derived formula input must be a numeric measure")
@@ -161,5 +166,5 @@ def derived_measure_node(
     }
 
 
-def base_measure_names(measures: Mapping[str, Measure | DerivedMeasure]) -> tuple[str, ...]:
+def base_measure_names(measures: Mapping[str, object]) -> tuple[str, ...]:
     return tuple(name for name, definition in measures.items() if isinstance(definition, Measure))

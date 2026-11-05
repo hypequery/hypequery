@@ -76,9 +76,22 @@ def _dimension(entry: DimensionCatalogEntry, *, include_sql: bool) -> dict[str, 
 
 def _measure(entry: MeasureCatalogEntry, *, include_sql: bool) -> dict[str, object]:
     result: dict[str, object] = {
-        "aggregation": entry["aggregation"],
-        "field": entry["field"],
+        key: entry[key]
+        for key in (
+            # TypeScript's `windowCatalogMetadata` key order; the hash covers it.
+            "supportedGrains",
+            "kind",
+            "measure",
+            "interval",
+            "requiresTimeRange",
+            "trailing",
+            "toDate",
+            "cumulative",
+        )
+        if key in entry
     }
+    result["aggregation"] = entry["aggregation"]
+    result["field"] = entry["field"]
     if "argField" in entry:
         result["argField"] = entry["argField"]
     if "level" in entry:

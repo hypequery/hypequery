@@ -28,8 +28,12 @@ class FilterFeature(CompilerFeature):
 
     __slots__ = ()
 
-    def add(self, scope: TenantScope | None) -> None:
-        """Add the request's filters, then the server-proven tenant predicate."""
+    def add(self, scope: TenantScope | None, filters: tuple[Filter, ...] | None = None) -> None:
+        """Add the request's filters, then the server-proven tenant predicate.
+
+        *filters* replaces the query's own, for a window query whose time-axis
+        bounds were already consumed.
+        """
 
         compiler = self.compiler
         dataset, where = compiler.dataset, compiler.node.where
@@ -37,7 +41,7 @@ class FilterFeature(CompilerFeature):
         if current is not None:
             # Every other filter, the tenant's included, applies to current rows only.
             where.append(f"{BASE_ALIAS.sql}.{current}")
-        for filter_value in compiler.query.filters:
+        for filter_value in compiler.query.filters if filters is None else filters:
             field = resolve_filter_field(dataset, filter_value.field)
             if scope is not None and self._filters_a_tenant_column(field):
                 # Allowing this would let a caller narrow — or, with the wrong

@@ -187,6 +187,106 @@
         "aggregation": "sum",
         "field": "amount",
         "filterCount": 1
+      },
+      "rollingRevenue": {
+        "aggregation": "sum",
+        "field": "amount",
+        "label": "Rolling revenue",
+        "filterCount": 0,
+        "kind": "window",
+        "measure": "revenue",
+        "requiresTimeRange": true,
+        "trailing": {
+          "amount": 7,
+          "unit": "day"
+        },
+        "supportedGrains": [
+          "hour",
+          "day",
+          "week"
+        ]
+      },
+      "monthToDateRevenue": {
+        "aggregation": "sum",
+        "field": "amount",
+        "filterCount": 0,
+        "kind": "window",
+        "measure": "revenue",
+        "requiresTimeRange": true,
+        "toDate": "month",
+        "supportedGrains": [
+          "hour",
+          "day"
+        ]
+      },
+      "runningOrders": {
+        "aggregation": "count",
+        "field": "id",
+        "filterCount": 0,
+        "kind": "window",
+        "measure": "orderCount",
+        "requiresTimeRange": true,
+        "cumulative": true,
+        "supportedGrains": [
+          "minute",
+          "hour",
+          "day",
+          "week",
+          "month",
+          "quarter",
+          "year"
+        ]
+      },
+      "revenueLastWeek": {
+        "aggregation": "sum",
+        "field": "amount",
+        "filterCount": 0,
+        "kind": "shift",
+        "measure": "revenue",
+        "interval": {
+          "amount": 7,
+          "unit": "day"
+        },
+        "requiresTimeRange": true,
+        "supportedGrains": [
+          "minute",
+          "hour",
+          "day",
+          "week"
+        ]
+      }
+    },
+    "derivedMeasures": {
+      "weekOverWeek": {
+        "uses": [
+          {
+            "alias": "revenue",
+            "measure": "revenue"
+          },
+          {
+            "alias": "revenueLastWeek",
+            "measure": "revenueLastWeek"
+          }
+        ],
+        "expression": {
+          "kind": "binary",
+          "operator": "divide",
+          "left": {
+            "kind": "reference",
+            "name": "revenue"
+          },
+          "right": {
+            "kind": "reference",
+            "name": "revenueLastWeek"
+          }
+        },
+        "requiresTimeRange": true,
+        "supportedGrains": [
+          "minute",
+          "hour",
+          "day",
+          "week"
+        ]
       }
     },
     "metrics": {},
@@ -283,6 +383,11 @@
       "topStatus",
       "p95Amount",
       "paidRevenue",
+      "rollingRevenue",
+      "monthToDateRevenue",
+      "runningOrders",
+      "revenueLastWeek",
+      "weekOverWeek",
       "customer.id",
       "customer.country",
       "customer.tier",

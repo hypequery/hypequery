@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, cast
 
 from ...dataset import Dataset
-from ...derived_measures import DerivedMeasure
+from ...measures import Measure
 from ...relationships import Relationship
 from ...utils.resolved_rows import current_row_predicate
 from ..aliases import BASE_ALIAS
@@ -108,7 +108,7 @@ class JoinFeature(CompilerFeature):
             if owner != relationship_name or measure_name not in target.measures:
                 continue
             measure = target.measures[measure_name]
-            if isinstance(measure, DerivedMeasure):
+            if not isinstance(measure, Measure):
                 continue
             columns.extend(
                 physical_column(target, field)

@@ -26,6 +26,7 @@ from .features.having import HavingFeature
 from .features.joins import JoinFeature
 from .features.measures import MeasureFeature
 from .features.ordering import OrderingFeature
+from .features.time_measures import TimeMeasureFeature
 from .identifiers import SafeIdentifier, safe_qualified_identifier
 from .parameters import ParameterBinder, TypedParameter
 from .query import DatasetQuery
@@ -79,9 +80,18 @@ class DatasetQueryCompiler:
         self.filtering = FilterFeature(self)
         self.having = HavingFeature(self)
         self.ordering = OrderingFeature(self)
+        self.time_measures = TimeMeasureFeature(self)
 
     def compile(self) -> DatasetSql:
         scope = resolve_tenant_scope(self.dataset, self.context)
+        if self.time_measures.selected():
+            for name in self.query.dimensions:
+                if name in self.selected_measures:
+                    raise CompiledQueryError(
+                        "input-invalid",
+                        f'Output "{name}" cannot be selected as both a dimension and a measure.',
+                    )
+            return DatasetSql(self.time_measures.compile(scope), self.binder.parameters)
         for name in self.query.dimensions:
             if name in self.selected_measures:
                 raise CompiledQueryError(

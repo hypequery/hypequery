@@ -11,6 +11,7 @@ from .aggregations import Aggregation
 from .derived_measures import DerivedMeasure
 from .formulas import Formula
 from .query_helpers import Filter
+from .time_measures import MeasureTimeInterval, ShiftMeasure, TimeGrainName, WindowMeasure
 from .validation import validate_non_empty, validate_qualified_identifier
 
 
@@ -85,6 +86,58 @@ class _MeasureHelpers:
     """Typed base-measure helpers matching TypeScript, with Python spelling."""
 
     __call__ = staticmethod(_create_measure)
+
+    @staticmethod
+    def trailing(
+        measure: str,
+        amount: int,
+        unit: TimeGrainName,
+        *,
+        label: str | None = None,
+        description: str | None = None,
+    ) -> WindowMeasure:
+        """Re-aggregate *measure* over the trailing *amount* *unit* ending at each bucket."""
+        return WindowMeasure(
+            measure=measure,
+            trailing=MeasureTimeInterval(amount=amount, unit=unit),
+            label=label,
+            description=description,
+        )
+
+    @staticmethod
+    def to_date(
+        measure: str,
+        grain: TimeGrainName,
+        *,
+        label: str | None = None,
+        description: str | None = None,
+    ) -> WindowMeasure:
+        """Re-aggregate *measure* from the start of each *grain* (month-to-date, ...)."""
+        return WindowMeasure(measure=measure, to_date=grain, label=label, description=description)
+
+    @staticmethod
+    def cumulative(
+        measure: str, *, label: str | None = None, description: str | None = None
+    ) -> WindowMeasure:
+        """A running total of *measure* (sum, count, min or max) over all history."""
+        return WindowMeasure(measure=measure, cumulative=True, label=label, description=description)
+
+    @staticmethod
+    def shift(
+        measure: str,
+        amount: int,
+        unit: TimeGrainName,
+        *,
+        label: str | None = None,
+        description: str | None = None,
+    ) -> ShiftMeasure:
+        """*measure* evaluated *amount* *unit* earlier, for period-over-period comparison."""
+        return ShiftMeasure(
+            measure=measure,
+            interval=MeasureTimeInterval(amount=amount, unit=unit),
+            label=label,
+            description=description,
+        )
 
     @staticmethod
     def derived(
