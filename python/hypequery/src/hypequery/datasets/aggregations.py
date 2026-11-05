@@ -13,6 +13,7 @@ AggregationType: TypeAlias = Literal[
     "sum",
     "count",
     "countDistinct",
+    "approxCountDistinct",
     "avg",
     "min",
     "max",
@@ -63,6 +64,12 @@ def count(field: str) -> Aggregation:
 
 def count_distinct(field: str) -> Aggregation:
     return Aggregation(aggregation="countDistinct", field=field)
+
+
+def approx_count_distinct(field: str) -> Aggregation:
+    """An estimated distinct count: ClickHouse `uniq`, approximate by design."""
+
+    return Aggregation(aggregation="approxCountDistinct", field=field)
 
 
 def avg(field: str) -> Aggregation:

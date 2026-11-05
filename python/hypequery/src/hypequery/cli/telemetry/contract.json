@@ -23,8 +23,8 @@
     "python_cli_command_completed": {
       "purpose": "Measure Python CLI adoption, onboarding and reliability. Exactly once per invocation; never emitted for telemetry commands.",
       "properties": {
-        "command": { "kind": "enum", "description": "Which known command was requested? Raw unknown input is never retained.", "values": ["init", "dev", "generate:datasets", "export:client-contract", "help", "version", "unknown"] },
-        "flags_used": { "kind": "enum_list", "description": "Which documented flags are adopted? Canonical names only, never values.", "values": ["--path", "--tables", "--exclude-tables", "--all-tables", "--framework", "--tenant-column", "--no-tenant-column", "--skip-connection", "--no-interactive", "--output", "--check", "--diff", "--force", "--factory", "--stdout", "--hostname", "--port", "--reload", "--no-watch", "--no-telemetry", "--help", "--version"] },
+        "command": { "kind": "enum", "description": "Which known command was requested? Raw unknown input is never retained.", "values": ["init", "dev", "generate:datasets", "export:client-contract", "mcp", "help", "version", "unknown"] },
+        "flags_used": { "kind": "enum_list", "description": "Which documented flags are adopted? Canonical names only, never values.", "values": ["--path", "--tables", "--exclude-tables", "--all-tables", "--framework", "--tenant-column", "--no-tenant-column", "--skip-connection", "--no-interactive", "--output", "--check", "--diff", "--force", "--factory", "--stdout", "--hostname", "--port", "--reload", "--no-watch", "--client-contract-url", "--header", "--project", "--self-test", "--print-config", "--no-telemetry", "--help", "--version"] },
         "outcome": { "kind": "enum", "description": "Which commands fail, succeed or are aborted?", "values": ["success", "failure", "cancelled", "interrupted"] },
         "duration_bucket": { "kind": "enum", "description": "Which commands need performance work?", "values": ["<100ms", "100ms-1s", "1s-10s", "10s-1m", "1m-10m", "10m-1h", "1h+"] },
         "error_code": { "kind": "enum", "description": "Which known failures need reliability work?", "values": ["unknown", "usage_error", "unknown_command", "unknown_option", "command_error", "connection_failed", "missing_dependency", "uncaught_exception"], "optional": true }
@@ -37,12 +37,13 @@
         "dev": {},
         "generate:datasets": {},
         "export:client-contract": {},
+        "mcp": {},
         "help": {
-          "help_topic": { "kind": "enum", "description": "Which command help needs improvement?", "values": ["root", "init", "dev", "generate:datasets", "export:client-contract", "telemetry"], "optional": true }
+          "help_topic": { "kind": "enum", "description": "Which command help needs improvement?", "values": ["root", "init", "dev", "generate:datasets", "export:client-contract", "mcp", "telemetry"], "optional": true }
         },
         "version": {},
         "unknown": {
-          "suggested_command": { "kind": "enum", "description": "Which command was a mistyped invocation closest to? A known command name only, never the raw input.", "values": ["init", "dev", "generate:datasets", "export:client-contract", "help", "telemetry"], "optional": true }
+          "suggested_command": { "kind": "enum", "description": "Which command was a mistyped invocation closest to? A known command name only, never the raw input.", "values": ["init", "dev", "generate:datasets", "export:client-contract", "mcp", "help", "telemetry"], "optional": true }
         }
       }
     }
@@ -52,6 +53,7 @@
     "dev": ["--hostname", "--port", "--reload", "--no-watch"],
     "generate:datasets": ["--output", "--path", "--tables", "--exclude-tables", "--all-tables", "--tenant-column", "--no-tenant-column", "--check", "--diff", "--force"],
     "export:client-contract": ["--factory", "--output", "--stdout", "--check", "--force"],
+    "mcp": ["--client-contract-url", "--header", "--project", "--self-test", "--print-config"],
     "help": [],
     "version": [],
     "unknown": []

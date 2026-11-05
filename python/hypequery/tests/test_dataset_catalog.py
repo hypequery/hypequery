@@ -35,6 +35,7 @@ from hypequery.datasets import (
     serialize_semantic_contract,
 )
 from hypequery.datasets.aggregations import (
+    approx_count_distinct,
     arg_max,
     count,
     count_distinct,
@@ -81,6 +82,7 @@ Orders = Dataset(
         "revenue": measure(sum("amount"), label="Revenue"),
         "orderCount": measure(count("id")),
         "uniqueCustomers": measure(count_distinct("customerId")),
+        "approxCustomers": measure(approx_count_distinct("customerId")),
         "topStatus": measure(arg_max("status", "amount")),
         "p95Amount": measure(percentile("amount", 0.95)),
         "paidRevenue": measure(sum("amount"), filters=(eq("status", "paid"),)),

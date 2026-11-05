@@ -1847,6 +1847,7 @@
               "dev",
               "generate:datasets",
               "export:client-contract",
+              "mcp",
               "help",
               "version",
               "unknown"
@@ -1875,6 +1876,11 @@
               "--port",
               "--reload",
               "--no-watch",
+              "--client-contract-url",
+              "--header",
+              "--project",
+              "--self-test",
+              "--print-config",
               "--no-telemetry",
               "--help",
               "--version"
@@ -1941,6 +1947,7 @@
           "dev": {},
           "generate:datasets": {},
           "export:client-contract": {},
+          "mcp": {},
           "help": {
             "help_topic": {
               "kind": "enum",
@@ -1951,6 +1958,7 @@
                 "dev",
                 "generate:datasets",
                 "export:client-contract",
+                "mcp",
                 "telemetry"
               ],
               "optional": true
@@ -1966,6 +1974,7 @@
                 "dev",
                 "generate:datasets",
                 "export:client-contract",
+                "mcp",
                 "help",
                 "telemetry"
               ],
@@ -2010,6 +2019,13 @@
         "--stdout",
         "--check",
         "--force"
+      ],
+      "mcp": [
+        "--client-contract-url",
+        "--header",
+        "--project",
+        "--self-test",
+        "--print-config"
       ],
       "help": [],
       "version": [],

@@ -66,6 +66,14 @@ def admin() -> Iterator[object]:
         "('pro', true, '2026-02-01 00:00:00'), ('pro', NULL, NULL), "
         "('free', false, NULL), ('free', NULL, '1969-07-20 20:17:00')"
     )
+    client.command(
+        "CREATE TABLE hq_feature_port.visits (user_id UInt64, kind String) ENGINE = Memory"
+    )
+    # 200,000 distinct users: well past where uniq stops being exact.
+    client.command(
+        "INSERT INTO hq_feature_port.visits SELECT number, "
+        "if(number % 3 = 0, 'purchase', 'view') FROM numbers(200000)"
+    )
     yield client
     client.command(f"DROP DATABASE IF EXISTS {DATABASE}")
 
@@ -116,3 +124,35 @@ def test_null_checks_match_is_null_including_a_pre_1971_date(admin: object, clie
         DatasetQuery(measures=("customers",), filters=(filter.is_not_null("churnedAt"),)),
     )
     assert str(churned[0][0]) == "2"
+
+
+visits = dataset(
+    "visits",
+    source="visits",
+    dimensions={"userId": dimension.number(column="user_id"), "kind": dimension.string()},
+    measures={
+        "visitors": measure.count_distinct("userId"),
+        "estimatedVisitors": measure.approx_count_distinct("userId"),
+        "estimatedBuyers": measure.approx_count_distinct(
+            "userId", filters=(filter.eq("kind", "purchase"),)
+        ),
+    },
+)
+
+
+def test_approx_count_distinct_is_uniq_and_count_distinct_stays_exact(
+    admin: object, client: object
+) -> None:
+    result = client.execute(  # type: ignore[attr-defined]
+        visits, DatasetQuery(measures=("visitors", "estimatedVisitors", "estimatedBuyers"))
+    )
+    row = result.data[0]
+    truth = _truth(
+        admin,
+        "SELECT uniqExact(user_id), uniq(user_id), uniqIf(user_id, kind = 'purchase') "
+        "FROM hq_feature_port.visits",
+    )[0]
+    assert [str(row["visitors"]), str(row["estimatedVisitors"]), str(row["estimatedBuyers"])] == [
+        str(value) for value in truth
+    ]
+    assert str(row["visitors"]) == "200000"

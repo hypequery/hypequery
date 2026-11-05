@@ -101,6 +101,11 @@ class _MeasureHelpers:
         return _create_measure(aggregations.count_distinct(field), **options)
 
     @staticmethod
+    def approx_count_distinct(field: str, **options: Unpack[_MeasureOptions]) -> Measure:
+        """Define an estimated distinct count (ClickHouse `uniq`); catalogs mark it approximate."""
+        return _create_measure(aggregations.approx_count_distinct(field), **options)
+
+    @staticmethod
     def avg(field: str, **options: Unpack[_MeasureOptions]) -> Measure:
         """Define a avg measure."""
         return _create_measure(aggregations.avg(field), **options)

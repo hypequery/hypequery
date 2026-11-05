@@ -19,7 +19,7 @@ The Python SDK is in beta. This table tracks coverage against the TypeScript pac
 | Dataset catalog | Available | Available |
 | Typed DataFrames (`to_pandas`, `to_polars`, `to_arrow`) | Not applicable | Available |
 | Framework integrations | Next.js, Node.js, Vite guides | Django, Flask, SQLAlchemy (`hypequery.contrib`) |
-| `approxCountDistinct` measures | Available | Planned |
+| `approxCountDistinct` measures | Available | Available locally (`measure.approx_count_distinct`, ClickHouse `uniq`, marked `approximate` in catalogs); publishing needs deployment contract 3, like TypeScript |
 | `measure.merge` over `AggregatingMergeTree` state columns | Available | Planned |
 | `final: true` for `ReplacingMergeTree` / `CollapsingMergeTree` sources | Available | Planned |
 | Derived measures | Available | Available (`measure.derived` with `formula.*`) |
@@ -28,7 +28,7 @@ The Python SDK is in beta. This table tracks coverage against the TypeScript pac
 | Segments | Available | Planned |
 | Relationship checks | Available | Available (`check_relationships`) |
 | Cloud publishing | Not yet | hypequery cloud is not live. Bundle export works today (`write_dataset_bundle`); one-step publish is planned |
-| MCP server for AI agents | Available | Through the Node `hypequery mcp` bridge over the server's live client contract ([setup](/docs/python/client-endpoints)); no native Python server |
+| MCP server for AI agents | Available | Available: `hypequery mcp` over stdio, in-process from an `Api` or bridging a served client contract (`mcp` extra; [setup](/docs/mcp/overview#datasets-served-from-python)) |
 | Tool generation for agents | Available | Under consideration |
 | Serve: auth, CORS, rate limiting, errors | Available | Available |
 | Serve: JWT strategy and token issuer | Available | Available (`jwt_strategy`, `analytics_token_issuer`; tokens verify across languages) |
