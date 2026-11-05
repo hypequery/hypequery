@@ -93,11 +93,7 @@ def resolve_qualified_field(
         )
     target = registry.get(relationship.target)
     if target is None:
-        raise CompiledQueryError(
-            "internal",
-            f'Relationship "{relationship_name}" targets unregistered dataset '
-            f'"{relationship.target}".',
-        )
+        raise _unregistered_target(relationship_name, relationship.target)
     dimension = target.dimensions.get(dimension_name)
     if dimension is None:
         known = ", ".join(sorted(target.dimensions)) or "(none)"
@@ -134,6 +130,15 @@ class ResolvedRelationshipMeasure:
     measure: Measure
 
 
+def _unregistered_target(relationship_name: str, target: str) -> CompiledQueryError:
+    return CompiledQueryError(
+        "internal",
+        f'Relationship "{relationship_name}" targets unregistered dataset "{target}". '
+        f"Pass a registry that includes the dataset named {target!r}: "
+        "create_dataset_client(registry=create_dataset_registry(...)).",
+    )
+
+
 def resolve_relationship_measure(
     dataset: Dataset, name: str, *, registry: DatasetRegistry
 ) -> ResolvedRelationshipMeasure:
@@ -158,11 +163,7 @@ def resolve_relationship_measure(
         )
     target = registry.get(relationship.target)
     if target is None:
-        raise CompiledQueryError(
-            "internal",
-            f'Relationship "{relationship_name}" targets unregistered dataset '
-            f'"{relationship.target}".',
-        )
+        raise _unregistered_target(relationship_name, relationship.target)
     error = relationship_measure_error(name, relationship, target, measure_name)
     if error is not None:
         raise CompiledQueryError("input-invalid", error)

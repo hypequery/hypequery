@@ -72,3 +72,5 @@ rules, before any runtime implemented them:
 
 Both produced identical output for all 44 cases. The conformance runner now
 holds `@hypequery/protocol` and the Python package to the same bytes.
+
+RFC 0025: `query-having-uncacheable` and `query-timezone-not-folded` pin that a non-empty `having` or a non-UTC `timezone` has no preimage, and `timezone-utc-is-default` that `"UTC"` produces the same preimage as no zone (`all-dataset-features`).

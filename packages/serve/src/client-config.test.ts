@@ -260,8 +260,42 @@ describe("Client Config Utilities", () => {
 
         expect(config.hello).toEqual({
           method: "POST",
-          path: "/queries/hello",
+          path: "/api/analytics/hello",
         });
+      });
+
+      it("includes the base path on default routes", () => {
+        const api = defineServe({
+          basePath: "/analytics",
+          queries: {
+            hello: {
+              query: async () => ({ ok: true }),
+            },
+          },
+        });
+
+        expect(extractClientConfig(api).hello).toEqual({
+          method: "GET",
+          path: "/analytics/queries/hello",
+        });
+      });
+
+      it("matches api.manifest() and the routes the handler serves", async () => {
+        const api = defineServe({
+          queries: {
+            hello: { query: async () => ({ ok: true }) },
+            moved: { query: async () => ({ ok: true }) },
+          },
+        });
+        api.route("/custom/moved", api.queries.moved, { method: "POST" });
+
+        const config = extractClientConfig(api);
+        expect(config).toEqual(api.manifest());
+
+        for (const { method, path } of Object.values(config)) {
+          const response = await api.handler({ method, path: path!, query: {}, headers: {} });
+          expect(response.status).toBe(200);
+        }
       });
     });
   });

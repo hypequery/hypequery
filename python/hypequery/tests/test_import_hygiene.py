@@ -40,7 +40,7 @@ def test_core_import_does_not_pull_optional_dependencies() -> None:
 
         assert hypequery.__version__
         leaked = [m for m in ("fastapi", "starlette", "uvicorn", "clickhouse_connect",
-                              "jwt", "cryptography")
+                              "chdb", "jwt", "cryptography")
                   if m in sys.modules]
         assert not leaked, f"optional dependencies leaked into a core import: {leaked}"
         """
@@ -196,7 +196,7 @@ def test_definition_imports_leave_dataframe_libraries_and_frameworks_alone() -> 
         import hypequery.execution
         import hypequery.contrib.sqlalchemy
 
-        optional = ("pandas", "polars", "pyarrow", "django", "flask", "sqlalchemy")
+        optional = ("pandas", "polars", "pyarrow", "django", "flask", "sqlalchemy", "chdb")
         leaked = [m for m in optional if m in sys.modules]
         assert not leaked, f"optional libraries leaked into a definition import: {leaked}"
         assert "hypequery.contrib.django" not in sys.modules

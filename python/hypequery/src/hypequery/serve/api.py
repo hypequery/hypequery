@@ -11,7 +11,7 @@ from __future__ import annotations
 import ipaddress
 from collections.abc import Mapping, Sequence
 
-from ..datasets import Dataset
+from ..datasets import ClientQueryProfile, Dataset
 from ..datasets.client import AsyncDatasetClient, DatasetClient
 from ..datasets.registry import create_dataset_registry
 from ..datasets.validation import validate_identifier
@@ -49,6 +49,7 @@ def create_api(
     client: DatasetClient | AsyncDatasetClient | None = None,
     datasets: Mapping[str, Dataset | DatasetEndpoint] | None = None,
     metrics: Mapping[str, DatasetEndpoint] | None = None,
+    client_profile: ClientQueryProfile | None = None,
     discovery: bool | EndpointPolicy = True,
     limits: Sequence[RateLimit] = (),
     events: QueryEvents | None = None,
@@ -80,7 +81,10 @@ def create_api(
     *metrics* serves `POST /metrics/<name>`. A dataset entry is a `Dataset`,
     queried through *client* under the default policy, or an endpoint from
     `create_dataset_endpoint`; a metric entry comes from
-    `create_metric_endpoint`. With either, *discovery* also serves
+    `create_metric_endpoint`, and its key is the metric's name: its client
+    contract ID and the output alias of its measure. *client_profile* puts
+    every `Dataset` entry in the API's client contract, for generated React
+    hooks; an endpoint entry takes its own. With either, *discovery* also serves
     `GET /discovery` over their datasets, authenticated by default; pass an
     `EndpointPolicy` to change who may read it, or False to leave it out.
     `add_dataset_endpoint` and the other `add_*` functions add endpoints at
@@ -124,7 +128,7 @@ def create_api(
         events=events,
         openapi=openapi,
     )
-    served = _semantic_endpoints(api, client, datasets or {}, metrics or {})
+    served = _semantic_endpoints(api, client, datasets or {}, metrics or {}, client_profile)
     if served and discovery is not False:
         policy = DEFAULT_ENDPOINT_POLICY if discovery is True else discovery
         if type(policy) is not EndpointPolicy:
@@ -170,16 +174,28 @@ def _semantic_endpoints(
     client: DatasetClient | AsyncDatasetClient | None,
     datasets: Mapping[str, Dataset | DatasetEndpoint],
     metrics: Mapping[str, DatasetEndpoint],
+    client_profile: ClientQueryProfile | None,
 ) -> list[Dataset]:
     """Install the declared dataset and metric endpoints; return their datasets."""
 
+    if client_profile is not None:
+        if type(client_profile) is not ClientQueryProfile:
+            raise TypeError("client_profile must be a ClientQueryProfile")
+        if not any(isinstance(entry, Dataset) for entry in datasets.values()):
+            # Otherwise it would apply to nothing and leave the contract empty.
+            raise ValueError(
+                "create_api(client_profile=...) applies to Dataset entries of datasets; "
+                "pass client_profile to create_dataset_endpoint or create_metric_endpoint"
+            )
     served: list[Dataset] = []
     for name, entry in datasets.items():
         endpoint = entry
         if isinstance(entry, Dataset):
             if client is None:
                 raise ValueError("create_api requires a client to serve a Dataset")
-            endpoint = create_dataset_endpoint(dataset=entry, client=client)
+            endpoint = create_dataset_endpoint(
+                dataset=entry, client=client, client_profile=client_profile
+            )
         if not isinstance(endpoint, DatasetEndpoint) or endpoint.measure is not None:
             raise TypeError("each datasets entry is a Dataset or a dataset endpoint")
         endpoint.install(api, f"/datasets/{validate_identifier(name)}/query")
@@ -187,6 +203,13 @@ def _semantic_endpoints(
     for name, metric in metrics.items():
         if not isinstance(metric, DatasetEndpoint) or metric.measure is None:
             raise TypeError("each metrics entry comes from create_metric_endpoint")
+        if metric.name != name:
+            if metric.named:
+                raise ValueError(
+                    f"metrics entry {name!r} is named {metric.name!r}; its key is its name, "
+                    "so drop name= or use it as the key"
+                )
+            metric = metric.renamed(validate_identifier(name))
         metric.install(api, f"/metrics/{validate_identifier(name)}")
         served.append(metric.dataset)
     return served

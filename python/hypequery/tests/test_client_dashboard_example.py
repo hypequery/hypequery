@@ -1,4 +1,4 @@
-"""The tutorial shares exact offline/installed endpoint definitions."""
+"""The tutorial exports its client contract from the installed endpoints."""
 
 from __future__ import annotations
 
@@ -8,17 +8,18 @@ import sys
 from pathlib import Path
 
 import pytest
-from examples.client_dashboard import api, definitions
+from examples.client_dashboard import api
 
 from asgi_client import AsgiClient
 from hypequery.protocol import validate_protocol_client_query
 from hypequery.serve import export_client_contract
 
 
-def test_definition_factory_is_offline_and_framework_free() -> None:
+def test_contract_factory_is_offline_and_framework_free() -> None:
     code = (
-        "import sys; from examples.client_dashboard.definitions import build; "
-        "build(); forbidden = {'fastapi', 'clickhouse_connect', 'hypequery.serve'}; "
+        "import sys; from examples.client_dashboard.api import contract; "
+        "from hypequery.serve import export_client_contract; export_client_contract(contract()); "
+        "forbidden = {'fastapi', 'clickhouse_connect', 'uvicorn'}; "
         "assert not forbidden & sys.modules.keys()"
     )
     subprocess.run(
@@ -27,7 +28,7 @@ def test_definition_factory_is_offline_and_framework_free() -> None:
         capture_output=True,
         cwd=Path(__file__).parents[1],
     )
-    contract = definitions.build()["contract"]
+    contract = export_client_contract(api.contract())["contract"]
     assert [(item["id"], item["path"]) for item in contract["endpoints"]] == [
         ("orders", "/v1/orders"),
         ("sales", "/v1/sales"),
@@ -38,7 +39,7 @@ def test_definition_factory_is_offline_and_framework_free() -> None:
     assert plan["selectedMeasures"] == ["sales"]
 
 
-def test_tutorial_installed_contract_matches_offline_schema(
+def test_tutorial_served_contract_matches_the_export(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     from examples.utils import server
@@ -52,7 +53,7 @@ def test_tutorial_installed_contract_matches_offline_schema(
     monkeypatch.setattr(server, "create_clickhouse_executor", lambda _: Executor())
     app = api.create_application()
     installed = export_client_contract(app)["contract"]
-    assert installed == definitions.build()["contract"]
+    assert installed == export_client_contract(api.contract())["contract"]
     with AsgiClient(app, base_url="http://localhost") as http:
         assert http.get("/v1/client-contract").status_code == 401
         response = http.get("/v1/client-contract", headers={"Authorization": "Bearer token-a"})

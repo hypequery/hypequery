@@ -1009,7 +1009,16 @@ def test_the_log_description_names_types_but_never_values() -> None:
 def test_a_server_fault_message_is_not_the_one_it_was_given() -> None:
     error = CompiledQueryError("internal", "connection to 10.0.0.4 refused as user=admin")
     assert "10.0.0.4" not in error.message
+    assert "10.0.0.4" not in str(error)
     assert error.failure.to_data()["message"] == "The query could not be executed."
+    # The given message survives only as the operator-facing diagnostic.
+    assert error.diagnostic == "connection to 10.0.0.4 refused as user=admin"
+
+
+def test_an_explicit_diagnostic_wins_over_a_server_fault_message() -> None:
+    error = CompiledQueryError("unavailable", "ignored", diagnostic="driver timeout")
+    assert error.diagnostic == "driver timeout"
+    assert CompiledQueryError("internal", "").diagnostic is None
 
 
 def test_a_client_fault_message_is_kept() -> None:

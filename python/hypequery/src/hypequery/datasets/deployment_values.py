@@ -47,11 +47,16 @@ def canonical_filter_value(value: object) -> CanonicalValue:
 
 
 def filter_expression(value: Filter) -> dict[str, object]:
-    """A semantic filter is one RFC 0003 comparison expression."""
+    """A semantic filter is one RFC 0003 comparison expression.
 
-    return {
+    A null check has no `right` member (RFC 0023).
+    """
+
+    expression: dict[str, object] = {
         "kind": "comparison",
         "operator": value.operator,
         "left": {"kind": "reference", "name": value.field},
-        "right": {"kind": "literal", "value": canonical_filter_value(value.value)},
     }
+    if not value.is_null_check:
+        expression["right"] = {"kind": "literal", "value": canonical_filter_value(value.value)}
+    return expression

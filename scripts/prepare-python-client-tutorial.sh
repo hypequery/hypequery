@@ -24,7 +24,7 @@ HQ_WHEELS=("$HQ_TUTORIAL"/artifacts/*.whl)
 uv venv "$HQ_TUTORIAL/.venv"
 uv pip install --python "$HQ_TUTORIAL/.venv/bin/python" "${HQ_WHEELS[0]}[server,clickhouse]"
 cd "$HQ_TUTORIAL/backend"
-"$HQ_TUTORIAL/.venv/bin/python" -m hypequery export client-contract --factory examples.client_dashboard.definitions:build --output examples/client_dashboard/frontend/contract.json
+"$HQ_TUTORIAL/.venv/bin/python" -m hypequery export client-contract --factory examples.client_dashboard.api:contract --output examples/client_dashboard/frontend/contract.json
 cd examples/client_dashboard/frontend
 HQ_TARBALLS=("$HQ_TUTORIAL"/artifacts/*.tgz)
 npm install --omit=optional "${HQ_TARBALLS[@]}"

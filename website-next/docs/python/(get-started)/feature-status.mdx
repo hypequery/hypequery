@@ -10,10 +10,11 @@ The Python SDK is in beta. This table tracks coverage against the TypeScript pac
 | Dimensions and base measures | Available | Available |
 | Filtered measures | Available | Available |
 | Filters on dimensions and declared filters with operator allowlists | Available | Available |
-| Null-check filters (`isNull`, `isNotNull`) | Available | Planned. The protocol accepts them; Python datasets can't write them yet |
+| Null-check filters (`isNull`, `isNotNull`) | Available | Available: `filter.is_null` / `filter.is_not_null`, opt-in per filter's `operators` |
 | Relationships (`belongs_to`, `has_one`, `has_many`) | Available | Available |
 | Time grains | Available | Available, including per-dataset `time_grains` restriction |
 | Sync and async execution | Available | Available |
+| Embedded ClickHouse (chDB) | Available (query builder adapter, `init --database chdb`) | Available since 0.1.0b3 (dataset executor, `init --database chdb`) |
 | Result caching and multi-tenancy | Available | Available |
 | Dataset catalog | Available | Available |
 | Typed DataFrames (`to_pandas`, `to_polars`, `to_arrow`) | Not applicable | Available |
@@ -34,7 +35,8 @@ The Python SDK is in beta. This table tracks coverage against the TypeScript pac
 | Serve: your app's own login (`fromContext`) | Available | Available (`from_context`, `django_user`, `flask_session`) |
 | Serve adapters | Fetch, Node, Vercel | ASGI, WSGI, native Django and Flask (`to_asgi_app`, `to_wsgi_app`, `urls`, `blueprint`) |
 | Serve: dataset query endpoints and discovery | Available | Available |
-| CLI (`init`, `generate datasets`, `dev`, `export client-contract`) | Available | Available |
-| Generated React hooks | Available | Available via exported client contracts and `generate:client` ([setup](/docs/python/client-endpoints)) |
+| CLI (`init`, `generate datasets`, `dev`) | Available | Available |
+| Client contract export (`export client-contract`) | Not yet. TypeScript hooks infer types from the API instead | Available |
+| Typed React hooks | Available: types inferred with `InferApiType`, routes from `generate:manifest` | Available via exported client contracts and `generate:client` ([setup](/docs/python/client-endpoints)) |
 | Query builder | Available | Not planned |
 | Named metrics | Available | Not planned. Use metric endpoints or derived measures |

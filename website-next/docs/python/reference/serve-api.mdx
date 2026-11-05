@@ -14,7 +14,7 @@ import { Callout } from 'fumadocs-ui/components/callout';
 
 | Export | Signature | Purpose |
 | --- | --- | --- |
-| `create_api` | `create_api(*, auth, credentials=None, tenant=None, security=None, production=None, client=None, datasets=None, metrics=None, discovery=True, limits=(), events=None, base_path="", max_body_bytes=1048576, development_docs=False, openapi=None, client_mount_path="")` | TypeScript's `createAPI`. Returns an `Api`; `auth` maps a `Credential` to a `Principal` or `None` |
+| `create_api` | `create_api(*, auth, credentials=None, tenant=None, security=None, production=None, client=None, datasets=None, metrics=None, client_profile=None, discovery=True, limits=(), events=None, base_path="", max_body_bytes=1048576, development_docs=False, openapi=None, client_mount_path="")` | TypeScript's `createAPI`. Returns an `Api`; `auth` maps a `Credential` to a `Principal` or `None`; `client_profile` puts every `Dataset` entry in the client contract |
 | `Api.add_route` | `add_route(method, path, handler, *, public=False, input=None, limits=(), output=None, summary=None, tags=(), documented=True)` | Your own route. `handler` is an async function from `Call` to `ServeResponse` |
 | `Api.handle` | `await api.handle(request)` | Serve one `ServeRequest` with no server, as in tests |
 | `Call` | `request`, `state`, `auth`, `input`, `host` | What a handler receives. `call.state.request_id` is the request's id |
@@ -37,12 +37,12 @@ import { Callout } from 'fumadocs-ui/components/callout';
 | Export | Purpose |
 | --- | --- |
 | `create_dataset_endpoint(*, dataset, client, policy=EndpointPolicy(), diagnostics=None, events=None, client_profile=None, include_related=())` | A dataset query endpoint, for `create_api(datasets=...)` or `.install(api, path)` |
-| `create_metric_endpoint(*, dataset, measure, name=None, client, policy=…, …)` | A metric fixed to one dataset measure, for `create_api(metrics=...)` |
+| `create_metric_endpoint(*, dataset, measure, name=None, client, policy=…, …)` | A metric fixed to one dataset measure, for `create_api(metrics=...)`, where its key is its name |
 | `add_dataset_endpoint(api, path, *, dataset, client, …, limits=())` | Create and serve a dataset endpoint at `path` |
 | `add_metric_endpoint(api, path, *, dataset, measure, …, limits=())` | Create and serve a metric endpoint at `path` |
 | `add_discovery_endpoint(api, path="/discovery", *, registry, policy=…, max_bytes=262144)` | A frozen projection of the registry, with no physical details |
 | `add_client_contract_endpoint(api, path="/client-contract", *, policy=…, max_bytes=262144)` | Caller-scoped discovery of the API's strict client endpoints |
-| `export_client_contract(api, *, production=None, mount_path=None)` | The build contract of the installed client endpoints; `api` may be the `Api` or its ASGI or WSGI app |
+| `export_client_contract(api, *, production=None, mount_path=None)` | The build contract of the installed client endpoints; `api` may be the `Api` or its ASGI or WSGI app. Raises `ValueError`, naming the routes without a client profile, when there are none |
 | `DiagnosticAccess(authorize, audit)` | Opt-in, audited SQL diagnostics for trusted callers |
 
 ## Authentication
