@@ -22,6 +22,7 @@ from hypequery.execution.utils.parameter_text import parameter_text
 from hypequery.execution.utils.settings_clause import settings_clause
 
 from ..errors import CliError
+from .native_stderr import quiet_native_stderr
 
 
 class _Result(Protocol):
@@ -66,7 +67,8 @@ def chdb_catalog(path: Path) -> Iterator[ChdbCatalogClient]:
     except ModuleNotFoundError as exc:
         raise CliError('Reading a chDB database requires: pip install "hypequery[chdb]"') from exc
     try:
-        connection: _Connection = chdb.connect(str(path))
+        with quiet_native_stderr():
+            connection: _Connection = chdb.connect(str(path))
     except Exception as exc:
         # chDB locks an on-disk database to one process.
         raise CliError(
