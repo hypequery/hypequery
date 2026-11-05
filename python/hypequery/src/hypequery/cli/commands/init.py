@@ -12,7 +12,7 @@ from dataclasses import replace
 from pathlib import Path
 from typing import cast
 
-from ..errors import CliError
+from ..errors import CliError, DatabaseOpenError
 from ..generators.chdb_project import DEFAULT_CHDB_PATH, chdb_templates, require_chdb_framework
 from ..generators.framework_apps import RUN_COMMAND, Framework, offline_templates, project_files
 from ..guided_init import TypedConnection, can_guide, env_lines, guide
@@ -104,11 +104,13 @@ def _create(options: InitOptions, environ: Mapping[str, str] | None, funnel: Ini
                 environ=environ,
                 chdb_path=database_dir,
             )
-        except DiscoveryConnectionError as exc:
+        except DatabaseOpenError as exc:
             funnel.connection_failed()
-            raise DiscoveryConnectionError(
-                f"{exc} To create the project without a database, add --skip-connection."
-            ) from exc
+            if isinstance(exc, DiscoveryConnectionError):
+                raise DiscoveryConnectionError(
+                    f"{exc} To create the project without a database, add --skip-connection."
+                ) from exc
+            raise
         funnel.connected()
         selection = TableSelection(options.tables, options.exclude_tables).snapshot()
         generated = generate_datasets(

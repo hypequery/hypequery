@@ -19,7 +19,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, TextIO, cast
 from urllib.parse import urlsplit
 
-from .errors import CliError
+from .errors import CliError, DatabaseOpenError
 from .generators.chdb_project import CHDB_FRAMEWORKS, DEFAULT_CHDB_PATH
 from .generators.framework_apps import FRAMEWORKS, NAMES, Framework, project_files
 from .options import InitOptions
@@ -110,10 +110,17 @@ def guide(
             prompter, cwd, directory, framework, offline=None, asked=options.directory is None
         )
         if not options.skip_connection:
-            catalog = _chdb_catalog(prompter, cwd / directory, options.chdb_path)
+            try:
+                catalog = _chdb_catalog(prompter, cwd / directory, options.chdb_path)
+            except DatabaseOpenError:
+                funnel.connection_failed()
+                raise
     elif not options.skip_connection:
         connection, typed, catalog = _connect(prompter, environ, funnel)
-    if catalog is not None:
+    # Recorded now, so a run cancelled at a later question still says how connecting went.
+    if catalog is None:
+        funnel.offline()
+    else:
         funnel.connected()
 
     tables = options.tables
@@ -228,7 +235,8 @@ def _connect(
         try:
             catalog = discover_catalog(environ=candidate, tenant_hints=TENANT_HINTS)
         except CliError as exc:
-            funnel.connection_failed()
+            if isinstance(exc, DatabaseOpenError):
+                funnel.connection_failed()
             say(str(exc))
             action = prompter.choose(
                 "What next?",
