@@ -63,6 +63,8 @@ def wire_query(dataset: Dataset, query: DatasetQuery) -> dict[str, object]:
         wire["measures"] = list(query.measures)
     if query.filters:
         wire["filters"] = [_filter_node(item) for item in query.filters]
+    if query.segments:
+        wire["segments"] = list(dict.fromkeys(query.segments))
     if query.order_by:
         wire["orderBy"] = [
             {"field": item.field, "direction": item.direction} for item in query.order_by

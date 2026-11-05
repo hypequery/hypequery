@@ -18,6 +18,7 @@ from hypequery.datasets import (
     filter,  # noqa: A004
     measure,
     resolved_rows,
+    segment,
 )
 from hypequery.execution import ClickHouseConnection, create_clickhouse_executor
 
@@ -355,3 +356,22 @@ def test_collapsing_engines_keep_surviving_positive_rows(
     )
     expected = _truth(admin, _COLLAPSED[source])
     assert _strings(tuple(row.values()) for row in result.data) == _strings(expected)
+
+
+def test_a_segment_matches_its_hand_written_predicate(admin: object, client: object) -> None:
+    churned_pros = dataset(
+        "customers",
+        source="customers",
+        dimensions=dict(customers.dimensions),
+        measures={"customers": measure.count("plan")},
+        segments={"churnedPro": segment(filter.eq("plan", "pro"), filter.is_not_null("churnedAt"))},
+    )
+    result = client.execute(  # type: ignore[attr-defined]
+        churned_pros, DatasetQuery(measures=("customers",), segments=("churnedPro",))
+    )
+    expected = _truth(
+        admin,
+        "SELECT count(plan) FROM hq_feature_port.customers "
+        "WHERE plan = 'pro' AND churned_at IS NOT NULL",
+    )
+    assert str(result.data[0]["customers"]) == str(expected[0][0]) == "1"
