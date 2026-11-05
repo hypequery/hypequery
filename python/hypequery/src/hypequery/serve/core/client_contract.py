@@ -100,6 +100,7 @@ class ClientEndpointRegistry:
 
     def __init__(self, authentication: Authentication) -> None:
         self._bindings: list[ClientEndpointBinding] = []
+        self._omitted: list[Route] = []
         #: The owning API's authentication; discovery authenticates each source
         #: with its own rather than trusting another API's result.
         self.authentication = authentication
@@ -107,6 +108,14 @@ class ClientEndpointRegistry:
     @property
     def bindings(self) -> tuple[ClientEndpointBinding, ...]:
         return tuple(self._bindings)
+
+    @property
+    def omitted(self) -> tuple[Route, ...]:
+        """Dataset and metric routes installed without a client profile."""
+        return tuple(self._omitted)
+
+    def omit(self, route: Route) -> None:
+        self._omitted.append(route)
 
     def check(self, binding: ClientEndpointBinding) -> None:
         descriptor = binding.contract(binding.path, None)["contract"]["endpoints"][0]

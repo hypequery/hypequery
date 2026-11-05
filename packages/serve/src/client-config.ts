@@ -16,22 +16,23 @@ export type ApiClientConfig = Record<string, QueryClientConfig>;
 /**
  * Extract serializable client configuration from a ServeBuilder.
  * This generates a runtime object that can be used client-side to configure
- * HTTP methods and paths for each query.
+ * the HTTP method and full request path of each query, metric and dataset.
  *
- * Prioritizes route-level method configuration over endpoint defaults.
+ * @deprecated Use `api.manifest()`, which returns the same routes and is what
+ * `@hypequery/react` accepts as `manifest`. Retained for compatibility; it
+ * delegates to `api.manifest()`.
  *
  * @example
- * // Server-side (e.g., in api/config/route.ts)
+ * // Server-side (e.g., in app/api/hypequery-manifest/route.ts)
  * import { api } from '@/analytics/queries';
- * import { extractClientConfig } from '@hypequery/serve';
  *
  * export async function GET() {
- *   return Response.json(extractClientConfig(api));
+ *   return Response.json(api.manifest());
  * }
  *
  * // Client-side
- * const config = await fetch('/api/config').then(r => r.json());
- * createHooks<Api>({ baseUrl: '/api/hypequery', config });
+ * const manifest = await fetch('/api/hypequery-manifest').then(r => r.json());
+ * createHypequeryClient<Api>({ baseUrl: '/api/analytics', manifest });
  */
 export function extractClientConfig<
   TQueries extends Record<string, any>,
@@ -39,6 +40,15 @@ export function extractClientConfig<
   TAuth extends AuthContext
 >(api: ServeBuilder<TQueries, TContext, TAuth>): ApiClientConfig {
   const config: ApiClientConfig = {};
+
+  // The manifest carries each route's full path: the base path plus any
+  // `api.route(...)` override. Endpoint metadata alone has neither.
+  if (typeof api.manifest === "function") {
+    for (const [key, route] of Object.entries(api.manifest())) {
+      config[key] = { method: route.method, path: route.path };
+    }
+    return config;
+  }
 
   // Prefer route-level config if available
   if (api._routeConfig) {

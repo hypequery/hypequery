@@ -7,7 +7,6 @@ from typing import TYPE_CHECKING, cast
 from ...derived_measures import DerivedMeasure
 from ...formulas import Formula, FormulaBinary, FormulaLiteral, FormulaReference
 from ...measures import Measure
-from ...query_helpers import Filter
 from ...utils.derived_measures import literal_parameter_type
 from ...utils.relationship_measures import measure_filter_field
 from ..aggregates import AggregateCall
@@ -111,11 +110,9 @@ class MeasureFeature(CompilerFeature):
         aggregate = dialect.aggregate(name, measure, guarded(measure.field), arg)
         predicates = [
             compiler.filtering.predicate(
-                Filter(
-                    field=f"{resolved.relationship_name}."
-                    f"{measure_filter_field(target, filter_value.field)}",
-                    operator=filter_value.operator,
-                    value=filter_value.value,
+                filter_value.with_field(
+                    f"{resolved.relationship_name}."
+                    f"{measure_filter_field(target, filter_value.field)}"
                 )
             )
             for filter_value in measure.filters or ()

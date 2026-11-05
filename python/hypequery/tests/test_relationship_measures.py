@@ -391,6 +391,13 @@ def test_an_unregistered_target_is_an_internal_error() -> None:
     with pytest.raises(CompiledQueryError) as raised:
         _sql(DatasetQuery(measures=("target.unique",)), registry=create_dataset_registry(Sources))
     assert raised.value.category == "internal"
+    # The envelope stays generic; the operator still sees the cause and the fix.
+    assert raised.value.message == "The query could not be executed."
+    assert raised.value.diagnostic is not None
+    assert "targets unregistered dataset" in raised.value.diagnostic
+    assert "create_dataset_registry" in raised.value.diagnostic
+    assert raised.value.__notes__ == [raised.value.diagnostic]
+    assert "unregistered" not in str(raised.value.failure.to_data())
 
 
 def test_related_measures_beside_a_local_derived_projection() -> None:

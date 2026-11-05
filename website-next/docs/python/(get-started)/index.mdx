@@ -12,21 +12,21 @@ parameterized, and every query is scoped to the caller's tenant. The same defini
 endpoints, returns pandas, polars or Arrow, and feeds React hooks and MCP agents.
 
 <Callout type="warn" title="Beta">
-  The Python SDK is in beta (0.1.0b2). Its APIs may still change before 1.0, so pin the version you deploy.
+  The Python SDK is in beta (0.1.0b3). Its APIs may still change before 1.0, so pin the version you deploy.
 </Callout>
 
 ## Install
 
 <CodeBlock>
 ```bash
-pip install "hypequery[clickhouse]==0.1.0b2"
+pip install "hypequery[clickhouse]==0.1.0b3"
 ```
 </CodeBlock>
 
 Python 3.11 or later. Add extras as you need them: `server` for the dev runner, `jwt` for token auth, `django` or
 `flask` for native serving, `pandas`, `polars` or `arrow` for DataFrames, `clickhouse-async` for the async executor.
-No ClickHouse server to hand? An embedded chDB executor, with no server and no credentials,
-ships in the next beta.
+No ClickHouse server to hand? Install `hypequery[chdb]` and run the same datasets on
+[embedded ClickHouse (chDB)](/docs/python/datasets/chdb), with no server and no credentials.
 
 ## Define a dataset and query it
 
@@ -92,7 +92,7 @@ Flask. Every endpoint authenticates before reading the body and takes the tenant
 
 <CodeBlock>
 ```bash
-pip install "hypequery[clickhouse,jwt]==0.1.0b2" fastapi uvicorn
+pip install "hypequery[clickhouse,jwt]==0.1.0b3" fastapi uvicorn
 ```
 </CodeBlock>
 
