@@ -24,7 +24,8 @@
           "type": "named",
           "name": "--config",
           "description": "Path to a compiled config module that exports { datasets, analytics }.",
-          "valueHint": "./mcp-config.mjs",
+          "placeholder": "./mcp-config.mjs",
+          "format": "filepath",
           "isRequired": true
         }
       ]
