@@ -32,6 +32,13 @@ def _binary64_literal(value: object) -> object:
 
 
 def _filter_node(item: Filter) -> dict[str, object]:
+    if item.is_null_check:
+        # RFC 0023: a null check has no right-hand side.
+        return {
+            "kind": "comparison",
+            "operator": item.operator,
+            "left": {"kind": "reference", "name": item.field},
+        }
     value = _binary64_literal(item.value)
     if item.operator == "between" and type(value) is tuple:
         # RFC 0003 bounds are a two-item tuple; in/notIn take an array.
