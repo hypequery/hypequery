@@ -387,6 +387,15 @@ export const createAPI = <
             + 'to defineServe, or expose it as `context.db`.',
           );
         }
+        // MCP never runs the context factory, so a builder that only exists
+        // per request is unavailable there. Fail at startup, not on first query.
+        if (contextQueryBuilder && !contextQueryBuilder.current()) {
+          throw new Error(
+            'A query builder is required to execute datasets over MCP, and `context` is a '
+            + 'function, so its `db` only exists per HTTP request. Pass `queryBuilder` to serve(), '
+            + 'or use a static `context: { db }`.',
+          );
+        }
         return getAnalytics(resolvedQueryBuilder);
       },
     });

@@ -409,6 +409,18 @@ describe("Serve integration — metrics", () => {
       expect(data.status).toBe(200);
     });
 
+    it("fails MCP startup when the builder only exists per request", () => {
+      const mcpSource = (api: object) =>
+        (api as Record<symbol, { resolveAnalytics: () => unknown }>)[Symbol.for("hypequery.mcp-source.v1")];
+      const factory = createMockBuilderFactory();
+
+      const perRequest = createAPI({ context: () => ({ db: factory }), datasets: { orders: Orders } });
+      const fixed = createAPI({ context: { db: factory }, datasets: { orders: Orders } });
+
+      expect(() => mcpSource(perRequest).resolveAnalytics()).toThrow(/Pass `queryBuilder` to serve\(\)/);
+      expect(mcpSource(fixed).resolveAnalytics()).toBeDefined();
+    });
+
     it("rejects a request whose context function returns no db", async () => {
       const base = createMockBuilderFactory();
       let executions = 0;
