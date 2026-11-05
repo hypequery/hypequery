@@ -71,6 +71,19 @@ export type InferDimensionType<T extends DimensionDefinition> =
   T['fieldType'] extends 'timestamp' ? string :
   never;
 
+/**
+ * A dimension's value in a query result row, as returned over the wire.
+ *
+ * Dimensions pass through ClickHouse JSON unnormalized: the built-in adapter
+ * quotes Int64 and wider integers as strings to keep their precision, and
+ * Nullable columns yield null. A dataset declares neither column types nor
+ * nullability, so numeric dimensions are `number | string` and every dimension
+ * may be null. Use {@link InferDimensionType} for the declared value type.
+ */
+export type DimensionResultValue<T extends DimensionDefinition> =
+  | (T['fieldType'] extends 'number' ? number | string : InferDimensionType<T>)
+  | null;
+
 export type RelationshipKind = 'belongsTo' | 'hasMany' | 'hasOne';
 
 /** One physical source/target column equality in a relationship key. */
@@ -874,22 +887,23 @@ type SelectedDatasetMeasures<
   ? Extract<TName, DatasetMeasureNames<TDataset>>
   : KnownStringKeysOrFallback<BaseMeasures<TDataset['measures']>>;
 
+// The bucket of a NULL time-key value is null.
 type PeriodSelection<TQuery> = TQuery extends { by: TimeGrain }
-  ? { period?: string }
+  ? { period?: string | null }
   : {};
 
 /** A broad typed result row for a dataset, independent of projection. */
 export type DatasetRow<TDataset extends DatasetInstance<any, any, any, any>> =
-  & { [K in DatasetDimensionNames<TDataset>]?: InferDimensionType<DatasetQueryableDimensions<TDataset>[K]> }
+  & { [K in DatasetDimensionNames<TDataset>]?: DimensionResultValue<DatasetQueryableDimensions<TDataset>[K]> }
   & { [K in DatasetMeasureNames<TDataset>]?: string | null }
-  & { period?: string };
+  & { period?: string | null };
 
 /** A projection-aware typed result row for a dataset query. */
 export type DatasetRowFor<
   TDataset extends DatasetInstance<any, any, any, any>,
   TQuery = DatasetQueryFor<TDataset>,
 > =
-  & { [K in SelectedDimensions<TDataset, TQuery>]?: InferDimensionType<DatasetQueryableDimensions<TDataset>[K]> }
+  & { [K in SelectedDimensions<TDataset, TQuery>]?: DimensionResultValue<DatasetQueryableDimensions<TDataset>[K]> }
   & { [K in SelectedDatasetMeasures<TDataset, TQuery>]?: string | null }
   & PeriodSelection<TQuery>;
 
@@ -929,9 +943,9 @@ export type MetricRow<
   TDataset extends DatasetInstance<any, any, any, any>,
   TMetricName extends string,
 > =
-  & { [K in DatasetDimensionNames<TDataset>]?: InferDimensionType<DatasetQueryableDimensions<TDataset>[K]> }
+  & { [K in DatasetDimensionNames<TDataset>]?: DimensionResultValue<DatasetQueryableDimensions<TDataset>[K]> }
   & { [K in TMetricName]?: string | null }
-  & { period?: string };
+  & { period?: string | null };
 
 /** A projection-aware typed result row for a metric query. */
 export type MetricRowFor<
@@ -939,7 +953,7 @@ export type MetricRowFor<
   TMetricName extends string,
   TQuery = MetricQueryFor<TDataset, TMetricName>,
 > =
-  & { [K in SelectedDimensions<TDataset, TQuery>]?: InferDimensionType<DatasetQueryableDimensions<TDataset>[K]> }
+  & { [K in SelectedDimensions<TDataset, TQuery>]?: DimensionResultValue<DatasetQueryableDimensions<TDataset>[K]> }
   & { [K in TMetricName]?: string | null }
   & PeriodSelection<TQuery>;
 

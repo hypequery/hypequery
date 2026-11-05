@@ -13,11 +13,11 @@ from importlib.util import find_spec
 from types import TracebackType
 from typing import Any, Protocol, Self, TypedDict, cast
 
-from hypequery.datasets.planner import SETTING_DEFINITIONS, CompiledQuery, CompiledQueryError
+from hypequery.datasets.planner import CompiledQuery, CompiledQueryError
 
 from .cancellation import KillRetries, acquire_slot, run_with_policy, terminal_error
 from .errors import safe_driver_error
-from .parameters import bound_parameters
+from .parameters import query_arguments
 from .readonly_settings import (
     ReadonlyPolicy,
     readonly_setting_error,
@@ -150,23 +150,6 @@ def _capacity(value: int) -> int:
     return value
 
 
-def _query_arguments(compiled: CompiledQuery) -> tuple[dict[str, object], dict[str, int]]:
-    reason = terminal_error(compiled)
-    if reason is not None:
-        raise reason
-    parameters = bound_parameters(compiled)
-    # QuerySettings is a dataclass and can be constructed directly; recheck it
-    # at the adapter boundary before allowing a setting onto the wire.
-    settings = dict(compiled.settings.values)
-    if set(settings) != set(SETTING_DEFINITIONS) or any(
-        type(value) is not int
-        or not SETTING_DEFINITIONS[name].minimum <= value <= SETTING_DEFINITIONS[name].maximum
-        for name, value in settings.items()
-    ):
-        raise CompiledQueryError("internal", "invalid query settings", query_id=compiled.query_id)
-    return parameters, settings
-
-
 def _driver_failure(
     exc: Exception, compiled: CompiledQuery, policy: ReadonlyPolicy
 ) -> CompiledQueryError:
@@ -252,7 +235,7 @@ class ClickHouseExecutor:
             raise safe_driver_error(exc, query_id) from None
 
     def execute(self, compiled: CompiledQuery) -> QueryRows:
-        parameters, settings = _query_arguments(compiled)
+        parameters, settings = query_arguments(compiled)
         selected = wire_settings(self._client, settings, self._readonly_policy, compiled.query_id)
         # The driver's settings path puts query_id in HTTP parameters.
         # transport_settings becomes headers, which ClickHouse ignores here.
@@ -351,7 +334,7 @@ class AsyncClickHouseExecutor:
         try:
             if self._closed:
                 raise CompiledQueryError("unavailable", "", query_id=compiled.query_id)
-            parameters, settings = _query_arguments(compiled)
+            parameters, settings = query_arguments(compiled)
             selected = wire_settings(
                 self._client, settings, self._readonly_policy, compiled.query_id
             )

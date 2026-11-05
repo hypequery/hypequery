@@ -334,7 +334,10 @@ The normalized query is a closed object. Every field is always present, and
 | `by` | yes | yes | Absent becomes `null` |
 | `offset` | yes | yes | Absent or `0` becomes `null` |
 
-`includeMeta` and `limit` are removed. The reasons for each rule:
+`includeMeta` and `limit` are removed. A query with a non-empty `having`, or a
+`timezone` other than `UTC`, has no preimage and fails with
+`HQ_CACHE_PREIMAGE_INVALID_QUERY`; `timezone: "UTC"` normalizes as if absent
+(RFC 0025). The reasons for each rule:
 
 - **Column and row order are part of the result.** So `dimensions`, `measures`
   and `orderBy` keep their order.

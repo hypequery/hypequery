@@ -73,6 +73,8 @@ npx hypequery dev
 | `hypequery generate` | Rebuild `analytics/schema.ts` from your current ClickHouse schema |
 | `hypequery generate:types` | Alias for `hypequery generate` |
 | `hypequery generate:datasets` | Generate dataset (semantic layer) definitions from your ClickHouse schema |
+| `hypequery generate:manifest <api>` | Write the route manifest React hooks use to call a TypeScript API |
+| `hypequery generate:client [contract]` | Generate typed React client types and routes from a Python client contract or the live cloud release |
 | `hypequery deploy <cloud>` | Build, release, and deploy a dataset-only Cloud publication, then print where it is served (hypequery cloud is not live yet) |
 | `hypequery mcp [file]` | Serve this project's datasets to an MCP client over stdio, or check an endpoint with `--self-test` |
 | `hypequery deployment:validate <artifact>` | Verify a deployment bundle or validate contract JSON and report its identity |
@@ -346,6 +348,62 @@ npx @hypequery/cli generate:datasets --path analytics --diff
 npx @hypequery/cli generate:datasets --path analytics --check
 ```
 </CodeBlock>
+
+## `hypequery generate:manifest <api>`
+
+<CodeBlock>
+```bash
+npx hypequery generate:manifest analytics/api.ts --output analytics/hypequery-manifest.json
+```
+</CodeBlock>
+
+Loads the API module, calls `api.manifest()`, and writes the result as JSON: each query, metric and dataset key
+(`dataset:<name>` for datasets) mapped to its HTTP method and full path. Import the file in the module that creates your
+React hooks, together with `import type { api }` and `InferApiType`, so no server code reaches the browser bundle. See
+[React: setup](/docs/react/getting-started#setup).
+
+The module must export the value returned by `createAPI()` or `initServe(...).serve(...)`. Loading it runs its top-level
+code, so the environment it needs to construct a client must be available.
+
+**Options:**
+- **`-o, --output <file>`** – Where to write the manifest. Defaults to `analytics/hypequery-manifest.json`. An existing
+  file is overwritten
+
+Re-run it whenever you add or re-route an endpoint, for example in a `prebuild` script.
+
+## `hypequery generate:client [contract]`
+
+<CodeBlock>
+```bash
+# From a client contract exported by a Python API
+npx hypequery generate:client client-contract.json --output src/hypequery-client.ts
+
+# From the live cloud release of the target chosen with `hypequery login`
+npx hypequery generate:client --cloud --output src/hypequery-client.ts
+```
+</CodeBlock>
+
+Generates a browser-safe TypeScript file from a **client contract**: the signed description of each endpoint's fields,
+routes and schema hash. It exports `ClientApi` (request and response types for `createAnalyticsHooks<ClientApi>()`),
+`clientManifest` (routes and schema hashes), `clientContractHash`, and, with `--cloud`, `clientBaseUrl`. The generator
+reads data only: it never imports your API module or opens a database connection.
+
+Contracts come from a Python API (`python -m hypequery export client-contract`, see
+[Python: React and MCP clients](/docs/python/client-endpoints#3-export-the-contract)) or from a cloud release. Only the
+**build** view is accepted; the authorized view served at a live `/v1/client-contract` route is refused. A TypeScript
+API does not export a client contract: type its hooks with `InferApiType` and `generate:manifest` instead.
+
+**Options:**
+- **`-o, --output <file>`** – Where to write the client. Defaults to `analytics/hypequery-client.ts`
+- **`--check`** – Do not write; exit non-zero when the output is missing or out of date
+- **`--force`** – Replace an existing generated file. Files not written by `generate:client` are never overwritten
+- **`--cloud`** – Read the contract from the live cloud release instead of a file
+- **`--project <project>`**, **`--environment <environment>`** – With `--cloud`, override the target chosen at login
+- **`--endpoint <url>`** – With `--cloud`, an HTTPS submission endpoint; requires `HYPEQUERY_API_TOKEN`
+
+When an endpoint changes after the client was generated, the server answers requests from the old client with
+`409 CLIENT_SCHEMA_CHANGED`, and the hooks raise `ClientSchemaChangedError`. Regenerate the client and review the type
+errors.
 
 ## `hypequery deploy <cloud>`
 

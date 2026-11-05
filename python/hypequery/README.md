@@ -260,6 +260,23 @@ to your login. The generated project depends on `fastapi` itself: hypequery
 has no FastAPI extra, because mounting needs none. Starlette and Litestar apps
 can mount the standalone `app` the same way.
 
+`--database chdb` scaffolds onto embedded ClickHouse instead of a server: the
+app opens a chDB database directory (`--chdb-path`, default `analytics.chdb`,
+relative to the project) with `create_chdb_executor`, the project installs the
+`chdb` extra, and there are no connection settings. The path is recorded in the
+project's `pyproject.toml` (`[tool.hypequery] chdb-path`). When that directory
+exists, init reads its tables like a server's; when it does not, init writes
+the orders example and its README seeds the database from `seed.sql`. init
+never creates the database itself. chDB serves
+the `standalone` and `fastapi` apps; the Django and Flask integrations need a
+ClickHouse server.
+
+`hypequery generate datasets` reads chDB when given `--database chdb` or
+`--chdb-path`, when `pyproject.toml` records a path, or when the project has an
+`analytics.chdb` directory and no `CLICKHOUSE_URL` or `CLICKHOUSE_HOST` is set.
+chDB lets one process open a database at a time, so stop `hypequery dev`
+before regenerating.
+
 `hypequery dev [module:app]` defaults to `app:app` on `127.0.0.1:8000` with reload
 enabled. Use `--no-watch`, `--hostname` or `-p`/`--port` to change those options.
 `--no-reload` and `--host` remain supported aliases. The target is an API from
@@ -286,6 +303,7 @@ for the SDK and pending beta features.
 pip install hypequery
 pip install "hypequery[clickhouse]"
 pip install "hypequery[clickhouse-async]"
+pip install "hypequery[chdb]"     # embedded ClickHouse, no server
 pip install "hypequery[server]"
 pip install "hypequery[jwt]"      # JWT auth for hypequery.serve
 pip install "hypequery[django]"   # or [flask]
@@ -297,6 +315,7 @@ pip install "hypequery[pandas]"   # or [polars], [arrow]
 | (none) | pydantic, anyio | defining datasets, planning, `to_sql()`, protocol artifacts, and `hypequery.serve` under any ASGI server |
 | `clickhouse` | clickhouse-connect | `create_clickhouse_executor` and `hypequery init` / `generate` |
 | `clickhouse-async` | clickhouse-connect with aiohttp | `create_async_clickhouse_executor`; also covers everything `clickhouse` does |
+| `chdb` | chDB (Linux and macOS) | `create_chdb_executor`: embedded ClickHouse in-process, no server |
 | `server` | uvicorn | `start_server` and `hypequery dev` |
 | `jwt` | PyJWT, cryptography | `jwt_strategy` and `analytics_token_issuer` |
 | `django` | Django, clickhouse-connect | `hypequery.contrib.django` |
@@ -838,7 +857,9 @@ app = to_asgi_app(api)  # uvicorn app:app, or mount it in another ASGI app
   `await api.handle(ServeRequest(...))` serves one request with no server.
 - **Endpoints.** `datasets={"name": dataset}` serves
   `POST /datasets/<name>/query`, and `metrics={"name": create_metric_endpoint(...)}`
-  serves `POST /metrics/<name>`, as in TypeScript. With either, `GET /discovery`
+  serves `POST /metrics/<name>`, as in TypeScript; a metric's key is its name,
+  so its rows and client contract call it `name`. `client_profile=` puts every
+  `Dataset` entry in the client contract. With either, `GET /discovery`
   lists their datasets, authenticated by default (`discovery=False` leaves it
   out). `add_dataset_endpoint(api, path, ...)` and the other `add_*` functions
   serve endpoints at any other path; `base_path=` prefixes every route.
@@ -1120,6 +1141,47 @@ runs until `max_execution_time`, and the caller still gets `aborted` or
 stops the query: its driver call cannot return early. The native async executor needs the grant less, since its
 driver also asks ClickHouse to cancel a readonly query when the connection
 closes.
+
+## Embedded ClickHouse (chDB)
+
+With the `chdb` extra, the same datasets run on [chDB](https://github.com/chdb-io/chdb),
+the ClickHouse engine embedded in your Python process: no server, no
+credentials, and the same compiled SQL the ClickHouse executors send. Use it
+for tests and CI, local development against a file or an in-memory database,
+or a serverless function.
+
+```python
+from hypequery.datasets import create_dataset_client
+from hypequery.execution import create_chdb_executor
+
+executor = create_chdb_executor("./analytics.chdb")  # or create_chdb_executor() for in-memory
+client = create_dataset_client(executor=executor)
+```
+
+`create_chdb_executor(path, database="default")` opens *path*, a directory that
+keeps its tables between runs, or `":memory:"` (the default). Unqualified
+dataset sources resolve in `database`. Swap in `create_clickhouse_executor` to
+point the same code at a ClickHouse server. `create_async_chdb_executor` is the
+async form.
+
+Results match the ClickHouse executors': Decimals as strings with their scale,
+timestamps as UTC instants, and values bound as typed query parameters. Every
+query is read-only and carries the planner's limits. chDB's own rules differ
+from a server's:
+
+- A process holds one chDB path at a time. Every connection to it shares one
+  database, and opening another path fails until they are all closed.
+- An in-memory database is discarded when its last connection closes.
+- A connection runs one query at a time, and a running query cannot be
+  stopped. The executor shortens the query's `max_execution_time` to the
+  caller's remaining time, rounded up to whole seconds with a one-second
+  minimum. Only the async executor returns promptly on cancellation or
+  deadline expiry; a synchronous `execute()` waits until the running query
+  finishes or reaches that limit, which can be after the caller's deadline,
+  and one queued behind a running query notices cancellation only when its
+  turn comes or its deadline passes. Closing an executor waits for a running
+  query too.
+- chDB publishes wheels for Linux and macOS only.
 
 ## Canonical protocol values
 
@@ -1932,7 +1994,8 @@ separate integrations; this SDK does not infer deployment paths or permission.
 
 ### Registered client endpoints
 
-Opt in to the strict client profile when installing a dataset or metric route:
+Opt in to the strict client profile when installing a dataset or metric route,
+or for every `Dataset` entry with `create_api(..., client_profile=...)`:
 
 ```python
 from hypequery.datasets import ClientQueryProfile
@@ -1956,7 +2019,8 @@ Proxy headers never determine artifact paths, nor do ASGI's `root_path` and
 WSGI's `SCRIPT_NAME`: the first request served below a prefix that differs from
 `client_mount_path` logs a warning on `hypequery.serve` naming the setting. A strict endpoint refuses a path
 another POST route already serves. Legacy routes keep their input behavior and
-are omitted from this export. `to_asgi_app` exports the contract once when it
+are omitted from this export; a build export with no client endpoints at all
+raises `ValueError` naming them. `to_asgi_app` exports the contract once when it
 builds the app, so a misconfiguration fails at startup.
 
 Consumers can send the endpoint's `schemaHash` in `X-Hypequery-Client-Schema`.
@@ -2000,9 +2064,19 @@ contract describes capabilities; query authentication and policy still apply.
 
 ### Offline export command
 
-Put a zero-argument definition-only factory in a project module. It should return
-`export_client_contract(...)` from `hypequery.datasets`, or its signed `contract`
-member. Then run the Python CLI from that project directory:
+Point `--factory` at the installed API, `module:api` (or its `to_asgi_app` or
+`to_wsgi_app` application, or a zero-argument function returning one), and the
+CLI exports its build view: the contract cannot drift from the routes it serves.
+The export imports the module but runs no query; Django's `get_client()` and
+Flask's `client_for(app)` connect on first query, so they need no database.
+
+```bash
+python -m hypequery export client-contract --factory analytics.api:api
+```
+
+Alternatively, put a zero-argument definition-only factory in a project module.
+It should return `export_client_contract(...)` from `hypequery.datasets`, or its
+signed `contract` member. Then run the Python CLI from that project directory:
 
 ```bash
 python -m hypequery export client-contract --factory client_contract:build
@@ -2016,9 +2090,12 @@ path, or `--output -` for stdout. Existing artifacts require `--force` to replac
 preserve existing permissions and refuse symlinks or concurrent changes. Existing
 input is bounded to the contract's 1 MiB budget before project code is imported.
 
-The command explicitly imports the named project factory; use a definition-only
-module rather than an application module that starts services or opens connections.
-The CLI itself loads no database/serving adapter. It verifies supplied identities
-and emits only canonical contract JSON in stdout mode; project chatter and import
-failures are redacted. It does not infer routes, authenticate a principal or grant
-query access. This artifact is the input to the frontend/MCP generation workflow.
+The command imports the named factory module and nothing else of the project. An
+application module should build its API without starting services or opening
+connections, as Django's `get_client()` and Flask's `client_for(app)` do; the
+definition-only module is the alternative when importing the app is not possible.
+The CLI loads Serve only to read an API the project itself imported. It verifies
+supplied identities and emits only canonical contract JSON in stdout mode; project
+chatter and import failures are redacted. It does not infer routes, authenticate a
+principal or grant query access. This artifact is the input to the frontend/MCP
+generation workflow.

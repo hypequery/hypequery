@@ -180,7 +180,7 @@ def offline_templates(templates: dict[str, str], framework: Framework) -> dict[s
 
 
 #: The README line creating the development token; a shell command, not a secret.
-_TOKEN_EXPORT = (
+TOKEN_EXPORT = (
     "export HYPEQUERY_DEV_TOKEN="  # noqa: S105
     "\"$(python -c 'import secrets; print(secrets.token_urlsafe(32))')\"\n"
 )
@@ -211,7 +211,7 @@ def with_extras(readme: str, framework: Framework) -> str:
         )
         .replace(
             configure[1],
-            _TOKEN_EXPORT
+            TOKEN_EXPORT
             + "```\n\nThe token is for local development; use your real authentication before\n"
             "exposing the app to users. Your app itself reads",
         )

@@ -12,8 +12,10 @@ from hypequery.serve import (
 )
 
 from ..utils.config import required_environment
-from ..utils.server import application
+from ..utils.server import application, contract_api
 from .definitions import orders, profile
+
+CORS_ORIGINS = ("http://127.0.0.1:5173",)
 
 
 def install(api: Api, client: DatasetClient) -> None:
@@ -42,7 +44,7 @@ def create_application() -> AsgiApp:
     return application(
         datasets=(orders,),
         install=install,
-        cors_origins=("http://127.0.0.1:5173",),
+        cors_origins=CORS_ORIGINS,
         principals={
             token_a: Principal(
                 subject="alice", tenant_id="a", scopes=frozenset({"analytics:read"})
@@ -50,3 +52,8 @@ def create_application() -> AsgiApp:
             token_b: Principal(subject="bob", tenant_id="b", scopes=frozenset({"analytics:read"})),
         },
     )
+
+
+def contract() -> Api:
+    """The installed API, for `hypequery export client-contract`; it never connects."""
+    return contract_api(datasets=(orders,), install=install, cors_origins=CORS_ORIGINS)

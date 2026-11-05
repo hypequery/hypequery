@@ -300,5 +300,45 @@
     },
     "rowLimit": -1,
     "error": "HQ_CACHE_PREIMAGE_INVALID_TENANT"
+  },
+  {
+    "id": "query-having-uncacheable",
+    "secretHex": "1111111111111111111111111111111111111111111111111111111111111111",
+    "definitionIdentity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "query": {
+      "kind": "dataset",
+      "dataset": "orders",
+      "measures": [
+        "revenue"
+      ],
+      "having": [
+        {
+          "measure": "revenue",
+          "operator": "gt",
+          "value": 1
+        }
+      ]
+    },
+    "tenant": {
+      "mode": "none"
+    },
+    "rowLimit": null,
+    "error": "HQ_CACHE_PREIMAGE_INVALID_QUERY"
+  },
+  {
+    "id": "query-timezone-not-folded",
+    "secretHex": "1111111111111111111111111111111111111111111111111111111111111111",
+    "definitionIdentity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "query": {
+      "kind": "dataset",
+      "dataset": "orders",
+      "by": "day",
+      "timezone": "Europe/London"
+    },
+    "tenant": {
+      "mode": "none"
+    },
+    "rowLimit": null,
+    "error": "HQ_CACHE_PREIMAGE_INVALID_QUERY"
   }
 ]

@@ -371,8 +371,9 @@ To serve from an app you already have, mount the same API in [FastAPI](/docs/pyt
 
 ### Consume from React and agents
 
-The same React hooks and MCP server as TypeScript work against a Python API. Declare client endpoints, export their
-contract with `hypequery export client-contract`, and generate a typed client from it; see
+The same React hooks and MCP server as TypeScript work against a Python API. Give the endpoints a client profile,
+`create_dataset_endpoint(..., client_profile=ClientQueryProfile())`, export their contract from the API with
+`python -m hypequery export client-contract --factory app:api`, and generate a typed client from it; see
 [React and MCP clients](/docs/python/client-endpoints).
 
 ### Preview docs and routes [#preview-docs-and-routes]

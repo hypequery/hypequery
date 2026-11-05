@@ -1,5 +1,11 @@
 import type { ProtocolSemanticQuery } from '@hypequery/protocol';
-import type { MetricFilter, MetricOrderBy, SemanticTenantRuntime, TimeGrain } from '../types.js';
+import type {
+  DatasetHavingCondition,
+  MetricFilter,
+  MetricOrderBy,
+  SemanticTenantRuntime,
+  TimeGrain,
+} from '../types.js';
 import { PortableExecutionUnsupportedError } from '../portable-execution-errors.js';
 import { rehydrateMeasureFilter } from './protocol-rehydrate-filters.js';
 import { UNSUPPORTED_CONTRACT_REASONS } from './unsupported-contract-reasons.js';
@@ -41,6 +47,17 @@ export function semanticQuery(operation: ProtocolSemanticQuery, maxRows: number)
     limit: operation.limit ?? maxRows,
     ...(operation.offset === undefined ? {} : { offset: operation.offset }),
     ...(operation.by === undefined ? {} : { by: operation.by as TimeGrain }),
+    // RFC 0025: the dataset client applies both on the queryBuilder path,
+    // and validates `having` against the selection again.
+    ...(operation.kind === 'dataset' && operation.having !== undefined
+      ? {
+          having: operation.having.map(condition => ({
+            ...condition,
+            measure: String(condition.measure),
+          })) as DatasetHavingCondition[],
+        }
+      : {}),
+    ...(operation.timezone === undefined ? {} : { timezone: operation.timezone }),
   };
 }
 

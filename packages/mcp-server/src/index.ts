@@ -61,7 +61,10 @@ export {
   type MCPExecutionErrorCode,
   type MCPToolErrorCode,
   type MCPToolErrorCategory,
+  type MCPToolErrorOptions,
 } from './errors.js';
+export { mcpToolErrorFromSemanticFailure } from './utils/semantic-failure-error.js';
+export { createMCPErrorResponse } from './tools/utils/tool-response.js';
 export {
   MAX_QUERY_LIMIT,
   DEFAULT_QUERY_LIMIT,
