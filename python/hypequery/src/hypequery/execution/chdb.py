@@ -105,7 +105,10 @@ class ChdbExecutor:
         return decode_result(decode_json_compact(payload, compiled.query_id), compiled.query_id)
 
     def close(self) -> None:
-        """Close the chDB connection; an in-memory database goes with the last one."""
+        """Close the chDB connection; an in-memory database goes with the last one.
+
+        chDB cannot stop a running query, so closing waits for one to finish.
+        """
 
         _OPEN_EXECUTORS.pop(self, None)
         closer = getattr(self._connection, "close", None)
@@ -204,10 +207,13 @@ class AsyncChdbExecutor:
                 self._semaphore.release()
 
     def close(self) -> None:
-        """Stop admitting work and close the connection without waiting.
+        """Stop admitting work and close the connection.
 
-        For shutdown without an event loop. A query still running on the
-        worker fails as its connection closes; prefer :meth:`aclose`.
+        For shutdown without an event loop. Queued work is dropped, but a
+        query already running on the worker finishes first: chDB cannot stop
+        it, and its close waits for it, so this blocks for up to the query's
+        time limit. :meth:`aclose` does the same without blocking the event
+        loop.
         """
 
         self._closed = True
@@ -261,8 +267,9 @@ def _connect(path: str, database: str) -> _ChdbConnection:
     except Exception as exc:
         # Startup configuration, not a request: say what to fix and keep the cause.
         raise RuntimeError(
-            f"chDB could not open {path!r}. A process holds one chDB path at a time, "
-            "so close every chDB connection or session on another path first."
+            f"chDB could not open {path!r} ({exc}). A process holds one chDB path at a "
+            "time; if another path is open, close every chDB connection or session on "
+            "it first."
         ) from exc
     if database != "default":
         try:
