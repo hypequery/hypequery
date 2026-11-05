@@ -9,6 +9,7 @@ import { cleanupLoadedApiArtifacts } from '../utils/load-api.js';
 import type { Command } from 'commander';
 import { withCommandTelemetry } from '../utils/telemetry/command-context.js';
 import { settleTelemetrySettings } from '../utils/telemetry/config-store.js';
+import { requestedCommand, suggestedCommand } from '../utils/telemetry/requested-command.js';
 
 async function loadEnv() {
   try {
@@ -87,7 +88,13 @@ async function main() {
       await finish(new CommandExit(0, 'success'));
       return;
     }
-    if (!selected) await lifecycle.begin(['unknown_command', 'unknown_option'].includes(telemetryErrorCode(error)) ? 'unknown' : requested ?? 'unknown');
+    if (!selected) {
+      // Commander rejects bad options and arguments before preAction runs.
+      const registered = program.commands.map(command => command.name());
+      await lifecycle.begin(requestedCommand(requested, registered));
+      const suggestion = suggestedCommand(error, registered);
+      if (suggestion) lifecycle.update('unknown', { suggested_command: suggestion });
+    }
     const exit = error instanceof CommandExit ? error
       : new CommandExit(commander.exitCode ?? 1, 'failure', telemetryErrorCode(error));
     await finishAndExit(exit.exitCode, exit.outcome, exit.errorCode);

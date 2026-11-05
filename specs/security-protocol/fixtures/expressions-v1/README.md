@@ -14,3 +14,5 @@ Generators have these language-neutral meanings:
 - `unsafe-accessor` is host-model conditional under RFC 0012 and exposes a reference's `name` through an accessor rather than a data property.
 
 RFC 0023 added the null checks: the `comparison-isNull`, `comparison-isNotNull` and `null-check-*` success cases and the `dataset-null-check-filters` query, and rejections for a null check with a `right` operand (including a `null` literal), one without `left`, and a value comparison without `right`.
+
+RFC 0025 added `having` and `timezone` to the query envelope: the `dataset-having-*`, `dataset-timezone-*` and `metric-timezone` queries, and the `having-*` and `timezone-*` rejections (a measure that isn't selected or with no `measures`, `like` and null-check operators, non-numeric and boolean values, wrong `between`/`in` shapes, an extra or missing member, `having` on a metric query, and a zone outside RFC 0018's registry or in the wrong case).

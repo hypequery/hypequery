@@ -150,7 +150,8 @@ example with `to_asgi_app(api, lifespan=...)`.
 </Callout>
 
 Endpoints installed **without** `client_profile` keep their ordinary request handling and are left out of client
-contracts.
+contracts. That includes a bare `Dataset` passed to `create_api(datasets={...})`; pass
+`create_dataset_endpoint(..., client_profile=...)` to opt it in.
 
 ## 3. Export the contract
 
@@ -177,7 +178,7 @@ for MCP and discovery; `generate:client` refuses it, because a build must come f
 If the API is mounted under a prefix, pass it as `mount_path=` to `export_client_contract(...)` and as
 `client_mount_path=` to `create_api(...)` so exported paths match the URLs browsers call.
 
-Then generate the React client in the frontend project, as described in
+Then generate the React client in the frontend project (`web/` here, where the contract was written), as described in
 [React: datasets served from Python](/docs/react/getting-started#datasets-served-from-python):
 
 <CodeBlock>

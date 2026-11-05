@@ -189,9 +189,9 @@ measure.approxCountDistinct('customerId')
 
 | Surface | Shipped capabilities |
 | --- | --- |
-| `@hypequery/serve` | In-process execution, HTTP routes, zod validation, OpenAPI, API key and JWT auth (`createJwtStrategy`), host-session auth (`fromContext`), short-lived analytics tokens, roles/scopes, tenant injection, client contract export (`api.clientContract()`, `hypequery export:client-contract`) with `X-Hypequery-Client-Schema` pinning, CORS, rate limiting, observability, Node and Fetch adapters |
-| `@hypequery/react` | Typed named-query hooks, metric hooks, dataset hooks, mutations, infinite queries, route manifests, clients generated from a TypeScript serve, Python or cloud client contract, per-session clients with `HypequeryProvider`, per-request auth headers, one-time 401 refresh |
-| `@hypequery/mcp` | Dataset discovery, schema introspection, named metric queries, ad hoc dataset queries, generated JSON schemas, host-controlled tenant scope, stdio transport, and a bridge to Python APIs through their authorized client contract (TypeScript serve exports a build contract but has no authorized discovery route yet) |
+| `@hypequery/serve` | In-process execution, HTTP routes, zod validation, OpenAPI, API key and JWT auth (`createJwtStrategy`), host-session auth (`fromContext`), short-lived analytics tokens, roles/scopes, tenant injection, a semantic contract endpoint, route manifests, client contract export (`api.clientContract()`, `hypequery export:client-contract`) with `X-Hypequery-Client-Schema` pinning, CORS, rate limiting, observability, Node and Fetch adapters |
+| `@hypequery/react` | Typed named-query hooks, metric hooks, dataset hooks, mutations, infinite queries, types inferred from a TypeScript API, generated clients for TypeScript serve APIs, Python APIs and cloud releases, per-session clients with `HypequeryProvider`, per-request auth headers, one-time 401 refresh |
+| `@hypequery/mcp` | Dataset discovery, schema introspection, named metric queries, ad hoc dataset queries, generated JSON schemas, host-controlled tenant scope, stdio transport, and a bridge to Python APIs through their client contract (TypeScript serve exports a build contract but has no authorized discovery route yet) |
 
 ## A complete current dataset
 

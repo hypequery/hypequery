@@ -180,6 +180,17 @@ export function validateSemanticOperation(
   if (filters.length > limits.maxFilters) {
     fail(`At most ${limits.maxFilters} filters may be applied.`, '$.operation.filters');
   }
+  // RFC 0025: a `having` condition names a selected measure (the protocol
+  // validator checked that), so a hidden or unknown one has already failed
+  // above as a measure. Conditions share the filter budget, as the dataset
+  // client and RFC 0018's `maxPredicates` count them.
+  const having = operation.having ?? [];
+  if (filters.length <= limits.maxFilters && filters.length + having.length > limits.maxFilters) {
+    fail(
+      `At most ${limits.maxFilters} filters and having conditions may be applied together.`,
+      '$.operation.having',
+    );
+  }
   filters.forEach((expression, index) => {
     const path = `$.operation.filters[${index}]`;
     const comparison = comparisonField(expression);
@@ -217,6 +228,11 @@ export function validateSemanticOperation(
 
   if (operation.by !== undefined && !allowed.grains.has(operation.by)) {
     fail(`Time grain "${operation.by}" is not supported here.`, '$.operation.by');
+  }
+  // A zone moves time buckets and time-key bounds; without a time field it
+  // would change nothing, so it is refused rather than silently ignored.
+  if (operation.timezone !== undefined && allowed.grains.size === 0) {
+    fail('This dataset has no time field, so a timezone does not apply.', '$.operation.timezone');
   }
 
   if (operation.limit !== undefined && operation.limit > limits.maxRows) {

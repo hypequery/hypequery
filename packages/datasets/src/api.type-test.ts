@@ -240,6 +240,9 @@ type _ClientContractIsSigned = Assert<
 buildClientContract(Orders);
 // @ts-expect-error views are build or authorized
 buildClientContract(_cloudPublication, { view: 'public' });
+buildClientContract(_cloudPublication, { capabilities: { having: true, timezone: false } });
+// @ts-expect-error capabilities are named flags
+buildClientContract(_cloudPublication, { capabilities: { segments: true } });
 
 type _PublishedDatasetAliasesAreLiteral = Assert<
   Equal<keyof typeof _publishedDatasets, 'orders' | 'accounts'>

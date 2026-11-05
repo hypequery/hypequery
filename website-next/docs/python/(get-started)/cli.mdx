@@ -200,3 +200,25 @@ or connecting to a database.
 | `--force` | Replace an existing artifact |
 
 See [React and MCP clients](/docs/python/client-endpoints) for the end-to-end workflow.
+
+## `hypequery telemetry`
+
+The CLI collects pseudonymous usage telemetry by default, as the TypeScript CLI does, to show which commands,
+Python versions and installers to prioritise. Each invocation sends one `python_cli_command_completed` event: the
+command, the documented flags used (names only, never values), the outcome, a duration bucket, and install context
+such as the package and Python versions, OS, the installer recorded for the package (pip, uv, poetry, ...), and which
+optional integrations are installed. Events never contain code, SQL, table or column names, paths or credentials.
+Telemetry is sent by a detached process after the command exits, so it never delays or changes a command.
+
+<CodeBlock>
+```bash
+hypequery telemetry status
+hypequery telemetry disable
+hypequery telemetry enable
+```
+</CodeBlock>
+
+To disable for one invocation, pass `--no-telemetry` anywhere on the command line, or set `DO_NOT_TRACK=1` or
+`HYPEQUERY_TELEMETRY_DISABLED=1` (a project `.env` file works too). Set `HYPEQUERY_TELEMETRY_DEBUG=1` to print the
+exact event to stderr instead of sending it. Both CLIs share one settings file and install ID, so disabling telemetry
+in either disables it in both. See [CLI telemetry](/docs/telemetry) for storage and delivery details.

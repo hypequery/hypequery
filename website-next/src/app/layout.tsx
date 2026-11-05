@@ -81,7 +81,6 @@ const organizationSchema = {
     'https://www.npmjs.com/package/@hypequery/clickhouse',
     'https://x.com/hypequery',
     'https://www.linkedin.com/company/110435355/',
-    'https://www.newsletter.hypequery.com',
   ],
 };
 
@@ -102,6 +101,8 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
+        {/* Feed discovery on every page; page-level `alternates` would otherwise replace it. */}
+        <link rel="alternate" type="application/rss+xml" title="hypequery blog" href={absoluteUrl('/blog/rss.xml').toString()} />
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationSchema) }}

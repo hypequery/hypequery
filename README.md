@@ -79,7 +79,7 @@ No hand-written result interface. No `any[]`. The result is inferred from your r
 The Python SDK implements the same datasets and Serve protocol, checked against the same conformance fixtures. Serve it from FastAPI, Django, Flask, or any ASGI or WSGI server.
 
 ```bash
-pip install "hypequery[clickhouse]==0.1.0b1"
+pip install "hypequery[clickhouse]==0.1.0b2"
 ```
 
 ```python

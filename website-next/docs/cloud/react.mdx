@@ -11,7 +11,7 @@ import { CloudWaitlistNotice } from '@/components/docs/cloud-waitlist-notice';
 <CloudWaitlistNotice />
 
 Once your datasets are published to hypequery cloud, a React app can query them
-with typed hooks. You don't write route config or types by hand, and you don't
+with typed hooks. `generate:client` writes the types and routes for you, and you don't
 need a server proxy. A React app built with `@hypequery/react` against self-hosted Serve works the same way: cloud's
 dataset endpoints return the same data, metadata, and errors as Serve. For the full hooks guide, see
 [Connect: React](/docs/react/getting-started).
@@ -22,6 +22,7 @@ dataset endpoints return the same data, metadata, and errors as Serve. For the f
 
     ```bash
     npm install @hypequery/react @tanstack/react-query
+    npm install -D @hypequery/cli  # provides the `hypequery` command
     npx hypequery login            # once per machine: picks the project and environment
     npx hypequery generate:client --cloud --output src/hypequery-client.ts
     ```
@@ -160,7 +161,8 @@ Connect this React app to our hypequery Cloud datasets.
 ## Or proxy through your server
 
 If your app has no end-user tokens, keep a server API key out of the browser instead: add a same-origin route in your
-app that forwards requests to cloud with the key, and point the React client at that route.
+app that forwards requests to cloud with the key, and point the React client at that route. The generated
+`clientManifest` targets cloud directly, so a proxied client declares its own relative routes, as below.
 
 <CodeBlock>
 ```tsx

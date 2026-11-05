@@ -122,7 +122,7 @@ export { rehydrateProtocolDeploymentContract } from './protocol-rehydrate.js';
 export type { BuildProtocolDatasetContractOptions } from './protocol-adapter.js';
 export { publishToCloud } from './cloud-publishing.js';
 export { buildClientContract } from './client-contract/build-from-deployment.js';
-export type { BuildClientContractOptions } from './client-contract/build-from-deployment.js';
+export type { BuildClientContractOptions, ClientContractCapabilities } from './client-contract/build-from-deployment.js';
 export type { ClientContractProfile } from './client-contract/deployment-profile.js';
 export { buildDatasetClientContract } from './client-contract/build-from-datasets.js';
 export type { BuildDatasetClientContractOptions, DatasetClientEndpoint } from './client-contract/build-from-datasets.js';

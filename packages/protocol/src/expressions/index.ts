@@ -15,6 +15,8 @@ export type {
   ProtocolFunctionName,
   ProtocolMetricQuery,
   ProtocolNullCheckOperator,
+  ProtocolHavingComparisonOperator,
+  ProtocolHavingCondition,
   ProtocolOrderBy,
   ProtocolSemanticQuery,
   ProtocolQueryTimeGrain,

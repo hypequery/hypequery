@@ -400,7 +400,7 @@
           },
           "right": {
             "kind": "literal",
-            "value": "Zürich 🏔"
+            "value": "Z\u00fcrich \ud83c\udfd4"
           }
         }
       ]
@@ -408,13 +408,13 @@
     "tenant": {
       "mode": "scoped",
       "ids": [
-        "café",
+        "caf\u00e9",
         "Zeta",
         "alpha"
       ]
     },
     "rowLimit": null,
-    "preimageUtf8": "{\"definition\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"kind\":\"hypequery-cache-preimage\",\"query\":{\"by\":null,\"dataset\":\"orders\",\"dimensions\":[],\"filters\":[{\"kind\":\"comparison\",\"left\":{\"kind\":\"reference\",\"name\":\"city\"},\"operator\":\"eq\",\"right\":{\"kind\":\"literal\",\"value\":\"Zürich 🏔\"}}],\"kind\":\"dataset\",\"measures\":null,\"offset\":null,\"orderBy\":[],\"segments\":[]},\"rowLimit\":null,\"tenant\":{\"fingerprints\":[\"67acf03b10262948ef2f528320f75a709a159af15cadc3f8e9489ca22de12b6d\",\"68e9b46303ccac68022805c8b2897931eeabdddc693b2e2ea2b908c672d0fca0\",\"e0dfafca9663e7e623608399428f8f797b401275dc1231f4e504d7d1df9ec392\"],\"mode\":\"scoped\"},\"version\":1}"
+    "preimageUtf8": "{\"definition\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"kind\":\"hypequery-cache-preimage\",\"query\":{\"by\":null,\"dataset\":\"orders\",\"dimensions\":[],\"filters\":[{\"kind\":\"comparison\",\"left\":{\"kind\":\"reference\",\"name\":\"city\"},\"operator\":\"eq\",\"right\":{\"kind\":\"literal\",\"value\":\"Z\u00fcrich \ud83c\udfd4\"}}],\"kind\":\"dataset\",\"measures\":null,\"offset\":null,\"orderBy\":[],\"segments\":[]},\"rowLimit\":null,\"tenant\":{\"fingerprints\":[\"67acf03b10262948ef2f528320f75a709a159af15cadc3f8e9489ca22de12b6d\",\"68e9b46303ccac68022805c8b2897931eeabdddc693b2e2ea2b908c672d0fca0\",\"e0dfafca9663e7e623608399428f8f797b401275dc1231f4e504d7d1df9ec392\"],\"mode\":\"scoped\"},\"version\":1}"
   },
   {
     "id": "row-limit-zero",
@@ -674,5 +674,55 @@
     },
     "rowLimit": null,
     "preimageUtf8": "{\"definition\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"kind\":\"hypequery-cache-preimage\",\"query\":{\"by\":null,\"dataset\":\"orders\",\"dimensions\":[],\"filters\":[],\"kind\":\"dataset\",\"measures\":null,\"offset\":null,\"orderBy\":[],\"segments\":[]},\"rowLimit\":null,\"tenant\":{\"fingerprints\":[\"2d1655369f823def057e32f14afbe23e4a21b3a321aa834e7f51190ddcaf6cb2\"],\"mode\":\"scoped\"},\"version\":1}"
+  },
+  {
+    "id": "timezone-utc-is-default",
+    "secretHex": "1111111111111111111111111111111111111111111111111111111111111111",
+    "definitionIdentity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "query": {
+      "kind": "dataset",
+      "dataset": "orders",
+      "dimensions": [
+        "status",
+        "customer.country"
+      ],
+      "measures": [
+        "revenue",
+        "orders"
+      ],
+      "filters": [
+        {
+          "kind": "comparison",
+          "operator": "eq",
+          "left": {
+            "kind": "reference",
+            "name": "status"
+          },
+          "right": {
+            "kind": "literal",
+            "value": "paid"
+          }
+        }
+      ],
+      "orderBy": [
+        {
+          "field": "revenue",
+          "direction": "desc"
+        }
+      ],
+      "limit": 500,
+      "offset": 20,
+      "by": "quarter",
+      "includeMeta": true,
+      "timezone": "UTC"
+    },
+    "tenant": {
+      "mode": "scoped",
+      "ids": [
+        "acme"
+      ]
+    },
+    "rowLimit": 100,
+    "preimageUtf8": "{\"definition\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"kind\":\"hypequery-cache-preimage\",\"query\":{\"by\":\"quarter\",\"dataset\":\"orders\",\"dimensions\":[\"status\",\"customer.country\"],\"filters\":[{\"kind\":\"comparison\",\"left\":{\"kind\":\"reference\",\"name\":\"status\"},\"operator\":\"eq\",\"right\":{\"kind\":\"literal\",\"value\":\"paid\"}}],\"kind\":\"dataset\",\"measures\":[\"revenue\",\"orders\"],\"offset\":20,\"orderBy\":[{\"direction\":\"desc\",\"field\":\"revenue\"}],\"segments\":[]},\"rowLimit\":100,\"tenant\":{\"fingerprints\":[\"4a4c227cbf8af9830ea8769544cf993c7f301d7dfaff1095df44e97843c25ece\"],\"mode\":\"scoped\"},\"version\":1}"
   }
 ]
