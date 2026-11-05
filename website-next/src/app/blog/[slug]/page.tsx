@@ -213,7 +213,7 @@ export default async function BlogPostPage({
   };
 
   return (
-    <div className="mx-auto max-w-4xl px-4 py-24 pt-28 lg:px-8">
+    <div className="mx-auto max-w-4xl px-4 pb-24 pt-8 lg:px-8">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(articleSchema) }} />
       <div className="mb-8">
         <Link
