@@ -75,8 +75,12 @@ describe('sortingKeyColumns', () => {
     ['', []],
     ['id', ['id']],
     ['day, priority', ['day', 'priority']],
-    ['tenant_id, toDate(created_at)', ['tenant_id', 'toDate', 'created_at']],
+    ['tenant_id, toDate(created_at)', ['tenant_id', 'created_at']],
     ['`odd name`, id', ['odd name', 'id']],
+    // Literals and function names are not columns.
+    ["day, JSONExtractString(metadata, 'amount')", ['day', 'metadata']],
+    ["tuple(region, 'it''s', 'a\\'b') ", ['region']],
+    ['intHash32 (user_id)', ['user_id']],
   ])('%s', (key, expected) => {
     expect(sortingKeyColumns(key)).toEqual(expected);
   });

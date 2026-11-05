@@ -21,14 +21,16 @@ export interface EngineMetadata {
 }
 
 /**
- * Every identifier a `system.tables.sorting_key` expression mentions, so a
- * column read inside a key expression (`toDate(created_at)`) also counts.
- * Function names come along too; they never match a column worth summing.
+ * Every column a `system.tables.sorting_key` expression reads, so a column
+ * inside a key expression (`toDate(created_at)`) also counts. String literals
+ * (`'amount'`) and function names are not columns and are skipped.
  */
 export function sortingKeyColumns(sortingKey: string): string[] {
   const names = new Set<string>();
-  for (const match of sortingKey.matchAll(/`((?:[^`]|``)+)`|([A-Za-z_][A-Za-z0-9_]*)/g)) {
-    names.add(match[1] !== undefined ? match[1].replaceAll('``', '`') : match[2]!);
+  const tokens = /'(?:[^'\\]|\\.|'')*'|`((?:[^`]|``)+)`|\b([A-Za-z_][A-Za-z0-9_]*)\b(?!\s*\()/g;
+  for (const match of sortingKey.matchAll(tokens)) {
+    if (match[1] !== undefined) names.add(match[1].replaceAll('``', '`'));
+    else if (match[2] !== undefined) names.add(match[2]);
   }
   return [...names];
 }
