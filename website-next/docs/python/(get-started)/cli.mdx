@@ -10,7 +10,7 @@ CLI. Install the serving and ClickHouse extras for the full onboarding path, the
 
 <CodeBlock>
 ```bash
-pip install "hypequery[server,clickhouse]==0.1.0b2"
+pip install "hypequery[server,clickhouse]==0.1.0b3"
 hypequery init analytics
 ```
 </CodeBlock>
@@ -100,6 +100,8 @@ terminal skip the questions entirely, and unset options take their defaults.
 | `--all-tables` | Inspect every table (the default) |
 | `--tenant-column <column>` | Set `tenant_key` on tables that have this column, as `generate datasets` does |
 | `--framework standalone\|fastapi\|django\|flask` | The application to write beside `datasets.py` (default `standalone`); see below |
+| `--database clickhouse\|chdb` | A ClickHouse server (default), or embedded chDB with no server; see below |
+| `--chdb-path <dir>` | The chDB database directory, relative to the project (default `analytics.chdb`). Implies `--database chdb` |
 | `--skip-connection` | Write the offline orders example and `seed.sql` instead of inspecting a database |
 | `--no-interactive` | Never ask questions, even in a terminal |
 
@@ -154,6 +156,20 @@ Physical names map to the same camelCase semantic names as the TypeScript CLI. N
 reported, and nothing is written to the database. Review the generated semantics and configure tenant isolation
 explicitly before serving real data.
 
+### Embedded ClickHouse (chDB)
+
+`--database chdb` scaffolds onto [embedded ClickHouse](/docs/python/datasets/chdb) instead of a server. Install the
+`chdb` extra first (`pip install "hypequery[server,chdb]"`).
+
+- The app opens the chDB database at `--chdb-path` (default `analytics.chdb`), relative to `app.py`, with
+  `create_chdb_executor`. There are no connection settings, and the project installs the `chdb` extra.
+- The path is recorded in the project's `pyproject.toml` (`[tool.hypequery] chdb-path`) for `generate datasets`.
+- If the database exists, `init` reads its tables as it would a server's.
+- If it doesn't, `init` writes the orders example, and its README seeds the database from `seed.sql`. `init` never
+  creates the database itself.
+- chDB scaffolds the `standalone` and `fastapi` apps. The Django and Flask integrations connect to a ClickHouse server,
+  so `--framework django` or `flask` is refused with `--database chdb`.
+
 ## `hypequery generate datasets`
 
 Regenerates `datasets.py` from the current schema. Also spelled `generate:datasets`, as in the TypeScript CLI.
@@ -168,8 +184,13 @@ Regenerates `datasets.py` from the current schema. Also spelled `generate:datase
 | `--check` | Exit 1 if the file would change, without writing |
 | `--diff` | Show the drift without writing; exit 1 if any |
 | `--force` | Replace the existing file; warns when it removes a configured `tenant_key` |
+| `--database clickhouse\|chdb`, `--chdb-path <dir>` | Read a ClickHouse server or a chDB database; see below |
 
 Replacement is atomic and preserves the file's permissions. Use `--check` in CI to catch schema drift.
+
+`generate datasets` reads a chDB database when given `--database chdb` or `--chdb-path`, when `pyproject.toml` records
+one, or when the project has an `analytics.chdb` directory and neither `CLICKHOUSE_URL` nor `CLICKHOUSE_HOST` is set.
+chDB lets one process open a database at a time, so stop `hypequery dev` before regenerating.
 
 ## `hypequery dev`
 
@@ -189,14 +210,58 @@ their traceback so credentials in an exception never reach the terminal.
 ## `hypequery export client-contract`
 
 Writes the canonical client contract that generated React hooks and the MCP bridge consume, without starting a server
-or connecting to a database.
+or running a query.
 
 | Option | Description |
 | --- | --- |
-| `--factory module:factory` | Zero-argument factory returning the definition-only metadata (required) |
+| `--factory module:attribute` | Your API (from `create_api`, `to_asgi_app` or `to_wsgi_app`), or a zero-argument function returning it or a definition-only contract (required) |
 | `--output <file>` | Output file, default `client-contract.json`; `-` for stdout |
 | `--stdout` | Write canonical JSON only to stdout |
 | `--check` | Exit 1 if the artifact would change, without writing |
 | `--force` | Replace an existing artifact |
 
+An API exports the endpoints installed with a client profile. An export with no endpoints fails, and from an API it
+names the dataset and metric routes that have no profile. See [React and MCP clients](/docs/python/client-endpoints) for
+the end-to-end workflow.
+
 See [React and MCP clients](/docs/python/client-endpoints) for the end-to-end workflow.
+
+## `hypequery mcp`
+
+Serves an API's authorized client contract to AI agents over MCP stdio, with the same four tools, input schemas and
+errors as `@hypequery/mcp`. Needs the `mcp` extra: `pip install "hypequery[mcp]"`.
+
+| Option | Description |
+| --- | --- |
+| `module:api` | The `Api` from `create_api`, or its `to_asgi_app` app, served in-process (default `app:api`). An app's `lifespan` runs around the server |
+| `--client-contract-url <url>` | Bridge a deployed API's discovery route instead (HTTPS; plain HTTP only on loopback) |
+| `--header 'Name: value'` | A header sent with every call, such as a credential (repeatable) |
+| `--project <dir>` | Directory to import the app from (default: current) |
+| `--self-test` | Read and validate the contract, count its endpoints and exit, without serving |
+| `--print-config` | Print an `mcpServers` entry for Claude, Cursor or another MCP client |
+
+`HYPEQUERY_API_KEY`, when set, is sent as `Authorization: Bearer …`. The API authenticates and scopes every call, so
+an agent gets exactly the endpoints, fields and tenant that credential's principal may use. See
+[MCP: datasets served from Python](/docs/mcp/overview#datasets-served-from-python).
+
+## `hypequery telemetry`
+
+The CLI collects pseudonymous usage telemetry by default, as the TypeScript CLI does, to show which commands,
+Python versions and installers to prioritise. Each invocation sends one `python_cli_command_completed` event: the
+command, the documented flags used (names only, never values), the outcome, a duration bucket, and install context
+such as the package and Python versions, OS, the installer recorded for the package (pip, uv, poetry, ...), and which
+optional integrations are installed. Events never contain code, SQL, table or column names, paths or credentials.
+Telemetry is sent by a detached process after the command exits, so it never delays or changes a command.
+
+<CodeBlock>
+```bash
+hypequery telemetry status
+hypequery telemetry disable
+hypequery telemetry enable
+```
+</CodeBlock>
+
+To disable for one invocation, pass `--no-telemetry` anywhere on the command line, or set `DO_NOT_TRACK=1` or
+`HYPEQUERY_TELEMETRY_DISABLED=1` (a project `.env` file works too). Set `HYPEQUERY_TELEMETRY_DEBUG=1` to print the
+exact event to stderr instead of sending it. Both CLIs share one settings file and install ID, so disabling telemetry
+in either disables it in both. See [CLI telemetry](/docs/telemetry) for storage and delivery details.

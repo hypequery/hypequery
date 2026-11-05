@@ -1,14 +1,6 @@
-"""Pure definitions and offline export. No framework, auth or database imports."""
+"""Pure definitions. No framework, auth or database imports."""
 
-from hypequery.datasets import (
-    ClientEndpointDefinition,
-    ClientQueryProfile,
-    dataset,
-    dimension,
-    export_client_contract,
-    measure,
-)
-from hypequery.protocol import PreparedProtocolClientContract
+from hypequery.datasets import ClientQueryProfile, dataset, dimension, measure
 
 orders = dataset(
     "orders",
@@ -19,13 +11,3 @@ orders = dataset(
     measures={"revenue": measure.sum("amount"), "orderCount": measure.count("id")},
 )
 profile = ClientQueryProfile(default_limit=20, max_limit=100)
-
-
-def build() -> PreparedProtocolClientContract:
-    """Explicit offline factory, with the exact paths installed by the API."""
-    return export_client_contract(
-        [
-            ClientEndpointDefinition(orders, "/v1/orders", profile),
-            ClientEndpointDefinition(orders, "/v1/sales", profile, measure="revenue", name="sales"),
-        ]
-    )

@@ -1,0 +1,34 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.hypequery/hypequery",
+  "title": "hypequery ClickHouse",
+  "description": "Governed ClickHouse analytics for agents: named datasets and metrics as tools, never raw SQL.",
+  "repository": {
+    "url": "https://github.com/hypequery/hypequery",
+    "source": "github",
+    "subfolder": "packages/mcp-server"
+  },
+  "websiteUrl": "https://hypequery.com/docs/mcp/overview",
+  "version": "0.11.3",
+  "packages": [
+    {
+      "registryType": "npm",
+      "identifier": "@hypequery/mcp",
+      "version": "0.11.3",
+      "runtimeHint": "npx",
+      "transport": {
+        "type": "stdio"
+      },
+      "packageArguments": [
+        {
+          "type": "named",
+          "name": "--config",
+          "description": "Path to a compiled config module that exports { datasets, analytics }.",
+          "placeholder": "./mcp-config.mjs",
+          "format": "filepath",
+          "isRequired": true
+        }
+      ]
+    }
+  ]
+}

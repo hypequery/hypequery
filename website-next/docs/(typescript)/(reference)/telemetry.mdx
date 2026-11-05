@@ -33,6 +33,10 @@ not from hardware, a username, or a hostname. Corrupt or unavailable settings
 disable telemetry for that run. A failed explicit save reports an error so you
 can use an environment variable or the flag instead.
 
+The [Python CLI](/docs/python/cli#hypequery-telemetry) reads and writes the same
+`telemetry.json`, so both CLIs share one install ID, one notice and one saved
+preference. It keeps its own kill-switch list under `disabled_python_cli_versions`.
+
 See the [CLI reference](/docs/reference/api/cli#hypequery-telemetry) for precedence
 and config-directory details. The event reference is below;
 data-handling policy will be documented before default collection is released.
@@ -333,7 +337,9 @@ No additional properties.
 
 Allowed `flags_used`: `--no-telemetry`, `--help`, `--version`. The two type-generation aliases remain distinct command values.
 
-No additional properties.
+| Property | Presence | Allowed values | Question answered |
+| --- | --- | --- | --- |
+| `suggested_command` | Optional | `init`, `dev`, `mcp`, `generate`, `generate:types`, `generate:datasets`, `generate:manifest`, `generate:client`, `login`, `logout`, `deploy`, `deployment:build`, `deployment:validate`, `deployment:release`, `deployment:submit`, `deployment:status`, `pull`, `diff`, `help`, `version`, `telemetry` | Which command was a mistyped invocation closest to? Only the CLI's own suggestion, never the raw input. |
 
 #### `cli_command_completed`: `help`
 

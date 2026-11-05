@@ -19,6 +19,24 @@ describe('package version', () => {
     expect(MCP_PACKAGE_VERSION).not.toBe('');
   });
 
+  it('is the version server.json tells the MCP Registry to verify', () => {
+    // The registry fetches the npm release named in server.json and requires
+    // `mcpName` in that release's manifest, so a stale version there fails
+    // every publish. generate-version.mjs rewrites both fields from package.json.
+    const manifest = JSON.parse(read('package.json')) as { version: string; mcpName: string };
+    const registry = JSON.parse(read('server.json')) as {
+      name: string;
+      version: string;
+      packages: { identifier: string; version: string }[];
+    };
+    expect(registry.version).toBe(manifest.version);
+    expect(registry.packages.map(entry => entry.version)).toEqual(
+      registry.packages.map(() => manifest.version),
+    );
+    expect(registry.name).toBe(manifest.mcpName);
+    expect(registry.packages.map(entry => entry.identifier)).toEqual(['@hypequery/mcp']);
+  });
+
   it('is resolved without reading anything at import time', () => {
     // Reading package.json off `import.meta.url` made this package impossible
     // to import from a bundled server build: webpack rewrites that URL, and

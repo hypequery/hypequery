@@ -358,6 +358,48 @@ describe('semantic data plane', () => {
       .toBe('input-invalid');
   });
 
+  it('accepts having on a selected measure and a zone on a timed dataset (RFC 0025)', async () => {
+    const { plane: dataPlane, execute } = plane();
+    const operation = {
+      ...DATASET_QUERY,
+      having: [{ measure: 'revenue', operator: 'gte', value: 10 }],
+      by: 'day',
+      timezone: 'Europe/London',
+    };
+
+    await dataPlane.invoke({ invocation: invocation(operation), credentials: 'token' });
+
+    expect(execute.mock.calls[0][0].operation).toMatchObject({
+      having: [{ measure: 'revenue', operator: 'gte', value: 10 }],
+      timezone: 'Europe/London',
+    });
+  });
+
+  it('refuses having outside the selection or the filter budget, and a zone with no time field', async () => {
+    const { plane: dataPlane } = plane({ limits: { maxFilters: 2 } });
+    const reject = (operation: Record<string, unknown>) => categoryOf(() => dataPlane.invoke({
+      invocation: invocation(operation),
+      credentials: 'token',
+    }));
+    const paid = {
+      kind: 'comparison', operator: 'eq',
+      left: { kind: 'reference', name: 'status' },
+      right: { kind: 'literal', value: 'paid' },
+    };
+    const over = (value: number) => ({ measure: 'revenue', operator: 'gt', value });
+
+    // Not selected: the protocol validator refuses it before the contract is read.
+    expect(await reject({ ...DATASET_QUERY, having: [{ measure: 'orderCount', operator: 'gt', value: 1 }] }))
+      .toBe('input-invalid');
+    // Filters and having conditions share one budget.
+    expect(await reject({ ...DATASET_QUERY, filters: [paid], having: [over(1)] })).toBe('accepted');
+    expect(await reject({ ...DATASET_QUERY, filters: [paid], having: [over(1), over(2)] }))
+      .toBe('input-invalid');
+    // `customers` has no time field, so a zone would change nothing.
+    expect(await reject({ kind: 'dataset', dataset: 'customers', dimensions: ['country'], timezone: 'UTC' }))
+      .toBe('input-invalid');
+  });
+
   it('enforces the declared operator list on a filter', async () => {
     const { plane: dataPlane } = plane();
     const filter = (operator: string) => categoryOf(() => dataPlane.invoke({

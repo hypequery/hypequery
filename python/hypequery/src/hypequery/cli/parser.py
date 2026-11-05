@@ -10,14 +10,49 @@ from importlib.metadata import version
 from .generators.framework_apps import FRAMEWORKS
 
 
+def _add_database_options(command: argparse.ArgumentParser, path_default: str) -> None:
+    command.add_argument(
+        "--database",
+        choices=("clickhouse", "chdb"),
+        help="a ClickHouse server (default), or chdb: embedded ClickHouse, no server "
+        '(requires "hypequery[chdb]")',
+    )
+    command.add_argument(
+        "--chdb-path",
+        help=f"the chDB database directory, implying --database chdb; {path_default}",
+    )
+
+
+def _check_database_options(parser: argparse.ArgumentParser, args: argparse.Namespace) -> None:
+    """``--chdb-path`` names an embedded database, so it implies ``--database chdb``."""
+
+    if args.chdb_path is None:
+        return
+    if args.database == "clickhouse":
+        parser.error("--chdb-path needs --database chdb")
+    args.database = "chdb"
+
+
 def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        prog="hypequery", description="Author and serve Python datasets."
+        prog="hypequery",
+        description="Author and serve Python datasets.",
+        # No abbreviations: `--no-tel` must not pass as the opt-out below, which
+        # is matched by its full name before parsing.
+        allow_abbrev=False,
     )
     parser.add_argument(
         "-V", "--version", action="version", version=f"hypequery {version('hypequery')}"
     )
+    parser.add_argument(
+        "--no-telemetry",
+        action="store_true",
+        help="disable anonymous usage telemetry for this invocation (accepted anywhere)",
+    )
     arguments = list(sys.argv[1:] if argv is None else argv)
+    # Like the TypeScript CLI, the global opt-out is accepted anywhere on the line.
+    no_telemetry = "--no-telemetry" in arguments
+    arguments = [argument for argument in arguments if argument != "--no-telemetry"]
     if arguments[:1] == ["generate:datasets"]:
         # Accept the TypeScript CLI's spelling as an alias.
         arguments[:1] = ["generate", "datasets"]
@@ -40,6 +75,7 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         help="set tenant_key to this column on tables that have it "
         "(requires a trusted runtime tenant scope)",
     )
+    _add_database_options(init, "relative to the project directory (default: analytics.chdb)")
     init.add_argument(
         "--skip-connection",
         action="store_true",
@@ -83,6 +119,9 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         action="store_true",
         help="set no tenant_key, ignoring the tenant column recorded in schema.json",
     )
+    _add_database_options(
+        datasets, "(default: the path init recorded in pyproject.toml, else analytics.chdb)"
+    )
     datasets.add_argument("--check", action="store_true", help="exit 1 on drift without writing")
     datasets.add_argument("--diff", action="store_true", help="show drift without writing; exit 1")
     datasets.add_argument("--force", action="store_true", help="replace existing definitions")
@@ -92,7 +131,10 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         "client-contract", help="export a signed client contract"
     )
     client_contract.add_argument(
-        "--factory", required=True, help="explicit zero-argument definition factory: module:factory"
+        "--factory",
+        required=True,
+        help="module:attribute naming your API, or a zero-argument factory returning it "
+        "or a contract",
     )
     output = client_contract.add_mutually_exclusive_group()
     output.add_argument(
@@ -123,13 +165,30 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         "--no-watch", "--no-reload", dest="reload", action="store_false", help="disable reload"
     )
     dev.set_defaults(reload=True)
+    mcp = _add_mcp(commands)
+    telemetry = commands.add_parser(
+        "telemetry", help="show or change anonymous usage telemetry settings"
+    )
+    telemetry.add_argument(
+        "action", nargs="?", default="status", choices=("status", "enable", "disable")
+    )
     help_command = commands.add_parser("help", help="show help for a command")
-    help_command.add_argument("topic", nargs="?", choices=("init", "dev", "generate", "export"))
+    help_command.add_argument(
+        "topic", nargs="?", choices=("init", "dev", "generate", "export", "mcp", "telemetry")
+    )
     args = parser.parse_args(arguments)
+    args.no_telemetry = no_telemetry
     if args.command == "help":
-        {None: parser, "init": init, "dev": dev, "generate": generate, "export": export}[
-            args.topic
-        ].print_help()
+        topics: dict[str | None, argparse.ArgumentParser] = {
+            None: parser,
+            "init": init,
+            "dev": dev,
+            "generate": generate,
+            "export": export,
+            "mcp": mcp,
+            "telemetry": telemetry,
+        }
+        topics[args.topic].print_help()
         parser.exit()
     if args.command == "init":
         if args.directory is not None and args.path is not None:
@@ -142,6 +201,8 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
             args.tables or args.exclude_tables or args.all_tables or args.tenant_column
         ):
             parser.error("table selection and --tenant-column require a database connection")
+    if args.command in ("init", "generate"):
+        _check_database_options(parser, args)
     if args.command == "generate" and args.force and (args.check or args.diff):
         parser.error("--force cannot be combined with --check or --diff")
     if args.command == "generate" and args.all_tables and (args.tables or args.exclude_tables):
@@ -151,6 +212,58 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
             parser.error("--force cannot be combined with --check")
         if (args.stdout or args.output == "-") and (args.check or args.force):
             parser.error("stdout export cannot be combined with --check or --force")
+    if args.command == "mcp":
+        _validate_mcp(parser, args)
     if args.command == "dev" and not 0 < args.port < 65536:
         parser.error("--port must be between 1 and 65535")
     return args
+
+
+def _add_mcp(
+    commands: argparse._SubParsersAction[argparse.ArgumentParser],
+) -> argparse.ArgumentParser:
+    mcp = commands.add_parser(
+        "mcp",
+        help="serve an API's datasets to AI agents over MCP stdio (requires the mcp extra)",
+        description="Serve the four hypequery MCP tools over stdio, from an Api in this "
+        "process (module:attribute) or from a served API's client contract "
+        "(--client-contract-url). The API authenticates and scopes every call; "
+        "HYPEQUERY_API_KEY, when set, is sent as a bearer token.",
+    )
+    mcp.add_argument(
+        "app",
+        nargs="?",
+        help="the Api to serve, as module:attribute (default: app:api); "
+        "an ASGI app from to_asgi_app also works",
+    )
+    mcp.add_argument(
+        "--client-contract-url",
+        help="bridge to a served API's authorized client contract instead "
+        "(HTTPS; plain HTTP only on loopback)",
+    )
+    mcp.add_argument(
+        "--header",
+        action="append",
+        default=[],
+        metavar="NAME: VALUE",
+        help="a request header for every call, such as a credential (repeatable)",
+    )
+    mcp.add_argument("--project", help="directory to import the app from (default: current)")
+    mcp.add_argument(
+        "--self-test",
+        action="store_true",
+        help="connect, list the tools and exit, without serving",
+    )
+    mcp.add_argument(
+        "--print-config",
+        action="store_true",
+        help="print an mcpServers entry for Claude, Cursor or another MCP client and exit",
+    )
+    return mcp
+
+
+def _validate_mcp(parser: argparse.ArgumentParser, args: argparse.Namespace) -> None:
+    if args.app is not None and args.client_contract_url is not None:
+        parser.error("use either an app or --client-contract-url")
+    if args.self_test and args.print_config:
+        parser.error("--self-test cannot be combined with --print-config")

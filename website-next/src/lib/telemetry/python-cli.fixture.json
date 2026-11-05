@@ -1,0 +1,76 @@
+{
+  "api_key": "hypequery-cli",
+  "batch": [
+    {
+      "event": "python_cli_command_completed",
+      "distinct_id": "0f9c6f1e-6a52-4c7e-9d0a-3b8f2e4d5c61",
+      "properties": {
+        "schema_version": 1,
+        "cli_version": "0.1.0b2",
+        "python_version": "3.12",
+        "os": "darwin",
+        "arch": "arm64",
+        "is_ci": false,
+        "ci_name": "none",
+        "is_tty": false,
+        "is_docker": false,
+        "is_wsl": false,
+        "installer": "uv",
+        "environment": "venv",
+        "invoked_via": "console_script",
+        "integrations": [
+          "fastapi",
+          "flask"
+        ],
+        "install_id": "0f9c6f1e-6a52-4c7e-9d0a-3b8f2e4d5c61",
+        "session_id": "c44ff40a-05d0-441b-b7e6-ca76fef3b2d5",
+        "project_id": "06d8ab39af68d5cc3b9eb09d31eed9d27c0f40108ec0f459b2bbc29083b01b71",
+        "is_first_run": false,
+        "command": "init",
+        "flags_used": [],
+        "outcome": "failure",
+        "duration_bucket": "<100ms",
+        "error_code": "unknown_option",
+        "$process_person_profile": false,
+        "$geoip_disable": true
+      },
+      "timestamp": "2026-11-03T07:58:21.677Z"
+    },
+    {
+      "event": "python_cli_command_completed",
+      "distinct_id": "0f9c6f1e-6a52-4c7e-9d0a-3b8f2e4d5c61",
+      "properties": {
+        "schema_version": 1,
+        "cli_version": "0.1.0b2",
+        "python_version": "3.12",
+        "os": "darwin",
+        "arch": "arm64",
+        "is_ci": false,
+        "ci_name": "none",
+        "is_tty": false,
+        "is_docker": false,
+        "is_wsl": false,
+        "installer": "uv",
+        "environment": "venv",
+        "invoked_via": "console_script",
+        "integrations": [
+          "fastapi",
+          "flask"
+        ],
+        "install_id": "0f9c6f1e-6a52-4c7e-9d0a-3b8f2e4d5c61",
+        "session_id": "0f3f1469-9ddd-44ad-8ab6-9f5c53117db4",
+        "project_id": "06d8ab39af68d5cc3b9eb09d31eed9d27c0f40108ec0f459b2bbc29083b01b71",
+        "is_first_run": false,
+        "command": "unknown",
+        "flags_used": [],
+        "outcome": "failure",
+        "duration_bucket": "<100ms",
+        "error_code": "unknown_command",
+        "suggested_command": "generate:datasets",
+        "$process_person_profile": false,
+        "$geoip_disable": true
+      },
+      "timestamp": "2026-11-03T07:58:21.761Z"
+    }
+  ]
+}

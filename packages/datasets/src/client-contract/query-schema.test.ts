@@ -77,3 +77,17 @@ describe('MCP transport schemas', () => {
   });
 
 });
+
+describe('shared MCP tool schema fixture', () => {
+  // Python's MCP server emits these same bytes from the same descriptors;
+  // regenerate deliberately with `vitest -u` and review the diff.
+  it('pins query tool schemas for every success descriptor', async () => {
+    const manifest = Object.fromEntries(success.map(item => [item.id, {
+      manifestHash: compiled[item.id].manifestHash,
+      query_dataset: compiled[item.id].queryDatasetJsonSchema,
+      query_metric: compiled[item.id].queryMetricJsonSchema,
+    }]));
+    await expect(`${JSON.stringify(manifest, null, 2)}\n`)
+      .toMatchFileSnapshot(new URL('../../../../specs/mcp/tool-schemas-v1.json', import.meta.url).pathname);
+  });
+});
