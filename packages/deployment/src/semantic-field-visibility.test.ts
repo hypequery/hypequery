@@ -232,6 +232,22 @@ describe('field visibility in the data plane', () => {
     })).toMatchObject({ category: 'input-invalid', message: 'Unknown or unfilterable field "accountId".' });
   });
 
+  it('refuses having on a hidden measure exactly as it refuses selecting one (RFC 0025)', async () => {
+    const { plane: dataPlane, execute } = plane();
+    const selected = await refusal(dataPlane, {
+      dataset: 'shipments', dimensions: ['carrier'], measures: ['freightCost'],
+    });
+    const having = await refusal(dataPlane, {
+      dataset: 'shipments',
+      dimensions: ['carrier'],
+      measures: ['freightCost'],
+      having: [{ measure: 'freightCost', operator: 'gt', value: 100 }],
+    });
+    expect(having).toEqual(selected);
+    expect(having).toMatchObject({ category: 'input-invalid', message: 'Unknown measure "freightCost".' });
+    expect(execute).not.toHaveBeenCalled();
+  });
+
   it('answers a hidden dataset as not found, like one the contract never had', async () => {
     const { plane: dataPlane } = plane({
       resolveFieldVisibility: async () => ({ ...POLICY, datasets: { shipments: POLICY.datasets.shipments } }),

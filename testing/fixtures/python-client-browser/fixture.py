@@ -1,14 +1,24 @@
 """Local browser wiring fixture. SQLite exercises HTTP/UI, not ClickHouse certification."""
 
 from hypequery.datasets import (
-    ClientEndpointDefinition,
     ClientQueryProfile,
     Dataset,
     create_dataset_client,
     dimension,
-    export_client_contract,
     measure,
 )
+from hypequery.serve import (
+    Api,
+    CorsPolicy,
+    EndpointPolicy,
+    HttpSecurity,
+    Principal,
+    add_client_contract_endpoint,
+    add_dataset_endpoint,
+    add_metric_endpoint,
+    create_api,
+)
+from sqlite_executor import BrowserFixtureExecutor
 
 orders = Dataset(
     name="orders",
@@ -20,37 +30,7 @@ orders = Dataset(
 profile = ClientQueryProfile(default_limit=10, max_limit=10)
 
 
-def build():
-    """Definition-only build export: no framework, database or app imports."""
-    return export_client_contract(
-        [
-            ClientEndpointDefinition(orders, "/orders", profile),
-            ClientEndpointDefinition(
-                orders, "/sales", profile, measure="revenue", name="sales"
-            ),
-        ],
-        mount_path="/mounted/v1",
-    )
-
-
-def app():
-    from contextlib import asynccontextmanager
-
-    from fastapi import FastAPI
-    from hypequery.serve import (
-        CorsPolicy,
-        EndpointPolicy,
-        HttpSecurity,
-        Principal,
-        add_client_contract_endpoint,
-        add_dataset_endpoint,
-        add_metric_endpoint,
-        create_api,
-        to_asgi_app,
-    )
-    from sqlite_executor import BrowserFixtureExecutor
-
-    executor = BrowserFixtureExecutor()
+def installed(executor: BrowserFixtureExecutor) -> Api:
     client = create_dataset_client(executor=executor)
     api = create_api(
         base_path="/v1",
@@ -84,6 +64,22 @@ def app():
         client_profile=profile,
     )
     add_client_contract_endpoint(api)
+    return api
+
+
+def build() -> Api:
+    """The installed API for `hypequery export client-contract`: no framework import."""
+    return installed(BrowserFixtureExecutor())
+
+
+def app():
+    from contextlib import asynccontextmanager
+
+    from fastapi import FastAPI
+    from hypequery.serve import to_asgi_app
+
+    executor = BrowserFixtureExecutor()
+    api = installed(executor)
 
     @asynccontextmanager
     async def lifespan(_):

@@ -8,6 +8,7 @@ from collections.abc import Iterable, Iterator, Mapping
 from contextlib import contextmanager, suppress
 from dataclasses import dataclass, field
 from importlib.util import find_spec
+from pathlib import Path
 from typing import Protocol, cast
 
 from hypequery.execution.utils.connection_env import ConnectionFields, connection_fields
@@ -60,7 +61,8 @@ class Schema:
 
 
 class _Result(Protocol):
-    result_rows: list[tuple[object, ...]]
+    @property
+    def result_rows(self) -> list[tuple[object, ...]]: ...
 
 
 class _Client(Protocol):
@@ -75,15 +77,19 @@ def discover_schema(
     tables: str | None,
     exclude_tables: str | None,
     environ: Mapping[str, str] | None = None,
+    chdb_path: Path | None = None,
 ) -> Schema:
     """Query catalog metadata only; credentials never enter generated files.
 
     *environ* holds the ``CLICKHOUSE_*`` connection settings, defaulting to the
-    process environment; guided init passes the details someone typed in.
+    process environment; guided init passes the details someone typed in. With
+    *chdb_path*, discovery reads that embedded chDB database instead.
     """
     settings_source = os.environ if environ is None else environ
-    with _connected(settings_source) as (client, fields):
+    with _catalog_client(settings_source, chdb_path) as (client, fields):
         schema = read_schema(client, tables=tables, exclude_tables=exclude_tables)
+        if fields is None:
+            return schema
         summary = ConnectionSummary(
             host=fields["host"],
             port=fields["port"],
@@ -108,12 +114,15 @@ class CatalogOverview:
 
 
 def discover_catalog(
-    *, environ: Mapping[str, str] | None = None, tenant_hints: Iterable[str] = ()
+    *,
+    environ: Mapping[str, str] | None = None,
+    tenant_hints: Iterable[str] = (),
+    chdb_path: Path | None = None,
 ) -> CatalogOverview:
     """Table names, tenant-looking columns and (within a cap) each table's column names."""
 
     hints = {hint.lower() for hint in tenant_hints}
-    with _connected(os.environ if environ is None else environ) as (client, _):
+    with _catalog_client(os.environ if environ is None else environ, chdb_path) as (client, _):
         settings = _catalog_settings(client)
         database = str(
             client.query("SELECT currentDatabase()", parameters={}, settings=settings).result_rows[
@@ -163,6 +172,22 @@ def discover_catalog(
 
 class DiscoveryConnectionError(CliError):
     """ClickHouse could not be reached or refused the connection."""
+
+
+@contextmanager
+def _catalog_client(
+    environ: Mapping[str, str], chdb_path: Path | None
+) -> Iterator[tuple[_Client, ConnectionFields | None]]:
+    """The embedded database at *chdb_path*, or the ClickHouse server *environ* names."""
+
+    if chdb_path is not None:
+        from ..utils.chdb_catalog import chdb_catalog
+
+        with chdb_catalog(chdb_path) as embedded:
+            yield embedded, None
+        return
+    with _connected(environ) as (client, fields):
+        yield client, fields
 
 
 @contextmanager

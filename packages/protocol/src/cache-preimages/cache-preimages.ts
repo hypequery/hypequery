@@ -77,6 +77,12 @@ function normalizeQuery(source: unknown): Record<string, unknown> {
     // The expression code is not surfaced, so this family's set stays closed.
     fail('HQ_CACHE_PREIMAGE_INVALID_QUERY');
   }
+  // RFC 0025 fields stay outside the RFC 0009 preimage, so a query that uses
+  // them has no portable key rather than one that collides with a query
+  // without them. `having` runs uncached; a zone is folded into the
+  // definition identity by the caller, and UTC (the default) folds nothing.
+  if (query.kind === 'dataset' && (query.having?.length ?? 0) > 0) fail('HQ_CACHE_PREIMAGE_INVALID_QUERY');
+  if (query.timezone !== undefined && query.timezone !== 'UTC') fail('HQ_CACHE_PREIMAGE_INVALID_QUERY');
   // AND-combined, so order cannot change rows; identical filters collapse.
   const filters = new Map<string, unknown>();
   for (const filter of query.filters ?? []) filters.set(serializeJcs(filter), filter);

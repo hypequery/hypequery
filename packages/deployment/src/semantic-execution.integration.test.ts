@@ -185,6 +185,43 @@ describe('semantic invocation end to end', () => {
     expect(sql).toHaveLength(0);
   });
 
+  it('applies having conditions after grouping (RFC 0025)', async () => {
+    const { plane, sql } = wire([{ status: 'paid', revenue: 1_500 }]);
+
+    const result = await plane.invoke({
+      invocation: invocation({
+        kind: 'dataset',
+        dataset: 'orders',
+        dimensions: ['status'],
+        measures: ['revenue'],
+        having: [{ measure: 'revenue', operator: 'gt', value: 1_000 }],
+      }),
+      credentials: 'token',
+    });
+
+    expect(result.meta.rowCount).toBe(1);
+    // An outer filter over the grouped base, with the value bound, not inlined.
+    expect(sql[0]).toMatch(/^WITH base AS \(.*groupBy\(`status`\).*\) SELECT .* FROM base WHERE `revenue` > \?/);
+    expect(sql[0]).not.toContain('1000');
+  });
+
+  it('buckets the time grain in the requested zone (RFC 0025)', async () => {
+    const { plane, sql } = wire([{ period: '2026-01-01', revenue: 10 }]);
+
+    await plane.invoke({
+      invocation: invocation({
+        kind: 'dataset',
+        dataset: 'orders',
+        measures: ['revenue'],
+        by: 'day',
+        timezone: 'Europe/London',
+      }),
+      credentials: 'token',
+    });
+
+    expect(sql[0]).toContain("toStartOfDay(toDateTime64(analytics.orders.created_at, 9, 'Europe/London'))");
+  });
+
   it('applies the endpoint ceiling to an omitted limit', async () => {
     const { plane, sql } = wire([{ status: 'paid' }]);
 

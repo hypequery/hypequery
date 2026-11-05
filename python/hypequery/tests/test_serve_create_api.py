@@ -103,7 +103,8 @@ def test_datasets_and_metrics_are_served_at_their_typescript_paths() -> None:
     }
     assert http.post("/analytics/datasets/bills/query", json=query).status_code == 200
     metric = http.post("/analytics/metrics/orderCount", json={}, headers=AUTH)
-    assert metric.json() == {"data": [{"total": "7"}]}
+    # The key names the metric, as in TypeScript: its output alias is orderCount.
+    assert metric.json() == {"data": [{"orderCount": "7"}]}
     assert http.get("/analytics/discovery").status_code == 401
     discovery = http.get("/analytics/discovery", headers=AUTH).json()
     assert [entry["name"] for entry in discovery["datasets"]] == ["invoices", "orders"]
