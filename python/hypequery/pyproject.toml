@@ -72,6 +72,10 @@ clickhouse-async = [
     "certifi>=2026.10.19",
     "idna>=3.15",
 ]
+# Embedded ClickHouse: the engine runs in-process, with no server. chDB 4.4.0
+# is the oldest release the executor is tested against; its native engine
+# (chdb-core) ships wheels for Linux and macOS only.
+chdb = ["chdb>=4.4.0"]
 # The uvicorn server behind `start_server` and `hypequery dev`. Serving an API
 # from another ASGI server or framework needs no extra.
 server = ["uvicorn>=0.30.6", "h11>=0.16.0"]
@@ -206,6 +210,8 @@ exclude = ["^src/hypequery/cli/templates/"]
 warn_unreachable = true
 # Public signatures must not leak Any; see the PR rules in the plan.
 disallow_any_generics = true
+# chDB ships types, but its connect() wrapper is unannotated.
+untyped_calls_exclude = ["chdb"]
 
 # Optional integrations ship no usable types for Python 3.11 (Django, pandas and
 # pyarrow have none; numpy's, reached through polars, need 3.12 syntax). Their
@@ -260,7 +266,7 @@ layers = [
 name = "protocol and datasets stay framework-free and driver-free"
 type = "forbidden"
 source_modules = ["hypequery.protocol", "hypequery.datasets"]
-forbidden_modules = ["fastapi", "starlette", "uvicorn", "clickhouse_connect"]
+forbidden_modules = ["fastapi", "starlette", "uvicorn", "clickhouse_connect", "chdb"]
 
 # Decision 0023: the serving core takes requests from any framework's adapter
 # and imports none of them. AnyIO (its worker pool) is a runtime, not a framework.

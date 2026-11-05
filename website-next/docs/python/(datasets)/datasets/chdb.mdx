@@ -1,0 +1,134 @@
+---
+title: Embedded ClickHouse (chDB)
+description: Run Python datasets on chDB, the ClickHouse engine embedded in your process. No server, the same SQL, for tests, CI, local development and serverless.
+---
+
+import { Callout } from 'fumadocs-ui/components/callout';
+import { CodeBlock } from 'fumadocs-ui/components/codeblock';
+
+[chDB](https://github.com/chdb-io/chdb) runs the ClickHouse engine inside your Python process. With the `chdb` extra,
+your datasets run on it with no server and no credentials. The executor sends the same compiled, read-only,
+parameter-bound SQL the ClickHouse executors send, and results come back in the same shape.
+
+<Callout type="info">
+chDB support is new and ships in the first Python release after 0.1.0b2. chDB publishes wheels for Linux and macOS
+only.
+</Callout>
+
+<CodeBlock>
+```bash
+pip install "hypequery[chdb]"
+```
+</CodeBlock>
+
+<CodeBlock>
+```python
+from hypequery.datasets import DatasetQuery, create_dataset_client
+from hypequery.execution import create_chdb_executor
+
+from datasets import orders
+
+executor = create_chdb_executor("./analytics.chdb")  # or create_chdb_executor() for in-memory
+client = create_dataset_client(executor=executor)
+
+result = client.execute(orders, DatasetQuery(dimensions=("country",), measures=("revenue",)))
+```
+</CodeBlock>
+
+To point the same code at a ClickHouse server for production, swap the executor for
+`create_clickhouse_executor(ClickHouseConnection.from_env())`. Nothing else changes.
+
+## Why run embedded?
+
+- **Tests and CI.** Run your datasets against a real ClickHouse engine with no container and no shared staging
+  database. The queries your tests run are the queries you ship.
+- **Local development.** Build against an on-disk or in-memory database, then switch executors for production.
+- **Serverless.** chDB runs anywhere CPython runs on Linux. Its native engine is large, so check your deployment
+  package's size limit.
+- **Files.** chDB reads Parquet, CSV, S3 and more through ClickHouse table functions. Create a view over a file and
+  point a dataset's `source` at it.
+
+## Opening a database
+
+`create_chdb_executor(path=":memory:", *, database="default")` opens the database at `path`:
+
+| `path` | Tables live |
+| --- | --- |
+| A directory, such as `"./analytics.chdb"` | On disk, between runs. The directory is created if it doesn't exist |
+| `":memory:"` (the default) | In memory, until the last chDB connection in the process closes |
+
+Unqualified dataset sources (`source="orders"`) resolve in `database`, which must already exist. Datasets generated
+by the CLI qualify their sources, so they don't need it. `create_async_chdb_executor` takes the same arguments for
+`create_async_dataset_client`.
+
+Close the executor when you're done (`executor.close()`, or use it as a context manager). Closing the last connection
+discards an in-memory database.
+
+## How it differs from a ClickHouse server
+
+The SQL and the results are the same: values travel as typed query parameters, every query runs read-only with the
+planner's limits, Decimals come back as strings with their scale, and timestamps as UTC instants. A few things work
+differently because the engine runs in your process:
+
+- **One path per process.** A process holds one chDB database path at a time. Every connection to it shares one
+  database, and opening a different path fails until they're all closed.
+- **One process per on-disk database.** chDB locks an on-disk database to the process that opened it. Stop your app
+  before seeding the database or running `hypequery generate datasets` against it, and run one server process rather
+  than several workers.
+- **One query at a time.** A chDB connection runs one query at a time; others wait their turn. A caller whose
+  deadline expires while waiting fails without starting.
+- **No mid-query cancellation.** A running chDB query can't be killed. The executor shortens the query's
+  `max_execution_time` to the caller's remaining time, rounded up to whole seconds with a one-second minimum.
+  `create_async_chdb_executor` returns `aborted` or `deadline-exceeded` to the caller promptly while the query runs
+  on; a synchronous `execute()` waits until the running query finishes or reaches that limit, which can be after the
+  caller's deadline.
+
+## Scaffold a project on chDB
+
+`hypequery init` can scaffold straight onto chDB, as the TypeScript CLI's `--database chdb` does:
+
+<CodeBlock>
+```bash
+pip install "hypequery[server,chdb]"
+hypequery init analytics --database chdb
+```
+</CodeBlock>
+
+The app opens `analytics.chdb` beside `app.py`, the project installs the `chdb` extra, and there are no connection
+settings. If the database doesn't exist yet, `init` writes the orders example, and its README shows how to create the
+database from `seed.sql`. `init` never creates the database itself. Point `--chdb-path` at an existing database
+(relative to the project) and `init` reads its tables as it would a server's:
+
+<CodeBlock>
+```bash
+hypequery init analytics --chdb-path ../warehouse.chdb
+```
+</CodeBlock>
+
+`init` records the path in the project's `pyproject.toml` (`[tool.hypequery] chdb-path`), so `hypequery generate datasets` reads the same database again. chDB
+scaffolds the standalone and FastAPI apps; the Django and Flask integrations connect to a ClickHouse server. See the
+[CLI reference](/docs/python/cli#embedded-clickhouse-chdb).
+
+## Testing with chDB
+
+An in-memory database makes a fast fixture. Keep one connection open for the test's lifetime, so the database
+outlives the setup:
+
+<CodeBlock>
+```python
+import chdb
+import pytest
+
+from hypequery.execution import create_chdb_executor
+
+
+@pytest.fixture
+def executor():
+    with create_chdb_executor() as executor:
+        setup = chdb.connect(":memory:")
+        setup.query("CREATE TABLE orders (id String, country String, amount Decimal(12, 2)) ENGINE = Memory")
+        setup.query("INSERT INTO orders VALUES ('o1', 'NZ', 120.50), ('o2', 'AU', 80.00)")
+        setup.close()
+        yield executor
+```
+</CodeBlock>

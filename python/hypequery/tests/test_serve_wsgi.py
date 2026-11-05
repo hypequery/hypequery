@@ -480,7 +480,9 @@ def test_to_wsgi_app_checks_its_argument_and_the_client_contract(
 
 def test_a_contract_is_exported_from_the_wsgi_app() -> None:
     app = to_wsgi_app(create_api(auth=_authenticate))
-    assert export_client_contract(app) == export_client_contract(app.api)
+    # The app is unwrapped to its API, which has nothing to export.
+    with pytest.raises(ValueError, match="no dataset or metric endpoints"):
+        export_client_contract(app)
 
 
 # --- the serving loop -----------------------------------------------------

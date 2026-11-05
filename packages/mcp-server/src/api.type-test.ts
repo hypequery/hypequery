@@ -18,6 +18,9 @@ import {
   type MCPServerConfig,
   type MCPToolExecutor,
   type MCPToolErrorCode,
+  type MCPErrorDetails,
+  createMCPErrorResponse,
+  mcpToolErrorFromSemanticFailure,
   type QueryDatasetArgs,
   type QueryMetricArgs,
 } from './index.js';
@@ -33,6 +36,19 @@ it('exports the transport-neutral and backwards-compatible MCP APIs', () => {
   expectTypeOf(createMCPServer).returns.toMatchTypeOf<Promise<HypequeryMCPServer>>();
   expectTypeOf(new MCPToolError('MCP_UNAUTHORIZED', 'Forbidden').code)
     .toMatchTypeOf<MCPToolErrorCode>();
+});
+
+it('exports hosted error details and the semantic failure mapping', () => {
+  expectTypeOf<'MCP_RATE_LIMITED'>().toMatchTypeOf<MCPToolErrorCode>();
+  expectTypeOf<MCPErrorDetails['retryAfterSeconds']>().toEqualTypeOf<number | undefined>();
+  expectTypeOf<MCPErrorDetails['relist']>().toEqualTypeOf<boolean | undefined>();
+  expectTypeOf<MCPErrorDetails['reason']>().toEqualTypeOf<string | undefined>();
+  expectTypeOf(MCPToolError).toBeConstructibleWith('MCP_RATE_LIMITED', 'Slow down', {
+    retryAfterSeconds: 7,
+    reason: 'HOST_RATE_LIMITED',
+  });
+  expectTypeOf(mcpToolErrorFromSemanticFailure).returns.toEqualTypeOf<MCPToolError>();
+  expectTypeOf(createMCPErrorResponse).parameter(0).toBeUnknown();
 });
 
 it('accepts segments in the exported query argument types', () => {

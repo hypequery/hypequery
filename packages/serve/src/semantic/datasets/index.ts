@@ -49,6 +49,7 @@ export type {
   MeasureOptions,
   MeasureDefinition,
   InferDimensionType,
+  DimensionResultValue,
   RelationshipKind,
   RelationshipDefinition,
   AggregationType,

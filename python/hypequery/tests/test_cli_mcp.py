@@ -198,3 +198,15 @@ def test_a_real_stdio_session(project: Path) -> None:
             assert result.structured_content == {"data": [{"country": "US", "total": "7"}]}
 
     asyncio.run(session())
+
+
+def test_env_files_are_read_from_the_project_for_mcp(
+    project: Path, tmp_path_factory: pytest.TempPathFactory
+) -> None:
+    from hypequery.cli.utils.env_files import env_root
+
+    launch = tmp_path_factory.mktemp("launch")
+    assert env_root(["mcp", "app:api", "--project", str(project)]) == project.resolve()
+    assert env_root(["mcp", f"--project={project}"]) == project.resolve()
+    assert env_root(["mcp", "--project", str(launch / "missing")]) == Path.cwd()
+    assert env_root(["dev", "--project", str(project)]) == Path.cwd()
