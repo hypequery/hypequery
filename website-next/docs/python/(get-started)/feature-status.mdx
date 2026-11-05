@@ -10,7 +10,7 @@ The Python SDK is in beta. This table tracks coverage against the TypeScript pac
 | Dimensions and base measures | Available | Available |
 | Filtered measures | Available | Available |
 | Filters on dimensions and declared filters with operator allowlists | Available | Available |
-| Null-check filters (`isNull`, `isNotNull`) | Available | Planned. The protocol accepts them; Python datasets can't write them yet |
+| Null-check filters (`isNull`, `isNotNull`) | Available | Available: `filter.is_null` / `filter.is_not_null`, opt-in per filter's `operators` |
 | Relationships (`belongs_to`, `has_one`, `has_many`) | Available | Available |
 | Time grains | Available | Available, including per-dataset `time_grains` restriction |
 | Sync and async execution | Available | Available |
