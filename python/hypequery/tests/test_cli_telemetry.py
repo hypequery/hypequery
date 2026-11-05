@@ -454,7 +454,8 @@ def test_every_classified_command_has_a_complete_contract_entry(tmp_path: Path) 
     suggestions = variants["unknown"]["suggested_command"]["values"]
     # A command missing from any of these has its events refused by validate_event.
     for command in set(_TOP_LEVEL.values()) - {"telemetry"}:
-        assert command in COMMANDS and command in commands, command
+        assert command in COMMANDS, command
+        assert command in commands, command
         assert command in variants, command
         assert command in contract()["COMMAND_FLAGS"], command
     for topic in _HELP_TOPICS:
