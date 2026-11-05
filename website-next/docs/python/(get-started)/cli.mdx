@@ -200,3 +200,21 @@ or connecting to a database.
 | `--force` | Replace an existing artifact |
 
 See [React and MCP clients](/docs/python/client-endpoints) for the end-to-end workflow.
+
+## `hypequery mcp`
+
+Serves an API's authorized client contract to AI agents over MCP stdio, with the same four tools, input schemas and
+errors as `@hypequery/mcp`. Needs the `mcp` extra: `pip install "hypequery[mcp]"`.
+
+| Option | Description |
+| --- | --- |
+| `module:api` | The `Api` from `create_api`, or its `to_asgi_app` app, served in-process (default `app:api`) |
+| `--client-contract-url <url>` | Bridge a deployed API's discovery route instead (HTTPS; plain HTTP only on loopback) |
+| `--header 'Name: value'` | A header sent with every call, such as a credential (repeatable) |
+| `--project <dir>` | Directory to import the app from (default: current) |
+| `--self-test` | Read and validate the contract, count its endpoints and exit, without serving |
+| `--print-config` | Print an `mcpServers` entry for Claude, Cursor or another MCP client |
+
+`HYPEQUERY_API_KEY`, when set, is sent as `Authorization: Bearer …`. The API authenticates and scopes every call, so
+an agent gets exactly the endpoints, fields and tenant that credential's principal may use. See
+[MCP: datasets served from Python](/docs/mcp/overview#datasets-served-from-python).

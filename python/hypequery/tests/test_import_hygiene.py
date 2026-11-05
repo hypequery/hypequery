@@ -228,3 +228,19 @@ def test_version_matches_the_package_metadata() -> None:
 
     project = tomllib.loads((Path(__file__).parents[1] / "pyproject.toml").read_text())
     assert hypequery.__version__ == version("hypequery") == project["project"]["version"]
+
+
+def test_the_mcp_executor_imports_without_the_mcp_sdk() -> None:
+    """`hypequery.mcp` and both backends work without the `mcp` extra."""
+    result = run_python(
+        """
+        import sys
+
+        import hypequery.mcp
+        from hypequery.mcp import ApiContractBackend, ClientContractExecutor, HttpContractBackend
+
+        leaked = [m for m in ("mcp", "mcp_types", "starlette", "uvicorn") if m in sys.modules]
+        assert not leaked, f"the MCP SDK leaked into a plain import: {leaked}"
+        """
+    )
+    assert result.returncode == 0, result.stderr

@@ -15,7 +15,7 @@ contract**: a JSON description of each endpoint's fields, operators, limits and 
 | [1. Declare client endpoints](#1-declare-client-endpoints) | Python | `ClientEndpointDefinition` in a definition-only module |
 | [2. Install the endpoints](#2-install-the-endpoints) | Python | `add_dataset_endpoint(..., client_profile=...)`, `add_metric_endpoint`, `add_client_contract_endpoint` |
 | [3. Export the contract](#3-export-the-contract) | Python, then frontend | `python -m hypequery export client-contract`, then `npx hypequery generate:client` |
-| [4. Connect MCP](#4-connect-mcp) | Anywhere Node runs | `npx hypequery mcp --client-contract-url https://…/v1/client-contract` |
+| [4. Connect MCP](#4-connect-mcp) | Python | `hypequery mcp app:api` (or `--client-contract-url https://…/v1/client-contract`) |
 
 The Python side needs no Node process. Generating the React client and running the MCP bridge do; there is no native
 Python MCP server. On the frontend, see [React: datasets served from Python](/docs/react/getting-started#datasets-served-from-python)
@@ -189,18 +189,19 @@ npx hypequery generate:client client-contract.json --output src/hypequery-client
 
 ## 4. Connect MCP
 
-The MCP bridge reads the live, authorized contract and turns tool calls into the same HTTP requests a React client
-sends. Each bridge process acts as one principal:
+`hypequery mcp` serves the same authorized contract to AI agents over MCP stdio. Tool calls become the same requests a
+React client sends, through `Api.handle` in-process, and each server process acts as one principal:
 
 <CodeBlock>
 ```bash
-npm install @hypequery/mcp
-npm install -D @hypequery/cli
-HYPEQUERY_API_KEY=… npx hypequery mcp --client-contract-url https://analytics.example.com/v1/client-contract
+pip install "hypequery[mcp]"
+HYPEQUERY_API_KEY=… hypequery mcp app:agents_api --self-test
+hypequery mcp app:agents_api --print-config
 ```
 </CodeBlock>
 
-See [MCP: datasets served from Python](/docs/mcp/overview#datasets-served-from-python) for URL rules, `--self-test` and
+Use `--client-contract-url https://…/v1/client-contract` instead of an app to bridge an API that is already deployed.
+See [MCP: datasets served from Python](/docs/mcp/overview#datasets-served-from-python) for URL rules, credentials and
 client configuration.
 
 ## What the generated types guarantee

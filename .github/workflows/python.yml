@@ -233,12 +233,35 @@ jobs:
         with:
           enable-cache: true
           cache-dependency-glob: python/hypequery/uv.lock
-      - run: uv sync --all-extras --dev
+      # The mcp extra has its own floor job: the MCP SDK's pydantic floor would
+      # lift the one every other extra is tested on (scripts/floor_extras.py).
+      - run: uv sync --all-extras --no-extra mcp --dev
       - name: Install the declared direct dependency floors
         run: |
-          uv pip compile pyproject.toml --all-extras --resolution lowest-direct --output-file /tmp/python-floors.txt --quiet
+          uv pip compile pyproject.toml $(uv run --no-sync python scripts/floor_extras.py) --resolution lowest-direct --output-file /tmp/python-floors.txt --quiet
           uv pip install --requirement /tmp/python-floors.txt
       - run: uv run --no-sync pytest tests/test_serve_auth.py tests/test_serve_security.py tests/test_serve_errors.py tests/test_serve_http_fixtures.py tests/test_serve_discovery.py tests/test_serve_endpoints.py tests/test_serve_semantic_fixtures.py tests/test_serve_production.py tests/test_serve_dev.py tests/test_cli_dev.py tests/test_serve_core_security.py tests/test_serve_asgi.py tests/test_serve_create_api.py tests/test_serve_jwt.py tests/test_serve_jwt_fixtures.py tests/test_serve_wsgi.py tests/test_serve_native_adapters.py tests/test_contrib_django_serve.py tests/test_contrib_flask_serve.py tests/test_serve_jwt_adapters.py tests/test_serve_context_auth.py tests/test_contrib_django_auth.py tests/test_contrib_flask_auth.py tests/test_serve_security_headers.py
+
+  mcp-floor:
+    # The MCP server on the mcp extra's own declared floors, audited, with the
+    # floors of everything else it imports.
+    name: mcp on the dependency floors
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.ref || github.sha }}
+      - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+        with:
+          enable-cache: true
+          cache-dependency-glob: python/hypequery/uv.lock
+      - run: uv sync --extra mcp --dev
+      - name: Resolve and audit the mcp extra's floors
+        run: |
+          uv pip compile pyproject.toml --extra mcp --resolution lowest-direct --generate-hashes --output-file /tmp/mcp-floors.txt --quiet
+          uvx pip-audit==2.10.1 --disable-pip --require-hashes --requirement /tmp/mcp-floors.txt
+          uv pip install --only-binary :all: --require-hashes --requirement /tmp/mcp-floors.txt
+      - run: uv run --no-sync pytest tests/test_mcp_executor.py tests/test_mcp_http_backend.py tests/test_mcp_server.py tests/test_cli_mcp.py tests/test_protocol_client_contract_tool_schemas.py
 
   getting-started:
     # PYE-01 acceptance: the README's Getting started path, run as written from
@@ -347,7 +370,7 @@ jobs:
           if [ "$RESOLUTION" = "locked" ]; then
             uv export --frozen --all-extras --no-dev --no-emit-project --format requirements.txt --output-file reports/requirements.txt --quiet
           else
-            uv pip compile pyproject.toml --all-extras --resolution lowest-direct --python-version "$PYTHON_VERSION" --generate-hashes --output-file reports/requirements.txt --quiet
+            uv pip compile pyproject.toml $(python3 scripts/floor_extras.py) --resolution lowest-direct --python-version "$PYTHON_VERSION" --generate-hashes --output-file reports/requirements.txt --quiet
           fi
       - name: Audit resolved versions and hashes
         run: uvx --python "${{ matrix.python-version }}" pip-audit==2.10.1 --disable-pip --require-hashes --requirement reports/requirements.txt --format json --output reports/audit.json
@@ -358,7 +381,7 @@ jobs:
       - name: Install the declared direct dependency floors from wheels
         if: matrix.resolution == 'floor'
         run: |
-          uv sync --all-extras --dev --python "${{ matrix.python-version }}"
+          uv sync --all-extras --no-extra mcp --dev --python "${{ matrix.python-version }}"
           uv pip install --only-binary :all: --require-hashes --requirement reports/requirements.txt
       - name: Run the suite on the floors
         if: matrix.resolution == 'floor'

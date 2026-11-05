@@ -123,13 +123,21 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         "--no-watch", "--no-reload", dest="reload", action="store_false", help="disable reload"
     )
     dev.set_defaults(reload=True)
+    mcp = _add_mcp(commands)
     help_command = commands.add_parser("help", help="show help for a command")
-    help_command.add_argument("topic", nargs="?", choices=("init", "dev", "generate", "export"))
+    help_command.add_argument(
+        "topic", nargs="?", choices=("init", "dev", "generate", "export", "mcp")
+    )
     args = parser.parse_args(arguments)
     if args.command == "help":
-        {None: parser, "init": init, "dev": dev, "generate": generate, "export": export}[
-            args.topic
-        ].print_help()
+        {
+            None: parser,
+            "init": init,
+            "dev": dev,
+            "generate": generate,
+            "export": export,
+            "mcp": mcp,
+        }[args.topic].print_help()
         parser.exit()
     if args.command == "init":
         if args.directory is not None and args.path is not None:
@@ -151,6 +159,58 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
             parser.error("--force cannot be combined with --check")
         if (args.stdout or args.output == "-") and (args.check or args.force):
             parser.error("stdout export cannot be combined with --check or --force")
+    if args.command == "mcp":
+        _validate_mcp(parser, args)
     if args.command == "dev" and not 0 < args.port < 65536:
         parser.error("--port must be between 1 and 65535")
     return args
+
+
+def _add_mcp(
+    commands: argparse._SubParsersAction[argparse.ArgumentParser],
+) -> argparse.ArgumentParser:
+    mcp = commands.add_parser(
+        "mcp",
+        help="serve an API's datasets to AI agents over MCP stdio (requires the mcp extra)",
+        description="Serve the four hypequery MCP tools over stdio, from an Api in this "
+        "process (module:attribute) or from a served API's client contract "
+        "(--client-contract-url). The API authenticates and scopes every call; "
+        "HYPEQUERY_API_KEY, when set, is sent as a bearer token.",
+    )
+    mcp.add_argument(
+        "app",
+        nargs="?",
+        help="the Api to serve, as module:attribute (default: app:api); "
+        "an ASGI app from to_asgi_app also works",
+    )
+    mcp.add_argument(
+        "--client-contract-url",
+        help="bridge to a served API's authorized client contract instead "
+        "(HTTPS; plain HTTP only on loopback)",
+    )
+    mcp.add_argument(
+        "--header",
+        action="append",
+        default=[],
+        metavar="NAME: VALUE",
+        help="a request header for every call, such as a credential (repeatable)",
+    )
+    mcp.add_argument("--project", help="directory to import the app from (default: current)")
+    mcp.add_argument(
+        "--self-test",
+        action="store_true",
+        help="connect, list the tools and exit, without serving",
+    )
+    mcp.add_argument(
+        "--print-config",
+        action="store_true",
+        help="print an mcpServers entry for Claude, Cursor or another MCP client and exit",
+    )
+    return mcp
+
+
+def _validate_mcp(parser: argparse.ArgumentParser, args: argparse.Namespace) -> None:
+    if args.app is not None and args.client_contract_url is not None:
+        parser.error("use either an app or --client-contract-url")
+    if args.self_test and args.print_config:
+        parser.error("--self-test cannot be combined with --print-config")

@@ -268,9 +268,19 @@ extra (uvicorn); apps using ClickHouse also need `clickhouse`. The command
 retains the development runner's external-bind warning and refuses
 production-profile APIs. Use `start_server` for production serving.
 
+`hypequery mcp [module:api]` serves the API's authorized client contract to AI
+agents over MCP stdio: `list_datasets`, `get_dataset_schema`, `query_metric` and
+`query_dataset`, the same tools and errors as `@hypequery/mcp`. Each call runs
+through the API in-process, so its authentication, endpoint policy and tenant
+apply. `HYPEQUERY_API_KEY`, when set, is sent as a bearer token; `--header` sends
+any other credential. `--client-contract-url https://…` bridges a deployed API
+instead, `--self-test` checks the contract without serving, and `--print-config`
+prints an `mcpServers` entry for Claude or Cursor. Serving requires the `mcp`
+extra.
+
 `hypequery --help`, `hypequery init --help`, `hypequery dev --help` and
 `hypequery --version` (also `-V`) work without extras.
-`hypequery help [init|dev]` also shows command help. `python -m hypequery` invokes the same
+`hypequery help [init|dev|mcp]` also shows command help. `python -m hypequery` invokes the same
 CLI. Exit codes are `0` for success/help, `1` for runtime failures and `2` for
 invalid command usage. No Node tooling is required.
 
@@ -288,6 +298,7 @@ pip install "hypequery[clickhouse]"
 pip install "hypequery[clickhouse-async]"
 pip install "hypequery[server]"
 pip install "hypequery[jwt]"      # JWT auth for hypequery.serve
+pip install "hypequery[mcp]"      # hypequery mcp: datasets for AI agents
 pip install "hypequery[django]"   # or [flask]
 pip install "hypequery[pandas]"   # or [polars], [arrow]
 ```
@@ -299,6 +310,7 @@ pip install "hypequery[pandas]"   # or [polars], [arrow]
 | `clickhouse-async` | clickhouse-connect with aiohttp | `create_async_clickhouse_executor`; also covers everything `clickhouse` does |
 | `server` | uvicorn | `start_server` and `hypequery dev` |
 | `jwt` | PyJWT, cryptography | `jwt_strategy` and `analytics_token_issuer` |
+| `mcp` | the official MCP SDK | `hypequery mcp` and `hypequery.mcp.serve_stdio` |
 | `django` | Django, clickhouse-connect | `hypequery.contrib.django` |
 | `flask` | Flask, clickhouse-connect | `hypequery.contrib.flask` |
 | `pandas` / `polars` / `arrow` | that library | `result.to_pandas()` / `to_polars()` / `to_arrow()` |
@@ -315,6 +327,7 @@ The SDK is organised as:
 - `hypequery.datasets` for dimensions, measures, metrics, and relationships;
 - `hypequery.execution` for sync and async ClickHouse execution;
 - `hypequery.serve` for a framework-neutral, authenticated HTTP API and its ASGI adapter;
+- `hypequery.mcp` for the MCP server over an API's client contract;
 - `hypequery.contrib` for Django, Flask and SQLAlchemy glue.
 
 Python and TypeScript implement the same specifications and run against the same conformance fixtures. The goal is identical semantic and deployment artifacts across both languages, not a line-for-line port of the TypeScript runtime.

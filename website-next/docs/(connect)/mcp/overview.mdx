@@ -13,7 +13,7 @@ Use MCP when you want an agent to work inside a constrained analytics vocabulary
 - expose only the datasets you register
 - expose only named metrics you attach to those datasets
 - let agents inspect dimensions, labels, descriptions, filters, tenant keys, and time keys
-- execute through the same dataset client the rest of your app uses, whether that app is TypeScript or Python ([Python backends](#datasets-served-from-python) connect over HTTP)
+- execute through the same dataset client the rest of your app uses, whether that app is TypeScript or Python ([Python backends](#datasets-served-from-python) have a native server)
 - avoid handing an LLM a direct SQL console
 
 <Callout type="info">
@@ -78,33 +78,52 @@ npx hypequery mcp --self-test
 
 ## Datasets served from Python
 
-A Python backend (`hypequery.serve`) has no TypeScript API for the CLI to load.
-Instead, `hypequery mcp --client-contract-url` bridges its **authorized client
-contract**: the endpoints the API key's principal may call, with their fields and
-limits. Python keeps ownership of SQL, authorization and the tenant. The bridge
-only turns tool calls into the same HTTP requests a generated React client sends.
+A Python backend (`hypequery.serve`) has its own MCP server, with the same four
+tools, the same input schemas and the same `MCP_*` errors as `@hypequery/mcp`.
+It serves the API's **authorized client contract**: the endpoints the caller's
+principal may call, with their fields and limits. The API keeps ownership of
+SQL, authentication and the tenant.
 
 <CodeBlock>
 ```bash
-npm install @hypequery/mcp
-npm install -D @hypequery/cli
-HYPEQUERY_API_KEY=… npx hypequery mcp --client-contract-url https://analytics.example.com/v1/client-contract
+pip install "hypequery[mcp]"
+hypequery mcp app:api --self-test
+```
+</CodeBlock>
+
+`app:api` is the `Api` from `create_api` (or the ASGI app from `to_asgi_app`).
+Each tool call goes through `Api.handle` in the same process, so authentication,
+endpoint policy, rate limits and tenant resolution are exactly the ones an HTTP
+caller meets, without running a server. The `hypequery init` scaffolds already
+publish a client contract; in your own API, give endpoints
+`client_profile=ClientQueryProfile()`. If the API has no
+`add_client_contract_endpoint` route, the server adds one at `/client-contract`.
+
+To reach an API that is already deployed instead, bridge its discovery route:
+
+<CodeBlock>
+```bash
+HYPEQUERY_API_KEY=… hypequery mcp --client-contract-url https://analytics.example.com/v1/client-contract
 ```
 </CodeBlock>
 
 - The URL is the backend's discovery route (`add_client_contract_endpoint`). It
   must be HTTPS, or plain HTTP on `localhost`, `127.0.0.1` or `[::1]`, and must not
   contain credentials, a query string or a fragment.
-- `HYPEQUERY_API_KEY` is sent as `Authorization: Bearer …` to that origin only.
-  Redirects are refused, so the key is never forwarded elsewhere.
+- `HYPEQUERY_API_KEY` is sent as `Authorization: Bearer …`, in-process or to that
+  origin only; `--header 'Name: value'` sends any other credential. Redirects are
+  refused, so a credential is never forwarded elsewhere.
 - One process serves one principal. Its tenant comes from that principal on the
-  Python side, so `--tenant`, a file and `--path` can't be combined with
-  `--client-contract-url`.
-- If the backend's definitions change while the bridge runs, query tools fail with
-  `MCP_STALE_CONTRACT`. Restart the bridge to load the new contract.
+  Python side; there is no tenant tool argument.
+- If the backend's definitions change while the server runs, tools fail with
+  `MCP_STALE_CONTRACT`. Restart it to load the new contract.
 
-Add `--self-test` to fetch and validate the contract and count the tools it would
-expose, without calling any query tool.
+`--self-test` reads and validates the contract and counts the endpoints it would
+expose, without calling any query tool. `--print-config` prints the `mcpServers`
+entry for Claude, Cursor or another MCP client.
+
+The Node bridge, `npx hypequery mcp --client-contract-url …` with `@hypequery/mcp`
+installed, serves the same contract with the same tools and remains supported.
 
 The server speaks MCP over stdio, so an MCP client normally launches it. See [Clients](/docs/mcp/clients) for Claude
 Desktop and Cursor configuration.
