@@ -202,7 +202,7 @@ def test_built_sdist_excludes_local_state(tmp_path: Path) -> None:
     root = Path(__file__).resolve().parents[1]
     package = tmp_path / "hypequery"
     package.mkdir()
-    for name in ("pyproject.toml", "README.md", "LICENSE", ".gitignore"):
+    for name in ("pyproject.toml", "README.md", "README.pypi.md", "LICENSE", ".gitignore"):
         shutil.copy2(root / name, package / name)
     shutil.copytree(
         root / "src", package / "src", ignore=shutil.ignore_patterns("__pycache__", "*.pyc")

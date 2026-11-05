@@ -376,8 +376,8 @@ Pass `options.request` so an auth strategy receives headers/tokens; without it, 
 
 ## 13. Client config helpers (`reference/api/react.mdx` server side)
 
-### S13.1 — `extractClientConfig(api)`
-Returns a JSON-serializable config (method/path per route). Save to `out/client-config.json`. Used by the React spec's "config endpoint" pattern.
+### S13.1 — `extractClientConfig(api)` (deprecated)
+Returns a JSON-serializable config (method/path per route). Save to `out/client-config.json`. **Pass:** deep-equals `api.manifest()`, i.e. every path includes the base path and any `api.route(...)` override, and each path answers with the listed method. Superseded by `api.manifest()` in the React spec's manifest-endpoint pattern (R5.7).
 
 ### S13.2 — `defineClientConfig`
 Confirm it exists and produces/validates a client config object. Record shape.

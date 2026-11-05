@@ -2,7 +2,7 @@ import { readTelemetryBody } from './body';
 import { telemetryConfig, type TelemetryEnvironment } from './config';
 import { forwardTelemetry } from './forward';
 import { firewallRateLimit, type RateLimiter } from './rate-limit';
-import { validateBatch } from './validation';
+import { isPythonEvent, validateBatch } from './validation';
 
 type Schedule = (callback: () => Promise<void>) => void;
 
@@ -27,7 +27,8 @@ export async function handleTelemetry(
   if (!validateBatch(input)) return new Response(null, { status: 400, headers });
   // A 410 permanently disables this CLI version on the installation. Do not use
   // it for configuration errors, PostHog outages or malformed requests.
-  if (input.batch.some(event => config.disabledVersions.has(event.properties.cli_version as string))) {
+  if (input.batch.some(event => (isPythonEvent(event.event) ? config.disabledPythonVersions : config.disabledVersions)
+    .has(event.properties.cli_version as string))) {
     return new Response(null, { status: 410, headers });
   }
   schedule(() => forwardTelemetry(input.batch, config));
