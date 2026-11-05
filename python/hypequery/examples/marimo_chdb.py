@@ -200,7 +200,7 @@ def _(DatasetQuery, ExecutionContext, analytics, orders, tenant, tenant_picker):
         .properties(height=280)
     )
     chart
-    return
+    return (chart,)
 
 
 @app.cell

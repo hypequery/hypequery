@@ -122,6 +122,9 @@ dev = [
   "flask-wtf>=1.2",
   # Only for serving the `init --framework fastapi` scaffold in tests.
   "fastapi>=0.115",
+  # Only for the examples/marimo_chdb.py smoke test.
+  "marimo>=0.25",
+  "altair>=5",
 ]
 
 [tool.hatch.build.targets.wheel]
