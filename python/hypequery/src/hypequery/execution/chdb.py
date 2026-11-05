@@ -35,9 +35,12 @@ from .utils.settings_clause import settings_clause, within_deadline
 #: chDB's own name for a database that lives only as long as the process.
 IN_MEMORY = ":memory:"
 
-#: Executors open in this process, so a process that imported an app only to
-#: check it can release its database for the process that serves it.
-_OPEN_EXECUTORS: weakref.WeakSet[ChdbExecutor] = weakref.WeakSet()
+#: Executors open in this process, with the database path each holds when it
+#: came from the factories below, so a process that imported an app only to
+#: check it can release the app's database for the process that serves it.
+_OPEN_EXECUTORS: weakref.WeakKeyDictionary[ChdbExecutor | AsyncChdbExecutor, str | None] = (
+    weakref.WeakKeyDictionary()
+)
 
 
 class _ChdbResult(Protocol):
@@ -70,7 +73,7 @@ class ChdbExecutor:
     def __init__(self, connection: _ChdbConnection) -> None:
         self._connection = connection
         self._lock = threading.Lock()
-        _OPEN_EXECUTORS.add(self)
+        _OPEN_EXECUTORS[self] = None
 
     def execute(self, compiled: CompiledQuery) -> QueryRows:
         parameters, settings = query_arguments(compiled)
@@ -104,7 +107,7 @@ class ChdbExecutor:
     def close(self) -> None:
         """Close the chDB connection; an in-memory database goes with the last one."""
 
-        _OPEN_EXECUTORS.discard(self)
+        _OPEN_EXECUTORS.pop(self, None)
         closer = getattr(self._connection, "close", None)
         if callable(closer):
             closer()
@@ -121,27 +124,37 @@ class ChdbExecutor:
         self.close()
 
 
-def open_chdb_executors() -> set[ChdbExecutor]:
-    """The chDB executors open in this process, for :func:`close_chdb_executors_opened_since`."""
+def open_chdb_executors() -> set[ChdbExecutor | AsyncChdbExecutor]:
+    """The chDB executors open in this process; see :func:`release_chdb_databases_opened_since`."""
 
     return set(_OPEN_EXECUTORS)
 
 
-def close_chdb_executors_opened_since(before: Collection[ChdbExecutor]) -> int:
-    """Close the chDB executors opened since *before*; how many were closed.
+def release_chdb_databases_opened_since(
+    before: Collection[ChdbExecutor | AsyncChdbExecutor],
+) -> int:
+    """Close the executors opened since *before* and free their databases; how many closed.
 
-    *before* is an earlier :func:`open_chdb_executors`; executors in it stay
-    open. A chDB database directory is held by one process at a time, so a
-    process that imports an app only to check it, such as the development
-    server's reload supervisor, closes what the import opened for the process
-    that serves the app, and nothing its caller opened. The async executor's
-    connection is closed through its sync one.
+    *before* is an earlier :func:`open_chdb_executors`. chDB holds an on-disk
+    database directory for one process, so a process that imports an app only
+    to check it, such as the development server's reload supervisor, releases
+    the app's database for the process that serves it: the executors the
+    import opened close, and so does any earlier executor on the same on-disk
+    path, which :func:`create_chdb_executor` and its async twin record.
+    Executors on other paths, on in-memory databases, or built directly on a
+    connection stay open.
     """
 
-    executors = [executor for executor in _OPEN_EXECUTORS if executor not in before]
-    for executor in executors:
+    opened = [executor for executor in _OPEN_EXECUTORS if executor not in before]
+    paths = {_OPEN_EXECUTORS[executor] for executor in opened} - {None, IN_MEMORY}
+    earlier = [
+        executor
+        for executor in before
+        if executor in _OPEN_EXECUTORS and _OPEN_EXECUTORS[executor] in paths
+    ]
+    for executor in [*opened, *earlier]:
         executor.close()
-    return len(executors)
+    return len(opened) + len(earlier)
 
 
 class AsyncChdbExecutor:
@@ -155,6 +168,8 @@ class AsyncChdbExecutor:
 
     def __init__(self, connection: _ChdbConnection) -> None:
         self._sync = ChdbExecutor(connection)
+        # Registered once, as the executor a caller holds.
+        _OPEN_EXECUTORS[self] = _OPEN_EXECUTORS.pop(self._sync)
         self._worker = ThreadPoolExecutor(max_workers=1, thread_name_prefix="hypequery-chdb")
         self._semaphore = asyncio.Semaphore(1)
         self._closed = False
@@ -196,6 +211,7 @@ class AsyncChdbExecutor:
         """
 
         self._closed = True
+        _OPEN_EXECUTORS.pop(self, None)
         self._worker.shutdown(wait=False, cancel_futures=True)
         self._sync.close()
 
@@ -203,6 +219,7 @@ class AsyncChdbExecutor:
         """Wait for the running query to end, then close the connection."""
 
         self._closed = True
+        _OPEN_EXECUTORS.pop(self, None)
         self._worker.shutdown(wait=False, cancel_futures=True)
         await asyncio.to_thread(self._worker.shutdown, wait=True)
         await asyncio.to_thread(self._sync.close)
@@ -269,7 +286,9 @@ def create_chdb_executor(path: str = IN_MEMORY, *, database: str = "default") ->
     dataset sources resolve in *database*, which must already exist.
     """
 
-    return ChdbExecutor(_connect(path, database))
+    executor = ChdbExecutor(_connect(path, database))
+    _OPEN_EXECUTORS[executor] = path
+    return executor
 
 
 def create_async_chdb_executor(
@@ -277,4 +296,6 @@ def create_async_chdb_executor(
 ) -> AsyncChdbExecutor:
     """An async executor over an embedded chDB database; see :func:`create_chdb_executor`."""
 
-    return AsyncChdbExecutor(_connect(path, database))
+    executor = AsyncChdbExecutor(_connect(path, database))
+    _OPEN_EXECUTORS[executor] = path
+    return executor
