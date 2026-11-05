@@ -8,7 +8,7 @@ from ...dataset import Dataset
 from ...derived_measures import DerivedMeasure
 from ...relationships import Relationship
 from ...utils.resolved_rows import current_row_predicate
-from ..aliases import BASE_ALIAS
+from ..aliases import BASE_ALIAS, RESOLVED_ALIAS
 from ..identifiers import SafeIdentifier, safe_identifier, safe_qualified_identifier
 from ..predicates import joins_within_tenant, tenant_predicate
 from ..query_node import JoinNode
@@ -128,8 +128,8 @@ class JoinFeature(CompilerFeature):
             # Resolved before the join, so a superseded or deleted target row never
             # matches (RFC 0021).
             self.reads_resolved_rows = True
-            source = compiler.dialect.resolved_source(source)
-            current = current_row_predicate(target)
+            source = compiler.dialect.resolved_source(f"{source} AS {RESOLVED_ALIAS.sql}")
+            current = current_row_predicate(target, RESOLVED_ALIAS)
             if current is not None:
                 where = f" WHERE {current}"
         # Every part is a validated identifier or a constant; no value reaches it.

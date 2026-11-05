@@ -7,6 +7,7 @@ from typing import Literal, cast
 
 from .dataset import Dataset
 from .planner.admission import check_execution_admission
+from .planner.aliases import RESOLVED_ALIAS
 from .planner.compiled_query import CompiledQuery, validate_correlation_id
 from .planner.context import ExecutionContext, effective_deadline
 from .planner.dialects import CLICKHOUSE, SqlDialect
@@ -74,8 +75,8 @@ def plan_relationship_checks(
         settings_clause = ""
         if target.row_resolution is not None:
             # Uniqueness is a property of the current rows, not of every version.
-            source = dialect.resolved_source(source)
-            current = current_row_predicate(target)
+            source = dialect.resolved_source(f"{source} AS {RESOLVED_ALIAS.sql}")
+            current = current_row_predicate(target, RESOLVED_ALIAS)
             if current is not None:
                 predicates.insert(0, current)
             settings_clause = f" SETTINGS {dialect.resolved_rows_settings()}"
