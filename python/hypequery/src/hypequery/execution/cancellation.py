@@ -187,16 +187,19 @@ async def acquire_slot(semaphore: asyncio.Semaphore, compiled: CompiledQuery) ->
 async def run_with_policy(
     work: Awaitable[_T],
     compiled: CompiledQuery,
-    cancel_on_server: Callable[[str], Awaitable[object]],
+    cancel_on_server: Callable[[str], Awaitable[object]] | None,
     *,
     pending: Callable[[], bool] | None = None,
     retries: KillRetries | None = None,
 ) -> _T:
     """Monitor a running query and ask ClickHouse to stop it on interruption.
 
-    *pending* tells whether the driver call behind *work* is still running once
-    *work* itself has been abandoned. *retries* collects any KILL retries left
-    running after this returns, so their owner can stop them when it closes.
+    With no *cancel_on_server* (an engine that cannot stop a running query),
+    the caller still gets its cancellation or deadline at once while the
+    abandoned work runs to its own end. *pending* tells whether the driver call
+    behind *work* is still running once *work* itself has been abandoned.
+    *retries* collects any KILL retries left running after this returns, so
+    their owner can stop them when it closes.
     """
 
     task = asyncio.ensure_future(work)
@@ -206,6 +209,8 @@ async def run_with_policy(
 
     async def cancel_now() -> None:
         nonlocal unconfirmed
+        if cancel_on_server is None:
+            return
         in_flight = not task.done()
         settled = await _cancel_on_server_preserving_reason(compiled.query_id, cancel_on_server)
         unconfirmed = in_flight and not settled
@@ -236,7 +241,7 @@ async def run_with_policy(
     finally:
         if not task.done():
             await _drain(task)
-        if unconfirmed:
+        if unconfirmed and cancel_on_server is not None:
             _ensure_server_cancellation(
                 compiled, cancel_on_server, pending, _RETRIES if retries is None else retries
             )

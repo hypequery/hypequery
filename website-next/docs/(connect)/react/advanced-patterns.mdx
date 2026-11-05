@@ -10,7 +10,7 @@ Learn advanced techniques for configuring and optimizing your React hooks with h
 
 ## HTTP Method Configuration
 
-By default, `useQuery` and `useMutation` issue `GET` requests for routes the hooks don't otherwise know. Routes from a manifest use the manifest's method, so dataset and metric endpoints, including every route in a client generated from a Python contract, use `POST`. Override HTTP methods per query when you need `POST`, `PUT`, or other verbs:
+Routes from a manifest use the server's method, so dataset and metric endpoints, including every route in a client generated from a Python contract, use `POST`. For routes the manifest does not cover, `useQuery` issues `GET` and `useMutation` issues `POST`. Override the method per query with `config`, which is applied on top of the manifest:
 
 <CodeBlock>
 <Pre>
@@ -18,11 +18,13 @@ By default, `useQuery` and `useMutation` issue `GET` requests for routes the hoo
 import { createHooks } from '@hypequery/react';
 import type { InferApiType } from '@hypequery/serve';
 import type { api } from '@/analytics/queries';
+import manifest from '@/analytics/hypequery-manifest.json';
 
 type Api = InferApiType<typeof api>;
 
 export const { useQuery, useMutation } = createHooks<Api>({
-  baseUrl: '/api',
+  baseUrl: '/api/analytics',
+  manifest,
   config: {
     weeklyRevenue: { method: 'GET' },    // Read-only queries
     tripStats: { method: 'GET' },
@@ -43,7 +45,7 @@ export const { useQuery, useMutation } = createHooks<Api>({
 
 ## Auto-Config from Server
 
-Instead of manually maintaining HTTP method configuration, let the server tell the client which methods to use.
+Instead of maintaining routes by hand, let the server tell the client each endpoint's method and path.
 
 ### Option A: Static Manifest (Next.js / Remix / any bundler)
 
@@ -69,8 +71,8 @@ import manifest from '@/analytics/hypequery-manifest.json';
 type Api = InferApiType<typeof api>;
 
 export const { useQuery, useMutation } = createHooks<Api>({
-  baseUrl: '/api/hypequery',
-  manifest, // ✅ Method metadata, no server code in the bundle
+  baseUrl: '/api/analytics',
+  manifest, // ✅ Methods and paths, no server code in the bundle
 });
 ```
 </Pre>
@@ -90,32 +92,32 @@ server stay in sync without the client importing anything from the server.
 </Callout>
 
 <Callout type="info">
-  A `manifest` (or an explicit `config` entry) is **required** when you use semantic
-  `datasets` endpoints with `useDataset`. Their POST paths differ from their map
-  keys, so the hooks need the resolved routes. `extractClientConfig(api)` in Option B includes these
-  routes too.
+  A `manifest` (or an explicit `config` entry with a `path`) is **required**. Serve mounts named
+  queries at `<basePath>/queries/<name>` and datasets at `<basePath>/datasets/<name>/query`, so no
+  route matches its map key. The manifest in Option B includes every route too.
 </Callout>
 
-### Option B: Config Endpoint (SPAs / Vite)
+### Option B: Manifest Endpoint (SPAs / Vite)
 
-If your frontend can't import the server module, expose a configuration endpoint:
+If you'd rather not run a build step, serve the manifest from the server and fetch it at runtime:
 
-**1. Create a config endpoint:**
+**1. Create a manifest endpoint:**
 <CodeBlock>
 <Pre>
 ```ts
-// app/api/hypequery-config/route.ts
-import { extractClientConfig } from '@hypequery/serve';
+// app/api/hypequery-manifest/route.ts
 import { api } from '@/analytics/queries';
 
 export function GET() {
-  return Response.json(extractClientConfig(api));
+  return Response.json(api.manifest());
 }
 ```
 </Pre>
 </CodeBlock>
 
-**2. Load config at runtime:**
+This runs on the server, so the value import of `api` is safe here.
+
+**2. Create hooks without a config.** They read their client from `HypequeryProvider`:
 <CodeBlock>
 <Pre>
 ```ts
@@ -124,49 +126,37 @@ import { createHooks } from '@hypequery/react';
 import type { InferApiType } from '@hypequery/serve';
 import type { api } from '@/analytics/queries';
 
-type Api = InferApiType<typeof api>;
+export type Api = InferApiType<typeof api>;
 
-let hooksPromise: Promise<ReturnType<typeof createHooks<Api>>> | null = null;
-
-export function getHypequeryHooks() {
-  if (!hooksPromise) {
-    hooksPromise = fetch('/api/hypequery-config')
-      .then((res) => res.json())
-      .then((config) =>
-        createHooks<Api>({ baseUrl: '/api/hypequery', config })
-      );
-  }
-  return hooksPromise;
-}
+export const { useQuery, useMutation } = createHooks<Api>();
 ```
 </Pre>
 </CodeBlock>
 
-**3. Initialize in your app:**
+**3. Build the client once the manifest loads:**
 <CodeBlock>
 <Pre>
 ```tsx
 // app/providers.tsx
-import { getHypequeryHooks } from '@/lib/analytics';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { useEffect, useState } from 'react';
+'use client';
 
-const queryClient = new QueryClient();
+import { useEffect, useState, type ReactNode } from 'react';
+import { createHypequeryClient, HypequeryProvider, type HypequeryClient } from '@hypequery/react';
+import type { Api } from '@/lib/analytics';
 
-export function AppProviders({ children }: { children: React.ReactNode }) {
-  const [hooks, setHooks] = useState<any>(null);
+export function AppProviders({ children }: { children: ReactNode }) {
+  const [client, setClient] = useState<HypequeryClient<Api> | null>(null);
 
   useEffect(() => {
-    getHypequeryHooks().then(setHooks);
+    fetch('/api/hypequery-manifest')
+      .then((res) => res.json())
+      .then((manifest) => setClient(createHypequeryClient<Api>({ baseUrl: '/api/analytics', manifest })));
   }, []);
 
-  if (!hooks) return <div>Loading...</div>;
+  if (!client) return <div>Loading...</div>;
 
-  return (
-    <QueryClientProvider client={queryClient}>
-      {children}
-    </QueryClientProvider>
-  );
+  // HypequeryProvider also provides a TanStack QueryClient; pass `queryClient` to reuse your own.
+  return <HypequeryProvider client={client}>{children}</HypequeryProvider>;
 }
 ```
 </Pre>
@@ -186,8 +176,8 @@ function MetricsPanel() {
   const { data } = useQuery('metrics', {});
 
   const handleRefresh = () => {
-    // Invalidate specific queries
-    queryClient.invalidateQueries({ queryKey: ['metrics'] });
+    // Invalidate every cached `metrics` query (see Query Keys below)
+    queryClient.invalidateQueries({ queryKey: ['hypequery', 'analytics', 'metrics'] });
 
     // Or clear entire cache
     queryClient.clear();
@@ -222,9 +212,9 @@ function MetricsManager() {
 
   const rebuild = useMutation('rebuildMetrics', {
     onSuccess: () => {
-      // Invalidate related queries
-      queryClient.invalidateQueries({ queryKey: ['metrics'] });
-      queryClient.invalidateQueries({ queryKey: ['weeklyRevenue'] });
+      // Invalidate related queries (keys use the client's cacheKey; see Query Keys below)
+      queryClient.invalidateQueries({ queryKey: ['hypequery', 'analytics', 'metrics'] });
+      queryClient.invalidateQueries({ queryKey: ['hypequery', 'analytics', 'weeklyRevenue'] });
     },
   });
 
@@ -251,10 +241,10 @@ function Dashboard() {
   const queryClient = useQueryClient();
 
   useEffect(() => {
-    // Prefetch on mount
+    // Prefetch on mount, under the same key `useQuery('weeklyRevenue', input)` reads
     queryClient.prefetchQuery({
-      queryKey: ['weeklyRevenue', { startDate: '2025-01-01' }],
-      queryFn: () => fetch('/api/weeklyRevenue?startDate=2025-01-01')
+      queryKey: ['hypequery', 'analytics', 'weeklyRevenue', { startDate: '2025-01-01' }],
+      queryFn: () => fetch('/api/analytics/queries/weeklyRevenue?startDate=2025-01-01')
         .then(res => res.json()),
     });
   }, []);
@@ -273,7 +263,7 @@ hypequery hooks use a fixed query-key structure: `['hypequery', cacheKey, name]`
 <Pre>
 ```tsx
 // Give the client a known scope when you create it...
-export const { useQuery } = createHooks<Api>({ baseUrl: '/api', cacheKey: 'analytics' });
+export const { useQuery } = createHooks<Api>({ baseUrl: '/api/analytics', manifest, cacheKey: 'analytics' });
 
 // ...then invalidate one query (TanStack matches by prefix, so this covers every input).
 queryClient.invalidateQueries({ queryKey: ['hypequery', 'analytics', 'weeklyRevenue'] });
@@ -296,7 +286,8 @@ Add auth tokens with the `headers` option. It accepts a static object or a (opti
 <Pre>
 ```tsx
 export const { useQuery, useMutation } = createHooks<Api>({
-  baseUrl: '/api',
+  baseUrl: '/api/analytics',
+  manifest,
   headers: async () => ({
     Authorization: `Bearer ${await getAuthToken()}`,
   }),
@@ -315,7 +306,8 @@ If you need full control over the request, override the fetch implementation wit
 <Pre>
 ```tsx
 export const { useQuery, useMutation } = createHooks<Api>({
-  baseUrl: '/api',
+  baseUrl: '/api/analytics',
+  manifest,
   fetchFn: async (url, options) => {
     const token = getAuthToken();
 
@@ -349,9 +341,9 @@ import { useSuspenseQuery } from '@tanstack/react-query';
 function MetricsChart() {
   // Throws a promise while loading, so the parent <Suspense> shows its fallback.
   const { data } = useSuspenseQuery({
-    queryKey: ['hypequery', 'weeklyRevenue', { startDate: '2025-01-01' }],
+    queryKey: ['hypequery', 'analytics', 'weeklyRevenue', { startDate: '2025-01-01' }],
     queryFn: () =>
-      fetch('/api/weeklyRevenue?startDate=2025-01-01').then((res) => res.json()),
+      fetch('/api/analytics/queries/weeklyRevenue?startDate=2025-01-01').then((res) => res.json()),
   });
 
   return <div>Total: ${data.total}</div>;

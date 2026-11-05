@@ -9,8 +9,9 @@ from datetime import datetime
 from decimal import Decimal
 from typing import cast
 
-from hypequery.datasets.planner import CompiledQuery, CompiledQueryError
+from hypequery.datasets.planner import SETTING_DEFINITIONS, CompiledQuery, CompiledQueryError
 
+from .cancellation import terminal_error
 from .utils.datetime_parameters import unix_seconds
 
 _NAME = re.compile(r"p(?:0|[1-9][0-9]*)\Z")
@@ -73,3 +74,22 @@ def _wire_value(scalar: str, value: object) -> object:
     if type(value) in (list, tuple):
         return [unix_seconds(item) for item in cast(Sequence[object], value)]
     return unix_seconds(value)
+
+
+def query_arguments(compiled: CompiledQuery) -> tuple[dict[str, object], dict[str, int]]:
+    """Checked parameters and settings, or the caller's cancellation or deadline."""
+
+    reason = terminal_error(compiled)
+    if reason is not None:
+        raise reason
+    parameters = bound_parameters(compiled)
+    # QuerySettings is a dataclass and can be constructed directly; recheck it
+    # at the adapter boundary before allowing a setting onto the wire.
+    settings = dict(compiled.settings.values)
+    if set(settings) != set(SETTING_DEFINITIONS) or any(
+        type(value) is not int
+        or not SETTING_DEFINITIONS[name].minimum <= value <= SETTING_DEFINITIONS[name].maximum
+        for name, value in settings.items()
+    ):
+        raise CompiledQueryError("internal", "invalid query settings", query_id=compiled.query_id)
+    return parameters, settings

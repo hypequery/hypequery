@@ -23,7 +23,7 @@ from hypequery.datasets import (
 )
 from hypequery.datasets.catalog import get_dataset_catalog
 from hypequery.datasets.deployment import build_protocol_deployment_contract
-from hypequery.datasets.formulas import divide, null_if_zero
+from hypequery.datasets.formulas import add, divide, null_if_zero
 from hypequery.datasets.planner import CompiledQueryError
 from hypequery.datasets.utils.output_column_types import output_column_types
 from hypequery.protocol.deployment_primitives import AGGREGATE_STATE_FUNCTIONS
@@ -149,3 +149,31 @@ def test_client_contracts_offer_having_only_on_numeric_merge_states() -> None:
         "any": False,
         "anyLast": False,
     }
+
+
+@pytest.mark.parametrize("state", ["min", "max", "any", "anyLast"])
+def test_formulas_refuse_merges_that_may_not_be_numbers(state: str) -> None:
+    # These states merge to the stored value itself, which may be a string.
+    with pytest.raises(ValueError, match="numeric measure"):
+        dataset(
+            "states",
+            source="states",
+            dimensions={"day": dimension.timestamp()},
+            measures={
+                "stored": measure.merge(state, "stored_state"),
+                "doubled": measure.derived(add("stored", "stored")),
+            },
+        )
+
+
+def test_formulas_accept_numeric_merges() -> None:
+    dataset(
+        "states",
+        source="states",
+        dimensions={"day": dimension.timestamp()},
+        measures={
+            "users": measure.merge("uniq", "users_state"),
+            "revenue": measure.merge("sum", "revenue_state"),
+            "perUser": measure.derived(divide("revenue", null_if_zero("users"))),
+        },
+    )

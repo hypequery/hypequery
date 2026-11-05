@@ -7,7 +7,7 @@ import copy
 import time
 from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass, replace
-from typing import cast
+from typing import Self, cast
 
 from pydantic import BaseModel, TypeAdapter
 
@@ -102,6 +102,8 @@ class DatasetEndpointCore:
         self.policy = policy
         self.measure = measure
         self.name = validate_identifier(name if name is not None else measure or dataset.name)
+        #: Whether the caller chose the name rather than defaulting to the measure's.
+        self.named = name is not None
         if measure is not None and self.name != measure and self.name in dataset.dimensions:
             raise ValueError("metric name must not shadow a dataset dimension")
         self.diagnostics = diagnostics
@@ -116,6 +118,21 @@ class DatasetEndpointCore:
                 # Its client contract could not express the time range it needs.
                 raise ValueError(f"metric measure {measure!r}: {CLIENT_TIME_MEASURE_REFUSAL}")
         self._default_measures = default_measures(dataset, self.include_related)
+
+    def renamed(self, name: str) -> Self:
+        """This metric endpoint under *name*, its client ID and output alias."""
+
+        return type(self)(
+            dataset=self.dataset,
+            client=self.client,
+            policy=self.policy,
+            measure=self.measure,
+            name=name,
+            diagnostics=self.diagnostics,
+            events=self.events,
+            client_profile=self.client_profile,
+            include_related=self.include_related,
+        )
 
     async def query(
         self,
@@ -286,7 +303,7 @@ def add_dataset_route(
         endpoint.events = api.events
     tags = ("metrics" if endpoint.measure else "datasets",)
     if endpoint.client_profile is None:
-        return api.add_route(
+        route = api.add_route(
             "POST",
             path,
             _query_handler(endpoint),
@@ -302,6 +319,9 @@ def add_dataset_route(
             output=cast(TypeAdapter[object], _RESPONSE),
             tags=tags,
         )
+        # Named when an export finds nothing to describe.
+        api.client_endpoints.omit(route)
+        return route
     target = copy.copy(endpoint)
     served_at = api.base_path + path
     binding = ClientEndpointBinding(

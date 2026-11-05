@@ -175,8 +175,10 @@ surface, mounted in the framework you already run.
 ## 3. Clients
 
 Typed [React hooks](/docs/react/getting-started) query served datasets from a dashboard, and the
-[MCP server](/docs/mcp/overview) exposes them to AI agents as bounded tools. Both work the same whether the API is
-written in TypeScript or Python.
+[MCP server](/docs/mcp/overview) exposes them to AI agents as bounded tools. Both query the same endpoints whether
+the API is written in TypeScript or Python; only how the hooks get their types differs. A TypeScript app infers them
+from the API, and a Python API exports a client contract that `hypequery generate:client` turns into types
+([React: choose how your hooks get their types](/docs/react/getting-started#choose-how-your-hooks-get-their-types)).
 
 ## The query builder (TypeScript)
 

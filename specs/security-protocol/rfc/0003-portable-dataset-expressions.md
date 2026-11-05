@@ -62,9 +62,10 @@ the field entirely, including an empty array.
 ## Semantic query envelope
 
 A dataset query has `kind: "dataset"`, a simple `dataset` identifier, and may
-contain `dimensions`, `measures`, `filters`, `orderBy`, `limit`, `offset`, `by`,
-and `includeMeta`. A metric query has `kind: "metric"`, `dataset`, `metric`, and
-the same fields except `measures`.
+contain `dimensions`, `measures`, `filters`, `having`, `orderBy`, `limit`,
+`offset`, `by`, `timezone`, and `includeMeta`. A metric query has
+`kind: "metric"`, `dataset`, `metric`, and the same fields except `measures`
+and `having`. RFC 0025 defines `having` and `timezone`.
 
 Dimensions, filters, and ordering may use qualified relationship paths. The
 version 1 identifier limit therefore bounds traversal to eight segments, while
@@ -106,6 +107,7 @@ optional and, when present, may be empty. A metric query MUST reject a
 | Catalogs and generated AI/MCP tool schemas | Views derived from the dataset contract and query schema |
 | Tenant key and tenant-required state | Contract metadata; trusted runtime supplies tenant scope |
 | `includeMeta` | Query envelope flag |
+| `having` conditions and query timezone | Query envelope `having` and `timezone` (RFC 0025) |
 | Typed result rows and canonical result values | Response contract concern; not query intent |
 | Pagination, timing, SQL, tenant, and cache result metadata | Response/runtime concern; not query intent |
 | Runtime tenant value and cache controls | Trusted execution context; never expression input |

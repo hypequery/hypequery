@@ -30,7 +30,8 @@
         "$TURBO_ROOT$/specs/security-protocol/**",
         "$TURBO_ROOT$/specs/datasets/**",
         "$TURBO_ROOT$/specs/serve-http/**",
-        "$TURBO_ROOT$/specs/semantic-catalog/**"
+        "$TURBO_ROOT$/specs/semantic-catalog/**",
+        "$TURBO_ROOT$/specs/mcp/**"
       ]
     },
     "@hypequery/cli#test": {

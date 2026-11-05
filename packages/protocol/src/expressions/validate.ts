@@ -3,6 +3,7 @@ import {
   parseProtocolIdentifier,
   parseProtocolQualifiedIdentifier,
 } from '../identifiers/index.js';
+import { CLIENT_TIMEZONE_NAMES } from '../client-contract/timezone-names.js';
 import { ProtocolValueError, validateCanonicalValue } from '../values/index.js';
 import { expressionError } from './errors.js';
 import { resolveExpressionLimits } from './limits.js';
@@ -36,6 +37,7 @@ const AGGREGATIONS_V1: ReadonlySet<ProtocolAggregation> = new Set<ProtocolAggreg
 const AGGREGATIONS_V2: ReadonlySet<ProtocolAggregation> = new Set<ProtocolAggregation>([
   ...AGGREGATIONS_V1, 'approxCountDistinct',
 ]);
+const HAVING_COMPARISONS: ReadonlySet<string> = new Set(['eq', 'neq', 'gt', 'gte', 'lt', 'lte']);
 const GRAINS_V1: ReadonlySet<string> = new Set(['day', 'week', 'month', 'quarter', 'year']);
 const GRAINS_V2: ReadonlySet<string> = new Set(['minute', 'hour', ...GRAINS_V1]);
 const CALL_ARITY: Readonly<Record<string, readonly [number, number]>> = Object.freeze({
@@ -315,7 +317,8 @@ export function validateProtocolSemanticQuery(
         ...(metric ? [] : ['measures']),
         'filters',
         ...(v2 ? ['segments'] : []),
-        'orderBy', 'limit', 'offset', 'by', 'includeMeta',
+        ...(metric ? [] : ['having']),
+        'orderBy', 'limit', 'offset', 'by', 'timezone', 'includeMeta',
       ],
       '$',
     );
@@ -338,6 +341,9 @@ export function validateProtocolSemanticQuery(
       )));
     }
     if (value.segments !== undefined) result.segments = validateSegments(value.segments, state);
+    if (value.having !== undefined) {
+      result.having = validateHaving(value.having, result.measures as readonly string[] | undefined, v2, state);
+    }
     if (value.orderBy !== undefined) result.orderBy = validateOrderBy(value.orderBy, state);
     copyInteger(value, result, 'limit', 0);
     copyInteger(value, result, 'offset', 0);
@@ -345,6 +351,13 @@ export function validateProtocolSemanticQuery(
       const grain = stringValue(value.by, '$.by');
       if (!(v2 ? GRAINS_V2 : GRAINS_V1).has(grain)) expressionError('HQ_EXPRESSION_INVALID_QUERY', '$.by');
       result.by = grain;
+    }
+    if (value.timezone !== undefined) {
+      const timezone = stringValue(value.timezone, '$.timezone');
+      // RFC 0018's pinned registry, so every implementation accepts the same
+      // names regardless of the host's ICU or zoneinfo build.
+      if (!CLIENT_TIMEZONE_NAMES.has(timezone)) expressionError('HQ_EXPRESSION_INVALID_QUERY', '$.timezone');
+      result.timezone = timezone;
     }
     if (value.includeMeta !== undefined) {
       if (typeof value.includeMeta !== 'boolean') expressionError('HQ_EXPRESSION_INVALID_QUERY', '$.includeMeta');
@@ -406,6 +419,56 @@ function validateOrderBy(input: unknown, state: State): readonly DataRecord[] {
     const direction = stringValue(value.direction, `${path}.direction`);
     if (direction !== 'asc' && direction !== 'desc') expressionError('HQ_EXPRESSION_INVALID_QUERY', `${path}.direction`);
     return freezeRecord({ field: identifier(value.field, `${path}.field`), direction });
+  }));
+}
+
+function finiteNumber(value: unknown, path: string): number {
+  if (typeof value !== 'number' || !Number.isFinite(value)) expressionError('HQ_EXPRESSION_INVALID_QUERY', path);
+  return value;
+}
+
+/**
+ * RFC 0025 `having`: each condition names a measure the query selects, with a
+ * numeric comparison. Selection is checked here rather than left to execution
+ * so every implementation refuses the same queries.
+ */
+function validateHaving(
+  input: unknown,
+  measures: readonly string[] | undefined,
+  qualified: boolean,
+  state: State,
+): readonly DataRecord[] {
+  const values = arrayValue(input, '$.having', state);
+  const selected = new Set(measures ?? []);
+  return Object.freeze(values.map((item, index) => {
+    const path = `$.having[${index}]`;
+    const value = requireRecord(item, path);
+    exactFields(value, ['measure', 'operator', 'value'], [], path);
+    const measure = identifier(value.measure, `${path}.measure`, qualified);
+    if (!selected.has(measure)) expressionError('HQ_EXPRESSION_INVALID_QUERY', `${path}.measure`);
+    const operator = stringValue(value.operator, `${path}.operator`);
+    if (HAVING_COMPARISONS.has(operator)) {
+      return freezeRecord({ measure, operator, value: finiteNumber(value.value, `${path}.value`) });
+    }
+    if (operator === 'between') {
+      const pair = arrayValue(value.value, `${path}.value`, state);
+      if (pair.length !== 2) expressionError('HQ_EXPRESSION_INVALID_QUERY', `${path}.value`);
+      return freezeRecord({
+        measure,
+        operator,
+        value: Object.freeze(pair.map((item, at) => finiteNumber(item, `${path}.value[${at}]`))),
+      });
+    }
+    if (operator === 'in' || operator === 'notIn') {
+      const list = arrayValue(value.value, `${path}.value`, state);
+      if (list.length === 0) expressionError('HQ_EXPRESSION_INVALID_QUERY', `${path}.value`);
+      return freezeRecord({
+        measure,
+        operator,
+        value: Object.freeze(list.map((item, at) => finiteNumber(item, `${path}.value[${at}]`))),
+      });
+    }
+    return expressionError('HQ_EXPRESSION_INVALID_QUERY', `${path}.operator`);
   }));
 }
 
