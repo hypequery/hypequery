@@ -354,9 +354,13 @@ def test_an_empty_contract_fails(tmp_path: Path) -> None:
     assert not (tmp_path / "client-contract.json").exists()
 
 
-def test_an_installed_api_is_recognized_and_exported_in_process() -> None:
+def test_an_installed_api_is_recognized_and_exported_in_process(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import hypequery.serve
     from hypequery.cli.errors import CliError
     from hypequery.cli.utils.installed_api import export_installed_contract, installed_api
+    from hypequery.protocol import ProtocolClientContractError
     from hypequery.serve import create_api, to_asgi_app, to_wsgi_app
 
     api = create_api(auth=lambda _credential: None)
@@ -365,4 +369,15 @@ def test_an_installed_api_is_recognized_and_exported_in_process() -> None:
     assert installed_api(to_wsgi_app(api)) is api
     assert installed_api({"contract": {}}) is None
     with pytest.raises(CliError, match="no dataset or metric endpoints"):
+        export_installed_contract(api)
+
+    # A contract the installed endpoints cannot form is one line, no traceback,
+    # like the factory loader reports it: a code and a pointer, never values.
+    def refuse(_api: object) -> object:
+        raise ProtocolClientContractError("HQ_CLIENT_IDENTITY", "/endpoints/0")
+
+    monkeypatch.setattr(hypequery.serve, "export_client_contract", refuse)
+    with pytest.raises(
+        CliError, match=r"Invalid client contract \(HQ_CLIENT_IDENTITY\) at /endpoints/0"
+    ):
         export_installed_contract(api)

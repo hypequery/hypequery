@@ -2030,9 +2030,12 @@ path, or `--output -` for stdout. Existing artifacts require `--force` to replac
 preserve existing permissions and refuse symlinks or concurrent changes. Existing
 input is bounded to the contract's 1 MiB budget before project code is imported.
 
-The command explicitly imports the named project factory; use a definition-only
-module rather than an application module that starts services or opens connections.
-The CLI itself loads no database/serving adapter. It verifies supplied identities
-and emits only canonical contract JSON in stdout mode; project chatter and import
-failures are redacted. It does not infer routes, authenticate a principal or grant
-query access. This artifact is the input to the frontend/MCP generation workflow.
+The command imports the named factory module and nothing else of the project. An
+application module should build its API without starting services or opening
+connections, as Django's `get_client()` and Flask's `client_for(app)` do; the
+definition-only module is the alternative when importing the app is not possible.
+The CLI loads Serve only to read an API the project itself imported. It verifies
+supplied identities and emits only canonical contract JSON in stdout mode; project
+chatter and import failures are redacted. It does not infer routes, authenticate a
+principal or grant query access. This artifact is the input to the frontend/MCP
+generation workflow.
