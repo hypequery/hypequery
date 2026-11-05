@@ -53,6 +53,7 @@ class MeasureCatalogEntry(TypedDict):
     field: str
     argField: NotRequired[str]
     level: NotRequired[float]
+    stateFunction: NotRequired[str]
     sql: NotRequired[str]
     label: NotRequired[str]
     description: NotRequired[str]
@@ -142,6 +143,7 @@ def _measure_entry(measure: Measure) -> MeasureCatalogEntry:
         _present(
             argField=measure.arg_field,
             level=measure.level,
+            stateFunction=measure.state_function,
             sql=measure.sql,
         )
     )

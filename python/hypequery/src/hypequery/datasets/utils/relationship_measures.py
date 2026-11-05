@@ -53,6 +53,11 @@ def relationship_measure_error(
         )
     if isinstance(measure, DerivedMeasure):
         return "Relationship traversal of derived measures is not supported."
+    if measure.aggregation == "merge":
+        return (
+            f'Measure "{qualified}" cannot merge aggregate states through a relationship: '
+            "joined rows would repeat or drop states. Query the target dataset directly."
+        )
     if (
         relationship.kind == "belongsTo"
         and measure.aggregation not in DUPLICATE_INSENSITIVE_AGGREGATIONS

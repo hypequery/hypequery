@@ -76,6 +76,9 @@ class ClickHouseDialect:
             # to [0, 1], not caller input, and ClickHouse takes it as a function
             # parameter rather than a bindable value.
             return AggregateCall("quantile", (target,), (repr(measure.level),))
+        if aggregation == "merge":
+            # The model only admits state functions from RFC 0022's list.
+            return AggregateCall(f"{measure.state_function}Merge", (target,))
         function = _AGGREGATE_FUNCTIONS.get(aggregation)
         if function is None:
             raise CompiledQueryError("internal", f"Unknown aggregation {aggregation!r}.")

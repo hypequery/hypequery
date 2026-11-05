@@ -5,6 +5,11 @@ source, tenant and time fields, logical dimensions, base measures and a fixed
 measure filter. TS and Python authoring tests independently build it and compare
 the complete contract, including ordering and default filter operators.
 
+`merge-authoring-v1.json` is the same kind of snapshot for merge measures over
+stored aggregate states (RFC 0022): estimating and exact `uniq` states, `count`
+and `sum` states, and a derived measure over them. TypeScript generates it
+(`vitest -u` in `packages/datasets`); Python must build the identical contract.
+
 The authoritative feature matrix is
 `packages/datasets/src/execution-capabilities.json`, shipped through
 `DATASET_EXECUTION_CAPABILITIES`. TS tests probe local compilation, actual

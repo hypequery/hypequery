@@ -183,3 +183,31 @@ describe('merge measure catalogs and publishing', () => {
       .toThrow(/uses merge, which a published metric cannot express/);
   });
 });
+
+describe('shared merge deployment fixture', () => {
+  // Python's `measure.merge` builds the same contract from the same model
+  // (`python/hypequery/tests/test_merge_measures.py`); regenerate deliberately
+  // with `vitest -u`.
+  it('exports the same merge deployment as Python authoring', async () => {
+    const ds = dataset('dailyUsers', {
+      source: 'analytics.daily_users',
+      timeKey: 'day',
+      dimensions: { day: dimension.timestamp(), region: dimension.string() },
+      measures: {
+        activeUsers: measure.merge('uniq', 'users', { label: 'Active users' }),
+        exactUsers: measure.merge('uniqExact', 'exact_users'),
+        events: measure.merge('count', 'event_states'),
+        revenue: measure.merge('sum', 'revenue_state'),
+        revenuePerUser: measure.derived({
+          // Aliases equal the measure names, as Python formulas reference them.
+          uses: { revenue: 'revenue', exactUsers: 'exactUsers' },
+          formula: ({ revenue, exactUsers }) => divide(revenue, nullIfZero(exactUsers)),
+        }),
+      },
+    });
+    const contract = buildProtocolDeploymentContract([ds]);
+    validateProtocolDeploymentContract(contract);
+    await expect(`${JSON.stringify(contract, null, 2)}\n`)
+      .toMatchFileSnapshot(new URL('../../../specs/datasets/merge-authoring-v1.json', import.meta.url).pathname);
+  });
+});

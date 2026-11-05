@@ -103,6 +103,8 @@ def build_protocol_dataset_contract(
             entry["argField"] = measure.arg_field
         if measure.level is not None:
             entry["level"] = measure.level
+        if measure.state_function is not None:
+            entry["stateFunction"] = measure.state_function
         if measure.sql is not None:
             field_type = dataset.dimensions.get(measure.field)
             entry["sql"] = _sql_expression(

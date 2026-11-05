@@ -6,6 +6,7 @@ from typing import Literal, TypeAlias
 
 from pydantic import field_validator, model_validator
 
+from ..protocol.deployment_primitives import AGGREGATE_STATE_FUNCTIONS
 from ._base import DefinitionModel
 from .validation import validate_identifier
 
@@ -22,6 +23,7 @@ AggregationType: TypeAlias = Literal[
     "percentile",
     "stddev",
     "variance",
+    "merge",
 ]
 
 
@@ -32,6 +34,8 @@ class Aggregation(DefinitionModel):
     field: str
     arg_field: str | None = None
     level: float | None = None
+    #: For `merge`: the function whose stored states the field holds (RFC 0022).
+    state_function: str | None = None
 
     @field_validator("field", "arg_field")
     @classmethod
@@ -51,6 +55,17 @@ class Aggregation(DefinitionModel):
                 raise ValueError("percentile level must be between 0 and 1")
         elif self.level is not None:
             raise ValueError(f"{self.aggregation} does not accept a level")
+
+        if self.aggregation == "merge":
+            # Interpolated into SQL as `<fn>Merge(field)`: only names from the list.
+            if self.state_function not in AGGREGATE_STATE_FUNCTIONS:
+                supported = ", ".join(sorted(AGGREGATE_STATE_FUNCTIONS))
+                raise ValueError(
+                    f"merge needs a supported state_function, not {self.state_function!r}. "
+                    f"Supported: {supported}"
+                )
+        elif self.state_function is not None:
+            raise ValueError(f"{self.aggregation} does not accept a state_function")
         return self
 
 
@@ -98,6 +113,16 @@ def arg_max(field: str, by: str) -> Aggregation:
 
 def arg_min(field: str, by: str) -> Aggregation:
     return Aggregation(aggregation="argMin", field=field, arg_field=by)
+
+
+def merge(state_function: str, field: str) -> Aggregation:
+    """Finalize stored aggregate states: `merge("uniq", "users")` is `uniqMerge(users)`.
+
+    *field* is an `AggregateFunction(<state_function>, ...)` column, as an
+    AggregatingMergeTree table or its materialized view stores (RFC 0022).
+    """
+
+    return Aggregation(aggregation="merge", field=field, state_function=state_function)
 
 
 def stddev(field: str) -> Aggregation:

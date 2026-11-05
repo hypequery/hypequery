@@ -74,6 +74,23 @@ def admin() -> Iterator[object]:
         "INSERT INTO hq_feature_port.visits SELECT number, "
         "if(number % 3 = 0, 'purchase', 'view') FROM numbers(200000)"
     )
+    # An AggregatingMergeTree a materialized view would feed: one state per day
+    # and region, written in three parts that merges have not yet combined.
+    client.command(
+        "CREATE TABLE hq_feature_port.daily_users (day Date, region String, "
+        "users AggregateFunction(uniq, UInt64), events AggregateFunction(count), "
+        "revenue AggregateFunction(sum, Float64)) "
+        "ENGINE = AggregatingMergeTree ORDER BY (day, region)"
+    )
+    client.command("SYSTEM STOP MERGES hq_feature_port.daily_users")
+    for offset in ("0", "10000", "20000"):
+        client.command(
+            "INSERT INTO hq_feature_port.daily_users SELECT toDate('2026-01-01') + number % 7, "
+            "if(number % 2 = 0, 'EU', 'US'), uniqState(toUInt64(number % 5000)), countState(), "
+            "sumState(toFloat64(number % 100)) FROM numbers({offset:UInt64}, 10000) "
+            "GROUP BY 1, 2",
+            parameters={"offset": offset},
+        )
     yield client
     client.command(f"DROP DATABASE IF EXISTS {DATABASE}")
 
@@ -156,3 +173,42 @@ def test_approx_count_distinct_is_uniq_and_count_distinct_stays_exact(
         str(value) for value in truth
     ]
     assert str(row["visitors"]) == "200000"
+
+
+daily_users = dataset(
+    "dailyUsers",
+    source="daily_users",
+    time_key="day",
+    dimensions={"day": dimension.timestamp(), "region": dimension.string()},
+    measures={
+        "activeUsers": measure.merge("uniq", "users"),
+        "events": measure.merge("count", "events"),
+        "revenue": measure.merge("sum", "revenue"),
+    },
+)
+
+
+def test_merge_measures_finalize_states_across_unmerged_parts(
+    admin: object, client: object
+) -> None:
+    result = client.execute(  # type: ignore[attr-defined]
+        daily_users,
+        DatasetQuery(
+            dimensions=("region",),
+            measures=("activeUsers", "events", "revenue"),
+            order_by=(),
+        ),
+    )
+    actual = sorted(
+        (row["region"], str(row["activeUsers"]), str(row["events"]), str(row["revenue"]))
+        for row in result.data
+    )
+    expected = _truth(
+        admin,
+        "SELECT region, uniqMerge(users), countMerge(events), sumMerge(revenue) "
+        "FROM hq_feature_port.daily_users GROUP BY region ORDER BY region",
+    )
+    assert actual == [tuple(str(value) for value in row) for row in expected]
+    # Counting the state rows instead (the trap) gives a different, meaningless number.
+    rows = _truth(admin, "SELECT count() FROM hq_feature_port.daily_users")[0][0]
+    assert str(rows) != str(expected[0][2])
