@@ -199,13 +199,16 @@ Returns a runtime description object for docs/client tooling. `describe().querie
 
 ### `api.manifest()`
 
-Returns a serializable `RouteManifest` mapping every query/metric/dataset key to its HTTP method and full path. Pass it to `@hypequery/react`'s `createHooks`/`createAnalyticsHooks` as `manifest` so the client can resolve routes without importing server code. This is required for metric/dataset endpoints, whose paths differ from their map keys.
+Returns a serializable `RouteManifest` mapping every query/metric/dataset key to its HTTP method and full path. Pass it to `@hypequery/react`'s `createHooks`/`createAnalyticsHooks` as `manifest` so the client can resolve routes. Every route's path differs from its map key (named queries live under `queries/`, datasets under `datasets/<name>/query`), so the hooks need it.
+
+`api.manifest()` runs on the server. For browser code, write it to JSON with `hypequery generate:manifest <api-file>` and import the file.
 
 <CodeBlock>
 ```typescript
 const manifest = api.manifest();
-// { revenue: { method: 'POST', path: '/metrics/revenue' },
-//   'dataset:orders': { method: 'POST', path: '/datasets/orders/query' }, ... }
+// { weeklyRevenue: { method: 'GET', path: '/api/analytics/queries/weeklyRevenue' },
+//   revenue: { method: 'POST', path: '/api/analytics/metrics/revenue' },
+//   'dataset:orders': { method: 'POST', path: '/api/analytics/datasets/orders/query' }, ... }
 ```
 </CodeBlock>
 

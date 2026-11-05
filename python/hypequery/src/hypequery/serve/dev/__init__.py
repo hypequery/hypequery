@@ -15,7 +15,9 @@ import json
 import os
 import sys
 import warnings
+from types import ModuleType
 
+from ...execution.chdb import open_chdb_executors, release_chdb_databases_opened_since
 from ...execution.utils.driver_loggers import apply_driver_log_levels, driver_log_levels
 from ..asgi import AsgiApp, to_asgi_app
 from ..core.api import Api
@@ -56,7 +58,8 @@ def run_dev(
     *app* is an API, its `to_asgi_app` application, or an import string such
     as ``"app:app"`` naming either, resolved from the working directory.
     ``reload=True`` restarts on file changes and needs an import string,
-    because a new process must import the app again.
+    because a new process must import the app again. This process imports it
+    first only to check it, and releases a chDB database the check opened.
     """
 
     if type(host) is not str:
@@ -86,10 +89,12 @@ def run_dev(
             # Fail fast in this process, then re-check in every reload worker:
             # Uvicorn imports the app itself there, so it goes through
             # ``_reload_app`` rather than the user's import string.
-            target = _import_app(app, os.getcwd())
             if reload:
+                _check_for_worker(app, os.getcwd())
                 os.environ[_RELOAD_TARGET] = json.dumps([os.getcwd(), app, driver_log_levels()])
                 target = f"{__name__}:_reload_app"
+            else:
+                target = _import_app(app, os.getcwd())
         uvicorn.run(
             target,
             host=host,
@@ -109,6 +114,61 @@ def run_dev(
             os.environ.pop(_RELOAD_TARGET, None)
         else:
             os.environ[_RELOAD_TARGET] = saved_target
+
+
+def _check_for_worker(spec: str, app_dir: str) -> None:
+    """Import and check *spec* for a reload worker, keeping no database from it.
+
+    The worker imports the app itself; this process imports it only to fail
+    fast. chDB holds an on-disk database for one process, so the executors
+    that import opened are closed, with any opened earlier on the same
+    database. Project modules this process had already imported, the app and
+    any helper beside it, are imported afresh for the check, so that the
+    database they open is found, and the earlier modules are put back
+    afterwards. Executors on other databases stay open.
+    """
+
+    cached = _project_modules(spec, app_dir)
+    for name in cached:
+        del sys.modules[name]
+    before = open_chdb_executors()
+    try:
+        _import_app(spec, app_dir)
+    finally:
+        release_chdb_databases_opened_since(before)
+        if cached:
+            for name in _project_modules(spec, app_dir):
+                del sys.modules[name]
+            sys.modules.update(cached)
+
+
+def _project_modules(spec: str, app_dir: str) -> dict[str, ModuleType]:
+    """The loaded modules that are the project's: the app's and those from *app_dir*.
+
+    Installed packages under *app_dir*, such as a virtualenv's, and hypequery
+    itself are not the project's.
+    """
+
+    module = spec.partition(":")[0]
+    root = os.path.realpath(app_dir) + os.sep
+    installed = tuple(os.path.realpath(prefix) + os.sep for prefix in {sys.prefix, sys.base_prefix})
+
+    def is_project(name: str, loaded: ModuleType) -> bool:
+        if name == module or name.startswith(f"{module}."):
+            return True
+        if name == "hypequery" or name.startswith("hypequery."):
+            return False
+        file = getattr(loaded, "__file__", None)
+        if not isinstance(file, str):
+            return False
+        path = os.path.realpath(file)
+        return (
+            path.startswith(root)
+            and not path.startswith(installed)
+            and f"{os.sep}site-packages{os.sep}" not in path
+        )
+
+    return {name: loaded for name, loaded in list(sys.modules.items()) if is_project(name, loaded)}
 
 
 def _import_app(spec: str, app_dir: str, *, redact_errors: bool = False) -> AsgiApp:

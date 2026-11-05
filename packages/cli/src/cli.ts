@@ -1,6 +1,7 @@
 import { Command } from 'commander';
 import { initCommand } from './commands/init.js';
 import { mcpCommand, type McpOptions } from './commands/mcp.js';
+import { skillCommand, type SkillOptions } from './commands/skill.js';
 import { devCommand, type DevOptions } from './commands/dev.js';
 import { generateCommand, type GenerateOptions } from './commands/generate.js';
 import { generateDatasetsCommand, type GenerateDatasetsOptions } from './commands/generate-datasets.js';
@@ -177,6 +178,17 @@ program
   .option('--client-contract-url <url>', 'Bridge authorized HTTP client endpoints to MCP (Bearer key from HYPEQUERY_API_KEY)')
   .action(runCommand(async (file: string | undefined, options: McpOptions) => {
     await mcpCommand(file, options);
+  }));
+
+program
+  .command('skill [action]')
+  .description('Install hypequery agent skills for Claude Code, Cursor and Codex (install)')
+  .option('--agent <agent>', 'claude, cursor, codex or all (default: all)')
+  .option('--scope <scope>', 'project (default) or user')
+  .option('--force', 'Replace skills that were edited or are out of date')
+  .option('--check', 'Exit 1 if a skill is missing or out of date, without writing')
+  .action(runCommand(async (action: string | undefined, options: SkillOptions) => {
+    await skillCommand(action, options);
   }));
 
 // Generate command

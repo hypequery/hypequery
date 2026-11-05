@@ -56,7 +56,8 @@ The example owns executor shutdown, caps results at 100 rows plus a pagination
 probe/1 MiB/10 seconds, disables development docs and allows CORS only from
 `http://127.0.0.1:5173`.
 
-`definitions.py` has no framework, credential or driver imports. `api.py` installs:
+`definitions.py` has no framework, credential or driver imports. `api.py` installs
+the endpoints, and its `contract()` builds the same API for exporting:
 
 | Endpoint | Purpose |
 | --- | --- |
@@ -79,12 +80,14 @@ or tenant context. Backend authorization runs on every call.
 ## Generate and run React
 
 Preparation already generated the client. Following a definition change, stop
-the API, edit the copied definitions and run:
+the API, edit the copied definitions and run the export below. It reads the
+endpoints `install` puts on the API, so the contract always names the paths the
+API serves, and it needs neither credentials nor ClickHouse:
 
 ```bash
 cd "$TUTORIAL/backend"
 ../.venv/bin/python -m hypequery export client-contract \
-  --factory examples.client_dashboard.definitions:build \
+  --factory examples.client_dashboard.api:contract \
   --output examples/client_dashboard/frontend/contract.json --force
 cd examples/client_dashboard/frontend
 npm run generate
@@ -110,7 +113,7 @@ The build export describes capabilities; it does not grant permission. Requests
 carry endpoint schema pins while Python reauthorizes them. A schema change returns
 409. Regenerate, review, rebuild and deploy matching changes; do not remove the
 pin or automatically retry with a new schema. `check:generated` detects drift
-between the JSON export and generated file; re-export definitions first in CI.
+between the JSON export and generated file; re-export the contract first in CI.
 
 ## Connect MCP to the same API
 

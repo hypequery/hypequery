@@ -81,6 +81,31 @@ export interface ProtocolOrderBy {
   readonly direction: 'asc' | 'desc';
 }
 
+/** Operators a `having` condition may use (RFC 0025). */
+export type ProtocolHavingComparisonOperator = 'eq' | 'neq' | 'gt' | 'gte' | 'lt' | 'lte';
+
+/**
+ * A condition on an aggregated measure's value, applied after grouping
+ * (SQL `HAVING`). Values are finite numbers; the measure must be one the
+ * query selects in `measures`. RFC 0025.
+ */
+export type ProtocolHavingCondition =
+  | {
+      readonly measure: ProtocolQualifiedIdentifier;
+      readonly operator: ProtocolHavingComparisonOperator;
+      readonly value: number;
+    }
+  | {
+      readonly measure: ProtocolQualifiedIdentifier;
+      readonly operator: 'between';
+      readonly value: readonly [number, number];
+    }
+  | {
+      readonly measure: ProtocolQualifiedIdentifier;
+      readonly operator: 'in' | 'notIn';
+      readonly value: readonly number[];
+    };
+
 interface ProtocolQueryCommon {
   readonly dataset: ProtocolIdentifier;
   readonly dimensions?: readonly ProtocolQualifiedIdentifier[];
@@ -91,6 +116,11 @@ interface ProtocolQueryCommon {
   readonly limit?: number;
   readonly offset?: number;
   readonly by?: ProtocolQueryTimeGrain;
+  /**
+   * IANA zone for time-grain buckets and time-key filter bounds, from RFC
+   * 0018's pinned registry. Absent means UTC. RFC 0025.
+   */
+  readonly timezone?: string;
   readonly includeMeta?: boolean;
 }
 
@@ -101,6 +131,11 @@ export interface ProtocolDatasetQuery extends ProtocolQueryCommon {
    * measures such as `customer.customerCount`.
    */
   readonly measures?: readonly ProtocolQualifiedIdentifier[];
+  /**
+   * AND-combined conditions on selected measures, applied after grouping.
+   * Each condition requires its measure in `measures`. RFC 0025.
+   */
+  readonly having?: readonly ProtocolHavingCondition[];
 }
 
 export interface ProtocolMetricQuery extends ProtocolQueryCommon {

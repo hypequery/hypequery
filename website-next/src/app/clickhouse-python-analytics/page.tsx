@@ -20,7 +20,7 @@ export const metadata: Metadata = {
   twitter: { card: 'summary_large_image', title: `${TITLE} | hypequery`, description: DESCRIPTION },
 };
 
-const metricsCode = `# pip install "hypequery[clickhouse,jwt]==0.1.0b2"
+const metricsCode = `# pip install "hypequery[clickhouse,jwt]==0.1.0b3"
 from hypequery.datasets import Dataset, belongs_to, dimension, filter, formula, measure
 
 customers = Dataset(

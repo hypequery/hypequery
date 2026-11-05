@@ -1086,5 +1086,113 @@
       ],
       "contentHash": "08e3b75129b0f8c528d7dc25ba19ecf7472b5ef2a152655d3181c21e41f2e5c1"
     }
+  },
+  {
+    "id": "no-timezone",
+    "value": {
+      "kind": "hypequery-client-contract",
+      "version": 1,
+      "view": "build",
+      "endpoints": [
+        {
+          "id": "eventCount",
+          "kind": "metric",
+          "dataset": "events",
+          "path": "/api/v1/metrics/eventCount/query",
+          "dimensions": {
+            "kind": {
+              "type": "string",
+              "wireType": "string",
+              "nullable": false,
+              "groupable": false,
+              "orderable": false
+            }
+          },
+          "measures": {
+            "eventCount": {
+              "wireType": "string",
+              "nullable": true,
+              "having": false
+            }
+          },
+          "filters": {},
+          "time": {
+            "grains": [
+              "day"
+            ],
+            "defaultTimezone": "UTC",
+            "timezone": false,
+            "periodFormat": "calendar-date-or-local-datetime-v1"
+          },
+          "metadata": false,
+          "limits": {
+            "defaultLimit": 100,
+            "maxLimit": 1000,
+            "maxOffset": 10000,
+            "maxDimensions": 50,
+            "maxMeasures": 1,
+            "maxPredicates": 100,
+            "maxOrderBy": 50,
+            "maxFilterValues": 1000
+          },
+          "schemaHash": "eba151897045d0b2766ac375612b3a87eb98964b35f054edba00874c3549ef59"
+        },
+        {
+          "id": "events",
+          "kind": "dataset",
+          "dataset": "events",
+          "path": "/api/v1/datasets/events/query",
+          "dimensions": {
+            "kind": {
+              "type": "string",
+              "wireType": "string",
+              "nullable": false,
+              "groupable": false,
+              "orderable": false
+            }
+          },
+          "measures": {
+            "eventCount": {
+              "wireType": "string",
+              "nullable": true,
+              "having": true
+            }
+          },
+          "filters": {
+            "kind": {
+              "type": "string",
+              "operators": [
+                "eq"
+              ]
+            }
+          },
+          "time": {
+            "grains": [
+              "day",
+              "month"
+            ],
+            "defaultTimezone": "UTC",
+            "timezone": false,
+            "periodFormat": "calendar-date-or-local-datetime-v1"
+          },
+          "metadata": false,
+          "limits": {
+            "defaultLimit": 100,
+            "maxLimit": 1000,
+            "maxOffset": 10000,
+            "maxDimensions": 50,
+            "maxMeasures": 50,
+            "maxPredicates": 100,
+            "maxOrderBy": 50,
+            "maxFilterValues": 1000
+          },
+          "defaultMeasures": [
+            "eventCount"
+          ],
+          "schemaHash": "65eeea2b0e72ab216bc092ed11104b372f2a36b7497330d833f7443e314f1cd0"
+        }
+      ],
+      "contentHash": "7e965ee72556e981f87001371b73422280f58917657d58037086e57353e1a632"
+    }
   }
 ]

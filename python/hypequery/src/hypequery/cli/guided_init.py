@@ -20,6 +20,7 @@ from typing import TYPE_CHECKING, TextIO, cast
 from urllib.parse import urlsplit
 
 from .errors import CliError
+from .generators.chdb_project import CHDB_FRAMEWORKS, DEFAULT_CHDB_PATH
 from .generators.framework_apps import FRAMEWORKS, NAMES, Framework, project_files
 from .options import InitOptions
 from .utils.prompts import Prompter, SetupCancelledError
@@ -94,7 +95,19 @@ def guide(
     connection: Mapping[str, str] | None = None
     typed: TypedConnection | None = None
     catalog = None
-    if not options.skip_connection:
+    chdb = options.database == "chdb"
+    framework = options.framework
+    if chdb:
+        # The database path is relative to the project, so the folder is settled
+        # before the database is read: moving it later would read another one.
+        if framework is None:
+            framework = _ask_framework(prompter, cwd, CHDB_FRAMEWORKS)
+        directory = _free_directory(
+            prompter, cwd, directory, framework, offline=None, asked=options.directory is None
+        )
+        if not options.skip_connection:
+            catalog = _chdb_catalog(prompter, cwd / directory, options.chdb_path)
+    elif not options.skip_connection:
         connection, typed, catalog = _connect(prompter, environ)
 
     tables = options.tables
@@ -111,20 +124,21 @@ def guide(
         selected = selected_tables(catalog.tables, tables, options.exclude_tables)
         tenant_column = _ask_tenant(prompter, catalog, selected)
 
-    framework = options.framework
     if framework is None:
         framework = _ask_framework(prompter, cwd)
 
     offline = catalog is None
-    directory = _free_directory(
-        prompter, cwd, directory, framework, offline=offline, asked=options.directory is None
-    )
+    if not chdb:
+        directory = _free_directory(
+            prompter, cwd, directory, framework, offline=offline, asked=options.directory is None
+        )
 
     result = replace(
         options,
         directory=directory,
         framework=framework,
-        skip_connection=offline,
+        # With chDB, init itself writes the example when the database is new.
+        skip_connection=options.skip_connection if chdb else offline,
         tables=tables,
         tenant_column=tenant_column,
     )
@@ -153,6 +167,10 @@ def equivalent_command(options: InitOptions) -> str:
     """The same choices as flags, to repeat without questions or in CI."""
 
     parts = ["hypequery", "init", options.directory or ".", "--no-interactive"]
+    if options.database == "chdb":
+        parts += ["--database", "chdb"]
+        if options.chdb_path:
+            parts += ["--chdb-path", options.chdb_path]
     if options.framework:
         parts += ["--framework", options.framework]
     if options.skip_connection:
@@ -222,6 +240,26 @@ def _connect(
         say(f"Connected to {catalog.database}: {count} table{'s' if count != 1 else ''}.")
         say()
         return candidate, typed, catalog
+
+
+def _chdb_catalog(
+    prompter: Prompter, project: Path, chdb_path: str | None
+) -> CatalogOverview | None:
+    """The chDB database's catalog, or ``None`` when it does not exist yet."""
+
+    from .generators.datasets import TENANT_HINTS
+    from .generators.schema import discover_catalog
+
+    path = Path(os.path.normpath(project / (chdb_path or DEFAULT_CHDB_PATH)))
+    if not path.is_dir():
+        prompter.say(f"There is no chDB database at {path} yet: we'll create the orders example.")
+        prompter.say()
+        return None
+    catalog = discover_catalog(chdb_path=path, tenant_hints=TENANT_HINTS)
+    count = len(catalog.tables)
+    prompter.say(f"Read the chDB database at {path}: {count} table{'s' if count != 1 else ''}.")
+    prompter.say()
+    return catalog
 
 
 def _ask_connection(
@@ -367,14 +405,16 @@ def _ask_tenant(prompter: Prompter, catalog: CatalogOverview, selected: set[str]
         return other
 
 
-def _ask_framework(prompter: Prompter, cwd: Path) -> Framework:
+def _ask_framework(
+    prompter: Prompter, cwd: Path, offered: tuple[Framework, ...] = FRAMEWORKS
+) -> Framework:
     detected = _detect_framework(cwd)
     if detected != "standalone":
         prompter.say(f"Found a {NAMES[detected]} project here.")
     return prompter.choose(
         "Which app should we scaffold beside your datasets?",
-        [(framework, _FRAMEWORK_LABELS[framework]) for framework in FRAMEWORKS],
-        default=FRAMEWORKS.index(detected),
+        [(framework, _FRAMEWORK_LABELS[framework]) for framework in offered],
+        default=offered.index(detected) if detected in offered else 0,
     )
 
 
@@ -402,12 +442,18 @@ def _free_directory(
     directory: str,
     framework: str,
     *,
-    offline: bool,
+    offline: bool | None,
     asked: bool,
 ) -> str:
-    """A destination init can write to; re-asks only when the folder came from a question."""
+    """A destination init can write to; re-asks only when the folder came from a question.
 
-    names = project_files(cast(Framework, framework), offline=offline)
+    *offline* ``None`` checks the files of either project, for when it isn't known yet.
+    """
+
+    kind = cast(Framework, framework)
+    choices = (True, False) if offline is None else (offline,)
+    written = (name for each in choices for name in project_files(kind, offline=each))
+    names = list(dict.fromkeys(written))
     while asked:
         clashes = [name for name in names if (cwd / directory / name).exists()]
         if not clashes:
@@ -439,10 +485,13 @@ def _summarise(
     say()
     say("Ready to create:")
     say(f"  Folder:      {options.directory}")
-    if catalog is None:
+    if options.database == "chdb":
+        say(f"  ClickHouse:  embedded chDB at {options.chdb_path or DEFAULT_CHDB_PATH}")
+    elif catalog is None:
         say("  ClickHouse:  none yet (offline orders example)")
     else:
         say(f"  ClickHouse:  {catalog.database}" + (f" on {typed.host}" if typed else ""))
+    if catalog is not None:
         say(f"  Tables:      {options.tables or 'all'}")
         say(f"  Tenant key:  {options.tenant_column or 'none'}")
     say(f"  App:         {_FRAMEWORK_LABELS[cast(Framework, options.framework)]}")

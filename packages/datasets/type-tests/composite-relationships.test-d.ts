@@ -15,7 +15,7 @@ source.relationships.customer.keys![0].from = 'changed';
 const client = createDatasetClient({ queryBuilder: {} as never });
 async function projection() {
   const result = await client.execute(source, { dimensions: ['customer.name'], measures: ['customer.unique'] });
-  const name: string | undefined = result.data[0]?.['customer.name'];
+  const name: string | null | undefined = result.data[0]?.['customer.name'];
   const unique: string | null | undefined = result.data[0]?.['customer.unique'];
   void [name, unique];
   // @ts-expect-error composite keys do not make hasMany queryable
