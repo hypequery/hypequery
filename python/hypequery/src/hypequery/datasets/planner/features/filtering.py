@@ -52,6 +52,18 @@ class FilterFeature(CompilerFeature):
                 )
             where.append(self.predicate(filter_value, request_filter=True))
 
+        # Segments are the author's filters: the caller allow-list does not apply,
+        # and each name is applied once, in the order first requested.
+        for name in dict.fromkeys(compiler.query.segments):
+            declared = dataset.segments.get(name)
+            if declared is None:
+                known = ", ".join(sorted(dataset.segments)) or "(none)"
+                raise CompiledQueryError(
+                    "input-invalid",
+                    f'Unknown segment "{name}" on dataset "{dataset.name}". Available: {known}',
+                )
+            where.extend(self.predicate(item) for item in declared.filters)
+
         if scope is not None and dataset.tenant_key is not None:
             # tenant_key names a physical source column. A dimension of the same
             # name may have a different column or SQL expression; never use it as

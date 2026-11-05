@@ -160,6 +160,10 @@ def _dataset(catalog: DatasetCatalog, *, include_sql: bool) -> dict[str, object]
     result["filters"] = sorted_record(
         {name: _filter(entry) for name, entry in catalog["filters"].items()}
     )
+    if "segments" in catalog:
+        result["segments"] = sorted_record(
+            {name: dict(entry) for name, entry in catalog["segments"].items()}
+        )
     result["relationships"] = sorted_record(
         {name: _relationship(entry) for name, entry in catalog["relationships"].items()}
     )
