@@ -258,3 +258,28 @@ def test_a_failing_lifespan_is_a_setup_error(
     error = capsys.readouterr().err
     assert "lifespan failed to start" in error
     assert "SECRET" not in error
+
+
+def test_lifespan_output_and_shutdown_failures_stay_off_stdout(
+    project: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    (project / "noisy.py").write_text(
+        "from contextlib import asynccontextmanager\n"
+        "import app as base\n"
+        "from hypequery.serve import to_asgi_app\n"
+        "@asynccontextmanager\n"
+        "async def lifespan():\n"
+        "    print('starting pool')\n"
+        "    yield\n"
+        "    print('closing pool')\n"
+        "    raise RuntimeError('postgres://user:SECRET@db')\n"
+        "app = to_asgi_app(base.api, lifespan=lifespan)\n"
+    )
+    assert main(["mcp", "noisy:app", "--self-test"]) == 1
+    captured = capsys.readouterr()
+    # stdout belongs to the MCP protocol: nothing the app prints may reach it.
+    assert captured.out == ""
+    assert "starting pool" in captured.err
+    assert "closing pool" in captured.err
+    assert "failed to shut down cleanly" in captured.err
+    assert "SECRET" not in captured.err

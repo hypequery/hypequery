@@ -96,19 +96,33 @@ async def app_lifespan(factory: Lifespan | None) -> AsyncIterator[None]:
     if factory is None:
         yield
         return
+    # stdout carries the MCP protocol, so the app's own startup and shutdown
+    # output goes to stderr, as during import. Project code may put URLs, SQL
+    # or credentials in its errors, so neither failure echoes them.
     try:
-        context = factory()
-        await context.__aenter__()
+        with redirect_stdout(sys.stderr):
+            context = factory()
+            await context.__aenter__()
     except Exception:
-        # Project code may put URLs, SQL or credentials in its errors.
         raise CliError("The app's lifespan failed to start; check its dependencies.") from None
     try:
         yield
     except BaseException as exc:
-        if not await context.__aexit__(type(exc), exc, exc.__traceback__):
+        try:
+            with redirect_stdout(sys.stderr):
+                suppressed = await context.__aexit__(type(exc), exc, exc.__traceback__)
+        except Exception:
+            # The serving failure is the one to report; a failed cleanup after
+            # it would only hide that.
+            raise exc from None
+        if not suppressed:
             raise
     else:
-        await context.__aexit__(None, None, None)
+        try:
+            with redirect_stdout(sys.stderr):
+                await context.__aexit__(None, None, None)
+        except Exception:
+            raise CliError("The app's lifespan failed to shut down cleanly.") from None
 
 
 def mcp_server_config(
