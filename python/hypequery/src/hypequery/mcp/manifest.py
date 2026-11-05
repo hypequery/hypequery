@@ -21,6 +21,7 @@ _ENVELOPE_CODES: tuple[McpToolErrorCode, ...] = (
     "MCP_REQUEST_CANCELLED",
     "MCP_QUERY_TIMEOUT",
     "MCP_RESULT_TOO_LARGE",
+    "MCP_RATE_LIMITED",
     "MCP_EXECUTION_FAILED",
 )
 _CATEGORIES: tuple[McpToolErrorCategory, ...] = (
@@ -46,6 +47,9 @@ def _error_envelope() -> JsonSchema:
                     "category": {"type": "string", "enum": list(_CATEGORIES)},
                     "retryable": {"type": "boolean"},
                     "correctable": {"type": "boolean"},
+                    "retryAfterSeconds": {"type": "number", "minimum": 0},
+                    "relist": {"type": "boolean"},
+                    "reason": {"type": "string"},
                 },
                 "required": ["code", "category", "message", "retryable", "correctable"],
             }

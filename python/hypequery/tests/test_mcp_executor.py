@@ -360,3 +360,26 @@ def test_an_authenticated_discovery_route_is_preferred_to_a_public_one() -> None
 def test_only_a_served_api_is_accepted() -> None:
     with pytest.raises(TypeError):
         ApiContractBackend(cast(object, create_api), headers=READER)  # type: ignore[arg-type]
+
+
+def test_host_error_details_reach_the_envelope() -> None:
+    from hypequery.mcp.errors import McpToolError, classify_mcp_tool_error
+
+    limited = McpToolError(
+        "MCP_RATE_LIMITED", "Slow down.", retry_after_seconds=2.5, relist=False, reason="QUOTA"
+    )
+    assert classify_mcp_tool_error(limited) == {
+        "code": "MCP_RATE_LIMITED",
+        "category": "budget",
+        "message": "Slow down.",
+        "retryable": True,
+        "correctable": False,
+        "retryAfterSeconds": 2.5,
+        "relist": False,
+        "reason": "QUOTA",
+    }
+    # Unset details stay out of the envelope, as in TypeScript.
+    assert "relist" not in classify_mcp_tool_error(McpToolError("MCP_NOT_FOUND", "No."))
+    for bad in (-1, float("inf"), float("nan")):
+        with pytest.raises(ValueError, match="retry_after_seconds"):
+            McpToolError("MCP_RATE_LIMITED", "x", retry_after_seconds=bad)
