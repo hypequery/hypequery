@@ -75,9 +75,12 @@ class CompiledQueryFailure:
 class CompiledQueryError(Exception):
     """An execution failure carrying its public envelope.
 
-    A server-fault category discards the message it was given: the caller sees
-    a fixed sentence, and the detail belongs in a privileged diagnostic, never
-    in the envelope.
+    A server-fault category (`internal`, `unavailable`) never puts the message
+    it was given in the envelope: the caller sees a fixed sentence. The message
+    becomes the `diagnostic` unless one is passed, which serve logs at ERROR
+    and the traceback carries as a note. So, like `diagnostic`, a server-fault
+    *message* must never hold submitted values, SQL, driver text or credentials;
+    pass constant text, as `hypequery.execution.errors.server_fault()` documents.
 
     `code` is set on RFC 0009 capability denials and on executor server
     faults; `diagnostic` is an operator-facing sentence for the server log and

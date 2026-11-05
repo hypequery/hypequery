@@ -134,7 +134,8 @@ def _unregistered_target(relationship_name: str, target: str) -> CompiledQueryEr
     return CompiledQueryError(
         "internal",
         f'Relationship "{relationship_name}" targets unregistered dataset "{target}". '
-        f"Pass create_dataset_client(registry=create_dataset_registry(..., {target})).",
+        f"Pass a registry that includes the dataset named {target!r}: "
+        "create_dataset_client(registry=create_dataset_registry(...)).",
     )
 
 
