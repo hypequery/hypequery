@@ -4,6 +4,56 @@
 
 <!-- towncrier release notes start -->
 
+## 0.1.0b3 (2026-11-05)
+
+- Datasets can run on embedded ClickHouse with the new `chdb` extra:
+  `create_chdb_executor(path)` (and `create_async_chdb_executor`) execute the
+  same compiled, read-only, parameter-bound SQL in-process on chDB, with no
+  server. `path` is an on-disk directory or `":memory:"`; `database=` sets
+  where unqualified sources resolve. Results decode exactly as from a
+  ClickHouse server.
+
+- `hypequery init --database chdb` scaffolds a project on embedded ClickHouse,
+  as the TypeScript CLI does: the standalone or FastAPI app opens a chDB
+  database directory (`--chdb-path`, default `analytics.chdb`) with no server
+  or connection settings, and installs the `chdb` extra. An existing database
+  is inspected like a server's; a new one gets the orders example and a
+  seeding step. `hypequery generate datasets` reads the same database from
+  `--chdb-path`, the path init records in `pyproject.toml`, or a project `analytics.chdb`
+  when no ClickHouse server is configured, and says plainly when another
+  process such as `hypequery dev` has the database open.
+- `hypequery dev` serves a chDB project with reload, its default: the
+  supervisor that checks the app before starting the worker now releases the
+  app's database, since chDB holds a database directory for one process at a
+  time (`run_dev(reload=True)` does the same; other chDB executors in the
+  process stay open).
+
+- The CLI now collects pseudonymous usage telemetry, on by default like the TypeScript CLI: one event per command with the command, flag names (never values), outcome, a duration bucket, and install context such as the Python version and installer. It never records code, SQL, names, paths or credentials, and never delays a command. Disable it with `hypequery telemetry disable`, `--no-telemetry`, `DO_NOT_TRACK=1` or `HYPEQUERY_TELEMETRY_DISABLED=1`; set `HYPEQUERY_TELEMETRY_DEBUG=1` to print the event instead of sending it. Settings and the install ID are shared with the TypeScript CLI.
+- New `hypequery telemetry [status|enable|disable]` command and global `--no-telemetry` flag.
+
+- `create_api(client_profile=...)` puts every `Dataset` entry of `datasets=` in
+  the client contract, so the shorthand can produce typed React hooks.
+- A build export with no client endpoints now fails:
+  `hypequery.serve.export_client_contract(api)` raises `ValueError` naming the
+  dataset and metric routes installed without a client profile, and
+  `hypequery export client-contract` exits 1.
+- `hypequery export client-contract --factory` accepts the installed API (an
+  `Api`, its `to_asgi_app` or `to_wsgi_app` application, or a zero-argument
+  function returning one) and exports its build view, so the contract cannot
+  drift from the served paths.
+- Breaking: a `create_api(metrics={key: ...})` key is the metric's name, as in
+  TypeScript: its client-contract ID, React hook key and output alias. A metric
+  created with a different `name=` is refused.
+
+- Portable semantic queries accept `having` and `timezone` (RFC 0025). `validate_protocol_semantic_query` accepts `having` on dataset queries (each condition names a selected measure, with a numeric comparison) and `timezone` from RFC 0018's pinned registry, under extensions 1 and 2. New `ProtocolHavingCondition`, `ProtocolHavingComparisonOperator` and `ProtocolHavingOperator` exports. Cache preimages refuse a non-empty `having` or a non-UTC `timezone`; `"UTC"` normalizes as if absent, so no existing preimage changes.
+
+- The PyPI page now shows a short `README.pypi.md`: what the package is, one
+  define-and-query sample, a FastAPI mount, and links into the docs. The full
+  guide stays in `README.md`. Package metadata gains the `Framework :: FastAPI`
+  and library classifiers, discovery keywords (semantic layer, metrics,
+  multi-tenant, FastAPI, Django, Flask, MCP, pandas, polars, Arrow), and a
+  Documentation link to https://hypequery.com/docs/python.
+
 ## 0.1.0b2 (2026-11-02)
 
 - `hypequery init` is guided in a terminal, as the TypeScript CLI is. It asks
