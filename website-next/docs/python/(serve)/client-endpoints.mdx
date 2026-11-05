@@ -1,12 +1,13 @@
 ---
 title: React and MCP clients
-description: Serve Python datasets to generated, type-safe React hooks and to AI agents through the MCP bridge.
+description: Serve Python datasets to generated, type-safe React hooks and to AI agents through the native Python MCP server.
 ---
 
 import { Callout } from 'fumadocs-ui/components/callout';
 import { CodeBlock } from 'fumadocs-ui/components/codeblock';
 
-A Python backend can feed the same `@hypequery/react` hooks and `hypequery mcp` server that TypeScript backends use.
+A Python backend can feed the same `@hypequery/react` hooks that TypeScript backends use, and serves AI agents with its
+own `hypequery mcp` server.
 Python keeps ownership of SQL, authentication and the tenant. The frontend and the agent only ever see a **client
 contract**: a JSON description of each endpoint's fields, operators, limits and schema hash.
 
@@ -17,8 +18,8 @@ contract**: a JSON description of each endpoint's fields, operators, limits and 
 | [3. Export the contract](#3-export-the-contract) | Python, then frontend | `python -m hypequery export client-contract`, then `npx hypequery generate:client` |
 | [4. Connect MCP](#4-connect-mcp) | Python | `hypequery mcp app:api` (or `--client-contract-url https://…/v1/client-contract`) |
 
-The Python side needs no Node process. Generating the React client and running the MCP bridge do; there is no native
-Python MCP server. On the frontend, see [React: datasets served from Python](/docs/react/getting-started#datasets-served-from-python)
+The Python side, including the MCP server (`pip install "hypequery[mcp]"`), needs no Node process. Only generating the
+React client does. On the frontend, see [React: datasets served from Python](/docs/react/getting-started#datasets-served-from-python)
 for per-login clients, cache scope and result types.
 
 ## 1. Declare client endpoints
@@ -239,8 +240,8 @@ Each request carries its endpoint's schema hash in `X-Hypequery-Client-Schema`, 
 a shape its types don't describe. When debugging a 409, compare per-endpoint `schemaHash` values: they are identical in
 the exported contract and the live discovery route. The document-level `contentHash` (and the generated
 `clientContractHash`) always differs between the two, because the build view lists every endpoint and the live view
-only those the caller may use. Neither the hooks nor the MCP bridge automatically adopts a changed contract: the hooks
-keep their generated types, and the bridge re-reads the live contract but refuses one that changed
+only those the caller may use. Neither the hooks nor the MCP server automatically adopts a changed contract: the hooks
+keep their generated types, and the server re-reads the live contract but refuses one that changed
 (`MCP_STALE_CONTRACT`) until you restart it.
 
 A complete runnable version of this setup, with two tenants, a React app and MCP checks, is in

@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import threading
 from collections.abc import Iterator
+from contextlib import suppress
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import cast
 
@@ -184,3 +185,38 @@ def test_a_malformed_answer_is_a_safe_failure() -> None:
     listener.close()
     assert raised.value.code == "MCP_EXECUTION_FAILED"
     assert "secret" not in raised.value.message
+
+
+def test_a_trickling_backend_is_cut_off_at_the_deadline() -> None:
+    import socket
+    import time
+
+    listener = socket.socket()
+    listener.bind(("127.0.0.1", 0))
+    listener.listen(1)
+    stop = threading.Event()
+
+    def trickle() -> None:
+        connection, _ = listener.accept()
+        connection.recv(65536)
+        connection.sendall(b"HTTP/1.1 200 OK\r\ncontent-type: application/json\r\n\r\n")
+        # Each byte arrives well inside the socket timeout; only the request
+        # deadline can end the read.
+        with suppress(OSError):
+            while not stop.is_set():
+                connection.sendall(b" ")
+                time.sleep(0.05)
+        connection.close()
+
+    thread = threading.Thread(target=trickle, daemon=True)
+    thread.start()
+    backend = HttpContractBackend(
+        f"http://127.0.0.1:{listener.getsockname()[1]}/client-contract", timeout_seconds=0.5
+    )
+    started = time.monotonic()
+    with pytest.raises(McpToolError) as raised:
+        asyncio.run(backend.discover(1_000_000))
+    stop.set()
+    listener.close()
+    assert raised.value.code == "MCP_EXECUTION_FAILED"
+    assert time.monotonic() - started < 3

@@ -21,7 +21,12 @@ from urllib.parse import SplitResult, urlsplit, urlunsplit
 
 import anyio
 
-from ...serve.core.utils.http_deadline import NoRedirects
+from ...serve.core.utils.http_deadline import (
+    Deadline,
+    DeadlineHTTPHandler,
+    DeadlineHTTPSHandler,
+    NoRedirects,
+)
 from ...serve.core.utils.http_proxy import with_default_ports
 from ...serve.core.utils.jwt_options import LOOPBACK_HOSTS
 from ..errors import McpToolError
@@ -57,12 +62,17 @@ def backend_url(value: str) -> SplitResult:
     return url
 
 
-def _opener(hostname: str | None) -> urllib.request.OpenerDirector:
+def _opener(hostname: str | None, deadline: Deadline) -> urllib.request.OpenerDirector:
     # urllib honours HTTPS_PROXY / HTTP_PROXY / NO_PROXY and tunnels https with
     # CONNECT, so TLS stays end to end. A loopback backend is reached directly:
     # plain HTTP through a proxy would hand it the credential in cleartext.
     proxies = {} if hostname in LOOPBACK_HOSTS else with_default_ports(urllib.request.getproxies())
-    return urllib.request.build_opener(urllib.request.ProxyHandler(proxies), NoRedirects)
+    return urllib.request.build_opener(
+        urllib.request.ProxyHandler(proxies),
+        DeadlineHTTPHandler(deadline),
+        DeadlineHTTPSHandler(deadline),
+        NoRedirects,
+    )
 
 
 def _read(stream: IO[bytes], headers: Message, status: int, max_bytes: int) -> BackendResponse:
@@ -76,7 +86,10 @@ def _read(stream: IO[bytes], headers: Message, status: int, max_bytes: int) -> B
 
 @dataclass(frozen=True, slots=True)
 class HttpContractBackend:
-    """Discover at *url* and post plans to endpoint paths on the same origin."""
+    """Discover at *url* and post plans to endpoint paths on the same origin.
+
+    Each request, from connecting to the last byte, ends by *timeout_seconds*.
+    """
 
     url: str
     headers: BackendHeaders | None = None
@@ -94,10 +107,22 @@ class HttpContractBackend:
         request = urllib.request.Request(  # noqa: S310 - scheme validated above
             url, data=body, headers=dict(headers), method="POST" if body is not None else "GET"
         )
+        # A socket timeout bounds each read, not the request. The deadline shuts
+        # the connection down when it passes, so a worker the MCP call stopped
+        # waiting for cannot keep reading from a slow backend.
+        deadline = Deadline(self.timeout_seconds)
         try:
-            opener = _opener(urlsplit(url).hostname)
-            with opener.open(request, timeout=self.timeout_seconds) as response:
-                return _read(response, response.headers, response.status, max_bytes)
+            with (
+                deadline,
+                _opener(urlsplit(url).hostname, deadline).open(
+                    request, timeout=self.timeout_seconds
+                ) as response,
+            ):
+                answer = _read(response, response.headers, response.status, max_bytes)
+            if deadline.expired:
+                # A shut-down connection reads as end of body, not an error.
+                raise TimeoutError
+            return answer
         except urllib.error.HTTPError as error:
             with error:
                 return BackendResponse(error.code, error.headers.get("content-type"))

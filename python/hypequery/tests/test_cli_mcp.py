@@ -127,6 +127,18 @@ def test_configuration_errors_are_actionable(
     assert message in capsys.readouterr().err
 
 
+def test_an_api_without_a_client_contract_is_a_setup_error(
+    project: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    (project / "bare.py").write_text(
+        "from hypequery.serve import create_api\napi = create_api(auth=lambda credential: None)\n"
+    )
+    assert main(["mcp", "bare:api", "--self-test"]) == 1
+    error = capsys.readouterr().err
+    assert "add_client_contract_endpoint(api)" in error
+    assert "Traceback" not in error
+
+
 def test_print_config_refuses_a_header_it_would_drop_or_leak(
     project: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:

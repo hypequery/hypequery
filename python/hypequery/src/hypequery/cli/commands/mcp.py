@@ -61,7 +61,12 @@ def run(options: McpOptions) -> None:
         except ValueError as exc:
             raise CliError(str(exc)) from None
     else:
-        backend = ApiContractBackend(load_api(options.app or "app:api"), headers=headers)
+        api = load_api(options.app or "app:api")
+        try:
+            backend = ApiContractBackend(api, headers=headers)
+        except ValueError as exc:
+            # A setup mistake, such as an API without a client-contract endpoint.
+            raise CliError(str(exc)) from None
 
     async def main() -> None:
         try:
