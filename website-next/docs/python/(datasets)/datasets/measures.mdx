@@ -6,7 +6,8 @@ description: Define aggregations such as revenue, counts, averages, minimums, an
 import { CodeBlock } from 'fumadocs-ui/components/codeblock';
 
 Measures are aggregations over fields in a dataset. Each helper on the `measure` namespace takes the field and
-optional `label`, `description`, and `filters` keyword arguments.
+optional `label`, `description`, and `filters` keyword arguments. `synonyms`, `examples`, `format`, `unit` and
+`currency` describe a measure to agents, as on dimensions; derived measures accept them too.
 
 <CodeBlock>
 ```python

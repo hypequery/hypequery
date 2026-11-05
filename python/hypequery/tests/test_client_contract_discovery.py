@@ -59,9 +59,18 @@ def setup(*, max_bytes: int = 256 * 1024, described: bool = False) -> tuple[Asgi
         name="orders",
         source="private_source_sentinel",
         description="Customer orders." if described else None,
-        dimensions={"country": dimension.string(column="private_column")},
+        dimensions={
+            "country": dimension.string(
+                column="private_column",
+                synonyms=("market", " market ", "nation") if described else None,
+            )
+        },
         measures={
-            "total": measure.count("country", label="Sales" if described else None),
+            "total": measure.count(
+                "country",
+                label="Sales" if described else None,
+                unit="orders" if described else None,
+            ),
         },
     )
     executor = Executor()
@@ -146,6 +155,30 @@ def test_authorized_view_carries_annotations_without_changing_the_pin() -> None:
         for item in export_client_contract(plain.api)["contract"]["endpoints"]
         if item["id"] == "sales"
     )
+
+
+def test_field_metadata_is_advertised_only_to_consumers_that_ask() -> None:
+    app, _ = setup(described=True)
+    with AsgiClient(app) as http:
+        rich = http.get(
+            "/api/client-contract",
+            headers={
+                "Authorization": "Bearer reader",
+                "X-Hypequery-Client-Features": "future-thing, Field-Metadata",
+            },
+        )
+        plain = http.get("/api/client-contract", headers={"Authorization": "Bearer reader"})
+    assert rich.headers["vary"] == "authorization, x-hypequery-client-features"
+    (endpoint,) = validate_protocol_client_contract(rich.json())["endpoints"]
+    assert endpoint["annotations"]["fields"] == {
+        "country": {"synonyms": ["market", "nation"]},
+        "total": {"label": "Sales", "unit": "orders"},
+    }
+    (older,) = validate_protocol_client_contract(plain.json())["endpoints"]
+    # A consumer that did not ask gets the text an older validator accepts.
+    assert older["annotations"]["fields"] == {"total": {"label": "Sales"}}
+    assert older["schemaHash"] == endpoint["schemaHash"]
+    assert plain.json()["contentHash"] != rich.json()["contentHash"]
 
 
 def test_unauthenticated_discovery_is_closed_and_oversize_is_not_truncated() -> None:

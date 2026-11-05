@@ -16,6 +16,8 @@ function authorized(endpoints = source.endpoints, view = 'authorized') {
 }
 const annotated = JSON.parse(readFileSync(new URL('../../../specs/security-protocol/fixtures/client-contract-v1/success.json', import.meta.url), 'utf8'))
   .find((item: { id: string }) => item.id === 'annotated').value;
+const fieldMetadata = JSON.parse(readFileSync(new URL('../../../specs/security-protocol/fixtures/client-contract-v1/success.json', import.meta.url), 'utf8'))
+  .find((item: { id: string }) => item.id === 'field-metadata').value;
 const contract = authorized();
 const url = 'https://python.example.test/mounted/client-contract';
 const args = { dataset: 'orders', dimensions: ['country'], measures: ['revenue'] };
@@ -114,6 +116,25 @@ describe('authorized HTTP MCP executor', () => {
     expect(profile.endpoints[0].kind).toBe('metric');
     expect(profile.endpoints[0]).not.toHaveProperty('path');
     expect((await executor.callTool('query_metric', { dataset: 'orders', metric: 'ordersRevenue' })).isError).toBeUndefined();
+  });
+
+  it('asks discovery for field metadata and returns it with each endpoint profile', async () => {
+    const view = authorized(fieldMetadata.endpoints);
+    const fetchFn = vi.fn(async (_url: unknown, init?: RequestInit) => init?.method === 'POST' ? json(rows) : json(view));
+    const executor = await createMCPHttpExecutor({ url, fetchFn: fetchFn as typeof fetch });
+    const profile = (await executor.callTool('get_dataset_schema', { dataset: 'orders' })).structuredContent as any;
+    const orders = profile.endpoints.find((endpoint: any) => endpoint.id === 'orders');
+    expect(orders.annotations.fields.revenue).toEqual({
+      label: 'Revenue', description: 'Gross order value in €, before refunds.',
+      synonyms: ['sales', 'turnover', 'GMV'], format: '€#,##0.00', unit: 'euro', currency: 'EUR',
+    });
+    expect(orders.annotations.fields.amount).toEqual({ format: '#,##0.00', currency: 'EUR' });
+    // Discovery names the feature; query requests do not.
+    expect((await executor.callTool('query_dataset', args)).structuredContent).toEqual(rows);
+    const get = fetchFn.mock.calls.find(call => call[1]?.method === 'GET')!;
+    const post = fetchFn.mock.calls.find(call => call[1]?.method === 'POST')!;
+    expect(new Headers(get[1]?.headers).get('x-hypequery-client-features')).toBe('field-metadata');
+    expect(new Headers(post[1]?.headers).has('x-hypequery-client-features')).toBe(false);
   });
 
   it('lists each group with its own backend description, keeping the generic text as fallback', async () => {

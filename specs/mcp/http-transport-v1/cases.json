@@ -1,0 +1,888 @@
+{
+  "version": 1,
+  "profiles": {
+    "static": {
+      "path": "/mcp",
+      "allowedHosts": [
+        "mcp.example.test"
+      ],
+      "allowedOrigins": [
+        "https://app.example.test"
+      ],
+      "auth": {
+        "kind": "static-key",
+        "key": "fixture-static-key-0123456789abcdef"
+      }
+    },
+    "oauth": {
+      "path": "/mcp",
+      "allowedHosts": [
+        "mcp.example.test"
+      ],
+      "allowedOrigins": [
+        "https://app.example.test"
+      ],
+      "auth": {
+        "kind": "jwt",
+        "secret": "hypequery-mcp-http-fixture-secret-0123456789abcdef",
+        "algorithm": "HS256",
+        "issuer": "https://auth.example.test",
+        "audience": "https://mcp.example.test/mcp",
+        "tenantClaim": "org_id"
+      },
+      "oauth": {
+        "resource": "https://mcp.example.test/mcp",
+        "authorizationServers": [
+          "https://auth.example.test"
+        ],
+        "scopesSupported": [
+          "analytics:read"
+        ],
+        "requiredScopes": [
+          "analytics:read"
+        ]
+      }
+    }
+  },
+  "cases": [
+    {
+      "id": "static-initialize",
+      "profile": "static",
+      "description": "The configured key opens a session.",
+      "steps": [
+        {
+          "request": {
+            "method": "POST",
+            "path": "/mcp",
+            "headers": {
+              "host": "mcp.example.test",
+              "accept": "application/json, text/event-stream",
+              "content-type": "application/json",
+              "authorization": "Bearer fixture-static-key-0123456789abcdef"
+            },
+            "body": {
+              "jsonrpc": "2.0",
+              "id": 1,
+              "method": "initialize",
+              "params": {
+                "protocolVersion": "2025-06-18",
+                "capabilities": {},
+                "clientInfo": {
+                  "name": "fixture-client",
+                  "version": "1.0.0"
+                }
+              }
+            }
+          },
+          "expect": {
+            "status": 200,
+            "session": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "static-session-roundtrip",
+      "profile": "static",
+      "description": "A session accepts follow-up requests from the same key.",
+      "steps": [
+        {
+          "request": {
+            "method": "POST",
+            "path": "/mcp",
+            "headers": {
+              "host": "mcp.example.test",
+              "accept": "application/json, text/event-stream",
+              "content-type": "application/json",
+              "authorization": "Bearer fixture-static-key-0123456789abcdef"
+            },
+            "body": {
+              "jsonrpc": "2.0",
+              "id": 1,
+              "method": "initialize",
+              "params": {
+                "protocolVersion": "2025-06-18",
+                "capabilities": {},
+                "clientInfo": {
+                  "name": "fixture-client",
+                  "version": "1.0.0"
+                }
+              }
+            }
+          },
+          "expect": {
+            "status": 200,
+            "session": true
+          }
+        },
+        {
+          "request": {
+            "method": "POST",
+            "path": "/mcp",
+            "headers": {
+              "host": "mcp.example.test",
+              "accept": "application/json, text/event-stream",
+              "content-type": "application/json",
+              "authorization": "Bearer fixture-static-key-0123456789abcdef"
+            },
+            "body": {
+              "jsonrpc": "2.0",
+              "method": "notifications/initialized"
+            },
+            "session": 0
+          },
+          "expect": {
+            "status": 202
+          }
+        },
+        {
+          "request": {
+            "method": "POST",
+            "path": "/mcp",
+            "headers": {
+              "host": "mcp.example.test",
+              "accept": "application/json, text/event-stream",
+              "content-type": "application/json",
+              "authorization": "Bearer fixture-static-key-0123456789abcdef"
+            },
+            "body": {
+              "jsonrpc": "2.0",
+              "id": 2,
+              "method": "tools/list"
+            },
+            "session": 0
+          },
+          "expect": {
+            "status": 200
+          }
+        }
+      ]
+    },
+    {
+      "id": "static-missing-credential",
+      "profile": "static",
+      "description": "No credential: 401 with a bare Bearer challenge.",
+      "steps": [
+        {
+          "request": {
+            "method": "POST",
+            "path": "/mcp",
+            "headers": {
+              "host": "mcp.example.test",
+              "accept": "application/json, text/event-stream",
+              "content-type": "application/json"
+            },
+            "body": {
+              "jsonrpc": "2.0",
+              "id": 1,
+              "method": "initialize",
+              "params": {
+                "protocolVersion": "2025-06-18",
+                "capabilities": {},
+                "clientInfo": {
+                  "name": "fixture-client",
+                  "version": "1.0.0"
+                }
+              }
+            }
+          },
+          "expect": {
+            "status": 401,
+            "headers": {
+              "www-authenticate": "Bearer"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "static-wrong-key",
+      "profile": "static",
+      "description": "A wrong key is an invalid token.",
+      "steps": [
+        {
+          "request": {
+            "method": "POST",
+            "path": "/mcp",
+            "headers": {
+              "host": "mcp.example.test",
+              "accept": "application/json, text/event-stream",
+              "content-type": "application/json",
+              "authorization": "Bearer fixture-static-key-wrong-wrong-wrong"
+            },
+            "body": {
+              "jsonrpc": "2.0",
+              "id": 1,
+              "method": "initialize",
+              "params": {
+                "protocolVersion": "2025-06-18",
+                "capabilities": {},
+                "clientInfo": {
+                  "name": "fixture-client",
+                  "version": "1.0.0"
+                }
+              }
+            }
+          },
+          "expect": {
+            "status": 401,
+            "headers": {
+              "www-authenticate": "Bearer error=\"invalid_token\""
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "static-non-bearer-scheme",
+      "profile": "static",
+      "description": "A non-Bearer Authorization scheme counts as no credential.",
+      "steps": [
+        {
+          "request": {
+            "method": "POST",
+            "path": "/mcp",
+            "headers": {
+              "host": "mcp.example.test",
+              "accept": "application/json, text/event-stream",
+              "content-type": "application/json",
+              "authorization": "Basic Zm9vOmJhcg=="
+            },
+            "body": {
+              "jsonrpc": "2.0",
+              "id": 1,
+              "method": "initialize",
+              "params": {
+                "protocolVersion": "2025-06-18",
+                "capabilities": {},
+                "clientInfo": {
+                  "name": "fixture-client",
+                  "version": "1.0.0"
+                }
+              }
+            }
+          },
+          "expect": {
+            "status": 401,
+            "headers": {
+              "www-authenticate": "Bearer"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "static-host-refused",
+      "profile": "static",
+      "description": "A Host outside the allow-list is refused before authentication (DNS rebinding).",
+      "steps": [
+        {
+          "request": {
+            "method": "POST",
+            "path": "/mcp",
+            "headers": {
+              "host": "evil.example.test",
+              "accept": "application/json, text/event-stream",
+              "content-type": "application/json",
+              "authorization": "Bearer fixture-static-key-0123456789abcdef"
+            },
+            "body": {
+              "jsonrpc": "2.0",
+              "id": 1,
+              "method": "initialize",
+              "params": {
+                "protocolVersion": "2025-06-18",
+                "capabilities": {},
+                "clientInfo": {
+                  "name": "fixture-client",
+                  "version": "1.0.0"
+                }
+              }
+            }
+          },
+          "expect": {
+            "status": 421
+          }
+        }
+      ]
+    },
+    {
+      "id": "static-host-with-port",
+      "profile": "static",
+      "description": "The Host port is ignored when matching the allow-list.",
+      "steps": [
+        {
+          "request": {
+            "method": "POST",
+            "path": "/mcp",
+            "headers": {
+              "host": "mcp.example.test:8443",
+              "accept": "application/json, text/event-stream",
+              "content-type": "application/json",
+              "authorization": "Bearer fixture-static-key-0123456789abcdef"
+            },
+            "body": {
+              "jsonrpc": "2.0",
+              "id": 1,
+              "method": "initialize",
+              "params": {
+                "protocolVersion": "2025-06-18",
+                "capabilities": {},
+                "clientInfo": {
+                  "name": "fixture-client",
+                  "version": "1.0.0"
+                }
+              }
+            }
+          },
+          "expect": {
+            "status": 200,
+            "session": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "static-origin-refused",
+      "profile": "static",
+      "description": "An Origin outside the allow-list is refused with 403.",
+      "steps": [
+        {
+          "request": {
+            "method": "POST",
+            "path": "/mcp",
+            "headers": {
+              "host": "mcp.example.test",
+              "accept": "application/json, text/event-stream",
+              "content-type": "application/json",
+              "authorization": "Bearer fixture-static-key-0123456789abcdef",
+              "origin": "https://evil.example.test"
+            },
+            "body": {
+              "jsonrpc": "2.0",
+              "id": 1,
+              "method": "initialize",
+              "params": {
+                "protocolVersion": "2025-06-18",
+                "capabilities": {},
+                "clientInfo": {
+                  "name": "fixture-client",
+                  "version": "1.0.0"
+                }
+              }
+            }
+          },
+          "expect": {
+            "status": 403
+          }
+        }
+      ]
+    },
+    {
+      "id": "static-origin-allowed",
+      "profile": "static",
+      "description": "An allowed Origin is served.",
+      "steps": [
+        {
+          "request": {
+            "method": "POST",
+            "path": "/mcp",
+            "headers": {
+              "host": "mcp.example.test",
+              "accept": "application/json, text/event-stream",
+              "content-type": "application/json",
+              "authorization": "Bearer fixture-static-key-0123456789abcdef",
+              "origin": "https://app.example.test"
+            },
+            "body": {
+              "jsonrpc": "2.0",
+              "id": 1,
+              "method": "initialize",
+              "params": {
+                "protocolVersion": "2025-06-18",
+                "capabilities": {},
+                "clientInfo": {
+                  "name": "fixture-client",
+                  "version": "1.0.0"
+                }
+              }
+            }
+          },
+          "expect": {
+            "status": 200,
+            "session": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "static-unknown-path",
+      "profile": "static",
+      "description": "Paths other than the MCP path are 404.",
+      "steps": [
+        {
+          "request": {
+            "method": "POST",
+            "path": "/other",
+            "headers": {
+              "host": "mcp.example.test",
+              "accept": "application/json, text/event-stream",
+              "content-type": "application/json",
+              "authorization": "Bearer fixture-static-key-0123456789abcdef"
+            },
+            "body": {
+              "jsonrpc": "2.0",
+              "id": 1,
+              "method": "initialize",
+              "params": {
+                "protocolVersion": "2025-06-18",
+                "capabilities": {},
+                "clientInfo": {
+                  "name": "fixture-client",
+                  "version": "1.0.0"
+                }
+              }
+            }
+          },
+          "expect": {
+            "status": 404
+          }
+        }
+      ]
+    },
+    {
+      "id": "static-no-oauth-metadata",
+      "profile": "static",
+      "description": "Without OAuth there is no protected-resource metadata.",
+      "steps": [
+        {
+          "request": {
+            "method": "GET",
+            "path": "/.well-known/oauth-protected-resource/mcp",
+            "headers": {
+              "host": "mcp.example.test"
+            }
+          },
+          "expect": {
+            "status": 404
+          }
+        }
+      ]
+    },
+    {
+      "id": "static-unknown-session",
+      "profile": "static",
+      "description": "An unknown session id is 404.",
+      "steps": [
+        {
+          "request": {
+            "method": "POST",
+            "path": "/mcp",
+            "headers": {
+              "host": "mcp.example.test",
+              "accept": "application/json, text/event-stream",
+              "content-type": "application/json",
+              "authorization": "Bearer fixture-static-key-0123456789abcdef",
+              "mcp-session-id": "00000000000000000000000000000000"
+            },
+            "body": {
+              "jsonrpc": "2.0",
+              "id": 2,
+              "method": "tools/list"
+            }
+          },
+          "expect": {
+            "status": 404
+          }
+        }
+      ]
+    },
+    {
+      "id": "oauth-metadata",
+      "profile": "oauth",
+      "description": "Protected-resource metadata (RFC 9728) is public.",
+      "steps": [
+        {
+          "request": {
+            "method": "GET",
+            "path": "/.well-known/oauth-protected-resource/mcp",
+            "headers": {
+              "host": "mcp.example.test"
+            }
+          },
+          "expect": {
+            "status": 200,
+            "json": {
+              "resource": "https://mcp.example.test/mcp",
+              "authorization_servers": [
+                "https://auth.example.test"
+              ],
+              "scopes_supported": [
+                "analytics:read"
+              ],
+              "bearer_methods_supported": [
+                "header"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "oauth-metadata-host-refused",
+      "profile": "oauth",
+      "description": "Metadata is behind the Host check too.",
+      "steps": [
+        {
+          "request": {
+            "method": "GET",
+            "path": "/.well-known/oauth-protected-resource/mcp",
+            "headers": {
+              "host": "evil.example.test"
+            }
+          },
+          "expect": {
+            "status": 421
+          }
+        }
+      ]
+    },
+    {
+      "id": "oauth-missing-token",
+      "profile": "oauth",
+      "description": "No token: 401 pointing at the metadata.",
+      "steps": [
+        {
+          "request": {
+            "method": "POST",
+            "path": "/mcp",
+            "headers": {
+              "host": "mcp.example.test",
+              "accept": "application/json, text/event-stream",
+              "content-type": "application/json"
+            },
+            "body": {
+              "jsonrpc": "2.0",
+              "id": 1,
+              "method": "initialize",
+              "params": {
+                "protocolVersion": "2025-06-18",
+                "capabilities": {},
+                "clientInfo": {
+                  "name": "fixture-client",
+                  "version": "1.0.0"
+                }
+              }
+            }
+          },
+          "expect": {
+            "status": 401,
+            "headers": {
+              "www-authenticate": "Bearer resource_metadata=\"https://mcp.example.test/.well-known/oauth-protected-resource/mcp\""
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "oauth-valid-token",
+      "profile": "oauth",
+      "description": "A token issued for this resource with the required scope opens a session.",
+      "steps": [
+        {
+          "request": {
+            "method": "POST",
+            "path": "/mcp",
+            "headers": {
+              "host": "mcp.example.test",
+              "accept": "application/json, text/event-stream",
+              "content-type": "application/json",
+              "authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJhbGljZSIsIm9yZ19pZCI6ImFjbWUiLCJzY29wZSI6ImFuYWx5dGljczpyZWFkIiwiaXNzIjoiaHR0cHM6Ly9hdXRoLmV4YW1wbGUudGVzdCIsImF1ZCI6Imh0dHBzOi8vbWNwLmV4YW1wbGUudGVzdC9tY3AiLCJpYXQiOjE3NjcyMjU2MDAsImV4cCI6NDEwMjQ0NDgwMH0.ynV6wqA_WpI52N3ggKTlavK7UdxpjPKQKUb3y7xcRKw"
+            },
+            "body": {
+              "jsonrpc": "2.0",
+              "id": 1,
+              "method": "initialize",
+              "params": {
+                "protocolVersion": "2025-06-18",
+                "capabilities": {},
+                "clientInfo": {
+                  "name": "fixture-client",
+                  "version": "1.0.0"
+                }
+              }
+            }
+          },
+          "expect": {
+            "status": 200,
+            "session": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "oauth-wrong-audience",
+      "profile": "oauth",
+      "description": "A token issued for another resource is refused.",
+      "steps": [
+        {
+          "request": {
+            "method": "POST",
+            "path": "/mcp",
+            "headers": {
+              "host": "mcp.example.test",
+              "accept": "application/json, text/event-stream",
+              "content-type": "application/json",
+              "authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJhbGljZSIsIm9yZ19pZCI6ImFjbWUiLCJzY29wZSI6ImFuYWx5dGljczpyZWFkIiwiaXNzIjoiaHR0cHM6Ly9hdXRoLmV4YW1wbGUudGVzdCIsImF1ZCI6Imh0dHBzOi8vb3RoZXIuZXhhbXBsZS50ZXN0L21jcCIsImlhdCI6MTc2NzIyNTYwMCwiZXhwIjo0MTAyNDQ0ODAwfQ.XDsa7jqkuHp1bO7OKC_Avy2s-YIKIAQ6Gw1viFlaQ5w"
+            },
+            "body": {
+              "jsonrpc": "2.0",
+              "id": 1,
+              "method": "initialize",
+              "params": {
+                "protocolVersion": "2025-06-18",
+                "capabilities": {},
+                "clientInfo": {
+                  "name": "fixture-client",
+                  "version": "1.0.0"
+                }
+              }
+            }
+          },
+          "expect": {
+            "status": 401,
+            "headers": {
+              "www-authenticate": "Bearer error=\"invalid_token\", resource_metadata=\"https://mcp.example.test/.well-known/oauth-protected-resource/mcp\""
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "oauth-expired",
+      "profile": "oauth",
+      "description": "An expired token is refused.",
+      "steps": [
+        {
+          "request": {
+            "method": "POST",
+            "path": "/mcp",
+            "headers": {
+              "host": "mcp.example.test",
+              "accept": "application/json, text/event-stream",
+              "content-type": "application/json",
+              "authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJhbGljZSIsIm9yZ19pZCI6ImFjbWUiLCJzY29wZSI6ImFuYWx5dGljczpyZWFkIiwiaXNzIjoiaHR0cHM6Ly9hdXRoLmV4YW1wbGUudGVzdCIsImF1ZCI6Imh0dHBzOi8vbWNwLmV4YW1wbGUudGVzdC9tY3AiLCJpYXQiOjk0NjA4MDAwMCwiZXhwIjo5NDY2ODQ4MDB9.lI04UElA4S7f6WXHhy2QDmUWYgN70r7yPdNrCc_a4_Q"
+            },
+            "body": {
+              "jsonrpc": "2.0",
+              "id": 1,
+              "method": "initialize",
+              "params": {
+                "protocolVersion": "2025-06-18",
+                "capabilities": {},
+                "clientInfo": {
+                  "name": "fixture-client",
+                  "version": "1.0.0"
+                }
+              }
+            }
+          },
+          "expect": {
+            "status": 401,
+            "headers": {
+              "www-authenticate": "Bearer error=\"invalid_token\", resource_metadata=\"https://mcp.example.test/.well-known/oauth-protected-resource/mcp\""
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "oauth-bad-signature",
+      "profile": "oauth",
+      "description": "A token signed by another key is refused.",
+      "steps": [
+        {
+          "request": {
+            "method": "POST",
+            "path": "/mcp",
+            "headers": {
+              "host": "mcp.example.test",
+              "accept": "application/json, text/event-stream",
+              "content-type": "application/json",
+              "authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJhbGljZSIsIm9yZ19pZCI6ImFjbWUiLCJzY29wZSI6ImFuYWx5dGljczpyZWFkIiwiaXNzIjoiaHR0cHM6Ly9hdXRoLmV4YW1wbGUudGVzdCIsImF1ZCI6Imh0dHBzOi8vbWNwLmV4YW1wbGUudGVzdC9tY3AiLCJpYXQiOjE3NjcyMjU2MDAsImV4cCI6NDEwMjQ0NDgwMH0.mEa2MyUgYxmNLgXCVoGVyVq2U344ts2K-wJI7y3nl_k"
+            },
+            "body": {
+              "jsonrpc": "2.0",
+              "id": 1,
+              "method": "initialize",
+              "params": {
+                "protocolVersion": "2025-06-18",
+                "capabilities": {},
+                "clientInfo": {
+                  "name": "fixture-client",
+                  "version": "1.0.0"
+                }
+              }
+            }
+          },
+          "expect": {
+            "status": 401,
+            "headers": {
+              "www-authenticate": "Bearer error=\"invalid_token\", resource_metadata=\"https://mcp.example.test/.well-known/oauth-protected-resource/mcp\""
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "oauth-insufficient-scope",
+      "profile": "oauth",
+      "description": "A valid token without the required scope is 403.",
+      "steps": [
+        {
+          "request": {
+            "method": "POST",
+            "path": "/mcp",
+            "headers": {
+              "host": "mcp.example.test",
+              "accept": "application/json, text/event-stream",
+              "content-type": "application/json",
+              "authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJhbGljZSIsIm9yZ19pZCI6ImFjbWUiLCJzY29wZSI6InByb2ZpbGUiLCJpc3MiOiJodHRwczovL2F1dGguZXhhbXBsZS50ZXN0IiwiYXVkIjoiaHR0cHM6Ly9tY3AuZXhhbXBsZS50ZXN0L21jcCIsImlhdCI6MTc2NzIyNTYwMCwiZXhwIjo0MTAyNDQ0ODAwfQ.BIZz3M1mdsw4DsUK-KbT_D--_XD5G551GgFYbCc58iM"
+            },
+            "body": {
+              "jsonrpc": "2.0",
+              "id": 1,
+              "method": "initialize",
+              "params": {
+                "protocolVersion": "2025-06-18",
+                "capabilities": {},
+                "clientInfo": {
+                  "name": "fixture-client",
+                  "version": "1.0.0"
+                }
+              }
+            }
+          },
+          "expect": {
+            "status": 403,
+            "headers": {
+              "www-authenticate": "Bearer error=\"insufficient_scope\", scope=\"analytics:read\", resource_metadata=\"https://mcp.example.test/.well-known/oauth-protected-resource/mcp\""
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "oauth-rotated-token-keeps-session",
+      "profile": "oauth",
+      "description": "A new token for the same subject and tenant continues the session.",
+      "steps": [
+        {
+          "request": {
+            "method": "POST",
+            "path": "/mcp",
+            "headers": {
+              "host": "mcp.example.test",
+              "accept": "application/json, text/event-stream",
+              "content-type": "application/json",
+              "authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJhbGljZSIsIm9yZ19pZCI6ImFjbWUiLCJzY29wZSI6ImFuYWx5dGljczpyZWFkIiwiaXNzIjoiaHR0cHM6Ly9hdXRoLmV4YW1wbGUudGVzdCIsImF1ZCI6Imh0dHBzOi8vbWNwLmV4YW1wbGUudGVzdC9tY3AiLCJpYXQiOjE3NjcyMjU2MDAsImV4cCI6NDEwMjQ0NDgwMH0.ynV6wqA_WpI52N3ggKTlavK7UdxpjPKQKUb3y7xcRKw"
+            },
+            "body": {
+              "jsonrpc": "2.0",
+              "id": 1,
+              "method": "initialize",
+              "params": {
+                "protocolVersion": "2025-06-18",
+                "capabilities": {},
+                "clientInfo": {
+                  "name": "fixture-client",
+                  "version": "1.0.0"
+                }
+              }
+            }
+          },
+          "expect": {
+            "status": 200,
+            "session": true
+          }
+        },
+        {
+          "request": {
+            "method": "POST",
+            "path": "/mcp",
+            "headers": {
+              "host": "mcp.example.test",
+              "accept": "application/json, text/event-stream",
+              "content-type": "application/json",
+              "authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJhbGljZSIsIm9yZ19pZCI6ImFjbWUiLCJzY29wZSI6ImFuYWx5dGljczpyZWFkIiwiaXNzIjoiaHR0cHM6Ly9hdXRoLmV4YW1wbGUudGVzdCIsImF1ZCI6Imh0dHBzOi8vbWNwLmV4YW1wbGUudGVzdC9tY3AiLCJpYXQiOjE3NjcyMjkyMDAsImV4cCI6NDEwMjQ0NDgwMH0.jZGVzVQSHHT04rQNn9Z1lkNdNrqX1DrvmUDsttTg4CE"
+            },
+            "body": {
+              "jsonrpc": "2.0",
+              "method": "notifications/initialized"
+            },
+            "session": 0
+          },
+          "expect": {
+            "status": 202
+          }
+        }
+      ]
+    },
+    {
+      "id": "oauth-session-bound-to-principal",
+      "profile": "oauth",
+      "description": "Another principal cannot use a session: it is reported as not found.",
+      "steps": [
+        {
+          "request": {
+            "method": "POST",
+            "path": "/mcp",
+            "headers": {
+              "host": "mcp.example.test",
+              "accept": "application/json, text/event-stream",
+              "content-type": "application/json",
+              "authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJhbGljZSIsIm9yZ19pZCI6ImFjbWUiLCJzY29wZSI6ImFuYWx5dGljczpyZWFkIiwiaXNzIjoiaHR0cHM6Ly9hdXRoLmV4YW1wbGUudGVzdCIsImF1ZCI6Imh0dHBzOi8vbWNwLmV4YW1wbGUudGVzdC9tY3AiLCJpYXQiOjE3NjcyMjU2MDAsImV4cCI6NDEwMjQ0NDgwMH0.ynV6wqA_WpI52N3ggKTlavK7UdxpjPKQKUb3y7xcRKw"
+            },
+            "body": {
+              "jsonrpc": "2.0",
+              "id": 1,
+              "method": "initialize",
+              "params": {
+                "protocolVersion": "2025-06-18",
+                "capabilities": {},
+                "clientInfo": {
+                  "name": "fixture-client",
+                  "version": "1.0.0"
+                }
+              }
+            }
+          },
+          "expect": {
+            "status": 200,
+            "session": true
+          }
+        },
+        {
+          "request": {
+            "method": "POST",
+            "path": "/mcp",
+            "headers": {
+              "host": "mcp.example.test",
+              "accept": "application/json, text/event-stream",
+              "content-type": "application/json",
+              "authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJib2IiLCJvcmdfaWQiOiJnbG9iZXgiLCJzY29wZSI6ImFuYWx5dGljczpyZWFkIiwiaXNzIjoiaHR0cHM6Ly9hdXRoLmV4YW1wbGUudGVzdCIsImF1ZCI6Imh0dHBzOi8vbWNwLmV4YW1wbGUudGVzdC9tY3AiLCJpYXQiOjE3NjcyMjU2MDAsImV4cCI6NDEwMjQ0NDgwMH0.7EbSW9vq-0tbYTf6TnBLgVmhdSDWQexhXYps_07yX_w"
+            },
+            "body": {
+              "jsonrpc": "2.0",
+              "method": "notifications/initialized"
+            },
+            "session": 0
+          },
+          "expect": {
+            "status": 404
+          }
+        }
+      ]
+    }
+  ]
+}

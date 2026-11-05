@@ -88,6 +88,17 @@ def test_tools_run_over_http(origin: str) -> None:
     assert data == [{"country": "US", "total": "10"}] * 3
 
 
+def test_discovery_over_http_asks_for_field_metadata(origin: str) -> None:
+    executor = connect(origin + "/client-contract")
+    result = asyncio.run(executor.call_tool("get_dataset_schema", {"dataset": "orders"}))
+    profile = cast(dict[str, list[dict[str, dict[str, object]]]], result["structuredContent"])
+    fields = profile["endpoints"][0]["annotations"]["fields"]
+    assert fields == {
+        "country": {"synonyms": ["market"]},
+        "revenue": {"format": "#,##0.00", "currency": "USD"},
+    }
+
+
 def test_redirects_are_refused(origin: str) -> None:
     with pytest.raises(McpToolError) as raised:
         connect(origin + "/redirect")

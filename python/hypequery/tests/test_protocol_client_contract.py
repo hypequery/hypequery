@@ -10,12 +10,18 @@ from typing import Literal, cast
 import pytest
 
 from hypequery.protocol import (
+    CLIENT_CONTRACT_FEATURES,
+    CLIENT_CONTRACT_FEATURES_HEADER,
     CLIENT_ERROR_MESSAGES,
+    PreparedProtocolClientContract,
     ProtocolClientContractError,
+    accepts_client_field_metadata,
     decode_protocol_client_contract,
+    parse_client_contract_features,
     prepare_protocol_client_contract,
     validate_protocol_client_contract,
     validate_protocol_client_query,
+    without_client_field_metadata,
 )
 
 DIRECTORY = (
@@ -279,3 +285,28 @@ def test_valid_endpoint_and_descriptor_ceilings() -> None:
         )
         assert len(result["contract"]["endpoints"]) == endpoint_count
         assert validate_protocol_client_contract(result["contract"]) == result["contract"]
+
+
+def test_features_header_names_field_metadata() -> None:
+    assert CLIENT_CONTRACT_FEATURES_HEADER == "x-hypequery-client-features"
+    assert accepts_client_field_metadata(CLIENT_CONTRACT_FEATURES)
+    assert accepts_client_field_metadata(" future-thing , Field-Metadata ")
+    assert parse_client_contract_features("a,,b ,") == frozenset({"a", "b"})
+    assert not accepts_client_field_metadata("field-metadatas")
+    assert not accepts_client_field_metadata(None)
+    assert not accepts_client_field_metadata("field-metadata," + "x" * 256)
+
+
+def _prepared(name: str) -> PreparedProtocolClientContract:
+    contract = validate_protocol_client_contract(CONTRACTS[name])
+    canonical = cast(str, IDENTITIES[name]["canonical"])
+    return {"contract": contract, "canonical": canonical, "contentHash": contract["contentHash"]}
+
+
+def test_without_field_metadata_reduces_to_the_annotated_view() -> None:
+    reduced = without_client_field_metadata(_prepared("field-metadata"))
+    assert reduced["contract"] == validate_protocol_client_contract(CONTRACTS["annotated"])
+    assert reduced["canonical"] == IDENTITIES["annotated"]["canonical"]
+    for name in ("build", "annotated", "metric-only", "narrowed"):
+        expected = CONTRACTS[name]["contentHash"]
+        assert without_client_field_metadata(_prepared(name))["contentHash"] == expected

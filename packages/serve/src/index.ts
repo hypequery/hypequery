@@ -31,4 +31,4 @@ export * from "./semantic/index.js";
 
 // MCP tooling seam: lets `hypequery mcp` reuse this entrypoint's datasets.
 export { readServeMcpSource } from './server/mcp-source.js';
-export type { ServeMcpSource } from './server/mcp-source.js';
+export type { ServeMcpAuth, ServeMcpSource } from './server/mcp-source.js';

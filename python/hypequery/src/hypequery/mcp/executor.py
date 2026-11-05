@@ -182,6 +182,12 @@ class ClientContractExecutor:
         )
 
     @property
+    def invalidated(self) -> bool:
+        """True once the authorized view changed; the session must reconnect for a new executor."""
+
+        return self._invalidated
+
+    @property
     def manifest_hash(self) -> str:
         return self._schemas["manifest_hash"]
 

@@ -56,6 +56,26 @@
     }
   },
   {
+    "id": "field-metadata-does-not-change-schema",
+    "left": "annotated",
+    "right": "field-metadata",
+    "sameEndpointSchemas": [
+      "countries",
+      "orders",
+      "ordersRevenue"
+    ],
+    "sameContentHash": false,
+    "mode": "relation",
+    "expected": {
+      "sameEndpointSchemas": [
+        "countries",
+        "orders",
+        "ordersRevenue"
+      ],
+      "sameContentHash": false
+    }
+  },
+  {
     "id": "empty-view-has-no-tools",
     "contract": "empty",
     "queryDatasetTargets": [],

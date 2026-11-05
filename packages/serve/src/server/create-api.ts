@@ -366,6 +366,16 @@ export const createAPI = <
     const mcpDatasets = buildSemanticContractSource(config.datasets, config.metrics);
     attachServeMcpSource(api, {
       datasets: mcpDatasets,
+      ...(authStrategies.length > 0
+        ? {
+          auth: {
+            strategies: authStrategies as AuthStrategy<AuthContext>[],
+            ...(globalTenantConfig
+              ? { tenant: { extract: globalTenantConfig.extract as (auth: AuthContext) => string | null | undefined } }
+              : {}),
+          },
+        }
+        : {}),
       resolveAnalytics: () => {
         if (!resolvedQueryBuilder) {
           throw new Error(

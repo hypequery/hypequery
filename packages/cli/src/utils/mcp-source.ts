@@ -11,6 +11,11 @@ export interface ServeMcpSource {
   readonly version: 1;
   readonly datasets: Readonly<Record<string, unknown>>;
   readonly resolveAnalytics: () => unknown;
+  /** The application's auth strategies and tenant extraction, when it configures auth. */
+  readonly auth?: {
+    readonly strategies: readonly ((context: { request: unknown }) => Promise<unknown>)[];
+    readonly tenant?: { readonly extract: (auth: never) => string | null | undefined };
+  };
 }
 
 export function readServeMcpSource(value: unknown): ServeMcpSource | undefined {

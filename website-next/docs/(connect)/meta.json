@@ -6,6 +6,7 @@
     "mcp/configuration",
     "mcp/tools",
     "mcp/clients",
+    "mcp/remote",
     "mcp/programmatic",
     "mcp/safety",
     "---React---",

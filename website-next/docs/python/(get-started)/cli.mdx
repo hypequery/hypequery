@@ -228,8 +228,8 @@ See [React and MCP clients](/docs/python/client-endpoints) for the end-to-end wo
 
 ## `hypequery mcp`
 
-Serves an API's authorized client contract to AI agents over MCP stdio, with the same four tools, input schemas and
-errors as `@hypequery/mcp`. Needs the `mcp` extra: `pip install "hypequery[mcp]"`.
+Serves an API's authorized client contract to AI agents over MCP stdio, or Streamable HTTP with `--http`, with the
+same four tools, input schemas and errors as `@hypequery/mcp`. Needs the `mcp` extra: `pip install "hypequery[mcp]"`.
 
 | Option | Description |
 | --- | --- |
@@ -239,10 +239,16 @@ errors as `@hypequery/mcp`. Needs the `mcp` extra: `pip install "hypequery[mcp]"
 | `--project <dir>` | Directory to import the app from (default: current) |
 | `--self-test` | Read and validate the contract, count its endpoints and exit, without serving |
 | `--print-config` | Print an `mcpServers` entry for Claude, Cursor or another MCP client |
+| `--http` | Serve over Streamable HTTP instead of stdio. Callers send `HYPEQUERY_MCP_KEY`, or without it are authenticated by the Api's own auth |
+| `--port <n>`, `--host <address>` | With `--http`: where to listen (default `127.0.0.1:3333`) |
+| `--allowed-hosts <names>` | With `--http`: comma-separated `Host` names to answer (default: loopback; required for another bind address) |
+| `--allowed-origins <origins>` | With `--http`: comma-separated browser origins allowed to call |
+| `--resource <url>`, `--authorization-servers <urls>`, `--required-scopes <scopes>` | With `--http`: OAuth resource-server settings |
 
 `HYPEQUERY_API_KEY`, when set, is sent as `Authorization: Bearer …`. The API authenticates and scopes every call, so
 an agent gets exactly the endpoints, fields and tenant that credential's principal may use. See
-[MCP: datasets served from Python](/docs/mcp/overview#datasets-served-from-python).
+[MCP: datasets served from Python](/docs/mcp/overview#datasets-served-from-python) and
+[Remote MCP over HTTP](/docs/mcp/remote).
 
 ## `hypequery skill install`
 

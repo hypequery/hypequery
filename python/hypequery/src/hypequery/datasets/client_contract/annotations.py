@@ -21,16 +21,39 @@ def annotation_text(value: str | None) -> str | None:
     return None if not folded or is_js_blank(folded) else folded
 
 
+def annotation_list(values: tuple[str, ...] | None) -> list[str] | None:
+    """Folded, non-blank, first-occurrence items; omitted when none remain."""
+    if values is None:
+        return None
+    items = dict.fromkeys(text for value in values if (text := annotation_text(value)) is not None)
+    return list(items) or None
+
+
 def field_annotation(
     definition: Dimension | Measure | DerivedMeasure,
 ) -> ClientFieldAnnotation | None:
+    """Label, description and vocabulary; contracts drop the vocabulary for older consumers."""
     node: ClientFieldAnnotation = {}
     label = annotation_text(definition.label)
     description = annotation_text(definition.description)
+    synonyms = annotation_list(definition.synonyms)
+    examples = annotation_list(definition.examples)
+    display_format = annotation_text(definition.format)
+    unit = annotation_text(definition.unit)
     if label is not None:
         node["label"] = label
     if description is not None:
         node["description"] = description
+    if synonyms is not None:
+        node["synonyms"] = synonyms
+    if examples is not None:
+        node["examples"] = examples
+    if display_format is not None:
+        node["format"] = display_format
+    if unit is not None:
+        node["unit"] = unit
+    if definition.currency is not None:
+        node["currency"] = definition.currency
     return node or None
 
 

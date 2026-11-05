@@ -1,4 +1,5 @@
 import type { DatasetCatalogSource, DatasetClient } from '@hypequery/datasets';
+import type { AuthContext, AuthStrategy } from '../types.js';
 
 /**
  * Lets `hypequery mcp` serve an application's datasets from the same
@@ -21,6 +22,18 @@ export interface ServeMcpSource {
    * configured query builder should fail when MCP starts rather than at import.
    */
   readonly resolveAnalytics: () => DatasetClient;
+  /**
+   * The application's own authentication, so `hypequery mcp --http` verifies
+   * callers and assigns tenants exactly as the REST API does. Absent when the
+   * application configures no auth.
+   */
+  readonly auth?: ServeMcpAuth;
+}
+
+/** The application's auth strategies and tenant extraction, as configured on `defineServe`. */
+export interface ServeMcpAuth {
+  readonly strategies: readonly AuthStrategy<AuthContext>[];
+  readonly tenant?: { readonly extract: (auth: AuthContext) => string | null | undefined };
 }
 
 export function attachServeMcpSource(
@@ -32,6 +45,7 @@ export function attachServeMcpSource(
       version: 1,
       datasets: Object.freeze({ ...source.datasets }),
       resolveAnalytics: source.resolveAnalytics,
+      ...(source.auth ? { auth: Object.freeze({ ...source.auth, strategies: Object.freeze([...source.auth.strategies]) }) } : {}),
     } satisfies ServeMcpSource),
     enumerable: false,
     configurable: false,
