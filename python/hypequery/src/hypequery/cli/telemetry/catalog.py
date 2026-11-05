@@ -17,6 +17,7 @@ COMMANDS: Final = (
     "dev",
     "generate:datasets",
     "export:client-contract",
+    "skill",
     "help",
     "version",
     "unknown",
