@@ -12,6 +12,7 @@ from pydantic import ValidationError
 from hypequery.datasets import (
     CompiledQuery,
     DatasetQuery,
+    Measure,
     belongs_to,
     create_dataset_client,
     create_dataset_registry,
@@ -116,3 +117,35 @@ def test_states_are_not_merged_through_a_relationship() -> None:
     )
     with pytest.raises(CompiledQueryError, match="cannot merge aggregate states"):
         client.to_sql(sessions, DatasetQuery(measures=("daily.activeUsers",)))
+
+
+def test_client_contracts_offer_having_only_on_numeric_merge_states() -> None:
+    from hypequery.datasets.client_contract.fields import numeric_measure
+
+    states = dataset(
+        "states",
+        source="states",
+        dimensions={"day": dimension.timestamp()},
+        measures={
+            "users": measure.merge("uniq", "users"),
+            "revenue": measure.merge("sum", "revenue_state"),
+            # These merge to the stored value, which may be a string or a date.
+            **{
+                name: measure.merge(name, f"{name}_state")
+                for name in ("min", "max", "any", "anyLast")
+            },
+        },
+    )
+    having = {
+        name: numeric_measure(states, definition)
+        for name, definition in states.measures.items()
+        if isinstance(definition, Measure)
+    }
+    assert having == {
+        "users": True,
+        "revenue": True,
+        "min": False,
+        "max": False,
+        "any": False,
+        "anyLast": False,
+    }
