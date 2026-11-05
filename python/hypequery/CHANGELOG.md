@@ -54,6 +54,29 @@
   multi-tenant, FastAPI, Django, Flask, MCP, pandas, polars, Arrow), and a
   Documentation link to https://hypequery.com/docs/python.
 
+- Null-check filters (RFC 0023): `filter.is_null(field)` and
+  `filter.is_not_null(field)` render `IS NULL` / `IS NOT NULL` with nothing
+  bound. Measures may use them in fixed `filters`; callers may use them only on
+  filters whose `FilterDefinition(operators=...)` lists them, so the default
+  operator list, and existing deployment identities, are unchanged. A null
+  check carries no `value` (not even `null`); served requests and the cache
+  and deployment wire omit it. Exported `SEMANTIC_NULL_CHECK_OPERATORS`.
+
+- Exported client contracts keep `isNull` and `isNotNull` on boolean filters
+  that allow them (RFC 0023), instead of dropping them.
+
+- `hypequery.protocol.build_client_contract_tool_schemas()` compiles a signed
+  client contract into the `query_dataset` and `query_metric` MCP tool input
+  schemas, identical to `@hypequery/datasets`'s, plus the manifest hash. It is
+  the schema layer for a future Python MCP server; Python APIs still reach
+  agents through `@hypequery/mcp`.
+
+- Server-fault errors (`internal`, `unavailable`) keep the reason they were
+  raised with as `CompiledQueryError.diagnostic`, shown in tracebacks; the
+  public message is unchanged. A relationship whose target dataset is missing
+  from the client's registry now names the dataset and how to register it,
+  instead of only "The query could not be executed."
+
 ## 0.1.0b2 (2026-11-02)
 
 - `hypequery init` is guided in a terminal, as the TypeScript CLI is. It asks
