@@ -17,7 +17,11 @@ import {
 import { createFieldNamer } from '../utils/field-namer.js';
 import { isTenantKeyCandidateName } from '../utils/tenant-key-candidates.js';
 import { aggregateColumnOf, type AggregateColumn } from '../utils/clickhouse-aggregate-column.js';
-import { parseEngineMetadata, type EngineMetadata } from '../utils/clickhouse-engine-metadata.js';
+import {
+  parseEngineMetadata,
+  sortingKeyColumns,
+  type EngineMetadata,
+} from '../utils/clickhouse-engine-metadata.js';
 import {
   isPreAggregatedFamily,
   mergeMeasurePrefix,
@@ -340,15 +344,19 @@ async function generateDatasetForTable(
         continue;
       }
       const fieldName = fieldNameByColumn.get(column.name);
-      if (!fieldName || !numericColumns.includes(column)) continue;
-      // A SimpleAggregateFunction column is read with its own function. A
-      // SummingMergeTree sums its value columns on merge; other plain columns
-      // keep an arbitrary row's value, so no measure describes them.
+      if (!fieldName || !isNumericColumn(column)) continue;
+      // A declared function wins over name heuristics: a SimpleAggregateFunction
+      // column is read with its own function, and a SummingMergeTree's listed
+      // columns are summed on merge. Without a list it sums every numeric
+      // column outside the sorting key, so only there do names decide. Other
+      // plain columns keep an arbitrary row's value; no measure describes them.
       const fn = aggregate?.kind === 'simple'
         ? aggregate.function
-        : engine?.family === 'SummingMergeTree' && (!engine.summingColumns || engine.summingColumns.includes(column.name))
-          ? 'sum'
-          : undefined;
+        : engine?.family !== 'SummingMergeTree'
+          ? undefined
+          : engine.summingColumns
+            ? engine.summingColumns.includes(column.name) ? 'sum' : undefined
+            : numericColumns.includes(column) && !engine.sortingKeyColumns?.includes(column.name) ? 'sum' : undefined;
       if (fn !== 'sum' && fn !== 'min' && fn !== 'max') continue;
       const prefix = fn === 'sum' ? { name: 'total', label: 'Total' } : { name: fn, label: fn === 'min' ? 'Min' : 'Max' };
       measureLines.push(
@@ -422,11 +430,19 @@ ${configLines.join('\n')}
 async function readTableEngines(client: TypeGenerationClickHouseClient): Promise<Map<string, EngineMetadata>> {
   try {
     const result = await client.query({
-      query: 'SELECT name, engine, engine_full FROM system.tables WHERE database = currentDatabase()',
+      query: 'SELECT name, engine, engine_full, sorting_key FROM system.tables WHERE database = currentDatabase()',
       format: 'JSONEachRow',
     });
-    const rows = await result.json() as unknown as Array<{ name: string; engine: string; engine_full: string }>;
-    return new Map(rows.map((row) => [row.name, parseEngineMetadata(row.engine, row.engine_full)]));
+    const rows = await result.json() as unknown as Array<{
+      name: string;
+      engine: string;
+      engine_full: string;
+      sorting_key: string;
+    }>;
+    return new Map(rows.map((row) => [row.name, {
+      ...parseEngineMetadata(row.engine, row.engine_full),
+      sortingKeyColumns: sortingKeyColumns(row.sorting_key ?? ''),
+    }]));
   } catch {
     return new Map();
   }

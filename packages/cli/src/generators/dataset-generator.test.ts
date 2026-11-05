@@ -410,6 +410,8 @@ describe('generateDatasets', () => {
         { name: 'p90_latency', type: 'AggregateFunction(quantile(0.9), Float64)' },
         { name: 'peak_amount', type: 'SimpleAggregateFunction(max, Float64)' },
         { name: 'last_status', type: 'SimpleAggregateFunction(anyLast, String)' },
+        // Named like a coordinate, but the declared function says how to read it.
+        { name: 'latitude', type: 'SimpleAggregateFunction(max, Float64)' },
       ],
       daily_totals: [
         { name: 'day', type: 'Date' },
@@ -420,19 +422,25 @@ describe('generateDatasets', () => {
         { name: 'id', type: 'UInt64' },
         { name: 'value', type: 'Float64' },
       ],
+      priority_totals: [
+        { name: 'day', type: 'Date' },
+        { name: 'priority', type: 'UInt8' },
+        { name: 'amount', type: 'Float64' },
+      ],
     };
     const engines = [
-      { name: 'orders', engine: 'SharedReplacingMergeTree', engine_full: "SharedReplacingMergeTree('/clickhouse/{uuid}/{shard}', '{replica}', version, is_deleted) ORDER BY id" },
-      { name: 'sessions', engine: 'CollapsingMergeTree', engine_full: 'CollapsingMergeTree(sign) ORDER BY session_id' },
-      { name: 'daily_rollup', engine: 'AggregatingMergeTree', engine_full: 'AggregatingMergeTree ORDER BY day' },
-      { name: 'daily_totals', engine: 'SummingMergeTree', engine_full: 'SummingMergeTree(amount) ORDER BY day' },
-      { name: 'events', engine: 'MergeTree', engine_full: 'MergeTree ORDER BY id' },
+      { name: 'orders', engine: 'SharedReplacingMergeTree', engine_full: "SharedReplacingMergeTree('/clickhouse/{uuid}/{shard}', '{replica}', version, is_deleted) ORDER BY id", sorting_key: 'id' },
+      { name: 'sessions', engine: 'CollapsingMergeTree', engine_full: 'CollapsingMergeTree(sign) ORDER BY session_id', sorting_key: 'session_id' },
+      { name: 'daily_rollup', engine: 'AggregatingMergeTree', engine_full: 'AggregatingMergeTree ORDER BY day', sorting_key: 'day' },
+      { name: 'daily_totals', engine: 'SummingMergeTree', engine_full: 'SummingMergeTree(amount) ORDER BY day', sorting_key: 'day' },
+      { name: 'events', engine: 'MergeTree', engine_full: 'MergeTree ORDER BY id', sorting_key: 'id' },
+      { name: 'priority_totals', engine: 'SummingMergeTree', engine_full: 'SummingMergeTree ORDER BY (day, priority)', sorting_key: 'day, priority' },
     ];
     const injectedQuery = vi.fn(async ({ query }: { query: string }) => {
       if (query === 'SHOW TABLES') {
         return { json: async () => Object.keys(columns).map((name) => ({ name })) };
       }
-      if (query.startsWith('SELECT name, engine, engine_full FROM system.tables')) {
+      if (query.startsWith('SELECT name, engine, engine_full, sorting_key FROM system.tables')) {
         return { json: async () => engines };
       }
       const table = /^DESCRIBE TABLE (\w+)$/.exec(query)?.[1];
@@ -476,6 +484,7 @@ describe('generateDatasets', () => {
       '// p90_latency (AggregateFunction(quantile(0.9), Float64)) is not included: no merge measure reads quantile(0.9) states.',
     );
     expect(rollup).toContain("maxPeakAmount: measure.max('peakAmount', { label: 'Max Peak Amount' }),");
+    expect(rollup).toContain("maxLatitude: measure.max('latitude', { label: 'Max Latitude' }),");
     expect(rollup).not.toContain('no dimension type describes');
     expect(rollup).not.toMatch(/measure\.(?:sum|avg)\(/);
 
@@ -484,6 +493,11 @@ describe('generateDatasets', () => {
     expect(totals).toContain("totalAmount: measure.sum('amount', { label: 'Total Amount' }),");
     expect(totals).not.toMatch(/measure\.\w+\('tax'/);
     expect(totals).not.toMatch(/measure\.(?:count|avg)\(/);
+
+    // Without a column list it sums numeric columns outside the sorting key only.
+    const priorityTotals = section('priority_totals');
+    expect(priorityTotals).toContain("totalAmount: measure.sum('amount', { label: 'Total Amount' }),");
+    expect(priorityTotals).not.toMatch(/measure\.\w+\('priority'/);
 
     // A plain MergeTree is unchanged.
     const events = section('events');

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseEngineMetadata } from './clickhouse-engine-metadata.js';
+import { parseEngineMetadata, sortingKeyColumns } from './clickhouse-engine-metadata.js';
 
 // Cases kept in step with Cloud's engine-metadata tests.
 describe('parseEngineMetadata', () => {
@@ -67,5 +67,17 @@ describe('parseEngineMetadata', () => {
     expect(
       parseEngineMetadata('ReplicatedReplacingMergeTree', "ReplicatedReplacingMergeTree('/it\\'s,(x)', 'rep''lica', ver)"),
     ).toEqual({ family: 'ReplacingMergeTree', versionColumn: 'ver' });
+  });
+});
+
+describe('sortingKeyColumns', () => {
+  it.each([
+    ['', []],
+    ['id', ['id']],
+    ['day, priority', ['day', 'priority']],
+    ['tenant_id, toDate(created_at)', ['tenant_id', 'toDate', 'created_at']],
+    ['`odd name`, id', ['odd name', 'id']],
+  ])('%s', (key, expected) => {
+    expect(sortingKeyColumns(key)).toEqual(expected);
   });
 });

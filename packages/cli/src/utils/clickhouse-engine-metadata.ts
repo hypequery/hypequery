@@ -13,6 +13,24 @@ export interface EngineMetadata {
   readonly deletedColumn?: string;
   readonly signColumn?: string;
   readonly summingColumns?: readonly string[];
+  /**
+   * Columns the sorting key reads, from `system.tables.sorting_key` (CLI only;
+   * not part of Cloud's parser). SummingMergeTree never sums these.
+   */
+  readonly sortingKeyColumns?: readonly string[];
+}
+
+/**
+ * Every identifier a `system.tables.sorting_key` expression mentions, so a
+ * column read inside a key expression (`toDate(created_at)`) also counts.
+ * Function names come along too; they never match a column worth summing.
+ */
+export function sortingKeyColumns(sortingKey: string): string[] {
+  const names = new Set<string>();
+  for (const match of sortingKey.matchAll(/`((?:[^`]|``)+)`|([A-Za-z_][A-Za-z0-9_]*)/g)) {
+    names.add(match[1] !== undefined ? match[1].replaceAll('``', '`') : match[2]!);
+  }
+  return [...names];
 }
 
 /** Splits engine arguments without splitting tuples, functions or quoted commas. */
