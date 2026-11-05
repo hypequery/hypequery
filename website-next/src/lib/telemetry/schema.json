@@ -1947,6 +1947,7 @@
           "dev": {},
           "generate:datasets": {},
           "export:client-contract": {},
+          "mcp": {},
           "help": {
             "help_topic": {
               "kind": "enum",
@@ -1957,6 +1958,7 @@
                 "dev",
                 "generate:datasets",
                 "export:client-contract",
+                "mcp",
                 "telemetry"
               ],
               "optional": true

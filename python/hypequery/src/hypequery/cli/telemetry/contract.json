@@ -37,8 +37,9 @@
         "dev": {},
         "generate:datasets": {},
         "export:client-contract": {},
+        "mcp": {},
         "help": {
-          "help_topic": { "kind": "enum", "description": "Which command help needs improvement?", "values": ["root", "init", "dev", "generate:datasets", "export:client-contract", "telemetry"], "optional": true }
+          "help_topic": { "kind": "enum", "description": "Which command help needs improvement?", "values": ["root", "init", "dev", "generate:datasets", "export:client-contract", "mcp", "telemetry"], "optional": true }
         },
         "version": {},
         "unknown": {

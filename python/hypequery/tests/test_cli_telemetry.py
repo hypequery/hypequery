@@ -441,3 +441,35 @@ def test_unreachable_endpoint_never_delays_or_changes_the_command(tmp_path: Path
     on = _run(["--version"], env, tmp_path)
     assert (on.returncode, on.stdout, on.stderr) == (off.returncode, off.stdout, off.stderr)
     assert time.monotonic() - started < 5
+
+
+def test_every_classified_command_has_a_complete_contract_entry(tmp_path: Path) -> None:
+    from hypequery.cli.telemetry.catalog import COMMANDS, contract
+    from hypequery.cli.telemetry.invocation import _HELP_TOPICS, _TOP_LEVEL
+
+    completed = contract()["EVENT_CATALOG"][COMPLETED_EVENT]
+    commands = completed["properties"]["command"]["values"]
+    variants = completed["variants"]
+    help_topics = variants["help"]["help_topic"]["values"]
+    suggestions = variants["unknown"]["suggested_command"]["values"]
+    # A command missing from any of these has its events refused by validate_event.
+    for command in set(_TOP_LEVEL.values()) - {"telemetry"}:
+        assert command in COMMANDS and command in commands, command
+        assert command in variants, command
+        assert command in contract()["COMMAND_FLAGS"], command
+    for topic in _HELP_TOPICS:
+        assert topic in help_topics, topic
+    for name in _TOP_LEVEL.values():
+        assert name in suggestions, name
+
+    telemetry = CommandTelemetry(["mcp", "--self-test"], environ=_clean_env(tmp_path), cwd=tmp_path)
+    telemetry.begin()
+    assert telemetry._common is not None
+    event = {
+        **telemetry._common,
+        "command": "mcp",
+        "flags_used": ["--self-test"],
+        "outcome": "success",
+        "duration_bucket": "<100ms",
+    }
+    assert validate_event(COMPLETED_EVENT, event)
