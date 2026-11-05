@@ -238,6 +238,7 @@
             "help",
             "version",
             "telemetry",
+            "skill",
             "unknown"
           ]
         },
@@ -288,6 +289,8 @@
             "--draft",
             "--client",
             "--release",
+            "--agent",
+            "--scope",
             "--no-telemetry",
             "--help",
             "--version"
@@ -891,6 +894,7 @@
         "diff": {},
         "version": {},
         "telemetry": {},
+        "skill": {},
         "unknown": {
           "suggested_command": {
             "kind": "enum",
@@ -917,7 +921,8 @@
               "diff",
               "help",
               "version",
-              "telemetry"
+              "telemetry",
+              "skill"
             ],
             "optional": true
           }
@@ -950,6 +955,7 @@
               "help",
               "version",
               "telemetry",
+              "skill",
               "unknown"
             ],
             "optional": true
@@ -1474,6 +1480,7 @@
             "help",
             "version",
             "telemetry",
+            "skill",
             "unknown"
           ]
         },
@@ -1645,6 +1652,12 @@
       "--project",
       "--environment",
       "--endpoint"
+    ],
+    "skill": [
+      "--agent",
+      "--scope",
+      "--force",
+      "--check"
     ],
     "help": [],
     "version": [],
@@ -1859,6 +1872,8 @@
               "dev",
               "generate:datasets",
               "export:client-contract",
+              "mcp",
+              "skill",
               "help",
               "version",
               "unknown"
@@ -1887,6 +1902,13 @@
               "--port",
               "--reload",
               "--no-watch",
+              "--client-contract-url",
+              "--header",
+              "--project",
+              "--self-test",
+              "--print-config",
+              "--agent",
+              "--scope",
               "--no-telemetry",
               "--help",
               "--version"
@@ -1953,6 +1975,8 @@
           "dev": {},
           "generate:datasets": {},
           "export:client-contract": {},
+          "mcp": {},
+          "skill": {},
           "help": {
             "help_topic": {
               "kind": "enum",
@@ -1963,6 +1987,8 @@
                 "dev",
                 "generate:datasets",
                 "export:client-contract",
+                "mcp",
+                "skill",
                 "telemetry"
               ],
               "optional": true
@@ -1978,6 +2004,8 @@
                 "dev",
                 "generate:datasets",
                 "export:client-contract",
+                "mcp",
+                "skill",
                 "help",
                 "telemetry"
               ],
@@ -2022,6 +2050,19 @@
         "--stdout",
         "--check",
         "--force"
+      ],
+      "mcp": [
+        "--client-contract-url",
+        "--header",
+        "--project",
+        "--self-test",
+        "--print-config"
+      ],
+      "skill": [
+        "--agent",
+        "--scope",
+        "--force",
+        "--check"
       ],
       "help": [],
       "version": [],

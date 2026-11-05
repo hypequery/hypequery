@@ -14,6 +14,11 @@
  * `prepack` reruns the build for the same reason: CI builds before Changesets
  * rewrites `package.json`, so a publish that skipped this hook would ship a
  * `dist` still reporting the previous version.
+ *
+ * `server.json`, the MCP Registry manifest, names the npm version the registry
+ * verifies `mcpName` against, so its versions are rewritten from the manifest
+ * too. The release version step runs this script, so the release commit keeps
+ * the file in step; run a build before `mcp-publisher publish` all the same.
  */
 import { readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -22,6 +27,7 @@ import path from 'node:path';
 const packageRoot = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const manifestPath = path.join(packageRoot, 'package.json');
 const targetPath = path.join(packageRoot, 'src', 'version.ts');
+const registryManifestPath = path.join(packageRoot, 'server.json');
 
 const { version } = JSON.parse(readFileSync(manifestPath, 'utf8'));
 if (typeof version !== 'string' || version.length === 0) {
@@ -44,4 +50,16 @@ try {
 }
 if (current !== contents) {
   writeFileSync(targetPath, contents, 'utf8');
+}
+
+// The registry manifest: the top-level version and every package entry name the
+// release the registry checks for `mcpName`, so they follow package.json.
+const registryManifest = JSON.parse(readFileSync(registryManifestPath, 'utf8'));
+registryManifest.version = version;
+for (const entry of registryManifest.packages ?? []) {
+  entry.version = version;
+}
+const registryContents = `${JSON.stringify(registryManifest, null, 2)}\n`;
+if (readFileSync(registryManifestPath, 'utf8') !== registryContents) {
+  writeFileSync(registryManifestPath, registryContents, 'utf8');
 }

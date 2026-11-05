@@ -39,6 +39,12 @@ class Measure(Aggregation):
     def _arg_measures_have_no_filters(self) -> Measure:
         if self.aggregation in ("argMax", "argMin") and self.filters:
             raise ValueError(f"measure filters are not supported on {self.aggregation}")
+        if self.aggregation == "merge":
+            # Both would wrap the state column in an expression -Merge rejects.
+            if self.filters:
+                raise ValueError("merge measures cannot have filters: they read stored states")
+            if self.sql is not None:
+                raise ValueError("merge measures cannot use sql: they read a stored state column")
         return self
 
 
@@ -58,6 +64,7 @@ def _create_measure(
         field=value.field,
         arg_field=value.arg_field,
         level=value.level,
+        state_function=value.state_function,
         sql=sql,
         dependencies=dependencies,
         label=label,
@@ -99,6 +106,19 @@ class _MeasureHelpers:
     def count_distinct(field: str, **options: Unpack[_MeasureOptions]) -> Measure:
         """Define a count_distinct measure."""
         return _create_measure(aggregations.count_distinct(field), **options)
+
+    @staticmethod
+    def approx_count_distinct(field: str, **options: Unpack[_MeasureOptions]) -> Measure:
+        """Define an estimated distinct count (ClickHouse `uniq`); catalogs mark it approximate."""
+        return _create_measure(aggregations.approx_count_distinct(field), **options)
+
+    @staticmethod
+    def merge(state_function: str, field: str, **options: Unpack[_MeasureOptions]) -> Measure:
+        """Finalize an AggregatingMergeTree state column: `measure.merge("uniq", "users")`.
+
+        For a SimpleAggregateFunction column use the plain aggregation instead.
+        """
+        return _create_measure(aggregations.merge(state_function, field), **options)
 
     @staticmethod
     def avg(field: str, **options: Unpack[_MeasureOptions]) -> Measure:

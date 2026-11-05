@@ -45,12 +45,29 @@ def _field_type(dataset: Dataset, field: str) -> ResultColumnType:
     return _DIMENSION_TYPES[dimension.field_type] if dimension is not None else "unknown"
 
 
+#: Merged states that finalize to a count.
+_COUNT_STATES = frozenset(
+    ("uniq", "uniqExact", "uniqCombined", "uniqCombined64", "uniqHLL12", "uniqTheta", "count")
+)
+
+
+def _merged_type(state_function: str | None) -> ResultColumnType:
+    if state_function in _COUNT_STATES or state_function == "groupBitmap":
+        return "integer"
+    if state_function in ("sum", "avg"):
+        return "number"
+    # min, max, any and anyLast return the stored column's own type.
+    return "unknown"
+
+
 def _measure_type(dataset: Dataset, measure: Measure | DerivedMeasure) -> ResultColumnType:
     if isinstance(measure, DerivedMeasure):
         return "number"
     aggregation = measure.aggregation
-    if aggregation in ("count", "countDistinct"):
+    if aggregation in ("count", "countDistinct", "approxCountDistinct"):
         return "integer"
+    if aggregation == "merge":
+        return _merged_type(measure.state_function)
     if aggregation in ("min", "max", "argMax", "argMin"):
         # These return a value of the measured field itself.
         return "unknown" if measure.sql is not None else _field_type(dataset, measure.field)

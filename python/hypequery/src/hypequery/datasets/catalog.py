@@ -22,6 +22,7 @@ from .measures import Measure
 from .query_helpers import FilterOperator
 from .registry import DatasetRegistry
 from .relationships import Relationship, RelationshipKind
+from .utils.approximate_measures import is_approximate_base_measure, is_approximate_measure
 from .utils.definition_projection import (
     filter_operators,
     is_queryable,
@@ -52,10 +53,12 @@ class MeasureCatalogEntry(TypedDict):
     field: str
     argField: NotRequired[str]
     level: NotRequired[float]
+    stateFunction: NotRequired[str]
     sql: NotRequired[str]
     label: NotRequired[str]
     description: NotRequired[str]
     filterCount: int
+    approximate: NotRequired[bool]
 
 
 class FilterCatalogEntry(TypedDict):
@@ -140,11 +143,14 @@ def _measure_entry(measure: Measure) -> MeasureCatalogEntry:
         _present(
             argField=measure.arg_field,
             level=measure.level,
+            stateFunction=measure.state_function,
             sql=measure.sql,
         )
     )
     entry.update(metadata(measure.label, measure.description))
     entry["filterCount"] = len(measure.filters or ())
+    if is_approximate_base_measure(measure):
+        entry["approximate"] = True
     return cast(MeasureCatalogEntry, entry)
 
 
@@ -208,9 +214,13 @@ def get_dataset_catalog(dataset: Dataset, *, registry: DatasetRegistry) -> Datas
     }
     derived = {
         name: {
-            key: value
-            for key, value in derived_measure_node(name, measure, canonical_uses=True).items()
-            if key not in ("kind", "name")
+            **{
+                key: value
+                for key, value in derived_measure_node(name, measure, canonical_uses=True).items()
+                if key not in ("kind", "name")
+            },
+            # Present, as True, when any measure the formula uses is approximate.
+            **({"approximate": True} if is_approximate_measure(dataset.measures, name) else {}),
         }
         for name, measure in dataset.measures.items()
         if isinstance(measure, DerivedMeasure)

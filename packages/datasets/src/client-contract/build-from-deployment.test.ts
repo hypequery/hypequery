@@ -102,8 +102,8 @@ describe('buildClientContract', () => {
     const [orders] = buildClientContract(deployment).contract.endpoints;
     expect(Object.keys(orders.filters).sort()).toEqual(['amount', 'paid', 'status']);
     expect(orders.filters.status.operators).toEqual(['eq', 'in', 'like']);
-    // As Python: booleans compare by equality only.
-    expect(orders.filters.paid.operators).toEqual(['eq']);
+    // As Python: booleans compare by equality, and keep null checks (RFC 0023).
+    expect(orders.filters.paid.operators).toEqual(['eq', 'isNull']);
     expect(orders.filters.amount.operators).toEqual(['gte']);
   });
 

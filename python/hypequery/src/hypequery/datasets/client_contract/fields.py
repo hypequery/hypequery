@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from ...protocol import ClientDimension, ClientFilter, ClientMeasure
+from ..constants import ORDERED_MERGE_STATES, SEMANTIC_NULL_CHECK_OPERATORS
 from ..dataset import Dataset, FilterDefinition
 from ..derived_measures import DerivedMeasure
 from ..dimensions import Dimension
@@ -30,6 +31,9 @@ def dimension_descriptor(dimension: Dimension, *, related: bool = False) -> Clie
 def numeric_measure(dataset: Dataset, measure: Measure | DerivedMeasure) -> bool:
     if isinstance(measure, DerivedMeasure):
         return True
+    if measure.aggregation == "merge":
+        # These states merge to the stored value itself, which may not be a number.
+        return measure.state_function not in ORDERED_MERGE_STATES
     if measure.aggregation in ("min", "max", "argMin", "argMax"):
         dimension = dataset.dimensions.get(measure.field)
         return dimension is not None and dimension.field_type == "number"
@@ -43,7 +47,12 @@ def measure_descriptor(dataset: Dataset, measure: Measure | DerivedMeasure) -> C
 def filter_descriptor(dimension: Dimension, definition: FilterDefinition) -> ClientFilter | None:
     allowed = filter_operators(definition)
     if dimension.field_type == "boolean":
-        allowed = [op for op in allowed if op in ("eq", "neq", "in", "notIn")]
+        # Null checks stay: a boolean column can hold NULL (RFC 0023).
+        allowed = [
+            op
+            for op in allowed
+            if op in ("eq", "neq", "in", "notIn", *SEMANTIC_NULL_CHECK_OPERATORS)
+        ]
     elif dimension.field_type == "number":
         allowed = [op for op in allowed if op != "like"]
     if not allowed:

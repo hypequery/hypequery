@@ -228,12 +228,13 @@ limits and schema hash. Generate a typed client file from it, then pass that fil
 API type and route map to the hooks.
 
 **1. Export the contract** from the Python project, with
-`python -m hypequery export client-contract` or `hypequery.serve.export_client_contract(app)`. Export the build contract,
-not the live `/v1/client-contract` route, which returns the caller's authorized view and which `generate:client`
-refuses. [Python: React and MCP clients](/docs/python/client-endpoints#3-export-the-contract) covers the factory and the
-backend setup. Only endpoints installed with a `client_profile` appear in the contract. A bare `Dataset`
-passed to `create_api(datasets={...})` is installed without one, so it is left out; pass
-`create_dataset_endpoint(..., client_profile=...)` instead.
+`python -m hypequery export client-contract --factory analytics.api:api` (pointing at your API) or
+`hypequery.serve.export_client_contract(app)`. Export the build contract, not the live `/v1/client-contract` route,
+which returns the caller's authorized view and which `generate:client` refuses.
+[Python: React and MCP clients](/docs/python/client-endpoints#3-export-the-contract) covers the backend setup. Only
+endpoints installed with a client profile appear in the contract: pass `client_profile=` to
+`create_api(datasets={...})` for its `Dataset` entries, or to `create_dataset_endpoint(...)`. An export with no
+endpoints fails and names the routes that lack one.
 
 **2. Generate the client** in the React app. `generate:client` lives in the Node
 CLI, so install it as a dev dependency first; `npx hypequery` alone will not find it:
