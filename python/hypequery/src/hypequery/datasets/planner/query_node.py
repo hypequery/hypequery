@@ -37,3 +37,8 @@ class DatasetSelectNode:
     order_by: list[str] = field(default_factory=list)
     limit: int | None = None
     offset: int | None = None
+    #: The base source is read with superseded row versions resolved (FINAL).
+    resolved_source: bool = False
+    #: The base source or a joined target is resolved, so the statement pins
+    #: the settings that keep resolution correct.
+    reads_resolved_rows: bool = False

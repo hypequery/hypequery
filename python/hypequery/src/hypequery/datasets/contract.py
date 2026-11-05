@@ -133,6 +133,8 @@ def _limits(limits: dict[str, int]) -> dict[str, object]:
 
 def _dataset(catalog: DatasetCatalog, *, include_sql: bool) -> dict[str, object]:
     result: dict[str, object] = {"name": catalog["name"], "source": catalog["source"]}
+    if "rowResolution" in catalog:
+        result["rowResolution"] = dict(catalog["rowResolution"])
     for key in ("tenantKey", "timeKey"):
         if key in catalog:
             result[key] = catalog[key]

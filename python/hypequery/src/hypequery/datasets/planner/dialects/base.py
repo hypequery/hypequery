@@ -65,6 +65,14 @@ class SqlDialect(Protocol):
 
     def row_count(self) -> str: ...
 
+    def resolved_source(self, source: str) -> str:
+        """*source*, with any alias, read with superseded row versions resolved (RFC 0021)."""
+        ...
+
+    def resolved_rows_settings(self) -> str:
+        """The settings every statement reading a resolved source must pin."""
+        ...
+
     def distinct_count(self, columns: list[str]) -> str:
         """The exact number of distinct (possibly composite) keys over *columns*."""
         ...

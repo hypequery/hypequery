@@ -98,6 +98,7 @@ class DatasetLimitsEntry(TypedDict):
 class DatasetCatalog(TypedDict):
     name: str
     source: str
+    rowResolution: NotRequired[dict[str, object]]
     tenantKey: NotRequired[str]
     timeKey: NotRequired[str]
     dimensions: dict[str, DimensionCatalogEntry]
@@ -203,6 +204,8 @@ def get_dataset_catalog(dataset: Dataset, *, registry: DatasetRegistry) -> Datas
     }
 
     catalog: dict[str, object] = {"name": dataset.name, "source": dataset.source}
+    if dataset.row_resolution is not None:
+        catalog["rowResolution"] = dataset.row_resolution.to_protocol()
     catalog.update(_present(tenantKey=dataset.tenant_key, timeKey=dataset.time_key))
     catalog["dimensions"] = {
         name: _dimension_entry(dimension) for name, dimension in dimensions.items()
