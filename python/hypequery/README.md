@@ -260,6 +260,23 @@ to your login. The generated project depends on `fastapi` itself: hypequery
 has no FastAPI extra, because mounting needs none. Starlette and Litestar apps
 can mount the standalone `app` the same way.
 
+`--database chdb` scaffolds onto embedded ClickHouse instead of a server: the
+app opens a chDB database directory (`--chdb-path`, default `analytics.chdb`,
+relative to the project) with `create_chdb_executor`, the project installs the
+`chdb` extra, and there are no connection settings. The path is recorded in the
+project's `pyproject.toml` (`[tool.hypequery] chdb-path`). When that directory
+exists, init reads its tables like a server's; when it does not, init writes
+the orders example and its README seeds the database from `seed.sql`. init
+never creates the database itself. chDB serves
+the `standalone` and `fastapi` apps; the Django and Flask integrations need a
+ClickHouse server.
+
+`hypequery generate datasets` reads chDB when given `--database chdb` or
+`--chdb-path`, when `pyproject.toml` records a path, or when the project has an
+`analytics.chdb` directory and no `CLICKHOUSE_URL` or `CLICKHOUSE_HOST` is set.
+chDB lets one process open a database at a time, so stop `hypequery dev`
+before regenerating.
+
 `hypequery dev [module:app]` defaults to `app:app` on `127.0.0.1:8000` with reload
 enabled. Use `--no-watch`, `--hostname` or `-p`/`--port` to change those options.
 `--no-reload` and `--host` remain supported aliases. The target is an API from

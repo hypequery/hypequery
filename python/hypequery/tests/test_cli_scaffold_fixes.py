@@ -147,13 +147,13 @@ def test_regeneration_reuses_the_selection_init_was_given(
     monkeypatch.setattr("hypequery.cli.commands.generate.discover_schema", discover)
     capsys.readouterr()
     assert main(["generate", "datasets", "--path", str(project), "--check"]) == 1
-    assert regenerate[-1] == {"tables": "orders", "exclude_tables": None}
+    assert regenerate[-1] == {"tables": "orders", "exclude_tables": None, "chdb_path": None}
     assert "selection init recorded in schema.json (--tables orders)" in capsys.readouterr().out
 
     main(["generate", "datasets", "--path", str(project), "--all-tables", "--check"])
-    assert regenerate[-1] == {"tables": None, "exclude_tables": None}
+    assert regenerate[-1] == {"tables": None, "exclude_tables": None, "chdb_path": None}
     main(["generate", "datasets", "--path", str(project), "--exclude-tables", "x", "--check"])
-    assert regenerate[-1] == {"tables": None, "exclude_tables": "x"}
+    assert regenerate[-1] == {"tables": None, "exclude_tables": "x", "chdb_path": None}
 
 
 def test_an_unrestricted_init_records_no_selection(
@@ -171,7 +171,7 @@ def test_an_unrestricted_init_records_no_selection(
     monkeypatch.setattr("hypequery.cli.commands.generate.discover_schema", discover)
     main(["generate", "datasets", "--path", str(project), "--check"])
     # New tables keep appearing: nothing narrows an unrestricted project.
-    assert calls == [{"tables": None, "exclude_tables": None}]
+    assert calls == [{"tables": None, "exclude_tables": None, "chdb_path": None}]
 
 
 @pytest.mark.parametrize(
@@ -258,7 +258,7 @@ def test_output_elsewhere_still_uses_the_projects_selection(
     monkeypatch.setattr("hypequery.cli.commands.generate.discover_schema", discover)
     monkeypatch.chdir(project)
     assert main(["generate", "datasets", "--output", "generated/definitions.py"]) == 0
-    assert calls == [{"tables": "orders", "exclude_tables": None}]
+    assert calls == [{"tables": "orders", "exclude_tables": None, "chdb_path": None}]
 
 
 def test_another_unrestricted_project_does_not_inherit_this_ones_selection(
@@ -276,7 +276,7 @@ def test_another_unrestricted_project_does_not_inherit_this_ones_selection(
     monkeypatch.setattr("hypequery.cli.commands.generate.discover_schema", discover)
     monkeypatch.chdir(restricted)
     main(["generate", "datasets", "--path", str(unrestricted), "--check"])
-    assert calls == [{"tables": None, "exclude_tables": None}]
+    assert calls == [{"tables": None, "exclude_tables": None, "chdb_path": None}]
 
 
 def test_regeneration_keeps_the_tenant_column_init_was_given(

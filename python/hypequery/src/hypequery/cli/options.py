@@ -8,6 +8,10 @@ from __future__ import annotations
 
 import argparse
 from dataclasses import dataclass
+from typing import Literal, TypeAlias
+
+#: Where the datasets' tables live: a ClickHouse server, or embedded chDB.
+Database: TypeAlias = Literal["clickhouse", "chdb"]
 
 
 @dataclass(frozen=True, slots=True)
@@ -23,6 +27,9 @@ class InitOptions:
     all_tables: bool = False
     #: Whether init may ask questions; only in a terminal, and never when CI is set.
     interactive: bool = True
+    database: Database = "clickhouse"
+    #: The chDB database directory, relative to the project; ``None`` for the default.
+    chdb_path: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -37,6 +44,9 @@ class GenerateDatasetsOptions:
     check: bool
     diff: bool
     force: bool
+    #: ``None`` when not given: the database schema.json records, else ClickHouse.
+    database: Database | None = None
+    chdb_path: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -72,6 +82,8 @@ def command_options(args: argparse.Namespace) -> CommandOptions:
             skip_connection=args.skip_connection,
             all_tables=args.all_tables,
             interactive=not args.no_interactive,
+            database=args.database or "clickhouse",
+            chdb_path=args.chdb_path,
         )
     if args.command == "generate":
         return GenerateDatasetsOptions(
@@ -85,6 +97,8 @@ def command_options(args: argparse.Namespace) -> CommandOptions:
             check=args.check,
             diff=args.diff,
             force=args.force,
+            database=args.database,
+            chdb_path=args.chdb_path,
         )
     if args.command == "export":
         return ExportClientContractOptions(
