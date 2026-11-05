@@ -7,6 +7,30 @@ A Python semantic layer for ClickHouse datasets, metrics, multi-tenant analytics
 > change before 1.0. Please report problems on
 > [GitHub](https://github.com/hypequery/hypequery/issues).
 
+## Try it in one command
+
+With only [uv](https://docs.astral.sh/uv/) installed, this serves a sample
+semantic layer to an AI agent over MCP, on ClickHouse embedded in the process
+(chDB, Linux and macOS). There's no server, no configuration and no network
+access at run time:
+
+```bash
+uvx --from "hypequery[chdb,mcp]" hypequery demo --self-test
+```
+
+`--self-test` answers the demo's questions in the terminal. Each answer sits
+beside what a query that ignores ClickHouse's table engines gets: every row
+version of a ReplacingMergeTree counted, or daily distinct users summed. To
+let Claude Code query it, run:
+
+```bash
+claude mcp add hypequery-demo -- uvx --from "hypequery[chdb,mcp]" hypequery demo
+```
+
+For Cursor or another client, `hypequery demo --print-config` prints the
+`mcpServers` entry. The sample database lives in a temporary directory and is
+deleted when the client disconnects.
+
 ## Python → React → MCP example
 
 The [complete client tutorial](https://github.com/hypequery/hypequery/blob/main/python/hypequery/examples/client_dashboard/README.md) shares one

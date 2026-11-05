@@ -256,6 +256,26 @@ Writes hypequery's agent skills where coding agents load them: `hypequery-datase
 | `--check` | Exit 1 if a skill is missing or out of date, without writing |
 | `--force` | Replace skills that were edited or are out of date |
 
+## `hypequery demo`
+
+Serves a sample semantic layer to AI agents over MCP stdio, on embedded ClickHouse (chDB). It seeds a two-tenant shop
+in a temporary directory from data shipped in the package, with no server, configuration or network, and deletes it
+when the client disconnects. Needs the `chdb` and `mcp` extras, or nothing but uv:
+
+<CodeBlock>
+```bash
+uvx --from "hypequery[chdb,mcp]" hypequery demo --self-test
+```
+</CodeBlock>
+
+| Option | Description |
+| --- | --- |
+| `--tenant acme\|globex` | The tenant the agent is signed in as (default `acme`) |
+| `--self-test` | Answer the demo's questions in the terminal and exit, without serving. Needs only the `chdb` extra |
+| `--print-config` | Print an `mcpServers` entry that launches the demo through `uvx` |
+
+See [Try it in one command](/docs/python/quick-start#try-it-in-one-command) for what the demo shows.
+
 ## `hypequery telemetry`
 
 The CLI collects pseudonymous usage telemetry by default, as the TypeScript CLI does, to show which commands,
