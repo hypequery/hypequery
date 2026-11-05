@@ -67,10 +67,10 @@ describe('buildDatasetClientContract', () => {
     expect(orders.measures.latestStatus).toEqual({ wireType: 'string', nullable: true, having: false });
     expect(orders.measures.average.having).toBe(true);
     expect(orders.kind === 'dataset' && orders.defaultMeasures).toEqual(['revenue', 'orders', 'latestStatus']);
-    // Booleans keep equality and membership; numbers drop `like`; the tenant is never a request filter.
+    // Booleans keep equality, membership and null checks; numbers drop `like`; the tenant is never a request filter.
     expect(orders.filters).toEqual({
       status: { type: 'string', operators: ['eq', 'in', 'like'] },
-      paid: { type: 'boolean', operators: ['eq'] },
+      paid: { type: 'boolean', operators: ['eq', 'isNull'] },
       amount: { type: 'number', operators: ['gte'] },
     });
   });

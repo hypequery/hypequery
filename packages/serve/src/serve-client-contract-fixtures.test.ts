@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { dataset, dimension, divide, measure, type DimensionDefinition, type MeasureDefinition } from '@hypequery/datasets';
+import { dataset, dimension, divide, measure, type DimensionDefinition, type MeasureDefinition, type SemanticFilterDefinition } from '@hypequery/datasets';
 import { createAPI } from './server/create-api.js';
 import { AuthError, createBearerTokenStrategy } from './auth.js';
 import { semanticFixtureBuilder } from './semantic/datasets/utils/semantic-fixture-builder.js';
@@ -34,7 +34,7 @@ const fixtures = JSON.parse(readFileSync(new URL(
       name: string; source: string; description: string; timeKey: string; timeGrains: ('day' | 'month')[];
       dimensions: Record<string, FixtureDimension>;
       measures: Record<string, FixtureMeasure>;
-      filters: Record<string, { field: string; operators?: ('eq' | 'in' | 'like' | 'gte')[] }>;
+      filters: Record<string, { field: string; operators?: SemanticFilterDefinition['operators'] }>;
       limits: { maxResultSize: number; maxMeasures: number };
     };
     metric: { name: string; measure: string };

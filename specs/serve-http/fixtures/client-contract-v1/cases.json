@@ -76,6 +76,14 @@
         "closed": {
           "field": "country",
           "operators": []
+        },
+        "paidKnown": {
+          "field": "paid",
+          "operators": [
+            "isNotNull",
+            "gt",
+            "isNull"
+          ]
         }
       },
       "limits": {
@@ -112,8 +120,8 @@
     ]
   },
   "contract": {
-    "contentHash": "5ba069dcfb4db6e6b186314f5cb802ecc3e3c4f75cba3a3c401d1427ea76a1ba",
-    "canonical": "{\"contentHash\":\"5ba069dcfb4db6e6b186314f5cb802ecc3e3c4f75cba3a3c401d1427ea76a1ba\",\"endpoints\":[{\"annotations\":{\"description\":\"One row per order.\",\"fields\":{\"country\":{\"label\":\"Country\"},\"revenue\":{\"description\":\"Gross revenue\"}}},\"dataset\":\"orders\",\"defaultMeasures\":[\"revenue\",\"orders\",\"latestCountry\"],\"dimensions\":{\"amount\":{\"groupable\":true,\"nullable\":\"unknown\",\"orderable\":true,\"type\":\"number\",\"wireType\":\"number-or-string\"},\"country\":{\"groupable\":true,\"nullable\":\"unknown\",\"orderable\":true,\"type\":\"string\",\"wireType\":\"string\"},\"createdAt\":{\"groupable\":false,\"nullable\":\"unknown\",\"orderable\":false,\"type\":\"timestamp\",\"wireType\":\"string\"},\"paid\":{\"groupable\":true,\"nullable\":\"unknown\",\"orderable\":true,\"type\":\"boolean\",\"wireType\":\"boolean\"}},\"filters\":{\"country\":{\"operators\":[\"eq\",\"in\",\"like\"],\"type\":\"string\"},\"minimumAmount\":{\"operators\":[\"gte\"],\"type\":\"number\"},\"paid\":{\"operators\":[\"eq\",\"in\",\"neq\",\"notIn\"],\"type\":\"boolean\"}},\"id\":\"orders\",\"kind\":\"dataset\",\"limits\":{\"defaultLimit\":500,\"maxDimensions\":100,\"maxFilterValues\":10000,\"maxLimit\":500,\"maxMeasures\":10,\"maxOffset\":1000000,\"maxOrderBy\":100,\"maxPredicates\":100},\"measures\":{\"average\":{\"having\":true,\"nullable\":true,\"wireType\":\"string\"},\"latestCountry\":{\"having\":false,\"nullable\":true,\"wireType\":\"string\"},\"orders\":{\"having\":true,\"nullable\":true,\"wireType\":\"string\"},\"revenue\":{\"having\":true,\"nullable\":true,\"wireType\":\"string\"}},\"metadata\":true,\"path\":\"/edge/api/datasets/orders/query\",\"schemaHash\":\"13f2066f2162a3ddc4bf806365aa56a7c8d57e670e7f78f21cc23e731a61d86c\",\"time\":{\"defaultTimezone\":\"UTC\",\"grains\":[\"day\",\"month\"],\"periodFormat\":\"calendar-date-or-local-datetime-v1\",\"timezone\":true}},{\"annotations\":{\"description\":\"One row per order.\",\"fields\":{\"country\":{\"label\":\"Country\"},\"totalRevenue\":{\"description\":\"Gross revenue\"}}},\"dataset\":\"orders\",\"dimensions\":{\"amount\":{\"groupable\":true,\"nullable\":\"unknown\",\"orderable\":true,\"type\":\"number\",\"wireType\":\"number-or-string\"},\"country\":{\"groupable\":true,\"nullable\":\"unknown\",\"orderable\":true,\"type\":\"string\",\"wireType\":\"string\"},\"createdAt\":{\"groupable\":false,\"nullable\":\"unknown\",\"orderable\":false,\"type\":\"timestamp\",\"wireType\":\"string\"},\"paid\":{\"groupable\":true,\"nullable\":\"unknown\",\"orderable\":true,\"type\":\"boolean\",\"wireType\":\"boolean\"}},\"filters\":{\"country\":{\"operators\":[\"eq\",\"in\",\"like\"],\"type\":\"string\"},\"minimumAmount\":{\"operators\":[\"gte\"],\"type\":\"number\"},\"paid\":{\"operators\":[\"eq\",\"in\",\"neq\",\"notIn\"],\"type\":\"boolean\"}},\"id\":\"totalRevenue\",\"kind\":\"metric\",\"limits\":{\"defaultLimit\":500,\"maxDimensions\":100,\"maxFilterValues\":10000,\"maxLimit\":500,\"maxMeasures\":10,\"maxOffset\":1000000,\"maxOrderBy\":100,\"maxPredicates\":100},\"measures\":{\"totalRevenue\":{\"having\":false,\"nullable\":true,\"wireType\":\"string\"}},\"metadata\":true,\"path\":\"/edge/api/metrics/totalRevenue\",\"schemaHash\":\"4ad557e3af6374b85ac9d7e8cb942cd3ea86ebfdc5970ddc04afa5bd0cd86bca\",\"time\":{\"defaultTimezone\":\"UTC\",\"grains\":[\"day\",\"month\"],\"periodFormat\":\"calendar-date-or-local-datetime-v1\",\"timezone\":true}}],\"kind\":\"hypequery-client-contract\",\"version\":1,\"view\":\"build\"}"
+    "contentHash": "6e2f34ef98129a2f8d8437be8d4105b200cc7de09d563b25a28f44aa35977d99",
+    "canonical": "{\"contentHash\":\"6e2f34ef98129a2f8d8437be8d4105b200cc7de09d563b25a28f44aa35977d99\",\"endpoints\":[{\"annotations\":{\"description\":\"One row per order.\",\"fields\":{\"country\":{\"label\":\"Country\"},\"revenue\":{\"description\":\"Gross revenue\"}}},\"dataset\":\"orders\",\"defaultMeasures\":[\"revenue\",\"orders\",\"latestCountry\"],\"dimensions\":{\"amount\":{\"groupable\":true,\"nullable\":\"unknown\",\"orderable\":true,\"type\":\"number\",\"wireType\":\"number-or-string\"},\"country\":{\"groupable\":true,\"nullable\":\"unknown\",\"orderable\":true,\"type\":\"string\",\"wireType\":\"string\"},\"createdAt\":{\"groupable\":false,\"nullable\":\"unknown\",\"orderable\":false,\"type\":\"timestamp\",\"wireType\":\"string\"},\"paid\":{\"groupable\":true,\"nullable\":\"unknown\",\"orderable\":true,\"type\":\"boolean\",\"wireType\":\"boolean\"}},\"filters\":{\"country\":{\"operators\":[\"eq\",\"in\",\"like\"],\"type\":\"string\"},\"minimumAmount\":{\"operators\":[\"gte\"],\"type\":\"number\"},\"paid\":{\"operators\":[\"eq\",\"in\",\"neq\",\"notIn\"],\"type\":\"boolean\"},\"paidKnown\":{\"operators\":[\"isNotNull\",\"isNull\"],\"type\":\"boolean\"}},\"id\":\"orders\",\"kind\":\"dataset\",\"limits\":{\"defaultLimit\":500,\"maxDimensions\":100,\"maxFilterValues\":10000,\"maxLimit\":500,\"maxMeasures\":10,\"maxOffset\":1000000,\"maxOrderBy\":100,\"maxPredicates\":100},\"measures\":{\"average\":{\"having\":true,\"nullable\":true,\"wireType\":\"string\"},\"latestCountry\":{\"having\":false,\"nullable\":true,\"wireType\":\"string\"},\"orders\":{\"having\":true,\"nullable\":true,\"wireType\":\"string\"},\"revenue\":{\"having\":true,\"nullable\":true,\"wireType\":\"string\"}},\"metadata\":true,\"path\":\"/edge/api/datasets/orders/query\",\"schemaHash\":\"90cb59183b1bcaf882c0572f732e6c4911e3faf961f2409aa67c4b074e3a1815\",\"time\":{\"defaultTimezone\":\"UTC\",\"grains\":[\"day\",\"month\"],\"periodFormat\":\"calendar-date-or-local-datetime-v1\",\"timezone\":true}},{\"annotations\":{\"description\":\"One row per order.\",\"fields\":{\"country\":{\"label\":\"Country\"},\"totalRevenue\":{\"description\":\"Gross revenue\"}}},\"dataset\":\"orders\",\"dimensions\":{\"amount\":{\"groupable\":true,\"nullable\":\"unknown\",\"orderable\":true,\"type\":\"number\",\"wireType\":\"number-or-string\"},\"country\":{\"groupable\":true,\"nullable\":\"unknown\",\"orderable\":true,\"type\":\"string\",\"wireType\":\"string\"},\"createdAt\":{\"groupable\":false,\"nullable\":\"unknown\",\"orderable\":false,\"type\":\"timestamp\",\"wireType\":\"string\"},\"paid\":{\"groupable\":true,\"nullable\":\"unknown\",\"orderable\":true,\"type\":\"boolean\",\"wireType\":\"boolean\"}},\"filters\":{\"country\":{\"operators\":[\"eq\",\"in\",\"like\"],\"type\":\"string\"},\"minimumAmount\":{\"operators\":[\"gte\"],\"type\":\"number\"},\"paid\":{\"operators\":[\"eq\",\"in\",\"neq\",\"notIn\"],\"type\":\"boolean\"},\"paidKnown\":{\"operators\":[\"isNotNull\",\"isNull\"],\"type\":\"boolean\"}},\"id\":\"totalRevenue\",\"kind\":\"metric\",\"limits\":{\"defaultLimit\":500,\"maxDimensions\":100,\"maxFilterValues\":10000,\"maxLimit\":500,\"maxMeasures\":10,\"maxOffset\":1000000,\"maxOrderBy\":100,\"maxPredicates\":100},\"measures\":{\"totalRevenue\":{\"having\":false,\"nullable\":true,\"wireType\":\"string\"}},\"metadata\":true,\"path\":\"/edge/api/metrics/totalRevenue\",\"schemaHash\":\"f3d7b685b3310d9e172c1105ec67b79bd71cf2d4f2056da5d6b9d5ad96675be0\",\"time\":{\"defaultTimezone\":\"UTC\",\"grains\":[\"day\",\"month\"],\"periodFormat\":\"calendar-date-or-local-datetime-v1\",\"timezone\":true}}],\"kind\":\"hypequery-client-contract\",\"version\":1,\"view\":\"build\"}"
   },
   "cases": [
     {
@@ -194,6 +202,37 @@
           {
             "country": "US",
             "totalRevenue": "10"
+          }
+        ],
+        "meta": false
+      }
+    },
+    {
+      "id": "pinned-boolean-null-check",
+      "path": "/api/datasets/orders/query",
+      "credential": "valid",
+      "pin": "current",
+      "json": {
+        "dimensions": [
+          "country"
+        ],
+        "measures": [
+          "revenue"
+        ],
+        "filters": [
+          {
+            "field": "paidKnown",
+            "operator": "isNull"
+          }
+        ],
+        "limit": 1
+      },
+      "expect": {
+        "status": 200,
+        "data": [
+          {
+            "country": "US",
+            "revenue": "10"
           }
         ],
         "meta": false

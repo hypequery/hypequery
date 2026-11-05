@@ -9,7 +9,8 @@ import type {
 import { isBaseMeasure, isDerivedMeasure } from '../utils/dataset-measures.js';
 
 // As Python's builder: booleans compare by equality and membership only.
-const BOOLEAN_OPERATORS = new Set(['eq', 'neq', 'in', 'notIn']);
+// Null checks stay: a boolean column can hold NULL (RFC 0023).
+const BOOLEAN_OPERATORS = new Set(['eq', 'neq', 'in', 'notIn', 'isNull', 'isNotNull']);
 const ORDERED_AGGREGATIONS = new Set(['min', 'max', 'argMin', 'argMax']);
 /** Stored states whose merged value is the stored value itself, which may not be a number. */
 const ORDERED_STATES = new Set(['min', 'max', 'any', 'anyLast']);
